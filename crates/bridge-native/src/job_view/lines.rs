@@ -72,7 +72,7 @@ impl JobView {
                     glyph(look, "layers", Size::Small, look.color(token::FG_MUTED)).into_any_element(),
                     div().child("Conversation compacted").into_any_element(),
                 ];
-                let body = self.prose(format!("compaction:{id}"), text, look);
+                let body = self.prose(format!("compaction:{id}"), text, look, cx);
                 self.fold(ix, format!("compaction:{id}"), "Conversation compacted".into(), head, Some(body), page, look, cx)
             }
             SessionRow::Lease { id, at, slot, branch } | SessionRow::Release { id, at, slot, branch } => {

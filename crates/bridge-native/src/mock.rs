@@ -27,7 +27,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "job-bands" => include_bytes!("../fixtures/jobs-bands.json"),
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
-        "job-view-composer" => include_bytes!("../fixtures/jobs-composer.json"),
+        "job-view-composer" | "thread-presses" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
         "jobs-screens" => include_bytes!("../fixtures/jobs-screens.json"),
@@ -71,6 +71,8 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
         "job-view-composer" => include_bytes!("../fixtures/composer-threads.json"),
+        // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
+        "thread-presses" => include_bytes!("../fixtures/thread-presses-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
         "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
         "tool-rows" => include_bytes!("../fixtures/tools-threads.json"),
@@ -136,7 +138,7 @@ pub fn catalogue() -> Option<Catalogue> {
         scripts: Vec<Talk>,
     }
     let named = SCENARIO.lock().ok()?.clone();
-    if named != "job-view-composer" && named != "jobs-screens" {
+    if named != "job-view-composer" && named != "jobs-screens" && named != "thread-presses" {
         return None;
     }
     let read = || -> Result<Catalogue, String> {

@@ -40,6 +40,7 @@ mod pop;
 mod quick;
 mod teach;
 mod records;
+mod refs;
 mod review;
 mod rows;
 mod judge_tab;

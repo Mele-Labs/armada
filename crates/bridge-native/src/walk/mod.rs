@@ -59,6 +59,9 @@ pub enum Verb {
     /// The wheel turned over the element of this role and name, by this many points down, before the
     /// target is ringed: for a pane whose target is below its fold.
     Wheel(&'static str, &'static str, i32),
+    /// A press on the first word of the last element of this role and name drawn, before the target is
+    /// ringed: for a link inside words, which carries no label of its own.
+    PressStart(&'static str, &'static str),
     /// The pointer brought to rest on the target.
     Hover,
     /// A press in the middle of the target, then these words typed into whatever it focused.
@@ -234,6 +237,20 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::All,
         scenario: "jobs-handoff",
         steps: &TODAY,
+    },
+    Walk {
+        name: "native-thread-presses",
+        title: "What a press does in a Job's thread",
+        screen: Screen::Jobs,
+        scenario: "thread-presses",
+        steps: &[
+            press_on("The agent's words name another Job by its title, and the title is a link, as Electron draws it", "row", "Audit the docs index", "group", "Agent message"),
+            step("A press on it opens that Job", Verb::PressStart("group", "Agent message"), "row", "Native Bridge foundation"),
+            step("Back to the first Job", Verb::PressOn("row", "Audit the docs index"), "button", "Copy"),
+            step("Copy shows over a code block's corner while the pointer is on the words", Verb::Hover, "button", "Copy"),
+            step("A press copies the block, without its closing newline, and reads Copied for a moment", Verb::PressOn("button", "Copy"), "button", "Copied"),
+            step("An address in code is a link too. Pull requests, issues, files, Checks and Requests link with their panes; documents with #20, walks with #21", Verb::Look, "group", "Agent message"),
+        ],
     },
     Walk {
     name: "jobs-list",

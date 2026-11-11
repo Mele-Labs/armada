@@ -327,15 +327,18 @@ impl JobView {
     }
 
     /// Markdown at the thread's body size: 15 over 24 unless Aa's Text size says another.
-    pub(super) fn prose(&self, key: String, text: &str, look: &Look) -> AnyElement {
+    pub(super) fn prose(&self, key: String, text: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
         let job = self.shown.clone().unwrap_or_default();
+        // A Job the words name is a link to it, as Electron's `SessionRefs` draws a thread's words.
+        let text = super::refs::Refs::of(self.list.read(cx).records()).linked(text);
+        let view = cx.weak_entity();
         let size = match self.composer.quick.thread().text_size {
             TextSize::Xs => token::TEXT_XS,
             TextSize::Sm => token::TEXT_SM,
             TextSize::Base => token::TEXT_BASE,
             TextSize::Lg => token::TEXT_LG,
         };
-        TextView::markdown(ElementId::Name(format!("md:{job}:{key}").into()), with_breaks(text))
+        let words = TextView::markdown(ElementId::Name(format!("md:{job}:{key}").into()), with_breaks(&text))
             .w_full()
             .text_size(look.length(size))
             .line_height(relative(1.6))
@@ -352,7 +355,20 @@ impl JobView {
                     .text_color(look.color(token::FG_DEFAULT)),
             )
             .selectable(true)
-            .into_any_element()
+            // `.armada-prose__block[data-acts="1"]`: the block's words stop short of the Copy over its corner.
+            .style(gpui_component::text::TextViewStyle {
+                code_block: gpui::StyleRefinement::default().pr(look.length(token::H_CONTROL_SM) + look.length(token::SPACE_2)),
+                ..Default::default()
+            })
+            .code_block_actions(code_copy(look))
+            // No surface navigates (design-system.md, hard rule 2): a Job opens here, an address in the browser.
+            .on_link_click(move |address, _, _, cx| match super::refs::Refs::job_of(address) {
+                Some(id) => {
+                    view.update(cx, |this, cx| this.open_job(id, cx)).ok();
+                }
+                None => cx.open_url(address),
+            });
+        div().w_full().group(PROSE_GROUP).child(words).into_any_element()
     }
 
     /// A disclosure: a line that opens a body under it on a press, and shuts it on the next. The
@@ -570,7 +586,7 @@ impl JobView {
                 glyph(look, if open { "chevron-down" } else { "chevron-right" }, Size::Small, look.color(token::FG_MUTED)).into_any_element(),
                 div().child("Debug info").into_any_element(),
             ];
-            self.fold(ix, key.clone(), "Debug info".into(), head, Some(self.prose(key, facts, look)), page, look, cx)
+            self.fold(ix, key.clone(), "Debug info".into(), head, Some(self.prose(key, facts, look, cx)), page, look, cx)
         });
         let band = div()
             .flex()
@@ -645,7 +661,7 @@ impl JobView {
         let open = editing.is_some();
         let words = match editing {
             Some(field) => field,
-            None => self.block(page, id, self.prose(format!("you:{id}"), said, look), cx),
+            None => self.block(page, id, self.prose(format!("you:{id}"), said, look, cx), cx),
         };
         let region = div()
             .id(SharedString::from(format!("you:{id}")))
@@ -729,7 +745,7 @@ impl JobView {
             .flex_col()
             .gap(look.length(token::SPACE_2))
             .min_w_0()
-            .child(self.block(page, id, self.prose(format!("agent:{id}"), text, look), cx))
+            .child(labelled(div().id(SharedString::from(format!("agent-words:{id}"))).child(self.block(page, id, self.prose(format!("agent:{id}"), text, look, cx), cx)), Role::Group, "Agent message"))
             .child(self.message_bar(id, text, at, page, look, now, window, cx))
             .into_any_element()
     }
@@ -855,7 +871,7 @@ impl JobView {
                         div()
                             .px(look.length(token::SPACE_3))
                             .py(look.length(token::SPACE_2))
-                            .child(self.block(page, id, self.prose(format!("from:{id}"), text, look), cx)),
+                            .child(self.block(page, id, self.prose(format!("from:{id}"), text, look, cx), cx)),
                     )
                     .children(said.map(|why| refusal(look, &format!("notice:{id}"), why)));
                 let card = if sender == "fleet" {
@@ -893,6 +909,60 @@ fn split_debug(text: &str) -> (&str, Option<&str>) {
     }
     (text, None)
 }
+
+/// How long a block's Copy reads "Copied" after a press, as the message bar's.
+const CODE_COPIED_FOR: std::time::Duration = std::time::Duration::from_millis(1500);
+
+/// Copy over a fenced block's corner, as Electron's `CopyAct`: shown while the pointer is on the
+/// words, a check and "Copied" for a moment after a press. The fence's closing newline is not copied.
+fn code_copy(look: &Look) -> impl Fn(&gpui_base::text::CodeBlock, &mut Window, &mut gpui::App) -> AnyElement + Send + Sync + 'static {
+    let (size, glyph_size, radius) = (look.length(token::H_CONTROL_SM), look.length(token::SPACE_4), look.length(token::RADIUS_MD));
+    let (ink, hover) = (look.color(token::FG_SUBTLE), look.color(token::BG_HOVER));
+    move |block, window, cx| {
+        let at = block.span.map(|span| span.start).unwrap_or_default();
+        let copied = window.use_keyed_state(ElementId::Name(format!("code-copied:{at}").into()), cx, |_, _| false);
+        let shown = *copied.read(cx);
+        let name: SharedString = if shown { "Copied" } else { "Copy" }.into();
+        let code = block.code().trim_end_matches('\n').to_string();
+        labelled(
+            div()
+                .id("copy")
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(size)
+                .rounded(radius)
+                .cursor_pointer()
+                .opacity(if shown { 1. } else { 0. })
+                .group_hover(PROSE_GROUP, |style| style.opacity(1.))
+                .hover(|style| style.bg(hover))
+                .tooltip(tip(name.clone()))
+                .child(svg().path(icon_path(if shown { "check" } else { "copy" })).size(glyph_size).text_color(ink))
+                .on_click(move |_, _, cx| {
+                    cx.write_to_clipboard(gpui::ClipboardItem::new_string(code.clone()));
+                    copied.update(cx, |copied, cx| {
+                        *copied = true;
+                        cx.notify();
+                    });
+                    let copied = copied.clone();
+                    cx.spawn(async move |cx| {
+                        cx.background_executor().timer(CODE_COPIED_FOR).await;
+                        copied.update(cx, |copied, cx| {
+                            *copied = false;
+                            cx.notify();
+                        });
+                    })
+                    .detach();
+                }),
+            Role::Button,
+            name,
+        )
+        .into_any_element()
+    }
+}
+
+/// The group a message's words hover as, so a block's Copy shows while the pointer is on them.
+const PROSE_GROUP: &str = "prose";
 
 #[cfg(test)]
 mod tests {
