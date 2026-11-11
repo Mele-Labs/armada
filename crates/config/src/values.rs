@@ -13,17 +13,24 @@
 use std::path::Path;
 
 use core_model::rule::{ActKind, Autonomy, AutonomyDefaults};
-use core_model::{AutoMerge, Layer, Look, PrMode, TrackerNamed, Values};
+use core_model::{AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, TrackerNamed, Values, WalkReview};
 use serde_yaml_ng::{Mapping, Value};
 
 use crate::error::{Fault, LoadError, Refusal};
 use crate::settings::{SHIPPED_THEME, SPACINGS};
 use crate::yaml::{self, Table};
 
-const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker"];
+const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker", "reviews"];
 /// Kit's keys: a tracker is a Project's, so Kit's block refuses it as it does any key it has no word for.
-const KIT_KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look"];
+const KIT_KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "reviews"];
 const LOOK: &[&str] = &["layout", "theme", "density"];
+const REVIEWS: &[&str] = &["plans", "pull_requests", "walks"];
+const REVIEW_MODES: &[(&str, ReviewMode)] =
+    &[("off", ReviewMode::Off), ("review", ReviewMode::Review), ("review_and_approve", ReviewMode::ReviewAndApprove)];
+const REVIEW_MODES_LEGAL: &[&str] = &["off", "review", "review_and_approve"];
+/// A walk takes no `review_and_approve`: it is the person's to look at.
+const WALK_REVIEWS: &[(&str, WalkReview)] = &[("off", WalkReview::Off), ("review", WalkReview::Review)];
+const WALK_REVIEWS_LEGAL: &[&str] = &["off", "review"];
 const KIT_FILE: &[&str] = &["version", "values"];
 const PR_MODES: &[(&str, PrMode)] = &[("draft", PrMode::Draft), ("ready", PrMode::Ready)];
 const PR_MODES_LEGAL: &[&str] = &["draft", "ready"];
@@ -53,8 +60,28 @@ pub(crate) fn read_block(key: &str, root: &Value, with_tracker: bool, out: &mut 
     } else {
         None
     };
+    let reviews_at = table.at("reviews");
+    let reviews = table.optional("reviews").map(|value| read_reviews(&reviews_at, value, out));
     table.close(if with_tracker { KEYS } else { KIT_KEYS }, out);
-    Values { pr_mode, auto_merge, review_model: review_model.map(|model| model.trim().to_string()), look, tracker }
+    Values { pr_mode, auto_merge, review_model: review_model.map(|model| model.trim().to_string()), look, tracker, reviews }
+}
+
+/// The `reviews:` block. **A kind it does not name is Off.**
+fn read_reviews(key: &str, root: &Value, out: &mut Vec<Refusal>) -> Reviews {
+    let Some(mut table) = Table::open(key, root, out) else { return Reviews::default() };
+    let mode = |table: &mut Table<'_>, name: &str, out: &mut Vec<Refusal>| {
+        let at = table.at(name);
+        table.optional(name).and_then(|value| yaml::word(&at, value, REVIEW_MODES, REVIEW_MODES_LEGAL, REVIEW_MODES_LEGAL, out)).unwrap_or_default()
+    };
+    let plans = mode(&mut table, "plans", out);
+    let pull_requests = mode(&mut table, "pull_requests", out);
+    let walks_at = table.at("walks");
+    let walks = table
+        .optional("walks")
+        .and_then(|value| yaml::word(&walks_at, value, WALK_REVIEWS, WALK_REVIEWS_LEGAL, WALK_REVIEWS_LEGAL, out))
+        .unwrap_or_default();
+    table.close(REVIEWS, out);
+    Reviews { plans, pull_requests, walks }
 }
 
 fn read_look(key: &str, root: &Value, out: &mut Vec<Refusal>) -> Look {
@@ -105,6 +132,13 @@ pub(crate) fn block_value(values: &Values) -> Option<Value> {
         }
         block.insert(text("tracker"), Value::Mapping(named));
     }
+    if let Some(reviews) = &values.reviews {
+        let mut named = Mapping::new();
+        named.insert(text("plans"), text(reviews.plans.as_wire()));
+        named.insert(text("pull_requests"), text(reviews.pull_requests.as_wire()));
+        named.insert(text("walks"), text(reviews.walks.as_wire()));
+        block.insert(text("reviews"), Value::Mapping(named));
+    }
     (!block.is_empty()).then_some(Value::Mapping(block))
 }
 
@@ -149,6 +183,7 @@ pub fn shipped_values() -> Values {
         review_model: None,
         look: Look { layout: None, theme: Some(SHIPPED_THEME.to_string()), density: Some("default".to_string()) },
         tracker: None,
+        reviews: None,
     }
 }
 
@@ -204,6 +239,9 @@ pub struct ResolvedValues {
     /// The tracker a layer named, a Project's over its repository's. **`None` is the forge's own**, or the
     /// repository's where this is a Job's: no Machine, Kit or default layer names one.
     pub tracker: ResolvedValue<TrackerNamed>,
+    /// How work is reviewed before the person sees it. **`None` is Off for every kind**: no layer sets it and the
+    /// default has no word for it.
+    pub reviews: ResolvedValue<Reviews>,
     /// One for each kind of act, in the order of the kinds.
     pub autonomy: Vec<ResolvedAutonomy>,
 }
@@ -238,6 +276,7 @@ pub fn resolve(layers: &Layers) -> ResolvedValues {
         theme: nearest(layers, |values| values.look.theme.clone()),
         density: nearest(layers, |values| values.look.density.clone()),
         tracker: nearest(layers, |values| values.tracker.clone()),
+        reviews: nearest(layers, |values| values.reviews),
         autonomy: ActKind::ALL
             .iter()
             .map(|kind| {

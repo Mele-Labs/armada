@@ -19,8 +19,8 @@ use adapter_traits::{AgentHarness, Delivery, Review, Vcs, WorkProduct};
 use api::Refusal;
 use config::settings::{self as keys, Key as _};
 use config::{kit_values_text, parse_kit_values, shipped_values, Layers, ResolvedValue, ResolvedValues};
-use core_model::{AutoMerge, Component, Envelope, FieldValue, Layer, Level, Look, ManifestId as Repository, PrMode, ScopeId, TrackerNamed, Ulid, Values};
-use ipc::{KitValuesSaved, LookSet, ManifestId, SaveKitValues, ValuesSet};
+use core_model::{AutoMerge, Component, Envelope, FieldValue, Layer, Level, Look, ManifestId as Repository, PrMode, ReviewMode, Reviews, ScopeId, TrackerNamed, Ulid, Values, WalkReview};
+use ipc::{KitValuesSaved, LookSet, ManifestId, ReviewsSet, SaveKitValues, ValuesSet};
 use store::KeptValue;
 
 use crate::daemon::Fleet;
@@ -37,6 +37,9 @@ pub(crate) const KIT_UNWRITABLE: &str = "fleet.kit_values_unwritable";
 pub(crate) const KIT_FILE: &str = "values.yml";
 
 const AUTONOMY: &str = "autonomy.";
+const REVIEWS_PLANS: &str = "reviews.plans";
+const REVIEWS_PULL_REQUESTS: &str = "reviews.pull_requests";
+const REVIEWS_WALKS: &str = "reviews.walks";
 
 /// The tracker key that names the implementation, as the Manifest writes it.
 const PROVIDER: &str = "provider";
@@ -54,6 +57,11 @@ pub(crate) fn values_set(values: &Values) -> Option<ValuesSet> {
         look: (*look != Look::default())
             .then(|| LookSet { layout: look.layout.clone(), theme: look.theme.clone(), density: look.density.clone() }),
         tracker: values.tracker.as_ref().map(tracker_wire),
+        reviews: values.reviews.map(|reviews| ReviewsSet {
+            plans: Some(reviews.plans.as_wire().to_string()),
+            pull_requests: Some(reviews.pull_requests.as_wire().to_string()),
+            walks: Some(reviews.walks.as_wire().to_string()),
+        }),
     })
 }
 
@@ -100,11 +108,21 @@ pub(crate) fn resolved_wire(resolved: &ResolvedValues) -> ipc::ResolvedValues {
         theme: word(&resolved.theme, Clone::clone),
         density: word(&resolved.density, Clone::clone),
         tracker: Some(ipc::ResolvedTracker { value: resolved.tracker.value.as_ref().map(tracker_wire), from: layer_wire(resolved.tracker.from) }),
+        reviews: Some(reviews_wire(&resolved.reviews.value.unwrap_or_default(), layer_wire(resolved.reviews.from))),
         autonomy: resolved
             .autonomy
             .iter()
             .map(|one| ipc::ResolvedAutonomy { kind: one.kind.as_wire().to_string(), value: one.value.as_wire().to_string(), from: layer_wire(one.from) })
             .collect(),
+    }
+}
+
+fn reviews_wire(reviews: &Reviews, from: ipc::ValueLayer) -> ipc::ResolvedReviews {
+    ipc::ResolvedReviews {
+        plans: reviews.plans.as_wire().to_string(),
+        pull_requests: reviews.pull_requests.as_wire().to_string(),
+        walks: reviews.walks.as_wire().to_string(),
+        from,
     }
 }
 
@@ -119,6 +137,11 @@ fn rows_of(resolved: &ResolvedValues) -> Vec<KeptValue> {
         row("theme", resolved.theme.value.clone(), resolved.theme.from),
         row("density", resolved.density.value.clone(), resolved.density.from),
     ];
+    let reviews = resolved.reviews.value.unwrap_or_default();
+    let from = resolved.reviews.from;
+    rows.push(row(REVIEWS_PLANS, Some(reviews.plans.as_wire().to_string()), from));
+    rows.push(row(REVIEWS_PULL_REQUESTS, Some(reviews.pull_requests.as_wire().to_string()), from));
+    rows.push(row(REVIEWS_WALKS, Some(reviews.walks.as_wire().to_string()), from));
     rows.extend(resolved.autonomy.iter().map(|one| row(&format!("{AUTONOMY}{}", one.kind.as_wire()), Some(one.value.as_wire().to_string()), one.from)));
     rows
 }
@@ -153,6 +176,17 @@ impl Frozen {
         self.set_above_the_machine("review_model").map(str::to_string)
     }
 
+    /// How the Job's work is reviewed before the person sees it, as its start said. **Off for a Job that froze
+    /// nothing for it**, one that started before the key existed among them: a setting never reaches back.
+    pub(crate) fn reviews(&self) -> Reviews {
+        let word = |key: &str| self.row(key).and_then(|row| row.value.as_deref());
+        Reviews {
+            plans: word(REVIEWS_PLANS).and_then(ReviewMode::from_wire).unwrap_or_default(),
+            pull_requests: word(REVIEWS_PULL_REQUESTS).and_then(ReviewMode::from_wire).unwrap_or_default(),
+            walks: word(REVIEWS_WALKS).and_then(WalkReview::from_wire).unwrap_or_default(),
+        }
+    }
+
     /// Every key as the wire carries it, the autonomy kinds in the order of the kinds.
     pub(crate) fn wire(&self) -> ipc::ResolvedValues {
         let one = |key: &str| match self.row(key) {
@@ -167,6 +201,7 @@ impl Frozen {
             theme: one("theme"),
             density: one("density"),
             tracker: None,
+            reviews: self.row(REVIEWS_PLANS).map(|row| reviews_wire(&self.reviews(), layer_wire(layer_read(&row.layer)))),
             autonomy: core_model::rule::ActKind::ALL
                 .iter()
                 .filter_map(|kind| {
@@ -225,13 +260,36 @@ where
                 Some(TrackerNamed { provider, keys })
             }
         };
+        let reviews = match &written.reviews {
+            None => None,
+            Some(block) => Some(self.reviews_read(block)?),
+        };
         Ok(Values {
             tracker,
+            reviews,
             pr_mode: written.pr_mode.map(|mode| mode.domain()),
             auto_merge,
             review_model: text("review_model", &written.review_model)?,
             look: Look { layout: text("layout", &look.layout)?, theme: text("theme", &look.theme)?, density },
         })
+    }
+
+    /// The `reviews` a person wrote, or the first word that is not one its kind takes. A kind left out is off.
+    fn reviews_read(&self, block: &ReviewsSet) -> Result<Reviews, Refusal> {
+        let of = |kind: &str, held: &Option<String>| -> Result<ReviewMode, Refusal> {
+            match held.as_deref().map(str::trim) {
+                None => Ok(ReviewMode::Off),
+                Some(word) => ReviewMode::from_wire(word).ok_or_else(|| {
+                    self.values_refused(format!("`{word}` is not a review for {kind}: it is `off`, `review` or `review_and_approve`"))
+                }),
+            }
+        };
+        let walks = match block.walks.as_deref().map(str::trim) {
+            None => WalkReview::Off,
+            Some(word) => WalkReview::from_wire(word)
+                .ok_or_else(|| self.values_refused(format!("`{word}` is not a review for walks: it is `off` or `review`, since a walk is his to look at")))?,
+        };
+        Ok(Reviews { plans: of("plans", &block.plans)?, pull_requests: of("pull_requests", &block.pull_requests)?, walks })
     }
 
     /// What Kit sets: `values.yml` in Kit's folder. **Nothing is set where the file is absent**, and where it
@@ -269,6 +327,7 @@ where
                 density: now.chosen(keys::SPACING).filter(|density| !density.trim().is_empty()),
             },
             tracker: None,
+            reviews: None,
         }
     }
 

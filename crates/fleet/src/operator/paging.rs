@@ -187,9 +187,10 @@ where
             .filter(|row| row.by != "human" && row.at.as_str() >= since)
             .map(|row| OperatorHandledAct { at: Instant::carried(&row.at), title: first_line(&row.subject), outcome: outcome_of(row, &title_of, &summary_of) })
             .collect();
-        for row in store.operator_turn_settled_since(since).unwrap_or_default().iter().filter(|row| row.answer.as_deref() == Some("rule")) {
+        for row in store.operator_turn_settled_since(since).unwrap_or_default().iter().filter(|row| matches!(row.answer.as_deref(), Some("rule" | super::vetting::SETTING))) {
             let title = item_read(&row.body).map(|item| first_line(&item.text)).unwrap_or_default();
-            acts.push(OperatorHandledAct { at: Instant::carried(row.settled_at.as_deref().unwrap_or(&row.raised_at)), title, outcome: format!("By a rule: {}", row.pick.as_deref().unwrap_or_default()) });
+            let by = if row.answer.as_deref() == Some(super::vetting::SETTING) { "By a setting" } else { "By a rule" };
+            acts.push(OperatorHandledAct { at: Instant::carried(row.settled_at.as_deref().unwrap_or(&row.raised_at)), title, outcome: format!("{by}: {}", row.pick.as_deref().unwrap_or_default()) });
         }
         acts.sort_by(|a, b| b.at.as_str().cmp(a.at.as_str()));
         let running = store

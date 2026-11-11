@@ -407,7 +407,7 @@ where
             create_refused: None,
             operator_read: None,
         };
-        let one = ToRaise { session: String::new(), job: None, manifest_id: manifest, go_ahead: true, item, thens: Vec::new() };
+        let one = ToRaise { session: String::new(), job: None, manifest_id: manifest, go_ahead: true, item, thens: Vec::new(), vet: None };
         let raising = &self.operator_seat().raising;
         let _turn = raising.turn.lock().await;
         let standing = self.store().lock().await.operator_turn_present().unwrap_or_default().iter().any(|row| row.item == one.item.id);

@@ -34,7 +34,7 @@ fn clipped(text: &str) -> String {
     }
 }
 
-fn plan_written(out: &mut String, plan: &KeptPlan) {
+pub(super) fn plan_written(out: &mut String, plan: &KeptPlan) {
     let approved = if plan.approved_at.is_some() { "approved" } else { "not yet approved" };
     let _ = writeln!(out, "\nIts plan, version {}, {approved}:\n{}", plan.version, plan.summary.trim());
     for group in &plan.groups {

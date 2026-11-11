@@ -112,6 +112,7 @@ impl Projects for FakeDaemon {
             theme: said(None),
             density: said(None),
             tracker: None,
+            reviews: None,
             autonomy: Vec::new(),
         })
     }

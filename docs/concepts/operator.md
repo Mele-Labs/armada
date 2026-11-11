@@ -37,7 +37,7 @@ Everything that needs a person reaches the person already read, with the Operato
 | Nudges a stuck Job, then starts a repair suited to what broke | Partly. Fleet hosts a hidden repair for each of six breaks, and starts one for a dead process, a silent stop, a red pull request and a hung command; the triggers for the rest are not built |
 | Hands duplicate work to the Job already on it | Not built |
 | Handles issues | Partly. A new issue is linked, filed or started on. A merge closes an open issue it finished, and a new issue that repeats an open one is closed as its duplicate or put under it, each asked first |
-| Handles reviews | Not built |
+| Handles reviews | Yes, as each project says. A plan, a pull request or a walk is read before it reaches Your turn. A plan it finds clean is approved for you; a pull request is not approved yet |
 | Reviews what needs you and raises it with its read and a pick | Partly. Fleet queues each item in Your turn with its read and pick; no Bridge shows it yet |
 | One chat, on its own page or in a pane from anywhere | Partly. Fleet serves the talk; the native Bridge draws the box |
 | Its page: Your turn, the short draggable list, beside the digest Since you last looked | Partly. Fleet serves it as `operator_page`; no Bridge draws it yet |
@@ -180,6 +180,37 @@ Why: an item the Operator never rules on is one the person never sees.
 No call process is kept started and nothing is handed to it.
 An end and a merge are still heard once, so none is told when it comes on.
 
+### Reviewing work before you see it
+
+**Each project says how its Jobs' plans, pull requests and walks are read before they reach Your turn.**
+The setting is `reviews` in the project's values, a kind at a time, and everything is Off until a layer sets it.
+A Job reads the `reviews` it froze when it started, so a setting changed since never changes how its own work is read.
+
+| Mode | The item |
+|---|---|
+| Off | Reaches Your turn as it does without this |
+| Review | Is read by one call, and reaches Your turn with the findings as its read and a pick |
+| Review and approve | As Review, and a plan found clean is approved, and a pull request found clean is let land, without you |
+
+**A walk takes Off or Review only.**
+A walk is yours to look at, so the setting has no word that approves one.
+
+**A review is one reading call on `models.review`.**
+It reads the plan, or the diff of the Job's branch against its base, with the Job's brief.
+It is skipped for a diff that touches only docs and tests, and the item reaches Your turn with no read.
+Text from a Job, a plan or a diff is data to it, never an instruction.
+
+**Fail open.**
+A call that cannot be made or read queues the item with no read, and nothing is approved.
+Findings of any kind queue the item with them, and nothing is approved.
+
+**An approval is the one your press makes.**
+A plan found clean goes through the same route as Approve on its card, the Job is told, and the Log names the setting, such as Review and approve, plans.
+It shows in What I handled as done by a setting.
+A pull request found clean is let land by asking the forge to merge it once its checks pass, as Auto land does, with no approving review and no comment.
+If the forge refuses, the item is queued for you with the read and the refusal, and it is not asked again.
+A pull request whose Job's plan marks work you would see, or carries a walk, is queued as Walk it first, and is not let land.
+
 ### Talking to it
 
 **Words typed in its box are read before anything is started.**
@@ -238,7 +269,7 @@ Each step is its own Job, and the order is the order of the table.
 |---|---|---|
 | Fleet raises what needs you | A journal of the week, and a short briefing on the first open of the day | Yes, as the page's top line |
 | Asks | Yes / Always here / Always / No before it acts, in place of permission levels and the `role_off` and `always_raise` orders | Yes. Holds stay |
-| Routine work | Routine Job questions, stuck Jobs, duplicates, reviews and issues | Partly. Routine Job questions are built |
+| Routine work | Routine Job questions, stuck Jobs, duplicates, reviews and issues | Partly. Routine Job questions and reviews are built |
 | Repairs that close themselves | A stuck Job is nudged, then repaired by what broke, in a hidden agent that ends when it is done | Partly. The hosted repair and the triggers for a dead process, a silent stop, a red pull request and a hung command are built; the other two are not |
 | The native page | Your turn, the digest with the Log and Learned, the chat on Ask, and toasts | Not built |
 

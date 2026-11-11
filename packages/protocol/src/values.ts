@@ -17,6 +17,18 @@ export type ValuesSet = {
    * values is refused 422 `fleet.project_values_refused`.
    */
   tracker?: Record<string, string>;
+  /**
+   * How the Operator reviews work before the person sees it. A layer that sets it sets all three, and a kind it
+   * leaves out is `off`.
+   */
+  reviews?: ReviewsSet;
+};
+
+/** `off`, `review` or `review_and_approve`; for `walks` only `off` or `review`. A word that is not one is refused 422 `fleet.project_values_refused`. */
+export type ReviewsSet = {
+  plans?: string;
+  pull_requests?: string;
+  walks?: string;
 };
 
 /** How Bridge looks. Fleet keeps the words and Bridge decides what each names. `density` is `compact`, `default` or `roomy`. */
@@ -41,6 +53,17 @@ export type ResolvedValue = {
 /** The tracker a layer named. `value` is absent where none does (the forge's own), and `from` is then `default`. */
 export type ResolvedTracker = {
   value?: Record<string, string>;
+  from: ValueLayer;
+};
+
+/** How each kind of work is reviewed, and the layer that said so. A kind no layer set is `off`, and `from` is then `default`. */
+export type ResolvedReviews = {
+  /** `off`, `review` or `review_and_approve`. */
+  plans: string;
+  /** `off`, `review` or `review_and_approve`. */
+  pull_requests: string;
+  /** `off` or `review`. */
+  walks: string;
   from: ValueLayer;
 };
 
@@ -69,6 +92,8 @@ export type ResolvedValues = {
    * a Job asks its tracker where it acts, and the project's word is read then.
    */
   tracker?: ResolvedTracker;
+  /** How the Operator reviews work before the person sees it. A Job is reviewed as its start said, whatever the project says since. */
+  reviews?: ResolvedReviews;
   /** One for each kind of act, where a repository was asked about; left out where only a project was. */
   autonomy?: ResolvedAutonomy[];
 };
