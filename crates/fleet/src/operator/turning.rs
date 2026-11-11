@@ -79,6 +79,9 @@ pub(super) fn rule_said(what: &str, pick: &str) -> String {
     if what == "red_main" {
         return "Start a fix when main goes red".to_string();
     }
+    if what == super::answering::QUESTION {
+        return "Answer questions you are sure of".to_string();
+    }
     let (arrived, way) = what.split_once(':').unwrap_or((what, ""));
     let named = super::Arrived::from_word(arrived).map_or(arrived.to_string(), |arrived| arrived.named().to_string());
     match (way, then_of_pick(pick)) {
@@ -236,7 +239,7 @@ where
         let row = self.turn_open(&press.id).await?;
         let item = item_read(&row.body).ok_or_else(|| self.ledger_unnamed("an item that reads"))?;
         let not_offered = |why: &str| self.hosted_refusal(NOT_OFFERED, why);
-        let what = self.rule_what(&row.item).await;
+        let what = self.rule_what(&row.item).await.or_else(|| super::answering::what_of(&item).map(str::to_string));
         let keeps = row.go_ahead && what.is_some();
         let answer_word = match press.answer {
             OperatorAnswer::Yes => "yes",

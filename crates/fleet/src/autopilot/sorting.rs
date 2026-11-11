@@ -37,7 +37,7 @@ pub(crate) fn sorted(item: &WaitingItem, card: Option<&CallInFlight>) -> Option<
 
 /// A question with options: an errand, one that asks him to run or approve something, and one with
 /// no options waits.
-fn question(item: &WaitingItem) -> Option<AutopilotDecision> {
+pub(crate) fn question(item: &WaitingItem) -> Option<AutopilotDecision> {
     if item.options.is_empty() || item.act.as_ref().is_some_and(|act| act.kind != WaitingActKind::Answer) {
         return None;
     }

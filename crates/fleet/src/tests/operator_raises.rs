@@ -25,17 +25,17 @@ use crate::operator::{keep_the_raises, Answering, Calling};
 use crate::CallFailed;
 
 /// A call that answers with each of its replies in turn, `None` failing, and keeps what it was asked.
-struct Replies {
+pub(super) struct Replies {
     replies: Mutex<Vec<Option<String>>>,
     asked: Mutex<Vec<String>>,
 }
 
 impl Replies {
-    fn saying(replies: &[Option<&str>]) -> Arc<Replies> {
+    pub(super) fn saying(replies: &[Option<&str>]) -> Arc<Replies> {
         Arc::new(Replies { replies: Mutex::new(replies.iter().rev().map(|one| one.map(str::to_string)).collect()), asked: Mutex::new(Vec::new()) })
     }
 
-    fn asked(&self) -> Vec<String> {
+    pub(super) fn asked(&self) -> Vec<String> {
         self.asked.lock().expect("not poisoned").clone()
     }
 }
@@ -77,14 +77,14 @@ fn millis(at: &str) -> i64 {
 }
 
 /// The Operator seated on `replies` and switched on.
-async fn seated(rig: &Rig, replies: &[Option<&str>]) -> Arc<Replies> {
+pub(super) async fn seated(rig: &Rig, replies: &[Option<&str>]) -> Arc<Replies> {
     let call = Replies::saying(replies);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     switched(rig, "features.operator", true).await;
     call
 }
 
-fn question(id: &str, text: &str, options: &[&str]) -> WaitingInput {
+pub(super) fn question(id: &str, text: &str, options: &[&str]) -> WaitingInput {
     WaitingInput {
         approves: false,
         id: id.into(),
@@ -96,16 +96,16 @@ fn question(id: &str, text: &str, options: &[&str]) -> WaitingInput {
 }
 
 /// `job`'s list, as its agent sets it whole.
-async fn waiting(rig: &Rig, job: &SessionId, items: Vec<WaitingInput>) {
+pub(super) async fn waiting(rig: &Rig, job: &SessionId, items: Vec<WaitingInput>) {
     rig.fleet.waiting_for(None, SetWaitingFor { items, session_id: Some(job.clone()) }).await.expect("set");
 }
 
-async fn page(rig: &Rig) -> OperatorPage {
+pub(super) async fn page(rig: &Rig) -> OperatorPage {
     rig.fleet.operator_page_wire().await.expect("read")
 }
 
 /// The item `id` of `job` in Your turn, once it is there.
-async fn queued(rig: &Rig, job: &SessionId, id: &str) -> OperatorTurnItem {
+pub(super) async fn queued(rig: &Rig, job: &SessionId, id: &str) -> OperatorTurnItem {
     for _ in 0..500 {
         if let Some(one) = page(rig).await.turn.into_iter().find(|one| one.session_id.as_ref() == Some(job) && one.item.id == id) {
             return one;
@@ -126,7 +126,7 @@ async fn queued_as(rig: &Rig, id: &str) -> OperatorTurnItem {
     panic!("{id} was not queued: {:#?}", page(rig).await.turn);
 }
 
-fn press(item: &OperatorTurnItem, answer: OperatorAnswer, then: Option<OperatorThen>) -> OperatorAnswerPress {
+pub(super) fn press(item: &OperatorTurnItem, answer: OperatorAnswer, then: Option<OperatorThen>) -> OperatorAnswerPress {
     OperatorAnswerPress { id: item.id.clone(), answer, then }
 }
 
@@ -134,11 +134,11 @@ fn review(read: &str, pick: &str) -> String {
     format!("item: 1\nread: {read}\npick: {pick}\n\njournal: Reviewed the plan question.")
 }
 
-async fn pause() {
+pub(super) async fn pause() {
     tokio::time::sleep(Duration::from_millis(200)).await;
 }
 
-async fn journal(rig: &Rig) -> String {
+pub(super) async fn journal(rig: &Rig) -> String {
     let dir = std::path::Path::new(&rig.fleet.host().operator_journal_dir).to_path_buf();
     let mut all = String::new();
     for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {

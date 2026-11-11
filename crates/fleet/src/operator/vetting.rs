@@ -267,13 +267,14 @@ where
         let mut generic = if rest.is_empty() { Reviewed::none(0) } else { operator.reviewed(&rest).await };
         let mut out = Reviewed::none(taken.len());
         (out.journal, out.call, out.failed) = (generic.journal.take(), generic.call.take(), generic.failed.take());
-        let (mut reads, mut thens) = (generic.reads.into_iter(), generic.thens.into_iter());
+        let (mut reads, mut thens, mut sures) = (generic.reads.into_iter(), generic.thens.into_iter(), generic.sure.into_iter());
         let mut read_any = false;
         for (at, vetted) in vetted.into_iter().enumerate() {
             match vetted {
                 None => {
                     out.reads[at] = reads.next().flatten();
                     out.thens[at] = thens.next().flatten();
+                    out.sure[at] = sures.next().unwrap_or_default();
                 }
                 Some(Vetted::Unread) => {}
                 Some(Vetted::Queue(read)) => {
