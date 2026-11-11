@@ -53,6 +53,33 @@ struct FleetNotices(Vec<FleetNotice>);
 
 impl Global for FleetNotices {}
 
+/// Sentences the app was told to raise, oldest first, each with its key: a press Fleet did not take.
+#[derive(Default)]
+struct Told(Vec<(u64, SharedString)>);
+
+impl Global for Told {}
+
+/// A failure toast that says one sentence, as Electron's `askToTell`: a press Fleet did not take, such as
+/// a message to a Job. It stays until he closes it.
+pub fn tell(sentence: impl Into<SharedString>, cx: &mut App) {
+    let mut told = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
+    let key = told.last().map_or(1, |(key, _)| key + 1);
+    told.push((key, sentence.into()));
+    cx.set_global(Told(told));
+    if let Some(toasts) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
+        toasts.update(cx, |toasts, cx| {
+            toasts.unseen = true;
+            cx.notify();
+        });
+    }
+}
+
+/// He closed a told toast.
+fn untell(key: u64, cx: &mut App) {
+    let told = cx.try_global::<Told>().map(|kept| kept.0.iter().filter(|(one, _)| *one != key).cloned().collect()).unwrap_or_default();
+    cx.set_global(Told(told));
+}
+
 const RESTART_TOOLTIP: &str = "Restart Fleet. Working Drones are adopted and cannot be redirected until they finish.";
 
 /// The title bar read Fleet's state again: what it says now stands, and a state not shown before marks
@@ -431,6 +458,49 @@ impl Toasts {
         )
     }
 
+    /// A sentence the app was told: the failed edge, the sentence, and its close.
+    fn told_toast(&self, key: u64, sentence: &SharedString, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+        let edge = look.color(token::STATUS_COMPLETED_FAILED);
+        let close = labelled(
+            icon_button(SharedString::from(format!("toast-told-close:{key}")), "x", look.color(token::FG_MUTED), look)
+                .tooltip(tip("Close"))
+                .on_click(cx.listener(move |_, _, _, cx| {
+                    untell(key, cx);
+                    cx.notify();
+                })),
+            Role::Button,
+            "Close",
+        );
+        let body = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_3))
+            .child(div().pt(look.length(token::SPACE_1) / 2.).child(glyph("circle-x", look.length(token::SPACE_4), edge)))
+            .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(sentence.clone()))
+            .child(close);
+        labelled(
+            div()
+                .id(SharedString::from(format!("toast-told:{key}")))
+                .w(gpui::px(WIDTH))
+                .flex()
+                .overflow_hidden()
+                .rounded(look.length(token::RADIUS_LG) * 1.5)
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(edge.opacity(0.6))
+                .bg(look.color(token::BG_OVERLAY))
+                .shadow(look.shadows(token::SHADOW_OVERLAY))
+                .font_family(sans(look))
+                .child(div().flex_none().w(gpui::px(3.)).bg(edge))
+                .child(body),
+            Role::Alert,
+            format!("Toast: {sentence}"),
+        )
+    }
+
     fn history_panel(&self, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let rows = self.shelf.history().map(|toast| {
             let id = toast.item.id.clone();
@@ -505,6 +575,8 @@ impl Render for Toasts {
         let last = shown.len().saturating_sub(1);
         // Fleet's states stand first, at the top of the stack: urgent, and held while they last.
         let fleet: Vec<FleetNotice> = cx.try_global::<FleetNotices>().map(|kept| kept.0.clone()).unwrap_or_default();
+        // Then what the app was told: presses Fleet did not take, each until he closes it.
+        let told: Vec<(u64, SharedString)> = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
         // Under the title bar at most: in a short window the oldest is cut at the top, never the bell.
         let stack = div()
             .absolute()
@@ -517,6 +589,7 @@ impl Render for Toasts {
             .overflow_hidden()
             .gap(look.length(token::SPACE_3))
             .children(fleet.iter().map(|notice| self.fleet_toast(notice, look)))
+            .children(told.iter().map(|(key, sentence)| self.told_toast(*key, sentence, look, cx)))
             .children(shown.iter().enumerate().map(|(at, toast)| self.toast(toast, at == last, look, cx)));
         div()
             .absolute()
