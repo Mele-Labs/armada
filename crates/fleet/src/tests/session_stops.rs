@@ -487,12 +487,12 @@ async fn a_quiet_repair_for_a_job_that_waits_on_a_lapsed_question_is_not_started
 }
 
 #[test]
-fn a_quiet_repair_is_spent_until_he_writes_again() {
-    use stopping::quiet_repair_spent;
-    assert!(!quiet_repair_spent(None, None), "none has run");
-    assert!(quiet_repair_spent(Some(LATER), None), "one ran and he has not written");
-    assert!(quiet_repair_spent(Some(LATER), Some(ENDED)), "one ran after he last wrote");
-    assert!(!quiet_repair_spent(Some(ENDED), Some(LATER)), "he wrote since");
+fn a_repair_for_a_stop_is_spent_until_he_writes_again() {
+    use stopping::stop_repair_spent;
+    assert!(!stop_repair_spent(None, None), "none has run");
+    assert!(stop_repair_spent(Some(LATER), None), "one ran and he has not written");
+    assert!(stop_repair_spent(Some(LATER), Some(ENDED)), "one ran after he last wrote");
+    assert!(!stop_repair_spent(Some(ENDED), Some(LATER)), "he wrote since");
 }
 
 #[tokio::test]
@@ -558,6 +558,95 @@ async fn a_quiet_turn_that_waits_on_him_is_no_hung_command() {
         .expect("kept");
     rig.fleet.standing_checked().await;
     assert!(quiet_repair_of(&rig, &id).await.is_none(), "an item for him is not a hung command");
+}
+
+/// The Job holds an open pull request, and Fleet has told it that `cause` fired at `told_at`, while the pull
+/// request is at `now_at` as last read.
+async fn red_pull(rig: &Rig, id: &SessionId, cause: Option<&str>, told_at: &str, now_at: &str) {
+    let at = rig.fleet.now().as_str().to_string();
+    let attachment = store::KeptAttachment {
+        holder: store::Holder::session(id.as_str()),
+        kind: "pr".into(),
+        manifest_id: rig.manifest.as_str().to_string(),
+        target: "7".into(),
+        state: store::AttachmentState::Standing,
+        detail: [("state", "open"), ("branch", "armada/red")].into_iter().map(|(key, value)| (key.to_string(), value.to_string())).collect(),
+        since: at.clone(),
+        changed_at: at,
+    };
+    let mut store = rig.fleet.store().lock().await;
+    store.attach(&attachment, false).expect("attached");
+    if let Some(cause) = cause {
+        store.keep_pull_notice(&rig.root, 7, told_at, cause, &format!("session:{}", id.as_str()), &rig.fleet.now()).expect("told");
+    }
+    store.keep_pull_head(&rig.root, 7, now_at).expect("read");
+}
+
+#[tokio::test]
+async fn an_open_pull_request_that_is_not_red_still_excuses_a_stop() {
+    let rig = rig_placing(None);
+    let id = stopped_a_while_ago(&rig).await;
+    red_pull(&rig, &id, None, "aaa", "aaa").await;
+    assert!(record(&rig, &id).await.stop_told_by.is_none(), "it waits on its merge");
+    tell_ripe(&rig, &id).await;
+    assert_eq!(nudges(&rig.rows(&id).await), 0, "never nudged");
+}
+
+#[tokio::test]
+async fn a_pull_request_pushed_to_since_it_was_told_red_excuses_the_stop_again() {
+    let rig = rig_placing(None);
+    let id = stopped_a_while_ago(&rig).await;
+    red_pull(&rig, &id, Some("checks_failed"), "aaa", "bbb").await;
+    assert!(record(&rig, &id).await.stop_told_by.is_none(), "its fix is on the way to its checks");
+}
+
+#[tokio::test]
+async fn a_job_told_its_pull_request_failed_that_pushed_nothing_is_nudged_then_gets_a_red_pull_repair() {
+    let rig = rig_placing(None);
+    holding(&rig);
+    let id = stopped_a_while_ago(&rig).await;
+    red_pull(&rig, &id, Some("checks_failed"), "aaa", "aaa").await;
+    assert!(record(&rig, &id).await.stop_told_by.is_some(), "its stop is read like any other");
+
+    tell_ripe(&rig, &id).await;
+    assert_eq!(nudges(&rig.rows(&id).await), 1, "nudged once");
+    rig.stand_in.finishes(0, "Still red.");
+    eventually(|| async { record(&rig, &id).await.standing == Some(SessionStanding::Stopped) }).await;
+    assert!(quiet_repair_of(&rig, &id).await.is_none(), "none before Fleet's tick");
+
+    rig.fleet.stops_told().await;
+    let kept = quiet_repair_of(&rig, &id).await.expect("a repair");
+    assert_eq!((kept.session_id.as_str(), kept.broke.as_str(), kept.ended_at), (id.as_str(), "red_pull", None));
+    assert!(fleet_notes(&rig.rows(&id).await).contains(&"Repair: checks failed on #7".to_string()));
+    let stopped = record(&rig, &id).await.stopped.expect("stopped");
+    assert_eq!((stopped.repair, stopped.gave_up), (Some(StopRepair::Running), false));
+    eventually(|| async { super::repairing::turns(&rig.repair_state).len() == 1 }).await;
+    assert!(super::repairing::turns(&rig.repair_state)[0].contains("#7"), "told which pull request");
+    rig.fleet.stops_told().await;
+    assert_eq!(super::repairing::turns(&rig.repair_state).len(), 1, "one repair");
+}
+
+#[tokio::test]
+async fn a_red_pull_request_never_draws_a_repair_while_something_waits_on_him() {
+    let rig = rig_placing(None);
+    holding(&rig);
+    let id = stopped_a_while_ago(&rig).await;
+    red_pull(&rig, &id, Some("conflicts"), "aaa", "aaa").await;
+    tell_ripe(&rig, &id).await;
+    rig.stand_in.finishes(0, "Still red.");
+    eventually(|| async { record(&rig, &id).await.standing == Some(SessionStanding::Stopped) }).await;
+    Arc::clone(&rig.fleet)
+        .set_waiting(
+            None,
+            SetWaitingFor {
+                session_id: Some(id.clone()),
+                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+            },
+        )
+        .await
+        .expect("kept");
+    rig.fleet.stops_told().await;
+    assert!(quiet_repair_of(&rig, &id).await.is_none(), "an item for him is not silence");
 }
 
 #[tokio::test]

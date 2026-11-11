@@ -124,12 +124,12 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// When the newest repair of kind `broke` started for `session`, however it ended.
-    pub fn last_repair_started(&self, session: &str, broke: &str) -> Result<Option<String>, WriteError> {
+    /// When the newest repair of either kind in `broke` started for `session`, however it ended.
+    pub fn last_repair_started(&self, session: &str, broke: [&str; 2]) -> Result<Option<String>, WriteError> {
         self.conn
             .query_row(
-                "SELECT started_at FROM job_repairs WHERE session_id = ?1 AND broke = ?2 ORDER BY started_at DESC LIMIT 1",
-                (session, broke),
+                "SELECT started_at FROM job_repairs WHERE session_id = ?1 AND broke IN (?2, ?3) ORDER BY started_at DESC LIMIT 1",
+                (session, broke[0], broke[1]),
                 |row| row.get(0),
             )
             .optional()

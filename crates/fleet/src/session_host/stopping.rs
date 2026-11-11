@@ -78,10 +78,11 @@ fn repair_of(kept: &KeptStop, repair_over: bool) -> Option<ipc::StopRepair> {
     }
 }
 
-/// Whether a repair for a silent stop has run since the person last wrote. **One between two things he
-/// says**: a repair that put things right wakes the Job, and a Job that then stops silently again would
-/// otherwise draw another, so Fleet and a Job could loop at the cost of a repair each time round.
-pub(crate) fn quiet_repair_spent(last: Option<&str>, spoke: Option<&str>) -> bool {
+/// Whether a repair for a stop, silent or on a red pull request, has run since the person last wrote.
+/// **One between two things he says**: a repair that put things right wakes the Job or pushes its branch,
+/// and a Job that then stops again would otherwise draw another, so Fleet and a Job could loop at the cost
+/// of a repair each time round.
+pub(crate) fn stop_repair_spent(last: Option<&str>, spoke: Option<&str>) -> bool {
     let Some(last) = last.and_then(millis) else { return false };
     spoke.and_then(millis).is_none_or(|spoke| last > spoke)
 }
@@ -175,17 +176,18 @@ impl Owed {
     }
 }
 
-/// The Jobs read Stopped with their agent alive and a repair still to come, by the stop.
+/// The Jobs read Stopped with their agent alive and a repair still to come: the stop, and the pull
+/// request Fleet told them failed where one has not been pushed to since.
 #[derive(Default)]
-pub(crate) struct Silent(std::sync::Mutex<HashMap<String, String>>);
+pub(crate) struct Silent(std::sync::Mutex<HashMap<String, (String, Option<u64>)>>);
 
 impl Silent {
     /// What a read of the Job found. `None` is no stop to repair.
-    pub(crate) fn noted(&self, session: &str, stop: Option<&str>) {
+    pub(crate) fn noted(&self, session: &str, stop: Option<&str>, red: Option<u64>) {
         let mut held = self.0.lock().expect("held across no panic");
         match stop {
             Some(stop) => {
-                held.insert(session.to_string(), stop.to_string());
+                held.insert(session.to_string(), (stop.to_string(), red));
             }
             None => {
                 held.remove(session);
@@ -199,7 +201,7 @@ impl Silent {
         ids
     }
 
-    pub(crate) fn stop_of(&self, session: &str) -> Option<String> {
+    pub(crate) fn stop_of(&self, session: &str) -> Option<(String, Option<u64>)> {
         self.0.lock().expect("held across no panic").get(session).cloned()
     }
 }
@@ -273,26 +275,33 @@ where
             self.repair_tried(&id, crate::repair::RepairBreak::Died, saw).await;
             return;
         }
-        if let Some((id, stop)) = self.silent_stop().await {
+        if let Some((id, stop, red)) = self.silent_stop().await {
             let mut saw = Vec::new();
+            let broke = match red {
+                Some(number) => {
+                    saw.push((String::from("Pull request"), format!("#{number}")));
+                    crate::repair::RepairBreak::RedPull { number }
+                }
+                None => crate::repair::RepairBreak::Quiet,
+            };
             if let Some(log) = adapters::terminal_thread::find(&self.host().home, &id) {
                 saw.push((String::from("Its transcript"), log.display().to_string()));
             }
             saw.push((String::from("Its last turn ended"), stop));
-            self.repair_tried(&id, crate::repair::RepairBreak::Quiet, saw).await;
+            self.repair_tried(&id, broke, saw).await;
         }
     }
 
     /// The first Job read Stopped with its agent alive that nothing waits on and no repair has run for,
-    /// read again so that an excuse that came since is seen, with the stop.
-    async fn silent_stop(self: &Arc<Self>) -> Option<(String, String)> {
+    /// read again so that an excuse that came since is seen, with the stop and its red pull request.
+    async fn silent_stop(self: &Arc<Self>) -> Option<(String, String, Option<u64>)> {
         for id in self.hosts().stops_silent().ids() {
             let unrepaired = self.store().lock().await.session_stop(&id).is_ok_and(|kept| kept.repair_job.is_none());
             if !unrepaired || self.hosts().of(&id).state().process.is_none() || self.stop_read_again(&id).await.is_none() {
                 continue;
             }
-            if let Some(stop) = self.hosts().stops_silent().stop_of(&id) {
-                return Some((id, stop));
+            if let Some((stop, red)) = self.hosts().stops_silent().stop_of(&id) {
+                return Some((id, stop, red));
             }
         }
         None

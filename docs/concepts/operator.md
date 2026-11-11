@@ -34,7 +34,7 @@ Everything that needs a person reaches the person already read, with the Operato
 | A short briefing on the first open of the day | Partly. Fleet rewrites the page's top line when he comes back; the page is not in a Bridge yet |
 | Asks Yes / Always here / Always / No before it acts, and learns | Yes. A rule you kept does the act as it is raised and the Log names the rule |
 | Handles routine Job questions | Not built |
-| Nudges a stuck Job, then starts a repair suited to what broke | Partly. Fleet hosts a hidden repair for each of six breaks, and starts one for a dead process, a silent stop and a hung command; the triggers for the rest are not built |
+| Nudges a stuck Job, then starts a repair suited to what broke | Partly. Fleet hosts a hidden repair for each of six breaks, and starts one for a dead process, a silent stop, a red pull request and a hung command; the triggers for the rest are not built |
 | Hands duplicate work to the Job already on it | Not built |
 | Handles issues | Partly. A new issue is linked, filed or started on |
 | Handles reviews | Not built |
@@ -210,7 +210,7 @@ Each step is its own Job, and the order is the order of the table.
 | Fleet raises what needs you | A journal of the week, and a short briefing on the first open of the day | Yes, as the page's top line |
 | Asks | Yes / Always here / Always / No before it acts, in place of permission levels and the `role_off` and `always_raise` orders | Yes. Holds stay |
 | Routine work | Routine Job questions, stuck Jobs, duplicates, reviews and issues | Not built |
-| Repairs that close themselves | A stuck Job is nudged, then repaired by what broke, in a hidden agent that ends when it is done | Partly. The hosted repair and the triggers for a dead process, a silent stop and a hung command are built; the other three are not |
+| Repairs that close themselves | A stuck Job is nudged, then repaired by what broke, in a hidden agent that ends when it is done | Partly. The hosted repair and the triggers for a dead process, a silent stop, a red pull request and a hung command are built; the other two are not |
 | The native page | Your turn, the digest with the Log and Learned, the chat on Ask, and toasts | Not built |
 
 **What raises and what asks is one rule.**
