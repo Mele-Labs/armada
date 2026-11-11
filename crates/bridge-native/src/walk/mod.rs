@@ -236,6 +236,20 @@ pub static WALKS: &[Walk] = &[
         steps: &TODAY,
     },
     Walk {
+        name: "native-learnt-lines",
+        title: "A learnt quick line takes Edit, Pin and Delete",
+        screen: Screen::Jobs,
+        scenario: "job-view-composer",
+        steps: &[
+            press_on("The quick bar ends in a line Fleet learnt from your replies", "row", "Audit the docs index", "button", "Looks right, go ahead"),
+            step("Wider, the bar shows every line, the learnt one last", Verb::Width(1800), "button", "Looks right, go ahead"),
+            step("A right press on it opens the same menu as your own lines: Edit, Pin and Delete, as Electron's has", Verb::RightPress("Looks right, go ahead"), "menuitem", "Pin"),
+            step("Pin keeps it as your own, first among the pinned", Verb::Gone, "menuitem", "Pin"),
+            step("It is yours now: its menu says Unpin", Verb::RightPress("Looks right, go ahead"), "menuitem", "Unpin"),
+            step("Esc shuts it", Verb::Key("escape"), "button", "Looks right, go ahead"),
+        ],
+    },
+    Walk {
     name: "jobs-list",
     title: "Jobs list",
     screen: Screen::Jobs,
