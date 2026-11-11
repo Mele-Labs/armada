@@ -716,9 +716,6 @@ impl DispatchScreen {
                     sheet.instruction = None;
                     sheet.fields.clear();
                     sheet.set_face(face, window, cx);
-                    // A pick by hand stands over a read; the walk's earlier ⌥4 is put back on the repository
-                    // the words name, so the chip and the words agree.
-                    sheet.face.pick("sample-api");
                 });
             }
             "waiting-live" => {

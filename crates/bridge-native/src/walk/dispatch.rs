@@ -4,7 +4,7 @@
 
 use super::{answer, press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 41] = [
+pub static STEPS: [Step; 42] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("Job and Autopilot are the kinds; the Job's glyph stands at the start of the line", Verb::Look, "tab", "Job"),
     step("Model and Effort sit by the act and show their default", Verb::Look, "combobox", "Model"),
@@ -16,6 +16,7 @@ pub static STEPS: [Step; 41] = [
     step("Tab changes the kind to Autopilot", Verb::Key("tab"), "tab", "Autopilot"),
     step("⌘↵ is Read it: it sends the sentence to Fleet and says Reading in the same frame", Verb::Key("cmd-enter"), "button", "Reading"),
     answer("A refused read says why, in the sheet", "autopilot-refused", "alert", "Autopilot needs a repository with a Manifest, and sample-docs has none"),
+    step("⌥1 picks sample-api back by hand: it has a Manifest", Verb::Key("alt-1"), "radio", "Repository sample-api"),
     answer("A read sentence becomes an instruction and the limits, each quoted back", "autopilot-read", "textbox", "Instruction"),
     answer("The settings a live Fleet answers are read back into the fields, with the words each came from", "autopilot-read-live", "textbox", "Instruction"),
     press_on("Start Autopilot answers in the same frame", "button", "Start Autopilot", "button", "Starting Autopilot"),
