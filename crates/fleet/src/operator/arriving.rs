@@ -254,7 +254,9 @@ impl Arrival {
         }
         out.push_str("     The ways it is offered:");
         for (number, way) in self.ways.iter().enumerate() {
-            out.push_str(&format!(" {}. {}", number + 1, way.word_shown()));
+            // A Job that started may repeat a live Job's work: leaving it keeps both.
+            let shown = if self.arrived == Arrived::Start && *way == Way::Leave { "keep both Jobs" } else { way.word_shown() };
+            out.push_str(&format!(" {}. {shown}", number + 1));
             if number + 1 < self.ways.len() {
                 out.push(';');
             }

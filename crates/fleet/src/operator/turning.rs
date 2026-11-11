@@ -59,14 +59,25 @@ pub(super) struct Doing<'a> {
 }
 
 /// The rule's pick for `what`, as the store keeps it: a go-ahead to file keeps its Then.
-pub(super) fn pick_word(what: &str, then: Option<OperatorThen>) -> String {
+pub(super) fn pick_word(what: &str, then: Option<OperatorThen>, pick: &str) -> String {
     if what == "red_main" {
-        "start_fix".to_string()
+        if hands_red(pick) { HAND_RED } else { START_FIX }.to_string()
     } else if what.ends_with(":file") {
         word(&then.unwrap_or(OperatorThen::JustFile))
     } else {
         "do_it".to_string()
     }
+}
+
+/// A red main's rule picks: a Job started on it, or the live Job near it handed it.
+const START_FIX: &str = "start_fix";
+const HAND_RED: &str = "hand_to_job";
+/// What a red's option to hand it starts with, then the Job's title.
+const HAND_TO: &str = "Hand to ";
+
+/// Whether `pick`, an option's label or a rule's word, hands the red to a live Job.
+fn hands_red(pick: &str) -> bool {
+    pick == HAND_RED || pick.starts_with(HAND_TO)
 }
 
 /// The Then a rule's pick names, where it names one.
@@ -77,7 +88,10 @@ fn then_of_pick(pick: &str) -> Option<OperatorThen> {
 /// A rule in Fleet's words.
 pub(super) fn rule_said(what: &str, pick: &str) -> String {
     if what == "red_main" {
-        return "Start a fix when main goes red".to_string();
+        return if pick == HAND_RED { "Hand a red main to the live Job near it" } else { "Start a fix when main goes red" }.to_string();
+    }
+    if what == "start:existing_job" {
+        return "Hand a Job that repeats a live Job's work to that Job".to_string();
     }
     let (arrived, way) = what.split_once(':').unwrap_or((what, ""));
     let named = super::Arrived::from_word(arrived).map_or(arrived.to_string(), |arrived| arrived.named().to_string());
@@ -151,6 +165,13 @@ where
         };
         if let Some(rest) = id.strip_prefix(RED) {
             let (manifest, commit) = rest.split_once(':').ok_or_else(|| Fault::NotDone("the red main's id does not read".to_string()))?;
+            if hands_red(doing.pick) {
+                let (served, main) = self.red_still(manifest, commit).await.ok_or_else(|| Fault::NotDone("main is no longer red there, or a Job is on it already".to_string()))?;
+                let (job, _) = self.red_near(&served, &main).await.ok_or_else(|| Fault::NotDone("no live Job is near that red now".to_string()))?;
+                self.operator_gave_red(manifest, commit, &job).await.map_err(Fault::NotDone)?;
+                self.red_handed_logged(manifest, commit, &job, doing.rule).await;
+                return Ok(Done { handed_to: Some(job), ..Done::default() });
+            }
             let job = self.operator_started_fix(manifest, commit).await.map_err(Fault::NotDone)?;
             return Ok(Done { started: Some(job), ..Done::default() });
         }
@@ -192,7 +213,7 @@ where
             };
             let then = then_of_pick(&pick);
             let said = rule_said(&what, &pick);
-            let doing = Doing { session: &one.session, item: &one.item, pick: "", rule: Some(&said) };
+            let doing = Doing { session: &one.session, item: &one.item, pick: &pick, rule: Some(&said) };
             match self.turn_performed(&doing, then).await {
                 Ok(_) => {
                     let at = self.now();
@@ -266,7 +287,7 @@ where
             })?;
             if let (true, Some(what)) = (press.answer != OperatorAnswer::Yes, &what) {
                 let manifest_id = (press.answer == OperatorAnswer::AlwaysHere).then(|| row.manifest_id.clone());
-                self.rule_kept(OperatorRule::PickRule { manifest_id, what: what.clone(), pick: pick_word(what, then) }).await?;
+                self.rule_kept(OperatorRule::PickRule { manifest_id, what: what.clone(), pick: pick_word(what, then, doing.pick) }).await?;
             }
             if done.open.is_some() {
                 if let Err(why) = self.store().lock().await.answer_operator_turn(row.n, answer_word) {
@@ -358,14 +379,23 @@ where
         let manifest = served.manifest().id().as_str().to_string();
         let commit = main.red_commit();
         let facts = brief_of(main).lines().next().unwrap_or_default().to_string();
+        let id = format!("{RED}{manifest}:{commit}");
+        // Asked once for each red commit, so the forge is not asked for the Job near it again where it stands.
+        if self.store().lock().await.operator_turn_present().unwrap_or_default().iter().any(|row| row.item == id) {
+            return;
+        }
+        let mut options = vec![WaitingOption { label: "Start a fix".to_string(), description: None }];
+        if let Some((_, title)) = self.red_near(&served, main).await {
+            options.push(WaitingOption { label: format!("{HAND_TO}{title}"), description: None });
+        }
         let item = WaitingItem {
             approves: false,
-            id: format!("{RED}{manifest}:{commit}"),
+            id,
             text: format!("Main is red at {}. {facts}", commit.get(..7).unwrap_or(commit)).trim().to_string(),
             since: Instant::carried(self.now().as_str()),
             source: WaitingSource::OperatorSuggestion,
             act: None,
-            options: vec![WaitingOption { label: "Start a fix".to_string(), description: None }],
+            options,
             steps: Vec::new(),
             place: None,
             confirmed: false,

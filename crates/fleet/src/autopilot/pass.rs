@@ -316,6 +316,9 @@ where
         sure: SurePick,
     ) -> Result<(), String> {
         let issue = sure.issue();
+        if self.operator_on() && self.pick_held_for_overlap(kept, issue, sure.workflow().as_str()).await {
+            return Ok(());
+        }
         let session = self
             .session_on_issue(
                 served,

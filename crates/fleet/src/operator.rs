@@ -30,6 +30,7 @@ mod briefing;
 mod calling;
 mod candidates;
 mod desk;
+mod duplicating;
 mod erroring;
 mod handing;
 mod hearing;
@@ -65,6 +66,7 @@ use candidates::Near;
 pub use calling::{Answering, Calling, KeptStarted};
 pub use looking::{Blind, Folder, Looking, ReadingScout, ToRead};
 pub use acting::FleetActing;
+pub(crate) use duplicating::HELD_FOR_OVERLAP;
 #[cfg(test)]
 pub(crate) use erroring::fingerprint;
 pub use desk::FleetDesk;
