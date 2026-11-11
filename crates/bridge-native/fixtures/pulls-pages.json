@@ -170,51 +170,15 @@
    ],
    "files": [
     {
-     "path": "apps/desktop/src/renderer/src/session-pull-request.tsx",
-     "status": "modified",
-     "additions": 64,
-     "deletions": 12
-    },
-    {
      "path": "apps/desktop/src/main/forge.ts",
      "status": "modified",
      "additions": 21,
      "deletions": 9
     },
     {
-     "path": "packages/components/src/compositions/PullRequestPanel/PullRequestPanel.tsx",
-     "status": "added",
-     "additions": 188,
-     "deletions": 0
-    },
-    {
-     "path": "packages/components/src/compositions/PullRequestPanel/PullRequestTabs.tsx",
-     "status": "added",
-     "additions": 143,
-     "deletions": 0
-    },
-    {
-     "path": "packages/components/src/compositions/PullRequestCard/PullRequestCard.tsx",
-     "status": "removed",
-     "additions": 0,
-     "deletions": 74
-    },
-    {
      "path": "crates/config/settings.toml",
      "status": "modified",
      "additions": 6,
-     "deletions": 0
-    },
-    {
-     "path": "docs/practices/bridge.md",
-     "status": "renamed",
-     "additions": 3,
-     "deletions": 3
-    },
-    {
-     "path": "apps/desktop/resources/icon.png",
-     "status": "modified",
-     "additions": 0,
      "deletions": 0
     }
    ],

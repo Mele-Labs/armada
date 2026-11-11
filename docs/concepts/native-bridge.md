@@ -71,7 +71,7 @@ Each step is its own Job, and at most two run at once.
 | Jobs screens | The Jobs list, thread, composer, approvals and Needs you |
 | Dispatch and the title bar | The dispatch sheet, the merge queue strip, usage and context rings, the build switcher, clash marks |
 | Web pages in Chrome | Documents, sketches, walks of web pages and notes |
-| Job panes | Plan, Changes, Files, Checks, Subagents, Log (the Check panel's Log tab), Ledger, Judge, the pull request panes and the native diff. Still owed in the Ledger: the Merged, Open and Checks chips on pull request and linked Job rows, and note thumbnails. A pull request's judge notes stand in its panel's Files tab, under the head of the file they name, since the native diff has no line numbers yet; a doc's stand under its Ledger row until the doc reader lands. Still owed in that Files tab: his own line notes, the notes bar and Send to job, which wait on line numbers in the native diff |
+| Job panes | Plan, Changes, Files, Checks, Subagents, Log (the Check panel's Log tab), Ledger, Judge, the pull request panes and the native diff. Still owed in the Ledger: the Merged, Open and Checks chips on pull request and linked Job rows, and note thumbnails. A pull request's judge notes stand in its panel's Files tab, under the head of the file they name, since the native diff has no line numbers yet; a doc's stand under its Ledger row until the doc reader lands. Still owed in that Files tab: his own line notes, the notes bar and Send to job, which wait on line numbers in the native diff. Still owed in the pull request panel: triage, the merge queue's place on its plate, Fix, which needs a terminal, the tests that reach the change, the Check's log inside the panel rather than in the browser, and the owner's chip |
 | Operator and Projects | The Operator's page (Your turn and its digest), its chat and toasts, and Projects |
 | Settings, Kit, Reviews, Issues | Those four screens, Usage with Time, and Account. The pull request side panel's Review tab arrives with Reviews, with the Reviews page's keys; until then the panel has four tabs |
 | Job tools | Terminal, the Request pane and the Browser tool |
@@ -113,6 +113,7 @@ The parity check takes each row here as chosen.
 | Where | Armada Classic | Native |
 |---|---|---|
 | A pull request's Files tab | "N files" beside the tree, which draws every file | No count, under the no-aggregate-counts rule of 29 Sep |
+| A row in a Job's Checks pane | A press opens nothing, a fault | Opens the Check's panel, with its runs in this Job |
 | A judge note on a pull request with no line | Has nowhere to show | Stands at the top of Files, above the tree, in the line notes' look |
 | A judge note or review thread on a pull request's line | Between the diff's lines, at that line | Under the head of its file in Files, until the native diff draws line numbers |
 
