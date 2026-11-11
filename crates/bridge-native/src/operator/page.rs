@@ -641,7 +641,7 @@ impl OperatorPageView {
 
     // -- the chat ----------------------------------------------------------------------------------
 
-    /// Ask: the chat about the open item, in place of the digest, with the keys in its box.
+    /// Ask: the chat about the open item, inside its card, with the keys in its box.
     pub fn ask(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let turn = self.open_item().cloned();
         let about = turn.as_ref().map(|turn| turn.id.clone());

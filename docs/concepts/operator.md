@@ -233,7 +233,7 @@ Settled with the person on 10 Nov, on sketches. It stays current all day; the mo
   The rest are one line each.
 - Your turn holds the person's decisions (plans, walks, reviews, questions) and go-aheads, what the Operator would do itself, answered Yes, Always here, Always or No.
 - A go-ahead to file an issue also carries Then: Just file it, File and start a Job, or File and hand to a live Job already on the same files, with the Operator's pick marked My pick.
-- Ask on an item opens the chat about that item in place of the digest. The chat holds conversation only; a raise is an item of Your turn, never a chat line.
+- Ask on an item opens the chat about that item inside its card, and the digest stays beside it (11 Nov). The chat holds conversation only; a raise is an item of Your turn, never a chat line.
 - The digest is Since you last looked: tiles for Landed, What I handled (ending in a link to the whole Log), Running, Coming up, and Learned, each project's rules, which replaces the Permissions tab, and Holds, the paths a Job holds until it pushes or ends.
   Running, Learned and Holds put their rows under each project's heading, Everywhere first, and a rule or hold takes two lines before it is cut (11 Nov).
   The whole Log opens on a sheet over the page, a heading for each day and each entry at its time.

@@ -490,6 +490,8 @@ impl OperatorPageView {
                 .h(look.length(token::SPACE_12) * 6.)
                 .flex()
                 .flex_col()
+                .px(look.length(token::SPACE_4))
+                .py(look.length(token::SPACE_3))
                 .border_t(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .bg(look.color(token::BG_BASE))
