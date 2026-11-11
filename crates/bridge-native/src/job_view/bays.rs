@@ -233,7 +233,8 @@ pub(super) struct BayPanel {
     acting: bool,
     said: Option<String>,
     refused: Option<String>,
-    /// The panel's scroller, and whether the next draw brings a just-opened confirm into view.
+    /// The panel's scroller, and whether the next draw brings a just-opened confirm, or what an act
+    /// answered, into view.
     scroll: ScrollHandle,
     reveal: Cell<bool>,
 }
@@ -683,6 +684,7 @@ impl JobView {
                 Ok(said) => panel.said = said,
                 Err(why) => panel.refused = Some(why),
             }
+            panel.reveal.set(panel.said.is_some() || panel.refused.is_some());
         }
         self.read_pool(window, cx);
         cx.notify();
@@ -948,6 +950,8 @@ impl JobView {
             div().flex().gap(look.length(token::SPACE_2)).children(buttons).into_any_element()
         });
         let mut body: Vec<AnyElement> = vec![acts_row.into_any_element()];
+        // What an act answered stands under the acts; the acts row comes with it into view.
+        let answered_at = (refused.is_some() || said.is_some()).then_some(0);
         body.extend(refused.map(IntoElement::into_any_element));
         body.extend(said.map(IntoElement::into_any_element));
         let mut confirm_at = releasing.as_ref().map(|_| body.len());
@@ -956,7 +960,7 @@ impl JobView {
         confirm_at = confirm_at.or(scrapping.as_ref().map(|_| body.len()));
         body.extend(scrapping);
         body.push(self.bay_fact_list(slot, look, cx));
-        (body, confirm_at, foot)
+        (body, confirm_at.or(answered_at), foot)
     }
 
     /// Release's confirm (`ReleaseConfirm`): who holds it, that the process keeps running, then what
