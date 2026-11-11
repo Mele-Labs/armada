@@ -45,6 +45,15 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
             cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
         }
         cx.run_until_parked();
+        // The check's clock is its own: a step that lets time go by is played to its end by moving it on.
+        for _ in 0..600 {
+            if !walking.read_with(&cx, |walking, _| walking.playing()) {
+                break;
+            }
+            cx.advance_clock(std::time::Duration::from_millis(100));
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
         let read = cx
             .update_window(handle.into(), |_, window, cx| {
                 window.draw(cx).clear(cx);

@@ -201,6 +201,9 @@ impl WalkWindow {
                     }
                 }
                 let Ok(Some(focus)) = this.read_with(cx, |this, _| this.stage.as_ref().map(|stage| stage.focus.clone())) else { return };
+                if let Verb::Later(ms) = step.verb {
+                    cx.background_executor().timer(std::time::Duration::from_millis(ms)).await;
+                }
                 let person = step.verb == Verb::NoteKey;
                 if person {
                     let _ = this.update(cx, |this, _| this.playing = false);
@@ -561,6 +564,11 @@ impl WalkWindow {
 
     /// Where the walk stands, for the check: the step on screen, a fault the bar shows, and a
     /// target the window did not draw.
+    /// Whether a step is still being played.
+    pub fn playing(&self) -> bool {
+        self.playing
+    }
+
     pub fn reading(&self, window: &Window, cx: &App) -> Reading {
         Reading {
             at: self.at,

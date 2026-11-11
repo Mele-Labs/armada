@@ -91,6 +91,9 @@ pub enum Verb {
     Fits(&'static str, &'static str),
     /// Nothing of this role and name is drawn; the target is.
     Absent(&'static str, &'static str),
+    /// This many milliseconds go by before the target is ringed, as they do while a person reads the
+    /// step before: for what the app ends on its own clock, such as a read.
+    Later(u64),
     /// The dispatch screen moves to a named scene (`dispatch/scenes.rs`): Fleet's answer to a send,
     /// or a state of the sheet's face. A scene changes data and presses nothing.
     Answer(&'static str),
@@ -419,7 +422,7 @@ pub static WALKS: &[Walk] = &[
                 "img",
                 "Loading new messages",
             ),
-            step("When the read ends the ring goes. This Job was moved to another repository: its thread ends on where it went", Verb::Look, "button", "Moved to sample-api"),
+            step("When the read ends the ring goes. This Job was moved to another repository: its thread ends on where it went", Verb::Later(1200), "button", "Moved to sample-api"),
             press_on("A press opens the Job it became, in sample-api", "button", "Moved to sample-api", "region", "Thread"),
             step("Its thread starts with where it came from, and carries the whole conversation in, with no rule", Verb::Wheel("region", "Thread", -400), "button", "Moved from sample-web"),
             press_on("A press goes back", "button", "Moved from sample-web", "button", "Moved to sample-api"),
