@@ -90,7 +90,7 @@ pub static STEPS: [Step; 61] = [
     press_on("Noted puts it away until more are dropped", "button", "Noted", "button", "Operator"),
     scene("Fleet unreachable: the dot is amber and the notice says what is shown is not live", "fleet-unreachable", "status", "Fleet unreachable"),
     scene("Fleet starting: Armada's mark pulses and no notice yet", "fleet-starting", "button", "Fleet — Starting"),
-    scene("Fleet gone, inside the first 30 seconds: a red dot and no notice", "fleet-powering", "button", "Fleet — Not running"),
+    scene("Fleet gone, inside the first 30 seconds: an orange dot and no notice", "fleet-powering", "button", "Fleet — Not running"),
     scene("After that the notice stands above the screen", "fleet-down", "alert", "Fleet is not running"),
     step("The panel says why", Verb::Press, "button", "Fleet — Not running"),
     scene("A Fleet that does not match offers Restart Fleet", "fleet-mismatch", "button", "Restart Fleet"),

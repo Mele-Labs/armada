@@ -44,7 +44,7 @@ pub static FLEET_LIVE: [Step; 20] = [
     marks("A write clash in Fleet's clashes marks both rows of the pair", "clash-pair", "button", PAIR),
     step("Hover names the other Job and the files that collide", Verb::Hover, "button", PAIR),
     step("Esc puts the card away", Verb::Key("escape"), "button", PAIR),
-    scene("Fleet stopped: for 30 seconds after a drop the dot is red and nothing more, and the clash marks go with it", "fleet-live-grace", "button", "Fleet — Not running"),
+    scene("Fleet stopped: for 30 seconds after a drop the dot turns orange and nothing more, and the clash marks go with it", "fleet-live-grace", "button", "Fleet — Not running"),
     scene("Past 30 seconds the notice stands above the screen", "fleet-live-down", "alert", "Fleet is not running"),
     step("The panel says why", Verb::Press, "button", "Fleet — Not running"),
     step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Not running"),
