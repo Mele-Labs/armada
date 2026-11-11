@@ -602,7 +602,8 @@ impl Render for Dropdown {
                     self.name.clone(),
                 )),
         )
-        .with_priority(1)
+        // Above every sheet: a menu opens from whatever is in front, such as the sketch reader's rail.
+        .with_priority(4)
     }
 }
 

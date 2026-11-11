@@ -3,11 +3,13 @@
 //! `GraphCanvas` draws one, stops and restarts the steps and zooms; a wheel or `+`, `-` and `0`
 //! zoom it too, a drag or the arrows move it, and Esc, Close or a press beside it shut it.
 
+use std::path::PathBuf;
 use std::rc::Rc;
-use std::time::Instant;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use gpui::{
-    anchored, deferred, div, point, prelude::*, Anchor, AnyElement, Context, FocusHandle, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent, Role,
+    anchored, deferred, div, img, point, prelude::*, Anchor, AnyElement, Context, FocusHandle, Image, ImageFormat, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent, ObjectFit, Role,
     ScrollDelta, ScrollEvent, SharedString, Window,
 };
 use ipc::{Scene, ThreadItem, ThreadSketch};
@@ -17,7 +19,30 @@ use super::rows::{glyph, Size};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook};
-use crate::scene::{Clock, Fit, Lens};
+use crate::dropdown::{Entry, Row};
+use crate::scene::{export, Clock, Fit, Lens};
+
+/// How long a save or a copy is said in the sheet's band.
+const SAID_FOR: Duration = Duration::from_secs(4);
+
+/// What Save as image or Save as web page hands the save dialog.
+enum Shared {
+    Page(String),
+    /// The standalone SVG: written as it is where he names an `.svg`, else drawn as PNG.
+    Picture(String),
+}
+
+/// What was shared, shown as the person it goes to has it. Only in a walk, where nothing is saved and
+/// the clipboard is left alone, as Electron's mock `sketch-share-view` does.
+struct Handed {
+    said: SharedString,
+    body: HandedBody,
+}
+
+enum HandedBody {
+    Picture(Arc<Image>),
+    Words(SharedString),
+}
 
 /// What a rail button draws: a glyph, or a sign where no glyph is right.
 #[derive(Clone, Copy)]
@@ -44,6 +69,9 @@ pub(super) struct Reading {
     lens: Lens,
     /// The press held, and where the pointer was last.
     drag: Option<gpui::Point<f32>>,
+    /// What a save or a copy came to, said in the band for a moment.
+    said: Option<SharedString>,
+    handed: Option<Handed>,
 }
 
 /// A key's zoom step and pan, and the most and least the reader may zoom past the fit.
@@ -82,7 +110,7 @@ impl JobView {
         window.focus(&focus, cx);
         let now = Instant::now();
         let steps = crate::scene::plays(&scene).then_some(now);
-        self.sketch_reading = Some(Reading { key: scene_key, title: title.into(), scene, against, changes: true, steps, opened: now, focus, back, lens: Lens::default(), drag: None });
+        self.sketch_reading = Some(Reading { key: scene_key, title: title.into(), scene, against, changes: true, steps, opened: now, focus, back, lens: Lens::default(), drag: None, said: None, handed: None });
         cx.notify();
     }
 
@@ -101,6 +129,128 @@ impl JobView {
             reading.changes = changes;
         }
         cx.notify();
+    }
+
+    /// Share opens a menu of three, as Electron's rail does: a page, a picture, or Mermaid text.
+    fn share_sketch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(back) = self.sketch_reading.as_ref().map(|reading| reading.focus.clone()) else { return };
+        let entries = vec![
+            Entry::Row(Row::new("html", "Save as web page")),
+            Entry::Row(Row::new("image", "Save as image")),
+            Entry::Row(Row::new("mermaid", "Copy as Mermaid")),
+        ];
+        let at = window.mouse_position();
+        self.open_button_menu("Share", entries, at, Some(back), |this, id, window, cx| this.share_as(id, window, cx), window, cx);
+    }
+
+    fn share_as(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(reading) = self.sketch_reading.as_ref() else { return };
+        let (key, scene, title): (SharedString, Rc<Scene>, String) = (reading.key.clone().into(), reading.scene.clone(), reading.title.to_string());
+        let walked = self.fleet.is_none();
+        match id {
+            "mermaid" => {
+                let text = export::mermaid(&scene, &cx.look());
+                if walked {
+                    self.hand(Handed { said: "What they paste".into(), body: HandedBody::Words(text.into()) }, cx);
+                } else {
+                    cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
+                }
+                self.say_shared(format!("{} is on the clipboard.", export::MERMAID_COPIED).into(), cx);
+            }
+            "html" if walked => {
+                // A page cannot open inside the app, so the walk shows the drawing it opens on.
+                let svg = export::svg(&key, &scene, window, cx);
+                self.show_saved(export::file_name(&title, "html"), svg, cx);
+            }
+            "html" => {
+                let page = export::web_page(&key, &scene, &title, window, cx);
+                self.save_shared(export::file_name(&title, "html"), Shared::Page(page), cx);
+            }
+            "image" if walked => {
+                let svg = export::svg(&key, &scene, window, cx);
+                self.show_saved(export::file_name(&title, "png"), svg, cx);
+            }
+            "image" => {
+                let svg = export::svg(&key, &scene, window, cx);
+                self.save_shared(export::file_name(&title, "png"), Shared::Picture(svg), cx);
+            }
+            _ => {}
+        }
+    }
+
+    /// The walk's save: no dialog, and the file shown as it opens for the person it is sent to.
+    fn show_saved(&mut self, name: String, svg: String, cx: &mut Context<Self>) {
+        let drawn = cx.background_executor().spawn(async move { export::png(&svg) });
+        cx.spawn(async move |this, cx| {
+            let drawn = drawn.await;
+            let _ = this.update(cx, |this, cx| match drawn {
+                Ok(png) => {
+                    this.hand(Handed { said: format!("What they see when they open {name}").into(), body: HandedBody::Picture(Arc::new(Image::from_bytes(ImageFormat::Png, png))) }, cx);
+                    this.say_shared(format!("Saved {name}.").into(), cx);
+                }
+                Err(_) => this.say_shared(format!("{name} was not saved.").into(), cx),
+            });
+        })
+        .detach();
+    }
+
+    fn hand(&mut self, handed: Handed, cx: &mut Context<Self>) {
+        if let Some(reading) = self.sketch_reading.as_mut() {
+            reading.handed = Some(handed);
+        }
+        cx.notify();
+    }
+
+    fn put_away_handed(&mut self, cx: &mut Context<Self>) -> bool {
+        let Some(reading) = self.sketch_reading.as_mut() else { return false };
+        let was = reading.handed.take().is_some();
+        cx.notify();
+        was
+    }
+
+    /// The place is his, picked in the save dialog. A dialog he closes says nothing, as Electron's `savedSaid`.
+    fn save_shared(&mut self, name: String, what: Shared, cx: &mut Context<Self>) {
+        let folder = std::env::var_os("HOME").map(|home| PathBuf::from(home).join("Downloads")).unwrap_or_else(std::env::temp_dir);
+        let picked = cx.prompt_for_new_path(&folder, Some(&name));
+        cx.spawn(async move |this, cx| {
+            let Ok(Ok(Some(path))) = picked.await else { return };
+            let saved = path.file_name().map_or_else(|| name.clone(), |file| file.to_string_lossy().into_owned());
+            // Drawing the PNG and writing the file stay off the main thread.
+            let written = cx
+                .background_executor()
+                .spawn(async move {
+                    let bytes = match what {
+                        Shared::Page(page) => Ok(page.into_bytes()),
+                        Shared::Picture(svg) if path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("svg")) => Ok(svg.into_bytes()),
+                        Shared::Picture(svg) => export::png(&svg),
+                    };
+                    bytes.map(|bytes| std::fs::write(&path, bytes))
+                })
+                .await;
+            let said = match written {
+                Ok(Ok(())) => format!("Saved {saved}."),
+                _ => format!("{saved} was not saved."),
+            };
+            let _ = this.update(cx, |this, cx| this.say_shared(said.into(), cx));
+        })
+        .detach();
+    }
+
+    /// A save or a copy is otherwise silent, so the band says it for a moment.
+    fn say_shared(&mut self, said: SharedString, cx: &mut Context<Self>) {
+        let Some(reading) = self.sketch_reading.as_mut() else { return };
+        reading.said = Some(said.clone());
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(SAID_FOR).await;
+            let _ = this.update(cx, |this, cx| {
+                if let Some(reading) = this.sketch_reading.as_mut().filter(|reading| reading.said.as_ref() == Some(&said)) {
+                    reading.said = None;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
     }
 
     fn fit_sketch(&mut self, cx: &mut Context<Self>) {
@@ -137,7 +287,11 @@ impl JobView {
             return;
         }
         match key.key.as_str() {
-            "escape" => self.close_reading(window, cx),
+            "escape" => {
+                if !self.put_away_handed(cx) {
+                    self.close_reading(window, cx);
+                }
+            }
             "+" | "=" => self.zoom_sketch(KEY_STEP, cx),
             "-" => self.zoom_sketch(1. / KEY_STEP, cx),
             "0" => self.fit_sketch(cx),
@@ -199,6 +353,13 @@ impl JobView {
                     .text_color(look.color(token::FG_DEFAULT))
                     .child(reading.title.clone()),
             )
+            .children(reading.said.clone().map(|said| {
+                labelled(
+                    div().id("sketch-said").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(said.clone()),
+                    Role::Status,
+                    said,
+                )
+            }))
             .child(button("sketch-close", "x", "Close", "escape", |this, window, cx| this.close_reading(window, cx)));
         // `GraphCanvasRailGroup`'s buttons: ghost and icon-only, a sign where no glyph is right, a
         // lamp in the corner while one is on, and the reason in the tooltip while one is off.
@@ -285,6 +446,7 @@ impl JobView {
                     )
                     .into_any_element(),
                     rail_button("sketch-restart", Face::Glyph("rotate-cw"), "Restart the steps", None, None, no_order, |this, _, cx| this.play_sketch(true, cx)).into_any_element(),
+                    rail_button("sketch-share", Face::Glyph("external-link"), "Share", None, None, None, |this, window, cx| this.share_sketch(window, cx)).into_any_element(),
                 ],
             ))
             .child(group(
@@ -384,6 +546,56 @@ impl JobView {
                     "Read as",
                 ))
         });
+        // What was shared, over the left of the sheet with the one control a person needs: Close.
+        let handed = reading.handed.as_ref().map(|handed| {
+            let body = match &handed.body {
+                HandedBody::Picture(image) => div().flex_1().min_h_0().child(img(image.clone()).size_full().object_fit(ObjectFit::Contain)).into_any_element(),
+                HandedBody::Words(words) => div()
+                    .id("sketch-handed-words")
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+                    .text_size(look.length(token::TEXT_SM))
+                    .child(words.clone())
+                    .into_any_element(),
+            };
+            let close = labelled(
+                crate::titlebar::parts::Btn::new("sketch-handed-close", "Close", crate::titlebar::parts::Weight::Secondary)
+                    .draw(look, cx)
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.put_away_handed(cx);
+                    })),
+                Role::Button,
+                "Close",
+            );
+            labelled(
+                div()
+                    .id("sketch-handed")
+                    .occlude()
+                    .absolute()
+                    .top(inset * 2.)
+                    .bottom(inset * 2.)
+                    .left(inset * 2.)
+                    .w((viewport.width * 0.58).min(gpui::px(960.)))
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_2))
+                    .p(look.length(token::SPACE_3))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_STRONG))
+                    .rounded(look.length(token::RADIUS_LG))
+                    .bg(look.color(token::BG_RAISED))
+                    .shadow(look.shadows(token::SHADOW_OVERLAY))
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .child(div().flex().items_center().justify_between().text_size(look.length(token::TEXT_SM)).child(handed.said.clone()).child(close))
+                    .child(body),
+                Role::Region,
+                handed.said.clone(),
+            )
+        });
         // The rail is a column of the frame beside the drawing, never a layer over it.
         let drawing = div().flex().flex_1().min_h_0().bg(look.color(token::BG_SUNKEN)).child(rail).child(pane);
         Some(
@@ -417,7 +629,8 @@ impl JobView {
                                 .child(drawing),
                             Role::Dialog,
                             format!("Sketch: {}", reading.title),
-                        )),
+                        ))
+                        .children(handed),
                 ),
             )
             .with_priority(3),
