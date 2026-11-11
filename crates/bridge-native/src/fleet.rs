@@ -10,7 +10,7 @@ use gpui::{Context, EventEmitter, Task};
 
 use ipc::{
     CallArrival, Cursor, Event, FleetBuildReport, Instant, JobThread, JobThreadTail, ModKind, ModSummary, NeedsYou, SessionRecord,
-    RepositorySummary, SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem, WaitingItem,
+    Projects, RepositorySummary, SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem, WaitingItem,
 };
 
 use crate::link::{self, LinkState, Signal};
@@ -99,6 +99,8 @@ pub struct Held {
     pub calls: Option<StandingCalls>,
     /// Every repository Fleet serves, the one it was started in first. `None` until Fleet has answered.
     pub repositories: Option<Vec<RepositorySummary>>,
+    /// His projects as Fleet last said, whole. `None` until Fleet has answered.
+    pub projects: Option<Projects>,
     /// Whether `features.notifications` is on. On until Fleet's settings say false, as Electron reads it.
     pub notifications: bool,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
@@ -125,6 +127,7 @@ impl Held {
             build: None,
             calls: None,
             repositories: None,
+            projects: None,
             notifications: true,
             arrived: Vec::new(),
             port: None,
@@ -273,6 +276,8 @@ impl Held {
                 Signal::SettingsFailed(why) => lines.push(Note::warn("settings could not be read").field("why", why)),
                 Signal::Repositories(list) => self.repositories = Some(list.repositories),
                 Signal::RepositoriesFailed(why) => lines.push(Note::warn("repositories could not be read").field("why", why)),
+                Signal::Projects(read) => self.projects = Some(read),
+                Signal::ProjectsFailed(why) => lines.push(Note::warn("projects could not be read").field("why", why)),
                 Signal::Build(report) => self.build = Some(report),
                 Signal::BuildFailed(why) => lines.push(Note::warn("the build could not be read").field("why", why)),
                 Signal::Stream(StreamMessage::Resync(resync)) => {
@@ -318,6 +323,8 @@ impl Held {
                         }
                         Event::SettingsChanged(list) => self.set_settings(&list),
                         Event::RepositoriesChanged(list) => self.repositories = Some(list.repositories),
+                        // His projects arrive whole and replace the ones held.
+                        Event::ProjectsChanged(read) => self.projects = Some(read),
                         _ => {}
                     }
                 }
@@ -770,6 +777,19 @@ mod tests {
         let wire = r#"{"message":"event","cursor":2,"event":{"kind":"repositories.changed","repositories":[]}}"#;
         held.fold(vec![Signal::Stream(crate::frames::decode(wire).expect("an event"))]);
         assert_eq!(held.repositories, Some(Vec::new()));
+    }
+
+    #[test]
+    fn the_projects_are_read_on_connect_and_replaced_whole_when_fleet_says_they_changed() {
+        let mut held = Held::new();
+        assert_eq!(held.projects, None, "nothing is listed before Fleet has answered");
+        let one = r#"{"id":"p1","name":"Storefront","rows":[],"members":[],"place":{"place":"this_mac"}}"#;
+        let read: ipc::Projects = ipc::decode("projects", format!(r#"{{"projects":[{one}],"loose":[],"left_out":[]}}"#).as_bytes()).expect("projects");
+        held.fold(vec![Signal::Projects(read)]);
+        assert_eq!(held.projects.as_ref().map(|all| all.projects[0].name.as_str()), Some("Storefront"));
+        let wire = r#"{"message":"event","cursor":2,"event":{"kind":"projects.changed","projects":[],"loose":[],"left_out":[]}}"#;
+        held.fold(vec![Signal::Stream(crate::frames::decode(wire).expect("an event"))]);
+        assert_eq!(held.projects.as_ref().map(|all| all.projects.len()), Some(0));
     }
 
     #[test]

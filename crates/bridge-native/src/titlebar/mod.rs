@@ -314,19 +314,26 @@ impl TitleBar {
     /// The repositories Fleet serves, as the picker lists them: each by its directory's name, `Not set
     /// up` where no Manifest has loaded. A pick that no longer names one goes back to All.
     pub fn set_repositories(&mut self, served: &[ipc::RepositorySummary], cx: &mut Context<Self>) {
-        let listed: Vec<face::Repository> = served
-            .iter()
-            .map(|one| {
-                let name = one.manifest.as_ref().map_or_else(|| one.root.rsplit('/').find(|part| !part.is_empty()).unwrap_or(&one.root).to_string(), |manifest| manifest.repository.clone());
-                let kept = self.face.repositories.iter().find(|held| held.name.as_ref() == name).and_then(|held| held.kept.clone());
-                face::Repository { name: name.into(), not_set_up: one.manifest.is_none(), kept }
-            })
-            .collect();
+        let listed = face::repositories_of(served, &self.face.repositories);
         if listed == self.face.repositories {
             return;
         }
         self.face.chosen = self.face.chosen.filter(|&at| at < listed.len());
         self.face.repositories = listed;
+        cx.notify();
+    }
+
+    /// The projects Fleet serves, by the repositories it serves. The window stays on the project it is
+    /// scoped to by its id, and goes back to All where Fleet no longer lists it.
+    pub fn set_projects(&mut self, served: &[ipc::RepositorySummary], read: &ipc::Projects, cx: &mut Context<Self>) {
+        let listed = face::projects_of(served, read);
+        let here = self.face.scoped.and_then(|at| self.face.projects.get(at)).map(|one| one.id.clone());
+        let scoped = here.and_then(|id| listed.iter().position(|one| one.id == id));
+        if listed == self.face.projects && scoped == self.face.scoped {
+            return;
+        }
+        self.face.projects = listed;
+        self.face.scoped = scoped;
         cx.notify();
     }
 

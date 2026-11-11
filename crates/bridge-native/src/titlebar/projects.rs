@@ -3,7 +3,9 @@
 //! project and New project; on the right the row the keys are on, its members and what it holds, with
 //! Switch, Settings and Members. ↑↓ move, Enter switches, ⌘, opens Settings, Esc shuts.
 //!
-//! Fleet does not serve projects yet: a scene draws them, and live the projects list is empty.
+//! The projects are Fleet's (`GET /projects`, kept current by `projects.changed`), read through
+//! [`super::face::projects_of`]; a walk's scene reads the same from the mock. Fleet has no route that
+//! sets a window's project, so a pick is the window's own and sends nothing.
 
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, KeyDownEvent, Role, SharedString, Window};
 
@@ -431,5 +433,48 @@ mod tests {
         face.scoped = None;
         assert_eq!(face.chosen_said(), ("All".into(), None));
         assert_eq!(face.settings_said(), SharedString::from("Settings"));
+    }
+
+    fn served() -> Vec<ipc::RepositorySummary> {
+        crate::mock::repositories()
+    }
+
+    #[test]
+    fn the_projects_are_what_fleet_serves_and_one_whose_file_did_not_read_is_left_out() {
+        let face = scenes::rest();
+        let names: Vec<&str> = face.projects.iter().map(|one| one.name.as_ref()).collect();
+        assert_eq!(names, vec!["Armada", "Storefront"]);
+        let storefront = &face.projects[1];
+        assert_eq!(storefront.id.as_ref(), "storefront");
+        assert_eq!(
+            storefront.members,
+            vec![
+                super::super::face::Member { repository: 1, folder: Some("web/checkout".into()) },
+                super::super::face::Member { repository: 2, folder: Some("services/pricing".into()) },
+            ]
+        );
+        assert_eq!(storefront.kept.as_ref().map(|place| place.phrase()), Some("on this Mac".to_string()));
+    }
+
+    #[test]
+    fn a_member_fleet_serves_no_repository_for_is_left_out_of_its_project() {
+        let served = served();
+        let read = crate::mock::projects();
+        let fewer = &served[..2];
+        let listed = super::super::face::projects_of(fewer, &read);
+        assert_eq!(listed[1].members.len(), 1, "sample-api is not served here");
+        assert_eq!(listed[1].members[0].repository, 1);
+    }
+
+    #[test]
+    fn a_project_kept_in_a_synced_folder_or_a_bucket_says_where() {
+        let served = served();
+        let json = r#"{"projects":[
+            {"id":"a","name":"A","rows":[],"members":[],"place":{"place":"synced","synced_folder":"iCloud Drive"}},
+            {"id":"b","name":"B","rows":[],"members":[],"place":{"place":"cloud","cloud":{"bucket":"s3://b/p"}}},
+            {"id":"c","name":"C","rows":[],"members":[],"place":{"place":"cloud","cloud":{"store":{}}}}],"loose":[],"left_out":[]}"#;
+        let read: ipc::Projects = ipc::decode("Projects", json.as_bytes()).expect("projects");
+        let said: Vec<String> = super::super::face::projects_of(&served, &read).iter().filter_map(|one| one.kept.as_ref().map(|place| place.phrase())).collect();
+        assert_eq!(said, vec!["in iCloud Drive", "in s3://b/p", "in cloud storage"]);
     }
 }

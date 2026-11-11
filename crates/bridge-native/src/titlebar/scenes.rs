@@ -8,7 +8,7 @@ use gpui::{App, Global, SharedString};
 use ipc::{FleetBuildReport, ModelDownshift};
 
 use super::face::{
-    connection_of, Band, Build, Connection, Doctor, Dropped, Face, FleetFace, Limit, Link, Outcome, Place, Power, Repository, Restarting, RunsPlace, RunsPlaceKind, Usage, Project, Member,
+    self, connection_of, Band, Build, Connection, Doctor, Dropped, Face, FleetFace, Limit, Link, Outcome, Place, Power, Restarting, RunsPlace, RunsPlaceKind, Usage,
 };
 use super::{live, TitleBar};
 use crate::runtime_file::{Presence, RuntimeFile};
@@ -154,33 +154,21 @@ fn offered() -> ModelDownshift {
 
 /// The bar at rest: Fleet running on an aligned main, the plan windows low.
 pub fn rest() -> Face {
+    // The repositories and projects are what Fleet would serve, put through the reading the live bar uses.
+    let served = crate::mock::repositories();
+    let mut repositories = face::repositories_of(&served, &[]);
+    let kept = [RunsPlaceKind::Repository, RunsPlaceKind::Mac, RunsPlaceKind::Synced];
+    for (one, kind) in repositories.iter_mut().zip(kept) {
+        let detail = (kind == RunsPlaceKind::Synced).then(|| SharedString::from("iCloud Drive"));
+        one.kept = Some(RunsPlace { kind, detail });
+    }
     Face {
         usage: limits((42, Band::Normal, "2h 14m"), (71, Band::Normal, "2d 17h")),
         build: Some(main_aligned()),
         fleet: fleet(connected(), Power::Live),
-        repositories: vec![
-            Repository { name: "armada".into(), not_set_up: false, kept: Some(RunsPlace { kind: RunsPlaceKind::Repository, detail: None }) },
-            Repository { name: "sample-web".into(), not_set_up: false, kept: Some(RunsPlace { kind: RunsPlaceKind::Mac, detail: None }) },
-            Repository { name: "sample-api".into(), not_set_up: false, kept: Some(RunsPlace { kind: RunsPlaceKind::Synced, detail: Some("iCloud Drive".into()) }) },
-            Repository { name: "sample-docs".into(), not_set_up: true, kept: None },
-        ],
+        repositories,
         chosen: None,
-        projects: vec![
-            Project {
-                name: "Armada".into(),
-                members: vec![Member { repository: 0, folder: None }],
-                tracker: Some("Beads".into()),
-                kept: Some(RunsPlace { kind: RunsPlaceKind::Repository, detail: None }),
-                look: Some("Yours".into()),
-            },
-            Project {
-                name: "Storefront".into(),
-                members: vec![Member { repository: 1, folder: Some("web/checkout".into()) }, Member { repository: 2, folder: Some("services/pricing".into()) }],
-                tracker: Some("Linear, STORE".into()),
-                kept: Some(RunsPlace { kind: RunsPlaceKind::Mac, detail: None }),
-                look: Some("Yours".into()),
-            },
-        ],
+        projects: face::projects_of(&served, &crate::mock::projects()),
         scoped: Some(0),
         signed_in: true,
         downshift: None,

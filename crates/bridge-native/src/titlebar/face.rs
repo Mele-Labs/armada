@@ -13,7 +13,8 @@
 use chrono::{DateTime, Local};
 use gpui::SharedString;
 use ipc::{
-    BuildPosition, BuildSource, BuildStage, FleetBuildReport, Instant, ModelDownshift, ProtocolId,
+    BuildPosition, BuildSource, BuildStage, FleetBuildReport, Instant, ManifestId, ModelDownshift, ProjectPlace, Projects, ProtocolId,
+    RepositorySummary, RunCloud, RunPlace,
 };
 
 use crate::runtime_file::Presence;
@@ -516,12 +517,14 @@ impl RunsPlace {
 /// A project the switcher lists: whole repositories, or folders of one, and what it holds of its own.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Project {
+    /// Fleet's id for it, which keeps the window on the project when the list changes.
+    pub id: SharedString,
     pub name: SharedString,
     pub members: Vec<Member>,
-    /// The tracker and its key, as `Linear, STORE`.
+    /// The tracker and its key, as `Linear, STORE`. Fleet serves none yet, so live it is absent.
     pub tracker: Option<SharedString>,
     pub kept: Option<RunsPlace>,
-    /// The look it wears: `Yours` where it keeps the person's own.
+    /// The look it wears: `Yours` where it keeps the person's own. Fleet serves none yet.
     pub look: Option<SharedString>,
 }
 
@@ -530,6 +533,66 @@ pub struct Project {
 pub struct Member {
     pub repository: usize,
     pub folder: Option<SharedString>,
+}
+
+/// The repository Fleet names a served repository by: its Manifest's id, else the id it gives one with none.
+fn manifest_of(one: &RepositorySummary) -> Option<&ManifestId> {
+    one.manifest.as_ref().map(|manifest| &manifest.id).or(one.implicit_id.as_ref())
+}
+
+/// The repositories the picker lists: each by its directory's name, `Not set up` where no Manifest has
+/// loaded. Where one is in `held` by name, what Fleet said of where it is kept stays.
+pub fn repositories_of(served: &[RepositorySummary], held: &[Repository]) -> Vec<Repository> {
+    served
+        .iter()
+        .map(|one| {
+            let name = one.manifest.as_ref().map_or_else(|| one.root.rsplit('/').find(|part| !part.is_empty()).unwrap_or(&one.root).to_string(), |manifest| manifest.repository.clone());
+            let kept = held.iter().find(|one| one.name.as_ref() == name).and_then(|one| one.kept.clone());
+            Repository { name: name.into(), not_set_up: one.manifest.is_none(), kept }
+        })
+        .collect()
+}
+
+/// Where Fleet keeps a project's file, as a place the pane can phrase.
+fn place_of(place: &ProjectPlace) -> RunsPlace {
+    let (kind, detail) = match place.place {
+        RunPlace::ThisMac => (RunsPlaceKind::Mac, None),
+        RunPlace::Repository => (RunsPlaceKind::Repository, None),
+        RunPlace::Synced => (RunsPlaceKind::Synced, place.synced_folder.clone()),
+        RunPlace::Cloud => (
+            RunsPlaceKind::Cloud,
+            match &place.cloud {
+                Some(RunCloud::Bucket(address)) => Some(address.clone()),
+                Some(RunCloud::Store {}) | None => None,
+            },
+        ),
+    };
+    RunsPlace { kind, detail: detail.map(SharedString::from) }
+}
+
+/// The projects the switcher lists, in the order Fleet keeps them. A project whose file would not read
+/// has no members to draw and is left out, as the Workspaces page leaves it. A member Fleet serves no
+/// repository for is left out of its project.
+pub fn projects_of(served: &[RepositorySummary], read: &Projects) -> Vec<Project> {
+    read.projects
+        .iter()
+        .filter(|one| one.unread.is_none())
+        .map(|one| Project {
+            id: one.id.clone().into(),
+            name: one.name.clone().into(),
+            members: one
+                .members
+                .iter()
+                .filter_map(|member| {
+                    let repository = served.iter().position(|each| manifest_of(each) == Some(&member.manifest_id))?;
+                    Some(Member { repository, folder: member.folder.clone().map(SharedString::from) })
+                })
+                .collect(),
+            tracker: None,
+            kept: Some(place_of(&one.place)),
+            look: None,
+        })
+        .collect()
 }
 
 /// One place in the bar's centre (`DK/TabBar.tsx`, `DECK_TABS`): a screen the window can be in.

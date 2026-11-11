@@ -40,6 +40,21 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())
 }
 
+/// The repositories Fleet would serve (`GET /repositories`) in the walks: the four the title bar's
+/// switcher is drawn from, the last with no Manifest.
+pub fn repositories() -> Vec<ipc::RepositorySummary> {
+    ipc::decode::<ipc::RepositoryList>("RepositoryList", include_bytes!("../fixtures/repositories.json"))
+        .unwrap_or_else(|why| panic!("the repositories fixture does not decode: {why}"))
+        .repositories
+}
+
+/// His projects as `GET /projects` would answer them in the walks: two that read, over the repositories
+/// above, and one whose file did not, which the switcher leaves out.
+pub fn projects() -> ipc::Projects {
+    ipc::decode::<ipc::Projects>("Projects", include_bytes!("../fixtures/projects.json"))
+        .unwrap_or_else(|why| panic!("the projects fixture does not decode: {why}"))
+}
+
 /// The threads Fleet would serve for a scenario's Jobs, by Job id, as `GET /sessions/thread` answers
 /// them. A Job with none stays on its skeleton, as one Fleet has not answered for does.
 pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {

@@ -508,7 +508,13 @@ impl JobsList {
         let watch = cx.observe(fleet, |this, fleet, cx| {
             // The title bar's picker lists what Fleet serves; the bar has no Fleet of its own to watch.
             if let (Some(served), Some(bar)) = (fleet.read(cx).held().repositories.clone(), crate::titlebar::live(cx)) {
-                bar.update(cx, |bar, cx| bar.set_repositories(&served, cx));
+                let projects = fleet.read(cx).held().projects.clone();
+                bar.update(cx, |bar, cx| {
+                    bar.set_repositories(&served, cx);
+                    if let Some(projects) = &projects {
+                        bar.set_projects(&served, projects, cx);
+                    }
+                });
             }
             let mut jobs = fleet.read(cx).held().jobs.clone();
             this.hold_asked_titles(&mut jobs);

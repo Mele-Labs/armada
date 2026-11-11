@@ -15,7 +15,7 @@ use chrono::Local;
 use tokio::time::{sleep, Instant};
 
 use ipc::{
-    Event, FleetBuildReport, ModChecked, ModKind, ModList, ModSummary, Preferences, ProtocolId, RepositoryList, SessionList,
+    Event, FleetBuildReport, ModChecked, ModKind, ModList, ModSummary, Preferences, Projects, ProtocolId, RepositoryList, SessionList,
     SessionRecord, SettingsList, StandingCalls, StreamMessage,
 };
 
@@ -83,6 +83,9 @@ pub enum Signal {
     /// `GET /repositories`, once per connection; `repositories.changed` carries the list after that.
     Repositories(RepositoryList),
     RepositoriesFailed(String),
+    /// `GET /projects`, once per connection; `projects.changed` carries all of them after that.
+    Projects(Projects),
+    ProjectsFailed(String),
     Stream(StreamMessage),
 }
 
@@ -232,6 +235,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tokio::spawn(fetch_calls(tx.clone(), fleet.port));
                     tokio::spawn(fetch_settings(tx.clone(), fleet.port));
                     tokio::spawn(fetch_repositories(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_projects(tx.clone(), fleet.port));
                     // Stops with this connection: the guard aborts the task when `follow` returns.
                     _build_watch = Some(AbortOnDrop(tokio::spawn(watch_build(tx.clone(), fleet.port))));
                 }
@@ -341,6 +345,15 @@ async fn fetch_repositories(tx: Sender<Signal>, port: u16) {
     let signal = match read_with_retries::<RepositoryList>(port, "/repositories", "repository list").await {
         Ok(list) => Signal::Repositories(list),
         Err(why) => Signal::RepositoriesFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /projects`, once per connection, retried as the Jobs are.
+async fn fetch_projects(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<Projects>(port, "/projects", "projects").await {
+        Ok(projects) => Signal::Projects(projects),
+        Err(why) => Signal::ProjectsFailed(why),
     };
     let _ = tx.send(signal).await;
 }
