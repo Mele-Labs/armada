@@ -31,7 +31,7 @@ pub(super) fn a_fleet(home: &TempDir, tracker: &Arc<FakeTracker>) -> Hosted {
 }
 
 pub(super) fn name(name: &str) -> NewProject {
-    NewProject { name: name.to_string(), members: None, place: None }
+    NewProject { name: name.to_string(), members: None, place: None, values: None }
 }
 
 fn edit_name(name: &str) -> EditProject {

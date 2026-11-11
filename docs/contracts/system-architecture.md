@@ -680,10 +680,9 @@ Agent. Drone and Scout carry a toolset; every other invocation below does not, t
 | Sub-agents inside a Drone | Inherits, restricted | The Drone's | Within the Drone | Not separate |
 | Denial-pattern suggestion | Unknown | No | Rollup | Possibly not a model call |
 
-**Whether Machine is named in what a Drone resolves is open.** Kit and
-Manifest merge into the resolved config a Drone receives; whether Machine
-participates in that resolution, or sits outside it as per-install
-settings a Manifest never sees, is undecided.
+**Machine is a layer of the values that decide how work behaves, and sits outside how a repository runs.**
+Pull request mode, auto merge, autonomy, the review model and the look are laid over default, Machine, Kit, repository, Project and Job, the nearest winning, and a read names the layer each value came from (`../concepts/project.md`, *What a project sets*).
+Kit and Manifest merge into what a repository runs, and Machine never appears in that.
 
 **Judge is not an Agent.** It is a veto-only verification tier that fires
 on mechanical triggers, blind to the Drone, judging whether evidence
@@ -823,16 +822,16 @@ so they are not lost.
   phase is an iterative loop toward a satisfied `armada.yml`, which leans
   toward the scanner needing to look again between rounds, but that is an
   inference, not a decision.
-- **[kit-machine-manifest-resolution-chain]** What is the resolution chain across Kit, Machine and Manifest, and what does `get_manifest` return?
-  `get_manifest` used to return "resolved config after Guild merge"; with
-  Guild split into Kit and Machine, the merge order is unstated. Needs
-  deciding: the tier resolution order and which tiers narrow versus
-  define (the config-direction rule that config may only narrow was
-  withdrawn, so narrowing is no longer the default assumption); whether
-  Machine participates in the resolution `get_manifest` returns at all, or
-  sits outside it as per-install settings a Manifest never sees; and
-  whether a caller receives one merged object or the tiers separately so
-  each value's source stays visible.
+- **[kit-machine-manifest-resolution-chain]** What does `get_manifest` return, one Manifest with Kit's copy merged in or the tiers separately?
+  The chain for the values that decide how work behaves is decided: default,
+  Machine, Kit, repository, Project, Job, the nearest winning, each value
+  returned with its layer and nothing folded. What is left is how a
+  repository runs. `get_manifest` used to return "resolved config after
+  Guild merge", and Kit's `armada.yml` copy still merges over the
+  repository's (`config::manifest::kit`) with Machine outside it. Needs
+  deciding: whether a caller of `get_manifest` receives one merged object or
+  the tiers separately so each value's source stays visible, and which tiers
+  narrow versus define now that the config-direction rule is withdrawn.
 - **[guild-row-concepts-split]** Does the Guild row in the Armada Concepts database become one row or two, now that Guild split into Kit and Machine?
   The Guild row is currently tagged Entity and named as one concept in
   section 9's "Filing the concepts" table; Kit already has its own concept

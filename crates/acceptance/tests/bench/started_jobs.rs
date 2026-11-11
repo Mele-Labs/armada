@@ -73,6 +73,7 @@ pub fn job(id: &str, title: &str, attachments: Vec<Attachment>) -> SessionRecord
             start: None,
             start_failed: None,
             project: None,
+            values: None,
         }),
         terminal: None,
         mod_out_of_date: false,

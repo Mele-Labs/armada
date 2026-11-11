@@ -1,0 +1,12 @@
+[operations.list_project_issues]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The open issues of the tracker a project names, as the Issues tab lists a repository's"
+notes = """
+`GET /projects/project/:project/issues`, and `?refresh=true` to read the tracker again whatever is held. `docs/concepts/tracker.md`, *Choosing a tracker*. Answers `ProjectIssueList`: `project` (its id), `fetched_at`, `issues` as `list_issues` carries them (`TrackedIssue`, `holders` being the Jobs holding the issue in any repository the project holds), and `stale` where the read just tried failed and an older list is answered instead, in the tracker's words.
+
+**Only a project that names its own tracker has issues of its own**: the repository's tracker is read by `list_issues`, one repository at a time. The read runs in the first repository of the project Fleet serves, or the one Fleet started in where it serves none of them; the tracker's own keys decide where its issues are, so that root matters only to a tracker that reads a working copy. Held five minutes and never polled, as a repository's list is. A view and nothing more.
+
+404 `fleet.no_such_project` for a project he has none of. 422 `fleet.project_unreadable` where its file did not read. 422 `fleet.project_no_tracker` for a project whose file names no tracker. 500 `fleet.issues_unreadable` where the tracker would not answer and nothing is held.
+"""
