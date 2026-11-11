@@ -162,6 +162,7 @@ j / k / ↓ / ↑  move between calls   (call only)
 h              always here   (call only)
 ⇧a             always   (call only)
 c              send changes   (call only)
+f              forget   (call only)
 e              Edit the entry   (logbook only)
 l              Lock or unlock the entry   (logbook only)
 f              Forget the entry   (logbook only)   (confirms)
@@ -185,6 +186,7 @@ a palette row yet: each is read from the Cockpit's own sheet.
 On the Operator's page the item open in Your turn is the call in front.
 There `a` says Yes to the Operator's pick, `/` asks the Operator about the item, the arrows, `j` and `k` open the next or the previous item, and `⌥↑ ⌥↓` move it.
 `h` and `⇧a` say Yes and keep it as a rule, here or everywhere, where Fleet keeps one; `d` says No, and `c` opens a plan to send changes.
+`f` forgets the rule Every rule has on, or the rule or hold whose Forget has the keys, and asks nothing first, unlike the Logbook's.
 
 **The Logbook page has a scope of its own, `logbook`.** Its three keys act on the selected
 entry: `e` edits its text in place, `l` locks it against rewriting or lets go, and `f` forgets it

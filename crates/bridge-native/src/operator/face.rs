@@ -126,6 +126,23 @@ pub fn answer_word(answer: OperatorAnswer) -> &'static str {
 }
 
 /// A Then offered on a go-ahead to file, in the sketch's words and glyph.
+/// What an answer's tooltip says it does on this item: the act Yes does, by the Then picked or the
+/// Operator's pick, and where Always here and Always keep it as a rule. A decision's says what it asks.
+pub fn answer_tip(turn: &OperatorTurnItem, answer: OperatorAnswer, then: Option<OperatorThen>) -> String {
+    if turn.kind == OperatorTurnKind::Decision {
+        return turn.item.text.clone();
+    }
+    let hand_to = turn.then.iter().find_map(|offer| offer.hand_to.as_ref()).map(|to| to.job.as_str());
+    let act = then.map(|then| then_said(then, hand_to).0.to_string()).or_else(|| pick_of(turn).map(|pick| pick.to_string())).unwrap_or_else(|| "Do my pick".into());
+    let here = turn.repository.as_deref().unwrap_or("this project");
+    match answer {
+        OperatorAnswer::Yes => format!("{act}, this once"),
+        OperatorAnswer::AlwaysHere => format!("{act}, and do the same in {here} from now on without asking"),
+        OperatorAnswer::Always => format!("{act}, and do the same in every project from now on without asking"),
+        OperatorAnswer::No => "Do nothing, and it leaves Your turn".into(),
+    }
+}
+
 pub fn then_said(then: OperatorThen, hand_to: Option<&str>) -> (SharedString, &'static str) {
     match then {
         OperatorThen::JustFile => ("Just file it".into(), "file"),
@@ -180,6 +197,17 @@ mod tests {
         assert_eq!(answers_of(&turn(RED)), vec![OperatorAnswer::Yes, OperatorAnswer::AlwaysHere, OperatorAnswer::Always, OperatorAnswer::No]);
         assert!(sends_changes(&turn(PLAN)));
         assert!(!sends_changes(&turn(RED)));
+    }
+
+    #[test]
+    fn each_answer_says_what_it_does_on_the_item() {
+        const NOTE: &str = r#"{"id":"turn:3","kind":"go_ahead","repository":"armada","item":{"id":"note","text":"the slot meter flickers","since":"2026-11-11T11:52:00Z","source":"agent"},"read":{"read":"No issue covers it.","pick":"File and hand to Slot pool controls"},"then":[{"then":"just_file"},{"then":"file_and_hand","hand_to":{"session_id":"s-5","job":"Slot pool controls"},"pick":true}],"raised_at":"2026-11-11T12:00:00Z","keeps":true}"#;
+        let note = turn(NOTE);
+        assert_eq!(answer_tip(&note, OperatorAnswer::Yes, Some(OperatorThen::FileAndHand)), "File and hand to Slot pool controls, this once");
+        assert_eq!(answer_tip(&note, OperatorAnswer::Yes, Some(OperatorThen::JustFile)), "Just file it, this once");
+        assert_eq!(answer_tip(&note, OperatorAnswer::AlwaysHere, Some(OperatorThen::FileAndHand)), "File and hand to Slot pool controls, and do the same in armada from now on without asking");
+        assert_eq!(answer_tip(&note, OperatorAnswer::No, None), "Do nothing, and it leaves Your turn");
+        assert_eq!(answer_tip(&turn(PLAN), OperatorAnswer::Yes, None), "Approve plan version 2");
     }
 
     #[test]

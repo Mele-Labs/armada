@@ -1,4 +1,4 @@
-//! The chat with the Operator, which Ask opens about one item in place of the digest, and which the pane
+//! The chat with the Operator, which Ask opens about one item inside its card, and which the pane
 //! from a Job holds. It holds conversation only: what the Operator raises is an item of Your turn, never a
 //! line here. The page sends the words (`talk_to_operator`); this draws them and the box.
 

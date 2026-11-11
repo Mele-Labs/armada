@@ -32,8 +32,6 @@ pub enum Opened {
     /// The act of an item Fleet cannot do itself, such as a walk to open or a pull request, from the
     /// Job that holds it.
     Act(WaitingAct, Option<SessionId>),
-    /// The week's Log, a markdown file on this machine.
-    Log(String),
     /// A Job, from a row of the digest.
     Job(SessionId),
 }
@@ -44,7 +42,7 @@ pub enum Opened {
 pub struct Arrived(pub Vec<OperatorTurnItem>);
 
 /// The digest's tab stops: each tile's head, and the links under them.
-pub const STOPS: [&str; 7] = ["Landed", "What I handled", "Running", "Coming up", "Learned", "The whole Log", "Every rule"];
+pub const STOPS: [&str; 8] = ["Landed", "What I handled", "Running", "Coming up", "Learned", "Holds", "The whole Log", "Every rule"];
 
 impl EventEmitter<Opened> for OperatorPageView {}
 impl EventEmitter<Arrived> for OperatorPageView {}
@@ -87,6 +85,10 @@ pub struct OperatorPageView {
     pub(super) rules: Option<usize>,
     pub(super) rules_focus: FocusHandle,
     pub(super) rules_scroll: ScrollHandle,
+    /// The week's Log, on a sheet over the page: `Some("")` while it is read, its words once read.
+    pub(super) log: Option<String>,
+    pub(super) log_focus: FocusHandle,
+    pub(super) log_scroll: ScrollHandle,
     pub(super) main_scroll: ScrollHandle,
     /// The page's first tab stop, its first pill: where Tab goes from the page itself.
     pub(super) first_stop: FocusHandle,
@@ -135,6 +137,9 @@ impl OperatorPageView {
             rules: None,
             rules_focus: cx.focus_handle(),
             rules_scroll: ScrollHandle::new(),
+            log: None,
+            log_focus: cx.focus_handle(),
+            log_scroll: ScrollHandle::new(),
             main_scroll: ScrollHandle::new(),
             first_stop: cx.focus_handle(),
             later_focus: cx.focus_handle(),
@@ -260,11 +265,21 @@ impl OperatorPageView {
         if self.chat_has_keys(window, cx) {
             return cx.propagate();
         }
+        // The Log's sheet scrolls on the arrows, and no key reaches Your turn behind it.
+        if self.log.is_some() {
+            match act.id {
+                "call_move_focus" => self.scroll_log(if act.slot % 2 == 0 { 1. } else { -1. }, cx),
+                id if id.starts_with("call_") => {}
+                _ => cx.propagate(),
+            }
+            return;
+        }
         // The sheet over the page takes the arrows and Enter, and no key reaches Your turn behind it.
         if self.rules.is_some() {
             match act.id {
                 "call_move_focus" => self.step_rule(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
                 "call_send" => cx.propagate(),
+                "call_forget" => self.forget_selected_rule(cx),
                 id if id.starts_with("call_") => {}
                 _ => cx.propagate(),
             }
@@ -284,6 +299,7 @@ impl OperatorPageView {
             // ⌥↑ then ⌥↓.
             "call_reorder" => self.shove(if act.slot == 0 { -1 } else { 1 }, cx),
             "call_pick" => self.digit(act.digit.unwrap_or(0) as usize, cx),
+            // `f` among them: a rule's or a hold's Forget takes it itself, where it has the keys.
             _ => cx.propagate(),
         }
     }
@@ -305,11 +321,7 @@ impl OperatorPageView {
     /// A tile's head folds or opens it; a link does what it says.
     pub fn press_stop(&mut self, name: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         match name {
-            "The whole Log" => {
-                if let Some(log) = self.page.as_ref().and_then(|page| page.digest.handled.log.clone()) {
-                    cx.emit(Opened::Log(log.path));
-                }
-            }
+            "The whole Log" => self.open_log(window, cx),
             "Every rule" => self.open_rules(window, cx),
             tile => {
                 let open = self.folded.get(tile).copied().unwrap_or(super::view::opens_unpressed(tile));
@@ -334,7 +346,8 @@ impl OperatorPageView {
     }
 
     /// Switch on, where the page says the Operator is off: the setting Electron's Permissions tab saves.
-    /// The page reads on at once, and goes back with why if Fleet refuses.
+    /// The page reads on at once, and goes back with why if Fleet refuses. Saved, Fleet's
+    /// `operator.page_changed` redraws it; the mock sends no event, so it is read in its place.
     pub fn switch_on(&mut self, cx: &mut Context<Self>) {
         if self.switching {
             return;
@@ -351,7 +364,8 @@ impl OperatorPageView {
             let _ = this.update(cx, |this, cx| {
                 this.switching = false;
                 match saved {
-                    Ok(()) => this.read(cx),
+                    Ok(()) if !this.wire.is_live() => this.read(cx),
+                    Ok(()) => cx.notify(),
                     Err(why) => {
                         if let Some(page) = this.page.as_mut() {
                             page.on = false;
@@ -363,6 +377,44 @@ impl OperatorPageView {
             });
         });
         self.track(task);
+    }
+
+    // -- the Log ----------------------------------------------------------------------------------
+
+    /// The whole Log: the week's journal on a sheet, read from where Fleet says it is.
+    pub fn open_log(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(path) = self.page.as_ref().and_then(|page| page.digest.handled.log.as_ref()).map(|log| log.path.clone()) else { return };
+        self.log = Some(String::new());
+        window.focus(&self.log_focus, cx);
+        cx.notify();
+        let read = self.wire.log(path, cx);
+        let task = cx.spawn(async move |this, cx| {
+            let read = read.await;
+            let _ = this.update(cx, |this, cx| {
+                if this.log.is_some() {
+                    this.log = Some(read.unwrap_or_else(|why| format!("The Log did not read: {why}")));
+                    cx.notify();
+                }
+            });
+        });
+        self.track(task);
+    }
+
+    /// Esc on the Log: shut, and the keys back on the link that opened it.
+    pub fn close_log(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.log = None;
+        match self.stops.get("The whole Log") {
+            Some(keys) => window.focus(keys, cx),
+            None => window.focus(&self.focus, cx),
+        }
+        cx.notify();
+    }
+
+    fn scroll_log(&mut self, by: f32, cx: &mut Context<Self>) {
+        let step = gpui::px(60.);
+        let offset = self.log_scroll.offset();
+        self.log_scroll.set_offset(gpui::point(offset.x, (offset.y - step * by).min(gpui::px(0.))));
+        cx.notify();
     }
 
     // -- every rule --------------------------------------------------------------------------------
@@ -399,6 +451,54 @@ impl OperatorPageView {
         self.rules_scroll.scroll_to_item(at + heads);
         self.rules = Some(at);
         cx.notify();
+    }
+
+    /// Forget: the rule or hold stops standing. Its row goes at once; Fleet's `operator.page_changed`
+    /// redraws the page, and a refusal reads it again, which puts the row back.
+    pub fn forget(&mut self, id: i64, cx: &mut Context<Self>) {
+        if let Some(page) = self.page.as_mut() {
+            page.digest.learned.retain(|rule| rule.id != id);
+            page.digest.holds.retain(|hold| hold.id != id);
+        }
+        if let Some(at) = self.rules {
+            self.rules = Some(at.min(self.rules_in_order().len().saturating_sub(1)));
+        }
+        cx.notify();
+        let task = self.wire.forget(id, cx);
+        let task = cx.spawn(async move |this, cx| {
+            let forgot = task.await;
+            let _ = this.update(cx, |this, cx| match forgot {
+                Ok(Some(page)) => this.set_page(page, cx),
+                Ok(None) => {}
+                Err(why) => {
+                    Note::warn("the Operator's page did not forget it").field("why", why).emit();
+                    this.read(cx);
+                }
+            });
+        });
+        self.track(task);
+    }
+
+    /// Forget pressed on a row: the row and its Forget go, so the keys go to the sheet, or the tile's
+    /// head. A tile left with nothing is not drawn, so then the keys go to the other tile, or the page.
+    pub fn forget_pressed(&mut self, id: i64, window: &mut Window, cx: &mut Context<Self>) {
+        let held = self.page.as_ref().is_some_and(|page| page.digest.holds.iter().any(|hold| hold.id == id));
+        self.forget(id, cx);
+        let (rules, holds) = self.page.as_ref().map_or((false, false), |page| (!page.digest.learned.is_empty(), !page.digest.holds.is_empty()));
+        let tile = match (held, holds, rules) {
+            (true, true, _) | (false, true, false) => Some("Holds"),
+            (_, _, true) => Some("Learned"),
+            _ => None,
+        };
+        let keys = if self.rules.is_some() { Some(&self.rules_focus) } else { tile.and_then(|tile| self.stops.get(tile)) };
+        window.focus(keys.unwrap_or(&self.focus), cx);
+    }
+
+    /// `f` on Every rule: the selected rule.
+    fn forget_selected_rule(&mut self, cx: &mut Context<Self>) {
+        if let Some(id) = self.rules.and_then(|at| self.rules_in_order().get(at).map(|rule| rule.id)) {
+            self.forget(id, cx);
+        }
     }
 
     /// Open the next or the previous item.
@@ -554,7 +654,7 @@ impl OperatorPageView {
 
     // -- the chat ----------------------------------------------------------------------------------
 
-    /// Ask: the chat about the open item, in place of the digest, with the keys in its box.
+    /// Ask: the chat about the open item, inside its card, with the keys in its box.
     pub fn ask(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let turn = self.open_item().cloned();
         let about = turn.as_ref().map(|turn| turn.id.clone());
@@ -1004,6 +1104,60 @@ mod tests {
         cx.simulate_keystrokes("escape");
         assert_eq!(page.read_with(cx, |page, _| page.rules), None);
         cx.update(|window, _| assert!(link.is_focused(window), "the keys are back on Every rule"));
+    }
+
+    #[gpui::test]
+    fn the_whole_log_opens_on_a_sheet_with_the_weeks_days_and_esc_gives_the_keys_back_to_its_link(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let link = page.read_with(cx, |page, _| page.stops.get("The whole Log").cloned()).expect("The whole Log is a tab stop");
+        cx.update(|window, cx| window.focus(&link, cx));
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        let log = page.read_with(cx, |page, _| page.log.clone()).expect("the Log is open");
+        assert!(log.contains("## Wednesday 2026-11-11"), "the week's journal, as Fleet writes it");
+        cx.simulate_keystrokes("a l alt-up");
+        assert!(pressed(&page, cx).is_empty(), "no key reaches Your turn behind the sheet");
+        cx.simulate_keystrokes("escape");
+        assert_eq!(page.read_with(cx, |page, _| page.log.clone()), None);
+        cx.update(|window, _| assert!(link.is_focused(window), "the keys are back on The whole Log"));
+    }
+
+    fn standing(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> (Vec<i64>, Vec<i64>) {
+        page.read_with(cx, |page, _| {
+            let digest = page.page.as_ref().map(|page| &page.digest);
+            (digest.map_or(Vec::new(), |digest| digest.learned.iter().map(|rule| rule.id).collect()), digest.map_or(Vec::new(), |digest| digest.holds.iter().map(|hold| hold.id).collect()))
+        })
+    }
+
+    #[gpui::test]
+    fn f_on_every_rule_forgets_the_rule_it_has_on_and_the_next_one_takes_its_place(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let link = page.read_with(cx, |page, _| page.stops.get("Every rule").cloned()).expect("Every rule is a tab stop");
+        cx.update(|window, cx| window.focus(&link, cx));
+        cx.simulate_keystrokes("enter down");
+        let on = page.read_with(cx, |page, _| page.rules_in_order()[1].id);
+        cx.simulate_keystrokes("f");
+        cx.run_until_parked();
+        let (rules, _) = standing(&page, cx);
+        assert!(!rules.contains(&on), "forgotten");
+        assert_eq!(rules.len(), 5);
+        assert!(page.update(cx, |page, _| page.mock_fleet().is_some_and(|mock| mock.page.digest.learned.iter().all(|rule| rule.id != on))), "Fleet was told");
+        assert_eq!(page.read_with(cx, |page, _| page.rules), Some(1), "the next rule has the sheet");
+        assert!(pressed(&page, cx).is_empty(), "f answers nothing in Your turn");
+    }
+
+    #[gpui::test]
+    fn forget_lifts_a_hold_at_once_and_a_refusal_reads_the_page_again(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.forget(12, cx));
+        assert_eq!(standing(&page, cx).1, [11], "gone before Fleet answers");
+        cx.run_until_parked();
+        assert_eq!(standing(&page, cx).1, [11]);
+
+        // An id nothing has: the mock refuses, and the page is read again as it was.
+        page.update(cx, |page, cx| page.forget(99, cx));
+        cx.run_until_parked();
+        assert_eq!(standing(&page, cx), (vec![1, 2, 3, 4, 5, 6], vec![11]));
     }
 
     #[gpui::test]

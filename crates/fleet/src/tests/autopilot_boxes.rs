@@ -22,6 +22,7 @@ fn settings(backlog: bool, running: bool, decisions: &[AutopilotDecision]) -> Au
         weekly_cap_percent: None,
         on_autopilot: AutopilotWork { backlog, running, reports: false },
         decisions: decisions.iter().copied().collect::<BTreeSet<_>>(),
+        project: None,
     }
 }
 
