@@ -120,11 +120,29 @@ export type OperatorComingUp = {
   needs: string;
 };
 
+/**
+ * Where a rule holds. A rule for the repository beats one for a project, which beats one for everywhere.
+ * Since 10 Nov 2026.
+ */
+export type RuleScope =
+  | {
+      kind: "everywhere";
+    }
+  | {
+      kind: "repository";
+      manifest_id: string;
+    }
+  | {
+      kind: "project";
+      project: string;
+    };
+
 /** One rule the Operator keeps from an Always or an Always here. */
 export type OperatorLearned = {
   id: number;
-  /** The repository it holds in. Absent on an Always, which holds everywhere. */
-  manifest_id?: string;
+  /** Where it holds: a repository, a project, or everywhere, which is an Always. */
+  scope: RuleScope;
+  /** What a person reads for the scope: the repository's name, or the project's. Absent on everywhere. */
   repository?: string;
   /** The rule in Fleet's words, such as `Start a fix when main is red`. */
   said: string;
@@ -207,6 +225,8 @@ export type OperatorAnswerPress = {
   answer: OperatorAnswer;
   /** On a go-ahead to file an issue: which Then. Absent takes the Operator's pick, else `just_file`. */
   then?: OperatorThen;
+  /** On an Always here: the project the page is filtered to, which the rule then holds in. Absent holds in the item's repository. */
+  project?: string;
 };
 
 /** What `operator_answer` did. */

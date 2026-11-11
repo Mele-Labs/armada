@@ -55,8 +55,10 @@ pub trait PullRequestPanel: Send + Sync + 'static {
 
     /// `get_review_lists` — the pull requests waiting on the person, as four lists read from
     /// the forge across every served repository. **Read when somebody looks, never polled.**
-    /// [`Refusal::Fault`] where no list could be read, or no login is known.
-    fn get_review_lists(&self) -> impl Future<Output = Result<PullReviewLists, Refusal>> + Send;
+    /// With `project`, every list keeps only the rows of that project's member repositories.
+    /// [`Refusal::Fault`] where no list could be read, or no login is known; [`Refusal::NotFound`]
+    /// for a project he has none of.
+    fn get_review_lists(&self, project: Option<String>) -> impl Future<Output = Result<PullReviewLists, Refusal>> + Send;
 
     /// `resolve_review_thread` — resolve a conversation on a pull request's diff, or open it
     /// again. **A write to a shared place, taken at once**, so a person's press.

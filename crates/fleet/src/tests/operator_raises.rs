@@ -25,17 +25,17 @@ use crate::operator::{keep_the_raises, Answering, Calling};
 use crate::CallFailed;
 
 /// A call that answers with each of its replies in turn, `None` failing, and keeps what it was asked.
-struct Replies {
+pub(super) struct Replies {
     replies: Mutex<Vec<Option<String>>>,
     asked: Mutex<Vec<String>>,
 }
 
 impl Replies {
-    fn saying(replies: &[Option<&str>]) -> Arc<Replies> {
+    pub(super) fn saying(replies: &[Option<&str>]) -> Arc<Replies> {
         Arc::new(Replies { replies: Mutex::new(replies.iter().rev().map(|one| one.map(str::to_string)).collect()), asked: Mutex::new(Vec::new()) })
     }
 
-    fn asked(&self) -> Vec<String> {
+    pub(super) fn asked(&self) -> Vec<String> {
         self.asked.lock().expect("not poisoned").clone()
     }
 }
@@ -77,14 +77,14 @@ fn millis(at: &str) -> i64 {
 }
 
 /// The Operator seated on `replies` and switched on.
-async fn seated(rig: &Rig, replies: &[Option<&str>]) -> Arc<Replies> {
+pub(super) async fn seated(rig: &Rig, replies: &[Option<&str>]) -> Arc<Replies> {
     let call = Replies::saying(replies);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     switched(rig, "features.operator", true).await;
     call
 }
 
-fn question(id: &str, text: &str, options: &[&str]) -> WaitingInput {
+pub(super) fn question(id: &str, text: &str, options: &[&str]) -> WaitingInput {
     WaitingInput {
         approves: false,
         id: id.into(),
@@ -96,16 +96,16 @@ fn question(id: &str, text: &str, options: &[&str]) -> WaitingInput {
 }
 
 /// `job`'s list, as its agent sets it whole.
-async fn waiting(rig: &Rig, job: &SessionId, items: Vec<WaitingInput>) {
+pub(super) async fn waiting(rig: &Rig, job: &SessionId, items: Vec<WaitingInput>) {
     rig.fleet.waiting_for(None, SetWaitingFor { items, session_id: Some(job.clone()) }).await.expect("set");
 }
 
-async fn page(rig: &Rig) -> OperatorPage {
+pub(super) async fn page(rig: &Rig) -> OperatorPage {
     rig.fleet.operator_page_wire().await.expect("read")
 }
 
 /// The item `id` of `job` in Your turn, once it is there.
-async fn queued(rig: &Rig, job: &SessionId, id: &str) -> OperatorTurnItem {
+pub(super) async fn queued(rig: &Rig, job: &SessionId, id: &str) -> OperatorTurnItem {
     for _ in 0..500 {
         if let Some(one) = page(rig).await.turn.into_iter().find(|one| one.session_id.as_ref() == Some(job) && one.item.id == id) {
             return one;
@@ -116,7 +116,7 @@ async fn queued(rig: &Rig, job: &SessionId, id: &str) -> OperatorTurnItem {
 }
 
 /// The item whose id is `id`, whichever Job holds it, once it is there.
-async fn queued_as(rig: &Rig, id: &str) -> OperatorTurnItem {
+pub(super) async fn queued_as(rig: &Rig, id: &str) -> OperatorTurnItem {
     for _ in 0..500 {
         if let Some(one) = page(rig).await.turn.into_iter().find(|one| one.item.id == id) {
             return one;
@@ -126,19 +126,19 @@ async fn queued_as(rig: &Rig, id: &str) -> OperatorTurnItem {
     panic!("{id} was not queued: {:#?}", page(rig).await.turn);
 }
 
-fn press(item: &OperatorTurnItem, answer: OperatorAnswer, then: Option<OperatorThen>) -> OperatorAnswerPress {
-    OperatorAnswerPress { id: item.id.clone(), answer, then }
+pub(super) fn press(item: &OperatorTurnItem, answer: OperatorAnswer, then: Option<OperatorThen>) -> OperatorAnswerPress {
+    OperatorAnswerPress { id: item.id.clone(), answer, then, project: None }
 }
 
 fn review(read: &str, pick: &str) -> String {
     format!("item: 1\nread: {read}\npick: {pick}\n\njournal: Reviewed the plan question.")
 }
 
-async fn pause() {
+pub(super) async fn pause() {
     tokio::time::sleep(Duration::from_millis(200)).await;
 }
 
-async fn journal(rig: &Rig) -> String {
+pub(super) async fn journal(rig: &Rig) -> String {
     let dir = std::path::Path::new(&rig.fleet.host().operator_journal_dir).to_path_buf();
     let mut all = String::new();
     for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
@@ -147,7 +147,7 @@ async fn journal(rig: &Rig) -> String {
     all
 }
 
-fn code(refused: Refusal) -> (u16, String) {
+pub(super) fn code(refused: Refusal) -> (u16, String) {
     (refused.status(), refused.error().code.clone())
 }
 
@@ -372,7 +372,7 @@ async fn always_is_refused_on_a_decision() {
 }
 
 /// A suggestion of the Operator's to file the note `n`, as the Operator keeps it, with its note left.
-async fn file_go_ahead(rig: &Rig, n: &str, text: &str) {
+pub(super) async fn file_go_ahead(rig: &Rig, n: &str, text: &str) {
     leave(rig, n, "open", None, text);
     let kept = KeptSuggestion {
         n: 0,
@@ -398,7 +398,7 @@ async fn file_go_ahead(rig: &Rig, n: &str, text: &str) {
     rig.fleet.store().lock().await.keep_operator_suggestion(&kept).expect("kept");
 }
 
-const FILE_PICK: &str = "item: 1\nread: No open issue covers it.\npick: Do it\nthen: just_file\n\njournal: Reviewed a note.";
+pub(super) const FILE_PICK: &str = "item: 1\nread: No open issue covers it.\npick: Do it\nthen: just_file\n\njournal: Reviewed a note.";
 
 #[tokio::test]
 async fn always_here_on_a_go_ahead_does_it_keeps_a_rule_and_the_next_one_is_done_with_no_press_while_on() {
@@ -417,7 +417,7 @@ async fn always_here_on_a_go_ahead_does_it_keeps_a_rule_and_the_next_one_is_done
     assert_eq!(answered.page.digest.learned.len(), 1);
     let learned = &answered.page.digest.learned[0];
     assert!(learned.said.starts_with("File ") && learned.said.ends_with(" as an issue"), "{}", learned.said);
-    assert_eq!((learned.manifest_id.as_deref(), learned.repository.is_some()), (Some(manifest(&rig).as_str()), true));
+    assert_eq!((&learned.scope, learned.repository.is_some()), (&ipc::operator_page::RuleScope::Repository { manifest_id: manifest(&rig).as_str().to_string() }, true));
     // A rule is no standing order: the orders a person sees do not list it.
     assert!(rig.fleet.operator_orders_wire().await.orders.is_empty());
 

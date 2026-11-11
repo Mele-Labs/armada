@@ -29,6 +29,22 @@ pub struct ValuesSet {
     /// and Fleet refuses one in Kit's values, 422 `fleet.project_values_refused`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracker: Option<BTreeMap<String, String>>,
+    /// How the Operator reviews work before the person sees it, a kind at a time. **A layer that sets it sets all
+    /// three**, and a kind it leaves out is `off`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviews: Option<ReviewsSet>,
+}
+
+/// How each kind of work is reviewed: `off`, `review` or `review_and_approve`, and for `walks` only `off` or
+/// `review`. Fleet refuses another word, 422 `fleet.project_values_refused`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewsSet {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plans: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_requests: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub walks: Option<String>,
 }
 
 /// How Bridge looks, each key absent where the layer says nothing.
@@ -73,6 +89,19 @@ pub struct ResolvedTracker {
     pub from: ValueLayer,
 }
 
+/// How each kind of work is reviewed once the layers are laid over each other, and the layer that said so.
+/// **Every kind is a word**: one no layer set is `off`, and `from` is then `default`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResolvedReviews {
+    /// `off`, `review` or `review_and_approve`.
+    pub plans: String,
+    /// `off`, `review` or `review_and_approve`.
+    pub pull_requests: String,
+    /// `off` or `review`.
+    pub walks: String,
+    pub from: ValueLayer,
+}
+
 /// What autonomy comes to for one kind of act: `acts`, `asks` or `off`. `from` is `kit`, `project` or
 /// `repository` where a piece sets it, else `default`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,6 +129,10 @@ pub struct ResolvedValues {
     /// Job froze**: a Job asks its tracker where it acts, and the project's word is read then.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracker: Option<ResolvedTracker>,
+    /// How the Operator reviews work before the person sees it. What a Job froze, too: **a Job is reviewed as
+    /// its start said**, whatever the project says since.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviews: Option<ResolvedReviews>,
     /// One for each kind of act, where a repository was asked about; empty where only a project was.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub autonomy: Vec<ResolvedAutonomy>,

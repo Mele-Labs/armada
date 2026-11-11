@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use core_model::rule::{ActKind, Autonomy, AutonomyDefaults};
-use core_model::{AutoMerge, Layer, Look, PrMode, TrackerNamed, Values};
+use core_model::{AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, TrackerNamed, Values, WalkReview};
 
 use crate::{
     kit_values_text, parse_kit_values, parse_project, project_text, resolve, shipped_values, AutonomyLayers, Layers, ResolvedValues,
@@ -45,6 +45,7 @@ fn every_key_reads_and_writes_back() {
         review_model: Some("big-model".into()),
         look: Look { layout: Some("compact-deck".into()), theme: Some("paper".into()), density: Some("compact".into()) },
         tracker: Some(TrackerNamed { provider: Some("tickets".into()), keys: [("site".to_string(), "acme".to_string())].into() }),
+        reviews: Some(Reviews { plans: ReviewMode::ReviewAndApprove, pull_requests: ReviewMode::Review, walks: WalkReview::Review }),
     };
     let project = parse_project(Path::new("shop.yml"), &project_with("")).expect("a Project").with_values(all.clone());
     let written = project_text(&project).expect("text");
@@ -136,6 +137,7 @@ fn saying(mode: PrMode, merge: AutoMerge, word: &str) -> Values {
         review_model: Some(format!("model-{word}")),
         look: Look { layout: Some(format!("layout-{word}")), theme: Some(format!("theme-{word}")), density: Some("compact".into()) },
         tracker: None,
+        reviews: None,
     }
 }
 
@@ -258,4 +260,30 @@ fn autonomy_is_read_for_each_kind_from_the_layers_it_already_has() {
     assert_eq!(of(ActKind::ForgeWrite), (Autonomy::Asks, Layer::Project));
     assert_eq!(of(ActKind::Draft), (Autonomy::Asks, Layer::Repository), "a repository's piece is over its Project's, as pieces always were");
     assert_eq!(of(ActKind::StartJob), (ActKind::StartJob.default_autonomy(), Layer::Default));
+}
+
+#[test]
+fn reviews_read_a_kind_at_a_time_and_a_kind_left_out_is_off() {
+    let read = values_of("values:\n  reviews:\n    plans: review_and_approve\n    walks: review\n").reviews.expect("set");
+    assert_eq!(read, Reviews { plans: ReviewMode::ReviewAndApprove, pull_requests: ReviewMode::Off, walks: WalkReview::Review });
+    assert_eq!(values_of("values:\n  pr_mode: draft\n").reviews, None, "nothing said is nothing set, and Off for every kind");
+}
+
+#[test]
+fn a_walk_is_refused_review_and_approve_and_a_word_that_is_not_one_is_refused_for_every_kind() {
+    let said = refused("values:\n  reviews:\n    walks: review_and_approve\n    plans: sometimes\n");
+    for fault in ["values.reviews.walks", "values.reviews.plans"] {
+        assert!(said.contains(fault), "{fault} is named in: {said}");
+    }
+}
+
+#[test]
+fn reviews_are_read_from_kit_and_the_nearest_layer_sets_all_three() {
+    let kit = parse_kit_values(Path::new("values.yml"), "version: 1\nvalues:\n  reviews:\n    pull_requests: review\n").expect("Kit's values");
+    assert_eq!(kit.reviews.map(|reviews| reviews.pull_requests), Some(ReviewMode::Review));
+    let project = only(|v| v.reviews = Some(Reviews { plans: ReviewMode::Review, ..Reviews::default() }));
+    let resolved = resolve(&layers(&[(Layer::Kit, kit), (Layer::Project, project)]));
+    assert_eq!(resolved.reviews.from, Layer::Project);
+    assert_eq!(resolved.reviews.value, Some(Reviews { plans: ReviewMode::Review, ..Reviews::default() }), "a project that sets reviews sets all three");
+    assert_eq!(resolve(&layers(&[])).reviews.value, None, "no layer is Off");
 }

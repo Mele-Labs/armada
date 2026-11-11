@@ -40,6 +40,11 @@ pub struct ToRead {
 pub trait Looking: Send + Sync {
     /// `question`, put to a call that may read `folder` and the code under each of `roots`.
     fn look<'a>(&'a self, question: String, folder: &'a Path, roots: &'a [String]) -> Answering<'a>;
+
+    /// `look`, on `model` where the call can be put to one. **One that cannot is put to its own.**
+    fn look_on<'a>(&'a self, _model: &'a str, question: String, folder: &'a Path, roots: &'a [String]) -> Answering<'a> {
+        self.look(question, folder, roots)
+    }
 }
 
 /// A [`Looking`] that reads nothing: it puts the question to the call that holds no tools. For an
@@ -69,6 +74,14 @@ impl Looking for ReadingScout {
     fn look<'a>(&'a self, question: String, folder: &'a Path, roots: &'a [String]) -> Answering<'a> {
         Box::pin(async move {
             let model = (self.model)().ok_or(CallFailed::NothingToAsk)?;
+            let directory = folder.to_string_lossy();
+            self.host.answer_reading(model.as_str(), &directory, roots, MOST_TURNS, &question, MOST_TIME).await
+        })
+    }
+
+    fn look_on<'a>(&'a self, model: &'a str, question: String, folder: &'a Path, roots: &'a [String]) -> Answering<'a> {
+        Box::pin(async move {
+            let model = Model::named(model).map_err(|_| CallFailed::NothingToAsk)?;
             let directory = folder.to_string_lossy();
             self.host.answer_reading(model.as_str(), &directory, roots, MOST_TURNS, &question, MOST_TIME).await
         })

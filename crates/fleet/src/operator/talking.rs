@@ -90,7 +90,7 @@ pub struct RuleRead {
     /// The order's number, which `forget` names.
     pub id: i64,
     pub said: String,
-    /// The repository it holds in. `None` holds in every repository.
+    /// The repository or project it holds in. `None` holds in every repository.
     pub repository: Option<String>,
 }
 
@@ -597,8 +597,8 @@ where
         let rules = kept
             .iter()
             .filter_map(|one| {
-                let OperatorRule::PickRule { manifest_id, .. } = OperatorRule::read(&one.form)?;
-                Some(RuleRead { id: one.n, said: one.said.clone(), repository: manifest_id.as_deref().and_then(|id| self.board_repository(id)) })
+                let OperatorRule::PickRule { scope, .. } = OperatorRule::read(&one.form)?;
+                Some(RuleRead { id: one.n, said: one.said.clone(), repository: self.scope_named(&scope) })
             })
             .collect();
         let repositories = self

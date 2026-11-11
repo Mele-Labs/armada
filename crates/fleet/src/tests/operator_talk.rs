@@ -144,7 +144,7 @@ async fn the_digest_lists_the_holds_beside_the_rules_and_a_lift_in_the_chat_lets
     let manifest_id = rig.fleet.store().lock().await.hosting(holder.as_str()).expect("read").expect("hosted").manifest_id;
     let form = OperatorOrderForm::HoldPaths { manifest_id: manifest_id.clone(), paths: vec!["apps/cockpit".into()], job: holder.clone(), until: OperatorHoldUntil::Ends };
     let hold = rig.fleet.operator_order_confirmed(form).await.expect("it stands").orders[0].id;
-    let rule = ipc::operator_page::OperatorRule::PickRule { manifest_id: None, what: "note:file".into(), pick: "just_file".into() };
+    let rule = ipc::operator_page::OperatorRule::PickRule { scope: ipc::operator_page::RuleScope::Everywhere, what: "note:file".into(), pick: "just_file".into() };
     let rule = rig.fleet.store().lock().await.add_operator_order(&store::KeptOrder { n: 0, form: rule.kept(), said: "File notes".into(), until: None, at: "2026-11-10T09:00:00.000Z".into() }).expect("kept");
     let path = format!(r#"{{"file_path":"{}/apps/cockpit/deck.tsx"}}"#, rig.root);
     let write = || rig.gate(&other, "Write", &path);

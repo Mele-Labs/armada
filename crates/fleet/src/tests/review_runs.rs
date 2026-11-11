@@ -562,7 +562,7 @@ async fn a_listed_pull_request_names_the_session_that_holds_it() {
     }
     fleet.vcs().now_review_list(ReviewList::Mine, vec![pull(12), pull(13)]);
     a_session_holding_pull_request_12(&fleet, "s-held").await;
-    let lists = fleet.get_review_lists().await.expect("read");
+    let lists = fleet.get_review_lists(None).await.expect("read");
     let held = lists.mine.iter().find(|row| row.number == 12).unwrap().holder.clone();
     assert_eq!(held.map(|holder| (holder.id, holder.title)), Some(("s-held".to_string(), "fix the ledger".to_string())));
     assert!(lists.mine.iter().find(|row| row.number == 13).unwrap().holder.is_none(), "nobody holds 13");

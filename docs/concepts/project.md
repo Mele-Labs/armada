@@ -72,7 +72,7 @@ A piece scoped to a project is read from Kit and from every member repository's 
 
 **Behaviour is a project's to set, key by key over Kit.**
 How a repository runs (its commands, Checks, ports and setup) stays the repository's `armada.yml`.
-How work behaves is a value: pull request mode, auto merge, autonomy, the review model and the look (layout, theme, density).
+How work behaves is a value: pull request mode, auto merge, autonomy, the review model, reviews and the look (layout, theme, density).
 
 | Layer, furthest first | Says |
 |---|---|
@@ -92,6 +92,12 @@ Autonomy keeps the places it already has (a piece scoped to every repository, to
 
 > **Rule.** A Job takes its project's values when it starts and keeps them.
 > Why: a Job in the middle of its work does not change what it was told to do because a layer moved. A Job started for no project runs on its repository's values.
+
+**Reviews are set a kind at a time: plans, pull requests and walks.**
+Each is `off`, `review` or `review_and_approve`, and a walk takes only `off` or `review`, since a walk is his to look at.
+A layer that sets `reviews` sets all three, and a kind it leaves out is `off`.
+Nothing is reviewed until a layer says so.
+[The Operator](operator.md), *Reviewing work before you see it*, says what each does.
 
 The Machine's own word stays live: a Job reads the Machine's pull request mode and review model as they stand, since a person moves them while a Job runs.
 The wire is [Projects](../practices/protocol/projects.md), *Values*.
@@ -146,12 +152,8 @@ The palette's rows and the keys on the tab are in [Keyboard and command palette]
 
 ## What it does not do yet
 
-Each row waits on the next two pull requests of the Job that built the project file.
-
 | Missing | Waiting on it |
 |---|---|
-| The four review lists filtered to a project | Not built |
-| Operator rules and Always here, per project | Values of their own, not set in the file yet |
 | A project's autonomy set from its own file | Autonomy stays in its pieces, which a project is already a scope of; nothing here writes one |
 | A Job's own values | Nothing starts a Job with a value of its own, so the Job layer is empty |
 | The title-bar project switcher in the native Bridge | The native Bridge, built by another Job |
