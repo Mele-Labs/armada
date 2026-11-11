@@ -259,6 +259,8 @@ mod phone;
 mod show_file;
 mod package_manifest;
 mod sketch;
+/// A sketch's scene read whole, as a client draws it.
+mod sketch_scene;
 mod style_sources;
 /// A Job's document put to the person, and his answer.
 mod document_answer;
@@ -663,6 +665,7 @@ pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
+pub use sketch_scene::{Scene, SceneColor, SceneEdge, SceneKind, SceneNode, ScenePoint, SceneShape, SceneStroke, WirePart, SCENE_ICONS};
 pub use package_manifest::{read_package_manifest, PackageManifest};
 pub use style_sources::{KeptFont, KeptSheet, KeptStyles, StyleKind, StyleSource, StyleSources, StyleToken};
 pub use session_starts::{

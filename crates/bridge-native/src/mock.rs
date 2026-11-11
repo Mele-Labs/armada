@@ -34,7 +34,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "call-rows" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "call-rows" | "sketch-card" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
         "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
         other => return Err(format!("no mock scenario named {other}")),
@@ -80,6 +80,8 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "tool-rows" => include_bytes!("../fixtures/tools-threads.json"),
         // The tool-rows threads, with the finished Job's retro being written and Search for the queue asking with previews.
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
+        // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
+        "sketch-card" => include_bytes!("../fixtures/sketch-card-threads.json"),
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
         _ => return Ok(HashMap::new()),
     };

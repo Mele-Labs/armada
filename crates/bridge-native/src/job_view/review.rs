@@ -1013,7 +1013,16 @@ impl JobView {
             Kind::Sketch => match sketch_card(&held.head, &held.items, &item.id) {
                 Some(card) => {
                     let band = self.sketch_band(SHEET, &card.id, &card.title, card.replaced, card.against.as_deref(), Some((&card.at, card.revisions.len(), None)), look, now, cx);
-                    div().flex().flex_col().min_h(look.length(token::H_ROW_UNIT) * 8.).child(band).child(glass(look, card.replaced)).into_any_element()
+                    div().flex().flex_col().min_h(look.length(token::H_ROW_UNIT) * 8.).child(band)
+                        .child(glass(
+                            look,
+                            card.replaced,
+                            match super::cards::shown_scene(card, None) {
+                                (key, Some(scene)) => Some(crate::scene::view(key.into(), scene, crate::scene::Fit::Preview, None, crate::scene::Lens::default()).into_any_element()),
+                                _ => None,
+                            },
+                        ))
+                        .into_any_element()
                 }
                 None => self.review_skeleton(look),
             },
