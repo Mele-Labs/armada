@@ -54,6 +54,7 @@ mod runtime_file;
 mod sketch;
 mod sketch_png;
 mod titlebar;
+mod toasts;
 mod transport;
 mod voice;
 mod walk;
@@ -163,6 +164,7 @@ pub fn init_app(cx: &mut App) {
     jobs::bind(cx);
     job_view::bind(cx);
     titlebar::bind(cx);
+    toasts::bind(cx);
     merge_strip::bind(cx);
     annotate::bind(cx);
     dispatch::screen::bind(cx);

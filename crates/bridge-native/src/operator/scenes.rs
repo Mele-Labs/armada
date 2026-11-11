@@ -171,6 +171,23 @@ impl MockFleet {
     }
 }
 
+impl MockFleet {
+    /// Three items join at 14:10, each raising a toast: storefront's main gone red with nobody on it, a
+    /// walk for him, and a go-ahead to file a note. No Job has stopped.
+    pub fn raised(&mut self) {
+        let wires: [&[u8]; 3] = [
+            br#"{"id":"turn:6","kind":"go_ahead","urgency":"urgent","manifest_id":"storefront","repository":"storefront","item":{"id":"red:storefront:9f2c1e0","text":"storefront's main is red at 9f2c1e0","since":"2026-11-11T14:10:00-05:00","source":"agent"},"read":{"read":"Nobody is on it. desktop_unit fails the way #412 fixed on the branch, so I'd start a Job from that fix.","pick":"Start a Job"},"raised_at":"2026-11-11T14:10:00-05:00"}"#,
+            br#"{"id":"turn:7","kind":"decision","urgency":"decision","session_id":"mock-05","job":"Slot pool controls","manifest_id":"armada","repository":"armada","item":{"id":"walk:armada://walk/slot-meter","text":"Review the slot meter walk","since":"2026-11-11T14:11:00-05:00","source":"walk","act":{"kind":"walk","target":"armada://walk/slot-meter"}},"read":{"read":"The meter holds still when a Job ends, which is what your note asked for.","pick":"Open it"},"raised_at":"2026-11-11T14:11:00-05:00"}"#,
+            br#"{"id":"turn:8","kind":"go_ahead","urgency":"go_ahead","manifest_id":"armada","repository":"armada","item":{"id":"note:44","text":"the palette forgets its last search","since":"2026-11-11T14:12:00-05:00","source":"agent"},"read":{"read":"No open issue covers it, so I'd file it.","pick":"Just file it"},"raised_at":"2026-11-11T14:12:00-05:00","then":[{"then":"just_file","pick":true}]}"#,
+        ];
+        for wire in wires {
+            if let Ok(turn) = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire) {
+                self.page.turn.push(turn);
+            }
+        }
+    }
+}
+
 impl Default for MockFleet {
     fn default() -> Self {
         MockFleet::new()
