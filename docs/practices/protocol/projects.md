@@ -134,7 +134,7 @@ settles one row of it from the Projects tab: done, or open again. The item leave
 422 `fleet.project_place_refused` is a place that cannot be used: `repository`, a synced folder that is not there, a cloud place with no address, a bucket that cannot be reached.
 `add_project` and `edit_project`.
 `fleet.project_unwritable` is a project's file that could not be written or removed, a 500, or one that would not read and so is not written over by `edit_project`, a 422. A task written into a project whose file did not read is kept and adds no member.
-422 `fleet.project_not_member` is a Job started for a project that does not list its repository. `start_session`.
+422 `fleet.project_not_member` is a Job started for a project that does not list its repository, `start_session`, or an Always here kept for a project that does not list the item's repository, `operator_answer`.
 422 `fleet.project_unreadable` is a Job started for a project whose file did not read, so Fleet cannot say what it holds. `start_session`.
 422 `fleet.project_issue_unreadable` is a link `IssueReference` refuses.
 422 `fleet.project_row_not_a_task` is an edit, a tick, a link (of an issue, a Job or a pull request) or a subtask on an issue row, an issue row moved under a task, or an issue row moved to another repository.
