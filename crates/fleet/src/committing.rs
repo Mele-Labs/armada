@@ -19,7 +19,7 @@ use config::KitRead;
 use core_model::WorkflowSource;
 use ipc::{
     BackgroundAct, CommitToRepository, CommittedToRepository, FlightControl, FlightControlsRead,
-    LifecyclePieceKind, PieceScope, PieceToCommit, ReviewToolScope, SessionId, WireError,
+    LifecyclePieceKind, PieceToCommit, ReviewToolScope, SessionId, WireError,
 };
 
 use crate::daemon::Fleet;
@@ -113,9 +113,6 @@ where
             }
             PieceToCommit::LifecycleRule { id, scope } => {
                 self.piece_copied(&root, &main, Identity::of(LifecyclePieceKind::Rule, id, scope.clone()), asked.overwrite)?
-            }
-            PieceToCommit::Workspace { id } => {
-                self.piece_copied(&root, &main, Identity::of(LifecyclePieceKind::Workspace, id, PieceScope::Everywhere), asked.overwrite)?
             }
             PieceToCommit::Autonomy { id, scope } => {
                 self.piece_copied(&root, &main, Identity::of(LifecyclePieceKind::Autonomy, id, scope.clone()), asked.overwrite)?

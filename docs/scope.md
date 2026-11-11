@@ -49,8 +49,9 @@ The owner's own description, and the shape everything is measured against:
 | Operator | "A second brain to help you triage everything from jobs and what is going on in your head" |
 | Jobs | "The work you're actively doing." |
 
-None of the first row is in the repository yet.
-Today's [Project](concepts/project.md) is a task list across repositories.
+Fleet holds projects now, each with members that are whole repositories or folders of one, a place its file is kept, and its tasks.
+Still to come are the project's values key by key, its own tracker, its review lists, its Operator rules and the title-bar switcher.
+See [Project](concepts/project.md).
 
 The core Bridge is being rebuilt natively beside the Electron Bridge, decided 8 Nov 2026.
 See [Native Bridge](concepts/native-bridge.md).

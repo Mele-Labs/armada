@@ -167,6 +167,7 @@ where
                     tokio::spawn(async move {
                         let started = fleet
                             .start_session(StartSession {
+                                project: None,
                                 manifest_id: on,
                                 title: Some(format!("Continue {branch}")),
                                 model: None,

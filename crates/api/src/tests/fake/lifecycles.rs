@@ -2,10 +2,10 @@
 //! repository holds none of any, and one Job holds a pull request in review.
 
 use ipc::{
-    AllWorkspaces, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, SaveLifecyclePiece,
+    DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, SaveLifecyclePiece,
     HeldInstance, InstanceLink, InstanceMove, InstanceStanding, Instant, JobLifecycles, LifecycleDefinition,
     LifecycleStateDefinition, LifecycleTransition, ManifestId, PieceScope, RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles,
-    RepositoryWorkspaces, SessionId, StateReadFrom, TeachTicketWord, TicketWordTaught,
+    SessionId, StateReadFrom, TeachTicketWord, TicketWordTaught,
 };
 
 use super::FakeDaemon;
@@ -77,14 +77,6 @@ impl FakeDaemon {
 }
 
 impl Lifecycles for FakeDaemon {
-    async fn list_repository_workspaces(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryWorkspaces, Refusal> {
-        Ok(RepositoryWorkspaces { manifest_id: self.repository(manifest_id).await?, workspaces: Vec::new(), left_out: Vec::new() })
-    }
-
-    async fn list_workspaces(&self) -> Result<AllWorkspaces, Refusal> {
-        Ok(AllWorkspaces { workspaces: Vec::new(), left_out: Vec::new() })
-    }
-
     async fn list_lifecycles(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryLifecycles, Refusal> {
         Ok(RepositoryLifecycles { manifest_id: self.repository(manifest_id).await?, lifecycles: Vec::new(), left_out: Vec::new() })
     }
@@ -121,7 +113,6 @@ impl Lifecycles for FakeDaemon {
         let (kind, id, scope) = match save.piece {
             LifecyclePiece::Lifecycle { lifecycle } => (LifecyclePieceKind::Lifecycle, lifecycle.id, lifecycle.scope),
             LifecyclePiece::Rule { rule } => (LifecyclePieceKind::Rule, rule.id, rule.scope),
-            LifecyclePiece::Workspace { workspace } => (LifecyclePieceKind::Workspace, workspace.id, PieceScope::Everywhere),
             LifecyclePiece::Autonomy { autonomy } => (LifecyclePieceKind::Autonomy, autonomy.id, autonomy.scope),
         };
         let kept = id == THE_KEPT_PIECE;

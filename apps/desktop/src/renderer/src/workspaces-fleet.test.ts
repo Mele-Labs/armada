@@ -3,11 +3,8 @@
 
 import { describe, expect, it } from "vitest";
 import { autonomyRows } from "@armada/components";
-import type {
-  AutonomyLayer as WireLayer,
-  RepositorySummary,
-  WorkspaceOfRepositories,
-} from "@armada/protocol";
+import type { AutonomyLayer as WireLayer, RepositorySummary } from "@armada/protocol";
+import type { WorkspaceOfRepositories } from "./workspace-of-project";
 
 import type { Scenario } from "./mock/moment";
 import { lifecycles } from "./mock/slices/lifecycles";
@@ -253,7 +250,7 @@ describe("the Workspaces read across the repositories", () => {
     };
     const api = {
       ...fleet(),
-      listWorkspaces: async () => ({
+      listProjects: async () => ({
         ok: false as const,
         outcome: {
           ok: false as const,

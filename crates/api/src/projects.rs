@@ -3,13 +3,14 @@
 //! Every route answers his projects and the loose tasks whole, so a handler is a decode and one call.
 
 use axum::body::Bytes;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use serde::de::DeserializeOwned;
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Projects, Refusal};
+use crate::scoped::InManifest;
 use crate::served::Served;
 
 fn answered<D: Projects>(served: &Served<D>, result: Result<ipc::Projects, Refusal>) -> Response {
@@ -32,24 +33,32 @@ pub(crate) async fn add_project<D: Projects>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let name = match decoded(&served, "a project's name", &body) {
-        Ok(name) => name,
+    let project = match decoded(&served, "a project to add", &body) {
+        Ok(project) => project,
         Err(response) => return response,
     };
-    let result = served.daemon().add_project(name).await;
+    let result = served.daemon().add_project(project).await;
     answered(&served, result)
 }
 
-pub(crate) async fn rename_project<D: Projects>(
+pub(crate) async fn edit_project<D: Projects>(
     State(served): State<Served<D>>,
     Path(project): Path<String>,
     body: Bytes,
 ) -> Response {
-    let name = match decoded(&served, "a project's name", &body) {
-        Ok(name) => name,
+    let edit = match decoded(&served, "a project's edit", &body) {
+        Ok(edit) => edit,
         Err(response) => return response,
     };
-    let result = served.daemon().rename_project(project, name).await;
+    let result = served.daemon().edit_project(project, edit).await;
+    answered(&served, result)
+}
+
+pub(crate) async fn list_holding_projects<D: Projects>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+) -> Response {
+    let result = served.daemon().list_holding_projects(scope.manifest()).await;
     answered(&served, result)
 }
 

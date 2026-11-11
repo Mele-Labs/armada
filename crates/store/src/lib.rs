@@ -93,6 +93,8 @@ mod notice_mutes;
 mod issue_queries;
 /// The projects a person keeps, across repositories: tasks he wrote and linked issues, in order.
 mod projects;
+/// Where each project's file is kept, and the committed Workspace files imported as projects.
+mod project_places;
 mod session_init;
 mod session_waiting;
 /// A repository's Autopilot and what it picked. #2092.

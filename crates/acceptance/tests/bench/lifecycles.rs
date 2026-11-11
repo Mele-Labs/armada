@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use config::{PieceWritten, Rules, Workspaces};
+use config::{PieceWritten, ProjectPlace, ProjectWritten, Projects, Rules};
 use core_model::rule::{AutonomyDefaults, Engine, JobFacts, Occurrence, PlannedAct, RanOnce, Rule};
 use core_model::{
     HeldInstances, InstanceRef, Lifecycle, LifecycleInstance, ManifestId, Observed, Standing, StateId, StepId, Ulid,
@@ -98,8 +98,8 @@ do:
 
 /// What store-web has: the rules in `files`, kept in Kit, resolved against the Job's lifecycles.
 pub fn rules_from(files: &[&str]) -> Rules {
-    let workspace = "version: 1\nworkspace_id: my-store\nname: My store\nrepositories:\n  - store-web\n";
-    let workspaces = Workspaces::of([PieceWritten::in_repository(PathBuf::from("store-web/.armada/workspaces/my-store.yml"), workspace.into())]);
+    let project = "version: 2\nproject_id: my-store\nname: My store\nmembers:\n  - repository: store-web\n";
+    let workspaces = Projects::of([ProjectWritten::new(ProjectPlace::ThisMac, PathBuf::from("kit/projects/my-store.yml"), project.into())], Vec::new());
     let copy = the_jobs_copy();
     let lifecycles: Vec<&Lifecycle> = copy.iter().collect();
     let written = files

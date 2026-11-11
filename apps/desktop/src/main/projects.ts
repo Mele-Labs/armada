@@ -2,12 +2,13 @@
 // every window. Nothing is kept here, since every write answers his projects and the loose tasks whole.
 
 import type {
+  EditProject,
   LinkProjectIssue,
   LinkTaskJob,
   LinkTaskPull,
   MoveProjectRow,
   MoveProjectTaskRepository,
-  NameProject,
+  NewProject,
   NewProjectIssue,
   NewProjectTask,
   Outcome,
@@ -47,13 +48,13 @@ export class ProjectsHost {
   }
 
   /** `POST /projects`. */
-  add(body: NameProject): Promise<ProjectsActed> {
+  add(body: NewProject): Promise<ProjectsActed> {
     return this.act("POST", "", body);
   }
 
-  /** `POST /projects/project/:project/rename`. */
-  rename(project: string, body: NameProject): Promise<ProjectsActed> {
-    return this.act("POST", `/project/${seg(project)}/rename`, body);
+  /** `POST /projects/project/:project/edit`. */
+  edit(project: string, body: EditProject): Promise<ProjectsActed> {
+    return this.act("POST", `/project/${seg(project)}/edit`, body);
   }
 
   /** `POST /projects/project/:project/delete`. */

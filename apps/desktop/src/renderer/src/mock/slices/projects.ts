@@ -72,6 +72,7 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
       scenario.draft?.projectsTab ?? {
         projects: [],
         loose: [],
+        left_out: [],
       },
     );
     const listeners = new Set<(projects: Projects) => void>();
@@ -203,6 +204,7 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
           rows: project.rows.map(read),
         })),
         loose: kept.loose.map(read),
+        left_out: kept.left_out,
       };
     };
 
@@ -386,21 +388,27 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
         ok: true,
         value: listed(),
       }),
-      addProject: ({ name }) =>
+      addProject: ({ name, members, place }) =>
         write(() => {
           if (name.trim() === "") return blank("A project");
           held.projects.push({
             id: fresh("project"),
             name: name.trim(),
             rows: [],
+            members: members ?? [],
+            place: place ?? {
+              place: "this_mac",
+            },
           });
         }),
-      renameProject: (project, { name }) =>
+      editProject: (project, { name, members, place }) =>
         write(() => {
           const one = held.projects.find((it) => it.id === project);
           if (one === undefined) return noProject();
-          if (name.trim() === "") return blank("A project");
-          one.name = name.trim();
+          if (name !== undefined && name.trim() === "") return blank("A project");
+          if (name !== undefined) one.name = name.trim();
+          if (members !== undefined) one.members = members;
+          if (place !== undefined) one.place = place;
         }),
       deleteProject: (project) =>
         write(() => {

@@ -34,6 +34,7 @@ impl Autopilots for FakeDaemon {
                 weekly_cap_percent: None,
                 on_autopilot: Default::default(),
                 decisions: Default::default(),
+                project: None,
             },
             quoted: Default::default(),
         })

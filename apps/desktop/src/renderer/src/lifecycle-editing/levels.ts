@@ -11,8 +11,8 @@ import type {
   LifecycleRule,
   PieceKept,
   PieceScope,
-  WorkspaceOfRepositories,
 } from "@armada/protocol";
+import type { WorkspaceOfRepositories } from "../workspace-of-project";
 
 /** Everything read for the repository the page is on and the other repositories of its Workspaces. */
 export type PiecesRead = {

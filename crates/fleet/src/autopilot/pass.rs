@@ -322,6 +322,7 @@ where
                 &Issue { url: &issue.url, title: &issue.title, excerpt: &issue.excerpt },
                 Some(sure.workflow().as_str()),
                 Some(sure.reason()),
+                kept.project.as_deref(),
             )
             .await
             .map_err(|refused| refused.error().message.clone())?;

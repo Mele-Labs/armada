@@ -359,6 +359,7 @@ where
     async fn operator_started_note(self: &Arc<Self>, manifest: &str, note: &str, arrival: &Arrival) -> Option<String> {
         let started = self
             .start_session(StartSession {
+                project: None,
                 manifest_id: ManifestId::carried(manifest),
                 title: Some(arrival.subject.clone()),
                 model: None,
@@ -403,6 +404,7 @@ where
         let Some(report) = self.store().lock().await.bug_report(id).ok().flatten() else { return Err("the report is not there".to_string()) };
         let started = self
             .start_session(StartSession {
+                project: None,
                 manifest_id: ManifestId::carried(manifest),
                 title: Some(report.title.clone()),
                 model: None,

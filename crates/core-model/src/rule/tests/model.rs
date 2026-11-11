@@ -106,8 +106,8 @@ fn the_rules_word_beats_the_repository_which_beats_the_workspace_which_beats_the
 
     assert_eq!(AutonomyDefaults::new().resolved(ActKind::TrackerWrite, None), Autonomy::Asks, "the kind's own");
     assert_eq!(workspace.resolved(ActKind::TrackerWrite, None), Autonomy::Acts);
-    assert_eq!(laid.resolved(ActKind::TrackerWrite, None), Autonomy::Asks, "the repository's, over the Workspace's");
-    assert_eq!(laid.resolved(ActKind::Draft, None), Autonomy::Off, "a kind the repository left alone is the Workspace's");
+    assert_eq!(laid.resolved(ActKind::TrackerWrite, None), Autonomy::Asks, "the repository's, over the Project's");
+    assert_eq!(laid.resolved(ActKind::Draft, None), Autonomy::Off, "a kind the repository left alone is the Project's");
     assert_eq!(laid.resolved(ActKind::StartWatch, None), Autonomy::Acts, "and one nobody spoke of is the kind's");
     assert_eq!(laid.resolved(ActKind::TrackerWrite, Some(Autonomy::Acts)), Autonomy::Acts, "the rule's own word");
 }

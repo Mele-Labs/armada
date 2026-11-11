@@ -61,6 +61,7 @@ impl Rig {
     async fn job(&self) -> SessionId {
         self.fleet
             .start_session(StartSession {
+                project: None,
                 manifest_id: self.manifest.clone(),
                 title: None,
                 model: None,

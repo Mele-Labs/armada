@@ -77,6 +77,7 @@ where
         self.red_is_free(main, false).await.ok()?;
         let started = self
             .start_session(StartSession {
+                project: None,
                 manifest_id: ManifestId::carried(served.manifest().id().as_str()),
                 title: Some("Fix main".to_string()),
                 model: None,

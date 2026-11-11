@@ -311,6 +311,7 @@ where
         }
         let made = self
             .start_session(StartSession {
+                project: None,
                 manifest_id: ManifestId::carried(&hosting.manifest_id),
                 title: session.title.clone(),
                 model: hosting.model.clone(),
@@ -382,6 +383,7 @@ where
         hosting.setup = old.setup;
         hosting.mod_job = old.mod_job;
         hosting.mod_of_bay = old.mod_of_bay;
+        hosting.project = old.project.clone();
         hosting.from_job = old.from_job.clone();
         hosting.from_tab = old.from_tab.clone();
         let _ = store.keep_hosting(&hosting);

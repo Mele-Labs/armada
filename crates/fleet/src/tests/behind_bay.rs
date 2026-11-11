@@ -58,6 +58,7 @@ async fn a_session_far_behind_is_told_once_until_it_catches_up() {
     let manifest = fleet.repositories().first().expect("served").manifest().id().as_str().to_string();
     let session = fleet
         .start_session(StartSession {
+            project: None,
             manifest_id: ManifestId::carried(manifest),
             title: None,
             model: None,
@@ -128,6 +129,7 @@ async fn slots_behind_in_one_pass_are_told_in_one_message() {
     let manifest = fleet.repositories().first().expect("served").manifest().id().as_str().to_string();
     let session = fleet
         .start_session(StartSession {
+            project: None,
             manifest_id: ManifestId::carried(manifest),
             title: None,
             model: None,
@@ -184,6 +186,7 @@ async fn behind_with_a_holder() -> (TempDir, Arc<Rescued>, String, WorktreesHeld
     let manifest = fleet.repositories().first().expect("served").manifest().id().as_str().to_string();
     let session = fleet
         .start_session(StartSession {
+            project: None,
             manifest_id: ManifestId::carried(manifest),
             title: None,
             model: None,

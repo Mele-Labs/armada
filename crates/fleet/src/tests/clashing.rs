@@ -93,6 +93,7 @@ impl Rig {
         let manifest = self.fleet.repositories().first().expect("served").manifest().id().as_str().to_string();
         let id = Arc::clone(&self.fleet)
             .start_session(StartSession {
+                project: None,
                 manifest_id: ManifestId::carried(manifest),
                 title: None,
                 model: None,

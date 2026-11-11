@@ -123,6 +123,7 @@ impl Rig {
         let id = self
             .fleet
             .start_session(StartSession {
+                project: None,
                 manifest_id: ManifestId::carried(self.manifest()),
                 title: None,
                 model: None,

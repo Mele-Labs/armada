@@ -287,6 +287,7 @@ impl Store {
         let tx = self.conn.transaction().map_err(database(doing))?;
         let gone = tx.execute("DELETE FROM projects WHERE id = ?1", params![id]).map_err(database(doing))?;
         if gone > 0 {
+            tx.execute("DELETE FROM project_places WHERE project_id = ?1", params![id]).map_err(database(doing))?;
             tx.execute(
                 "DELETE FROM project_task_issues WHERE task_id IN (SELECT id FROM project_rows WHERE project_id = ?1)",
                 params![id],

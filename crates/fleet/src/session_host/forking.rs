@@ -237,6 +237,7 @@ where
             Arc::clone(&self).close_session(CloseSession { session_id: moved.session_id.clone() }).await?;
         }
         let start = StartSession {
+            project: None,
             manifest_id: moved.manifest_id,
             title: None,
             model: hosting.as_ref().and_then(|hosting| hosting.model.clone()),
@@ -324,6 +325,7 @@ where
                 .map_err(|why| self.ledger_fault(why))?;
             store
                 .keep_hosting(&KeptHosting {
+                    project: None,
                     session_id: id.clone(),
                     manifest_id: manifest.clone(),
                     model: start.model.filter(|model| !model.trim().is_empty()),

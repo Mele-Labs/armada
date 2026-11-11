@@ -1,24 +1,28 @@
 # Project
 
-**What it is:** A list of tasks that one person keeps across his repositories, in Bridge's Projects tab.
-It tracks his own portfolio of work, which is slightly different from the issues, and issues ride on its tasks.
+**What it is:** The set of repositories one person works across as one body of work, with the tasks he keeps for it.
+A member is a whole repository or a folder inside one that carries its own `armada.yml`.
+A Job is started for a project, lifecycles and rules are scoped to one, and a task can sit in one.
 A task can link issues, pull requests and a running Job, and Fleet asks him before it marks one done.
 
 ---
 
-**Kind:** Store.
-A project is kept in Fleet's store on this Mac and survives a restart.
-It is never written to the repository or its Manifest.
+**Kind:** A file at a place he chooses, and tasks in a store.
+The file is `projects/<id>.yml` in Kit's folder, or the same file in a synced folder or the cloud, chosen per project and This Mac by default.
+It names the project and lists its members, and it is never kept in a repository.
+The tasks are in Fleet's store on this Mac and survive a restart, wherever the file is.
 The wire is [Projects: tasks and linked issues, across repositories](../practices/protocol/projects.md), and this page does not repeat it.
 
 ## The model
 
-**A project is his, not a repository's, and is an ordered list of rows that may stand in several repositories.**
-A row is a task he wrote, and each row names the repository it is in.
-A task in no project is just a task: it names a repository and has no project.
+**A project is his, not a repository's, and a repository may be in several.**
+Its members are the repositories its tasks name and the ones he adds.
+The word Workspace keeps only the monorepo meaning, a folder with its own Manifest ([Manifest](manifest.md), *Workspace mapping*).
 
 | Piece | What it is |
 |---|---|
+| Member | A whole repository, or a folder of one that has its own `armada.yml` |
+| Place | Where the file is kept: This Mac, a synced folder or the cloud |
 | Task | A card with a title and notes, written by him. It names its repository and, optionally, its project |
 | Subtask | A task under a task, one level deep |
 | Issue row | A tracker reference Fleet already lists as a row of a project. Bridge adds no new ones: an issue rides on a task |
@@ -26,7 +30,20 @@ A task in no project is just a task: it names a repository and has no project.
 | Linked pull request | A pull request number on a task |
 | Held Job | The one running Job that holds a task |
 
-A task in no project is listed under "No project", first in a view or a repository.
+> **Rule.** A task written or moved into a project, in a repository that is not a member, makes that repository a whole member.
+> Why: a project's members are the repositories its tasks name.
+
+> **Rule.** A repository leaves a project only when he edits its members.
+> Why: a task moving away or being deleted says nothing about whether the repository belongs.
+
+> **Rule.** A Job keeps the project it was started from, and the Job's repository must be a member.
+> Why: a Job of a repository the project does not list is not that project's work.
+
+> **Rule.** A project whose file cannot be read is shown as unread, with its members empty, and is not written over.
+> Why: a write over a file Fleet could not read would lose what it held.
+
+**A task in no project is loose.**
+It names a repository and has no project, and is listed under "No project", first in a view or a repository.
 It works as a task in a project does: the same cards, subtasks, ticks and Dispatch.
 
 A task is `open`, `held`, `asked` or `done`.
@@ -40,6 +57,12 @@ A subtask has no subtasks, and an issue row is neither parent nor subtask.
 > Why: the tracker owns them, so they are read on every read, held five minutes, and absent where the tracker cannot say.
 
 The tracker is [Tracker](tracker.md), and a pull request is read from the forge.
+
+## What a project scopes
+
+A lifecycle, a rule or an autonomy piece names a project in its `scope:`.
+A piece scoped to a project is read from Kit and from every member repository's `.armada/<kind>/`.
+[Protocol](../practices/protocol.md), *Lifecycles and rules, read*, says how each is served.
 
 ## Dispatching tasks
 
@@ -91,6 +114,13 @@ The palette's rows and the keys on the tab are in [Keyboard and command palette]
 
 ## What it does not do yet
 
+Each row waits on the next two pull requests of the Job that built the project file.
+
 | Missing | Waiting on it |
 |---|---|
-| Sharing a project with teammates | Not built. Projects are in this Mac's store only |
+| Project values: pull request mode, auto merge, autonomy, tracker, review settings and look, set key by key over Kit | Layers of default, Machine, Kit, repository, Project and Job, each value naming the layer it came from. Nothing reads a project for a value yet |
+| A project's own tracker replacing its members' | The values above |
+| The four review lists filtered to a project | The values above |
+| Operator rules and Always here, per project | The values above |
+| The title-bar project switcher in the native Bridge | The native Bridge, built by another Job |
+| Sharing a project with teammates | Not built. A project's file is on this Mac, in a synced folder or in the cloud its owner chose |

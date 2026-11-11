@@ -31,6 +31,8 @@ pub struct KeptAutopilot {
     pub on_reports: bool,
     /// The kinds of decision a helper may answer, as the words Fleet gave. Kept in order.
     pub decisions: Vec<String>,
+    /// The project of his it was started for, by id. Each Job it starts is for it.
+    pub project: Option<String>,
 }
 
 /// One pick. `started_session` is the Session it started, where it started one.
@@ -54,7 +56,7 @@ pub struct KeptPick {
 const AUTOPILOT: &str =
     "manifest_id, run_id, instruction, at_once, until, spend_cap_micros, job_cap, \
                          state, started_at, ended_at, capped_by, on_backlog, on_running, decisions, \
-                         on_reports, weekly_cap_percent";
+                         on_reports, weekly_cap_percent, project";
 const PICK: &str =
     "pick_id, run_id, manifest_id, issue_number, issue_title, issue_url, workflow_id, \
                     started_session, state, reason, at, issue_reference";
@@ -84,6 +86,7 @@ fn autopilot_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptAutopilot> {
             .collect(),
         on_reports: row.get(14)?,
         weekly_cap_percent: row.get(15)?,
+        project: row.get(16)?,
     })
 }
 
@@ -145,7 +148,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT OR REPLACE INTO autopilots ({AUTOPILOT})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)"
                 ),
                 params![
                     kept.manifest_id,
@@ -164,6 +167,7 @@ impl Store {
                     kept.decisions.join(","),
                     kept.on_reports,
                     kept.weekly_cap_percent,
+                    kept.project,
                 ],
             )
             .map(|_| ())
