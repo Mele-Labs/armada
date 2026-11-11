@@ -1,0 +1,584 @@
+{
+ "pulls": [
+  {
+   "key": "armada#2209",
+   "manifest_id": "armada",
+   "number": 2209,
+   "base": "main",
+   "author": "nick",
+   "created_at": "2026-11-08T09:55:00Z",
+   "additions": 412,
+   "deletions": 88,
+   "mergeable": "mergeable",
+   "review": "approved",
+   "approvals": 1,
+   "reviewers": [
+    {
+     "login": "marta",
+     "kind": "person",
+     "verdict": "approved",
+     "name": "Marta Ruiz",
+     "url": "https://forge.example/marta"
+    },
+    {
+     "login": "nina",
+     "kind": "person",
+     "verdict": "commented",
+     "name": "Nina Okafor",
+     "url": "https://forge.example/nina"
+    },
+    {
+     "login": "platform",
+     "kind": "team"
+    }
+   ],
+   "conversation": [
+    {
+     "kind": "comment",
+     "id": "IC_1",
+     "author": "claude",
+     "bot": false,
+     "at": "2026-11-08T10:25:00Z",
+     "body": "Every link goes through `openPullRequest` now.\n\n- the setting is read once, in main\n- **Open in browser** stays on the panel\n\n```ts\nconst where = settings.links.openPullRequestsIn;\n```"
+    },
+    {
+     "kind": "review",
+     "id": "PRR_1",
+     "author": "marta",
+     "bot": false,
+     "at": "2026-11-08T10:50:00Z",
+     "verdict": "changes_requested",
+     "body": "The setting has no default in `settings.toml`, so a fresh machine opens nothing."
+    },
+    {
+     "kind": "comment",
+     "id": "IC_2",
+     "author": "nick",
+     "bot": false,
+     "at": "2026-11-08T11:08:00Z",
+     "body": "Added the default. `armada` is the value."
+    },
+    {
+     "kind": "review",
+     "id": "PRR_2",
+     "author": "marta",
+     "bot": false,
+     "at": "2026-11-08T11:20:00Z",
+     "verdict": "approved",
+     "body": ""
+    },
+    {
+     "kind": "review",
+     "id": "PRR_3",
+     "author": "nick",
+     "bot": false,
+     "at": "2026-11-08T11:48:00Z",
+     "verdict": "commented",
+     "body": "The queue estimate waits on the forge."
+    }
+   ],
+   "threads": [
+    {
+     "id": "PRRT_1",
+     "path": "crates/config/settings.toml",
+     "line": 16,
+     "side": "right",
+     "resolved": false,
+     "comments": [
+      {
+       "id": "PRRC_1",
+       "author": "marta",
+       "at": "2026-11-08T10:54:00Z",
+       "body": "Say what `armada` opens here: the side panel, or a window of its own."
+      },
+      {
+       "id": "PRRC_2",
+       "author": "nick",
+       "at": "2026-11-08T11:10:00Z",
+       "body": "The side panel. I will name it in the comment above the key."
+      }
+     ]
+    },
+    {
+     "id": "PRRT_2",
+     "path": "apps/desktop/src/main/forge.ts",
+     "side": "right",
+     "resolved": true,
+     "comments": [
+      {
+       "id": "PRRC_3",
+       "author": "nina",
+       "at": "2026-11-08T11:30:00Z",
+       "body": "This file reads the setting on every link. Read it once when the window opens."
+      }
+     ]
+    }
+   ],
+   "checks": [
+    {
+     "name": "build",
+     "state": "passed",
+     "seconds": 131,
+     "address": "https://github.com/mele-labs/armada/pull/2209/checks?check_run_id=1"
+    },
+    {
+     "name": "test · rust",
+     "state": "passed",
+     "seconds": 242,
+     "address": "https://github.com/mele-labs/armada/pull/2209/checks?check_run_id=2"
+    },
+    {
+     "name": "test · bridge",
+     "state": "passed",
+     "seconds": 220,
+     "address": "https://github.com/mele-labs/armada/pull/2209/checks?check_run_id=3"
+    },
+    {
+     "name": "test · protocol",
+     "state": "passed",
+     "seconds": 74,
+     "address": "https://github.com/mele-labs/armada/pull/2209/checks?check_run_id=4"
+    },
+    {
+     "name": "verify-foundations",
+     "state": "passed",
+     "seconds": 58,
+     "address": "https://github.com/mele-labs/armada/pull/2209/checks?check_run_id=5"
+    },
+    {
+     "name": "lint",
+     "state": "passed",
+     "seconds": 31,
+     "address": "https://github.com/mele-labs/armada/pull/2209/checks?check_run_id=6"
+    },
+    {
+     "name": "typecheck",
+     "state": "passed",
+     "seconds": 96,
+     "address": "https://github.com/mele-labs/armada/pull/2209/checks?check_run_id=7"
+    },
+    {
+     "name": "storybook",
+     "state": "passed",
+     "seconds": 188,
+     "address": "https://github.com/mele-labs/armada/pull/2209/checks?check_run_id=8"
+    },
+    {
+     "name": "Claude Approvals",
+     "state": "skipped"
+    }
+   ],
+   "files": [
+    {
+     "path": "apps/desktop/src/main/forge.ts",
+     "status": "modified",
+     "additions": 21,
+     "deletions": 9
+    },
+    {
+     "path": "crates/config/settings.toml",
+     "status": "modified",
+     "additions": 6,
+     "deletions": 0
+    }
+   ],
+   "commits": [
+    {
+     "sha": "3fc86fa",
+     "headline": "Open pull requests in the panel",
+     "author": "nick",
+     "at": "2026-11-08T09:50:00Z"
+    },
+    {
+     "sha": "ed96c0f",
+     "headline": "Read the setting once, in main",
+     "author": "nick",
+     "at": "2026-11-08T10:10:00Z"
+    },
+    {
+     "sha": "3d35bd9",
+     "headline": "Add a default for links.openPullRequestsIn",
+     "author": "nick",
+     "at": "2026-11-08T11:05:00Z"
+    },
+    {
+     "sha": "9a01c2e",
+     "headline": "Keep Open in browser on the panel",
+     "author": "claude",
+     "at": "2026-11-08T11:30:00Z"
+    }
+   ],
+   "body": "## What changes\n\nPull request links open the same way everywhere, behind a setting: in **Armada** or in the **browser**.\n\n- `links.openPullRequestsIn` picks which\n- the Session reading sheet draws a full panel, not a card\n\n### Not in this change\n\n1. Comments and reviews\n2. The Files and Commits tabs\n\nSee [the design note](https://example.com/pr-panel) for the plates."
+  },
+  {
+   "key": "armada#2210",
+   "manifest_id": "armada",
+   "number": 2210,
+   "base": "main",
+   "author": "marta",
+   "created_at": "2026-11-08T06:50:00Z",
+   "additions": 96,
+   "deletions": 14,
+   "mergeable": "mergeable",
+   "review": "required",
+   "approvals": 0,
+   "body": "Shows where a Session's pull request stands in the merge line.\n\n- reads `placeOf` from the merge lines Fleet serves\n- draws nothing when the pull request is not in one",
+   "reviewers": [
+    {
+     "login": "nick",
+     "kind": "person"
+    }
+   ],
+   "conversation": [
+    {
+     "kind": "comment",
+     "id": "IC_3",
+     "author": "marta",
+     "bot": false,
+     "at": "2026-11-08T07:20:00Z",
+     "body": "Reads `placeOf` from the merge lines Fleet serves.\n\nDraws nothing when the pull request is in none."
+    }
+   ],
+   "checks": [
+    {
+     "name": "build",
+     "state": "passed",
+     "seconds": 118,
+     "address": "https://github.com/mele-labs/armada/pull/2210/checks?check_run_id=1"
+    },
+    {
+     "name": "test · rust",
+     "state": "passed",
+     "seconds": 251,
+     "address": "https://github.com/mele-labs/armada/pull/2210/checks?check_run_id=2"
+    },
+    {
+     "name": "test · bridge",
+     "state": "passed",
+     "seconds": 207,
+     "address": "https://github.com/mele-labs/armada/pull/2210/checks?check_run_id=3"
+    },
+    {
+     "name": "verify-foundations",
+     "state": "passed",
+     "seconds": 61,
+     "address": "https://github.com/mele-labs/armada/pull/2210/checks?check_run_id=4"
+    },
+    {
+     "name": "lint",
+     "state": "passed",
+     "seconds": 28,
+     "address": "https://github.com/mele-labs/armada/pull/2210/checks?check_run_id=5"
+    },
+    {
+     "name": "typecheck",
+     "state": "passed",
+     "seconds": 92,
+     "address": "https://github.com/mele-labs/armada/pull/2210/checks?check_run_id=6"
+    }
+   ],
+   "files": [
+    {
+     "path": "apps/desktop/src/renderer/src/session-pull-request.tsx",
+     "status": "modified",
+     "additions": 31,
+     "deletions": 4
+    },
+    {
+     "path": "packages/screens/src/merge-line-place.ts",
+     "status": "modified",
+     "additions": 22,
+     "deletions": 6
+    },
+    {
+     "path": "packages/components/src/compositions/MergeLine/MergeLine.tsx",
+     "status": "modified",
+     "additions": 29,
+     "deletions": 4
+    },
+    {
+     "path": "packages/components/src/compositions/MergeLine/MergeLine.stories.tsx",
+     "status": "added",
+     "additions": 14,
+     "deletions": 0
+    },
+    {
+     "path": "packages/screens/src/merge-line-place.test.ts",
+     "status": "added",
+     "additions": 38,
+     "deletions": 0
+    }
+   ],
+   "commits": [
+    {
+     "sha": "b71d9f0",
+     "headline": "Place a Session's pull request in its merge line",
+     "author": "marta",
+     "at": "2026-11-08T07:00:00Z"
+    },
+    {
+     "sha": "c24e8a3",
+     "headline": "Draw nothing when there is no line",
+     "author": "marta",
+     "at": "2026-11-08T07:15:00Z"
+    },
+    {
+     "sha": "5e60b17",
+     "headline": "Cover placeOf for a pull request in none",
+     "author": "marta",
+     "at": "2026-11-08T07:19:00Z"
+    }
+   ]
+  },
+  {
+   "key": "armada#2213",
+   "manifest_id": "armada",
+   "number": 2213,
+   "base": "main",
+   "author": "claude",
+   "created_at": "2026-11-08T11:12:00Z",
+   "additions": 233,
+   "deletions": 41,
+   "mergeable": "conflicting",
+   "review": "changes_requested",
+   "approvals": 0,
+   "conversation": [
+    {
+     "kind": "comment",
+     "id": "IC_4",
+     "author": "claude",
+     "bot": false,
+     "at": "2026-11-08T11:20:00Z",
+     "body": "The clash is read from `git merge-tree`, not guessed from the paths."
+    },
+    {
+     "kind": "review",
+     "id": "PRR_4",
+     "author": "nick",
+     "bot": false,
+     "at": "2026-11-08T11:42:00Z",
+     "verdict": "changes_requested",
+     "body": "Two Sessions can write the same file and each reads the other's change as a clash.\n\n1. Ignore a Session's own writes\n2. Say which Session wrote the other side"
+    }
+   ],
+   "checks": [
+    {
+     "name": "build",
+     "state": "passed",
+     "seconds": 126,
+     "address": "https://github.com/mele-labs/armada/pull/2213/checks?check_run_id=1"
+    },
+    {
+     "name": "test · rust",
+     "state": "passed",
+     "seconds": 249,
+     "address": "https://github.com/mele-labs/armada/pull/2213/checks?check_run_id=2"
+    },
+    {
+     "name": "test · bridge",
+     "state": "failed",
+     "seconds": 192,
+     "address": "https://github.com/mele-labs/armada/pull/2213/checks?check_run_id=3"
+    },
+    {
+     "name": "test · protocol",
+     "state": "passed",
+     "seconds": 70,
+     "address": "https://github.com/mele-labs/armada/pull/2213/checks?check_run_id=4"
+    },
+    {
+     "name": "verify-foundations",
+     "state": "failed",
+     "seconds": 58,
+     "address": "https://github.com/mele-labs/armada/pull/2213/checks?check_run_id=5"
+    },
+    {
+     "name": "lint",
+     "state": "passed",
+     "seconds": 33,
+     "address": "https://github.com/mele-labs/armada/pull/2213/checks?check_run_id=6"
+    },
+    {
+     "name": "typecheck",
+     "state": "passed",
+     "seconds": 99,
+     "address": "https://github.com/mele-labs/armada/pull/2213/checks?check_run_id=7"
+    },
+    {
+     "name": "storybook",
+     "state": "running",
+     "address": "https://github.com/mele-labs/armada/pull/2213/checks?check_run_id=8"
+    }
+   ],
+   "files": [
+    {
+     "path": "crates/fleet/src/clashes.rs",
+     "status": "added",
+     "additions": 121,
+     "deletions": 0
+    },
+    {
+     "path": "crates/fleet/src/lib.rs",
+     "status": "modified",
+     "additions": 2,
+     "deletions": 0
+    },
+    {
+     "path": "packages/protocol/src/clashes.ts",
+     "status": "modified",
+     "additions": 18,
+     "deletions": 3
+    },
+    {
+     "path": "apps/desktop/src/main/clashes.ts",
+     "status": "modified",
+     "additions": 44,
+     "deletions": 21
+    },
+    {
+     "path": "docs/practices/protocol.md",
+     "status": "modified",
+     "additions": 12,
+     "deletions": 8
+    },
+    {
+     "path": "docs/INDEX.md",
+     "status": "modified",
+     "additions": 1,
+     "deletions": 0
+    }
+   ],
+   "commits": [
+    {
+     "sha": "e08a4d1",
+     "headline": "Read write clashes from git merge-tree",
+     "author": "claude",
+     "at": "2026-11-08T11:14:00Z"
+    },
+    {
+     "sha": "41bb37c",
+     "headline": "Serve the clashes on get_clashes",
+     "author": "claude",
+     "at": "2026-11-08T11:16:00Z"
+    },
+    {
+     "sha": "7d92f6a",
+     "headline": "Draw the clash on the Session's row",
+     "author": "claude",
+     "at": "2026-11-08T11:19:00Z"
+    }
+   ],
+   "body": "Two Sessions writing the same file now say so before either merges.\n\nThe clash is read from `git merge-tree`, not guessed from the paths."
+  },
+  {
+   "key": "armada#2214",
+   "manifest_id": "armada",
+   "number": 2214,
+   "base": "main",
+   "author": "nick",
+   "created_at": "2026-11-08T11:40:00Z",
+   "additions": 37,
+   "deletions": 5,
+   "mergeable": "mergeable",
+   "review": "required",
+   "approvals": 0,
+   "conversation": [
+    {
+     "kind": "comment",
+     "id": "IC_5",
+     "author": "nick",
+     "bot": false,
+     "at": "2026-11-08T11:42:00Z",
+     "body": "Reads the forge again when its first answer is empty."
+    }
+   ],
+   "checks": [
+    {
+     "name": "build",
+     "state": "passed",
+     "seconds": 112,
+     "address": "https://github.com/mele-labs/armada/pull/2214/checks?check_run_id=1"
+    },
+    {
+     "name": "lint",
+     "state": "passed",
+     "seconds": 30,
+     "address": "https://github.com/mele-labs/armada/pull/2214/checks?check_run_id=2"
+    }
+   ],
+   "files": [
+    {
+     "path": "apps/desktop/src/renderer/src/shared-panel/pull-request.tsx",
+     "status": "modified",
+     "additions": 37,
+     "deletions": 5
+    }
+   ],
+   "commits": [
+    {
+     "sha": "c41d7e2",
+     "headline": "Read the pull request again after Ready for review",
+     "author": "nick",
+     "at": "2026-11-08T11:41:00Z"
+    }
+   ],
+   "body": "Reads the pull request again when the forge's first answer names no reviewers."
+  },
+  {
+   "key": "armada#2418",
+   "manifest_id": "armada",
+   "number": 2418,
+   "base": "main",
+   "author": "nick",
+   "created_at": "2026-11-08T11:30:00Z",
+   "additions": 12,
+   "deletions": 3,
+   "mergeable": "mergeable",
+   "review": "none",
+   "approvals": 0,
+   "body": "Sign-in issues a session token and the API checks it on every request.",
+   "conversation": [],
+   "checks": [
+    {
+     "name": "build",
+     "state": "running",
+     "address": "https://git.example/armada/pull/2418/checks?check_run_id=1"
+    }
+   ],
+   "files": [
+    {
+     "path": "crates/api/src/auth/middleware.rs",
+     "status": "modified",
+     "additions": 6,
+     "deletions": 1
+    },
+    {
+     "path": "crates/api/src/auth/tokens.rs",
+     "status": "modified",
+     "additions": 2,
+     "deletions": 1
+    },
+    {
+     "path": "apps/desktop/src/main/sign-in.ts",
+     "status": "modified",
+     "additions": 2,
+     "deletions": 1
+    }
+   ],
+   "commits": [
+    {
+     "sha": "a41c9e2",
+     "headline": "Issue a session token at sign-in",
+     "author": "nick",
+     "at": "2026-11-08T11:35:00Z"
+    },
+    {
+     "sha": "b7d02f1",
+     "headline": "Check the token on every request",
+     "author": "nick",
+     "at": "2026-11-08T11:43:00Z"
+    }
+   ]
+  }
+ ]
+}

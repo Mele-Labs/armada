@@ -34,6 +34,7 @@ pub(super) enum Zone {
     Deferred,
     Plan,
     Changes,
+    Pulls,
     Ledger,
     Files,
     Subagents,
@@ -42,12 +43,13 @@ pub(super) enum Zone {
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 10] = [
+    pub(super) const ALL: [Zone; 11] = [
         Zone::Open,
         Zone::Done,
         Zone::Deferred,
         Zone::Plan,
         Zone::Changes,
+        Zone::Pulls,
         Zone::Ledger,
         Zone::Files,
         Zone::Subagents,
@@ -62,6 +64,7 @@ impl Zone {
             Zone::Deferred => "deferred",
             Zone::Plan => "plan",
             Zone::Changes => "changes",
+            Zone::Pulls => "pulls",
             Zone::Ledger => "ledger",
             Zone::Files => "files",
             Zone::Subagents => "subagents",
@@ -82,6 +85,7 @@ impl Zone {
             Zone::Deferred => ("circle-dashed", "Deferred"),
             Zone::Plan => ("list-checks", "Plan"),
             Zone::Changes => ("diff", "Changes"),
+            Zone::Pulls => ("git-pull-request", "Pull Requests"),
             Zone::Ledger => ("files", "Ledger"),
             Zone::Files => ("folder-tree", "Files"),
             Zone::Subagents => ("zap", "Subagents"),
@@ -203,6 +207,7 @@ impl JobView {
                 Zone::Deferred => "side-deferred",
                 Zone::Plan => "side-plan",
                 Zone::Changes => "side-changes",
+                Zone::Pulls => "side-pulls",
                 Zone::Ledger => "side-ledger",
                 Zone::Files => "side-files",
                 Zone::Subagents => "side-subagents",
@@ -232,6 +237,7 @@ impl JobView {
             Zone::Deferred => Some(self.side_deferred(&id, look, cx)),
             Zone::Plan => self.pane_plan(&id, look, cx),
             Zone::Changes => self.pane_changes(&id, look, cx),
+            Zone::Pulls => self.pane_pulls(&id, look, cx),
             Zone::Ledger => self.pane_ledger(&id, look, cx),
             Zone::Files => Some(self.pane_files(&id, look, cx)),
             Zone::Subagents => self.pane_subagents(&id, look, cx),

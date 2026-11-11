@@ -45,6 +45,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "job-panes" => include_bytes!("../fixtures/jobs-panes.json"),
         // The same Jobs, the first holding something of every kind the Ledger groups.
         "job-panes-more" => include_bytes!("../fixtures/jobs-panes-more.json"),
+        // The box's Jobs, the first holding five pull requests: Armada Classic's panel pages, one a judge read.
+        "job-pulls" => include_bytes!("../fixtures/jobs-pulls.json"),
         other => return Err(format!("no mock scenario named {other}")),
     };
     ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())
@@ -81,7 +83,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "history" => include_bytes!("../fixtures/history-threads.json"),
         "thread-moved" => include_bytes!("../fixtures/moved-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
-        "job-view-composer" | "job-panes" => include_bytes!("../fixtures/composer-threads.json"),
+        "job-view-composer" | "job-panes" | "job-pulls" => include_bytes!("../fixtures/composer-threads.json"),
         // The first Job's thread with a run of Bash calls, two of them commits, and the Audit Job's quiet one.
         "job-panes-more" => include_bytes!("../fixtures/panes-more-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
@@ -170,7 +172,7 @@ pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T
 
 /// The scenario last named is the panes' own: their reads answer only there.
 fn panes_named() -> bool {
-    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more"))
+    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more" | "job-pulls"))
 }
 
 /// A pull request's files as `GET /pull_request_patches/:repository/:number` answers them, by
@@ -192,6 +194,26 @@ pub fn patches(key: &str) -> Option<ipc::PullRequestFilePatches> {
     let pulls = ipc::decode::<Pulls>("pull request patches", include_bytes!("../fixtures/panes-patches.json"))
         .unwrap_or_else(|why| panic!("the patches fixture does not decode: {why}"));
     pulls.pulls.into_iter().find(|one| one.key == key).map(|one| one.patches)
+}
+
+/// A pull request's page as `GET /pull_request_details/:repository/:number` answers it, by
+/// `manifest#number`: Armada Classic's mock pages, narrowed to three.
+pub fn pull_page(key: &str) -> Option<ipc::PullRequestPage> {
+    #[derive(Deserialize)]
+    struct One {
+        key: String,
+        #[serde(flatten)]
+        page: ipc::PullRequestPage,
+    }
+    #[derive(Deserialize)]
+    struct Pages {
+        pulls: Vec<One>,
+    }
+    if !panes_named() {
+        return None;
+    }
+    let pages = ipc::decode::<Pages>("pull request pages", include_bytes!("../fixtures/pulls-pages.json")).unwrap_or_else(|why| panic!("the pull request pages fixture does not decode: {why}"));
+    pages.pulls.into_iter().find(|one| one.key == key).map(|one| one.page)
 }
 
 /// A file of the Job's repository as `GET /sessions/repository_file` will answer it: its text, or

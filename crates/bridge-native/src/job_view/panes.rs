@@ -39,7 +39,7 @@ pub(super) struct Panes {
     /// The source each Job's Changes reads, by its value (`useKept("changes:<id>")`).
     changes_from: HashMap<SharedString, String>,
     /// Each pull request's patches as Fleet answered, by `{manifest}#{number}`: kept while it is read again.
-    patches: HashMap<String, Result<PullRequestFilePatches, String>>,
+    pub(super) patches: HashMap<String, Result<PullRequestFilePatches, String>>,
     /// What each Job's Files search holds (`useKept("files:<id>")`).
     files_query: HashMap<SharedString, String>,
     /// The paths Fleet found, by `{manifest}\0{query}`.
@@ -53,6 +53,8 @@ pub(super) struct Panes {
     pub(super) commands_all: HashSet<SharedString>,
     /// Closed items pressed to reopen, as `{job}\0{item}`, until Fleet's record no longer holds them.
     pub(super) reopened: HashSet<String>,
+    /// A pull request's act out with Fleet, by `{job}#{number}`: its button spins and the others wait.
+    pub(super) pull_pending: HashMap<String, super::pulls::PullAct>,
 }
 
 struct Search {
@@ -71,6 +73,7 @@ struct Panel {
 enum Of {
     File { path: String, read: Option<FileRead> },
     Check { name: String, run: u64, tab: CheckTab, output: Option<Result<CheckOutput, String>>, _poll: Option<Task<()>> },
+    Pull(Box<super::pr_panel::PullPanel>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -292,7 +295,7 @@ impl JobView {
                 self.forget_reopened(&id, cx);
                 self.judge_read(&id, cx);
             }
-            Some(super::side::Zone::Subagents) => self.judge_read(&id, cx),
+            Some(super::side::Zone::Subagents | super::side::Zone::Pulls) => self.judge_read(&id, cx),
             _ => {}
         }
     }
@@ -724,18 +727,49 @@ impl JobView {
         self.open_panel(Of::Check { name, run, tab: CheckTab::Runs, output, _poll: poll }, window, cx);
     }
 
-    fn close_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// A pull request's panel, opened from its row.
+    pub(super) fn open_pull_panel(&mut self, panel: super::pr_panel::PullPanel, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_panel(Of::Pull(Box::new(panel)), window, cx);
+    }
+
+    pub(super) fn pull_panel(&self) -> Option<&super::pr_panel::PullPanel> {
+        match self.panes.panel.as_ref() {
+            Some(Panel { of: Of::Pull(panel), .. }) => Some(panel),
+            _ => None,
+        }
+    }
+
+    pub(super) fn pull_panel_mut(&mut self) -> Option<&mut super::pr_panel::PullPanel> {
+        match self.panes.panel.as_mut() {
+            Some(Panel { of: Of::Pull(panel), .. }) => Some(panel),
+            _ => None,
+        }
+    }
+
+    /// The open pull request panel with the focus its sheet keeps.
+    pub(super) fn pull_panel_focus(&self) -> Option<(FocusHandle, &super::pr_panel::PullPanel)> {
+        match self.panes.panel.as_ref() {
+            Some(Panel { of: Of::Pull(panel), focus, .. }) => Some((focus.clone(), panel)),
+            _ => None,
+        }
+    }
+
+    pub(super) fn close_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(back) = self.panes.panel.take().and_then(|panel| panel.back) {
             window.focus(&back, cx);
         }
         cx.notify();
     }
 
-    fn panel_key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn panel_key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let key = event.keystroke.key.as_str();
         if key == "escape" {
             self.close_panel(window, cx);
             cx.stop_propagation();
+        } else if self.pull_panel().is_some() {
+            if self.pull_panel_key(event, window, cx) {
+                cx.stop_propagation();
+            }
         } else if matches!(key, "[" | "]") && !event.keystroke.modifiers.modified() {
             if let Some(Panel { of: Of::Check { tab, .. }, .. }) = self.panes.panel.as_mut() {
                 *tab = if *tab == CheckTab::Runs { CheckTab::Log } else { CheckTab::Runs };
@@ -749,11 +783,15 @@ impl JobView {
     /// `SidePanel` floats one at `--w-dialog-wide`.
     pub(super) fn render_pane_panel(&self, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
         let panel = self.panes.panel.as_ref()?;
+        if matches!(panel.of, Of::Pull(_)) {
+            return self.render_pull_panel(window, cx);
+        }
         let look = cx.look();
         let look = &look;
         let room = crate::room::of(window, cx);
         let viewport = room.size;
         let (title, subtitle, body): (SharedString, Option<SharedString>, AnyElement) = match &panel.of {
+            Of::Pull(_) => return None,
             Of::File { path, read } => {
                 let name = path.rsplit('/').next().unwrap_or(path).to_string();
                 (name.into(), Some(path.clone().into()), self.file_body(read.as_ref(), look))
