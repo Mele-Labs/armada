@@ -21,7 +21,7 @@ use gpui::{App, BoxShadow, Global, Hsla, Pixels, Rgba, SharedString};
 pub use controller::LookController;
 pub use sheet::Unresolved;
 #[allow(unused_imports)]
-pub use sources::{catalogue, token, CatalogueEntry, Tone};
+pub use sources::{catalogue, token, CatalogueEntry, Tone, FONTS};
 
 use sheet::{Resolved, Sheet};
 use value::Color;
