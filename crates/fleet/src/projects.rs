@@ -8,7 +8,7 @@
 //!
 //! **Every write answers his projects and the loose tasks whole** and publishes them as `projects.changed`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
 
 use adapter_traits::{AgentHarness, Delivery, NotTracked, PullRequestStanding, Vcs, WorkProduct};
@@ -25,7 +25,7 @@ use crate::clock::elapsed;
 use crate::daemon::Fleet;
 use crate::project_holds::subtasks_of;
 use crate::run_memory::{cloud, place_of};
-use crate::tracking::HELD_FOR;
+use crate::tracking::{HELD_FOR, NO_SUCH_ISSUE};
 
 /// He has no project by that id. A 404.
 pub(crate) const NO_SUCH_PROJECT: &str = "fleet.no_such_project";
@@ -99,13 +99,23 @@ fn task_state(state: KeptTaskState) -> (ProjectTaskState, Option<ProjectHolder>)
     }
 }
 
-/// What the trackers said of each issue, and the forges of each pull request, by repository.
+/// What the trackers said of each issue, and the forges of each pull request, by repository. **An issue read through
+/// a project's own tracker is under that project's key**, since the repository's tracker would say something else.
 type SaidBy = BTreeMap<String, BTreeMap<String, Said>>;
+
+/// The key an issue read is kept under: the repository's, or the project's and then the repository's where the
+/// project names a tracker.
+fn said_key(project: Option<&str>, manifest: &str) -> String {
+    match project {
+        Some(project) => format!("{project}\u{1}{manifest}"),
+        None => manifest.to_string(),
+    }
+}
 type PulledBy = BTreeMap<String, BTreeMap<u64, PullSaid>>;
 
 /// A row on the wire. A task's links are read from the repository each was linked in, which is not
 /// its task's once the task has moved.
-fn row_on_the_wire(row: KeptProjectRow, said_by: &SaidBy, pulled_by: &PulledBy) -> ProjectRow {
+fn row_on_the_wire(row: KeptProjectRow, project: Option<&str>, said_by: &SaidBy, pulled_by: &PulledBy) -> ProjectRow {
     let manifest_id = ManifestId::carried(row.manifest_id.clone());
     match row.item {
         KeptRowItem::Task { title, notes, state, parent, issues, pulls } => {
@@ -115,7 +125,7 @@ fn row_on_the_wire(row: KeptProjectRow, said_by: &SaidBy, pulled_by: &PulledBy) 
             let issues = issues
                 .into_iter()
                 .map(|link| {
-                    let read = said_by.get(&link.manifest_id).and_then(|said| said.get(&link.reference));
+                    let read = said_by.get(&said_key(project, &link.manifest_id)).and_then(|said| said.get(&link.reference));
                     TaskIssue {
                         manifest_id: linked_in(&link.manifest_id),
                         title: read.map(|(_, title)| title.clone()),
@@ -140,7 +150,7 @@ fn row_on_the_wire(row: KeptProjectRow, said_by: &SaidBy, pulled_by: &PulledBy) 
             ProjectRow::Task { id: row.id, manifest_id, title, notes, state, held_by, parent, issues, pulls }
         }
         KeptRowItem::Issue { reference } => {
-            let read = said_by.get(&row.manifest_id).and_then(|said| said.get(&reference));
+            let read = said_by.get(&said_key(project, &row.manifest_id)).and_then(|said| said.get(&reference));
             ProjectRow::Issue {
                 id: row.id,
                 manifest_id,
@@ -198,15 +208,21 @@ fn rows_of(kept: &KeptProjects) -> impl Iterator<Item = &KeptProjectRow> {
     kept.projects.iter().flat_map(|project| &project.rows).chain(&kept.loose)
 }
 
-/// The references of the issues in `kept`, by the repository each issue row is in or each link was made in.
-fn issue_references(kept: &KeptProjects) -> BTreeMap<String, Vec<String>> {
-    let mut by: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for row in rows_of(kept) {
+/// The references of the issues in `kept`, by the repository each issue row is in or each link was made in, and the
+/// project whose own tracker reads them: **only a project in `named`**, the rest are read by their repository's.
+fn issue_references(kept: &KeptProjects, named: &BTreeSet<String>) -> BTreeMap<(Option<String>, String), Vec<String>> {
+    let mut by: BTreeMap<(Option<String>, String), Vec<String>> = BTreeMap::new();
+    let rows = kept
+        .projects
+        .iter()
+        .flat_map(|project| project.rows.iter().map(move |row| (named.contains(&project.id).then(|| project.id.clone()), row)))
+        .chain(kept.loose.iter().map(|row| (None, row)));
+    for (project, row) in rows {
         match &row.item {
-            KeptRowItem::Issue { reference } => by.entry(row.manifest_id.clone()).or_default().push(reference.clone()),
+            KeptRowItem::Issue { reference } => by.entry((project, row.manifest_id.clone())).or_default().push(reference.clone()),
             KeptRowItem::Task { issues, .. } => {
                 for link in issues {
-                    by.entry(link.manifest_id.clone()).or_default().push(link.reference.clone());
+                    by.entry((project.clone(), link.manifest_id.clone())).or_default().push(link.reference.clone());
                 }
             }
         }
@@ -332,6 +348,26 @@ where
         ))
     }
 
+    /// Where `project` names a tracker, the issue `reference` must be one it has: a 404 `fleet.no_such_issue` where it
+    /// answers that it has none. **A tracker that cannot answer refuses nothing**, as no read of one does, and a project
+    /// that names none, or none at all, leaves the reference unchecked as it always was.
+    async fn issue_checked(&self, project: Option<&str>, manifest: &str, reference: &IssueReference) -> Result<(), Refusal> {
+        let Some(project) = project.filter(|id| self.project_names_tracker(id)) else {
+            return Ok(());
+        };
+        let Ok(served) = self.served_named(Some(&ManifestId::carried(manifest))) else {
+            return Ok(());
+        };
+        let tracker = self.trackers().tracker(&self.choice_in(&served, Some(project)));
+        let (root, asked) = (served.root().to_string(), reference.as_str().to_string());
+        match tokio::task::spawn_blocking(move || tracker.read_issue(&root, &asked)).await {
+            Ok(Ok(None)) => Err(Refusal::NotFound(
+                self.project_refusal(NO_SUCH_ISSUE, format!("The tracker project {project} names has no issue {reference}")),
+            )),
+            _ => Ok(()),
+        }
+    }
+
     fn unreadable_pull(&self, number: u64) -> Refusal {
         Refusal::Unacceptable(self.project_refusal(NOT_A_PULL, format!("`{number}` is not a pull request's number")))
     }
@@ -342,12 +378,17 @@ where
 
     /// What the tracker of `manifest_id` says of each of `references`, by reference. **Never refuses**: one
     /// it could not say is left out, and the row draws without a state.
-    async fn issues_said(&self, manifest_id: &ManifestId, references: Vec<String>) -> BTreeMap<String, Said> {
+    async fn issues_said(&self, manifest_id: &ManifestId, project: Option<&str>, references: Vec<String>) -> BTreeMap<String, Said> {
         let mut said = BTreeMap::new();
         if references.is_empty() {
             return said;
         }
-        let Ok(open) = self.open_issues(manifest_id).await else {
+        // A project that names a tracker reads its rows' issues through it, from its own open list.
+        let open = match project {
+            Some(project) => self.project_open_issues(project, false).await.map(|(held, ..)| held.issues),
+            None => self.open_issues(manifest_id).await,
+        };
+        let Ok(open) = open else {
             return said;
         };
         for issue in &open {
@@ -362,11 +403,13 @@ where
         let now = self.now();
         let unlisted: Vec<String> = references.into_iter().filter(|one| !said.contains_key(one)).collect();
         for reference in unlisted {
-            if let Some(held) = self.tracking().reads.held(manifest_id.as_str(), &reference, &now) {
+            let held_under = said_key(project, manifest_id.as_str());
+            if let Some(held) = self.tracking().reads.held(&held_under, &reference, &now) {
                 said.extend(held.map(|one| (reference.clone(), one)));
                 continue;
             }
-            let (tracker, root, asked) = (self.tracker_of(&served), served.root().to_string(), reference.clone());
+            let tracker = self.trackers().tracker(&self.choice_in(&served, project));
+            let (root, asked) = (served.root().to_string(), reference.clone());
             let read = tokio::task::spawn_blocking(move || tracker.read_issue(&root, &asked))
                 .await
                 .unwrap_or_else(|panicked| Err(NotTracked::of("reading the issue", panicked.to_string())));
@@ -377,7 +420,7 @@ where
                 let state = if issue.closed { IssueState::Closed } else { IssueState::Open };
                 (state, issue.title.as_written().to_string())
             });
-            self.tracking().reads.keep(manifest_id.as_str(), &reference, now.clone(), read.clone());
+            self.tracking().reads.keep(&held_under, &reference, now.clone(), read.clone());
             said.extend(read.map(|one| (reference, one)));
         }
         said
@@ -417,15 +460,16 @@ where
 
     pub(crate) async fn projects_on_the_wire(&self, kept: KeptProjects) -> ipc::Projects {
         let (mut said, mut pulled): (SaidBy, PulledBy) = (BTreeMap::new(), BTreeMap::new());
-        for (manifest, references) in issue_references(&kept) {
-            let read = self.issues_said(&ManifestId::carried(manifest.clone()), references).await;
-            said.insert(manifest, read);
+        let named: BTreeSet<String> = kept.projects.iter().filter(|project| self.project_names_tracker(&project.id)).map(|project| project.id.clone()).collect();
+        for ((project, manifest), references) in issue_references(&kept, &named) {
+            let read = self.issues_said(&ManifestId::carried(manifest.clone()), project.as_deref(), references).await;
+            said.insert(said_key(project.as_deref(), &manifest), read);
         }
         for (manifest, numbers) in pull_numbers(&kept) {
             let read = self.pulls_said(&ManifestId::carried(manifest.clone()), numbers).await;
             pulled.insert(manifest, read);
         }
-        let wire = |rows: Vec<KeptProjectRow>| rows.into_iter().map(|row| row_on_the_wire(row, &said, &pulled)).collect();
+        let wire = |project: Option<&str>, rows: Vec<KeptProjectRow>| rows.into_iter().map(|row| row_on_the_wire(row, project, &said, &pulled)).collect();
         // **The file is the truth for a name and the members**, and the store's name is the last it saw,
         // shown where the file cannot be read, with no members.
         let held = self.projects_held();
@@ -438,6 +482,7 @@ where
             .into_iter()
             .zip(places)
             .map(|(project, place)| {
+                let rows = wire(named.contains(&project.id).then_some(project.id.as_str()), project.rows);
                 let read = ScopeId::new(&project.id).ok().and_then(|scope| held.get(&scope));
                 let unread = match read {
                     Some(_) => None,
@@ -453,12 +498,13 @@ where
                     members: read.map(|one| one.members().iter().map(member_on_the_wire).collect()).unwrap_or_default(),
                     place: place_on_the_wire(place),
                     unread,
+                    values: read.and_then(|one| crate::values::values_set(one.values())),
                     id: project.id,
-                    rows: wire(project.rows),
+                    rows,
                 }
             })
             .collect();
-        ipc::Projects { projects, loose: wire(kept.loose), left_out: held.left_out().iter().map(left_out_on_the_wire).collect() }
+        ipc::Projects { projects, loose: wire(None, kept.loose), left_out: held.left_out().iter().map(left_out_on_the_wire).collect() }
     }
 
     /// `write` against the store, given his projects as they were; then the projects
@@ -541,6 +587,7 @@ where
         let Ok(grown) = core_model::Project::declared(held.id().clone(), held.name().clone(), members) else {
             return Ok(false);
         };
+        let grown = grown.with_values(held.values().clone());
         self.project_stored(&grown).await?;
         Ok(true)
     }
@@ -577,6 +624,7 @@ where
                 members: one.members().iter().map(member_on_the_wire).collect(),
                 place: place_on_the_wire(store.project_place(one.id().as_str()).ok().flatten()),
                 unread: None,
+                values: crate::values::values_set(one.values()),
             })
             .collect();
         Ok(ipc::Projects { projects, loose: Vec::new(), left_out: held.left_out().iter().map(left_out_on_the_wire).collect() })
@@ -590,6 +638,10 @@ where
         let (id, at) = (self.minted(), self.now());
         let members = self.members_read(new.members.as_deref().unwrap_or_default())?;
         let made = self.project_declared(&id, &name, members)?;
+        let made = match &new.values {
+            Some(set) => made.with_values(self.values_read(set)?),
+            None => made,
+        };
         let chosen = match new.place {
             Some(place) => Some(self.project_place_chosen(&id, place.place, place.synced_folder, place.cloud).await?),
             None => None,
@@ -626,6 +678,10 @@ where
             None => held.members().to_vec(),
         };
         let edited = self.project_declared(&project, name.unwrap_or(held.name().as_str()), members)?;
+        let edited = edited.with_values(match &edit.values {
+            Some(set) => self.values_read(set)?,
+            None => held.values().clone(),
+        });
         let chosen = match edit.place {
             Some(place) => Some(self.project_place_chosen(&project, place.place, place.synced_folder, place.cloud).await?),
             None => None,
@@ -637,6 +693,18 @@ where
         }
         let named = edited.name().as_str().to_string();
         self.projects_written_reading(|store, _| store.rename_project(&project, &named).map(drop).map_err(|why| self.ledger_fault(why)), true).await
+    }
+
+    async fn get_values(&self, project: Option<String>, manifest_id: Option<ManifestId>) -> Result<ipc::ResolvedValues, Refusal> {
+        self.values_asked(project, manifest_id).await
+    }
+
+    async fn list_project_issues(&self, project: String, refresh: bool) -> Result<ipc::ProjectIssueList, Refusal> {
+        self.project_issues_listed(project, refresh).await
+    }
+
+    async fn save_kit_values(&self, save: ipc::SaveKitValues) -> Result<ipc::KitValuesSaved, Refusal> {
+        self.kit_values_saved(save).await
     }
 
     async fn delete_project(&self, project: String) -> Result<ipc::Projects, Refusal> {
@@ -702,6 +770,14 @@ where
     }
 
     async fn link_task_issue(&self, row: String, link: LinkProjectIssue) -> Result<ipc::Projects, Refusal> {
+        if let Some(issue) = IssueReference::read(&link.issue) {
+            let (project, manifest) = {
+                let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+                let (project, found) = self.row_in(&kept, &row)?;
+                (project.to_string(), found.manifest_id.clone())
+            };
+            self.issue_checked(Some(&project), &manifest, &issue).await?;
+        }
         self.projects_written(|store, kept| {
             self.task_in(kept, &row)?;
             let issue = IssueReference::read(&link.issue).ok_or_else(|| self.unreadable_issue(&link.issue))?;
@@ -789,6 +865,9 @@ where
 
     async fn link_project_issue(&self, link: NewProjectIssue) -> Result<ipc::Projects, Refusal> {
         self.served_named(Some(&link.manifest_id))?;
+        if let Some(issue) = IssueReference::read(&link.issue) {
+            self.issue_checked(link.project.as_deref(), link.manifest_id.as_str(), &issue).await?;
+        }
         let id = self.minted();
         self.projects_written_following(
             |store, kept| {

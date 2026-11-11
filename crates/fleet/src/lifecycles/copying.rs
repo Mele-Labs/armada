@@ -88,6 +88,6 @@ where
     /// apply to its repository now. **Every reader of a Job's instances asks here**, so a lifecycle
     /// saved after the Job started changes nothing it holds.
     pub(crate) fn lifecycles_of_job(&self, store: &Store, session: &str, manifest: &str) -> Vec<Lifecycle> {
-        frozen_lifecycles(store, session, self.built_in_lifecycles(Some(manifest))).unwrap_or_else(|| self.lifecycles_that_apply(manifest))
+        frozen_lifecycles(store, session, self.built_in_lifecycles_in(Some(manifest), crate::job_tracking::job_project(store, session).as_deref())).unwrap_or_else(|| self.lifecycles_that_apply(manifest))
     }
 }

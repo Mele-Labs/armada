@@ -75,7 +75,7 @@ mod policies;
 mod pull_request_owners;
 mod standing;
 mod test_map;
-mod tracker;
+pub(crate) mod tracker;
 mod when_base_moves;
 
 use crate::error::{Fault, LoadError, Refusal};

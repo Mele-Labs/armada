@@ -29,6 +29,7 @@ mod boarding;
 mod briefing;
 mod calling;
 mod candidates;
+mod closing;
 mod desk;
 mod erroring;
 mod handing;
@@ -76,8 +77,8 @@ pub(crate) use raising::ToRaise;
 pub(crate) use turning::rule_pick;
 pub use orders::{Order, Orders};
 pub(crate) use seat::Seat;
-pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
-pub use sources::{BridgeError, Filed, NewIssue, Note, RedMain, Report};
+pub use ruling::{Grouping, Outcome, PassedOn, Place, Ruled, Ruling, Way};
+pub use sources::{BridgeError, Filed, MergeNear, NewIssue, Note, RedMain, Report};
 pub(crate) use sourcing::Sources;
 pub use talking::{Board, EndedJob, HeldJob, HoldRead, JobRead, LogRead, MergedPull, NeedsYou, Repository, RuleRead, StoppedJob, SuggestionRead, TalkFailed, TalkLine, Talked, TurnRead};
 pub(crate) use suggesting::{suggestion_items, SKIP};
@@ -469,7 +470,7 @@ impl Operator {
     /// nothing, and a raise, a leave and a note are not acts, so they are done as they came.
     async fn act(&self, arrival: &Arrival, ruling: &Ruling) -> Result<Carried, String> {
         match ruling.way {
-            Way::NewJob | Way::ExistingJob | Way::File => self.acting.suggest_once(arrival, ruling).await.map(Carried::kept),
+            Way::NewJob | Way::ExistingJob | Way::File | Way::Close | Way::Group => self.acting.suggest_once(arrival, ruling).await.map(Carried::kept),
             Way::Raise | Way::Link | Way::Leave | Way::Noted => self.acted(arrival, ruling).await.map(|()| Carried::Done),
         }
     }

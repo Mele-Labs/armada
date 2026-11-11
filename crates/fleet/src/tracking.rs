@@ -50,7 +50,7 @@ pub(crate) fn not_tracked(run_id: ipc::RunId, code: &'static str, not: &adapter_
 }
 
 /// The tracker has no issue by that reference, or the number is a pull request's. A 404.
-const NO_SUCH_ISSUE: &str = "fleet.no_such_issue";
+pub(crate) const NO_SUCH_ISSUE: &str = "fleet.no_such_issue";
 
 /// What was last read from each repository's tracker. **In memory**: a list is the tracker's, and is read again after
 /// a restart; what was *said* on an issue is the store's.
@@ -67,9 +67,9 @@ pub(crate) struct Tracking {
 }
 
 #[derive(Clone)]
-struct Held {
-    fetched_at: Timestamp,
-    issues: Vec<OpenIssue>,
+pub(crate) struct Held {
+    pub(crate) fetched_at: Timestamp,
+    pub(crate) issues: Vec<OpenIssue>,
 }
 
 impl Tracking {
@@ -88,7 +88,7 @@ impl Tracking {
         self.lists.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(manifest);
     }
 
-    fn held(&self, manifest: &str) -> Option<Held> {
+    pub(crate) fn held(&self, manifest: &str) -> Option<Held> {
         self.lists
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -96,7 +96,7 @@ impl Tracking {
             .cloned()
     }
 
-    fn keep(&self, manifest: &str, held: Held) {
+    pub(crate) fn keep(&self, manifest: &str, held: Held) {
         self.lists
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)

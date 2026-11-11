@@ -76,6 +76,10 @@ pub trait Backlog {
     /// Give `reference` a new title.
     fn retitle(&self, in_repo: &str, reference: &str, title: &str) -> Result<(), NotTracked>;
 
+    /// Put `reference` under `parent`, as one of its children. **Only the link is written**: the issue
+    /// keeps its status, and a parent it had before is replaced.
+    fn set_parent(&self, in_repo: &str, reference: &str, parent: &str) -> Result<(), NotTracked>;
+
     /// Put `reference` in `state`. `reason` is what a close says, and is ignored otherwise. **Closing
     /// is not refused for a blocker or an open child**: the caller decides when a thing is done.
     fn put_state(&self, in_repo: &str, reference: &str, state: BeadState, reason: &str) -> Result<(), NotTracked>;

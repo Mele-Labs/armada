@@ -38,6 +38,8 @@ const NATIVE_WALK_REFUSED: &str = "fleet.native_walk_refused";
 pub(crate) struct LedgerReads {
     held: Vec<KeptAttachment>,
     hosting: Option<store::KeptHosting>,
+    /// What the Job froze of its values when it started, where it froze any.
+    values: Vec<store::KeptValue>,
     waiting: WaitingReads,
     /// When the limit the session hit resets, while it is held for one.
     limited: Option<String>,

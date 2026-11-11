@@ -8,6 +8,7 @@ use std::collections::BTreeSet;
 
 use super::arriving::{Arrival, LiveJob};
 use super::sources::Filed;
+use super::thening::paths_in;
 
 /// Words this short, or this common in a request, say nothing about what the work is.
 const SHORTEST_WORD: usize = 5;
@@ -21,6 +22,8 @@ const WORDS_NEAR: usize = 2;
 const WORDS_SHOWN: usize = 5;
 /// The most open issues one item is offered as ones it may be.
 const ISSUES_SHOWN: usize = 8;
+/// The most open issues one merged pull request is asked about.
+const CLOSES_SHOWN: usize = 3;
 
 /// One live Job, and what it shares with one item.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -78,6 +81,38 @@ pub(super) fn open_near(text: &str, open: &[Filed]) -> Vec<Filed> {
         .collect();
     near.sort_by(|one, other| other.0.cmp(&one.0));
     near.into_iter().take(ISSUES_SHOWN).map(|(_, one)| one.clone()).collect()
+}
+
+/// What a merged pull request did, as far as Fleet holds it.
+pub(super) struct Finished<'a> {
+    pub(super) title: &'a str,
+    /// The words of the Job that held it: its plan, or its first message.
+    pub(super) words: &'a str,
+    /// The paths its plan names and it wrote.
+    pub(super) paths: &'a [String],
+    /// The issues it or its Job named, which are never asked about.
+    pub(super) named: &'a [String],
+}
+
+/// The open issues a merged pull request may have finished without naming them, from `open` as each
+/// issue and the start of its body. One counts when its words name a path the work wrote, or share two
+/// uncommon words with the pull request's title and its Job's words. **An issue the work named is never
+/// offered**, and at most [`CLOSES_SHOWN`] are, those sharing most first. None found means no call.
+pub(super) fn done_near(done: &Finished<'_>, open: &[(Filed, String)]) -> Vec<Filed> {
+    let words = uncommon(&format!("{} {}", done.title, done.words));
+    let mut near: Vec<(usize, &Filed)> = open
+        .iter()
+        .filter(|(one, _)| !done.named.contains(&one.reference))
+        .filter_map(|(one, excerpt)| {
+            let said = format!("{} {excerpt}", one.title);
+            let paths = shared_paths(done.paths, &paths_in(&said)).len();
+            let shared = uncommon(&said).intersection(&words).count();
+            let words = if shared >= WORDS_NEAR { shared } else { 0 };
+            (paths + words > 0).then_some((paths * WORDS_NEAR + words, one))
+        })
+        .collect();
+    near.sort_by(|one, other| other.0.cmp(&one.0));
+    near.into_iter().take(CLOSES_SHOWN).map(|(_, one)| one.clone()).collect()
 }
 
 /// Each of `ours` that meets one of `theirs`, the more exact of the two named.
