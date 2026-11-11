@@ -207,7 +207,8 @@ pub struct TrailOpened {
 pub enum ThreadItem {
     /// A row drawn as it came. **Never a `tool`, `check`, `ask` or `window_ask` row**, which fold; a
     /// `plan` row, whose card is [`ThreadItem::Plan`]; a `delivery` row, a `linked` row that
-    /// `replaces`, or a `browser_reminder`, which no screen draws in the thread. **A Fleet notice is
+    /// `replaces`, or a `browser_reminder`, which no screen draws in the thread, or a
+    /// `reasoning` row, held back until the native thread draws it. **A Fleet notice is
     /// a row only where it is kept**: one the agent disputed, and the last Fleet turn while the Job
     /// waits on the person (its `asked`, the head's `plan` waiting or set aside, or its `sketch`).
     Row { row: SessionRow },
