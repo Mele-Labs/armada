@@ -271,6 +271,11 @@ impl JobView {
 
     /// Markdown at the thread's body size: 15 over 24 unless Aa's Text size says another.
     pub(super) fn prose(&self, key: String, text: &str, look: &Look) -> AnyElement {
+        self.prose_in(key, text, token::FG_DEFAULT, look)
+    }
+
+    /// Prose in `colour`: a fold's body reads muted, as Electron's `armada-session-fold__body` has it.
+    pub(super) fn prose_in(&self, key: String, text: &str, colour: crate::look::Token, look: &Look) -> AnyElement {
         let job = self.shown.clone().unwrap_or_default();
         let size = match self.composer.quick.thread().text_size {
             TextSize::Xs => token::TEXT_XS,
@@ -282,7 +287,7 @@ impl JobView {
             .w_full()
             .text_size(look.length(size))
             .line_height(relative(1.6))
-            .text_color(look.color(token::FG_DEFAULT))
+            .text_color(look.color(colour))
             .selectable(true)
             .into_any_element()
     }

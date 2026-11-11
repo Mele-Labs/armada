@@ -71,7 +71,7 @@ impl JobView {
             glyph(look, if shown { "chevron-down" } else { "chevron-right" }, Size::Small, look.color(token::FG_MUTED)).into_any_element(),
             div().child(said.clone()).into_any_element(),
         ];
-        let body = self.prose(key.clone(), text, look);
+        let body = self.prose_in(key.clone(), text, token::FG_MUTED, look);
         self.fold_from(ix, key, said, head, Some(body), open, page, look, cx)
     }
 
@@ -133,7 +133,7 @@ impl JobView {
                     glyph(look, "layers", Size::Small, look.color(token::FG_MUTED)).into_any_element(),
                     div().child("Conversation compacted").into_any_element(),
                 ];
-                let body = self.prose(format!("compaction:{id}"), text, look);
+                let body = self.prose_in(format!("compaction:{id}"), text, token::FG_MUTED, look);
                 self.fold(ix, format!("compaction:{id}"), "Conversation compacted".into(), head, Some(body), page, look, cx)
             }
             SessionRow::Lease { id, at, slot, branch } | SessionRow::Release { id, at, slot, branch } => {
