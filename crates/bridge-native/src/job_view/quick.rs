@@ -2,9 +2,9 @@
 //! offers to the agent's last message, then the lines the person saved, then the ones Fleet learnt.
 //!
 //! The saved lines live in the `thread.look` setting. Every act on them is a plain write of that
-//! setting, drawn as done the same frame and put back with Fleet's reason if it refuses. What
-//! Electron works out when a learnt line is pinned, reworded or deleted is not ported: a learnt
-//! line is pressed and read, and has no menu.
+//! setting, drawn as done the same frame and put back with Fleet's reason if it refuses. A learnt
+//! line takes the same menu, as Electron's `thread-look.ts` has it: Pin keeps it as his own, pinned;
+//! Delete forgets it; Edit forgets its words and keeps his in their place.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -189,6 +189,8 @@ pub(super) struct Line {
 struct Edit {
     id: String,
     input: Entity<InputState>,
+    /// The look before a learnt line was taken in to be edited: a cancel puts it back.
+    before: Option<Option<BTreeMap<String, SettingValue>>>,
     _subs: Vec<Subscription>,
 }
 
@@ -618,7 +620,7 @@ impl JobView {
         }
         let was = self.composer.quick.look.clone();
         let mut lines = self.composer.quick.kept();
-        lines.push(Line { id: Some(format!("saved:{}", chrono::Utc::now().timestamp_millis())), text, kind: Kind::Saved, pinned: false });
+        lines.push(Line { id: Some(saved_id()), text, kind: Kind::Saved, pinned: false });
         self.composer.quick.set_kept(lines);
         self.write_look(was, window, cx);
     }
@@ -657,6 +659,43 @@ impl JobView {
         self.composer.quick.kept().into_iter().find(|one| one.id.as_deref() == Some(id))
     }
 
+    /// A learnt line's act: Pin keeps it as his own line, pinned; Delete forgets it; Edit forgets its
+    /// words and opens his own line in its place, which a cancel takes back.
+    fn act_on_learnt(&mut self, text: String, act: &'static str, window: &mut Window, cx: &mut Context<Self>) {
+        let was = self.composer.quick.look.clone();
+        let mut lines = self.composer.quick.kept();
+        if act != PIN {
+            self.forget(text.clone());
+        }
+        match act {
+            PIN => {
+                let place = lines.iter().filter(|other| other.pinned).count();
+                lines.insert(place, Line { id: Some(saved_id()), text, kind: Kind::Saved, pinned: true });
+            }
+            DELETE => {}
+            EDIT => {
+                let id = saved_id();
+                lines.push(Line { id: Some(id.clone()), text, kind: Kind::Saved, pinned: false });
+                self.composer.quick.set_kept(lines);
+                self.start_edit(id, Some(was), window, cx);
+                return;
+            }
+            _ => return,
+        }
+        self.composer.quick.set_kept(lines);
+        self.write_look(was, window, cx);
+    }
+
+    fn forget(&mut self, text: String) {
+        let mut forgotten = self.composer.quick.texts("forgotten");
+        if forgotten.contains(&text) {
+            return;
+        }
+        forgotten.push(text);
+        let look = self.composer.quick.look.get_or_insert_with(BTreeMap::new);
+        look.insert("forgotten".into(), SettingValue::List(forgotten.into_iter().map(SettingValue::Text).collect()));
+    }
+
     pub(super) fn act_on_line(&mut self, id: String, act: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         let was = self.composer.quick.look.clone();
         let mut lines = self.composer.quick.kept();
@@ -680,7 +719,7 @@ impl JobView {
                 }
             }
             EDIT => {
-                self.start_edit(id, window, cx);
+                self.start_edit(id, None, window, cx);
                 return;
             }
             _ => return,
@@ -689,7 +728,7 @@ impl JobView {
         self.write_look(was, window, cx);
     }
 
-    fn start_edit(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {
+    fn start_edit(&mut self, id: String, before: Option<Option<BTreeMap<String, SettingValue>>>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(line) = self.line_by(&id) else { return };
         let input = cx.new(|cx| InputState::new(window, cx));
         input.update(cx, |input, cx| {
@@ -701,7 +740,7 @@ impl JobView {
             InputEvent::PressEnter { .. } | InputEvent::Blur => this.finish_edit(true, window, cx),
             _ => {}
         });
-        self.composer.quick.edit = Some(Edit { id, input, _subs: vec![entered] });
+        self.composer.quick.edit = Some(Edit { id, input, before, _subs: vec![entered] });
         cx.notify();
     }
 
@@ -711,7 +750,7 @@ impl JobView {
         let said = edit.input.read(cx).value().trim().to_string();
         let box_keys = self.composer.input.read(cx).focus_handle(cx);
         window.focus(&box_keys, cx);
-        let was = self.composer.quick.look.clone();
+        let was = edit.before.clone().unwrap_or_else(|| self.composer.quick.look.clone());
         let mut lines = self.composer.quick.kept();
         let Some(one) = lines.iter_mut().find(|one| one.id.as_deref() == Some(&edit.id)) else { return };
         if keep && !said.is_empty() && said != one.text {
@@ -719,6 +758,9 @@ impl JobView {
             one.kind = Kind::Saved;
             self.composer.quick.set_kept(lines);
             self.write_look(was, window, cx);
+        } else if let Some(before) = edit.before {
+            // A learnt line left as it was stays learnt: nothing was written.
+            self.composer.quick.look = before;
         }
         cx.notify();
     }
@@ -753,10 +795,10 @@ impl JobView {
         self.open_popup(menu, back, vec![picked], window, cx);
     }
 
-    /// A line's menu: Edit, Pin, Delete for a kept line; Save for one of Fleet's answers.
+    /// A line's menu: Edit, Pin, Delete for a kept or learnt line; Save for one of Fleet's answers.
     fn open_line_menu(&mut self, line: Line, at: gpui::Point<gpui::Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
         let entries = match (&line.id, line.kind) {
-            (Some(_), _) => vec![
+            (Some(_), _) | (None, Kind::Learnt) => vec![
                 Entry::Act { id: EDIT, label: "Edit".into(), icon: Some("square-pen"), danger: false },
                 Entry::Act { id: PIN, label: if line.pinned { "Unpin" } else { "Pin" }.into(), icon: Some("arrow-up-to-line"), danger: false },
                 Entry::Rule,
@@ -782,6 +824,7 @@ impl JobView {
             match (*id, line.id.clone()) {
                 (SAVE_ASKED, _) => this.save_line(line.text.clone(), window, cx),
                 (act, Some(job)) => this.act_on_line(job, act, window, cx),
+                (act, None) if line.kind == Kind::Learnt => this.act_on_learnt(line.text.clone(), act, window, cx),
                 _ => {}
             }
         });
@@ -941,6 +984,11 @@ impl JobView {
             .into_any_element(),
         )
     }
+}
+
+/// A new line of his own, named by when it was made.
+fn saved_id() -> String {
+    format!("saved:{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default())
 }
 
 #[cfg(test)]
