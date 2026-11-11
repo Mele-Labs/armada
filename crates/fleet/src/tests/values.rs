@@ -9,7 +9,7 @@ use std::time::Duration;
 use adapter_traits::Review;
 use api::{HostedSessions, Projects, Sessions};
 use ipc::{
-    DeliveryChoice, EditProject, LookSet, ManifestId, NewProject, ProjectMember, SaveKitValues, SavePreference, SessionRecord,
+    EditProject, LookSet, ManifestId, NewProject, ProjectMember, SaveKitValues, SavePreference, SessionRecord,
     StartSession, ValueLayer, ValuesSet,
 };
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
@@ -302,35 +302,14 @@ async fn a_job_in_a_project_offers_its_pull_request_as_the_project_says_over_the
 }
 
 #[tokio::test]
-async fn a_job_in_a_project_may_land_as_the_project_says_over_the_repository() {
-    let rig = a_rig("auto_merge: never\n");
+async fn a_job_starts_with_auto_land_off_whatever_auto_merge_resolves_to() {
+    let rig = a_rig("auto_merge: checks-pass\n");
+    assert!(!rig.auto_land(&rig.job(None).await).await, "a repository that says checks-pass does not turn it on");
     let always = rig.project(Some(set(None, Some("always")))).await;
-    assert!(rig.auto_land(&rig.job(Some(&always)).await).await, "the project lets a machine land over the repository's never");
-    assert!(!rig.auto_land(&rig.job(None).await).await, "a Job in no project runs on the repository's never");
-    let rig = a_rig("auto_merge: always\n");
-    let never = rig.project(Some(set(None, Some("never")))).await;
-    assert!(!rig.auto_land(&rig.job(Some(&never)).await).await, "the project's never is over the repository's always");
-    assert!(rig.auto_land(&rig.job(None).await).await);
-    let checks = rig.project(Some(set(None, Some("checks-pass")))).await;
-    assert!(rig.auto_land(&rig.job(Some(&checks)).await).await, "checks-pass lets it land once the checks pass");
-}
-
-#[tokio::test]
-async fn a_choice_to_stop_at_the_pull_request_or_the_commit_turns_off_the_auto_land_the_values_began_with() {
-    let rig = a_rig("");
-    let always = rig.project(Some(set(None, Some("always")))).await;
-    for stop in [DeliveryChoice::OpenPr, DeliveryChoice::KeepLocal] {
-        let job = rig.job(Some(&always)).await;
-        assert!(rig.auto_land(&job).await);
-        rig.fleet.auto_land_follows(job.id.as_str(), Some(stop)).await;
-        assert!(!rig.auto_land(&job).await, "{stop:?}: his choice is the nearest layer");
-    }
     let job = rig.job(Some(&always)).await;
-    rig.fleet.auto_land_follows(job.id.as_str(), Some(DeliveryChoice::AutoLand)).await;
-    assert!(rig.auto_land(&job).await, "auto land chosen leaves it on");
-    let plain = rig.job(None).await;
-    rig.fleet.auto_land_follows(plain.id.as_str(), Some(DeliveryChoice::KeepLocal)).await;
-    assert!(!rig.auto_land(&plain).await, "and a Job that did not have it on is left as it is");
+    assert!(!rig.auto_land(&job).await, "nor does a project that says always");
+    let frozen = rig.fleet.job_values(job.id.as_str()).await.expect("frozen");
+    assert_eq!(frozen.wire().auto_merge.value.as_deref(), Some("always"), "the value is still frozen, and read where something reads it");
 }
 
 #[tokio::test]

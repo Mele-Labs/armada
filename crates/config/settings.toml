@@ -314,7 +314,7 @@ peer_polarity = "n/a — single layer"
 owner = "Manifest"
 read_by = "config, fleet"
 notes = """
-Explicit in brief, per-project. Config reads the top-level `auto_merge:` key, and a project's `values:` or Kit's `values.yml` may set it too: the nearest layer wins and nothing is folded between them, so a project's `always` replaces a repository's `never`. A Job takes the result when it starts, and `checks-pass` or `always` start it with Auto land on.
+Explicit in brief, per-project. Config reads the top-level `auto_merge:` key, and a project's `values:` or Kit's `values.yml` may set it too: the nearest layer wins and nothing is folded between them, so a project's `always` replaces a repository's `never`. A Job takes the result when it starts and serves it with its layer. Auto land still starts off for every Job.
 
 `read_by` was `adapters, fleet` and no adapter ever read it. What an adapter answers is `WhatTheForgeRan`, which is the reading `checks-pass` consults; the policy itself is never seen below Fleet.
 

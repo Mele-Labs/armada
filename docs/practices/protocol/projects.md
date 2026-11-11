@@ -73,6 +73,8 @@ The layers, **nearest winning**, are default, Machine, Kit, repository, Project 
 | Job | What the Job itself was started with. Nothing sets one yet |
 
 **Autonomy has no second home.** The pieces it already has are read: those scoped to every repository are `kit`, those scoped to the named project are `project`, and those scoped to the repository are `repository`, a repository's laid over its project's as the pieces always were.
+**Autonomy's `from` follows that order, not the one every other value follows**: where a repository and its project both scope a piece for one act kind, the repository's wins and `from` reads `repository`, though for `pr_mode`, `auto_merge` and the rest a project is over its repository.
+It is the existing order, and the one the Operator's rules take.
 A project is only asked about by `get_values` with a `project`.
 With no repository there is no autonomy to read, so `autonomy` is left out.
 
@@ -84,7 +86,7 @@ Where it reads them:
 | The Job's | Reads |
 | --- | --- |
 | Pull request | `pr_mode` where Kit, the repository, the project or the Job set it, else the Machine's word as it stands. A `draft` opens the pull request Fleet opens for it as a draft |
-| Auto merge | `checks-pass` and `always` start the Job with Auto land on, which its card can turn off. A choice to stop at the pull request or the commit turns it off: his choice is the nearest layer |
+| Auto merge | The Job freezes the word and the layer it came from, and serves them. **Auto land still starts off for every Job**, as it always did, and is turned on from the card or by his choice; a value of `checks-pass` or `always` does not turn it on |
 | Review model | `review_model` where Kit, the repository, the project or the Job set it, else `models.review`, which is live |
 
 **The Machine's word and the default are not frozen into a read.** They are settings a person moves while a Job runs, and `models.review` and `features.draftPullRequests` were live.

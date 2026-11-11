@@ -128,9 +128,7 @@ where
                     turn_effort: None,
                     paused_at: None,
                     paused_resuming: false,
-                    // Where the values let a machine land work, the Job starts with Auto land on, which
-                    // its card can turn off. `docs/practices/protocol/projects.md`, *Values*.
-                    auto_land: values.as_ref().is_some_and(crate::values::may_land),
+                    auto_land: false,
                     mod_job: matches!(marked, Marked::Mod | Marked::ModsFolder),
                     start_held: held,
                     workflow_chosen: false,

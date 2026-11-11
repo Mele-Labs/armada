@@ -18,7 +18,7 @@ use adapter_traits::{AgentHarness, Delivery, Review, Vcs, WorkProduct};
 use api::Refusal;
 use config::settings::{self as keys, Key as _};
 use config::{kit_values_text, parse_kit_values, shipped_values, Layers, ResolvedValue, ResolvedValues};
-use core_model::{AutoMerge, Layer, Look, ManifestId as Repository, PrMode, ScopeId, Ulid, Values};
+use core_model::{AutoMerge, Component, Envelope, FieldValue, Layer, Level, Look, ManifestId as Repository, PrMode, ScopeId, Ulid, Values};
 use ipc::{KitValuesSaved, LookSet, ManifestId, SaveKitValues, ValuesSet};
 use store::KeptValue;
 
@@ -86,12 +86,6 @@ pub(crate) fn resolved_wire(resolved: &ResolvedValues) -> ipc::ResolvedValues {
             .map(|one| ipc::ResolvedAutonomy { kind: one.kind.as_wire().to_string(), value: one.value.as_wire().to_string(), from: layer_wire(one.from) })
             .collect(),
     }
-}
-
-/// Whether a machine may land work under `resolved`: `checks-pass` and `always` say so, and `never` and a
-/// value no layer set do not.
-pub(crate) fn may_land(resolved: &ResolvedValues) -> bool {
-    matches!(resolved.auto_merge.value, Some(AutoMerge::ChecksPass | AutoMerge::Always))
 }
 
 /// What a Job freezes, a row for each key.
@@ -210,11 +204,20 @@ where
         let path: PathBuf = self.kit_folder().join(KIT_FILE);
         match std::fs::read_to_string(&path) {
             Ok(text) => parse_kit_values(&path, &text).unwrap_or_else(|why| {
-                eprintln!("Kit's values were not read, so Kit sets none: {why}");
+                self.values_warned("Kit's values were not read, so Kit sets none", None, why);
                 Values::default()
             }),
             Err(_) => Values::default(),
         }
+    }
+
+    /// A warning in the envelope on Fleet's standard error: what failed here raises nothing for the person.
+    fn values_warned(&self, msg: &str, subject: Option<&str>, why: impl std::fmt::Display) {
+        let mut envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg);
+        if let Some(subject) = subject {
+            envelope = envelope.with_field("subject", FieldValue::Str(subject.to_string()));
+        }
+        crate::transcript::note_aloud(&envelope.with_field("why", FieldValue::Str(why.to_string())));
     }
 
     /// What the Machine's settings say, **only what is saved there**: an unsaved key defers.
@@ -301,7 +304,7 @@ where
         match self.values_resolved(project, Some(&ManifestId::carried(repository))).await {
             Ok(resolved) => Some(resolved),
             Err(why) => {
-                eprintln!("values of a Job in {repository} were not frozen: {}", why.error().message);
+                self.values_warned("a Job's values were not frozen", Some(repository), &why.error().message);
                 None
             }
         }
@@ -310,7 +313,7 @@ where
     /// Keep `resolved` as what the Job `id` froze.
     pub(crate) async fn job_values_frozen(&self, id: &str, resolved: &ResolvedValues) {
         if let Err(why) = self.store().lock().await.keep_job_values(id, &rows_of(resolved)) {
-            eprintln!("job {id}: its values were not kept: {why:?}");
+            self.values_warned("a Job's values were not kept", Some(id), format!("{why:?}"));
         }
     }
 
