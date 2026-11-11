@@ -656,7 +656,11 @@ impl JobView {
     /// A file of the Job's repository, read-only. **The live read waits on Fleet's
     /// `GET /sessions/repository_file`**; until it lands only the mock reads one.
     fn open_file(&mut self, path: String, window: &mut Window, cx: &mut Context<Self>) {
-        let read = if self.fleet.is_none() { crate::mock::repository_file(&path) } else { None }
+        // Fleet serves no file read yet (`GET /sessions/repository_file` is unmerged), so a live press opens nothing.
+        if self.fleet.is_some() {
+            return;
+        }
+        let read = crate::mock::repository_file(&path)
             .map(|read| read.map_or_else(|why| FileRead::Refused(Refusal::from_wire(&why)), FileRead::Text));
         self.open_panel(Of::File { path, read }, window, cx);
     }
