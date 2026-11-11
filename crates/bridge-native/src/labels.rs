@@ -36,6 +36,7 @@ pub fn role_named(word: &str) -> Option<Role> {
         "switch" => Role::Switch,
         "toolbar" => Role::Toolbar,
         "status" => Role::Status,
+        "timer" => Role::Timer,
         "label" => Role::Label,
         "link" => Role::Link,
         "menu" => Role::Menu,

@@ -1,7 +1,7 @@
 //! The question deck (`job-view.md`, B4.4): one question at a time, its options numbered, Other
 //! last, and Answer, Next and Skip under them.
 
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
+use gpui::{anchored, canvas, deferred, div, point, prelude::*, px, Anchor, AnyElement, Bounds, Context, FontWeight, Pixels, Role, SharedString, Window};
 use gpui_component::input::TextareaState;
 use ipc::{
     AnswerSessionAsk, AnswerWaiting, AskedQuestion, CallAnswer, DismissWaiting, QuestionAnswer, SendSessionMessage, SendSessionMessageBody,
@@ -29,7 +29,19 @@ pub(super) struct Deck {
     pub picked: Vec<Vec<usize>>,
     pub other: Vec<bool>,
     pub sending: bool,
+    /// The option under the pointer, and the one with the keys, as (question, option): its preview is shown.
+    pub hover: Option<(usize, usize)>,
+    pub focused: Option<(usize, usize)>,
 }
+
+thread_local! {
+    /// The window's size at the last draw of a deck, so a preview can choose its side.
+    static ROOM: std::cell::Cell<gpui::Size<Pixels>> = std::cell::Cell::new(gpui::Size::default());
+}
+
+/// Electron's gap between the panel and a preview, and the narrowest a preview beside it may be.
+const GAP: f32 = 8.;
+const MIN_BESIDE: f32 = 160.;
 
 /// What a deck answers.
 #[derive(Clone)]
@@ -114,16 +126,47 @@ impl JobView {
         let here_chosen = !answers[front].1.is_empty();
         let multi = question.multi_select;
         let role = if multi { Role::CheckBox } else { Role::RadioButton };
+        let page = self.pages.get(id);
+        let looking = deck.hover.or(deck.focused).filter(|(at, _)| *at == front).map(|(_, n)| n);
         let options = question.options.iter().enumerate().map(|(n, option)| {
             let deck_key = key.to_string();
-            labelled(
-                self.choice_row(format!("answer:{key}:{front}:{n}"), n + 1, &option.label, &option.description, deck.picked[front].contains(&n), multi, None, look)
-                    .on_click(cx.listener(move |this, _, window, cx| this.deck_pick(&deck_key, front, total, n, multi, window, cx))),
-                role,
-                option.label.clone(),
-            )
-            .into_any_element()
+            let row_key = format!("answer:{key}:{front}:{n}");
+            let mut row = self
+                .choice_row(row_key.clone(), n + 1, &option.label, &option.description, deck.picked[front].contains(&n), multi, None, look)
+                .on_click(cx.listener(move |this, _, window, cx| this.deck_pick(&deck_key, front, total, n, multi, window, cx)));
+            // An option with a preview shows it while the pointer or the keys are on it, as Electron's.
+            if let (false, Some(page)) = (option.preview.is_empty(), page) {
+                let spot = page.keys.spot(&row_key, cx);
+                let hover_key = key.to_string();
+                row = row.track_focus(&spot.focus).on_hover(cx.listener(move |this, over: &bool, _, cx| this.deck_look(&hover_key, total, front, n, *over, false, cx)));
+                let (focus, drawn, me, focus_key, was) = (spot.focus.clone(), spot.bounds.clone(), cx.entity().downgrade(), key.to_string(), deck.focused == Some((front, n)));
+                row = row.child(
+                    canvas(
+                        move |bounds, window, cx| {
+                            drawn.set(bounds);
+                            let now = focus.is_focused(window);
+                            if now != was {
+                                let (me, focus_key) = (me.clone(), focus_key.clone());
+                                cx.defer(move |cx| {
+                                    let _ = me.update(cx, |this, cx| this.deck_look(&focus_key, total, front, n, now, true, cx));
+                                });
+                            }
+                        },
+                        |_, _, _, _| {},
+                    )
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full(),
+                );
+            }
+            labelled(row, role, option.label.clone()).into_any_element()
         });
+        let frame = page.map(|page| page.keys.spot(&format!("deck-frame:{key}"), cx));
+        let preview = looking
+            .and_then(|n| question.options.get(n).filter(|option| !option.preview.is_empty()).map(|option| (n, option.preview.clone())))
+            .and_then(|(n, text)| Some((page?.keys.spot(&format!("answer:{key}:{front}:{n}"), cx).bounds.get(), frame.as_ref()?.bounds.get(), text)))
+            .map(|(row, frame, text)| preview_card(&text, row, frame, look));
         let other_on = deck.other[front];
         let other = (!no_other).then(|| {
             let deck_key = key.to_string();
@@ -229,11 +272,43 @@ impl JobView {
                 ))
                 .children(typed_box)
                 .children(said.map(|why| refusal(look, key, why)))
-                .child(labelled(footer.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers")),
+                .child(labelled(footer.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers"))
+                .children(frame.map(|frame| {
+                    let drawn = frame.bounds.clone();
+                    canvas(
+                        move |bounds, window, _| {
+                            drawn.set(bounds);
+                            ROOM.with(|room| room.set(window.viewport_size()));
+                        },
+                        |_, _, _, _| {},
+                    )
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full()
+                }))
+                .children(preview),
             Role::Group,
             question.question.clone(),
         )
         .into_any_element()
+    }
+
+    /// The pointer or the keys came onto an option, or left it.
+    #[allow(clippy::too_many_arguments)]
+    fn deck_look(&mut self, key: &str, total: usize, front: usize, n: usize, on: bool, keys: bool, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let mut deck = self.deck_of(&id, key, total);
+        let slot = if keys { &mut deck.focused } else { &mut deck.hover };
+        let next = if on { Some((front, n)) } else { slot.filter(|one| *one != (front, n)) };
+        if *slot == next {
+            return;
+        }
+        *slot = next;
+        if let Some(dock) = self.dock_mut() {
+            dock.decks.insert(key.to_string(), deck);
+        }
+        cx.notify();
     }
 
     pub(super) fn deck_pick(&mut self, key: &str, front: usize, total: usize, n: usize, multi: bool, window: &mut Window, cx: &mut Context<Self>) {
@@ -405,4 +480,55 @@ impl JobView {
         }
         cx.notify();
     }
+}
+
+/// A preview as a card out of the panel, level with its row: right of the panel where it fits whole, then left, then narrowed into the
+/// wider side, and with too little room on both, over the row's trailing end. Electron's `PreviewCard`.
+fn preview_card(text: &str, row: Bounds<Pixels>, frame: Bounds<Pixels>, look: &Look) -> AnyElement {
+    let room = ROOM.with(|room| room.get());
+    let (gap, pad) = (px(GAP), look.length(token::SPACE_3));
+    // Monospace: as wide as its longest line.
+    let longest = text.lines().map(|line| line.chars().count()).max().unwrap_or(0) as f32;
+    let width = look.length(token::TEXT_XS) * 0.6 * longest + pad * 2. + look.length(token::BORDER_WIDTH) * 2.;
+    let right = room.width - frame.right() - gap * 2.;
+    let left = frame.left() - gap * 2.;
+    let down = row.top() <= room.height / 2.;
+    let y = if down { row.top() } else { row.bottom() };
+    let (x, to_left, narrow) = if right >= width {
+        (frame.right() + gap, false, None)
+    } else if left >= width {
+        (frame.left() - gap, true, None)
+    } else if right.max(left) >= px(MIN_BESIDE) {
+        if right >= left { (frame.right() + gap, false, Some(right)) } else { (frame.left() - gap, true, Some(left)) }
+    } else {
+        (row.right() - gap, true, None)
+    };
+    let anchor = match (down, to_left) {
+        (true, false) => Anchor::TopLeft,
+        (true, true) => Anchor::TopRight,
+        (false, false) => Anchor::BottomLeft,
+        (false, true) => Anchor::BottomRight,
+    };
+    let card = div()
+        .id("deck-preview")
+        .max_h(look.length(token::SPACE_6) * 10.)
+        .overflow_hidden()
+        .p(pad)
+        .rounded(look.length(token::RADIUS_MD))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_DEFAULT))
+        .bg(look.color(token::BG_SUNKEN))
+        .shadow(look.shadows(token::SHADOW_OVERLAY))
+        .font_family(mono(look))
+        .text_size(look.length(token::TEXT_XS))
+        .line_height(look.length(token::LEADING_XS))
+        .text_color(look.color(token::FG_DEFAULT))
+        .map(|card| match narrow {
+            Some(most) => card.max_w(most),
+            None => card.whitespace_nowrap(),
+        })
+        .children(text.lines().map(|line| div().min_h(look.length(token::LEADING_XS)).child(SharedString::from(line.to_string()))));
+    deferred(anchored().position(point(x, y)).anchor(anchor).snap_to_window_with_margin(look.length(token::SPACE_4)).child(labelled(card, Role::Region, "Preview")))
+        .with_priority(1)
+        .into_any_element()
 }

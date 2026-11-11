@@ -42,7 +42,7 @@ pub(super) fn start_mock_clock(threads: &std::collections::HashMap<String, ipc::
     let _ = MOCK_CLOCK.set((newest, std::time::Instant::now()));
 }
 
-fn running_now(job: &str) -> DateTime<Utc> {
+pub(super) fn running_now(job: &str) -> DateTime<Utc> {
     match MOCK_CLOCK.get().and_then(|(newest, read)| newest.get(job).map(|at| (*at, read))) {
         Some((newest, read)) => newest + chrono::Duration::from_std(read.elapsed()).unwrap_or_default(),
         None => Utc::now(),
@@ -74,7 +74,9 @@ struct Call {
 /// One call (take A, approved 10 Nov): a rail in its kind's colour, its kind's icon, the phrase and the
 /// time it took. While it runs a band travels down the rail, the icon moves, the time counts and a
 /// second line says what it works on. Done, it is one grey line, the icon on its last frame.
-fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ipc::Instant>, running: bool, look: &Look) -> AnyElement {
+/// `stop` ends the first line: the live fold's newest call carries Stop, as Electron's does.
+#[allow(clippy::too_many_arguments)]
+fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ipc::Instant>, running: bool, stop: Option<AnyElement>, look: &Look) -> AnyElement {
     let Call { kind, phrase, working_on } = call;
     let ink = match kind {
         Kind::Read | Kind::Search | Kind::Web | Kind::Other => token::ACCENT,
@@ -127,7 +129,8 @@ fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ip
                 .text_color(look.color(if running { token::FG_DEFAULT } else { token::FG_MUTED }))
                 .child(phrase),
         )
-        .child(time);
+        .child(time)
+        .children(stop);
     let second = working_on.map(|line| {
         div()
             .pl(side + gap)
@@ -290,7 +293,21 @@ impl JobView {
                     working_on: calls::working_on(&texts[at]).filter(|_| running),
                 },
             };
-            tool_row(&job, &format!("{id}:{at}"), one, row.at(), if running { None } else { end }, running, look)
+            let stop = running.then(|| self.stop_button(look, cx));
+            let line = tool_row(&job, &format!("{id}:{at}"), one, row.at(), if running { None } else { end }, running, stop, look);
+            // In a folded group each call is a Command, as Electron's: it takes focus and a right press offers Teach.
+            if live || texts[at].is_empty() {
+                return line;
+            }
+            let key = format!("call-command:{id}:{at}");
+            let spot = self.spot(page, &key, cx);
+            let command = div()
+                .id(SharedString::from(key))
+                .track_focus(&spot.focus)
+                .rounded(look.length(token::RADIUS_SM))
+                .focus_visible(|style| style.bg(look.color(token::BG_HOVER)))
+                .child(line);
+            self.menu_on(command, &spot, "Command", spot.focus.clone(), Rc::new(teach_entries), self.teach_pick("command", texts[at].clone(), Some(row.at().clone())), cx).into_any_element()
         });
         if live {
             return labelled(
@@ -313,7 +330,7 @@ impl JobView {
         let task = subagent.task.clone();
         if subagent.state == ToolSubagentState::Running {
             let one = Call { kind: Kind::Agent, phrase: task, working_on: None };
-            return div().id(SharedString::from(format!("subagent:{id}"))).child(tool_row(self.shown.as_deref().unwrap_or_default(), &format!("subagent:{id}"), one, &subagent.since, None, true, look)).into_any_element();
+            return div().id(SharedString::from(format!("subagent:{id}"))).child(tool_row(self.shown.as_deref().unwrap_or_default(), &format!("subagent:{id}"), one, &subagent.since, None, true, None, look)).into_any_element();
         }
         let cut = subagent.state == ToolSubagentState::CutOff;
         let said = if cut { "Subagent cut off" } else { "Subagent finished" };
