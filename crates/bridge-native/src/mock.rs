@@ -18,7 +18,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         *held = scenario.to_string();
     }
     let bytes: &[u8] = match scenario {
-        "jobs-many" | "job-view" => include_bytes!("../fixtures/jobs-many.json"),
+        "jobs-many" | "job-view" | "job-reasoning" => include_bytes!("../fixtures/jobs-many.json"),
         "job-bands" => include_bytes!("../fixtures/jobs-bands.json"),
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
@@ -44,6 +44,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
         "job-view-composer" => include_bytes!("../fixtures/composer-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
+        "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         _ => return Ok(HashMap::new()),
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;

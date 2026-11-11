@@ -594,14 +594,14 @@ fn a_tail_starts_at_the_first_item_the_client_holds_that_changed() {
     assert_eq!((from.as_deref(), tail.len()), (Some("b"), 0));
 }
 
-/// The native thread draws no `reasoning` row yet, so it is held back: two calls with reasoning between them stay one
-/// run, and a Fleet turn keeps its calls (the owner, 10 Nov 2026).
+/// A `reasoning` row is drawn as it came and ends a run of calls, as Electron's `itemsOf` ends one at any row that is
+/// not a call; it ends a Fleet turn's reply the same way.
 #[test]
-fn reasoning_is_held_back_and_ends_no_run_of_calls() {
+fn reasoning_is_a_row_and_ends_a_run_of_calls() {
     let reasoning = |id: &str, minute: u32| SessionRow::Reasoning { id: id.into(), at: at(minute), text: "Weighing the two.".into() };
     let found = items(vec![you("y1", 0, "go"), tool("t1", 1, "Bash ls"), reasoning("r1", 2), tool("t2", 3, "Bash pwd")]);
-    assert_eq!(kinds(&found), ["row", "calls"]);
-    assert_eq!(ids(&found), ["y1", "t1"]);
+    assert_eq!(kinds(&found), ["row", "calls", "row", "calls"]);
+    assert_eq!(ids(&found), ["y1", "t1", "r1", "t2"]);
     let turn = items(vec![fleet("f1", 0, "Fleet: checks failed", None), tool("t1", 1, "Bash ls"), reasoning("r1", 2), tool("t2", 3, "Bash pwd")]);
-    assert_eq!(kinds(&turn), ["fleet_turn"], "{turn:?}");
+    assert_eq!(kinds(&turn), ["fleet_turn", "row", "calls"], "{turn:?}");
 }

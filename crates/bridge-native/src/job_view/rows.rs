@@ -167,7 +167,13 @@ impl JobView {
             let Some(item) = held.items.get(ix) else { return nothing() };
             let last = ix + 1 == page.items;
             let asking = held.head.asked.is_some();
-            self.item(ix, item, last && working && !asking, page, look, now, window, cx)
+            match item {
+                ThreadItem::Row { row: SessionRow::Reasoning { id, text, .. } } => {
+                    let (seconds, open) = super::lines::reasoning_reading(&held.items, ix);
+                    Some(self.reasoning(ix, id, text, seconds, open, page, look, cx))
+                }
+                _ => self.item(ix, item, last && working && !asking, page, look, now, window, cx),
+            }
         } else {
             self.extra(&held.head, &held.items, page, ix - page.items, look, now, cx)
         };
@@ -295,7 +301,24 @@ impl JobView {
         look: &Look,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let open = page.opened.contains(&key);
+        self.fold_from(ix, key, label, head, body, false, page, look, cx)
+    }
+
+    /// A fold that may start open: then a press shuts it, and the page keeps that it was pressed.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn fold_from(
+        &self,
+        ix: usize,
+        key: String,
+        label: String,
+        head: Vec<AnyElement>,
+        body: Option<AnyElement>,
+        first_open: bool,
+        page: &Page,
+        look: &Look,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let open = first_open != page.opened.contains(&key);
         let name = SharedString::from(key.clone());
         let spot = page.keys.spot(&key, cx);
         let line = labelled(
