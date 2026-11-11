@@ -7,7 +7,9 @@ use std::collections::HashMap;
 use gpui::{point, px, App, Bounds, Global, Pixels, Window, WindowId};
 
 /// Paint order for the walk's own chrome: its bar, the ring on a step's target and the note card.
-/// Above every app layer, which use 0 to 3.
+/// Above every app layer, which use 0 to 3. gpui sorts by priority only within one round: a deferred
+/// inside another deferred (a tooltip or ring tip inside a sheet) paints in a later round, above the
+/// chrome whatever its priority. Keep such popovers inside the room, as `snap_to_window` alone does not.
 pub const WALK_CHROME: usize = 10;
 
 #[derive(Default)]
