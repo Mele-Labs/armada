@@ -24,6 +24,7 @@ fn kept(manifest: &str) -> KeptAutopilot {
         on_running: true,
         on_reports: true,
         decisions: vec!["plan".to_string(), "land".to_string()],
+        project: None,
     }
 }
 
@@ -85,4 +86,15 @@ fn the_reports_box_and_the_weekly_cap_are_kept_and_an_update_writes_the_cap_only
     let cleared = KeptAutopilot { weekly_cap_percent: None, ..kept("one") };
     assert!(store.update_autopilot(&cleared).expect("changed"));
     assert_eq!(store.autopilot("one").expect("reads").expect("held").weekly_cap_percent, None);
+}
+
+#[test]
+fn the_project_an_autopilot_was_started_for_is_kept_and_read_back() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.start_autopilot(&KeptAutopilot { project: Some("shop".to_string()), ..kept("one") }).expect("started");
+    store.start_autopilot(&kept("two")).expect("started");
+
+    assert_eq!(store.autopilot("one").expect("reads").expect("held").project.as_deref(), Some("shop"));
+    assert_eq!(store.autopilot("two").expect("reads").expect("held").project, None, "one started for none says none");
 }

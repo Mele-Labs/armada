@@ -69,6 +69,7 @@ fn settings(backlog: bool, reports: bool) -> AutopilotSettings {
         weekly_cap_percent: None,
         on_autopilot: AutopilotWork { backlog, running: false, reports },
         decisions: Default::default(),
+        project: None,
     }
 }
 

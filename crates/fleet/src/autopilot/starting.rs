@@ -44,12 +44,14 @@ where
     /// sent its brief is closed**: one left idle would hold a place for nothing.
     ///
     /// `because` is the picker's reason, said at the foot of the brief where Autopilot chose.
+    /// `project` is the one the Autopilot was started for, and the Job is for it.
     pub(super) async fn session_on_issue(
         self: &Arc<Self>,
         served: &Served,
         issue: &Issue<'_>,
         workflow: Option<&str>,
         because: Option<&str>,
+        project: Option<&str>,
     ) -> Result<String, Refusal> {
         // A reported bug has no page to read: it is briefed from the report, and held by the Job.
         let report = match issue.url.strip_prefix(REPORT_URL) {
@@ -63,7 +65,7 @@ where
         };
         let record = self
             .start_session(StartSession {
-                project: None,
+                project: project.map(str::to_string),
                 manifest_id: ipc::ManifestId::carried(served.manifest().id().as_str()),
                 title: Some(issue.title.to_string()),
                 model: None,

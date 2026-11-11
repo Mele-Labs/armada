@@ -279,6 +279,7 @@ mod autopilot_boxes;
 mod autopilot_decisions;
 mod autopilot_decisions_repository;
 mod autopilot_reports;
+mod autopilot_project;
 mod autopilot_reviewing;
 mod operator;
 mod operator_acting;

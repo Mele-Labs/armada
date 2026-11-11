@@ -202,6 +202,7 @@ where
                 weekly_cap_percent: None,
                 on_autopilot: Default::default(),
                 decisions: Default::default(),
+                project: None,
             },
             quoted: AutopilotQuoted {
                 instruction: read.quoted.instruction,
@@ -219,6 +220,11 @@ where
         settings: AutopilotSettings,
     ) -> Result<Autopilot, Refusal> {
         self.served_named(Some(&manifest_id))?;
+        // The project it is for must be his and hold this repository, as for a Job: refused before anything is made.
+        let project = match settings.project.as_deref().map(str::trim).filter(|one| !one.is_empty()) {
+            Some(project) => Some(self.project_started_for(project, manifest_id.as_str()).await?),
+            None => None,
+        };
         let held = self
             .store()
             .lock()
@@ -258,6 +264,7 @@ where
                 .iter()
                 .map(|decision| decision_word(*decision).to_string())
                 .collect(),
+            project,
         };
         self.store()
             .lock()
@@ -387,6 +394,7 @@ where
                 &Issue { url: &pick.issue_url, title: &pick.issue_title, excerpt: "" },
                 pick.workflow_id.as_deref(),
                 None,
+                kept.project.as_deref(),
             )
             .await;
         let mut store = self.store().lock().await;
