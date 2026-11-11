@@ -34,7 +34,7 @@ fn clock(at: &str, now: DateTime<Local>) -> Option<String> {
 }
 
 /// A time as how long ago it was: `<1m ago`, `5m ago`, `3h ago`, `2d ago`.
-fn age(at: &str, now: DateTime<Local>) -> Option<String> {
+pub(crate) fn age(at: &str, now: DateTime<Local>) -> Option<String> {
     let then = DateTime::parse_from_rfc3339(at).ok()?;
     let minutes = (now.with_timezone(&chrono::Utc) - then.with_timezone(&chrono::Utc)).num_minutes();
     Some(match minutes {

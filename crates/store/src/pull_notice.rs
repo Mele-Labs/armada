@@ -75,6 +75,35 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// Keep that `pull` was at commit `head` when last read.
+    pub fn keep_pull_head(&mut self, repository: &str, pull: u64, head: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO pull_heads (repository, pull, head) VALUES (?1, ?2, ?3) \
+                 ON CONFLICT (repository, pull) DO UPDATE SET head = ?3",
+                (repository, pull as i64, head),
+            )
+            .map(|_| ())
+            .map_err(fault("keeping a pull request's commit"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Whether `recipient` was told `pull` failed its checks or conflicts at the commit it is at now:
+    /// told, and nothing pushed since.
+    pub fn pull_red_untouched(&self, repository: &str, pull: u64, recipient: &str) -> Result<bool, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM pull_notices n JOIN pull_heads h \
+                 ON h.repository = n.repository AND h.pull = n.pull AND h.head = n.head \
+                 WHERE n.repository = ?1 AND n.pull = ?2 AND n.recipient = ?3 \
+                 AND n.cause IN ('checks_failed', 'conflicts'))",
+                (repository, pull as i64, recipient),
+                |row| row.get::<_, bool>(0),
+            )
+            .map_err(fault("reading whether a pull request is still red"))
+            .map_err(WriteError::Database)
+    }
+
     /// Forget every `trigger` notice on `pull`, at any commit: what was told is no longer news
     /// once the thing it told of is undone, as a queue entry undoes a drop.
     pub fn forget_pull_notices(

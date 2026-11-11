@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "Judge verdicts only. Never a failed Check (shield-x), never a Job failure, never a dismiss or close control."
   notes = "Added 2026-08-21. In --verdict-not-met. A criterion is met or it is not, and that is a measured fact, so it renders as flatly as one. The red does not claim the Job failed: a refusal is the gate working. Verdict hue is per criterion and never sums onto the step or the Job, which is what lets a red cross sit under a running step beneath an escalated badge."
+
+  [[icons.circle-x.usage]]
+    means = "A repository whose main is red, on its pill in the Operator page's head"
+    group = "Operator"
+    size = "14px"
+    status = "Proposed"
+    notes = "Proposed 10 Nov 2026 for the native walk `operator-page`, for the owner to rule on. Fleet serves the state on `operator_page`'s `mains`. Tooltip `storefront main is red since 11:24`; the pill takes the failed hue and ground."

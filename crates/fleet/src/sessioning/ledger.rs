@@ -214,6 +214,7 @@ where
             Some(_) => store.job_values(&session.id).map_err(fault)?,
             None => Vec::new(),
         };
+        let red_pulls = self.red_pulls_of(store, &session.id, &held);
         Ok(LedgerReads {
             values,
             wait,
@@ -235,6 +236,8 @@ where
             holding: flying.iter().filter(|one| one.holds).cloned().collect(),
             flying,
             repair_over: stop.repair_job.as_deref().is_some_and(|repair| store.repair_over(repair).unwrap_or(true)),
+            stop_repaired_at: store.last_repair_started(&session.id, [crate::repair::RepairBreak::Quiet.key(), crate::repair::RepairBreak::RedPull { number: 0 }.key()]).unwrap_or_default(),
+            red_pulls,
             away: open_turn
                 .as_ref()
                 .and_then(|turn| Some(store.fleet_outages_between(&turn.since, turn.ended_at.as_deref()?).unwrap_or_default()))
@@ -376,7 +379,8 @@ where
         let live = session.state == store::SessionState::Live;
         let at_rest = |standing: Option<ipc::SessionStanding>| matches!(standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied));
         if live && at_rest(Some(resting)) && record.waiting_for.is_empty() {
-            let pulls = record.attachments.iter().filter_map(pull_request_wait);
+            // A pull request Fleet told it failed, with nothing pushed since, is no wait: nothing is coming of it.
+            let pulls = record.attachments.iter().filter(|one| !red_of(one, &reads.red_pulls)).filter_map(pull_request_wait);
             let started = reads.holding.iter().filter(|one| one.lifecycle == JOB_LIFECYCLE).map(|one| ipc::HeldOpenBy::Job { name: one.label.clone() });
             record.held_open_by = reads.watching.into_iter().map(|name| ipc::HeldOpenBy::Watch { name }).chain(started).chain(pulls).collect();
             if !record.held_open_by.is_empty() {
@@ -395,16 +399,21 @@ where
             || record.held_until.is_some()
             // A ticket lives as long as its work: only what is under way elsewhere excuses a stop.
             || reads.holding.iter().any(|one| one.lifecycle != TICKET_LIFECYCLE)
-            || record.attachments.iter().any(open_pull_request)
+            // A pull request still waits on its merge, unless Fleet told it that one failed and it pushed nothing since.
+            || record.attachments.iter().any(|one| open_pull_request(one) && !red_of(one, &reads.red_pulls))
             || (session.origin != "bridge" && !self.hosts().terminals().listening(&session.id))
             || self.hosts().of(&session.id).state().moving.is_some()
             // A subagent or a task still working is something running: the turn ended on it, not on nothing.
             || !record.running.is_empty();
         let stop = session.last_turn_at.as_deref().filter(|_| !excused);
         let read = stop.map(|stop| crate::session_host::stopping::read(stop, &reads.stop, spoke.as_deref(), self.now().epoch_millis().unwrap_or(0)));
-        if read == Some(crate::session_host::stopping::Read::Stopped) {
+        // A repair is due for a stop with its agent alive, until one has run since he last wrote.
+        let repair_due = self.hosts().of(&session.id).state().process.is_some()
+            && !crate::session_host::stopping::stop_repair_spent(reads.stop_repaired_at.as_deref(), spoke.as_deref());
+        let stopped_alive = read == Some(crate::session_host::stopping::Read::Stopped);
+        if stopped_alive {
             record.standing = Some(ipc::SessionStanding::Stopped);
-            record.stopped = stop.map(|stop| crate::session_host::stopping::stopped(stop, &record));
+            record.stopped = stop.map(|stop| crate::session_host::stopping::stopped(stop, &record, &reads.stop, reads.repair_over, repair_due));
         }
         let owed = stop.filter(|_| read == Some(crate::session_host::stopping::Read::Owed)).map(|stop| {
             let from = [Some(stop), spoke.as_deref()].into_iter().flatten().filter_map(|at| core_model::Timestamp::from_rfc3339(at).epoch_millis()).max();
@@ -416,6 +425,8 @@ where
             && !parked
             && reads.open_turn.as_ref().is_some_and(crate::session_host::stopping::restart_spent)
             && self.hosts().of(&session.id).state().process.is_none();
+        let silent = stop.filter(|_| stopped_alive && repair_due && !dead);
+        self.hosts().stops_silent().noted(&session.id, silent, reads.red_pulls.first().copied());
         if dead {
             record.standing = Some(ipc::SessionStanding::Stopped);
             record.stopped = reads.open_turn.as_ref().map(|turn| crate::session_host::stopping::dead(turn, &reads.stop, reads.repair_over, &reads.away, died_saying));
@@ -438,6 +449,24 @@ where
         record.mark = Some(super::marking::mark_of(&record, &thread, on_screen, self.now().epoch_millis()));
         record.compact = Some(super::compact::compact_of(&record));
         record
+    }
+
+    /// The numbers of the session's open pull requests that Fleet told it failed or conflicts, at the
+    /// commit each is at now: told, and nothing pushed since.
+    fn red_pulls_of(&self, store: &Store, session: &str, held: &[store::KeptAttachment]) -> Vec<u64> {
+        let recipient = format!("session:{session}");
+        held.iter()
+            .filter(|one| {
+                one.kind == crate::pull_requesting::PR
+                    && one.state == store::AttachmentState::Standing
+                    && one.detail.get("state").map(String::as_str) != Some("merged")
+            })
+            .filter_map(|one| {
+                let number: u64 = one.target.parse().ok()?;
+                let served = self.repositories().serving(&one.manifest_id)?;
+                store.pull_red_untouched(served.root(), number, &recipient).unwrap_or(false).then_some(number)
+            })
+            .collect()
     }
 
     /// A row for every other slot the pool says the session holds: one its subagent leased has no
@@ -545,6 +574,11 @@ where
 const JOB_LIFECYCLE: &str = "job";
 /// The lifecycle of the ticket a Job works.
 const TICKET_LIFECYCLE: &str = "ticket";
+
+/// Whether `one` is a pull request in `red`.
+fn red_of(one: &ipc::Attachment, red: &[u64]) -> bool {
+    one.kind == crate::pull_requesting::PR && one.target.parse().is_ok_and(|number| red.contains(&number))
+}
 
 /// A pull request of its own that has not merged, whatever it waits on.
 fn open_pull_request(one: &ipc::Attachment) -> bool {
