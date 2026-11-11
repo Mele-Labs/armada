@@ -22,6 +22,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     }
     let bytes: &[u8] = match scenario {
         "jobs-many" | "job-view" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs, with one handing off and one that took an earlier Job's place, that one ended behind it.
+        "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff.json"),
         "job-bands" => include_bytes!("../fixtures/jobs-bands.json"),
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),

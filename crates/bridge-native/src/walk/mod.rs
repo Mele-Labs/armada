@@ -209,6 +209,23 @@ pub static WALKS: &[Walk] = &[
     ],
     },
     Walk {
+        name: "job-handoff",
+        title: "Hand off marks",
+        screen: Screen::Jobs,
+        scenario: "jobs-handoff",
+        steps: &[
+            step("A Job handing off to a new one turns a ring before its state until the new one is up", Verb::Look, "img", "Handing off"),
+            step("Its tooltip says so", Verb::Hover, "img", "Handing off"),
+            step("A Job that took an earlier one's place carries a mark beside it; the earlier Job has no row of its own", Verb::Look, "button", "Earlier Job"),
+            step("A press on the mark opens the earlier Job", Verb::Press, "button", "Earlier Job"),
+            step("It has ended, so it has no box to write in; the row stays lit, since it stands for both", Verb::Absent("button", "Send"), "row", "Upgrade the router"),
+            press_on("A press on the row opens the Job itself, with the keys in its box", "row", "Upgrade the router", "button", "Send"),
+            step("Esc gives the keys back to the list", Verb::Key("escape"), "row", "Upgrade the router"),
+            step("H on the row opens the earlier Job from the keys", Verb::Key("h"), "row", "Upgrade the router"),
+            step("The earlier Job is open again: no box", Verb::Absent("button", "Send"), "button", "Earlier Job"),
+        ],
+    },
+    Walk {
         name: "strip-marks",
         title: "Merge strip and Job marks",
         screen: Screen::Marks,

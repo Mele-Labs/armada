@@ -76,6 +76,10 @@ struct Row {
     project: SharedString,
     paused: bool,
     ended: bool,
+    /// Asked to carry on in a new Job and told yes: a turning ring until the new one is up.
+    handing_off: bool,
+    /// The earlier Job this one took the place of, which the list does not draw: a mark beside the row opens it.
+    earlier: Option<SharedString>,
     /// How many listed Jobs up the line of starters this one stands.
     depth: usize,
     /// The Job that started this one, by title and project, for the link's tooltip.
@@ -225,6 +229,17 @@ fn flow_of(job: &SessionRecord) -> Option<(SharedString, SharedString)> {
     Some((name.into(), step.into()))
 }
 
+/// A hand off's ledger (`a-job-hands-off-to-a-new-one.md`), as `sessions-wire.ts` reads it: `replaces` and
+/// `replaced_by` are spent once written.
+fn spent<'a>(job: &'a SessionRecord, kind: &str) -> Option<&'a str> {
+    job.attachments.iter().find(|one| one.kind == kind && one.state == ipc::AttachmentState::Spent).map(|one| one.target.as_str())
+}
+
+/// Handing off: `handoff_starting` stands and no failure outranks it, on a Job not ended.
+fn handing_off(job: &SessionRecord) -> bool {
+    job.state != SessionState::Ended && attached(job, "handoff_starting").is_some() && attached(job, "handoff_failed").is_none()
+}
+
 fn starter_of(job: &SessionRecord) -> Option<&str> {
     job.attachments.iter().find(|one| one.kind == "started_by").map(|one| one.target.as_str())
 }
@@ -290,7 +305,8 @@ fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String])
         Scope::Ended => ended,
         Scope::All => lives.into_iter().chain(ended).collect(),
     };
-    let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| matches(job, query)).collect();
+    // A Job another took the place of stands behind that one's row, as Electron's deck has it (`ship.ts`, `behind`).
+    let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| spent(job, "replaced_by").is_none() && matches(job, query)).collect();
     let now = chrono::Utc::now();
     let title_of = |job: &SessionRecord| -> SharedString { job.title.clone().unwrap_or_else(|| job.id.as_str().to_string()).into() };
     let mut projects: Vec<(String, Vec<&SessionRecord>)> = Vec::new();
@@ -316,6 +332,8 @@ fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String])
             project: project.clone().into(),
             paused: paused(job),
             ended: job.state == SessionState::Ended,
+            handing_off: handing_off(job),
+            earlier: spent(job, "replaces").map(|id| id.to_string().into()),
             depth,
             started_by: starter_of(job).and_then(|id| jobs.iter().find(|one| one.id.as_str() == id)).map(|one| (title_of(one), project_of(one).into())),
             slot: attached(job, "slot").map(|slot| slot.rsplit('/').next().unwrap_or(slot).to_string().into()),
@@ -906,10 +924,13 @@ impl JobsList {
         self.open_menu(id, under(bounds), true, window, cx);
     }
 
+    /// `h`: the earlier Job behind the focused row, where it took one's place (`Deck.tsx`).
     fn on_earlier(&mut self, _: &Earlier, _window: &mut Window, cx: &mut Context<Self>) {
-        // A Job another took the place of is `behind` it, and Fleet does not say so on the record
-        // yet; until it does, `h` has nowhere to go.
-        cx.propagate();
+        let Some(earlier) = self.focused.as_ref().and_then(|id| self.rows().find(|row| &row.id == id)).and_then(|row| row.earlier.clone()) else {
+            cx.propagate();
+            return;
+        };
+        self.open(earlier, cx);
     }
 
     /// The row's menu (`RowMenu.tsx`), at `at`: Pause or Resume, Name it for me, Try it in your app
@@ -1073,7 +1094,8 @@ impl JobsList {
         let view = self.view;
         let after_job = at > 0 && matches!(self.lines[at - 1], Line::Job(_));
         let focused = self.focused.as_ref() == Some(&row.id);
-        let opened = self.opened.as_ref() == Some(&row.id);
+        // The row stands for the earlier Job too: it is open when that one is.
+        let opened = self.opened.as_ref() == Some(&row.id) || (row.earlier.is_some() && self.opened == row.earlier);
         let edge = if opened { token::ACCENT } else { token::BORDER_SUBTLE };
         let ground = if opened {
             look.color(token::ACCENT_MUTED)
@@ -1149,13 +1171,44 @@ impl JobsList {
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_1))
+            .children(row.earlier.clone().map(|earlier| {
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("earlier-{}", row.id)))
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .size(look.length(token::SPACE_4))
+                        .rounded(look.length(token::RADIUS_SM))
+                        .text_color(look.color(token::FG_MUTED))
+                        .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+                        .child(svg().path(icon_path("layers")).size(mark_glyph).text_color(look.color(token::FG_MUTED)))
+                        .tooltip(tip("Earlier Job".into()))
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            cx.stop_propagation();
+                            this.open(earlier.clone(), cx);
+                        })),
+                    Role::Button,
+                    "Earlier Job",
+                )
+            }))
             .when(view.on("view:conflicts"), |marks| marks.child(crate::clash_mark::ClashMark::in_row(row.id.clone())))
             // The time stands right against the state; the glyphs end at the row's edge, so they
             // line up down the list.
             .children(time)
             .when(view.on("view:status"), |marks| {
-                // The paused mark in place of the state's glyph.
-                marks.child(div().flex_none().flex().justify_end().children(state.map(|((glyph, said), hue)| {
+                // The paused mark in place of the state's glyph, and a hand off's ring before it.
+                marks.child(div().flex_none().flex().justify_end().when(row.handing_off, |slot| {
+                    slot.child(labelled(
+                        div()
+                            .id(SharedString::from(format!("handoff-{}", row.id)))
+                            .child(crate::titlebar::parts::spinner(SharedString::from(format!("handing-{}", row.id)), look.length(token::SPACE_4), look.color(token::FG_MUTED), cx))
+                            .tooltip(tip("Handing off".into())),
+                        Role::Image,
+                        "Handing off",
+                    ))
+                }).children(state.map(|((glyph, said), hue)| {
                     labelled(
                         div()
                             .id(SharedString::from(format!("state-{}", row.id)))
