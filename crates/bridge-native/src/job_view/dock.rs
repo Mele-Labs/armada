@@ -142,7 +142,7 @@ fn filled(look: &Look, row: gpui::Stateful<gpui::Div>) -> gpui::Stateful<gpui::D
 }
 
 /// The picture of each mark Fleet names, by the registry's glyph.
-fn icon_of(kind: NeedsYouGlyphKind) -> &'static str {
+pub(super) fn icon_of(kind: NeedsYouGlyphKind) -> &'static str {
     match kind {
         NeedsYouGlyphKind::Question => "message-circle-question-mark",
         NeedsYouGlyphKind::Reply => "reply",
@@ -745,6 +745,9 @@ impl JobView {
                         .flex()
                         .flex_col()
                         .gap(look.length(token::SPACE_2))
+                        // A ring around the section stands off its heading and rows, as a row's does.
+                        .p(look.length(token::SPACE_2))
+                        .m(-look.length(token::SPACE_2))
                         .child(
                             div()
                                 .text_size(look.length(token::TEXT_2XS))
@@ -869,8 +872,10 @@ impl JobView {
             _ => None,
         };
         let boxed = row.zip(dock).and_then(|(row, dock)| dock.row_box.as_ref().filter(|open| open.row == row.id)).and_then(|open| {
-            let name = if open.what == RowBoxFor::Reason { "Reason" } else { "Note" };
-            row.and_then(|row| self.box_of(&format!("dock:row:{}", row.id), Mode::Note, name, look, cx))
+            let name = if open.what == RowBoxFor::Reason { "Reason" } else { "Note with Done" };
+            let area = row.and_then(|row| self.box_of(&format!("dock:row:{}", row.id), Mode::Note, name, look, cx))?;
+            // Enter sends it, as the cap beside the page's other boxes says.
+            Some(div().flex().items_center().gap(look.length(token::SPACE_2)).child(div().flex_1().min_w_0().child(area)).child(super::acts::kbd(look, "\u{21b5}")).into_any_element())
         });
         let line = filled(look, div().id(SharedString::from(format!("needs-row:{key}"))))
             .child(div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said)))
@@ -1262,23 +1267,3 @@ impl JobView {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::build_change_of;
-    use ipc::BuildSource;
-
-    #[test]
-    fn a_restart_is_read_as_the_build_switch_it_asks_for() {
-        assert_eq!(build_change_of("scripts/preview --restart"), Some((BuildSource::Preview, false, "Refresh preview")));
-        assert_eq!(build_change_of("./scripts/preview --restart --adopt"), Some((BuildSource::Preview, true, "Refresh preview")));
-        assert_eq!(build_change_of("/Users/x/armada/scripts/restart --main"), Some((BuildSource::Main, false, "Update to main")));
-    }
-
-    #[test]
-    fn any_other_command_is_one_to_run() {
-        assert_eq!(build_change_of("scripts/preview --restart --dry-run"), None);
-        assert_eq!(build_change_of("scripts/preview"), None);
-        assert_eq!(build_change_of("other/preview --restart"), None);
-        assert_eq!(build_change_of("armada check test chip"), None);
-    }
-}

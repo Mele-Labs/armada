@@ -9,7 +9,7 @@
 use std::collections::HashSet;
 
 use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, Role, SharedString, Subscription, Window};
-use ipc::{ApprovePlan, ConfirmLater, LaterHow, PlanTaskState, SendPlanChanges, SessionId, SessionPlanGroup, SessionTodoState, SettleLater, WaitingItem, WaitingSource};
+use ipc::{ApprovePlan, ConfirmLater, LaterHow, PlanTaskState, SendPlanChanges, SessionId, SessionPlanGroup, SessionTodoState, SettleLater, WaitingSource};
 
 use super::acts::{button, Tone};
 use super::head::icon_button;
@@ -365,7 +365,17 @@ impl JobView {
     /// has not approved, edited in place.
     fn side_now(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
         let Some(job) = self.record(id, cx).cloned() else { return div().into_any_element() };
-        let owed = job.waiting_for.iter().filter(|item| item.source != WaitingSource::Done).map(|item| self.owed_row(item, look, cx)).collect::<Vec<_>>();
+        // What Fleet says he owes, as the band lists it (#80): a Done or a put-away takes the row out of both.
+        let hidden = self.dock_of(id).map(|dock| &dock.hidden);
+        let owed = self
+            .needs_of(id, cx)
+            .into_iter()
+            .flat_map(|view| view.sections.iter())
+            .filter(|section| section.kind != ipc::NeedsYouSectionKind::Done)
+            .flat_map(|section| section.rows.iter())
+            .filter(|row| !hidden.is_some_and(|hidden| hidden.contains(&row.id)))
+            .map(|row| self.owed_row(row, look, cx))
+            .collect::<Vec<_>>();
         // The lamp row heads the pane; waiting on him it is the dashed circle Electron's Now draws, not the row's eye.
         let agent = self.standing_mark(id, cx).map(|(icon, said, hue, _)| beat(look, if icon == "eye" { "circle-dashed" } else { icon }, hue, said));
         let working = self.side_groups(id, Stands::Working, look, cx);
@@ -400,7 +410,7 @@ impl JobView {
     }
 
     /// One thing waiting on him: a press opens it where it is answered.
-    fn owed_row(&self, item: &WaitingItem, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn owed_row(&self, item: &ipc::NeedsYouRow, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = item.id.clone();
         let source = item.source;
         labelled(
@@ -418,7 +428,7 @@ impl JobView {
                 .line_height(look.length(token::LEADING_XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(div().id(SharedString::from(format!("owed-mark:{}", item.id))).flex_none().pt(look.length(token::SPACE_1) / 2.).tooltip(tip("Waiting on you")).child(glyph(look, "megaphone", Size::Small, look.color(token::STATUS_AWAITING_REVIEW))))
+                .child(div().id(SharedString::from(format!("owed-mark:{}", item.id))).flex_none().pt(look.length(token::SPACE_1) / 2.).tooltip(tip(item.glyph.said.clone())).child(glyph(look, super::dock::icon_of(item.glyph.kind), Size::Small, look.color(token::STATUS_AWAITING_REVIEW))))
                 .child(div().flex_1().min_w_0().line_clamp(2).child(SharedString::from(item.text.clone())))
                 .on_click(cx.listener(move |this, _, window, cx| this.open_owed(&key, source, window, cx))),
             Role::Button,
