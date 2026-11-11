@@ -350,7 +350,12 @@ impl DispatchSheet {
         let more = (!self.face.more.is_empty()).then(|| self.more_menu(off, cx));
         // A start Fleet refused, in Fleet's words, on a line of its own under the repositories.
         let refusal = self.face.refused.clone().filter(|_| self.kind == Kind::Job).map(|why| {
-            labelled(div().id("dispatch-refused").w_full().text_color(look.color(token::ERROR)).child(why.clone()), Role::Alert, why)
+            // Its ring stands off the words, as a Needs you section's does.
+            labelled(
+                div().id("dispatch-refused").w_full().p(look.length(token::SPACE_2)).mx(-look.length(token::SPACE_2)).text_color(look.color(token::ERROR)).child(why.clone()),
+                Role::Alert,
+                why,
+            )
         });
         let repos = labelled(
             div()

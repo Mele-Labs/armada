@@ -57,12 +57,14 @@ pub struct DispatchScreen {
     _subs: Vec<Subscription>,
 }
 
-/// The project the window is scoped to, by Fleet's id, and the names of the repositories it holds in the
-/// order its members name them. `None` on All.
-fn scope(cx: &App) -> Option<(SharedString, Vec<SharedString>)> {
+/// What the window is scoped to: a project, by Fleet's id, with the names of the repositories it holds in the
+/// order its members name them, or one repository in no project, with no id. `None` on All.
+fn scope(cx: &App) -> Option<(Option<SharedString>, Vec<SharedString>)> {
     let bar = titlebar::live(cx)?;
     let face = &bar.read(cx).face;
-    let project = face.scoped.and_then(|at| face.projects.get(at))?;
+    let Some(project) = face.scoped.and_then(|at| face.projects.get(at)) else {
+        return face.chosen.and_then(|at| face.repositories.get(at)).map(|one| (None, vec![one.name.clone()]));
+    };
     let mut names: Vec<SharedString> = Vec::new();
     for member in &project.members {
         if let Some(one) = face.repositories.get(member.repository) {
@@ -71,7 +73,7 @@ fn scope(cx: &App) -> Option<(SharedString, Vec<SharedString>)> {
             }
         }
     }
-    Some((project.id.clone(), names))
+    Some((Some(project.id.clone()), names))
 }
 
 /// The screen in front, for a walk to move between scenes.
@@ -351,7 +353,7 @@ impl DispatchScreen {
             held,
             project_rows: Vec::new(),
             on_your_words: None,
-            project: scope(cx).map(|(id, _)| id.to_string()),
+            project: scope(cx).and_then(|(id, _)| id).map(|id| id.to_string()),
         };
         let body = ipc::encode(&start).map_err(|why| format!("{why:?}"));
         cx.spawn_in(window, async move |this, cx| {
