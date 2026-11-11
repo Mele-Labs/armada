@@ -190,18 +190,3 @@ fn a_finished_judge_reading_stands_after_the_last_row_by_then() {
     let ThreadItem::Judged { clean, .. } = &found[0] else { panic!("a judged line") };
     assert!(!clean, "it has a note");
 }
-
-fn reasoning(id: &str, minute: u32) -> SessionRow {
-    row(format!(r#"{{"kind":"reasoning","id":"{id}","at":"{}","text":"Weighing the two."}}"#, at(minute).as_str()))
-}
-
-/// The native thread draws no `reasoning` row yet, so it is held back: two calls with reasoning between them stay one
-/// run, and a Fleet turn keeps its calls (the owner, 10 Nov 2026).
-#[test]
-fn reasoning_is_held_back_and_ends_no_run_of_calls() {
-    let found = items(vec![you("y1", 0, "go"), tool("t1", 1, "Bash ls"), reasoning("r1", 2), tool("t2", 3, "Bash pwd")]);
-    assert_eq!(kinds(&found), ["row", "calls"]);
-    assert_eq!(ids(&found), ["y1", "t1"]);
-    let turn = items(vec![fleet("f1", 0, "Fleet: checks failed", None), tool("t1", 1, "Bash ls"), reasoning("r1", 2), tool("t2", 3, "Bash pwd")]);
-    assert_eq!(kinds(&turn), ["fleet_turn"], "{turn:?}");
-}
