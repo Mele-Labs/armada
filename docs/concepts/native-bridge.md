@@ -117,6 +117,7 @@ The parity check takes each row here as chosen.
 | A Job's Issues tab | Two repositories' #7 show as one row, a fault | Each repository's #7 is a row of its own; a row from another repository names it before the number, as sample-web#7 |
 | A Job's System tab: Columns | Hides Port, CPU, Memory and I/O | Hides Port alone: Fleet reports nothing else for each process |
 | A Job's System tab: a refused read | Placeholder shapes forever | A toast in Fleet's words; the shapes stop and the tab draws nothing until a later read succeeds |
+| A bay's panel: a confirm, a refusal or a receipt | Drawn where it falls, often out of sight in a short panel | Scrolled into view as it appears |
 | A row in a Job's Checks pane | A press opens nothing, a fault | Opens the Check's panel, with its runs in this Job |
 | A judge note on a pull request with no line | Has nowhere to show | Stands at the top of Files, above the tree, in the line notes' look |
 | A judge note or review thread on a pull request's line | Between the diff's lines, at that line | Under the head of its file in Files, until the native diff draws line numbers |
