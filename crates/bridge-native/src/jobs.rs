@@ -22,7 +22,7 @@ use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
 use crate::assets::icon_path;
 use crate::dropdown::{under, Dropdown, Entry, Picked};
 use crate::fleet::{BuildAct, FleetConnection};
-use crate::job_view::{JobJudge, JobSide, JobView};
+use crate::job_view::{JobSide, JobView};
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::log::Note;
@@ -1884,31 +1884,11 @@ impl Render for JobsList {
 /// narrowest it goes, the right column beside it, and the least the centre keeps.
 const REST_LEFT: f32 = 6.;
 const FLOOR_LEFT: f32 = 4.5;
-const RIGHT: f32 = 5.75;
-const FLOOR_RIGHT: f32 = 4.75;
 const CENTRE_FLOOR: f32 = 10.;
 /// What ← or → on the handle moves it by, in points (`DOCK_WIDTH_STEP`).
 const HANDLE_STEP: f32 = 16.;
 
 /// Where the list's dragged width is kept between runs, in points. No file is the resting width.
-/// Where each Job's Judge split is kept between runs: a Job id and its share, one a line.
-fn splits_file() -> Option<PathBuf> {
-    deck_file().map(|deck| deck.with_file_name("native-judge-splits"))
-}
-
-fn read_splits() -> HashMap<String, f32> {
-    let text = splits_file().and_then(|path| std::fs::read_to_string(path).ok()).unwrap_or_default();
-    text.lines().filter_map(|line| line.split_once(' ')).filter_map(|(job, share)| Some((job.to_string(), share.parse().ok()?))).collect()
-}
-
-fn write_splits(splits: &HashMap<String, f32>) {
-    let Some(path) = splits_file() else { return };
-    let text = splits.iter().map(|(job, share)| format!("{job} {share:.4}")).collect::<Vec<_>>().join("\n");
-    if let Err(why) = path.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|()| std::fs::write(&path, text)) {
-        Note::warn("the Judge's split was not kept").field("why", why.to_string()).emit();
-    }
-}
-
 fn columns_file() -> Option<PathBuf> {
     deck_file().map(|deck| deck.with_file_name("native-deck-columns"))
 }
@@ -1922,21 +1902,9 @@ impl Render for DeckHandle {
     }
 }
 
-/// The line between the Job and its Judge, being dragged.
-struct SplitHandle;
-
-impl Render for SplitHandle {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        gpui::Empty
-    }
-}
-
-/// Where the Judge's split arrives (`tree.ts` `arrive`), where a double press puts it back
-/// (`resizeSplit(.., 0.5)`), the least share a side keeps (`RATIO_MIN`) and the least a pane needs (`MIN_PANE_W`).
-/// Beside a Judge the thread and the right column share the Job's side as Electron's inner split does, 0.62 to 0.38.
+/// The thread's share of the Job beside its right column, as Electron's inner split draws it (0.62 to
+/// 0.38), and the least a pane needs (`MIN_PANE_W`).
 const SPLIT_ARRIVES: f32 = 0.62;
-const SPLIT_RESET: f32 = 0.5;
-const SPLIT_LEAST: f32 = 0.12;
 const PANE_LEAST: f32 = 160.;
 
 /// The Jobs screen in Electron's regions (`cockpit/deck/Deck.tsx`, `.deck-grid`): the list's panel at
@@ -1948,16 +1916,9 @@ pub struct JobsScreen {
     view: Entity<JobView>,
     /// The open Job's right column: Open, Done and Deferred over Now.
     side: Entity<JobSide>,
-    /// The open Job's Judge pane, on the right of everything while it is open.
-    judge: Entity<JobJudge>,
     /// The list's width as dragged; absent, it rests at Electron's width.
     left: Option<f32>,
     handle: FocusHandle,
-    /// Each Job's share of the room it splits with its Judge, kept between runs as Electron keeps it
-    /// in the Job's panes, and the width of that room as last drawn.
-    splits: HashMap<String, f32>,
-    split_room: Rc<std::cell::Cell<f32>>,
-    split_handle: FocusHandle,
     /// The whole screen's, which holds the list and the handle beside it.
     within: FocusHandle,
     remember: bool,
@@ -1975,25 +1936,6 @@ impl JobsScreen {
         let remember = list.read(cx).remember;
         let view = cx.new(|cx| JobView::new(list.clone(), threads, window, cx));
         let side = cx.new(|cx| JobSide::new(view.clone(), cx));
-        let judge = cx.new(|cx| JobJudge::new(view.clone(), cx));
-        // The pane comes and goes with the view's state, so the deck draws again when it does.
-        // A Judge that closes takes its split with it: it arrives at `SPLIT_ARRIVES` again, as in `tree.ts`.
-        let mut judged = None;
-        cx.observe(&view, move |this: &mut Self, view, cx| {
-            let (job, now) = { let view = view.read(cx); (view.shown_id(), view.judge_pane_open()) };
-            if judged.as_ref() == Some(&(job.clone(), true)) && !now {
-                if let Some(job) = &job {
-                    if this.splits.remove(job.as_ref()).is_some() && this.remember {
-                        write_splits(&this.splits);
-                    }
-                }
-            }
-            if judged.as_ref() != Some(&(job.clone(), now)) {
-                judged = Some((job, now));
-                cx.notify();
-            }
-        })
-        .detach();
         let left = remember
             .then(|| columns_file().and_then(|path| std::fs::read_to_string(path).ok()).and_then(|text| text.trim().parse::<f32>().ok()))
             .flatten();
@@ -2069,12 +2011,8 @@ impl JobsScreen {
             list,
             view,
             side,
-            judge,
             left,
             handle: cx.focus_handle(),
-            splits: if remember { read_splits() } else { HashMap::new() },
-            split_room: Rc::new(std::cell::Cell::new(0.)),
-            split_handle: cx.focus_handle(),
             within: cx.focus_handle(), remember, palette }
     }
 
@@ -2088,22 +2026,14 @@ impl JobsScreen {
         f32::from(window.viewport_size().width) - frame
     }
 
-    /// The right column, as Electron's `settle` draws it: at rest, or narrower down to its floor
-    /// where the list at its floor and the centre at its floor would not fit beside it.
-    fn right(window: &Window, look: &Look) -> f32 {
-        let unit = f32::from(look.length(token::SPACE_12));
-        let most = (Self::room(window, look) - unit * (FLOOR_LEFT + CENTRE_FLOOR)).max(unit * FLOOR_RIGHT);
-        (unit * RIGHT).clamp(unit * FLOOR_RIGHT, most)
-    }
-
-    /// The narrowest and widest the list may be in this window, so the centre keeps its floor. With no
-    /// Judge open the Job's own panes are the centre and there is no right column, as Electron's
-    /// `session` layout draws it (`NO_RIGHT`): the list may take its room and gap.
+    /// The narrowest and widest the list may be in this window, so the centre keeps its floor. The Job's
+    /// own panes are the centre and there is no right column, as Electron's `session` layout draws it
+    /// (`NO_RIGHT`): the list may take its room and gap.
     fn range(&self, window: &Window, cx: &App) -> (f32, f32) {
         let look = cx.look();
         let unit = f32::from(look.length(token::SPACE_12));
         let least = unit * FLOOR_LEFT;
-        let beside = if self.view.read(cx).judge_pane_open() { Self::right(window, look) } else { -f32::from(look.length(token::GAP_PANEL)) };
+        let beside = -f32::from(look.length(token::GAP_PANEL));
         (least, (Self::room(window, look) - beside - unit * CENTRE_FLOOR).max(least))
     }
 
@@ -2132,86 +2062,6 @@ impl JobsScreen {
     /// Teach from a list row: the open Job's Teach box, holding what the row said.
     pub(crate) fn teach_row(&mut self, text: String, window: &mut Window, cx: &mut Context<Self>) {
         self.view.update(cx, |view, cx| view.teach_row(text, window, cx));
-    }
-
-    /// The Job's share, kept so each side has its panes' room or `SPLIT_LEAST` of the whole, the
-    /// larger; the Job's side holds the right column as well as its pane.
-    fn resplit(&mut self, to: f32, cx: &mut Context<Self>) {
-        let look = cx.look();
-        let room = self.split_room.get();
-        if room <= 0. {
-            return;
-        }
-        let gap = f32::from(look.length(token::GAP_PANEL));
-        let low = (room * SPLIT_LEAST).max(PANE_LEAST * 2. + gap) / room;
-        let high = 1. - (room * SPLIT_LEAST).max(PANE_LEAST) / room;
-        let Some(job) = self.view.read(cx).shown_id() else { return };
-        if low <= high {
-            self.splits.insert(job.to_string(), to.clamp(low, high));
-            if self.remember {
-                write_splits(&self.splits);
-            }
-        }
-        cx.notify();
-    }
-
-    /// The open Job's share of the room beside its Judge.
-    fn split(&self, cx: &App) -> f32 {
-        self.view.read(cx).shown_id().and_then(|job| self.splits.get(job.as_ref()).copied()).unwrap_or(SPLIT_ARRIVES)
-    }
-
-    /// The line between the Job and its Judge (`JobPanes.tsx`, a quiet `DockHandle`): it shows on
-    /// hover, focus or drag; ← and → move it, Home and End take it to either end, a double press halves the room.
-    fn render_split_handle(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let look = cx.look();
-        let line = look.color(token::BORDER_DEFAULT);
-        let focused = self.split_handle.is_focused(window);
-        labelled(
-            div()
-                .id("split-handle")
-                .track_focus(&self.split_handle)
-                .absolute()
-                .top_0()
-                .bottom_0()
-                .left(-look.length(token::GAP_PANEL) / 2. - look.length(token::SPACE_1))
-                .w(look.length(token::SPACE_2))
-                .flex()
-                .justify_center()
-                .cursor(gpui::CursorStyle::ResizeLeftRight)
-                .child(
-                    div()
-                        .h_full()
-                        .w(look.length(token::BORDER_WIDTH) * 2.)
-                        .rounded_full()
-                        .when(focused, |mark| mark.bg(line))
-                        .group_hover("split-handle", move |style| style.bg(line)),
-                )
-                .group("split-handle")
-                .on_drag(SplitHandle, |_, _, _, cx| cx.new(|_| SplitHandle))
-                .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| {
-                    window.focus(&this.split_handle, cx);
-                    cx.notify();
-                }))
-                .on_click(cx.listener(|this, event: &gpui::ClickEvent, _, cx| {
-                    if event.click_count() == 2 {
-                        this.resplit(SPLIT_RESET, cx);
-                    }
-                }))
-                .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| {
-                    let step = HANDLE_STEP / this.split_room.get().max(1.);
-                    let to = match event.keystroke.key.as_str() {
-                        "left" => this.split(cx) - step,
-                        "right" => this.split(cx) + step,
-                        "home" => 0.,
-                        "end" => 1.,
-                        _ => return,
-                    };
-                    cx.stop_propagation();
-                    this.resplit(to, cx);
-                })),
-            Role::Splitter,
-            "Resize the panes",
-        )
     }
 
     /// `l` puts the keys in the list (`deck_panel`'s first slot), `c` on the first Job that needs
@@ -2310,10 +2160,6 @@ impl Render for JobsScreen {
         let title = crate::chrome::title_row(window, cx);
         let look = cx.look();
         let pad = look.length(token::SPACE_3);
-        let judged = self.view.read(cx).judge_pane_open();
-        let split_handle = judged.then(|| self.render_split_handle(window, cx));
-        let room = Rc::clone(&self.split_room);
-        let split = self.split(cx);
         let look = cx.look();
         div()
             .key_context("deck")
@@ -2349,59 +2195,27 @@ impl Render for JobsScreen {
                     }))
                     .child(div().relative().h_full().flex_none().child(panel(look).w(gpui::px(width)).child(self.list.clone())).child(handle))
                     .child(
-                        // The Job's panes, and its Judge split off on the right of them: it arrives at Electron's 0.62.
+                        // The Job's own split, as Electron's tree draws it: the thread and the right column, 0.62 to 0.38.
                         div()
                             .id("job-split")
-                            .relative()
                             .h_full()
                             .flex_1()
                             .min_w_0()
                             .flex()
                             .gap(look.length(token::GAP_PANEL))
-                            .child(canvas(move |bounds, _, _| room.set(f32::from(bounds.size.width)), |_, _, _, _| {}).absolute().size_full())
-                            .on_drag_move(cx.listener(|this, event: &gpui::DragMoveEvent<SplitHandle>, _, cx| {
-                                let room = f32::from(event.bounds.size.width).max(1.);
-                                this.resplit(f32::from(event.event.position.x - event.bounds.origin.x) / room, cx);
-                            }))
+                            .child(
+                                panel(look)
+                                    .min_w_0()
+                                    .flex_grow(SPLIT_ARRIVES * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST))
+                                    .overflow_hidden()
+                                    .child(self.view.clone()),
+                            )
                             .child(
                                 div()
                                     .h_full()
-                                    .min_w_0()
-                                    .flex()
-                                    .gap(look.length(token::GAP_PANEL))
-                                    .when(judged, |job| {
-                                        job.flex_grow(split * 100.)
-                                            .flex_shrink(1.)
-                                            .flex_basis(gpui::px(0.))
-                                            .min_w(gpui::px(PANE_LEAST * 2.) + look.length(token::GAP_PANEL))
-                                    })
-                                    .when(!judged, |job| job.flex_1())
-                                    // The Job's own split, judged or not, as Electron's tree draws it.
-                                    .child(
-                                        panel(look)
-                                            .min_w_0()
-                                            .flex_grow(SPLIT_ARRIVES * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST))
-                                            .overflow_hidden()
-                                            .child(self.view.clone()),
-                                    )
-                                    .child(
-                                        div()
-                                            .h_full()
-                                            .flex_grow((1. - SPLIT_ARRIVES) * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST))
-                                            .child(self.side.clone()),
-                                    ),
-                            )
-                            .children(judged.then(|| {
-                                div()
-                                    .relative()
-                                    .h_full()
-                                    .min_w_0()
-                                    .flex_grow((1. - split) * 100.)
-                                    .flex_shrink(1.)
-                                    .flex_basis(gpui::px(0.))
-                                    .child(self.judge.clone())
-                                    .children(split_handle)
-                            })),
+                                    .flex_grow((1. - SPLIT_ARRIVES) * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST))
+                                    .child(self.side.clone()),
+                            ),
                     ),
             )
             .child(crate::merge_strip::strip(&self.list, window, cx))

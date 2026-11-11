@@ -38,8 +38,11 @@ impl Pane {
                 ("deferred", "Deferred", "circle-dashed"),
                 ("plan", "Plan", "list-checks"),
                 ("changes", "Changes", "diff"),
+                ("ledger", "Ledger", "files"),
                 ("files", "Files", "folder-tree"),
+                ("subagents", "Subagents", "zap"),
                 ("checks", "Checks", "shield-check"),
+                ("judge", "Judge", "scale"),
             ],
             Pane::Now => &[("now", "Now", "activity")],
         }
@@ -88,13 +91,16 @@ impl JobView {
             opened.remove(tab);
         }
         self.tabs_closed.shut.entry(id).or_default().insert(tab);
+        if tab == "judge" {
+            self.close_judge_tab();
+        }
         if let Some(zone) = self.zone_shown() {
             self.zone = zone;
         }
         cx.notify();
     }
 
-    fn add_tab(&mut self, tab: &'static str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn add_tab(&mut self, tab: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(id) = self.shown.clone() {
             if let Some(closed) = self.tabs_closed.shut.get_mut(&id) {
                 closed.remove(tab);

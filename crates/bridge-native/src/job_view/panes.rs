@@ -49,6 +49,10 @@ pub(super) struct Panes {
     search: Option<Search>,
     /// The file or Check panel over the Job, while one is open.
     panel: Option<Panel>,
+    /// The Jobs whose Ledger lists every command it ran, not the first few.
+    pub(super) commands_all: HashSet<SharedString>,
+    /// Closed items pressed to reopen, as `{job}\0{item}`, until Fleet's record no longer holds them.
+    pub(super) reopened: HashSet<String>,
 }
 
 struct Search {
@@ -283,8 +287,18 @@ impl JobView {
                 self.keep_search(&id, window, cx);
                 self.want_found(&id, window, cx);
             }
+            Some(super::side::Zone::Judge) => self.keep_judge(window, cx),
+            Some(super::side::Zone::Ledger) => self.forget_reopened(&id, cx),
             _ => {}
         }
+    }
+
+    /// Items pressed to reopen that the record no longer lists are done with: one closed again is its own row.
+    fn forget_reopened(&mut self, id: &SharedString, cx: &gpui::App) {
+        let Some(record) = self.record(id, cx) else { return };
+        let held: HashSet<String> = record.closed.iter().map(|one| format!("{id}\0{}", one.item.id)).collect();
+        let prefix = format!("{id}\0");
+        self.panes.reopened.retain(|mark| !mark.starts_with(&prefix) || held.contains(mark));
     }
 
     fn want_patches(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {

@@ -1,9 +1,9 @@
-//! The Judge of the whole Job (`JudgeTab.tsx`): the toolbelt's Judge opens no box, it opens a pane of
-//! its own on the right of the Job, as Electron's arrival rule splits a Job's panes for a kind it has
-//! none of. At the pane's foot, what judging is and a box that asks; above that, what was asked and how
-//! the reading stands: its shape while it reads, why it failed, or its notes. A clean reading says so.
+//! The Judge of the whole Job (`JudgeTab.tsx`), a tab of the top pane: the toolbelt's Judge and its key
+//! open it, or bring it forward, as Electron's `JudgeAct` shows the Judge layer. At its foot, what
+//! judging is and a box that asks; above that, what was asked and how the reading stands: its shape
+//! while it reads, why it failed, or its notes. A clean reading says so.
 //!
-//! The pane's × shuts it; nothing else does, as a tab in Electron is closed by its ×.
+//! The tab's × shuts it; nothing else does, as a tab in Electron is closed by its ×.
 
 use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, Entity, FontWeight, Role, SharedString, Subscription, Window};
 use gpui_component::input::{InputEvent, Textarea, TextareaState};
@@ -14,12 +14,12 @@ use super::judge::{how_of, press_of, Pinned, Press};
 use super::rows::{glyph, Size};
 use super::JobView;
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look};
+use crate::look::{token, Look};
 
 /// Where the whole Job's notes and refusals are kept on the page's cards.
 const KEY: &str = "job";
 
-/// The pane, while it is open on a Job: its box and what Enter in it does.
+/// The tab's box while it is open on a Job, and what Enter in it does.
 pub(super) struct JudgePane {
     area: Entity<TextareaState>,
     /// What was asked in this frame, read until Fleet's reading of it arrives.
@@ -32,36 +32,7 @@ pub(super) fn whole_reading<'a>(record: &'a SessionRecord, job: &str) -> Option<
     record.judge_readings.iter().find(|one| one.artifact.kind == JudgeKind::Job && one.artifact.id == job)
 }
 
-/// The pane, drawn by the Job view so its presses act on the Job: the deck puts it on the right.
-pub struct JobJudge {
-    view: Entity<JobView>,
-    _watch: Subscription,
-}
-
-impl JobJudge {
-    pub fn new(view: Entity<JobView>, cx: &mut Context<Self>) -> Self {
-        let _watch = cx.observe(&view, |_, _, cx| cx.notify());
-        Self { view, _watch }
-    }
-}
-
-impl Render for JobJudge {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.view.update(cx, |view, cx| view.render_judge_pane(window, cx))
-    }
-}
-
 impl JobView {
-    /// The open Job's id.
-    pub fn shown_id(&self) -> Option<SharedString> {
-        self.shown.clone()
-    }
-
-    /// Whether the open Job has its Judge pane open.
-    pub fn judge_pane_open(&self) -> bool {
-        self.shown.as_ref().and_then(|id| self.pages.get(id)).is_some_and(|page| page.judge.is_some())
-    }
-
     fn whole_state(&self, id: &SharedString, cx: &gpui::App) -> (Press, Option<String>) {
         let Some(record) = self.record(id, cx) else { return (Press::Idle, None) };
         let reading = whole_reading(record, id);
@@ -121,9 +92,20 @@ impl JobView {
         .into_any_element()
     }
 
-    /// Bring the pane forward, or open it, and put the keys in its box.
+    /// Bring the Judge tab forward, or open it, and put the keys in its box.
     pub(super) fn open_judge_pane(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.add_tab("judge", window, cx);
+        if let Some(area) = self.shown.as_ref().and_then(|job| self.pages.get(job)).and_then(|page| page.judge.as_ref()).map(|pane| pane.area.clone()) {
+            area.update(cx, |area, cx| area.focus(window, cx));
+        }
+    }
+
+    /// The tab's box, made when the tab comes forward on a Job and kept while it stays open.
+    pub(super) fn keep_judge(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
+        if self.pages.get(&job).is_some_and(|page| page.judge.is_some()) {
+            return;
+        }
         let box_key = format!("judge:{KEY}:Judge");
         let held = self.pages.get(&job).and_then(|page| page.cards.boxes.get(&box_key).cloned());
         let area = held.unwrap_or_else(|| cx.new(|cx| TextareaState::new(window, cx).auto_grow(1, 8).submit_on_enter(true)));
@@ -134,21 +116,17 @@ impl JobView {
         });
         if let Some(page) = self.pages.get_mut(&job) {
             page.cards.boxes.insert(box_key, area.clone());
-            let asked = page.judge.take().and_then(|pane| pane.asked);
-            page.judge = Some(JudgePane { area: area.clone(), asked, _enter: enter });
+            page.judge = Some(JudgePane { area, asked: None, _enter: enter });
         }
-        area.update(cx, |area, cx| area.focus(window, cx));
         self.judge_read(&job, cx);
         cx.notify();
     }
 
-    /// The pane's ×: it shuts, and the keys go back to the Job's box.
-    fn close_judge_pane(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// The tab's ×: its box goes, so a reading's notes are read again when it next opens.
+    pub(super) fn close_judge_tab(&mut self) {
         if let Some(page) = self.shown.as_ref().and_then(|id| self.pages.get_mut(id)) {
             page.judge = None;
         }
-        self.to_composer(window, cx);
-        cx.notify();
     }
 
     /// Ask the Judge of the whole Job. The pane reads as reading in this frame; Fleet's reading replaces it.
@@ -190,13 +168,11 @@ impl JobView {
         );
     }
 
-    /// The pane: its tab and ×, the reading, and at its foot what judging is and the box.
-    pub(super) fn render_judge_pane(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
-        let look = cx.look();
-        let look = &look;
-        let Some(id) = self.shown.clone() else { return div().into_any_element() };
-        let Some(page) = self.pages.get(&id) else { return div().into_any_element() };
-        let Some(pane) = page.judge.as_ref() else { return div().into_any_element() };
+    /// The tab's body: the reading, and at its foot what judging is and the box.
+    pub(super) fn pane_judge(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let page = self.pages.get(id)?;
+        let pane = page.judge.as_ref()?;
+        let id = id.clone();
         let (state, _) = self.whole_state(&id, cx);
         let reading = self.record(&id, cx).and_then(|record| whole_reading(record, &id));
         // While the asking is this frame's, what was asked is what was just typed.
@@ -204,41 +180,6 @@ impl JobView {
         let prompt = if judging { pane.asked.clone() } else { reading.map(|one| one.prompt.clone()) };
         let refused = page.cards.said.get(KEY).cloned();
         let gate = look.color(token::KIND_GATE);
-        let close = labelled(
-            div()
-                .id("judge-pane-close")
-                .flex_none()
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(look.length(token::H_CONTROL_SM))
-                .rounded(look.length(token::RADIUS_SM))
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .child(glyph(look, "x", Size::Small, look.color(token::FG_MUTED)))
-                .on_click(cx.listener(|this, _, window, cx| this.close_judge_pane(window, cx))),
-            Role::Button,
-            "Close Judge",
-        );
-        let tab = labelled(
-            div()
-                .id("judge-pane-tab")
-                .flex_none()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .pl(look.length(token::SPACE_3))
-                .pr(look.length(token::SPACE_1))
-                .text_size(look.length(token::TEXT_XS))
-                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                .text_color(look.color(token::FG_DEFAULT))
-                .bg(look.color(token::BG_RAISED))
-                .child(glyph(look, "scale", Size::Small, look.color(token::FG_DEFAULT)))
-                .child("Judge")
-                .child(close),
-            Role::Tab,
-            "Judge",
-        );
         let asked = prompt.map(|prompt| {
             let (term, said) = if prompt.is_empty() { ("Asked", "What did we miss?".to_string()) } else { ("Verify that", prompt) };
             div()
@@ -356,34 +297,13 @@ impl JobView {
             .child(what("A Judge reads this Job once on the strongest model, read-only. It sees what you asked for, the work and the repository, and never the agent's account of it. A note reaches the agent only if you send it."))
             .child(what("Say what to verify. Left empty, it looks for what was missed."))
             .child(composer);
-        labelled(
-            div()
-                .id("judge-pane")
-                .size_full()
-                .min_h_0()
-                .flex()
-                .flex_col()
-                .overflow_hidden()
-                .bg(look.color(token::BG_RAISED))
-                .rounded(look.length(token::RADIUS_LG))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_t(look.length(token::BORDER_WIDTH) * 2.)
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .child(
-                    div()
-                        .flex_none()
-                        .flex()
-                        .items_stretch()
-                        .h(look.length(token::H_ROW_HEADER))
-                        .bg(look.color(token::BG_SUNKEN))
-                        .border_b(look.length(token::BORDER_WIDTH))
-                        .border_color(look.color(token::BORDER_DEFAULT))
-                        .child(tab),
-                )
-                .child(div().flex_1().min_h_0().flex().flex_col().gap(look.length(token::SPACE_3)).p(look.length(token::SPACE_3)).child(reading_box).child(foot)),
-            Role::Region,
-            "Judge",
+        Some(
+            labelled(
+                div().id("judge-pane").size_full().min_h_0().flex().flex_col().gap(look.length(token::SPACE_3)).p(look.length(token::SPACE_3)).child(reading_box).child(foot),
+                Role::Region,
+                "Judge",
+            )
+            .into_any_element(),
         )
-        .into_any_element()
     }
 }
