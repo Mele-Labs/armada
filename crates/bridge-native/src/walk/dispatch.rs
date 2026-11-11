@@ -42,6 +42,6 @@ pub static STEPS: [Step; 39] = [
     answer("With Fleet unreachable everything in the sheet is off, and the title bar's dot says so too", "offline", "status", "Fleet unreachable"),
     answer("A repository not ready: the refusal stands beside the repositories, and Fleet is running again", "refuse-start", "alert", "Job not started: the repository has no free slot"),
     answer("A window scoped to a project offers only the repositories it holds", "storefront", "radio", "Repository sample-web"),
-    answer("A start Fleet refuses for the project says why, in Fleet's words, beside the repositories", "refuse-member", "alert", "`sample-web` is not a member of the project Storefront, so a Job in it cannot be for it"),
+    answer("A project removed since the window picked it: Fleet's refusal, in its own words, beside the repositories", "refuse-member", "alert", "there is no project storefront"),
     step("Esc shuts the sheet", Verb::Key("escape"), "heading", "armada"),
 ];

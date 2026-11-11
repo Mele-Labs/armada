@@ -536,9 +536,9 @@ impl DispatchScreen {
                 self.sheet.update(cx, |sheet, cx| sheet.set_face(face, window, cx));
             }
             "refuse-member" => {
-                // Fleet's 422 for a start whose repository the project does not hold.
+                // Fleet's 404 for a start whose project was removed after the window was scoped to it.
                 self.sheet.update(cx, |sheet, cx| {
-                    sheet.refused("`sample-web` is not a member of the project Storefront, so a Job in it cannot be for it".into(), cx)
+                    sheet.refused("there is no project storefront".into(), cx)
                 });
             }
             "layer-reload" => {
