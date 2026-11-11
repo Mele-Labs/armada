@@ -15,7 +15,7 @@ pub static BUILD_LIVE: [Step; 11] = [
     scene("On Preview, as Fleet counts it: five ahead, two behind, and the branches left out say why", "build-live-preview", "list", "Left out of the preview"),
     press_on("Refresh preview is under way in the same frame, and holds until Fleet's report moves", "button", "Refresh preview", "button", "Refreshing preview"),
     scene("A restart Fleet refused says Fleet's words where a failed restart is said", "build-live-refused", "alert", "no served repository holds scripts/restart-build"),
-    scene("The Jobs Fleet carries across a restart are named before it", "build-live-carried", "button", "Update to main"),
+    scene("Update to main: Fleet carries two working Jobs across the restart", "build-live-carried", "button", "Update to main"),
     press_on("Restart asks first, naming them", "button", "Update to main", "dialog", "Drones are working"),
     press_on("Yes: the restart is under way in the same frame", "button", "Restart", "button", "Updating to main"),
     step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
