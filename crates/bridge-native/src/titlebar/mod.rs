@@ -763,13 +763,31 @@ impl TitleBar {
     }
 
     /// The first region: the traffic-light gutter, Armada's mark, the project switcher and its Settings.
-    fn start(&self, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+    fn start(&self, look: &Look, window: &Window, cx: &Context<Self>) -> impl IntoElement {
         let mark = look.length(token::SPACE_4) + look.length(token::SPACE_1);
         let ring = Self::focus_ring(look);
         let glyph_side = look.length(token::SPACE_4);
         let chip_at = Rc::clone(&self.at.repository);
         let opened = self.popup == Some(Popup::Projects);
         let (name, members) = self.face.chosen_said();
+        // Short of room the start gives way in turn, so nothing short reads "…": the repositories beside the
+        // name go whole, then Settings drops the name it repeats, then Settings truncates, the name last. The
+        // start's share was measured last frame; it does not hang on what it holds.
+        let room = self.at.start.get().map(|start| start.size.width);
+        let space = |at| look.length(at);
+        let border = look.length(token::BORDER_WIDTH);
+        let wide = |text: &SharedString, size, weight| {
+            let font = gpui::Font { weight: FontWeight(look.number(weight)), ..gpui::font(sans(look)) };
+            window.text_system().shape_line(text.clone(), look.length(size), &[gpui::TextRun { len: text.len(), font, ..Default::default() }], None).width
+        };
+        let lead = space(token::SPACE_12) * 2. + mark + space(token::SPACE_6) + border + space(token::SPACE_3) * 2.;
+        let chip = space(token::SPACE_3) * 3. + glyph_side + space(token::SPACE_1) + space(token::SPACE_2) + border * 2. + wide(&name, token::TEXT_SM, token::WEIGHT_MEDIUM);
+        let settings_of = |said: &SharedString| space(token::SPACE_3) * 2. + glyph_side + space(token::SPACE_2) + border * 2. + wide(said, token::TEXT_XS, token::WEIGHT_BODY);
+        let fits = |width| room.is_some_and(|room| lead + chip + width <= room);
+        let full: SharedString = self.face.settings_said();
+        let short: SharedString = "Settings".into();
+        let members = members.filter(|said| fits(settings_of(&full) + space(token::SPACE_2) + wide(said, token::TEXT_XS, token::WEIGHT_BODY)));
+        let settings_shown = if room.is_none() || fits(settings_of(&full)) { full } else { short };
         let chip = labelled(
             no_drag(div()
                 .id("repository")
@@ -821,12 +839,13 @@ impl TitleBar {
         );
         let settings = {
             let said = self.face.settings_said();
+            let shown = settings_shown;
             labelled(
                 no_drag(
                     div()
                         .id("scoped-settings")
-                        // It gives way with the project's name, so short of room both truncate and neither vanishes.
-                        .flex_shrink(1.)
+                        // It gives way before the project's name does, and neither vanishes.
+                        .flex_shrink(100.)
                         // Its floor is the glyph alone.
                         .min_w(look.length(token::SPACE_3) * 2. + glyph_side)
                         .overflow_hidden()
@@ -848,7 +867,7 @@ impl TitleBar {
                         .focus_visible(move |style| style.border_color(ring))
                         .hover(|style| style.bg(look.color(token::BG_HOVER)).border_color(look.color(token::BORDER_STRONG)))
                         .child(glyph("sliders-horizontal", glyph_side, look.color(token::FG_MUTED)))
-                        .child(div().min_w_0().truncate().child(said.clone()))
+                        .child(div().min_w_0().truncate().child(shown))
                         .on_click(cx.listener(|this, _, _, cx| {
                             let asked = this.settings_here();
                             cx.emit(asked);
@@ -869,7 +888,21 @@ impl TitleBar {
             .overflow_hidden()
             .flex()
             .items_center()
-            .child(canvas(move |bounds, _, _| start_at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+            // A new share is drawn again, so what fits is read from it.
+            .child(
+                canvas(
+                    move |bounds, window, _| {
+                        if start_at.replace(Some(bounds)).map(|was| was.size.width) != Some(bounds.size.width) {
+                            window.refresh();
+                        }
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            )
             // `padding-inline-start: calc(var(--space-12) * 2)` clears the traffic lights. A spacer and not padding: a
             // box sized from nothing still keeps its padding, which would make the start's share wider than the end's.
             .child(div().flex_none().w(look.length(token::SPACE_12) * 2.))
@@ -1391,7 +1424,7 @@ impl Render for TitleBar {
             }))
             // Narrow, the start goes behind the menu and the end takes the rest of the row. The places stay:
             // they are how the window is moved about (`TitleBar.css` 765).
-            .when(!narrow, |row| row.child(self.start(look, cx)))
+            .when(!narrow, |row| row.child(self.start(look, window, cx)))
             .when(!narrow || has_places, |row| row.child(self.centre(look, cx)))
             .child(self.end(narrow, look, cx));
         div()
