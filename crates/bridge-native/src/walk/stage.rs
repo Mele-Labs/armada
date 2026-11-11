@@ -308,7 +308,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         }
         Verb::Answer(name) => {
             if let Some(page) = crate::operator::live(cx) {
-                return page.update(cx, |page, cx| page.scene(name, cx)).map_err(Missed);
+                return page.update(cx, |page, cx| page.scene(name, window, cx)).map_err(Missed);
             }
             let screen = crate::dispatch::screen::live(cx).ok_or_else(|| Missed("no dispatch screen is drawn yet".into()))?;
             screen.update(cx, |screen, cx| screen.scene(name, window, cx)).map_err(Missed)

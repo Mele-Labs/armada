@@ -45,11 +45,11 @@ impl Render for TurnDrag {
 }
 
 /// The card's corners: rounder than a control's, as the native screens draw cards.
-fn round(look: &Look) -> Pixels {
+pub(super) fn round(look: &Look) -> Pixels {
     look.length(token::RADIUS_LG) * 1.5
 }
 
-fn chip(word: impl Into<SharedString>, hue: Hsla, ground: Hsla, look: &Look) -> Div {
+pub(super) fn chip(word: impl Into<SharedString>, hue: Hsla, ground: Hsla, look: &Look) -> Div {
     div()
         .flex_none()
         .flex()
@@ -71,13 +71,13 @@ fn kind_chip(kind: Kind, look: &Look) -> Div {
 
 /// A press on the page: the pick filled in the Operator's hue, the rest outlined, Later and Ask bare.
 #[derive(Clone, Copy, PartialEq)]
-enum Weight {
+pub(super) enum Weight {
     Pick,
     Plain,
     Bare,
 }
 
-fn press(id: impl Into<SharedString>, label: SharedString, icon: Option<&'static str>, key: Option<SharedString>, weight: Weight, look: &Look) -> Stateful<Div> {
+pub(super) fn press(id: impl Into<SharedString>, label: SharedString, icon: Option<&'static str>, key: Option<SharedString>, weight: Weight, look: &Look) -> Stateful<Div> {
     let id: SharedString = id.into();
     let (ground, hover, ink, edge) = match weight {
         Weight::Pick => (look.color(token::OPERATOR), look.color(token::OPERATOR), look.color(token::FG_INVERSE), look.color(token::OPERATOR)),
@@ -117,7 +117,7 @@ fn press(id: impl Into<SharedString>, label: SharedString, icon: Option<&'static
 
 /// What a press does on a click, and on Enter or Space while it has the keys: the key goes no further,
 /// so the page's own Enter (Yes) is not said as well.
-fn pressed(
+pub(super) fn pressed(
     element: Stateful<Div>,
     cx: &Context<OperatorPageView>,
     act: impl Fn(&mut OperatorPageView, &mut Window, &mut Context<OperatorPageView>) + 'static,
@@ -134,7 +134,7 @@ fn pressed(
 }
 
 /// A press drawn as words, such as a link or Show all: a tab stop whose ring sits on the words alone.
-fn worded(element: Stateful<Div>, look: &Look) -> Stateful<Div> {
+pub(super) fn worded(element: Stateful<Div>, look: &Look) -> Stateful<Div> {
     let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
     element
         .focusable()
@@ -249,6 +249,7 @@ impl OperatorPageView {
             .children(mains)
             .children(week)
             .children(slots)
+            .children(self.away_press(look, cx))
     }
 
     /// The Operator's one line on what changed: grey words under the day, as nothing on it is to be pressed.
@@ -639,6 +640,7 @@ impl OperatorPageView {
                         .children(sub.map(|sub| div().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(sub))),
                 )
                 .children(later)
+                .children(self.away_mark(at, turn, look))
                 .child(kind_chip(kind, look)),
             Role::Row,
             title,
@@ -682,7 +684,7 @@ impl OperatorPageView {
     /// A time as the thread draws one: the clock, or its age once a press has flipped every time on the
     /// page. `lead` goes before the clock alone, as `at` in `back at 13:05`, which reads `back 3m ago`.
     /// A press or Enter on any time flips them all.
-    fn stamp(&self, at: &str, lead: Option<&'static str>, (size, ink, weight): (Token, Token, Token), look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn stamp(&self, at: &str, lead: Option<&'static str>, (size, ink, weight): (Token, Token, Token), look: &Look, cx: &Context<Self>) -> AnyElement {
         let now = self.clock_now.unwrap_or_else(chrono::Local::now);
         let (on_clock, ago) = (minute(at, now).map(|clock| lead.map_or(clock.clone(), |lead| format!("{lead} {clock}"))), crate::job_view::age(at, now));
         let (shown, other) = if self.aged { (ago, on_clock) } else { (on_clock, ago) };
@@ -917,6 +919,7 @@ impl OperatorPageView {
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_3))
+                .children(self.away_tile(look, cx))
                 .child(since)
                 .children(tiles),
             Role::Region,
@@ -1183,10 +1186,12 @@ impl Render for OperatorPageView {
         let sheet = self.rules.map(|at| self.rules_sheet(at, look, cx));
         let log = self.log.as_deref().map(|text| self.log_sheet(text, look, cx));
         root.relative()
-            .child(top.children(self.top_line(page, look)))
+            .child(top.children(self.top_line(page, look)).children(self.away_band(look, cx)))
             .child(div().flex_1().min_h_0().flex().child(main).child(side(look).id("operator-side").overflow_y_scroll().child(aside)))
             .children(sheet)
             .children(log)
+            .children(self.setup_sheet(look, cx))
+            .children(self.back_prompt(look, cx))
             .into_any_element()
     }
 }

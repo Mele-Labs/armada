@@ -23,7 +23,19 @@ pub struct MockFleet {
     pub refuse_switch: Option<String>,
     /// The week's Log, as Fleet writes it.
     pub log: String,
+    /// Every repository's Autopilot, as `list_autopilots` answers: none until Away starts one.
+    pub autopilots: Vec<ipc::Autopilot>,
+    /// What they answered and he has not looked at.
+    pub to_review: Vec<ipc::AutopilotDecided>,
+    /// Corrections sent on Change, by answer id.
+    pub changed: Vec<(String, String)>,
+    /// Why the next start is refused, where a test wants it refused.
+    pub refuse_away: Option<String>,
 }
+
+/// When Away was started in the walk, and when he came back to it.
+pub const AWAY_AT: &str = "2026-11-11T13:05:00-05:00";
+pub const BACK_AT: &str = "2026-11-11T15:20:00-05:00";
 
 /// The week's Log as Fleet's journal writes it: a heading per day, a line per entry at its time.
 const LOG: &str = "# The Operator's journal, 2026-W46
@@ -71,7 +83,7 @@ pub fn day() -> SharedString {
 
 impl MockFleet {
     pub fn new() -> MockFleet {
-        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, log: LOG.to_string() }
+        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, log: LOG.to_string(), autopilots: Vec::new(), to_review: Vec::new(), changed: Vec::new(), refuse_away: None }
     }
 
     fn take(&mut self, id: &str) -> Option<OperatorTurnItem> {
@@ -160,6 +172,114 @@ impl MockFleet {
         };
         self.talk.lines.push(line.clone());
         Some(line)
+    }
+
+    /// What `start_autopilot` does: the repository's Autopilot runs on the settings, from 13:05.
+    pub fn start_away(&mut self, manifest: &str, settings: ipc::AutopilotSettings) -> Result<ipc::Autopilot, String> {
+        if let Some(why) = self.refuse_away.take() {
+            return Err(why);
+        }
+        let autopilot = ipc::Autopilot {
+            manifest_id: ipc::ManifestId::carried(manifest),
+            instruction: settings.instruction,
+            at_once: settings.at_once,
+            until: settings.until,
+            spend_cap_micros: settings.spend_cap_micros,
+            session_cap: settings.session_cap,
+            weekly_cap_percent: settings.weekly_cap_percent,
+            state: ipc::AutopilotState::Running,
+            started_at: Instant::carried(AWAY_AT),
+            ended_at: None,
+            capped_by: None,
+            on_autopilot: settings.on_autopilot,
+            decisions: settings.decisions,
+            spent_micros: 0,
+            sessions_started: 0,
+            at_work: 0,
+            picks: Vec::new(),
+            fault: None,
+        };
+        self.autopilots.retain(|one| one.manifest_id.as_str() != manifest);
+        self.autopilots.push(autopilot.clone());
+        Ok(autopilot)
+    }
+
+    fn autopilot(&mut self, manifest: &str) -> Result<&mut ipc::Autopilot, String> {
+        self.autopilots.iter_mut().find(|one| one.manifest_id.as_str() == manifest).ok_or_else(|| format!("{manifest} has no Autopilot"))
+    }
+
+    /// What `stop_autopilot` does: it stops, and what it answered stays to be looked at.
+    pub fn stop_away(&mut self, manifest: &str) -> Result<ipc::Autopilot, String> {
+        let autopilot = self.autopilot(manifest)?;
+        autopilot.state = ipc::AutopilotState::Stopped;
+        autopilot.ended_at = Some(Instant::carried(BACK_AT));
+        Ok(autopilot.clone())
+    }
+
+    /// What `dispatch_set_aside` and `dismiss_set_aside` do to a pick it set aside.
+    pub fn pick(&mut self, manifest: &str, pick: &str, start: bool) -> Result<ipc::Autopilot, String> {
+        let autopilot = self.autopilot(manifest)?;
+        let one = autopilot.picks.iter_mut().find(|one| one.pick_id == pick && one.state == ipc::AutopilotPickState::SetAside).ok_or("That pick is not set aside")?;
+        one.state = if start { ipc::AutopilotPickState::Started } else { ipc::AutopilotPickState::Dismissed };
+        if start {
+            one.session_id = Some(ipc::SessionId::carried("mock-11"));
+        }
+        Ok(autopilot.clone())
+    }
+
+    /// What `review_autopilot_decision` and `override_autopilot_decision` do: the answer leaves the list.
+    pub fn reviewed(&mut self, id: &str, change: Option<String>) -> Result<ipc::AutopilotDecisions, String> {
+        let before = self.to_review.len();
+        self.to_review.retain(|one| one.id != id);
+        if self.to_review.len() == before {
+            return Err("No answer waits with that id".into());
+        }
+        if let Some(text) = change {
+            self.changed.push((id.to_string(), text));
+        }
+        Ok(ipc::AutopilotDecisions { to_review: self.to_review.clone() })
+    }
+
+    /// While he was away, to 15:20: armada's Autopilot approved Quick dispatch's plan and started a Job
+    /// from the backlog, set an issue aside it was unsure of, and storefront's landed the fix's pull request.
+    pub fn worked(&mut self) {
+        let decided = |id: &str, manifest: &str, job: &str, session: &str, kind, asked: &str, chose: &str, because: &str, at: &str| ipc::AutopilotDecided {
+            id: id.into(),
+            manifest_id: ipc::ManifestId::carried(manifest),
+            session_id: Some(ipc::SessionId::carried(session)),
+            who: job.into(),
+            kind,
+            asked: asked.into(),
+            chose: chose.into(),
+            because: because.into(),
+            at: Instant::carried(at),
+        };
+        self.to_review = vec![
+            decided("mock-01:plan", "armada", "Quick dispatch", "mock-01", ipc::AutopilotDecision::Plan, "Approve plan version 2", "Approve", "Version 2 does what your notes on version 1 asked, and nothing else.", "2026-11-11T13:21:00-05:00"),
+            decided("mock-04:pr:412", "storefront", "Fix desktop_unit after #412", "mock-04", ipc::AutopilotDecision::Land, "Approve its pull request", "Land it", "Its checks passed and main is red without it.", "2026-11-11T13:48:00-05:00"),
+        ];
+        self.page.turn.retain(|turn| !matches!(turn.id.as_str(), "turn:1" | "turn:4"));
+        let pick = |id: &str, reference: &str, title: &str, session: Option<&str>, state, reason: &str, at: &str| ipc::AutopilotPick {
+            pick_id: id.into(),
+            issue_reference: reference.into(),
+            issue_title: title.into(),
+            issue_url: format!("https://example.invalid/{id}"),
+            workflow_id: None,
+            session_id: session.map(ipc::SessionId::carried),
+            state,
+            reason: reason.into(),
+            at: Instant::carried(at),
+        };
+        for autopilot in &mut self.autopilots {
+            if autopilot.manifest_id.as_str() == "armada" {
+                autopilot.picks = vec![
+                    pick("pick-1", "#3398", "Slot meter flickers when a Job ends", Some("mock-10"), ipc::AutopilotPickState::Started, "A small fix with its cause named in the issue.", "2026-11-11T13:34:00-05:00"),
+                    pick("pick-2", "#3402", "Move the theme picker", None, ipc::AutopilotPickState::SetAside, "It names two screens, and I could not tell which one you meant.", "2026-11-11T14:40:00-05:00"),
+                ];
+                autopilot.sessions_started = 1;
+                autopilot.spent_micros = 3_200_000;
+            }
+        }
     }
 
     /// A new item joins the queue at 14:02: a walk Slot pool controls has for him.

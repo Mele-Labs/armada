@@ -61,3 +61,28 @@ pub static STEPS: [Step; 48] = [
     step("The keys: ↓ ↑ or j k move through Your turn; A Yes, H Always here, ⇧A Always, D No, C Send changes; 1–3 a Then", Verb::Look, "heading", "Your turn"),
     step("L Later; / Ask; F Forget a rule or a hold; ⌥↑ ⌥↓ move the item; Enter is Yes where the page has the keys; Tab moves through the page, and Enter or Space presses what it is on; Esc leaves the chat or a sheet", Verb::Look, "heading", "Your turn"),
 ];
+
+/// Away, take A of the approved sketch "Operator: walk-away mode": the setup before anything starts, the
+/// band and the marks on Your turn while it answers, Back? on his return, and While you were away. Fleet
+/// is the mock in `operator/scenes.rs`; `worked` is the afternoon passing, `back` his return to the window.
+pub static AWAY: [Step; 19] = [
+    step("Away sits at the end of the head. Pressing it starts nothing", Verb::Look, "button", "Away"),
+    step("It opens what it may do while you're gone, before anything starts", Verb::Open("button", "Away"), "dialog", "While you're away"),
+    step("Every project on the page is ticked; it goes away in the ones you leave ticked", Verb::Look, "checkbox", "storefront, ticked"),
+    step("↓ moves through the lines and Space ticks one: Jobs already running, so it answers for the Jobs you started too", Verb::Keys(&["down", "down", "down", "space"]), "checkbox", "Jobs already running, ticked"),
+    step("Its limits: until when, what it may spend, how many Jobs it starts, how much of the week. ← and → move one", Verb::Keys(&["down", "down", "right", "right"]), "group", "Until 19:00"),
+    step("What it answers for you, in plain words. Plans and a pull request whose checks passed are ticked; Walks are not, so a walk waits for you", Verb::Look, "checkbox", "Walks"),
+    step("What it never does, whatever is ticked", Verb::Look, "group", "Never, whatever is ticked"),
+    step("Enter starts it. The band says since when, where and until when, and Come back stops it", Verb::Key("enter"), "button", "Come back"),
+    step("Each item of Your turn says whether it answers it: Quick dispatch's plan, since Plans are ticked", Verb::Look, "status", "I answer this: Plans are ticked for armada: it answers once this has waited two minutes"),
+    step("A walk waits for you, since Walks are not ticked", Verb::Look, "status", "Waits for you: Walks are not ticked for armada"),
+    answer("The afternoon passes to 15:20: it approved the plan, landed storefront's fix, started a Job from the backlog and set an issue aside", "worked", "region", "While you were away"),
+    answer("Back at the window after ten minutes behind others, it asks: Esc keeps it on, Enter is I'm back", "back", "dialog", "Back?"),
+    step("I'm back: Away stops, the band goes, and what it did stays under While you were away", Verb::Key("enter"), "button", "Away"),
+    step("Each answer under its project: who asked, what it chose and why. Agree keeps it; Change tells its Job what it should have done", Verb::Look, "listitem", "Quick dispatch: Approve plan version 2. It chose Approve"),
+    step("Agree keeps the answer, and it leaves the list", Verb::Gone, "button", "Agree with Approve plan version 2"),
+    step("Change opens a box under the answer for what it should have done", Verb::Open("button", "Change Approve its pull request"), "textbox", "What should it have done?"),
+    step("He writes what it should have done", Verb::Typed("Wait for my review on storefront"), "textbox", "What should it have done?"),
+    step("Enter sends it to the fix's Job, and the answer leaves the list", Verb::Key("enter"), "listitem", "Set aside: #3402 Move the theme picker"),
+    step("An issue it set aside says why. Start puts a Job on it, Dismiss leaves it; with nothing left to look at, the tile goes", Verb::Gone, "button", "Start #3402"),
+];

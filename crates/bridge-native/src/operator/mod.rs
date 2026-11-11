@@ -9,6 +9,7 @@
 //! | The page's state, keys and presses, each answered at once | `page.rs` |
 //! | The page drawn, and the pane from a Job | `view.rs` |
 //! | The chat Ask opens | `chat.rs` |
+//! | Away: the setup, the band, the marks on Your turn, Back? and While you were away | `away.rs` |
 //! | The six routes, live or mock | `wire.rs` |
 //! | The walk's Fleet and its scenes | `scenes.rs` |
 //! | The screen that puts the page beside the Jobs screen | `screen.rs` |
@@ -20,6 +21,7 @@
 //! `features.operator` changes and when a rule or hold is removed. Each draws its change at once and
 //! reads nothing itself; the walk's mock sends no event, so there each reads the page in its place.
 
+mod away;
 mod chat;
 pub mod face;
 pub mod page;

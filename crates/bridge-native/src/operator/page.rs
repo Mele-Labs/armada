@@ -8,6 +8,7 @@ use gpui::{App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Scr
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorPage, OperatorThen, OperatorTurnItem};
 use ipc::{SessionId, WaitingAct};
 
+use super::away::Away;
 use super::chat::{ChatAsked, OperatorChat};
 use super::face::{self, Kind, Standing};
 use super::scenes::{self, MockFleet};
@@ -90,6 +91,8 @@ pub struct OperatorPageView {
     pub(super) log_focus: FocusHandle,
     pub(super) log_scroll: ScrollHandle,
     pub(super) main_scroll: ScrollHandle,
+    /// Away: the Autopilots answering for him, the setup, Back? and what they answered.
+    pub(super) away: Away,
     /// The page's first tab stop, its first pill: where Tab goes from the page itself.
     pub(super) first_stop: FocusHandle,
     /// The open card's Later, so a test can put the keys on a press.
@@ -108,6 +111,9 @@ impl OperatorPageView {
         subs.push(cx.observe_window_activation(window, |this, window, cx| {
             if window.is_window_active() {
                 this.in_front(cx);
+                this.came_back(window, cx);
+            } else {
+                this.away.left_at = Some(std::time::Instant::now());
             }
         }));
         if pane {
@@ -141,6 +147,7 @@ impl OperatorPageView {
             log_focus: cx.focus_handle(),
             log_scroll: ScrollHandle::new(),
             main_scroll: ScrollHandle::new(),
+            away: Away::new(cx),
             first_stop: cx.focus_handle(),
             later_focus: cx.focus_handle(),
             seen: None,
@@ -166,6 +173,7 @@ impl OperatorPageView {
             this.in_front(cx);
         }
         this.read(cx);
+        this.read_away(cx);
         this
     }
 
@@ -177,6 +185,7 @@ impl OperatorPageView {
         this.back_at = Some(scenes::now().to_rfc3339());
         this.clock_now = Some(scenes::now());
         this.read(cx);
+        this.read_away(cx);
         this
     }
 
@@ -251,6 +260,9 @@ impl OperatorPageView {
     pub fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         if self.chat_has_keys(window, cx) {
             return cx.propagate();
+        }
+        if self.away_act(act, window, cx) {
+            return;
         }
         // The Log's sheet scrolls on the arrows, and no key reaches Your turn behind it.
         if self.log.is_some() {
@@ -738,7 +750,7 @@ impl OperatorPageView {
     /// the queue (`arrives`), or it is switched off (`off`). Two scenes only scroll the page, where a
     /// step looks at what a short window holds below the open card: `rest` to the rows under it, `top`
     /// back to the card.
-    pub fn scene(&mut self, name: &str, cx: &mut Context<Self>) -> Result<(), String> {
+    pub fn scene(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) -> Result<(), String> {
         match name {
             "rest" => {
                 self.main_scroll.scroll_to_bottom();
@@ -766,6 +778,18 @@ impl OperatorPageView {
                 // The step looks at the row that joined, at the queue's end.
                 self.main_scroll.scroll_to_bottom();
             }
+            // Away to 15:20: what its Autopilots answered and started, and the clock moved on to when he is back.
+            "worked" => {
+                mock.worked();
+                let page = mock.page.clone();
+                self.set_page(page, cx);
+                self.read_away(cx);
+                let back = chrono::DateTime::parse_from_rfc3339(scenes::BACK_AT).map(|at| at.with_timezone(&chrono::Local)).ok();
+                self.clock_now = back;
+                self.back_at = back.map(|at| at.to_rfc3339());
+            }
+            // He comes back to the window with Away on.
+            "back" => self.ask_back(window, cx),
             "off" => {
                 mock.switch(false);
                 let page = mock.page.clone();
@@ -919,7 +943,7 @@ mod tests {
         let told: Rc<RefCell<Vec<String>>> = Rc::default();
         let heard = told.clone();
         let _keep = cx.update(|_, cx| cx.subscribe(&page, move |_, arrived: &Arrived, _| heard.borrow_mut().extend(arrived.0.iter().map(|turn| turn.id.clone()))));
-        cx.update(|_, cx| page.update(cx, |page, cx| page.scene("arrives", cx))).expect("the scene plays");
+        cx.update(|window, cx| page.update(cx, |page, cx| page.scene("arrives", window, cx))).expect("the scene plays");
         cx.update(|_, cx| page.update(cx, |page, cx| page.read(cx)));
         cx.run_until_parked();
         assert_eq!(*told.borrow(), ["turn:5"]);
@@ -1005,7 +1029,7 @@ mod tests {
     #[gpui::test]
     fn switch_on_reads_on_at_once_and_a_refusal_puts_it_back_with_why(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        page.update(cx, |page, cx| page.scene("off", cx)).expect("the scene plays");
+        page.update_in(cx, |page, window, cx| page.scene("off", window, cx)).expect("the scene plays");
         assert!(page.read_with(cx, |page, _| page.page.as_ref().is_some_and(|page| !page.on && page.turn.is_empty())));
 
         page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.refuse_switch = Some("Fleet could not save the setting".into())));

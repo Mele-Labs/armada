@@ -239,6 +239,13 @@ pub static WALKS: &[Walk] = &[
         steps: &operator::STEPS,
     },
     Walk {
+        name: "operator-away",
+        title: "Operator: Away",
+        screen: Screen::Operator,
+        scenario: "jobs-many",
+        steps: &operator::AWAY,
+    },
+    Walk {
         name: "native-title-bar",
         title: "Dispatch and the title bar",
         screen: Screen::All,
