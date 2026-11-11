@@ -25,6 +25,10 @@ pub enum Way {
     Link,
     /// A note or an error is filed as a new issue in the repository's beads.
     File,
+    /// An open issue a merged pull request finished without naming it is closed, done by that pull request.
+    Close,
+    /// A new issue near an open one is grouped with it: closed as its duplicate, or put under it as a part of it.
+    Group,
     /// A suggestion that repeats one kept before is read and nothing follows: the Log says which it repeats.
     /// It is never offered to a call.
     Noted,
@@ -40,6 +44,8 @@ impl Way {
             Way::Raise => "raise",
             Way::Link => "link",
             Way::File => "file",
+            Way::Close => "close",
+            Way::Group => "group",
             Way::Noted => "noted",
             Way::Leave => "leave",
         }
@@ -53,6 +59,8 @@ impl Way {
             Way::Raise => "proposed_raise",
             Way::Link => "proposed_link",
             Way::File => "proposed_file",
+            Way::Close => "proposed_close",
+            Way::Group => "proposed_group",
             Way::Noted => "proposed_noted",
             Way::Leave => "proposed_leave",
         }
@@ -60,7 +68,7 @@ impl Way {
 
     /// The way a word from the store names.
     pub(super) fn from_word(word: &str) -> Option<Way> {
-        [Way::NewJob, Way::ExistingJob, Way::Raise, Way::Link, Way::File, Way::Noted, Way::Leave].into_iter().find(|way| way.word() == word)
+        [Way::NewJob, Way::ExistingJob, Way::Raise, Way::Link, Way::File, Way::Close, Way::Group, Way::Noted, Way::Leave].into_iter().find(|way| way.word() == word)
     }
 
     pub(super) fn word_shown(self) -> &'static str {
@@ -70,6 +78,8 @@ impl Way {
             Way::Raise => "raise",
             Way::Link => "link to an open issue",
             Way::File => "file a new issue",
+            Way::Close => "close the open issue it lists, which the merged work finished",
+            Way::Group => "group it with the open issue it lists, as its duplicate (closed) or a part of it (put under it), saying which in kind",
             Way::Noted => "note it",
             Way::Leave => "leave it with the Job he sent it to",
         }
@@ -78,6 +88,28 @@ impl Way {
     /// Whether the way is between this item's Job and another, so must name both.
     pub fn names_another(self) -> bool {
         self == Way::ExistingJob
+    }
+}
+
+/// How a new issue is grouped with an open one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Grouping {
+    /// The same fault or work: the new issue is closed, with a link to the one it repeats.
+    Duplicate,
+    /// A piece of the open issue's work: the new issue is put under it, and closed by nothing.
+    Part,
+}
+
+impl Grouping {
+    pub fn word(self) -> &'static str {
+        match self {
+            Grouping::Duplicate => "duplicate",
+            Grouping::Part => "part",
+        }
+    }
+
+    pub(super) fn from_word(word: &str) -> Option<Grouping> {
+        [Grouping::Duplicate, Grouping::Part].into_iter().find(|one| one.word().eq_ignore_ascii_case(word.trim()))
     }
 }
 
@@ -129,14 +161,16 @@ pub struct Ruling {
     pub because: String,
     /// Each part Fleet refused while the rest stood, in a line.
     pub refused: Vec<String>,
-    /// The open issue a link names, one of those the item was offered.
+    /// The open issue a link, a close or a group names, one of those the item was offered.
     pub issue: Option<String>,
+    /// How a group goes, which it always names.
+    pub grouping: Option<Grouping>,
 }
 
 impl Ruling {
     /// A ruling of `way` alone, naming no other Job.
     pub fn alone(way: Way, because: impl Into<String>) -> Ruling {
-        Ruling { way, other: None, shared: Vec::new(), because: because.into(), refused: Vec::new(), issue: None }
+        Ruling { way, other: None, shared: Vec::new(), because: because.into(), refused: Vec::new(), issue: None, grouping: None }
     }
 }
 
@@ -238,12 +272,16 @@ fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result
         .and_then(|number| number.checked_sub(1))
         .and_then(|at| item.ways.get(at).copied())
         .ok_or_else(|| PassedOn::Refused(format!("way {named} was not one it was offered")))?;
-    if way == Way::Link {
-        let issue = said(block, "issue").filter(|issue| !none(issue)).ok_or_else(|| PassedOn::Refused("link named no issue".into()))?;
+    if matches!(way, Way::Link | Way::Close | Way::Group) {
+        let issue = said(block, "issue").filter(|issue| !none(issue)).ok_or_else(|| PassedOn::Refused(format!("{} named no issue", way.word())))?;
         if !item.open.iter().any(|one| one.reference == issue) {
             return Err(PassedOn::Refused(format!("{issue} is not an open issue it was offered")));
         }
-        return Ok(Ruling { issue: Some(issue), ..Ruling::alone(way, because) });
+        let grouping = match way {
+            Way::Group => Some(said(block, "kind").and_then(|kind| Grouping::from_word(&kind)).ok_or_else(|| PassedOn::Refused("group named neither duplicate nor part".into()))?),
+            _ => None,
+        };
+        return Ok(Ruling { issue: Some(issue), grouping, ..Ruling::alone(way, because) });
     }
     if !way.names_another() {
         return Ok(Ruling::alone(way, because));

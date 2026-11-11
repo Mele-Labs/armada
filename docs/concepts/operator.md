@@ -36,7 +36,7 @@ Everything that needs a person reaches the person already read, with the Operato
 | Handles routine Job questions | Yes, once you say Always here or Always. It answers a question it is sure of, unless the question is about something you would see, changes the plan's scope or could destroy work |
 | Nudges a stuck Job, then starts a repair suited to what broke | Partly. Fleet hosts a hidden repair for each of six breaks, and starts one for a dead process, a silent stop, a red pull request and a hung command; the triggers for the rest are not built |
 | Hands duplicate work to the Job already on it | Not built |
-| Handles issues | Partly. A new issue is linked, filed or started on |
+| Handles issues | Partly. A new issue is linked, filed or started on. A merge closes an open issue it finished, and a new issue that repeats an open one is closed as its duplicate or put under it, each asked first |
 | Handles reviews | Not built |
 | Reviews what needs you and raises it with its read and a pick | Partly. Fleet queues each item in Your turn with its read and pick; no Bridge shows it yet |
 | One chat, on its own page or in a pane from anywhere | Partly. Fleet serves the talk; the native Bridge draws the box |
@@ -80,9 +80,10 @@ Everything a Job does is that Job's own, and behaves as it does with the Operato
 A start, a plan, a question or a permission card, a Job that stopped or left its pull request red, a Later item and a review request go to the person as they always did.
 Why: it proposed the same Later item four times, and ruled on events each Job already handles.
 
-**An end or a merge is heard once, with no call.**
+**An end or a merge is heard once, with no call of its own.**
 Fleet notes a hosted Job's end and a pull request's merge once, for the ones after Fleet started.
-No call, card or suggestion follows, and the chat can still read them among what ended and merged today.
+No card or suggestion follows, and the chat can still read them among what ended and merged today.
+A merge makes a call only where Fleet finds an open issue near its work that the work did not name (see Close).
 A Job handed on for context is no end.
 
 **One suggestion stands for one thing.**
@@ -112,8 +113,27 @@ A Job it starts is briefed with every word the card carried.
 ### The ways
 
 **A ruling is one way.**
-Start a new Job, send the words to an existing Job, raise it to the person, link it to an open issue, file a new one, or for a note he sent to a Job himself, leave it.
+Start a new Job, send the words to an existing Job, raise it to the person, link it to an open issue, file a new one, close one, group a new one with an open one, or for a note he sent to a Job himself, leave it.
 A way that names another Job names it and the paths they share, or Fleet refuses it.
+A way that names an issue names one the item was offered, or Fleet refuses it.
+
+**Close is asked, then ruled by his rules.**
+When a pull request a hosted Job held merges, Fleet looks in the same repository for open issues near its work that it did not name.
+An issue is near when its words name a path the work wrote, or share two uncommon words with the pull request's title and its Job's words.
+Where there is none, no call is made.
+Where there is one, a call reads it and may offer "Close #N, done by #M" as a go-ahead with its read.
+Yes, or a rule he kept, closes the issue through the repository's beads, and the Log row names the pull request.
+Nothing is written to the tracker without one of the two, and leaving it open writes nothing.
+
+**Group is asked the same way.**
+When a new issue arrives, Fleet offers the call the open issues near it, and the call may offer one of two groupings and says which.
+"Close #new as a duplicate of #open" closes the new issue, and its reason names the issue it repeats.
+"Put #new under #open" makes the new issue a part of the open one, writes only that link, and closes nothing.
+Only the new issue is ever written to, and the open one is left as it was.
+
+**A change is a Log row, and an issue closed can be reopened.**
+Each close and group is a row of the Log that names the issue, and the pull request for a close.
+What a rule did is in Done as well, signed by the Operator.
 
 **The Operator starts no Job for another Job's work.**
 A Job it starts is one he asked for, or work no Job holds: a note, an error, a report or a red main.
@@ -228,7 +248,7 @@ Every act is asked, and the answer is kept: Yes this time, Always here for this 
 A rule you kept covers the act, this repository's first and then every repository's, and Fleet does it as it is raised.
 The Log row says by which rule.
 No is for this time only.
-Filing an issue, starting a Job, sending words to a live Job, a red main's fix and answering a Job's question are acts.
+Filing an issue, starting a Job, sending words to a live Job, closing an issue, grouping one, a red main's fix and answering a Job's question are acts.
 A link to an open issue writes nothing and is not asked.
 Raising, leaving a note where it is and noting it are not acts.
 
@@ -302,7 +322,7 @@ The Operator replaced it.
 | One Helm per repository | One Operator per machine |
 | Autopilot's own loop, and its answers HUD | Folded in. The answers are rows of the Log |
 | A Job started by a Job waits on its start card | The start card is the person's. The Operator takes no start |
-| Fleet never writes to the forge for you | File creates new issues and nothing else changes. On a tracker with a forge it needs a yes |
+| Fleet never writes to the forge for you | File creates new issues, Close and Group close or move one in beads, and nothing else changes. On a tracker with a forge it needs a yes |
 
 **The old threads read as they did.**
 A `sent` row, `SessionRow::Sent`, stays in the row set so a thread that holds one still draws.
