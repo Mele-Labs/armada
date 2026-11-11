@@ -50,6 +50,7 @@ mod suggesting;
 mod talking;
 mod thening;
 mod turning;
+mod vetting;
 
 use std::collections::BTreeMap;
 use std::future::Future;

@@ -23,6 +23,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use super::looking::Folder;
+use super::vetting::{Vet, Vetted};
 use super::{held, Operator};
 use crate::daemon::Fleet;
 
@@ -37,10 +38,12 @@ pub(crate) struct ToRaise {
     pub(crate) item: WaitingItem,
     /// Where it is a go-ahead to file an issue: the Thens, as they stood when it was queued.
     pub(crate) thens: Vec<OperatorThenOffer>,
+    /// How its Job's frozen reviews say its work is read before it is queued, where they name its kind.
+    pub(crate) vet: Option<Vet>,
 }
 
 impl ToRaise {
-    fn key(&self) -> (String, String) {
+    pub(super) fn key(&self) -> (String, String) {
         (self.session.clone(), self.item.id.clone())
     }
 }
@@ -54,11 +57,13 @@ pub(crate) struct Reviewed {
     pub(crate) call: Option<String>,
     /// Why there are no reads, where a call was made and failed. Not set while paused.
     pub(crate) failed: Option<String>,
+    /// The setting that approved each item itself, where one did: it is settled and never queued.
+    pub(crate) approved: Vec<Option<String>>,
 }
 
 impl Reviewed {
-    fn none(items: usize) -> Reviewed {
-        Reviewed { reads: vec![None; items], thens: vec![None; items], journal: None, call: None, failed: None }
+    pub(super) fn none(items: usize) -> Reviewed {
+        Reviewed { reads: vec![None; items], thens: vec![None; items], journal: None, call: None, failed: None, approved: vec![None; items] }
     }
 }
 
@@ -208,30 +213,41 @@ impl Operator {
             return Reviewed::none(items.len());
         }
         let failed = |why: String| Reviewed { failed: Some(why), ..Reviewed::none(items.len()) };
+        match self.read_asked(None, |folder| question(items, folder)).await {
+            Ok(answer) => match read_reviewed(&answer, items) {
+                Some((reads, thens, journal)) => Reviewed { reads, thens, journal, call: Some(format!("review:{}", now.as_str())), ..Reviewed::none(items.len()) },
+                None => failed("the Operator's review could not be read".to_string()),
+            },
+            Err(why) => failed(why),
+        }
+    }
+
+    /// `question` put to a reading call, on `model` where one is named: it reads a folder of what Fleet holds and the
+    /// repositories' checkouts, where the desk keeps them, and the folder is gone when it is answered. `Err` says why
+    /// there was no answer.
+    pub(super) async fn read_asked(&self, model: Option<&str>, question: impl FnOnce(Option<&std::path::Path>) -> String) -> Result<String, String> {
         let (board, live) = self.board_and_live().await;
         let room = self.desk.to_read(&live, &board.needs_you).await;
         let folder = match &room {
             Some(room) => match Folder::made(&room.under, &room.files) {
                 Ok(folder) => Some(folder),
-                Err(why) => return failed(format!("the folder to read could not be made: {why}")),
+                Err(why) => return Err(format!("the folder to read could not be made: {why}")),
             },
             None => None,
         };
         let answer = match (&room, &folder) {
             (Some(room), Some(folder)) => {
                 let roots: Vec<String> = room.repositories.iter().map(|(_, _, root)| root.clone()).collect();
-                self.looking.look(question(items, Some(folder.path())), folder.path(), &roots).await
+                let asked = question(Some(folder.path()));
+                match model {
+                    Some(model) => self.looking.look_on(model, asked, folder.path(), &roots).await,
+                    None => self.looking.look(asked, folder.path(), &roots).await,
+                }
             }
-            _ => self.call.ask(question(items, None)).await,
+            _ => self.call.ask(question(None)).await,
         };
         drop(folder);
-        match answer {
-            Ok(answer) => match read_reviewed(&answer, items) {
-                Some((reads, thens, journal)) => Reviewed { reads, thens, journal, call: Some(format!("review:{}", now.as_str())), failed: None },
-                None => failed("the Operator's review could not be read".to_string()),
-            },
-            Err(why) => failed(why.in_a_line("Operator")),
-        }
+        answer.map_err(|why| why.in_a_line("Operator"))
     }
 }
 
@@ -443,7 +459,8 @@ where
             (manifest, item.source == ipc::WaitingSource::OperatorSuggestion)
         };
         let thens = self.thens_offered(&item).await;
-        ToRaise { session, job, manifest_id, go_ahead, item, thens }
+        let vet = self.vet_of(&session, &item).await;
+        ToRaise { session, job, manifest_id, go_ahead, item, thens, vet }
     }
 
     /// Queue `items` for review, one call at a time.
@@ -490,7 +507,7 @@ where
                 Some(operator) => {
                     *held(&raising.reading) = Some(OperatorOnIt { reading: reading_of(&taken), since: Instant::carried(self.now().as_str()) });
                     self.operator_page_changed();
-                    let reviewed = operator.reviewed(&taken).await;
+                    let reviewed = self.reviewed_and_vetted(&operator, &taken).await;
                     *held(&raising.reading) = None;
                     reviewed
                 }
@@ -499,24 +516,31 @@ where
             if let Some(why) = &reviewed.failed {
                 self.operator_warned("the Operator's review failed, so its items are queued with no read", why);
             }
-            // Turned off while the call was out: nothing is queued, and it is all queued when it comes on.
-            if !self.operator_on() {
+            // Turned off while the call was out: nothing is queued, and it is all queued when it comes on. What a
+            // setting approved is settled and kept all the same, since it was done.
+            let on = self.operator_on();
+            if !on {
                 let mut queue = held(&raising.queue);
-                for one in &taken {
-                    queue.raising.remove(&one.key());
+                for (one, approved) in taken.iter().zip(&reviewed.approved) {
+                    if approved.is_none() {
+                        queue.raising.remove(&one.key());
+                    }
                 }
                 drop(queue);
                 self.operator_page_changed();
-                continue;
+                if reviewed.approved.iter().all(Option::is_none) {
+                    continue;
+                }
             }
             let at = self.now();
             let mut kept = Vec::new();
+            let mut approved_by = Vec::new();
             {
                 let _turn = raising.turn.lock().await;
                 let mut store = self.store().lock().await;
-                for ((one, read), then) in taken.iter().zip(reviewed.reads.iter()).zip(reviewed.thens.iter()) {
-                    // Left its list while the call was out.
-                    if !held(&raising.queue).raising.contains(&one.key()) {
+                for (((one, read), then), approved) in taken.iter().zip(reviewed.reads.iter()).zip(reviewed.thens.iter()).zip(&reviewed.approved) {
+                    // Left its list while the call was out. **Not one a setting approved**: it left because it was.
+                    if approved.is_none() && (!on || !held(&raising.queue).raising.contains(&one.key())) {
                         continue;
                     }
                     let row = KeptTurn {
@@ -527,18 +551,30 @@ where
                         go_ahead: one.go_ahead,
                         body: ipc::operator_page::item_kept(&one.item),
                         read_text: read.as_ref().map(|read| read.read.clone()),
-                        pick: read.as_ref().map(|read| read.pick.clone()).filter(|pick| !pick.is_empty()),
+                        pick: match approved {
+                            Some(setting) => Some(setting.clone()),
+                            None => read.as_ref().map(|read| read.pick.clone()).filter(|pick| !pick.is_empty()),
+                        },
                         then_pick: then.as_ref().map(word),
                         raised_at: at.as_str().to_string(),
                         call: reviewed.call.clone(),
+                        answer: approved.as_ref().map(|_| super::vetting::SETTING.to_string()),
+                        settled_at: approved.as_ref().map(|_| at.as_str().to_string()),
                         ..KeptTurn::default()
                     };
                     match store.add_operator_turn(&row) {
+                        Ok(_) if approved.is_some() => approved_by.push((one, read, approved)),
                         Ok(_) => kept.push((one, read)),
                         Err(why) => self.operator_warned("an item of the person's Your turn was not kept", why),
                     }
                     held(&raising.queue).raising.remove(&one.key());
                 }
+            }
+            for (one, read, setting) in &approved_by {
+                let job = one.job.clone().unwrap_or_else(|| "My suggestion".to_string());
+                let setting = setting.as_deref().unwrap_or_default();
+                let read = read.as_ref().map(|read| format!(". Read: {}", read.read)).unwrap_or_default();
+                self.operator_journaled(&format!("Approved by {setting}: {job}: {}{read}", one.item.text)).await;
             }
             for (one, read) in &kept {
                 let job = one.job.clone().unwrap_or_else(|| "My suggestion".to_string());
