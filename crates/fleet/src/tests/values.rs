@@ -130,6 +130,8 @@ async fn a_word_a_key_does_not_take_is_refused_and_the_file_is_not_written_over(
         (set(None, Some("sometimes")), "an auto merge"),
         (ValuesSet { look: Some(LookSet { density: Some("huge".into()), ..LookSet::default() }), ..ValuesSet::default() }, "a density"),
         (ValuesSet { review_model: Some("  ".into()), ..ValuesSet::default() }, "a blank model"),
+        (reviews_set("review", "sometimes", "off"), "a review"),
+        (reviews_set("off", "off", "review_and_approve"), "a walk that is approved"),
     ] {
         let refused = rig.fleet.edit_project(id.clone(), EditProject { values: Some(said), ..Default::default() }).await.expect_err(why);
         assert_eq!(code_of(refused), (422, "fleet.project_values_refused".to_string()), "{why}");
@@ -322,4 +324,25 @@ async fn a_job_reviews_on_the_model_its_project_set_and_a_job_with_none_reads_mo
     assert_eq!(rig.fleet.review_model_of_job(job.id.as_str()).await.as_deref(), Some("project-model"), "it keeps what it took");
     let plain = rig.job(None).await;
     assert_eq!(rig.fleet.review_model_of_job(plain.id.as_str()).await, None, "nothing above the Machine set one, so `models.review` stands");
+}
+
+fn reviews_set(plans: &str, pull_requests: &str, walks: &str) -> ValuesSet {
+    let word = |word: &str| Some(word.to_string());
+    ValuesSet { reviews: Some(ipc::ReviewsSet { plans: word(plans), pull_requests: word(pull_requests), walks: word(walks) }), ..ValuesSet::default() }
+}
+
+#[tokio::test]
+async fn a_job_freezes_how_its_project_reviews_work_and_keeps_it_when_the_project_is_edited() {
+    let rig = a_rig("");
+    let project = rig.project(Some(reviews_set("review_and_approve", "review", "off"))).await;
+    let job = rig.job(Some(&project)).await;
+    let said = |job: &SessionRecord| job.hosted.clone().and_then(|hosted| hosted.values).and_then(|values| values.reviews).expect("reviews");
+    let first = said(&job);
+    assert_eq!((first.plans.as_str(), first.pull_requests.as_str(), first.walks.as_str(), first.from), ("review_and_approve", "review", "off", ValueLayer::Project));
+    rig.fleet.edit_project(project, EditProject { values: Some(reviews_set("off", "off", "review")), ..Default::default() }).await.expect("edited");
+    let frozen = rig.fleet.job_values(job.id.as_str()).await.expect("frozen").reviews();
+    assert_eq!((frozen.plans, frozen.pull_requests), (core_model::ReviewMode::ReviewAndApprove, core_model::ReviewMode::Review), "it keeps what it took");
+    let plain = rig.job(None).await;
+    assert_eq!(said(&plain).plans, "off", "a Job in no project is reviewed by nothing");
+    assert_eq!(said(&plain).from, ValueLayer::Default);
 }
