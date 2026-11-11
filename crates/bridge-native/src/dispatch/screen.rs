@@ -375,7 +375,7 @@ impl DispatchScreen {
         let body = ipc::encode(&ipc::ReadSessionWait { session_id: SessionId::carried(job.clone()), request: words.clone() }).map_err(|why| format!("{why:?}"));
         self.wait_task = Some(cx.spawn_in(window, async move |this, cx| {
             cx.background_executor().timer(after).await;
-            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/read_wait".into(), Some(body?)) }).await;
+            let answer = cx.background_executor().spawn(async move { live::call_model(port, "/sessions/read_wait".into(), body?) }).await;
             let _ = this.update_in(cx, |this, window, cx| this.wait_answered(job, words, answer, then, window, cx));
         }));
     }
@@ -510,7 +510,7 @@ impl DispatchScreen {
         let local_now = Some(chrono::Local::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, false));
         let body = ipc::encode(&ipc::ProposeAutopilot { sentence, local_now }).map_err(|why| format!("{why:?}"));
         cx.spawn_in(window, async move |this, cx| {
-            let answer = cx.background_executor().spawn(async move { live::call(port, path, Some(body?)) }).await;
+            let answer = cx.background_executor().spawn(async move { live::call_model(port, path, body?) }).await;
             let _ = this.update_in(cx, |this, window, cx| this.autopilot_read(words, answer, window, cx));
         })
         .detach();
@@ -716,6 +716,9 @@ impl DispatchScreen {
                     sheet.instruction = None;
                     sheet.fields.clear();
                     sheet.set_face(face, window, cx);
+                    // A pick by hand stands over a read; the walk's earlier ⌥4 is put back on the repository
+                    // the words name, so the chip and the words agree.
+                    sheet.face.pick("sample-api");
                 });
             }
             "waiting-live" => {
