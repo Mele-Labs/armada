@@ -53,6 +53,11 @@ pub fn hold(clashes: AllWriteClashes, cx: &mut App) {
     cx.refresh_windows();
 }
 
+/// The clashes Fleet last said stand, for a pane that lists a Job's own.
+pub fn held(cx: &App) -> Option<&AllWriteClashes> {
+    cx.try_global::<Held>().map(|held| &held.0)
+}
+
 /// What each Job is in, `clashingOf`: the clashes with that Job as either side, each as the other holder.
 fn conflicts_of(clashes: &AllWriteClashes, id: &str) -> Vec<Conflict> {
     clashes

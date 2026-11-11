@@ -45,6 +45,8 @@ impl Pane {
                 ("files", "Files", "folder-tree"),
                 ("subagents", "Subagents", "zap"),
                 ("checks", "Checks", "shield-check"),
+                ("system", "System", "cpu"),
+                ("bays", "Bays", "layout-grid"),
                 ("judge", "Judge", "scale"),
             ],
             Pane::Now => &[("now", "Now", "activity")],
@@ -96,6 +98,9 @@ impl JobView {
         self.tabs_closed.shut.entry(id).or_default().insert(tab);
         if tab == "judge" {
             self.close_judge_tab();
+        }
+        if tab == "system" {
+            self.panes.systems.stop();
         }
         if let Some(zone) = self.zone_shown() {
             self.zone = zone;

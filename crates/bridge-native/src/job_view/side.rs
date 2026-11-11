@@ -41,11 +41,13 @@ pub(super) enum Zone {
     Files,
     Subagents,
     Checks,
+    System,
+    Bays,
     Judge,
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 13] = [
+    pub(super) const ALL: [Zone; 15] = [
         Zone::Open,
         Zone::Done,
         Zone::Deferred,
@@ -58,6 +60,8 @@ impl Zone {
         Zone::Files,
         Zone::Subagents,
         Zone::Checks,
+        Zone::System,
+        Zone::Bays,
         Zone::Judge,
     ];
 
@@ -75,6 +79,8 @@ impl Zone {
             Zone::Files => "files",
             Zone::Subagents => "subagents",
             Zone::Checks => "checks",
+            Zone::System => "system",
+            Zone::Bays => "bays",
             Zone::Judge => "judge",
         }
     }
@@ -98,6 +104,8 @@ impl Zone {
             Zone::Files => ("folder-tree", "Files"),
             Zone::Subagents => ("zap", "Subagents"),
             Zone::Checks => ("shield-check", "Checks"),
+            Zone::System => ("cpu", "System"),
+            Zone::Bays => ("layout-grid", "Bays"),
             Zone::Judge => ("scale", "Judge"),
         }
     }
@@ -222,6 +230,8 @@ impl JobView {
                 Zone::Files => "side-files",
                 Zone::Subagents => "side-subagents",
                 Zone::Checks => "side-checks",
+                Zone::System => "side-system",
+                Zone::Bays => "side-bays",
                 Zone::Judge => "side-judge",
             };
             let front = Some(one) == zone;
@@ -254,6 +264,8 @@ impl JobView {
             Zone::Files => Some(self.pane_files(&id, look, cx)),
             Zone::Subagents => self.pane_subagents(&id, look, cx),
             Zone::Checks => Some(self.pane_checks(&id, look, cx)),
+            Zone::System => self.pane_system(&id, look, cx),
+            Zone::Bays => self.pane_bays(&id, look, cx),
             Zone::Judge => self.pane_judge(&id, look, cx),
         });
         let now_open = !self.tab_closed("now");

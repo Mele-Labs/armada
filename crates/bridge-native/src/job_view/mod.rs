@@ -52,6 +52,8 @@ mod subagent_read;
 mod panes;
 mod pulls;
 mod issues;
+mod system;
+mod bays;
 mod pr_files;
 mod pr_panel;
 mod report_brief;

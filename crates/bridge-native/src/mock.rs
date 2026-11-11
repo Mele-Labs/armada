@@ -50,6 +50,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same Jobs, the first working five issues, one a tracker's ticket and one a #7 that sample-web has too,
         // started by one Job, starting two, one in sample-web, and forked from another.
         "job-issues" => include_bytes!("../fixtures/jobs-issues.json"),
+        // The box's Jobs, the first holding four bays, two stranded, and clashing with the second and main.
+        "job-system" => include_bytes!("../fixtures/jobs-panes.json"),
         other => return Err(format!("no mock scenario named {other}")),
     };
     ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())
@@ -86,7 +88,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "history" => include_bytes!("../fixtures/history-threads.json"),
         "thread-moved" => include_bytes!("../fixtures/moved-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
-        "job-view-composer" | "job-panes" | "job-pulls" | "job-issues" => include_bytes!("../fixtures/composer-threads.json"),
+        "job-view-composer" | "job-panes" | "job-pulls" | "job-issues" | "job-system" => include_bytes!("../fixtures/composer-threads.json"),
         // The first Job's thread with a run of Bash calls, two of them commits, and the Audit Job's quiet one.
         "job-panes-more" => include_bytes!("../fixtures/panes-more-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
@@ -175,7 +177,7 @@ pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T
 
 /// The scenario last named is the panes' own: their reads answer only there.
 fn panes_named() -> bool {
-    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more" | "job-pulls" | "job-issues"))
+    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more" | "job-pulls" | "job-issues" | "job-system"))
 }
 
 /// A pull request's files as `GET /pull_request_patches/:repository/:number` answers them, by
@@ -261,6 +263,9 @@ pub fn repository_file(path: &str) -> Option<Result<String, String>> {
     }
     if !panes_named() {
         return None;
+    }
+    if let Some(text) = log(path) {
+        return Some(Ok(text));
     }
     let files = ipc::decode::<Files>("repository files", include_bytes!("../fixtures/panes-files.json"))
         .unwrap_or_else(|why| panic!("the repository files fixture does not decode: {why}"));
@@ -549,5 +554,185 @@ mod tests {
         assert_eq!(super::jobs("tool-rows").expect("decodes").len(), 6);
         assert_eq!(super::threads("tool-rows").expect("decodes").len(), 6);
         assert_eq!(super::threads("drafts").expect("decodes").len(), 1);
+    }
+}
+
+/// The System and Bays tabs' reads in `job-system`: each Job's system answer and its graphs' past,
+/// its time, the pool, a bay's history, the clashes and a clash's file. Times are written against
+/// `anchor` and read as that long before now.
+#[derive(Deserialize)]
+struct SystemReads {
+    anchor: String,
+    systems: Vec<SystemSeed>,
+    times: Vec<ipc::JobTime>,
+    pool: Vec<ipc::WorktreeSlot>,
+    histories: Vec<ipc::BayHistory>,
+    clashes: ipc::AllWriteClashes,
+    clash_files: Vec<ClashFileRead>,
+    logs: Vec<LogRead>,
+}
+
+/// One Job's system as the mock's Fleet answers it: after `first_read_ms`, its reading with the
+/// graphs' past readings, or its refusal.
+#[derive(Deserialize, Clone)]
+pub struct SystemSeed {
+    session_id: String,
+    pub first_read_ms: u64,
+    #[serde(default)]
+    pub cpu: Vec<f64>,
+    #[serde(default)]
+    pub memory: Vec<f64>,
+    #[serde(default)]
+    pub system: Option<ipc::SessionSystem>,
+    #[serde(default)]
+    pub refused: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ClashFileRead {
+    other: String,
+    path: String,
+    #[serde(flatten)]
+    file: ipc::ClashFile,
+}
+
+#[derive(Deserialize)]
+struct LogRead {
+    path: String,
+    text: String,
+}
+
+fn system_reads() -> Option<SystemReads> {
+    SCENARIO.lock().is_ok_and(|named| named.as_str() == "job-system").then(|| {
+        ipc::decode::<SystemReads>("system reads", include_bytes!("../fixtures/system-reads.json")).unwrap_or_else(|why| panic!("the system reads fixture does not decode: {why}"))
+    })
+}
+
+/// A fixture's time moved so its anchor is now.
+fn shifted(anchor: &str, at: &ipc::Instant) -> ipc::Instant {
+    let (Ok(anchor), Ok(at)) = (chrono::DateTime::parse_from_rfc3339(anchor), chrono::DateTime::parse_from_rfc3339(at.as_str())) else { return at.clone() };
+    let moved = chrono::Utc::now() - (anchor - at);
+    ipc::Instant::carried(moved.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+}
+
+/// A Job's system as `GET /sessions/system` answers it, with the graphs' past.
+pub fn system(job: &str) -> Option<SystemSeed> {
+    system_reads()?.systems.into_iter().find(|one| one.session_id == job)
+}
+
+/// A Job's time as `GET /sessions/time` answers it.
+pub fn job_time(job: &str) -> Option<ipc::JobTime> {
+    system_reads()?.times.into_iter().find(|one| one.session_id == job)
+}
+
+/// The pool as `GET /worktrees` answers it.
+pub fn pool() -> Option<Vec<ipc::WorktreeSlot>> {
+    let reads = system_reads()?;
+    let anchor = reads.anchor;
+    Some(
+        reads
+            .pool
+            .into_iter()
+            .map(|mut slot| {
+                slot.since = slot.since.as_ref().map(|at| shifted(&anchor, at));
+                if let Some(stranded) = slot.stranded.as_mut() {
+                    stranded.told = stranded.told.as_ref().map(|at| shifted(&anchor, at));
+                }
+                slot
+            })
+            .collect(),
+    )
+}
+
+/// The clashes `write_clashes.changed` carries in `job-system`.
+pub fn bay_clashes() -> Option<ipc::AllWriteClashes> {
+    Some(system_reads()?.clashes)
+}
+
+/// A bay's history as `GET /slot_history` answers it.
+pub fn bay_history(manifest: &str, slot: u32) -> Option<ipc::BayHistory> {
+    let reads = system_reads()?;
+    let anchor = reads.anchor;
+    let mut history = reads.histories.into_iter().find(|one| one.manifest_id.as_str() == manifest && one.slot == slot)?;
+    for entry in history.entries.iter_mut() {
+        let (ipc::BayHistoryEntry::Leased { at, .. } | ipc::BayHistoryEntry::Released { at, .. } | ipc::BayHistoryEntry::Checkout { at, .. }) = entry;
+        *at = shifted(&anchor, at);
+    }
+    Some(history)
+}
+
+/// A clash's file as `GET /clashes/file` answers it, by the other holder and the path.
+pub fn clash_file(other: &str, path: &str) -> Option<ipc::ClashFile> {
+    system_reads()?.clash_files.into_iter().find(|one| one.other == other && one.path == path).map(|one| one.file)
+}
+
+/// A Job's log, which only the mock reads: Fleet serves none.
+fn log(path: &str) -> Option<String> {
+    system_reads()?.logs.into_iter().find(|one| one.path == path).map(|one| one.text)
+}
+
+/// A pool act on the mock's pool, as `POST /worktrees/slots` would change it.
+pub fn pool_act(pool: &mut Vec<ipc::WorktreeSlot>, manifest: &str, slot: u32, act: ipc::SlotAct) -> Result<Option<ipc::SlotPoolChanged>, String> {
+    let at = pool.iter().position(|one| one.manifest_id.as_str() == manifest && one.slot == slot).ok_or_else(|| format!("slot-{slot} is not in the pool"))?;
+    let mut released = None;
+    match act {
+        ipc::SlotAct::Close => pool[at].closed = true,
+        ipc::SlotAct::Open => pool[at].closed = false,
+        ipc::SlotAct::Remove => {
+            if pool[at].stranded.as_ref().is_some_and(|stranded| !stranded.uncommitted.is_empty()) {
+                return Err(format!("slot-{slot} holds uncommitted changes"));
+            }
+            pool.remove(at);
+        }
+        ipc::SlotAct::Release => {
+            let one = &mut pool[at];
+            released = Some(ipc::SlotReleased { branch: one.branch.clone().unwrap_or_default(), saved: None });
+            one.held = ipc::SlotHolding::Free;
+            one.branch = None;
+            one.since = None;
+        }
+        ipc::SlotAct::Add => {}
+    }
+    Ok(Some(ipc::SlotPoolChanged { manifest_id: ipc::ManifestId::carried(manifest), slot, released }))
+}
+
+/// A rescue act on the mock's pool, as `POST /worktrees/slots/rescue` would change it. Stash is
+/// refused, as a push origin rejects is.
+pub fn rescue_act(pool: &mut [ipc::WorktreeSlot], manifest: &str, slot: u32, act: ipc::RescueAct) -> Result<Option<ipc::SlotRescued>, String> {
+    let one = pool.iter_mut().find(|one| one.manifest_id.as_str() == manifest && one.slot == slot).ok_or_else(|| format!("slot-{slot} is not in the pool"))?;
+    let branch = one.branch.clone();
+    let rescued = |committed: Option<&str>| ipc::SlotRescued { manifest_id: ipc::ManifestId::carried(manifest), slot, branch: branch.clone(), branch_kept: true, committed: committed.map(str::to_string) };
+    match act {
+        ipc::RescueAct::Start => {
+            one.rescue = Some(ipc::SlotFinding {
+                state: ipc::SlotFindingState::Reading,
+                commit: "0000000".into(),
+                uncommitted: true,
+                cut: 0,
+                read: Vec::new(),
+                searched: Vec::new(),
+                verdict: None,
+                items: Vec::new(),
+                summary: None,
+                why: None,
+                cost_micros: None,
+            });
+            Ok(None)
+        }
+        ipc::RescueAct::Stop => {
+            if let Some(rescue) = one.rescue.as_mut() {
+                rescue.state = ipc::SlotFindingState::Stopped;
+            }
+            Ok(None)
+        }
+        ipc::RescueAct::Stash => Err(format!("git push was refused: origin rejected {}", branch.clone().unwrap_or_default())),
+        ipc::RescueAct::Scrap | ipc::RescueAct::PickUp => {
+            let committed = (act == ipc::RescueAct::PickUp).then_some("4be1c07d2a90");
+            one.held = ipc::SlotHolding::Free;
+            one.stranded = None;
+            one.rescue = None;
+            one.branch = None;
+            Ok(Some(rescued(committed)))
+        }
     }
 }

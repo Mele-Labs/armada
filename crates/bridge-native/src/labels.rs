@@ -55,6 +55,7 @@ pub fn role_named(word: &str) -> Option<Role> {
         "tooltip" => Role::Tooltip,
         "tree" => Role::Tree,
         "treeitem" => Role::TreeItem,
+        "table" => Role::Table,
         _ => return None,
     })
 }

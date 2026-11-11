@@ -57,6 +57,10 @@ pub(super) struct Panes {
     pub(super) pull_pending: HashMap<String, super::pulls::PullAct>,
     /// The running Ticket lifecycle's states, by repository; none where it has none or the read was refused.
     pub(super) tickets: HashMap<String, Vec<ipc::LifecycleStateDefinition>>,
+    /// The System tab's reads and its poll.
+    pub(super) systems: super::system::Systems,
+    /// The pool the Bays and System tabs draw a Job's bays from, and the clashes unfolded.
+    pub(super) bays: super::bays::Bays,
 }
 
 struct Search {
@@ -77,6 +81,8 @@ enum Of {
     Check { name: String, run: u64, tab: CheckTab, output: Option<Result<CheckOutput, String>>, _poll: Option<Task<()>> },
     Pull(Box<super::pr_panel::PullPanel>),
     Issue(Box<super::issues::IssuePanel>),
+    Bay(Box<super::bays::BayPanel>),
+    ClashFile(Box<super::bays::ClashFilePanel>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -286,7 +292,10 @@ impl JobView {
     /// Ask for what the top pane's body reads, where it has not been read: a pull request's patches
     /// for Changes, the matching paths for Files. Called where the tab or the Job changes, never while drawing.
     pub(super) fn want_pane_reads(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
+        let Some(id) = self.shown.clone() else {
+            self.want_system(window, cx);
+            return;
+        };
         match self.zone_shown() {
             Some(super::side::Zone::Changes) => self.want_patches(&id, window, cx),
             Some(super::side::Zone::Files) => {
@@ -300,8 +309,11 @@ impl JobView {
             }
             Some(super::side::Zone::Subagents | super::side::Zone::Pulls) => self.judge_read(&id, cx),
             Some(super::side::Zone::Issues) => self.want_tickets(&id, window, cx),
+            Some(super::side::Zone::Bays | super::side::Zone::System) => self.read_pool(window, cx),
             _ => {}
         }
+        // The System tab's 5 s read runs only while that tab is in front; this stops it otherwise.
+        self.want_system(window, cx);
     }
 
     /// Items pressed to reopen that the record no longer lists are done with: one closed again is its own row.
@@ -745,6 +757,35 @@ impl JobView {
         self.open_panel(Of::Issue(Box::new(panel)), window, cx);
     }
 
+    /// A bay's panel, opened from its Berth.
+    pub(super) fn open_bay_panel(&mut self, panel: super::bays::BayPanel, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_panel(Of::Bay(Box::new(panel)), window, cx);
+    }
+
+    pub(super) fn bay_panel_mut(&mut self) -> Option<&mut super::bays::BayPanel> {
+        match self.panes.panel.as_mut() {
+            Some(Panel { of: Of::Bay(panel), .. }) => Some(panel),
+            _ => None,
+        }
+    }
+
+    /// A clash's file, opened from its chip.
+    pub(super) fn open_clash_panel(&mut self, panel: super::bays::ClashFilePanel, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_panel(Of::ClashFile(Box::new(panel)), window, cx);
+    }
+
+    pub(super) fn clash_panel_mut(&mut self) -> Option<&mut super::bays::ClashFilePanel> {
+        match self.panes.panel.as_mut() {
+            Some(Panel { of: Of::ClashFile(panel), .. }) => Some(panel),
+            _ => None,
+        }
+    }
+
+    /// A log of the Job's, in the file panel. Only the mock reads one: Fleet serves no Job log.
+    pub(super) fn open_log(&mut self, path: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_file(path, window, cx);
+    }
+
     pub(super) fn issue_panel(&self) -> Option<&super::issues::IssuePanel> {
         match self.panes.panel.as_ref() {
             Some(Panel { of: Of::Issue(panel), .. }) => Some(panel),
@@ -828,6 +869,11 @@ impl JobView {
             }
             Of::Check { name, run, tab, output, .. } => (format!("Check {name}").into(), None, self.check_body(&panel.job, name, *run, *tab, output.as_ref(), look, cx)),
             Of::Issue(issue) => (format!("Issue {}", issue.item.label()).into(), issue.item.manifest.as_ref().map(|id| id.as_str().to_string().into()), self.issue_body(issue, look, cx)),
+            Of::Bay(bay) => (format!("Bay slot-{}", bay.slot).into(), Some(bay.manifest.as_str().to_string().into()), self.bay_body(bay, look, cx)),
+            Of::ClashFile(clash) => {
+                let name = clash.path.rsplit('/').next().unwrap_or(&clash.path).to_string();
+                (name.into(), Some(clash.path.clone().into()), self.clash_file_body(clash, look, cx))
+            }
         };
         let close = labelled(
             div()
