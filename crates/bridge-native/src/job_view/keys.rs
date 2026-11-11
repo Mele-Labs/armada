@@ -372,8 +372,8 @@ impl JobView {
         let dialog =
             div()
                 .id("thread-confirm-scrim")
-                .w(window.viewport_size().width)
-                .h(window.viewport_size().height)
+                .w(crate::room::of(window, cx).size.width)
+                .h(crate::room::of(window, cx).size.height)
                 .flex()
                 .items_center()
                 .justify_center()
@@ -419,7 +419,7 @@ impl JobView {
                     Role::Dialog,
                     title,
                 ));
-        Some(deferred(anchored().anchor(Anchor::TopLeft).position(gpui::point(gpui::px(0.), gpui::px(0.))).child(dialog)).with_priority(3).into_any_element())
+        Some(deferred(anchored().anchor(Anchor::TopLeft).position(crate::room::of(window, cx).origin).child(dialog)).with_priority(3).into_any_element())
     }
 }
 

@@ -4,7 +4,7 @@
 //! the culprit's own first.
 
 use gpui::{
-    anchored, deferred, div, point, prelude::*, px, Anchor, AnyElement, Context, Entity, FocusHandle, FontWeight, Pixels, Role, SharedString,
+    anchored, deferred, div, prelude::*, Anchor, AnyElement, Context, Entity, FocusHandle, FontWeight, Pixels, Role, SharedString,
     Window,
 };
 use gpui_component::input::{Textarea, TextareaState};
@@ -111,7 +111,7 @@ impl MergeStrip {
     }
 
     /// The dialog over the window, with a scrim that a press on shuts it through.
-    pub(super) fn fix_layer(&self, look: &Look, viewport: gpui::Size<Pixels>, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn fix_layer(&self, look: &Look, room: gpui::Bounds<Pixels>, cx: &Context<Self>) -> Option<AnyElement> {
         let fix = self.fix.as_ref()?;
         let (title, confirm): (SharedString, &'static str) = match fix.which {
             Which::Back => ("Send the work back".into(), "Send back"),
@@ -196,7 +196,7 @@ impl MergeStrip {
                 title,
             ));
         Some(
-            deferred(anchored().position(point(px(0.), px(0.))).anchor(Anchor::TopLeft).child(div().w(viewport.width).h(viewport.height).child(scrim)))
+            deferred(anchored().position(room.origin).anchor(Anchor::TopLeft).child(div().w(room.size.width).h(room.size.height).child(scrim)))
                 .with_priority(2)
                 .into_any_element(),
         )

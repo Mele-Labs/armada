@@ -13,7 +13,7 @@ use std::rc::Rc;
 
 use chrono::Local;
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, px, Anchor, AnyElement, Bounds, Context, Entity, FocusHandle, Focusable as _,
+    anchored, canvas, deferred, div, prelude::*, px, Anchor, AnyElement, Bounds, Context, Entity, FocusHandle, Focusable as _,
     FontWeight, KeyDownEvent, MouseButton, Pixels, Role, SharedString, Subscription, Window,
 };
 use gpui_component::input::{InputEvent, Textarea, TextareaState};
@@ -736,7 +736,8 @@ impl JobView {
         let page = self.pages.get(id)?;
         let review = Some(&page.review).filter(|review| review.open)?;
         let look = cx.look();
-        let viewport = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let viewport = room.size;
         let title: SharedString = self.record(id, cx).and_then(|job| job.title.clone()).map_or_else(|| "Review".into(), Into::into);
         let current = review.at.as_ref().and_then(|at| review.seen.iter().find(|item| &item.id == at)).cloned();
         let settled = current.as_ref().map(|item| self.review_standing(id, item, cx));
@@ -913,7 +914,7 @@ impl JobView {
         );
         Some(
             deferred(
-                anchored().position(point(px(0.), px(0.))).anchor(Anchor::TopLeft).child(
+                anchored().position(room.origin).anchor(Anchor::TopLeft).child(
                     // A press on the ground behind takes nothing: the close and Esc are the two exits.
                     div().id("review-scrim").occlude().w(viewport.width).h(viewport.height).flex().justify_end().bg(look.color(token::SCRIM)).child(sheet),
                 ),

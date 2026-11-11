@@ -449,7 +449,8 @@ impl JobView {
         }
         let pad = self.pad.as_ref()?;
         let look = cx.look();
-        let viewport = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let viewport = room.size;
         let margin = look.length(token::SPACE_4);
         // The sheet's header Close with its key, as Electron's `Sheet` draws it.
         let close = labelled(
@@ -520,7 +521,7 @@ impl JobView {
         );
         Some(
             deferred(
-                anchored().position(point(px(0.), look.length(token::H_TITLE_BAR))).anchor(Anchor::TopLeft).child(
+                anchored().position(room.origin + point(px(0.), look.length(token::H_TITLE_BAR))).anchor(Anchor::TopLeft).child(
                     div()
                         .id("sketch-scrim")
                         .occlude()

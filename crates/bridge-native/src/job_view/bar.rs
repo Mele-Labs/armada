@@ -380,11 +380,11 @@ impl JobView {
         let removable = editor.id.is_some() && self.composer.quick.responses().len() > 1;
         let title = editor.from.clone();
         // The scrim is the whole window's, as Electron's body portal is.
-        Some(gpui::deferred(gpui::anchored().anchor(gpui::Anchor::TopLeft).position(gpui::point(gpui::px(0.), gpui::px(0.))).child(
+        Some(gpui::deferred(gpui::anchored().anchor(gpui::Anchor::TopLeft).position(crate::room::of(window, cx).origin).child(
             div()
                 .id("response-editor-scrim")
-                .w(window.viewport_size().width)
-                .h(window.viewport_size().height)
+                .w(crate::room::of(window, cx).size.width)
+                .h(crate::room::of(window, cx).size.height)
                 .flex()
                 .items_center()
                 .justify_center()

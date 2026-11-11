@@ -7,7 +7,7 @@
 //! The app has one message box, so while the dialog is open the box is drawn in it and writes under
 //! the report's own key; the Job's box shows its kept draft under the scrim.
 
-use gpui::{anchored, deferred, div, point, prelude::*, Anchor, AnyElement, Context, Focusable, FontWeight, MouseButton, Role, SharedString, Window};
+use gpui::{anchored, deferred, div, prelude::*, Anchor, AnyElement, Context, Focusable, FontWeight, MouseButton, Role, SharedString, Window};
 use ipc::{SendSessionMessage, SendSessionMessageBody, SessionRecord, SessionTag, StartSession};
 
 use super::composer::{encoded_files, Kept};
@@ -204,7 +204,8 @@ impl JobView {
     pub(super) fn render_report(&self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
         let report = self.reporting.as_ref()?;
         let look = cx.look();
-        let size = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let size = room.size;
         let key = self.box_key()?;
         let nothing = self.composer.input.read(cx).value().trim().is_empty() && self.composer.files_of(&key).is_empty();
         let focused = self.composer.input.read(cx).focus_handle(cx).contains_focused(window, cx);
@@ -298,7 +299,7 @@ impl JobView {
             .child(div().flex_none().flex().justify_end().gap(look.length(token::SPACE_2)).child(cancel));
         Some(
             deferred(
-                anchored().position(point(gpui::px(0.), gpui::px(0.))).anchor(Anchor::TopLeft).child(
+                anchored().position(room.origin).anchor(Anchor::TopLeft).child(
                     labelled(
                         div()
                             .id("report-scrim")

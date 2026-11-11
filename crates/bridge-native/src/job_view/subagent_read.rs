@@ -181,7 +181,8 @@ impl JobView {
     pub(super) fn render_subagent_reading(&self, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
         let reading = self.subagent_reading.as_ref()?;
         let look = cx.look();
-        let viewport = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let viewport = room.size;
         let subagent = &reading.subagent;
         let key = Self::subagent_key(&reading.job, &subagent.id);
         let read = self.subagents_read.iter().find(|(one, _)| *one == key).map(|(_, read)| read);
@@ -299,7 +300,7 @@ impl JobView {
         );
         Some(
             deferred(
-                anchored().position(point(px(0.), look.length(token::H_TITLE_BAR))).anchor(Anchor::TopLeft).child(
+                anchored().position(room.origin + point(px(0.), look.length(token::H_TITLE_BAR))).anchor(Anchor::TopLeft).child(
                     // The scrim starts under the title bar, as a floating sheet's does; a press on it shuts the sheet.
                     div()
                         .id("subagent-scrim")
