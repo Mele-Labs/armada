@@ -239,8 +239,8 @@ pub static WALKS: &[Walk] = &[
         steps: &operator::STEPS,
     },
     Walk {
-        name: "toasts",
-        title: "Toasts the Operator raises",
+        name: "native-toasts",
+        title: "Toasts, the Operator's and Fleet's",
         screen: Screen::Operator,
         scenario: "jobs-many",
         steps: &[
@@ -256,6 +256,15 @@ pub static WALKS: &[Walk] = &[
             step("⌥⌘N opens the history: every toast this sitting and how it went. The bell's dot is gone", Verb::Key("alt-cmd-n"), "dialog", "Toasts"),
             step("A row opens the Operator's page on its item", Verb::Look, "listitem", "Slot pool controls, Settled"),
             step("Esc shuts it", Verb::Key("escape"), "button", "Toasts"),
+            scene("Fleet up and not answering: an amber dot, and a toast with the degraded edge says what is shown is not live", "fleet-unreachable", "alert", "Toast: Fleet unreachable"),
+            scene("Fleet gone, inside its first 30 seconds: a red dot and no toast yet", "fleet-powering", "button", "Fleet — Not running"),
+            scene("After that an urgent toast stands at the top of the corner, the screen as it was, until Fleet is back", "fleet-down", "alert", "Toast: Fleet is not running"),
+            scene("A Fleet that does not match: its toast carries Restart Fleet", "fleet-mismatch", "button", "Restart Fleet"),
+            press_on("Restart Fleet answers in the same frame", "button", "Restart Fleet", "button", "Restarting Fleet"),
+            scene("Fleet came back and still does not match: a toast of its own, and Restart Fleet stays off", "restart-apart", "alert", "Toast: Still not matching"),
+            scene("A restart with no new runtime file in 30 seconds: its own toast, with Dismiss", "restart-no-answer", "alert", "Toast: Fleet did not come back inside 30 seconds"),
+            step("Dismiss puts that one away; the state's toast stays while the state does", Verb::Gone, "button", "Dismiss"),
+            scene("Fleet running: its toasts go", "fleet-running", "button", "Fleet — Running"),
         ],
     },
     Walk {

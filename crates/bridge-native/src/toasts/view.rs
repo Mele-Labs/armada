@@ -20,7 +20,7 @@ use gpui::{
 use ipc::operator_page::{OperatorAnswer, OperatorTurnItem, OperatorTurnKind};
 use ipc::CallTone;
 
-use super::{Ended, Shelf, Toast, Urgency};
+use super::{Ended, FleetNotice, NoticeAct, Shelf, Toast, Urgency};
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::log::Note;
@@ -46,6 +46,28 @@ impl Global for BellSlot {}
 struct Live(WeakEntity<Toasts>, AnyWindowHandle);
 
 impl Global for Live {}
+
+/// Fleet's states as the title bar last read them, drawn as urgent toasts above the Operator's.
+#[derive(Default)]
+struct FleetNotices(Vec<FleetNotice>);
+
+impl Global for FleetNotices {}
+
+const RESTART_TOOLTIP: &str = "Restart Fleet. Working Drones are adopted and cannot be redirected until they finish.";
+
+/// The title bar read Fleet's state again: what it says now stands, and a state not shown before marks
+/// the bell.
+pub fn fleet(notices: Vec<FleetNotice>, cx: &mut App) {
+    let was: Vec<&'static str> = cx.try_global::<FleetNotices>().map(|kept| kept.0.iter().map(|notice| notice.id).collect()).unwrap_or_default();
+    let fresh = notices.iter().any(|notice| !was.contains(&notice.id));
+    cx.set_global(FleetNotices(notices));
+    if let Some(toasts) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
+        toasts.update(cx, |toasts, cx| {
+            toasts.unseen |= fresh;
+            cx.notify();
+        });
+    }
+}
 
 /// ⌥⌘J and ⌥⌘N, from anywhere (`actions.toml`, scope `anywhere`).
 pub fn bind(cx: &mut App) {
@@ -335,6 +357,80 @@ impl Toasts {
         labelled(frame, Role::Alert, format!("Toast: {title}"))
     }
 
+    /// A state of Fleet: the urgent edge, what is wrong and what to do, its code, and its acts. It has no
+    /// close: it goes when the state does, or, after a restart that did not come back, on Dismiss.
+    fn fleet_toast(&self, notice: &FleetNotice, look: &Look) -> impl IntoElement {
+        let edge = look.color(if notice.fault { token::STATUS_COMPLETED_FAILED } else { token::DEGRADED });
+        let act = match notice.act {
+            NoticeAct::None => None,
+            NoticeAct::Restart { working, busy } => {
+                let word: SharedString = if working { "Restarting Fleet" } else { "Restart Fleet" }.into();
+                let button = press("toast-restart-fleet", word.clone(), Some("rotate-cw"), None, Weight::Pick, look).tooltip(tip(RESTART_TOOLTIP));
+                let button = if busy { button.opacity(0.6) } else { button.on_click(|_, _, cx| crate::titlebar::restart_fleet(cx)) };
+                Some(labelled(button, Role::Button, word).into_any_element())
+            }
+            NoticeAct::Dismiss => Some(
+                labelled(
+                    press("toast-dismiss-restart", "Dismiss".into(), None, None, Weight::Bare, look).on_click(|_, _, cx| crate::titlebar::dismiss_restart_failure(cx)),
+                    Role::Button,
+                    "Dismiss",
+                )
+                .into_any_element(),
+            ),
+        };
+        let copy = labelled(
+            press(SharedString::from(format!("toast-copy:{}", notice.id)), "Copy debug info".into(), Some("copy"), None, Weight::Bare, look)
+                .on_click(|_, _, cx| crate::titlebar::copy_debug_info(cx)),
+            Role::Button,
+            "Copy debug info",
+        );
+        let head = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .child(glyph("server-off", look.length(token::SPACE_4), edge))
+            .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Fleet"))
+            .child(
+                div()
+                    .px(look.length(token::SPACE_2))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .bg(edge)
+                    .text_color(look.color(token::FG_INVERSE))
+                    .font_family(crate::titlebar::parts::mono(look))
+                    .text_size(look.length(token::TEXT_2XS))
+                    .child(notice.code),
+            );
+        let body = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_3))
+            .child(head)
+            .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(notice.headline.clone()))
+            .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(notice.next.clone()))
+            .child(div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).pt(look.length(token::SPACE_1)).children(act).child(copy));
+        labelled(
+            div()
+                .id(SharedString::from(format!("toast:{}", notice.id)))
+                .w(gpui::px(WIDTH))
+                .flex()
+                .overflow_hidden()
+                .rounded(look.length(token::RADIUS_LG) * 1.5)
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(edge.opacity(0.6))
+                .bg(look.color(token::BG_OVERLAY))
+                .shadow(look.shadows(token::SHADOW_OVERLAY))
+                .font_family(sans(look))
+                .child(div().flex_none().w(gpui::px(3.)).bg(edge))
+                .child(body),
+            Role::Alert,
+            format!("Toast: {}", notice.headline),
+        )
+    }
+
     fn history_panel(&self, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let rows = self.shelf.history().map(|toast| {
             let id = toast.item.id.clone();
@@ -407,6 +503,8 @@ impl Render for Toasts {
         let look = cx.look();
         let shown: Vec<Toast> = self.shelf.shown().into_iter().cloned().collect();
         let last = shown.len().saturating_sub(1);
+        // Fleet's states stand first, at the top of the stack: urgent, and held while they last.
+        let fleet: Vec<FleetNotice> = cx.try_global::<FleetNotices>().map(|kept| kept.0.clone()).unwrap_or_default();
         // Under the title bar at most: in a short window the oldest is cut at the top, never the bell.
         let stack = div()
             .absolute()
@@ -418,6 +516,7 @@ impl Render for Toasts {
             .justify_end()
             .overflow_hidden()
             .gap(look.length(token::SPACE_3))
+            .children(fleet.iter().map(|notice| self.fleet_toast(notice, look)))
             .children(shown.iter().enumerate().map(|(at, toast)| self.toast(toast, at == last, look, cx)));
         div()
             .absolute()

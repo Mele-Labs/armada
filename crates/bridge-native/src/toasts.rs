@@ -9,7 +9,31 @@ use ipc::operator_page::OperatorTurnItem;
 
 mod view;
 
-pub use view::{bind, BellSlot, Toasts};
+pub use view::{bind, fleet, BellSlot, Toasts};
+
+/// A state of Fleet the app reads for itself, raised as an urgent toast for as long as it lasts: Fleet
+/// not running or not matching, and a restart that did not take. Bridge raises these, not the Operator,
+/// since Fleet is not there to send them; the title bar reads them (`titlebar::fleet_down`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct FleetNotice {
+    pub id: &'static str,
+    pub headline: gpui::SharedString,
+    pub next: gpui::SharedString,
+    pub code: &'static str,
+    /// A fault draws the red edge; a degraded state the degraded one.
+    pub fault: bool,
+    pub act: NoticeAct,
+}
+
+/// What a Fleet toast offers besides Copy debug info.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoticeAct {
+    None,
+    /// On a mismatch: pending while the restart is out, off while it is out or came back apart.
+    Restart { working: bool, busy: bool },
+    /// On a restart that did not come back: the toast goes when he says so.
+    Dismiss,
+}
 
 /// How hard a toast asks, as Fleet serves it: its edge, whether it sounds, and whether it holds its
 /// place in the stack. Urgent holds its place and sounds; Decision is his to decide; GoAhead is what the

@@ -206,8 +206,8 @@ pub struct TitleBar {
     at: Anchors,
     /// The face as it was before the last optimistic change, for [`TitleBar::refused`].
     before: Option<Face>,
-    /// The notice's folded detail is open.
-    details_open: bool,
+    /// The Fleet states last handed to the toasts.
+    notices_sent: Vec<crate::toasts::FleetNotice>,
     /// A window width the bar draws at in place of the window's own: a walk's way of narrowing it.
     pub width: Option<Pixels>,
     _asked: Subscription,
@@ -223,6 +223,28 @@ pub struct TitleBar {
 struct Live(WeakEntity<TitleBar>);
 
 impl Global for Live {}
+
+/// The bar of the window, for an act a Fleet toast carries.
+fn with_bar(cx: &mut App, act: impl FnOnce(&mut TitleBar, &mut Context<TitleBar>)) {
+    if let Some(bar) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
+        bar.update(cx, act);
+    }
+}
+
+/// Restart Fleet, from the toast of a Fleet that does not match.
+pub fn restart_fleet(cx: &mut App) {
+    with_bar(cx, |bar, cx| bar.restart_fleet_pressed(cx));
+}
+
+/// Dismiss, from the toast of a restart that did not come back.
+pub fn dismiss_restart_failure(cx: &mut App) {
+    with_bar(cx, |bar, cx| bar.answer(|face| face.fleet.restarting = Restarting::Idle, cx));
+}
+
+/// Copy debug info, from a Fleet toast.
+pub fn copy_debug_info(cx: &mut App) {
+    with_bar(cx, |_, cx| cx.emit(Asked::CopyDebugInfo));
+}
 
 /// The bar's keys that work from anywhere: ⌘K, ⌘J, ⌘, , ⇧⌘R and ⌘1 to ⌘9 (`actions.toml`, scope `anywhere`). A
 /// screen's own handler runs first; what it does not take reaches here.
@@ -287,7 +309,7 @@ impl TitleBar {
             _meter_focus: [arrived, left],
             at,
             before: None,
-            details_open: false,
+            notices_sent: Vec::new(),
             width: None,
             _asked: asked,
             swap_since: None,
@@ -305,7 +327,6 @@ impl TitleBar {
         self.menu = None;
         self.dialog = None;
         self.before = None;
-        self.details_open = false;
         self.over_card = false;
         self.keys_were = None;
         self.width = None;
@@ -1349,6 +1370,12 @@ fn glyph_mark(side: Pixels, ink: gpui::Hsla) -> gpui::Svg {
 
 impl Render for TitleBar {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Fleet's states go to the toasts when they change; the bar draws no band for them.
+        let notices = self.fleet_notices();
+        if notices != self.notices_sent {
+            self.notices_sent = notices.clone();
+            cx.defer(move |cx| crate::toasts::fleet(notices, cx));
+        }
         let look = cx.look();
         let viewport = window.viewport_size();
         let narrow = self.narrow(window);
@@ -1400,7 +1427,6 @@ impl Render for TitleBar {
             .flex_col()
             .child(row)
             .children(self.trying_bar(look, cx))
-            .children(self.notice(look, cx))
             .children(self.dropped_alert(look, cx))
             .children(self.popover(look, window, cx))
             .children(self.dialog_layer(look, viewport, cx))

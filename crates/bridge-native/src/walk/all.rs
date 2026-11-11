@@ -51,9 +51,8 @@ pub static STEPS: &[Step] = &[
     scene("Signed in again at full width, the row is whole", "back-to-rest", "button", "Operator"),
     scene("Events Fleet dropped stand as an alert above the screen, with the count that will never arrive", "events-dropped", "alert", "Events were dropped before Bridge saw them"),
     press_on("Noted puts it away until more are dropped", "button", "Noted", "button", "Operator"),
-    scene("Fleet gone for over 30 seconds: a red dot, and the notice stands above the screen", "fleet-down", "alert", "Fleet is not running"),
+    scene("Fleet gone for over 30 seconds: a red dot", "fleet-down", "button", "Fleet — Not running"),
     step("The panel says why", Verb::Press, "button", "Fleet — Not running"),
-    scene("A Fleet that does not match offers Restart Fleet", "fleet-mismatch", "button", "Restart Fleet"),
     // -- the dispatch sheet --------------------------------------------------------------------
     fresh("The dispatch sheet starts on a clean screen: the bar at rest, the strip along the bottom, nothing open", "heading", "armada"),
     step("⌘N opens the sheet, and the keys are in the request. Job and Autopilot are the kinds; Model and Effort sit by the act", Verb::Key("cmd-n"), "dialog", "Dispatch"),
@@ -73,7 +72,7 @@ pub static STEPS: &[Step] = &[
     answer("Fleet found no repository in the words: the mark says so", "unresolved", "img", "Repository, not found"),
     step("Start with no repository asks for one, and the keys go to the chips", Verb::Key("enter"), "radiogroup", "Repository"),
     answer("Twelve repositories: nine chips with keys, the rest under More", "many", "combobox", "More repositories"),
-    answer("With Fleet unreachable everything in the sheet is off, and the title bar's dot says so too", "offline", "status", "Fleet unreachable"),
+    answer("With Fleet unreachable everything in the sheet is off, and the title bar's dot says so too", "offline", "button", "Fleet — Unreachable"),
     // -- the notes layer -----------------------------------------------------------------------
     fresh("The notes start on a clean screen: no sheet, no layer, the bar at rest", "heading", "armada"),
     step("⌥⌘A turns annotating on over any screen; the bar says so", Verb::Key("alt-cmd-a"), "status", "Annotating"),

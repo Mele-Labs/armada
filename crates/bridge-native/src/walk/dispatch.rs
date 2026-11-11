@@ -39,7 +39,7 @@ pub static STEPS: [Step; 37] = [
     step("Esc shuts it", Verb::Key("escape"), "combobox", "More repositories"),
     step("Esc again puts the call away: the frame is as it was", Verb::Key("escape"), "dialog", "Dispatch"),
     answer("A pasted snippet stands over the line and can be removed", "attach", "button", "Remove pasted-snippet.txt"),
-    answer("With Fleet unreachable everything in the sheet is off, and the title bar's dot says so too", "offline", "status", "Fleet unreachable"),
+    answer("With Fleet unreachable everything in the sheet is off, and the title bar's dot says so too", "offline", "button", "Fleet — Unreachable"),
     answer("A repository not ready: the refusal stands as a notice, and Fleet is running again", "refuse-start", "alert", "Job not started: the repository has no free slot"),
     step("Esc shuts the sheet", Verb::Key("escape"), "heading", "armada"),
 ];
