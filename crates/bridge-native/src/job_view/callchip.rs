@@ -12,7 +12,7 @@ use crate::look::{token, ActiveLook};
 impl JobView {
     pub(super) fn render_callchip(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
         let page = self.pages.get(id)?;
-        let tail = page.lead + page.items;
+        let tail = page.entry(page.items);
         let waiting = page.extras.iter().any(|extra| matches!(extra, Extra::Plan(_) | Extra::Sketch(_)));
         // The tail is below what is drawn: it is past the foot of the list's view, or not reached yet.
         let (viewport, top) = (page.list.viewport_bounds(), page.list.logical_scroll_top());
@@ -44,7 +44,7 @@ impl JobView {
                 .child(glyph(look, "arrow-down", Size::Small, look.color(token::STATUS_AWAITING_REVIEW)))
                 .on_click(cx.listener(move |this, _, window, cx| {
                     if let Some(page) = this.pages.get(&job) {
-                        page.list.scroll_to(ListOffset { item_ix: page.lead + page.items, offset_in_item: gpui::px(0.) });
+                        page.list.scroll_to(ListOffset { item_ix: page.entry(page.items), offset_in_item: gpui::px(0.) });
                     }
                     window.focus(&this.focus, cx);
                     cx.notify();

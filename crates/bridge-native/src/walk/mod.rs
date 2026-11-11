@@ -302,6 +302,20 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-history",
+        title: "A Job's history: handed on and forked",
+        screen: Screen::Jobs,
+        scenario: "history",
+        steps: &[
+            press_on("A Job that took another's place carries that Job's turns above its own, in one scroll", "row", "Upgrade the router", "separator", "Handed on"),
+            step("A plain rule parts them. Above it the earlier Job, from his first message to where it handed on; below it this Job's own", Verb::Wheel("region", "Thread", -260), "separator", "Handed on"),
+            press_on("A forked Job opens with the conversation it was forked from, folded at its head", "row", "Try amber for the stale merge line chip", "button", "Forked from Fix the merge line freshness chip"),
+            press_on("A press opens it: the earlier Job's turns up to the message it was forked at, read only", "button", "Forked from Fix the merge line freshness chip", "group", "Forked from Fix the merge line freshness chip"),
+            step("A press again folds it", Verb::PressOn("button", "Forked from Fix the merge line freshness chip"), "button", "Forked from Fix the merge line freshness chip"),
+            step("A Job moved to another repository carries its whole conversation in, under a row saying where it came from. That row comes with its own walk", Verb::Look, "button", "Forked from Fix the merge line freshness chip"),
+        ],
+    },
+    Walk {
         name: "native-sketch-card",
         title: "A sketch in the thread",
         screen: Screen::Jobs,

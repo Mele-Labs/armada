@@ -80,7 +80,7 @@ pub(super) fn with_breaks(text: &str) -> String {
 }
 
 /// When an item began, where it says: a run's end is the next item's start.
-fn began(item: &ThreadItem) -> Option<&ipc::Instant> {
+pub(super) fn began(item: &ThreadItem) -> Option<&ipc::Instant> {
     match item {
         ThreadItem::Row { row } => Some(row.at()),
         ThreadItem::Calls { rows, .. } | ThreadItem::Checks { rows, .. } => rows.first().map(SessionRow::at),
@@ -185,7 +185,7 @@ pub(super) fn check_look(state: SessionCheckState) -> (&'static str, Token, &'st
 
 impl JobView {
     /// Aa's Spacing: the gap under each row of the thread, the Show earlier row among them.
-    fn row_gap(&self, look: &Look) -> gpui::Pixels {
+    pub(super) fn row_gap(&self, look: &Look) -> gpui::Pixels {
         match self.composer.quick.thread().spacing {
             Spacing::Compact => look.length(token::SPACE_4),
             Spacing::Default => look.length(token::SPACE_6) + look.length(token::SPACE_2),
@@ -199,7 +199,7 @@ impl JobView {
         let Some(id) = self.shown.clone() else { return nothing() };
         // A picture his message carried is read the first time its row is drawn.
         let wanted = match (self.pages.get(&id), self.thread(&id, cx)) {
-            (Some(page), Some(held)) => match ix.checked_sub(page.lead).and_then(|at| held.items.get(at)) {
+            (Some(page), Some(held)) => match ix.checked_sub(page.lead + page.before).and_then(|at| held.items.get(at)) {
                 Some(ThreadItem::Row { row: SessionRow::Message { files, .. } | SessionRow::Sent { files, .. } })
                     if files.iter().any(super::pictures::is_picture) =>
                 {
@@ -219,7 +219,11 @@ impl JobView {
         if page.lead == 1 && ix == 0 {
             return self.earlier_row(&id, look, cx);
         }
-        let ix = ix - page.lead;
+        // The Job this one took the place of: its items, then a plain rule, read only.
+        if ix - page.lead < page.before {
+            return self.earlier_entry(&id, ix - page.lead, look, now, window, cx);
+        }
+        let ix = ix - page.lead - page.before;
         let drawn = if ix < page.items {
             let Some(item) = held.items.get(ix) else { return nothing() };
             let last = ix + 1 == page.items;
@@ -277,9 +281,36 @@ impl JobView {
             .into_any_element()
     }
 
+    /// An element of the Job the shown one took the place of: one of its items, or the plain rule
+    /// under the last of them, as Electron's `replaces` divider draws it.
+    #[allow(clippy::too_many_arguments)]
+    fn earlier_entry(&self, id: &SharedString, at: usize, look: &Look, now: DateTime<Local>, window: &mut Window, cx: &Context<Self>) -> AnyElement {
+        let nothing = || div().h(gpui::px(0.)).into_any_element();
+        let (Some(page), Some(earlier)) = (self.pages.get(id), self.earlier_of(id, cx)) else { return nothing() };
+        let Some(held) = self.thread(&earlier, cx) else { return nothing() };
+        let column = |child: AnyElement| {
+            div()
+                .w_full()
+                .flex()
+                .justify_center()
+                .px(look.length(token::SPACE_4) + super::bleed(look))
+                .child(div().w_full().min_w_0().max_w(self.column(look)).child(child))
+        };
+        let Some(item) = held.items.get(at) else {
+            let rule = div().id(SharedString::from(format!("handed-on:{id}"))).h(gpui::px(0.)).my(look.length(token::SPACE_4)).border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE));
+            return column(labelled(rule, Role::Splitter, "Handed on").into_any_element()).into_any_element();
+        };
+        // Its own index runs below the shown Job's, so a fold it opens measures this element again.
+        let ix = at.wrapping_sub(page.before);
+        let next = held.items.get(at + 1).and_then(began);
+        let Some(drawn) = self.item(ix, item, false, next, page, look, now, window, cx) else { return nothing() };
+        column(drawn).pb(self.row_gap(look)).into_any_element()
+    }
+
     /// The row that opens the list when Fleet has older items: one press reads them (A1.6).
     fn earlier_row(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let reading = self.fleet.as_ref().is_some_and(|fleet| fleet.read(cx).reading_older(id));
+        let older = self.older_of(id, cx);
+        let reading = self.fleet.as_ref().is_some_and(|fleet| fleet.read(cx).reading_older(&older));
         let job = id.clone();
         div()
             .w_full()
@@ -488,7 +519,7 @@ impl JobView {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn item(
+    pub(super) fn item(
         &self,
         ix: usize,
         item: &ThreadItem,

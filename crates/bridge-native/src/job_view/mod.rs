@@ -130,6 +130,11 @@ struct Page {
     items: usize,
     /// Whether the list opens with the Show earlier row (1) or not (0): older items are served.
     lead: usize,
+    /// The elements the Job this one took the place of stands for above this Job's own items: its
+    /// items and the plain rule under them. Drawn once this Job's own older items are all read.
+    before: usize,
+    /// That earlier Job's thread version the list was last measured for.
+    earlier_version: Option<u64>,
     count: usize,
     extras: Vec<Extra>,
     /// The thread version the list was last measured for.
@@ -171,7 +176,22 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
+        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
+    }
+
+    /// The list element of this Job's item `at`. An item of the earlier Job above is drawn with an
+    /// `at` that wraps below zero, so it comes back to its own element here.
+    fn entry(&self, at: usize) -> usize {
+        at.wrapping_add(self.lead + self.before)
+    }
+
+    /// Measure item `at`'s element again. An item drawn outside the list, as the fork's fold
+    /// draws its origin's, has no element, and nothing is measured.
+    fn remeasure(&self, at: usize) {
+        let at = self.entry(at);
+        if at < self.count {
+            self.list.remeasure_items(at..at + 1);
+        }
     }
 }
 
@@ -407,6 +427,12 @@ impl JobView {
         self.list.read(cx).record(id)
     }
 
+    /// The Job this one took the place of when it was handed on: its turns stand above this one's,
+    /// over a plain rule, as Electron's `replaces` draws them.
+    fn earlier_of(&self, id: &str, cx: &App) -> Option<String> {
+        self.record(id, cx)?.attachments.iter().find(|one| one.kind == "replaces").map(|one| one.target.clone())
+    }
+
     /// Whether the agent's turn is running, as the record says (`session.turn.state`).
     fn working(&self, id: &str, cx: &App) -> bool {
         !self.head.stopped(id)
@@ -521,24 +547,43 @@ impl JobView {
             page.pending.retain(|one| !settled.contains(&one.key));
             page.edits.retain(|row, _| !read.contains(row));
         }
+        // Once this Job's own older items are all read, the Job it took the place of stands above them.
+        let own_older = self.thread(id, cx).is_some_and(|held| held.older.is_some());
+        let earlier = if own_older { None } else { self.earlier_of(id, cx) };
+        let earlier_read = earlier.as_deref().and_then(|earlier| self.thread(earlier, cx)).map(|held| (held.version, held.items.len(), held.older.is_some()));
+        if let (Some(earlier), None, Some(fleet)) = (&earlier, earlier_read, self.fleet.clone()) {
+            let earlier = earlier.clone();
+            fleet.update(cx, |fleet, cx| fleet.read_thread(&earlier, false, cx));
+        }
+        let added_earlier = match (&earlier, &self.fleet) {
+            (Some(earlier), Some(fleet)) => fleet.update(cx, |fleet, _| fleet.take_prepended(earlier)),
+            _ => 0,
+        };
         let Some(page) = self.pages.get(id) else { return };
         let Some(held) = self.thread(id, cx) else { return };
         let (version, items) = (held.version, held.items.len());
-        let lead = usize::from(held.older.is_some());
+        let lead = usize::from(own_older || earlier_read.is_some_and(|(_, _, older)| older));
+        let before = earlier_read.map_or(0, |(_, items, _)| items + 1);
+        let earlier_version = earlier_read.map(|(version, ..)| version);
         let extras = extras_of(&held.head, &held.items, &page.pending, working);
         let page = self.pages.get_mut(id).expect("the page was just read");
-        if page.version == Some(version) && page.extras == extras && dirty.is_none() && lead == page.lead {
+        let above = (lead, before, earlier_version);
+        let above_was = (page.lead, page.before, page.earlier_version);
+        if page.version == Some(version) && page.extras == extras && dirty.is_none() && above == above_was {
             return;
         }
-        let total = lead + items + extras.len();
+        let total = lead + before + items + extras.len();
         let from = if page.version.is_none() { 0 } else { dirty.unwrap_or(page.items).min(page.items).min(items) };
-        let from_list = if lead != page.lead || from == 0 { 0 } else { lead + from };
-        // Items put in front leave the person where they were reading.
-        let top = (added > 0).then(|| page.list.logical_scroll_top());
+        let from_list = if above != above_was || from == 0 { 0 } else { lead + before + from };
+        // Items put in front, of this Job or the one above it, leave the person where they were reading.
+        let shift = (lead + before + added) as isize - (page.lead + page.before) as isize;
+        let top = (page.version.is_some() && (added > 0 || added_earlier > 0 || before != page.before)).then(|| page.list.logical_scroll_top());
         page.list.splice(from_list..page.count, total - from_list);
         if let Some(top) = top {
-            page.list.scroll_to(ListOffset { item_ix: (top.item_ix + added + lead).saturating_sub(page.lead), offset_in_item: top.offset_in_item });
+            page.list.scroll_to(ListOffset { item_ix: (top.item_ix as isize + shift).max(0) as usize, offset_in_item: top.offset_in_item });
         }
+        page.before = before;
+        page.earlier_version = earlier_version;
         let first = page.version.is_none();
         let grown = items.saturating_sub(page.items);
         let arrived = (!first && added == 0 && (1..=4).contains(&grown)).then(|| page.items..items);
@@ -604,6 +649,16 @@ impl JobView {
         let Some(fleet) = self.fleet.clone() else { return };
         if self.thread(id, cx).is_some_and(|held| held.older.is_some()) {
             fleet.update(cx, |fleet, cx| fleet.read_older(id, cx));
+        } else if let Some(earlier) = self.earlier_of(id, cx) {
+            fleet.update(cx, |fleet, cx| fleet.read_older(&earlier, cx));
+        }
+    }
+
+    /// The Job whose older items the top row reads: this one's, else the one it took the place of.
+    pub(crate) fn older_of(&self, id: &str, cx: &App) -> String {
+        match self.thread(id, cx).is_some_and(|held| held.older.is_some()) {
+            true => id.to_string(),
+            false => self.earlier_of(id, cx).unwrap_or_else(|| id.to_string()),
         }
     }
 
@@ -627,7 +682,7 @@ impl JobView {
         if !page.opened.remove(&key) {
             page.opened.insert(key);
         }
-        page.list.remeasure_items(at + page.lead..at + page.lead + 1);
+        page.remeasure(at);
         cx.notify();
     }
 
@@ -770,7 +825,7 @@ impl Render for JobView {
         // A closed Thread tab leaves its pane empty under the strip, as Electron's does.
         let open = !self.tab_closed("thread");
         let body = if open { body } else { div().into_any_element() };
-        let origin = self.render_origin(&id, cx).filter(|_| open);
+        let origin = if open { self.render_origin(&id, window, cx) } else { None };
         let dock = (open && !self.closed(&id, cx)).then(|| self.render_dock(&id, window, cx));
         // The time from the press that opened the Job to this frame's paint, once per switch.
         let timing = self.switched.take();

@@ -67,7 +67,7 @@ impl JobView {
         let Some(at) = self.thread(job, cx).and_then(|held| made_card_at(&held.items, &path)) else { return };
         if let Some(page) = self.pages.get_mut(job) {
             page.made = None;
-            page.list.scroll_to(gpui::ListOffset { item_ix: at + page.lead, offset_in_item: gpui::px(0.) });
+            page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(at), offset_in_item: gpui::px(0.) });
         }
         cx.notify();
     }

@@ -895,17 +895,15 @@ impl JobView {
             .into_any_element()
     }
 
-    /// The Jobs this one came from, above its thread: Forked from, Started by (1.6). A press opens
-    /// that Job.
-    pub(super) fn render_origin(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
+    /// The Jobs this one came from, above its thread: the conversation it was forked from, folded,
+    /// and Started by (1.6), whose press opens that Job.
+    pub(super) fn render_origin(&self, id: &SharedString, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
         let look = cx.look();
         let job = self.record(id, cx)?;
         let from = |kind: &str| job.attachments.iter().find(|one| one.kind == kind).map(|one| one.target.clone());
-        let lines: Vec<(&'static str, String)> = [("forked_from", "Forked from"), ("started_by", "Started by")]
-            .into_iter()
-            .filter_map(|(kind, words)| from(kind).map(|target| (words, target)))
-            .collect();
-        if lines.is_empty() {
+        let fork = self.render_forked_from(id, window, cx);
+        let lines: Vec<(&'static str, String)> = [("started_by", "Started by")].into_iter().filter_map(|(kind, words)| from(kind).map(|target| (words, target))).collect();
+        if lines.is_empty() && fork.is_none() {
             return None;
         }
         let rows = lines.into_iter().map(|(words, target)| {
@@ -939,8 +937,82 @@ impl JobView {
                 .gap(look.length(token::SPACE_2))
                 .px(look.length(token::SPACE_4))
                 .pt(look.length(token::SPACE_3))
+                .children(fork)
                 .children(rows)
                 .into_any_element(),
+        )
+    }
+
+    /// The conversation a fork began as a copy of, as Electron's `ForkedFrom` draws it: one quiet
+    /// row, closed until pressed, holding the origin's items up to the message it was forked at,
+    /// read only. A move carries its conversation into the thread instead, so it draws none here.
+    fn render_forked_from(&self, id: &SharedString, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
+        let look = cx.look();
+        let fork = self.record(id, cx)?.attachments.iter().find(|one| one.kind == "forked_from" && !one.detail.contains_key("moved"))?;
+        let (origin, at) = (fork.target.clone(), fork.detail.get("at").cloned());
+        let title: SharedString = self.record(&origin, cx).and_then(|job| job.title.clone()).unwrap_or_else(|| origin.clone()).into();
+        let name: SharedString = format!("Forked from {title}").into();
+        let page = self.pages.get(id)?;
+        let open = page.opened.contains(FORK_FOLD);
+        let (job, read) = (id.clone(), origin.clone());
+        let head = labelled(
+            div()
+                .id("forked-from")
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .px(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .text_color(look.color(token::FG_MUTED))
+                .cursor_pointer()
+                .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
+                .child(crate::titlebar::parts::glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3), look.color(token::FG_MUTED)))
+                .child(name.clone())
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    let Some(page) = this.pages.get_mut(&job) else { return };
+                    if !page.opened.remove(FORK_FOLD) {
+                        page.opened.insert(FORK_FOLD.to_string());
+                        // As it opens, the origin's thread is read if it is not held yet.
+                        if let (None, Some(fleet)) = (this.thread(&read, cx).map(|_| ()), this.fleet.clone()) {
+                            fleet.update(cx, |fleet, cx| fleet.read_thread(&read, false, cx));
+                        }
+                    }
+                    cx.notify();
+                })),
+            Role::Button,
+            name.clone(),
+        );
+        let rows = open.then(|| {
+            let items = self.thread(&origin, cx).map_or(&[][..], |held| up_to(&held.items, at.as_deref()));
+            let now = chrono::Local::now();
+            let drawn: Vec<AnyElement> = items
+                .iter()
+                .enumerate()
+                .filter_map(|(at, item)| {
+                    let next = items.get(at + 1).and_then(super::rows::began);
+                    self.item(FORK_ITEMS + at, item, false, next, page, look, now, window, cx)
+                })
+                .collect();
+            div()
+                .id("forked-from-rows")
+                .flex()
+                .flex_col()
+                .gap(self.row_gap(look))
+                .max_h(look.length(token::SPACE_12) * 6.)
+                .overflow_y_scroll()
+                .px(look.length(token::SPACE_3))
+                .pb(look.length(token::SPACE_3))
+                .children(drawn)
+        });
+        Some(
+            labelled(
+                div().id("forked-from-fold").flex_none().min_w_0().flex().flex_col().rounded(look.length(token::RADIUS_MD)).bg(look.color(token::BG_RAISED)).child(head).children(rows),
+                Role::Group,
+                name,
+            )
+            .into_any_element(),
         )
     }
 
@@ -1275,6 +1347,26 @@ impl JobView {
                 .into_any_element(),
         )
     }
+}
+
+/// The key the fork's fold keeps its open state under, among a page's opened folds.
+const FORK_FOLD: &str = "forked-from";
+
+/// Where the fork's fold numbers its origin's items: far past any list element, so a fold one of
+/// them opens measures nothing in the list.
+const FORK_ITEMS: usize = usize::MAX / 2;
+
+/// The origin's items up to and including the one holding the message it was forked at, as
+/// Electron's `upTo` cuts its rows: all of them with no message named, none where it is not held.
+fn up_to<'a>(items: &'a [ThreadItem], at: Option<&str>) -> &'a [ThreadItem] {
+    let Some(at) = at else { return items };
+    let holds = |item: &ThreadItem| match item {
+        ThreadItem::Row { row } => row.id() == at,
+        ThreadItem::Calls { rows, .. } | ThreadItem::Checks { rows, .. } => rows.iter().any(|row| row.id() == at),
+        ThreadItem::FleetTurn { notice, rows, .. } => notice.id() == at || rows.iter().any(|row| row.id() == at),
+        other => other.id() == at,
+    };
+    items.iter().position(holds).map_or(&[][..], |end| &items[..=end])
 }
 
 /// The toolbelt's keys, as Electron's flight controls wear them (`flight-order.ts`): ⌥⇧6 Auto land,

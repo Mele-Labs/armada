@@ -64,7 +64,7 @@ impl JobView {
         });
         let Some(page) = self.pages.get_mut(&id) else { return };
         let earlier = page.editing.replace(Editing { row, ix, before: text, area: area.clone(), _saving: saving }).map(|one| one.ix);
-        page.list.scroll_to_reveal_item(ix + page.lead);
+        page.list.scroll_to_reveal_item(page.entry(ix));
         area.update(cx, |area, cx| area.focus(window, cx));
         if let Some(earlier) = earlier {
             self.card_changed(earlier, cx);

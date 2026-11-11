@@ -325,7 +325,7 @@ impl JobView {
             held.items.iter().position(|item| matches!(item, ThreadItem::Document(card) if card.page == page))
         });
         if let (Some(at), Some(page)) = (at, self.pages.get(id)) {
-            page.list.scroll_to(gpui::ListOffset { item_ix: at + page.lead, offset_in_item: px(0.) });
+            page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(at), offset_in_item: px(0.) });
         }
         cx.notify();
     }
