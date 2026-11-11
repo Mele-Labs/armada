@@ -57,7 +57,7 @@ pub enum Verb {
     /// A drag across the last line of the element of this role and name, as words are selected.
     Select(&'static str, &'static str),
     /// A drag across the whole last line of the element of this role and name, side to side.
-    SelectLine(&'static str, &'static str),
+    SelectAll(&'static str, &'static str),
     /// The wheel turned over the element of this role and name, by this many points down, before the
     /// target is ringed: for a pane whose target is below its fold.
     Wheel(&'static str, &'static str, i32),
@@ -262,7 +262,7 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             press_on("His message tags another Job where he wrote it: its glyph and title in one chip, a link", "row", "Audit the docs index", "link", "Native Bridge foundation"),
             step("Its kind and title on hover", Verb::Hover, "link", "Native Bridge foundation"),
-            step("His words stay selectable around the chip, and a selection copies the tag as @title", Verb::SelectLine("group", "Message said"), "group", "Message said"),
+            step("His words stay selectable around the chip, and a selection copies the tag as @title", Verb::SelectAll("group", "Message said"), "group", "Message said"),
             step("A tag his words do not hold stands under them, after its kind", Verb::Look, "group", "Pull request · #3290 Merge line"),
             step("A message to the Job", Verb::Type("Keep the merge line as it is."), "textbox", "Message"),
             step("Send. Fleet does not take this one", Verb::PressOn("button", "Send"), "img", "Not sent"),

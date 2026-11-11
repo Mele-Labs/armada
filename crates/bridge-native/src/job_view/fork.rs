@@ -320,7 +320,9 @@ impl JobView {
             Role::Toolbar,
             "Selection",
         );
-        let above = gpui::point(picked.at.x + picked.span.size.width.min(gpui::px(96.)) / 2., picked.at.y - look.length(token::SPACE_2));
+        // Electron stands the bar over the first selected line's top; the press is somewhere in that line, half a line (1.6 em) on average.
+        let line_top = picked.at.y - look.length(token::TEXT_BASE) * 0.8;
+        let above = gpui::point(picked.at.x + picked.span.size.width.min(gpui::px(96.)) / 2., line_top - look.length(token::SPACE_2));
         Some(deferred(anchored().position(above).anchor(Anchor::BottomCenter).snap_to_window_with_margin(look.length(token::SPACE_2)).child(bar)).with_priority(1).into_any_element())
     }
 }
