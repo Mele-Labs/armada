@@ -236,7 +236,7 @@ async fn a_red_main_autopilot_finds_is_asked_once_and_a_fix_starts_only_on_yes()
     assert_eq!(waiting.len(), 1, "one ask for each red commit");
     assert_eq!(jobs_titled(&rig, "Fix main").await, 0);
 
-    let press = ipc::operator_page::OperatorAnswerPress { id: waiting[0].id.clone(), answer: ipc::operator_page::OperatorAnswer::Yes, then: None, project: None };
+    let press = ipc::operator_page::OperatorAnswerPress { id: waiting[0].id.clone(), answer: ipc::operator_page::OperatorAnswer::Yes, then: None, option: None, project: None };
     let answered = rig.fleet.operator_answered(press).await.expect("answered");
     assert!(answered.started.is_some());
     assert_eq!(jobs_titled(&rig, "Fix main").await, 1);

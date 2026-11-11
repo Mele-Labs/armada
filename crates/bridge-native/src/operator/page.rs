@@ -528,7 +528,7 @@ impl OperatorPageView {
             return;
         }
         let then = (!turn.then.is_empty()).then(|| self.then_of(&turn)).flatten();
-        let press = OperatorAnswerPress { id: turn.id.clone(), answer, then: then.filter(|_| answer != OperatorAnswer::No) };
+        let press = OperatorAnswerPress { id: turn.id.clone(), answer, then: then.filter(|_| answer != OperatorAnswer::No), option: None, project: None };
         let at = self.index_of(&turn.id).unwrap_or(0);
         self.take_out(&turn.id);
         self.done.push(Done { id: turn.id.clone(), kind: face::kind_of(&turn), title: face::title_of(&turn), said: None });
@@ -848,7 +848,7 @@ mod tests {
         let (page, cx) = open(cx);
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"));
         cx.simulate_keystrokes("a");
-        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:1".into(), answer: OperatorAnswer::Yes, then: None }]);
+        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:1".into(), answer: OperatorAnswer::Yes, then: None, option: None, project: None }]);
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"), "the next item opens");
         page.read_with(cx, |page, _| {
             assert_eq!(page.done.iter().map(|done| done.id.as_str()).collect::<Vec<_>>(), ["turn:1"]);
@@ -865,7 +865,7 @@ mod tests {
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"));
         page.read_with(cx, |page, _| assert_eq!(page.open_item().and_then(|turn| page.then_of(turn)), Some(OperatorThen::FileAndHand), "the Operator's pick stands first"));
         cx.simulate_keystrokes("2 a");
-        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:2".into(), answer: OperatorAnswer::Yes, then: Some(OperatorThen::FileAndStart) }]);
+        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:2".into(), answer: OperatorAnswer::Yes, then: Some(OperatorThen::FileAndStart), option: None, project: None }]);
     }
 
     #[gpui::test]

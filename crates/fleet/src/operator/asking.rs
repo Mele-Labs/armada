@@ -41,6 +41,10 @@ only where one open issue it lists is the same fault or the same work, and name 
 red main, choose existing job only for a live Job whose work broke it. Where you raise a new issue, \
 say in one line what it is and which live Job, if any, works on the same ground.
 
+A Job started, and a live Job may already hold its work: choose existing job only where that Job's \
+paths, plan or issues cover what the new Job's words ask, so that handing the words over loses \
+nothing. Where it is only the same ground, or you cannot tell, choose leave, which keeps both Jobs.
+
 A note the person sent to a Job himself names that Job. Leave it there unless another live Job \
 shares its work more closely, which is existing job, or it is work no live Job holds, which is \
 new job. Where you cannot tell, leave it.

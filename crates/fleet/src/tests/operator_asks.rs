@@ -83,7 +83,7 @@ async fn an_act_with_no_rule_becomes_one_go_ahead_in_your_turn_and_nothing_is_do
     let log = rulings(&rig).await;
     assert_eq!(log.iter().map(|row| row.outcome.as_str()).collect::<Vec<_>>(), ["proposed_file"], "the row says it asked: {log:#?}");
 
-    let press = OperatorAnswerPress { id: turn[0].id.clone(), answer: OperatorAnswer::Yes, then: None, project: None };
+    let press = OperatorAnswerPress { id: turn[0].id.clone(), answer: OperatorAnswer::Yes, then: None, option: None, project: None };
     let answered = rig.fleet.operator_answered(press).await.expect("answered");
 
     assert!(answered.filed.is_some(), "{answered:#?}");

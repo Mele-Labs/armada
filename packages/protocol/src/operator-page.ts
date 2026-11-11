@@ -225,6 +225,8 @@ export type OperatorAnswerPress = {
   answer: OperatorAnswer;
   /** On a go-ahead to file an issue: which Then. Absent takes the Operator's pick, else `just_file`. */
   then?: OperatorThen;
+  /** The label of the option he chose, one the item lists in `options`. Absent takes the Operator's pick. */
+  option?: string;
   /** On an Always here: the project the page is filtered to, which the rule then holds in. Absent holds in the item's repository. */
   project?: string;
 };
