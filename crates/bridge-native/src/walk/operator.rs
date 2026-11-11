@@ -11,7 +11,7 @@ const HOLD: &str = "armada: only Slot pool controls writes under apps/cockpit un
 const FORGET_HOLD: &str = "Forget armada: only Slot pool controls writes under apps/cockpit until it pushes";
 const TOP: &str = "Since you left, the red main's fix is up as #3414, waiting on ci. Quick dispatch's plan is still the one two Jobs wait on.";
 
-pub static STEPS: [Step; 47] = [
+pub static STEPS: [Step; 48] = [
     step("Coming back at 13:05: the day, and the pills say what stands. storefront's main has been red since 11:24", Verb::Look, "status", "storefront main is red since 11:24"),
     step("The Operator's one line on what changed, in grey under the day: nothing on it waits on you", Verb::Look, "status", TOP),
     step("What the Operator is reading now: the Job by name, what it asks, and its project", Verb::Look, "status", "The Operator is reading what Store reports its size asks: Review pull request #3415"),
@@ -42,6 +42,7 @@ pub static STEPS: [Step; 47] = [
     step("The whole Log opens the week's journal on a sheet: each day, and each entry at its time", Verb::Open("link", "The whole Log"), "dialog", "The whole Log"),
     step("Esc shuts it, and the keys are back on The whole Log", Verb::Key("escape"), "link", "The whole Log"),
     step("A press on a time reads every time on the page as its age, as the thread's do: back, since and each row", Verb::Open("button", "Time 13:02"), "button", "Time 3m ago"),
+    step("A press again reads them as clocks", Verb::Open("button", "Time 3m ago"), "button", "Time 13:02"),
     step("A press on its head folds What I handled, its aside still there", Verb::Open("button", "What I handled"), "button", "What I handled"),
     step("Learned shows its rules under each project, two lines each at most, and Every rule opens them all", Verb::Open("link", "Every rule"), "dialog", "Every rule"),
     step("Everywhere first, then each project. ↓ and ↑ move through them, the list keeping the row in view", Verb::Key("down"), "listitem", "Link a report to the open issue it names"),

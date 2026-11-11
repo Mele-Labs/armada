@@ -1078,6 +1078,14 @@ fn by_place(rows: Vec<Row>) -> Vec<Row> {
     rows
 }
 
+/// A Log day head as the page's head writes a day: `Tuesday 2026-11-10` reads `Tuesday 10 November`.
+fn log_day(head: &str) -> String {
+    head.split_whitespace()
+        .last()
+        .and_then(|date| chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok())
+        .map_or_else(|| head.to_string(), |date| date.format("%A %-d %B").to_string())
+}
+
 /// A time to the minute, as the page reads it: `12:47`, with the day when it is not today (`Nov 10 16:00`).
 /// The thread's clock carries seconds; a page of what happened today does not need them.
 pub(super) fn minute(at: &str, now: chrono::DateTime<chrono::Local>) -> Option<String> {
@@ -1313,6 +1321,7 @@ impl OperatorPageView {
         }
         for (n, line) in text.lines().enumerate() {
             if let Some(day) = line.strip_prefix("## ") {
+                let day = log_day(day);
                 body.push(
                     labelled(
                         div()
@@ -1470,6 +1479,12 @@ mod tests {
         };
         assert_eq!(hold_said(&hold(Some("armada"))), "armada: only Slot pool controls writes under apps/cockpit until it pushes");
         assert_eq!(hold_said(&hold(None)), "01REPO: only Slot pool controls writes under apps/cockpit until it pushes");
+    }
+
+    #[test]
+    fn a_log_day_reads_as_the_page_head_writes_a_day() {
+        assert_eq!(log_day("Tuesday 2026-11-10"), "Tuesday 10 November");
+        assert_eq!(log_day("Someday"), "Someday");
     }
 
     #[test]
