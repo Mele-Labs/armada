@@ -36,6 +36,11 @@ pub(crate) const SKIP: u32 = 1;
 pub(crate) fn suggestion_items(kept: &[KeptSuggestion]) -> impl Iterator<Item = WaitingItem> + '_ {
     kept.iter().filter(|one| one.item.is_none()).map(|one| {
         let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
+        // A start that repeats a live Job's work reads as the hand-over it would make, and the other as keeping both.
+        let (yes, no) = match (one.arrived.as_str(), one.way.as_str(), one.what.as_deref()) {
+            ("start", "existing_job", Some(title)) => (format!("Hand to {title}"), "Keep both"),
+            _ => ("Do it".to_string(), "Skip"),
+        };
         let id = format!("{SUGGESTION}{}", one.n);
         WaitingItem {
             approves: false,
@@ -44,7 +49,7 @@ pub(crate) fn suggestion_items(kept: &[KeptSuggestion]) -> impl Iterator<Item = 
             text: one.text.clone(),
             since: Instant::carried(&one.raised_at),
             source: WaitingSource::OperatorSuggestion,
-            options: vec![option("Do it"), option("Skip")],
+            options: vec![option(&yes), option(no)],
             steps: Vec::new(),
             place: None,
             confirmed: false,
@@ -95,6 +100,7 @@ fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
         (Arrived::Error, Way::NewJob) => format!("The Operator would start a Job on the error \"{subject}\": {because}"),
         (Arrived::Error, Way::Link) => format!("The Operator would link the error \"{subject}\" to {}: {because}", ruling.issue.as_deref().unwrap_or("an open issue")),
         (Arrived::Error, _) => format!("The Operator would hand the error \"{subject}\" to \"{other}\": {because}"),
+        (Arrived::Start, _) => format!("The Operator would hand \"{subject}\" to \"{other}\", which is already on that work: {because}"),
         _ => format!("The Operator would hand this work to \"{other}\": {because}"),
     }
 }
@@ -191,7 +197,8 @@ where
                 item: None,
                 pick: None,
                 because: ruling.because.clone(),
-                what: what_of(ruling),
+                // A start's is the Job it would be handed to, which its go-ahead is labelled with.
+                what: what_of(ruling).or_else(|| (arrival.arrived == Arrived::Start).then(|| title.clone())),
                 text: said(arrival, ruling, &title),
                 raised_at,
             };
@@ -310,6 +317,15 @@ where
             }
             // The issue stands whatever becomes of its Then, which the row says.
             Ok(()) => {
+                // A hand-over of a start is the Operator's act, whoever said yes: the row names both Jobs.
+                if let (Arrived::Start, Way::ExistingJob, Some(other)) = (arrival.arrived, ruling.way, ruling.other.as_deref()) {
+                    let theirs = self.title_of(other).await;
+                    row.by = Actor::Operator;
+                    // Under an id of its own: a row of a suggestion's arrival is the press's, which What I handled leaves out.
+                    row.arrival = format!("handed:{}", arrival.id);
+                    row.because = format!("Handed \"{}\" to \"{theirs}\", which is already on that work. {}", arrival.subject, ruling.because);
+                    self.operator_journaled(&format!("Handed \"{}\" to \"{theirs}\", which is already on that work.", arrival.subject)).await;
+                }
                 if let (Some((then, hand_to)), Way::File) = (then, ruling.way) {
                     let filed = done.filed.clone();
                     if let Err(why) = self.then_done(&arrival, filed.as_deref(), then, hand_to.as_deref(), &mut done).await {
@@ -328,8 +344,12 @@ where
     }
 
     /// A Skip, in the Log as the person's.
-    async fn suggestion_skipped(&self, kept: &KeptSuggestion, at: core_model::Timestamp) {
+    async fn suggestion_skipped(self: &Arc<Self>, kept: &KeptSuggestion, at: core_model::Timestamp) {
         let Some(arrival) = arrival_of(kept) else { return };
+        // Autopilot's start held for this answer is started as it was asked.
+        if let Some(pick) = arrival.id.strip_prefix(super::duplicating::PICK) {
+            self.pick_released(&arrival.manifest_id, pick).await;
+        }
         let row = pressed(&arrival, Outcome::Skipped, &kept.because, at);
         let _ = self.store().lock().await.add_operator_ruling(&row.kept());
     }

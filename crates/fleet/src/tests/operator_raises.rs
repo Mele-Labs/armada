@@ -127,7 +127,7 @@ pub(super) async fn queued_as(rig: &Rig, id: &str) -> OperatorTurnItem {
 }
 
 pub(super) fn press(item: &OperatorTurnItem, answer: OperatorAnswer, then: Option<OperatorThen>) -> OperatorAnswerPress {
-    OperatorAnswerPress { id: item.id.clone(), answer, then, project: None }
+    OperatorAnswerPress { id: item.id.clone(), answer, then, option: None, project: None }
 }
 
 fn review(read: &str, pick: &str) -> String {

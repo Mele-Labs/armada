@@ -58,7 +58,7 @@ fn a_learned_rule_carries_its_scope_and_a_name_to_read() {
 fn a_press_names_a_project_only_when_it_has_one() {
     let plain: OperatorAnswerPress = serde_json::from_str(r#"{"id":"turn:1","answer":"always_here"}"#).expect("read");
     assert_eq!(plain.project, None);
-    let held = OperatorAnswerPress { id: "turn:1".into(), answer: OperatorAnswer::AlwaysHere, then: None, project: Some("my-store".into()) };
+    let held = OperatorAnswerPress { id: "turn:1".into(), answer: OperatorAnswer::AlwaysHere, then: None, option: None, project: Some("my-store".into()) };
     assert_eq!(serde_json::to_value(&held).expect("written")["project"], "my-store");
     assert!(serde_json::to_value(&plain).expect("written").get("project").is_none());
 }

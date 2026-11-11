@@ -113,7 +113,7 @@ fn a_rule_for_the_repository_beats_one_for_a_project_which_beats_one_for_everywh
 }
 
 fn always_here_in(item: &ipc::operator_page::OperatorTurnItem, project: Option<&str>) -> OperatorAnswerPress {
-    OperatorAnswerPress { id: item.id.clone(), answer: OperatorAnswer::AlwaysHere, then: Some(ipc::operator_page::OperatorThen::JustFile), project: project.map(str::to_string) }
+    OperatorAnswerPress { id: item.id.clone(), answer: OperatorAnswer::AlwaysHere, then: Some(ipc::operator_page::OperatorThen::JustFile), option: None, project: project.map(str::to_string) }
 }
 
 #[tokio::test]

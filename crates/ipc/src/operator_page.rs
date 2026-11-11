@@ -305,6 +305,11 @@ pub struct OperatorAnswerPress {
     /// On a go-ahead to file an issue: which Then. Absent takes the Operator's pick, else `just_file`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub then: Option<OperatorThen>,
+    /// The label of the option he chose, one the item lists in `options`. Absent takes the Operator's
+    /// pick, so a press that names none is as it was. Refused as not offered where the item lists none such.
+    /// Since 10 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub option: Option<String>,
 }
 
 /// What `operator_answer` did.

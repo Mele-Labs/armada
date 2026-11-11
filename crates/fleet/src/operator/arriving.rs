@@ -263,6 +263,8 @@ impl Arrival {
         for (number, way) in self.ways.iter().enumerate() {
             let said = match (way, self.arrived) {
                 (Way::Leave, Arrived::Merged) => "leave it open, and nothing follows",
+                // A Job that started may repeat a live Job's work: leaving it keeps both.
+                (Way::Leave, Arrived::Start) => "keep both Jobs",
                 _ => way.word_shown(),
             };
             out.push_str(&format!(" {}. {said}", number + 1));

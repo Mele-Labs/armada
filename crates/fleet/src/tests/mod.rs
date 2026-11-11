@@ -288,6 +288,7 @@ mod operator_asks;
 mod operator_board;
 mod operator_closing;
 mod operator_ends;
+mod operator_duplicates;
 mod operator_raises;
 mod operator_vetting;
 mod operator_questions;
