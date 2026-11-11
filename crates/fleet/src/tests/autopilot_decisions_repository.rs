@@ -259,6 +259,7 @@ async fn without_running_only_the_jobs_autopilot_started_are_answered() {
         weekly_cap_percent: None,
         on_autopilot: AutopilotWork { backlog: false, running, reports: false },
         decisions: [AutopilotDecision::Recommended].into_iter().collect(),
+        project: None,
     };
     rig.fleet.start_autopilot(rig.manifest.clone(), settings(false)).await.expect("started");
     keep(&rig, &id, &[item("a", "Which clock?", &["Frozen (Recommended)", "Fake"])]).await;
@@ -308,6 +309,7 @@ async fn with_the_backlog_off_the_pass_picks_no_issues() {
             weekly_cap_percent: None,
             on_autopilot: AutopilotWork { backlog, running: false, reports: false },
             decisions: Default::default(),
+            project: None,
         };
         rig.fleet.start_autopilot(rig.manifest.clone(), settings).await.expect("started");
 
