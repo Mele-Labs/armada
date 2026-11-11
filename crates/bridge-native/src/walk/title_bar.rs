@@ -8,6 +8,18 @@ pub(super) const WARNING: &str = "5-hour limit 62%, Weekly limit 84%";
 pub(super) const DANGER: &str = "5-hour limit 97%, Weekly limit 96%";
 const RESET: &str = "5-hour limit 8%, Weekly limit 3%";
 
+/// The switcher alone, on the projects Fleet serves, and how its two chips give way.
+pub static SWITCHER: [Step; 8] = [
+    step("Short of room the project reads whole, and Settings drops the name the chip beside it shows", Verb::Look, "button", "Project"),
+    press_on("The switcher lists Fleet's projects, then the repositories in none", "button", "Project", "region", "Armada"),
+    step("↓ moves to Storefront: its two repositories, each with its folder, and where it is kept", Verb::Key("down"), "region", "Storefront"),
+    step("Esc shuts it", Verb::Key("escape"), "button", "Project"),
+    press_on("Opened again, the keys are in Find", "button", "Project", "searchbox", "Find a project"),
+    step("Typing finds a project by any member's name or folder", Verb::Keys(&["p", "r", "i"]), "region", "Storefront"),
+    step("Enter switches the window to Storefront", Verb::Key("enter"), "button", "Settings for Storefront"),
+    step("Wider, Settings names the project; the repositories join the name once they fit whole", Verb::Width(1440), "button", "Settings for Storefront"),
+];
+
 pub static STEPS: [Step; 61] = [
     step("The bar at rest: the project with its repositories, its Settings, the Places, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Project"),
     step("The Places stand in a notch at the centre, the window's own brighter, and the search is an icon with its key", Verb::Look, "tablist", "Places"),
