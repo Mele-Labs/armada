@@ -178,7 +178,7 @@ impl JobView {
             if ix == SHEET {
                 page.list.remeasure();
             } else {
-                page.list.remeasure_items(ix + page.lead..ix + page.lead + 1);
+                page.remeasure(ix);
             }
         }
         cx.notify();
@@ -347,7 +347,7 @@ impl JobView {
             if ix == SHEET {
                 page.list.remeasure();
             } else {
-                page.list.remeasure_items(ix + page.lead..ix + page.lead + 1);
+                page.remeasure(ix);
             }
         }
         cx.notify();

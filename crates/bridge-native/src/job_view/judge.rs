@@ -391,7 +391,7 @@ impl JobView {
         let Some(job) = self.shown.clone() else { return };
         let Some(ix) = self.plan_ix(&job, cx) else { return };
         if let Some(page) = self.pages.get(&job) {
-            page.list.scroll_to_reveal_item(page.lead + ix);
+            page.list.scroll_to_reveal_item(page.entry(ix));
         }
         cx.notify();
         let view = cx.weak_entity();

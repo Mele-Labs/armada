@@ -17,7 +17,7 @@ impl JobView {
     pub(super) fn render_subagents_pin(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
         let page = self.pages.get(id)?;
         let at = page.extras.iter().position(|extra| matches!(extra, super::Extra::Subagents))?;
-        let item_ix = page.lead + page.items + at;
+        let item_ix = page.entry(page.items + at);
         let viewport = page.list.viewport_bounds();
         let seen = page.list.bounds_for_item(item_ix).is_some_and(|bounds| bounds.bottom() <= viewport.bottom());
         if seen {

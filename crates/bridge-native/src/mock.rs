@@ -24,6 +24,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "jobs-many" | "job-view" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with one handing off and one that took an earlier Job's place, that one ended behind it.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff.json"),
+        // The same Jobs, with Try amber forked from the first at its message naming the tone rule.
+        "history" => include_bytes!("../fixtures/jobs-history.json"),
         "job-bands" => include_bytes!("../fixtures/jobs-bands.json"),
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
@@ -69,6 +71,8 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "job-view" | "review-palette" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the earlier Job's, ended where it handed on.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff-threads.json"),
+        // The same threads, with the Job that took the router upgrade on and the forked one.
+        "history" => include_bytes!("../fixtures/history-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
         "job-view-composer" => include_bytes!("../fixtures/composer-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
