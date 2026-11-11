@@ -67,6 +67,19 @@ impl Stage {
                 let stood = cx.new(|cx| super::stand_in::JobHeadStandIn::new(screen.into(), cx));
                 Ok(Stage { view: stood.into(), focus })
             }
+            Screen::JobsInApp => {
+                super::strip_marks::leave(cx);
+                crate::titlebar::scenes::begin(cx);
+                let jobs = crate::mock::jobs(walk.scenario)?;
+                let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
+                let keys = list.read(cx).focus_handle().clone();
+                let threads = crate::mock::threads(walk.scenario)?;
+                let screen = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
+                let held = cx.new(|cx| crate::operator::OperatorScreen::mock_behind(screen, window, cx));
+                let focus = Focus { keys, within: held.read(cx).within.clone() };
+                window.focus(&focus.keys, cx);
+                Ok(Stage { view: held.into(), focus })
+            }
             Screen::Operator => {
                 super::strip_marks::leave(cx);
                 crate::titlebar::scenes::begin(cx);
@@ -276,8 +289,8 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers: Modifiers::default(), click_count: 1 }), cx);
             Ok(())
         }
-        Verb::Select(role, on) | Verb::SelectLine(role, on) => {
-            let whole = matches!(step.verb, Verb::SelectLine(..));
+        Verb::Select(role, on) | Verb::SelectAll(role, on) => {
+            let all = matches!(step.verb, Verb::SelectAll(..));
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             // The last one drawn: an element the list measured off screen comes first in the book.
             let drawn = cx
@@ -285,14 +298,15 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
                 .ok_or_else(|| Missed(format!("nothing named \"{on}\" to select in")))?;
             let line = drawn.bounds.bottom() - px(16.);
-            let from = point(drawn.bounds.left() + px(3.), line);
-            let to = point(if whole { drawn.bounds.right() - px(3.) } else { drawn.bounds.left() + drawn.bounds.size.width / 3. }, line);
+            // All of it runs from the first line's start to the last line's end; otherwise the left third of the last line.
+            let from = point(drawn.bounds.left() + px(3.), if all { drawn.bounds.top() + px(12.) } else { line });
+            let to = point(if all { drawn.bounds.right() - px(3.) } else { drawn.bounds.left() + drawn.bounds.size.width / 3. }, line);
             window.dispatch_event(
                 PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: from, modifiers: Modifiers::default(), click_count: 1, first_mouse: false }),
                 cx,
             );
             for step in 1..=6 {
-                let at = point(from.x + (to.x - from.x) * (step as f32 / 6.), from.y);
+                let at = point(from.x + (to.x - from.x) * (step as f32 / 6.), from.y + (to.y - from.y) * (step as f32 / 6.));
                 window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: at, pressed_button: Some(MouseButton::Left), modifiers: Modifiers::default() }), cx);
             }
             window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: to, modifiers: Modifiers::default(), click_count: 1 }), cx);

@@ -73,6 +73,12 @@ impl OperatorScreen {
         Self::new(jobs, page, Front::Operator, window, cx)
     }
 
+    /// On the walk's Fleet, with the Jobs screen in front.
+    pub fn mock_behind(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let page = cx.new(|cx| OperatorPageView::mock(false, window, cx));
+        Self::new(jobs, page, Front::Jobs, window, cx)
+    }
+
     fn new(jobs: Entity<JobsScreen>, page: Entity<OperatorPageView>, front: Front, window: &mut Window, cx: &mut Context<Self>) -> Self {
         cx.set_global(Live(page.downgrade()));
         let subs = vec![cx.subscribe_in(&page, window, |this, _, opened: &Opened, window, cx| this.opened(opened, window, cx))];
