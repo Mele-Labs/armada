@@ -118,6 +118,19 @@ pub fn live(cx: &App) -> Option<gpui::Entity<MergeStrip>> {
     cx.try_global::<Live>().and_then(|live| live.0.upgrade())
 }
 
+/// The title bar's reading of the live link: whether Fleet is on standby.
+pub fn set_standby(standby: bool, cx: &mut App) {
+    if let Some(strip) = live(cx) {
+        strip.update(cx, |strip, cx| {
+            if strip.standby != standby {
+                strip.standby = standby;
+                strip.card = None;
+                cx.notify();
+            }
+        });
+    }
+}
+
 /// The strip for the Jobs screen to draw as its last child. On a live Fleet it follows Fleet's merge
 /// lines, the title bar's pick and the open Job.
 pub fn strip(list: &Entity<crate::jobs::JobsList>, window: &mut Window, cx: &mut App) -> AnyElement {
@@ -188,6 +201,10 @@ pub struct MergeStrip {
     /// Fleet's words for an act it refused, by the chip or light it came from (`pull:<root>#<n>`, `main:<root>`),
     /// drawn there until that act is asked again. Toasts take them once this app draws toasts.
     refused: HashMap<SharedString, SharedString>,
+    /// Fleet is coming back inside its grace: the strip keeps its frame and hides what it holds, as
+    /// Electron's deck does on standby (`deck/power.css`). What Fleet last said is drawn again once it
+    /// answers or the grace runs out.
+    standby: bool,
     _rotate: Task<()>,
     _focus_in: Subscription,
     _focus_out: Subscription,
@@ -247,6 +264,7 @@ impl MergeStrip {
             fix: None,
             source,
             refused: HashMap::new(),
+            standby: false,
             _rotate: rotate,
             _focus_in: focus_in,
             _focus_out: focus_out,
@@ -1375,6 +1393,22 @@ impl Render for MergeStrip {
         }
 
         let grouped = shown.len() > 1;
+        if self.standby {
+            // The frame stands at its height with nothing in it until Fleet answers or the grace runs out.
+            return labelled(
+                div()
+                    .id("merge-strip")
+                    .flex_none()
+                    .w_full()
+                    .min_h(look.length(token::H_CONTROL) + look.length(token::SPACE_2) + look.length(token::SPACE_1))
+                    .bg(look.color(token::BG_SUNKEN))
+                    .border_t(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_DEFAULT)),
+                Role::Region,
+                "Merge queue",
+            )
+            .into_any_element();
+        }
         let row = if self.data.loading {
             self.skeleton(look)
         } else if grouped {

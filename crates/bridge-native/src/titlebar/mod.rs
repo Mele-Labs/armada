@@ -375,6 +375,7 @@ impl TitleBar {
             (held, _) => held.clone(),
         };
         let fleet = face::FleetFace { connection, power, restarting, doctor: self.face.fleet.doctor.clone() };
+        crate::merge_strip::set_standby(power == face::Power::Standby, cx);
         if fleet != self.face.fleet {
             self.face.fleet = fleet;
             cx.notify();
