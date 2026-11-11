@@ -289,6 +289,7 @@ mod operator_board;
 mod operator_closing;
 mod operator_ends;
 mod operator_raises;
+mod operator_vetting;
 mod operator_questions;
 mod operator_page_head;
 mod operator_notes;
