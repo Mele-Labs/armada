@@ -129,6 +129,28 @@ fn swapped_back() -> Build {
     )
 }
 
+/// A build as the live bar reads Fleet's report (`face::build_of`): level with main and the Jobs a restart carries
+/// come from the report, not from the scene.
+fn live_build(rest: &str) -> Build {
+    face::build_of(&report(&format!(r#"{{{rest},{RUNNING},{PREVIOUS}}}"#)))
+}
+
+const LIVE_MAIN: &str = r#""on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b""#;
+const LIVE_PREVIEW: &str = r#""on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{"ahead":5,"behind":2},"switcher":{"aligned":false,"idle_on_main":false,"restart":"refresh_preview"}"#;
+
+fn build_live(name: &str) -> Option<Build> {
+    Some(match name {
+        "build-live-main" => live_build(&format!(r#"{LIVE_MAIN},"position":{{"ahead":0,"behind":0}},"switcher":{{"aligned":true,"idle_on_main":true,"restart":"update_to_main"}}"#)),
+        "build-live-preview" => live_build(&format!("{LIVE_PREVIEW},{LEFT_OUT}")),
+        "build-live-refused" => live_build(&format!(r#"{LIVE_PREVIEW},"failed":"no served repository holds scripts/restart-build""#)),
+        "build-live-carried" => live_build(&format!(
+            r#"{LIVE_MAIN},"position":{{"ahead":0,"behind":3}},"switcher":{{"aligned":false,"idle_on_main":false,"restart":"update_to_main"}},"carried":["Native Bridge foundation","Audit the docs index"]"#
+        )),
+        "build-live-trying" => live_build(&format!(r#"{LIVE_PREVIEW},"trying":["Quiet the write-clash notices","Fix the merge line freshness chip"]"#)),
+        _ => return None,
+    })
+}
+
 fn limits(five: (u32, Band, &str), week: (u32, Band, &str)) -> Usage {
     Usage::Limits(vec![Limit::five_hour(five.0, five.1, five.2), Limit::weekly(week.0, week.1, week.2)])
 }
@@ -279,6 +301,12 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
             face.fleet = fleet(connection_of(&Presence::Running(file("0000000000000000")), Link::Connecting, PATH), Power::Fault);
             face.fleet.restarting = Restarting::NoAnswer;
         },
+        // Fleet's build report through the reading the live bar makes of it (`face::build_of`).
+        "build-live-main" => |face| face.build = build_live("build-live-main"),
+        "build-live-preview" => |face| face.build = build_live("build-live-preview"),
+        "build-live-refused" => |face| face.build = build_live("build-live-refused"),
+        "build-live-carried" => |face| face.build = build_live("build-live-carried"),
+        "build-live-trying" => |face| face.build = build_live("build-live-trying"),
         other => return Err(format!("no scene named {other}")),
     };
     let bar = live(cx).ok_or("no title bar is drawn yet")?;

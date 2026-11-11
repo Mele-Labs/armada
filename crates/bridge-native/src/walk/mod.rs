@@ -232,6 +232,13 @@ pub static WALKS: &[Walk] = &[
         steps: &title_bar::STEPS,
     },
     Walk {
+        name: "build-switcher-live",
+        title: "The build switcher on Fleet's report",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &title_bar::BUILD_LIVE,
+    },
+    Walk {
         name: "project-switcher",
         title: "The project switcher on Fleet's projects",
         screen: Screen::Jobs,

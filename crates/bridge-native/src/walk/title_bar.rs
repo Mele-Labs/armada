@@ -8,6 +8,21 @@ pub(super) const WARNING: &str = "5-hour limit 62%, Weekly limit 84%";
 pub(super) const DANGER: &str = "5-hour limit 97%, Weekly limit 96%";
 const RESET: &str = "5-hour limit 8%, Weekly limit 3%";
 
+/// The build switcher on Fleet's report: each scene is Fleet's JSON read as the live bar reads it.
+pub static BUILD_LIVE: [Step; 11] = [
+    scene("Fleet's report on Main, level with main: the restart is off and says so", "build-live-main", "button", "Fleet — Running"),
+    step("The panel opens under the dot", Verb::Press, "button", "Fleet — Running"),
+    scene("On Preview, as Fleet counts it: five ahead, two behind, and the branches left out say why", "build-live-preview", "list", "Left out of the preview"),
+    press_on("Refresh preview is under way in the same frame, and holds until Fleet's report moves", "button", "Refresh preview", "button", "Refreshing preview"),
+    scene("A restart Fleet refused says Fleet's words where a failed restart is said", "build-live-refused", "alert", "no served repository holds scripts/restart-build"),
+    scene("The Jobs Fleet carries across a restart are named before it", "build-live-carried", "button", "Update to main"),
+    press_on("Restart asks first, naming them", "button", "Update to main", "dialog", "Drones are working"),
+    press_on("Yes: the restart is under way in the same frame", "button", "Restart", "button", "Updating to main"),
+    step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
+    scene("Jobs on the running build that are not kept yet are held in a bar above the screen", "build-live-trying", "region", "Trying"),
+    press_on("Keep tells each Job to land; the bar goes", "button", "Keep", "button", "Fleet — Running"),
+];
+
 /// The switcher alone, on the projects Fleet serves, and how its two chips give way.
 pub static SWITCHER: [Step; 8] = [
     step("Short of room the project reads whole, and Settings drops the name the chip beside it shows", Verb::Look, "button", "Project"),

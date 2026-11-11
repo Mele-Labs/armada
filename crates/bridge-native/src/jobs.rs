@@ -21,7 +21,7 @@ use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
 
 use crate::assets::icon_path;
 use crate::dropdown::{under, Dropdown, Entry, Picked};
-use crate::fleet::FleetConnection;
+use crate::fleet::{BuildAct, FleetConnection};
 use crate::job_view::{JobJudge, JobSide, JobView};
 use crate::keymap::Act;
 use crate::labels::labelled;
@@ -531,7 +531,11 @@ impl JobsList {
             // The title bar's picker lists what Fleet serves; the bar has no Fleet of its own to watch.
             if let Some(bar) = crate::titlebar::live(cx) {
                 let (usage, downshift) = (fleet.read(cx).held().plan_usage.clone(), fleet.read(cx).held().downshift.clone());
-                bar.update(cx, |bar, cx| bar.set_usage(usage.as_ref(), downshift.as_ref(), cx));
+                let build = fleet.read(cx).held().build.clone();
+                bar.update(cx, |bar, cx| {
+                    bar.set_usage(usage.as_ref(), downshift.as_ref(), cx);
+                    bar.set_build(build.as_ref(), cx);
+                });
             }
             if let (Some(served), Some(bar)) = (fleet.read(cx).held().repositories.clone(), crate::titlebar::live(cx)) {
                 let projects = fleet.read(cx).held().projects.clone();
@@ -929,12 +933,13 @@ impl JobsList {
                 "name" => send(port, "/sessions/name", encoded(ipc::encode(&ipc::NameSession { session_id })), cx),
                 "autopilot" => crate::dispatch::screen::open_autopilot(Some(repository.clone()), cx),
                 "teach" => crate::dispatch::screen::teach_row(title.to_string(), cx),
-                "try" => send(
-                    port,
-                    "/fleet/build/pick",
-                    encoded(ipc::encode(&ipc::PickFleetBuildJob { branch: None, session_id: Some(job.to_string()), picked: true })),
-                    cx,
-                ),
+                "try" => {
+                    let pick = BuildAct::Pick(ipc::PickFleetBuildJob { branch: None, session_id: Some(job.to_string()), picked: true });
+                    match this.fleet() {
+                        Some(fleet) => fleet.update(cx, |fleet, cx| fleet.build_act(pick, cx)),
+                        None => Note::warn("not sent: no Fleet is connected").field("route", "/fleet/build/pick").emit(),
+                    }
+                }
                 "close" => send(port, "/sessions/close", encoded(ipc::encode(&ipc::CloseSession { session_id })), cx),
                 field if field.starts_with("view:") => {
                     this.view.flip(field);
@@ -1723,11 +1728,20 @@ impl JobsScreen {
         let opens = palette.downgrade();
         let fleet_of = list.downgrade();
         cx.set_global(crate::titlebar::AskedSink(Rc::new(move |asked: &crate::titlebar::Asked, cx: &mut App| {
-            // The bar's restart onto main or the preview is Fleet's build switch.
-            if let crate::titlebar::Asked::ChangeBuild { build, adopt } = asked {
-                let port = fleet_of.upgrade().and_then(|list| list.read(cx).fleet()).and_then(|fleet| fleet.read(cx).held().port());
-                let body = ipc::encode(&ipc::ChangeFleetBuild { build: *build, adopt: *adopt }).map_err(|why| format!("{why:?}"));
-                send(port, "/fleet/build/change", body, cx);
+            // The bar's build switcher: each press is Fleet's build act, followed until the report settles.
+            let act = match asked {
+                crate::titlebar::Asked::ChangeBuild { build, adopt } => Some(BuildAct::Change(ipc::ChangeFleetBuild { build: *build, adopt: *adopt })),
+                crate::titlebar::Asked::Revert => Some(BuildAct::Revert),
+                crate::titlebar::Asked::Keep => Some(BuildAct::Keep),
+                crate::titlebar::Asked::Swap => Some(BuildAct::Swap),
+                crate::titlebar::Asked::Unpick(branch) => Some(BuildAct::Pick(ipc::PickFleetBuildJob { branch: Some(branch.clone()), session_id: None, picked: false })),
+                _ => None,
+            };
+            if let Some(act) = act {
+                match fleet_of.upgrade().and_then(|list| list.read(cx).fleet()) {
+                    Some(fleet) => fleet.update(cx, |fleet, cx| fleet.build_act(act, cx)),
+                    None => Note::warn("not sent: no Fleet is connected").field("route", "/fleet/build").emit(),
+                }
                 return;
             }
             // The step down's acts, each its own command; Choose settles it, as Electron's does before the model setting.

@@ -212,6 +212,13 @@ pub struct Build {
     pub adopts: Vec<String>,
 }
 
+/// The switcher's reading of Fleet's report: level with main as Fleet's `switcher` says, else as its position
+/// counts (a position that cannot be counted is not level), and the Jobs a restart carries across.
+pub fn build_of(report: &FleetBuildReport) -> Build {
+    let aligned = report.switcher.map_or_else(|| report.position.is_some_and(|at| at.ahead == 0 && at.behind == 0), |switcher| switcher.aligned);
+    Build { report: report.clone(), aligned, adopts: report.carried.clone() }
+}
+
 /// `5 Nov, 17:05`, in this machine's time, as a kept build is named. Text that is no instant comes back as it came.
 pub fn built_said(at: &Instant) -> String {
     match DateTime::parse_from_rfc3339(at.as_str()) {

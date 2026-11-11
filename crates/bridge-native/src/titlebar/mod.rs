@@ -211,6 +211,8 @@ pub struct TitleBar {
     snapshot_was: Option<Option<ipc::SnapshotState>>,
     _swap_tick: Option<Task<()>>,
     _swap_keys: Option<Subscription>,
+    /// Fleet's build report as last handed in: a press's answer in the frame stands until Fleet's report moves.
+    build_read: Option<ipc::FleetBuildReport>,
 }
 
 /// The one bar of the window, for the keys that work from anywhere.
@@ -290,6 +292,7 @@ impl TitleBar {
             snapshot_was: None,
             _swap_tick: None,
             _swap_keys: None,
+            build_read: None,
         }
     }
 
@@ -320,6 +323,17 @@ impl TitleBar {
         }
         self.face.usage = rings;
         self.face.downshift = shift;
+        cx.notify();
+    }
+
+    /// Fleet's build report, as the switcher draws it. A press already changed the face in its frame; that
+    /// stands until Fleet's report is not the one last handed in.
+    pub fn set_build(&mut self, report: Option<&ipc::FleetBuildReport>, cx: &mut Context<Self>) {
+        if self.build_read.as_ref() == report {
+            return;
+        }
+        self.build_read = report.cloned();
+        self.face.build = report.map(face::build_of);
         cx.notify();
     }
 

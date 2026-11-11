@@ -428,8 +428,51 @@ pub struct FleetConnection {
     /// The Jobs whose last Needs you read failed, by the `waiting_for` asked for: not asked again until
     /// the list changes, or the redraw a failure causes would ask for ever.
     needs_failed: BTreeMap<String, Vec<WaitingItem>>,
+    /// The build read every [`FOLLOW`] after an act, until the report stops saying a change is under way.
+    following: Option<Task<()>>,
     /// Kept, or the drain is cancelled with it.
     _drain: Task<()>,
+}
+
+/// How often the build is read while a restart, revert, swap or snapshot is under way (`FOLLOW_MS`).
+const FOLLOW: std::time::Duration = std::time::Duration::from_secs(2);
+/// A change still under way after this is a script that died, and the follow stops (`FOLLOW_FOR_MS`).
+const FOLLOW_FOR: std::time::Duration = std::time::Duration::from_secs(20 * 60);
+
+/// What the build switcher asks of Fleet, as Electron's `FleetBuilds` asks it.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BuildAct {
+    Change(ipc::ChangeFleetBuild),
+    Revert,
+    Swap,
+    Keep,
+    Pick(ipc::PickFleetBuildJob),
+}
+
+impl BuildAct {
+    fn route(&self) -> &'static str {
+        match self {
+            BuildAct::Change(_) => "/fleet/build/change",
+            BuildAct::Revert => "/fleet/build/revert",
+            BuildAct::Swap => "/fleet/build/swap",
+            BuildAct::Keep => "/fleet/build/keep",
+            BuildAct::Pick(_) => "/fleet/build/pick",
+        }
+    }
+
+    fn body(&self) -> Option<Result<String, String>> {
+        let encoded = |body: Result<String, ipc::Unencodable>| body.map_err(|why| format!("{why:?}"));
+        match self {
+            BuildAct::Change(change) => Some(encoded(ipc::encode(change))),
+            BuildAct::Pick(pick) => Some(encoded(ipc::encode(pick))),
+            BuildAct::Revert | BuildAct::Swap | BuildAct::Keep => None,
+        }
+    }
+}
+
+/// A restart, revert, swap or snapshot is under way, so the build is followed.
+fn changing(report: &FleetBuildReport) -> bool {
+    report.restarting.is_some() || report.reverting || report.swapping || report.snapshot.as_ref().is_some_and(|kept| kept.state == ipc::SnapshotState::Building)
 }
 
 impl FleetConnection {
@@ -496,6 +539,97 @@ impl FleetConnection {
             build.failed = None;
             cx.notify();
         }
+        self.follow(false, cx);
+    }
+
+    /// Ask Fleet for a build act off the main thread. A change, revert or swap Fleet took is marked on the
+    /// report at once and followed; one it refused is said on the report's `failed` line, where a failed
+    /// restart is said. A pick or a keep is read again at once, and a refusal of one is noted, as Electron
+    /// leaves it to the row pressed.
+    pub fn build_act(&mut self, act: BuildAct, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else {
+            Note::warn("not sent: no Fleet is connected").field("route", act.route()).emit();
+            return;
+        };
+        let route = act.route();
+        let body = act.body();
+        cx.spawn(async move |this, cx| {
+            let read = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    match body {
+                        Some(body) => runtime.block_on(crate::transport::post(port, route, body?)),
+                        None => runtime.block_on(crate::transport::post_bare(port, route)),
+                    }
+                })
+                .await;
+            let outcome = crate::revert::outcome_of(read);
+            let _ = this.update(cx, |this, cx| {
+                let took = outcome == crate::revert::Outcome::Started;
+                let marks = matches!(act, BuildAct::Change(_) | BuildAct::Revert | BuildAct::Swap);
+                match (took, this.held.build.as_mut()) {
+                    (true, Some(build)) if marks => {
+                        build.failed = None;
+                        match &act {
+                            BuildAct::Change(change) => build.restarting = Some(change.build),
+                            BuildAct::Revert => build.reverting = true,
+                            _ => build.swapping = true,
+                        }
+                    }
+                    (false, Some(build)) if marks => build.failed = Some(crate::revert::why_not(&outcome).to_string()),
+                    (false, _) => Note::warn("Fleet refused a build act").field("route", route).field("why", crate::revert::why_not(&outcome)).emit(),
+                    _ => {}
+                }
+                cx.notify();
+                if took {
+                    this.follow(!marks, cx);
+                }
+            });
+        })
+        .detach();
+    }
+
+    /// Read the build every [`FOLLOW`] (the first at once where `now`) while a change is under way, or while
+    /// Fleet is down in the middle of one, for at most [`FOLLOW_FOR`]. A later act starts it over.
+    fn follow(&mut self, now: bool, cx: &mut Context<Self>) {
+        let until = std::time::Instant::now() + FOLLOW_FOR;
+        self.following = Some(cx.spawn(async move |this, cx| {
+            let mut wait = !now;
+            loop {
+                if wait {
+                    cx.background_executor().timer(FOLLOW).await;
+                }
+                wait = true;
+                let Ok(port) = this.read_with(cx, |this, _| this.held.port()) else { return };
+                if let Some(port) = port {
+                    let read = cx
+                        .background_executor()
+                        .spawn(async move {
+                            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                            let (status, bytes) = runtime.block_on(crate::transport::get(port, "/fleet/build"))?;
+                            if !(200..300).contains(&status) {
+                                return Err(format!("Fleet answered {status}"));
+                            }
+                            ipc::decode::<FleetBuildReport>("FleetBuildReport", &bytes).map_err(|why| why.to_string())
+                        })
+                        .await;
+                    // A read that failed leaves the report held, as the minute's watch does.
+                    if let Ok(report) = read {
+                        let _ = this.update(cx, |this, cx| {
+                            if this.held.build.as_ref() != Some(&report) {
+                                this.held.build = Some(report);
+                                cx.notify();
+                            }
+                        });
+                    }
+                }
+                let Ok(going) = this.read_with(cx, |this, _| port.is_none() || this.held.build.as_ref().is_some_and(changing)) else { return };
+                if !going || std::time::Instant::now() >= until {
+                    return;
+                }
+            }
+        }));
     }
 
     /// Read a Job's thread (`GET /sessions/thread`) off the main thread and hold it. Fleet follows the
@@ -644,6 +778,7 @@ impl FleetConnection {
             failed: BTreeSet::new(),
             needs_reading: BTreeMap::new(),
             needs_failed: BTreeMap::new(),
+            following: None,
             _drain: drain,
         }
     }
