@@ -615,7 +615,7 @@ where
                 let job = one.job.clone().unwrap_or_else(|| "My suggestion".to_string());
                 let setting = setting.as_deref().unwrap_or_default();
                 let read = read.as_ref().map(|read| format!(". Read: {}", read.read)).unwrap_or_default();
-                self.operator_journaled(&format!("Approved by {setting}: {job}: {}{read}", one.item.text)).await;
+                self.operator_journaled(&format!("By a setting: {setting}: {job}: {}{read}", one.item.text)).await;
             }
             for (one, read) in &kept {
                 let job = one.job.clone().unwrap_or_else(|| "My suggestion".to_string());

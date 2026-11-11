@@ -6,13 +6,14 @@
 //! |---|---|
 //! | Off | reaches Your turn as it does without this |
 //! | Review | one reading call reads the plan, or the diff against the base, and the item is queued with its findings |
-//! | Review and approve | a plan found clean is approved without him; anything found is queued, and nothing is approved |
+//! | Review and approve | a plan found clean is approved without him, and a pull request found clean is let land; anything found is queued, and nothing is done |
 //!
 //! **One call for each item, never more.** It is skipped where the diff touches only docs and tests, and the
 //! item is queued with no read. **Fail open**: a call that cannot be made or read queues the item with no read
-//! and approves nothing. **A walk is never approved**, and a pull request is queued with its read: a clean one
-//! whose Job's plan marks work he would see waits for his walk, and Fleet makes no pull request approval of its
-//! own, a forge write being taken only from a person's press.
+//! and approves nothing. **A walk is never approved.** A pull request found clean is let land through the forge's
+//! auto-merge, so it merges once its checks pass, as Auto land would, with no approving review and no comment; one
+//! whose Job's plan marks work he would see waits for his walk, and one the forge would not take is queued with the
+//! failure.
 
 use std::fmt::Write as _;
 use std::sync::Arc;
@@ -323,25 +324,38 @@ where
             return Vetted::Queue(OperatorRead { read, pick: "Walk it first".to_string() });
         }
         let read = OperatorRead { read: verdict.read, pick: clean_pick };
-        if !vet.approves || vet.work != Work::Plan {
+        if !vet.approves || vet.work == Work::Walk {
             return Vetted::Queue(read);
         }
-        // Left its list, or the switch turned off, while the call was out: nothing is approved.
+        // Left its list, or the switch turned off, while the call was out: nothing is done.
         if !self.operator_on() || !held(&self.operator_seat().raising.queue).raising.contains(&one.key()) {
             return Vetted::Queue(read);
         }
-        let version = one.item.id.strip_prefix("plan:").and_then(|version| version.parse().ok());
-        let approved = match version {
-            Some(version) => Arc::clone(self).plan_approved(ApprovePlan { session_id: SessionId::carried(&one.session), version }).await.map(|_| ()).map_err(|why| why.error().message.clone()),
-            None => Err("the plan's id does not read".to_string()),
+        let done = match vet.work {
+            Work::PullRequest => self.let_land(one).await,
+            _ => self.plan_let_through(one).await,
         };
-        match approved {
+        match done {
             Ok(()) => Vetted::Approved { read, setting: vet.setting() },
             Err(why) => {
-                self.operator_warned("a plan the review found clean was not approved, so it is queued", why);
-                Vetted::Queue(read)
+                self.operator_warned("work the review found clean was not let through, so it is queued", why.clone());
+                let said = format!("{} It was not let through: {why}", read.read);
+                Vetted::Queue(OperatorRead { read: said, ..read })
             }
         }
+    }
+
+    /// The plan approved through the path a press on its card takes.
+    async fn plan_let_through(self: &Arc<Self>, one: &ToRaise) -> Result<(), String> {
+        let version = one.item.id.strip_prefix("plan:").and_then(|version| version.parse().ok()).ok_or("the plan's id does not read")?;
+        Arc::clone(self).plan_approved(ApprovePlan { session_id: SessionId::carried(&one.session), version }).await.map(|_| ()).map_err(|why| why.error().message.clone())
+    }
+
+    /// The pull request let land: the forge is asked to merge it once its checks pass, as Auto land asks. **No
+    /// approving review and no comment**: the project's setting is his say.
+    async fn let_land(&self, one: &ToRaise) -> Result<(), String> {
+        let number = one.item.act.as_ref().and_then(|act| crate::pull_waits::number_of(&act.target)).ok_or("the pull request's number does not read")?;
+        self.enable_auto_merge(ipc::ManifestId::carried(&one.manifest_id), number).await.map(|_| ()).map_err(|why| why.error().message.clone())
     }
 
     /// What the review of `one` is put, or `None` where it is not worth a call: a diff that touches only docs and

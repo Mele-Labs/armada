@@ -190,7 +190,7 @@ A Job reads the `reviews` it froze when it started, so a setting changed since n
 |---|---|
 | Off | Reaches Your turn as it does without this |
 | Review | Is read by one call, and reaches Your turn with the findings as its read and a pick |
-| Review and approve | As Review, and a plan found clean is approved without you |
+| Review and approve | As Review, and a plan found clean is approved, and a pull request found clean is let land, without you |
 
 **A walk takes Off or Review only.**
 A walk is yours to look at, so the setting has no word that approves one.
@@ -207,8 +207,9 @@ Findings of any kind queue the item with them, and nothing is approved.
 **An approval is the one your press makes.**
 A plan found clean goes through the same route as Approve on its card, the Job is told, and the Log names the setting, such as Review and approve, plans.
 It shows in What I handled as done by a setting.
-Fleet approves no pull request of its own, since a forge write is taken only from a person's press, so a clean pull request is queued with its read.
-A pull request whose Job's plan marks work you would see, or carries a walk, waits for your walk.
+A pull request found clean is let land by asking the forge to merge it once its checks pass, as Auto land does, with no approving review and no comment.
+If the forge refuses, the item is queued for you with the read and the refusal, and it is not asked again.
+A pull request whose Job's plan marks work you would see, or carries a walk, is queued as Walk it first, and is not let land.
 
 ### Talking to it
 

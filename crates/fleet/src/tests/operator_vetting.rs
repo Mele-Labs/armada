@@ -10,7 +10,10 @@ use ipc::{
 };
 use testkit::FakeWorkProduct;
 
+use adapter_traits::PullRequestStanding;
+
 use super::operator_raises::{journal, page, pause, queued, seated, waiting};
+use super::pull_requesting::{facts, forge_ran, passed};
 use super::session_host::{rig_fitted, Rig};
 use crate::operator::{keep_the_raises, Answering, Calling};
 use crate::CallFailed;
@@ -188,7 +191,7 @@ async fn review_and_approve_approves_a_plan_found_clean_and_the_log_names_the_se
 
     assert!(page(&rig).await.turn.is_empty(), "an approved plan is never queued");
     assert_eq!(call.vets(), 1);
-    assert!(journal(&rig).await.contains("Approved by Review and approve, plans"), "{}", journal(&rig).await);
+    assert!(journal(&rig).await.contains("By a setting: Review and approve, plans"), "{}", journal(&rig).await);
     let handled = page(&rig).await.digest.handled.acts;
     assert!(handled.iter().any(|one| one.outcome == "By a setting: Review and approve, plans"), "{handled:?}");
 }
@@ -222,6 +225,51 @@ async fn a_clean_pull_request_whose_plan_marks_work_he_would_see_is_queued_for_h
     let read = one.read.expect("a read");
     assert!(read.read.contains("waits for his walk"), "{read:?}");
     assert_eq!(read.pick, "Walk it first");
+}
+
+/// The forge showing pull request 12 open, its checks passing.
+fn forge_shows_the_pull_request(rig: &Rig) {
+    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    forge_ran(&rig.fleet, passed());
+}
+
+#[tokio::test]
+async fn review_and_approve_lets_a_clean_pull_request_land_and_the_log_names_the_setting() {
+    let rig = a_rig(CODE);
+    let call = Smart::answering(Some("verdict: clean\nread: It does what was asked."));
+    on(&rig, &call).await;
+    forge_shows_the_pull_request(&rig);
+    let job = job_in(&rig, &project(&rig, reviews("off", "review_and_approve", "off")).await).await;
+    plan_recorded(&rig, &job, false).await;
+    pull_request_waits(&rig, &job).await;
+
+    super::session_host::eventually(|| async { rig.fleet.vcs().times_asked_for_auto_merge() == 1 }).await;
+    pause().await;
+
+    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "auto-merge is asked for once, and nothing else is written");
+    assert!(page(&rig).await.turn.iter().all(|one| one.id != "pr"), "a pull request let land is never queued");
+    assert!(journal(&rig).await.contains("By a setting: Review and approve, pull requests"), "{}", journal(&rig).await);
+    let handled = page(&rig).await.digest.handled.acts;
+    assert!(handled.iter().any(|one| one.outcome == "By a setting: Review and approve, pull requests"), "{handled:?}");
+}
+
+#[tokio::test]
+async fn a_pull_request_the_forge_would_not_let_land_is_queued_with_the_read_and_the_failure() {
+    let rig = a_rig(CODE);
+    let call = Smart::answering(Some("verdict: clean\nread: It does what was asked."));
+    on(&rig, &call).await;
+    forge_shows_the_pull_request(&rig);
+    rig.fleet.vcs().now_auto_merge(Err("auto-merge is not allowed on this repository".to_string()));
+    let job = job_in(&rig, &project(&rig, reviews("off", "review_and_approve", "off")).await).await;
+    plan_recorded(&rig, &job, false).await;
+    pull_request_waits(&rig, &job).await;
+
+    let one = queued(&rig, &job, "pr").await;
+    pause().await;
+
+    let read = one.read.expect("a read").read;
+    assert!(read.contains("nothing found") && read.contains("auto-merge is not allowed on this repository"), "{read}");
+    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "it is not asked again");
 }
 
 #[tokio::test]
