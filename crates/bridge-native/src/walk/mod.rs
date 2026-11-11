@@ -374,6 +374,16 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-thread-refusal",
+        title: "A thread Fleet refuses to read",
+        screen: Screen::JobsInApp,
+        scenario: "job-system",
+        steps: &[
+            press_on("Fleet refuses this Job's thread: its words come as a toast, and the thread draws nothing in place of placeholder shapes", "row", "Quiet the write-clash notices", "alert", "Toast: Fleet could not read this Job's ledger: it ends mid-row at line 2214"),
+            press_on("A Job whose thread is read draws it as before", "row", "Fix the merge line freshness chip", "region", "Thread"),
+        ],
+    },
+    Walk {
         name: "native-system-bays",
         title: "A Job's System and Bays tabs",
         screen: Screen::JobsInApp,

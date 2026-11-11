@@ -559,6 +559,8 @@ impl JobView {
             if let Some(fleet) = self.fleet.clone() {
                 let id = id.clone();
                 fleet.update(cx, |fleet, cx| fleet.read_thread(&id, true, cx));
+            } else if let Some(why) = crate::mock::thread_refused(id) {
+                cx.defer(move |cx| crate::toasts::tell(why, cx));
             } else if crate::mock::reads_slowly() {
                 self.read_slowly(id, cx);
             }
@@ -875,7 +877,15 @@ impl Render for JobView {
             window.request_animation_frame();
         }
         let loaded = self.thread(&id, cx).is_some() && self.pages.get(&id).is_some_and(|page| page.version.is_some());
-        let body = if loaded {
+        // A refused read was said in a toast: the shapes stop, and the thread draws once a read is answered.
+        let refused = !loaded
+            && match &self.fleet {
+                Some(fleet) => fleet.read(cx).thread_refused(&id),
+                None => crate::mock::thread_refused(&id).is_some(),
+            };
+        let body = if refused {
+            div().size_full().into_any_element()
+        } else if loaded {
             let state = self.pages[&id].list.clone();
             labelled(
                 self.fork_hooks(div().id("thread"), cx)

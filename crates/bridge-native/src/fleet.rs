@@ -685,8 +685,13 @@ impl FleetConnection {
 
     /// Read a Job's thread (`GET /sessions/thread`) off the main thread and hold it. Fleet follows the
     /// Job from this first read and sends its changes as `job_thread.tail`. A read already under
-    /// way is not asked again; a failed one is noted and the view keeps its skeleton, and is asked
-    /// again only with `retry`, which is the person opening the Job.
+    /// way is not asked again; a refused one is a toast in Fleet's words, the view draws nothing for
+    /// it, and it is asked again only with `retry`, which is the person opening the Job.
+    /// Whether the last read of this Job's thread was refused, and none has been answered since.
+    pub fn thread_refused(&self, session: &str) -> bool {
+        self.failed.contains(session)
+    }
+
     pub fn read_thread(&mut self, session: &str, retry: bool, cx: &mut Context<Self>) {
         let Some(port) = self.held.port() else { return };
         if retry {
@@ -706,7 +711,7 @@ impl FleetConnection {
                     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
                     let (status, bytes) = runtime.block_on(crate::transport::get(port, &path))?;
                     if !(200..300).contains(&status) {
-                        return Err(format!("Fleet answered {status}: {}", String::from_utf8_lossy(&bytes)));
+                        return Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message));
                     }
                     ipc::decode::<JobThread>("JobThread", &bytes).map_err(|why| why.to_string())
                 })
@@ -717,7 +722,8 @@ impl FleetConnection {
                     Ok(read) => this.held.thread_read(read),
                     Err(why) => {
                         this.failed.insert(id.clone());
-                        Note::warn("a Job's thread could not be read").field("job", id.as_str()).field("why", why).emit();
+                        Note::warn("a Job's thread could not be read").field("job", id.as_str()).field("why", why.as_str()).emit();
+                        cx.defer(move |cx| crate::toasts::tell(why, cx));
                     }
                 }
                 cx.notify();

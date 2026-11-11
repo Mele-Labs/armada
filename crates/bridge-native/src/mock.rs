@@ -149,6 +149,13 @@ fn screens_threads() -> Result<HashMap<String, JobThread>, String> {
 
 /// Whether a Job's thread is read again for a moment when it comes on screen, as Fleet's read takes
 /// time: in `thread-moved`, so a walk can show the row that says new messages are loading.
+/// The thread Fleet refuses to read in the scenario last named, with its words: Quiet the write-clash
+/// notices in `job-system`, so a walk can show the refusal's toast and the thread drawing nothing.
+pub fn thread_refused(id: &str) -> Option<String> {
+    let named = SCENARIO.lock().ok()?;
+    (named.as_str() == "job-system" && id == "mock-06").then(|| "Fleet could not read this Job's ledger: it ends mid-row at line 2214".to_string())
+}
+
 pub fn reads_slowly() -> bool {
     SCENARIO.lock().is_ok_and(|named| named.as_str() == "thread-moved")
 }
