@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
-use ipc::{LinkedEvent, SessionRow, WaiterEvent};
+use ipc::{Instant, LinkedEvent, SessionRow, SessionVoice, ThreadItem, WaiterEvent};
 
 use super::menus::teach_entries;
 use super::rows::{eyebrow, glyph, mono, tip, Size};
@@ -13,7 +13,68 @@ use super::{JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, Look};
 
+/// How long the agent reasoned, in whole seconds from the item before (at least one, as Electron's
+/// `secondsSince`), and whether the row opens: it comes just before a question while the agent has
+/// written nothing to the person since their message (`openedBeforeBareQuestions`).
+pub(super) fn reasoning_reading(items: &[ThreadItem], ix: usize) -> (u64, bool) {
+    let parsed = |at: &Instant| DateTime::parse_from_rfc3339(at.as_str()).ok();
+    let spent = ix
+        .checked_sub(1)
+        .and_then(|before| items.get(before))
+        .and_then(last_at)
+        .and_then(parsed)
+        .zip(items.get(ix).and_then(last_at).and_then(parsed))
+        .map(|(before, at)| (at - before).num_milliseconds());
+    let seconds = spent.map(|ms| ((ms as f64) / 1000.).round().max(1.) as u64).unwrap_or(1);
+    let mut owed = false;
+    for item in &items[..ix] {
+        let said: Vec<&SessionRow> = match item {
+            ThreadItem::Row { row } => vec![row],
+            ThreadItem::FleetTurn { rows, .. } => rows.iter().collect(),
+            _ => Vec::new(),
+        };
+        for row in said {
+            match row {
+                SessionRow::Message { from: SessionVoice::You, .. } => owed = true,
+                SessionRow::Message { from: SessionVoice::Agent, .. } => owed = false,
+                _ => {}
+            }
+        }
+    }
+    let asks = match items.get(ix + 1) {
+        Some(ThreadItem::Calls { rows, .. }) => matches!(rows.first(), Some(SessionRow::Tool { text, .. }) if text.starts_with("AskUserQuestion")),
+        _ => false,
+    };
+    (seconds, owed && asks)
+}
+
+/// When an item's last row was written; a card's time is not read.
+fn last_at(item: &ThreadItem) -> Option<&Instant> {
+    match item {
+        ThreadItem::Row { row } => Some(row.at()),
+        ThreadItem::Calls { rows, .. } | ThreadItem::Checks { rows, .. } => rows.last().map(SessionRow::at),
+        ThreadItem::FleetTurn { notice, rows, .. } => Some(rows.last().unwrap_or(notice).at()),
+        ThreadItem::Subagent { at, .. } => Some(at),
+        _ => None,
+    }
+}
+
 impl JobView {
+    /// A turn's reasoning: folded as how long it took (`SessionThread.tsx`), open on its words before
+    /// a question asked with nothing written to the person.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn reasoning(&self, ix: usize, id: &str, text: &str, seconds: u64, open: bool, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let key = format!("reasoning:{id}");
+        let shown = open != page.opened.contains(&key);
+        let said = format!("Thought for {seconds}s");
+        let head = vec![
+            glyph(look, if shown { "chevron-down" } else { "chevron-right" }, Size::Small, look.color(token::FG_MUTED)).into_any_element(),
+            div().child(said.clone()).into_any_element(),
+        ];
+        let body = self.prose_in(key.clone(), text, token::FG_MUTED, look);
+        self.fold_from(ix, key, said, head, Some(body), open, page, look, cx)
+    }
+
     /// A row Fleet serves as it came (`ThreadItem::Row`), by its kind. `None` is a row no screen draws.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn row(
@@ -72,7 +133,7 @@ impl JobView {
                     glyph(look, "layers", Size::Small, look.color(token::FG_MUTED)).into_any_element(),
                     div().child("Conversation compacted").into_any_element(),
                 ];
-                let body = self.prose(format!("compaction:{id}"), text, look);
+                let body = self.prose_in(format!("compaction:{id}"), text, token::FG_MUTED, look);
                 self.fold(ix, format!("compaction:{id}"), "Conversation compacted".into(), head, Some(body), page, look, cx)
             }
             SessionRow::Lease { id, at, slot, branch } | SessionRow::Release { id, at, slot, branch } => {

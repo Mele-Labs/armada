@@ -226,7 +226,13 @@ impl JobView {
             let asking = held.head.asked.is_some();
             // A finished run's last call ended when the item after it began.
             let next = held.items.get(ix + 1).and_then(began);
-            self.item(ix, item, last && working && !asking, next, page, look, now, window, cx)
+            match item {
+                ThreadItem::Row { row: SessionRow::Reasoning { id, text, .. } } => {
+                    let (seconds, open) = super::lines::reasoning_reading(&held.items, ix);
+                    Some(self.reasoning(ix, id, text, seconds, open, page, look, cx))
+                }
+                _ => self.item(ix, item, last && working && !asking, next, page, look, now, window, cx),
+            }
         } else {
             self.extra(&held.head, &held.items, page, ix - page.items, look, now, cx)
         };
@@ -328,6 +334,11 @@ impl JobView {
 
     /// Markdown at the thread's body size: 15 over 24 unless Aa's Text size says another.
     pub(super) fn prose(&self, key: String, text: &str, look: &Look) -> AnyElement {
+        self.prose_in(key, text, token::FG_DEFAULT, look)
+    }
+
+    /// Prose in `colour`: a fold's body reads muted, as Electron's `armada-session-fold__body` has it.
+    pub(super) fn prose_in(&self, key: String, text: &str, colour: crate::look::Token, look: &Look) -> AnyElement {
         let job = self.shown.clone().unwrap_or_default();
         let size = match self.composer.quick.thread().text_size {
             TextSize::Xs => token::TEXT_XS,
@@ -339,7 +350,7 @@ impl JobView {
             .w_full()
             .text_size(look.length(size))
             .line_height(relative(1.6))
-            .text_color(look.color(token::FG_DEFAULT))
+            .text_color(look.color(colour))
             // `.armada-prose__quote`: a faint accent box, an accent bar on its left, its right corners rounded.
             .blockquote_style(
                 gpui::StyleRefinement::default()
@@ -369,7 +380,24 @@ impl JobView {
         look: &Look,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let open = page.opened.contains(&key);
+        self.fold_from(ix, key, label, head, body, false, page, look, cx)
+    }
+
+    /// A fold that may start open: then a press shuts it, and the page keeps that it was pressed.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn fold_from(
+        &self,
+        ix: usize,
+        key: String,
+        label: String,
+        head: Vec<AnyElement>,
+        body: Option<AnyElement>,
+        first_open: bool,
+        page: &Page,
+        look: &Look,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let open = first_open != page.opened.contains(&key);
         let name = SharedString::from(key.clone());
         let spot = page.keys.spot(&key, cx);
         let line = labelled(

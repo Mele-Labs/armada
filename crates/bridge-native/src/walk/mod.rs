@@ -236,6 +236,18 @@ pub static WALKS: &[Walk] = &[
         steps: &TODAY,
     },
     Walk {
+        name: "native-reasoning",
+        title: "A turn's reasoning in the thread",
+        screen: Screen::Jobs,
+        scenario: "job-reasoning",
+        steps: &[
+            press_on("A Job asked you a question with nothing written to you since your message: the reasoning before it stands open on its words", "row", "Native Bridge foundation", "button", "Thought for 7s"),
+            step("Reasoning between calls stays folded to how long the agent reasoned", Verb::Look, "button", "Thought for 5s"),
+            step("A press opens it", Verb::Press, "button", "Thought for 5s"),
+            step("A press on the open one folds it", Verb::Press, "button", "Thought for 7s"),
+        ],
+    },
+    Walk {
     name: "jobs-list",
     title: "Jobs list",
     screen: Screen::Jobs,

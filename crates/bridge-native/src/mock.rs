@@ -21,7 +21,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         *held = scenario.to_string();
     }
     let bytes: &[u8] = match scenario {
-        "jobs-many" | "job-view" => include_bytes!("../fixtures/jobs-many.json"),
+        "jobs-many" | "job-view" | "job-reasoning" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with one handing off and one that took an earlier Job's place, that one ended behind it.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff.json"),
         "job-bands" => include_bytes!("../fixtures/jobs-bands.json"),
@@ -75,6 +75,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
         "tool-rows" => include_bytes!("../fixtures/tools-threads.json"),
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
+        "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         _ => return Ok(HashMap::new()),
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
