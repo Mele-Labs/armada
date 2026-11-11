@@ -32,8 +32,6 @@ pub enum Opened {
     /// The act of an item Fleet cannot do itself, such as a walk to open or a pull request, from the
     /// Job that holds it.
     Act(WaitingAct, Option<SessionId>),
-    /// The week's Log, a markdown file on this machine.
-    Log(String),
     /// A Job, from a row of the digest.
     Job(SessionId),
 }
@@ -87,6 +85,10 @@ pub struct OperatorPageView {
     pub(super) rules: Option<usize>,
     pub(super) rules_focus: FocusHandle,
     pub(super) rules_scroll: ScrollHandle,
+    /// The week's Log, on a sheet over the page: `Some("")` while it is read, its words once read.
+    pub(super) log: Option<String>,
+    pub(super) log_focus: FocusHandle,
+    pub(super) log_scroll: ScrollHandle,
     pub(super) main_scroll: ScrollHandle,
     /// The page's first tab stop, its first pill: where Tab goes from the page itself.
     pub(super) first_stop: FocusHandle,
@@ -135,6 +137,9 @@ impl OperatorPageView {
             rules: None,
             rules_focus: cx.focus_handle(),
             rules_scroll: ScrollHandle::new(),
+            log: None,
+            log_focus: cx.focus_handle(),
+            log_scroll: ScrollHandle::new(),
             main_scroll: ScrollHandle::new(),
             first_stop: cx.focus_handle(),
             later_focus: cx.focus_handle(),
@@ -247,6 +252,15 @@ impl OperatorPageView {
         if self.chat_has_keys(window, cx) {
             return cx.propagate();
         }
+        // The Log's sheet scrolls on the arrows, and no key reaches Your turn behind it.
+        if self.log.is_some() {
+            match act.id {
+                "call_move_focus" => self.scroll_log(if act.slot % 2 == 0 { 1. } else { -1. }, cx),
+                id if id.starts_with("call_") => {}
+                _ => cx.propagate(),
+            }
+            return;
+        }
         // The sheet over the page takes the arrows and Enter, and no key reaches Your turn behind it.
         if self.rules.is_some() {
             match act.id {
@@ -294,11 +308,7 @@ impl OperatorPageView {
     /// A tile's head folds or opens it; a link does what it says.
     pub fn press_stop(&mut self, name: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         match name {
-            "The whole Log" => {
-                if let Some(log) = self.page.as_ref().and_then(|page| page.digest.handled.log.clone()) {
-                    cx.emit(Opened::Log(log.path));
-                }
-            }
+            "The whole Log" => self.open_log(window, cx),
             "Every rule" => self.open_rules(window, cx),
             tile => {
                 let open = self.folded.get(tile).copied().unwrap_or(super::view::opens_unpressed(tile));
@@ -354,6 +364,44 @@ impl OperatorPageView {
             });
         });
         self.track(task);
+    }
+
+    // -- the Log ----------------------------------------------------------------------------------
+
+    /// The whole Log: the week's journal on a sheet, read from where Fleet says it is.
+    pub fn open_log(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(path) = self.page.as_ref().and_then(|page| page.digest.handled.log.as_ref()).map(|log| log.path.clone()) else { return };
+        self.log = Some(String::new());
+        window.focus(&self.log_focus, cx);
+        cx.notify();
+        let read = self.wire.log(path, cx);
+        let task = cx.spawn(async move |this, cx| {
+            let read = read.await;
+            let _ = this.update(cx, |this, cx| {
+                if this.log.is_some() {
+                    this.log = Some(read.unwrap_or_else(|why| format!("The Log did not read: {why}")));
+                    cx.notify();
+                }
+            });
+        });
+        self.track(task);
+    }
+
+    /// Esc on the Log: shut, and the keys back on the link that opened it.
+    pub fn close_log(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.log = None;
+        match self.stops.get("The whole Log") {
+            Some(keys) => window.focus(keys, cx),
+            None => window.focus(&self.focus, cx),
+        }
+        cx.notify();
+    }
+
+    fn scroll_log(&mut self, by: f32, cx: &mut Context<Self>) {
+        let step = gpui::px(60.);
+        let offset = self.log_scroll.offset();
+        self.log_scroll.set_offset(gpui::point(offset.x, (offset.y - step * by).min(gpui::px(0.))));
+        cx.notify();
     }
 
     // -- every rule --------------------------------------------------------------------------------
@@ -1038,6 +1086,22 @@ mod tests {
         cx.simulate_keystrokes("escape");
         assert_eq!(page.read_with(cx, |page, _| page.rules), None);
         cx.update(|window, _| assert!(link.is_focused(window), "the keys are back on Every rule"));
+    }
+
+    #[gpui::test]
+    fn the_whole_log_opens_on_a_sheet_with_the_weeks_days_and_esc_gives_the_keys_back_to_its_link(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let link = page.read_with(cx, |page, _| page.stops.get("The whole Log").cloned()).expect("The whole Log is a tab stop");
+        cx.update(|window, cx| window.focus(&link, cx));
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        let log = page.read_with(cx, |page, _| page.log.clone()).expect("the Log is open");
+        assert!(log.contains("## Wednesday 2026-11-11"), "the week's journal, as Fleet writes it");
+        cx.simulate_keystrokes("a l alt-up");
+        assert!(pressed(&page, cx).is_empty(), "no key reaches Your turn behind the sheet");
+        cx.simulate_keystrokes("escape");
+        assert_eq!(page.read_with(cx, |page, _| page.log.clone()), None);
+        cx.update(|window, _| assert!(link.is_focused(window), "the keys are back on The whole Log"));
     }
 
     fn standing(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> (Vec<i64>, Vec<i64>) {

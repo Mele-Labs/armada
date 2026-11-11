@@ -129,6 +129,14 @@ impl Wire {
         cx.background_spawn(async move { removed.await.map(|_| None) })
     }
 
+    /// The week's Log, from the file `digest.handled.log.path` names on this machine; the mock holds its own.
+    pub fn log(&mut self, path: String, cx: &App) -> Task<Result<String, String>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(Ok(mock.log.clone()));
+        }
+        cx.background_spawn(async move { std::fs::read_to_string(&path).map_err(|why| why.to_string()) })
+    }
+
     /// `GET /operator/talk`.
     pub fn talk(&mut self, cx: &App) -> Task<Result<OperatorTalk, String>> {
         if let Wire::Mock(mock) = self {

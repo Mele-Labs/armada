@@ -1,5 +1,5 @@
 //! The Operator's page walk: coming back at 13:05, a Yes that opens the go-ahead to file, Later, a move
-//! by the keys and by a drag, Ask, the digest's tiles, Every rule and Holds with Forget, a new item at 14:02, and the
+//! by the keys and by a drag, Ask, the digest's tiles, the whole Log, Every rule and Holds with Forget, a new item at 14:02, and the
 //! Operator off and switched on. Fleet is the mock in `operator/scenes.rs`; a step that names a scene is
 //! Fleet speaking first, or the page scrolled to what a short window holds below the open card (`rest`,
 //! `top`). The key map is the last two steps'.
@@ -11,10 +11,10 @@ const HOLD: &str = "armada: only Slot pool controls writes under apps/cockpit un
 const FORGET_HOLD: &str = "Forget armada: only Slot pool controls writes under apps/cockpit until it pushes";
 const TOP: &str = "Since you left, the red main's fix is up as #3414, waiting on ci. Quick dispatch's plan is still the one two Jobs wait on.";
 
-pub static STEPS: [Step; 45] = [
+pub static STEPS: [Step; 47] = [
     step("Coming back at 13:05: the day, and the pills say what stands. storefront's main has been red since 11:24", Verb::Look, "status", "storefront main is red since 11:24"),
-    step("The Operator's one line on what matters first, the thing it is about in its colour", Verb::Look, "status", TOP),
-    step("On it says what the Operator is reading now", Verb::Look, "status", "On it"),
+    step("The Operator's one line on what changed, in grey under the day: nothing on it waits on you", Verb::Look, "status", TOP),
+    step("What the Operator is reading now: the Job by name, what it asks, and its project", Verb::Look, "status", "The Operator is reading what Store reports its size asks: Review pull request #3415"),
     step("One item is open: its kind, its Job, what it asks and My read. A plan takes Approve, or Send changes in its Job", Verb::Look, "button", "Send changes"),
     step("A says Yes to the pick at once, and the go-ahead to file opens next: his note, and when he left it", Verb::Key("a"), "article", "File your note as an issue"),
     answer("What you answered stays below, struck through, with what came of it", "rest", "row", "Quick dispatch, done"),
@@ -39,22 +39,24 @@ pub static STEPS: [Step; 45] = [
     step("What I handled says what each act was about, and ends in the whole Log", Verb::Look, "listitem", "Started: Fix desktop_unit after #412"),
     step("It has Show all too, beside the Log", Verb::Open("button", "Show all What I handled"), "listitem", "Merged: #3406 Walk window keeps each take"),
     step("And Show fewer", Verb::Open("button", "Show fewer What I handled"), "button", "Show all What I handled"),
+    step("The whole Log opens the week's journal on a sheet: each day, and each entry at its time", Verb::Open("link", "The whole Log"), "dialog", "The whole Log"),
+    step("Esc shuts it, and the keys are back on The whole Log", Verb::Key("escape"), "link", "The whole Log"),
     step("A press on a time reads every time on the page as its age, as the thread's do: back, since and each row", Verb::Open("button", "Time 13:02"), "button", "Time 3m ago"),
     step("A press on its head folds What I handled, its aside still there", Verb::Open("button", "What I handled"), "button", "What I handled"),
-    step("Learned shows its first few rules, and Every rule opens them all", Verb::Open("link", "Every rule"), "dialog", "Every rule"),
+    step("Learned shows its rules under each project, two lines each at most, and Every rule opens them all", Verb::Open("link", "Every rule"), "dialog", "Every rule"),
     step("Everywhere first, then each project. ↓ and ↑ move through them, the list keeping the row in view", Verb::Key("down"), "listitem", "Link a report to the open issue it names"),
     step("F forgets the rule the sheet has on, Link a report to the open issue it names: Everywhere keeps one rule, Learned five, and the next rule has the sheet", Verb::Key("f"), "listitem", "File your notes without asking"),
     step("Esc shuts the sheet, and the keys are back on Every rule", Verb::Key("escape"), "link", "Every rule"),
     step("A press on its head folds Learned, and Holds is below it", Verb::Open("button", "Learned"), "button", "Holds"),
-    step("Holds: where only one Job writes, until it pushes or ends", Verb::Look, "listitem", HOLD),
+    step("Holds, under each project: where only one Job writes, until it pushes or ends", Verb::Look, "listitem", HOLD),
     step("Forget lifts a hold, and that Job's paths are anyone's again", Verb::Open("button", "Forget storefront: only Fix desktop_unit after #412 writes under tests/unit until it ends"), "listitem", HOLD),
     step("Forget the last hold and Holds goes: no tile stands empty, and the keys are on Learned", Verb::Open("button", FORGET_HOLD), "button", "Learned"),
     answer("At 14:02 a new item joins the queue, at its end", "arrives", "row", "Slot pool controls"),
     answer("The Operator switched off: nothing is queued, and the page says so with the switch", "off", "region", "The Operator is off"),
     step("What I handled is what it did while it was on", Verb::Look, "button", "What I handled"),
-    step("Switch on is the setting Electron's Permissions tab saves, and the page reads on at once", Verb::Open("button", "Switch the Operator on"), "status", "On it"),
+    step("Switch on is the setting Electron's Permissions tab saves, and the page reads on at once", Verb::Open("button", "Switch the Operator on"), "status", "The Operator is reading what Store reports its size asks: Review pull request #3415"),
     step("Tab from the page starts at the pills, then goes through the presses, the times, the tiles and the links", Verb::Key("tab"), "status", "storefront main is red since 11:24"),
     step("Your turn is back as Fleet keeps it", Verb::Look, "article", "Quick dispatch"),
     step("The keys: ↓ ↑ or j k move through Your turn; A Yes, H Always here, ⇧A Always, D No, C Send changes; 1–3 a Then", Verb::Look, "heading", "Your turn"),
-    step("L Later; / Ask; F Forget a rule or a hold; ⌥↑ ⌥↓ move the item; Enter is Yes where the page has the keys; Tab moves through the page, and Enter or Space presses what it is on; Esc leaves the chat or the sheet", Verb::Look, "heading", "Your turn"),
+    step("L Later; / Ask; F Forget a rule or a hold; ⌥↑ ⌥↓ move the item; Enter is Yes where the page has the keys; Tab moves through the page, and Enter or Space presses what it is on; Esc leaves the chat or a sheet", Verb::Look, "heading", "Your turn"),
 ];

@@ -87,7 +87,7 @@ fn press(id: impl Into<SharedString>, label: SharedString, icon: Option<&'static
     let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
     let cap = key.map(|key| {
         let cap = kbd(key, look);
-        if weight == Weight::Pick { cap.bg(look.color(token::OPERATOR_MUTED)).border_color(look.color(token::OPERATOR_EDGE)).text_color(look.color(token::FG_INVERSE)) } else { cap }
+        if weight == Weight::Pick { cap.bg(ink.opacity(0.16)).border_color(ink.opacity(0.5)).text_color(ink) } else { cap }
     });
     div()
         .id(id)
@@ -175,8 +175,8 @@ impl OperatorPageView {
                 .px(look.length(token::SPACE_3))
                 .rounded_full()
                 .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .bg(look.color(token::BG_RAISED))
+                .border_color(gpui::transparent_black())
+                .text_color(look.color(token::FG_MUTED))
                 .text_size(look.length(token::TEXT_XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
         };
@@ -201,7 +201,7 @@ impl OperatorPageView {
                         .text_color(look.color(token::STATUS_COMPLETED_FAILED))
                 })
                 .tooltip(tip(said.clone()))
-                .children(mark.map(|(mark, hue)| glyph(mark, look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4., look.color(hue))))
+                .children(mark.map(|(mark, hue)| glyph(mark, look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4., look.color(if red { hue } else { token::FG_MUTED }))))
                 .child(format!("{} main", main.repository));
             labelled(pill, Role::Status, said).into_any_element()
         });
@@ -209,7 +209,7 @@ impl OperatorPageView {
         let week = self.standing.week.or_else(|| week_from_bar(cx)).map(|percent| {
             let said = format!("{percent}% of the week's plan used");
             labelled(
-                pill("pill-week").tooltip(tip(said.clone())).child(format!("Week {percent}%")).child(meter(percent as f32 / 100., token::STATUS_RUNNING)),
+                pill("pill-week").tooltip(tip(said.clone())).child(format!("Week {percent}%")).child(meter(percent as f32 / 100., token::FG_MUTED)),
                 Role::Status,
                 said,
             )
@@ -218,7 +218,7 @@ impl OperatorPageView {
             let (held, all) = (slots.used, slots.total);
             let said = format!("Slots {held} of {all} held");
             labelled(
-                pill("pill-slots").tooltip(tip(said.clone())).child(format!("Slots {held} of {all}")).child(meter(held as f32 / all.max(1) as f32, token::STATUS_AWAITING_REVIEW)),
+                pill("pill-slots").tooltip(tip(said.clone())).child(format!("Slots {held} of {all}")).child(meter(held as f32 / all.max(1) as f32, token::FG_MUTED)),
                 Role::Status,
                 said,
             )
@@ -230,8 +230,6 @@ impl OperatorPageView {
             .gap(look.length(token::SPACE_2))
             .px(look.length(token::SPACE_6))
             .py(look.length(token::SPACE_3))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
             .children(self.day.clone().map(|day| {
                 labelled(
                     div().id("operator-day").text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(day.clone()),
@@ -253,27 +251,21 @@ impl OperatorPageView {
             .children(slots)
     }
 
+    /// The Operator's one line on what changed: grey words under the day, as nothing on it is to be pressed.
     fn top_line(&self, page: &OperatorPage, look: &Look) -> Option<AnyElement> {
-        let top = page.top.clone()?;
+        let top = page.top.as_deref()?.replace("**", "");
         Some(
             labelled(
                 div()
                     .id("operator-top")
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_3))
                     .px(look.length(token::SPACE_6))
-                    .py(look.length(token::SPACE_3))
-                    .bg(look.color(token::OPERATOR_FAINT))
-                    .border_b(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::OPERATOR_EDGE))
+                    .pb(look.length(token::SPACE_3))
                     .text_size(look.length(token::TEXT_SM))
                     .line_height(look.length(token::LEADING_SM))
-                    .child(glyph("bot", look.length(token::SPACE_4), look.color(token::OPERATOR)))
-                    .child(div().flex_1().min_w_0().child(emphasised(&top, look))),
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(top.clone()),
                 Role::Status,
-                top.replace("**", ""),
+                top,
             )
             .into_any_element(),
         )
@@ -304,8 +296,31 @@ impl OperatorPageView {
             .when(dots.len() > 1, |head| head.child(div().flex().gap(look.length(token::SPACE_1) * 1.5).children(dots)))
     }
 
+    /// What the Operator reads now: Fleet writes it `Job: what it asks`, so the Job is named, with where it runs.
     fn on_it(&self, page: &OperatorPage, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let on_it = page.on_it.as_ref()?;
+        let (job, asks) = match on_it.reading.split_once(": ") {
+            Some((job, asks)) => (Some(job.to_string()), asks.to_string()),
+            None => (None, on_it.reading.clone()),
+        };
+        let repository = job.as_deref().and_then(|job| page.digest.running.iter().find(|one| one.title == job)).and_then(|one| one.repository.clone());
+        let said = match &job {
+            Some(job) => format!("The Operator is reading what {job} asks: {asks}"),
+            None => format!("The Operator is reading {asks}"),
+        };
+        let heading = FontWeight(look.number(token::WEIGHT_HEADING));
+        let words = match job {
+            Some(job) => div()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .child(div().flex_none().text_color(look.color(token::FG_MUTED)).child("Reading what"))
+                .child(glyph("box", look.length(token::SPACE_4), look.color(token::FG_MUTED)))
+                .child(div().flex_none().font_weight(heading).child(job))
+                .child(div().flex_none().text_color(look.color(token::FG_MUTED)).child("asks:"))
+                .child(div().min_w_0().truncate().child(asks)),
+            None => div().flex().gap(look.length(token::SPACE_1)).child(div().flex_none().text_color(look.color(token::FG_MUTED)).child("Reading")).child(div().min_w_0().truncate().child(asks)),
+        };
         Some(
             labelled(
                 div()
@@ -321,16 +336,13 @@ impl OperatorPageView {
                     .border_color(look.color(token::OPERATOR_EDGE))
                     .bg(look.color(token::OPERATOR_FAINT))
                     .text_size(look.length(token::TEXT_SM))
+                    .tooltip(tip(said.clone()))
                     .child(spinner("on-it-spin", look.length(token::SPACE_4), look.color(token::OPERATOR), cx))
+                    .child(div().flex_1().min_w_0().overflow_hidden().child(words))
+                    .children(repository.map(|repository| chip(repository, look.color(token::FG_MUTED), look.color(token::BG_HOVER), look)))
                     .child(
                         div()
-                            .flex_1()
-                            .min_w_0()
-                            .truncate()
-                            .child(div().flex().gap(look.length(token::SPACE_1)).child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("On it:")).child(format!("reading {}", on_it.reading))),
-                    )
-                    .child(
-                        div()
+                            .flex_none()
                             .flex()
                             .items_center()
                             .text_size(look.length(token::TEXT_XS))
@@ -339,7 +351,7 @@ impl OperatorPageView {
                             .child(self.stamp(on_it.since.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE, token::WEIGHT_BODY), look, cx)),
                     ),
                 Role::Status,
-                "On it",
+                said,
             )
             .into_any_element(),
         )
@@ -593,9 +605,12 @@ impl OperatorPageView {
         });
         labelled(
             row_frame(SharedString::from(format!("turn-row-{at}")), look)
-                .when(open, |row| row.text_color(look.color(token::OPERATOR)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))))
+                // The open row is marked along its edge and on its ground, so the whole row reads as the one open.
+                .border_l(look.length(token::BORDER_WIDTH) * 3.)
+                .border_color(if open { look.color(token::OPERATOR) } else { gpui::transparent_black() })
+                .when(open, |row| row.bg(look.color(token::OPERATOR_FAINT)))
                 .cursor_pointer()
-                .hover(|style| style.bg(cx.look().color(token::BG_HOVER)))
+                .when(!open, |row| row.hover(|style| style.bg(cx.look().color(token::BG_HOVER))))
                 .on_click(cx.listener(move |this, _, _, cx| this.open_id(&id, cx)))
                 .on_drag(TurnDrag { id: turn.id.clone(), title: title.clone() }, |drag, _, _, cx| cx.new(|_| drag.clone()))
                 .drag_over::<TurnDrag>(|style, _, _, cx| style.bg(cx.look().color(token::OPERATOR_FAINT)))
@@ -730,11 +745,22 @@ impl OperatorPageView {
             // The first few, one line each: the rest are a press away. Learned's are all on Every rule.
             let more = rows.len() > FEW && link != Some("Every rule");
             let whole = self.whole.contains(name);
-            let shown = if whole || !more { rows.len() } else { FEW };
-            // A hold's words are what matter in it, so it takes a second line before it is cut.
-            let wraps = name == "Holds";
-            let rows = rows.into_iter().take(shown).enumerate().map(|(at, row)| {
-                let text = row.text;
+            let shown = if link == Some("Every rule") { rows.len().min(FEW) } else if whole || !more { rows.len() } else { FEW };
+            // A rule's or a hold's words are what matter in it, so it takes a second line before it is cut.
+            let wraps = matches!(name, "Learned" | "Holds");
+            let mut last: Option<String> = None;
+            let rows = rows.into_iter().take(shown).enumerate().flat_map(|(at, row)| {
+                let subhead = row.place.clone().filter(|place| last.as_ref() != Some(place)).map(|place| {
+                    last = Some(place.clone());
+                    div()
+                        .pt(look.length(if at == 0 { token::SPACE_1 } else { token::SPACE_2 }))
+                        .text_size(look.length(token::TEXT_2XS))
+                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                        .text_color(look.color(token::FG_SUBTLE))
+                        .child(place)
+                        .into_any_element()
+                });
+                let (text, said) = (row.text, row.said);
                 let line = div()
                     .id(SharedString::from(format!("{name}-{at}")))
                     .flex()
@@ -742,21 +768,21 @@ impl OperatorPageView {
                     .gap(look.length(token::SPACE_2))
                     .py(look.length(token::SPACE_1))
                     .text_size(look.length(token::TEXT_XS))
-                    .tooltip(tip(text.clone()))
+                    .tooltip(tip(said.clone()))
                     .child(div().flex_1().min_w_0().when(wraps, |words| words.line_clamp(2).text_ellipsis()).when(!wraps, |words| words.truncate()).child(text.clone()))
                     .child(match row.side {
                         Side::None => gpui::Empty.into_any_element(),
                         Side::Text(said) => div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(said).into_any_element(),
                         Side::At(at) => self.stamp(at.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE, token::WEIGHT_BODY), look, cx),
                     })
-                    .children(row.forget.map(|id| self.forget_button(id, &text, look, cx)));
+                    .children(row.forget.map(|id| self.forget_button(id, &said, look, cx)));
                 // A row that opens a Job is a tab stop, and Enter opens it as a press does.
                 let line = match row.opened {
                     Some(opened) => pressed(worded(line, look).mx(-look.length(token::SPACE_1)), cx, move |_, _, cx| cx.emit(opened.clone())),
                     // The same inset as a row that opens a Job, so a ring on it stands clear of the words.
                     None => line.px(look.length(token::SPACE_1)).mx(-look.length(token::SPACE_1)),
                 };
-                labelled(line, Role::ListItem, text).into_any_element()
+                subhead.into_iter().chain(std::iter::once(labelled(line, Role::ListItem, said).into_any_element()))
             });
             let link = link.map(|said| self.link(said, look, cx));
             let toggle = more.then(|| {
@@ -830,22 +856,22 @@ impl OperatorPageView {
         let digest = &page.digest;
         let mut tiles: Vec<AnyElement> = Vec::new();
         if !digest.landed.is_empty() {
-            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), side: Side::At(one.at.clone()), opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect();
+            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), said: format!("#{} {}", one.number, one.title), place: None, side: Side::At(one.at.clone()), opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect();
             tiles.push(self.tile("Landed", "git-merge", token::STATUS_COMPLETED_SUCCESS, None, rows, None, look, cx));
         }
         if !digest.handled.acts.is_empty() || digest.handled.log.is_some() {
-            let rows = digest.handled.acts.iter().map(|act| Row { text: handled_said(act), side: Side::At(act.at.clone()), opened: None, forget: None }).collect();
+            let rows = digest.handled.acts.iter().map(|act| Row { text: handled_said(act), said: handled_said(act), place: None, side: Side::At(act.at.clone()), opened: None, forget: None }).collect();
             // Off, nothing new is handled: what is here it did before it was switched off.
             let aside = (!page.on).then(|| "while it was on".to_string());
             let link = digest.handled.log.as_ref().map(|_| "The whole Log");
             tiles.push(self.tile("What I handled", "bot", token::OPERATOR, aside, rows, link, look, cx));
         }
         if !digest.running.is_empty() {
-            let rows = digest.running.iter().map(|one| Row { text: one.title.clone(), side: Side::Text(one.repository.clone().unwrap_or_default()), opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect();
+            let rows = by_place(digest.running.iter().map(|one| Row { text: one.title.clone(), said: one.title.clone(), place: one.repository.clone(), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect());
             tiles.push(self.tile("Running", "activity", token::STATUS_RUNNING, None, rows, None, look, cx));
         }
         if !digest.coming_up.is_empty() {
-            let rows = digest.coming_up.iter().map(|one| Row { text: format!("{}: waits on {}", one.title, one.needs), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect();
+            let rows = digest.coming_up.iter().map(|one| Row { text: format!("{}: waits on {}", one.title, one.needs), said: format!("{}: waits on {}", one.title, one.needs), place: None, side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect();
             tiles.push(self.tile("Coming up", "clock", token::STATUS_NOT_STARTED, None, rows, None, look, cx));
         }
         if !digest.learned.is_empty() {
@@ -856,11 +882,15 @@ impl OperatorPageView {
                     places.push(place);
                 }
             }
-            let rows = digest.learned.iter().map(|rule| Row { text: rule_said(rule), side: Side::At(rule.at.clone()), opened: None, forget: Some(rule.id) }).collect();
+            let rows = by_place(
+                digest.learned.iter().map(|rule| Row { text: rule.said.clone(), said: rule_said(rule), place: Some(rule.repository.clone().unwrap_or_else(|| "Everywhere".into())), side: Side::At(rule.at.clone()), opened: None, forget: Some(rule.id) }).collect(),
+            );
             tiles.push(self.tile("Learned", "scroll-text", token::OPERATOR, Some(places.join(", ")), rows, Some("Every rule"), look, cx));
         }
         if !digest.holds.is_empty() {
-            let rows = digest.holds.iter().map(|hold| Row { text: hold_said(hold), side: Side::At(hold.at.clone()), opened: None, forget: Some(hold.id) }).collect();
+            let rows = by_place(
+                digest.holds.iter().map(|hold| Row { text: hold.said.clone(), said: hold_said(hold), place: Some(hold.repository.clone().unwrap_or_else(|| hold.manifest_id.clone())), side: Side::At(hold.at.clone()), opened: None, forget: Some(hold.id) }).collect(),
+            );
             tiles.push(self.tile("Holds", "folder-lock", token::OPERATOR, None, rows, None, look, cx));
         }
         let since = div()
@@ -988,19 +1018,6 @@ fn side(look: &Look) -> Div {
         .bg(look.color(token::BG_SUNKEN))
 }
 
-/// The top line, what the Operator wrote between `**` in its hue and weight: the thing the line is about.
-fn emphasised(top: &str, look: &Look) -> gpui::StyledText {
-    let (mut said, mut marks) = (String::new(), Vec::new());
-    for (at, part) in top.split("**").enumerate() {
-        if at % 2 == 1 {
-            let style = gpui::HighlightStyle { font_weight: Some(FontWeight(look.number(token::WEIGHT_HEADING))), color: Some(look.color(token::OPERATOR)), ..Default::default() };
-            marks.push((said.len()..said.len() + part.len(), style));
-        }
-        said.push_str(part);
-    }
-    gpui::StyledText::new(said).with_highlights(marks)
-}
-
 /// A tile's rows past these are a press away, or in the Log.
 const FEW: usize = 4;
 
@@ -1011,7 +1028,11 @@ pub(super) fn opens_unpressed(name: &str) -> bool {
 
 /// One row of a tile: its words, what stands at its right, and where a press on it goes.
 pub(super) struct Row {
+    /// The words drawn. Under a project's subhead they leave the project out; `said` keeps it for a reader.
     text: String,
+    said: String,
+    /// The project a row sits under, in the tiles grouped by project.
+    place: Option<String>,
     side: Side,
     opened: Option<Opened>,
     /// A rule's or a hold's id, which its Forget names.
@@ -1031,6 +1052,20 @@ pub(super) fn handled_said(act: &ipc::operator_page::OperatorHandledAct) -> Stri
         (false, title) if !title.is_empty() => format!("{}: {title}", act.outcome),
         _ => act.outcome.clone(),
     }
+}
+
+/// Rows under their project: Everywhere first, then each project by name, as Every rule has them.
+fn by_place(rows: Vec<Row>) -> Vec<Row> {
+    let mut places: Vec<Option<String>> = Vec::new();
+    for row in &rows {
+        if !places.contains(&row.place) {
+            places.push(row.place.clone());
+        }
+    }
+    places.sort_by_key(|place| (place.as_deref() != Some("Everywhere"), place.clone()));
+    let mut rows = rows;
+    rows.sort_by_key(|row| places.iter().position(|place| *place == row.place));
+    rows
 }
 
 /// A time to the minute, as the page reads it: `12:47`, with the day when it is not today (`Nov 10 16:00`).
@@ -1093,10 +1128,10 @@ impl Render for OperatorPageView {
             .bg(look.color(token::BG_BASE))
             .text_color(look.color(token::FG_DEFAULT))
             .font_family(sans(look))
-            .text_size(look.length(token::TEXT_SM))
-            .child(self.head(look, cx));
+            .text_size(look.length(token::TEXT_SM));
+        let top = div().flex_none().border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).child(self.head(look, cx));
         let Some(page) = self.page.as_ref() else {
-            return root.child(self.skeleton(look)).into_any_element();
+            return root.child(top).child(self.skeleton(look)).into_any_element();
         };
         let open = self.open_item().map(|turn| self.card(turn, look, cx));
         let off = (!page.on).then(|| self.off(look, cx));
@@ -1120,8 +1155,6 @@ impl Render for OperatorPageView {
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_3))
-                    // As wide as the sketch's column at most, so a wide window does not stretch a card's lines.
-                    .max_w(look.length(token::SPACE_12) * 16.)
                     .child(self.turn_head(look))
                     .children(self.on_it(page, look, cx))
                     .children(off)
@@ -1133,10 +1166,12 @@ impl Render for OperatorPageView {
             None => self.digest(page, look, cx).into_any_element(),
         };
         let sheet = self.rules.map(|at| self.rules_sheet(at, look, cx));
+        let log = self.log.as_deref().map(|text| self.log_sheet(text, look, cx));
         root.relative()
-            .children(self.top_line(page, look))
+            .child(top.children(self.top_line(page, look)))
             .child(div().flex_1().min_h_0().flex().child(main).child(side(look).id("operator-side").overflow_y_scroll().child(aside)))
             .children(sheet)
+            .children(log)
             .into_any_element()
     }
 }
@@ -1260,13 +1295,74 @@ impl OperatorPageView {
                 .into_any_element(),
             );
         }
-        let close = labelled(
-            pressed(press("rules-close", "Close".into(), None, Some("Esc".into()), Weight::Bare, look), cx, |this, window, cx| this.close_rules(window, cx)),
-            Role::Button,
-            "Close",
-        );
+        self.sheet("rules", "Every rule", "scroll-text", &self.rules_focus, &self.rules_scroll, body, Self::close_rules, look, cx)
+    }
+
+    /// The whole Log: each day under its heading, each entry at its time, as Fleet's journal writes them.
+    fn log_sheet(&self, text: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let mut body: Vec<AnyElement> = Vec::new();
+        if text.is_empty() {
+            body.extend((0..6).map(|n| div().py(look.length(token::SPACE_1)).child(bone(if n % 2 == 0 { 0.8 } else { 0.6 }, look.length(token::LEADING_SM), look)).into_any_element()));
+        }
+        for (n, line) in text.lines().enumerate() {
+            if let Some(day) = line.strip_prefix("## ") {
+                body.push(
+                    labelled(
+                        div()
+                            .id(SharedString::from(format!("log-day-{n}")))
+                            .pt(look.length(if body.is_empty() { token::SPACE_1 } else { token::SPACE_4 }))
+                            .pb(look.length(token::SPACE_1))
+                            .text_size(look.length(token::TEXT_2XS))
+                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                            .text_color(look.color(token::FG_SUBTLE))
+                            .child(day.to_string()),
+                        Role::Heading,
+                        day.to_string(),
+                    )
+                    .into_any_element(),
+                );
+            } else if let Some(entry) = line.strip_prefix("- ") {
+                let (at, said) = entry.split_once(' ').filter(|(at, _)| at.len() == 5 && at.contains(':')).unwrap_or(("", entry));
+                body.push(
+                    labelled(
+                        div()
+                            .id(SharedString::from(format!("log-line-{n}")))
+                            .flex()
+                            .gap(look.length(token::SPACE_3))
+                            .py(look.length(token::SPACE_1))
+                            .text_size(look.length(token::TEXT_SM))
+                            .line_height(look.length(token::LEADING_SM))
+                            .child(div().flex_none().w(look.length(token::SPACE_12)).text_color(look.color(token::FG_SUBTLE)).child(at.to_string()))
+                            .child(div().flex_1().min_w_0().child(said.to_string())),
+                        Role::ListItem,
+                        format!("{at} {said}").trim().to_string(),
+                    )
+                    .into_any_element(),
+                );
+            } else if !line.trim().is_empty() && !line.starts_with("# ") {
+                body.push(div().py(look.length(token::SPACE_1)).text_color(look.color(token::FG_MUTED)).child(line.to_string()).into_any_element());
+            }
+        }
+        self.sheet("log", "The whole Log", "bot", &self.log_focus, &self.log_scroll, body, Self::close_log, look, cx)
+    }
+
+    /// A sheet over the page: its head with Close, its list, Esc or a press outside to shut it.
+    #[allow(clippy::too_many_arguments)]
+    fn sheet(
+        &self,
+        id: &'static str,
+        title: &'static str,
+        mark: &'static str,
+        focus: &gpui::FocusHandle,
+        scroll: &gpui::ScrollHandle,
+        body: Vec<AnyElement>,
+        close: fn(&mut OperatorPageView, &mut Window, &mut Context<OperatorPageView>),
+        look: &Look,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let shut = labelled(pressed(press(format!("{id}-close"), "Close".into(), None, Some("Esc".into()), Weight::Bare, look), cx, move |this, window, cx| close(this, window, cx)), Role::Button, "Close");
         let panel = div()
-            .id("rules-panel")
+            .id(SharedString::from(format!("{id}-panel")))
             .occlude()
             .w(look.length(token::SPACE_12) * 12.)
             .max_h(gpui::relative(0.8))
@@ -1286,23 +1382,23 @@ impl OperatorPageView {
                     .py(look.length(token::SPACE_3))
                     .border_b(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_SUBTLE))
-                    .child(glyph("scroll-text", look.length(token::SPACE_4), look.color(token::OPERATOR)))
+                    .child(glyph(mark, look.length(token::SPACE_4), look.color(token::OPERATOR)))
                     .child(labelled(
-                        div().id("rules-title").flex_1().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("Every rule"),
+                        div().id(SharedString::from(format!("{id}-title"))).flex_1().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title),
                         Role::Heading,
-                        "Every rule",
+                        title,
                     ))
-                    .child(close),
+                    .child(shut),
             )
-            .child(div().id("rules-list").track_scroll(&self.rules_scroll).flex_1().min_h_0().overflow_y_scroll().px(look.length(token::SPACE_3)).py(look.length(token::SPACE_2)).children(body));
+            .child(div().id(SharedString::from(format!("{id}-list"))).track_scroll(scroll).flex_1().min_h_0().overflow_y_scroll().px(look.length(token::SPACE_3)).py(look.length(token::SPACE_2)).children(body));
         labelled(
             div()
-                .id("rules-sheet")
-                .track_focus(&self.rules_focus)
-                .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                .id(SharedString::from(format!("{id}-sheet")))
+                .track_focus(focus)
+                .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
                     if event.keystroke.key == "escape" {
                         cx.stop_propagation();
-                        this.close_rules(window, cx);
+                        close(this, window, cx);
                     }
                 }))
                 .absolute()
@@ -1311,10 +1407,10 @@ impl OperatorPageView {
                 .items_center()
                 .justify_center()
                 .bg(look.color(token::SCRIM))
-                .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| this.close_rules(window, cx)))
+                .on_mouse_down(MouseButton::Left, cx.listener(move |this, _, window, cx| close(this, window, cx)))
                 .child(panel.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())),
             Role::Dialog,
-            "Every rule",
+            title,
         )
         .into_any_element()
     }
@@ -1367,5 +1463,12 @@ mod tests {
         };
         assert_eq!(hold_said(&hold(Some("armada"))), "armada: only Slot pool controls writes under apps/cockpit until it pushes");
         assert_eq!(hold_said(&hold(None)), "01REPO: only Slot pool controls writes under apps/cockpit until it pushes");
+    }
+
+    #[test]
+    fn rows_sit_under_their_project_everywhere_first_then_by_name() {
+        let row = |text: &str, place: &str| Row { text: text.into(), said: text.into(), place: Some(place.into()), side: Side::None, opened: None, forget: None };
+        let rows = by_place(vec![row("a", "storefront"), row("b", "Everywhere"), row("c", "armada"), row("d", "storefront"), row("e", "Everywhere")]);
+        assert_eq!(rows.iter().map(|row| row.text.as_str()).collect::<Vec<_>>(), ["b", "e", "c", "a", "d"]);
     }
 }

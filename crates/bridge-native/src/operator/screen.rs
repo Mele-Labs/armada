@@ -139,13 +139,9 @@ impl OperatorScreen {
         cx.notify();
     }
 
-    /// What the page asks: a Job opens on the Jobs screen; the Log opens in the Mac's own app for it.
+    /// What the page asks: a Job opens on the Jobs screen.
     fn opened(&mut self, opened: &Opened, window: &mut Window, cx: &mut Context<Self>) {
         let job = match opened {
-            Opened::Log(path) => {
-                cx.open_url(&format!("file://{path}"));
-                return;
-            }
             Opened::Job(id) => Some(id.clone()),
             Opened::Act(act, session) => {
                 Note::info("an item's act was left to the Job that holds it").field("act", format!("{:?}", act.kind)).field("target", act.target.as_str()).emit();

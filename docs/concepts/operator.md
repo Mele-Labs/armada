@@ -226,14 +226,17 @@ Raising, leaving a note where it is and noting it are not acts.
 **Its page is a queue the person works through, with a digest beside it.**
 Settled with the person on 10 Nov, on sketches. It stays current all day; the morning only rewrites its top line.
 - The top line is the Operator's one sentence on what matters first, rewritten each time the person comes back to the page.
+  It sits in grey under the day and the pills, with nothing on it to press, and only a red main's pill keeps its colour (11 Nov).
 - Your turn is the short list, in an order the person drags.
-  On it sits at the top, saying what the Operator is doing now.
+  On it sits at the top, saying what the Operator is reading now: the Job by name, what it asks, and its project.
   One item is open at a time, with its kind, its Job, what it asks, the Operator's read and its acts, the pick marked: A presses the pick, L is Later, / is Ask.
   The rest are one line each.
 - Your turn holds the person's decisions (plans, walks, reviews, questions) and go-aheads, what the Operator would do itself, answered Yes, Always here, Always or No.
 - A go-ahead to file an issue also carries Then: Just file it, File and start a Job, or File and hand to a live Job already on the same files, with the Operator's pick marked My pick.
 - Ask on an item opens the chat about that item in place of the digest. The chat holds conversation only; a raise is an item of Your turn, never a chat line.
 - The digest is Since you last looked: tiles for Landed, What I handled (ending in a link to the whole Log), Running, Coming up, and Learned, each project's rules, which replaces the Permissions tab, and Holds, the paths a Job holds until it pushes or ends.
+  Running, Learned and Holds put their rows under each project's heading, Everywhere first, and a rule or hold takes two lines before it is cut (11 Nov).
+  The whole Log opens on a sheet over the page, a heading for each day and each entry at its time.
 - A new item during the day joins the queue and raises a toast whose pick button settles it.
 - A red main nobody is on is an item. Start a fix starts a Job at once with no plan step; whether its pull request merges by itself is per project, asked the first time.
 

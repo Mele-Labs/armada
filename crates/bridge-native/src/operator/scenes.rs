@@ -21,7 +21,30 @@ pub struct MockFleet {
     pub pressed: Vec<OperatorAnswerPress>,
     /// Why the next switch is refused, where a test wants it refused.
     pub refuse_switch: Option<String>,
+    /// The week's Log, as Fleet writes it.
+    pub log: String,
 }
+
+/// The week's Log as Fleet's journal writes it: a heading per day, a line per entry at its time.
+const LOG: &str = "# The Operator's journal, 2026-W46
+
+## Tuesday 2026-11-10
+
+- 16:00 Kept a rule for armada: file your notes without asking
+- 17:00 Kept a rule for storefront: a red main gets a fix Job at once
+- 18:12 Linked: the merge strip report to #3401
+
+## Wednesday 2026-11-11
+
+- 11:24 storefront main went red on 9c41e07; raised it
+- 11:31 Started: Fix desktop_unit after #412, for the red main
+- 12:18 Ended: every label in Bridge and Pocket is read from the registry
+- 12:20 Started: Fix desktop_unit after #412
+- 12:33 Passed on: Map legend follow-up, to Rework the Map legend
+- 12:40 Held apps/cockpit for Slot pool controls until it pushes
+- 12:47 Linked: the build switcher report to #3390
+- 13:02 Reading what Store reports its size asks: Review pull request #3415
+";
 
 pub fn page() -> OperatorPage {
     ipc::decode::<OperatorPage>("OperatorPage", include_bytes!("../../fixtures/operator-page.json")).expect("the Operator page fixture decodes")
@@ -48,7 +71,7 @@ pub fn day() -> SharedString {
 
 impl MockFleet {
     pub fn new() -> MockFleet {
-        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None }
+        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, log: LOG.to_string() }
     }
 
     fn take(&mut self, id: &str) -> Option<OperatorTurnItem> {
