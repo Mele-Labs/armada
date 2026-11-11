@@ -729,7 +729,11 @@ impl DispatchScreen {
                     plain: false,
                 };
                 let wait = live::wait_of(tagged, others, &read, None);
-                self.sheet.update(cx, |sheet, cx| sheet.set_wait(Some(wait), cx));
+                // A reading follows words typed, and typing has cleared any refusal before it.
+                self.sheet.update(cx, |sheet, cx| {
+                    sheet.face.refused = None;
+                    sheet.set_wait(Some(wait), cx)
+                });
             }
             "refuse-member" => {
                 // Fleet's 404 for a start whose project was removed after the window was scoped to it.
