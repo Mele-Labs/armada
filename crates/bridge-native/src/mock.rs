@@ -154,7 +154,7 @@ pub fn catalogue() -> Option<Catalogue> {
         scripts: Vec<Talk>,
     }
     let named = SCENARIO.lock().ok()?.clone();
-    if !matches!(named.as_str(), "job-view-composer" | "jobs-screens" | "thread-presses" | "sent-messages") {
+    if !matches!(named.as_str(), "job-view-composer" | "jobs-screens" | "thread-presses" | "sent-messages" | "history") {
         return None;
     }
     let read = || -> Result<Catalogue, String> {
