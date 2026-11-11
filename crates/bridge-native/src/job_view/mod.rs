@@ -853,3 +853,6 @@ mod tests {
         assert!(!edit_read(&items, "c", "first try"), "a row not in the thread reads nothing");
     }
 }
+
+/// The thread's age of a time, which the Operator's page flips to as the thread does.
+pub(crate) use rows::age;

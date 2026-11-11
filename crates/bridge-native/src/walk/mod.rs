@@ -17,6 +17,7 @@ pub mod check;
 pub mod dispatch;
 pub mod fleet;
 pub mod notes;
+pub mod operator;
 pub mod stage;
 pub mod stand_in;
 pub mod strip_marks;
@@ -137,6 +138,8 @@ pub enum Screen {
     /// strip, the dispatch sheet and the notes layer over the Jobs screen, and the Job head's
     /// stand-in, drawn only while a scene shows the ring.
     All,
+    /// The Operator's page in front of the Jobs screen, on the mock Fleet in `operator/scenes.rs`.
+    Operator,
 }
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
@@ -338,6 +341,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Dispatch,
         scenario: "jobs-many",
         steps: &notes::STEPS,
+    },
+    Walk {
+        name: "operator-page",
+        title: "Operator page",
+        screen: Screen::Operator,
+        scenario: "jobs-many",
+        steps: &operator::STEPS,
     },
     Walk {
         name: "native-title-bar",

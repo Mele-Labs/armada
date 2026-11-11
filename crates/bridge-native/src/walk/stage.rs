@@ -67,6 +67,17 @@ impl Stage {
                 let stood = cx.new(|cx| super::stand_in::JobHeadStandIn::new(screen.into(), cx));
                 Ok(Stage { view: stood.into(), focus })
             }
+            Screen::Operator => {
+                super::strip_marks::leave(cx);
+                crate::titlebar::scenes::begin(cx);
+                let records = crate::mock::jobs(walk.scenario)?;
+                let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
+                let jobs = cx.new(|cx| JobsScreen::new(list, None, window, cx));
+                let screen = cx.new(|cx| crate::operator::OperatorScreen::mock(jobs, window, cx));
+                let focus = Focus { keys: screen.read(cx).page.read(cx).focus.clone(), within: screen.read(cx).within.clone() };
+                window.focus(&focus.keys, cx);
+                Ok(Stage { view: screen.into(), focus })
+            }
             Screen::Marks => {
                 crate::titlebar::scenes::begin(cx);
                 super::strip_marks::enter(cx);
@@ -334,6 +345,9 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             Ok(())
         }
         Verb::Answer(name) => {
+            if let Some(page) = crate::operator::live(cx) {
+                return page.update(cx, |page, cx| page.scene(name, cx)).map_err(Missed);
+            }
             let screen = crate::dispatch::screen::live(cx).ok_or_else(|| Missed("no dispatch screen is drawn yet".into()))?;
             screen.update(cx, |screen, cx| screen.scene(name, window, cx)).map_err(Missed)
         }

@@ -44,6 +44,7 @@ mod menu;
 mod merge_strip;
 mod mock;
 mod notify;
+mod operator;
 mod palette;
 mod point;
 mod queued;
@@ -261,8 +262,9 @@ fn main() -> ExitCode {
                     window.focus(&focus, cx);
                     let notifier = cx.new(|cx| Notifier::new(&fleet, &jobs, window.window_handle(), cx));
                     let jobs_screen = cx.new(|cx| JobsScreen::new(jobs, None, window, cx));
-                    // The sheet over the Jobs screen: ⌘N and `n` open it, and its Start goes to this Fleet.
-                    let screen = cx.new(|cx| dispatch::DispatchScreen::new(jobs_screen, &[], window, cx));
+                    let operator: gpui::AnyView = cx.new(|cx| operator::OperatorScreen::live(jobs_screen.clone(), &fleet, window, cx)).into();
+                    // The sheet over the Operator's page: ⌘N and `n` open it, and its Start goes to this Fleet.
+                    let screen = cx.new(|cx| dispatch::DispatchScreen::new(jobs_screen, &[], window, cx).over(operator));
                     cx.new(|_| Shell { screen: screen.into(), _fleet: Some((fleet, look, keys, menu, notifier)) })
                 })
                 .map(|_| ()),
@@ -272,8 +274,8 @@ fn main() -> ExitCode {
                         let jobs = cx.new(|cx| JobsList::mock(&records, cx));
                         let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
-                        let screen = cx.new(|cx| JobsScreen::new(jobs, Some(threads), window, cx));
-                        cx.new(|_| Shell { screen: screen.into(), _fleet: None })
+                        let screen = cx.new(|cx| JobsScreen::new(jobs, Some(threads), window, cx)).into();
+                        cx.new(|_| Shell { screen, _fleet: None })
                     })
                     .map(|_| ()),
                 Err(why) => Err(anyhow::anyhow!(why)),

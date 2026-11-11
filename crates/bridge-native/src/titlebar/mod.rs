@@ -34,6 +34,8 @@ use gpui::{
 use ipc::{BuildSource, ModelDownshift};
 
 pub use face::{repositories_of, Connection, Face, LiveLink, Remedy, RestartWhy, Restarting};
+/// The Operator's page adds its place to the strip and reads the week's ring.
+pub use face::{Place, Usage};
 
 use crate::assets::MARK;
 use crate::dropdown::{Dropdown, Entry, Picked, Row};
@@ -1187,7 +1189,7 @@ impl TitleBar {
                     .rounded(round)
                     .border(look.length(token::BORDER_WIDTH))
                     .border_color(gpui::transparent_black())
-                    .font_family(mono(look))
+                    .font_family(sans(look))
                     .text_size(look.length(token::TEXT_2XS))
                     .text_color(ink)
                     .when(here, |tab| {

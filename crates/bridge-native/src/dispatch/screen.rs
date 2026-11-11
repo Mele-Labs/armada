@@ -10,7 +10,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
-    canvas, div, prelude::*, AnyWindowHandle, App, Bounds, Context, Entity, FocusHandle, Global, Pixels, SharedString,
+    canvas, div, prelude::*, AnyView, AnyWindowHandle, App, Bounds, Context, Entity, FocusHandle, Global, Pixels, SharedString,
     Subscription, Task, WeakEntity, Window,
 };
 use ipc::{SessionId, SessionRecord, SessionTag, TagKind};
@@ -26,6 +26,8 @@ use crate::titlebar::{self, Asked as BarAsked, AskedSink};
 
 pub struct DispatchScreen {
     jobs: Entity<JobsScreen>,
+    /// What the sheet stands over: the Jobs screen, or the Operator's page that holds it.
+    under: AnyView,
     sheet: Entity<DispatchSheet>,
     layer: Option<Entity<Layer>>,
     /// Where the notes are kept, once something says.
@@ -252,7 +254,13 @@ impl DispatchScreen {
                 (behind.0)(asked, cx);
             }
         })));
-        DispatchScreen { jobs, sheet, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
+        DispatchScreen { under: jobs.clone().into(), jobs, sheet, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
+    }
+
+    /// The sheet over another screen that holds the Jobs screen it reads, as the Operator's page does.
+    pub fn over(mut self, under: AnyView) -> Self {
+        self.under = under;
+        self
     }
 
     /// ⌘N and its other doors: the sheet opens on the draft as it stands.
@@ -712,7 +720,7 @@ impl Render for DispatchScreen {
             }))
             .relative()
             .size_full()
-            .child(self.jobs.clone())
+            .child(self.under.clone())
             .child(canvas(move |bounds, _, _| area.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .children(sheet)
             .children(self.layer.clone())
