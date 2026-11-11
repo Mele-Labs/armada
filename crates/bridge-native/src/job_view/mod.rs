@@ -226,6 +226,8 @@ pub struct JobView {
     fleet: Option<Entity<FleetConnection>>,
     /// The threads of a mock scenario, which never change but by the person's own words.
     mock: HashMap<String, HeldThread>,
+    /// What the mock's Needs you says for each Job, as Fleet's view would: grouped from the record.
+    mock_needs: HashMap<String, ipc::NeedsYou>,
     /// The Job on screen.
     shown: Option<SharedString>,
     pages: HashMap<SharedString, Page>,
@@ -341,6 +343,7 @@ impl JobView {
             list,
             fleet,
             mock,
+            mock_needs: HashMap::new(),
             shown: None,
             pages: HashMap::new(),
             head: head::Head::new(cx),
@@ -483,6 +486,7 @@ impl JobView {
     /// Bring a page's list in step with the thread held: measure again from the first item that
     /// changed and from no earlier, so a tail does not cost a thread's worth of layout.
     fn sync(&mut self, id: &SharedString, cx: &mut Context<Self>) {
+        self.want_needs(id, cx);
         let dirty = self.fleet.as_ref().and_then(|fleet| fleet.update(cx, |fleet, _| fleet.take_dirty(id)));
         let added = self.fleet.as_ref().map_or(0, |fleet| fleet.update(cx, |fleet, _| fleet.take_prepended(id)));
         let working = self.working(id, cx);

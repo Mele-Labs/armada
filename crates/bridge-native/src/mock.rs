@@ -6,7 +6,10 @@ use std::collections::HashMap;
 
 use std::sync::Mutex;
 
-use ipc::{IssueList, JobThread, ModelChoices, SessionList, SessionQuick, SessionRecord, SettingValue};
+use ipc::{
+    IssueList, JobThread, ModelChoices, NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyph, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSection,
+    NeedsYouSectionKind, SessionList, SessionQuick, SessionRecord, SettingValue, WaitingActKind, WaitingItem, WaitingSource, DOCUMENT_ITEM_PREFIX,
+};
 use serde::Deserialize;
 
 /// The scenario the last [`jobs`] call named, which the message box reads its catalogue by.
@@ -131,8 +134,198 @@ pub fn catalogue() -> Option<Catalogue> {
     read().ok()
 }
 
+/// What `GET /sessions/needs_you` would answer for a mock Job: its `waiting_for` less the items put away here,
+/// grouped as Fleet groups them. **This is the mock's own grouping, written once for every scenario**, so a
+/// fixture's `waiting_for` is all a scenario carries and a walk's dismissal comes out as Fleet's view would.
+/// It is `crates/fleet/src/session_host/needs_you.rs` read for the sources the fixtures hold: a source
+/// added there is placed here when a fixture holds one.
+pub fn needs_you(job: &str, items: &[WaitingItem], away: &dyn Fn(&str) -> bool) -> NeedsYou {
+    use NeedsYouSectionKind as Section;
+    let rows: Vec<(Section, NeedsYouRow)> = items
+        .iter()
+        .filter(|item| !away(&item.id))
+        .map(|item| {
+            let act = mock_act(item, job);
+            let (section, dismiss) = mock_place(item, &act);
+            let row = NeedsYouRow { id: item.id.clone(), source: item.source, text: item.text.clone(), since: item.since.clone(), glyph: mock_glyph(item, &act), act, dismiss };
+            (section, row)
+        })
+        .collect();
+    let listed = |section: Section| matches!(section, Section::Questions | Section::ToDo | Section::Walks | Section::Commands | Section::PullRequests);
+    let owed = rows.iter().filter(|(section, _)| *section != Section::Done).count();
+    let reviewing = rows.iter().filter(|(section, _)| *section == Section::ToReview).count();
+    let alone_is_a_document = owed == 1 && rows.iter().any(|(_, row)| row.source == WaitingSource::Document);
+    let review_in_band = reviewing > 1 || alone_is_a_document;
+    let mut glyphs: Vec<NeedsYouGlyph> = rows.iter().filter(|(section, _)| listed(*section)).map(|(_, row)| NeedsYouGlyph { kind: row.glyph.kind, said: row.text.clone() }).collect();
+    if review_in_band {
+        let mut pages: Vec<&NeedsYouRow> = rows.iter().filter(|(section, _)| *section == Section::ToReview).map(|(_, row)| row).collect();
+        pages.sort_by(|a, b| a.since.as_str().cmp(b.since.as_str()));
+        glyphs.extend(pages.into_iter().map(|row| row.glyph.clone()));
+    }
+    let order = [
+        (Section::Questions, "Questions"),
+        (Section::ToDo, "To do"),
+        (Section::ToReview, "To review"),
+        (Section::Walks, "Walks"),
+        (Section::Commands, "Commands"),
+        (Section::PullRequests, "PRs"),
+        (Section::Restart, "Restart"),
+        (Section::Done, "Done"),
+    ];
+    let sections = order
+        .iter()
+        .filter_map(|(kind, label)| {
+            let mut mine: Vec<NeedsYouRow> = rows.iter().filter(|(section, _)| section == kind).map(|(_, row)| row.clone()).collect();
+            if *kind == Section::ToReview {
+                mine.sort_by(|a, b| a.since.as_str().cmp(b.since.as_str()));
+            }
+            (!mine.is_empty()).then(|| NeedsYouSection { kind: *kind, label: (*label).into(), rows: mine })
+        })
+        .collect();
+    NeedsYou { session_id: ipc::SessionId::carried(job), sections, fold: rows.iter().any(|(section, _)| listed(*section)), review_in_band, glyphs }
+}
+
+fn mock_act(item: &WaitingItem, job: &str) -> NeedsYouAct {
+    let named = |prefix: &str| item.id.strip_prefix(prefix).unwrap_or(&item.id).to_string();
+    let command = item.act.as_ref().filter(|act| act.kind == WaitingActKind::Run).map(|act| act.target.clone());
+    let pressed = match item.source {
+        WaitingSource::Plan => NeedsYouAct::OpenPlan,
+        WaitingSource::Sketch => NeedsYouAct::OpenSketch { title: named("sketch:") },
+        WaitingSource::Document => NeedsYouAct::OpenDocument { path: named(DOCUMENT_ITEM_PREFIX) },
+        WaitingSource::Draft => NeedsYouAct::OpenDraft { row: named("draft:") },
+        _ if !item.options.is_empty() => NeedsYouAct::Answer { options: item.options.clone(), other: true },
+        _ if !item.steps.is_empty() => NeedsYouAct::Steps { steps: item.steps.clone(), command: command.clone() },
+        _ => {
+            let words = matches!(item.source, WaitingSource::Agent | WaitingSource::Replied);
+            match &item.act {
+                None if words => NeedsYouAct::Reply,
+                None => NeedsYouAct::None,
+                Some(act) => match act.kind {
+                    WaitingActKind::Walk => NeedsYouAct::Walk { url: act.target.clone() },
+                    WaitingActKind::Answer if words => NeedsYouAct::Reply,
+                    WaitingActKind::Answer => NeedsYouAct::Answer { options: Vec::new(), other: false },
+                    WaitingActKind::ApprovePr => NeedsYouAct::ApprovePr { target: act.target.clone() },
+                    WaitingActKind::Run => match mock_restart(&act.target) {
+                        Some((label, build, adopt)) => NeedsYouAct::Restart { label: label.into(), build, adopt, command: act.target.clone() },
+                        None => NeedsYouAct::Run { command: act.target.clone() },
+                    },
+                    WaitingActKind::Message if act.target != job => NeedsYouAct::OpenJob { id: act.target.clone() },
+                    WaitingActKind::Message => NeedsYouAct::Message,
+                },
+            }
+        }
+    };
+    let answers = item.act.as_ref().is_some_and(|act| act.kind == WaitingActKind::Answer);
+    let to_do = item.source == WaitingSource::Agent
+        && item.options.is_empty()
+        && !answers
+        && !matches!(pressed, NeedsYouAct::Walk { .. } | NeedsYouAct::Run { .. } | NeedsYouAct::Restart { .. } | NeedsYouAct::ApprovePr { .. } | NeedsYouAct::Steps { command: Some(_), .. });
+    if to_do {
+        NeedsYouAct::Done { steps: item.steps.clone() }
+    } else {
+        pressed
+    }
+}
+
+fn mock_restart(command: &str) -> Option<(&'static str, ipc::BuildSource, bool)> {
+    let mut words = command.split_whitespace();
+    let script = words.next().unwrap_or_default();
+    let flags: Vec<&str> = words.collect();
+    let (label, build, flag) = if script.ends_with("scripts/preview") {
+        ("Refresh preview", ipc::BuildSource::Preview, "--restart")
+    } else if script.ends_with("scripts/restart") {
+        ("Update to main", ipc::BuildSource::Main, "--main")
+    } else {
+        return None;
+    };
+    (flags.contains(&flag) && flags.iter().all(|one| *one == flag || *one == "--adopt")).then_some((label, build, flags.contains(&"--adopt")))
+}
+
+/// Where a row goes and how it is put away, by its source.
+fn mock_place(item: &WaitingItem, act: &NeedsYouAct) -> (NeedsYouSectionKind, NeedsYouDismiss) {
+    use NeedsYouDismiss as Dismiss;
+    use NeedsYouSectionKind as Section;
+    let by_act = || match act {
+        NeedsYouAct::Restart { .. } if item.source == WaitingSource::PreviewOffer => Section::Commands,
+        NeedsYouAct::Restart { .. } => Section::Restart,
+        NeedsYouAct::Walk { .. } => Section::Walks,
+        NeedsYouAct::Done { .. } => Section::ToDo,
+        NeedsYouAct::Run { .. } | NeedsYouAct::Steps { .. } => Section::Commands,
+        NeedsYouAct::ApprovePr { .. } => Section::PullRequests,
+        _ => Section::Questions,
+    };
+    match item.source {
+        WaitingSource::Agent => (by_act(), Dismiss::Reason),
+        WaitingSource::Replied => (by_act(), if matches!(act, NeedsYouAct::ApprovePr { .. }) { Dismiss::Plain } else { Dismiss::NotAQuestion }),
+        WaitingSource::PreviewOffer => (by_act(), Dismiss::Skip),
+        WaitingSource::Walk => (Section::Walks, Dismiss::Plain),
+        WaitingSource::Draft => (Section::ToReview, Dismiss::Reason),
+        WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Plan => (Section::ToReview, Dismiss::Plain),
+        WaitingSource::Done => (Section::Done, Dismiss::Plain),
+        WaitingSource::WordsAddress | WaitingSource::FleetCall | WaitingSource::WatchNotOurs | WaitingSource::BrowserAsk => (Section::Questions, Dismiss::Plain),
+        WaitingSource::RuleAct | WaitingSource::OperatorSuggestion => (Section::Questions, Dismiss::Skip),
+        _ => (Section::Questions, Dismiss::None),
+    }
+}
+
+fn mock_glyph(item: &WaitingItem, act: &NeedsYouAct) -> NeedsYouGlyph {
+    use NeedsYouGlyphKind as Kind;
+    let glyph = |kind, said: &str| NeedsYouGlyph { kind, said: said.to_string() };
+    match item.source {
+        WaitingSource::Plan => return glyph(Kind::Plan, "Plan"),
+        WaitingSource::Sketch => return glyph(Kind::Sketch, "Sketch"),
+        WaitingSource::Draft => return glyph(Kind::Draft, "Draft"),
+        WaitingSource::Document => return glyph(Kind::Document, "Document"),
+        WaitingSource::Done => return glyph(Kind::Done, "Done"),
+        WaitingSource::OperatorSuggestion => return glyph(Kind::Operator, "What the Operator would do"),
+        _ => {}
+    }
+    let asks = matches!(act, NeedsYouAct::Answer { options, .. } if !options.is_empty());
+    let replies = matches!(act, NeedsYouAct::Reply);
+    match act {
+        NeedsYouAct::Done { .. } => glyph(Kind::Todo, "To do"),
+        NeedsYouAct::Restart { label, .. } => glyph(Kind::Restart, label),
+        _ if item.source == WaitingSource::Replied && (asks || replies) => glyph(Kind::ReadFromReply, "Read from the reply"),
+        _ if asks => glyph(Kind::Question, "Question"),
+        _ if item.source == WaitingSource::HeldChild => glyph(Kind::LinkedJob, "Opens the linked Job"),
+        NeedsYouAct::Reply => glyph(Kind::Reply, "Reply"),
+        NeedsYouAct::Walk { .. } => glyph(Kind::Walk, "Opens the walk"),
+        NeedsYouAct::Answer { .. } => glyph(Kind::Answer, "Goes to the question"),
+        NeedsYouAct::ApprovePr { .. } => glyph(Kind::PullRequest, "Opens the pull request"),
+        NeedsYouAct::Run { .. } => glyph(Kind::Run, "Copies the command"),
+        NeedsYouAct::Message | NeedsYouAct::OpenJob { .. } => glyph(Kind::Message, "Goes to the message"),
+        NeedsYouAct::Steps { .. } => glyph(Kind::Steps, "Steps"),
+        _ => glyph(Kind::Waiting, "Waiting on you"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_mock_job_s_needs_you_is_grouped_in_fleet_s_order_and_a_put_away_row_is_left_out() {
+        use ipc::{NeedsYouAct, NeedsYouDismiss, NeedsYouSectionKind as Section};
+        let jobs = super::jobs("jobs-screens").expect("decodes");
+        let waiting = &jobs.iter().find(|job| job.id.as_str() == "mock-01").expect("the first Job").waiting_for;
+        let view = super::needs_you("mock-01", waiting, &|_| false);
+        let kinds: Vec<Section> = view.sections.iter().map(|section| section.kind).collect();
+        assert_eq!(kinds, [Section::Questions, Section::ToDo, Section::ToReview, Section::Walks, Section::Commands, Section::PullRequests]);
+        assert!(view.fold && view.review_in_band);
+        let todo = &view.sections[1].rows[0];
+        assert!(matches!(&todo.act, NeedsYouAct::Done { steps } if steps.len() == 2));
+        assert_eq!(todo.dismiss, NeedsYouDismiss::Reason);
+        let walk = view.sections.iter().find(|section| section.kind == Section::Walks).expect("walks").rows[0].id.clone();
+        let less = super::needs_you("mock-01", waiting, &|id| id == walk);
+        assert!(less.sections.iter().all(|section| section.kind != Section::Walks));
+        assert_eq!(less.glyphs.len(), view.glyphs.len() - 1);
+    }
+
+    #[test]
+    fn a_plan_alone_is_to_review_and_the_band_does_not_offer_the_sheet() {
+        let jobs = super::jobs("needs-plan").expect("decodes");
+        let view = super::needs_you("mock-01", &jobs[0].waiting_for, &|_| false);
+        assert!(!view.fold && !view.review_in_band && view.glyphs.is_empty());
+    }
+
     #[test]
     fn every_scenario_decodes_on_this_build_s_wire() {
         assert!(super::jobs("jobs-many").expect("decodes").len() > 10);

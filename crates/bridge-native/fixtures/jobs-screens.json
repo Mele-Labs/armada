@@ -227,6 +227,16 @@
      }
     },
     {
+     "id": "todo-1",
+     "text": "Rotate the staging token",
+     "since": "2026-11-09T14:05:00Z",
+     "source": "agent",
+     "steps": [
+      "Open the staging settings",
+      "Paste the new token"
+     ]
+    },
+    {
      "id": "run-1",
      "text": "Run the chip checks",
      "since": "2026-11-09T14:06:00Z",

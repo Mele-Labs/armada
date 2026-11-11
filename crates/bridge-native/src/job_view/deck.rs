@@ -303,13 +303,13 @@ impl JobView {
             things.iter().find_map(|thing| match thing {
                 Thing::Ask(ask) if !ask.call.questions.is_empty() => Some((ask.call.call.clone(), ask.call.questions.clone(), false)),
                 Thing::Lapsed(lapsed) => Some((lapsed.id.clone(), lapsed.questions.clone(), false)),
-                Thing::Item(item) if !item.options.is_empty() && detail.as_deref() == Some(&format!("item:{}", item.id)) => Some((
-                    item.id.clone(),
+                Thing::Row(row) if !super::dock::row_options(row).is_empty() && detail.as_deref() == Some(&format!("item:{}", row.id)) => Some((
+                    row.id.clone(),
                     vec![AskedQuestion {
-                        question: item.text.clone(),
+                        question: row.text.clone(),
                         header: String::new(),
                         multi_select: false,
-                        options: item.options.iter().map(|o| ipc::AskedChoice { label: o.label.clone(), description: String::new(), preview: String::new() }).collect(),
+                        options: super::dock::row_options(row).iter().map(|o| ipc::AskedChoice { label: o.label.clone(), description: String::new(), preview: String::new() }).collect(),
                     }],
                     true,
                 )),

@@ -319,7 +319,7 @@ impl JobView {
     }
 
     /// The thread comes to the card of the page owed: a Job here has no tab for it, so its card is the page.
-    fn go_to_card(&mut self, id: &SharedString, waiting: &str, cx: &mut Context<Self>) {
+    pub(super) fn go_to_card(&mut self, id: &SharedString, waiting: &str, cx: &mut Context<Self>) {
         let at = self.thread(id, cx).and_then(|held| {
             let page = waiting.strip_prefix("document:")?;
             held.items.iter().position(|item| matches!(item, ThreadItem::Document(card) if card.page == page))

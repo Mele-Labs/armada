@@ -9,8 +9,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use gpui::{Context, EventEmitter, Task};
 
 use ipc::{
-    CallArrival, Cursor, Event, FleetBuildReport, Instant, JobThread, JobThreadTail, ModKind, ModSummary, SessionRecord,
-    RepositorySummary, SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem,
+    CallArrival, Cursor, Event, FleetBuildReport, Instant, JobThread, JobThreadTail, ModKind, ModSummary, NeedsYou, SessionRecord,
+    RepositorySummary, SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem, WaitingItem,
 };
 
 use crate::link::{self, LinkState, Signal};
@@ -71,6 +71,14 @@ impl HeldThread {
     }
 }
 
+/// A Job's Needs you as Fleet grouped it (`GET /sessions/needs_you`), with the `waiting_for` it was
+/// read for: when the record's list is not this one, the view is read again.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HeldNeeds {
+    pub view: NeedsYou,
+    pub read_for: Vec<WaitingItem>,
+}
+
 /// What Fleet has said, folded. Plain data, so a fold is tested without a window.
 pub struct Held {
     pub state: LinkState,
@@ -101,6 +109,8 @@ pub struct Held {
     sheets: BTreeMap<String, (Option<Instant>, String)>,
     /// The threads a view has read, by Job id. Fleet sends a tail for each of these and no other.
     pub threads: BTreeMap<String, HeldThread>,
+    /// The Needs you of each Job a view has read, by Job id.
+    pub needs: BTreeMap<String, HeldNeeds>,
 }
 
 impl Held {
@@ -120,7 +130,13 @@ impl Held {
             port: None,
             sheets: BTreeMap::new(),
             threads: BTreeMap::new(),
+            needs: BTreeMap::new(),
         }
+    }
+
+    /// Whether the view held for this Job was read for this very list, so asking again would answer the same.
+    pub fn needs_current(&self, session: &str, waiting: &[WaitingItem]) -> bool {
+        self.needs.get(session).is_some_and(|held| held.read_for == waiting)
     }
 
     /// A thread read whole replaces the one held.
@@ -354,6 +370,11 @@ pub struct FleetConnection {
     /// The Jobs whose last read failed: not asked again until a view asks with `retry`, or the
     /// redraw a failure causes would ask for ever.
     failed: BTreeSet<String>,
+    /// The Jobs whose Needs you is being read now, by the `waiting_for` asked for.
+    needs_reading: BTreeMap<String, Vec<WaitingItem>>,
+    /// The Jobs whose last Needs you read failed, by the `waiting_for` asked for: not asked again until
+    /// the list changes, or the redraw a failure causes would ask for ever.
+    needs_failed: BTreeMap<String, Vec<WaitingItem>>,
     /// Kept, or the drain is cancelled with it.
     _drain: Task<()>,
 }
@@ -467,6 +488,50 @@ impl FleetConnection {
         .detach();
     }
 
+    /// Read a Job's Needs you (`GET /sessions/needs_you`) off the main thread and hold it, for the
+    /// `waiting_for` the Job's record carries now. Asked again only when that list is not the one held, being
+    /// read or failed for: a view calls this each time the record moves and the call is a compare.
+    pub fn read_needs(&mut self, session: &str, waiting: Vec<WaitingItem>, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else { return };
+        if self.held.needs_current(session, &waiting)
+            || self.needs_reading.get(session) == Some(&waiting)
+            || self.needs_failed.get(session) == Some(&waiting)
+        {
+            return;
+        }
+        self.needs_reading.insert(session.to_string(), waiting.clone());
+        let id = session.to_string();
+        let path = format!("/sessions/needs_you?session_id={session}");
+        cx.spawn(async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let (status, bytes) = runtime.block_on(crate::transport::get(port, &path))?;
+                    if !(200..300).contains(&status) {
+                        return Err(format!("Fleet answered {status}: {}", String::from_utf8_lossy(&bytes)));
+                    }
+                    ipc::decode::<NeedsYou>("NeedsYou", &bytes).map_err(|why| why.to_string())
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                this.needs_reading.remove(&id);
+                match answer {
+                    Ok(view) => {
+                        this.needs_failed.remove(&id);
+                        this.held.needs.insert(id, HeldNeeds { view, read_for: waiting });
+                    }
+                    Err(why) => {
+                        Note::warn("a Job's Needs you could not be read").field("job", id.as_str()).field("why", why).emit();
+                        this.needs_failed.insert(id, waiting);
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
     pub fn new(cx: &mut Context<Self>) -> Self {
         let (tx, rx) = async_channel::unbounded();
         let home = std::env::var("HOME").ok();
@@ -510,7 +575,15 @@ impl FleetConnection {
                 }
             }
         });
-        FleetConnection { held: Held::new(), reading: BTreeSet::new(), earlier: BTreeSet::new(), failed: BTreeSet::new(), _drain: drain }
+        FleetConnection {
+            held: Held::new(),
+            reading: BTreeSet::new(),
+            earlier: BTreeSet::new(),
+            failed: BTreeSet::new(),
+            needs_reading: BTreeMap::new(),
+            needs_failed: BTreeMap::new(),
+            _drain: drain,
+        }
     }
 }
 

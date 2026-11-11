@@ -1,6 +1,10 @@
 //! What waits on the person, over the message box: the Needs you band and the panel that opens from
 //! it (`job-view.md`, B7). The question deck is `deck.rs` and the permission card `perm.rs`.
 //!
+//! **What the band and the panel draw is Fleet's own grouping** (`GET /sessions/needs_you`, `ipc::NeedsYou`): its
+//! sections in its order under its labels, each row with the mark, the press and the put-away it names. This file
+//! maps those to pictures and handlers and sorts, filters and places nothing.
+//!
 //! **Electron draws a question or a permission in this panel, not in the thread.** The thread's tail
 //! holds the plan and the pinned sketch; a question, a permission and the lapsed questions are here,
 //! where `1` to `9` and the four `⌥` keys reach them with the caret still in the box.
@@ -9,9 +13,14 @@ use std::collections::{HashMap, HashSet};
 
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, AnyElement, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Role, SharedString, Window};
-use ipc::{BuildSource, ConfirmWaiting, DismissWaiting, SessionId, Lapsed, ReachesTo, ThreadAsk, WaitingActKind, WaitingItem, WaitingSource};
+use gpui::{div, prelude::*, AnyElement, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Role, SharedString, Subscription, Window};
+use gpui_component::input::InputEvent;
+use ipc::{
+    BuildSource, ConfirmWaiting, DismissWaiting, DoneWaiting, Lapsed, NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSectionKind,
+    ReachesTo, SessionId, ThreadAsk,
+};
 
+use super::acts::Mode;
 use super::deck::Deck;
 use super::perm::Perm;
 use super::rows::{glyph, tip, Size};
@@ -38,6 +47,24 @@ pub(super) struct DockState {
     pub said: HashMap<String, SharedString>,
     /// Where each command pressed here stands, by the command: a restart's key and a run item's row.
     pub runs: HashMap<String, RunMark>,
+    /// The one-line box open under a row: a reason for putting it away, or a note for its Done.
+    pub row_box: Option<RowBox>,
+}
+
+/// What a row's open box is for.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum RowBoxFor {
+    /// A reason that goes to the agent with the removal.
+    Reason,
+    /// A note that goes with Done.
+    Note,
+}
+
+/// The box under a row: Enter sends it, Esc puts it away.
+pub(super) struct RowBox {
+    pub row: String,
+    pub what: RowBoxFor,
+    _enter: Subscription,
 }
 
 /// Where a command pressed in the panel stands, as Electron's `RestartKey` marks it.
@@ -59,39 +86,27 @@ impl RunMark {
     }
 }
 
-/// The build switch a run item's command asks for, as `build-change.ts` `buildChangeOf` reads it:
-/// `scripts/preview --restart` or `scripts/restart --main`, with `--adopt` and nothing else beside.
-/// Any other command, a dry run among them, is a command to run.
-pub(super) fn restart_of(item: &WaitingItem) -> Option<(BuildSource, bool, &'static str)> {
-    let act = item.act.as_ref().filter(|act| act.kind == WaitingActKind::Run)?;
-    build_change_of(&act.target)
-}
-
-fn build_change_of(command: &str) -> Option<(BuildSource, bool, &'static str)> {
-    let mut words = command.split_whitespace();
-    let script = words.next()?;
-    let flags: Vec<&str> = words.collect();
-    let name = script.rsplit('/').next()?;
-    let under = script.strip_suffix(name)?.trim_end_matches('/');
-    if !(under == "scripts" || under.ends_with("/scripts")) {
-        return None;
-    }
-    let (build, flag, label) = match name {
-        "preview" => (BuildSource::Preview, "--restart", "Refresh preview"),
-        "restart" => (BuildSource::Main, "--main", "Update to main"),
-        _ => return None,
-    };
-    if !flags.contains(&flag) || flags.iter().any(|one| *one != flag && *one != "--adopt") {
-        return None;
-    }
-    Some((build, flags.contains(&"--adopt"), label))
-}
-
 /// One thing the panel lists.
 pub(super) enum Thing<'a> {
     Ask(&'a ThreadAsk),
     Lapsed(&'a Lapsed),
-    Item(&'a WaitingItem),
+    /// A row of Fleet's Needs you.
+    Row(&'a NeedsYouRow),
+}
+
+/// A section of the list as Fleet sent it, with its rows as things.
+pub(super) struct Group<'a> {
+    pub kind: NeedsYouSectionKind,
+    pub label: &'a str,
+    pub things: Vec<Thing<'a>>,
+}
+
+/// The choices a row asks, where its act is an answer.
+pub(super) fn row_options(row: &NeedsYouRow) -> &[ipc::WaitingOption] {
+    match &row.act {
+        NeedsYouAct::Answer { options, .. } => options,
+        _ => &[],
+    }
 }
 
 pub(super) fn first_line(text: &str) -> &str {
@@ -126,19 +141,27 @@ fn filled(look: &Look, row: gpui::Stateful<gpui::Div>) -> gpui::Stateful<gpui::D
         .hover(|style| style.border_color(look.color(token::STEP_WAITING)))
 }
 
-/// What a waiting item stands for in the list: its glyph and the words that name it.
-fn mark_of(item: &WaitingItem) -> (&'static str, &'static str) {
-    if !item.options.is_empty() {
-        return ("message-circle-question-mark", "Question");
-    }
-    match item.act.as_ref().map(|act| act.kind) {
-        Some(WaitingActKind::Walk) => ("app-window", "Opens the walk"),
-        Some(WaitingActKind::Answer) => ("message-square", "Goes to the question"),
-        Some(WaitingActKind::ApprovePr) => ("git-pull-request-arrow", "Opens the pull request"),
-        Some(WaitingActKind::Run) => ("terminal", "Runs the command"),
-        Some(WaitingActKind::Message) => ("square-pen", "Goes to the message"),
-        None if !item.steps.is_empty() => ("list-checks", "Steps"),
-        None => ("bell-ring", "Waiting on you"),
+/// The picture of each mark Fleet names, by the registry's glyph.
+fn icon_of(kind: NeedsYouGlyphKind) -> &'static str {
+    match kind {
+        NeedsYouGlyphKind::Question => "message-circle-question-mark",
+        NeedsYouGlyphKind::Reply => "reply",
+        NeedsYouGlyphKind::ReadFromReply => "scan-text",
+        NeedsYouGlyphKind::Walk => "app-window",
+        NeedsYouGlyphKind::Answer => "message-square",
+        NeedsYouGlyphKind::PullRequest => "git-pull-request-arrow",
+        NeedsYouGlyphKind::Run => "terminal",
+        NeedsYouGlyphKind::Message => "square-pen",
+        NeedsYouGlyphKind::Steps => "list-checks",
+        NeedsYouGlyphKind::Waiting => "bell-ring",
+        NeedsYouGlyphKind::LinkedJob => "link",
+        NeedsYouGlyphKind::Operator => "bot",
+        NeedsYouGlyphKind::Todo => "square-check-big",
+        NeedsYouGlyphKind::Plan => "list-checks",
+        NeedsYouGlyphKind::Sketch => "pencil-ruler",
+        NeedsYouGlyphKind::Draft | NeedsYouGlyphKind::Document => "file-text",
+        NeedsYouGlyphKind::Restart => "rotate-cw",
+        NeedsYouGlyphKind::Done => "circle-check",
     }
 }
 
@@ -171,41 +194,128 @@ impl JobView {
         self.pages.get_mut(&id).map(|page| &mut page.dock)
     }
 
-    /// The things the panel lists, in the order Electron lists them, and the pages waiting for review.
-    pub(super) fn things<'a>(&'a self, id: &str, cx: &'a gpui::App) -> (Vec<Thing<'a>>, Vec<&'a WaitingItem>) {
-        let mut things = Vec::new();
-        let mut review = Vec::new();
-        if let Some(held) = self.thread(id, cx) {
-            if let Some(ask) = &held.head.asked {
-                things.push(Thing::Ask(ask));
-            } else if let Some(lapsed) = held.head.lapsed.as_ref().filter(|lapsed| self.dock_of(id).is_none_or(|dock| !dock.hidden.contains(&lapsed.id))) {
-                things.push(Thing::Lapsed(lapsed));
+    /// Fleet's Needs you for the Job: what it last grouped, or on mock data the mock's own grouping.
+    pub(super) fn needs_of<'a>(&'a self, id: &str, cx: &'a gpui::App) -> Option<&'a NeedsYou> {
+        match &self.fleet {
+            Some(fleet) => fleet.read(cx).held().needs.get(id).map(|held| &held.view),
+            None => self.mock_needs.get(id),
+        }
+    }
+
+    /// Ask for the Job's Needs you again when its record's `waiting_for` is not the list the view was read
+    /// for. Only the Job on screen is read; another is read when it comes on screen.
+    pub(super) fn want_needs(&mut self, id: &SharedString, cx: &mut Context<Self>) {
+        if self.shown.as_ref() != Some(id) {
+            return;
+        }
+        let Some(record) = self.record(id, cx) else { return };
+        let Some(fleet) = self.fleet.clone() else {
+            let hidden = self.dock_of(id).map(|dock| dock.hidden.clone()).unwrap_or_default();
+            let view = crate::mock::needs_you(id, &record.waiting_for, &|item| hidden.contains(item));
+            self.mock_needs.insert(id.to_string(), view);
+            return;
+        };
+        if fleet.read(cx).held().needs_current(id, &record.waiting_for) {
+            // A row put away that Fleet's view no longer holds is Fleet's now: it may come back, as a walk shown again does.
+            let lapsed = self.thread(id, cx).and_then(|held| held.head.lapsed.as_ref().map(|lapsed| lapsed.id.clone()));
+            let held: Vec<String> = fleet.read(cx).held().needs.get(id.as_str()).into_iter().flat_map(|held| held.view.sections.iter().flat_map(|section| section.rows.iter().map(|row| row.id.clone()))).collect();
+            if let Some(dock) = self.pages.get_mut(id).map(|page| &mut page.dock) {
+                dock.hidden.retain(|away| held.contains(away) || lapsed.as_ref() == Some(away));
+            }
+            return;
+        }
+        let waiting = record.waiting_for.clone();
+        fleet.update(cx, |fleet, cx| fleet.read_needs(id, waiting, cx));
+    }
+
+    /// The sections of the list, in Fleet's order and under Fleet's labels, each row a thing to press.
+    /// **Nothing here is sorted or placed by this crate.** What the thread's head holds beyond Fleet's rows, the
+    /// question open now and the lapsed ones, goes first in Questions; a row Fleet gives for the open question
+    /// stands in that question's place.
+    pub(super) fn groups<'a>(&'a self, id: &str, cx: &'a gpui::App) -> Vec<Group<'a>> {
+        use NeedsYouSectionKind as Kind;
+        let hidden = self.dock_of(id).map(|dock| &dock.hidden);
+        let held = self.thread(id, cx);
+        let asked = held.and_then(|held| held.head.asked.as_ref());
+        let carries = |row: &NeedsYouRow| asked.is_some_and(|ask| row.id == format!("ask:{}", ask.call.call) || row.id == format!("perm:{}", ask.call.call));
+        let mut carried = false;
+        let mut groups: Vec<Group<'a>> = Vec::new();
+        for section in self.needs_of(id, cx).map(|view| view.sections.as_slice()).unwrap_or_default() {
+            if matches!(section.kind, Kind::Restart | Kind::Done) {
+                continue;
+            }
+            let things: Vec<Thing<'a>> = section
+                .rows
+                .iter()
+                .filter(|row| !hidden.is_some_and(|hidden| hidden.contains(&row.id)))
+                .filter_map(|row| match asked {
+                    Some(ask) if carries(row) => (!std::mem::replace(&mut carried, true)).then_some(Thing::Ask(ask)),
+                    _ => Some(Thing::Row(row)),
+                })
+                .collect();
+            if !things.is_empty() {
+                groups.push(Group { kind: section.kind, label: &section.label, things });
             }
         }
-        if let Some(record) = self.record(id, cx) {
-            let hidden = self.dock_of(id).map(|dock| &dock.hidden);
-            for item in record.waiting_for.iter().filter(|item| !hidden.is_some_and(|hidden| hidden.contains(&item.id))) {
-                match item.source {
-                    WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document => review.push(item),
-                    _ if restart_of(item).is_some() => {}
-                    WaitingSource::Agent | WaitingSource::Walk | WaitingSource::Replied => things.push(Thing::Item(item)),
-                    _ => {}
+        let mut head: Vec<Thing<'a>> = Vec::new();
+        if let Some(held) = held {
+            match (&held.head.asked, &held.head.lapsed) {
+                (Some(ask), _) if !carried => head.push(Thing::Ask(ask)),
+                (None, Some(lapsed)) if self.dock_of(id).is_none_or(|dock| !dock.hidden.contains(&lapsed.id)) => head.push(Thing::Lapsed(lapsed)),
+                _ => {}
+            }
+        }
+        if !head.is_empty() {
+            match groups.iter_mut().find(|group| group.kind == Kind::Questions) {
+                Some(group) => {
+                    let rows = std::mem::take(&mut group.things);
+                    group.things = head.into_iter().chain(rows).collect();
                 }
+                None => groups.insert(0, Group { kind: Kind::Questions, label: "Questions", things: head }),
+            }
+        }
+        groups
+    }
+
+    /// The things the panel lists, and the pages the band names for review: the To review rows, only where Fleet
+    /// says the band offers the sheet.
+    pub(super) fn things<'a>(&'a self, id: &str, cx: &'a gpui::App) -> (Vec<Thing<'a>>, Vec<&'a NeedsYouRow>) {
+        let in_band = self.needs_of(id, cx).is_some_and(|view| view.review_in_band);
+        let mut things = Vec::new();
+        let mut review = Vec::new();
+        for group in self.groups(id, cx) {
+            if group.kind != NeedsYouSectionKind::ToReview {
+                things.extend(group.things);
+            } else if in_band {
+                review.extend(group.things.into_iter().filter_map(|thing| match thing {
+                    Thing::Row(row) => Some(row),
+                    _ => None,
+                }));
             }
         }
         (things, review)
     }
 
-    /// The restarts the Job's items ask for, one key per command, whichever items ask it.
-    pub(super) fn restarts(&self, id: &str, cx: &gpui::App) -> Vec<(String, BuildSource, bool, &'static str)> {
-        let mut keys: Vec<(String, BuildSource, bool, &'static str)> = Vec::new();
-        let Some(record) = self.record(id, cx) else { return keys };
+    /// Whether the band has a list to open: Fleet's `fold`, or a question the thread's head holds that Fleet's
+    /// rows do not.
+    pub(super) fn folds(&self, id: &str, cx: &gpui::App) -> bool {
+        let (things, _) = self.things(id, cx);
+        let fleet_folds = self.needs_of(id, cx).is_some_and(|view| view.fold);
+        things.iter().any(|thing| !matches!(thing, Thing::Row(_))) || (fleet_folds && !things.is_empty())
+    }
+
+    /// The restarts the Job's items ask for, one key per command: Fleet's Restart section, whichever items ask it.
+    pub(super) fn restarts(&self, id: &str, cx: &gpui::App) -> Vec<(String, BuildSource, bool, SharedString)> {
+        let mut keys: Vec<(String, BuildSource, bool, SharedString)> = Vec::new();
+        let Some(view) = self.needs_of(id, cx) else { return keys };
         let hidden = self.dock_of(id).map(|dock| &dock.hidden);
-        let listed = |item: &&WaitingItem| matches!(item.source, WaitingSource::Agent | WaitingSource::Walk | WaitingSource::Replied);
-        for item in record.waiting_for.iter().filter(listed).filter(|item| !hidden.is_some_and(|hidden| hidden.contains(&item.id))) {
-            let (Some((build, adopt, label)), Some(act)) = (restart_of(item), item.act.as_ref()) else { continue };
-            if !keys.iter().any(|(command, ..)| *command == act.target) {
-                keys.push((act.target.clone(), build, adopt, label));
+        for section in view.sections.iter().filter(|section| section.kind == NeedsYouSectionKind::Restart) {
+            for row in section.rows.iter().filter(|row| !hidden.is_some_and(|hidden| hidden.contains(&row.id))) {
+                if let NeedsYouAct::Restart { label, build, adopt, command } = &row.act {
+                    if !keys.iter().any(|(held, ..)| held == command) {
+                        keys.push((command.clone(), *build, *adopt, label.clone().into()));
+                    }
+                }
             }
         }
         keys
@@ -215,7 +325,7 @@ impl JobView {
         match thing {
             Thing::Ask(ask) => format!("question:{}", ask.call.call),
             Thing::Lapsed(lapsed) => format!("question:{}", lapsed.id),
-            Thing::Item(item) => format!("item:{}", item.id),
+            Thing::Row(row) => format!("item:{}", row.id),
         }
     }
 
@@ -232,7 +342,7 @@ impl JobView {
             things.iter().find_map(|thing| match thing {
                 Thing::Ask(ask) => Some(ask.call.call.clone()),
                 Thing::Lapsed(lapsed) => Some(lapsed.id.clone()),
-                Thing::Item(_) => None,
+                Thing::Row(_) => None,
             })
         };
         let Some(key) = key else { return };
@@ -265,7 +375,7 @@ impl JobView {
             return;
         }
         // Pages to review alone have no list to open: the band's press opens the sheet (`NeedsYouPanel`).
-        if self.things(&id, cx).0.is_empty() {
+        if !self.folds(&id, cx) {
             return;
         }
         let up = self.needs_up(&id, cx);
@@ -275,7 +385,7 @@ impl JobView {
     /// Whether the panel is up over the thread now. With only pages to review it has nothing to list and
     /// stays folded, as Electron's does, however it was left.
     pub(super) fn needs_up(&self, id: &str, cx: &gpui::App) -> bool {
-        !self.things(id, cx).0.is_empty() && self.dock_of(id).and_then(|dock| dock.open).unwrap_or(false)
+        self.folds(id, cx) && self.dock_of(id).and_then(|dock| dock.open).unwrap_or(false)
     }
 
     /// The thread dims while the panel is up; a press on it, or a scroll of it, folds the panel so the
@@ -308,31 +418,33 @@ impl JobView {
         let look = cx.look();
         let (things, review) = self.things(id, cx);
         let restarts = self.restarts(id, cx);
-        if things.is_empty() && review.is_empty() && restarts.is_empty() {
+        // The marks on the band's head are Fleet's, in its order; the question the thread's head holds that Fleet's
+        // rows do not carry comes first.
+        let view = self.needs_of(id, cx);
+        let on_a_row = |call: &str| view.is_some_and(|view| view.sections.iter().flat_map(|section| &section.rows).any(|row| row.id == format!("ask:{call}") || row.id == format!("perm:{call}")));
+        let marks: Vec<(&'static str, String)> = things
+            .iter()
+            .filter_map(|thing| match thing {
+                Thing::Ask(ask) if on_a_row(&ask.call.call) => None,
+                Thing::Ask(ask) => Some(("message-circle-question-mark", ask_label(ask))),
+                Thing::Lapsed(_) => Some(("message-circle-question-mark", "Unanswered".to_string())),
+                Thing::Row(_) => None,
+            })
+            .chain(view.into_iter().flat_map(|view| view.glyphs.iter().map(|glyph| (icon_of(glyph.kind), glyph.said.clone()))))
+            .collect();
+        if marks.is_empty() && restarts.is_empty() {
             if let Some(page) = self.pages.get(id) {
                 page.keys.mark("question:");
                 page.keys.sweep();
             }
             return None;
         }
+        let folds = self.folds(id, cx);
         // A band with nothing to list, a restart or pages to review alone, is never drawn open and has no fold.
         let open = self.needs_up(id, cx);
         let hue = look.color(token::STEP_WAITING);
-        let glyphs: Vec<AnyElement> = things
-            .iter()
-            .map(|thing| match thing {
-                Thing::Ask(ask) => ("message-circle-question-mark", ask_label(ask)),
-                Thing::Lapsed(_) => ("message-circle-question-mark", "Unanswered".to_string()),
-                Thing::Item(item) => (mark_of(item).0, mark_of(item).1.to_string()),
-            })
-            .chain(review.iter().map(|item| {
-                let icon = match item.source {
-                    WaitingSource::Plan => "list-checks",
-                    WaitingSource::Sketch => "pencil-ruler",
-                    _ => "file-text",
-                };
-                (icon, item.text.clone())
-            }))
+        let glyphs: Vec<AnyElement> = marks
+            .into_iter()
             .enumerate()
             .map(|(at, (icon, said))| {
                 div()
@@ -357,13 +469,13 @@ impl JobView {
                 .child(div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child("Needs you"))
                 .child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(glyphs))
                 .child(div().flex_1())
-                .when(!things.is_empty(), |trigger| {
+                .when(folds, |trigger| {
                     trigger.child(glyph(look, if open { "chevron-down" } else { "chevron-up" }, Size::Small, look.color(token::FG_INVERSE)))
                 })
                 .on_click(cx.listener(|this, _, window, cx| {
                     let Some(id) = this.shown.clone() else { return };
                     // With nothing else to answer, the band opens the sheet.
-                    let alone = this.things(&id, cx).0.is_empty() && this.review_applies(&id, cx);
+                    let alone = !this.folds(&id, cx) && this.review_applies(&id, cx);
                     if alone {
                         this.review_press(window, cx);
                     } else {
@@ -421,7 +533,7 @@ impl JobView {
     /// folded or open. Nothing starts it again while it runs or once it passed; a failure leaves it
     /// to press again.
     #[allow(clippy::too_many_arguments)]
-    fn restart_key(&self, id: &str, command: String, build: BuildSource, adopt: bool, label: &'static str, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn restart_key(&self, id: &str, command: String, build: BuildSource, adopt: bool, label: SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
         let mark = self.dock_of(id).and_then(|dock| dock.runs.get(&command).cloned());
         let held = matches!(mark, Some(RunMark::Running | RunMark::Passed));
         let (icon, said) = mark.as_ref().map_or(("rotate-cw", SharedString::from(command.clone())), RunMark::look);
@@ -441,7 +553,7 @@ impl JobView {
                 .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .when(!held, move |key| key.cursor_pointer().hover(move |style| style.bg(hover)))
                 .child(glyph(look, icon, Size::Small, look.color(token::FG_INVERSE)))
-                .child(label)
+                .child(label.clone())
                 .tooltip(tip(said.to_string()))
                 .when(!held, |key| {
                     key.on_click(cx.listener(move |this, _, window, cx| {
@@ -549,14 +661,14 @@ impl JobView {
         .detach();
     }
 
-    fn render_panel(&self, id: &SharedString, things: &[Thing], review: &[&WaitingItem], look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn render_panel(&self, id: &SharedString, things: &[Thing], review: &[&NeedsYouRow], look: &Look, cx: &Context<Self>) -> AnyElement {
         let hue = look.color(token::STEP_WAITING);
         let detail = self.dock_of(id).and_then(|dock| dock.detail.clone());
         let only = things.len() == 1 && review.is_empty() && matches!(things[0], Thing::Ask(_) | Thing::Lapsed(_));
         let detail = detail.or_else(|| only.then(|| Self::thing_key(&things[0])));
         let content: AnyElement = match detail.as_ref().and_then(|key| things.iter().find(|thing| &Self::thing_key(thing) == key)) {
             Some(thing) => self.render_detail(id, thing, only, look, cx),
-            None => self.render_list(id, things, review, look, cx),
+            None => self.render_list(id, look, cx),
         };
         // Up to 95% of the thread, band included, so the Job's head always shows.
         let thread = self.pages.get(id).map(|page| page.list.viewport_bounds().size.height).unwrap_or_default();
@@ -586,6 +698,10 @@ impl JobView {
         let Some(id) = self.shown.clone() else { return };
         let typing = self.dock_typing(window, cx);
         match event.keystroke.key.as_str() {
+            "escape" if self.dock_of(&id).is_some_and(|dock| dock.row_box.is_some()) => {
+                self.close_row_box(window, cx);
+                cx.stop_propagation();
+            }
             "escape" => {
                 let in_detail = self.dock_of(&id).is_some_and(|dock| dock.detail.is_some());
                 self.set_needs(in_detail, None, window, cx);
@@ -614,157 +730,402 @@ impl JobView {
             .is_some_and(|page| page.cards.boxes.iter().any(|(name, area)| name.starts_with("dock:") && area.read(cx).focus_handle(cx).contains_focused(window, cx)))
     }
 
-    fn render_list(&self, id: &SharedString, things: &[Thing], review: &[&WaitingItem], look: &Look, cx: &Context<Self>) -> AnyElement {
-        type Press = Box<dyn Fn(&mut JobView, &mut Window, &mut Context<JobView>)>;
-        let row = |at: String, icon: &'static str, said: String, text: String, press: Press, misread: Option<&WaitingItem>| {
-            let name = text.clone();
-            let page = self.shown.as_ref().and_then(|job| self.pages.get(job));
-            let spot = misread.zip(page).map(|(_, page)| page.keys.spot(&format!("needs-row:{at}"), cx));
-            let refused = misread.and_then(|item| self.dock_of(self.shown.as_deref()?).and_then(|dock| dock.said.get(&format!("item:{}", item.id)).cloned()));
-            let confirmed = misread.is_some_and(|item| item.confirmed || self.shown.as_deref().and_then(|job| self.dock_of(job)).is_some_and(|dock| dock.confirmed.contains(&item.id)));
-            let thumbs = misread.zip(spot.as_ref()).map(|(item, spot)| self.thumbs(&item.id, confirmed, spot.focus.clone(), look, cx));
-            let line = filled(look, div().id(SharedString::from(format!("needs-row:{at}"))))
-                    .child(div().id(SharedString::from(format!("needs-mark:{at}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said)))
-                    .child(div().flex_1().min_w_0().truncate().child(SharedString::from(text)))
-                    .children(thumbs)
-                    .on_click(cx.listener(move |this, _, window, cx| press(this, window, cx)));
-            // A sentence Fleet read from a reply: a right press offers A question and Not a question.
-            let line = match (misread, spot.as_ref()) {
-                (Some(item), Some(spot)) => {
-                    let item_id = item.id.clone();
-                    self.menu_on(
-                        line.track_focus(&spot.focus),
-                        spot,
-                        "Question",
-                        spot.focus.clone(),
-                        Rc::new(move || misread_entries(confirmed)),
-                        Rc::new(move |this, choice, window, cx| match choice {
-                            "yes" => this.misread_yes(&item_id, window, cx),
-                            _ => this.misread_no(&item_id, window, cx),
-                        }),
-                        cx,
-                    )
-                }
-                _ => line,
-            };
-            let line = labelled(line, Role::Button, format!("Open {name}")).into_any_element();
-            match refused {
-                Some(why) => div().flex().flex_col().child(line).child(super::acts::refusal(look, &at, why)).into_any_element(),
-                None => line,
-            }
-        };
-        let mut groups: Vec<(&'static str, Vec<AnyElement>)> =
-            vec![("Questions", vec![]), ("To review", vec![]), ("Walks", vec![]), ("Commands", vec![]), ("PRs", vec![])];
-        for thing in things {
-            let key = Self::thing_key(thing);
-            match thing {
-                Thing::Ask(ask) => {
-                    let key2 = key.clone();
-                    groups[0].1.push(row(key, "message-circle-question-mark", ask_label(ask), ask_text(ask), Box::new(move |this, window, cx| this.set_needs(true, Some(key2.clone()), window, cx)), None));
-                }
-                Thing::Lapsed(lapsed) => {
-                    let key2 = key.clone();
-                    let text = lapsed.questions.first().map(|q| q.question.clone()).unwrap_or_default();
-                    groups[0].1.push(row(key, "message-circle-question-mark", "Unanswered".into(), text, Box::new(move |this, window, cx| this.set_needs(true, Some(key2.clone()), window, cx)), None));
-                }
-                Thing::Item(item) => {
-                    let (icon, said) = mark_of(item);
-                    let ran = item.act.as_ref().filter(|act| act.kind == WaitingActKind::Run).and_then(|act| self.dock_of(id)?.runs.get(&act.target)).map(RunMark::look);
-                    let (icon, said): (&'static str, SharedString) = ran.unwrap_or((icon, said.into()));
-                    let kind = item.act.as_ref().map(|act| act.kind);
-                    let group = match kind {
-                        Some(WaitingActKind::Walk) => 2,
-                        Some(WaitingActKind::Run) => 3,
-                        None if !item.steps.is_empty() => 3,
-                        Some(WaitingActKind::ApprovePr) => 4,
-                        _ => 0,
-                    };
-                    let key2 = key.clone();
-                    let target = item.act.as_ref().map(|act| act.target.clone());
-                    let opens_here = !item.options.is_empty();
-                    groups[group].1.push(row(
-                        key,
-                        icon,
-                        said.into(),
-                        item.text.clone(),
-                        Box::new(move |this, window, cx| {
-                            if opens_here {
-                                this.set_needs(true, Some(key2.clone()), window, cx);
-                            } else if kind == Some(WaitingActKind::Run) {
-                                if let Some(target) = &target {
-                                    this.run_item(target.clone(), window, cx);
-                                }
-                            } else if kind == Some(WaitingActKind::Message) {
-                                this.set_needs(false, None, window, cx);
-                                this.to_composer(window, cx);
-                            } else {
-                                this.set_needs(false, None, window, cx);
-                            }
-                        }),
-                        (item.source == WaitingSource::Replied).then_some(&**item),
-                    ));
-                }
-            }
-        }
-        // The sheet takes what it has a body for; the rest of the pages waiting go to their cards.
-        let on_sheet: Vec<String> = self.review_items(id, cx).into_iter().map(|item| item.id).collect();
-        let sheet = self.review_items(id, cx);
-        if !sheet.is_empty() {
-            let said = sheet.iter().map(|item| item.name.as_str()).collect::<Vec<_>>().join(", ");
-            let marks = sheet.iter().map(|item| glyph(look, item.kind.mark().0, Size::Mark, look.color(token::FG_MUTED)));
-            groups[1].1.push(
-                labelled(
-                    filled(look, div().id("needs-row:review"))
-                        .child(div().id("needs-mark:review").flex_none().flex().items_center().gap(look.length(token::SPACE_1)).children(marks).tooltip(tip("Opens the review")))
-                        .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said)))
-                        .on_click(cx.listener(|this, _, window, cx| this.review_press(window, cx))),
-                    Role::Button,
-                    "Review",
-                )
-                .into_any_element(),
-            );
-        }
-        let apart: Vec<&&WaitingItem> = review.iter().filter(|item| !on_sheet.contains(&item.id)).collect();
-        if !apart.is_empty() {
-            let said: Vec<String> = apart.iter().map(|item| item.text.clone()).collect();
-            groups[1].1.push(row(
-                "cards".into(),
-                "list-checks",
-                "Goes to the card".into(),
-                said.join(", "),
-                Box::new(|this, window, cx| {
-                    this.set_needs(false, None, window, cx);
-                    this.pin_shown();
-                    cx.notify();
-                }),
-                None,
-            ));
-        }
+    /// The list: Fleet's sections in its order, each under its label, each row as Fleet gave it.
+    fn render_list(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let in_band = self.needs_of(id, cx).is_some_and(|view| view.review_in_band);
         div()
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_4))
-            .children(groups.into_iter().filter(|(_, rows)| !rows.is_empty()).map(|(name, rows)| {
+            .children(self.groups(id, cx).into_iter().map(|group| {
+                let label = SharedString::from(group.label.to_string());
                 labelled(
                     div()
-                        .id(SharedString::from(format!("needs-group:{name}")))
+                        .id(SharedString::from(format!("needs-group:{label}")))
                         .flex()
                         .flex_col()
                         .gap(look.length(token::SPACE_2))
                         .child(
                             div()
-                                .text_size(look.length(token::TEXT_XS))
-                                .line_height(look.length(token::LEADING_XS))
+                                .text_size(look.length(token::TEXT_2XS))
+                                .line_height(look.length(token::LEADING_2XS))
                                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                                 .text_color(look.color(token::FG_MUTED))
-                                .child(name),
+                                .child(label.clone()),
                         )
-                        .children(rows),
+                        .children(if group.kind == NeedsYouSectionKind::ToReview && in_band {
+                            vec![self.sheet_row(&group.things, look, cx)]
+                        } else {
+                            group.things.iter().map(|thing| self.thing_row(id, thing, look, cx)).collect()
+                        }),
                     Role::Region,
-                    name,
+                    label,
                 )
             }))
             .into_any_element()
+    }
+
+    /// Where Fleet's band offers the review sheet, the pages to read are one row: a mark for each, and a press
+    /// that opens the sheet (Electron's Review row).
+    fn sheet_row(&self, pages: &[Thing], look: &Look, cx: &Context<Self>) -> AnyElement {
+        let rows: Vec<&NeedsYouRow> = pages.iter().filter_map(|thing| if let Thing::Row(row) = thing { Some(*row) } else { None }).collect();
+        let said = rows.iter().map(|row| row.text.as_str()).collect::<Vec<_>>().join(", ");
+        let marks = rows.iter().map(|row| glyph(look, icon_of(row.glyph.kind), Size::Mark, look.color(token::FG_MUTED)));
+        labelled(
+            filled(look, div().id("needs-row:review"))
+                .child(div().id("needs-mark:review").flex_none().flex().items_center().gap(look.length(token::SPACE_1)).children(marks).tooltip(tip("Opens the review")))
+                .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said)))
+                .tab_index(0)
+                .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
+                .on_click(cx.listener(|this, _, window, cx| this.review_press(window, cx))),
+            Role::Button,
+            "Review",
+        )
+        .into_any_element()
+    }
+
+    /// One thing of the list as a row.
+    fn thing_row(&self, id: &SharedString, thing: &Thing, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let key = Self::thing_key(thing);
+        match thing {
+            Thing::Ask(ask) => {
+                let open = key.clone();
+                self.list_row(id, &key, "message-circle-question-mark", ask_label(ask).into(), ask_text(ask), Box::new(move |this, window, cx| this.set_needs(true, Some(open.clone()), window, cx)), None, look, cx)
+            }
+            Thing::Lapsed(lapsed) => {
+                let open = key.clone();
+                let text = lapsed.questions.first().map(|q| q.question.clone()).unwrap_or_default();
+                self.list_row(id, &key, "message-circle-question-mark", "Unanswered".into(), text, Box::new(move |this, window, cx| this.set_needs(true, Some(open.clone()), window, cx)), None, look, cx)
+            }
+            Thing::Row(row) => {
+                let command = match &row.act {
+                    NeedsYouAct::Run { command } | NeedsYouAct::Restart { command, .. } | NeedsYouAct::Steps { command: Some(command), .. } => Some(command),
+                    _ => None,
+                };
+                let ran = command.and_then(|command| self.dock_of(id)?.runs.get(command)).map(RunMark::look);
+                let (icon, said) = ran.unwrap_or((icon_of(row.glyph.kind), row.glyph.said.clone().into()));
+                let (act, item) = (row.act.clone(), row.id.clone());
+                let open = key.clone();
+                self.list_row(id, &key, icon, said, row.text.clone(), Box::new(move |this, window, cx| this.press_row(&open, &item, &act, window, cx)), Some(row), look, cx)
+            }
+        }
+    }
+
+    /// What a press on a row does, as Fleet's `act` says.
+    fn press_row(&mut self, key: &str, item: &str, act: &NeedsYouAct, window: &mut Window, cx: &mut Context<Self>) {
+        match act {
+            NeedsYouAct::OpenPlan | NeedsYouAct::OpenSketch { .. } | NeedsYouAct::OpenDocument { .. } | NeedsYouAct::OpenDraft { .. } => {
+                // Where the band offers the sheet it opens; else the page is on the thread's card.
+                let sheet = self.shown.clone().and_then(|id| self.needs_of(&id, cx).map(|view| view.review_in_band)).unwrap_or(false);
+                if sheet {
+                    self.review_press(window, cx);
+                } else {
+                    self.set_needs(false, None, window, cx);
+                    self.pin_shown();
+                    cx.notify();
+                }
+            }
+            NeedsYouAct::Answer { options, .. } if !options.is_empty() => self.set_needs(true, Some(key.to_string()), window, cx),
+            // A procedure with its command runs it where the Job works, as a command does.
+            NeedsYouAct::Run { command } | NeedsYouAct::Steps { command: Some(command), .. } => self.run_item(command.clone(), window, cx),
+            NeedsYouAct::Restart { command, build, adopt, .. } => self.restart(command.clone(), *build, *adopt, window, cx),
+            NeedsYouAct::Reply | NeedsYouAct::Message => {
+                self.set_needs(false, None, window, cx);
+                self.to_composer(window, cx);
+            }
+            NeedsYouAct::OpenJob { id } => self.open_job(id.clone(), cx),
+            NeedsYouAct::Done { .. } => self.open_row_box(item, RowBoxFor::Note, window, cx),
+            NeedsYouAct::Answer { .. } | NeedsYouAct::Walk { .. } | NeedsYouAct::Steps { command: None, .. } | NeedsYouAct::ApprovePr { .. } => self.set_needs(false, None, window, cx),
+            NeedsYouAct::None => {}
+        }
+    }
+
+    /// A row of the list: its mark, its words, and at its end what Fleet says can be done to it.
+    #[allow(clippy::too_many_arguments)]
+    fn list_row(
+        &self,
+        id: &SharedString,
+        key: &str,
+        icon: &'static str,
+        said: SharedString,
+        text: String,
+        press: Box<dyn Fn(&mut JobView, &mut Window, &mut Context<JobView>)>,
+        row: Option<&NeedsYouRow>,
+        look: &Look,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let name = text.clone();
+        let dock = self.dock_of(id);
+        let page = self.pages.get(id);
+        let misread = row.filter(|row| row.dismiss == NeedsYouDismiss::NotAQuestion);
+        let spot = misread.zip(page).map(|(_, page)| page.keys.spot(&format!("needs-row:{key}"), cx));
+        let refused = row.and(dock).and_then(|dock| dock.said.get(key).cloned());
+        let confirmed = misread.is_some_and(|row| self.item_confirmed(id, &row.id, cx) || dock.is_some_and(|dock| dock.confirmed.contains(&row.id)));
+        let thumbs = misread.zip(spot.as_ref()).map(|(row, spot)| self.thumbs(&row.id, confirmed, spot.focus.clone(), look, cx));
+        let done = row.filter(|row| matches!(row.act, NeedsYouAct::Done { .. })).map(|row| self.done_button(row, look, cx));
+        let away = row.and_then(|row| self.away_button(row, look, cx));
+        let steps = match row.map(|row| &row.act) {
+            Some(NeedsYouAct::Done { steps }) if !steps.is_empty() => Some(self.step_lines(key, steps, look)),
+            _ => None,
+        };
+        let boxed = row.zip(dock).and_then(|(row, dock)| dock.row_box.as_ref().filter(|open| open.row == row.id)).and_then(|open| {
+            let name = if open.what == RowBoxFor::Reason { "Reason" } else { "Note" };
+            row.and_then(|row| self.box_of(&format!("dock:row:{}", row.id), Mode::Note, name, look, cx))
+        });
+        let line = filled(look, div().id(SharedString::from(format!("needs-row:{key}"))))
+            .child(div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said)))
+            .child(div().flex_1().min_w_0().truncate().child(SharedString::from(text)))
+            .children(thumbs)
+            .children(done)
+            .children(away)
+            .on_click(cx.listener(move |this, _, window, cx| press(this, window, cx)));
+        let line = if spot.is_none() { line.tab_index(0).focus_visible(|style| style.border_color(look.color(token::ACCENT))) } else { line };
+        // A sentence Fleet read from a reply: a right press offers A question and Not a question.
+        let line = match (misread, spot.as_ref()) {
+            (Some(row), Some(spot)) => {
+                let item_id = row.id.clone();
+                self.menu_on(
+                    line.track_focus(&spot.focus),
+                    spot,
+                    "Question",
+                    spot.focus.clone(),
+                    Rc::new(move || misread_entries(confirmed)),
+                    Rc::new(move |this, choice, window, cx| match choice {
+                        "yes" => this.misread_yes(&item_id, window, cx),
+                        _ => this.misread_no(&item_id, window, cx),
+                    }),
+                    cx,
+                )
+            }
+            _ => line,
+        };
+        let line = labelled(line, Role::Button, format!("Open {name}")).into_any_element();
+        if steps.is_none() && boxed.is_none() && refused.is_none() {
+            return line;
+        }
+        div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            .child(line)
+            .children(steps)
+            .children(boxed)
+            .children(refused.map(|why| super::acts::refusal(look, key, why)))
+            .into_any_element()
+    }
+
+    /// Whether Fleet's record says the sentence read from a reply was said to be a question.
+    fn item_confirmed(&self, id: &str, item: &str, cx: &gpui::App) -> bool {
+        self.record(id, cx).and_then(|record| record.waiting_for.iter().find(|one| one.id == item)).is_some_and(|one| one.confirmed)
+    }
+
+    /// The procedure a To do row carries, one numbered line each, under the row.
+    fn step_lines(&self, key: &str, steps: &[String], look: &Look) -> AnyElement {
+        div()
+            .id(SharedString::from(format!("needs-steps:{key}")))
+            .flex()
+            .flex_col()
+            .px(look.length(token::SPACE_3))
+            .children(steps.iter().enumerate().map(|(at, step)| {
+                div()
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_SM))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(SharedString::from(format!("{}. {step}", at + 1)))
+            }))
+            .into_any_element()
+    }
+
+    /// A small press at a row's end, a tab stop that Enter and Space press.
+    fn row_control(&self, id: impl Into<gpui::ElementId>, primary: bool, look: &Look) -> gpui::Stateful<gpui::Div> {
+        let control = div()
+            .id(id)
+            .flex_none()
+            .flex()
+            .items_center()
+            .justify_center()
+            .h(look.length(token::H_CONTROL_SM))
+            .min_w(look.length(token::H_CONTROL_SM))
+            .rounded(look.length(token::RADIUS_MD))
+            .cursor_pointer()
+            .text_size(look.length(token::TEXT_XS))
+            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+            .tab_index(0)
+            .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)));
+        if primary {
+            control.bg(look.color(token::ACCENT)).text_color(look.color(token::TEXT_ON_ACCENT)).hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
+        } else {
+            control.text_color(look.color(token::FG_MUTED)).hover(|style| style.bg(look.color(token::BG_RAISED)).text_color(look.color(token::FG_DEFAULT)))
+        }
+    }
+
+    /// Done on a To do row: he did it. The row goes at once with whatever note is in its box.
+    fn done_button(&self, row: &NeedsYouRow, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let item = row.id.clone();
+        labelled(
+            self.row_control(SharedString::from(format!("needs-done:{}", row.id)), true, look)
+                .px(look.length(token::SPACE_3))
+                .child("Done")
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    let note = this.typed_in(&format!("dock:row:{item}"), Mode::Note, cx);
+                    this.done_row(&item, Some(note), window, cx);
+                })),
+            Role::Button,
+            "Done",
+        )
+        .into_any_element()
+    }
+
+    /// How a row is put away, as Fleet's `dismiss` says: nothing, a ×, Skip, or a × that takes a reason.
+    /// A sentence read from a reply is put away by the thumbs, drawn beside it.
+    fn away_button(&self, row: &NeedsYouRow, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let item = row.id.clone();
+        let name = format!("Remove {}", row.text);
+        match row.dismiss {
+            NeedsYouDismiss::None | NeedsYouDismiss::NotAQuestion => None,
+            NeedsYouDismiss::Plain => Some(
+                labelled(
+                    self.row_control(SharedString::from(format!("needs-remove:{}", row.id)), false, look)
+                        .size(look.length(token::H_CONTROL_SM))
+                        .tooltip(tip("Remove"))
+                        .child(glyph(look, "x", Size::Small, look.color(token::FG_MUTED)))
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            cx.stop_propagation();
+                            this.dismiss_row(&item, None, false, window, cx);
+                        })),
+                    Role::Button,
+                    name,
+                )
+                .into_any_element(),
+            ),
+            NeedsYouDismiss::Skip => Some(
+                labelled(
+                    self.row_control(SharedString::from(format!("needs-skip:{}", row.id)), false, look)
+                        .px(look.length(token::SPACE_3))
+                        .child("Skip")
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            cx.stop_propagation();
+                            this.dismiss_row(&item, None, false, window, cx);
+                        })),
+                    Role::Button,
+                    "Skip",
+                )
+                .into_any_element(),
+            ),
+            NeedsYouDismiss::Reason => Some(
+                labelled(
+                    self.row_control(SharedString::from(format!("needs-remove:{}", row.id)), false, look)
+                        .size(look.length(token::H_CONTROL_SM))
+                        .tooltip(tip("Remove"))
+                        .child(glyph(look, "x", Size::Small, look.color(token::FG_MUTED)))
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            cx.stop_propagation();
+                            this.open_row_box(&item, RowBoxFor::Reason, window, cx);
+                        })),
+                    Role::Button,
+                    name,
+                )
+                .into_any_element(),
+            ),
+        }
+    }
+
+    /// Open the one-line box under a row for its reason or its note, or put it away if it is open for that.
+    fn open_row_box(&mut self, row: &str, what: RowBoxFor, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        if self.dock_of(&id).and_then(|dock| dock.row_box.as_ref()).is_some_and(|open| open.row == row && open.what == what) {
+            self.close_row_box(window, cx);
+            return;
+        }
+        self.drop_row_box();
+        let area = cx.new(|cx| gpui_component::input::TextareaState::new(window, cx).auto_grow(1, 3).submit_on_enter(true));
+        let enter = cx.subscribe_in(&area, window, |this, _, event: &InputEvent, window, cx| {
+            if matches!(event, InputEvent::PressEnter { shift: false, .. }) {
+                this.send_row_box(window, cx);
+            }
+        });
+        area.update(cx, |area, cx| area.focus(window, cx));
+        if let Some(page) = self.pages.get_mut(&id) {
+            page.cards.boxes.insert(format!("dock:row:{row}:{:?}", Mode::Note), area);
+            page.dock.row_box = Some(RowBox { row: row.to_string(), what, _enter: enter });
+        }
+        cx.notify();
+    }
+
+    /// Forget the open box and what was typed in it.
+    fn drop_row_box(&mut self) {
+        let Some(id) = self.shown.clone() else { return };
+        if let Some(page) = self.pages.get_mut(&id) {
+            if page.dock.row_box.take().is_some() {
+                page.cards.boxes.retain(|name, _| !name.starts_with("dock:row:"));
+            }
+        }
+    }
+
+    /// Esc: the box goes, nothing is sent, and the keys are the panel's again.
+    fn close_row_box(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.drop_row_box();
+        window.focus(&self.dock_focus, cx);
+        cx.notify();
+    }
+
+    /// Enter in the box: the reason removes the row, the note is done.
+    fn send_row_box(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let Some((row, what)) = self.dock_of(&id).and_then(|dock| dock.row_box.as_ref()).map(|open| (open.row.clone(), open.what)) else { return };
+        let words = self.typed_in(&format!("dock:row:{row}"), Mode::Note, cx);
+        match what {
+            RowBoxFor::Reason => self.dismiss_row(&row, Some(words), false, window, cx),
+            RowBoxFor::Note => self.done_row(&row, Some(words), window, cx),
+        }
+        window.focus(&self.dock_focus, cx);
+    }
+
+    /// Put a row away. It leaves the list at once; Fleet's refusal puts it back with its words.
+    pub(super) fn dismiss_row(&mut self, item: &str, reason: Option<String>, misread: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let reason = reason.map(|words| words.trim().to_string()).filter(|words| !words.is_empty());
+        let body = ipc::encode(&DismissWaiting { session_id: SessionId::carried(self.shown.clone().unwrap_or_default().to_string()), item_id: item.to_string(), reason, misread });
+        self.settle_row(item, "/sessions/waiting/dismiss", body.map_err(|why| format!("{why:?}")), window, cx);
+    }
+
+    /// He did what a To do row asked: `done_waiting`, with his note if he gave one.
+    pub(super) fn done_row(&mut self, item: &str, note: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+        let note = note.map(|words| words.trim().to_string()).filter(|words| !words.is_empty());
+        let body = ipc::encode(&DoneWaiting { session_id: SessionId::carried(self.shown.clone().unwrap_or_default().to_string()), item_id: item.to_string(), note });
+        self.settle_row(item, "/sessions/waiting/done", body.map_err(|why| format!("{why:?}")), window, cx);
+    }
+
+    /// The row goes now; a refusal takes that back and says Fleet's reason under it.
+    fn settle_row(&mut self, item: &str, route: &'static str, body: Result<String, String>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        self.drop_row_box();
+        if let Some(dock) = self.dock_mut() {
+            dock.hidden.insert(item.to_string());
+            if dock.detail.as_deref() == Some(&format!("item:{item}")) {
+                dock.detail = None;
+            }
+            dock.said.remove(&format!("item:{item}"));
+        }
+        // On mock data nothing answers, so the view is grouped again without the row.
+        self.want_needs(&job, cx);
+        let (back, item) = (job.clone(), item.to_string());
+        self.post_with(
+            job,
+            route,
+            body,
+            move |this, why, cx| {
+                if let Some(page) = this.pages.get_mut(&back) {
+                    page.dock.hidden.remove(&item);
+                    page.dock.said.insert(format!("item:{item}"), why);
+                }
+                cx.notify();
+            },
+            window,
+            cx,
+        );
+        window.focus(&self.dock_focus, cx);
+        cx.notify();
     }
 
     /// The thread goes to its end.
@@ -842,31 +1203,7 @@ impl JobView {
 
     /// Thumbs down: the sentence asked nothing. It leaves the list at once; a refusal puts it back.
     pub(super) fn misread_no(&mut self, item: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(job) = self.shown.clone() else { return };
-        if let Some(dock) = self.dock_mut() {
-            dock.hidden.insert(item.to_string());
-            if dock.detail.as_deref() == Some(&format!("item:{item}")) {
-                dock.detail = None;
-            }
-            dock.said.remove(&format!("item:{item}"));
-        }
-        let body = ipc::encode(&DismissWaiting { session_id: SessionId::carried(job.to_string()), item_id: item.to_string(), reason: None, misread: true }).map_err(|why| format!("{why:?}"));
-        let (back, item) = (job.clone(), item.to_string());
-        self.post_with(
-            job,
-            "/sessions/waiting/dismiss",
-            body,
-            move |this, why, cx| {
-                if let Some(page) = this.pages.get_mut(&back) {
-                    page.dock.hidden.remove(&item);
-                    page.dock.said.insert(format!("item:{item}"), why);
-                }
-                cx.notify();
-            },
-            window,
-            cx,
-        );
-        cx.notify();
+        self.dismiss_row(item, None, true, window, cx);
     }
 
     fn render_detail(&self, id: &SharedString, thing: &Thing, only: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
@@ -891,26 +1228,25 @@ impl JobView {
             Thing::Ask(ask) if ask.call.questions.is_empty() => self.permission(id, ask, look, cx),
             Thing::Ask(ask) => self.deck(id, &ask.call.call, &ask.call.questions, true, false, super::deck::Source::Call(ask.call.call.clone()), look, cx),
             Thing::Lapsed(lapsed) => self.deck(id, &lapsed.id, &lapsed.questions, true, false, super::deck::Source::Lapsed(lapsed.id.clone()), look, cx),
-            Thing::Item(item) => {
+            Thing::Row(row) => {
                 let questions = vec![ipc::AskedQuestion {
-                    question: item.text.clone(),
+                    question: row.text.clone(),
                     header: String::new(),
                     multi_select: false,
-                    options: item
-                        .options
+                    options: row_options(row)
                         .iter()
                         .map(|option| ipc::AskedChoice { label: option.label.clone(), description: option.description.clone().unwrap_or_default(), preview: String::new() })
                         .collect(),
                 }];
-                self.deck(id, &item.id, &questions, false, true, super::deck::Source::Waiting(item.id.clone()), look, cx)
+                self.deck(id, &row.id, &questions, false, true, super::deck::Source::Waiting(row.id.clone()), look, cx)
             }
         };
         let said = self.dock_of(id).and_then(|dock| dock.said.get(&Self::thing_key(thing)).cloned());
         // A sentence Fleet read from a reply carries its thumbs in the head too.
         let head_thumbs = match thing {
-            Thing::Item(item) if item.source == WaitingSource::Replied => {
-                let confirmed = item.confirmed || self.dock_of(id).is_some_and(|dock| dock.confirmed.contains(&item.id));
-                Some(self.thumbs(&item.id, confirmed, self.focus.clone(), look, cx))
+            Thing::Row(row) if row.dismiss == NeedsYouDismiss::NotAQuestion => {
+                let confirmed = self.item_confirmed(id, &row.id, cx) || self.dock_of(id).is_some_and(|dock| dock.confirmed.contains(&row.id));
+                Some(self.thumbs(&row.id, confirmed, self.focus.clone(), look, cx))
             }
             _ => None,
         };
