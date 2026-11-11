@@ -234,6 +234,24 @@ where
         }
     }
 
+    /// The repositories project `id` holds, a folder member counting as its repository: a 404
+    /// `fleet.no_such_project` where he has none by that id, and a 422 `fleet.project_unreadable`
+    /// where its file did not read and Fleet cannot say.
+    pub(crate) async fn project_repositories(&self, id: &str) -> Result<Vec<Repository>, Refusal> {
+        let named = ScopeId::new(id).ok();
+        if let Some(project) = named.as_ref().and_then(|scope| self.projects_held().get(scope).cloned()) {
+            return Ok(project.repositories().into_iter().cloned().collect());
+        }
+        let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+        if kept.projects.iter().any(|one| one.id == id) {
+            Err(Refusal::Unacceptable(
+                self.project_refusal(UNREADABLE, format!("The file of project {id} did not read, so Fleet cannot say what it holds")),
+            ))
+        } else {
+            Err(Refusal::NotFound(self.project_refusal(NO_SUCH, format!("Fleet holds no project {id}"))))
+        }
+    }
+
     /// The members a person wrote, or the first thing wrong with them: a 422 `fleet.project_malformed`.
     pub(crate) fn members_read(&self, written: &[ProjectMember]) -> Result<Vec<Member>, Refusal> {
         let malformed = |said: String| Refusal::Unacceptable(self.project_refusal(MALFORMED, said));

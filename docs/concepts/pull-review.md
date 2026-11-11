@@ -22,6 +22,9 @@ Natural Search is a run across every repository, and the Walk tool is a run that
 
 **The lists are fetched when the tab opens and when Refresh is pressed.** Nothing polls.
 
+**`?project=<id>` filters all four to a project's members.** A folder member counts as its repository, so a project of one monorepo folder keeps the whole repository's pull requests.
+Without it every served repository's rows are listed.
+
 **Each list holds at most the wire's `MOST_PER_LIST` rows**, newest change first.
 
 **A list the forge would not answer is named in `silent`.** Bridge keeps what that list held and replaces the others, so one failure does not blank a list.

@@ -120,7 +120,6 @@ Each row waits on the next two pull requests of the Job that built the project f
 |---|---|
 | Project values: pull request mode, auto merge, autonomy, tracker, review settings and look, set key by key over Kit | Layers of default, Machine, Kit, repository, Project and Job, each value naming the layer it came from. Nothing reads a project for a value yet |
 | A project's own tracker replacing its members' | The values above |
-| The four review lists filtered to a project | The values above |
 | Operator rules and Always here, per project | The values above |
 | The title-bar project switcher in the native Bridge | The native Bridge, built by another Job |
 | Sharing a project with teammates | Not built. A project's file is on this Mac, in a synced folder or in the cloud its owner chose |
