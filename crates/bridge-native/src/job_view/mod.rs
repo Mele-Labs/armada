@@ -230,6 +230,8 @@ pub struct JobView {
     mock_needs: HashMap<String, ipc::NeedsYou>,
     /// The Job on screen.
     shown: Option<SharedString>,
+    /// What Fleet refused a terminal Job's Compact for, by Job, until Compact is pressed again.
+    compact_refused: HashMap<SharedString, SharedString>,
     pages: HashMap<SharedString, Page>,
     head: head::Head,
     composer: composer::Composer,
@@ -345,6 +347,7 @@ impl JobView {
             mock,
             mock_needs: HashMap::new(),
             shown: None,
+            compact_refused: HashMap::new(),
             pages: HashMap::new(),
             head: head::Head::new(cx),
             composer,

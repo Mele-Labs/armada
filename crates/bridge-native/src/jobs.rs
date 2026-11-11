@@ -424,6 +424,28 @@ pub(crate) fn send(port: Option<u16>, path: &'static str, body: Result<String, S
         .detach();
 }
 
+/// A command with no body, sent as [`send`] sends one. A refusal is noted, and Fleet's next state is drawn.
+pub(crate) fn send_bare(port: Option<u16>, path: &'static str, cx: &mut App) {
+    let Some(port) = port else {
+        Note::warn("not sent: no Fleet is connected").field("route", path).emit();
+        return;
+    };
+    cx.background_executor()
+        .spawn(async move {
+            let answer = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|why| why.to_string())
+                .and_then(|runtime| runtime.block_on(crate::transport::post_bare(port, path)));
+            match answer {
+                Ok((status, _)) if (200..300).contains(&status) => {}
+                Ok((status, bytes)) => Note::warn("Fleet refused an act").field("route", path).field("status", status as i64).field("said", String::from_utf8_lossy(&bytes).to_string()).emit(),
+                Err(why) => Note::warn("an act did not reach Fleet").field("route", path).field("why", why).emit(),
+            }
+        })
+        .detach();
+}
+
 /// A menu that is open, and what listens to it.
 struct Open {
     menu: Entity<Dropdown>,
@@ -507,6 +529,10 @@ impl JobsList {
     pub fn live(fleet: &Entity<FleetConnection>, cx: &mut Context<Self>) -> Self {
         let watch = cx.observe(fleet, |this, fleet, cx| {
             // The title bar's picker lists what Fleet serves; the bar has no Fleet of its own to watch.
+            if let Some(bar) = crate::titlebar::live(cx) {
+                let (usage, downshift) = (fleet.read(cx).held().plan_usage.clone(), fleet.read(cx).held().downshift.clone());
+                bar.update(cx, |bar, cx| bar.set_usage(usage.as_ref(), downshift.as_ref(), cx));
+            }
             if let (Some(served), Some(bar)) = (fleet.read(cx).held().repositories.clone(), crate::titlebar::live(cx)) {
                 let projects = fleet.read(cx).held().projects.clone();
                 bar.update(cx, |bar, cx| {
@@ -1702,6 +1728,18 @@ impl JobsScreen {
                 let port = fleet_of.upgrade().and_then(|list| list.read(cx).fleet()).and_then(|fleet| fleet.read(cx).held().port());
                 let body = ipc::encode(&ipc::ChangeFleetBuild { build: *build, adopt: *adopt }).map_err(|why| format!("{why:?}"));
                 send(port, "/fleet/build/change", body, cx);
+                return;
+            }
+            // The step down's acts, each its own command; Choose settles it, as Electron's does before the model setting.
+            if let crate::titlebar::Asked::Remedy(remedy) = asked {
+                let port = fleet_of.upgrade().and_then(|list| list.read(cx).fleet()).and_then(|fleet| fleet.read(cx).held().port());
+                let path = match remedy {
+                    crate::titlebar::Remedy::Accept => "/model_downshift/accept",
+                    crate::titlebar::Remedy::Restore => "/model_downshift/restore",
+                    crate::titlebar::Remedy::Keep => "/model_downshift/keep",
+                    crate::titlebar::Remedy::Choose => "/model_downshift/settle",
+                };
+                send_bare(port, path, cx);
                 return;
             }
             if *asked != crate::titlebar::Asked::Palette {

@@ -10,7 +10,7 @@
 //! Fleet down is the exception that stays: Fleet is not there to send it, so it is read from
 //! [`runtime_file::Presence`] by [`connection_of`].
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Utc};
 use gpui::SharedString;
 use ipc::{
     BuildPosition, BuildSource, BuildStage, FleetBuildReport, Instant, ManifestId, ModelDownshift, ProjectPlace, Projects, ProtocolId,
@@ -79,6 +79,60 @@ impl Limit {
     fn new(name: &'static str, percent: u32, band: Band, resets_in: Option<&str>) -> Limit {
         Limit { name, percent, arc: (percent.min(100) as f32) / 100., band, resets_in: resets_in.map(SharedString::from) }
     }
+}
+
+/// The rings as Fleet's reading draws them (`PlanUsageFigures`, `plan-usage.tsx`): nothing before a reading
+/// or off a subscription, the sweep while Fleet has none, and the five-hour and weekly limits, banded by Fleet.
+pub fn usage_of(read: Option<&ipc::PlanUsage>, now: DateTime<Utc>) -> Usage {
+    let Some(read) = read else { return Usage::Hidden };
+    let limits: Vec<Limit> = read
+        .windows
+        .iter()
+        .filter_map(|window| {
+            let name = match window.kind.as_str() {
+                "five_hour" => "5-hour limit",
+                "seven_day" => "Weekly limit",
+                _ => return None,
+            };
+            let band = match window.band {
+                ipc::RingBand::Normal => Band::Normal,
+                ipc::RingBand::Warning => Band::Warning,
+                ipc::RingBand::Danger => Band::Danger,
+            };
+            let resets = window.resets_at.as_ref().and_then(|at| DateTime::parse_from_rfc3339(at.as_str()).ok()).map(|at| countdown((at.with_timezone(&Utc) - now).num_seconds()));
+            Some(Limit::new(name, window.percent_used.min(100), band, resets.as_deref()))
+        })
+        .collect();
+    if !limits.is_empty() {
+        Usage::Limits(limits)
+    } else if read.windows.is_empty() && read.read_at.is_some() {
+        Usage::Hidden
+    } else {
+        Usage::Loading
+    }
+}
+
+/// `2d 17h`, `2h 14m`, `9m`: how long until a window resets (`countdown`).
+pub fn countdown(seconds: i64) -> String {
+    let minutes = seconds.max(0) / 60;
+    let (days, hours) = (minutes / (24 * 60), minutes / 60 % 24);
+    if days > 0 {
+        format!("{days}d {hours}h")
+    } else if hours > 0 {
+        format!("{hours}h {}m", minutes % 60)
+    } else {
+        format!("{minutes}m")
+    }
+}
+
+/// The step down with the stamp its words say: the shift's own end, else the weekly window's reset.
+pub fn downshift_of(state: Option<&ipc::ModelDownshiftState>, usage: Option<&ipc::PlanUsage>) -> Option<(ModelDownshift, SharedString)> {
+    let shift = state?.downshift.clone()?;
+    let until = match &shift {
+        ModelDownshift::Shifted { until, .. } => Some(until.clone()),
+        _ => usage.and_then(|usage| usage.windows.iter().find(|window| window.kind == "seven_day")).and_then(|window| window.resets_at.clone()),
+    };
+    Some((shift, until.map(|at| built_said(&at)).unwrap_or_default().into()))
 }
 
 /// The rings in the end region.

@@ -1170,14 +1170,29 @@ impl JobView {
             Role::Toolbar,
             "Job acts",
         ));
-        // The context ring after the acts, as `SessionFrame`'s tools order it. Compact goes as a line, as a
-        // quick line does: the native app types into no terminal, so Fleet refuses what it cannot deliver.
-        let ring = crate::context_ring::Fill::of(&job.usage, job.context_breakdown.as_ref(), job.compact).map(|fill| {
+        // The context ring after the acts, as `SessionFrame`'s tools order it. Compact goes as Fleet says the Job
+        // takes it (`compact-act.ts`): a hosted Job's as a line, a terminal Job's as the command its mod runs.
+        let ring = crate::context_ring::Fill::of(&job.usage, job.context_breakdown.as_ref(), job.compact).map(|mut fill| {
+            fill.refused = self.compact_refused.get(id.as_ref()).cloned();
             let me = cx.entity().downgrade();
-            crate::context_ring::ContextRing::new(id.clone(), Some(fill)).on_compact(Rc::new(move |_, window, cx| {
-                if let Some(me) = me.upgrade() {
-                    me.update(cx, |this, cx| this.send_line("/compact".into(), window, cx));
-                }
+            let job_id = id.clone();
+            crate::context_ring::ContextRing::new(id.clone(), Some(fill)).on_compact(Rc::new(move |how, window, cx| {
+                let Some(me) = me.upgrade() else { return };
+                let job_id = job_id.clone();
+                me.update(cx, |this, cx| {
+                    this.compact_refused.remove(&job_id);
+                    match how {
+                        ipc::CompactHow::Message => this.send_line("/compact".into(), window, cx),
+                        ipc::CompactHow::Terminal => {
+                            let body = ipc::encode(&ipc::RunSessionCommand { session_id: ipc::SessionId::carried(job_id.to_string()), command: "/compact".into() }).map_err(|why| format!("{why:?}"));
+                            let refused = job_id.clone();
+                            this.post_with(job_id, "/sessions/command", body, move |this, why, cx| {
+                                this.compact_refused.insert(refused, format!("Compact not sent: {why}").into());
+                                cx.notify();
+                            }, window, cx);
+                        }
+                    }
+                });
             }))
         });
         let marks = {

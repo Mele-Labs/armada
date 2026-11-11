@@ -152,6 +152,21 @@ fn offered() -> ModelDownshift {
     ModelDownshift::Offered { percent: 84, was: "Opus".into(), to: "Sonnet".into() }
 }
 
+/// The bar as the live app draws Fleet's answers: each window `(percent, band, seconds to its reset)`, a band
+/// of `""` leaving the windows out; `read` whether Fleet has read the plan at all.
+fn plan_live(face: &mut Face, five: (u32, &str, i64), seven: (u32, &str, i64), shift: Option<&str>, read: bool) {
+    let now = chrono::Utc::now();
+    // Half a minute on, so the countdown reads the whole minute it was set to.
+    let at = |seconds: i64| (now + chrono::Duration::seconds(seconds + 30)).to_rfc3339();
+    let window = |kind: &str, (percent, band, seconds): (u32, &str, i64)| format!(r#"{{"kind":"{kind}","percent_used":{percent},"resets_at":"{}","band":"{band}"}}"#, at(seconds));
+    let windows = if five.1.is_empty() { String::new() } else { format!("{},{}", window("five_hour", five), window("seven_day", seven)) };
+    let read_at = if read { format!(r#","read_at":"{}""#, now.to_rfc3339()) } else { String::new() };
+    let usage = ipc::decode::<ipc::PlanUsage>("PlanUsage", format!(r#"{{"windows":[{windows}]{read_at}}}"#).as_bytes()).unwrap_or_else(|why| panic!("the plan usage does not decode: {why}"));
+    let state = shift.map(|shift| ipc::decode::<ipc::ModelDownshiftState>("ModelDownshiftState", format!(r#"{{"downshift":{shift}}}"#).as_bytes()).unwrap_or_else(|why| panic!("the step down does not decode: {why}")));
+    face.usage = face::usage_of(Some(&usage), now);
+    face.downshift = face::downshift_of(state.as_ref(), Some(&usage));
+}
+
 /// The bar at rest: Fleet running on an aligned main, the plan windows low.
 pub fn rest() -> Face {
     // The repositories and projects are what Fleet would serve, put through the reading the live bar uses.
@@ -221,6 +236,14 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
             face.usage = limits((62, Band::Normal, "1h 40m"), (84, Band::Warning, "2d 17h"));
             face.downshift = Some((offered(), UNTIL.into()));
         },
+        // Fleet's reading and step down, through the reading the live bar makes of them (`face::usage_of`).
+        "plan-live" => |face| plan_live(face, (42, "normal", 2 * 3600 + 14 * 60), (71, "normal", 2 * 86_400 + 17 * 3600), None, true),
+        "plan-live-loading" => |face| plan_live(face, (0, "", 0), (0, "", 0), None, false),
+        "plan-live-off" => |face| plan_live(face, (0, "", 0), (0, "", 0), None, true),
+        "plan-live-offered" => |face| {
+            plan_live(face, (62, "normal", 3600 + 40 * 60), (84, "warning", 2 * 86_400 + 17 * 3600), Some(r#"{"phase":"offered","percent":84,"was":"Opus","to":"Sonnet"}"#), true)
+        },
+        "plan-live-reset" => |face| plan_live(face, (8, "normal", 4 * 3600 + 51 * 60), (3, "normal", 6 * 86_400 + 23 * 3600), Some(r#"{"phase":"reset","was":"Opus","to":"Sonnet"}"#), true),
         "offer-reset" => |face| {
             face.usage = limits((8, Band::Normal, "4h 51m"), (3, Band::Normal, "6d 23h"));
             face.downshift = Some((ModelDownshift::Reset { was: "Opus".into(), to: "Sonnet".into() }, UNTIL.into()));

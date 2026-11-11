@@ -282,6 +282,8 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             if name == "narrow-window" {
                 window.focus(&focus.keys, cx);
             }
+            // A title bar scene is the bar's alone: a Job head stand-in a walk drew before it goes.
+            super::stand_in::hide(cx);
             crate::titlebar::scenes::apply(name, cx).map_err(Missed)
         }
         Verb::PressOn(role, name) => {

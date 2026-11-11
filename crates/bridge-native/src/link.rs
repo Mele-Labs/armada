@@ -89,6 +89,12 @@ pub enum Signal {
     /// `GET /merge_lines/view`, on connect and after a `Missed`; `merge_line_view.changed` carries it after that.
     MergeLines(MergeLineViews),
     MergeLinesFailed(String),
+    /// `GET /plan_usage`, once per connection; `plan_usage.changed` carries it after that.
+    PlanUsage(ipc::PlanUsage),
+    PlanUsageFailed(String),
+    /// `GET /model_downshift`, once per connection; `model_downshift.changed` carries it after that.
+    Downshift(ipc::ModelDownshiftState),
+    DownshiftFailed(String),
     Stream(StreamMessage),
 }
 
@@ -240,6 +246,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tokio::spawn(fetch_repositories(tx.clone(), fleet.port));
                     tokio::spawn(fetch_projects(tx.clone(), fleet.port));
                     tokio::spawn(fetch_merge_lines(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_plan(tx.clone(), fleet.port));
                     // Stops with this connection: the guard aborts the task when `follow` returns.
                     _build_watch = Some(AbortOnDrop(tokio::spawn(watch_build(tx.clone(), fleet.port))));
                 }
@@ -364,6 +371,22 @@ async fn fetch_projects(tx: Sender<Signal>, port: u16) {
         Err(why) => Signal::ProjectsFailed(why),
     };
     let _ = tx.send(signal).await;
+}
+
+/// `GET /plan_usage` and `GET /model_downshift`, once per connection, retried as the Jobs are.
+async fn fetch_plan(tx: Sender<Signal>, port: u16) {
+    let usage = match read_with_retries::<ipc::PlanUsage>(port, "/plan_usage", "plan usage").await {
+        Ok(usage) => Signal::PlanUsage(usage),
+        Err(why) => Signal::PlanUsageFailed(why),
+    };
+    if tx.send(usage).await.is_err() {
+        return;
+    }
+    let downshift = match read_with_retries::<ipc::ModelDownshiftState>(port, "/model_downshift", "model downshift").await {
+        Ok(state) => Signal::Downshift(state),
+        Err(why) => Signal::DownshiftFailed(why),
+    };
+    let _ = tx.send(downshift).await;
 }
 
 /// `GET /merge_lines/view`, retried as the Jobs are.

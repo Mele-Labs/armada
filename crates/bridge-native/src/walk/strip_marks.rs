@@ -8,7 +8,7 @@
 
 use gpui::App;
 
-use super::{marks, press_on, step, Step, Verb};
+use super::{marks, press_on, scene, step, Step, Verb};
 
 pub(super) const CALLING: &str = "#3381 Checkout page loads twice · armada/checkout-twice · ci failed · Job: Checkout page loads twice";
 pub(super) const RUNNING: &str = "#3392 Quiet the write-clash notices · armada/quiet-clashes · In the merge queue, running its checks, place 2 · Job: Quiet the write-clash notices";
@@ -18,6 +18,24 @@ pub(super) const PAIR: &str = "Conflicts with Quiet the write-clash notices · c
 pub(super) const SEVERAL: &str = "Conflicts with Quiet the write-clash notices, main, Pocket sign-in on the phone";
 pub(super) const FILES: &str = "Conflicts with Quiet the write-clash notices · crates/bridge-native/src/jobs.rs, crates/bridge-native/src/clash_mark.rs, crates/ipc/src/clashes.rs, crates/fleet/src/write_clashes/detect.rs, docs/concepts/write-clashes.md";
 pub(super) const PAUSED: &str = "Conflicts with Native Bridge foundation · crates/bridge-native/src/main.rs";
+
+/// The usage rings on Fleet's plan reading and step down, and a terminal Job's Compact: each title bar scene is
+/// Fleet's JSON read as the live app reads it (`titlebar/face.rs` `usage_of`, `downshift_of`).
+pub static PLAN: [Step; 13] = [
+    marks("A terminal Job's context ring: Compact is the command its mod runs", "ring-terminal", "button", "Context 63%"),
+    step("Hover opens the card with Compact", Verb::Hover, "button", "Context 63%"),
+    press_on("Compact is pending in the same frame", "button", "Compact", "button", "Compact"),
+    marks("A refusal is put back with Fleet's own words", "ring-terminal-refused", "alert", "Compact not sent: job mock-04 is not a terminal job, and only a terminal runs a slash command"),
+    scene("Fleet's reading: the 5-hour ring outside, the weekly inside", "plan-live", "button", "5-hour limit 42%, Weekly limit 71%"),
+    press_on("The card says each limit and when it resets, counted from Fleet's reset time", "button", "5-hour limit 42%, Weekly limit 71%", "region", "Weekly limit"),
+    step("Esc shuts the card and the keys go back to the meter", Verb::Key("escape"), "button", "5-hour limit 42%, Weekly limit 71%"),
+    scene("Until Fleet has a reading the rings are a sweeping glyph", "plan-live-loading", "img", "Analyzing Usage"),
+    scene("A reading with no limits in it draws no rings", "plan-live-off", "button", "Operator"),
+    scene("Fleet offers the step down: the weekly ring is amber and carries a bell", "plan-live-offered", "img", "Default to Sonnet offered"),
+    press_on("The card carries the offer, until the weekly limit resets", "button", "5-hour limit 62%, Weekly limit 84%", "button", "Default to Sonnet"),
+    step("Esc shuts the card", Verb::Key("escape"), "button", "5-hour limit 62%, Weekly limit 84%"),
+    scene("Fleet says the window reset: the offer is to go back", "plan-live-reset", "status", "Weekly limit reset"),
+];
 
 /// The strip on Fleet's live view: each scene is Fleet's answer folded and read as the live app reads it.
 pub static LIVE: [Step; 5] = [

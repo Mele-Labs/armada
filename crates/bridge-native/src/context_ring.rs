@@ -546,15 +546,17 @@ impl Figure {
             labelled(
                 div()
                     .id("context-refused")
+                    .w_full()
                     .flex()
-                    .items_center()
+                    .items_start()
                     .gap(look.length(token::SPACE_2))
                     .justify_end()
                     .text_size(look.length(token::TEXT_2XS))
                     .line_height(look.length(token::LEADING_2XS))
                     .text_color(look.color(token::STATUS_COMPLETED_FAILED))
-                    .child(glyph("circle-x", look.length(token::SPACE_3), look.color(token::STATUS_COMPLETED_FAILED)))
-                    .child(said.clone()),
+                    .child(div().flex_none().h(look.length(token::LEADING_2XS)).flex().items_center().child(glyph("circle-x", look.length(token::SPACE_3), look.color(token::STATUS_COMPLETED_FAILED))))
+                    // Fleet's words can run long: they wrap inside the card.
+                    .child(div().min_w_0().child(said.clone())),
                 Role::Alert,
                 said,
             )

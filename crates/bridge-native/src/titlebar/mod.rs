@@ -311,6 +311,18 @@ impl TitleBar {
         self._swap_keys = None;
     }
 
+    /// The plan's rings and the step down, as Fleet last said them. A Fleet that dropped keeps what it said.
+    pub fn set_usage(&mut self, usage: Option<&ipc::PlanUsage>, downshift: Option<&ipc::ModelDownshiftState>, cx: &mut Context<Self>) {
+        let rings = face::usage_of(usage, chrono::Utc::now());
+        let shift = face::downshift_of(downshift, usage);
+        if rings == self.face.usage && shift == self.face.downshift {
+            return;
+        }
+        self.face.usage = rings;
+        self.face.downshift = shift;
+        cx.notify();
+    }
+
     /// The repositories Fleet serves, as the picker lists them: each by its directory's name, `Not set
     /// up` where no Manifest has loaded. A pick that no longer names one goes back to All.
     pub fn set_repositories(&mut self, served: &[ipc::RepositorySummary], cx: &mut Context<Self>) {

@@ -103,6 +103,10 @@ pub struct Held {
     pub projects: Option<Projects>,
     /// Every served repository's merge line, in Fleet's order, as Fleet last read it. `None` until Fleet has answered.
     pub merge_lines: Option<Vec<MergeLineView>>,
+    /// The plan's windows as Fleet last read them, **held across a drop**, as Electron keeps the rings. `None` until Fleet has answered.
+    pub plan_usage: Option<ipc::PlanUsage>,
+    /// Where the step down stands, as Fleet last said, held across a drop. `None` until Fleet has answered.
+    pub downshift: Option<ipc::ModelDownshiftState>,
     /// Whether `features.notifications` is on. On until Fleet's settings say false, as Electron reads it.
     pub notifications: bool,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
@@ -131,6 +135,8 @@ impl Held {
             repositories: None,
             projects: None,
             merge_lines: None,
+            plan_usage: None,
+            downshift: None,
             notifications: true,
             arrived: Vec::new(),
             port: None,
@@ -283,6 +289,10 @@ impl Held {
                 Signal::ProjectsFailed(why) => lines.push(Note::warn("projects could not be read").field("why", why)),
                 Signal::MergeLines(view) => self.merge_lines = Some(view.lines),
                 Signal::MergeLinesFailed(why) => lines.push(Note::warn("the merge line could not be read").field("why", why)),
+                Signal::PlanUsage(usage) => self.plan_usage = Some(usage),
+                Signal::PlanUsageFailed(why) => lines.push(Note::warn("the plan usage could not be read").field("why", why)),
+                Signal::Downshift(state) => self.downshift = Some(state),
+                Signal::DownshiftFailed(why) => lines.push(Note::warn("the step down could not be read").field("why", why)),
                 Signal::Build(report) => self.build = Some(report),
                 Signal::BuildFailed(why) => lines.push(Note::warn("the build could not be read").field("why", why)),
                 Signal::Stream(StreamMessage::Resync(resync)) => {
@@ -332,6 +342,8 @@ impl Held {
                         Event::ProjectsChanged(read) => self.projects = Some(read),
                         // The merge lines arrive whole and replace the ones held.
                         Event::MergeLineViewChanged(view) => self.merge_lines = Some(view.lines),
+                        Event::PlanUsageChanged(usage) => self.plan_usage = Some(usage),
+                        Event::ModelDownshiftChanged(state) => self.downshift = Some(state),
                         _ => {}
                     }
                 }

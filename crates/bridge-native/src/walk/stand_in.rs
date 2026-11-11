@@ -70,6 +70,12 @@ fn scene(name: &str) -> Option<Fill> {
         "ring-warning" => fill(168_000, 84, "warning", Some(breakdown()), offered()),
         "ring-danger" => fill(191_000, 96, "danger", Some(breakdown()), Some(CompactOffer::Off { why: CompactOff::NotListening })),
         "ring-refused" => Fill { refused: Some("Compact not sent: the agent is not taking messages".into()), ..fill(126_000, 63, "normal", Some(breakdown()), offered()) },
+        // A terminal Job's Compact is the command its mod runs; a refusal is Fleet's own words.
+        "ring-terminal" => fill(126_000, 63, "normal", Some(breakdown()), Some(CompactOffer::Offered { how: CompactHow::Terminal })),
+        "ring-terminal-refused" => Fill {
+            refused: Some("Compact not sent: job mock-04 is not a terminal job, and only a terminal runs a slash command".into()),
+            ..fill(126_000, 63, "normal", Some(breakdown()), Some(CompactOffer::Offered { how: CompactHow::Terminal }))
+        },
         "ring-popover" => fill(126_000, 63, "normal", None, offered()),
         "ring-tip" => fill(126_000, 63, "normal", None, None),
         _ => return None,
@@ -103,7 +109,7 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
     let held: Entity<JobHeadStandIn> = cx.try_global::<Live>().and_then(|live| live.0.upgrade()).ok_or("no stand-in for the Job head is drawn yet")?;
     held.update(cx, |stand_in, cx| {
         // A refused Compact goes on from the press before it; every other scene is a jump.
-        if name != "ring-refused" {
+        if !name.ends_with("-refused") {
             stand_in.epoch += 1;
         }
         stand_in.opened = matches!(name, "ring-warning" | "ring-danger" | "ring-tip");

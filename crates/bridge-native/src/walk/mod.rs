@@ -218,6 +218,13 @@ pub static WALKS: &[Walk] = &[
         steps: &strip_marks::LIVE,
     },
     Walk {
+        name: "plan-usage-live",
+        title: "Usage rings and Compact on Fleet's live answers",
+        screen: Screen::Marks,
+        scenario: "jobs-many",
+        steps: &strip_marks::PLAN,
+    },
+    Walk {
         name: "title-bar",
         title: "Title bar",
         screen: Screen::Jobs,
