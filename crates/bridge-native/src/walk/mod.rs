@@ -370,7 +370,7 @@ pub static WALKS: &[Walk] = &[
         name: "native-sketch-share",
         title: "Share a sketch with somebody who has no Armada",
         screen: Screen::Jobs,
-        scenario: "sketch-card",
+        scenario: "sketch-share",
         steps: &[
             press_on("A Job puts a sketch to him", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
             step("Open in the panel reads it on its own", Verb::Wheel("region", "Thread", -120), "button", "Open in the panel"),
