@@ -191,7 +191,8 @@ static TODAY_PARTS: &[&[Step]] = &[
     &[fresh("The merge strip on Fleet's live view: main stays put at the left, and the pull requests scroll behind it", "region", "Merge queue")],
     &strip_marks::LIVE,
     &[fresh("Usage rings and Compact on Fleet's live answers", "heading", "armada")],
-    &strip_marks::PLAN,
+    &strip_marks::RING_IN_HEAD,
+    &strip_marks::LIMITS,
     &[fresh("The build switcher on Fleet's report", "heading", "armada")],
     &title_bar::BUILD_LIVE,
     &[fresh("The dispatch sheet", "heading", "armada")],
@@ -223,6 +224,7 @@ const fn joined<const N: usize>(parts: &[&[Step]]) -> [Step; N] {
 }
 
 static TODAY: [Step; total(TODAY_PARTS)] = joined(TODAY_PARTS);
+
 
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[

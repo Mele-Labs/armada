@@ -869,8 +869,8 @@ impl TitleBar {
         let chip_at = Rc::clone(&self.at.repository);
         let opened = self.popup == Some(Popup::Projects);
         let (name, members) = self.face.chosen_said();
-        // Short of room the start gives way in turn, so nothing short reads "…": the repositories beside the
-        // name go whole, then Settings drops the name it repeats, then Settings truncates, the name last. The
+        // Short of room the repositories beside the name go whole, so nothing short reads "…", then the name
+        // truncates. The project's Settings is in the switcher, so the start holds no button of its own. The
         // start's share was measured last frame; it does not hang on what it holds.
         let room = self.at.start.get().map(|start| start.size.width);
         let space = |at| look.length(at);
@@ -881,12 +881,8 @@ impl TitleBar {
         };
         let lead = space(token::SPACE_12) * 2. + mark + space(token::SPACE_6) + border + space(token::SPACE_3) * 2.;
         let chip = space(token::SPACE_3) * 3. + glyph_side + space(token::SPACE_1) + space(token::SPACE_2) + border * 2. + wide(&name, token::TEXT_SM, token::WEIGHT_MEDIUM);
-        let settings_of = |said: &SharedString| space(token::SPACE_3) * 2. + glyph_side + space(token::SPACE_2) + border * 2. + wide(said, token::TEXT_XS, token::WEIGHT_BODY);
         let fits = |width| room.is_some_and(|room| lead + chip + width <= room);
-        let full: SharedString = self.face.settings_said();
-        let short: SharedString = "Settings".into();
-        let members = members.filter(|said| fits(settings_of(&full) + space(token::SPACE_2) + wide(said, token::TEXT_XS, token::WEIGHT_BODY)));
-        let settings_shown = if room.is_none() || fits(settings_of(&full)) { full } else { short };
+        let members = members.filter(|said| fits(space(token::SPACE_2) + wide(said, token::TEXT_XS, token::WEIGHT_BODY)));
         let chip = labelled(
             no_drag(div()
                 .id("repository")
@@ -936,46 +932,6 @@ impl TitleBar {
             Role::Button,
             "Project",
         );
-        let settings = {
-            let said = self.face.settings_said();
-            let shown = settings_shown;
-            labelled(
-                no_drag(
-                    div()
-                        .id("scoped-settings")
-                        // It gives way before the project's name does, and neither vanishes.
-                        .flex_shrink(100.)
-                        // Its floor is the glyph alone.
-                        .min_w(look.length(token::SPACE_3) * 2. + glyph_side)
-                        .overflow_hidden()
-                        .h(look.length(token::H_CONTROL_LG))
-                        .px(look.length(token::SPACE_3))
-                        .flex()
-                        .items_center()
-                        .gap(look.length(token::SPACE_2))
-                        .rounded(look.length(token::RADIUS_LG))
-                        .border(look.length(token::BORDER_WIDTH))
-                        .border_color(look.color(token::BORDER_DEFAULT))
-                        .bg(look.color(token::BG_SUNKEN))
-                        .font_family(sans(look))
-                        .text_size(look.length(token::TEXT_XS))
-                        .text_color(look.color(token::FG_MUTED))
-                        .cursor_pointer()
-                        .focusable()
-                        .tab_stop(true)
-                        .focus_visible(move |style| style.border_color(ring))
-                        .hover(|style| style.bg(look.color(token::BG_HOVER)).border_color(look.color(token::BORDER_STRONG)))
-                        .child(glyph("sliders-horizontal", glyph_side, look.color(token::FG_MUTED)))
-                        .child(div().min_w_0().truncate().child(shown))
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            let asked = this.settings_here();
-                            cx.emit(asked);
-                        })),
-                ),
-                Role::Button,
-                said,
-            )
-        };
         let start_at = Rc::clone(&self.at.start);
         div()
             // `minmax(floor, 1fr)`: the start and the end take equal shares from nothing, so the centre sits
@@ -1018,8 +974,7 @@ impl TitleBar {
                     .items_center()
                     .gap(look.length(token::SPACE_3))
                     .child(div().flex_none().w(look.length(token::BORDER_WIDTH)).h(look.length(token::SPACE_4)).bg(look.color(token::BORDER_DEFAULT)))
-                    .child(chip)
-                    .child(settings),
+                    .child(chip),
             )
     }
 

@@ -21,11 +21,25 @@ pub(super) const PAUSED: &str = "Conflicts with Native Bridge foundation · crat
 
 /// The usage rings on Fleet's plan reading and step down, and a terminal Job's Compact: each title bar scene is
 /// Fleet's JSON read as the live app reads it (`titlebar/face.rs` `usage_of`, `downshift_of`).
-pub static PLAN: [Step; 13] = [
+pub static PLAN: [Step; 13] = super::joined(&[&RING, &LIMITS]);
+
+/// The ring on the stand-in: each of its forms by scene.
+static RING: [Step; 4] = [
     marks("A terminal Job's context ring: Compact is the command its mod runs", "ring-terminal", "button", "Context 63%"),
     step("Hover opens the card with Compact", Verb::Hover, "button", "Context 63%"),
     press_on("Compact is pending in the same frame", "button", "Compact", "button", "Compact"),
     marks("A refusal is put back with Fleet's own words", "ring-terminal-refused", "alert", "Compact not sent: job mock-04 is not a terminal job, and only a terminal runs a slash command"),
+];
+
+/// The ring in an open Job's own head, as the app draws it from the Job's usage.
+pub static RING_IN_HEAD: [Step; 3] = [
+    press_on("Open a Job: its head carries the context ring, read from the Job's usage", "row", "Fix the merge line freshness chip", "button", "Context 63%"),
+    press_on("A press opens its fill and Compact, the command a terminal Job's mod runs", "button", "Context 63%", "button", "Compact"),
+    press_on("Compact goes to the Job's mod and the card shuts", "button", "Compact", "button", "Context 63%"),
+];
+
+/// The usage rings and the step down, on Fleet's plan reading.
+pub static LIMITS: [Step; 9] = [
     scene("Fleet's reading: the 5-hour ring outside, the weekly inside", "plan-live", "button", "5-hour limit 42%, Weekly limit 71%"),
     press_on("The card says each limit and when it resets, counted from Fleet's reset time", "button", "5-hour limit 42%, Weekly limit 71%", "region", "Weekly limit"),
     step("Esc shuts the card and the keys go back to the meter", Verb::Key("escape"), "button", "5-hour limit 42%, Weekly limit 71%"),
