@@ -9,7 +9,7 @@ use ipc::operator_page::OperatorTurnItem;
 
 mod view;
 
-pub use view::{bind, fleet, BellSlot, Toasts};
+pub use view::{bind, fleet, tell, BellSlot, Toasts};
 
 /// A state of Fleet the app reads for itself, raised as an urgent toast for as long as it lasts: Fleet
 /// not running or not matching, and a restart that did not take. Bridge raises these, not the Operator,
