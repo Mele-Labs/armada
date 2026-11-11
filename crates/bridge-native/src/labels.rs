@@ -100,6 +100,14 @@ where
     Labelled { role, name: name.clone(), child: element.role(role).aria_label(name).into_any_element(), root: false, radius }
 }
 
+/// Name a part a canvas paints, such as a node of a sketch, as `labelled` names an element: what a
+/// walk aims at. Called while painting, so the part stands in the book until the next frame's.
+pub fn note(role: Role, name: impl Into<SharedString>, bounds: Bounds<Pixels>, radius: Option<Pixels>, window: &Window, cx: &mut App) {
+    let shown = bounds.intersect(&window.content_mask().bounds);
+    let page = cx.default_global::<LabelBook>().by_window.entry(window.window_handle().window_id()).or_default();
+    page.push(Drawn { role, name: name.into(), bounds, shown, radius });
+}
+
 /// The window's outermost element: it clears the window's page of the book, then draws `child`.
 pub fn label_root(child: impl IntoElement) -> Labelled {
     Labelled { role: Role::Window, name: SharedString::default(), child: child.into_any_element(), root: true, radius: [None; 4] }

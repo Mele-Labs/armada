@@ -136,7 +136,7 @@ pub fn fields_of(spec: &Spec) -> Vec<(&'static str, Read)> {
 }
 
 /// What is wrong with the layout tree at `at`, pushed onto `problems`.
-pub(super) fn problems(tree: &Value, at: &str, problems: &mut Vec<String>) {
+pub(crate) fn problems(tree: &Value, at: &str, problems: &mut Vec<String>) {
     element(tree, at, 1, problems);
 }
 
