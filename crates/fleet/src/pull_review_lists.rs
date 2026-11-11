@@ -116,13 +116,26 @@ where
 
     /// The four lists, read at once: the forge answers each in a call, and a person waits on
     /// the slowest of four calls rather than Fleet holding a copy that goes stale.
-    pub(crate) async fn review_lists_read(&self) -> Result<PullReviewLists, Refusal> {
+    ///
+    /// With `project`, only that project's member repositories are asked about, so every list keeps
+    /// the rows of its members and no others. A project with no served member has four empty lists.
+    pub(crate) async fn review_lists_read(&self, project: Option<&str>) -> Result<PullReviewLists, Refusal> {
+        let members = match project {
+            Some(id) => Some(self.project_repositories(id).await?),
+            None => None,
+        };
         let from = self.served_named(None)?;
         let unreadable = |said: &str| Refusal::Fault(self.pr_refusal(LISTS_UNREADABLE, said));
         let Some(me) = self.mine_in(from.root()).await.login().map(str::to_string) else {
             return Err(unreadable("nobody is signed in to the forge, so there is no one to list for"));
         };
-        let served = self.named_repositories().await;
+        let mut served = self.named_repositories().await;
+        if let Some(members) = &members {
+            served.retain(|it| members.iter().any(|member| member.as_str() == it.manifest_id.as_str()));
+            if served.is_empty() {
+                return Ok(self.lists_of(me, Default::default()));
+            }
+        }
         let repositories: Vec<String> = served.iter().map(|it| it.slug.clone()).collect();
         if repositories.is_empty() {
             return Err(unreadable("no repository served has a remote the forge could be asked about"));
@@ -166,16 +179,22 @@ where
         for row in lists.iter_mut().flatten() {
             row.holder = self.holder_of(row).await;
         }
+        let mut read = self.lists_of(me, lists);
+        read.silent = silent;
+        Ok(read)
+    }
+
+    fn lists_of(&self, me: String, lists: [Vec<PullReviewRow>; 4]) -> PullReviewLists {
         let [requested, team, assigned, mine] = lists;
-        Ok(PullReviewLists {
+        PullReviewLists {
             me,
             fetched_at: self.clock().now().as_str().to_string(),
             requested,
             team,
             assigned,
             mine,
-            silent,
-        })
+            silent: Vec::new(),
+        }
     }
 
     /// Resolve or reopen a thread, as the forge now holds it.

@@ -152,12 +152,8 @@ The palette's rows and the keys on the tab are in [Keyboard and command palette]
 
 ## What it does not do yet
 
-Each row waits on the next two pull requests of the Job that built the project file.
-
 | Missing | Waiting on it |
 |---|---|
-| The four review lists filtered to a project | Not built |
-| Operator rules and Always here, per project | Values of their own, not set in the file yet |
 | A project's autonomy set from its own file | Autonomy stays in its pieces, which a project is already a scope of; nothing here writes one |
 | A Job's own values | Nothing starts a Job with a value of its own, so the Job layer is empty |
 | The title-bar project switcher in the native Bridge | The native Bridge, built by another Job |

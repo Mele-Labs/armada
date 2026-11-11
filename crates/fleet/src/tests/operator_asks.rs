@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use api::Next;
-use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorPage, OperatorRule, OperatorTurnKind};
+use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorPage, OperatorRule, OperatorTurnKind, RuleScope};
 use ipc::Event;
 
 use super::autopilot_decisions_repository::{jobs_titled, red_main};
@@ -21,32 +21,33 @@ use crate::operator::{keep_the_raises, Answering, Calling};
 const SIDEBAR: &str = "Sidebar width resets after restart";
 
 /// A note no open issue covers, ruled filed: 1 is file.
-const FILE_IT: &str = "item: 1\nway: 1\nbecause: no open issue covers it";
+pub(super) const FILE_IT: &str = "item: 1\nway: 1\nbecause: no open issue covers it";
 
 async fn page(rig: &Rig) -> OperatorPage {
     rig.fleet.operator_page_wire().await.expect("read")
 }
 
-async fn filed(rig: &Rig, text: &str) -> bool {
+pub(super) async fn filed(rig: &Rig, text: &str) -> bool {
     rig.fleet.open_issues(&manifest(rig)).await.expect("read").iter().any(|issue| issue.title.as_written() == text)
 }
 
 /// A rule kept in the store as an Always here or an Always leaves it, answering its number.
-async fn keep_rule(rig: &Rig, manifest_id: Option<&str>, what: &str, pick: &str, said: &str) -> i64 {
-    let rule = OperatorRule::PickRule { manifest_id: manifest_id.map(str::to_string), what: what.into(), pick: pick.into() };
+pub(super) async fn keep_rule(rig: &Rig, manifest_id: Option<&str>, what: &str, pick: &str, said: &str) -> i64 {
+    let scope = manifest_id.map_or(RuleScope::Everywhere, |manifest_id| RuleScope::Repository { manifest_id: manifest_id.to_string() });
+    let rule = OperatorRule::PickRule { scope, what: what.into(), pick: pick.into() };
     let one = store::KeptOrder { n: 0, form: rule.kept(), said: said.into(), until: None, at: "2026-11-10T09:00:00.000Z".into() };
     rig.fleet.store().lock().await.add_operator_order(&one).expect("kept")
 }
 
 /// The Operator seated on `call`, its raises kept, and the notes already there marked as read.
-async fn seated(rig: &Rig, call: Arc<Answers>) {
+pub(super) async fn seated(rig: &Rig, call: Arc<Answers>) {
     assert!(rig.fleet.operator_seated_with(call));
     keep_the_raises(Arc::clone(&rig.fleet)).await;
     rig.fleet.sources_handed().await;
 }
 
 /// A note the person leaves, handed on the next tick.
-async fn left(rig: &Rig, id: &str, text: &str) {
+pub(super) async fn left(rig: &Rig, id: &str, text: &str) {
     leave(rig, id, "open", None, text);
     rig.fleet.sources_handed().await;
 }
@@ -82,7 +83,7 @@ async fn an_act_with_no_rule_becomes_one_go_ahead_in_your_turn_and_nothing_is_do
     let log = rulings(&rig).await;
     assert_eq!(log.iter().map(|row| row.outcome.as_str()).collect::<Vec<_>>(), ["proposed_file"], "the row says it asked: {log:#?}");
 
-    let press = OperatorAnswerPress { id: turn[0].id.clone(), answer: OperatorAnswer::Yes, then: None };
+    let press = OperatorAnswerPress { id: turn[0].id.clone(), answer: OperatorAnswer::Yes, then: None, project: None };
     let answered = rig.fleet.operator_answered(press).await.expect("answered");
 
     assert!(answered.filed.is_some(), "{answered:#?}");

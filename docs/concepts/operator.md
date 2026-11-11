@@ -275,7 +275,8 @@ Each step is its own Job, and the order is the order of the table.
 **What raises and what asks is one rule.**
 Whatever needs the person, the Operator reviews first and raises with its read and a pick, so nothing sits in a list.
 Every act is asked, and the answer is kept: Yes this time, Always here for this project, Always for every project, or No.
-A rule you kept covers the act, this repository's first and then every repository's, and Fleet does it as it is raised.
+A rule you kept covers the act, this repository's first, then a project that holds it, then every repository's, and Fleet does it as it is raised.
+Always here on a page filtered to a project keeps the rule for that project, and for every repository it holds.
 The Log row says by which rule.
 No is for this time only.
 Filing an issue, starting a Job, sending words to a live Job, closing an issue, grouping one, a red main's fix and answering a Job's question are acts.

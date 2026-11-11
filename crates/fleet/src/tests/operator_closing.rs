@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use api::Sessions;
-use ipc::operator_page::OperatorRule;
+use ipc::operator_page::{OperatorRule, RuleScope};
 use store::{KeptOrder, KeptSuggestion};
 use testkit::{FakeBeads, FakeBeadsRemote, FakeTracker};
 
@@ -51,7 +51,7 @@ async fn do_it(rig: &Rig, suggestion: &KeptSuggestion) {
 
 /// The rule a go-ahead of `what` is done by, kept for every repository.
 async fn rule_for(rig: &Rig, what: &str) {
-    let rule = OperatorRule::PickRule { manifest_id: None, what: what.to_string(), pick: "do_it".to_string() };
+    let rule = OperatorRule::PickRule { scope: RuleScope::Everywhere, what: what.to_string(), pick: "do_it".to_string() };
     let one = KeptOrder { n: 0, form: rule.kept(), said: "a rule".to_string(), until: None, at: "2026-11-10T09:00:00.000Z".to_string() };
     rig.fleet.store().lock().await.add_operator_order(&one).expect("kept");
 }

@@ -147,7 +147,7 @@ impl PullRequestPanel for FakeDaemon {
         Ok(page(manifest_id, write.pull_request))
     }
 
-    async fn get_review_lists(&self) -> Result<ipc::PullReviewLists, Refusal> {
+    async fn get_review_lists(&self, _project: Option<String>) -> Result<ipc::PullReviewLists, Refusal> {
         Ok(ipc::PullReviewLists {
             me: "octocat".into(),
             fetched_at: "2026-10-16T09:00:00Z".into(),

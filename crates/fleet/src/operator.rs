@@ -75,6 +75,8 @@ pub use hearing::keep_the_ends_told;
 pub use raising::keep_the_raises;
 #[cfg(test)]
 pub(crate) use raising::ToRaise;
+#[cfg(test)]
+pub(crate) use turning::rule_pick;
 pub use orders::{Order, Orders};
 pub(crate) use seat::Seat;
 pub use ruling::{Grouping, Outcome, PassedOn, Place, Ruled, Ruling, Way};

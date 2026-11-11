@@ -211,9 +211,9 @@ where
             .unwrap_or_default()
             .into_iter()
             .filter_map(|one| {
-                let OperatorRule::PickRule { manifest_id, .. } = OperatorRule::read(&one.form)?;
-                let repository = manifest_id.as_deref().and_then(|id| self.board_repository(id));
-                Some(OperatorLearned { id: one.n, manifest_id, repository, said: one.said, at: Instant::carried(&one.at) })
+                let OperatorRule::PickRule { scope, .. } = OperatorRule::read(&one.form)?;
+                let repository = self.scope_named(&scope);
+                Some(OperatorLearned { id: one.n, scope, repository, said: one.said, at: Instant::carried(&one.at) })
             })
             .collect();
         let holds = store
