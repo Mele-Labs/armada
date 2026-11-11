@@ -407,6 +407,25 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-thread-moved",
+        title: "A Job moved to another repository, and a thread read again",
+        screen: Screen::Jobs,
+        scenario: "thread-moved",
+        steps: &[
+            press_on(
+                "A Job's thread is read again each time it comes on screen. While the read runs, a turning ring stands under the last row",
+                "row",
+                "Checkout page loads twice",
+                "img",
+                "Loading new messages",
+            ),
+            step("When the read ends the ring goes. This Job was moved to another repository: its thread ends on where it went", Verb::Look, "button", "Moved to sample-api"),
+            press_on("A press opens the Job it became, in sample-api", "button", "Moved to sample-api", "region", "Thread"),
+            step("Its thread starts with where it came from, and carries the whole conversation in, with no rule", Verb::Wheel("region", "Thread", -400), "button", "Moved from sample-web"),
+            press_on("A press goes back", "button", "Moved from sample-web", "button", "Moved to sample-api"),
+        ],
+    },
+    Walk {
         name: "native-sent-messages",
         title: "Your sent messages: tags and a send Fleet did not take",
         screen: Screen::Jobs,

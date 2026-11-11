@@ -538,6 +538,11 @@ impl FleetConnection {
     }
 
     /// Whether older items of this Job's thread are being read.
+    /// Whether the Job's thread is being read again now, as Electron's `refreshing` reads its `reading` list.
+    pub fn reading(&self, session: &str) -> bool {
+        self.reading.contains(session)
+    }
+
     pub fn reading_older(&self, session: &str) -> bool {
         self.earlier.contains(session)
     }

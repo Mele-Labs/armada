@@ -100,6 +100,10 @@ pub(crate) enum Extra {
     Working,
     /// The card of the subagents running now.
     Subagents,
+    /// Where a moved Job went, at the foot of its thread (`movedRowsOf`'s tail).
+    MovedTo,
+    /// The thread held is being read again (`transcript: "refreshing"`).
+    Refreshing,
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -213,8 +217,11 @@ fn fade(look: &Look, top: bool) -> gpui::Div {
 }
 
 /// What the thread draws after its items, from what Fleet says stands over it (A1.4 steps 7 and 8).
-fn extras_of(head: &ThreadHead, items: &[ThreadItem], pending: &[Pending], working: bool) -> Vec<Extra> {
+fn extras_of(head: &ThreadHead, items: &[ThreadItem], pending: &[Pending], working: bool, moved_to: bool, refreshing: bool) -> Vec<Extra> {
     let mut extras = Vec::new();
+    if moved_to {
+        extras.push(Extra::MovedTo);
+    }
     if let Some(plan) = &head.plan {
         if plan.state != PlanCardState::Approved {
             extras.push(Extra::Plan(plan.state));
@@ -224,6 +231,9 @@ fn extras_of(head: &ThreadHead, items: &[ThreadItem], pending: &[Pending], worki
         extras.push(Extra::Sketch(sketch.title.clone()));
     }
     extras.extend((0..pending.len()).map(Extra::Pending));
+    if refreshing {
+        extras.push(Extra::Refreshing);
+    }
     let running = items.iter().any(|item| matches!(item, ThreadItem::Subagent { subagent, .. } if subagent.state == ipc::ToolSubagentState::Running));
     let ends_in_calls = matches!(items.last(), Some(ThreadItem::Calls { .. }));
     if working && !running && (!ends_in_calls || head.asked.is_some()) {
@@ -315,6 +325,8 @@ pub struct JobView {
     /// A subagent's thread open on its sheet, and the last threads read, newest last.
     subagent_reading: Option<subagent_read::Reading>,
     subagents_read: Vec<(String, subagent_read::SubagentRead)>,
+    /// The Jobs a walk reads again for a moment when they come on screen, standing in for Fleet's read.
+    mock_reading: HashSet<String>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -419,6 +431,7 @@ impl JobView {
             sketch_reading: None,
             subagent_reading: None,
             subagents_read: Vec::new(),
+            mock_reading: HashSet::new(),
             _subscriptions: subscriptions,
         }
     }
@@ -437,8 +450,54 @@ impl JobView {
 
     /// The Job this one took the place of when it was handed on: its turns stand above this one's,
     /// over a plain rule, as Electron's `replaces` draws them.
+    /// A Job moved here carries the one it was moved from the same way, under its Moved from row and
+    /// with no rule, as Electron's `carried` origin rows.
     fn earlier_of(&self, id: &str, cx: &App) -> Option<String> {
-        self.record(id, cx)?.attachments.iter().find(|one| one.kind == "replaces").map(|one| one.target.clone())
+        let record = self.record(id, cx)?;
+        record.attachments.iter().find(|one| one.kind == "replaces").map(|one| one.target.clone()).or_else(|| self.moved(id, "forked_from", cx).map(|(from, _)| from))
+    }
+
+    /// The Job a move took this one to (`forked_to`) or brought it from (`forked_from`), and the
+    /// repository it names there, as `movedTo` and `movedFrom` read the ledger's fork pair.
+    fn moved(&self, id: &str, kind: &str, cx: &App) -> Option<(String, String)> {
+        let fork = self.record(id, cx)?.attachments.iter().find(|one| one.kind == kind && one.detail.contains_key("moved"))?;
+        Some((fork.target.clone(), fork.detail.get("moved")?.clone()))
+    }
+
+    /// A repository by the word the picker names it by, or its id where none is served (`manifestLabel`).
+    fn repository_word(&self, manifest: &str, cx: &App) -> String {
+        let served = match &self.fleet {
+            Some(fleet) => fleet.read(cx).held().repositories.clone().unwrap_or_default(),
+            None => crate::mock::repositories(),
+        };
+        served
+            .iter()
+            .find(|one| one.manifest.as_ref().map(|held| held.id.as_str()).or(one.implicit_id.as_ref().map(|id| id.as_str())) == Some(manifest))
+            .map_or_else(
+                || manifest.to_string(),
+                |one| one.manifest.as_ref().map_or_else(|| one.root.rsplit('/').find(|part| !part.is_empty()).unwrap_or(&one.root).to_string(), |held| held.repository.clone()),
+            )
+    }
+
+    /// Whether the thread held is being read again now.
+    fn refreshing(&self, id: &str, cx: &App) -> bool {
+        self.mock_reading.contains(id) || self.fleet.as_ref().is_some_and(|fleet| fleet.read(cx).reading(id))
+    }
+
+    /// A walk's stand-in for Fleet's read: the Job reads again for a moment, then holds what it held.
+    fn read_slowly(&mut self, id: &SharedString, cx: &mut Context<Self>) {
+        const READ_FOR: std::time::Duration = std::time::Duration::from_millis(1000);
+        self.mock_reading.insert(id.to_string());
+        let id = id.clone();
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(READ_FOR).await;
+            let _ = this.update(cx, |this, cx| {
+                this.mock_reading.remove(id.as_ref());
+                this.sync(&id, cx);
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     /// Whether the agent's turn is running, as the record says (`session.turn.state`).
@@ -490,6 +549,8 @@ impl JobView {
             if let Some(fleet) = self.fleet.clone() {
                 let id = id.clone();
                 fleet.update(cx, |fleet, cx| fleet.read_thread(&id, true, cx));
+            } else if crate::mock::reads_slowly() {
+                self.read_slowly(id, cx);
             }
             self.sync(id, cx);
         }
@@ -570,10 +631,12 @@ impl JobView {
         let Some(page) = self.pages.get(id) else { return };
         let Some(held) = self.thread(id, cx) else { return };
         let (version, items) = (held.version, held.items.len());
-        let lead = usize::from(own_older || earlier_read.is_some_and(|(_, _, older)| older));
-        let before = earlier_read.map_or(0, |(_, items, _)| items + 1);
+        let lead = usize::from(own_older || earlier_read.is_some_and(|(_, _, older)| older)) + usize::from(self.moved(id, "forked_from", cx).is_some());
+        // A Job handed on stands over a rule; one moved here runs straight into this one's.
+        let rule = usize::from(self.record(id, cx).is_some_and(|job| job.attachments.iter().any(|one| one.kind == "replaces")));
+        let before = earlier_read.map_or(0, |(_, items, _)| items + rule);
         let earlier_version = earlier_read.map(|(version, ..)| version);
-        let extras = extras_of(&held.head, &held.items, &page.pending, working);
+        let extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some(), self.refreshing(id, cx));
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);

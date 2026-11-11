@@ -26,6 +26,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff.json"),
         // The same Jobs, with Try amber forked from the first at its message naming the tone rule.
         "history" => include_bytes!("../fixtures/jobs-history.json"),
+        // The same Jobs, with Checkout page loads twice moved from sample-web to sample-api.
+        "thread-moved" => include_bytes!("../fixtures/jobs-moved.json"),
         "job-bands" => include_bytes!("../fixtures/jobs-bands.json"),
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
@@ -73,6 +75,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff-threads.json"),
         // The same threads, with the Job that took the router upgrade on and the forked one.
         "history" => include_bytes!("../fixtures/history-threads.json"),
+        "thread-moved" => include_bytes!("../fixtures/moved-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
         "job-view-composer" => include_bytes!("../fixtures/composer-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
@@ -122,6 +125,12 @@ fn screens_threads() -> Result<HashMap<String, JobThread>, String> {
         all.insert(thread.session_id.as_str().to_string(), thread);
     }
     Ok(all)
+}
+
+/// Whether a Job's thread is read again for a moment when it comes on screen, as Fleet's read takes
+/// time: in `thread-moved`, so a walk can show the row that says new messages are loading.
+pub fn reads_slowly() -> bool {
+    SCENARIO.lock().is_ok_and(|named| named.as_str() == "thread-moved")
 }
 
 /// How many sends the scenario last named refuses before it takes them: one in `sent-messages`, so a
