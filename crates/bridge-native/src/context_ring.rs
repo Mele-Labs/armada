@@ -677,6 +677,18 @@ impl Render for Figure {
                 (point(right, from.origin.y + from.size.height + gap), Anchor::TopRight)
             }
         };
+        // A tooltip hangs as Electron's does (`Tooltip.css`): below, leading edges aligned, above where a line
+        // of it would not fit under.
+        let floor = window.viewport_size().height;
+        let tip_room = look.length(token::LEADING_XS) + look.length(token::SPACE_2) * 2. + gap;
+        let tip_at = move |from: Bounds<Pixels>| {
+            let under = from.origin.y + from.size.height + gap;
+            if under + tip_room > floor {
+                (point(from.origin.x, from.origin.y - gap), Anchor::BottomLeft)
+            } else {
+                (point(from.origin.x, under), Anchor::TopLeft)
+            }
+        };
         let tone = tone_of(fill.band, look);
         let form = form_of(&fill);
         let side = look.length(token::SPACE_4);
@@ -770,7 +782,7 @@ impl Render for Figure {
                         CompactOffer::Offered { .. } => "Compact the Job's context",
                         CompactOffer::Off { why } => why_said(why),
                     };
-                    let (at, anchor) = hang(from);
+                    let (at, anchor) = tip_at(from);
                     Some(
                         deferred(
                             anchored().position(at).anchor(anchor).snap_to_window_with_margin(look.length(token::SPACE_1)).child(labelled(
