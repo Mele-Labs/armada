@@ -76,6 +76,8 @@ pub(crate) struct LedgerReads {
     open_turn: Option<store::KeptOpenTurn>,
     /// Its repair Job ended or said it is done, so it is not coming back that way.
     repair_over: bool,
+    /// When a repair for a silent stop last started for it.
+    quiet_repaired_at: Option<String>,
     /// The stretches Fleet was away while its open turn was: the last, oldest first.
     away: Vec<(String, String)>,
     /// What the start card is drawn from, for a Job that waits on it.

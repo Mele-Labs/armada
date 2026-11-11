@@ -112,6 +112,7 @@ pub(super) async fn tell_ripe(rig: &Rig, id: &SessionId) {
 #[tokio::test]
 async fn a_job_that_stops_is_told_once_and_stopping_again_reads_stopped_with_no_item() {
     let rig = rig_placing(None);
+    holding(&rig);
     let id = stopped_a_while_ago(&rig).await;
 
     tell_ripe(&rig, &id).await;
@@ -129,7 +130,7 @@ async fn a_job_that_stops_is_told_once_and_stopping_again_reads_stopped_with_no_
     let row = record(&rig, &id).await;
     let stopped = row.stopped.expect("why it stopped");
     assert_eq!(stopped.reason, StopReason::TurnEnded);
-    assert!(stopped.gave_up, "a live agent: a repair Job has nothing to fix");
+    assert!(!stopped.gave_up, "a repair is on its way, so Fleet has not run out");
     assert!(row.waiting_for.is_empty(), "no item: the mark and the call reach him");
 
     rig.fleet.stops_told().await;
@@ -398,6 +399,165 @@ async fn closing_a_job_stops_the_repair_running_for_it() {
     eventually(|| async { super::repairing::turns(&rig.repair_state).len() == 1 }).await;
     super::session_queue::close(&rig, &id).await;
     eventually(|| async { rig.fleet.store().lock().await.repair(&repair).unwrap().unwrap().outcome.as_deref() == Some("stopped") }).await;
+}
+
+/// A Job stopped again with its agent alive, as far as the row reads it, its nudge heard and its turn ended.
+async fn stopped_again(rig: &Rig) -> SessionId {
+    let id = stopped_a_while_ago(rig).await;
+    tell_ripe(rig, &id).await;
+    rig.stand_in.finishes(0, "Still written.");
+    eventually(|| async { record(rig, &id).await.standing == Some(SessionStanding::Stopped) }).await;
+    id
+}
+
+async fn quiet_repair_of(rig: &Rig, id: &SessionId) -> Option<store::KeptRepair> {
+    let store = rig.fleet.store().lock().await;
+    let repair = store.session_stop(id.as_str()).unwrap().repair_job?;
+    store.repair(&repair).unwrap()
+}
+
+#[tokio::test]
+async fn a_job_stopped_again_with_its_agent_alive_gets_one_hidden_quiet_repair() {
+    let rig = rig_placing(None);
+    holding(&rig);
+    let id = stopped_again(&rig).await;
+    assert!(quiet_repair_of(&rig, &id).await.is_none(), "none before Fleet's tick");
+    let live = rig.fleet.store().lock().await.live_session_ids().unwrap();
+
+    rig.fleet.stops_told().await;
+    let kept = quiet_repair_of(&rig, &id).await.expect("a repair");
+    assert_eq!((kept.session_id.as_str(), kept.broke.as_str(), kept.ended_at), (id.as_str(), "quiet", None));
+    let stopped = record(&rig, &id).await.stopped.expect("still stopped");
+    assert_eq!((stopped.repair, stopped.gave_up), (Some(StopRepair::Running), false), "the repair under way, not amber");
+    assert_eq!(rig.fleet.store().lock().await.live_session_ids().unwrap(), live, "no Job was started for it");
+    assert!(fleet_notes(&rig.rows(&id).await).contains(&"Repair: it stopped twice with nothing asked".to_string()));
+    eventually(|| async { super::repairing::turns(&rig.repair_state).len() == 1 }).await;
+    let told = super::repairing::turns(&rig.repair_state).remove(0);
+    assert!(told.contains(id.as_str()) && told.contains("Its last turn ended"), "told which Job and what Fleet saw");
+
+    rig.fleet.stops_told().await;
+    rig.fleet.stops_told().await;
+    assert_eq!(super::repairing::turns(&rig.repair_state).len(), 1, "one repair for the stop");
+    assert_eq!(nudges(&rig.rows(&id).await), 1, "and still one nudge");
+}
+
+#[tokio::test]
+async fn a_quiet_repair_that_did_not_repair_leaves_the_row_amber_and_starts_no_second() {
+    let rig = rig_placing(None);
+    std::fs::write(rig.repair_state.join("answer"), "NOT REPAIRED: it waits on nothing").expect("an answer");
+    let id = stopped_again(&rig).await;
+    assert!(!record(&rig, &id).await.stopped.expect("stopped").gave_up, "not amber while a repair is to come");
+
+    rig.fleet.stops_told().await;
+    eventually(|| async { fleet_notes(&rig.rows(&id).await).contains(&"Not repaired: it waits on nothing".to_string()) }).await;
+    let stopped = record(&rig, &id).await.stopped.expect("still stopped");
+    assert_eq!((stopped.repair, stopped.gave_up), (Some(StopRepair::Failed), true));
+    rig.fleet.stops_told().await;
+    assert_eq!(super::repairing::turns(&rig.repair_state).len(), 1, "Fleet has run out: no second repair");
+}
+
+#[tokio::test]
+async fn nothing_waiting_on_him_is_the_only_stop_a_quiet_repair_is_started_for() {
+    let rig = rig_placing(None);
+    holding(&rig);
+    let id = stopped_again(&rig).await;
+    Arc::clone(&rig.fleet)
+        .set_waiting(
+            None,
+            SetWaitingFor {
+                session_id: Some(id.clone()),
+                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+            },
+        )
+        .await
+        .expect("kept");
+    rig.fleet.stops_told().await;
+    assert!(quiet_repair_of(&rig, &id).await.is_none(), "an item for him is not silence");
+    assert!(super::repairing::turns(&rig.repair_state).is_empty());
+}
+
+#[tokio::test]
+async fn a_quiet_repair_for_a_job_that_waits_on_a_lapsed_question_is_not_started() {
+    let rig = rig_placing(None);
+    holding(&rig);
+    let id = stopped_again(&rig).await;
+    super::session_waiting::lapsed_clock_question(&rig, &id).await;
+    rig.fleet.stops_told().await;
+    assert!(quiet_repair_of(&rig, &id).await.is_none(), "a lapsed question waits on him");
+}
+
+#[test]
+fn a_quiet_repair_is_spent_until_he_writes_again() {
+    use stopping::quiet_repair_spent;
+    assert!(!quiet_repair_spent(None, None), "none has run");
+    assert!(quiet_repair_spent(Some(LATER), None), "one ran and he has not written");
+    assert!(quiet_repair_spent(Some(LATER), Some(ENDED)), "one ran after he last wrote");
+    assert!(!quiet_repair_spent(Some(ENDED), Some(LATER)), "he wrote since");
+}
+
+#[tokio::test]
+async fn a_live_stop_is_amber_only_with_no_repair_coming_or_one_that_failed() {
+    let rig = rig_placing(None);
+    let started = rig.start().await;
+    let record = record(&rig, &started).await;
+    let stop = |kept: &KeptStop, over, due| stopping::stopped(ENDED, &record, kept, over, due).gave_up;
+    assert!(!stop(&KeptStop::default(), false, true), "a repair is to come");
+    assert!(stop(&KeptStop::default(), false, false), "none is: only he moves it");
+    let running = KeptStop { repair_job: Some("r".into()), ..KeptStop::default() };
+    assert!(!stop(&running, false, false), "one is running");
+    assert!(stop(&running, true, true), "it ended");
+    assert!(stop(&KeptStop { repair_held: true, ..KeptStop::default() }, false, true), "Fleet is unhealthy");
+}
+
+/// A Job whose turn is running and has been heard from by nobody for longer than the bound planted here.
+async fn hung_job(rig: &Rig) -> SessionId {
+    rig.fleet.hosts().plant_stuck_after(std::time::Duration::from_millis(80));
+    let id = rig.start().await;
+    rig.send(&id, "go").await;
+    eventually(|| async { rig.stand_in.starts().len() == 1 }).await;
+    rig.stand_in.init(0);
+    eventually(|| async { rig.turn(&id).await != ipc::SessionTurn::Idle }).await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    id
+}
+
+#[tokio::test]
+async fn a_turn_quiet_past_the_bound_gets_one_hidden_hung_repair_naming_its_process() {
+    let rig = rig_placing(None);
+    holding(&rig);
+    let id = hung_job(&rig).await;
+    assert_eq!(record(&rig, &id).await.standing, Some(SessionStanding::Stuck));
+
+    rig.fleet.standing_checked().await;
+    let kept = quiet_repair_of(&rig, &id).await.expect("a repair");
+    assert_eq!((kept.session_id.as_str(), kept.broke.as_str(), kept.ended_at), (id.as_str(), "hung", None));
+    assert!(fleet_notes(&rig.rows(&id).await).contains(&"Repair: a command hung".to_string()));
+    eventually(|| async { super::repairing::turns(&rig.repair_state).len() == 1 }).await;
+    let told = super::repairing::turns(&rig.repair_state).remove(0);
+    assert!(told.contains("Its agent's process id"), "told which process holds the turn: {told}");
+
+    rig.fleet.standing_checked().await;
+    rig.fleet.standing_checked().await;
+    assert_eq!(super::repairing::turns(&rig.repair_state).len(), 1, "once a turn");
+}
+
+#[tokio::test]
+async fn a_quiet_turn_that_waits_on_him_is_no_hung_command() {
+    let rig = rig_placing(None);
+    holding(&rig);
+    let id = hung_job(&rig).await;
+    Arc::clone(&rig.fleet)
+        .set_waiting(
+            None,
+            SetWaitingFor {
+                session_id: Some(id.clone()),
+                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+            },
+        )
+        .await
+        .expect("kept");
+    rig.fleet.standing_checked().await;
+    assert!(quiet_repair_of(&rig, &id).await.is_none(), "an item for him is not a hung command");
 }
 
 #[tokio::test]

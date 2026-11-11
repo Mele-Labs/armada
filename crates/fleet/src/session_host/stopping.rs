@@ -69,9 +69,27 @@ pub(crate) fn read(stop: &str, kept: &KeptStop, spoke: Option<&str>, now: i64) -
     }
 }
 
-/// What the row says of a Job that stopped with its agent alive: why, and that only he moves it now,
-/// since a repair Job would have nothing to fix.
-pub(crate) fn stopped(stop: &str, record: &ipc::SessionRecord) -> ipc::SessionStopped {
+/// Where the repair of a stop stands, from what is kept of it.
+fn repair_of(kept: &KeptStop, repair_over: bool) -> Option<ipc::StopRepair> {
+    match (&kept.repair_job, repair_over) {
+        (Some(_), true) => Some(ipc::StopRepair::Failed),
+        (Some(_), false) => Some(ipc::StopRepair::Running),
+        (None, _) => kept.repair_held.then_some(ipc::StopRepair::Held),
+    }
+}
+
+/// Whether a repair for a silent stop has run since the person last wrote. **One between two things he
+/// says**: a repair that put things right wakes the Job, and a Job that then stops silently again would
+/// otherwise draw another, so Fleet and a Job could loop at the cost of a repair each time round.
+pub(crate) fn quiet_repair_spent(last: Option<&str>, spoke: Option<&str>) -> bool {
+    let Some(last) = last.and_then(millis) else { return false };
+    spoke.and_then(millis).is_none_or(|spoke| last > spoke)
+}
+
+/// What the row says of a Job that stopped with its agent alive: why, and what Fleet is doing about it.
+/// `repair_due` is a repair for the stop still to come, which only a Job with its agent alive and no
+/// repair since he last wrote has: with none, only he moves it now.
+pub(crate) fn stopped(stop: &str, record: &ipc::SessionRecord, kept: &KeptStop, repair_over: bool, repair_due: bool) -> ipc::SessionStopped {
     let tasks: Vec<String> = record
         .activity
         .iter()
@@ -79,14 +97,19 @@ pub(crate) fn stopped(stop: &str, record: &ipc::SessionRecord) -> ipc::SessionSt
         .filter(|one| one.state != ipc::SessionTodoState::Done)
         .map(|one| one.text.clone())
         .collect();
+    let repair = repair_of(kept, repair_over);
     ipc::SessionStopped {
         reason: if tasks.is_empty() { ipc::StopReason::TurnEnded } else { ipc::StopReason::TasksOpen },
         at: ipc::Instant::carried(stop),
         tasks,
         said: None,
         restart: ipc::StopRestart::None,
-        repair: None,
-        gave_up: true,
+        repair,
+        gave_up: match repair {
+            Some(ipc::StopRepair::Running) => false,
+            Some(ipc::StopRepair::Failed | ipc::StopRepair::Held) => true,
+            None => !repair_due,
+        },
         down: None,
     }
 }
@@ -108,11 +131,7 @@ pub(crate) fn dead(
     away: &[(String, String)],
     said: Option<String>,
 ) -> ipc::SessionStopped {
-    let repair = match (&kept.repair_job, repair_over) {
-        (Some(_), true) => Some(ipc::StopRepair::Failed),
-        (Some(_), false) => Some(ipc::StopRepair::Running),
-        (None, _) => kept.repair_held.then_some(ipc::StopRepair::Held),
-    };
+    let repair = repair_of(kept, repair_over);
     let down = away.last().map(|(from, to)| ipc::FleetAway { from: ipc::Instant::carried(from), to: ipc::Instant::carried(to) });
     ipc::SessionStopped {
         reason: if down.is_some() { ipc::StopReason::FleetDown } else { ipc::StopReason::ProcessGone },
@@ -156,6 +175,35 @@ impl Owed {
     }
 }
 
+/// The Jobs read Stopped with their agent alive and a repair still to come, by the stop.
+#[derive(Default)]
+pub(crate) struct Silent(std::sync::Mutex<HashMap<String, String>>);
+
+impl Silent {
+    /// What a read of the Job found. `None` is no stop to repair.
+    pub(crate) fn noted(&self, session: &str, stop: Option<&str>) {
+        let mut held = self.0.lock().expect("held across no panic");
+        match stop {
+            Some(stop) => {
+                held.insert(session.to_string(), stop.to_string());
+            }
+            None => {
+                held.remove(session);
+            }
+        }
+    }
+
+    pub(crate) fn ids(&self) -> Vec<String> {
+        let mut ids: Vec<String> = self.0.lock().expect("held across no panic").keys().cloned().collect();
+        ids.sort();
+        ids
+    }
+
+    pub(crate) fn stop_of(&self, session: &str) -> Option<String> {
+        self.0.lock().expect("held across no panic").get(session).cloned()
+    }
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -176,7 +224,7 @@ where
     }
 
     /// The row read again, which notes whether its stop is owed. Published by nobody: nothing has moved.
-    async fn stop_read_again(&self, id: &str) -> Option<ipc::SessionRecord> {
+    pub(crate) async fn stop_read_again(&self, id: &str) -> Option<ipc::SessionRecord> {
         let store = self.store().lock().await;
         let session = store.session(id).ok().flatten()?;
         self.ledger_row(&store, &session).ok()
@@ -201,9 +249,13 @@ where
         self.repairs_started().await;
     }
 
-    /// A Job dead with its restart spent gets a hidden repair, one at a time, unless Fleet itself is
-    /// unhealthy, when a new agent would fail the same way and he is told instead.
+    /// A Job dead with its restart spent, or stopped again with its agent alive, gets a hidden repair, one
+    /// at a time across Fleet, unless Fleet itself is unhealthy, when a new agent would fail the same way
+    /// and he is told instead. A dead Job's goes first.
     async fn repairs_started(self: &Arc<Self>) {
+        if self.repairs().running_any() {
+            return;
+        }
         let dead: Vec<String> = {
             let store = self.store().lock().await;
             let turns = store.open_turns().unwrap_or_default();
@@ -216,15 +268,44 @@ where
                 .map(|turn| turn.session_id.clone())
                 .collect()
         };
-        let Some(id) = dead.into_iter().next().filter(|_| !self.repairs().running_any()) else { return };
-        let held = self.store().lock().await.session_stop(&id).is_ok_and(|kept| kept.repair_held);
-        let saw = self.died_seen(&id).await;
-        if let Err(why) = self.repair_started(&id, crate::repair::RepairBreak::Died, saw).await {
-            // An unhealthy Fleet says so once; any other refusal is held as it always was.
+        if let Some(id) = dead.into_iter().next() {
+            let saw = self.died_seen(&id).await;
+            self.repair_tried(&id, crate::repair::RepairBreak::Died, saw).await;
+            return;
+        }
+        if let Some((id, stop)) = self.silent_stop().await {
+            let mut saw = Vec::new();
+            if let Some(log) = adapters::terminal_thread::find(&self.host().home, &id) {
+                saw.push((String::from("Its transcript"), log.display().to_string()));
+            }
+            saw.push((String::from("Its last turn ended"), stop));
+            self.repair_tried(&id, crate::repair::RepairBreak::Quiet, saw).await;
+        }
+    }
+
+    /// The first Job read Stopped with its agent alive that nothing waits on and no repair has run for,
+    /// read again so that an excuse that came since is seen, with the stop.
+    async fn silent_stop(self: &Arc<Self>) -> Option<(String, String)> {
+        for id in self.hosts().stops_silent().ids() {
+            let unrepaired = self.store().lock().await.session_stop(&id).is_ok_and(|kept| kept.repair_job.is_none());
+            if !unrepaired || self.hosts().of(&id).state().process.is_none() || self.stop_read_again(&id).await.is_none() {
+                continue;
+            }
+            if let Some(stop) = self.hosts().stops_silent().stop_of(&id) {
+                return Some((id, stop));
+            }
+        }
+        None
+    }
+
+    /// Start the repair for `id`. A refusal is held, as it always was, and an unhealthy Fleet says so once.
+    pub(crate) async fn repair_tried(self: &Arc<Self>, id: &str, broke: crate::repair::RepairBreak, saw: Vec<(String, String)>) {
+        let held = self.store().lock().await.session_stop(id).is_ok_and(|kept| kept.repair_held);
+        if let Err(why) = self.repair_started(id, broke, saw).await {
             let unhealthy = matches!(&why, api::Refusal::Unacceptable(raised) if raised.code == crate::repair::REPAIR_UNHEALTHY);
             if !held || !unhealthy {
-                let _ = self.store().lock().await.keep_repair_held(&id, true);
-                let _ = self.published_hosted(&id).await;
+                let _ = self.store().lock().await.keep_repair_held(id, true);
+                let _ = self.published_hosted(id).await;
             }
         }
     }

@@ -230,6 +230,7 @@ where
             holding: flying.iter().filter(|one| one.holds).cloned().collect(),
             flying,
             repair_over: stop.repair_job.as_deref().is_some_and(|repair| store.repair_over(repair).unwrap_or(true)),
+            quiet_repaired_at: store.last_repair_started(&session.id, crate::repair::RepairBreak::Quiet.key()).unwrap_or_default(),
             away: open_turn
                 .as_ref()
                 .and_then(|turn| Some(store.fleet_outages_between(&turn.since, turn.ended_at.as_deref()?).unwrap_or_default()))
@@ -397,9 +398,13 @@ where
             || !record.running.is_empty();
         let stop = session.last_turn_at.as_deref().filter(|_| !excused);
         let read = stop.map(|stop| crate::session_host::stopping::read(stop, &reads.stop, spoke.as_deref(), self.now().epoch_millis().unwrap_or(0)));
-        if read == Some(crate::session_host::stopping::Read::Stopped) {
+        // A repair is due for a stop with its agent alive, until one has run since he last wrote.
+        let repair_due = self.hosts().of(&session.id).state().process.is_some()
+            && !crate::session_host::stopping::quiet_repair_spent(reads.quiet_repaired_at.as_deref(), spoke.as_deref());
+        let stopped_alive = read == Some(crate::session_host::stopping::Read::Stopped);
+        if stopped_alive {
             record.standing = Some(ipc::SessionStanding::Stopped);
-            record.stopped = stop.map(|stop| crate::session_host::stopping::stopped(stop, &record));
+            record.stopped = stop.map(|stop| crate::session_host::stopping::stopped(stop, &record, &reads.stop, reads.repair_over, repair_due));
         }
         let owed = stop.filter(|_| read == Some(crate::session_host::stopping::Read::Owed)).map(|stop| {
             let from = [Some(stop), spoke.as_deref()].into_iter().flatten().filter_map(|at| core_model::Timestamp::from_rfc3339(at).epoch_millis()).max();
@@ -411,6 +416,8 @@ where
             && !parked
             && reads.open_turn.as_ref().is_some_and(crate::session_host::stopping::restart_spent)
             && self.hosts().of(&session.id).state().process.is_none();
+        let silent = stop.filter(|_| stopped_alive && repair_due && !dead);
+        self.hosts().stops_silent().noted(&session.id, silent);
         if dead {
             record.standing = Some(ipc::SessionStanding::Stopped);
             record.stopped = reads.open_turn.as_ref().map(|turn| crate::session_host::stopping::dead(turn, &reads.stop, reads.repair_over, &reads.away, died_saying));
