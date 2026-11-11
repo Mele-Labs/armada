@@ -224,6 +224,7 @@ fn a_state_is_an_update_and_a_close_is_forced_past_a_blocker_with_its_reason() {
     tracker.retitle("/repo", "armada-3fz.1", "Store - add the tables").expect("renamed");
     tracker.block("/repo", "armada-3fz.2", "armada-3fz.1").expect("ordered");
     tracker.unblock("/repo", "armada-3fz.2", "armada-3fz.1").expect("unordered");
+    tracker.set_parent("/repo", "armada-9k2", "armada-3fz").expect("put under");
 
     let calls = bd.calls();
     assert_eq!(calls[0], ["-C", "/repo", "update", "armada-3fz.1", "--status", "in_progress"]);
@@ -232,6 +233,7 @@ fn a_state_is_an_update_and_a_close_is_forced_past_a_blocker_with_its_reason() {
     assert_eq!(calls[3], ["-C", "/repo", "update", "armada-3fz.1", "--title", "Store - add the tables"]);
     assert_eq!(calls[4], ["-C", "/repo", "dep", "add", "armada-3fz.2", "armada-3fz.1"]);
     assert_eq!(calls[5], ["-C", "/repo", "dep", "remove", "armada-3fz.2", "armada-3fz.1"]);
+    assert_eq!(calls[6], ["-C", "/repo", "update", "armada-9k2", "--parent", "armada-3fz"]);
 }
 
 #[test]

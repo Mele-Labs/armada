@@ -4,6 +4,7 @@
 // The header rules in `protocol.ts` hold here.
 
 import type { RunCloud, RunPlace } from "./run-memory";
+import type { ValuesSet } from "./values";
 
 /**
  * A written task's own state. `held` is a Job working on it; `asked` is a Job finished, or a pull request linked to the task
@@ -94,6 +95,8 @@ export type Project = {
   place: ProjectPlace;
   /** Present where its file could not be read: the sentence that says why. `name` is then the last the store saw, and `members` is empty. */
   unread?: string;
+  /** What the project sets for how work behaves, only the keys it sets. Absent where it sets none. `GET /projects/values` says what each key comes to. */
+  values?: ValuesSet;
 };
 
 /** A member of a project: a whole repository, or a folder of it that carries its own `armada.yml`. */
@@ -144,13 +147,19 @@ export type NewProject = {
   name: string;
   members?: ProjectMember[];
   place?: ProjectPlace;
+  /** The values it starts with. Absent sets none. */
+  values?: ValuesSet;
 };
 
-/** `POST /projects/project/:project/edit`: what changes, and only that. `members` present replaces the whole list, `[]` clearing it. */
+/**
+ * `POST /projects/project/:project/edit`: what changes, and only that. `members` present replaces the whole list, `[]` clearing it;
+ * `values` present replaces the whole block, `{}` taking every value back.
+ */
 export type EditProject = {
   name?: string;
   members?: ProjectMember[];
   place?: ProjectPlace;
+  values?: ValuesSet;
 };
 
 /** `POST /projects/rows/:row/edit` and `POST /projects/rows/:row/subtasks` (a task under the top-level task `row`): title and notes, whole. */

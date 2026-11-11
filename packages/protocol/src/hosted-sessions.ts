@@ -15,6 +15,7 @@ import type { RequestBy, RequestHeader } from "./requests";
 import type { ThoughtTarget } from "./thought";
 import type { SessionRecord, WaitingOption, WalkStep, WindowPlace, WindowTake } from "./sessions";
 import type { ProjectRowRef } from "./projects";
+import type { ResolvedValues } from "./values";
 import type { StartAfter, WaitBy, WaiterEvent, WaiterSide } from "./session-waits";
 
 /** The permission mode a session runs in. `auto` is the default. */
@@ -394,6 +395,11 @@ export type HostedFacts = {
   start_failed?: StartFailed;
   /** The project the Job was started for, by id (`StartSession.project`). Absent for a Job started for none. */
   project?: string;
+  /**
+   * The values the Job froze when it started: its project's and its repository's, each key with the layer it came from. A Job already
+   * running keeps them when a later edit moves a layer. Absent on a Job started before they were kept.
+   */
+  values?: ResolvedValues;
 };
 
 /** Why a Job's process would not start. `log` is the last lines the agent wrote to its error output, oldest first; empty is omitted. */

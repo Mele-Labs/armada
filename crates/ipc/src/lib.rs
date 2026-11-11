@@ -130,6 +130,8 @@ mod issue_reference;
 mod issue_queries;
 /// Projects: per repository, tasks a person wrote and issues he linked, in order.
 mod projects;
+/// The values a person sets for how work behaves, and each with the layer it came from.
+mod values;
 /// Kit's MCP servers and each Manifest's word over one (`#1275`), and the
 /// setup a person already works with, read to be shown (`#1491`).
 mod kit;
@@ -469,6 +471,7 @@ pub use issue_queries::{
     InstallTool, InstalledTool, IssueQueries, IssueQueryGuide, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
     WrittenIssueQuery,
 };
+pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedTracker, ResolvedValue, ResolvedValues, SaveKitValues, ValueLayer, ValuesSet};
 pub use projects::{
     EditProject, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue,
     NewProjectTask, Project, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
@@ -476,7 +479,7 @@ pub use projects::{
 };
 pub use issues::{
     IssueComment, IssueField, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
-    TrackedIssue,
+    ProjectIssueList, TrackedIssue,
 };
 pub use kit::{
     AddKitServer, ForgetKitServer, InstallKitPiece, KitAllowedCommand, KitAllowedCommands,

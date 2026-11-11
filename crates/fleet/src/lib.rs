@@ -247,6 +247,8 @@ mod review_searches;
 mod issue_queries;
 /// A repository's projects: tasks a person wrote and issues he linked, kept on this Mac.
 mod projects;
+/// How work behaves, laid over its layers, and what a Job freezes of it at its start.
+mod values;
 /// His projects as files, kept where he chose for each, and the migration that makes them.
 mod project_files;
 mod project_holds;
@@ -384,6 +386,10 @@ pub mod sweeping;
 mod territory;
 /// A repository's open issues, read from its tracker. #91.
 mod tracking;
+/// The tracker a Job asks, a project's replacing its repository's.
+mod job_tracking;
+/// The open issues of the tracker a project names.
+mod project_issues;
 /// Where a path an agent named lies in a repository, and its name from its worktree's root.
 mod tree_paths;
 pub mod transcript;

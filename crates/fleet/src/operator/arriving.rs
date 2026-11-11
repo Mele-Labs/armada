@@ -79,7 +79,9 @@ impl Arrived {
     ];
 
     /// The kinds the Operator is still handed, which nobody owns: the others are a Job's own events
-    /// (or an end and a merge, which are only heard), and stand in the Log as it was kept.
+    /// (or an end and a merge, which are only heard), and stand in the Log as it was kept. **A merge is
+    /// the one heard kind that is also handed**, and only where it left an open issue near its work, to
+    /// ask whether the work finished it.
     pub const TAKEN: [Arrived; 5] = [Arrived::Note, Arrived::Error, Arrived::Report, Arrived::Issue, Arrived::RedMain];
 
     /// What a word from the store names.
@@ -250,11 +252,20 @@ impl Arrival {
         }
         if !self.open.is_empty() {
             let open: Vec<String> = self.open.iter().map(|one| format!("{} \"{}\"", one.reference, one.title)).collect();
-            out.push_str(&format!("     Open issues it may be: {}\n", open.join("; ")));
+            let of = match self.arrived {
+                Arrived::Merged => "Open issue its work may have finished",
+                Arrived::Issue => "Open issues it may repeat",
+                _ => "Open issues it may be",
+            };
+            out.push_str(&format!("     {of}: {}\n", open.join("; ")));
         }
         out.push_str("     The ways it is offered:");
         for (number, way) in self.ways.iter().enumerate() {
-            out.push_str(&format!(" {}. {}", number + 1, way.word_shown()));
+            let said = match (way, self.arrived) {
+                (Way::Leave, Arrived::Merged) => "leave it open, and nothing follows",
+                _ => way.word_shown(),
+            };
+            out.push_str(&format!(" {}. {said}", number + 1));
             if number + 1 < self.ways.len() {
                 out.push(';');
             }

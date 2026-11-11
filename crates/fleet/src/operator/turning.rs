@@ -88,6 +88,8 @@ pub(super) fn rule_said(what: &str, pick: &str) -> String {
         ("new_job", _) => format!("Start a Job on {named}"),
         ("existing_job", _) => format!("Hand {named} to a live Job near it"),
         ("link", _) => format!("Link {named} to an open issue"),
+        ("close", _) => "Close an open issue a merged pull request finished".to_string(),
+        ("group", _) => format!("Group {named} with an open issue they repeat or belong under"),
         _ => format!("Do what I would for {named}"),
     }
 }
