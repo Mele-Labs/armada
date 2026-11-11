@@ -7,11 +7,11 @@
 
 use chrono::{DateTime, Local};
 use gpui::{
-    div, prelude::*, relative, svg, Animation, AnimationExt, AnyElement, Context, ElementId, FontWeight, Hsla,
+    div, prelude::*, relative, svg, Animation, AnimationExt, AnyElement, App, Context, ElementId, FontWeight, Hsla,
     Role, SharedString, Transformation, Window,
 };
-use gpui_component::text::TextView;
-use ipc::{SessionCheckState, SessionRow, SessionVoice, ThreadItem};
+use gpui_component::text::{markdown_ast, InlineElement, InlineRenderContext, MarkdownExtensions, MarkdownNode, MarkdownParseContext, MarkdownPlugin, TextView};
+use ipc::{SessionCheckState, SessionRow, SessionTag, SessionVoice, TagKind, ThreadItem};
 
 use std::rc::Rc;
 
@@ -339,6 +339,12 @@ impl JobView {
 
     /// Prose in `colour`: a fold's body reads muted, as Electron's `armada-session-fold__body` has it.
     pub(super) fn prose_in(&self, key: String, text: &str, colour: crate::look::Token, look: &Look, cx: &Context<Self>) -> AnyElement {
+        self.prose_tagged(key, text, colour, &[], look, cx)
+    }
+
+    /// [`Self::prose_in`] with `tags` drawn where his words wrote them (`placeTags`): each an `InlineTag` chip held
+    /// in the line as one object, so the words around it stay selectable and a selection copies `@title`.
+    pub(super) fn prose_tagged(&self, key: String, text: &str, colour: crate::look::Token, tags: &[SessionTag], look: &Look, cx: &Context<Self>) -> AnyElement {
         let job = self.shown.clone().unwrap_or_default();
         // A Job the words name is a link to it, as Electron's `SessionRefs` draws a thread's words.
         let text = super::refs::Refs::of(self.list.read(cx).records()).linked(text);
@@ -372,6 +378,7 @@ impl JobView {
                 ..Default::default()
             })
             .code_block_actions(code_copy(look))
+            .when(!tags.is_empty(), |words| words.markdown_extensions(tag_extensions(tags, look)))
             // No surface navigates (design-system.md, hard rule 2): a Job opens here, an address in the browser.
             .on_link_click(move |address, _, _, cx| match super::refs::Refs::job_of(address) {
                 Some(id) => {
@@ -516,7 +523,8 @@ impl JobView {
             Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
-                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], None, true, false, false, None, look, now, cx)
+                let delivery = if one.failed { Delivery::NotSent(one.key) } else { Delivery::Sending };
+                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &one.tags, None, Some(delivery), false, false, None, look, now, cx)
             }
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
@@ -596,9 +604,9 @@ impl JobView {
         id: &str,
         text: &str,
         files: &[ipc::SentFile],
-        chips: &[String],
+        tags: &[SessionTag],
         at: Option<&ipc::Instant>,
-        sending: bool,
+        delivery: Option<Delivery>,
         queued: bool,
         editable: bool,
         edited: Option<&ipc::Instant>,
@@ -623,8 +631,8 @@ impl JobView {
             .gap(look.length(token::SPACE_2))
             .px(look.length(token::SPACE_2))
             .text_color(look.color(token::FG_SUBTLE))
-            .when(sending, |band| {
-                band.child(
+            .when(delivery == Some(Delivery::Sending), |band| {
+                band.child(labelled(
                     div()
                         .id(SharedString::from(format!("sending:{id}")))
                         .child(
@@ -640,7 +648,21 @@ impl JobView {
                                 ),
                         )
                         .tooltip(tip("Sending")),
-                )
+                    Role::Image,
+                    "Sending",
+                ))
+            })
+            // Fleet did not take it: a cross, as `Delivery` draws one.
+            .when(matches!(delivery, Some(Delivery::NotSent(_))), |band| {
+                band.child(labelled(
+                    div()
+                        .id(SharedString::from(format!("not-sent:{id}")))
+                        .flex()
+                        .child(glyph(look, "x", Size::Small, look.color(token::FG_SUBTLE)))
+                        .tooltip(tip("Not sent")),
+                    Role::Image,
+                    "Not sent",
+                ))
             })
             .when(queued, |band| {
                 band.child(
@@ -672,31 +694,58 @@ impl JobView {
                 ))
             })
             .children(at.map(|at| self.stamp(at, look, now, false, cx)));
+        let (said_parts, loose) = place_tags(said, tags);
         // What the message was sent with, under its words inside the bubble (`Sent`): each picture drawn, the
-        // other files and the tags the words did not place as chips.
-        let sent = (!files.is_empty() || !chips.is_empty()).then(|| {
+        // other files and the tags the words did not place as chips, each after its kind.
+        let sent = (!files.is_empty() || !loose.is_empty()).then(|| {
             div()
                 .flex()
                 .flex_wrap()
                 .items_start()
                 .gap(look.length(token::SPACE_2))
                 .children(files.iter().map(|file| {
-                    self.picture_tile(file, look, cx).unwrap_or_else(|| self.chip(&file.name, look).into_any_element())
+                    self.picture_tile(file, look, cx).unwrap_or_else(|| self.chip(None, &file.name, look).into_any_element())
                 }))
-                .children(chips.iter().map(|chip| self.chip(chip, look).into_any_element()))
+                .children(loose.iter().map(|tag| {
+                    let said = format!("{} · {}", tag_kind(tag.kind), tag.title);
+                    labelled(self.chip(Some(tag_kind(tag.kind)), &tag.title, look).id(SharedString::from(format!("loose:{id}:{}", tag.id))), Role::Group, said).into_any_element()
+                }))
         });
+        // Where Fleet did not take it, Retry sends it again; gone while it goes.
+        let retry = match delivery {
+            Some(Delivery::NotSent(key)) => self.shown.clone().map(|job| {
+                div().flex().child(labelled(
+                    super::acts::button(look, SharedString::from(format!("retry:{id}")), "Retry", super::acts::Tone::Secondary, false, None, true)
+                        .h(look.length(token::H_CONTROL_SM))
+                        .px(look.length(token::SPACE_2))
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_XS))
+                        .on_click(cx.listener(move |this, _, window, cx| this.retry(&job, key, window, cx))),
+                    Role::Button,
+                    "Retry",
+                ))
+            }),
+            _ => None,
+        };
         let editing = editable.then(|| self.edit_box(id, look, cx)).flatten();
         let open = editing.is_some();
         let words = match editing {
             Some(field) => field,
-            None => self.block(page, id, self.prose(format!("you:{id}"), said, look, cx), cx),
+            None => match said_parts {
+                // Where his words place a tag, the tag is a chip in its line (`armada-session-said`).
+                Some(parts) => {
+                    let words = self.prose_tagged(format!("you:{id}"), &tagged_words(&parts, tags), token::FG_DEFAULT, tags, look, cx);
+                    self.block(page, id, labelled(div().id(SharedString::from(format!("said:{id}"))).child(words), Role::Group, "Message said").into_any_element(), cx)
+                }
+                None => self.block(page, id, self.prose(format!("you:{id}"), said, look, cx), cx),
+            },
         };
         let region = div()
             .id(SharedString::from(format!("you:{id}")))
             .flex()
             .flex_col()
             .items_end()
-            .when(sending, |row| row.opacity(0.6));
+            .when(delivery == Some(Delivery::Sending), |row| row.opacity(0.6));
         let region = if editable {
             let spot = self.spot(page, &format!("you:{id}"), cx);
             let region = region.track_focus(&spot.focus);
@@ -733,7 +782,8 @@ impl JobView {
                                 .when(open, |words| words.border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::FOCUS_RING)))
                                 .child(words)
                                 .children(debug)
-                                .children(sent),
+                                .children(sent)
+                                .children(retry),
                             Role::Group,
                             "Message words",
                         ))
@@ -745,12 +795,15 @@ impl JobView {
         .into_any_element()
     }
 
-    /// A name drawn as a read-only chip: a file, or a tag the words did not place.
-    fn chip(&self, said: &str, look: &Look) -> gpui::Div {
+    /// A name drawn as a read-only chip: a file, or a tag the words did not place after its kind.
+    fn chip(&self, from: Option<&str>, said: &str, look: &Look) -> gpui::Div {
         div()
             .flex_none()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
             .max_w_full()
-            .truncate()
+            .overflow_hidden()
             .px(look.length(token::SPACE_2))
             .py(look.length(token::SPACE_1))
             .rounded(look.length(token::RADIUS_SM))
@@ -760,7 +813,8 @@ impl JobView {
             .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
             .text_color(look.color(token::FG_DEFAULT))
-            .child(said.to_string())
+            .children(from.map(|from| div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(format!("{from} ·"))))
+            .child(div().min_w_0().truncate().child(said.to_string()))
     }
 
     /// The agent's words, with the bar under them that shows on hover (A2.3).
@@ -842,9 +896,8 @@ impl JobView {
                 if let Some(act) = act_of(text) {
                     return Some(self.did(id, act, at, look, now, cx));
                 }
-                let chips: Vec<String> = tags.iter().map(|tag| tag.title.clone()).collect();
                 let text = page.edits.get(id).unwrap_or(text);
-                self.you(ix, page, id, text, files, &chips, Some(at), false, *queued, true, edited_at.as_ref(), look, now, cx)
+                self.you(ix, page, id, text, files, tags, Some(at), None, *queued, true, edited_at.as_ref(), look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
             SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title }, text, notice, .. } => {
@@ -992,6 +1045,192 @@ fn code_copy(look: &Look) -> impl Fn(&gpui_base::text::CodeBlock, &mut Window, &
 /// The group a message's words hover as, so a block's Copy shows while the pointer is on them.
 const PROSE_GROUP: &str = "prose";
 
+/// Where one of his messages stands while Fleet has not taken it (`Delivery`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum Delivery {
+    Sending,
+    /// Fleet did not take it; the pending message's key, for Retry.
+    NotSent(u64),
+}
+
+/// One stretch of his words: as written, or a tag at the place it was written.
+#[derive(Debug, PartialEq)]
+pub(super) enum Said<'a> {
+    Words(&'a str),
+    Tag(&'a SessionTag),
+}
+
+/// His words with each tag at its `@title`, found in order after the one before (`placeTags`): `None`
+/// where no tag is found, and the tags that were not.
+pub(super) fn place_tags<'a>(text: &'a str, tags: &'a [SessionTag]) -> (Option<Vec<Said<'a>>>, Vec<&'a SessionTag>) {
+    let mut parts = Vec::new();
+    let mut loose = Vec::new();
+    let mut from = 0;
+    for tag in tags {
+        let needle = format!("@{}", tag.title);
+        match text[from..].find(&needle) {
+            None => loose.push(tag),
+            Some(found) => {
+                let at = from + found;
+                if at > from {
+                    parts.push(Said::Words(&text[from..at]));
+                }
+                parts.push(Said::Tag(tag));
+                from = at + needle.len();
+            }
+        }
+    }
+    if parts.is_empty() {
+        return (None, loose);
+    }
+    if from < text.len() {
+        parts.push(Said::Words(&text[from..]));
+    }
+    (Some(parts), loose)
+}
+
+/// What a tag's kind is called (`TAG_KIND`).
+pub(super) fn tag_kind(kind: TagKind) -> &'static str {
+    match kind {
+        TagKind::Session => "Job",
+        TagKind::PullRequest => "Pull request",
+        TagKind::Branch => "Branch",
+        TagKind::Issue => "Issue",
+        TagKind::Report => "Reported bug",
+        TagKind::Terminal => "Terminal",
+    }
+}
+
+/// What marks a tag in the markdown his words are drawn from: inline code that reads this and the tag's place.
+const TAG_MARK: char = '\u{E000}';
+
+/// His words with each placed tag written as its mark, a Job's inside a link to it, so the markdown carries it.
+fn tagged_words(parts: &[Said], tags: &[SessionTag]) -> String {
+    let mut words = String::new();
+    for part in parts {
+        match part {
+            Said::Words(text) => words.push_str(text),
+            Said::Tag(tag) => {
+                let at = tags.iter().position(|one| std::ptr::eq(one, *tag)).unwrap_or_default();
+                match tag.kind {
+                    TagKind::Session => words.push_str(&format!("[`{TAG_MARK}{at}`](armada-ref:session/{})", tag.id)),
+                    _ => words.push_str(&format!("`{TAG_MARK}{at}`")),
+                }
+            }
+        }
+    }
+    words
+}
+
+/// The markdown extension that draws each tag's mark as its chip.
+fn tag_extensions(tags: &[SessionTag], look: &Look) -> MarkdownExtensions {
+    let mut hash = std::collections::hash_map::DefaultHasher::new();
+    for tag in tags {
+        std::hash::Hash::hash(&(&tag.id, &tag.title, tag_kind(tag.kind)), &mut hash);
+    }
+    let revision = std::hash::Hasher::finish(&hash) | 1;
+    MarkdownExtensions::default().plugin(TagPlugin { tags: tags.to_vec(), paint: TagPaint::of(look) }).parser_revision(revision)
+}
+
+/// The look an `InlineTag` chip is drawn with, read once so the plugin holds no `Look`.
+#[derive(Clone, Copy)]
+struct TagPaint {
+    accent: Hsla,
+    ink: Hsla,
+    glyph: Hsla,
+    border: Hsla,
+    fill: Hsla,
+    gap: gpui::Pixels,
+    pad: gpui::Pixels,
+    radius: gpui::Pixels,
+    rule: gpui::Pixels,
+    size: gpui::Pixels,
+    leading: gpui::Pixels,
+    icon: gpui::Pixels,
+}
+
+impl TagPaint {
+    fn of(look: &Look) -> Self {
+        TagPaint {
+            accent: look.color(token::ACCENT),
+            ink: look.color(token::FG_DEFAULT),
+            glyph: look.color(token::FG_MUTED),
+            border: look.color(token::BORDER_DEFAULT),
+            fill: look.color(token::BG_RAISED),
+            gap: look.length(token::SPACE_1),
+            pad: look.length(token::SPACE_1),
+            radius: look.length(token::RADIUS_MD),
+            rule: look.length(token::BORDER_WIDTH),
+            size: look.length(token::TEXT_XS),
+            leading: look.length(token::LEADING_XS),
+            icon: Size::Small.of(look),
+        }
+    }
+}
+
+/// A tag in his words as `InlineTag` draws it: its kind's glyph and title in one unit. A Job's is accent, a link
+/// the markdown carries, with its kind and title on hover.
+struct TagPlugin {
+    tags: Vec<SessionTag>,
+    paint: TagPaint,
+}
+
+impl MarkdownPlugin for TagPlugin {
+    fn name(&self) -> &str {
+        "armada-tag"
+    }
+
+    fn parse(&self, node: &markdown_ast::Node, _: &MarkdownParseContext<'_>) -> Option<MarkdownNode> {
+        let markdown_ast::Node::InlineCode(code) = node else { return None };
+        let tag = self.tags.get(code.value.strip_prefix(TAG_MARK)?.parse::<usize>().ok()?)?;
+        let said = format!("@{}", tag.title);
+        Some(MarkdownNode::new("armada-tag", tag.clone()).text(said.clone()).markdown(said).accessibility_label(tag.title.clone()))
+    }
+
+    fn render_inline(&self, node: &MarkdownNode, _: &InlineRenderContext, _: &mut Window, _: &mut App) -> Option<InlineElement> {
+        let tag = node.data::<SessionTag>()?;
+        let paint = self.paint;
+        let link = tag.kind == TagKind::Session;
+        let ink = if link { paint.accent } else { paint.ink };
+        let chip = div()
+            .id(SharedString::from(format!("tag:{}:{}", tag_kind(tag.kind), tag.id)))
+            .flex()
+            .items_center()
+            .gap(paint.gap)
+            .px(paint.pad)
+            .rounded(paint.radius)
+            .border(paint.rule)
+            .border_color(paint.border)
+            .bg(paint.fill)
+            .text_size(paint.size)
+            .line_height(paint.leading)
+            .text_color(ink)
+            .text_decoration_0()
+            .text_decoration_color(gpui::transparent_black())
+            .whitespace_nowrap()
+            .child(svg().path(icon_path(tag_glyph(tag.kind))).flex_none().size(paint.icon).text_color(if link { ink } else { paint.glyph }))
+            .child(tag.title.clone());
+        let chip = if link {
+            labelled(chip.cursor_pointer().tooltip(tip(format!("{} · {}", tag_kind(tag.kind), tag.title))), Role::Link, tag.title.clone()).into_any_element()
+        } else {
+            labelled(chip, Role::Group, tag.title.clone()).into_any_element()
+        };
+        Some(InlineElement::new(chip))
+    }
+}
+
+/// A tag kind's glyph (`TAG_GLYPH`).
+fn tag_glyph(kind: TagKind) -> &'static str {
+    match kind {
+        TagKind::Session => "square-terminal",
+        TagKind::PullRequest => "git-pull-request",
+        TagKind::Branch => "git-branch",
+        TagKind::Issue => "ticket",
+        TagKind::Report => "bug",
+        TagKind::Terminal => "terminal",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1002,6 +1241,23 @@ mod tests {
         assert_eq!(with_breaks("para\n\nnext"), "para\n\nnext");
         assert_eq!(with_breaks("```\na\nb\n```\nafter"), "```\na\nb\n```\nafter");
         assert_eq!(with_breaks("say\n```\ncode\n```"), "say\n```\ncode\n```");
+    }
+
+    fn tag(kind: TagKind, id: &str, title: &str) -> SessionTag {
+        SessionTag { kind, id: id.into(), title: title.into(), url: None }
+    }
+
+    #[test]
+    fn a_tag_is_placed_at_its_title_in_order_and_the_rest_are_loose() {
+        let tags = [tag(TagKind::Session, "s1", "Native Bridge foundation"), tag(TagKind::PullRequest, "3290", "#3290 Merge line"), tag(TagKind::Session, "s2", "Audit")];
+        let (parts, loose) = place_tags("Ask @Native Bridge foundation, then @Audit.", &tags);
+        assert_eq!(
+            parts,
+            Some(vec![Said::Words("Ask "), Said::Tag(&tags[0]), Said::Words(", then "), Said::Tag(&tags[2]), Said::Words(".")])
+        );
+        assert_eq!(loose, vec![&tags[1]]);
+        let (parts, loose) = place_tags("No tag written", &tags[..1]);
+        assert_eq!((parts, loose), (None, vec![&tags[0]]));
     }
 
     #[test]
@@ -1047,3 +1303,4 @@ mod tests {
         assert_eq!(shown_target("http://example.com/x"), "http://example.com/x");
     }
 }
+

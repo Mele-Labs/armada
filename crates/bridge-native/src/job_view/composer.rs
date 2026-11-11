@@ -533,7 +533,7 @@ impl JobView {
     }
 
     /// The words are in the thread this frame; Fleet's row replaces them when it arrives, and a
-    /// refusal puts them back with Fleet's reason. `line` is a quick line sent beside the draft.
+    /// refusal leaves them there marked Not sent, with a Retry. `line` is a quick line sent beside the draft.
     fn deliver(&mut self, id: SharedString, line: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         let (kept, files, drawn) = match &line {
             Some(text) => (Kept { text: text.clone(), tags: Vec::new() }, Vec::new(), Vec::new()),
@@ -558,62 +558,50 @@ impl JobView {
             }
             self.composer.offer = None;
         }
+        let refuse = self.fleet.is_none() && self.mock_refusals > 0;
         let page = self.pages.entry(id.clone()).or_insert_with(Page::new);
         page.refused = None;
-        match self.fleet.clone() {
-            Some(_) => {
-                page.pending.push(Pending { key, text: text.clone(), seen });
-                let job = id.clone();
-                let sent_files = files.clone();
-                let sent_drawn = drawn.clone();
-                let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions };
-                cx.spawn_in(window, async move |this, cx| {
-                    // A sketch goes as its picture, drawn off the main thread with the files' bytes (`uploadOfSketch`).
-                    let uploads = cx
-                        .background_executor()
-                        .spawn(async move { encoded_files(sent_files).into_iter().chain(sent_drawn.iter().map(crate::sketch_png::upload)).collect::<Vec<_>>() })
-                        .await;
-                    let _ = this.update_in(cx, |this, window, cx| {
-                        let body = SendSessionMessageBody { message: SendSessionMessage { attachments: uploads, ..message }, aim: None };
-                        let back = (kept, files, drawn, line.is_some());
-                        let done: Done = Box::new(move |this, answer, window, cx| {
-                            if let Err(why) = answer {
-                                this.refused(&job, key, back, why.into(), window, cx);
+        if refuse {
+            // Mock data: this one Fleet does not take, so the walk shows Not sent and its Retry.
+            self.mock_refusals -= 1;
+            page.pending.push(Pending { key, text, seen, tags: mentions, body: None, failed: true });
+            page.refused = Some("Fleet did not take the message: it was restarting".into());
+        } else {
+            match self.fleet.clone() {
+                Some(_) => {
+                    page.pending.push(Pending { key, text: text.clone(), seen, tags: mentions.clone(), body: None, failed: false });
+                    let job = id.clone();
+                    let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions };
+                    cx.spawn_in(window, async move |this, cx| {
+                        // A sketch goes as its picture, drawn off the main thread with the files' bytes (`uploadOfSketch`).
+                        let uploads = cx
+                            .background_executor()
+                            .spawn(async move { encoded_files(files).into_iter().chain(drawn.iter().map(crate::sketch_png::upload)).collect::<Vec<_>>() })
+                            .await;
+                        let _ = this.update_in(cx, |this, window, cx| {
+                            let body = SendSessionMessageBody { message: SendSessionMessage { attachments: uploads, ..message }, aim: None };
+                            let body = ipc::encode(&body);
+                            if let (Ok(posted), Some(page)) = (&body, this.pages.get_mut(&job)) {
+                                if let Some(one) = page.pending.iter_mut().find(|one| one.key == key) {
+                                    one.body = Some(posted.clone());
+                                }
                             }
+                            this.send_pending(&job, key, body, window, cx);
                         });
-                        this.post("/sessions/message".into(), ipc::encode(&body), window, cx, done);
-                    });
-                })
-                .detach();
-            }
-            None => {
-                // Mock data: Fleet's row for these words arrives at once.
-                let at = ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
-                // His pictures are drawn from what he sent, as there is no Fleet to read them back from.
-                for one in files.iter().filter(|one| one.preview.is_some()) {
-                    self.sent_picture(&id, &format!("file-{}", one.key), &one.media_type, &one.bytes, cx);
+                    })
+                    .detach();
                 }
-                if let Some(held) = self.mock.get_mut(id.as_str()) {
-                    held.items.push(ThreadItem::Row {
-                        row: SessionRow::Message {
-                            id: format!("sent-{key}"),
-                            at,
-                            from: SessionVoice::You,
-                            text,
-                            files: files
-                                .iter()
-                                .map(|one| SentFile { id: format!("file-{}", one.key), name: one.name.clone(), media_type: one.media_type.clone() })
-                                .chain(drawn.iter().map(|one| SentFile { id: one.id.clone(), name: format!("{}.png", one.title), media_type: "image/png".into() }))
-                                .collect(),
-                            tags: mentions,
-                            notice: None,
-                            queued: false,
-                            edited_at: None,
-                        },
-                    });
-                    held.version += 1;
-                    let at = held.items.len() - 1;
-                    held.mark_dirty(at);
+                None => {
+                    // His pictures are drawn from what he sent, as there is no Fleet to read them back from.
+                    for one in files.iter().filter(|one| one.preview.is_some()) {
+                        self.sent_picture(&id, &format!("file-{}", one.key), &one.media_type, &one.bytes, cx);
+                    }
+                    let sent = files
+                        .iter()
+                        .map(|one| SentFile { id: format!("file-{}", one.key), name: one.name.clone(), media_type: one.media_type.clone() })
+                        .chain(drawn.iter().map(|one| SentFile { id: one.id.clone(), name: format!("{}.png", one.title), media_type: "image/png".into() }))
+                        .collect();
+                    self.mock_sent(&id, key, text, sent, mentions);
                 }
             }
         }
@@ -622,29 +610,58 @@ impl JobView {
         cx.notify();
     }
 
-    /// Fleet refused the words: they go back in the box unless something was typed since, with their
-    /// chips and files, and its reason stands over the box.
-    fn refused(&mut self, id: &SharedString, key: u64, back: (Kept, Vec<Attached>, Vec<crate::sketch::DrawnSketch>, bool), why: SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        let (kept, files, drawn, was_line) = back;
+    /// Mock data: Fleet's row for these words arrives at once.
+    fn mock_sent(&mut self, id: &SharedString, key: u64, text: String, files: Vec<SentFile>, tags: Vec<SessionTag>) {
+        let at = ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+        if let Some(held) = self.mock.get_mut(id.as_str()) {
+            held.items.push(ThreadItem::Row {
+                row: SessionRow::Message { id: format!("sent-{key}"), at, from: SessionVoice::You, text, files, tags, notice: None, queued: false, edited_at: None },
+            });
+            held.version += 1;
+            let at = held.items.len() - 1;
+            held.mark_dirty(at);
+        }
+    }
+
+    /// Posts a held message; a refusal marks it Not sent, where Retry finds it.
+    fn send_pending(&mut self, id: &SharedString, key: u64, body: Result<String, ipc::Unencodable>, window: &mut Window, cx: &mut Context<Self>) {
+        let job = id.clone();
+        let done: Done = Box::new(move |this, answer, _, cx| {
+            if let Err(why) = answer {
+                this.not_sent(&job, key, why.into(), cx);
+            }
+        });
+        self.post("/sessions/message".into(), body, window, cx, done);
+    }
+
+    /// Fleet did not take the words: they stay in the thread marked Not sent, with a Retry, and its
+    /// reason stands over the box. The box takes nothing back, so words he has moved on from stay out of it.
+    fn not_sent(&mut self, id: &SharedString, key: u64, why: SharedString, cx: &mut Context<Self>) {
         if let Some(page) = self.pages.get_mut(id) {
-            page.pending.retain(|one| one.key != key);
+            if let Some(one) = page.pending.iter_mut().find(|one| one.key == key) {
+                one.failed = true;
+            }
             page.refused = Some(why);
         }
-        if !was_line {
-            let held = self.composer.box_of(id);
-            held.files.splice(0..0, files);
-            held.drawn.splice(0..0, drawn);
-            if self.shown.as_ref() == Some(id) {
-                if self.composer.input.read(cx).value().is_empty() {
-                    self.set_box(&kept, window, cx);
-                    self.composer.drafts.set(id, kept);
-                    self.keep_soon(cx);
-                }
-            } else if self.composer.drafts.get(id).text.is_empty() {
-                self.composer.drafts.set(id, kept);
-                self.keep_soon(cx);
-            }
+        self.sync(id, cx);
+        cx.notify();
+    }
+
+    /// Retry: the same message again, as it first went (`outgoing.ts` `retry`).
+    pub(super) fn retry(&mut self, id: &SharedString, key: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(page) = self.pages.get_mut(id) else { return };
+        let Some(at) = page.pending.iter().position(|one| one.key == key && one.failed) else { return };
+        page.refused = None;
+        if self.fleet.is_none() {
+            let one = page.pending.remove(at);
+            self.mock_sent(id, key, one.text, Vec::new(), one.tags);
+        } else {
+            let one = &mut page.pending[at];
+            let Some(body) = one.body.clone() else { return };
+            one.failed = false;
+            self.send_pending(id, key, Ok(body), window, cx);
         }
+        self.pin(id);
         self.sync(id, cx);
         cx.notify();
     }
