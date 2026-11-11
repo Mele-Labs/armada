@@ -27,7 +27,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "job-bands" => include_bytes!("../fixtures/jobs-bands.json"),
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
-        "job-view-composer" | "learnt-lines" => include_bytes!("../fixtures/jobs-composer.json"),
+        "job-view-composer" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
         "jobs-screens" => include_bytes!("../fixtures/jobs-screens.json"),
@@ -70,7 +70,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         // The same threads, and the earlier Job's, ended where it handed on.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
-        "job-view-composer" | "learnt-lines" => include_bytes!("../fixtures/composer-threads.json"),
+        "job-view-composer" => include_bytes!("../fixtures/composer-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
         "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
         "tool-rows" => include_bytes!("../fixtures/tools-threads.json"),
@@ -136,7 +136,7 @@ pub fn catalogue() -> Option<Catalogue> {
         scripts: Vec<Talk>,
     }
     let named = SCENARIO.lock().ok()?.clone();
-    if named != "job-view-composer" && named != "jobs-screens" && named != "learnt-lines" {
+    if named != "job-view-composer" && named != "jobs-screens" {
         return None;
     }
     let read = || -> Result<Catalogue, String> {
@@ -144,8 +144,7 @@ pub fn catalogue() -> Option<Catalogue> {
         Ok(Catalogue {
             models: ipc::decode("ModelChoices", include_bytes!("../fixtures/composer-models.json")).map_err(why)?,
             look: ipc::decode("thread.look", include_bytes!("../fixtures/composer-look.json")).map_err(why)?,
-            // The learnt-lines walk's Job asks nothing, so the bar has room for the line Fleet learnt.
-            quick: ipc::decode("SessionQuick", if named == "learnt-lines" { &include_bytes!("../fixtures/composer-quick-learnt.json")[..] } else { &include_bytes!("../fixtures/composer-quick.json")[..] }).map_err(why)?,
+            quick: ipc::decode("SessionQuick", include_bytes!("../fixtures/composer-quick.json")).map_err(why)?,
             files: ipc::decode::<Files>("files", include_bytes!("../fixtures/composer-files.json")).map_err(why)?.paths,
             issues: ipc::decode("IssueList", include_bytes!("../fixtures/composer-issues.json")).map_err(why)?,
             talk: ipc::decode::<Talks>("talk", include_bytes!("../fixtures/composer-talk.json")).map_err(why)?.scripts.into_iter().map(|one| (one.job, one.script)).collect(),

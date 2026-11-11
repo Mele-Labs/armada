@@ -976,7 +976,9 @@ impl JobView {
     fn bar_button(&self, look: &Look, id: &'static str, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>) -> gpui::Stateful<gpui::Div> {
         div()
             .id(id)
-            .flex_none()
+            // As Electron's: a menu gives up room before Send does, down to a floor, and its words truncate.
+            .flex_shrink(1.)
+            .min_w(look.length(token::SPACE_12) * 1.5)
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
@@ -988,9 +990,9 @@ impl JobView {
             .text_size(look.length(token::TEXT_SM))
             .text_color(look.color(token::FG_MUTED))
             .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
-            .child(div().whitespace_nowrap().child(said))
+            .child(div().min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis().child(said))
             .children(meter)
-            .child(svg().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
+            .child(svg().flex_none().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
             .tooltip(tip(tooltip))
     }
 
@@ -1243,10 +1245,9 @@ impl JobView {
         } else {
             self.box_words(look, cx)
         };
-        // On a narrow thread the row wraps rather than cut its last controls off.
+        // Send never wraps, as Electron's: the menus give up room first and truncate.
         let bar = div()
             .flex()
-            .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_2))
             .px(look.length(token::SPACE_2))
