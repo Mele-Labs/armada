@@ -1,0 +1,6 @@
+{
+ "lines": [
+  { "from_person": true, "text": "Is anything stuck?", "at": "2026-11-11T09:14:00-05:00" },
+  { "from_person": false, "text": "No. Store reports its size waited on a slot for a while, and it has one now.", "at": "2026-11-11T09:14:00-05:00" }
+ ]
+}

@@ -53,3 +53,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 4 Nov 2026 for the walk `operatorFull`, for the owner to rule on. The same clock a held Job's row and head wear, so the tab and the rows it lists read alike. Tab label: Waiting to start."
+
+  [[icons.clock.usage]]
+    means = "An item of the Operator's Your turn put Later, on its row"
+    group = "Operator"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 10 Nov 2026 for the native walk `operator-page`, for the owner to rule on. Nobody acts on it until later today, which is the clock's claim. Tooltip `Later today`. `bookmark` was refused: it is reserved to deferring what a Studio node raised."
