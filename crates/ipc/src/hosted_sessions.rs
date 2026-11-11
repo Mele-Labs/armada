@@ -632,6 +632,13 @@ pub enum SessionRow {
         at: Instant,
         text: String,
     },
+    /// What the agent reasoned before what it did next: the short summary its CLI writes, never
+    /// the working itself, which the CLI keeps encrypted. Since 10 Nov 2026.
+    Reasoning {
+        id: String,
+        at: Instant,
+        text: String,
+    },
     /// The first write: the slot leased and the branch cut.
     Lease {
         id: String,
@@ -924,6 +931,7 @@ impl SessionRow {
             | SessionRow::Tool { id, .. }
             | SessionRow::Command { id, .. }
             | SessionRow::Compaction { id, .. }
+            | SessionRow::Reasoning { id, .. }
             | SessionRow::Lease { id, .. }
             | SessionRow::Release { id, .. }
             | SessionRow::Window { id, .. }

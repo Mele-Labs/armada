@@ -974,3 +974,21 @@ async fn an_agent_keeps_an_armada_yml_in_kit_for_its_own_repository_only() {
     assert_eq!(code, "fleet.kit_manifest_elsewhere");
     assert!(message.contains("this call comes from none"), "{message}");
 }
+
+/// A hosted Job's reasoning reaches its thread as a row, heard from its stream. Job 20b4e00a, 10 Nov 2026, worked its
+/// answer out in its reasoning and asked, and the thread held the question alone.
+#[tokio::test]
+async fn a_hosted_jobs_reasoning_is_a_row_in_its_thread() {
+    let rig = rig(None);
+    let id = rig.an_agent().await;
+    rig.stand_in.says(
+        0,
+        vec![adapter_traits::DroneEvent::Reasoned { text: String::from("I recommend the Jobs list, where he already looks.") }],
+    );
+    eventually(|| async {
+        rig.rows(&id).await.iter().any(|row| {
+            matches!(row, SessionRow::Reasoning { text, .. } if text == "I recommend the Jobs list, where he already looks.")
+        })
+    })
+    .await;
+}

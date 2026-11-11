@@ -1095,6 +1095,12 @@ function filesOf(sessionId: string, files: readonly SentFile[], picture: Beside[
   });
 }
 
+/** Whole seconds from the row before to this one: how long the agent reasoned, as near as the thread can tell. */
+function secondsSince(before: string | undefined, at: string): number {
+  const spent = before === undefined ? Number.NaN : (Date.parse(at) - Date.parse(before)) / 1000;
+  return Number.isFinite(spent) ? Math.max(1, Math.round(spent)) : 1;
+}
+
 /** The thread, row by row. **A waiting ask is the card under the thread, so it is no row**; one answered is a line of what was decided. */
 export function rowsOfThread(
   sessionId: string,
@@ -1103,7 +1109,7 @@ export function rowsOfThread(
   repository: NonNullable<Beside["repository"]> = (id) => id ?? "",
 ): SessionRow[] {
   const out: SessionRow[] = [];
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
     const at = row.at;
     switch (row.kind) {
       case "message":
@@ -1184,6 +1190,15 @@ export function rowsOfThread(
           id: row.id,
           at,
           kind: "compaction",
+          text: row.text,
+        });
+        break;
+      case "reasoning":
+        out.push({
+          id: row.id,
+          at,
+          kind: "reasoning",
+          seconds: secondsSince(rows[index - 1]?.at, at),
           text: row.text,
         });
         break;

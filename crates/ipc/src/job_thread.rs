@@ -388,6 +388,7 @@ impl SessionRow {
             | SessionRow::Tool { at, .. }
             | SessionRow::Command { at, .. }
             | SessionRow::Compaction { at, .. }
+            | SessionRow::Reasoning { at, .. }
             | SessionRow::Lease { at, .. }
             | SessionRow::Release { at, .. }
             | SessionRow::Window { at, .. }

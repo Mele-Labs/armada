@@ -22,7 +22,10 @@ Work stamped before the stop opens nothing (14 Oct 2026).
 > **Rule.** The thread is drawn and never read as a claim. Nothing Fleet knows about a terminal job, its title or its state, comes from its rows.
 
 A slash command the person ran is one `command` row, as typed, and the summary the CLI writes where it compacted a long conversation is one `compaction` row, so neither reads as the person's words.
-What is not drawn: the agent's reasoning, a tool's answer, a command's output, a subagent's own turns, the CLI's bookkeeping (a caveat, a reminder, a task notification) and a message from another job.
+The agent's reasoning is one `reasoning` row: the short summary the CLI writes of it, never the working itself, which the CLI keeps encrypted.
+It is drawn folded, and drawn open where it comes just before a question asked with nothing written to the person since their message, because they read only what the agent writes (the owner, 10 Nov 2026).
+A hosted job's rows are heard from its stream and a terminal job's read from its transcript, and both carry it.
+What is not drawn: a tool's answer, a command's output, a subagent's own turns, the CLI's bookkeeping (a caveat, a reminder, a task notification) and a message from another job.
 No wrapper tag the CLI writes for itself reaches a row.
 
 **A message reaches a terminal by its own mod.** Fleet cannot push into a terminal.
