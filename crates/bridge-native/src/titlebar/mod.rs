@@ -1513,7 +1513,7 @@ impl Render for TitleBar {
             .children(self.trying_bar(look, cx))
             .children(self.dropped_alert(look, cx))
             .children(self.popover(look, window, cx))
-            .children(self.dialog_layer(look, viewport, cx))
+            .children(self.dialog_layer(look, crate::room::of(window, cx), cx))
             .children(self.toast(look, viewport, cx))
             .children(self.swap_layer(look, viewport, cx))
             .children(self.menu.as_ref().map(|menu| menu.dropdown.clone()))

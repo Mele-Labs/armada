@@ -217,7 +217,8 @@ impl Confirm {
 impl Render for Confirm {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
-        let size = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let size = room.size;
         let button = |id: &'static str, label: SharedString, primary: bool, yes: bool, cx: &Context<Self>| {
             let fill = if primary {
                 if self.danger { look.color(token::STATUS_COMPLETED_FAILED) } else { look.color(token::ACCENT) }
@@ -287,7 +288,7 @@ impl Render for Confirm {
                     .child(button("confirm-yes", self.confirm.clone(), true, true, cx)),
             );
         deferred(
-            anchored().position(point(gpui::px(0.), gpui::px(0.))).anchor(Anchor::TopLeft).child(
+            anchored().position(room.origin).anchor(Anchor::TopLeft).child(
                 labelled(
                     div()
                         .id("scrim")

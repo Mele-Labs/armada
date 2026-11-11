@@ -8,7 +8,7 @@
 //! the bar says so.
 
 use gpui::{
-    actions, div, prelude::*, px, App, Context, Entity, FocusHandle, FontWeight, KeyBinding, Role,
+    actions, div, prelude::*, px, AnyElement, App, Context, Entity, FocusHandle, FontWeight, KeyBinding, Role,
     SharedString, Subscription, Task, Window,
 };
 use std::cell::Cell;
@@ -808,10 +808,19 @@ fn approve_button(take: Option<SharedString>, cx: &mut Context<WalkWindow>) -> i
 impl Render for WalkWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let bar = self.render_bar(cx);
+        // The app draws below the bar: its sheets and dialogs start there, so the step stays readable.
+        // The bar is two rows, each as `render_bar`'s `row` sets it.
+        let barred = {
+            let look = cx.look();
+            (look.length(token::SPACE_8) + look.length(token::SPACE_2) + look.length(token::SPACE_1)) * 2.
+        };
+        let viewport = window.viewport_size();
+        crate::room::set(window, Bounds::new(point(px(0.), barred), gpui::size(viewport.width, viewport.height - barred)), cx);
         let look = cx.look();
         let ring = if self.playing || self.capture.is_some() { None } else { find(&self.walk.steps[self.at], window, cx).ok() };
         let gap = look.length(token::FOCUS_RING_WIDTH) * 2.;
         let stage_at = Rc::clone(&self.stage_at);
+        let chrome = |element: AnyElement| gpui::deferred(element).with_priority(crate::room::WALK_CHROME);
         label_root(
             div()
                 .id("walk-window")
@@ -841,7 +850,8 @@ impl Render for WalkWindow {
                 // What a library widget inherits, such as the note's typed text; gpui's own is black.
                 .text_color(look.color(token::FG_DEFAULT))
                 .font_family(look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_default())
-                .child(bar)
+                // Walk chrome paints above every app layer: the bar, the ring on the target, the note and the takes menu.
+                .child(chrome(bar.into_any_element()))
                 .child(
                     div()
                         .relative()
@@ -852,7 +862,7 @@ impl Render for WalkWindow {
                 )
                 .children(ring.map(|drawn| {
                     let shown = drawn.shown;
-                    div()
+                    chrome(div()
                         .absolute()
                         .left(shown.origin.x - gap)
                         .top(shown.origin.y - gap)
@@ -862,9 +872,10 @@ impl Render for WalkWindow {
                         .rounded(drawn.radius.unwrap_or(look.length(token::RADIUS_LG)) + gap)
                         .border(look.length(token::FOCUS_RING_WIDTH))
                         .border_color(look.color(token::ACCENT))
+                        .into_any_element())
                 }))
-                .children(self.capture.as_ref().map(|(capture, _)| capture.clone()))
-                .children(self.menu.as_ref().map(|(menu, ..)| menu.clone())),
+                .children(self.capture.as_ref().map(|(capture, _)| chrome(capture.clone().into_any_element())))
+                .children(self.menu.as_ref().map(|(menu, ..)| chrome(menu.clone().into_any_element()))),
         )
     }
 }

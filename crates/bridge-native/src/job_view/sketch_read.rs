@@ -7,7 +7,7 @@ use std::rc::Rc;
 use std::time::Instant;
 
 use gpui::{
-    anchored, deferred, div, point, prelude::*, px, Anchor, AnyElement, Context, FocusHandle, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent, Role,
+    anchored, deferred, div, point, prelude::*, Anchor, AnyElement, Context, FocusHandle, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent, Role,
     ScrollDelta, ScrollEvent, SharedString, Window,
 };
 use ipc::{Scene, ThreadItem, ThreadSketch};
@@ -138,7 +138,8 @@ impl JobView {
     pub(super) fn render_sketch_reading(&self, window: &Window, cx: &Context<Self>) -> Option<impl IntoElement> {
         let reading = self.sketch_reading.as_ref()?;
         let look = cx.look();
-        let viewport = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let viewport = room.size;
         let inset = look.length(token::SPACE_6);
         let button = |id: &'static str, icon: &'static str, said: &'static str, key: &'static str, act: fn(&mut Self, &mut Window, &mut Context<Self>)| {
             let key = gpui::Keystroke::parse(key).ok();
@@ -318,7 +319,7 @@ impl JobView {
         let drawing = div().flex().flex_1().min_h_0().bg(look.color(token::BG_SUNKEN)).child(rail).child(pane);
         Some(
             deferred(
-                anchored().position(point(px(0.), px(0.))).anchor(Anchor::TopLeft).child(
+                anchored().position(room.origin).anchor(Anchor::TopLeft).child(
                     div()
                         .id("sketch-view")
                         .occlude()

@@ -1467,7 +1467,7 @@ impl Render for MergeStrip {
                 )
                 .children(card)
                 .children(self.menu.as_ref().map(|menu| menu.dropdown.clone()))
-                .children(self.fix_layer(look, window.viewport_size(), cx)),
+                .children(self.fix_layer(look, crate::room::of(window, cx), cx)),
             Role::Region,
             "Merge queue",
         )

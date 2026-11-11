@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use gpui::{
-    anchored, deferred, div, list, point, prelude::*, px, svg, Anchor, AnyElement, App, ClipboardItem, Context, Entity, FocusHandle, FontWeight, Keystroke, ListAlignment, ListState, MouseButton, Render, Role, SharedString, Subscription, Window,
+    anchored, deferred, div, list, prelude::*, px, svg, Anchor, AnyElement, App, ClipboardItem, Context, Entity, FocusHandle, FontWeight, Keystroke, ListAlignment, ListState, MouseButton, Render, Role, SharedString, Subscription, Window,
 };
 use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{AttachmentState, ForkFrom, JobState, ManifestId, PauseSession, ResumeSession, SessionId, SessionRecord, SessionState, StartSession, StopSession};
@@ -1531,7 +1531,8 @@ impl Render for Palette {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let Some(open) = self.open.as_ref() else { return div().into_any_element() };
         let look = cx.look();
-        let viewport = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let viewport = room.size;
         let body = if open.lines.is_empty() && !open.query.read(cx).value().trim().is_empty() {
             div().into_any_element()
         } else if open.lines.is_empty() {
@@ -1656,7 +1657,7 @@ impl Render for Palette {
             "Command palette",
         );
         deferred(
-            anchored().position(point(px(0.), px(0.))).anchor(Anchor::TopLeft).child(
+            anchored().position(room.origin).anchor(Anchor::TopLeft).child(
                 div()
                     .id("palette-layer")
                     .track_focus(&self.focus)

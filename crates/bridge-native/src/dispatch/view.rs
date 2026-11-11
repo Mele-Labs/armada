@@ -19,7 +19,7 @@ use crate::titlebar::parts::{glyph, kbd, mono, sans, spinner, tip, Btn, Weight};
 impl Render for DispatchSheet {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
-        let view = window.viewport_size();
+        let view = crate::room::of(window, cx).size;
         let width = (look.length(token::PALETTE_WIDTH) * 1.75).min(view.width - look.length(token::SPACE_6));
         let top = view.height * 0.12;
         let hue = look.color(token::STATUS_AWAITING_REVIEW);

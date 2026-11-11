@@ -319,7 +319,8 @@ impl JobView {
 
     /// The picture fitted inside the window less `--space-6` all round, never made larger than it is.
     fn fit_of(viewing: &Viewing, window: &Window, cx: &App) -> Size<f32> {
-        let viewport = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let viewport = room.size;
         let inset = f32::from(cx.look().length(token::SPACE_6)) * 2.;
         fitted(viewing.natural, size(f32::from(viewport.width) - inset, f32::from(viewport.height) - inset))
     }
@@ -327,7 +328,8 @@ impl JobView {
     /// Zoom to `scale` about `at`, a point measured from the window's middle; the pan follows, held to the edges.
     fn zoom_about(&mut self, at: Point<f32>, scale: f32, window: &Window, cx: &mut Context<Self>) {
         let Some(fit) = self.pictures.viewing.as_ref().map(|viewing| Self::fit_of(viewing, window, cx)) else { return };
-        let viewport = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let viewport = room.size;
         let Some(viewing) = self.pictures.viewing.as_mut() else { return };
         let to = limited(scale);
         let by = to / viewing.scale;
@@ -339,7 +341,8 @@ impl JobView {
 
     fn pan_by(&mut self, by: Point<f32>, window: &Window, cx: &mut Context<Self>) {
         let Some(fit) = self.pictures.viewing.as_ref().map(|viewing| Self::fit_of(viewing, window, cx)) else { return };
-        let viewport = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let viewport = room.size;
         let Some(viewing) = self.pictures.viewing.as_mut() else { return };
         viewing.pan = point(
             panned(viewing.pan.x + by.x, fit.width, viewing.scale, f32::from(viewport.width)),
@@ -392,11 +395,12 @@ impl JobView {
     pub(super) fn render_picture(&self, window: &Window, cx: &Context<Self>) -> Option<impl IntoElement> {
         let viewing = self.pictures.viewing.as_ref()?;
         let look = cx.look();
-        let viewport = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let viewport = room.size;
         let middle = point(f32::from(viewport.width) / 2., f32::from(viewport.height) / 2.);
         let fit = Self::fit_of(viewing, window, cx);
         let shown = size(fit.width * viewing.scale, fit.height * viewing.scale);
-        let from_middle = move |at: Point<gpui::Pixels>| point(f32::from(at.x) - middle.x, f32::from(at.y) - middle.y);
+        let from_middle = move |at: Point<gpui::Pixels>| point(f32::from(at.x - room.origin.x) - middle.x, f32::from(at.y - room.origin.y) - middle.y);
         let button = |id: &'static str, icon: &'static str, said: &'static str, key: &'static str, act: fn(&mut Self, &mut Window, &mut Context<Self>)| {
             let key = gpui::Keystroke::parse(key).ok();
             labelled(
@@ -434,7 +438,7 @@ impl JobView {
             .child(group().child(button("picture-close", "x", "Close", "escape", |this, window, cx| this.close_picture(window, cx))));
         Some(
             deferred(
-                anchored().position(point(px(0.), px(0.))).anchor(Anchor::TopLeft).child(labelled(
+                anchored().position(room.origin).anchor(Anchor::TopLeft).child(labelled(
                     div()
                         .id("picture-view")
                         .occlude()

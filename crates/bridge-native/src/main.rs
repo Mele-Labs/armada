@@ -49,6 +49,7 @@ mod palette;
 mod point;
 mod queued;
 mod restart_fleet;
+mod room;
 mod revert;
 mod runtime_file;
 mod scene;

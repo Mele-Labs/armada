@@ -36,7 +36,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "call-rows" | "sketch-card" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "call-rows" | "sketch-card" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
         "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
         other => return Err(format!("no mock scenario named {other}")),
@@ -86,6 +86,8 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
         "sketch-card" => include_bytes!("../fixtures/sketch-card-threads.json"),
+        // The tool-rows threads, with Brief a reviewer handing work to a reviewer that finished and an explorer still running.
+        "subagent" => include_bytes!("../fixtures/subagent-threads.json"),
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         _ => return Ok(HashMap::new()),
@@ -124,6 +126,27 @@ fn screens_threads() -> Result<HashMap<String, JobThread>, String> {
 /// walk can show a message Fleet did not take and its Retry.
 pub fn refusals() -> usize {
     SCENARIO.lock().map_or(0, |named| usize::from(named.as_str() == "sent-messages"))
+}
+
+/// A subagent's thread as `GET /sessions/subagent` would answer it, in the scenario last named.
+pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T> {
+    #[derive(Deserialize)]
+    struct One<T> {
+        session_id: String,
+        subagent_id: String,
+        read: T,
+    }
+    #[derive(Deserialize)]
+    struct Reads<T> {
+        subagents: Vec<One<T>>,
+    }
+    let named = SCENARIO.lock().ok()?.clone();
+    let bytes: &[u8] = match named.as_str() {
+        "subagent" => include_bytes!("../fixtures/subagent-reads.json"),
+        _ => return None,
+    };
+    let reads = ipc::decode::<Reads<T>>("subagent reads", bytes).unwrap_or_else(|why| panic!("the subagent reads fixture does not decode: {why}"));
+    reads.subagents.into_iter().find(|one| one.session_id == job && one.subagent_id == id).map(|one| one.read)
 }
 
 /// The models Fleet offers (`GET /models`), for every scenario: a live Fleet always answers it, so
