@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use adapter_traits::{AgentHarness, Delivery, OpenIssue, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, BeadState, Delivery, OpenIssue, Vcs, WorkProduct};
 use api::HostedSessions;
 use ipc::annotations::{note_read, NoteRead};
 use ipc::{ManifestId, Notice, SessionTag, SessionVoice, StartSession, TagKind};
@@ -176,7 +176,8 @@ where
             }
         }
         for issue in fresh {
-            self.hand_once(issue.arrival()).await;
+            let (open, files) = self.open_beside(&issue.manifest_id).await;
+            self.hand_once(issue.arrival_among(&open, files)).await;
         }
         let (arrivals, sends) = self.notes_arrived().await;
         for sent in sends {
@@ -286,6 +287,19 @@ where
         self.hand_once(sent.note.sent_arrival(&sent.job, &title)).await;
     }
 
+    /// The issues open in `manifest`'s tracker, and whether it is beads, which Fleet writes to.
+    pub(super) async fn open_beside(&self, manifest: &str) -> (Vec<Filed>, bool) {
+        match self.files_in(manifest) {
+            true => (self.open_of(manifest).await, true),
+            false => (Vec::new(), false),
+        }
+    }
+
+    /// Whether `manifest`'s tracker is beads, the one Fleet writes to.
+    pub(super) fn files_in(&self, manifest: &str) -> bool {
+        self.served_named(Some(&ManifestId::carried(manifest))).ok().is_some_and(|served| self.backlog_of(&served).is_some())
+    }
+
     /// The issues open in `manifest`'s tracker, as Fleet holds them.
     pub(super) async fn open_of(&self, manifest: &str) -> Vec<Filed> {
         let open = self.open_issues(&ManifestId::carried(manifest)).await.unwrap_or_default();
@@ -331,12 +345,39 @@ where
             (Arrived::Note, Way::File, _, _) => made.issue = Some(self.operator_filed_note(manifest, last, arrival).await.ok_or("the issue was not filed")?),
             (Arrived::Note, Way::NewJob, _, _) => made.job = Some(self.operator_started_note(manifest, last, arrival).await.ok_or("the Job did not start")?),
             (Arrived::Note, Way::ExistingJob, Some(into), _) => self.operator_told_note(manifest, last, arrival, into).await?,
+            (Arrived::Merged, Way::Close, _, Some(issue)) => {
+                self.operator_closed_issue(manifest, issue, &format!("Done by #{last}, as the Operator ruled")).await?;
+            }
+            (Arrived::Issue, Way::Group, _, Some(open)) => {
+                let new = super::suggesting::issue_of(arrival);
+                if new.is_empty() {
+                    return undone("the new issue's id does not read");
+                }
+                self.operator_closed_issue(manifest, new, &format!("Duplicate of {open}, as the Operator ruled")).await?;
+            }
             (Arrived::Error, Way::File, _, _) => made.issue = Some(self.operator_filed_error(manifest, arrival).await.ok_or("the issue was not filed")?),
             (Arrived::Error, Way::NewJob, _, _) => made.job = Some(self.operator_started_error(manifest, arrival).await.ok_or("the Job did not start")?),
             (Arrived::Error, Way::ExistingJob, Some(into), _) => self.operator_told_error(arrival, into).await?,
             _ => {}
         }
         Ok(made)
+    }
+
+    /// `reference` closed in the repository's beads with `reason`, which is how a close and a group are
+    /// written. **Nothing else is written to it**: an issue is not retitled, commented on or moved.
+    async fn operator_closed_issue(&self, manifest: &str, reference: &str, reason: &str) -> Result<(), String> {
+        let served = self.served_named(Some(&ManifestId::carried(manifest))).map_err(|_| "the repository is not served".to_string())?;
+        let backlog = self.backlog_of(&served).ok_or("the repository's tracker takes no write from Fleet")?;
+        let (root, reference, reason) = (served.root().to_string(), reference.to_string(), reason.to_string());
+        let closed = tokio::task::spawn_blocking(move || backlog.put_state(&root, &reference, BeadState::Closed, &reason)).await;
+        match closed {
+            Ok(Ok(())) => {
+                self.tracking().forget(manifest);
+                Ok(())
+            }
+            Ok(Err(why)) => Err(format!("the issue was not closed: {}", why.said)),
+            Err(_) => Err("the issue was not closed".to_string()),
+        }
     }
 
     /// A note no open issue covers, filed in the repository's beads with his words, and marked done.

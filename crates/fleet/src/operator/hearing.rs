@@ -2,20 +2,24 @@
 //! hosted Job, whoever started it**, on its own tap beside the one that tells a parent
 //! (`linked_following`), which it leaves as it is.
 //!
-//! **Each is heard once, and makes no call**, and goes in the Operator's journal of the week. The store keeps `operator_ended` and `operator_merged`,
+//! **Each is heard once, and makes no call of its own**, and goes in the Operator's journal of the week. The store keeps `operator_ended` and `operator_merged`,
 //! under names of their own so neither shadows what a parent was told. Nothing is raised, proposed or
-//! ruled: the Operator is only told what finished, and Discussion reads it. **Nothing is replayed**:
-//! when the tap starts, every end and merge already there is marked heard.
-//! A Job handed on for context is no end: its work goes on in its successor.
+//! ruled: the Operator is only told what finished, and Discussion reads it. **A merge that left an open
+//! issue near its work, which it did not name, is handed on to ask whether it finished that issue**:
+//! none near, no call. **Nothing is replayed**: when the tap starts, every end and merge already there
+//! is marked heard. A Job handed on for context is no end: its work goes on in its successor.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{Event, SessionRecord};
+use ipc::{Event, ManifestId, SessionRecord};
 use store::{AttachmentState, Holder};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
+use super::candidates::{done_near, Finished};
+use super::desk::held_of;
+use super::sources::{Filed, MergeNear};
 use crate::daemon::Fleet;
 use crate::session_host::replacing::REPLACED_BY;
 
@@ -103,7 +107,37 @@ where
             if self.heard_once(&id, MERGED, &pull.target).await {
                 let title = pull.detail.get("title").cloned().unwrap_or_default();
                 self.operator_journaled(&format!("Merged: #{} {title}, held by {job}", pull.target)).await;
+                self.finished_asked(&id, &job, &pull.target, &title).await;
             }
+        }
+    }
+
+    /// The open issues the work of pull request `pull` of Job `id` may have finished, each handed to the
+    /// Operator to ask. **No candidate, no call**, and none where the repository's tracker is not
+    /// the beads Fleet writes to, or the Operator is off.
+    async fn finished_asked(&self, id: &str, job: &str, pull: &str, title: &str) {
+        if !self.operator_on() {
+            return;
+        }
+        let (manifest, paths, named, words) = {
+            let store = self.store().lock().await;
+            let Some(hosting) = store.hosting(id).ok().flatten() else { return };
+            let (paths, named, words) = held_of(&store, id);
+            (hosting.manifest_id, paths, named, words)
+        };
+        if !self.files_in(&manifest) {
+            return;
+        }
+        let open = self.open_issues(&ManifestId::carried(&manifest)).await.unwrap_or_default();
+        let open: Vec<(Filed, String)> = open
+            .iter()
+            .filter(|one| !one.closed)
+            .map(|one| (Filed { reference: one.reference.clone(), title: one.title.as_written().to_string() }, one.excerpt.as_written().to_string()))
+            .collect();
+        let said = format!("{job} {words}");
+        for issue in done_near(&Finished { title, words: &said, paths: &paths, named: &named }, &open) {
+            let near = MergeNear { manifest_id: manifest.clone(), pull: pull.to_string(), title: title.to_string(), job: (id.to_string(), job.to_string()), words: words.clone(), paths: paths.clone(), named: named.clone(), issue };
+            self.hand_once(near.arrival()).await;
         }
     }
 }

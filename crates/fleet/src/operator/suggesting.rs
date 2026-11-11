@@ -56,11 +56,32 @@ pub(crate) fn suggestion_items(kept: &[KeptSuggestion]) -> impl Iterator<Item = 
     })
 }
 
+/// `reference` as the arrival offered it, with its title where it was offered one.
+fn issue_shown(arrival: &Arrival, reference: &str) -> String {
+    match arrival.open.iter().find(|one| one.reference == reference) {
+        Some(one) => format!("{reference} \"{}\"", one.title),
+        None => reference.to_string(),
+    }
+}
+
+/// The pull request a merge's arrival is about: its id ends in the number.
+pub(super) fn pull_of(arrival: &Arrival) -> &str {
+    arrival.id.rsplit(':').next().unwrap_or_default()
+}
+
+/// The issue a new issue's arrival is about: its id ends in the reference.
+pub(super) fn issue_of<'a>(arrival: &'a Arrival) -> &'a str {
+    arrival.id.strip_prefix(&format!("issue:{}:", arrival.manifest_id)).unwrap_or_default()
+}
+
 /// What the row says the Operator would do, naming the other Job by `other`, its title.
 fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
     let because = &ruling.because;
     let subject = &arrival.subject;
+    let issue = ruling.issue.as_deref().map(|issue| issue_shown(arrival, issue)).unwrap_or_default();
     match (arrival.arrived, ruling.way) {
+        (Arrived::Merged, Way::Close) => format!("The Operator would close {issue}, done by #{}: {because}", pull_of(arrival)),
+        (Arrived::Issue, Way::Group) => format!("The Operator would close {} \"{subject}\" as a duplicate of {issue}: {because}", issue_of(arrival)),
         (Arrived::Report, Way::NewJob) => format!("The Operator would start a Job on the report \"{subject}\": {because}"),
         (Arrived::Report, _) => format!("The Operator would hand the report \"{subject}\" to \"{other}\": {because}"),
         (Arrived::Note, Way::File) => format!("The Operator would file your note \"{subject}\" as a new issue: {because}"),
@@ -76,10 +97,10 @@ fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
 }
 
 /// What a suggestion is about, so one raised again for it is a repeat: its repository, kind of arrival
-/// and way, and its subject, trimmed, single-spaced and lower-cased.
-fn same_thing(one: &KeptSuggestion) -> [String; 4] {
+/// and way, its subject, trimmed, single-spaced and lower-cased, and the issue it names, where it does.
+fn same_thing(one: &KeptSuggestion) -> [String; 5] {
     let said = one.subject.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
-    [one.manifest_id.clone(), one.arrived.clone(), one.way.clone(), said]
+    [one.manifest_id.clone(), one.arrived.clone(), one.way.clone(), said, one.what.clone().unwrap_or_default()]
 }
 
 /// The arrival a suggestion was kept from, as far as doing it reads one.
@@ -104,6 +125,7 @@ fn ruling_of(one: &KeptSuggestion) -> Option<Ruling> {
     Some(Ruling {
         other: one.other_session.clone(),
         shared: one.shared.clone(),
+        issue: one.what.clone(),
         ..Ruling::alone(Way::from_word(&one.way)?, one.because.clone())
     })
 }
@@ -145,7 +167,7 @@ where
                 item: None,
                 pick: None,
                 because: ruling.because.clone(),
-                what: None,
+                what: ruling.issue.clone(),
                 text: said(arrival, ruling, &title),
                 raised_at,
             };
@@ -252,6 +274,13 @@ where
             Err(why) => {
                 row.outcome = Outcome::PassedOn;
                 row.because = format!("it could not be carried out: {why}");
+            }
+            // A close or a group names the issue it wrote to, and a close the pull request that finished it.
+            Ok(()) if matches!(ruling.way, Way::Close | Way::Group) => {
+                row.issue = ruling.issue.clone();
+                if ruling.way == Way::Close {
+                    row.because = format!("Done by #{}: {}", pull_of(&arrival), row.because);
+                }
             }
             // The issue stands whatever becomes of its Then, which the row says.
             Ok(()) => {

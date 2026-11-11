@@ -161,6 +161,8 @@ pub(super) fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String, su
         "sent" => said("Sent", format!("to {}", other())),
         "link" => said("Linked", row.issue.clone().unwrap_or_default()),
         "file" => said("Filed", row.issue.clone().unwrap_or_default()),
+        "close" => said("Closed", row.issue.clone().unwrap_or_default()),
+        "group" => said("Grouped", format!("as a duplicate of {}", row.issue.clone().unwrap_or_default())),
         // An end or a merge read and left: what it was is the row.
         "noted" => match Arrived::from_word(&row.arrived) {
             Some(Arrived::Ended) => said("Ended", summary_of(&row.session_id).unwrap_or_default()),
