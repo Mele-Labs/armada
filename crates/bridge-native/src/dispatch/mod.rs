@@ -16,4 +16,4 @@ pub mod screen;
 pub mod sheet;
 mod view;
 
-pub use screen::DispatchScreen;
+pub use screen::{start_queued, DispatchScreen};

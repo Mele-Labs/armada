@@ -211,6 +211,27 @@ pub fn report_at(at: gpui::Point<Pixels>, cx: &mut App) {
 
 /// Run something on the screen in front. A key's handler runs inside a window update, so the work
 /// waits until it is over.
+/// Start a queued idea from its row in the Jobs list, through the screen that knows the repositories.
+pub fn start_queued(idea: crate::queued::QueuedIdea, cx: &mut App) {
+    reach(cx, move |this, window, cx| this.start_queued(idea, window, cx));
+}
+
+/// The words are the Job's first message, as Electron's Start sends them once the Job exists.
+fn first_message(port: u16, id: String, text: String, mentions: Vec<SessionTag>, cx: &mut App) {
+    let body = ipc::encode(&ipc::SendSessionMessageBody {
+        message: ipc::SendSessionMessage { session_id: SessionId::carried(id), text, attachments: Vec::new(), mentions },
+        aim: None,
+    })
+    .map_err(|why| format!("{why:?}"));
+    cx.background_executor()
+        .spawn(async move {
+            if let Err(why) = body.and_then(|body| live::call(port, "/sessions/message".into(), Some(body))) {
+                crate::log::Note::warn("a started Job was not given its words").field("why", why).emit();
+            }
+        })
+        .detach();
+}
+
 fn reach(cx: &mut App, run: impl FnOnce(&mut DispatchScreen, &mut Window, &mut Context<DispatchScreen>) + 'static) {
     let Some(live) = cx.try_global::<Live>() else { return };
     let (me, handle) = (live.0.clone(), live.1);
@@ -282,6 +303,12 @@ impl DispatchScreen {
     /// What the sheet asks. On a live Fleet the acts are posted and the words are read; on mock data nothing is
     /// on the other end, and a walk answers by scene.
     fn sheet_asked(&mut self, asked: &Asked, window: &mut Window, cx: &mut Context<Self>) {
+        // Queue for later is kept here, on a live Fleet or not.
+        if let Asked::Queue { words, repository, model, effort } = asked {
+            self.queue_idea(words, repository, model.clone(), effort.clone(), window, cx);
+            cx.notify();
+            return;
+        }
         if self.jobs.read(cx).list.read(cx).fleet().is_some() {
             match asked {
                 Asked::ReadRepository(words) => self.read_repository(words.clone(), window, cx),
@@ -292,7 +319,6 @@ impl DispatchScreen {
                 }
                 Asked::ReadAutopilot { words, repository } => self.read_autopilot(words.clone(), repository, window, cx),
                 Asked::StartAutopilot { repository, instruction, fields } => self.start_autopilot(repository, instruction, fields, window, cx),
-                // Queue for later is kept by Electron on the machine, with no route to Fleet: the live sheet does not offer it.
                 Asked::Queue { .. } | Asked::Closed => {}
             }
         }
@@ -466,6 +492,84 @@ impl DispatchScreen {
         .detach();
     }
 
+    /// The repositories a queued idea is kept and started against: Fleet's, else the walks' own.
+    fn served_now(&self, cx: &App) -> Vec<live::Served> {
+        if self.jobs.read(cx).list.read(cx).fleet().is_some() {
+            let repositories = self.jobs.read(cx).list.read(cx).fleet().and_then(|fleet| fleet.read(cx).held().repositories.clone()).unwrap_or_default();
+            live::served(&repositories)
+        } else {
+            live::served(&crate::mock::repositories())
+        }
+    }
+
+    /// Queue for later (`queueSession`): the words, the repository's root and name, the model and effort picked,
+    /// saved on this machine; the sheet clears and goes, and nothing starts.
+    fn queue_idea(&mut self, words: &str, repository: &str, model: Option<String>, effort: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(root) = self.served_now(cx).into_iter().find(|one| one.name == repository).map(|one| one.root) else {
+            let said = format!("Fleet serves no repository named {repository}");
+            self.sheet.update(cx, |sheet, cx| sheet.refused(said.into(), cx));
+            return;
+        };
+        let idea = crate::queued::QueuedIdea { id: crate::queued::new_id(), text: words.to_string(), root, repository: repository.to_string(), model, effort };
+        crate::queued::add(idea, cx);
+        self.sheet.update(cx, |sheet, cx| {
+            sheet.answered(window, cx);
+        });
+    }
+
+    /// Start a queued idea from its row (`startingQueued`): a plain start in its repository with its model and
+    /// effort, its words the brief and the first message. It leaves the queue only once the Job exists, which opens;
+    /// a refusal keeps it. A second press while the first is out is not a second Job.
+    fn start_queued(&mut self, idea: crate::queued::QueuedIdea, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(port) = self.fleet_port(cx) else {
+            crate::log::Note::warn("a queued idea did not start").field("why", "Fleet is not connected").emit();
+            return;
+        };
+        let served = self.served_now(cx);
+        let Some(manifest_id) = served.iter().find(|one| one.root == idea.root).or_else(|| served.iter().find(|one| one.name == idea.repository)).map(|one| one.id.clone()) else {
+            crate::log::Note::warn("a queued idea did not start").field("why", format!("Fleet serves no repository at {}", idea.root)).emit();
+            return;
+        };
+        if !crate::queued::set_starting(&idea.id, true, cx) {
+            return;
+        }
+        let start = ipc::StartSession {
+            manifest_id,
+            title: None,
+            model: idea.model.clone(),
+            effort: idea.effort.clone(),
+            mode: None,
+            fork: None,
+            root: None,
+            request: Some(idea.text.clone()),
+            held: false,
+            after: None,
+            project_rows: Vec::new(),
+            on_your_words: None,
+            project: scope(cx).and_then(|(id, _)| id).map(|id| id.to_string()),
+        };
+        let body = ipc::encode(&start).map_err(|why| format!("{why:?}"));
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/start".into(), Some(body?)) }).await;
+            let _ = this.update_in(cx, |this, _window, cx| {
+                match answer.and_then(|bytes| ipc::decode::<SessionRecord>("SessionRecord", &bytes).map_err(|why| why.to_string())) {
+                    Ok(record) => {
+                        let id = record.id.as_str().to_string();
+                        crate::queued::remove(&idea.id, cx);
+                        first_message(port, id.clone(), idea.text.clone(), Vec::new(), cx);
+                        let list = this.jobs.read(cx).list.clone();
+                        list.update(cx, |list, cx| list.open(id.into(), cx));
+                    }
+                    Err(why) => {
+                        crate::queued::set_starting(&idea.id, false, cx);
+                        crate::log::Note::warn("a queued idea did not start").field("why", why).emit();
+                    }
+                }
+            });
+        })
+        .detach();
+    }
+
     /// The Job exists. `first` is the words and the tag they carry, sent as its first message where nothing waits.
     fn started(&mut self, answer: Result<Vec<u8>, String>, first: Option<(String, Vec<SessionTag>)>, port: u16, window: &mut Window, cx: &mut Context<Self>) {
         let record = answer.and_then(|bytes| ipc::decode::<SessionRecord>("SessionRecord", &bytes).map_err(|why| why.to_string()));
@@ -476,19 +580,7 @@ impl DispatchScreen {
                     sheet.answered(window, cx);
                 });
                 if let Some((text, mentions)) = first {
-                    // The words are the Job's first message, as Electron's Start sends them once the Job exists.
-                    let body = ipc::encode(&ipc::SendSessionMessageBody {
-                        message: ipc::SendSessionMessage { session_id: SessionId::carried(id.clone()), text, attachments: Vec::new(), mentions },
-                        aim: None,
-                    })
-                    .map_err(|why| format!("{why:?}"));
-                    cx.background_executor()
-                        .spawn(async move {
-                            if let Err(why) = body.and_then(|body| live::call(port, "/sessions/message".into(), Some(body))) {
-                                crate::log::Note::warn("a started Job was not given its words").field("why", why).emit();
-                            }
-                        })
-                        .detach();
+                    first_message(port, id.clone(), text, mentions, cx);
                 }
                 let list = self.jobs.read(cx).list.clone();
                 list.update(cx, |list, cx| list.open(id.into(), cx));
@@ -777,6 +869,13 @@ impl DispatchScreen {
             "layer-picture" => {
                 let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;
                 layer.update(cx, |layer, cx| layer.picture_arrives(cx));
+            }
+            "queued-started" => {
+                // Fleet's yes to the first queued idea's start: it leaves the queue and its Job opens.
+                let idea = crate::queued::ideas(cx).into_iter().next().ok_or("no idea is queued")?;
+                crate::queued::remove(&idea.id, cx);
+                let list = self.jobs.read(cx).list.clone();
+                list.update(cx, |list, cx| list.hold_started(&idea, cx));
             }
             "layer-sent" | "layer-started" | "layer-refused" => {
                 let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;

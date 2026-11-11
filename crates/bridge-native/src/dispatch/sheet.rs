@@ -36,7 +36,7 @@ pub enum Asked {
     /// A Job is tagged: read the wait the words name.
     ReadWait { job: String, words: String },
     Start { words: String, repository: String, model: Option<String>, effort: Option<String>, held: bool },
-    Queue { words: String, repository: String },
+    Queue { words: String, repository: String, model: Option<String>, effort: Option<String> },
     ReadAutopilot { words: String, repository: String },
     /// `fields` are the body's, by label, as typed.
     StartAutopilot { repository: String, instruction: String, fields: Vec<(&'static str, String)> },
@@ -427,7 +427,12 @@ impl DispatchSheet {
             return;
         };
         self.queueing = true;
-        cx.emit(Asked::Queue { words: self.words(cx), repository });
+        cx.emit(Asked::Queue {
+            words: self.words(cx),
+            repository,
+            model: self.model.as_ref().map(|one| one.to_string()),
+            effort: self.effort.as_ref().map(|one| one.to_string()),
+        });
         cx.notify();
     }
 

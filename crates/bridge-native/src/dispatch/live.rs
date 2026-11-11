@@ -12,6 +12,8 @@ use super::face::{AutopilotField, AutopilotRead, Chip, Cycle, Face, Kind, Mark, 
 pub(super) struct Served {
     pub name: SharedString,
     pub id: ManifestId,
+    /// Where it is checked out: what a queued idea keeps, as Electron's does.
+    pub root: String,
 }
 
 /// The served repositories that can start a Job: each by the name the title bar's picker gives it, with the
@@ -24,7 +26,7 @@ pub(super) fn served(repositories: &[RepositorySummary]) -> Vec<Served> {
         .filter_map(|(one, listed)| {
             let name = listed.name;
             let id = one.manifest.as_ref().map(|manifest| manifest.id.clone()).or_else(|| one.implicit_id.clone())?;
-            Some(Served { name, id })
+            Some(Served { name, id, root: one.root.clone() })
         })
         .collect()
 }
@@ -63,7 +65,8 @@ pub(super) fn face_of(served: &[Served], keep: Option<&[SharedString]>, jobs: Ve
         more,
         reading: Reading::Idle,
         tuning,
-        queue: false,
+        // Queue for later keeps the idea on this machine (`crate::queued`): nothing to ask of Fleet.
+        queue: true,
         mentions: Mentions { jobs, ..Mentions::default() },
         wait: None,
         read: None,
