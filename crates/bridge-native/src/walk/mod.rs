@@ -404,6 +404,7 @@ pub static WALKS: &[Walk] = &[
             step("Esc", Verb::Key("escape"), "button", "Show slot-8 in Bays"),
             step("Stranded bays draw amber: work left behind with no holder", Verb::Wheel("region", "Open, Done and Deferred", 200), "button", "Show slot-8 in Bays"),
             press_on("A stranded bay the rescue Scout has read", "button", "Show slot-8 in Bays", "group", "Finding"),
+            step("Under the finding: Pick up, Stash and Scrap", Verb::Wheel("dialog", "Bay slot-8", 600), "button", "Scrap"),
             press_on("Scrap asks first: every file it discards and each commit found only here", "button", "Scrap", "group", "Scrap slot-8"),
             press_on("Cancel", "button", "Cancel", "button", "Stash"),
             press_on("A refusal stands under the acts in Fleet's words", "button", "Stash", "alert", "Changes not stashed: git push was refused: origin rejected armada/freshness-spike"),

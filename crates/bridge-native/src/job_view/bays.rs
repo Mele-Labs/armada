@@ -817,8 +817,7 @@ impl JobView {
             )
         };
         let tabs = div().flex().border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).child(tab("bay-tab-facts", "Facts", BayTab::Facts)).child(tab("bay-tab-history", "History", BayTab::History));
-        // Classic's sheet pins the rescue buttons in its footer (`TileSheet.tsx:113-116`), on either tab.
-        let (facts, confirm_at, foot) = self.bay_facts(panel, slot, look, cx);
+        let (facts, confirm_at) = self.bay_facts(panel, slot, look, cx);
         let content = match panel.tab {
             BayTab::Facts => facts,
             BayTab::History => vec![bay_history(panel, look)],
@@ -827,7 +826,7 @@ impl JobView {
         if let Some(at) = confirm_at.filter(|_| panel.reveal.take()) {
             panel.scroll.scroll_to_item(2 + at);
         }
-        let scroll = div()
+        div()
             .id("bay-body")
             .track_scroll(&panel.scroll)
             .flex_1()
@@ -840,26 +839,11 @@ impl JobView {
             .py(look.length(token::SPACE_4))
             .child(heading)
             .child(tabs)
-            .children(content);
-        div()
-            .flex_1()
-            .min_h_0()
-            .flex()
-            .flex_col()
-            .child(scroll)
-            .children(foot.map(|foot| {
-                div()
-                    .flex_none()
-                    .px(look.length(token::SPACE_6))
-                    .py(look.length(token::SPACE_3))
-                    .border_t(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_DEFAULT))
-                    .child(foot)
-            }))
+            .children(content)
             .into_any_element()
     }
 
-    fn bay_facts(&self, panel: &BayPanel, slot: &WorktreeSlot, look: &Look, cx: &Context<Self>) -> (Vec<AnyElement>, Option<usize>, Option<AnyElement>) {
+    fn bay_facts(&self, panel: &BayPanel, slot: &WorktreeSlot, look: &Look, cx: &Context<Self>) -> (Vec<AnyElement>, Option<usize>) {
         type Press = Box<dyn Fn(&mut JobView, &mut Window, &mut Context<JobView>)>;
         let name = format!("slot-{}", slot.slot);
         let waiting = panel.acting || panel.confirm.is_some();
@@ -923,7 +907,8 @@ impl JobView {
         let releasing = (panel.confirm == Some(Confirm::Release)).then(|| self.release_confirm(slot, look, cx));
         let scrapping = (panel.confirm == Some(Confirm::Scrap)).then(|| self.scrap_confirm(slot, look, cx));
         let finding = rescue.map(|_| finding_of(slot, look));
-        let foot = rescue.filter(|_| panel.confirm.is_none()).map(|rescue| {
+        // `BayManage.tsx:39-46`: the foot follows the body, and is left out while the Scout reads (Stop is among the acts then).
+        let foot = rescue.filter(|_| panel.confirm.is_none() && !reading).map(|rescue| {
             let stashed = format!("Commits the uncommitted files in {name} to branch {branch} as a WIP commit, pushes {branch} to origin and releases the slot");
             let on = !panel.acting;
             let plain = |id: &'static str, said: &'static str, hint: String, press: Press| {
@@ -935,18 +920,14 @@ impl JobView {
                 labelled(button, Role::Button, said).into_any_element()
             };
             let mut buttons: Vec<AnyElement> = Vec::new();
-            if reading {
-                buttons.push(plain("bay-foot-stop", "Stop", format!("Stops the Scout reading {name}."), Box::new(|this, window, cx| this.rescue_act(RescueAct::Stop, window, cx))));
-            } else {
-                let carries_on = rescue.verdict == Some(SlotVerdict::Unfinished) || (rescue.verdict.is_none() && (rescue.summary.is_some() || !rescue.items.is_empty()));
-                if carries_on {
-                    buttons.push(plain("bay-pick-up", "Pick up", format!("{stashed}, then carries on from {branch}."), Box::new(|this, window, cx| this.rescue_act(RescueAct::PickUp, window, cx))));
-                }
-                buttons.push(plain("bay-stash", "Stash", format!("{stashed}."), Box::new(|this, window, cx| this.rescue_act(RescueAct::Stash, window, cx))));
-                let scrap_tip = format!("Discards the uncommitted and untracked files in {name} and releases the slot. Deletes branch {branch} only if {} has all its commits, otherwise keeps it.", slot.base);
-                let scrap = danger_button(look, "bay-scrap", "Scrap", on).tooltip(tip(scrap_tip)).when(on, |button| button.on_click(cx.listener(|this, _, _, cx| this.bay_confirm(Some(Confirm::Scrap), cx))));
-                buttons.push(labelled(scrap, Role::Button, "Scrap").into_any_element());
+            let carries_on = rescue.verdict == Some(SlotVerdict::Unfinished) || (rescue.verdict.is_none() && (rescue.summary.is_some() || !rescue.items.is_empty()));
+            if carries_on {
+                buttons.push(plain("bay-pick-up", "Pick up", format!("{stashed}, then carries on from {branch}."), Box::new(|this, window, cx| this.rescue_act(RescueAct::PickUp, window, cx))));
             }
+            buttons.push(plain("bay-stash", "Stash", format!("{stashed}."), Box::new(|this, window, cx| this.rescue_act(RescueAct::Stash, window, cx))));
+            let scrap_tip = format!("Discards the uncommitted and untracked files in {name} and releases the slot. Deletes branch {branch} only if {} has all its commits, otherwise keeps it.", slot.base);
+            let scrap = danger_button(look, "bay-scrap", "Scrap", on).tooltip(tip(scrap_tip)).when(on, |button| button.on_click(cx.listener(|this, _, _, cx| this.bay_confirm(Some(Confirm::Scrap), cx))));
+            buttons.push(labelled(scrap, Role::Button, "Scrap").into_any_element());
             div().flex().gap(look.length(token::SPACE_2)).children(buttons).into_any_element()
         });
         let mut body: Vec<AnyElement> = vec![acts_row.into_any_element()];
@@ -959,8 +940,9 @@ impl JobView {
         body.extend(finding);
         confirm_at = confirm_at.or(scrapping.as_ref().map(|_| body.len()));
         body.extend(scrapping);
+        body.extend(foot);
         body.push(self.bay_fact_list(slot, look, cx));
-        (body, confirm_at.or(answered_at), foot)
+        (body, confirm_at.or(answered_at))
     }
 
     /// Release's confirm (`ReleaseConfirm`): who holds it, that the process keeps running, then what

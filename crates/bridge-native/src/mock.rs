@@ -112,7 +112,13 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         _ => return Ok(HashMap::new()),
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
-    Ok(read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect())
+    let mut all: HashMap<String, JobThread> = read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect();
+    // The Job whose system Fleet cannot read has a thread with nothing in it yet, as Fleet answers for one.
+    if scenario == "job-system" {
+        let empty = ipc::decode::<JobThread>("empty thread", br#"{"session_id":"mock-03","head":{"trail":{"started":"2026-11-11T11:40:00Z"}},"items":[]}"#).map_err(|why| why.to_string())?;
+        all.insert("mock-03".to_string(), empty);
+    }
+    Ok(all)
 }
 
 /// The tour's threads, each from the fixture it was walked against: the first Job's question, plan and
