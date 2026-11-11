@@ -1,6 +1,7 @@
 //! The Job's right column, as Electron's `StoryColumn` draws it in its two default panes: Open, Done
 //! and Deferred over Now. Each tab has its × and each strip its +; the top pane's + also opens Plan,
-//! Changes, Files and Checks (`panes.rs`) until the pane system can place them anywhere.
+//! Changes, Ledger, Files, Subagents, Checks (`panes.rs`) and Judge (`judge_tab.rs`) until the pane
+//! system can place them anywhere.
 //!
 //! Now's owed rows read Fleet's `waiting_for` alone, one row per item, where Electron mixes in the
 //! thread's walk rows and the asked question and so keeps dismissed walks and draws a question twice.
@@ -23,8 +24,8 @@ use crate::look::{token, ActiveLook, Look};
 /// What Ask for an update sends (`ASK_FOR_UPDATE`, `cockpit/deck/acts.ts`).
 const ASK_FOR_UPDATE: &str = "Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.";
 
-/// The top pane's tab. Plan, Changes, Files and Checks are not in Electron's Default layout, so
-/// each stays shut on a Job until + opens it.
+/// The top pane's tab. Plan and the kinds after it are not in Electron's Default layout, so each
+/// stays shut on a Job until + opens it.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub(super) enum Zone {
     #[default]
@@ -33,12 +34,26 @@ pub(super) enum Zone {
     Deferred,
     Plan,
     Changes,
+    Ledger,
     Files,
+    Subagents,
     Checks,
+    Judge,
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 7] = [Zone::Open, Zone::Done, Zone::Deferred, Zone::Plan, Zone::Changes, Zone::Files, Zone::Checks];
+    pub(super) const ALL: [Zone; 10] = [
+        Zone::Open,
+        Zone::Done,
+        Zone::Deferred,
+        Zone::Plan,
+        Zone::Changes,
+        Zone::Ledger,
+        Zone::Files,
+        Zone::Subagents,
+        Zone::Checks,
+        Zone::Judge,
+    ];
 
     pub(super) fn id(self) -> &'static str {
         match self {
@@ -47,14 +62,17 @@ impl Zone {
             Zone::Deferred => "deferred",
             Zone::Plan => "plan",
             Zone::Changes => "changes",
+            Zone::Ledger => "ledger",
             Zone::Files => "files",
+            Zone::Subagents => "subagents",
             Zone::Checks => "checks",
+            Zone::Judge => "judge",
         }
     }
 
     /// Shut until + opens it.
     pub(super) fn opened_by_hand(self) -> bool {
-        matches!(self, Zone::Plan | Zone::Changes | Zone::Files | Zone::Checks)
+        !matches!(self, Zone::Open | Zone::Done | Zone::Deferred)
     }
 
     fn look(self) -> (&'static str, &'static str) {
@@ -64,8 +82,11 @@ impl Zone {
             Zone::Deferred => ("circle-dashed", "Deferred"),
             Zone::Plan => ("list-checks", "Plan"),
             Zone::Changes => ("diff", "Changes"),
+            Zone::Ledger => ("files", "Ledger"),
             Zone::Files => ("folder-tree", "Files"),
+            Zone::Subagents => ("zap", "Subagents"),
             Zone::Checks => ("shield-check", "Checks"),
+            Zone::Judge => ("scale", "Judge"),
         }
     }
 }
@@ -182,8 +203,11 @@ impl JobView {
                 Zone::Deferred => "side-deferred",
                 Zone::Plan => "side-plan",
                 Zone::Changes => "side-changes",
+                Zone::Ledger => "side-ledger",
                 Zone::Files => "side-files",
+                Zone::Subagents => "side-subagents",
                 Zone::Checks => "side-checks",
+                Zone::Judge => "side-judge",
             };
             let front = Some(one) == zone;
             let group = SharedString::from(id);
@@ -201,15 +225,18 @@ impl JobView {
             )
         }).collect();
         // Changes and Files draw their own strip over a body that scrolls, as `.job-pane__pick` does.
-        let own_frame = matches!(zone, Some(Zone::Changes | Zone::Files));
+        let own_frame = matches!(zone, Some(Zone::Changes | Zone::Files | Zone::Judge));
         let top_body = self.shown.clone().zip(zone).and_then(|(id, zone)| match zone {
             Zone::Open => Some(self.side_groups(&id, Stands::Coming, look, cx)),
             Zone::Done => Some(self.side_groups(&id, Stands::Done, look, cx)),
             Zone::Deferred => Some(self.side_deferred(&id, look, cx)),
             Zone::Plan => self.pane_plan(&id, look, cx),
             Zone::Changes => self.pane_changes(&id, look, cx),
+            Zone::Ledger => self.pane_ledger(&id, look, cx),
             Zone::Files => Some(self.pane_files(&id, look, cx)),
+            Zone::Subagents => self.pane_subagents(&id, look, cx),
             Zone::Checks => Some(self.pane_checks(&id, look, cx)),
+            Zone::Judge => self.pane_judge(&id, look, cx),
         });
         let now_open = !self.tab_closed("now");
         let ask = self.shown.clone().filter(|id| !self.closed(id, cx)).map(|_| {

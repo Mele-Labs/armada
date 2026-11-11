@@ -283,6 +283,7 @@ impl JobView {
                 self.keep_search(&id, window, cx);
                 self.want_found(&id, window, cx);
             }
+            Some(super::side::Zone::Judge) => self.keep_judge(window, cx),
             _ => {}
         }
     }
