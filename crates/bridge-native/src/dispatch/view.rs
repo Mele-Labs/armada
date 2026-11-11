@@ -366,7 +366,8 @@ impl DispatchSheet {
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(edge)
                 .bg(if asking { hue.opacity(0.16) } else { look.color(token::BG_SUNKEN) })
-                .font_family(mono(look))
+                // Sans, as Electron's repository menu draws its trigger and its rows (`DropdownMenu.css`).
+                .font_family(sans(look))
                 .text_color(look.color(if chosen { token::FG_DEFAULT } else { token::FG_MUTED }))
                 .when(!off, |pick| {
                     pick.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(cx.listener(|this, _, window, cx| this.open_repositories(window, cx)))
