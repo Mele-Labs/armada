@@ -17,7 +17,7 @@ use ipc::{Instant, SessionRecord, WaitingAct, WaitingActKind, WaitingItem, Waiti
 use store::KeptSuggestion;
 
 use super::turning::Done;
-use super::{Arrival, Arrived, Logged, Outcome, Ruling, Source, Way};
+use super::{Arrival, Arrived, Grouping, Logged, Outcome, Ruling, Source, Way};
 use crate::daemon::Fleet;
 use crate::session_host::waiting::SESSION_WAITING_EMPTY;
 
@@ -81,7 +81,10 @@ fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
     let issue = ruling.issue.as_deref().map(|issue| issue_shown(arrival, issue)).unwrap_or_default();
     match (arrival.arrived, ruling.way) {
         (Arrived::Merged, Way::Close) => format!("The Operator would close {issue}, done by #{}: {because}", pull_of(arrival)),
-        (Arrived::Issue, Way::Group) => format!("The Operator would close {} \"{subject}\" as a duplicate of {issue}: {because}", issue_of(arrival)),
+        (Arrived::Issue, Way::Group) => match ruling.grouping {
+            Some(Grouping::Part) => format!("The Operator would put {} \"{subject}\" under {issue}: {because}", issue_of(arrival)),
+            _ => format!("The Operator would close {} \"{subject}\" as a duplicate of {issue}: {because}", issue_of(arrival)),
+        },
         (Arrived::Report, Way::NewJob) => format!("The Operator would start a Job on the report \"{subject}\": {because}"),
         (Arrived::Report, _) => format!("The Operator would hand the report \"{subject}\" to \"{other}\": {because}"),
         (Arrived::Note, Way::File) => format!("The Operator would file your note \"{subject}\" as a new issue: {because}"),
@@ -120,12 +123,33 @@ pub(super) fn arrival_of(one: &KeptSuggestion) -> Option<Arrival> {
     })
 }
 
+/// A group keeps its `what` as `<duplicate or part>:<issue>`, and a close as the issue alone.
+fn what_issue(one: &KeptSuggestion) -> Option<String> {
+    match (one.way.as_str(), one.what.as_deref()) {
+        ("group", Some(what)) => what.split_once(':').map(|(_, issue)| issue.to_string()),
+        (_, what) => what.map(str::to_string),
+    }
+}
+
+fn what_grouping(one: &KeptSuggestion) -> Option<Grouping> {
+    one.what.as_deref().filter(|_| one.way == "group").and_then(|what| what.split_once(':')).and_then(|(kind, _)| Grouping::from_word(kind))
+}
+
+/// What a ruling's `what` is kept as, which [`what_issue`] reads back.
+fn what_of(ruling: &Ruling) -> Option<String> {
+    match (ruling.way, ruling.grouping, &ruling.issue) {
+        (Way::Group, Some(grouping), Some(issue)) => Some(format!("{}:{issue}", grouping.word())),
+        (_, _, issue) => issue.clone(),
+    }
+}
+
 /// The ruling a suggestion was kept from, as far as doing it reads one.
 fn ruling_of(one: &KeptSuggestion) -> Option<Ruling> {
     Some(Ruling {
         other: one.other_session.clone(),
         shared: one.shared.clone(),
-        issue: one.what.clone(),
+        issue: what_issue(one),
+        grouping: what_grouping(one),
         ..Ruling::alone(Way::from_word(&one.way)?, one.because.clone())
     })
 }
@@ -167,7 +191,7 @@ where
                 item: None,
                 pick: None,
                 because: ruling.because.clone(),
-                what: ruling.issue.clone(),
+                what: what_of(ruling),
                 text: said(arrival, ruling, &title),
                 raised_at,
             };
@@ -278,9 +302,11 @@ where
             // A close or a group names the issue it wrote to, and a close the pull request that finished it.
             Ok(()) if matches!(ruling.way, Way::Close | Way::Group) => {
                 row.issue = ruling.issue.clone();
-                if ruling.way == Way::Close {
-                    row.because = format!("Done by #{}: {}", pull_of(&arrival), row.because);
-                }
+                row.because = match (ruling.way, ruling.grouping) {
+                    (Way::Close, _) => format!("Done by #{}: {}", pull_of(&arrival), row.because),
+                    (_, Some(Grouping::Part)) => format!("Put under {}: {}", row.issue.as_deref().unwrap_or_default(), row.because),
+                    _ => format!("Closed as a duplicate of {}: {}", row.issue.as_deref().unwrap_or_default(), row.because),
+                };
             }
             // The issue stands whatever becomes of its Then, which the row says.
             Ok(()) => {

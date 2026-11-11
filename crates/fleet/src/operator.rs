@@ -75,7 +75,7 @@ pub use raising::keep_the_raises;
 pub(crate) use raising::ToRaise;
 pub use orders::{Order, Orders};
 pub(crate) use seat::Seat;
-pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
+pub use ruling::{Grouping, Outcome, PassedOn, Place, Ruled, Ruling, Way};
 pub use sources::{BridgeError, Filed, MergeNear, NewIssue, Note, RedMain, Report};
 pub(crate) use sourcing::Sources;
 pub use talking::{Board, EndedJob, HeldJob, HoldRead, JobRead, LogRead, MergedPull, NeedsYou, Repository, RuleRead, StoppedJob, SuggestionRead, TalkFailed, TalkLine, Talked, TurnRead};

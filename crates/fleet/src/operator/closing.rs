@@ -1,7 +1,7 @@
-//! The Operator's two closes, which write to the tracker only on a go-ahead: an open issue a merged
-//! pull request finished without naming it, and a new issue that repeats an open one. **Fleet finds what
+//! The Operator's closes and groups, which write to the tracker only on a go-ahead: an open issue a merged
+//! pull request finished without naming it, and a new issue that repeats an open one or belongs under it. **Fleet finds what
 //! is near and the call decides**, and what is ruled is kept as a suggestion until he says yes or a rule
-//! he kept does it. Only beads takes the write, and it is a close with its reason, nothing else.
+//! he kept does it. Only beads takes the write: a close with its reason, or a parent link, nothing else.
 
 use adapter_traits::{AgentHarness, BeadState, Delivery, Vcs, WorkProduct};
 use ipc::ManifestId;
@@ -64,6 +64,22 @@ where
             }
             Ok(Err(why)) => Err(format!("the issue was not closed: {}", why.said)),
             Err(_) => Err("the issue was not closed".to_string()),
+        }
+    }
+
+    /// `reference` put under `parent` in the repository's beads. **Only the link is written**: the issue
+    /// is closed by nothing and keeps its status.
+    pub(super) async fn operator_put_under(&self, manifest: &str, reference: &str, parent: &str) -> Result<(), String> {
+        let served = self.served_named(Some(&ManifestId::carried(manifest))).map_err(|_| "the repository is not served".to_string())?;
+        let backlog = self.backlog_of(&served).ok_or("the repository's tracker takes no write from Fleet")?;
+        let (root, reference, parent) = (served.root().to_string(), reference.to_string(), parent.to_string());
+        match tokio::task::spawn_blocking(move || backlog.set_parent(&root, &reference, &parent)).await {
+            Ok(Ok(())) => {
+                self.tracking().forget(manifest);
+                Ok(())
+            }
+            Ok(Err(why)) => Err(format!("the issue was not put under the other: {}", why.said)),
+            Err(_) => Err("the issue was not put under the other".to_string()),
         }
     }
 }

@@ -34,7 +34,11 @@ fn closes(reference: &str) -> String {
 }
 
 fn repeats(reference: &str) -> String {
-    format!("item: 1\nway: 1\nissue: {reference}\nbecause: the same flicker")
+    format!("item: 1\nway: 1\nissue: {reference}\nkind: duplicate\nbecause: the same flicker")
+}
+
+fn belongs(reference: &str) -> String {
+    format!("item: 1\nway: 1\nissue: {reference}\nkind: part\nbecause: one piece of that work")
 }
 
 async fn standing(rig: &Rig) -> Vec<KeptSuggestion> {
@@ -147,6 +151,9 @@ async fn a_close_is_done_as_it_is_offered_by_a_rule_he_kept_and_the_log_says_whi
     let row = log.iter().find(|row| row.outcome == "close").expect("a close in the Log");
     assert_eq!((row.by.as_str(), row.issue.as_deref()), ("operator", Some(finished.as_str())));
     assert!(row.because.starts_with("By a rule, Close an open issue a merged pull request finished: Done by #3042: "), "{}", row.because);
+    let done = rig.fleet.operator_board_wire().await.expect("read").done;
+    let shown = done.iter().find(|one| one.outcome == format!("Closed: {finished}")).expect("what a rule did is in Done");
+    assert_eq!(shown.by, ipc::operator_board::OperatorDecider::Operator);
 }
 
 /// A new issue `new` and an older one `old`, in beads and as Fleet's reads of the tracker saw them.
@@ -179,7 +186,7 @@ async fn a_new_issue_that_repeats_an_open_one_is_offered_as_a_duplicate_and_clos
     for part in [
         "A new issue was filed, from the tracker: \"Bay grid flickers on resize\"",
         &format!("Open issues it may repeat: {old} \"{FLICKER}\""),
-        "The ways it is offered: 1. close it as a duplicate of the open issue it lists; 2. raise\n",
+        "The ways it is offered: 1. group it with the open issue it lists, as its duplicate (closed) or a part of it (put under it), saying which in kind; 2. raise\n",
     ] {
         assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
     }
@@ -195,6 +202,46 @@ async fn a_new_issue_that_repeats_an_open_one_is_offered_as_a_duplicate_and_clos
     let log = rulings(&rig).await;
     let row = log.iter().find(|row| row.outcome == "group").expect("a group in the Log");
     assert_eq!((row.arrived.as_str(), row.issue.as_deref()), ("issue", Some(old.as_str())));
+}
+
+#[tokio::test]
+async fn a_part_is_put_under_the_open_issue_on_do_it_and_nothing_is_closed() {
+    let (rig, copy) = beads().await;
+    let (old, new) = two_issues(&rig, &copy, FLICKER, FLICKER_AGAIN).await;
+    let call = Answers::with(&[&belongs(&old)]);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+
+    rig.fleet.sources_handed().await;
+
+    eventually(|| async { standing(&rig).await.len() == 1 }).await;
+    let suggestion = standing(&rig).await.remove(0);
+    assert_eq!(suggestion.text, format!("The Operator would put {new} \"{FLICKER_AGAIN}\" under {old} \"{FLICKER}\": one piece of that work"));
+    assert_eq!(copy.bead(&new).expect("there").parent, "", "nothing is written until he presses");
+
+    do_it(&rig, &suggestion).await;
+
+    eventually(|| async { copy.bead(&new).expect("there").parent == old }).await;
+    assert_eq!((copy.bead(&new).expect("there").status.as_str(), copy.bead(&old).expect("there").status.as_str()), ("open", "open"));
+    eventually(|| async { rulings(&rig).await.iter().any(|row| row.outcome == "group") }).await;
+    let log = rulings(&rig).await;
+    let row = log.iter().find(|row| row.outcome == "group").expect("a group in the Log");
+    assert_eq!(row.issue.as_deref(), Some(old.as_str()));
+    assert!(row.because.starts_with(&format!("Put under {old}: ")), "{}", row.because);
+}
+
+#[tokio::test]
+async fn a_group_that_names_neither_duplicate_nor_part_is_refused_and_nothing_is_written() {
+    let (rig, copy) = beads().await;
+    let (old, new) = two_issues(&rig, &copy, FLICKER, FLICKER_AGAIN).await;
+    let call = Answers::with(&[&closes(&old)]);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+
+    rig.fleet.sources_handed().await;
+
+    eventually(|| async { !rulings(&rig).await.is_empty() }).await;
+    assert!(standing(&rig).await.is_empty());
+    assert_eq!(rulings(&rig).await[0].outcome, "passed_on");
+    assert_eq!((copy.bead(&new).expect("there").status.as_str(), copy.bead(&new).expect("there").parent.as_str()), ("open", ""));
 }
 
 #[tokio::test]
@@ -215,7 +262,7 @@ async fn a_duplicate_is_closed_as_it_is_offered_by_a_rule_he_kept() {
     let log = rulings(&rig).await;
     let row = log.iter().find(|row| row.outcome == "group").expect("a group in the Log");
     assert_eq!(row.by, "operator");
-    assert!(row.because.starts_with("By a rule, Close new issues that repeat an open issue: "), "{}", row.because);
+    assert!(row.because.starts_with("By a rule, Group new issues with an open issue they repeat or belong under: "), "{}", row.because);
 }
 
 #[tokio::test]

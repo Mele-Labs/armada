@@ -360,6 +360,13 @@ impl Backlog for FakeBeads {
         self.written("renaming the issue", reference, |issue, at| issue.title = Stamped { value: title.to_string(), at })
     }
 
+    fn set_parent(&self, _in_repo: &str, reference: &str, parent: &str) -> Result<(), NotTracked> {
+        if !lock(&self.copy).issues.contains_key(parent) {
+            return Err(NotTracked::of("putting the issue under another", format!("no issue found matching \"{parent}\"")));
+        }
+        self.written("putting the issue under another", reference, |issue, _| issue.parent = parent.to_string())
+    }
+
     fn put_state(&self, _in_repo: &str, reference: &str, state: BeadState, reason: &str) -> Result<(), NotTracked> {
         self.written("moving the issue", reference, |issue, at| {
             issue.status = Stamped { value: state.word().to_string(), at };

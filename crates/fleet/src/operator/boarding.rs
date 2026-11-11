@@ -162,7 +162,7 @@ pub(super) fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String, su
         "link" => said("Linked", row.issue.clone().unwrap_or_default()),
         "file" => said("Filed", row.issue.clone().unwrap_or_default()),
         "close" => said("Closed", row.issue.clone().unwrap_or_default()),
-        "group" => said("Grouped", format!("as a duplicate of {}", row.issue.clone().unwrap_or_default())),
+        "group" => said("Grouped", format!("with {}", row.issue.clone().unwrap_or_default())),
         // An end or a merge read and left: what it was is the row.
         "noted" => match Arrived::from_word(&row.arrived) {
             Some(Arrived::Ended) => said("Ended", summary_of(&row.session_id).unwrap_or_default()),
@@ -243,7 +243,7 @@ where
                     at: one.raised_at,
                 })
                 .collect();
-            let rows = store.operator_rulings_signed(DONE_SHOWN).map_err(|why| self.ledger_fault(why))?;
+            let rows = store.operator_rulings_done(DONE_SHOWN).map_err(|why| self.ledger_fault(why))?;
             let title_of = |id: &str| store.session(id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| id.to_string());
             let summary_of = |id: &str| store.done_summary(id).ok().flatten();
             let done = rows

@@ -19,7 +19,7 @@ use ipc::{ManifestId, Notice, SessionTag, SessionVoice, StartSession, TagKind};
 
 use super::seat::Seat;
 use super::suggesting::pressed;
-use super::{held, Arrival, Arrived, Filed, NewIssue, Note, Outcome, Report, Ruling, Way, NEEDS_YOU_WAIT};
+use super::{held, Arrival, Arrived, Filed, Grouping, NewIssue, Note, Outcome, Report, Ruling, Way, NEEDS_YOU_WAIT};
 use crate::autopilot::report_brief;
 use crate::daemon::Fleet;
 
@@ -353,7 +353,11 @@ where
                 if new.is_empty() {
                     return undone("the new issue's id does not read");
                 }
-                self.operator_closed_issue(manifest, new, &format!("Duplicate of {open}, as the Operator ruled")).await?;
+                match ruling.grouping {
+                    Some(Grouping::Part) => self.operator_put_under(manifest, new, open).await?,
+                    Some(Grouping::Duplicate) => self.operator_closed_issue(manifest, new, &format!("Duplicate of {open}, as the Operator ruled")).await?,
+                    None => return undone("the group names neither duplicate nor part"),
+                }
             }
             (Arrived::Error, Way::File, _, _) => made.issue = Some(self.operator_filed_error(manifest, arrival).await.ok_or("the issue was not filed")?),
             (Arrived::Error, Way::NewJob, _, _) => made.job = Some(self.operator_started_error(manifest, arrival).await.ok_or("the Job did not start")?),
