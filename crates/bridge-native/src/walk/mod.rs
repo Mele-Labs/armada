@@ -106,6 +106,9 @@ pub enum Verb {
     /// The screen is built again from its mock, so a part of a long walk starts from the state its
     /// first step expects: no popup, sheet or layer open, every scene at rest. The target is ringed.
     Fresh,
+    /// As [`Verb::Fresh`], on another screen and scenario, so one walk can carry parts that each
+    /// need their own mock.
+    FreshIn(Screen, &'static str),
     /// The window takes this many points across, its height kept, as a person narrows it. Nothing
     /// puts it back: a walk narrows it at its end.
     Width(u32),
@@ -235,6 +238,74 @@ const fn joined<const N: usize>(parts: &[&[Step]]) -> [Step; N] {
 
 static TODAY: [Step; total(TODAY_PARTS)] = joined(TODAY_PARTS);
 
+const fn part(say: &'static str, screen: Screen, scenario: &'static str, role: &'static str, target: &'static str) -> Step {
+    Step { say, verb: Verb::FreshIn(screen, scenario), target: Target { role, name: target } }
+}
+
+/// The states hard to reach by using the app, each part on its own mock, a step or two each.
+static EDGE_PARTS: &[&[Step]] = &[
+    &[
+        part("Fleet's troubles come as toasts", Screen::Operator, "jobs-many", "button", "Toasts"),
+        scene("Fleet not running: an urgent toast at the top of the corner, until Fleet is back", "fleet-down", "alert", "Toast: Fleet is not running"),
+        scene("A Fleet that does not match this app: its toast carries Restart Fleet", "fleet-mismatch", "button", "Restart Fleet"),
+        scene("A restart that did not come back in 30 seconds: its own toast, with Dismiss", "restart-no-answer", "alert", "Toast: Fleet did not come back inside 30 seconds"),
+        scene("Fleet running: its toasts go", "fleet-running", "button", "Fleet — Running"),
+    ],
+    &[
+        part("A message Fleet does not take", Screen::JobsInApp, "sent-messages", "row", "Audit the docs index"),
+        press_on("Open the Job", "row", "Audit the docs index", "textbox", "Message"),
+        step("A message to it", Verb::Type("Keep the merge line as it is."), "textbox", "Message"),
+        step("Send. Fleet refuses it: Not sent on its band, and Retry under it", Verb::PressOn("button", "Send"), "button", "Retry"),
+        step("Retry sends it again. Fleet takes it, and the message is in the thread once", Verb::PressOn("button", "Retry"), "region", "Your message"),
+    ],
+    &[
+        part("A Job moved to another repository", Screen::Jobs, "thread-moved", "row", "Checkout page loads twice"),
+        press_on("While its thread is read again, a turning ring stands under the last row", "row", "Checkout page loads twice", "img", "Loading new messages"),
+        step("The read ends. The thread ends on where the Job went", Verb::Later(1200), "button", "Moved to sample-api"),
+        press_on("A press opens the Job it became", "button", "Moved to sample-api", "region", "Thread"),
+        step("Its thread starts with where it came from", Verb::Wheel("region", "Thread", -400), "button", "Moved from sample-web"),
+    ],
+    &[
+        part("A Job's history", Screen::Jobs, "history", "row", "Upgrade the router"),
+        press_on("A Job that took another's place carries that Job's turns above its own, parted by a rule", "row", "Upgrade the router", "separator", "Handed on"),
+        press_on("A forked Job opens with the conversation it was forked from, folded at its head", "row", "Try amber for the stale merge line chip", "button", "Forked from Fix the merge line freshness chip"),
+        press_on("A press opens it, read only, up to the message it was forked at", "button", "Forked from Fix the merge line freshness chip", "group", "Forked from Fix the merge line freshness chip"),
+    ],
+    &[
+        part("A subagent's own thread", Screen::Jobs, "subagent", "row", "Brief a reviewer"),
+        press_on("Open the Job", "row", "Brief a reviewer", "button", "Subagent Review the merge line change, finished"),
+        press_on("A press on a subagent opens its thread on a sheet: what it was asked, its calls and what it said", "button", "Subagent Review the merge line change, finished", "dialog", "Subagent Review the merge line change"),
+    ],
+    &[
+        part("Your turn: an option the Operator did not pick", Screen::Operator, "jobs-many", "tab", "Jobs"),
+        step("↓ opens a red main. Its card lists Start a fix and Hand to a Job, the Operator's pick filled", Verb::Keys(&["down", "down", "down", "down"]), "radio", "Hand to Slot pool controls"),
+        step("1 picks Start a fix. Yes, Always here and Always now carry it in place of the Operator's pick", Verb::Key("1"), "radio", "Start a fix"),
+    ],
+    &[
+        part("A sketch read against an earlier one", Screen::Jobs, "sketch-changes", "row", "Edit the merge line"),
+        press_on("Open the Job", "row", "Edit the merge line", "button", "Open sketch Pinned clock"),
+        press_on("Opened: what it adds is green, what it alters amber, what it drops red and struck through", "button", "Open sketch Pinned clock", "group", "Added, FixedClock"),
+        press_on("Whole shows the drawing alone", "button", "Whole", "group", "FixedClock"),
+        press_on("Changes marks it again", "button", "Changes", "group", "Added, FixedClock"),
+    ],
+    &[
+        part("Share a sketch", Screen::Jobs, "sketch-share", "row", "Edit the merge line"),
+        press_on("Open the Job", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
+        step("Its sketch, pinned at the thread's end", Verb::Wheel("region", "Thread", -120), "button", "Open in the panel"),
+        press_on("Open the sketch in the panel. Share is the last act in the rail's first group", "button", "Open in the panel", "dialog", "Sketch: Freshness chip"),
+        press_on("Share: a menu of three", "button", "Share", "menuitem", "Save as web page"),
+        press_on("Save as web page. Here nothing is saved: this is the file as they open it", "menuitem", "Save as web page", "region", "What they see when they open Freshness chip.html"),
+        step("Esc puts it away", Verb::Key("escape"), "button", "Share"),
+        press_on("Share again", "button", "Share", "menuitem", "Save as image"),
+        press_on("Save as image", "menuitem", "Save as image", "region", "What they see when they open Freshness chip.png"),
+        step("Esc puts it away", Verb::Key("escape"), "button", "Share"),
+        press_on("Share again", "button", "Share", "menuitem", "Copy as Mermaid"),
+        press_on("Copy as Mermaid: the text goes on the clipboard", "menuitem", "Copy as Mermaid", "region", "What they paste"),
+    ],
+];
+
+static EDGE: [Step; total(EDGE_PARTS)] = joined(EDGE_PARTS);
+
 
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
@@ -244,6 +315,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::All,
         scenario: "jobs-handoff",
         steps: &TODAY,
+    },
+    Walk {
+        name: "native-edge-cases",
+        title: "Native states hard to reach by using the app",
+        screen: Screen::Operator,
+        scenario: "jobs-many",
+        steps: &EDGE,
     },
     Walk {
         name: "native-reasoning",

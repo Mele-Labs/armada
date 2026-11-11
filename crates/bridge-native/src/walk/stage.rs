@@ -146,7 +146,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
     match step.verb {
         Verb::Look | Verb::Later(_) => Ok(()),
         // The walk window builds the screen again before it reaches here (`WalkWindow::play_to`).
-        Verb::Fresh => Ok(()),
+        Verb::Fresh | Verb::FreshIn(..) => Ok(()),
         Verb::Width(points) => {
             let height = window.viewport_size().height;
             window.resize(gpui::size(gpui::px(points as f32), height));

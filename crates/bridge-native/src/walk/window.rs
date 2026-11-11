@@ -169,6 +169,7 @@ impl WalkWindow {
         let from = if fresh { 0 } else { self.at + 1 };
         self.playing = true;
         if fresh {
+            crate::toasts::at_rest(cx);
             match Stage::new(walk, window, cx) {
                 Ok(stage) => self.stage = Some(stage),
                 Err(why) => {
@@ -181,9 +182,18 @@ impl WalkWindow {
         self._play = Some(cx.spawn_in(window, async move |this, cx| {
             for at in from..=to {
                 let step = walk.steps[at];
-                if step.verb == Verb::Fresh {
+                let again = match step.verb {
+                    Verb::Fresh => Some((walk.screen, walk.scenario)),
+                    Verb::FreshIn(screen, scenario) => Some((screen, scenario)),
+                    _ => None,
+                };
+                if let Some((screen, scenario)) = again {
                     // A part of a long walk starts on a screen built again, with nothing of the last part open.
-                    let rebuilt = this.update_in(cx, |this, window, cx| match Stage::new(walk, window, cx) {
+                    let part = Walk { screen, scenario, ..*walk };
+                    let rebuilt = this.update_in(cx, |this, window, cx| match {
+                        crate::toasts::at_rest(cx);
+                        Stage::new(&part, window, cx)
+                    } {
                         Ok(stage) => {
                             this.stage = Some(stage);
                             cx.notify();

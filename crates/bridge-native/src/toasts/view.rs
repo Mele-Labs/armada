@@ -74,6 +74,13 @@ pub fn tell(sentence: impl Into<SharedString>, cx: &mut App) {
     }
 }
 
+/// No Fleet state and nothing told: a walk's part starts on a screen built again, with no toast of the
+/// part before.
+pub fn at_rest(cx: &mut App) {
+    cx.set_global(FleetNotices::default());
+    cx.set_global(Told::default());
+}
+
 /// He closed a told toast.
 fn untell(key: u64, cx: &mut App) {
     let told = cx.try_global::<Told>().map(|kept| kept.0.iter().filter(|(one, _)| *one != key).cloned().collect()).unwrap_or_default();
