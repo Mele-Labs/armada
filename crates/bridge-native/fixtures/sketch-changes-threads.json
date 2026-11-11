@@ -797,18 +797,8 @@
                 },
                 {
                  "type": "button",
-                 "text": "Slot",
-                 "icon": "layers"
-                },
-                {
-                 "type": "button",
                  "text": "Checks",
                  "icon": "list-checks"
-                },
-                {
-                 "type": "button",
-                 "text": "Judge",
-                 "icon": "check"
                 },
                 {
                  "type": "spacer"
