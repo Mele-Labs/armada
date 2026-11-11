@@ -121,6 +121,7 @@ impl Repo {
             on_running: true,
             on_reports: false,
             decisions: Vec::new(),
+            project: None,
         };
         self.fleet.store().lock().await.start_autopilot(&kept).unwrap();
     }
