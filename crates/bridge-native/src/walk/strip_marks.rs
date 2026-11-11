@@ -37,6 +37,31 @@ pub static PLAN: [Step; 13] = [
     scene("Fleet says the window reset: the offer is to go back", "plan-live-reset", "status", "Weekly limit reset"),
 ];
 
+/// The write-clash marks on Fleet's clashes, then Fleet down and Restart Fleet as the live bar reads the link:
+/// each Fleet scene is the connection's state and the runtime file it read, timed by the clock.
+pub static FLEET_LIVE: [Step; 20] = [
+    scene("Fleet answers: the dot is green", "fleet-live-running", "button", "Fleet — Running"),
+    marks("A write clash in Fleet's clashes marks both rows of the pair", "clash-pair", "button", PAIR),
+    step("Hover names the other Job and the files that collide", Verb::Hover, "button", PAIR),
+    step("Esc puts the card away", Verb::Key("escape"), "button", PAIR),
+    scene("Fleet stopped: for 30 seconds after a drop the dot is red and nothing more, and the clash marks go with it", "fleet-live-grace", "button", "Fleet — Not running"),
+    scene("Past 30 seconds the notice stands above the screen", "fleet-live-down", "alert", "Fleet is not running"),
+    step("The panel says why", Verb::Press, "button", "Fleet — Not running"),
+    step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Not running"),
+    scene("Fleet alive and silent: what is shown is not live", "fleet-live-unreachable", "status", "Fleet unreachable"),
+    press_on("Details says for how long it has been silent, counting each second, and how old the last read is", "button", "Details", "button", "Details"),
+    scene("A Fleet on another protocol offers Restart Fleet", "fleet-live-mismatch", "button", "Restart Fleet"),
+    press_on("Restart Fleet answers in the same frame", "button", "Restart Fleet", "button", "Restarting Fleet"),
+    scene("launchd refused: the failure says so, with launchctl's own words", "fleet-live-refused", "alert", "launchd refused to restart Fleet"),
+    press_on("Dismiss puts it away", "button", "Dismiss", "button", "Restart Fleet"),
+    press_on("Restart Fleet again", "button", "Restart Fleet", "button", "Restarting Fleet"),
+    scene("A Fleet started by hand is not restarted: a second would start beside it", "fleet-live-not-ours", "alert", "Fleet was not started by Armada's service"),
+    press_on("Dismiss puts it away", "button", "Dismiss", "button", "Restart Fleet"),
+    press_on("Restart Fleet once more", "button", "Restart Fleet", "button", "Restarting Fleet"),
+    scene("A new Fleet answered and it still does not match", "fleet-live-apart", "alert", "Still not matching"),
+    scene("Fleet answers on this protocol: the notice and the restart go", "fleet-live-running", "button", "Fleet — Running"),
+];
+
 /// The strip on Fleet's live view: each scene is Fleet's answer folded and read as the live app reads it.
 pub static LIVE: [Step; 5] = [
     marks("Fleet's view as the live app reads it: the open Job's repository alone, the pull request it holds ahead of the open ones", "strip-live", "button", READY),

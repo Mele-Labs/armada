@@ -239,6 +239,13 @@ pub static WALKS: &[Walk] = &[
         steps: &title_bar::BUILD_LIVE,
     },
     Walk {
+        name: "fleet-down-live",
+        title: "Write-clash marks, Fleet down and Restart Fleet on the live link",
+        screen: Screen::Marks,
+        scenario: "jobs-many",
+        steps: &strip_marks::FLEET_LIVE,
+    },
+    Walk {
         name: "project-switcher",
         title: "The project switcher on Fleet's projects",
         screen: Screen::Jobs,

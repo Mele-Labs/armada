@@ -58,6 +58,8 @@ pub enum LinkState {
 /// What the link tells the entity.
 #[derive(Debug)]
 pub enum Signal {
+    /// What the runtime file said on this attempt, with the file's path: the title bar's words for a Fleet down read it.
+    Presence(Presence, String),
     State(LinkState),
     /// The Jobs, fetched once on connect, as `GET /sessions` answered.
     Jobs(Vec<SessionRecord>),
@@ -147,12 +149,16 @@ macro_rules! tell_or_stop {
 }
 
 async fn attach(tx: &Sender<Signal>, path: PathBuf) -> Ended {
+    let said = path.display().to_string();
     // The probe shells out to `ps`, so it runs where it cannot hold this runtime.
     let presence = tokio::task::spawn_blocking(move || {
         runtime_file::classify(std::fs::read(&path), runtime_file::holder_of)
     })
     .await
     .unwrap_or_else(|why| Presence::Refused(format!("the runtime file read failed: {why}")));
+    if send(tx, Signal::Presence(presence.clone(), said)).await.is_err() {
+        return Ended::NobodyListening;
+    }
 
     let fleet = match presence {
         // Neither opens a socket: a stale file's port may not be Fleet's.

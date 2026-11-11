@@ -17,6 +17,7 @@ use ipc::{
     RepositorySummary, RunCloud, RunPlace,
 };
 
+use crate::link::LinkState;
 use crate::runtime_file::Presence;
 
 /// Which tone a ring and its percent are drawn in.
@@ -372,6 +373,87 @@ pub fn connection_of(presence: &Presence, link: Link, path: &str) -> Connection 
     }
 }
 
+/// How long a Fleet that went down may stay down before its notice draws (`cockpit/boot.ts` `POWER_GRACE_MS`).
+pub const POWER_GRACE: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// The live link as the Fleet connection holds it: the state, the runtime file it was read from with
+/// that file's path, and the instants the face is timed from.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LiveLink {
+    pub state: LinkState,
+    pub presence: Option<(Presence, String)>,
+    /// When the link last went unreachable.
+    pub silent_since: Option<std::time::Instant>,
+    /// When Fleet last sent anything.
+    pub read_at: Option<std::time::Instant>,
+    /// When a connection last dropped.
+    pub dropped: Option<std::time::Instant>,
+}
+
+/// A span as Electron's `elapsed` says it: seconds, then minutes, then hours.
+fn elapsed(span: std::time::Duration) -> String {
+    let seconds = span.as_secs_f64().round() as u64;
+    if seconds < 60 {
+        return format!("{seconds}s");
+    }
+    let minutes = (seconds as f64 / 60.).round() as u64;
+    if minutes < 60 { format!("{minutes}m") } else { format!("{}h", (minutes as f64 / 60.).round() as u64) }
+}
+
+impl LiveLink {
+    /// The connection at `now`. A mismatch Fleet sent on the stream names the Fleet the runtime file does.
+    pub fn connection(&self, now: std::time::Instant) -> Connection {
+        let Some((presence, path)) = &self.presence else {
+            return match &self.state {
+                LinkState::Refused(why) => Connection::Refused { detail: why.clone() },
+                _ => Connection::Reading,
+            };
+        };
+        let link = match &self.state {
+            LinkState::ProtocolMismatch { fleet, ours } => {
+                if let Presence::Running(file) = presence {
+                    let sent = (*fleet != ProtocolId::default()).then(|| fleet.to_string());
+                    return Connection::Mismatch { pid: file.pid, port: file.port, fleet: sent, bridge: ours.to_string() };
+                }
+                Link::Connecting
+            }
+            LinkState::Starting => Link::Starting,
+            LinkState::Connected => Link::Connected { up: None },
+            LinkState::Unreachable(_) => Link::Unreachable {
+                silent: elapsed(now.saturating_duration_since(self.silent_since.unwrap_or(now))),
+                last_read: self.read_at.map(|at| elapsed(now.saturating_duration_since(at))),
+            },
+            LinkState::NotRunning(_) | LinkState::Refused(_) | LinkState::Connecting { .. } => Link::Connecting,
+        };
+        connection_of(presence, link, path)
+    }
+
+    /// Whether Fleet is just coming back (`cockpit/boot.ts` `powerOf`): a Fleet down holds its notice for the
+    /// grace after the window opened or the connection last dropped, whichever is later.
+    pub fn power(&self, opened: std::time::Instant, now: std::time::Instant) -> Power {
+        match self.connection(now) {
+            Connection::Connected { .. } => Power::Live,
+            Connection::Reading | Connection::Connecting { .. } | Connection::Starting { .. } => Power::Standby,
+            Connection::NotRunning { .. } | Connection::Unreachable { .. } if now < self.grace_ends(opened) => Power::Standby,
+            _ => Power::Fault,
+        }
+    }
+
+    fn grace_ends(&self, opened: std::time::Instant) -> std::time::Instant {
+        self.dropped.map_or(opened, |dropped| dropped.max(opened)) + POWER_GRACE
+    }
+
+    /// The next instant the face moves by the clock alone: each second while Fleet is silent, since the
+    /// notice says for how long, and the grace's end while Fleet is down.
+    pub fn next_at(&self, opened: std::time::Instant, now: std::time::Instant) -> Option<std::time::Instant> {
+        match self.connection(now) {
+            Connection::Unreachable { .. } => Some(now + std::time::Duration::from_secs(1)),
+            Connection::NotRunning { .. } => Some(self.grace_ends(opened)).filter(|at| *at > now),
+            _ => None,
+        }
+    }
+}
+
 /// The dot's state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Dot {
@@ -501,8 +583,39 @@ pub enum Restarting {
     Working,
     /// A new pid answered and it still does not match.
     Apart,
-    /// No new runtime file inside 30 seconds.
+    /// launchd would not restart it, or no new Fleet answered inside 30 seconds; the detail is what was answered.
+    Failed { why: RestartWhy, detail: String },
+}
+
+/// Why a restart did not take, in `FleetRestart`'s words.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RestartWhy {
+    NotStartedByArmada,
+    NotRunning,
+    Refused,
     NoAnswer,
+}
+
+impl RestartWhy {
+    /// The headline and what to do, as `fleetRestartFailure` says them.
+    pub fn said(self) -> (&'static str, &'static str) {
+        match self {
+            RestartWhy::NotStartedByArmada => ("Fleet was not started by Armada's service", "Stop it in the terminal it runs in, then start Fleet again."),
+            RestartWhy::NotRunning => ("Fleet is not running", "Start Fleet. Bridge reconnects on its own."),
+            RestartWhy::Refused => ("launchd refused to restart Fleet", "Fleet is as it was. Read the log, or restart it from a terminal."),
+            RestartWhy::NoAnswer => ("Fleet did not come back inside 30 seconds", "Read the Fleet log, then restart it again."),
+        }
+    }
+
+    /// The wire word, as the failure's Answer row says it.
+    pub fn word(self) -> &'static str {
+        match self {
+            RestartWhy::NotStartedByArmada => "not_started_by_armada",
+            RestartWhy::NotRunning => "not_running",
+            RestartWhy::Refused => "refused",
+            RestartWhy::NoAnswer => "no_answer",
+        }
+    }
 }
 
 /// What Doctor said of the modules it read.

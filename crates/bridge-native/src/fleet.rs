@@ -110,6 +110,12 @@ pub struct Held {
     /// Every standing write clash, as Fleet last said. `None` until Fleet has answered, and again once the
     /// connection drops, as Electron clears its marks: a clash Fleet cannot vouch for is not drawn.
     pub clashes: Option<ipc::AllWriteClashes>,
+    /// What the runtime file said on the last attempt, with its path. `None` until it has been read.
+    pub presence: Option<(crate::runtime_file::Presence, String)>,
+    /// When the link last went unreachable, when Fleet last sent anything, and when a connection last dropped.
+    pub silent_since: Option<std::time::Instant>,
+    pub read_at: Option<std::time::Instant>,
+    pub dropped: Option<std::time::Instant>,
     /// Whether `features.notifications` is on. On until Fleet's settings say false, as Electron reads it.
     pub notifications: bool,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
@@ -141,6 +147,10 @@ impl Held {
             plan_usage: None,
             downshift: None,
             clashes: None,
+            presence: None,
+            silent_since: None,
+            read_at: None,
+            dropped: None,
             notifications: true,
             arrived: Vec::new(),
             port: None,
@@ -216,6 +226,17 @@ impl Held {
         }
     }
 
+    /// The live link, as the title bar reads it.
+    pub fn link(&self) -> crate::titlebar::LiveLink {
+        crate::titlebar::LiveLink {
+            state: self.state.clone(),
+            presence: self.presence.clone(),
+            silent_since: self.silent_since,
+            read_at: self.read_at,
+            dropped: self.dropped,
+        }
+    }
+
     /// The Dock count: the calls still to be opened, one for each owner. `None` until Fleet has answered.
     pub fn dock_count(&self) -> Option<usize> {
         self.calls.as_ref().map(|calls| calls.unopened().len())
@@ -252,9 +273,16 @@ impl Held {
                         if !matches!(state, LinkState::Connected) {
                             self.clashes = None;
                         }
+                        if matches!(self.state, LinkState::Connected) {
+                            self.dropped = Some(std::time::Instant::now());
+                        }
+                        if matches!(state, LinkState::Unreachable(_)) && !matches!(self.state, LinkState::Unreachable(_)) {
+                            self.silent_since = Some(std::time::Instant::now());
+                        }
                         self.state = state;
                     }
                 }
+                Signal::Presence(presence, path) => self.presence = Some((presence, path)),
                 Signal::Jobs(jobs) => {
                     lines.push(Note::info("jobs read on connect").field("jobs", jobs.len()));
                     self.jobs = jobs;
@@ -305,15 +333,18 @@ impl Held {
                 Signal::Build(report) => self.build = Some(report),
                 Signal::BuildFailed(why) => lines.push(Note::warn("the build could not be read").field("why", why)),
                 Signal::Stream(StreamMessage::Resync(resync)) => {
+                    self.read_at = Some(std::time::Instant::now());
                     resyncs += 1;
                     self.cursor = Some(resync.cursor);
                     self.all_stale();
                 }
                 Signal::Stream(StreamMessage::Missed(lost)) => {
+                    self.read_at = Some(std::time::Instant::now());
                     missed += lost.dropped;
                     self.all_stale();
                 }
                 Signal::Stream(StreamMessage::Event(delivered)) => {
+                    self.read_at = Some(std::time::Instant::now());
                     events += 1;
                     self.cursor = Some(delivered.cursor);
                     *kinds.entry(delivered.event.kind()).or_default() += 1;

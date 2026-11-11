@@ -287,7 +287,12 @@ impl TitleBar {
                 "Fleet restarted on the installed build, and it is not this Bridge's. Update Armada, then reopen Bridge.",
             )
         });
-        let no_answer = (fleet.restarting == Restarting::NoAnswer).then(|| {
+        let failed = match &fleet.restarting {
+            Restarting::Failed { why, detail } => Some((*why, detail.clone())),
+            _ => None,
+        };
+        let failed = failed.map(|(why, detail)| {
+            let (headline, next) = why.said();
             let dismiss = labelled(
                 Btn::new("dismiss-restart-failure", "Dismiss", Weight::Ghost)
                     .draw(look, cx)
@@ -301,10 +306,10 @@ impl TitleBar {
                 look,
                 "restart-failure",
                 Kind::Fault,
-                "Fleet did not come back inside 30 seconds".into(),
-                "Read the Fleet log, then restart it again.".into(),
-                "bridge.fleet.restart_no_answer",
-                Some("no new runtime file in 30s".into()),
+                headline.into(),
+                next.into(),
+                "bridge.fleet.restart_failed",
+                Some(format!("{} · {detail}", why.word())),
                 vec![dismiss],
                 None,
                 cx,
@@ -324,7 +329,7 @@ impl TitleBar {
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .child(block)
                 .children(apart_alert)
-                .children(no_answer)
+                .children(failed)
                 .into_any_element(),
         )
     }

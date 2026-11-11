@@ -8,7 +8,7 @@ use gpui::{App, Global, SharedString};
 use ipc::{FleetBuildReport, ModelDownshift};
 
 use super::face::{
-    self, connection_of, Band, Build, Connection, Doctor, Dropped, Face, FleetFace, Limit, Link, Outcome, Place, Power, Restarting, RunsPlace, RunsPlaceKind, Usage,
+    self, connection_of, Band, Build, Connection, Doctor, Dropped, Face, FleetFace, Limit, Link, Outcome, Place, Power, RestartWhy, Restarting, RunsPlace, RunsPlaceKind, Usage,
 };
 use super::{live, TitleBar};
 use crate::runtime_file::{Presence, RuntimeFile};
@@ -226,8 +226,72 @@ pub fn begin(cx: &mut App) {
     }
 }
 
+/// What a live Fleet scene hands the bar: a link as Fleet's connection holds it, or launchd's answer to a restart.
+enum LiveFleet {
+    Link(face::LiveLink),
+    Refused(RestartWhy, &'static str),
+}
+
+/// An instant `seconds` before now.
+fn ago(seconds: u64) -> std::time::Instant {
+    let now = std::time::Instant::now();
+    now.checked_sub(std::time::Duration::from_secs(seconds)).unwrap_or(now)
+}
+
+/// The live link's scenes, read as the live bar reads Fleet's connection (`face::LiveLink`): the clock runs.
+fn fleet_live(name: &str) -> Option<LiveFleet> {
+    use crate::link::LinkState;
+    let link = |state: LinkState, presence: Presence, silent: Option<u64>, read: Option<u64>, dropped: Option<u64>| {
+        LiveFleet::Link(face::LiveLink {
+            state,
+            presence: Some((presence, PATH.to_string())),
+            silent_since: silent.map(ago),
+            read_at: read.map(ago),
+            dropped: dropped.map(ago),
+        })
+    };
+    // A runtime file that speaks another protocol, as the link reads it before connecting.
+    let mismatch = |pid: u32| {
+        let mut held = file("0000000000000000");
+        held.pid = pid;
+        (LinkState::ProtocolMismatch { fleet: held.protocol_id.clone(), ours: ipc::ProtocolId::current() }, held)
+    };
+    Some(match name {
+        "fleet-live-running" => link(LinkState::Connected, Presence::Running(running_file()), None, Some(1), None),
+        "fleet-live-grace" => link(LinkState::NotRunning("no runtime file".into()), Presence::Absent, None, Some(2), Some(0)),
+        "fleet-live-down" => link(LinkState::NotRunning("no runtime file".into()), Presence::Absent, None, Some(34), Some(31)),
+        "fleet-live-unreachable" => link(LinkState::Unreachable("the socket has not answered".into()), Presence::Running(running_file()), Some(20), Some(24), Some(40)),
+        "fleet-live-mismatch" | "fleet-live-apart" => {
+            let (state, held) = mismatch(if name == "fleet-live-apart" { 41990 } else { 41872 });
+            link(state, Presence::Running(held), None, Some(1), Some(40))
+        }
+        "fleet-live-refused" => LiveFleet::Refused(RestartWhy::Refused, "Could not kickstart service \"gui/501/com.armada.fleet\": 37: Operation already in progress"),
+        "fleet-live-not-ours" => LiveFleet::Refused(RestartWhy::NotStartedByArmada, "gui/501/com.armada.fleet is not loaded"),
+        _ => return None,
+    })
+}
+
 /// Move the bar to a named scene. A scene changes the part of the face it is about and leaves the rest.
 pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
+    if let Some(scene) = fleet_live(name) {
+        // A clash Fleet cannot vouch for is not drawn: the marks go with the connection, as the live list clears them.
+        let down = matches!(&scene, LiveFleet::Link(link) if link.state != crate::link::LinkState::Connected);
+        if down {
+            crate::clash_mark::hold(crate::clash_mark::scenes::none(), cx);
+        }
+        let bar = live(cx).ok_or("no title bar is drawn yet")?;
+        bar.update(cx, |bar: &mut TitleBar, cx| match scene {
+            LiveFleet::Link(link) => {
+                // The window opened a minute before: the grace a scene shows is the drop's, not the walk's start.
+                bar.opened = ago(60);
+                // Nothing live reads Doctor yet, so the live bar draws no line for it.
+                bar.face.fleet.doctor = None;
+                bar.set_fleet(&link, cx)
+            }
+            LiveFleet::Refused(why, detail) => bar.restart_failed(why, detail.into(), cx),
+        });
+        return Ok(());
+    }
     // A window's width is the bar's own, not the face's: a resize is the one thing here that is not data.
     let resized = match name {
         "narrow-window" => Some((Some(NARROW), None)),
@@ -299,7 +363,7 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         },
         "restart-no-answer" => |face| {
             face.fleet = fleet(connection_of(&Presence::Running(file("0000000000000000")), Link::Connecting, PATH), Power::Fault);
-            face.fleet.restarting = Restarting::NoAnswer;
+            face.fleet.restarting = Restarting::Failed { why: RestartWhy::NoAnswer, detail: "no new runtime file in 30s".into() };
         },
         // Fleet's build report through the reading the live bar makes of it (`face::build_of`).
         "build-live-main" => |face| face.build = build_live("build-live-main"),

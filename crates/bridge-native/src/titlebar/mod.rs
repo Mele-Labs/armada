@@ -33,7 +33,7 @@ use gpui::{
 };
 use ipc::{BuildSource, ModelDownshift};
 
-pub use face::{repositories_of, Connection, Face, Remedy, Restarting};
+pub use face::{repositories_of, Connection, Face, LiveLink, Remedy, RestartWhy, Restarting};
 
 use crate::assets::MARK;
 use crate::dropdown::{Dropdown, Entry, Picked, Row};
@@ -213,7 +213,18 @@ pub struct TitleBar {
     _swap_keys: Option<Subscription>,
     /// Fleet's build report as last handed in: a press's answer in the frame stands until Fleet's report moves.
     build_read: Option<ipc::FleetBuildReport>,
+    /// The live link as last handed in, read again by the clock while the face moves with time alone.
+    link_read: Option<face::LiveLink>,
+    /// When the window opened: a Fleet down at launch has the same grace as one that just dropped.
+    opened: std::time::Instant,
+    _link_tick: Option<Task<()>>,
+    /// The pid a Restart Fleet was pressed under, so a new Fleet that still does not match is told apart.
+    restart_from: Option<u32>,
+    _restart_wait: Option<Task<()>>,
 }
+
+/// How long a restart may take to bring back a new Fleet before it is called unanswered (`FleetNotice.tsx`).
+const RESTART_WAIT: Duration = Duration::from_secs(30);
 
 /// The one bar of the window, for the keys that work from anywhere.
 struct Live(WeakEntity<TitleBar>);
@@ -293,6 +304,11 @@ impl TitleBar {
             _swap_tick: None,
             _swap_keys: None,
             build_read: None,
+            link_read: None,
+            opened: std::time::Instant::now(),
+            _link_tick: None,
+            restart_from: None,
+            _restart_wait: None,
         }
     }
 
@@ -334,6 +350,47 @@ impl TitleBar {
         }
         self.build_read = report.cloned();
         self.face.build = report.map(face::build_of);
+        cx.notify();
+    }
+
+    /// The live link, as the dot, the panel and the notice draw it.
+    pub fn set_fleet(&mut self, link: &face::LiveLink, cx: &mut Context<Self>) {
+        if self.link_read.as_ref() == Some(link) {
+            return;
+        }
+        self.link_read = Some(link.clone());
+        self.read_link(cx);
+    }
+
+    /// Read the link at this instant, and again at the next instant the clock alone moves it. A restart
+    /// ends where Fleet answers, and is apart where a new Fleet still does not match.
+    fn read_link(&mut self, cx: &mut Context<Self>) {
+        let Some(link) = &self.link_read else { return };
+        let now = std::time::Instant::now();
+        let connection = link.connection(now);
+        let power = link.power(self.opened, now);
+        let restarting = match (&self.face.fleet.restarting, &connection) {
+            (_, Connection::Connected { .. }) => Restarting::Idle,
+            (Restarting::Working, Connection::Mismatch { pid, .. }) if self.restart_from.is_some_and(|from| from != *pid) => Restarting::Apart,
+            (held, _) => held.clone(),
+        };
+        let fleet = face::FleetFace { connection, power, restarting, doctor: self.face.fleet.doctor.clone() };
+        if fleet != self.face.fleet {
+            self.face.fleet = fleet;
+            cx.notify();
+        }
+        self._link_tick = link.next_at(self.opened, now).map(|at| {
+            cx.spawn(async move |this, cx| {
+                cx.background_executor().timer(at.saturating_duration_since(std::time::Instant::now())).await;
+                let _ = this.update(cx, |bar, cx| bar.read_link(cx));
+            })
+        });
+    }
+
+    /// launchd would not restart Fleet: the notice says what it answered.
+    pub fn restart_failed(&mut self, why: face::RestartWhy, detail: String, cx: &mut Context<Self>) {
+        self._restart_wait = None;
+        self.face.fleet.restarting = Restarting::Failed { why, detail };
         cx.notify();
     }
 
@@ -757,7 +814,20 @@ impl TitleBar {
     }
 
     fn restart_fleet_pressed(&mut self, cx: &mut Context<Self>) {
+        self.restart_from = match self.face.fleet.connection {
+            Connection::Mismatch { pid, .. } => Some(pid),
+            _ => None,
+        };
         self.answer(|face| face.fleet.restarting = Restarting::Working, cx);
+        // No new Fleet inside the wait is a failure of its own; a Fleet that answered or came back apart ended it.
+        self._restart_wait = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(RESTART_WAIT).await;
+            let _ = this.update(cx, |bar, cx| {
+                if bar.face.fleet.restarting == Restarting::Working {
+                    bar.restart_failed(face::RestartWhy::NoAnswer, format!("no new runtime file in {}s", RESTART_WAIT.as_secs()), cx);
+                }
+            });
+        }));
         cx.emit(Asked::RestartFleet);
     }
 

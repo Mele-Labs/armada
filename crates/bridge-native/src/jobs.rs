@@ -541,7 +541,9 @@ impl JobsList {
             if let Some(bar) = crate::titlebar::live(cx) {
                 let (usage, downshift) = (fleet.read(cx).held().plan_usage.clone(), fleet.read(cx).held().downshift.clone());
                 let build = fleet.read(cx).held().build.clone();
+                let link = fleet.read(cx).held().link();
                 bar.update(cx, |bar, cx| {
+                    bar.set_fleet(&link, cx);
                     bar.set_usage(usage.as_ref(), downshift.as_ref(), cx);
                     bar.set_build(build.as_ref(), cx);
                 });
@@ -1754,6 +1756,30 @@ impl JobsScreen {
                     Some(fleet) => fleet.update(cx, |fleet, cx| fleet.build_act(act, cx)),
                     None => Note::warn("not sent: no Fleet is connected").field("route", "/fleet/build").emit(),
                 }
+                return;
+            }
+            // Restart Fleet goes to launchd, never to Fleet: the Fleet it restarts is the one the runtime file names.
+            if *asked == crate::titlebar::Asked::RestartFleet {
+                let Some(fleet) = fleet_of.upgrade().and_then(|list| list.read(cx).fleet()) else {
+                    Note::warn("not restarted: this window has no Fleet connection").emit();
+                    return;
+                };
+                let pid = match &fleet.read(cx).held().presence {
+                    Some((crate::runtime_file::Presence::Running(file), _)) => Some(file.pid),
+                    _ => None,
+                };
+                let ran = cx.background_executor().spawn(async move { crate::restart_fleet::restart(pid) });
+                cx.spawn(async move |cx| {
+                    if let Err((why, detail)) = ran.await {
+                        Note::warn("Fleet was not restarted").field("why", why.word()).field("detail", detail.as_str()).emit();
+                        let _ = cx.update(|cx| {
+                            if let Some(bar) = crate::titlebar::live(cx) {
+                                bar.update(cx, |bar, cx| bar.restart_failed(why, detail, cx));
+                            }
+                        });
+                    }
+                })
+                .detach();
                 return;
             }
             // The step down's acts, each its own command; Choose settles it, as Electron's does before the model setting.
