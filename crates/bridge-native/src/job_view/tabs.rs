@@ -38,6 +38,7 @@ impl Pane {
                 ("deferred", "Deferred", "circle-dashed"),
                 ("plan", "Plan", "list-checks"),
                 ("changes", "Changes", "diff"),
+                ("pulls", "Pull Requests", "git-pull-request"),
                 ("ledger", "Ledger", "files"),
                 ("files", "Files", "folder-tree"),
                 ("subagents", "Subagents", "zap"),

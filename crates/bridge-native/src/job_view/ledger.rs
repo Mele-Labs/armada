@@ -76,6 +76,8 @@ pub(super) struct Line {
     pub mark: Option<Mark>,
     pub opens: Option<Opens>,
     pub act: Option<Act>,
+    /// A pull request, which draws as its own row (`PullRow`).
+    pub pull: Option<super::pulls::Pull>,
 }
 
 /// One group of the Ledger: its heading and its rows.
@@ -224,6 +226,7 @@ impl JobView {
                     mark: Some(Mark { tone, said: said.to_string(), word: None }),
                     opens: Some(opens),
                     act: None,
+                    pull: None,
                 }
             })
             .collect()
@@ -395,23 +398,7 @@ impl JobView {
             .collect();
         add("session", "Jobs", jobs);
 
-        // No pull request panel is native yet: these rows are read.
-        let pulls = held(record)
-            .filter(|one| matches!(one.kind.as_str(), "pr" | "pull_request"))
-            .filter(|one| one.state != AttachmentState::GivenBack)
-            .filter_map(|one| {
-                let number: u64 = one.target.trim_start_matches('#').parse().ok()?;
-                Some(Line {
-                    key: format!("pr:{number}"),
-                    kind: "pull_request",
-                    glyph: "git-pull-request",
-                    said: "Pull request",
-                    title: format!("#{number} {}", detail(one, "title").unwrap_or_default()).trim_end().to_string(),
-                    sub: detail(one, "branch").filter(|branch| !branch.is_empty()).map(str::to_string),
-                    ..Line::default()
-                })
-            })
-            .collect::<Vec<_>>();
+        let pulls = record.attachments.iter().filter_map(|one| super::pulls::pull_of(record, one, None)).map(super::pulls::pull_line).collect::<Vec<_>>();
         add("pull_request", "Pull requests", pulls.into_iter().rev().collect());
 
         // What he closed from Needs you, newest first, and Reopen while its thing still stands.
@@ -685,7 +672,7 @@ impl JobView {
 
     /// A row's Judge, and what the last reading of it found, drawn under the row (`JudgeRowNotes`), with
     /// what Fleet said where it refused.
-    fn row_judge(&self, line: &Line, group: &str, look: &Look, cx: &Context<Self>) -> Option<(AnyElement, Option<AnyElement>)> {
+    pub(super) fn row_judge(&self, line: &Line, group: &str, look: &Look, cx: &Context<Self>) -> Option<(AnyElement, Option<AnyElement>)> {
         let artifact = judged_of(&line.key, &line.title, group)?;
         let job = self.shown.clone()?;
         let page = self.pages.get(&job)?;
@@ -701,7 +688,10 @@ impl JobView {
         Some((press, under))
     }
 
-    fn ledger_row(&self, line: Line, group: &str, first: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn ledger_row(&self, mut line: Line, group: &str, first: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        if let Some(pull) = line.pull.take() {
+            return self.pull_row(line, pull, group, look, cx);
+        }
         let judged = self.row_judge(&line, group, look, cx);
         let ink = look.color(hue(line.kind));
         let chip = |words: SharedString| div().flex_none().px(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).child(words);

@@ -50,6 +50,7 @@ mod sketch_pad;
 mod sketch_read;
 mod subagent_read;
 mod panes;
+mod pulls;
 mod report_brief;
 mod side;
 mod tabs;

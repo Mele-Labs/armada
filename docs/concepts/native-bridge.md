@@ -73,7 +73,7 @@ Each step is its own Job, and at most two run at once.
 | Web pages in Chrome | Documents, sketches, walks of web pages and notes |
 | Job panes | Plan, Changes, Files, Checks, Subagents, Log (the Check panel's Log tab), Ledger, Judge, the pull request panes and the native diff. Still owed in the Ledger: the Merged, Open and Checks chips on pull request and linked Job rows, and note thumbnails. A pull request's or doc's judge notes stand under its Ledger row until the pull request Files tab and the doc reader land |
 | Operator and Projects | The Operator's page (Your turn and its digest), its chat and toasts, and Projects |
-| Settings, Kit, Reviews, Issues | Those four screens, Usage with Time, and Account |
+| Settings, Kit, Reviews, Issues | Those four screens, Usage with Time, and Account. The pull request side panel's Review tab arrives with Reviews, with the Reviews page's keys; until then the panel has four tabs |
 | Job tools | Terminal, the Request pane and the Browser tool |
 | Switch-over | VoiceOver pass, the signed app on both Macs, the Electron fallback |
 
@@ -105,6 +105,15 @@ They are measured against Electron, where a thread's first paint takes 132 to 23
 
 **He usually has more than ten Jobs live.**
 He switches from the list, from palette search and from Needs you.
+
+## Where native departs from Armada Classic
+
+The parity check takes each row here as chosen.
+
+| Where | Armada Classic | Native |
+|---|---|---|
+| A pull request's Files tab | "N files" beside the tree, which draws every file | No count, under the no-aggregate-counts rule of 29 Sep |
+| A judge note on a pull request with no line | Has nowhere to show | Stands at the top of Files, above the tree, in the line notes' look |
 
 ## Notifying
 

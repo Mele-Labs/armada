@@ -53,6 +53,8 @@ pub(super) struct Panes {
     pub(super) commands_all: HashSet<SharedString>,
     /// Closed items pressed to reopen, as `{job}\0{item}`, until Fleet's record no longer holds them.
     pub(super) reopened: HashSet<String>,
+    /// A pull request's act out with Fleet, by `{job}#{number}`: its button spins and the others wait.
+    pub(super) pull_pending: HashMap<String, super::pulls::PullAct>,
 }
 
 struct Search {
@@ -292,7 +294,7 @@ impl JobView {
                 self.forget_reopened(&id, cx);
                 self.judge_read(&id, cx);
             }
-            Some(super::side::Zone::Subagents) => self.judge_read(&id, cx),
+            Some(super::side::Zone::Subagents | super::side::Zone::Pulls) => self.judge_read(&id, cx),
             _ => {}
         }
     }

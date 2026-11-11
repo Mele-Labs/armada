@@ -532,7 +532,7 @@ impl JobView {
         let Some(record) = self.record(job, cx) else { return };
         let whole = self.pages.get(job).is_some_and(|page| page.judge.is_some()).then(|| super::judge_tab::whole_reading(record, job)).flatten();
         let plan = record.plan.as_ref().and_then(|plan| plan_reading(record, plan.version));
-        let rows_drawn = matches!(self.zone_shown(), Some(super::side::Zone::Ledger | super::side::Zone::Subagents));
+        let rows_drawn = matches!(self.zone_shown(), Some(super::side::Zone::Ledger | super::side::Zone::Pulls | super::side::Zone::Subagents));
         let rows = record.judge_readings.iter().filter(|one| rows_drawn && !matches!(one.artifact.kind, JudgeKind::Job | JudgeKind::Plan));
         let unread: Vec<String> = whole.into_iter().chain(plan).chain(rows).filter(|one| one.state == JudgeState::Done && !one.read && !one.notes.is_empty()).map(|one| one.id.clone()).collect();
         let port = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port());
