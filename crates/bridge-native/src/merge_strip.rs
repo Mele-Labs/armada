@@ -919,12 +919,10 @@ impl MergeStrip {
         out
     }
 
-    /// The row of one repository: main's light, then its chips, scrolling across.
+    /// The row of one repository: main's light stands still, and its chips scroll across behind it.
     fn row_of(&self, line: usize, grouped: bool, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
-        let mut items = vec![self.light(line, grouped, cx)];
-        items.extend(self.chips_of(line, cx));
-        div()
+        let chips = div()
             .id(SharedString::from(format!("chips-{line}")))
             .flex_1()
             .min_w_0()
@@ -944,7 +942,15 @@ impl MergeStrip {
                     cx.stop_propagation();
                 }
             }))
-            .children(items)
+            .children(self.chips_of(line, cx));
+        div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .child(div().flex_none().child(self.light(line, grouped, cx)))
+            .child(chips)
             .into_any_element()
     }
 
