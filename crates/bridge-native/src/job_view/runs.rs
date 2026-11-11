@@ -410,7 +410,7 @@ impl JobView {
             .child(part(text.clone()))
             .children(rows.iter().map(|row| match row {
                 SessionRow::Tool { text, .. } => part(text.clone()).into_any_element(),
-                SessionRow::Message { id, text, .. } => self.prose(format!("fleet:{id}"), text, look),
+                SessionRow::Message { id, text, .. } => self.prose(format!("fleet:{id}"), text, look, cx),
                 _ => div().into_any_element(),
             }))
             .into_any_element();
