@@ -889,3 +889,88 @@ describe("an answer to a Job's document", () => {
     });
   });
 });
+
+// Job 20b4e00a, 10 Nov 2026: asked to explain, it worked the answer out in its reasoning and went straight to its
+// question, so he saw the question alone. He reads only what the agent writes.
+describe("the reasoning before a question", () => {
+  const you = (id: string, text: string): Session["rows"][number] => ({
+    id,
+    at: "2026-11-11T02:33:57.000Z",
+    kind: "message",
+    from: {
+      kind: "you",
+    },
+    text,
+  });
+  const agent = (id: string, text: string): Session["rows"][number] => ({
+    id,
+    at: "2026-11-11T02:34:00.000Z",
+    kind: "message",
+    from: {
+      kind: "agent",
+    },
+    text,
+  });
+  const reasoned = (id: string): Session["rows"][number] => ({
+    id,
+    at: "2026-11-11T02:34:16.000Z",
+    kind: "reasoning",
+    seconds: 7,
+    text: "I recommend the Jobs list.",
+  });
+  const asked = (id: string): Session["rows"][number] => ({
+    id,
+    at: "2026-11-11T02:34:17.000Z",
+    kind: "tool",
+    text: "AskUserQuestion",
+  });
+  const opened = (rows: Session["rows"]) =>
+    threadRowsFrom(rows).flatMap((row) =>
+      row.kind === "reasoning"
+        ? [
+            [
+              row.id,
+              row.open === true,
+            ],
+          ]
+        : [],
+    );
+
+  it("is open where nothing was written to him since his message", () => {
+    expect(
+      opened([
+        you("y1", "Please explain"),
+        reasoned("r1"),
+        asked("t1"),
+      ]),
+    ).toEqual([
+      [
+        "r1",
+        true,
+      ],
+    ]);
+  });
+
+  it("stays folded where the agent wrote to him first, and wherever no question follows", () => {
+    expect(
+      opened([
+        you("y1", "Please explain"),
+        agent("m1", "Native has no Cockpit, so the ideas need a new home."),
+        reasoned("r1"),
+        asked("t1"),
+        you("y2", "And the strip?"),
+        reasoned("r2"),
+        agent("m2", "It is pushed."),
+      ]),
+    ).toEqual([
+      [
+        "r1",
+        false,
+      ],
+      [
+        "r2",
+        false,
+      ],
+    ]);
+  });
+});

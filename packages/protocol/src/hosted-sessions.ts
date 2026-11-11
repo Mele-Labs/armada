@@ -581,6 +581,13 @@ export type SessionRow =
       at: string;
       text: string;
     }
+  /** What the agent reasoned before what it did next: the CLI's short summary, never the working itself. Since 10 Nov 2026. */
+  | {
+      kind: "reasoning";
+      id: string;
+      at: string;
+      text: string;
+    }
   /**
    * The agent disputed a notice Fleet sent it. `notice` is the id of Fleet's `message` row; `why` is the agent's reason.
    * `spotted` is `called` where the agent said so itself, `read` where Fleet read it from the agent's replies after

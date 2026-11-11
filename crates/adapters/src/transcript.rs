@@ -40,15 +40,11 @@ pub use tasks::background_form;
 /// in the first few characters.
 const KEEP: usize = 240;
 
-/// A turn that carried the model's working, named without carrying it.
-///
-/// **The text is deliberately not read.** Reasoning is the model's working
-/// rather than its answer, it is long, and `docs/scope.md` records that reading
-/// a transcript is the thing Armada exists to escape. What a reader cannot do
-/// without is knowing the turn had reasoning in it at all — a turn that thought
-/// for thirty seconds and then made one call rendered as one call, and the
-/// removal was invisible. Whether the text is ever shown is a separate decision
-/// and is not this decoder's.
+/// A turn that carried the model's working with no summary of it: the harness
+/// withheld it, or wrote it empty. What a reader cannot do without is knowing
+/// the turn had reasoning in it at all — a turn that thought for thirty seconds
+/// and then made one call rendered as one call, and the removal was invisible.
+/// A summary that was written is a [`DroneEvent::Reasoned`].
 const REASONED: &str = "the Drone's reasoning, not carried";
 
 /// A block whose `type` this vocabulary has no variant for.
@@ -276,7 +272,13 @@ fn blocks(message: MessageLine, by: Speaker) -> Vec<DroneEvent> {
             // that the turn reasoned, which is a fact about the turn; a turn's
             // working arrives as several blocks, and a row each would put
             // volume into the fold that already reads as noise.
-            Block::Thinking => match reasoned {
+            Block::Thinking { thinking } if !thinking.trim().is_empty() => {
+                reasoned = true;
+                Some(DroneEvent::Reasoned {
+                    text: thinking.trim().to_string(),
+                })
+            }
+            Block::Thinking { .. } => match reasoned {
                 true => None,
                 false => {
                     reasoned = true;
@@ -639,15 +641,17 @@ enum Block {
     },
     #[serde(rename = "text")]
     Text { text: String },
-    /// The model's working. **A unit variant on purpose** — the working and its
-    /// signature are the largest fields in an ordinary turn, and there is no
-    /// field here for either to arrive in, so this decoder cannot carry the
-    /// text even by mistake.
+    /// The model's working, as the harness's short summary of it. **Its
+    /// `signature` has no field here**: that is the working itself, encrypted,
+    /// and the largest field in an ordinary turn.
     ///
-    /// The redacted spelling is the same fact with the working withheld
-    /// upstream, and reads as the same row.
+    /// The redacted spelling is the same fact with the summary withheld
+    /// upstream, and reads as a turn that reasoned.
     #[serde(rename = "thinking", alias = "redacted_thinking")]
-    Thinking,
+    Thinking {
+        #[serde(default)]
+        thinking: String,
+    },
     #[serde(other)]
     Unnamed,
 }

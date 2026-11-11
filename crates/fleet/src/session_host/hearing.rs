@@ -352,6 +352,13 @@ where
                 )
                 .await;
             }
+            DroneEvent::Reasoned { text } => {
+                // Drawn as the words around it are: not while the agent stands down for a move.
+                if runtime.state().moving.as_ref().is_some_and(|moving| !moving.held) {
+                    return;
+                }
+                self.row_put(id, SessionRow::Reasoning { id: self.row_id(id), at: self.instant(), text }).await;
+            }
             DroneEvent::Called { tool, detail, call } => {
                 let shown = detail.whole().unwrap_or(detail.shown()).to_string();
                 if let Some((to, message)) = adapters::sent_message(&tool, &shown) {
