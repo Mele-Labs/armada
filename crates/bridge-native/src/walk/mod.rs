@@ -37,6 +37,9 @@ pub enum Verb {
     Gone,
     /// A key, as gpui writes one (`j`, `enter`, `cmd-k`), sent to the screen.
     Key(&'static str),
+    /// ⌥⌘A struck as a person strikes it, between steps rather than as a step's own key: the walk
+    /// takes a note, wherever the keys are. A step's `Key("alt-cmd-a")` reaches the screen instead.
+    NoteKey,
     /// Several keys one after the other, each drawn before the next is sent, as a person's would be.
     Keys(&'static [&'static str]),
     /// A right press on the step's own target, before the target is ringed: the target is
@@ -192,6 +195,8 @@ pub static WALKS: &[Walk] = &[
         step("A row is one line, its title and its state, until the View turns more on", Verb::Look, "row", "Fix the merge line freshness chip"),
         step("⌥↑ moves the Job up past its neighbour", Verb::Key("alt-up"), "row", "Audit the docs index"),
         step("Shift+F10 opens the menu from the keys", Verb::Key("shift-f10"), "menuitem", "Close"),
+        step("⌥⌘A takes a walk note even while the menu holds the keys: the bar says Capturing", Verb::NoteKey, "button", "Capturing"),
+        step("Esc puts the note away and the keys go back to the menu", Verb::Key("escape"), "menuitem", "Close"),
         step("Esc shuts it again", Verb::Key("escape"), "row", "Audit the docs index"),
         step("The list's edge drags wider or narrower; a double press puts it back", Verb::Press, "separator", "Resize the Jobs list"),
         step("→ widens it from the keys, ← narrows it", Verb::Key("right"), "separator", "Resize the Jobs list"),

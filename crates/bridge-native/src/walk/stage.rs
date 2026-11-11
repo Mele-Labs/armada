@@ -127,6 +127,8 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             window.bounds_changed(cx);
             Ok(())
         }
+        // The walk window has stopped playing for this one (`WalkWindow::play_to`), so the key is the person's.
+        Verb::NoteKey => perform(&Step { verb: Verb::Key("alt-cmd-a"), ..*step }, focus, window, cx),
         Verb::Key(key) => {
             let keystroke = Keystroke::parse(key).map_err(|why| Missed(format!("the key {key} does not parse: {why}")))?;
             if !focus.within.contains_focused(window, cx) {

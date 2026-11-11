@@ -201,10 +201,17 @@ impl WalkWindow {
                     }
                 }
                 let Ok(Some(focus)) = this.read_with(cx, |this, _| this.stage.as_ref().map(|stage| stage.focus.clone())) else { return };
+                let person = step.verb == Verb::NoteKey;
+                if person {
+                    let _ = this.update(cx, |this, _| this.playing = false);
+                }
                 let done = cx.update(|window, cx| {
                     window.draw(cx).clear(cx);
                     perform(&step, &focus, window, cx)
                 });
+                if person {
+                    let _ = this.update(cx, |this, _| this.playing = true);
+                }
                 if let Ok(Err(missed)) = done {
                     let _ = this.update(cx, |this, cx| {
                         this.said = Some(Said { text: format!("Step {}: {}", at + 1, missed.0).into(), fault: true });
@@ -815,6 +822,15 @@ impl Render for WalkWindow {
                 .on_action(cx.listener(Self::reload))
                 .on_action(cx.listener(Self::approve))
                 .on_action(cx.listener(Self::take_note))
+                // In a development build the layer's ⌥⌘A is bound with no context, which gpui ranks
+                // above the walk's own; taken here first, it is the walk's note wherever the keys are.
+                // A step's key while playing goes on to the screen, as the notes walk shows the layer.
+                .capture_action(cx.listener(|this, _: &crate::annotate::Toggle, window, cx| {
+                    if !this.playing {
+                        cx.stop_propagation();
+                        this.take_note(&TakeNote, window, cx);
+                    }
+                }))
                 .on_action(cx.listener(Self::cancel_note))
                 .on_action(cx.listener(Self::open_takes))
                 .relative()
