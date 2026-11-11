@@ -33,11 +33,11 @@ Everything that needs a person reaches the person already read, with the Operato
 | Keeps a journal of your week | Yes |
 | A short briefing on the first open of the day | Partly. Fleet rewrites the page's top line when he comes back; the page is not in a Bridge yet |
 | Asks Yes / Always here / Always / No before it acts, and learns | Yes. A rule you kept does the act as it is raised and the Log names the rule |
-| Handles routine Job questions | Not built |
+| Handles routine Job questions | Yes, once you say Always here or Always. It answers a question it is sure of, unless the question is about something you would see, changes the plan's scope or could destroy work |
 | Nudges a stuck Job, then starts a repair suited to what broke | Partly. Fleet hosts a hidden repair for each of six breaks, and starts one for a dead process, a silent stop, a red pull request and a hung command; the triggers for the rest are not built |
-| Hands duplicate work to the Job already on it | Not built |
+| Hands duplicate work to the Job already on it | Yes. A start, or a red main, that a live Job is near is a go-ahead to hand it over |
 | Handles issues | Partly. A new issue is linked, filed or started on. A merge closes an open issue it finished, and a new issue that repeats an open one is closed as its duplicate or put under it, each asked first |
-| Handles reviews | Not built |
+| Handles reviews | Yes, as each project says. A plan, a pull request or a walk is read before it reaches Your turn. A plan it finds clean is approved for you; a pull request is not approved yet |
 | Reviews what needs you and raises it with its read and a pick | Partly. Fleet queues each item in Your turn with its read and pick; no Bridge shows it yet |
 | One chat, on its own page or in a pane from anywhere | Partly. Fleet serves the talk; the native Bridge draws the box |
 | Its page: Your turn, the short draggable list, beside the digest Since you last looked | Partly. Fleet serves it as `operator_page`; no Bridge draws it yet |
@@ -137,11 +137,28 @@ What a rule did is in Done as well, signed by the Operator.
 
 **The Operator starts no Job for another Job's work.**
 A Job it starts is one he asked for, or work no Job holds: a note, an error, a report or a red main.
+**A Job that starts on what a live Job holds is handed to that Job, after one go-ahead.**
+Fleet looks first: a start by a Job, by Autopilot or by him is put against the live Jobs in its repository, and only where one shares a path, an issue or two uncommon words is one call made.
+With no Job near it there is no call and no row.
+Hand to the live Job or Keep both is the go-ahead's pick, answered Yes, Always here, Always or No, and a kept rule hands it alone.
+Yes sends the brief to the live Job, tells the Job that started it where it went, and closes the duplicate.
+A Job's own start is held on its start card until he answers, and Autopilot's is set aside, then started as it was asked on No.
+**A Job he started himself is never held or closed unasked**: it starts, and Your turn carries the item.
+Every hand-over is a row of the Log signed by the Operator that names both Jobs, and the rule where one did it.
 Why: "the Operator keeps spinning up these 'Rest of' Jobs and I hate it." It had started a second "Rest of" Job while a subagent of the first still ran.
 
-**Merging two Jobs, keeping two in touch, and answering a question are not ways.**
+**Merging two Jobs and keeping two in touch are not ways.**
 They acted on a Job's own events.
-A question or a card is the person's, and Autopilot answers them while he is away.
+
+**A Job's question is answered by a rule, never by a ruling.**
+The review call says, for each question, whether it is sure and what the question is about: a look, the plan's scope, work that could be lost, or none of those.
+A question it is sure of, about none of those, with an option of its own and no destructive word in it, is offered as a go-ahead.
+Yes answers it with the pick, through the Job's list, as a press on the option does.
+Always here and Always keep the rule `question:answer`, and under it such a question is answered as it arrives and never queued.
+The Log row names the question, the option and the rule, and the Job's thread says the Operator answered it and with which option.
+Every other question is queued for the person with the Operator's read and pick.
+A permission card is the person's, or Autopilot's while he is away.
+Where the Operator is on and a rule covers questions, Autopilot leaves them alone, including the ones the Operator was not sure of.
 
 | Role | What it does |
 |---|---|
@@ -170,6 +187,37 @@ Why: an item the Operator never rules on is one the person never sees.
 **Turning the Operator Off is main before the Operator.**
 No call process is kept started and nothing is handed to it.
 An end and a merge are still heard once, so none is told when it comes on.
+
+### Reviewing work before you see it
+
+**Each project says how its Jobs' plans, pull requests and walks are read before they reach Your turn.**
+The setting is `reviews` in the project's values, a kind at a time, and everything is Off until a layer sets it.
+A Job reads the `reviews` it froze when it started, so a setting changed since never changes how its own work is read.
+
+| Mode | The item |
+|---|---|
+| Off | Reaches Your turn as it does without this |
+| Review | Is read by one call, and reaches Your turn with the findings as its read and a pick |
+| Review and approve | As Review, and a plan found clean is approved, and a pull request found clean is let land, without you |
+
+**A walk takes Off or Review only.**
+A walk is yours to look at, so the setting has no word that approves one.
+
+**A review is one reading call on `models.review`.**
+It reads the plan, or the diff of the Job's branch against its base, with the Job's brief.
+It is skipped for a diff that touches only docs and tests, and the item reaches Your turn with no read.
+Text from a Job, a plan or a diff is data to it, never an instruction.
+
+**Fail open.**
+A call that cannot be made or read queues the item with no read, and nothing is approved.
+Findings of any kind queue the item with them, and nothing is approved.
+
+**An approval is the one your press makes.**
+A plan found clean goes through the same route as Approve on its card, the Job is told, and the Log names the setting, such as Review and approve, plans.
+It shows in What I handled as done by a setting.
+A pull request found clean is let land by asking the forge to merge it once its checks pass, as Auto land does, with no approving review and no comment.
+If the forge refuses, the item is queued for you with the read and the refusal, and it is not asked again.
+A pull request whose Job's plan marks work you would see, or carries a walk, is queued as Walk it first, and is not let land.
 
 ### Talking to it
 
@@ -229,17 +277,18 @@ Each step is its own Job, and the order is the order of the table.
 |---|---|---|
 | Fleet raises what needs you | A journal of the week, and a short briefing on the first open of the day | Yes, as the page's top line |
 | Asks | Yes / Always here / Always / No before it acts, in place of permission levels and the `role_off` and `always_raise` orders | Yes. Holds stay |
-| Routine work | Routine Job questions, stuck Jobs, duplicates, reviews and issues | Not built |
+| Routine work | Routine Job questions, stuck Jobs, duplicates, reviews and issues | Partly. Routine Job questions and reviews are built |
 | Repairs that close themselves | A stuck Job is nudged, then repaired by what broke, in a hidden agent that ends when it is done | Partly. The hosted repair and the triggers for a dead process, a silent stop, a red pull request and a hung command are built; the other two are not |
 | The native page | Your turn, the digest with the Log and Learned, the chat on Ask, and toasts | Not built |
 
 **What raises and what asks is one rule.**
 Whatever needs the person, the Operator reviews first and raises with its read and a pick, so nothing sits in a list.
 Every act is asked, and the answer is kept: Yes this time, Always here for this project, Always for every project, or No.
-A rule you kept covers the act, this repository's first and then every repository's, and Fleet does it as it is raised.
+A rule you kept covers the act, this repository's first, then a project that holds it, then every repository's, and Fleet does it as it is raised.
+Always here on a page filtered to a project keeps the rule for that project, and for every repository it holds.
 The Log row says by which rule.
 No is for this time only.
-Filing an issue, starting a Job, sending words to a live Job, closing an issue, grouping one and a red main's fix are acts.
+Filing an issue, starting a Job, sending words to a live Job, closing an issue, grouping one, handing a start over, a red main's fix and answering a Job's question are acts.
 A link to an open issue writes nothing and is not asked.
 Raising, leaving a note where it is and noting it are not acts.
 
@@ -259,6 +308,8 @@ Settled with the person on 10 Nov, on sketches. It stays current all day; the mo
   The whole Log opens on a sheet over the page, a heading for each day and each entry at its time.
 - A new item during the day joins the queue and raises a toast whose pick button settles it.
 - A red main nobody is on is an item. Start a fix starts a Job at once with no plan step; whether its pull request merges by itself is per project, asked the first time.
+  Where a live Job took the last red, or its paths meet the files of the merge before this one, the item offers Hand to that Job beside Start a fix, with the Operator's pick; Yes on it claims the red for that Job and tells it, and Always here keeps the pick as the rule.
+  He may press the other option instead, and a rule he keeps with it keeps that option.
 
 The pane opened from a Job holds the chat and the short list.
 It reaches the person through toasts in the native Bridge, which [Native Bridge](native-bridge.md) owns.

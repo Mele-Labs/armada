@@ -40,6 +40,11 @@ pub struct ToRead {
 pub trait Looking: Send + Sync {
     /// `question`, put to a call that may read `folder` and the code under each of `roots`.
     fn look<'a>(&'a self, question: String, folder: &'a Path, roots: &'a [String]) -> Answering<'a>;
+
+    /// `look`, on `model` where the call can be put to one. **One that cannot is put to its own.**
+    fn look_on<'a>(&'a self, _model: &'a str, question: String, folder: &'a Path, roots: &'a [String]) -> Answering<'a> {
+        self.look(question, folder, roots)
+    }
 }
 
 /// A [`Looking`] that reads nothing: it puts the question to the call that holds no tools. For an
@@ -73,6 +78,14 @@ impl Looking for ReadingScout {
             self.host.answer_reading(model.as_str(), &directory, roots, MOST_TURNS, &question, MOST_TIME).await
         })
     }
+
+    fn look_on<'a>(&'a self, model: &'a str, question: String, folder: &'a Path, roots: &'a [String]) -> Answering<'a> {
+        Box::pin(async move {
+            let model = Model::named(model).map_err(|_| CallFailed::NothingToAsk)?;
+            let directory = folder.to_string_lossy();
+            self.host.answer_reading(model.as_str(), &directory, roots, MOST_TURNS, &question, MOST_TIME).await
+        })
+    }
 }
 
 /// The folder one message reads, removed when this is dropped.
@@ -84,8 +97,9 @@ pub struct Folder {
 static MADE: AtomicU64 = AtomicU64::new(0);
 
 impl Folder {
-    /// Make a folder under `under` holding `files`.
+    /// Make a folder under `under` holding `files`, first removing any an earlier Fleet left there.
     pub fn made(under: &Path, files: &[(String, String)]) -> io::Result<Folder> {
+        swept(under);
         let path = under.join(format!("talk-{}-{}", std::process::id(), MADE.fetch_add(1, Ordering::SeqCst)));
         fs::create_dir_all(&path)?;
         // Held from here, so a file that will not write still removes the folder.
@@ -104,5 +118,16 @@ impl Folder {
 impl Drop for Folder {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.path);
+    }
+}
+
+/// Remove the folders another process made under `under`: a Fleet that stopped mid-message never dropped them.
+fn swept(under: &Path) {
+    let ours = format!("talk-{}-", std::process::id());
+    for entry in fs::read_dir(under).into_iter().flatten().flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with("talk-") && !name.starts_with(&ours) {
+            let _ = fs::remove_dir_all(entry.path());
+        }
     }
 }

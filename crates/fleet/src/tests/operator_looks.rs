@@ -177,6 +177,21 @@ async fn a_ruling_goes_through_the_call_with_no_tools_and_never_through_the_one_
 }
 
 #[tokio::test]
+async fn a_folder_an_earlier_fleet_left_mid_message_is_gone_after_the_next_message() {
+    let rig = rig_listing();
+    let reads = Reads::saying(&[&reply("Nothing.")]);
+    seated(&rig, Arc::new(Rules::default()), reads.clone()).await;
+    let left = desk_of(&rig).join("talk-1-0");
+    std::fs::create_dir_all(&left).expect("made");
+    std::fs::write(left.join("issues.txt"), "left over").expect("written");
+
+    rig.fleet.operator_talked("anything?", None).await.expect("answered");
+
+    assert!(!left.exists(), "the left folder was swept");
+    assert_eq!(left_in(&desk_of(&rig)), 0);
+}
+
+#[tokio::test]
 async fn a_message_whose_call_failed_is_refused_and_leaves_no_folder_behind() {
     let rig = rig_listing();
     let reads = Reads::saying(&[]);

@@ -226,7 +226,32 @@ export function threadRowsFrom(
   rows: Session["rows"],
   ledger: readonly SessionAttachment[] = [],
 ): SessionThreadRow[] {
-  return withDocuments(withSketchState(rowsDrawn(rows, ledger), ledger), ledger);
+  return openedBeforeBareQuestions(
+    withDocuments(withSketchState(rowsDrawn(rows, ledger), ledger), ledger),
+  );
+}
+
+/**
+ * The reasoning just before a question opens where the agent wrote nothing to the person since their message. **They
+ * read only what the agent writes**, so a Job that works its answer out in its reasoning and then asks leaves them the
+ * question alone (Job 20b4e00a, 10 Nov 2026). Every other reasoning row stays folded.
+ */
+function openedBeforeBareQuestions(rows: SessionThreadRow[]): SessionThreadRow[] {
+  let owed = false;
+  return rows.map((row, index) => {
+    if (row.kind === "message" && row.from === "you") owed = true;
+    if (row.kind === "message" && row.from === "agent") owed = false;
+    const next = rows[index + 1];
+    return row.kind === "reasoning" &&
+      owed &&
+      next?.kind === "tool" &&
+      next.text.startsWith("AskUserQuestion")
+      ? {
+          ...row,
+          open: true as const,
+        }
+      : row;
+  });
 }
 
 function rowsDrawn(

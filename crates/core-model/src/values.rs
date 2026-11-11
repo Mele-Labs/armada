@@ -21,6 +21,69 @@ pub struct Values {
     /// The tracker a Project names for its issues and for the Jobs in it. **Only a Project's layer sets one**:
     /// Kit has none, and a repository's is its Manifest's own block, which is not held here.
     pub tracker: Option<TrackerNamed>,
+    /// How the Operator reviews work before it reaches the person, a kind at a time. **A layer that sets it sets
+    /// all three**: a kind it does not name is [`ReviewMode::Off`], and no layer setting it is the same as Off.
+    pub reviews: Option<Reviews>,
+}
+
+/// What the Operator does with a Job's plan, pull request or walk before the person sees it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ReviewMode {
+    /// The item reaches the person as it is.
+    #[default]
+    Off,
+    /// One reading call reviews it, and the item reaches the person with the findings.
+    Review,
+    /// As `Review`, and where the review finds nothing the Operator approves it itself.
+    ReviewAndApprove,
+}
+
+impl ReviewMode {
+    pub const ALL: &'static [ReviewMode] = &[ReviewMode::Off, ReviewMode::Review, ReviewMode::ReviewAndApprove];
+
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            ReviewMode::Off => "off",
+            ReviewMode::Review => "review",
+            ReviewMode::ReviewAndApprove => "review_and_approve",
+        }
+    }
+
+    pub fn from_wire(word: &str) -> Option<ReviewMode> {
+        ReviewMode::ALL.iter().copied().find(|mode| mode.as_wire() == word)
+    }
+}
+
+/// What the Operator does with a walk. **Never approves**: a walk is the person's to look at, so the type has
+/// no word for it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum WalkReview {
+    #[default]
+    Off,
+    Review,
+}
+
+impl WalkReview {
+    pub const ALL: &'static [WalkReview] = &[WalkReview::Off, WalkReview::Review];
+
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            WalkReview::Off => "off",
+            WalkReview::Review => "review",
+        }
+    }
+
+    pub fn from_wire(word: &str) -> Option<WalkReview> {
+        WalkReview::ALL.iter().copied().find(|mode| mode.as_wire() == word)
+    }
+}
+
+/// How each kind of work is reviewed. Everything is Off until a layer says otherwise.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Reviews {
+    pub plans: ReviewMode,
+    pub pull_requests: ReviewMode,
+    pub walks: WalkReview,
 }
 
 /// A tracker as a layer wrote it: the provider where it named one, and every other key as written, for that

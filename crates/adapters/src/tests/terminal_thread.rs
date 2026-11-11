@@ -535,3 +535,40 @@ fn a_replayed_call_carries_its_description_and_one_without_carries_none() {
         .collect();
     assert_eq!(seen, [Some("Showing files touched by the latest non-merge commit"), None]);
 }
+
+/// Job 20b4e00a, 10 Nov 2026: asked to explain, it worked the answer out in its reasoning and went straight to its
+/// question, and the thread drew the question alone. **The reasoning is a row, before the call it led to**, and the
+/// signature, the working itself, is not in it.
+#[test]
+fn the_reasoning_before_a_question_is_drawn_before_it() {
+    let (_home, file) = written(&[
+        line("user", "u1", r#""origin":{"kind":"human"},"#, r#""Please explain""#),
+        line("assistant", "a1", "", r#"[{"type":"thinking","thinking":"","signature":"sig-a"}]"#),
+        line(
+            "assistant",
+            "a2",
+            "",
+            r#"[{"type":"thinking","thinking":"I recommend the Jobs list, where he already looks.","signature":"sig-b"}]"#,
+        ),
+        line(
+            "assistant",
+            "a3",
+            "",
+            r#"[{"type":"tool_use","id":"q1","name":"AskUserQuestion","input":{"questions":[]}}]"#,
+        ),
+    ]);
+    let rows = read_from(&file, 0).expect("readable").rows;
+    let kinds: Vec<&str> = rows
+        .iter()
+        .map(|row| match row {
+            SessionRow::Message { .. } => "message",
+            SessionRow::Reasoning { .. } => "reasoning",
+            SessionRow::Tool { .. } => "tool",
+            _ => "other",
+        })
+        .collect();
+    assert_eq!(kinds, ["message", "reasoning", "tool"], "an empty summary draws nothing: {rows:?}");
+    let SessionRow::Reasoning { text, .. } = &rows[1] else { panic!("{rows:?}") };
+    assert_eq!(text, "I recommend the Jobs list, where he already looks.");
+    assert!(!format!("{rows:?}").contains("sig-"), "{rows:?}");
+}

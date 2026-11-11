@@ -1459,7 +1459,10 @@ mod tests {
     fn a_rule_reads_where_it_holds_then_the_rule_in_small() {
         let rule = |repository: Option<&str>| ipc::operator_page::OperatorLearned {
             id: 1,
-            manifest_id: None,
+            scope: match repository {
+                Some(name) => ipc::operator_page::RuleScope::Repository { manifest_id: name.into() },
+                None => ipc::operator_page::RuleScope::Everywhere,
+            },
             repository: repository.map(String::from),
             said: "Start a fix when main is red".into(),
             at: ipc::Instant::carried("2026-11-09T10:30:00-05:00"),
