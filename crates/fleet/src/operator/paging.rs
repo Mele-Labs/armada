@@ -152,7 +152,7 @@ where
                 offer
             })
             .collect();
-        let keeps = row.go_ahead && (row.item.starts_with(RED) || suggestion_number(&row.item).is_some());
+        let keeps = row.go_ahead && (row.item.starts_with(RED) || suggestion_number(&row.item).is_some() || super::answering::what_of(&item).is_some());
         let shown = OperatorTurnItem {
             id: format!("turn:{}", row.n),
             kind: if row.go_ahead { OperatorTurnKind::GoAhead } else { OperatorTurnKind::Decision },

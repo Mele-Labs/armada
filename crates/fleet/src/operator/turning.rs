@@ -81,6 +81,9 @@ pub(super) fn rule_said(what: &str, pick: &str) -> String {
     if what == "red_main" {
         return "Start a fix when main goes red".to_string();
     }
+    if what == super::answering::QUESTION {
+        return "Answer questions you are sure of".to_string();
+    }
     let (arrived, way) = what.split_once(':').unwrap_or((what, ""));
     let named = super::Arrived::from_word(arrived).map_or(arrived.to_string(), |arrived| arrived.named().to_string());
     match (way, then_of_pick(pick)) {
@@ -184,6 +187,15 @@ where
         }
     }
 
+    /// The ids of the projects that hold `repository`, which a rule kept for a project meets. None for an
+    /// item in no repository.
+    pub(super) fn rule_projects(&self, repository: &str) -> Vec<String> {
+        match repository {
+            "" => Vec::new(),
+            repository => self.projects_held().holding(&Repository::carried(Ulid::carried(repository))).into_iter().map(|project| project.id().as_str().to_string()).collect(),
+        }
+    }
+
     /// Items just arrived, each done by a rule where one covers it, while the Operator is on. Answers
     /// whether any was, and the rest, which go to review: **a rule that cannot be carried out leaves its
     /// item to the person**.
@@ -195,10 +207,7 @@ where
         let (mut ruled, mut rest) = (false, Vec::new());
         for one in offered {
             let what = self.rule_what(&one.item.id).await;
-            let held: Vec<String> = match one.manifest_id.as_str() {
-                "" => Vec::new(),
-                repository => self.projects_held().holding(&Repository::carried(Ulid::carried(repository))).into_iter().map(|project| project.id().as_str().to_string()).collect(),
-            };
+            let held = self.rule_projects(&one.manifest_id);
             let found = what.as_ref().and_then(|what| rule_pick(&rules, what, &one.manifest_id, &held));
             let (Some(what), Some(pick)) = (what, found) else {
                 rest.push(one);
@@ -248,7 +257,7 @@ where
         let row = self.turn_open(&press.id).await?;
         let item = item_read(&row.body).ok_or_else(|| self.ledger_unnamed("an item that reads"))?;
         let not_offered = |why: &str| self.hosted_refusal(NOT_OFFERED, why);
-        let what = self.rule_what(&row.item).await;
+        let what = self.rule_what(&row.item).await.or_else(|| super::answering::what_of(&item).map(str::to_string));
         let keeps = row.go_ahead && what.is_some();
         let answer_word = match press.answer {
             OperatorAnswer::Yes => "yes",
