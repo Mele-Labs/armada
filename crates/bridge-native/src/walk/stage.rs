@@ -144,7 +144,7 @@ pub fn find(step: &Step, window: &Window, cx: &App) -> Result<Drawn, Missed> {
 /// Do what reaching `step` does. A press needs its target drawn first; a key goes to the screen.
 pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) -> Result<(), Missed> {
     match step.verb {
-        Verb::Look => Ok(()),
+        Verb::Look | Verb::Later(_) => Ok(()),
         // The walk window builds the screen again before it reaches here (`WalkWindow::play_to`).
         Verb::Fresh => Ok(()),
         Verb::Width(points) => {

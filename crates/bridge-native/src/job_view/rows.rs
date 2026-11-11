@@ -216,8 +216,20 @@ impl JobView {
         let look = cx.look();
         let working = self.working(&id, cx);
         let now = Local::now();
-        if page.lead == 1 && ix == 0 {
-            return self.earlier_row(&id, look, cx);
+        if ix < page.lead {
+            // The row a move put at the head comes after Show earlier.
+            let moved_from = self.moved(&id, "forked_from", cx);
+            return match moved_from {
+                Some(moved) if ix + 1 == page.lead => div()
+                    .w_full()
+                    .flex()
+                    .justify_center()
+                    .px(look.length(token::SPACE_4) + super::bleed(look))
+                    .pb(self.row_gap(look))
+                    .child(div().w_full().min_w_0().max_w(self.column(look)).child(self.moved_row(&id, "from", moved, look, cx)))
+                    .into_any_element(),
+                _ => self.earlier_row(&id, look, cx),
+            };
         }
         // The Job this one took the place of: its items, then a plain rule, read only.
         if ix - page.lead < page.before {
@@ -578,7 +590,55 @@ impl JobView {
                 line.into_any_element()
             }
             Extra::Subagents => return self.subagents_card(page.items + at, items, page, look, cx),
+            Extra::MovedTo => {
+                let id = self.shown.clone()?;
+                let moved = self.moved(&id, "forked_to", cx)?;
+                return Some(self.moved_row(&id, "to", moved, look, cx));
+            }
+            Extra::Refreshing => div()
+                .flex()
+                .py(look.length(token::SPACE_1))
+                .child(labelled(
+                    div().id("refreshing").flex_none().tooltip(tip("Loading new messages")).child(
+                        glyph(look, "loader-circle", Size::Small, look.color(token::FG_MUTED)).with_animation(
+                            "refreshing-turn",
+                            Animation::new(look.duration(token::DURATION_PULSE)).repeat(),
+                            |mark, delta| mark.with_transformation(gpui::Transformation::rotate(gpui::percentage(delta))),
+                        ),
+                    ),
+                    Role::Image,
+                    "Loading new messages",
+                ))
+                .into_any_element(),
         })
+    }
+
+    /// Where a moved Job went, at the foot of its thread, or where it came from, at the head of the new
+    /// one (`MovedRow`): a press opens the other.
+    fn moved_row(&self, id: &SharedString, way: &'static str, (other, manifest): (String, String), look: &Look, cx: &Context<Self>) -> AnyElement {
+        let repository = self.repository_word(&manifest, cx);
+        let said = format!("Moved {way} {repository}");
+        let press = div()
+            .id(SharedString::from(format!("moved-{way}:{id}")))
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .min_w_0()
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_MD))
+            .bg(look.color(token::BG_RAISED))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .cursor_pointer()
+            .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
+            .child(glyph(look, "folder-git-2", Size::Small, look.color(token::FG_MUTED)))
+            .child(format!("Moved {way}"))
+            .child(div().min_w_0().truncate().font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default()).child(repository))
+            .child(glyph(look, "chevron-right", Size::Small, look.color(token::FG_MUTED)))
+            .on_click(cx.listener(move |this, _, _, cx| this.open_job(other.clone(), cx)));
+        div().w_full().flex().child(labelled(press, Role::Button, said)).into_any_element()
     }
 
     /// The turning ring that says the agent is working.
