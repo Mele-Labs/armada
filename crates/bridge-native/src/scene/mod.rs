@@ -7,6 +7,7 @@
 //! node draws nothing until the app can draw a page (plan task #20). A screen node is a wireframe
 //! sheet gpui lays out as the browser lays out `ScreenView`, under its title.
 
+pub(crate) mod export;
 mod geometry;
 mod labels;
 mod route;

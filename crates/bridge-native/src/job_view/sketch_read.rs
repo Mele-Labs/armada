@@ -3,8 +3,9 @@
 //! `GraphCanvas` draws one, stops and restarts the steps and zooms; a wheel or `+`, `-` and `0`
 //! zoom it too, a drag or the arrows move it, and Esc, Close or a press beside it shut it.
 
+use std::path::PathBuf;
 use std::rc::Rc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use gpui::{
     anchored, deferred, div, point, prelude::*, Anchor, AnyElement, Context, FocusHandle, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent, Role,
@@ -17,7 +18,18 @@ use super::rows::{glyph, Size};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook};
-use crate::scene::{Clock, Fit, Lens};
+use crate::dropdown::{Entry, Row};
+use crate::scene::{export, Clock, Fit, Lens};
+
+/// How long a save or a copy is said in the sheet's band.
+const SAID_FOR: Duration = Duration::from_secs(4);
+
+/// What Save as image or Save as web page hands the save dialog.
+enum Shared {
+    Page(String),
+    /// The standalone SVG: written as it is where he names an `.svg`, else drawn as PNG.
+    Picture(String),
+}
 
 /// What a rail button draws: a glyph, or a sign where no glyph is right.
 #[derive(Clone, Copy)]
@@ -44,6 +56,8 @@ pub(super) struct Reading {
     lens: Lens,
     /// The press held, and where the pointer was last.
     drag: Option<gpui::Point<f32>>,
+    /// What a save or a copy came to, said in the band for a moment.
+    said: Option<SharedString>,
 }
 
 /// A key's zoom step and pan, and the most and least the reader may zoom past the fit.
@@ -82,7 +96,7 @@ impl JobView {
         window.focus(&focus, cx);
         let now = Instant::now();
         let steps = crate::scene::plays(&scene).then_some(now);
-        self.sketch_reading = Some(Reading { key: scene_key, title: title.into(), scene, against, changes: true, steps, opened: now, focus, back, lens: Lens::default(), drag: None });
+        self.sketch_reading = Some(Reading { key: scene_key, title: title.into(), scene, against, changes: true, steps, opened: now, focus, back, lens: Lens::default(), drag: None, said: None });
         cx.notify();
     }
 
@@ -101,6 +115,77 @@ impl JobView {
             reading.changes = changes;
         }
         cx.notify();
+    }
+
+    /// Share opens a menu of three, as Electron's rail does: a page, a picture, or Mermaid text.
+    fn share_sketch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(back) = self.sketch_reading.as_ref().map(|reading| reading.focus.clone()) else { return };
+        let entries = vec![
+            Entry::Row(Row::new("html", "Save as web page")),
+            Entry::Row(Row::new("image", "Save as image")),
+            Entry::Row(Row::new("mermaid", "Copy as Mermaid")),
+        ];
+        let at = window.mouse_position();
+        self.open_pop("Share", entries, at, false, Some(back), |this, id, window, cx| this.share_as(id, window, cx), window, cx);
+    }
+
+    fn share_as(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(reading) = self.sketch_reading.as_ref() else { return };
+        let (key, scene, title): (SharedString, Rc<Scene>, String) = (reading.key.clone().into(), reading.scene.clone(), reading.title.to_string());
+        match id {
+            "mermaid" => {
+                let text = export::mermaid(&scene, &cx.look());
+                cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
+                self.say_shared(format!("{} is on the clipboard.", export::MERMAID_COPIED).into(), cx);
+            }
+            "html" => {
+                let page = export::web_page(&key, &scene, &title, window, cx);
+                self.save_shared(export::file_name(&title, "html"), Shared::Page(page), cx);
+            }
+            "image" => {
+                let svg = export::svg(&key, &scene, window, cx);
+                self.save_shared(export::file_name(&title, "png"), Shared::Picture(svg), cx);
+            }
+            _ => {}
+        }
+    }
+
+    /// The place is his, picked in the save dialog. A dialog he closes says nothing, as Electron's `savedSaid`.
+    fn save_shared(&mut self, name: String, what: Shared, cx: &mut Context<Self>) {
+        let folder = std::env::var_os("HOME").map(|home| PathBuf::from(home).join("Downloads")).unwrap_or_else(std::env::temp_dir);
+        let picked = cx.prompt_for_new_path(&folder, Some(&name));
+        cx.spawn(async move |this, cx| {
+            let Ok(Ok(Some(path))) = picked.await else { return };
+            let saved = path.file_name().map_or_else(|| name.clone(), |file| file.to_string_lossy().into_owned());
+            let bytes = match what {
+                Shared::Page(page) => Ok(page.into_bytes()),
+                Shared::Picture(svg) if path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("svg")) => Ok(svg.into_bytes()),
+                Shared::Picture(svg) => export::png(&svg),
+            };
+            let said = match bytes.map(|bytes| std::fs::write(&path, bytes)) {
+                Ok(Ok(())) => format!("Saved {saved}."),
+                _ => format!("{saved} was not saved."),
+            };
+            let _ = this.update(cx, |this, cx| this.say_shared(said.into(), cx));
+        })
+        .detach();
+    }
+
+    /// A save or a copy is otherwise silent, so the band says it for a moment.
+    fn say_shared(&mut self, said: SharedString, cx: &mut Context<Self>) {
+        let Some(reading) = self.sketch_reading.as_mut() else { return };
+        reading.said = Some(said.clone());
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(SAID_FOR).await;
+            let _ = this.update(cx, |this, cx| {
+                if let Some(reading) = this.sketch_reading.as_mut().filter(|reading| reading.said.as_ref() == Some(&said)) {
+                    reading.said = None;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
     }
 
     fn fit_sketch(&mut self, cx: &mut Context<Self>) {
@@ -199,6 +284,13 @@ impl JobView {
                     .text_color(look.color(token::FG_DEFAULT))
                     .child(reading.title.clone()),
             )
+            .children(reading.said.clone().map(|said| {
+                labelled(
+                    div().id("sketch-said").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(said.clone()),
+                    Role::Status,
+                    said,
+                )
+            }))
             .child(button("sketch-close", "x", "Close", "escape", |this, window, cx| this.close_reading(window, cx)));
         // `GraphCanvasRailGroup`'s buttons: ghost and icon-only, a sign where no glyph is right, a
         // lamp in the corner while one is on, and the reason in the tooltip while one is off.
@@ -285,6 +377,7 @@ impl JobView {
                     )
                     .into_any_element(),
                     rail_button("sketch-restart", Face::Glyph("rotate-cw"), "Restart the steps", None, None, no_order, |this, _, cx| this.play_sketch(true, cx)).into_any_element(),
+                    rail_button("sketch-share", Face::Glyph("external-link"), "Share", None, None, None, |this, window, cx| this.share_sketch(window, cx)).into_any_element(),
                 ],
             ))
             .child(group(
