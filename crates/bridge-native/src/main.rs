@@ -22,6 +22,7 @@ mod clash_mark;
 mod context_ring;
 mod deep_link;
 mod dictation;
+mod diff;
 mod dispatch;
 mod dropdown;
 mod drafts;

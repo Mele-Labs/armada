@@ -48,6 +48,7 @@ mod report;
 mod sketch_pad;
 mod sketch_read;
 mod subagent_read;
+mod panes;
 mod report_brief;
 mod side;
 mod tabs;
@@ -325,6 +326,8 @@ pub struct JobView {
     /// A subagent's thread open on its sheet, and the last threads read, newest last.
     subagent_reading: Option<subagent_read::Reading>,
     subagents_read: Vec<(String, subagent_read::SubagentRead)>,
+    /// The Plan, Changes, Files and Checks bodies' state, and the panel one of their rows opened.
+    panes: panes::Panes,
     /// The Jobs a walk reads again for a moment when they come on screen, standing in for Fleet's read.
     mock_reading: HashSet<String>,
     _subscriptions: Vec<Subscription>,
@@ -431,6 +434,7 @@ impl JobView {
             sketch_reading: None,
             subagent_reading: None,
             subagents_read: Vec::new(),
+            panes: panes::Panes::default(),
             mock_reading: HashSet::new(),
             _subscriptions: subscriptions,
         }
@@ -555,6 +559,7 @@ impl JobView {
             self.sync(id, cx);
         }
         self.composer_enter(to.as_ref(), window, cx);
+        self.want_pane_reads(window, cx);
         let on = window.is_window_active().then(|| to.clone()).flatten();
         self.visit(on, cx);
         cx.notify();
@@ -927,6 +932,7 @@ impl Render for JobView {
             .children(self.render_picture(window, cx))
             .children(self.render_sketch_reading(window, cx))
             .children(self.render_subagent_reading(window, cx))
+            .children(self.render_pane_panel(window, cx))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {

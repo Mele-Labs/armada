@@ -1,0 +1,20 @@
+{
+ "files": [
+  {
+   "path": "crates/bridge-native/src/job_view/head.rs",
+   "text": "//! The Job's head: its title, state, marks and the acts on it.\n\nuse gpui::{div, prelude::*, Context, SharedString, Window};\n\nuse super::JobView;\nuse crate::token;\n\nimpl JobView {\n    /// The title band over the thread, with the state glyph at its start.\n    pub(super) fn render_head(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {\n        let title = self.title(cx).unwrap_or_else(|| SharedString::from(\"Untitled Job\"));\n        div()\n            .flex()\n            .items_center()\n            .gap(token::SPACE_2)\n            .px(token::SPACE_4)\n            .child(self.state_glyph(cx))\n            .child(div().text_size(token::TEXT_LG).child(title))\n            .child(self.marks(window, cx))\n    }\n}"
+  },
+  {
+   "path": "docs/spikes/native-jobs-inventory/job-view.md",
+   "text": "# Job view inventory\n\nWhat Armada Classic draws in a Job today, as the spec the native build matches.\n\n## Head\n\n- Title, state glyph and marks.\n- The context ring, with Compact.\n\n## Panes\n\n- Open, Done and Deferred.\n- Plan, Changes, Files and Checks, from the + menu."
+  },
+  {
+   "path": "packages/tokens/tokens.css",
+   "refused": "too_big"
+  },
+  {
+   "path": "crates/bridge-native/src/jobs.rs",
+   "refused": "unreadable"
+  }
+ ]
+}

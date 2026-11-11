@@ -1,6 +1,6 @@
 //! The Job's right column, as Electron's `StoryColumn` draws it in its two default panes: Open, Done
-//! and Deferred over Now. Each tab has its × and each strip its +, which offers only that pane's own
-//! tabs (`tabs.rs`), since the other pane kinds (Requests, Checks, Subagents and the rest) are not built yet.
+//! and Deferred over Now. Each tab has its × and each strip its +; the top pane's + also opens Plan,
+//! Changes, Files and Checks (`panes.rs`) until the pane system can place them anywhere.
 //!
 //! Now's owed rows read Fleet's `waiting_for` alone, one row per item, where Electron mixes in the
 //! thread's walk rows and the asked question and so keeps dismissed walks and draws a question twice.
@@ -23,24 +23,38 @@ use crate::look::{token, ActiveLook, Look};
 /// What Ask for an update sends (`ASK_FOR_UPDATE`, `cockpit/deck/acts.ts`).
 const ASK_FOR_UPDATE: &str = "Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.";
 
-/// The top pane's tab.
+/// The top pane's tab. Plan, Changes, Files and Checks are not in Electron's Default layout, so
+/// each stays shut on a Job until + opens it.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub(super) enum Zone {
     #[default]
     Open,
     Done,
     Deferred,
+    Plan,
+    Changes,
+    Files,
+    Checks,
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 3] = [Zone::Open, Zone::Done, Zone::Deferred];
+    pub(super) const ALL: [Zone; 7] = [Zone::Open, Zone::Done, Zone::Deferred, Zone::Plan, Zone::Changes, Zone::Files, Zone::Checks];
 
     pub(super) fn id(self) -> &'static str {
         match self {
             Zone::Open => "open",
             Zone::Done => "done",
             Zone::Deferred => "deferred",
+            Zone::Plan => "plan",
+            Zone::Changes => "changes",
+            Zone::Files => "files",
+            Zone::Checks => "checks",
         }
+    }
+
+    /// Shut until + opens it.
+    pub(super) fn opened_by_hand(self) -> bool {
+        matches!(self, Zone::Plan | Zone::Changes | Zone::Files | Zone::Checks)
     }
 
     fn look(self) -> (&'static str, &'static str) {
@@ -48,6 +62,10 @@ impl Zone {
             Zone::Open => ("circle", "Open"),
             Zone::Done => ("circle-check", "Done"),
             Zone::Deferred => ("circle-dashed", "Deferred"),
+            Zone::Plan => ("list-checks", "Plan"),
+            Zone::Changes => ("diff", "Changes"),
+            Zone::Files => ("folder-tree", "Files"),
+            Zone::Checks => ("shield-check", "Checks"),
         }
     }
 }
@@ -162,6 +180,10 @@ impl JobView {
                 Zone::Open => "side-open",
                 Zone::Done => "side-done",
                 Zone::Deferred => "side-deferred",
+                Zone::Plan => "side-plan",
+                Zone::Changes => "side-changes",
+                Zone::Files => "side-files",
+                Zone::Checks => "side-checks",
             };
             let front = Some(one) == zone;
             let group = SharedString::from(id);
@@ -169,18 +191,25 @@ impl JobView {
                 tab(look, id, icon, said, front)
                     .group(group.clone())
                     .child(self.close_button(one.id(), said, group, front, look, cx))
-                    .on_click(cx.listener(move |this, _, _, cx| {
+                    .on_click(cx.listener(move |this, _, window, cx| {
                         this.zone = one;
+                        this.want_pane_reads(window, cx);
                         cx.notify();
                     })),
                 Role::Tab,
                 format!("Job column: {said}"),
             )
         }).collect();
-        let top_body = self.shown.clone().zip(zone).map(|(id, zone)| match zone {
-            Zone::Open => self.side_groups(&id, Stands::Coming, look, cx),
-            Zone::Done => self.side_groups(&id, Stands::Done, look, cx),
-            Zone::Deferred => self.side_deferred(&id, look, cx),
+        // Changes and Files draw their own strip over a body that scrolls, as `.job-pane__pick` does.
+        let own_frame = matches!(zone, Some(Zone::Changes | Zone::Files));
+        let top_body = self.shown.clone().zip(zone).and_then(|(id, zone)| match zone {
+            Zone::Open => Some(self.side_groups(&id, Stands::Coming, look, cx)),
+            Zone::Done => Some(self.side_groups(&id, Stands::Done, look, cx)),
+            Zone::Deferred => Some(self.side_deferred(&id, look, cx)),
+            Zone::Plan => self.pane_plan(&id, look, cx),
+            Zone::Changes => self.pane_changes(&id, look, cx),
+            Zone::Files => Some(self.pane_files(&id, look, cx)),
+            Zone::Checks => Some(self.pane_checks(&id, look, cx)),
         });
         let now_open = !self.tab_closed("now");
         let ask = self.shown.clone().filter(|id| !self.closed(id, cx)).map(|_| {
@@ -215,8 +244,12 @@ impl JobView {
                         .flex_grow(2.)
                         .flex_shrink(1.)
                         .flex_basis(gpui::px(0.))
-                        .child(strip(look).children(tabs).child(self.add_button(Pane::Top, look, cx)))
-                        .child(body("side-top-body", top_body)),
+                        .child(strip(look).child(div().id("side-top-tabs").flex().items_stretch().min_w_0().overflow_x_scroll().track_scroll(&self.panes.top_tabs).children(tabs)).child(self.add_button(Pane::Top, look, cx)))
+                        .child(if own_frame {
+                            div().id("side-top-body").flex_1().min_h_0().flex().flex_col().children(top_body).into_any_element()
+                        } else {
+                            body("side-top-body", top_body).into_any_element()
+                        }),
                     Role::Region,
                     "Open, Done and Deferred",
                 ),
