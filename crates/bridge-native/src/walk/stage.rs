@@ -66,6 +66,17 @@ impl Stage {
                 let stood = cx.new(|cx| super::stand_in::JobHeadStandIn::new(screen.into(), cx));
                 Ok(Stage { view: stood.into(), focus })
             }
+            Screen::Operator => {
+                super::strip_marks::leave(cx);
+                crate::titlebar::scenes::begin(cx);
+                let records = crate::mock::jobs(walk.scenario)?;
+                let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
+                let jobs = cx.new(|cx| JobsScreen::new(list, None, window, cx));
+                let screen = cx.new(|cx| crate::operator::OperatorScreen::mock(jobs, window, cx));
+                let focus = Focus { keys: screen.read(cx).page.read(cx).focus.clone(), within: screen.read(cx).within.clone() };
+                window.focus(&focus.keys, cx);
+                Ok(Stage { view: screen.into(), focus })
+            }
             Screen::Marks => {
                 crate::titlebar::scenes::begin(cx);
                 super::strip_marks::enter(cx);
@@ -296,6 +307,9 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             Ok(())
         }
         Verb::Answer(name) => {
+            if let Some(page) = crate::operator::live(cx) {
+                return page.update(cx, |page, cx| page.scene(name, cx)).map_err(Missed);
+            }
             let screen = crate::dispatch::screen::live(cx).ok_or_else(|| Missed("no dispatch screen is drawn yet".into()))?;
             screen.update(cx, |screen, cx| screen.scene(name, window, cx)).map_err(Missed)
         }
@@ -325,6 +339,62 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 cx,
             );
             window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: to, modifiers: none, click_count: 1 }), cx);
+            Ok(())
+        }
+        Verb::Lift(from) => {
+            let role = role_named("row").expect("a row is a role");
+            let start = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), role, from))
+                .map(|drawn| drawn.bounds.center())
+                .ok_or_else(|| Missed(format!("no row named \"{from}\"")))?;
+            let over = find(step, window, cx)?.bounds;
+            let to = point(over.center().x, over.origin.y + over.size.height * 0.25);
+            let none = Modifiers::default();
+            let held = Some(MouseButton::Left);
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: start, pressed_button: None, modifiers: none }), cx);
+            window.dispatch_event(
+                PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: start, modifiers: none, click_count: 1, first_mouse: false }),
+                cx,
+            );
+            // The first move past the threshold lifts the row; the list is drawn again so the next move reaches the rows' drop handlers.
+            let past = point(start.x, start.y - gpui::px(8.));
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: past, pressed_button: held, modifiers: none }), cx);
+            window.defer(cx, move |window, cx| {
+                window.draw(cx).clear(cx);
+                window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: to, pressed_button: held, modifiers: none }), cx);
+            });
+            Ok(())
+        }
+        Verb::Fits(role, name) => {
+            let inner = find(step, window, cx)?.bounds;
+            let outer_role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let outer = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), outer_role, name))
+                .map(|drawn| drawn.bounds)
+                .ok_or_else(|| Missed(format!("no {role} named \"{name}\"")))?;
+            if inner.left() < outer.left() || inner.right() > outer.right() {
+                return Err(Missed(format!(
+                    "the {} \"{}\" runs past the {role} \"{name}\": {:?} against {:?}",
+                    step.target.role, step.target.name, (inner.left(), inner.right()), (outer.left(), outer.right())
+                )));
+            }
+            Ok(())
+        }
+        Verb::Absent(role, name) => {
+            let absent_role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            if cx.try_global::<LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), absent_role, name)).is_some() {
+                return Err(Missed(format!("a {role} named \"{name}\" is drawn")));
+            }
+            find(step, window, cx).map(|_| ())
+        }
+        Verb::Release => {
+            let at = window.mouse_position();
+            window.dispatch_event(
+                PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers: Modifiers::default(), click_count: 1 }),
+                cx,
+            );
             Ok(())
         }
         Verb::Hover => {
