@@ -1,0 +1,95 @@
+{
+ "subagents": [
+  {
+   "session_id": "mock-01",
+   "subagent_id": "agent-1",
+   "read": {
+    "finished": true,
+    "model": "claude-sonnet-5-5",
+    "context_tokens": 42100,
+    "context_window": 200000,
+    "report": "Two readers of `mergeLineTone`: the chip and the list row.",
+    "items": [
+     {
+      "kind": "row",
+      "row": {
+       "kind": "message",
+       "id": "a-1",
+       "at": "2026-11-09T13:20:02Z",
+       "from": {
+        "kind": "you"
+       },
+       "text": "Find every reader of mergeLineTone."
+      }
+     },
+     {
+      "kind": "calls",
+      "id": "a-2",
+      "names": [
+       "Grep"
+      ],
+      "rows": [
+       {
+        "kind": "tool",
+        "id": "a-2",
+        "at": "2026-11-09T13:20:14Z",
+        "text": "Grep mergeLineTone"
+       }
+      ]
+     },
+     {
+      "kind": "row",
+      "row": {
+       "kind": "message",
+       "id": "a-3",
+       "at": "2026-11-09T13:20:40Z",
+       "from": {
+        "kind": "agent"
+       },
+       "text": "Two readers of `mergeLineTone`: the chip and the list row."
+      }
+     }
+    ]
+   }
+  },
+  {
+   "session_id": "mock-01",
+   "subagent_id": "agent-2",
+   "read": {
+    "finished": false,
+    "model": "claude-sonnet-5-5",
+    "context_tokens": 18300,
+    "context_window": 200000,
+    "items": [
+     {
+      "kind": "row",
+      "row": {
+       "kind": "message",
+       "id": "b-1",
+       "at": "2026-11-09T13:22:02Z",
+       "from": {
+        "kind": "you"
+       },
+       "text": "Read the chip's stories."
+      }
+     },
+     {
+      "kind": "calls",
+      "id": "b-2",
+      "names": [
+       "Read"
+      ],
+      "rows": [
+       {
+        "kind": "tool",
+        "id": "b-2",
+        "at": "2026-11-09T13:22:20Z",
+        "text": "Read packages/components/src/MergeLine/MergeLine.stories.tsx"
+       }
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

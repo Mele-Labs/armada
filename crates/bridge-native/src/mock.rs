@@ -43,6 +43,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
         // The box's Jobs, with the first holding a plan, two pull requests and a Job it started with one of its own.
         "job-panes" => include_bytes!("../fixtures/jobs-panes.json"),
+        // The same Jobs, the first holding something of every kind the Ledger groups.
+        "job-panes-more" => include_bytes!("../fixtures/jobs-panes-more.json"),
         other => return Err(format!("no mock scenario named {other}")),
     };
     ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())
@@ -80,6 +82,8 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "thread-moved" => include_bytes!("../fixtures/moved-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
         "job-view-composer" | "job-panes" => include_bytes!("../fixtures/composer-threads.json"),
+        // The first Job's thread with a run of Bash calls, two of them commits, and the Audit Job's quiet one.
+        "job-panes-more" => include_bytes!("../fixtures/panes-more-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
         "thread-presses" => include_bytes!("../fixtures/thread-presses-threads.json"),
         // The box's threads, with Audit the docs index ending on his message that tags a Job in its words and a pull request beside them.
@@ -156,6 +160,7 @@ pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T
     let named = SCENARIO.lock().ok()?.clone();
     let bytes: &[u8] = match named.as_str() {
         "subagent" => include_bytes!("../fixtures/subagent-reads.json"),
+        "job-panes-more" => include_bytes!("../fixtures/panes-more-subagents.json"),
         _ => return None,
     };
     let reads = ipc::decode::<Reads<T>>("subagent reads", bytes).unwrap_or_else(|why| panic!("the subagent reads fixture does not decode: {why}"));
@@ -164,7 +169,7 @@ pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T
 
 /// The scenario last named is the panes' own: their reads answer only there.
 fn panes_named() -> bool {
-    SCENARIO.lock().is_ok_and(|named| named.as_str() == "job-panes")
+    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more"))
 }
 
 /// A pull request's files as `GET /pull_request_patches/:repository/:number` answers them, by
@@ -268,7 +273,7 @@ pub fn catalogue() -> Option<Catalogue> {
         scripts: Vec<Talk>,
     }
     let named = SCENARIO.lock().ok()?.clone();
-    if !matches!(named.as_str(), "job-view-composer" | "jobs-screens" | "thread-presses" | "sent-messages" | "history" | "job-panes") {
+    if !matches!(named.as_str(), "job-view-composer" | "jobs-screens" | "thread-presses" | "sent-messages" | "history" | "job-panes" | "job-panes-more") {
         return None;
     }
     let read = || -> Result<Catalogue, String> {
