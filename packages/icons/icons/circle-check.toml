@@ -19,3 +19,10 @@
   size = "14px"
   status = "Proposed"
   notes = "Proposed 30 Oct 2026 for the walk `ticket-on-job-lane`, the owner's answer of a glyph for each state. It ends the ticket's line on the card of a Job that was started for it, after the key, at 14px stroke 2 as the `ticket` glyph is, and the tooltip names the state in words: `Ticket state: Done`. It is the ticket's own end state, not a Judge verdict."
+
+  [[icons.circle-check.usage]]
+    means = "A repository whose main is green, on its pill in the Operator page's head"
+    group = "Operator"
+    size = "14px"
+    status = "Proposed"
+    notes = "Proposed 10 Nov 2026 for the native walk `operator-page`, for the owner to rule on. Fleet serves the state on `operator_page`'s `mains`. Tooltip `armada main is green`."

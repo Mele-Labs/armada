@@ -44,6 +44,7 @@ mod menu;
 mod merge_strip;
 mod mock;
 mod notify;
+mod operator;
 mod palette;
 mod revert;
 mod runtime_file;
@@ -129,7 +130,7 @@ pub fn init_app(cx: &mut App) {
 
 /// The window's root on a live Fleet or on mock data.
 struct Shell {
-    screen: Entity<JobsScreen>,
+    screen: gpui::AnyView,
     _fleet: Option<(Entity<FleetConnection>, Entity<LookController>, Entity<KeymapController>, Entity<MenuController>, Entity<Notifier>)>,
 }
 
@@ -213,6 +214,7 @@ fn main() -> ExitCode {
                     window.focus(&focus, cx);
                     let notifier = cx.new(|cx| Notifier::new(&fleet, &jobs, window.window_handle(), cx));
                     let screen = cx.new(|cx| JobsScreen::new(jobs, None, window, cx));
+                    let screen = cx.new(|cx| operator::OperatorScreen::live(screen, &fleet, window, cx)).into();
                     cx.new(|_| Shell { screen, _fleet: Some((fleet, look, keys, menu, notifier)) })
                 })
                 .map(|_| ()),
@@ -222,7 +224,7 @@ fn main() -> ExitCode {
                         let jobs = cx.new(|cx| JobsList::mock(&records, cx));
                         let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
-                        let screen = cx.new(|cx| JobsScreen::new(jobs, Some(threads), window, cx));
+                        let screen = cx.new(|cx| JobsScreen::new(jobs, Some(threads), window, cx)).into();
                         cx.new(|_| Shell { screen, _fleet: None })
                     })
                     .map(|_| ()),
