@@ -211,7 +211,7 @@ pub static WALKS: &[Walk] = &[
     Walk {
         name: "job-handoff",
         title: "Hand off marks",
-        screen: Screen::Jobs,
+        screen: Screen::Marks,
         scenario: "jobs-handoff",
         steps: &[
             step("A Job handing off to a new one turns a ring before its state until the new one is up", Verb::Look, "img", "Handing off"),

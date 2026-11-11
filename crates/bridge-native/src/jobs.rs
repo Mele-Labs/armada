@@ -1199,7 +1199,9 @@ impl JobsList {
             .children(time)
             .when(view.on("view:status"), |marks| {
                 // The paused mark in place of the state's glyph, and a hand off's ring before it.
-                marks.child(div().flex_none().flex().justify_end().when(row.handing_off, |slot| {
+                // Electron's wide mark (`ListCard.css`): two glyphs and the gap between, the state at its end.
+                let wide = look.length(token::SPACE_4) * 2. + look.length(token::SPACE_1);
+                marks.child(div().flex_none().w(wide).flex().items_center().justify_end().gap(look.length(token::SPACE_1)).when(row.handing_off, |slot| {
                     slot.child(labelled(
                         div()
                             .id(SharedString::from(format!("handoff-{}", row.id)))

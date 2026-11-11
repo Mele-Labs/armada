@@ -67,6 +67,8 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     let bytes: &[u8] = match scenario {
         "jobs-screens" => return screens_threads(),
         "job-view" | "review-palette" => include_bytes!("../fixtures/job-threads.json"),
+        // The same threads, and the earlier Job's, ended where it handed on.
+        "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
         "job-view-composer" => include_bytes!("../fixtures/composer-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),

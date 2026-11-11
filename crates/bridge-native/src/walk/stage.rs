@@ -72,7 +72,9 @@ impl Stage {
                 let jobs = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
                 let keys = list.read(cx).focus_handle().clone();
-                let screen = cx.new(|cx| JobsScreen::new(list, None, window, cx));
+                // A scenario with threads draws them, as the Jobs screen does; one without stays as it was.
+                let threads = Some(crate::mock::threads(walk.scenario)?).filter(|threads| !threads.is_empty());
+                let screen = cx.new(|cx| JobsScreen::new(list, threads, window, cx));
                 let focus = Focus { keys, within: screen.read(cx).within().clone() };
                 window.focus(&focus.keys, cx);
                 let stood = cx.new(|cx| super::stand_in::JobHeadStandIn::new(screen.into(), cx));
