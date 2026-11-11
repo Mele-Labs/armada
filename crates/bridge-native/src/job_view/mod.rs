@@ -339,9 +339,11 @@ impl JobView {
         }
         let remember = list.read(cx).remembers();
         let (mut composer, mut subscriptions) = composer::build(remember, window, cx);
-        if let Some(catalogue) = crate::mock::catalogue() {
-            composer.catalog.models = Some(catalogue.models);
+        if let Some(models) = crate::mock::models() {
+            composer.catalog.models = Some(models);
             composer.catalog.models_asked = true;
+        }
+        if let Some(catalogue) = crate::mock::catalogue() {
             composer.catalog.mock_files = catalogue.files;
             composer.catalog.issues.insert(catalogue.issues.manifest_id.as_str().to_string(), catalogue.issues.issues);
             composer.quick = quick::Quick::mock(catalogue.look, catalogue.quick);

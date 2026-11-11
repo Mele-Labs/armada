@@ -126,10 +126,19 @@ pub fn refusals() -> usize {
     SCENARIO.lock().map_or(0, |named| usize::from(named.as_str() == "sent-messages"))
 }
 
-/// What the message box reads from Fleet beside the Job: the models, the quick bar's look and
+/// The models Fleet offers (`GET /models`), for every scenario: a live Fleet always answers it, so
+/// no walk draws the box without its model. `None` off the mock, where no scenario was named.
+pub fn models() -> Option<ModelChoices> {
+    if SCENARIO.lock().ok()?.is_empty() {
+        return None;
+    }
+    let models = ipc::decode("ModelChoices", include_bytes!("../fixtures/composer-models.json"));
+    Some(models.unwrap_or_else(|why| panic!("the models fixture does not decode: {why}")))
+}
+
+/// What the message box reads from Fleet beside the Job, past its models: the quick bar's look and
 /// answers, the repository's files and its issues.
 pub struct Catalogue {
-    pub models: ModelChoices,
     pub look: SettingValue,
     pub quick: SessionQuick,
     pub files: Vec<String>,
@@ -161,7 +170,6 @@ pub fn catalogue() -> Option<Catalogue> {
     let read = || -> Result<Catalogue, String> {
         let why = |why: ipc::Undecodable| why.to_string();
         Ok(Catalogue {
-            models: ipc::decode("ModelChoices", include_bytes!("../fixtures/composer-models.json")).map_err(why)?,
             look: ipc::decode("thread.look", include_bytes!("../fixtures/composer-look.json")).map_err(why)?,
             quick: ipc::decode("SessionQuick", include_bytes!("../fixtures/composer-quick.json")).map_err(why)?,
             files: ipc::decode::<Files>("files", include_bytes!("../fixtures/composer-files.json")).map_err(why)?.paths,
@@ -369,7 +377,7 @@ mod tests {
         assert!(super::jobs("jobs-many").expect("decodes").len() > 10);
         assert_eq!(super::threads("job-view").expect("decodes").len(), 3);
         assert!(super::jobs("job-view-composer").expect("decodes").len() > 10);
-        assert!(super::catalogue().is_some_and(|catalogue| catalogue.models.offered.len() == 3));
+        assert!(super::models().is_some_and(|models| models.offered.len() == 3));
         assert!(super::jobs("jobs-screens").expect("decodes").len() > 10);
         let screens = super::threads("jobs-screens").expect("decodes");
         for id in ["mock-01", "mock-02", "mock-04", "mock-06"] {
