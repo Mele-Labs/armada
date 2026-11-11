@@ -71,7 +71,7 @@ Each step is its own Job, and at most two run at once.
 | Jobs screens | The Jobs list, thread, composer, approvals and Needs you |
 | Dispatch and the title bar | The dispatch sheet, the merge queue strip, usage and context rings, the build switcher, clash marks |
 | Web pages in Chrome | Documents, sketches, walks of web pages and notes |
-| Job panes | Plan, Changes, Files, Checks, Subagents, Log (the Check panel's Log tab), Ledger, Judge, the pull request panes and the native diff |
+| Job panes | Plan, Changes, Files, Checks, Subagents, Log (the Check panel's Log tab), Ledger, Judge, the pull request panes and the native diff. Still owed in the Ledger: the Merged, Open and Checks chips on pull request and linked Job rows, and note thumbnails |
 | Operator and Projects | The Operator's page (Your turn and its digest), its chat and toasts, and Projects |
 | Settings, Kit, Reviews, Issues | Those four screens, Usage with Time, and Account |
 | Job tools | Terminal, the Request pane and the Browser tool |
