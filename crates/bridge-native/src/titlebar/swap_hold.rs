@@ -9,7 +9,7 @@
 
 use std::time::{Duration, Instant};
 
-use gpui::{anchored, deferred, div, point, prelude::*, px, Anchor, AnyElement, Context, FontWeight, Pixels, Role};
+use gpui::{anchored, deferred, div, prelude::*, px, Anchor, AnyElement, Context, FontWeight, Pixels, Role};
 use ipc::SnapshotState;
 
 use super::parts::{spinner, Btn, Weight};
@@ -71,7 +71,8 @@ impl TitleBar {
     }
 
     /// The dim and the banner. Nothing when the window is neither held nor carrying a swap back.
-    pub(super) fn swap_layer(&self, look: &Look, viewport: gpui::Size<Pixels>, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn swap_layer(&self, look: &Look, room: gpui::Bounds<Pixels>, cx: &Context<Self>) -> Option<AnyElement> {
+        let viewport = room.size;
         let holding = self.face.build.as_ref().is_some_and(|held| held.report.swapping);
         let line = self.swapped_back().filter(|line| self.swap_dismissed.as_ref() != Some(line));
         if !holding && line.is_none() {
@@ -123,7 +124,7 @@ impl TitleBar {
         Some(
             deferred(
                 anchored()
-                    .position(point(px(0.), px(0.)))
+                    .position(room.origin)
                     .anchor(Anchor::TopLeft)
                     .child(div().relative().w(viewport.width).h(viewport.height).children(dim).child(
                         div().absolute().top(top + look.length(token::SPACE_6)).left((viewport.width - width) / 2.).w(width).child(banner),
