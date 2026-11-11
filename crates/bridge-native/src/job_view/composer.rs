@@ -565,7 +565,7 @@ impl JobView {
             // Mock data: this one Fleet does not take, so the walk shows Not sent and its Retry.
             self.mock_refusals -= 1;
             page.pending.push(Pending { key, text, seen, tags: mentions, body: None, failed: true });
-            page.refused = Some("Fleet did not take the message: it was restarting".into());
+            self.tell_not_sent(&id, "Fleet did not take it".into(), cx);
         } else {
             match self.fleet.clone() {
                 Some(_) => {
@@ -641,10 +641,17 @@ impl JobView {
             if let Some(one) = page.pending.iter_mut().find(|one| one.key == key) {
                 one.failed = true;
             }
-            page.refused = Some(why);
         }
+        self.tell_not_sent(id, why, cx);
         self.sync(id, cx);
         cx.notify();
+    }
+
+    /// He is told in a toast, as Electron's `askToTell`; the box takes nothing back.
+    fn tell_not_sent(&self, id: &SharedString, why: SharedString, cx: &mut Context<Self>) {
+        let title = self.title_of(id, cx).unwrap_or_else(|| "the Job".into());
+        let sentence = format!("Message to {title} not sent. {why}");
+        cx.defer(move |cx| crate::toasts::tell(sentence, cx));
     }
 
     /// Retry: the same message again, as it first went (`outgoing.ts` `retry`).
