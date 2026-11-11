@@ -14,7 +14,7 @@ Bridge's half is `packages/protocol/src/operator-page.ts`, written by hand, fiel
 | Where | Side | Carries |
 | --- | --- | --- |
 | `operator_page` (`GET /operator/page`) | Bridge reads | `OperatorPage`: `on`, `top`, `looked_at`, `on_it`, `turn`, `digest`, `mains`, `slots` |
-| `operator_answer` (`POST /operator/page/answer`) | Bridge writes | `OperatorAnswerPress` `{ id, answer, then? }`, answered with `OperatorAnswered` `{ open?, started?, filed?, handed_to?, page }` |
+| `operator_answer` (`POST /operator/page/answer`) | Bridge writes | `OperatorAnswerPress` `{ id, answer, then?, project? }`, answered with `OperatorAnswered` `{ open?, started?, filed?, handed_to?, page }` |
 | `operator_later` (`POST /operator/page/later`) | Bridge writes | `OperatorLater` `{ id }`, answered with `OperatorPage` |
 | `operator_turn_order` (`POST /operator/page/order`) | Bridge writes | `OperatorTurnOrder` `{ ids }`, answered with `OperatorPage` |
 | `operator_in_front` (`POST /operator/front`) | Bridge writes | No body. Answered at once with `OperatorInFront` `{ rewriting }` |
@@ -51,7 +51,7 @@ Where the review call fails, or the week's plan is paused, the item is still que
 `top` is the page's one line, rewritten each time he comes back, and absent before the first.
 `looked_at` is when he last looked, which the digest counts from.
 `on_it` is `{ reading, since }`, present while the Operator is reading something to review.
-`digest` has `landed`, the pull requests that merged since `looked_at`; `handled`, the Operator's own acts since then, newest first, each `{ at, title, outcome }`, and `log`, `{ week, path }` of the week's journal; `running`, the live Jobs; `coming_up`, the Jobs waiting to start with `needs`; `learned`, the Always and Always here rules across projects, each with its repository where it holds in one; and `holds`, the holds that stand, each `{ id, manifest_id, repository?, said, at }`.
+`digest` has `landed`, the pull requests that merged since `looked_at`; `handled`, the Operator's own acts since then, newest first, each `{ at, title, outcome }`, and `log`, `{ week, path }` of the week's journal; `running`, the live Jobs; `coming_up`, the Jobs waiting to start with `needs`; `learned`, the Always and Always here rules across projects, each with its `scope` (`{ kind: "everywhere" }`, `{ kind: "repository", manifest_id }` or `{ kind: "project", project }`) and, where it holds in one, the repository's or project's name as `repository`; and `holds`, the holds that stand, each `{ id, manifest_id, repository?, said, at }`.
 `learned` is rules only.
 A hold's `id` is what `remove_operator_order` and the chat's lift name.
 A digest section with nothing in it is absent from the JSON, except `handled`.
@@ -80,10 +80,13 @@ It is absent where no pool is read.
 On a question or a card with options, the option the Operator picked is answered on the Job's list.
 **An item Fleet cannot perform itself**, such as a walk to open or a pull request, is left to Bridge: `open` is its `WaitingAct`, and the item stays in Your turn until its Job's list drops it.
 **Always here** and **Always** do the pick and keep it as a rule, for that item's repository or for every one.
+`project` on an Always here keeps it for that project instead, which the page filtered to a project sends: 404 `fleet.no_such_project`, and 422 `fleet.project_not_member` where the item's repository is not one of its members.
+A rule for the repository beats one for a project, which beats one for everywhere, and the same thing in the same place is kept once.
+A rule kept before scopes read as the repository it named, or everywhere.
 A rule is kept only for a go-ahead.
 From then on that thing, arriving while the Operator is on, is done as it is raised, with no press.
 It is in `handled` as `By a rule: <the rule's words>`, and the Log row it leaves is signed by the Operator and says by which rule.
-The repository's rules are read first, then every repository's.
+The repository's rules are read first, then those of a project that holds it, then every repository's.
 A rule is not applied while the Operator is off.
 **No** drops the item, for this time only. On the Operator's own go-ahead it is a Skip.
 Later is `operator_later` and Ask is Bridge opening the chat with `talk_to_operator` carrying `about: "turn:<n>"`, so neither is an `OperatorAnswer`.

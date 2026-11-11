@@ -9,7 +9,7 @@ Bridge's half is `packages/protocol/src/pull-reviews.ts` and `pull-requests.ts`,
 
 | Where | Side | Change |
 | --- | --- | --- |
-| `get_review_lists` (`GET /review_lists`) | Bridge reads | `PullReviewLists`: `me`, `fetched_at`, and `requested[]`, `team[]`, `assigned[]`, `mine[]` of `PullReviewRow`, each capped at `MOST_PER_LIST`. `Bridge only` |
+| `get_review_lists` (`GET /review_lists`, optional `?project=<id>`) | Bridge reads | With `project`, every list keeps only the rows of that project's member repositories; an unknown project is a 404 `fleet.no_such_project`. `PullReviewLists`: `me`, `fetched_at`, and `requested[]`, `team[]`, `assigned[]`, `mine[]` of `PullReviewRow`, each capped at `MOST_PER_LIST`. `Bridge only` |
 | `PullReviewLists.silent` | Fleet writes, Bridge reads | `Vec<PullReviewList>`, left out when empty: a list the forge would not answer, so Bridge keeps what it held. All four silent is a 500 `fleet.review_lists_unreadable` |
 | `PullReviewRow.team` | Fleet writes, Bridge reads | The team asked, left out off the Team list |
 | `PullRequestPage.head`, `.body` | Fleet writes, Bridge reads | The whole head commit and the description, left out where the forge gave none |

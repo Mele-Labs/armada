@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use ipc::operator_page::{OperatorAnswer, OperatorRule, OperatorTurnKind};
+use ipc::operator_page::{OperatorAnswer, OperatorRule, OperatorTurnKind, RuleScope};
 use api::HostedSessions;
 use ipc::AutopilotDecision;
 use store::KeptOrder;
@@ -25,7 +25,8 @@ fn review(about: &str, sure: &str) -> String {
 
 /// A rule the person kept, for `manifest_id` or for every repository.
 async fn rule_kept(rig: &Rig, manifest_id: Option<&str>) {
-    let rule = OperatorRule::PickRule { manifest_id: manifest_id.map(str::to_string), what: "question:answer".into(), pick: "do_it".into() };
+    let scope = manifest_id.map_or(RuleScope::Everywhere, |manifest_id| RuleScope::Repository { manifest_id: manifest_id.to_string() });
+    let rule = OperatorRule::PickRule { scope, what: "question:answer".into(), pick: "do_it".into() };
     let one = KeptOrder { n: 0, form: rule.kept(), said: "Answer questions you are sure of".into(), until: None, at: "2026-11-10T09:00:00.000Z".into() };
     rig.fleet.store().lock().await.add_operator_order(&one).expect("kept");
 }
@@ -44,7 +45,7 @@ async fn a_question_it_is_sure_of_is_offered_with_always_here_and_the_rule_keeps
     let answered = rig.fleet.operator_answered(press(&one, OperatorAnswer::AlwaysHere, None)).await.expect("answered");
     let learned = &answered.page.digest.learned;
     assert_eq!(learned.len(), 1, "{learned:#?}");
-    assert_eq!((learned[0].said.as_str(), learned[0].manifest_id.is_some()), ("Answer questions you are sure of", true));
+    assert_eq!((learned[0].said.as_str(), matches!(learned[0].scope, RuleScope::Repository { .. })), ("Answer questions you are sure of", true));
     let record = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("the Job").session;
     assert!(record.waiting_for.iter().all(|item| item.id != "full"), "answered with the pick, as a press on the option is");
 }

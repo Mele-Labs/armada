@@ -186,7 +186,7 @@ Nothing is written.
 422 `fleet.project_no_tracker` is a project's issues asked of a project whose file names no tracker. `list_project_issues`.
 `fleet.kit_values_unwritable` is Kit's `values.yml` that could not be written, a 500.
 `get_values` names a project: 404 `fleet.no_such_project`, 422 `fleet.project_unreadable` where its file did not read, 422 `fleet.project_not_member` where it does not list the repository, and 422 `fleet.unacceptable_proposal` for a repository Fleet does not serve.
-422 `fleet.project_not_member` is a Job started for a project that does not list its repository. `start_session`.
+422 `fleet.project_not_member` is a Job started for a project that does not list its repository, `start_session`, or an Always here kept for a project that does not list the item's repository, `operator_answer`.
 422 `fleet.project_unreadable` is a Job started for a project whose file did not read, so Fleet cannot say what it holds. `start_session`.
 422 `fleet.project_issue_unreadable` is a link `IssueReference` refuses.
 422 `fleet.project_row_not_a_task` is an edit, a tick, a link (of an issue, a Job or a pull request) or a subtask on an issue row, an issue row moved under a task, or an issue row moved to another repository.
