@@ -240,6 +240,7 @@ mod session_notes;
 mod terminal_session;
 mod native_walk;
 mod thread_keeping;
+mod thread_fold;
 mod thread_view;
 mod merge_line_view;
 mod walk_question;
