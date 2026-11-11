@@ -124,7 +124,7 @@
         "kind": "lane",
         "x": 0,
         "y": 0,
-        "w": 640,
+        "w": 1000,
         "h": 150,
         "title": "Fleet"
        },
@@ -132,9 +132,9 @@
         "id": "lane-bridge",
         "kind": "lane",
         "x": 0,
-        "y": 170,
-        "w": 640,
-        "h": 190,
+        "y": 236,
+        "w": 1000,
+        "h": 200,
         "title": "Bridge"
        },
        {
@@ -174,7 +174,7 @@
         "id": "group-line",
         "kind": "group",
         "x": 20,
-        "y": 200,
+        "y": 300,
         "w": 400,
         "h": 140,
         "title": "Merge line"
@@ -183,7 +183,7 @@
         "id": "chip",
         "kind": "box",
         "x": 40,
-        "y": 240,
+        "y": 340,
         "title": "Freshness chip",
         "icon": "git-branch",
         "shape": "pill",
@@ -194,7 +194,7 @@
         "id": "main",
         "kind": "box",
         "x": 240,
-        "y": 240,
+        "y": 340,
         "title": "main",
         "shape": "circle",
         "color": "green",
@@ -204,7 +204,7 @@
         "id": "rule",
         "kind": "code",
         "x": 450,
-        "y": 200,
+        "y": 300,
         "lang": "rust",
         "body": "if behind > 0 {\n    Tone::Amber\n}",
         "step": 3
@@ -213,14 +213,14 @@
         "id": "note",
         "kind": "label",
         "x": 450,
-        "y": 300,
+        "y": 400,
         "title": "Grey once it is current"
        },
        {
         "id": "wire-row",
         "kind": "wire",
         "x": 40,
-        "y": 380,
+        "y": 480,
         "w": 200,
         "h": 36,
         "wire": "list",
@@ -230,7 +230,7 @@
         "id": "wire-btn",
         "kind": "wire",
         "x": 260,
-        "y": 380,
+        "y": 480,
         "w": 120,
         "h": 36,
         "wire": "button",
@@ -240,7 +240,7 @@
         "id": "plain",
         "kind": "box",
         "x": 420,
-        "y": 380,
+        "y": 480,
         "title": "Toast",
         "shape": "box",
         "color": "red",
@@ -249,8 +249,9 @@
        {
         "id": "mock-chip",
         "kind": "mock",
+        "html": "<span class=\"armada-chip\">2 behind</span>",
         "x": 560,
-        "y": 380,
+        "y": 480,
         "w": 80,
         "h": 36
        }
@@ -326,7 +327,7 @@
          "kind": "lane",
          "x": 0,
          "y": 0,
-         "w": 640,
+         "w": 1000,
          "h": 150,
          "title": "Fleet"
         },
@@ -334,9 +335,9 @@
          "id": "lane-bridge",
          "kind": "lane",
          "x": 0,
-         "y": 170,
-         "w": 640,
-         "h": 190,
+         "y": 236,
+         "w": 1000,
+         "h": 200,
          "title": "Bridge"
         },
         {
@@ -376,7 +377,7 @@
          "id": "group-line",
          "kind": "group",
          "x": 20,
-         "y": 200,
+         "y": 300,
          "w": 400,
          "h": 140,
          "title": "Merge line"
@@ -385,7 +386,7 @@
          "id": "chip",
          "kind": "box",
          "x": 40,
-         "y": 240,
+         "y": 340,
          "title": "Freshness chip",
          "icon": "git-branch",
          "shape": "pill",
@@ -396,7 +397,7 @@
          "id": "main",
          "kind": "box",
          "x": 240,
-         "y": 240,
+         "y": 340,
          "title": "main",
          "shape": "circle",
          "color": "green",
@@ -406,7 +407,7 @@
          "id": "rule",
          "kind": "code",
          "x": 450,
-         "y": 200,
+         "y": 300,
          "lang": "rust",
          "body": "if behind > 0 {\n    Tone::Amber\n}",
          "step": 3
@@ -415,14 +416,14 @@
          "id": "note",
          "kind": "label",
          "x": 450,
-         "y": 300,
+         "y": 400,
          "title": "Grey once it is current"
         },
         {
          "id": "wire-row",
          "kind": "wire",
          "x": 40,
-         "y": 380,
+         "y": 480,
          "w": 200,
          "h": 36,
          "wire": "list",
@@ -432,7 +433,7 @@
          "id": "wire-btn",
          "kind": "wire",
          "x": 260,
-         "y": 380,
+         "y": 480,
          "w": 120,
          "h": 36,
          "wire": "button",
@@ -442,7 +443,7 @@
          "id": "plain",
          "kind": "box",
          "x": 420,
-         "y": 380,
+         "y": 480,
          "title": "Toast",
          "shape": "box",
          "color": "red",
@@ -451,8 +452,9 @@
         {
          "id": "mock-chip",
          "kind": "mock",
+         "html": "<span class=\"armada-chip\">2 behind</span>",
          "x": 560,
-         "y": 380,
+         "y": 480,
          "w": 80,
          "h": 36
         }
@@ -571,6 +573,171 @@
     },
     {
      "kind": "sketch",
+     "id": "sk-flow",
+     "at": "2026-11-10T21:58:12Z",
+     "sketch": "sketch:Merge line flow",
+     "title": "Merge line flow",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "push",
+        "kind": "box",
+        "x": 0,
+        "y": 0,
+        "title": "Push",
+        "body": "to the Job's branch",
+        "icon": "git-branch",
+        "color": "blue"
+       },
+       {
+        "id": "queue",
+        "kind": "box",
+        "x": 260,
+        "y": 0,
+        "title": "Merge queue",
+        "icon": "layers",
+        "shape": "cylinder",
+        "color": "teal"
+       },
+       {
+        "id": "check",
+        "kind": "box",
+        "x": 520,
+        "y": 0,
+        "title": "Behind main?",
+        "shape": "diamond",
+        "color": "amber"
+       },
+       {
+        "id": "rebase",
+        "kind": "box",
+        "x": 260,
+        "y": 200,
+        "title": "Rebase",
+        "body": "onto main",
+        "icon": "git-merge",
+        "color": "green"
+       },
+       {
+        "id": "chip",
+        "kind": "box",
+        "x": 0,
+        "y": 200,
+        "title": "Freshness chip",
+        "shape": "pill",
+        "color": "grey"
+       }
+      ],
+      "edges": [
+       {
+        "id": "f1",
+        "from": "push",
+        "to": "queue",
+        "label": "enqueue"
+       },
+       {
+        "id": "f2",
+        "from": "queue",
+        "to": "check"
+       },
+       {
+        "id": "f3",
+        "from": "check",
+        "to": "rebase",
+        "label": "yes",
+        "color": "amber"
+       },
+       {
+        "id": "f4",
+        "from": "rebase",
+        "to": "chip",
+        "label": "grey again"
+       }
+      ]
+     },
+     "revisions": [
+      {
+       "nodes": [
+        {
+         "id": "push",
+         "kind": "box",
+         "x": 0,
+         "y": 0,
+         "title": "Push",
+         "body": "to the Job's branch",
+         "icon": "git-branch",
+         "color": "blue"
+        },
+        {
+         "id": "queue",
+         "kind": "box",
+         "x": 260,
+         "y": 0,
+         "title": "Merge queue",
+         "icon": "layers",
+         "shape": "cylinder",
+         "color": "teal"
+        },
+        {
+         "id": "check",
+         "kind": "box",
+         "x": 520,
+         "y": 0,
+         "title": "Behind main?",
+         "shape": "diamond",
+         "color": "amber"
+        },
+        {
+         "id": "rebase",
+         "kind": "box",
+         "x": 260,
+         "y": 200,
+         "title": "Rebase",
+         "body": "onto main",
+         "icon": "git-merge",
+         "color": "green"
+        },
+        {
+         "id": "chip",
+         "kind": "box",
+         "x": 0,
+         "y": 200,
+         "title": "Freshness chip",
+         "shape": "pill",
+         "color": "grey"
+        }
+       ],
+       "edges": [
+        {
+         "id": "f1",
+         "from": "push",
+         "to": "queue",
+         "label": "enqueue"
+        },
+        {
+         "id": "f2",
+         "from": "queue",
+         "to": "check"
+        },
+        {
+         "id": "f3",
+         "from": "check",
+         "to": "rebase",
+         "label": "yes",
+         "color": "amber"
+        },
+        {
+         "id": "f4",
+         "from": "rebase",
+         "to": "chip",
+         "label": "grey again"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "kind": "sketch",
      "id": "sk-chip",
      "at": "2026-11-10T22:00:41Z",
      "sketch": "sketch:Freshness chip",
@@ -582,7 +749,7 @@
         "kind": "lane",
         "x": 0,
         "y": 0,
-        "w": 640,
+        "w": 1000,
         "h": 150,
         "title": "Fleet"
        },
@@ -590,9 +757,9 @@
         "id": "lane-bridge",
         "kind": "lane",
         "x": 0,
-        "y": 170,
-        "w": 640,
-        "h": 190,
+        "y": 236,
+        "w": 1000,
+        "h": 200,
         "title": "Bridge"
        },
        {
@@ -632,7 +799,7 @@
         "id": "group-line",
         "kind": "group",
         "x": 20,
-        "y": 200,
+        "y": 300,
         "w": 400,
         "h": 140,
         "title": "Merge line"
@@ -641,7 +808,7 @@
         "id": "chip",
         "kind": "box",
         "x": 40,
-        "y": 240,
+        "y": 340,
         "title": "Freshness chip",
         "icon": "git-branch",
         "shape": "pill",
@@ -652,7 +819,7 @@
         "id": "main",
         "kind": "box",
         "x": 240,
-        "y": 240,
+        "y": 340,
         "title": "main",
         "shape": "circle",
         "color": "green",
@@ -662,7 +829,7 @@
         "id": "rule",
         "kind": "code",
         "x": 450,
-        "y": 200,
+        "y": 300,
         "lang": "rust",
         "body": "if behind > 0 {\n    Tone::Amber\n}",
         "step": 3
@@ -671,14 +838,14 @@
         "id": "note",
         "kind": "label",
         "x": 450,
-        "y": 300,
+        "y": 400,
         "title": "Grey once it is current"
        },
        {
         "id": "wire-row",
         "kind": "wire",
         "x": 40,
-        "y": 380,
+        "y": 480,
         "w": 200,
         "h": 36,
         "wire": "list",
@@ -688,7 +855,7 @@
         "id": "wire-btn",
         "kind": "wire",
         "x": 260,
-        "y": 380,
+        "y": 480,
         "w": 120,
         "h": 36,
         "wire": "button",
@@ -698,7 +865,7 @@
         "id": "plain",
         "kind": "box",
         "x": 420,
-        "y": 380,
+        "y": 480,
         "title": "Toast",
         "shape": "box",
         "color": "red",
@@ -707,8 +874,9 @@
        {
         "id": "mock-chip",
         "kind": "mock",
+        "html": "<span class=\"armada-chip\">2 behind</span>",
         "x": 560,
-        "y": 380,
+        "y": 480,
         "w": 80,
         "h": 36
        }
@@ -784,7 +952,7 @@
          "kind": "lane",
          "x": 0,
          "y": 0,
-         "w": 640,
+         "w": 1000,
          "h": 150,
          "title": "Fleet"
         },
@@ -792,9 +960,9 @@
          "id": "lane-bridge",
          "kind": "lane",
          "x": 0,
-         "y": 170,
-         "w": 640,
-         "h": 190,
+         "y": 236,
+         "w": 1000,
+         "h": 200,
          "title": "Bridge"
         },
         {
@@ -834,7 +1002,7 @@
          "id": "group-line",
          "kind": "group",
          "x": 20,
-         "y": 200,
+         "y": 300,
          "w": 400,
          "h": 140,
          "title": "Merge line"
@@ -843,7 +1011,7 @@
          "id": "chip",
          "kind": "box",
          "x": 40,
-         "y": 240,
+         "y": 340,
          "title": "Freshness chip",
          "icon": "git-branch",
          "shape": "pill",
@@ -854,7 +1022,7 @@
          "id": "main",
          "kind": "box",
          "x": 240,
-         "y": 240,
+         "y": 340,
          "title": "main",
          "shape": "circle",
          "color": "green",
@@ -864,7 +1032,7 @@
          "id": "rule",
          "kind": "code",
          "x": 450,
-         "y": 200,
+         "y": 300,
          "lang": "rust",
          "body": "if behind > 0 {\n    Tone::Amber\n}",
          "step": 3
@@ -873,14 +1041,14 @@
          "id": "note",
          "kind": "label",
          "x": 450,
-         "y": 300,
+         "y": 400,
          "title": "Grey once it is current"
         },
         {
          "id": "wire-row",
          "kind": "wire",
          "x": 40,
-         "y": 380,
+         "y": 480,
          "w": 200,
          "h": 36,
          "wire": "list",
@@ -890,7 +1058,7 @@
          "id": "wire-btn",
          "kind": "wire",
          "x": 260,
-         "y": 380,
+         "y": 480,
          "w": 120,
          "h": 36,
          "wire": "button",
@@ -900,7 +1068,7 @@
          "id": "plain",
          "kind": "box",
          "x": 420,
-         "y": 380,
+         "y": 480,
          "title": "Toast",
          "shape": "box",
          "color": "red",
@@ -909,8 +1077,9 @@
         {
          "id": "mock-chip",
          "kind": "mock",
+         "html": "<span class=\"armada-chip\">2 behind</span>",
          "x": 560,
-         "y": 380,
+         "y": 480,
          "w": 80,
          "h": 36
         }

@@ -45,6 +45,10 @@ const STEP_MS: f32 = 1600.;
 const DOT_MS: f32 = 1200.;
 /// A node that is not in the step playing.
 const DIMMED: f32 = 0.35;
+/// A flow's dash and gap, `--space-2`; the crawl moves the pattern one period per `--duration-pulse`.
+const DASH: f32 = 8.;
+/// The chords a rounded corner is cut into for the dashes.
+const CORNER_CUTS: usize = 6;
 
 /// How the scene is drawn: shrunk on a thread card, or read in a sheet of its own.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -458,6 +462,11 @@ fn paint(key: &SharedString, scene: &Scene, fit: Fit, since: Option<Instant>, le
         mono: look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_else(|| "IBM Plex Mono".into()),
     };
     let now = playing(&laid, since);
+    // Electron's flow crawl: a reading view's flows move while no step plays; a preview stays still.
+    let crawl = match since {
+        Some(since) if fit == Fit::Reading && now.is_none() => Some(since.elapsed().as_secs_f32() * 1000. % STEP_MS / STEP_MS * DASH * 2.),
+        _ => None,
+    };
     let lit: HashSet<&str> = match &now {
         Some(now) => scene
             .nodes
@@ -476,7 +485,8 @@ fn paint(key: &SharedString, scene: &Scene, fit: Fit, since: Option<Instant>, le
             let Some(way) = way else { continue };
             let active = now.as_ref().is_some_and(|now| edge.step == Some(now.at));
             let dim = now.is_some() && !active;
-            paint_edge(&ink, way, edge.color, edge.flow != Some(false), active, dim, window, cx);
+            let flow = (edge.flow != Some(false)).then_some(crawl.unwrap_or(0.));
+            paint_edge(&ink, way, edge.color, flow, active, dim, window, cx);
         }
         for (node, rect) in scene.nodes.iter().zip(&laid.rects).filter(|(node, _)| !ground(node)) {
             let dim = now.is_some() && !lit.contains(node.id.as_str());
@@ -505,7 +515,7 @@ fn paint(key: &SharedString, scene: &Scene, fit: Fit, since: Option<Instant>, le
             }
         }
     });
-    if now.is_some() {
+    if now.is_some() || crawl.is_some() {
         window.request_animation_frame();
     }
 }
@@ -696,33 +706,40 @@ fn paint_wire(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut 
 }
 
 /// An arrow along its way: 2px in its hue, dashed where it is a flow, a filled head at its end, and its words on a sunken backing.
+/// A flow carries its dashes' phase: how far along the way they have crawled.
 #[allow(clippy::too_many_arguments)]
-fn paint_edge(ink: &Ink, way: &Way, color: Option<SceneColor>, flow: bool, active: bool, dim: bool, window: &mut Window, cx: &mut App) {
+fn paint_edge(ink: &Ink, way: &Way, color: Option<SceneColor>, flow: Option<f32>, active: bool, dim: bool, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
     let base = if active { look.color(token::EDGE_FOCUS) } else { color.map_or(look.color(token::FG_MUTED), |color| hue(look, Some(color), SceneColor::Grey)) };
     let stroke = if dim { base.opacity(base.a * DIMMED) } else { base };
     let mut line = PathBuilder::stroke(view.len(2.));
-    if flow {
-        line = line.dash_array(&[view.len(8.), view.len(8.)]);
-    }
     let mut last = Pt::default();
     let mut before = Pt::default();
     for seg in &way.path {
         match *seg {
             Seg::Move(p) => {
-                line.move_to(view.at(p));
                 last = p;
                 before = p;
             }
             Seg::Line(p) => {
-                line.line_to(view.at(p));
                 before = last;
                 last = p;
             }
             Seg::Quad(ctrl, p) => {
-                line.curve_to(view.at(p), view.at(ctrl));
                 before = ctrl;
                 last = p;
+            }
+        }
+    }
+    match flow {
+        Some(phase) => dashes(&mut line, &flat(&way.path), phase, view),
+        None => {
+            for seg in &way.path {
+                match *seg {
+                    Seg::Move(p) => line.move_to(view.at(p)),
+                    Seg::Line(p) => line.line_to(view.at(p)),
+                    Seg::Quad(ctrl, p) => line.curve_to(view.at(p), view.at(ctrl)),
+                }
             }
         }
     }
@@ -769,6 +786,53 @@ fn paint_ink(ink: &Ink, points: &[Pt], window: &mut Window) {
     }
     if let Ok(path) = line.build() {
         window.paint_path(path, ink.look.color(token::FG_MUTED));
+    }
+}
+
+/// The way as a line through points, its rounded corners cut into short chords.
+fn flat(path: &[Seg]) -> Vec<Pt> {
+    let mut points: Vec<Pt> = Vec::new();
+    for seg in path {
+        match *seg {
+            Seg::Move(p) | Seg::Line(p) => points.push(p),
+            Seg::Quad(ctrl, p) => {
+                let from = points.last().copied().unwrap_or(ctrl);
+                for step in 1..=CORNER_CUTS {
+                    let t = step as f32 / CORNER_CUTS as f32;
+                    let u = 1. - t;
+                    points.push(Pt { x: u * u * from.x + 2. * u * t * ctrl.x + t * t * p.x, y: u * u * from.y + 2. * u * t * ctrl.y + t * t * p.y });
+                }
+            }
+        }
+    }
+    points
+}
+
+/// `stroke-dasharray: DASH DASH` along the points, `phase` further on than where it starts, as a
+/// falling `stroke-dashoffset` moves it.
+fn dashes(line: &mut PathBuilder, points: &[Pt], phase: f32, view: View) {
+    let period = DASH * 2.;
+    let mut walked = 0.;
+    for pair in points.windows(2) {
+        let (a, b) = (pair[0], pair[1]);
+        let long = (b.x - a.x).hypot(b.y - a.y);
+        if long <= 0. {
+            continue;
+        }
+        let at = |s: f32| Pt { x: a.x + (b.x - a.x) * s / long, y: a.y + (b.y - a.y) * s / long };
+        // From one edge of a dash to the next along this piece, drawing the dashes.
+        let mut s = 0.;
+        while s < long {
+            let into = (walked + s - phase).rem_euclid(period);
+            let (on, left) = if into < DASH { (true, DASH - into) } else { (false, period - into) };
+            let end = (s + left.max(0.01)).min(long);
+            if on {
+                line.move_to(view.at(at(s)));
+                line.line_to(view.at(at(end)));
+            }
+            s = end;
+        }
+        walked += long;
     }
 }
 

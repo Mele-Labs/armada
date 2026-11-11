@@ -289,7 +289,15 @@ pub static WALKS: &[Walk] = &[
             step("The pointer on it plays the steps: each lights its boxes and sends a dot along its arrows while the rest stand back", Verb::Hover, "button", "Open sketch Freshness chip"),
             press_on("A press on the card opens it the same way", "button", "Open sketch Freshness chip", "dialog", "Sketch: Freshness chip"),
             step("Esc shuts it and the keys go back to the card", Verb::Key("escape"), "button", "Open sketch Freshness chip"),
-            step("The empty place at the bottom right is a mock: mock nodes draw once the app shows pages in Chrome (#20). Screen nodes come with their own walk", Verb::Look, "button", "Open sketch Freshness chip"),
+            step("Above it, a sketch with no steps: its card stays still", Verb::Wheel("region", "Thread", -360), "button", "Open sketch Merge line flow"),
+            press_on("Read on its own, its arrows crawl the way they run. A sketch with steps plays them instead", "button", "Open sketch Merge line flow", "dialog", "Sketch: Merge line flow"),
+            step("Esc shuts it", Verb::Key("escape"), "button", "Open sketch Merge line flow"),
+            step(
+                "The empty place at the bottom right of Freshness chip is a mock: mock nodes draw once the app shows pages in Chrome (#20). Screen nodes, and reading a sketch against an earlier one with Changes and Whole, come with their own walk",
+                Verb::Wheel("region", "Thread", 360),
+                "button",
+                "Open sketch Freshness chip",
+            ),
         ],
     },
     Walk {

@@ -90,6 +90,18 @@ pub struct SceneNode {
     pub shape: Option<SceneShape>,
     #[serde(default)]
     pub color: Option<SceneColor>,
+    /// A `mock`'s HTML, its own rules and the stylesheets it is drawn with. Drawn once pages are (#20).
+    #[serde(default)]
+    pub html: Option<String>,
+    #[serde(default)]
+    pub css: Option<String>,
+    #[serde(default)]
+    pub styles: Option<Vec<String>>,
+    #[serde(default)]
+    pub kept: Option<String>,
+    /// A `screen`'s drawing, read whole when screens are drawn.
+    #[serde(default)]
+    pub screen: Option<serde_json::Value>,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -141,6 +153,8 @@ impl RawScene {
                 && node.y.is_finite()
                 && node.icon.as_deref().is_none_or(|icon| SCENE_ICONS.contains(&icon))
                 && (!matches!(node.kind, SceneKind::Group | SceneKind::Lane) || (node.w.is_some() && node.h.is_some()))
+                && (node.kind != SceneKind::Mock || (node.html.as_deref().is_some_and(|html| !html.trim().is_empty()) && node.w.is_some()))
+                && (node.kind != SceneKind::Screen || node.screen.is_some())
         });
         let edges_read = scene.edges.iter().all(|edge| !edge.id.is_empty() && ids.contains(edge.from.as_str()) && ids.contains(edge.to.as_str()));
         (nodes_read && edges_read && ids.len() == scene.nodes.len() && edge_ids.len() == scene.edges.len()).then_some(scene)
@@ -162,6 +176,8 @@ mod tests {
         assert_eq!((scene.nodes.len(), scene.edges.len()), (2, 1));
         assert!(raw(r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"icon":"emoji"}],"edges":[]}"#).scene().is_none());
         assert!(raw(r#"{"nodes":[{"id":"a","kind":"group","x":0,"y":0}],"edges":[]}"#).scene().is_none());
+        assert!(raw(r#"{"nodes":[{"id":"a","kind":"mock","x":0,"y":0,"w":80}],"edges":[]}"#).scene().is_none());
+        assert!(raw(r#"{"nodes":[{"id":"a","kind":"mock","x":0,"y":0,"w":80,"html":"<b>1</b>"}],"edges":[]}"#).scene().is_some());
         assert!(raw(r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0}],"edges":[{"id":"e","from":"a","to":"z"}]}"#).scene().is_none());
         assert!(raw(r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0},{"id":"a","kind":"box","x":1,"y":1}],"edges":[]}"#).scene().is_none());
     }
