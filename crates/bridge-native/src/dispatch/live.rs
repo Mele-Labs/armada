@@ -232,6 +232,7 @@ pub(super) fn settings_of(instruction: &str, fields: &[(&str, String)], now: Dat
         spend_cap_micros,
         session_cap,
         weekly_cap_percent,
+        project: None,
         on_autopilot: Default::default(),
         decisions: Default::default(),
     })

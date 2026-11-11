@@ -536,10 +536,12 @@ impl DispatchScreen {
     /// Start Autopilot: the settings as the person left the fields, `POST /autopilots/:repository`. The strip it
     /// leaves is the Autopilot's lane. A field that does not read is said on the sheet, as Electron says it.
     fn start_autopilot(&mut self, repository: &str, instruction: &str, fields: &[(&'static str, String)], window: &mut Window, cx: &mut Context<Self>) {
-        let settings = match live::settings_of(instruction, fields, chrono::Local::now()) {
+        let mut settings = match live::settings_of(instruction, fields, chrono::Local::now()) {
             Ok(settings) => settings,
             Err(why) => return self.refuse(why, cx),
         };
+        // Each Job it starts is for the window's project, as a Job started here is.
+        settings.project = scope(cx).and_then(|(id, _)| id).map(|id| id.to_string());
         let (port, id) = match self.autopilot_door(repository, cx) {
             Ok(door) => door,
             Err(why) => return self.refuse(why, cx),
