@@ -527,6 +527,15 @@ impl Render for RowGhost {
 impl JobsList {
     /// The list on a live Fleet: it follows the Jobs the connection holds.
     pub fn live(fleet: &Entity<FleetConnection>, cx: &mut Context<Self>) -> Self {
+        // A press on a clash mark opens the other Job, as a press on its row does; `main` has nothing to open.
+        let opens = cx.entity().downgrade();
+        cx.set_global(crate::clash_mark::OpenHolder(Rc::new(move |holder: &ipc::ClashHolder, _window, cx| {
+            if holder.kind != ipc::ClashSide::Session {
+                return;
+            }
+            let id = SharedString::from(holder.id.clone());
+            let _ = opens.update(cx, |list, cx| list.open(id, cx));
+        })));
         let watch = cx.observe(fleet, |this, fleet, cx| {
             // The title bar's picker lists what Fleet serves; the bar has no Fleet of its own to watch.
             if let Some(bar) = crate::titlebar::live(cx) {
@@ -537,6 +546,9 @@ impl JobsList {
                     bar.set_build(build.as_ref(), cx);
                 });
             }
+            // Every row's write-clash mark reads what Fleet last said; nothing while it cannot say.
+            let clashes = fleet.read(cx).held().clashes.clone().unwrap_or_default();
+            crate::clash_mark::hold(clashes, cx);
             if let (Some(served), Some(bar)) = (fleet.read(cx).held().repositories.clone(), crate::titlebar::live(cx)) {
                 let projects = fleet.read(cx).held().projects.clone();
                 bar.update(cx, |bar, cx| {

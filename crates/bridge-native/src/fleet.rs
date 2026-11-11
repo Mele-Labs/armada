@@ -107,6 +107,9 @@ pub struct Held {
     pub plan_usage: Option<ipc::PlanUsage>,
     /// Where the step down stands, as Fleet last said, held across a drop. `None` until Fleet has answered.
     pub downshift: Option<ipc::ModelDownshiftState>,
+    /// Every standing write clash, as Fleet last said. `None` until Fleet has answered, and again once the
+    /// connection drops, as Electron clears its marks: a clash Fleet cannot vouch for is not drawn.
+    pub clashes: Option<ipc::AllWriteClashes>,
     /// Whether `features.notifications` is on. On until Fleet's settings say false, as Electron reads it.
     pub notifications: bool,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
@@ -137,6 +140,7 @@ impl Held {
             merge_lines: None,
             plan_usage: None,
             downshift: None,
+            clashes: None,
             notifications: true,
             arrived: Vec::new(),
             port: None,
@@ -245,6 +249,9 @@ impl Held {
                     }
                     if state != self.state {
                         lines.push(describe(&state));
+                        if !matches!(state, LinkState::Connected) {
+                            self.clashes = None;
+                        }
                         self.state = state;
                     }
                 }
@@ -289,6 +296,8 @@ impl Held {
                 Signal::ProjectsFailed(why) => lines.push(Note::warn("projects could not be read").field("why", why)),
                 Signal::MergeLines(view) => self.merge_lines = Some(view.lines),
                 Signal::MergeLinesFailed(why) => lines.push(Note::warn("the merge line could not be read").field("why", why)),
+                Signal::Clashes(all) => self.clashes = Some(all),
+                Signal::ClashesFailed(why) => lines.push(Note::warn("the write clashes could not be read").field("why", why)),
                 Signal::PlanUsage(usage) => self.plan_usage = Some(usage),
                 Signal::PlanUsageFailed(why) => lines.push(Note::warn("the plan usage could not be read").field("why", why)),
                 Signal::Downshift(state) => self.downshift = Some(state),
@@ -342,6 +351,7 @@ impl Held {
                         Event::ProjectsChanged(read) => self.projects = Some(read),
                         // The merge lines arrive whole and replace the ones held.
                         Event::MergeLineViewChanged(view) => self.merge_lines = Some(view.lines),
+                        Event::WriteClashesChanged(all) => self.clashes = Some(all),
                         Event::PlanUsageChanged(usage) => self.plan_usage = Some(usage),
                         Event::ModelDownshiftChanged(state) => self.downshift = Some(state),
                         _ => {}

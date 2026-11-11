@@ -95,6 +95,9 @@ pub enum Signal {
     /// `GET /model_downshift`, once per connection; `model_downshift.changed` carries it after that.
     Downshift(ipc::ModelDownshiftState),
     DownshiftFailed(String),
+    /// `GET /clashes/all`, on connect and after a `Missed`; `write_clashes.changed` carries it after that.
+    Clashes(ipc::AllWriteClashes),
+    ClashesFailed(String),
     Stream(StreamMessage),
 }
 
@@ -247,6 +250,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tokio::spawn(fetch_projects(tx.clone(), fleet.port));
                     tokio::spawn(fetch_merge_lines(tx.clone(), fleet.port));
                     tokio::spawn(fetch_plan(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_clashes(tx.clone(), fleet.port));
                     // Stops with this connection: the guard aborts the task when `follow` returns.
                     _build_watch = Some(AbortOnDrop(tokio::spawn(watch_build(tx.clone(), fleet.port))));
                 }
@@ -258,6 +262,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                 // A view sent whole is read again after events were lost, or the window would hold a line it never heard.
                 if let StreamMessage::Missed(_) = &message {
                     tokio::spawn(fetch_merge_lines(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_clashes(tx.clone(), fleet.port));
                 }
                 if send(tx, Signal::Stream(message)).await.is_err() {
                     return Ended::NobodyListening;
@@ -394,6 +399,15 @@ async fn fetch_merge_lines(tx: Sender<Signal>, port: u16) {
     let signal = match read_with_retries::<MergeLineViews>(port, "/merge_lines/view", "merge line view").await {
         Ok(view) => Signal::MergeLines(view),
         Err(why) => Signal::MergeLinesFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /clashes/all`, retried as the Jobs are.
+async fn fetch_clashes(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<ipc::AllWriteClashes>(port, "/clashes/all", "write clashes").await {
+        Ok(all) => Signal::Clashes(all),
+        Err(why) => Signal::ClashesFailed(why),
     };
     let _ = tx.send(signal).await;
 }

@@ -46,6 +46,9 @@ impl Global for Held {}
 
 /// Hand the window what Fleet said clashes. A lost connection hands it nothing, so no mark stands.
 pub fn hold(clashes: AllWriteClashes, cx: &mut App) {
+    if cx.try_global::<Held>().is_some_and(|held| held.0 == clashes) {
+        return;
+    }
     cx.set_global(Held(clashes));
     cx.refresh_windows();
 }
