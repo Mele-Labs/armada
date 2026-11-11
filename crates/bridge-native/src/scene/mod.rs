@@ -104,7 +104,7 @@ impl Clock {
 /// The scene, drawn to fill its parent. `key` names the scene and its revision, so its layout is
 /// worked out once.
 pub(crate) fn view(key: SharedString, scene: Rc<Scene>, fit: Fit, clock: Clock, lens: Lens) -> impl IntoElement {
-    canvas(|_, _, _| (), move |bounds, _, window, cx| paint(&key, &scene, fit, clock, lens, bounds, window, cx)).size_full()
+    view_changes(key, scene, None, fit, clock, lens)
 }
 
 thread_local! {
@@ -125,6 +125,94 @@ pub(crate) fn read(key: &str, raw: &ipc::RawScene) -> Option<Rc<Scene>> {
 /// Whether the scene has steps to play.
 pub(crate) fn plays(scene: &Scene) -> bool {
     scene.nodes.iter().any(|node| node.step.is_some()) || scene.edges.iter().any(|edge| edge.step.is_some())
+}
+
+/// What a part of a scene read against an earlier one is to it (`SceneChange`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Change {
+    Added,
+    Removed,
+    Changed,
+    Same,
+}
+
+impl Change {
+    /// `CHANGE_SAID`: the word a reader hears before the part's name.
+    fn said(self) -> &'static str {
+        match self {
+            Change::Added => "Added",
+            Change::Removed => "Removed",
+            Change::Changed => "Changed",
+            Change::Same => "Unchanged",
+        }
+    }
+}
+
+/// Each node's and arrow's change, by id.
+#[derive(Debug, Default)]
+pub(crate) struct Changes {
+    nodes: HashMap<String, Change>,
+    edges: HashMap<String, Change>,
+}
+
+/// `diffScenes`: `after` read against `before`, by node and arrow id. A part moved or reworded is
+/// changed, and what `before` had that `after` lacks is kept where it was, after the rest.
+pub(crate) fn diff(before: &Scene, after: &Scene) -> (Scene, Changes) {
+    let mut changes = Changes::default();
+    for node in &after.nodes {
+        let change = match before.nodes.iter().find(|was| was.id == node.id) {
+            None => Change::Added,
+            Some(was) if was == node => Change::Same,
+            Some(_) => Change::Changed,
+        };
+        changes.nodes.insert(node.id.clone(), change);
+    }
+    for edge in &after.edges {
+        let change = match before.edges.iter().find(|was| was.id == edge.id) {
+            None => Change::Added,
+            Some(was) if was == edge => Change::Same,
+            Some(_) => Change::Changed,
+        };
+        changes.edges.insert(edge.id.clone(), change);
+    }
+    let gone_nodes: Vec<_> = before.nodes.iter().filter(|was| !after.nodes.iter().any(|node| node.id == was.id)).cloned().collect();
+    let gone_edges: Vec<_> = before.edges.iter().filter(|was| !after.edges.iter().any(|edge| edge.id == was.id)).cloned().collect();
+    for node in &gone_nodes {
+        changes.nodes.insert(node.id.clone(), Change::Removed);
+    }
+    for edge in &gone_edges {
+        changes.edges.insert(edge.id.clone(), Change::Removed);
+    }
+    let scene = Scene { nodes: after.nodes.iter().cloned().chain(gone_nodes).collect(), edges: after.edges.iter().cloned().chain(gone_edges).collect(), strokes: after.strokes.clone() };
+    (scene, changes)
+}
+
+thread_local! {
+    /// Each scene read against another once, by its key.
+    static DIFFED: RefCell<HashMap<String, (Rc<Scene>, Rc<Changes>)>> = RefCell::default();
+}
+
+/// `after` read against `before`, kept by `key`: the scene to draw, holding what was dropped, and
+/// what changed in it.
+pub(crate) fn against(key: &str, before: &Scene, after: &Scene) -> (Rc<Scene>, Rc<Changes>) {
+    if let Some(held) = DIFFED.with(|held| held.borrow().get(key).cloned()) {
+        return held;
+    }
+    let (scene, changes) = diff(before, after);
+    let made = (Rc::new(scene), Rc::new(changes));
+    DIFFED.with(|held| held.borrow_mut().insert(key.to_string(), made.clone()));
+    made
+}
+
+/// The scene, drawn to fill its parent, with what changed against an earlier one marked: added
+/// green, changed amber, removed red and struck through, the rest stood back.
+pub(crate) fn view_changes(key: SharedString, scene: Rc<Scene>, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens) -> impl IntoElement {
+    canvas(|_, _, _| (), move |bounds, _, window, cx| paint(&key, &scene, changes.as_deref(), fit, clock, lens, bounds, window, cx)).size_full()
+}
+
+/// What a part is called when somebody asks about it (`partLabel`).
+fn part_label(node: &SceneNode) -> &str {
+    node.title.as_deref().or_else(|| node.body.as_deref().and_then(|body| body.lines().next())).unwrap_or(&node.id)
 }
 
 // ---- layout --------------------------------------------------------------------------------------
@@ -433,19 +521,41 @@ fn tint(look: &Look, hue: Hsla) -> Hsla {
     look.color(token::BG_RAISED).blend(hue.opacity(look.percent(token::ROW_TINT_RECENT)))
 }
 
+#[derive(Clone)]
 struct Ink<'a> {
     look: &'a Look,
     view: View,
     sans: SharedString,
     mono: SharedString,
+    /// A change's hue in place of the part's own, read against an earlier scene.
+    over: Option<Hsla>,
+    /// Its words struck through: a part the earlier scene had and this one drops.
+    struck: bool,
 }
 
-impl Ink<'_> {
+impl<'a> Ink<'a> {
+    /// The ink for a part with this change: its status hue, and struck through where it was dropped.
+    fn changed(&self, change: Option<Change>) -> Ink<'a> {
+        let over = match change {
+            Some(Change::Added) => Some(self.look.color(token::STATUS_COMPLETED_SUCCESS)),
+            Some(Change::Removed) => Some(self.look.color(token::STATUS_COMPLETED_FAILED)),
+            Some(Change::Changed) => Some(self.look.color(token::STATUS_AWAITING_REVIEW)),
+            Some(Change::Same) | None => None,
+        };
+        Ink { over, struck: change == Some(Change::Removed), ..self.clone() }
+    }
+
+    /// The part's hue: its change's where it has one, else its own colour.
+    fn hue(&self, color: Option<SceneColor>, default: SceneColor) -> Hsla {
+        self.over.unwrap_or_else(|| hue(self.look, color, default))
+    }
+
     /// Words at scene size `at`, wrapped at `wrap` scene units, from `origin`. The height they took, in scene units.
     #[allow(clippy::too_many_arguments)]
     fn words(&self, text: &str, origin: Pt, wrap: Option<f32>, at: f32, weight: f32, mono: bool, color: Hsla, align: TextAlign, window: &mut Window, cx: &mut App) -> f32 {
         let font = Font { weight: FontWeight(weight), ..gpui::font(if mono { self.mono.clone() } else { self.sans.clone() }) };
-        let run = TextRun { len: text.len(), font, color, ..Default::default() };
+        let strikethrough = self.struck.then(|| gpui::StrikethroughStyle { thickness: self.view.len(1.), color: Some(color) });
+        let run = TextRun { len: text.len(), font, color, strikethrough, ..Default::default() };
         let lead = self.view.len(LEAD);
         let width = wrap.map(|wrap| self.view.len(wrap));
         let Ok(lines) = window.text_system().shape_text(SharedString::from(text.to_string()), self.view.len(at), &[run], width, None) else { return 0. };
@@ -466,7 +576,7 @@ impl Ink<'_> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn paint(key: &SharedString, scene: &Scene, fit: Fit, clock: Clock, lens: Lens, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
+fn paint(key: &SharedString, scene: &Scene, changes: Option<&Changes>, fit: Fit, clock: Clock, lens: Lens, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
     let look = cx.global::<Look>().clone();
     let laid = laid(key, scene, &look, window);
     let view = View::fit(bounds, laid.bounds, fit, lens);
@@ -475,7 +585,10 @@ fn paint(key: &SharedString, scene: &Scene, fit: Fit, clock: Clock, lens: Lens, 
         view,
         sans: look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_else(|| "IBM Plex Sans".into()),
         mono: look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_else(|| "IBM Plex Mono".into()),
+        over: None,
+        struck: false,
     };
+    let node_change = |node: &SceneNode| changes.and_then(|changes| changes.nodes.get(&node.id).copied());
     let now = playing(&laid, clock.steps);
     // Electron's flow crawl: a reading view's flows move while no step plays; a preview stays still.
     let crawl = match clock.flows {
@@ -494,18 +607,22 @@ fn paint(key: &SharedString, scene: &Scene, fit: Fit, clock: Clock, lens: Lens, 
     };
     window.with_content_mask(Some(ContentMask { bounds }), |window| {
         for (node, rect) in scene.nodes.iter().zip(&laid.rects).filter(|(node, _)| ground(node)) {
-            paint_ground(&ink, node, *rect, window, cx);
+            // A ground does not stand back for a step, but an unchanged one does against an earlier scene.
+            let change = node_change(node);
+            paint_ground(&ink.changed(change), node, *rect, if change == Some(Change::Same) { DIMMED } else { 1. }, window, cx);
         }
         for (edge, way) in scene.edges.iter().zip(&laid.ways) {
             let Some(way) = way else { continue };
+            let change = changes.and_then(|changes| changes.edges.get(&edge.id).copied());
             let active = now.as_ref().is_some_and(|now| edge.step == Some(now.at));
-            let dim = now.is_some() && !active;
+            let dim = (now.is_some() && !active) || change == Some(Change::Same);
             let flow = (edge.flow != Some(false)).then_some(crawl.unwrap_or(0.));
-            paint_edge(&ink, way, edge.color, flow, active, dim, window, cx);
+            paint_edge(&Ink { struck: false, ..ink.changed(change) }, way, edge.color, flow, active, dim, window, cx);
         }
         for (node, rect) in scene.nodes.iter().zip(&laid.rects).filter(|(node, _)| !ground(node)) {
-            let dim = now.is_some() && !lit.contains(node.id.as_str());
-            paint_node(&ink, node, *rect, if dim { DIMMED } else { 1. }, window, cx);
+            let change = node_change(node);
+            let dim = (now.is_some() && !lit.contains(node.id.as_str())) || change == Some(Change::Same);
+            paint_node(&ink.changed(change), node, *rect, if dim { DIMMED } else { 1. }, window, cx);
             if now.is_some() && !dim {
                 let radius = match shaped(node) {
                     Some(SceneShape::Pill) => rect.h / 2.,
@@ -518,6 +635,16 @@ fn paint(key: &SharedString, scene: &Scene, fit: Fit, clock: Clock, lens: Lens, 
         }
         for stroke in &scene.strokes {
             paint_ink(&ink, &stroke.points.iter().map(|p| Pt { x: p.x as f32, y: p.y as f32 }).collect::<Vec<_>>(), window);
+        }
+        // A reading view names each part as Electron's does, its change first, so a walk can ring one.
+        if fit == Fit::Reading {
+            for (node, rect) in scene.nodes.iter().zip(&laid.rects) {
+                let name = match node_change(node) {
+                    Some(change) => format!("{}, {}", change.said(), part_label(node)),
+                    None => part_label(node).to_string(),
+                };
+                crate::labels::note(gpui::Role::Group, name, view.rect(*rect), Some(view.len(RADIUS)), window, cx);
+            }
         }
         if let Some(now) = &now {
             let t = ease(look.easing(token::EASE).unwrap_or([0.2, 0., 0., 1.]), (now.into / DOT_MS).min(1.));
@@ -536,9 +663,10 @@ fn paint(key: &SharedString, scene: &Scene, fit: Fit, clock: Clock, lens: Lens, 
 }
 
 /// A group or a lane: a dashed outline in its hue with its title in a band at the top left.
-fn paint_ground(ink: &Ink, node: &SceneNode, rect: Rect, window: &mut Window, cx: &mut App) {
+fn paint_ground(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
-    let hue = hue(look, node.color, SceneColor::Blue);
+    let hue = ink.hue(node.color, SceneColor::Blue);
+    let hue = hue.opacity(hue.a * alpha);
     let lane = node.kind == SceneKind::Lane;
     let edges = if lane { Edges { top: view.len(BORDER), bottom: view.len(BORDER), left: px(0.), right: px(0.) } } else { Edges::all(view.len(BORDER)) };
     let radius = if lane { px(0.) } else { view.len(RADIUS) };
@@ -550,7 +678,8 @@ fn paint_ground(ink: &Ink, node: &SceneNode, rect: Rect, window: &mut Window, cx
     let band = Rect { x: rect.x + inset, y: rect.y + BORDER, w, h: LEAD + 2. * PAD_Y };
     let corners = Corners { top_left: if lane { px(0.) } else { view.len(RADIUS - BORDER) }, top_right: px(0.), bottom_right: view.len(RADIUS), bottom_left: px(0.) };
     window.paint_quad(quad(view.rect(band), corners, hue, px(0.), gpui::transparent_black(), BorderStyle::Solid));
-    ink.words(title, Pt { x: band.x + PAD_X, y: band.y + PAD_Y }, None, TEXT, 600., false, look.color(token::FG_INVERSE), TextAlign::Left, window, cx);
+    let ink_on = look.color(token::FG_INVERSE);
+    ink.words(title, Pt { x: band.x + PAD_X, y: band.y + PAD_Y }, None, TEXT, 600., false, ink_on.opacity(ink_on.a * alpha), TextAlign::Left, window, cx);
 }
 
 fn paint_node(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut Window, cx: &mut App) {
@@ -567,7 +696,7 @@ fn paint_node(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut 
         SceneKind::Box if shaped(node).is_some() => paint_shaped(ink, node, rect, alpha, window, cx),
         SceneKind::Box | SceneKind::Code => {
             let mono = node.kind == SceneKind::Code;
-            let hue = hue(look, node.color, if mono { SceneColor::Grey } else { SceneColor::Blue });
+            let hue = ink.hue(node.color, if mono { SceneColor::Grey } else { SceneColor::Blue });
             window.paint_quad(quad(view.rect(rect), view.len(RADIUS), faded(tint(look, hue)), view.len(BORDER), faded(hue), BorderStyle::Solid));
             let inner = Rect { x: rect.x + BORDER, y: rect.y + BORDER, w: rect.w - 2. * BORDER, h: rect.h - 2. * BORDER };
             let mut top = inner.y;
@@ -607,7 +736,7 @@ fn paint_shaped(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mu
     let (look, view) = (ink.look, ink.view);
     let faded = |color: Hsla| color.opacity(color.a * alpha);
     let shape = shaped(node).unwrap_or(SceneShape::Box);
-    let hue = faded(hue(look, node.color, SceneColor::Blue));
+    let hue = faded(ink.hue(node.color, SceneColor::Blue));
     let fill = faded(tint(look, hue.opacity(1.)));
     match shape {
         SceneShape::Pill | SceneShape::Circle => {
@@ -725,7 +854,11 @@ fn paint_wire(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut 
 #[allow(clippy::too_many_arguments)]
 fn paint_edge(ink: &Ink, way: &Way, color: Option<SceneColor>, flow: Option<f32>, active: bool, dim: bool, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
-    let base = if active { look.color(token::EDGE_FOCUS) } else { color.map_or(look.color(token::FG_MUTED), |color| hue(look, Some(color), SceneColor::Grey)) };
+    let base = if active {
+        look.color(token::EDGE_FOCUS)
+    } else {
+        ink.over.unwrap_or_else(|| color.map_or(look.color(token::FG_MUTED), |color| hue(look, Some(color), SceneColor::Grey)))
+    };
     let stroke = if dim { base.opacity(base.a * DIMMED) } else { base };
     let mut line = PathBuilder::stroke(view.len(2.));
     let mut last = Pt::default();

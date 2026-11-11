@@ -237,7 +237,7 @@ impl JobView {
         let (scene_key, scene) = shown_scene(card, picked);
         let pointed = page.cards.pointed.as_deref() == Some(key.as_str()) || page.cards.focused.as_deref() == Some(key.as_str());
         let playing = page.cards.playing.as_ref().filter(|(at, _)| *at == key).map(|(_, since)| *since);
-        let glass = glass(look, card.replaced, scene.clone().map(|scene| crate::scene::view(scene_key.into(), scene, Fit::Preview, Clock::both(playing), Lens::default()).into_any_element()));
+        let glass = glass(look, card.replaced, scene.clone().map(|scene| drawn_against(card, picked, &scene_key, scene, true, Fit::Preview, Clock::both(playing), Lens::default())));
         let press = self.sketch_press(&key, &card.title, band, glass, scene.is_some_and(|scene| crate::scene::plays(&scene)), page, cx);
         let body = frame(look, true)
             .when(pointed, |frame| frame.border_color(look.color(token::ACCENT)))
@@ -346,7 +346,7 @@ impl JobView {
                             .bg(look.color(token::BG_SUNKEN))
                             .overflow_hidden()
                             .on_hover(cx.listener(move |this, over: &bool, _, cx| this.sketch_pointed(&hover_key, Some(*over), None, plays, cx)))
-                            .children(scene.map(|scene| crate::scene::view(scene_key.into(), scene, Fit::Reading, Clock::both(playing), Lens::default()))),
+                            .children(scene.map(|scene| drawn_against(card, picked, &scene_key, scene, true, Fit::Reading, Clock::both(playing), Lens::default()))),
                     )
                 })
                 .child(self.approval(ix, &key, Subject::Sketch { sketch: card.sketch.clone(), drawn }, open, true, settled, false, page, look, cx)),
@@ -590,6 +590,38 @@ pub(super) fn shown_scene(card: &ThreadSketch, picked: Option<usize>) -> (String
     let key = format!("{}:{}", card.id, picked.map_or_else(|| "now".to_string(), |at| at.to_string()));
     let scene = crate::scene::read(&key, raw);
     (key, scene)
+}
+
+/// What the shown revision is read against, with its title (`sketchAtRevision`): each revision
+/// against the one before it and the first plain; the newest against the sketch the Job named
+/// where it named one, drawn or not.
+pub(super) fn shown_against(card: &ThreadSketch, picked: Option<usize>) -> Option<(String, Rc<ipc::Scene>)> {
+    let count = card.revisions.len();
+    // Revision `at` (from 1) read against the one before it, which the menu calls `Revision at`.
+    let before = |at: usize| {
+        let raw = card.revisions.get(at.checked_sub(1)?)?;
+        crate::scene::read(&format!("{}:{}", card.id, at - 1), raw).map(|scene| (format!("Revision {at}"), scene))
+    };
+    if picked.is_none_or(|at| at + 1 >= count) {
+        return match &card.against {
+            Some(title) => card.against_drawing.as_ref().and_then(|raw| crate::scene::read(&format!("{}:against", card.id), raw)).map(|scene| (title.clone(), scene)),
+            None => before(count.checked_sub(1)?),
+        };
+    }
+    before(picked?)
+}
+
+/// The shown revision drawn, read against what it changes while `changes` is on.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn drawn_against(card: &ThreadSketch, picked: Option<usize>, key: &str, scene: Rc<ipc::Scene>, changes: bool, fit: Fit, clock: Clock, lens: Lens) -> AnyElement {
+    match shown_against(card, picked).filter(|_| changes) {
+        Some((_, before)) => {
+            let key = format!("{key}:changes");
+            let (scene, changes) = crate::scene::against(&key, &before, &scene);
+            crate::scene::view_changes(key.into(), scene, Some(changes), fit, clock, lens).into_any_element()
+        }
+        None => crate::scene::view(key.to_string().into(), scene, fit, clock, lens).into_any_element(),
+    }
 }
 
 /// The pane a sketch's scene is drawn in, shrunk to fit. A scene that does not read draws nothing.

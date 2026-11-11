@@ -12,7 +12,7 @@ use gpui::{
 };
 use ipc::{Scene, ThreadItem, ThreadSketch};
 
-use super::cards::shown_scene;
+use super::cards::{shown_against, shown_scene};
 use super::rows::{glyph, Size};
 use super::JobView;
 use crate::labels::labelled;
@@ -31,6 +31,10 @@ pub(super) struct Reading {
     key: String,
     title: SharedString,
     scene: Rc<Scene>,
+    /// The sketch it is read as a change to, its title and drawing, and whether it is read so
+    /// (Changes) or alone (Whole).
+    against: Option<(SharedString, Rc<Scene>)>,
+    changes: bool,
     /// When the steps started playing, or `None` while they are stopped.
     steps: Option<Instant>,
     /// When the sheet opened: the flows crawl from it while no step plays.
@@ -65,7 +69,11 @@ impl JobView {
     pub(super) fn read_sketch(&mut self, key: &str, shown: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let picked = self.pages.get(&job).and_then(|page| page.cards.revision.get(shown).copied());
-        let Some((title, (scene_key, scene))) = self.thread(&job, cx).and_then(|held| card_of(&held.head, &held.items, key)).map(|card| (card.title.clone(), shown_scene(card, picked))) else {
+        let Some((title, (scene_key, scene), against)) = self
+            .thread(&job, cx)
+            .and_then(|held| card_of(&held.head, &held.items, key))
+            .map(|card| (card.title.clone(), shown_scene(card, picked), shown_against(card, picked).map(|(title, scene)| (title.into(), scene))))
+        else {
             return;
         };
         let Some(scene) = scene else { return };
@@ -74,7 +82,7 @@ impl JobView {
         window.focus(&focus, cx);
         let now = Instant::now();
         let steps = crate::scene::plays(&scene).then_some(now);
-        self.sketch_reading = Some(Reading { key: scene_key, title: title.into(), scene, steps, opened: now, focus, back, lens: Lens::default(), drag: None });
+        self.sketch_reading = Some(Reading { key: scene_key, title: title.into(), scene, against, changes: true, steps, opened: now, focus, back, lens: Lens::default(), drag: None });
         cx.notify();
     }
 
@@ -83,6 +91,14 @@ impl JobView {
     fn play_sketch(&mut self, restart: bool, cx: &mut Context<Self>) {
         if let Some(reading) = self.sketch_reading.as_mut().filter(|reading| crate::scene::plays(&reading.scene)) {
             reading.steps = if reading.steps.is_some() && !restart { None } else { Some(Instant::now()) };
+        }
+        cx.notify();
+    }
+
+    /// Changes reads the sketch against the one it changes; Whole reads it alone.
+    fn read_changes(&mut self, changes: bool, cx: &mut Context<Self>) {
+        if let Some(reading) = self.sketch_reading.as_mut() {
+            reading.changes = changes;
         }
         cx.notify();
     }
@@ -314,7 +330,60 @@ impl JobView {
                 };
                 this.zoom_sketch((delta * WHEEL_SPEED).exp(), cx);
             }))
-            .child(crate::scene::view(reading.key.clone().into(), reading.scene.clone(), Fit::Reading, Clock { steps: reading.steps, flows: Some(reading.opened) }, reading.lens));
+            .child({
+                let clock = Clock { steps: reading.steps, flows: Some(reading.opened) };
+                match reading.against.as_ref().filter(|_| reading.changes) {
+                    Some((_, before)) => {
+                        let key = format!("{}:changes", reading.key);
+                        let (scene, changes) = crate::scene::against(&key, before, &reading.scene);
+                        crate::scene::view_changes(key.into(), scene, Some(changes), Fit::Reading, clock, reading.lens).into_any_element()
+                    }
+                    None => crate::scene::view(reading.key.clone().into(), reading.scene.clone(), Fit::Reading, clock, reading.lens).into_any_element(),
+                }
+            });
+        // `SketchReading`'s band: what the sketch is read against, and Changes or Whole.
+        let against = reading.against.as_ref().map(|(title, _)| {
+            let read = |id: &'static str, said: &'static str, on: bool, changes: bool| {
+                let weight = if on { crate::titlebar::parts::Weight::Secondary } else { crate::titlebar::parts::Weight::Ghost };
+                labelled(
+                    crate::titlebar::parts::Btn::new(id, said, weight)
+                        .draw(look, cx)
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_click(cx.listener(move |this, _, _, cx| this.read_changes(changes, cx))),
+                    Role::Button,
+                    said,
+                )
+            };
+            div()
+                .flex()
+                .flex_none()
+                .items_center()
+                .gap(look.length(token::SPACE_4))
+                .min_h(look.length(token::H_ROW) * 1.25)
+                .pl(look.length(token::SPACE_4))
+                .pr(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_1))
+                .border_b(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_DEFAULT))
+                .bg(look.color(token::BG_RAISED))
+                .text_color(look.color(token::FG_MUTED))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .truncate()
+                        .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_XS))
+                        .font_weight(gpui::FontWeight(look.number(token::WEIGHT_HEADING)))
+                        .child(format!("Against {title}")),
+                )
+                .child(labelled(
+                    div().id("sketch-reads").flex().flex_none().gap(look.length(token::SPACE_1)).child(read("sketch-changes", "Changes", reading.changes, true)).child(read("sketch-whole", "Whole", !reading.changes, false)),
+                    Role::Group,
+                    "Read as",
+                ))
+        });
         // The rail is a column of the frame beside the drawing, never a layer over it.
         let drawing = div().flex().flex_1().min_h_0().bg(look.color(token::BG_SUNKEN)).child(rail).child(pane);
         Some(
@@ -344,6 +413,7 @@ impl JobView {
                                 .shadow(look.shadows(token::SHADOW_OVERLAY))
                                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                                 .child(band)
+                                .children(against)
                                 .child(drawing),
                             Role::Dialog,
                             format!("Sketch: {}", reading.title),
