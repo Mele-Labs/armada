@@ -247,6 +247,8 @@ mod review_searches;
 mod issue_queries;
 /// A repository's projects: tasks a person wrote and issues he linked, kept on this Mac.
 mod projects;
+/// How work behaves, laid over its layers, and what a Job freezes of it at its start.
+mod values;
 /// His projects as files, kept where he chose for each, and the migration that makes them.
 mod project_files;
 mod project_holds;

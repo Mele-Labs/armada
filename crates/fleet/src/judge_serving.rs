@@ -210,7 +210,12 @@ where
         let standing = crate::judging::standing(served.manifest(), served.root(), cap).told(&self.prompts().wording());
         let asked = brief(&Shown { request: &request, later: &later, artifact: &content, prompt: &reading.prompt, standing: &standing });
 
-        let ask = Ask::put(reviewing.model.clone(), &asked, reviewing.environment.clone())
+        // The model the Job froze for a review, else `models.review`.
+        let model = match self.review_model_of_job(id).await {
+            Some(frozen) => adapter_traits::Model::named(&frozen).map_err(|why| (format!("the Job's review model is not one: {why:?}"), None))?,
+            None => reviewing.model.clone(),
+        };
+        let ask = Ask::put(model, &asked, reviewing.environment.clone())
             .and_then(|ask| Ok(ask.reading(Reading::checkout(served.root(), READ_TURNS)?)))
             .map_err(|why| (format!("the question could not be put: {why:?}"), None))?;
         let (answered, micros) = asked_and_costed(&reviewing, &ask).await;

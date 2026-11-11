@@ -44,7 +44,7 @@ const REVIEW_GATE_LEGAL: &[&str] = &["human_always", "auto_if_judge_passes"];
 /// A refused *value* reads as absent from here, which is safe for
 /// [`super::drone`]'s reason: the refusal is already in `out`, and a file with
 /// any refusal in it does not load at all.
-pub(super) fn read(top: &mut Table<'_>, out: &mut Vec<Refusal>) -> (AutoMerge, ReviewGate) {
+pub(super) fn read(top: &mut Table<'_>, out: &mut Vec<Refusal>) -> (Option<AutoMerge>, ReviewGate) {
     let auto_merge = top
         .optional("auto_merge")
         .and_then(|value| {
@@ -56,8 +56,7 @@ pub(super) fn read(top: &mut Table<'_>, out: &mut Vec<Refusal>) -> (AutoMerge, R
                 AUTO_MERGE_LEGAL,
                 out,
             )
-        })
-        .unwrap_or_default();
+        });
     let review_gate = top
         .optional("review_gate")
         .and_then(|value| {
@@ -88,6 +87,12 @@ impl Manifest {
     /// over an open pull request, so somebody turning it off is answered at the
     /// next sweep rather than at the next restart.
     pub fn auto_merge(&self) -> AutoMerge {
+        self.live.read().auto_merge.unwrap_or_default()
+    }
+
+    /// What `auto_merge:` says, **absent where the file says nothing**: the repository's own word
+    /// as a layer of the values a Job freezes, where [`Manifest::auto_merge`] answers the default.
+    pub fn auto_merge_written(&self) -> Option<AutoMerge> {
         self.live.read().auto_merge
     }
 

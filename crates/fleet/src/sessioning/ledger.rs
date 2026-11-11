@@ -210,7 +210,12 @@ where
         let flying = self.lifecycles_flying(store, &session.id);
         let stop = store.session_stop(&session.id).map_err(fault)?;
         let open_turn = store.open_turn(&session.id).map_err(fault)?;
+        let values = match &hosting {
+            Some(_) => store.job_values(&session.id).map_err(fault)?,
+            None => Vec::new(),
+        };
         Ok(LedgerReads {
+            values,
             wait,
             rail,
             held,
@@ -304,7 +309,7 @@ where
         let picks = reads.hosting.as_ref().map(|hosting| (hosting.workflow.clone(), hosting.model.clone(), hosting.effort.clone()));
         record.hosted = reads
             .hosting
-            .map(|hosting| self.hosted_facts_of(&session.id, hosting, reads.start));
+            .map(|hosting| self.hosted_facts_of(&session.id, hosting, reads.start, reads.values));
         if session.state == store::SessionState::Live {
             record.done_since = reads.waiting.done.as_deref().map(wire_instant);
             record.done_summary = reads.waiting.done_summary.clone();

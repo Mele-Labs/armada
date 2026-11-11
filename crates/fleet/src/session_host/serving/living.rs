@@ -23,6 +23,7 @@ where
         id: &str,
         hosting: KeptHosting,
         start: Option<crate::session_host::start_card::StartReads>,
+        values: Vec<store::KeptValue>,
     ) -> HostedFacts {
         let runtime = self.hosts().of(id);
         let state = runtime.state();
@@ -50,6 +51,7 @@ where
                 log: failed.log.clone(),
             }),
             project: hosting.project,
+            values: crate::values::Frozen::of(values).map(|frozen| frozen.wire()),
         }
     }
 

@@ -444,6 +444,11 @@ pub struct HostedFacts {
     /// The project the Job was started for, by id (`StartSession.project`). Absent for a Job started for none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project: Option<String>,
+    /// The values the Job froze when it started: its project's and its repository's, each key with the layer
+    /// it came from. **A Job already running keeps them** when a later edit moves a layer. Absent on a Job
+    /// started before they were kept, and on one with no repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub values: Option<crate::ResolvedValues>,
 }
 
 /// Why a Job's process would not start.

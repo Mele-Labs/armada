@@ -156,6 +156,10 @@ where
     /// The other two answers leave the flag as it is. **A refusal never undoes the answer**: the
     /// forge is asked after the reply, and its words go to the agent as a notice of their own.
     pub(crate) async fn auto_land_follows(self: &Arc<Self>, id: &str, choice: Option<DeliveryChoice>) {
+        if matches!(choice, Some(DeliveryChoice::OpenPr | DeliveryChoice::KeepLocal)) {
+            self.auto_land_withdrawn_by_choice(id).await;
+            return;
+        }
         if choice != Some(DeliveryChoice::AutoLand) {
             return;
         }
@@ -163,6 +167,18 @@ where
         if let Err(refusal) = self.session_auto_land_set(asked).await {
             let why = &refusal.error().message;
             let _ = self.told_by_fleet(id, &format!("Auto land was chosen, and it could not be turned on in full: {why}"), ipc::Notice::AutoLandRefused).await;
+        }
+    }
+
+    /// A Job that started with Auto land on, because its values let a machine land work, and whose owner
+    /// chose to stop at the pull request or the commit: the flag goes off. **His choice is the nearest layer**, and
+    /// a Job that did not have it on is left as it is.
+    async fn auto_land_withdrawn_by_choice(&self, id: &str) {
+        if !self.auto_land_on(id).await {
+            return;
+        }
+        if let Err(refusal) = self.auto_land_flag_set(&SetSessionAutoLand { id: SessionId::carried(id), on: false }).await {
+            self.session_warned(id, "auto land was on and his choice did not turn it off", &refusal.error().message);
         }
     }
 
@@ -181,6 +197,9 @@ where
             if let Err(refusal) = self.auto_land_flag_set(&SetSessionAutoLand { id: SessionId::carried(id), on: true }).await {
                 self.session_warned(id, "auto land was named and not turned on", &refusal.error().message);
             }
+        }
+        if matches!(named, Some(DeliveryChoice::OpenPr | DeliveryChoice::KeepLocal)) {
+            self.auto_land_withdrawn_by_choice(id).await;
         }
         named.is_none()
     }

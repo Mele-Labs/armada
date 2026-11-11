@@ -226,3 +226,28 @@ async fn link_and_unlink_task_job_and_pull_take_the_task_and_what_is_linked() {
     let (status, _) = refused("POST", &format!("{base}/pulls"), r#"{"number":-1}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn values_are_read_for_a_project_a_repository_or_both_and_a_missing_project_is_a_404() {
+    let reached = |answer: &[u8]| ipc::decode::<ipc::ResolvedValues>("values", answer).expect("values").review_model.value.expect("a word");
+    let (status, answer) = call("GET", "/projects/values?project=p7&manifest_id=armada", "").await;
+    assert_eq!((status, reached(&answer).as_str()), (StatusCode::OK, "p7 armada"));
+    let (_, answer) = call("GET", "/projects/values?project=p7", "").await;
+    assert_eq!(reached(&answer), "p7 -", "the repository is optional");
+    let (_, answer) = call("GET", "/projects/values", "").await;
+    assert_eq!(reached(&answer), "- -", "so is the project");
+    let (status, text) = refused("GET", "/projects/values?project=nope", "").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(text.contains("fleet.no_such_project"), "{text}");
+}
+
+#[tokio::test]
+async fn kit_values_are_saved_whole_and_a_word_the_key_does_not_take_is_a_422() {
+    let (status, answer) = call("POST", "/kit/values", r#"{"values":{"auto_merge":"always"}}"#).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&answer));
+    let saved: ipc::KitValuesSaved = ipc::decode("saved", &answer).expect("saved");
+    assert_eq!(saved.values.auto_merge.as_deref(), Some("always"));
+    let (status, text) = refused("POST", "/kit/values", r#"{"values":{"auto_merge":"sometimes"}}"#).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(text.contains("fleet.project_values_refused"), "{text}");
+}

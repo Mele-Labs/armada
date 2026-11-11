@@ -1,0 +1,14 @@
+[operations.get_values]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Every value that decides how work behaves, resolved for a project, a repository or both, each with the layer it came from"
+notes = """
+`GET /projects/values?project=&manifest_id=`, both optional. `docs/practices/protocol/projects.md`, *Values*. Answers 200 with `ResolvedValues`: `pr_mode`, `auto_merge`, `review_model`, `layout`, `theme` and `density`, each `{ value?, from }`, and `autonomy`, one `{ kind, value, from }` for each kind of act. `from` is `default`, `machine`, `kit`, `repository`, `project` or `job`, the nearest layer that sets the key. `value` is absent for a key no layer sets and the default has no word for.
+
+The layers, nearest winning: **default, Machine, Kit, repository, Project, Job**. Absent `project` leaves the Project layer empty, and absent `manifest_id` leaves the repository layer empty and `autonomy` out: it is **not** the repository Fleet was started in, as it is on the routes that act on a Manifest. A repository's own word is its `armada.yml` `pr_mode:` and `auto_merge:`, where it writes them. Autonomy is read from the pieces it already has, `kit` for those scoped to every repository, `project` for those scoped to the named project and `repository` for those scoped to the repository, a repository's over its project's.
+
+Nothing is written, and the answer is not held: a Job's own values are `hosted.values`, frozen at its start.
+
+404 `fleet.no_such_project` for a project he has none of. 422 `fleet.project_unreadable` where its file did not read, 422 `fleet.project_not_member` where it does not list the repository, and 422 `fleet.unacceptable_proposal` where Fleet serves no repository by that id.
+"""

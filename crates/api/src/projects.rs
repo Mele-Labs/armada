@@ -62,6 +62,34 @@ pub(crate) async fn list_holding_projects<D: Projects>(
     answered(&served, result)
 }
 
+/// `?project=&manifest_id=` on `get_values`, each optional.
+#[derive(serde::Deserialize)]
+pub(crate) struct ValuesFor {
+    #[serde(default)]
+    project: Option<String>,
+    #[serde(default)]
+    manifest_id: Option<String>,
+}
+
+pub(crate) async fn get_values<D: Projects>(State(served): State<Served<D>>, Query(asked): Query<ValuesFor>) -> Response {
+    let result = served.daemon().get_values(asked.project, asked.manifest_id.map(ipc::ManifestId::carried)).await;
+    match result {
+        Ok(values) => answer(StatusCode::OK, &values, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn save_kit_values<D: Projects>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let save = match decoded(&served, "Kit's values", &body) {
+        Ok(save) => save,
+        Err(response) => return response,
+    };
+    match served.daemon().save_kit_values(save).await {
+        Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn delete_project<D: Projects>(
     State(served): State<Served<D>>,
     Path(project): Path<String>,

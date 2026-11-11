@@ -453,6 +453,7 @@ where
                     members: read.map(|one| one.members().iter().map(member_on_the_wire).collect()).unwrap_or_default(),
                     place: place_on_the_wire(place),
                     unread,
+                    values: read.and_then(|one| crate::values::values_set(one.values())),
                     id: project.id,
                     rows: wire(project.rows),
                 }
@@ -541,6 +542,7 @@ where
         let Ok(grown) = core_model::Project::declared(held.id().clone(), held.name().clone(), members) else {
             return Ok(false);
         };
+        let grown = grown.with_values(held.values().clone());
         self.project_stored(&grown).await?;
         Ok(true)
     }
@@ -577,6 +579,7 @@ where
                 members: one.members().iter().map(member_on_the_wire).collect(),
                 place: place_on_the_wire(store.project_place(one.id().as_str()).ok().flatten()),
                 unread: None,
+                values: crate::values::values_set(one.values()),
             })
             .collect();
         Ok(ipc::Projects { projects, loose: Vec::new(), left_out: held.left_out().iter().map(left_out_on_the_wire).collect() })
@@ -590,6 +593,10 @@ where
         let (id, at) = (self.minted(), self.now());
         let members = self.members_read(new.members.as_deref().unwrap_or_default())?;
         let made = self.project_declared(&id, &name, members)?;
+        let made = match &new.values {
+            Some(set) => made.with_values(self.values_read(set)?),
+            None => made,
+        };
         let chosen = match new.place {
             Some(place) => Some(self.project_place_chosen(&id, place.place, place.synced_folder, place.cloud).await?),
             None => None,
@@ -626,6 +633,10 @@ where
             None => held.members().to_vec(),
         };
         let edited = self.project_declared(&project, name.unwrap_or(held.name().as_str()), members)?;
+        let edited = edited.with_values(match &edit.values {
+            Some(set) => self.values_read(set)?,
+            None => held.values().clone(),
+        });
         let chosen = match edit.place {
             Some(place) => Some(self.project_place_chosen(&project, place.place, place.synced_folder, place.cloud).await?),
             None => None,
@@ -637,6 +648,14 @@ where
         }
         let named = edited.name().as_str().to_string();
         self.projects_written_reading(|store, _| store.rename_project(&project, &named).map(drop).map_err(|why| self.ledger_fault(why)), true).await
+    }
+
+    async fn get_values(&self, project: Option<String>, manifest_id: Option<ManifestId>) -> Result<ipc::ResolvedValues, Refusal> {
+        self.values_asked(project, manifest_id).await
+    }
+
+    async fn save_kit_values(&self, save: ipc::SaveKitValues) -> Result<ipc::KitValuesSaved, Refusal> {
+        self.kit_values_saved(save).await
     }
 
     async fn delete_project(&self, project: String) -> Result<ipc::Projects, Refusal> {
