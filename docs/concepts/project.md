@@ -9,7 +9,7 @@ A task can link issues, pull requests and a running Job, and Fleet asks him befo
 
 **Kind:** A file at a place he chooses, and tasks in a store.
 The file is `projects/<id>.yml` in Kit's folder, or the same file in a synced folder or the cloud, chosen per project and This Mac by default.
-It names the project and lists its members, and it is never kept in a repository.
+It names the project, lists its members and holds the values the project sets, and it is never kept in a repository.
 The tasks are in Fleet's store on this Mac and survive a restart, wherever the file is.
 The wire is [Projects: tasks and linked issues, across repositories](../practices/protocol/projects.md), and this page does not repeat it.
 
@@ -63,6 +63,34 @@ The tracker is [Tracker](tracker.md), and a pull request is read from the forge.
 A lifecycle, a rule or an autonomy piece names a project in its `scope:`.
 A piece scoped to a project is read from Kit and from every member repository's `.armada/<kind>/`.
 [Protocol](../practices/protocol.md), *Lifecycles and rules, read*, says how each is served.
+
+## What a project sets
+
+**Behaviour is a project's to set, key by key over Kit.**
+How a repository runs (its commands, Checks, ports and setup) stays the repository's `armada.yml`.
+How work behaves is a value: pull request mode, auto merge, autonomy, the review model and the look (layout, theme, density).
+
+| Layer, furthest first | Says |
+|---|---|
+| Default | What Armada ships |
+| Machine | This installation's settings |
+| Kit | `values.yml` in Kit's folder, for every project and repository |
+| Repository | `pr_mode:` and `auto_merge:` in its `armada.yml`, only where it writes them |
+| Project | The `values:` block of its file |
+| Job | What the Job itself was started with |
+
+**The nearest layer that sets a key wins, and every answer names the layer it came from**, so a person can see whose word a value is.
+A project sets only the keys it sets, so what it leaves out is Kit's, then the Machine's.
+Autonomy keeps the places it already has (a piece scoped to every repository, to a project or to a repository), and the answer names them Kit, Project and repository.
+
+> **Rule.** A project's value is over its repository's, and the repository's own keys sit just under it.
+> Why: the owner chose this explicitly. A project's auto merge replaces its repository's, and nothing is folded between them.
+
+> **Rule.** A Job takes its project's values when it starts and keeps them.
+> Why: a Job in the middle of its work does not change what it was told to do because a layer moved. A Job started for no project runs on its repository's values.
+
+The Machine's own word stays live: a Job reads the Machine's pull request mode and review model as they stand, since a person moves them while a Job runs.
+The wire is [Projects](../practices/protocol/projects.md), *Values*.
 
 ## Dispatching tasks
 
@@ -118,9 +146,11 @@ Each row waits on the next two pull requests of the Job that built the project f
 
 | Missing | Waiting on it |
 |---|---|
-| Project values: pull request mode, auto merge, autonomy, tracker, review settings and look, set key by key over Kit | Layers of default, Machine, Kit, repository, Project and Job, each value naming the layer it came from. Nothing reads a project for a value yet |
-| A project's own tracker replacing its members' | The values above |
-| The four review lists filtered to a project | The values above |
-| Operator rules and Always here, per project | The values above |
+| A project's tracker as a value | The tracker is a value of its own, set key by key over Kit, and has no key in the file yet |
+| A project's own tracker replacing its members' | The tracker value above |
+| The four review lists filtered to a project | The tracker value above |
+| Operator rules and Always here, per project | Values of their own, not set in the file yet |
+| A project's autonomy set from its own file | Autonomy stays in its pieces, which a project is already a scope of; nothing here writes one |
+| A Job's own values | Nothing starts a Job with a value of its own, so the Job layer is empty |
 | The title-bar project switcher in the native Bridge | The native Bridge, built by another Job |
 | Sharing a project with teammates | Not built. A project's file is on this Mac, in a synced folder or in the cloud its owner chose |

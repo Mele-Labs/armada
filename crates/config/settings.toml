@@ -314,7 +314,7 @@ peer_polarity = "n/a — single layer"
 owner = "Manifest"
 read_by = "config, fleet"
 notes = """
-Explicit in brief, per-project. Built in #525: config reads the top-level `auto_merge:` key, core-model folds it most-restrictive-wins across a Job's gating Manifests, and fleet::merging acts on it — on the sweep over an open pull request, once per pull request per process, recorded with Fleet as the actor rather than a person.
+Explicit in brief, per-project. Config reads the top-level `auto_merge:` key, and a project's `values:` or Kit's `values.yml` may set it too: the nearest layer wins and nothing is folded between them, so a project's `always` replaces a repository's `never`. A Job takes the result when it starts, and `checks-pass` or `always` start it with Auto land on.
 
 `read_by` was `adapters, fleet` and no adapter ever read it. What an adapter answers is `WhatTheForgeRan`, which is the reading `checks-pass` consults; the policy itself is never seen below Fleet.
 
@@ -346,11 +346,11 @@ peer_polarity = "n/a — single layer"
 owner = "Manifest"
 read_by = "config, core-model, fleet, store"
 notes = """
-**Five tiers, the most specific winning**: the Job's own choice at approval, the delivering step's `draft_pr` in its WorkflowDef, the repository's top-level `pr_mode:`, this machine's `draft_pull_requests` preference, then ready. `core_model::PrModeTiers::resolve` is the one place the order is written, and `fleet::approving::decided_under` reads it at the approval.
+**Layers, the nearest winning**: the Job's own, the project's `values:` block, the repository's top-level `pr_mode:`, Kit's `values.yml`, this machine's `draft_pull_requests` preference, then ready. `config::values::resolve` is the one place the order is written, and `fleet::values` reads each layer when a Job starts and freezes the result on the Job.
 
-**Filed Kit → Manifest by `budget-cost-cap-per-job`'s precedent, and there is no Kit tier.** The machine's is a Machine setting in settings.json (`features.draftPullRequests`), the bottom of the order, and it does not travel. Absent is deferring in every tier: a repository writing `pr_mode: ready` beats a machine that drafts, which absent would not.
+**Filed Kit → Manifest by `budget-cost-cap-per-job`'s precedent, with a Kit tier and a project tier since 10 Nov 2026.** The machine's is a Machine setting in settings.json (`features.draftPullRequests`), the bottom of the order, and it does not travel. Absent is deferring in every layer: a repository writing `pr_mode: ready` beats a machine that drafts, which absent would not. A Job reads the Machine's word as it stands, not as it was at its start.
 
-**Only a step with `delivers: true` may carry `draft_pr`**, since any other step opens no pull request. The loader refuses it elsewhere. The step's value freezes onto the Job with the workflow; the repository's and the machine's are read at the approval, and the result is kept in the Job's landing. A Job approved before a default moved keeps what it opened as. `docs/concepts/landing.md`, *Pull request mode*.
+**Only a step with `delivers: true` may carry `draft_pr`**, since any other step opens no pull request. The loader refuses it elsewhere. The step's value freezes onto the Job with the workflow, and nothing applies it yet. `docs/concepts/landing.md`, *Pull request mode*.
 
 **The value lives in settings.json under `features.draftPullRequests`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """

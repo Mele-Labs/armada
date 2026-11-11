@@ -281,7 +281,12 @@ where
             let scope = project.and_then(|id| ScopeId::new(id).ok());
             layers.autonomy = self.autonomy_applying_to(&Repository::carried(Ulid::carried(manifest.id().as_str())))?.layers(scope.as_ref());
         }
-        Ok(config::resolve(&layers))
+        let mut resolved = config::resolve(&layers);
+        // No repository, no autonomy: its pieces are read for one.
+        if repository.is_none() {
+            resolved.autonomy.clear();
+        }
+        Ok(resolved)
     }
 
     /// `get_values`.
