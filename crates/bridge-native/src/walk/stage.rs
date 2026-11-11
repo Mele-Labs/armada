@@ -59,7 +59,8 @@ impl Stage {
                 let records = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
                 let keys = list.read(cx).focus_handle().clone();
-                let jobs = cx.new(|cx| JobsScreen::new(list, None, window, cx));
+                let threads = Some(crate::mock::threads(walk.scenario)?).filter(|threads| !threads.is_empty());
+                let jobs = cx.new(|cx| JobsScreen::new(list, threads, window, cx));
                 let screen = cx.new(|cx| crate::dispatch::DispatchScreen::new(jobs, &records, window, cx));
                 let focus = Focus { keys, within: screen.read(cx).within.clone() };
                 window.focus(&focus.keys, cx);

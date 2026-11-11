@@ -16,7 +16,7 @@ use gpui::{
 };
 use gpui_component::input::{InputEvent, Position, TextareaState};
 
-use super::face::{Chip, Face, Mark, Offered, Part, Reading, Row, Trigger, Wait};
+use super::face::{Face, Mark, Offered, Part, Reading, Row, Trigger, Wait};
 use crate::dropdown::{Dropdown, Entry, Picked};
 use crate::keymap::Act;
 use crate::look::{token, ActiveLook};
@@ -56,7 +56,7 @@ pub(super) struct Menu {
 enum Pop {
     Model,
     Effort,
-    More,
+    Repository,
 }
 
 pub(super) struct Popup {
@@ -69,7 +69,7 @@ pub(super) struct Popup {
 pub(super) struct Anchors {
     pub model: Rc<Cell<Option<Bounds<Pixels>>>>,
     pub effort: Rc<Cell<Option<Bounds<Pixels>>>>,
-    pub more: Rc<Cell<Option<Bounds<Pixels>>>>,
+    pub repository: Rc<Cell<Option<Bounds<Pixels>>>>,
 }
 
 pub struct DispatchSheet {
@@ -101,8 +101,6 @@ pub struct DispatchSheet {
     pub(super) frame: FocusHandle,
     pub(super) row: FocusHandle,
     pub(super) parts: [FocusHandle; 4],
-    /// The chip the row's arrow keys stand on.
-    pub(super) rover: usize,
 }
 
 impl Focusable for DispatchSheet {
@@ -141,7 +139,6 @@ impl DispatchSheet {
             frame: cx.focus_handle(),
             row: cx.focus_handle(),
             parts: [cx.focus_handle(), cx.focus_handle(), cx.focus_handle(), cx.focus_handle()],
-            rover: 0,
         }
     }
 
@@ -350,11 +347,12 @@ impl DispatchSheet {
         cx.notify();
     }
 
-    /// No repository stands: the frame takes the call hue and the row the keys until one is picked.
+    /// No repository stands: the picker takes the call hue and its list opens until one is picked.
     fn ask(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.asking = true;
         let row = self.row.clone();
         window.focus(&row, cx);
+        self.open_repositories(window, cx);
         cx.notify();
     }
 
@@ -453,10 +451,6 @@ impl DispatchSheet {
         cx.notify();
     }
 
-    fn all_chips(&self) -> Vec<Chip> {
-        self.face.chips.iter().chain(&self.face.more).cloned().collect()
-    }
-
     // -- keys ----------------------------------------------------------------------------------------
 
     pub(super) fn on_act(&mut self, key: &Act, window: &mut Window, cx: &mut Context<Self>) {
@@ -524,15 +518,7 @@ impl DispatchSheet {
                 }
             }
             "enter" if plain && !mods.shift && in_request => self.act(window, cx),
-            "left" | "right" if plain && self.row.is_focused(window) => {
-                let len = self.all_chips().len().max(1);
-                self.rover = if key == "right" { (self.rover + 1) % len } else { (self.rover + len - 1) % len };
-            }
-            "enter" | "space" if plain && self.row.is_focused(window) => {
-                if let Some(chip) = self.all_chips().get(self.rover).cloned() {
-                    self.pick(chip.name, window, cx);
-                }
-            }
+            "enter" | "space" | "down" if plain && self.row.is_focused(window) => self.open_repositories(window, cx),
             _ => return,
         }
         cx.stop_propagation();
@@ -568,7 +554,7 @@ impl DispatchSheet {
         match kind {
             Pop::Model => self.model = id.strip_prefix("model:").filter(|one| !one.is_empty()).map(|one| one.to_string().into()),
             Pop::Effort => self.effort = id.strip_prefix("effort:").filter(|one| !one.is_empty()).map(|one| one.to_string().into()),
-            Pop::More => {
+            Pop::Repository => {
                 if let Some(name) = id.strip_prefix("repo:") {
                     self.pick(name.to_string().into(), window, cx);
                 }
@@ -599,13 +585,23 @@ impl DispatchSheet {
         self.open_pop(Pop::Effort, from, "Effort", entries, window, cx);
     }
 
-    pub(super) fn open_more(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(from) = self.at.more.get() else { return };
-        let mut entries = vec![Entry::Search { label: "Find a repository", to_rule: false }];
-        for chip in &self.face.more {
-            entries.push(Entry::Choice { id: id_of(format!("repo:{}", chip.name)), label: chip.name.clone(), on: chip.mark == Mark::Chosen });
+    /// The repository picker's list: every repository, the first nine with their ⌥ keys, and a search
+    /// over them once there are more than nine.
+    pub(super) fn open_repositories(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(from) = self.at.repository.get() else { return };
+        let mut entries = Vec::new();
+        if !self.face.more.is_empty() {
+            entries.push(Entry::Search { label: "Find a repository", to_rule: false });
         }
-        self.open_pop(Pop::More, from, "More repositories", entries, window, cx);
+        for chip in self.face.chips.iter().chain(&self.face.more) {
+            let row = crate::dropdown::Row::new(id_of(format!("repo:{}", chip.name)), chip.name.clone()).ticked(chip.mark == Mark::Chosen);
+            let row = match chip.key.and_then(|n| crate::keymap::shown_digit("dispatch_repository", n)) {
+                Some(key) => row.key(key),
+                None => row,
+            };
+            entries.push(Entry::Row(row));
+        }
+        self.open_pop(Pop::Repository, from, "Repository", entries, window, cx);
     }
 
     // -- the wait sentence ------------------------------------------------------------------------------

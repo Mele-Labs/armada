@@ -167,8 +167,69 @@ const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static 
     Step { say, verb, target: Target { role, name } }
 }
 
+/// The hand off marks, played alone and in today's walk.
+static HANDOFF: [Step; 9] = [
+        step("A Job handing off to a new one turns a ring before its state until the new one is up", Verb::Look, "img", "Handing off"),
+        step("Its tooltip says so", Verb::Hover, "img", "Handing off"),
+        step("A Job that took an earlier one's place carries a mark beside it; the earlier Job has no row of its own", Verb::Look, "button", "Earlier Job"),
+        step("A press on the mark opens the earlier Job", Verb::Press, "button", "Earlier Job"),
+        step("It has ended, so it has no box to write in; the row stays lit, since it stands for both", Verb::Absent("button", "Send"), "row", "Upgrade the router"),
+        press_on("A press on the row opens the Job itself, with the keys in its box", "row", "Upgrade the router", "button", "Send"),
+        step("Esc gives the keys back to the list", Verb::Key("escape"), "row", "Upgrade the router"),
+        step("H on the row opens the earlier Job from the keys", Verb::Key("h"), "row", "Upgrade the router"),
+        step("The earlier Job is open again: no box", Verb::Absent("button", "Send"), "button", "Earlier Job"),
+];
+
+/// One walk for the changes waiting on the owner, each part on a screen built again, so he walks
+/// them in one window rather than five.
+static TODAY_PARTS: &[&[Step]] = &[
+    &[fresh("Hand off marks: the ring on a Job handing off, and the earlier Job's mark beside the state", "heading", "armada")],
+    &HANDOFF,
+    &[fresh("The merge strip on Fleet's live view: main stays put at the left, and the pull requests scroll behind it", "region", "Merge queue")],
+    &strip_marks::LIVE,
+    &[fresh("Usage rings and Compact on Fleet's live answers", "heading", "armada")],
+    &strip_marks::PLAN,
+    &[fresh("The build switcher on Fleet's report", "heading", "armada")],
+    &title_bar::BUILD_LIVE,
+    &[fresh("The dispatch sheet", "heading", "armada")],
+    &dispatch::STEPS,
+];
+
+const fn total(parts: &[&[Step]]) -> usize {
+    let (mut at, mut sum) = (0, 0);
+    while at < parts.len() {
+        sum += parts[at].len();
+        at += 1;
+    }
+    sum
+}
+
+const fn joined<const N: usize>(parts: &[&[Step]]) -> [Step; N] {
+    let mut out = [parts[0][0]; N];
+    let (mut part, mut at) = (0, 0);
+    while part < parts.len() {
+        let mut one = 0;
+        while one < parts[part].len() {
+            out[at] = parts[part][one];
+            at += 1;
+            one += 1;
+        }
+        part += 1;
+    }
+    out
+}
+
+static TODAY: [Step; total(TODAY_PARTS)] = joined(TODAY_PARTS);
+
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
+    Walk {
+        name: "native-today",
+        title: "Native changes waiting on you",
+        screen: Screen::All,
+        scenario: "jobs-handoff",
+        steps: &TODAY,
+    },
     Walk {
     name: "jobs-list",
     title: "Jobs list",
@@ -213,17 +274,7 @@ pub static WALKS: &[Walk] = &[
         title: "Hand off marks",
         screen: Screen::Marks,
         scenario: "jobs-handoff",
-        steps: &[
-            step("A Job handing off to a new one turns a ring before its state until the new one is up", Verb::Look, "img", "Handing off"),
-            step("Its tooltip says so", Verb::Hover, "img", "Handing off"),
-            step("A Job that took an earlier one's place carries a mark beside it; the earlier Job has no row of its own", Verb::Look, "button", "Earlier Job"),
-            step("A press on the mark opens the earlier Job", Verb::Press, "button", "Earlier Job"),
-            step("It has ended, so it has no box to write in; the row stays lit, since it stands for both", Verb::Absent("button", "Send"), "row", "Upgrade the router"),
-            press_on("A press on the row opens the Job itself, with the keys in its box", "row", "Upgrade the router", "button", "Send"),
-            step("Esc gives the keys back to the list", Verb::Key("escape"), "row", "Upgrade the router"),
-            step("H on the row opens the earlier Job from the keys", Verb::Key("h"), "row", "Upgrade the router"),
-            step("The earlier Job is open again: no box", Verb::Absent("button", "Send"), "button", "Earlier Job"),
-        ],
+        steps: &HANDOFF,
     },
     Walk {
         name: "strip-marks",
