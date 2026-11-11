@@ -472,6 +472,75 @@
      },
      "at": "2026-11-09T14:10:00Z"
     }
+   ],
+   "judge_readings": [
+    {
+     "id": "reading-sub-1",
+     "artifact": {
+      "kind": "subagent",
+      "id": "agent-1",
+      "title": "Find every reader of mergeLineTone"
+     },
+     "prompt": "",
+     "state": "done",
+     "asked_at": "2026-11-09T13:50:00Z",
+     "finished_at": "2026-11-09T13:51:10Z",
+     "read": false,
+     "notes": [
+      {
+       "id": "n1",
+       "claim": "The search skipped the stories folder, where two readers live",
+       "where": "packages/components/src/stories/MergeLine.stories.tsx:12"
+      },
+      {
+       "id": "n2",
+       "claim": "It reports the Pocket chip as a reader, but Pocket reads its own tone",
+       "where": "apps/pocket/src/merge.ts:30"
+      }
+     ]
+    },
+    {
+     "id": "reading-file-1",
+     "artifact": {
+      "kind": "file",
+      "id": "/work/slots/slot-3/apps/desktop/src/renderer/src/chip.tsx",
+      "title": "chip.tsx"
+     },
+     "prompt": "the amber only shows while the branch is behind",
+     "state": "done",
+     "asked_at": "2026-11-09T13:52:00Z",
+     "finished_at": "2026-11-09T13:53:00Z",
+     "read": true,
+     "notes": []
+    },
+    {
+     "id": "reading-issue-1",
+     "artifact": {
+      "kind": "issue",
+      "id": "3290",
+      "title": "Merge line freshness chip stays green when stale"
+     },
+     "prompt": "",
+     "state": "reading",
+     "asked_at": "2026-11-09T13:54:00Z",
+     "read": false,
+     "notes": []
+    },
+    {
+     "id": "reading-bg-1",
+     "artifact": {
+      "kind": "command",
+      "id": "bg-1",
+      "title": "Watch the unit tests"
+     },
+     "prompt": "",
+     "state": "failed",
+     "asked_at": "2026-11-09T13:55:00Z",
+     "finished_at": "2026-11-09T13:55:20Z",
+     "failed": "The command's output was cut before the judge could read it",
+     "read": false,
+     "notes": []
+    }
    ]
   },
   {

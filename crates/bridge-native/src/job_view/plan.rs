@@ -637,7 +637,7 @@ impl JobView {
         if noting {
             column = column.children(self.box_of(key, Mode::Note, "Note", look, cx));
         }
-        let row = row.child(self.judge_press(ix, key, version, reading, page, look, cx));
+        let row = row.child(self.judge_press(ix, key, super::judge::plan_artifact(version), reading, page, look, cx));
         column
             .child(labelled(row.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers"))
             .into_any_element()

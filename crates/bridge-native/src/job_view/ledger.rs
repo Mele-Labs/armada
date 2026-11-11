@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use chrono::Local;
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
-use ipc::{AttachmentState, JobState, SessionRow, ThreadItem, ToolSubagent, ToolSubagentState, TouchAct, WaitingActKind};
+use ipc::{AttachmentState, JobState, JudgeArtifact, JudgeKind, JudgeState, SessionRow, ThreadItem, ToolSubagent, ToolSubagentState, TouchAct, WaitingActKind};
 
 use super::rows::{age, clock, glyph, mono, tip, Size};
 use super::JobView;
@@ -102,6 +102,31 @@ fn hue(kind: &str) -> Token {
         "command" => token::TOOL_RUN,
         _ => token::FG_MUTED,
     }
+}
+
+/// What a judge reads in a row, from its key and group (`artifactOfRow`). None for a row with nothing to
+/// read: a linked Job, a closed item, a link, a studio.
+fn judged_of(key: &str, title: &str, group: &str) -> Option<JudgeArtifact> {
+    let (prefix, id) = key.split_once(':')?;
+    let kind = match prefix {
+        "pr" => JudgeKind::PullRequest,
+        "commit" => JudgeKind::Commit,
+        "artifact" => match group {
+            "page" => JudgeKind::Page,
+            "file" => JudgeKind::File,
+            "doc" => JudgeKind::Doc,
+            _ => return None,
+        },
+        "touched" => JudgeKind::File,
+        "sketch" => JudgeKind::Sketch,
+        "ran" | "bash" | "background" => JudgeKind::Command,
+        "subagent" => JudgeKind::Subagent,
+        "issue" => JudgeKind::Issue,
+        "note" => JudgeKind::Note,
+        _ => return None,
+    };
+    let title = if kind == JudgeKind::PullRequest { format!("#{id}") } else { title.to_string() };
+    Some(JudgeArtifact { kind, id: id.to_string(), title })
 }
 
 /// The subagent a ledger row names, as the thread's Agent call would carry it, for its sheet.
@@ -211,7 +236,7 @@ impl JobView {
         if lines.is_empty() {
             return None;
         }
-        Some(labelled(div().id("pane-subagents").flex().flex_col().children(self.ledger_rows(lines, look, cx)), Role::List, "Subagents").into_any_element())
+        Some(labelled(div().id("pane-subagents").flex().flex_col().children(self.ledger_rows(lines, "subagent", look, cx)), Role::List, "Subagents").into_any_element())
     }
 
     /// The Ledger: everything attached to the Job, by kind (`LedgerBody`). A kind with nothing draws no heading;
@@ -232,7 +257,18 @@ impl JobView {
         let all = self.panes.commands_all.contains(id);
         let mut lines = group.lines;
         if capped && !all {
-            lines.truncate(COMMANDS_SHOWN);
+            // A row a judge left notes under is drawn past the cap, so the notes stand where the reading leads.
+            let record = self.record(id, cx);
+            let noted = |line: &Line| {
+                judged_of(&line.key, &line.title, group.id)
+                    .and_then(|artifact| record.and_then(|record| super::judge::reading_of(record, artifact.kind, &artifact.id)))
+                    .is_some_and(|reading| reading.state == JudgeState::Done && !reading.notes.is_empty())
+            };
+            let mut at = 0;
+            lines.retain(|line| {
+                at += 1;
+                at <= COMMANDS_SHOWN || noted(line)
+            });
         }
         let toggle = capped.then(|| {
             let job = id.clone();
@@ -281,7 +317,7 @@ impl JobView {
                         .text_color(look.color(token::FG_SUBTLE))
                         .child(group.label),
                 )
-                .child(div().flex().flex_col().children(self.ledger_rows(lines, look, cx)))
+                .child(div().flex().flex_col().children(self.ledger_rows(lines, group.id, look, cx)))
                 .children(toggle),
             Role::Group,
             group.label,
@@ -642,12 +678,31 @@ impl JobView {
         );
     }
 
-    /// Rows one under another, a hairline between them.
-    pub(super) fn ledger_rows(&self, lines: Vec<Line>, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
-        lines.into_iter().enumerate().map(|(at, line)| self.ledger_row(line, at == 0, look, cx)).collect()
+    /// Rows one under another, a hairline between them. `group` says what a judge would read in each.
+    pub(super) fn ledger_rows(&self, lines: Vec<Line>, group: &str, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+        lines.into_iter().enumerate().map(|(at, line)| self.ledger_row(line, group, at == 0, look, cx)).collect()
     }
 
-    fn ledger_row(&self, line: Line, first: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// A row's Judge, and what the last reading of it found, drawn under the row (`JudgeRowNotes`), with
+    /// what Fleet said where it refused.
+    fn row_judge(&self, line: &Line, group: &str, look: &Look, cx: &Context<Self>) -> Option<(AnyElement, Option<AnyElement>)> {
+        let artifact = judged_of(&line.key, &line.title, group)?;
+        let job = self.shown.clone()?;
+        let page = self.pages.get(&job)?;
+        let reading = self.record(&job, cx).and_then(|record| super::judge::reading_of(record, artifact.kind, &artifact.id));
+        let key = format!("ledger:{}", line.key);
+        let press = self.judge_press(super::acts::SHEET, &key, artifact, reading, page, look, cx);
+        let notes = reading
+            .and_then(|reading| super::judge::Pinned::whole_job(super::acts::SHEET, &key, reading))
+            .and_then(|at| self.notes_list(&at, at.whole(), "Notes from the judge".to_string(), page, look, cx));
+        let refused = page.cards.said.get(&key).map(|why| super::acts::refusal(look, &key, why.clone()));
+        let under = (notes.is_some() || refused.is_some())
+            .then(|| div().flex().flex_col().gap(look.length(token::SPACE_2)).pl(look.length(token::SPACE_2) * 2. + look.length(token::SPACE_3)).pr(look.length(token::SPACE_2)).pb(look.length(token::SPACE_2)).children(notes).children(refused).into_any_element());
+        Some((press, under))
+    }
+
+    fn ledger_row(&self, line: Line, group: &str, first: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let judged = self.row_judge(&line, group, look, cx);
         let ink = look.color(hue(line.kind));
         let chip = |words: SharedString| div().flex_none().px(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).child(words);
         let sub = line.sub.map(|sub| {
@@ -758,13 +813,15 @@ impl JobView {
                 None => place.into_any_element(),
             }
         });
+        // Every row keeps its act column: Reopen on a closed item, else the Judge where there is something to read, else empty.
+        let (press, under) = judged.map_or((None, None), |(press, under)| (Some(press), under));
+        let act = act.or(press).unwrap_or_else(|| div().flex_none().size(look.length(token::H_CONTROL_SM)).into_any_element());
         div()
             .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_1))
+            .flex_col()
             .when(!first, |row| row.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
-            .child(main)
-            .children(act)
+            .child(div().flex().items_center().gap(look.length(token::SPACE_1)).child(main).child(act))
+            .children(under)
             .into_any_element()
     }
 }

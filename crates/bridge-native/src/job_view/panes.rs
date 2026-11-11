@@ -288,7 +288,11 @@ impl JobView {
                 self.want_found(&id, window, cx);
             }
             Some(super::side::Zone::Judge) => self.keep_judge(window, cx),
-            Some(super::side::Zone::Ledger) => self.forget_reopened(&id, cx),
+            Some(super::side::Zone::Ledger) => {
+                self.forget_reopened(&id, cx);
+                self.judge_read(&id, cx);
+            }
+            Some(super::side::Zone::Subagents) => self.judge_read(&id, cx),
             _ => {}
         }
     }
