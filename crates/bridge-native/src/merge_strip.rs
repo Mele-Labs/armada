@@ -39,7 +39,7 @@ use crate::inspect::{self, Fact, Spec, State, Width};
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
-use crate::titlebar::parts::{glyph, mono, no_drag, small, tip, Btn, Weight};
+use crate::titlebar::parts::{glyph, mono, small, tip, Btn, Weight};
 use words::{check_of, commits, hue_of, is_queued, reading_of, read_said, review_said, span_said, PullState, MERGE_BY_HAND};
 
 /// How long the stacked line rests on one repository before it moves to the next.
@@ -83,8 +83,6 @@ pub struct Strip {
 /// What a press on the strip asks of the rest of the app. The wiring sends these; the walk reads none.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Asked {
-    /// The Merge line page.
-    MergeLine,
     /// A pull request, in the side panel.
     OpenPull { root: String, number: u64 },
     OpenJob(SharedString),
@@ -187,6 +185,9 @@ pub struct MergeStrip {
     fix: Option<fix::FixDialog>,
     /// Fleet, the Jobs and the title bar, on a live Fleet; none on mock Jobs.
     source: Option<live::Source>,
+    /// Fleet's words for an act it refused, by the chip or light it came from (`pull:<root>#<n>`, `main:<root>`),
+    /// drawn there until that act is asked again. Toasts take them once this app draws toasts.
+    refused: HashMap<SharedString, SharedString>,
     _rotate: Task<()>,
     _focus_in: Subscription,
     _focus_out: Subscription,
@@ -245,6 +246,7 @@ impl MergeStrip {
             menu: None,
             fix: None,
             source,
+            refused: HashMap::new(),
             _rotate: rotate,
             _focus_in: focus_in,
             _focus_out: focus_out,
@@ -735,6 +737,7 @@ impl MergeStrip {
             }))
             .child(if calling { pulse(dot_mark, SharedString::from(format!("calling-{id}")), look) } else { dot_mark.into_any_element() })
             .child(format!("#{number}"))
+            .children(self.refused_mark(&format!("pull:{}#{number}", self.data.lines[line].view.root), &id, look))
             .children(dot.pull.merge_by_hand.then(|| {
                 labelled(
                     div()
@@ -769,6 +772,19 @@ impl MergeStrip {
                 this.open_chip_menu(line, number, at, true, window, cx);
             }));
         labelled(body, Role::Button, name).into_any_element()
+    }
+
+    /// A red mark where Fleet refused an act asked from here, Fleet's words its tooltip.
+    fn refused_mark(&self, key: &str, id: &SharedString, look: &Look) -> Option<AnyElement> {
+        let said = self.refused.get(key)?.clone();
+        Some(
+            labelled(
+                div().id(SharedString::from(format!("refused-{id}"))).flex_none().child(glyph("circle-x", look.length(token::SPACE_3), look.color(token::STATUS_COMPLETED_FAILED))).tooltip(tip(said.clone())),
+                Role::Image,
+                said,
+            )
+            .into_any_element(),
+        )
     }
 
     /// Main's light. Green with the forge answering is a picture; red or a held checkout is a button
@@ -821,6 +837,7 @@ impl MergeStrip {
                     said,
                 )
             }))
+            .children(self.refused_mark(&format!("main:{}", one.view.root), &id, look))
             .child(name);
         if !red && held.is_none() {
             // A picture: its tooltip is the sentence, then how old the reading is.
@@ -1358,7 +1375,6 @@ impl Render for MergeStrip {
         }
 
         let grouped = shown.len() > 1;
-        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let row = if self.data.loading {
             self.skeleton(look)
         } else if grouped {
@@ -1367,31 +1383,6 @@ impl Render for MergeStrip {
         } else {
             self.row_of(shown[0], false, cx)
         };
-        let merge = labelled(
-            no_drag(
-                div()
-                    .id("merge-line")
-                    .flex_none()
-                    .size(look.length(token::H_CONTROL))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(look.length(token::RADIUS_LG))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(gpui::transparent_black())
-                    .text_color(look.color(token::FG_SUBTLE))
-                    .cursor_pointer()
-                    .focusable()
-                    .tab_stop(true)
-                    .focus_visible(move |style| style.border_color(ring))
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
-                    .child(glyph("git-merge", look.length(token::SPACE_4), look.color(token::FG_SUBTLE)))
-                    .tooltip(tip("Merge line"))
-                    .on_click(cx.listener(|_, _, _, cx| cx.emit(Asked::MergeLine))),
-            ),
-            Role::Button,
-            "Merge line",
-        );
         let card = self.open_card(cx);
         labelled(
             div()
@@ -1432,7 +1423,6 @@ impl Render for MergeStrip {
                         .min_h(look.length(token::H_CONTROL) + look.length(token::SPACE_2))
                         .px(look.length(token::SPACE_4))
                         .text_color(look.color(token::FG_SUBTLE))
-                        .child(merge)
                         .child(row),
                 )
                 .children(card)

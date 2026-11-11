@@ -370,6 +370,33 @@ fn describe(state: &LinkState) -> Note {
     }
 }
 
+/// How old the merge line kept on disk may be and still draw on open (`remembered.ts`).
+const MERGE_LINES_FRESH: chrono::Duration = chrono::Duration::minutes(5);
+
+fn merge_lines_file() -> Option<std::path::PathBuf> {
+    crate::jobs::deck_file().map(|deck| deck.with_file_name("native-merge-lines"))
+}
+
+/// The line as Fleet last said it, with when, so the next open can draw it before Fleet answers.
+fn keep_merge_lines(lines: &[ipc::MergeLineView]) {
+    let Some(path) = merge_lines_file() else { return };
+    let kept = ipc::encode(&ipc::MergeLineViews { lines: lines.to_vec() })
+        .map_err(|why| format!("{why:?}"))
+        .and_then(|json| std::fs::write(&path, format!("{}\n{json}", chrono::Utc::now().to_rfc3339())).map_err(|why| why.to_string()));
+    if let Err(why) = kept {
+        Note::warn("the merge line was not kept").field("why", why).emit();
+    }
+}
+
+/// The kept line, where it was kept within [`MERGE_LINES_FRESH`] of `now`.
+fn kept_merge_lines(now: chrono::DateTime<chrono::Utc>) -> Option<Vec<ipc::MergeLineView>> {
+    let text = std::fs::read_to_string(merge_lines_file()?).ok()?;
+    let (at, json) = text.split_once('\n')?;
+    let at = chrono::DateTime::parse_from_rfc3339(at).ok()?;
+    (now.signed_duration_since(at) <= MERGE_LINES_FRESH).then_some(())?;
+    ipc::decode::<ipc::MergeLineViews>("MergeLineViews", json.as_bytes()).ok().map(|read| read.lines)
+}
+
 /// What began to wait on him, since the last time this was said. Said once for each batch of events.
 pub struct Arrived(pub Vec<CallArrival>);
 
@@ -568,7 +595,13 @@ impl FleetConnection {
                     batch.push(more);
                 }
                 let folded = this.update(cx, |this, cx| {
+                    let lines_were = this.held.merge_lines.clone();
                     let lines = this.held.fold(batch);
+                    if this.held.merge_lines != lines_were {
+                        if let Some(read) = &this.held.merge_lines {
+                            keep_merge_lines(read);
+                        }
+                    }
                     // A change that reached too far back, or a gap in the stream: read those again.
                     for id in this.held.stale_threads() {
                         if let Some(held) = this.held.threads.get_mut(&id) {
@@ -589,8 +622,11 @@ impl FleetConnection {
                 }
             }
         });
+        let mut held = Held::new();
+        // The strip draws at once on open from the last line read, as Electron's does, while it is fresh.
+        held.merge_lines = kept_merge_lines(chrono::Utc::now());
         FleetConnection {
-            held: Held::new(),
+            held,
             reading: BTreeSet::new(),
             earlier: BTreeSet::new(),
             failed: BTreeSet::new(),

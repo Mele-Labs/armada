@@ -20,11 +20,12 @@ pub(super) const FILES: &str = "Conflicts with Quiet the write-clash notices · 
 pub(super) const PAUSED: &str = "Conflicts with Native Bridge foundation · crates/bridge-native/src/main.rs";
 
 /// The strip on Fleet's live view: each scene is Fleet's answer folded and read as the live app reads it.
-pub static LIVE: [Step; 4] = [
+pub static LIVE: [Step; 5] = [
     marks("Fleet's view as the live app reads it: the open Job's repository alone, the pull request it holds ahead of the open ones", "strip-live", "button", READY),
+    marks("An act Fleet refused marks the chip it came from in red, Fleet's words its tooltip, until it is asked again", "strip-live-refused", "img", "Fleet answered 502"),
     marks("A repository picked in the title bar: its line only", "strip-live-picked", "button", "#412 Dark mode for the settings page · web/dark-mode · In the merge queue, ready to merge, place 1"),
     marks("Connected, and Fleet has not answered for the line yet: placeholder chips", "strip-live-loading", "region", "Merge queue"),
-    marks("Fleet stopped: the line it last said stays drawn, as Electron keeps it", "strip-live-down", "region", "Merge queue"),
+    marks("Fleet stopped, with the same Job open: the title bar says so, and the line Fleet last said stays drawn, as Electron keeps it", "strip-live-down", "button", READY),
 ];
 
 pub static STEPS: [Step; 41] = [

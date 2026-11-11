@@ -50,8 +50,6 @@ impl MergeStrip {
         let held = source.fleet.read(cx).held();
         let port = held.port();
         match asked {
-            // The Merge line page is not drawn in this app yet.
-            Asked::MergeLine => Note::info("the merge line page is not in this app yet").emit(),
             // Electron opens its side panel; until this app has one, the forge's page.
             Asked::OpenPull { root, number } => {
                 let address = held.merge_lines.iter().flatten().filter(|line| line.root == root).flat_map(|line| &line.pulls).find(|view| view.pull.number == number).map(|view| view.pull.url.clone());
@@ -63,10 +61,13 @@ impl MergeStrip {
                 let list = source.list.clone();
                 list.update(cx, |list, cx| list.open(id, cx));
             }
-            Asked::RefreshPull { root, number } => match manifest_of(held.repositories.as_deref().unwrap_or_default(), &root) {
-                Some(manifest) => ask(port, format!("/pull_requests/{}/{number}/refresh", crate::link::percent_encoded(&manifest)), None, cx),
-                None => Note::warn("a pull request was not refreshed: its repository has no Manifest").field("root", root).emit(),
-            },
+            Asked::RefreshPull { root, number } => {
+                let key = format!("pull:{root}#{number}");
+                match manifest_of(held.repositories.as_deref().unwrap_or_default(), &root) {
+                    Some(manifest) => self.ask(key, port, format!("/pull_requests/{}/{number}/refresh", crate::link::percent_encoded(&manifest)), None, cx),
+                    None => self.refuse(key, "This repository has no Manifest, so Fleet cannot refresh its pull requests.".into(), cx),
+                }
+            }
             // Take over is the same new Job, as Electron's is: it never asks Fleet for the claim.
             Asked::DispatchFix { root, request } | Asked::TakeOver { root, request } => {
                 let repository = held.repositories.as_deref().unwrap_or_default().iter().find(|one| one.root == root).map(name_of);
@@ -74,18 +75,59 @@ impl MergeStrip {
                 crate::dispatch::screen::open_drafted(request, repository, cx);
                 cx.notify();
             }
-            Asked::SendBack { session, message, .. } => {
+            Asked::SendBack { root, session, message } => {
                 let body = ipc::encode(&ipc::SendSessionMessageBody {
                     message: ipc::SendSessionMessage { session_id: ipc::SessionId::carried(session.to_string()), text: message, attachments: Vec::new(), mentions: Vec::new() },
                     aim: None,
                 })
                 .map_err(|why| format!("{why:?}"));
+                let key = format!("main:{root}");
                 match body {
-                    Ok(body) => ask(port, "/sessions/message".into(), Some(body), cx),
-                    Err(why) => Note::warn("the red main's work was not sent back").field("why", why).emit(),
+                    Ok(body) => self.ask(key, port, "/sessions/message".into(), Some(body), cx),
+                    Err(why) => self.refuse(key, why, cx),
                 }
             }
         }
+    }
+}
+
+impl MergeStrip {
+    /// Ask Fleet off the main thread. A refusal is drawn on the chip or light `key` names, in Fleet's words,
+    /// where Electron raises a toast; asking again clears it.
+    fn ask(&mut self, key: String, port: Option<u16>, path: String, body: Option<String>, cx: &mut Context<Self>) {
+        let key = SharedString::from(key);
+        self.refused.remove(&key);
+        cx.notify();
+        let Some(port) = port else { return self.refuse(key.to_string(), "Fleet is not connected.".into(), cx) };
+        cx.spawn(async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let (status, bytes) = runtime.block_on(async {
+                        match body {
+                            Some(body) => crate::transport::post(port, &path, body).await,
+                            None => crate::transport::post_bare(port, &path).await,
+                        }
+                    })?;
+                    if (200..300).contains(&status) {
+                        Ok(())
+                    } else {
+                        Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
+                    }
+                })
+                .await;
+            if let Err(why) = answer {
+                let _ = this.update(cx, |strip, cx| strip.refuse(key.to_string(), why, cx));
+            }
+        })
+        .detach();
+    }
+
+    fn refuse(&mut self, key: String, why: String, cx: &mut Context<Self>) {
+        Note::warn("Fleet refused the strip's act").field("on", key.clone()).field("why", why.clone()).emit();
+        self.refused.insert(key.into(), why.into());
+        cx.notify();
     }
 }
 
@@ -147,31 +189,6 @@ fn manifest_of(served: &[RepositorySummary], root: &str) -> Option<String> {
 /// The name the dispatch sheet's chips carry, as the title bar names a repository.
 fn name_of(one: &RepositorySummary) -> String {
     one.manifest.as_ref().map_or_else(|| one.root.rsplit('/').find(|part| !part.is_empty()).unwrap_or(&one.root).to_string(), |manifest| manifest.repository.clone())
-}
-
-/// Ask Fleet off the main thread; a refusal is noted, as Electron's goes to a toast this app does not draw yet.
-fn ask(port: Option<u16>, path: String, body: Option<String>, cx: &mut App) {
-    let Some(port) = port else {
-        Note::warn("not sent: no Fleet is connected").field("route", path).emit();
-        return;
-    };
-    cx.background_executor()
-        .spawn(async move {
-            let answer = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string()).and_then(|runtime| {
-                runtime.block_on(async {
-                    match body {
-                        Some(body) => crate::transport::post(port, &path, body).await,
-                        None => crate::transport::post_bare(port, &path).await,
-                    }
-                })
-            });
-            match answer {
-                Ok((status, _)) if (200..300).contains(&status) => {}
-                Ok((status, bytes)) => Note::warn("Fleet refused the strip's act").field("route", path).field("status", status as i64).field("said", String::from_utf8_lossy(&bytes).to_string()).emit(),
-                Err(why) => Note::warn("the strip's act did not reach Fleet").field("route", path).field("why", why).emit(),
-            }
-        })
-        .detach();
 }
 
 /// A walk's scene: Fleet's answers as the live app folds them, and the strip it reads of them. `lines` is

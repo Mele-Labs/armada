@@ -189,21 +189,29 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
             Strip { lines, on_all: true, ..rest() }
         }
         // Fleet's answers through the live app's own reading of them (`live.rs`).
-        "strip-live" | "strip-live-picked" | "strip-live-loading" | "strip-live-down" => {
+        "strip-live" | "strip-live-refused" | "strip-live-picked" | "strip-live-loading" | "strip-live-down" => {
             let mut lines = vec![line(armada(GREEN, "", 40, None)).view];
             lines.extend(others().into_iter().map(|line| line.view));
+            // The title bar's Fleet dot says what the strip's Fleet is.
+            crate::titlebar::scenes::apply(if name == "strip-live-down" { "fleet-down" } else { "fleet-running" }, cx)?;
             match name {
                 // The open Job holds #3388: its repository's row alone, its chip ahead of the open ones.
-                "strip-live" => super::live::walked(Some(lines), None, Some("mock-01"), false),
+                "strip-live" | "strip-live-refused" => super::live::walked(Some(lines), None, Some("mock-01"), false),
                 "strip-live-picked" => super::live::walked(Some(lines), Some(vec!["/Users/user/Development/sample-web".into()]), None, false),
                 "strip-live-loading" => super::live::walked(None, None, None, false),
-                _ => super::live::walked(Some(lines), None, None, true),
+                // The same open Job as the first, after Fleet stopped.
+                _ => super::live::walked(Some(lines), None, Some("mock-01"), true),
             }
         }
         other => return Err(format!("no merge strip scene named {other}")),
     };
     strip.update(cx, |strip: &mut MergeStrip, cx| {
         strip.jump(data, cx);
+        strip.refused.clear();
+        if name == "strip-live-refused" {
+            // A refresh Fleet refused, where its answer could not be read for words.
+            strip.refused.insert("pull:/Users/user/Development/armada#3388".into(), "Fleet answered 502".into());
+        }
         if name == "strip-red-taken" || name == "strip-red-elsewhere" {
             strip.show_main(cx);
         }
