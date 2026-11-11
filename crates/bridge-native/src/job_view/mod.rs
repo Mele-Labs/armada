@@ -46,6 +46,7 @@ mod rows;
 mod judge_tab;
 mod report;
 mod sketch_pad;
+mod sketch_read;
 mod report_brief;
 mod side;
 mod tabs;
@@ -288,6 +289,8 @@ pub struct JobView {
     review_rows: review::Rows,
     /// The pictures his messages carried, and the one open over the window.
     pictures: pictures::Pictures,
+    /// The sketch open over the window, read on its own.
+    sketch_reading: Option<sketch_read::Reading>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -387,6 +390,7 @@ impl JobView {
             review_focus: review::Focuses::new(cx),
             review_rows: Rc::new(RefCell::new(HashMap::new())),
             pictures: pictures::Pictures::default(),
+            sketch_reading: None,
             _subscriptions: subscriptions,
         }
     }
@@ -795,6 +799,7 @@ impl Render for JobView {
             .children(self.render_report(window, cx))
             .children(self.render_sketch(window, cx))
             .children(self.render_picture(window, cx))
+            .children(self.render_sketch_reading(window, cx))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {

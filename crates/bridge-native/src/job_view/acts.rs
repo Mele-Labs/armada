@@ -64,6 +64,11 @@ pub(super) struct CardState {
     pub target: Option<String>,
     /// How the person settled a Judge's note, before Fleet's reading says so, by `reading/note`.
     pub judged: HashMap<String, ipc::JudgeNoteHow>,
+    /// The sketch card under the pointer, and the one holding the keys: either plays its steps.
+    pub pointed: Option<String>,
+    pub focused: Option<String>,
+    /// The sketch card playing its steps, and since when.
+    pub playing: Option<(String, std::time::Instant)>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -179,7 +184,7 @@ impl JobView {
         cx.notify();
     }
 
-    fn cards_mut(&mut self) -> Option<&mut CardState> {
+    pub(super) fn cards_mut(&mut self) -> Option<&mut CardState> {
         let id = self.shown.clone()?;
         self.pages.get_mut(&id).map(|page| &mut page.cards)
     }
