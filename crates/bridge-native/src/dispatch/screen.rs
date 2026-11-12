@@ -22,7 +22,6 @@ use super::sheet::{Asked, DispatchSheet};
 use crate::annotate::{self, Layer, Shoot, Toggle};
 use crate::jobs::JobsScreen;
 use crate::keymap::Act;
-use crate::terminal::screen::Cells;
 use crate::terminal::shells::{Place, Start};
 use crate::titlebar::{self, Asked as BarAsked, AskedSink};
 
@@ -280,7 +279,7 @@ impl DispatchScreen {
     fn sheet_asked(&mut self, asked: &Asked, window: &mut Window, cx: &mut Context<Self>) {
         // A terminal Job starts through the shells the window holds, Fleet's or a walk's.
         if let Asked::StartTerminal { title, place, model, effort } = asked {
-            let start = Start { place: place.clone(), title: title.clone(), model: model.clone(), effort: effort.clone(), size: Cells::OPENED };
+            let start = Start { place: place.clone(), title: title.clone(), model: model.clone(), effort: effort.clone(), size: crate::terminal::start::size(cx) };
             self.start_terminal(start, window, cx);
             return;
         }
@@ -309,7 +308,7 @@ impl DispatchScreen {
     fn new_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let here = scope(cx).and_then(|(_, names)| names.first().map(|name| Place::Repository(name.to_string())));
         match here.or_else(|| crate::terminal::start::kept_place(cx)) {
-            Some(place) => self.start_terminal(Start { place, title: None, model: None, effort: None, size: Cells::OPENED }, window, cx),
+            Some(place) => self.start_terminal(Start { place, title: None, model: None, effort: None, size: crate::terminal::start::size(cx) }, window, cx),
             None => {
                 self.refresh_face(window, cx);
                 self.sheet.update(cx, |sheet, cx| sheet.show_terminal(window, cx));

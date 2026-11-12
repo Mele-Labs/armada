@@ -4,6 +4,7 @@
 
 use gpui::{App, Task};
 
+use super::screen::Cells;
 use super::shells::{self, Place, Start, Started};
 
 /// Where the last terminal Job started: `repo:<name>` or `dir:<path>`.
@@ -24,6 +25,20 @@ pub fn keep_place(place: &Place, cx: &mut App) {
         Place::Folder(path) => format!("dir:{path}"),
     };
     crate::drafts::keep(KEEP_PLACE, &kept, cx);
+}
+
+/// The size a terminal pane last measured, so a new Job's first shell opens at the size it will be drawn.
+struct Measured(Cells);
+
+impl gpui::Global for Measured {}
+
+pub(super) fn measured(cells: Cells, cx: &mut App) {
+    cx.set_global(Measured(cells));
+}
+
+/// The first shell's size: the last pane's, else 80 by 24 before any pane is drawn.
+pub fn size(cx: &App) -> Cells {
+    cx.try_global::<Measured>().map_or(Cells::OPENED, |measured| measured.0)
 }
 
 /// Ask for the Job. None where no shells are reachable: no Fleet, and no walk.

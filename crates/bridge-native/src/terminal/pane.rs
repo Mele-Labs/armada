@@ -147,6 +147,7 @@ impl TerminalPane {
     fn fit(&mut self, cells: Cells, cell: Size<Pixels>, cx: &mut Context<Self>) {
         let points = (f32::from(cell.width).round() as u16, f32::from(cell.height).round() as u16);
         let moved = self.screen.resize(cells, points);
+        super::start::measured(cells, cx);
         if !self.asked && self.phase == Phase::Opening {
             self.asked = true;
             self.open(cells, cx);
