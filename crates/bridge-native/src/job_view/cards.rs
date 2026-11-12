@@ -290,9 +290,10 @@ impl JobView {
             .items_center()
             .gap(look.length(token::SPACE_2))
             .text_color(look.color(token::FG_MUTED))
-            .child(glyph(look, "pencil-ruler", Size::Small, look.color(token::FG_MUTED)))
-            .child(super::rows::eyebrow(look, &card.title).text_color(look.color(token::FG_MUTED)))
-            .child(div().id(SharedString::from(format!("pin-mark:{key}"))).child(glyph(look, "bell-ring", Size::Mark, look.color(token::STEP_WAITING))).tooltip(tip("Sketch waiting for approval")))
+            .child(div().flex_none().child(glyph(look, "pencil-ruler", Size::Small, look.color(token::FG_MUTED))))
+            // The title gives way in a narrow thread, so Fold stays inside the card.
+            .child(super::rows::eyebrow(look, &card.title).flex_shrink(1.).min_w_0().truncate().text_color(look.color(token::FG_MUTED)))
+            .child(div().flex_none().id(SharedString::from(format!("pin-mark:{key}"))).child(glyph(look, "bell-ring", Size::Mark, look.color(token::STEP_WAITING))).tooltip(tip("Sketch waiting for approval")))
             .child(div().flex_1())
             .child(self.revision_button(ix, &key, &card.title, revisions, picked, look, cx))
             .child(open)

@@ -141,6 +141,7 @@ The parity check takes each row here as chosen.
 | A sketch or document card's answers in a narrow thread | Approve, Send back and Withdraw stay on one row, small enough to fit | The same buttons at native's control height wrap to a second row, so Withdraw stays inside the card |
 | A judge note's answers in a narrow pane | Send to Job and Dismiss stay on one row at Classic's small button size | The same buttons at native's control height wrap to a second row, so Dismiss stays inside the pane |
 | A System section's note in a narrow pane | The note beside a heading such as Processes wraps a word to a line, and Columns stays at the row's end | The note is one line, cut short, and Columns stays at the row's end |
+| A pinned sketch's head in a narrow thread | The band shrinks and its title wraps beside Revision, open and Fold | The title is one line, cut short, so Fold stays inside the card |
 | The message box's menus in a box under 400px wide | The menus lose their floor and their words truncate to nothing beside the caret | The words are not drawn, and each menu keeps its glyph and caret, so Send stays on the row at native's control sizes |
 
 ## Notifying
