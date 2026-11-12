@@ -51,6 +51,7 @@ impl WalkFleet {
                 text: approved(&self.url, take),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             },
             aim: None,
         };

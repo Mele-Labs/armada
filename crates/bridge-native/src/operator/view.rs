@@ -1478,6 +1478,9 @@ mod tests {
             manifest_id: "01REPO".into(),
             repository: repository.map(String::from),
             said: "Only Slot pool controls writes under apps/cockpit until it pushes".into(),
+            paths: Vec::new(),
+            job: None,
+            until: None,
             at: ipc::Instant::carried("2026-11-11T12:40:00-05:00"),
         };
         assert_eq!(hold_said(&hold(Some("armada"))), "armada: only Slot pool controls writes under apps/cockpit until it pushes");

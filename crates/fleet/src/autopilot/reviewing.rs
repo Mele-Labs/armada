@@ -96,6 +96,7 @@ where
                 text: format!("Re: {}\n{}", held.asked, words),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             })
             .await?;
         self.store()

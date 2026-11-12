@@ -63,6 +63,7 @@ where
             text: text.to_string(),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         };
         let written = match kept {
             Some(kept) => kept,
@@ -72,7 +73,7 @@ where
             }),
         };
         // Built here rather than in the send, so a notice that asks something is kept by its row.
-        let row = self.written_row(session, &written, text.trim(), &[], &[]);
+        let row = self.written_row(session, &written, text.trim(), &[], &[], &[]);
         let notice = store::KeptNotice {
             session_id: session.to_string(),
             row_id: row.id().to_string(),
@@ -108,7 +109,7 @@ where
             return self.fleet_word(session, text, false, None).await;
         }
         let from = SessionVoice::Session { id: FLEET_NAME.to_lowercase(), title: FLEET_NAME.to_string() };
-        let row = self.written_row(session, &Written::Message(from), text.trim(), &[], &[]);
+        let row = self.written_row(session, &Written::Message(from), text.trim(), &[], &[], &[]);
         self.row_put(session, row).await;
         let turn = job_turn(text, text.to_string());
         // Read under the lock a Resume clears the pause in: a Resume that came in meanwhile finds the turn sent.
@@ -127,6 +128,7 @@ where
         text: &str,
         files: &[ipc::SentFile],
         tags: &[ipc::SessionTag],
+        sketches: &[ipc::SentSketch],
     ) -> SessionRow {
         match written {
             Written::Message(from) => SessionRow::Message {
@@ -136,6 +138,7 @@ where
                 text: text.to_string(),
                 files: files.to_vec(),
                 tags: tags.to_vec(),
+                sketches: sketches.to_vec(),
                 notice: None,
                 queued: false,
                 edited_at: None,
@@ -150,6 +153,7 @@ where
                 text: text.to_string(),
                 files: files.to_vec(),
                 tags: tags.to_vec(),
+                sketches: sketches.to_vec(),
                 notice: Some(notice.word().to_string()),
                 queued: false,
                 edited_at: None,
@@ -224,6 +228,7 @@ where
                 text: text.clone(),
                 files: kept.files.clone(),
                 tags: sent.mentions.clone(),
+                sketches: sent.sketches.clone(),
                 instead: instead.clone(),
                 ahead: ahead.clone(),
                 row: None,
@@ -241,7 +246,7 @@ where
                 return self.published_hosted(&id).await;
             }
         }
-        let mut row = self.written_row(&id, &written, &text, &kept.files, &sent.mentions);
+        let mut row = self.written_row(&id, &written, &text, &kept.files, &sent.mentions, &sent.sketches);
         let row_id = row.id().to_string();
         if matches!(written, Written::Message(SessionVoice::You)) {
             let runtime = self.hosts().of(&id);

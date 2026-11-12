@@ -405,6 +405,7 @@ where
                 text: support_brief(&kept.workflow_id, &request, &kept.missing),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             })
             .await;
         if let Err(refused) = sent {
@@ -489,6 +490,7 @@ where
                 text: proposal_brief(&id, &proposed.definition),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             })
             .await;
         let send_failed = sent.err().map(|refused| refused.error().message.clone());

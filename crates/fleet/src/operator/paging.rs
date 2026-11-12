@@ -221,9 +221,9 @@ where
             .unwrap_or_default()
             .into_iter()
             .filter_map(|one| {
-                let OperatorOrderForm::HoldPaths { manifest_id, .. } = OperatorOrderForm::read(&one.form)?;
+                let OperatorOrderForm::HoldPaths { manifest_id, paths, job, until } = OperatorOrderForm::read(&one.form)?;
                 let repository = self.board_repository(&manifest_id);
-                Some(OperatorHold { id: one.n, manifest_id, repository, said: one.said, at: Instant::carried(&one.at) })
+                Some(OperatorHold { id: one.n, manifest_id, repository, said: one.said, paths, job: Some(job), until: Some(until), at: Instant::carried(&one.at) })
             })
             .collect();
         OperatorDigest { landed, handled: OperatorHandled { acts, log: None }, running, coming_up, learned, holds }

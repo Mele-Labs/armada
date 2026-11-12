@@ -149,6 +149,7 @@ fn a_sketch_he_approved_before_there_was_a_plan_closes_nothing_and_one_after_doe
         notice: None,
         queued: false,
         edited_at: None,
+        sketches: Vec::new(),
     };
     let recorded = SessionRow::Plan { id: "p1".into(), at: Instant::carried("2026-11-08T10:00:00.000Z"), version: 1 };
     let before = [approved("m1", "2026-11-08T09:00:00.000Z"), recorded.clone()];
