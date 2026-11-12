@@ -138,3 +138,19 @@ Fleet keeps a markdown file per ISO week under its own home, `operator/journal/<
 
 The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 `OperatorTalk` and its lines are as they were, so the talk reads the same on both sides of it.
+
+## Since 12 Nov 2026: Later until a time, and one ask folded into one item: `OperatorLater.until` and `OperatorTurnItem.also_raised_by`
+
+**Additive only**: one optional field on a body, one optional field on an answer, and one error code; no operation, route or event kind.
+The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `OperatorLater.until` and `OperatorTurnItem.also_raised_by` in `packages/protocol/src/operator-page.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `OperatorLater.until` | Bridge writes | RFC 3339, the instant the item comes back, worked out by Bridge from the choice he pressed. Absent, the local day's end, as before |
+| `OperatorTurnItem.also_raised_by` | Fleet writes | What else raised the same ask, folded into this item, each in a few words for its tooltip, oldest first. Absent where nothing was |
+
+**Refused with nothing changed**: `operator_later` 422 `fleet.operator_later_past` where `until` has passed or does not read as a time.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** No new event: `operator.page_changed` is also sent when a Later runs out, read on Fleet's tick.
