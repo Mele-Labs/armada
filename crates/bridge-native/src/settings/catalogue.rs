@@ -111,7 +111,7 @@ impl SettingsOverlay {
                 }
                 Body::Models => items.extend(self.model_items(entry)),
                 Body::Workflows => items.extend(self.workflow_items(entry, cx)),
-                Body::Mods(None) | Body::ProjectValues | Body::Keyboard | Body::Macs => {}
+                Body::Mods(None) | Body::ProjectValues | Body::Keyboard | Body::Macs | Body::Layout | Body::Time => {}
             }
         }
         items

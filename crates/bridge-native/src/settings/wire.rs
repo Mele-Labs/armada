@@ -340,6 +340,14 @@ impl Wire {
         }
     }
 
+    /// `GET /preferences`: every preference in force.
+    pub fn preferences(&self, cx: &App) -> Task<Result<ipc::Preferences, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(if mock.connected { Ok(mock.preferences.clone()) } else { Err(Refused::said("Fleet is not connected")) });
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/preferences".into()), "Preferences", cx))
+    }
+
     /// `POST /preferences/save` with a preference that is text. Fleet answers with every preference in force.
     pub fn save_preference(&mut self, name: &str, text: String, cx: &App) -> Task<Result<ipc::Preferences, Refused>> {
         if let Wire::Mock(mock) = self {

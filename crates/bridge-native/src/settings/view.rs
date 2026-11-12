@@ -159,6 +159,11 @@ pub fn ghost(look: &Look, id: impl Into<gpui::ElementId>, said: &str, off: bool)
 /// in the half it leaves. Smaller than Classic's Settings switch, which is the default size: the owner's word
 /// (12 Nov), so each row has air above and below its switch.
 pub fn switch_track(look: &Look, on: bool, off: bool) -> Div {
+    switch_said(look, on, off, ("ON", "OFF"))
+}
+
+/// A switch whose half says its own words (`Switch`'s `words`), such as 24H and 12H.
+pub fn switch_said(look: &Look, on: bool, off: bool, (on_word, off_word): (&'static str, &'static str)) -> Div {
     let edge = look.length(token::BORDER_WIDTH);
     let tall = look.length(token::H_BADGE);
     let pad = edge * 2.;
@@ -174,7 +179,7 @@ pub fn switch_track(look: &Look, on: bool, off: bool) -> Div {
         .text_size(look.length(token::TEXT_2XS))
         .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
         .text_color(if lit { look.color(token::FG_INVERSE) } else { look.color(token::FG_MUTED) })
-        .child(if on { "ON" } else { "OFF" });
+        .child(if on { on_word } else { off_word });
     let disc = div()
         .flex_none()
         .size(knob)
@@ -930,6 +935,8 @@ impl SettingsOverlay {
                 cards.extend(self.render_mods(super::mods::Page::Theme, look, window, cx));
             }
             Some(Body::Macs) => cards.extend(self.render_macs(look, window, cx)),
+            Some(Body::Layout) => cards.extend(self.render_layout(look, window, cx)),
+            Some(Body::Time) => cards.push(self.render_time(look, window, cx)),
             Some(Body::Models | Body::Workflows) => {}
             Some(body @ Body::Mods(_)) => cards.extend(super::mods::page_of(body).and_then(|page| self.render_mods(page, look, window, cx))),
             None => {}
@@ -965,6 +972,10 @@ impl SettingsOverlay {
         if self.shown(cx).is_some_and(|one| one.body == Body::Macs) {
             self.read_macs(window, cx);
             self.macs_keys(cx);
+        }
+        if self.shown(cx).is_some_and(|one| matches!(one.body, Body::Layout | Body::Time)) {
+            self.read_prefs(cx);
+            self.prefs_keys(cx);
         }
         let look = cx.look();
         let room = crate::room::of(window, cx);
