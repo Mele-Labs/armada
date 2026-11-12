@@ -334,7 +334,7 @@ where
             (Arrived::Report, Way::ExistingJob, Some(into), _) => self.operator_handed_report(last, manifest, into).await?,
             (Arrived::RedMain, Way::NewJob, _, _) => self.operator_fixed_red(manifest, last).await,
             (Arrived::RedMain, Way::ExistingJob, Some(into), _) => self.operator_gave_red(manifest, last, into).await?,
-            (Arrived::Start, _, _, _) if arrival.is_dispatch() => self.dispatch_sourced(arrival, ruling).await?,
+            (Arrived::Start, _, _, _) if arrival.is_dispatch() => Box::pin(self.dispatch_sourced(arrival, ruling)).await?,
             (Arrived::Start, Way::ExistingJob, Some(into), _) => self.operator_handed_start(arrival, into).await?,
             (Arrived::Note, Way::Link, _, _) => {
                 if !self.note_settled_by_operator(manifest, last).await {

@@ -96,7 +96,7 @@ where
     pub(super) async fn dispatch_started_as_asked(self: &Arc<Self>, id: &str) -> Result<(), String> {
         let Some(dispatch) = self.dispatch_taken(id).await else { return Ok(()) };
         let manifest = dispatch.start.manifest_id.as_str().to_string();
-        match self.dispatch_started(dispatch.clone(), false).await {
+        match Box::pin(self.dispatch_started(dispatch.clone(), false)).await {
             Ok(record) => {
                 self.dispatch_told(id, &manifest, DispatchWay::Started, Some(record.id)).await;
                 Ok(())
@@ -118,7 +118,7 @@ where
         let words = dispatch.start.request.clone().unwrap_or_default();
         let text = format!("The Operator handed you work the person dispatched, as yours is already on it:\n\n{words}\n\nDo it as part of your work, or say why it is not yours.");
         if !matches!(self.told_by_fleet(into, &text, Notice::Operator).await, Ok(true)) {
-            self.dispatch_released(id).await;
+            Box::pin(self.dispatch_released(id)).await;
             return Err("the Job did not take it".to_string());
         }
         if self.dispatch_taken(id).await.is_none() {
@@ -149,9 +149,9 @@ where
     /// What a ruling on a held dispatch did: start it, hand it over, or ask him.
     pub(super) async fn dispatch_sourced(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) -> Result<(), String> {
         match (ruling.way, ruling.other.as_deref()) {
-            (Way::NewJob, _) => self.dispatch_started_as_asked(&arrival.id).await,
-            (Way::ExistingJob, Some(into)) => self.dispatch_handed(&arrival.id, into).await,
-            (Way::Raise, _) => self.dispatch_asked(arrival, ruling).await,
+            (Way::NewJob, _) => Box::pin(self.dispatch_started_as_asked(&arrival.id)).await,
+            (Way::ExistingJob, Some(into)) => Box::pin(self.dispatch_handed(&arrival.id, into)).await,
+            (Way::Raise, _) => Box::pin(self.dispatch_asked(arrival, ruling)).await,
             _ => Err("the dispatch was ruled a way it is not offered".to_string()),
         }
     }
