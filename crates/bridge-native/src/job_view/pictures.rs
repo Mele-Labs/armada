@@ -560,9 +560,14 @@ mod tests {
     #[test]
     fn a_picture_fits_the_thumbnail_keeping_its_shape_and_is_never_made_larger() {
         let most = size(192., 144.);
-        assert_eq!(fitted(size(2880., 1800.), most), size(192., 120.));
-        assert_eq!(fitted(size(600., 1200.), most), size(72., 144.));
-        assert_eq!(fitted(size(100., 50.), most), size(100., 50.));
+        // The scale is a float divide, so a fit lands within a hair of the whole pixel.
+        let fit = |picture: Size<f32>| {
+            let got = fitted(picture, most);
+            size((got.width * 100.).round() / 100., (got.height * 100.).round() / 100.)
+        };
+        assert_eq!(fit(size(2880., 1800.)), size(192., 120.));
+        assert_eq!(fit(size(600., 1200.)), size(72., 144.));
+        assert_eq!(fit(size(100., 50.)), size(100., 50.));
     }
 
     #[test]
