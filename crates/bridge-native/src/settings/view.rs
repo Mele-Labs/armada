@@ -354,6 +354,7 @@ impl SettingsOverlay {
                         .flex_1()
                         .min_h_0()
                         .overflow_y_scroll()
+                        .track_scroll(&self.side_scroll)
                         .flex()
                         .flex_col()
                         .gap(look.length(token::SPACE_3))
@@ -901,6 +902,13 @@ impl SettingsOverlay {
     }
 
     fn render_page(&self, shown: Option<&'static Entry>, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        // Models is two columns side by side, each scrolling itself, as Classic's Kit pages are.
+        if shown.is_some_and(|one| one.body == Body::Models) {
+            return self.render_models(look, window, cx);
+        }
+        if shown.is_some_and(|one| one.body == Body::Workflows) {
+            return self.render_workflows(look, window, cx);
+        }
         let mut cards: Vec<AnyElement> = Vec::new();
         match shown.map(|one| one.body) {
             Some(Body::Schema(ids)) => {
@@ -917,9 +925,10 @@ impl SettingsOverlay {
             Some(Body::Keyboard) => cards.push(self.render_keyboard(look, window, cx)),
             Some(Body::Theme) => {
                 cards.push(self.render_theme(look, window, cx));
-                cards.extend(self.render_mods(ipc::ModKind::Theme, None, look, window, cx));
-                cards.extend(self.render_mods(ipc::ModKind::Tweak, Some("Tweaks"), look, window, cx));
+                cards.extend(self.render_mods(super::mods::Page::Theme, look, window, cx));
             }
+            Some(Body::Models | Body::Workflows) => {}
+            Some(body @ Body::Mods(_)) => cards.extend(super::mods::page_of(body).and_then(|page| self.render_mods(page, look, window, cx))),
             None => {}
         }
         div()
@@ -939,8 +948,16 @@ impl SettingsOverlay {
         if !self.open {
             return div().into_any_element();
         }
-        // A mod Fleet lists after Settings opened gets its keys before it is drawn.
+        // A mod Fleet lists after Settings opened gets its keys before it is drawn, and a Fleet mod's file is read.
         self.mod_keys(cx);
+        self.read_mods(cx);
+        if self.shown(cx).is_some_and(|one| one.body == Body::Models) {
+            self.read_models(cx);
+            self.model_keys(cx);
+        }
+        if self.shown(cx).is_some_and(|one| one.body == Body::Workflows) {
+            self.workflow_keys(cx);
+        }
         let look = cx.look();
         let room = crate::room::of(window, cx);
         let visible = self.visible(cx);
@@ -964,7 +981,18 @@ impl SettingsOverlay {
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(side)
-                .child(page),
+                .child(page)
+                .children(self.mods.panel.as_ref().map(|opened| {
+                    div()
+                        .flex_none()
+                        .w(room.size.width * 0.9 * 0.36)
+                        .h_full()
+                        .rounded(look.length(token::RADIUS_LG))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(look.color(token::BORDER_SUBTLE))
+                        .overflow_hidden()
+                        .child(opened.view.clone())
+                })),
             Role::Dialog,
             "Settings",
         );

@@ -20,14 +20,69 @@ pub struct MockFleet {
     /// Every save it took, oldest first, for a test to read.
     pub saves: Vec<BTreeMap<String, Option<SettingValue>>>,
     pub preferences: ipc::Preferences,
-    /// The mods on this machine: Dusk, the theme Classic's `mods-themes` scenario writes into the mod folder.
+    /// The mods on this machine, as the walk's scenario lists them (`crate::mock::mods`).
     pub mods: Vec<ipc::ModSummary>,
     /// The checked sheet of each theme mod that is on and valid.
     pub sheets: BTreeMap<String, String>,
+    /// What `GET /workflows` answers on All (`settings_workflows`).
+    pub workflows: Vec<ipc::WorkflowSummary>,
+    /// What `GET /models` answers: Classic's mock models (`apps/desktop/src/renderer/src/mock/kit-models.ts`).
+    pub models: ipc::ModelChoices,
 }
 
-/// Dusk's `theme.css`, as the example mod ships it.
-const DUSK_CSS: &str = include_str!("../../../../packages/tokens/themes/example-mod/dusk/theme.css");
+/// What Fleet runs on All, as Classic's Workflows page is walked on (`mock/workflows-managed.ts`): Armada's four,
+/// armada's own copy of `feature`, sample-web's own `bug`, and Yours `docs_only`.
+pub fn settings_workflows() -> Vec<ipc::WorkflowSummary> {
+    ipc::decode("workflows", include_bytes!("mock-workflows.json")).unwrap_or_else(|why| panic!("the mock workflows do not decode: {why}"))
+}
+
+/// Classic's four mock models, as Fleet's `list_models` would answer them.
+pub fn kit_models() -> ipc::ModelChoices {
+    let levels = r#"["low","medium","high","xhigh","max"]"#;
+    let said = format!(
+        r#"{{"models":["opus","fable","sonnet"],"default":"sonnet","session":"opus","harnesses":["claude"],"read":{{"what":"read"}},"offered":[
+        {{"name":"opus","display":"Opus 5.5","version":"opus-5-5","description":"For complex work and everyday tasks","efforts":{levels},"on":true}},
+        {{"name":"fable","display":"Fable 5.1","version":"fable-5-1","description":"For your toughest challenges","efforts":{levels},"on":true}},
+        {{"name":"sonnet","display":"Sonnet 5.5","version":"sonnet-5-5","description":"Most efficient for simpler tasks","efforts":{levels},"on":true}},
+        {{"name":"haiku","display":"Haiku 5.5","version":"haiku-5-5","description":"Fastest for quick answers","efforts":{levels},"on":false}}]}}"#
+    );
+    ipc::decode("ModelChoices", said.as_bytes()).unwrap_or_else(|why| panic!("the mock models do not decode: {why}"))
+}
+
+/// The mock settings with Classic's mock Models choices in force, and the model rows Classic's fake settings
+/// leave out, written as Fleet serves them (`crates/config/src/settings/models.rs`).
+fn with_models(mut list: SettingsList) -> SettingsList {
+    let text = |word: &str| SettingValue::Text(word.into());
+    let like = |list: &SettingsList, key: &str| list.settings.iter().find(|one| one.key == key).cloned();
+    let efforts = SettingKind::Choice { options: ["harness default", "low", "medium", "high", "xhigh", "max"].map(String::from).to_vec() };
+    let added = [
+        ("models.proposer", "models.review", "Review model", "The model an agent run about a pull request in the Reviews tab runs on.", "opus"),
+        ("models.proposer", "models.judge", "Judge model", "The model a step naming none of its own is judged on.", "sonnet"),
+        ("models.proposer", "models.retro", "Retro model", "The model a Job's retro is written on, once the Job ends.", "sonnet"),
+        ("models.proposer", "models.secondOpinion", "Second opinion model", "The model a judged gaming flag is read a second time on.", "opus"),
+        ("effort.judge", "effort.proposer", "Job proposer effort", "How hard the Job proposer thinks reading a request.", "harness default"),
+    ];
+    for (from, key, title, description, value) in added {
+        if like(&list, key).is_some() {
+            continue;
+        }
+        let Some(mut one) = like(&list, from) else { continue };
+        (one.key, one.title, one.description, one.value, one.saved) = (key.into(), title.into(), description.into(), text(value), None);
+        list.settings.push(one);
+    }
+    for one in &mut list.settings {
+        match one.key.as_str() {
+            "models.roster" => one.value = SettingValue::List(["opus", "fable", "sonnet"].map(text).to_vec()),
+            "models.default" => one.value = text("sonnet"),
+            "effort.default" => one.value = text("high"),
+            _ => {}
+        }
+        if one.key.starts_with("effort.") {
+            one.kind = efforts.clone();
+        }
+    }
+    list
+}
 
 pub fn settings() -> SettingsList {
     ipc::decode("SettingsList", include_bytes!("mock-settings.json")).unwrap_or_else(|why| panic!("the mock settings do not decode: {why}"))
@@ -44,10 +99,10 @@ impl MockFleet {
                 ..ValuesSet::default()
             });
         }
-        MockFleet { list: settings(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
+        MockFleet { list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
-            mods: ipc::decode::<ipc::ModList>("mods", br#"{"mods":[{"name":"dusk","kind":"theme","enabled":true,"valid":true}]}"#).map(|list| list.mods).unwrap_or_default(),
-            sheets: [("dusk".to_string(), DUSK_CSS.to_string())].into_iter().collect(),
+            mods: crate::mock::mods(),
+            sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
         }
     }
 
@@ -116,8 +171,8 @@ impl MockFleet {
         row.enabled = enabled;
         if !enabled {
             self.sheets.remove(name);
-        } else if name == "dusk" {
-            self.sheets.insert(name.to_string(), DUSK_CSS.to_string());
+        } else if let Some(css) = crate::mock::mod_sheet(name) {
+            self.sheets.insert(name.to_string(), css.to_string());
         }
         Ok(row.clone())
     }
@@ -129,6 +184,35 @@ impl MockFleet {
         }
         let said = format!(r#"{{"name":"{name}","session_id":"01SESSIONPROMOTEAAAAAAAAAA","title":"Add the {name} theme mod","branch":"armada/mod-{name}","commit":"4f2a9c1","pull_request_not_opened":"No remote to push to."}}"#);
         ipc::decode("ModPromoted", said.as_bytes()).map_err(|why| Refused::said(why.to_string()))
+    }
+
+    /// What Fleet's check of a mod read: quiet-ci's one rule, batching CI failures except where one blocks a merge.
+    pub fn validate_mod(&self, name: &str) -> Result<ipc::ModChecked, Refused> {
+        let row = self.mods.iter().find(|row| row.name == name).ok_or_else(|| Refused::said(format!("There is no mod named {name}.")))?;
+        let fleet = (row.kind == Some(ipc::ModKind::Fleet)).then_some(r#","fleet":{"rule":[{"notice":"pr_checks_failed","does":"batch","where":"everywhere","when":[{"if":"blocks_merge","does":"tell"}]}]}"#).unwrap_or_default();
+        let said = format!(r#"{{"name":"{name}","valid":true,"problems":[]{fleet}}}"#);
+        ipc::decode("ModChecked", said.as_bytes()).map_err(|why| Refused::said(why.to_string()))
+    }
+
+    /// A tracker mod's try, passed against the first repository, as Fleet answers one.
+    pub fn try_tracker_mod(&mut self, name: &str) -> Result<ipc::TrackerTry, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let said = br#"{"at":"2026-11-12T10:00:00Z","manifest_id":"armada","passed":true,"listed":12,"read":"ACME-7"}"#;
+        let tried: ipc::TrackerTry = ipc::decode("TrackerTry", said).map_err(|why| Refused::said(why.to_string()))?;
+        let row = self.mods.iter_mut().find(|row| row.name == name).ok_or_else(|| Refused::said(format!("There is no mod named {name}.")))?;
+        row.tried = Some(tried.clone());
+        row.stale = false;
+        Ok(tried)
+    }
+
+    /// Create mod's empty Mod Job, started.
+    pub fn start_mod_session(&self) -> Result<ipc::ModSessionStarted, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        ipc::decode("ModSessionStarted", br#"{"session_id":"01SESSIONMODJOBAAAAAAAAAAA","title":"Mod Job"}"#).map_err(|why| Refused::said(why.to_string()))
     }
 
     /// What a project's values come to: its own over Kit's, Kit's over the defaults.

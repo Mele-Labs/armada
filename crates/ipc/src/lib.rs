@@ -194,6 +194,8 @@ mod reading;
 mod rehearsal;
 /// The repositories one Fleet serves, and adding one by folder.
 mod repositories;
+/// A file of a Job read by Fleet for a client that cannot read the agent's disk: `get_repository_file`.
+mod repository_file;
 /// Who asked for a Check run, as a typed value. Since 23.40.
 mod requester;
 /// Requests: an HTTP request the owner or an agent sends, its collections and environments.
@@ -444,6 +446,7 @@ pub use job_lanes::{
     LaneInstance, LaneKept, LaneKind, LaneLifecycle, LaneLifecycleKind, LaneLifecycleState, LaneMoment, LaneNode,
     LaneNodeKind, LaneNodeRole, LaneOutcome, LaneRef, LaneRule, LaneStep, LaneView,
 };
+pub use repository_file::RepositoryFile;
 pub use ring_band::{RingBand, DANGER_FROM, WARNING_FROM};
 pub use job_viewing::ViewSession;
 pub use standing_calls::{CallArrival, CallArrivalKind, CallTone, CallsChanged, OpenStandingCall, StandingCall, StandingCallKind, StandingCalls};

@@ -273,10 +273,13 @@ async fn he_orders_the_queue_and_puts_one_later_for_the_rest_of_the_local_day() 
     let rig = rig_fitted(move |fittings| fittings.clock = Arc::new(Moved(held)));
     let both = "item: 1\nread: A.\npick: Yes\n\nitem: 2\nread: B.\npick: Yes\n\njournal: Reviewed two.";
     seated(&rig, &[Some(both)]).await;
-    let job = rig.start_titled(Some("Build the pane")).await;
-    waiting(&rig, &job, vec![question("a", "First?", &["Yes", "No"]), question("b", "Second?", &["Yes", "No"]), question("c", "Third?", &["Yes", "No"])]).await;
-    keep_the_raises(Arc::clone(&rig.fleet)).await;
-    queued(&rig, &job, "c").await;
+    // Three Jobs, an ask each: one Job's asks stand together in the order it raised them.
+    for (title, id, text) in [("Build the pane", "a", "First?"), ("Fix the clock", "b", "Second?"), ("Name the tab", "c", "Third?")] {
+        let job = rig.start_titled(Some(title)).await;
+        waiting(&rig, &job, vec![question(id, text, &["Yes", "No"])]).await;
+        keep_the_raises(Arc::clone(&rig.fleet)).await;
+        queued(&rig, &job, id).await;
+    }
     let ids = |page: &OperatorPage| page.turn.iter().map(|one| one.item.id.clone()).collect::<Vec<_>>();
     let turn = page(&rig).await.turn;
     assert_eq!(turn.len(), 3);

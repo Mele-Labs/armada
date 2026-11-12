@@ -276,6 +276,7 @@ fn main() -> ExitCode {
                     let operator: gpui::AnyView = cx.new(|cx| operator::OperatorScreen::live(jobs_screen.clone(), &fleet, window, cx)).into();
                     // The sheet over the Operator's page: ⌘N and `n` open it, and its Start goes to this Fleet.
                     let screen = cx.new(|cx| dispatch::DispatchScreen::new(jobs_screen, &[], window, cx).over(operator));
+                    screen.update(cx, |screen, cx| screen.live_notes(window, cx));
                     // Settings over all of it: the title bar's Settings, the macOS menu's and ⌘, open it.
                     let screen = cx.new(|cx| settings::SettingsScreen::live(screen.into(), &fleet, window, cx));
                     cx.new(|_| Shell { screen: screen.into(), _fleet: Some((fleet, look, keys, menu, notifier)) })

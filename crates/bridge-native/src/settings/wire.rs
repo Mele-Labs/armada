@@ -100,6 +100,22 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/settings/save".into(), said), "SettingsList", cx))
     }
 
+    /// What Fleet runs, every repository's, as the connection last read `GET /workflows`; `None` before it has.
+    pub fn workflows(&self, cx: &App) -> Option<Vec<ipc::WorkflowSummary>> {
+        match self {
+            Wire::Live(fleet) => fleet.read(cx).held().workflows.clone(),
+            Wire::Mock(mock) => Some(mock.workflows.clone()),
+        }
+    }
+
+    /// `GET /models`: the models the harness offers, and the model a run that names none is given.
+    pub fn models(&mut self, cx: &App) -> Task<Result<ipc::ModelChoices, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(if mock.connected { Ok(mock.models.clone()) } else { Err(Refused::said("Fleet is not connected")) });
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/models".into()), "ModelChoices", cx))
+    }
+
     /// The repositories Fleet serves, by Manifest id, name and whether its armada.yml turns connectors off.
     pub fn repositories(&self, cx: &App) -> Option<Vec<(String, String, bool)>> {
         let held = match self {
@@ -213,6 +229,41 @@ impl Wire {
         }
         let said = body(&ipc::PromoteMod { name: name.to_string(), manifest_id: None });
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/mods/promote".into(), said), "ModPromoted", cx))
+    }
+
+    /// The connection a mod's panel reads its row from, or none for the mock, whose panel reads the walk's mods.
+    pub fn fleet(&self) -> Option<Entity<FleetConnection>> {
+        match self {
+            Wire::Live(fleet) => Some(fleet.clone()),
+            Wire::Mock(_) => None,
+        }
+    }
+
+    /// `GET /mods/validate?name=`: the file Fleet checked for a mod, which its row opens to.
+    pub fn validate_mod(&mut self, name: &str, cx: &App) -> Task<Result<ipc::ModChecked, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.validate_mod(name));
+        }
+        let path = format!("/mods/validate?name={}", crate::link::percent_encoded(name));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "ModChecked", cx))
+    }
+
+    /// `POST /mods/try`: a tracker mod tried against the repository Fleet picks for it.
+    pub fn try_tracker_mod(&mut self, name: &str, cx: &App) -> Task<Result<ipc::TrackerTry, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.try_tracker_mod(name));
+        }
+        let said = body(&ipc::TryTrackerMod { name: name.to_string(), manifest_id: None });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/mods/try".into(), said), "TrackerTry", cx))
+    }
+
+    /// `POST /mods/session` with nothing set: Create mod's empty Mod Job (`startEmptyModJob`).
+    pub fn start_mod_session(&mut self, cx: &App) -> Task<Result<ipc::ModSessionStarted, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.start_mod_session());
+        }
+        let said = body(&ipc::StartModSession { title: None, model: None, effort: None, aim: None, note: None, said: None, from_job: None, from_tab: None });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/mods/session".into(), said), "ModSessionStarted", cx))
     }
 
     /// Open settings.json in the editor settings.json names, off the main thread. The mock opens nothing.

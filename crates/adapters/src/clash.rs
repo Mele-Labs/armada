@@ -81,7 +81,23 @@ pub fn changed_between(repo: &Path, from: &str, to: &str) -> Result<Vec<String>,
 /// The paths the worktree as it stands changed since it and `base` last met: its commits and what
 /// it has not committed yet.
 pub fn changed_here(worktree: &Path, base: &str) -> Result<Vec<String>, NotChecked> {
-    let met = merge_base(worktree, &head_of(worktree)?, base)?;
+    changed_above(worktree, base, &[])
+}
+
+/// [`changed_here`], from the newest `HEAD` of the worktrees `under` that this one's `HEAD` was
+/// built on, where that is above where it met `base`. **A branch cut from another's carries its
+/// commits**, and those are the other's writes, not this one's. Two on the same commit both keep it.
+pub fn changed_above(worktree: &Path, base: &str, under: &[std::path::PathBuf]) -> Result<Vec<String>, NotChecked> {
+    let head = head_of(worktree)?;
+    let mut met = merge_base(worktree, &head, base)?;
+    for other in under {
+        let Ok(tip) = head_of(other) else {
+            continue;
+        };
+        if tip != head && is_ancestor(worktree, &tip, &head) && is_ancestor(worktree, &met, &tip) {
+            met = tip;
+        }
+    }
     let listed = git(worktree, &["diff", "--name-only", "-z", &met, &tree_of(worktree)?])?;
     Ok(listed
         .split('\0')
@@ -229,6 +245,12 @@ fn head_of(worktree: &Path) -> Result<String, NotChecked> {
 
 fn rev_parse(worktree: &Path, name: &str) -> Result<String, NotChecked> {
     Ok(git(worktree, &["rev-parse", "--verify", "--quiet", name])?.trim().to_string())
+}
+
+/// Whether `older` is `newer` or one of its ancestors. Git that could not say reads as no.
+fn is_ancestor(worktree: &Path, older: &str, newer: &str) -> bool {
+    read_in(&worktree.to_string_lossy(), "git", &["merge-base", "--is-ancestor", older, newer])
+        .is_ok_and(|ran| ran.status.success())
 }
 
 fn merge_base(worktree: &Path, one: &str, other: &str) -> Result<String, NotChecked> {

@@ -188,7 +188,7 @@ impl Render for ModPanel {
             .py(look.length(token::SPACE_3))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
-            .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(title.clone())))
+            .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(self.name.clone())))
             .child(close);
         labelled(
             div()
@@ -208,8 +208,9 @@ impl Render for ModPanel {
                 .text_color(look.color(token::FG_DEFAULT))
                 .child(head)
                 .child(body),
+            // A mod is named by its folder, drawn as it is, as Classic's shared panel draws it.
             Role::Region,
-            title,
+            self.name.clone(),
         )
     }
 }
