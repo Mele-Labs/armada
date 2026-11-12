@@ -252,10 +252,10 @@ export type LaneEdge = {
  * `SessionRecord.lanes`: where the Job stands in its workflow, what it holds, and the lanes and edges drawn from both. Absent for a Job that has
  * ended and for one that holds nothing and follows no workflow.
  *
- * Also `get_workflow_lanes` (`GET /workflows/lanes?workflow=&scope=&manifest_id=`): one workflow's lanes as its editor draws them, at the default level.
- * No Job stands in them, so `at` is -1, `job` holds only `copy` (the steps, the default level's lifecycles and the rules drawn), and every edge is
- * `waiting` with no `waits`. A `scope` other than `default` is 422 `fleet.lanes_level_not_served`; a workflow the repository does not run is 422
- * `fleet.no_such_workflow_definition`.
+ * Also `get_workflow_lanes` (`GET /workflows/lanes?workflow=&scope=&manifest_id=`): one workflow's lanes as its editor draws them, at the level
+ * `scope` names (`default`, `workspace:<id>` or a repository's Manifest id). No Job stands in them, so `at` is -1, `job` holds only `copy` (the steps,
+ * the tab's lifecycles and the rules drawn), and every edge is `waiting` with no `waits`. A `scope` the repository has no tab for is 422
+ * `fleet.no_such_lanes_level`; a workflow the repository does not run is 422 `fleet.no_such_workflow_definition`.
  */
 export type JobLanesView = {
   /** The workflow's name; empty for a Job on none. */
