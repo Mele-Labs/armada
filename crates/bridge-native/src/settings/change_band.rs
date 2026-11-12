@@ -4,9 +4,11 @@
 //! (`diff.ts`) and `agentOf` (`apps/desktop/src/renderer/src/workflow-manager-wire.ts`), the acts wired as
 //! `workflow-manager.tsx` wires them. Fleet's routes are `crates/ipc/operations/*_workflow_change*.toml`.
 
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
-use gpui::{div, prelude::*, svg, AnyElement, App, Context, Entity, FocusHandle, Focusable, FontWeight, HighlightStyle, Hsla, Keystroke, Role, SharedString, StyledText, Subscription, Task, Window};
+use gpui::{canvas, div, point, prelude::*, svg, AnyElement, App, Bounds, Context, Entity, FocusHandle, Focusable, FontWeight, HighlightStyle, Hsla, Keystroke, Pixels, Role, ScrollHandle, SharedString, StyledText, Subscription, Task, Window};
 use gpui_component::input::{InputEvent, Textarea, TextareaState};
 use ipc::{AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, SendBackWorkflowChange, WorkflowChange, WorkflowId};
 
@@ -164,6 +166,40 @@ fn asked_change(changes: &[WorkflowChange]) -> Option<&WorkflowChange> {
     changes.iter().find(|one| one.step_id.is_none())
 }
 
+/// How many lines unchanged words are held to (`<Clamped lines={3}>`).
+const CLAMP: usize = 3;
+
+/// The words a proposed change holds to three lines, in the order they are drawn: each card's Words on each side,
+/// where they are there and do not differ. Words that differ are drawn whole, so a marked sentence is never behind
+/// View more.
+fn passages(row: &str, phase: &Phase) -> Vec<String> {
+    let Phase::Proposed { before, after, .. } = phase else { return Vec::new() };
+    let (changes, _) = step_changes(before, after);
+    let mut found = Vec::new();
+    for change in &changes {
+        let (label, sides): (&str, Vec<(&str, &Step)>) = match change {
+            StepChange::Added { after, .. } => (&after.label, vec![("After", after)]),
+            StepChange::Removed { before, .. } => (&before.label, vec![("Before", before)]),
+            StepChange::Changed { before, after, .. } => {
+                if field_of(before, "Words") != field_of(after, "Words") {
+                    continue;
+                }
+                (&after.label, vec![("Before", before), ("After", after)])
+            }
+        };
+        for (side, step) in sides {
+            if !field_of(step, "Words").is_empty() {
+                found.push(passage_key(row, label, side));
+            }
+        }
+    }
+    found
+}
+
+fn passage_key(row: &str, label: &str, side: &str) -> String {
+    format!("{row}|{label}|{side}")
+}
+
 /// The band's phase from the open changes (`agentOf`).
 pub fn phase_of(changes: &[WorkflowChange], known: &[Step]) -> Phase {
     let Some(one) = asked_change(changes) else { return Phase::Idle };
@@ -207,6 +243,14 @@ pub struct Band {
     started: Option<(String, String, Option<String>)>,
     busy: bool,
     poll: Option<Task<()>>,
+    /// Set when a change turns proposed or cannot, and cleared once it has been brought into view.
+    reveal: Rc<Cell<bool>>,
+    /// Each clamped passage's key, and whether its words run past the clamp at the width last drawn.
+    overflows: Rc<RefCell<BTreeMap<String, bool>>>,
+    /// The passages opened with View more.
+    open: BTreeSet<String>,
+    /// Each passage's View more.
+    more: BTreeMap<String, FocusHandle>,
 }
 
 impl Band {
@@ -281,8 +325,11 @@ impl SettingsOverlay {
             self.workflows.detail.band.asks.insert(key.clone(), boxed);
         }
         if !self.workflows.detail.band.changes.contains_key(&key) {
-            self.workflows.detail.band.changes.insert(key, Vec::new());
+            self.workflows.detail.band.changes.insert(key.clone(), Vec::new());
             self.read_changes(one.clone(), window, cx);
+        }
+        for passage in passages(&key, &self.band_phase(one)) {
+            self.workflows.detail.band.more.entry(passage).or_insert_with(|| cx.focus_handle().tab_stop(true));
         }
     }
 
@@ -324,6 +371,11 @@ impl SettingsOverlay {
         let band = &mut self.workflows.detail.band;
         if !matches!(phase_of(&read.changes, &[]), Phase::Proposed { .. }) && band.notes.as_ref().is_some_and(|(row, _)| *row == key) {
             band.notes = None;
+        }
+        let shows = |changes: &[WorkflowChange]| matches!(phase_of(changes, &[]), Phase::Proposed { .. } | Phase::Cannot { .. });
+        // Brought into view as it arrives, the way Classic's `scrollIntoView({ block: "nearest" })` does.
+        if shows(&read.changes) && !band.changes.get(&key).is_some_and(|was| shows(was)) {
+            band.reveal.set(true);
         }
         band.changes.insert(key.clone(), read.changes);
         if drafting {
@@ -466,7 +518,14 @@ impl SettingsOverlay {
             Phase::Working { .. } => {}
             Phase::Failed { .. } => stops.extend(act(BandAct::Dismiss)),
             Phase::Cannot { .. } => stops.extend([act(BandAct::Dismiss), act(BandAct::Build)].into_iter().flatten()),
-            Phase::Proposed { fresh, .. } => {
+            phase @ Phase::Proposed { .. } => {
+                let fresh = matches!(phase, Phase::Proposed { fresh: true, .. });
+                let overflows = band.overflows.borrow();
+                for passage in passages(&key, &phase) {
+                    if band.open.contains(&passage) || overflows.get(&passage).copied().unwrap_or(false) {
+                        stops.extend(band.more.get(&passage).cloned());
+                    }
+                }
                 stops.extend(act(BandAct::Dismiss));
                 match band.notes.as_ref().filter(|(row, _)| *row == key) {
                     Some((_, notes)) => {
@@ -519,6 +578,10 @@ impl SettingsOverlay {
         }
         if mods.platform || mods.control || mods.alt || !matches!(word, "enter" | "space") {
             return false;
+        }
+        if let Some(passage) = self.workflows.detail.band.more.iter().find(|(_, focus)| focus.is_focused(window)).map(|(passage, _)| passage.clone()) {
+            self.toggle_passage(passage, cx);
+            return true;
         }
         let Some(act) = BandAct::ALL.into_iter().find(|act| self.workflows.detail.keys.get(act.key()).is_some_and(|focus| focus.is_focused(window))) else { return false };
         self.press_band(act, window, cx);
@@ -583,6 +646,7 @@ impl SettingsOverlay {
                 });
                 let list = labelled(div().id("workflow-missing").flex().flex_col().gap(look.length(token::SPACE_1)).text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).children(rows), Role::List, "Missing");
                 region(proposed_frame(look)
+                    .child(self.reveal())
                     .child(asked_line(look, &request))
                     .child(div().px(look.length(token::SPACE_4)).pt(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child("Armada can't do this yet"))
                     .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).px(look.length(token::SPACE_4)).py(look.length(token::SPACE_3)).child(caption(look, "Missing")).child(list))
@@ -602,9 +666,11 @@ impl SettingsOverlay {
                     });
                 }
                 acts = acts.child(self.band_button(BandAct::Approve, "Approve", Weight::Primary, off, look, window, cx));
+                let held = |label: &str, side: &str, text: String, words: gpui::Div| self.held(&key, label, side, text, words, look, window, cx);
                 region(proposed_frame(look)
+                    .child(self.reveal())
                     .child(asked_line(look, &request))
-                    .child(div().flex().flex_col().gap(look.length(token::SPACE_3)).px(look.length(token::SPACE_4)).py(look.length(token::SPACE_3)).children(changes.iter().map(|change| change_card(look, change))))
+                    .child(div().flex().flex_col().gap(look.length(token::SPACE_3)).px(look.length(token::SPACE_4)).py(look.length(token::SPACE_3)).children(changes.iter().map(|change| change_card(look, change, &held))))
                     .children((!unchanged.is_empty()).then(|| {
                         div()
                             .flex()
@@ -675,6 +741,92 @@ impl SettingsOverlay {
         Some(labelled(div().id("workflow-band").track_focus(&rest).child(drawn), Role::Group, "Tell an agent what to change").into_any_element())
     }
 
+    fn toggle_passage(&mut self, passage: String, cx: &mut Context<Self>) {
+        let open = &mut self.workflows.detail.band.open;
+        if !open.remove(&passage) {
+            open.insert(passage);
+        }
+        cx.notify();
+    }
+
+    /// Unchanged words held to three lines, with View more only where they run past them (`Clamped`). The lines
+    /// are counted from the words shaped at the width drawn, so a narrower window finds the overflow it makes.
+    #[allow(clippy::too_many_arguments)]
+    fn held(&self, row: &str, label: &str, side: &str, text: String, words: gpui::Div, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let passage = passage_key(row, label, side);
+        let band = &self.workflows.detail.band;
+        let open = band.open.contains(&passage);
+        let overflows = band.overflows.clone();
+        let measured = passage.clone();
+        let measure = canvas(
+            move |bounds: Bounds<Pixels>, window, _| {
+                let style = window.text_style();
+                let size = style.font_size.to_pixels(window.rem_size());
+                let lines = window
+                    .text_system()
+                    .shape_text(SharedString::from(text.clone()), size, &[style.to_run(text.len())], Some(bounds.size.width), None)
+                    .map_or(0, |lines| lines.iter().map(|line| line.wrap_boundaries().len() + 1).sum::<usize>());
+                let over = lines > CLAMP;
+                if overflows.borrow_mut().insert(measured.clone(), over) != Some(over) {
+                    window.refresh();
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .size_full();
+        let words = words.relative().when(!open, |words| words.line_clamp(CLAMP).text_ellipsis()).child(measure);
+        let shown = open || band.overflows.borrow().get(&passage).copied().unwrap_or(false);
+        let more = band.more.get(&passage).cloned().filter(|_| shown).map(|focus| {
+            let said = if open { "View less" } else { "View more" };
+            let button = div()
+                .id(SharedString::from(format!("workflow-more-{passage}")))
+                .flex_none()
+                .text_size(look.length(token::TEXT_2XS))
+                .line_height(look.length(token::LEADING_2XS))
+                .text_color(look.color(token::ACCENT))
+                .cursor_pointer()
+                .hover(|style| style.underline())
+                .child(said);
+            let toggled = passage.clone();
+            let button = ringed(look, button, &focus, window).track_focus(&focus).on_click(cx.listener(move |this, _, _, cx| this.toggle_passage(toggled.clone(), cx)));
+            labelled(button, Role::Button, said).into_any_element()
+        });
+        div().flex().flex_col().items_start().gap(look.length(token::SPACE_1)).min_w_0().child(words).children(more).into_any_element()
+    }
+
+    /// Measures the proposed change where it is drawn and, the first time it is, scrolls the detail the least that
+    /// shows it whole, or its top where it is taller than the panel.
+    fn reveal(&self) -> impl IntoElement {
+        let reveal = self.workflows.detail.band.reveal.clone();
+        let scroll: ScrollHandle = self.workflows.detail.scroll.clone();
+        canvas(
+            move |at: Bounds<Pixels>, window, _| {
+                if !reveal.replace(false) {
+                    return;
+                }
+                let view = scroll.bounds();
+                let mut by = Pixels::ZERO;
+                if at.bottom() > view.bottom() {
+                    by = at.bottom() - view.bottom();
+                }
+                if at.top() - by < view.top() {
+                    by = at.top() - view.top();
+                }
+                if by == Pixels::ZERO {
+                    return;
+                }
+                let offset = scroll.offset();
+                let y = (offset.y - by).max(-scroll.max_offset().y).min(Pixels::ZERO);
+                scroll.set_offset(point(offset.x, y));
+                window.refresh();
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .size_full()
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn band_button(&self, act: BandAct, said: &'static str, weight: Weight, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let Some(focus) = self.workflows.detail.keys.get(act.key()).cloned() else { return div().into_any_element() };
@@ -732,6 +884,7 @@ fn proposed_frame(look: &Look) -> gpui::Stateful<gpui::Div> {
         .flex()
         .flex_col()
         .min_w_0()
+        .relative()
         .rounded(look.length(token::RADIUS_LG))
         .border(look.length(token::BORDER_WIDTH))
         .border_color(look.color(token::BORDER_DEFAULT))
@@ -754,7 +907,7 @@ fn acts_row(look: &Look) -> gpui::Div {
 }
 
 /// One step a change touches: its place and name, how it changed, and each fact before and after (`StepChangeCard`).
-fn change_card(look: &Look, change: &StepChange) -> AnyElement {
+fn change_card(look: &Look, change: &StepChange, held: &dyn Fn(&str, &str, String, gpui::Div) -> AnyElement) -> AnyElement {
     let (n, kind, before, after) = match change {
         StepChange::Added { n, after } => (*n, "Added", None, Some(after)),
         StepChange::Removed { n, before } => (*n, "Removed", Some(before), None),
@@ -820,7 +973,14 @@ fn change_card(look: &Look, change: &StepChange) -> AnyElement {
             )
             .children(sides.iter().map(|side| {
                 let (value, against, mark) = if *side == "Before" { (&was, &is, look.color(token::STATUS_COMPLETED_FAILED_BG)) } else { (&is, &was, look.color(token::STATUS_COMPLETED_SUCCESS_BG)) };
-                div().flex_1().min_w_0().text_color(ink).when(removed, |cell| cell.line_through()).child(field_value(look, value, field == "Words", changed.then_some(against.as_str()), mark))
+                let cell = div().flex_1().min_w_0().text_color(ink);
+                // Words that differ are drawn whole, so the marked sentence is never behind View more. The strike is
+                // on the words alone; View more is not struck.
+                if field == "Words" && !differs && !value.is_empty() {
+                    let (text, words) = words_of(value, changed.then_some(against.as_str()), mark);
+                    return cell.child(held(&label, side, text, words.when(removed, |words| words.line_through())));
+                }
+                cell.when(removed, |cell| cell.line_through()).child(field_value(look, value, field == "Words", changed.then_some(against.as_str()), mark))
             }))
     });
     labelled(
@@ -882,6 +1042,11 @@ fn field_value(look: &Look, value: &str, words: bool, against: Option<&str>, mar
     if !words {
         return div().child(SharedString::from(value.to_string())).into_any_element();
     }
+    words_of(value, against, mark).1.into_any_element()
+}
+
+/// Words with each sentence the other side lacks marked, and the text they draw.
+fn words_of(value: &str, against: Option<&str>, mark: Hsla) -> (String, gpui::Div) {
     let other = against.map(sentences_of);
     let mut text = String::new();
     let mut marks = Vec::new();
@@ -893,7 +1058,8 @@ fn field_value(look: &Look, value: &str, words: bool, against: Option<&str>, mar
         }
         text.push(' ');
     }
-    div().min_w_0().child(StyledText::new(SharedString::from(text.trim_end().to_string())).with_highlights(marks)).into_any_element()
+    let text = text.trim_end().to_string();
+    (text.clone(), div().min_w_0().child(StyledText::new(SharedString::from(text)).with_highlights(marks)))
 }
 
 #[cfg(test)]
@@ -902,6 +1068,15 @@ mod tests {
 
     fn step(id: &str, words: &str) -> Step {
         Step { id: id.into(), label: id.to_uppercase(), glyph: None, ends: String::new(), ends_any: Vec::new(), passed_over: None, words: words.into() }
+    }
+
+    #[test]
+    fn unchanged_words_are_held_and_words_that_differ_are_drawn_whole() {
+        let before = vec![step("a", "kept"), step("b", "was"), step("r", "gone")];
+        let after = vec![step("a", "kept"), step("b", "is"), step("c", "new"), step("e", "")];
+        let held: BTreeSet<String> = passages("row", &Phase::Proposed { before, after, asked: None, fresh: false }).into_iter().collect();
+        assert_eq!(held, BTreeSet::from(["row|R|Before".to_string(), "row|C|After".to_string()]));
+        assert!(passages("row", &Phase::Idle).is_empty());
     }
 
     fn kinds(changes: &[StepChange]) -> Vec<String> {

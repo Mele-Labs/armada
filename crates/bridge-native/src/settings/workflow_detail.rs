@@ -229,6 +229,8 @@ pub struct Detail {
     fresh: Option<(Option<Vec<WorkflowSummary>>, Vec<WorkflowSummary>)>,
     /// The box that asks an agent for a change, and what it came back with.
     pub(super) band: super::change_band::Band,
+    /// The detail's scroll, so a proposed change is brought into view when it arrives.
+    pub(super) scroll: gpui::ScrollHandle,
 }
 
 impl Detail {
