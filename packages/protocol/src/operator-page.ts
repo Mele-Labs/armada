@@ -58,6 +58,8 @@ export type OperatorTurnItem = {
   then?: OperatorThenOffer[];
   /** Whether Always here and Always are offered. Absent where they are not. */
   keeps?: boolean;
+  /** What else raised the same ask, folded into this one, each as its tooltip names it, oldest first. Absent where nothing did. */
+  also_raised_by?: string[];
 };
 
 /** What the Operator is reading now. */
@@ -257,9 +259,11 @@ export type OperatorTurnOrder = {
   ids: string[];
 };
 
-/** `operator_later` (`POST /operator/page/later`): one item goes last for the rest of the local day. */
+/** `operator_later` (`POST /operator/page/later`): one item goes last until `until`, or for the rest of the local day. */
 export type OperatorLater = {
   id: string;
+  /** When it comes back, worked out by Bridge from the choice he pressed. Absent, the local day's end. */
+  until?: string;
 };
 
 /** `operator.page_changed`: the page is not what it was, so read it again. Nothing else rides. */

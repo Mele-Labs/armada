@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::operator_page::{OperatorOnIt, OperatorPageChanged, OperatorThen, OperatorThenOffer};
-use ipc::{Event, Instant, OperatorRead, SessionRecord, WaitingItem};
+use ipc::{Event, Instant, OperatorRead, SessionRecord, WaitingItem, WaitingSource};
 use store::KeptTurn;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
@@ -112,7 +112,7 @@ Answer with one block per item, in this form, then one journal line:
 
     item: <the item's number>
     read: <what you make of it, a sentence or two, from reading the Job>
-    pick: <the option you would choose, written exactly as listed, where it has options; otherwise the act in a few words, such as Approve the plan or Open the walk>
+    pick: <the option you would choose, written exactly as listed, where it has options; Later where it waits on something he must do away from this page, such as a restart; otherwise none. It is a button's label and never a sentence: what you would do, and why, goes in read>
     then: <only on an item that lists Thens: the one you would choose, written exactly as listed>
     sure: <only on an item that has options and an Answer act: yes only where you are certain which option the person would choose, otherwise no>
     about: <on the same items: look where it is about something he would see, a look or a UX choice; scope where the answer changes the plan's scope; lost where it could destroy work; otherwise none>
@@ -170,14 +170,28 @@ Job's file for each item before you answer, and keep your reads few.\n\n",
     out
 }
 
-/// `pick` as the item takes it: one of its options, as written there, where it has options; dropped
-/// where it names none of them.
+/// The pick that puts an item Later, which a press on Yes then does.
+pub(super) const LATER: &str = "Later";
+
+/// `pick` as the item takes it: one of its options, as written there, or Later, which the page does.
+/// **Anything else is dropped**, since a pick is a button that must do what it says.
 pub(super) fn pick_of(pick: &str, item: &WaitingItem) -> String {
     let bare = |text: &str| text.trim().trim_matches(['"', '.']).trim().to_lowercase();
-    if item.options.is_empty() {
-        return pick.trim().to_string();
+    if bare(pick) == bare(LATER) {
+        return LATER.to_string();
     }
     item.options.iter().find(|option| bare(&option.label) == bare(pick)).map(|option| option.label.clone()).unwrap_or_default()
+}
+
+/// What only Fleet raises, each for one thing he does: an ask read off a reply beside one of these
+/// says what it already asks.
+const FLEETS_OWN: &[WaitingSource] = &[WaitingSource::HeldChild, WaitingSource::Plan, WaitingSource::Walk, WaitingSource::Draft, WaitingSource::Sketch, WaitingSource::Document];
+
+/// A Job's items as the Operator meets them: **an ask read off a reply is left out while one of
+/// Fleet's own items stands**, since the reply only repeats what that item asks. Alone, it is raised.
+pub(crate) fn without_echoes(items: Vec<WaitingItem>) -> Vec<WaitingItem> {
+    let owned = items.iter().any(|one| FLEETS_OWN.contains(&one.source));
+    items.into_iter().filter(|one| !(owned && one.source == WaitingSource::Replied)).collect()
 }
 
 /// What a review came back with.
@@ -373,6 +387,7 @@ where
 
     /// The Operator's own suggestions no Job holds, against their items.
     async fn suggestion_raises_reconciled(self: &Arc<Self>) {
+        self.answered_repeats_dropped().await;
         let kept = self.store().lock().await.operator_suggestions_of("").unwrap_or_default();
         let items = super::suggestion_items(&kept).collect();
         self.raises_reconciled(vec![(String::new(), None, items)], None).await;
@@ -381,6 +396,7 @@ where
     /// Every hosted, live Job's list and the suggestions no Job holds, against every item standing. An
     /// item of a Job no longer live has left.
     pub(super) async fn raises_reconciled_all(self: &Arc<Self>) {
+        self.answered_repeats_dropped().await;
         let mut lists = Vec::new();
         let mut resting = BTreeSet::new();
         {
@@ -411,6 +427,7 @@ where
     /// or done by a rule that covers it. With `all`, an item of any other session has left too, but
     /// those in `all`, which rest. **A red main's is its own to settle**, never read off a list.
     async fn raises_reconciled(self: &Arc<Self>, lists: Vec<(String, Option<String>, Vec<WaitingItem>)>, all: Option<BTreeSet<String>>) {
+        let lists: Vec<_> = lists.into_iter().map(|(session, job, items)| (session, job, without_echoes(items))).collect();
         let raising = &self.operator_seat().raising;
         let _turn = raising.turn.lock().await;
         let present = self.store().lock().await.operator_turn_present().unwrap_or_default();

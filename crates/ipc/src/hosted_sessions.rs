@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::call::{CallAnswer, CallInFlight, QuestionAnswer};
 use crate::ids::{Instant, ManifestId};
+use crate::job_thread::ThreadItem;
 use crate::mods::ModAim;
 use crate::sessions::{SessionId, SessionRecord};
 
@@ -584,6 +585,9 @@ pub struct ToolSubagent {
     pub since: Instant,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended: Option<Instant>,
+    /// What the subagent handed back, set once it settled `finished`. A `cut_off` one has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report: Option<String>,
 }
 
 /// Where a call's subagent stands. `cut_off` is one a stop or a replaced process ended before it reported.
@@ -989,6 +993,10 @@ pub struct SessionThread {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionSubagent {
     pub rows: Vec<SessionRow>,
+    /// `rows` folded the way a Job's thread is, with no ledger: no sketch, file, document, change,
+    /// judged or plan card. `rows` stays, for a client that draws them itself.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub items: Vec<ThreadItem>,
     /// Its last turn ended and asked for nothing more.
     pub finished: bool,
     /// What it said last, once it has finished.
@@ -1010,6 +1018,14 @@ pub struct SessionSubagent {
 pub struct SessionRowChanged {
     pub session_id: SessionId,
     pub row: SessionRow,
+}
+
+/// `session.subagent`: a subagent's own thread moved. A client holding it reads `get_session_subagent`
+/// again with `subagent_id`, which is the `ToolSubagent.id` its `Agent` row carries.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionSubagentChanged {
+    pub session_id: SessionId,
+    pub subagent_id: String,
 }
 
 /// What a session's `PreToolUse` hook sends Fleet before a tool runs. The
