@@ -52,6 +52,7 @@ impl Sessions for FakeDaemon {
             from_job: None,
             from_tab: None,
             mod_of_bay: false,
+            quick_terminal: false,
             auto_land: false,
             activity: None,
             build: None,
@@ -156,6 +157,19 @@ impl Sessions for FakeDaemon {
         Ok(ipc::SessionRunUnderway {
             run_id: format!("shell-of-{}", open.session_id.as_str()),
             terminal: Some(terminal),
+        })
+    }
+
+    /// Starts nothing: answers a Job named for the folder or the Manifest, and its `t1`.
+    async fn start_terminal_job(
+        self: std::sync::Arc<Self>,
+        start: ipc::StartTerminalJob,
+    ) -> Result<ipc::TerminalJobStarted, Refusal> {
+        let named = start.dir.or(start.manifest_id.map(|id| id.as_str().to_string())).unwrap_or_default();
+        Ok(ipc::TerminalJobStarted {
+            session_id: ipc::SessionId::carried(&format!("quick-{named}")),
+            terminal: String::from("t1"),
+            run_id: format!("shell-of-quick-{named}"),
         })
     }
 

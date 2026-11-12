@@ -1,0 +1,39 @@
+# Create a workflow, as the owner approved it on 12 Nov 2026: Quiz, Propose the workflow, Build what Fleet
+# lacks. The Job writes no workflow file itself: it proposes one, and his Approve on the card saves it.
+# The build step is left out of the plan when the workflow needs nothing Fleet lacks.
+{
+  "version": 1,
+  "workflow_id": "create-workflow",
+  "name": "Create a workflow: quiz, propose for your Approve, build what Fleet lacks",
+  "for_requests": "Making a new workflow, or changing one, for how Jobs in this repository run: the steps a Job follows, what each asks of the owner and what ends it. Not a change to what Armada itself does, unless the workflow needs a gate or capability Fleet lacks.",
+  "steps": [
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "about": "Asks you, one question at a time, what the workflow is for, its steps and what ends each. Ends when you approve the plan.",
+      "instructions": "Read the request, the workflows under .armada/workflows/ and the gate words Fleet knows. Quiz the person one question at a time on what requests the workflow is for, its steps, and the fact that ends each one. Say where a step needs a gate or capability Fleet lacks. Record a plan with record_plan and wait for his approval. Write no workflow file yourself.",
+      "gate": "plan_approved",
+      "asks_delivery": false,
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "propose",
+      "label": "Propose the workflow",
+      "about": "Proposes the workflow with a name and description that say what it is, and asks you to approve it. Ends when you press Approve.",
+      "instructions": "Propose the workflow with propose_new_workflow, or propose_workflow_change for one that exists, in the format of .armada/workflows/feature.json. Give it a name that says what it does and a for_requests line he would recognise. Then raise a waiting_for item with approves: true naming the workflow and its steps in one line. If he asks for changes, propose it again and raise a new approval item.",
+      "gate": "you_approved",
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "build",
+      "label": "Build what Fleet lacks and land",
+      "about": "Where the workflow needs a gate or capability Fleet does not have, builds it with tests and lands it through a pull request merged on a green ci. Left out when nothing is missing.",
+      "instructions": "Only when the approved workflow needs something Fleet lacks: build it, write the tests, each shown failing without the change and then passing, push and open a pull request, and merge it on a green ci. Fix what is red; a test also red on main is not this Job's to fix. Leave this group out of the plan when nothing is missing.",
+      "gate": "merged",
+      "delivers": true,
+      "advance_gate": "human_always"
+    }
+  ]
+}
