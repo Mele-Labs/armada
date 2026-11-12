@@ -37,6 +37,7 @@ pub(super) enum Zone {
     Files,
     Subagents,
     Checks,
+    Workflow,
     System,
     Bays,
     Spine,
@@ -44,7 +45,7 @@ pub(super) enum Zone {
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 16] = [
+    pub(super) const ALL: [Zone; 17] = [
         Zone::Open,
         Zone::Done,
         Zone::Deferred,
@@ -57,6 +58,7 @@ impl Zone {
         Zone::Files,
         Zone::Subagents,
         Zone::Checks,
+        Zone::Workflow,
         Zone::System,
         Zone::Bays,
         Zone::Spine,
@@ -77,6 +79,7 @@ impl Zone {
             Zone::Files => "files",
             Zone::Subagents => "subagents",
             Zone::Checks => "checks",
+            Zone::Workflow => "workflow",
             Zone::System => "system",
             Zone::Bays => "bays",
             Zone::Spine => "spine",
@@ -103,6 +106,7 @@ impl Zone {
             Zone::Files => ("folder-tree", "Files"),
             Zone::Subagents => ("zap", "Subagents"),
             Zone::Checks => ("shield-check", "Checks"),
+            Zone::Workflow => ("workflow", "Workflow"),
             Zone::System => ("cpu", "System"),
             Zone::Bays => ("layout-grid", "Bays"),
             Zone::Spine => ("waypoints", "Spine"),
@@ -248,6 +252,7 @@ impl JobView {
                 Zone::Files => "side-files",
                 Zone::Subagents => "side-subagents",
                 Zone::Checks => "side-checks",
+                Zone::Workflow => "side-workflow",
                 Zone::System => "side-system",
                 Zone::Bays => "side-bays",
                 Zone::Spine => "side-spine",
@@ -269,7 +274,7 @@ impl JobView {
             )
         }).collect();
         // Changes and Files draw their own strip over a body that scrolls, as `.job-pane__pick` does.
-        let own_frame = matches!(zone, Some(Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine));
+        let own_frame = matches!(zone, Some(Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine | Zone::Workflow));
         let top_body = self.shown.clone().zip(zone).and_then(|(id, zone)| match zone {
             Zone::Open => Some(self.zone_alone(Area::Open, self.flow_alone(&id, Area::Open, look, cx).unwrap_or_else(|| self.side_open(&id, look, cx)), cx)),
             Zone::Done => Some(self.zone_alone(Area::Done, self.flow_alone(&id, Area::Done, look, cx).unwrap_or_else(|| self.side_done(&id, look, cx)), cx)),
@@ -283,6 +288,7 @@ impl JobView {
             Zone::Files => Some(self.pane_files(&id, look, cx)),
             Zone::Subagents => self.pane_subagents(&id, look, cx),
             Zone::Checks => Some(self.pane_checks(&id, look, cx)),
+            Zone::Workflow => self.pane_lanes(&id, look, cx),
             Zone::System => self.pane_system(&id, look, cx),
             Zone::Bays => self.pane_bays(&id, look, cx),
             Zone::Spine => Some(self.pane_spine(&id, look, cx)),

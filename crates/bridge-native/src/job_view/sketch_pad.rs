@@ -788,7 +788,7 @@ fn rail_sign(look: &Look, act: &'static str, sign: &'static str, said: &'static 
     .into_any_element()
 }
 
-fn rail_frame(look: &Look, act: &'static str, on: bool, off: bool) -> Stateful<gpui::Div> {
+pub(super) fn rail_frame(look: &Look, act: &'static str, on: bool, off: bool) -> Stateful<gpui::Div> {
     div()
         .id(SharedString::from(format!("rail-{act}")))
         .flex()
@@ -804,7 +804,7 @@ fn rail_frame(look: &Look, act: &'static str, on: bool, off: bool) -> Stateful<g
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
 }
 
-fn rail_group(look: &Look, said: &'static str, acts: Vec<AnyElement>) -> AnyElement {
+pub(super) fn rail_group(look: &Look, said: &'static str, acts: Vec<AnyElement>) -> AnyElement {
     labelled(
         div()
             .id(said)

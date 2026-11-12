@@ -1,0 +1,442 @@
+{
+ "workflow": "feature",
+ "at": 1,
+ "working": true,
+ "skipped": [
+  2
+ ],
+ "job": {
+  "copy": {
+   "steps": [
+    {
+     "id": "plan",
+     "label": "Plan",
+     "col": 0
+    },
+    {
+     "id": "build",
+     "label": "Build",
+     "col": 1
+    },
+    {
+     "id": "walk",
+     "label": "Walk",
+     "col": 2
+    },
+    {
+     "id": "land",
+     "label": "Land",
+     "col": 3
+    }
+   ],
+   "lifecycles": [],
+   "rules": []
+  },
+  "instances": [],
+  "fired": [],
+  "changes": [],
+  "waiting": [
+   "Checks on #88"
+  ]
+ },
+ "lanes": [
+  {
+   "id": "workflow",
+   "kind": "workflow",
+   "title": "Feature",
+   "source": "Workflow",
+   "nodes": [
+    {
+     "id": "workflow/:start",
+     "label": "Start",
+     "col": 0,
+     "role": "step",
+     "kind": "start",
+     "passed": true
+    },
+    {
+     "id": "workflow/plan",
+     "label": "Plan",
+     "col": 0,
+     "role": "step",
+     "kind": "step",
+     "passed": true
+    },
+    {
+     "id": "workflow/build",
+     "label": "Build",
+     "col": 1,
+     "role": "step",
+     "kind": "step",
+     "lit": true,
+     "waiting": [
+      "Checks on #88"
+     ]
+    },
+    {
+     "id": "workflow/walk",
+     "label": "Walk",
+     "col": 2,
+     "role": "step",
+     "kind": "step",
+     "skipped": true
+    },
+    {
+     "id": "workflow/land",
+     "label": "Land",
+     "col": 3,
+     "role": "step",
+     "kind": "step",
+     "changed": "Land waits for the merge queue, was a plain merge"
+    },
+    {
+     "id": "workflow/:end",
+     "label": "End",
+     "col": 3,
+     "role": "step",
+     "kind": "end"
+    }
+   ],
+   "moves": [
+    [
+     "workflow/:start",
+     "workflow/plan"
+    ],
+    [
+     "workflow/plan",
+     "workflow/build"
+    ],
+    [
+     "workflow/build",
+     "workflow/walk"
+    ],
+    [
+     "workflow/walk",
+     "workflow/land"
+    ],
+    [
+     "workflow/land",
+     "workflow/:end"
+    ]
+   ]
+  },
+  {
+   "id": "i-shop-142",
+   "kind": "lifecycle",
+   "title": "SHOP-142",
+   "source": "Linear",
+   "note": "Checkout page loads twice",
+   "ticket": true,
+   "nodes": [
+    {
+     "id": "i-shop-142/todo",
+     "label": "Todo",
+     "col": 0,
+     "role": "state",
+     "kind": "tracker",
+     "passed": true
+    },
+    {
+     "id": "i-shop-142/in_progress",
+     "label": "In Progress",
+     "col": 1,
+     "role": "state",
+     "kind": "tracker",
+     "here": true,
+     "ticket": {
+      "label": "SHOP-142",
+      "title": "Checkout page loads twice",
+      "state": "In Progress",
+      "state_id": "in_progress"
+     }
+    },
+    {
+     "id": "i-shop-142/in_review",
+     "label": "In Review",
+     "col": 2,
+     "role": "state",
+     "kind": "tracker"
+    },
+    {
+     "id": "i-shop-142/done",
+     "label": "Done",
+     "col": 3,
+     "role": "state",
+     "kind": "tracker",
+     "end": true
+    }
+   ],
+   "moves": [
+    [
+     "i-shop-142/todo",
+     "i-shop-142/in_progress"
+    ],
+    [
+     "i-shop-142/in_progress",
+     "i-shop-142/in_review"
+    ],
+    [
+     "i-shop-142/in_review",
+     "i-shop-142/done"
+    ]
+   ]
+  },
+  {
+   "id": "pr-88",
+   "kind": "lifecycle",
+   "title": "#88",
+   "source": "GitHub",
+   "what": "Pull request",
+   "note": "Load checkout once",
+   "nodes": [
+    {
+     "id": "pr-88/draft",
+     "label": "Draft",
+     "col": 1,
+     "role": "state",
+     "kind": "forge",
+     "here": true
+    },
+    {
+     "id": "pr-88/open",
+     "label": "Open",
+     "col": 2,
+     "role": "state",
+     "kind": "forge"
+    },
+    {
+     "id": "pr-88/merged",
+     "label": "Merged",
+     "col": 3,
+     "role": "state",
+     "kind": "forge",
+     "end": true
+    }
+   ],
+   "moves": [
+    [
+     "pr-88/draft",
+     "pr-88/open"
+    ],
+    [
+     "pr-88/open",
+     "pr-88/merged"
+    ]
+   ]
+  },
+  {
+   "id": "w-preview",
+   "kind": "lifecycle",
+   "title": "Deploy preview",
+   "source": "Watch",
+   "nodes": [
+    {
+     "id": "w-preview/running",
+     "label": "Running",
+     "col": 1,
+     "role": "state",
+     "kind": "watch",
+     "here": true
+    },
+    {
+     "id": "w-preview/passed",
+     "label": "Passed",
+     "col": 2,
+     "role": "state",
+     "kind": "watch"
+    },
+    {
+     "id": "w-preview/failed",
+     "label": "Failed",
+     "col": 3,
+     "role": "state",
+     "kind": "watch",
+     "end": true
+    }
+   ],
+   "moves": [
+    [
+     "w-preview/running",
+     "w-preview/passed"
+    ],
+    [
+     "w-preview/running",
+     "w-preview/failed"
+    ]
+   ]
+  },
+  {
+   "id": "w-smoke",
+   "kind": "lifecycle",
+   "title": "Smoke tests",
+   "source": "Watch",
+   "nodes": [
+    {
+     "id": "w-smoke/running",
+     "label": "Running",
+     "col": 1,
+     "role": "state",
+     "kind": "watch",
+     "passed": true
+    },
+    {
+     "id": "w-smoke/passed",
+     "label": "Passed",
+     "col": 2,
+     "role": "state",
+     "kind": "watch",
+     "here": true
+    },
+    {
+     "id": "w-smoke/failed",
+     "label": "Failed",
+     "col": 3,
+     "role": "state",
+     "kind": "watch",
+     "end": true
+    }
+   ],
+   "moves": [
+    [
+     "w-smoke/running",
+     "w-smoke/passed"
+    ],
+    [
+     "w-smoke/running",
+     "w-smoke/failed"
+    ]
+   ]
+  },
+  {
+   "id": "j-flaky",
+   "kind": "lifecycle",
+   "title": "Fix flaky login test",
+   "source": "Job",
+   "ended": true,
+   "nodes": [
+    {
+     "id": "j-flaky/working",
+     "label": "Working",
+     "col": 2,
+     "role": "state",
+     "kind": "job",
+     "passed": true
+    },
+    {
+     "id": "j-flaky/landed",
+     "label": "Landed",
+     "col": 3,
+     "role": "state",
+     "kind": "job",
+     "ended": true
+    }
+   ],
+   "moves": [
+    [
+     "j-flaky/working",
+     "j-flaky/landed"
+    ]
+   ]
+  }
+ ],
+ "rules": [
+  {
+   "id": "ticket-started:i-shop-142",
+   "rule": "ticket-started",
+   "from": "workflow/plan",
+   "to": "i-shop-142/in_progress",
+   "label": "Ticket to In Progress",
+   "autonomy": "acts",
+   "status": "acted",
+   "fired_at": "2026-11-09T13:52:00Z",
+   "did": [
+    "Moved SHOP-142 to In Progress"
+   ]
+  },
+  {
+   "id": "open-draft:pr-88",
+   "rule": "open-draft",
+   "from": "workflow/build",
+   "to": "pr-88/draft",
+   "label": "Open a draft pull request",
+   "autonomy": "acts",
+   "status": "acted",
+   "fired_at": "2026-11-09T14:05:00Z",
+   "did": [
+    "Opened #88 as a draft"
+   ]
+  },
+  {
+   "id": "watch-deploy:w-preview",
+   "rule": "watch-deploy",
+   "from": "workflow/build",
+   "to": "w-preview/running",
+   "label": "Watch each deploy",
+   "autonomy": "acts",
+   "status": "acted",
+   "fired_at": "2026-11-09T14:31:00Z",
+   "did": [
+    "Started watching the deploy preview"
+   ]
+  },
+  {
+   "id": "watch-deploy:w-smoke",
+   "rule": "watch-deploy",
+   "from": "workflow/build",
+   "to": "w-smoke/running",
+   "label": "Watch each deploy",
+   "autonomy": "acts",
+   "status": "acted",
+   "fired_at": "2026-11-09T14:12:00Z",
+   "quiet": true
+  },
+  {
+   "id": "start-flaky:j-flaky",
+   "rule": "start-flaky",
+   "from": "workflow/plan",
+   "to": "j-flaky/working",
+   "label": "Start a Job for a flaky test",
+   "autonomy": "asks",
+   "status": "asked",
+   "fired_at": "2026-11-09T13:58:00Z",
+   "did": [
+    "Asked him in Needs you",
+    "He said yes"
+   ]
+  },
+  {
+   "id": "ready:pr-88",
+   "rule": "ready",
+   "from": "workflow/build",
+   "to": "pr-88/open",
+   "label": "Mark ready for review",
+   "autonomy": "asks",
+   "status": "waiting",
+   "waits": "Build ends"
+  },
+  {
+   "id": "review-request:pr-88",
+   "rule": "review-request",
+   "from": "workflow/walk",
+   "to": "pr-88/open",
+   "label": "Ask the team to review",
+   "autonomy": "acts",
+   "status": "skipped",
+   "fired_at": "2026-11-09T14:20:00Z",
+   "did": [
+    "Walk was skipped"
+   ]
+  },
+  {
+   "id": "ticket-review:pr-88>i-shop-142",
+   "rule": "ticket-review",
+   "from": "pr-88/open",
+   "to": "i-shop-142/in_review",
+   "label": "Ticket to In Review",
+   "autonomy": "acts",
+   "status": "waiting",
+   "waits": "#88: Open",
+   "changed": "Waits for #88: Open, was Checks pass"
+  }
+ ]
+}

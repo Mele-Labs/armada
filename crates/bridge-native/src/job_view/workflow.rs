@@ -417,13 +417,6 @@ impl JobView {
         );
     }
 
-    /// ⌥W: the keys on the head's picker, with the Spine brought forward where it is not in front.
-    pub(super) fn workflow_key(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.spine_forward(window, cx);
-        let head = self.spine.head.clone();
-        window.defer(cx, move |window, cx| window.focus(&head, cx));
-    }
-
     /// A workflow picked from the head: from the next turn the Job follows it.
     fn choose_workflow(&mut self, pick: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };

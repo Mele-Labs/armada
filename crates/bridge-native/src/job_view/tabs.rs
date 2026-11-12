@@ -45,6 +45,7 @@ impl Pane {
                 ("files", "Files", "folder-tree"),
                 ("subagents", "Subagents", "zap"),
                 ("checks", "Checks", "shield-check"),
+                ("workflow", "Workflow", "workflow"),
                 ("system", "System", "cpu"),
                 ("bays", "Bays", "layout-grid"),
                 ("spine", "Spine", "waypoints"),

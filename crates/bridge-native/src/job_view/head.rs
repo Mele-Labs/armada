@@ -1409,10 +1409,9 @@ impl JobView {
             self.spine_key(area, window, cx);
             return true;
         }
-        // The workflow's picker (`WORKFLOW_KEY`), from the message box too. Classic brings its Lanes
-        // tab forward; native has no Lanes yet, so the keys go to the picker on the Spine's head.
+        // The Workflow tab forward with the keys on its lanes (`WORKFLOW_KEY`), from the message box too.
         if alone && keys.key == "w" {
-            self.workflow_key(window, cx);
+            self.lanes_forward(window, cx);
             return true;
         }
         // The whole plan (`WHOLE_KEY`), on a Job in panes its Plan tab, from the same listener.

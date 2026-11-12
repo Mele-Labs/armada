@@ -953,17 +953,4 @@ impl JobView {
         window.focus(&band, cx);
         cx.notify();
     }
-
-    /// The Spine in front: its tab brought forward, or opened where it is shut.
-    pub(super) fn spine_forward(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.zone_shown() == Some(Zone::Spine) {
-            return;
-        }
-        if self.tab_closed("spine") {
-            self.add_tab("spine", window, cx);
-        } else {
-            self.zone = Zone::Spine;
-            cx.notify();
-        }
-    }
 }

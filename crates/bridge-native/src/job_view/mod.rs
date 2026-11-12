@@ -50,6 +50,7 @@ mod review;
 mod row_tabs;
 mod rows;
 mod judge_tab;
+mod lanes;
 mod ledger;
 mod report;
 mod sketch_pad;
@@ -333,6 +334,8 @@ pub struct JobView {
     /// The Draw sketch sheet is up, over the Job's pad.
     sketch_open: bool,
     pad: Option<sketch_pad::Pad>,
+    /// The Workflow tab's canvas: where each Job's lanes are looked at, and whether the keys are on it.
+    lanes: lanes::Lanes,
     /// The Teach panel, while it is open, Fleet's refusal of its last call, and the count that tells its answers apart.
     teach: Option<teach::Open>,
     teach_said: Option<SharedString>,
@@ -397,6 +400,15 @@ impl JobView {
             composer.catalog.scripts = catalogue.talk;
         }
         subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| this.followed(window, cx)));
+        let lanes = lanes::Lanes::new(cx);
+        subscriptions.push(cx.on_focus(&lanes.frame, window, |this, _, cx| {
+            this.lanes.keyed.set(true);
+            cx.notify();
+        }));
+        subscriptions.push(cx.on_blur(&lanes.frame, window, |this, _, cx| {
+            this.lanes.keyed.set(false);
+            cx.notify();
+        }));
         if let Some(fleet) = &fleet {
             subscriptions.push(cx.observe_in(fleet, window, |this, _, window, cx| {
                 this.synced(cx);
@@ -464,6 +476,7 @@ impl JobView {
             reporting: None,
             sketch_open: false,
             pad: None,
+            lanes,
             teach: None,
             teach_said: None,
             teach_clock: 0,
