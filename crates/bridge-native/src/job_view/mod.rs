@@ -1038,7 +1038,6 @@ impl Render for JobView {
             .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
             .children(self.render_confirm(window, cx))
             .children(self.render_editor(window, cx))
-            .children(self.render_fork_bar(cx))
             .children(self.render_teach(cx))
             .children(self.render_review(&id, window, cx))
             .children(self.render_report(window, cx))

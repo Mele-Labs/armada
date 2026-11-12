@@ -14,6 +14,7 @@ use super::{answer, fresh, marks, press_on, right_on, scene, step, Step, Verb};
 
 pub static STEPS: &[Step] = &[
     // -- the title bar -------------------------------------------------------------------------
+    step("The wide bar: a window narrower than 900 widens to show it", Verb::Widen(1400), "tablist", "Places"),
     step("The Places stand in a notch at the centre, the window's own brighter, and the search is an icon with its key", Verb::Look, "tablist", "Places"),
     step("⌘1 goes to the first place from wherever the keys are", Verb::Key("cmd-1"), "tab", "Jobs"),
     right_on("A right press on a place opens Hide, then View with every place; a place that must stay says Always shown", "tab", "Jobs", "menu", "Places"),
@@ -109,7 +110,7 @@ pub static STEPS: &[Step] = &[
     right_on("A right press on a chip opens its menu: the heading names the pull request, then Open in browser, Copy link and Refresh", "button", RUNNING, "menu", "Pull request #3392"),
     step("Esc shuts the menu and the keys go back to the chip", Verb::Key("escape"), "button", RUNNING),
     step("Q puts the keys on the strip", Verb::Key("q"), "region", "Merge queue"),
-    step("Tab reaches a chip: its card opens as a hover opens it, and Enter on it opens the pull request", Verb::Keys(&["tab", "tab"]), "region", "Pull request #3395"),
+    step("Tab reaches a chip: its card opens as a hover opens it, and Enter on it opens the pull request", Verb::Keys(&["tab"]), "region", "Pull request #3395"),
     marks("Main red: the light says where, and a held checkout marks it", "strip-red", "button", RED),
     press_on("A press keeps the card open: what failed, what broke it, the checkout, and how old the reading is", "button", RED, "region", "main"),
     press_on("Send back, beside the pull request that broke main, asks which Job takes the work, the one that merged it chosen", "button", "Send back", "dialog", "Send the work back"),

@@ -786,10 +786,11 @@ impl JobView {
             .items_center()
             .gap(look.length(token::SPACE_2))
             .text_color(look.color(token::FG_MUTED))
+            .flex_wrap()
             .child(super::rows::eyebrow(look, eyebrow_word).text_color(look.color(token::FG_MUTED)))
-            .child(div().flex_1())
-            .children(to_page)
-            .child(self.stamp(at, look, now, false, cx));
+            // `armada-session-draft__at`'s `margin-inline-start: auto`; in a narrow card the act and the
+            // time wrap under the word, still at the right, rather than run past the card's edge.
+            .child(div().ml_auto().flex().flex_wrap().justify_end().items_center().gap(look.length(token::SPACE_2)).children(to_page).child(self.stamp(at, look, now, false, cx)));
         let shown_text = match &how {
             Some((DraftHow::Fixed, Some(words))) => words.clone(),
             _ => text.to_string(),

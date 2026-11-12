@@ -196,6 +196,11 @@ impl Cards {
             .map(|(key, _)| key["block:".len()..].to_string())
     }
 
+    /// Where the block of words under the id of its row was last drawn.
+    pub fn block_origin(&self, row: &str) -> Option<gpui::Point<gpui::Pixels>> {
+        self.spots.borrow().get(&format!("block:{row}")).map(|spot| spot.bounds.get().origin)
+    }
+
     pub fn take_changed(&self) -> bool {
         self.changed.replace(false)
     }

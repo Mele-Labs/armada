@@ -194,6 +194,8 @@ pub struct TitleBar {
     place_focus: Vec<(&'static str, FocusHandle)>,
     /// The plan meter's keys: they open its card as a hover does.
     meter_focus: FocusHandle,
+    /// The Menu button's keys: a menu it opened gives them back to it, as Radix gives them to its trigger.
+    menu_focus: FocusHandle,
     /// The card the keys opened, which they shut as they leave.
     meter_by_keys: bool,
     /// Esc shut the card while the keys stayed on the meter: it does not open again until they leave.
@@ -314,6 +316,7 @@ impl TitleBar {
             switcher: projects::Switcher::default(),
             place_focus: Vec::new(),
             meter_focus,
+            menu_focus: cx.focus_handle().tab_stop(true),
             meter_by_keys: false,
             meter_quiet: false,
             _meter_focus: [arrived, left],
@@ -1395,6 +1398,7 @@ impl TitleBar {
         let signed_out = !self.face.signed_in;
         let menu = labelled(
             no_drag(parts::icon_button("menu", "menu", look.color(token::FG_MUTED), look)
+                .track_focus(&self.menu_focus)
                 .child(canvas(move |bounds, _, _| menu_at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
                 .relative()
                 // Nothing signed in: an amber dot at the button's bottom-right, read without the menu opened.
@@ -1443,6 +1447,7 @@ impl TitleBar {
         let Some(from) = self.at.menu.get() else { return };
         let narrow = self.narrow(window);
         let entries = self.menu_entries(narrow);
+        self.keys_were = Some(self.menu_focus.clone());
         self.open_menu(MenuKind::Account, entries, "Menu", from, true, window, cx);
     }
 }

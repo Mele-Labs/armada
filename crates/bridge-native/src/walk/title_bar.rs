@@ -24,7 +24,8 @@ pub static BUILD_LIVE: [Step; 11] = [
 ];
 
 /// The switcher alone, on the projects Fleet serves, and how its two chips give way.
-pub static SWITCHER: [Step; 8] = [
+pub static SWITCHER: [Step; 9] = [
+    step("The wide bar: a window narrower than 900 widens to show it", Verb::Widen(1400), "button", "Project"),
     step("Short of room the project reads whole; its Settings is in the switcher", Verb::Look, "button", "Project"),
     press_on("The switcher lists Fleet's projects, then the repositories in none", "button", "Project", "region", "Armada"),
     step("↓ moves to Storefront: its two repositories, each with its folder, and where it is kept", Verb::Key("down"), "region", "Storefront"),
@@ -35,7 +36,8 @@ pub static SWITCHER: [Step; 8] = [
     step("Wider, the repositories join the name once they fit whole", Verb::Width(1440), "button", "Project"),
 ];
 
-pub static STEPS: [Step; 55] = [
+pub static STEPS: [Step; 61] = [
+    step("The wide bar: a window narrower than 900 widens to show it", Verb::Widen(1400), "button", "Project"),
     step("The bar at rest: the project with its repositories, the Places, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Project"),
     step("The Places stand in a notch at the centre, the window's own brighter, and the search is an icon with its key", Verb::Look, "tablist", "Places"),
     step("⌘1 goes to the first place from wherever the keys are", Verb::Key("cmd-1"), "tab", "Jobs"),
@@ -54,7 +56,7 @@ pub static STEPS: [Step; 55] = [
     step("⌘, opens Settings for the row the keys are on and shuts the switcher", Verb::Key("cmd-,"), "button", "Project"),
     scene("Until Fleet has a reading the rings are a sweeping glyph", "rings-loading", "img", "Analyzing Usage"),
     scene("From 95 a ring turns red; the 5-hour ring is outside, the weekly inside", "rings-danger", "button", DANGER),
-    scene("An account off a subscription draws no rings", "rings-off", "button", "Operator"),
+    scene("An account off a subscription draws no rings", "rings-off", "button", "Fleet — Running"),
     scene("From 80 a ring turns amber, and a bell stands on it while the step down is offered", "offer", "img", "Default to Sonnet offered"),
     press_on("The card says each limit and when it resets, and carries the offer", "button", WARNING, "button", "Default to Sonnet"),
     press_on("Accepting changes the card in the same frame", "button", "Default to Sonnet", "region", "Weekly limit"),
@@ -82,6 +84,11 @@ pub static STEPS: [Step; 55] = [
     step("The menu lists what the row gave up: projects, Search, Dispatch, the Operator", Verb::Press, "button", "Menu"),
     press_on("Choosing Search leaves the menu and opens the command palette", "menuitem", "Search", "dialog", "Command palette"),
     step("Esc shuts the palette and the keys go back to the menu", Verb::Key("escape"), "button", "Menu"),
+    step("Enter opens the menu again, and typing goes to Find a project", Verb::Key("enter"), "searchbox", "Find a project"),
+    step("Typing finds a project in the menu", Verb::Keys(&["a", "r", "m"]), "menuitemcheckbox", "Armada"),
+    step("Enter switches the window to it and shuts the menu", Verb::Key("enter"), "button", "Menu"),
+    step("Enter opens the menu again, and ↑ goes to its last row, the Operator", Verb::Keys(&["enter", "up"]), "menuitem", "Operator"),
+    step("Enter goes to the Operator and shuts the menu", Verb::Key("enter"), "button", "Menu"),
     scene("With no profile signed in, an amber dot stands on the menu", "signed-out", "button", "Menu"),
     step("The account entry says Sign in, and carries the dot", Verb::Press, "button", "Menu"),
     press_on("Sign in goes to the account and shuts the menu", "menuitem", "Sign in", "button", "Menu"),

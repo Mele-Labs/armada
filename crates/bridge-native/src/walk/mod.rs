@@ -112,6 +112,10 @@ pub enum Verb {
     /// The window takes this many points across, its height kept, as a person narrows it. Nothing
     /// puts it back: a walk narrows it at its end.
     Width(u32),
+    /// The window takes at least this many points across: a narrower one widens and a wider one is
+    /// left as it is. A walk of the wide title bar opens with it, so it plays the bar it shows at
+    /// any width; the narrow bar has its own steps.
+    Widen(u32),
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -572,7 +576,7 @@ pub static WALKS: &[Walk] = &[
             step("Shift+F10 on a band opens its menu", Verb::Key("shift-f10"), "menuitem", "Teach"),
             step("Esc", Verb::Key("escape"), "button", "Done"),
             step("Scrolled, the band of the zone passing under the top holds there", Verb::Wheel("region", "Spine", 260), "button", "Now"),
-            step("Further down, Open's band holds in its turn", Verb::Wheel("region", "Spine", 700), "button", "Plan group: Note the chip in the release notes"),
+            step("Further down, Open's band holds in its turn", Verb::Wheel("region", "Spine", 420), "button", "Plan group: Note the chip in the release notes"),
             press_on("A press on a row puts the keys there", "button", "Plan group: Note the chip in the release notes", "button", "Plan group: Note the chip in the release notes"),
             step("Down moves to the zone's next row", Verb::Key("down"), "list", "Not landed"),
             step("End goes to the zone's last row, and the keys stay in the zone", Verb::Key("end"), "list", "Not landed"),
@@ -1783,9 +1787,9 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             step("A Job he wrote to in two lines", Verb::Press, "row", "Finished calls"),
             step("His line break stays: the second sentence starts its own line", Verb::Look, "region", "Your message"),
-            step("Each tab has its ×, and each strip ends in +", Verb::Look, "button", "Add tab: Open"),
+            step("Each tab has its ×, and each strip ends in +", Verb::Look, "button", "Add tab: Done"),
             step("× closes the Open tab", Verb::Gone, "button", "Close Open"),
-            step("+ offers it back", Verb::Open("button", "Add tab: Open"), "menuitem", "Open"),
+            step("+ offers it back", Verb::Open("button", "Add tab: Done"), "menuitem", "Open"),
             step("A press on Open brings it back", Verb::Gone, "menuitem", "Open"),
             step("In front, with its ×", Verb::Look, "button", "Close Open"),
             step("Judge opens on the right; the thread and the side share the Job 0.62 to 0.38", Verb::Open("button", "Judge"), "button", "Close Judge"),

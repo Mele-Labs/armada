@@ -506,7 +506,7 @@ impl JobView {
         let mut hold = |at: usize, band: AnyElement| -> AnyElement {
             match stuck.filter(|(stuck, _)| *stuck == at) {
                 Some((_, y)) => {
-                    overlay = Some(div().absolute().left_0().right_0().top(y).px(look.length(token::SPACE_2)).child(div().bg(ground).child(band)));
+                    overlay = Some(div().absolute().occlude().left_0().right_0().top(y).px(look.length(token::SPACE_2)).child(div().bg(ground).child(band)));
                     div().h(band_h).into_any_element()
                 }
                 None => band,
