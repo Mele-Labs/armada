@@ -182,6 +182,60 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/workflows/propose".into(), said), "ArmadaProposed", cx))
     }
 
+    /// `GET /workflows/changes`: the open changes to one workflow in one place, drafting, ready, failed or cannot.
+    pub fn workflow_changes(&mut self, id: &str, source: &str, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowChanges, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.workflow_changes(id, source, manifest));
+        }
+        let path = scoped(&format!("/workflows/changes?workflow_id={}&source={}", crate::link::percent_encoded(id), crate::link::percent_encoded(source)), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowChanges", cx))
+    }
+
+    /// `POST /workflows/changes/ask`: an agent drafts a change in his words; nothing is saved.
+    pub fn ask_change(&mut self, manifest: &str, asking: ipc::AskWorkflowChange, cx: &App) -> Task<Result<ipc::WorkflowChange, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.ask_change(manifest, asking));
+        }
+        let (path, said) = (scoped("/workflows/changes/ask", manifest), body(&asking));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "WorkflowChange", cx))
+    }
+
+    /// `POST /workflows/changes/approve`: a ready change written to its file.
+    pub fn approve_change(&mut self, change: i64, cx: &App) -> Task<Result<ipc::WorkflowChangeApproved, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.approve_change(change));
+        }
+        let said = body(&ipc::WorkflowChangeRef { change });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/workflows/changes/approve".into(), said), "WorkflowChangeApproved", cx))
+    }
+
+    /// `POST /workflows/changes/dismiss`.
+    pub fn dismiss_change(&mut self, change: i64, cx: &App) -> Task<Result<ipc::WorkflowChange, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.dismiss_change(change));
+        }
+        let said = body(&ipc::WorkflowChangeRef { change });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/workflows/changes/dismiss".into(), said), "WorkflowChange", cx))
+    }
+
+    /// `POST /workflows/changes/send_back`: drafted again with his notes.
+    pub fn send_back_change(&mut self, back: ipc::SendBackWorkflowChange, cx: &App) -> Task<Result<ipc::WorkflowChange, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.send_back_change(back));
+        }
+        let said = body(&back);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/workflows/changes/send_back".into(), said), "WorkflowChange", cx))
+    }
+
+    /// `POST /workflows/changes/build`: a Job on Armada's repository that builds what a `cannot` change lacks.
+    pub fn build_support(&mut self, change: i64, cx: &App) -> Task<Result<ipc::WorkflowSupportBuilding, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.build_support(change));
+        }
+        let said = body(&ipc::WorkflowChangeRef { change });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/workflows/changes/build".into(), said), "WorkflowSupportBuilding", cx))
+    }
+
     /// `GET /models`: the models the harness offers, and the model a run that names none is given.
     pub fn models(&mut self, cx: &App) -> Task<Result<ipc::ModelChoices, Refused>> {
         if let Wire::Mock(mock) = self {
@@ -222,7 +276,7 @@ impl Wire {
             return Task::ready(mock.set_values(project, values));
         }
         let path = format!("/projects/project/{}/edit", crate::link::percent_encoded(project));
-        let said = body(&EditProject { name: None, members: None, place: None, values: Some(values) });
+        let said = body(&EditProject { values: Some(values), ..EditProject::default() });
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
     }
 
@@ -371,6 +425,7 @@ mod tests {
             look: Some(LookSet { layout: None, theme: Some("dusk".into()), density: Some("roomy".into()) }),
             tracker: Some([("provider".to_string(), "linear".to_string())].into_iter().collect()),
             reviews: Some(ReviewsSet { plans: Some("review".into()), pull_requests: Some("off".into()), walks: Some("off".into()) }),
+            ..ValuesSet::default()
         };
         let wanted = ReviewsSet { plans: Some("review_and_approve".into()), pull_requests: Some("review".into()), walks: Some("review".into()) };
         let sent = with_reviews(Some(&own), wanted.clone());
