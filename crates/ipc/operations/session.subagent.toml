@@ -1,0 +1,8 @@
+[operations."session.subagent"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A subagent's own thread moved"
+notes = """
+`SessionSubagentChanged`: `session_id` and `subagent_id`, the `ToolSubagent.id` its `Agent` row carries and `get_session_subagent` takes. It carries no rows: a client holding that subagent reads `GET /sessions/subagent` again. Published beside each put of a running subagent's row, which is at most once a second, and once when the subagent settles. A client that is not showing the subagent ignores it.
+"""

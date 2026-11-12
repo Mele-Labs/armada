@@ -42,6 +42,17 @@ pub(crate) fn folded(thread: &SessionThread, timeline: &[TimelineEvent], revisio
     (head, items)
 }
 
+/// A subagent's rows folded as a thread is, with no ledger, timeline or pin to draw a card from: only
+/// the rows that are drawn, and the folds of calls and Fleet turns. Bridge's `threadRowsFrom` over its rows.
+pub(crate) fn subagent_items(rows: &[SessionRow]) -> Vec<ThreadItem> {
+    let entries = rows
+        .iter()
+        .filter(|row| drawn(row) && !undrawn(row))
+        .map(|row| Entry { at: row.at().clone(), from_row: true, piece: Piece::Row(row) })
+        .collect::<Vec<_>>();
+    fold(&entries, &HashSet::new())
+}
+
 /// Every revision path the sketches of a record name, which [`folded`] draws once each is in [`Revisions`].
 pub(crate) fn revision_paths(record: &SessionRecord) -> Vec<String> {
     record
