@@ -608,8 +608,6 @@ impl JobView {
                     .overflow_hidden()
                     .rounded(look.length(token::RADIUS_MD))
                     .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_SUBTLE))
-                    .border_l(look.length(token::SPACE_1) / 2.)
                     .border_color(look.color(token::STATUS_HANDED_IN))
                     .bg(look.color(token::BG_RAISED))
                     .shadow(look.shadows(token::SHADOW_OVERLAY))
