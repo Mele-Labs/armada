@@ -208,7 +208,7 @@ fn the_person_has_replied_only_with_a_message_of_his_after_the_agents_first_turn
     assert!(!thread_facts(&[message(1, you()), message(2, SessionVoice::Agent)], None).replied, "the agent has spoken and he has not");
     assert!(thread_facts(&[message(1, you()), message(2, SessionVoice::Agent), message(3, you())], None).replied);
     assert!(!thread_facts(&[message(1, you()), message(2, SessionVoice::Agent), message(3, fleet())], None).replied, "Fleet's notice is not his word");
-    let tool = SessionRow::Tool { id: "t1".into(), at: at_second(2), text: "ask_the_person".into(), description: None, subagent: None };
+    let tool = SessionRow::Tool { id: "t1".into(), at: at_second(2), text: "ask_the_person".into(), description: None, subagent: None, image: None, message: None };
     assert!(thread_facts(&[message(1, you()), tool, message(3, you())], None).replied, "an answer to a question the agent asked");
 }
 

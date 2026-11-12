@@ -1822,3 +1822,38 @@ A process that goes and cuts its subagents off publishes one for each, since eac
 **The event stream.** One kind added, and it is better than polling: a native Bridge that held `get_session_subagent` on a 1.5 s timer reads it on this event instead, and the event is at most one a second per running subagent.
 It rides the same sink as every event, so the open risk below is neither better nor worse for the stream.
 A reconnecting client reads the subagent again, as it reads a Job, rather than trusting that it kept every event.
+
+## A tool row's picture and message: `SessionRow::Tool.image` and `SessionRow::Tool.message`
+
+Since 12 Nov 2026. `docs/concepts/session.md`, *A terminal session's thread*.
+**Additive only**: two optional fields on an existing variant and two new types, `ToolMessage` and `MessagePeer`; no operation, route, event kind or error, and no new `SessionRow` or `SessionVoice` variant.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `image`, `message`, `ToolMessage` and `MessagePeer` in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+Electron draws a `tool` row's `text` as it did and reads neither field.
+The native Bridge draws the picture on the row and names the Job a message went to.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `tool` row `image` (`session.row`, `get_session`, `get_job_thread`) | Fleet writes, Bridge reads | The absolute path, home put back, of the `.png`, `.jpg`, `.jpeg`, `.gif` or `.webp` a `Read` looked at. **No bytes**: a client reads them with `GET /sessions/repository_file?session_id=&path=`, which serves the images the Job's ledger names. Absent on any other call and on every row kept before it |
+| `tool` row `message` | Fleet writes, Bridge reads | `ToolMessage` `{ to, summary?, text }` for a `SendMessage` call: `text` is the whole message and `summary` the one line the call's input gave it. Absent on any other call and on every row kept before it |
+| `ToolMessage.to` | Fleet writes, Bridge reads | `MessagePeer` `{ name, session_id?, title? }`. `name` is the call's own `to`: `s-<8 hex>`, a `uds:/tmp/cc-socks/<pid>.sock` path or a bare name. `session_id` and `title` are set only where Fleet placed the name on a Job, and `title` is absent for a Job with none |
+
+**How a name is placed.** `s-<8 hex>` is the Job whose id begins with those eight; two Jobs that share them place none.
+A socket path is the Job whose **hosted agent** has the pid in its file name.
+Fleet keeps a pid for the agent it hosts and for no terminal Job, so a terminal Job is placed by its address and never by its socket.
+**Resolved where Fleet writes or takes the row, not where it is served.**
+A hosted Job's row is stored and published by `row_put`, so the event and a later `get_session` carry the same peer, and the title is the one the Job had then.
+A terminal Job's rows are never written, so they are resolved where Fleet takes them off the transcript, which is every read and every row the watcher publishes.
+A subagent's thread (`get_session_subagent`) is not resolved: its `SendMessage` rows keep `name` alone.
+
+**A terminal Job's received messages are rows now.**
+The line the CLI writes for another session's message, `Another Claude session sent a message:` around a `<cross-session-message from= from-name=>` wrapper, was skipped and is drawn as a `message` row from `SessionVoice::Session { id, title }`, the voice a hosted Job's delivered message has.
+`id` and `title` are the Job's where `from-name`, else the socket, places one, and both are the raw name where it does not.
+`text` is the body between the tags: the CLI's note after them, "This came from another Claude session...", is not drawn.
+**This is visible in Electron**, which draws any `message` row: a terminal Job's thread starts showing them.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+A row with either field reads on a Bridge that does not know them as a `tool` row with its text.
+**The event stream.** No new event.
+A `SendMessage` row now carries its message twice, in `text` and in `message.text`, and a terminal Job's thread gains a `session.row` for each message it received, so this makes the unbounded sink slightly worse.
+The open risk is otherwise as it was.

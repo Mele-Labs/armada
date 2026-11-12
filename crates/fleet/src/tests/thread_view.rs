@@ -28,13 +28,13 @@ pub(super) fn thread(rows: Vec<SessionRow>) -> SessionThread {
 }
 
 pub(super) fn tool(id: &str, minute: u32, text: &str) -> SessionRow {
-    SessionRow::Tool { id: id.into(), at: at(minute), text: text.into(), description: None, subagent: None }
+    SessionRow::Tool { id: id.into(), at: at(minute), text: text.into(), description: None, subagent: None, image: None, message: None }
 }
 
 pub(super) fn subagent(id: &str, minute: u32) -> SessionRow {
     let text = r#"{"id":"sub","task":"look","state":"running","since":"2026-11-03T10:00:00.000Z"}"#;
     let subagent = ipc::decode("a subagent", text.as_bytes()).expect("a subagent");
-    SessionRow::Tool { id: id.into(), at: at(minute), text: "Agent look".into(), description: None, subagent: Some(subagent) }
+    SessionRow::Tool { id: id.into(), at: at(minute), text: "Agent look".into(), description: None, subagent: Some(subagent), image: None, message: None }
 }
 
 pub(super) fn message(id: &str, minute: u32, from: SessionVoice, text: &str, notice: Option<&str>) -> SessionRow {

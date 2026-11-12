@@ -1183,3 +1183,97 @@ async fn ending_a_terminal_whose_mod_predates_ends_is_refused() {
     assert!(refused.contains("too old"), "{refused}");
     assert!(!rig.mod_takes().await.end, "nothing was held");
 }
+
+const READER: &str = "abcd1234-0000-4000-8000-000000000001";
+
+impl Rig {
+    /// A second terminal Job in the ledger, titled `Reader`, which `s-abcd1234` addresses.
+    async fn reader_started(&self) {
+        self.fleet
+            .report_session(SessionReport {
+                harness: adapters::HOSTED_HARNESS.into(),
+                session_id: SessionId::carried(READER),
+                fact: SessionFact::Started {
+                    cwd: self.root.clone(),
+                    title: Some("Reader".into()),
+                    origin: SessionOrigin::Terminal,
+                    mod_version: None,
+                },
+            })
+            .await
+            .unwrap();
+    }
+}
+
+fn from_a_peer(uuid: &str, tag: &str, body: &str) -> String {
+    format!(
+        r#"{{"type":"user","uuid":"{uuid}","timestamp":"2026-10-07T08:48:10.000Z","isMeta":true,"origin":{{"kind":"peer"}},"message":{{"role":"user","content":"Another Claude session sent a message:\n<cross-session-message {tag}>\n{body}\n</cross-session-message>\n\nThis came from another Claude session."}}}}"#
+    )
+}
+
+/// **A message another session sent is from that Job** where Fleet knows it: the Job's own id and
+/// title. Where it does not, the row keeps the name as the wrapper wrote it for both.
+#[tokio::test]
+async fn a_received_message_is_from_its_job() {
+    let rig = rig();
+    rig.started().await;
+    rig.reader_started().await;
+    let lines = [
+        from_a_peer("p1", r#"from=\"uds:/tmp/cc-socks/69566.sock\" from-name=\"s-abcd1234\""#, "Known by name."),
+        from_a_peer("p2", r#"from=\"uds:/tmp/cc-socks/5352.sock\" from-name=\"s-ffffffff\""#, "Not a Job."),
+        from_a_peer("p3", r#"from=\"uds:/tmp/cc-socks/5352.sock\""#, "A socket, and no Fleet pid for a terminal Job."),
+    ];
+    std::fs::write(&rig.transcript, lines.join("\n") + "\n").unwrap();
+
+    let voices: Vec<(SessionVoice, String)> = rig
+        .opened()
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { from, text, .. } => Some((from, text)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        voices,
+        [
+            (SessionVoice::Session { id: READER.into(), title: "Reader".into() }, "Known by name.".to_string()),
+            (SessionVoice::Session { id: "s-ffffffff".into(), title: "s-ffffffff".into() }, "Not a Job.".to_string()),
+            (
+                SessionVoice::Session { id: "uds:/tmp/cc-socks/5352.sock".into(), title: "uds:/tmp/cc-socks/5352.sock".into() },
+                "A socket, and no Fleet pid for a terminal Job.".to_string()
+            ),
+        ]
+    );
+}
+
+/// A terminal Job's own `SendMessage` names the Job it went to, as a hosted Job's does.
+#[tokio::test]
+async fn a_terminal_jobs_sent_message_names_the_job() {
+    let rig = rig();
+    rig.started().await;
+    rig.reader_started().await;
+    let sent = |uuid: &str, to: &str| {
+        format!(
+            r#"{{"type":"assistant","uuid":"{uuid}","timestamp":"2026-10-07T08:48:10.000Z","message":{{"role":"assistant","content":[{{"type":"tool_use","id":"toolu_{uuid}","name":"SendMessage","input":{{"to":"{to}","summary":"Heads up","message":"look at this"}}}}]}}}}"#
+        )
+    };
+    std::fs::write(&rig.transcript, [sent("m1", "s-abcd1234"), sent("m2", "stranger")].join("\n") + "\n").unwrap();
+
+    let peers: Vec<ipc::MessagePeer> = rig
+        .opened()
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Tool { message: Some(message), .. } => Some(message.to),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        peers,
+        [
+            ipc::MessagePeer { name: "s-abcd1234".into(), session_id: Some(SessionId::carried(READER)), title: Some("Reader".into()) },
+            ipc::MessagePeer { name: "stranger".into(), session_id: None, title: None },
+        ]
+    );
+}
