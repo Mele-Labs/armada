@@ -4,9 +4,11 @@
 //! `workflows-off.ts`), read on All: Fleet's `GET /workflows` as the connection holds it, the switches saved into
 //! `features.workflows` and `workflows.off`.
 
+use std::cell::Cell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
-use gpui::{div, prelude::*, px, svg, AnyElement, App, Context, Entity, FocusHandle, Focusable, FontWeight, Keystroke, Role, SharedString, Subscription, Window};
+use gpui::{canvas, div, prelude::*, px, svg, AnyElement, App, Context, Entity, FocusHandle, Focusable, FontWeight, Keystroke, Role, SharedString, Subscription, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{SettingValue, WorkflowSummary};
 
@@ -250,6 +252,13 @@ pub struct WorkflowsPage {
     rows: BTreeMap<String, [FocusHandle; 2]>,
     /// The workflow picked, drawn beside the list.
     pub detail: super::workflow_detail::Detail,
+    /// The page's width as last drawn, and whether that left the detail too narrow to sit beside the list, so
+    /// the two take the same place in turn.
+    wide: Rc<Cell<gpui::Pixels>>,
+    narrow: Cell<bool>,
+    /// Where the detail stands in the list's place: picked from the list, until Esc or the back row.
+    pub opened: bool,
+    pub back: FocusHandle,
     _filter: Subscription,
 }
 
@@ -261,11 +270,16 @@ impl WorkflowsPage {
                 cx.notify();
             }
         });
-        WorkflowsPage { picked: None, filter, for_jobs: cx.focus_handle().tab_stop(true), rows: BTreeMap::new(), detail: Default::default(), _filter: sub }
+        WorkflowsPage { picked: None, filter, for_jobs: cx.focus_handle().tab_stop(true), rows: BTreeMap::new(), detail: Default::default(), wide: Rc::default(), narrow: Cell::new(false), opened: false, back: cx.focus_handle().tab_stop(true), _filter: sub }
     }
 
     pub fn filter_focused(&self, window: &Window, cx: &App) -> bool {
         self.filter.read(cx).focus_handle(cx).is_focused(window)
+    }
+
+    /// Whether the detail is drawn in the list's place now.
+    pub fn in_place(&self) -> bool {
+        self.narrow.get() && self.opened
     }
 }
 
@@ -339,6 +353,11 @@ impl SettingsOverlay {
 
     /// The page's stops: the switch for Jobs, the search, the row picked, then each row's switch; then the detail's.
     pub(super) fn workflow_stops(&self, window: &Window, cx: &App) -> Vec<FocusHandle> {
+        if self.workflows.in_place() {
+            let mut stops = vec![self.workflows.back.clone()];
+            stops.extend(self.detail_stops_for(window, cx));
+            return stops;
+        }
         let mut stops = vec![self.workflows.for_jobs.clone(), self.workflows.filter.read(cx).focus_handle(cx)];
         let (shown, picked) = self.shown_workflows(cx);
         let off = self.workflows_off();
@@ -351,7 +370,9 @@ impl SettingsOverlay {
                 stops.push(switch.clone());
             }
         }
-        stops.extend(self.detail_stops_for(window, cx));
+        if !self.workflows.narrow.get() {
+            stops.extend(self.detail_stops_for(window, cx));
+        }
         stops
     }
 
@@ -367,8 +388,31 @@ impl SettingsOverlay {
 
     pub(super) fn pick_workflow(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.workflows.picked = Some(key.to_string());
-        if let Some([row, _]) = self.workflows.rows.get(key) {
+        // The keys go to the row, or to the back row where the detail stands in the list's place: never to an act
+        // the pick took away.
+        if self.workflows.in_place() {
+            window.focus(&self.workflows.back, cx);
+        } else if let Some([row, _]) = self.workflows.rows.get(key) {
             window.focus(row, cx);
+        }
+        cx.notify();
+    }
+
+    /// A row taken: drawn beside the list, or in its place where the page is narrow, the keys on its first stop.
+    fn open_workflow(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.pick_workflow(key, window, cx);
+        if self.workflows.narrow.get() {
+            self.workflows.opened = true;
+            window.focus(&self.workflows.back, cx);
+            cx.notify();
+        }
+    }
+
+    /// Back to the list from the detail drawn in its place, the same row picked and the keys on it.
+    pub(super) fn back_to_list(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.workflows.opened = false;
+        if let Some(key) = self.workflows.picked.clone().or_else(|| self.shown_workflows(cx).1.map(|one| one.key())) {
+            self.pick_workflow(&key, window, cx);
         }
         cx.notify();
     }
@@ -376,12 +420,35 @@ impl SettingsOverlay {
     /// The page's own keys: Esc clears the search, F reaches it, ↑ and ↓ move between rows, Enter and Space switch.
     pub(super) fn workflows_key(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let mods = &key.modifiers;
+        let word = key.key.as_str();
+        if self.workflows.in_place() && word == "[" && mods.platform && !mods.control && !mods.alt {
+            self.back_to_list(window, cx);
+            return true;
+        }
         if mods.platform || mods.control || mods.alt {
             return false;
         }
-        let word = key.key.as_str();
         if self.detail_key(word, window, cx) {
             return true;
+        }
+        if self.workflows.in_place() {
+            match word {
+                "escape" => {
+                    self.back_to_list(window, cx);
+                    return true;
+                }
+                "enter" | "space" if self.workflows.back.is_focused(window) => {
+                    self.back_to_list(window, cx);
+                    return true;
+                }
+                // The search is the list's: F goes back to it first.
+                "f" if !mods.shift && !self.in_text(window, cx) => {
+                    self.back_to_list(window, cx);
+                    self.workflows.filter.update(cx, |filter, cx| filter.focus(window, cx));
+                    return true;
+                }
+                _ => {}
+            }
         }
         if self.workflows.filter_focused(window, cx) {
             if word == "escape" && !self.workflows.filter.read(cx).value().is_empty() {
@@ -412,7 +479,7 @@ impl SettingsOverlay {
                 }
                 "enter" | "space" => {
                     let key = shown[at].0.key();
-                    self.pick_workflow(&key, window, cx);
+                    self.open_workflow(&key, window, cx);
                     return true;
                 }
                 _ => return false,
@@ -502,17 +569,71 @@ impl SettingsOverlay {
                 }
             }
         }
-        let list = super::models::panel(look, "workflows-list").flex_none().w(look.length(token::W_GUIDE_LIST)).p(look.length(token::SPACE_3)).gap(look.length(token::SPACE_4)).child(labelled(jobs_switch, Role::Switch, "Workflows for Jobs")).child(filter).child(kept).child(groups);
-        let detail = super::models::panel(look, "workflows-detail").flex_1().children(picked.map(|one| self.render_workflow_detail(&one, look, window, cx)));
+        // Where the detail beside the list would be narrower than a dialog, the two take the list's place in turn.
+        let wide = self.workflows.wide.get();
+        let narrow = wide > px(0.) && wide - look.length(token::W_GUIDE_LIST) - look.length(token::GAP_PANEL) < look.length(token::W_DIALOG);
+        self.workflows.narrow.set(narrow);
+        let in_place = narrow && self.workflows.opened;
+        let measure = {
+            let wide = self.workflows.wide.clone();
+            canvas(
+                move |bounds, window, _| {
+                    if wide.get() != bounds.size.width {
+                        wide.set(bounds.size.width);
+                        window.refresh();
+                    }
+                },
+                |_, _, _, _| {},
+            )
+            .absolute()
+            .left_0()
+            .top_0()
+            .size_full()
+        };
+        let list = super::models::panel(look, "workflows-list")
+            .map(|list| if narrow { list.flex_1() } else { list.flex_none().w(look.length(token::W_GUIDE_LIST)) })
+            .p(look.length(token::SPACE_3))
+            .gap(look.length(token::SPACE_4))
+            .child(labelled(jobs_switch, Role::Switch, "Workflows for Jobs"))
+            .child(filter)
+            .child(kept)
+            .child(groups);
+        let back = in_place.then(|| {
+            let back = ringed(
+                look,
+                div()
+                    .id("workflows-back")
+                    .track_focus(&self.workflows.back)
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_1))
+                    .h(look.length(token::H_CONTROL))
+                    .px(look.length(token::SPACE_2))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(look.color(token::FG_DEFAULT).opacity(0.1)))
+                    .text_size(look.length(token::TEXT_SM))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(svg().path(icon_path("chevron-left")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_MUTED)))
+                    .child("Workflows")
+                    .on_click(cx.listener(|this, _, window, cx| this.back_to_list(window, cx))),
+                &self.workflows.back,
+                window,
+            );
+            div().px(look.length(token::SPACE_3)).pt(look.length(token::SPACE_3)).child(labelled(back, Role::Button, "Back to Workflows"))
+        });
+        let detail = super::models::panel(look, "workflows-detail").flex_1().children(back).children(picked.map(|one| self.render_workflow_detail(&one, look, window, cx)));
         div()
             .id("settings-page")
+            .relative()
             .flex_1()
             .min_w_0()
             .h_full()
             .flex()
             .gap(look.length(token::GAP_PANEL))
-            .child(labelled(list, Role::Region, "Workflows"))
-            .child(labelled(detail, Role::Region, "Workflow"))
+            .child(measure)
+            .when(!in_place, |page| page.child(labelled(list, Role::Region, "Workflows")))
+            .when(!narrow || in_place, |page| page.child(labelled(detail, Role::Region, "Workflow")))
             .into_any_element()
     }
 
@@ -578,7 +699,7 @@ impl SettingsOverlay {
                 .rounded(look.length(token::RADIUS_MD))
                 .cursor_pointer()
                 .map(|row| if current { row.bg(look.color(token::SURFACE_ROW_SELECTED)) } else { row.hover(|style| style.bg(look.color(token::FG_DEFAULT).opacity(0.1))) })
-                .on_click(cx.listener(move |this, _, window, cx| this.pick_workflow(&press, window, cx)))
+                .on_click(cx.listener(move |this, _, window, cx| this.open_workflow(&press, window, cx)))
                 .child(entry)
                 .child(mark_cell)
                 .child(div().flex_none().min_w(look.length(token::SPACE_12)).pr(look.length(token::SPACE_3)).flex().justify_end().child(switch_cell)),
