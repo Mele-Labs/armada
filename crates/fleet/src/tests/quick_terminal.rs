@@ -47,7 +47,13 @@ async fn a_quick_terminal_opens_t1_and_starts_no_agent_until_the_person_writes()
     assert!(job.quick_terminal, "listed as a quick terminal");
     assert_eq!(job.workflow, None, "no workflow");
     assert_eq!(job.manifest_id.as_ref(), Some(&rig.manifest));
+    let named = std::path::Path::new(&rig.root).file_name().unwrap().to_string_lossy().into_owned();
+    assert_eq!(job.title.as_deref(), Some(format!("Terminal in {named}").as_str()), "named for its folder");
+    assert_eq!(job.state, ipc::SessionState::Live, "live while it waits, not ended");
+    assert!(job.done_since.is_none(), "not done");
+    assert_eq!(job.mark.as_ref().map(|mark| mark.state), Some(ipc::JobState::Blank), "drawn not started, though Fleet titled it");
     let hosted = job.hosted.expect("hosted");
+    assert_eq!(hosted.turn, ipc::SessionTurn::Idle);
     assert!(!hosted.running && hosted.start.is_none(), "not held and nothing running");
     assert!(rig.stand_in.starts().is_empty(), "no agent process while it waits");
     let listed = rig.fleet.list_sessions(None, None, None).await.expect("listed");
@@ -57,6 +63,14 @@ async fn a_quick_terminal_opens_t1_and_starts_no_agent_until_the_person_writes()
     assert!(printed(&rig, &started.run_id, "quick-42").await, "t1 is a live shell");
     assert!(rig.stand_in.starts().is_empty(), "the person's typing starts no agent");
     ends(&rig, &started.run_id).await;
+
+    let titled = started_titled(&rig, " build ").await;
+    assert_eq!(record(&rig, &titled.session_id).await.title.as_deref(), Some("build"), "a title he typed stands");
+    ends(&rig, &titled.run_id).await;
+}
+
+async fn started_titled(rig: &Rig, title: &str) -> TerminalJobStarted {
+    started(rig, StartTerminalJob { title: Some(title.into()), ..quick(Some(rig.manifest.clone()), None) }).await
 }
 
 #[tokio::test]
@@ -69,6 +83,8 @@ async fn each_message_of_the_persons_carries_what_the_terminals_show_and_a_plain
     rig.send(&started.session_id, "why did that fail?").await;
     let process = || rig.stand_in.process_of(started.session_id.as_str());
     eventually(|| async { process().is_some_and(|one| !one.sent.lock().unwrap().is_empty()) }).await;
+    let mark = record(&rig, &started.session_id).await.mark.map(|mark| mark.state);
+    assert_ne!(mark, Some(ipc::JobState::Blank), "started once he writes");
     let sent = process().expect("started by the message").sent.lock().unwrap().join("\n");
     assert!(sent.contains("Terminal t1:") && sent.contains("failed-42"), "{sent}");
     assert!(sent.contains("why did that fail?"), "{sent}");
@@ -100,6 +116,7 @@ async fn a_folder_in_a_served_repository_is_its_job_with_the_shell_in_that_folde
     let job = record(&rig, &started.session_id).await;
     assert!(job.quick_terminal);
     assert_eq!(job.manifest_id.as_ref(), Some(&rig.manifest), "the repository's own Job");
+    assert_eq!(job.title.as_deref(), Some("Terminal in quick"), "named for the folder it opens in");
 
     types(&rig, &started.run_id, "pwd\r").await;
     let here = std::fs::canonicalize(&folder).unwrap().to_string_lossy().into_owned();
@@ -118,6 +135,8 @@ async fn a_loose_folder_runs_in_place_with_no_manifest_and_is_never_made_a_repos
     let here = std::fs::canonicalize(loose.path()).unwrap().to_string_lossy().into_owned();
     assert!(job.quick_terminal);
     assert_eq!(job.manifest_id, None, "no Manifest");
+    let named = loose.path().file_name().unwrap().to_string_lossy().into_owned();
+    assert_eq!(job.title.as_deref(), Some(format!("Terminal in {named}").as_str()));
     assert_eq!(job.cwd, here, "runs where it was started");
     assert!(!loose.path().join(".git").exists(), "no repository is started in it");
     assert_eq!(rig.fleet.repository_list().repositories.len(), served_before, "nothing is served");

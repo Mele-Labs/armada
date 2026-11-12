@@ -1363,7 +1363,7 @@ export type OpenTerminal = {
   rows?: number;
 };
 
-/** `start_terminal_job`: a quick terminal, a Job that opens onto its terminal `t1` and whose agent runs nothing until the person writes. `POST /sessions/terminal/start`. Answered 200 with `TerminalJobStarted`. Exactly one of `manifest_id` and `dir`: a `dir` inside a served repository is that repository's Job with `t1` in the folder, anywhere else a loose folder run in place with no Manifest and never a slot. `dir` is an absolute path to an existing directory; `project` is not read for a loose folder; `cols` and `rows` are `t1`'s size, absent is 80 by 24. Both or neither, a `dir` that is not an absolute directory and a size with no cells are refused 422, and nothing is made. */
+/** `start_terminal_job`: a quick terminal, a Job that opens onto its terminal `t1` and whose agent runs nothing until the person writes. `POST /sessions/terminal/start`. Answered 200 with `TerminalJobStarted`. Exactly one of `manifest_id` and `dir`: a `dir` inside a served repository is that repository's Job with `t1` in the folder, anywhere else a loose folder run in place with no Manifest and never a slot. `dir` is an absolute path to an existing directory; `project` is not read for a loose folder; `title` absent or blank is `Terminal in <folder>`; `cols` and `rows` are `t1`'s size, absent is 80 by 24. Both or neither, a `dir` that is not an absolute directory and a size with no cells are refused 422, and nothing is made. */
 export type StartTerminalJob = {
   manifest_id?: string;
   dir?: string;

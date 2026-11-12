@@ -34,17 +34,26 @@ where
             return Err(self.no_cells());
         }
         let dir = start.dir.as_deref().map(str::trim).filter(|dir| !dir.is_empty());
-        let (manifest_id, quick) = match (start.manifest_id, dir) {
+        let (manifest_id, quick, folder) = match (start.manifest_id, dir) {
             (Some(_), Some(_)) | (None, None) => {
                 return Err(refusal("a quick terminal takes one of `manifest_id` and `dir`", self.run_id()))
             }
-            (Some(manifest_id), None) => (manifest_id, QuickStart::default()),
+            (Some(manifest_id), None) => {
+                // An unknown Manifest is refused by the start below, as `start_session` refuses it.
+                let root = self.served_named(Some(&manifest_id)).map(|served| served.root().to_string()).unwrap_or_default();
+                (manifest_id, QuickStart::default(), root)
+            }
             (None, Some(dir)) => self.quick_placed(dir)?,
         };
         let loose = quick.loose.is_some();
+        // A title he did not type names the folder, so no list shows the Job by its id.
+        let title = start.title.map(|title| title.trim().to_string()).filter(|title| !title.is_empty()).or_else(|| {
+            let name = Path::new(folder.trim_end_matches('/')).file_name()?.to_string_lossy().into_owned();
+            Some(format!("Terminal in {name}"))
+        });
         let begun = StartSession {
             manifest_id,
-            title: start.title,
+            title,
             model: start.model,
             effort: start.effort,
             mode: start.mode,
@@ -65,8 +74,8 @@ where
     }
 
     /// Where `dir` puts the Job: the served repository that holds it, the deepest where one is
-    /// inside another, with its terminals in `dir`; else a loose folder.
-    fn quick_placed(&self, dir: &str) -> Result<(ManifestId, QuickStart), Refusal> {
+    /// inside another, with its terminals in `dir`; else a loose folder. And the folder, resolved.
+    fn quick_placed(&self, dir: &str) -> Result<(ManifestId, QuickStart, String), Refusal> {
         if !Path::new(dir).is_absolute() {
             return Err(refusal(format!("{dir} is not an absolute path"), self.run_id()));
         }
@@ -85,15 +94,13 @@ where
                 Some((root.components().count(), id, under))
             })
             .max_by_key(|(depth, _, _)| *depth);
+        let folder = at.to_string_lossy().into_owned();
         Ok(match holding {
             Some((_, id, under)) => {
                 let under = under.to_string_lossy().into_owned();
-                (id, QuickStart { loose: None, terminal_dir: (!under.is_empty()).then_some(under) })
+                (id, QuickStart { loose: None, terminal_dir: (!under.is_empty()).then_some(under) }, folder)
             }
-            None => (
-                ManifestId::carried(""),
-                QuickStart { loose: Some(at.to_string_lossy().into_owned()), terminal_dir: None },
-            ),
+            None => (ManifestId::carried(""), QuickStart { loose: Some(folder.clone()), terminal_dir: None }, folder),
         })
     }
 }
