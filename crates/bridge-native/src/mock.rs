@@ -22,6 +22,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     }
     let bytes: &[u8] = match scenario {
         "jobs-many" | "job-view" | "job-reasoning" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs, with a terminal Job just started: no title, nothing in its thread.
+        "terminal-job" => include_bytes!("../fixtures/terminal-jobs.json"),
         // The same Jobs, with one handing off and one that took an earlier Job's place, that one ended behind it.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff.json"),
         // The same Jobs, with Try amber forked from the first at its message naming the tone rule.
@@ -220,7 +222,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     }
     let bytes: &[u8] = match scenario {
         "jobs-screens" => return screens_threads(),
-        "job-view" | "review-palette" => include_bytes!("../fixtures/job-threads.json"),
+        "job-view" | "review-palette" | "terminal-job" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and Quiet the write-clash notices holding the page it asks him to read.
         "job-tabs" => include_bytes!("../fixtures/tabs-threads.json"),
         // The panes' threads, with two walks ended, two commits and Fleet's acts on the first.

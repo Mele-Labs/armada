@@ -339,6 +339,9 @@ impl DispatchScreen {
                         }
                         let list = this.jobs.read(cx).list.clone();
                         list.update(cx, |list, cx| list.open(started.job.clone().into(), cx));
+                        // After the Job comes on screen, so its tab is brought into view there.
+                        let (job, terminal) = (started.job.clone(), started.terminal.clone());
+                        window.defer(cx, move |window, cx| crate::terminal::tabs::open(&job, &terminal, true, window, cx));
                     }
                     Err(why) => {
                         if !from_sheet {

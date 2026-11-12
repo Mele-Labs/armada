@@ -212,9 +212,35 @@ struct MockRun {
     tx: Option<Sender<SessionRunMessage>>,
     /// What it printed, replayed to a viewer that attaches.
     printed: String,
-    line: String,
+    line: Vec<char>,
+    /// Where in the line the cursor stands.
+    at: usize,
     folder: String,
     ended: bool,
+}
+
+/// The start of the word before `at`, as zsh's backward-word finds it.
+fn word_left(line: &[char], at: usize) -> usize {
+    let mut to = at;
+    while to > 0 && line[to - 1] == ' ' {
+        to -= 1;
+    }
+    while to > 0 && line[to - 1] != ' ' {
+        to -= 1;
+    }
+    to
+}
+
+/// The end of the word after `at`.
+fn word_right(line: &[char], at: usize) -> usize {
+    let mut to = at;
+    while to < line.len() && line[to] == ' ' {
+        to += 1;
+    }
+    while to < line.len() && line[to] != ' ' {
+        to += 1;
+    }
+    to
 }
 
 /// The prompt a walk's shell prints.
@@ -252,7 +278,7 @@ impl Mock {
             Some(held) => held.2 = run.clone(),
             None => shells.push((id, name, run.clone())),
         }
-        state.runs.insert(run.clone(), MockRun { tx: None, printed: prompt(folder), line: String::new(), folder: folder.to_string(), ended: false });
+        state.runs.insert(run.clone(), MockRun { tx: None, printed: prompt(folder), line: Vec::new(), at: 0, folder: folder.to_string(), ended: false });
         run
     }
 
@@ -336,18 +362,57 @@ impl Shells for Mock {
         }
         let mut echo = String::new();
         let mut done = Vec::new();
-        for ch in data.chars() {
+        let mut chars = data.chars().peekable();
+        while let Some(ch) = chars.next() {
             match ch {
-                '\r' => done.push(std::mem::take(&mut one.line)),
-                '\x7f' if one.line.pop().is_some() => echo.push_str("\x08 \x08"),
+                '\r' => {
+                    done.push(std::mem::take(&mut one.line).into_iter().collect::<String>());
+                    one.at = 0;
+                }
+                '\x7f' if one.at > 0 => {
+                    one.at -= 1;
+                    one.line.remove(one.at);
+                    let rest: String = one.line[one.at..].iter().collect();
+                    echo.push_str(&format!("\x08{rest} \x1b[{}D", rest.chars().count() + 1));
+                }
                 '\x03' => {
                     one.line.clear();
+                    one.at = 0;
                     echo.push_str("^C\r\n");
                     echo.push_str(&prompt(&one.folder));
                 }
+                // A cursor key, as zsh's line editor reads it: ← and → move a cell, ⌥← and ⌥→ a word. A bare Esc does nothing.
+                '\x1b' if chars.peek() == Some(&'[') => {
+                    chars.next();
+                    let mut sequence = String::new();
+                    for next in chars.by_ref() {
+                        sequence.push(next);
+                        if next.is_ascii_alphabetic() || next == '~' {
+                            break;
+                        }
+                    }
+                    let to = match sequence.as_str() {
+                        "D" => one.at.saturating_sub(1),
+                        "C" => (one.at + 1).min(one.line.len()),
+                        "1;3D" => word_left(&one.line, one.at),
+                        "1;3C" => word_right(&one.line, one.at),
+                        _ => one.at,
+                    };
+                    if to < one.at {
+                        echo.push_str(&format!("\x1b[{}D", one.at - to));
+                    } else if to > one.at {
+                        echo.push_str(&format!("\x1b[{}C", to - one.at));
+                    }
+                    one.at = to;
+                }
                 ch if !ch.is_control() => {
-                    one.line.push(ch);
+                    one.line.insert(one.at, ch);
+                    one.at += 1;
+                    let rest: String = one.line[one.at..].iter().collect();
                     echo.push(ch);
+                    if !rest.is_empty() {
+                        echo.push_str(&format!("{rest}\x1b[{}D", rest.chars().count()));
+                    }
                 }
                 _ => {}
             }
@@ -416,13 +481,14 @@ impl gpui::Global for Held {}
 
 /// Fleet's shells, reached on the port the connection holds now.
 pub fn hold_live(fleet: &gpui::Entity<crate::fleet::FleetConnection>, cx: &mut App) {
+    super::tabs::follow(fleet, cx);
     let fleet = fleet.clone();
     cx.set_global(Held(Rc::new(Live { port: Rc::new(move |cx: &App| fleet.read(cx).held().port()) })));
 }
 
-/// A walk's shells: one open on the first mock Job, and each terminal Job started opens the fourth.
+/// A walk's shells: one open on the first mock Job, and each terminal Job started is the scenario's fresh one.
 pub fn hold_walk(cx: &mut App) {
-    cx.set_global(Held(Rc::new(Mock::with(&[("mock-01", 1)]).starting_as(&["mock-04"; 4]))));
+    cx.set_global(Held(Rc::new(Mock::with(&[("mock-01", 1)]).starting_as(&["s-7c41e2a9"; 4]))));
 }
 
 pub fn of(cx: &App) -> Option<Rc<dyn Shells>> {

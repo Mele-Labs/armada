@@ -327,7 +327,7 @@ pub static WALKS: &[Walk] = &[
         name: "native-terminal",
         title: "A terminal Job, from ⌘T, the sheet and the palette",
         screen: Screen::App,
-        scenario: "job-view",
+        scenario: "terminal-job",
         steps: &terminal::STEPS,
     },
     Walk {

@@ -16,6 +16,7 @@ pub mod pane;
 pub mod screen;
 pub mod shells;
 pub mod start;
+pub mod tabs;
 
 pub use pane::{PaneEvent, Phase, TerminalPane};
 
@@ -24,6 +25,7 @@ use gpui::{App, KeyBinding};
 /// The keys a terminal takes before the app does: ⌘C copies its selection, ⌘V pastes into the
 /// shell, ⌘A selects the whole history. The menu's Edit items reach the same acts.
 pub fn init(cx: &mut App) {
+    tabs::init(cx);
     use gpui_component::input::{Copy, Paste, SelectAll};
     cx.bind_keys([
         KeyBinding::new("cmd-c", Copy, Some(pane::KEYS)),
