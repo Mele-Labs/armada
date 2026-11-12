@@ -345,6 +345,38 @@ where
         }
     }
 
+    /// **The parent's turn is over, so a subagent row still `running` whose own transcript ended is
+    /// settled finished.** A subagent its parent stopped with `TaskStop` ends on the CLI's interrupt line
+    /// and no `SubagentStop` follows, and the turn's end settles its attachment without a row
+    /// (`readiness::turn_ended`): the row stood running for good (12 Nov 2026).
+    pub(crate) async fn subagents_stopped(&self, id: &str) {
+        let Ok(rows) = self.rows_of(id).await else { return };
+        let running: Vec<String> = rows
+            .iter()
+            .filter_map(|row| match row {
+                SessionRow::Tool { subagent: Some(subagent), .. } if subagent.state == ToolSubagentState::Running => {
+                    Some(subagent.id.clone())
+                }
+                _ => None,
+            })
+            .collect();
+        if running.is_empty() {
+            return;
+        }
+        let (home, session) = (self.host().home.clone(), id.to_string());
+        let ended = tokio::task::spawn_blocking(move || {
+            running
+                .into_iter()
+                .filter(|target| adapters::terminal_thread::subagent_ended(&home, &session, target))
+                .collect::<Vec<_>>()
+        })
+        .await
+        .unwrap_or_default();
+        for target in ended {
+            self.subagent_settled(id, &target, ToolSubagentState::Finished).await;
+        }
+    }
+
     /// What subagent `target` handed back, read off its transcript as `get_session_subagent` reads it.
     /// None where the transcript is not there or cannot be read.
     async fn subagent_report(&self, id: &str, target: &str) -> Option<String> {
