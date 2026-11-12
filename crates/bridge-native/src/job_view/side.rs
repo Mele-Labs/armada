@@ -8,9 +8,9 @@
 use std::collections::HashSet;
 
 use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, Role, SharedString, Subscription, Window};
-use ipc::{ConfirmLater, LaterHow, PlanTaskState, SessionId, SessionPlanGroup, SettleLater};
+use ipc::{PlanTaskState, SessionPlanGroup};
 
-use super::rows::{glyph, tip, Size};
+use super::rows::{glyph, Size};
 use super::tabs::Pane;
 use super::JobView;
 use crate::labels::labelled;
@@ -110,6 +110,8 @@ impl Zone {
 #[derive(Default)]
 pub(super) struct SideState {
     unfolded: HashSet<String>,
+    /// Deferred rows settled from here, kept away until Fleet's record says so or refuses.
+    pub(super) settled: HashSet<String>,
 }
 
 /// Where a group of an approved plan stands.
@@ -307,45 +309,6 @@ impl JobView {
             .into_any_element()
     }
 
-    /// The follow-ups the agent kept and he has not confirmed, each with Remind, Deferred and Not deferred.
-    fn side_deferred(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let Some(job) = self.record(id, cx) else { return div().into_any_element() };
-        let rows = job.later.iter().filter(|later| !later.confirmed).map(|later| {
-            let (remind, confirm, drop) = (later.sentence.clone(), later.id.clone(), later.id.clone());
-            let act = |name: String, icon: &'static str, said: &'static str, on: Box<dyn Fn(&mut JobView, &mut Window, &mut Context<JobView>)>| {
-                labelled(
-                    div()
-                        .id(SharedString::from(name))
-                        .flex_none()
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .size(look.length(token::H_CONTROL_SM))
-                        .rounded(look.length(token::RADIUS_MD))
-                        .cursor_pointer()
-                        .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                        .tooltip(tip(said))
-                        .child(glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))
-                        .on_click(cx.listener(move |this, _, window, cx| on(this, window, cx))),
-                    Role::Button,
-                    said,
-                )
-            };
-            div()
-                .flex()
-                .items_start()
-                .gap(look.length(token::SPACE_2))
-                .py(look.length(token::SPACE_1))
-                .child(div().flex_1().min_w_0().pt(look.length(token::SPACE_1)).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(later.sentence.clone())))
-                .child(act(format!("remind:{}", later.id), "bell-ring", "Remind", Box::new(move |this, window, cx| {
-                    this.send_line(format!("You said: \"{remind}\" Do it, file it, or drop it with a reason."), window, cx);
-                })))
-                .child(act(format!("confirm:{}", later.id), "thumbs-up", "Deferred", Box::new(move |this, window, cx| this.later_confirm(confirm.clone(), window, cx))))
-                .child(act(format!("drop:{}", later.id), "thumbs-down", "Not deferred", Box::new(move |this, window, cx| this.later_drop(drop.clone(), window, cx))))
-        });
-        div().flex().flex_col().children(rows).into_any_element()
-    }
-
     pub(super) fn side_unfolded(&self, key: &str) -> bool {
         self.shown.as_ref().and_then(|id| self.pages.get(id.as_str())).is_some_and(|page| page.side.unfolded.contains(key))
     }
@@ -357,18 +320,5 @@ impl JobView {
                 page.side.unfolded.insert(key.to_string());
             }
         }
-    }
-
-    fn later_confirm(&mut self, later: String, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(job) = self.shown.clone() else { return };
-        let body = ipc::encode(&ConfirmLater { id: later, session_id: Some(SessionId::carried(job.to_string())) }).map_err(|why| format!("{why:?}"));
-        self.post_with(job, "/sessions/later/confirm", body, |_, _, _| {}, window, cx);
-    }
-
-    fn later_drop(&mut self, later: String, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(job) = self.shown.clone() else { return };
-        let settle = SettleLater { id: later, how: LaterHow::Dropped, issue: None, reason: None, session_id: Some(SessionId::carried(job.to_string())), misread: true };
-        let body = ipc::encode(&settle).map_err(|why| format!("{why:?}"));
-        self.post_with(job, "/sessions/settle_later", body, |_, _, _| {}, window, cx);
     }
 }

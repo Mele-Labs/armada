@@ -644,7 +644,30 @@
       "state": "done"
      }
     ]
-   }
+   },
+   "later": [
+    {
+     "id": "later-1",
+     "sentence": "Add a legend to the chip once the colours settle",
+     "said_at": "2026-11-09T14:31:00Z",
+     "confirmed": true
+    },
+    {
+     "id": "later-2",
+     "sentence": "Check the chip in the light theme",
+     "said_at": "2026-11-09T14:32:00Z"
+    },
+    {
+     "id": "later-3",
+     "sentence": "The freshness rule reads the branch's last fetch, so a slot that has not fetched in a day shows stale even when nothing moved on main",
+     "said_at": "2026-11-09T14:40:00Z"
+    },
+    {
+     "id": "later-4",
+     "sentence": "Move the chip's thresholds into settings.toml",
+     "said_at": "2026-11-09T14:52:00Z"
+    }
+   ]
   },
   {
    "id": "mock-02",

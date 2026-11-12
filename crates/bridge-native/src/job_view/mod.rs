@@ -24,6 +24,7 @@ mod dock;
 mod done;
 mod now;
 mod open;
+mod deferred;
 mod edit;
 mod fork;
 mod format;
