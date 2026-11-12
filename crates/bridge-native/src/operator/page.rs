@@ -4,7 +4,7 @@
 
 use std::collections::{BTreeSet, HashMap};
 
-use gpui::{App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, ScrollHandle, SharedString, Subscription, Task, Window};
+use gpui::{App, AppContext as _, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable as _, ScrollHandle, SharedString, Subscription, Task, Window};
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorPage, OperatorThen, OperatorTurnItem};
 use ipc::{SessionId, WaitingAct};
 
@@ -12,6 +12,8 @@ use super::chat::{ChatAsked, OperatorChat};
 use super::face::{self, Kind};
 use super::scenes::{self, MockFleet};
 use super::wire::{Failed, Wire};
+use crate::dropdown::{Dropdown, Entry, Picked, Row};
+use crate::look::ActiveLook as _;
 use crate::fleet::FleetConnection;
 use crate::keymap::Act;
 use crate::log::Note;
@@ -99,6 +101,10 @@ pub struct OperatorPageView {
     pub(super) first_stop: FocusHandle,
     /// The open card's Later, so a test can put the keys on a press.
     pub(super) later_focus: FocusHandle,
+    /// Where the open card's Later is drawn, so its menu opens under it.
+    pub(super) later_bounds: std::rc::Rc<std::cell::Cell<Option<gpui::Bounds<gpui::Pixels>>>>,
+    /// Later's menu of when the item comes back, while it is open.
+    pub(super) later_menu: Option<(Entity<Dropdown>, [Subscription; 2])>,
     /// The turn ids already seen, so a new one is told once. `None` before the first read.
     seen: Option<BTreeSet<String>>,
     read_at: u64,
@@ -149,6 +155,8 @@ impl OperatorPageView {
             main_scroll: ScrollHandle::new(),
             first_stop: cx.focus_handle(),
             later_focus: cx.focus_handle(),
+            later_bounds: Default::default(),
+            later_menu: None,
             seen: None,
             read_at: 0,
             reading: false,
@@ -318,7 +326,7 @@ impl OperatorPageView {
             "call_dismiss" => self.answer(OperatorAnswer::No, window, cx),
             "call_send" => self.enter(window, cx),
             "call_send_changes" => self.send_changes(cx),
-            "call_later" => self.later(cx),
+            "call_later" => self.open_later(true, window, cx),
             "call_ask" => self.ask(window, cx),
             // ⌥↑ then ⌥↓.
             "call_reorder" => self.shove(if act.slot == 0 { -1 } else { 1 }, cx),
@@ -586,7 +594,7 @@ impl OperatorPageView {
         }
         // A pick of Later is done by Yes: the item goes Later, nothing is answered.
         if answer == OperatorAnswer::Yes && face::picks_later(&turn) && self.option.get(&turn.id).is_none() {
-            return self.later(cx);
+            return self.later(None, cx);
         }
         let then = (!turn.then.is_empty()).then(|| self.then_of(&turn)).flatten();
         // The option goes out only where it is not the Operator's pick: a press that names none takes the pick.
@@ -677,22 +685,71 @@ impl OperatorPageView {
         self.reveal = true;
     }
 
-    /// Later: the open item goes last for the rest of the day, and the next one opens.
-    pub fn later(&mut self, cx: &mut Context<Self>) {
+    /// Later's menu, under the open card's Later: when the item comes back. From the keys, they rest on
+    /// its first choice; picked, the item goes Later until then.
+    pub fn open_later(&mut self, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(turn) = self.open_item().cloned() else { return };
+        let Some(bounds) = self.later_bounds.get() else { return };
+        let now = self.clock_now.unwrap_or_else(chrono::Local::now);
+        let choices = face::later_choices(now);
+        let entries = choices.iter().map(|(id, label, at)| Entry::Row(Row::new(id, *label).detail(face::back_at(*at, now)))).collect();
+        let gap = cx.look().length(crate::look::token::SPACE_1);
+        let at = gpui::point(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height + gap);
+        let menu = cx.new(|cx| Dropdown::new("Later", entries, at, gpui::Anchor::TopRight, from_keys, cx));
+        let id = turn.id.clone();
+        let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
+            let Picked::Entry { id: choice, .. } = picked;
+            this.later_menu = None;
+            // The menu goes with the keys on it: they come back to the page, as Esc brings them.
+            window.focus(&this.focus, cx);
+            let until = choices.iter().find(|(id, ..)| id == choice).map(|(_, _, at)| *at);
+            if until.is_some() && this.open.as_deref() == Some(id.as_str()) {
+                this.later(until, cx);
+            }
+            cx.notify();
+        });
+        let shut = cx.subscribe_in(&menu, window, |this, _, _: &DismissEvent, window, cx| {
+            this.later_menu = None;
+            window.focus(&this.focus, cx);
+            cx.notify();
+        });
+        let keys = menu.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.later_menu = Some((menu, [picked, shut]));
+        cx.notify();
+    }
+
+    /// Later: the open item goes last until `until`, or for the rest of the day, and the next one opens.
+    pub fn later(&mut self, until: Option<chrono::DateTime<chrono::Local>>, cx: &mut Context<Self>) {
         let Some(turn) = self.open_item().cloned() else { return };
         let at = self.index_of(&turn.id).unwrap_or(0);
+        let until = until.map(|until| until.to_rfc3339());
         if let Some(page) = self.page.as_mut() {
             page.turn.retain(|one| one.id != turn.id);
             let mut moved = turn.clone();
-            moved.later_until.get_or_insert_with(|| ipc::Instant::carried(""));
+            moved.later_until = Some(ipc::Instant::carried(until.clone().unwrap_or_default()));
             page.turn.push(moved);
         }
         if self.items().len() > 1 {
             self.open_near(at);
         }
+        self.refused = None;
         cx.notify();
-        let task = self.wire.later(&turn.id, cx);
-        self.settle(task, cx);
+        let task = self.wire.later(&turn.id, until, cx);
+        // Refused, as a time already passed is, the item opens again where Fleet keeps it, saying why.
+        let task = cx.spawn(async move |this, cx| {
+            let settled = task.await;
+            let _ = this.update(cx, |this, cx| match settled {
+                Ok(page) => this.set_page(page, cx),
+                Err(why) => {
+                    this.refused = Some((turn.id.clone(), why.into()));
+                    this.open = Some(turn.id.clone());
+                    this.reveal = true;
+                    this.read(cx);
+                }
+            });
+        });
+        self.track(task);
     }
 
     /// ⌥↑ and ⌥↓: the open item one place up or down. The keys stay on it.
@@ -869,6 +926,8 @@ impl OperatorPageView {
             // Fleet refuses the next answer, or its reply never arrives.
             "refuse" => mock.fail_answer = Some(Failed::Refused("the tracker did not take the new issue".into())),
             "lose" => mock.fail_answer = Some(Failed::Lost("no answer in 30 seconds".into())),
+            // Fleet refuses the next Later: the time it names has passed by the time it reads it.
+            "late" => mock.refuse_later = Some("2026-11-11T14:05:00-05:00 has passed, so the item cannot wait until then".into()),
             "off" => {
                 mock.switch(false);
                 let page = mock.page.clone();

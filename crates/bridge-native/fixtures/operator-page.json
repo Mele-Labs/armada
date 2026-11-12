@@ -26,7 +26,8 @@
     "read": "It adds the repository chips you asked for on 15 Oct. Nothing else changes from the version you approved, and two Jobs start once you do.",
     "pick": "Approve"
    },
-   "raised_at": "2026-11-11T11:40:00-05:00"
+   "raised_at": "2026-11-11T11:40:00-05:00",
+   "also_raised_by": ["Dispatch panel", "Helm composer"]
   },
   {
    "id": "turn:2",
