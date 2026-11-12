@@ -65,9 +65,10 @@ pub struct LookSet {
 
 /// The layer a value came from, from the furthest to the nearest: `default`, `machine`, `kit`,
 /// `repository`, `project` or `job`. The nearest that sets a key wins.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ValueLayer {
+    #[default]
     Default,
     Machine,
     Kit,
@@ -78,7 +79,7 @@ pub enum ValueLayer {
 
 /// One key's answer. **`value` is absent where no layer sets the key and the default has no word
 /// for it**, and `from` is then `default`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResolvedValue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
@@ -119,7 +120,7 @@ pub struct ResolvedAutonomy {
 
 /// Every key resolved, each with the layer it came from. `get_values`' answer, and what a Job froze at
 /// its start (`hosted.values`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResolvedValues {
     /// `ready` or `draft`.
     pub pr_mode: ResolvedValue,
