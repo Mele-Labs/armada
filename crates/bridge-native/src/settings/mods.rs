@@ -759,7 +759,8 @@ impl SettingsOverlay {
             .text_size(look.length(token::TEXT_SM))
             .line_height(look.length(token::LEADING_SM))
             .text_color(look.color(token::FG_DEFAULT))
-            .child(div().min_w_0().truncate().child(SharedString::from(one.title.clone())))
+            // Cut short where the column is narrow, so the whole name is on hover.
+            .child(div().id(SharedString::from(format!("mod-name-{}", one.name))).min_w_0().truncate().tooltip(tip(one.title.clone())).child(SharedString::from(one.title.clone())))
             .children(one.detail.clone().filter(|_| !under).map(line))
             .child(
                 canvas(
