@@ -1108,6 +1108,7 @@ where
             text: body,
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         };
         // The card routes answer through `answer_session_ask`, which enters its own; the rest are
         // a message to the agent, entered here once it is sent.
@@ -1379,6 +1380,7 @@ where
                 text,
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             };
             Arc::clone(&self).send_known(terminal, sent).await?;
         }
@@ -1462,6 +1464,7 @@ where
             text: done_told(&item.text, done.note.as_deref()),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         };
         Arc::clone(&self).send_known(terminal, sent).await?;
         let closed = self.closed_as_it_stood(&item);
@@ -1522,6 +1525,7 @@ where
                 text: reopened(&item.text),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             };
             Arc::clone(&self).send_known(terminal, sent).await?;
         }

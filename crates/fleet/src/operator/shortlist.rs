@@ -295,6 +295,7 @@ where
                 text: tell.text,
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             })
             .await?;
         let target = session_target(&record);

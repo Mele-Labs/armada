@@ -563,6 +563,7 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
                     notice: None,
                     queued: false,
                     edited_at: None,
+                    sketches: Vec::new(),
                 });
             }
             DroneEvent::Called { tool, detail, .. } if !person => {

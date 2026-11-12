@@ -77,7 +77,7 @@ impl MergeStrip {
             }
             Asked::SendBack { root, session, message } => {
                 let body = ipc::encode(&ipc::SendSessionMessageBody {
-                    message: ipc::SendSessionMessage { session_id: ipc::SessionId::carried(session.to_string()), text: message, attachments: Vec::new(), mentions: Vec::new() },
+                    message: ipc::SendSessionMessage { session_id: ipc::SessionId::carried(session.to_string()), text: message, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() },
                     aim: None,
                 })
                 .map_err(|why| format!("{why:?}"));

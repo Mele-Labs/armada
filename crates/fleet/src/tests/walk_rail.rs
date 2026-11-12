@@ -175,7 +175,7 @@ fn at_second(n: u32) -> Instant {
 }
 
 fn said(n: u32, from: SessionVoice, text: &str) -> SessionRow {
-    SessionRow::Message { id: format!("m{n}"), at: at_second(n), from, text: text.into(), files: Vec::new(), tags: Vec::new(), notice: None, queued: false, edited_at: None }
+    SessionRow::Message { id: format!("m{n}"), at: at_second(n), from, text: text.into(), files: Vec::new(), tags: Vec::new(), notice: None, queued: false, edited_at: None, sketches: Vec::new() }
 }
 
 fn message(n: u32, from: SessionVoice) -> SessionRow {

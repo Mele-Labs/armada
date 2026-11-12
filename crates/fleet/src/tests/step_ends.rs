@@ -98,6 +98,7 @@ fn said(n: u32, id: &str, text: &str) -> SessionRow {
         notice: None,
         queued: false,
         edited_at: None,
+        sketches: Vec::new(),
     }
 }
 

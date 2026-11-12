@@ -143,7 +143,7 @@ pub fn deliver(port: u16, session: &str, notes: Vec<Outgoing>, ink: Ink) -> Resu
     }
     for out in &window {
         let attachments = picture_of(out, ink).map(|data| SessionUpload { name: format!("annotation-{}.png", out.key), media_type: "image/png".into(), data }).into_iter().collect();
-        let message = SendSessionMessage { session_id: SessionId::carried(session.to_string()), text: window_text(&out.raw, &out.key), attachments, mentions: Vec::new() };
+        let message = SendSessionMessage { session_id: SessionId::carried(session.to_string()), text: window_text(&out.raw, &out.key), attachments, mentions: Vec::new(), sketches: Vec::new() };
         post(port, "/sessions/message", ipc::encode(&SendSessionMessageBody { message, aim: None }))?;
     }
     Ok(())

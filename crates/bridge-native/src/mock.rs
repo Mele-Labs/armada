@@ -824,6 +824,21 @@ mod tests {
         assert_eq!(super::watches("mock-01").map(|list| list.len()), Some(4));
         assert!(super::watch_log("w-release", "/Users/nick/.armada/watches/w-release/2026-11-09T13-41-00.log").is_some());
     }
+
+    #[test]
+    fn workflow_card_scenario_decodes_with_its_change() {
+        assert!(super::jobs("workflow-card").expect("decodes").len() > 10);
+        let threads = super::threads("workflow-card").expect("decodes");
+        let changes = super::workflow_changes().expect("decodes");
+        let change = changes.get(&31).expect("change 31");
+        let shown = threads["mock-04"].items.iter().find_map(|item| match item {
+            ipc::ThreadItem::Row { row: ipc::SessionRow::Draft { text, change: Some(31), .. } } => Some(text.clone()),
+            _ => None,
+        });
+        // The card draws lanes only where the change drafts the text the row shows.
+        assert_eq!(change.after.as_deref(), shown.as_deref());
+        assert_eq!(change.after_steps.as_ref().map(Vec::len), Some(5));
+    }
 }
 
 /// The System and Bays tabs' reads in `job-system`: each Job's system answer and its graphs' past,
@@ -1054,20 +1069,5 @@ pub fn rescue_act(pool: &mut [ipc::WorktreeSlot], manifest: &str, slot: u32, act
             one.branch = None;
             Ok(Some(rescued(committed)))
         }
-    }
-
-    #[test]
-    fn workflow_card_scenario_decodes_with_its_change() {
-        assert!(super::jobs("workflow-card").expect("decodes").len() > 10);
-        let threads = super::threads("workflow-card").expect("decodes");
-        let changes = super::workflow_changes().expect("decodes");
-        let change = changes.get(&31).expect("change 31");
-        let shown = threads["mock-04"].items.iter().find_map(|item| match item {
-            ipc::ThreadItem::Row { row: ipc::SessionRow::Draft { text, change: Some(31), .. } } => Some(text.clone()),
-            _ => None,
-        });
-        // The card draws lanes only where the change drafts the text the row shows.
-        assert_eq!(change.after.as_deref(), shown.as_deref());
-        assert_eq!(change.after_steps.as_ref().map(Vec::len), Some(5));
     }
 }

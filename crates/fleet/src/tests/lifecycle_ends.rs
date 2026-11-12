@@ -119,6 +119,7 @@ fn row(n: u32, from: SessionVoice, text: &str) -> SessionRow {
         notice: None,
         queued: false,
         edited_at: None,
+        sketches: Vec::new(),
     }
 }
 

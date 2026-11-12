@@ -220,6 +220,7 @@ pub async fn dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
         text: dispatching.text,
         attachments: Vec::new(),
         mentions: Vec::new(),
+        sketches: Vec::new(),
     };
     let Ok(sent) = ipc::encode(&message) else {
         return refusal(StatusCode::INTERNAL_SERVER_ERROR, NOT_READABLE);
