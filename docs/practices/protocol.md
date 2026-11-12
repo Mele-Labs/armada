@@ -1848,3 +1848,26 @@ A refusal is never an answer of `RepositoryFile`, so a client that gets a `Repos
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: the route is read, not pushed, and a file is read when a client opens it. The open risk below is neither better nor worse.
+
+## A sketch's chip kept on the message, and what a hold names: `SentSketch`, `SendSessionMessage.sketches`, `SessionRow::Message.sketches`, `OperatorHold.paths`, `.job`, `.until`
+
+Since 12 Nov 2026. `docs/concepts/session/waiting-on-the-person.md` names neither; the native Bridge's composer and Operator page read them.
+**Additive only**: one type, one optional field on two existing types and three on a third; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `SentSketch` and the fields in `packages/protocol/src/hosted-sessions.ts` and `operator-page.ts`, written by hand, field for field.
+Electron draws none of it: it is frozen, and keeps its chip in window memory as it did.
+Every field is optional and defaults empty, so an older answer and an older row read on a Bridge that knows them.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SentSketch` | Bridge sends, Fleet writes | `{ id, title }`: the sketch's own id and the title on its chip |
+| `SendSessionMessage.sketches` (`send_session_message`) | Bridge sends | The sketches the composer sent with the words, each still sent as a picture in `attachments`. Absent when none |
+| `message` row `sketches` (`session.row`) | Fleet writes, Bridge reads | The same, kept on the person's row Fleet writes for that send, and on a held Job's first row when Start writes it. Absent on a message with none, and on every row kept before it. **Not on `sent` rows**: Fleet writes no new ones |
+| `OperatorHold.paths`, `.job`, `.until` (`get_operator_page`) | Fleet writes, Bridge reads | The paths the order holds; the Job that alone writes under them (`SessionId`); and what lifts it, `pushes` or `ends`. `job` and `until` are absent, `paths` empty, on an answer from before they were sent |
+
+**A terminal Job keeps none.** Its person rows are read off the transcript, which carries no files either, so the chip would need a table of its own to outlive the window.
+Bridge draws no chip on a terminal Job's rows until that is decided.
+**What changed under the field is the order.** `written_row` takes the sketches beside the files and tags, and a held Job's first turn (`FirstTurn`) keeps them in the store's own JSON, so no migration.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched in kind: the row is one `session.row`, as any row put again by id is. Nothing here sends more events, so the open risk below is neither better nor worse.

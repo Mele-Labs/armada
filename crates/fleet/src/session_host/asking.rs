@@ -411,6 +411,7 @@ where
             notice: None,
             queued: false,
             edited_at: None,
+            sketches: Vec::new(),
         };
         self.row_put(id, row).await;
     }

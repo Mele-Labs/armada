@@ -352,7 +352,7 @@ impl JobView {
             ),
             Source::Lapsed(_) => {
                 let text = answers.iter().map(|(question, chosen)| format!("Answering your earlier question \"{question}\": {}", chosen.join(", "))).collect::<Vec<_>>().join("\n");
-                ("/sessions/message", encoded(&SendSessionMessageBody { message: SendSessionMessage { session_id, text, attachments: Vec::new(), mentions: Vec::new() }, aim: None }))
+                ("/sessions/message", encoded(&SendSessionMessageBody { message: SendSessionMessage { session_id, text, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() }, aim: None }))
             }
             Source::Waiting(item) => {
                 let choice = answers.first().and_then(|(_, chosen)| chosen.first()).and_then(|label| self.waiting_choice(id, item, label, cx));

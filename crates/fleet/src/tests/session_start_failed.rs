@@ -88,6 +88,7 @@ impl Rig {
                 text: text.into(),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             })
             .await
             .expect("the message is taken")
