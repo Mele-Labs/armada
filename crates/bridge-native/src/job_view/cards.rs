@@ -79,7 +79,7 @@ fn settled_line(look: &Look, key: &str, said: Said, words: Option<&str>) -> AnyE
 }
 
 /// The note a card was sent back with: a quote with the person's colour at its edge.
-pub(super) fn quote(look: &Look, words: &str) -> AnyElement {
+fn quote(look: &Look, words: &str) -> AnyElement {
     div()
         .px(look.length(token::SPACE_3))
         .py(look.length(token::SPACE_2))

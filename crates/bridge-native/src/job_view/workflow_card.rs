@@ -8,7 +8,6 @@ use ipc::{AnswerWaiting, ChangeOrigin, ChangeStep, SessionId, SessionRow, Thread
 use std::rc::Rc;
 
 use super::acts::{button, Answer, Mode, Tone};
-use super::cards::quote;
 use super::rows::{glyph, mono, tip, Size};
 use super::JobView;
 use crate::labels::labelled;
@@ -309,33 +308,130 @@ impl JobView {
             .into_any_element()
     }
 
-    /// The note control in its fixed column: Add note, or Edit note once one is saved.
+    /// Open a note's box where it is drawn, with its words in it, and bring it up clear of the composer.
+    fn edit_note(&mut self, ix: usize, note: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let card = note.rsplit_once(if note.ends_with(":whole") { ":whole" } else { ":lane:" }).map(|(card, _)| card.to_string()).unwrap_or_default();
+        self.open_box(ix, note, Mode::Note, "", window, cx);
+        if let Some(page) = self.shown.clone().and_then(|id| self.pages.get_mut(&id)) {
+            page.cards.reveal.insert(note.to_string(), Rc::new(std::cell::Cell::new(true)));
+        }
+        // The thread keys stay on the card, so Send notes still reaches it.
+        self.aim(&card);
+    }
+
+    /// Add note in its fixed column, while the step has none; a saved note is edited where it is drawn.
     fn note_button(&self, ix: usize, note: &str, on: &str, open: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        if !open || self.note_open(note) {
+        if !open || self.note_open(note) || !self.typed_in(note, Mode::Note, cx).trim().is_empty() {
             return None;
         }
-        let word = if self.typed_in(note, Mode::Note, cx).trim().is_empty() { "Add note" } else { "Edit note" };
         let opened = note.to_string();
-        let card = note.rsplit_once(if note.ends_with(":whole") { ":whole" } else { ":lane:" }).map(|(card, _)| card.to_string()).unwrap_or_default();
         Some(
             labelled(
-                button(look, SharedString::from(format!("{word}:{note}")), word, Tone::Ghost, false, None, true)
+                button(look, SharedString::from(format!("Add note:{note}")), "Add note", Tone::Ghost, false, None, true)
                     .flex_none()
                     // Held to the label's line, so a lane is as tall with its control as without.
                     .my(-(look.length(token::H_CONTROL) - look.length(token::LEADING_SM)) / 2.)
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        this.open_box(ix, &opened, Mode::Note, "", window, cx);
-                        if let Some(page) = this.shown.clone().and_then(|id| this.pages.get_mut(&id)) {
-                            page.cards.reveal.insert(opened.clone(), Rc::new(std::cell::Cell::new(true)));
-                        }
-                        // The thread keys stay on the card, so Send back still reaches it.
-                        this.aim(&card);
-                    })),
+                    .on_click(cx.listener(move |this, _, window, cx| this.edit_note(ix, &opened, window, cx))),
                 Role::Button,
-                format!("{word} on {on}"),
+                format!("Add note on {on}"),
             )
             .into_any_element(),
         )
+    }
+
+    /// A saved note, drawn apart from the step as his: a header, his words, and where they go. A press
+    /// on it, or Enter while it has the keys, opens it for editing in place.
+    fn saved_note(&self, ix: usize, note: &str, on: &str, said: &str, open: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let group = SharedString::from(format!("note:{note}"));
+        let (edited, gone) = (note.to_string(), note.to_string());
+        let header = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+            .text_color(look.color(token::FG_MUTED))
+            .child(glyph(look, "sticky-note", Size::Small, look.color(token::YOU)))
+            .child(div().flex_1().child("Your note"))
+            .when(open, |header| {
+                header
+                    // The pencil shows while the pointer is on the note, to say a press edits it.
+                    .child(
+                        div()
+                            .flex_none()
+                            .opacity(0.)
+                            .group_hover(group.clone(), |style| style.opacity(1.))
+                            .child(glyph(look, "pencil", Size::Small, look.color(token::FG_MUTED))),
+                    )
+                    .child(labelled(
+                        div()
+                            .id(SharedString::from(format!("remove-note:{note}")))
+                            .flex_none()
+                            .p(look.length(token::SPACE_1))
+                            .rounded(look.length(token::RADIUS_SM))
+                            .cursor_pointer()
+                            .tab_index(0)
+                            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                            .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
+                            .tooltip(tip("Remove note"))
+                            .child(glyph(look, "x", Size::Small, look.color(token::FG_MUTED)))
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                cx.stop_propagation();
+                                this.close_box(ix, &gone, cx);
+                            })),
+                        Role::Button,
+                        format!("Remove note on {on}"),
+                    ))
+            });
+        let body = div()
+            .id(group.clone())
+            .group(group)
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            .mt(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_l(look.length(token::BORDER_WIDTH) * 2.)
+            .border_color(look.color(token::YOU_EDGE))
+            .bg(look.color(token::YOU).opacity(0.14))
+            .child(header)
+            .child(labelled(
+                div()
+                    .id(SharedString::from(format!("note-said:{note}")))
+                    .text_size(look.length(token::TEXT_SM))
+                    .line_height(look.length(token::LEADING_SM))
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .child(SharedString::from(said.to_string())),
+                Role::Label,
+                said.to_string(),
+            ))
+            .child(labelled(
+                div()
+                    .id(SharedString::from(format!("note-goes:{note}")))
+                    .text_size(look.length(token::TEXT_2XS))
+                    .line_height(look.length(token::LEADING_2XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(SENT_WITH),
+                Role::Label,
+                SENT_WITH,
+            ));
+        if !open {
+            return body.into_any_element();
+        }
+        labelled(
+            body.cursor_pointer()
+                .tab_index(0)
+                .hover(|style| style.border_color(look.color(token::YOU)))
+                .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
+                .on_click(cx.listener(move |this, _, window, cx| this.edit_note(ix, &edited, window, cx))),
+            Role::Button,
+            format!("Edit note on {on}"),
+        )
+        .into_any_element()
     }
 
     /// Under its lane or the head: the note's box while it is typed, its words quoted once saved, and where they go.
@@ -408,24 +504,7 @@ impl JobView {
         }
         let said = self.typed_in(note, Mode::Note, cx);
         let said = said.trim();
-        (!said.is_empty()).then(|| {
-            div()
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_1))
-                .child(labelled(div().id(SharedString::from(format!("note:{note}"))).child(quote(look, said)), Role::Label, said.to_string()))
-                .child(labelled(
-                    div()
-                        .id(SharedString::from(format!("note-goes:{note}")))
-                        .text_size(look.length(token::TEXT_XS))
-                        .line_height(look.length(token::LEADING_XS))
-                        .text_color(look.color(token::FG_MUTED))
-                        .child(SENT_WITH),
-                    Role::Label,
-                    SENT_WITH,
-                ))
-                .into_any_element()
-        })
+        (!said.is_empty()).then(|| self.saved_note(ix, note, on, said, open, look, cx))
     }
 
     /// The eyebrow of a workflow draft whose card draws: `New workflow` or `Workflow change`. `None`
