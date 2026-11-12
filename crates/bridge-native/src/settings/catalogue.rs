@@ -36,7 +36,8 @@ pub enum Kind {
 /// One thing Settings holds.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Item {
-    /// `entry:<entry>`, `setting:<key>`, `theme`, `mod:<name>` or `connectors:<manifest>`.
+    /// `entry:<entry>`, `setting:<key>`, `theme`, `mod:<name>`, `connectors:<manifest>`, `model:<name>`, or a run's
+    /// model or effort by its place on Models, `run:<n>` and `effort:<n>`.
     pub id: String,
     pub label: String,
     /// The entry it is drawn on, by id and name, and that entry's group.
@@ -108,6 +109,7 @@ impl SettingsOverlay {
                         items.push(item(entry, format!("connectors:{id}"), format!("Connectors in {name}"), vec!["connectors".into(), "notion".into(), "drive".into(), "slack".into(), name], Kind::Toggle(on)));
                     }
                 }
+                Body::Models => items.extend(self.model_items(entry)),
                 Body::Mods(None) | Body::ProjectValues | Body::Keyboard => {}
             }
         }
@@ -122,6 +124,27 @@ impl SettingsOverlay {
             Body::Schema(ids) => self.list.as_ref().is_none_or(|list| ids.iter().any(|id| !entries::settings_in(list, id).is_empty())),
             _ => true,
         }
+    }
+
+    /// Models once Fleet has listed them: whether Jobs may use each, then each run's model and effort.
+    fn model_items(&self, entry: &'static Entry) -> Vec<Item> {
+        use super::models::{effort_said, Read, RUNS};
+        let Read::Read(models) = self.kit_models() else { return Vec::new() };
+        let on = models.iter().filter(|one| one.on).count();
+        let mut items: Vec<Item> = models
+            .iter()
+            .filter(|one| !(one.on && on == 1))
+            .map(|one| item(entry, format!("model:{}", one.name), format!("{} may be used", one.display), vec!["model".into(), "roster".into(), one.name.clone()], Kind::Toggle(one.on)))
+            .collect();
+        let choices: Vec<Choice> = models.iter().filter(|one| one.on).map(|one| Choice { word: one.name.clone(), title: one.display.clone(), group: None, swatch: None }).collect();
+        let steps: Vec<Choice> = self.effort_steps(&models).into_iter().map(|word| Choice { title: effort_said(&word), word, group: None, swatch: None }).collect();
+        for (at, run) in RUNS.iter().enumerate() {
+            items.push(item(entry, format!("run:{at}"), run.label.to_string(), vec!["model".into(), "default models".into()], Kind::Pick { choices: choices.clone(), now: self.slot_word(run.model) }));
+            if let Some(slot) = run.effort {
+                items.push(item(entry, format!("effort:{at}"), format!("{} effort", run.label), vec!["effort".into(), "reasoning".into()], Kind::Pick { choices: steps.clone(), now: self.slot_word(slot) }));
+            }
+        }
+        items
     }
 
     /// A page's mods, each its switch.
@@ -159,6 +182,17 @@ impl SettingsOverlay {
             (Some(("connectors", manifest)), Applied::Toggle(on)) => {
                 let Some(yml_off) = self.wire.repositories(cx).unwrap_or_default().into_iter().find(|(id, _, _)| id == manifest).map(|(_, _, off)| off) else { return };
                 self.switch_connectors(manifest, yml_off, on, window, cx);
+            }
+            (Some(("model", name)), Applied::Toggle(on)) => self.switch_model(name, on, window, cx),
+            (Some(("run", at)), Applied::Pick(word)) => {
+                if let Some(run) = at.parse::<usize>().ok().and_then(|at| super::models::RUNS.get(at)) {
+                    self.choose_slot(run.model, word, window, cx);
+                }
+            }
+            (Some(("effort", at)), Applied::Pick(word)) => {
+                if let Some(slot) = at.parse::<usize>().ok().and_then(|at| super::models::RUNS.get(at)).and_then(|run| run.effort) {
+                    self.choose_slot(slot, word, window, cx);
+                }
             }
             (None, Applied::Pick(word)) if id == "theme" => self.choose_theme(word, window, cx),
             _ => {}

@@ -24,6 +24,56 @@ pub struct MockFleet {
     pub mods: Vec<ipc::ModSummary>,
     /// The checked sheet of each theme mod that is on and valid.
     pub sheets: BTreeMap<String, String>,
+    /// What `GET /models` answers: Classic's mock models (`apps/desktop/src/renderer/src/mock/kit-models.ts`).
+    pub models: ipc::ModelChoices,
+}
+
+/// Classic's four mock models, as Fleet's `list_models` would answer them.
+pub fn kit_models() -> ipc::ModelChoices {
+    let levels = r#"["low","medium","high","xhigh","max"]"#;
+    let said = format!(
+        r#"{{"models":["opus","fable","sonnet"],"default":"sonnet","session":"opus","harnesses":["claude"],"read":{{"what":"read"}},"offered":[
+        {{"name":"opus","display":"Opus 5.5","version":"opus-5-5","description":"For complex work and everyday tasks","efforts":{levels},"on":true}},
+        {{"name":"fable","display":"Fable 5.1","version":"fable-5-1","description":"For your toughest challenges","efforts":{levels},"on":true}},
+        {{"name":"sonnet","display":"Sonnet 5.5","version":"sonnet-5-5","description":"Most efficient for simpler tasks","efforts":{levels},"on":true}},
+        {{"name":"haiku","display":"Haiku 5.5","version":"haiku-5-5","description":"Fastest for quick answers","efforts":{levels},"on":false}}]}}"#
+    );
+    ipc::decode("ModelChoices", said.as_bytes()).unwrap_or_else(|why| panic!("the mock models do not decode: {why}"))
+}
+
+/// The mock settings with Classic's mock Models choices in force, and the model rows Classic's fake settings
+/// leave out, written as Fleet serves them (`crates/config/src/settings/models.rs`).
+fn with_models(mut list: SettingsList) -> SettingsList {
+    let text = |word: &str| SettingValue::Text(word.into());
+    let like = |list: &SettingsList, key: &str| list.settings.iter().find(|one| one.key == key).cloned();
+    let efforts = SettingKind::Choice { options: ["harness default", "low", "medium", "high", "xhigh", "max"].map(String::from).to_vec() };
+    let added = [
+        ("models.proposer", "models.review", "Review model", "The model an agent run about a pull request in the Reviews tab runs on.", "opus"),
+        ("models.proposer", "models.judge", "Judge model", "The model a step naming none of its own is judged on.", "sonnet"),
+        ("models.proposer", "models.retro", "Retro model", "The model a Job's retro is written on, once the Job ends.", "sonnet"),
+        ("models.proposer", "models.secondOpinion", "Second opinion model", "The model a judged gaming flag is read a second time on.", "opus"),
+        ("effort.judge", "effort.proposer", "Job proposer effort", "How hard the Job proposer thinks reading a request.", "harness default"),
+    ];
+    for (from, key, title, description, value) in added {
+        if like(&list, key).is_some() {
+            continue;
+        }
+        let Some(mut one) = like(&list, from) else { continue };
+        (one.key, one.title, one.description, one.value, one.saved) = (key.into(), title.into(), description.into(), text(value), None);
+        list.settings.push(one);
+    }
+    for one in &mut list.settings {
+        match one.key.as_str() {
+            "models.roster" => one.value = SettingValue::List(["opus", "fable", "sonnet"].map(text).to_vec()),
+            "models.default" => one.value = text("sonnet"),
+            "effort.default" => one.value = text("high"),
+            _ => {}
+        }
+        if one.key.starts_with("effort.") {
+            one.kind = efforts.clone();
+        }
+    }
+    list
 }
 
 pub fn settings() -> SettingsList {
@@ -41,7 +91,7 @@ impl MockFleet {
                 ..ValuesSet::default()
             });
         }
-        MockFleet { list: settings(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
+        MockFleet { list: with_models(settings()), models: kit_models(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),

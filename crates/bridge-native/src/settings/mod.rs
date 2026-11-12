@@ -5,6 +5,7 @@ pub mod catalogue;
 pub mod entries;
 mod keyboard;
 mod mock;
+mod models;
 mod mods;
 pub mod overlay;
 mod project;

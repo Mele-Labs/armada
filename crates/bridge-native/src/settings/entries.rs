@@ -43,6 +43,8 @@ pub enum Body {
     Keyboard,
     /// The theme field, then the theme mods (`ThemeSettings`, `ModList`).
     Theme,
+    /// The models the harness offers and the model each run starts on (`KitModels`).
+    Models,
     /// A list of mods (`ModList`): All where no kind is named, else the mods of that kind, listed only while there is one.
     Mods(Option<ipc::ModKind>),
 }
@@ -74,6 +76,8 @@ pub const SECTIONS: &[Section] = &[
     Section { id: "token-use", label: "Token use", palette: "Token use", words: &["Token use", "tokens", "cost", "compaction", "turn summaries", "cache", "thinking"] },
     Section { id: "harness", label: "Harness", palette: "Harness", words: &["Harness", "agent", "program", "binary", "path"] },
     Section { id: "plan", label: "Plan", palette: "Plan step down", words: &["Plan", "weekly", "limit", "downshift", "lower default", "step down", "percent"] },
+    Section { id: "model", label: "Model", palette: "Models", words: &["Models", "model", "roster", "opus", "sonnet", "haiku"] },
+    Section { id: "effort", label: "Effort", palette: "Effort", words: &["Effort", "reasoning", "low", "medium", "high"] },
     Section { id: "prompts", label: "Prompts", palette: "Drone prompts", words: &["Prompts", "brief", "baseline", "instructions"] },
     Section { id: "features", label: "Features", palette: "Features", words: &["Features", "switch", "on your words", "draft pull requests"] },
     Section { id: "editor", label: "Editor", palette: "Editor", words: &["Editor", "open", "code", "vscode", "visual"] },
@@ -89,6 +93,7 @@ pub const SECTIONS: &[Section] = &[
 /// Every entry this build draws, in Classic's order within each group.
 pub const ENTRIES: &[Entry] = &[
     Entry { id: "project:values", label: "Values", group: Group::Project, body: Body::ProjectValues },
+    Entry { id: "kit:models", label: "Models", group: Group::Kit, body: Body::Models },
     Entry { id: "kit:prompts", label: "Prompts", group: Group::Kit, body: Body::Schema(&["prompts"]) },
     Entry { id: "kit:harness", label: "Harness", group: Group::Kit, body: Body::Schema(&["harness"]) },
     Entry { id: "fleet:limits", label: "Limits", group: Group::Fleet, body: Body::Schema(&["limits"]) },
@@ -159,6 +164,7 @@ pub(super) fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
         Body::Schema(ids) => ids,
         Body::Features => &["features"],
         Body::Theme => &["theme"],
+        Body::Models => &["model", "effort"],
         Body::Mods(None) => &["mods-all"],
         Body::Mods(Some(ipc::ModKind::Tracker)) => &["trackers"],
         Body::Mods(Some(_)) => &["fleet-mods"],
@@ -174,7 +180,8 @@ pub(super) fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
             words.push(section.palette.into());
             words.extend(section.words.iter().map(|word| word.to_string()));
         }
-        if let Some(list) = list {
+        // Models draws the harness's list, not those rows, so their words do not find it (`wordsOf`).
+        if let Some(list) = list.filter(|_| entry.body != Body::Models) {
             for one in settings_in(list, id) {
                 words.extend([one.title.clone(), one.key.clone(), one.description.clone(), one.section.clone()]);
             }

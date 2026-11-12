@@ -100,6 +100,14 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/settings/save".into(), said), "SettingsList", cx))
     }
 
+    /// `GET /models`: the models the harness offers, and the model a run that names none is given.
+    pub fn models(&mut self, cx: &App) -> Task<Result<ipc::ModelChoices, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(if mock.connected { Ok(mock.models.clone()) } else { Err(Refused::said("Fleet is not connected")) });
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/models".into()), "ModelChoices", cx))
+    }
+
     /// The repositories Fleet serves, by Manifest id, name and whether its armada.yml turns connectors off.
     pub fn repositories(&self, cx: &App) -> Option<Vec<(String, String, bool)>> {
         let held = match self {
