@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use gpui::{div, prelude::*, svg, AnyElement, App, Context, FocusHandle, FontWeight, Hsla, Keystroke, Role, SharedString, Task, Window};
-use ipc::{CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone};
+use ipc::{CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone, Served};
 
 use super::entries::Body;
 use super::gateway::Tunnel;
@@ -55,6 +55,18 @@ impl MacsPage {
     fn cloudflare(&self) -> Option<&CloudflareState> {
         self.setup.as_ref().and_then(|setup| setup.as_ref().ok()).map(|setup| &setup.cloudflare)
     }
+
+    /// The Funnel address phones reach this Mac at, while the tunnel does not run yet.
+    fn funnel_row(&self) -> Option<&str> {
+        let setup = self.setup.as_ref()?.as_ref().ok()?;
+        funnel_of(setup).filter(|_| !matches!(setup.cloudflare, CloudflareState::Running { .. } | CloudflareState::Down { .. }))
+    }
+}
+
+/// The address Tailscale Funnel serves, while the Gateway's address is still its own. Once the tunnel names the
+/// address (`named`), the Funnel address is no longer on the wire.
+fn funnel_of(setup: &GatewaySetup) -> Option<&str> {
+    (setup.served == Served::Funnel && !setup.named).then_some(setup.address.as_deref()).flatten()
 }
 
 /// Whether Set up tunnel is the press that moves the state on. A tunnel that dropped signs in again the same way.
@@ -188,6 +200,9 @@ impl SettingsOverlay {
         let page = &self.macs;
         let key = |name: &str| page.keys.get(name).cloned();
         let mut stops = Vec::new();
+        if page.funnel_row().is_some() {
+            stops.extend(key("copy"));
+        }
         stops.extend(page.cloudflare().and_then(press_of).and_then(key));
         if let Some(Ok(phones)) = &page.phones {
             stops.extend(phones.iter().filter_map(|one| key(&format!("unpair:{}", one.id))));
@@ -216,8 +231,11 @@ impl SettingsOverlay {
                 }
             }
             "copy" => {
-                if let Some(CloudflareState::Running { address }) = self.macs.cloudflare() {
-                    let address = address.clone();
+                let address = match self.macs.cloudflare() {
+                    Some(CloudflareState::Running { address }) => Some(address.clone()),
+                    _ => self.macs.funnel_row().map(String::from),
+                };
+                if let Some(address) = address {
                     self.wire.copy(&address, cx);
                 }
             }
@@ -315,7 +333,7 @@ impl SettingsOverlay {
             }
             Some(Err(said)) => body.push(alert(look, "macs-gateway-refused", said)),
             Some(Ok(setup)) => {
-                body.extend(self.tunnel_rows(&setup.cloudflare, look, window, cx));
+                body.extend(self.tunnel_rows(setup, look, window, cx));
                 if let Some(version) = &setup.cloudflared {
                     let line = div().id("macs-cloudflared").flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).tooltip(tip("cloudflared version".to_string())).child(SharedString::from(format!("cloudflared {version}")));
                     body.push(div().flex().child(labelled(line, Role::Label, "cloudflared version")).into_any_element());
@@ -326,21 +344,27 @@ impl SettingsOverlay {
         labelled(card(look, "settings-card-tunnel", "Tunnel", None, vec![rows]), Role::Region, "Tunnel").into_any_element()
     }
 
-    fn tunnel_rows(&self, state: &CloudflareState, look: &Look, window: &Window, cx: &Context<Self>) -> Vec<AnyElement> {
+    fn tunnel_rows(&self, setup: &GatewaySetup, look: &Look, window: &Window, cx: &Context<Self>) -> Vec<AnyElement> {
         let page = &self.macs;
+        let state = &setup.cloudflare;
         let refused: Vec<AnyElement> = page.said.iter().map(|said| alert(look, "macs-setup-refused", said)).collect();
+        // Phones Funnel already serves come first, and the tunnel's row is for the other Macs.
+        let funnel = page.funnel_row();
+        let mut rows: Vec<AnyElement> = funnel
+            .map(|address| {
+                let line = labelled(div().id("macs-funnel").child(reach_line(look, "Phones reach this Mac at", address)), Role::Status, format!("Phones reach this Mac at {address}"));
+                step_row(look, glyph(look, "macs-funnel-mark", "check", look.color(token::STATUS_COMPLETED_SUCCESS), "Connected"), line.into_any_element(), Vec::new(), Some(self.macs_button("copy", "Copy address", Weight::Ghost, false, look, window, cx)), true)
+            })
+            .into_iter()
+            .collect();
+        let first = rows.is_empty();
         let row = match state {
             CloudflareState::Running { address } => {
-                let line = div()
-                    .flex()
-                    .flex_wrap()
-                    .items_baseline()
-                    .text_size(look.length(token::TEXT_SM))
-                    .text_color(look.color(token::FG_MUTED))
-                    .child("Phones and your other Macs reach this Mac at\u{a0}")
-                    .child(div().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(address.clone())));
-                let line = labelled(div().id("macs-running").child(line), Role::Status, format!("Reached at {address}"));
-                step_row(look, glyph(look, "macs-running-mark", "check", look.color(token::STATUS_COMPLETED_SUCCESS), "Connected"), line.into_any_element(), Vec::new(), Some(self.macs_button("copy", "Copy address", Weight::Ghost, false, look, window, cx)), true)
+                let served = setup.served == Served::Funnel;
+                let (lead, said) = if served { ("New phones pair at", format!("New phones pair at {address}")) } else { ("Phones and your other Macs reach this Mac at", format!("Reached at {address}")) };
+                let line = labelled(div().id("macs-running").child(reach_line(look, lead, address)), Role::Status, said);
+                let lines: Vec<AnyElement> = served.then(|| caption(look, "Phones already paired keep using Tailscale Funnel while it is on.").into_any_element()).into_iter().collect();
+                step_row(look, glyph(look, "macs-running-mark", "check", look.color(token::STATUS_COMPLETED_SUCCESS), "Connected"), line.into_any_element(), lines, Some(self.macs_button("copy", "Copy address", Weight::Ghost, false, look, window, cx)), true)
             }
             CloudflareState::Down { address, since, why } => {
                 let name = div().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(address.clone()));
@@ -352,19 +376,21 @@ impl SettingsOverlay {
             CloudflareState::SigningIn { .. } => {
                 let mut lines = vec![caption(look, "Waiting for the sign-in on Cloudflare's page.").into_any_element()];
                 lines.extend(refused);
-                step_row(look, glyph(look, "macs-signing-mark", "hourglass", look.color(token::STATUS_ESCALATED), "Waiting for the sign-in"), step_name(look, "Signing in to Cloudflare"), lines, Some(self.macs_button("sign-in", "Open Cloudflare sign-in", Weight::Primary, false, look, window, cx)), true)
+                step_row(look, glyph(look, "macs-signing-mark", "hourglass", look.color(token::STATUS_ESCALATED), "Waiting for the sign-in"), step_name(look, "Signing in to Cloudflare"), lines, Some(self.macs_button("sign-in", "Open Cloudflare sign-in", Weight::Primary, false, look, window, cx)), first)
             }
             CloudflareState::Missing | CloudflareState::SignedOut | CloudflareState::NoTunnel { .. } => {
-                let mut lines = vec![caption(look, "Phones and your other Macs reach this Mac through it.").into_any_element()];
+                let said = if funnel.is_some() { "Your other Macs need a Cloudflare tunnel." } else { "Phones and your other Macs reach this Mac through it." };
+                let mut lines = vec![caption(look, said).into_any_element()];
                 // The last try's failure, as Fleet wrote it, with Set up tunnel beside it.
                 if let CloudflareState::NoTunnel { why: Some(why) } = state {
                     lines.push(alert(look, "macs-tunnel-why", why));
                 }
                 lines.extend(refused);
-                step_row(look, not_done(look, "macs-tunnel-mark"), step_name(look, "No tunnel yet"), lines, Some(self.macs_button("setup", "Set up tunnel", Weight::Primary, page.pressing, look, window, cx)), true)
+                step_row(look, not_done(look, "macs-tunnel-mark"), step_name(look, "No tunnel yet"), lines, Some(self.macs_button("setup", "Set up tunnel", Weight::Primary, page.pressing, look, window, cx)), first)
             }
         };
-        vec![row]
+        rows.push(row);
+        rows
     }
 
     fn devices_card(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
@@ -470,6 +496,18 @@ fn caption(look: &Look, said: &str) -> gpui::Div {
 
 fn glyph(look: &Look, id: impl Into<SharedString>, name: &'static str, ink: Hsla, said: &str) -> AnyElement {
     labelled(div().id(id.into()).flex_none().tooltip(tip(said.to_string())).child(svg().path(icon_path(name)).size(look.length(token::SPACE_4)).text_color(ink)), Role::Image, said.to_string()).into_any_element()
+}
+
+/// A sentence ending on an address, the address in mono.
+fn reach_line(look: &Look, lead: &str, address: &str) -> gpui::Div {
+    div()
+        .flex()
+        .flex_wrap()
+        .items_baseline()
+        .text_size(look.length(token::TEXT_SM))
+        .text_color(look.color(token::FG_MUTED))
+        .child(SharedString::from(format!("{lead}\u{a0}")))
+        .child(div().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(address.to_string())))
 }
 
 /// A build's short hash, with a tooltip saying what the figure is.
