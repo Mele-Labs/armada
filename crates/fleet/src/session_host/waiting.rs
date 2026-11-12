@@ -1288,6 +1288,13 @@ where
                     Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
                     return self.draft_settled(&id, row, how, None).await;
                 }
+                // His notes on a proposed workflow: the old change is put aside and the Job proposes it afresh.
+                if let (Some(change), None, None, Some(note)) = (self.draft_change(&id, row).await, said.choice, fixed, words) {
+                    self.proposal_dismissed(ipc::WorkflowChangeRef { change }).await?;
+                    let body = [Some(drafting::workflow_sent_back(&item.text, note).as_str()), line].into_iter().flatten().collect::<Vec<_>>().join("\n");
+                    Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
+                    return self.draft_settled(&id, row, DraftHow::SentBack, Some(note.to_string())).await;
+                }
                 let (body, how, kept) = match (fixed, said.choice, words) {
                     (Some(fixed), ..) => (drafting::fixed(&item.text, fixed), DraftHow::Fixed, Some(fixed)),
                     (None, Some(_), words) => (drafting::approved(&item.text, words), DraftHow::Approved, words),

@@ -37,6 +37,11 @@ pub(crate) fn sent_back(title: &str, note: &str) -> String {
     format!("Sent back: {title}\n{note}\nRewrite it and propose it again with propose_draft.")
 }
 
+/// His notes on a proposed workflow: it is proposed again with `propose_new_workflow`.
+pub(crate) fn workflow_sent_back(title: &str, note: &str) -> String {
+    format!("Sent back: {title}\n{note}\nRewrite it and propose it again with propose_new_workflow.")
+}
+
 /// The person's Dismiss on a draft. A blank reason adds no line.
 pub(crate) fn withdrawn(title: &str, reason: Option<&str>) -> String {
     let mut body = format!("Withdrawn: {title}\nDo not propose it again.");
