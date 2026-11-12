@@ -1018,8 +1018,8 @@ impl JobView {
             .gap(look.length(token::SPACE_3))
             .p(look.length(token::SPACE_3))
             .child(rail_group(look, "How you are looking at this", vec![self.lanes_rail(id, "out", None, "\u{2212}", "Zoom out", look, cx), self.lanes_rail(id, "in", None, "+", "Zoom in", look, cx), self.lanes_rail(id, "fit", Some("maximize"), "", "Fit", look, cx)]));
-        // The frame fits the pane, so a pan to a node lands it where it can be seen. Classic's keeps a floor
-        // of seven space-12s and scrolls the pane under it (`docs/concepts/native-bridge.md`, departures).
+        // The frame is never taller than the body shows, so a pan to a node lands it where it can be seen.
+        // Classic's keeps a floor of seven space-12s (`docs/concepts/native-bridge.md`, departures).
         Some(
             labelled(
                 div()
@@ -1080,6 +1080,8 @@ impl JobView {
         if keys.modifiers.alt || keys.modifiers.control || keys.modifiers.platform {
             return false;
         }
+        // Where the body scrolls, the canvas the keys act on comes into view first.
+        self.reveal_field("canvas", window, cx);
         let Some(lanes) = self.record(id, cx).and_then(|job| job.lanes.clone()) else { return false };
         let (_, h) = self.lanes.size.get();
         let placement = place(&lanes.lanes, h);
@@ -1160,6 +1162,7 @@ impl JobView {
     /// A press on a node or chip: the keys go to the canvas there, and what was pressed is picked or let go.
     fn lanes_press(&mut self, id: &SharedString, current: String, pick: Pick, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.lanes.frame, cx);
+        self.reveal_field("canvas", window, cx);
         let picked = self.lanes.seen.borrow_mut().get_mut(id).and_then(|seen| {
             seen.current = Some(current);
             seen.picked = if seen.picked.as_ref() == Some(&pick) { None } else { Some(pick) };

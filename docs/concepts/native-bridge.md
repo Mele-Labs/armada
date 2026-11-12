@@ -135,7 +135,7 @@ The parity check takes each row here as chosen.
 | A band's height in Spine | The legend's height | The height of a control, as every other band in native |
 | The Open group's menu in Spine | A right press alone | A right press, Shift+F10 or the menu key, as every band's |
 | Triage comments and the rule's draft answered in place, in the Workflow tab | Classic draws mock-only rows | Native draws what Fleet serves |
-| The Workflow tab's frame in a short pane | Keeps a floor of seven space-12s and scrolls the pane under it, so a key can pan to a node below the pane's edge | Fits the pane, so the node the keys reach is in sight |
+| The Workflow tab's frame in a short pane | Keeps a floor of seven space-12s and scrolls the pane under it, so a key can pan to a node below the pane's edge | Fits the pane while nothing stands under it. With a form or the changes open, the body scrolls as Classic's does, but the canvas is never taller than the body less Add to this Job, and a key or press on it scrolls it into view, so the node the keys reach is in sight |
 | Esc in a started Job's lanes | Goes Back from anywhere in the window | Goes Back while the keys are in the Workflow tab, so Esc in the thread or a menu keeps its own meaning |
 
 ## Notifying

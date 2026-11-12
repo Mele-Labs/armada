@@ -105,6 +105,7 @@ pub fn bind(cx: &mut App) {
     ]);
     review::bind(cx);
     head::bind(cx);
+    lanes_copy::bind(cx);
 }
 
 /// What a page draws after the thread's items: what stands over the whole thread, the person's

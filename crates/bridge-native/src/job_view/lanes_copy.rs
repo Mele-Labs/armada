@@ -6,9 +6,10 @@
 //! is Fleet's own sentence, drawn where it was asked.
 
 use std::cell::RefCell;
+use std::rc::Rc;
 use std::collections::{HashMap, HashSet};
 
-use gpui::{div, prelude::*, AnyElement, Context, Entity, FocusHandle, FontWeight, KeyDownEvent, Role, SharedString, Stateful, Subscription, Window};
+use gpui::{canvas, div, prelude::*, AnyElement, Bounds, Context, Entity, FocusHandle, Focusable, FontWeight, KeyDownEvent, Pixels, Role, ScrollHandle, SharedString, Stateful, Subscription, Window};
 use gpui_component::input::{Enter, Input, InputEvent, InputState, Textarea, TextareaState};
 use ipc::{ChangeJobCopy, ChangeSessionSteps, CopyPieceKind, JobLanesView, KeepJobPiece, KeepJobWorkflow, LaneChange, StepChange};
 
@@ -42,6 +43,8 @@ struct Form {
     text: Entity<TextareaState>,
     /// The step the new one goes after, or none for first.
     after: Option<String>,
+    /// The After picker's keys, so Tab reaches it and the menu gives them back.
+    after_keys: FocusHandle,
     pending: bool,
     refused: Option<SharedString>,
     _subs: Vec<Subscription>,
@@ -69,11 +72,26 @@ pub(super) struct LanesCopy {
     back: FocusHandle,
     /// Each head that opens a Workflow or a ticket's menu, by Job and lane, so Back gives it the keys again.
     heads: RefCell<HashMap<String, FocusHandle>>,
+    /// The Workflow body's scroll while a form or the changes stand under the canvas, as Classic's pane scrolls.
+    scroll: ScrollHandle,
+    /// Where each of the form's fields was last drawn, so the one with the keys is scrolled into view.
+    fields_at: Rc<RefCell<HashMap<&'static str, Bounds<Pixels>>>>,
 }
+
+gpui::actions!(lanes_form, [AddNow]);
+
+/// ⌘↵ adds from anywhere in the form: bound in the form's own context, it is met before a walk's bar.
+pub(super) fn bind(cx: &mut gpui::App) {
+    cx.bind_keys([gpui::KeyBinding::new("cmd-enter", AddNow, Some(FORM_KEYS))]);
+}
+
+const FORM_KEYS: &str = "lanes-form";
+/// The Workflow tab's body where it scrolls, named so a walk can wheel it.
+const BODY_SAID: &str = "This Job's Workflow";
 
 impl LanesCopy {
     pub fn new(cx: &mut gpui::App) -> Self {
-        Self { form: None, keeps: HashMap::new(), into: HashMap::new(), back: cx.focus_handle(), heads: RefCell::default() }
+        Self { form: None, keeps: HashMap::new(), into: HashMap::new(), back: cx.focus_handle(), heads: RefCell::default(), scroll: ScrollHandle::new(), fields_at: Rc::default() }
     }
 }
 
@@ -271,21 +289,51 @@ impl JobView {
     fn own_lanes(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let lanes = self.record(id, cx)?.lanes.as_ref()?;
         let canvas = self.lanes_canvas(id, look, cx)?;
-        // The frame stays inside the pane, so a pan to a node lands where it is seen: the canvas fills what Add
-        // and the list leave, and in a short pane keeps at least most of it while the list scrolls in itself.
-        Some(
+        let add = self.add_to_job(id, lanes, look, cx);
+        let changes = self.job_changes(id, lanes, look, cx);
+        let form_open = self.lanes.copy.form.as_ref().is_some_and(|form| form.job == *id);
+        if !form_open && changes.is_none() {
+            // Nothing under the canvas: the frame fits the pane, so a pan to a node lands where it is seen.
+            return Some(
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_hidden()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_3))
+                    .child(div().flex_none().child(add))
+                    .child(div().flex_1().min_h_0().flex().flex_col().child(canvas))
+                    .into_any_element(),
+            );
+        }
+        // A form or the changes under the canvas: the body scrolls as one, the canvas keeping Classic's floor
+        // of seven space-12s (`.sv-lanes__body > .armada-lane-canvas`), but never taller than the body shows,
+        // less the Add row, so once the keys bring it into view the node they reach is in sight and Add to this
+        // Job stays above it. The canvas pans on the wheel, as Classic's `panOnScroll`; the Add row takes it.
+        let floor = look.length(token::SPACE_12) * 7.;
+        let gap = look.length(token::SPACE_3);
+        let shown = self.lanes.copy.scroll.bounds().size.height;
+        let add_tall = self.lanes.copy.fields_at.borrow().get("add").map_or(gpui::px(0.), |at| at.size.height);
+        let room = shown - add_tall - gap;
+        let tall = if room > gpui::px(0.) { floor.min(room) } else { floor };
+        Some(labelled(
             div()
+                .id("lanes-scroll")
                 .flex_1()
                 .min_h_0()
-                .overflow_hidden()
+                .overflow_y_scroll()
+                .track_scroll(&self.lanes.copy.scroll)
                 .flex()
                 .flex_col()
-                .gap(look.length(token::SPACE_3))
-                .child(div().flex_none().child(self.add_to_job(id, lanes, look, cx)))
-                .child(div().flex_1().min_h(gpui::relative(0.6)).flex().flex_col().child(canvas))
-                .children(self.job_changes(id, lanes, look, cx))
-                .into_any_element(),
+                .gap(gap)
+                .child(self.form_field("add", div().flex_none().child(add)))
+                .child(self.form_field("canvas", div().flex_none().h(tall).flex().flex_col().child(canvas)))
+                .children(changes.map(|changes| div().flex_none().child(changes))),
+            Role::Region,
+            BODY_SAID,
         )
+        .into_any_element())
     }
 
     /// A Job's own Workflow opened over its parent's lanes, with the keys on Back (`setInto`).
@@ -416,6 +464,13 @@ impl JobView {
                 cx.notify();
             }
         }));
+        // The field given the keys comes into view, wherever the body was scrolled.
+        for input in label.iter() {
+            subs.push(cx.on_focus_in(&input.focus_handle(cx), window, |this, window, cx| this.reveal_field("label", window, cx)));
+        }
+        subs.push(cx.on_focus_in(&text.focus_handle(cx), window, |this, window, cx| this.reveal_field("text", window, cx)));
+        let after_keys = cx.focus_handle();
+        subs.push(cx.on_focus_in(&after_keys, window, |this, window, cx| this.reveal_field("after", window, cx)));
         // After the step the Job is at, or the last one where it is past them all.
         let steps = &lanes.job.copy.steps;
         let after = (!steps.is_empty()).then(|| steps[(lanes.at.max(0) as usize).min(steps.len() - 1)].id.clone());
@@ -423,12 +478,38 @@ impl JobView {
             Some(input) => input.update(cx, |input, cx| input.focus(window, cx)),
             None => text.update(cx, |input, cx| input.focus(window, cx)),
         }
-        self.lanes.copy.form = Some(Form { job: job.clone(), adding, label, text, after, pending: false, refused: None, _subs: subs });
+        self.lanes.copy.form = Some(Form { job: job.clone(), adding, label, text, after, after_keys, pending: false, refused: None, _subs: subs });
+        // A form opens at the body's top, its first field with the keys in view.
+        self.lanes.copy.scroll.set_offset(gpui::Point::default());
+        self.lanes.copy.fields_at.borrow_mut().clear();
         cx.notify();
+    }
+
+    /// Scroll the Workflow body the least that brings a field of the form into view, where it was last drawn.
+    pub(super) fn reveal_field(&self, field: &'static str, window: &mut Window, cx: &mut gpui::App) {
+        let scroll = self.lanes.copy.scroll.clone();
+        let fields_at = self.lanes.copy.fields_at.clone();
+        window.defer(cx, move |window, _| {
+            let Some(at) = fields_at.borrow().get(field).copied() else { return };
+            let view = scroll.bounds();
+            let mut offset = scroll.offset();
+            if at.top() < view.top() {
+                offset.y += view.top() - at.top();
+            } else if at.bottom() > view.bottom() {
+                offset.y -= (at.bottom() - view.bottom()).min(at.top() - view.top());
+            } else {
+                return;
+            }
+            offset.y = offset.y.min(gpui::px(0.)).max(-scroll.max_offset().y);
+            scroll.set_offset(offset);
+            window.refresh();
+        });
     }
 
     fn close_add_form(&mut self, cx: &mut Context<Self>) {
         self.lanes.copy.form = None;
+        // Back at the head of the body, where Add to this Job opened it.
+        self.lanes.copy.scroll.set_offset(gpui::Point::default());
         cx.notify();
     }
 
@@ -468,12 +549,16 @@ impl JobView {
             }
         };
         cx.notify();
-        self.post_answered(route, body, mock, window, cx, |this, said, cx| {
+        self.post_answered(route, body, mock, window, cx, |this, said, window, cx| {
             let Some(form) = this.lanes.copy.form.as_mut() else { return };
             form.pending = false;
             match said {
                 None => this.lanes.copy.form = None,
-                Some(why) => form.refused = Some(why),
+                Some(why) => {
+                    form.refused = Some(why);
+                    // The refusal stands where it said no, with Add beside it.
+                    this.reveal_field("acts", window, cx);
+                }
             }
             cx.notify();
         });
@@ -488,17 +573,56 @@ impl JobView {
         mock: Option<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
-        answered: impl FnOnce(&mut JobView, Option<SharedString>, &mut Context<JobView>) + 'static,
+        answered: impl FnOnce(&mut JobView, Option<SharedString>, &mut Window, &mut Context<JobView>) + 'static,
     ) {
         if self.fleet.is_none() {
             cx.spawn_in(window, async move |this, cx| {
                 cx.background_executor().timer(std::time::Duration::from_millis(600)).await;
-                let _ = this.update(cx, |this, cx| answered(this, mock.map(SharedString::from), cx));
+                let _ = this.update_in(cx, |this, window, cx| answered(this, mock.map(SharedString::from), window, cx));
             })
             .detach();
             return;
         }
-        self.post(route.into(), body, window, cx, Box::new(move |this, answer, _, cx| answered(this, answer.err().map(SharedString::from), cx)));
+        self.post(route.into(), body, window, cx, Box::new(move |this, answer, window, cx| answered(this, answer.err().map(SharedString::from), window, cx)));
+    }
+
+    /// After's menu: First, then each step, the one standing ticked; the keys go back to After.
+    fn open_after_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(form) = self.lanes.copy.form.as_ref() else { return };
+        let Some(lanes) = self.record(&form.job, cx).and_then(|one| one.lanes.clone()) else { return };
+        let choices: Vec<(String, String)> = lanes.job.copy.steps.iter().map(|one| (one.id.clone(), one.label.clone())).collect();
+        let now = form.after.clone();
+        let keys = form.after_keys.clone();
+        window.focus(&keys, cx);
+        let at = drawn(window, cx, Role::ComboBox, "After").map_or_else(|| window.mouse_position(), below_left);
+        let mut entries = vec![Entry::Choice { id: "", label: "First".into(), on: now.is_none() }];
+        // A menu entry's id is static; the step is found again by its place.
+        const PLACES: [&str; 16] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"];
+        for (at, (id, label)) in choices.iter().enumerate().take(PLACES.len()) {
+            entries.push(Entry::Choice { id: PLACES[at], label: label.clone().into(), on: now.as_deref() == Some(id.as_str()) });
+        }
+        self.open_button_menu(
+            "After",
+            entries,
+            at,
+            Some(keys),
+            move |this, picked, _, cx| {
+                if let Some(form) = this.lanes.copy.form.as_mut() {
+                    form.after = picked.parse::<usize>().ok().and_then(|at| choices.get(at)).map(|(id, _)| id.clone());
+                }
+                cx.notify();
+            },
+            window,
+            cx,
+        );
+    }
+
+    /// A field of the form, its bounds kept each frame so the keys' field can be scrolled into view.
+    fn form_field(&self, field: &'static str, body: gpui::Div) -> AnyElement {
+        let fields_at = self.lanes.copy.fields_at.clone();
+        body.relative()
+            .child(canvas(move |bounds, _, _| { fields_at.borrow_mut().insert(field, bounds); }, |_, _, _, _| {}).absolute().size_full())
+            .into_any_element()
     }
 
     /// The form (`StepForm`, `PieceForm`): Esc puts it away, ⌘↵ adds from any field.
@@ -514,18 +638,19 @@ impl JobView {
         };
         let mut fields: Vec<AnyElement> = Vec::new();
         if let Some(label) = &form.label {
-            fields.push(
+            fields.push(self.form_field(
+                "label",
                 div()
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_1))
                     .child(field_label(look, "Label"))
-                    .child(labelled(box_frame(look, "lanes-form-label").flex().items_center().h(look.length(token::H_CONTROL)).py_0().child(Input::new(label).appearance(false).cleanable(false)), Role::TextInput, "Label"))
-                    .into_any_element(),
-            );
+                    .child(labelled(box_frame(look, "lanes-form-label").flex().items_center().h(look.length(token::H_CONTROL)).py_0().child(Input::new(label).appearance(false).cleanable(false)), Role::TextInput, "Label")),
+            ));
         }
         let area_said = file.unwrap_or("Instructions");
-        fields.push(
+        fields.push(self.form_field(
+            "text",
             div()
                 .flex()
                 .flex_col()
@@ -535,13 +660,11 @@ impl JobView {
                     box_frame(look, "lanes-form-text").when(file.is_some(), |frame| frame.font_family(mono(look)).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS))).child(Textarea::new(&form.text).appearance(false)),
                     Role::TextInput,
                     area_said,
-                ))
-                .into_any_element(),
-        );
+                )),
+        ));
         if form.adding == Adding::Step {
             let steps = &lanes.job.copy.steps;
             let shown = form.after.as_ref().and_then(|after| steps.iter().find(|one| &one.id == after)).map_or_else(|| "First".to_string(), |one| one.label.clone());
-            let choices: Vec<(String, String)> = steps.iter().map(|one| (one.id.clone(), one.label.clone())).collect();
             let picker = labelled(
                 box_frame(look, "lanes-form-after")
                     .flex()
@@ -553,36 +676,18 @@ impl JobView {
                     .hover(|style| style.border_color(look.color(token::BORDER_STRONG)))
                     .child(SharedString::from(shown.clone()))
                     .child(glyph(look, "chevron-down", Size::Small, look.color(token::FG_SUBTLE)))
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        let at = drawn(window, cx, Role::ComboBox, "After").map_or_else(|| window.mouse_position(), below_left);
-                        let now = this.lanes.copy.form.as_ref().and_then(|form| form.after.clone());
-                        let mut entries = vec![Entry::Choice { id: "", label: "First".into(), on: now.is_none() }];
-                        // A menu entry's id is static; the step is found again by its place.
-                        const PLACES: [&str; 16] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"];
-                        for (at, (id, label)) in choices.iter().enumerate().take(PLACES.len()) {
-                            entries.push(Entry::Choice { id: PLACES[at], label: label.clone().into(), on: now.as_deref() == Some(id.as_str()) });
+                    .track_focus(&form.after_keys)
+                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                        if matches!(event.keystroke.key.as_str(), "enter" | "space" | "down") && !event.keystroke.modifiers.modified() {
+                            cx.stop_propagation();
+                            this.open_after_menu(window, cx);
                         }
-                        let choices = choices.clone();
-                        let back = window.focused(cx);
-                        this.open_button_menu(
-                            "After",
-                            entries,
-                            at,
-                            back,
-                            move |this, picked, _, cx| {
-                                if let Some(form) = this.lanes.copy.form.as_mut() {
-                                    form.after = picked.parse::<usize>().ok().and_then(|at| choices.get(at)).map(|(id, _)| id.clone());
-                                }
-                                cx.notify();
-                            },
-                            window,
-                            cx,
-                        );
-                    })),
+                    }))
+                    .on_click(cx.listener(|this, _, window, cx| this.open_after_menu(window, cx))),
                 Role::ComboBox,
                 "After",
             );
-            fields.push(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(field_label(look, "After")).child(picker).into_any_element());
+            fields.push(self.form_field("after", div().flex().flex_col().gap(look.length(token::SPACE_1)).child(field_label(look, "After")).child(picker)));
         }
         let refused = form.refused.as_ref().map(|why| refused_line(look, "form", why, false));
         let add = labelled(
@@ -594,6 +699,8 @@ impl JobView {
         labelled(
             div()
                 .id("lanes-form")
+                .key_context(FORM_KEYS)
+                .on_action(cx.listener(|this, _: &AddNow, window, cx| this.add_now(window, cx)))
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
@@ -609,19 +716,15 @@ impl JobView {
                         this.add_now(window, cx);
                     }
                 }))
-                .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
                     let keys = &event.keystroke;
                     if keys.key == "escape" && this.pop.is_none() {
                         cx.stop_propagation();
                         this.close_add_form(cx);
-                    } else if keys.key == "enter" && keys.modifiers.platform {
-                        cx.stop_propagation();
-                        this.add_now(window, cx);
                     }
                 }))
                 .children(fields)
-                .children(refused)
-                .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(add).child(cancel)),
+                .child(self.form_field("acts", div().flex().flex_col().gap(look.length(token::SPACE_2)).children(refused).child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(add).child(cancel)))),
             Role::Group,
             named,
         )
@@ -752,7 +855,7 @@ impl JobView {
         cx.notify();
         let body = ipc::encode(&KeepJobWorkflow { session_id: Self::session_id(job), source: None });
         let job = job.clone();
-        self.post_answered("/sessions/copy/keep", body, None, window, cx, move |this, said, cx| {
+        self.post_answered("/sessions/copy/keep", body, None, window, cx, move |this, said, _, cx| {
             let keeps = this.lanes.copy.keeps.entry(job).or_default();
             keeps.pending = false;
             match said {
@@ -773,7 +876,7 @@ impl JobView {
         cx.notify();
         let body = ipc::encode(&KeepJobPiece { session_id: Self::session_id(job), kind, id: piece });
         let job = job.clone();
-        self.post_answered("/sessions/copy/keep_piece", body, None, window, cx, move |this, said, cx| {
+        self.post_answered("/sessions/copy/keep_piece", body, None, window, cx, move |this, said, _, cx| {
             let keeps = this.lanes.copy.keeps.entry(job).or_default();
             keeps.row_pending = None;
             match said {
