@@ -24,6 +24,9 @@ pub(crate) struct RailReads {
     pub visits: Vec<(u32, String)>,
     /// The steps the person skipped.
     pub skipped: Vec<u32>,
+    /// The plan groups whose `you_approved` gate has closed, and every group's id: what a `you_approved` step reads.
+    pub approved_groups: Vec<String>,
+    pub plan_groups: Vec<String>,
     /// What the Job holds of its lifecycles, for a Job that follows a workflow and holds any.
     pub held: Held,
     /// The title of each Job it holds, by id, which `rail_lifecycle::named` calls one by.
@@ -34,6 +37,17 @@ pub(crate) struct RailReads {
     /// The Job's own copy of its workflow, once it changed a step of it. The rail reads this in place of the
     /// repository's.
     pub own: Option<store::KeptWorkflowCopy>,
+}
+
+impl RailReads {
+    /// Whether the `you_approved` gate of the plan group whose id is `step` has closed, or any such gate where
+    /// no group carries that id.
+    pub(crate) fn approved(&self, step: &str) -> bool {
+        match self.plan_groups.iter().any(|group| group == step) {
+            true => self.approved_groups.iter().any(|group| group == step),
+            false => !self.approved_groups.is_empty(),
+        }
+    }
 }
 
 /// Read what the rail needs beyond the record. **The commit, the Check run, the thread and the plan's
@@ -80,7 +94,14 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
     };
     let titles = crate::lifecycles::waking::titles_of(store, &held);
     let own = if follows { store.job_workflow_copy(&session.id)? } else { None };
-    Ok(RailReads { extra, visits: rail.visits, skipped: rail.skipped, held, titles, lifecycles, own })
+    let (approved_groups, plan_groups) = match follows {
+        true => (
+            store.session_gates(&session.id)?.into_iter().filter(|gate| gate.gate == "you_approved").map(|gate| gate.group_id).collect(),
+            store.session_plan(&session.id)?.map(|plan| plan.groups.iter().map(|group| group.id.clone()).collect()).unwrap_or_default(),
+        ),
+        false => Default::default(),
+    };
+    Ok(RailReads { extra, visits: rail.visits, skipped: rail.skipped, approved_groups, plan_groups, held, titles, lifecycles, own })
 }
 
 /// The steps he wrote on after they began, by the latest visit to each. **Only `You`**: Fleet's own
@@ -260,6 +281,9 @@ where
             lifecycles = reads.lifecycles.clone().unwrap_or_else(|| self.lifecycles_that_apply(manifest));
             (facts.lifecycle_held, facts.lifecycle_met) = rail_lifecycle::bits(&steps, &lifecycles, &reads.held);
         }
+        facts.you_approved = StepBits::of(
+            (0..steps.len()).filter(|at| steps[*at].waits_on_approval() && reads.approved(&steps[*at].id)),
+        );
         let at = rail::current(&steps, &facts);
         record.workflow_step = at.map(|at| at as u32);
         let name = |one: &store::KeptInstance| rail_lifecycle::named(one, reads.titles.get(&one.key).map(String::as_str));

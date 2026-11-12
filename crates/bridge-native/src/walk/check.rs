@@ -21,6 +21,9 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
         gpui_platform::current_headless_renderer()
     });
     cx.update(crate::init_app);
+    // The check's clock does not move between draws, so a picture would hold a turn's first frame
+    // forever; with motion reduced each one-shot animation draws where it ends.
+    cx.update(|cx| cx.set_reduce_motion(true));
     // The window is taken out of the app while it is updated, so its root is read through this.
     let held: Rc<RefCell<Option<Entity<WalkWindow>>>> = Rc::default();
     let keep = held.clone();

@@ -1,0 +1,55 @@
+{
+  "threads": [
+    {
+      "session_id": "mock-04",
+      "head": {
+        "trail": {
+          "started": "2026-11-12T09:58:00Z",
+          "bays": [
+            {
+              "slot": 4,
+              "from": "2026-11-12T10:00:00Z"
+            }
+          ]
+        }
+      },
+      "items": [
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-401",
+            "at": "2026-11-12T10:01:00Z",
+            "from": {
+              "kind": "you"
+            },
+            "text": "Make me a workflow for working through the notes I leave on a screen."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-402",
+            "at": "2026-11-12T10:03:00Z",
+            "from": {
+              "kind": "agent"
+            },
+            "text": "I drafted a workflow with five steps. It asks you about each note, shows you the change, and delivers once you approve."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "draft",
+            "id": "dra-403",
+            "at": "2026-11-12T10:04:00Z",
+            "title": "Workflow annotations",
+            "text": "{\n  \"id\": \"annotations\",\n  \"name\": \"Work the notes\",\n  \"for_requests\": \"Notes you left on a screen, each answered with a change you walk\",\n  \"steps\": [\n    {\n      \"id\": \"quiz\"\n    },\n    {\n      \"id\": \"make-and-walk\"\n    },\n    {\n      \"id\": \"refresh-preview\"\n    },\n    {\n      \"id\": \"ask\"\n    },\n    {\n      \"id\": \"refine-and-deliver\"\n    }\n  ]\n}",
+            "change": 31
+          }
+        }
+      ]
+    }
+  ]
+}

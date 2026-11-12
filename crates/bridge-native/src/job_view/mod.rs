@@ -84,6 +84,7 @@ mod talk;
 mod tool_icons;
 mod tune;
 mod wire;
+mod workflow_card;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -298,6 +299,8 @@ pub struct JobView {
     mock_needs: HashMap<String, ipc::NeedsYou>,
     /// How many more sends the mock refuses, so a walk can show a message Fleet did not take.
     mock_refusals: usize,
+    /// The workflow changes of a mock scenario, by id, as Fleet's `workflow_changes` holds them live.
+    mock_changes: std::collections::BTreeMap<i64, ipc::WorkflowChange>,
     /// The Job on screen.
     shown: Option<SharedString>,
     /// What Fleet refused a terminal Job's Compact for, by Job, until Compact is pressed again.
@@ -469,6 +472,13 @@ impl JobView {
         }));
         Self::offer_open_mod(cx);
         cx.set_global(view_tabs::LiveJobView(cx.weak_entity()));
+        let mock_changes = match &mock {
+            Some(_) => crate::mock::workflow_changes().unwrap_or_else(|why| {
+                crate::log::Note::warn("the mock's workflow changes did not decode").field("why", why).emit();
+                Default::default()
+            }),
+            None => Default::default(),
+        };
         let mock = mock
             .unwrap_or_default()
             .into_iter()
@@ -480,6 +490,7 @@ impl JobView {
             mock,
             mock_needs: HashMap::new(),
             mock_refusals: crate::mock::refusals(),
+            mock_changes,
             shown: None,
             compact_refused: HashMap::new(),
             pages: HashMap::new(),
@@ -694,6 +705,7 @@ impl JobView {
             self.judge_read(&id, cx);
         }
         self.quick_follow(cx);
+        self.read_workflow_changes(cx);
         // A Fleet that was not there when the Job opened is asked again once it is.
         if let (Some(id), Some(fleet)) = (self.shown.clone(), self.fleet.clone()) {
             if self.thread(&id, cx).is_none() {

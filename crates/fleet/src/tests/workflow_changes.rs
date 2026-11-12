@@ -293,6 +293,28 @@ async fn a_ready_change_reads_each_side_through_the_rail_so_a_new_step_says_what
     assert_eq!((walk.instructions.as_deref(), walk.passed_over_when.as_deref()), (Some("Show the mock."), Some("nothing would be seen")));
 }
 
+/// **A ready change carries each step's about, gate and delivery, and the drafted name and `for_requests`**, and a
+/// step gated `you_approved` ends when he approves, not on the push after it.
+#[tokio::test]
+async fn a_ready_change_carries_each_steps_about_and_gate_and_the_drafts_name_and_requests() {
+    let drafted = with_refine()
+        .replace("  - id: refine\n    label: Refine\n", "  - id: refine\n    label: Refine\n    about: Tidy what the walk raised.\n    gate: you_approved\n")
+        .replace("name: staged", "name: staged two\nfor_requests: Work that is shown before it is tested");
+    let rig = rig(&[&drafted]).await;
+
+    let ready = rig.asked("split the work before Deliver into a Refine step he approves").await;
+
+    assert_eq!(ready.state, ChangeState::Ready, "{ready:?}");
+    assert_eq!(ready.after_name.as_deref(), Some("staged two"));
+    assert_eq!(ready.after_for_requests.as_deref(), Some("Work that is shown before it is tested"));
+    let steps = ready.after_steps.as_ref().expect("steps");
+    let by = |id: &str| steps.iter().find(|step| step.id.as_str() == id).expect("step");
+    let refine = by("refine");
+    assert_eq!((refine.about.as_deref(), refine.gate.as_deref()), (Some("Tidy what the walk raised."), Some("you_approved")));
+    assert_eq!(refine.ends_when.as_deref(), Some("you approve"));
+    assert_eq!((by("deliver").delivers, by("deliver").gate.as_deref(), refine.delivers), (true, None, false));
+}
+
 /// **Build is refused for a change Armada can make**, and for one it never kept.
 #[tokio::test]
 async fn build_is_refused_on_a_change_armada_can_make() {

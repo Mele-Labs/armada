@@ -2,13 +2,14 @@
 //! live answer is, so a fixture that no longer matches the wire fails to decode instead of drawing.
 //! A screen on mock data is the same screen; only where its data comes from differs.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use std::sync::Mutex;
 
 use ipc::{
     IssueList, JobThread, ModelChoices, NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyph, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSection,
-    NeedsYouSectionKind, SessionList, SessionQuick, SessionRecord, SettingValue, WaitingActKind, WaitingItem, WaitingSource, DOCUMENT_ITEM_PREFIX,
+    NeedsYouSectionKind, SessionList, SessionQuick, SessionRecord, SettingValue, WaitingActKind, WaitingItem, WaitingSource, WorkflowChange,
+    WorkflowChanges, DOCUMENT_ITEM_PREFIX,
 };
 use serde::Deserialize;
 
@@ -21,7 +22,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         *held = scenario.to_string();
     }
     let bytes: &[u8] = match scenario {
-        "jobs-many" | "job-view" | "job-reasoning" => include_bytes!("../fixtures/jobs-many.json"),
+        "jobs-many" | "job-view" | "job-reasoning" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with one handing off and one that took an earlier Job's place, that one ended behind it.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff.json"),
         // The same Jobs, with Try amber forked from the first at its message naming the tone rule.
@@ -257,6 +258,8 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "subagent" => include_bytes!("../fixtures/subagent-threads.json"),
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
+        // The Audit Job's thread ending on a proposed workflow's draft.
+        "workflow-card" => include_bytes!("../fixtures/workflow-card-threads.json"),
         _ => return Ok(HashMap::new()),
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
@@ -284,6 +287,18 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         all.insert("mock-03".to_string(), empty);
     }
     Ok(all)
+}
+
+/// The workflow changes Fleet would list for the scenario last named by [`jobs`], by change id, as
+/// `GET /workflows/changes` answers them. Empty for a scenario that proposes no workflow.
+pub fn workflow_changes() -> Result<BTreeMap<i64, WorkflowChange>, String> {
+    let named = SCENARIO.lock().map(|held| held.clone()).unwrap_or_default();
+    let bytes: &[u8] = match named.as_str() {
+        "workflow-card" => include_bytes!("../fixtures/workflow-card-changes.json"),
+        _ => return Ok(BTreeMap::new()),
+    };
+    let read = ipc::decode::<WorkflowChanges>("WorkflowChanges", bytes).map_err(|why| why.to_string())?;
+    Ok(read.changes.into_iter().map(|change| (change.id, change)).collect())
 }
 
 /// The tour's threads, each from the fixture it was walked against: the first Job's question, plan and
@@ -1035,5 +1050,20 @@ pub fn rescue_act(pool: &mut [ipc::WorktreeSlot], manifest: &str, slot: u32, act
             one.branch = None;
             Ok(Some(rescued(committed)))
         }
+    }
+
+    #[test]
+    fn workflow_card_scenario_decodes_with_its_change() {
+        assert!(super::jobs("workflow-card").expect("decodes").len() > 10);
+        let threads = super::threads("workflow-card").expect("decodes");
+        let changes = super::workflow_changes().expect("decodes");
+        let change = changes.get(&31).expect("change 31");
+        let shown = threads["mock-04"].items.iter().find_map(|item| match item {
+            ipc::ThreadItem::Row { row: ipc::SessionRow::Draft { text, change: Some(31), .. } } => Some(text.clone()),
+            _ => None,
+        });
+        // The card draws lanes only where the change drafts the text the row shows.
+        assert_eq!(change.after.as_deref(), shown.as_deref());
+        assert_eq!(change.after_steps.as_ref().map(Vec::len), Some(5));
     }
 }

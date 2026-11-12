@@ -88,3 +88,35 @@ async fn a_dismiss_from_the_workflows_page_clears_the_item_too() {
     rig.fleet.workflow_change_dismissed(WorkflowChangeRef { change }).await.expect("dismissed");
     assert!(proposal(&waiting(&rig, &id).await).is_none());
 }
+
+#[tokio::test]
+async fn words_on_a_proposal_send_it_back_to_be_proposed_again_and_put_the_change_aside() {
+    let (rig, planted, id, change) = proposing().await;
+    let item = proposal(&waiting(&rig, &id).await).unwrap().id.clone();
+    let said = AnswerWaiting { session_id: id.clone(), item_id: item, choice: None, text: Some("Add a review step.".into()), mode: None, fixed: None };
+
+    Arc::clone(&rig.fleet).answer_waiting(said).await.expect("answered");
+
+    let rows = rig.rows(&id).await;
+    let told: Vec<String> = rows
+        .iter()
+        .filter_map(|row| match row {
+            ipc::SessionRow::Message { from: ipc::SessionVoice::You, text, .. } => Some(text.clone()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        told.last().map(String::as_str),
+        Some("Sent back: Workflow fresh\nAdd a review step.\nRewrite it and propose it again with propose_new_workflow.")
+    );
+    let kept = rig.fleet.store().lock().await.workflow_change(change).unwrap().unwrap();
+    assert_ne!(kept.state, store::CHANGE_READY, "no longer open");
+    assert!(planted.saves().is_empty());
+    let settled = rows.iter().find_map(|row| match row {
+        ipc::SessionRow::Draft { settled, .. } => settled.clone(),
+        _ => None,
+    });
+    let settled = settled.expect("settled");
+    assert_eq!((settled.how, settled.words.as_deref()), (ipc::DraftHow::SentBack, Some("Add a review step.")));
+    assert!(proposal(&waiting(&rig, &id).await).is_none());
+}
