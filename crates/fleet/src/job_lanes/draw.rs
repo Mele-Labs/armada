@@ -18,7 +18,7 @@ pub(super) struct Standing<'a> {
 }
 
 /// The id a node is drawn under.
-fn node_id(lane: &str, item: &str) -> String {
+pub(super) fn node_id(lane: &str, item: &str) -> String {
     format!("{lane}/{item}")
 }
 
@@ -26,7 +26,7 @@ fn node_id(lane: &str, item: &str) -> String {
 const START_ITEM: &str = "$start";
 const END_ITEM: &str = "$end";
 
-fn kind_of_state(lifecycle: &LaneLifecycle) -> LaneNodeKind {
+pub(super) fn kind_of_state(lifecycle: &LaneLifecycle) -> LaneNodeKind {
     match lifecycle.kind {
         LaneLifecycleKind::Tracker => LaneNodeKind::Tracker,
         LaneLifecycleKind::Forge => LaneNodeKind::Forge,
@@ -35,7 +35,7 @@ fn kind_of_state(lifecycle: &LaneLifecycle) -> LaneNodeKind {
     }
 }
 
-fn node(id: String, label: &str, col: u32, role: LaneNodeRole, kind: LaneNodeKind) -> LaneNode {
+pub(super) fn node(id: String, label: &str, col: u32, role: LaneNodeRole, kind: LaneNodeKind) -> LaneNode {
     LaneNode {
         id,
         label: label.to_string(),
@@ -57,7 +57,7 @@ fn node(id: String, label: &str, col: u32, role: LaneNodeRole, kind: LaneNodeKin
 /// The workflow's lane with a small circle at each end: where it starts and where it ends. They sit in the
 /// columns of the first and the last step, and are no steps, so nothing picks them. `began` and `ended` are a
 /// Job's: it has started its first step, and every step is over.
-fn with_ends(steps: Vec<LaneNode>, pairs: Vec<(String, String)>, began: bool, ended: bool) -> (Vec<LaneNode>, Vec<(String, String)>) {
+pub(super) fn with_ends(steps: Vec<LaneNode>, pairs: Vec<(String, String)>, began: bool, ended: bool) -> (Vec<LaneNode>, Vec<(String, String)>) {
     let (Some(first), Some(last)) = (steps.first(), steps.last()) else { return (steps, pairs) };
     let mut start = node(node_id("workflow", START_ITEM), "Start", first.col, LaneNodeRole::Step, LaneNodeKind::Start);
     start.passed = began;
@@ -71,7 +71,7 @@ fn with_ends(steps: Vec<LaneNode>, pairs: Vec<(String, String)>, began: bool, en
     (nodes, moves)
 }
 
-fn lane_of_lifecycle(lifecycle: &LaneLifecycle, id: &str, title: &str, note: Option<&str>, nodes: Vec<LaneNode>) -> LaneView {
+pub(super) fn lane_of_lifecycle(lifecycle: &LaneLifecycle, id: &str, title: &str, note: Option<&str>, nodes: Vec<LaneNode>) -> LaneView {
     LaneView {
         id: id.to_string(),
         kind: LaneKind::Lifecycle,

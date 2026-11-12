@@ -71,3 +71,20 @@ The IDs differ, so a Bridge and a Fleet either side of this change refuse one an
 **This makes the unbounded sink worse, and does not bound how much.**
 No event is added, but each `session.changed` of a Job with lanes is larger, and a started Job's move now publishes its parent's record as well.
 The sink is still unbounded from the application side, and a client that missed events reads the Job's record again on the resync after `Missed`.
+
+## A workflow's lanes, for its editor: `get_workflow_lanes`
+
+Since 12 Nov 2026, for native Settings › Kit › Workflows. Classic's Workflows page keeps its own TypeScript reading (`editorLanes` over `workspaceOf`).
+
+| Operation | Route | Side | Carries |
+| --- | --- | --- | --- |
+| `get_workflow_lanes` | `GET /workflows/lanes?workflow=&scope=&manifest_id=` | Fleet answers | `JobLanesView`, with no Job standing in it |
+
+**The same type a Job's lanes ride on**, so one canvas draws both. `at` is -1, `job` holds only `copy` (the steps, every lifecycle of the default level, and the rules drawn), which the forms that add a step, a lifecycle or a rule pick from, and every edge is `waiting` with no `waits`.
+The reading is `crates/fleet/src/job_lanes/editor.rs`: a lifecycle is its piece scoped everywhere, Kit's over the repository's over Armada's, laid out in columns as a Job's is; a rule is drawn from its piece at the widest level that keeps one, where it lands on a node, belongs to this workflow and has both ends drawn. A rule that is off is drawn.
+**The default level only.** The marks for where a level below differs, a clash, a proposed rule and a pending removal or keep are a second change.
+
+| Code | Where |
+| --- | --- |
+| `fleet.lanes_level_not_served` | a `scope` other than `default` |
+| `fleet.no_such_workflow_definition` | a `workflow` this repository does not run |
