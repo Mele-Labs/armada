@@ -57,3 +57,34 @@ fn a_failed_background_act_travels_as_act_failed() {
     let body = br#"{"message":"event","cursor":0,"event":{"kind":"act.failed","act":"made_up","error":{"code":"c","message":"m","run_id":"r","fields":{},"chain":[]}}}"#;
     assert!(decode::<StreamMessage>("stream message", body).is_err(), "an act Bridge does not know is refused");
 }
+
+/// A subagent's thread moving travels as `session.subagent`, naming the session and the id `get_session_subagent` takes.
+#[test]
+fn a_subagent_change_travels_as_session_subagent() {
+    let message = StreamMessage::Event(crate::Delivered {
+        cursor: crate::Cursor::at(5),
+        event: crate::Event::SessionSubagent(crate::SessionSubagentChanged {
+            session_id: crate::SessionId::carried("aaaa-1111"),
+            subagent_id: "a7".into(),
+        }),
+    });
+    let json = encode(&message).expect("plain data");
+    assert!(json.contains("\"kind\":\"session.subagent\""), "{json}");
+    assert!(json.contains("\"session_id\":\"aaaa-1111\"") && json.contains("\"subagent_id\":\"a7\""), "{json}");
+    assert_eq!(decode::<StreamMessage>("stream message", json.as_bytes()).expect("it round-trips"), message);
+}
+
+/// `report` and `items` leave no key while empty, and a subagent a Fleet before them wrote still reads.
+#[test]
+fn a_subagent_without_a_report_or_items_leaves_no_key_and_reads() {
+    let old = br#"{"rows":[],"finished":false}"#;
+    let read: crate::SessionSubagent = decode("a subagent", old).expect("an older Fleet's answer reads");
+    assert!(read.items.is_empty() && read.report.is_none());
+    let json = encode(&read).expect("plain data");
+    assert!(!json.contains("items") && !json.contains("report"), "{json}");
+
+    let call = br#"{"id":"a7","task":"look","state":"finished","since":"2026-11-03T10:00:00.000Z"}"#;
+    let call: crate::ToolSubagent = decode("a subagent call", call).expect("a call with no report reads");
+    assert_eq!(call.report, None);
+    assert!(!encode(&call).expect("plain data").contains("report"));
+}
