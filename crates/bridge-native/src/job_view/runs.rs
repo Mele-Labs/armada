@@ -92,7 +92,7 @@ fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ip
     let Call { kind, phrase, working_on, peer, note, below } = call;
     let (peer, named) = peer.unzip();
     let ink = match kind {
-        Kind::Read | Kind::Search | Kind::Web | Kind::Other => token::ACCENT,
+        Kind::Read | Kind::Search | Kind::Web | Kind::Message | Kind::Other => token::ACCENT,
         Kind::Run => token::STATUS_RUNNING,
         Kind::Edit => token::STATUS_COMPLETED_SUCCESS,
         Kind::Agent => token::STATUS_AWAITING_REVIEW,
@@ -132,7 +132,15 @@ fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ip
         .items_center()
         .gap(gap)
         .min_w_0()
-        .child(tool_icons::icon(kind, running, SharedString::from(format!("icon:{key}")), icon_ink, side))
+        .child(match kind {
+            Kind::Message => div()
+                .id(SharedString::from(format!("{key}:kind")))
+                .flex_none()
+                .child(tool_icons::icon(kind, running, SharedString::from(format!("icon:{key}")), icon_ink, side))
+                .tooltip(tip("Message"))
+                .into_any_element(),
+            _ => tool_icons::icon(kind, running, SharedString::from(format!("icon:{key}")), icon_ink, side),
+        })
         .child(
             div()
                 .when(peer.is_none(), |words| words.flex_1())
@@ -425,7 +433,7 @@ impl JobView {
                 .children(message.text.lines().map(|line| div().min_h(look.length(token::LEADING_SM)).child(line.to_string()))), Role::Group, format!("Sent to {name}"))
                 .into_any_element()
         });
-        Call { peer: Some((peer, name)), note: message.summary.clone().filter(|said| !said.trim().is_empty()), below, ..Call::plain(Kind::Other, "Message to".into(), None) }
+        Call { peer: Some((peer, name)), note: message.summary.clone().filter(|said| !said.trim().is_empty()), below, ..Call::plain(Kind::Message, "Message to".into(), None) }
     }
 
     /// The subagent an `Agent` call started, as a take A call row: running, the agent's moving icon, its

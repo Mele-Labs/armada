@@ -19,6 +19,8 @@ pub(super) enum Kind {
     Search,
     Agent,
     Web,
+    /// A message sent to another Job: a still send glyph.
+    Message,
     /// A tool the row has no kind for: a still wrench.
     Other,
 }
@@ -260,7 +262,7 @@ fn paint(kind: Kind, at: Option<f32>, pen: &mut Pen<'_>) {
                 pen.arc((15.6, 2.2), 4.5, true, (15.6, 6.8), 1.5, alpha);
             }
         }
-        Kind::Web | Kind::Other => {}
+        Kind::Web | Kind::Message | Kind::Other => {}
     }
 }
 
@@ -281,6 +283,7 @@ pub(super) fn icon(kind: Kind, running: bool, key: SharedString, ink: Hsla, side
                 }))
                 .into_any_element()
         }
+        Kind::Message => frame.child(svg().path(icon_path("send")).size(glyph).text_color(ink)).into_any_element(),
         Kind::Other => frame.child(svg().path(icon_path("wrench")).size(glyph).text_color(ink)).into_any_element(),
         _ => {
             let drawn = move |at: Option<f32>| {

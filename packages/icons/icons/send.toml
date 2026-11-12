@@ -11,3 +11,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`, the comments under a Job's Lanes view. The comment goes to the agent, which is dispatch one step down. Tooltip `Send to Job`. The row then wears `check` with the tooltip `Sent`."
+
+[[icons.send.usage]]
+  means = "A message a Job's agent sent another Job or session, on its tool call row"
+  group = "Job thread"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 12 Nov 2026 for the native walk `native-call-rows`. The call hands words to another agent, which is dispatch one step down. Tooltip `Message`. Replaces the wrench the row took as a tool with no kind."
