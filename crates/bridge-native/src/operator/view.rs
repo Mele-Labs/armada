@@ -421,9 +421,9 @@ impl OperatorPageView {
                     .text_size(look.length(token::TEXT_SM))
                     .text_color(look.color(token::STATUS_COMPLETED_FAILED))
                     .child(glyph("circle-alert", look.length(token::SPACE_4), look.color(token::STATUS_COMPLETED_FAILED)))
-                    .child(div().flex_1().min_w_0().child(format!("Not done: {why}"))),
+                    .child(div().flex_1().min_w_0().child(why.clone())),
                 Role::Alert,
-                format!("Not done: {why}"),
+                why.clone(),
             )
         });
         let body = div()

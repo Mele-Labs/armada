@@ -10,7 +10,7 @@ const NOTE: &str = "File your note: the slot meter flickers when a Job ends, and
 const HOLD: &str = "armada: only Slot pool controls writes under apps/cockpit until it pushes";
 const FORGET_HOLD: &str = "Forget armada: only Slot pool controls writes under apps/cockpit until it pushes";
 /// Fleet's why for a Later whose time has passed, as the scene `late` has it refuse.
-const LATE: &str = "Not done: 2026-11-11T14:05:00-05:00 has passed, so the item cannot wait until then";
+const LATE: &str = "That time has passed. Pick a later one.";
 const TOP: &str = "Since you left, the red main's fix is up as #3414, waiting on ci. Quick dispatch's plan is still the one two Jobs wait on.";
 
 pub static STEPS: [Step; 64] = [
@@ -41,7 +41,7 @@ pub static STEPS: [Step; 64] = [
     step("Esc shuts the chat, and the keys are on the open item", Verb::Key("escape"), "article", "Fix desktop_unit after #412"),
     press_on("A press on a row low in the list opens its card there: nothing moves, and the keys follow it", "row", NOTE, "article", "File your note as an issue"),
     answer("Fleet will refuse the next answer", "refuse", "article", "File your note as an issue"),
-    step("A sends Yes and Fleet says no: the item stays open, with Fleet's why under it", Verb::Key("a"), "alert", "Not done: the tracker did not take the new issue"),
+    step("A sends Yes and Fleet says no: the item stays open, with Fleet's why under it", Verb::Key("a"), "alert", "The tracker did not take the new issue."),
     answer("Fleet's reply to the next answer will not arrive", "lose", "article", "File your note as an issue"),
     step("2 presses File and start a Job: no reply in 30 seconds, so the item stays open and a toast offers Retry", Verb::Key("2"), "alert", "Toast: Your answer to File your note as an issue did not reach Fleet: no answer in 30 seconds"),
     step("Retry sends it again, and the item goes to Answered today", Verb::Open("button", "Retry"), "button", "Answered today"),
