@@ -22,7 +22,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     }
     let bytes: &[u8] = match scenario {
         "jobs-many" | "job-view" | "job-reasoning" => include_bytes!("../fixtures/jobs-many.json"),
-        // The same Jobs, with a terminal Job just started: no title, nothing in its thread.
+        // The same Jobs, with a terminal Job just started: Fleet's title for it, nothing in its thread.
         "terminal-job" => include_bytes!("../fixtures/terminal-jobs.json"),
         // The same Jobs, with one handing off and one that took an earlier Job's place, that one ended behind it.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff.json"),

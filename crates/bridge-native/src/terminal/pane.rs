@@ -478,21 +478,45 @@ impl TerminalPane {
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
             .child(
-                div().flex_1().min_w_0().children((!running).then(|| {
-                    div()
+                div().flex_1().min_w_0().flex().items_center().gap(look.length(token::SPACE_2)).when(!running, |line| {
+                    // Shell ended, and New shell beside the words, as a short text button.
+                    let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+                    let new = div()
+                        .id("terminal-new")
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .h(look.length(token::H_CONTROL_SM))
+                        .px(look.length(token::SPACE_2))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(gpui::transparent_black())
                         .font_family(look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_default())
-                        .text_size(look.length(token::TEXT_SM))
-                        .line_height(look.length(token::LEADING_SM))
-                        .text_color(look.color(token::FG_MUTED))
-                        .child("Shell ended")
-                })),
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_XS))
+                        .font_weight(gpui::FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                        .text_color(look.color(token::FG_DEFAULT))
+                        .cursor_pointer()
+                        .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                        .child("New shell")
+                        .tab_stop(true)
+                        .focus_visible(move |style| style.border_color(ring))
+                        .tooltip(tip("Open a new shell in this tab"))
+                        .on_click(cx.listener(|this, _, window, cx| this.new_shell(window, cx)));
+                    line.child(
+                        div()
+                            .font_family(look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_default())
+                            .text_size(look.length(token::TEXT_SM))
+                            .line_height(look.length(token::LEADING_SM))
+                            .text_color(look.color(token::FG_MUTED))
+                            .child("Shell ended"),
+                    )
+                    .child(labelled(new, Role::Button, "New shell"))
+                }),
             )
-            .child(if running {
+            .when(running, |head| {
                 let end = act("terminal-end", "power-off", "End shell", look).on_click(cx.listener(|this, _, _, cx| this.end_shell(cx)));
-                labelled(end, Role::Button, "End shell")
-            } else {
-                let new = act("terminal-new", "file-terminal", "New shell", look).on_click(cx.listener(|this, _, window, cx| this.new_shell(window, cx)));
-                labelled(new, Role::Button, "New shell")
+                head.child(labelled(end, Role::Button, "End shell"))
             })
     }
 

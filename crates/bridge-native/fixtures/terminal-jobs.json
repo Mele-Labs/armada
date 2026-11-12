@@ -11,7 +11,7 @@
       "origin": "bridge",
       "manifest_id": "armada",
       "cwd": "/repos/armada",
-      "title": null,
+      "title": "Terminal in armada",
       "state": "live",
       "started_at": "2026-11-12T09:30:00Z",
       "last_seen_at": "2026-11-12T09:30:00Z",
