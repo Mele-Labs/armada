@@ -2066,6 +2066,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::STEPS,
     },
     Walk {
+        name: crate::settings::walk::NO_FUNNEL,
+        title: "Settings › Macs on a Mac without Tailscale Funnel",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::NO_FUNNEL_STEPS,
+    },
+    Walk {
         name: "workflow-card",
         title: "A proposed workflow's card",
         screen: Screen::Jobs,

@@ -27,6 +27,15 @@ impl SettingsScreen {
         Self::new(under, Wire::Mock(Box::new(super::mock::MockFleet::new())), window, cx)
     }
 
+    /// For the walk of a Mac Tailscale Funnel does not serve.
+    pub fn without_funnel(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.gateway = super::gateway::MockGateway::without_funnel();
+            }
+        });
+    }
+
     fn new(under: AnyView, wire: Wire, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let overlay = cx.new(|cx| SettingsOverlay::new(wire, window, cx));
         let handle = window.window_handle();

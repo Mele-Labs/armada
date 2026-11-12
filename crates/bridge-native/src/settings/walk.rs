@@ -11,6 +11,21 @@ const fn press_on(say: &'static str, role: &'static str, name: &'static str, the
     step(say, Verb::PressOn(role, name), then_role, then)
 }
 
+/// `native-settings-no-funnel`: Macs on a Mac Tailscale Funnel does not serve, so phones and the other Macs both
+/// wait on the tunnel.
+pub const NO_FUNNEL: &str = "native-settings-no-funnel";
+
+pub static NO_FUNNEL_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: this Mac, its tunnel, then every Mac and phone that reaches it", "button", "Macs", "region", "Tunnel"),
+    step("With no Funnel, phones and the other Macs both wait on the tunnel, and its press is Set up tunnel", Verb::Look, "button", "Set up tunnel"),
+    press_on("A press downloads cloudflared and waits on the sign-in, and the one press opens Cloudflare's page", "button", "Set up tunnel", "button", "Open Cloudflare sign-in"),
+    step("Once he has signed in there, phones and the other Macs reach this Mac at the tunnel's address", Verb::Later(5500), "button", "Copy address"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+    step("Opened again later, a tunnel that dropped says since when and why, and Set up tunnel signs in again", Verb::Key("cmd-,"), "button", "Set up tunnel"),
+    step("Esc closes Settings, and the keys go back", Verb::Key("escape"), "button", "Menu"),
+];
+
 pub static STEPS: &[Step] = &[
     step("⌘, opens Settings over the app, at nine tenths of the window, on Limits", Verb::Key("cmd-,"), "dialog", "Settings"),
     step("Search sits at the top left, over the groups", Verb::Look, "searchbox", "Search Settings"),
