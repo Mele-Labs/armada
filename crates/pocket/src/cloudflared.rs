@@ -7,6 +7,10 @@
 //! **It never touches the owner's own `~/.cloudflared`.** Every `cloudflared` runs with `HOME` set to
 //! `cloudflared/home` in the machine directory, so its sign-in certificate and the tunnel's credentials
 //! are Armada's alone, and a tunnel the owner runs himself is left as it is.
+//!
+//! **The domain is read from the sign-in.** The certificate `cloudflared tunnel login` writes carries the zone
+//! the owner picked and a token that may read it. The token is read for the one call that names the zone and
+//! is kept nowhere else.
 
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -18,12 +22,18 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 use crate::setup::page_in;
-use crate::tunnel::{Cloudflared, SignIn, DIR};
+use crate::tunnel::{Cloudflared, NoZone, SignIn, DIR};
 
 /// The newest release, as the forge's API describes it.
 const LATEST: &str = "https://api.github.com/repos/cloudflare/cloudflared/releases/latest";
 /// Cloudflare's Apple team. A binary signed by any other is refused.
 const CLOUDFLARE_TEAM: &str = "68WVV388M8";
+/// Cloudflare's zones, each read as `<ZONES>/<zone id>`.
+const ZONES: &str = "https://api.cloudflare.com/client/v4/zones";
+/// The sign-in certificate's block that carries the zone and its token, as base64 JSON.
+const TOKEN_BLOCK: &str = "ARGO TUNNEL TOKEN";
+/// How long the press waits for Cloudflare to name the zone.
+const ZONE_WAIT: Duration = Duration::from_secs(20);
 /// How long the sign-in press waits for `cloudflared` to name the page.
 const SIGN_IN_WAIT: Duration = Duration::from_secs(20);
 /// How long a download may take.
@@ -42,6 +52,43 @@ pub(crate) struct Asset {
     /// `sha256:<hex>`. Absent on releases published before the forge kept digests, which are refused.
     #[serde(default)]
     pub digest: Option<String>,
+}
+
+/// What the sign-in certificate carries. No `Debug`, so the token is never printed.
+#[derive(Deserialize)]
+pub(crate) struct Signed {
+    #[serde(rename = "zoneID")]
+    pub zone_id: String,
+    #[serde(rename = "apiToken")]
+    pub api_token: String,
+}
+
+/// The zone and its token from a sign-in certificate's text, where it carries a zone id that is one.
+pub(crate) fn signed_with(cert: &str) -> Option<Signed> {
+    use base64::Engine;
+    let begin = format!("-----BEGIN {TOKEN_BLOCK}-----");
+    let end = format!("-----END {TOKEN_BLOCK}-----");
+    let block: String = cert.lines().skip_while(|line| line.trim() != begin).skip(1).take_while(|line| line.trim() != end).map(str::trim).collect();
+    let json = base64::engine::general_purpose::STANDARD.decode(block).ok()?;
+    let signed: Signed = ipc::decode("the Cloudflare sign-in's token", &json).ok()?;
+    let fits = !signed.zone_id.is_empty() && signed.zone_id.bytes().all(|b| b.is_ascii_alphanumeric()) && !signed.api_token.is_empty();
+    fits.then_some(signed)
+}
+
+#[derive(Deserialize)]
+struct ZoneAnswer {
+    result: Option<ZoneName>,
+}
+
+#[derive(Deserialize)]
+struct ZoneName {
+    name: String,
+}
+
+/// The domain in Cloudflare's answer about a zone, where it names one.
+pub(crate) fn zone_named(answer: &[u8]) -> Option<String> {
+    let answer: ZoneAnswer = ipc::decode("Cloudflare's zone", answer).ok()?;
+    Some(answer.result?.name.trim().to_ascii_lowercase()).filter(|name| name.contains('.'))
 }
 
 /// The archive built for this Mac's processor.
@@ -229,6 +276,9 @@ impl Cloudflared for MacCloudflared {
     /// `cloudflared tunnel login`, with no way to open a browser itself: the page goes to Bridge's button,
     /// so it opens once, where the owner pressed.
     fn sign_in(&self) -> Result<SignIn, String> {
+        // `cloudflared tunnel login` will not write over a certificate, and a sign-in is asked for only to
+        // replace one that is missing or names no usable domain.
+        let _ = std::fs::remove_file(self.cert());
         let no_browser = self.dir.join("no-browser");
         std::fs::create_dir_all(&no_browser).and_then(|()| std::fs::create_dir_all(self.home())).map_err(|why| format!("Armada could not make {}: {why}", self.dir.display()))?;
         let mut child = Command::new(self.binary())
@@ -276,6 +326,29 @@ impl Cloudflared for MacCloudflared {
             }
         });
         Ok(SignIn { page, finished })
+    }
+
+    fn zone(&self) -> Result<String, NoZone> {
+        let cert = std::fs::read_to_string(self.cert()).unwrap_or_default();
+        let Some(signed) = signed_with(&cert) else {
+            return Err(NoZone::SignIn("The Cloudflare sign-in on this Mac names no domain.".to_string()));
+        };
+        let url = format!("{ZONES}/{}", signed.zone_id);
+        let (status, answer) = blocking(async move {
+            let unreached = |why: reqwest::Error| format!("Cloudflare could not be reached to read the domain: {}.", why.without_url());
+            let client = reqwest::Client::builder().user_agent("armada").timeout(ZONE_WAIT).build().map_err(unreached)?;
+            let answer = client.get(&url).bearer_auth(&signed.api_token).send().await.map_err(unreached)?;
+            let status = answer.status();
+            Ok((status, answer.bytes().await.map(|b| b.to_vec()).map_err(unreached)?))
+        })
+        .map_err(NoZone::Retry)?;
+        match zone_named(&answer) {
+            Some(domain) if status.is_success() => Ok(domain),
+            _ if matches!(status.as_u16(), 400 | 401 | 403 | 404) => {
+                Err(NoZone::SignIn(format!("Cloudflare would not name the domain this Mac signed in with ({status}).")))
+            }
+            _ => Err(NoZone::Retry(format!("Cloudflare answered {status} when asked for the domain."))),
+        }
     }
 
     fn create(&self, name: &str, host: &str) -> Result<(), String> {
