@@ -154,7 +154,8 @@ A paused or done job raises none.
 
 The mod's first-message note tells the agent to keep the list current, to give each item an act, and never to list a page it showed with `show_window`, which waits by itself, and puts these tools ahead of the person's own rules for reporting actions and questions in a reply.
 It also says a decision is asked one way, in the prompt or in `waiting_for` and never both, that a shell command for the owner goes in a block tagged `bash` so Bridge draws its run button, and that a page is shown as a link and never a screenshot.
-**An agent item that carries `steps` is a procedure**: its glyph is Steps, and its row reads its `text`, and its press opens the steps beside the thread in place of its `act`. A restart with steps is the exception: it stays the band's restart key.
+**An agent item that carries `steps` is a procedure**: its glyph is Steps, and its row reads its `text`, and its press opens the steps beside the thread in place of its `act`.
+A restart with steps is the exception: it stays the band's restart key.
 A `walk` stays as the page they are about, one key at the top and a second that opens it in the browser; a `run` stays as its command, drawn whole at the top with its run key in the block's corner and its run on a terminal under it that the person types into ([Running a block](running-a-block.md)), and left off where a step names it.
 A step's `backticked` command is set as code in its line and drawn again under it, whole, with its own run key beside the copy key, the same run key a fenced block has, and it runs where the Job works.
 A command that exits clean ticks its step, and Fleet keeps an item that has steps on the list where it would take off one that has none.
