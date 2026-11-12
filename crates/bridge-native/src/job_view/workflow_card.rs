@@ -3,7 +3,7 @@
 //! folded under a toggle. Fleet reads the steps off the draft (`WorkflowChange::after_steps`); a card
 //! whose steps have not arrived draws the definition's text, as it did before.
 
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
+use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, Role, SharedString, Window};
 use ipc::{AnswerWaiting, ChangeOrigin, ChangeStep, SessionId, SessionRow, ThreadItem, WorkflowChange};
 use std::rc::Rc;
 
@@ -156,6 +156,10 @@ pub(super) fn card_of(change: Option<&WorkflowChange>, text: &str) -> Option<Car
     })
 }
 
+/// The button that sends the card's notes, and the line under each saved note that names it.
+pub(super) const SEND_NOTES: &str = "Send notes";
+const SENT_WITH: &str = "Goes to the agent when you press Send notes";
+
 /// How a note on the whole workflow starts, in the text sent back.
 pub(super) const WHOLE: &str = "Whole workflow";
 
@@ -168,7 +172,7 @@ pub(super) fn note_key(key: &str, lane: Option<&str>) -> String {
 }
 
 /// The notes as one text, each line led by what it is on: `Quiz (quiz): …`, the whole workflow's
-/// first. `None` while every note is blank, and Send back is not offered.
+/// first. `None` while every note is blank, and Send notes is not offered.
 pub(super) fn notes_sent(card: &Card, note: impl Fn(Option<&str>) -> String) -> Option<String> {
     let whole = std::iter::once((WHOLE.to_string(), note(None)));
     let lanes = card.lanes.iter().map(|lane| (format!("{} ({})", lane.label, lane.id), note(Some(&lane.id))));
@@ -238,8 +242,8 @@ impl JobView {
         self.shown.as_ref().and_then(|id| self.pages.get(id)).and_then(|page| page.cards.modes.get(note)) == Some(&Mode::Note)
     }
 
-    /// Keep a note's words in its lane and shut its box; blank words keep nothing.
-    fn keep_note(&mut self, ix: usize, note: &str, cx: &mut Context<Self>) {
+    /// Save a note's words in its lane and shut its box; blank words save nothing.
+    fn save_note(&mut self, ix: usize, note: &str, cx: &mut Context<Self>) {
         if self.typed_in(note, Mode::Note, cx).trim().is_empty() {
             self.close_box(ix, note, cx);
             return;
@@ -270,25 +274,42 @@ impl JobView {
     pub(super) fn workflow_send_back_key(&self, ix: usize, key: &str, text: &str, cx: &Context<Self>) -> Option<(String, super::keys::Run)> {
         self.workflow_notes(key, text, cx)?;
         let (key, text) = (key.to_string(), text.to_string());
-        Some(("Send back".to_string(), Rc::new(move |this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| this.send_notes_back(ix, &key, &text, window, cx)) as super::keys::Run))
+        Some((SEND_NOTES.to_string(), Rc::new(move |this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| this.send_notes_back(ix, &key, &text, window, cx)) as super::keys::Run))
     }
 
-    /// Send back beside Approve and Dismiss, once the card has a note.
+    /// Send notes beside Approve and Dismiss, once the card has a note.
     pub(super) fn workflow_send_back(&self, ix: usize, key: &str, text: &str, chip: Option<&'static str>, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         self.workflow_notes(key, text, cx)?;
         let (sent, text) = (key.to_string(), text.to_string());
         Some(
             labelled(
-                button(look, SharedString::from(format!("Send back:{key}")), "Send back", Tone::Secondary, false, chip, true)
+                button(look, SharedString::from(format!("send-notes:{key}")), SEND_NOTES, Tone::Secondary, false, chip, true)
                     .on_click(cx.listener(move |this, _, window, cx| this.send_notes_back(ix, &sent, &text, window, cx))),
                 Role::Button,
-                "Send back",
+                SEND_NOTES,
             )
             .into_any_element(),
         )
     }
 
-    /// The note control in its fixed column: Add note, or Edit note once one is kept.
+    /// The disclosure's chevron: right while shut, down while open, turning when he presses it.
+    fn told_chevron(&self, told_key: &str, told: bool, look: &Look) -> AnyElement {
+        let turn = |at: f32| gpui::Transformation::rotate(gpui::percentage(at / 4.));
+        let chevron = glyph(look, "chevron-right", Size::Small, look.color(token::FG_MUTED));
+        // Drawn still until he first presses it, so a lane does not turn as it scrolls in.
+        if !self.open_in_card(&format!("{told_key}:turned")) {
+            return chevron.with_transformation(turn(if told { 1. } else { 0. })).into_any_element();
+        }
+        chevron
+            .with_animation(
+                SharedString::from(format!("turn:{told_key}:{told}")),
+                Animation::new(look.duration(token::DURATION_FAST)).with_easing(gpui::ease_out_quint()),
+                move |chevron, at| chevron.with_transformation(turn(if told { at } else { 1. - at })),
+            )
+            .into_any_element()
+    }
+
+    /// The note control in its fixed column: Add note, or Edit note once one is saved.
     fn note_button(&self, ix: usize, note: &str, on: &str, open: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         if !open || self.note_open(note) {
             return None;
@@ -317,20 +338,20 @@ impl JobView {
         )
     }
 
-    /// Under its lane or the head: the note's box while it is typed, its words quoted once kept.
+    /// Under its lane or the head: the note's box while it is typed, its words quoted once saved, and where they go.
     fn note_below(&self, ix: usize, note: &str, on: &str, open: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         if open && self.note_open(note) {
             let blank = self.typed_in(note, Mode::Note, cx).trim().is_empty();
-            let (kept, gone) = (note.to_string(), note.to_string());
+            let (saved, gone) = (note.to_string(), note.to_string());
             let row = div()
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_2))
                 .child(labelled(
-                    button(look, SharedString::from(format!("Keep note:{note}")), "Keep note", Tone::Primary, false, None, !blank)
-                        .when(!blank, |b| b.on_click(cx.listener(move |this, _, _, cx| this.keep_note(ix, &kept, cx)))),
+                    button(look, SharedString::from(format!("Save note:{note}")), "Save note", Tone::Primary, false, None, !blank)
+                        .when(!blank, |b| b.on_click(cx.listener(move |this, _, _, cx| this.save_note(ix, &saved, cx)))),
                     Role::Button,
-                    format!("Keep note on {on}"),
+                    format!("Save note on {on}"),
                 ))
                 .child(labelled(
                     button(look, SharedString::from(format!("Remove note:{note}")), "Remove note", Tone::Ghost, false, None, true)
@@ -379,7 +400,7 @@ impl JobView {
                     .flex_col()
                     .gap(look.length(token::SPACE_2))
                     .pt(look.length(token::SPACE_1))
-                    .children(self.box_of(note, Mode::Note, format!("Note on {on}"), look, cx))
+                    .children(self.box_of(note, Mode::Note, format!("Note for the agent on {on}"), look, cx))
                     .child(row)
                     .children(reveal)
                     .into_any_element(),
@@ -387,7 +408,24 @@ impl JobView {
         }
         let said = self.typed_in(note, Mode::Note, cx);
         let said = said.trim();
-        (!said.is_empty()).then(|| labelled(div().id(SharedString::from(format!("note:{note}"))).child(quote(look, said)), Role::Label, said.to_string()).into_any_element())
+        (!said.is_empty()).then(|| {
+            div()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_1))
+                .child(labelled(div().id(SharedString::from(format!("note:{note}"))).child(quote(look, said)), Role::Label, said.to_string()))
+                .child(labelled(
+                    div()
+                        .id(SharedString::from(format!("note-goes:{note}")))
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_XS))
+                        .text_color(look.color(token::FG_MUTED))
+                        .child(SENT_WITH),
+                    Role::Label,
+                    SENT_WITH,
+                ))
+                .into_any_element()
+        })
     }
 
     /// The eyebrow of a workflow draft whose card draws: `New workflow` or `Workflow change`. `None`
@@ -565,10 +603,30 @@ impl JobView {
                 .items_start()
                 .gap(look.length(token::SPACE_2))
                 .child(labelled(
-                    // The ghost button's own padding pulled back, so its words start where the lane's do.
-                    button(look, SharedString::from(format!("told:{told_key}")), "What the agent is told", Tone::Ghost, false, None, true)
+                    // The chevron sits in the column the gate glyphs use, so the words start where the lane's lines do.
+                    div()
+                        .id(SharedString::from(format!("told:{told_key}")))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .h(look.length(token::H_CONTROL))
+                        .px(look.length(token::SPACE_3))
                         .ml(-look.length(token::SPACE_3))
-                        .on_click(cx.listener(move |this, _, _, cx| this.flip_in_card(ix, &flip, cx))),
+                        .rounded(look.length(token::RADIUS_MD))
+                        .text_size(look.length(token::TEXT_SM))
+                        .line_height(look.length(token::LEADING_SM))
+                        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                        .text_color(look.color(token::FG_MUTED))
+                        .cursor_pointer()
+                        .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+                        .child(self.told_chevron(&told_key, told, look))
+                        .child("What the agent is told")
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            if let Some(page) = this.shown.clone().and_then(|id| this.pages.get_mut(&id)) {
+                                page.cards.opened.insert(format!("{flip}:turned"));
+                            }
+                            this.flip_in_card(ix, &flip, cx)
+                        })),
                     Role::Button,
                     name,
                 ))
