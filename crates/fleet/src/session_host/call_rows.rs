@@ -194,8 +194,15 @@ impl CallRows {
         Some(drawn.row())
     }
 
-    /// Subagent `target` settled. Its row, where this Fleet drew it; the call is forgotten.
-    pub(crate) fn settled(&mut self, target: &str, state: ToolSubagentState, ended: &Instant) -> Option<SessionRow> {
+    /// Subagent `target` settled, with what it handed back where it finished. Its row, where this Fleet
+    /// drew it; the call is forgotten.
+    pub(crate) fn settled(
+        &mut self,
+        target: &str,
+        state: ToolSubagentState,
+        ended: &Instant,
+        report: Option<String>,
+    ) -> Option<SessionRow> {
         let at = self.calls.iter().position(|one| {
             one.row.as_ref().and_then(|drawn| drawn.subagent.as_ref()).is_some_and(|subagent| subagent.id == target)
         })?;
@@ -204,6 +211,7 @@ impl CallRows {
         let subagent = drawn.subagent.as_mut()?;
         subagent.state = state;
         subagent.ended = Some(ended.clone());
+        subagent.report = report;
         let row = drawn.row();
         self.settled.push_back((one.call, row.clone()));
         while self.settled.len() > CALLS_AT_MOST {
@@ -223,14 +231,29 @@ impl CallRows {
     }
 }
 
+/// The id of the subagent a call's `row` carries, which `get_session_subagent` takes.
+fn subagent_of(row: &SessionRow) -> Option<String> {
+    match row {
+        SessionRow::Tool { subagent: Some(subagent), .. } => Some(subagent.id.clone()),
+        _ => None,
+    }
+}
+
 /// `row`, settled, where it is a call whose subagent `pick` names and is still running.
-fn settled_row(row: SessionRow, pick: impl Fn(&str) -> bool, state: ToolSubagentState, ended: &Instant) -> Option<SessionRow> {
+fn settled_row(
+    row: SessionRow,
+    pick: impl Fn(&str) -> bool,
+    state: ToolSubagentState,
+    ended: &Instant,
+    report: &Option<String>,
+) -> Option<SessionRow> {
     match row {
         SessionRow::Tool { id, at, text, description, subagent: Some(mut subagent) }
             if subagent.state == ToolSubagentState::Running && pick(&subagent.id) =>
         {
             subagent.state = state;
             subagent.ended = Some(ended.clone());
+            subagent.report = report.clone();
             Some(SessionRow::Tool { id, at, text, description, subagent: Some(subagent) })
         }
         _ => None,
@@ -261,6 +284,7 @@ where
                 state: ToolSubagentState::Running,
                 since: self.instant(),
                 ended: None,
+                report: None,
             };
             state.call_rows.started(call, subagent)
         };
@@ -292,7 +316,9 @@ where
 
     /// A running row put outside the lock: where its subagent settled meanwhile, the settled row again.
     async fn latest_put(&self, id: &str, call: &str, row: SessionRow) {
+        let moved = subagent_of(&row);
         self.row_put(id, row).await;
+        self.subagent_moved(id, moved);
         let settled = self.hosts().of(id).state().call_rows.settled_since(call);
         if let Some(row) = settled {
             self.row_put(id, row).await;
@@ -303,13 +329,44 @@ where
     /// so one a restart of Fleet came between still settles.
     pub(crate) async fn subagent_settled(&self, id: &str, target: &str, state: ToolSubagentState) {
         let ended = self.instant();
-        let kept = self.hosts().of(id).state().call_rows.settled(target, state, &ended);
+        let report = match state {
+            ToolSubagentState::Finished => self.subagent_report(id, target).await,
+            ToolSubagentState::Running | ToolSubagentState::CutOff => None,
+        };
+        let kept = self.hosts().of(id).state().call_rows.settled(target, state, &ended, report.clone());
         let rows = match kept {
             Some(row) => vec![row],
-            None => self.running_rows(id, |one| one == target, state, &ended).await,
+            None => self.running_rows(id, |one| one == target, state, &ended, report).await,
         };
         for row in rows {
+            let moved = subagent_of(&row);
             self.row_put(id, row).await;
+            self.subagent_moved(id, moved);
+        }
+    }
+
+    /// What subagent `target` handed back, read off its transcript as `get_session_subagent` reads it.
+    /// None where the transcript is not there or cannot be read.
+    async fn subagent_report(&self, id: &str, target: &str) -> Option<String> {
+        let home = self.host().home.clone();
+        let threads = self.hosts().terminals().threads();
+        let (session, subagent) = (id.to_string(), target.to_string());
+        tokio::task::spawn_blocking(move || {
+            let file = adapters::terminal_thread::find_subagent(&home, &session, &subagent)?;
+            threads.subagent(&file, &session, &subagent).ok()?.report
+        })
+        .await
+        .ok()
+        .flatten()
+    }
+
+    /// Tell clients holding subagent `moved`'s thread that it moved.
+    fn subagent_moved(&self, id: &str, moved: Option<String>) {
+        if let Some(subagent_id) = moved {
+            self.publish(ipc::Event::SessionSubagent(ipc::SessionSubagentChanged {
+                session_id: ipc::SessionId::carried(id),
+                subagent_id,
+            }));
         }
     }
 
@@ -323,9 +380,11 @@ where
             state.call_rows.read()
         };
         let ended = self.instant();
-        let cut = self.running_rows(id, |_| true, ToolSubagentState::CutOff, &ended).await;
+        let cut = self.running_rows(id, |_| true, ToolSubagentState::CutOff, &ended, None).await;
         for row in read.into_iter().chain(cut) {
+            let moved = subagent_of(&row);
             self.row_put(id, row).await;
+            self.subagent_moved(id, moved);
         }
     }
 
@@ -335,9 +394,10 @@ where
         pick: impl Fn(&str) -> bool,
         state: ToolSubagentState,
         ended: &Instant,
+        report: Option<String>,
     ) -> Vec<SessionRow> {
         let Ok(rows) = self.rows_of(id).await else { return Vec::new() };
-        rows.into_iter().filter_map(|row| settled_row(row, &pick, state, ended)).collect()
+        rows.into_iter().filter_map(|row| settled_row(row, &pick, state, ended, &report)).collect()
     }
 }
 
@@ -354,6 +414,7 @@ mod tests {
             state: ToolSubagentState::Running,
             since: since.clone(),
             ended: None,
+            report: None,
         }
     }
 
@@ -381,7 +442,7 @@ mod tests {
         assert_eq!(state_of(&taken), Some(ToolSubagentState::Running));
 
         let ended = Instant::carried("2026-10-29T14:02:46Z");
-        rows.settled("a7", ToolSubagentState::CutOff, &ended).expect("the row this Fleet drew");
+        rows.settled("a7", ToolSubagentState::CutOff, &ended, None).expect("the row this Fleet drew");
 
         let after = rows.settled_since("toolu_50").expect("the running row put late is put again settled");
         assert_eq!(after.id(), taken.id(), "the same row");

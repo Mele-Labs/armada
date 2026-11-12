@@ -193,5 +193,6 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         mark: None,
         viewed_at: None,
         compact: None,
+        lanes: None,
     }
 }

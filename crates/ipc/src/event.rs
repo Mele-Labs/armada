@@ -16,7 +16,7 @@ use crate::act_failed::ActFailed;
 use crate::operator_board::OperatorBoardChanged;
 use crate::operator_page::OperatorPageChanged;
 use crate::thought::WordsSent;
-use crate::hosted_sessions::SessionRowChanged;
+use crate::hosted_sessions::{SessionRowChanged, SessionSubagentChanged};
 use crate::merge_line::MergeLines;
 use crate::mods::ModList;
 use crate::protocol_id::ProtocolId;
@@ -172,6 +172,9 @@ pub enum Event {
     // One row of a hosted session's thread, appended or replaced by its id. Since 23.49.
     #[serde(rename = "session.row")]
     SessionRow(SessionRowChanged),
+    // A subagent's own thread moved, for a client holding it to read `get_session_subagent` again.
+    #[serde(rename = "session.subagent")]
+    SessionSubagent(SessionSubagentChanged),
     // A Job's shell opened or ended, whoever opened or ended it. Its output is
     // `observe_session_run`'s, on the run id these carry.
     #[serde(rename = "terminal.opened")]

@@ -39,6 +39,7 @@ export * from "./retro-review";
 export * from "./retro-session";
 export * from "./logbook";
 export * from "./holding";
+export * from "./job-lanes";
 export * from "./job-mark";
 export * from "./job-viewing";
 export * from "./standing-calls";
