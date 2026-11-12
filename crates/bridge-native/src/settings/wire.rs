@@ -17,11 +17,17 @@ use crate::fleet::FleetConnection;
 pub struct Refused {
     pub key: Option<String>,
     pub said: String,
+    /// Fleet's code for it, where Fleet answered with one, such as `fleet.workflow_exists`.
+    pub code: Option<String>,
 }
 
 impl Refused {
     pub fn said(said: impl Into<String>) -> Refused {
-        Refused { key: None, said: said.into() }
+        Refused { key: None, said: said.into(), code: None }
+    }
+
+    pub fn is(&self, code: &str) -> bool {
+        self.code.as_deref() == Some(code)
     }
 }
 
@@ -50,7 +56,7 @@ fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'st
                         Some(ipc::WireValue::Str(key)) => Some(key.clone()),
                         _ => None,
                     };
-                    Refused { key, said: error.message }
+                    Refused { key, said: error.message, code: Some(error.code) }
                 }
                 Err(_) => Refused::said(format!("Fleet answered {status}")),
             });
@@ -61,6 +67,12 @@ fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'st
 
 fn body(value: &impl serde::Serialize) -> String {
     serde_json::to_string(value).unwrap_or_default()
+}
+
+/// A route under the Manifest it acts in (`?manifest_id=`, as Classic's `manifestNamed` adds it).
+fn scoped(route: &str, manifest: &str) -> String {
+    let join = if route.contains('?') { '&' } else { '?' };
+    format!("{route}{join}manifest_id={}", crate::link::percent_encoded(manifest))
 }
 
 fn unreachable<T: Send + 'static>() -> Task<Result<T, Refused>> {
@@ -106,6 +118,68 @@ impl Wire {
             Wire::Live(fleet) => fleet.read(cx).held().workflows.clone(),
             Wire::Mock(mock) => Some(mock.workflows.clone()),
         }
+    }
+
+    /// `GET /workflows`, read again after an act changed what Fleet holds.
+    pub fn list_workflows(&mut self, cx: &App) -> Task<Result<Vec<ipc::WorkflowSummary>, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(if mock.connected { Ok(mock.workflows.clone()) } else { Err(Refused::said("Fleet is not connected")) });
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/workflows".into()), "workflows", cx))
+    }
+
+    /// `GET /workflows/steps`: one definition step by step, from the place named (`armada`, `kit`, `repository`).
+    pub fn workflow_steps(&mut self, id: &str, source: &str, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowSteps, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.workflow_steps(id, source, manifest));
+        }
+        let path = scoped(&format!("/workflows/steps?workflow_id={}&source={}", crate::link::percent_encoded(id), crate::link::percent_encoded(source)), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowSteps", cx))
+    }
+
+    /// `GET /workflows/definition`: the file's text, as `save_workflow` takes it back.
+    pub fn workflow_definition(&mut self, id: &str, source: &str, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.workflow_definition(id, source, manifest));
+        }
+        let path = scoped(&format!("/workflows/definition?workflow_id={}&source={}", crate::link::percent_encoded(id), crate::link::percent_encoded(source)), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowDefinition", cx))
+    }
+
+    /// `POST /workflows/save` under a Manifest.
+    pub fn save_workflow(&mut self, manifest: &str, save: ipc::SaveWorkflow, cx: &App) -> Task<Result<ipc::WorkflowSaved, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.save_workflow(manifest, save));
+        }
+        let (path, said) = (scoped("/workflows/save", manifest), body(&save));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "WorkflowSaved", cx))
+    }
+
+    /// `POST /workflows/reset`: a copy rewritten with Armada's definition of the same id.
+    pub fn reset_workflow(&mut self, manifest: &str, copy: ipc::WorkflowCopy, cx: &App) -> Task<Result<ipc::WorkflowSaved, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.reset_workflow(manifest, copy));
+        }
+        let (path, said) = (scoped("/workflows/reset", manifest), body(&copy));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "WorkflowSaved", cx))
+    }
+
+    /// `POST /workflows/delete`: a repository's or Yours copy removed.
+    pub fn delete_workflow(&mut self, manifest: &str, copy: ipc::WorkflowCopy, cx: &App) -> Task<Result<ipc::WorkflowCopyDeleted, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.delete_workflow(manifest, copy));
+        }
+        let (path, said) = (scoped("/workflows/delete", manifest), body(&copy));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "WorkflowCopyDeleted", cx))
+    }
+
+    /// `POST /workflows/propose`: a Job on Armada's own repository that lands a definition.
+    pub fn propose_workflow(&mut self, proposing: ipc::ProposeToArmada, cx: &App) -> Task<Result<ipc::ArmadaProposed, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.propose_workflow(proposing));
+        }
+        let said = body(&proposing);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/workflows/propose".into(), said), "ArmadaProposed", cx))
     }
 
     /// `GET /models`: the models the harness offers, and the model a run that names none is given.

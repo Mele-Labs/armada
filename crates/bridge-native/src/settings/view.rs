@@ -957,6 +957,7 @@ impl SettingsOverlay {
         }
         if self.shown(cx).is_some_and(|one| one.body == Body::Workflows) {
             self.workflow_keys(cx);
+            self.detail_keys(window, cx);
         }
         let look = cx.look();
         let room = crate::room::of(window, cx);

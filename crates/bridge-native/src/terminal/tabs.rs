@@ -1,4 +1,4 @@
-//! A Job's terminals as tabs of its top pane: + Terminal opens a new shell, a shell Fleet opened or
+//! A Job's terminals as tabs of its panes: + Terminal opens a new shell in the pane pressed, a shell Fleet opened or
 //! brought forward gets its tab, and a terminal Job opens onto its `t1`. Each shell keeps one pane for
 //! the app's life, so a tab closed and opened again finds its screen as it was.
 
@@ -10,10 +10,10 @@ use ipc::TagKind;
 
 use super::pane::{Phase, TerminalPane};
 use super::shells::{self, Which};
-use crate::job_view::{offer_tab, on_job_shown, JobView, TabAct, TabOffer, TabOffers, ViewTab};
+use crate::job_view::{offer_tab, on_job_shown, JobView, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 
-/// The glyph of a terminal's tab, as on the dispatch line.
-const GLYPH: &str = "file-terminal";
+/// The glyph of a terminal's tab and of + Terminal, as Electron's pane kinds draw a Terminal (`kinds.ts`).
+const GLYPH: &str = "square-terminal";
 
 /// Each shell's pane, by Job and terminal id.
 #[derive(Default)]
@@ -37,7 +37,7 @@ fn tab_id(terminal: &str) -> String {
 
 /// Put Terminal in every Job's +, and an `Open <name>` row for each shell of the Job on screen that has no tab.
 pub fn init(cx: &mut App) {
-    offer_tab(TabOffer { id: "terminal", label: "Terminal".into(), glyph: GLYPH, open: Rc::new(|job, _pane, window, cx| open_new(job, window, cx)) }, cx);
+    offer_tab(TabOffer { id: "terminal", label: "Terminal".into(), glyph: GLYPH, open: Rc::new(|job, pane, window, cx| open_new(job, pane, window, cx)) }, cx);
     on_job_shown(|job, _, cx| untabbed(job, cx), cx);
 }
 
@@ -68,9 +68,9 @@ fn untabbed(job: Option<String>, cx: &mut App) {
                 cx.default_global::<Names>().0.insert((job.clone(), one.terminal.clone()), name.clone());
                 let terminal = one.terminal.clone();
                 let id = offer_id(&terminal, cx);
-                let open = Rc::new(move |job: String, _pane: crate::job_view::ViewPane, window: &mut Window, cx: &mut App| {
+                let open = Rc::new(move |job: String, pane: ViewPane, window: &mut Window, cx: &mut App| {
                     cx.default_global::<TabOffers>().0.retain(|one| one.id != id);
-                    open(&job, &terminal, true, window, cx);
+                    open(&job, &terminal, Some(pane), true, window, cx);
                 });
                 offer_tab(TabOffer { id, label: format!("Open {name}").into(), glyph: GLYPH, open }, cx);
             }
@@ -94,23 +94,24 @@ pub fn follow(fleet: &Entity<crate::fleet::FleetConnection>, cx: &mut App) {
     .detach();
 }
 
-/// + Terminal: Fleet opens a new shell at the size the last pane was drawn, and its tab comes to the front.
-pub fn open_new(job: String, window: &mut Window, cx: &mut App) {
+/// + Terminal: Fleet opens a new shell at the size the last pane was drawn, and its tab comes to the front
+/// of the pane whose + was pressed.
+pub fn open_new(job: String, pane: ViewPane, window: &mut Window, cx: &mut App) {
     let Some(shells) = shells::of(cx) else { return };
     let opening = shells.open(&job, Which::New, super::start::size(cx), cx);
     window
         .spawn(cx, async move |cx| {
             let Ok(underway) = opening.await else { return };
             let Some(terminal) = underway.terminal else { return };
-            let _ = cx.update(|window, cx| open(&job, &terminal, true, window, cx));
+            let _ = cx.update(|window, cx| open(&job, &terminal, Some(pane), true, window, cx));
         })
         .detach();
 }
 
-/// Open Job `job`'s shell `terminal` in a tab, its pane kept from before where there was one. In front,
-/// it takes the keys.
-pub fn open(job: &str, terminal: &str, front: bool, window: &mut Window, cx: &mut App) {
-    let Some(pane) = shown(job, terminal, front, cx) else { return };
+/// Open Job `job`'s shell `terminal` in a tab of `place`, its pane kept from before where there was one.
+/// No `place` leaves a tab where it stands, and a new one goes to the top pane. In front, it takes the keys.
+pub fn open(job: &str, terminal: &str, place: Option<ViewPane>, front: bool, window: &mut Window, cx: &mut App) {
+    let Some(pane) = shown(job, terminal, place, front, cx) else { return };
     if front {
         let focus = pane.focus_handle(cx);
         window.focus(&focus, cx);
@@ -119,14 +120,15 @@ pub fn open(job: &str, terminal: &str, front: bool, window: &mut Window, cx: &mu
 
 /// `open` with no window to hand the keys to: from Fleet's news.
 fn open_in(job: String, terminal: String, front: bool, cx: &mut App) {
-    shown(&job, &terminal, front, cx);
+    shown(&job, &terminal, None, front, cx);
 }
 
-fn shown(job: &str, terminal: &str, front: bool, cx: &mut App) -> Option<Entity<TerminalPane>> {
+fn shown(job: &str, terminal: &str, place: Option<ViewPane>, front: bool, cx: &mut App) -> Option<Entity<TerminalPane>> {
     let view = JobView::live(cx)?;
     let pane = pane_of(job, terminal, cx)?;
     let tab = tab_of(job, terminal, &pane, cx);
-    view.update(cx, |view, cx| view.open_view_tab(job, tab, front, cx));
+    let place = place.or_else(|| view.read(cx).view_tab_pane(job, &tab_id(terminal))).unwrap_or(ViewPane::Top);
+    view.update(cx, |view, cx| view.open_view_tab_in(job, place, tab, front, cx));
     named(job.to_string(), terminal.to_string(), cx);
     Some(pane)
 }

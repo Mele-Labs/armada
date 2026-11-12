@@ -2,9 +2,11 @@
 //! ⌘,, and from the project switcher on that project. A port of Classic's System page.
 
 pub mod catalogue;
+mod definition;
 pub mod entries;
 mod keyboard;
 mod mock;
+mod mock_workflows;
 mod models;
 mod mods;
 pub mod overlay;
@@ -14,6 +16,7 @@ mod theme;
 mod view;
 pub mod walk;
 mod wire;
+mod workflow_detail;
 mod workflows;
 
 pub use screen::SettingsScreen;

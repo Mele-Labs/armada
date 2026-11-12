@@ -1,0 +1,201 @@
+[
+ {
+  "source": "armada",
+  "definition": {
+   "version": 1,
+   "workflow_id": "feature",
+   "name": "feature",
+   "for_requests": "adding or changing something a person uses",
+   "steps": [
+    {
+     "id": "propose",
+     "label": "Propose",
+     "instructions": "Ask what is unclear, one question at a time. Then put one proposal to the person: a plan, with a sketch inside it if a picture helps, or a sketch, a draft, a document or a rough walk alone. Prefer one. Wait for the person to approve it. After an approved card that was not a plan, record the tasks at once: the person is not asked again."
+    },
+    {
+     "id": "walk",
+     "label": "Walk",
+     "instructions": "Build the mock in the real Bridge on fixtures and show it as a walk, or several where the change has several places. Write no tests until the person approves every walk you showed. Notes come back as another take."
+    },
+    {
+     "id": "refine",
+     "label": "Refine",
+     "instructions": "Wire it to the real thing and write the tests now. Show a new walk only if the look changed."
+    },
+    {
+     "id": "deliver",
+     "label": "Deliver",
+     "instructions": "Open the pull request and merge it on a green ci. Say what landed."
+    }
+   ]
+  }
+ },
+ {
+  "source": "armada",
+  "definition": {
+   "version": 1,
+   "workflow_id": "bug",
+   "name": "bug",
+   "for_requests": "something that worked and no longer does",
+   "steps": [
+    {
+     "id": "find_the_cause",
+     "label": "Find the cause",
+     "instructions": "Reproduce the bug. Find why it happens, not only where it shows. Say the cause in a line."
+    },
+    {
+     "id": "fix",
+     "label": "Fix",
+     "instructions": "Make the smallest change that addresses the cause. Write no tests yet. Then show the fix as a short walk straight to the place."
+    },
+    {
+     "id": "tests",
+     "label": "Tests",
+     "instructions": "Write a test that fails without the fix and passes with it."
+    },
+    {
+     "id": "deliver",
+     "label": "Deliver",
+     "instructions": "Open the pull request and merge it on a green ci. Say what landed."
+    }
+   ]
+  }
+ },
+ {
+  "source": "armada",
+  "definition": {
+   "version": 1,
+   "workflow_id": "design_plan",
+   "name": "design_plan",
+   "for_requests": "a design to settle before anything is built",
+   "steps": [
+    {
+     "id": "propose",
+     "label": "Propose",
+     "instructions": "Ask what is unclear, one question at a time. Then put one proposal to the person: a plan, with a sketch inside it if a picture helps, or a sketch, a draft, a document or a rough walk alone. Prefer one. Wait for the person to approve it. After an approved card that was not a plan, record the tasks at once: the person is not asked again."
+    },
+    {
+     "id": "sketch",
+     "label": "Sketch",
+     "instructions": "Show the options as sketches, one idea each. Build nothing."
+    },
+    {
+     "id": "record_plan",
+     "label": "Record plan",
+     "instructions": "Record what was chosen and what it leaves out. Wait for approval."
+    }
+   ]
+  }
+ },
+ {
+  "source": "armada",
+  "definition": {
+   "version": 1,
+   "workflow_id": "prototype",
+   "name": "prototype",
+   "for_requests": "a throwaway build to try an idea",
+   "steps": [
+    {
+     "id": "propose",
+     "label": "Propose",
+     "instructions": "Ask what is unclear, one question at a time. Then put one proposal to the person: a plan, with a sketch inside it if a picture helps, or a sketch, a draft, a document or a rough walk alone. Prefer one. Wait for the person to approve it. After an approved card that was not a plan, record the tasks at once: the person is not asked again."
+    },
+    {
+     "id": "build",
+     "label": "Build",
+     "instructions": "Build the idea in the real Bridge on fixtures. Wire nothing and write no tests."
+    },
+    {
+     "id": "show",
+     "label": "Show",
+     "instructions": "Show it as a walk. Notes come back as another take."
+    }
+   ]
+  }
+ },
+ {
+  "source": "repository",
+  "manifest": "armada",
+  "definition": {
+   "version": 1,
+   "workflow_id": "feature",
+   "name": "feature",
+   "for_requests": "adding or changing something a person uses",
+   "steps": [
+    {
+     "id": "propose",
+     "label": "Propose",
+     "instructions": "Ask what is unclear, one question at a time. Then put one proposal to the person: a plan, with a sketch inside it if a picture helps, or a sketch, a draft, a document or a rough walk alone. Prefer one. Wait for the person to approve it. After an approved card that was not a plan, record the tasks at once: the person is not asked again."
+    },
+    {
+     "id": "walk",
+     "label": "Walk",
+     "instructions": "Build the mock in the real Bridge on fixtures and show it as a walk, or several where the change has several places. Write no tests until the person approves every walk you showed. Notes come back as another take."
+    },
+    {
+     "id": "refine",
+     "label": "Refine",
+     "instructions": "Wire it to the real thing and write the tests now. Run the repository's checks before pushing. Show a new walk only if the look changed."
+    },
+    {
+     "id": "deliver",
+     "label": "Deliver",
+     "instructions": "Open the pull request and merge it on a green ci. Say what landed."
+    }
+   ]
+  }
+ },
+ {
+  "source": "repository",
+  "manifest": "sample-web",
+  "definition": {
+   "version": 1,
+   "workflow_id": "bug",
+   "name": "bug",
+   "for_requests": "something that worked and no longer does",
+   "steps": [
+    {
+     "id": "find_the_cause",
+     "label": "Find the cause",
+     "instructions": "Reproduce the bug. Find why it happens, not only where it shows. Say the cause in a line."
+    },
+    {
+     "id": "fix",
+     "label": "Fix",
+     "instructions": "Make the smallest change that addresses the cause. Write no tests yet. Then show the fix as a short walk straight to the place."
+    },
+    {
+     "id": "tests",
+     "label": "Tests",
+     "instructions": "Write a test that fails without the fix and passes with it. Run the browser suite before pushing."
+    },
+    {
+     "id": "deliver",
+     "label": "Deliver",
+     "instructions": "Open the pull request and merge it on a green ci. Say what landed."
+    }
+   ]
+  }
+ },
+ {
+  "source": "kit",
+  "definition": {
+   "version": 1,
+   "workflow_id": "docs_only",
+   "name": "docs_only",
+   "for_requests": "a change to words only",
+   "steps": [
+    {
+     "id": "draft",
+     "label": "Draft",
+     "instructions": "Write the change in the page's own voice. Touch no code."
+    },
+    {
+     "id": "deliver",
+     "label": "Deliver",
+     "instructions": "Open the pull request and merge it on a green ci. Say what landed."
+    }
+   ]
+  }
+ }
+]
