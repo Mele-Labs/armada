@@ -589,7 +589,7 @@ impl JobView {
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
                 let delivery = if one.failed { Delivery::NotSent(one.key) } else { Delivery::Sending };
-                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &one.tags, None, Some(delivery), false, false, None, look, now, cx)
+                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], &one.tags, None, Some(delivery), false, false, None, look, now, cx)
             }
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
@@ -719,6 +719,7 @@ impl JobView {
         id: &str,
         text: &str,
         files: &[ipc::SentFile],
+        sketches: &[ipc::SentSketch],
         tags: &[SessionTag],
         at: Option<&ipc::Instant>,
         delivery: Option<Delivery>,
@@ -811,8 +812,8 @@ impl JobView {
             .children(at.map(|at| self.stamp(at, look, now, false, cx)));
         let (said_parts, loose) = place_tags(said, tags);
         // What the message was sent with, under its words inside the bubble (`Sent`): each picture drawn, the
-        // other files and the tags the words did not place as chips, each after its kind.
-        let sent = (!files.is_empty() || !loose.is_empty()).then(|| {
+        // other files, the sketches and the tags the words did not place as chips, each after its kind.
+        let sent = (!files.is_empty() || !sketches.is_empty() || !loose.is_empty()).then(|| {
             div()
                 .flex()
                 .flex_wrap()
@@ -820,6 +821,10 @@ impl JobView {
                 .gap(look.length(token::SPACE_2))
                 .children(files.iter().map(|file| {
                     self.picture_tile(file, look, cx).unwrap_or_else(|| self.chip(None, &file.name, look).into_any_element())
+                }))
+                .children(sketches.iter().map(|one| {
+                    let said = format!("Sketch · {}", one.title);
+                    labelled(self.chip(Some("Sketch"), &one.title, look).id(SharedString::from(format!("sketch:{id}:{}", one.id))), Role::Group, said).into_any_element()
                 }))
                 .children(loose.iter().map(|tag| {
                     let said = format!("{} · {}", tag_kind(tag.kind), tag.title);
@@ -1007,12 +1012,12 @@ impl JobView {
     /// The messages, from the person, the agent and another Job (A2).
     pub(super) fn message(&self, ix: usize, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match row {
-            SessionRow::Message { id, at, from: SessionVoice::You, text, files, tags, queued, edited_at, .. } => {
+            SessionRow::Message { id, at, from: SessionVoice::You, text, files, sketches, tags, queued, edited_at, .. } => {
                 if let Some(act) = act_of(text) {
                     return Some(self.did(id, act, at, look, now, cx));
                 }
                 let text = page.edits.get(id).unwrap_or(text);
-                self.you(ix, page, id, text, files, tags, Some(at), None, *queued, true, edited_at.as_ref(), look, now, cx)
+                self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
             SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title }, text, notice, .. } => {

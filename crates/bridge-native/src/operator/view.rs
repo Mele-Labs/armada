@@ -858,6 +858,33 @@ impl OperatorPageView {
         labelled(pressed(button, cx, forget), Role::Button, format!("Forget {about}")).into_any_element()
     }
 
+    /// Under a hold's words: each held path in mono, then what lifts it.
+    fn hold_line(&self, hold: HoldFacts, look: &Look) -> AnyElement {
+        div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
+            .text_size(look.length(token::TEXT_2XS))
+            .text_color(look.color(token::FG_MUTED))
+            .children(hold.paths.into_iter().map(|path| {
+                div()
+                    .flex_none()
+                    .max_w_full()
+                    .truncate()
+                    .px(look.length(token::SPACE_1))
+                    .rounded(look.length(token::RADIUS_SM))
+                    .bg(look.color(token::BG_RAISED))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .child(path)
+            }))
+            .children(hold.until.map(|until| div().flex_none().child(until)))
+            .into_any_element()
+    }
+
     fn tile(&self, name: &'static str, mark: &'static str, hue: Token, aside: Option<String>, rows: Vec<Row>, link: Option<&'static str>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let open = self.folded.get(name).copied().unwrap_or(opens_unpressed(name));
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
@@ -889,7 +916,16 @@ impl OperatorPageView {
                     .py(look.length(token::SPACE_1))
                     .text_size(look.length(token::TEXT_XS))
                     .tooltip(tip(said.clone()))
-                    .child(div().flex_1().min_w_0().when(wraps, |words| words.line_clamp(2).text_ellipsis()).when(!wraps, |words| words.truncate()).child(text.clone()))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .flex()
+                            .flex_col()
+                            .gap(look.length(token::SPACE_1))
+                            .child(div().min_w_0().when(wraps, |words| words.line_clamp(2).text_ellipsis()).when(!wraps, |words| words.truncate()).child(text.clone()))
+                            .children(row.hold.map(|hold| self.hold_line(hold, look))),
+                    )
                     .child(match row.side {
                         Side::None => gpui::Empty.into_any_element(),
                         Side::Text(said) => div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(said).into_any_element(),
@@ -976,22 +1012,22 @@ impl OperatorPageView {
         let digest = &page.digest;
         let mut tiles: Vec<AnyElement> = Vec::new();
         if !digest.landed.is_empty() {
-            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), said: format!("#{} {}", one.number, one.title), place: None, side: Side::At(one.at.clone()), opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect();
+            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), said: format!("#{} {}", one.number, one.title), place: None, side: Side::At(one.at.clone()), opened: Some(Opened::Job(one.session_id.clone())), forget: None, hold: None }).collect();
             tiles.push(self.tile("Landed", "git-merge", token::STATUS_COMPLETED_SUCCESS, None, rows, None, look, cx));
         }
         if !digest.handled.acts.is_empty() || digest.handled.log.is_some() {
-            let rows = digest.handled.acts.iter().map(|act| Row { text: handled_said(act), said: handled_said(act), place: None, side: Side::At(act.at.clone()), opened: None, forget: None }).collect();
+            let rows = digest.handled.acts.iter().map(|act| Row { text: handled_said(act), said: handled_said(act), place: None, side: Side::At(act.at.clone()), opened: None, forget: None, hold: None }).collect();
             // Off, nothing new is handled: what is here it did before it was switched off.
             let aside = (!page.on).then(|| "while it was on".to_string());
             let link = digest.handled.log.as_ref().map(|_| "The whole Log");
             tiles.push(self.tile("What I handled", "bot", token::OPERATOR, aside, rows, link, look, cx));
         }
         if !digest.running.is_empty() {
-            let rows = by_place(digest.running.iter().map(|one| Row { text: one.title.clone(), said: one.title.clone(), place: one.repository.clone(), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect());
+            let rows = by_place(digest.running.iter().map(|one| Row { text: one.title.clone(), said: one.title.clone(), place: one.repository.clone(), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None, hold: None }).collect());
             tiles.push(self.tile("Running", "activity", token::STATUS_RUNNING, None, rows, None, look, cx));
         }
         if !digest.coming_up.is_empty() {
-            let rows = digest.coming_up.iter().map(|one| Row { text: format!("{}: waits on {}", one.title, one.needs), said: format!("{}: waits on {}", one.title, one.needs), place: None, side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect();
+            let rows = digest.coming_up.iter().map(|one| Row { text: format!("{}: waits on {}", one.title, one.needs), said: format!("{}: waits on {}", one.title, one.needs), place: None, side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None, hold: None }).collect();
             tiles.push(self.tile("Coming up", "clock", token::STATUS_NOT_STARTED, None, rows, None, look, cx));
         }
         if !digest.learned.is_empty() {
@@ -1003,13 +1039,25 @@ impl OperatorPageView {
                 }
             }
             let rows = by_place(
-                digest.learned.iter().map(|rule| Row { text: rule.said.clone(), said: rule_said(rule), place: Some(rule.repository.clone().unwrap_or_else(|| "Everywhere".into())), side: Side::At(rule.at.clone()), opened: None, forget: Some(rule.id) }).collect(),
+                digest.learned.iter().map(|rule| Row { text: rule.said.clone(), said: rule_said(rule), place: Some(rule.repository.clone().unwrap_or_else(|| "Everywhere".into())), side: Side::At(rule.at.clone()), opened: None, forget: Some(rule.id), hold: None }).collect(),
             );
             tiles.push(self.tile("Learned", "scroll-text", token::OPERATOR, Some(places.join(", ")), rows, Some("Every rule"), look, cx));
         }
         if !digest.holds.is_empty() {
             let rows = by_place(
-                digest.holds.iter().map(|hold| Row { text: hold.said.clone(), said: hold_said(hold), place: Some(hold.repository.clone().unwrap_or_else(|| hold.manifest_id.clone())), side: Side::At(hold.at.clone()), opened: None, forget: Some(hold.id) }).collect(),
+                digest.holds
+                    .iter()
+                    .map(|hold| Row {
+                        text: hold.said.clone(),
+                        said: hold_said(hold),
+                        place: Some(hold.repository.clone().unwrap_or_else(|| hold.manifest_id.clone())),
+                        side: Side::At(hold.at.clone()),
+                        // The one Job that writes under the paths opens on a press, as a running Job's row does.
+                        opened: hold.job.clone().map(Opened::Job),
+                        forget: Some(hold.id),
+                        hold: hold_facts(hold),
+                    })
+                    .collect(),
             );
             tiles.push(self.tile("Holds", "folder-lock", token::OPERATOR, None, rows, None, look, cx));
         }
@@ -1160,6 +1208,22 @@ pub(super) struct Row {
     opened: Option<Opened>,
     /// A rule's or a hold's id, which its Forget names.
     forget: Option<i64>,
+    /// What a hold stands over and what lifts it, under its words; none on an answer from before they were sent.
+    hold: Option<HoldFacts>,
+}
+
+pub(super) struct HoldFacts {
+    paths: Vec<String>,
+    until: Option<&'static str>,
+}
+
+/// A hold's paths and what lifts it, as Fleet sends them (`OperatorHold.paths`, `.until`); nothing when neither came.
+pub(super) fn hold_facts(hold: &ipc::operator_page::OperatorHold) -> Option<HoldFacts> {
+    let until = hold.until.map(|until| match until {
+        ipc::operator_talk::OperatorHoldUntil::Pushes => "until it pushes",
+        ipc::operator_talk::OperatorHoldUntil::Ends => "until it ends",
+    });
+    (!hold.paths.is_empty() || until.is_some()).then(|| HoldFacts { paths: hold.paths.clone(), until })
 }
 
 pub(super) enum Side {
@@ -1602,7 +1666,7 @@ mod tests {
 
     #[test]
     fn rows_sit_under_their_project_everywhere_first_then_by_name() {
-        let row = |text: &str, place: &str| Row { text: text.into(), said: text.into(), place: Some(place.into()), side: Side::None, opened: None, forget: None };
+        let row = |text: &str, place: &str| Row { text: text.into(), said: text.into(), place: Some(place.into()), side: Side::None, opened: None, forget: None, hold: None };
         let rows = by_place(vec![row("a", "storefront"), row("b", "Everywhere"), row("c", "armada"), row("d", "storefront"), row("e", "Everywhere")]);
         assert_eq!(rows.iter().map(|row| row.text.as_str()).collect::<Vec<_>>(), ["b", "e", "c", "a", "d"]);
     }

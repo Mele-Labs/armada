@@ -561,6 +561,8 @@ impl JobView {
         let key = self.composer.next_key;
         let seen = self.thread(&id, cx).map_or(0, |held| echoed(&held.items, &text));
         let mentions: Vec<SessionTag> = kept.tags.iter().filter_map(|tag| mention_of(&tag.id, &tag.label)).collect();
+        // Each sketch goes as its picture and, by name, as the chip Fleet keeps on his row.
+        let sketches: Vec<ipc::SentSketch> = drawn.iter().map(|one| ipc::SentSketch { id: one.id.clone(), title: one.title.clone() }).collect();
         if line.is_none() {
             self.set_box(&Kept::default(), window, cx);
             if self.composer.drafts.set(&id, Kept::default()) {
@@ -581,7 +583,7 @@ impl JobView {
                 Some(_) => {
                     page.pending.push(Pending { key, text: text.clone(), seen, tags: mentions.clone(), body: None, failed: false });
                     let job = id.clone();
-                    let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions, sketches: Vec::new() };
+                    let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions, sketches };
                     cx.spawn_in(window, async move |this, cx| {
                         // A sketch goes as its picture, drawn off the main thread with the files' bytes (`uploadOfSketch`).
                         let uploads = cx
@@ -611,7 +613,7 @@ impl JobView {
                         .map(|one| SentFile { id: format!("file-{}", one.key), name: one.name.clone(), media_type: one.media_type.clone() })
                         .chain(drawn.iter().map(|one| SentFile { id: one.id.clone(), name: format!("{}.png", one.title), media_type: "image/png".into() }))
                         .collect();
-                    self.mock_sent(&id, key, text, sent, mentions);
+                    self.mock_sent(&id, key, text, sent, mentions, sketches);
                 }
             }
         }
@@ -621,11 +623,11 @@ impl JobView {
     }
 
     /// Mock data: Fleet's row for these words arrives at once.
-    fn mock_sent(&mut self, id: &SharedString, key: u64, text: String, files: Vec<SentFile>, tags: Vec<SessionTag>) {
+    fn mock_sent(&mut self, id: &SharedString, key: u64, text: String, files: Vec<SentFile>, tags: Vec<SessionTag>, sketches: Vec<ipc::SentSketch>) {
         let at = ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
         if let Some(held) = self.mock.get_mut(id.as_str()) {
             held.items.push(ThreadItem::Row {
-                row: SessionRow::Message { id: format!("sent-{key}"), at, from: SessionVoice::You, text, files, tags, notice: None, queued: false, edited_at: None, sketches: Vec::new() },
+                row: SessionRow::Message { id: format!("sent-{key}"), at, from: SessionVoice::You, text, files, tags, notice: None, queued: false, edited_at: None, sketches },
             });
             held.version += 1;
             let at = held.items.len() - 1;
@@ -671,7 +673,7 @@ impl JobView {
         page.refused = None;
         if self.fleet.is_none() {
             let one = page.pending.remove(at);
-            self.mock_sent(id, key, one.text, Vec::new(), one.tags);
+            self.mock_sent(id, key, one.text, Vec::new(), one.tags, Vec::new());
         } else {
             let one = &mut page.pending[at];
             let Some(body) = one.body.clone() else { return };

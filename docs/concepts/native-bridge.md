@@ -153,6 +153,7 @@ The parity check takes each row here as chosen.
 | A note just saved (owner, 12 Nov) | The card closes | The card stays open with Send to job in hand: Enter opens the live Jobs beside it, ⌥1–9 or Enter sends, Esc closes it |
 | Send to job on a note, the notes bar and the selection in All notes (owner, 12 Nov) | Behind Start job's caret, in a split button | Its own button, first in the row, with Start job beside it; the picker opens beside it and finds a Job as it is typed |
 | The page a sent note names | The page's web address, which Fleet reads as a checkout of the page | `armada://native/<screen>`, since a native screen has no web address |
+| A hold on the Operator page | Electron is frozen and draws no paths, Job or until | Fleet's words, then a line under them with each held path in mono and "until it pushes" or "until it ends"; a press opens the Job that alone writes there. A hold Fleet sent before it named them keeps its words alone |
 
 ## Notifying
 

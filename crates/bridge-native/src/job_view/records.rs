@@ -176,7 +176,7 @@ impl JobView {
                 .into_any_element()
             }
             SessionRow::Sent { id, at, text, target, files, tags } => {
-                let you = self.you(ix, page, id, text, files, tags, Some(at), None, false, false, None, look, now, cx);
+                let you = self.you(ix, page, id, text, files, &[], tags, Some(at), None, false, false, None, look, now, cx);
                 let chip = div()
                     .flex()
                     .items_center()

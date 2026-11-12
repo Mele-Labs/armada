@@ -67,7 +67,7 @@ pub static STEPS: [Step; 64] = [
     step("F forgets the rule the sheet has on, Link a report to the open issue it names: Everywhere keeps one rule, Learned five, and the next rule has the sheet", Verb::Key("f"), "listitem", "File your notes without asking"),
     step("Esc shuts the sheet, and the keys are back on Every rule", Verb::Key("escape"), "link", "Every rule"),
     step("A press on its head folds Learned, and Holds is below it", Verb::Open("button", "Learned"), "button", "Holds"),
-    step("Holds, under each project: where only one Job writes, until it pushes or ends", Verb::Look, "listitem", HOLD),
+    step("Holds, under each project: where only one Job writes, with the paths it holds and what lifts it under the words, and a press on it opens that Job. A hold Fleet sent before it named them keeps its words alone", Verb::Look, "listitem", HOLD),
     step("Forget lifts a hold, and that Job's paths are anyone's again", Verb::Open("button", "Forget storefront: only Fix desktop_unit after #412 writes under tests/unit until it ends"), "listitem", HOLD),
     step("Forget the last hold and Holds goes: no tile stands empty, and the keys are on Learned", Verb::Open("button", FORGET_HOLD), "button", "Learned"),
     answer("At 14:02 a new item joins the queue, at its end", "arrives", "row", "Slot pool controls"),
