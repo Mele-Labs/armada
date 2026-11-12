@@ -116,6 +116,9 @@ impl Stage {
                 let screen = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
                 let held = cx.new(|cx| crate::operator::OperatorScreen::mock_behind(screen, window, cx));
                 let over = cx.new(|cx| crate::settings::SettingsScreen::mock(held.into(), window, cx));
+                if walk.name == crate::settings::walk::NO_FUNNEL {
+                    over.update(cx, |over, cx| over.without_funnel(cx));
+                }
                 let focus = Focus { keys, within: over.read(cx).within.clone() };
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: over.into(), focus })
