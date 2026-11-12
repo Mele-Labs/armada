@@ -800,7 +800,10 @@ mod tests {
     #[test]
     fn every_scenario_decodes_on_this_build_s_wire() {
         assert!(super::jobs("jobs-many").expect("decodes").len() > 10);
-        assert_eq!(super::threads("job-view").expect("decodes").len(), 3);
+        let view = super::threads("job-view").expect("decodes");
+        for id in ["mock-01", "mock-02", "mock-04"] {
+            assert!(view.contains_key(id), "{id}");
+        }
         assert!(super::jobs("job-view-composer").expect("decodes").len() > 10);
         assert!(super::models().is_some_and(|models| models.offered.len() == 3));
         assert!(super::jobs("jobs-screens").expect("decodes").len() > 10);
