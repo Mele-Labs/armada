@@ -993,6 +993,7 @@ pub static WALKS: &[Walk] = &[
         scenario: "subagent",
         steps: &[
             press_on("A subagent that came back stands in the thread with how it ended and how long it took", "row", "Brief a reviewer", "button", "Subagent Review the merge line change, finished"),
+            step("One cut off carries the stopped mark, so it never reads as finished", Verb::Look, "button", "Subagent Find the merge line's callers, cut off"),
             press_on("A press opens its own thread on a sheet: what it was asked, its calls and what it said", "button", "Subagent Review the merge line change, finished", "dialog", "Subagent Review the merge line change"),
             step("Under the title, its type and the model it ran on", Verb::Look, "label", "Sonnet 5.5"),
             step("Beside them, how full its context was; the pointer on it gives the tokens", Verb::Hover, "img", "Context 31%"),

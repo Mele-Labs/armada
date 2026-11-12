@@ -353,6 +353,10 @@ impl JobView {
             Some(kind) => format!("{state} \u{b7} {kind}"),
             None => state.to_string(),
         };
+        // A cut-off one is marked as the registry's stopped state, so it never reads as finished.
+        let cut = (subagent.state == ToolSubagentState::CutOff).then(|| {
+            div().id(SharedString::from(format!("{key}:cut"))).flex_none().child(glyph(look, "power", Size::Small, look.color(token::STATUS_KILLED))).tooltip(tip("Cut off")).into_any_element()
+        });
         let opens = subagent.clone();
         labelled(
             div()
@@ -362,7 +366,7 @@ impl JobView {
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
                 .tooltip(tip(tooltip))
                 .on_click(cx.listener(move |this, _, window, cx| this.read_subagent(opens.clone(), window, cx)))
-                .child(tool_row(self.shown.as_deref().unwrap_or_default(), key, one, &subagent.since, subagent.ended.as_ref(), running, None, look)),
+                .child(tool_row(self.shown.as_deref().unwrap_or_default(), key, one, &subagent.since, subagent.ended.as_ref(), running, cut, look)),
             Role::Button,
             said,
         )

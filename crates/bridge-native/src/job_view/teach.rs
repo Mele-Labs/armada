@@ -121,7 +121,7 @@ fn source_of(kind: TeachingSourceKind, text: &str, ids: Vec<String>) -> Teaching
 }
 
 /// A notice's word as the menu names it, with a capital.
-fn notice_name(word: &str) -> String {
+pub fn notice_name(word: &str) -> String {
     let name = disable_label(word).and_then(|label| label.strip_prefix("Disable ")).map_or_else(|| word.replace('_', " "), str::to_string);
     let mut chars = name.chars();
     chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect())

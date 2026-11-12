@@ -255,6 +255,19 @@
      }
     },
     {
+     "kind": "subagent",
+     "id": "a-2b",
+     "at": "2026-11-10T22:00:07Z",
+     "subagent": {
+      "id": "agent-callers",
+      "agent_type": "explorer",
+      "task": "Find the merge line's callers",
+      "state": "cut_off",
+      "since": "2026-11-10T22:00:07Z",
+      "ended": "2026-11-10T22:01:12Z"
+     }
+    },
+    {
      "kind": "row",
      "row": {
       "kind": "message",
