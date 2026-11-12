@@ -103,6 +103,8 @@ pub struct SettingsOverlay {
     pub popup: Option<(Entity<Dropdown>, Vec<Subscription>)>,
     /// The keys of a pane's own rows: `reach:<folder>` and `connectors:<id>`.
     pub panes: BTreeMap<String, FocusHandle>,
+    /// Settings → Keyboard shortcuts.
+    pub keyboard: super::keyboard::Keyboard,
     /// Where each slider's track was drawn last frame, by key, so a press reads as a figure.
     pub tracks: Rc<RefCell<BTreeMap<String, Bounds<Pixels>>>>,
     keys: Option<Subscription>,
@@ -172,6 +174,7 @@ impl SettingsOverlay {
             file_stop: cx.focus_handle().tab_stop(true),
             popup: None,
             panes: BTreeMap::new(),
+            keyboard: super::keyboard::Keyboard::new(cx),
             tracks: Rc::default(),
             keys: None,
             _typing: typing,
@@ -205,6 +208,9 @@ impl SettingsOverlay {
             self.picked = entries::FIRST;
         }
         self.read(window, cx);
+        self.keyboard.listening = None;
+        let bindings = self.wire.key_bindings(cx);
+        self.keyboard.set(super::keyboard::Bindings::read(&bindings));
         window.focus(&self.side, cx);
         let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
         self.keys = Some(cx.intercept_keystrokes(move |event, window, cx| {
@@ -595,6 +601,9 @@ impl SettingsOverlay {
         if let Body::ProjectValues = shown.body {
             return self.scope.as_ref().map(|scope| super::project::stops(scope, cx)).unwrap_or_default();
         }
+        if let Body::Keyboard = shown.body {
+            return self.keyboard.stops(&self.query_text(cx));
+        }
         stops.push(self.file_stop.clone());
         let Some(list) = &self.list else { return stops };
         let sections: Vec<&str> = match shown.body {
@@ -670,6 +679,10 @@ impl SettingsOverlay {
         // A choice's list open over Settings takes its own keys.
         if self.popup.is_some() {
             return false;
+        }
+        // A key waiting for its binding takes the next key, whatever it is.
+        if self.keyboard_key(key, window, cx) {
+            return true;
         }
         let mods = &key.modifiers;
         let bare = !mods.platform && !mods.control && !mods.alt;

@@ -914,6 +914,7 @@ impl SettingsOverlay {
             }
             Some(Body::Repository) => cards.extend(self.connectors_card(look, window, cx)),
             Some(Body::ProjectValues) => cards.extend(super::project::render(self, look, window, cx)),
+            Some(Body::Keyboard) => cards.push(self.render_keyboard(look, window, cx)),
             None => {}
         }
         div()

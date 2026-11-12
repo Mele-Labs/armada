@@ -39,6 +39,8 @@ pub enum Body {
     Repository,
     /// The project's own values (`GET /projects/values`).
     ProjectValues,
+    /// Every act with a key, each key a control (`KeyboardSettings`).
+    Keyboard,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -92,6 +94,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "fleet:features", label: "Features", group: Group::Fleet, body: Body::Features },
     Entry { id: "fleet:repository", label: "Repository", group: Group::Fleet, body: Body::Repository },
     Entry { id: "bridge:spacing", label: "Spacing", group: Group::Bridge, body: Body::Schema(&["spacing"]) },
+    Entry { id: "bridge:keyboard", label: "Keyboard shortcuts", group: Group::Bridge, body: Body::Keyboard },
     Entry { id: "bridge:editor", label: "Editor", group: Group::Bridge, body: Body::Schema(&["editor"]) },
     Entry { id: "bridge:terminal", label: "Terminal", group: Group::Bridge, body: Body::Schema(&["terminal"]) },
     Entry { id: "bridge:links", label: "Links", group: Group::Bridge, body: Body::Schema(&["links"]) },
@@ -143,9 +146,12 @@ fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
     let sections: &[&str] = match entry.body {
         Body::Schema(ids) => ids,
         Body::Features => &["features"],
-        Body::Repository | Body::ProjectValues => &[],
+        Body::Repository | Body::ProjectValues | Body::Keyboard => &[],
     };
     let mut words = vec![entry.label.to_string()];
+    if let Body::Keyboard = entry.body {
+        words.push(super::keyboard::all_words());
+    }
     for id in sections {
         if let Some(section) = SECTIONS.iter().find(|one| one.id == *id) {
             words.push(section.label.into());
