@@ -51,6 +51,13 @@ pub(crate) struct PiecesRead {
     pub repositories: Vec<RepositoryRead>,
 }
 
+impl PiecesRead {
+    /// The levels the editor has a tab for, widest first: the default's, each Workspace's, each repository's.
+    pub(crate) fn levels(&self) -> Vec<String> {
+        levels_of_read(self)
+    }
+}
+
 /// A piece and where it was kept.
 #[derive(Clone, Debug)]
 pub(super) struct Layer<T> {

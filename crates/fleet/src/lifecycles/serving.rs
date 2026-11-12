@@ -25,8 +25,9 @@ use crate::daemon::Fleet;
 use crate::job_lanes::{editor_lanes, Drafts, EditorInput, PiecesRead, RepositoryRead, WorkspaceRead};
 use crate::session_host::NO_SUCH_SESSION;
 
-/// `get_workflow_lanes` asked for a level other than the default's, which is not served yet. A 422.
-const LANES_LEVEL_NOT_SERVED: &str = "fleet.lanes_level_not_served";
+/// `get_workflow_lanes` asked for a level that is not the default's, a Workspace that holds the repository, or a
+/// repository read with it. A 422.
+const NO_SUCH_LANES_LEVEL: &str = "fleet.no_such_lanes_level";
 
 const UNPLACED: &str = "fleet.job_lifecycles_unplaced";
 
@@ -363,16 +364,6 @@ where
         scope: Option<String>,
         manifest_id: Option<ManifestId>,
     ) -> Result<ipc::JobLanesView, Refusal> {
-        if let Some(scope) = scope.filter(|one| one != "default") {
-            return Err(Refusal::Unacceptable(
-                ipc::WireError::raised(
-                    LANES_LEVEL_NOT_SERVED,
-                    format!("only the default level's lanes are served; `{scope}` is not yet"),
-                    self.run_id(),
-                )
-                .with_field("scope", ipc::WireValue::Str(scope)),
-            ));
-        }
         let served = self.served_named(manifest_id.as_ref())?;
         let held = served.workflows();
         let found = held
@@ -381,8 +372,19 @@ where
         let steps: Vec<(String, String)> = crate::rail::steps_of(found).into_iter().map(|step| (step.id, step.label)).collect();
         let current = ManifestId::from(served.manifest().id());
         let read = self.editor_pieces(&current).await?;
+        let scope = scope.unwrap_or_else(|| "default".into());
+        if !read.levels().contains(&scope) {
+            return Err(Refusal::Unacceptable(
+                ipc::WireError::raised(
+                    NO_SUCH_LANES_LEVEL,
+                    format!("`{scope}` is not a level of this repository's lanes: the default's, a Workspace that holds it, or a repository read with it"),
+                    self.run_id(),
+                )
+                .with_field("scope", ipc::WireValue::Str(scope)),
+            ));
+        }
         let drafts = self.editor_drafts(&current).await;
-        Ok(editor_lanes(&EditorInput { workflow: &workflow, steps: &steps, read: &read, drafts: &drafts }))
+        Ok(editor_lanes(&EditorInput { workflow: &workflow, steps: &steps, read: &read, drafts: &drafts, scope: &scope }))
     }
 
     async fn list_autonomy_defaults(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryAutonomy, Refusal> {
