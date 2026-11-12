@@ -170,9 +170,12 @@ impl SettingsOverlay {
                 // The puzzle names the mod that hid it; his own hiding says nothing.
                 let from = by.as_ref().filter(|_| !visible).map(|name| {
                     let said = format!("Hidden by {name}");
-                    labelled(div().id(SharedString::from(format!("layout-from-{}-{}", region.id, one.id))).flex_none().tooltip(tip(name.clone())).child(svg().path(icon_path("puzzle")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_MUTED))), Role::Image, said).into_any_element()
+                    labelled(div().id(SharedString::from(format!("layout-from-{}-{}", region.id, one.id))).flex_none().w(look.length(token::H_CONTROL)).flex().justify_center().tooltip(tip(name.clone())).child(svg().path(icon_path("puzzle")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_MUTED))), Role::Image, said).into_any_element()
                 });
-                div().flex().items_center().gap(look.length(token::SPACE_3)).min_w_0().child(mark).child(control).children(from).into_any_element()
+                // The puzzle's column is kept on every row, as wide as a layout mod's row holds after its switch, so
+                // every switch on the page sits in one column.
+                let trailing = div().flex_none().w(Self::trailing_wide(look)).flex().children(from);
+                div().flex().items_center().gap(look.length(token::SPACE_3)).min_w_0().child(mark).child(control).child(trailing).into_any_element()
             });
             let caption = div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(region.label);
             labelled(div().id(SharedString::from(format!("layout-region-{}", region.id))).flex().flex_col().gap(look.length(token::SPACE_2)).child(caption).children(rows), Role::Group, region.label).into_any_element()
@@ -205,6 +208,11 @@ impl SettingsOverlay {
             .items_center()
             .justify_between()
             .gap(look.length(token::SPACE_3))
+            // Room inside the ring, taken back outside it so the label keeps its place.
+            .px(look.length(token::SPACE_2))
+            .py(look.length(token::SPACE_1))
+            .mx(-look.length(token::SPACE_2))
+            .my(-look.length(token::SPACE_1))
             .rounded(look.length(token::RADIUS_MD))
             .child(label)
             .child(switch_track(look, visible, off))

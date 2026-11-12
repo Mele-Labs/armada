@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-use gpui::{App, AppContext, Context, FocusHandle, Task, Window};
+use gpui::{App, Context, FocusHandle, Task, Window};
 
 use super::entries::Body;
 use super::overlay::SettingsOverlay;

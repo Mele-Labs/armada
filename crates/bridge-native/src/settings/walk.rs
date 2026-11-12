@@ -156,7 +156,7 @@ pub static STEPS: &[Step] = &[
     press_on("Fleet lists the Fleet mods", "button", "Fleet", "region", "Fleet"),
     press_on("The panel's close puts it away", "button", "Close", "button", "Open quiet-ci"),
     press_on("Layout: each Cockpit panel, Job panel and place a layout arranges, each with its switch", "button", "Layout", "region", "Layout"),
-    step("A place a layout mod hid carries the puzzle", Verb::Look, "img", "Hidden by hide-guides"),
+    step("A place a layout mod hid carries the puzzle", Verb::Wheel("region", "Layout", 300), "img", "Hidden by hide-guides"),
     step("Under the pointer it names the mod", Verb::Hover, "img", "Hidden by hide-guides"),
     step("Its tooltip is the mod's name", Verb::Later(800), "img", "Hidden by hide-guides"),
     press_on("A switch shows it again: his own choice outranks every layout mod", "switch", "Guides", "switch", "Guides"),

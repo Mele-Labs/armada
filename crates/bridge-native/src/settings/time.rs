@@ -72,6 +72,11 @@ impl SettingsOverlay {
                 .items_center()
                 .justify_between()
                 .gap(look.length(token::SPACE_3))
+                // Room inside the ring, taken back outside it so the label keeps its place.
+                .px(look.length(token::SPACE_2))
+                .py(look.length(token::SPACE_1))
+                .mx(-look.length(token::SPACE_2))
+                .my(-look.length(token::SPACE_1))
                 .rounded(look.length(token::RADIUS_MD))
                 .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(*said))
                 .child(switch_said(look, on, off, words))

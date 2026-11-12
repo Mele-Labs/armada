@@ -690,6 +690,12 @@ impl SettingsOverlay {
 
     /// A page's rows. Theme draws them in a box under its field, and nothing while there are none; All is a card
     /// titled All with Create mod, drawn with no rows; Tracker and Fleet are cards of their name.
+    /// How wide a row is after its switch: Details, the shared home's two cells, and Promote. Settings › Layout keeps
+    /// its puzzle column this wide, so its switches line up with the layout mods' under them.
+    pub fn trailing_wide(look: &Look) -> Pixels {
+        look.length(token::H_CONTROL) * 4.0 + look.length(token::SPACE_3) * 3.0
+    }
+
     pub fn render_mods(&self, page: Page, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         let mods = self.wire.mods(cx);
         let rows = listed(page, &mods, &self.theme_word(cx), &self.mods);
@@ -720,7 +726,9 @@ impl SettingsOverlay {
                     .id("card-mods-layout")
                     .flex()
                     .flex_col()
-                    .p(look.length(token::SPACE_4))
+                    // The Layout card's own sides, so the switches above and here share a column.
+                    .px(look.length(token::PAD_CARD))
+                    .py(look.length(token::SPACE_4))
                     .rounded(look.length(token::RADIUS_LG))
                     .border(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_SUBTLE))
