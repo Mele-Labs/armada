@@ -1,7 +1,7 @@
 // The pieces every phone screen is made of: Bridge's panel header, a list row and its heading, and a
 // refusal's sentence. The rows and headings carry the Cockpit's class names, so `depth.css` draws them.
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Link as Linked, PowerOff, X } from "lucide-react";
 import {
   Button,
@@ -82,7 +82,8 @@ export function Figure({
 
 /**
  * One Job in the Cockpit's list: its title and state mark, what it says and its age. `from` is the title of the Job
- * that started it, a link mark beside the state; `context` the tokens in its window, in a column of its own.
+ * that started it, a link mark beside the state, where that Job is not listed above it; `context` the tokens in its window,
+ * in a column of its own. `depth` is how many starters stand over it: the row steps in under them, as native's list does.
  */
 export function Row({
   state,
@@ -93,6 +94,7 @@ export function Row({
   at,
   from,
   context,
+  depth = 0,
   onOpen,
   onEnd,
 }: {
@@ -104,12 +106,23 @@ export function Row({
   at: string;
   from?: string;
   context?: number;
+  depth?: number;
   onOpen: () => void;
   onEnd?: () => void;
 }) {
   const needs = state !== "done" && bucketOf(state) === "needs";
   return (
-    <li className="deck-list__item">
+    <li
+      className="deck-list__item"
+      data-nested={depth > 0 || undefined}
+      style={
+        depth > 0
+          ? ({
+              "--pk-depth": depth,
+            } as CSSProperties)
+          : undefined
+      }
+    >
       <button
         type="button"
         className="deck-row"
@@ -133,7 +146,11 @@ export function Row({
         </span>
         <span className="deck-row__says" data-holds={bucketOf(state) === "waiting" || undefined}>
           {says}
-          {mac === undefined ? null : <span className="pk-row__mac">{mac}</span>}
+          {mac === undefined ? null : (
+            <span className="pk-row__mac" data-alone={says === "" || undefined}>
+              {mac}
+            </span>
+          )}
         </span>
         <span className="deck-row__context">
           <Figure name="Context">{context === undefined ? undefined : tokensSaid(context)}</Figure>

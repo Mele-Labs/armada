@@ -88,6 +88,23 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   width: auto;
   min-width: 0;
 }
+/* A Job another started steps in under it, with native's elbow from the row above to its first line. */
+.deck-list__item[data-nested] {
+  position: relative;
+  padding-left: calc(var(--space-4) * var(--pk-depth));
+}
+.deck-list__item[data-nested]::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--space-1) * -1);
+  left: calc(var(--space-4) * var(--pk-depth) - var(--space-3));
+  width: var(--space-2);
+  height: calc(var(--space-1) + var(--row-pad, var(--space-2)) + var(--leading-xs) / 2);
+  border-left: calc(var(--border-width) * 2) solid var(--border-default);
+  border-bottom: calc(var(--border-width) * 2) solid var(--border-default);
+  border-bottom-left-radius: var(--radius-md);
+  pointer-events: none;
+}
 .deck-row {
   --deck-slot: var(--space-4);
   --pk-age: var(--space-12);
@@ -210,6 +227,9 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
 .pk-row__mac::before {
   content: "·";
   margin-right: var(--space-2);
+}
+.pk-row__mac[data-alone]::before {
+  content: none;
 }
 .pk-choice .pk-row__mac {
   margin-left: var(--space-2);
