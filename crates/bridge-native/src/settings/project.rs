@@ -307,6 +307,7 @@ mod tests {
             look: Some(LookSet { layout: None, theme: Some("dusk".into()), density: Some("roomy".into()) }),
             tracker: Some([("provider".to_string(), "linear".to_string())].into_iter().collect()),
             reviews: Some(ReviewsSet { plans: Some("review".into()), pull_requests: Some("off".into()), walks: Some("off".into()) }),
+            ..ValuesSet::default()
         }
     }
 

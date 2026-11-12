@@ -276,7 +276,7 @@ impl Wire {
             return Task::ready(mock.set_values(project, values));
         }
         let path = format!("/projects/project/{}/edit", crate::link::percent_encoded(project));
-        let said = body(&EditProject { name: None, members: None, place: None, values: Some(values) });
+        let said = body(&EditProject { values: Some(values), ..EditProject::default() });
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
     }
 
@@ -425,6 +425,7 @@ mod tests {
             look: Some(LookSet { layout: None, theme: Some("dusk".into()), density: Some("roomy".into()) }),
             tracker: Some([("provider".to_string(), "linear".to_string())].into_iter().collect()),
             reviews: Some(ReviewsSet { plans: Some("review".into()), pull_requests: Some("off".into()), walks: Some("off".into()) }),
+            ..ValuesSet::default()
         };
         let wanted = ReviewsSet { plans: Some("review_and_approve".into()), pull_requests: Some("review".into()), walks: Some("review".into()) };
         let sent = with_reviews(Some(&own), wanted.clone());
