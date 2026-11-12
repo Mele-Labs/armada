@@ -586,7 +586,7 @@ impl Palette {
         let list = self.list.read(cx);
         let on = list.opened_id().and_then(|id| list.record(&id).map(|job| job.title.clone().unwrap_or_else(|| id.to_string())));
         let mut entries = registered(on.is_some());
-        // New terminal only where a terminal Job can be started.
+        // New Job here only where a quick Job can be started.
         entries.retain(|entry| entry.id != "act:new_terminal_job" || crate::terminal::shells::starts(cx));
         entries.extend(list.records().iter().filter_map(job_entry));
         (entries, on)

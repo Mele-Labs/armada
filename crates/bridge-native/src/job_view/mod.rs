@@ -558,9 +558,11 @@ impl JobView {
         self.list.read(cx).record(id)
     }
 
-    /// Whether Job `id` is a live quick terminal, which opens onto its `t1` (`SessionRecord::quick_terminal`).
-    pub fn live_quick_terminal(&self, id: &str, cx: &App) -> bool {
-        self.record(id, cx).is_some_and(|job| job.quick_terminal && job.state == SessionState::Live)
+    /// The shown Job's thread in front of its pane, and the keys in its message box: a Job ⌘T started.
+    pub fn onto_thread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.view_tab_back(ViewPane::Thread);
+        self.keys_to_box(window, cx);
+        cx.notify();
     }
 
     /// The Job this one took the place of when it was handed on: its turns stand above this one's,
