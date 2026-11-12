@@ -86,6 +86,28 @@ fn scope(cx: &App) -> Option<(Option<SharedString>, Vec<SharedString>)> {
     Some((Some(project.id.clone()), names))
 }
 
+/// Where ⌘T would start a Job, as the card under the sheet names it: the project the title bar is scoped
+/// to, else its repository, else the place one last started. None where ⌘T cannot start one.
+fn here_name(cx: &App) -> Option<SharedString> {
+    if !crate::terminal::shells::starts(cx) {
+        return None;
+    }
+    let bar = titlebar::live(cx);
+    let named = bar.and_then(|bar| {
+        let face = &bar.read(cx).face;
+        match face.scoped.and_then(|at| face.projects.get(at)) {
+            Some(project) => Some(project.name.clone()),
+            None => face.chosen.and_then(|at| face.repositories.get(at)).map(|one| one.name.clone()),
+        }
+    });
+    named.or_else(|| {
+        crate::terminal::start::kept_place(cx).map(|place| match place {
+            Place::Repository(name) => name.into(),
+            Place::Folder(path) => std::path::Path::new(&path).file_name().map_or(path.clone(), |name| name.to_string_lossy().into_owned()).into(),
+        })
+    })
+}
+
 /// The screen in front, for a walk to move between scenes.
 struct Live(WeakEntity<DispatchScreen>, AnyWindowHandle);
 
@@ -273,6 +295,8 @@ impl DispatchScreen {
     /// ⌘N and its other doors: the sheet opens on the draft as it stands.
     fn open_sheet(&mut self, add: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.refresh_face(window, cx);
+        let here = here_name(cx);
+        self.sheet.update(cx, |sheet, cx| sheet.set_here(here, cx));
         self.sheet.update(cx, |sheet, cx| sheet.show(add, window, cx));
         cx.notify();
     }
@@ -280,10 +304,9 @@ impl DispatchScreen {
     /// What the sheet asks. On a live Fleet the acts are posted and the words are read; on mock data nothing is
     /// on the other end, and a walk answers by scene.
     fn sheet_asked(&mut self, asked: &Asked, window: &mut Window, cx: &mut Context<Self>) {
-        // A terminal Job starts through the shells the window holds, Fleet's or a walk's.
-        if let Asked::StartTerminal { title, place, model, effort } = asked {
-            let start = Start { place: place.clone(), title: title.clone(), model: model.clone(), effort: effort.clone(), size: crate::terminal::start::size(cx) };
-            self.start_terminal(start, window, cx);
+        // The card under the sheet: what ⌘T starts.
+        if *asked == Asked::JobHere {
+            self.new_terminal(window, cx);
             return;
         }
         // Queue for later is kept here, on a live Fleet or not.
@@ -300,26 +323,27 @@ impl DispatchScreen {
                     let begin = Begin { words: words.clone(), repository: repository.clone(), model: model.clone(), effort: effort.clone(), held: *held };
                     self.start_job(begin, window, cx)
                 }
-                Asked::Queue { .. } | Asked::StartTerminal { .. } | Asked::Closed => {}
+                Asked::Queue { .. } | Asked::JobHere | Asked::Closed => {}
             }
         }
         cx.notify();
     }
 
-    /// ⌘T: a terminal Job where the window is, else where the last one started, with no sheet. With neither,
-    /// the sheet opens on Terminal to be told where.
+    /// ⌘T, New Job here: a Job where the window is, else where the last one started, with no sheet. With
+    /// neither, the sheet opens to be told where.
     fn new_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // ⌘T over the sheet does what its card does: the sheet shuts first.
+        if self.sheet.read(cx).is_open() && here_name(cx).is_some() {
+            self.sheet.update(cx, |sheet, cx| sheet.close(window, cx));
+        }
         let here = scope(cx).and_then(|(_, names)| names.first().map(|name| Place::Repository(name.to_string())));
         match here.or_else(|| crate::terminal::start::kept_place(cx)) {
-            Some(place) => self.start_terminal(Start { place, title: None, model: None, effort: None, size: crate::terminal::start::size(cx) }, window, cx),
-            None => {
-                self.refresh_face(window, cx);
-                self.sheet.update(cx, |sheet, cx| sheet.show_terminal(window, cx));
-            }
+            Some(place) => self.start_terminal(Start { place, size: crate::terminal::start::size(cx) }, window, cx),
+            None => self.open_sheet("", window, cx),
         }
     }
 
-    /// Start a terminal Job and open it. A refusal stands in the sheet, opened on Terminal if ⌘T started it.
+    /// Start Fleet's quick Job and open it on its thread, the keys in its message box. A refusal is a toast.
     fn start_terminal(&mut self, start: Start, window: &mut Window, cx: &mut Context<Self>) {
         let place = start.place.clone();
         let mut asked = start;
@@ -333,21 +357,17 @@ impl DispatchScreen {
         cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
             let _ = this.update_in(cx, |this, window, cx| {
-                let from_sheet = this.sheet.read(cx).is_open();
                 match answer {
                     Ok(started) => {
                         crate::terminal::start::keep_place(&place, cx);
-                        if from_sheet {
-                            this.sheet.update(cx, |sheet, cx| sheet.answered(window, cx));
-                        }
                         let list = this.jobs.read(cx).list.clone();
                         list.update(cx, |list, cx| list.open(started.job.clone().into(), cx));
-                        // After the Job comes on screen: a quick terminal opens onto its shell, in the thread's pane.
-                        let (job, terminal) = (started.job.clone(), started.terminal.clone());
-                        window.defer(cx, move |window, cx| crate::terminal::tabs::open(&job, &terminal, Some(crate::job_view::ViewPane::Thread), true, window, cx));
+                        // After the Job comes on screen, so the box that takes the keys is its own.
+                        window.defer(cx, |window, cx| {
+                            let Some(view) = crate::job_view::JobView::live(cx) else { return };
+                            view.update(cx, |view, cx| view.onto_thread(window, cx));
+                        });
                     }
-                    // In the sheet its sentence stands under the line; from ⌘T or the palette it is a toast.
-                    Err(why) if from_sheet => this.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx)),
                     Err(why) => crate::toasts::tell(why, cx),
                 }
                 cx.notify();
