@@ -113,6 +113,9 @@ fn standing(pull: &Pull) -> (&'static str, &'static str, Tone) {
     if pull.state == PullState::Merged {
         return ("Merged", "git-merge", Tone::Success);
     }
+    if pull.state == PullState::Closed {
+        return ("Closed", "git-pull-request-closed", Tone::Neutral);
+    }
     if pull.queued {
         return ("In merge queue", "clock", Tone::Running);
     }
@@ -703,7 +706,7 @@ impl JobView {
         let page = panel.page();
         let (what, icon, tone) = standing(pull);
         let hue = look.color(tone.hue());
-        let failing: Vec<String> = if pull.checks == PullChecks::Failed && pull.state != PullState::Merged {
+        let failing: Vec<String> = if pull.checks == PullChecks::Failed && !pull.ended() {
             pull.failing.split(',').map(|one| one.trim().to_string()).filter(|one| !one.is_empty()).collect()
         } else {
             Vec::new()
@@ -731,7 +734,7 @@ impl JobView {
         if !said_already {
             facts.push(("checks", check_icon, check_said, Some(check_tone)));
         }
-        if pull.auto && pull.state != PullState::Merged {
+        if pull.auto && !pull.ended() {
             facts.push(("auto", "git-merge", "Auto-merge on", None));
         }
         if let Some(page) = page {
@@ -741,7 +744,7 @@ impl JobView {
                 (PullRequestReviewState::Required, _) => facts.push(("review", "user-check", "Review required", None)),
                 (PullRequestReviewState::None, _) => {}
             }
-            if pull.state != PullState::Merged {
+            if !pull.ended() {
                 match page.mergeable {
                     PullRequestMergeable::Conflicting => facts.push(("conflicts", "git-branch", "Conflicts", Some(Tone::Failed))),
                     PullRequestMergeable::Mergeable => facts.push(("conflicts", "git-branch", "No conflicts", Some(Tone::Success))),
@@ -878,6 +881,7 @@ impl JobView {
             .map(|why| super::acts::refusal(look, &format!("pull-panel:{number}"), why));
         let (pill_icon, pill_said, pill_hue) = match (pull.state, pull.queued) {
             (PullState::Merged, _) => ("git-merge", "Merged", token::STATUS_COMPLETED_SUCCESS),
+            (PullState::Closed, _) => ("git-pull-request-closed", "Closed", token::STATUS_NOT_STARTED),
             (_, true) => ("clock", "In merge queue", token::STATUS_RUNNING),
             (PullState::Draft, _) => ("git-pull-request", "Draft", token::STATUS_NOT_STARTED),
             (PullState::Open, _) => ("git-pull-request", "Open", token::STATUS_COMPLETED_SUCCESS),
@@ -955,7 +959,7 @@ impl JobView {
     /// The acts row (`PullRequestActs`), then Copy link and Open in browser at its end.
     fn pull_acts(&self, panel: &PullPanel, pull: &Pull, look: &Look, cx: &Context<Self>) -> AnyElement {
         let pending = self.panes.pull_pending.get(&format!("{}#{}", pull.job, pull.number)).copied();
-        let act: Option<(Option<PullAct>, &'static str, &'static str)> = if pull.state == PullState::Merged {
+        let act: Option<(Option<PullAct>, &'static str, &'static str)> = if pull.ended() {
             None
         } else if pull.queued {
             Some((None, "In merge queue", "It merges when its turn in the queue comes"))

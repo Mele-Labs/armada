@@ -40,6 +40,12 @@
      "title": "Add the pause marker column",
      "url": "https://forge.invalid/pull/1892",
      "state": "merged"
+    },
+    {
+     "number": 1874,
+     "title": "Colour the chip by the branch's age",
+     "url": "https://forge.invalid/pull/1874",
+     "state": "closed"
     }
    ],
    "fields": [],

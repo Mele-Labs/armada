@@ -639,6 +639,55 @@
      "at": "2026-10-21T10:30:00Z"
     }
    ]
+  },
+  {
+   "key": "armada#1874",
+   "manifest_id": "armada",
+   "number": 1874,
+   "base": "main",
+   "author": "marta",
+   "created_at": "2026-10-14T08:00:00Z",
+   "additions": 18,
+   "deletions": 3,
+   "mergeable": "unknown",
+   "review": "none",
+   "approvals": 0,
+   "body": "Colours the chip by how old the branch is.",
+   "reviewers": [],
+   "conversation": [
+    {
+     "kind": "comment",
+     "id": "IC_1874",
+     "author": "nick",
+     "bot": false,
+     "at": "2026-10-15T09:30:00Z",
+     "body": "Closing this: the chip should say how far behind main the branch is, not how old it is."
+    }
+   ],
+   "checks": [
+    {
+     "name": "build",
+     "state": "passed",
+     "seconds": 97,
+     "address": "https://forge.invalid/pull/1874/checks?check_run_id=1"
+    }
+   ],
+   "files": [
+    {
+     "path": "apps/desktop/src/renderer/src/merge-line/Chip.tsx",
+     "status": "modified",
+     "additions": 18,
+     "deletions": 3
+    }
+   ],
+   "commits": [
+    {
+     "sha": "9a0b3c1",
+     "headline": "Colour the chip by the branch's age",
+     "author": "marta",
+     "at": "2026-10-14T07:50:00Z"
+    }
+   ]
   }
  ]
 }

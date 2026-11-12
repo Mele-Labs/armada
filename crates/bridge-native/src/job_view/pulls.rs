@@ -21,6 +21,8 @@ pub(super) enum PullState {
     Open,
     Draft,
     Merged,
+    /// Closed without merging. Classic draws it as Open (`fleet-reads.ts` stateOf); native says Closed.
+    Closed,
 }
 
 /// Its Checks, as the row's mark reads them (`checksOf`).
@@ -76,6 +78,11 @@ impl PullAct {
 }
 
 impl Pull {
+    /// Merged or closed: nothing moves it on any more.
+    pub(super) fn ended(&self) -> bool {
+        matches!(self.state, PullState::Merged | PullState::Closed)
+    }
+
     /// Whether a Job holds it. One an issue names that no Job holds names no Job.
     pub(super) fn held(&self) -> bool {
         !self.job.is_empty()
@@ -90,7 +97,11 @@ pub(super) fn unheld(manifest: Option<String>, one: &ipc::LinkedPullRequest) -> 
         title: one.title.clone(),
         branch: String::new(),
         address: one.url.clone(),
-        state: if one.state == ipc::LinkedPullRequestState::Merged { PullState::Merged } else { PullState::Open },
+        state: match one.state {
+            ipc::LinkedPullRequestState::Merged => PullState::Merged,
+            ipc::LinkedPullRequestState::Closed => PullState::Closed,
+            ipc::LinkedPullRequestState::Open => PullState::Open,
+        },
         checks: PullChecks::Running,
         failing: String::new(),
         auto: false,
@@ -244,7 +255,7 @@ pub(super) fn checks_said(pull: &Pull) -> String {
 fn frame_hue(pull: &Pull) -> Token {
     match pull.state {
         PullState::Merged => token::STEP_ADVANCED,
-        PullState::Draft => token::STATUS_NOT_STARTED,
+        PullState::Draft | PullState::Closed => token::STATUS_NOT_STARTED,
         PullState::Open if pull.checks == PullChecks::Failed => token::STEP_FAILED,
         PullState::Open => token::STEP_RUNNING,
     }
@@ -266,7 +277,7 @@ fn standing_of(pull: &Pull) -> Option<(&'static str, &'static str, &'static str,
 
 /// The act that moves it on, where one fits (`actOf`): its glyph, name and tooltip.
 fn act_of(pull: &Pull) -> Option<(PullAct, &'static str, &'static str, &'static str)> {
-    if pull.state == PullState::Merged || pull.queued {
+    if pull.ended() || pull.queued {
         return None;
     }
     if pull.state == PullState::Draft {
@@ -282,14 +293,17 @@ fn act_of(pull: &Pull) -> Option<(PullAct, &'static str, &'static str, &'static 
 /// The pull request that stands for a started Job: its open one, else the last it merged (`pullOf`).
 pub(super) fn pull_of_child(child: &ipc::SessionRecord) -> Option<Pull> {
     let all: Vec<Pull> = child.attachments.iter().filter_map(|one| pull_of(child, one, None)).collect();
-    let open = all.iter().position(|pull| pull.state != PullState::Merged);
+    let open = all.iter().position(|pull| !pull.ended());
     open.or(all.len().checked_sub(1)).map(|at| all[at].clone())
 }
 
 /// A linked Job row's pull request facts: Merged or Open, then its Checks (`SessionLayers` row.pr).
 pub(super) fn linked_facts(look: &Look, key: &str, pull: &Pull) -> [AnyElement; 2] {
-    let merged = pull.state == PullState::Merged;
-    let (icon, word, hue) = if merged { ("git-merge", "Merged", token::STEP_ADVANCED) } else { ("git-pull-request", "Open", token::STEP_RUNNING) };
+    let (icon, word, hue) = match pull.state {
+        PullState::Merged => ("git-merge", "Merged", token::STEP_ADVANCED),
+        PullState::Closed => ("git-pull-request-closed", "Closed", token::STATUS_NOT_STARTED),
+        PullState::Open | PullState::Draft => ("git-pull-request", "Open", token::STEP_RUNNING),
+    };
     let (check_icon, check_word, check_hue) = match pull.checks {
         PullChecks::Passed => ("circle-check", "Passed", token::STEP_ADVANCED),
         PullChecks::Running => ("loader-circle", "Running", token::STEP_RUNNING),
@@ -361,12 +375,13 @@ impl JobView {
         let number = pull.number;
         let (lead, lead_said) = match pull.state {
             PullState::Merged => ("git-merge", "Merged"),
+            PullState::Closed => ("git-pull-request-closed", "Closed"),
             PullState::Draft => ("git-pull-request", "Draft"),
             PullState::Open => ("git-pull-request", "Open"),
         };
         let lead_ink = look.color(match pull.state {
             PullState::Merged => token::STEP_ADVANCED,
-            PullState::Draft => token::STATUS_NOT_STARTED,
+            PullState::Draft | PullState::Closed => token::STATUS_NOT_STARTED,
             PullState::Open => token::STEP_RUNNING,
         });
         let lead = div()
