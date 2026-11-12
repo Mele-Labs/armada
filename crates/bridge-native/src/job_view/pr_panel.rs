@@ -64,6 +64,8 @@ pub(super) struct PullPanel {
     pub copied: bool,
     /// Files shows resolved threads too.
     pub show_resolved: bool,
+    /// The files whose tests are opened under their row in the list.
+    pub reach_open: HashSet<String>,
     /// The file the list last pressed, marked current.
     pub current: Option<String>,
     /// The body's scroll, and the Files tab's sections, so a file pressed in the list is scrolled to.
@@ -108,24 +110,141 @@ impl Tone {
     }
 }
 
-/// What the status plate says, its glyph and its hue (`standing`).
-fn standing(pull: &Pull) -> (&'static str, &'static str, Tone) {
-    if pull.state == PullState::Merged {
-        return ("Merged", "git-merge", Tone::Success);
+/// `1st`, `2nd`, `3rd`, `11th` (`ordinal`).
+fn ordinal(place: u32) -> String {
+    let suffix = match (place % 100, place % 10) {
+        (11..=13, _) => "th",
+        (_, 1) => "st",
+        (_, 2) => "nd",
+        (_, 3) => "rd",
+        _ => "th",
+    };
+    format!("{place}{suffix}")
+}
+
+/// What the status plate says, its glyph and its hue (`standing`). `at` is its place in the merge queue.
+fn standing(pull: &Pull, at: Option<u32>) -> (SharedString, &'static str, Tone) {
+    let (what, icon, tone): (&'static str, &'static str, Tone) = if pull.state == PullState::Merged {
+        ("Merged", "git-merge", Tone::Success)
+    } else if pull.state == PullState::Closed {
+        ("Closed", "git-pull-request-closed", Tone::Neutral)
+    } else if pull.queued {
+        let what = at.map_or_else(|| "In merge queue".to_string(), |at| format!("{} in the merge queue", ordinal(at)));
+        return (what.into(), "clock", Tone::Running);
+    } else if pull.state == PullState::Draft {
+        ("Draft", "git-pull-request", Tone::Neutral)
+    } else {
+        match pull.checks {
+            PullChecks::Failed => ("Checks failed", "circle-x", Tone::Failed),
+            PullChecks::Passed => ("Ready to merge", "git-merge", Tone::Success),
+            PullChecks::Running => ("Checks running", "loader-circle", Tone::Running),
+        }
+    };
+    (what.into(), icon, tone)
+}
+
+/// One row of the merge queue a pull request is in (`PlaceRow`).
+pub(super) struct PlaceRow {
+    place: u32,
+    number: u64,
+    title: String,
+    url: String,
+    state: ipc::HubQueueState,
+    /// The pull request the panel is for.
+    current: bool,
+}
+
+/// The forge's merge queue the pull request is in, in place order (`placeOf`): found by its address,
+/// else its number and branch. One waiting for ci to join the queue has no place, and neither does
+/// one in no queue, so both give None and nothing is drawn.
+fn place_of(lines: &[ipc::MergeLineView], pull: &Pull) -> Option<Vec<PlaceRow>> {
+    for line in lines {
+        let mut placed: Vec<(u32, &ipc::HubPullRequest)> = line.pulls.iter().filter_map(|view| Some((view.pull.queue.as_ref()?.position?, &view.pull))).collect();
+        let Some(mine) = placed.iter().find(|(_, row)| row.url == pull.address || (row.number == pull.number && row.branch == pull.branch)).map(|(_, row)| *row) else {
+            continue;
+        };
+        placed.sort_by_key(|(place, _)| *place);
+        return Some(
+            placed
+                .into_iter()
+                .filter_map(|(place, row)| {
+                    Some(PlaceRow {
+                        place,
+                        number: row.number,
+                        title: if row.title.is_empty() { row.branch.clone() } else { row.title.clone() },
+                        url: row.url.clone(),
+                        state: row.queue.as_ref()?.state,
+                        current: std::ptr::eq(row, mine),
+                    })
+                })
+                .collect(),
+        );
     }
-    if pull.state == PullState::Closed {
-        return ("Closed", "git-pull-request-closed", Tone::Neutral);
-    }
-    if pull.queued {
-        return ("In merge queue", "clock", Tone::Running);
-    }
-    if pull.state == PullState::Draft {
-        return ("Draft", "git-pull-request", Tone::Neutral);
-    }
-    match pull.checks {
-        PullChecks::Failed => ("Checks failed", "circle-x", Tone::Failed),
-        PullChecks::Passed => ("Ready to merge", "git-merge", Tone::Success),
-        PullChecks::Running => ("Checks running", "loader-circle", Tone::Running),
+    None
+}
+
+/// Who a pull request was registered to, as a chip (`RegisteredOwner`): the kind's glyph and the short
+/// id in mono, then the machine's mark past a divider. **Marks with tooltips, never a phrase.** `laptop`
+/// is this machine; `monitor` is another, and its tooltip names it.
+fn owner_chip(owner: &ipc::PullRequestOwner, look: &Look) -> AnyElement {
+    let said = match owner.kind {
+        ipc::HolderKind::Session => "Job",
+    };
+    let (icon, machine) = if owner.this_machine { ("laptop", "This machine".to_string()) } else { ("monitor", owner.machine.clone()) };
+    let edge = look.color(token::BORDER_DEFAULT);
+    labelled(
+        div()
+            .id("pull-owner")
+            .flex_none()
+            .flex()
+            .items_center()
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(edge)
+            .rounded(look.length(token::RADIUS_SM))
+            .bg(look.color(token::BG_SUNKEN))
+            .text_color(look.color(token::FG_MUTED))
+            .font_family(mono(look))
+            .text_size(look.length(token::TEXT_2XS))
+            .line_height(look.length(token::LEADING_XS))
+            .whitespace_nowrap()
+            .child(
+                div()
+                    .id("pull-owner-who")
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_1))
+                    .px(look.length(token::SPACE_2))
+                    .tooltip(tip(said))
+                    .child(glyph(look, "square-terminal", Size::Small, look.color(token::FG_MUTED)))
+                    .child(SharedString::from(owner.id.clone())),
+            )
+            .child(
+                div()
+                    .id("pull-owner-machine")
+                    .flex()
+                    .items_center()
+                    .self_stretch()
+                    .px(look.length(token::SPACE_1))
+                    .border_l(look.length(token::BORDER_WIDTH))
+                    .border_color(edge)
+                    .tooltip(tip(machine.clone()))
+                    .child(glyph(look, icon, Size::Small, look.color(if owner.this_machine { token::FG_DEFAULT } else { token::FG_SUBTLE }))),
+            ),
+        Role::Group,
+        format!("{said} {}, {machine}", owner.id),
+    )
+    .into_any_element()
+}
+
+/// A queue state's mark (`QUEUE`, read through `LAND_STATE`): its glyph, hue, and whether it pulses.
+fn queue_mark(state: ipc::HubQueueState) -> (&'static str, Token, bool) {
+    use ipc::HubQueueState as Q;
+    match state {
+        Q::WaitingForCi => ("git-merge", token::STATUS_RUNNING, true),
+        Q::InQueue | Q::Queued => ("clock", token::STATUS_NOT_STARTED, false),
+        Q::AwaitingChecks => ("circle-dot", token::STATUS_RUNNING, true),
+        Q::Mergeable => ("circle-dot", token::STATUS_RUNNING, true),
+        Q::Unmergeable => ("unplug", token::STATUS_ESCALATED, false),
     }
 }
 
@@ -374,6 +493,7 @@ impl JobView {
             copied: false,
             current: None,
             show_resolved: false,
+            reach_open: HashSet::new(),
             scroll: ScrollHandle::new(),
             sections: ScrollHandle::new(),
             _typing: typing,
@@ -400,6 +520,7 @@ impl JobView {
                 panel.page = Some(page);
             }
             self.want_pull_patches(window, cx);
+            self.want_pull_reach(window, cx);
             cx.notify();
             return;
         }
@@ -413,6 +534,7 @@ impl JobView {
                     panel.page = Some(read);
                 }
                 this.want_pull_patches(window, cx);
+                this.want_pull_reach(window, cx);
                 cx.notify();
             }),
         );
@@ -704,7 +826,9 @@ impl JobView {
     /// The column of plates (`PullRequestPlates`): status with its facts, reviewers, and the failing checks.
     fn pull_plates(&self, panel: &PullPanel, pull: &Pull, look: &Look, cx: &Context<Self>) -> AnyElement {
         let page = panel.page();
-        let (what, icon, tone) = standing(pull);
+        let place = self.place_of_open(pull, cx);
+        let at = place.as_ref().and_then(|rows| rows.iter().find(|row| row.current)).map(|row| row.place);
+        let (what, icon, tone) = standing(pull, at);
         let hue = look.color(tone.hue());
         let failing: Vec<String> = if pull.checks == PullChecks::Failed && !pull.ended() {
             pull.failing.split(',').map(|one| one.trim().to_string()).filter(|one| !one.is_empty()).collect()
@@ -726,11 +850,27 @@ impl JobView {
             .items_center()
             .gap(look.length(token::SPACE_3))
             .child(ring)
-            .child(div().flex_1().min_w_0().flex().flex_col().child(div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(what)).children(why));
+            .child(div().flex_1().min_w_0().flex().flex_col().child(div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(what.clone())).children(why))
+            .children(at.map(|at| {
+                labelled(
+                    div()
+                        .id("pull-place")
+                        .flex_none()
+                        .font_family(mono(look))
+                        .text_size(look.length(token::TEXT_2XL))
+                        .line_height(gpui::relative(1.))
+                        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                        .text_color(look.color(token::FG_DEFAULT))
+                        .tooltip(tip("Place in the merge queue"))
+                        .child(SharedString::from(at.to_string())),
+                    Role::Image,
+                    format!("Place in the merge queue: {at}"),
+                )
+            }));
         // A fact the status already says is not said twice.
         let mut facts: Vec<(&'static str, &'static str, &'static str, Option<Tone>)> = Vec::new();
         let (check_icon, check_said, check_tone) = checks_fact(pull);
-        let said_already = matches!((what, pull.checks), ("Checks failed", _) | ("Checks running", _) | ("Ready to merge", PullChecks::Passed));
+        let said_already = matches!((what.as_ref(), pull.checks), ("Checks failed", _) | ("Checks running", _) | ("Ready to merge", PullChecks::Passed));
         if !said_already {
             facts.push(("checks", check_icon, check_said, Some(check_tone)));
         }
@@ -817,7 +957,104 @@ impl JobView {
                 "Failing checks",
             )
         });
-        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(status).children(reviewers).children(failing_plate).into_any_element()
+        let place = place.map(|rows| self.place_plate(rows, look, cx));
+        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(status).children(reviewers).children(place).children(failing_plate).into_any_element()
+    }
+
+    /// The merge lines the open pull request is read against: the mock's in a walk, else Fleet's.
+    fn place_of_open(&self, pull: &Pull, cx: &gpui::App) -> Option<Vec<PlaceRow>> {
+        if let Some(lines) = crate::mock::merge_lines() {
+            return place_of(&lines, pull);
+        }
+        place_of(self.fleet.as_ref()?.read(cx).held().merge_lines.as_deref()?, pull)
+    }
+
+    /// Who the merge line says the pull request was registered to, where its page names nobody.
+    fn owner_in_lines(&self, pull: &Pull, cx: &gpui::App) -> Option<ipc::PullRequestOwner> {
+        let find = |lines: &[ipc::MergeLineView]| lines.iter().flat_map(|line| &line.pulls).find(|view| view.pull.url == pull.address || (view.pull.number == pull.number && view.pull.branch == pull.branch)).and_then(|view| view.pull.owner.clone());
+        if let Some(lines) = crate::mock::merge_lines() {
+            return find(&lines);
+        }
+        find(self.fleet.as_ref()?.read(cx).held().merge_lines.as_deref()?)
+    }
+
+    /// The queue the pull request is in (`MergeLinePlace`), on a running plate: place, mark, then number
+    /// and title, which open it on the forge. **No count**: the rows are the answer. Its own row takes
+    /// the selected fill; the others are set back.
+    fn place_plate(&self, rows: Vec<PlaceRow>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let muted = look.color(token::FG_MUTED);
+        let items: Vec<AnyElement> = rows
+            .into_iter()
+            .map(|row| {
+                let (icon, hue, pulsing) = queue_mark(row.state);
+                let hue = look.color(hue);
+                let says = crate::merge_strip::words::queue_reading(row.state).says;
+                let mark = div().id(SharedString::from(format!("place-mark:{}", row.number))).flex_none().w(look.length(token::SPACE_4)).flex().justify_center().tooltip(tip(says)).child(glyph(look, icon, Size::Small, hue));
+                let mark = if pulsing {
+                    mark.with_animation(SharedString::from(format!("place-pulse:{}", row.number)), Animation::new(std::time::Duration::from_millis(1400)).repeat().with_easing(gpui::pulsating_between(0.5, 1.)), |mark, at| mark.opacity(at)).into_any_element()
+                } else {
+                    mark.into_any_element()
+                };
+                let (border, ground) = if row.current {
+                    (look.color(token::ACCENT), look.color(token::ACCENT_MUTED))
+                } else {
+                    (look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.4)), look.color(token::BG_RAISED).blend(hue.opacity(0.05)))
+                };
+                let set_back = (!row.current).then_some(muted);
+                let strong = look.color(token::FG_DEFAULT);
+                let pointed = look.color(token::BG_RAISED).blend(hue.opacity(0.1));
+                let url = row.url.clone();
+                let name = format!("{}, {says}", row.title);
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("place-row:{}", row.number)))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_3))
+                        .min_w_0()
+                        .px(look.length(token::SPACE_3))
+                        .py(look.length(token::SPACE_2))
+                        .border(look.length(token::BORDER_WIDTH) * 2.)
+                        .border_color(border)
+                        .rounded(look.length(token::RADIUS_MD))
+                        .bg(ground)
+                        .text_size(look.length(token::TEXT_SM))
+                        .line_height(look.length(token::LEADING_SM))
+                        .text_color(set_back.unwrap_or(look.color(token::FG_DEFAULT)))
+                        .cursor_pointer()
+                        .when(!row.current, |tile| tile.hover(move |style| style.text_color(strong).bg(pointed)))
+                        .on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url)))
+                        .child(
+                            div()
+                                .id(SharedString::from(format!("place-at:{}", row.number)))
+                                .flex_none()
+                                .w(look.length(token::SPACE_4))
+                                .flex()
+                                .justify_end()
+                                .font_family(mono(look))
+                                .text_size(look.length(token::TEXT_XS))
+                                .text_color(muted)
+                                .tooltip(tip("Place in the merge queue"))
+                                .child(SharedString::from(row.place.to_string())),
+                        )
+                        .child(mark)
+                        .child(div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(set_back.unwrap_or(look.color(token::ACCENT))).child(SharedString::from(format!("#{}", row.number))))
+                        .child(div().flex_1().min_w_0().truncate().child(SharedString::from(row.title.clone()))),
+                    Role::ListItem,
+                    name,
+                )
+                .into_any_element()
+            })
+            .collect();
+        labelled(
+            plate(look, Tone::Running)
+                .id("pull-place-plate")
+                .child(eyebrow(look).child(glyph(look, "git-merge", Size::Small, muted)).child("Merge line"))
+                .child(labelled(div().id("pull-place-queue").flex().flex_col().gap(look.length(token::SPACE_2)).children(items), Role::List, "Merge queue")),
+            Role::Region,
+            "Merge line",
+        )
+        .into_any_element()
     }
 
     /// Reviewers (`PullRequestReviewers`): a row each, a requested team's people under its row.
@@ -928,7 +1165,8 @@ impl JobView {
         let author = page.and_then(|page| page.author.clone()).map(|author| fact("pull-author", "Opened by", author));
         let opened = page.and_then(|page| page.created_at.as_deref()).and_then(|at| age(at, now)).map(|ago| fact("pull-opened", "Opened", ago));
         let size = page.map(|page| diff_size(look, "pull-size", page.additions, page.deletions));
-        let meta = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).min_w_0().child(pill).children(branch).children(author).children(opened).children(size);
+        let owner = page.and_then(|page| page.owner.clone()).or_else(|| self.owner_in_lines(pull, cx)).map(|owner| owner_chip(&owner, look));
+        let meta = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).min_w_0().child(pill).children(branch).children(author).children(opened).children(size).children(owner);
         let acts = self.pull_acts(panel, pull, look, cx);
         let plates = plates_inside.then(|| self.pull_plates(panel, pull, look, cx));
         let tabs = match &panel.page {

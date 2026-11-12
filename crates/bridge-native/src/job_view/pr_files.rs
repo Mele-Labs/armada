@@ -77,7 +77,187 @@ pub(super) fn tree_of(paths: &[&str]) -> Vec<Branch> {
     root
 }
 
+/// One test that reaches a changed file, and the Check it runs under (`ReachTest`).
+#[derive(Clone, Debug)]
+pub(super) struct Reach {
+    check: String,
+    test: String,
+    source: &'static str,
+    file_grain: bool,
+    stale: bool,
+}
+
+/// The tests under each changed path (`FilesReach`). An empty list is a file the map holds edges for
+/// and none reaches; a path the map was not asked about has no entry.
+pub(super) type FilesReach = std::collections::HashMap<String, Vec<Reach>>;
+
+/// The Files list's reading of Fleet's answer (`reachOf`). A map that holds no edge says nothing of any
+/// path, so it draws no marks rather than the mark for none.
+pub(super) fn reach_of(answer: &ipc::TestsReaching) -> Option<FilesReach> {
+    if !answer.holds_edges {
+        return None;
+    }
+    let mut out: FilesReach = answer.unreached.iter().map(|path| (path.clone(), Vec::new())).collect();
+    for one in &answer.checks {
+        for edge in &one.tests {
+            out.entry(edge.file.clone()).or_default().push(Reach {
+                check: one.check.clone(),
+                test: edge.test.clone(),
+                source: edge.source.as_wire(),
+                file_grain: edge.grain.as_wire() == "file",
+                stale: edge.stale,
+            });
+        }
+    }
+    Some(out)
+}
+
+/// A mark's glyph and word (`SOURCE`, `STALE`, `UNREACHED`).
+type Said = (&'static str, &'static str);
+const STALE: Said = ("clock-alert", "Stale");
+const UNREACHED: Said = ("unplug", "No test reaches this file");
+
+/// The marks for a set of edges: its sharpest source, then stale where any edge is. None reaching it
+/// is one mark (`marksOf`).
+fn marks_of<'a>(tests: impl IntoIterator<Item = &'a Reach>) -> Vec<Said> {
+    let tests: Vec<&Reach> = tests.into_iter().collect();
+    if tests.is_empty() {
+        return vec![UNREACHED];
+    }
+    let sharpest = [("measured", ("gauge", "Measured")), ("static", ("route", "Static graph")), ("reading", ("scan-text", "A model's reading")), ("declared", ("folder-tree", "Declared in the Manifest"))]
+        .into_iter()
+        .find(|(source, _)| tests.iter().any(|test| test.source == *source))
+        .map(|(_, said)| said);
+    sharpest.into_iter().chain(tests.iter().any(|test| test.stale).then_some(STALE)).collect()
+}
+
+/// A narrow panel cuts a test's directories or modules and keeps its own name whole (`cutAt`).
+fn cut_at(name: &str) -> usize {
+    let slash = name.rfind('/').map_or(0, |at| at + 1);
+    let colons = name.rfind("::").map_or(0, |at| at + 2);
+    slash.max(colons)
+}
+
 impl JobView {
+    /// The tests that reach the open pull request's files, read with its patches (`readReach`). Nothing
+    /// back, or no read at all, draws no marks. Removed files are not asked about.
+    pub(super) fn want_pull_reach(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel() else { return };
+        let Some(key) = panel.patches_key() else { return };
+        if self.panes.reach.contains_key(&key) {
+            return;
+        }
+        let Some(page) = panel.page() else { return };
+        let paths: Vec<String> = page.files.iter().filter(|file| file.status != PullRequestFileStatus::Removed).map(|file| file.path.clone()).collect();
+        let Some(manifest) = panel.pull.manifest.clone() else { return };
+        if paths.is_empty() {
+            return;
+        }
+        if self.fleet.is_none() {
+            if let Some(answer) = crate::mock::tests_reaching(&key) {
+                self.panes.reach.insert(key, reach_of(&answer));
+            }
+            return;
+        }
+        self.get(
+            format!("/test_map/reaching?manifest_id={}&paths={}", super::wire::encoded(&manifest), super::wire::encoded(&paths.join("\n"))),
+            window,
+            cx,
+            Box::new(move |this, answer, _, cx| {
+                let read = answer.ok().and_then(|bytes| ipc::decode::<ipc::TestsReaching>("TestsReaching", &bytes).ok()).and_then(|answer| reach_of(&answer));
+                this.panes.reach.insert(key, read);
+                cx.notify();
+            }),
+        );
+    }
+
+    /// The press at a file row's trailing end: its marks, opening or shutting the tests under it (`ReachToggle`).
+    fn reach_toggle(&self, at: usize, path: &str, name: &str, tests: &[Reach], open: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let marks = marks_of(tests);
+        let words = marks.iter().map(|(_, said)| *said).collect::<Vec<_>>().join("\n");
+        let path = path.to_string();
+        labelled(
+            div()
+                .id(SharedString::from(format!("pull-reach-toggle:{at}")))
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .px(look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_SM))
+                .cursor_pointer()
+                .when(open, |toggle| toggle.bg(look.color(token::BG_HOVER)))
+                .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                .tooltip(tip(words))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    cx.stop_propagation();
+                    if let Some(panel) = this.pull_panel_mut() {
+                        if !panel.reach_open.remove(&path) {
+                            panel.reach_open.insert(path.clone());
+                        }
+                    }
+                    cx.notify();
+                }))
+                .children(marks.iter().map(|(icon, _)| glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))),
+            Role::Button,
+            format!("Tests reaching {name}"),
+        )
+        .into_any_element()
+    }
+
+    /// The tests under an opened file, one row each: how the map knows, whether the edge is stale, the
+    /// test and its Check (`ReachTests`). **A test opens only where it is a file**; the others are rows to read.
+    fn reach_tests(&self, at: usize, path: &str, tests: &[Reach], indent: Pixels, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let rows: Vec<AnyElement> = if tests.is_empty() {
+            vec![div().pl(indent).pr(look.length(token::SPACE_3)).py(px(3.)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(UNREACHED.1).into_any_element()]
+        } else {
+            tests
+                .iter()
+                .enumerate()
+                .map(|(ix, test)| {
+                    let marks = marks_of([test]);
+                    let cut = cut_at(&test.test);
+                    let (head, leaf) = test.test.split_at(cut);
+                    let label = std::iter::once(test.test.as_str()).chain(marks.iter().map(|(_, said)| *said)).chain(std::iter::once(test.check.as_str())).collect::<Vec<_>>().join(", ");
+                    let opens = test.file_grain;
+                    let target = test.test.clone();
+                    let hover = look.color(token::BG_HOVER);
+                    labelled(
+                        div()
+                            .id(SharedString::from(format!("pull-reach-test:{at}:{ix}")))
+                            .flex()
+                            .items_center()
+                            .gap(look.length(token::SPACE_2))
+                            .min_w_0()
+                            .pl(indent)
+                            .pr(look.length(token::SPACE_3))
+                            .py(px(3.))
+                            .text_size(look.length(token::TEXT_XS))
+                            .when(opens, |row| row.cursor_pointer().hover(move |style| style.bg(hover)).on_click(cx.listener(move |this, _, window, cx| this.open_file(target.clone(), window, cx))))
+                            .child(div().flex_none().flex().gap(look.length(token::SPACE_1)).children(marks.iter().map(|(icon, _)| glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))))
+                            .child(
+                                div()
+                                    .id(SharedString::from(format!("pull-reach-name:{at}:{ix}")))
+                                    .flex_1()
+                                    .min_w_0()
+                                    .flex()
+                                    .overflow_hidden()
+                                    .font_family(mono(look))
+                                    .tooltip(tip(test.test.clone()))
+                                    .child(div().min_w_0().max_w(gpui::relative(0.4)).truncate().text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(head.to_string())))
+                                    .child(div().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(leaf.to_string()))),
+                            )
+                            .child(div().flex_none().font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(test.check.clone()))),
+                        if opens { Role::Button } else { Role::Group },
+                        label,
+                    )
+                    .into_any_element()
+                })
+                .collect()
+        };
+        labelled(div().id(SharedString::from(format!("pull-reach:{at}"))).flex().flex_col().children(rows), Role::List, format!("{path}, tests")).into_any_element()
+    }
+
     /// Fleet's patches for the open pull request, read once and kept as the Changes pane keeps them.
     pub(super) fn want_pull_patches(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(panel) = self.pull_panel() else { return };
@@ -326,6 +506,10 @@ impl JobView {
                     let current = panel.current.as_deref() == Some(file.path.as_str());
                     let path = file.path.clone();
                     let hover = look.color(token::BG_HOVER);
+                    let reached = panel.patches_key().and_then(|key| self.panes.reach.get(&key)).and_then(Option::as_ref).and_then(|reach| reach.get(&file.path));
+                    let opened = reached.is_some() && panel.reach_open.contains(&file.path);
+                    let toggle = reached.map(|tests| self.reach_toggle(at, &file.path, &one.name, tests, opened, look, cx));
+                    let under = reached.filter(|_| opened).map(|tests| self.reach_tests(at, &file.path, tests, indent + look.length(token::SPACE_4), look, cx));
                     out.push(
                         labelled(
                             div()
@@ -343,12 +527,14 @@ impl JobView {
                                 .tooltip(tip(file.path.clone()))
                                 .on_click(cx.listener(move |this, _, _, cx| this.pull_file_pressed(at, path.clone(), cx)))
                                 .child(mark(look, format!("pull-file-row-status:{at}"), icon, said, tone))
-                                .child(div().flex_1().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(one.name.clone()))),
+                                .child(div().flex_1().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(one.name.clone())))
+                                .children(toggle),
                             Role::TreeItem,
                             file.path.clone(),
                         )
                         .into_any_element(),
                     );
+                    out.extend(under);
                 }
             }
         }

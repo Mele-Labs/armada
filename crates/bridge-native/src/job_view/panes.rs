@@ -40,6 +40,8 @@ pub(super) struct Panes {
     changes_from: HashMap<SharedString, String>,
     /// Each pull request's patches as Fleet answered, by `{manifest}#{number}`: kept while it is read again.
     pub(super) patches: HashMap<String, Result<PullRequestFilePatches, String>>,
+    /// The tests that reach each pull request's changed files, by `{manifest}#{number}`: None where the map holds no edge.
+    pub(super) reach: HashMap<String, Option<super::pr_files::FilesReach>>,
     /// What each Job's Files search holds (`useKept("files:<id>")`).
     files_query: HashMap<SharedString, String>,
     /// The paths Fleet found, by `{manifest}\0{query}`.
@@ -710,7 +712,7 @@ impl JobView {
 
     /// A file of the Job's repository, read-only. **The live read waits on Fleet's
     /// `GET /sessions/repository_file`**; until it lands only the mock reads one.
-    fn open_file(&mut self, path: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_file(&mut self, path: String, window: &mut Window, cx: &mut Context<Self>) {
         // Fleet serves no file read yet (`GET /sessions/repository_file` is unmerged), so a live press opens nothing.
         if self.fleet.is_some() {
             return;

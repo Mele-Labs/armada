@@ -208,7 +208,13 @@
      "at": "2026-11-08T11:30:00Z"
     }
    ],
-   "body": "## What changes\n\nPull request links open the same way everywhere, behind a setting: in **Armada** or in the **browser**.\n\n- `links.openPullRequestsIn` picks which\n- the Session reading sheet draws a full panel, not a card\n\n### Not in this change\n\n1. Comments and reviews\n2. The Files and Commits tabs\n\nSee [the design note](https://example.com/pr-panel) for the plates."
+   "body": "## What changes\n\nPull request links open the same way everywhere, behind a setting: in **Armada** or in the **browser**.\n\n- `links.openPullRequestsIn` picks which\n- the Session reading sheet draws a full panel, not a card\n\n### Not in this change\n\n1. Comments and reviews\n2. The Files and Commits tabs\n\nSee [the design note](https://example.com/pr-panel) for the plates.",
+   "owner": {
+    "kind": "session",
+    "id": "8f3c21d0",
+    "machine": "studio",
+    "this_machine": true
+   }
   },
   {
    "key": "armada#2210",
@@ -468,7 +474,13 @@
      "at": "2026-11-08T11:19:00Z"
     }
    ],
-   "body": "Two Sessions writing the same file now say so before either merges.\n\nThe clash is read from `git merge-tree`, not guessed from the paths."
+   "body": "Two Sessions writing the same file now say so before either merges.\n\nThe clash is read from `git merge-tree`, not guessed from the paths.",
+   "owner": {
+    "kind": "session",
+    "id": "c94e07ab",
+    "machine": "mini",
+    "this_machine": false
+   }
   },
   {
    "key": "armada#2214",
@@ -686,6 +698,125 @@
      "headline": "Colour the chip by the branch's age",
      "author": "marta",
      "at": "2026-10-14T07:50:00Z"
+    }
+   ]
+  }
+ ],
+ "merge_lines": [
+  {
+   "root": "/Users/nick/armada",
+   "name": "armada",
+   "pulls": [
+    {
+     "number": 2204,
+     "title": "Retry the forge read on a reset",
+     "branch": "claude/forge-retry",
+     "url": "https://github.com/mele-labs/armada/pull/2204",
+     "author": "nick",
+     "queue": {
+      "state": "awaiting_checks",
+      "position": 1
+     },
+     "tone": "calm",
+     "ci": "running"
+    },
+    {
+     "number": 2206,
+     "title": "Cap the log reader's buffer",
+     "branch": "claude/log-cap",
+     "url": "https://github.com/mele-labs/armada/pull/2206",
+     "author": "nick",
+     "queue": {
+      "state": "queued",
+      "position": 2
+     },
+     "tone": "calm",
+     "mine": false
+    },
+    {
+     "number": 2209,
+     "title": "Open pull requests in Armada",
+     "branch": "claude/pr-panel-redesign",
+     "url": "https://github.com/mele-labs/armada/pull/2209",
+     "author": "nick",
+     "queue": {
+      "state": "queued",
+      "position": 3
+     },
+     "tone": "calm",
+     "ci": "passed"
+    },
+    {
+     "number": 2211,
+     "title": "Rename the store test fixtures",
+     "branch": "claude/store-fixtures",
+     "url": "https://github.com/mele-labs/armada/pull/2211",
+     "author": "nick",
+     "queue": {
+      "state": "queued",
+      "position": 4
+     },
+     "tone": "calm",
+     "ci": "passed"
+    },
+    {
+     "number": 2212,
+     "title": "Name the slot a write clash came from",
+     "branch": "claude/clash-slot",
+     "url": "https://github.com/mele-labs/armada/pull/2212",
+     "author": "nick",
+     "queue": {
+      "state": "waiting_for_ci"
+     },
+     "tone": "calm",
+     "ci": "running"
+    }
+   ]
+  }
+ ],
+ "reaching": [
+  {
+   "key": "armada#2209",
+   "holds_edges": true,
+   "unreached": [
+    "apps/desktop/src/main/forge.ts"
+   ],
+   "checks": [
+    {
+     "check": "config:test",
+     "member": "config",
+     "tests": [
+      {
+       "test": "settings::tests::a_fresh_machine_reads_the_default_link_target",
+       "file": "crates/config/settings.toml",
+       "source": "measured",
+       "grain": "test",
+       "commit": "4aa83a451c",
+       "stale": false
+      },
+      {
+       "test": "settings::tests::every_key_has_a_default",
+       "file": "crates/config/settings.toml",
+       "source": "static",
+       "grain": "test",
+       "commit": "4aa83a451c",
+       "stale": true
+      }
+     ]
+    },
+    {
+     "check": "desktop:test",
+     "member": "",
+     "tests": [
+      {
+       "test": "apps/desktop/src/main/settings.test.ts",
+       "file": "crates/config/settings.toml",
+       "source": "declared",
+       "grain": "file",
+       "commit": "4aa83a451c",
+       "stale": false
+      }
+     ]
     }
    ]
   }

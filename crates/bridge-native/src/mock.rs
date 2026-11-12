@@ -403,6 +403,40 @@ pub fn pull_page(key: &str) -> Option<ipc::PullRequestPage> {
     pages.pulls.into_iter().find(|one| one.key == key).map(|one| one.page)
 }
 
+/// The merge lines a pull request's panel finds its place in, as Fleet's merge line view holds them.
+pub fn merge_lines() -> Option<Vec<ipc::MergeLineView>> {
+    #[derive(Deserialize)]
+    struct Lines {
+        #[serde(default)]
+        merge_lines: Vec<ipc::MergeLineView>,
+    }
+    if !panes_named() {
+        return None;
+    }
+    let lines = ipc::decode::<Lines>("merge lines", include_bytes!("../fixtures/pulls-pages.json")).unwrap_or_else(|why| panic!("the pull request pages fixture does not decode: {why}"));
+    Some(lines.merge_lines)
+}
+
+/// What `GET /test_map/reaching` answers for a pull request's changed files, by `manifest#number`.
+pub fn tests_reaching(key: &str) -> Option<ipc::TestsReaching> {
+    #[derive(Deserialize)]
+    struct One {
+        key: String,
+        #[serde(flatten)]
+        answer: ipc::TestsReaching,
+    }
+    #[derive(Deserialize)]
+    struct Reaching {
+        #[serde(default)]
+        reaching: Vec<One>,
+    }
+    if !panes_named() {
+        return None;
+    }
+    let read = ipc::decode::<Reaching>("tests reaching", include_bytes!("../fixtures/pulls-pages.json")).unwrap_or_else(|why| panic!("the pull request pages fixture does not decode: {why}"));
+    read.reaching.into_iter().find(|one| one.key == key).map(|one| one.answer)
+}
+
 #[derive(Deserialize)]
 struct IssueReads {
     issues: Vec<KeyedIssue>,

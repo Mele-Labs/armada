@@ -16,7 +16,7 @@
 mod fix;
 mod live;
 mod scenes;
-mod words;
+pub(crate) mod words;
 
 pub use scenes::{apply, begin, end};
 
