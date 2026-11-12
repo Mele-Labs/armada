@@ -177,6 +177,10 @@ fn pressed(item: &WaitingItem, job: &str) -> NeedsYouAct {
         return NeedsYouAct::Answer { options: item.options.clone(), other: takes_words(item.source) };
     }
     let command = item.act.as_ref().filter(|act| act.kind == WaitingActKind::Run).map(|act| act.target.clone());
+    // A restart is the band's key even where the agent wrote steps for it, as Classic draws it.
+    if let Some((label, build, adopt)) = command.as_deref().and_then(restart_of) {
+        return NeedsYouAct::Restart { label: label.into(), build, adopt, command: command.clone().unwrap_or_default() };
+    }
     if !item.steps.is_empty() {
         return NeedsYouAct::Steps { steps: item.steps.clone(), command };
     }
