@@ -152,14 +152,14 @@ fn sketch_card<'a>(head: &'a ThreadHead, thread: &'a [ThreadItem], id: &str) -> 
 }
 
 /// The newest revision card of a page.
-fn document_card<'a>(thread: &'a [ThreadItem], page: &str) -> Option<&'a ThreadDocument> {
+pub(super) fn document_card<'a>(thread: &'a [ThreadItem], page: &str) -> Option<&'a ThreadDocument> {
     thread.iter().rev().find_map(|item| match item {
         ThreadItem::Document(card) if card.page == page => Some(card),
         _ => None,
     })
 }
 
-fn draft_row<'a>(thread: &'a [ThreadItem], row: &str) -> Option<&'a SessionRow> {
+pub(super) fn draft_row<'a>(thread: &'a [ThreadItem], row: &str) -> Option<&'a SessionRow> {
     thread.iter().rev().find_map(|item| match item {
         ThreadItem::Row { row: found @ SessionRow::Draft { id, .. } } if id == row => Some(found),
         _ => None,
@@ -306,19 +306,22 @@ impl JobView {
     // ---- opening and closing ---------------------------------------------------------------
 
     /// The Review row, the band with nothing else on it and `⇧⌘Y`: a page that is all the Job owes is
-    /// read on its own card, any other set opens the sheet.
+    /// read in its own tab, one beside other owed things on its card, and any other set opens the sheet.
     pub(super) fn review_press(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         let items = self.review_items(&id, cx);
         if let Some(one) = lone_page(&items).map(|one| one.id.clone()) {
             self.set_needs(false, None, window, cx);
-            self.go_to_card(&id, &one, cx);
+            match self.sole_document(&id, cx) {
+                Some(page) if one.strip_prefix("document:") == Some(page.as_str()) => self.open_document_tab(&page, window, cx),
+                _ => self.go_to_card(&id, &one, cx),
+            }
             return;
         }
         self.open_review(window, cx);
     }
 
-    /// The thread comes to the card of the page owed: a Job here has no tab for it, so its card is the page.
+    /// The thread comes to the card of the page owed, where the page is not all the Job owes.
     pub(super) fn go_to_card(&mut self, id: &SharedString, waiting: &str, cx: &mut Context<Self>) {
         let at = self.thread(id, cx).and_then(|held| {
             let page = waiting.strip_prefix("document:")?;

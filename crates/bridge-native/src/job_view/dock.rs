@@ -822,6 +822,10 @@ impl JobView {
                 let sheet = self.shown.clone().and_then(|id| self.needs_of(&id, cx).map(|view| view.review_in_band)).unwrap_or(false);
                 if sheet {
                     self.review_press(window, cx);
+                } else if let NeedsYouAct::OpenDraft { row } = act {
+                    // A draft opens its card as a tab of the Job (`openDraftCard`).
+                    self.set_needs(false, None, window, cx);
+                    self.open_draft_tab(row, window, cx);
                 } else {
                     self.set_needs(false, None, window, cx);
                     self.pin_shown();
@@ -838,7 +842,11 @@ impl JobView {
             }
             NeedsYouAct::OpenJob { id } => self.open_job(id.clone(), cx),
             NeedsYouAct::Done { .. } => self.open_row_box(item, RowBoxFor::Note, window, cx),
-            NeedsYouAct::Answer { .. } | NeedsYouAct::Walk { .. } | NeedsYouAct::Steps { command: None, .. } | NeedsYouAct::ApprovePr { .. } => self.set_needs(false, None, window, cx),
+            NeedsYouAct::Walk { url } => {
+                self.set_needs(false, None, window, cx);
+                self.press_walk(url, window, cx);
+            }
+            NeedsYouAct::Answer { .. } | NeedsYouAct::Steps { command: None, .. } | NeedsYouAct::ApprovePr { .. } => self.set_needs(false, None, window, cx),
             NeedsYouAct::None => {}
         }
     }

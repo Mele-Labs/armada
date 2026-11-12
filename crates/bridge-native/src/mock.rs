@@ -31,6 +31,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "job-bands" => include_bytes!("../fixtures/jobs-bands.json"),
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
+        // The same Jobs: the first owing a draft and two native walks, Audit the docs index a draft whose
+        // row has gone, and Quiet the write-clash notices a page alone.
+        "job-tabs" => include_bytes!("../fixtures/jobs-tabs.json"),
         "job-view-composer" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
@@ -82,6 +85,8 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     let bytes: &[u8] = match scenario {
         "jobs-screens" => return screens_threads(),
         "job-view" | "review-palette" => include_bytes!("../fixtures/job-threads.json"),
+        // The same threads, and Quiet the write-clash notices holding the page it asks him to read.
+        "job-tabs" => include_bytes!("../fixtures/tabs-threads.json"),
         // The same threads, and the earlier Job's, ended where it handed on.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff-threads.json"),
         // The same threads, with the Job that took the router upgrade on and the forked one.
@@ -147,8 +152,6 @@ fn screens_threads() -> Result<HashMap<String, JobThread>, String> {
     Ok(all)
 }
 
-/// Whether a Job's thread is read again for a moment when it comes on screen, as Fleet's read takes
-/// time: in `thread-moved`, so a walk can show the row that says new messages are loading.
 /// The thread Fleet refuses to read in the scenario last named, with its words: Quiet the write-clash
 /// notices in `job-system`, so a walk can show the refusal's toast and the thread drawing nothing.
 pub fn thread_refused(id: &str) -> Option<String> {
@@ -156,6 +159,15 @@ pub fn thread_refused(id: &str) -> Option<String> {
     (named.as_str() == "job-system" && id == "mock-06").then(|| "Fleet could not read this Job's ledger: it ends mid-row at line 2214".to_string())
 }
 
+/// What Fleet answers Open on a native walk with, in the scenario last named: Chip colours in
+/// `job-tabs` has no build to walk yet, so a walk can show Fleet's words under Open.
+pub fn walk_refused(url: &str) -> Option<String> {
+    let named = SCENARIO.lock().ok()?;
+    (named.as_str() == "job-tabs" && url == "armada://walk/chipColours").then(|| "Build the walk first: cargo build in crates/bridge-native in slot-4".to_string())
+}
+
+/// Whether a Job's thread is read again for a moment when it comes on screen, as Fleet's read takes
+/// time: in `thread-moved`, so a walk can show the row that says new messages are loading.
 pub fn reads_slowly() -> bool {
     SCENARIO.lock().is_ok_and(|named| named.as_str() == "thread-moved")
 }
@@ -567,6 +579,8 @@ mod tests {
         assert_eq!(super::jobs("tool-rows").expect("decodes").len(), 6);
         assert_eq!(super::threads("tool-rows").expect("decodes").len(), 6);
         assert_eq!(super::threads("drafts").expect("decodes").len(), 1);
+        assert!(super::jobs("job-tabs").expect("decodes").len() > 10);
+        assert_eq!(super::threads("job-tabs").expect("decodes").len(), 4);
     }
 }
 

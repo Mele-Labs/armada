@@ -823,6 +823,8 @@ impl JobView {
                 .tooltip(tip(title.clone()))
                 .into_any_element(),
         };
+        // A tab beside the thread in front takes the raised ground from it.
+        let thread_front = self.row_front(id).is_none();
         let tab = labelled(
             div()
                 .id("head-tab")
@@ -834,6 +836,8 @@ impl JobView {
                     cx.listener(|this, event: &MouseDownEvent, window, cx| this.open_head_menu(event.position, false, window, cx)),
                 )
                 .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
+                    this.front_thread();
+                    cx.notify();
                     if event.click_count() >= 2 {
                         this.start_rename(window, cx);
                     } else if !this.head.renaming() {
@@ -849,14 +853,14 @@ impl JobView {
                 .items_center()
                 .gap(look.length(token::SPACE_2))
                 .pl(look.length(token::SPACE_3))
-                .bg(look.color(token::BG_RAISED))
+                .when(thread_front, |tab| tab.bg(look.color(token::BG_RAISED)))
                 .border_r(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_GLASS))
                 .children(state)
                 .child(label)
                 .children(stop)
                 .child(more)
-                .child(self.close_button("thread", &title, "head-tab".into(), true, look, cx)),
+                .child(self.close_button("thread", &title, "head-tab".into(), thread_front, look, cx)),
             Role::Row,
             name,
         );
@@ -887,7 +891,18 @@ impl JobView {
                     .bg(look.color(token::BG_SUNKEN))
                     .border_b(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_GLASS))
-                    .children(tab.map(|tab| div().max_w(look.length(token::SPACE_12) * 8.).min_w_0().flex().h_full().child(tab)))
+                    // Each tab keeps its width and the strip scrolls sideways, as `.job-pane__strip` does.
+                    .child(
+                        div()
+                            .id("thread-tabs")
+                            .flex()
+                            .items_stretch()
+                            .min_w_0()
+                            .overflow_x_scroll()
+                            .track_scroll(&self.row_strip)
+                            .children(tab.map(|tab| div().flex_none().max_w(look.length(token::SPACE_12) * 8.).flex().h_full().child(tab)))
+                            .children(self.row_tab_strip(id, look, cx)),
+                    )
                     .child(self.add_button(super::tabs::Pane::Thread, look, cx)),
             )
             .children(said)

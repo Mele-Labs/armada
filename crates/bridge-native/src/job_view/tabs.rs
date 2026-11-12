@@ -90,6 +90,13 @@ impl JobView {
         Zone::ALL.into_iter().find(|zone| !self.tab_closed(zone.id()))
     }
 
+    /// A closed thread comes back, as a walk arriving brings it (`reopenThread`).
+    pub(super) fn reopen_thread(&mut self, id: &SharedString) {
+        if let Some(closed) = self.tabs_closed.shut.get_mut(id) {
+            closed.remove("thread");
+        }
+    }
+
     pub(super) fn close_tab(&mut self, tab: &'static str, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         if let Some(opened) = self.tabs_closed.opened.get_mut(&id) {
@@ -179,7 +186,7 @@ impl JobView {
 }
 
 /// A small ghost icon button, `--h-control-sm` square, as Electron's `size="sm" iconOnly`.
-fn frame(look: &Look, id: impl Into<gpui::ElementId>, icon: &'static str) -> Stateful<gpui::Div> {
+pub(super) fn frame(look: &Look, id: impl Into<gpui::ElementId>, icon: &'static str) -> Stateful<gpui::Div> {
     let ink = look.color(token::FG_SUBTLE);
     let (ground, hover) = (look.color(token::BG_HOVER), look.color(token::FG_DEFAULT));
     div()

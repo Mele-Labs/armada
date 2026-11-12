@@ -42,6 +42,7 @@ mod teach;
 mod records;
 mod refs;
 mod review;
+mod row_tabs;
 mod rows;
 mod judge_tab;
 mod ledger;
@@ -297,6 +298,12 @@ pub struct JobView {
     /// The tabs closed on each Job, and + 's menu while it is open.
     tabs_closed: tabs::Closed,
     tabs_menu: Option<tabs::AddMenu>,
+    /// The tabs beside each Job's thread: a draft, a document or a walk.
+    row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
+    /// The body of the tab beside the thread in front, which takes the keys when it opens.
+    row_focus: FocusHandle,
+    /// The thread's strip, which scrolls sideways once its tabs are wider than the pane.
+    row_strip: gpui::ScrollHandle,
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
@@ -419,6 +426,9 @@ impl JobView {
             zone: side::Zone::default(),
             tabs_closed: tabs::Closed::default(),
             tabs_menu: None,
+            row_tabs: HashMap::new(),
+            row_focus: cx.focus_handle(),
+            row_strip: gpui::ScrollHandle::new(),
             focus: cx.focus_handle(),
             pop: None,
             dock_focus: cx.focus_handle(),
@@ -862,6 +872,7 @@ impl Render for JobView {
             // A card came or went: the cards draw once more, so the chip shows on the target.
             cx.notify();
         }
+        self.sync_walk_tabs(&id, cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
         let drawn = self.composer.quick.thread();
@@ -913,10 +924,16 @@ impl Render for JobView {
         } else {
             self.render_skeleton(look)
         };
+        // A closed Thread tab leaves its pane empty under the strip, as Electron's does; a tab beside
+        // it in front draws its own body there.
+        let front = self.row_front(&id).cloned();
+        let open = !self.tab_closed("thread") && front.is_none();
+        let body = match &front {
+            Some(tab) => self.row_tab_body(&id, tab, look, cx),
+            None if open => body,
+            None => div().into_any_element(),
+        };
         let head = self.render_head(&id, cx);
-        // A closed Thread tab leaves its pane empty under the strip, as Electron's does.
-        let open = !self.tab_closed("thread");
-        let body = if open { body } else { div().into_any_element() };
         let origin = if open { self.render_origin(&id, window, cx) } else { None };
         let dock = (open && !self.closed(&id, cx)).then(|| self.render_dock(&id, window, cx));
         // The time from the press that opened the Job to this frame's paint, once per switch.

@@ -529,7 +529,12 @@ impl JobView {
 
     fn open_owed(&mut self, item: &str, source: WaitingSource, window: &mut Window, cx: &mut Context<Self>) {
         match source {
-            WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Draft => {
+            // A draft opens its card as a tab, and a page owed alone is read in its own (`openOwedDocument`).
+            WaitingSource::Draft => self.open_draft_tab(item.strip_prefix("draft:").unwrap_or(item), window, cx),
+            WaitingSource::Document if self.shown.as_ref().and_then(|id| self.sole_document(id, cx)).is_some_and(|page| item.strip_prefix("document:") == Some(page.as_str())) => {
+                self.open_document_tab(item.strip_prefix("document:").unwrap_or(item), window, cx);
+            }
+            WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document => {
                 self.open_review(window, cx);
                 self.review_at(item, window, cx);
             }
