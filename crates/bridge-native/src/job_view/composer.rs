@@ -1000,7 +1000,7 @@ impl JobView {
     // ---- drawing -------------------------------------------------------------------------
 
     /// A quiet text button on the bar: its words, a chevron, and a tooltip that says what it sets.
-    fn bar_button(&self, look: &Look, id: &'static str, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>) -> gpui::Stateful<gpui::Div> {
+    fn bar_button(&self, look: &Look, id: &'static str, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>, narrow: bool) -> gpui::Stateful<gpui::Div> {
         div()
             .id(id)
             // As Electron's: a menu gives up room before Send does, down to a floor, and its words truncate.
@@ -1012,12 +1012,16 @@ impl JobView {
             .h(look.length(token::H_CONTROL))
             .pl(look.length(token::SPACE_3))
             .pr(look.length(token::SPACE_2))
+            // In a box under 400px its words are gone, as Electron's truncate to nothing there: its glyph and caret keep their room.
+            .when(narrow, |button| {
+                button.flex_none().min_w_0().gap(look.length(token::SPACE_1)).pl(look.length(token::SPACE_1)).pr(look.length(token::SPACE_1))
+            })
             .rounded(look.length(token::RADIUS_MD))
             .cursor_pointer()
             .text_size(look.length(token::TEXT_SM))
             .text_color(look.color(token::FG_MUTED))
             .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
-            .child(div().min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis().child(said))
+            .children((!narrow).then(|| div().min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis().child(said)))
             .children(meter)
             .child(svg().flex_none().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
             .tooltip(tip(tooltip))
@@ -1237,9 +1241,13 @@ impl JobView {
         let meter = (steps > 0).then(|| effort_meter(look, steps, lit).into_any_element());
         let send = self.send_button(nothing, window, cx);
         let attach = self.attach_button(look, cx);
+        // The box, Needs you and the cards share one outer edge: the words' column and the bleed either side.
+        let column = self.column(look) + super::bleed(look) * 2.;
+        // The box narrower than 400px, as Electron's container query: the gaps close up and the menus give up their floor before Send does.
+        let narrow = self.pane.is_some_and(|pane| (pane - look.length(token::SPACE_4) * 2.).min(column) < gpui::px(400.));
         let mode_button = labelled(
             // The permission picker is a select, as Electron's: a sunken well in a strong edge.
-            self.bar_button(look, "mode", mode_said, mode_tip, None)
+            self.bar_button(look, "mode", mode_said, mode_tip, None, narrow)
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_STRONG))
                 .bg(look.color(token::BG_SUNKEN))
@@ -1251,14 +1259,12 @@ impl JobView {
             "Permission mode",
         );
         let tune_button = labelled(
-            self.bar_button(look, "tune", shown.into(), "The model and effort the next turn runs on".into(), meter).on_click(cx.listener(
+            self.bar_button(look, "tune", shown.into(), "The model and effort the next turn runs on".into(), meter, narrow).on_click(cx.listener(
                 |this, _, window, cx| this.open_tune(window, cx),
             )),
             Role::Button,
             tune_said,
         );
-        // The box, Needs you and the cards share one outer edge: the words' column and the bleed either side.
-        let column = self.column(look) + super::bleed(look) * 2.;
         // While a report is open the box is in its dialog; here the Job's draft stands as it was kept.
         let words = if self.reporting.is_some() {
             div()
@@ -1276,8 +1282,8 @@ impl JobView {
         let bar = div()
             .flex()
             .items_center()
-            .gap(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_2))
+            .gap(look.length(if narrow { token::SPACE_1 } else { token::SPACE_2 }))
+            .px(look.length(if narrow { token::SPACE_1 } else { token::SPACE_2 }))
             .py(look.length(token::SPACE_2))
             .border_t(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
@@ -1285,8 +1291,7 @@ impl JobView {
             .child(tune_button)
             .child(attach)
             .child(self.sketch_button(look, cx))
-            .child(div().flex_1())
-            .child(div().id("context-figure").flex_none())
+            .child(div().id("context-figure").flex_none().ml_auto())
             .child(self.render_talk(look, cx))
             .child(send);
         let popup = self.composer.popup.as_ref().map(|popup| popup.view.clone());

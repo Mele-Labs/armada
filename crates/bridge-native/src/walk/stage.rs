@@ -216,19 +216,26 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         }
         Verb::RightPress(on) => {
             let book = cx.try_global::<LabelBook>();
+            let id = window.window_handle().window_id();
+            // The one of that name that shows, where a narrow window draws a clipped twin first.
             let found = |word: &str| {
                 let role = role_named(word).expect("a role the walk names");
-                book.and_then(|book| book.find(window.window_handle().window_id(), role, on)).cloned()
+                let all: Vec<Drawn> = book.map(|book| book.drawn(id).iter().filter(|one| one.role == role && one.name == on).cloned().collect()).unwrap_or_default();
+                all.iter().find(|one| shows(one)).or(all.first()).cloned()
             };
             let drawn = found("row").or_else(|| found("button")).ok_or_else(|| Missed(format!("no row or button named \"{on}\" to press")))?;
             let drawn = reveal(drawn, window, cx);
-            press(MouseButton::Right, drawn.bounds.center(), window, cx);
+            press(MouseButton::Right, aim(&drawn), window, cx);
             Ok(())
         }
         Verb::Type(text) => {
             // The press focuses the box; each letter then goes in as the platform's input method would.
-            let at = aim(&find(step, window, cx)?);
+            let at = aim(&reveal(find(step, window, cx)?, window, cx));
             press(MouseButton::Left, at, window, cx);
+            // The words go after what the box holds, wherever in it the press put the caret.
+            if let Ok(end) = Keystroke::parse("end") {
+                strike(end, window, cx);
+            }
             for ch in text.chars() {
                 let key = if ch == ' ' { "space".to_string() } else { ch.to_string() };
                 let keystroke = Keystroke { modifiers: Modifiers::default(), key, key_char: Some(ch.to_string()) };
@@ -371,7 +378,8 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                     named.find(|drawn| drawn.shown.size.width > px(0.) && drawn.shown.size.height > px(0.)).or(first).cloned()
                 })
                 .ok_or_else(|| Missed(format!("nothing named \"{name}\" to press")))?;
-            let at = aim(&reveal(at, window, cx));
+            let at = reveal(at, window, cx);
+            let at = aim(&at);
             press(MouseButton::Left, at, window, cx);
             Ok(())
         }
@@ -594,8 +602,33 @@ fn scroll_to(target: Drawn, window: &mut Window, cx: &mut App) -> Drawn {
     if shows(&target) {
         return target;
     }
-    let id = window.window_handle().window_id();
     let t = target.bounds;
+    // Cut off at the side by a row that scrolls sideways (the quick bar's saved lines): the row is wheeled
+    // over the nearest neighbour that shows, until the target's far edge sits where that neighbour's does.
+    let s = target.shown;
+    if s.size.height > px(0.) && s.size.width < t.size.width {
+        let id = window.window_handle().window_id();
+        let right = s.left() <= t.left();
+        let neighbour = cx.try_global::<LabelBook>().and_then(|book| {
+            book.drawn(id)
+                .iter()
+                .filter(|one| {
+                    let b = one.shown;
+                    shows(one) && (b.top() - t.top()).abs() <= px(1.) && (b.bottom() - t.bottom()).abs() <= px(1.) && if right { b.right() <= t.left() } else { b.left() >= t.right() }
+                })
+                .min_by(|a, b| {
+                    let gap = |one: &Drawn| if right { t.left() - one.shown.right() } else { one.shown.left() - t.right() };
+                    f32::from(gap(a)).partial_cmp(&f32::from(gap(b))).unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .cloned()
+        });
+        if let Some(neighbour) = neighbour {
+            let n = neighbour.shown;
+            let by = if right { n.right() - t.right() } else { n.left() - t.left() };
+            return wheel(target, n.center(), point(by, px(0.)), window, cx);
+        }
+    }
+    let id = window.window_handle().window_id();
     // Around it, or else around it give or take a hair: a message's hover bar hangs just past the message.
     let within = |slack: Pixels| {
         cx.try_global::<LabelBook>().and_then(|book| {

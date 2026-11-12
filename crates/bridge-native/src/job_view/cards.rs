@@ -154,7 +154,8 @@ impl JobView {
                     }
                 }
             };
-            let footer = div().flex().items_center().gap(look.length(token::SPACE_2));
+            // Classic's `.armada-card-footer` row; native's roomier buttons wrap where a narrow card can't hold them.
+            let footer = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2));
             let footer = if noting {
                 let (send_key, cancel_key) = (key.to_string(), key.to_string());
                 let answer = answer.clone();

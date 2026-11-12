@@ -673,6 +673,8 @@ impl JobView {
                         div()
                             .id(SharedString::from(format!("finding-acts:{}", found.key)))
                             .flex()
+                            // Classic's row holds both at its smaller button size; native's wrap where a narrow pane can't.
+                            .flex_wrap()
                             .items_center()
                             .gap(look.length(token::SPACE_2))
                             .pt(look.length(token::SPACE_3))

@@ -137,6 +137,10 @@ The parity check takes each row here as chosen.
 | Triage comments and the rule's draft answered in place, in the Workflow tab, and triage in a pull request's panel (`owner.lanes.job.triage`, `shared-panel/pull-request.tsx:195`) | Classic draws mock-only rows | Native draws what Fleet serves |
 | The Workflow tab's frame in a short pane | Keeps a floor of seven space-12s and scrolls the pane under it, so a key can pan to a node below the pane's edge | Fits the pane while nothing stands under it. With a form or the changes open, the body scrolls as Classic's does, but the canvas is never taller than the body less Add to this Job, and a key or press on it scrolls it into view, so the node the keys reach is in sight |
 | Esc in a started Job's lanes | Goes Back from anywhere in the window | Goes Back while the keys are in the Workflow tab, so Esc in the thread or a menu keeps its own meaning |
+| A draft card's head in a narrow thread | The kind, title and time share one row, and the title's words wrap inside it | The time and its page link wrap under the title, so they stay inside the card |
+| A sketch or document card's answers in a narrow thread | Approve, Send back and Withdraw stay on one row, small enough to fit | The same buttons at native's control height wrap to a second row, so Withdraw stays inside the card |
+| A judge note's answers in a narrow pane | Send to Job and Dismiss stay on one row at Classic's small button size | The same buttons at native's control height wrap to a second row, so Dismiss stays inside the pane |
+| The message box's menus in a box under 400px wide | The menus lose their floor and their words truncate to nothing beside the caret | The words are not drawn, and each menu keeps its glyph and caret, so Send stays on the row at native's control sizes |
 
 ## Notifying
 
