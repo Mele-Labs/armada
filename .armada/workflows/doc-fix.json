@@ -1,0 +1,30 @@
+# Doc fix, as the owner approved it on 12 Nov 2026: Draft the change, Land. No plan for a small doc change:
+# the draft is the thing he approves, and his Approve on it moves the Job onto Land (`ends_on`).
+{
+  "version": 1,
+  "workflow_id": "doc-fix",
+  "name": "Doc fix: draft for your Approve, land",
+  "for_requests": "A small change to a document in this repository: a wrong fact, a missing step, an unclear paragraph. No code changes.",
+  "steps": [
+    {
+      "id": "draft",
+      "label": "Draft the change",
+      "about": "Reads the document and what it describes, and shows you the changed text as a draft beside what it replaces. Ends when you approve the draft.",
+      "instructions": "Read the document and the code or docs it describes. Record no plan. Propose the changed text with propose_draft, passing before with the text it replaces. If he sends it back, rewrite it and propose it again. Edit nothing until he approves the draft.",
+      "gate": "none",
+      "ends_on": ["draft_approved"],
+      "asks_delivery": true,
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "land",
+      "label": "Land",
+      "about": "Writes exactly the approved text, runs the docs gate and lands it the way you chose. Ends at the merge.",
+      "instructions": "Write exactly the approved text. Run cargo xtask verify-docs and fix what it names. Push, open a pull request and deliver it the way he chose.",
+      "gate": "merged",
+      "delivers": true,
+      "advance_gate": "human_always"
+    }
+  ]
+}
