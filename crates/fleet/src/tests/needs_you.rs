@@ -257,7 +257,8 @@ fn needs_you_acts_read_as_the_bridges_read_them() {
     let dry = item("dry", Source::Agent, Some((WaitingActKind::Run, "scripts/preview --restart --dry-run")), &[], &[]);
     let main = item("main", Source::Replied, Some((WaitingActKind::Run, "scripts/restart --main")), &[], &[]);
     let pr_read = item("replied:pr", Source::Replied, Some((WaitingActKind::ApprovePr, "#9")), &[], &[]);
-    let view = sections(&[command, steps, follow, pr, walk, words, pick, other, offer, dry, main, pr_read]);
+    let walked = item("walked", Source::Agent, Some((WaitingActKind::Run, "scripts/preview --restart")), &[], &["Press Refresh preview", "Open the Jobs page"]);
+    let view = sections(&[command, steps, follow, pr, walk, words, pick, other, offer, dry, main, pr_read, walked]);
 
     let (section, row) = row_of(&view, "run");
     assert_eq!((section, &row.act), (Section::Commands, &NeedsYouAct::Run { command: "cargo xtask verify-foundations".into() }));
@@ -293,6 +294,9 @@ fn needs_you_acts_read_as_the_bridges_read_them() {
     assert_eq!(section, Section::Restart, "any other restart is the band's key");
     assert!(matches!(&row.act, NeedsYouAct::Restart { label, build: ipc::BuildSource::Main, .. } if label == "Update to main"));
     assert_eq!(row.glyph.said, "Update to main");
+    let (section, row) = row_of(&view, "walked");
+    assert_eq!(section, Section::Restart, "a restart with steps is still the band's key");
+    assert!(matches!(&row.act, NeedsYouAct::Restart { label, build: ipc::BuildSource::Preview, adopt: false, .. } if label == "Refresh preview"), "{:?}", row.act);
     let (section, row) = row_of(&view, "replied:pr");
     assert_eq!((section, row.dismiss), (Section::PullRequests, Dismiss::Plain), "a request to open a pull request is no sentence to call not a question");
 }
