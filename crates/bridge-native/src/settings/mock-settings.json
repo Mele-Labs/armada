@@ -1,0 +1,884 @@
+{
+ "path": "/Users/user/Library/Application Support/Armada/settings.json",
+ "refused": null,
+ "settings": [
+  {
+   "key": "limits.dronesAtOnce",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Drones at once",
+   "description": "How many drones Fleet runs at the same time. A job past this waits for one to finish.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 1,
+    "max": 8
+   },
+   "default": 2,
+   "value": 3,
+   "saved": 3,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.checksAtOnce",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Checks at once",
+   "description": "How many of a step's checks run at the same time. Ships at half this machine's cores.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 1,
+    "max": 8
+   },
+   "default": 4,
+   "value": 4,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.memorySparePercent",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Memory to keep free",
+   "description": "The share of memory Fleet leaves free before it starts another drone.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 0,
+    "max": 50,
+    "unit": "%"
+   },
+   "default": 15,
+   "value": 15,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.diskFloorGib",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Disk to keep free",
+   "description": "The disk space Fleet leaves free on the worktree volume before it starts another drone.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 0,
+    "max": 100,
+    "unit": "GiB"
+   },
+   "default": 10,
+   "value": 10,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.portRangeBase",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "First port",
+   "description": "Where the ports Fleet lends a job's servers start.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 1024,
+    "max": 60000
+   },
+   "default": 40000,
+   "value": 40000,
+   "saved": null,
+   "applies": "at_restart",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "timeouts.checkSeconds",
+   "group": "Fleet",
+   "section": "Timeouts",
+   "title": "Check time limit",
+   "description": "How long one check may run before Fleet stops it. A step's own limit wins over this.",
+   "tip": null,
+   "kind": {
+    "kind": "seconds",
+    "min": 10,
+    "max": 7200
+   },
+   "default": 900,
+   "value": 900,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "timeouts.judgeSeconds",
+   "group": "Fleet",
+   "section": "Timeouts",
+   "title": "Judge time limit",
+   "description": "How long one Judge call may take before Fleet gives up on it.",
+   "tip": null,
+   "kind": {
+    "kind": "seconds",
+    "min": 10,
+    "max": 1800
+   },
+   "default": 120,
+   "value": 120,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "timeouts.commandSeconds",
+   "group": "Fleet",
+   "section": "Timeouts",
+   "title": "Command time limit",
+   "description": "How long Fleet works on one command from Bridge before it answers that it gave up.",
+   "tip": null,
+   "kind": {
+    "kind": "seconds",
+    "min": 5,
+    "max": 300
+   },
+   "default": 15,
+   "value": 15,
+   "saved": 30,
+   "applies": "at_restart",
+   "pending_restart": true,
+   "overridden_by_env": null
+  },
+  {
+   "key": "timeouts.bridgeReconnectMs",
+   "group": "Fleet",
+   "section": "Timeouts",
+   "title": "Reconnect interval",
+   "description": "How long Bridge waits before it looks for Fleet again after losing it.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 250,
+    "max": 60000,
+    "unit": "ms"
+   },
+   "default": 2000,
+   "value": 2000,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "retention.runLogDays",
+   "group": "Fleet",
+   "section": "Retention",
+   "title": "Keep run logs",
+   "description": "How long a finished job's logs stay on disk.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 1,
+    "max": 365,
+    "unit": "days"
+   },
+   "default": 30,
+   "value": 30,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "machine.name",
+   "group": "Fleet",
+   "section": "Machine",
+   "title": "Machine name",
+   "description": "How the other machines signed in to your account name this one. Blank uses the host's name.",
+   "tip": null,
+   "kind": {
+    "kind": "text"
+   },
+   "default": "",
+   "value": "",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "account.clientId",
+   "group": "Fleet",
+   "section": "Account",
+   "title": "Sign-in app",
+   "description": "The client id of the OAuth app Armada signs in with. Blank leaves sign-in unavailable until an app is registered.",
+   "tip": null,
+   "kind": {
+    "kind": "text"
+   },
+   "default": "",
+   "value": "",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "store.url",
+   "group": "Fleet",
+   "section": "Store",
+   "title": "Store address",
+   "description": "The address of the central store your machines share. Blank leaves sign-in unavailable until a store is deployed.",
+   "tip": null,
+   "kind": {
+    "kind": "text"
+   },
+   "default": "",
+   "value": "",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "harness.agent",
+   "group": "Agents",
+   "section": "Harness",
+   "title": "Agent",
+   "description": "The program each drone runs.",
+   "tip": null,
+   "kind": {
+    "kind": "choice",
+    "options": [
+     "agent-cli"
+    ]
+   },
+   "default": "agent-cli",
+   "value": "agent-cli",
+   "saved": null,
+   "applies": "at_restart",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "harness.binaryPath",
+   "group": "Agents",
+   "section": "Harness",
+   "title": "Agent program",
+   "description": "The agent's program, by name on PATH or by absolute path.",
+   "tip": null,
+   "kind": {
+    "kind": "text"
+   },
+   "default": "agent",
+   "value": "/opt/agent/bin/agent",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": "ARMADA_AGENT_BINARY"
+  },
+  {
+   "key": "harness.dronePath",
+   "group": "Agents",
+   "section": "Harness",
+   "title": "Drone PATH",
+   "description": "The directories a drone's PATH holds, in order.",
+   "tip": null,
+   "kind": {
+    "kind": "text_list"
+   },
+   "default": [
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin"
+   ],
+   "value": [
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin"
+   ],
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "models.roster",
+   "group": "Agents",
+   "section": "Model",
+   "title": "Models",
+   "description": "The models a job or a step may choose from.",
+   "tip": null,
+   "kind": {
+    "kind": "text_list"
+   },
+   "default": [
+    "opus",
+    "sonnet",
+    "haiku"
+   ],
+   "value": [
+    "opus",
+    "sonnet",
+    "haiku"
+   ],
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "models.default",
+   "group": "Agents",
+   "section": "Model",
+   "title": "Default model",
+   "description": "The model a step runs on when nothing names one.",
+   "tip": null,
+   "kind": {
+    "kind": "text"
+   },
+   "default": "opus",
+   "value": "opus",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "models.session",
+   "group": "Agents",
+   "section": "Model",
+   "title": "Job model",
+   "description": "The model a Job starts on when nothing names one.",
+   "tip": null,
+   "kind": {
+    "kind": "text"
+   },
+   "default": "opus",
+   "value": "opus",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "models.proposer",
+   "group": "Agents",
+   "section": "Model",
+   "title": "Job proposer model",
+   "description": "The model that reads a request and proposes a job.",
+   "tip": null,
+   "kind": {
+    "kind": "text"
+   },
+   "default": "haiku",
+   "value": "sonnet",
+   "saved": "sonnet",
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "effort.default",
+   "group": "Agents",
+   "section": "Effort",
+   "title": "Default effort",
+   "description": "The effort a step runs at when it names none. Harness default passes nothing.",
+   "tip": null,
+   "kind": {
+    "kind": "choice",
+    "options": [
+     "harness default",
+     "low",
+     "medium",
+     "high"
+    ]
+   },
+   "default": "harness default",
+   "value": "harness default",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "effort.judge",
+   "group": "Agents",
+   "section": "Effort",
+   "title": "Judge effort",
+   "description": "The effort each Judge call runs at.",
+   "tip": null,
+   "kind": {
+    "kind": "choice",
+    "options": [
+     "harness default",
+     "low",
+     "medium",
+     "high"
+    ]
+   },
+   "default": "harness default",
+   "value": "harness default",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "plan.downshiftAt",
+   "group": "Agents",
+   "section": "Plan",
+   "title": "Offer a lower default at",
+   "description": "How much of the weekly plan window must be used before the default model is offered a step down until the window resets.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 1,
+    "max": 100,
+    "unit": "percent"
+   },
+   "default": 80,
+   "value": 80,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "plan.downshiftTo",
+   "group": "Agents",
+   "section": "Plan",
+   "title": "Lower default model",
+   "description": "The model the default steps down to when you accept the offer.",
+   "tip": null,
+   "kind": {
+    "kind": "text"
+   },
+   "default": "sonnet",
+   "value": "sonnet",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "plan.contextHandoff",
+   "group": "Agents",
+   "section": "Plan",
+   "title": "Large context",
+   "description": "",
+   "tip": "Context limit",
+   "kind": {
+    "kind": "choice",
+    "options": [
+     "ask",
+     "carry on automatically",
+     "never"
+    ]
+   },
+   "default": "ask",
+   "value": "ask",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "prompts.droneBaseline",
+   "group": "Prompts",
+   "section": "Prompts",
+   "title": "Drone baseline",
+   "description": "What every drone is told before its step's own brief.",
+   "tip": null,
+   "kind": {
+    "kind": "prompt"
+   },
+   "default": "You are working one step of a job in a git worktree Fleet made for it.\nStay inside the worktree. Run the checks the step names before you hand in evidence.\nWhen the step is done, submit evidence that says what changed and how you know it works.",
+   "value": "You are working one step of a job in a git worktree Fleet made for it.\nStay inside the worktree. Run the checks the step names before you hand in evidence.\nWhen the step is done, submit evidence that says what changed and how you know it works.",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "prompts.proposer",
+   "group": "Prompts",
+   "section": "Prompts",
+   "title": "Job proposer",
+   "description": "What the job proposer is told before the request.",
+   "tip": null,
+   "kind": {
+    "kind": "prompt"
+   },
+   "default": "Read the request and propose a job: which workflow it takes, what to call it, and,\nwhere the work is several jobs, the order between them.",
+   "value": "Read the request and propose a job: which workflow it takes, what to call it, and,\nwhere the work is several jobs, the order between them.",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "features.workflows",
+   "group": "Features",
+   "section": "Features",
+   "title": "Workflows for Jobs",
+   "description": "A Job follows a workflow's steps. Off, every Job is a plain Job.",
+   "tip": null,
+   "kind": {
+    "kind": "boolean"
+   },
+   "default": true,
+   "value": true,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "workflows.off",
+   "group": "Features",
+   "section": "Workflows",
+   "title": "Workflows switched off",
+   "description": "Workflows a Job is not offered and cannot be given, on this machine or in one repository.",
+   "tip": null,
+   "kind": {
+    "kind": "json"
+   },
+   "default": {
+    "machine": [],
+    "repositories": {}
+   },
+   "value": {
+    "machine": [],
+    "repositories": {}
+   },
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "features.onYourWordsCanAct",
+   "group": "Features",
+   "section": "Features",
+   "title": "Jobs on your words can act",
+   "description": "A Job started on your words may redirect a job itself. Off, it reads one and suggests it.",
+   "tip": null,
+   "kind": {
+    "kind": "boolean"
+   },
+   "default": true,
+   "value": true,
+   "saved": null,
+   "applies": "at_restart",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "features.disputeReviews",
+   "group": "Features",
+   "section": "Features",
+   "title": "Dispute reviews",
+   "description": "A job that disputes a Fleet notice starts a review job in Armada, and Fleet reads replies for pushback. Off, the dispute is kept and nothing starts.",
+   "tip": null,
+   "kind": {
+    "kind": "boolean"
+   },
+   "default": false,
+   "value": false,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "features.draftPullRequests",
+   "group": "Features",
+   "section": "Features",
+   "title": "Draft pull requests",
+   "description": "A pull request is opened as a draft unless the repository, the workflow or the job says otherwise.",
+   "tip": null,
+   "kind": {
+    "kind": "boolean"
+   },
+   "default": false,
+   "value": false,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "features.openGuidesFirstTime",
+   "group": "Features",
+   "section": "Features",
+   "title": "Open guides the first time",
+   "description": "A guide opens once for a piece you have not met.",
+   "tip": null,
+   "kind": {
+    "kind": "boolean"
+   },
+   "default": true,
+   "value": true,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "features.uiSounds",
+   "group": "Features",
+   "section": "Features",
+   "title": "Interface sounds",
+   "description": "A quiet tick when you move through a list or press a control.",
+   "tip": null,
+   "kind": {
+    "kind": "boolean"
+   },
+   "default": true,
+   "value": true,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "features.reduceMotion",
+   "group": "Features",
+   "section": "Features",
+   "title": "Reduce motion",
+   "description": "Stops Armada's animations. Nothing else on this Mac changes.",
+   "tip": null,
+   "kind": {
+    "kind": "boolean"
+   },
+   "default": false,
+   "value": false,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "features.deepLinks",
+   "group": "Features",
+   "section": "Features",
+   "title": "Open pull request links",
+   "description": "A link that starts armada://pull opens Bridge on that pull request's review. Off, Armada does not claim the link from macOS and ignores one it is handed.",
+   "tip": null,
+   "kind": {
+    "kind": "boolean"
+   },
+   "default": true,
+   "value": true,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "features.notifications",
+   "group": "Features",
+   "section": "Features",
+   "title": "Notifications",
+   "description": "A macOS notification when a job needs you and Bridge is not in front.",
+   "tip": null,
+   "kind": {
+    "kind": "boolean"
+   },
+   "default": true,
+   "value": true,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "features.reachFolders",
+   "group": "Features",
+   "section": "Features",
+   "title": "Folders jobs reach",
+   "description": "Folders outside its slots a job may read and write with no card, and folders it may not.",
+   "tip": null,
+   "kind": {
+    "kind": "json"
+   },
+   "default": {},
+   "value": {
+    "block": [
+     "/Users/user/.ssh"
+    ]
+   },
+   "saved": {
+    "block": [
+     "/Users/user/.ssh"
+    ]
+   },
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "editor.command",
+   "group": "Tools",
+   "section": "Editor",
+   "title": "Editor command",
+   "description": "The editor Bridge opens a file in. {file} and {line} are filled in. Empty uses $VISUAL, then $EDITOR, then this Mac's default.",
+   "tip": null,
+   "kind": {
+    "kind": "text"
+   },
+   "default": "",
+   "value": "",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "terminal.app",
+   "group": "Tools",
+   "section": "Terminal",
+   "title": "Terminal",
+   "description": "The terminal Bridge opens a worktree in.",
+   "tip": null,
+   "kind": {
+    "kind": "choice",
+    "options": [
+     "Terminal",
+     "iTerm",
+     "Ghostty",
+     "Warp",
+     "WezTerm",
+     "Custom"
+    ]
+   },
+   "default": "Terminal",
+   "value": "Terminal",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "terminal.command",
+   "group": "Tools",
+   "section": "Terminal",
+   "title": "Custom terminal command",
+   "description": "Run when Terminal is Custom. {dir} is filled in with the worktree.",
+   "tip": null,
+   "kind": {
+    "kind": "text"
+   },
+   "default": "",
+   "value": "",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "links.openPullRequestsIn",
+   "group": "Tools",
+   "section": "Links",
+   "title": "Open pull requests in",
+   "description": "Where every pull request link in Bridge opens.",
+   "tip": null,
+   "kind": {
+    "kind": "choice",
+    "options": [
+     "armada",
+     "browser"
+    ]
+   },
+   "default": "armada",
+   "value": "armada",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "spacing.density",
+   "group": "Appearance",
+   "section": "Spacing",
+   "title": "Spacing",
+   "description": "Room around rows, panels and controls.",
+   "tip": null,
+   "kind": {
+    "kind": "choice",
+    "options": [
+     "compact",
+     "default",
+     "roomy"
+    ]
+   },
+   "default": "default",
+   "value": "default",
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "thread.look",
+   "group": "Appearance",
+   "section": "Thread",
+   "title": "Thread look",
+   "description": "The Aa panel and Settings, Thread write this.",
+   "tip": null,
+   "kind": {
+    "kind": "json"
+   },
+   "default": {},
+   "value": {},
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "bridge.rowView",
+   "group": "Appearance",
+   "section": "Bridge",
+   "title": "Row view",
+   "description": "The Cockpit row menu's View group writes this.",
+   "tip": null,
+   "kind": {
+    "kind": "json"
+   },
+   "default": {},
+   "value": {},
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "bridge.layout",
+   "group": "Appearance",
+   "section": "Bridge",
+   "title": "Layout",
+   "description": "Settings → Layout writes this.",
+   "tip": null,
+   "kind": {
+    "kind": "json"
+   },
+   "default": {},
+   "value": {},
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  }
+ ]
+}

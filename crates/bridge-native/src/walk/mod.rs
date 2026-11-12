@@ -162,6 +162,8 @@ pub enum Screen {
     /// The whole stack the app opens on Fleet: the dispatch screen and its notes layer over the
     /// Operator's screen, with the Jobs screen and its threads in front.
     App,
+    /// The app with Settings over it, on the mock Fleet in `settings/mock.rs`.
+    Settings,
 }
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
@@ -2024,6 +2026,13 @@ pub static WALKS: &[Walk] = &[
             step("The pointer on the thread", Verb::Hover, "region", "Thread"),
             step("Annotating stays on", Verb::Later(400), "status", "Annotating"),
         ],
+    },
+    Walk {
+        name: "native-settings",
+        title: "Settings over the app",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::STEPS,
     },
 ];
 

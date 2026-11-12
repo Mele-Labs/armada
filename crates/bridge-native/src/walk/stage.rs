@@ -105,6 +105,20 @@ impl Stage {
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: screen.into(), focus })
             }
+            Screen::Settings => {
+                super::strip_marks::leave(cx);
+                crate::titlebar::scenes::begin(cx);
+                let jobs = crate::mock::jobs(walk.scenario)?;
+                let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
+                let keys = list.read(cx).focus_handle().clone();
+                let threads = crate::mock::threads(walk.scenario)?;
+                let screen = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
+                let held = cx.new(|cx| crate::operator::OperatorScreen::mock_behind(screen, window, cx));
+                let over = cx.new(|cx| crate::settings::SettingsScreen::mock(held.into(), window, cx));
+                let focus = Focus { keys, within: over.read(cx).within.clone() };
+                window.focus(&focus.keys, cx);
+                Ok(Stage { view: over.into(), focus })
+            }
             Screen::Marks => {
                 crate::titlebar::scenes::begin(cx);
                 super::strip_marks::enter(cx);
