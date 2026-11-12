@@ -44,6 +44,8 @@ pub(super) struct Work {
     pub(super) chosen: Option<String>,
     /// The proposer picked it and nobody has changed it since.
     pub(super) proposed: bool,
+    /// The Job carries a proposal.
+    pub(super) proposal: bool,
     /// What the picker offers: the workflows of the Job's repository, and those of none.
     pub(super) choices: Vec<(String, String)>,
 }
@@ -59,9 +61,10 @@ impl Work {
         self.steps.iter().any(|step| step.eq_ignore_ascii_case(label))
     }
 
-    /// The head stands at the top of the Spine.
+    /// The head stands at the top of the Spine: on a workflow, or with a proposal and the picker
+    /// offered (`StoryColumn` 538-543). A Job on none and with no proposal has no head.
     pub(super) fn head(&self) -> bool {
-        !self.off && (self.name.is_some() || self.picking)
+        !self.off && (self.name.is_some() || (self.proposal && self.picking))
     }
 
     pub(super) fn state(&self, step: usize) -> StretchState {
@@ -302,6 +305,7 @@ impl JobView {
             picking: job.hosted.is_some() && workflows.is_some(),
             chosen: workflow,
             proposed: !off && !unpicked && job.proposal.as_ref().is_some_and(|proposal| proposal.picked.iter().any(|field| field.as_wire() == "workflow")),
+            proposal: job.proposal.is_some(),
             choices,
         }
     }

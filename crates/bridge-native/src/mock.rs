@@ -99,6 +99,13 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.started = Some(spine_starts().started);
         }
     }
+    // The gated plan's live stretch is held on his walk, which Fleet asks him about.
+    if scenario == "job-workflow" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-04") {
+            let item = ipc::decode::<ipc::WaitingItem>("walk item", br#"{"id":"walk:armada://walk/docsIndex","text":"Walk the new index","since":"2026-11-09T14:20:00Z","source":"walk","act":{"kind":"walk","target":"armada://walk/docsIndex"}}"#).map_err(|why| why.to_string())?;
+            one.waiting_for.push(item);
+        }
+    }
     // Needs you asks about the watch that ended not ours, as Fleet derives the item.
     if scenario == "job-watching" {
         for ask in watch_reads().asks {
@@ -205,6 +212,13 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
             for act in &mut thread.head.fleet_acts {
                 act.at = shifted(NOW_ANCHOR, &act.at);
             }
+        }
+    }
+    // The walk the gated plan's live stretch is held on, as the Audit Job showed it.
+    if scenario == "job-workflow" {
+        if let Some(thread) = all.get_mut("mock-04") {
+            let row = ipc::decode::<ipc::ThreadItem>("walk row", br#"{"kind":"row","row":{"kind":"window","id":"win-wf-1","at":"2026-11-09T14:20:00Z","title":"The new docs index","url":"armada://walk/docsIndex"}}"#).map_err(|why| why.to_string())?;
+            thread.items.push(row);
         }
     }
     // The Job whose system Fleet cannot read has a thread with nothing in it yet, as Fleet answers for one.
