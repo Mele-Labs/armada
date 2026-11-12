@@ -148,6 +148,8 @@ The parity check takes each row here as chosen.
 | The message box's menus in a box under 400px wide | The menus lose their floor and their words truncate to nothing beside the caret | The words are not drawn, and each menu keeps its glyph and caret, so Send stays on the row at native's control sizes |
 | Close pane | The pane leaves the saved arrangement, and the Layout menu brings it back | The pane stays closed on that Job until Bridge restarts; the Layout menu, splits and the saved arrangement are held |
 | Zoom from a tab in the right column | Each tab's own menu has Zoom or Restore | The column's tabs have no menu yet: ⌥⌘Enter, a double press on the strip and Restore zoom them. The thread tab's menu has Zoom |
+| A note just saved (owner, 12 Nov) | The card closes | The card stays open with Start job in hand: Enter starts a Job, Tab reaches the Jobs, Esc closes it |
+| The page a sent note names | The page's web address, which Fleet reads as a checkout of the page | `armada://native/<screen>`, since a native screen has no web address |
 
 ## Notifying
 
