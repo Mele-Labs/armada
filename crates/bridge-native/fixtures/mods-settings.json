@@ -1,0 +1,10 @@
+{
+  "mods": [
+    {
+      "name": "dusk",
+      "kind": "theme",
+      "enabled": true,
+      "valid": true
+    }
+  ]
+}

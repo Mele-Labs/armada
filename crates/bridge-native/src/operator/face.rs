@@ -117,6 +117,42 @@ fn is_later(pick: &str) -> bool {
     pick.eq_ignore_ascii_case("later")
 }
 
+/// The Later menu: each choice's id, its words, and when it brings the item back, from `now`. A
+/// morning is 09:00; next week is Monday's.
+pub fn later_choices(now: DateTime<Local>) -> [(&'static str, &'static str, DateTime<Local>); 4] {
+    let nine = |days: u64| {
+        (now.date_naive() + chrono::Days::new(days)).and_hms_opt(9, 0, 0).and_then(|at| at.and_local_timezone(Local).earliest()).unwrap_or(now + chrono::Duration::days(days as i64))
+    };
+    let to_monday = 7 - u64::from(chrono::Datelike::weekday(&now).num_days_from_monday());
+    [
+        ("later_hour", "1 hour", now + chrono::Duration::hours(1)),
+        ("later_hours", "3 hours", now + chrono::Duration::hours(3)),
+        ("later_morning", "Tomorrow morning", nine(1)),
+        ("later_week", "Next week", nine(to_monday)),
+    ]
+}
+
+/// When a Later item comes back, as the menu and its tooltip say it: `15:05`, `tomorrow 09:00`,
+/// `Mon 16 Nov 09:00`.
+pub fn back_at(at: DateTime<Local>, now: DateTime<Local>) -> String {
+    let time = at.format("%H:%M").to_string();
+    let days = (at.date_naive() - now.date_naive()).num_days();
+    match days {
+        0 => time,
+        1 => format!("tomorrow {time}"),
+        _ => format!("{} {time}", at.format("%a %-d %b")),
+    }
+}
+
+/// What a Later item's mark says: when it comes back, or the rest of today where Fleet gave no time.
+pub fn later_said(turn: &OperatorTurnItem, now: DateTime<Local>) -> String {
+    let at = turn.later_until.as_ref().and_then(|at| DateTime::parse_from_rfc3339(at.as_str()).ok());
+    match at {
+        Some(at) => format!("Later, until {}", back_at(at.with_timezone(&Local), now)),
+        None => "Later today".into(),
+    }
+}
+
 /// Whether the card offers the item's options to choose from: more than one, and no Then in their place.
 pub fn chooses(turn: &OperatorTurnItem) -> bool {
     turn.then.is_empty() && turn.item.options.len() > 1

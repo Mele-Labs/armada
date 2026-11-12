@@ -233,7 +233,8 @@ impl Toasts {
     fn later(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {
         self.page.update(cx, |page, cx| {
             page.open_id(&id, cx);
-            page.later(cx);
+            // A toast has no menu: its Later is the rest of today.
+            page.later(None, cx);
         });
         self.ended(&id, Ended::Later, window, cx);
     }

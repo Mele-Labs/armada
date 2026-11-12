@@ -99,12 +99,12 @@ impl Wire {
         }
     }
 
-    /// `POST /operator/page/later`.
-    pub fn later(&mut self, id: &str, cx: &App) -> Task<Result<OperatorPage, String>> {
+    /// `POST /operator/page/later`: last until `until`, RFC 3339, or for the rest of the local day.
+    pub fn later(&mut self, id: &str, until: Option<String>, cx: &App) -> Task<Result<OperatorPage, String>> {
         if let Wire::Mock(mock) = self {
-            return Task::ready(mock.later(id));
+            return Task::ready(mock.later(id, until));
         }
-        let said = body(&OperatorLater { id: id.to_string(), until: None });
+        let said = body(&OperatorLater { id: id.to_string(), until: until.map(ipc::Instant::carried) });
         self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/page/later", said), "OperatorPage", cx))
     }
 

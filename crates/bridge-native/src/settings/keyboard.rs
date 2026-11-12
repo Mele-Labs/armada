@@ -362,7 +362,7 @@ impl SettingsOverlay {
                 match answer {
                     Ok(preferences) => {
                         this.keyboard.set(Bindings::read(&preferences.key_bindings));
-                        crate::keymap::install(&Rebinding::read(&preferences.key_bindings), cx);
+                        this.wire.preferences_saved(preferences, window, cx);
                     }
                     Err(why) => this.keyboard.refused = Some(why.said),
                 }

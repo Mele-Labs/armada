@@ -596,6 +596,15 @@ impl FleetConnection {
         &self.held
     }
 
+    /// `POST /preferences/save` answered with every preference as it now stands. Preferences are read once a
+    /// connection, so a save made here is folded in as that read would be, and what observes them applies it.
+    pub fn preferences_saved(&mut self, answer: ipc::Preferences, cx: &mut Context<Self>) {
+        for line in self.held.fold(vec![Signal::Preferences(answer)]) {
+            line.emit();
+        }
+        cx.notify();
+    }
+
     /// See [`Held::take_dirty`]. No redraw: the view that asks is already drawing.
     pub fn take_dirty(&mut self, session: &str) -> Option<usize> {
         self.held.take_dirty(session)

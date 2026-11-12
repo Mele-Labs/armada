@@ -424,10 +424,10 @@ pub static WALKS: &[Walk] = &[
             press_on("Closing the tab in front brings the next one forward", "button", "Close Chip colours", "article", "Draft: Comment on #3290"),
             press_on("Closing the last brings the one before it", "button", "Close Comment on #3290", "region", "Merge line chip: stale state"),
             press_on("Closing that one brings the thread back. A walk closed with its × does not come back", "button", "Close Merge line chip: stale state", "region", "Thread"),
-            press_on("A Job that owes you a page and nothing else", "row", "Quiet the write-clash notices", "button", "Waiting on you: Stale branch design"),
-            press_on("The page opens in its own tab, its card with Approve and Send back", "button", "Waiting on you: Stale branch design", "article", "Document: Stale branch design, Revision 2"),
-            press_on("A draft whose row has gone from the thread", "row", "Audit the docs index", "button", "Waiting on you: Comment on #3301"),
-            press_on("A press on it opens no tab: the thread stays in front", "button", "Waiting on you: Comment on #3301", "region", "Thread"),
+            press_on("A Job that owes you a page and nothing else", "row", "Quiet the write-clash notices", "button", "Needs you"),
+            press_on("The page opens in its own tab, its card with Approve and Send back", "button", "Needs you", "article", "Document: Stale branch design, Revision 2"),
+            press_on("A draft whose row has gone from the thread", "row", "Audit the docs index", "button", "Needs you"),
+            press_on("A press on it opens no tab: the thread stays in front", "button", "Needs you", "region", "Thread"),
         ],
     },
     Walk {
@@ -1001,6 +1001,7 @@ pub static WALKS: &[Walk] = &[
         scenario: "subagent",
         steps: &[
             press_on("A subagent that came back stands in the thread with how it ended and how long it took", "row", "Brief a reviewer", "button", "Subagent Review the merge line change, finished"),
+            step("One cut off carries the stopped mark, so it never reads as finished", Verb::Look, "button", "Subagent Find the merge line's callers, cut off"),
             press_on("A press opens its own thread on a sheet: what it was asked, its calls and what it said", "button", "Subagent Review the merge line change, finished", "dialog", "Subagent Review the merge line change"),
             step("Under the title, its type and the model it ran on", Verb::Look, "label", "Sonnet 5.5"),
             step("Beside them, how full its context was; the pointer on it gives the tokens", Verb::Hover, "img", "Context 31%"),
