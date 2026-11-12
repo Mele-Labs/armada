@@ -16,7 +16,8 @@ use super::session_rail::{
 };
 use crate::rail::{self, Facts, Fit, RailStep};
 use crate::rail_ends::{ends_when, passed_over_when};
-use crate::rail_keeping::thread_facts;
+use crate::rail_keeping::{thread_facts, RailReads};
+use crate::rail_lifecycle::StepBits;
 
 // ---- The rules ----
 
@@ -302,4 +303,38 @@ async fn a_push_while_he_walks_leaves_the_job_on_the_walk_and_counts_toward_deli
 
     pushed(&rig, &id).await;
     super::session_host::eventually(|| async { step_of(&rig, &id).await == Some(4) }).await;
+}
+
+/// **A step gated `you_approved` ends on his Approve**, said "you approve" and never "it is pushed" for
+/// the delivering step after it, and the rail enters the next step once the gate has closed.
+#[test]
+fn a_step_gated_you_approved_ends_when_he_approves_and_the_rail_advances_on_the_close() {
+    let gated = RailStep { ends_on: vec![StepEnd::YouApproved], ..step("Review") };
+    let steps = vec![propose(), gated.clone(), delivers("Deliver")];
+    assert_eq!(ends_when(&steps, 1).as_deref(), Some("you approve"));
+    let steps = vec![propose(), gated, step("Wrap")];
+    let held = Facts { replied: true, ..Facts::default() };
+    assert_eq!(at(&steps, held), Some(1));
+    assert_eq!(at(&steps, Facts { you_approved: StepBits::of([1]), ..held }), Some(2), "his Approve passes the step");
+}
+
+/// **Each `you_approved` step reads its own plan group's gate**, the group whose id is the step's id: closing the
+/// first group's gate passes the first step only, and any gate counts where no group carries the step's id.
+#[test]
+fn two_you_approved_steps_each_read_their_own_groups_gate() {
+    let gated = |label| RailStep { ends_on: vec![StepEnd::YouApproved], ..step(label) };
+    let steps = vec![propose(), gated("First"), gated("Second"), step("Wrap")];
+    let held = Facts { replied: true, ..Facts::default() };
+    assert_eq!(at(&steps, held), Some(1));
+    assert_eq!(at(&steps, Facts { you_approved: StepBits::of([1]), ..held }), Some(2), "the first group's close passes the first step only");
+    assert_eq!(at(&steps, Facts { you_approved: StepBits::of([1, 2]), ..held }), Some(3));
+
+    let reads = RailReads {
+        plan_groups: vec!["first".into(), "second".into()],
+        approved_groups: vec!["first".into()],
+        ..RailReads::default()
+    };
+    assert_eq!((reads.approved("first"), reads.approved("second")), (true, false));
+    let loose = RailReads { approved_groups: vec!["g1".into()], ..RailReads::default() };
+    assert!(loose.approved("first"), "no group carries the id, so any closed gate counts");
 }

@@ -171,6 +171,8 @@ fn drafting(
         missing: Vec::new(),
         before_steps: None,
         after_steps: None,
+        after_name: None,
+        after_for_requests: None,
         notes: None,
         at: ipc::Instant::carried("2026-10-27T09:00:00.000Z"),
     }

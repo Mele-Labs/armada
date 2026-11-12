@@ -17,6 +17,8 @@ fn change(state: ChangeState) -> WorkflowChange {
         missing: Vec::new(),
         before_steps: None,
         after_steps: None,
+        after_name: None,
+        after_for_requests: None,
         notes: None,
         at: Instant::carried("2026-10-28T09:00:00.000Z"),
     }
@@ -41,6 +43,10 @@ fn a_cannot_change_carries_what_armada_lacks_and_its_steps_and_reads_back() {
         ends_when: Some(String::from("you reply")),
         ends_any: Vec::new(),
         passed_over_when: None,
+        about: None,
+        gate: None,
+        asks_delivery: false,
+        delivers: false,
     };
     let cannot = WorkflowChange {
         missing: vec![String::from("A step can't end when a document is approved.")],
