@@ -116,6 +116,9 @@ impl JobView {
     ) -> AnyElement {
         let noting = open && page.cards.modes.get(key) == Some(&Mode::Note);
         let note_blank = self.typed_in(key, Mode::Note, cx).trim().is_empty();
+        if (!open || !page.cards.modes.contains_key(key)) && self.holds_kept(key) {
+            page.cards.kept_seen.borrow_mut().push((key.to_string(), ix, open));
+        }
         let subject = std::rc::Rc::new(subject);
         let job = self.shown.clone().unwrap_or_default();
         let session_id = SessionId::carried(job.to_string());
@@ -159,6 +162,18 @@ impl JobView {
             let footer = if noting {
                 let (send_key, cancel_key) = (key.to_string(), key.to_string());
                 let answer = answer.clone();
+                // `⌘Enter` in the Note box sends it back, as Send back does.
+                let (commit_key, commit_answer) = (key.to_string(), answer.clone());
+                page.keys.commit(
+                    key,
+                    Some(std::rc::Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| {
+                        let note = this.typed_in(&commit_key, Mode::Note, cx).trim().to_string();
+                        if !note.is_empty() {
+                            let (route, body) = commit_answer(SketchHow::SentBack, Some(note.clone()));
+                            this.settle(ix, commit_key.clone(), Answer::SentBack(note), route, body, window, cx);
+                        }
+                    })),
+                );
                 footer
                     .child(labelled(
                         button(look, SharedString::from(format!("send-back:{key}")), "Send back", Tone::Primary, true, None, !note_blank).when(!note_blank, |b| {
@@ -766,6 +781,9 @@ impl JobView {
         let open = how.is_none();
         let editing = open && mode == Mode::Edit;
         let noting = open && mode == Mode::Note;
+        if (!open || mode == Mode::Read) && self.holds_kept(&key) {
+            page.cards.kept_seen.borrow_mut().push((key.clone(), ix, open));
+        }
         let target = self.is_target(&key);
         let eyebrow_word = if kind == DraftKind::Workflow { "Workflow" } else { "Draft" };
         // An open draft that proposes no change can become a page he reads; a paused Job keeps its turn
@@ -983,6 +1001,21 @@ impl JobView {
                     }) as super::keys::Run,
                 )
             });
+            // `⌘Enter` in the open box: Approve with fixes from Draft text, Send back from Note (`DraftRow.tsx:309`).
+            let commit: Option<super::keys::Run> = if editing {
+                yes.as_ref().map(|(_, run)| run.clone())
+            } else if noting {
+                let (k6, answer3) = (key.to_string(), answer_body.clone());
+                Some(Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| {
+                    let words = this.typed_in(&k6, Mode::Note, cx).trim().to_string();
+                    if !words.is_empty() {
+                        this.settle(ix, k6.clone(), Answer::SentBack(words.clone()), "/sessions/waiting/answer", answer3(None, Some(words), None), window, cx);
+                    }
+                }))
+            } else {
+                None
+            };
+            page.keys.commit(key, commit);
             let kind_word = match kind {
                 DraftKind::Workflow => "Workflow",
                 _ => "Draft",

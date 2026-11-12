@@ -79,6 +79,8 @@ pub(super) struct Cards {
     spots: RefCell<std::collections::HashMap<String, Spot>>,
     /// The Judge's notes not yet acted on, in the order the plan drew them this frame.
     findings: RefCell<Vec<Found>>,
+    /// What `⌘Enter` does in a card's open box, by card key (`DraftRow.tsx:309`).
+    commits: RefCell<std::collections::HashMap<String, Run>>,
 }
 
 /// A Judge's note drawn and waiting: its row, and which note of which reading it is.
@@ -126,11 +128,24 @@ impl Cards {
                 }
             }
             None => {
+                self.commits.borrow_mut().remove(key);
                 if cards.remove(key).is_some() {
                     self.changed.set(true);
                 }
             }
         }
+    }
+
+    /// What `⌘Enter` in the card's open box sends, or nothing while the box holds nothing to send.
+    pub fn commit(&self, key: &str, run: Option<Run>) {
+        match run {
+            Some(run) => self.commits.borrow_mut().insert(key.to_string(), run),
+            None => self.commits.borrow_mut().remove(key),
+        };
+    }
+
+    pub fn commit_of(&self, key: &str) -> Option<Run> {
+        self.commits.borrow().get(key).cloned()
     }
 
     /// The focus handle and the drawn edges of the row `key`, made on its first draw.

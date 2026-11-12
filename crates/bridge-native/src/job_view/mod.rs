@@ -959,6 +959,7 @@ impl Render for JobView {
             // A card came or went: the cards draw once more, so the chip shows on the target.
             cx.notify();
         }
+        self.tend_kept(window, cx);
         self.sync_walk_tabs(&id, cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
