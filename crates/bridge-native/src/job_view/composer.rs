@@ -1014,7 +1014,7 @@ impl JobView {
     // ---- drawing -------------------------------------------------------------------------
 
     /// A quiet text button on the bar: its words, a chevron, and a tooltip that says what it sets.
-    fn bar_button(&self, look: &Look, id: &'static str, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>, narrow: bool) -> gpui::Stateful<gpui::Div> {
+    fn bar_button(&self, look: &Look, id: &'static str, glyph: Option<&'static str>, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>, narrow: bool) -> gpui::Stateful<gpui::Div> {
         div()
             .id(id)
             // Send never shrinks; a menu gives up room first: its words truncate, then only its glyph and caret are left.
@@ -1028,13 +1028,14 @@ impl JobView {
             .pr(look.length(token::SPACE_2))
             // In a box under 400px its words are gone, as Electron's truncate to nothing there: its glyph and caret keep their room.
             .when(narrow, |button| {
-                button.flex_none().min_w_0().gap(look.length(token::SPACE_1)).pl(look.length(token::SPACE_1)).pr(look.length(token::SPACE_1))
+                button.overflow_hidden().when(glyph.is_some(), |button| button.min_w(look.length(token::SPACE_1) * 3. + look.length(token::SPACE_4) * 2. + look.length(token::BORDER_WIDTH) * 2.)).gap(look.length(token::SPACE_1)).pl(look.length(token::SPACE_1)).pr(look.length(token::SPACE_1))
             })
             .rounded(look.length(token::RADIUS_MD))
             .cursor_pointer()
             .text_size(look.length(token::TEXT_SM))
             .text_color(look.color(token::FG_MUTED))
             .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+            .children(glyph.map(|name| svg().flex_none().path(icon_path(name)).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))))
             .children((!narrow).then(|| div().min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis().child(said)))
             .children(meter)
             .child(svg().flex_none().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
@@ -1267,7 +1268,7 @@ impl JobView {
         let narrow = self.pane.is_some_and(|pane| (pane - look.length(token::SPACE_4) * 2.).min(column) < gpui::px(400.));
         let mode_button = labelled(
             // The permission picker is a select, as Electron's: a sunken well in a strong edge.
-            self.bar_button(look, "mode", mode_said, mode_tip, None, narrow)
+            self.bar_button(look, "mode", Some("zap"), mode_said, mode_tip, None, narrow)
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_STRONG))
                 .bg(look.color(token::BG_SUNKEN))
@@ -1279,7 +1280,7 @@ impl JobView {
             "Permission mode",
         );
         let tune_button = labelled(
-            self.bar_button(look, "tune", shown.into(), "The model and effort the next turn runs on".into(), meter, narrow).on_click(cx.listener(
+            self.bar_button(look, "tune", None, shown.into(), "The model and effort the next turn runs on".into(), meter, narrow).on_click(cx.listener(
                 |this, _, window, cx| this.open_tune(window, cx),
             )),
             Role::Button,
