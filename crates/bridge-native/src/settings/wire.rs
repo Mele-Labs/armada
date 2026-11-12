@@ -136,6 +136,23 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
     }
 
+    /// The person's key bindings as Fleet last said them, or the mock's.
+    pub fn key_bindings(&self, cx: &App) -> String {
+        match self {
+            Wire::Live(fleet) => fleet.read(cx).held().key_bindings.clone().unwrap_or_default(),
+            Wire::Mock(mock) => mock.preferences.key_bindings.clone(),
+        }
+    }
+
+    /// `POST /preferences/save` with a preference that is text. Fleet answers with every preference in force.
+    pub fn save_preference(&mut self, name: &str, text: String, cx: &App) -> Task<Result<ipc::Preferences, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.save_preference(name, text));
+        }
+        let said = body(&ipc::SavePreference { name: name.to_string(), value: false, text: Some(text) });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/preferences/save".into(), said), "Preferences", cx))
+    }
+
     /// Open settings.json in the editor settings.json names, off the main thread. The mock opens nothing.
     pub fn open_file(&mut self, list: &SettingsList, cx: &App) -> Task<Result<(), String>> {
         if let Wire::Mock(mock) = self {

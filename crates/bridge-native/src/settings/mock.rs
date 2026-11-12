@@ -19,6 +19,7 @@ pub struct MockFleet {
     pub opened: usize,
     /// Every save it took, oldest first, for a test to read.
     pub saves: Vec<BTreeMap<String, Option<SettingValue>>>,
+    pub preferences: ipc::Preferences,
 }
 
 pub fn settings() -> SettingsList {
@@ -36,7 +37,7 @@ impl MockFleet {
                 ..ValuesSet::default()
             });
         }
-        MockFleet { list: settings(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new() }
+        MockFleet { list: settings(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(), preferences: ipc::Preferences::default() }
     }
 
     pub fn settings(&self) -> Result<SettingsList, Refused> {
@@ -74,6 +75,25 @@ impl MockFleet {
             }
         }
         Ok(self.list.clone())
+    }
+
+    /// A preference that is text, kept as Fleet keeps it: key bindings it would not read are refused whole.
+    pub fn save_preference(&mut self, name: &str, text: String) -> Result<ipc::Preferences, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        match name {
+            "key_bindings" => {
+                // Empty takes the person's changes back, as Fleet does.
+                if let Some(problem) = (!text.trim().is_empty()).then(|| ipc::key_bindings::problems(&text)).unwrap_or_default().into_iter().next() {
+                    return Err(Refused::said(format!("key_bindings: {problem}")));
+                }
+                self.preferences.key_bindings = text;
+            }
+            "theme" => self.preferences.theme = text,
+            other => return Err(Refused::said(format!("there is no preference {other}"))),
+        }
+        Ok(self.preferences.clone())
     }
 
     /// What a project's values come to: its own over Kit's, Kit's over the defaults.

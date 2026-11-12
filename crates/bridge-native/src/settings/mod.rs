@@ -2,6 +2,7 @@
 //! ⌘,, and from the project switcher on that project. A port of Classic's System page.
 
 pub mod entries;
+mod keyboard;
 mod mock;
 pub mod overlay;
 mod project;
