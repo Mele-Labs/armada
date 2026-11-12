@@ -599,6 +599,28 @@ pub enum ToolSubagentState {
     CutOff,
 }
 
+/// What a `SendMessage` call said, and to whom, on that call's row. `text` is the whole message and
+/// `summary` the one line the call gave it, where it gave one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolMessage {
+    pub to: MessagePeer,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    pub text: String,
+}
+
+/// Who a message went to. `name` is the call's own `to`, as written: `s-<8 hex>`, a
+/// `uds:/tmp/cc-socks/<pid>.sock` path, or a bare name. **`session_id` and `title` are set only where
+/// Fleet resolved `name` to a Job**, and are absent for a name it could not place.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MessagePeer {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
 /// One row of a hosted session's thread.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -642,6 +664,16 @@ pub enum SessionRow {
         /// The subagent an `Agent` call started. **The row is replaced by id** as it works and settles.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         subagent: Option<ToolSubagent>,
+        /// The picture a `Read` of a `.png`, `.jpg`, `.jpeg`, `.gif` or `.webp` looked at: its absolute
+        /// path, the home put back. **The row carries no bytes**: a client reads them with
+        /// `GET /sessions/repository_file?session_id=&path=`, which serves the images the Job's ledger
+        /// names. Absent on any other call, and on every row kept before it existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        image: Option<String>,
+        /// What a `SendMessage` call said and to whom. Absent on any other call, and on every row kept
+        /// before it existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message: Option<ToolMessage>,
     },
     /// A command the person ran in the terminal, as typed: `/reload-plugins`,
     /// with its arguments. Its output is not drawn. Since 23.56.
