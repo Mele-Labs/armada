@@ -371,6 +371,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn get_repository_file(&self, _id: SessionId, _path: String) -> Result<ipc::RepositoryFile, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn get_session_file(&self, _id: SessionId, _file: String) -> Result<StoredFile, Refusal> {
         Err(nothing_hosted())
     }

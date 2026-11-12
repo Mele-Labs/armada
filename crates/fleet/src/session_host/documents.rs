@@ -3,8 +3,10 @@
 //! own attachments folder and not in the worktree, so a released slot keeps them. The page is one
 //! artifact on the Job's ledger, upserted on its path, whose `revisions` detail names the kept files
 //! oldest first. The sketches it embeds are checked as `show_sketch` checks one, and a Job whose page
-//! holds one that will not draw is told. The write is never refused. **Each revision kept is put to
-//! the person**, read off the page kept here and never off the tool call: `document_answers` answers it.
+//! holds one that will not draw is told. The write is never refused. **A revision is put to the person
+//! only where the page asks**: it marks itself `<meta name="armada-review" content="approve">`, or the
+//! Job waits on a `document_approved` gate or step. Every other page is for reading. Read off the page
+//! kept here and never off the tool call: `document_answers` answers it.
 //! **A page is asked only of the Job that changed it.** The file stays in a slot that changes hands, so a
 //! Job that took another's place is given the page's history, and any other Job passes over a page
 //! another Job left as it kept it. `docs/concepts/document.md`.
@@ -16,12 +18,13 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Sessions;
-use ipc::{AttachmentReport, SessionFact, SessionId, SessionReport, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION};
+use ipc::{AttachmentReport, PlanGate, SessionFact, SessionId, SessionReport, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION};
 use store::{Holder, KeptAttachment};
 
 use super::document_answers::is_document;
-use super::document_page::{sketches_in, title_of};
+use super::document_page::{asks_approval, sketches_in, title_of};
 use crate::daemon::Fleet;
+use crate::rail_ends;
 
 /// What a page's path is cut at to name its folder of revisions, so the same page is the same folder
 /// whichever slot the Job wrote it from.
@@ -56,13 +59,14 @@ where
         let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
         let Ok(encoded) = ipc::encode(&names) else { return };
         let styles = self.page_styles(id, &html).await;
+        let asks = asks_approval(&html) || self.document_gate_waits(id).await;
         // The store replaces a row's detail whole, so leaving `settled`, `settled_at` and `words` out of
-        // this one is what asks the person again about the new revision.
+        // this one is what asks the person again about the new revision, where it asks.
         let mut detail: std::collections::BTreeMap<String, String> = [
             ("form".to_string(), "document".to_string()),
             ("title".to_string(), title_of(&html, &path)),
             ("revisions".to_string(), encoded),
-            (DOCUMENT_ASKED.to_string(), "true".to_string()),
+            (DOCUMENT_ASKED.to_string(), asks.to_string()),
             (DOCUMENT_REVISION.to_string(), names.len().to_string()),
             (DOCUMENT_KEPT_AT.to_string(), self.instant().as_str().to_string()),
         ]
@@ -89,6 +93,28 @@ where
                 let _ = fleet.told_by_fleet(&id, &told, ipc::Notice::DocumentSketch).await;
             });
         }
+    }
+
+    /// Whether the Job waits on his approval of a page, so a page that does not mark itself asks too:
+    /// its plan holds an open `document_approved` gate, or the workflow step it is on ends on one.
+    /// The step is the one the rail kept when it last drew the Job, so the row is not built again here.
+    async fn document_gate_waits(&self, id: &str) -> bool {
+        let (hosting, at) = {
+            let store = self.store().lock().await;
+            let gated = store.session_plan(id).ok().flatten().is_some_and(|plan| {
+                plan.groups.iter().any(|group| group.gate.as_deref() == Some(PlanGate::DocumentApproved.word()) && group.closed.is_none())
+            });
+            if gated {
+                return true;
+            }
+            (store.hosting(id).ok().flatten(), store.session_rail(id).ok().and_then(|rail| rail.step))
+        };
+        let (Some(hosting), Some(at)) = (hosting, at) else { return false };
+        let Some(workflow) = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow)) else {
+            return false;
+        };
+        let Some(steps) = self.job_rail_steps(id, &hosting.manifest_id, workflow).await else { return false };
+        rail_ends::ends_of(&steps, at as usize).contains(&rail_ends::End::DocumentApproved)
     }
 
     /// The turn ended: every page under `<cwd>/.armada/documents/` is read again, so one a script or a

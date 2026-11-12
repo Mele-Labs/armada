@@ -694,6 +694,10 @@ where
         }
     }
 
+    async fn get_repository_file(&self, id: SessionId, path: String) -> Result<ipc::RepositoryFile, Refusal> {
+        self.repository_file_served(id, path).await
+    }
+
     async fn get_session_file(&self, id: SessionId, file: String) -> Result<StoredFile, Refusal> {
         self.session_and_hosting(id.as_str()).await?;
         let sent = self
