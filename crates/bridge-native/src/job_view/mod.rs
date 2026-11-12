@@ -131,6 +131,8 @@ pub(crate) enum Extra {
     MovedTo,
     /// The thread held is being read again (`transcript: "refreshing"`).
     Refreshing,
+    /// What the Job waits on that is not the person, last of all.
+    Waiting,
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -743,7 +745,10 @@ impl JobView {
         let rule = usize::from(self.record(id, cx).is_some_and(|job| job.attachments.iter().any(|one| one.kind == "replaces")));
         let before = earlier_read.map_or(0, |(_, items, _)| items + rule);
         let earlier_version = earlier_read.map(|(version, ..)| version);
-        let extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some(), self.refreshing(id, cx));
+        let mut extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some(), self.refreshing(id, cx));
+        if self.bands_of(id, cx).waiting {
+            extras.push(Extra::Waiting);
+        }
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);

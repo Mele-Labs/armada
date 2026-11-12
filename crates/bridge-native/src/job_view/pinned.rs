@@ -1,5 +1,5 @@
-//! What the thread pins at its foot while the agent works: Stop (A1.10) and the card of the
-//! subagents running now (A4.3).
+//! What the thread pins at its foot: Stop (A1.10), the card of the subagents running now (A4.3), and
+//! the card of what the Job waits on that is not the person.
 
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
 use ipc::{ThreadItem, ToolSubagent, ToolSubagentState};
@@ -10,12 +10,12 @@ use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 
 impl JobView {
-    /// The card of the subagents running, held in sight at the thread's foot while the rows scroll under it
+    /// The last card that stands in sight, the subagents running or what the Job waits on, held in sight at the thread's foot while the rows scroll under it
     /// (`position: sticky; bottom: space-2`): where it stands in the thread it is drawn there, and while that
     /// place is below what is on screen it stands at the foot of the view instead.
     pub(super) fn render_subagents_pin(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
         let page = self.pages.get(id)?;
-        let at = page.extras.iter().position(|extra| matches!(extra, super::Extra::Subagents))?;
+        let at = page.extras.iter().rposition(|extra| matches!(extra, super::Extra::Subagents | super::Extra::Waiting))?;
         let item_ix = page.entry(page.items + at);
         let viewport = page.list.viewport_bounds();
         let seen = page.list.bounds_for_item(item_ix).is_some_and(|bounds| bounds.bottom() <= viewport.bottom());
@@ -24,7 +24,10 @@ impl JobView {
         }
         let held = self.thread(id, cx)?;
         let look = cx.look();
-        let card = self.subagents_card(item_ix, &held.items, page, look, cx)?;
+        let card = match page.extras[at] {
+            super::Extra::Waiting => self.waiting_card(id, look, cx)?,
+            _ => self.subagents_card(item_ix, &held.items, page, look, cx)?,
+        };
         Some(
             div()
                 .w_full()
