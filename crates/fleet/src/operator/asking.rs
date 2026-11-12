@@ -45,6 +45,11 @@ A Job started, and a live Job may already hold its work: choose existing job onl
 paths, plan or issues cover what the new Job's words ask, so that handing the words over loses \
 nothing. Where it is only the same ground, or you cannot tell, choose leave, which keeps both Jobs.
 
+A dispatch is work the person has just given, and no Job holds it yet. New job starts a Job on it. \
+Choose existing job only where a live Job's paths, plan or issues cover what it asks, so that handing \
+its words over loses nothing, and name that Job. Where a live Job may hold the same work and you \
+cannot tell, choose raise, which asks the person whether to hand it over or start it as its own Job.
+
 A note the person sent to a Job himself names that Job. Leave it there unless another live Job \
 shares its work more closely, which is existing job, or it is work no live Job holds, which is \
 new job. Where you cannot tell, leave it.

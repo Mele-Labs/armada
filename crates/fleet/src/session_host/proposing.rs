@@ -213,9 +213,16 @@ where
 {
     /// `start_session`, reading `request` where the start is a plain one. **Answers at once**: the
     /// Session exists with `proposal.reading` set and the call runs in a task.
-    pub(crate) async fn started_reading(
+    pub(crate) async fn started_reading(self: Arc<Self>, start: StartSession) -> Result<SessionRecord, Refusal> {
+        self.started_reading_with(start, true).await
+    }
+
+    /// [`Self::started_reading`], where `overlap` says whether the Operator is handed the Job to weigh against the
+    /// live ones: not for a dispatch it has ruled on already, before the Job existed.
+    pub(crate) async fn started_reading_with(
         self: Arc<Self>,
         mut start: StartSession,
+        overlap: bool,
     ) -> Result<SessionRecord, Refusal> {
         let plain = start.fork.is_none() && start.root.is_none();
         let request = start
@@ -243,7 +250,9 @@ where
             let record = self.start_session(start).await?;
             self.issues_named(record.id.as_str(), &request, &[]).await;
             self.links_seen(record.id.as_str(), &request, LinkedBy::You).await;
-            self.start_overlap_raised(record.id.as_str(), &request, crate::operator::Source::Dispatch).await;
+            if overlap {
+                self.start_overlap_raised(record.id.as_str(), &request, crate::operator::Source::Dispatch).await;
+            }
             return self.after_begun(record, after, request).await;
         }
         start.request = Some(request.clone());
@@ -255,7 +264,9 @@ where
         // The request is the person's first message, sent or not: a Session that waits holds it as its brief.
         self.issues_named(record.id.as_str(), &request, &[]).await;
         self.links_seen(record.id.as_str(), &request, LinkedBy::You).await;
-        self.start_overlap_raised(record.id.as_str(), &request, crate::operator::Source::Dispatch).await;
+        if overlap {
+            self.start_overlap_raised(record.id.as_str(), &request, crate::operator::Source::Dispatch).await;
+        }
         self.after_begun(record, after, request).await
     }
 

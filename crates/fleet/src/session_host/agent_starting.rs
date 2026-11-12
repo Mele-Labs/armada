@@ -159,7 +159,13 @@ where
             None => ManifestId::carried(&self.session_and_hosting(&me).await?.1.manifest_id),
         };
         // The project's word, as the caller was started for it: held on its start card only where it says `ask_me`.
-        let held_by_word = after.is_none(); // RED: the old behaviour
+        let held_by_word = match after {
+            Some(_) => false,
+            None => {
+                let project = self.session_and_hosting(&me).await.ok().and_then(|(_, hosting)| hosting.project);
+                self.agent_start_held(project.as_deref(), manifest.as_str()).await
+            }
+        };
         let made = self
             .start_session(StartSession {
                 project: None,
