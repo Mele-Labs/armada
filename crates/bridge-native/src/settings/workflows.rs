@@ -497,7 +497,7 @@ impl SettingsOverlay {
             }
         }
         let list = super::models::panel(look, "workflows-list").flex_none().w(look.length(token::W_GUIDE_LIST)).p(look.length(token::SPACE_3)).gap(look.length(token::SPACE_4)).child(labelled(jobs_switch, Role::Switch, "Workflows for Jobs")).child(filter).child(kept).child(groups);
-        let detail = super::models::panel(look, "workflows-detail").flex_1().p(look.length(token::SPACE_4)).children(picked.map(|one| self.render_workflow_head(&one, look)));
+        let detail = super::models::panel(look, "workflows-detail").flex_1().children(picked.map(|one| self.render_workflow_head(&one, look)));
         div()
             .id("settings-page")
             .flex_1()
@@ -518,27 +518,14 @@ impl SettingsOverlay {
         let replaces = if at.is_none() { replaces_of(one, rows) } else { None };
         let ink = if custom.is_some() { look.color(token::ACCENT) } else if current { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) };
         let press = key.clone();
-        let entry = ringed(
-            look,
-            div()
-                .id(SharedString::from(format!("workflow-{key}")))
-                .track_focus(&row_key)
-                .flex_1()
-                .min_w_0()
-                .self_stretch()
-                .flex()
-                .items_center()
-                .px(look.length(token::SPACE_3))
-                .rounded(look.length(token::RADIUS_MD))
-                .text_size(look.length(token::TEXT_XS))
-                .text_color(ink)
-                .cursor_pointer()
-                .hover(|style| style.text_color(if custom.is_some() { look.color(token::ACCENT) } else { look.color(token::FG_DEFAULT) }))
-                .on_click(cx.listener(move |this, _, window, cx| this.pick_workflow(&press, window, cx)))
-                .child(div().min_w_0().truncate().child(SharedString::from(one.id.clone()))),
-            &row_key,
-            window,
-        );
+        let entry = div()
+            .flex_1()
+            .min_w_0()
+            .px(look.length(token::SPACE_3))
+            .text_size(look.length(token::TEXT_XS))
+            .text_color(ink)
+            .truncate()
+            .child(SharedString::from(one.id.clone()));
         let mark: Option<(&'static str, String)> = custom.clone().or_else(|| replaces.map(|said| ("layers", said.to_string())));
         let mark_cell = div().flex_none().w(look.length(token::SPACE_6)).flex().items_center().justify_center().children(mark.map(|(glyph, said)| {
             labelled(
@@ -560,23 +547,39 @@ impl SettingsOverlay {
                         .rounded_full()
                         .tooltip(tip(label.clone()))
                         .child(switch_track(look, on, sending))
-                        .when(!sending, |switch| switch.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| this.switch_workflow(&id, !on, manifest.as_deref(), window, cx)))),
+                        .when(!sending, |switch| {
+                            switch.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| {
+                                // The row under it picks; the switch only switches.
+                                cx.stop_propagation();
+                                this.switch_workflow(&id, !on, manifest.as_deref(), window, cx);
+                            }))
+                        }),
                     &switch_key,
                     window,
                 );
                 labelled(switch, Role::Switch, format!("{}: {label}", one.id)).into_any_element()
             }
         };
-        div()
-            .flex()
-            .items_center()
-            .min_h(look.length(token::H_CONTROL))
-            .rounded(look.length(token::RADIUS_MD))
-            .map(|row| if current { row.bg(look.color(token::SURFACE_ROW_SELECTED)) } else { row.hover(|style| style.bg(look.color(token::FG_DEFAULT).opacity(0.1))) })
-            .child(labelled(entry, Role::Button, one.id.clone()))
-            .child(mark_cell)
-            .child(div().flex_none().min_w(look.length(token::SPACE_12)).pr(look.length(token::SPACE_3)).flex().justify_end().child(switch_cell))
-            .into_any_element()
+        // The row is one press, one fill and one ring, its switch included, as Classic's picked row is.
+        let row = ringed(
+            look,
+            div()
+                .id(SharedString::from(format!("workflow-{key}")))
+                .track_focus(&row_key)
+                .flex()
+                .items_center()
+                .min_h(look.length(token::H_CONTROL))
+                .rounded(look.length(token::RADIUS_MD))
+                .cursor_pointer()
+                .map(|row| if current { row.bg(look.color(token::SURFACE_ROW_SELECTED)) } else { row.hover(|style| style.bg(look.color(token::FG_DEFAULT).opacity(0.1))) })
+                .on_click(cx.listener(move |this, _, window, cx| this.pick_workflow(&press, window, cx)))
+                .child(entry)
+                .child(mark_cell)
+                .child(div().flex_none().min_w(look.length(token::SPACE_12)).pr(look.length(token::SPACE_3)).flex().justify_end().child(switch_cell)),
+            &row_key,
+            window,
+        );
+        labelled(row, Role::Button, one.id.clone()).into_any_element()
     }
 
     /// The picked workflow's head: its id, and the line it says it is for.
@@ -587,6 +590,7 @@ impl SettingsOverlay {
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_1))
+                .p(look.length(token::SPACE_4))
                 .child(labelled(div().id("workflow-title").text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(one.id.clone())), Role::Heading, one.id.clone()))
                 .children(one.for_requests.clone().filter(|line| !line.is_empty()).map(|line| {
                     div()
