@@ -124,6 +124,7 @@ fn subagent_read(thread: adapters::terminal_thread::Subagent, parent: Option<(St
     let parent = parent.as_ref().map(|(model, window)| (model.as_str(), *window));
     let model = thread.gauge.model;
     SessionSubagent {
+        items: crate::thread_view::subagent_items(&thread.rows),
         rows: thread.rows,
         finished: thread.finished,
         report: thread.report,

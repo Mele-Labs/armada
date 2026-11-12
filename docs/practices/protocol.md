@@ -1799,6 +1799,30 @@ An approved plan's card stays when its `plan` row is inside the cut.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: a cut read subscribes nothing. The open risk below is neither better nor worse.
 
+## A subagent's report, its folded thread and its change event: `ToolSubagent.report`, `SessionSubagent.items` and `session.subagent`
+
+Since 12 Nov 2026. The thread Fleet folds is `docs/practices/protocol/a-jobs-thread-fleet-folds.md`.
+**Two fields on existing types and one event kind**: no operation, route or error.
+The route table gains the `session.subagent` line the event stream lists, and the operation file `crates/ipc/operations/session.subagent.toml`.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `report` on `ToolSubagent`, `items` on `SessionSubagent` and `SessionSubagentChanged` with the `session.subagent` member of `Event`, in `packages/protocol/src/hosted-sessions.ts` and `events.ts`, written by hand, field for field.
+Electron draws none of it: it is frozen.
+The native Bridge reads it.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `ToolSubagent.report` (an `Agent` row's `subagent`, in `session.row` and `get_session`) | Fleet writes, Bridge reads | `Option<String>` / `report?: string`. What the subagent handed back, set when it settles `finished`, read off its transcript as `get_session_subagent` reads it. Absent for a `running` or `cut_off` subagent, for one whose transcript cannot be read, and on every row kept before it |
+| `SessionSubagent.items` (`get_session_subagent`) | Fleet writes, Bridge reads | `Vec<ThreadItem>` / `items?: ThreadItem[]`. `rows` folded as a Job's thread folds them, with no ledger, timeline or pin: the same drawn and undrawn rows and the same runs of calls, and no sketch, file, document, change, judged or plan card. Absent where it is empty. `rows` stays as it was |
+| `session.subagent` (`GET /events`, `agent_access = "Bridge only"`) | Fleet publishes, Bridge reads | `SessionSubagentChanged` `{ session_id, subagent_id }`, `subagent_id` the `ToolSubagent.id` that `get_session_subagent` takes. It carries no rows: a client holding that subagent reads `GET /sessions/subagent` again |
+
+**When it is published.** Beside each put of a running subagent's row (which is at most once a second, `LATEST_EVERY`) and once when the subagent settles, whether Fleet drew its row or read it off the thread.
+A process that goes and cuts its subagents off publishes one for each, since each has settled too; a client then reads it once and expects no more.
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+
+**The event stream.** One kind added, and it is better than polling: a native Bridge that held `get_session_subagent` on a 1.5 s timer reads it on this event instead, and the event is at most one a second per running subagent.
+It rides the same sink as every event, so the open risk below is neither better nor worse for the stream.
+A reconnecting client reads the subagent again, as it reads a Job, rather than trusting that it kept every event.
+
 ## A file of a Job, read by Fleet: `get_repository_file` and `RepositoryFile`
 
 Since 12 Nov 2026. `docs/concepts/session/showing-a-file.md`.

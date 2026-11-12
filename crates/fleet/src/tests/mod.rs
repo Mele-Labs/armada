@@ -292,6 +292,7 @@ mod operator_closing;
 mod operator_ends;
 mod operator_duplicates;
 mod operator_raises;
+mod operator_turn_acts;
 mod operator_vetting;
 mod operator_questions;
 mod operator_page_head;
