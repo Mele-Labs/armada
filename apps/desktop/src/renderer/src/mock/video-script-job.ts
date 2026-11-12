@@ -80,7 +80,9 @@ const SECOND: readonly SessionRow[] = [
   },
 ];
 
-function job(stage: 1 | 2): Session {
+function job(stage: 1 | 2 | "reading"): Session {
+  // A page for reading carries no mark, so Fleet keeps its revision with `asked` false and nothing waits on him.
+  const reading = stage === "reading";
   const page: SessionAttachment = {
     kind: "artifact",
     form: "document",
@@ -95,8 +97,12 @@ function job(stage: 1 | 2): Session {
             VIDEO_SCRIPT_R1,
             VIDEO_SCRIPT_R2,
           ],
-    asked: true,
-    revision: String(stage),
+    ...(reading
+      ? {}
+      : {
+          asked: true as const,
+        }),
+    revision: reading ? "2" : String(stage),
     kept: ago(1),
   };
   return {
@@ -120,18 +126,20 @@ function job(stage: 1 | 2): Session {
     attachments: [
       page,
     ],
-    waitingFor: [
-      {
-        id: ITEM,
-        text: VIDEO_SCRIPT_TITLE,
-        since: ago(1),
-        source: "document",
-        act: {
-          kind: "message",
-          target: ID,
-        },
-      },
-    ],
+    waitingFor: reading
+      ? []
+      : [
+          {
+            id: ITEM,
+            text: VIDEO_SCRIPT_TITLE,
+            since: ago(1),
+            source: "document",
+            act: {
+              kind: "message",
+              target: ID,
+            },
+          },
+        ],
   };
 }
 
@@ -191,7 +199,7 @@ function handedOn(): Session {
 export function videoScriptScenario(
   name: string,
   says: string,
-  stage: 1 | 2 | "handed_on",
+  stage: 1 | 2 | "handed_on" | "reading",
   /** Jobs open beside it. */
   beside: readonly Session[] = [],
 ): Scenario {

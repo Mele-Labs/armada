@@ -20,6 +20,7 @@ A design, an investigation, a report or a set of findings is a document. The Job
 | The Delivery row, the Artifacts rows and thread headings reading the real artifact | Built |
 | Save as web page and Save as PDF | Built |
 | Each revision asking his approval, `answer_document`, the `document` item and the `document_approved` end | Built in Fleet; Bridge's wiring owed |
+| A page for reading unless it asks, by its mark or a `document_approved` gate | Built in Fleet; Classic draws no Approve on a reading page; native owed |
 
 ## What a document is
 
@@ -28,7 +29,7 @@ Why: the page takes the shape its content needs. The cost is that a note anchors
 
 **Rule.** A document stays with the Job and can be shared out wherever the person wants.
 
-**Rule.** Notes are the feedback on a document's words, and his Approve or Send back answers a revision whole.
+**Rule.** Notes are the feedback on a document's words, and his Approve or Send back answers a revision whole, on a page that asks.
 This rule said notes were the only feedback until the owner approved asking for an approval on 30 Oct 2026, as a sketch asks: [Asking for his approval](#asking-for-his-approval).
 
 ## Where it is written
@@ -55,9 +56,19 @@ The notice is `document_sketch`, once per revision: `In the page <path>, sketch 
 
 ## Asking for his approval
 
-**Rule.** Every revision Fleet keeps is put to the person: its artifact's `detail` gains `asked` `"true"`, `revision`, the newest revision's number, and `kept_at`, when it was kept.
+**Rule.** A page is for reading unless it asks.
+It asks where its head carries `<meta name="armada-review" content="approve">`, or where the Job waits on a `document_approved` gate: its plan holds one open, or the workflow step it is on ends on one.
+Each revision Fleet keeps writes `asked` `"true"` or `"false"` in its artifact's `detail` by that test, with `revision`, the newest revision's number, and `kept_at`, when it was kept.
 It is read off the page Fleet kept, never off the Job's tool call.
-A page kept before this has no `asked` and asks nothing.
+A page kept before asking began has no `asked` and asks nothing.
+Why: on 12 Nov 2026 the owner could not tell whether his approval was needed on a status page the orchestrator revised all day, and it was not.
+
+**Rule.** A reading page's revision reaches the thread as its card with Open and notes, and no Approve.
+It is not in his Needs you, holds no plan, and an answer to it is refused: the page is for reading.
+His notes on it still reach the Job as numbered notes.
+
+**Rule.** Whether a page asks is decided when the revision is kept.
+A page written before its plan names a `document_approved` gate asks from its next revision.
 
 **Rule.** Until he answers, the page waits in his Needs you as `document:<path>` and the Job's row calls him ([Waiting on the person](session/waiting-on-the-person.md)).
 
@@ -80,9 +91,10 @@ A page sent back leaves the plan held.
 **Rule.** A page's title in a Job's sentence is a link that opens the page, ahead of a Job of the same name; a path in a sentence stays words.
 Why: a design plan's page takes its Job's name, and the name opened the Job it was already in.
 
-**Rule.** A new revision writes the detail afresh, so it drops `settled` and asks again, and lifts a dismissal; the same bytes written again ask nothing.
+**Rule.** A new revision writes the detail afresh, so it drops `settled` and asks again where the page asks, and lifts a dismissal; the same bytes written again ask nothing.
 
 **Rule.** A step can end on it: `document_approved` in a workflow's `ends_on` holds once he approves the newest revision of any page the Job holds, a page handed to it included.
+While the Job is on such a step, every page it writes asks, marked or not.
 
 ## A Job that takes another's place
 
