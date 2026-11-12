@@ -201,6 +201,8 @@ pub(super) struct Popup {
 
 pub(super) struct Composer {
     pub input: Entity<TextareaState>,
+    /// The box's frame, so the keys can tell whether the box was drawn.
+    pub frame: FocusHandle,
     drafts: Drafts,
     /// The box is being set to a draft, which is not the person typing.
     pub setting: bool,
@@ -254,6 +256,7 @@ pub(super) fn build(remember: bool, window: &mut Window, cx: &mut Context<JobVie
     subs.push(cx.observe_window_bounds(window, |this, window, cx| this.fit_box(window, cx)));
     let composer = Composer {
         input,
+        frame: cx.focus_handle(),
         drafts: Drafts::read(remember),
         setting: false,
         keeping: None,
@@ -1324,6 +1327,7 @@ impl JobView {
                     .child(labelled(
                         div()
                             .id("message-box")
+                            .track_focus(&self.composer.frame)
                             .relative()
                             .on_drop(cx.listener(|this, paths: &ExternalPaths, _, cx| this.take_paths(paths.paths().to_vec(), cx)))
                             .flex()

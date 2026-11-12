@@ -411,6 +411,14 @@ impl JobView {
             let on = window.is_window_active().then(|| this.shown.clone()).flatten();
             this.visit(on, cx);
         }));
+        // A press that takes away the thing the keys were on leaves them on nothing drawn, where no
+        // key reaches anything: they go to the message box, where a zone did not take them first.
+        subscriptions.push(cx.on_focus_lost(window, |this, window, cx| {
+            let keys = gpui::Focusable::focus_handle(this.composer.input.read(cx), cx);
+            if this.composer.frame.contains(&keys, window) {
+                window.focus(&keys, cx);
+            }
+        }));
         subscriptions.push(cx.on_release(|this, cx| {
             if let Some(job) = this.visiting.take() {
                 let port = this.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port());
