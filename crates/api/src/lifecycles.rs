@@ -34,6 +34,32 @@ pub(crate) async fn list_lifecycle_rules<D: Lifecycles>(
     }
 }
 
+/// `?workflow=` and `?scope=` on `get_workflow_lanes`, beside `?manifest_id=`.
+#[derive(Deserialize)]
+pub(crate) struct WorkflowLanesAsked {
+    workflow: String,
+    #[serde(default)]
+    scope: Option<String>,
+    #[serde(default)]
+    manifest_id: Option<String>,
+}
+
+/// A workflow's lanes as its editor draws them. A 422 where the repository runs no such workflow,
+/// or `scope` names a level not served yet.
+pub(crate) async fn get_workflow_lanes<D: Lifecycles>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<WorkflowLanesAsked>,
+) -> Response {
+    match served
+        .daemon()
+        .get_workflow_lanes(asked.workflow, asked.scope, asked.manifest_id.map(ipc::ManifestId::carried))
+        .await
+    {
+        Ok(lanes) => answer(StatusCode::OK, &lanes, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The autonomy defaults that apply to one repository, layer by layer.
 pub(crate) async fn list_autonomy_defaults<D: Lifecycles>(
     State(served): State<Served<D>>,

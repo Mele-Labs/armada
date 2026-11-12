@@ -3,7 +3,7 @@
 
 use std::borrow::Cow;
 
-use core_model::{LifecycleEnd, StepEnd, Waits};
+use core_model::{LifecycleEnd, StepEnd, StepGate, Waits};
 use ipc::WaitingSource;
 
 use crate::rail::{Fit, RailStep};
@@ -29,6 +29,10 @@ pub(crate) enum End {
     Checked,
     Committed,
     PrOpened,
+    /// Fleet's own Checks pass at the pushed commit, as a `checks_green` gate reads it.
+    ChecksGreen,
+    /// Every Job this Job started merged or ended, as a `jobs_ended` gate reads it.
+    JobsEnded,
     /// Instances of a lifecycle the Job holds reach a state. The world's to bring about, and Fleet
     /// reads it: neither the Job's act nor the person's.
     Lifecycle(LifecycleEnd),
@@ -78,6 +82,8 @@ impl End {
             End::Checked => "a Check is run".into(),
             End::Committed => "a commit is made".into(),
             End::PrOpened => "a pull request is opened".into(),
+            End::ChecksGreen => "its Checks pass".into(),
+            End::JobsEnded => "every Job it started ends".into(),
         }
     }
 
@@ -86,7 +92,7 @@ impl End {
     /// what the Job showed or said, never off the agent's `waiting_for`.
     pub(crate) fn waits_on(&self) -> Waiter {
         match self {
-            End::Lifecycle(_) => Waiter::TheWorld,
+            End::Lifecycle(_) | End::ChecksGreen | End::JobsEnded => Waiter::TheWorld,
             // His Approve on the pull request is a forge's; the merge itself is the queue's, never his.
             End::Merged => Waiter::TheMerge,
             End::PlanApproved => Waiter::ThePerson(WaitingSource::Plan),
@@ -130,6 +136,21 @@ impl End {
             StepEnd::Lifecycle(end) => End::Lifecycle(end.clone()),
         }
     }
+
+    /// What a step's declared `gate` ends it on. `None` for no gate, and for `you_approved`, which
+    /// `rail::ends_on_of` already lists so the rail holds the step on it.
+    fn gated(gate: StepGate) -> Option<End> {
+        match gate {
+            StepGate::PlanApproved => Some(End::PlanApproved),
+            StepGate::WalkApproved => Some(End::AnyWalkApproved),
+            StepGate::SketchApproved => Some(End::SketchApproved),
+            StepGate::DocumentApproved => Some(End::DocumentApproved),
+            StepGate::ChecksGreen => Some(End::ChecksGreen),
+            StepGate::Merged => Some(End::Merged),
+            StepGate::JobsEnded => Some(End::JobsEnded),
+            StepGate::YouApproved | StepGate::None => None,
+        }
+    }
 }
 
 /// What a delivering step's lifecycle ends gate the merge on, to the person: `every pr is approved`, and
@@ -156,7 +177,13 @@ pub(crate) fn ends_of(steps: &[RailStep], at: usize) -> Vec<End> {
     if step.walks {
         return vec![End::WalkApproved];
     }
-    if step.has_lifecycle_end() || step.ends_on.contains(&StepEnd::YouApproved) {
+    // The declared gate before any guess from the step after it: a step gated `plan_approved` ends
+    // on his Approve whether or not it says `records_plan`.
+    if let Some(gated) = End::gated(step.gate) {
+        let listed = step.ends_on.iter().map(End::listed).filter(|end| *end != gated);
+        return std::iter::once(gated.clone()).chain(listed).collect();
+    }
+    if step.holds() {
         return step.ends_on.iter().map(End::listed).collect();
     }
     if steps.iter().position(|one| one.records_plan).is_some_and(|recording| at < recording) {

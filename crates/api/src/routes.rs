@@ -121,6 +121,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::repositories::get_workflow_steps::<D>),
         )
         .route(
+            "/workflows/lanes",
+            get(crate::lifecycles::get_workflow_lanes::<D>),
+        )
+        .route(
             "/workflows/save",
             post(crate::repositories::save_workflow::<D>),
         )
