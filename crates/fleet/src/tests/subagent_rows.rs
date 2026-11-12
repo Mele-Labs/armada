@@ -288,7 +288,7 @@ async fn a_subagent_stopped_without_a_stop_event_settles() {
     .await;
     let [(settled_row, Some(subagent))] = &rows[..] else { panic!("one Agent row carrying its subagent: {rows:?}") };
     assert_eq!(settled_row, &row, "the same row, put again");
-    assert_eq!(subagent.state, ToolSubagentState::Finished, "read off its transcript, as get_session_subagent reads it");
+    assert_eq!(subagent.state, ToolSubagentState::CutOff, "it ended on the interrupt line, a stop and not a hand-back");
     assert!(subagent.ended.is_some());
     assert_eq!(subagent.report, None, "a stop ended it before it reported");
 

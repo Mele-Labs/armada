@@ -346,9 +346,9 @@ where
     }
 
     /// **The parent's turn is over, so a subagent row still `running` whose own transcript ended is
-    /// settled finished.** A subagent its parent stopped with `TaskStop` ends on the CLI's interrupt line
-    /// and no `SubagentStop` follows, and the turn's end settles its attachment without a row
-    /// (`readiness::turn_ended`): the row stood running for good (12 Nov 2026).
+    /// settled: cut off where it ended on the interrupt line, finished otherwise.** A subagent its parent
+    /// stopped with `TaskStop` ends on that line and no `SubagentStop` follows, and the turn's end settles
+    /// its attachment without a row (`readiness::turn_ended`): the row stood running for good (12 Nov 2026).
     pub(crate) async fn subagents_stopped(&self, id: &str) {
         let Ok(rows) = self.rows_of(id).await else { return };
         let running: Vec<String> = rows
@@ -368,12 +368,20 @@ where
             running
                 .into_iter()
                 .filter(|target| adapters::terminal_thread::subagent_ended(&home, &session, target))
+                .map(|target| {
+                    let state = if adapters::terminal_thread::subagent_cut_off(&home, &session, &target) {
+                        ToolSubagentState::CutOff
+                    } else {
+                        ToolSubagentState::Finished
+                    };
+                    (target, state)
+                })
                 .collect::<Vec<_>>()
         })
         .await
         .unwrap_or_default();
-        for target in ended {
-            self.subagent_settled(id, &target, ToolSubagentState::Finished).await;
+        for (target, state) in ended {
+            self.subagent_settled(id, &target, state).await;
         }
     }
 
