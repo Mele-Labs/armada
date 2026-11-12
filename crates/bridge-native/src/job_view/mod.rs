@@ -71,6 +71,7 @@ mod pr_panel;
 mod report_brief;
 mod side;
 mod spine;
+mod start_card;
 mod workflow;
 mod tabs;
 mod view_tabs;
@@ -310,6 +311,8 @@ pub struct JobView {
     pages: HashMap<SharedString, Page>,
     head: head::Head,
     composer: composer::Composer,
+    /// What a person has settled on a held Job's start card that Fleet has not answered.
+    starts: start_card::Starts,
     /// Every stamp in the thread reads as an age, not a clock (a press flips them all).
     aged: bool,
     /// How Done lists what was made, for the run.
@@ -497,6 +500,7 @@ impl JobView {
             compact_refused: HashMap::new(),
             pages: HashMap::new(),
             head: head::Head::new(cx),
+            starts: start_card::Starts::default(),
             composer,
             aged: false,
             ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },

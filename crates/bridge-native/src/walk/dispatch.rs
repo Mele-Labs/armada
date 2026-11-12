@@ -43,7 +43,7 @@ pub static STEPS: [Step; 35] = [
 ];
 
 /// The start flow: a start he makes himself runs at once, and Draft is the one way it is held on its start card.
-pub static START_FLOW: [Step; 11] = [
+pub static START_FLOW: [Step; 12] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("Typing reads the repository: the mark turns to a spinner", Verb::Typed("Fix the flaky login test in sample-api"), "img", "Repository, finding"),
     answer("Fleet found sample-api in the words: the picker names it", "found", "combobox", "Repository sample-api"),
@@ -54,5 +54,6 @@ pub static START_FLOW: [Step; 11] = [
     step("The words and the repository are read as before", Verb::Typed("Retry the webhook sender on a 503 in sample-api"), "img", "Repository, finding"),
     answer("Fleet found sample-api in the words", "found", "combobox", "Repository sample-api"),
     press_on("Draft holds the start: the button turns to Drafting and Start waits", "button", "Draft", "button", "Drafting"),
-    answer("Fleet took it: the Job opens held on its start card, and nothing runs until Start is pressed there", "answer-draft", "row", "Retry the webhook sender on a 503 in sample-api"),
+    answer("Fleet took it: the Job opens held on its start card. Its first message is in the box, Workflow and Delivery are set, and Send reads Start", "answer-draft", "combobox", "Workflow"),
+    press_on("Start begins the agent: the card goes and Send is Send again", "button", "Start", "button", "Send"),
 ];

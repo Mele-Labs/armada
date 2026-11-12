@@ -803,6 +803,44 @@ impl JobsList {
         };
         let id = if held { "drafted-from-sheet" } else { "started-from-sheet" };
         self.hold_new(id.to_string(), title, repository, Some(mark), cx);
+        if held {
+            self.hold_on_card(id, words, cx);
+        }
+    }
+
+    /// The Job held on its start card, as Fleet's record carries one: the first message, the proposer's read workflow and the usual landing.
+    fn hold_on_card(&mut self, id: &str, words: &str, cx: &mut Context<Self>) {
+        let hosted = self.jobs.iter().find_map(|job| job.hosted.clone());
+        let Some(job) = self.jobs.iter_mut().find(|job| job.id.as_str() == id) else { return };
+        job.hosted = hosted.map(|mut hosted| {
+            hosted.turn = ipc::SessionTurn::Idle;
+            hosted.asked = None;
+            hosted.paused = None;
+            hosted.start_failed = None;
+            hosted.running = false;
+            hosted.start = Some(ipc::StartHeld {
+                asks_delivery: true,
+                picked: Some(ipc::DeliveryPicked { choice: ipc::DeliveryChoice::AutoLand, from: ipc::DeliveryPickedFrom::Usual }),
+                message: Some(words.to_string()),
+                queued: false,
+            });
+            hosted
+        });
+        job.workflow = Some("feature".into());
+        job.proposal = Some(ipc::SessionProposal { reading: false, picked: vec![ipc::ProposedField::Workflow] });
+        self.relist(cx);
+        cx.notify();
+    }
+
+    /// A walk's stand-in for Fleet's yes to Start on a held Job: the card goes and the Job is working.
+    pub fn began(&mut self, id: &str, cx: &mut Context<Self>) {
+        let Some(job) = self.jobs.iter_mut().find(|job| job.id.as_str() == id) else { return };
+        if let Some(hosted) = job.hosted.as_mut() {
+            hosted.start = None;
+        }
+        job.mark = Some(ipc::JobMark { state: ipc::JobState::Working, lamp: ipc::JobLamp::Running, group: ipc::JobGroup::Working });
+        self.relist(cx);
+        cx.notify();
     }
 
     fn hold_new(&mut self, id: String, title: String, repository: &str, mark: Option<ipc::JobMark>, cx: &mut Context<Self>) {

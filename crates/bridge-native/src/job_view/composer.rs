@@ -397,7 +397,11 @@ impl JobView {
 
     /// The box takes the Job's own draft, and reads what the bar and the pickers need.
     pub(super) fn composer_enter(&mut self, to: Option<&SharedString>, window: &mut Window, cx: &mut Context<Self>) {
-        let kept = to.map(|id| self.composer.drafts.get(id)).unwrap_or_default();
+        let mut kept = to.map(|id| self.composer.drafts.get(id)).unwrap_or_default();
+        if let Some(id) = to {
+            // A held Job's first message is the box's first draft, once.
+            kept = self.seed_start(id, kept, cx);
+        }
         self.set_box(&kept, window, cx);
         if to.is_some() {
             self.want_models(cx);
@@ -514,6 +518,10 @@ impl JobView {
         let Some(id) = self.shown.clone() else { return };
         if self.closed(&id, cx) {
             return;
+        }
+        // A held Job's first send begins it: the box is the first message.
+        if self.held_card(&id, cx).is_some() {
+            return self.begin_start(window, cx);
         }
         let kept = self.kept(cx);
         if kept.text.trim().is_empty() && !self.composer.holds(&id) {
@@ -1034,7 +1042,7 @@ impl JobView {
     }
 
     /// Send, as the box's bar draws it: off while there is nothing to send.
-    pub(super) fn send_button(&self, nothing: bool, window: &Window, cx: &Context<Self>) -> gpui::AnyElement {
+    pub(super) fn send_button(&self, nothing: bool, said: &'static str, window: &Window, cx: &Context<Self>) -> gpui::AnyElement {
         let look = cx.look();
         let key_text = window.modifiers().platform;
         labelled(
@@ -1060,10 +1068,10 @@ impl JobView {
                         .on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))
                 })
                 .child(svg().path(icon_path("send")).size(look.length(token::SPACE_3)).text_color(if nothing { look.color(token::FG_SUBTLE) } else { look.color(token::TEXT_ON_ACCENT) }))
-                .child("Send")
+                .child(said)
                 .when(key_text, |button| button.child(div().text_color(look.color(token::TEXT_ON_ACCENT).opacity(0.7)).child("\u{2318}\u{21b5}"))),
             Role::Button,
-            "Send",
+            said,
         )
         .into_any_element()
     }
@@ -1245,7 +1253,13 @@ impl JobView {
         let (shown, tune_said) = trigger_name(offered, default, model.as_deref(), effort.as_deref());
         let (steps, lit) = effort_place(offered, default, model.as_deref(), effort.as_deref());
         let meter = (steps > 0).then(|| effort_meter(look, steps, lit).into_any_element());
-        let send = self.send_button(nothing, window, cx);
+        let card = self.held_card(id, cx);
+        // A held Job's Send reads Start, and works on an empty box where Fleet gave no first message.
+        let (nothing, said) = match &card {
+            Some(card) => ((kept_empty && !self.composer.holds(id) && card.has_message()) || card.starting(), "Start"),
+            None => (nothing, "Send"),
+        };
+        let send = self.send_button(nothing, said, window, cx);
         let attach = self.attach_button(look, cx);
         // The box, Needs you and the cards share one outer edge: the words' column and the bleed either side.
         let column = self.column(look) + super::bleed(look) * 2.;
@@ -1356,6 +1370,7 @@ impl JobView {
                             .when(needs.is_some(), |frame| frame.border_t(gpui::px(0.)))
                             .when(risen, |frame| frame.rounded_t(gpui::px(0.)))
                             .bg(look.color(token::BG_SUNKEN))
+                            .children(card.as_ref().map(|card| self.start_strip(card, look, cx)))
                             .children(needs)
                             .children(self.render_offer(look, cx))
                             .children(self.render_quick(id, look, window, cx))
