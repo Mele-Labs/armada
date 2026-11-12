@@ -49,6 +49,7 @@ pub struct CallDetail {
     whole: Option<String>,
     length: usize,
     description: Option<String>,
+    summary: Option<String>,
 }
 
 impl CallDetail {
@@ -90,6 +91,7 @@ impl CallDetail {
             },
             length: text.chars().count(),
             description: None,
+            summary: None,
         }
     }
 
@@ -106,6 +108,21 @@ impl CallDetail {
     /// What the call said it does, where it said.
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()
+    }
+
+    /// The one line a `SendMessage` call gave its message, its `summary`. Trimmed and cut at
+    /// [`DETAIL`]; one with nothing in it is none.
+    pub fn summarised(mut self, summary: Option<&str>) -> CallDetail {
+        self.summary = summary
+            .map(str::trim)
+            .filter(|words| !words.is_empty())
+            .map(|words| words.chars().take(DETAIL).collect());
+        self
+    }
+
+    /// The summary a message call gave, where it gave one.
+    pub fn summary(&self) -> Option<&str> {
+        self.summary.as_deref()
     }
 
     /// Nothing worth showing. A tool whose arguments this vocabulary has no
