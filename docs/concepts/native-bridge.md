@@ -118,8 +118,8 @@ The parity check takes each row here as chosen.
 | A Job's System tab: Columns | Hides Port, CPU, Memory and I/O | Hides Port alone: Fleet reports nothing else for each process |
 | A Job's System tab: a refused read | Placeholder shapes forever | A toast in Fleet's words; the shapes stop and the tab draws nothing until a later read succeeds |
 | A bay's panel: a confirm, a refusal or a receipt | Drawn where it falls, often out of sight in a short panel | Scrolled into view as it appears |
-| A walk's tab for a walk the Job never showed | An empty heading and a live Open | Draws nothing |
-| A draft's tab whose row has gone from the thread | A blank frame | Draws nothing: no frame and no words |
+| A walk the Job never showed | A tab with an empty heading and a live Open | No tab is made for it |
+| A draft whose row has gone from the thread | Its tab left standing as a blank frame | Its tab goes away and the next tab comes forward, as on a close; a press on it opens no tab |
 | A row in a Job's Checks pane | A press opens nothing, a fault | Opens the Check's panel, with its runs in this Job |
 | A judge note on a pull request with no line | Has nowhere to show | Stands at the top of Files, above the tree, in the line notes' look |
 | A judge note or review thread on a pull request's line | Between the diff's lines, at that line | Under the head of its file in Files, until the native diff draws line numbers |

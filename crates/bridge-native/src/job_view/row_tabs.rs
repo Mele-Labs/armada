@@ -4,9 +4,10 @@
 //! tab in front and pulses until he has had it in front (`WalkTabsSync`); one he closed is not opened
 //! again, and one settled takes its tab with it.
 //!
-//! **Departures (ruling (b), 11 Nov):** a walk native does not know draws nothing, where Classic draws
-//! an empty heading and a live Open; a draft whose row has gone draws nothing, where Classic draws a
-//! blank frame. Both follow "an empty slot stays empty".
+//! **Departures (ruling (b), 11 Nov):** a walk the Job never showed gets no tab, where Classic draws
+//! an empty heading and a live Open; a draft whose row has gone takes its tab away and the front moves
+//! as a closed tab's does, where Classic leaves a blank frame. A press on such a draft opens no tab.
+//! Both follow "an empty slot stays empty".
 //!
 //! Only a walk of a native screen (`armada://walk/`) has a tab here: a web page's walk waits for the
 //! embedded browser.
@@ -26,7 +27,7 @@ use crate::look::{token, Look};
 const NATIVE_WALK: &str = "armada://walk/";
 
 /// What a tab beside the thread holds.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub(super) enum RowKind {
     Draft,
     Document,
@@ -118,18 +119,22 @@ impl RowTabs {
         }
     }
 
+    /// Every tab `stays` refuses goes, as its × would take it.
+    fn keep(&mut self, stays: impl Fn(&RowTab) -> bool) {
+        let mut at = 0;
+        while at < self.tabs.len() {
+            if stays(&self.tabs[at]) {
+                at += 1;
+            } else {
+                self.close(at);
+            }
+        }
+    }
+
     /// The walks owed now, each with its name: a settled walk takes its tab with it, and one owed for
     /// the first time arrives behind the tab in front. True where a walk arrived.
     fn sync_walks(&mut self, owed: &[(String, String)]) -> bool {
-        let mut at = 0;
-        while at < self.tabs.len() {
-            let tab = &self.tabs[at];
-            if tab.kind == RowKind::Walk && !owed.iter().any(|(url, _)| *url == tab.key) {
-                self.close(at);
-            } else {
-                at += 1;
-            }
-        }
+        self.keep(|tab| tab.kind != RowKind::Walk || owed.iter().any(|(url, _)| *url == tab.key));
         let mut arrived = false;
         for (url, title) in owed {
             if self.arrived.insert(url.clone()) && self.at(RowKind::Walk, url).is_none() {
@@ -183,14 +188,17 @@ impl JobView {
         tabs.front.and_then(|at| tabs.tabs.get(at))
     }
 
-    /// A draft's card as a tab named for the draft (`openDraftCard`).
+    /// A draft's card as a tab named for the draft (`openDraftCard`). A draft whose row has gone
+    /// opens no tab.
     pub(super) fn open_draft_tab(&mut self, row: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        let title = self.thread(&id, cx).and_then(|held| super::review::draft_row(&held.items, row)).and_then(|found| match found {
+        let Some(title) = self.thread(&id, cx).and_then(|held| super::review::draft_row(&held.items, row)).and_then(|found| match found {
             SessionRow::Draft { title, .. } => Some(title.clone()),
             _ => None,
-        });
-        self.row_tabs_of(&id).focus(RowKind::Draft, row, title.unwrap_or_else(|| RowKind::Draft.look().1.to_string()));
+        }) else {
+            return;
+        };
+        self.row_tabs_of(&id).focus(RowKind::Draft, row, title);
         self.keys_to_front(window, cx);
     }
 
@@ -202,11 +210,11 @@ impl JobView {
         }
     }
 
-    /// A page as a tab named for it (`focusDocument`).
+    /// A page as a tab named for it (`focusDocument`). A page whose card has gone opens no tab.
     pub(super) fn open_document_tab(&mut self, page: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        let title = self.thread(&id, cx).and_then(|held| super::review::document_card(&held.items, page)).map(|card| card.title.clone());
-        self.row_tabs_of(&id).focus(RowKind::Document, page, title.unwrap_or_else(|| RowKind::Document.look().1.to_string()));
+        let Some(title) = self.thread(&id, cx).and_then(|held| super::review::document_card(&held.items, page)).map(|card| card.title.clone()) else { return };
+        self.row_tabs_of(&id).focus(RowKind::Document, page, title);
         self.keys_to_front(window, cx);
     }
 
@@ -278,8 +286,23 @@ impl JobView {
     }
 
     /// The walks the shown Job owes him get their tabs; a closed thread comes back when one arrives
-    /// (`reopenThread`).
+    /// (`reopenThread`). A draft or page whose row has gone from the thread takes its tab away, as a
+    /// settled walk does.
     pub(super) fn sync_walk_tabs(&mut self, id: &SharedString, cx: &mut Context<Self>) {
+        if let Some(held) = self.thread(id, cx) {
+            let rows: HashSet<(RowKind, String)> = self.row_tabs.get(id).map_or_else(HashSet::new, |tabs| {
+                tabs.tabs
+                    .iter()
+                    .filter(|tab| match tab.kind {
+                        RowKind::Draft => super::review::draft_row(&held.items, &tab.key).is_some(),
+                        RowKind::Document => super::review::document_card(&held.items, &tab.key).is_some(),
+                        RowKind::Walk => true,
+                    })
+                    .map(|tab| (tab.kind, tab.key.clone()))
+                    .collect()
+            });
+            self.row_tabs_of(id).keep(|tab| rows.contains(&(tab.kind, tab.key.clone())));
+        }
         let Some(owed) = self.record(id, cx).map(owed_walks) else { return };
         if self.row_tabs_of(id).sync_walks(&owed) {
             self.reopen_thread(id);
@@ -394,9 +417,8 @@ impl JobView {
         let key = url.to_string();
         let said = match opened {
             Some(Opened::Open) => Some(labelled(div().id("walk-said").text_color(look.color(token::FG_MUTED)).child("Open in its own window"), Role::Status, "Open in its own window").into_any_element()),
-            Some(Opened::Refused(why)) => Some(
-                labelled(div().id("walk-said").flex_1().min_w_0().text_color(look.color(token::STATUS_COMPLETED_FAILED)).child(SharedString::from(why.clone())), Role::Alert, why).into_any_element(),
-            ),
+            // Classic's `job-walk__native-said` draws a refusal in the same muted words as an open.
+            Some(Opened::Refused(why)) => Some(labelled(div().id("walk-said").flex_1().min_w_0().text_color(look.color(token::FG_MUTED)).child(SharedString::from(why.clone())), Role::Alert, why).into_any_element()),
             _ => None,
         };
         let open = labelled(
@@ -411,6 +433,8 @@ impl JobView {
                 .id("walk-body")
                 .flex()
                 .flex_col()
+                .p(look.length(token::SPACE_2))
+                .max_w(look.length(token::SPACE_8) * 20.)
                 .gap(look.length(token::SPACE_3))
                 .child(
                     div()
@@ -481,6 +505,14 @@ mod tests {
         tabs.sync_walks(&owed);
         tabs.sync_walks(&[]);
         assert!(tabs.tabs.is_empty(), "settled");
+    }
+
+    #[test]
+    fn a_draft_whose_row_has_gone_takes_its_tab_and_the_next_comes_forward() {
+        let mut tabs = RowTabs { tabs: vec![tab(RowKind::Draft, "a"), tab(RowKind::Draft, "gone"), tab(RowKind::Walk, "w")], front: Some(1), ..Default::default() };
+        tabs.keep(|tab| tab.key != "gone");
+        assert_eq!(tabs.tabs.iter().map(|tab| tab.key.as_str()).collect::<Vec<_>>(), ["a", "w"]);
+        assert_eq!(tabs.front, Some(1));
     }
 
     #[test]

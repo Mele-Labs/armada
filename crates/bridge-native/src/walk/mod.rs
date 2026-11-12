@@ -401,7 +401,7 @@ pub static WALKS: &[Walk] = &[
             press_on("A Job that owes you a page and nothing else", "row", "Quiet the write-clash notices", "button", "Waiting on you: Stale branch design"),
             press_on("The page opens in its own tab, its card with Approve and Send back", "button", "Waiting on you: Stale branch design", "article", "Document: Stale branch design, Revision 2"),
             press_on("A draft whose row has gone from the thread", "row", "Audit the docs index", "button", "Waiting on you: Comment on #3301"),
-            press_on("Its tab opens named Draft and draws nothing: no frame and no words", "button", "Waiting on you: Comment on #3301", "tab", "Job tab: Draft"),
+            press_on("A press on it opens no tab: the thread stays in front", "button", "Waiting on you: Comment on #3301", "region", "Thread"),
         ],
     },
     Walk {
