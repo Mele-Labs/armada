@@ -159,6 +159,9 @@ pub enum Screen {
     Operator,
     /// The Jobs screen in front, inside the Operator's screen as the app holds it, so its toasts draw over it.
     JobsInApp,
+    /// The whole stack the app opens on Fleet: the dispatch screen and its notes layer over the
+    /// Operator's screen, with the Jobs screen and its threads in front.
+    App,
 }
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
@@ -2008,6 +2011,24 @@ pub static WALKS: &[Walk] = &[
             step("The line shows where it lands", Verb::Look, "img", "Lands here"),
             step("Let go: it stands there, and the list keeps the order", Verb::Release, "row", "Dark mode for the settings page"),
             step("Not drawn here yet, so their keys reach nothing: t, the timeline; e, the Field; b, the bays; q, the queue; f, flight control", Verb::Look, "row", "Dark mode for the settings page"),
+        ],
+    },
+    Walk {
+        name: "annotate-hover",
+        title: "Notes stay on under the pointer",
+        screen: Screen::App,
+        scenario: "job-view",
+        steps: &[
+            step("A press on a Job opens it", Verb::Press, "row", "Fix the merge line freshness chip"),
+            step("⌥⌘A turns annotating on", Verb::Key("alt-cmd-a"), "status", "Annotating"),
+            step("The pointer on a Jobs list row outlines it", Verb::Hover, "row", "Native Bridge foundation"),
+            step("Annotating stays on", Verb::Later(400), "status", "Annotating"),
+            step("The pointer on a tab of the Job's column", Verb::Hover, "tab", "Job column: Now"),
+            step("Annotating stays on", Verb::Later(400), "status", "Annotating"),
+            step("The pointer on a button with a tooltip", Verb::Hover, "button", "Needs you"),
+            step("Annotating stays on", Verb::Later(400), "status", "Annotating"),
+            step("The pointer on the thread", Verb::Hover, "region", "Thread"),
+            step("Annotating stays on", Verb::Later(400), "status", "Annotating"),
         ],
     },
 ];

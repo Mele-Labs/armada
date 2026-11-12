@@ -80,6 +80,20 @@ impl Stage {
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: held.into(), focus })
             }
+            Screen::App => {
+                super::strip_marks::leave(cx);
+                crate::titlebar::scenes::begin(cx);
+                let records = crate::mock::jobs(walk.scenario)?;
+                let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
+                let keys = list.read(cx).focus_handle().clone();
+                let threads = crate::mock::threads(walk.scenario)?;
+                let jobs = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
+                let held: gpui::AnyView = cx.new(|cx| crate::operator::OperatorScreen::mock_behind(jobs.clone(), window, cx)).into();
+                let screen = cx.new(|cx| crate::dispatch::DispatchScreen::new(jobs, &records, window, cx).over(held));
+                let focus = Focus { keys, within: screen.read(cx).within.clone() };
+                window.focus(&focus.keys, cx);
+                Ok(Stage { view: screen.into(), focus })
+            }
             Screen::Operator => {
                 super::strip_marks::leave(cx);
                 crate::titlebar::scenes::begin(cx);

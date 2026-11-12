@@ -19,13 +19,14 @@ fn repository_root(start: &Path) -> Option<PathBuf> {
 }
 
 /// The repository this Bridge writes its notes in. A kept build has none above it, so the tree it was
-/// built from is read from the `tree` line of its `build.toml`.
+/// built from is read from the `tree` line of its `build.toml`, which stands beside the executable, or
+/// beside the `.app` it is bundled in (`<build>/Armada.app/Contents/MacOS/Armada`).
 fn annotation_root(exe: &Path) -> Option<PathBuf> {
     let folder = exe.parent()?;
     if let Some(root) = repository_root(folder) {
         return Some(root);
     }
-    [folder.join("build.toml"), folder.join("..").join("build.toml")].iter().find_map(|record| {
+    folder.ancestors().take(4).map(|at| at.join("build.toml")).find_map(|record| {
         let record = fs::read_to_string(record).ok()?;
         let line = record.lines().find_map(|line| line.strip_prefix("tree = "))?;
         let tree: String = ipc::decode("the build record's tree", line.as_bytes()).ok()?;
