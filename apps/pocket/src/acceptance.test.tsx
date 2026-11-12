@@ -392,7 +392,11 @@ describe("Pocket v2 with two Macs", {
     ]);
     // One repository is left, so no heading stands over it.
     expect(host.querySelectorAll("h2")).toHaveLength(0);
-    expect(jobs().map((one) => one.textContent).join()).not.toContain("laptop");
+    expect(
+      jobs()
+        .map((one) => one.textContent)
+        .join(),
+    ).not.toContain("laptop");
     const unpaired = rows("Macs");
     expect(unpaired.join()).toContain("laptop");
     expect(button("Pair again")).toBeTruthy();
@@ -609,7 +613,9 @@ describe("the phone draws as Bridge does", {
     await open("/");
     await vi.waitFor(() => expect(job("Trim the Drone pool tests")).not.toBeNull());
     await press(
-      job("Trim the Drone pool tests")!.closest("li")!.querySelector('button[aria-label="End job"]'),
+      job("Trim the Drone pool tests")!
+        .closest("li")!
+        .querySelector('button[aria-label="End job"]'),
     );
     await vi.waitFor(() =>
       expect(posted[STUDIO]).toEqual([
