@@ -11,9 +11,8 @@
 //! in the reading layer, which waits on Chrome; a finished group unfolds to its tasks on a press, as
 //! Open's groups do, where Classic lists every group's tasks with Whole plan.
 //!
-//! Still owed: a workflow's finished steps (`StepBeat`), which arrive with the workflow group; the mods
-//! a Job made, which Fleet does not serve; the report row with its conclusion; the lanes of a stack of
-//! pull requests.
+//! Still owed: a workflow's finished steps (`StepBeat`), which arrive with the workflow group; the
+//! first lines of a report's conclusion, since Fleet serves no file's text.
 
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -25,7 +24,7 @@ use ipc::{AttachmentState, FleetAct, FleetActState, JobState, PlanTaskState, Ses
 use super::head::act_button;
 use super::issues::{issue_of, job_card, IssueItem};
 use super::ledger::{artifact_line, commit_of, Line, Opens};
-use super::pulls::{pull_line, pull_of, Pull, PullState};
+use super::pulls::{pull_line, pull_of, stacked_rows, Lane, Pull, PullState};
 use super::rows::{age, glyph, tip, Size};
 use super::side::Stands;
 use super::JobView;
@@ -97,6 +96,10 @@ enum Shape {
     Pull(Pull),
     Job(String),
     Fleet(FleetAct),
+    /// The mods a Mod Job made, one block (`ModsMade`).
+    Mods,
+    /// The report a workflow that lands in one wrote (`Report`, `LandingPanel.tsx`).
+    Report(Line),
 }
 
 /// One thing the Job made, with the plan group whose issue or pull request it is, and when it was
@@ -185,8 +188,16 @@ impl JobView {
 
         // A page whose newest revision waits on his answer is still being made: it stands in Now.
         let waits = |page: &str| record.waiting_for.iter().any(|one| one.source == WaitingSource::Document && one.id.strip_prefix("document:") == Some(page));
+        let page_of = |one: &ipc::Attachment| one.detail.get("page").cloned().unwrap_or_else(|| one.target.clone());
+        // A workflow that lands in a report draws its first doc, else its first file, as the report (`reportOf`).
+        let report = (self.work(record, cx).lands == Some(ipc::Lands::Report))
+            .then(|| of_form(&["doc", "document"]).into_iter().chain(of_form(&["file"])).next())
+            .flatten()
+            .filter(|one| !waits(&page_of(one)))
+            .map(|one| one.target.clone());
+        let is_report = |one: &ipc::Attachment| report.as_deref() == Some(one.target.as_str());
         for one in of_form(&["doc", "document"]) {
-            let page = one.detail.get("page").cloned().unwrap_or_else(|| one.target.clone());
+            let page = page_of(one);
             if waits(&page) {
                 continue;
             }
@@ -194,7 +205,11 @@ impl JobView {
             if thread.is_some_and(|held| super::review::document_card(&held.items, &page).is_some()) {
                 line.opens = Some(Rc::new(move |this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| this.open_document_tab(&page, window, cx)));
             }
-            row(&mut out, Bucket::Document, line);
+            let shape = if is_report(one) { Shape::Report(line) } else { Shape::Row(line) };
+            out.push(Made { bucket: Bucket::Document, group: None, shape, time: None });
+        }
+        if let Some(one) = of_form(&["file"]).into_iter().find(|one| is_report(one)) {
+            out.push(Made { bucket: Bucket::Document, group: None, shape: Shape::Report(artifact_line(one, "file")), time: None });
         }
 
         // A sketch opens its drawing where the thread holds its card; the plan's own stands as the plan.
@@ -216,7 +231,7 @@ impl JobView {
         }
         // Only what the Job wrote as a thing to open: an edit is the commits' and pull requests'.
         for one in of_form(&["file", "image"]) {
-            if !scratch(&one.target) {
+            if !scratch(&one.target) && !is_report(one) {
                 row(&mut out, Bucket::Artifact, artifact_line(one, "file"));
             }
         }
@@ -239,6 +254,10 @@ impl JobView {
             if !walks[at + 1..].iter().any(|(_, later, _)| later == title) {
                 out.push(Made { bucket: Bucket::Artifact, group: None, shape: Shape::Row(Line { key: format!("walk:{id}"), kind: "page", glyph: "footprints", said: "Walk approved", title: (*title).clone(), ..Line::default() }), time: Some(ended.clone()) });
             }
+        }
+
+        if !self.mods_made(id, cx).is_empty() {
+            out.push(Made { bucket: Bucket::Artifact, group: None, shape: Shape::Mods, time: None });
         }
 
         // An issue is done once it closes and a pull request once it merges; until then they stand in Open.
@@ -534,7 +553,7 @@ impl JobView {
         let mut pulls: Vec<Pull> = shown.iter().filter_map(|one| if let Shape::Pull(pull) = &one.shape { Some(pull.clone()) } else { None }).collect();
         pulls.sort_by_key(|pull| pull.number);
         let mut stack = (!pulls.is_empty()).then(|| {
-            let rows = pulls.into_iter().map(|pull| self.pull_row(pull_line(pull.clone()), pull, "pull_request", look, cx));
+            let rows = stacked_rows(pulls).into_iter().map(|(pull, lane)| stacked(self.pull_row(pull_line(pull.clone()), pull, "pull_request", look, cx), lane, look));
             labelled(div().id(SharedString::from(format!("made-pulls:{key}"))).flex().flex_col().children(rows), Role::List, "Pull requests").into_any_element()
         });
         let mut rows: Vec<AnyElement> = Vec::new();
@@ -545,6 +564,8 @@ impl JobView {
                 Shape::Issue(item) => rows.push(self.issue_row(item, look, cx)),
                 Shape::Job(child) => rows.extend(self.record(&child, cx).map(|job| job_card(job, look, cx))),
                 Shape::Fleet(act) => rows.push(fleet_made(act, look)),
+                Shape::Mods => rows.extend(self.shown.as_ref().and_then(|job| self.mods_made_rows(job, look, cx))),
+                Shape::Report(line) => rows.push(report_card(line, look, cx)),
             }
         }
         let (before, after) = if newest_last { (more, None) } else { (None, more) };
@@ -594,6 +615,63 @@ impl JobView {
             .when_some(opens, |row, opens| row.cursor_pointer().tab_index(0).focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT))).hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(cx.listener(move |this, _, window, cx| opens(this, window, cx))));
         labelled(row, Role::Button, line.title).into_any_element()
     }
+}
+
+/// The report the Job wrote (`Report`, `LandingPanel.tsx`; `.sv-landing__report`, `story.css`): the
+/// report mark and its title in a card edged in the report hue; a press opens it where it opens. The
+/// first lines of its conclusion are owed: Fleet serves no file's text.
+fn report_card(line: Line, look: &Look, cx: &Context<JobView>) -> AnyElement {
+    let hue = look.color(token::STATUS_REJECTED);
+    let raised = look.color(token::BG_RAISED);
+    let (ground, over) = (super::lanes::mix(hue, raised, 0.08), super::lanes::mix(hue, raised, 0.14));
+    let opens = line.opens.clone();
+    let head = div()
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .text_color(look.color(token::FG_DEFAULT))
+        .text_size(look.length(token::TEXT_SM))
+        .line_height(look.length(token::LEADING_SM))
+        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+        .child(labelled(div().id(SharedString::from(format!("report-mark:{}", line.key))).flex_none().flex().items_center().tooltip(tip("Report")).child(glyph(look, line.glyph, Size::Small, hue)), Role::Image, "Report"))
+        .child(div().min_w_0().truncate().child(SharedString::from(line.title.clone())));
+    let card = div()
+        .id(SharedString::from(format!("report:{}", line.key)))
+        .relative()
+        .overflow_hidden()
+        .flex()
+        .flex_col()
+        .gap(look.length(token::SPACE_1))
+        .w_full()
+        .py(look.length(token::SPACE_2))
+        .px(look.length(token::SPACE_3))
+        .border_1()
+        .border_color(super::lanes::mix(hue, look.color(token::BORDER_SUBTLE), 0.4))
+        .rounded(look.length(token::RADIUS_MD))
+        .bg(ground)
+        .text_color(look.color(token::FG_MUTED))
+        .child(div().absolute().left_0().top_0().bottom_0().w(gpui::px(3.)).bg(hue))
+        .child(head)
+        .when_some(opens, |card, opens| {
+            card.cursor_pointer().tab_index(0).focus_visible(|style| style.border_color(look.color(token::ACCENT))).hover(move |style| style.bg(over)).on_click(cx.listener(move |this, _, window, cx| opens(this, window, cx)))
+        });
+    labelled(card, Role::Button, line.title).into_any_element()
+}
+
+/// A row of a stack beside its lane (`.sv-stack-item`, `ledger-row.css`): the root stands flush left and
+/// the line starts under it; a row stacked on it is drawn in from the lane, which ends at its tick on the
+/// last. The lane's measures are Classic's own pixels.
+fn stacked(row: AnyElement, lane: Option<Lane>, look: &Look) -> AnyElement {
+    let Some(lane) = lane else { return row };
+    let ink = look.color(token::FG_SUBTLE);
+    let (mid, stroke, tick) = (gpui::px(14.), gpui::px(2.), gpui::px(22.));
+    if lane.first {
+        return div().relative().child(row).child(div().absolute().left(mid).bottom_0().w(stroke).h(look.length(token::SPACE_1)).bg(ink)).into_any_element();
+    }
+    let down = div().absolute().left(mid).top_0().w(stroke).bg(ink);
+    let down = if lane.last { down.h(tick) } else { down.bottom_0() };
+    let gutter = div().relative().flex_none().w(mid * 2.).child(down).child(div().absolute().left(mid).top(tick).w(mid).h(stroke).bg(ink));
+    div().flex().items_stretch().child(gutter).child(div().flex_1().min_w_0().child(row)).into_any_element()
 }
 
 /// What Fleet did for the Job (`FleetMade`): the server glyph, Fleet's words with why as their

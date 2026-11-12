@@ -49,6 +49,12 @@ pub(super) struct Pull {
     pub manifest: Option<String>,
     /// The Job it came from, where that is not the Job whose list this is.
     pub from: Option<String>,
+    /// The branch it is based on, where Fleet read it.
+    pub base: Option<String>,
+    /// A stack's root that has children: the branch it is based on, drawn as a muted word (`rootBase`).
+    pub root_base: Option<String>,
+    /// The number of the pull request it is stacked on, where that is not the row above (`chip`).
+    pub stacked_on: Option<u64>,
 }
 
 /// An act that moves a pull request on, and the route Fleet takes it at (`PRESS_ROUTE`).
@@ -101,7 +107,81 @@ pub(super) fn pull_of(record: &ipc::SessionRecord, one: &ipc::Attachment, from: 
         job: record.id.as_str().to_string(),
         manifest: record.manifest_id.as_ref().map(|id| id.as_str().to_string()),
         from,
+        base: detail("base").filter(|base| !base.is_empty()).map(str::to_string),
+        root_base: None,
+        stacked_on: None,
     })
+}
+
+/// Where a stacked row's lane starts and ends (`StackRow.lane`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) struct Lane {
+    pub first: bool,
+    pub last: bool,
+}
+
+/// Pull requests in the order a person reads them, a stack parent first (`stackedRows`, `pull-stacks.ts`).
+/// `pulls` come oldest first. A pull request is stacked where its base is another open pull request's
+/// branch; a merged parent has been retargeted by the forge, so its children stand alone. Roots and
+/// unstacked pull requests keep newest first; children follow their parent depth-first, lowest number
+/// first. A stack of one draws no lane.
+pub(super) fn stacked_rows(pulls: Vec<Pull>) -> Vec<(Pull, Option<Lane>)> {
+    let parents: Vec<Option<usize>> = (0..pulls.len())
+        .map(|at| {
+            let base = pulls[at].base.as_deref()?;
+            (0..pulls.len()).find(|&other| other != at && pulls[other].state != PullState::Merged && !pulls[other].branch.is_empty() && pulls[other].branch == base)
+        })
+        .collect();
+    let mut children: Vec<Vec<usize>> = vec![Vec::new(); pulls.len()];
+    for (at, parent) in parents.iter().enumerate() {
+        if let Some(parent) = parent {
+            children[*parent].push(at);
+        }
+    }
+    for kids in &mut children {
+        kids.sort_by_key(|&kid| pulls[kid].number);
+    }
+    fn walk(at: usize, parent: Option<usize>, children: &[Vec<usize>], seen: &mut [bool], rows: &mut Vec<(usize, Option<usize>)>) {
+        seen[at] = true;
+        rows.push((at, parent));
+        for &kid in &children[at] {
+            if !seen[kid] {
+                walk(kid, Some(at), children, seen, rows);
+            }
+        }
+    }
+    let mut seen = vec![false; pulls.len()];
+    let mut order: Vec<(usize, Option<Lane>, Option<String>, Option<u64>)> = Vec::new();
+    for at in (0..pulls.len()).rev() {
+        if parents[at].is_some() || seen[at] {
+            continue;
+        }
+        let mut stack = Vec::new();
+        walk(at, None, &children, &mut seen, &mut stack);
+        let many = stack.len() > 1;
+        for (ix, &(one, parent)) in stack.iter().enumerate() {
+            let lane = many.then_some(Lane { first: ix == 0, last: ix == stack.len() - 1 });
+            let root_base = (parent.is_none() && !children[one].is_empty()).then(|| pulls[one].base.clone()).flatten();
+            let above = ix.checked_sub(1).map(|up| stack[up].0);
+            let chip = parent.filter(|&parent| Some(parent) != above).map(|parent| pulls[parent].number);
+            order.push((one, lane, root_base, chip));
+        }
+    }
+    // Pull requests each on the other have no root: they stand alone.
+    for at in (0..pulls.len()).rev() {
+        if !seen[at] {
+            order.push((at, None, None, None));
+        }
+    }
+    order
+        .into_iter()
+        .map(|(at, lane, root_base, chip)| {
+            let mut pull = pulls[at].clone();
+            pull.root_base = root_base;
+            pull.stacked_on = chip;
+            (pull, lane)
+        })
+        .collect()
 }
 
 /// A pull request's Checks in words, the tooltip on its Checks mark (`checksSaid`).
@@ -241,6 +321,29 @@ impl JobView {
                     gpui::HighlightStyle { color: Some(hue), font_weight: Some(FontWeight(look.number(token::WEIGHT_HEADING))), ..Default::default() },
                 )]),
             );
+        // A root with children says what it is based on; a row whose parent is not above names it.
+        let based = pull.root_base.clone().map(|base| div().flex_none().px(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).bg(look.color(token::FG_MUTED).opacity(0.14)).child(SharedString::from(format!("base: {base}"))));
+        let on = pull.stacked_on.map(|parent| {
+            let said = format!("Stacked on pull request #{parent}");
+            let accent = look.color(token::ACCENT);
+            labelled(
+                div()
+                    .id(SharedString::from(format!("pull-on:{key}")))
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_1))
+                    .px(look.length(token::SPACE_1))
+                    .rounded(look.length(token::RADIUS_SM))
+                    .bg(accent.opacity(0.14))
+                    .text_color(accent)
+                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                    .child(glyph(look, "link", Size::Small, accent))
+                    .child(SharedString::from(format!("on #{parent}"))),
+                Role::Link,
+                said,
+            )
+        });
         let from = pull.from.clone().map(|from| div().flex_none().px(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).bg(look.color(token::FG_MUTED).opacity(0.14)).child(SharedString::from(from)));
         let branch = (!pull.branch.is_empty()).then(|| {
             div().min_w_0().truncate().px(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).bg(look.color(token::FG_DEFAULT).opacity(0.08)).font_family(mono(look)).child(SharedString::from(pull.branch.clone()))
@@ -274,6 +377,8 @@ impl JobView {
                         .line_height(look.length(token::LEADING_2XS))
                         .text_color(look.color(token::FG_MUTED))
                         .whitespace_nowrap()
+                        .children(based)
+                        .children(on)
                         .children(from)
                         .children(branch)
                         .child(checks)
@@ -441,7 +546,7 @@ mod tests {
     use super::*;
 
     fn pull(state: PullState, checks: PullChecks, auto: bool, queued: bool) -> Pull {
-        Pull { number: 7, title: String::new(), branch: String::new(), address: String::new(), state, checks, failing: String::new(), auto, queued, job: "j".into(), manifest: None, from: None }
+        Pull { number: 7, title: String::new(), branch: String::new(), address: String::new(), state, checks, failing: String::new(), auto, queued, job: "j".into(), manifest: None, from: None, base: None, root_base: None, stacked_on: None }
     }
 
     #[test]

@@ -9,9 +9,8 @@
 //! asked question and so draws it twice. A finished task of the agent's own list is not listed (his
 //! word, 10 Nov).
 //!
-//! Owed: the workflow's step rows and the landings a workflow names (findings, a document, a report),
-//! which arrive with the workflow pane; a mod's route, whose mods Fleet does not serve; the live page,
-//! which Fleet serves no frame for; and the helpers of a plan that ends on gates, which arrive with the
+//! Owed: the workflow's step rows, which arrive with the workflow pane; the live page, which Fleet
+//! serves no frame for; and the helpers of a plan that ends on gates, which arrive with the
 //! plan's gates.
 
 use chrono::{DateTime, Local};
@@ -92,6 +91,46 @@ pub(super) fn route_of(record: &SessionRecord) -> Vec<Step> {
     };
     let main = if merged { PlanTaskState::Done } else { PlanTaskState::Open };
     [("Pull request", pull), ("ci", ci), ("Merge queue", queue), ("main", main)].into_iter().map(|(label, state)| Step { label, state }).collect()
+}
+
+impl JobView {
+    /// A Mod Job's route (`routeOf`, kind `mod`): the mod made, its last Check, and one of its mods on.
+    pub(super) fn mod_route(&self, job: &SessionRecord, cx: &gpui::App) -> Vec<Step> {
+        let made = self.mods_made(job.id.as_str(), cx);
+        let check = match self.check_rows(job.id.as_str(), cx).first() {
+            Some(SessionRow::Check { state: ipc::SessionCheckState::Running, .. }) => PlanTaskState::Working,
+            Some(SessionRow::Check { state: ipc::SessionCheckState::Passed, .. }) => PlanTaskState::Done,
+            Some(SessionRow::Check { .. }) => PlanTaskState::Failed,
+            _ => PlanTaskState::Open,
+        };
+        let done = |yes: bool| if yes { PlanTaskState::Done } else { PlanTaskState::Open };
+        [("Mod", done(!made.is_empty())), ("Check", check), ("On", done(made.iter().any(|one| one.enabled)))].into_iter().map(|(label, state)| Step { label, state }).collect()
+    }
+
+    /// The route the Job's landing takes (`routeOf`, kind `landingOf`): a Mod Job's, the findings of a
+    /// spike, a document or report and its reading, else a pull request's. A page waiting on his answer
+    /// is still being written.
+    pub(super) fn route(&self, job: &SessionRecord, cx: &gpui::App) -> Vec<Step> {
+        if job.r#mod {
+            return self.mod_route(job, cx);
+        }
+        let lands = self.work(job, cx).lands;
+        let forms: &[&str] = if lands == Some(ipc::Lands::Report) { &["doc", "document", "file"] } else { &["doc", "document"] };
+        let artifacts = || job.attachments.iter().filter(|one| one.kind == "artifact");
+        let form = |one: &ipc::Attachment| one.detail.get("form").cloned().unwrap_or_default();
+        let made = artifacts().any(|one| forms.contains(&form(one).as_str()));
+        let waits = artifacts().filter(|one| form(one) == "document").any(|one| {
+            let page = one.detail.get("page").cloned().unwrap_or_else(|| one.target.clone());
+            job.waiting_for.iter().any(|item| item.source == ipc::WaitingSource::Document && item.id.strip_prefix("document:") == Some(page.as_str()))
+        });
+        let doc = if !made { PlanTaskState::Open } else if waits { PlanTaskState::Working } else { PlanTaskState::Done };
+        let labels: &[&'static str] = match lands {
+            Some(ipc::Lands::Spike) => &["Findings"],
+            Some(ipc::Lands::Document | ipc::Lands::Report) => &["Document", "Read"],
+            _ => return route_of(job),
+        };
+        labels.iter().enumerate().map(|(at, label)| Step { label, state: if at == 0 { doc } else { PlanTaskState::Open } }).collect()
+    }
 }
 
 /// A step Armada names after something it reports is drawn as a reading (`SYSTEM`).
@@ -414,7 +453,7 @@ impl JobView {
         });
         // A step held on a state an instance has yet to reach: a fact, so the clock does not pulse.
         let waits = job.workflow_waiting_on.iter().map(|said| labelled(named(&format!("wait:{said}"), beat(look, lead(look, &format!("wait:{said}"), "clock", token::FG_SUBTLE, "Waiting", false), words(look, said.clone(), token::FG_MUTED, false, false, true), None, None)), Role::Group, said.clone()).into_any_element());
-        let route = if job.r#mod { Vec::new() } else { route_of(&job) };
+        let route = self.route(&job, cx);
         // A step of the route the workflow already names is that step, not a second row; a plan that
         // ends on gates says where it is in its stretches instead.
         let under_way = route.iter().filter(|step| !gates && matches!(step.state, PlanTaskState::Working | PlanTaskState::Failed) && !work.names(step.label)).map(|step| route_beat(look, *step));
@@ -477,19 +516,19 @@ impl JobView {
             let under = (walk_step(name) && !walked).then(|| JobView::walk_to_come(look));
             step_beat(look, &format!("ahead:{at}"), name, StretchState::Next, under)
         });
-        let ahead: Vec<AnyElement> = steps.chain(self.route_ahead(job, &work, look)).collect();
+        let ahead: Vec<AnyElement> = steps.chain(self.route_ahead(job, &work, look, cx)).collect();
         (!ahead.is_empty()).then(|| labelled(div().id("now-ahead").flex().flex_col().children(ahead), Role::List, "Ahead").into_any_element())
     }
 
     /// The route's steps still to come that the workflow does not name already.
-    fn route_ahead(&self, job: &SessionRecord, work: &Work, look: &Look) -> Vec<AnyElement> {
-        let route = if job.r#mod { Vec::new() } else { route_of(job) };
+    fn route_ahead(&self, job: &SessionRecord, work: &Work, look: &Look, cx: &gpui::App) -> Vec<AnyElement> {
+        let route = self.route(job, cx);
         route.iter().filter(|step| step.state == PlanTaskState::Open && !work.names(step.label)).map(|step| route_beat(look, *step)).collect()
     }
 
     /// What was to land, under the workflow's last step: the route's outputs still to be made (`landing`).
-    pub(super) fn landing(&self, job: &SessionRecord, work: &Work, look: &Look) -> Option<AnyElement> {
-        let ahead = self.route_ahead(job, work, look);
+    pub(super) fn landing(&self, job: &SessionRecord, work: &Work, look: &Look, cx: &gpui::App) -> Option<AnyElement> {
+        let ahead = self.route_ahead(job, work, look, cx);
         (!ahead.is_empty()).then(|| labelled(div().id("landing").flex().flex_col().children(ahead), Role::List, "Ahead").into_any_element())
     }
 }

@@ -37,6 +37,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The panes' first Job with its plan approved and two groups finished, three pull requests
         // merged, its issue closed, a Job it started finished, and what Fleet did for it.
         "job-done" => include_bytes!("../fixtures/jobs-done.json"),
+        // The same Jobs: Quiet the write-clash notices a mod Job that made two mods, Audit the docs index on a
+        // workflow that lands in a report, and Checkout page loads twice holding a stack of four pull requests.
+        "job-made" => include_bytes!("../fixtures/jobs-made.json"),
         // The panes' Jobs as Now draws each: the first working its plan with subagents, a walk and Fleet
         // at work; one stuck, one stopped, one at work with no plan, one failing and one drafting.
         "job-now" => include_bytes!("../fixtures/jobs-now.json"),
@@ -89,9 +92,10 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             }
         }
     }
-    // Every other walk was drawn before a workflow's steps were zones: their Jobs follow none.
+    // Every other walk was drawn before a workflow's steps were zones: their Jobs follow none, but for
+    // the made walk's Job on a workflow that lands in a report.
     if !matches!(scenario, "job-workflow" | "job-lanes") {
-        for one in &mut sessions {
+        for one in sessions.iter_mut().filter(|one| !(scenario == "job-made" && one.id.as_str() == "mock-04")) {
             one.workflow = None;
             one.workflow_step = None;
             one.workflow_copy = None;
@@ -157,6 +161,14 @@ pub fn projects() -> ipc::Projects {
 }
 
 /// The workflows Fleet would serve (`GET /workflows`) in the walks: three of Armada's.
+/// The mods on this machine, in the scenario that walks the mods a Job made; none elsewhere.
+pub fn mods() -> Vec<ipc::ModSummary> {
+    if !SCENARIO.lock().is_ok_and(|named| named.as_str() == "job-made") {
+        return Vec::new();
+    }
+    ipc::decode::<ipc::ModList>("mods", include_bytes!("../fixtures/mods-made.json")).unwrap_or_else(|why| panic!("the mods fixture does not decode: {why}")).mods
+}
+
 pub fn workflows() -> Vec<ipc::WorkflowSummary> {
     ipc::decode::<Vec<ipc::WorkflowSummary>>("workflows", include_bytes!("../fixtures/workflows.json")).unwrap_or_else(|why| panic!("the workflows fixture does not decode: {why}"))
 }
@@ -186,6 +198,8 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "job-tabs" => include_bytes!("../fixtures/tabs-threads.json"),
         // The panes' threads, with two walks ended, two commits and Fleet's acts on the first.
         "job-done" => include_bytes!("../fixtures/done-threads.json"),
+        // The same threads, and the mod Job's two Checks, the newest running.
+        "job-made" => include_bytes!("../fixtures/made-threads.json"),
         "job-now" => include_bytes!("../fixtures/now-threads.json"),
         // The same, with Fleet's two acts to come on the first and the drafted plan's sketch.
         "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes" => include_bytes!("../fixtures/open-threads.json"),

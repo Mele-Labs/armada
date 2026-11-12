@@ -86,6 +86,8 @@ enum Of {
     Watch(Box<super::watching::WatchPanel>),
     /// What a rule did on each instance, by its id in the Job's copy.
     Rule { job: SharedString, rule: String },
+    /// A mod, by its folder name, opened from a row of the mods a Job made (`ModPanel`).
+    Mod { name: String, title: String, kind: ipc::ModKind },
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -239,7 +241,7 @@ fn scroll(look: &Look, id: impl Into<gpui::ElementId>) -> gpui::Stateful<gpui::D
 
 impl JobView {
     /// The check rows of the thread held for a Job, newest first.
-    fn check_rows(&self, id: &str, cx: &gpui::App) -> Vec<SessionRow> {
+    pub(super) fn check_rows(&self, id: &str, cx: &gpui::App) -> Vec<SessionRow> {
         let Some(held) = self.thread(id, cx) else { return Vec::new() };
         let mut rows: Vec<SessionRow> = Vec::new();
         for item in &held.items {
@@ -794,6 +796,11 @@ impl JobView {
         self.open_panel(Of::Rule { job, rule }, window, cx);
     }
 
+    /// A mod's panel, opened from its row (`openMod`).
+    pub(super) fn open_mod(&mut self, name: String, title: String, kind: ipc::ModKind, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_panel(Of::Mod { name, title, kind }, window, cx);
+    }
+
     pub(super) fn watch_panel(&self) -> Option<&super::watching::WatchPanel> {
         match self.panes.panel.as_ref() {
             Some(Panel { of: Of::Watch(panel), .. }) => Some(panel),
@@ -913,6 +920,7 @@ impl JobView {
             }
             Of::Watch(watch) => (format!("Watch {}", watch.name).into(), None, self.watch_body(watch, look, cx)),
             Of::Rule { job, rule } => (format!("Rule: {}", self.rule_label(job, rule, cx)).into(), None, self.rule_body(job, rule, look, cx)),
+            Of::Mod { name, title, kind } => (title.clone().into(), None, self.mod_body(name, title, *kind, look, cx)),
         };
         let close = labelled(
             div()

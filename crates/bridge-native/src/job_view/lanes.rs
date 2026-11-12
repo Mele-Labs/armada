@@ -365,7 +365,7 @@ fn chip_mark(edge: &LaneEdge) -> Option<(&'static str, &'static str)> {
 }
 
 /// `color-mix(in srgb, a p, b)`.
-fn mix(a: Hsla, b: Hsla, p: f32) -> Hsla {
+pub(super) fn mix(a: Hsla, b: Hsla, p: f32) -> Hsla {
     let (a, b) = (a.to_rgb(), b.to_rgb());
     Rgba { r: a.r * p + b.r * (1. - p), g: a.g * p + b.g * (1. - p), b: a.b * p + b.b * (1. - p), a: a.a * p + b.a * (1. - p) }.into()
 }

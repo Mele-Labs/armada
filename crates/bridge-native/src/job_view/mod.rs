@@ -53,6 +53,7 @@ mod judge_tab;
 mod lanes;
 mod lanes_copy;
 mod ledger;
+mod mods_made;
 mod report;
 mod sketch_pad;
 mod sketch_read;
@@ -298,6 +299,8 @@ pub struct JobView {
     aged: bool,
     /// How Done lists what was made, for the run.
     ledger_view: done::LedgerView,
+    /// Mod switches he pressed that Fleet's list has not caught up with: was, then pressed.
+    mod_switch: HashMap<String, (bool, bool)>,
     /// The Job fleet was last told is on screen.
     visiting: Option<SharedString>,
     switched: Option<std::time::Instant>,
@@ -457,6 +460,7 @@ impl JobView {
             composer,
             aged: false,
             ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },
+            mod_switch: HashMap::new(),
             visiting: None,
             switched: None,
             pane: None,

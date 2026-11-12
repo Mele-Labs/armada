@@ -48,6 +48,8 @@ pub(super) struct Work {
     pub(super) proposal: bool,
     /// What the picker offers: the workflows of the Job's repository, and those of none.
     pub(super) choices: Vec<(String, String)>,
+    /// What the held workflow ends in, as Fleet resolves it (`landsOf`).
+    pub(super) lands: Option<ipc::Lands>,
 }
 
 impl Work {
@@ -307,6 +309,7 @@ impl JobView {
             proposed: !off && !unpicked && job.proposal.as_ref().is_some_and(|proposal| proposal.picked.iter().any(|field| field.as_wire() == "workflow")),
             proposal: job.proposal.is_some(),
             choices,
+            lands: if off { None } else { held.as_ref().map(|held| held.lands) },
         }
     }
 
@@ -913,7 +916,7 @@ impl JobView {
                         self.flight_rows(job, &stretch.groups, stretch.state == StretchState::Next, look, cx).into_iter().collect()
                     };
                     let list = (stretch.state == StretchState::Now).then(|| self.now_tasks(job, look)).flatten();
-                    let landing = (Some(&stretch.key) == last_key.as_ref()).then(|| self.landing(job, &work, look)).flatten();
+                    let landing = (Some(&stretch.key) == last_key.as_ref()).then(|| self.landing(job, &work, look, cx)).flatten();
                     column(rows.into_iter().chain(list).chain(landing).collect())
                 },
                 look,
@@ -968,7 +971,7 @@ impl JobView {
                     StretchState::Now => {
                         let early = (!early.is_empty()).then(|| self.under_done(job, sorted(std::mem::take(&mut early)), "step-early", look, cx));
                         let held_open = (!shown && !alone).then(open_work).flatten();
-                        let landing = last.then(|| self.landing(job, &work, look)).flatten();
+                        let landing = last.then(|| self.landing(job, &work, look, cx)).flatten();
                         let rows = early.into_iter().chain(now_body.take()).chain(self.flight_rows(job, &upcoming, true, look, cx)).chain(held_open).chain(landing).collect();
                         let acts = div().flex().items_center().gap(look.length(token::SPACE_1)).child(self.now_acts(id, look, cx)).children(skip).into_any_element();
                         Spec::zone(key, Some("now".into()), name.clone(), area, teach).lamp(now_lamp()).acts(Some(acts)).offer(offer).skipped(skipped).body(column(rows))
@@ -976,7 +979,7 @@ impl JobView {
                     StretchState::Next => {
                         let acts = can.then(|| div().flex().items_center().gap(look.length(token::SPACE_1)).child(self.jump_act(step, look, cx)).child(skip.unwrap_or_else(|| JobView::act_slot(look))).into_any_element());
                         let walk = (walk_step(name) && !walked).then(|| JobView::walk_to_come(look));
-                        let landing = last.then(|| self.landing(job, &work, look)).flatten();
+                        let landing = last.then(|| self.landing(job, &work, look, cx)).flatten();
                         let fold = (!alone).then(|| "next".to_string());
                         Spec::zone(key, fold, name.clone(), area, teach).acts(acts).offer(offer).body(column(walk.into_iter().chain(landing).collect()))
                     }
