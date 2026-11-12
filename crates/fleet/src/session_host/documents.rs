@@ -97,8 +97,9 @@ where
 
     /// Whether the Job waits on his approval of a page, so a page that does not mark itself asks too:
     /// its plan holds an open `document_approved` gate, or the workflow step it is on ends on one.
+    /// The step is the one the rail kept when it last drew the Job, so the row is not built again here.
     async fn document_gate_waits(&self, id: &str) -> bool {
-        let record = {
+        let (hosting, at) = {
             let store = self.store().lock().await;
             let gated = store.session_plan(id).ok().flatten().is_some_and(|plan| {
                 plan.groups.iter().any(|group| group.gate.as_deref() == Some(PlanGate::DocumentApproved.word()) && group.closed.is_none())
@@ -106,14 +107,13 @@ where
             if gated {
                 return true;
             }
-            let Some(session) = store.session(id).ok().flatten() else { return false };
-            let Ok(record) = self.ledger_row(&store, &session) else { return false };
-            record
+            (store.hosting(id).ok().flatten(), store.session_rail(id).ok().and_then(|rail| rail.step))
         };
-        let (Some(manifest), Some(workflow), Some(at)) = (record.manifest_id, record.workflow, record.workflow_step) else {
+        let (Some(hosting), Some(at)) = (hosting, at) else { return false };
+        let Some(workflow) = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow)) else {
             return false;
         };
-        let Some(steps) = self.job_rail_steps(id, manifest.as_str(), &workflow).await else { return false };
+        let Some(steps) = self.job_rail_steps(id, &hosting.manifest_id, workflow).await else { return false };
         rail_ends::ends_of(&steps, at as usize).contains(&rail_ends::End::DocumentApproved)
     }
 
