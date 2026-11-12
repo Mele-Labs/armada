@@ -16,7 +16,8 @@ Bridge's half is `packages/protocol/src/pull-requests.ts` and `sessions.ts`, wri
 | `PullRequestPage.draft` (`get_pull_request_detail`) | Fleet answers | The `PullRequestDraft` waiting on that pull request, the newest where Jobs proposed several. Absent where none waits |
 | `PullRequestDraft` | Fleet writes | `manifest_id`, `number`, `draft` (the row id its `draft:<id>` item names), `text`, `before` (absent where the Job gave none) and `revision` |
 
-**Detected, then named.** Where the Job names no pull request, Fleet compares the draft's `before` with the body it last read of each pull request the Job holds and has not given back, taking every run of whitespace as one space. The newest that matches is the link; none matching links nothing.
+**Detected, then named.** Where the Job names no pull request, Fleet compares the draft's `before` with the body it last read of each pull request the Job holds and has not given back, taking every run of whitespace as one space.
+The newest that matches is the link; none matching links nothing.
 A named pull request wins over `before`.
 **`revision`** is 1 for the Job's first draft for that pull request, and one more for each it proposed since, settled ones too: a draft sent back and proposed again is revision 2.
 
@@ -27,8 +28,10 @@ The row is not served in `attachments`; `pull_request_drafts` is its wire form, 
 **Approve, Edit and Note stay the draft's own acts.** A client answers the `draft:<id>` item with `answer_waiting` as before, and the Job is sent what it was sent before.
 Fleet never writes the pull request's body: the Job edits it once the person approves, as with any draft.
 
-**Why not a field on the `draft` row.** The native Bridge destructures `SessionRow::Draft` field by field, so a new field there breaks its build. The Job's record carries the link instead, keyed both ways.
-`SessionRecord` takes no `Default`: that would need one on `SessionId`, `SessionState` and `Instant`, and no client builds a record by hand. `PullRequestPage`, `PullRequestDraft` and `ProposeDraft` derive it, with `ManifestId`'s empty id, `PullRequestMergeable::Unknown` and `PullRequestReviewState::None` as their defaults.
+**Why not a field on the `draft` row.** The native Bridge destructures `SessionRow::Draft` field by field, so a new field there breaks its build.
+The Job's record carries the link instead, keyed both ways.
+`SessionRecord` takes no `Default`: that would need one on `SessionId`, `SessionState` and `Instant`, and no client builds a record by hand.
+`PullRequestPage`, `PullRequestDraft` and `ProposeDraft` derive it, with `ManifestId`'s empty id, `PullRequestMergeable::Unknown` and `PullRequestReviewState::None` as their defaults.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream is neither better nor worse.** `session.changed` already carries the record whole; it grows by the waiting drafts' text.
