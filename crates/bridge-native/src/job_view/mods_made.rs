@@ -85,7 +85,12 @@ fn kind_word(kind: ModKind) -> &'static str {
 }
 
 /// The words an empty Mod Job's box opens on to change this mod, the caret after the colon (`changeWords`).
-fn change_words(title: &str, kind: ModKind) -> String {
+/// The empty Mod Job Change it starts, aimed at what the mod is.
+pub(super) fn start_of(kind: ModKind) -> ipc::StartModSession {
+    ipc::StartModSession { title: None, model: None, effort: None, aim: Some(aim_of(kind)), note: None, said: None, from_job: None, from_tab: None }
+}
+
+pub(super) fn change_words(title: &str, kind: ModKind) -> String {
     format!("Change the {title} {}: ", kind_word(kind))
 }
 
@@ -97,7 +102,7 @@ pub(super) fn mod_title(name: &str) -> String {
 }
 
 /// A made mod's title: a tab reads as its tab does, so the card and the tab never disagree (`madeTitle`, `tabTitle`).
-fn made_title(name: &str, kind: ModKind) -> String {
+pub(super) fn made_title(name: &str, kind: ModKind) -> String {
     if kind != ModKind::Tab {
         return mod_title(name);
     }
@@ -117,6 +122,19 @@ impl gpui::Global for OpenMod {}
 
 impl JobView {
     pub(super) fn offer_open_mod(cx: &mut Context<Self>) {
+        // The mod panel outside a Job opens one here, its words kept in the box, and names a maker by its title.
+        let (opens, names) = (cx.entity().downgrade(), cx.entity().downgrade());
+        cx.set_global(super::mod_panel::OpenJobFrom(
+            Rc::new(move |id: String, words: Option<String>, cx: &mut App| {
+                let _ = opens.update(cx, |this, cx| {
+                    if let Some(words) = words.as_deref() {
+                        this.keep_words(&id, words, cx);
+                    }
+                    this.open_job(id, cx);
+                });
+            }),
+            Rc::new(move |id: &str, cx: &App| names.upgrade().and_then(|view| view.read(cx).record(id, cx).and_then(|job| job.title.clone()))),
+        ));
         let view = cx.entity().downgrade();
         cx.set_global(OpenMod(Rc::new(move |name: &str, window, cx| {
             let name = name.to_string();
@@ -182,7 +200,7 @@ impl JobView {
 
     /// Change it: an empty Mod Job aimed at what the mod is, opened with its box holding the words to go on from (`startEmptyModJob`).
     fn change_mod(&mut self, title: String, kind: ModKind, window: &mut Window, cx: &mut Context<Self>) {
-        let start = ipc::StartModSession { title: None, model: None, effort: None, aim: Some(aim_of(kind)), note: None, said: None, from_job: None, from_tab: None };
+        let start = start_of(kind);
         let words = change_words(&title, kind);
         self.post(
             "/mods/session".into(),
@@ -263,89 +281,124 @@ impl JobView {
         .into_any_element()
     }
 
-    /// The mod's panel body (`ModPanel`): its kind, the switch and Change it, then Details: what it
-    /// is, where it lives, its version, whether it is valid, and the Job that made it.
+    /// The mod's panel body (`ModPanel`), beside the Job: its presses are the Job view's own.
     pub(super) fn mod_body(&self, name: &str, title: &str, kind: ModKind, look: &Look, cx: &Context<Self>) -> AnyElement {
         let row = self.mod_list(cx).into_iter().find(|one| one.name == name);
-        let kind = row.as_ref().and_then(|one| one.kind).unwrap_or(kind);
-        let said = kind_said(kind);
-        let meta = div()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .text_color(look.color(token::FG_MUTED))
-            .child(labelled(div().id("mod-panel-kind").flex().tooltip(tip(said)).child(glyph(look, kind_glyph(kind), Size::Mark, look.color(token::FG_MUTED))), Role::Image, said))
-            .child(said);
-        let toggle = row.as_ref().map(|one| {
-            let (name, on) = (one.name.clone(), self.mod_on(one));
-            labelled(switch(look, "mod-panel-switch", "Switched on", on, false).on_click(cx.listener(move |this, _, window, cx| this.set_mod_enabled(name.clone(), !on, window, cx))), Role::Switch, "Switched on")
-        });
-        let change_title = title.to_string();
-        let change = labelled(
-            div()
-                .id("mod-panel-change")
-                .flex_none()
-                .flex()
-                .items_center()
-                .h(look.length(token::H_CONTROL_SM))
-                .px(look.length(token::SPACE_3))
-                .rounded(look.length(token::RADIUS_MD))
-                .bg(look.color(token::ACCENT))
-                .text_color(look.color(token::FG_INVERSE))
-                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                .cursor_pointer()
-                .tab_index(0)
-                .focus_visible(|style| style.border_1().border_color(look.color(token::FG_DEFAULT)))
-                .child("Change it")
-                .on_click(cx.listener(move |this, _, window, cx| this.change_mod(change_title.clone(), kind, window, cx))),
-            Role::Button,
-            "Change it",
-        );
-        let acts = div().flex().items_center().gap(look.length(token::SPACE_3)).children(toggle).child(change);
-        let built_in = row.as_ref().is_some_and(|one| one.origin == ModOrigin::BuiltIn);
-        let fact = |term: &'static str, value: AnyElement| {
-            div()
-                .flex()
-                .gap(look.length(token::SPACE_3))
-                .child(div().flex_none().w(look.length(token::SPACE_12) * 2.).text_color(look.color(token::FG_MUTED)).child(term))
-                .child(div().flex_1().min_w_0().child(value))
-        };
-        let words = |said: String| div().child(SharedString::from(said)).into_any_element();
-        let mut facts = vec![fact(
-            "Lives in",
-            if built_in { words("Built in".into()) } else { div().font_family(mono(look)).child(SharedString::from(format!("{MODS_FOLDER}/{name}"))).into_any_element() },
-        )];
-        if let Some(version) = row.as_ref().and_then(|one| one.version.clone()) {
-            facts.push(fact("Version", div().font_family(mono(look)).child(SharedString::from(version)).into_any_element()));
-        }
-        if let Some(one) = row.as_ref() {
-            facts.push(fact("Valid", words(if one.valid { "Valid".into() } else { one.reason.clone().unwrap_or_else(|| "Not valid".into()) })));
-        }
-        if let Some(maker) = row.as_ref().and_then(|one| one.made_by.clone()) {
+        let on = row.as_ref().map(|one| self.mod_on(one));
+        let maker = row.as_ref().and_then(|one| one.made_by.clone()).map(|maker| {
             let id = maker.as_str().to_string();
             let named = self.record(&id, cx).and_then(|job| job.title.clone()).unwrap_or_else(|| "Job".to_string());
-            let press = labelled(
-                div()
-                    .id("mod-panel-maker")
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_1))
-                    .cursor_pointer()
-                    .rounded(look.length(token::RADIUS_SM))
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .child(glyph(look, "box", Size::Small, look.color(token::FG_MUTED)))
-                    .child(SharedString::from(named.clone()))
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        this.close_panel(window, cx);
-                        this.open_job(id.clone(), cx);
-                    })),
-                Role::Button,
-                named,
-            );
-            facts.push(fact("Made by", press.into_any_element()));
-        }
-        let description = row.as_ref().and_then(|one| one.description.clone()).map(|said| div().text_color(look.color(token::FG_MUTED)).child(SharedString::from(said)));
-        let details = labelled(div().id("mod-panel-details").flex().flex_col().gap(look.length(token::SPACE_3)).children(description).child(div().flex().flex_col().gap(look.length(token::SPACE_2)).children(facts)), Role::Region, "Details");
-        div().flex_1().min_h_0().flex().flex_col().gap(look.length(token::SPACE_4)).px(look.length(token::SPACE_6)).py(look.length(token::SPACE_4)).child(meta).child(acts).child(details).into_any_element()
+            (id, named)
+        });
+        panel_body(
+            row.as_ref(),
+            name,
+            title,
+            kind,
+            on,
+            maker,
+            look,
+            cx,
+            |this: &mut Self, name, on, window, cx| this.set_mod_enabled(name, on, window, cx),
+            |this: &mut Self, title, kind, window, cx| this.change_mod(title, kind, window, cx),
+            |this: &mut Self, id, window, cx| {
+                this.close_panel(window, cx);
+                this.open_job(id, cx);
+            },
+        )
     }
+}
+
+/// The mod's panel body (`ModPanel`): its kind, the switch and Change it, then Details: what it is,
+/// where it lives, its version, whether it is valid, and the Job that made it. Whoever draws it says
+/// what its switch, Change it and the maker's press do.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn panel_body<T: 'static>(
+    row: Option<&ModSummary>,
+    name: &str,
+    title: &str,
+    kind: ModKind,
+    on: Option<bool>,
+    maker: Option<(String, String)>,
+    look: &Look,
+    cx: &Context<T>,
+    switched: impl Fn(&mut T, String, bool, &mut Window, &mut Context<T>) + 'static,
+    change: impl Fn(&mut T, String, ModKind, &mut Window, &mut Context<T>) + 'static,
+    open_maker: impl Fn(&mut T, String, &mut Window, &mut Context<T>) + 'static,
+) -> AnyElement {
+    let kind = row.and_then(|one| one.kind).unwrap_or(kind);
+    let said = kind_said(kind);
+    let meta = div()
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .text_color(look.color(token::FG_MUTED))
+        .child(labelled(div().id("mod-panel-kind").flex().tooltip(tip(said)).child(glyph(look, kind_glyph(kind), Size::Mark, look.color(token::FG_MUTED))), Role::Image, said))
+        .child(said);
+    let toggle = row.zip(on).map(|(one, on)| {
+        let name = one.name.clone();
+        labelled(switch(look, "mod-panel-switch", "Switched on", on, false).on_click(cx.listener(move |this, _, window, cx| switched(this, name.clone(), !on, window, cx))), Role::Switch, "Switched on")
+    });
+    let change_title = title.to_string();
+    let change = labelled(
+        div()
+            .id("mod-panel-change")
+            .flex_none()
+            .flex()
+            .items_center()
+            .h(look.length(token::H_CONTROL_SM))
+            .px(look.length(token::SPACE_3))
+            .rounded(look.length(token::RADIUS_MD))
+            .bg(look.color(token::ACCENT))
+            .text_color(look.color(token::FG_INVERSE))
+            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+            .cursor_pointer()
+            .tab_index(0)
+            .focus_visible(|style| style.border_1().border_color(look.color(token::FG_DEFAULT)))
+            .child("Change it")
+            .on_click(cx.listener(move |this, _, window, cx| change(this, change_title.clone(), kind, window, cx))),
+        Role::Button,
+        "Change it",
+    );
+    let acts = div().flex().items_center().gap(look.length(token::SPACE_3)).children(toggle).child(change);
+    let built_in = row.is_some_and(|one| one.origin == ModOrigin::BuiltIn);
+    let fact = |term: &'static str, value: AnyElement| {
+        div()
+            .flex()
+            .gap(look.length(token::SPACE_3))
+            .child(div().flex_none().w(look.length(token::SPACE_12) * 2.).text_color(look.color(token::FG_MUTED)).child(term))
+            .child(div().flex_1().min_w_0().child(value))
+    };
+    let words = |said: String| div().child(SharedString::from(said)).into_any_element();
+    let mut facts = vec![fact(
+        "Lives in",
+        if built_in { words("Built in".into()) } else { div().font_family(mono(look)).child(SharedString::from(format!("{MODS_FOLDER}/{name}"))).into_any_element() },
+    )];
+    if let Some(version) = row.and_then(|one| one.version.clone()) {
+        facts.push(fact("Version", div().font_family(mono(look)).child(SharedString::from(version)).into_any_element()));
+    }
+    if let Some(one) = row {
+        facts.push(fact("Valid", words(if one.valid { "Valid".into() } else { one.reason.clone().unwrap_or_else(|| "Not valid".into()) })));
+    }
+    if let Some((id, named)) = maker {
+        let press = labelled(
+            div()
+                .id("mod-panel-maker")
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .cursor_pointer()
+                .rounded(look.length(token::RADIUS_SM))
+                .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                .child(glyph(look, "box", Size::Small, look.color(token::FG_MUTED)))
+                .child(SharedString::from(named.clone()))
+                .on_click(cx.listener(move |this, _, window, cx| open_maker(this, id.clone(), window, cx))),
+            Role::Button,
+            named,
+        );
+        facts.push(fact("Made by", press.into_any_element()));
+    }
+    let description = row.and_then(|one| one.description.clone()).map(|said| div().text_color(look.color(token::FG_MUTED)).child(SharedString::from(said)));
+    let details = labelled(div().id("mod-panel-details").flex().flex_col().gap(look.length(token::SPACE_3)).children(description).child(div().flex().flex_col().gap(look.length(token::SPACE_2)).children(facts)), Role::Region, "Details");
+    div().flex_1().min_h_0().flex().flex_col().gap(look.length(token::SPACE_4)).px(look.length(token::SPACE_6)).py(look.length(token::SPACE_4)).child(meta).child(acts).child(details).into_any_element()
 }
