@@ -450,7 +450,6 @@ impl JobView {
         let acts = div()
             .flex()
             .flex_none()
-            .flex_wrap()
             .gap(look.length(token::SPACE_2))
             .child(labelled(
                 button(look, "done-end", "End job", Tone::Secondary, false, target.then_some("\u{2325}\u{21b5}"), true)
@@ -480,7 +479,8 @@ impl JobView {
             labelled(
                 div()
                     .id("done-body")
-                    .w_full()
+                    // Out past the words to the composer's edge, as Classic's card and the thread's other cards reach.
+                    .mx(-super::bleed(look))
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_3))
