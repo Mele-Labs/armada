@@ -1041,12 +1041,12 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_digit_picks_a_then_and_yes_carries_it(cx: &mut TestAppContext) {
+    fn a_digit_presses_that_outcome_with_yes(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
         cx.simulate_keystrokes("down");
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"));
         page.read_with(cx, |page, _| assert_eq!(page.open_item().and_then(|turn| page.then_of(turn)), Some(OperatorThen::FileAndHand), "the Operator's pick stands first"));
-        cx.simulate_keystrokes("2 a");
+        cx.simulate_keystrokes("2");
         assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:2".into(), answer: OperatorAnswer::Yes, then: Some(OperatorThen::FileAndStart), option: None, project: None }]);
     }
 
