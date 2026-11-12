@@ -42,6 +42,8 @@ pub(super) struct Panes {
     pub(super) patches: HashMap<String, Result<PullRequestFilePatches, String>>,
     /// The tests that reach each pull request's changed files, by `{manifest}#{number}`: None where the map holds no edge.
     pub(super) reach: HashMap<String, Option<super::pr_files::FilesReach>>,
+    /// His notes on each pull request's lines as Fleet keeps them, by `{manifest}#{number}`.
+    pub(super) notes: HashMap<String, Vec<ipc::PullRequestNote>>,
     /// What each Job's Files search holds (`useKept("files:<id>")`).
     files_query: HashMap<SharedString, String>,
     /// The paths Fleet found, by `{manifest}\0{query}`.

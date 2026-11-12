@@ -1099,8 +1099,14 @@ impl JobView {
             Err(why) => return body.child(labelled(div().id("clash-file-note").text_color(look.color(token::FG_MUTED)).child(SharedString::from(why.clone())), Role::Note, why.clone())).into_any_element(),
         };
         let ours = self.shown.as_ref().and_then(|id| self.record(id, cx)).and_then(|job| job.title.clone()).unwrap_or_else(|| "This Job".to_string());
-        let side = |key: &'static str, name: String, patch: &str| {
-            let drawn = diff::drawn_of(patch, |shown, total| format!("The first {shown} of {total} lines."));
+        let theirs = panel.with.label.clone();
+        let cut = |shown: usize, total: usize| format!("The first {shown} of {total} lines.");
+        let (mut mine, mut other) = (diff::drawn_of(&file.ours, cut), diff::drawn_of(&file.theirs, cut));
+        // Each side's colliding hunks, marked against the other's as Classic's sheet does (`markCollisions`).
+        let plain = (mine.clone(), other.clone());
+        diff::mark_collisions(&mut mine, &plain.1, &format!("Collides with {theirs}"));
+        diff::mark_collisions(&mut other, &plain.0, &format!("Collides with {ours}"));
+        let side = |key: &'static str, name: String, drawn: diff::Drawn| {
             div()
                 .flex()
                 .flex_col()
@@ -1112,7 +1118,7 @@ impl JobView {
                     diff::unified(key, &drawn, look)
                 })
         };
-        body.child(side("clash-ours", ours, &file.ours)).child(side("clash-theirs", panel.with.label.clone(), &file.theirs)).into_any_element()
+        body.child(side("clash-ours", ours, mine)).child(side("clash-theirs", theirs, other)).into_any_element()
     }
 }
 

@@ -820,5 +820,23 @@
     }
    ]
   }
- ]
+ ],
+ "notes": {
+  "armada#2209": [
+   {
+    "id": "note-r1",
+    "repository": "armada",
+    "number": 2209,
+    "path": "crates/config/settings.toml",
+    "line": 15,
+    "side": "right",
+    "body": "Say which panel opens: the side panel.",
+    "status": "done",
+    "sent_to": "mock-01",
+    "sent_title": "Fix the merge line freshness chip",
+    "sent_at": "2026-11-09T08:40:00Z",
+    "created_at": "2026-11-09T08:30:00Z"
+   }
+  ]
+ }
 }

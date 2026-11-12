@@ -29,6 +29,7 @@ pub fn role_named(word: &str) -> Option<Role> {
         "textbox" => Role::TextInput,
         "region" => Role::Region,
         "article" => Role::Article,
+        "form" => Role::Form,
         "radio" => Role::RadioButton,
         "checkbox" => Role::CheckBox,
         "group" => Role::Group,

@@ -62,8 +62,6 @@ pub(super) struct PullPanel {
     pub evaluated: HashSet<String>,
     /// Copy link said Copied a moment ago.
     pub copied: bool,
-    /// Files shows resolved threads too.
-    pub show_resolved: bool,
     /// The files whose tests are opened under their row in the list.
     pub reach_open: HashSet<String>,
     /// The file list's one focus, its current row, and the folders folded in it (`FileRows`).
@@ -79,6 +77,10 @@ pub(super) struct PullPanel {
     /// The body's scroll, and the Files tab's sections, so a file pressed in the list is scrolled to.
     pub scroll: ScrollHandle,
     pub sections: ScrollHandle,
+    /// The box a note is written in, under its line, while one is open.
+    pub note_box: Option<super::pr_notes::NoteBox>,
+    /// His notes a Job resolved are drawn too.
+    pub notes_resolved: bool,
     _typing: Subscription,
     _copied: Option<Task<()>>,
 }
@@ -500,7 +502,6 @@ impl JobView {
             evaluated: HashSet::new(),
             copied: false,
             current: None,
-            show_resolved: false,
             reach_open: HashSet::new(),
             files_focus: cx.focus_handle().tab_stop(true),
             files_at: None,
@@ -509,6 +510,8 @@ impl JobView {
             files_scroll: ScrollHandle::new(),
             scroll: ScrollHandle::new(),
             sections: ScrollHandle::new(),
+            note_box: None,
+            notes_resolved: false,
             _typing: typing,
             _copied: None,
         };
@@ -534,6 +537,7 @@ impl JobView {
             }
             self.want_pull_patches(window, cx);
             self.want_pull_reach(window, cx);
+            self.want_pull_notes(window, cx);
             cx.notify();
             return;
         }
@@ -548,6 +552,7 @@ impl JobView {
                 }
                 this.want_pull_patches(window, cx);
                 this.want_pull_reach(window, cx);
+                this.want_pull_notes(window, cx);
                 cx.notify();
             }),
         );
@@ -567,10 +572,16 @@ impl JobView {
         self.pulls_of(&job, cx).into_iter().find(|one| one.number == pressed.number && one.job == pressed.job).unwrap_or_else(|| pressed.clone())
     }
 
-    fn pull_tab(&mut self, tab: PullTab, cx: &mut Context<Self>) {
-        if let Some(panel) = self.pull_panel_mut() {
+    fn pull_tab(&mut self, tab: PullTab, window: &mut Window, cx: &mut Context<Self>) {
+        let entered = self.pull_panel_mut().map(|panel| {
+            let entered = tab == PullTab::Files && panel.tab != PullTab::Files;
             panel.tab = tab;
             panel.scroll.set_offset(point(px(0.), px(0.)));
+            entered
+        });
+        // His notes are read again on every entry to Files, since a Job resolves them while the panel is open.
+        if entered == Some(true) {
+            self.want_pull_notes(window, cx);
         }
         cx.notify();
     }
@@ -588,14 +599,14 @@ impl JobView {
         let at = PullTab::ALL.iter().position(|one| *one == panel.tab).unwrap_or(0) as isize;
         let by = if key == "]" { 1 } else { -1 };
         let next = PullTab::ALL[(at + by).rem_euclid(PullTab::ALL.len() as isize) as usize];
-        self.pull_tab(next, cx);
+        self.pull_tab(next, window, cx);
         true
     }
 
     /// Notify Job: the Job is told which checks failed (`Checks failed on #N: a, b`).
     fn notify_job(&mut self, pull: &Pull, window: &mut Window, cx: &mut Context<Self>) {
         let text = format!("Checks failed on #{}: {}", pull.number, pull.failing);
-        self.send_to_job(pull.job.clone(), text, format!("ledger:pr:{}", pull.number), window, cx, |this, cx| {
+        self.send_to_job(pull.job.clone(), text, format!("ledger:pr:{}", pull.number), window, cx, |this, _, cx| {
             if let Some(panel) = this.pull_panel_mut() {
                 panel.sent_back = true;
             }
@@ -607,7 +618,7 @@ impl JobView {
     #[allow(clippy::too_many_arguments)]
     fn evaluate(&mut self, pull: &Pull, id: String, author: String, body: String, place: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         let text = evaluate_message(pull.number, &id, &author, &body, place.as_deref());
-        self.send_to_job(pull.job.clone(), text, format!("ledger:pr:{}", pull.number), window, cx, move |this, cx| {
+        self.send_to_job(pull.job.clone(), text, format!("ledger:pr:{}", pull.number), window, cx, move |this, _, cx| {
             if let Some(panel) = this.pull_panel_mut() {
                 panel.evaluated.insert(id);
             }
@@ -615,7 +626,7 @@ impl JobView {
         });
     }
 
-    fn send_to_job(&mut self, job: String, text: String, row: String, window: &mut Window, cx: &mut Context<Self>, sent: impl FnOnce(&mut JobView, &mut Context<JobView>) + 'static) {
+    pub(super) fn send_to_job(&mut self, job: String, text: String, row: String, window: &mut Window, cx: &mut Context<Self>, sent: impl FnOnce(&mut JobView, &mut Window, &mut Context<JobView>) + 'static) {
         let body = ipc::encode(&ipc::SendSessionMessageBody {
             message: ipc::SendSessionMessage { session_id: ipc::SessionId::carried(job), text, attachments: Vec::new(), mentions: Vec::new() },
             aim: None,
@@ -625,8 +636,8 @@ impl JobView {
             body,
             window,
             cx,
-            Box::new(move |this, answer, _, cx| match answer {
-                Ok(_) => sent(this, cx),
+            Box::new(move |this, answer, window, cx| match answer {
+                Ok(_) => sent(this, window, cx),
                 Err(why) => {
                     if let Some(page) = this.shown.clone().and_then(|job| this.pages.get_mut(&job)) {
                         page.cards.said.insert(row, why.into());
@@ -1203,6 +1214,8 @@ impl JobView {
             .child(meta)
             .child(acts)
             .children(plates)
+            .children(self.notes_bar(panel, pull, look, cx))
+            .children(self.notes_resolved_toggle(panel, look, cx))
             .child(tabs)
             .into_any_element()
     }
@@ -1270,7 +1283,7 @@ impl JobView {
                     .cursor_pointer()
                     .hover(move |style| style.text_color(strong))
                     .tooltip(tip(format!("{} \u{b7} [ ]", one.word())))
-                    .on_click(cx.listener(move |this, _, _, cx| this.pull_tab(one, cx)))
+                    .on_click(cx.listener(move |this, _, window, cx| this.pull_tab(one, window, cx)))
                     .child(one.word()),
                 Role::Tab,
                 one.word(),

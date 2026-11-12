@@ -417,6 +417,20 @@ pub fn merge_lines() -> Option<Vec<ipc::MergeLineView>> {
     Some(lines.merge_lines)
 }
 
+/// His notes on a pull request's lines as Fleet keeps them, by `manifest#number`.
+pub fn pull_notes(key: &str) -> Option<Vec<ipc::PullRequestNote>> {
+    #[derive(Deserialize)]
+    struct Notes {
+        #[serde(default)]
+        notes: std::collections::HashMap<String, Vec<ipc::PullRequestNote>>,
+    }
+    if !panes_named() {
+        return None;
+    }
+    let mut read = ipc::decode::<Notes>("pull request notes", include_bytes!("../fixtures/pulls-pages.json")).unwrap_or_else(|why| panic!("the pull request pages fixture does not decode: {why}"));
+    read.notes.remove(key)
+}
+
 /// What `GET /test_map/reaching` answers for a pull request's changed files, by `manifest#number`.
 pub fn tests_reaching(key: &str) -> Option<ipc::TestsReaching> {
     #[derive(Deserialize)]

@@ -4,10 +4,14 @@
 //!
 //! **The split is `drawn-patch.ts` ported as it is**, so both apps cut a long patch at the same line.
 
-use gpui::{div, prelude::*, AnyElement, App, ClipboardItem, ElementId, Role, SharedString};
+use std::collections::HashMap;
+use std::rc::Rc;
+
+use gpui::{div, prelude::*, px, AnyElement, App, ClipboardItem, ElementId, KeyDownEvent, Role, SharedString, Window};
 
 use crate::labels::labelled;
 use crate::look::{token, Look};
+use crate::titlebar::parts::{glyph, tip};
 
 /// The most lines drawn; the forge holds the rest.
 pub const DRAWN_LINES: usize = 2000;
@@ -24,6 +28,8 @@ pub enum LineKind {
 pub struct DiffLine {
     pub kind: LineKind,
     pub text: String,
+    /// A hunk that collides with another side's change says with whom (`collides`).
+    pub collides: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -86,7 +92,7 @@ pub fn drawn_of(patch: &str, cut_said: impl Fn(usize, usize) -> String) -> Drawn
             files.push(DiffFile { path: UNNAMED.to_string(), meta: None, lines: Vec::new() });
         }
         if let Some(open) = files.last_mut() {
-            open.lines.push(DiffLine { kind, text: row.to_string() });
+            open.lines.push(DiffLine { kind, text: row.to_string(), collides: None });
         }
         drawn += 1;
     }
@@ -157,24 +163,135 @@ fn mono(look: &Look) -> SharedString {
     look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default()
 }
 
+/// The press each changed line's gutter makes (`onLine`): the words on its tip, each line's own name,
+/// and the press with whether Shift was held.
+#[derive(Clone)]
+pub struct Gutter {
+    pub label: SharedString,
+    pub name: Option<Rc<dyn Fn(usize) -> String>>,
+    pub press: Rc<dyn Fn(usize, bool, &mut Window, &mut App)>,
+}
+
+/// What a host puts on a file's lines beside the diff: the gutter, the line picked for a note
+/// (`markOf`), and what stands under a line (`under`), each by the line's place in the file.
+#[derive(Default)]
+pub struct Slots {
+    pub gutter: Option<Gutter>,
+    pub picked: Option<usize>,
+    pub under: HashMap<usize, AnyElement>,
+}
+
 /// A file's lines alone, with no path above them: what a pull request's Files section and a thread's
 /// excerpt draw under their own heads.
 pub fn lines(id: impl Into<SharedString>, lines: &[DiffLine], look: &Look) -> AnyElement {
-    let rows = lines.iter().map(|line| {
-        let (ground, ink) = match line.kind {
-            LineKind::Added => (Some(token::DIFF_ADD_BG), token::DIFF_ADD_FG),
-            LineKind::Removed => (Some(token::DIFF_DEL_BG), token::DIFF_DEL_FG),
-            LineKind::Hunk => (Some(token::BG_RAISED), token::FG_SUBTLE),
-            LineKind::Context => (None, token::DIFF_CONTEXT),
-        };
-        div()
-            .px(look.length(token::SPACE_3))
-            .when(line.kind == LineKind::Hunk, |row| row.py(look.length(token::SPACE_1)))
-            .whitespace_nowrap()
-            .when_some(ground, |row, ground| row.bg(look.color(ground)))
-            .text_color(look.color(ink))
-            .child(SharedString::from(line.text.clone()))
-    });
+    lines_with(id, lines, look, Slots::default())
+}
+
+/// A file's lines with what the host puts on them (`UnifiedDiff`'s `onLine`, `markOf` and `under`). The
+/// gutter is a button over the line's start that shows while the pointer is on the line or the key is
+/// on it (`.armada-diff__gutter`), so Tab reaches each one and Enter or Space presses it.
+pub fn lines_with(id: impl Into<SharedString>, lines: &[DiffLine], look: &Look, mut slots: Slots) -> AnyElement {
+    let id: SharedString = id.into();
+    let accent = look.color(token::ACCENT);
+    let ring = look.color(token::ACCENT);
+    let collides = look.color(token::STATUS_AWAITING_REVIEW);
+    let rows: Vec<AnyElement> = lines
+        .iter()
+        .enumerate()
+        .map(|(at, line)| {
+            let (ground, ink) = match line.kind {
+                LineKind::Added => (Some(token::DIFF_ADD_BG), token::DIFF_ADD_FG),
+                LineKind::Removed => (Some(token::DIFF_DEL_BG), token::DIFF_DEL_FG),
+                LineKind::Hunk => (Some(token::BG_RAISED), token::FG_SUBTLE),
+                LineKind::Context => (None, token::DIFF_CONTEXT),
+            };
+            let picked = slots.picked == Some(at);
+            let group: SharedString = format!("{id}:line:{at}").into();
+            let gutter = slots.gutter.as_ref().filter(|_| line.kind != LineKind::Hunk).map(|gutter| {
+                let name = gutter.name.as_ref().map_or_else(|| gutter.label.to_string(), |name| name(at));
+                let (press, keyed) = (gutter.press.clone(), gutter.press.clone());
+                labelled(
+                    div()
+                        .id(ElementId::Name(format!("{id}:gutter:{at}").into()))
+                        .absolute()
+                        .left_0()
+                        .top_0()
+                        .w(look.length(token::SPACE_4))
+                        .h(look.length(token::LEADING_2XS))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .rounded(look.length(token::RADIUS_SM))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(gpui::transparent_black())
+                        .bg(accent)
+                        .cursor_pointer()
+                        .when(!picked, |button| button.opacity(0.).group_hover(group.clone(), |style| style.opacity(1.)))
+                        .focusable()
+                        .tab_stop(true)
+                        .focus_visible(move |style| style.opacity(1.).border_color(ring))
+                        .tooltip(tip(gutter.label.clone()))
+                        .child(glyph("message-square", px(12.), look.color(token::TEXT_ON_ACCENT)))
+                        .on_click(move |event, window, cx| {
+                            cx.stop_propagation();
+                            press(at, event.modifiers().shift, window, cx);
+                        })
+                        .on_key_down(move |event: &KeyDownEvent, window, cx| {
+                            if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
+                                cx.stop_propagation();
+                                keyed(at, false, window, cx);
+                            }
+                        }),
+                    Role::Button,
+                    name,
+                )
+            });
+            let swords = line.collides.clone().map(|said| {
+                labelled(
+                    div()
+                        .id(ElementId::Name(format!("{id}:collides:{at}").into()))
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .right(look.length(token::SPACE_2))
+                        .flex()
+                        .items_center()
+                        .tooltip(tip(said.clone()))
+                        .child(glyph("swords", px(12.), collides)),
+                    Role::Image,
+                    said,
+                )
+            });
+            let text = div()
+                .relative()
+                .px(look.length(token::SPACE_3))
+                .when(line.kind == LineKind::Hunk, |row| row.py(look.length(token::SPACE_1)))
+                .whitespace_nowrap()
+                .when_some(ground, |row, ground| row.bg(look.color(ground)))
+                .text_color(if line.collides.is_some() { collides } else { look.color(ink) })
+                .children(picked.then(|| div().absolute().inset_0().bg(accent.opacity(0.16))))
+                .children(picked.then(|| div().absolute().left_0().top_0().bottom_0().w(look.length(token::SPACE_1)).bg(accent)))
+                .when(line.collides.is_some(), |row| row.child(div().absolute().left_0().top_0().bottom_0().w(px(2.)).bg(collides)))
+                .child(div().relative().child(SharedString::from(line.text.clone())))
+                .children(gutter)
+                .children(swords);
+            let under = slots.under.remove(&at).map(|under| {
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_2))
+                    .my(look.length(token::SPACE_2))
+                    .mx(look.length(token::SPACE_3))
+                    .whitespace_normal()
+                    .font_family(look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_default())
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .child(under)
+            });
+            div().group(group).relative().flex().flex_col().child(text).children(under).into_any_element()
+        })
+        .collect();
     div()
         .id(ElementId::Name(id.into()))
         .min_w_0()
@@ -198,7 +315,7 @@ pub fn excerpt(patch: &str, line: u64, left: bool) -> Option<Vec<DiffLine>> {
         if kind == LineKind::Hunk {
             let (from, to) = hunk_starts(row)?;
             (old, new) = (from, to);
-            hunk = Some(DiffLine { kind, text: row.to_string() });
+            hunk = Some(DiffLine { kind, text: row.to_string(), collides: None });
             run.clear();
             continue;
         }
@@ -217,13 +334,70 @@ pub fn excerpt(patch: &str, line: u64, left: bool) -> Option<Vec<DiffLine>> {
                 Some(if left { old } else { new })
             }
         };
-        run.push(DiffLine { kind, text: row.to_string() });
+        run.push(DiffLine { kind, text: row.to_string(), collides: None });
         if at == Some(line) {
             let from = run.len().saturating_sub(4);
             return Some(hunk.into_iter().chain(run.drain(from..)).collect());
         }
     }
     None
+}
+
+/// Each line's number as the forge names it, and whether it is on the removed side, by its place in the
+/// file (`counted` and `placeOfLine`, `pr-review/patch.ts`): a line with a number in the new file is on
+/// the right, a removed line on the left. A hunk's head and git's `\` lines have none.
+pub fn places(lines: &[DiffLine]) -> Vec<Option<(u64, bool)>> {
+    let (mut old, mut new) = (0u64, 0u64);
+    lines
+        .iter()
+        .map(|line| match line.kind {
+            LineKind::Hunk => {
+                if let Some((from, to)) = hunk_starts(&line.text) {
+                    (old, new) = (from, to);
+                }
+                None
+            }
+            LineKind::Context if line.text.starts_with('\\') => None,
+            LineKind::Removed => {
+                old += 1;
+                Some((old, true))
+            }
+            LineKind::Added => {
+                new += 1;
+                Some((new, false))
+            }
+            LineKind::Context => {
+                old += 1;
+                new += 1;
+                Some((new, false))
+            }
+        })
+        .collect()
+}
+
+/// The lines of the file as it was that a hunk header changes, as `[from, to)`; a count of nought is a
+/// point (`rangeOf`).
+fn range_of(header: &str) -> Option<(u64, u64)> {
+    let old = header.strip_prefix("@@ -")?.split(' ').next()?;
+    let mut parts = old.split(',');
+    let from = parts.next()?.parse::<u64>().ok()?;
+    let count = match parts.next() {
+        None => 1,
+        Some(count) => count.parse::<u64>().ok()?,
+    };
+    Some((from, from + count.max(1)))
+}
+
+/// Each hunk of `file` that changes lines a hunk of `other` changes says it collides, in `said`
+/// (`markCollisions`). Both patches run from where the two sides split, so their old-side ranges count
+/// the same file's lines.
+pub fn mark_collisions(file: &mut Drawn, other: &Drawn, said: &str) {
+    let theirs: Vec<(u64, u64)> = other.files.iter().flat_map(|one| one.lines.iter()).filter(|line| line.kind == LineKind::Hunk).filter_map(|line| range_of(&line.text)).collect();
+    for line in file.files.iter_mut().flat_map(|one| one.lines.iter_mut()).filter(|line| line.kind == LineKind::Hunk) {
+        if range_of(&line.text).is_some_and(|(a0, a1)| theirs.iter().any(|&(b0, b1)| a0 < b1 && b0 < a1)) {
+            line.collides = Some(said.to_string());
+        }
+    }
 }
 
 /// `@@ -a,b +c,d @@` → the line before each side's first, so the first row counts as `a` and `c`.

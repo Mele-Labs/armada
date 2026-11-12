@@ -1,9 +1,7 @@
 //! A pull request panel's Files tab (`PullRequestFiles`): the file list floating beside the panel,
-//! then one section a file, its head over its lines, with the judge's notes and the review threads on
-//! that file under the head. A judge note that names no line stands at the top, above every file.
-//!
-//! **The native diff has no line numbers yet**, so a note or a thread stands under its file's head
-//! rather than between its lines, and a line cannot be pressed to write a note of his own.
+//! then one section a file, its head over its lines, with the review threads on that file under the
+//! head. A judge note on a drawn line stands under that line, beside his own notes; one that names no
+//! line stands at the top, above every file.
 
 use chrono::Local;
 use gpui::{div, point, prelude::*, px, AnyElement, Context, FontWeight, KeyDownEvent, Pixels, Role, SharedString, Window};
@@ -353,21 +351,6 @@ impl JobView {
             .filter(|note| note.r#where.as_deref().and_then(line_of).is_none_or(|(path, _)| !page.files.iter().any(|file| file.path == path)))
             .collect();
         let top = pinned.as_ref().filter(|_| !lineless.is_empty()).and_then(|at| self.notes_list(at, lineless, "Notes from the judge".into(), job_page, look, cx));
-        let resolved = page.threads.iter().filter(|thread| thread.resolved).count();
-        let toggle = (resolved > 0).then(|| {
-            let shown = panel.show_resolved;
-            let said = if shown { "Hide resolved".to_string() } else { format!("Show resolved ({resolved})") };
-            labelled(
-                super::pr_panel::small_button(look, "pull-files-resolved", &said, false, true).on_click(cx.listener(move |this, _, _, cx| {
-                    if let Some(panel) = this.pull_panel_mut() {
-                        panel.show_resolved = !shown;
-                    }
-                    cx.notify();
-                })),
-                Role::Button,
-                said.clone(),
-            )
-        });
         let now = Local::now();
         let read = panel.patches_key().and_then(|key| self.panes.patches.get(&key));
         let sections: Vec<AnyElement> = page
@@ -390,18 +373,16 @@ impl JobView {
                     .child(mark(look, format!("pull-file-status:{at}"), icon, said, tone))
                     .child(div().flex_1().min_w_0().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(SharedString::from(file.path.clone())))
                     .child(diff_size(look, format!("pull-file-size:{at}"), file.additions, file.deletions));
-                let file_notes = pinned.as_ref().and_then(|at_| {
-                    let mine = on_file(&file.path);
-                    (!mine.is_empty()).then(|| self.notes_list(at_, mine, format!("Notes from the judge on {}", file.path), job_page, look, cx)).flatten()
-                });
                 let threads: Vec<AnyElement> = page
                     .threads
                     .iter()
-                    .filter(|thread| thread.path == file.path && (panel.show_resolved || !thread.resolved))
+                    .filter(|thread| thread.path == file.path)
                     .map(|thread| self.pull_thread(panel, &panel.pull, thread, look, now, cx))
                     .collect();
-                let under = (file_notes.is_some() || !threads.is_empty())
-                    .then(|| div().flex().flex_col().gap(look.length(token::SPACE_2)).p(look.length(token::SPACE_2)).border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).children(file_notes).children(threads));
+                let mine = on_file(&file.path);
+                // A judge's note on a drawn line stands under it, after his own (`useDiffUnder`); one
+                // on a line the diff does not draw stays under the file's head.
+                let mut drawn_lines: Vec<u64> = Vec::new();
                 let body: AnyElement = match read {
                     None => div().p(look.length(token::SPACE_3)).child(stand_ins(look, &format!("pull-file-reading:{at}"), &[0.9, 0.7, 0.8])).into_any_element(),
                     Some(Err(why)) => quiet(look, why),
@@ -409,11 +390,31 @@ impl JobView {
                         let one = patches.files.iter().find(|one| one.path == file.path);
                         let drawn = diff::file_diff_of(&file.path, one.and_then(|one| one.patch.as_deref()), one.and_then(|one| one.said.as_deref()));
                         match drawn.files.first() {
-                            Some(lines) => div().flex().flex_col().children(drawn.cut.clone().map(|cut| quiet(look, &cut))).child(diff::lines(format!("pull-file-lines:{at}"), &lines.lines, look)).into_any_element(),
+                            Some(lines) => {
+                                let mut slots = self.note_slots(panel, &file.path, &lines.lines, look, cx);
+                                for (index, place) in diff::places(&lines.lines).into_iter().enumerate() {
+                                    let Some((line, false)) = place else { continue };
+                                    drawn_lines.push(line);
+                                    let here: Vec<&JudgeNote> = mine.iter().copied().filter(|note| note.r#where.as_deref().and_then(line_of).is_some_and(|(_, at)| at == line)).collect();
+                                    let Some(judged) = pinned.as_ref().and_then(|at_| self.notes_list(at_, here, format!("Notes on {}:{line}", file.path), job_page, look, cx)) else { continue };
+                                    let stood = match slots.under.remove(&index) {
+                                        Some(his) => div().flex().flex_col().gap(look.length(token::SPACE_2)).child(his).child(judged).into_any_element(),
+                                        None => judged,
+                                    };
+                                    slots.under.insert(index, stood);
+                                }
+                                div().flex().flex_col().children(drawn.cut.clone().map(|cut| quiet(look, &cut))).child(diff::lines_with(format!("pull-file-lines:{at}"), &lines.lines, look, slots)).into_any_element()
+                            }
                             None => quiet(look, drawn.empty.as_deref().unwrap_or("")),
                         }
                     }
                 };
+                let file_notes = pinned.as_ref().and_then(|at_| {
+                    let unplaced: Vec<&JudgeNote> = mine.iter().copied().filter(|note| note.r#where.as_deref().and_then(line_of).is_none_or(|(_, line)| !drawn_lines.contains(&line))).collect();
+                    self.notes_list(at_, unplaced, format!("Notes from the judge on {}", file.path), job_page, look, cx)
+                });
+                let under = (file_notes.is_some() || !threads.is_empty())
+                    .then(|| div().flex().flex_col().gap(look.length(token::SPACE_2)).p(look.length(token::SPACE_2)).border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).children(file_notes).children(threads));
                 labelled(
                     div()
                         .id(SharedString::from(format!("pull-file:{at}")))
@@ -451,7 +452,6 @@ impl JobView {
                 .gap(look.length(token::SPACE_3))
                 .children(top)
                 .children(tree)
-                .children(toggle.map(|toggle| div().flex().child(toggle)))
                 .child(div().id("pull-files").track_scroll(&panel.sections).flex().flex_col().gap(look.length(token::SPACE_3)).children(sections))
                 .into_any_element(),
         )
