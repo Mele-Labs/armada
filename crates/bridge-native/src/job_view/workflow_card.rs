@@ -4,7 +4,7 @@
 //! whose steps have not arrived draws the definition's text, as it did before.
 
 use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, Role, SharedString, Window};
-use ipc::{AnswerWaiting, ChangeOrigin, ChangeStep, SessionId, SessionRow, ThreadItem, WorkflowChange};
+use ipc::{AnswerWaiting, ChangeOrigin, ChangeStep, PlanGate, SessionId, SessionRow, ThreadItem, WorkflowChange};
 use std::rc::Rc;
 
 use super::acts::{button, Answer, Mode, Tone};
@@ -94,19 +94,35 @@ pub(super) struct Card {
     pub lanes: Vec<Lane>,
 }
 
-/// The glyph and name of a plan gate, as the reverted Electron lanes and a plan's Now draw them.
-/// His own gates take his colour; the ones Fleet sees for itself take the kind they close.
-pub(super) fn gate_mark(word: &str) -> Option<GateMark> {
-    let (glyph, named, ink) = match word {
-        "plan_approved" => ("stamp", "Your approval of the plan", token::YOU),
-        "walk_approved" => ("footprints", "Your approval of the walk", token::YOU),
-        "sketch_approved" => ("pencil-ruler", "Your approval of the sketch", token::YOU),
-        "document_approved" => ("notebook-pen", "Your approval of the document", token::YOU),
-        "you_approved" => ("circle-check", "Your Approve", token::YOU),
-        "checks_green" => ("shield-check", "Checks pass", token::KIND_GATE),
-        "merged" => ("git-merge", "The merge", token::KIND_DELIVERY),
-        "jobs_ended" => ("link", "The Jobs it started end", token::KIND_GATE),
+/// A gate's word on the wire, as `PlanGate` serialises it; anything else is no gate.
+pub(super) fn plan_gate(word: &str) -> Option<PlanGate> {
+    Some(match word {
+        "plan_approved" => PlanGate::PlanApproved,
+        "walk_approved" => PlanGate::WalkApproved,
+        "sketch_approved" => PlanGate::SketchApproved,
+        "document_approved" => PlanGate::DocumentApproved,
+        "you_approved" => PlanGate::YouApproved,
+        "checks_green" => PlanGate::ChecksGreen,
+        "merged" => PlanGate::Merged,
+        "jobs_ended" => PlanGate::JobsEnded,
         _ => return None,
+    })
+}
+
+/// The glyph and name of a plan gate, as the reverted Electron lanes and a plan's Now draw them: the one
+/// table both the lanes and the Workflow pane read. His own gates take his colour; the ones Fleet sees for
+/// itself take the kind they close.
+pub(super) fn gate_mark(kind: PlanGate) -> Option<GateMark> {
+    let (glyph, named, ink) = match kind {
+        PlanGate::PlanApproved => ("stamp", "Your approval of the plan", token::YOU),
+        PlanGate::WalkApproved => ("footprints", "Your approval of the walk", token::YOU),
+        PlanGate::SketchApproved => ("pencil-ruler", "Your approval of the sketch", token::YOU),
+        PlanGate::DocumentApproved => ("notebook-pen", "Your approval of the document", token::YOU),
+        PlanGate::YouApproved => ("circle-check", "Your Approve", token::YOU),
+        PlanGate::ChecksGreen => ("shield-check", "Checks pass", token::KIND_GATE),
+        PlanGate::Merged => ("git-merge", "The merge", token::KIND_DELIVERY),
+        PlanGate::JobsEnded => ("link", "The Jobs it started end", token::KIND_GATE),
+        PlanGate::None => return None,
     };
     Some(GateMark { glyph, named, ink })
 }
@@ -129,7 +145,7 @@ pub(super) fn lane(step: &ChangeStep) -> Lane {
         label: step.label.clone(),
         about: step.about.clone(),
         ends: step.ends_when.as_ref().map(|ends| format!("Ends when {ends}")),
-        gate: step.gate.as_deref().and_then(gate_mark),
+        gate: step.gate.as_deref().and_then(plan_gate).and_then(gate_mark),
         facts: facts(step),
         instructions: step.instructions.clone(),
         delivers: step.delivers,

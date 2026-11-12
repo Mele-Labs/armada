@@ -186,18 +186,9 @@ fn gate_ends(kind: PlanGate) -> &'static str {
     }
 }
 
-/// A gate's glyph (`GATE_GLYPH`): the Jobs tab's for the Jobs it started.
+/// A gate's glyph (`GATE_GLYPH`), from the one gate table; no gate takes the Jobs tab's link.
 fn gate_glyph(kind: PlanGate) -> &'static str {
-    match kind {
-        PlanGate::PlanApproved => "stamp",
-        PlanGate::WalkApproved => "footprints",
-        PlanGate::SketchApproved => "pencil-ruler",
-        PlanGate::DocumentApproved => "notebook-pen",
-        PlanGate::YouApproved => "circle-check",
-        PlanGate::ChecksGreen => "shield-check",
-        PlanGate::Merged => "git-merge",
-        PlanGate::JobsEnded | PlanGate::None => "link",
-    }
+    super::workflow_card::gate_mark(kind).map_or("link", |mark| mark.glyph)
 }
 
 /// How a gate reads (`readGate`).
