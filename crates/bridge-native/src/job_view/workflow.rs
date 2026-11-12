@@ -913,9 +913,9 @@ impl JobView {
                     let rows: Vec<AnyElement> = if stretch.state == StretchState::Done {
                         vec![self.under_done(job, stretch.groups.iter().map(|group| Finished::Group(group, group_time(group))).collect(), &stretch.key, look, cx)]
                     } else {
-                        self.flight_rows(job, &stretch.groups, stretch.state == StretchState::Next, look, cx).into_iter().collect()
+                        self.flight_rows(job, &stretch.groups, stretch.state == StretchState::Next, false, look, cx).into_iter().collect()
                     };
-                    let list = (stretch.state == StretchState::Now).then(|| self.now_tasks(job, look)).flatten();
+                    let list = (stretch.state == StretchState::Now).then(|| self.now_tasks(job, look, false)).flatten();
                     let landing = (Some(&stretch.key) == last_key.as_ref()).then(|| self.landing(job, &work, look, cx)).flatten();
                     column(rows.into_iter().chain(list).chain(landing).collect())
                 },
@@ -972,7 +972,7 @@ impl JobView {
                         let early = (!early.is_empty()).then(|| self.under_done(job, sorted(std::mem::take(&mut early)), "step-early", look, cx));
                         let held_open = (!shown && !alone).then(open_work).flatten();
                         let landing = last.then(|| self.landing(job, &work, look, cx)).flatten();
-                        let rows = early.into_iter().chain(now_body.take()).chain(self.flight_rows(job, &upcoming, true, look, cx)).chain(held_open).chain(landing).collect();
+                        let rows = early.into_iter().chain(now_body.take()).chain(self.flight_rows(job, &upcoming, true, false, look, cx)).chain(held_open).chain(landing).collect();
                         let acts = div().flex().items_center().gap(look.length(token::SPACE_1)).child(self.now_acts(id, look, cx)).children(skip).into_any_element();
                         Spec::zone(key, Some("now".into()), name.clone(), area, teach).lamp(now_lamp()).acts(Some(acts)).offer(offer).skipped(skipped).body(column(rows))
                     }

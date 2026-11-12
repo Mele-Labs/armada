@@ -371,9 +371,11 @@ impl JobView {
         div().flex().items_center().gap(look.length(token::SPACE_1)).children(sketch).children(ask).children(whole).into_any_element()
     }
 
-    /// Now, with Ahead under it.
+    /// Now alone in its pane: the band and what runs, or nothing when nothing runs.
     pub(super) fn side_now(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let Some((lamp, body)) = self.now_parts(id, false, look, cx) else { return div().into_any_element() };
+        // When nothing runs, Now draws nothing.
+        let Some((lamp, Some(body))) = self.now_parts(id, false, look, cx) else { return div().into_any_element() };
+        let body = Some(body);
         div().flex().flex_col().child(self.now_band(id, lamp, look, cx)).children(body).into_any_element()
     }
 
@@ -381,6 +383,11 @@ impl JobView {
     /// as Classic's `aheadList` does outside a pane of its own.
     pub(super) fn now_parts(&self, id: &SharedString, spine: bool, look: &Look, cx: &Context<Self>) -> Option<(Option<Lamp>, Option<AnyElement>)> {
         let job = self.record(id, cx).cloned()?;
+        // Now alone in its pane holds only what runs at this moment (his ruling, 12 Nov): the call,
+        // tasks in progress, the group at work with its running subagents, Fleet at work, the Jobs it
+        // started that run, running Checks and a live watch. What waits on him, what is finished and
+        // what has not started leave it. The Spine's Now keeps Classic's beats.
+        let only_now = !spine;
         let head = self.thread(id, cx).map(|held| held.head.clone());
         let rows = self.thread_rows(id, cx);
         let working = self.working(id, cx);
@@ -402,6 +409,7 @@ impl JobView {
         let owed: Vec<AnyElement> = self
             .needs_of(id, cx)
             .into_iter()
+            .filter(|_| !only_now)
             .flat_map(|view| view.sections.iter())
             .filter(|section| section.kind != ipc::NeedsYouSectionKind::Done)
             .flat_map(|section| section.rows.iter())
@@ -410,7 +418,7 @@ impl JobView {
             .filter(|row| !(row.source == WaitingSource::Walk && walks.iter().any(|(url, _, _)| row.id.strip_prefix("walk:") == Some(url.as_str()))))
             .map(|row| self.owed_row(row, look, cx))
             .collect();
-        let walk_rows = walks.iter().map(|(url, title, takes)| self.walk_beat(url, title, *takes, look, cx));
+        let walk_rows = walks.iter().filter(|_| !only_now).map(|(url, title, takes)| self.walk_beat(url, title, *takes, look, cx));
 
         // The agent's row says what Fleet saw: stopped and why, stuck on the call it has not come back
         // from, the call it is in and for how long, or what it detected. A Job doing nothing draws no row.
@@ -420,7 +428,8 @@ impl JobView {
         let line_now = account.filter(|_| at_work.is_empty()).map(|line| (SharedString::from(line), token::STEP_RUNNING));
         let state = job.mark.map(|mark| mark.state);
         let waiting_on = state.filter(|_| detected.is_none()).filter(|state| matches!(state, JobState::Waiting | JobState::Held | JobState::Limited | JobState::Stuck | JobState::Failing | JobState::After)).map(|state| crate::jobs::glyph_of(state, None).1.to_string());
-        let agent = if let Some(stopped) = job.stopped.as_ref() {
+        let waiting_on = waiting_on.filter(|_| !only_now);
+        let agent = if let Some(stopped) = job.stopped.as_ref().filter(|_| !only_now) {
             let asks = stopped.gave_up;
             let (icon, _) = crate::jobs::glyph_of(if asks { JobState::StoppedAsks } else { JobState::Stopped }, None);
             let ink = if asks { token::STATUS_AWAITING_REVIEW } else { token::FG_SUBTLE };
@@ -454,24 +463,29 @@ impl JobView {
             labelled(named(&key, beat(look, lead(look, &key, "server", token::FG_SUBTLE, "Fleet", false), said, since(look, &key, act.at.as_str(), "Under way for"), None)), Role::Group, act.said.clone()).into_any_element()
         });
         // A step held on a state an instance has yet to reach: a fact, so the clock does not pulse.
-        let waits = job.workflow_waiting_on.iter().map(|said| labelled(named(&format!("wait:{said}"), beat(look, lead(look, &format!("wait:{said}"), "clock", token::FG_SUBTLE, "Waiting", false), words(look, said.clone(), token::FG_MUTED, false, false, true), None, None)), Role::Group, said.clone()).into_any_element());
+        let waits = job.workflow_waiting_on.iter().filter(|_| !only_now).map(|said| labelled(named(&format!("wait:{said}"), beat(look, lead(look, &format!("wait:{said}"), "clock", token::FG_SUBTLE, "Waiting", false), words(look, said.clone(), token::FG_MUTED, false, false, true), None, None)), Role::Group, said.clone()).into_any_element());
         let route = self.route(&job, cx);
         // A step of the route the workflow already names is that step, not a second row; a plan that
         // ends on gates says where it is in its stretches instead.
-        let under_way = route.iter().filter(|step| !gates && matches!(step.state, PlanTaskState::Working | PlanTaskState::Failed) && !work.names(step.label)).map(|step| route_beat(look, *step));
+        let under_way = route
+            .iter()
+            .filter(|step| !gates && (step.state == PlanTaskState::Working || (!only_now && step.state == PlanTaskState::Failed)) && !work.names(step.label))
+            .map(|step| route_beat(look, *step));
         let checks: Vec<(&String, SessionCheckState, String)> = rows.iter().filter_map(|row| if let SessionRow::Check { id, name, state, .. } = row { Some((name, *state, id.clone())) } else { None }).collect();
         let failed_check = checks.last().filter(|(_, state, _)| matches!(state, SessionCheckState::Failed | SessionCheckState::TimedOut)).cloned();
         let check_rows = checks
             .iter()
             .filter(|(_, state, _)| *state == SessionCheckState::Running)
             .map(|(name, _, row)| (name, PlanTaskState::Working, row))
-            .chain(failed_check.as_ref().map(|(name, _, row)| (name, PlanTaskState::Failed, row)))
+            .chain(failed_check.as_ref().filter(|_| !only_now).map(|(name, _, row)| (name, PlanTaskState::Failed, row)))
             .map(|(name, state, row)| labelled(named(&format!("check:{row}"), beat(look, step_lead(look, &format!("check:{row}"), state), words(look, (*name).clone(), token::FG_MUTED, false, true, false), None, None)), Role::Group, (*name).clone()).into_any_element())
             .collect::<Vec<_>>();
 
         let asked = head.as_ref().is_some_and(|head| head.asked.is_some());
         let broke = approved && job.plan.iter().flat_map(|plan| plan.groups.iter()).any(|group| group.tasks.iter().any(|task| task.state == PlanTaskState::Failed));
-        let lamp = if !owed.is_empty() || !walks.is_empty() || asked {
+        let lamp = if only_now {
+            None
+        } else if !owed.is_empty() || !walks.is_empty() || asked {
             Some(Lamp::Asks)
         } else if broke || failed_check.is_some() {
             Some(Lamp::Failed)
@@ -484,14 +498,13 @@ impl JobView {
         };
 
         let beats: Vec<AnyElement> = owed.into_iter().chain(walk_rows).chain(agent.map(|agent| agent.into_any_element())).chain(fleet).chain(waits).chain(under_way).chain(check_rows).collect();
-        let beats = (!beats.is_empty()).then(|| labelled(div().id("now-beats").flex().flex_col().children(beats), Role::List, "Now").into_any_element());
-        let ahead = if spine { None } else { self.ahead_list(&job, look, cx) };
+        let beats = (!beats.is_empty()).then(|| labelled(div().id("now-beats").flex().flex_col().when(only_now, |beats| beats.gap(look.length(token::SPACE_1))).children(beats), Role::List, "Now").into_any_element());
         // With a workflow and a plan group being worked, the agent's list follows the plan's tasks; a
         // plan that ends on gates draws it under the live stretch's tasks instead.
         let list_after = after_plan && !at_work.is_empty();
-        let list = if gates { None } else { self.now_tasks(&job, look) };
+        let list = if gates { None } else { self.now_tasks(&job, look, only_now) };
         let (list_before, list_after) = if list_after { (None, list) } else { (list, None) };
-        let flight = if gates { None } else { self.flight_rows(&job, &at_work, false, look, cx) };
+        let flight = if gates { None } else { self.flight_rows(&job, &at_work, false, only_now, look, cx) };
         let helpers = if gates { self.helpers(&job, look, cx) } else { None };
         let rows: Vec<AnyElement> = beats
             .into_iter()
@@ -501,11 +514,12 @@ impl JobView {
             .chain(helpers)
             .chain(self.now_children(&job, look, cx))
             .chain(list_after)
-            .chain(self.now_plan(id, &job, look, cx))
-            .chain(self.watching(&job, look, cx).map(|watching| watching.into_any_element()))
-            .chain(ahead)
+            .chain(self.now_plan(id, &job, look, cx).filter(|_| !only_now))
+            .chain(self.watching(&job, look, cx).filter(|_| !only_now || self.watches_of(id, cx).iter().any(|watch| watch.live)).map(|watching| watching.into_any_element()))
             .collect();
-        let body = (!rows.is_empty()).then(|| div().flex().flex_col().children(rows).into_any_element());
+        let live = only_now && ((working && !stuck) || !at_work.is_empty());
+        let lamp = if live { Some(Lamp::Live) } else { lamp };
+        let body = (!rows.is_empty()).then(|| div().flex().flex_col().when(only_now, |body| body.gap(look.length(token::SPACE_2))).children(rows).into_any_element());
         Some((lamp, body))
     }
 
@@ -621,13 +635,14 @@ impl JobView {
 
     /// The agent's own list, open and working items only; a Job that stopped lists the tasks it
     /// stopped on, open.
-    pub(super) fn now_tasks(&self, job: &SessionRecord, look: &Look) -> Option<AnyElement> {
-        let left = job.stopped.as_ref().map(|stopped| stopped.tasks.clone()).unwrap_or_default();
+    pub(super) fn now_tasks(&self, job: &SessionRecord, look: &Look, only_now: bool) -> Option<AnyElement> {
+        let left = job.stopped.as_ref().filter(|_| !only_now).map(|stopped| stopped.tasks.clone()).unwrap_or_default();
         let todos: Vec<(String, PlanTaskState)> = if left.is_empty() {
             job.activity
                 .iter()
                 .flat_map(|activity| activity.todos.iter())
                 .filter(|todo| todo.task.is_none() && todo.state != SessionTodoState::Done)
+                .filter(|todo| !only_now || todo.state == SessionTodoState::Doing)
                 .map(|todo| (todo.text.clone(), if todo.state == SessionTodoState::Doing { PlanTaskState::Working } else { PlanTaskState::Open }))
                 .collect()
         } else {
@@ -640,7 +655,7 @@ impl JobView {
             let ink = if state == PlanTaskState::Working { token::FG_DEFAULT } else { token::FG_MUTED };
             beat(look, step_lead(look, &format!("todo:{at}"), state), words(look, text, ink, false, false, true), None, None)
         });
-        Some(labelled(div().id("now-tasks").flex().flex_col().children(rows), Role::List, "Agent tasks").into_any_element())
+        Some(labelled(div().id("now-tasks").flex().flex_col().when(only_now, |tasks| tasks.gap(look.length(token::SPACE_1))).children(rows), Role::List, "Agent tasks").into_any_element())
     }
 
     /// The subagents at work on a Job with no plan (`SubagentsAtWork`): each its task and its type.
@@ -665,21 +680,23 @@ impl JobView {
     /// pull requests. Those being worked stand open until pressed shut; `calm`, the groups still to come,
     /// stand shut until pressed, read as titles. A group handed to a Job is that Job's card, and one
     /// going to a Job not started yet is its placeholder card.
-    pub(super) fn flight_rows(&self, job: &SessionRecord, groups: &[&SessionPlanGroup], calm: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// `only_now`, in Now alone: a group's finished drones, its tasks not under way, its issue and pull
+    /// requests, and a Job it is handed to that is not running, leave it.
+    pub(super) fn flight_rows(&self, job: &SessionRecord, groups: &[&SessionPlanGroup], calm: bool, only_now: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         if groups.is_empty() {
             return None;
         }
-        let rows = groups.iter().map(|group| {
+        let rows: Vec<AnyElement> = groups.iter().filter_map(|group| {
             if let Some(child) = job.attachments.iter().find(|one| one.kind == "started_to" && one.detail.get("group") == Some(&group.id)).and_then(|one| self.record(&one.target, cx)) {
-                return job_card(child, look, cx);
+                return (!only_now || running_child(child)).then(|| job_card(child, look, cx));
             }
-            let issue = group.issue.as_ref().and_then(|number| job.attachments.iter().find(|one| one.kind == "issue" && one.target == *number));
+            let issue = group.issue.as_ref().and_then(|number| job.attachments.iter().find(|one| one.kind == "issue" && one.target == *number)).filter(|_| !only_now);
             if group.own_job {
-                return job_placeholder(&group.id, &group.title, issue.map(|one| super::issues::issue_of(job, one)), look, cx);
+                return (!only_now).then(|| job_placeholder(&group.id, &group.title, issue.map(|one| super::issues::issue_of(job, one)), look, cx));
             }
             let shut_key = if calm { format!("open-open:{}", group.id) } else { format!("now-shut:{}", group.id) };
             let open = self.side_unfolded(&shut_key) == calm;
-            let drones = job.attachments.iter().filter(|one| one.kind == "subagent" && one.detail.get("group") == Some(&group.id)).map(|one| {
+            let drones = job.attachments.iter().filter(|one| one.kind == "subagent" && one.detail.get("group") == Some(&group.id)).filter(|one| !only_now || one.state == AttachmentState::Standing).map(|one| {
                 let subagent = super::ledger::subagent_of(one);
                 let running = one.state == AttachmentState::Standing;
                 let said = if running { format!("Subagent at work on {}", subagent.task) } else { format!("Subagent, finished: {}", subagent.task) };
@@ -704,7 +721,7 @@ impl JobView {
                     said,
                 )
             });
-            let track = (!open && !group.tasks.is_empty()).then(|| super::done::task_track(&group.id, &group.tasks, look));
+            let track = (!only_now && !open && !group.tasks.is_empty()).then(|| super::done::task_track(&group.id, &group.tasks, look));
             let (icon, ink, said) = task_look(if calm { PlanTaskState::Open } else { PlanTaskState::Working });
             let row = labelled(
                 div()
@@ -735,7 +752,7 @@ impl JobView {
                 format!("Plan group: {}", group.title),
             );
             let body = open.then(|| {
-                let tasks = group.tasks.iter().enumerate().map(|(at, task)| {
+                let tasks = group.tasks.iter().enumerate().filter(|(_, task)| !only_now || task.state == PlanTaskState::Working).map(|(at, task)| {
                     let ink = if task.state == PlanTaskState::Working { token::FG_DEFAULT } else { token::FG_MUTED };
                     beat(look, step_lead(look, &format!("task:{}:{at}", group.id), task.state), words(look, task.text.clone(), ink, false, false, true), None, None)
                 });
@@ -754,9 +771,9 @@ impl JobView {
                     .child(labelled(div().id(SharedString::from(format!("now-tasks:{}", group.id))).flex().flex_col().children(tasks), Role::List, "Tasks"))
                     .children(pulls)
             });
-            div().flex().flex_col().child(div().flex().items_center().gap(look.length(token::SPACE_1)).child(row).children(drones)).children(body).into_any_element()
-        });
-        Some(labelled(div().id("now-groups").flex().flex_col().pt(look.length(token::SPACE_2)).children(rows), Role::List, "Groups").into_any_element())
+            Some(div().flex().flex_col().child(div().flex().items_center().gap(look.length(token::SPACE_1)).child(row).children(drones)).children(body).into_any_element())
+        }).collect();
+        (!rows.is_empty()).then(|| labelled(div().id("now-groups").flex().flex_col().when(!only_now, |groups| groups.pt(look.length(token::SPACE_2))).when(only_now, |groups| groups.gap(look.length(token::SPACE_1))).children(rows), Role::List, "Groups").into_any_element())
     }
 
     /// The Jobs it started outside its plan that still run, each its card.
