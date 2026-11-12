@@ -915,7 +915,8 @@ impl JobView {
                             .overflow_x_scroll()
                             .track_scroll(&self.row_strip)
                             .children(tab.map(|tab| div().flex_none().max_w(look.length(token::SPACE_12) * 8.).flex().h_full().child(tab)))
-                            .children(self.row_tab_strip(id, look, cx)),
+                            .children(self.row_tab_strip(id, look, cx))
+                            .children(self.view_tab_elements(super::ViewPane::Thread, look, cx)),
                     )
                     .child(self.add_button(super::tabs::Pane::Thread, look, cx))
                     .children(self.strip_end(super::tabs::Pane::Thread, look, cx)),

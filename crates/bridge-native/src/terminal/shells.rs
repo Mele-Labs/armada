@@ -236,6 +236,8 @@ struct MockRun {
     at: usize,
     folder: String,
     ended: bool,
+    /// A program holds it, as `pnpm dev` does until ⌃C: Fleet lists it running.
+    busy: bool,
     /// How it exited: the code, or none where it was stopped.
     code: Option<i32>,
 }
@@ -299,7 +301,7 @@ impl Mock {
             Some(held) => held.2 = run.clone(),
             None => shells.push((id, name, run.clone())),
         }
-        state.runs.insert(run.clone(), MockRun { tx: None, printed: prompt(folder), line: Vec::new(), at: 0, folder: folder.to_string(), ended: false, code: None });
+        state.runs.insert(run.clone(), MockRun { tx: None, printed: prompt(folder), line: Vec::new(), at: 0, folder: folder.to_string(), ended: false, busy: false, code: None });
         run
     }
 
@@ -410,6 +412,7 @@ impl Shells for Mock {
                     echo.push_str(&format!("\x08{rest} \x1b[{}D", rest.chars().count() + 1));
                 }
                 '\x03' => {
+                    one.busy = false;
                     one.line.clear();
                     one.at = 0;
                     echo.push_str("^C\r\n");
@@ -439,6 +442,8 @@ impl Shells for Mock {
                     }
                     one.at = to;
                 }
+                // A program holding the shell takes the keys; the walk's ones print nothing back.
+                _ if one.busy => {}
                 ch if !ch.is_control() => {
                     one.line.insert(one.at, ch);
                     one.at += 1;
@@ -457,6 +462,14 @@ impl Shells for Mock {
             if command.trim() == "exit" {
                 Self::print(&mut state, run, "\r\n".into());
                 Self::finish(&mut state, run, false);
+                return;
+            }
+            if command.trim() == "pnpm dev" {
+                let (said, _) = ran("pnpm dev");
+                if let Some(one) = state.runs.get_mut(run) {
+                    one.busy = true;
+                }
+                Self::print(&mut state, run, said);
                 return;
             }
             Self::print(&mut state, run, format!("\r\n{}{}", answer(&command), prompt(&folder)));
@@ -478,7 +491,7 @@ impl Shells for Mock {
                 shells
                     .iter()
                     .filter(|(_, _, run)| state.runs.get(run).is_some_and(|one| !one.ended))
-                    .map(|(id, name, run)| ListedTerminal { terminal: id.clone(), name: name.clone(), run_id: run.clone(), running: false })
+                    .map(|(id, name, run)| ListedTerminal { terminal: id.clone(), name: name.clone(), run_id: run.clone(), running: state.runs.get(run).is_some_and(|one| one.busy) })
                     .collect()
             })
             .unwrap_or_default();
@@ -516,7 +529,7 @@ impl Shells for Mock {
         let run = format!("run-{}", state.next_run);
         let (printed, code) = ran(command);
         let ended = code.is_some();
-        state.runs.insert(run.clone(), MockRun { tx: None, printed, line: Vec::new(), at: 0, folder: String::new(), ended, code });
+        state.runs.insert(run.clone(), MockRun { tx: None, printed, line: Vec::new(), at: 0, folder: String::new(), ended, busy: !ended, code });
         Task::ready(Ok(SessionRunUnderway { run_id: run, terminal: None }))
     }
 }

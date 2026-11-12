@@ -397,11 +397,17 @@ impl JobView {
             .collect()
     }
 
+    /// No row's tab stands in front of Job `id`'s thread pane, so a view tab opened there shows.
+    pub(super) fn rows_back(&mut self, id: &SharedString) {
+        self.row_tabs_of(id).show(None);
+    }
+
     /// The thread comes to the front of its pane.
     pub(super) fn front_thread(&mut self) {
         if let Some(id) = self.shown.clone() {
             self.row_tabs_of(&id).show(None);
         }
+        self.view_tab_back(super::ViewPane::Thread);
     }
 
     /// The body of the tab in front, where it is not the thread. **What has gone draws nothing**: a

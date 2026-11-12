@@ -1,11 +1,11 @@
 //! The terminal Job walk: ⌘T starts one at once in the repository the title bar names and opens it on
-//! its shell; the shell keeps ⌥, ⌃ and Esc, ends, and opens again; the tab's menu and + Terminal; then
+//! its shell in the thread's pane; the shell keeps ⌥, ⌃ and Esc, ends, and opens again; the tab's menu and + Terminal; then
 //! the sheet's Terminal kind and the palette's New terminal. The shells are `terminal::shells::Mock`'s.
 
 use super::{press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 34] = [
-    step("⌘T starts a terminal Job at once in the repository the title bar names: it opens on its shell", Verb::Key("cmd-t"), "tab", "Job column: Terminal 1"),
+pub static STEPS: [Step; 39] = [
+    step("⌘T starts a terminal Job at once in the repository the title bar names: it opens on its shell in the thread's pane", Verb::Key("cmd-t"), "tab", "Job column: Terminal 1"),
     step("The shell has the keys: its prompt and cursor", Verb::Look, "textbox", "Terminal 1"),
     step("Typing goes to the shell", Verb::Typed("git status"), "textbox", "Terminal 1"),
     step("⌥← reaches the shell: the cursor goes back a word, to before status", Verb::Key("alt-left"), "textbox", "Terminal 1"),
@@ -20,9 +20,14 @@ pub static STEPS: [Step; 34] = [
     step("Rename, which makes the tab's title a field", Verb::Look, "menuitem", "Rename"),
     step("Close, the act that ends the shell", Verb::Look, "menuitem", "Close"),
     step("Esc shuts the menu", Verb::Key("escape"), "tab", "Job column: Terminal 1"),
-    press_on("The pane's + offers Terminal after its own tabs", "button", "Add tab: Done", "menuitem", "Terminal"),
-    step("Terminal opens a second shell in front", Verb::Gone, "menuitem", "Terminal"),
-    step("Terminal 2 stands beside Terminal 1", Verb::Look, "tab", "Job column: Terminal 2"),
+    step("A program that keeps running holds the shell", Verb::Typed("pnpm dev"), "textbox", "Terminal 1"),
+    step("Enter starts it", Verb::Key("enter"), "textbox", "Terminal 1"),
+    step("Close while it runs asks first", Verb::RightOpen("tab", "Job column: Terminal 1"), "menuitem", "Close"),
+    step("End Terminal 1: a program is running in it", Verb::Open("menuitem", "Close"), "dialog", "End Terminal 1"),
+    step("Cancel keeps the terminal and its program", Verb::Open("button", "Cancel"), "tab", "Job column: Terminal 1"),
+    press_on("The right column's + offers Terminal after its own tabs", "button", "Add tab: Done", "menuitem", "Terminal"),
+    step("Terminal opens a second shell in front, in the pane whose + was pressed", Verb::Gone, "menuitem", "Terminal"),
+    step("Terminal 2 stands in the right column; Terminal 1 stays in the thread's pane", Verb::Look, "tab", "Job column: Terminal 2"),
     step("⌘N opens the sheet on a Job", Verb::Key("cmd-n"), "img", "Job"),
     step("Tab turns the kind to Terminal: the line takes the terminal's glyph", Verb::Key("tab"), "img", "Terminal"),
     step("The kinds sit together, Terminal chosen", Verb::Look, "tab", "Terminal"),
