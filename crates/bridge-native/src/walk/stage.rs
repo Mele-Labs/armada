@@ -519,11 +519,20 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         }
         Verb::Hover => {
             let target = find(step, window, cx)?;
-            let at = aim(&reveal(target, window, cx));
-            window.dispatch_event(
-                PlatformInput::MouseMove(MouseMoveEvent { position: at, pressed_button: None, modifiers: Modifiers::default() }),
-                cx,
-            );
+            let mut shown = reveal(target, window, cx);
+            // What the pointer brings up can move the thread under it a frame later; it follows the target there.
+            for pass in 0..5 {
+                let at = aim(&shown);
+                window.dispatch_event(
+                    PlatformInput::MouseMove(MouseMoveEvent { position: at, pressed_button: None, modifiers: Modifiers::default() }),
+                    cx,
+                );
+                let now = settle(shown.clone(), window, cx);
+                if now.bounds.contains(&at) {
+                    break;
+                }
+                shown = now;
+            }
             Ok(())
         }
     }
@@ -548,6 +557,35 @@ pub fn press_row(label: &str, window: &mut Window, cx: &mut App) {
 fn reveal(target: Drawn, window: &mut Window, cx: &mut App) -> Drawn {
     let shown = scroll_to(target, window, cx);
     uncover(shown, window, cx)
+}
+
+/// The target found again, drawn after drawn, until it stays put: after a scroll the book can still hold
+/// where it was a frame before.
+fn settle(mut target: Drawn, window: &mut Window, cx: &mut App) -> Drawn {
+    let id = window.window_handle().window_id();
+    for _ in 0..4 {
+        window.draw(cx).clear(cx);
+        let near = target.bounds.center();
+        let distance = |one: &Drawn| {
+            let at = one.bounds.center();
+            (at.x - near.x).abs() + (at.y - near.y).abs()
+        };
+        let Some(now) = cx.try_global::<LabelBook>().and_then(|book| {
+            book.drawn(id)
+                .iter()
+                .filter(|one| one.role == target.role && one.name == target.name && shows(one))
+                .min_by(|a, b| distance(a).partial_cmp(&distance(b)).unwrap_or(std::cmp::Ordering::Equal))
+                .cloned()
+        }) else {
+            break;
+        };
+        let moved = now.bounds != target.bounds;
+        target = now;
+        if !moved {
+            break;
+        }
+    }
+    target
 }
 
 fn shows(one: &Drawn) -> bool {
