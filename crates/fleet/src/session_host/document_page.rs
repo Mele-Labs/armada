@@ -26,6 +26,21 @@ pub(crate) fn title_of(html: &str, path: &str) -> String {
         .unwrap_or_else(|| stem_of(path))
 }
 
+/// Whether the page marks itself as asking his approval: `<meta name="armada-review" content="approve">`.
+/// A page without it is for reading.
+pub(crate) fn asks_approval(html: &str) -> bool {
+    let lower = html.to_ascii_lowercase();
+    let mut from = 0;
+    while let Some((tag, end)) = open_tag(&lower, "meta", from) {
+        let said = |name: &str| attribute(&html[tag..end], name).map(|value| value.trim().to_ascii_lowercase());
+        if said("name").as_deref() == Some("armada-review") && said("content").as_deref() == Some("approve") {
+            return true;
+        }
+        from = end;
+    }
+    false
+}
+
 fn stem_of(path: &str) -> String {
     let name = path.rsplit('/').next().unwrap_or(path);
     name.rsplit_once('.').map_or(name, |(stem, _)| stem).to_string()

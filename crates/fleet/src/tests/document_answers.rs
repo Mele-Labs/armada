@@ -18,7 +18,7 @@ use crate::session_host::document_answers::approved_on_newest;
 const TITLE: &str = "Lease expiry";
 
 fn page(body: &str) -> String {
-    format!("<html><head><title>{TITLE}</title></head><body><p>{body}</p></body></html>")
+    format!(r#"<html><head><title>{TITLE}</title><meta name="armada-review" content="approve"></head><body><p>{body}</p></body></html>"#)
 }
 
 /// A page written by the Job's Write call, which the tool answered.

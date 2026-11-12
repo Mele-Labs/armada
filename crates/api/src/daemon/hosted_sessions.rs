@@ -475,6 +475,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         subagent: String,
     ) -> impl Future<Output = Result<SessionSubagent, Refusal>> + Send;
 
+    /// `get_repository_file`: a file of the Job, as text or a picture.
+    fn get_repository_file(
+        &self,
+        id: SessionId,
+        path: String,
+    ) -> impl Future<Output = Result<ipc::RepositoryFile, Refusal>> + Send;
+
     /// `get_session_file`: what a message carried.
     fn get_session_file(
         &self,

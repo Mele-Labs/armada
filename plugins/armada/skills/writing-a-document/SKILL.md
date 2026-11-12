@@ -8,7 +8,8 @@ description: Write the result of a Job as an HTML page the person reads in Bridg
 **A document is the result a person reads, and you design it.** It is one HTML
 page. Bridge opens it in a reading layer over the Job, shows its sections in a
 contents rail, and lets the person note words, a part of a sketch or a table
-row. Notes are the only feedback.
+row. Notes are the feedback on its words; a page that asks also takes his
+Approve or Send back.
 
 ## Where it goes
 
@@ -17,6 +18,18 @@ row. Notes are the only feedback.
 | Write it to `.armada/documents/<name>.html` in your worktree | Fleet hears every Write or Edit to that folder and, when your turn ends, reads the folder again, so a page changed another way is kept as a revision too |
 | Name it for the subject: `slot-lease-expiry.html` | The name is the document. A new name is a new document |
 | Never `git add` it, never put it in a diff | `.armada/*` is gitignored. If the person asks to add it to the repo, `git add -f` the file and commit it |
+
+## Reading, or asking for an Approve
+
+A page is for reading. Its new revision shows on the Job's card with Open and
+notes, and nothing asks the person to approve it. Put
+`<meta name="armada-review" content="approve">` in the page's `<head>` only
+when you need his yes on it, such as a design you will build from. Leave it
+out of a status page, a report or findings he reads.
+
+A page asks without the mark while your plan has a `document_approved` gate
+open, or the workflow step you are on ends on `document_approved`. Then each
+new revision asks again, and his approval of an older one is refused.
 
 ## The skeleton
 

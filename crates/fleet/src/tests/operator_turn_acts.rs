@@ -86,6 +86,7 @@ async fn a_later_with_a_time_sits_last_until_then_and_the_page_is_told_both_time
     assert_eq!(changes(&mut watching).await, 0, "told once");
 
     let past = rig.fleet.operator_turn_later(OperatorLater { id: a.id.clone(), until: Some(Instant::carried("2026-11-10T12:30:00.000Z")) }).await.expect_err("in the past");
+    assert_eq!(past.error().message, "That time has passed. Pick a later one.", "his words, with no stamp");
     assert_eq!(code(past), (422, "fleet.operator_later_past".to_string()));
     assert!(page(&rig).await.turn.iter().all(|one| one.later_until.is_none()), "nothing moved");
 }
