@@ -75,6 +75,9 @@ pub trait Shells {
     fn rename(&self, job: &str, terminal: &str, name: &str, cx: &mut App) -> Task<Result<ListedTerminal, String>>;
     /// A terminal Job: no words, its first shell open.
     fn start(&self, start: Start, cx: &mut App) -> Task<Result<Started, String>>;
+    /// Whether `start` can start a terminal Job here: ⌘T, the sheet's Terminal kind and the palette's New
+    /// terminal are offered only where it can.
+    fn starts(&self) -> bool;
     /// A command run where Job `job` works, as `$SHELL -lc` runs it, on a terminal of `size`.
     fn run(&self, job: &str, command: &str, size: Cells, cx: &mut App) -> Task<Result<SessionRunUnderway, String>>;
 }
@@ -171,6 +174,11 @@ impl Shells for Live {
     fn start(&self, _start: Start, _cx: &mut App) -> Task<Result<Started, String>> {
         // `POST /sessions/terminal/start` is the quick terminal Fleet Job's, not landed yet.
         Task::ready(Err("This Fleet does not start terminal Jobs yet".into()))
+    }
+
+    fn starts(&self) -> bool {
+        // Until the quick terminal route is on Fleet's main.
+        false
     }
 
     fn run(&self, job: &str, command: &str, size: Cells, cx: &mut App) -> Task<Result<SessionRunUnderway, String>> {
@@ -498,6 +506,10 @@ impl Shells for Mock {
         Task::ready(Ok(Started { job, terminal: "t1".into(), run }))
     }
 
+    fn starts(&self) -> bool {
+        true
+    }
+
     fn run(&self, _job: &str, command: &str, _size: Cells, _cx: &mut App) -> Task<Result<SessionRunUnderway, String>> {
         let mut state = self.state.borrow_mut();
         state.next_run += 1;
@@ -545,6 +557,11 @@ pub fn hold_walk(cx: &mut App) {
 
 pub fn of(cx: &App) -> Option<Rc<dyn Shells>> {
     cx.try_global::<Held>().map(|held| held.0.clone())
+}
+
+/// Whether a terminal Job can be started here (`Shells::starts`).
+pub fn starts(cx: &App) -> bool {
+    cx.try_global::<Held>().is_some_and(|held| held.0.starts())
 }
 
 #[cfg(test)]

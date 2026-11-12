@@ -389,7 +389,8 @@ impl DispatchSheet {
             },
         );
         let picker = div().id("dispatch-repository-tip").when_some(folder.clone(), |wrap, path| wrap.tooltip(tip(path))).child(picker);
-        let kinds = self.kinds(cx);
+        // One kind while Fleet cannot start a terminal Job, and the band draws no track for one.
+        let kinds = crate::terminal::shells::starts(cx).then(|| self.kinds(cx));
         // A start Fleet refused, in Fleet's words, on a line of its own over the band.
         let refusal = self.face.refused.clone().map(|why| {
             div()
@@ -453,7 +454,7 @@ impl DispatchSheet {
             // The acts are in the UI face; the chips and the selects stay mono.
             .font_family(sans(look))
             .child(picker)
-            .child(kinds)
+            .children(kinds)
             .child(div().flex().items_center().gap(look.length(token::SPACE_3)).ml_auto().child(tuning).children(queue).child(act));
         div()
             .id("dispatch-drawer")

@@ -569,7 +569,7 @@ impl DispatchSheet {
                 if mods.shift && self.wait.is_some() {
                     let first = self.parts[0].clone();
                     window.focus(&first, cx);
-                } else if !mods.shift {
+                } else if !mods.shift && crate::terminal::shells::starts(cx) {
                     self.choose_kind(self.kind.next(), window, cx);
                 } else {
                     return;

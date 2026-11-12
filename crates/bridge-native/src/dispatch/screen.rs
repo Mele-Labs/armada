@@ -100,6 +100,9 @@ pub fn live(cx: &App) -> Option<Entity<DispatchScreen>> {
 pub fn bind(cx: &mut App) {
     cx.on_action(|key: &Act, cx: &mut App| {
         if key.is("new_terminal_job") {
+            if !crate::terminal::shells::starts(cx) {
+                return;
+            }
             return reach(cx, |this, window, cx| this.new_terminal(window, cx));
         }
         let add = match key.id {
