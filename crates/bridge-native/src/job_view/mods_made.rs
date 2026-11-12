@@ -6,7 +6,9 @@
 //!
 //! **Still owed:** Promote in the panel, which is the Mods page's own act and arrives with that page.
 
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
+use std::rc::Rc;
+
+use gpui::{div, prelude::*, AnyElement, App, Context, FontWeight, Role, SharedString, Window};
 use ipc::{ModAim, ModKind, ModOrigin, ModSummary, SessionId};
 
 use super::aa::switch;
@@ -106,7 +108,26 @@ fn made_title(name: &str, kind: ModKind) -> String {
 /// Where a mod's folder is made on this machine (`MODS_FOLDER`).
 const MODS_FOLDER: &str = "~/Library/Application Support/Armada/mods";
 
+/// Opens a mod's panel by its folder name, as a press on its row does, for Settings' mod rows. Set by
+/// the Job view; the panel stands beside a Job, so with no Job shown, or a name Fleet does not list, it does nothing.
+#[derive(Clone)]
+pub struct OpenMod(pub Rc<dyn Fn(&str, &mut Window, &mut App)>);
+
+impl gpui::Global for OpenMod {}
+
 impl JobView {
+    pub(super) fn offer_open_mod(cx: &mut Context<Self>) {
+        let view = cx.entity().downgrade();
+        cx.set_global(OpenMod(Rc::new(move |name: &str, window, cx| {
+            let name = name.to_string();
+            let _ = view.update(cx, |this, cx| {
+                let Some(kind) = this.mod_list(cx).iter().find(|one| one.name == name).and_then(|one| one.kind) else { return };
+                let title = made_title(&name, kind);
+                this.open_mod(name, title, kind, window, cx);
+            });
+        })));
+    }
+
     /// Fleet's mod list as it stands, or the mock's.
     fn mod_list(&self, cx: &gpui::App) -> Vec<ModSummary> {
         match self.fleet.as_ref() {

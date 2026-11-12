@@ -73,6 +73,7 @@ mod spine;
 mod workflow;
 mod tabs;
 pub use side::JobSide;
+pub use mods_made::OpenMod;
 mod runs;
 mod talk;
 mod tool_icons;
@@ -457,6 +458,7 @@ impl JobView {
                 tell_fleet(port, &job, false, cx);
             }
         }));
+        Self::offer_open_mod(cx);
         let mock = mock
             .unwrap_or_default()
             .into_iter()
