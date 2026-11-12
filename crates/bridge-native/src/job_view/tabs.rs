@@ -19,7 +19,7 @@ use crate::labels::labelled;
 use crate::look::{token, Look};
 
 /// A Job's three panes, by what each holds.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub(super) enum Pane {
     Thread,
     Top,
@@ -162,6 +162,7 @@ impl JobView {
     pub(super) fn add_button(&self, pane: Pane, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         labelled(
             frame(look, pane.named(), "plus").ml(look.length(token::SPACE_1)).tooltip(tip("Add tab".into())).on_click(cx.listener(move |this, _, window, cx| {
+                cx.stop_propagation();
                 let at = drawn(window, cx, Role::Button, &format!("Add tab: {}", pane.kinds()[0].1)).map_or_else(|| window.mouse_position(), below_left);
                 this.open_add_menu(pane, at, window, cx);
             })),

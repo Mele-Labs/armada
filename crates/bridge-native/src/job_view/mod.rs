@@ -58,6 +58,7 @@ mod report;
 mod sketch_pad;
 mod sketch_read;
 mod subagent_read;
+mod zoom;
 mod panes;
 mod pulls;
 mod issues;
@@ -313,6 +314,8 @@ pub struct JobView {
     zone: side::Zone,
     /// The tabs closed on each Job, and + 's menu while it is open.
     tabs_closed: tabs::Closed,
+    /// The pane zoomed over the Job, and the panes closed on each Job.
+    zoom: zoom::Zoom,
     tabs_menu: Option<tabs::AddMenu>,
     /// The tabs beside each Job's thread: a draft, a document or a walk.
     row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
@@ -479,6 +482,7 @@ impl JobView {
             picked: 0,
             zone: side::Zone::default(),
             tabs_closed: tabs::Closed::default(),
+            zoom: zoom::Zoom::default(),
             tabs_menu: None,
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
@@ -622,6 +626,8 @@ impl JobView {
         // The sheet is the Job's: it shuts when another Job comes on screen.
         self.close_review(window, cx);
         self.composer_leave(cx);
+        // A zoom is where he was looking on that Job: another Job on screen ends it.
+        self.end_zoom();
         self.shown = to.clone();
         self.switched = Some(started);
         // Each Job has its own tabs, so the top strip starts at its head with the tab in front in view.

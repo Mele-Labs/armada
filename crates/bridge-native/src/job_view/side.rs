@@ -315,14 +315,21 @@ impl JobView {
             .flex()
             .flex_col()
             .gap(look.length(token::GAP_PANEL))
-            .child(
+            .when(self.pane_drawn(Pane::Top), |column| column.child(
                 labelled(
                     pane(look)
                         .id("side-top")
                         .flex_grow(2.)
                         .flex_shrink(1.)
                         .flex_basis(gpui::px(0.))
-                        .child(strip(look).child(div().id("side-top-tabs").flex().items_stretch().min_w_0().overflow_x_scroll().track_scroll(&self.panes.top_tabs).children(tabs)).child(self.add_button(Pane::Top, look, cx)))
+                        // A press in the pane makes it the one ⌥⌘Enter zooms.
+                        .on_any_mouse_down(cx.listener(|this, _, _, _| this.pane_pressed(Pane::Top)))
+                        .child(
+                            zoom_strip(strip(look).id("side-top-strip"), Pane::Top, cx)
+                                .child(div().id("side-top-tabs").flex().items_stretch().min_w_0().overflow_x_scroll().track_scroll(&self.panes.top_tabs).children(tabs))
+                                .child(self.add_button(Pane::Top, look, cx))
+                                .children(self.strip_end(Pane::Top, look, cx)),
+                        )
                         .child(if own_frame {
                             div().id("side-top-body").flex_1().min_h_0().flex().flex_col().children(top_body).into_any_element()
                         } else {
@@ -331,15 +338,16 @@ impl JobView {
                     Role::Region,
                     "Open, Done and Deferred",
                 ),
-            )
-            .child(labelled(
+            ))
+            .when(self.pane_drawn(Pane::Now), |column| column.child(labelled(
                 pane(look)
                     .id("side-now")
                     .flex_grow(3.)
                     .flex_shrink(1.)
                     .flex_basis(gpui::px(0.))
+                    .on_any_mouse_down(cx.listener(|this, _, _, _| this.pane_pressed(Pane::Now)))
                     .child(
-                        strip(look)
+                        zoom_strip(strip(look).id("side-now-strip"), Pane::Now, cx)
                             .when(now_open, |strip| {
                                 strip.child(labelled(
                                     tab(look, "side-now-tab", "activity", "Now", true).group("side-now-tab").child(self.close_button("now", "Now", "side-now-tab".into(), true, look, cx)),
@@ -347,12 +355,13 @@ impl JobView {
                                     "Job column: Now",
                                 ))
                             })
-                            .child(self.add_button(Pane::Now, look, cx)),
+                            .child(self.add_button(Pane::Now, look, cx))
+                            .children(self.strip_end(Pane::Now, look, cx)),
                     )
                     .child(body("side-now-body", now_body)),
                 Role::Region,
                 "Job column: Now",
-            ))
+            )))
             .into_any_element()
     }
 
@@ -368,4 +377,14 @@ impl JobView {
             }
         }
     }
+}
+
+/// A pane's strip, where a double press zooms the pane or puts it back, as Electron's strip
+/// `onDoubleClick` does; the ×, + and Restore keep their own presses.
+fn zoom_strip(strip: gpui::Stateful<gpui::Div>, which: Pane, cx: &Context<JobView>) -> gpui::Stateful<gpui::Div> {
+    strip.on_click(cx.listener(move |this, event: &gpui::ClickEvent, _, cx| {
+        if event.click_count() == 2 {
+            this.toggle_zoom(which, cx);
+        }
+    }))
 }

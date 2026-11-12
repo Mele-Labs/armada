@@ -460,6 +460,16 @@ impl JobView {
             });
         }
         groups.push(acts);
+        // The tab's own entries after the Job's acts, as Electron's `tabEntries`; Split and Move to window are held.
+        let zoomed = self.pane_zoomed(super::tabs::Pane::Thread);
+        groups.push(vec![Entry::Item {
+            id: "zoom",
+            label: if zoomed { "Restore" } else { "Zoom" }.into(),
+            icon: Some(if zoomed { "minimize-2" } else { "maximize-2" }),
+            danger: false,
+            key: Some("\u{2325}\u{2318}\u{21a9}".into()),
+            off: None,
+        }]);
         let mut ends = Vec::new();
         if self.fork_offered(id, cx) {
             ends.push(Entry::Item {
@@ -531,6 +541,7 @@ impl JobView {
         let encoded = |body: Result<String, ipc::Unencodable>| body;
         match act {
             "rename" => cx.defer_in(window, |this, window, cx| this.start_rename(window, cx)),
+            "zoom" => self.toggle_zoom(super::tabs::Pane::Thread, cx),
             "name" => {
                 self.overlay_mut(&id).naming = true;
                 self.ask_act(id, "/sessions/name".into(), encoded(ipc::encode(&ipc::NameSession { session_id })), |overlay| overlay.naming = false, window, cx);
@@ -832,6 +843,8 @@ impl JobView {
                     this.front_thread();
                     cx.notify();
                     if event.click_count() >= 2 {
+                        // The thread tab renames on a double press; the strip around it zooms.
+                        cx.stop_propagation();
                         this.start_rename(window, cx);
                     } else if !this.head.renaming() {
                         let tab = this.head.tab.clone();
@@ -877,6 +890,14 @@ impl JobView {
             .flex_col()
             .child(
                 div()
+                    .id("thread-strip")
+                    // A press in the pane makes it the one ⌥⌘Enter zooms; a double press on the strip zooms it.
+                    .on_any_mouse_down(cx.listener(|this, _, _, _| this.pane_pressed(super::tabs::Pane::Thread)))
+                    .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
+                        if event.click_count() == 2 {
+                            this.toggle_zoom(super::tabs::Pane::Thread, cx);
+                        }
+                    }))
                     .flex_none()
                     .flex()
                     .items_stretch()
@@ -896,7 +917,8 @@ impl JobView {
                             .children(tab.map(|tab| div().flex_none().max_w(look.length(token::SPACE_12) * 8.).flex().h_full().child(tab)))
                             .children(self.row_tab_strip(id, look, cx)),
                     )
-                    .child(self.add_button(super::tabs::Pane::Thread, look, cx)),
+                    .child(self.add_button(super::tabs::Pane::Thread, look, cx))
+                    .children(self.strip_end(super::tabs::Pane::Thread, look, cx)),
             )
             .children(said)
             .children(self.head.menu.as_ref().map(|open| open.menu.clone()))
@@ -1396,6 +1418,9 @@ impl JobView {
         if self.reporting.is_some() || self.head.confirm.is_some() || self.composer.popup.is_some() {
             return false;
         }
+        if self.zoom_key(event, window, cx) {
+            return true;
+        }
         let keys = &event.keystroke;
         // Done's By step and By kind (`LEDGER_KEY`), from the message box too, as Classic's window
         // listener takes it (`SessionWorkspace.tsx`).
@@ -1437,5 +1462,12 @@ impl JobView {
             _ => return false,
         }
         true
+    }
+}
+
+impl JobView {
+    /// Whether the keys are on the thread's tab.
+    pub(super) fn head_tab_focused(&self, window: &Window, cx: &App) -> bool {
+        self.head.tab.contains_focused(window, cx)
     }
 }

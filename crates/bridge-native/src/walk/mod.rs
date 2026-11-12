@@ -33,6 +33,8 @@ pub enum Verb {
     Press,
     /// A press in the middle of the target with ⌘ held, which adds it to what is picked.
     CmdPress,
+    /// Two presses in the middle of the target, as a double-click.
+    DoublePress,
     /// A press in the middle of the target, which is gone once it is pressed: the step is reached
     /// when the target is no longer drawn.
     Gone,
@@ -655,6 +657,8 @@ pub static WALKS: &[Walk] = &[
             press_on("A Job on Feature at Build, holding a ticket, a pull request, two watches and a Job it started", "row", "Checkout page loads twice", "button", "Add tab: Done"),
             press_on("The top pane's +: Workflow comes after Checks, as in Armada Classic", "button", "Add tab: Done", "menuitem", "Workflow"),
             press_on("Its lanes: the workflow on top, then a lane for each thing the Job holds, each named at the left", "menuitem", "Workflow", "button", "Step: Build"),
+            step("A double press on its tab zooms the pane over the Job's own area, the list kept, as in Armada Classic", Verb::DoublePress, "tab", "Job column: Workflow"),
+            step("Restore stands at the strip's end", Verb::Look, "button", "Restore"),
             step("Plan went through; Build is where the Job is, waiting on the checks", Verb::Look, "button", "Step: Plan"),
             step("A rule on its edge: what it did, and when", Verb::Look, "button", "Ticket to In Progress"),
             press_on("A press on a rule picks it, its edges drawn heavier", "button", "Ticket to In Progress", "button", "Ticket to In Progress"),
@@ -663,6 +667,8 @@ pub static WALKS: &[Walk] = &[
             step("A rule fired twice: its second edge is quiet, a diamond alone. What it did opens at the side", Verb::Key("]"), "button", "Watch each deploy"),
             step("A section for each deploy it fired on: each act, how it stands, whether it asks or acts, and when", Verb::Look, "list", "Deploy preview"),
             step("Esc puts it away, the keys back on the lanes", Verb::Key("escape"), "button", "Watch each deploy"),
+            step("Restore puts the panes back as they were", Verb::Gone, "button", "Restore"),
+            step("⌥⌘Enter zooms the same pane again: the key stays with the pane it zoomed", Verb::Key("alt-cmd-enter"), "button", "Restore"),
             step("A rule that asked him first", Verb::Key("]"), "button", "Start a Job for a flaky test"),
             step("A rule still waiting: it names what it waits for", Verb::Key("]"), "button", "Mark ready for review"),
             step("A rule skipped with its step", Verb::Key("]"), "button", "Ask the team to review"),
@@ -722,6 +728,9 @@ pub static WALKS: &[Walk] = &[
             press_on("A Job with no lanes", "row", "Upgrade the router", "button", "Add tab: Done"),
             press_on("+: Workflow", "button", "Add tab: Done", "menuitem", "Workflow"),
             press_on("Its Workflow tab draws nothing", "menuitem", "Workflow", "tab", "Job column: Workflow"),
+            press_on("Now's tab closed leaves its pane empty, and the pane offers Close pane", "button", "Close Now", "button", "Close pane"),
+            step("Close pane takes the pane away", Verb::Gone, "button", "Close pane"),
+            step("Open, Done and Deferred takes the whole column", Verb::Absent("region", "Job column: Now"), "region", "Open, Done and Deferred"),
         ],
     },
     Walk {
@@ -1970,11 +1979,14 @@ pub static WALKS: &[Walk] = &[
             step("Deferred holds what the agent kept for later: Remind, Deferred and Not deferred on each", Verb::Open("tab", "Job column: Deferred"), "button", "Not deferred: Measure the switch time with forty Jobs live."),
             step("Ask for an update sends the update ask to the Job", Verb::Look, "button", "Ask for an update"),
             step("Judge in the toolbelt opens the Judge on the right of the Job, with the last reading's notes", Verb::Open("button", "Judge"), "list", "Notes from the judge"),
+            step("A double press on its tab zooms the pane over the Job's own area, the list kept, as in Armada Classic", Verb::DoublePress, "tab", "Job column: Judge"),
+            step("Restore stands at the strip's end", Verb::Look, "button", "Restore"),
             step("The notes scroll above the box", Verb::Wheel("list", "Notes from the judge", 2000), "group", "Finding: Nothing tests the list with more than one repository"),
             step("Send to Job sends a note as your message; it reads as sent", Verb::Open("button", "Send to Job"), "group", "Finding sent: Nothing tests the list with more than one repository"),
             step("The box asks what to verify", Verb::Type("nothing else moves the focus"), "textbox", "Verify that"),
             step("Judge asks again: the pane shows what was asked, and the reading's shape while it reads", Verb::Open("button", "Ask the Judge"), "status", "Judge reading"),
-            step("The tab's × shuts the Judge, and the keys go back to the message box", Verb::Gone, "button", "Close Judge"),
+            step("The tab's × shuts the Judge", Verb::Gone, "button", "Close Judge"),
+            step("Restore puts the panes back as they were, and the keys go back to the message box", Verb::Gone, "button", "Restore"),
             step("Esc gives the keys back to the list, on the open Job's row", Verb::Key("escape"), "row", "Native Bridge foundation"),
             step("⌥⇧7 opens the Judge outside a text box; ⌥⇧6 Auto land, ⌥⇧8 Report, ⌥⇧9 Release and p Pause likewise", Verb::Key("alt-shift-7"), "status", "Judge reading"),
             step("The × shuts it again", Verb::Gone, "button", "Close Judge"),

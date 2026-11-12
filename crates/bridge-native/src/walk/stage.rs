@@ -196,6 +196,16 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Left, at, window, cx);
             Ok(())
         }
+        Verb::DoublePress => {
+            let target = find(step, window, cx)?;
+            let at = aim(&reveal(target, window, cx));
+            for click_count in [1, 2] {
+                let down = MouseDownEvent { button: MouseButton::Left, position: at, modifiers: Modifiers::default(), click_count, first_mouse: false };
+                window.dispatch_event(PlatformInput::MouseDown(down), cx);
+                window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers: Modifiers::default(), click_count }), cx);
+            }
+            Ok(())
+        }
         Verb::CmdPress => {
             let at = find(step, window, cx)?.bounds.center();
             let modifiers = Modifiers { platform: true, ..Modifiers::default() };

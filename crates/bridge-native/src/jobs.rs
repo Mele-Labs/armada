@@ -1939,6 +1939,14 @@ impl JobsScreen {
         let remember = list.read(cx).remember;
         let view = cx.new(|cx| JobView::new(list.clone(), threads, window, cx));
         let side = cx.new(|cx| JobSide::new(view.clone(), cx));
+        // A zoom or a closed pane changes which halves of the split this screen draws.
+        let shows = std::cell::Cell::new(view.read(cx).split_shows());
+        cx.observe(&view, move |_, view, cx| {
+            if shows.replace(view.read(cx).split_shows()) != shows.get() {
+                cx.notify();
+            }
+        })
+        .detach();
         let left = remember
             .then(|| columns_file().and_then(|path| std::fs::read_to_string(path).ok()).and_then(|text| text.trim().parse::<f32>().ok()))
             .flatten();
@@ -2164,6 +2172,8 @@ impl Render for JobsScreen {
         let look = cx.look();
         let pad = look.length(token::SPACE_3);
         let look = cx.look();
+        // A zoomed pane covers the Job's own area, right of the list (`zoom.ts`); a closed pane gives its room up.
+        let (thread, side) = self.view.read(cx).split_shows();
         div()
             .key_context("deck")
             .track_focus(&self.within)
@@ -2205,20 +2215,29 @@ impl Render for JobsScreen {
                             .flex_1()
                             .min_w_0()
                             .flex()
-                            .gap(look.length(token::GAP_PANEL))
+                            .when(thread && side, |split| split.gap(look.length(token::GAP_PANEL)))
                             .child(
+                                // Covered by a zoomed pane of the column, the thread's place keeps no room but stays drawn,
+                                // so the sheets and dialogs the Job view lays over the window still show.
                                 panel(look)
                                     .min_w_0()
-                                    .flex_grow(SPLIT_ARRIVES * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST))
                                     .overflow_hidden()
+                                    .map(|place| match (thread, side) {
+                                        (true, true) => place.flex_grow(SPLIT_ARRIVES * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST)),
+                                        (true, false) => place.flex_1(),
+                                        (false, _) => place.flex_none().w_0().border_0(),
+                                    })
                                     .child(self.view.clone()),
                             )
-                            .child(
-                                div()
-                                    .h_full()
-                                    .flex_grow((1. - SPLIT_ARRIVES) * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST))
-                                    .child(self.side.clone()),
-                            ),
+                            .when(side, |split| {
+                                split.child(
+                                    div()
+                                        .h_full()
+                                        .min_w_0()
+                                        .map(|column| if thread { column.flex_grow((1. - SPLIT_ARRIVES) * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST)) } else { column.flex_1() })
+                                        .child(self.side.clone()),
+                                )
+                            }),
                     ),
             )
             .child(crate::merge_strip::strip(&self.list, window, cx))

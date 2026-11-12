@@ -542,3 +542,10 @@ mod tests {
         assert_eq!(name_of_page("armada://walk/tabs/"), "tabs");
     }
 }
+
+impl JobView {
+    /// Whether no tab stands beside a Job's thread.
+    pub(super) fn row_tabs_empty(&self, id: &str) -> bool {
+        self.row_tabs.get(id).is_none_or(|tabs| tabs.tabs.is_empty())
+    }
+}
