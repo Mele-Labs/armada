@@ -1617,6 +1617,36 @@ export function fixtureMacs(
     ],
   };
 
+  // A Job longer than one read: the phone opens on its newest rows and reads the rest as he scrolls up.
+  const long = phone({
+    id: "b4",
+    title: "Trace every slot lease",
+    repository: "store",
+    kind: "hosted",
+    waiting: false,
+    working: false,
+    started_at: ago(now, 300),
+  });
+  const b4: SessionThread = {
+    session: record(now, "b4", long.title!, 300, {
+      manifest_id: "store",
+    }),
+    rows: Array.from(
+      {
+        length: 450,
+      },
+      (_, at) =>
+        at % 3 === 0
+          ? message(
+              `b4-${at}`,
+              ago(now, 300 - at * 0.6),
+              at % 6 === 0 ? "you" : "agent",
+              `Turn ${at + 1} of 450.`,
+            )
+          : tool(`b4-${at}`, ago(now, 300 - at * 0.6), `Read crates/pool/src/lease_${at}.rs`),
+    ),
+  };
+
   const b2: SessionThread = {
     session: record(now, "b2", reading.title!, 8, {
       manifest_id: "store",
@@ -2022,12 +2052,14 @@ ${Array.from(
         plan,
         describe,
         reading,
+        long,
         afterPlan,
       ],
       threads: {
         w2,
         b1,
         b2,
+        b4,
         b3,
       },
       kept: {},

@@ -753,6 +753,8 @@ export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
   /** A plan waiting on the person, or settled. Absent draws none. */
   approval?: PlanApproval;
+  /** Rows stand before the first in `rows` that the host has not read: once every row is drawn, Show earlier asks it for them. Absent, the thread starts at its first row. */
+  onOlder?: () => void;
   /** A sketch waiting on the person, pinned as the thread's last card after the plan to approve. Absent draws none. */
   sketching?: SketchPinProps;
   /** Sends a message that did not go again, by its row's id. Absent, a message that did not go draws without the press. */
@@ -3542,6 +3544,7 @@ export function SessionThread({
   onStartAgain,
   onReport,
   approval,
+  onOlder,
   sketching,
   asked,
   askRef,
@@ -3820,10 +3823,21 @@ export function SessionThread({
   ]);
   // A row arriving at the end widens what is drawn for a person reading higher up, so nothing above him drops out.
   const counted = useRef(all.length);
+  // Show earlier asked the host for rows before the first: they arrive at the top, and what he was reading keeps its place.
+  const askedOlder = useRef(false);
   useLayoutEffect(() => {
     const grew = all.length - counted.current;
     counted.current = all.length;
-    if (grew > 0 && !pinned.current) setDrawn((now) => now + grew);
+    if (grew > 0 && askedOlder.current) {
+      askedOlder.current = false;
+      const one = scroller.current;
+      if (one !== null)
+        grownFrom.current = {
+          height: one.scrollHeight,
+          top: one.scrollTop,
+        };
+      setDrawn((now) => now + Math.min(grew, DRAWN));
+    } else if (grew > 0 && !pinned.current) setDrawn((now) => now + grew);
   }, [
     all.length,
   ]);
@@ -3835,6 +3849,11 @@ export function SessionThread({
     top: number;
   }>(undefined);
   const drawEarlier = (): void => {
+    if (hidden === 0 && onOlder !== undefined) {
+      askedOlder.current = true;
+      onOlder();
+      return;
+    }
     const one = scroller.current;
     if (one !== null)
       grownFrom.current = {
@@ -4015,7 +4034,7 @@ export function SessionThread({
                             <li className="armada-session-thread__lead">{lead}</li>
                           )}
                           {transcript === "unread" ? <TranscriptSkeleton /> : null}
-                          {hidden === 0 ? null : (
+                          {hidden === 0 && onOlder === undefined ? null : (
                             <li ref={earlier} className="armada-session-thread__earlier">
                               <Tooltip label="Show earlier">
                                 <Button
