@@ -346,13 +346,9 @@ impl DispatchScreen {
                         let (job, terminal) = (started.job.clone(), started.terminal.clone());
                         window.defer(cx, move |window, cx| crate::terminal::tabs::open(&job, &terminal, Some(crate::job_view::ViewPane::Thread), true, window, cx));
                     }
-                    Err(why) => {
-                        if !from_sheet {
-                            this.refresh_face(window, cx);
-                            this.sheet.update(cx, |sheet, cx| sheet.show_terminal(window, cx));
-                        }
-                        this.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx));
-                    }
+                    // In the sheet its sentence stands under the line; from ⌘T or the palette it is a toast.
+                    Err(why) if from_sheet => this.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx)),
+                    Err(why) => crate::toasts::tell(why, cx),
                 }
                 cx.notify();
             });

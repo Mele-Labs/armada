@@ -556,6 +556,11 @@ impl JobView {
         self.list.read(cx).record(id)
     }
 
+    /// Whether Job `id` is a live quick terminal, which opens onto its `t1` (`SessionRecord::quick_terminal`).
+    pub fn live_quick_terminal(&self, id: &str, cx: &App) -> bool {
+        self.record(id, cx).is_some_and(|job| job.quick_terminal && job.state == SessionState::Live)
+    }
+
     /// The Job this one took the place of when it was handed on: its turns stand above this one's,
     /// over a plain rule, as Electron's `replaces` draws them.
     /// A Job moved here carries the one it was moved from the same way, under its Moved from row and

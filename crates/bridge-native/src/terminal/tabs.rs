@@ -38,7 +38,29 @@ fn tab_id(terminal: &str) -> String {
 /// Put Terminal in every Job's +, and an `Open <name>` row for each shell of the Job on screen that has no tab.
 pub fn init(cx: &mut App) {
     offer_tab(TabOffer { id: "terminal", label: "Terminal".into(), glyph: GLYPH, open: Rc::new(|job, pane, window, cx| open_new(job, pane, window, cx)) }, cx);
-    on_job_shown(|job, _, cx| untabbed(job, cx), cx);
+    on_job_shown(
+        |job, window, cx| {
+            onto_t1(job.clone(), window, cx);
+            untabbed(job, cx);
+        },
+        cx,
+    );
+}
+
+/// The quick terminals opened onto `t1` this run, so a later look at one keeps the tab he left in front.
+#[derive(Default)]
+struct OntoT1(std::collections::HashSet<String>);
+
+impl gpui::Global for OntoT1 {}
+
+/// A quick terminal shown for the first time opens onto `t1`, in the thread's pane.
+fn onto_t1(job: Option<String>, window: &mut Window, cx: &mut App) {
+    let Some(job) = job else { return };
+    let quick = JobView::live(cx).is_some_and(|view| view.read(cx).live_quick_terminal(&job, cx));
+    if !quick || !cx.default_global::<OntoT1>().0.insert(job.clone()) {
+        return;
+    }
+    open(&job, "t1", Some(ViewPane::Thread), true, window, cx);
 }
 
 const OPEN_PREFIX: &str = "terminal-open:";

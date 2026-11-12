@@ -11,6 +11,7 @@
 //! | the Job's shells | `GET /sessions/terminal/list` |
 //! | Rename | `POST /sessions/terminal/rename` |
 //! | Run a command an agent showed | `POST /sessions/run/start` |
+//! | A terminal Job | `POST /sessions/terminal/start` |
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -19,8 +20,8 @@ use std::rc::Rc;
 use async_channel::{Receiver, Sender};
 use gpui::{App, Task};
 use ipc::{
-    JobTerminals, ListedTerminal, OpenTerminal, RenameTerminal, ResizeSessionRun, SessionId, SessionRunMessage, SessionRunUnderway, StartSessionRun,
-    StopSessionRun, WireError, WriteSessionRun,
+    JobTerminals, ListedTerminal, ManifestId, OpenTerminal, RenameTerminal, ResizeSessionRun, SessionId, SessionRunMessage, SessionRunUnderway, StartSessionRun,
+    StartTerminalJob, StopSessionRun, TerminalJobStarted, WireError, WriteSessionRun,
 };
 
 use super::screen::Cells;
@@ -171,14 +172,33 @@ impl Shells for Live {
         ask(self.port(cx), "/sessions/terminal/rename".into(), encoded(&body), "ListedTerminal", cx)
     }
 
-    fn start(&self, _start: Start, _cx: &mut App) -> Task<Result<Started, String>> {
-        // `POST /sessions/terminal/start` is the quick terminal Fleet Job's, not landed yet.
-        Task::ready(Err("This Fleet does not start terminal Jobs yet".into()))
+    /// No title typed leaves Fleet to name it, `Terminal in <folder>`. A refusal is Fleet's sentence.
+    fn start(&self, start: Start, cx: &mut App) -> Task<Result<Started, String>> {
+        let (manifest_id, dir) = match start.place {
+            Place::Repository(id) => (Some(ManifestId::carried(id)), None),
+            Place::Folder(path) => (None, Some(path)),
+        };
+        let title = start.title.filter(|title| !title.trim().is_empty());
+        let body = StartTerminalJob {
+            manifest_id,
+            dir,
+            title,
+            model: start.model,
+            effort: start.effort,
+            mode: None,
+            project: None,
+            cols: Some(start.size.cols),
+            rows: Some(start.size.rows),
+        };
+        let asking: Task<Result<TerminalJobStarted, String>> = ask(self.port(cx), "/sessions/terminal/start".into(), encoded(&body), "TerminalJobStarted", cx);
+        cx.background_executor().spawn(async move {
+            let started = asking.await?;
+            Ok(Started { job: started.session_id.as_str().to_string(), terminal: started.terminal, run: started.run_id })
+        })
     }
 
     fn starts(&self) -> bool {
-        // Until the quick terminal route is on Fleet's main.
-        false
+        true
     }
 
     fn run(&self, job: &str, command: &str, size: Cells, cx: &mut App) -> Task<Result<SessionRunUnderway, String>> {
