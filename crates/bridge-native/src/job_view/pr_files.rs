@@ -6,7 +6,7 @@
 //! rather than between its lines, and a line cannot be pressed to write a note of his own.
 
 use chrono::Local;
-use gpui::{div, point, prelude::*, px, AnyElement, Context, FontWeight, Pixels, Role, SharedString, Window};
+use gpui::{div, point, prelude::*, px, AnyElement, Context, FontWeight, KeyDownEvent, Pixels, Role, SharedString, Window};
 use ipc::{JudgeKind, JudgeNote, PullRequestFileStatus, PullRequestFilePatches, PullRequestPage, PullReviewThread};
 
 use super::pr_panel::{diff_size, mark, stand_ins, PullPanel, Tone};
@@ -77,6 +77,15 @@ pub(super) fn tree_of(paths: &[&str]) -> Vec<Branch> {
     root
 }
 
+/// A row of the file list the keys can land on: a folder by its path, a file by its place in the page,
+/// or a test under an opened file by its place under it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum FileNav {
+    Dir(String),
+    File(usize),
+    Test(usize, usize),
+}
+
 /// One test that reaches a changed file, and the Check it runs under (`ReachTest`).
 #[derive(Clone, Debug)]
 pub(super) struct Reach {
@@ -139,6 +148,15 @@ fn cut_at(name: &str) -> usize {
 }
 
 impl JobView {
+    /// The file list takes its keys here, wherever it is drawn.
+    fn files_keyed(&self, tree: gpui::Stateful<gpui::Div>, cx: &Context<Self>) -> gpui::Stateful<gpui::Div> {
+        tree.on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+            if this.files_key(event, window, cx) {
+                cx.stop_propagation();
+            }
+        }))
+    }
+
     /// The tests that reach the open pull request's files, read with its patches (`readReach`). Nothing
     /// back, or no read at all, draws no marks. Removed files are not asked about.
     pub(super) fn want_pull_reach(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -207,9 +225,12 @@ impl JobView {
 
     /// The tests under an opened file, one row each: how the map knows, whether the edge is stale, the
     /// test and its Check (`ReachTests`). **A test opens only where it is a file**; the others are rows to read.
-    fn reach_tests(&self, at: usize, path: &str, tests: &[Reach], indent: Pixels, look: &Look, cx: &Context<Self>) -> AnyElement {
+    #[allow(clippy::too_many_arguments)]
+    fn reach_tests(&self, at: usize, path: &str, tests: &[Reach], indent: Pixels, ringed: Option<usize>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let accent = look.color(token::ACCENT);
+        let ring = move |row: gpui::Stateful<gpui::Div>, ix: usize| row.border(look.length(token::BORDER_WIDTH)).rounded(look.length(token::RADIUS_SM)).border_color(if ringed == Some(ix) { accent } else { gpui::transparent_black() });
         let rows: Vec<AnyElement> = if tests.is_empty() {
-            vec![div().pl(indent).pr(look.length(token::SPACE_3)).py(px(3.)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(UNREACHED.1).into_any_element()]
+            vec![ring(div().id(SharedString::from(format!("pull-reach-none:{at}"))).pl(indent).pr(look.length(token::SPACE_3)).py(px(2.)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(UNREACHED.1), 0).into_any_element()]
         } else {
             tests
                 .iter()
@@ -222,19 +243,20 @@ impl JobView {
                     let opens = test.file_grain;
                     let target = test.test.clone();
                     let hover = look.color(token::BG_HOVER);
+                    let words = marks.iter().map(|(_, said)| *said).collect::<Vec<_>>().join("\n");
+                    let ringed_row = ring(div().id(SharedString::from(format!("pull-reach-test:{at}:{ix}"))), ix);
                     labelled(
-                        div()
-                            .id(SharedString::from(format!("pull-reach-test:{at}:{ix}")))
+                        ringed_row
                             .flex()
                             .items_center()
                             .gap(look.length(token::SPACE_2))
                             .min_w_0()
                             .pl(indent)
                             .pr(look.length(token::SPACE_3))
-                            .py(px(3.))
+                            .py(px(2.))
                             .text_size(look.length(token::TEXT_XS))
                             .when(opens, |row| row.cursor_pointer().hover(move |style| style.bg(hover)).on_click(cx.listener(move |this, _, window, cx| this.open_file(target.clone(), window, cx))))
-                            .child(div().flex_none().flex().gap(look.length(token::SPACE_1)).children(marks.iter().map(|(icon, _)| glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))))
+                            .child(div().id(SharedString::from(format!("pull-reach-marks:{at}:{ix}"))).flex_none().flex().gap(look.length(token::SPACE_1)).tooltip(tip(words)).children(marks.iter().map(|(icon, _)| glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))))
                             .child(
                                 div()
                                     .id(SharedString::from(format!("pull-reach-name:{at}:{ix}")))
@@ -415,9 +437,9 @@ impl JobView {
         let tree = tree_inside.then(|| {
             let paths: Vec<&str> = page.files.iter().map(|file| file.path.as_str()).collect();
             let mut rows: Vec<AnyElement> = Vec::new();
-            self.file_rows(panel, page, &tree_of(&paths), 0, look, cx, &mut rows);
+            self.file_rows(panel, page, &tree_of(&paths), 0, "", look, cx, &mut rows);
             labelled(
-                div().id("pull-file-tree").flex().flex_col().py(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_MD)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).children(rows),
+                self.files_keyed(div().id("pull-file-tree").track_focus(&panel.files_focus), cx).flex().flex_col().p(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_MD)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).children(rows),
                 Role::Tree,
                 "Files",
             )
@@ -439,7 +461,7 @@ impl JobView {
     pub(super) fn pull_file_list(&self, panel: &PullPanel, page: &PullRequestPage, wide: Pixels, high: Pixels, look: &Look, cx: &Context<Self>) -> AnyElement {
         let paths: Vec<&str> = page.files.iter().map(|file| file.path.as_str()).collect();
         let mut rows: Vec<AnyElement> = Vec::new();
-        self.file_rows(panel, page, &tree_of(&paths), 0, look, cx, &mut rows);
+        self.file_rows(panel, page, &tree_of(&paths), 0, "", look, cx, &mut rows);
         labelled(
             div()
                 .id("pull-file-list")
@@ -466,74 +488,218 @@ impl JobView {
                         .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                         .child("Files"),
                 )
-                .child(labelled(div().id("pull-file-tree").flex_1().min_h_0().overflow_y_scroll().py(look.length(token::SPACE_2)).flex().flex_col().children(rows), Role::Tree, "Files")),
+                .child(labelled(self.files_keyed(div().id("pull-file-tree").track_focus(&panel.files_focus), cx).track_scroll(&panel.files_scroll).flex_1().min_h_0().overflow_y_scroll().p(look.length(token::SPACE_2)).flex().flex_col().children(rows), Role::Tree, "Files")),
             Role::Complementary,
             "Files",
         )
         .into_any_element()
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn file_rows(&self, panel: &PullPanel, page: &PullRequestPage, level: &[Branch], depth: usize, look: &Look, cx: &Context<Self>, out: &mut Vec<AnyElement>) {
-        let indent = look.length(token::SPACE_3) + look.length(token::SPACE_4) * depth as f32;
+    /// The tests the map reads under a file of the open pull request, where it was asked about it.
+    fn reached_of<'a>(&'a self, panel: &PullPanel, path: &str) -> Option<&'a Vec<Reach>> {
+        panel.patches_key().and_then(|key| self.panes.reach.get(&key)).and_then(Option::as_ref).and_then(|reach| reach.get(path))
+    }
+
+    /// Every row a key can land on, in the order drawn (`FileRows`' `[data-nav]`): folders, files, and
+    /// the tests opened under a file, the line saying none reaches it included.
+    fn file_nav(&self, panel: &PullPanel, page: &PullRequestPage, level: &[Branch], above: &str, out: &mut Vec<FileNav>) {
         for one in level {
             match one.file {
                 None => {
-                    out.push(
-                        labelled(
-                            div()
-                                .id(SharedString::from(format!("pull-folder:{depth}:{}", one.name)))
-                                .flex()
-                                .items_center()
-                                .gap(look.length(token::SPACE_2))
-                                .pl(indent)
-                                .pr(look.length(token::SPACE_3))
-                                .py(px(3.))
-                                .text_size(look.length(token::TEXT_XS))
-                                .text_color(look.color(token::FG_MUTED))
-                                .child(glyph(look, "folder", Size::Small, look.color(token::FG_SUBTLE)))
-                                .child(div().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(one.name.clone()))),
-                            Role::TreeItem,
-                            one.name.clone(),
-                        )
-                        .into_any_element(),
-                    );
-                    self.file_rows(panel, page, &one.under, depth + 1, look, cx, out);
+                    let key = format!("{above}{}/", one.name);
+                    out.push(FileNav::Dir(key.clone()));
+                    if !panel.folded.contains(&key) {
+                        self.file_nav(panel, page, &one.under, &key, out);
+                    }
+                }
+                Some(at) => {
+                    out.push(FileNav::File(at));
+                    let path = &page.files[at].path;
+                    if let Some(tests) = self.reached_of(panel, path).filter(|_| panel.reach_open.contains(path)) {
+                        out.extend((0..tests.len().max(1)).map(|ix| FileNav::Test(at, ix)));
+                    }
+                }
+            }
+        }
+    }
+
+    /// The keys on the file list (`FileRows`): ↑ and ↓ move between every row, tests included
+    /// (PullRequestTabs.tsx:861-871); ← and → fold and open a folder (:915-916) and shut and open a
+    /// file's tests (:945-950); ← on a test shuts its file and goes back to its row
+    /// (PullRequestReach.tsx:181-190); Enter or Space presses the row: a folder folds, a file is
+    /// scrolled to, a test that is a file opens it (PullRequestReach.tsx:236).
+    pub(super) fn files_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if event.keystroke.modifiers.modified() {
+            return false;
+        }
+        let key = event.keystroke.key.as_str();
+        if !matches!(key, "up" | "down" | "left" | "right" | "enter" | "space") {
+            return false;
+        }
+        let Some(panel) = self.pull_panel() else { return false };
+        let Some(page) = panel.page() else { return false };
+        let paths: Vec<&str> = page.files.iter().map(|file| file.path.as_str()).collect();
+        let mut nav = Vec::new();
+        self.file_nav(panel, page, &tree_of(&paths), "", &mut nav);
+        let here = panel.files_at.clone().filter(|at| nav.contains(at));
+        let placed = here.as_ref().and_then(|at| nav.iter().position(|one| one == at));
+        let path_of = |at: usize| page.files[at].path.clone();
+        let opened = |at: usize| panel.reach_open.contains(&page.files[at].path) && self.reached_of(panel, &page.files[at].path).is_some();
+        match (key, here) {
+            ("down" | "up", _) => {
+                let next = match placed {
+                    None => if key == "down" { nav.first() } else { nav.last() },
+                    Some(at) if key == "down" => nav.get(at + 1),
+                    Some(at) => at.checked_sub(1).and_then(|at| nav.get(at)),
+                }
+                .cloned();
+                if let Some(next) = next {
+                    let item = nav.iter().take_while(|one| **one != next).filter(|one| !matches!(one, FileNav::Test(_, ix) if *ix > 0)).count();
+                    let item = if matches!(next, FileNav::Test(_, ix) if ix > 0) { item - 1 } else { item };
+                    if let Some(panel) = self.pull_panel_mut() {
+                        panel.files_at = Some(next);
+                        panel.files_scroll.scroll_to_item(item);
+                    }
+                }
+            }
+            ("right", Some(FileNav::Dir(dir))) => {
+                if let Some(panel) = self.pull_panel_mut() {
+                    panel.folded.remove(&dir);
+                }
+            }
+            ("left", Some(FileNav::Dir(dir))) => {
+                if let Some(panel) = self.pull_panel_mut() {
+                    panel.folded.insert(dir);
+                }
+            }
+            ("right", Some(FileNav::File(at))) if !opened(at) && self.reached_of(panel, &path_of(at)).is_some() => {
+                let path = path_of(at);
+                if let Some(panel) = self.pull_panel_mut() {
+                    panel.reach_open.insert(path);
+                }
+            }
+            ("left", Some(FileNav::File(at))) if opened(at) => {
+                let path = path_of(at);
+                if let Some(panel) = self.pull_panel_mut() {
+                    panel.reach_open.remove(&path);
+                }
+            }
+            ("left", Some(FileNav::Test(at, _))) => {
+                let path = path_of(at);
+                if let Some(panel) = self.pull_panel_mut() {
+                    panel.reach_open.remove(&path);
+                    panel.files_at = Some(FileNav::File(at));
+                }
+            }
+            ("enter" | "space", Some(FileNav::Dir(dir))) => {
+                if let Some(panel) = self.pull_panel_mut() {
+                    if !panel.folded.remove(&dir) {
+                        panel.folded.insert(dir);
+                    }
+                }
+            }
+            ("enter" | "space", Some(FileNav::File(at))) => {
+                let path = path_of(at);
+                self.pull_file_pressed(at, path, cx);
+            }
+            ("enter" | "space", Some(FileNav::Test(at, ix))) => {
+                let test = self.reached_of(panel, &path_of(at)).and_then(|tests| tests.get(ix)).filter(|test| test.file_grain).map(|test| test.test.clone());
+                if let Some(test) = test {
+                    self.open_file(test, window, cx);
+                }
+            }
+            _ => {}
+        }
+        cx.notify();
+        true
+    }
+
+    /// A row's frame: a hairline that takes the accent on the row the keys are on.
+    fn nav_ring(&self, panel: &PullPanel, at: &FileNav, row: gpui::Stateful<gpui::Div>, look: &Look) -> gpui::Stateful<gpui::Div> {
+        let ringed = panel.files_focused.get() && panel.files_at.as_ref() == Some(at);
+        row.border(look.length(token::BORDER_WIDTH))
+            .rounded(look.length(token::RADIUS_SM))
+            .border_color(if ringed { look.color(token::ACCENT) } else { gpui::transparent_black() })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn file_rows(&self, panel: &PullPanel, page: &PullRequestPage, level: &[Branch], depth: usize, above: &str, look: &Look, cx: &Context<Self>, out: &mut Vec<AnyElement>) {
+        let indent = look.length(token::SPACE_3) + look.length(token::SPACE_4) * depth as f32;
+        let hover = look.color(token::BG_HOVER);
+        for one in level {
+            match one.file {
+                None => {
+                    let key = format!("{above}{}/", one.name);
+                    let open = !panel.folded.contains(&key);
+                    let nav = FileNav::Dir(key.clone());
+                    let pressed = key.clone();
+                    let row = div()
+                        .id(SharedString::from(format!("pull-folder:{key}")))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .pl(indent)
+                        .pr(look.length(token::SPACE_3))
+                        .py(px(2.))
+                        .text_size(look.length(token::TEXT_XS))
+                        .text_color(look.color(token::FG_MUTED))
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(hover))
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            if let Some(panel) = this.pull_panel_mut() {
+                                if !panel.folded.remove(&pressed) {
+                                    panel.folded.insert(pressed.clone());
+                                }
+                                panel.files_at = Some(FileNav::Dir(pressed.clone()));
+                                window.focus(&panel.files_focus, cx);
+                            }
+                            cx.notify();
+                        }))
+                        .child(glyph(look, if open { "chevron-down" } else { "chevron-right" }, Size::Small, look.color(token::FG_SUBTLE)))
+                        .child(glyph(look, if open { "folder-open" } else { "folder" }, Size::Small, look.color(token::FG_SUBTLE)))
+                        .child(div().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(format!("{}/", one.name))));
+                    out.push(labelled(self.nav_ring(panel, &nav, row, look), Role::TreeItem, format!("{}/", one.name)).into_any_element());
+                    if open {
+                        self.file_rows(panel, page, &one.under, depth + 1, &key, look, cx, out);
+                    }
                 }
                 Some(at) => {
                     let file = &page.files[at];
                     let (icon, said, tone) = status_look(file.status);
                     let current = panel.current.as_deref() == Some(file.path.as_str());
                     let path = file.path.clone();
-                    let hover = look.color(token::BG_HOVER);
-                    let reached = panel.patches_key().and_then(|key| self.panes.reach.get(&key)).and_then(Option::as_ref).and_then(|reach| reach.get(&file.path));
+                    let reached = self.reached_of(panel, &file.path);
                     let opened = reached.is_some() && panel.reach_open.contains(&file.path);
                     let toggle = reached.map(|tests| self.reach_toggle(at, &file.path, &one.name, tests, opened, look, cx));
-                    let under = reached.filter(|_| opened).map(|tests| self.reach_tests(at, &file.path, tests, indent + look.length(token::SPACE_4), look, cx));
-                    out.push(
-                        labelled(
-                            div()
-                                .id(SharedString::from(format!("pull-file-row:{at}")))
-                                .flex()
-                                .items_center()
-                                .gap(look.length(token::SPACE_2))
-                                .pl(indent)
-                                .pr(look.length(token::SPACE_3))
-                                .py(px(3.))
-                                .text_size(look.length(token::TEXT_XS))
-                                .cursor_pointer()
-                                .when(current, |row| row.bg(look.color(token::ACCENT).opacity(0.14)))
-                                .hover(move |style| style.bg(hover))
-                                .tooltip(tip(file.path.clone()))
-                                .on_click(cx.listener(move |this, _, _, cx| this.pull_file_pressed(at, path.clone(), cx)))
-                                .child(mark(look, format!("pull-file-row-status:{at}"), icon, said, tone))
-                                .child(div().flex_1().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(one.name.clone())))
-                                .children(toggle),
-                            Role::TreeItem,
-                            file.path.clone(),
-                        )
-                        .into_any_element(),
-                    );
+                    let ringed = match &panel.files_at {
+                        Some(FileNav::Test(on, ix)) if *on == at && panel.files_focused.get() => Some(*ix),
+                        _ => None,
+                    };
+                    let under = reached.filter(|_| opened).map(|tests| self.reach_tests(at, &file.path, tests, indent + look.length(token::SPACE_4), ringed, look, cx));
+                    let row = div()
+                        .id(SharedString::from(format!("pull-file-row:{at}")))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .pl(indent)
+                        .pr(look.length(token::SPACE_3))
+                        .py(px(2.))
+                        .text_size(look.length(token::TEXT_XS))
+                        .cursor_pointer()
+                        .when(current, |row| row.bg(look.color(token::ACCENT).opacity(0.14)))
+                        .hover(move |style| style.bg(hover))
+                        .tooltip(tip(file.path.clone()))
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            if let Some(panel) = this.pull_panel_mut() {
+                                panel.files_at = Some(FileNav::File(at));
+                                window.focus(&panel.files_focus, cx);
+                            }
+                            this.pull_file_pressed(at, path.clone(), cx);
+                        }))
+                        .child(mark(look, format!("pull-file-row-status:{at}"), icon, said, tone))
+                        .child(div().flex_1().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(one.name.clone())))
+                        .children(toggle);
+                    out.push(labelled(self.nav_ring(panel, &FileNav::File(at), row, look), Role::TreeItem, file.path.clone()).into_any_element());
                     out.extend(under);
                 }
             }

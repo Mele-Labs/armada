@@ -66,6 +66,14 @@ pub(super) struct PullPanel {
     pub show_resolved: bool,
     /// The files whose tests are opened under their row in the list.
     pub reach_open: HashSet<String>,
+    /// The file list's one focus, its current row, and the folders folded in it (`FileRows`).
+    pub files_focus: gpui::FocusHandle,
+    pub files_at: Option<super::pr_files::FileNav>,
+    pub folded: HashSet<String>,
+    /// Whether the file list held the focus as the panel was drawn, so its current row is ringed.
+    pub files_focused: std::cell::Cell<bool>,
+    /// The floating list's scroll, so a row the keys reach is scrolled to.
+    pub files_scroll: ScrollHandle,
     /// The file the list last pressed, marked current.
     pub current: Option<String>,
     /// The body's scroll, and the Files tab's sections, so a file pressed in the list is scrolled to.
@@ -494,6 +502,11 @@ impl JobView {
             current: None,
             show_resolved: false,
             reach_open: HashSet::new(),
+            files_focus: cx.focus_handle().tab_stop(true),
+            files_at: None,
+            folded: HashSet::new(),
+            files_focused: std::cell::Cell::new(false),
+            files_scroll: ScrollHandle::new(),
             scroll: ScrollHandle::new(),
             sections: ScrollHandle::new(),
             _typing: typing,

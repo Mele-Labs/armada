@@ -15,6 +15,10 @@
   {
    "path": "crates/bridge-native/src/jobs.rs",
    "refused": "unreadable"
+  },
+  {
+   "path": "apps/desktop/src/main/settings.test.ts",
+   "text": "import { describe, expect, it } from \"vitest\";\n\nimport { readSettings } from \"./settings\";\n\ndescribe(\"links\", () => {\n  it(\"opens pull requests in Armada on a fresh machine\", () => {\n    expect(readSettings({}).links.openPullRequestsIn).toBe(\"armada\");\n  });\n});\n"
   }
  ]
 }
