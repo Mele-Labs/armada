@@ -75,6 +75,49 @@ impl PullAct {
     }
 }
 
+impl Pull {
+    /// Whether a Job holds it. One an issue names that no Job holds names no Job.
+    pub(super) fn held(&self) -> bool {
+        !self.job.is_empty()
+    }
+}
+
+/// A pull request an issue names that no Job holds (`LinkedPullRequests`): its Checks are the forge's
+/// read of it, filled in as the panel reads its page.
+pub(super) fn unheld(manifest: Option<String>, one: &ipc::LinkedPullRequest) -> Pull {
+    Pull {
+        number: one.number,
+        title: one.title.clone(),
+        branch: String::new(),
+        address: one.url.clone(),
+        state: if one.state == ipc::LinkedPullRequestState::Merged { PullState::Merged } else { PullState::Open },
+        checks: PullChecks::Running,
+        failing: String::new(),
+        auto: false,
+        queued: false,
+        job: String::new(),
+        manifest,
+        from: None,
+        base: None,
+        root_base: None,
+        stacked_on: None,
+    }
+}
+
+/// A pull request's Checks as the forge's read of its page says them, with the failing ones by name.
+pub(super) fn checks_of_page(page: &ipc::PullRequestPage) -> (PullChecks, String) {
+    use ipc::PullRequestCheckState as State;
+    let failing: Vec<&str> = page.checks.iter().filter(|one| one.state == State::Failed).map(|one| one.name.as_str()).collect();
+    let checks = if !failing.is_empty() {
+        PullChecks::Failed
+    } else if page.checks.iter().any(|one| one.state == State::Running) {
+        PullChecks::Running
+    } else {
+        PullChecks::Passed
+    };
+    (checks, failing.join(", "))
+}
+
 /// A pull request attachment as its row reads it. A closed one is let go; a merged one is `spent`.
 pub(super) fn pull_of(record: &ipc::SessionRecord, one: &ipc::Attachment, from: Option<String>) -> Option<Pull> {
     if !matches!(one.kind.as_str(), "pr" | "pull_request") || one.state == AttachmentState::GivenBack {

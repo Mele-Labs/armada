@@ -73,6 +73,8 @@ struct Panel {
     job: SharedString,
     focus: FocusHandle,
     back: Option<FocusHandle>,
+    /// The issue a pull request's panel was opened from, which its Back returns to (`useBack`).
+    came_from: Option<super::issues::IssueItem>,
     of: Of,
 }
 
@@ -690,12 +692,19 @@ impl JobView {
         let Some(job) = self.shown.clone() else { return };
         let focus = cx.focus_handle();
         // A panel opened from another, as a pull request from an issue, gives the keys back where the first was opened from.
-        let back = match self.panes.panel.take() {
+        let open = self.panes.panel.take();
+        // Opened from a panel of another kind, the one it was on is the way back; from one of its own kind, that one's way back stands (`openInPanel`).
+        let came_from = match (open.as_ref().map(|open| &open.of), &of) {
+            (Some(Of::Issue(issue)), Of::Pull(_)) => Some(issue.item.clone()),
+            (Some(Of::Pull(_)), Of::Pull(_)) => open.as_ref().and_then(|open| open.came_from.clone()),
+            _ => None,
+        };
+        let back = match open {
             Some(open) => open.back,
             None => window.focused(cx),
         };
         window.focus(&focus, cx);
-        self.panes.panel = Some(Panel { job, focus, back, of });
+        self.panes.panel = Some(Panel { job, focus, back, came_from, of });
         cx.notify();
     }
 
@@ -839,6 +848,11 @@ impl JobView {
             Some(Panel { of: Of::Issue(panel), .. }) => Some(panel),
             _ => None,
         }
+    }
+
+    /// The issue the open panel was opened from, where it was.
+    pub(super) fn panel_came_from(&self) -> Option<&super::issues::IssueItem> {
+        self.panes.panel.as_ref()?.came_from.as_ref()
     }
 
     pub(super) fn pull_panel(&self) -> Option<&super::pr_panel::PullPanel> {

@@ -514,14 +514,17 @@ impl JobView {
         self.issue_tab(if tab == IssueTab::Conversation { IssueTab::Linked } else { IssueTab::Conversation }, cx);
     }
 
-    /// A pull request that names the issue: its panel where this Job holds it, else the forge's page.
-    fn open_linked(&mut self, manifest: Option<ManifestId>, number: u64, url: String, window: &mut Window, cx: &mut Context<Self>) {
+    /// A pull request that names the issue, in the panel: as this Job or another holds it, else as the
+    /// forge reads it (`LinkedPullRequests`, `PullRequestSide`'s owner).
+    fn open_linked(&mut self, manifest: Option<ManifestId>, linked: ipc::LinkedPullRequest, window: &mut Window, cx: &mut Context<Self>) {
         let job = self.shown.clone().map(|id| id.to_string()).unwrap_or_default();
-        let held = self.pulls_of(&job, cx).into_iter().find(|pull| pull.number == number && pull.manifest.as_deref() == manifest.as_ref().map(|id| id.as_str()));
-        match held {
-            Some(pull) => self.open_pull(pull, window, cx),
-            None => cx.open_url(&url),
-        }
+        let manifest = manifest.map(|id| id.as_str().to_string());
+        let named = |pull: &super::pulls::Pull| pull.number == linked.number && pull.manifest == manifest;
+        let held = self.pulls_of(&job, cx).into_iter().find(|pull| named(pull)).or_else(|| {
+            self.list.read(cx).records().iter().find_map(|record| record.attachments.iter().filter_map(|one| super::pulls::pull_of(record, one, None)).find(|pull| named(pull)))
+        });
+        let pull = held.unwrap_or_else(|| super::pulls::unheld(manifest.clone(), &linked));
+        self.open_pull(pull, window, cx);
     }
 
     /// The panel's body (`IssuePanel`): the title, its state, labels, who opened it and when and who it
@@ -625,7 +628,7 @@ impl JobView {
                 LinkedPullRequestState::Merged => ("git-merge", "Merged", Some(Tone::Success)),
                 LinkedPullRequestState::Closed => ("git-pull-request-closed", "Closed", None),
             };
-            let (manifest, number, url) = (item.manifest.clone(), one.number, one.url.clone());
+            let (manifest, number, linked) = (item.manifest.clone(), one.number, one.clone());
             labelled(
                 div()
                     .id(SharedString::from(format!("issue-linked:{number}")))
@@ -640,7 +643,7 @@ impl JobView {
                     .hover(move |style| style.bg(ground))
                     .child(mark(look, format!("issue-linked-mark:{number}"), icon, said, tone))
                     .child(div().flex_1().min_w_0().truncate().child(SharedString::from(format!("#{number} {}", one.title))))
-                    .on_click(cx.listener(move |this, _, window, cx| this.open_linked(manifest.clone(), number, url.clone(), window, cx))),
+                    .on_click(cx.listener(move |this, _, window, cx| this.open_linked(manifest.clone(), linked.clone(), window, cx))),
                 Role::Button,
                 format!("Pull request #{number} {}", one.title),
             )

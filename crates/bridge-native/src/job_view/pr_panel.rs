@@ -416,7 +416,15 @@ impl JobView {
     }
 
     /// The pull request as the Job's record holds it now, or as it was pressed where the record lets it go.
+    /// One no Job holds takes its Checks from the forge's read of its page, once read.
     fn live_pull(&self, pressed: &Pull, cx: &gpui::App) -> Pull {
+        if !pressed.held() {
+            let mut pull = pressed.clone();
+            if let Some(Ok(page)) = self.pull_panel().filter(|panel| panel.pull.number == pressed.number).and_then(|panel| panel.page.as_ref()) {
+                (pull.checks, pull.failing) = super::pulls::checks_of_page(page);
+            }
+            return pull;
+        }
         let job = self.shown.clone().map(|id| id.to_string()).unwrap_or_default();
         self.pulls_of(&job, cx).into_iter().find(|one| one.number == pressed.number && one.job == pressed.job).unwrap_or_else(|| pressed.clone())
     }
@@ -514,7 +522,7 @@ impl JobView {
             body: (!text.trim().is_empty()).then(|| text.clone()),
             comments: Vec::new(),
             commit: None,
-            session_id: Some(ipc::SessionId::carried(pull.job.clone())),
+            session_id: pull.held().then(|| ipc::SessionId::carried(pull.job.clone())),
         });
         let number = pull.number;
         let key = PullPanel::kept_key(&pull);
@@ -576,25 +584,53 @@ impl JobView {
             Role::Button,
             "Close",
         );
+        let titles = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .child(div().truncate().text_size(look.length(token::TEXT_LG)).line_height(look.length(token::LEADING_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
+            .children(pull.manifest.clone().map(|name| div().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(name))));
         let head = div()
             .flex_none()
             .flex()
-            .items_center()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_6))
             .py(look.length(token::SPACE_4))
             .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_DEFAULT))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .flex()
-                    .flex_col()
-                    .child(div().truncate().text_size(look.length(token::TEXT_LG)).line_height(look.length(token::LEADING_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
-                    .children(pull.manifest.clone().map(|name| div().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(name)))),
-            )
-            .child(close);
+            .border_color(look.color(token::BORDER_DEFAULT));
+        // Opened from an issue, the way back and the way out share the head's first line, and the title takes the line under them (`Sheet` back).
+        let head = match self.panel_came_from().cloned() {
+            Some(issue) => {
+                let said = format!("Back to {}", issue.label());
+                let (ground, ink, muted) = (look.color(token::BG_HOVER), look.color(token::FG_DEFAULT), look.color(token::FG_MUTED));
+                let back = labelled(
+                    div()
+                        .id("pull-panel-back")
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_1))
+                        .h(look.length(token::H_CONTROL_SM))
+                        .pl(look.length(token::SPACE_2))
+                        .pr(look.length(token::SPACE_3))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .text_size(look.length(token::TEXT_XS))
+                        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                        .text_color(muted)
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(ground).text_color(ink))
+                        .tooltip(tip(said.clone()))
+                        .child(glyph(look, "chevron-left", Size::Small, muted))
+                        .child(SharedString::from(said.clone()))
+                        .on_click(cx.listener(move |this, _, window, cx| this.open_issue(issue.clone(), window, cx))),
+                    Role::Button,
+                    said,
+                );
+                head.flex_col().child(div().flex().items_center().justify_between().child(back).child(close)).child(titles)
+            }
+            None => head.items_center().child(titles).child(close),
+        };
         let margin = look.length(token::SPACE_4);
         let wide = look.length(token::W_DIALOG_WIDE).min(viewport.width - margin * 2.);
         let high = viewport.height - look.length(token::H_TITLE_BAR) - margin * 2.;
@@ -755,13 +791,13 @@ impl JobView {
             let sent = panel.sent_back;
             let held = pull.clone();
             let word = if sent { "Notified" } else { "Notify Job" };
-            let notify = labelled(
+            let notify = pull.held().then(|| labelled(
                 small_button(look, "pull-notify", word, true, !sent)
                     .tooltip(tip("Tells the Job which checks failed"))
                     .when(!sent, |button| button.on_click(cx.listener(move |this, _, window, cx| this.notify_job(&held, window, cx)))),
                 Role::Button,
                 word,
-            );
+            ));
             labelled(
                 plate(look, Tone::Failed)
                     .id("pull-failing")
@@ -773,7 +809,7 @@ impl JobView {
                             .gap(look.length(token::SPACE_1))
                             .children(failing.iter().map(|name| div().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).child(SharedString::from(name.clone())))),
                     )
-                    .child(div().flex().child(notify)),
+                    .child(div().flex().children(notify)),
                 Role::Region,
                 "Failing checks",
             )
@@ -870,7 +906,8 @@ impl JobView {
             Some(page) if !page.base.is_empty() => format!("{} \u{2192} {}", pull.branch, page.base),
             _ => pull.branch.clone(),
         };
-        let branch = div()
+        // One no Job holds has no branch name: the forge's page carries the base and not the head's name.
+        let branch = (!pull.branch.is_empty()).then(|| div()
             .id("pull-branch")
             .min_w_0()
             .truncate()
@@ -881,13 +918,13 @@ impl JobView {
             .text_size(look.length(token::TEXT_XS))
             .text_color(look.color(token::FG_MUTED))
             .tooltip(tip(if page.is_some() { "Branch and the branch it merges into" } else { "Branch" }))
-            .child(SharedString::from(branch_words));
+            .child(SharedString::from(branch_words)));
         let now = Local::now();
         let fact = |id: &'static str, said: &'static str, words: String| div().id(id).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip(said)).child(SharedString::from(words));
         let author = page.and_then(|page| page.author.clone()).map(|author| fact("pull-author", "Opened by", author));
         let opened = page.and_then(|page| page.created_at.as_deref()).and_then(|at| age(at, now)).map(|ago| fact("pull-opened", "Opened", ago));
         let size = page.map(|page| diff_size(look, "pull-size", page.additions, page.deletions));
-        let meta = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).min_w_0().child(pill).child(branch).children(author).children(opened).children(size);
+        let meta = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).min_w_0().child(pill).children(branch).children(author).children(opened).children(size);
         let acts = self.pull_acts(panel, pull, look, cx);
         let plates = plates_inside.then(|| self.pull_plates(panel, pull, look, cx));
         let tabs = match &panel.page {
@@ -1040,7 +1077,7 @@ impl JobView {
                         let (icon, said, tone) = verdict_look(Some(verdict));
                         mark(look, format!("pull-verdict:{id}"), icon, said, tone)
                     });
-                    let act = (!body.trim().is_empty()).then(|| self.evaluate_act(panel, pull, id, author, body, None, look, cx));
+                    let act = (!body.trim().is_empty() && pull.held()).then(|| self.evaluate_act(panel, pull, id, author, body, None, look, cx));
                     cards.push(self.pull_card(&format!("pull-entry:{id}"), lead, Some(author.clone()), bot, Some(at), act, body, author.clone(), look, now, cx));
                 }
                 Said::Thread(thread) => cards.push(self.pull_thread(panel, pull, thread, look, now, cx)),
@@ -1121,8 +1158,9 @@ impl JobView {
             .iter()
             .enumerate()
             .map(|(at, one)| {
-                let act = self.evaluate_act(panel, pull, &one.id, &one.author, &one.body, Some(place.clone()), look, cx);
-                let head = card_head(look, None, Some(one.author.clone()), one.bot, age(&one.at, now), Some(act));
+                // Evaluate hands a comment to the Job holding the pull request; one no Job holds has none.
+                let act = pull.held().then(|| self.evaluate_act(panel, pull, &one.id, &one.author, &one.body, Some(place.clone()), look, cx));
+                let head = card_head(look, None, Some(one.author.clone()), one.bot, age(&one.at, now), act);
                 let words = (!one.body.trim().is_empty())
                     .then(|| div().min_w_0().px(look.length(token::SPACE_3)).pt(look.length(token::SPACE_1)).pb(look.length(token::SPACE_3)).child(self.prose(format!("pull-thread:{}:{}", thread.id, one.id), &one.body, look, cx)));
                 labelled(
