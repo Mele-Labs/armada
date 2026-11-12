@@ -206,6 +206,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/subagent",
     },
     Route {
+        operation: "get_repository_file",
+        method: "GET",
+        path: "/sessions/repository_file",
+    },
+    Route {
         operation: "get_session_file",
         method: "GET",
         path: "/sessions/file",
