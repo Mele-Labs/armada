@@ -488,13 +488,18 @@ impl JobView {
         );
         let high = look.length(token::SPACE_6) + look.length(token::SPACE_1);
         let edge = look.length(token::BORDER_WIDTH);
-        // Folded, the band sits inside the frame's edge; open, it rises out over it. gpui clips a child
-        // to a square box, so the key at the band's end takes the band's corner itself.
-        let corner = if open { look.length(token::RADIUS_LG) } else { look.length(token::RADIUS_LG) - edge };
+        // Folded or open, the band lies over the frame's edge and draws that edge itself, over the key at
+        // its end, so the frame's amber line runs unbroken round the corner. gpui clips a child to a square
+        // box, so the key at the band's end takes the corner itself.
+        let corner = look.length(token::RADIUS_LG);
         let last = restarts.len().checked_sub(1);
         let band = div()
             .flex_none()
-            .h(high)
+            .h(high + edge)
+            .border_t(edge)
+            .border_l(edge)
+            .border_r(edge)
+            .border_color(hue)
             .flex()
             .items_center()
             .rounded_t(corner)
@@ -503,7 +508,7 @@ impl JobView {
             .overflow_hidden()
             .child(trigger)
             .children(restarts.into_iter().enumerate().map(|(at, (command, build, adopt, label))| {
-                self.restart_key(id, command, build, adopt, label, (Some(at) == last).then_some(corner), look, cx)
+                self.restart_key(id, command, build, adopt, label, (Some(at) == last).then_some(corner - edge), look, cx)
             }));
         let keys = self.pages.get(id).map(|page| page.keys.clone());
         if let Some(keys) = &keys {
@@ -529,7 +534,7 @@ impl JobView {
                         .child(band)
                         .child(panel),
                 ),
-                None => slot.child(band),
+                None => slot.child(div().absolute().top(-edge).left(-edge).right(-edge).child(band)),
             }
             .into_any_element(),
         )
