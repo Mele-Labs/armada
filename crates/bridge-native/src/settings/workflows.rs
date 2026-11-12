@@ -248,6 +248,8 @@ pub struct WorkflowsPage {
     pub for_jobs: FocusHandle,
     /// Each row's name and switch, by the row's key.
     rows: BTreeMap<String, [FocusHandle; 2]>,
+    /// The workflow picked, drawn beside the list.
+    pub detail: super::workflow_detail::Detail,
     _filter: Subscription,
 }
 
@@ -259,7 +261,7 @@ impl WorkflowsPage {
                 cx.notify();
             }
         });
-        WorkflowsPage { picked: None, filter, for_jobs: cx.focus_handle().tab_stop(true), rows: BTreeMap::new(), _filter: sub }
+        WorkflowsPage { picked: None, filter, for_jobs: cx.focus_handle().tab_stop(true), rows: BTreeMap::new(), detail: Default::default(), _filter: sub }
     }
 
     pub fn filter_focused(&self, window: &Window, cx: &App) -> bool {
@@ -269,9 +271,9 @@ impl WorkflowsPage {
 
 impl SettingsOverlay {
     /// The rows as drawn now, or `None` before Fleet has listed what it runs.
-    fn workflow_rows(&self, cx: &App) -> Option<Vec<Listed>> {
+    pub(super) fn workflow_rows(&self, cx: &App) -> Option<Vec<Listed>> {
         let served: Vec<String> = self.wire.repositories(cx).unwrap_or_default().into_iter().map(|(id, _, _)| id).collect();
-        self.wire.workflows(cx).map(|workflows| listed_of(&workflows, &served))
+        self.workflows.detail.listed(self.wire.workflows(cx)).map(|workflows| listed_of(&workflows, &served))
     }
 
     fn workflow_groups(&self, cx: &App) -> Option<(Vec<Listed>, Vec<Group>)> {
@@ -325,7 +327,7 @@ impl SettingsOverlay {
     }
 
     /// The rows the search keeps, in the order drawn, each with where its switch switches; and the one picked.
-    fn shown_workflows(&self, cx: &App) -> (Vec<(Listed, Option<(String, String)>)>, Option<Listed>) {
+    pub(super) fn shown_workflows(&self, cx: &App) -> (Vec<(Listed, Option<(String, String)>)>, Option<Listed>) {
         let Some((_, groups)) = self.workflow_groups(cx) else { return (Vec::new(), None) };
         let shown: Vec<(Listed, Option<(String, String)>)> = groups.into_iter().flat_map(|group| {
             let at = group.at.clone();
@@ -335,8 +337,8 @@ impl SettingsOverlay {
         (shown, picked)
     }
 
-    /// The page's stops: the switch for Jobs, the search, the row picked, then each row's switch.
-    pub(super) fn workflow_stops(&self, cx: &App) -> Vec<FocusHandle> {
+    /// The page's stops: the switch for Jobs, the search, the row picked, then each row's switch; then the detail's.
+    pub(super) fn workflow_stops(&self, window: &Window, cx: &App) -> Vec<FocusHandle> {
         let mut stops = vec![self.workflows.for_jobs.clone(), self.workflows.filter.read(cx).focus_handle(cx)];
         let (shown, picked) = self.shown_workflows(cx);
         let off = self.workflows_off();
@@ -349,6 +351,7 @@ impl SettingsOverlay {
                 stops.push(switch.clone());
             }
         }
+        stops.extend(self.detail_stops_for(window, cx));
         stops
     }
 
@@ -362,7 +365,7 @@ impl SettingsOverlay {
         self.save(OFF.into(), Some(value), window, cx);
     }
 
-    fn pick_workflow(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn pick_workflow(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.workflows.picked = Some(key.to_string());
         if let Some([row, _]) = self.workflows.rows.get(key) {
             window.focus(row, cx);
@@ -377,6 +380,9 @@ impl SettingsOverlay {
             return false;
         }
         let word = key.key.as_str();
+        if self.detail_key(word, window, cx) {
+            return true;
+        }
         if self.workflows.filter_focused(window, cx) {
             if word == "escape" && !self.workflows.filter.read(cx).value().is_empty() {
                 self.workflows.filter.update(cx, |filter, cx| filter.set_value("", window, cx));
@@ -497,7 +503,7 @@ impl SettingsOverlay {
             }
         }
         let list = super::models::panel(look, "workflows-list").flex_none().w(look.length(token::W_GUIDE_LIST)).p(look.length(token::SPACE_3)).gap(look.length(token::SPACE_4)).child(labelled(jobs_switch, Role::Switch, "Workflows for Jobs")).child(filter).child(kept).child(groups);
-        let detail = super::models::panel(look, "workflows-detail").flex_1().children(picked.map(|one| self.render_workflow_head(&one, look)));
+        let detail = super::models::panel(look, "workflows-detail").flex_1().children(picked.map(|one| self.render_workflow_detail(&one, look, window, cx)));
         div()
             .id("settings-page")
             .flex_1()
@@ -580,31 +586,6 @@ impl SettingsOverlay {
             window,
         );
         labelled(row, Role::Button, one.id.clone()).into_any_element()
-    }
-
-    /// The picked workflow's head: its id, and the line it says it is for.
-    fn render_workflow_head(&self, one: &Listed, look: &Look) -> AnyElement {
-        labelled(
-            div()
-                .id("workflow-head")
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_1))
-                .p(look.length(token::SPACE_4))
-                .child(labelled(div().id("workflow-title").text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(one.id.clone())), Role::Heading, one.id.clone()))
-                .children(one.for_requests.clone().filter(|line| !line.is_empty()).map(|line| {
-                    div()
-                        .flex()
-                        .flex_wrap()
-                        .items_baseline()
-                        .gap_x(look.length(token::SPACE_3))
-                        .child(div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_MUTED)).child("For requests"))
-                        .child(div().min_w_0().max_w_full().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(line)))
-                })),
-            Role::Article,
-            one.id.clone(),
-        )
-        .into_any_element()
     }
 }
 

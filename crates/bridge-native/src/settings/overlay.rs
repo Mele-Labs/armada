@@ -660,7 +660,7 @@ impl SettingsOverlay {
             return self.model_stops(cx);
         }
         if let Body::Workflows = shown.body {
-            return self.workflow_stops(cx);
+            return self.workflow_stops(window, cx);
         }
         if let Body::Theme = shown.body {
             let mut stops = vec![self.theme.focus.clone()];
@@ -715,7 +715,7 @@ impl SettingsOverlay {
     }
 
     pub(super) fn in_text(&self, window: &Window, cx: &App) -> bool {
-        self.query.read(cx).focus_handle(cx).is_focused(window) || self.theme.focus.is_focused(window) || self.models.filter_focused(window, cx) || self.workflows.filter_focused(window, cx) || self.typed.values().any(|typed| typed.focus(cx).is_focused(window))
+        self.query.read(cx).focus_handle(cx).is_focused(window) || self.theme.focus.is_focused(window) || self.models.filter_focused(window, cx) || self.workflows.filter_focused(window, cx) || self.workflows.detail.in_words(window, cx) || self.typed.values().any(|typed| typed.focus(cx).is_focused(window))
             || self.scope.as_ref().is_some_and(|scope| scope.typed.values().any(|field| field.read(cx).focus_handle(cx).is_focused(window)))
     }
 
