@@ -209,10 +209,15 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         if all.contains_key(id) || refused(scenario, id).is_some() {
             continue;
         }
-        let empty = format!(r#"{{"session_id":"{id}","head":{{"trail":{{"started":"{}"}}}},"items":[]}}"#, job.started_at.as_str());
-        all.insert(id.to_string(), ipc::decode::<JobThread>("empty thread", empty.as_bytes()).map_err(|why| why.to_string())?);
+        all.insert(id.to_string(), empty_thread(id, job.started_at.as_str())?);
     }
     Ok(all)
+}
+
+/// The thread Fleet answers for a Job with nothing in it yet: a head with its start, and no items.
+pub fn empty_thread(id: &str, started: &str) -> Result<JobThread, String> {
+    let empty = format!(r#"{{"session_id":"{id}","head":{{"trail":{{"started":"{started}"}}}},"items":[]}}"#);
+    ipc::decode::<JobThread>("empty thread", empty.as_bytes()).map_err(|why| why.to_string())
 }
 
 /// The threads a scenario's fixtures hold.

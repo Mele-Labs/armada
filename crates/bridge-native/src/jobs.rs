@@ -526,6 +526,8 @@ pub struct JobsList {
     opened: Option<SharedString>,
     /// Counts each pick of a Job, the open one again too, so the view puts the keys in its box.
     picks: u64,
+    /// The Jobs a walk's stand-in for Fleet started: their threads are empty, as Fleet answers for a Job with nothing in it.
+    made: Vec<String>,
     focus: FocusHandle,
     /// The whole panel's, which holds the list and what it opens over itself, its menus.
     within: FocusHandle,
@@ -659,6 +661,7 @@ impl JobsList {
             focused: None,
             opened: None,
             picks: 0,
+            made: Vec::new(),
             focus: cx.focus_handle(),
             within: cx.focus_handle(),
             scroll: ScrollHandle::new(),
@@ -856,9 +859,15 @@ impl JobsList {
         record.mark = mark;
         record.ended_at = None;
         let id: SharedString = record.id.as_str().to_string().into();
+        self.made.push(id.to_string());
         self.jobs.insert(0, record);
         self.relist(cx);
         self.open(id, cx);
+    }
+
+    /// Whether a walk's stand-in for Fleet started this Job.
+    pub fn made_here(&self, id: &str) -> bool {
+        self.made.iter().any(|made| made == id)
     }
 
     /// Every Job the list holds, for the message box's `@` to name.

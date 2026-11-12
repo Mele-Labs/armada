@@ -677,6 +677,14 @@ impl JobView {
             if let Some(fleet) = self.fleet.clone() {
                 let id = id.clone();
                 fleet.update(cx, |fleet, cx| fleet.read_thread(&id, true, cx));
+            } else if let Some(started) = self.list.read(cx).record(id).filter(|_| self.list.read(cx).made_here(id) && !self.mock.contains_key(id.as_ref())).map(|job| job.started_at.as_str().to_string()) {
+                // A Job a walk started has nothing in its thread yet, as Fleet answers for a Job just begun.
+                match crate::mock::empty_thread(id, &started) {
+                    Ok(read) => {
+                        self.mock.insert(id.to_string(), HeldThread::from_read(read, 1));
+                    }
+                    Err(why) => cx.defer(move |cx| crate::toasts::tell(why, cx)),
+                }
             } else if let Some(why) = crate::mock::thread_refused(id) {
                 cx.defer(move |cx| crate::toasts::tell(why, cx));
             } else if crate::mock::reads_slowly() {
