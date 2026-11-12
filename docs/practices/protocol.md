@@ -1793,7 +1793,7 @@ The native Bridge reads it.
 | `session.subagent` (`GET /events`, `agent_access = "Bridge only"`) | Fleet publishes, Bridge reads | `SessionSubagentChanged` `{ session_id, subagent_id }`, `subagent_id` the `ToolSubagent.id` that `get_session_subagent` takes. It carries no rows: a client holding that subagent reads `GET /sessions/subagent` again |
 
 **When it is published.** Beside each put of a running subagent's row (which is at most once a second, `LATEST_EVERY`) and once when the subagent settles, whether Fleet drew its row or read it off the thread.
-A process that goes and cuts its subagents off publishes none: the transcript did not move.
+A process that goes and cuts its subagents off publishes one for each, since each has settled too; a client then reads it once and expects no more.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 
 **The event stream.** One kind added, and it is better than polling: a native Bridge that held `get_session_subagent` on a 1.5 s timer reads it on this event instead, and the event is at most one a second per running subagent.
