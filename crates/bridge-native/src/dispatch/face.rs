@@ -10,13 +10,19 @@ use gpui::SharedString;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
     Job,
+    /// A terminal Job: it opens on its shell, and its agent waits until it is written to.
+    Terminal,
 }
 
 impl Kind {
+    /// The kinds the line steps through on Tab, in the band's order.
+    pub const ALL: [Kind; 2] = [Kind::Job, Kind::Terminal];
+
     /// The kind's word, which is also its tooltip (`DP/kinds.ts`).
     pub fn word(self) -> &'static str {
         match self {
             Kind::Job => "Job",
+            Kind::Terminal => "Terminal",
         }
     }
 
@@ -24,7 +30,14 @@ impl Kind {
     pub fn glyph(self) -> &'static str {
         match self {
             Kind::Job => "square-terminal",
+            Kind::Terminal => "file-terminal",
         }
+    }
+
+    /// The next kind, as Tab steps (`dispatching.tsx:524`).
+    pub fn next(self) -> Kind {
+        let at = Kind::ALL.iter().position(|one| *one == self).unwrap_or(0);
+        Kind::ALL[(at + 1) % Kind::ALL.len()]
     }
 }
 

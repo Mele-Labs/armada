@@ -130,6 +130,8 @@ pub struct Held {
     pub workflows: Option<Vec<ipc::WorkflowSummary>>,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
     arrived: Vec<CallArrival>,
+    /// A Job's shells that opened, ended or were brought to the front since the last take. Told once.
+    shells: Vec<ShellNews>,
     /// The port of the Fleet last connected to, so a command goes where the events come from.
     port: Option<u16>,
     /// The stylesheet Fleet checked for a mod, with the `changed_at` of the row it was checked for.
@@ -178,6 +180,7 @@ impl Held {
             open_group: true,
             workflows: None,
             arrived: Vec::new(),
+            shells: Vec::new(),
             port: None,
             sheets: BTreeMap::new(),
             threads: BTreeMap::new(),
@@ -287,6 +290,11 @@ impl Held {
     /// The news folded since the last take, oldest first.
     pub fn take_arrived(&mut self) -> Vec<CallArrival> {
         std::mem::take(&mut self.arrived)
+    }
+
+    /// The shells' news folded since the last take, oldest first.
+    pub fn take_shells(&mut self) -> Vec<ShellNews> {
+        std::mem::take(&mut self.shells)
     }
 
     fn set_settings(&mut self, list: &SettingsList) {
@@ -439,6 +447,9 @@ impl Held {
                             self.watches_spoken.insert(id.clone());
                             self.watches.insert(id, list.watches);
                         }
+                        Event::TerminalOpened(shell) => self.shells.push(ShellNews::Opened(shell)),
+                        Event::TerminalExited(shell) => self.shells.push(ShellNews::Exited(shell)),
+                        Event::TerminalShown(shell) => self.shells.push(ShellNews::Shown(shell)),
                         _ => {}
                     }
                 }
@@ -508,6 +519,20 @@ fn kept_merge_lines(now: chrono::DateTime<chrono::Utc>) -> Option<Vec<ipc::Merge
 pub struct Arrived(pub Vec<CallArrival>);
 
 impl EventEmitter<Arrived> for FleetConnection {}
+
+/// One of a Job's shells, as `terminal.opened`, `terminal.exited` and `terminal.shown` tell it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ShellNews {
+    Opened(ipc::JobTerminal),
+    Exited(ipc::JobTerminal),
+    /// The agent asked for it in front (`show_terminal`).
+    Shown(ipc::JobTerminal),
+}
+
+/// The shells' news in one folded batch, for a Job's terminal tabs to follow.
+pub struct Shells(pub Vec<ShellNews>);
+
+impl EventEmitter<Shells> for FleetConnection {}
 
 pub struct FleetConnection {
     held: Held,
@@ -958,9 +983,13 @@ impl FleetConnection {
                         this.read_thread(&id, true, cx);
                     }
                     let arrived = this.held.take_arrived();
+                    let shells = this.held.take_shells();
                     cx.notify();
                     if !arrived.is_empty() {
                         cx.emit(Arrived(arrived));
+                    }
+                    if !shells.is_empty() {
+                        cx.emit(Shells(shells));
                     }
                     lines
                 });
@@ -1157,6 +1186,30 @@ mod tests {
         assert!(held.take_arrived().is_empty(), "news is told once");
         held.fold(vec![changed("[]", "[]")]);
         assert!(held.take_arrived().is_empty());
+    }
+
+    #[test]
+    fn a_jobs_shells_news_is_handed_over_once_in_the_order_it_came() {
+        let shell = |kind: &str, terminal: &str| {
+            let wire = format!(
+                r#"{{"message":"event","cursor":1,"event":{{"kind":"{kind}","session_id":"s0","terminal":"{terminal}","run_id":"r-{terminal}"}}}}"#
+            );
+            Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+        };
+        let mut held = Held::new();
+        held.fold(vec![shell("terminal.opened", "t2"), shell("terminal.shown", "t2"), shell("terminal.exited", "t1")]);
+        let news = held.take_shells();
+        let told: Vec<(&str, &str)> = news
+            .iter()
+            .map(|one| match one {
+                ShellNews::Opened(at) => ("opened", at.terminal.as_str()),
+                ShellNews::Shown(at) => ("shown", at.terminal.as_str()),
+                ShellNews::Exited(at) => ("exited", at.terminal.as_str()),
+            })
+            .collect();
+        assert_eq!(told, [("opened", "t2"), ("shown", "t2"), ("exited", "t1")]);
+        assert_eq!(news[0].clone(), ShellNews::Opened(ipc::JobTerminal { session_id: ipc::SessionId::carried("s0"), terminal: "t2".into(), run_id: "r-t2".into() }));
+        assert!(held.take_shells().is_empty(), "news is told once");
     }
 
     #[test]

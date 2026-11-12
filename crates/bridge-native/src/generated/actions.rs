@@ -46,6 +46,7 @@ pub enum ActionScope {
     Projects,
     Report,
     Review,
+    Terminal,
     Thread,
 }
 
@@ -66,6 +67,7 @@ impl ActionScope {
             ActionScope::Projects => "projects",
             ActionScope::Report => "report",
             ActionScope::Review => "review",
+            ActionScope::Terminal => "terminal",
             ActionScope::Thread => "thread",
         }
     }
@@ -87,6 +89,7 @@ impl ActionScope {
             ActionScope::Projects => Some("projects"),
             ActionScope::Report => Some("report"),
             ActionScope::Review => Some("review"),
+            ActionScope::Terminal => Some("terminal"),
             ActionScope::Thread => Some("thread"),
         }
     }
@@ -152,6 +155,20 @@ pub const ACTIONS: &[Act] = &[
         glyph: Some("bell"),
         icon_absent: None,
         shortcut: "⌥⌘N",
+        scope: ActionScope::Anywhere,
+        destructive: false,
+        confirms: false,
+        unbuilt: None,
+        in_palette: true,
+    },
+    Act {
+        id: "new_terminal_job",
+        kind: ActionKind::Action,
+        tier: ActionTier::Global,
+        verb: "New terminal",
+        glyph: Some("file-terminal"),
+        icon_absent: None,
+        shortcut: "⌘T",
         scope: ActionScope::Anywhere,
         destructive: false,
         confirms: false,
@@ -1679,6 +1696,20 @@ pub const ACTIONS: &[Act] = &[
         icon_absent: Some(IconAbsence::Undecided),
         shortcut: "d",
         scope: ActionScope::Thread,
+        destructive: false,
+        confirms: false,
+        unbuilt: None,
+        in_palette: true,
+    },
+    Act {
+        id: "terminal_new_shell",
+        kind: ActionKind::Action,
+        tier: ActionTier::Contextual,
+        verb: "New shell",
+        glyph: Some("file-terminal"),
+        icon_absent: None,
+        shortcut: "Enter",
+        scope: ActionScope::Terminal,
         destructive: false,
         confirms: false,
         unbuilt: None,

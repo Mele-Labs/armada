@@ -21,6 +21,8 @@ pub mod operator;
 pub mod stage;
 pub mod stand_in;
 pub mod strip_marks;
+pub mod run_commands;
+pub mod terminal;
 pub mod title_bar;
 pub mod window;
 
@@ -322,6 +324,20 @@ static EDGE: [Step; total(EDGE_PARTS)] = joined(EDGE_PARTS);
 
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
+    Walk {
+        name: "native-run",
+        title: "Run a command an agent showed, from the thread and from Needs you",
+        screen: Screen::Jobs,
+        scenario: "run-commands",
+        steps: &run_commands::STEPS,
+    },
+    Walk {
+        name: "native-terminal",
+        title: "A terminal Job, from ⌘T, the sheet and the palette",
+        screen: Screen::App,
+        scenario: "terminal-job",
+        steps: &terminal::STEPS,
+    },
     Walk {
         name: "native-today",
         title: "Native changes waiting on you",

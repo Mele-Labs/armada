@@ -49,7 +49,14 @@ pub(super) struct DockState {
     pub runs: HashMap<String, RunMark>,
     /// The one-line box open under a row: a reason for putting it away, or a note for its Done.
     pub row_box: Option<RowBox>,
+    /// Where the panel is scrolled, so a run started from a row is brought into view under it.
+    pub scroll: gpui::ScrollHandle,
+    /// The run item's command whose run is being brought into view, and for how many more draws.
+    pub reveal: Option<(String, Rc<std::cell::Cell<u8>>)>,
 }
+
+/// How many draws a run started from a row is kept in view for.
+const REVEAL_DRAWS: u8 = 12;
 
 /// What a row's open box is for.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -622,55 +629,36 @@ impl JobView {
         .detach();
     }
 
-    /// A run item pressed: its command runs where the Job works (`start_session_run`), and its row is
-    /// marked until the run exits. A clean exit is settled by Fleet, which takes the item off the list.
+    /// A run item pressed: its command runs where the Job works (`start_session_run`) on a terminal held under its
+    /// row (`terminal::run`), and its row is marked until the run exits. A clean exit is settled by Fleet, which takes
+    /// the item off the list. A press while it runs, or once it passed, does nothing (`answers.ts:339-346`); a slash
+    /// command goes to the Job as a reply (`answers.ts:523-532`).
     pub(super) fn run_item(&mut self, command: String, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        if self.dock_of(&job).and_then(|dock| dock.runs.get(&command)).is_some_and(|mark| matches!(mark, RunMark::Running)) {
+        if self.dock_of(&job).and_then(|dock| dock.runs.get(&command)).is_some_and(|mark| matches!(mark, RunMark::Running | RunMark::Passed)) {
             return;
         }
-        let start = ipc::StartSessionRun { session_id: SessionId::carried(job.to_string()), command: command.clone(), cols: None, rows: None };
-        let body = ipc::encode(&start).map_err(|why| format!("{why:?}"));
-        self.mark_run(&job, &command, Some(RunMark::Running), cx);
-        let Some(port) = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()) else {
-            self.mark_run(&job, &command, Some(RunMark::Failed("Fleet is not connected".into())), cx);
+        if command.trim_start().starts_with('/') {
+            self.send_line(command.trim().to_string(), window, cx);
             return;
-        };
-        cx.spawn_in(window, async move |this, cx| {
-            let answer = cx
-                .background_executor()
-                .spawn(async move {
-                    let body = body?;
-                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                    runtime.block_on(async move {
-                        let (status, bytes) = crate::transport::post(port, "/sessions/run/start", body).await?;
-                        if !(200..300).contains(&status) {
-                            return Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message));
-                        }
-                        let underway = ipc::decode::<ipc::SessionRunUnderway>("SessionRunUnderway", &bytes).map_err(|why| format!("{why:?}"))?;
-                        let io = crate::transport::upgrade(port, &format!("/sessions/run/{}/observe", underway.run_id)).await?;
-                        let mut messages = crate::frames::Messages::new(io);
-                        while let Some(text) = messages.next().await {
-                            if let Ok(ipc::SessionRunMessage::Exited { code, stopped }) = ipc::decode::<ipc::SessionRunMessage>("SessionRunMessage", text.as_bytes()) {
-                                return match code {
-                                    Some(0) => Ok(()),
-                                    Some(code) => Err(format!("Exited {code}")),
-                                    None if stopped => Err("Stopped".to_string()),
-                                    None => Err("Ended by a signal".to_string()),
-                                };
-                            }
-                        }
-                        Err("The run closed before it exited".to_string())
-                    })
-                })
-                .await;
-            let mark = match answer {
-                Ok(()) => RunMark::Passed,
-                Err(why) => RunMark::Failed(why.into()),
+        }
+        self.mark_run(&job, &command, Some(RunMark::Running), cx);
+        let view = cx.weak_entity();
+        let (held, said) = (job.clone(), command.clone());
+        let ended = Rc::new(move |code: Option<i32>, stopped: bool, cx: &mut gpui::App| {
+            let mark = match code {
+                Some(0) => RunMark::Passed,
+                Some(code) => RunMark::Failed(format!("Exited {code}").into()),
+                None if stopped => RunMark::Failed("Stopped".into()),
+                None => RunMark::Failed("Ended by a signal".into()),
             };
-            let _ = this.update(cx, |this, cx| this.mark_run(&job, &command, Some(mark), cx));
-        })
-        .detach();
+            view.update(cx, |this, cx| this.mark_run(&held, &said, Some(mark), cx)).ok();
+        });
+        crate::terminal::run::run_item(&job, &command, ended, cx);
+        // Brought into view under its row over its first draws: its first output arrives a draw or two after it opens.
+        if let Some(page) = self.pages.get_mut(&job) {
+            page.dock.reveal = Some((command, Rc::new(std::cell::Cell::new(REVEAL_DRAWS))));
+        }
     }
 
     fn render_panel(&self, id: &SharedString, things: &[Thing], review: &[&NeedsYouRow], look: &Look, cx: &Context<Self>) -> AnyElement {
@@ -686,8 +674,21 @@ impl JobView {
         let thread = self.pages.get(id).map(|page| page.list.viewport_bounds().size.height).unwrap_or_default();
         let band = look.length(token::SPACE_6) + look.length(token::SPACE_1);
         let most = if thread > band { thread * 0.95 - band } else { look.length(token::SPACE_12) * 10. };
+        let scroll = self.dock_of(id).map(|dock| dock.scroll.clone()).unwrap_or_default();
+        // A run just started from a row shows whole under it, from where it was last drawn.
+        if let Some((command, left)) = self.dock_of(id).and_then(|dock| dock.reveal.clone()).filter(|(_, left)| left.get() > 0) {
+            left.set(left.get() - 1);
+            if let Some(run) = crate::terminal::run::item_drawn(id, &command, cx) {
+                let below = run.bottom() - scroll.bounds().bottom() + look.length(token::SPACE_4);
+                if below > gpui::px(0.) {
+                    let at = scroll.offset();
+                    scroll.set_offset(gpui::point(at.x, at.y - below));
+                }
+            }
+        }
         div()
             .id("needs-panel")
+            .track_scroll(&scroll)
             .track_focus(&self.dock_focus)
             .occlude()
             .on_key_down(cx.listener(Self::on_panel_key))
@@ -925,7 +926,14 @@ impl JobView {
             _ => line,
         };
         let line = labelled(line, Role::Button, format!("Open {name}")).into_any_element();
-        if steps.is_none() && boxed.is_none() && refused.is_none() {
+        // A run item's run, under its row while it is held (`HeldTerminal`).
+        let ran = row
+            .and_then(|row| match &row.act {
+                NeedsYouAct::Run { command } | NeedsYouAct::Steps { command: Some(command), .. } => Some(command.clone()),
+                _ => None,
+            })
+            .and_then(|command| crate::terminal::run::under_item(id, &command, cx));
+        if steps.is_none() && boxed.is_none() && refused.is_none() && ran.is_none() {
             return line;
         }
         div()
@@ -936,6 +944,7 @@ impl JobView {
             .children(steps)
             .children(boxed)
             .children(refused.map(|why| super::acts::refusal(look, key, why)))
+            .children(ran)
             .into_any_element()
     }
 

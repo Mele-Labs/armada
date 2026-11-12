@@ -57,6 +57,7 @@ mod scene;
 mod settings;
 mod sketch;
 mod sketch_png;
+mod terminal;
 mod titlebar;
 mod toasts;
 mod transport;
@@ -174,6 +175,7 @@ pub fn init_app(cx: &mut App) {
     merge_strip::bind(cx);
     annotate::bind(cx);
     dispatch::screen::bind(cx);
+    terminal::init(cx);
     keymap::install(&keymap::Rebinding::default(), cx);
     menu::install(cx);
 }
@@ -261,6 +263,7 @@ fn main() -> ExitCode {
             Mode::Live => cx
                 .open_window(options("Armada".into()), |window, cx| {
                     let fleet = cx.new(FleetConnection::new);
+                    terminal::shells::hold_live(&fleet, cx);
                     let look = cx.new(|cx| LookController::new(&fleet, window, cx));
                     let keys = cx.new(|cx| KeymapController::new(&fleet, cx));
                     let menu = cx.new(|cx| MenuController::new(&fleet, cx));
