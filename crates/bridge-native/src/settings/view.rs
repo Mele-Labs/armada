@@ -1005,7 +1005,8 @@ impl SettingsOverlay {
             "Settings",
         );
         deferred(
-            anchored().position(room.origin).anchor(gpui::Anchor::TopLeft).child(
+            // The scrim covers the screen for a note too: one pressed on it is not written on what is under it.
+            anchored().position(room.origin).anchor(gpui::Anchor::TopLeft).child(crate::labels::cover(
                 div()
                     .id("settings-layer")
                     .track_focus(&self.focus)
@@ -1019,7 +1020,7 @@ impl SettingsOverlay {
                     .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| this.close(window, cx)))
                     .child(boxed)
                     .children(popup),
-            ),
+            )),
         )
         .with_priority(2)
         .into_any_element()

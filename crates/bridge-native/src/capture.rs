@@ -22,7 +22,7 @@ use gpui::{
 use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 
 use crate::annotate::tools::{self, Tools};
-use crate::labels::{labelled, Drawn, LabelBook};
+use crate::labels::{holds, labelled, Drawn, LabelBook};
 use crate::look::{token, ActiveLook};
 use crate::walk::bar::{button, Weight};
 
@@ -47,18 +47,44 @@ impl Held {
         }
     }
 
-    /// The words the card heads with, and the note's place carries: the element's role and name,
-    /// or that it is a box.
+    /// The words the card heads with, and the note's place carries: where the element is, and its
+    /// role and name, or that it is a box.
     pub fn said(&self) -> SharedString {
         match self {
-            Held::Element(drawn) => match role_word(drawn.role) {
-                Some(role) => format!("{role} · {}", drawn.name).into(),
-                None => drawn.name.clone(),
+            Held::Element(drawn) => match place(drawn) {
+                Some(place) => format!("{place} › {}", named(drawn)).into(),
+                None => named(drawn),
             },
             Held::Region(_) => "A box you drew".into(),
             Held::Window { screen, .. } => format!("Whole window · {}", screen.as_deref().unwrap_or("no screen marked")).into(),
         }
     }
+}
+
+/// An element's role and name, as the pointer's badge says it.
+pub fn named(drawn: &Drawn) -> SharedString {
+    match role_word(drawn.role) {
+        Some(role) => format!("{role} · {}", drawn.name).into(),
+        None => drawn.name.clone(),
+    }
+}
+
+/// The elements an element is drawn in, as "Settings › Workflows": the three nearest, each cut short.
+fn place(drawn: &Drawn) -> Option<String> {
+    const LONGEST: usize = 40;
+    let mut names: Vec<String> = Vec::new();
+    for name in &drawn.path {
+        let name = name.trim();
+        let name = match name.char_indices().nth(LONGEST) {
+            Some((cut, _)) => format!("{}…", name[..cut].trim_end()),
+            None => name.to_string(),
+        };
+        if !name.is_empty() && *name != *drawn.name && names.last() != Some(&name) {
+            names.push(name);
+        }
+    }
+    let nearest = &names[names.len().saturating_sub(3)..];
+    (!nearest.is_empty()).then(|| nearest.join(" › "))
 }
 
 /// A role in the words a walk step uses for it.
@@ -88,14 +114,18 @@ pub fn role_word(role: Role) -> Option<&'static str> {
     })
 }
 
-/// The labelled element of `drawn` under `at` and inside `within`: the smallest that holds the
-/// point, so a row wins over its list.
+/// The labelled element of `drawn` under `at` and inside `within`: of those painted on top, the
+/// smallest that holds the point, so a row wins over its list and an overlay over the screen it covers.
 pub fn element_at(drawn: &[Drawn], at: Point<Pixels>, within: Bounds<Pixels>) -> Option<Drawn> {
-    drawn
+    let under: Vec<usize> = (0..drawn.len()).filter(|&one| drawn[one].shown.contains(&at)).collect();
+    // Painted later and not drawn in it: something over it, such as an overlay or a menu.
+    let covered = |one: usize| under.iter().any(|&over| drawn[over].painted > drawn[one].painted && !holds(drawn, one, over));
+    under
         .iter()
-        .filter(|one| one.bounds.contains(&at) && within.contains(&one.bounds.center()))
-        .min_by(|a, b| area(a.bounds).total_cmp(&area(b.bounds)))
-        .cloned()
+        .copied()
+        .filter(|&one| !drawn[one].name.is_empty() && within.contains(&drawn[one].bounds.center()) && !covered(one))
+        .min_by(|&a, &b| area(drawn[a].bounds).total_cmp(&area(drawn[b].bounds)))
+        .map(|one| drawn[one].clone())
 }
 
 fn area(bounds: Bounds<Pixels>) -> f32 {
@@ -472,7 +502,7 @@ impl gpui::Render for Capture {
         if let Some(bounds) = dragged {
             layer = layer.child(outline(bounds));
         } else if let Some(hover) = self.hover.as_ref().filter(|_| self.held.is_none()) {
-            let name = Held::Element(hover.clone()).said();
+            let name = named(hover);
             layer = layer.child(outline(hover.bounds)).child(
                 div()
                     .absolute()
@@ -529,14 +559,17 @@ impl gpui::Render for Capture {
                     .bg(look.color(token::BG_OVERLAY))
                     .shadow(look.shadows(token::SHADOW_OVERLAY))
                     .children(band)
-                    .child(
+                    .child(labelled(
                         div()
+                            .id("capture-said")
                             .truncate()
                             .text_size(look.length(token::TEXT_2XS))
                             .line_height(look.length(token::LEADING_2XS))
                             .text_color(look.color(token::FG_MUTED))
                             .child(held.said()),
-                    )
+                        Role::Label,
+                        held.said(),
+                    ))
                     // The text-box key context, so typing here fires no list key; the walk window and the annotation layer share this note box.
                     .child(labelled(
                         div()
@@ -587,7 +620,7 @@ pub fn placed(bounds: Bounds<Pixels>, whole: bool, window: &Window, gap: Pixels,
     } else {
         (Anchor::TopLeft, point(bounds.origin.x, bounds.origin.y + bounds.size.height + gap))
     };
-    deferred(anchored().anchor(corner).position(at).snap_to_window_with_margin(gap).child(card))
+    deferred(anchored().anchor(corner).position(at).snap_to_window_with_margin(gap).child(card)).with_priority(crate::annotate::OVER)
 }
 
 #[cfg(test)]
@@ -597,7 +630,7 @@ mod tests {
 
     fn drawn(name: &str, role: Role, x: f32, y: f32, w: f32, h: f32) -> Drawn {
         let bounds = Bounds { origin: point(px(x), px(y)), size: size(px(w), px(h)) };
-        Drawn { role, name: name.to_string().into(), bounds, shown: bounds, radius: None }
+        Drawn { role, name: name.to_string().into(), bounds, shown: bounds, radius: None, parent: None, path: Vec::new(), painted: 0 }
     }
 
     #[test]
@@ -612,6 +645,26 @@ mod tests {
         assert_eq!(element_at(&all, point(px(50.), px(500.)), screen).map(|one| one.name), Some("Jobs".into()));
         // The walk bar is not the screen.
         assert!(element_at(&all, point(px(50.), px(40.)), screen).is_none());
+    }
+
+    #[test]
+    fn an_overlay_painted_over_the_screen_covers_what_is_under_it_and_the_note_names_its_path() {
+        let screen = Bounds { origin: point(px(0.), px(0.)), size: size(px(800.), px(600.)) };
+        let at = |drawn: Drawn, parent: Option<usize>, path: &[&str], painted: usize| Drawn { parent, path: path.iter().map(|one| SharedString::from(*one)).collect(), painted, ..drawn };
+        let all = vec![
+            at(drawn("Jobs", Role::List, 0., 0., 300., 600.), None, &[], 1),
+            at(drawn("Audit the docs index", Role::Row, 0., 100., 300., 36.), Some(0), &["Jobs"], 2),
+            // The Settings overlay, drawn later and over both: its scrim has no name, its box does.
+            at(drawn("", Role::Unknown, 0., 0., 800., 600.), None, &[], 3),
+            at(drawn("Settings", Role::Dialog, 200., 50., 400., 500.), Some(2), &[], 4),
+            at(drawn("Workflows", Role::Group, 220., 80., 360., 200.), Some(3), &["Settings"], 5),
+            at(drawn("bug", Role::Button, 240., 100., 120., 30.), Some(4), &["Settings", "Workflows"], 6),
+        ];
+        let held = element_at(&all, point(px(250.), px(110.)), screen).expect("the button in the overlay");
+        assert_eq!(held.name, SharedString::from("bug"));
+        assert_eq!(Held::Element(held).said(), SharedString::from("Settings › Workflows › Button · bug"));
+        // On the scrim, the row under it is covered and nothing is held.
+        assert!(element_at(&all, point(px(50.), px(110.)), screen).is_none());
     }
 
     #[test]
