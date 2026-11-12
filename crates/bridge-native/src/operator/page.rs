@@ -1041,12 +1041,12 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_digit_picks_a_then_and_yes_carries_it(cx: &mut TestAppContext) {
+    fn a_digit_presses_that_outcome_with_yes(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
         cx.simulate_keystrokes("down");
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"));
         page.read_with(cx, |page, _| assert_eq!(page.open_item().and_then(|turn| page.then_of(turn)), Some(OperatorThen::FileAndHand), "the Operator's pick stands first"));
-        cx.simulate_keystrokes("2 a");
+        cx.simulate_keystrokes("2");
         assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:2".into(), answer: OperatorAnswer::Yes, then: Some(OperatorThen::FileAndStart), option: None, project: None }]);
     }
 
@@ -1055,15 +1055,23 @@ mod tests {
         let (page, cx) = open(cx);
         cx.update(|window, cx| page.update(cx, |page, cx| page.answer(OperatorAnswer::Always, window, cx)));
         assert!(pressed(&page, cx).is_empty(), "a decision offers no Always");
+        // A go-ahead to file offers its rule only after he answers; turn:9 keeps one and has no outcomes.
         cx.simulate_keystrokes("j");
         cx.update(|window, cx| page.update(cx, |page, cx| page.answer(OperatorAnswer::AlwaysHere, window, cx)));
-        assert_eq!(pressed(&page, cx).iter().map(|press| (press.id.as_str(), press.answer)).collect::<Vec<_>>(), [("turn:2", OperatorAnswer::AlwaysHere)]);
+        assert!(pressed(&page, cx).is_empty(), "a go-ahead to file offers no Always before its answer");
+        cx.simulate_keystrokes("down down down");
+        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:9"));
+        cx.update(|window, cx| page.update(cx, |page, cx| page.answer(OperatorAnswer::AlwaysHere, window, cx)));
+        assert_eq!(pressed(&page, cx).iter().map(|press| (press.id.as_str(), press.answer)).collect::<Vec<_>>(), [("turn:9", OperatorAnswer::AlwaysHere)]);
     }
 
     #[gpui::test]
-    fn later_puts_the_item_last_for_today_and_opens_the_next(cx: &mut TestAppContext) {
+    fn later_puts_the_item_last_until_its_pick_and_opens_the_next(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
+        // L opens Later's menu with the keys on its first choice, and Enter takes it.
         cx.simulate_keystrokes("l");
+        assert!(page.read_with(cx, |page, _| page.later_menu.is_some()));
+        cx.simulate_keystrokes("enter");
         assert_eq!(ids(&page, cx), ["turn:2", "turn:3", "turn:4", "turn:9", "turn:1"]);
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"));
         page.read_with(cx, |page, _| assert!(page.items().last().is_some_and(|turn| turn.later_until.is_some())));
@@ -1138,12 +1146,12 @@ mod tests {
     }
 
     #[gpui::test]
-    fn h_shift_a_and_d_answer_a_kept_go_ahead(cx: &mut TestAppContext) {
+    fn h_shift_a_and_d_answer_a_kept_item(cx: &mut TestAppContext) {
         for (keys, answer) in [("h", OperatorAnswer::AlwaysHere), ("shift-a", OperatorAnswer::Always), ("d", OperatorAnswer::No)] {
             let (page, cx) = open(cx);
-            cx.simulate_keystrokes("j");
+            cx.simulate_keystrokes("down down down down");
             cx.simulate_keystrokes(keys);
-            assert_eq!(pressed(&page, cx).iter().map(|press| (press.id.as_str(), press.answer)).collect::<Vec<_>>(), [("turn:2", answer)], "{keys}");
+            assert_eq!(pressed(&page, cx).iter().map(|press| (press.id.as_str(), press.answer)).collect::<Vec<_>>(), [("turn:9", answer)], "{keys}");
         }
     }
 
@@ -1226,7 +1234,7 @@ mod tests {
             cx.update(|window, cx| window.focus(&later, cx));
             cx.simulate_keystrokes(key);
             assert!(pressed(&page, cx).is_empty(), "{key} on Later is not Yes");
-            assert_eq!(ids(&page, cx), ["turn:2", "turn:3", "turn:4", "turn:1"], "{key} on Later puts the item last");
+            assert!(page.read_with(cx, |page, _| page.later_menu.is_some()), "{key} on Later opens its menu of when");
         }
     }
 

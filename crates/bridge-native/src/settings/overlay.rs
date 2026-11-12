@@ -114,6 +114,7 @@ pub struct SettingsOverlay {
     pub mods: super::mods::ModRows,
     /// Settings → Models.
     pub models: super::models::ModelsPage,
+    pub macs: super::macs::MacsPage,
     /// Settings → Workflows.
     pub workflows: super::workflows::WorkflowsPage,
     /// Where each slider's track was drawn last frame, by key, so a press reads as a figure.
@@ -196,6 +197,7 @@ impl SettingsOverlay {
             theme,
             mods: super::mods::ModRows::default(),
             models: super::models::ModelsPage::new(window, cx),
+            macs: super::macs::MacsPage::new(),
             workflows: super::workflows::WorkflowsPage::new(window, cx),
             tracks: Rc::default(),
             keys: None,
@@ -236,6 +238,7 @@ impl SettingsOverlay {
         self.theme.refused = None;
         self.mods.refused.clear();
         self.models.reopen();
+        self.macs.reopen();
         self.mod_keys(cx);
         window.focus(&self.side, cx);
         let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
@@ -662,6 +665,9 @@ impl SettingsOverlay {
         if let Body::Workflows = shown.body {
             return self.workflow_stops(window, cx);
         }
+        if let Body::Macs = shown.body {
+            return self.macs_stops();
+        }
         if let Body::Theme = shown.body {
             let mut stops = vec![self.theme.focus.clone()];
             stops.extend(self.mod_stops(super::mods::Page::Theme, cx));
@@ -767,6 +773,9 @@ impl SettingsOverlay {
             return true;
         }
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Workflows) && self.workflows_key(key, window, cx) {
+            return true;
+        }
+        if self.shown(cx).is_some_and(|shown| shown.body == Body::Macs) && self.macs_key(key, window, cx) {
             return true;
         }
         // A mod row's arrows: open and shut what it holds, and move between rows.

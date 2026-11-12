@@ -1030,7 +1030,7 @@ mod tests {
     use super::*;
 
     fn group(id: &str, gate: PlanGate, closed: bool) -> SessionPlanGroup {
-        let mut group: SessionPlanGroup = ipc::decode("SessionPlanGroup", format!(r#"{{"id":"{id}","title":"{id}","tasks":[]}}"#).as_bytes()).expect("a group");
+        let mut group: SessionPlanGroup = ipc::decode("SessionPlanGroup", format!(r#"{{"id":"{id}","title":"{id}","agent":"general-purpose","paths":[],"tasks":[]}}"#).as_bytes()).expect("a group");
         group.gate = gate;
         if closed {
             group.gate_closed = Some(ipc::decode("GateClose", br#"{"at":"2026-11-10T10:00:00Z","fact":"Pull request #1 merged"}"#).expect("a close"));

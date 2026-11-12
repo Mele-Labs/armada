@@ -2408,7 +2408,14 @@ mod tests {
         };
         let first = row("Fix the merge line freshness chip");
         assert_eq!(first.issue, Some(("#3290".into(), "Merge line freshness chip stays green when stale".into())));
-        assert_eq!(first.flow, Some(("Feature".into(), "Walk".into())));
+        // The list's scenarios follow no workflow; the workflow walk's do, its first at Build.
+        let flows = lines_of(&crate::mock::jobs("job-workflow").expect("the fixture decodes"), &[], Scope::Active, "", &[]);
+        let flow = flows.iter().find_map(|line| match line {
+            Line::Job(row) if row.title == "Fix the merge line freshness chip" => Some(row.flow.clone()),
+            _ => None,
+        });
+        assert_eq!(flow, Some(Some(("Ship a screen".into(), "Build".into()))));
+        assert_eq!(first.flow, None);
         assert_eq!(first.now.as_deref(), Some("Asked which chip colour the stale state takes"));
         // What it is doing now comes before what it last summed up.
         assert_eq!(row("Native Bridge foundation").now.as_deref(), Some("Editing jobs.rs"));
