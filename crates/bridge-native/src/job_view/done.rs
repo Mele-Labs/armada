@@ -12,7 +12,8 @@
 //! Open's groups do, where Classic lists every group's tasks with Whole plan.
 //!
 //! Still owed: a workflow's finished steps (`StepBeat`), which arrive with the workflow group; the
-//! first lines of a report's conclusion, since Fleet serves no file's text.
+//! first lines of a report's conclusion, which waits on Fleet's file read (Fleet serves native's thread
+//! fields).
 
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -619,7 +620,7 @@ impl JobView {
 
 /// The report the Job wrote (`Report`, `LandingPanel.tsx`; `.sv-landing__report`, `story.css`): the
 /// report mark and its title in a card edged in the report hue; a press opens it where it opens. The
-/// first lines of its conclusion are owed: Fleet serves no file's text.
+/// first lines of its conclusion are owed: that waits on Fleet's file read (Fleet serves native's thread fields).
 fn report_card(line: Line, look: &Look, cx: &Context<JobView>) -> AnyElement {
     let hue = look.color(token::STATUS_REJECTED);
     let raised = look.color(token::BG_RAISED);

@@ -185,8 +185,27 @@ fn spine_starts() -> SpineStarts {
 }
 
 /// The threads Fleet would serve for a scenario's Jobs, by Job id, as `GET /sessions/thread` answers
-/// them. A Job with none stays on its skeleton, as one Fleet has not answered for does.
+/// them. A scenario that serves threads serves one for every Job it lists, empty where its fixture
+/// holds none, as Fleet answers for a Job with nothing in it yet; one that serves none leaves its Jobs
+/// on their skeletons, and a thread Fleet refuses stays unread.
 pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
+    let mut all = fixture_threads(scenario)?;
+    if all.is_empty() {
+        return Ok(all);
+    }
+    for job in jobs(scenario)? {
+        let id = job.id.as_str();
+        if all.contains_key(id) || refused(scenario, id).is_some() {
+            continue;
+        }
+        let empty = format!(r#"{{"session_id":"{id}","head":{{"trail":{{"started":"{}"}}}},"items":[]}}"#, job.started_at.as_str());
+        all.insert(id.to_string(), ipc::decode::<JobThread>("empty thread", empty.as_bytes()).map_err(|why| why.to_string())?);
+    }
+    Ok(all)
+}
+
+/// The threads a scenario's fixtures hold.
+fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     #[derive(Deserialize)]
     struct Threads {
         threads: Vec<JobThread>,
@@ -289,7 +308,11 @@ fn screens_threads() -> Result<HashMap<String, JobThread>, String> {
 /// notices in `job-system`, so a walk can show the refusal's toast and the thread drawing nothing.
 pub fn thread_refused(id: &str) -> Option<String> {
     let named = SCENARIO.lock().ok()?;
-    (named.as_str() == "job-system" && id == "mock-06").then(|| "Fleet could not read this Job's ledger: it ends mid-row at line 2214".to_string())
+    refused(named.as_str(), id)
+}
+
+fn refused(scenario: &str, id: &str) -> Option<String> {
+    (scenario == "job-system" && id == "mock-06").then(|| "Fleet could not read this Job's ledger: it ends mid-row at line 2214".to_string())
 }
 
 /// What Fleet answers Open on a native walk with, in the scenario last named: Chip colours in
