@@ -263,6 +263,7 @@ fn main() -> ExitCode {
             Mode::Live => cx
                 .open_window(options("Armada".into()), |window, cx| {
                     let fleet = cx.new(FleetConnection::new);
+                    terminal::shells::hold_live(&fleet, cx);
                     let look = cx.new(|cx| LookController::new(&fleet, window, cx));
                     let keys = cx.new(|cx| KeymapController::new(&fleet, cx));
                     let menu = cx.new(|cx| MenuController::new(&fleet, cx));
