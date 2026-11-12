@@ -1,7 +1,8 @@
 //! One list of what Settings holds, for anything that offers a setting outside the overlay: ⌘K's settings rows
 //! read it, and each act goes back through the overlay's own save, so a change from the palette is saved, refused
 //! and drawn as one made on the page. An entry the overlay does not list is not here either, so what is held from
-//! the overlay is held from the palette.
+//! the overlay is held from the palette. Keyboard shortcuts and the folders a Job reaches only open their page: a
+//! key is bound by pressing it, and a folder list is edited row by row, neither of which one typed line can be.
 
 use gpui::{App, Context, Hsla, Window};
 use ipc::{ModKind, SettingKind, SettingValue};
@@ -35,7 +36,7 @@ pub enum Kind {
 /// One thing Settings holds.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Item {
-    /// `entry:<entry>`, `setting:<key>`, `theme` or `mod:<name>`.
+    /// `entry:<entry>`, `setting:<key>`, `theme`, `mod:<name>` or `connectors:<manifest>`.
     pub id: String,
     pub label: String,
     /// The entry it is drawn on, by id and name, and that entry's group.
@@ -100,7 +101,14 @@ impl SettingsOverlay {
                     items.extend(self.mod_items(entry, super::mods::Page::Theme, cx));
                 }
                 Body::Mods(Some(_)) => items.extend(self.mod_items(entry, super::mods::page_of(entry.body).unwrap_or(super::mods::Page::All), cx)),
-                Body::Mods(None) | Body::Repository | Body::ProjectValues | Body::Keyboard => {}
+                Body::Repository => {
+                    let set = super::view::connectors_set(self.setting(super::view::CONNECTORS_OFF).map(|one| &one.value));
+                    for (id, name, yml_off) in self.wire.repositories(cx).unwrap_or_default() {
+                        let on = !set.get(&id).copied().unwrap_or(yml_off);
+                        items.push(item(entry, format!("connectors:{id}"), format!("Connectors in {name}"), vec!["connectors".into(), "notion".into(), "drive".into(), "slack".into(), name], Kind::Toggle(on)));
+                    }
+                }
+                Body::Mods(None) | Body::ProjectValues | Body::Keyboard => {}
             }
         }
         items
@@ -147,6 +155,10 @@ impl SettingsOverlay {
             (Some(("mod", name)), Applied::Toggle(on)) => {
                 let Some(kind) = self.wire.mods(cx).iter().find(|row| row.name == name).map(|row| row.kind.unwrap_or(ModKind::Theme)) else { return };
                 self.switch_mod(name.to_string(), kind, on, window, cx);
+            }
+            (Some(("connectors", manifest)), Applied::Toggle(on)) => {
+                let Some(yml_off) = self.wire.repositories(cx).unwrap_or_default().into_iter().find(|(id, _, _)| id == manifest).map(|(_, _, off)| off) else { return };
+                self.switch_connectors(manifest, yml_off, on, window, cx);
             }
             (None, Applied::Pick(word)) if id == "theme" => self.choose_theme(word, window, cx),
             _ => {}
