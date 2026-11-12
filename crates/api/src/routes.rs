@@ -529,6 +529,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::start_session::<D>),
         )
         .route(
+            "/sessions/dispatch",
+            post(crate::hosted_sessions::dispatch_job::<D>),
+        )
+        .route(
             "/sessions/hand_to_session",
             post(crate::hosted_sessions::hand_to_session::<D>),
         )

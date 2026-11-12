@@ -11,8 +11,22 @@ A Job's agent may start a Job, or fork its own conversation into one, through tw
 | The caller | Placed by the connection of its hosted process, as `show_window` places it. **No call names a Job**, so an agent cannot fork another's conversation, and a call from no hosted Job is refused 422 `fleet.agent_start_unplaced` |
 | Not offered | Tune, close, send and every other hosted-session command stay `agent_access` No. What a Job may do to the Jobs it started is its own pair of acts (*A Job that started Jobs*) |
 
-> **Rule.** An agent's Job is created and listed at once, held, and nothing runs until the owner presses Start.
-> Why: a Job that started itself is a model spending tokens in a repository nobody chose to open. Holding the message makes the start a proposal he reads and may edit.
+> **Rule.** A Job an agent starts follows one word per project, `agent_starts`: `at_once` (the default) begins it, and `ask_me` holds it on its start card until the owner presses Start.
+> Why: he asked for both. A Job that starts itself is a model spending tokens in a repository nobody chose to open, and holding the message makes the start a proposal he reads and may edit; for the projects where he would rather not press Start every time, it begins.
+> A Job he starts himself is never held by this word, and neither is a quick terminal or a fork.
+
+**`agent_starts` is a value** (*Values*): Kit's, a project's or a repository's, the nearest winning.
+Fleet reads it live for the calling Job's project and the new Job's repository, so a Job that started before the word changed is not held by a later edit.
+A project that does not read or does not hold the repository falls back to none, and any fault reads as `at_once`: a fault never holds his work.
+**It also covers `start_job` in a lifecycle's rules and the Jobs the Operator starts** (*The Operator*).
+
+**`at_once` begins the Job with the brief as its first turn from the calling Job**, as another Job's word reads.
+The brief is still read for the proposal, and the caller is told when it starts, as the next section says.
+The answer's `held` is `false`.
+Where the brief cannot be sent, the Job is held on its start card with the brief in the box, and `held` is `true`.
+A Job that waits on another (`after`) is held once its wait is met, whatever the word says.
+
+The sections below describe the Job as it opens held, which is `ask_me`.
 
 **The Job opens held** (*A held Job*): its title in the header, an empty thread under a *Started by* line naming the Job whose agent started it, and the agent's `message` in the composer, where he may edit it.
 Workflow and Delivery sit in the strip above the composer, filled and never blank.

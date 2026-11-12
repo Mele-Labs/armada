@@ -803,11 +803,16 @@ export type ForkThisSession = {
   at?: string;
 };
 
-/** What both answer: the Session exists and is listed, and no process has started. */
+/**
+ * What both answer: the Session exists and is listed. A fork is always held; a Job started by a Job is held on its
+ * start card only where the project's `agent_starts` is `ask_me`, and otherwise runs at once.
+ */
 export type SessionHeld = {
   session_id: string;
   title: string;
   fork: boolean;
+  /** Whether it waits on its start card. `false` is a Job that has begun, or is about to once its brief is read. */
+  held: boolean;
 };
 
 /**

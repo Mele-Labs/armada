@@ -34,6 +34,21 @@ pub(crate) async fn start_session<D: HostedSessions>(
     }
 }
 
+/// The person dispatches work: a Job, or the Operator's hold of it. 200 with `JobDispatched`.
+pub(crate) async fn dispatch_job<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let dispatch: ipc::DispatchJob = match ipc::decode_body("work to dispatch", &body) {
+        Ok(dispatch) => dispatch,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().dispatch_job(dispatch).await {
+        Ok(dispatched) => answer(StatusCode::OK, &dispatched, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person hands a group of a Session's plan to a linked Session. 200 with `SessionHeld`.
 pub(crate) async fn hand_to_session<D: HostedSessions>(
     State(served): State<Served<D>>,

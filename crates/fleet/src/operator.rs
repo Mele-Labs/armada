@@ -32,6 +32,7 @@ mod calling;
 mod candidates;
 mod closing;
 mod desk;
+mod dispatching;
 mod duplicating;
 mod erroring;
 mod handing;

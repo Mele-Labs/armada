@@ -41,6 +41,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         async move { self.start_session(start).await }
     }
 
+    /// `dispatch_job`: the person's work, started as a Job or held by the Operator, and what Bridge sends into the
+    /// Job sent after it.
+    fn dispatch_job(
+        self: Arc<Self>,
+        dispatch: ipc::DispatchJob,
+    ) -> impl Future<Output = Result<ipc::JobDispatched, Refusal>> + Send;
+
     /// `hand_to_session`: the person hands one group of a Session's plan to a linked Session, whose
     /// first message is sent. [`Refusal::Unacceptable`] where the plan holds no such group,
     /// [`Refusal::IllegalMove`] where the group has a Session already.

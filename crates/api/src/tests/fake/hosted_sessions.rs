@@ -27,6 +27,11 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn dispatch_job(self: Arc<Self>, dispatch: ipc::DispatchJob) -> Result<ipc::JobDispatched, Refusal> {
+        self.started.lock().expect("not poisoned").push(dispatch.start);
+        Err(nothing_hosted())
+    }
+
     async fn hand_to_session(self: Arc<Self>, _hand: ipc::HandToSession) -> Result<ipc::SessionHeld, Refusal> {
         Err(nothing_hosted())
     }

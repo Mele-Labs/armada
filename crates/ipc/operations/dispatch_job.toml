@@ -1,0 +1,16 @@
+[operations.dispatch_job]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The person dispatches work to a repository: Fleet starts a Job on it, or, with the Operator on, lets the Operator start one, fold the work into a live Job, or ask him"
+notes = """
+`POST /sessions/dispatch`, body `DispatchJob`: every field of `StartSession`, flat, and `then`, the sends Bridge makes into the Job once it exists, in order. Each is `{ "notes": [SessionNote] }`, sent as `send_session_notes`, or `{ "message": { text, attachments?, mentions?, sketches? } }`, sent as `send_session_message` to the Job. Answered with `JobDispatched`: `session`, the `SessionRecord` of the Job started, or `operator`, the dispatch's id while the Operator holds it. **Exactly one is present.**
+
+**Everything but the Operator's case is `start_session`.** A body with `held`, `fork`, `root` or `after`, or no `request`, is started as `start_session` starts it, its `then` sent into the new Job, and answered with `session`. So is every dispatch while the Operator is off or not seated.
+
+**With the Operator on and seated, a dispatch goes to it before any Job exists.** Fleet weighs the `request` against the live Jobs in the repository as it weighs any start. Where no live Job shares a path, an issue or its words with it, the Job starts at once with no call, `operator.dispatched` with `way` `started` is published, and the answer is `session`. Where one does, the whole body is kept and the Operator rules: **start a Job** (as `start_session` starts it, `then` sent, `way` `started`), **fold it into the live Job** (its words are told to that Job, `then` is sent into it, `way` `handed`), or **ask him** (a go-ahead in the Operator's own list, `Hand to <Job>` or `Keep both`, `way` `asked`; Keep both and Skip start the Job as asked). The answer is `operator`, and `operator.dispatched` follows. A start or a fold the Operator rules is done at once and is not a suggestion to press.
+
+**His work is never lost.** A ruling that does not come in `NEEDS_YOU_WAIT`, a call that fails, an Operator that is switched off or paused, or an act that could not be carried out starts the Job at once as it was asked. A dispatch still kept when Fleet starts is started then. The Job a held dispatch becomes is not weighed against the live Jobs again.
+
+`agent_access` is `Bridge only`: a dispatch is the person's own work.
+"""

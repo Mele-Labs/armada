@@ -337,6 +337,7 @@ impl Sessions for FakeDaemon {
             session_id: ipc::SessionId::carried(format!("session-{}", start.title)),
             title: start.title,
             fork: false,
+            held: true,
         })
     }
 
@@ -397,6 +398,7 @@ impl Sessions for FakeDaemon {
             session_id: ipc::SessionId::carried("session"),
             title: fork.title,
             fork: true,
+            held: true,
         })
     }
 

@@ -102,6 +102,7 @@ mod session_waiting;
 mod autopilot;
 mod autopilot_decisions;
 /// The Operator's Log of rulings. `armada-ehhu`.
+mod operator_dispatches;
 mod operator_rulings;
 mod operator_orders;
 mod operator_switches;
@@ -253,6 +254,7 @@ pub use test_map::{StaleTest, TestsReaching};
 pub use model_downshift::KeptDownshift;
 pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
+pub use operator_dispatches::KeptDispatch;
 pub use operator_rulings::KeptRuling;
 pub use operator_orders::{KeptOrder, KeptTalk};
 pub use operator_switches::KeptSwitch;
