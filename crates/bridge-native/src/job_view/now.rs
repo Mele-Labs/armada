@@ -1,17 +1,17 @@
-//! Now, alone in its pane, as Armada Classic's `StoryColumn` draws it bare (`nowBody`, `aheadList`):
-//! a band with the lamp and the acts, then what is owed him, the walks shown to him, the agent's row,
-//! Fleet at work, what the Job waits on, the route under way and the Checks running or failed. Under
-//! them stand the agent's open tasks, the subagents at work, the plan's groups being worked with
-//! their drones, the Jobs it started that still run, a plan he has not approved, and Ahead: the route
-//! still to come.
+//! Now, alone in its pane: only what runs at this moment (his ruling of 12 Nov, a departure from
+//! Armada Classic's `StoryColumn`, whose bare Now also lists what is owed him, walks, a plan he has
+//! not approved and Ahead). Its band holds Ask for an update and Plan, with no lamp: the tab already
+//! names the zone, and a dot alone said nothing. Under it stand the agent's row, Fleet at work, the
+//! route step under way and the running Checks, then the agent's tasks in progress, the plan's
+//! group being worked with its drones, the Jobs it started that still run, and a live watch. A Job
+//! with nothing running draws nothing.
 //!
-//! Now's owed rows read Fleet's `waiting_for` alone, one row per item, where Classic mixes in the
-//! asked question and so draws it twice. A finished task of the agent's own list is not listed (his
-//! word, 10 Nov).
+//! The Spine's Now keeps Classic's beats: what is owed him (Fleet's `waiting_for` alone, one row per
+//! item, where Classic mixes in the asked question and so draws it twice), the walks shown, the lamp,
+//! a plan he has not approved and the failed step or Check. A finished task of the agent's own list
+//! is not listed (his word, 10 Nov).
 //!
-//! Owed: the workflow's step rows, which arrive with the workflow pane; the live page, which Fleet
-//! serves no frame for; and the helpers of a plan that ends on gates, which arrive with the
-//! plan's gates.
+//! Owed: the live page, which Fleet serves no frame for.
 
 use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, Role, SharedString};
@@ -212,7 +212,7 @@ pub(super) fn words(look: &Look, text: impl Into<SharedString>, ink: Token, stro
         .text_color(look.color(ink))
         .when(strong, |words| words.font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
         .when(reading, |words| words.font_family(mono(look)))
-        .when(wraps, |words| words.line_clamp(2))
+        .when(wraps, |words| words.line_clamp(2).text_ellipsis())
         .when(!wraps, |words| words.truncate())
         .child(text.into())
 }
@@ -326,19 +326,14 @@ pub(super) fn lamp_mark(look: &Look, key: &str, hue: Token, said: &'static str, 
 }
 
 impl JobView {
-    /// Now's band (`bare`): the lamp, then Sketch while a plan with a sketch is drafted, Ask for an
-    /// update, and Plan once the plan is approved.
-    fn now_band(&self, id: &SharedString, lamp: Option<Lamp>, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let lamp = lamp.map(|lamp| {
-            let (hue, said, pulse) = lamp.look();
-            lamp_mark(look, "now", hue, said, pulse)
-        });
+    /// Now's band alone in its pane: Sketch while a plan with a sketch is drafted, Ask for an update,
+    /// and Plan once the plan is approved, at its end.
+    fn now_band(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
         div()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
             .min_h(look.length(token::H_ROW))
-            .children(lamp)
             .child(div().flex_1())
             .child(self.now_acts(id, look, cx))
             .into_any_element()
@@ -371,12 +366,12 @@ impl JobView {
         div().flex().items_center().gap(look.length(token::SPACE_1)).children(sketch).children(ask).children(whole).into_any_element()
     }
 
-    /// Now alone in its pane: the band and what runs, or nothing when nothing runs.
+    /// Now alone in its pane: the band's acts and what runs, or nothing when nothing runs. The band
+    /// draws no lamp here: the tab names the zone, and a dot alone said nothing (12 Nov).
     pub(super) fn side_now(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
         // When nothing runs, Now draws nothing.
-        let Some((lamp, Some(body))) = self.now_parts(id, false, look, cx) else { return div().into_any_element() };
-        let body = Some(body);
-        div().flex().flex_col().child(self.now_band(id, lamp, look, cx)).children(body).into_any_element()
+        let Some((_, Some(body))) = self.now_parts(id, false, look, cx) else { return div().into_any_element() };
+        div().flex().flex_col().child(self.now_band(id, look, cx)).child(body).into_any_element()
     }
 
     /// Now's lamp and its rows, absent with none. On the Spine the route still to come stands in Open,
@@ -517,8 +512,6 @@ impl JobView {
             .chain(self.now_plan(id, &job, look, cx).filter(|_| !only_now))
             .chain(self.watching(&job, look, cx).filter(|_| !only_now || self.watches_of(id, cx).iter().any(|watch| watch.live)).map(|watching| watching.into_any_element()))
             .collect();
-        let live = only_now && ((working && !stuck) || !at_work.is_empty());
-        let lamp = if live { Some(Lamp::Live) } else { lamp };
         let body = (!rows.is_empty()).then(|| div().flex().flex_col().when(only_now, |body| body.gap(look.length(token::SPACE_2))).children(rows).into_any_element());
         Some((lamp, body))
     }

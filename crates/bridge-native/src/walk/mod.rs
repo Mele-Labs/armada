@@ -497,7 +497,7 @@ pub static WALKS: &[Walk] = &[
         scenario: "job-now",
         steps: &[
             press_on("A Job working its approved plan, with a walk and a question waiting on you: neither is in Now", "row", "Fix the merge line freshness chip", "list", "Now"),
-            step("The lamp says the Job is at work. Ask for an update and Plan stand at the band's end", Verb::Look, "img", "Live"),
+            step("Ask for an update and Plan stand at the band's end, with no lamp before them", Verb::Look, "button", "Ask for an update"),
             step("The agent's row: the call it is in, and how long it has been on it", Verb::Look, "group", "cargo check -p bridge-native"),
             step("Fleet at work beside the agent, with why in its tooltip", Verb::Look, "group", "Moving the Job to slot-5"),
             step("ci running on its pull request, and the native tests running", Verb::Look, "group", "native-tests"),
