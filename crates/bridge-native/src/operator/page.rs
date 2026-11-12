@@ -11,7 +11,7 @@ use ipc::{SessionId, WaitingAct};
 use super::chat::{ChatAsked, OperatorChat};
 use super::face::{self, Kind};
 use super::scenes::{self, MockFleet};
-use super::wire::Wire;
+use super::wire::{Failed, Wire};
 use crate::fleet::FleetConnection;
 use crate::keymap::Act;
 use crate::log::Note;
@@ -24,6 +24,8 @@ pub struct Done {
     pub title: SharedString,
     /// What came of it, in a few words. Absent while Fleet has not answered.
     pub said: Option<SharedString>,
+    /// When he pressed it: Answered today holds the presses of his local day.
+    pub at: chrono::DateTime<chrono::Local>,
 }
 
 /// What the page asks of the window around it: a place it does not draw.
@@ -56,6 +58,8 @@ pub struct OperatorPageView {
     pub(super) back_at: Option<String>,
     /// The item open, by id: one at a time.
     pub(super) open: Option<String>,
+    /// The open card is to be scrolled into view at the next frame: set when the keys or an answer move it.
+    pub(super) reveal: bool,
     pub(super) done: Vec<Done>,
     /// The items whose press is in flight.
     pub(super) pending: BTreeSet<String>,
@@ -120,6 +124,7 @@ impl OperatorPageView {
             day: None,
             back_at: None,
             open: None,
+            reveal: false,
             done: Vec::new(),
             pending: BTreeSet::new(),
             refused: None,
@@ -258,7 +263,9 @@ impl OperatorPageView {
 
     /// Fleet's page replaces the one held. The open item stays open where it is still there, and an item
     /// not seen before is told once.
-    pub fn set_page(&mut self, page: OperatorPage, cx: &mut Context<Self>) {
+    /// An item he answered here stays out of Your turn, though Fleet keeps one whose act it left to him
+    /// to open until he does it.
+    pub fn set_page(&mut self, mut page: OperatorPage, cx: &mut Context<Self>) {
         let ids: BTreeSet<String> = page.turn.iter().map(|turn| turn.id.clone()).collect();
         if let Some(seen) = &self.seen {
             let new: Vec<OperatorTurnItem> = page.turn.iter().filter(|turn| !seen.contains(&turn.id)).cloned().collect();
@@ -267,6 +274,8 @@ impl OperatorPageView {
             }
         }
         self.seen = Some(ids.clone());
+        page.turn.retain(|turn| !self.done.iter().any(|done| done.id == turn.id));
+        let ids: BTreeSet<String> = page.turn.iter().map(|turn| turn.id.clone()).collect();
         self.then.retain(|id, _| ids.contains(id));
         let keep = self.open.as_ref().filter(|open| ids.contains(*open)).cloned();
         self.open = keep.or_else(|| page.turn.first().map(|turn| turn.id.clone()));
@@ -525,6 +534,7 @@ impl OperatorPageView {
         let at = self.open.as_deref().and_then(|id| self.index_of(id)).unwrap_or(0) as isize;
         let to = (at + by).clamp(0, count as isize - 1) as usize;
         self.open = Some(self.items()[to].id.clone());
+        self.reveal = true;
         cx.notify();
     }
 
@@ -561,33 +571,48 @@ impl OperatorPageView {
         cx.notify();
     }
 
-    /// One press on the open item. It leaves Your turn at once, struck through below with a pending mark,
+    /// One press on the open item. It leaves Your turn at once for Answered today, with a pending mark,
     /// and the next item opens.
-    pub fn answer(&mut self, answer: OperatorAnswer, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn answer(&mut self, answer: OperatorAnswer, _window: &mut Window, cx: &mut Context<Self>) {
         let Some(turn) = self.open_item().cloned() else { return };
         if !face::answers_of(&turn).contains(&answer) {
             return;
+        }
+        // A pick of Later is done by Yes: the item goes Later, nothing is answered.
+        if answer == OperatorAnswer::Yes && face::picks_later(&turn) && self.option.get(&turn.id).is_none() {
+            return self.later(cx);
         }
         let then = (!turn.then.is_empty()).then(|| self.then_of(&turn)).flatten();
         // The option goes out only where it is not the Operator's pick: a press that names none takes the pick.
         let option = self.option_of(&turn).filter(|label| answer != OperatorAnswer::No && face::pick_of(&turn).as_ref() != Some(label)).map(|label| label.to_string());
         let press = OperatorAnswerPress { id: turn.id.clone(), answer, then: then.filter(|_| answer != OperatorAnswer::No), option, project: None };
+        self.send(turn, press, cx);
+    }
+
+    /// The press goes to Fleet, and its item to Answered today: once, however often it is sent.
+    fn send(&mut self, turn: OperatorTurnItem, press: OperatorAnswerPress, cx: &mut Context<Self>) {
         let at = self.index_of(&turn.id).unwrap_or(0);
+        let was_open = self.open.as_deref() == Some(turn.id.as_str());
         self.take_out(&turn.id);
-        self.done.push(Done { id: turn.id.clone(), kind: face::kind_of(&turn), title: face::title_of(&turn), said: None });
+        self.done.retain(|done| done.id != turn.id);
+        let now = self.clock_now.unwrap_or_else(chrono::Local::now);
+        self.done.push(Done { id: turn.id.clone(), kind: face::kind_of(&turn), title: face::title_of(&turn), said: None, at: now });
         self.pending.insert(turn.id.clone());
         self.refused = None;
-        self.open_near(at);
+        if was_open || self.open.is_none() {
+            self.open_near(at);
+        }
         cx.notify();
-        let task = self.wire.answer(press, cx);
-        let task = cx.spawn_in(window, async move |this, cx| {
+        let answer = press.answer;
+        let task = self.wire.answer(press.clone(), cx);
+        let task = cx.spawn(async move |this, cx| {
             let answered = task.await;
-            let _ = this.update(cx, |this, cx| this.answered(&turn, answer, answered, cx));
+            let _ = this.update(cx, |this, cx| this.answered(&turn, &press, answer, answered, cx));
         });
         self.track(task);
     }
 
-    fn answered(&mut self, turn: &OperatorTurnItem, answer: OperatorAnswer, answered: Result<OperatorAnswered, String>, cx: &mut Context<Self>) {
+    fn answered(&mut self, turn: &OperatorTurnItem, press: &OperatorAnswerPress, answer: OperatorAnswer, answered: Result<OperatorAnswered, Failed>, cx: &mut Context<Self>) {
         self.pending.remove(&turn.id);
         match answered {
             Ok(answered) => {
@@ -600,8 +625,8 @@ impl OperatorPageView {
                 }
                 self.set_page(answered.page, cx);
             }
-            Err(why) => {
-                // Back where it was, open, with why.
+            Err(failed) => {
+                // Back where it was, open: with Fleet's why under it, or a toast to send it again.
                 self.done.retain(|done| done.id != turn.id);
                 if let Some(page) = self.page.as_mut() {
                     if !page.turn.iter().any(|one| one.id == turn.id) {
@@ -609,10 +634,28 @@ impl OperatorPageView {
                     }
                 }
                 self.open = Some(turn.id.clone());
-                self.refused = Some((turn.id.clone(), why.into()));
+                match failed {
+                    Failed::Refused(why) => self.refused = Some((turn.id.clone(), why.into())),
+                    Failed::Lost(why) => {
+                        let page = cx.entity().downgrade();
+                        let (turn, press) = (turn.clone(), press.clone());
+                        let sentence = format!("Your answer to {} did not reach Fleet: {why}", face::card_title(&turn));
+                        let retry: crate::toasts::Retry = std::rc::Rc::new(move |cx: &mut App| {
+                            let (turn, press) = (turn.clone(), press.clone());
+                            let _ = page.update(cx, |page, cx| page.send(turn, press, cx));
+                        });
+                        cx.defer(move |cx| crate::toasts::tell_retry(sentence, retry, cx));
+                    }
+                }
                 cx.notify();
             }
         }
+    }
+
+    /// What he answered on his local day, oldest first, for Answered today.
+    pub fn answered_today(&self) -> Vec<&Done> {
+        let today = self.clock_now.unwrap_or_else(chrono::Local::now).date_naive();
+        self.done.iter().filter(|done| done.at.date_naive() == today).collect()
     }
 
     fn take_out(&mut self, id: &str) {
@@ -625,6 +668,7 @@ impl OperatorPageView {
     fn open_near(&mut self, at: usize) {
         let items = self.items();
         self.open = items.get(at).or(items.last()).map(|turn| turn.id.clone());
+        self.reveal = true;
     }
 
     /// Later: the open item goes last for the rest of the day, and the next one opens.
@@ -779,7 +823,8 @@ impl OperatorPageView {
     // -- the walk's scenes -------------------------------------------------------------------------
 
     /// Move the mock Fleet to a named scene: the Operator answers the chat (`said`), a new item joins
-    /// the queue (`arrives`), three join at once (`raised`), or it is switched off (`off`). Two scenes only scroll the page, where a
+    /// the queue (`arrives`), three join at once (`raised`), the next answer is refused (`refuse`) or its
+    /// reply lost (`lose`), or it is switched off (`off`). Two scenes only scroll the page, where a
     /// step looks at what a short window holds below the open card: `rest` to the rows under it, `top`
     /// back to the card.
     pub fn scene(&mut self, name: &str, cx: &mut Context<Self>) -> Result<(), String> {
@@ -815,6 +860,9 @@ impl OperatorPageView {
                 let page = mock.page.clone();
                 self.set_page(page, cx);
             }
+            // Fleet refuses the next answer, or its reply never arrives.
+            "refuse" => mock.fail_answer = Some(Failed::Refused("the tracker did not take the new issue".into())),
+            "lose" => mock.fail_answer = Some(Failed::Lost("no answer in 30 seconds".into())),
             "off" => {
                 mock.switch(false);
                 let page = mock.page.clone();

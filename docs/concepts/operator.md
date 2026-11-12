@@ -300,7 +300,11 @@ Settled with the person on 10 Nov, on sketches. It stays current all day; the mo
 - Your turn is the short list, in an order the person drags.
   On it sits at the top, saying what the Operator is reading now: the Job by name, what it asks, and its project.
   One item is open at a time, with its kind, its Job, what it asks, the Operator's read and its acts, the pick marked: A presses the pick, L is Later, / is Ask.
-  The rest are one line each.
+  The rest are one line each. A row pressed low opens its card where it stands, and nothing reorders (12 Nov).
+  The pick's button reads the option it names, Later, or My pick, with the Operator's sentence in its tooltip, never on the button (12 Nov).
+- An answered item leaves Your turn at once for Answered today, folded at the foot, with what came of each; it is drawn only once something was answered on the person's local day, and has no Undo (12 Nov).
+  An item whose act Fleet leaves to him to open stays out of Your turn too, though Fleet keeps it until he opens it.
+  A refused answer puts the item back open with Fleet's why under it; a reply that never arrives puts it back and raises a failure toast with Retry.
 - Your turn holds the person's decisions (plans, walks, reviews, questions) and go-aheads, what the Operator would do itself, answered Yes, Always here, Always or No.
 - A go-ahead to file an issue also carries Then: Just file it, File and start a Job, or File and hand to a live Job already on the same files, with the Operator's pick marked My pick.
 - Ask on an item opens the chat about that item inside its card, and the digest stays beside it (11 Nov). The chat holds conversation only; a raise is an item of Your turn, never a chat line.
