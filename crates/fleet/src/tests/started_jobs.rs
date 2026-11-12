@@ -472,40 +472,46 @@ async fn the_operators_live_list_names_who_started_a_job_up_to_the_root_and_an_e
     assert_eq!(chain.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(), [grandchild.as_str(), first.as_str(), top.as_str()], "an ended starter is named too");
 }
 
-/// `message_reach`: a Job writes up its starter chain and down its tree, and is refused a sibling.
-/// A caller that is no Job, and an address that is no Job, are allowed.
+/// `message_reach`: a Job writes to any live Job, in its tree or beside it, and is refused an ended
+/// Job and a Job address Fleet does not know. A caller that is no Job, and a name that is no Job's
+/// address, are allowed.
 #[tokio::test]
-async fn a_job_may_message_the_jobs_above_and_below_it_and_is_refused_its_siblings() {
+async fn a_job_may_message_any_live_job_and_is_refused_an_ended_or_unknown_one() {
     use api::HostedSessions;
     use crate::session_host::address_of;
 
     let (rig, top, [_, second], grandchild, great) = a_tree().await;
-    let reach = |from: u16, to: &SessionId| {
+    let reach_to = |from: u16, to: String| {
         let fleet = Arc::clone(&rig.fleet);
-        let to = ipc::MessageTo { to: address_of(to.as_str()) };
         async move {
             let caller = at(from).expect("an address");
-            fleet.message_reach(caller, to).await.expect("answered")
+            fleet.message_reach(caller, ipc::MessageTo { to }).await.expect("answered")
         }
     };
+    let reach = |from: u16, to: &SessionId| reach_to(from, address_of(to.as_str()));
     let allowed = ipc::MessageReach::Allowed {};
 
     assert_eq!(reach(52001, &top).await, allowed, "the Job that started it");
     assert_eq!(reach(52001, &grandchild).await, allowed, "a Job it started");
     assert_eq!(reach(52001, &great).await, allowed, "a Job below one it started");
-    assert_eq!(reach(52002, &top).await, allowed, "the Job that started its starter");
+    assert_eq!(reach(52001, &second).await, allowed, "a Job beside it");
+    assert_eq!(reach(52002, &second).await, allowed, "a Job in another branch of the tree");
+
+    match reach_to(52001, String::from("s-0badc0de")).await {
+        ipc::MessageReach::Refused { message } => {
+            assert_eq!(message, "`SendMessage` to s-0badc0de is refused: no Job has that address. ListAgents names the live ones")
+        }
+        allowed => panic!("an unknown Job is refused, and was {allowed:?}"),
+    }
+    assert_eq!(reach_to(52001, String::from("researcher")).await, allowed, "a name that is no Job's address");
+    assert_eq!(reach(59999, &second).await, allowed, "a caller that is no Job");
+
+    rig.commanded(vec![ending(&second, "no longer needed")]).await;
     match reach(52001, &second).await {
         ipc::MessageReach::Refused { message } => assert_eq!(
             message,
-            format!(
-                "`SendMessage` to {} is refused: a Job writes only to the Jobs that started it, the Jobs it started and the Jobs the person names to it",
-                address_of(second.as_str())
-            )
+            format!("`SendMessage` to {} is refused: that Job has ended", address_of(second.as_str()))
         ),
-        allowed => panic!("a sibling is refused, and was {allowed:?}"),
+        allowed => panic!("an ended Job is refused, and was {allowed:?}"),
     }
-    assert_eq!(reach(59999, &second).await, allowed, "a caller that is no Job");
-    let nobody = ipc::MessageTo { to: String::from("s-0badc0de") };
-    let caller = at(52001).expect("an address");
-    assert_eq!(Arc::clone(&rig.fleet).message_reach(caller, nobody).await.expect("answered"), allowed, "an address that is no Job");
 }

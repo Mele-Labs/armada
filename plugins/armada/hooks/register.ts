@@ -1348,8 +1348,8 @@ export const register: Register = on => {
     return ran
   })
 
-  // A Job writes only to its own tree and to the Jobs the person names to it: Fleet decides, before
-  // the message goes. `message_reach` holds the rule.
+  // A Job writes to any live Job, and is refused an ended or unknown one: Fleet decides, before the
+  // message goes. `message_reach` holds the rule.
   on('tool.call', { tool: 'SendMessage' }, async ($, e, next) => {
     const to = (e as Record<string, unknown>).to
     const reach = await messageReach($, typeof to === 'string' ? to : '')

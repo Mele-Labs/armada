@@ -10,9 +10,9 @@ use axum::body::{to_bytes, Body};
 use axum::http::{Method, Request, StatusCode};
 use tower::ServiceExt;
 
-use crate::cloudflared::{matches, pick, Release};
+use crate::cloudflared::{matches, pick, signed_with, zone_named, Release};
 use crate::pairing::ADDRESS_FILE;
-use crate::tunnel::{connected, domain_from, label_of, newer, Cloudflared, SignIn, Tunnel};
+use crate::tunnel::{connected, label_of, newer, Cloudflared, NoZone, SignIn, Tunnel};
 use crate::{Gateway, WayIn};
 
 static DIRS: AtomicU32 = AtomicU32::new(0);
@@ -30,6 +30,8 @@ pub(crate) struct Fake {
     /// The sign-in the next press opens: its page, and the wait the test ends by sending.
     sign_in: Mutex<Option<(String, mpsc::Receiver<Result<(), String>>)>>,
     create_fails: Mutex<Option<String>>,
+    /// Why the next zone lookup fails. `None` answers `example.com`.
+    no_zone: Mutex<Option<NoZone>>,
     created: Mutex<Vec<(String, String)>>,
     /// The shell line the runner runs in place of `cloudflared`.
     runs: Mutex<Option<String>>,
@@ -58,6 +60,10 @@ impl Cloudflared for Fake {
     fn sign_in(&self) -> Result<SignIn, String> {
         let (page, wait) = self.sign_in.lock().unwrap().take().ok_or("no sign-in in this test")?;
         Ok(SignIn { page, finished: Box::new(move || wait.recv().unwrap_or(Err("gone".into()))) })
+    }
+
+    fn zone(&self) -> Result<String, NoZone> {
+        self.no_zone.lock().unwrap().clone().map_or(Ok("example.com".into()), Err)
     }
 
     fn create(&self, name: &str, host: &str) -> Result<(), String> {
@@ -104,7 +110,8 @@ async fn until(mut done: impl FnMut() -> bool) {
     }
 }
 
-const DOMAIN: &str = r#"{"domain":"https://Example.com/"}"#;
+/// The press carries nothing: the domain comes from the sign-in.
+const PRESS: &str = "";
 
 #[tokio::test]
 async fn the_setup_row_says_each_step_as_the_mac_has_it() {
@@ -138,11 +145,11 @@ async fn one_press_downloads_waits_for_the_sign_in_then_makes_the_tunnel_and_its
     let dir = machine();
     let gateway = gateway(Tunnel::new(fake.clone(), dir.clone(), Arc::new(|| 0)));
 
-    let (code, body) = call(&gateway, Method::POST, "/admin/setup/cloudflare", DOMAIN).await;
+    let (code, body) = call(&gateway, Method::POST, "/admin/setup/cloudflare", PRESS).await;
     assert_eq!((code, body.as_str()), (StatusCode::OK, r#"{"login":"https://dash.example/argotunnel?x=1"}"#));
     assert_eq!(fake.installs.load(Ordering::Relaxed), 1, "cloudflared was downloaded first");
     assert!(cloudflare_row(&gateway).await.contains(r#""state":"signing_in","login":"https://dash.example/argotunnel?x=1""#));
-    let again = call(&gateway, Method::POST, "/admin/setup/cloudflare", DOMAIN).await;
+    let again = call(&gateway, Method::POST, "/admin/setup/cloudflare", PRESS).await;
     assert_eq!(again.1, body, "a second press shows the same page");
 
     fake.signed_in.store(true, Ordering::Relaxed);
@@ -151,7 +158,7 @@ async fn one_press_downloads_waits_for_the_sign_in_then_makes_the_tunnel_and_its
     let made = fake.created.lock().unwrap()[0].clone();
     let id = crate::machine::this_mac(&gateway).unwrap().id;
     assert_eq!(made.0, format!("armada-{}", &id[..12]), "named for this Mac's id");
-    assert!(made.1.ends_with(".example.com"), "{made:?}");
+    assert!(made.1.ends_with(".example.com"), "under the domain the sign-in picked: {made:?}");
     until(|| dir.join(ADDRESS_FILE).is_file()).await;
     assert_eq!(std::fs::read_to_string(dir.join(ADDRESS_FILE)).unwrap(), format!("https://{}\n", made.1), "the Mac's way in");
     until(|| !std::fs::read_to_string(dir.join("cloudflared/tunnel")).unwrap_or_default().is_empty()).await;
@@ -161,17 +168,41 @@ async fn one_press_downloads_waits_for_the_sign_in_then_makes_the_tunnel_and_its
 async fn a_signed_in_mac_makes_the_tunnel_at_once_and_a_refusal_says_why() {
     let fake = Arc::new(Fake { version: Mutex::new(Some("2026.11.0".into())), signed_in: AtomicBool::new(true), ..Fake::default() });
     let gateway = gateway(Tunnel::new(fake.clone(), machine(), Arc::new(|| 0)));
-    assert_eq!(call(&gateway, Method::POST, "/admin/setup/cloudflare", r#"{"domain":"not a domain"}"#).await.0, StatusCode::UNPROCESSABLE_ENTITY);
-
     *fake.create_fails.lock().unwrap() = Some("Cloudflare would not point studio.example.com at the tunnel: record exists".into());
-    let (code, body) = call(&gateway, Method::POST, "/admin/setup/cloudflare", DOMAIN).await;
+    let (code, body) = call(&gateway, Method::POST, "/admin/setup/cloudflare", PRESS).await;
     assert_eq!(code, StatusCode::BAD_GATEWAY);
     assert!(body.contains("record exists"));
     assert!(cloudflare_row(&gateway).await.contains(r#""state":"no_tunnel","why":"Cloudflare would not point studio.example.com at the tunnel: record exists""#));
 
     *fake.create_fails.lock().unwrap() = None;
-    assert_eq!(call(&gateway, Method::POST, "/admin/setup/cloudflare", DOMAIN).await.0, StatusCode::NO_CONTENT);
+    assert_eq!(call(&gateway, Method::POST, "/admin/setup/cloudflare", PRESS).await.0, StatusCode::NO_CONTENT);
     assert_eq!(fake.installs.load(Ordering::Relaxed), 0, "nothing downloaded where Armada has it");
+}
+
+#[tokio::test]
+async fn a_lookup_that_fails_says_what_to_press_and_an_unusable_sign_in_is_done_again() {
+    let fake = Arc::new(Fake { version: Mutex::new(Some("2026.11.0".into())), signed_in: AtomicBool::new(true), ..Fake::default() });
+    let gateway = gateway(Tunnel::new(fake.clone(), machine(), Arc::new(|| 0)));
+
+    *fake.no_zone.lock().unwrap() = Some(NoZone::Retry("Cloudflare could not be reached to read the domain.".into()));
+    let (code, body) = call(&gateway, Method::POST, "/admin/setup/cloudflare", PRESS).await;
+    assert_eq!((code, body.as_str()), (StatusCode::BAD_GATEWAY, "Cloudflare could not be reached to read the domain. Press Set up to try again."));
+    assert!(cloudflare_row(&gateway).await.contains(r#""state":"no_tunnel","why":"Cloudflare could not be reached to read the domain. Press Set up to try again.""#));
+    assert!(fake.created.lock().unwrap().is_empty());
+
+    *fake.no_zone.lock().unwrap() = Some(NoZone::SignIn("The Cloudflare sign-in on this Mac names no domain.".into()));
+    call(&gateway, Method::POST, "/admin/setup/cloudflare", PRESS).await;
+    assert!(cloudflare_row(&gateway).await.contains(r#""why":"The Cloudflare sign-in on this Mac names no domain. Press Set up to sign in again.""#));
+
+    // Still signed in as far as cloudflared knows, yet the next press opens the sign-in again.
+    let (signed, wait) = mpsc::channel();
+    *fake.sign_in.lock().unwrap() = Some(("https://dash.example/argotunnel?again".into(), wait));
+    *fake.no_zone.lock().unwrap() = None;
+    let (code, body) = call(&gateway, Method::POST, "/admin/setup/cloudflare", PRESS).await;
+    assert_eq!((code, body.as_str()), (StatusCode::OK, r#"{"login":"https://dash.example/argotunnel?again"}"#));
+    signed.send(Ok(())).unwrap();
+    until(|| !fake.created.lock().unwrap().is_empty()).await;
+    assert!(fake.created.lock().unwrap()[0].1.ends_with(".example.com"));
 }
 
 fn made_tunnel(runs: &str) -> (Arc<Fake>, Tunnel) {
@@ -225,17 +256,34 @@ fn connected_is_read_from_cloudflareds_ready_answer() {
 }
 
 #[test]
-fn the_domain_the_address_and_the_version_are_read_as_cloudflare_has_them() {
-    assert_eq!(domain_from(" https://Armada.Example/ ").as_deref(), Ok("armada.example"));
-    for wrong in ["example", "exa mple.com", "-a.com", "a..com", ""] {
-        assert!(domain_from(wrong).is_err(), "{wrong:?}");
-    }
+fn the_address_and_the_version_are_read_as_cloudflare_has_them() {
     assert_eq!(label_of("Nick's MacBook Pro"), "nicks-macbook-pro");
     assert_eq!(label_of("Studio"), "studio");
     assert_eq!(label_of("  ***  "), "mac");
     assert!(newer("2026.11.0", "2026.10.1"));
     assert!(newer("2026.11.10", "2026.11.9"));
     assert!(!newer("2026.11.0", "2026.11.0"));
+}
+
+/// A sign-in certificate as `cloudflared tunnel login` writes it, with a made-up token.
+fn cert(token: &str) -> String {
+    use base64::Engine;
+    let block = base64::engine::general_purpose::STANDARD.encode(token);
+    let wrapped: Vec<&str> = block.as_bytes().chunks(64).map(|line| std::str::from_utf8(line).unwrap()).collect();
+    format!("-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n-----BEGIN ARGO TUNNEL TOKEN-----\n{}\n-----END ARGO TUNNEL TOKEN-----\n", wrapped.join("\n"))
+}
+
+#[test]
+fn the_domain_is_read_from_the_sign_in_and_cloudflares_answer() {
+    let signed = signed_with(&cert(r#"{"zoneID":"0123abcd","accountID":"acc","apiToken":"made-up-token"}"#)).unwrap();
+    assert_eq!((signed.zone_id.as_str(), signed.api_token.as_str()), ("0123abcd", "made-up-token"));
+    assert!(signed_with("-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n").is_none(), "no token block");
+    assert!(signed_with(&cert(r#"{"accountID":"acc","apiToken":"t"}"#)).is_none(), "no zone");
+    assert!(signed_with(&cert(r#"{"zoneID":"../x","apiToken":"t"}"#)).is_none(), "a zone id that is not one");
+
+    assert_eq!(zone_named(br#"{"success":true,"result":{"id":"0123abcd","name":"Example.com","status":"active"}}"#).as_deref(), Some("example.com"));
+    assert_eq!(zone_named(br#"{"success":false,"errors":[{"code":7003}],"result":null}"#), None);
+    assert_eq!(zone_named(b"not json"), None);
 }
 
 const RELEASE: &str = r#"{"tag_name":"2026.11.0","assets":[

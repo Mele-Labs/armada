@@ -161,6 +161,52 @@ async fn a_lifecycle_scoped_to_a_project_says_so_and_a_member_reads_it_from_a_fe
     assert!(shared.kept.path.as_deref().is_some_and(|path| path.starts_with(web.root())));
 }
 
+/// **A workflow's editor reads the other repositories of the project that holds the one asked about**, so a
+/// state one of them reads as words of its own names it, by the name of its folder.
+#[tokio::test]
+async fn a_workflows_lanes_name_a_fellow_member_that_reads_a_state_otherwise() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (web, api) = (first(&fleet), another(&fleet, &home, "store-api"));
+    my_store(&fleet, &home, &[&web, &api]).await;
+    write(kit(&home, "lifecycles", "ticket.yml"), &ticket(None, "Review"));
+    write(armada(api.root(), "lifecycles", "ticket.yml"), &ticket(Some(api.manifest().id().as_str()), "Reviewing"));
+    let workflow = web.workflows().keys().next().expect("a workflow the repository runs").as_str().to_string();
+
+    let view = fleet.get_workflow_lanes(workflow, None, named(&web)).await.expect("served");
+
+    let lane = view.lanes.iter().find(|lane| lane.id == "ticket").expect("the ticket's lane");
+    let marks: Vec<(&str, Vec<&str>)> = lane.nodes.iter().map(|node| (node.id.as_str(), node.differs.iter().map(String::as_str).collect())).collect();
+    assert_eq!(marks, [("ticket/in_review", vec!["store-api"]), ("ticket/closed", vec![])]);
+}
+
+/// **A project's tab and a member's tab are served at their own level**, each marking the member that reads a state
+/// otherwise; a level the repository has no tab for is refused.
+#[tokio::test]
+async fn a_workflows_lanes_are_served_at_a_projects_level_and_a_members() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (web, api) = (first(&fleet), another(&fleet, &home, "store-api"));
+    my_store(&fleet, &home, &[&web, &api]).await;
+    write(kit(&home, "lifecycles", "ticket.yml"), &ticket(None, "Review"));
+    write(armada(api.root(), "lifecycles", "ticket.yml"), &ticket(Some(api.manifest().id().as_str()), "Reviewing"));
+    let workflow = web.workflows().keys().next().expect("a workflow the repository runs").as_str().to_string();
+    let marks = |view: &ipc::JobLanesView| -> Vec<(String, Vec<String>)> {
+        let lane = view.lanes.iter().find(|lane| lane.id == "ticket").expect("the ticket's lane");
+        lane.nodes.iter().map(|node| (node.id.clone(), node.differs.clone())).collect()
+    };
+    let expected = vec![("ticket/in_review".to_string(), vec!["store-api".to_string()]), ("ticket/closed".to_string(), vec![])];
+
+    let project = fleet.get_workflow_lanes(workflow.clone(), Some("workspace:my-store".into()), named(&web)).await.expect("the project's tab");
+    let member = fleet.get_workflow_lanes(workflow.clone(), Some(api.manifest().id().as_str().into()), named(&web)).await.expect("the member's tab");
+    let nowhere = fleet.get_workflow_lanes(workflow, Some("workspace:elsewhere".into()), named(&web)).await;
+
+    assert_eq!(marks(&project), expected);
+    assert_eq!(marks(&member), expected);
+    let Err(api::Refusal::Unacceptable(refused)) = nowhere else { panic!("refused: {nowhere:?}") };
+    assert_eq!(refused.code, "fleet.no_such_lanes_level");
+}
+
 #[tokio::test]
 async fn the_rules_that_apply_say_their_moment_their_acts_and_how_far_each_goes_on_its_own() {
     let home = TempDir::new();
