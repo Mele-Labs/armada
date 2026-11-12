@@ -4,7 +4,7 @@
 
 use super::{press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 33] = [
+pub static STEPS: [Step; 34] = [
     step("⌘T starts a terminal Job at once in the repository the title bar names: it opens on its shell", Verb::Key("cmd-t"), "tab", "Job column: Terminal 1"),
     step("The shell has the keys: its prompt and cursor", Verb::Look, "textbox", "Terminal 1"),
     step("Typing goes to the shell", Verb::Typed("git status"), "textbox", "Terminal 1"),
@@ -17,6 +17,7 @@ pub static STEPS: [Step; 33] = [
     step("It runs, and has the keys again", Verb::Look, "textbox", "Terminal 1"),
     step("A right press on the tab opens its acts", Verb::RightOpen("tab", "Job column: Terminal 1"), "menuitem", "Send to agent"),
     step("Copy terminal ID", Verb::Look, "menuitem", "Copy terminal ID"),
+    step("Rename, which makes the tab's title a field", Verb::Look, "menuitem", "Rename"),
     step("Close, the act that ends the shell", Verb::Look, "menuitem", "Close"),
     step("Esc shuts the menu", Verb::Key("escape"), "tab", "Job column: Terminal 1"),
     press_on("The pane's + offers Terminal after its own tabs", "button", "Add tab: Done", "menuitem", "Terminal"),

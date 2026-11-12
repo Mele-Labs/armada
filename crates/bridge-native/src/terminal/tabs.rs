@@ -175,10 +175,17 @@ fn ask_close(job: String, terminal: String, window: &mut Window, cx: &mut App) {
     window.spawn(cx, async move |cx| {
         // Fleet unreachable is taken as running, as Electron's `busy` does (`job-shell.ts:284-296`).
         let running = listing.await.map_or(true, |listed| listed.terminals.iter().any(|one| one.terminal == terminal && one.running));
-        if !running {
-            let _ = cx.update(|window, cx| close(job, terminal, window, cx));
-        }
-        // A running program waits for the Job view's confirm: End terminal.
+        let _ = cx.update(|window, cx| {
+            if !running {
+                return close(job, terminal, window, cx);
+            }
+            // A running program is asked about first, in Classic's words (`PaneView.tsx`'s End terminal).
+            let Some(view) = JobView::live(cx) else { return };
+            let name = name_of(&job, &terminal, cx);
+            let (title, line) = (format!("End {name}"), format!("A program is running in {name}."));
+            let on_yes = Rc::new(move |window: &mut Window, cx: &mut App| close(job.clone(), terminal.clone(), window, cx));
+            view.update(cx, |view, cx| view.confirm(&title, &[line.as_str()], "End terminal", true, window, cx, on_yes));
+        });
     })
     .detach();
 }
@@ -212,6 +219,32 @@ fn tab_of(job: &str, terminal: &str, pane: &Entity<TerminalPane>, cx: &App) -> V
         let t = t.clone();
         Rc::new(move |_: &mut Window, cx: &mut App| cx.write_to_clipboard(ClipboardItem::new_string(t.clone())))
     };
+    let rename = {
+        let (j, t) = (j.clone(), t.clone());
+        Rc::new(move |window: &mut Window, cx: &mut App| {
+            let Some(view) = JobView::live(cx) else { return };
+            view.update(cx, |view, cx| view.rename_view_tab(&j, &tab_id(&t), window, cx));
+        })
+    };
+    // Kept with Enter: Fleet names the shell, and its answer is the tab's title; an empty name is Fleet's own again.
+    let renamed = {
+        let (j, t) = (j.clone(), t.clone());
+        Rc::new(move |name: String, _: &mut Window, cx: &mut App| {
+            let Some(shells) = shells::of(cx) else { return };
+            let renaming = shells.rename(&j, &t, &name, cx);
+            let (j, t) = (j.clone(), t.clone());
+            cx.spawn(async move |cx| {
+                let Ok(listed) = renaming.await else { return };
+                let _ = cx.update(|cx| {
+                    let name = SharedString::from(listed.name);
+                    cx.default_global::<Names>().0.insert((j.clone(), t.clone()), name.clone());
+                    let Some(view) = JobView::live(cx) else { return };
+                    view.update(cx, |view, cx| view.retitle_view_tab(&j, &tab_id(&t), name, cx));
+                });
+            })
+            .detach();
+        })
+    };
     let close_act = {
         let (j, t) = (j.clone(), t.clone());
         Rc::new(move |window: &mut Window, cx: &mut App| ask_close(j.clone(), t.clone(), window, cx))
@@ -236,8 +269,9 @@ fn tab_of(job: &str, terminal: &str, pane: &Entity<TerminalPane>, cx: &App) -> V
         title,
         glyph: GLYPH,
         view: pane.clone().into(),
-        menu: vec![act("Send to agent", false, send), act("Copy terminal ID", false, copy), act("Close", true, close_act)],
+        menu: vec![act("Send to agent", false, send), act("Copy terminal ID", false, copy), act("Rename", false, rename), act("Close", true, close_act)],
         closing: Some(veto),
         closed: Some(gone),
+        renamed: Some(renamed),
     }
 }
