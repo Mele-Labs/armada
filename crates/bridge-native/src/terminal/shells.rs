@@ -420,6 +420,11 @@ pub fn hold_live(fleet: &gpui::Entity<crate::fleet::FleetConnection>, cx: &mut A
     cx.set_global(Held(Rc::new(Live { port: Rc::new(move |cx: &App| fleet.read(cx).held().port()) })));
 }
 
+/// A walk's shells: one open on the first mock Job, and each terminal Job started opens the fourth.
+pub fn hold_walk(cx: &mut App) {
+    cx.set_global(Held(Rc::new(Mock::with(&[("mock-01", 1)]).starting_as(&["mock-04"; 4]))));
+}
+
 pub fn of(cx: &App) -> Option<Rc<dyn Shells>> {
     cx.try_global::<Held>().map(|held| held.0.clone())
 }
