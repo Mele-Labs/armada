@@ -4,7 +4,7 @@
 //! whose steps have not arrived draws the definition's text, as it did before.
 
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
-use ipc::{ChangeStep, SessionRow, ThreadItem, WorkflowChange};
+use ipc::{ChangeOrigin, ChangeStep, SessionRow, ThreadItem, WorkflowChange};
 
 use super::acts::{button, Tone};
 use super::rows::{glyph, mono, tip, Size};
@@ -44,12 +44,51 @@ pub(super) struct Lane {
     pub delivers: bool,
 }
 
+/// What the draft proposes: a workflow nothing held before, or new steps for one that exists.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Proposal {
+    New,
+    Change,
+}
+
+impl Proposal {
+    /// The card's eyebrow, in place of the draft card's `Workflow`.
+    pub fn eyebrow(self) -> &'static str {
+        match self {
+            Proposal::New => "New workflow",
+            Proposal::Change => "Workflow change",
+        }
+    }
+}
+
+/// What the change proposes, read off where it came from and what it replaces.
+pub(super) fn proposal(change: &WorkflowChange) -> Proposal {
+    if change.origin == ChangeOrigin::New || change.before.trim().is_empty() {
+        Proposal::New
+    } else {
+        Proposal::Change
+    }
+}
+
+/// The head's line saying what Approve does with the change.
+pub(super) fn approves(proposal: Proposal, source: &str, id: &str) -> String {
+    let kit = source == "kit";
+    match proposal {
+        Proposal::New if kit => String::from("Approve adds it to the workflows of every repository on this Mac."),
+        Proposal::New => String::from("Approve adds it to this repository's workflows."),
+        Proposal::Change if kit => format!("Approve replaces the steps of {id} on every repository on this Mac."),
+        Proposal::Change => format!("Approve replaces the steps of {id}."),
+    }
+}
+
 /// A proposed workflow, as the card draws it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Card {
     pub name: String,
     pub id: String,
-    pub scope: &'static str,
+    pub proposal: Proposal,
+    /// What Approve does, said under the name.
+    pub approves: String,
     pub for_requests: Option<String>,
     pub lanes: Vec<Lane>,
 }
@@ -107,8 +146,9 @@ pub(super) fn card_of(change: Option<&WorkflowChange>, text: &str) -> Option<Car
     let id = change.workflow_id.as_str().to_string();
     Some(Card {
         name: change.after_name.clone().unwrap_or_else(|| id.clone()),
+        proposal: proposal(change),
+        approves: approves(proposal(change), &change.source, &id),
         id,
-        scope: if change.source == "kit" { "Every repository on this Mac" } else { "This repository" },
         for_requests: change.after_for_requests.clone(),
         lanes: steps.iter().map(lane).collect(),
     })
@@ -152,20 +192,19 @@ impl JobView {
         }
     }
 
+    /// The eyebrow of a workflow draft whose card draws: `New workflow` or `Workflow change`. `None`
+    /// keeps the draft card's own eyebrow and title, as the text draws.
+    pub(super) fn workflow_proposal(&self, change: Option<i64>, text: &str, cx: &gpui::App) -> Option<&'static str> {
+        card_of(change.and_then(|change| self.workflow_change(change, cx)), text).map(|card| card.proposal.eyebrow())
+    }
+
     /// The draft card's body for a proposed workflow whose steps Fleet read. `None` draws the text.
     pub(super) fn workflow_card(&self, ix: usize, key: &str, change: Option<i64>, text: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let card = card_of(change.and_then(|change| self.workflow_change(change, cx)), text)?;
-        let head = div()
-            .id(SharedString::from(format!("head:{key}")))
+        let named = div()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_3))
-            .py(look.length(token::SPACE_2))
-            .rounded(look.length(token::RADIUS_MD))
-            .bg(look.color(token::BG_OVERLAY))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_DEFAULT))
             .child(glyph(look, "workflow", Size::Mark, look.color(token::KIND_STEP)))
             .child(
                 div()
@@ -179,15 +218,32 @@ impl JobView {
             )
             .child(
                 div()
-                    .flex()
                     .flex_none()
-                    .gap(look.length(token::SPACE_3))
+                    .font_family(mono(look))
                     .text_size(look.length(token::TEXT_2XS))
                     .line_height(look.length(token::LEADING_2XS))
                     .text_color(look.color(token::FG_MUTED))
-                    .child(div().font_family(mono(look)).child(SharedString::from(card.id.clone())))
-                    .child(card.scope),
+                    .child(SharedString::from(card.id.clone())),
             );
+        let approves = div()
+            .id(SharedString::from(format!("approves:{key}")))
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
+            .text_color(look.color(token::FG_MUTED))
+            .child(SharedString::from(card.approves.clone()));
+        let head = div()
+            .id(SharedString::from(format!("head:{key}")))
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_MD))
+            .bg(look.color(token::BG_OVERLAY))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .child(named)
+            .child(labelled(approves, Role::Label, card.approves.clone()));
         let for_requests = card.for_requests.clone().map(|asked| {
             div()
                 .flex()
@@ -363,7 +419,7 @@ impl JobView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ipc::{ChangeOrigin, ChangeState, DraftHow, DraftSettled, Instant, StepId, WorkflowId};
+    use ipc::{ChangeState, DraftHow, DraftSettled, Instant, StepId, WorkflowId};
 
     fn step(id: &str) -> ChangeStep {
         ChangeStep {
@@ -413,7 +469,8 @@ mod tests {
         let card = card_of(Some(&change(Some(vec![read, step("fix")]))), TEXT).expect("a card");
         assert_eq!(card.name, "Work the notes");
         assert_eq!(card.id, "annotations");
-        assert_eq!(card.scope, "This repository");
+        assert_eq!(card.proposal, Proposal::New);
+        assert_eq!(card.approves, "Approve adds it to this repository's workflows.");
         assert_eq!(card.for_requests.as_deref(), Some("Notes he left on Bridge"));
         assert_eq!(card.lanes.len(), 2);
         let first = &card.lanes[0];
@@ -466,5 +523,29 @@ mod tests {
             draft("d", "Workflow done", Some(9), Some(DraftSettled { how: DraftHow::Approved, words: None, at: Instant::carried("2026-11-12T09:01:00.000Z") })),
         ];
         assert_eq!(wanted(&items), vec![(7, String::from("annotations"), TEXT.to_string())]);
+    }
+
+    #[test]
+    fn workflow_card_says_whether_it_adds_or_changes_a_workflow() {
+        let new = change(Some(vec![step("read")]));
+        assert_eq!(proposal(&new), Proposal::New);
+        assert_eq!(Proposal::New.eyebrow(), "New workflow");
+        let mut edit = change(Some(vec![step("read")]));
+        edit.origin = ChangeOrigin::Job;
+        edit.before = String::from("{\"name\":\"annotations\",\"steps\":[]}");
+        assert_eq!(proposal(&edit), Proposal::Change);
+        assert_eq!(Proposal::Change.eyebrow(), "Workflow change");
+        // A change he asked for that has nothing before it adds a workflow too.
+        let mut asked = change(Some(vec![step("read")]));
+        asked.origin = ChangeOrigin::Asked { text: String::from("a workflow for notes") };
+        assert_eq!(proposal(&asked), Proposal::New);
+    }
+
+    #[test]
+    fn workflow_card_says_what_approve_does() {
+        assert_eq!(approves(Proposal::New, "repository", "annotations"), "Approve adds it to this repository's workflows.");
+        assert_eq!(approves(Proposal::New, "kit", "annotations"), "Approve adds it to the workflows of every repository on this Mac.");
+        assert_eq!(approves(Proposal::Change, "repository", "annotations"), "Approve replaces the steps of annotations.");
+        assert_eq!(approves(Proposal::Change, "kit", "annotations"), "Approve replaces the steps of annotations on every repository on this Mac.");
     }
 }

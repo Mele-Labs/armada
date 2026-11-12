@@ -612,7 +612,8 @@ impl JobView {
         let editing = open && mode == Mode::Edit;
         let noting = open && mode == Mode::Note;
         let target = self.is_target(&key);
-        let eyebrow_word = if kind == DraftKind::Workflow { "Workflow" } else { "Draft" };
+        let proposed = self.workflow_proposal(change, text, cx);
+        let eyebrow_word = proposed.unwrap_or(if kind == DraftKind::Workflow { "Workflow" } else { "Draft" });
         let head = div()
             .flex()
             .items_center()
@@ -651,14 +652,14 @@ impl JobView {
                         .child(SharedString::from(before.to_string()))
                 }))
         });
-        let mut body = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(head).child(
+        let mut body = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(head).when(proposed.is_none(), |body| body.child(
             div()
                 .text_size(look.length(token::TEXT_SM))
                 .line_height(look.length(token::LEADING_SM))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                 .text_color(look.color(token::FG_DEFAULT))
                 .child(SharedString::from(title.to_string())),
-        );
+        ));
         body = if editing {
             body.children(self.box_of(&key, Mode::Edit, "Draft text", look, cx))
         } else {
