@@ -377,6 +377,8 @@ impl Toasts {
             .border_color(look.color(token::BORDER_DEFAULT))
             .bg(look.color(token::BG_OVERLAY))
             .shadow(look.shadows(token::SHADOW_OVERLAY))
+            // A press on a toast never reaches what is under it.
+            .occlude()
             .font_family(sans(look))
             .child(div().flex_none().w(gpui::px(3.)).bg(edge_of(toast.urgency, look)))
             .child(body);
@@ -457,6 +459,8 @@ impl Toasts {
                 .border_color(edge.opacity(0.6))
                 .bg(look.color(token::BG_OVERLAY))
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
+                // A press on a toast never reaches what is under it.
+                .occlude()
                 .font_family(sans(look))
                 .child(div().flex_none().w(gpui::px(3.)).bg(edge))
                 .child(body),
@@ -500,6 +504,8 @@ impl Toasts {
                 .border_color(edge.opacity(0.6))
                 .bg(look.color(token::BG_OVERLAY))
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
+                // A press on a toast never reaches what is under it.
+                .occlude()
                 .font_family(sans(look))
                 .child(div().flex_none().w(gpui::px(3.)).bg(edge))
                 .child(body),
@@ -560,6 +566,8 @@ impl Toasts {
             .border_color(look.color(token::BORDER_DEFAULT))
             .bg(look.color(token::BG_OVERLAY))
             .shadow(look.shadows(token::SHADOW_OVERLAY))
+            // A press on a toast never reaches what is under it.
+            .occlude()
             .font_family(sans(look))
             .child(
                 div()

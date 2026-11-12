@@ -210,8 +210,9 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .try_global::<LabelBook>()
                 .and_then(|book| book.drawn(window.window_handle().window_id()).iter().find(|drawn| drawn.role == role && drawn.name == step.target.name).cloned());
             let Some(found) = found else { return find(step, window, cx).map(|_| ()) };
+            let found = reveal(found, window, cx);
             GONE_FROM.store(drawn_count(step, window, cx), std::sync::atomic::Ordering::Relaxed);
-            press(MouseButton::Left, found.bounds.center(), window, cx);
+            press(MouseButton::Left, aim(&found), window, cx);
             Ok(())
         }
         Verb::RightPress(on) => {
@@ -285,7 +286,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .try_global::<LabelBook>()
                 .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
                 .ok_or_else(|| Missed(format!("nothing named \"{on}\" to press")))?;
-            press(MouseButton::Right, aim(&drawn), window, cx);
+            press(MouseButton::Right, aim(&reveal(drawn, window, cx)), window, cx);
             Ok(())
         }
         Verb::Wheel(role, on, by) => {
@@ -630,13 +631,14 @@ fn scroll_to(target: Drawn, window: &mut Window, cx: &mut App) -> Drawn {
     }
     let id = window.window_handle().window_id();
     // Around it, or else around it give or take a hair: a message's hover bar hangs just past the message.
+    // Never one that shows the target's whole place: that one is not what cuts it off (the pane under a hidden row's place).
     let within = |slack: Pixels| {
         cx.try_global::<LabelBook>().and_then(|book| {
             book.drawn(id)
                 .iter()
                 .filter(|one| {
                     let b = one.bounds;
-                    shows(one) && b.left() - slack <= t.left() && b.right() + slack >= t.right() && b.top() - slack <= t.top() && b.bottom() + slack >= t.bottom()
+                    shows(one) && !holds(one.shown, t) && b.left() - slack <= t.left() && b.right() + slack >= t.right() && b.top() - slack <= t.top() && b.bottom() + slack >= t.bottom()
                 })
                 .min_by(|a, b| (f32::from(a.bounds.size.width) * f32::from(a.bounds.size.height)).partial_cmp(&(f32::from(b.bounds.size.width) * f32::from(b.bounds.size.height))).unwrap_or(std::cmp::Ordering::Equal))
                 .cloned()

@@ -172,10 +172,11 @@ pub(super) fn section(look: &Look, label: &'static str, note: Option<String>, as
         .line_height(look.length(token::LEADING_XS))
         .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
         .text_color(look.color(token::FG_SUBTLE))
-        .child(label)
-        .children(note.map(|note| div().font_weight(FontWeight::NORMAL).child(SharedString::from(format!("\u{b7} {note}")))))
+        .child(div().flex_none().child(label))
+        // The note gives way before the aside, so Columns stays inside a narrow pane; one line, cut short.
+        .children(note.map(|note| div().min_w_0().truncate().font_weight(FontWeight::NORMAL).child(SharedString::from(format!("\u{b7} {note}")))))
         .child(div().flex_1())
-        .children(aside);
+        .children(aside.map(|aside| div().flex_none().child(aside)));
     labelled(div().id(label).flex().flex_col().gap(look.length(token::SPACE_1)).child(heading).child(body), Role::Group, label).into_any_element()
 }
 
@@ -505,7 +506,7 @@ impl JobView {
                 .child(div().flex_none().w(look.length(token::SPACE_6)).flex().justify_center().child(mark))
                 .child(div().flex_none().w(look.length(token::SPACE_8)).flex().justify_center().child(act))
         };
-        let head_word = |said: &'static str| div().text_size(look.length(token::TEXT_2XS)).font_family(mono(look)).text_color(look.color(token::FG_SUBTLE)).child(said).into_any_element();
+        let head_word = |said: &'static str| div().truncate().text_size(look.length(token::TEXT_2XS)).font_family(mono(look)).text_color(look.color(token::FG_SUBTLE)).child(said).into_any_element();
         let header = cells(head_word("Command"), port.then(|| head_word("Port")), head_word("PID"), div().into_any_element(), div().into_any_element())
             .bg(look.color(token::BG_RAISED))
             .border_b(look.length(token::BORDER_WIDTH))
