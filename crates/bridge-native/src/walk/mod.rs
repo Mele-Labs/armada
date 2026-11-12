@@ -56,6 +56,9 @@ pub enum Verb {
     /// A press on the button of this name inside the article of this name: where one card among several
     /// has a button the others have too.
     OpenIn(&'static str, &'static str),
+    /// A press on the button of this name inside the element of this role and name: where a button's name is
+    /// one the walk's own bar or another place also draws.
+    PressWithin(&'static str, &'static str, &'static str),
     /// A right press on the element of this role and name, before the target is ringed: the target is the menu it opens.
     RightOpen(&'static str, &'static str),
     /// A drag across the last line of the element of this role and name, as words are selected.

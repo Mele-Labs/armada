@@ -425,6 +425,9 @@ impl SettingsOverlay {
             self.back_to_list(window, cx);
             return true;
         }
+        if self.band_key(key, window, cx) {
+            return true;
+        }
         if mods.platform || mods.control || mods.alt {
             return false;
         }

@@ -1,8 +1,9 @@
 //! Settings → Workflows, the workflow picked, beside the list: its id and what it is for, its acts, then its steps,
 //! each a card. A port of Classic's `Detail`, `Act`, `Said`, `Step` and `Compared`
 //! (`packages/components/src/compositions/WorkflowManager/WorkflowManager.tsx`), the acts wired as
-//! `apps/desktop/src/renderer/src/workflow-manager.tsx` wires them. The lanes and the box that asks an agent for a
-//! change come after; `step_card` takes `StepRows` so the lanes' inspector draws the same card.
+//! `apps/desktop/src/renderer/src/workflow-manager.tsx` wires them. Under a copy's steps is the box that asks an
+//! agent for a change (`change_band.rs`). The lanes come after; `step_card` takes `StepRows` so the lanes'
+//! inspector draws the same card.
 
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -217,20 +218,22 @@ struct WordsBox {
 /// row; the words typed into each step, kept until saved; and the key of each control.
 #[derive(Default)]
 pub struct Detail {
-    reads: BTreeMap<String, StepsRead>,
+    pub(super) reads: BTreeMap<String, StepsRead>,
     comparing: Option<String>,
     said: Option<(String, Said)>,
     busy: bool,
     words: BTreeMap<String, WordsBox>,
-    keys: BTreeMap<String, FocusHandle>,
+    pub(super) keys: BTreeMap<String, FocusHandle>,
     /// The list read again after an act, and the list the connection held when it was: the connection's wins
     /// again once it has moved on.
     fresh: Option<(Option<Vec<WorkflowSummary>>, Vec<WorkflowSummary>)>,
+    /// The box that asks an agent for a change, and what it came back with.
+    pub(super) band: super::change_band::Band,
 }
 
 impl Detail {
     pub fn in_words(&self, window: &Window, cx: &App) -> bool {
-        self.words.values().any(|one| one.state.read(cx).focus_handle(cx).is_focused(window))
+        self.words.values().any(|one| one.state.read(cx).focus_handle(cx).is_focused(window)) || self.band.in_text(window, cx)
     }
 
     /// The list to draw: what an act read last, while the connection still holds what it held then.
@@ -310,6 +313,7 @@ impl SettingsOverlay {
                 self.words_box(&key, step, window, cx);
             }
         }
+        self.band_keys(&one, window, cx);
     }
 
     /// A step's words, as typed: what was kept from before, else what Fleet read.
@@ -353,7 +357,7 @@ impl SettingsOverlay {
         self.workflows.detail.typed(at, cx).is_some_and(|text| text != step.words)
     }
 
-    fn read_steps(&mut self, one: Listed, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn read_steps(&mut self, one: Listed, window: &mut Window, cx: &mut Context<Self>) {
         let key = one.key();
         self.workflows.detail.reads.entry(key.clone()).or_insert(StepsRead::Loading);
         let task = self.wire.workflow_steps(&one.id, wire_of(one.place), &one.manifest, cx);
@@ -492,7 +496,7 @@ impl SettingsOverlay {
 
     /// `GET /workflows` again after an act, then the row it named picked: the copy made, or after a delete the
     /// same id where it is still listed, else the first.
-    fn read_list(&mut self, pick: Option<String>, deleted: Option<(String, String)>, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn read_list(&mut self, pick: Option<String>, deleted: Option<(String, String)>, window: &mut Window, cx: &mut Context<Self>) {
         let task = self.wire.list_workflows(cx);
         cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
@@ -516,7 +520,7 @@ impl SettingsOverlay {
         .detach();
     }
 
-    fn open_job(&mut self, job: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_job(&mut self, job: String, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(open) = cx.try_global::<OpenJobFrom>().cloned() {
             cx.defer(move |cx| (open.0)(job, None, cx));
         }
@@ -543,7 +547,10 @@ impl SettingsOverlay {
         if said.is_some_and(|said| said.job.is_some()) {
             stops.extend(detail.key("open-job").cloned());
         }
-        let Some(StepsRead::Read(steps)) = detail.reads.get(&key) else { return stops };
+        let Some(StepsRead::Read(steps)) = detail.reads.get(&key) else {
+            stops.extend(self.band_stops(&one, cx));
+            return stops;
+        };
         let on = steps.iter().position(|step| detail.key(&format!("card:{key}/{}", step.id)).is_some_and(|card| card.is_focused(window)));
         for (n, step) in steps.iter().enumerate() {
             let at = format!("{key}/{}", step.id);
@@ -558,6 +565,7 @@ impl SettingsOverlay {
                 stops.push(words.state.read(cx).focus_handle(cx));
             }
         }
+        stops.extend(self.band_stops(&one, cx));
         stops
     }
 
@@ -662,6 +670,7 @@ impl SettingsOverlay {
             .pb(look.length(token::SPACE_4))
             .child(self.render_workflow_head(one, armada.as_ref(), comparing, look, window, cx))
             .child(div().px(look.length(token::SPACE_4)).child(steps))
+            .children(self.render_change_band(one, look, window, cx).map(|band| div().px(look.length(token::SPACE_4)).child(band)))
             .into_any_element()
     }
 
@@ -945,7 +954,7 @@ fn card_frame(look: &Look, changed: bool) -> Div {
 }
 
 /// A card's band, over its facts.
-fn band(look: &Look) -> Div {
+pub(super) fn band(look: &Look) -> Div {
     div()
         .flex()
         .flex_wrap()
@@ -968,7 +977,7 @@ fn band(look: &Look) -> Div {
 }
 
 /// A secondary button on a sunken ground, as the band's Save is (`variant="secondary" ground="sunken"`).
-fn sunken_button(look: &Look, id: SharedString, said: &'static str, off: bool) -> gpui::Stateful<Div> {
+pub(super) fn sunken_button(look: &Look, id: SharedString, said: &'static str, off: bool) -> gpui::Stateful<Div> {
     div()
         .id(id)
         .flex_none()
