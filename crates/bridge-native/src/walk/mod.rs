@@ -159,6 +159,8 @@ pub enum Screen {
     Operator,
     /// The Jobs screen in front, inside the Operator's screen as the app holds it, so its toasts draw over it.
     JobsInApp,
+    /// The app with Settings over it, on the mock Fleet in `settings/mock.rs`.
+    Settings,
 }
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
@@ -2009,6 +2011,13 @@ pub static WALKS: &[Walk] = &[
             step("Let go: it stands there, and the list keeps the order", Verb::Release, "row", "Dark mode for the settings page"),
             step("Not drawn here yet, so their keys reach nothing: t, the timeline; e, the Field; b, the bays; q, the queue; f, flight control", Verb::Look, "row", "Dark mode for the settings page"),
         ],
+    },
+    Walk {
+        name: "native-settings",
+        title: "Settings over the app",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::STEPS,
     },
 ];
 
