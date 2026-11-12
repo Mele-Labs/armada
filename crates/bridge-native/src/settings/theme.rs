@@ -124,7 +124,7 @@ impl ThemeField {
 
 impl SettingsOverlay {
     /// The word in force: what was picked here while Fleet answers, else Fleet's.
-    fn theme_word(&self, cx: &App) -> String {
+    pub(super) fn theme_word(&self, cx: &App) -> String {
         self.theme.picked.clone().unwrap_or_else(|| self.wire.theme(cx))
     }
 

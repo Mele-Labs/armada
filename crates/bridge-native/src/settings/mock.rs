@@ -20,14 +20,11 @@ pub struct MockFleet {
     /// Every save it took, oldest first, for a test to read.
     pub saves: Vec<BTreeMap<String, Option<SettingValue>>>,
     pub preferences: ipc::Preferences,
-    /// The mods on this machine: Dusk, the theme Classic's `mods-themes` scenario writes into the mod folder.
+    /// The mods on this machine, as the walk's scenario lists them (`crate::mock::mods`).
     pub mods: Vec<ipc::ModSummary>,
     /// The checked sheet of each theme mod that is on and valid.
     pub sheets: BTreeMap<String, String>,
 }
-
-/// Dusk's `theme.css`, as the example mod ships it.
-const DUSK_CSS: &str = include_str!("../../../../packages/tokens/themes/example-mod/dusk/theme.css");
 
 pub fn settings() -> SettingsList {
     ipc::decode("SettingsList", include_bytes!("mock-settings.json")).unwrap_or_else(|why| panic!("the mock settings do not decode: {why}"))
@@ -46,8 +43,8 @@ impl MockFleet {
         }
         MockFleet { list: settings(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
-            mods: ipc::decode::<ipc::ModList>("mods", br#"{"mods":[{"name":"dusk","kind":"theme","enabled":true,"valid":true}]}"#).map(|list| list.mods).unwrap_or_default(),
-            sheets: [("dusk".to_string(), DUSK_CSS.to_string())].into_iter().collect(),
+            mods: crate::mock::mods(),
+            sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
         }
     }
 
@@ -116,8 +113,8 @@ impl MockFleet {
         row.enabled = enabled;
         if !enabled {
             self.sheets.remove(name);
-        } else if name == "dusk" {
-            self.sheets.insert(name.to_string(), DUSK_CSS.to_string());
+        } else if let Some(css) = crate::mock::mod_sheet(name) {
+            self.sheets.insert(name.to_string(), css.to_string());
         }
         Ok(row.clone())
     }
@@ -129,6 +126,35 @@ impl MockFleet {
         }
         let said = format!(r#"{{"name":"{name}","session_id":"01SESSIONPROMOTEAAAAAAAAAA","title":"Add the {name} theme mod","branch":"armada/mod-{name}","commit":"4f2a9c1","pull_request_not_opened":"No remote to push to."}}"#);
         ipc::decode("ModPromoted", said.as_bytes()).map_err(|why| Refused::said(why.to_string()))
+    }
+
+    /// What Fleet's check of a mod read: quiet-ci's one rule, batching CI failures except where one blocks a merge.
+    pub fn validate_mod(&self, name: &str) -> Result<ipc::ModChecked, Refused> {
+        let row = self.mods.iter().find(|row| row.name == name).ok_or_else(|| Refused::said(format!("There is no mod named {name}.")))?;
+        let fleet = (row.kind == Some(ipc::ModKind::Fleet)).then_some(r#","fleet":{"rule":[{"notice":"pr_checks_failed","does":"batch","where":"everywhere","when":[{"if":"blocks_merge","does":"tell"}]}]}"#).unwrap_or_default();
+        let said = format!(r#"{{"name":"{name}","valid":true,"problems":[]{fleet}}}"#);
+        ipc::decode("ModChecked", said.as_bytes()).map_err(|why| Refused::said(why.to_string()))
+    }
+
+    /// A tracker mod's try, passed against the first repository, as Fleet answers one.
+    pub fn try_tracker_mod(&mut self, name: &str) -> Result<ipc::TrackerTry, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let said = br#"{"at":"2026-11-12T10:00:00Z","manifest_id":"armada","passed":true,"listed":12,"read":"ACME-7"}"#;
+        let tried: ipc::TrackerTry = ipc::decode("TrackerTry", said).map_err(|why| Refused::said(why.to_string()))?;
+        let row = self.mods.iter_mut().find(|row| row.name == name).ok_or_else(|| Refused::said(format!("There is no mod named {name}.")))?;
+        row.tried = Some(tried.clone());
+        row.stale = false;
+        Ok(tried)
+    }
+
+    /// Create mod's empty Mod Job, started.
+    pub fn start_mod_session(&self) -> Result<ipc::ModSessionStarted, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        ipc::decode("ModSessionStarted", br#"{"session_id":"01SESSIONMODJOBAAAAAAAAAAA","title":"Mod Job"}"#).map_err(|why| Refused::said(why.to_string()))
     }
 
     /// What a project's values come to: its own over Kit's, Kit's over the defaults.

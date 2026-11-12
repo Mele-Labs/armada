@@ -41,8 +41,10 @@ pub enum Body {
     ProjectValues,
     /// Every act with a key, each key a control (`KeyboardSettings`).
     Keyboard,
-    /// The theme field, then the theme mods and the tweaks (`ThemeSettings`, `ModList`).
+    /// The theme field, then the theme mods (`ThemeSettings`, `ModList`).
     Theme,
+    /// A list of mods (`ModList`): All where no kind is named, else the mods of that kind, listed only while there is one.
+    Mods(Option<ipc::ModKind>),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -77,7 +79,10 @@ pub const SECTIONS: &[Section] = &[
     Section { id: "editor", label: "Editor", palette: "Editor", words: &["Editor", "open", "code", "vscode", "visual"] },
     Section { id: "terminal", label: "Terminal", palette: "Terminal", words: &["Terminal", "iterm", "ghostty", "warp", "wezterm", "shell"] },
     Section { id: "links", label: "Links", palette: "Links", words: &["Open pull requests in", "pull request", "link", "browser", "panel"] },
+    Section { id: "mods-all", label: "All", palette: "All mods", words: &["All", "mods", "applied", "every", "list", "taught", "switch", "promote"] },
     Section { id: "theme", label: "Theme", palette: "Theme", words: &["Theme", "colours", "colors", "dark", "light", "appearance", "mods"] },
+    Section { id: "trackers", label: "Tracker", palette: "Tracker mods", words: &["Tracker", "mods", "issue tracker", "tried", "valid", "stale", "try", "switch", "promote"] },
+    Section { id: "fleet-mods", label: "Fleet", palette: "Fleet mods", words: &["Fleet", "mods", "teach", "taught", "notices", "batch", "quiet", "switch"] },
     Section { id: "spacing", label: "Spacing", palette: "Spacing", words: &["Spacing", "density", "compact", "default", "roomy", "room", "dense"] },
 ];
 
@@ -96,7 +101,10 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "fleet:store", label: "Store", group: Group::Fleet, body: Body::Schema(&["store"]) },
     Entry { id: "fleet:features", label: "Features", group: Group::Fleet, body: Body::Features },
     Entry { id: "fleet:repository", label: "Repository", group: Group::Fleet, body: Body::Repository },
+    Entry { id: "bridge:all", label: "All", group: Group::Mods, body: Body::Mods(None) },
     Entry { id: "bridge:theme", label: "Theme", group: Group::Mods, body: Body::Theme },
+    Entry { id: "bridge:tracker", label: "Tracker", group: Group::Mods, body: Body::Mods(Some(ipc::ModKind::Tracker)) },
+    Entry { id: "bridge:fleet", label: "Fleet", group: Group::Mods, body: Body::Mods(Some(ipc::ModKind::Fleet)) },
     Entry { id: "bridge:spacing", label: "Spacing", group: Group::Bridge, body: Body::Schema(&["spacing"]) },
     Entry { id: "bridge:keyboard", label: "Keyboard shortcuts", group: Group::Bridge, body: Body::Keyboard },
     Entry { id: "bridge:editor", label: "Editor", group: Group::Bridge, body: Body::Schema(&["editor"]) },
@@ -151,6 +159,9 @@ fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
         Body::Schema(ids) => ids,
         Body::Features => &["features"],
         Body::Theme => &["theme"],
+        Body::Mods(None) => &["mods-all"],
+        Body::Mods(Some(ipc::ModKind::Tracker)) => &["trackers"],
+        Body::Mods(Some(_)) => &["fleet-mods"],
         Body::Repository | Body::ProjectValues | Body::Keyboard => &[],
     };
     let mut words = vec![entry.label.to_string()];

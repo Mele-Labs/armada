@@ -82,6 +82,8 @@ pub struct SettingsOverlay {
     pub focus: FocusHandle,
     /// The sidebar's keys: ↑ and ↓ move the pick while it holds them.
     pub side: FocusHandle,
+    /// The entries' scroll, which brings the group of the entry picked into view.
+    pub side_scroll: gpui::ScrollHandle,
     pub query: Entity<InputState>,
     /// The entry last picked, kept across opens; a search that hides it draws the first it found.
     pub picked: &'static str,
@@ -169,6 +171,7 @@ impl SettingsOverlay {
             back_to: None,
             focus: cx.focus_handle(),
             side: cx.focus_handle().tab_stop(true),
+            side_scroll: gpui::ScrollHandle::new(),
             query,
             picked: entries::FIRST,
             list: None,
@@ -247,6 +250,7 @@ impl SettingsOverlay {
         self.open = false;
         self.keys = None;
         self.popup = None;
+        self.mods.panel = None;
         match self.back_to.take() {
             Some(handle) => window.focus(&handle, cx),
             None => window.blur(cx),
@@ -388,6 +392,11 @@ impl SettingsOverlay {
         entries::visible(&query, self.list.as_ref(), self.scope.is_some())
             .into_iter()
             .filter(|one| one.body != Body::Repository || self.setting(super::view::CONNECTORS_OFF).is_some())
+            // Tracker and Fleet are listed once a mod of their kind is, as Classic's `made` lists them.
+            .filter(|one| match one.body {
+                Body::Mods(Some(kind)) => self.wire.mods(cx).iter().any(|row| row.kind == Some(kind)),
+                _ => true,
+            })
             // A section this Fleet's settings.json does not hold is left out once it has answered, not drawn blank.
             .filter(|one| match (one.body, &self.list) {
                 (Body::Schema(ids), Some(list)) => ids.iter().any(|id| !entries::settings_in(list, id).is_empty()),
@@ -411,6 +420,12 @@ impl SettingsOverlay {
         let at = visible.iter().position(|one| one.id == now.id).unwrap_or(0) as isize;
         let next = (at + by).clamp(0, visible.len() as isize - 1) as usize;
         self.picked = visible[next].id;
+        // The entries scroll by group, as they are drawn: the picked one's group comes into view.
+        let group = visible[next].group;
+        let drawn: Vec<entries::Group> = entries::GROUPS.into_iter().filter(|one| visible.iter().any(|entry| entry.group == *one)).collect();
+        if let Some(at) = drawn.iter().position(|one| *one == group) {
+            self.side_scroll.scroll_to_item(at);
+        }
         cx.notify();
     }
 
@@ -620,9 +635,11 @@ impl SettingsOverlay {
         }
         if let Body::Theme = shown.body {
             let mut stops = vec![self.theme.focus.clone()];
-            stops.extend(self.mod_stops(ipc::ModKind::Theme, cx));
-            stops.extend(self.mod_stops(ipc::ModKind::Tweak, cx));
+            stops.extend(self.mod_stops(super::mods::Page::Theme, cx));
             return stops;
+        }
+        if let Some(page) = super::mods::page_of(shown.body) {
+            return self.mod_stops(page, cx);
         }
         stops.push(self.file_stop.clone());
         let Some(list) = &self.list else { return stops };
@@ -700,6 +717,14 @@ impl SettingsOverlay {
         if self.popup.is_some() {
             return false;
         }
+        // A mod's panel beside the page takes its own keys; Esc outside it puts it away.
+        if let Some(opened) = &self.mods.panel {
+            if key.key == "escape" && !opened.view.focus_handle(cx).contains_focused(window, cx) {
+                self.close_panel(window, cx);
+                return true;
+            }
+            return false;
+        }
         // A key waiting for its binding takes the next key, whatever it is.
         if self.keyboard_key(key, window, cx) {
             return true;
@@ -707,6 +732,12 @@ impl SettingsOverlay {
         // The theme field types, and its list takes the arrows, Enter and Esc while it is open.
         if self.theme_key(key, window, cx) {
             return true;
+        }
+        // A mod row's arrows: open and shut what it holds, and move between rows.
+        if let Some(page) = self.shown(cx).and_then(|shown| super::mods::page_of(shown.body)) {
+            if self.mods_key(page, key, window, cx) {
+                return true;
+            }
         }
         let mods = &key.modifiers;
         let bare = !mods.platform && !mods.control && !mods.alt;
