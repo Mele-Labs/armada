@@ -47,11 +47,10 @@ async fn a_quick_terminal_opens_t1_and_starts_no_agent_until_the_person_writes()
     assert!(job.quick_terminal, "listed as a quick terminal");
     assert_eq!(job.workflow, None, "no workflow");
     assert_eq!(job.manifest_id.as_ref(), Some(&rig.manifest));
-    let named = std::path::Path::new(&rig.root).file_name().unwrap().to_string_lossy().into_owned();
-    assert_eq!(job.title.as_deref(), Some(format!("Terminal in {named}").as_str()), "named for its folder");
+    assert_eq!(job.title, None, "untitled until his first message");
     assert_eq!(job.state, ipc::SessionState::Live, "live while it waits, not ended");
     assert!(job.done_since.is_none(), "not done");
-    assert_eq!(job.mark.as_ref().map(|mark| mark.state), Some(ipc::JobState::Blank), "drawn not started, though Fleet titled it");
+    assert_eq!(job.mark.as_ref().map(|mark| mark.state), Some(ipc::JobState::Blank), "drawn not started");
     let hosted = job.hosted.expect("hosted");
     assert_eq!(hosted.turn, ipc::SessionTurn::Idle);
     assert!(!hosted.running && hosted.start.is_none(), "not held and nothing running");
@@ -71,6 +70,18 @@ async fn a_quick_terminal_opens_t1_and_starts_no_agent_until_the_person_writes()
 
 async fn started_titled(rig: &Rig, title: &str) -> TerminalJobStarted {
     started(rig, StartTerminalJob { title: Some(title.into()), ..quick(Some(rig.manifest.clone()), None) }).await
+}
+
+#[tokio::test]
+async fn a_quick_start_with_no_title_is_named_by_the_first_message() {
+    let rig = rig_placing(None);
+    let started = started(&rig, quick(Some(rig.manifest.clone()), None)).await;
+    assert_eq!(record(&rig, &started.session_id).await.title, None, "untitled while it waits");
+
+    rig.send(&started.session_id, "  \nwhy did that fail?\nsecond line").await;
+    eventually(|| async { record(&rig, &started.session_id).await.title.is_some() }).await;
+    assert_eq!(record(&rig, &started.session_id).await.title.as_deref(), Some("why did that fail?"));
+    ends(&rig, &started.run_id).await;
 }
 
 #[tokio::test]
@@ -116,7 +127,7 @@ async fn a_folder_in_a_served_repository_is_its_job_with_the_shell_in_that_folde
     let job = record(&rig, &started.session_id).await;
     assert!(job.quick_terminal);
     assert_eq!(job.manifest_id.as_ref(), Some(&rig.manifest), "the repository's own Job");
-    assert_eq!(job.title.as_deref(), Some("Terminal in quick"), "named for the folder it opens in");
+    assert_eq!(job.title, None, "untitled until his first message");
 
     types(&rig, &started.run_id, "pwd\r").await;
     let here = std::fs::canonicalize(&folder).unwrap().to_string_lossy().into_owned();
@@ -135,8 +146,7 @@ async fn a_loose_folder_runs_in_place_with_no_manifest_and_is_never_made_a_repos
     let here = std::fs::canonicalize(loose.path()).unwrap().to_string_lossy().into_owned();
     assert!(job.quick_terminal);
     assert_eq!(job.manifest_id, None, "no Manifest");
-    let named = loose.path().file_name().unwrap().to_string_lossy().into_owned();
-    assert_eq!(job.title.as_deref(), Some(format!("Terminal in {named}").as_str()));
+    assert_eq!(job.title, None);
     assert_eq!(job.cwd, here, "runs where it was started");
     assert!(!loose.path().join(".git").exists(), "no repository is started in it");
     assert_eq!(rig.fleet.repository_list().repositories.len(), served_before, "nothing is served");
