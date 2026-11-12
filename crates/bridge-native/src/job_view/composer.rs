@@ -412,6 +412,13 @@ impl JobView {
         self.composer.drafts.get(key)
     }
 
+    /// Keep words and chips under `key`, and write the drafts soon if that changed them.
+    pub(super) fn keep_draft(&mut self, key: &str, kept: Kept, cx: &mut Context<Self>) {
+        if self.composer.drafts.set(key, kept) {
+            self.keep_soon(cx);
+        }
+    }
+
     /// The plain words kept under `key`: a Teach panel's, a review note's or a fork's, which carry no chips.
     pub(super) fn draft_words(&self, key: &str) -> String {
         self.composer.drafts.get(key).text

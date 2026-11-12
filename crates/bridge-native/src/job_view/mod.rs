@@ -73,7 +73,9 @@ mod side;
 mod spine;
 mod workflow;
 mod tabs;
+mod view_tabs;
 pub use side::JobSide;
+pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewTab};
 pub use mods_made::OpenMod;
 pub use mod_panel::{ModPanel, ModPanelAsked, OpenJobFrom};
 pub use teach::notice_name;
@@ -321,6 +323,8 @@ pub struct JobView {
     /// The pane zoomed over the Job, and the panes closed on each Job.
     zoom: zoom::Zoom,
     tabs_menu: Option<tabs::AddMenu>,
+    /// Tabs another part of the app opened on a Job, each drawing its own view.
+    view_tabs: view_tabs::ViewTabs,
     /// The tabs beside each Job's thread: a draft, a document or a walk.
     row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
     /// The body of the tab beside the thread in front, which takes the keys when it opens.
@@ -462,6 +466,7 @@ impl JobView {
             }
         }));
         Self::offer_open_mod(cx);
+        cx.set_global(view_tabs::LiveJobView(cx.weak_entity()));
         let mock = mock
             .unwrap_or_default()
             .into_iter()
@@ -489,6 +494,7 @@ impl JobView {
             tabs_closed: tabs::Closed::default(),
             zoom: zoom::Zoom::default(),
             tabs_menu: None,
+            view_tabs: Default::default(),
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
             row_strip: gpui::ScrollHandle::new(),
@@ -656,6 +662,7 @@ impl JobView {
         self.want_pane_reads(window, cx);
         let on = window.is_window_active().then(|| to.clone()).flatten();
         self.visit(on, cx);
+        self.tell_job_shown(window, cx);
         cx.notify();
     }
 

@@ -66,7 +66,7 @@ impl Pane {
 
 pub(super) struct AddMenu {
     pub menu: Entity<Dropdown>,
-    _subs: Vec<Subscription>,
+    pub _subs: Vec<Subscription>,
 }
 
 /// The tabs closed on each Job, and those + opened that start shut, by Job id.
@@ -125,6 +125,7 @@ impl JobView {
             self.tabs_closed.opened.entry(id).or_default().insert(tab);
         }
         if let Some(zone) = Zone::ALL.into_iter().find(|zone| zone.id() == tab) {
+            self.view_tab_back();
             self.zone = zone;
             if let Some(at) = Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).position(|one| one == zone) {
                 self.panes.top_tabs.scroll_to_item(at);
@@ -138,11 +139,26 @@ impl JobView {
     }
 
     fn open_add_menu(&mut self, pane: Pane, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
-        let entries = pane.kinds().iter().map(|&(id, word, glyph)| Entry::Item { id, label: word.into(), icon: Some(glyph), danger: false, key: None, off: None }).collect();
+        // The top pane's + offers the kinds other parts of the app put there after its own.
+        let offers = if pane == Pane::Top { cx.try_global::<super::view_tabs::TabOffers>().map(|offers| offers.0.clone()).unwrap_or_default() } else { Vec::new() };
+        let entries = pane
+            .kinds()
+            .iter()
+            .map(|&(id, word, glyph)| Entry::Item { id, label: word.into(), icon: Some(glyph), danger: false, key: None, off: None })
+            .chain(offers.iter().map(|offer| Entry::Item { id: offer.id, label: offer.label.clone(), icon: Some(offer.glyph), danger: false, key: None, off: None }))
+            .collect();
         let back = window.focused(cx);
         let menu = cx.new(|cx| Dropdown::new("Add tab", entries, at, Anchor::TopLeft, false, cx).at_point(window, cx));
-        let picked = cx.subscribe_in(&menu, window, |this, _, picked: &Picked, window, cx| {
+        let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
+            if let Some(offer) = offers.iter().find(|offer| offer.id == *id) {
+                let (open, job) = (offer.open.clone(), this.shown.as_ref().map(|job| job.to_string()));
+                this.tabs_menu = None;
+                if let Some(job) = job {
+                    window.defer(cx, move |window, cx| open(job, window, cx));
+                }
+                return;
+            }
             this.add_tab(id, window, cx);
         });
         let dismissed = cx.subscribe_in(&menu, window, move |this, _, _: &DismissEvent, window, cx| {

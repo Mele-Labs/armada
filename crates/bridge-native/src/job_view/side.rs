@@ -212,7 +212,7 @@ fn strip(look: &Look) -> gpui::Div {
         .border_color(look.color(token::BORDER_DEFAULT))
 }
 
-fn tab(look: &Look, id: &'static str, icon: &'static str, said: &'static str, front: bool) -> gpui::Stateful<gpui::Div> {
+pub(super) fn tab(look: &Look, id: impl Into<gpui::ElementId>, icon: &'static str, said: impl Into<SharedString>, front: bool) -> gpui::Stateful<gpui::Div> {
     div()
         .id(id)
         .flex_none()
@@ -226,14 +226,16 @@ fn tab(look: &Look, id: &'static str, icon: &'static str, said: &'static str, fr
         .when(front, |tab| tab.bg(look.color(token::BG_RAISED)))
         .when(!front, |tab| tab.cursor_pointer().hover(|style| style.text_color(look.color(token::FG_DEFAULT))))
         .child(glyph(look, icon, Size::Small, look.color(if front { token::FG_DEFAULT } else { token::FG_MUTED })))
-        .child(said)
+        .child(said.into())
 }
 
 impl JobView {
     pub(super) fn render_side(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let look = cx.look();
         let look = &look;
-        let zone = self.zone_shown();
+        // A view tab in front stands before the pane's own tabs.
+        let view = self.view_front().map(|one| one.view.clone());
+        let zone = if view.is_some() { None } else { self.zone_shown() };
         if zone != Some(Zone::Spine) {
             self.spine.left();
         }
@@ -265,6 +267,7 @@ impl JobView {
                     .group(group.clone())
                     .child(self.close_button(one.id(), said, group, front, look, cx))
                     .on_click(cx.listener(move |this, _, window, cx| {
+                        this.view_tab_back();
                         this.zone = one;
                         this.want_pane_reads(window, cx);
                         cx.notify();
@@ -274,7 +277,8 @@ impl JobView {
             )
         }).collect();
         // Changes and Files draw their own strip over a body that scrolls, as `.job-pane__pick` does.
-        let own_frame = matches!(zone, Some(Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine | Zone::Workflow));
+        let own_frame = view.is_some() || matches!(zone, Some(Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine | Zone::Workflow));
+        let tabs = tabs.into_iter().map(|one| one.into_any_element()).chain(self.view_tab_elements(look, cx)).collect::<Vec<_>>();
         let top_body = self.shown.clone().zip(zone).and_then(|(id, zone)| match zone {
             Zone::Open => Some(self.zone_alone(Area::Open, self.flow_alone(&id, Area::Open, look, cx).unwrap_or_else(|| self.side_open(&id, look, cx)), cx)),
             Zone::Done => Some(self.zone_alone(Area::Done, self.flow_alone(&id, Area::Done, look, cx).unwrap_or_else(|| self.side_done(&id, look, cx)), cx)),
@@ -293,7 +297,7 @@ impl JobView {
             Zone::Bays => self.pane_bays(&id, look, cx),
             Zone::Spine => Some(self.pane_spine(&id, look, cx)),
             Zone::Judge => self.pane_judge(&id, look, cx),
-        });
+        }).or_else(|| view.map(|view| div().size_full().child(view).into_any_element()));
         if self.spine.settle.take() {
             window.request_animation_frame();
         }
