@@ -564,17 +564,19 @@ impl JobView {
                     div()
                         .id(SharedString::from(format!("wait:{at}")))
                         .flex()
-                        .items_center()
+                        // A long wait wraps under its glyph's first line before anything is cut.
+                        .items_start()
                         .gap(look.length(token::SPACE_2))
                         .min_h(look.length(token::H_ROW))
+                        .py((look.length(token::H_ROW) - look.length(token::LEADING_SM)) / 2.)
                         .px(look.length(token::SPACE_2))
                         .rounded(look.length(token::RADIUS_SM))
                         .hover(|style| style.bg(look.color(token::BG_HOVER)))
                         .text_size(look.length(token::TEXT_SM))
                         .line_height(look.length(token::LEADING_SM))
                         .text_color(look.color(token::FG_DEFAULT))
-                        .child(div().id(SharedString::from(format!("wait-mark:{at}"))).flex_none().child(glyph(look, kind.glyph(), Size::Small, ink)).tooltip(tip(kind.said())))
-                        .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said.clone())))
+                        .child(div().id(SharedString::from(format!("wait-mark:{at}"))).flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(glyph(look, kind.glyph(), Size::Small, ink)).tooltip(tip(kind.said())))
+                        .child(div().flex_1().min_w_0().child(SharedString::from(said.clone())))
                         .on_mouse_down(gpui::MouseButton::Right, cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
                             cx.stop_propagation();
                             this.open_wait_menu(at, kind, event.position, window, cx);
@@ -601,6 +603,8 @@ impl JobView {
             labelled(
                 div()
                     .id("waiting")
+                    // The thread column's whole width, as the subagents card and Classic's card take it.
+                    .w_full()
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_1))
