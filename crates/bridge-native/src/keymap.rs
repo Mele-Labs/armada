@@ -336,11 +336,11 @@ pub fn install(rebinding: &Rebinding, cx: &mut App) {
             (None, true) => Some(format!("!{TEXT_BOX}")),
             (context, false) => context.map(str::to_string),
         };
-        // A terminal keeps every key but a ⌘ chord, as xterm.js does: ⌥, ⌃ and Esc are the shell's.
+        // A running shell keeps every key but a ⌘ chord, as xterm.js does: ⌥, ⌃ and Esc are the shell's.
         let spelled = match (spelled, key.keystroke.contains("cmd-")) {
             (spelled, true) => spelled,
-            (Some(spelled), false) => Some(format!("({spelled}) && !{}", crate::terminal::pane::KEYS)),
-            (None, false) => Some(format!("!{}", crate::terminal::pane::KEYS)),
+            (Some(spelled), false) => Some(format!("({spelled}) && !{}", crate::terminal::pane::SHELL)),
+            (None, false) => Some(format!("!{}", crate::terminal::pane::SHELL)),
         };
         let context = match spelled.as_deref().map(KeyBindingContextPredicate::parse) {
             Some(Ok(predicate)) => Some(std::rc::Rc::new(predicate)),

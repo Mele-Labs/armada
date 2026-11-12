@@ -1387,3 +1387,16 @@ scope = "thread"
 destructive = false
 confirms = false
 notes = "Dispatches a Job to fix a failed hand off, the failure toast's own act, from the band on the composer while focus is inside the band. The band's own key since it was drawn; moved into the registry so Settings can rebind it."
+
+# ---------------------------------------------------------------- terminal
+
+[actions.terminal_new_shell]
+kind = "Action"
+tier = "Contextual"
+verb = "New shell"
+icon = "file-terminal"
+shortcut = "Enter"
+scope = "terminal"
+destructive = false
+confirms = false
+notes = "Opens a new shell in place of one that ended, under the same terminal id and tab, from a terminal whose shell has ended. While a shell runs Enter is the shell's, and this row is not heard. Native only: Classic's New shell is a button with no key. Taken 12 Nov 2026, when the button became words."

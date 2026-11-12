@@ -174,6 +174,7 @@ Enter          Send to Job   (plan only)
 d / Backspace  Dismiss   (plan only)
 r              Retry the failed hand off   (thread only)
 d              Dispatch job to fix the failed hand off   (thread only)
+Enter          New shell, in a terminal whose shell ended   (terminal only)
 ```
 
 **The Cockpit's keys and a call in front have scopes of their own**, `dashboard`

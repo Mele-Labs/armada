@@ -51,6 +51,7 @@ export type ActionScope =
   | "projects"
   | "report"
   | "review"
+  | "terminal"
   | "thread";
 
 /** Why an act's glyph column is empty. `null` where it is not. */
@@ -1547,6 +1548,19 @@ export const ACTIONS: readonly Action[] = [
     iconAbsent: "undecided",
     shortcut: "d",
     scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "terminal_new_shell",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "New shell",
+    icon: FileTerminal,
+    iconAbsent: null,
+    shortcut: "Enter",
+    scope: "terminal",
     destructive: false,
     confirms: false,
     unbuilt: null,

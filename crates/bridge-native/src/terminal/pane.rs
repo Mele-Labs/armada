@@ -30,7 +30,11 @@ use crate::look::{token, ActiveLook, Look};
 use crate::titlebar::parts::{glyph, tip};
 
 /// The key context a terminal's keys are bound under, so ⌘C copies its selection and not a text box's.
-pub const KEYS: &str = "Terminal";
+/// It is the registry's `terminal` scope, so an act scoped there, such as Enter for New shell, is heard here.
+pub const KEYS: &str = "terminal";
+
+/// Beside `KEYS` while the shell runs: a running shell keeps every key but a ⌘ chord.
+pub const SHELL: &str = "shell";
 
 /// How long the cursor shows and hides while it blinks (xterm.js's `cursorBlink`).
 const BLINK: Duration = Duration::from_millis(600);
@@ -501,7 +505,10 @@ impl TerminalPane {
                         .child("New shell")
                         .tab_stop(true)
                         .focus_visible(move |style| style.border_color(ring))
-                        .tooltip(tip("Open a new shell in this tab"))
+                        .tooltip(|window, cx| {
+                            let key = gpui::Keystroke::parse("enter").ok().map(gpui_component::kbd::Kbd::new);
+                            gpui_component::tooltip::Tooltip::new("Open a new shell in this tab").key_binding(key).build(window, cx)
+                        })
                         .on_click(cx.listener(|this, _, window, cx| this.new_shell(window, cx)));
                     line.child(
                         div()
@@ -728,8 +735,23 @@ impl Render for TerminalPane {
 
         div()
             .id("terminal")
-            .key_context(KEYS)
+            .key_context({
+                let mut context = gpui::KeyContext::default();
+                context.add(KEYS);
+                if self.phase != Phase::Ended {
+                    context.add(SHELL);
+                }
+                context
+            })
             .track_focus(&self.focus)
+            .on_action(cx.listener(|this, key: &crate::keymap::Act, window, cx| {
+                // Bound only once the shell has ended (`!shell`): Enter opens a new one in its place.
+                if key.is("terminal_new_shell") && this.phase == Phase::Ended {
+                    this.new_shell(window, cx);
+                } else {
+                    cx.propagate();
+                }
+            }))
             .on_key_down(cx.listener(Self::key_down))
             .on_action(cx.listener(|this, _: &gpui_component::input::Copy, _, cx| this.copy(cx)))
             .on_action(cx.listener(|this, _: &gpui_component::input::Paste, _, cx| this.paste(cx)))
