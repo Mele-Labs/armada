@@ -109,6 +109,11 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.workflow_visits.truncate(2);
             one.lanes = Some(lanes);
         }
+        // The Job it started has a Workflow of its own, which its lane opens.
+        let child = ipc::decode::<ipc::JobLanesView>("JobLanesView", include_bytes!("../fixtures/job-lanes-child.json")).map_err(|why| why.to_string())?;
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-10") {
+            one.lanes = Some(child);
+        }
     }
     // The gated plan's live stretch is held on his walk, which Fleet asks him about.
     if scenario == "job-workflow" {

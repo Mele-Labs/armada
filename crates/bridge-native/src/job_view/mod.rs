@@ -51,6 +51,7 @@ mod row_tabs;
 mod rows;
 mod judge_tab;
 mod lanes;
+mod lanes_copy;
 mod ledger;
 mod report;
 mod sketch_pad;

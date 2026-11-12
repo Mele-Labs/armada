@@ -93,7 +93,7 @@ use walk::window::WalkWindow;
 /// What `--help` prints, and what an unread command line prints before it exits.
 const USAGE: &str = "\
 usage: bridge-native [--mock <scenario>]
-       bridge-native --walk <name> [--check] [--shots <dir>] [--hold <ms>] [--width <points>] [--take <name>=<walk>]...
+       bridge-native --walk <name> [--check] [--shots <dir>] [--hold <ms>] [--width <points>] [--height <points>] [--take <name>=<walk>]...
                      [--job <id> --url <url> --fleet-port <port>]
 
 With no flags it opens on the Fleet this Mac runs.
@@ -103,13 +103,14 @@ With no flags it opens on the Fleet this Mac runs.
   --shots <dir>       with --check, keep a picture of each step in <dir>
   --hold <ms>         with --shots, let each step's animations run this long before its picture
   --width <points>    the walk's window width
+  --height <points>   the walk's window height, with --check
   --take <name>=<walk>  a take the walk's bar offers, once for each, in the bar's order
   --job, --url, --fleet-port  walk a live Job's page on a running Fleet; the three come together
   -h, --help          print this and exit
 ";
 
 /// The flags the command line reads that take a value, and those that stand alone.
-const VALUED: [&str; 9] = ["--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--width", "--take", "--mock"];
+const VALUED: [&str; 10] = ["--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--width", "--height", "--take", "--mock"];
 const BARE: [&str; 1] = ["--check"];
 
 /// What the command line asked for.
@@ -117,7 +118,7 @@ enum Mode {
     Help,
     Live,
     Mock(String),
-    Walk { name: String, check: bool, shots: Option<PathBuf>, hold: Option<u64>, width: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
+    Walk { name: String, check: bool, shots: Option<PathBuf>, hold: Option<u64>, width: Option<f32>, height: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
 }
 
 fn mode_of(args: &[String]) -> Result<Mode, String> {
@@ -144,6 +145,7 @@ fn mode_of(args: &[String]) -> Result<Mode, String> {
         };
         let shots = value("--shots").transpose()?.map(PathBuf::from);
         let width = value("--width").transpose()?.map(|wide| wide.parse::<f32>().map_err(|_| format!("--width {wide} is not a number of points"))).transpose()?;
+        let height = value("--height").transpose()?.map(|tall| tall.parse::<f32>().map_err(|_| format!("--height {tall} is not a number of points"))).transpose()?;
         let hold = value("--hold").transpose()?.map(|ms| ms.parse::<u64>().map_err(|_| format!("--hold {ms} is not a number of milliseconds"))).transpose()?;
         // `--take <name>=<walk>`, once for each take, in the bar's order.
         let takes = args
@@ -151,7 +153,7 @@ fn mode_of(args: &[String]) -> Result<Mode, String> {
             .filter(|pair| pair[0] == "--take")
             .map(|pair| pair[1].rsplit_once('=').map(|(name, walk)| (name.to_string(), walk.to_string())).ok_or(format!("--take {} is not <name>=<walk>", pair[1])))
             .collect::<Result<_, _>>()?;
-        return Ok(Mode::Walk { name, check: args.iter().any(|arg| arg == "--check"), shots, hold, width, fleet, takes });
+        return Ok(Mode::Walk { name, check: args.iter().any(|arg| arg == "--check"), shots, hold, width, height, fleet, takes });
     }
     if let Some(scenario) = value("--mock").transpose()? {
         return Ok(Mode::Mock(scenario));
@@ -202,12 +204,12 @@ fn main() -> ExitCode {
         print!("{USAGE}");
         return ExitCode::SUCCESS;
     }
-    if let Mode::Walk { name, check: true, shots, hold, width, takes, .. } = &mode {
+    if let Mode::Walk { name, check: true, shots, hold, width, height, takes, .. } = &mode {
         let Some(walk) = walk::named(name) else {
             log::Note::warn("no walk by that name").field("walk", name.as_str()).emit();
             return ExitCode::FAILURE;
         };
-        return match walk::check::run(walk, walk::window::takes_of(takes), shots.clone(), *hold, *width) {
+        return match walk::check::run(walk, walk::window::takes_of(takes), shots.clone(), *hold, *width, *height) {
             Ok(()) => {
                 log::Note::info("the walk played to its end").field("walk", walk.name).emit();
                 ExitCode::SUCCESS

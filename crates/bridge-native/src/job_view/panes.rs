@@ -84,6 +84,8 @@ enum Of {
     Bay(Box<super::bays::BayPanel>),
     ClashFile(Box<super::bays::ClashFilePanel>),
     Watch(Box<super::watching::WatchPanel>),
+    /// What a rule did on each instance, by its id in the Job's copy.
+    Rule { job: SharedString, rule: String },
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -787,6 +789,11 @@ impl JobView {
         self.open_panel(Of::Watch(Box::new(panel)), window, cx);
     }
 
+    /// A rule's acts, opened as a rule with acts Fleet kept is picked (`ActsPanel`).
+    pub(super) fn open_rule_panel(&mut self, job: SharedString, rule: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_panel(Of::Rule { job, rule }, window, cx);
+    }
+
     pub(super) fn watch_panel(&self) -> Option<&super::watching::WatchPanel> {
         match self.panes.panel.as_ref() {
             Some(Panel { of: Of::Watch(panel), .. }) => Some(panel),
@@ -905,6 +912,7 @@ impl JobView {
                 (name.into(), Some(clash.path.clone().into()), self.clash_file_body(clash, look, cx))
             }
             Of::Watch(watch) => (format!("Watch {}", watch.name).into(), None, self.watch_body(watch, look, cx)),
+            Of::Rule { job, rule } => (format!("Rule: {}", self.rule_label(job, rule, cx)).into(), None, self.rule_body(job, rule, look, cx)),
         };
         let close = labelled(
             div()

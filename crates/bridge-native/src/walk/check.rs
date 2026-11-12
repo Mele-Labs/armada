@@ -15,7 +15,7 @@ use super::window::{Next, Take, WalkWindow};
 use super::Walk;
 
 /// Play `walk` to its end. `Ok` says every step was reached and its target drawn.
-pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: Option<u64>, width: Option<f32>) -> Result<(), String> {
+pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: Option<u64>, width: Option<f32>, height: Option<f32>) -> Result<(), String> {
     let platform = gpui_platform::current_platform(true);
     let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || {
         gpui_platform::current_headless_renderer()
@@ -25,7 +25,7 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
     let held: Rc<RefCell<Option<Entity<WalkWindow>>>> = Rc::default();
     let keep = held.clone();
     let handle = cx
-        .open_window(size(px(width.unwrap_or(1100.)), px(820.)), move |window, cx| {
+        .open_window(size(px(width.unwrap_or(1100.)), px(height.unwrap_or(820.))), move |window, cx| {
             let walking = cx.new(|cx| WalkWindow::new(walk, None, takes, window, cx));
             *keep.borrow_mut() = Some(walking.clone());
             walking

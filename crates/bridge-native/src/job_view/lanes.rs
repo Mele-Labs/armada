@@ -104,11 +104,13 @@ pub(super) struct Lanes {
     seen: RefCell<HashMap<SharedString, Seen>>,
     /// The pane's size last frame, heads included.
     size: Rc<Cell<(f32, f32)>>,
+    /// Add to this Job, Changed on this Job, and the Jobs opened over the lanes.
+    pub copy: super::lanes_copy::LanesCopy,
 }
 
 impl Lanes {
     pub fn new(cx: &mut gpui::App) -> Self {
-        Self { frame: cx.focus_handle(), keyed: Cell::new(false), seen: RefCell::default(), size: Rc::new(Cell::new((0., 0.))) }
+        Self { frame: cx.focus_handle(), keyed: Cell::new(false), seen: RefCell::default(), size: Rc::new(Cell::new((0., 0.))), copy: super::lanes_copy::LanesCopy::new(cx) }
     }
 }
 
@@ -695,53 +697,126 @@ fn zoomed_glyph(icon: &'static str, z: f32, ink: Hsla, size: f32) -> gpui::Svg {
 }
 
 /// A lane's head, over the left of the frame at the lane's own height: its title and where its states
-/// are read from (`Heads`).
-fn lane_head(lane: &LaneView, top: f32, height: f32, look: &Look) -> AnyElement {
-    let workflow = lane.kind == LaneKind::Workflow;
-    let source = if lane.ended { "Ended".to_string() } else { lane.what.clone().unwrap_or_else(|| lane.source.clone()) };
-    let said = lane.note.as_ref().map(|note| format!("{}\n{note}", lane.title));
-    let changed = lane.changed.as_ref().map(|changed| {
-        div()
-            .id(SharedString::from(format!("lane-head-changed:{}", lane.id)))
-            .absolute()
-            .top(look.length(token::SPACE_1))
-            .right(look.length(token::SPACE_1))
-            .tooltip(super::rows::tip(format!("Changed on this Job\n{changed}")))
-            .child(glyph(look, "git-compare", Size::Small, look.color(token::STATUS_AWAITING_REVIEW)))
-    });
-    let head = div()
-        .id(SharedString::from(format!("lane-head:{}", lane.id)))
-        .absolute()
-        .left_0()
-        .top(px(top))
-        .h(px(height))
-        .w(px(HEAD))
-        .flex()
-        .flex_col()
-        .justify_center()
-        .gap(look.length(token::SPACE_1))
-        .px(look.length(token::SPACE_3))
-        .py(look.length(token::SPACE_2))
-        .border_r(look.length(token::BORDER_WIDTH))
-        .border_b(look.length(token::BORDER_WIDTH))
-        .border_color(look.color(if workflow { token::BORDER_STRONG } else { token::BORDER_SUBTLE }))
-        .bg(look.color(if workflow { token::BG_BASE } else { token::BG_RAISED }))
-        .font_family(mono(look))
-        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-        .when_some(said, |head, said| head.tooltip(super::rows::tip(said)))
-        .child(
+/// are read from (`Heads`). A ticket's head opens a menu with Teach; the head of a Job this one started,
+/// where that Job has lanes, opens them on a double press or Enter.
+impl JobView {
+    #[allow(clippy::too_many_arguments)]
+    fn lane_head(&self, id: &SharedString, lanes: &JobLanesView, lane: &LaneView, top: f32, height: f32, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let workflow = lane.kind == LaneKind::Workflow;
+        let source = if lane.ended { "Ended".to_string() } else { lane.what.clone().unwrap_or_else(|| lane.source.clone()) };
+        let opens = !lane.ticket && self.lane_opens(lanes, &lane.id, cx);
+        let lines: Vec<&str> = lane.note.iter().map(String::as_str).chain(opens.then_some(super::lanes_copy::OPENS_SAID)).collect();
+        let said = (!lines.is_empty()).then(|| format!("{}\n{}", lane.title, lines.join("\n")));
+        let changed = lane.changed.as_ref().map(|changed| {
             div()
-                .min_w_0()
-                .truncate()
-                .text_size(look.length(token::TEXT_XS))
-                .line_height(look.length(token::LEADING_XS))
-                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                .text_color(look.color(if lane.ended { token::FG_SUBTLE } else { token::FG_DEFAULT }))
-                .child(SharedString::from(lane.title.clone())),
-        )
-        .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(source)))
-        .children(changed);
-    labelled(head, Role::Group, lane.title.clone()).into_any_element()
+                .id(SharedString::from(format!("lane-head-changed:{}", lane.id)))
+                .absolute()
+                .top(look.length(token::SPACE_1))
+                .right(look.length(token::SPACE_1))
+                .tooltip(super::rows::tip(format!("Changed on this Job\n{changed}")))
+                .child(glyph(look, "git-compare", Size::Small, look.color(token::STATUS_AWAITING_REVIEW)))
+        });
+        let words = div()
+            .id(SharedString::from(format!("lane-head-words:{}", lane.id)))
+            .size_full()
+            .flex()
+            .flex_col()
+            .justify_center()
+            .gap(look.length(token::SPACE_1))
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_2))
+            .when_some(said, |head, said| head.tooltip(super::rows::tip(said)))
+            .child(
+                div()
+                    .min_w_0()
+                    .truncate()
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                    .text_color(look.color(if lane.ended { token::FG_SUBTLE } else { token::FG_DEFAULT }))
+                    .child(SharedString::from(lane.title.clone())),
+            )
+            .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(source)));
+        let words = if lane.ticket {
+            let handle = self.head_focus(id, &lane.id, cx);
+            let (title, note, held) = (lane.title.clone(), lane.note.clone(), lane.id.clone());
+            let (title_k, note_k, held_k) = (title.clone(), note.clone(), held.clone());
+            let named = format!("Ticket {}", lane.title);
+            let named_k = named.clone();
+            let pressed = handle.clone();
+            labelled(
+                words
+                    .track_focus(&handle)
+                    .cursor_pointer()
+                    .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
+                    .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                        cx.stop_propagation();
+                        window.focus(&pressed, cx);
+                    })
+                    .on_mouse_down(MouseButton::Right, cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                        cx.stop_propagation();
+                        this.open_ticket_head_menu(title.clone(), note.clone(), held.clone(), event.position, false, window, cx);
+                    }))
+                    .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                        let keys = &event.keystroke;
+                        if keys.key == "menu" || keys.key == "contextmenu" || (keys.key == "f10" && keys.modifiers.shift) {
+                            cx.stop_propagation();
+                            let at = super::head::drawn(window, cx, Role::Button, &named_k).map_or_else(|| window.mouse_position(), super::head::below_left);
+                            this.open_ticket_head_menu(title_k.clone(), note_k.clone(), held_k.clone(), at, true, window, cx);
+                        }
+                    })),
+                Role::Button,
+                named,
+            )
+            .into_any_element()
+        } else if opens {
+            let handle = self.head_focus(id, &lane.id, cx);
+            let (parent, held, parent_k, held_k) = (id.clone(), lane.id.clone(), id.clone(), lane.id.clone());
+            let pressed = handle.clone();
+            labelled(
+                words
+                    .track_focus(&handle)
+                    .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                        cx.stop_propagation();
+                        window.focus(&pressed, cx);
+                    })
+                    .cursor_pointer()
+                    .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
+                    .on_click(cx.listener(move |this, event: &gpui::ClickEvent, window, cx| {
+                        if event.click_count() == 2 {
+                            this.lanes_into(&parent, &held, window, cx);
+                        }
+                    }))
+                    .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                        if event.keystroke.key == "enter" && !event.keystroke.modifiers.modified() {
+                            cx.stop_propagation();
+                            this.lanes_into(&parent_k, &held_k, window, cx);
+                        }
+                    })),
+                Role::Button,
+                format!("Open Workflow: {}", lane.title),
+            )
+            .into_any_element()
+        } else {
+            words.into_any_element()
+        };
+        let head = div()
+            .id(SharedString::from(format!("lane-head:{}", lane.id)))
+            .absolute()
+            .left_0()
+            .top(px(top))
+            .h(px(height))
+            .w(px(HEAD))
+            .border_r(look.length(token::BORDER_WIDTH))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(if workflow { token::BORDER_STRONG } else { token::BORDER_SUBTLE }))
+            .bg(look.color(if workflow { token::BG_BASE } else { token::BG_RAISED }))
+            .font_family(mono(look))
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .child(words)
+            .children(changed);
+        labelled(head, Role::Group, lane.title.clone()).into_any_element()
+    }
 }
 
 /// What the pane paints under the nodes: each lane's line, the ways a state is left, the rules' edges and
@@ -808,9 +883,8 @@ impl PaintPlan {
 }
 
 impl JobView {
-    /// The Workflow tab's body: the rail, then the lanes with their heads over the left. Nothing for a Job
-    /// with no lanes, as Classic's `LanesBody` draws nothing.
-    pub(super) fn pane_lanes(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// A Job's canvas: the rail, then the lanes with their heads over the left (`LaneCanvas`).
+    pub(super) fn lanes_canvas(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let job = self.record(id, cx)?;
         let lanes = job.lanes.as_ref()?;
         let (frame_w, frame_h) = self.lanes.size.get();
@@ -882,7 +956,7 @@ impl JobView {
                 Some(self.lane_chip(id, edge, &target, (x - HEAD, y), chip.w * z, z, mine, picked, look, cx))
             })
             .collect();
-        let heads: Vec<AnyElement> = lanes.lanes.iter().zip(&placement.bands).map(|(lane, band)| lane_head(lane, view.y + band.y * z, band.h * z, look)).collect();
+        let heads: Vec<AnyElement> = lanes.lanes.iter().zip(&placement.bands).map(|(lane, band)| self.lane_head(id, lanes, lane, view.y + band.y * z, band.h * z, look, cx)).collect();
 
         let layer = div().absolute().top_0().bottom_0().right_0().left(px(HEAD)).overflow_hidden().children(nodes).children(chip_views);
         let heads = div().absolute().top_0().left_0().bottom_0().w(px(HEAD)).overflow_hidden().children(heads);
@@ -930,7 +1004,7 @@ impl JobView {
                 cx.notify();
             }))
             .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
-                if this.lanes.frame.is_focused(window) && this.lanes_key(&keys_for, event, cx) {
+                if this.lanes.frame.is_focused(window) && this.lanes_key(&keys_for, event, window, cx) {
                     cx.stop_propagation();
                 }
             }))
@@ -947,29 +1021,23 @@ impl JobView {
         // The frame fits the pane, so a pan to a node lands it where it can be seen. Classic's keeps a floor
         // of seven space-12s and scrolls the pane under it (`docs/concepts/native-bridge.md`, departures).
         Some(
-            div()
-                .flex_1()
-                .min_h_0()
-                .flex()
-                .flex_col()
-                .p(look.length(token::SPACE_3))
-                .child(labelled(
-                    div()
-                        .id("lanes-frame")
-                        .flex_1()
-                        .min_h_0()
-                        .flex()
-                        .rounded(look.length(token::RADIUS_LG))
-                        .border(look.length(token::BORDER_WIDTH))
-                        .border_color(look.color(token::BORDER_DEFAULT))
-                        .bg(look.color(token::BG_SUNKEN))
-                        .overflow_hidden()
-                        .child(rail)
-                        .child(pane),
-                    Role::Group,
-                    "Workflow",
-                ))
-                .into_any_element(),
+            labelled(
+                div()
+                    .id(SharedString::from(format!("lanes-frame:{id}")))
+                    .flex_1()
+                    .min_h_0()
+                    .flex()
+                    .rounded(look.length(token::RADIUS_LG))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_DEFAULT))
+                    .bg(look.color(token::BG_SUNKEN))
+                    .overflow_hidden()
+                    .child(rail)
+                    .child(pane),
+                Role::Group,
+                "Workflow",
+            )
+            .into_any_element(),
         )
     }
 
@@ -1007,7 +1075,7 @@ impl JobView {
 
     /// The canvas's keys (`keys`): arrows go to the nearest node, `]` and `[` round the rules picking each,
     /// Enter picks or lets go, and Esc lets go of what is picked.
-    fn lanes_key(&mut self, id: &SharedString, event: &KeyDownEvent, cx: &mut Context<Self>) -> bool {
+    fn lanes_key(&mut self, id: &SharedString, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let keys = &event.keystroke;
         if keys.modifiers.alt || keys.modifiers.control || keys.modifiers.platform {
             return false;
@@ -1021,6 +1089,7 @@ impl JobView {
         let mut all = self.lanes.seen.borrow_mut();
         let seen = all.entry(id.clone()).or_default();
         let current = seen.current.clone().filter(|one| placement.items.contains_key(one) || chips.contains_key(one)).or(first);
+        let mut picked = None;
         let done = match keys.key.as_str() {
             "escape" if seen.picked.is_some() => {
                 seen.picked = None;
@@ -1033,6 +1102,7 @@ impl JobView {
                         None => Pick::Node(current.clone()),
                     };
                     seen.picked = if seen.picked.as_ref() == Some(&pick) { None } else { Some(pick) };
+                    picked = seen.picked.clone();
                     true
                 }
                 None => false,
@@ -1063,6 +1133,7 @@ impl JobView {
                         seen.ask = Some(Ask { rects: rects_of(&[edge.id.clone(), edge.from.clone(), edge.to.clone()], &placement, &chips), follow: false, earliest: false });
                     }
                     seen.picked = Some(Pick::Rule(rule));
+                    picked = seen.picked.clone();
                     true
                 }
             }
@@ -1080,6 +1151,7 @@ impl JobView {
         };
         drop(all);
         if done {
+            self.rule_picked(id, picked, window, cx);
             cx.notify();
         }
         done
@@ -1088,10 +1160,12 @@ impl JobView {
     /// A press on a node or chip: the keys go to the canvas there, and what was pressed is picked or let go.
     fn lanes_press(&mut self, id: &SharedString, current: String, pick: Pick, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.lanes.frame, cx);
-        if let Some(seen) = self.lanes.seen.borrow_mut().get_mut(id) {
+        let picked = self.lanes.seen.borrow_mut().get_mut(id).and_then(|seen| {
             seen.current = Some(current);
             seen.picked = if seen.picked.as_ref() == Some(&pick) { None } else { Some(pick) };
-        }
+            seen.picked.clone()
+        });
+        self.rule_picked(id, picked, window, cx);
         cx.notify();
     }
 
@@ -1354,5 +1428,120 @@ impl JobView {
             .justify_center()
             .child(labelled(chip.aria_selected(picked), Role::Button, name))
             .into_any_element()
+    }
+}
+
+/// How an act stands, as Fleet keeps it: the glyph the rule's chip uses for the same, and the word (`STANDING`).
+fn standing(of: &str) -> (&'static str, String) {
+    match of {
+        "planned" => ("clock", "Planned".into()),
+        "asked" => ("message-circle-question-mark", "Asked".into()),
+        "stuck" => ("message-circle-question-mark", "Stuck".into()),
+        "done" => ("check", "Done".into()),
+        "skipped" => ("ban", "Skipped".into()),
+        "told" => ("check", "Told the agent".into()),
+        "not_carried" => ("clock", "Not carried".into()),
+        other => ("clock", other.to_string()),
+    }
+}
+
+impl JobView {
+    /// A rule's name in the Job's copy, else its id.
+    pub(super) fn rule_label(&self, id: &SharedString, rule: &str, cx: &Context<Self>) -> String {
+        self.record(id, cx).and_then(|job| job.lanes.as_ref()).and_then(|lanes| lanes.job.copy.rules.iter().find(|one| one.id == rule)).map_or_else(|| rule.to_string(), |one| one.label.clone())
+    }
+
+    /// Whether a rule kept acts on some instance, so that picking it opens them.
+    fn rule_has_acts(&self, id: &SharedString, rule: &str, cx: &Context<Self>) -> bool {
+        self.record(id, cx).and_then(|job| job.lanes.as_ref()).is_some_and(|lanes| lanes.job.fired.iter().any(|one| one.rule == rule && !one.acts.is_empty()))
+    }
+
+    /// A rule picked opens what it did, where Fleet kept acts for it (`pick` in `OwnLanes`).
+    fn rule_picked(&mut self, id: &SharedString, pick: Option<Pick>, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(Pick::Rule(rule)) = pick {
+            if self.rule_has_acts(id, &rule, cx) {
+                self.open_rule_panel(id.clone(), rule, window, cx);
+            }
+        }
+    }
+
+    /// What a rule did, a framed list for each instance it fired on (`ActsPanel`).
+    pub(super) fn rule_body(&self, id: &SharedString, rule: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let Some(lanes) = self.record(id, cx).and_then(|job| job.lanes.as_ref()) else { return div().into_any_element() };
+        let job = &lanes.job;
+        let label = self.rule_label(id, rule, cx);
+        let sections: Vec<AnyElement> = job
+            .fired
+            .iter()
+            .filter(|one| one.rule == rule && !one.acts.is_empty())
+            .map(|one| {
+                let held = job.instances.iter().find(|each| each.id == one.instance).map_or_else(|| label.clone(), |each| each.label.clone());
+                let rows: Vec<AnyElement> = one
+                    .acts
+                    .iter()
+                    .enumerate()
+                    .map(|(at, act)| {
+                        let (icon, said) = standing(&act.standing);
+                        let quiet = matches!(act.standing.as_str(), "skipped" | "not_carried");
+                        let small = |div: gpui::Div| div.text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS));
+                        let mono_fact = |text: String| small(div().flex_none().flex().items_center().h(look.length(token::H_CONTROL_SM)).font_family(mono(look)).text_color(look.color(token::FG_SUBTLE)).whitespace_nowrap()).child(SharedString::from(text));
+                        div()
+                            .flex()
+                            .items_start()
+                            .gap(look.length(token::SPACE_2))
+                            .px(look.length(token::SPACE_3))
+                            .py(look.length(token::SPACE_1))
+                            .when(at > 0, |row| row.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
+                            .child(
+                                small(div().flex_none().w(look.length(token::SPACE_12) * 3.5).h(look.length(token::H_CONTROL_SM)).flex().items_center().gap(look.length(token::SPACE_2)).text_color(look.color(token::FG_MUTED)).whitespace_nowrap())
+                                    .child(glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))
+                                    .child(SharedString::from(said)),
+                            )
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .flex()
+                                    .flex_col()
+                                    .child(small(div().min_h(look.length(token::H_CONTROL_SM)).flex().items_center().text_color(look.color(if quiet { token::FG_SUBTLE } else { token::FG_MUTED }))).child(SharedString::from(act.text.clone())))
+                                    .children(act.said.as_ref().map(|why| small(div().mb(look.length(token::SPACE_1)).text_color(look.color(token::FG_SUBTLE))).child(SharedString::from(why.clone())))),
+                            )
+                            .child(mono_fact(if act.course == LaneAutonomy::Asks { "Asks".into() } else { "Acts".into() }))
+                            .child(mono_fact(clock(&act.at)).id(SharedString::from(format!("act-at:{}:{at}", one.instance))).tooltip(super::rows::tip("Time")))
+                            .into_any_element()
+                    })
+                    .collect();
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("rule-firing:{}", one.instance)))
+                        .flex()
+                        .flex_col()
+                        .overflow_hidden()
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(look.color(token::BORDER_DEFAULT))
+                        .rounded(look.length(token::RADIUS_LG))
+                        .bg(look.color(token::BG_SUNKEN))
+                        .child(
+                            div()
+                                .px(look.length(token::SPACE_3))
+                                .py(look.length(token::SPACE_1))
+                                .border_b(look.length(token::BORDER_WIDTH))
+                                .border_color(look.color(token::BORDER_DEFAULT))
+                                .bg(look.color(token::BG_RAISED))
+                                .font_family(mono(look))
+                                .text_size(look.length(token::TEXT_XS))
+                                .line_height(look.length(token::LEADING_XS))
+                                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                                .text_color(look.color(token::FG_DEFAULT))
+                                .child(SharedString::from(held.clone())),
+                        )
+                        .child(labelled(div().id(SharedString::from(format!("rule-acts:{}", one.instance))).flex().flex_col().children(rows), Role::List, held.clone())),
+                    Role::Group,
+                    held,
+                )
+                .into_any_element()
+            })
+            .collect();
+        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().p(look.length(token::SPACE_6)).children(sections).into_any_element()
     }
 }
