@@ -301,13 +301,8 @@ impl Tunnel {
         if !newer(&latest, &kept) {
             return false;
         }
-        match self.driver.install() {
-            Ok(_) => true,
-            Err(why) => {
-                eprintln!("cloudflared {latest} not installed: {why}");
-                false
-            }
-        }
+        // One that fails leaves the running one as it is, and is tried again a day later.
+        self.driver.install().is_ok()
     }
 
     fn keep_up(&self, port: u16, stop: &AtomicBool) {
