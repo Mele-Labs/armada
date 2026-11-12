@@ -1017,9 +1017,9 @@ impl JobView {
     fn bar_button(&self, look: &Look, id: &'static str, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>, narrow: bool) -> gpui::Stateful<gpui::Div> {
         div()
             .id(id)
-            // As Electron's: a menu gives up room before Send does, down to a floor, and its words truncate.
+            // Send never shrinks; a menu gives up room first: its words truncate, then only its glyph and caret are left.
             .flex_shrink(1.)
-            .min_w(look.length(token::SPACE_12) * 1.5)
+            .min_w_0()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
