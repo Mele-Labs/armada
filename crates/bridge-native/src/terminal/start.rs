@@ -1,6 +1,6 @@
-//! Starting a terminal Job, from the dispatch sheet's Terminal, ⌘T or the palette's New terminal: Fleet
-//! starts the Job with its first shell open, and nothing runs in its thread until it is written to.
-//! Where it starts is kept, so ⌘T with nothing in view starts in the same place again.
+//! Starting Fleet's quick Job, from ⌘T or the palette's New Job here: it opens on its thread, and nothing
+//! runs there until it is written to. Where it starts is kept, so ⌘T with nothing in view starts in the
+//! same place again.
 
 use gpui::{App, Task};
 

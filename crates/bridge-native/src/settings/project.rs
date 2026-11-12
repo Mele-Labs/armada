@@ -307,6 +307,7 @@ mod tests {
             look: Some(LookSet { layout: None, theme: Some("dusk".into()), density: Some("roomy".into()) }),
             tracker: Some([("provider".to_string(), "linear".to_string())].into_iter().collect()),
             reviews: Some(ReviewsSet { plans: Some("review".into()), pull_requests: Some("off".into()), walks: Some("off".into()) }),
+            ..ValuesSet::default()
         }
     }
 
@@ -329,6 +330,7 @@ mod tests {
             tracker: None,
             reviews: Some(ResolvedReviews { plans: "review_and_approve".into(), pull_requests: "review".into(), walks: "off".into(), from: ValueLayer::Kit }),
             autonomy: Vec::new(),
+            ..ResolvedValues::default()
         };
         let sent = with_value(None, Some(&now), "plans", "off");
         assert_eq!(sent.reviews, Some(ReviewsSet { plans: Some("off".into()), pull_requests: Some("review".into()), walks: Some("off".into()) }));

@@ -56,6 +56,9 @@ pub enum Verb {
     /// A press on the button of this name inside the article of this name: where one card among several
     /// has a button the others have too.
     OpenIn(&'static str, &'static str),
+    /// A press on the button of this name inside the element of this role and name: where a button's name is
+    /// one the walk's own bar or another place also draws.
+    PressWithin(&'static str, &'static str, &'static str),
     /// A right press on the element of this role and name, before the target is ringed: the target is the menu it opens.
     RightOpen(&'static str, &'static str),
     /// A drag across the last line of the element of this role and name, as words are selected.
@@ -333,7 +336,7 @@ pub static WALKS: &[Walk] = &[
     },
     Walk {
         name: "native-terminal",
-        title: "A terminal Job, from ⌘T, the sheet and the palette",
+        title: "A new Job from ⌘T and the palette, on its thread; its shells from the +",
         screen: Screen::App,
         scenario: "terminal-job",
         steps: &terminal::STEPS,
@@ -497,7 +500,7 @@ pub static WALKS: &[Walk] = &[
         scenario: "job-now",
         steps: &[
             press_on("A Job working its approved plan, with a walk and a question waiting on you: neither is in Now", "row", "Fix the merge line freshness chip", "list", "Now"),
-            step("The lamp says the Job is at work. Ask for an update and Plan stand at the band's end", Verb::Look, "img", "Live"),
+            step("Ask for an update and Plan stand at the band's end, with no lamp before them", Verb::Look, "button", "Ask for an update"),
             step("The agent's row: the call it is in, and how long it has been on it", Verb::Look, "group", "cargo check -p bridge-native"),
             step("Fleet at work beside the agent, with why in its tooltip", Verb::Look, "group", "Moving the Job to slot-5"),
             step("ci running on its pull request, and the native tests running", Verb::Look, "group", "native-tests"),
@@ -1909,10 +1912,6 @@ pub static WALKS: &[Walk] = &[
             step("An agent's own row takes a reason: × opens its box", Verb::Open("button", "Remove Land on a branch or a pull request?"), "textbox", "Reason"),
             step("The reason is typed", Verb::Typed("Decided in the thread"), "textbox", "Reason"),
             step("Enter removes the row and sends the reason", Verb::Key("enter"), "button", "Needs you"),
-            step("Under them, a plan not yet approved is edited in Now's short form", Verb::Look, "region", "Chip reads the stale state"),
-            step("Below them, Now scrolls to the plan", Verb::Wheel("region", "Job column: Now", 600), "region", "Write it down"),
-            step("The chevron shows a group's subagent type and paths", Verb::Open("button", "Subagent type and paths of Write it down"), "combobox", "Subagent type of Write it down"),
-            step("A second press folds them", Verb::Open("button", "Subagent type and paths of Write it down"), "button", "Subagent type and paths of Write it down"),
             step("More opens the tab's menu", Verb::Open("button", "More"), "menuitem", "Rename"),
             step("↓ to the first entry", Verb::Key("down"), "menuitem", "Rename"),
             step("Enter turns the title into a field", Verb::Key("enter"), "textbox", "Rename Fix the merge line freshness chip"),
@@ -1943,6 +1942,7 @@ pub static WALKS: &[Walk] = &[
             step("A press opens the run", Verb::Press, "button", "Tool calls: Read, Grep, Edit"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
+            step("Page down reads on, past the Checks", Verb::Key("pagedown"), "listitem", "/reload-plugins"),
             step("A right press on a command offers Teach", Verb::RightOpen("listitem", "/reload-plugins"), "menuitem", "Teach"),
             step("Teach opens the panel over the thread, with the command and a box", Verb::Open("menuitem", "Teach"), "textbox", "Instruction"),
             step("Esc puts the panel away and the command has focus again", Verb::Key("escape"), "listitem", "/reload-plugins"),

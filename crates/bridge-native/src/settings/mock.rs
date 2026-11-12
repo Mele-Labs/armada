@@ -28,6 +28,8 @@ pub struct MockFleet {
     pub workflows: Vec<ipc::WorkflowSummary>,
     /// Each definition's file, by place, as `mock_workflows.rs` answers the Workflows page's acts from them.
     pub definitions: Vec<super::mock_workflows::Held>,
+    /// The changes an agent was asked to draft, as `mock_workflows.rs` keeps them until approved or dismissed.
+    pub changes: Vec<super::mock_workflows::Kept>,
     /// What `GET /models` answers: Classic's mock models (`apps/desktop/src/renderer/src/mock/kit-models.ts`).
     pub models: ipc::ModelChoices,
 }
@@ -101,7 +103,7 @@ impl MockFleet {
                 ..ValuesSet::default()
             });
         }
-        MockFleet { list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
+        MockFleet { list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
@@ -245,6 +247,7 @@ impl MockFleet {
             tracker: Some(ipc::ResolvedTracker { value: own.tracker.clone(), from: if own.tracker.is_some() { ValueLayer::Project } else { ValueLayer::Default } }),
             reviews: Some(reviews),
             autonomy: Vec::new(),
+            ..ResolvedValues::default()
         })
     }
 

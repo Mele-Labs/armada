@@ -155,21 +155,23 @@ pub fn ghost(look: &Look, id: impl Into<gpui::ElementId>, said: &str, off: bool)
         .child(SharedString::from(said.to_string()))
 }
 
-/// A switch as Electron's `Switch`: a recessed track with the knob, and ON or OFF in the half it leaves.
+/// A switch as Electron's `Switch` at `data-size="sm"`: a recessed track one badge tall with the knob, and ON or OFF
+/// in the half it leaves. Smaller than Classic's Settings switch, which is the default size: the owner's word
+/// (12 Nov), so each row has air above and below its switch.
 pub fn switch_track(look: &Look, on: bool, off: bool) -> Div {
     let edge = look.length(token::BORDER_WIDTH);
-    let tall = look.length(token::H_BADGE) + look.length(token::SPACE_2);
-    let pad = edge * 3.;
+    let tall = look.length(token::H_BADGE);
+    let pad = edge * 2.;
     let knob = tall - pad * 2.;
-    let air = look.length(token::SPACE_2);
+    let air = look.length(token::SPACE_1);
     let lit = on && !off;
     let word = div()
         .flex_none()
-        .w(look.length(token::SPACE_4) + look.length(token::SPACE_1))
+        .w(look.length(token::SPACE_4) + look.length(token::SPACE_2))
         .flex()
         .justify_center()
         .font_family(mono(look))
-        .text_size(look.length(token::TEXT_SWITCH))
+        .text_size(look.length(token::TEXT_2XS))
         .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
         .text_color(if lit { look.color(token::FG_INVERSE) } else { look.color(token::FG_MUTED) })
         .child(if on { "ON" } else { "OFF" });
