@@ -24,6 +24,7 @@ import type { JobLanesView } from "./job-lanes";
 import type { JobMark } from "./job-mark";
 import type { CompactOffer } from "./job-compact";
 import type { RingBand } from "./ring-band";
+import type { PullRequestDraft } from "./pull-requests";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -291,6 +292,8 @@ export type SessionRecord = {
    * holds an instance or follows a workflow; absent for one that has ended and for one that does neither. Since 11 Nov 2026.
    */
   lanes?: JobLanesView;
+  /** The pull request descriptions this Job proposed that wait on the person, each with its pull request. Absent where none waits. Since 12 Nov 2026. */
+  pull_request_drafts?: PullRequestDraft[];
 };
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
@@ -578,6 +581,8 @@ export type ProposeDraft = {
   title: string;
   text: string;
   before?: string;
+  /** The number of the pull request whose description this is. Refused where the Job holds no such pull request. */
+  pull_request?: number;
   session_id?: string;
 };
 

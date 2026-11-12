@@ -87,23 +87,44 @@ pub struct PullRequestState {
 }
 
 /// Where the forge says a merge would stand against the base branch.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PullRequestMergeable {
     Mergeable,
     Conflicting,
+    #[default]
     Unknown,
 }
 
 /// What the reviews have come to. `Required` is a review the base branch asks
 /// for and none has given.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PullRequestReviewState {
     Approved,
     ChangesRequested,
     Required,
+    #[default]
     None,
+}
+
+/// A description a Job proposed with `propose_draft` for a pull request it holds, waiting on the
+/// person. Fleet links it where the draft's `before` is the pull request's body, whitespace aside,
+/// or where the Job named the pull request. **Gone once the draft is settled**, however it was.
+/// Carried on `SessionRecord::pull_request_drafts` and `PullRequestPage::draft`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestDraft {
+    pub manifest_id: ManifestId,
+    pub number: u64,
+    /// The draft's row id, as its `draft:<id>` item names it. Approve, Edit and Note answer that item.
+    pub draft: String,
+    /// The proposed description, in markdown.
+    pub text: String,
+    /// The description it replaces, as the Job gave it. Absent where it gave none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub before: Option<String>,
+    /// 1 for the Job's first draft for this pull request, and one more for each it proposed since.
+    pub revision: u32,
 }
 
 /// What a review said.
@@ -228,7 +249,7 @@ pub struct PullRequestCommit {
 /// `get_pull_request_detail`: everything the panel's tabs and facts draw that
 /// [`PullRequestState`] does not hold. Read when the panel opens, not carried
 /// on `session.changed`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PullRequestPage {
     pub manifest_id: ManifestId,
     pub number: u64,
@@ -265,6 +286,9 @@ pub struct PullRequestPage {
     /// it. Absent as `HubPullRequest::owner` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner: Option<crate::merge_hub::PullRequestOwner>,
+    /// A description a Job proposed for it and the person has not settled. Absent where none waits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub draft: Option<PullRequestDraft>,
 }
 
 /// `get_pull_request_file`'s query string: the file a person opened, as the page's `files` names it.

@@ -539,7 +539,7 @@ pub use settings::{
 };
 pub use pull_requests::{
     FailureWeight, ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit,
-    PullRequestEntry, PullRequestFile, PullRequestFileOf, PullRequestFilePatch,
+    PullRequestDraft, PullRequestEntry, PullRequestFile, PullRequestFileOf, PullRequestFilePatch,
     PullRequestFilePatches,
     PullRequestFileStatus, PullRequestMergeable, PullRequestPage, PullRequestReviewState, PullRequestReviewer,
     PullRequestReviewerKind,
