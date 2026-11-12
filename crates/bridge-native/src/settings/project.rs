@@ -330,6 +330,7 @@ mod tests {
             tracker: None,
             reviews: Some(ResolvedReviews { plans: "review_and_approve".into(), pull_requests: "review".into(), walks: "off".into(), from: ValueLayer::Kit }),
             autonomy: Vec::new(),
+            ..ResolvedValues::default()
         };
         let sent = with_value(None, Some(&now), "plans", "off");
         assert_eq!(sent.reviews, Some(ReviewsSet { plans: Some("off".into()), pull_requests: Some("review".into()), walks: Some("off".into()) }));

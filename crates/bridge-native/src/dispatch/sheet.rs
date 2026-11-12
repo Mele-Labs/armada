@@ -16,7 +16,7 @@ use gpui::{
 };
 use gpui_component::input::{InputEvent, Position, TextareaState};
 
-use super::face::{Face, Kind, Mark, Offered, Part, Reading, Row, Trigger, Wait};
+use super::face::{Face, Mark, Offered, Part, Reading, Row, Trigger, Wait};
 use crate::dropdown::{Dropdown, Entry, Picked};
 use crate::keymap::Act;
 use crate::look::{token, ActiveLook};
@@ -37,8 +37,8 @@ pub enum Asked {
     ReadWait { job: String, words: String },
     Start { words: String, repository: String, model: Option<String>, effort: Option<String>, held: bool },
     Queue { words: String, repository: String, model: Option<String>, effort: Option<String> },
-    /// A terminal Job, in a repository or a folder. The words, where there are any, are its title.
-    StartTerminal { title: Option<String>, place: crate::terminal::shells::Place, model: Option<String>, effort: Option<String> },
+    /// New Job here, from the card under the sheet: what ⌘T starts. The sheet has shut.
+    JobHere,
 }
 
 impl EventEmitter<Asked> for DispatchSheet {}
@@ -61,9 +61,6 @@ enum Pop {
     Repository,
 }
 
-/// The repository list's row that chooses a folder instead, for a terminal Job.
-const FOLDER_ROW: &str = "folder:";
-
 pub(super) struct Popup {
     pub dropdown: Entity<Dropdown>,
     _picked: Subscription,
@@ -79,10 +76,6 @@ pub(super) struct Anchors {
 
 pub struct DispatchSheet {
     pub face: Face,
-    /// What the sheet starts, chosen for this opening only: the next opens on a Job again.
-    pub(super) kind: Kind,
-    /// A folder chosen for a terminal Job in place of a repository, as an absolute path.
-    pub(super) folder: Option<SharedString>,
     pub(super) open: bool,
     pub(super) request: Entity<TextareaState>,
     _typed: Subscription,
@@ -110,6 +103,9 @@ pub struct DispatchSheet {
     pub(super) frame: FocusHandle,
     pub(super) row: FocusHandle,
     pub(super) parts: [FocusHandle; 4],
+    /// Where the card under the sheet starts a Job, as the title bar names it: none draws no card.
+    pub(super) here: Option<SharedString>,
+    pub(super) here_key: FocusHandle,
 }
 
 impl Focusable for DispatchSheet {
@@ -128,8 +124,6 @@ impl DispatchSheet {
         DispatchSheet {
             wait: face.wait.clone(),
             face,
-            kind: Kind::Job,
-            folder: None,
             open: false,
             request,
             _typed: typed,
@@ -150,7 +144,24 @@ impl DispatchSheet {
             frame: cx.focus_handle(),
             row: cx.focus_handle(),
             parts: [cx.focus_handle(), cx.focus_handle(), cx.focus_handle(), cx.focus_handle()],
+            here: None,
+            here_key: cx.focus_handle(),
         }
+    }
+
+    /// The project or repository the card under the sheet starts a Job in.
+    pub fn set_here(&mut self, here: Option<SharedString>, cx: &mut Context<Self>) {
+        self.here = here;
+        cx.notify();
+    }
+
+    /// The card under the sheet: the sheet shuts, and the Job ⌘T starts is asked for.
+    pub(super) fn job_here(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.here.is_none() {
+            return;
+        }
+        self.close(window, cx);
+        cx.emit(Asked::JobHere);
     }
 
     pub fn is_open(&self) -> bool {
@@ -178,8 +189,6 @@ impl DispatchSheet {
             });
         }));
         self.asking = false;
-        self.kind = Kind::Job;
-        self.folder = None;
         self.face.fresh();
         let words = crate::drafts::kept(KEEP_REQUEST, cx).unwrap_or_default();
         let tuning = crate::drafts::kept(KEEP_TUNING, cx).unwrap_or_default();
@@ -225,25 +234,7 @@ impl DispatchSheet {
     }
 
     pub(super) fn worded(&self, cx: &App) -> bool {
-        // A terminal Job needs no words: Enter on an empty line starts one.
-        self.kind == Kind::Terminal || !self.words(cx).trim().is_empty() || !self.attached.is_empty()
-    }
-
-    /// Tab on the line steps to the next kind (`dispatching.tsx:780-788`).
-    pub(super) fn choose_kind(&mut self, kind: Kind, window: &mut Window, cx: &mut Context<Self>) {
-        self.kind = kind;
-        if kind == Kind::Job {
-            self.folder = None;
-        }
-        let said = if kind == Kind::Terminal { TERMINAL_PLACEHOLDER } else { PLACEHOLDER };
-        self.request.update(cx, |state, cx| state.set_placeholder(said, window, cx));
-        cx.notify();
-    }
-
-    /// Open on Terminal: ⌘T where no repository or folder stands to start one in.
-    pub fn show_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.show("", window, cx);
-        self.choose_kind(Kind::Terminal, window, cx);
+        !self.words(cx).trim().is_empty() || !self.attached.is_empty()
     }
 
     // -- the words ----------------------------------------------------------------------------
@@ -352,9 +343,6 @@ impl DispatchSheet {
         if !self.face.connected || self.sending || self.queueing || !self.worded(cx) {
             return;
         }
-        if self.kind == Kind::Terminal {
-            return self.act_terminal(window, cx);
-        }
         if self.face.reading == Reading::Detecting && self.repository().is_none() {
             // Nothing starts without a repository: a read still out is waited for.
             self.sending = true;
@@ -377,27 +365,6 @@ impl DispatchSheet {
             model: self.model.as_ref().map(|one| one.to_string()),
             effort: self.effort.as_ref().map(|one| one.to_string()),
             held,
-        });
-        cx.notify();
-    }
-
-    /// A terminal Job: in the folder chosen, else the repository, else the picker asks for one.
-    fn act_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        use crate::terminal::shells::Place;
-        let place = match (&self.folder, self.repository()) {
-            (Some(folder), _) => Place::Folder(folder.to_string()),
-            (None, Some(repository)) => Place::Repository(repository),
-            (None, None) => return self.ask(window, cx),
-        };
-        let words = self.words(cx);
-        self.asking = false;
-        self.sending = true;
-        self.face.refused = None;
-        cx.emit(Asked::StartTerminal {
-            title: Some(words.trim().to_string()).filter(|one| !one.is_empty()),
-            place,
-            model: self.model.as_ref().map(|one| one.to_string()),
-            effort: self.effort.as_ref().map(|one| one.to_string()),
         });
         cx.notify();
     }
@@ -493,7 +460,6 @@ impl DispatchSheet {
 
     pub(super) fn pick(&mut self, name: SharedString, window: &mut Window, cx: &mut Context<Self>) {
         let was_asking = self.asking;
-        self.folder = None;
         self.face.pick(&name);
         self.face.refused = None;
         self.asking = false;
@@ -569,8 +535,10 @@ impl DispatchSheet {
                 if mods.shift && self.wait.is_some() {
                     let first = self.parts[0].clone();
                     window.focus(&first, cx);
-                } else if !mods.shift && crate::terminal::shells::starts(cx) {
-                    self.choose_kind(self.kind.next(), window, cx);
+                } else if !mods.shift && self.here.is_some() {
+                    // Tab goes on to the card under the sheet, not out to the window behind it.
+                    let card = self.here_key.clone();
+                    window.focus(&card, cx);
                 } else {
                     return;
                 }
@@ -613,9 +581,7 @@ impl DispatchSheet {
             Pop::Model => self.model = id.strip_prefix("model:").filter(|one| !one.is_empty()).map(|one| one.to_string().into()),
             Pop::Effort => self.effort = id.strip_prefix("effort:").filter(|one| !one.is_empty()).map(|one| one.to_string().into()),
             Pop::Repository => {
-                if id == FOLDER_ROW {
-                    self.choose_folder(window, cx);
-                } else if let Some(name) = id.strip_prefix("repo:") {
+                if let Some(name) = id.strip_prefix("repo:") {
                     self.pick(name.to_string().into(), window, cx);
                 }
                 return;
@@ -661,33 +627,7 @@ impl DispatchSheet {
             };
             entries.push(Entry::Row(row));
         }
-        if self.kind == Kind::Terminal {
-            entries.push(Entry::Rule);
-            let row = crate::dropdown::Row::new(FOLDER_ROW, "Choose a folder").icon("folder").ticked(self.folder.is_some());
-            entries.push(Entry::Row(row));
-        }
         self.open_pop(Pop::Repository, from, "Repository", entries, window, cx);
-    }
-
-    /// macOS's folder panel: the folder chosen is where the terminal Job starts, in place of a repository.
-    fn choose_folder(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let asked = cx.prompt_for_paths(gpui::PathPromptOptions { files: false, directories: true, multiple: false, prompt: Some("Choose".into()) });
-        cx.spawn_in(window, async move |this, cx| {
-            let Ok(Ok(Some(paths))) = asked.await else { return };
-            let Some(folder) = paths.into_iter().next() else { return };
-            let _ = this.update_in(cx, |this, window, cx| {
-                this.folder = Some(folder.display().to_string().into());
-                let was_asking = std::mem::take(&mut this.asking);
-                if was_asking {
-                    this.act(window, cx);
-                } else {
-                    let focus = this.request.focus_handle(cx);
-                    window.focus(&focus, cx);
-                }
-                cx.notify();
-            });
-        })
-        .detach();
     }
 
     // -- the wait sentence ------------------------------------------------------------------------------
@@ -741,8 +681,6 @@ impl DispatchSheet {
 }
 
 const PLACEHOLDER: &str = "Describe the work, or paste a link to a ticket.";
-/// A terminal Job's words are only its title.
-const TERMINAL_PLACEHOLDER: &str = "A title, or Enter for none";
 
 /// The caret at the end of `text`, which `set_value` leaves at the start.
 fn end_of(state: &mut TextareaState, text: &str, window: &mut Window, cx: &mut Context<TextareaState>) {
