@@ -1290,6 +1290,13 @@ pub static WALKS: &[Walk] = &[
         steps: &dispatch::STEPS,
     },
     Walk {
+        name: "start-flow-sheet",
+        title: "Dispatch: Start runs at once, Draft holds it on its start card",
+        screen: Screen::Dispatch,
+        scenario: "jobs-many",
+        steps: &dispatch::START_FLOW,
+    },
+    Walk {
         name: "notes",
         title: "Notes on ⌥⌘A",
         screen: Screen::Dispatch,

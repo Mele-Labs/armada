@@ -41,3 +41,18 @@ pub static STEPS: [Step; 35] = [
     answer("A project removed since the window picked it: Fleet's refusal, in its own words, over the band", "refuse-member", "alert", "there is no project storefront"),
     step("Esc shuts the sheet", Verb::Key("escape"), "heading", "armada"),
 ];
+
+/// The start flow: a start he makes himself runs at once, and Draft is the one way it is held on its start card.
+pub static START_FLOW: [Step; 11] = [
+    step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
+    step("Typing reads the repository: the mark turns to a spinner", Verb::Typed("Fix the flaky login test in sample-api"), "img", "Repository, finding"),
+    answer("Fleet found sample-api in the words: the picker names it", "found", "combobox", "Repository sample-api"),
+    step("Draft stands beside Start; its tooltip says nothing runs until Start is pressed on its card", Verb::Hover, "button", "Draft"),
+    press_on("Start runs the Job at once: the button turns to Starting", "button", "Start", "button", "Starting"),
+    answer("Fleet took it: the sheet goes and the Job is working", "answer-start-job", "row", "Fix the flaky login test in sample-api"),
+    step("⌘N opens a sheet with nothing kept", Verb::Key("cmd-n"), "dialog", "Dispatch"),
+    step("The words and the repository are read as before", Verb::Typed("Retry the webhook sender on a 503 in sample-api"), "img", "Repository, finding"),
+    answer("Fleet found sample-api in the words", "found", "combobox", "Repository sample-api"),
+    press_on("Draft holds the start: the button turns to Drafting and Start waits", "button", "Draft", "button", "Drafting"),
+    answer("Fleet took it: the Job opens held on its start card, and nothing runs until Start is pressed there", "answer-draft", "row", "Retry the webhook sender on a 503 in sample-api"),
+];

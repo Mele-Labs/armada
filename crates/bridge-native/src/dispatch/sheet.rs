@@ -339,7 +339,7 @@ impl DispatchSheet {
 
     // -- the act ----------------------------------------------------------------------------------
 
-    fn repository(&self) -> Option<String> {
+    pub(super) fn repository(&self) -> Option<String> {
         self.face.chosen().map(|chip| chip.name.to_string())
     }
 
@@ -385,6 +385,11 @@ impl DispatchSheet {
             held,
         });
         cx.notify();
+    }
+
+    /// The words and the repository of a start out for Fleet's answer, for a walk's scene to answer with.
+    pub(super) fn started(&self, cx: &App) -> Option<(String, String)> {
+        self.sending.then(|| self.repository()).flatten().map(|repository| (self.words(cx), repository))
     }
 
     /// No repository stands: the picker takes the call hue and its list opens until one is picked.

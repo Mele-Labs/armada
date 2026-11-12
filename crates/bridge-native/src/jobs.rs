@@ -789,16 +789,33 @@ impl JobsList {
     /// A walk's stand-in for Fleet's yes to a queued idea's start: a Job of its words, in its repository's group,
     /// stands in the list at once and opens, as a live start's record would.
     pub fn hold_started(&mut self, idea: &crate::queued::QueuedIdea, cx: &mut Context<Self>) {
-        let like = self.jobs.iter().find(|job| project_of(job) == idea.repository).or_else(|| self.jobs.first());
+        self.hold_new(format!("started-{}", idea.id), idea.title().to_string(), &idea.repository, None, cx);
+    }
+
+    /// A walk's stand-in for Fleet's yes to a start from the sheet: a Job of the words stands in the list and opens,
+    /// working at once, or held on its start card where the person pressed Draft.
+    pub fn hold_started_words(&mut self, words: &str, repository: &str, held: bool, cx: &mut Context<Self>) {
+        let title = words.lines().find(|line| !line.trim().is_empty()).map_or("", str::trim).to_string();
+        let mark = if held {
+            ipc::JobMark { state: ipc::JobState::Draft, lamp: ipc::JobLamp::Idle, group: ipc::JobGroup::Working }
+        } else {
+            ipc::JobMark { state: ipc::JobState::Working, lamp: ipc::JobLamp::Running, group: ipc::JobGroup::Working }
+        };
+        let id = if held { "drafted-from-sheet" } else { "started-from-sheet" };
+        self.hold_new(id.to_string(), title, repository, Some(mark), cx);
+    }
+
+    fn hold_new(&mut self, id: String, title: String, repository: &str, mark: Option<ipc::JobMark>, cx: &mut Context<Self>) {
+        let like = self.jobs.iter().find(|job| project_of(job) == repository).or_else(|| self.jobs.first());
         let Some(mut record) = like.cloned() else { return };
-        record.id = ipc::SessionId::carried(format!("started-{}", idea.id));
-        record.title = Some(idea.title().to_string());
+        record.id = ipc::SessionId::carried(id);
+        record.title = Some(title);
         record.state = SessionState::Live;
         record.attachments = Vec::new();
         record.activity = None;
         record.so_far = None;
         record.hosted = None;
-        record.mark = None;
+        record.mark = mark;
         record.ended_at = None;
         let id: SharedString = record.id.as_str().to_string().into();
         self.jobs.insert(0, record);
