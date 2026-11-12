@@ -79,6 +79,7 @@ impl Sessions for FakeDaemon {
             mark: None,
             viewed_at: None,
             compact: None,
+            lanes: None,
         })
     }
 

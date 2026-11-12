@@ -20,6 +20,7 @@ import type { JudgeReading } from "./judge";
 import type { SessionWait, StartAfter } from "./session-waits";
 import type { WireError } from "./protocol";
 import type { InFlight } from "./lifecycles";
+import type { JobLanesView } from "./job-lanes";
 import type { JobMark } from "./job-mark";
 import type { CompactOffer } from "./job-compact";
 import type { RingBand } from "./ring-band";
@@ -283,6 +284,11 @@ export type SessionRecord = {
   viewed_at?: string;
   /** Whether Compact is offered on the Job, or off and why, without words. Absent where Fleet did not read one. Since 9 Nov 2026. */
   compact?: CompactOffer;
+  /**
+   * The Job's lanes, worked out by Fleet: where it stands in its workflow, what it holds and the lanes and edges drawn from both. Set for a live Job that
+   * holds an instance or follows a workflow; absent for one that has ended and for one that does neither. Since 11 Nov 2026.
+   */
+  lanes?: JobLanesView;
 };
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
