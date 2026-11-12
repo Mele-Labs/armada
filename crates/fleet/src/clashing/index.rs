@@ -52,6 +52,8 @@ pub(crate) struct Reading {
     pub landed: Option<String>,
     /// Who has been told this set of files. Cleared when the set changes.
     pub told: BTreeSet<Who>,
+    /// The branch each holder stood on where the pair clashed: a Job holds more than one slot.
+    pub branches: BTreeMap<Who, String>,
 }
 
 /// What a check's verdict did to the reading.
@@ -209,10 +211,18 @@ impl Writes {
                     since: now.clone(),
                     landed,
                     told: BTreeSet::new(),
+                    branches: BTreeMap::new(),
                 };
                 state.readings.insert(opposed.clone(), reading);
                 Changed::Set(paths)
             }
+        }
+    }
+
+    /// The branches each side of a standing clash stood on where it was found.
+    pub(crate) fn named(&self, opposed: &Opposed, branches: BTreeMap<Who, String>) {
+        if let Some(reading) = self.state().readings.get_mut(opposed) {
+            reading.branches = branches;
         }
     }
 

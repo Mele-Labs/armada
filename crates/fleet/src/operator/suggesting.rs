@@ -33,8 +33,10 @@ pub(crate) const DO_IT: u32 = 0;
 pub(crate) const SKIP: u32 = 1;
 
 /// The rows of a Job's Needs you list for what it would do. An answer's shows on its question.
+/// **One that asks the same as an earlier one is folded into it** and is not a row of its own.
 pub(crate) fn suggestion_items(kept: &[KeptSuggestion]) -> impl Iterator<Item = WaitingItem> + '_ {
-    kept.iter().filter(|one| one.item.is_none()).map(|one| {
+    let folded = |at: usize, one: &KeptSuggestion| kept[..at].iter().any(|first| first.item.is_none() && same_thing(first) == same_thing(one));
+    kept.iter().enumerate().filter(move |(at, one)| one.item.is_none() && !folded(*at, one)).map(|(_, one)| {
         let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
         // A start that repeats a live Job's work reads as the hand-over it would make, and the other as keeping both.
         let (yes, no) = match (one.arrived.as_str(), one.way.as_str(), one.what.as_deref()) {
@@ -107,9 +109,28 @@ fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
 
 /// What a suggestion is about, so one raised again for it is a repeat: its repository, kind of arrival
 /// and way, its subject, trimmed, single-spaced and lower-cased, and the issue it names, where it does.
+/// **A file or a close of a named issue is the same whatever brought it**: what it would file or
+/// close, and not the pull request or note that raised it.
 fn same_thing(one: &KeptSuggestion) -> [String; 5] {
-    let said = one.subject.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
-    [one.manifest_id.clone(), one.arrived.clone(), one.way.clone(), said, one.what.clone().unwrap_or_default()]
+    let bare = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+    match (one.way.as_str(), one.what.as_deref()) {
+        ("file" | "close", Some(what)) => [one.manifest_id.clone(), String::new(), one.way.clone(), String::new(), bare(what)],
+        _ => [one.manifest_id.clone(), one.arrived.clone(), one.way.clone(), bare(&one.subject), one.what.clone().unwrap_or_default()],
+    }
+}
+
+/// What else raised the same as `kept`, folded into it from `standing`, as its tooltip names each.
+pub(super) fn folded_into(kept: &KeptSuggestion, standing: &[KeptSuggestion]) -> Vec<String> {
+    standing.iter().filter(|one| one.n > kept.n && one.item.is_none() && same_thing(one) == same_thing(kept)).map(raised_by).collect()
+}
+
+/// What raised a suggestion, in a few words.
+fn raised_by(one: &KeptSuggestion) -> String {
+    match Arrived::from_word(&one.arrived) {
+        Some(Arrived::Merged) => format!("#{} merging", one.arrival.rsplit(':').next().unwrap_or_default()),
+        Some(Arrived::Note) => format!("your note \"{}\"", one.subject),
+        _ => one.subject.clone(),
+    }
 }
 
 /// The arrival a suggestion was kept from, as far as doing it reads one.
@@ -215,6 +236,22 @@ where
         Ok(None)
     }
 
+    /// The open suggestions no Job holds that ask the same as one already answered, settled with no word
+    /// to him: **never queued, and not under Answered**. Fleet's log says which, so it can be traced.
+    pub(super) async fn answered_repeats_dropped(&self) {
+        let at = self.now();
+        let mut store = self.store().lock().await;
+        let standing = store.operator_suggestions_of("").unwrap_or_default();
+        for one in &standing {
+            let earlier = store.operator_suggestions_like(one).unwrap_or_default();
+            let answered = earlier.iter().find(|first| first.n < one.n && !standing.iter().any(|open| open.n == first.n) && same_thing(first) == same_thing(one));
+            let Some(first) = answered else { continue };
+            if store.settle_operator_suggestion(one.n, false, at.as_str()).unwrap_or(false) {
+                self.operator_noted("a suggestion that repeats one already answered was dropped", format!("suggestion:{} repeats suggestion:{}: {}", one.n, first.n, one.text));
+            }
+        }
+    }
+
     /// Whether choice `choice` is Do it, or Skip. Anything else is refused.
     fn suggestion_go(&self, choice: Option<u32>) -> Result<bool, Refusal> {
         match choice {
@@ -273,6 +310,10 @@ where
             let kept = store.operator_suggestion(n).map_err(|why| self.ledger_fault(why))?.filter(|one| one.session_id == session).ok_or_else(|| self.settled_already())?;
             if !store.settle_operator_suggestion(n, go, at.as_str()).map_err(|why| self.ledger_fault(why))? {
                 return Err(self.settled_already());
+            }
+            // Those folded into it are answered with it.
+            for copy in store.operator_suggestions_of(session).map_err(|why| self.ledger_fault(why))?.iter().filter(|one| same_thing(one) == same_thing(&kept)) {
+                store.settle_operator_suggestion(copy.n, go, at.as_str()).map_err(|why| self.ledger_fault(why))?;
             }
             kept
         };

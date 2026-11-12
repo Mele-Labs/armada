@@ -506,6 +506,34 @@ async fn a_subagent_of_a_session_reads_as_its_own_thread() {
     assert!(read("nope").await.is_err(), "a subagent that wrote nothing is refused");
 }
 
+/// A subagent's rows come folded as a Job's thread folds them, with no ledger to draw cards from: the
+/// agent's task list is not drawn, and calls that ran together are one run.
+#[tokio::test]
+async fn subagent_items_folded() {
+    let rig = rig();
+    let dir = rig.transcript.with_extension("").join("subagents");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(rig.transcript.clone(), "").unwrap();
+    let line = |uuid: &str, reason: &str, content: &str| {
+        format!(
+            r#"{{"type":"assistant","uuid":"{uuid}","isSidechain":true,"timestamp":"2026-10-07T08:48:10.000Z","message":{{"role":"x","stop_reason":{reason},"content":{content}}}}}"#
+        )
+    };
+    let calls = r#"[{"type":"text","text":"Looking."},{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls"}},{"type":"tool_use","id":"t2","name":"TaskCreate","input":{"subject":"x"}},{"type":"tool_use","id":"t3","name":"Read","input":{"file_path":"/a"}}]"#;
+    let file = dir.join("agent-x1.jsonl");
+    std::fs::write(&file, line("s1", "\"tool_use\"", calls) + "\n" + &line("s2", "\"end_turn\"", r#"[{"type":"text","text":"Done."}]"#) + "\n").unwrap();
+
+    let read = Arc::clone(&rig.fleet).get_session_subagent(SessionId::carried(ID), "x1".into()).await.expect("it reads");
+    let [ipc::ThreadItem::Row { row: first }, ipc::ThreadItem::Calls { names, rows, .. }, ipc::ThreadItem::Row { row: last }] = &read.items[..] else {
+        panic!("words, one run of calls, words: {:?}", read.items)
+    };
+    assert!(matches!(first, SessionRow::Message { text, .. } if text == "Looking."));
+    assert_eq!(names, &["Bash", "Read"], "the task list is not drawn");
+    assert_eq!(rows.len(), 2);
+    assert!(matches!(last, SessionRow::Message { text, .. } if text == "Done."));
+    assert_eq!(read.rows.len(), 5, "`rows` stays as the transcript drew it");
+}
+
 /// The mod never settles a subagent, so Fleet does: a ledger row reads done once the subagent's own
 /// transcript shows its turn ended, and stays done after the panel has read it.
 #[tokio::test]
