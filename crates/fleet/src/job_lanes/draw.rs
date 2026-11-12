@@ -51,6 +51,8 @@ pub(super) fn node(id: String, label: &str, col: u32, role: LaneNodeRole, kind: 
         ended: false,
         ticket: None,
         changed: None,
+        differs: Vec::new(),
+        clash: None,
     }
 }
 
@@ -82,6 +84,7 @@ pub(super) fn lane_of_lifecycle(lifecycle: &LaneLifecycle, id: &str, title: &str
         ticket: lifecycle.kind == LaneLifecycleKind::Tracker,
         ended: false,
         changed: None,
+        pending: None,
         nodes,
         moves: lifecycle.next.iter().map(|(from, to)| (node_id(id, from), node_id(id, to))).collect(),
     }
@@ -135,6 +138,7 @@ pub(super) fn lanes(job: &JobLanesHeld, standing: &Standing<'_>) -> (Vec<LaneVie
         ticket: false,
         ended: false,
         changed: None,
+        pending: None,
         nodes,
         moves,
     };
@@ -251,6 +255,10 @@ pub(super) fn lanes(job: &JobLanesHeld, standing: &Standing<'_>) -> (Vec<LaneVie
                     did: fired.map(|one| one.did.clone()).unwrap_or_default(),
                     changed: changed.clone(),
                     quiet: !first,
+                    differs: Vec::new(),
+                    clash: None,
+                    proposed: false,
+                    pending: None,
                 });
                 first = false;
             }

@@ -444,7 +444,7 @@ pub use job_compact::{CompactHow, CompactOff, CompactOffer};
 pub use job_lanes::{
     JobLanesHeld, JobLanesView, LaneAutonomy, LaneCarriedTicket, LaneChange, LaneCopy, LaneEdge, LaneFired, LaneFiredAct,
     LaneInstance, LaneKept, LaneKind, LaneLifecycle, LaneLifecycleKind, LaneLifecycleState, LaneMoment, LaneNode,
-    LaneNodeKind, LaneNodeRole, LaneOutcome, LaneRef, LaneRule, LaneStep, LaneView,
+    LaneNodeKind, LaneNodeRole, LaneOutcome, LanePending, LaneRef, LaneRule, LaneStep, LaneView,
 };
 pub use repository_file::RepositoryFile;
 pub use ring_band::{RingBand, DANGER_FROM, WARNING_FROM};
@@ -668,7 +668,7 @@ pub use session_retro_row::{
 };
 pub use phone::{
     CloudflareSignIn, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone, PhoneGateway, Served, SetPhoneGateway,
-    StartCloudflare, TailscaleState,
+    TailscaleState,
 };
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};

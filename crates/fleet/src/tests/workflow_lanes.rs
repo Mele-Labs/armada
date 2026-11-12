@@ -7,12 +7,12 @@ use std::sync::Arc;
 
 use axum::http::StatusCode;
 use ipc::{
-    AppliedLifecycle, AppliedRule, JobLanesView, LaneAutonomy, LaneKind, LaneNodeKind, LaneNodeRole, LaneOutcome,
+    AppliedLifecycle, AppliedRule, JobLanesView, LaneAutonomy, LaneKind, LaneNodeKind, LaneNodeRole, LaneOutcome, LanePending,
     LifecycleDefinition, LifecycleRule, LifecycleStateDefinition, LifecycleTransition, PieceKept, PieceRank, PieceScope, RuleAct,
     RuleAmong, RuleCondition, RuleDoing, RuleOnFailure, RuleTarget, RuleWhen, StateReadFrom,
 };
 
-use crate::job_lanes::{editor_lanes, EditorInput};
+use crate::job_lanes::{editor_lanes, Drafts, EditorInput, PiecesRead, RepositoryRead, WorkspaceRead};
 use crate::tests::http::call;
 use crate::tests::repositories::{a_fleet_reading, code, served, Planted};
 use crate::tests::tmp::TempDir;
@@ -128,8 +128,22 @@ fn moves_ticket_to(to: &str) -> RuleAct {
     RuleAct::TrackerMove { to: to.into(), target: held("ticket") }
 }
 
+/// The repository asked about, in the one Workspace `web`.
+fn store_api(lifecycles: &[AppliedLifecycle], rules: &[AppliedRule]) -> RepositoryRead {
+    RepositoryRead { id: "store-api".into(), name: "store-api".into(), lifecycles: lifecycles.to_vec(), rules: rules.to_vec() }
+}
+
+fn web(repositories: &[&str]) -> WorkspaceRead {
+    WorkspaceRead { id: "web".into(), name: "Web".into(), repositories: repositories.iter().map(|one| (*one).into()).collect() }
+}
+
+fn drawn_from(read: &PiecesRead, drafts: &Drafts) -> JobLanesView {
+    editor_lanes(&EditorInput { workflow: "feature", steps: &steps(), read, drafts })
+}
+
 fn lanes_of(lifecycles: &[AppliedLifecycle], rules: &[AppliedRule]) -> JobLanesView {
-    editor_lanes(&EditorInput { workflow: "feature", steps: &steps(), lifecycles, rules })
+    let read = PiecesRead { workspaces: vec![web(&["store-api"])], repositories: vec![store_api(lifecycles, rules)] };
+    drawn_from(&read, &Drafts::default())
 }
 
 fn every() -> Vec<AppliedLifecycle> {
@@ -199,7 +213,7 @@ fn holds_the_definitions_and_no_job() {
 /// **A workflow with no step still has its lane**, empty, as the editor draws it, so a first step can be added to it.
 #[test]
 fn draws_a_workflow_with_no_step_as_an_empty_lane() {
-    let view = editor_lanes(&EditorInput { workflow: "empty", steps: &[], lifecycles: &[], rules: &[] });
+    let view = editor_lanes(&EditorInput { workflow: "empty", steps: &[], read: &PiecesRead::default(), drafts: &Drafts::default() });
 
     assert_eq!(ids(&view), ["workflow"]);
     assert!(view.lanes[0].nodes.is_empty() && view.lanes[0].moves.is_empty());
@@ -375,7 +389,10 @@ fn takes_the_default_levels_piece_kit_over_repository_over_armada() {
         AppliedLifecycle { lifecycle: named("Repository's ticket"), kept: kept("everywhere", "repository") },
         armadas(named("Armada's ticket")),
         AppliedLifecycle { lifecycle: named("Kit's ticket"), kept: kept("everywhere", "kit") },
-        within(LifecycleDefinition { id: "incident".into(), ..ticket() }, "workspace"),
+        AppliedLifecycle {
+            lifecycle: LifecycleDefinition { id: "incident".into(), scope: PieceScope::Within { id: "web".into() }, ..ticket() },
+            kept: kept("workspace", "repository"),
+        },
     ];
 
     let view = lanes_of(&lifecycles, &[]);
@@ -409,13 +426,186 @@ fn draws_a_rule_from_its_widest_piece() {
         within(renamed(both.clone(), "The repository's"), "repository"),
         kits(renamed(both, "The default's")),
         within(renamed(narrow.clone(), "The repository's own"), "repository"),
-        within(renamed(narrow, "The Workspace's"), "workspace"),
+        AppliedRule { rule: LifecycleRule { scope: PieceScope::Within { id: "web".into() }, ..renamed(narrow, "The Workspace's") }, kept: kept("workspace", "repository") },
     ];
 
     let view = lanes_of(&every(), &rules);
 
     let labels: Vec<(&str, &str)> = view.rules.iter().map(|edge| (edge.rule.as_str(), edge.label.as_str())).collect();
     assert_eq!(labels, [("both", "The default's"), ("narrow", "The Workspace's")]);
+}
+
+// ---- Where a level below differs ----------------------------------------------------------------------------------------------
+
+/// A lifecycle piece kept at a Workspace's or a repository's level.
+fn kept_within(lifecycle: LifecycleDefinition, level: &str, reach: &str) -> AppliedLifecycle {
+    AppliedLifecycle { lifecycle: LifecycleDefinition { scope: PieceScope::Within { id: level.into() }, ..lifecycle }, kept: kept(reach, "repository") }
+}
+
+fn rule_within(rule: LifecycleRule, level: &str, reach: &str) -> AppliedRule {
+    AppliedRule { rule: LifecycleRule { scope: PieceScope::Within { id: level.into() }, ..rule }, kept: kept(reach, "repository") }
+}
+
+/// The ticket with one state's label and tracker words changed.
+fn ticket_with(id: &str, label: &str, words: &[&str]) -> LifecycleDefinition {
+    let mut one = ticket();
+    let state = one.states.iter_mut().find(|state| state.id == id).expect("the ticket has it");
+    state.label = label.into();
+    state.read = StateReadFrom::Tracker { words: words.iter().map(|word| (*word).into()).collect() };
+    one
+}
+
+/// Each state of the ticket's lane with the levels its mark names.
+fn ticket_marks(view: &JobLanesView) -> Vec<(&str, Vec<&str>)> {
+    let lane = view.lanes.iter().find(|lane| lane.id == "ticket").expect("the ticket's lane");
+    lane.nodes.iter().map(|node| (node.id.as_str(), node.differs.iter().map(String::as_str).collect())).collect()
+}
+
+/// **A state names each level below the default that reads it otherwise**: a Workspace that calls it something
+/// else, a repository whose tracker words for it are its own, and one whose piece leaves it out. Each is named as
+/// the person knows it, and a state that no level changes has no mark.
+#[test]
+fn marks_each_state_a_level_below_names_reads_or_leaves_out() {
+    let mut own = ticket_with("ready", "Queued", &["Ready"]);
+    own.states.retain(|state| state.id != "todo");
+    own.states.iter_mut().filter(|state| state.id == "in_progress").for_each(|state| state.read = StateReadFrom::Tracker { words: vec!["Doing".into()] });
+    let lifecycles = vec![
+        armadas(ticket()),
+        kept_within(ticket_with("ready", "Queued", &["Ready"]), "web", "workspace"),
+        kept_within(own, "store-api", "repository"),
+    ];
+
+    let view = lanes_of(&lifecycles, &[]);
+
+    assert_eq!(
+        ticket_marks(&view),
+        [
+            ("ticket/todo", vec!["store-api"]),
+            ("ticket/ready", vec!["Web"]),
+            ("ticket/in_progress", vec!["store-api"]),
+            ("ticket/done", vec![]),
+        ]
+    );
+    let labels: Vec<&str> = view.lanes[1].nodes.iter().map(|node| node.label.as_str()).collect();
+    assert_eq!(labels, ["To do", "Ready", "In progress", "Done"], "the default's tab names each state as the default does");
+}
+
+/// **The other repositories of its Workspaces are read too**, so a state one of them changes names it; a piece
+/// scoped to a repository nobody read has nowhere to be drawn and names nothing.
+#[test]
+fn marks_a_state_another_repository_of_the_workspace_changes() {
+    let read = PiecesRead {
+        workspaces: vec![web(&["store-api", "storefront"])],
+        repositories: vec![
+            store_api(&[armadas(ticket()), kept_within(ticket_with("ready", "Picked", &["Ready"]), "elsewhere", "repository")], &[]),
+            RepositoryRead {
+                id: "storefront".into(),
+                name: "Storefront".into(),
+                lifecycles: vec![armadas(ticket()), kept_within(ticket_with("done", "Shipped", &["Done"]), "storefront", "repository")],
+                rules: Vec::new(),
+            },
+        ],
+    };
+
+    let view = drawn_from(&read, &Drafts::default());
+
+    assert_eq!(
+        ticket_marks(&view),
+        [("ticket/todo", vec![]), ("ticket/ready", vec![]), ("ticket/in_progress", vec![]), ("ticket/done", vec!["Storefront"])]
+    );
+}
+
+/// **Two Workspaces that set one piece alike tie for a repository in both, which then reads the default's**: the
+/// default's tab names both where they differ, and marks no clash, since only a repository's own tab sets one aside.
+#[test]
+fn names_both_workspaces_that_tie_and_marks_no_clash_on_the_default_tab() {
+    let mobile = WorkspaceRead { id: "mobile".into(), name: "Mobile".into(), repositories: vec!["store-api".into()] };
+    let lifecycles = vec![
+        armadas(ticket()),
+        kept_within(ticket_with("ready", "Queued", &["Ready"]), "web", "workspace"),
+        kept_within(ticket_with("ready", "Waiting", &["Ready"]), "mobile", "workspace"),
+    ];
+    let rules = vec![kits(rule("plan_readies", starts("plan"), vec![moves_ticket_to("ready")]))];
+    let read = PiecesRead { workspaces: vec![web(&["store-api"]), mobile], repositories: vec![store_api(&lifecycles, &rules)] };
+
+    let view = drawn_from(&read, &Drafts::default());
+
+    assert_eq!(ticket_marks(&view)[1], ("ticket/ready", vec!["Web", "Mobile"]));
+    assert!(view.lanes.iter().flat_map(|lane| &lane.nodes).all(|node| node.clash.is_none()));
+    assert!(view.rules.iter().all(|edge| edge.clash.is_none()));
+}
+
+/// **A rule names each level that keeps it alone or keeps it otherwise**: a rule only a Workspace keeps names that
+/// Workspace, a repository's own piece of a rule names the repository, and a piece that says what the one above
+/// says, scope aside, changes nothing and names nothing.
+#[test]
+fn marks_each_rule_a_level_below_keeps_otherwise() {
+    let renamed = |rule: LifecycleRule, name: &str| LifecycleRule { name: name.into(), ..rule };
+    let plan = rule("plan_moves", starts("plan"), vec![moves_ticket_to("ready")]);
+    let build = rule("build_moves", starts("build"), vec![moves_ticket_to("in_progress")]);
+    let ship = rule("ship_moves", starts("ship"), vec![moves_ticket_to("done")]);
+    let rules = vec![
+        kits(plan.clone()),
+        rule_within(renamed(plan, "Ours"), "store-api", "repository"),
+        rule_within(build, "web", "workspace"),
+        kits(ship.clone()),
+        rule_within(ship, "store-api", "repository"),
+        kits(rule("plain", RuleWhen::StepEnds { step: "ship".into() }, vec![moves_ticket_to("done")])),
+    ];
+
+    let view = lanes_of(&every(), &rules);
+
+    let marks: Vec<(&str, Vec<&str>)> = view.rules.iter().map(|edge| (edge.rule.as_str(), edge.differs.iter().map(String::as_str).collect())).collect();
+    assert_eq!(marks, [("plan_moves", vec!["store-api"]), ("build_moves", vec!["Web"]), ("ship_moves", vec![]), ("plain", vec![])]);
+    assert_eq!(view.rules[0].label, "Rule plan_moves", "the default's tab draws the default's piece");
+}
+
+// ---- What a keep draft waits on -----------------------------------------------------------------------------------------------
+
+/// **A rule only a keep draft holds is drawn as proposed**, and every lifecycle or rule a draft would keep says it
+/// waits on the owner's Approve; one the draft changes is still drawn as the repository keeps it. A lifecycle only
+/// a draft holds has a lane of its own.
+#[test]
+fn draws_what_a_keep_draft_would_add_as_proposed_and_waiting_on_approve() {
+    let incident = LifecycleDefinition { id: "incident".into(), name: "Incident".into(), ..ticket() };
+    let drafted = rule("drafted", starts("build"), vec![moves_ticket_to("in_progress")]);
+    let drafts = Drafts {
+        lifecycles: vec![incident, ticket_with("ready", "Not this", &["Ready"])],
+        rules: vec![drafted, rule("held", starts("plan"), vec![moves_ticket_to("todo")])],
+        keeps: ["lifecycle:incident", "lifecycle:ticket", "rule:drafted", "rule:held", "rule:unread"].iter().map(|one| (*one).into()).collect(),
+    };
+    let read = PiecesRead {
+        workspaces: vec![web(&["store-api"])],
+        repositories: vec![store_api(&every(), &[kits(rule("held", starts("plan"), vec![moves_ticket_to("ready")])), kits(rule("plain", starts("ship"), vec![moves_ticket_to("done")]))])],
+    };
+
+    let view = drawn_from(&read, &drafts);
+
+    let edges: Vec<(&str, &str, bool, Option<LanePending>)> =
+        view.rules.iter().map(|edge| (edge.rule.as_str(), edge.to.as_str(), edge.proposed, edge.pending)).collect();
+    assert_eq!(
+        edges,
+        [
+            ("held", "ticket/ready", false, Some(LanePending::Keep)),
+            ("plain", "ticket/done", false, None),
+            ("drafted", "ticket/in_progress", true, Some(LanePending::Keep)),
+        ]
+    );
+    let lanes: Vec<(&str, Option<LanePending>)> = view.lanes.iter().map(|lane| (lane.id.as_str(), lane.pending)).collect();
+    assert_eq!(
+        lanes,
+        [
+            ("workflow", None),
+            ("ticket", Some(LanePending::Keep)),
+            ("pull_request", None),
+            ("deploy", None),
+            ("job", None),
+            ("incident", Some(LanePending::Keep)),
+        ]
+    );
+    assert_eq!(view.lanes[1].nodes[1].label, "Ready", "a draft of a lifecycle the repository keeps changes nothing drawn");
+    let copied: Vec<&str> = view.job.copy.rules.iter().map(|one| one.id.as_str()).collect();
+    assert_eq!(copied, ["held", "plain"], "a proposed rule is no definition yet");
 }
 
 // ---- The route ----------------------------------------------------------------------------------------------------------------
@@ -445,6 +635,20 @@ async fn a_workflow_the_repository_runs_is_served_as_its_lanes() {
     assert_eq!(flow, ["workflow/$start", "workflow/propose", "workflow/plan", "workflow/walk", "workflow/deliver", "workflow/$end"]);
     assert!(view.lanes.len() > 1, "Armada's lifecycles apply everywhere");
     assert!(view.lanes[1..].iter().all(|lane| lane.kind == LaneKind::Lifecycle));
+}
+
+/// **A mark is left off the wire where there is none**, on a lane, a node and an edge, so lanes whose pieces
+/// nobody changes below the default read as they did before marks.
+#[test]
+fn the_lanes_carry_no_mark_where_nothing_differs() {
+    let view = lanes_of(&every(), &[kits(rule("plan_moves", starts("plan"), vec![moves_ticket_to("ready")]))]);
+    assert!(!view.rules.is_empty(), "an edge to say nothing on");
+
+    let said = ipc::encode(&view).expect("encoded");
+
+    for field in ["\"differs\":", "\"clash\":", "\"proposed\":", "\"pending\":"] {
+        assert!(!said.contains(field), "{field} in {said}");
+    }
 }
 
 /// **Only the default level is served yet**, and a workflow the repository does not run is no workflow;
