@@ -15,6 +15,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/dispatch",
     },
     Route {
+        operation: "list_parked_ideas",
+        method: "GET",
+        path: "/sessions/parked",
+    },
+    Route {
+        operation: "remove_parked_idea",
+        method: "POST",
+        path: "/sessions/parked/remove",
+    },
+    Route {
         operation: "hand_to_session",
         method: "POST",
         path: "/sessions/hand_to_session",

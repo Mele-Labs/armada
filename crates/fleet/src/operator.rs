@@ -483,7 +483,7 @@ impl Operator {
         match ruling.way {
             Way::ExistingJob if !arrival.is_dispatch() => self.acting.suggest_once(arrival, ruling).await.map(Carried::kept),
             Way::File | Way::Close | Way::Group => self.acting.suggest_once(arrival, ruling).await.map(Carried::kept),
-            Way::NewJob | Way::ExistingJob | Way::Raise | Way::Link | Way::Leave | Way::Noted => self.acted(arrival, ruling).await.map(|()| Carried::Done),
+            Way::NewJob | Way::ExistingJob | Way::Raise | Way::Link | Way::Leave | Way::Noted | Way::Park => self.acted(arrival, ruling).await.map(|()| Carried::Done),
         }
     }
 

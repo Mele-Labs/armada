@@ -421,7 +421,7 @@ pub use holding::{
     SlotFinding, SlotFindingState, SlotHolderKind, SlotHolding, SlotLastHolder, SlotPoolChanged,
     SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeSlot, WorktreesHeld,
 };
-pub use job_dispatch::{DispatchJob, DispatchMessage, DispatchThen, JobDispatched};
+pub use job_dispatch::{DispatchJob, DispatchKind, DispatchMessage, DispatchThen, JobDispatched, ParkedIdea, ParkedIdeas, RemoveParkedIdea};
 pub use hosted_sessions::{
     AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, EditSessionMessage, ForkFrom, GateAnswer, GateHold, HeldCommand,
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,

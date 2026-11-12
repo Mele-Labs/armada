@@ -139,11 +139,17 @@ What a rule did is in Done as well, signed by the Operator.
 A Job it starts is one he asked for, or work no Job holds: a note, an error, a report or a red main.
 **A Job the Operator rules new starts at once, or held where the project says `ask_me`.**
 A new Job is no longer a go-ahead to press: the ruling starts it, on the project's `agent_starts` word.
-**His own dispatch goes to the Operator before any Job exists**, where it is on and seated and a live Job is near the words.
-It starts a Job, folds the work into the live Job, or asks him on a card, Hand to or Keep both.
+**His own dispatch goes to the Operator before any Job exists**, where it is on and seated.
+It starts a Job, folds the work into the live Job, keeps the work for later as an idea, or asks him on a card, Hand to or Keep both.
+**What he calls it decides what is asked.**
+An idea is kept for later at once, with no call.
+A feature or a bug is never kept for later, and a Job started on it follows the repository's workflow of that name where it has one.
+Left unnamed, the Operator reads the words and decides, and makes the call even where no live Job is near.
+With the Operator off, a dispatch starts at once whatever it is called.
+**The ideas are Fleet's list**, since a Bridge that is closed when one is kept has no list to put it in.
 A start or a fold it rules is done at once, and a toast names the Job started or folded into.
 A late ruling, a failed call or an act that could not be carried out starts the Job as he asked, and a dispatch still kept when Fleet starts is started then.
-Where the Operator is off or not seated, or no live Job is near, the Job starts at once with no call.
+Where the Operator is off or not seated, or he named it a feature or a bug and no live Job is near, the Job starts at once with no call.
 **A Job that starts on what a live Job holds is handed to that Job, after one go-ahead.**
 Fleet looks first: a start by a Job, by Autopilot or by him is put against the live Jobs in its repository, and only where one shares a path, an issue or two uncommon words is one call made.
 With no Job near it there is no call and no row.

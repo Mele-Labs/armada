@@ -141,8 +141,8 @@ impl Arrived {
 /// Where it came from.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Source {
-    /// The person's dispatch, through the proposer.
-    Dispatch,
+    /// The person's dispatch, through the proposer, and what he called it where he did.
+    Dispatch(Option<ipc::DispatchKind>),
     /// Another Job's agent, named by its id.
     Job(String),
     /// A fork the person pressed.
@@ -166,7 +166,7 @@ pub enum Source {
 impl Source {
     pub fn word(&self) -> &'static str {
         match self {
-            Source::Dispatch => "dispatch",
+            Source::Dispatch(_) => "dispatch",
             Source::Job(_) => "job",
             Source::Fork => "fork",
             Source::Fleet => "fleet",
@@ -189,7 +189,7 @@ impl Source {
 
     fn said(&self) -> String {
         match self {
-            Source::Dispatch => "from the person's dispatch".to_string(),
+            Source::Dispatch(_) => "from the person's dispatch".to_string(),
             Source::Job(id) => format!("started by Job {id}"),
             Source::Fork => "a fork the person pressed".to_string(),
             Source::Fleet => "one of Fleet's own".to_string(),
@@ -252,6 +252,9 @@ impl Arrival {
         if !self.words.trim().is_empty() {
             out.push_str(&format!("     Its words: {}\n", one_line(&self.words)));
         }
+        if let Source::Dispatch(Some(kind)) = &self.source {
+            out.push_str(&format!("     The person called it: {}\n", kind.as_wire()));
+        }
         if !self.paths.is_empty() {
             out.push_str(&format!("     Its paths: {}\n", self.paths.join(", ")));
         }
@@ -275,6 +278,7 @@ impl Arrival {
                 (Way::Leave, Arrived::Start) => "keep both Jobs",
                 (Way::NewJob, Arrived::Start) if self.is_dispatch() => "new job: start a Job on it",
                 (Way::ExistingJob, Arrived::Start) if self.is_dispatch() => "existing job: hand its words to the live Job that already holds the work",
+                (Way::Park, Arrived::Start) if self.is_dispatch() => "park: keep it for later as an idea and start no Job, for a loose thought that is not work to do now",
                 (Way::Raise, Arrived::Start) if self.is_dispatch() => "raise: ask the person whether to hand it to a live Job or start it as its own Job",
                 _ => way.word_shown(),
             };

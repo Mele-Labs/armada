@@ -11,8 +11,13 @@ import type { SessionRecord } from "./sessions";
  * with its `then` sent.
  */
 export type DispatchJob = StartSession & {
+  /** What he calls it. Left out, the Operator reads it from the words and pictures. */
+  kind?: DispatchKind;
   then?: DispatchThen[];
 };
+
+/** What the person calls the work he dispatches. */
+export type DispatchKind = "idea" | "feature" | "bug";
 
 /** One send into the Job a dispatch became: the notes of a walk (`send_session_notes`), or a message (`send_session_message`). */
 export type DispatchThen =
@@ -31,9 +36,28 @@ export type DispatchMessage = {
   sketches?: SentSketch[];
 };
 
-/** What `dispatch_job` answers. Exactly one is present: the Job started, or the dispatch's id while the Operator holds it. */
+/** What `dispatch_job` answers. Exactly one is present: the Job started, the dispatch's id while the Operator holds it, or the id of the idea it was kept as. */
 export type JobDispatched = {
   session?: SessionRecord;
   /** The dispatch's id: `operator.dispatched` says what became of it. */
   operator?: string;
+  /** The idea's id, where it was kept for later. */
+  parked?: string;
+};
+
+/** One idea kept for later: the dispatch whole, so starting it is `dispatch_job` with `dispatch`. */
+export type ParkedIdea = {
+  id: string;
+  dispatch: DispatchJob;
+  at: string;
+};
+
+/** `list_parked_ideas`' answer, and `remove_parked_idea`'s: oldest first. */
+export type ParkedIdeas = {
+  ideas: ParkedIdea[];
+};
+
+/** `remove_parked_idea`: one press. */
+export type RemoveParkedIdea = {
+  id: string;
 };

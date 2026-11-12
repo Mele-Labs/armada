@@ -139,6 +139,14 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn list_parked_ideas(self: Arc<Self>) -> Result<ipc::ParkedIdeas, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn remove_parked_idea(self: Arc<Self>, _remove: ipc::RemoveParkedIdea) -> Result<ipc::ParkedIdeas, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn operator_orders(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
         Err(nothing_hosted())
     }

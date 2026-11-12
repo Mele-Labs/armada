@@ -4,6 +4,11 @@
 //! words, the Job starts at once and no call is made. Where one does, the whole body is kept in the store and
 //! the Operator rules: start a Job, fold the work into the live one, or ask him on its card.
 //!
+//! **What he calls it decides what is asked.** An `idea` is kept for later at once, and a `feature` or a `bug`
+//! is never parked and starts on the repository's workflow of that name where it holds one. Left out, the
+//! Operator reads the words and may park it. Parked ideas are Fleet's own list (`parked_ideas`), since a Bridge
+//! that is closed when one is parked has no list to put it in.
+//!
 //! **His work is never lost.** A ruling that did not come, a call that failed, an act that could not be carried
 //! out, a Skip, and a dispatch still kept when Fleet starts each start the Job as it was asked. The body is
 //! taken from the store by whoever acts on it, so the Job is started once.
@@ -13,7 +18,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::operator_board::{DispatchWay, OperatorDispatched};
-use ipc::{DispatchJob, DispatchThen, Event, JobDispatched, Notice, SendSessionNotes, SessionId, SessionRecord};
+use ipc::{DispatchJob, DispatchKind, DispatchThen, Event, JobDispatched, Notice, ParkedIdea, ParkedIdeas, ProposedField, SendSessionNotes, SessionId, SessionRecord, WireError};
 
 use super::arriving::{Arrival, Arrived, Source};
 use super::candidates::near;
@@ -44,15 +49,21 @@ where
         let operator = self.operator_seat().operator().filter(|_| self.operator_on());
         let (Some(request), true, Some(operator)) = (request, plain, operator) else {
             let session = self.dispatch_started(dispatch, true).await?;
-            return Ok(JobDispatched { session: Some(session), operator: None });
+            return Ok(JobDispatched { session: Some(session), operator: None, parked: None });
         };
         let id = format!("{DISPATCH}{}", self.mint().ulid().as_str().to_lowercase());
         let arrival = dispatch_arrival(&id, &dispatch, &request);
-        if near(&arrival, &operator.live_jobs().await).is_empty() {
+        if dispatch.kind == Some(DispatchKind::Idea) {
+            self.dispatch_parked_whole(&id, &dispatch, &arrival.subject).await?;
+            return Ok(JobDispatched { session: None, operator: None, parked: Some(id) });
+        }
+        // Said to be work, with no live Job near it: nothing to weigh, so no call. Left out, the call reads what it is.
+        let named = matches!(dispatch.kind, Some(DispatchKind::Feature | DispatchKind::Bug));
+        if named && near(&arrival, &operator.live_jobs().await).is_empty() {
             // Weighed here, against the live Jobs, so the Job is not weighed again once it exists.
             let record = self.dispatch_started(dispatch, false).await?;
-            self.dispatch_told(&id, &arrival.manifest_id, DispatchWay::Started, Some(record.id.clone())).await;
-            return Ok(JobDispatched { session: Some(record), operator: None });
+            self.dispatch_told(&id, &arrival.manifest_id, DispatchWay::Started, Some(record.id.clone()), None).await;
+            return Ok(JobDispatched { session: Some(record), operator: None, parked: None });
         }
         let body = ipc::encode(&dispatch).map_err(|why| self.hosted_refusal("fleet.dispatch_unencodable", &why.to_string()))?;
         let at = self.now();
@@ -61,7 +72,7 @@ where
         }
         let fleet = Arc::clone(self);
         tokio::spawn(async move { fleet.dispatch_ruled(arrival).await });
-        Ok(JobDispatched { session: None, operator: Some(id) })
+        Ok(JobDispatched { session: None, operator: Some(id), parked: None })
     }
 
     /// The Operator's ruling on a held dispatch, waited for. Anything but a ruling that was carried out starts it.
@@ -98,7 +109,7 @@ where
         let manifest = dispatch.start.manifest_id.as_str().to_string();
         match Box::pin(self.dispatch_started(dispatch.clone(), false)).await {
             Ok(record) => {
-                self.dispatch_told(id, &manifest, DispatchWay::Started, Some(record.id)).await;
+                self.dispatch_told(id, &manifest, DispatchWay::Started, Some(record.id), None).await;
                 Ok(())
             }
             Err(why) => {
@@ -125,7 +136,7 @@ where
             return Ok(());
         }
         self.dispatch_sent(&SessionId::carried(into), dispatch.then).await;
-        self.dispatch_told(id, dispatch.start.manifest_id.as_str(), DispatchWay::Handed, Some(SessionId::carried(into))).await;
+        self.dispatch_told(id, dispatch.start.manifest_id.as_str(), DispatchWay::Handed, Some(SessionId::carried(into)), None).await;
         Ok(())
     }
 
@@ -142,7 +153,7 @@ where
         if marked.is_err() {
             return Err("the dispatch was not marked as waiting on him".to_string());
         }
-        self.dispatch_told(&arrival.id, &arrival.manifest_id, DispatchWay::Asked, None).await;
+        self.dispatch_told(&arrival.id, &arrival.manifest_id, DispatchWay::Asked, None, None).await;
         Ok(())
     }
 
@@ -152,6 +163,7 @@ where
             (Way::NewJob, _) => Box::pin(self.dispatch_started_as_asked(&arrival.id)).await,
             (Way::ExistingJob, Some(into)) => Box::pin(self.dispatch_handed(&arrival.id, into)).await,
             (Way::Raise, _) => Box::pin(self.dispatch_asked(arrival, ruling)).await,
+            (Way::Park, _) => self.dispatch_parked(&arrival.id, &arrival.subject).await,
             _ => Err("the dispatch was ruled a way it is not offered".to_string()),
         }
     }
@@ -159,10 +171,77 @@ where
     /// The Job `dispatch` makes, and what followed it sent into it. `overlap` is whether the Operator weighs the
     /// Job against the live ones once it exists, which a dispatch it has ruled on already is not.
     async fn dispatch_started(self: &Arc<Self>, dispatch: DispatchJob, overlap: bool) -> Result<SessionRecord, Refusal> {
-        let DispatchJob { start, then } = dispatch;
+        let DispatchJob { start, kind, then } = dispatch;
+        let manifest = start.manifest_id.as_str().to_string();
         let record = Arc::clone(self).started_reading_with(start, overlap).await?;
+        if let Some(workflow) = kind.filter(|kind| *kind != DispatchKind::Idea) {
+            self.dispatch_workflow(&record.id, &manifest, workflow.as_wire()).await;
+        }
         self.dispatch_sent(&record.id, then).await;
         Ok(record)
+    }
+
+    /// The Job follows the repository's workflow named for what he called it, where it holds one and it is on. **His
+    /// choice stands over the proposer's reading**, which is still out. A repository with none leaves the Job as the
+    /// proposer reads it.
+    async fn dispatch_workflow(self: &Arc<Self>, job: &SessionId, manifest: &str, workflow: &str) {
+        if !matches!(self.workflow_checked(manifest, Some(workflow.to_string())), Ok((Some(_), _))) {
+            return;
+        }
+        if self.workflow_put(job.as_str(), Some(workflow.to_string()), ipc::ChangedBy::You).await.is_ok() {
+            self.hosts().of(job.as_str()).state().proposal.person_set(ProposedField::Workflow);
+        }
+    }
+
+    /// The held dispatch `id`, kept for later as an idea in place of a Job: **taken from the Operator's hold and
+    /// written to the list in one step each**, so it is in one of them whatever fails.
+    pub(super) async fn dispatch_parked(self: &Arc<Self>, id: &str, subject: &str) -> Result<(), String> {
+        let at = self.now();
+        let manifest = {
+            let mut store = self.store().lock().await;
+            let Some(body) = store.take_operator_dispatch(id).ok().flatten() else { return Ok(()) };
+            if store.keep_parked_idea(id, &body, at.as_str()).is_err() {
+                let _ = store.keep_operator_dispatch(id, &body, at.as_str());
+                return Err("the idea was not kept".to_string());
+            }
+            ipc::decode::<DispatchJob>("a dispatch the Operator holds", body.as_bytes()).map(|one| one.start.manifest_id.as_str().to_string()).unwrap_or_default()
+        };
+        self.dispatch_told(id, &manifest, DispatchWay::Parked, None, Some(subject.to_string())).await;
+        Ok(())
+    }
+
+    /// A dispatch he called an idea, kept for later at once.
+    async fn dispatch_parked_whole(&self, id: &str, dispatch: &DispatchJob, subject: &str) -> Result<(), Refusal> {
+        let body = ipc::encode(dispatch).map_err(|why| self.hosted_refusal("fleet.dispatch_unencodable", &why.to_string()))?;
+        let at = self.now();
+        if let Err(why) = self.store().lock().await.keep_parked_idea(id, &body, at.as_str()) {
+            return Err(self.ledger_fault(why));
+        }
+        self.dispatch_told(id, dispatch.start.manifest_id.as_str(), DispatchWay::Parked, None, Some(subject.to_string())).await;
+        Ok(())
+    }
+
+    /// `list_parked_ideas`.
+    pub(crate) async fn parked_ideas_wire(&self) -> Result<ParkedIdeas, Refusal> {
+        let kept = self.store().lock().await.parked_ideas().map_err(|why| self.ledger_fault(why))?;
+        let mut ideas = Vec::new();
+        for one in kept {
+            match ipc::decode::<DispatchJob>("an idea kept for later", one.body.as_bytes()) {
+                Ok(dispatch) => ideas.push(ParkedIdea { id: one.id, dispatch, at: one.created_at }),
+                Err(why) => self.operator_warned("an idea kept for later does not read", why.to_string()),
+            }
+        }
+        Ok(ParkedIdeas { ideas })
+    }
+
+    /// `remove_parked_idea`.
+    pub(crate) async fn parked_idea_removed(&self, id: &str) -> Result<ParkedIdeas, Refusal> {
+        let removed = self.store().lock().await.remove_parked_idea(id).map_err(|why| self.ledger_fault(why))?;
+        if !removed {
+            let wire = WireError::raised("fleet.parked_idea_unknown", format!("no idea is kept for later under {id}"), self.run_id());
+            return Err(Refusal::Unacceptable(wire));
+        }
+        self.parked_ideas_wire().await
     }
 
     /// `then`, sent into `session` in order. One that is refused is warned of and the rest go on.
@@ -198,10 +277,11 @@ where
     }
 
     /// `operator.dispatched`, naming the Job started or the live Job the work was folded into.
-    async fn dispatch_told(&self, id: &str, manifest: &str, way: DispatchWay, job: Option<SessionId>) {
-        let title = match &job {
-            Some(job) => Some(self.title_of(job.as_str()).await),
-            None => None,
+    async fn dispatch_told(&self, id: &str, manifest: &str, way: DispatchWay, job: Option<SessionId>, named: Option<String>) {
+        let title = match (&job, named) {
+            (_, Some(named)) => Some(named),
+            (Some(job), None) => Some(self.title_of(job.as_str()).await),
+            (None, None) => None,
         };
         self.events().publish(Event::OperatorDispatched(OperatorDispatched {
             dispatch_id: id.to_string(),
@@ -218,14 +298,18 @@ fn dispatch_arrival(id: &str, dispatch: &DispatchJob, request: &str) -> Arrival 
     Arrival {
         id: id.to_string(),
         arrived: Arrived::Start,
-        source: Source::Dispatch,
+        source: Source::Dispatch(dispatch.kind),
         session_id: String::new(),
         manifest_id: dispatch.start.manifest_id.as_str().to_string(),
         subject: dispatch.start.title.clone().filter(|title| !title.trim().is_empty()).unwrap_or_else(|| first_line(request)),
         words: request.to_string(),
         paths: paths_in(request),
         issues: Vec::new(),
-        ways: vec![Way::NewJob, Way::ExistingJob, Way::Raise],
+        // He named it a feature or a bug: it is work, so it is never kept for later. Left out, the call may park it.
+        ways: match dispatch.kind {
+            Some(_) => vec![Way::NewJob, Way::ExistingJob, Way::Raise],
+            None => vec![Way::NewJob, Way::ExistingJob, Way::Raise, Way::Park],
+        },
         open: Vec::new(),
     }
 }

@@ -101,8 +101,9 @@ mod session_waiting;
 /// A repository's Autopilot and what it picked. #2092.
 mod autopilot;
 mod autopilot_decisions;
-/// The Operator's Log of rulings. `armada-ehhu`.
 mod operator_dispatches;
+mod parked_ideas;
+/// The Operator's Log of rulings. `armada-ehhu`.
 mod operator_rulings;
 mod operator_orders;
 mod operator_switches;
@@ -255,6 +256,7 @@ pub use model_downshift::KeptDownshift;
 pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
 pub use operator_dispatches::KeptDispatch;
+pub use parked_ideas::KeptIdea;
 pub use operator_rulings::KeptRuling;
 pub use operator_orders::{KeptOrder, KeptTalk};
 pub use operator_switches::KeptSwitch;

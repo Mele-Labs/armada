@@ -139,6 +139,7 @@ WebSocket event stream, read this first.
 | [A waiting item's steps](protocol/a-waiting-items-steps.md) |
 | [A Job moves to another repository](protocol/a-job-moves-to-another-repository.md) |
 | [A Job hands off to a new one](protocol/a-job-hands-off-to-a-new-one.md) |
+| [A dispatch the Operator holds](protocol/a-dispatch-the-operator-holds.md) |
 | [An issue is named by its tracker's reference](protocol/an-issue-is-named-by-its-trackers-reference.md) |
 | [Saved issue queries and the query writer](protocol/saved-issue-queries-and-the-query-writer.md) |
 | [A Job's kept follow-ups, and settling one](protocol/a-jobs-kept-follow-ups-and-settling-one.md) |

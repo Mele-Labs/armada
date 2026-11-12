@@ -339,6 +339,14 @@ where
         self.operator_order_confirmed(confirm.form).await
     }
 
+    async fn list_parked_ideas(self: Arc<Self>) -> Result<ipc::ParkedIdeas, Refusal> {
+        self.parked_ideas_wire().await
+    }
+
+    async fn remove_parked_idea(self: Arc<Self>, remove: ipc::RemoveParkedIdea) -> Result<ipc::ParkedIdeas, Refusal> {
+        self.parked_idea_removed(&remove.id).await
+    }
+
     async fn operator_orders(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
         Ok(self.operator_orders_wire().await)
     }
