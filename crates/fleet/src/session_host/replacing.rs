@@ -383,6 +383,8 @@ where
         hosting.setup = old.setup;
         hosting.mod_job = old.mod_job;
         hosting.mod_of_bay = old.mod_of_bay;
+        hosting.quick_terminal = old.quick_terminal;
+        hosting.terminal_dir = old.terminal_dir.clone();
         hosting.project = old.project.clone();
         hosting.from_job = old.from_job.clone();
         hosting.from_tab = old.from_tab.clone();

@@ -1822,3 +1822,26 @@ A process that goes and cuts its subagents off publishes one for each, since eac
 **The event stream.** One kind added, and it is better than polling: a native Bridge that held `get_session_subagent` on a 1.5 s timer reads it on this event instead, and the event is at most one a second per running subagent.
 It rides the same sink as every event, so the open risk below is neither better nor worse for the stream.
 A reconnecting client reads the subagent again, as it reads a Job, rather than trusting that it kept every event.
+
+## A quick terminal: `start_terminal_job` and `SessionRecord.quick_terminal`
+
+Since 12 Nov 2026. `docs/concepts/session/a-quick-terminal.md`.
+**One operation, one route, two types and one field on an existing type**: no event kind. Error codes are declared outside the protocol ID's files and move nothing.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `StartTerminalJob`, `TerminalJobStarted` and `quick_terminal` on `SessionRecord` in `packages/protocol/src/sessions.ts`, written by hand, field for field.
+Electron draws none of it: it is frozen.
+The native Bridge sends it from the dispatch sheet, a key and the command palette.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `start_terminal_job` (`POST /sessions/terminal/start`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `StartTerminalJob` `{ manifest_id?, dir?, title?, model?, effort?, mode?, project?, cols?, rows? }`, exactly one of `manifest_id` and `dir`; answered with `TerminalJobStarted` `{ session_id, terminal, run_id }`, `terminal` `t1` and `run_id` its run |
+| `SessionRecord.quick_terminal` (`list_sessions`, `report_session`, `session.changed`) | Fleet writes, Bridge reads | `bool` / `quick_terminal?: true`. The Job is a quick terminal: Bridge opens it onto `t1`. Absent on every other session |
+
+**Refused 422 with nothing made**: both or neither of `manifest_id` and `dir`, a `dir` that is not an absolute path to a directory, a `cols` or `rows` of 0, and every refusal `start_session` makes for its `manifest_id` and `project`.
+**A `dir` outside every served repository is a loose folder**: the record has no `manifest_id`, its `cwd` is the folder, and no slot is ever leased for it.
+**What the agent reads changes, not the wire**: each message of the person's to a quick terminal carries its open terminals' screens ahead of his words, and the thread row keeps his words alone.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+A record with `quick_terminal` reads on a Bridge that does not know it as a plain Job.
+
+**The event stream.** Untouched in kind: the start publishes `session.changed` and `terminal.opened` for `t1`, as a start and an open each do. The open risk below is neither better nor worse.
