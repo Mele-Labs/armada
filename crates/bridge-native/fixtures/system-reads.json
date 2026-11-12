@@ -378,6 +378,17 @@
      "open": false
     }
    }
+  },
+  {
+   "manifest_id": "armada",
+   "slot": 10,
+   "path": "/repos/armada/.armada/slots/slot-10",
+   "held": {
+    "state": "free"
+   },
+   "base": "main",
+   "closed": true,
+   "warm": false
   }
  ],
  "histories": [

@@ -960,19 +960,24 @@ fn log(path: &str) -> Option<String> {
 }
 
 /// A pool act on the mock's pool, as `POST /worktrees/slots` would change it.
-pub fn pool_act(pool: &mut Vec<ipc::WorktreeSlot>, manifest: &str, slot: u32, act: ipc::SlotAct) -> Result<Option<ipc::SlotPoolChanged>, String> {
-    let at = pool.iter().position(|one| one.manifest_id.as_str() == manifest && one.slot == slot).ok_or_else(|| format!("slot-{slot} is not in the pool"))?;
+pub fn pool_act(pool: &mut Vec<ipc::WorktreeSlot>, manifest: &str, slot: u32, act: ipc::SlotAct) -> Result<Option<ipc::SlotPoolChanged>, (String, Option<&'static str>)> {
+    let at = pool.iter().position(|one| one.manifest_id.as_str() == manifest && one.slot == slot).ok_or_else(|| (format!("slot-{slot} is not in the pool"), None))?;
     let mut released = None;
     match act {
         ipc::SlotAct::Close => pool[at].closed = true,
         ipc::SlotAct::Open => pool[at].closed = false,
         ipc::SlotAct::Remove => {
             if pool[at].stranded.as_ref().is_some_and(|stranded| !stranded.uncommitted.is_empty()) {
-                return Err(format!("slot-{slot} holds uncommitted changes"));
+                return Err((format!("slot-{slot} holds uncommitted changes"), None));
             }
             pool.remove(at);
         }
         ipc::SlotAct::Release => {
+            // The mock's hosted Sessions are mid-turn, so Fleet refuses to let their slot go.
+            if let ipc::SlotHolding::HostedSession { session_title, .. } = &pool[at].held {
+                let name = session_title.as_deref().unwrap_or("The job");
+                return Err((format!("{name} is working"), Some("fleet.slot_session_working")));
+            }
             let one = &mut pool[at];
             released = Some(ipc::SlotReleased { branch: one.branch.clone().unwrap_or_default(), saved: None });
             one.held = ipc::SlotHolding::Free;

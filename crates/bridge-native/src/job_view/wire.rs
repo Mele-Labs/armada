@@ -28,7 +28,12 @@ pub(super) fn encoded(text: &str) -> String {
 
 /// Fleet's own reason for a refusal, as a sentence the person reads.
 pub(super) fn reason(status: u16, bytes: &[u8]) -> String {
-    ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message)
+    refusal(status, bytes).0
+}
+
+/// Fleet's reason for a refusal, with its code where the body carries one.
+fn refusal(status: u16, bytes: &[u8]) -> (String, Option<String>) {
+    ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| (format!("Fleet answered {status}"), None), |error| (error.message, Some(error.code)))
 }
 
 #[derive(Clone, Copy)]
@@ -64,6 +69,7 @@ impl JobView {
     }
 
     fn ask(&mut self, verb: Verb, path: String, body: Option<String>, window: &mut Window, cx: &mut Context<Self>, done: Done) {
+        self.refused_code = None;
         if self.fleet.is_none() {
             done(self, Ok(Vec::new()), window, cx);
             return;
@@ -76,22 +82,30 @@ impl JobView {
             let answer = cx
                 .background_executor()
                 .spawn(async move {
-                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                    let (status, bytes) = runtime.block_on(async {
-                        match verb {
-                            Verb::Get => crate::transport::get(port, &path).await,
-                            Verb::Post => crate::transport::post(port, &path, body.unwrap_or_default()).await,
-                            Verb::PostBare => crate::transport::post_bare(port, &path).await,
-                        }
-                    })?;
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| (why.to_string(), None))?;
+                    let (status, bytes) = runtime
+                        .block_on(async {
+                            match verb {
+                                Verb::Get => crate::transport::get(port, &path).await,
+                                Verb::Post => crate::transport::post(port, &path, body.unwrap_or_default()).await,
+                                Verb::PostBare => crate::transport::post_bare(port, &path).await,
+                            }
+                        })
+                        .map_err(|why| (why, None))?;
                     if (200..300).contains(&status) {
                         Ok(bytes)
                     } else {
-                        Err(reason(status, &bytes))
+                        Err(refusal(status, &bytes))
                     }
                 })
                 .await;
-            let _ = this.update_in(cx, |this, window, cx| done(this, answer, window, cx));
+            let _ = this.update_in(cx, |this, window, cx| {
+                let answer = answer.map_err(|(why, code)| {
+                    this.refused_code = code;
+                    why
+                });
+                done(this, answer, window, cx);
+            });
         })
         .detach();
     }

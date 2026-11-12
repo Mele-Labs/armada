@@ -90,6 +90,13 @@
      "changed_at": "2026-11-08T09:00:00Z"
     },
     {
+     "kind": "slot",
+     "target": "10",
+     "state": "standing",
+     "since": "2026-11-11T08:00:00Z",
+     "changed_at": "2026-11-11T08:00:00Z"
+    },
+    {
      "kind": "branch",
      "target": "native/job-view-composer",
      "state": "standing",

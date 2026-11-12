@@ -1437,6 +1437,7 @@ impl JobsList {
                 }))
             });
         // A top row of a live Job is dragged to a new place in its project, as Electron's deck does.
+        let lit = crate::clash_mark::lit(cx) == Some(row.id.as_ref());
         let movable = row.depth == 0 && !row.ended;
         let dragging = cx.has_active_drag();
         let lifted = dragging && self.lifted.as_ref() == Some(&row.id);
@@ -1460,6 +1461,8 @@ impl JobsList {
             .border_color(look.color(edge))
             .bg(ground)
             .when(!opened, |strip| strip.hover(|style| style.bg(look.color(token::BG_HOVER))))
+            // Lit as hovered while the pointer is on a clash's link to this Job (`data-hover`).
+            .when(!opened && lit, |strip| strip.bg(look.color(token::BG_HOVER)))
             .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .when(needs, |strip| {
                 let tint = look.color(token::STATUS_AWAITING_REVIEW);

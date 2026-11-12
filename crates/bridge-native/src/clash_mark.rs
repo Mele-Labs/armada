@@ -77,6 +77,26 @@ fn conflicts_of(clashes: &AllWriteClashes, id: &str) -> Vec<Conflict> {
         .collect()
 }
 
+/// The Job whose list row is lit while the pointer is on a clash's link to it (`ClashWith`'s `setHover`).
+#[derive(Default)]
+struct Lit(Option<String>);
+
+impl Global for Lit {}
+
+/// Light a Job's row in the list, or none.
+pub fn light(id: Option<String>, cx: &mut App) {
+    if cx.try_global::<Lit>().is_some_and(|lit| lit.0 == id) || (id.is_none() && cx.try_global::<Lit>().is_none()) {
+        return;
+    }
+    cx.set_global(Lit(id));
+    cx.refresh_windows();
+}
+
+/// The Job whose row is lit, if any.
+pub fn lit(cx: &App) -> Option<&str> {
+    cx.try_global::<Lit>().and_then(|lit| lit.0.as_deref())
+}
+
 /// Opens the other holder of a clash, as a press on the Job's row opens it. Set by the screen that
 /// owns the list; with none set, the press does nothing.
 #[derive(Clone)]

@@ -11,7 +11,7 @@ use std::cell::Cell;
 use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
-use gpui::{div, prelude::*, px, AnyElement, Context, FontWeight, Role, ScrollHandle, SharedString, Window};
+use gpui::{canvas, div, pattern_slash, point, prelude::*, px, AnyElement, Bounds, ContentMask, Context, FontWeight, Pixels, Role, ScrollHandle, SharedString, Window};
 use ipc::{
     BayHistory, BayHistoryEntry, ChangeSlotPool, ClashFile, ClashHolder, ClashSide, CommitHome, ManifestId, RescueAct, RescueSlot, SlotFindingState, SlotHolding, SlotLastHolder, SlotPoolChanged,
     SlotRescued, SlotVerdict, WorktreeSlot, WorktreesHeld,
@@ -28,6 +28,8 @@ use crate::look::{token, Look, Token};
 const BEHIND_FROM: u32 = 20;
 /// A clash's files fold past this many, to the first three (`ClashPaths`).
 const SHOWN: usize = 3;
+/// The one refused Release with a Job to open: the Job holding the slot is mid-turn (`releasing.ts`).
+const SESSION_WORKING: &str = "fleet.slot_session_working";
 
 #[derive(Default)]
 pub(super) struct Bays {
@@ -35,6 +37,42 @@ pub(super) struct Bays {
     pool: Option<Vec<WorktreeSlot>>,
     /// Clashes whose files are unfolded, by the other holder's id.
     unfolded: HashSet<String>,
+}
+
+/// A stranded bay's diagonal hatch, or a closed bay's shutters, under its door and body
+/// (`PoolSlots.css:137-150`, `deck.css:1461-1474`): tinted stripes over the ground, no glow.
+fn hatch_of(state: BayState, look: &Look) -> Option<AnyElement> {
+    let radius = look.length(token::RADIUS_MD);
+    let (stripe, gap) = (look.length(token::SPACE_2), look.length(token::SPACE_2));
+    let (shutter, shutter_gap) = (look.length(token::SPACE_1), look.length(token::SPACE_2));
+    let paint: Box<dyn Fn(Bounds<Pixels>, &mut Window)> = match state {
+        // 135deg in CSS runs the stripes as `/`; gpui's slash pattern is measured along its own
+        // axis and in device pixels, so the period across the stripes is `space-4`, as Classic's.
+        BayState::Stranded => {
+            let ink = look.color(token::SLOT_STRANDED_BG);
+            Box::new(move |bounds, window| {
+                let along = f32::from(stripe) * std::f32::consts::SQRT_2 * window.scale_factor();
+                let apart = f32::from(gap) * std::f32::consts::SQRT_2 * window.scale_factor();
+                window.paint_quad(gpui::fill(bounds, pattern_slash(ink, along, apart)).corner_radii(radius));
+            })
+        }
+        // 0deg in CSS: level shutters from the foot up, `space-1` of ink every `space-3`.
+        BayState::Closed => {
+            let ink = look.color(token::SLOT_CLOSED_BG);
+            Box::new(move |bounds, window| {
+                window.with_content_mask(Some(ContentMask { bounds }), |window| {
+                    let mut foot = bounds.bottom();
+                    while foot > bounds.top() {
+                        let top = (foot - shutter).max(bounds.top());
+                        window.paint_quad(gpui::fill(Bounds::from_corners(point(bounds.left(), top), point(bounds.right(), foot)), ink));
+                        foot = top - shutter_gap;
+                    }
+                });
+            })
+        }
+        _ => return None,
+    };
+    Some(canvas(|_, _, _| {}, move |bounds, _, window, _| paint(bounds, window)).absolute().top_0().left_0().size_full().into_any_element())
 }
 
 /// What a held bay is wrong with, where it is.
@@ -233,6 +271,8 @@ pub(super) struct BayPanel {
     acting: bool,
     said: Option<String>,
     refused: Option<String>,
+    /// The Job a refused Release names as working, opened from beside the refusal.
+    open_job: Option<ClashHolder>,
     /// The panel's scroller, and whether the next draw brings a just-opened confirm, or what an act
     /// answered, into view.
     scroll: ScrollHandle,
@@ -386,6 +426,7 @@ impl JobView {
             div().child(SharedString::from(with.label.clone())).into_any_element()
         } else {
             let pressed = with.clone();
+            let row = with.id.clone();
             labelled(
                 div()
                     .id(SharedString::from(format!("clash-with:{}", with.id)))
@@ -394,7 +435,10 @@ impl JobView {
                     .cursor_pointer()
                     .hover(|style| style.underline())
                     .child(SharedString::from(with.label.clone()))
+                    // Hovered, the other holder's row in the Jobs list is lit too (`ClashWith`).
+                    .on_hover(move |hovered, _, cx| crate::clash_mark::light(hovered.then(|| row.clone()), cx))
                     .on_click(cx.listener(move |_, _, window, cx| {
+                        crate::clash_mark::light(None, cx);
                         if let Some(open) = cx.try_global::<crate::clash_mark::OpenHolder>().cloned() {
                             (open.0)(&pressed, window, cx);
                         }
@@ -493,8 +537,8 @@ impl JobView {
         let edge = look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.55));
         let (ground, border) = match view.state {
             BayState::Free => (look.color(token::BG_SUNKEN), edge),
-            BayState::Stranded => (look.color(token::BG_RAISED).blend(look.color(token::SLOT_STRANDED_BG)), hue),
-            BayState::Closed => (look.color(token::BG_SUNKEN).blend(look.color(token::SLOT_CLOSED_BG)), look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.25))),
+            BayState::Stranded => (look.color(token::BG_RAISED).blend(hue.opacity(0.10)), hue),
+            BayState::Closed => (look.color(token::BG_SUNKEN), look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.25))),
             _ => (look.color(token::BG_RAISED), edge),
         };
         let lamp = div()
@@ -603,6 +647,7 @@ impl JobView {
             .when(!foot.is_empty(), |body| body.child(div().flex().items_center().gap(look.length(token::SPACE_2)).font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).children(foot)));
         let (manifest, number) = (slot.manifest_id.clone(), slot.slot);
         let hover_ground = look.color(token::BG_HOVER);
+        let hatch = hatch_of(view.state, look);
         labelled(
             div()
                 .id(SharedString::from(format!("{place}-bay:{}", slot.slot)))
@@ -619,6 +664,7 @@ impl JobView {
                 .cursor_pointer()
                 .hover(move |style| style.border_color(hue).bg(hover_ground))
                 .tooltip(tip("Show in Bays"))
+                .when_some(hatch, |bay, hatch| bay.relative().child(hatch))
                 .child(door)
                 .child(body)
                 .on_click(cx.listener(move |this, _, window, cx| this.open_bay(manifest.clone(), number, window, cx))),
@@ -629,7 +675,7 @@ impl JobView {
     }
 
     fn open_bay(&mut self, manifest: ManifestId, slot: u32, window: &mut Window, cx: &mut Context<Self>) {
-        let panel = BayPanel { manifest: manifest.clone(), slot, tab: BayTab::Facts, history: None, confirm: None, acting: false, said: None, refused: None, scroll: ScrollHandle::new(), reveal: Cell::new(false) };
+        let panel = BayPanel { manifest: manifest.clone(), slot, tab: BayTab::Facts, history: None, confirm: None, acting: false, said: None, refused: None, open_job: None, scroll: ScrollHandle::new(), reveal: Cell::new(false) };
         self.open_bay_panel(panel, window, cx);
         self.read_bay_history(manifest, slot, window, cx);
     }
@@ -673,6 +719,7 @@ impl JobView {
         panel.acting = true;
         panel.said = None;
         panel.refused = None;
+        panel.open_job = None;
         Some((panel.manifest.clone(), panel.slot))
     }
 
@@ -690,12 +737,30 @@ impl JobView {
         cx.notify();
     }
 
+    /// A pool act's answer; a Release refused because its Job is mid-turn keeps that Job to open.
+    fn end_release(&mut self, slot: u32, working: Option<ClashHolder>, said: Result<Option<String>, String>, window: &mut Window, cx: &mut Context<Self>) {
+        let opens = working.filter(|_| said.is_err() && self.refused_code.as_deref() == Some(SESSION_WORKING));
+        if let Some(panel) = self.bay_panel_mut().filter(|panel| panel.slot == slot) {
+            panel.open_job = opens;
+        }
+        self.end_act(slot, said, window, cx);
+    }
+
     /// A pool act (`POST /worktrees/slots`): Close, Reopen, Remove, or Release once confirmed.
     fn pool_act(&mut self, act: ipc::SlotAct, window: &mut Window, cx: &mut Context<Self>) {
         let Some((manifest, slot)) = self.begin_act() else { return };
-        let holder = self.panes.bays.pool.as_ref().and_then(|pool| pool.iter().find(|one| one.slot == slot && one.manifest_id == manifest)).and_then(|one| match &one.held {
+        let held = self.panes.bays.pool.as_ref().and_then(|pool| pool.iter().find(|one| one.slot == slot && one.manifest_id == manifest)).map(|one| one.held.clone());
+        let holder = held.as_ref().and_then(|held| match held {
             SlotHolding::Session { holder, .. } => Some(holder.clone()),
             SlotHolding::HostedSession { session_id, .. } => Some(session_id.clone()),
+            _ => None,
+        });
+        // The Job a refused Release opens: the hosted Session holding the slot (`tile-acts.ts:130`).
+        let working = held.and_then(|held| match held {
+            SlotHolding::Session { session_id: Some(id), session_title, .. } | SlotHolding::HostedSession { session_id: id, session_title } => {
+                let label = session_title.unwrap_or_else(|| short_of(&id));
+                Some(ClashHolder { kind: ClashSide::Session, id, label })
+            }
             _ => None,
         });
         let lead = match act {
@@ -713,7 +778,8 @@ impl JobView {
         };
         if self.fleet.is_none() {
             let answer = crate::mock::pool_act(self.panes.bays.pool.get_or_insert_with(Vec::new), manifest.as_str(), slot, act);
-            self.end_act(slot, answer.map(receipt).map_err(|why| format!("{lead}: {why}")), window, cx);
+            self.refused_code = answer.as_ref().err().and_then(|(_, code)| code.map(str::to_string));
+            self.end_release(slot, working, answer.map(receipt).map_err(|(why, _)| format!("{lead}: {why}")), window, cx);
             return;
         }
         let body = ipc::encode(&ChangeSlotPool { act, slot: Some(slot), holder: holder.filter(|_| act == ipc::SlotAct::Release) });
@@ -725,7 +791,7 @@ impl JobView {
             cx,
             Box::new(move |this, answer, window, cx| {
                 let said = answer.map(|bytes| receipt(ipc::decode::<SlotPoolChanged>("SlotPoolChanged", &bytes).ok())).map_err(|why| format!("{lead}: {why}"));
-                this.end_act(slot, said, window, cx);
+                this.end_release(slot, working, said, window, cx);
             }),
         );
     }
@@ -903,6 +969,19 @@ impl JobView {
         }
         let acts_row = labelled(div().id("bay-acts").flex().flex_wrap().gap(look.length(token::SPACE_2)).children(acts), Role::Group, "Acts");
         let refused = panel.refused.clone().map(|why| labelled(div().id("bay-refused").text_color(look.color(token::ERROR)).child(SharedString::from(why.clone())), Role::Alert, why));
+        // `TileManage.tsx:127-140`: a Release refused because its Job is mid-turn offers that Job.
+        let open_job = panel.open_job.clone().filter(|_| panel.refused.is_some()).map(|holder| {
+            let button = small_button(look, "bay-open-job", "Open Job", false, true)
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .tooltip(tip(format!("Opens {}", holder.label)))
+                .on_click(cx.listener(move |_, _, window, cx| {
+                    if let Some(open) = cx.try_global::<crate::clash_mark::OpenHolder>().cloned() {
+                        (open.0)(&holder, window, cx);
+                    }
+                }));
+            div().flex().child(labelled(button, Role::Button, "Open Job")).into_any_element()
+        });
         let said = panel.said.clone().map(|said| labelled(div().id("bay-said").text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone())), Role::Status, said));
         let releasing = (panel.confirm == Some(Confirm::Release)).then(|| self.release_confirm(slot, look, cx));
         let scrapping = (panel.confirm == Some(Confirm::Scrap)).then(|| self.scrap_confirm(slot, look, cx));
@@ -934,6 +1013,7 @@ impl JobView {
         // What an act answered stands under the acts; the acts row comes with it into view.
         let answered_at = (refused.is_some() || said.is_some()).then_some(0);
         body.extend(refused.map(IntoElement::into_any_element));
+        body.extend(open_job);
         body.extend(said.map(IntoElement::into_any_element));
         let mut confirm_at = releasing.as_ref().map(|_| body.len());
         body.extend(releasing);

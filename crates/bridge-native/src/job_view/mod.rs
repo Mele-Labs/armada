@@ -329,6 +329,8 @@ pub struct JobView {
     dock_focus: FocusHandle,
     /// A thread scroll key ran in the frame now drawing: a row it carries out of the list keeps the keys nearby.
     scroll_keys: bool,
+    /// The code Fleet refused the last answered act with (`WireError.code`), read by the `done` that answers it.
+    refused_code: Option<String>,
     /// The dialog a thread key opens to ask which card it goes to.
     confirm: Option<keys::Confirm>,
     /// The bar under agent messages: its responses, what was just copied, and the editor of a response.
@@ -486,6 +488,7 @@ impl JobView {
             open_group_set: None,
             dock_focus: cx.focus_handle(),
             scroll_keys: false,
+            refused_code: None,
             confirm: None,
             bar: bar::Bar::new(),
             fork: fork::Fork::default(),
