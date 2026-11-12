@@ -4,7 +4,7 @@
 use ipc::{PlanCardState, SessionAskState, SessionRow, SessionThread, ThreadItem};
 
 use super::thread_view::{agent, ask, at, fleet, held, ids, items, kept_sketch, kinds, record, show_sketch, thread, tool, you, SCENE};
-use crate::thread_view::{folded, folded_cut, Revisions};
+use crate::thread_view::{cut_after, folded, folded_cut, Revisions};
 
 fn row(text: String) -> SessionRow {
     ipc::decode("a row", text.as_bytes()).expect("a row")
@@ -214,4 +214,30 @@ fn thread_read_upto_head_is_blank() {
     assert_eq!(ids(&folded_cut(&approved, &[], &Revisions::new()).1), ["m1", "plan:v2", "y"]);
     let before_its_row = with(&plan(true, ""), vec![agent("m1", 1, "here")]);
     assert_eq!(ids(&folded_cut(&before_its_row, &[], &Revisions::new()).1), ["m1"], "its row is past the cut");
+}
+
+#[test]
+fn thread_read_upto_drops_later_cards() {
+    // A judged line and a document written after row `b`, which sit between `b` and `c` in the live thread.
+    let page = held(
+        "artifact",
+        "/w/.armada/documents/a.html",
+        &[("form", "document"), ("revisions", r#"["/s/r1.html"]"#), ("revision", "1"), ("kept_at", at(3).as_str())],
+    );
+    let reading = format!(
+        r#"{{"id":"r1","artifact":{{"kind":"plan","id":"2","title":"Plan v2"}},"prompt":"","state":"done","asked_at":"{}","finished_at":"{}","read":false,"notes":[]}}"#,
+        at(0).as_str(),
+        at(4).as_str()
+    );
+    let mut one = with(&format!(r#""judge_readings":[{reading}]"#), vec![agent("a", 1, "x"), agent("b", 2, "y"), agent("c", 5, "z")]);
+    one.session.attachments = vec![page];
+
+    let live = folded(&one, &[], &Revisions::new()).1;
+    assert_eq!(ids(&live), ["a", "b", "document:/w/.armada/documents/a.html:r1", "judged:r1", "c"]);
+
+    // The cut read drops the rows after `b` first, so only the cards are left to place.
+    one.rows.truncate(2);
+    let (_, mut cut) = folded_cut(&one, &[], &Revisions::new());
+    cut_after(&mut cut, "b");
+    assert_eq!(ids(&cut), ["a", "b"], "a card written after the cut row is not on the old thread");
 }

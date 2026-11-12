@@ -87,6 +87,16 @@ pub(crate) fn window(
     Some((items[start..end].to_vec(), older))
 }
 
+/// Cut the items after the one that holds the row `upto`, which stays. A document, a Judge line or a change
+/// is placed by time among the rows, so one written after the cut row stands after it and is not on the old
+/// thread, as Electron's `upTo` keeps nothing past the cut. **Where no item holds the row**, because it is
+/// one no screen draws, the items stand as they are.
+pub(crate) fn cut_after(items: &mut Vec<ThreadItem>, upto: &str) {
+    if let Some(at) = items.iter().position(|item| holds(item, upto)) {
+        items.truncate(at + 1);
+    }
+}
+
 /// Whether the item is `id` or folds the row `id`.
 fn holds(item: &ThreadItem, id: &str) -> bool {
     item.id() == id

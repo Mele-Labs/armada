@@ -16,7 +16,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::daemon::Fleet;
-use crate::thread_view::{folded, folded_cut, revision_paths, tail_of, window, Revisions};
+use crate::thread_view::{cut_after, folded, folded_cut, revision_paths, tail_of, window, Revisions};
 
 /// How many Jobs are held at once: the ones read most recently.
 pub(crate) const HELD_MOST: usize = 32;
@@ -356,7 +356,8 @@ where
         timeline.retain(|event| event.at <= cut_at);
         let mut revisions = Revisions::new();
         revisions_read(&thread.session, &mut revisions).await;
-        let (head, items) = folded_cut(&thread, &timeline, &revisions);
+        let (head, mut items) = folded_cut(&thread, &timeline, &revisions);
+        cut_after(&mut items, upto);
         match window(&items, read.before.as_deref(), read.limit) {
             Some((items, older)) => Ok(JobThread { session_id: read.session_id.clone(), head, items, older }),
             None => Err(self.hosted_refusal(THREAD_ITEM_UNKNOWN, "no item of that job's thread holds that id")),
