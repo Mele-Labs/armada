@@ -21,20 +21,21 @@ impl JobView {
         self.open_body(id, false, look, cx).unwrap_or_else(|| div().into_any_element())
     }
 
-    /// Open's rows, absent with none. On the Spine the route still to come stands here, after what
-    /// has not landed (`next`).
+    /// Open's rows, absent with none. The route still to come stands here, after what has not landed
+    /// (`next`), since Now holds only what runs.
     pub(super) fn open_body(&self, id: &SharedString, spine: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let job = self.record(id, cx).cloned()?;
-        // A plan drafted or marked stands whole in Now to edit; its groups are not drawn again here.
-        let editing = job.plan.as_ref().is_some_and(|plan| !plan.approved || !self.plan_marks(id).is_empty());
+        // On the Spine a plan drafted or marked stands whole in Now to edit, so its groups are not
+        // drawn again here. Now alone leaves it out, so Open draws its groups.
+        let editing = spine && job.plan.as_ref().is_some_and(|plan| !plan.approved || !self.plan_marks(id).is_empty());
         let groups: Vec<&SessionPlanGroup> = job.plan.iter().flat_map(|plan| plan.groups.iter()).collect();
         let place = super::side::placed(&job);
         let upcoming: Vec<&SessionPlanGroup> = if editing { Vec::new() } else { groups.iter().copied().filter(|group| place(group) == Stands::Coming).collect() };
         let held: Vec<&SessionPlanGroup> = groups.iter().copied().filter(|group| editing || place(group) != Stands::Done).collect();
 
-        let ahead = if spine { self.ahead_list(&job, look, cx) } else { None };
+        let ahead = self.ahead_list(&job, look, cx);
         let rows: Vec<AnyElement> = self
-            .flight_rows(&job, &upcoming, true, look, cx)
+            .flight_rows(&job, &upcoming, true, false, look, cx)
             .into_iter()
             .chain(self.not_landed(&job, &held, look, cx))
             .chain(ahead)

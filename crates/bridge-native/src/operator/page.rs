@@ -9,7 +9,7 @@ use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, 
 use ipc::{SessionId, WaitingAct};
 
 use super::chat::{ChatAsked, OperatorChat};
-use super::face::{self, Kind, Standing};
+use super::face::{self, Kind};
 use super::scenes::{self, MockFleet};
 use super::wire::Wire;
 use crate::fleet::FleetConnection;
@@ -51,7 +51,6 @@ pub struct OperatorPageView {
     pub(super) wire: Wire,
     /// Fleet's page, with this sitting's presses already on it. `None` until it is read: a skeleton.
     pub(super) page: Option<OperatorPage>,
-    pub(super) standing: Standing,
     /// The date, and when he came back, as RFC 3339 so it flips with the page's other times.
     pub(super) day: Option<SharedString>,
     pub(super) back_at: Option<String>,
@@ -118,7 +117,6 @@ impl OperatorPageView {
         OperatorPageView {
             wire,
             page: None,
-            standing: Standing::default(),
             day: None,
             back_at: None,
             open: None,
@@ -175,7 +173,6 @@ impl OperatorPageView {
     /// The page on the walk's Fleet, at 13:05 as the sketch drew it.
     pub fn mock(pane: bool, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let mut this = Self::new(Wire::Mock(Box::new(MockFleet::new())), pane, window, cx);
-        this.standing = scenes::standing();
         this.day = Some(scenes::day());
         this.back_at = Some(scenes::now().to_rfc3339());
         this.clock_now = Some(scenes::now());

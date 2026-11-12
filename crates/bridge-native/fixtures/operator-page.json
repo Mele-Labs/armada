@@ -35,7 +35,7 @@
    "repository": "armada",
    "item": {
     "id": "note:41",
-    "text": "the slot meter flickers when a Job ends",
+    "text": "the slot meter flickers when a Job ends, and for a second the count reads one slot more than the pool holds before it settles",
     "since": "2026-11-11T11:52:00-05:00",
     "source": "agent"
    },

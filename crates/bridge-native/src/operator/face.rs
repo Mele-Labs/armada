@@ -161,14 +161,6 @@ pub fn day(at: &DateTime<Local>) -> SharedString {
     at.format("%A %-d %B").to_string().into()
 }
 
-/// The head's week pill, which `operator_page` does not serve: the title bar's reading, or the walk's mock.
-/// The mains and the slots are the page's own.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Standing {
-    /// The week's share of the plan used, in whole percent.
-    pub week: Option<u32>,
-}
-
 /// A main's pill: what its tooltip says, and its mark and hue where Fleet has read a state that has one.
 /// A main nothing ran on, or that Fleet has not read yet, is a plain pill.
 pub fn main_said(main: &OperatorMain, since: Option<&str>) -> (String, Option<(&'static str, Token)>) {

@@ -6,7 +6,7 @@
 
 use super::{answer, step, Step, Verb};
 
-const NOTE: &str = "File your note: the slot meter flickers when a Job ends";
+const NOTE: &str = "File your note: the slot meter flickers when a Job ends, and for a second the count reads one slot more than the pool holds before it settles";
 const HOLD: &str = "armada: only Slot pool controls writes under apps/cockpit until it pushes";
 const FORGET_HOLD: &str = "Forget armada: only Slot pool controls writes under apps/cockpit until it pushes";
 const TOP: &str = "Since you left, the red main's fix is up as #3414, waiting on ci. Quick dispatch's plan is still the one two Jobs wait on.";

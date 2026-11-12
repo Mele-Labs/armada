@@ -296,6 +296,7 @@ Raising, leaving a note where it is and noting it are not acts.
 Settled with the person on 10 Nov, on sketches. It stays current all day; the morning only rewrites its top line.
 - The top line is the Operator's one sentence on what matters first, rewritten each time the person comes back to the page.
   It sits in grey under the day and the pills, with nothing on it to press, and only a red main's pill keeps its colour (11 Nov).
+  The pills are each repository's main and the slots held; the week's plan is not one of them, since the title bar's rings show it on every page (12 Nov).
 - Your turn is the short list, in an order the person drags.
   On it sits at the top, saying what the Operator is reading now: the Job by name, what it asks, and its project.
   One item is open at a time, with its kind, its Job, what it asks, the Operator's read and its acts, the pick marked: A presses the pick, L is Later, / is Ask.
