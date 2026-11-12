@@ -1,9 +1,14 @@
 //! `GET /api/machine`: the name the phone labels this Mac's rows with when it
-//! is paired with more than one.
+//! is paired with more than one. `GET /admin/macs`: this Mac, and later the
+//! Macs paired with it, for the Devices list beside the phones.
 
 use axum::extract::State;
 use axum::response::Response;
 use serde::Serialize;
+
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use ipc::{Mac, MacColour};
 
 use crate::reads::json;
 use crate::Gateway;
@@ -44,4 +49,40 @@ pub async fn machine(State(gateway): State<Gateway>) -> Response {
     .flatten()
     .unwrap_or_else(|| UNNAMED.to_string());
     json(&Machine { name })
+}
+
+/// This Mac as it was first minted: its id, the host's name then, and one colour drawn at random, so two
+/// Macs set up apart are unlikely to share one. Blocking.
+pub(crate) fn this_mac(gateway: &Gateway) -> Result<store::ThisMac, String> {
+    let random = crate::webpush::random::<16>()?;
+    let colour = MacColour::ALL[usize::from(random[0]) % MacColour::ALL.len()];
+    let fresh = store::ThisMac {
+        id: crate::pairing::to_hex(&random),
+        name: host_name().unwrap_or_else(|| UNNAMED.to_string()),
+        colour: colour.name().to_string(),
+        minted_at: gateway.pairing.now(),
+    };
+    gateway.pairing.store.lock().unwrap().this_mac_or(&fresh).map_err(|why| why.to_string())
+}
+
+fn macs(gateway: &Gateway) -> Result<Vec<Mac>, String> {
+    let mac = this_mac(gateway)?;
+    Ok(vec![Mac {
+        colour: MacColour::named(&mac.colour).unwrap_or(MacColour::Blue),
+        id: mac.id,
+        name: mac.name,
+        address: gateway.pairing.address().ok(),
+        this_mac: true,
+        build: gateway.way_in.build.clone(),
+        link: None,
+    }])
+}
+
+/// `GET /admin/macs`: this Mac first. Pairing a Mac adds the others.
+pub async fn this_and_paired_macs(State(gateway): State<Gateway>) -> Response {
+    match tokio::task::spawn_blocking(move || macs(&gateway)).await {
+        Ok(Ok(macs)) => json(&macs),
+        Ok(Err(why)) => (StatusCode::INTERNAL_SERVER_ERROR, why).into_response(),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "The Gateway could not read this Mac.").into_response(),
+    }
 }
