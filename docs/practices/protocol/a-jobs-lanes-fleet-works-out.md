@@ -80,8 +80,10 @@ Since 12 Nov 2026, for native Settings › Kit › Workflows. Classic's Workflow
 | --- | --- | --- | --- |
 | `get_workflow_lanes` | `GET /workflows/lanes?workflow=&scope=&manifest_id=` | Fleet answers | `JobLanesView`, with no Job standing in it |
 
-**The same type a Job's lanes ride on**, so one canvas draws both. `at` is -1, `job` holds only `copy` (the steps, every lifecycle of the default level, and the rules drawn), which the forms that add a step, a lifecycle or a rule pick from, and every edge is `waiting` with no `waits`.
-The reading is `crates/fleet/src/job_lanes/editor.rs`: a lifecycle is its piece scoped everywhere, Kit's over the repository's over Armada's, laid out in columns as a Job's is; a rule is drawn from its piece at the widest level that keeps one, where it lands on a node, belongs to this workflow and has both ends drawn. A rule that is off is drawn.
+**The same type a Job's lanes ride on**, so one canvas draws both.
+`at` is -1, `job` holds only `copy` (the steps, every lifecycle of the default level, and the rules drawn), which the forms that add a step, a lifecycle or a rule pick from, and every edge is `waiting` with no `waits`.
+The reading is `crates/fleet/src/job_lanes/editor.rs`: a lifecycle is its piece scoped everywhere, Kit's over the repository's over Armada's, laid out in columns as a Job's is; a rule is drawn from its piece at the widest level that keeps one, where it lands on a node, belongs to this workflow and has both ends drawn.
+A rule that is off is drawn.
 **The default level only.** The marks for where a level below differs, a clash, a proposed rule and a pending removal or keep are a second change.
 
 | Code | Where |
