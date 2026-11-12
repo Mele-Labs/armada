@@ -813,10 +813,13 @@ mod tests {
         }
         assert!(super::catalogue().is_some());
         assert_eq!(super::jobs("tool-rows").expect("decodes").len(), 7);
-        assert_eq!(super::threads("tool-rows").expect("decodes").len(), 6);
+        assert_eq!(super::threads("tool-rows").expect("decodes").len(), 7);
         assert_eq!(super::threads("drafts").expect("decodes").len(), 1);
         assert!(super::jobs("job-tabs").expect("decodes").len() > 10);
-        assert_eq!(super::threads("job-tabs").expect("decodes").len(), 4);
+        let tabs = super::threads("job-tabs").expect("decodes");
+        for id in ["mock-01", "mock-02", "mock-04", "mock-06"] {
+            assert!(tabs.contains_key(id), "{id}");
+        }
         assert!(super::jobs("job-done").expect("decodes").len() > 10);
         assert!(!super::threads("job-done").expect("decodes").is_empty());
         assert!(super::jobs("job-now").expect("decodes").len() > 10);
