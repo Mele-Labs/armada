@@ -206,14 +206,7 @@ impl OperatorPageView {
             labelled(pill, Role::Status, said).into_any_element()
         });
         let mains: Vec<AnyElement> = mains.collect();
-        let week = self.standing.week.or_else(|| week_from_bar(cx)).map(|percent| {
-            let said = format!("{percent}% of the week's plan used");
-            labelled(
-                pill("pill-week").tooltip(tip(said.clone())).child(format!("Week {percent}%")).child(meter(percent as f32 / 100., token::FG_MUTED)),
-                Role::Status,
-                said,
-            )
-        });
+        // The week's plan stands in the title bar's rings, so the head does not repeat it (12 Nov).
         let slots = slots_read.map(|slots| {
             let (held, all) = (slots.used, slots.total);
             let said = format!("Slots {held} of {all} held");
@@ -247,7 +240,6 @@ impl OperatorPageView {
                     .when_some(self.back_at.as_deref(), |back, at| back.child("back").child(self.stamp(at, Some("at"), (token::TEXT_XS, token::FG_MUTED, token::WEIGHT_BODY), look, cx))),
             )
             .children(mains)
-            .children(week)
             .children(slots)
     }
 
@@ -409,7 +401,7 @@ impl OperatorPageView {
                     .text_size(look.length(token::TEXT_SM))
                     .text_color(look.color(token::STATUS_COMPLETED_FAILED))
                     .child(glyph("circle-alert", look.length(token::SPACE_4), look.color(token::STATUS_COMPLETED_FAILED)))
-                    .child(format!("Not done: {why}")),
+                    .child(div().flex_1().min_w_0().child(format!("Not done: {why}"))),
                 Role::Alert,
                 format!("Not done: {why}"),
             )
@@ -422,16 +414,23 @@ impl OperatorPageView {
             .py(look.length(token::SPACE_4))
             .children(face::asks_of(turn).map(|asks| div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(asks)))
             .children(face::note_of(turn).map(|(since, note)| {
+                // The head is one line that keeps its colon on the time; the note under it wraps in the card.
                 div()
                     .flex()
-                    .flex_wrap()
-                    .items_baseline()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
                     .text_size(look.length(token::TEXT_BASE))
                     .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                    .child("Your note from")
-                    .child(self.stamp(since.as_str(), None, (token::TEXT_BASE, token::FG_DEFAULT, token::WEIGHT_MEDIUM), look, cx))
-                    // The colon closes up on the time, past its ring's hairline.
-                    .child(div().ml(-look.length(token::BORDER_WIDTH) * 2.).child(format!(": {note}")))
+                    .child(
+                        div()
+                            .flex()
+                            .items_baseline()
+                            .child("Your note from")
+                            .child(self.stamp(since.as_str(), None, (token::TEXT_BASE, token::FG_DEFAULT, token::WEIGHT_MEDIUM), look, cx))
+                            // The colon closes up on the time, past its ring's hairline.
+                            .child(div().ml(-look.length(token::BORDER_WIDTH) * 2.).child(":")),
+                    )
+                    .child(div().w_full().min_w_0().child(note))
             }))
             .children(read)
             .children(then)
@@ -471,10 +470,11 @@ impl OperatorPageView {
             .bg(look.color(token::BG_OVERLAY))
             // The card clips its children square: its ground keeps inside the rounded corner itself.
             .rounded_b(round(look) - look.length(token::BORDER_WIDTH))
+            // In a narrow window the row wraps inside the card; Later and Ask keep the right of their line.
+            .flex_wrap()
             .children(answers)
             .children(changes)
-            .child(div().flex_1())
-            .child(labelled(
+            .child(div().ml_auto().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(
                 pressed(press("turn-later", "Later".into(), None, Some("L".into()), Weight::Bare, look).track_focus(&self.later_focus).tooltip(tip("Last for the rest of today")), cx, |this, _, cx| {
                     this.later(cx)
                 }),
@@ -487,7 +487,7 @@ impl OperatorPageView {
                 }),
                 Role::Button,
                 "Ask",
-            ));
+            )));
         // Ask's chat opens in the card it is about, between what the item says and its answers.
         let chat = self.chat.clone().map(|chat| {
             div()
@@ -1161,15 +1161,6 @@ fn placed(place: &str, said: &str) -> String {
     let mut said = said.chars();
     let small: String = said.next().map(|first| first.to_lowercase().chain(said).collect()).unwrap_or_default();
     format!("{place}: {small}")
-}
-
-/// The week's share as the title bar's rings read it, on a live Fleet.
-fn week_from_bar(cx: &App) -> Option<u32> {
-    let bar = crate::titlebar::live(cx)?;
-    match &bar.read(cx).face.usage {
-        crate::titlebar::Usage::Limits(limits) => limits.iter().find(|limit| limit.name == "Weekly limit").map(|limit| limit.percent),
-        _ => None,
-    }
 }
 
 impl Render for OperatorPageView {
