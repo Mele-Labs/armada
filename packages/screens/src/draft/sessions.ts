@@ -12,6 +12,7 @@ import type { Scene } from "@armada/components/src/compositions/SketchScene/scen
 import type { SketchSettled } from "@armada/components/src/compositions/SessionThread/sketch-answer";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { PlanLandsIn } from "@armada/components/src/compositions/SessionThread/lands-in";
+import type { GateKind } from "@armada/components/src/compositions/SessionThread/gate-glyph";
 import type { GateChecks, GateClose, PlanGate } from "@armada/protocol";
 import type {
   AnswerDocument,
@@ -832,6 +833,20 @@ type SessionRowKinds =
       workflow?: {
         name: string;
         scope: "kit" | "repository";
+        /** The workflow's name, as its definition says it; `name` is its id. */
+        title?: string;
+        forRequests?: string;
+        /** Its steps in order, for the card's lanes. Absent draws the definition's text. */
+        steps?: readonly {
+          id: string;
+          label: string;
+          about?: string;
+          endsWhen?: string;
+          gate?: GateKind;
+          asksDelivery?: boolean;
+          delivers?: boolean;
+          instructions?: string;
+        }[];
       } /** **A mock's field**: a draft that is a rule's own act, whose card is the rule and says where it goes and to whom. */;
       rule?: {
         where: string;

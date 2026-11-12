@@ -218,6 +218,8 @@ export { autonomyOfWire } from "./compositions/WorkflowManager/RuleForm";
 export type { RuleFormLifecycle } from "./compositions/WorkflowManager/RuleForm";
 export { DraftRow } from "./compositions/SessionThread/DraftRow";
 export type { DraftAnswer, DraftThreadRow } from "./compositions/SessionThread/DraftRow";
+export * from "./compositions/SessionThread/WorkflowDraft";
+export * from "./compositions/SessionThread/gate-glyph";
 export {
   forRequestsOf,
   stepsOfDefinition,

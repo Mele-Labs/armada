@@ -137,6 +137,7 @@ export { colourCode } from "./colourCode";
 import { MessageBar } from "./MessageBar";
 import type { Scene } from "../SketchScene/scene";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
+import type { GateKind } from "./gate-glyph";
 
 /**
  * A Session's conversation, drawn on its own thread rows
@@ -460,6 +461,20 @@ type SessionThreadKinds =
       workflow?: {
         name: string;
         scope: "kit" | "repository";
+        /** The workflow's name, as its definition says it; `name` is its id. */
+        title?: string;
+        forRequests?: string;
+        /** Its steps in order, for the card's lanes. Absent draws the definition's text. */
+        steps?: readonly {
+          id: string;
+          label: string;
+          about?: string;
+          endsWhen?: string;
+          gate?: GateKind;
+          asksDelivery?: boolean;
+          delivers?: boolean;
+          instructions?: string;
+        }[];
       } /** **A mock's field**: a draft that is a rule's own act, whose card is the rule and says where it goes and to whom. */;
       rule?: {
         where: string;
