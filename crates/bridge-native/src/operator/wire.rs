@@ -79,7 +79,7 @@ impl Wire {
         if let Wire::Mock(mock) = self {
             return Task::ready(mock.later(id));
         }
-        let said = body(&OperatorLater { id: id.to_string() });
+        let said = body(&OperatorLater { id: id.to_string(), until: None });
         self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/page/later", said), "OperatorPage", cx))
     }
 

@@ -291,3 +291,67 @@ async fn a_setting_changed_after_the_job_started_does_not_change_how_its_work_is
     assert_eq!(started_on.read.map(|read| read.read), Some("Findings: It leaves out the tests.".to_string()));
     assert_eq!(call.vets(), 1);
 }
+
+/// The press on `one`'s pick, as Yes.
+async fn yes(rig: &Rig, one: &ipc::operator_page::OperatorTurnItem) -> ipc::operator_page::OperatorAnswered {
+    let press = ipc::operator_page::OperatorAnswerPress { id: one.id.clone(), answer: ipc::operator_page::OperatorAnswer::Yes, then: None, option: None, project: None };
+    rig.fleet.operator_answered(press).await.expect("answered")
+}
+
+/// Everything the Job's thread holds, as words to search.
+async fn thread(rig: &Rig, job: &SessionId) -> String {
+    format!("{:?}", Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("the Job").rows)
+}
+
+#[tokio::test]
+async fn send_the_plan_back_sends_it_back_with_the_reason_and_approves_nothing() {
+    let rig = a_rig(CODE);
+    let call = Smart::answering(Some("verdict: findings\nread: It touches the wrong crate.\npick: Rewrite it from scratch"));
+    on(&rig, &call).await;
+    let job = job_in(&rig, &project(&rig, reviews("review", "off", "off")).await).await;
+    plan_recorded(&rig, &job, false).await;
+    let one = queued(&rig, &job, "plan:1").await;
+    assert_eq!(one.read.as_ref().expect("a read").pick, "Send the plan back", "a pick is one of the labels a plan takes");
+    assert!(call.asked()[0].contains("\"Send the plan back\""), "the review is offered the labels");
+
+    let answered = yes(&rig, &one).await;
+
+    assert!(answered.open.is_none(), "it is sent, not opened: {answered:#?}");
+    assert!(thread(&rig, &job).await.contains("It touches the wrong crate."), "the reason goes with it");
+    assert!(!plan_approved(&rig, &job).await);
+}
+
+#[tokio::test]
+async fn approve_the_plan_approves_it() {
+    let rig = a_rig(CODE);
+    let call = Smart::answering(Some("verdict: clean\nread: It matches the brief.\npick: Approve the plan"));
+    on(&rig, &call).await;
+    let job = job_in(&rig, &project(&rig, reviews("review", "off", "off")).await).await;
+    plan_recorded(&rig, &job, false).await;
+    let one = queued(&rig, &job, "plan:1").await;
+    assert_eq!(one.read.as_ref().expect("a read").pick, "Approve the plan");
+
+    let answered = yes(&rig, &one).await;
+
+    assert!(answered.open.is_none(), "{answered:#?}");
+    assert!(plan_approved(&rig, &job).await, "Yes approved it");
+}
+
+#[tokio::test]
+async fn walk_it_first_opens_the_jobs_walk() {
+    let rig = a_rig(CODE);
+    let call = Smart::answering(Some("verdict: clean\nread: It does what was asked."));
+    on(&rig, &call).await;
+    let job = job_in(&rig, &project(&rig, reviews("off", "review", "off")).await).await;
+    plan_recorded(&rig, &job, true).await;
+    let url = "http://127.0.0.1:5173/?walk=pane";
+    rig.fleet.show_window(None, ipc::ShowWindow { url: url.into(), title: Some("The pane".into()), session_id: Some(job.clone()), ..Default::default() }).await.expect("shown");
+    pull_request_waits(&rig, &job).await;
+    let one = queued(&rig, &job, "pr").await;
+    assert_eq!(one.read.as_ref().expect("a read").pick, "Walk it first");
+
+    let answered = yes(&rig, &one).await;
+
+    let open = answered.open.expect("something to open");
+    assert_eq!((open.kind, open.target.contains(url)), (WaitingActKind::Walk, true), "the walk, not the pull request: {open:?}");
+}

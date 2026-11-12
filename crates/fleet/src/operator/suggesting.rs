@@ -33,14 +33,24 @@ pub(crate) const DO_IT: u32 = 0;
 pub(crate) const SKIP: u32 = 1;
 
 /// The rows of a Job's Needs you list for what it would do. An answer's shows on its question.
+/// **One that asks the same as an earlier one is folded into it** and is not a row of its own.
 pub(crate) fn suggestion_items(kept: &[KeptSuggestion]) -> impl Iterator<Item = WaitingItem> + '_ {
-    kept.iter().filter(|one| one.item.is_none()).map(|one| {
+    let folded = |at: usize, one: &KeptSuggestion| kept[..at].iter().any(|first| first.item.is_none() && same_thing(first) == same_thing(one));
+    kept.iter().enumerate().filter(move |(at, one)| one.item.is_none() && !folded(*at, one)).map(|(_, one)| {
         let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
         // A start that repeats a live Job's work reads as the hand-over it would make, and the other as keeping both.
+        // A bug report's buttons name what becomes of it, and the first carries the reasoning as its tooltip.
         let (yes, no) = match (one.arrived.as_str(), one.way.as_str(), one.what.as_deref()) {
             ("start", "existing_job", Some(title)) => (format!("Hand to {title}"), "Keep both"),
+            ("report", "new_job", _) => ("Start a Job to fix it".to_string(), "Leave it reported"),
+            ("report", "existing_job", Some(title)) => (format!("Hand it to {title}"), "Leave it reported"),
+            ("report", "link", Some(issue)) => (format!("Link it to {issue}"), "Leave it reported"),
             _ => ("Do it".to_string(), "Skip"),
         };
+        let mut first = option(&yes);
+        if one.arrived == "report" {
+            first.description = Some(one.because.clone());
+        }
         let id = format!("{SUGGESTION}{}", one.n);
         WaitingItem {
             approves: false,
@@ -49,7 +59,7 @@ pub(crate) fn suggestion_items(kept: &[KeptSuggestion]) -> impl Iterator<Item = 
             text: one.text.clone(),
             since: Instant::carried(&one.raised_at),
             source: WaitingSource::OperatorSuggestion,
-            options: vec![option(&yes), option(no)],
+            options: vec![first, option(no)],
             steps: Vec::new(),
             place: None,
             confirmed: false,
@@ -90,8 +100,6 @@ fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
             Some(Grouping::Part) => format!("The Operator would put {} \"{subject}\" under {issue}: {because}", issue_of(arrival)),
             _ => format!("The Operator would close {} \"{subject}\" as a duplicate of {issue}: {because}", issue_of(arrival)),
         },
-        (Arrived::Report, Way::NewJob) => format!("The Operator would start a Job on the report \"{subject}\": {because}"),
-        (Arrived::Report, _) => format!("The Operator would hand the report \"{subject}\" to \"{other}\": {because}"),
         (Arrived::Note, Way::File) => format!("The Operator would file your note \"{subject}\" as a new issue: {because}"),
         (Arrived::Note, Way::NewJob) => format!("The Operator would start a Job on your note \"{subject}\": {because}"),
         (Arrived::Note, Way::Link) => format!("The Operator would link your note \"{subject}\" to {}: {because}", ruling.issue.as_deref().unwrap_or("an open issue")),
@@ -107,9 +115,28 @@ fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
 
 /// What a suggestion is about, so one raised again for it is a repeat: its repository, kind of arrival
 /// and way, its subject, trimmed, single-spaced and lower-cased, and the issue it names, where it does.
+/// **A file or a close of a named issue is the same whatever brought it**: what it would file or
+/// close, and not the pull request or note that raised it.
 fn same_thing(one: &KeptSuggestion) -> [String; 5] {
-    let said = one.subject.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
-    [one.manifest_id.clone(), one.arrived.clone(), one.way.clone(), said, one.what.clone().unwrap_or_default()]
+    let bare = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+    match (one.way.as_str(), one.what.as_deref()) {
+        ("file" | "close", Some(what)) => [one.manifest_id.clone(), String::new(), one.way.clone(), String::new(), bare(what)],
+        _ => [one.manifest_id.clone(), one.arrived.clone(), one.way.clone(), bare(&one.subject), one.what.clone().unwrap_or_default()],
+    }
+}
+
+/// What else raised the same as `kept`, folded into it from `standing`, as its tooltip names each.
+pub(super) fn folded_into(kept: &KeptSuggestion, standing: &[KeptSuggestion]) -> Vec<String> {
+    standing.iter().filter(|one| one.n > kept.n && one.item.is_none() && same_thing(one) == same_thing(kept)).map(raised_by).collect()
+}
+
+/// What raised a suggestion, in a few words.
+fn raised_by(one: &KeptSuggestion) -> String {
+    match Arrived::from_word(&one.arrived) {
+        Some(Arrived::Merged) => format!("#{} merging", one.arrival.rsplit(':').next().unwrap_or_default()),
+        Some(Arrived::Note) => format!("your note \"{}\"", one.subject),
+        _ => one.subject.clone(),
+    }
 }
 
 /// The arrival a suggestion was kept from, as far as doing it reads one.
@@ -185,7 +212,8 @@ where
                 arrived: arrival.arrived.word().to_string(),
                 way: ruling.way.word().to_string(),
                 // A note's he sent to a Job is kept for the panel: it is the note's and not that Job's to settle.
-                session_id: if arrival.is_sent_note() { String::new() } else { arrival.session_id.clone() },
+                // A bug report's is the Operator's own card, never the reporting Job's ask.
+                session_id: if arrival.is_sent_note() || arrival.arrived == Arrived::Report { String::new() } else { arrival.session_id.clone() },
                 manifest_id: arrival.manifest_id.clone(),
                 subject: arrival.subject.clone(),
                 words: arrival.words.clone(),
@@ -198,8 +226,14 @@ where
                 pick: None,
                 because: ruling.because.clone(),
                 // A start's is the Job it would be handed to, which its go-ahead is labelled with.
-                what: what_of(ruling).or_else(|| (arrival.arrived == Arrived::Start).then(|| title.clone())),
-                text: said(arrival, ruling, &title),
+                what: what_of(ruling).or_else(|| (arrival.arrived == Arrived::Start || arrival.arrived == Arrived::Report && ruling.way == Way::ExistingJob).then(|| title.clone())),
+                text: match arrival.arrived {
+                    Arrived::Report => {
+                        let reporter = store.session(&arrival.session_id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| "A Job".to_string());
+                        format!("{reporter} reported a Fleet bug: {}", ruling.plain.as_deref().unwrap_or(&arrival.subject))
+                    }
+                    _ => said(arrival, ruling, &title),
+                },
                 raised_at,
             };
             let earlier = store.operator_suggestions_like(&kept).map_err(|_| "the suggestion was not kept".to_string())?;
@@ -213,6 +247,22 @@ where
         self.operator_board_changed();
         let _ = self.published_hosted(&arrival.session_id).await;
         Ok(None)
+    }
+
+    /// The open suggestions no Job holds that ask the same as one already answered, settled with no word
+    /// to him: **never queued, and not under Answered**. Fleet's log says which, so it can be traced.
+    pub(super) async fn answered_repeats_dropped(&self) {
+        let at = self.now();
+        let mut store = self.store().lock().await;
+        let standing = store.operator_suggestions_of("").unwrap_or_default();
+        for one in &standing {
+            let earlier = store.operator_suggestions_like(one).unwrap_or_default();
+            let answered = earlier.iter().find(|first| first.n < one.n && !standing.iter().any(|open| open.n == first.n) && same_thing(first) == same_thing(one));
+            let Some(first) = answered else { continue };
+            if store.settle_operator_suggestion(one.n, false, at.as_str()).unwrap_or(false) {
+                self.operator_noted("a suggestion that repeats one already answered was dropped", format!("suggestion:{} repeats suggestion:{}: {}", one.n, first.n, one.text));
+            }
+        }
     }
 
     /// Whether choice `choice` is Do it, or Skip. Anything else is refused.
@@ -273,6 +323,10 @@ where
             let kept = store.operator_suggestion(n).map_err(|why| self.ledger_fault(why))?.filter(|one| one.session_id == session).ok_or_else(|| self.settled_already())?;
             if !store.settle_operator_suggestion(n, go, at.as_str()).map_err(|why| self.ledger_fault(why))? {
                 return Err(self.settled_already());
+            }
+            // Those folded into it are answered with it.
+            for copy in store.operator_suggestions_of(session).map_err(|why| self.ledger_fault(why))?.iter().filter(|one| same_thing(one) == same_thing(&kept)) {
+                store.settle_operator_suggestion(copy.n, go, at.as_str()).map_err(|why| self.ledger_fault(why))?;
             }
             kept
         };

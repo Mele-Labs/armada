@@ -15,11 +15,13 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::{ManifestId as Repository, Ulid};
 use ipc::operator_page::{item_read, OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorLater, OperatorPage, OperatorRule, OperatorThen, OperatorTurnOrder, RuleScope};
-use ipc::{AnswerWaiting, Instant, SessionId, WaitingAct, WaitingItem, WaitingOption, WaitingSource, WireError};
+use ipc::{AnswerWaiting, ApprovePlan, BeginSession, Instant, SessionId, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError};
 use store::{KeptOrder, KeptTurn};
 
+use super::held;
 use super::orders::OPERATOR_OFF;
 use super::raising::{word, ToRaise};
+use super::vetting::{Work, APPROVE_PLAN, SEND_IT_BACK, SEND_PLAN_BACK, WALK_FIRST};
 use super::suggesting::suggestion_number;
 use crate::daemon::Fleet;
 use crate::main_ci::{MainChange, MainChanged};
@@ -32,6 +34,12 @@ pub(super) const RED: &str = "red:";
 const TURN_UNKNOWN: &str = "fleet.operator_turn_unknown";
 const NOT_OFFERED: &str = "fleet.operator_answer_not_offered";
 const NOT_DONE: &str = "fleet.operator_turn_not_done";
+const LATER_PAST: &str = "fleet.operator_later_past";
+
+/// How long after his Yes an Always here or an Always still keeps its rule.
+const ALWAYS_AFTER_YES_MS: i64 = 60_000;
+/// What a held Job's start item's id starts with, then the Job's id.
+const HELD_START: &str = "start:";
 const TURN: &str = "turn:";
 
 /// What a pick did, for the answer that carries it back.
@@ -56,6 +64,8 @@ pub(super) struct Doing<'a> {
     pub(super) session: &'a str,
     pub(super) item: &'a WaitingItem,
     pub(super) pick: &'a str,
+    /// The Operator's read of it, which a send-back carries as its reason.
+    pub(super) reason: &'a str,
     /// The words of the rule that does it, where a rule does and he pressed nothing.
     pub(super) rule: Option<&'a str>,
 }
@@ -111,6 +121,22 @@ pub(super) fn rule_said(what: &str, pick: &str) -> String {
         ("group", _) => format!("Group {named} with an open issue they repeat or belong under"),
         _ => format!("Do what I would for {named}"),
     }
+}
+
+/// An RFC 3339 instant in milliseconds since the epoch, its zone read: `Z`, or `+HH:MM` and `-HH:MM`
+/// as a zone Bridge sends from his clock. `None` where it does not read.
+fn utc_millis(text: &str) -> Option<i64> {
+    let at = core_model::Timestamp::from_rfc3339(text).epoch_millis()?;
+    let zone = text.get(19..)?.trim_start_matches(|c: char| c == '.' || c.is_ascii_digit());
+    let offset = match zone.as_bytes() {
+        b"Z" | b"z" => 0,
+        [sign @ (b'+' | b'-'), ..] if zone.len() == 6 && zone.as_bytes()[3] == b':' => {
+            let minutes = zone[1..3].parse::<i64>().ok()? * 60 + zone[4..6].parse::<i64>().ok()?;
+            if *sign == b'+' { minutes } else { -minutes }
+        }
+        _ => return None,
+    };
+    Some(at - offset * 60_000)
 }
 
 fn turn_number(id: &str) -> Option<i64> {
@@ -195,6 +221,17 @@ where
         if let Some(n) = suggestion_number(id) {
             return self.suggestion_settled(doing.session, n, true, then.map(|then| (then, hand_to)), doing.rule).await.map_err(|refused| Fault::NotDone(refused.error().message.clone()));
         }
+        // A held Job's start is pressed as its card's Start, with the landing the card picked. Where the
+        // card still asks how the work lands, it is opened for him to answer.
+        if let (WaitingSource::HeldChild, Some(child)) = (doing.item.source, id.strip_prefix(HELD_START)) {
+            let delivery = self.card_picked(child).await;
+            if self.session_begun(BeginSession { session_id: SessionId::carried(child), delivery, message: None }).await.is_ok() {
+                return Ok(Done { started: Some(child.to_string()), ..Done::default() });
+            }
+        }
+        if let Some(done) = self.work_done(doing).await? {
+            return Ok(done);
+        }
         if let Some(choice) = choice_of(doing.item, doing.pick) {
             let said = AnswerWaiting { session_id: SessionId::carried(doing.session), item_id: id.to_string(), choice: Some(choice), text: None, mode: None, fixed: None };
             return match Arc::clone(self).settle_waiting(said).await {
@@ -206,6 +243,45 @@ where
             Some(act) => Ok(Done { open: Some(act.clone()), ..Done::default() }),
             None => Err(Fault::NotOffered("this item has no pick Fleet can do and nothing for Bridge to open".to_string())),
         }
+    }
+
+    /// A review's pick on a Job's work, done as its label says: the plan approved, or sent back with the
+    /// review's read as the reason; the pull request sent back the same way; the Job's walk opened, or the
+    /// Job asked for one where none is shown. `None` where the pick is none of those, which the item's
+    /// own act does.
+    async fn work_done(self: &Arc<Self>, doing: &Doing<'_>) -> Result<Option<Done>, Fault> {
+        let not_done = |refused: Refusal| Fault::NotDone(refused.error().message.clone());
+        let told = |text: String| async move { self.told_by_fleet(doing.session, &text, ipc::Notice::Operator).await.map_err(not_done) };
+        let work = Work::of(doing.item);
+        let plan = (work == Some(Work::Plan)).then(|| doing.item.id.strip_prefix("plan:").and_then(|version| version.parse::<u32>().ok())).flatten();
+        let pull = work == Some(Work::PullRequest);
+        match (doing.pick, plan) {
+            (APPROVE_PLAN, Some(version)) => {
+                Arc::clone(self).plan_approved(ApprovePlan { session_id: SessionId::carried(doing.session), version }).await.map_err(not_done)?;
+            }
+            (SEND_PLAN_BACK, Some(version)) => {
+                told(format!("The person sends plan v{version} back, on the Operator's review: {}\nRecord the plan again with that settled.", doing.reason)).await?;
+            }
+            (SEND_IT_BACK, None) if pull => {
+                told(format!("The person sends the pull request back, on the Operator's review: {}\nFix it on the branch and push.", doing.reason)).await?;
+            }
+            (WALK_FIRST, None) if pull => match self.walk_shown(doing.session).await {
+                Some(walk) => return Ok(Some(Done { open: Some(walk), ..Done::default() })),
+                None => {
+                    told("The person walks this before the pull request: build the walk and show it with show_window.".to_string()).await?;
+                }
+            },
+            _ => return Ok(None),
+        }
+        Ok(Some(Done::default()))
+    }
+
+    /// The walk `session` has waiting on him, as its item opens it.
+    async fn walk_shown(&self, session: &str) -> Option<WaitingAct> {
+        let store = self.store().lock().await;
+        let kept = store.session(session).ok().flatten()?;
+        let record = self.ledger_row(&store, &kept).ok()?;
+        record.waiting_for.into_iter().filter_map(|item| item.act).find(|act| act.kind == WaitingActKind::Walk)
     }
 
     /// The ids of the projects that hold `repository`, which a rule kept for a project meets. None for an
@@ -236,7 +312,7 @@ where
             };
             let then = then_of_pick(&pick);
             let said = rule_said(&what, &pick);
-            let doing = Doing { session: &one.session, item: &one.item, pick: &pick, rule: Some(&said) };
+            let doing = Doing { session: &one.session, item: &one.item, pick: &pick, reason: "", rule: Some(&said) };
             match self.turn_performed(&doing, then).await {
                 Ok(_) => {
                     let at = self.now();
@@ -275,7 +351,11 @@ where
         if !self.operator_on() {
             return Err(self.hosted_refusal(OPERATOR_OFF, "the Operator is off"));
         }
-        let row = self.turn_open(&press.id).await?;
+        let row = match self.turn_open(&press.id).await {
+            Ok(row) => row,
+            Err(refused) if matches!(press.answer, OperatorAnswer::AlwaysHere | OperatorAnswer::Always) => return Box::pin(self.always_after_yes(&press, refused)).await,
+            Err(refused) => return Err(refused),
+        };
         let item = item_read(&row.body).ok_or_else(|| self.ledger_unnamed("an item that reads"))?;
         let not_offered = |why: &str| self.hosted_refusal(NOT_OFFERED, why);
         // The option he named, where it is one the item offers: absent takes the Operator's pick.
@@ -290,6 +370,13 @@ where
             return Err(not_offered("an Always is for doing the act, not for leaving it"));
         }
         let answer = if refuses { OperatorAnswer::No } else { press.answer };
+        // Yes on a pick of Later is Later: what it waits on is his to do away from the page.
+        if answer == OperatorAnswer::Yes && named.is_none() && row.pick.as_deref() == Some(super::raising::LATER) {
+            let until = self.next_day_began(&self.now()).await;
+            self.turn_put_later(row.n, &until).await?;
+            let page = self.operator_page_wire().await?;
+            return Ok(OperatorAnswered { open: None, started: None, filed: None, handed_to: None, page });
+        }
         let what = self.rule_what(&row.item).await.or_else(|| super::answering::what_of(&item).map(str::to_string));
         let keeps = row.go_ahead && what.is_some();
         let answer_word = match answer {
@@ -308,25 +395,9 @@ where
             if answer != OperatorAnswer::Yes && !keeps {
                 return Err(not_offered("Always here and Always are offered only on what Fleet can do by itself"));
             }
-            let scope = match (answer, press.project.as_deref()) {
-                (OperatorAnswer::AlwaysHere, Some(project)) => {
-                    let held = self.project_repositories(project).await?;
-                    if !held.iter().any(|one| one.as_str() == row.manifest_id) {
-                        return Err(Refusal::Unacceptable(self.project_refusal(NOT_MEMBER, format!("this item's repository is not a member of the project {project}, so Always here cannot hold in it"))));
-                    }
-                    RuleScope::Project { project: project.to_string() }
-                }
-                (OperatorAnswer::AlwaysHere, None) if row.manifest_id.is_empty() => {
-                    return Err(not_offered("this item is in no repository, so Always here has none to hold in"));
-                }
-                (OperatorAnswer::AlwaysHere, None) => RuleScope::Repository { manifest_id: row.manifest_id.clone() },
-                _ => RuleScope::Everywhere,
-            };
-            let then = press.then.or_else(|| then_of_pick(row.then_pick.as_deref().unwrap_or_default())).or_else(|| {
-                // Where it offers Thens and he and the Operator named none: just file it.
-                what.as_deref().filter(|what| what.ends_with(":file")).map(|_| OperatorThen::JustFile)
-            });
-            let doing = Doing { session: &row.session, item: &item, pick: named.as_deref().or(row.pick.as_deref()).unwrap_or_default(), rule: None };
+            let scope = self.rule_scope(&row, answer, press.project.as_deref()).await?;
+            let then = then_pressed(&press, &row, what.as_deref());
+            let doing = Doing { session: &row.session, item: &item, pick: named.as_deref().or(row.pick.as_deref()).unwrap_or_default(), reason: row.read_text.as_deref().unwrap_or_default(), rule: None };
             done = self.turn_performed(&doing, then).await.map_err(|fault| match fault {
                 Fault::NotOffered(why) => self.hosted_refusal(NOT_OFFERED, &why),
                 Fault::NotDone(why) => self.hosted_refusal(NOT_DONE, &why),
@@ -346,6 +417,52 @@ where
         self.operator_page_changed();
         let page = self.operator_page_wire().await?;
         Ok(OperatorAnswered { open: done.open, started: done.started.as_deref().map(SessionId::carried), filed: done.filed, handed_to: done.handed_to.as_deref().map(SessionId::carried), page })
+    }
+
+    /// Where an Always here or an Always on `row` holds: the project the page is filtered to, else the
+    /// item's repository; everywhere for an Always.
+    async fn rule_scope(&self, row: &KeptTurn, answer: OperatorAnswer, project: Option<&str>) -> Result<RuleScope, Refusal> {
+        Ok(match (answer, project) {
+            (OperatorAnswer::AlwaysHere, Some(project)) => {
+                let held = self.project_repositories(project).await?;
+                if !held.iter().any(|one| one.as_str() == row.manifest_id) {
+                    return Err(Refusal::Unacceptable(self.project_refusal(NOT_MEMBER, format!("this item's repository is not a member of the project {project}, so Always here cannot hold in it"))));
+                }
+                RuleScope::Project { project: project.to_string() }
+            }
+            (OperatorAnswer::AlwaysHere, None) if row.manifest_id.is_empty() => {
+                return Err(self.hosted_refusal(NOT_OFFERED, "this item is in no repository, so Always here has none to hold in"));
+            }
+            (OperatorAnswer::AlwaysHere, None) => RuleScope::Repository { manifest_id: row.manifest_id.clone() },
+            _ => RuleScope::Everywhere,
+        })
+    }
+
+    /// Always here or Always pressed **after his Yes, within a minute: only the rule is kept**, since
+    /// the act is done. A row settled any other way, or longer ago, is refused as `refused` says.
+    async fn always_after_yes(self: &Arc<Self>, press: &OperatorAnswerPress, refused: Refusal) -> Result<OperatorAnswered, Refusal> {
+        let Some(n) = turn_number(&press.id) else { return Err(refused) };
+        let row = self.store().lock().await.operator_turn_item(n).map_err(|why| self.ledger_fault(why))?;
+        let now = self.now().epoch_millis().unwrap_or(i64::MAX);
+        let just = |at: &str| core_model::Timestamp::from_rfc3339(at).epoch_millis().is_some_and(|at| now - at <= ALWAYS_AFTER_YES_MS);
+        let Some(row) = row.filter(|row| row.answer.as_deref() == Some("yes") && row.settled_at.as_deref().is_some_and(just)) else {
+            return Err(refused);
+        };
+        let item = item_read(&row.body).ok_or_else(|| self.ledger_unnamed("an item that reads"))?;
+        let what = self.rule_what(&row.item).await.or_else(|| super::answering::what_of(&item).map(str::to_string));
+        let Some(what) = what.filter(|_| row.go_ahead) else {
+            return Err(self.hosted_refusal(NOT_OFFERED, "Always here and Always are offered only on what Fleet can do by itself"));
+        };
+        let scope = self.rule_scope(&row, press.answer, press.project.as_deref()).await?;
+        let then = then_pressed(press, &row, Some(&what));
+        let named = press.option.as_deref().map(str::trim).filter(|label| item.options.iter().any(|option| option.label == *label));
+        let pick = pick_word(&what, then, named.or(row.pick.as_deref()).unwrap_or_default());
+        self.rule_kept(OperatorRule::PickRule { scope, what: what.clone(), pick: pick.clone() }).await?;
+        let word = if press.answer == OperatorAnswer::Always { "always" } else { "always here" };
+        self.operator_journaled(&format!("Kept {word} after a yes: {}", rule_said(&what, &pick))).await;
+        self.operator_page_changed();
+        let page = self.operator_page_wire().await?;
+        Ok(OperatorAnswered { open: None, started: None, filed: None, handed_to: None, page })
     }
 
     /// Item `row` settled by his press, and the journal says what he did.
@@ -391,13 +508,56 @@ where
         self.operator_page_wire().await
     }
 
-    /// `operator_later`: the item goes last until the local day ends.
+    /// A Later that ran out since the last look puts its item back, which no event says, so the page
+    /// is announced changed then. Called on each tick; the store is read only when the soonest is due.
+    pub(crate) async fn laters_run_out(self: &Arc<Self>) {
+        let now = self.now().as_str().to_string();
+        let soonest = held(&self.operator_seat().next_later).clone();
+        if let Some(None) = &soonest {
+            return;
+        }
+        if let Some(Some(until)) = &soonest {
+            if until.as_str() > now.as_str() {
+                return;
+            }
+        }
+        let next = self.store().lock().await.operator_turn_open().unwrap_or_default().into_iter().filter_map(|row| row.later_until).filter(|until| until.as_str() > now.as_str()).min();
+        *held(&self.operator_seat().next_later) = Some(next);
+        // The first look only reads what stands: Bridge reads the page whole when it comes.
+        if soonest.is_some() {
+            self.operator_page_changed();
+        }
+    }
+
+    /// `operator_later`: the item goes last until `until`, or until the local day ends. **Refused with
+    /// nothing changed** where `until` has passed or does not read as a time.
     pub(crate) async fn operator_turn_later(self: &Arc<Self>, later: OperatorLater) -> Result<OperatorPage, Refusal> {
         let row = self.turn_open(&later.id).await?;
-        let until = self.next_day_began(&self.now()).await;
-        self.store().lock().await.later_operator_turn(row.n, &until).map_err(|why| self.ledger_fault(why))?;
-        self.operator_page_changed();
+        let now = self.now();
+        let until = match &later.until {
+            None => self.next_day_began(&now).await,
+            Some(until) => {
+                let millis = utc_millis(until.as_str()).ok_or_else(|| self.hosted_refusal(LATER_PAST, &format!("{} does not read as a time", until.as_str())))?;
+                if millis <= now.epoch_millis().unwrap_or(0) {
+                    return Err(self.hosted_refusal(LATER_PAST, &format!("{} has passed, so the item cannot wait until then", until.as_str())));
+                }
+                crate::clock::rfc3339_utc(millis)
+            }
+        };
+        self.turn_put_later(row.n, &until).await?;
         self.operator_page_wire().await
+    }
+
+    /// Row `n` last until `until`, and the page told now and again when it runs out.
+    async fn turn_put_later(self: &Arc<Self>, n: i64, until: &str) -> Result<(), Refusal> {
+        self.store().lock().await.later_operator_turn(n, until).map_err(|why| self.ledger_fault(why))?;
+        if let Some(next) = held(&self.operator_seat().next_later).as_mut() {
+            if next.as_deref().is_none_or(|soonest| until < soonest) {
+                *next = Some(until.to_string());
+            }
+        }
+        self.operator_page_changed();
+        Ok(())
     }
 
     /// A red main nobody is on joins Your turn, with the pick Start a fix, and one that is fixed or
@@ -477,4 +637,9 @@ where
             self.operator_page_changed();
         }
     }
+}
+
+/// The Then of a press: the one he named, else the Operator's pick, else just file where it files.
+fn then_pressed(press: &OperatorAnswerPress, row: &KeptTurn, what: Option<&str>) -> Option<OperatorThen> {
+    press.then.or_else(|| then_of_pick(row.then_pick.as_deref().unwrap_or_default())).or_else(|| what.filter(|what| what.ends_with(":file")).map(|_| OperatorThen::JustFile))
 }

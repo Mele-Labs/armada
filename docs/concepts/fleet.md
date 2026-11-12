@@ -195,12 +195,16 @@ Confirmed 15 Oct 2026: two Jobs edited the same lines for hours, each in a slot 
 So a file git conflicts on is told to the pair only where each side's own diff since it left the base (`origin/<base>`, else `<base>`) holds it.
 A conflict with main's changes alone is *Main moving*'s, told to that holder only.
 Confirmed 15 Oct 2026: a Job holding a 31-hour-old branch in a second slot was told it clashed with another over files only main had changed.
+**A branch cut from another live holder's carries that holder's commits**, so a side's own diff starts at the newest head, among the other holders' worktrees, that its own head was built on.
+Two worktrees on the same commit both keep it, since neither was cut from the other.
+Confirmed 12 Nov 2026: a Job stacked on another's branch was told it clashed over a file only the stack's commits had changed.
 
 **Git decides, not the path.** Each holder's worktree is read as a whole tree through a scratch index, so its own index is never written and a shell write no hook saw is in it.
 A file both edited in places that merge clean says nothing.
 Where git will not answer, the last reading stands.
 
-**What each side is told.** The fact git gave: the files whose lines both write, and the branch that holds the other's writes, the one checked out where it wrote.
+**What each side is told.** The fact git gave: the files whose lines both write, and the branch that holds the other's writes, the one checked out in the worktree that clashed.
+A Job holding several slots is named by the slot whose changes conflict, not by the branch it was cut on.
 A Job hears it as a message from Fleet (`docs/concepts/session.md`, *What Fleet tells a Job*), with no instruction and no one blamed.
 Where the other Job is paused, the notice says so.
 **Told once per file per peer**, main a peer of its own: a file added to the overlap is told alone, a file already told is never said again, and a cleared one is never said.
@@ -214,7 +218,7 @@ Each live holder whose files main changed since their merge base is set against 
 **A holder leaves the table with its clashes** when its Job ends. Any check also drops a holder whose worktree or branch is gone, or a terminal Job unheard for six hours.
 
 **Memory only, filled from git on start.** A restart forgets the table.
-The first pass after a start credits each live Job with the files its worktrees changed since they left the base (`git diff --name-only` from the merge base to the tree as it stands), so a pair that clashed before the restart is checked again without either writing.
+The first pass after a start credits each live Job with the files its worktrees changed since they left the base, or the live branch they were cut from (`git diff --name-only` from there to the tree as it stands), so a pair that clashed before the restart is checked again without either writing.
 `list_write_clashes` reads the standing clashes per repository, or per Job.
 
 **Bridge marks both rows from that read.** One `swords` mark on a Job's row wherever Jobs are listed, and a line in the open Job naming the other holder and the files.

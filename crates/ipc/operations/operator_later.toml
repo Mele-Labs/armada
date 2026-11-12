@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "The person puts one item of Your turn last for the rest of the local day"
+description = "The person puts one item of Your turn last until a time he chose, or for the rest of the local day"
 notes = """
-`POST /operator/page/later`, body `OperatorLater`: `id`. The item is served after every other one until the local day ends, and then back in the order he left it; its `later_until` says when. Answered with the `OperatorPage`. Publishes `operator.page_changed`. **404** `fleet.operator_turn_unknown` where no open item has `id`.
+`POST /operator/page/later`, body `OperatorLater`: `id`, and `until`, the instant it comes back. The item is served after every other one until `until`, or until the local day ends where `until` is absent, and then back in the order he left it; its `later_until` says when, in UTC. **Bridge works out `until`** from the choice he pressed (an hour, three hours, tomorrow morning, next week) and Fleet knows nothing of the choices. Answered with the `OperatorPage`. Publishes `operator.page_changed` now, and again when `until` passes. **404** `fleet.operator_turn_unknown` where no open item has `id`. **422** `fleet.operator_later_past` where `until` has passed or does not read as a time, with nothing changed.
 """

@@ -221,3 +221,17 @@ fn a_reply_item_stands_where_no_other_item_holds_its_command() {
     other.act.as_mut().expect("a run").target = String::from("scripts/preview --restart --adopt");
     assert_eq!(without_a_command_listed(vec![other, from_reply.into_iter().next().expect("one")]).len(), 2);
 }
+
+/// A list that says what the work is asks nothing, though its lines start as an instruction would; a
+/// listed question, a listed line that names him, or one that hands over a command still asks.
+#[test]
+fn a_list_of_work_raises_nothing() {
+    let work = "Four parts, in one pull request:\n\n1. Later takes a snooze time.\n2. The pick stays short.\n3. Press Start that starts the Job.\n4. One turn per request.";
+    let all = ["Later takes a snooze time.", "The pick stays short.", "Press Start that starts the Job.", "One turn per request."];
+    assert!(asks_of(work, &all).asks.is_empty(), "{:?}", asks_of(work, &all));
+
+    let owed = "Two things left:\n\n- Should the cap be 3 or 5?\n- You restart Fleet once it lands.";
+    assert_eq!(asks_of(owed, &["Should the cap be 3 or 5?", "You restart Fleet once it lands."]).asks.len(), 2);
+    let handed = "Left for you:\n\n- Run this in your checkout:\n\n```bash\nrm scratch.txt\n```";
+    assert_eq!(asks_of(handed, &["Run this in your checkout:"]).asks.len(), 1);
+}

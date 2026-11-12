@@ -22,7 +22,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{ReviewMode, Reviews, WalkReview};
 use ipc::{ApprovePlan, JudgeArtifact, JudgeKind, OperatorRead, SessionId, WaitingActKind, WaitingItem, WaitingSource};
 
-use super::raising::{pick_of, Reviewed, ToRaise};
+use super::raising::{Reviewed, ToRaise};
 use super::{held, Operator};
 use crate::daemon::Fleet;
 
@@ -67,15 +67,35 @@ impl Work {
         }
     }
 
-    /// What he would do on the item, as the pick names it, where the review found nothing.
-    fn clean_pick(self) -> &'static str {
+    /// The picks a review may make on this work, each a press on Yes that does what it says: the first
+    /// for work found clean, the second, where there is one, for work with findings.
+    pub(crate) fn labels(self) -> &'static [&'static str] {
         match self {
-            Work::Plan => "Approve the plan",
-            Work::PullRequest => "Approve the pull request",
-            Work::Walk => "Open the walk",
+            Work::Plan => &[APPROVE_PLAN, SEND_PLAN_BACK],
+            Work::PullRequest => &[OPEN_PULL_REQUEST, SEND_IT_BACK],
+            Work::Walk => &[OPEN_WALK],
         }
     }
+
+    /// The pick where the review named none of [`Self::labels`].
+    fn pick_for(self, clean: bool) -> &'static str {
+        let labels = self.labels();
+        if clean { labels[0] } else { labels.get(1).copied().unwrap_or(labels[0]) }
+    }
 }
+
+/// Yes approves the plan.
+pub(super) const APPROVE_PLAN: &str = "Approve the plan";
+/// Yes sends the plan back to its Job with the review's read as the reason.
+pub(super) const SEND_PLAN_BACK: &str = "Send the plan back";
+/// Yes opens the pull request: Fleet approves nothing on the forge for him.
+const OPEN_PULL_REQUEST: &str = "Open the pull request";
+/// Yes sends the review's read to the Job, to fix on its branch.
+pub(super) const SEND_IT_BACK: &str = "Send it back";
+/// Yes opens the walk.
+const OPEN_WALK: &str = "Open the walk";
+/// Yes opens the Job's walk, or asks the Job for one where none is shown.
+pub(super) const WALK_FIRST: &str = "Walk it first";
 
 /// How one item is read: its kind, and whether finding nothing approves it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -147,7 +167,6 @@ Answer in this form, and nothing else:
 
     verdict: <clean where you found nothing worth his time, otherwise findings>
     read: <a sentence or two: what you found, or what you checked and found sound>
-    pick: <what you would do on it, in a few words, such as Send the plan back or Approve the plan>
 ";
 
 /// `text` to at most [`AT_MOST`] characters, saying so where it is cut.
@@ -192,6 +211,8 @@ fn question(subject: &ToVet) -> String {
     });
     out.push_str("You may read the repositories' checkouts for context, and keep your reads few.\n\n");
     out.push_str(ANSWER);
+    let labels: Vec<String> = subject.work.labels().iter().map(|label| format!("\"{label}\"")).collect();
+    let _ = writeln!(out, "    pick: <what a press would do, written exactly as one of {}>", labels.join(", "));
     let _ = write!(out, "\nThe Job's brief, its first words:\n---\n{}\n---\n", subject.brief.trim());
     if let Some(plan) = &subject.plan {
         let _ = write!(out, "\nThe Job's plan:\n---\n{}\n---\n", clipped(plan.trim()));
@@ -225,7 +246,11 @@ fn read_verdict(answer: &str, item: &WaitingItem) -> Option<Verdict> {
         (false, Some(read)) => format!("Findings: {read}"),
         (false, None) => return None,
     };
-    Some(Verdict { clean, read, pick: field("pick").map(|pick| pick_of(&pick, item)).filter(|pick| !pick.is_empty()) })
+    // Only a label the work takes: anything else is a press that would not do what it says.
+    let bare = |text: &str| text.trim().trim_matches(['"', '.']).trim().to_lowercase();
+    let labels = Work::of(item).map(Work::labels).unwrap_or_default();
+    let pick = field("pick").and_then(|said| labels.iter().find(|label| bare(label) == bare(&said)).map(|label| label.to_string()));
+    Some(Verdict { clean, read, pick })
 }
 
 impl Operator {
@@ -314,14 +339,14 @@ where
             Ok(verdict) => verdict,
             Err(why) => return failed(why),
         };
-        let clean_pick = verdict.pick.clone().unwrap_or_else(|| vet.work.clean_pick().to_string());
+        let clean_pick = verdict.pick.clone().unwrap_or_else(|| vet.work.pick_for(true).to_string());
         if !verdict.clean {
-            let pick = verdict.pick.unwrap_or_default();
+            let pick = verdict.pick.unwrap_or_else(|| vet.work.pick_for(false).to_string());
             return Vetted::Queue(OperatorRead { read: verdict.read, pick });
         }
         if vet.work == Work::PullRequest && subject.seen {
             let read = format!("{} It shows work he would see, so it waits for his walk.", verdict.read);
-            return Vetted::Queue(OperatorRead { read, pick: "Walk it first".to_string() });
+            return Vetted::Queue(OperatorRead { read, pick: WALK_FIRST.to_string() });
         }
         let read = OperatorRead { read: verdict.read, pick: clean_pick };
         if !vet.approves || vet.work == Work::Walk {
