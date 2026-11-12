@@ -23,7 +23,7 @@ pub struct Projects {
     pub left_out: Vec<ProjectLeftOut>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Project {
     pub id: String,
     pub name: String,
@@ -59,7 +59,7 @@ pub struct ProjectMember {
 /// Where a project's file is kept, as `set_run_memory_place` takes a repository's: `synced_folder` is
 /// required for `synced` and `cloud` for `cloud`. **`repository` is refused** with
 /// `fleet.project_place_refused`: a project is not kept in one.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProjectPlace {
     pub place: RunPlace,
     /// The folder `synced` writes under.
