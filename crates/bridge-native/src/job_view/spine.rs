@@ -290,6 +290,12 @@ impl Spine {
     fn body(&self, key: &str, cx: &App) -> FocusHandle {
         self.bodies.borrow_mut().entry(key.to_string()).or_insert_with(|| cx.focus_handle()).clone()
     }
+
+    /// The zone the keys are in: a Spine zone's body, or a zone drawn in its own tab.
+    pub(super) fn zone_focused(&self, window: &Window, cx: &App) -> Option<FocusHandle> {
+        let bodies = self.bodies.borrow();
+        bodies.values().chain(self.alone.iter()).find(|zone| zone.contains_focused(window, cx)).cloned()
+    }
 }
 
 /// The brief: his first message, or the message the Job was started with (`briefOf`).

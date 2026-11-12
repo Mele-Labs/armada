@@ -417,7 +417,7 @@ pub static WALKS: &[Walk] = &[
             press_on("A press lists its tasks in place of the track", "button", "Plan group: Chip reads the stale state", "list", "Tasks"),
             step("A group handed to a Job is that Job's card", Verb::Wheel("region", "Open, Done and Deferred", 240), "button", "Job Remove the v1 endpoints"),
             step("Then what no group claims, the latest five, oldest first", Verb::Wheel("region", "Open, Done and Deferred", 240), "button", "Show earlier"),
-            press_on("Show earlier lists the rest, from the approved plan on", "button", "Show earlier", "button", "Plan"),
+            press_on("Show earlier lists the rest, from the approved plan on", "button", "Show earlier", "button", "Chip notes"),
             step("The switch stands at the head of the pane", Verb::Wheel("region", "Open, Done and Deferred", -4000), "radio", "By kind"),
             press_on("By kind: a list for each kind with anything in it, newest first", "radio", "By kind", "group", "Jobs"),
             step("The pull requests stand in one stack", Verb::Wheel("region", "Open, Done and Deferred", 320), "group", "Pull requests"),

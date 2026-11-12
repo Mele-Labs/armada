@@ -518,7 +518,12 @@ impl JobView {
                     .child(said)
                     .tab_index(0)
                     .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
-                    .on_click(cx.listener(move |this, _, _, cx| {
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        // The press takes the button away: the keys stay in its zone, not on a
+                        // button no longer drawn, where no key reaches anything.
+                        if let Some(zone) = this.spine.zone_focused(window, cx) {
+                            window.focus(&zone, cx);
+                        }
                         this.side_fold(&key);
                         cx.notify();
                     })),
