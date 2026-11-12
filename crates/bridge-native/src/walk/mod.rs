@@ -490,6 +490,7 @@ pub static WALKS: &[Walk] = &[
             press_on("A finished subagent's drone opens its thread too", "button", "Subagent, finished: Find every reader of mergeLineTone", "tab", "Job tab: Find every reader of mergeLineTone"),
             press_on("A press shuts the group, its tasks as one track", "button", "Plan group: Chip reads the stale state", "img", "Tasks in this group, done and to do"),
             step("The group handed to a Job is that Job's card, then the Jobs it started that still run", Verb::Wheel("region", "Job column: Now", 240), "list", "Jobs"),
+            step("Two Jobs it started have ended, Dispatch and Title Bar and Web pages in Chrome: neither is drawn", Verb::Look, "list", "Jobs"),
             step("Ahead: the route still to come", Verb::Wheel("region", "Job column: Now", 400), "list", "Ahead"),
             step("⌥N opens the whole plan as the Plan tab", Verb::Key("alt-n"), "tab", "Job column: Plan"),
             press_on("A Job stuck on a call: the call, and how long since Fleet heard from it", "row", "Flaky login test", "group", "pnpm vitest run login.test.ts --repeat 40"),

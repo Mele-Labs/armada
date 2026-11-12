@@ -274,6 +274,20 @@
      "changed_at": "2026-11-09T13:15:00Z"
     },
     {
+     "kind": "started_to",
+     "target": "mock-16",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "started_to",
+     "target": "mock-17",
+     "state": "standing",
+     "since": "2026-11-08T09:05:00Z",
+     "changed_at": "2026-11-08T09:05:00Z"
+    },
+    {
      "kind": "subagent",
      "target": "agent-1",
      "state": "spent",
@@ -1160,6 +1174,35 @@
    "started_at": "2026-11-07T10:00:00Z",
    "last_seen_at": "2026-11-07T12:00:00Z",
    "ended_at": "2026-11-07T12:00:00Z",
+   "usage": {},
+   "attachments": []
+  },
+  {
+   "id": "mock-16",
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Dispatch and Title Bar",
+   "state": "ended",
+   "started_at": "2026-11-08T09:00:00Z",
+   "last_seen_at": "2026-11-10T13:52:29Z",
+   "last_turn_at": "2026-11-10T13:52:28Z",
+   "ended_at": "2026-11-10T13:52:29Z",
+   "usage": {},
+   "attachments": []
+  },
+  {
+   "id": "mock-17",
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Web pages in Chrome",
+   "state": "ended",
+   "started_at": "2026-11-08T09:05:00Z",
+   "last_seen_at": "2026-11-10T13:53:34Z",
+   "ended_at": "2026-11-10T13:53:34Z",
    "usage": {},
    "attachments": []
   }

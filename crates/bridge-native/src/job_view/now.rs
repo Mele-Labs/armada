@@ -306,9 +306,11 @@ pub(super) fn shown_walks(record: &SessionRecord, rows: &[SessionRow]) -> Vec<(S
     out
 }
 
-/// A Job it started outside its plan that has not finished (`finishedChild`).
-fn running_child(state: Option<JobState>) -> bool {
-    !matches!(state, Some(JobState::Done | JobState::Ended | JobState::Quiet))
+/// A Job it started outside its plan that has not finished (`finishedChild`): Fleet has not ended it
+/// (`session.dead`), and its row does not read done, ended or out of reach. An ended Job may carry no
+/// row mark at all, so its own state is read first.
+fn running_child(child: &SessionRecord) -> bool {
+    child.state != ipc::SessionState::Ended && !matches!(child.mark.map(|mark| mark.state), Some(JobState::Done | JobState::Ended | JobState::Quiet))
 }
 
 /// A band's lamp (`StateMark`): a dot in the state's hue that names the state on hover, pulsing on
@@ -764,7 +766,7 @@ impl JobView {
             .iter()
             .filter(|one| one.kind == "started_to" && !one.detail.contains_key("group"))
             .filter_map(|one| self.record(&one.target, cx))
-            .filter(|child| running_child(child.mark.map(|mark| mark.state)))
+            .filter(|child| running_child(child))
             .map(|child| job_card(child, look, cx))
             .collect();
         (!cards.is_empty()).then(|| labelled(div().id("now-jobs").flex().flex_col().gap(look.length(token::SPACE_2)).pt(look.length(token::SPACE_2)).children(cards), Role::List, "Jobs").into_any_element())
@@ -811,5 +813,21 @@ impl JobView {
         };
         self.post_with(job, route, body.map_err(|why| format!("{why:?}")), |_, _, _| {}, window, cx);
         cx.notify();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_started_job_fleet_ended_is_not_running_with_or_without_a_row_mark() {
+        let jobs = crate::mock::jobs("job-now").expect("the fixture decodes");
+        let of = |id: &str| jobs.iter().find(|job| job.id.as_str() == id).expect("in the fixture");
+        assert!(running_child(of("mock-09")));
+        for ended in ["mock-15", "mock-16", "mock-17"] {
+            assert!(!running_child(of(ended)), "{ended} has ended");
+        }
+        assert!(!running_child(of("mock-12")), "out of reach");
     }
 }
