@@ -2,8 +2,10 @@
 //! Workspace `workspace.rs` reads off the pieces as `workspaceOf` and `placesOf` in Bridge's
 //! `lifecycle-editing/` do. Served by `get_workflow_lanes`.
 //!
-//! **The default level's tab only.** A node and an edge say which levels below differ, and a lifecycle or a rule
-//! a keep draft waits on says so; a rule only a draft keeps is drawn as proposed.
+//! **Each tab reads its own level**: the default's, a Workspace's (`workspace:<id>`) or one repository's. A state
+//! is named, a rule is drawn and a state left out as that level runs them. A node and an edge say which levels
+//! below differ and which Workspaces tie, and a lifecycle or a rule a keep draft waits on says so; a rule only a
+//! draft keeps is drawn as proposed.
 //!
 //! **Departures.** A proposed rule is drawn only where it belongs to this workflow and both its ends are drawn,
 //! as a held rule is; the TypeScript drew one whatever its ends. A step names no level that differs, since the
@@ -19,7 +21,7 @@ use ipc::{
 use super::draw::{kind_of_state, lane_of_lifecycle, node, node_id, with_ends};
 use super::levels::{clash_at, differ_said, exists_at, is_workspace_level, level_name, levels_of, PiecesRead, DEFAULT};
 use super::read::columns;
-use super::workspace::{workspace_of, Drafts, LifecycleDef, RuleDef, StateDef, Workspace};
+use super::workspace::{workspace_of, Drafts, Drawn, LifecycleDef, RuleDef, StateDef, Workspace};
 
 /// What a workflow's editor lanes are read from.
 pub(crate) struct EditorInput<'a> {
@@ -31,15 +33,46 @@ pub(crate) struct EditorInput<'a> {
     pub read: &'a PiecesRead,
     /// What the repository's keep drafts would add.
     pub drafts: &'a Drafts,
+    /// The tab: `default`, `workspace:<id>` or a repository's id, one of the levels `read` holds.
+    pub scope: &'a str,
 }
-
-/// The level whose tab is drawn.
-const SCOPE: &str = DEFAULT;
 
 /// Whether a state is there on the tab for `scope`: added at that level or above, and not left out of the piece
 /// that tab runs.
 fn state_exists_at(state: &StateDef, scope: &str, read: &PiecesRead) -> bool {
     exists_at(&state.scope, scope, read, &state.clash) && !state.absent.iter().any(|one| one == scope)
+}
+
+/// A state's name at a level: the nearest that names it, else its own.
+fn state_label_at(state: &StateDef, scope: &str, read: &PiecesRead) -> String {
+    levels_of(scope, read, &state.clash)
+        .iter()
+        .find_map(|level| state.names.iter().find(|(at, _)| at == level).map(|(_, label)| label.clone()))
+        .unwrap_or_else(|| state.label.clone())
+}
+
+/// A rule as it reads at a level: the piece of the nearest level that keeps one, else its widest.
+fn rule_at(rule: &RuleDef, scope: &str, read: &PiecesRead) -> Drawn {
+    levels_of(scope, read, &rule.clash)
+        .iter()
+        .find_map(|level| rule.overrides.iter().find(|(at, _)| at == level).map(|(_, drawn)| drawn.clone()))
+        .unwrap_or_else(|| rule.drawn.clone())
+}
+
+/// Whether a rule is drawn on the tab: everywhere on the default's; on a Workspace's, where it is the default's,
+/// that Workspace's or a repository's in it; on a repository's, where a level it reads keeps it.
+fn applies_here(rule: &RuleDef, scope: &str, read: &PiecesRead) -> bool {
+    if scope == DEFAULT {
+        return true;
+    }
+    let owners = rule.owners();
+    if is_workspace_level(scope) {
+        return owners.iter().any(|level| {
+            level == DEFAULT || level == scope || (!is_workspace_level(level) && levels_of(level, read, &Vec::new()).iter().any(|one| one == scope))
+        });
+    }
+    let reads = levels_of(scope, read, &rule.clash);
+    owners.iter().any(|level| reads.contains(level))
 }
 
 /// A lifecycle as the tab draws it, and the states it draws in the order the lane lists them.
@@ -85,7 +118,7 @@ fn lifecycles_for<'a>(workspace: &'a Workspace, scope: &str, read: &PiecesRead) 
                     .iter()
                     .map(|state| LaneLifecycleState {
                         id: state.id.clone(),
-                        label: state.label.clone(),
+                        label: state_label_at(state, scope, read),
                         col: cols.get(state.id.as_str()).copied().unwrap_or_default() as u32,
                         end: state.end,
                     })
@@ -123,8 +156,7 @@ fn pending_of(drafts: &Drafts, key: String) -> Option<LanePending> {
     drafts.keeps.contains(&key).then_some(LanePending::Keep)
 }
 
-fn lane_rule(rule: &RuleDef) -> LaneRule {
-    let drawn = &rule.drawn;
+fn lane_rule((rule, drawn): &(&RuleDef, Drawn)) -> LaneRule {
     LaneRule {
         id: rule.id.clone(),
         label: drawn.label.clone(),
@@ -136,12 +168,27 @@ fn lane_rule(rule: &RuleDef) -> LaneRule {
     }
 }
 
+/// The rules the tab draws, each as it reads at the tab's level: those of this workflow or of none, with both
+/// ends drawn, that apply here.
+fn rules_drawn<'a>(rules: &'a [RuleDef], workflow: &str, drawn: &HashSet<String>, scope: &str, read: &PiecesRead) -> Vec<(&'a RuleDef, Drawn)> {
+    rules
+        .iter()
+        .map(|rule| (rule, rule_at(rule, scope, read)))
+        .filter(|(rule, at)| {
+            at.workflow.as_deref().is_none_or(|one| one == workflow)
+                && drawn.contains(&node_id(&at.from.lane, &at.from.item))
+                && drawn.contains(&node_id(&at.to.lane, &at.to.item))
+                && applies_here(rule, scope, read)
+        })
+        .collect()
+}
+
 /// The editor's lanes: the workflow on top, then a lane for each lifecycle the tab draws, its states in the
 /// columns the moves between them give, and an edge for each rule whose ends are both drawn, each marked where a
 /// level below differs or a draft waits. **No Job stands in them**, so `job` holds only the definitions they are
 /// drawn from, and an edge waits on nothing.
 pub(crate) fn editor_lanes(input: &EditorInput<'_>) -> JobLanesView {
-    let (read, scope) = (input.read, SCOPE);
+    let (read, scope) = (input.read, input.scope);
     let workspace = workspace_of(read, input.drafts);
     let placed = lifecycles_for(&workspace, scope, read);
     let steps: Vec<LaneStep> = input
@@ -155,13 +202,8 @@ pub(crate) fn editor_lanes(input: &EditorInput<'_>) -> JobLanesView {
         .map(|step| node_id("workflow", &step.id))
         .chain(placed.iter().flat_map(|(_, one)| one.lane.states.iter().map(|state| node_id(&one.lane.id, &state.id))))
         .collect();
-    let applies = |rule: &&RuleDef| {
-        rule.drawn.workflow.as_deref().is_none_or(|one| one == input.workflow)
-            && drawn.contains(&node_id(&rule.drawn.from.lane, &rule.drawn.from.item))
-            && drawn.contains(&node_id(&rule.drawn.to.lane, &rule.drawn.to.item))
-    };
-    let held: Vec<&RuleDef> = workspace.rules.iter().filter(applies).collect();
-    let proposed: Vec<&RuleDef> = workspace.drafted.iter().filter(applies).collect();
+    let held = rules_drawn(&workspace.rules, input.workflow, &drawn, scope, read);
+    let proposed = rules_drawn(&workspace.drafted, input.workflow, &drawn, scope, read);
     let step_nodes = steps
         .iter()
         .map(|step| node(node_id("workflow", &step.id), &step.label, step.col, LaneNodeRole::Step, LaneNodeKind::Step))
@@ -202,15 +244,15 @@ pub(crate) fn editor_lanes(input: &EditorInput<'_>) -> JobLanesView {
             drawn
         }))
         .collect();
-    let edge = |rule: &RuleDef, proposed: bool| LaneEdge {
+    let edge = |(rule, at): &(&RuleDef, Drawn), proposed: bool| LaneEdge {
         id: rule.id.clone(),
         rule: rule.id.clone(),
-        from: node_id(&rule.drawn.from.lane, &rule.drawn.from.item),
-        to: node_id(&rule.drawn.to.lane, &rule.drawn.to.item),
-        label: rule.drawn.label.clone(),
+        from: node_id(&at.from.lane, &at.from.item),
+        to: node_id(&at.to.lane, &at.to.item),
+        label: at.label.clone(),
         waits: None,
         fired_at: None,
-        autonomy: rule.drawn.autonomy,
+        autonomy: at.autonomy,
         status: LaneOutcome::Waiting,
         did: Vec::new(),
         changed: None,
@@ -230,7 +272,7 @@ pub(crate) fn editor_lanes(input: &EditorInput<'_>) -> JobLanesView {
             copy: LaneCopy {
                 steps,
                 lifecycles: placed.into_iter().map(|(_, one)| one.lane).collect(),
-                rules: held.iter().map(|rule| lane_rule(rule)).collect(),
+                rules: held.iter().map(lane_rule).collect(),
             },
             instances: Vec::new(),
             fired: Vec::new(),

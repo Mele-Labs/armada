@@ -90,6 +90,14 @@ A lifecycle merges the states and moves of its pieces at every level, widest fir
 A rule is drawn from its piece at the widest level that keeps one, where it lands on a node, belongs to this workflow and has both ends drawn.
 A rule that is off is drawn.
 
+### The tabs
+
+`scope` is the tab: `default` (or absent), `workspace:<id>` for a project that holds the repository, or the Manifest id of a repository read with it.
+**Each tab reads its own level, as Fleet runs it**: a repository reads its own piece, else the Workspace that sets one, else the default's, and a Workspace reads its own, else the default's.
+A state is named by the nearest level that names it, and a state the tab's own piece leaves out is not drawn: what led into it leads to what it led to.
+A rule reads as the nearest level that keeps a piece of it, and is drawn on a Workspace's tab where the default, that Workspace or a repository it holds keeps it, and on a repository's tab where a level it reads keeps it.
+The columns are the same on every tab, laid out over every level's states.
+
 ### The marks
 
 | Field | On | Carries |
@@ -102,7 +110,8 @@ A rule that is off is drawn.
 Each is left out when empty.
 A state differs at a level that names it otherwise, reads it as other tracker words, leaves it out of its own piece, or adds it.
 A rule differs at the level it applies at alone, and at each level below that keeps a piece saying something else.
-On the default's tab every level that differs is named, and no clash is marked: only a repository's own tab sets a Workspace aside.
+On the default's tab every level that differs is named; on a Workspace's, the repositories it holds that differ; on a repository's, only that repository.
+Only a repository's tab marks a clash: a repository in two Workspaces that set one piece at one place runs neither, and reads the default's.
 
 **The proposed rules are those of open keep drafts** (`list_keep_drafts`) that no repository keeps, read from the text Approve would save.
 A lifecycle only a draft holds is drawn as the repository's own.
@@ -115,9 +124,7 @@ A workflow change waiting on Approve carries a workflow's text and no rule, so i
 - A move a left-out state is stepped over by is drawn once, where the TypeScript could draw it twice.
 - A step names no level that differs: the pieces carry no step layers, so Classic marks none either.
 
-**The default level only.** A Workspace's tab and a repository's tab are a third change.
-
 | Code | Where |
 | --- | --- |
-| `fleet.lanes_level_not_served` | a `scope` other than `default` |
+| `fleet.no_such_lanes_level` | a `scope` that is not `default`, a Workspace that holds the repository, or a repository read with it |
 | `fleet.no_such_workflow_definition` | a `workflow` this repository does not run |
