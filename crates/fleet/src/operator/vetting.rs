@@ -225,7 +225,9 @@ fn read_verdict(answer: &str, item: &WaitingItem) -> Option<Verdict> {
         (false, Some(read)) => format!("Findings: {read}"),
         (false, None) => return None,
     };
-    Some(Verdict { clean, read, pick: field("pick").map(|pick| pick_of(&pick, item)).filter(|pick| !pick.is_empty()) })
+    // A plan, a walk or a pull request has no options, so the pick is the act in its own few words.
+    let pick = field("pick").map(|pick| if item.options.is_empty() { pick.trim().to_string() } else { pick_of(&pick, item) });
+    Some(Verdict { clean, read, pick: pick.filter(|pick| !pick.is_empty()) })
 }
 
 impl Operator {

@@ -121,6 +121,9 @@ pub struct OperatorTurnItem {
     /// a go-ahead and a red main are.
     #[serde(default, skip_serializing_if = "is_false")]
     pub keeps: bool,
+    /// What else raised the same ask, folded into this one, each as its tooltip names it, oldest first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub also_raised_by: Vec<String>,
 }
 
 /// What the Operator is reading now.
@@ -338,10 +341,13 @@ pub struct OperatorTurnOrder {
     pub ids: Vec<String>,
 }
 
-/// `operator_later`: one item goes last for the rest of the local day.
+/// `operator_later`: one item goes last until `until`, or for the rest of the local day.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorLater {
     pub id: String,
+    /// When it comes back, which Bridge works out from the choice he pressed. Absent, the local day's end.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
 }
 
 /// `operator.page_changed`: the page is not what it was, so read it again. Nothing else rides.
