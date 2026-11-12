@@ -353,7 +353,7 @@ where
         }
         let row = match self.turn_open(&press.id).await {
             Ok(row) => row,
-            Err(refused) if matches!(press.answer, OperatorAnswer::AlwaysHere | OperatorAnswer::Always) => return self.always_after_yes(&press, refused).await,
+            Err(refused) if matches!(press.answer, OperatorAnswer::AlwaysHere | OperatorAnswer::Always) => return Box::pin(self.always_after_yes(&press, refused)).await,
             Err(refused) => return Err(refused),
         };
         let item = item_read(&row.body).ok_or_else(|| self.ledger_unnamed("an item that reads"))?;

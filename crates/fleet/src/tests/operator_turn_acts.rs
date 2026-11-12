@@ -286,6 +286,11 @@ async fn a_jobs_asks_stand_together_at_the_first_ones_place_and_move_together() 
     assert_eq!(ids(&back), ["a", "b", "c"], "naming one of the group moves the group");
 }
 
+/// A press, boxed: each holds the whole answer path, and a test that makes several overflows its stack.
+async fn answer(rig: &Rig, press: OperatorAnswerPress) -> Result<ipc::operator_page::OperatorAnswered, Refusal> {
+    Box::pin(rig.fleet.operator_answered(press)).await
+}
+
 /// A routine question queued as a go-ahead, on a clock the test sets.
 async fn a_go_ahead_on_a_set_clock() -> (Rig, Arc<AtomicI64>, OperatorTurnItem) {
     let clock = Arc::new(AtomicI64::new(millis("2026-11-10T12:00:00.000Z")));
@@ -303,11 +308,11 @@ async fn a_go_ahead_on_a_set_clock() -> (Rig, Arc<AtomicI64>, OperatorTurnItem) 
 #[tokio::test]
 async fn always_just_after_a_yes_keeps_the_rule_and_does_not_do_it_again() {
     let (rig, _clock, one) = a_go_ahead_on_a_set_clock().await;
-    let yes = rig.fleet.operator_answered(press(&one, OperatorAnswer::Yes, None)).await.expect("yes");
+    let yes = answer(&rig, press(&one, OperatorAnswer::Yes, None)).await.expect("yes");
     assert!(yes.page.turn.is_empty() && yes.page.digest.learned.is_empty(), "{yes:#?}");
     let before = journal(&rig).await;
 
-    let always = rig.fleet.operator_answered(press(&one, OperatorAnswer::AlwaysHere, None)).await.expect("Always here after the yes");
+    let always = answer(&rig, press(&one, OperatorAnswer::AlwaysHere, None)).await.expect("Always here after the yes");
 
     let learned = &always.page.digest.learned;
     assert_eq!(learned.len(), 1, "{learned:#?}");
@@ -321,19 +326,22 @@ async fn always_just_after_a_yes_keeps_the_rule_and_does_not_do_it_again() {
 #[tokio::test]
 async fn on_a_settled_item_only_an_always_within_a_minute_of_his_yes_is_taken() {
     let (rig, clock, one) = a_go_ahead_on_a_set_clock().await;
-    rig.fleet.operator_answered(press(&one, OperatorAnswer::Yes, None)).await.expect("yes");
-    let again = rig.fleet.operator_answered(press(&one, OperatorAnswer::Yes, None)).await.expect_err("a yes is not taken twice");
+    answer(&rig, press(&one, OperatorAnswer::Yes, None)).await.expect("yes");
+    let again = answer(&rig, press(&one, OperatorAnswer::Yes, None)).await.expect_err("a yes is not taken twice");
     assert_eq!(code(again).0, 404);
-    let no = rig.fleet.operator_answered(press(&one, OperatorAnswer::No, None)).await.expect_err("nor a no after it");
+    let no = answer(&rig, press(&one, OperatorAnswer::No, None)).await.expect_err("nor a no after it");
     assert_eq!(code(no).0, 404);
     clock.fetch_add(61_000, Ordering::SeqCst);
-    let late = rig.fleet.operator_answered(press(&one, OperatorAnswer::Always, None)).await.expect_err("over a minute on");
+    let late = answer(&rig, press(&one, OperatorAnswer::Always, None)).await.expect_err("over a minute on");
     assert_eq!(code(late).0, 404);
     assert!(page(&rig).await.digest.learned.is_empty(), "no rule kept");
+}
 
+#[tokio::test]
+async fn an_always_after_a_no_is_refused() {
     let (rig, _clock, one) = a_go_ahead_on_a_set_clock().await;
-    rig.fleet.operator_answered(press(&one, OperatorAnswer::No, None)).await.expect("no");
-    let after_no = rig.fleet.operator_answered(press(&one, OperatorAnswer::Always, None)).await.expect_err("an Always follows a yes only");
+    answer(&rig, press(&one, OperatorAnswer::No, None)).await.expect("no");
+    let after_no = answer(&rig, press(&one, OperatorAnswer::Always, None)).await.expect_err("an Always follows a yes only");
     assert_eq!(code(after_no).0, 404);
     assert!(page(&rig).await.digest.learned.is_empty(), "no rule kept");
 }
