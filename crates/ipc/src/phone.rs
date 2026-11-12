@@ -83,16 +83,7 @@ pub enum CloudflareState {
     Down { address: String, since: i64, why: String },
 }
 
-/// `POST /admin/setup/cloudflare`'s body: the domain on the owner's Cloudflare account the address goes on.
-/// Answered 204 once the tunnel runs, `{ login }` while it waits for the sign-in, 502 with a sentence otherwise.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct StartCloudflare {
-    /// Such as `example.com`. The address is this Mac's name under it.
-    pub domain: String,
-}
-
-/// `POST /admin/setup/cloudflare` while it waits for the owner to sign in: the page to open.
+/// `POST /admin/setup/cloudflare`, which takes no body, while it waits for the owner to sign in: the page to open.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CloudflareSignIn {
     pub login: String,

@@ -204,6 +204,7 @@ WebSocket event stream, read this first.
 | [A Job's row mark: `SessionRecord.mark`](protocol/a-jobs-row-mark.md) |
 | [A Job's lanes, worked out by Fleet: `SessionRecord.lanes`, and a workflow's for its editor: `get_workflow_lanes`](protocol/a-jobs-lanes-fleet-works-out.md) |
 | [The repair under way, on a Job's card: `SessionRecord.repairing`](protocol/a-jobs-repairing-line.md) |
+| [A draft names the pull request it describes: `SessionRecord.pull_request_drafts`, `PullRequestPage.draft`](protocol/a-draft-names-the-pull-request-it-describes.md) |
 | [What calls the person: `get_calls`, `calls.changed`, `open_call`](protocol/a-jobs-calls.md) |
 | [The title bar's views, read by Fleet](protocol/the-title-bars-views-fleet-reads.md) |
 | [The Operator's page, kept by Fleet: `operator_page`, `operator_answer`, `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |

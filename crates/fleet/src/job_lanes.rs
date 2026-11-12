@@ -16,9 +16,13 @@
 
 mod draw;
 mod editor;
+mod levels;
 mod read;
+mod workspace;
 
 pub(crate) use editor::{editor_lanes, EditorInput};
+pub(crate) use levels::{PiecesRead, RepositoryRead, WorkspaceRead};
+pub(crate) use workspace::Drafts;
 
 use std::collections::HashMap;
 

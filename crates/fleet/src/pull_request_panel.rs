@@ -21,8 +21,11 @@ use ipc::{
     PullReviewThreadComment, PullReviewLists, PullThreadResolved, ResolvePullThread, WritePullRequest,
 };
 
+use store::{AttachmentState, HolderKind, KeptAttachment};
+
 use crate::daemon::Fleet;
 use crate::pull_requesting::{SESSION_UNKNOWN, UNREADABLE};
+use crate::session_host::drafting::{pull_request_draft, PR_DRAFT, PR_DRAFT_NUMBER};
 
 /// A comment, a request for changes, or a line, file or reply comment with nothing in it. A 422.
 const WRITE_BLANK: &str = "fleet.pull_request_write_blank";
@@ -267,6 +270,7 @@ fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) ->
             })
             .collect(),
         owner: None,
+        draft: None,
     }
 }
 
@@ -321,6 +325,28 @@ where
         page.owner = self.owner_known(root, number).await;
         Ok(page)
     }
+
+    /// The page as the panel draws it: the forge's, with a description a Job proposed for it and
+    /// the person has not settled. The newest, where Jobs holding it proposed several.
+    async fn page_served(&self, manifest_id: &ManifestId, root: &str, number: u64) -> Result<PullRequestPage, Refusal> {
+        let mut page = self.page_with_owner(manifest_id, root, number).await?;
+        page.draft = self.draft_waiting_on(manifest_id, number).await;
+        Ok(page)
+    }
+
+    async fn draft_waiting_on(&self, manifest_id: &ManifestId, number: u64) -> Option<ipc::PullRequestDraft> {
+        let store = self.store().lock().await;
+        let holders = store.attachments_at(crate::pull_requesting::PR, &number.to_string(), Some(manifest_id.as_str())).ok()?;
+        let mut waiting: Vec<KeptAttachment> = holders
+            .iter()
+            .filter(|one| one.holder.kind == HolderKind::Session && one.state != AttachmentState::GivenBack)
+            .flat_map(|one| store.attachments_of(&one.holder).unwrap_or_default())
+            .filter(|one| one.kind == PR_DRAFT && one.state == AttachmentState::Standing && one.manifest_id == manifest_id.as_str())
+            .filter(|one| one.detail.get(PR_DRAFT_NUMBER).is_some_and(|said| *said == number.to_string()))
+            .collect();
+        waiting.sort_by(|a, b| b.changed_at.cmp(&a.changed_at));
+        waiting.first().and_then(pull_request_draft)
+    }
 }
 
 impl<H, V, W> PullRequestPanel for Fleet<H, V, W>
@@ -339,7 +365,7 @@ where
         number: u64,
     ) -> Result<PullRequestPage, Refusal> {
         let served = self.served_named(Some(&manifest_id))?;
-        self.page_with_owner(&manifest_id, served.root(), number).await
+        self.page_served(&manifest_id, served.root(), number).await
     }
 
     async fn get_pull_request_file(
@@ -441,7 +467,7 @@ where
         if let Ok(state) = self.pull_request_read(&manifest_id, root, number) {
             self.ledger_follows(&state).await;
         }
-        self.page_with_owner(&manifest_id, root, number).await
+        self.page_served(&manifest_id, root, number).await
     }
 
     async fn get_review_lists(&self, project: Option<String>) -> Result<PullReviewLists, Refusal> {
