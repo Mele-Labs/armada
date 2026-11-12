@@ -26,7 +26,7 @@ fn a_word_that_is_not_the_pair_is_refused_and_not_taken_for_a_lifecycle() {
 #[test]
 fn the_five_words_keep_their_spelling_and_each_new_variant_is_after_them() {
     let words: Vec<_> = StepEnd::ALL.iter().map(|end| end.as_wire().into_owned()).collect();
-    assert_eq!(words, ["replied", "walk_approved", "sketch_approved", "draft_approved", "idea_picked", "document_approved"]);
+    assert_eq!(words, ["replied", "walk_approved", "sketch_approved", "draft_approved", "idea_picked", "document_approved", "you_approved"]);
     for end in StepEnd::ALL {
         assert_eq!(StepEnd::from_wire(&end.as_wire()).as_ref(), Some(end));
     }

@@ -124,8 +124,14 @@ impl JobView {
             }
             self.tabs_closed.opened.entry(id).or_default().insert(tab);
         }
+        if tab == "now" {
+            self.view_tab_back(super::ViewPane::Bottom);
+        }
+        if tab == "thread" {
+            self.front_thread();
+        }
         if let Some(zone) = Zone::ALL.into_iter().find(|zone| zone.id() == tab) {
-            self.view_tab_back();
+            self.view_tab_back(super::ViewPane::Top);
             self.zone = zone;
             if let Some(at) = Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).position(|one| one == zone) {
                 self.panes.top_tabs.scroll_to_item(at);
@@ -139,8 +145,9 @@ impl JobView {
     }
 
     fn open_add_menu(&mut self, pane: Pane, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
-        // The top pane's + offers the kinds other parts of the app put there after its own.
-        let offers = if pane == Pane::Top { cx.try_global::<super::view_tabs::TabOffers>().map(|offers| offers.0.clone()).unwrap_or_default() } else { Vec::new() };
+        // Every pane's + offers the kinds other parts of the app put there after its own.
+        let offers = cx.try_global::<super::view_tabs::TabOffers>().map(|offers| offers.0.clone()).unwrap_or_default();
+        let into = super::ViewPane::of(pane);
         let entries = pane
             .kinds()
             .iter()
@@ -155,7 +162,7 @@ impl JobView {
                 let (open, job) = (offer.open.clone(), this.shown.as_ref().map(|job| job.to_string()));
                 this.tabs_menu = None;
                 if let Some(job) = job {
-                    window.defer(cx, move |window, cx| open(job, window, cx));
+                    window.defer(cx, move |window, cx| open(job, into, window, cx));
                 }
                 return;
             }

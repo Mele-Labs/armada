@@ -72,6 +72,7 @@ pub(super) async fn with_a_job_on_your_words_running(
             text: String::from("hello"),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         })
         .await
         .expect("it is running");

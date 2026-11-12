@@ -915,7 +915,8 @@ impl JobView {
                             .overflow_x_scroll()
                             .track_scroll(&self.row_strip)
                             .children(tab.map(|tab| div().flex_none().max_w(look.length(token::SPACE_12) * 8.).flex().h_full().child(tab)))
-                            .children(self.row_tab_strip(id, look, cx)),
+                            .children(self.row_tab_strip(id, look, cx))
+                            .children(self.view_tab_elements(super::ViewPane::Thread, look, cx)),
                     )
                     .child(self.add_button(super::tabs::Pane::Thread, look, cx))
                     .children(self.strip_end(super::tabs::Pane::Thread, look, cx)),
@@ -1195,7 +1196,7 @@ impl JobView {
             let Ok(started) = ipc::decode::<SessionRecord>("SessionRecord", &bytes) else { return };
             let fixer = started.id.as_str().to_string();
             let body = ipc::SendSessionMessageBody {
-                message: ipc::SendSessionMessage { session_id: SessionId::carried(fixer.clone()), text, attachments: Vec::new(), mentions: Vec::new() },
+                message: ipc::SendSessionMessage { session_id: SessionId::carried(fixer.clone()), text, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() },
                 aim: None,
             };
             let opened: Done = Box::new(move |this, answer, _, cx| {

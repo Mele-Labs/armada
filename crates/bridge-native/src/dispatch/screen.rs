@@ -191,7 +191,7 @@ pub fn start_queued(idea: crate::queued::QueuedIdea, cx: &mut App) {
 /// The words are the Job's first message, as Electron's Start sends them once the Job exists.
 fn first_message(port: u16, id: String, text: String, mentions: Vec<SessionTag>, cx: &mut App) {
     let body = ipc::encode(&ipc::SendSessionMessageBody {
-        message: ipc::SendSessionMessage { session_id: SessionId::carried(id), text, attachments: Vec::new(), mentions },
+        message: ipc::SendSessionMessage { session_id: SessionId::carried(id), text, attachments: Vec::new(), mentions, sketches: Vec::new() },
         aim: None,
     })
     .map_err(|why| format!("{why:?}"));

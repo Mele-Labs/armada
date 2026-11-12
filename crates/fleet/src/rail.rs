@@ -36,7 +36,7 @@
 //! recording step reads as a plan approved once the Job has edited, since no plan is coming.
 
 use config::ResolvedWorkflow;
-use core_model::{EvidenceType, JudgeCriterion, LifecycleEnd, ResolvedCheck, ResolvedStep, StepEnd, StepPhase};
+use core_model::{EvidenceType, JudgeCriterion, LifecycleEnd, ResolvedCheck, ResolvedStep, StepEnd, StepGate, StepPhase};
 use ipc::{BuildPhase, BuildStopId, PlanTaskState, SessionRecord};
 
 use crate::rail_lifecycle::StepBits;
@@ -88,6 +88,11 @@ impl RailStep {
     pub(crate) fn has_lifecycle_end(&self) -> bool {
         self.lifecycle_ends().next().is_some()
     }
+
+    /// The step ends on his Approve, as a `you_approved` gate does, and holds the Job until then.
+    pub(crate) fn waits_on_approval(&self) -> bool {
+        self.ends_on.contains(&StepEnd::YouApproved)
+    }
 }
 
 fn fit_of(step: &ResolvedStep) -> Option<Fit> {
@@ -121,11 +126,21 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
             delivers: step.delivers(),
             asks_delivery: step.asks_delivery(),
             walks: step.walks(),
-            ends_on: step.ends_on().to_vec(),
+            ends_on: ends_on_of(step),
             criteria: step.judge_checks().iter().flat_map(|check| check.criteria().to_vec()).collect(),
             fit: fit_of(step),
         })
         .collect()
+}
+
+/// What ends the step: what it lists, and his Approve where its gate is `you_approved`, so the step
+/// reads as ending when he approves and not on the push after it.
+fn ends_on_of(step: &ResolvedStep) -> Vec<StepEnd> {
+    let mut ends = step.ends_on().to_vec();
+    if step.gate() == StepGate::YouApproved && !ends.contains(&StepEnd::YouApproved) {
+        ends.push(StepEnd::YouApproved);
+    }
+    ends
 }
 
 /// Facts the record does not carry.
@@ -206,6 +221,8 @@ pub(crate) struct Facts {
     pub draft_approved: bool,
     pub idea_picked: bool,
     pub plan_expects_walk: bool,
+    /// The steps whose `you_approved` gate has closed: their own plan group's, or any one's where no group carries the step's id.
+    pub you_approved: StepBits,
     /// The steps the person skipped.
     pub skipped: Skipped,
     /// The steps he wrote on after they began. [`Extra::messaged`].
@@ -299,6 +316,7 @@ impl Facts {
             StepEnd::DraftApproved => self.draft_approved,
             StepEnd::IdeaPicked => self.idea_picked,
             StepEnd::DocumentApproved => self.document_approved,
+            StepEnd::YouApproved => self.you_approved.has(at),
         }
     }
 
@@ -363,8 +381,8 @@ fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     if recorder(steps).is_some_and(|recording| at < recording) {
         return facts.plan_recorded || facts.any_ended(at, &step.ends_on);
     }
-    // A step that lists a lifecycle end holds the Job until it comes.
-    !step.has_lifecycle_end() || facts.any_ended(at, &step.ends_on)
+    // A step that lists a lifecycle end, or his Approve, holds the Job until it comes.
+    !(step.has_lifecycle_end() || step.waits_on_approval()) || facts.any_ended(at, &step.ends_on)
 }
 
 /// Whether the Job pushed toward the step at `at`. **A walk before it holds the push**: none counts
@@ -399,7 +417,10 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     if step.delivers {
         // A step that waits on a lifecycle holds the Job past the push, as a walk holds a refine step.
         return pushed_past_walks(steps, at, facts)
-            && steps[..at].iter().enumerate().all(|(earlier, one)| !one.has_lifecycle_end() || passed(steps, earlier, facts));
+            && steps[..at]
+                .iter()
+                .enumerate()
+                .all(|(earlier, one)| !(one.has_lifecycle_end() || one.waits_on_approval()) || passed(steps, earlier, facts));
     }
     let before = |earlier: usize| (0..earlier).all(|one| passed(steps, one, facts));
     if recorder(steps).is_some_and(|recording| at < recording) {
@@ -411,7 +432,10 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     if step.has_lifecycle_end() {
         return facts.lifecycle_held.has(at) && !facts.any_ended(at, &step.ends_on) && before(at);
     }
-    let after_a_wait = at > 0 && steps[at - 1].has_lifecycle_end() && before(at);
+    if step.waits_on_approval() {
+        return !facts.you_approved.has(at) && before(at);
+    }
+    let after_a_wait = at > 0 && (steps[at - 1].has_lifecycle_end() || steps[at - 1].waits_on_approval()) && before(at);
     // **The step after a walk is entered once the walk is passed**, as after a wait: else the Job falls
     // back behind the walk he approved, is told to show it again, and the new window voids his approval.
     let after_a_walk = at > 0 && steps[at - 1].walks && passed(steps, at - 1, facts);

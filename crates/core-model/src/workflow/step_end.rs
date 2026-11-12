@@ -27,6 +27,9 @@ pub enum StepEnd {
     /// He approves the newest revision of a page the Job wrote under `.armada/documents/`. After
     /// the lifecycle form for the same reason it came after the five.
     DocumentApproved,
+    /// He presses Approve on an item the Job raised with `approves: true`: what a step gated
+    /// `you_approved` ends on. After the others for the same reason.
+    YouApproved,
 }
 
 impl StepEnd {
@@ -39,6 +42,7 @@ impl StepEnd {
         StepEnd::DraftApproved,
         StepEnd::IdeaPicked,
         StepEnd::DocumentApproved,
+        StepEnd::YouApproved,
     ];
 
     pub fn as_wire(&self) -> Cow<'static, str> {
@@ -49,6 +53,7 @@ impl StepEnd {
             StepEnd::DraftApproved => Cow::Borrowed("draft_approved"),
             StepEnd::IdeaPicked => Cow::Borrowed("idea_picked"),
             StepEnd::DocumentApproved => Cow::Borrowed("document_approved"),
+            StepEnd::YouApproved => Cow::Borrowed("you_approved"),
             StepEnd::Lifecycle(end) => Cow::Owned(end.as_wire()),
         }
     }

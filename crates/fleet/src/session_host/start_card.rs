@@ -29,7 +29,7 @@ use base64::Engine as _;
 use config::ResolvedWorkflow;
 use core_model::{Ulid, WorkflowId};
 use ipc::{
-    BeginSession, DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, ManifestId, SentFile, SessionRecord, SessionRow, SessionTag,
+    BeginSession, DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, ManifestId, SentFile, SentSketch, SessionRecord, SessionRow, SessionTag,
     SessionVoice, StartHeld,
 };
 use serde::{Deserialize, Serialize};
@@ -66,6 +66,8 @@ pub(crate) struct FirstTurn {
     pub files: Vec<SentFile>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<SessionTag>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sketches: Vec<SentSketch>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub instead: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -79,7 +81,7 @@ pub(crate) struct FirstTurn {
 impl FirstTurn {
     /// Words sent as `from`, as the agent will read them.
     pub(crate) fn said(from: SessionVoice, text: &str) -> FirstTurn {
-        FirstTurn { from, text: text.to_string(), files: Vec::new(), tags: Vec::new(), instead: None, ahead: None, row: None }
+        FirstTurn { from, text: text.to_string(), files: Vec::new(), tags: Vec::new(), sketches: Vec::new(), instead: None, ahead: None, row: None }
     }
 
     /// A turn already on the thread, kept for a Resume. Its row is written, so `from` is not read again.
@@ -89,6 +91,7 @@ impl FirstTurn {
             text: held.text.clone(),
             files: held.kept.files.clone(),
             tags: held.addressed.iter().map(|(tag, _)| tag.clone()).collect(),
+            sketches: Vec::new(),
             instead: held.instead.clone(),
             ahead: held.ahead.clone(),
             row: held.row.clone(),
@@ -398,7 +401,7 @@ where
 
     /// A kept turn written to the thread as Start sends it, and the turn the agent is sent of it.
     async fn first_turn_written(&self, id: &str, first: FirstTurn) -> Result<Held, Refusal> {
-        let FirstTurn { from, text, files, tags, instead, ahead, .. } = first;
+        let FirstTurn { from, text, files, tags, sketches, instead, ahead, .. } = first;
         let his = from == SessionVoice::You;
         let row = SessionRow::Message {
             id: self.row_id(id),
@@ -410,6 +413,7 @@ where
             notice: None,
             queued: false,
             edited_at: None,
+            sketches: sketches.clone(),
         };
         let row_id = row.id().to_string();
         if his {
@@ -422,7 +426,7 @@ where
                 self.session_warned(id, "a job's latest message was not kept", format!("{why:?}"));
             }
         }
-        self.held_again(id, FirstTurn { from, text, files, tags, instead, ahead, row: Some(row_id) }).await
+        self.held_again(id, FirstTurn { from, text, files, tags, sketches, instead, ahead, row: Some(row_id) }).await
     }
 
     /// A kept turn as the agent is sent it, its row not written again.

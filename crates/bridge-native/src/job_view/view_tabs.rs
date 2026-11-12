@@ -1,5 +1,6 @@
-//! Tabs another part of the app puts in a Job's top pane, each drawing a view of its own: the terminal's
-//! first. The source opens one with [`JobView::open_view_tab`], offers kinds in the pane's + with
+//! Tabs another part of the app puts in a Job's panes, each drawing a view of its own: the terminal's
+//! first. The source opens one with [`JobView::open_view_tab_in`] in the pane it names ([`ViewPane`]), or
+//! with [`JobView::open_view_tab`] in the top pane, offers kinds in every pane's + with
 //! [`offer_tab`], hears which Job comes on screen with [`on_job_shown`], and finds the Job view with
 //! [`JobView::live`]. A tab's acts, its close veto and its closed hook run after the Job view's own
 //! update, so they may update the Job view again; the veto alone runs at once and must not.
@@ -44,13 +45,32 @@ pub struct TabAct {
     pub act: Rc<dyn Fn(&mut Window, &mut App)>,
 }
 
-/// A kind of tab the top pane's + offers after its own, and what opens one on Job `job`.
+/// The pane a view tab stands in: the thread's, the top of the right column, or its foot, where Now is.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ViewPane {
+    Thread,
+    Top,
+    Bottom,
+}
+
+impl ViewPane {
+    pub(super) fn of(pane: super::tabs::Pane) -> ViewPane {
+        match pane {
+            super::tabs::Pane::Thread => ViewPane::Thread,
+            super::tabs::Pane::Top => ViewPane::Top,
+            super::tabs::Pane::Now => ViewPane::Bottom,
+        }
+    }
+}
+
+/// A kind of tab every pane's + offers after its own, and what opens one on Job `job` in the pane whose +
+/// was pressed.
 #[derive(Clone)]
 pub struct TabOffer {
     pub id: &'static str,
     pub label: SharedString,
     pub glyph: &'static str,
-    pub open: Rc<dyn Fn(String, &mut Window, &mut App)>,
+    pub open: Rc<dyn Fn(String, ViewPane, &mut Window, &mut App)>,
 }
 
 #[derive(Clone, Default)]
@@ -58,7 +78,7 @@ pub struct TabOffers(pub Vec<TabOffer>);
 
 impl gpui::Global for TabOffers {}
 
-/// Put a kind in every top pane's +, in place of one with its id.
+/// Put a kind in every pane's +, in place of one with its id.
 pub fn offer_tab(offer: TabOffer, cx: &mut App) {
     let offers = cx.default_global::<TabOffers>();
     offers.0.retain(|one| one.id != offer.id);
@@ -83,11 +103,12 @@ impl gpui::Global for LiveJobView {}
 /// The rows a tab menu can hold, since a menu's ids live as long as the app.
 const ACT_IDS: [&str; 12] = ["view-act:0", "view-act:1", "view-act:2", "view-act:3", "view-act:4", "view-act:5", "view-act:6", "view-act:7", "view-act:8", "view-act:9", "view-act:10", "view-act:11"];
 
-/// Each Job's view tabs in strip order, and the one in front where a view tab is.
+/// Each Job's view tabs in strip order with the pane each stands in, and the one in front of each pane where a
+/// view tab is.
 #[derive(Default)]
 pub(super) struct ViewTabs {
-    by_job: HashMap<SharedString, Vec<ViewTab>>,
-    front: HashMap<SharedString, String>,
+    by_job: HashMap<SharedString, Vec<(ViewPane, ViewTab)>>,
+    front: HashMap<(SharedString, ViewPane), String>,
     /// The tab whose title is a field now.
     renaming: Option<TabRename>,
 }
@@ -105,18 +126,33 @@ impl JobView {
         cx.try_global::<LiveJobView>().and_then(|live| live.0.upgrade())
     }
 
-    /// Open `tab` on Job `job`, or put it in place of the tab with its id. `front` brings it forward.
+    /// Open `tab` on Job `job` in the top pane, or put it in place of the tab with its id. `front` brings it forward.
     pub fn open_view_tab(&mut self, job: &str, tab: ViewTab, front: bool, cx: &mut Context<Self>) {
+        self.open_view_tab_in(job, ViewPane::Top, tab, front, cx);
+    }
+
+    /// Open `tab` on Job `job` in `pane`, or put it in place of the tab with its id, which moves to `pane`.
+    /// `front` brings it forward in that pane.
+    pub fn open_view_tab_in(&mut self, job: &str, pane: ViewPane, tab: ViewTab, front: bool, cx: &mut Context<Self>) {
         let key = SharedString::from(job.to_string());
         let tabs = self.view_tabs.by_job.entry(key.clone()).or_default();
         let id = tab.id.clone();
-        match tabs.iter_mut().find(|one| one.id == id) {
-            Some(held) => *held = tab,
-            None => tabs.push(tab),
+        match tabs.iter_mut().find(|one| one.1.id == id) {
+            Some(held) => {
+                if held.0 != pane && self.view_tabs.front.get(&(key.clone(), held.0)).is_some_and(|front| *front == id) {
+                    self.view_tabs.front.remove(&(key.clone(), held.0));
+                }
+                *held = (pane, tab);
+            }
+            None => tabs.push((pane, tab)),
         }
         if front {
-            self.view_tabs.front.insert(key.clone(), id.clone());
-            if self.shown.as_ref() == Some(&key) {
+            self.view_tabs.front.insert((key.clone(), pane), id.clone());
+            // In the thread's pane a view tab stands before the thread and the rows' tabs.
+            if pane == ViewPane::Thread {
+                self.rows_back(&key);
+            }
+            if pane == ViewPane::Top && self.shown.as_ref() == Some(&key) {
                 self.scroll_to_view_tab(&id);
             }
         }
@@ -126,17 +162,19 @@ impl JobView {
     /// Close Job `job`'s tab `id` without asking its veto, and tell its source.
     pub fn close_view_tab(&mut self, job: &str, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(tabs) = self.view_tabs.by_job.get_mut(job) else { return };
-        let Some(at) = tabs.iter().position(|one| one.id == id) else { return };
-        let gone = tabs.remove(at);
-        if self.view_tabs.front.get(job).is_some_and(|front| front == id) {
-            // The tab before it comes forward, else the pane's own tab.
-            match tabs.get(at.saturating_sub(1)).filter(|_| at > 0).or(tabs.first()) {
+        let Some(at) = tabs.iter().position(|one| one.1.id == id) else { return };
+        let (pane, gone) = tabs.remove(at);
+        let key = (SharedString::from(job.to_string()), pane);
+        if self.view_tabs.front.get(&key).is_some_and(|front| front == id) {
+            // The tab before it in its pane comes forward, else the first left there, else the pane's own tab.
+            let before = tabs[..at].iter().rev().find(|one| one.0 == pane);
+            match before.or_else(|| tabs.iter().find(|one| one.0 == pane)) {
                 Some(next) => {
-                    let next = next.id.clone();
-                    self.view_tabs.front.insert(job.to_string().into(), next);
+                    let next = next.1.id.clone();
+                    self.view_tabs.front.insert(key, next);
                 }
                 None => {
-                    self.view_tabs.front.remove(job);
+                    self.view_tabs.front.remove(&key);
                 }
             }
         }
@@ -148,15 +186,20 @@ impl JobView {
 
     /// Give Job `job`'s tab `id` a new title.
     pub fn retitle_view_tab(&mut self, job: &str, id: &str, title: impl Into<SharedString>, cx: &mut Context<Self>) {
-        if let Some(tab) = self.view_tabs.by_job.get_mut(job).and_then(|tabs| tabs.iter_mut().find(|one| one.id == id)) {
+        if let Some((_, tab)) = self.view_tabs.by_job.get_mut(job).and_then(|tabs| tabs.iter_mut().find(|one| one.1.id == id)) {
             tab.title = title.into();
             cx.notify();
         }
     }
 
-    /// The ids of Job `job`'s view tabs, in strip order.
+    /// The ids of Job `job`'s view tabs, in strip order, in every pane.
     pub fn view_tab_ids(&self, job: &str) -> Vec<String> {
-        self.view_tabs.by_job.get(job).map(|tabs| tabs.iter().map(|one| one.id.clone()).collect()).unwrap_or_default()
+        self.view_tabs.by_job.get(job).map(|tabs| tabs.iter().map(|one| one.1.id.clone()).collect()).unwrap_or_default()
+    }
+
+    /// The pane Job `job`'s view tab `id` stands in.
+    pub fn view_tab_pane(&self, job: &str, id: &str) -> Option<ViewPane> {
+        self.view_tabs.by_job.get(job)?.iter().find(|one| one.1.id == id).map(|one| one.0)
     }
 
     /// Send to agent: a `#` tag of `kind` for `id` goes at the end of Job `job`'s message box, in the
@@ -191,11 +234,16 @@ impl JobView {
         self.keep_draft(job, kept, cx);
     }
 
-    /// The view tab in front on the shown Job, where one is.
-    pub(super) fn view_front(&self) -> Option<&ViewTab> {
+    /// The view tab in front of `pane` on the shown Job, where one is.
+    pub(super) fn view_front(&self, pane: ViewPane) -> Option<&ViewTab> {
         let job = self.shown.as_ref()?;
-        let id = self.view_tabs.front.get(job)?;
-        self.view_tabs.by_job.get(job)?.iter().find(|one| &one.id == id)
+        let id = self.view_tabs.front.get(&(job.clone(), pane))?;
+        self.view_tabs.by_job.get(job)?.iter().find(|one| one.0 == pane && &one.1.id == id).map(|one| &one.1)
+    }
+
+    /// Whether the shown Job has a view tab in `pane`.
+    pub(super) fn view_tabs_in(&self, pane: ViewPane) -> bool {
+        self.shown.as_ref().and_then(|job| self.view_tabs.by_job.get(job)).is_some_and(|tabs| tabs.iter().any(|one| one.0 == pane))
     }
 
     /// Ask before an act, in the Job view's dialog: `title`, its lines, the act's button and Cancel. Enter takes
@@ -212,7 +260,7 @@ impl JobView {
     /// The tab's title becomes a field in place, as Classic's tab does: Enter keeps it and tells the tab's
     /// `renamed`, leaving keeps it too, Esc puts it back.
     pub fn rename_view_tab(&mut self, job: &str, id: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(title) = self.view_tabs.by_job.get(job).and_then(|tabs| tabs.iter().find(|one| one.id == id)).map(|one| one.title.clone()) else { return };
+        let Some(title) = self.view_tabs.by_job.get(job).and_then(|tabs| tabs.iter().find(|one| one.1.id == id)).map(|one| one.1.title.clone()) else { return };
         let input = cx.new(|cx| InputState::new(window, cx));
         input.update(cx, |input, cx| {
             input.set_value(title.to_string(), window, cx);
@@ -231,7 +279,7 @@ impl JobView {
         let Some(rename) = self.view_tabs.renaming.take() else { return };
         let said = rename.input.read(cx).value().trim().to_string();
         window.focus(&self.focus.clone(), cx);
-        let Some(tab) = self.view_tabs.by_job.get_mut(&rename.job).and_then(|tabs| tabs.iter_mut().find(|one| one.id == rename.id)) else { return cx.notify() };
+        let Some((_, tab)) = self.view_tabs.by_job.get_mut(&rename.job).and_then(|tabs| tabs.iter_mut().find(|one| one.1.id == rename.id)) else { return cx.notify() };
         if keep && !said.is_empty() && said != tab.title.as_ref() {
             tab.title = said.clone().into();
             if let Some(renamed) = tab.renamed.clone() {
@@ -241,28 +289,33 @@ impl JobView {
         cx.notify();
     }
 
-    /// A press on one of the pane's own tabs puts it in front of the view tabs.
-    pub(super) fn view_tab_back(&mut self) {
+    /// A press on one of `pane`'s own tabs puts it in front of the view tabs there.
+    pub(super) fn view_tab_back(&mut self, pane: ViewPane) {
         if let Some(job) = self.shown.clone() {
-            self.view_tabs.front.remove(&job);
+            self.view_tabs.front.remove(&(job, pane));
         }
     }
 
     fn scroll_to_view_tab(&self, id: &str) {
         let zones = super::side::Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).count();
-        let at = self.shown.as_ref().and_then(|job| self.view_tabs.by_job.get(job)).and_then(|tabs| tabs.iter().position(|one| one.id == id));
+        let at = self
+            .shown
+            .as_ref()
+            .and_then(|job| self.view_tabs.by_job.get(job))
+            .and_then(|tabs| tabs.iter().filter(|one| one.0 == ViewPane::Top).position(|one| one.1.id == id));
         if let Some(at) = at {
             self.panes.top_tabs.scroll_to_item(zones + at);
         }
     }
 
-    /// The shown Job's view tabs, for the top strip.
-    pub(super) fn view_tab_elements(&self, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+    /// The shown Job's view tabs in `pane`, for its strip.
+    pub(super) fn view_tab_elements(&self, pane: ViewPane, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
         let Some(job) = self.shown.clone() else { return Vec::new() };
-        let front = self.view_front().map(|one| one.id.clone());
+        let front = self.view_front(pane).map(|one| one.id.clone());
         let Some(tabs) = self.view_tabs.by_job.get(&job) else { return Vec::new() };
         tabs.iter()
-            .map(|one| {
+            .filter(|one| one.0 == pane)
+            .map(|(_, one)| {
                 let is_front = front.as_deref() == Some(one.id.as_str());
                 let key = SharedString::from(format!("view-tab:{}", one.id));
                 let (pick, close, menu) = (one.id.clone(), one.id.clone(), one.id.clone());
@@ -304,7 +357,10 @@ impl JobView {
                             ),
                         )
                         .on_click(cx.listener(move |this, _, window, cx| {
-                            this.view_tabs.front.insert(job.1.clone(), pick.clone());
+                            this.view_tabs.front.insert((job.1.clone(), pane), pick.clone());
+                            if pane == ViewPane::Thread {
+                                this.rows_back(&job.1);
+                            }
                             window.focus(&this.focus.clone(), cx);
                             cx.notify();
                         }))
@@ -322,7 +378,7 @@ impl JobView {
 
     /// × on a view tab: its veto first, then the close.
     fn press_close_view_tab(&mut self, job: &str, id: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let veto = self.view_tabs.by_job.get(job).and_then(|tabs| tabs.iter().find(|one| one.id == id)).and_then(|one| one.closing.clone());
+        let veto = self.view_tabs.by_job.get(job).and_then(|tabs| tabs.iter().find(|one| one.1.id == id)).and_then(|one| one.1.closing.clone());
         if veto.is_some_and(|closing| !closing(window, cx)) {
             return;
         }
@@ -331,7 +387,7 @@ impl JobView {
 
     fn open_view_tab_menu(&mut self, id: &str, at: gpui::Point<gpui::Pixels>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        let Some(acts) = self.view_tabs.by_job.get(&job).and_then(|tabs| tabs.iter().find(|one| one.id == id)).map(|one| one.menu.clone()) else { return };
+        let Some(acts) = self.view_tabs.by_job.get(&job).and_then(|tabs| tabs.iter().find(|one| one.1.id == id)).map(|one| one.1.menu.clone()) else { return };
         if acts.is_empty() {
             return;
         }

@@ -234,7 +234,7 @@ impl JobView {
         let look = cx.look();
         let look = &look;
         // A view tab in front stands before the pane's own tabs.
-        let view = self.view_front().map(|one| one.view.clone());
+        let view = self.view_front(super::ViewPane::Top).map(|one| one.view.clone());
         let zone = if view.is_some() { None } else { self.zone_shown() };
         if zone != Some(Zone::Spine) {
             self.spine.left();
@@ -267,7 +267,7 @@ impl JobView {
                     .group(group.clone())
                     .child(self.close_button(one.id(), said, group, front, look, cx))
                     .on_click(cx.listener(move |this, _, window, cx| {
-                        this.view_tab_back();
+                        this.view_tab_back(super::ViewPane::Top);
                         this.zone = one;
                         this.want_pane_reads(window, cx);
                         cx.notify();
@@ -278,7 +278,7 @@ impl JobView {
         }).collect();
         // Changes and Files draw their own strip over a body that scrolls, as `.job-pane__pick` does.
         let own_frame = view.is_some() || matches!(zone, Some(Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine | Zone::Workflow));
-        let tabs = tabs.into_iter().map(|one| one.into_any_element()).chain(self.view_tab_elements(look, cx)).collect::<Vec<_>>();
+        let tabs = tabs.into_iter().map(|one| one.into_any_element()).chain(self.view_tab_elements(super::ViewPane::Top, look, cx)).collect::<Vec<_>>();
         let top_body = self.shown.clone().zip(zone).and_then(|(id, zone)| match zone {
             Zone::Open => Some(self.zone_alone(Area::Open, self.flow_alone(&id, Area::Open, look, cx).unwrap_or_else(|| self.side_open(&id, look, cx)), cx)),
             Zone::Done => Some(self.zone_alone(Area::Done, self.flow_alone(&id, Area::Done, look, cx).unwrap_or_else(|| self.side_done(&id, look, cx)), cx)),
@@ -302,7 +302,13 @@ impl JobView {
             window.request_animation_frame();
         }
         let now_open = !self.tab_closed("now");
-        let now_body = self.shown.clone().filter(|_| now_open).map(|id| self.zone_alone(Area::Now, self.flow_alone(&id, Area::Now, look, cx).unwrap_or_else(|| self.side_now(&id, look, cx)), cx));
+        // A view tab in front of the foot pane stands before Now.
+        let bottom = self.view_front(super::ViewPane::Bottom).map(|one| one.view.clone());
+        let now_front = now_open && bottom.is_none();
+        let now_body = match bottom {
+            Some(view) => Some(div().size_full().child(view).into_any_element()),
+            None => self.shown.clone().filter(|_| now_open).map(|id| self.zone_alone(Area::Now, self.flow_alone(&id, Area::Now, look, cx).unwrap_or_else(|| self.side_now(&id, look, cx)), cx)),
+        };
         let body = |id: &'static str, inner: Option<AnyElement>| {
             div()
                 .id(id)
@@ -354,11 +360,18 @@ impl JobView {
                         zoom_strip(strip(look).id("side-now-strip"), Pane::Now, cx)
                             .when(now_open, |strip| {
                                 strip.child(labelled(
-                                    tab(look, "side-now-tab", "activity", "Now", true).group("side-now-tab").child(self.close_button("now", "Now", "side-now-tab".into(), true, look, cx)),
+                                    tab(look, "side-now-tab", "activity", "Now", now_front)
+                                        .group("side-now-tab")
+                                        .child(self.close_button("now", "Now", "side-now-tab".into(), now_front, look, cx))
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.view_tab_back(super::ViewPane::Bottom);
+                                            cx.notify();
+                                        })),
                                     Role::Tab,
                                     "Job column: Now",
                                 ))
                             })
+                            .children(self.view_tab_elements(super::ViewPane::Bottom, look, cx))
                             .child(self.add_button(Pane::Now, look, cx))
                             .children(self.strip_end(Pane::Now, look, cx)),
                     )

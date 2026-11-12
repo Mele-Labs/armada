@@ -11,6 +11,7 @@ use gpui::{Context, EventEmitter, Task};
 use ipc::{
     CallArrival, Cursor, Event, FleetBuildReport, Instant, JobThread, JobThreadTail, MergeLineView, ModKind, ModSummary, NeedsYou, SessionRecord,
     Projects, RepositorySummary, SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem, WaitingItem,
+    WorkflowChange, WorkflowChanges,
     WatchList, WatchSummary,
 };
 
@@ -148,6 +149,9 @@ pub struct Held {
     watches_spoken: BTreeSet<String>,
     /// Moves on each `operator.page_changed` and each gap in the stream: the Operator's page reads again.
     pub operator_page_moved: u64,
+    /// The workflow changes a proposed workflow's card was read for, by change id. Absent until read,
+    /// and where Fleet lists none by that id.
+    pub workflow_changes: BTreeMap<i64, WorkflowChange>,
 }
 
 impl Held {
@@ -185,6 +189,7 @@ impl Held {
             watches_asked: BTreeSet::new(),
             watches_spoken: BTreeSet::new(),
             operator_page_moved: 0,
+            workflow_changes: BTreeMap::new(),
         }
     }
 
@@ -545,6 +550,9 @@ pub struct FleetConnection {
     needs_failed: BTreeMap<String, Vec<WaitingItem>>,
     /// The build read every [`FOLLOW`] after an act, until the report stops saying a change is under way.
     following: Option<Task<()>>,
+    /// The workflow changes asked for, by id and the definition the card showed, so one is asked
+    /// once per text and a send back that redrafts it is asked again.
+    changes_asked: BTreeSet<(i64, u64)>,
     /// Kept, or the drain is cancelled with it.
     _drain: Task<()>,
 }
@@ -889,6 +897,55 @@ impl FleetConnection {
         .detach();
     }
 
+    /// Read workflow change `change` (`GET /workflows/changes`) off the main thread and hold it, for
+    /// a proposed workflow's card to draw its steps. The thread row names the workflow but not where
+    /// it is kept, so the repository's list is read, then Kit's. `after` is the definition the card
+    /// shows: the same text is asked once, and one Fleet lists nowhere leaves the card on its text.
+    pub fn read_workflow_change(&mut self, change: i64, workflow: &str, manifest: Option<&str>, after: &str, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else { return };
+        let asked = {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            after.hash(&mut hasher);
+            (change, hasher.finish())
+        };
+        if !self.changes_asked.insert(asked) {
+            return;
+        }
+        let workflow = crate::link::percent_encoded(workflow);
+        let manifest = manifest.map(|manifest| format!("&manifest_id={}", crate::link::percent_encoded(manifest))).unwrap_or_default();
+        let paths: Vec<String> =
+            ["repository", "kit"].iter().map(|source| format!("/workflows/changes?workflow_id={workflow}&source={source}{manifest}")).collect();
+        cx.spawn(async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    for path in &paths {
+                        let (status, bytes) = runtime.block_on(crate::transport::get(port, path))?;
+                        if !(200..300).contains(&status) {
+                            return Err(format!("Fleet answered {status}: {}", String::from_utf8_lossy(&bytes)));
+                        }
+                        let listed = ipc::decode::<WorkflowChanges>("WorkflowChanges", &bytes).map_err(|why| why.to_string())?;
+                        if let Some(found) = listed.changes.into_iter().find(|one| one.id == change) {
+                            return Ok(Some(found));
+                        }
+                    }
+                    Ok(None)
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| match answer {
+                Ok(Some(found)) => {
+                    this.held.workflow_changes.insert(change, found);
+                    cx.notify();
+                }
+                Ok(None) => {}
+                Err(why) => Note::warn("a workflow change could not be read").field("change", change.to_string()).field("why", why).emit(),
+            });
+        })
+        .detach();
+    }
+
     pub fn new(cx: &mut Context<Self>) -> Self {
         let (tx, rx) = async_channel::unbounded();
         let home = std::env::var("HOME").ok();
@@ -953,6 +1010,7 @@ impl FleetConnection {
             needs_reading: BTreeMap::new(),
             needs_failed: BTreeMap::new(),
             following: None,
+            changes_asked: BTreeSet::new(),
             _drain: drain,
         }
     }

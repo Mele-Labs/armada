@@ -581,7 +581,7 @@ impl JobView {
                 Some(_) => {
                     page.pending.push(Pending { key, text: text.clone(), seen, tags: mentions.clone(), body: None, failed: false });
                     let job = id.clone();
-                    let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions };
+                    let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions, sketches: Vec::new() };
                     cx.spawn_in(window, async move |this, cx| {
                         // A sketch goes as its picture, drawn off the main thread with the files' bytes (`uploadOfSketch`).
                         let uploads = cx
@@ -625,7 +625,7 @@ impl JobView {
         let at = ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
         if let Some(held) = self.mock.get_mut(id.as_str()) {
             held.items.push(ThreadItem::Row {
-                row: SessionRow::Message { id: format!("sent-{key}"), at, from: SessionVoice::You, text, files, tags, notice: None, queued: false, edited_at: None },
+                row: SessionRow::Message { id: format!("sent-{key}"), at, from: SessionVoice::You, text, files, tags, notice: None, queued: false, edited_at: None, sketches: Vec::new() },
             });
             held.version += 1;
             let at = held.items.len() - 1;

@@ -75,7 +75,7 @@ mod workflow;
 mod tabs;
 mod view_tabs;
 pub use side::JobSide;
-pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewTab};
+pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;
 pub use mod_panel::{ModPanel, ModPanelAsked, OpenJobFrom};
 pub use teach::notice_name;
@@ -84,6 +84,7 @@ mod talk;
 mod tool_icons;
 mod tune;
 mod wire;
+mod workflow_card;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -298,6 +299,8 @@ pub struct JobView {
     mock_needs: HashMap<String, ipc::NeedsYou>,
     /// How many more sends the mock refuses, so a walk can show a message Fleet did not take.
     mock_refusals: usize,
+    /// The workflow changes of a mock scenario, by id, as Fleet's `workflow_changes` holds them live.
+    mock_changes: std::collections::BTreeMap<i64, ipc::WorkflowChange>,
     /// The Job on screen.
     shown: Option<SharedString>,
     /// What Fleet refused a terminal Job's Compact for, by Job, until Compact is pressed again.
@@ -469,6 +472,13 @@ impl JobView {
         }));
         Self::offer_open_mod(cx);
         cx.set_global(view_tabs::LiveJobView(cx.weak_entity()));
+        let mock_changes = match &mock {
+            Some(_) => crate::mock::workflow_changes().unwrap_or_else(|why| {
+                crate::log::Note::warn("the mock's workflow changes did not decode").field("why", why).emit();
+                Default::default()
+            }),
+            None => Default::default(),
+        };
         let mock = mock
             .unwrap_or_default()
             .into_iter()
@@ -480,6 +490,7 @@ impl JobView {
             mock,
             mock_needs: HashMap::new(),
             mock_refusals: crate::mock::refusals(),
+            mock_changes,
             shown: None,
             compact_refused: HashMap::new(),
             pages: HashMap::new(),
@@ -694,6 +705,7 @@ impl JobView {
             self.judge_read(&id, cx);
         }
         self.quick_follow(cx);
+        self.read_workflow_changes(cx);
         // A Fleet that was not there when the Job opened is asked again once it is.
         if let (Some(id), Some(fleet)) = (self.shown.clone(), self.fleet.clone()) {
             if self.thread(&id, cx).is_none() {
@@ -1032,11 +1044,14 @@ impl Render for JobView {
         // A closed Thread tab leaves its pane empty under the strip, as Electron's does; a tab beside
         // it in front draws its own body there.
         let front = self.row_front(&id).cloned();
-        let open = !self.tab_closed("thread") && front.is_none();
-        let body = match &front {
-            Some(tab) => self.row_tab_body(&id, tab, look, window, cx),
-            None if open => body,
-            None => div().into_any_element(),
+        // A row's tab stands first, then a view tab another part of the app opened here, then the thread.
+        let view = front.is_none().then(|| self.view_front(ViewPane::Thread).map(|one| one.view.clone())).flatten();
+        let open = !self.tab_closed("thread") && front.is_none() && view.is_none();
+        let body = match (&front, view) {
+            (Some(tab), _) => self.row_tab_body(&id, tab, look, window, cx),
+            (None, Some(view)) => div().size_full().child(view).into_any_element(),
+            (None, None) if open => body,
+            (None, None) => div().into_any_element(),
         };
         let head = self.render_head(&id, cx);
         let origin = if open { self.render_origin(&id, window, cx) } else { None };

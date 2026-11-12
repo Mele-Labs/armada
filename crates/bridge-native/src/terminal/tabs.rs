@@ -37,7 +37,7 @@ fn tab_id(terminal: &str) -> String {
 
 /// Put Terminal in every Job's +, and an `Open <name>` row for each shell of the Job on screen that has no tab.
 pub fn init(cx: &mut App) {
-    offer_tab(TabOffer { id: "terminal", label: "Terminal".into(), glyph: GLYPH, open: Rc::new(|job, window, cx| open_new(job, window, cx)) }, cx);
+    offer_tab(TabOffer { id: "terminal", label: "Terminal".into(), glyph: GLYPH, open: Rc::new(|job, _pane, window, cx| open_new(job, window, cx)) }, cx);
     on_job_shown(|job, _, cx| untabbed(job, cx), cx);
 }
 
@@ -68,7 +68,7 @@ fn untabbed(job: Option<String>, cx: &mut App) {
                 cx.default_global::<Names>().0.insert((job.clone(), one.terminal.clone()), name.clone());
                 let terminal = one.terminal.clone();
                 let id = offer_id(&terminal, cx);
-                let open = Rc::new(move |job: String, window: &mut Window, cx: &mut App| {
+                let open = Rc::new(move |job: String, _pane: crate::job_view::ViewPane, window: &mut Window, cx: &mut App| {
                     cx.default_global::<TabOffers>().0.retain(|one| one.id != id);
                     open(&job, &terminal, true, window, cx);
                 });

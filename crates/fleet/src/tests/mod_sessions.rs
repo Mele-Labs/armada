@@ -32,7 +32,7 @@ fn spoken(title: Option<&str>, said: Option<&str>) -> StartModSession {
 const TAB_AIM: &str = "He is aiming for: a tab (a mod of kind `tab`, a React component Bridge loads into a pane, with the whole Fleet API). Scaffold it with `kind` `tab` and your own `session_id`, and edit the same mod when he asks for a change. He watches the tab while you build it: first write a version that draws its frame and run `validate_mod`, then add one part at a time and run `validate_mod` after each. Never write the whole tab before the first check.";
 
 fn said_by_him(id: &SessionId, text: &str) -> SendSessionMessage {
-    SendSessionMessage { session_id: id.clone(), text: text.to_string(), attachments: Vec::new(), mentions: Vec::new() }
+    SendSessionMessage { session_id: id.clone(), text: text.to_string(), attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() }
 }
 
 async fn started(rig: &Rig, title: Option<&str>) -> ipc::ModSessionStarted {
