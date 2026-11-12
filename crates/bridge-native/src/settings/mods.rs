@@ -9,7 +9,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use gpui::{div, prelude::*, px, svg, AnyElement, App, Context, Entity, FocusHandle, Focusable, Hsla, KeyDownEvent, Keystroke, Role, SharedString, Subscription, Window};
+use gpui::{canvas, div, prelude::*, px, svg, Pixels, AnyElement, App, Context, Entity, FocusHandle, Focusable, Hsla, KeyDownEvent, Keystroke, Role, SharedString, Subscription, Window};
 use ipc::{Condition, Does, FleetFile, FleetRule, ModChecked, ModKind, ModOrigin, ModPromoted, ModSummary, RuleScope, TrackerTry};
 
 use super::overlay::SettingsOverlay;
@@ -417,7 +417,14 @@ pub struct ModRows {
     pub keys: BTreeMap<String, [FocusHandle; 7]>,
     /// Create mod, in All's header.
     pub create: Option<FocusHandle>,
+    /// How wide a row's words column was drawn last frame. Every row of a list draws it alike, and the same
+    /// whether the line under the name is beside it or under the row, so it decides which without moving itself.
+    pub words_wide: std::rc::Rc<std::cell::Cell<Option<Pixels>>>,
 }
+
+/// Narrower than this, the words column holds the name alone and the line under it takes the row's width, so no
+/// sentence is squeezed into a word a line.
+const WORDS_LEAST: f32 = 240.0;
 
 const OPEN: usize = 0;
 const SWITCH: usize = 1;
@@ -740,7 +747,11 @@ impl SettingsOverlay {
             Role::Image,
             kind_said(one.kind),
         );
+        let under = self.mods.words_wide.get().is_some_and(|wide| wide < px(WORDS_LEAST));
+        let line = |said: String| div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(said);
+        let wide = self.mods.words_wide.clone();
         let words = div()
+            .relative()
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_1))
@@ -748,15 +759,30 @@ impl SettingsOverlay {
             .text_size(look.length(token::TEXT_SM))
             .line_height(look.length(token::LEADING_SM))
             .text_color(look.color(token::FG_DEFAULT))
-            .child(SharedString::from(one.title.clone()))
-            .children(one.detail.clone().map(|line| div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(line)));
+            .child(div().min_w_0().truncate().child(SharedString::from(one.title.clone())))
+            .children(one.detail.clone().filter(|_| !under).map(line))
+            .child(
+                canvas(
+                    move |bounds, window, _| {
+                        if wide.get() != Some(bounds.size.width) {
+                            wide.set(Some(bounds.size.width));
+                            window.refresh();
+                        }
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            );
         // The name is how the keys open the mod's panel, where Fleet lists the mod; the switch alone toggles it.
         let text: AnyElement = if self.opens(&one.name, cx) {
             let name = one.name.clone();
             labelled(
                 ringed(
                     look,
-                    Self::pressable(div().id(SharedString::from(format!("mod-open-{}", one.name))).min_w_0().rounded(look.length(token::RADIUS_SM)).track_focus(&keys[OPEN]).child(words), cx, move |this, window, cx| {
+                    Self::pressable(div().id(SharedString::from(format!("mod-open-{}", one.name))).flex_1().min_w_0().rounded(look.length(token::RADIUS_SM)).track_focus(&keys[OPEN]).child(words), cx, move |this, window, cx| {
                         this.open_panel(name.clone(), window, cx)
                     }),
                     &keys[OPEN],
@@ -767,7 +793,7 @@ impl SettingsOverlay {
             )
             .into_any_element()
         } else {
-            words.into_any_element()
+            words.flex_1().into_any_element()
         };
         let (name, kind, on) = (one.name.clone(), one.kind, one.enabled);
         let switch = div().id(SharedString::from(format!("mod-switch-{}", one.name))).flex_none().rounded_full().track_focus(&keys[SWITCH]).child(switch_track(look, on, off));
@@ -911,7 +937,9 @@ impl SettingsOverlay {
         });
         let rules = (opened && !one.parts.is_empty()).then(|| render_rules(&one.title, &one.parts, look));
         let refused = self.mods.refused.get(&one.name).cloned().map(|said| labelled(super::view::small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id(SharedString::from(format!("mod-refused-{}", one.name))), Role::Alert, said));
-        let framed = div().id(SharedString::from(format!("mod-{}", one.name))).relative().flex().flex_col().gap(look.length(token::SPACE_1)).child(row).children(promoted).children(rules).children(refused);
+        // Under the name's line where the words column is narrow: from the name's start to the row's end.
+        let below = one.detail.clone().filter(|_| under).map(|said| line(said).pl(look.length(token::SPACE_4) + look.length(token::SPACE_3)));
+        let framed = div().id(SharedString::from(format!("mod-{}", one.name))).relative().flex().flex_col().gap(look.length(token::SPACE_1)).child(row).children(below).children(promoted).children(rules).children(refused);
         let framed = if lined { frame(framed, one.standing, look) } else { framed };
         labelled(framed, Role::Group, one.title.clone()).into_any_element()
     }
