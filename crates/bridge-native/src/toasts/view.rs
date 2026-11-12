@@ -12,6 +12,7 @@
 //! leaves it as it was.
 
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use gpui::{
     div, prelude::*, AnyWindowHandle, App, Context, Entity, FocusHandle, FontWeight, Global, Hsla, KeyDownEvent, Role, SharedString,
@@ -53,18 +54,38 @@ struct FleetNotices(Vec<FleetNotice>);
 
 impl Global for FleetNotices {}
 
-/// Sentences the app was told to raise, oldest first, each with its key: a press Fleet did not take.
+/// What a told toast's Retry does again.
+pub type Retry = Rc<dyn Fn(&mut App)>;
+
+/// A sentence the app was told to raise, with its key, and Retry where the press can be sent again.
+#[derive(Clone)]
+struct TellOne {
+    key: u64,
+    sentence: SharedString,
+    retry: Option<Retry>,
+}
+
+/// Sentences the app was told to raise, oldest first: presses Fleet did not take.
 #[derive(Default)]
-struct Told(Vec<(u64, SharedString)>);
+struct Told(Vec<TellOne>);
 
 impl Global for Told {}
 
 /// A failure toast that says one sentence, as Electron's `askToTell`: a press Fleet did not take, such as
 /// a message to a Job. It stays until he closes it.
 pub fn tell(sentence: impl Into<SharedString>, cx: &mut App) {
+    told(sentence.into(), None, cx);
+}
+
+/// A failure toast with Retry, which sends the press again: a reply from Fleet that never arrived.
+pub fn tell_retry(sentence: impl Into<SharedString>, retry: Retry, cx: &mut App) {
+    told(sentence.into(), Some(retry), cx);
+}
+
+fn told(sentence: SharedString, retry: Option<Retry>, cx: &mut App) {
     let mut told = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
-    let key = told.last().map_or(1, |(key, _)| key + 1);
-    told.push((key, sentence.into()));
+    let key = told.last().map_or(1, |one| one.key + 1);
+    told.push(TellOne { key, sentence, retry });
     cx.set_global(Told(told));
     if let Some(toasts) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
         toasts.update(cx, |toasts, cx| {
@@ -83,7 +104,7 @@ pub fn at_rest(cx: &mut App) {
 
 /// He closed a told toast.
 fn untell(key: u64, cx: &mut App) {
-    let told = cx.try_global::<Told>().map(|kept| kept.0.iter().filter(|(one, _)| *one != key).cloned().collect()).unwrap_or_default();
+    let told = cx.try_global::<Told>().map(|kept| kept.0.iter().filter(|one| one.key != key).cloned().collect()).unwrap_or_default();
     cx.set_global(Told(told));
 }
 
@@ -297,15 +318,18 @@ impl Toasts {
         let id = item.id.clone();
         let title = face::card_title(item);
         let pick_word: SharedString = match item.kind {
-            OperatorTurnKind::Decision => face::pick_of(item).unwrap_or_else(|| "Yes".into()),
+            OperatorTurnKind::Decision => face::pick_word(item, None),
+            OperatorTurnKind::GoAhead if face::picks_later(item) => "Later".into(),
             OperatorTurnKind::GoAhead => "Yes".into(),
         };
+        let pick_said = face::pick_sentence(item);
         let muted = muted_line(item);
         let key = |word: &'static str| newest.then(|| SharedString::from(word));
         let pick = {
             let id = id.clone();
             labelled(
                 press(SharedString::from(format!("toast-pick:{id}")), pick_word.clone(), None, key("A"), Weight::Pick, look)
+                    .when_some(pick_said, |button, said| button.tooltip(tip(said)))
                     .on_click(cx.listener(move |this, _, window, cx| this.pick(id.clone(), window, cx))),
                 Role::Button,
                 pick_word,
@@ -469,9 +493,18 @@ impl Toasts {
         )
     }
 
-    /// A sentence the app was told: the failed edge, the sentence, and its close.
-    fn told_toast(&self, key: u64, sentence: &SharedString, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+    /// A sentence the app was told: the failed edge, the sentence, Retry where it has one, and its close.
+    fn told_toast(&self, one: &TellOne, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+        let (key, sentence) = (one.key, &one.sentence);
         let edge = look.color(token::STATUS_COMPLETED_FAILED);
+        let retry = one.retry.clone().map(|retry| {
+            let button = press(SharedString::from(format!("toast-told-retry:{key}")), "Retry".into(), Some("rotate-cw"), None, Weight::Pick, look).on_click(cx.listener(move |_, _, _, cx| {
+                untell(key, cx);
+                retry(cx);
+                cx.notify();
+            }));
+            labelled(button, Role::Button, "Retry")
+        });
         let close = labelled(
             icon_button(SharedString::from(format!("toast-told-close:{key}")), "x", look.color(token::FG_MUTED), look)
                 .tooltip(tip("Close"))
@@ -491,7 +524,16 @@ impl Toasts {
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_3))
             .child(div().pt(look.length(token::SPACE_1) / 2.).child(glyph("circle-x", look.length(token::SPACE_4), edge)))
-            .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(sentence.clone()))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_2))
+                    .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(sentence.clone()))
+                    .children(retry.map(|retry| div().flex().child(retry))),
+            )
             .child(close);
         labelled(
             div()
@@ -591,7 +633,7 @@ impl Render for Toasts {
         // Fleet's states stand first, at the top of the stack: urgent, and held while they last.
         let fleet: Vec<FleetNotice> = cx.try_global::<FleetNotices>().map(|kept| kept.0.clone()).unwrap_or_default();
         // Then what the app was told: presses Fleet did not take, each until he closes it.
-        let told: Vec<(u64, SharedString)> = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
+        let told: Vec<TellOne> = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
         // Under the title bar at most: in a short window the oldest is cut at the top, never the bell.
         let stack = div()
             .absolute()
@@ -604,7 +646,7 @@ impl Render for Toasts {
             .overflow_hidden()
             .gap(look.length(token::SPACE_3))
             .children(fleet.iter().map(|notice| self.fleet_toast(notice, look)))
-            .children(told.iter().map(|(key, sentence)| self.told_toast(*key, sentence, look, cx)))
+            .children(told.iter().map(|one| self.told_toast(one, look, cx)))
             .children(shown.iter().enumerate().map(|(at, toast)| self.toast(toast, at == last, look, cx)));
         div()
             .absolute()

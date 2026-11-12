@@ -4,27 +4,30 @@
 //! Fleet speaking first, or the page scrolled to what a short window holds below the open card (`rest`,
 //! `top`). The key map is the last two steps'.
 
-use super::{answer, step, Step, Verb};
+use super::{answer, press_on, step, Step, Verb};
 
 const NOTE: &str = "File your note: the slot meter flickers when a Job ends, and for a second the count reads one slot more than the pool holds before it settles";
 const HOLD: &str = "armada: only Slot pool controls writes under apps/cockpit until it pushes";
 const FORGET_HOLD: &str = "Forget armada: only Slot pool controls writes under apps/cockpit until it pushes";
 const TOP: &str = "Since you left, the red main's fix is up as #3414, waiting on ci. Quick dispatch's plan is still the one two Jobs wait on.";
 
-pub static STEPS: [Step; 48] = [
+pub static STEPS: [Step; 57] = [
     step("Coming back at 13:05: the day, and the pills say what stands. storefront's main has been red since 11:24", Verb::Look, "status", "storefront main is red since 11:24"),
     step("The Operator's one line on what changed, in grey under the day: nothing on it waits on you", Verb::Look, "status", TOP),
     step("What the Operator is reading now: the Job by name, what it asks, and its project", Verb::Look, "status", "The Operator is reading what Store reports its size asks: Review pull request #3415"),
     step("One item is open: its kind, its Job, what it asks and My read. A plan takes Approve, or Send changes in its Job", Verb::Look, "button", "Send changes"),
     step("A says Yes to the pick at once, and the go-ahead to file opens next: his note, and when he left it", Verb::Key("a"), "article", "File your note as an issue"),
-    answer("What you answered stays below, struck through, with what came of it", "rest", "row", "Quick dispatch, done"),
+    answer("What you answered leaves Your turn for Answered today, folded at its foot", "rest", "button", "Answered today"),
+    step("A press opens it: each answer today, and what came of it", Verb::Open("button", "Answered today"), "row", "Quick dispatch, Answered Approve"),
+    step("A press again folds it", Verb::Open("button", "Answered today"), "button", "Answered today"),
     answer("A go-ahead to file names its Then, with My pick marked", "top", "radio", "File and hand to Slot pool controls"),
     step("2 picks the second Then", Verb::Key("2"), "radio", "File and start a Job"),
     step("H is Always here, ⇧A Always, D No: a rule is kept only where Fleet can do the pick alone", Verb::Look, "button", "Always here"),
     step("L puts it Later, last for today, and the next item opens", Verb::Key("l"), "article", "Rework the Map legend"),
+    step("Its pick is no option, so the button reads My pick, and the Operator's sentence is in its tooltip", Verb::Hover, "button", "My pick"),
     answer("Its row wears the clock: later today", "rest", "row", NOTE),
-    step("↓ opens the next item. Its row stays in the list, marked, second", Verb::Key("down"), "row", "Fix desktop_unit after #412"),
-    step("⌥↑ moves it up a place: its row is first now, and the keys stay on it", Verb::Key("alt-up"), "row", "Fix desktop_unit after #412"),
+    step("↓ opens the next item. Its card stands where its row was, second", Verb::Key("down"), "article", "Fix desktop_unit after #412"),
+    step("⌥↑ moves it up a place: its card is first now, and the keys stay on it", Verb::Key("alt-up"), "article", "Fix desktop_unit after #412"),
     step("A row's grip drags it: the go-ahead lifted over Rework the Map legend", Verb::Lift(NOTE), "row", "Rework the Map legend"),
     step("Let go, it takes that place, and Fleet keeps the order", Verb::Release, "row", NOTE),
     step("/ asks the Operator about the open item: the chat opens in its card, the keys in its box, and the digest stays", Verb::Key("/"), "textbox", "Ask the Operator"),
@@ -32,6 +35,12 @@ pub static STEPS: [Step; 48] = [
     step("Enter sends it, and the Operator is reading", Verb::Key("enter"), "status", "The Operator is reading"),
     answer("Its answer comes into the chat", "said", "listitem", "Operator: It holds up the second Job's fix, and the walk can wait an hour."),
     step("Esc shuts the chat, and the keys are on the open item", Verb::Key("escape"), "article", "Fix desktop_unit after #412"),
+    press_on("A press on a row low in the list opens its card there: nothing moves, and the keys follow it", "row", NOTE, "article", "File your note as an issue"),
+    answer("Fleet will refuse the next answer", "refuse", "article", "File your note as an issue"),
+    step("A sends Yes and Fleet says no: the item stays open, with Fleet's why under it", Verb::Key("a"), "alert", "Not done: the tracker did not take the new issue"),
+    answer("Fleet's reply to the next answer will not arrive", "lose", "article", "File your note as an issue"),
+    step("A again: no reply in 30 seconds, so the item stays open and a toast offers Retry", Verb::Key("a"), "alert", "Toast: Your answer to File your note as an issue did not reach Fleet: no answer in 30 seconds"),
+    step("Retry sends it again, and the item goes to Answered today", Verb::Open("button", "Retry"), "button", "Answered today"),
     step("Landed opens on a press, its first few rows one line each", Verb::Open("button", "Landed"), "listitem", "#3413 Slot meter shows free slots"),
     step("Show all draws the rest of them", Verb::Open("button", "Show all Landed"), "listitem", "#3401 Merge strip says how fresh each line is"),
     step("Show fewer goes back to the first few", Verb::Open("button", "Show fewer Landed"), "button", "Show all Landed"),

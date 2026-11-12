@@ -91,6 +91,32 @@ pub fn pick_of(turn: &OperatorTurnItem) -> Option<SharedString> {
     turn.read.as_ref().map(|read| read.pick.trim()).filter(|pick| !pick.is_empty()).map(|pick| SharedString::from(pick.to_string()))
 }
 
+/// The word on the pick's button: the option it names, exactly as labelled, Later, or else "My pick",
+/// whose sentence goes in its tooltip, never in the button (his ruling, 12 Nov). `chosen` is his own
+/// pick among the options. With no pick, Yes.
+pub fn pick_word(turn: &OperatorTurnItem, chosen: Option<&str>) -> SharedString {
+    let pick = chosen.map(SharedString::from).or_else(|| pick_of(turn));
+    match pick {
+        None => "Yes".into(),
+        Some(pick) if is_later(&pick) || turn.item.options.iter().any(|option| option.label == pick.as_ref()) => pick,
+        Some(_) => "My pick".into(),
+    }
+}
+
+/// The pick's sentence, where its button cannot say it: a pick that is neither an option nor Later.
+pub fn pick_sentence(turn: &OperatorTurnItem) -> Option<SharedString> {
+    pick_of(turn).filter(|pick| !is_later(pick) && !turn.item.options.iter().any(|option| option.label == pick.as_ref()))
+}
+
+/// Whether the Operator's pick is Later, which a Yes does.
+pub fn picks_later(turn: &OperatorTurnItem) -> bool {
+    pick_of(turn).is_some_and(|pick| is_later(&pick))
+}
+
+fn is_later(pick: &str) -> bool {
+    pick.eq_ignore_ascii_case("later")
+}
+
 /// Whether the card offers the item's options to choose from: more than one, and no Then in their place.
 pub fn chooses(turn: &OperatorTurnItem) -> bool {
     turn.then.is_empty() && turn.item.options.len() > 1

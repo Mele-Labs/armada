@@ -267,7 +267,7 @@ impl OperatorPageView {
 
     fn turn_head(&self, look: &Look) -> impl IntoElement {
         let items = self.items();
-        let dots = self.done.iter().map(|_| token::STATUS_COMPLETED_SUCCESS).chain(
+        let dots = self.answered_today().into_iter().map(|_| token::STATUS_COMPLETED_SUCCESS).chain(
             items.iter().map(|turn| if self.open.as_deref() == Some(turn.id.as_str()) { token::OPERATOR } else { token::BORDER_STRONG }),
         );
         let dots: Vec<_> = dots
@@ -352,7 +352,6 @@ impl OperatorPageView {
     fn card(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> AnyElement {
         let kind = face::kind_of(turn);
         let title = face::card_title(turn);
-        let pick = face::pick_of(turn);
         let has_then = !turn.then.is_empty();
         let head = div()
             .flex()
@@ -440,13 +439,20 @@ impl OperatorPageView {
             let yes = answer == OperatorAnswer::Yes;
             // A decision's Yes says the option it carries, else the Operator's pick, as its card would; a
             // go-ahead's says Yes.
-            let label: SharedString = match (chosen.as_ref().or(pick.as_ref()), turn.kind) {
-                (Some(pick), OperatorTurnKind::Decision) if yes => pick.clone(),
+            let label: SharedString = match turn.kind {
+                OperatorTurnKind::Decision if yes => face::pick_word(turn, chosen.as_deref()),
+                _ if yes && face::picks_later(turn) => "Later".into(),
                 _ => face::answer_word(answer).into(),
+            };
+            // The pick's sentence never sits in the button: it leads the tooltip.
+            let said = face::answer_tip(turn, answer, self.then_of(turn), chosen.as_deref());
+            let said = match face::pick_sentence(turn).filter(|_| yes && chosen.is_none()) {
+                Some(sentence) => format!("{sentence}\n{said}"),
+                None => said,
             };
             let key: Option<SharedString> = Some(face::answer_key(answer).into());
             let button = press(format!("answer-{at}"), label.clone(), yes.then_some("check"), key, if yes { Weight::Pick } else { Weight::Plain }, look)
-                .tooltip(tip(face::answer_tip(turn, answer, self.then_of(turn), chosen.as_deref())));
+                .tooltip(tip(said));
             let button = pressed(button, cx, move |this, window, cx| this.answer(answer, window, cx));
             labelled(button, Role::Button, label).into_any_element()
         });
@@ -643,23 +649,54 @@ impl OperatorPageView {
                         .flex_1()
                         .min_w_0()
                         .child(div().truncate().line_through().child(done.title.clone()))
-                        .child(div().truncate().text_size(look.length(token::TEXT_XS)).child(sub)),
+                        .child(div().truncate().text_size(look.length(token::TEXT_XS)).child(sub.clone())),
                 )
                 .child(kind_chip(done.kind, look).opacity(0.6)),
             Role::Row,
-            format!("{}, done", done.title),
+            format!("{}, {sub}", done.title),
         )
         .into_any_element()
     }
 
-    fn turn_row(&self, at: usize, turn: &OperatorTurnItem, open: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// Answered today, folded at the foot of Your turn: what he answered on his local day and what came
+    /// of each. Drawn only once something was answered.
+    fn answered_fold(&self, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let done = self.answered_today();
+        if done.is_empty() {
+            return None;
+        }
+        let open = self.folded.get(ANSWERED).copied().unwrap_or(false);
+        let head = labelled(
+            row_frame(SharedString::from("answered-today"), look)
+                .cursor_pointer()
+                .hover(|style| style.bg(cx.look().color(token::BG_HOVER)))
+                .text_color(look.color(token::FG_MUTED))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.folded.insert(ANSWERED, !open);
+                    cx.notify();
+                }))
+                .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4., look.color(token::FG_SUBTLE)))
+                .child(glyph("check", look.length(token::SPACE_4), look.color(token::STATUS_COMPLETED_SUCCESS)))
+                .child(div().flex_1().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(ANSWERED)),
+            Role::Button,
+            ANSWERED,
+        )
+        .into_any_element();
+        let mut rows = vec![head];
+        if open {
+            rows.extend(done.into_iter().rev().map(|done| self.done_row(done, look, cx)));
+        }
+        self.rows_group("answered-today-list", ANSWERED, rows, look)
+    }
+
+    fn turn_row(&self, at: usize, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> AnyElement {
         let kind = face::kind_of(turn);
         let title = face::title_of(turn);
         let id = turn.id.clone();
         let drop_id = turn.id.clone();
-        let sub = if open { Some("Open above".to_string()) } else { face::pick_of(turn).map(|pick| format!("My pick: {pick}")) };
+        let sub = face::pick_of(turn).map(|pick| format!("My pick: {pick}"));
         // Put Later: the clock beside its kind, as nobody acts on it until later today.
-        let later = (turn.later_until.is_some() && !open).then(|| {
+        let later = turn.later_until.is_some().then(|| {
             labelled(
                 div().id(SharedString::from(format!("later-{at}"))).tooltip(tip("Later today")).child(glyph("clock", look.length(token::SPACE_4), look.color(token::STATUS_NOT_STARTED))),
                 Role::Image,
@@ -668,12 +705,8 @@ impl OperatorPageView {
         });
         labelled(
             row_frame(SharedString::from(format!("turn-row-{at}")), look)
-                // The open row is marked along its edge and on its ground, so the whole row reads as the one open.
-                .border_l(look.length(token::BORDER_WIDTH) * 3.)
-                .border_color(if open { look.color(token::OPERATOR) } else { gpui::transparent_black() })
-                .when(open, |row| row.bg(look.color(token::OPERATOR_FAINT)))
                 .cursor_pointer()
-                .when(!open, |row| row.hover(|style| style.bg(cx.look().color(token::BG_HOVER))))
+                .hover(|style| style.bg(cx.look().color(token::BG_HOVER)))
                 .on_click(cx.listener(move |this, _, _, cx| this.open_id(&id, cx)))
                 .on_drag(TurnDrag { id: turn.id.clone(), title: title.clone() }, |drag, _, _, cx| cx.new(|_| drag.clone()))
                 .drag_over::<TurnDrag>(|style, _, _, cx| style.bg(cx.look().color(token::OPERATOR_FAINT)))
@@ -699,18 +732,40 @@ impl OperatorPageView {
         .into_any_element()
     }
 
-    fn rest(&self, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// Your turn as a queue: the open item's card stands in its row's place, so a row pressed low opens
+    /// where it is and nothing reorders (his ruling, 12 Nov). The rows above it and below it are a list each.
+    /// Also says where the card is among them.
+    fn queue(&self, look: &Look, cx: &Context<Self>) -> (Vec<AnyElement>, Option<usize>) {
         let open = self.open.as_deref();
-        let mut rows: Vec<AnyElement> = self.done.iter().map(|done| self.done_row(done, look, cx)).collect();
-        // The open item keeps its place in the list, marked, so a move or a drag shows where it went.
-        rows.extend(self.items().iter().enumerate().map(|(at, turn)| self.turn_row(at, turn, Some(turn.id.as_str()) == open, look, cx)));
+        let mut before: Vec<AnyElement> = Vec::new();
+        let mut after = Vec::new();
+        let mut card = None;
+        for (at, turn) in self.items().iter().enumerate() {
+            if Some(turn.id.as_str()) == open {
+                card = Some(self.card(turn, look, cx));
+            } else if card.is_none() {
+                before.push(self.turn_row(at, turn, look, cx));
+            } else {
+                after.push(self.turn_row(at, turn, look, cx));
+            }
+        }
+        let mut out: Vec<AnyElement> = self.rows_group("turn-before", "The rest of Your turn", before, look).into_iter().collect();
+        let at = card.as_ref().map(|_| out.len());
+        out.extend(card);
+        out.extend(self.rows_group("turn-after", "The rest of Your turn", after, look));
+        out.extend(self.answered_fold(look, cx));
+        (out, at)
+    }
+
+    /// A run of Your turn's rows in one frame, a rule between rows and never under the last.
+    fn rows_group(&self, id: &'static str, name: &'static str, rows: Vec<AnyElement>, look: &Look) -> Option<AnyElement> {
         if rows.is_empty() {
             return None;
         }
         Some(
             labelled(
                 div()
-                    .id("turn-rest")
+                    .id(id)
                     .flex_none()
                     .flex()
                     .flex_col()
@@ -724,17 +779,12 @@ impl OperatorPageView {
                         rule.into_iter().chain(std::iter::once(row))
                     })),
                 Role::List,
-                "The rest of Your turn",
+                name,
             )
             .into_any_element(),
         )
     }
 
-    // -- the digest --------------------------------------------------------------------------------
-
-    /// A time as the thread draws one: the clock, or its age once a press has flipped every time on the
-    /// page. `lead` goes before the clock alone, as `at` in `back at 13:05`, which reads `back 3m ago`.
-    /// A press or Enter on any time flips them all.
     fn stamp(&self, at: &str, lead: Option<&'static str>, (size, ink, weight): (Token, Token, Token), look: &Look, cx: &Context<Self>) -> AnyElement {
         let now = self.clock_now.unwrap_or_else(chrono::Local::now);
         let (on_clock, ago) = (minute(at, now).map(|clock| lead.map_or(clock.clone(), |lead| format!("{lead} {clock}"))), crate::job_view::age(at, now));
@@ -1084,6 +1134,9 @@ fn side(look: &Look) -> Div {
 /// A tile's rows past these are a press away, or in the Log.
 const FEW: usize = 4;
 
+/// The fold at the foot of Your turn, and its key in `folded`.
+const ANSWERED: &str = "Answered today";
+
 /// Tiles the chosen side column draws open: what it handled, what it learned, and what it holds.
 pub(super) fn opens_unpressed(name: &str) -> bool {
     matches!(name, "What I handled" | "Learned" | "Holds")
@@ -1195,8 +1248,19 @@ impl Render for OperatorPageView {
         let Some(page) = self.page.as_ref() else {
             return root.child(top).child(self.skeleton(look)).into_any_element();
         };
-        let open = self.open_item().map(|turn| self.card(turn, look, cx));
         let off = (!page.on).then(|| self.off(look, cx));
+        let mut parts: Vec<AnyElement> = vec![self.turn_head(look).into_any_element()];
+        parts.extend(self.on_it(page, look, cx));
+        parts.extend(off);
+        let (queue, card_at) = self.queue(look, cx);
+        let card_at = card_at.map(|at| at + parts.len());
+        parts.extend(queue);
+        // A key or an answer that moves the card scrolls it into view; a press is already on it.
+        if std::mem::take(&mut self.reveal) {
+            if let Some(at) = card_at {
+                self.main_scroll.scroll_to_item(at);
+            }
+        }
         let main = div()
             .id("operator-main")
             .track_scroll(&self.main_scroll)
@@ -1210,19 +1274,10 @@ impl Render for OperatorPageView {
             .pt(look.length(token::SPACE_4) + look.length(token::SPACE_1))
             // Room under the last row, so it never sits on the window's edge.
             .pb(look.length(token::SPACE_12))
-            // Held at its own height, so a long queue scrolls instead of squeezing the bars above it.
-            .child(
-                div()
-                    .flex_none()
-                    .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_3))
-                    .child(self.turn_head(look))
-                    .children(self.on_it(page, look, cx))
-                    .children(off)
-                    .children(open)
-                    .children(self.rest(look, cx)),
-            );
+            .gap(look.length(token::SPACE_3))
+            // Each part a child of the scroll, held at its own height, so a long queue scrolls instead of
+            // squeezing the bars above it, and the card can be scrolled to.
+            .children(parts.into_iter().map(|part| div().flex_none().child(part)));
         let aside = self.digest(page, look, cx);
         let sheet = self.rules.map(|at| self.rules_sheet(at, look, cx));
         let log = self.log.as_deref().map(|text| self.log_sheet(text, look, cx));

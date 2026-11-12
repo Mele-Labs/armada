@@ -6,6 +6,8 @@ use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, 
 use ipc::operator_talk::{OperatorTalk, OperatorTalkLine};
 use ipc::{Instant, WaitingAct};
 
+use super::wire::Failed;
+
 
 /// What a mock Fleet holds, and what it was told.
 #[derive(Clone, Debug)]
@@ -20,6 +22,8 @@ pub struct MockFleet {
     pub pressed: Vec<OperatorAnswerPress>,
     /// Why the next switch is refused, where a test wants it refused.
     pub refuse_switch: Option<String>,
+    /// How the next answer fails, where a scene wants it refused or its reply lost.
+    pub fail_answer: Option<Failed>,
     /// The week's Log, as Fleet writes it.
     pub log: String,
 }
@@ -65,7 +69,7 @@ pub fn day() -> SharedString {
 
 impl MockFleet {
     pub fn new() -> MockFleet {
-        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, log: LOG.to_string() }
+        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, fail_answer: None, log: LOG.to_string() }
     }
 
     fn take(&mut self, id: &str) -> Option<OperatorTurnItem> {
@@ -73,10 +77,15 @@ impl MockFleet {
         Some(self.page.turn.remove(at))
     }
 
-    /// What `operator_answer` does: the item settles, and an act Fleet cannot do itself is left to Bridge.
-    pub fn answer(&mut self, press: &OperatorAnswerPress) -> Result<OperatorAnswered, String> {
+    /// What `operator_answer` does: the item settles, and an act Fleet cannot do itself is left to Bridge,
+    /// its item kept on Your turn until he does it, as Fleet keeps it.
+    pub fn answer(&mut self, press: &OperatorAnswerPress) -> Result<OperatorAnswered, Failed> {
         self.pressed.push(press.clone());
-        let Some(turn) = self.take(&press.id) else { return Err("No open item has that id".into()) };
+        if let Some(failed) = self.fail_answer.take() {
+            return Err(failed);
+        }
+        let at = self.page.turn.iter().position(|turn| turn.id == press.id);
+        let Some(turn) = self.take(&press.id) else { return Err(Failed::Refused("No open item has that id".into())) };
         let mut answered = OperatorAnswered::default();
         if press.answer != OperatorAnswer::No {
             let then = press.then.or_else(|| turn.then.iter().find(|offer| offer.pick).map(|offer| offer.then));
@@ -92,6 +101,9 @@ impl MockFleet {
                 Some(OperatorThen::JustFile) => answered.filed = Some("#3421".into()),
                 None => answered.open = turn.item.act.clone().filter(|act: &WaitingAct| act.kind != ipc::WaitingActKind::Answer),
             }
+        }
+        if answered.open.is_some() {
+            self.page.turn.insert(at.unwrap_or(0).min(self.page.turn.len()), turn);
         }
         answered.page = self.page.clone();
         Ok(answered)
