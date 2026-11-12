@@ -9,14 +9,14 @@ use std::time::Duration;
 
 use api::{Next, Refusal, Sessions};
 use core_model::Timestamp;
-use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorLater, OperatorPage};
+use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorLater, OperatorPage, OperatorTurnItem, OperatorTurnOrder, RuleScope};
 use ipc::{Event, Instant, WaitingAct, WaitingActKind, WaitingInput, WaitingItem, WaitingSource};
 use store::KeptSuggestion;
 
 use super::agent_starts::{begins, caller, eventually_read};
 use super::backlog::manifest;
-use super::operator_raises::{page, press, question, queued, seated, waiting, Replies};
-use super::session_host::{eventually, rig_fitted, rig_placing};
+use super::operator_raises::{journal, page, press, question, queued, seated, waiting, Replies};
+use super::session_host::{eventually, rig_fitted, rig_placing, Rig};
 use crate::clock::Clock;
 use crate::operator::{keep_the_raises, without_echoes};
 
@@ -256,4 +256,84 @@ async fn copies_of_an_answered_suggestion_are_dropped_and_never_queued() {
     assert!(page(&rig).await.turn.is_empty(), "never queued");
     let answered = rig.fleet.store().lock().await.operator_turn_settled_since("2026-01-01T00:00:00.000Z").expect("read");
     assert!(answered.is_empty(), "and not under Answered: {answered:#?}");
+}
+
+#[tokio::test]
+async fn a_jobs_asks_stand_together_at_the_first_ones_place_and_move_together() {
+    let rig = rig_placing(None);
+    seated(&rig, &[]).await;
+    let pane = rig.start_titled(Some("Build the pane")).await;
+    let clock = rig.start_titled(Some("Fix the clock")).await;
+    waiting(&rig, &pane, vec![question("a", "First?", &["Yes", "No"])]).await;
+    keep_the_raises(Arc::clone(&rig.fleet)).await;
+    queued(&rig, &pane, "a").await;
+    waiting(&rig, &clock, vec![question("c", "Which zone?", &["UTC", "Local"])]).await;
+    keep_the_raises(Arc::clone(&rig.fleet)).await;
+    queued(&rig, &clock, "c").await;
+    waiting(&rig, &pane, vec![question("a", "First?", &["Yes", "No"]), question("b", "Second?", &["Yes", "No"])]).await;
+    keep_the_raises(Arc::clone(&rig.fleet)).await;
+    queued(&rig, &pane, "b").await;
+
+    let now = page(&rig).await;
+    assert_eq!(ids(&now), ["a", "b", "c"], "the pane's two at the first one's place, in the order raised");
+    let groups: Vec<Option<String>> = now.turn.iter().map(|one| one.group.clone()).collect();
+    assert_eq!(groups, [Some(pane.as_str().to_string()), Some(pane.as_str().to_string()), None], "a single ask is a plain item");
+
+    let turn = |page: &OperatorPage, item: &str| page.turn.iter().find(|one| one.item.id == item).map(|one| one.id.clone()).expect("queued");
+    let moved = rig.fleet.operator_turn_ordered(OperatorTurnOrder { ids: vec![turn(&now, "c")] }).await.expect("ordered");
+    assert_eq!(ids(&moved), ["c", "a", "b"], "the group moves whole");
+    let back = rig.fleet.operator_turn_ordered(OperatorTurnOrder { ids: vec![turn(&moved, "b"), turn(&moved, "c")] }).await.expect("ordered");
+    assert_eq!(ids(&back), ["a", "b", "c"], "naming one of the group moves the group");
+}
+
+/// A routine question queued as a go-ahead, on a clock the test sets.
+async fn a_go_ahead_on_a_set_clock() -> (Rig, Arc<AtomicI64>, OperatorTurnItem) {
+    let clock = Arc::new(AtomicI64::new(millis("2026-11-10T12:00:00.000Z")));
+    let held = Arc::clone(&clock);
+    let rig = rig_fitted(move |fittings| fittings.clock = Arc::new(Set(held)));
+    seated(&rig, &[Some("item: 1\nread: The suite is the cheap safe step.\npick: Run the full suite\nsure: yes\nabout: none\n\njournal: Reviewed a question.")]).await;
+    keep_the_raises(Arc::clone(&rig.fleet)).await;
+    let job = rig.start_titled(Some("Build the pane")).await;
+    waiting(&rig, &job, vec![question("full", "Run the full suite, or push now?", &["Run the full suite", "Push now"])]).await;
+    let one = queued(&rig, &job, "full").await;
+    assert!(one.keeps, "offered with Always: {one:#?}");
+    (rig, clock, one)
+}
+
+#[tokio::test]
+async fn always_just_after_a_yes_keeps_the_rule_and_does_not_do_it_again() {
+    let (rig, _clock, one) = a_go_ahead_on_a_set_clock().await;
+    let yes = rig.fleet.operator_answered(press(&one, OperatorAnswer::Yes, None)).await.expect("yes");
+    assert!(yes.page.turn.is_empty() && yes.page.digest.learned.is_empty(), "{yes:#?}");
+    let before = journal(&rig).await;
+
+    let always = rig.fleet.operator_answered(press(&one, OperatorAnswer::AlwaysHere, None)).await.expect("Always here after the yes");
+
+    let learned = &always.page.digest.learned;
+    assert_eq!(learned.len(), 1, "{learned:#?}");
+    assert!(matches!(learned[0].scope, RuleScope::Repository { .. }), "{learned:#?}");
+    assert!(always.open.is_none() && always.started.is_none() && always.filed.is_none());
+    let after = journal(&rig).await;
+    assert_eq!(after.matches("Answered").count(), before.matches("Answered").count(), "the act is not done again: {after}");
+    assert!(after.contains("Kept always here after a yes"), "{after}");
+}
+
+#[tokio::test]
+async fn on_a_settled_item_only_an_always_within_a_minute_of_his_yes_is_taken() {
+    let (rig, clock, one) = a_go_ahead_on_a_set_clock().await;
+    rig.fleet.operator_answered(press(&one, OperatorAnswer::Yes, None)).await.expect("yes");
+    let again = rig.fleet.operator_answered(press(&one, OperatorAnswer::Yes, None)).await.expect_err("a yes is not taken twice");
+    assert_eq!(code(again).0, 404);
+    let no = rig.fleet.operator_answered(press(&one, OperatorAnswer::No, None)).await.expect_err("nor a no after it");
+    assert_eq!(code(no).0, 404);
+    clock.fetch_add(61_000, Ordering::SeqCst);
+    let late = rig.fleet.operator_answered(press(&one, OperatorAnswer::Always, None)).await.expect_err("over a minute on");
+    assert_eq!(code(late).0, 404);
+    assert!(page(&rig).await.digest.learned.is_empty(), "no rule kept");
+
+    let (rig, _clock, one) = a_go_ahead_on_a_set_clock().await;
+    rig.fleet.operator_answered(press(&one, OperatorAnswer::No, None)).await.expect("no");
+    let after_no = rig.fleet.operator_answered(press(&one, OperatorAnswer::Always, None)).await.expect_err("an Always follows a yes only");
+    assert_eq!(code(after_no).0, 404);
+    assert!(page(&rig).await.digest.learned.is_empty(), "no rule kept");
 }

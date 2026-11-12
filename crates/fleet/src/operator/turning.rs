@@ -35,6 +35,9 @@ const TURN_UNKNOWN: &str = "fleet.operator_turn_unknown";
 const NOT_OFFERED: &str = "fleet.operator_answer_not_offered";
 const NOT_DONE: &str = "fleet.operator_turn_not_done";
 const LATER_PAST: &str = "fleet.operator_later_past";
+
+/// How long after his Yes an Always here or an Always still keeps its rule.
+const ALWAYS_AFTER_YES_MS: i64 = 60_000;
 /// What a held Job's start item's id starts with, then the Job's id.
 const HELD_START: &str = "start:";
 const TURN: &str = "turn:";
@@ -348,7 +351,11 @@ where
         if !self.operator_on() {
             return Err(self.hosted_refusal(OPERATOR_OFF, "the Operator is off"));
         }
-        let row = self.turn_open(&press.id).await?;
+        let row = match self.turn_open(&press.id).await {
+            Ok(row) => row,
+            Err(refused) if matches!(press.answer, OperatorAnswer::AlwaysHere | OperatorAnswer::Always) => return self.always_after_yes(&press, refused).await,
+            Err(refused) => return Err(refused),
+        };
         let item = item_read(&row.body).ok_or_else(|| self.ledger_unnamed("an item that reads"))?;
         let not_offered = |why: &str| self.hosted_refusal(NOT_OFFERED, why);
         // The option he named, where it is one the item offers: absent takes the Operator's pick.
@@ -388,24 +395,8 @@ where
             if answer != OperatorAnswer::Yes && !keeps {
                 return Err(not_offered("Always here and Always are offered only on what Fleet can do by itself"));
             }
-            let scope = match (answer, press.project.as_deref()) {
-                (OperatorAnswer::AlwaysHere, Some(project)) => {
-                    let held = self.project_repositories(project).await?;
-                    if !held.iter().any(|one| one.as_str() == row.manifest_id) {
-                        return Err(Refusal::Unacceptable(self.project_refusal(NOT_MEMBER, format!("this item's repository is not a member of the project {project}, so Always here cannot hold in it"))));
-                    }
-                    RuleScope::Project { project: project.to_string() }
-                }
-                (OperatorAnswer::AlwaysHere, None) if row.manifest_id.is_empty() => {
-                    return Err(not_offered("this item is in no repository, so Always here has none to hold in"));
-                }
-                (OperatorAnswer::AlwaysHere, None) => RuleScope::Repository { manifest_id: row.manifest_id.clone() },
-                _ => RuleScope::Everywhere,
-            };
-            let then = press.then.or_else(|| then_of_pick(row.then_pick.as_deref().unwrap_or_default())).or_else(|| {
-                // Where it offers Thens and he and the Operator named none: just file it.
-                what.as_deref().filter(|what| what.ends_with(":file")).map(|_| OperatorThen::JustFile)
-            });
+            let scope = self.rule_scope(&row, answer, press.project.as_deref()).await?;
+            let then = then_pressed(&press, &row, what.as_deref());
             let doing = Doing { session: &row.session, item: &item, pick: named.as_deref().or(row.pick.as_deref()).unwrap_or_default(), reason: row.read_text.as_deref().unwrap_or_default(), rule: None };
             done = self.turn_performed(&doing, then).await.map_err(|fault| match fault {
                 Fault::NotOffered(why) => self.hosted_refusal(NOT_OFFERED, &why),
@@ -426,6 +417,52 @@ where
         self.operator_page_changed();
         let page = self.operator_page_wire().await?;
         Ok(OperatorAnswered { open: done.open, started: done.started.as_deref().map(SessionId::carried), filed: done.filed, handed_to: done.handed_to.as_deref().map(SessionId::carried), page })
+    }
+
+    /// Where an Always here or an Always on `row` holds: the project the page is filtered to, else the
+    /// item's repository; everywhere for an Always.
+    async fn rule_scope(&self, row: &KeptTurn, answer: OperatorAnswer, project: Option<&str>) -> Result<RuleScope, Refusal> {
+        Ok(match (answer, project) {
+            (OperatorAnswer::AlwaysHere, Some(project)) => {
+                let held = self.project_repositories(project).await?;
+                if !held.iter().any(|one| one.as_str() == row.manifest_id) {
+                    return Err(Refusal::Unacceptable(self.project_refusal(NOT_MEMBER, format!("this item's repository is not a member of the project {project}, so Always here cannot hold in it"))));
+                }
+                RuleScope::Project { project: project.to_string() }
+            }
+            (OperatorAnswer::AlwaysHere, None) if row.manifest_id.is_empty() => {
+                return Err(self.hosted_refusal(NOT_OFFERED, "this item is in no repository, so Always here has none to hold in"));
+            }
+            (OperatorAnswer::AlwaysHere, None) => RuleScope::Repository { manifest_id: row.manifest_id.clone() },
+            _ => RuleScope::Everywhere,
+        })
+    }
+
+    /// Always here or Always pressed **after his Yes, within a minute: only the rule is kept**, since
+    /// the act is done. A row settled any other way, or longer ago, is refused as `refused` says.
+    async fn always_after_yes(self: &Arc<Self>, press: &OperatorAnswerPress, refused: Refusal) -> Result<OperatorAnswered, Refusal> {
+        let Some(n) = turn_number(&press.id) else { return Err(refused) };
+        let row = self.store().lock().await.operator_turn_item(n).map_err(|why| self.ledger_fault(why))?;
+        let now = self.now().epoch_millis().unwrap_or(i64::MAX);
+        let just = |at: &str| core_model::Timestamp::from_rfc3339(at).epoch_millis().is_some_and(|at| now - at <= ALWAYS_AFTER_YES_MS);
+        let Some(row) = row.filter(|row| row.answer.as_deref() == Some("yes") && row.settled_at.as_deref().is_some_and(just)) else {
+            return Err(refused);
+        };
+        let item = item_read(&row.body).ok_or_else(|| self.ledger_unnamed("an item that reads"))?;
+        let what = self.rule_what(&row.item).await.or_else(|| super::answering::what_of(&item).map(str::to_string));
+        let Some(what) = what.filter(|_| row.go_ahead) else {
+            return Err(self.hosted_refusal(NOT_OFFERED, "Always here and Always are offered only on what Fleet can do by itself"));
+        };
+        let scope = self.rule_scope(&row, press.answer, press.project.as_deref()).await?;
+        let then = then_pressed(press, &row, Some(&what));
+        let named = press.option.as_deref().map(str::trim).filter(|label| item.options.iter().any(|option| option.label == *label));
+        let pick = pick_word(&what, then, named.or(row.pick.as_deref()).unwrap_or_default());
+        self.rule_kept(OperatorRule::PickRule { scope, what: what.clone(), pick: pick.clone() }).await?;
+        let word = if press.answer == OperatorAnswer::Always { "always" } else { "always here" };
+        self.operator_journaled(&format!("Kept {word} after a yes: {}", rule_said(&what, &pick))).await;
+        self.operator_page_changed();
+        let page = self.operator_page_wire().await?;
+        Ok(OperatorAnswered { open: None, started: None, filed: None, handed_to: None, page })
     }
 
     /// Item `row` settled by his press, and the journal says what he did.
@@ -600,4 +637,9 @@ where
             self.operator_page_changed();
         }
     }
+}
+
+/// The Then of a press: the one he named, else the Operator's pick, else just file where it files.
+fn then_pressed(press: &OperatorAnswerPress, row: &KeptTurn, what: Option<&str>) -> Option<OperatorThen> {
+    press.then.or_else(|| then_of_pick(row.then_pick.as_deref().unwrap_or_default())).or_else(|| what.filter(|what| what.ends_with(":file")).map(|_| OperatorThen::JustFile))
 }

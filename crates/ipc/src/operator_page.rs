@@ -124,6 +124,10 @@ pub struct OperatorTurnItem {
     /// What else raised the same ask, folded into this one, each as its tooltip names it, oldest first.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub also_raised_by: Vec<String>,
+    /// The Job's id, where it has two or more asks waiting: `turn` lists them together, at the place of
+    /// the first of them, in the order the Job raised them, and Bridge draws them as one entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
 }
 
 /// What the Operator is reading now.
