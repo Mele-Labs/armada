@@ -49,7 +49,7 @@ It is read at each ask, in `pocket::machine_address`, so an edit needs no restar
 |---|---|
 | `GET /admin/setup` | `{ tailscale, served, named, address?, cloudflare, cloudflared? }`: Tailscale `missing`, `signed_out` or `running`; in front of the Gateway `none`, `tailnet` (`tailscale serve`) or `funnel`; whether `pocket-address` names the address; the tunnel's step, below; and the version of `cloudflared` Armada keeps |
 | `POST /admin/setup/funnel` | Runs `tailscale funnel --bg` in front of the Gateway. 204 once on; `{ approve }`, the tailnet's page to allow Funnel on, while the command waits for it; 502 with Tailscale's words otherwise |
-| `POST /admin/setup/cloudflare` `{ domain }` | Sets the tunnel up as far as it is not: 204 once the tunnel is made; `{ login }`, the page to sign in on, while it waits for the owner; 422 for a domain that is not one, 409 while a press is under way, 502 with the reason otherwise |
+| `POST /admin/setup/cloudflare`, no body | Sets the tunnel up as far as it is not: 204 once the tunnel is made; `{ login }`, the page to sign in on, while it waits for the owner; 409 while a press is under way, 502 with the reason and what to press next otherwise |
 
 The shapes are `GatewaySetup`, `CloudflareState`, `StartCloudflare` and `CloudflareSignIn` in `crates/ipc/src/phone.rs`.
 
@@ -59,14 +59,15 @@ The shapes are `GatewaySetup`, `CloudflareState`, `StartCloudflare` and `Cloudfl
 `cloudflared` holds an outbound connection to Cloudflare on port 7844 and hands whatever arrives at the address to the Gateway on loopback, so a Mac behind a VPN that takes no calls in still has a way in.
 Armada hosts nothing: the tunnel, its address and the domain are in the owner's account.
 
-One press does the whole setup, from Settings, with the domain typed once.
+One press does the whole setup, from Settings, with nothing typed.
+The owner picks the domain on Cloudflare's sign-in page, and Armada reads it from the sign-in.
 
 | `cloudflare.state` | Means | The row offers |
 |---|---|---|
 | `missing` | Armada has not downloaded `cloudflared` | The press, which downloads it first |
 | `signed_out` | Not signed in to Cloudflare on this Mac | The press, which opens the sign-in |
 | `signing_in` `{ login }` | Waiting for the owner to sign in and pick the domain | A button that opens `login` |
-| `no_tunnel` `{ why? }` | Signed in, no tunnel yet; `why` is the last press's failure | The press |
+| `no_tunnel` `{ why? }` | Signed in, no tunnel yet; `why` is the last press's failure and what to press next | The press |
 | `running` `{ address }` | Connected to Cloudflare, serving the Gateway at `address` | Nothing to do |
 | `down` `{ address, since, why }` | Made but not connected since `since`, in `cloudflared`'s own words where it said | Nothing to do: Fleet starts it again |
 
@@ -75,6 +76,9 @@ One press does the whole setup, from Settings, with the domain typed once.
 - **Armada keeps it current.** A running tunnel asks once a day whether a newer `cloudflared` is out, installs it under the same two checks, and restarts on it.
 - **The sign-in opens from Bridge's button, once.** `cloudflared tunnel login` runs with no way to open a browser itself, and its page is `login`.
 - **Armada's sign-in is its own.** Every `cloudflared` runs with its home in `cloudflared/home` in the machine directory, so the owner's own `~/.cloudflared` and any tunnel he runs himself are never touched.
+- **The domain comes from the sign-in.** The certificate `cloudflared tunnel login` writes names the zone the owner picked and holds a token that may read it.
+  Armada asks Cloudflare for that zone's name, and the token is read for that one call and kept nowhere else.
+  A certificate that names no zone, or one Cloudflare will not answer for, has the next press open the sign-in again.
 - **The tunnel is named for this Mac's id** (`armada-<id>`), so two Macs that share a name never take each other's.
   The address is this Mac's name under the domain, and is pointed at the tunnel without overwriting, so a name already used for something else on the domain is refused with Cloudflare's words.
 - **It runs while the Gateway runs.** Fleet starts it with the Gateway and stops it with it, starts a `cloudflared` that stopped again after a rest that grows to a minute, and asks it every 5 s whether it is connected.

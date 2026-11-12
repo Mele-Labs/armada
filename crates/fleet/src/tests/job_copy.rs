@@ -506,6 +506,24 @@ async fn a_pieces_keep_is_listed_for_its_repository_until_it_is_approved_and_eac
     assert_eq!(keep_draft_events(&mut watching).await, [rig.manifest.as_str()], "and the page is told when it goes");
 }
 
+/// **A rule only a keep draft holds is drawn on its workflow's lanes as proposed, waiting on the owner's Approve**,
+/// read from the text Approve would save; nothing else on the lanes waits.
+#[tokio::test]
+async fn a_rule_a_keep_draft_would_add_is_drawn_on_the_workflows_lanes_as_proposed() {
+    let rig = rigged();
+    let id = on_the_rail(&rig).await;
+    changed_a_rule(&rig, &id).await;
+    Arc::clone(&rig.fleet).keep_job_piece(keep_piece(&id, CopyPieceKind::Rule, "deploy_watch")).await.expect("kept");
+
+    let view = rig.fleet.get_workflow_lanes("rail".into(), None, Some(rig.manifest.clone())).await.expect("served");
+
+    let edge = view.rules.iter().find(|one| one.rule == "deploy_watch").expect("drawn");
+    assert!(edge.proposed && edge.pending == Some(ipc::LanePending::Keep), "{edge:?}");
+    assert_eq!((edge.from.as_str(), edge.to.as_str()), ("workflow/plan", "ticket/in_progress"));
+    assert!(view.rules.iter().filter(|one| one.rule != "deploy_watch").all(|one| !one.proposed && one.pending.is_none()));
+    assert!(view.lanes.iter().all(|lane| lane.pending.is_none()));
+}
+
 #[tokio::test]
 async fn a_pieces_keep_leaves_the_list_when_it_is_dismissed_and_the_page_is_told() {
     let rig = rigged();

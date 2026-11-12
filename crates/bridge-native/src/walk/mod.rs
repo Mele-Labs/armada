@@ -1942,7 +1942,7 @@ pub static WALKS: &[Walk] = &[
             step("A press opens the run", Verb::Press, "button", "Tool calls: Read, Grep, Edit"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
-            step("Page down reads on, past the Checks", Verb::Key("pagedown"), "listitem", "/reload-plugins"),
+            step("The wheel reads on, past the Checks", Verb::Wheel("region", "Thread", 100), "listitem", "/reload-plugins"),
             step("A right press on a command offers Teach", Verb::RightOpen("listitem", "/reload-plugins"), "menuitem", "Teach"),
             step("Teach opens the panel over the thread, with the command and a box", Verb::Open("menuitem", "Teach"), "textbox", "Instruction"),
             step("Esc puts the panel away and the command has focus again", Verb::Key("escape"), "listitem", "/reload-plugins"),
