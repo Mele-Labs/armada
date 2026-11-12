@@ -73,6 +73,9 @@ pub(crate) struct RailStep {
     pub walks: bool,
     /// What the person does that ends the step, any one of them. Empty for a step that lists none.
     pub ends_on: Vec<StepEnd>,
+    /// The fact that ends the step's plan group, as its `gate` names it. Said by `rail_ends` only:
+    /// the rail places a step by its anchors and `ends_on`, not by this.
+    pub gate: StepGate,
     /// What the step's `judge_checks` ask. Empty is a step nobody judges.
     pub criteria: Vec<JudgeCriterion>,
     pub fit: Option<Fit>,
@@ -127,6 +130,7 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
             asks_delivery: step.asks_delivery(),
             walks: step.walks(),
             ends_on: ends_on_of(step),
+            gate: step.gate(),
             criteria: step.judge_checks().iter().flat_map(|check| check.criteria().to_vec()).collect(),
             fit: fit_of(step),
         })

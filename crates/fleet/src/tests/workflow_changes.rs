@@ -315,6 +315,33 @@ async fn a_ready_change_carries_each_steps_about_and_gate_and_the_drafts_name_an
     assert_eq!((by("deliver").delivers, by("deliver").gate.as_deref(), refine.delivers), (true, None, false));
 }
 
+/// **A step gated `plan_approved` ends when he approves the plan**, though it declares no
+/// `records_plan`, and never on the push of the delivering step after it.
+#[tokio::test]
+async fn a_proposed_step_gated_plan_approved_ends_when_he_approves_the_plan_not_on_the_push() {
+    let drafted = "version: 1\nworkflow_id: staged\nname: staged\nsteps:
+  - id: draft
+    label: Draft
+    gate: plan_approved
+    asks_delivery: true
+    delivers: false
+    advance_gate: auto
+  - id: land
+    label: Land
+    gate: merged
+    delivers: true
+    advance_gate: auto";
+    let rig = rig(&[drafted]).await;
+
+    let ready = rig.asked("draft the doc fix, then land it").await;
+
+    assert_eq!(ready.state, ChangeState::Ready, "{ready:?}");
+    let steps = ready.after_steps.as_ref().expect("steps");
+    let draft = steps.iter().find(|step| step.id.as_str() == "draft").expect("draft");
+    assert_eq!(draft.ends_any, ["you approve the plan"]);
+    assert_eq!(draft.ends_when.as_deref(), Some("you approve the plan"));
+}
+
 /// **Build is refused for a change Armada can make**, and for one it never kept.
 #[tokio::test]
 async fn build_is_refused_on_a_change_armada_can_make() {
