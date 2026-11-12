@@ -116,7 +116,7 @@ fn numbers(said: Option<&String>) -> Vec<String> {
 }
 
 /// A pull request works an issue where it closes it, or the issue names it (`works`).
-fn works(pull: &ipc::Attachment, issue: &ipc::Attachment) -> bool {
+pub(super) fn works(pull: &ipc::Attachment, issue: &ipc::Attachment) -> bool {
     let number = pull.target.trim_start_matches('#');
     numbers(pull.detail.get("closes")).iter().any(|one| *one == issue.target) || numbers(issue.detail.get("pull_requests")).iter().any(|one| one == number)
 }
@@ -526,7 +526,7 @@ fn fleet_made(act: FleetAct, look: &Look) -> AnyElement {
 }
 
 /// The group's tasks as one track of segments, done and to do (`TaskTrack`).
-fn task_track(group: &str, tasks: &[ipc::SessionPlanTask], look: &Look) -> AnyElement {
+pub(super) fn task_track(group: &str, tasks: &[ipc::SessionPlanTask], look: &Look) -> AnyElement {
     let many = tasks.len() > 12;
     let said = "Tasks in this group, done and to do";
     labelled(

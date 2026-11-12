@@ -162,6 +162,39 @@ impl JobView {
         }))
     }
 
+    /// A subagent's thread as the Job's is drawn, from the last read of it; the report alone only
+    /// where no row could be read (`SubagentThread`). Nothing until a read arrives.
+    pub(super) fn subagent_thread(&self, job: &SharedString, subagent: &str, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
+        let look = cx.look();
+        let look = &look;
+        let key = Self::subagent_key(job, subagent);
+        let read = self.subagents_read.iter().find(|(one, _)| *one == key).map(|(_, read)| read)?;
+        let page = self.pages.get(job)?;
+        let items = read.items();
+        let now = chrono::Local::now();
+        if items.is_empty() {
+            return read.report.clone().map(|report| div().p(look.length(token::SPACE_4)).child(self.prose(format!("subagent-report:{key}"), &report, look, cx)).into_any_element());
+        }
+        let drawn: Vec<AnyElement> = items
+            .iter()
+            .enumerate()
+            .filter_map(|(at, item)| {
+                let next = items.get(at + 1).and_then(super::rows::began);
+                self.item(ITEMS + at, item, false, next, page, look, now, window, cx)
+            })
+            .collect();
+        Some(div().flex().flex_col().gap(look.length(token::SPACE_4)).p(look.length(token::SPACE_4)).children(drawn).into_any_element())
+    }
+
+    /// Read a subagent's thread for its tab beside the thread, and again while it runs.
+    pub(super) fn watch_subagent(&mut self, subagent: &ToolSubagent, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let key = Self::subagent_key(&job, &subagent.id);
+        if let Some(poll) = self.subagent_poll(&job, subagent, cx) {
+            self.subagent_tab_polls.insert(key, poll);
+        }
+    }
+
     fn close_subagent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(back) = self.subagent_reading.take().and_then(|reading| reading.back) {
             window.focus(&back, cx);
@@ -252,23 +285,7 @@ impl JobView {
             .children(figure)
             .child(close);
 
-        // The thread as the Job's is drawn; the report alone only where no row could be read.
-        let page = self.pages.get(&reading.job)?;
-        let items = read.map(SubagentRead::items).unwrap_or_default();
-        let now = chrono::Local::now();
-        let body: Option<AnyElement> = if items.is_empty() {
-            read.and_then(|read| read.report.clone()).map(|report| div().p(look.length(token::SPACE_4)).child(self.prose(format!("subagent-report:{key}"), &report, look, cx)).into_any_element())
-        } else {
-            let drawn: Vec<AnyElement> = items
-                .iter()
-                .enumerate()
-                .filter_map(|(at, item)| {
-                    let next = items.get(at + 1).and_then(super::rows::began);
-                    self.item(ITEMS + at, item, false, next, page, look, now, window, cx)
-                })
-                .collect();
-            Some(div().flex().flex_col().gap(look.length(token::SPACE_4)).p(look.length(token::SPACE_4)).children(drawn).into_any_element())
-        };
+        let body = self.subagent_thread(&reading.job, &subagent.id, window, cx);
 
         let margin = look.length(token::SPACE_4);
         let wide = (viewport.width * 0.62).min(viewport.width - margin * 2.);

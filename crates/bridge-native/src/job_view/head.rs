@@ -1387,7 +1387,7 @@ fn up_to<'a>(items: &'a [ThreadItem], at: Option<&str>) -> &'a [ThreadItem] {
 
 /// The toolbelt's keys, as Electron's flight controls wear them (`flight-order.ts`): ⌥⇧6 Auto land,
 /// ⌥⇧7 Judge, ⌥⇧8 Report, ⌥⇧9 Release, and `p` Pause. ⌥⇧1 to ⌥⇧5 are the Job head's views.
-const TILE_KEYS: [(&str, &str); 6] = [("land", "alt-shift-6"), ("judge", "alt-shift-7"), ("report", "alt-shift-8"), ("release", "alt-shift-9"), ("pause", "p"), ("ledger", "alt-l")];
+const TILE_KEYS: [(&str, &str); 7] = [("land", "alt-shift-6"), ("judge", "alt-shift-7"), ("report", "alt-shift-8"), ("release", "alt-shift-9"), ("pause", "p"), ("ledger", "alt-l"), ("whole", "alt-n")];
 
 /// A toolbelt act's tooltip, with the key it wears beside the sentence, as Electron's `Tooltip shortcut`.
 pub(super) fn keyed_tip(act: &str, said: SharedString) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
@@ -1397,7 +1397,7 @@ pub(super) fn keyed_tip(act: &str, said: SharedString) -> impl Fn(&mut Window, &
 
 impl JobView {
     /// A press of a toolbelt act's key, from anywhere on the deck but a text box, where ⌥⇧ types a
-    /// character, and not while a dialog or menu is over the Job. ⌥L reaches into a text box.
+    /// character, and not while a dialog or menu is over the Job. ⌥L and ⌥N reach into a text box.
     pub fn tile_key(&mut self, event: &gpui::KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let Some(id) = self.shown.clone() else { return false };
         if self.reporting.is_some() || self.head.confirm.is_some() || self.composer.popup.is_some() {
@@ -1406,8 +1406,14 @@ impl JobView {
         let keys = &event.keystroke;
         // Done's By step and By kind (`LEDGER_KEY`), from the message box too, as Classic's window
         // listener takes it (`SessionWorkspace.tsx`).
-        if keys.modifiers.alt && !keys.modifiers.shift && !keys.modifiers.platform && !keys.modifiers.control && keys.key == "l" {
+        let alone = keys.modifiers.alt && !keys.modifiers.shift && !keys.modifiers.platform && !keys.modifiers.control;
+        if alone && keys.key == "l" {
             self.turn_ledger_view(cx);
+            return true;
+        }
+        // The whole plan (`WHOLE_KEY`), on a Job in panes its Plan tab, from the same listener.
+        if alone && keys.key == "n" && self.record(&id, cx).is_some_and(|job| job.plan.is_some()) {
+            self.add_tab("plan", window, cx);
             return true;
         }
         if window.context_stack().iter().any(|context| context.contains(crate::keymap::TEXT_BOX)) {

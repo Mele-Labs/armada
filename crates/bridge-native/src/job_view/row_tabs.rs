@@ -1,5 +1,5 @@
-//! The tabs a Job opens beside its thread for one thing it put to him: a draft, a document or a
-//! walk, placed as Armada Classic's `focus.ts` places them. An open tab of the same thing comes to the
+//! The tabs a Job opens beside its thread for one thing it put to him or ran: a draft, a document, a
+//! walk or a subagent, placed as Armada Classic's `focus.ts` places them. An open tab of the same thing comes to the
 //! front; else the tab joins the thread's pane, in front. A walk the Job owes him arrives behind the
 //! tab in front and pulses until he has had it in front (`WalkTabsSync`); one he closed is not opened
 //! again, and one settled takes its tab with it.
@@ -7,7 +7,8 @@
 //! **Departures (ruling (b), 11 Nov):** a walk the Job never showed gets no tab, where Classic draws
 //! an empty heading and a live Open; a draft whose row has gone takes its tab away and the front moves
 //! as a closed tab's does, where Classic leaves a blank frame. A press on such a draft opens no tab.
-//! Both follow "an empty slot stays empty".
+//! A subagent's tab goes the same way once the Job no longer holds the subagent. All follow "an
+//! empty slot stays empty".
 //!
 //! Only a walk of a native screen (`armada://walk/`) has a tab here: a web page's walk waits for the
 //! embedded browser.
@@ -32,6 +33,7 @@ pub(super) enum RowKind {
     Draft,
     Document,
     Walk,
+    Subagent,
 }
 
 impl RowKind {
@@ -41,6 +43,7 @@ impl RowKind {
             RowKind::Draft => ("notebook-pen", "Draft"),
             RowKind::Document => ("file-text", "Document"),
             RowKind::Walk => ("eye", "Walk"),
+            RowKind::Subagent => ("drone", "Subagent"),
         }
     }
 }
@@ -218,6 +221,16 @@ impl JobView {
         self.keys_to_front(window, cx);
     }
 
+    /// A subagent's thread as a tab named for its task (`focusSubagent`), from a drone on its group.
+    /// A subagent the Job no longer holds opens no tab.
+    pub(super) fn open_subagent_tab(&mut self, subagent: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let Some(one) = self.record(&id, cx).and_then(|record| record.attachments.iter().find(|one| one.kind == "subagent" && one.target == subagent)).map(super::ledger::subagent_of) else { return };
+        self.watch_subagent(&one, cx);
+        self.row_tabs_of(&id).focus(RowKind::Subagent, subagent, one.task);
+        self.keys_to_front(window, cx);
+    }
+
     /// A press on a walk he is owed (`openJobWalk`): a native walk starts its window at once, and its
     /// tab comes forward only where Fleet does not start it.
     pub(super) fn press_walk(&mut self, url: &str, window: &mut Window, cx: &mut Context<Self>) {
@@ -289,6 +302,7 @@ impl JobView {
     /// (`reopenThread`). A draft or page whose row has gone from the thread takes its tab away, as a
     /// settled walk does.
     pub(super) fn sync_walk_tabs(&mut self, id: &SharedString, cx: &mut Context<Self>) {
+        let subagents: HashSet<String> = self.record(id, cx).map_or_else(HashSet::new, |record| record.attachments.iter().filter(|one| one.kind == "subagent").map(|one| one.target.clone()).collect());
         if let Some(held) = self.thread(id, cx) {
             let rows: HashSet<(RowKind, String)> = self.row_tabs.get(id).map_or_else(HashSet::new, |tabs| {
                 tabs.tabs
@@ -297,6 +311,7 @@ impl JobView {
                         RowKind::Draft => super::review::draft_row(&held.items, &tab.key).is_some(),
                         RowKind::Document => super::review::document_card(&held.items, &tab.key).is_some(),
                         RowKind::Walk => true,
+                        RowKind::Subagent => subagents.contains(&tab.key),
                     })
                     .map(|tab| (tab.kind, tab.key.clone()))
                     .collect()
@@ -390,8 +405,9 @@ impl JobView {
     }
 
     /// The body of the tab in front, where it is not the thread. **What has gone draws nothing**: a
-    /// draft's row or a document's card no longer in the thread, or a walk the Job never showed.
-    pub(super) fn row_tab_body(&self, id: &SharedString, tab: &RowTab, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// draft's row or a document's card no longer in the thread, a walk the Job never showed, or a
+    /// subagent not yet read.
+    pub(super) fn row_tab_body(&self, id: &SharedString, tab: &RowTab, look: &Look, window: &mut Window, cx: &Context<Self>) -> AnyElement {
         let Some(page) = self.pages.get(id) else { return div().id("row-tab-body").track_focus(&self.row_focus).size_full().into_any_element() };
         let now = chrono::Local::now();
         let card = match tab.kind {
@@ -403,6 +419,11 @@ impl JobView {
             }),
             RowKind::Document => self.thread(id, cx).and_then(|held| super::review::document_card(&held.items, &tab.key)).map(|card| self.document(SHEET, card, page, look, now, cx)),
             RowKind::Walk => self.record(id, cx).and_then(|record| shown_walk(record, &tab.key)).map(|walk| self.walk_body(id, &tab.key, walk, look, cx)),
+            // The subagent's thread draws its own padding, as the reading sheet's does.
+            RowKind::Subagent => {
+                let thread = self.subagent_thread(id, &tab.key, window, cx);
+                return div().id("row-tab-body").track_focus(&self.row_focus).size_full().overflow_y_scroll().children(thread).into_any_element();
+            }
         };
         match card {
             Some(card) => div().id("row-tab-body").track_focus(&self.row_focus).size_full().overflow_y_scroll().p(look.length(token::SPACE_4)).child(card).into_any_element(),

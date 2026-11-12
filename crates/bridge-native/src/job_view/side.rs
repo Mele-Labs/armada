@@ -3,17 +3,13 @@
 //! Changes, Ledger, Files, Subagents, Checks (`panes.rs`) and Judge (`judge_tab.rs`) until the pane
 //! system can place them anywhere.
 //!
-//! Now's owed rows read Fleet's `waiting_for` alone, one row per item, where Electron mixes in the
-//! thread's walk rows and the asked question and so keeps dismissed walks and draws a question twice.
-//! A finished task of the agent's own list is not listed in Now (his word, 10 Nov).
+//! Now is `now.rs`.
 
 use std::collections::HashSet;
 
 use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, Role, SharedString, Subscription, Window};
-use ipc::{ApprovePlan, ConfirmLater, LaterHow, PlanTaskState, SendPlanChanges, SessionId, SessionPlanGroup, SessionTodoState, SettleLater, WaitingSource};
+use ipc::{ConfirmLater, LaterHow, PlanTaskState, SessionId, SessionPlanGroup, SettleLater};
 
-use super::acts::{button, Tone};
-use super::head::icon_button;
 use super::plan::task_look;
 use super::rows::{glyph, tip, Size};
 use super::tabs::Pane;
@@ -22,7 +18,7 @@ use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 
 /// What Ask for an update sends (`ASK_FOR_UPDATE`, `cockpit/deck/acts.ts`).
-const ASK_FOR_UPDATE: &str = "Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.";
+pub(super) const ASK_FOR_UPDATE: &str = "Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.";
 
 /// The top pane's tab. Plan and the kinds after it are not in Electron's Default layout, so each
 /// stays shut on a Job until + opens it.
@@ -269,14 +265,6 @@ impl JobView {
             Zone::Judge => self.pane_judge(&id, look, cx),
         });
         let now_open = !self.tab_closed("now");
-        let ask = self.shown.clone().filter(|id| !self.closed(id, cx)).map(|_| {
-            labelled(
-                icon_button(look, "side-ask-update", "message-circle-more", "Ask for an update".into(), false, false)
-                    .on_click(cx.listener(|this, _, window, cx| this.send_line(ASK_FOR_UPDATE.to_string(), window, cx))),
-                Role::Button,
-                "Ask for an update",
-            )
-        });
         let now_body = self.shown.clone().filter(|_| now_open).map(|id| self.side_now(&id, look, cx));
         let body = |id: &'static str, inner: Option<AnyElement>| {
             div()
@@ -326,9 +314,7 @@ impl JobView {
                                     "Job column: Now",
                                 ))
                             })
-                            .child(self.add_button(Pane::Now, look, cx))
-                            .child(div().flex_1())
-                            .child(div().flex().items_center().pr(look.length(token::SPACE_1)).children(ask.filter(|_| now_open))),
+                            .child(self.add_button(Pane::Now, look, cx)),
                     )
                     .child(body("side-now-body", now_body)),
                 Role::Region,
@@ -449,115 +435,5 @@ impl JobView {
         let settle = SettleLater { id: later, how: LaterHow::Dropped, issue: None, reason: None, session_id: Some(SessionId::carried(job.to_string())), misread: true };
         let body = ipc::encode(&settle).map_err(|why| format!("{why:?}"));
         self.post_with(job, "/sessions/settle_later", body, |_, _, _| {}, window, cx);
-    }
-
-    /// What waits on him, what the agent is on, the groups at work and its open tasks, then a plan he
-    /// has not approved, edited in place.
-    fn side_now(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let Some(job) = self.record(id, cx).cloned() else { return div().into_any_element() };
-        // What Fleet says he owes, as the band lists it (#80): a Done or a put-away takes the row out of both.
-        let hidden = self.dock_of(id).map(|dock| &dock.hidden);
-        let owed = self
-            .needs_of(id, cx)
-            .into_iter()
-            .flat_map(|view| view.sections.iter())
-            .filter(|section| section.kind != ipc::NeedsYouSectionKind::Done)
-            .flat_map(|section| section.rows.iter())
-            .filter(|row| !hidden.is_some_and(|hidden| hidden.contains(&row.id)))
-            .map(|row| self.owed_row(row, look, cx))
-            .collect::<Vec<_>>();
-        // The lamp row heads the pane; waiting on him it is the dashed circle Electron's Now draws, not the row's eye.
-        let agent = self.standing_mark(id, cx).map(|(icon, said, hue, _)| beat(look, if icon == "eye" { "circle-dashed" } else { icon }, hue, said));
-        let working = self.side_groups(id, Stands::Working, look, cx);
-        let todos = job.activity.iter().flat_map(|activity| activity.todos.iter()).filter(|todo| todo.state != SessionTodoState::Done).map(|todo| match todo.state {
-            SessionTodoState::Doing => beat(look, "circle-dot", token::STEP_RUNNING, todo.text.clone()),
-            _ => beat(look, "circle-dashed", token::FG_SUBTLE, todo.text.clone()),
-        });
-        let marks = self.plan_marks(id);
-        let drafting = job.plan.clone().filter(|plan| !plan.approved || !marks.is_empty()).filter(|_| !self.review_open()).map(|plan| {
-            let send = labelled(
-                button(look, "side-plan-send", "Send changes", Tone::Secondary, false, None, !marks.is_empty())
-                    .when(!marks.is_empty(), |send| send.on_click(cx.listener(|this, _, window, cx| this.side_plan(false, window, cx)))),
-                Role::Button,
-                "Send the plan's changes",
-            );
-            let approve = labelled(
-                button(look, "side-plan-approve", "Approve", Tone::Primary, false, None, true)
-                    .tooltip(tip(if marks.is_empty() { "Approve the plan" } else { "Approve with these changes" }))
-                    .on_click(cx.listener(|this, _, window, cx| this.side_plan(true, window, cx))),
-                Role::Button,
-                "Approve the plan",
-            );
-            div()
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_3))
-                .pt(look.length(token::SPACE_3))
-                .child(self.plan_editor(id, &plan, None, true, look, cx))
-                .child(div().flex().justify_end().gap(look.length(token::SPACE_2)).child(send).child(approve))
-        });
-        div().flex().flex_col().children(agent).children(owed).child(working).children(todos).children(drafting).into_any_element()
-    }
-
-    /// One thing waiting on him: a press opens it where it is answered.
-    fn owed_row(&self, item: &ipc::NeedsYouRow, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let key = item.id.clone();
-        let source = item.source;
-        labelled(
-            div()
-                .id(SharedString::from(format!("owed:{}", item.id)))
-                .flex()
-                .items_start()
-                .gap(look.length(token::SPACE_2))
-                .min_h(look.length(token::H_ROW))
-                .py(look.length(token::SPACE_1))
-                .rounded(look.length(token::RADIUS_MD))
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .text_size(look.length(token::TEXT_XS))
-                .line_height(look.length(token::LEADING_XS))
-                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                .text_color(look.color(token::FG_DEFAULT))
-                .child(div().id(SharedString::from(format!("owed-mark:{}", item.id))).flex_none().pt(look.length(token::SPACE_1) / 2.).tooltip(tip(item.glyph.said.clone())).child(glyph(look, super::dock::icon_of(item.glyph.kind), Size::Small, look.color(token::STATUS_AWAITING_REVIEW))))
-                .child(div().flex_1().min_w_0().line_clamp(2).child(SharedString::from(item.text.clone())))
-                .on_click(cx.listener(move |this, _, window, cx| this.open_owed(&key, source, window, cx))),
-            Role::Button,
-            format!("Waiting on you: {}", item.text),
-        )
-        .into_any_element()
-    }
-
-    fn open_owed(&mut self, item: &str, source: WaitingSource, window: &mut Window, cx: &mut Context<Self>) {
-        match source {
-            // A draft opens its card as a tab, and a page owed alone is read in its own (`openOwedDocument`).
-            WaitingSource::Draft => self.open_draft_tab(item.strip_prefix("draft:").unwrap_or(item), window, cx),
-            WaitingSource::Document if self.shown.as_ref().and_then(|id| self.sole_document(id, cx)).is_some_and(|page| item.strip_prefix("document:") == Some(page.as_str())) => {
-                self.open_document_tab(item.strip_prefix("document:").unwrap_or(item), window, cx);
-            }
-            WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document => {
-                self.open_review(window, cx);
-                self.review_at(item, window, cx);
-            }
-            WaitingSource::FirstMessage | WaitingSource::Done => {}
-            _ => {
-                // A question's item is `ask:<call>`, which the panel holds as `question:<call>`.
-                let key = item.strip_prefix("ask:").map_or_else(|| format!("item:{item}"), |call| format!("question:{call}"));
-                self.set_needs(true, Some(key), window, cx);
-            }
-        }
-    }
-
-    /// Approve or Send changes from Now, with what he marked.
-    fn side_plan(&mut self, approve: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let Some((job, plan)) = self.plan_of_shown(cx) else { return };
-        let marks = self.take_marks(&job);
-        let session_id = SessionId::carried(job.to_string());
-        let (route, body) = if approve && marks.is_empty() {
-            ("/sessions/plan/approve", ipc::encode(&ApprovePlan { session_id, version: plan.version }))
-        } else {
-            ("/sessions/plan/changes", ipc::encode(&SendPlanChanges { session_id, version: plan.version, marks, approve }))
-        };
-        self.post_with(job, route, body.map_err(|why| format!("{why:?}")), |_, _, _| {}, window, cx);
-        cx.notify();
     }
 }

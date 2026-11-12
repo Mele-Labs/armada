@@ -22,6 +22,7 @@ mod deck;
 mod draft_doc;
 mod dock;
 mod done;
+mod now;
 mod edit;
 mod fork;
 mod format;
@@ -342,6 +343,8 @@ pub struct JobView {
     /// A subagent's thread open on its sheet, and the last threads read, newest last.
     subagent_reading: Option<subagent_read::Reading>,
     subagents_read: Vec<(String, subagent_read::SubagentRead)>,
+    /// The reads kept going for subagents open as tabs beside the thread, by `job/subagent`.
+    subagent_tab_polls: HashMap<String, gpui::Task<()>>,
     /// The Plan, Changes, Files and Checks bodies' state, and the panel one of their rows opened.
     panes: panes::Panes,
     /// The Jobs a walk reads again for a moment when they come on screen, standing in for Fleet's read.
@@ -454,6 +457,7 @@ impl JobView {
             sketch_reading: None,
             subagent_reading: None,
             subagents_read: Vec::new(),
+            subagent_tab_polls: HashMap::new(),
             panes: panes::Panes::default(),
             mock_reading: HashSet::new(),
             _subscriptions: subscriptions,
@@ -568,6 +572,11 @@ impl JobView {
         self.composer_leave(cx);
         self.shown = to.clone();
         self.switched = Some(started);
+        // Each Job has its own tabs, so the top strip starts at its head with the tab in front in view.
+        self.panes.top_tabs.set_offset(gpui::point(gpui::px(0.), gpui::px(0.)));
+        if let Some(at) = self.zone_shown().and_then(|zone| side::Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).position(|one| one == zone)) {
+            self.panes.top_tabs.scroll_to_item(at);
+        }
         if let Some(id) = &to {
             self.pages.entry(id.clone()).or_insert_with(Page::new);
             if let Some(fleet) = self.fleet.clone() {
@@ -933,7 +942,7 @@ impl Render for JobView {
         let front = self.row_front(&id).cloned();
         let open = !self.tab_closed("thread") && front.is_none();
         let body = match &front {
-            Some(tab) => self.row_tab_body(&id, tab, look, cx),
+            Some(tab) => self.row_tab_body(&id, tab, look, window, cx),
             None if open => body,
             None => div().into_any_element(),
         };

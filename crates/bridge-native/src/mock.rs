@@ -37,6 +37,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The panes' first Job with its plan approved and two groups finished, three pull requests
         // merged, its issue closed, a Job it started finished, and what Fleet did for it.
         "job-done" => include_bytes!("../fixtures/jobs-done.json"),
+        // The panes' Jobs as Now draws each: the first working its plan with subagents, a walk and Fleet
+        // at work; one stuck, one stopped, one at work with no plan, one failing and one drafting.
+        "job-now" => include_bytes!("../fixtures/jobs-now.json"),
         "job-view-composer" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
@@ -60,8 +63,18 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "job-system" => include_bytes!("../fixtures/jobs-panes.json"),
         other => return Err(format!("no mock scenario named {other}")),
     };
-    ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())
+    let mut sessions = ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())?;
+    // Now's figures count from now, so the scenario's clock is moved to the run's.
+    if scenario == "job-now" {
+        for one in &mut sessions {
+            one.last_heard_at = one.last_heard_at.as_ref().map(|at| shifted(NOW_ANCHOR, at));
+        }
+    }
+    Ok(sessions)
 }
+
+/// The instant `job-now` was written at, which a run moves to its own now.
+const NOW_ANCHOR: &str = "2026-11-09T14:45:00Z";
 
 /// The repositories Fleet would serve (`GET /repositories`) in the walks: the four the title bar's
 /// switcher is drawn from, the last with no Manifest.
@@ -92,6 +105,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "job-tabs" => include_bytes!("../fixtures/tabs-threads.json"),
         // The panes' threads, with two walks ended, two commits and Fleet's acts on the first.
         "job-done" => include_bytes!("../fixtures/done-threads.json"),
+        "job-now" => include_bytes!("../fixtures/now-threads.json"),
         // The same threads, and the earlier Job's, ended where it handed on.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff-threads.json"),
         // The same threads, with the Job that took the router upgrade on and the forked one.
@@ -123,6 +137,16 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
     let mut all: HashMap<String, JobThread> = read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect();
+    if scenario == "job-now" {
+        for thread in all.values_mut() {
+            if let Some(call) = thread.head.open_call.as_mut() {
+                call.since = shifted(NOW_ANCHOR, &call.since);
+            }
+            for act in &mut thread.head.fleet_acts {
+                act.at = shifted(NOW_ANCHOR, &act.at);
+            }
+        }
+    }
     // The Job whose system Fleet cannot read has a thread with nothing in it yet, as Fleet answers for one.
     if scenario == "job-system" {
         let empty = ipc::decode::<JobThread>("empty thread", br#"{"session_id":"mock-03","head":{"trail":{"started":"2026-11-11T11:40:00Z"}},"items":[]}"#).map_err(|why| why.to_string())?;
@@ -198,6 +222,7 @@ pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T
     let named = SCENARIO.lock().ok()?.clone();
     let bytes: &[u8] = match named.as_str() {
         "subagent" => include_bytes!("../fixtures/subagent-reads.json"),
+        "job-now" => include_bytes!("../fixtures/now-subagent-reads.json"),
         "job-panes-more" => include_bytes!("../fixtures/panes-more-subagents.json"),
         _ => return None,
     };
@@ -588,6 +613,8 @@ mod tests {
         assert_eq!(super::threads("job-tabs").expect("decodes").len(), 4);
         assert!(super::jobs("job-done").expect("decodes").len() > 10);
         assert!(!super::threads("job-done").expect("decodes").is_empty());
+        assert!(super::jobs("job-now").expect("decodes").len() > 10);
+        assert!(super::threads("job-now").expect("decodes").len() > 5);
     }
 }
 
