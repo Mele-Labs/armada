@@ -149,6 +149,18 @@ pub(crate) fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(
     held
 }
 
+/// The rules of `applying` as the wire spells them, each under the autonomy `defaults` lay for its acts.
+fn applied_rules(applying: &config::Rules, defaults: &core_model::rule::AutonomyDefaults) -> Vec<AppliedRule> {
+    applying
+        .files()
+        .iter()
+        .map(|file| AppliedRule {
+            rule: wire::rule_under(file.rule(), defaults),
+            kept: wire::kept(file.rank(), Some(file.path()), file.overridden_by(), file.hides()),
+        })
+        .collect()
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -164,24 +176,49 @@ where
     /// `in_flight` and every move, take-on and end is a chance for it to differ. It is published without
     /// asking whether it did: the row is the one place a client reads that list, and every other publish
     /// of the row carries it, so no memory kept here of what was last sent could stay right.
+    ///
+    /// **The Job that started this one is published too**: its lanes draw a ticket it handed over in the state this Job reads it in.
     pub(crate) async fn job_lifecycles_published(&self, session: &str) {
-        let (held, row) = {
+        let (held, rows) = {
             let store = self.store().lock().await;
             let held = job_lifecycles_of(&store, session, &|manifest| self.lifecycles_that_apply(manifest));
-            let row = match store.session(session) {
-                Ok(Some(kept)) if kept.state == store::SessionState::Live && !held.instances.is_empty() => {
-                    self.ledger_reads(&store, &kept).ok().map(|reads| (kept, reads))
-                }
+            let live = |id: &str| match store.session(id) {
+                Ok(Some(kept)) if kept.state == store::SessionState::Live => Some(kept),
                 _ => None,
             };
-            (held, row)
+            let parent = (!held.instances.is_empty())
+                .then(|| store.attachments_of(&store::Holder::session(session)).unwrap_or_default())
+                .and_then(|attached| attached.into_iter().find(|one| one.kind == "started_by"))
+                .and_then(|link| live(&link.target));
+            let rows: Vec<_> = live(session)
+                .filter(|_| !held.instances.is_empty())
+                .into_iter()
+                .chain(parent)
+                .filter_map(|kept| self.ledger_reads(&store, &kept).ok().map(|reads| (kept, reads)))
+                .collect();
+            (held, rows)
         };
         if !held.instances.is_empty() || !held.changes.is_empty() {
             self.publish(ipc::Event::JobLifecyclesChanged(held));
         }
-        if let Some((kept, reads)) = row {
+        for (kept, reads) in rows {
             self.publish(ipc::Event::SessionChanged(self.ledger_built(&kept, reads)));
         }
+    }
+
+    /// What `session` holds, as `get_job_lifecycles` serves it. For a caller that already holds the lock.
+    pub(crate) fn job_lifecycles_read(&self, store: &Store, session: &str) -> JobLifecycles {
+        job_lifecycles_of(store, session, &|manifest| self.lifecycles_that_apply(manifest))
+    }
+
+    /// The rules that apply to the repository `manifest_id`, as `list_lifecycle_rules` serves them. None where the
+    /// repository is not served.
+    pub(crate) fn rules_that_apply(&self, manifest_id: &str) -> Vec<AppliedRule> {
+        let id = core_model::ManifestId::carried(core_model::Ulid::carried(manifest_id));
+        let (Ok(applying), Ok(autonomy)) = (self.rules_applying_to(&id), self.autonomy_applying_to(&id)) else {
+            return Vec::new();
+        };
+        applied_rules(&applying, &autonomy.defaults())
     }
 
     /// The Job a call is about: the hosted one holding the connection, else the one named, which
@@ -241,14 +278,7 @@ where
         let defaults = self.autonomy_applying_to(served.manifest().id())?.defaults();
         Ok(RepositoryLifecycleRules {
             manifest_id: ManifestId::from(served.manifest().id()),
-            rules: applying
-                .files()
-                .iter()
-                .map(|file| AppliedRule {
-                    rule: wire::rule_under(file.rule(), &defaults),
-                    kept: wire::kept(file.rank(), Some(file.path()), file.overridden_by(), file.hides()),
-                })
-                .collect(),
+            rules: applied_rules(&applying, &defaults),
             left_out: wire::left_out(applying.left_out()),
         })
     }

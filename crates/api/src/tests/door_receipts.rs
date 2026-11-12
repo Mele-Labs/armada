@@ -148,6 +148,7 @@ fn long_lived() -> SessionRecord {
         mark: None,
         viewed_at: None,
         compact: None,
+        lanes: None,
     }
 }
 

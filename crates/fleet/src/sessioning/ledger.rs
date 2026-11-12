@@ -208,6 +208,7 @@ where
             None => Vec::new(),
         };
         let flying = self.lifecycles_flying(store, &session.id);
+        let lanes = self.lanes_read(store, session, &held, hosting.as_ref().is_some_and(|hosting| hosting.workflow.is_some()));
         let stop = store.session_stop(&session.id).map_err(fault)?;
         let open_turn = store.open_turn(&session.id).map_err(fault)?;
         let values = match &hosting {
@@ -234,6 +235,7 @@ where
             later: store.later_of(&session.id).map_err(fault)?,
             watching: store.live_watch_names(&session.id).map_err(fault)?,
             holding: flying.iter().filter(|one| one.holds).cloned().collect(),
+            lanes,
             flying,
             repair_over: stop.repair_job.as_deref().is_some_and(|repair| store.repair_over(repair).unwrap_or(true)),
             stop_repaired_at: store.last_repair_started(&session.id, [crate::repair::RepairBreak::Quiet.key(), crate::repair::RepairBreak::RedPull { number: 0 }.key()]).unwrap_or_default(),
@@ -373,6 +375,7 @@ where
             });
         record.started = reads.started;
         self.rail_drawn(session, &reads.rail, reply_owed_since.as_deref(), &mut record);
+        self.lanes_drawn(session, reads.lanes, &mut record);
         // Held open only when what it waits on is all that is left, read once the rail has drawn its wait: a
         // turn running or an item owed says more than a watch or a pull request does. A command the agent
         // backgrounded does not: a dev server outlives the work, so what holds the Job reads over it.

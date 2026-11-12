@@ -70,6 +70,7 @@ pub(super) fn a_record() -> SessionRecord {
         mark: None,
         viewed_at: None,
         compact: None,
+        lanes: None,
     }
 }
 

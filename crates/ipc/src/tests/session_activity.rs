@@ -68,6 +68,7 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         mark: None,
         viewed_at: None,
         compact: None,
+        lanes: None,
     }
 }
 

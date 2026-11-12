@@ -60,6 +60,8 @@ pub(crate) struct LedgerReads {
     pulls: Vec<crate::plan_record::PlanPull>,
     /// What the workflow rail is derived from.
     rail: crate::rail_keeping::RailReads,
+    /// What the Job's lanes are drawn from.
+    lanes: Option<crate::lane_keeping::LaneReads>,
     /// How the Job was started, and the Job that started it.
     started: Option<ipc::SessionStarted>,
     /// The wait of a Session still waiting on another, and the title of the one it waits on.

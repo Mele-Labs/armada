@@ -151,6 +151,10 @@ pub(crate) mod main_hub;
 /// A possible `armada.yml` per workspace, from Scan, and the Write that ends it.
 pub mod manifest_proposal;
 pub mod merge_lines;
+/// A Job's lanes, worked out once for every client: `SessionRecord::lanes`.
+mod job_lanes;
+/// Where a Job's lanes meet the store and the record.
+mod lane_keeping;
 /// The merge line as a screen draws it, read once for every client: `get_merge_line_view`.
 mod merge_line_view;
 /// What calls the person and which of it he has not opened, read once for every client: `get_calls`, `calls.changed`.
