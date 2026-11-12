@@ -257,22 +257,22 @@ impl SettingsOverlay {
                 (Group::Project, Some(scope)) => scope.name.clone(),
                 _ => group.label().to_string(),
             };
-            // A section label, as `SystemSidebar.css`'s caption: muted mono and a hairline out to the edge, so only the
-            // entries read as pickable.
+            // The new look's band (`depth.css`, `.armada-system-side__head`), which Classic always runs: the foreground at
+            // 8% under mono words. The words are muted, so only the entries read as pickable.
             let caption = div()
                 .flex()
                 .items_center()
-                .gap(look.length(token::SPACE_2))
-                .pt(look.length(token::SPACE_2))
-                .px(look.length(token::SPACE_2))
-                .pb(look.length(token::SPACE_1))
+                .min_h(look.length(token::H_CONTROL_SM))
+                .pl(look.length(token::SPACE_3))
+                .pr(look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_MD))
+                .bg(look.color(token::FG_DEFAULT).opacity(0.08))
                 .font_family(mono(look))
-                .text_size(look.length(token::TEXT_2XS))
-                .line_height(look.length(token::LEADING_2XS))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                 .text_color(look.color(token::FG_MUTED))
-                .child(div().flex_none().child(SharedString::from(label.clone())))
-                .child(div().flex_1().h(look.length(token::BORDER_WIDTH)).bg(look.color(token::BORDER_SUBTLE)));
+                .child(SharedString::from(label.clone()));
             let mut list = div().flex().flex_col().gap(look.length(token::SPACE_1)).child(caption);
             for one in rows {
                 let on = shown.is_some_and(|shown| shown.id == one.id);
