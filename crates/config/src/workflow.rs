@@ -262,7 +262,7 @@ fn read(path: &Path, root: &Value, roster: &Roster, out: &mut Vec<Refusal>) -> O
     //
     // Zero is not refused, and is the whole point of the key: a workflow whose
     // every step declares `false` produces something that is read rather than
-    // merged, and four of the eight shipped workflows are that.
+    // merged, and four of the nine shipped workflows are that.
     let mut delivers_at: Option<usize> = None;
     for (n, step) in &placed {
         if !step.delivers() {

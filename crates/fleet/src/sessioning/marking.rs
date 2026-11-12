@@ -136,14 +136,16 @@ fn working(record: &SessionRecord) -> bool {
 
 /// No slot, no branch, no title, no turn and no row. An attachment counts as Bridge draws one: what is
 /// given back is gone unless it is a subagent, an artifact or a background task, and a slot or branch
-/// only while it stands. A title of only space is none.
+/// only while it stands. A title of only space is none, and so is a quick terminal's, which Fleet gives
+/// it at start: it is not started until he writes.
 fn blank(record: &SessionRecord, thread: &Thread) -> bool {
     let drawn = record.attachments.iter().any(|one| match one.kind.as_str() {
         "slot" | "branch" => one.state == AttachmentState::Standing,
         "subagent" | "artifact" | "background" => true,
         _ => one.state != AttachmentState::GivenBack,
     });
-    !drawn && record.title.as_deref().is_none_or(|title| title.trim().is_empty()) && record.last_turn_at.is_none() && !thread.spoken
+    let titled = !record.quick_terminal && record.title.as_deref().is_some_and(|title| !title.trim().is_empty());
+    !drawn && !titled && record.last_turn_at.is_none() && !thread.spoken
 }
 
 /// Each pull request it holds, in order: whether it merged, and whether its Checks failed.

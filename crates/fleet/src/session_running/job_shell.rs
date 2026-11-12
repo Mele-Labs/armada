@@ -180,6 +180,13 @@ impl SessionRuns {
         Ok((id, true))
     }
 
+    /// What `session`'s terminal `number` holds, where its shell is in flight.
+    fn shell_held(&self, session: &str, number: u32) -> Option<String> {
+        let run = self.in_flight(&self.shell_open(session, number)?)?;
+        let held = run.state.lock().expect("not poisoned").held.clone();
+        Some(held)
+    }
+
     /// The run id of `session`'s terminal `number`, where its shell is in flight.
     pub(super) fn shell_open(&self, session: &str, number: u32) -> Option<String> {
         let id = self.shells.lock().expect("not poisoned").get(session)?.get(&number).cloned()?;
@@ -446,5 +453,27 @@ where
             .ok_or_else(|| self.terminal_not_open(&terminal_id(number)))?;
         self.terminal_saw(&session, number, &run_id).await;
         Ok(TerminalScreen { terminal: terminal_id(number), run_id, screen: kept(plain::last_lines(&held, lines)), matched })
+    }
+
+    /// A quick terminal's open terminals as their screens stand, for the agent to read ahead of the
+    /// person's message: each one's last [`SCREEN_LINES`] lines, kept as `read_terminal` keeps them.
+    /// `None` where none is open.
+    pub(crate) async fn terminals_shown(&self, session: &str) -> Option<String> {
+        let mut shown = Vec::new();
+        for (number, run_id) in self.session_runs().shells_open(session) {
+            let Some(held) = self.session_runs().shell_held(session, number) else { continue };
+            self.terminal_saw(session, number, &run_id).await;
+            let screen = kept(plain::last_lines(&held, SCREEN_LINES));
+            shown.push(format!("Terminal {}:\n```\n{}\n```", terminal_id(number), screen.trim_end()));
+        }
+        if shown.is_empty() {
+            return None;
+        }
+        Some(format!(
+            "This is a quick terminal: the person works in the terminals below and wrote to you about them. \
+             Here is what each shows now. Answer from it, and type into one with type_in_terminal only \
+             when the person asks you to.\n\n{}",
+            shown.join("\n\n")
+        ))
     }
 }

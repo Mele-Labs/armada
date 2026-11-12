@@ -22,7 +22,11 @@ use super::holding::rebuilt;
 use super::keeping::{JOB, PULL_REQUEST};
 use super::wire;
 use crate::daemon::Fleet;
+use crate::job_lanes::{editor_lanes, EditorInput};
 use crate::session_host::NO_SUCH_SESSION;
+
+/// `get_workflow_lanes` asked for a level other than the default's, which is not served yet. A 422.
+const LANES_LEVEL_NOT_SERVED: &str = "fleet.lanes_level_not_served";
 
 const UNPLACED: &str = "fleet.job_lifecycles_unplaced";
 
@@ -281,6 +285,33 @@ where
             rules: applied_rules(&applying, &defaults),
             left_out: wire::left_out(applying.left_out()),
         })
+    }
+
+    async fn get_workflow_lanes(
+        &self,
+        workflow: String,
+        scope: Option<String>,
+        manifest_id: Option<ManifestId>,
+    ) -> Result<ipc::JobLanesView, Refusal> {
+        if let Some(scope) = scope.filter(|one| one != "default") {
+            return Err(Refusal::Unacceptable(
+                ipc::WireError::raised(
+                    LANES_LEVEL_NOT_SERVED,
+                    format!("only the default level's lanes are served; `{scope}` is not yet"),
+                    self.run_id(),
+                )
+                .with_field("scope", ipc::WireValue::Str(scope)),
+            ));
+        }
+        let served = self.served_named(manifest_id.as_ref())?;
+        let held = served.workflows();
+        let found = held
+            .get(&core_model::WorkflowId::carried(core_model::Ulid::carried(&workflow)))
+            .ok_or_else(|| self.no_such_definition(&workflow, None))?;
+        let steps: Vec<(String, String)> = crate::rail::steps_of(found).into_iter().map(|step| (step.id, step.label)).collect();
+        let lifecycles = self.list_lifecycles(manifest_id.clone()).await?.lifecycles;
+        let rules = self.list_lifecycle_rules(manifest_id).await?.rules;
+        Ok(editor_lanes(&EditorInput { workflow: &workflow, steps: &steps, lifecycles: &lifecycles, rules: &rules }))
     }
 
     async fn list_autonomy_defaults(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryAutonomy, Refusal> {

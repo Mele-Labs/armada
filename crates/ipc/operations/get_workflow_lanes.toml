@@ -1,0 +1,14 @@
+[operations.get_workflow_lanes]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "A workflow's lanes as its editor draws them: the steps, a lane for each lifecycle with its states in columns, and an edge for each rule"
+notes = """
+`GET /workflows/lanes?workflow=&scope=&manifest_id=`, since 12 Nov 2026, for native Settings → Kit → Workflows. `manifest_id` is the repository Fleet started in where absent. Answers 200 with a `JobLanesView`, the type `SessionRecord::lanes` carries, so one canvas draws a Job's lanes and a workflow's alike.
+
+**No Job stands in them.** `at` is -1, `working` and `skipped` are absent, and `job` holds only `copy`: the workflow's `steps` in order, every `lifecycles` of the default level and the `rules` drawn. These are what the forms that add a step, a lifecycle or a rule pick from. `instances`, `fired` and `changes` are empty. `lanes` is the workflow's lane, titled by its id with a Start and an End, then one lane for each lifecycle with an id of its own. `rules` holds one `LaneEdge` for each rule, `id` and `rule` both the rule's id, `status` `waiting` and no `waits`. A rule that is off is drawn.
+
+**The default level only, for now.** A lifecycle is the piece scoped everywhere, Kit's over the repository's over Armada's. Its states sit in the columns the moves between them give, as on a Job's lanes. A rule is drawn from its piece at the widest level that keeps one, and only where a Job event or a gate does not set it off, it lands on a node, its `workflow` condition (if any) names this workflow, and both of its ends are drawn. Where it lands is the state a `tracker_move` moves to, the first ending state a `tracker_close` closes in, `ready` or `merged` for `forge_mark_ready` and `forge_merge`, the deploy lifecycle's first state for a `start_watch` with a deploy, else the step an `at_step` condition names. The marks for where a level below differs, a clash, a proposed rule and a pending removal or keep come later.
+
+`scope` absent or `default` is the default level. Any other is 422 `fleet.lanes_level_not_served`, naming it. `workflow` names a workflow this repository runs. One it does not run is 422 `fleet.no_such_workflow_definition`.
+"""

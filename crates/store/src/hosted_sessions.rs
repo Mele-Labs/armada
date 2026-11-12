@@ -62,12 +62,17 @@ pub struct KeptHosting {
     pub mod_of_bay: bool,
     /// The project of his the Job was started for, by id. `None` is for none.
     pub project: Option<String>,
+    /// A quick terminal (`start_terminal_job`): it opens onto `t1` and its agent waits for the person.
+    pub quick_terminal: bool,
+    /// The folder under the repository's root the Job's terminals open in, as `crates/fleet`. `None`
+    /// is the root, or the slot's worktree once one is held.
+    pub terminal_dir: Option<String>,
 }
 
 const COLUMNS: &str =
     "session_id, manifest_id, model, effort, mode, ran, lease_slot, lease_branch, fork_of, on_your_words, \
      setup, workflow, proposed, turn_model, turn_effort, paused_at, paused_resuming, auto_land, \
-     mod_job, start_held, workflow_chosen, from_job, from_tab, mod_of_bay, project";
+     mod_job, start_held, workflow_chosen, from_job, from_tab, mod_of_bay, project, quick_terminal, terminal_dir";
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
     Ok(KeptHosting {
@@ -96,6 +101,8 @@ fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
         from_tab: row.get(22)?,
         mod_of_bay: row.get::<_, i64>(23)? != 0,
         project: row.get(24)?,
+        quick_terminal: row.get::<_, i64>(25)? != 0,
+        terminal_dir: row.get(26)?,
     })
 }
 
@@ -105,7 +112,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT OR REPLACE INTO hosted_sessions ({COLUMNS})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)"
                 ),
                 params![
                     hosting.session_id,
@@ -133,6 +140,8 @@ impl Store {
                     hosting.from_tab,
                     i64::from(hosting.mod_of_bay),
                     hosting.project,
+                    i64::from(hosting.quick_terminal),
+                    hosting.terminal_dir,
                 ],
             )
             .map(|_| ())

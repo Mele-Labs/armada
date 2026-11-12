@@ -121,6 +121,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::repositories::get_workflow_steps::<D>),
         )
         .route(
+            "/workflows/lanes",
+            get(crate::lifecycles::get_workflow_lanes::<D>),
+        )
+        .route(
             "/workflows/save",
             post(crate::repositories::save_workflow::<D>),
         )
@@ -294,6 +298,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/sessions/terminal/open", post(crate::terminals::open_terminal::<D>))
         .route("/sessions/terminal/run", post(crate::terminals::start_terminal_run::<D>))
+        .route("/sessions/terminal/start", post(crate::terminals::start_terminal_job::<D>))
         .route("/sessions/terminal/type", post(crate::terminals::type_in_terminal::<D>))
         .route("/sessions/terminal/read", get(crate::terminals::read_terminal::<D>))
         .route("/sessions/terminal/list", get(crate::terminals::list_terminals::<D>))

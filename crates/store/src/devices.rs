@@ -31,6 +31,15 @@ pub struct PushSubscription {
     pub vapid_private: Option<Secret<String>>,
 }
 
+/// This Mac, as its other Macs and phones know it. Minted once and never changed by a mint again.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ThisMac {
+    pub id: String,
+    pub name: String,
+    pub colour: String,
+    pub minted_at: i64,
+}
+
 const COLUMNS: &str = "device_id, name, public_key, created_at, last_seen_at";
 
 fn device(row: &rusqlite::Row<'_>) -> rusqlite::Result<Device> {
@@ -146,6 +155,23 @@ impl Store {
             })
             .map_err(fault(doing))?;
         rows.collect::<Result<_, _>>().map_err(fault(doing))
+    }
+
+    /// This Mac as it was first minted, minting `fresh` only where none is kept, so two Gateways that
+    /// start at once agree on the one that won.
+    pub fn this_mac_or(&mut self, fresh: &ThisMac) -> Result<ThisMac, DatabaseFault> {
+        let doing = "minting this Mac's id";
+        self.conn
+            .execute(
+                "INSERT OR IGNORE INTO pocket_this_mac (only, mac_id, name, colour, minted_at) VALUES (1, ?1, ?2, ?3, ?4)",
+                (&fresh.id, &fresh.name, &fresh.colour, fresh.minted_at),
+            )
+            .map_err(fault(doing))?;
+        self.conn
+            .query_row("SELECT mac_id, name, colour, minted_at FROM pocket_this_mac WHERE only = 1", [], |row| {
+                Ok(ThisMac { id: row.get(0)?, name: row.get(1)?, colour: row.get(2)?, minted_at: row.get(3)? })
+            })
+            .map_err(fault(doing))
     }
 
     /// Drop a subscription the push service said is gone.

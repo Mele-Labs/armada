@@ -1109,6 +1109,13 @@ where
         Ok(ipc::SessionRunUnderway { run_id, terminal: Some(terminal) })
     }
 
+    async fn start_terminal_job(
+        self: Arc<Self>,
+        start: ipc::StartTerminalJob,
+    ) -> Result<ipc::TerminalJobStarted, Refusal> {
+        self.started_quick_terminal(start).await
+    }
+
     async fn start_terminal_run(
         self: Arc<Self>,
         start: ipc::StartTerminalRun,
