@@ -637,16 +637,15 @@ async fn a_workflow_the_repository_runs_is_served_as_its_lanes() {
     assert!(view.lanes[1..].iter().all(|lane| lane.kind == LaneKind::Lifecycle));
 }
 
-/// **A mark is left off the wire where there is none**, so a repository whose pieces nobody changes below the
-/// default reads as it did before marks.
-#[tokio::test]
-async fn the_lanes_carry_no_mark_where_nothing_differs() {
-    let (_home, app) = holding().await;
+/// **A mark is left off the wire where there is none**, on a lane, a node and an edge, so lanes whose pieces
+/// nobody changes below the default read as they did before marks.
+#[test]
+fn the_lanes_carry_no_mark_where_nothing_differs() {
+    let view = lanes_of(&every(), &[kits(rule("plan_moves", starts("plan"), vec![moves_ticket_to("ready")]))]);
+    assert!(!view.rules.is_empty(), "an edge to say nothing on");
 
-    let (status, body) = call(&app, "GET", "/workflows/lanes?workflow=staged", "").await;
+    let said = ipc::encode(&view).expect("encoded");
 
-    assert_eq!(status, StatusCode::OK);
-    let said = String::from_utf8_lossy(&body);
     for field in ["\"differs\":", "\"clash\":", "\"proposed\":", "\"pending\":"] {
         assert!(!said.contains(field), "{field} in {said}");
     }
