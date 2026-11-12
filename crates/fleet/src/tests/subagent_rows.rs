@@ -235,3 +235,20 @@ async fn subagent_change_event_published() {
         assert_eq!((one.session_id.as_str(), one.subagent_id.as_str()), (id.as_str(), "a7"), "the id get_session_subagent takes");
     }
 }
+
+#[tokio::test]
+async fn a_cut_off_subagent_is_told() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    working(&rig, &id).await;
+    let mut watching = rig.fleet.events().subscribe();
+
+    rig.fleet.calls_let_go(id.as_str()).await;
+    let rows = agent_rows(&rig, &id).await;
+    let [(_, Some(subagent))] = &rows[..] else { panic!("one Agent row carrying its subagent: {rows:?}") };
+    assert_eq!(subagent.state, ToolSubagentState::CutOff);
+
+    let told = subagent_events(&mut watching, 1).await;
+    assert_eq!(told.len(), 1, "a subagent the process loss cut off has settled too");
+    assert_eq!((told[0].session_id.as_str(), told[0].subagent_id.as_str()), (id.as_str(), "a7"));
+}

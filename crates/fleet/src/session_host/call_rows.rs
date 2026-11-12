@@ -382,7 +382,9 @@ where
         let ended = self.instant();
         let cut = self.running_rows(id, |_| true, ToolSubagentState::CutOff, &ended, None).await;
         for row in read.into_iter().chain(cut) {
+            let moved = subagent_of(&row);
             self.row_put(id, row).await;
+            self.subagent_moved(id, moved);
         }
     }
 
