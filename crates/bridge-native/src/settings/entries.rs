@@ -47,6 +47,10 @@ pub enum Body {
     Workflows,
     /// The models the harness offers and the model each run starts on (`KitModels`).
     Models,
+    /// Each panel and place a layout arranges, with its switch, then the layout mods (`LayoutSettings`, `layout_choices`).
+    Layout,
+    /// How a stamp is written: three switches and a sample (`TimeSettings`, `time_format`).
+    Time,
     /// This Mac, its Cloudflare tunnel, and the Macs and phones that reach it, off the Phone Gateway (`macs.rs`).
     Macs,
     /// A list of mods (`ModList`): All where no kind is named, else the mods of that kind, listed only while there is one.
@@ -92,6 +96,8 @@ pub const SECTIONS: &[Section] = &[
     Section { id: "trackers", label: "Tracker", palette: "Tracker mods", words: &["Tracker", "mods", "issue tracker", "tried", "valid", "stale", "try", "switch", "promote"] },
     Section { id: "fleet-mods", label: "Fleet", palette: "Fleet mods", words: &["Fleet", "mods", "teach", "taught", "notices", "batch", "quiet", "switch"] },
     Section { id: "macs", label: "Macs", palette: "Macs", words: &["Macs", "mac", "this mac", "tunnel", "cloudflare", "devices", "phones", "unpair", "address"] },
+    Section { id: "layout", label: "Layout", palette: "Layout", words: &["Layout", "tabs", "panels", "rail", "hide", "order", "reset"] },
+    Section { id: "time", label: "Time", palette: "Time", words: &["Time", "clock", "24-hour", "12-hour", "seconds", "date", "timestamp", "stamp", "format"] },
     Section { id: "spacing", label: "Spacing", palette: "Spacing", words: &["Spacing", "density", "compact", "default", "roomy", "room", "dense"] },
 ];
 
@@ -114,10 +120,12 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "fleet:repository", label: "Repository", group: Group::Fleet, body: Body::Repository },
     Entry { id: "bridge:all", label: "All", group: Group::Mods, body: Body::Mods(None) },
     Entry { id: "bridge:theme", label: "Theme", group: Group::Mods, body: Body::Theme },
+    Entry { id: "bridge:layout", label: "Layout", group: Group::Mods, body: Body::Layout },
     Entry { id: "bridge:tracker", label: "Tracker", group: Group::Mods, body: Body::Mods(Some(ipc::ModKind::Tracker)) },
     Entry { id: "bridge:fleet", label: "Fleet", group: Group::Mods, body: Body::Mods(Some(ipc::ModKind::Fleet)) },
     Entry { id: "bridge:spacing", label: "Spacing", group: Group::Bridge, body: Body::Schema(&["spacing"]) },
     Entry { id: "bridge:keyboard", label: "Keyboard shortcuts", group: Group::Bridge, body: Body::Keyboard },
+    Entry { id: "bridge:time", label: "Time", group: Group::Bridge, body: Body::Time },
     Entry { id: "bridge:editor", label: "Editor", group: Group::Bridge, body: Body::Schema(&["editor"]) },
     Entry { id: "bridge:terminal", label: "Terminal", group: Group::Bridge, body: Body::Schema(&["terminal"]) },
     Entry { id: "bridge:links", label: "Links", group: Group::Bridge, body: Body::Schema(&["links"]) },
@@ -176,6 +184,8 @@ pub(super) fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
         Body::Mods(Some(ipc::ModKind::Tracker)) => &["trackers"],
         Body::Mods(Some(_)) => &["fleet-mods"],
         Body::Macs => &["macs"],
+        Body::Layout => &["layout"],
+        Body::Time => &["time"],
         Body::Repository | Body::ProjectValues | Body::Keyboard | Body::Workflows => &[],
     };
     let mut words = vec![entry.label.to_string()];

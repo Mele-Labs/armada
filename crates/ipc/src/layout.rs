@@ -8,7 +8,10 @@
 //! registry and never a reason to refuse a file: an id or a region this build does not have is
 //! ignored by both.
 
-use serde_json::Value;
+use std::collections::BTreeMap;
+
+use serde::Serialize;
+use serde_json::{Map, Value};
 
 /// The most a `layout.json`, or the owner's saved choice, may weigh.
 pub const MOST_BYTES: usize = 4096;
@@ -83,4 +86,50 @@ fn is_id(text: &str) -> bool {
     chars.next().is_some_and(|c| c.is_ascii_lowercase())
         && text.len() <= MOST_ID
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
+/// What a layout says of one region. A list present but empty still says something: the owner's own
+/// `hidden: []` shows what a mod hid.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Choice {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hidden: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first: Option<String>,
+}
+
+/// Each region `text` speaks of that this build arranges, or none where it has a problem, as `parseLayout` reads it.
+pub fn choices(text: &str) -> BTreeMap<String, Choice> {
+    if text.trim().is_empty() || !problems(text).is_empty() {
+        return BTreeMap::new();
+    }
+    let Ok(Value::Object(top)) = serde_json::from_str::<Value>(text) else { return BTreeMap::new() };
+    let known = regions();
+    let ids = |body: Option<&Value>| body.and_then(Value::as_array).map(|all| all.iter().filter_map(|one| one.as_str().map(String::from)).collect());
+    top.iter()
+        .filter(|(key, _)| known.contains(key))
+        .map(|(key, body)| {
+            let choice = Choice { hidden: ids(body.get("hidden")), order: ids(body.get("order")), first: body.get("first").and_then(Value::as_str).map(String::from) };
+            (key.clone(), choice)
+        })
+        .collect()
+}
+
+/// The owner's choices as the text of a `layout.json`, as `serializeLayout` writes them: **empty where nothing is
+/// chosen**, which Fleet takes as no choice.
+pub fn text_of(choices: &BTreeMap<String, Choice>) -> String {
+    let regions: Map<String, Value> = choices
+        .iter()
+        .filter(|(_, choice)| **choice != Choice::default())
+        .map(|(key, choice)| (key.clone(), serde_json::to_value(choice).expect("a choice is JSON")))
+        .collect();
+    if regions.is_empty() {
+        return String::new();
+    }
+    let mut top = Map::new();
+    top.insert("version".into(), Value::from(1));
+    top.extend(regions);
+    Value::Object(top).to_string()
 }

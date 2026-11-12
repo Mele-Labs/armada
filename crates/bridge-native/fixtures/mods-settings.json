@@ -30,6 +30,14 @@
         "listed": 12,
         "read": "ACME-7"
       }
+    },
+    {
+      "name": "hide-guides",
+      "kind": "layout",
+      "description": "Hide Guides from the places",
+      "enabled": true,
+      "valid": true,
+      "changed_at": "2026-11-09T16:20:00Z"
     }
   ]
 }
