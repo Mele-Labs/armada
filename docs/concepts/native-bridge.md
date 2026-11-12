@@ -100,6 +100,7 @@ Then the Electron app is deleted from the repo, and the packages Pocket uses sta
 | Thread | A run of tool calls folds into one line that opens on a press |
 | Start | The app opens where he left off |
 | Accessibility | Full VoiceOver |
+| A setup screen (owner, 12 Nov) | Opened cold, with no walk: each state shows the one press that moves it on and the reason when there is one. Nothing tells him to go and do something outside Bridge; a state with nothing to press says what stands, in plain facts. If he needs a walk through it, the screen has failed |
 
 **The speed figures tune the build and gate nothing.**
 They are measured against Electron, where a thread's first paint takes 132 to 239 ms today.
@@ -155,6 +156,7 @@ The parity check takes each row here as chosen.
 | The page a sent note names | The page's web address, which Fleet reads as a checkout of the page | `armada://native/<screen>`, since a native screen has no web address |
 | A hold on the Operator page | Electron is frozen and draws no paths, Job or until | Fleet's words, then a line under them with each held path in mono and "until it pushes" or "until it ends"; a press opens the Job that alone writes there. A hold Fleet sent before it named them keeps its words alone |
 | A picture a call read, and a message a call sent | Electron is frozen and draws a `Read` of a picture and a `SendMessage` as their bare lines | A `Read` of a picture draws it under its line, read from the Job's own files, and a press opens it full size. A `SendMessage` reads "Message to" and the Job's title, a link where Fleet placed it, else the name as written; its summary is the second line, and a press on the row shows the words it sent |
+| A switch in Settings (owner, 12 Nov) | The default `Switch`, two space-units taller than a badge, near a row's height, so the rows read as one column | Classic's small switch (`data-size="sm"`): one badge tall, with each row's height kept, so a row has air above and below its switch |
 
 ## Notifying
 
