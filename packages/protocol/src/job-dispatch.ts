@@ -15,7 +15,13 @@ export type DispatchJob = StartSession & {
 };
 
 /** One send into the Job a dispatch became: the notes of a walk (`send_session_notes`), or a message (`send_session_message`). */
-export type DispatchThen = { notes: SessionNote[] } | { message: DispatchMessage };
+export type DispatchThen =
+  | {
+      notes: SessionNote[];
+    }
+  | {
+      message: DispatchMessage;
+    };
 
 /** A `SendSessionMessage` whose Job is not known yet. */
 export type DispatchMessage = {
