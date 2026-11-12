@@ -34,6 +34,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same Jobs: the first owing a draft and two native walks, Audit the docs index a draft whose
         // row has gone, and Quiet the write-clash notices a page alone.
         "job-tabs" => include_bytes!("../fixtures/jobs-tabs.json"),
+        // The panes' first Job with its plan approved and two groups finished, three pull requests
+        // merged, its issue closed, a Job it started finished, and what Fleet did for it.
+        "job-done" => include_bytes!("../fixtures/jobs-done.json"),
         "job-view-composer" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
@@ -87,6 +90,8 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "job-view" | "review-palette" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and Quiet the write-clash notices holding the page it asks him to read.
         "job-tabs" => include_bytes!("../fixtures/tabs-threads.json"),
+        // The panes' threads, with two walks ended, two commits and Fleet's acts on the first.
+        "job-done" => include_bytes!("../fixtures/done-threads.json"),
         // The same threads, and the earlier Job's, ended where it handed on.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff-threads.json"),
         // The same threads, with the Job that took the router upgrade on and the forked one.
@@ -581,6 +586,8 @@ mod tests {
         assert_eq!(super::threads("drafts").expect("decodes").len(), 1);
         assert!(super::jobs("job-tabs").expect("decodes").len() > 10);
         assert_eq!(super::threads("job-tabs").expect("decodes").len(), 4);
+        assert!(super::jobs("job-done").expect("decodes").len() > 10);
+        assert!(!super::threads("job-done").expect("decodes").is_empty());
     }
 }
 

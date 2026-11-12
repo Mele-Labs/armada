@@ -154,6 +154,29 @@ fn detail<'a>(one: &'a ipc::Attachment, key: &str) -> Option<&'a str> {
     one.detail.get(key).map(String::as_str)
 }
 
+/// A page, file or doc the Job made, as its row reads it.
+pub(super) fn artifact_line(one: &ipc::Attachment, kind: &'static str) -> Line {
+    let (glyph, said) = match detail(one, "form") {
+        Some("page") => ("globe", "Published page"),
+        Some("file") => ("files", "File written"),
+        Some("image") => ("image", "Looked at"),
+        Some("doc") => ("notebook-text", "Doc"),
+        Some("document") => ("file-text", "Document"),
+        _ => ("app-window", "Shown in a window"),
+    };
+    // A file the agent showed and did not write.
+    let shown_only = detail(one, "form") == Some("file") && detail(one, "by") == Some("agent") && detail(one, "shown").is_some() && detail(one, "written") != Some("true");
+    Line {
+        key: format!("artifact:{}", one.target),
+        kind,
+        glyph,
+        said: if shown_only { "File shown" } else { said },
+        title: detail(one, "title").map(str::to_string).unwrap_or_else(|| one.target.rsplit('/').next().unwrap_or_default().to_string()),
+        sub: Some(one.target.clone()),
+        ..Line::default()
+    }
+}
+
 /// A Job's state as the ledger's marks say it (`TONE`).
 fn tone_of(state: JobState) -> Tone {
     match state {
@@ -167,7 +190,7 @@ fn tone_of(state: JobState) -> Tone {
 }
 
 /// The message of a `git commit -m "..."` call (`commitOf`): the first quoted words after `-m` or `--message` on the command's first line.
-fn commit_of(text: &str) -> Option<String> {
+pub(super) fn commit_of(text: &str) -> Option<String> {
     let rest = text.strip_prefix("Bash").filter(|rest| rest.starts_with(char::is_whitespace))?.trim_start();
     let tail = rest.strip_prefix("git commit").filter(|tail| !tail.starts_with(|next: char| next.is_alphanumeric() || next == '_'))?;
     for (at, _) in tail.char_indices() {
@@ -336,7 +359,7 @@ impl JobView {
     }
 
     /// The rows of the thread a Job holds, oldest first: the ones drawn as they came, the calls and a Fleet turn's.
-    fn thread_rows(&self, id: &str, cx: &gpui::App) -> Vec<SessionRow> {
+    pub(super) fn thread_rows(&self, id: &str, cx: &gpui::App) -> Vec<SessionRow> {
         let Some(held) = self.thread(id, cx) else { return Vec::new() };
         let mut rows = Vec::new();
         for item in &held.items {
@@ -351,7 +374,7 @@ impl JobView {
     }
 
     /// The card a sketch of the ledger is drawn as in the thread, newest first, for its press.
-    fn sketch_card(&self, id: &str, target: &str, cx: &gpui::App) -> Option<String> {
+    pub(super) fn sketch_card(&self, id: &str, target: &str, cx: &gpui::App) -> Option<String> {
         let held = self.thread(id, cx)?;
         let from_items = held.items.iter().rev().find_map(|item| match item {
             ThreadItem::Sketch(card) if card.sketch == target => Some(card.id.clone()),
@@ -460,27 +483,6 @@ impl JobView {
             .collect();
         add("commit", "Commits", commits.into_iter().rev().collect());
 
-        let artifact_line = |one: &ipc::Attachment, kind: &'static str| {
-            let (glyph, said) = match detail(one, "form") {
-                Some("page") => ("globe", "Published page"),
-                Some("file") => ("files", "File written"),
-                Some("image") => ("image", "Looked at"),
-                Some("doc") => ("notebook-text", "Doc"),
-                Some("document") => ("file-text", "Document"),
-                _ => ("app-window", "Shown in a window"),
-            };
-            // A file the agent showed and did not write.
-            let shown_only = detail(one, "form") == Some("file") && detail(one, "by") == Some("agent") && detail(one, "shown").is_some() && detail(one, "written") != Some("true");
-            Line {
-                key: format!("artifact:{}", one.target),
-                kind,
-                glyph,
-                said: if shown_only { "File shown" } else { said },
-                title: detail(one, "title").map(str::to_string).unwrap_or_else(|| one.target.rsplit('/').next().unwrap_or_default().to_string()),
-                sub: Some(one.target.clone()),
-                ..Line::default()
-            }
-        };
         add("page", "Pages", newest(&["page", "window"]).into_iter().map(|one| artifact_line(one, "page")).collect());
 
         let written = newest(&["file", "image"]);

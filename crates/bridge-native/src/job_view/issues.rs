@@ -178,7 +178,7 @@ impl JobView {
 
     /// The row (`IssueRow`): the mark of the Ticket state its status reads as, else the ticket in its
     /// Open or Closed hue; its number and title. A press opens its panel; a right press its menu.
-    fn issue_row(&self, item: IssueItem, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn issue_row(&self, item: IssueItem, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = item.key();
         // Another repository's issue names it before its number, so two repositories' #7 tell apart.
         let own = self.shown.as_ref().and_then(|id| self.record(id, cx)).and_then(|job| job.manifest_id.clone());
@@ -323,7 +323,7 @@ impl JobView {
 
 /// A Job as a card (`JobCard`): its state's hue on the frame and the left edge, the bot glyph, its
 /// title and state, the last line it said and its age. A press opens it.
-fn job_card(job: &SessionRecord, look: &Look, cx: &Context<JobView>) -> AnyElement {
+pub(super) fn job_card(job: &SessionRecord, look: &Look, cx: &Context<JobView>) -> AnyElement {
     let state = job.mark.map(|mark| mark.state);
     let (hue_token, calm) = card_hue(state);
     let hue = look.color(hue_token);

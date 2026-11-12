@@ -21,6 +21,7 @@ mod composer;
 mod deck;
 mod draft_doc;
 mod dock;
+mod done;
 mod edit;
 mod fork;
 mod format;
@@ -286,6 +287,8 @@ pub struct JobView {
     composer: composer::Composer,
     /// Every stamp in the thread reads as an age, not a clock (a press flips them all).
     aged: bool,
+    /// How Done lists what was made, for the run.
+    ledger_view: done::LedgerView,
     /// The Job fleet was last told is on screen.
     visiting: Option<SharedString>,
     switched: Option<std::time::Instant>,
@@ -419,6 +422,7 @@ impl JobView {
             head: head::Head::new(cx),
             composer,
             aged: false,
+            ledger_view: done::LedgerView::default(),
             visiting: None,
             switched: None,
             pane: None,

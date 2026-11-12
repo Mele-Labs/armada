@@ -119,13 +119,13 @@ pub(super) struct SideState {
 
 /// Where a group of an approved plan stands.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Stands {
+pub(super) enum Stands {
     Coming,
     Working,
     Done,
 }
 
-fn stands(group: &SessionPlanGroup) -> Stands {
+pub(super) fn stands(group: &SessionPlanGroup) -> Stands {
     if group.tasks.iter().any(|task| task.state == PlanTaskState::Working) {
         Stands::Working
     } else if !group.tasks.is_empty() && group.tasks.iter().all(|task| matches!(task.state, PlanTaskState::Done | PlanTaskState::HandedIn)) {
@@ -253,7 +253,7 @@ impl JobView {
         let own_frame = matches!(zone, Some(Zone::Changes | Zone::Files | Zone::Judge));
         let top_body = self.shown.clone().zip(zone).and_then(|(id, zone)| match zone {
             Zone::Open => Some(self.side_groups(&id, Stands::Coming, look, cx)),
-            Zone::Done => Some(self.side_groups(&id, Stands::Done, look, cx)),
+            Zone::Done => Some(self.side_done(&id, look, cx)),
             Zone::Deferred => Some(self.side_deferred(&id, look, cx)),
             Zone::Plan => self.pane_plan(&id, look, cx),
             Zone::Changes => self.pane_changes(&id, look, cx),

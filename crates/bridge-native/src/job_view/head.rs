@@ -1387,7 +1387,7 @@ fn up_to<'a>(items: &'a [ThreadItem], at: Option<&str>) -> &'a [ThreadItem] {
 
 /// The toolbelt's keys, as Electron's flight controls wear them (`flight-order.ts`): ⌥⇧6 Auto land,
 /// ⌥⇧7 Judge, ⌥⇧8 Report, ⌥⇧9 Release, and `p` Pause. ⌥⇧1 to ⌥⇧5 are the Job head's views.
-const TILE_KEYS: [(&str, &str); 5] = [("land", "alt-shift-6"), ("judge", "alt-shift-7"), ("report", "alt-shift-8"), ("release", "alt-shift-9"), ("pause", "p")];
+const TILE_KEYS: [(&str, &str); 6] = [("land", "alt-shift-6"), ("judge", "alt-shift-7"), ("report", "alt-shift-8"), ("release", "alt-shift-9"), ("pause", "p"), ("ledger", "alt-l")];
 
 /// A toolbelt act's tooltip, with the key it wears beside the sentence, as Electron's `Tooltip shortcut`.
 pub(super) fn keyed_tip(act: &str, said: SharedString) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
@@ -1410,7 +1410,10 @@ impl JobView {
         let bare = !keys.modifiers.modified();
         let chord = keys.modifiers.alt && keys.modifiers.shift && !keys.modifiers.platform && !keys.modifiers.control;
         let hosted = self.record(&id, cx).is_some_and(|job| job.hosted.is_some()) && !self.closed(&id, cx);
+        let alt = keys.modifiers.alt && !keys.modifiers.shift && !keys.modifiers.platform && !keys.modifiers.control;
         match (chord, bare, keys.key.as_str()) {
+            // Done's By step and By kind (`LEDGER_KEY`).
+            (false, false, "l") if alt => self.turn_ledger_view(cx),
             (true, _, "6") if hosted => self.head_act("land", window, cx),
             (true, _, "7") => self.open_judge_pane(window, cx),
             (true, _, "8") if self.record(&id, cx).is_some_and(|record| self.report_manifest(record, cx).is_some()) => self.toggle_report(window, cx),
