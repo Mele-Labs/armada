@@ -142,6 +142,7 @@ mod session_note_artifacts;
 mod pull_request_notes;
 mod session_dispute;
 mod bug_reports;
+mod share;
 mod session_dispute_reading;
 mod session_done;
 mod session_finish_up;
