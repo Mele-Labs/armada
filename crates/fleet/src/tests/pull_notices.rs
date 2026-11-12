@@ -1187,7 +1187,7 @@ async fn an_ask_read_off_a_reply_naming_the_pull_request_stands_at_auto_merge() 
     let session = rig.a_hosted_session_on(7).await;
     let id = SessionId::carried(&session);
     Arc::clone(&rig.fleet)
-        .send_session_message(SendSessionMessage { session_id: id.clone(), text: "land it".into(), attachments: Vec::new(), mentions: Vec::new() })
+        .send_session_message(SendSessionMessage { session_id: id.clone(), text: "land it".into(), attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })
         .await
         .unwrap();
     eventually(|| async { !rig.stand_in.starts().is_empty() }).await;

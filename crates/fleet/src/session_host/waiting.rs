@@ -1108,6 +1108,7 @@ where
             text: body,
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         };
         // The card routes answer through `answer_session_ask`, which enters its own; the rest are
         // a message to the agent, entered here once it is sent.
@@ -1275,18 +1276,19 @@ where
             // Settled only once the message is sent, so a failed send leaves the draft standing.
             WaitingSource::Draft => {
                 let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();
-                // A proposed workflow: Approve saves it and Dismiss drops it, before the Job is told.
-                if let (Some(change), Some(choice)) = (self.draft_change(&id, row).await, said.choice) {
-                    let change = ipc::WorkflowChangeRef { change };
-                    let (body, how) = if choice == 0 {
-                        self.proposal_approved(change).await?;
-                        (drafting::approved(&item.text, None), DraftHow::Approved)
-                    } else {
-                        self.proposal_dismissed(change).await?;
-                        (drafting::withdrawn(&item.text, None), DraftHow::Withdrawn)
-                    };
-                    Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
-                    return self.draft_settled(&id, row, how, None).await;
+                // A proposed workflow: Approve saves it and Dismiss drops it, before the Job is told. His notes
+                // put the old change aside, and the Job proposes it afresh.
+                let proposal = self.draft_change(&id, row).await.and_then(|change| match (said.choice, fixed, words) {
+                    (Some(0), ..) => Some((change, drafting::approved(&item.text, None), DraftHow::Approved, None)),
+                    (Some(_), ..) => Some((change, drafting::withdrawn(&item.text, None), DraftHow::Withdrawn, None)),
+                    (None, None, Some(note)) => {
+                        let body = [Some(drafting::workflow_sent_back(&item.text, note).as_str()), line].into_iter().flatten().collect::<Vec<_>>().join("\n");
+                        Some((change, body, DraftHow::SentBack, Some(note.to_string())))
+                    }
+                    (None, ..) => None,
+                });
+                if let Some((change, body, how, note)) = proposal {
+                    return self.proposal_answered(&id, row, change, how, note, (terminal.then_some(session), message(body))).await;
                 }
                 let (body, how, kept) = match (fixed, said.choice, words) {
                     (Some(fixed), ..) => (drafting::fixed(&item.text, fixed), DraftHow::Fixed, Some(fixed)),
@@ -1378,6 +1380,7 @@ where
                 text,
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             };
             Arc::clone(&self).send_known(terminal, sent).await?;
         }
@@ -1461,6 +1464,7 @@ where
             text: done_told(&item.text, done.note.as_deref()),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         };
         Arc::clone(&self).send_known(terminal, sent).await?;
         let closed = self.closed_as_it_stood(&item);
@@ -1521,6 +1525,7 @@ where
                 text: reopened(&item.text),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             };
             Arc::clone(&self).send_known(terminal, sent).await?;
         }

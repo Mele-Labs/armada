@@ -44,6 +44,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘J       the Operator's page, in the native Bridge only: the Electron Bridge draws no Operator
 ⌥⌘J      the newest toast the Operator raised, in the native Bridge only: A its pick, L Later, Esc shuts it
 ⌥⌘N      the history of the Operator's toasts, in the native Bridge only
+⌘T       new terminal: a terminal Job, opened on its shell with no sheet, in the native Bridge only
 ⌥⌘C      capture a note onto the open Studio
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
@@ -173,6 +174,7 @@ Enter          Send to Job   (plan only)
 d / Backspace  Dismiss   (plan only)
 r              Retry the failed hand off   (thread only)
 d              Dispatch job to fix the failed hand off   (thread only)
+Enter          New shell, in a terminal whose shell ended   (terminal only)
 ```
 
 **The Cockpit's keys and a call in front have scopes of their own**, `dashboard`

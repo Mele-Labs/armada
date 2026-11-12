@@ -7,6 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::operator_talk::OperatorHoldUntil;
 use crate::{Instant, MainCiState, OperatorRead, SessionId, WaitingAct, WaitingItem};
 
 /// Whose act an item is.
@@ -223,6 +224,15 @@ pub struct OperatorHold {
     pub repository: Option<String>,
     /// The hold in Fleet's words, such as `Hold src/a until Fix the clock pushes`.
     pub said: String,
+    /// The paths held, as the order names them. Empty on an answer from before they were sent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paths: Vec<String>,
+    /// The only Job that writes under them. Absent on an answer from before it was sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<SessionId>,
+    /// What lifts the hold. Absent on an answer from before it was sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<OperatorHoldUntil>,
     pub at: Instant,
 }
 

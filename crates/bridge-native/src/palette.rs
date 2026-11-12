@@ -126,7 +126,7 @@ impl Entry {
 
 /// The registered acts this build answers. The rest belong to screens the native app does not have yet, and the
 /// palette leaves them out rather than draw a row that does nothing. `command_palette` is the act that opened it.
-const ANSWERED: [&str; 8] = ["message_job", "needs_you", "needs_you_fold", "thread_yes", "thread_change", "thread_send_back", "thread_no", "deck_search"];
+const ANSWERED: [&str; 9] = ["message_job", "needs_you", "needs_you_fold", "thread_yes", "thread_change", "thread_send_back", "thread_no", "deck_search", "new_terminal_job"];
 
 fn act_entry(row: &Registered, section: Section) -> Entry {
     Entry {
@@ -586,6 +586,8 @@ impl Palette {
         let list = self.list.read(cx);
         let on = list.opened_id().and_then(|id| list.record(&id).map(|job| job.title.clone().unwrap_or_else(|| id.to_string())));
         let mut entries = registered(on.is_some());
+        // New terminal only where a terminal Job can be started.
+        entries.retain(|entry| entry.id != "act:new_terminal_job" || crate::terminal::shells::starts(cx));
         entries.extend(list.records().iter().filter_map(job_entry));
         (entries, on)
     }

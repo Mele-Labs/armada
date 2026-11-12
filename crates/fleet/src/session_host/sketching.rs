@@ -275,6 +275,7 @@ where
             text: body,
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         };
         Arc::clone(&self).send_known(terminal, message).await?;
         // Read again after the send: a drawing the job made meanwhile is not the one he answered.

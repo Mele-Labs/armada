@@ -30,6 +30,7 @@ fn message(id: &str, at: &str, from: SessionVoice, text: &str, notice: Option<&s
         notice: notice.map(str::to_string),
         queued: false,
         edited_at: None,
+        sketches: Vec::new(),
     }
 }
 

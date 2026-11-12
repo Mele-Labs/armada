@@ -160,6 +160,10 @@ pub struct SendSessionMessage {
     pub attachments: Vec<SessionUpload>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mentions: Vec<SessionTag>,
+    /// The sketches the composer sent with the words, each also sent as a picture in `attachments`.
+    /// Fleet keeps them on the person's message row, so the chip outlives the window that drew it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sketches: Vec<SentSketch>,
 }
 
 /// `send_session_message`'s body: the message, and what he picked in an empty Mod Job. The aim
@@ -493,6 +497,15 @@ pub struct SentFile {
     pub media_type: String,
 }
 
+/// A sketch the person sent with a message, kept by Fleet so the thread can draw its chip.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SentSketch {
+    /// The sketch's own id, as the composer named it.
+    pub id: String,
+    /// The title on its chip.
+    pub title: String,
+}
+
 /// How an ask on the thread stands.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -599,6 +612,10 @@ pub enum SessionRow {
         files: Vec<SentFile>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         tags: Vec<SessionTag>,
+        /// The sketches the person sent with these words (`SendSessionMessage::sketches`). Absent on a
+        /// message with none, and on every row kept before it existed.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        sketches: Vec<SentSketch>,
         /// The Fleet notice this row was sent for, when it was one (`Notice::word`). A person can
         /// mute a notice by it. Absent on every row kept before it existed.
         #[serde(default, skip_serializing_if = "Option::is_none")]

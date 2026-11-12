@@ -120,6 +120,7 @@ async fn a_window_scope_note_named_in_a_plain_message_is_kept_from_its_file() {
             text: text.to_string(),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         })
         .await
         .expect("sent");
@@ -149,6 +150,7 @@ async fn a_window_scope_note_named_by_its_picture_is_kept_too() {
                 data: "aGVsbG8=".to_string(),
             }],
             mentions: Vec::new(),
+            sketches: Vec::new(),
         })
         .await
         .expect("sent");
