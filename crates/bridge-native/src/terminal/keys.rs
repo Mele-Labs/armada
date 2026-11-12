@@ -110,11 +110,11 @@ pub fn pasted(text: &str, mode: TermMode) -> Vec<u8> {
 mod tests {
     use super::*;
 
-    fn key(spelled: &str) -> Keystroke {
-        Keystroke::parse(spelled).expect(spelled)
+    fn key(spelled: &'static str) -> Keystroke {
+        Keystroke::parse(spelled).unwrap_or_else(|_| panic!("{spelled} reads"))
     }
 
-    fn sent(spelled: &str) -> Option<Vec<u8>> {
+    fn sent(spelled: &'static str) -> Option<Vec<u8>> {
         bytes(&key(spelled), TermMode::default())
     }
 

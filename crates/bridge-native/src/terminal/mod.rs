@@ -8,12 +8,14 @@
 //! | The screen's colours from the tokens | `colors.rs` |
 //! | Fleet's shells, or a walk's | `shells.rs` |
 //! | The pane: its head, the drawn screen, keys and the pointer | `pane.rs` |
+//! | Starting a terminal Job, and where the last one started | `start.rs` |
 
 pub mod colors;
 pub mod keys;
 pub mod pane;
 pub mod screen;
 pub mod shells;
+pub mod start;
 
 pub use pane::{PaneEvent, Phase, TerminalPane};
 

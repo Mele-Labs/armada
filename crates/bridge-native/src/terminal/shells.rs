@@ -42,6 +42,17 @@ pub enum Place {
     Folder(String),
 }
 
+/// What a terminal Job is started with: where, and the sheet's title, model and effort where it had them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Start {
+    pub place: Place,
+    pub title: Option<String>,
+    pub model: Option<String>,
+    pub effort: Option<String>,
+    /// Its first shell's size.
+    pub size: Cells,
+}
+
 /// A terminal Job Fleet started: the Job and its first shell.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Started {
@@ -59,8 +70,8 @@ pub trait Shells {
     fn stop(&self, run: &str, cx: &mut App);
     fn list(&self, job: &str, cx: &mut App) -> Task<Result<JobTerminals, String>>;
     fn rename(&self, job: &str, terminal: &str, name: &str, cx: &mut App) -> Task<Result<ListedTerminal, String>>;
-    /// A terminal Job: no words, its first shell at `size`.
-    fn start(&self, place: Place, size: Cells, cx: &mut App) -> Task<Result<Started, String>>;
+    /// A terminal Job: no words, its first shell open.
+    fn start(&self, start: Start, cx: &mut App) -> Task<Result<Started, String>>;
 }
 
 /// Fleet's shells, on the port its connection holds.
@@ -151,7 +162,7 @@ impl Shells for Live {
         ask(self.port(cx), "/sessions/terminal/rename".into(), encoded(&body), "ListedTerminal", cx)
     }
 
-    fn start(&self, _place: Place, _size: Cells, _cx: &mut App) -> Task<Result<Started, String>> {
+    fn start(&self, _start: Start, _cx: &mut App) -> Task<Result<Started, String>> {
         // `POST /sessions/terminal/start` is the quick terminal Fleet Job's, not landed yet.
         Task::ready(Err("This Fleet does not start terminal Jobs yet".into()))
     }
@@ -193,6 +204,8 @@ struct MockState {
     runs: HashMap<String, MockRun>,
     next_run: u32,
     next_job: u32,
+    /// The Jobs of the walk's own list a start becomes, in turn, so the Job it opens is one the list holds.
+    starts_as: Vec<String>,
 }
 
 struct MockRun {
@@ -255,6 +268,12 @@ impl Mock {
             }
         }
         mock
+    }
+
+    /// A start becomes these Jobs of the walk's list, in turn.
+    pub fn starting_as(self, jobs: &[&str]) -> Mock {
+        self.state.borrow_mut().starts_as = jobs.iter().map(|job| job.to_string()).collect();
+        self
     }
 
     /// End a shell as `exit` would, so a walk shows Shell ended.
@@ -376,11 +395,11 @@ impl Shells for Mock {
         Task::ready(Ok(ListedTerminal { terminal: held.0.clone(), name: held.1.clone(), run_id: held.2.clone(), running: false }))
     }
 
-    fn start(&self, place: Place, _size: Cells, _cx: &mut App) -> Task<Result<Started, String>> {
+    fn start(&self, start: Start, _cx: &mut App) -> Task<Result<Started, String>> {
         let mut state = self.state.borrow_mut();
         state.next_job += 1;
-        let job = format!("terminal-{}", state.next_job);
-        let folder = match &place {
+        let job = if state.starts_as.is_empty() { format!("terminal-{}", state.next_job) } else { state.starts_as.remove(0) };
+        let folder = match &start.place {
             Place::Repository(name) => format!("~/Development/{name}"),
             Place::Folder(path) => path.replace(&std::env::var("HOME").unwrap_or_default(), "~"),
         };
@@ -394,6 +413,12 @@ impl Shells for Mock {
 pub struct Held(pub Rc<dyn Shells>);
 
 impl gpui::Global for Held {}
+
+/// Fleet's shells, reached on the port the connection holds now.
+pub fn hold_live(fleet: &gpui::Entity<crate::fleet::FleetConnection>, cx: &mut App) {
+    let fleet = fleet.clone();
+    cx.set_global(Held(Rc::new(Live { port: Rc::new(move |cx: &App| fleet.read(cx).held().port()) })));
+}
 
 pub fn of(cx: &App) -> Option<Rc<dyn Shells>> {
     cx.try_global::<Held>().map(|held| held.0.clone())
