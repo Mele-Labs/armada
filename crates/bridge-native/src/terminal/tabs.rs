@@ -12,8 +12,8 @@ use super::pane::{Phase, TerminalPane};
 use super::shells::{self, Which};
 use crate::job_view::{offer_tab, on_job_shown, JobView, TabAct, TabOffer, TabOffers, ViewTab};
 
-/// The glyph of a terminal's tab, as on the dispatch line.
-const GLYPH: &str = "file-terminal";
+/// The glyph of a terminal's tab and of + Terminal, as Electron's pane kinds draw a Terminal (`kinds.ts`).
+const GLYPH: &str = "square-terminal";
 
 /// Each shell's pane, by Job and terminal id.
 #[derive(Default)]
