@@ -849,7 +849,7 @@ enum Weight {
 }
 
 /// The primary button: the accent's fill (`Button variant="primary" size="sm"`).
-fn filled(look: &Look, id: SharedString, said: &'static str, off: bool) -> gpui::Stateful<gpui::Div> {
+pub(super) fn filled(look: &Look, id: SharedString, said: &'static str, off: bool) -> gpui::Stateful<gpui::Div> {
     div()
         .id(id)
         .flex_none()

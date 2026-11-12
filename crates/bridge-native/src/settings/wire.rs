@@ -244,6 +244,58 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/models".into()), "ModelChoices", cx))
     }
 
+    /// `GET /admin/setup` on the Phone Gateway, which runs whether or not Fleet answers.
+    pub fn gateway_setup(&mut self, cx: &App) -> Task<Result<ipc::GatewaySetup, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.read_setup()),
+            Wire::Live(_) => super::gateway::setup(cx),
+        }
+    }
+
+    pub fn gateway_macs(&mut self, cx: &App) -> Task<Result<Vec<ipc::Mac>, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(if mock.gateway.running { Ok(mock.gateway.macs.clone()) } else { Err(super::gateway::NOT_RUNNING.into()) }),
+            Wire::Live(_) => super::gateway::macs(cx),
+        }
+    }
+
+    pub fn gateway_phones(&mut self, cx: &App) -> Task<Result<Vec<ipc::PairedPhone>, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(if mock.gateway.running { Ok(mock.gateway.phones.clone()) } else { Err(super::gateway::NOT_RUNNING.into()) }),
+            Wire::Live(_) => super::gateway::devices(cx),
+        }
+    }
+
+    pub fn start_tunnel(&mut self, cx: &App) -> Task<Result<super::gateway::Tunnel, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.start()),
+            Wire::Live(_) => super::gateway::start(cx),
+        }
+    }
+
+    pub fn gateway_unpair(&mut self, id: String, cx: &App) -> Task<Result<(), String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.unpair(&id)),
+            Wire::Live(_) => super::gateway::unpair(id, cx),
+        }
+    }
+
+    /// Opens a page in his browser; the mock keeps it instead.
+    pub fn open_link(&mut self, address: &str, cx: &mut App) {
+        match self {
+            Wire::Mock(mock) => mock.handed.push(address.to_string()),
+            Wire::Live(_) => cx.open_url(address),
+        }
+    }
+
+    /// Puts words on his clipboard; the mock keeps them instead.
+    pub fn copy(&mut self, words: &str, cx: &mut App) {
+        match self {
+            Wire::Mock(mock) => mock.handed.push(words.to_string()),
+            Wire::Live(_) => cx.write_to_clipboard(gpui::ClipboardItem::new_string(words.to_string())),
+        }
+    }
+
     /// The repositories Fleet serves, by Manifest id, name and whether its armada.yml turns connectors off.
     pub fn repositories(&self, cx: &App) -> Option<Vec<(String, String, bool)>> {
         let held = match self {
