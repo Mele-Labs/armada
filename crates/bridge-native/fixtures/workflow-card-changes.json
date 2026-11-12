@@ -1,0 +1,61 @@
+{
+  "changes": [
+    {
+      "id": 31,
+      "workflow_id": "annotations",
+      "source": "repository",
+      "origin": {
+        "kind": "new"
+      },
+      "before": "",
+      "after": "{\n  \"id\": \"annotations\",\n  \"name\": \"Work the notes\",\n  \"for_requests\": \"Notes you left on a screen, each answered with a change you walk\",\n  \"steps\": [\n    {\n      \"id\": \"quiz\"\n    },\n    {\n      \"id\": \"make-and-walk\"\n    },\n    {\n      \"id\": \"refresh-preview\"\n    },\n    {\n      \"id\": \"ask\"\n    },\n    {\n      \"id\": \"refine-and-deliver\"\n    }\n  ]\n}",
+      "state": "ready",
+      "after_steps": [
+        {
+          "id": "quiz",
+          "label": "Quiz",
+          "about": "Asks what each note means before anything changes.",
+          "ends_when": "you answer",
+          "instructions": "Read every open note. Ask one question at a time about any note you cannot act on as written."
+        },
+        {
+          "id": "make-and-walk",
+          "label": "Make and walk",
+          "about": "Makes the change for each note and shows it as a walk.",
+          "ends_when": "you approve the walk",
+          "gate": "walk_approved",
+          "instructions": "Make the change each note asks for. Record a walk that stops on every changed element, and show it."
+        },
+        {
+          "id": "refresh-preview",
+          "label": "Refresh preview",
+          "about": "Moves your preview onto the change.",
+          "ends_when": "you approve",
+          "gate": "you_approved",
+          "instructions": "Restart the preview on this branch. Ask for approval once it runs the change."
+        },
+        {
+          "id": "ask",
+          "label": "Ask",
+          "about": "Asks whether anything is left before it delivers.",
+          "ends_when": "you approve",
+          "gate": "you_approved",
+          "instructions": "List each note with what changed for it. Ask for approval with that list."
+        },
+        {
+          "id": "refine-and-deliver",
+          "label": "Refine and deliver",
+          "about": "Tidies the change and sends it out.",
+          "ends_when": "the pull request merges",
+          "gate": "merged",
+          "instructions": "Squash fixups, write the description, and deliver the way you were asked.",
+          "asks_delivery": true,
+          "delivers": true
+        }
+      ],
+      "after_name": "Work the notes",
+      "after_for_requests": "Notes you left on a screen, each answered with a change you walk",
+      "at": "2026-11-12T10:04:00Z"
+    }
+  ]
+}

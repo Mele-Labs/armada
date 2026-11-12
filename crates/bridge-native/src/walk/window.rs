@@ -675,7 +675,17 @@ impl WalkWindow {
                 step.say,
             ));
         labelled(
-            div().id("walk-bar").flex().flex_col().flex_none().bg(look.color(token::BG_SUNKEN)).child(top).child(line),
+            div()
+                .id("walk-bar")
+                .flex()
+                .flex_col()
+                .flex_none()
+                .bg(look.color(token::BG_SUNKEN))
+                // A press on the bar leaves the keys where the last step put them, such as in a note's
+                // box; the window's root would take them otherwise, and the next step would type into nothing.
+                .on_mouse_down(gpui::MouseButton::Left, |_, window, _| window.prevent_default())
+                .child(top)
+                .child(line),
             Role::Toolbar,
             format!("Walk {}", self.walk.title),
         )

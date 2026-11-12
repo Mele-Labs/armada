@@ -2,11 +2,11 @@
 //! live answer is, so a fixture that no longer matches the wire fails to decode instead of drawing.
 //! A screen on mock data is the same screen; only where its data comes from differs.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use std::sync::Mutex;
 
-use ipc::{IssueList, JobThread, ModelChoices, SessionList, SessionQuick, SessionRecord, SettingValue};
+use ipc::{IssueList, JobThread, ModelChoices, SessionList, SessionQuick, SessionRecord, SettingValue, WorkflowChange, WorkflowChanges};
 use serde::Deserialize;
 
 /// The scenario the last [`jobs`] call named, which the message box reads its catalogue by.
@@ -18,7 +18,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         *held = scenario.to_string();
     }
     let bytes: &[u8] = match scenario {
-        "jobs-many" | "job-view" => include_bytes!("../fixtures/jobs-many.json"),
+        "jobs-many" | "job-view" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
         "job-bands" => include_bytes!("../fixtures/jobs-bands.json"),
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
@@ -44,10 +44,24 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
         "job-view-composer" => include_bytes!("../fixtures/composer-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
+        // The Audit Job's thread ending on a proposed workflow's draft.
+        "workflow-card" => include_bytes!("../fixtures/workflow-card-threads.json"),
         _ => return Ok(HashMap::new()),
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
     Ok(read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect())
+}
+
+/// The workflow changes Fleet would list for the scenario last named by [`jobs`], by change id, as
+/// `GET /workflows/changes` answers them. Empty for a scenario that proposes no workflow.
+pub fn workflow_changes() -> Result<BTreeMap<i64, WorkflowChange>, String> {
+    let named = SCENARIO.lock().map(|held| held.clone()).unwrap_or_default();
+    let bytes: &[u8] = match named.as_str() {
+        "workflow-card" => include_bytes!("../fixtures/workflow-card-changes.json"),
+        _ => return Ok(BTreeMap::new()),
+    };
+    let read = ipc::decode::<WorkflowChanges>("WorkflowChanges", bytes).map_err(|why| why.to_string())?;
+    Ok(read.changes.into_iter().map(|change| (change.id, change)).collect())
 }
 
 /// The tour's threads, each from the fixture it was walked against: the first Job's question, plan and
@@ -136,5 +150,20 @@ mod tests {
             assert!(screens.contains_key(id), "{id}");
         }
         assert!(super::catalogue().is_some());
+    }
+
+    #[test]
+    fn workflow_card_scenario_decodes_with_its_change() {
+        assert!(super::jobs("workflow-card").expect("decodes").len() > 10);
+        let threads = super::threads("workflow-card").expect("decodes");
+        let changes = super::workflow_changes().expect("decodes");
+        let change = changes.get(&31).expect("change 31");
+        let shown = threads["mock-04"].items.iter().find_map(|item| match item {
+            ipc::ThreadItem::Row { row: ipc::SessionRow::Draft { text, change: Some(31), .. } } => Some(text.clone()),
+            _ => None,
+        });
+        // The card draws lanes only where the change drafts the text the row shows.
+        assert_eq!(change.after.as_deref(), shown.as_deref());
+        assert_eq!(change.after_steps.as_ref().map(Vec::len), Some(5));
     }
 }

@@ -105,7 +105,7 @@ fn no_more_than_six_are_learnt() {
 // ---- What counts as a line he sent ----
 
 fn said(from: SessionVoice, text: &str, at: &str) -> SessionRow {
-    SessionRow::Message { id: format!("r{at}"), at: Instant::carried(at), from, text: text.to_string(), files: Vec::new(), tags: Vec::new(), notice: None, queued: false, edited_at: None }
+    SessionRow::Message { id: format!("r{at}"), at: Instant::carried(at), from, text: text.to_string(), files: Vec::new(), tags: Vec::new(), notice: None, queued: false, edited_at: None, sketches: Vec::new() }
 }
 
 fn you(text: &str, at: &str) -> SessionRow {
@@ -249,7 +249,7 @@ fn questions(judge: &FakeJudge) -> usize {
 
 async fn agent_says(rig: &Rig, id: &SessionId, text: &str) -> String {
     let row = rig.fleet.row_id(id.as_str());
-    rig.fleet.row_put(id.as_str(), SessionRow::Message { id: row.clone(), at: rig.fleet.instant(), from: SessionVoice::Agent, text: text.into(), files: Vec::new(), tags: Vec::new(), notice: None, queued: false, edited_at: None }).await;
+    rig.fleet.row_put(id.as_str(), SessionRow::Message { id: row.clone(), at: rig.fleet.instant(), from: SessionVoice::Agent, text: text.into(), files: Vec::new(), tags: Vec::new(), notice: None, queued: false, edited_at: None, sketches: Vec::new() }).await;
     row
 }
 

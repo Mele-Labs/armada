@@ -64,6 +64,8 @@ pub(super) struct CardState {
     pub target: Option<String>,
     /// How the person settled a Judge's note, before Fleet's reading says so, by `reading/note`.
     pub judged: HashMap<String, ipc::JudgeNoteHow>,
+    /// Note boxes just opened, to be scrolled clear of the composer once they are measured.
+    pub reveal: HashMap<String, std::rc::Rc<std::cell::Cell<bool>>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -233,7 +235,8 @@ impl JobView {
     }
 
     /// The box as a card draws it.
-    pub(super) fn box_of(&self, key: &str, mode: Mode, name: &'static str, look: &Look, cx: &Context<Self>) -> Option<gpui::AnyElement> {
+    pub(super) fn box_of(&self, key: &str, mode: Mode, name: impl Into<SharedString>, look: &Look, cx: &Context<Self>) -> Option<gpui::AnyElement> {
+        let name: SharedString = name.into();
         let area = self.shown.as_ref().and_then(|id| self.pages.get(id))?.cards.boxes.get(&format!("{key}:{mode:?}"))?;
         let _ = cx;
         Some(
@@ -250,7 +253,7 @@ impl JobView {
                     .bg(look.color(token::BG_SUNKEN))
                     .text_size(look.length(token::TEXT_SM))
                     .text_color(look.color(token::FG_DEFAULT))
-                    .child(Textarea::new(area).appearance(false).aria_label(name)),
+                    .child(Textarea::new(area).appearance(false).aria_label(name.clone())),
                 Role::TextInput,
                 name,
             )

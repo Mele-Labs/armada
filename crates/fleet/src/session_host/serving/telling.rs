@@ -335,6 +335,7 @@ where
             text: text.to_string(),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         };
         Arc::clone(self).send_hosted_written(sent, Written::Message(from), None, None, followed).await.map(|_| ())
     }

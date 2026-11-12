@@ -612,7 +612,8 @@ impl JobView {
         let editing = open && mode == Mode::Edit;
         let noting = open && mode == Mode::Note;
         let target = self.is_target(&key);
-        let eyebrow_word = if kind == DraftKind::Workflow { "Workflow" } else { "Draft" };
+        let proposed = self.workflow_proposal(change, text, cx);
+        let eyebrow_word = proposed.unwrap_or(if kind == DraftKind::Workflow { "Workflow" } else { "Draft" });
         let head = div()
             .flex()
             .items_center()
@@ -651,18 +652,18 @@ impl JobView {
                         .child(SharedString::from(before.to_string()))
                 }))
         });
-        let mut body = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(head).child(
+        let mut body = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(head).when(proposed.is_none(), |body| body.child(
             div()
                 .text_size(look.length(token::TEXT_SM))
                 .line_height(look.length(token::LEADING_SM))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                 .text_color(look.color(token::FG_DEFAULT))
                 .child(SharedString::from(title.to_string())),
-        );
+        ));
         body = if editing {
             body.children(self.box_of(&key, Mode::Edit, "Draft text", look, cx))
         } else {
-            let words = div().min_w_0().child(self.prose(format!("{key}:text"), &shown_text, look)).into_any_element();
+            let words = self.workflow_card(ix, &key, change, &shown_text, look, cx).unwrap_or_else(|| div().min_w_0().child(self.prose(format!("{key}:text"), &shown_text, look)).into_any_element());
             // Words selected in an open draft take their own menu, Edit and Add note, in place of the selection bar.
             body.child(if open { self.block(page, &key, words, cx) } else { words })
         };
@@ -800,6 +801,7 @@ impl JobView {
             let send_back: Option<(String, super::keys::Run)> = (!editing && !noting && kind != DraftKind::Workflow).then(|| {
                 ("Note".to_string(), Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| this.open_box(ix, &k4, Mode::Note, "", window, cx)) as super::keys::Run)
             });
+            let send_back = send_back.or_else(|| self.workflow_send_back_key(ix, key, text, cx));
             let no: Option<(String, super::keys::Run)> = (!editing).then(|| {
                 let _ = &out2;
                 (
@@ -856,6 +858,7 @@ impl JobView {
                         )
                     }))
                 })
+                .children(self.workflow_send_back(ix, key, text, back, look, cx))
                 .child(div().flex_1())
                 .child(labelled(
                     button(look, SharedString::from(format!("withdraw:{key}")), word_withdraw, Tone::Secondary, false, no, true).on_click(cx.listener(

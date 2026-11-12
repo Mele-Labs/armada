@@ -150,6 +150,7 @@ async fn begin_with_his_edit_sends_his_words_and_keeps_the_picture() {
             text: FIRST.into(),
             attachments: vec![ipc::SessionUpload { name: "shot.png".into(), media_type: "image/png".into(), data: "aGVsbG8=".into() }],
             mentions: Vec::new(),
+            sketches: Vec::new(),
         })
         .await
         .expect("taken");
@@ -700,4 +701,28 @@ async fn another_jobs_message_to_a_held_job_survives_a_fleet_restart() {
     let lines = lines_of(&rig, 0);
     assert!(lines[0].contains(FIRST) && lines[1].contains("please review"), "in the order the rows were written: {lines:?}");
     assert_eq!(lines.iter().filter(|line| line.contains("please review")).count(), 1, "once");
+}
+
+#[tokio::test]
+async fn a_sketch_sent_to_a_held_job_is_on_its_first_row_once_start_writes_it() {
+    let rig = rig();
+    let id = rig.start_held().await;
+    Arc::clone(&rig.fleet)
+        .send_session_message(ipc::SendSessionMessage {
+            session_id: id.clone(),
+            text: FIRST.into(),
+            attachments: vec![ipc::SessionUpload { name: "sketch.png".into(), media_type: "image/png".into(), data: "aGVsbG8=".into() }],
+            mentions: Vec::new(),
+            sketches: vec![ipc::SentSketch { id: "sk-1".into(), title: "Header".into() }],
+        })
+        .await
+        .expect("taken");
+
+    read(&rig, &id).await;
+    begin(&rig, &id, Some(DeliveryChoice::OpenPr)).await.expect("begun");
+    let kept = rig.rows(&id).await.into_iter().find_map(|row| match row {
+        SessionRow::Message { from: ipc::SessionVoice::You, sketches, .. } => Some(sketches),
+        _ => None,
+    });
+    assert_eq!(kept, Some(vec![ipc::SentSketch { id: "sk-1".into(), title: "Header".into() }]), "the chip survives the card");
 }

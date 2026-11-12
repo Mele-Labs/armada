@@ -163,6 +163,12 @@ export type OperatorHold = {
   repository?: string;
   /** The hold in Fleet's words, such as `Hold src/a until Fix the clock pushes`. */
   said: string;
+  /** The paths held, as the order names them. Absent on an answer from before they were sent. */
+  paths?: string[];
+  /** The only Job that writes under them. Absent on an answer from before it was sent. */
+  job?: string;
+  /** What lifts the hold. Absent on an answer from before it was sent. */
+  until?: "pushes" | "ends";
   /** RFC 3339. */
   at: string;
 };

@@ -70,6 +70,7 @@ where
                 notice: None,
                 queued: false,
                 edited_at: None,
+                sketches: Vec::new(),
             },
         )
         .await;

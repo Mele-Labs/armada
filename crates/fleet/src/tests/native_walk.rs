@@ -292,7 +292,8 @@ async fn the_app_goes_when_the_job_ends_the_slot_is_given_back_and_fleet_stops()
 }
 
 const MESSAGE: &str = "{session_id: string, text: string, attachments?: [{name: string, media_type: string, data: string}], \
-mentions?: [{kind: session|pull_request|branch|issue|report|terminal, id: string, title: string, url?: string}]}";
+mentions?: [{kind: session|pull_request|branch|issue|report|terminal, id: string, title: string, url?: string}], \
+sketches?: [{id: string, title: string}]}";
 
 /// One note, as `send_session_note` takes it beside its `session_id` and `send_session_notes` takes a list of them.
 const NOTE: &str = "{said: string, address: string, note_id?: string, \

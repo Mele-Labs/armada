@@ -335,6 +335,7 @@ impl Held {
                 text: text.to_string(),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             })
             .await
             .expect("the message is taken");

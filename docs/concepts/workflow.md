@@ -116,6 +116,7 @@ A plan already put to him stays his to answer, and a plan held behind a walk sta
 `design_plan` sets it: its plan is the Job's progress, and what he approves is the page.
 `idea_picked` counts only an option the agent's own question gave a preview; Fleet's questions never count.
 `document_approved` counts only his approval of a page's newest revision, read off the page Fleet kept.
+A step gated `you_approved` ends on it too, and reads "you approve"; the rail holds the Job on the step until the gate has closed.
 `you_approved` counts only his Approve on a `waiting_for` item the agent raised with `approves: true`; Fleet gives that item exactly two options, Approve and Ask for changes, and Ask for changes leaves the gate open.
 
 **A lifecycle state** is written `pr: approved`, `ticket: closed` or `job: landed`, and `any ticket: closed` for the first of several (29 Oct 2026).

@@ -86,6 +86,7 @@ impl Rig {
                 text: text.into(),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             })
             .await
             .map(|_| ())
@@ -246,6 +247,7 @@ async fn a_big_file_is_sent_with_its_size_and_a_small_one_as_its_path() {
             text: "look".into(),
             attachments: vec![upload("small.txt", 1_000), upload("response.txt", 40_000)],
             mentions: Vec::new(),
+            sketches: Vec::new(),
         })
         .await
         .expect("held");
@@ -284,6 +286,7 @@ async fn a_file_is_saved_and_sent_as_its_path_and_nothing_goes_to_an_ended_sessi
                 },
             ],
             mentions: Vec::new(),
+            sketches: Vec::new(),
         })
         .await
         .expect("held");

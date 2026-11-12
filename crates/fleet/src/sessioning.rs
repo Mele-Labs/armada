@@ -152,6 +152,8 @@ where
         let mut reminder: Option<(String, Option<String>)> = None;
         // A hosted agent's subagent started or settled, drawn on its call's row once the store is let go.
         let mut subagent_row: Option<SubagentRow> = None;
+        // A turn ended: a subagent row still running whose transcript ended is settled once the store is let go.
+        let mut turn_over = false;
         // A pull request the session opened, by its Manifest and address, read once the store is let go.
         let mut opened_pull: Option<(String, String)> = None;
         let mut session = kept.unwrap_or_else(|| KeptSession {
@@ -381,6 +383,7 @@ where
                 let home = &self.host().home;
                 let ended = |agent: &str| adapters::terminal_thread::subagent_ended(home, &id, agent);
                 crate::session_host::readiness::turn_ended(&mut store, &holder, &now, ended).map_err(fault)?;
+                turn_over = true;
             }
             SessionFact::Wrote => {
                 changed |= crate::session_host::readiness::windows_set(&mut store, &holder, &now, true).map_err(fault)?;
@@ -529,6 +532,9 @@ where
             Some(SubagentRow::Started(target, call, detail)) => self.subagent_started(&session.id, &target, &call, &detail).await,
             Some(SubagentRow::Settled(target, state)) => self.subagent_settled(&session.id, &target, state).await,
             None => {}
+        }
+        if turn_over && !terminal {
+            self.subagents_stopped(&session.id).await;
         }
         if let Some((tool, address)) = reminder {
             let row = ipc::SessionRow::BrowserReminder { id: self.row_id(&session.id), at: self.instant(), tool, address };

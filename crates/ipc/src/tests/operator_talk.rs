@@ -16,3 +16,10 @@ fn the_forms_that_went_with_the_levels_read_as_no_form() {
     assert_eq!(OperatorOrderForm::read(r#"{"kind":"role_off","role":"file","manifest_id":"01REPO"}"#), None);
     assert_eq!(OperatorOrderForm::read(r#"{"kind":"always_raise","what":"note"}"#), None);
 }
+
+#[test]
+fn an_operator_hold_answered_before_its_paths_were_sent_still_reads() {
+    let older = r#"{"id":4,"manifest_id":"01REPO","said":"Hold apps/cockpit until Build pushes","at":"2026-11-10T09:00:00.000Z"}"#;
+    let hold = crate::decode::<crate::operator_page::OperatorHold>("a hold", older.as_bytes()).expect("reads");
+    assert_eq!((hold.paths.is_empty(), hold.job, hold.until), (true, None, None));
+}
