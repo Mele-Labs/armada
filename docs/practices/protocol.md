@@ -1823,6 +1823,32 @@ A process that goes and cuts its subagents off publishes one for each, since eac
 It rides the same sink as every event, so the open risk below is neither better nor worse for the stream.
 A reconnecting client reads the subagent again, as it reads a Job, rather than trusting that it kept every event.
 
+## A file of a Job, read by Fleet: `get_repository_file` and `RepositoryFile`
+
+Since 12 Nov 2026. `docs/concepts/session/showing-a-file.md`.
+**One operation, one route and one type**: no event kind and no field on an existing type. Error codes are declared outside the protocol ID's files and move nothing.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+The native Bridge's file panel and Pocket do not read the agent's disk, so Fleet reads the file by the rules Electron's panel reads it by (`locate`, `inCheckout` and `read` in `apps/desktop/src/main/file-panel.ts`, `namesFile` and `typeOfFile` in `session-file.ts`), and Electron keeps its own read.
+Bridge's half is `RepositoryFile` in `packages/protocol/src/repository-file.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_repository_file` (`GET /sessions/repository_file?session_id=&path=`, `agent_access = "No"`) | Bridge reads | `RepositoryFile`, tagged by `kind`: `text` `{ text, type }` with `type` `text/markdown` for `.md` and `.markdown`, else `text/plain`; or `picture` `{ bytes, type }` with `bytes` base64 and `type` `image/png`, `image/jpeg`, `image/gif`, `image/webp` or `image/svg+xml` by extension |
+
+**Where it reads.** A path the Job's ledger names, wherever it is on disk, resolved against the record's `cwd` when relative: an `artifact` of `form` `file` or `image` whose target is the path, a note's `picture`, or a document's or sketch's kept `revisions`.
+The mod and a hosted Fleet both record every image a Job `Read`s as an `image` artifact, so those read here.
+Otherwise a path that, links followed, is a regular file strictly inside the Job's canonical `cwd`.
+Nothing else is read.
+Electron's second candidate, the repository root a slot's `cwd` is under, can never pass that test, so it is not tried.
+The Job may be hosted or a terminal one: only its record is read.
+
+**Refused with nothing read**, in this order: 422 `fleet.repository_file_not_addressable` for no such Job or a path neither rule places; 422 `fleet.repository_file_too_big` over 8 MiB, judged by the size before the file is read; 422 `fleet.repository_file_binary` for a file that is not a picture and holds a NUL in its first 4096 bytes or is not UTF-8; 500 `fleet.repository_file_unreadable` for any other failure to read it.
+A refusal is never an answer of `RepositoryFile`, so a client that gets a `RepositoryFile` has one to draw.
+**The ledger is the Job's own.** A path an agent has recorded can be read from anywhere on the disk, as Electron's panel reads it, and the route is `agent_access = "No"`: an agent cannot ask for a file back through it.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: the route is read, not pushed, and a file is read when a client opens it. The open risk below is neither better nor worse.
+
 ## A tool row's picture and message: `SessionRow::Tool.image` and `SessionRow::Tool.message`
 
 Since 12 Nov 2026. `docs/concepts/session.md`, *A terminal session's thread*.

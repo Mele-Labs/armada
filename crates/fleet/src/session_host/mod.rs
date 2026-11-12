@@ -73,6 +73,7 @@ mod pausing;
 mod editing;
 pub(crate) mod quick;
 mod reach_folders;
+pub(crate) mod repository_file;
 pub(crate) mod token_use;
 pub(crate) mod delivering;
 pub(crate) mod start_card;

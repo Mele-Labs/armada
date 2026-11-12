@@ -21,7 +21,15 @@ fn page(title: &str, scenes: &[(&str, &str)]) -> String {
             format!(r#"<armada-sketch title="{name}"><script type="application/json">{scene}</script></armada-sketch>"#)
         })
         .collect();
-    format!("<html><head><title>{title}</title></head><body><h1>Other</h1>{sketches}</body></html>")
+    format!(r#"<html><head><title>{title}</title>{ASKS}</head><body><h1>Other</h1>{sketches}</body></html>"#)
+}
+
+/// The mark that makes a page ask his approval. Without it a page is for reading.
+const ASKS: &str = r#"<meta name="armada-review" content="approve">"#;
+
+/// A page for reading: no mark.
+fn reading(title: &str) -> String {
+    format!("<html><head><title>{title}</title></head><body><p>Findings.</p></body></html>")
 }
 
 #[test]
@@ -395,4 +403,79 @@ async fn a_write_is_kept_even_with_the_bytes_another_job_left() {
     let (other, at) = a_job(&rig).await;
     writes(&rig, at, &path, "toolu_2", "Write", " +10").await;
     eventually(|| async { revisions_of(&record_of(&rig, &other).await, &path).is_some_and(|kept| kept.len() == 1) }).await;
+}
+
+#[test]
+fn a_page_asks_only_where_its_head_carries_the_review_mark() {
+    assert!(crate::session_host::document_page::asks_approval(&page("T", &[])));
+    assert!(crate::session_host::document_page::asks_approval(r#"<META content='Approve' Name="armada-review"/>"#));
+    assert!(!crate::session_host::document_page::asks_approval(&reading("T")));
+    assert!(!crate::session_host::document_page::asks_approval(r#"<meta name="armada-review" content="read">"#));
+    assert!(!crate::session_host::document_page::asks_approval(r#"<meta name="description" content="approve">"#));
+    assert!(!crate::session_host::document_page::asks_approval("<p>armada-review approve</p>"));
+}
+
+fn asked(record: &ipc::SessionRecord, path: &str) -> Option<String> {
+    record.attachments.iter().find(|one| one.target == path)?.detail.get("asked").cloned()
+}
+
+/// **A page is for reading unless it asks.** Its revision is kept and reaches the thread, but nothing waits on
+/// him and an answer to it is refused; the page beside it that carries the mark asks as before.
+#[tokio::test]
+async fn a_reading_pages_revision_asks_nothing_and_a_marked_page_asks() {
+    use api::Sessions;
+    let rig = rig_placing(None);
+    let (id, at) = a_job(&rig).await;
+    let (read_file, read_path) = page_at_root(&rig, "status.html");
+    std::fs::write(&read_file, reading("What is waiting")).unwrap();
+    writes(&rig, at, &read_path, "toolu_1", "Write", " +10").await;
+    let (ask_file, ask_path) = page_at_root(&rig, "design.html");
+    std::fs::write(&ask_file, page("Design", &[])).unwrap();
+    writes(&rig, at, &ask_path, "toolu_2", "Write", " +10").await;
+    eventually(|| async {
+        let record = record_of(&rig, &id).await;
+        revisions_of(&record, &read_path).is_some() && revisions_of(&record, &ask_path).is_some()
+    })
+    .await;
+
+    let record = record_of(&rig, &id).await;
+    assert_eq!(asked(&record, &read_path).as_deref(), Some("false"));
+    assert!(!waits_on(&record, &read_path), "{:?}", record.waiting_for);
+    assert_eq!(asked(&record, &ask_path).as_deref(), Some("true"));
+    assert!(waits_on(&record, &ask_path), "{:?}", record.waiting_for);
+
+    // A second revision of the reading page still asks nothing.
+    std::fs::write(&read_file, reading("What is waiting, later")).unwrap();
+    writes(&rig, at, &read_path, "toolu_3", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &id).await, &read_path).is_some_and(|kept| kept.len() == 2) }).await;
+    let record = record_of(&rig, &id).await;
+    assert!(!waits_on(&record, &read_path), "{:?}", record.waiting_for);
+
+    let approve = super::document_answers::answer(&id, &read_path, "2", ipc::DocumentHow::Approved, None);
+    let refused = std::sync::Arc::clone(&rig.fleet).answer_document(approve).await;
+    assert!(
+        matches!(&refused, Err(api::Refusal::Unacceptable(why) | api::Refusal::IllegalMove(why)) if why.code == "fleet.document_not_open" && why.message.contains("for reading")),
+        "{refused:?}"
+    );
+}
+
+/// **A plan group gated on `document_approved` makes a page ask without the mark**, so the gate can close.
+#[tokio::test]
+async fn an_open_document_approved_gate_makes_an_unmarked_page_ask() {
+    use super::session_plan::{group, plan, recorded, running};
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    let gated = ipc::PlanGroupInput {
+        gate: ipc::PlanGate::DocumentApproved,
+        ..group(None, "Design", "rust-engineer", &["crates/fleet"], &[(None, "Write the design")])
+    };
+    recorded(&rig, plan(&id, vec![gated])).await;
+    let (file, path) = page_at_root(&rig, "design.html");
+    std::fs::write(&file, reading("Design")).unwrap();
+    writes(&rig, 0, &path, "toolu_1", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &id).await, &path).is_some() }).await;
+
+    let record = record_of(&rig, &id).await;
+    assert_eq!(asked(&record, &path).as_deref(), Some("true"));
+    assert!(waits_on(&record, &path), "{:?}", record.waiting_for);
 }
