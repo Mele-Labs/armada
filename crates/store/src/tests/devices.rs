@@ -70,3 +70,15 @@ fn a_subscription_keeps_the_vapid_key_it_was_made_with() {
     let keys: Vec<Option<&str>> = kept.iter().map(|s| s.vapid_private.as_ref().map(|k| k.expose().as_str())).collect();
     assert_eq!(keys, vec![Some("c2VjcmV0"), None]);
 }
+
+#[test]
+fn this_mac_is_minted_once_and_a_second_mint_reads_the_first() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let first = crate::ThisMac { id: "m1".into(), name: "studio".into(), colour: "teal".into(), minted_at: 100 };
+    assert_eq!(store.this_mac_or(&first).expect("minted"), first);
+    drop(store);
+    let mut store = open(&dir);
+    let second = crate::ThisMac { id: "m2".into(), name: "other".into(), colour: "blue".into(), minted_at: 200 };
+    assert_eq!(store.this_mac_or(&second).expect("read"), first, "the first mint stands");
+}

@@ -10,6 +10,7 @@
 //! is 404. The routes whose issue has not landed answer 501.
 
 mod admin;
+mod cloudflared;
 mod cors;
 mod fleet_client;
 mod fleet_events;
@@ -27,6 +28,7 @@ mod setup;
 mod shown_address;
 mod signing;
 mod stat;
+mod tunnel;
 mod vapid;
 mod watch;
 mod webpush;
@@ -44,6 +46,7 @@ pub use push::{Push, PLACEHOLDER_SUBJECT};
 pub use watch::follow;
 pub use routes::{router, Fleet, Gateway};
 pub use setup::{mac_way_in, Funnel, WayIn};
+pub use tunnel::Tunnel;
 
 /// Bind the Gateway's listener. **There is no host parameter**: the address is
 /// loopback by construction, so no setting can open it to a network.
@@ -74,3 +77,5 @@ mod shown_tests;
 mod tests;
 #[cfg(test)]
 mod thread_tests;
+#[cfg(test)]
+mod tunnel_tests;

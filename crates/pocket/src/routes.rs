@@ -52,6 +52,8 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/admin/status", get(status))
         .route("/admin/setup", get(setup::setup))
         .route("/admin/setup/funnel", post(setup::funnel))
+        .route("/admin/setup/cloudflare", post(setup::cloudflare))
+        .route("/admin/macs", get(machine::this_and_paired_macs))
         .route("/admin/pair/start", post(pair_routes::start))
         .route("/admin/pair/pending", get(pair_routes::pending))
         .route("/admin/pair/confirm", post(pair_routes::confirm))
