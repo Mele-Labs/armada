@@ -61,6 +61,22 @@ pub struct ChangeStep {
     /// When the step is passed over instead of walked. Absent on a step that never is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub passed_over_when: Option<String>,
+    /// What the step does for the Job, as the definition wrote it. Absent where it wrote none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub about: Option<String>,
+    /// The plan gate the step's group ends on, as its word. Absent where it is `none`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate: Option<String>,
+    /// Entering the step asks how the work is delivered. Absent where it does not.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub asks_delivery: bool,
+    /// The step sends the work out. Absent where it does not.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub delivers: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// One change to one workflow in one place.
@@ -93,6 +109,12 @@ pub struct WorkflowChange {
     /// `after`, step by step, present with it where it reads.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after_steps: Option<Vec<ChangeStep>>,
+    /// The drafted definition's `name`, present with `after_steps`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after_name: Option<String>,
+    /// The drafted definition's `for_requests`, where it says one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after_for_requests: Option<String>,
     /// What the owner said when he sent it back, the latest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,

@@ -21,6 +21,7 @@ pub(crate) enum End {
     DraftApproved,
     IdeaPicked,
     DocumentApproved,
+    YouApproved,
     PlanRecorded,
     Pushed,
     WalkShown,
@@ -69,6 +70,7 @@ impl End {
             End::DraftApproved => "you approve a draft".into(),
             End::IdeaPicked => "you pick one of the ideas shown".into(),
             End::DocumentApproved => "you approve a document".into(),
+            End::YouApproved => "you approve".into(),
             End::PlanRecorded => "a plan is recorded".into(),
             End::Pushed => "it is pushed".into(),
             End::WalkShown => "a walk is shown".into(),
@@ -94,6 +96,7 @@ impl End {
             End::DraftApproved => Waiter::ThePerson(WaitingSource::Draft),
             End::IdeaPicked => Waiter::ThePerson(WaitingSource::AskCard),
             End::DocumentApproved => Waiter::ThePerson(WaitingSource::Document),
+            End::YouApproved => Waiter::ThePerson(WaitingSource::Replied),
             End::PlanRecorded
             | End::Pushed
             | End::WalkShown
@@ -123,6 +126,7 @@ impl End {
             StepEnd::DraftApproved => End::DraftApproved,
             StepEnd::IdeaPicked => End::IdeaPicked,
             StepEnd::DocumentApproved => End::DocumentApproved,
+            StepEnd::YouApproved => End::YouApproved,
             StepEnd::Lifecycle(end) => End::Lifecycle(end.clone()),
         }
     }
@@ -152,7 +156,7 @@ pub(crate) fn ends_of(steps: &[RailStep], at: usize) -> Vec<End> {
     if step.walks {
         return vec![End::WalkApproved];
     }
-    if step.has_lifecycle_end() {
+    if step.has_lifecycle_end() || step.ends_on.contains(&StepEnd::YouApproved) {
         return step.ends_on.iter().map(End::listed).collect();
     }
     if steps.iter().position(|one| one.records_plan).is_some_and(|recording| at < recording) {
