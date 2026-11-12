@@ -15,12 +15,13 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::{ManifestId as Repository, Ulid};
 use ipc::operator_page::{item_read, OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorLater, OperatorPage, OperatorRule, OperatorThen, OperatorTurnOrder, RuleScope};
-use ipc::{AnswerWaiting, BeginSession, Instant, SessionId, WaitingAct, WaitingItem, WaitingOption, WaitingSource, WireError};
+use ipc::{AnswerWaiting, ApprovePlan, BeginSession, Instant, SessionId, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError};
 use store::{KeptOrder, KeptTurn};
 
 use super::held;
 use super::orders::OPERATOR_OFF;
 use super::raising::{word, ToRaise};
+use super::vetting::{Work, APPROVE_PLAN, SEND_IT_BACK, SEND_PLAN_BACK, WALK_FIRST};
 use super::suggesting::suggestion_number;
 use crate::daemon::Fleet;
 use crate::main_ci::{MainChange, MainChanged};
@@ -60,6 +61,8 @@ pub(super) struct Doing<'a> {
     pub(super) session: &'a str,
     pub(super) item: &'a WaitingItem,
     pub(super) pick: &'a str,
+    /// The Operator's read of it, which a send-back carries as its reason.
+    pub(super) reason: &'a str,
     /// The words of the rule that does it, where a rule does and he pressed nothing.
     pub(super) rule: Option<&'a str>,
 }
@@ -223,6 +226,9 @@ where
                 return Ok(Done { started: Some(child.to_string()), ..Done::default() });
             }
         }
+        if let Some(done) = self.work_done(doing).await? {
+            return Ok(done);
+        }
         if let Some(choice) = choice_of(doing.item, doing.pick) {
             let said = AnswerWaiting { session_id: SessionId::carried(doing.session), item_id: id.to_string(), choice: Some(choice), text: None, mode: None, fixed: None };
             return match Arc::clone(self).settle_waiting(said).await {
@@ -234,6 +240,45 @@ where
             Some(act) => Ok(Done { open: Some(act.clone()), ..Done::default() }),
             None => Err(Fault::NotOffered("this item has no pick Fleet can do and nothing for Bridge to open".to_string())),
         }
+    }
+
+    /// A review's pick on a Job's work, done as its label says: the plan approved, or sent back with the
+    /// review's read as the reason; the pull request sent back the same way; the Job's walk opened, or the
+    /// Job asked for one where none is shown. `None` where the pick is none of those, which the item's
+    /// own act does.
+    async fn work_done(self: &Arc<Self>, doing: &Doing<'_>) -> Result<Option<Done>, Fault> {
+        let not_done = |refused: Refusal| Fault::NotDone(refused.error().message.clone());
+        let told = |text: String| async move { self.told_by_fleet(doing.session, &text, ipc::Notice::Operator).await.map_err(not_done) };
+        let work = Work::of(doing.item);
+        let plan = (work == Some(Work::Plan)).then(|| doing.item.id.strip_prefix("plan:").and_then(|version| version.parse::<u32>().ok())).flatten();
+        let pull = work == Some(Work::PullRequest);
+        match (doing.pick, plan) {
+            (APPROVE_PLAN, Some(version)) => {
+                Arc::clone(self).plan_approved(ApprovePlan { session_id: SessionId::carried(doing.session), version }).await.map_err(not_done)?;
+            }
+            (SEND_PLAN_BACK, Some(version)) => {
+                told(format!("The person sends plan v{version} back, on the Operator's review: {}\nRecord the plan again with that settled.", doing.reason)).await?;
+            }
+            (SEND_IT_BACK, None) if pull => {
+                told(format!("The person sends the pull request back, on the Operator's review: {}\nFix it on the branch and push.", doing.reason)).await?;
+            }
+            (WALK_FIRST, None) if pull => match self.walk_shown(doing.session).await {
+                Some(walk) => return Ok(Some(Done { open: Some(walk), ..Done::default() })),
+                None => {
+                    told("The person walks this before the pull request: build the walk and show it with show_window.".to_string()).await?;
+                }
+            },
+            _ => return Ok(None),
+        }
+        Ok(Some(Done::default()))
+    }
+
+    /// The walk `session` has waiting on him, as its item opens it.
+    async fn walk_shown(&self, session: &str) -> Option<WaitingAct> {
+        let store = self.store().lock().await;
+        let kept = store.session(session).ok().flatten()?;
+        let record = self.ledger_row(&store, &kept).ok()?;
+        record.waiting_for.into_iter().filter_map(|item| item.act).find(|act| act.kind == WaitingActKind::Walk)
     }
 
     /// The ids of the projects that hold `repository`, which a rule kept for a project meets. None for an
@@ -264,7 +309,7 @@ where
             };
             let then = then_of_pick(&pick);
             let said = rule_said(&what, &pick);
-            let doing = Doing { session: &one.session, item: &one.item, pick: &pick, rule: Some(&said) };
+            let doing = Doing { session: &one.session, item: &one.item, pick: &pick, reason: "", rule: Some(&said) };
             match self.turn_performed(&doing, then).await {
                 Ok(_) => {
                     let at = self.now();
@@ -361,7 +406,7 @@ where
                 // Where it offers Thens and he and the Operator named none: just file it.
                 what.as_deref().filter(|what| what.ends_with(":file")).map(|_| OperatorThen::JustFile)
             });
-            let doing = Doing { session: &row.session, item: &item, pick: named.as_deref().or(row.pick.as_deref()).unwrap_or_default(), rule: None };
+            let doing = Doing { session: &row.session, item: &item, pick: named.as_deref().or(row.pick.as_deref()).unwrap_or_default(), reason: row.read_text.as_deref().unwrap_or_default(), rule: None };
             done = self.turn_performed(&doing, then).await.map_err(|fault| match fault {
                 Fault::NotOffered(why) => self.hosted_refusal(NOT_OFFERED, &why),
                 Fault::NotDone(why) => self.hosted_refusal(NOT_DONE, &why),

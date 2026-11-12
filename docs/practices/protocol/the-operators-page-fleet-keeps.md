@@ -47,7 +47,8 @@ Fleet finds that Job from the paths each live Job has written and its plan names
 That is the `until` Bridge sent, worked out from the choice he pressed, or the local day's end where it sent none.
 Fleet knows nothing of the choices.
 **A pick is a button that does what it says**: one of the item's own options, exactly as labelled, or `Later`, which a Yes does.
-Any other pick the call names is dropped. The vetting review's own labels, such as Walk it first, are Fleet's and stand.
+Any other pick the call names is dropped.
+A review of a Job's work picks one label of its kind, and Yes does it: on a plan, `Approve the plan` approves it and `Send the plan back` sends the Job the review's read as the reason; on a pull request, `Open the pull request` opens it, `Send it back` sends the Job the read, and `Walk it first` opens the Job's walk, or asks the Job for one where none is shown; on a walk, `Open the walk`.
 **One ask, one item.** A suggestion that would file or close the same issue as an earlier open one is folded into it, named in its `also_raised_by`, and answered with it.
 One that repeats a suggestion already answered is dropped, with no item and no row under Answered, and Fleet's log says so.
 An ask read off a Job's reply is not queued while one of Fleet's own items for that Job stands: a held Job's start, a plan, a walk, a draft, a sketch or a document.
