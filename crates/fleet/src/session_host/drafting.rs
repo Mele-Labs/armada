@@ -4,9 +4,14 @@
 //! **It does not wait**, as `ask_in_window` does not: the row is kept and the call answers, and the
 //! open draft is read back off the thread (`waiting.rs`).
 
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{DraftHow, DraftSettled, ProposeDraft, SessionRecord, SessionRow, WithdrawDraft};
+use ipc::{DraftHow, DraftSettled, ProposeDraft, SendSessionMessage, SessionRecord, SessionRow, WithdrawDraft, WorkflowChangeRef};
+use store::KeptSession;
 
 use crate::daemon::Fleet;
 
@@ -197,6 +202,28 @@ where
         )
         .await;
         let _ = self.draft_record(session).await;
+    }
+
+    /// His answer on a proposed workflow: the change saved where `how` approves it, put aside otherwise, then the Job told.
+    /// Boxed here: built inline, its futures put `settle_answer`'s debug frame past a test thread's 2 MiB stack.
+    pub(crate) fn proposal_answered<'a>(
+        self: Arc<Self>,
+        session: &'a str,
+        row: &'a str,
+        change: i64,
+        how: DraftHow,
+        words: Option<String>,
+        (terminal, sent): (Option<KeptSession>, SendSessionMessage),
+    ) -> Pin<Box<impl Future<Output = Result<SessionRecord, Refusal>> + 'a>> {
+        Box::pin(async move {
+            let change = WorkflowChangeRef { change };
+            match how {
+                DraftHow::Approved => self.proposal_approved(change).await?,
+                _ => self.proposal_dismissed(change).await?,
+            }
+            Arc::clone(&self).send_known(terminal, sent).await?;
+            self.draft_settled(session, row, how, words).await
+        })
     }
 
     /// The change an open draft is the say on, where it is one.
