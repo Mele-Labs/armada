@@ -812,7 +812,7 @@ mod tests {
             assert!(screens.contains_key(id), "{id}");
         }
         assert!(super::catalogue().is_some());
-        assert_eq!(super::jobs("tool-rows").expect("decodes").len(), 6);
+        assert_eq!(super::jobs("tool-rows").expect("decodes").len(), 7);
         assert_eq!(super::threads("tool-rows").expect("decodes").len(), 6);
         assert_eq!(super::threads("drafts").expect("decodes").len(), 1);
         assert!(super::jobs("job-tabs").expect("decodes").len() > 10);
