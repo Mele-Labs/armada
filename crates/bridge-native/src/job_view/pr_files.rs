@@ -21,7 +21,7 @@ fn status_look(status: PullRequestFileStatus) -> (&'static str, &'static str, Op
     match status {
         PullRequestFileStatus::Added => ("square-plus", "Added", Some(Tone::Success)),
         PullRequestFileStatus::Modified => ("file-pen-line", "Modified", Some(Tone::Running)),
-        PullRequestFileStatus::Removed => ("trash-2", "Removed", Some(Tone::Failed)),
+        PullRequestFileStatus::Removed => ("trash", "Removed", Some(Tone::Failed)),
         PullRequestFileStatus::Renamed => ("corner-up-right", "Renamed", None),
     }
 }

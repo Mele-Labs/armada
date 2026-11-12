@@ -1268,7 +1268,7 @@ impl JobsList {
             ))
             .child(act(
                 format!("queued-remove-{}", idea.id),
-                "trash-2",
+                "trash",
                 "Remove",
                 format!("Remove {}", row.title),
                 false,

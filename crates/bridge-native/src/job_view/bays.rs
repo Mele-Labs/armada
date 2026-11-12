@@ -899,7 +899,7 @@ impl JobView {
         }
         if removable {
             let said = format!("Removes {name} from the pool with git worktree remove on .armada/slots/{name}. Refused while it holds uncommitted changes.");
-            acts.push(act("bay-remove", "Remove slot", "trash-2", said, Some(token::ERROR), Box::new(|this, window, cx| this.pool_act(ipc::SlotAct::Remove, window, cx))));
+            acts.push(act("bay-remove", "Remove slot", "trash", said, Some(token::ERROR), Box::new(|this, window, cx| this.pool_act(ipc::SlotAct::Remove, window, cx))));
         }
         let acts_row = labelled(div().id("bay-acts").flex().flex_wrap().gap(look.length(token::SPACE_2)).children(acts), Role::Group, "Acts");
         let refused = panel.refused.clone().map(|why| labelled(div().id("bay-refused").text_color(look.color(token::ERROR)).child(SharedString::from(why.clone())), Role::Alert, why));
