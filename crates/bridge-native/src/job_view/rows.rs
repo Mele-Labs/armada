@@ -203,14 +203,27 @@ impl JobView {
                 Some(ThreadItem::Row { row: SessionRow::Message { files, .. } | SessionRow::Sent { files, .. } })
                     if files.iter().any(super::pictures::is_picture) =>
                 {
-                    Some(files.clone())
+                    Some((files.clone(), false))
+                }
+                // And a picture a `Read` call looked at, the first time its run is drawn.
+                Some(ThreadItem::Calls { rows, .. }) => {
+                    let read: Vec<ipc::SentFile> = rows
+                        .iter()
+                        .filter_map(|row| match row {
+                            SessionRow::Tool { image: Some(path), .. } => super::pictures::read_picture(path),
+                            _ => None,
+                        })
+                        .collect();
+                    (!read.is_empty()).then_some((read, true))
                 }
                 _ => None,
             },
             _ => None,
         };
-        if let Some(files) = wanted {
-            self.want_pictures(&id, &files, window, cx);
+        match wanted {
+            Some((files, false)) => self.want_pictures(&id, &files, window, cx),
+            Some((files, true)) => self.want_read_pictures(&id, &files, window, cx),
+            None => {}
         }
         let (Some(page), Some(held)) = (self.pages.get(&id), self.thread(&id, cx)) else { return nothing() };
         let look = cx.look();
@@ -1033,9 +1046,12 @@ impl JobView {
                     .line_height(look.length(token::LEADING_SM))
                     .text_color(look.color(token::FG_DEFAULT))
                     .child(glyph(look, "square-terminal", Size::Small, look.color(token::FG_MUTED)))
+                    // At a narrow width the id gives way faster than the title, so the title stays.
                     .child(
                         div()
-                            .flex_none()
+                            .min_w_0()
+                            .flex_shrink(4.)
+                            .truncate()
                             .font_family(mono(look))
                             .text_size(look.length(token::TEXT_2XS))
                             .text_color(look.color(token::FG_MUTED))
@@ -1043,7 +1059,7 @@ impl JobView {
                     )
                     .child(
                         div()
-                            .flex_1()
+                            .flex_auto()
                             .min_w_0()
                             .truncate()
                             .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
