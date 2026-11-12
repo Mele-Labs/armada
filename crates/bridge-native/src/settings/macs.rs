@@ -99,12 +99,12 @@ impl SettingsOverlay {
     }
 
     /// Ask the Gateway once each time Settings opens, while the page is drawn.
-    pub(super) fn read_macs(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn read_macs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.macs.asked {
             return;
         }
         self.macs.asked = true;
-        self.read_setup(cx);
+        self.read_setup(window, cx);
         self.read_devices(cx);
     }
 
@@ -128,15 +128,22 @@ impl SettingsOverlay {
         ];
     }
 
-    /// `GET /admin/setup`, and again every five seconds while the page is shown and the tunnel does not run.
-    fn read_setup(&mut self, cx: &mut Context<Self>) {
+    /// `GET /admin/setup`, and again every five seconds while the page is shown and the tunnel does not run. A
+    /// state that no longer draws the control the keys were on puts them on the Devices list.
+    fn read_setup(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let read = self.wire.gateway_setup(cx);
-        self.macs._poll = Some(cx.spawn(async move |this, cx| {
+        self.macs._poll = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = read.await;
             let again = this
-                .update(cx, |this, cx| {
+                .update_in(cx, |this, window, cx| {
                     let runs = matches!(answer, Ok(GatewaySetup { cloudflare: CloudflareState::Running { .. }, .. }));
+                    let held = ["setup", "sign-in", "copy"].into_iter().filter_map(|name| this.macs.keys.get(name)).any(|focus| focus.is_focused(window));
                     this.macs.setup = Some(answer);
+                    if held && !this.macs_stops().iter().any(|focus| focus.is_focused(window)) {
+                        if let Some(rest) = this.macs.keys.get(AT_REST).cloned() {
+                            window.focus(&rest, cx);
+                        }
+                    }
                     cx.notify();
                     !runs
                 })
@@ -145,9 +152,9 @@ impl SettingsOverlay {
                 return;
             }
             cx.background_executor().timer(RETRY).await;
-            let _ = this.update(cx, |this, cx| {
+            let _ = this.update_in(cx, |this, window, cx| {
                 if this.macs_shown(cx) {
-                    this.read_setup(cx);
+                    this.read_setup(window, cx);
                 }
             });
         }));
@@ -241,7 +248,7 @@ impl SettingsOverlay {
                         if let Some(focus) = this.macs.keys.get(next).cloned() {
                             window.focus(&focus, cx);
                         }
-                        this.read_setup(cx);
+                        this.read_setup(window, cx);
                     }
                 }
                 cx.notify();
@@ -344,8 +351,9 @@ impl SettingsOverlay {
             }
             CloudflareState::Missing | CloudflareState::SignedOut | CloudflareState::NoTunnel { .. } => {
                 let mut lines = vec![caption(look, "Phones and your other Macs reach this Mac through it.").into_any_element()];
+                // The last try's failure, as Fleet wrote it, with Set up tunnel beside it.
                 if let CloudflareState::NoTunnel { why: Some(why) } = state {
-                    lines.push(caption(look, why).into_any_element());
+                    lines.push(alert(look, "macs-tunnel-why", why));
                 }
                 lines.extend(refused);
                 step_row(look, not_done(look, "macs-tunnel-mark"), step_name(look, "No tunnel yet"), lines, Some(self.macs_button("setup", "Set up tunnel", Weight::Primary, page.pressing, look, window, cx)), true)

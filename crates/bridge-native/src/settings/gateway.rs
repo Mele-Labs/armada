@@ -116,9 +116,10 @@ pub fn unpair(id: String, cx: &App) -> Task<Result<(), String>> {
     })
 }
 
-/// The walk's and the tests' Gateway: this Mac signed out of Cloudflare, two other Macs and two phones. The first
-/// press is refused, as Cloudflare refuses one; the next asks for the sign-in; the second read after it finds the
-/// tunnel running, as if he had signed in; and a read after that finds it down, as when the page is opened later.
+/// The walk's and the tests' Gateway, passing through every tunnel state: `cloudflared` not downloaded yet; the
+/// first press downloads it and is refused, leaving this Mac signed out; the next asks for the sign-in, whose
+/// domain lookup fails once (no tunnel, and why); the press after that signs in and the tunnel runs; and a read
+/// after that finds it down, as when the page is opened later. Two other Macs and two phones.
 pub struct MockGateway {
     pub running: bool,
     pub setup: GatewaySetup,
@@ -130,6 +131,8 @@ pub struct MockGateway {
     seen_running: bool,
     /// Presses taken.
     presses: u8,
+    /// Whether the sign-in's domain lookup has failed once.
+    looked_up: bool,
 }
 
 /// This Mac's address under the domain the sign-in picks (`label_of` the Mac's name).
@@ -140,7 +143,7 @@ impl MockGateway {
         let now = chrono::Utc::now().timestamp();
         MockGateway {
             running: true,
-            setup: GatewaySetup { tailscale: TailscaleState::Running, served: Served::None, named: false, address: None, cloudflare: CloudflareState::SignedOut, cloudflared: Some("2025.11.0".into()) },
+            setup: GatewaySetup { tailscale: TailscaleState::Running, served: Served::None, named: false, address: None, cloudflare: CloudflareState::Missing, cloudflared: None },
             macs: vec![
                 Mac { id: "mac-studio".into(), name: "Studio".into(), colour: MacColour::Teal, address: None, this_mac: true, build: Some("2930ac0".into()), link: None },
                 Mac { id: "mac-work".into(), name: "Work MacBook".into(), colour: MacColour::Orange, address: Some("work.example.com".into()), this_mac: false, build: Some("2930ac0".into()), link: Some(MacLink::Linked) },
@@ -153,6 +156,7 @@ impl MockGateway {
             signing: 0,
             seen_running: false,
             presses: 0,
+            looked_up: false,
         }
     }
 
@@ -167,6 +171,10 @@ impl MockGateway {
             CloudflareState::SigningIn { .. } if self.signing > 0 => {
                 self.signing -= 1;
                 None
+            }
+            CloudflareState::SigningIn { .. } if !self.looked_up => {
+                self.looked_up = true;
+                Some(CloudflareState::NoTunnel { why: Some("The sign-in picked no domain on your Cloudflare account. Press Set up to sign in again.".into()) })
             }
             CloudflareState::SigningIn { .. } => Some(CloudflareState::Running { address: self.setup.address.clone().unwrap_or_default() }),
             CloudflareState::Running { address } if self.seen_running => Some(CloudflareState::Down { address: address.clone(), since, why: "Cloudflare closed the connection: the tunnel's credentials were refused.".into() }),
@@ -192,7 +200,9 @@ impl MockGateway {
         }
         self.presses += 1;
         if self.presses == 1 {
-            return Err("Cloudflare did not answer: the download of cloudflared timed out.".into());
+            self.setup.cloudflared = Some("2025.11.0".into());
+            self.setup.cloudflare = CloudflareState::SignedOut;
+            return Err("Cloudflare did not answer the sign-in request.".into());
         }
         let login = "https://dash.cloudflare.com/argotunnel?aud=&callback=https%3A%2F%2Flogin.cloudflareaccess.org%2Fmock".to_string();
         self.setup.address = Some(MOCK_ADDRESS.into());
@@ -206,5 +216,45 @@ impl MockGateway {
         let before = self.phones.len();
         self.phones.retain(|one| one.id != id);
         if self.phones.len() == before { Err("No phone is paired with that id.".into()) } else { Ok(()) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn state(gateway: &mut MockGateway) -> &'static str {
+        match gateway.read_setup().expect("read").cloudflare {
+            CloudflareState::Missing => "missing",
+            CloudflareState::SignedOut => "signed_out",
+            CloudflareState::SigningIn { .. } => "signing_in",
+            CloudflareState::NoTunnel { .. } => "no_tunnel",
+            CloudflareState::Running { .. } => "running",
+            CloudflareState::Down { .. } => "down",
+        }
+    }
+
+    #[test]
+    fn the_mock_passes_through_every_tunnel_state_with_one_press_each() {
+        let mut gateway = MockGateway::new();
+        assert_eq!(state(&mut gateway), "missing");
+        assert!(gateway.start().is_err(), "the first press is refused");
+        assert_eq!(state(&mut gateway), "signed_out");
+        assert!(matches!(gateway.start(), Ok(Tunnel::SignIn(_))));
+        assert!(gateway.start().is_err(), "a second press while it signs in is busy");
+        assert_eq!(state(&mut gateway), "signing_in");
+        assert_eq!(state(&mut gateway), "no_tunnel");
+        assert!(matches!(gateway.start(), Ok(Tunnel::SignIn(_))));
+        assert_eq!(state(&mut gateway), "signing_in");
+        assert_eq!(state(&mut gateway), "running");
+        assert_eq!(state(&mut gateway), "down");
+    }
+
+    #[test]
+    fn unpair_takes_the_phone_off_and_refuses_one_not_paired() {
+        let mut gateway = MockGateway::new();
+        assert!(gateway.unpair("phone-2").is_ok());
+        assert!(gateway.phones.iter().all(|one| one.id != "phone-2"));
+        assert_eq!(gateway.unpair("phone-2"), Err("No phone is paired with that id.".into()));
     }
 }

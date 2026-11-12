@@ -963,7 +963,7 @@ impl SettingsOverlay {
             self.detail_keys(window, cx);
         }
         if self.shown(cx).is_some_and(|one| one.body == Body::Macs) {
-            self.read_macs(cx);
+            self.read_macs(window, cx);
             self.macs_keys(cx);
         }
         let look = cx.look();
