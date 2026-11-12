@@ -11,7 +11,7 @@ Bridge's half is `packages/protocol/src/job-thread.ts`, written by hand.
 
 | Operation | Kind | Carries |
 | --- | --- | --- |
-| `get_job_thread` (`GET /sessions/thread?session_id=&before=&limit=`) | query | `JobThread`: the `head`, the newest `items` and `older` |
+| `get_job_thread` (`GET /sessions/thread?session_id=&before=&limit=&upto=`) | query | `JobThread`: the `head`, the newest `items` and `older` |
 | `job_thread.tail` | event | `JobThreadTail`: `from`, the `items` from there to the end, and the `head` |
 | `job_thread.changed` | event | `JobThreadChanged`: `session_id` and `from`, for a change too far back to send |
 
@@ -48,6 +48,13 @@ A `change` has the id `event:<timeline id>`, read from the Job's `session.workfl
 A `before` no item holds is refused as `fleet.thread_item_unknown`, a 422, because the request is well formed and names nothing.
 `older` is the first returned item's id, absent where the answer starts the thread.
 It works for hosted and terminal Jobs alike.
+
+**`upto` cuts the thread before it folds.** It is a row id, and Fleet drops the rows after that row, included, before the fold, as Electron's `upTo` does, so a run of calls that went on past the row ends at it and no item is half of a longer one.
+`before`, `limit` and `older` then page the cut thread, and a `before` past the cut is refused.
+The cut read is not held: `job_thread.tail` follows the whole live thread and never carries to it.
+The `head` is empty: no ask, open call, lapsed question, plan, pinned sketch or Fleet act, and a trail with only `started`, because nothing that stands now belongs on the old thread.
+No ask is open for the fold either, so the last Fleet turn of the cut closes.
+An `upto` no row holds is refused as `fleet.thread_item_unknown`.
 
 ## The tail
 
