@@ -666,7 +666,10 @@ pub use session_checks::{
 pub use session_retro_row::{
     PartialRetroItem, RetroStage,
 };
-pub use phone::{PhoneGateway, SetPhoneGateway};
+pub use phone::{
+    CloudflareSignIn, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone, PhoneGateway, Served, SetPhoneGateway,
+    StartCloudflare, TailscaleState,
+};
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
 pub use document_answer::{

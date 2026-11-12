@@ -318,6 +318,50 @@ fn a_step_gated_you_approved_ends_when_he_approves_and_the_rail_advances_on_the_
     assert_eq!(at(&steps, Facts { you_approved: StepBits::of([1]), ..held }), Some(2), "his Approve passes the step");
 }
 
+/// **A step's declared gate says what ends it**, before any guess from the delivering step after it.
+#[test]
+fn each_gate_word_says_what_ends_its_step_and_never_the_push_after_it() {
+    use core_model::StepGate;
+    let said = |gate| ends_when(&[RailStep { gate, ..step("Gated") }, delivers("Deliver")], 0);
+    let read: Vec<_> = [
+        StepGate::PlanApproved,
+        StepGate::WalkApproved,
+        StepGate::SketchApproved,
+        StepGate::DocumentApproved,
+        StepGate::ChecksGreen,
+        StepGate::Merged,
+        StepGate::JobsEnded,
+        StepGate::None,
+    ]
+    .into_iter()
+    .map(said)
+    .collect();
+    assert_eq!(
+        read.iter().map(Option::as_deref).collect::<Vec<_>>(),
+        [
+            Some("you approve the plan"),
+            Some("you approve a walk"),
+            Some("you approve a sketch"),
+            Some("you approve a document"),
+            Some("its Checks pass"),
+            Some("it is merged"),
+            Some("every Job it started ends"),
+            Some("it is pushed"),
+        ]
+    );
+}
+
+/// **A step that lists `draft_approved`, with no plan anywhere, holds the Job until he approves the
+/// draft**, says so, and his Approve moves the Job onto the delivering step after it; a push alone does not.
+#[test]
+fn a_step_ending_on_a_draft_approved_holds_the_job_and_his_approve_moves_it_on() {
+    let steps = vec![RailStep { ends_on: vec![StepEnd::DraftApproved], ..step("Draft") }, delivers("Land")];
+    assert_eq!(at(&steps, Facts::default()), Some(0));
+    assert_eq!(at(&steps, Facts { draft_approved: true, ..Facts::default() }), Some(1), "his Approve passes the step");
+    assert_eq!(at(&steps, Facts { pushed: true, ..Facts::default() }), Some(0), "a push is no Approve");
+    assert_eq!(ends_when(&steps, 0).as_deref(), Some("you approve a draft"));
+}
+
 /// **Each `you_approved` step reads its own plan group's gate**, the group whose id is the step's id: closing the
 /// first group's gate passes the first step only, and any gate counts where no group carries the step's id.
 #[test]
