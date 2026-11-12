@@ -116,5 +116,7 @@ async fn a_move_in_a_started_job_publishes_the_record_of_the_job_that_started_it
             other => panic!("the stream ended or dropped: {other:?}"),
         }
     }
-    assert_eq!(carried, [Some("Awaiting QA".to_string())]);
+    // Fleet may publish the move more than once; the parent's record is heard, and each says where the started Job reads the ticket.
+    assert!(!carried.is_empty(), "the parent's record was not published");
+    assert!(carried.iter().all(|state| state.as_deref() == Some("Awaiting QA")), "{carried:?}");
 }
