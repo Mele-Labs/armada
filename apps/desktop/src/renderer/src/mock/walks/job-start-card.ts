@@ -1,4 +1,4 @@
-// A Job dispatched from the Dispatch sheet opens held. The title fills in, Workflow is changed in the strip on the composer and Delivery follows,
+// A Job drafted from the Dispatch sheet opens held. The title fills in, Workflow is changed in the strip on the composer and Delivery follows,
 // and Start begins the agent with nothing in Needs you. Over `job-start-card`.
 
 import { inside, region, role, text, walk } from "../walk";
@@ -13,12 +13,12 @@ const request = inside(frame, role("textbox", "Request"));
 
 const jobStartCard = walk("job-start-card", [
   {
-    key: "n",
+    key: "Meta+n",
     on: jobs,
-    say: "n opens Dispatch on the repository the rail is on",
+    say: "⌘N opens Dispatch on the repository the rail is on",
   },
   {
-    type: "Add a retry cap to the store client",
+    type: "Add a retry cap",
     into: request,
     say: "Words for a Job",
   },
@@ -34,11 +34,11 @@ const jobStartCard = walk("job-start-card", [
   {
     press: inside(
       frame,
-      role("button", "Start", {
+      role("button", "Draft", {
         exact: true,
       }),
     ),
-    say: "Send. The Job opens and no agent moves",
+    say: "Draft. The Job opens and no agent moves",
   },
   {
     look: role("button", /rename$/),

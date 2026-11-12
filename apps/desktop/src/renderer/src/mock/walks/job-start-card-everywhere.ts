@@ -28,12 +28,12 @@ const bar = role("status");
 
 const jobStartCardEverywhere = walk("job-start-card-everywhere", [
   {
-    key: "n",
+    key: "Meta+n",
     on: jobs,
-    say: "n opens Dispatch",
+    say: "⌘N opens Dispatch",
   },
   {
-    type: "Add a retry cap to the store client",
+    type: "Add a retry cap",
     into: request,
     say: "Words for a Job",
   },
@@ -49,14 +49,14 @@ const jobStartCardEverywhere = walk("job-start-card-everywhere", [
   {
     press: inside(
       frame,
-      role("button", "Start", {
+      role("button", "Draft", {
         exact: true,
       }),
     ),
-    say: "Send. The Job opens and no agent moves",
+    say: "Draft. The Job opens and no agent moves",
   },
   {
-    look: inside(composer, text(/Add a retry cap to the store client/)),
+    look: inside(composer, text(/Add a retry cap/)),
     say: "Its words are in the composer",
   },
   {
@@ -68,7 +68,7 @@ const jobStartCardEverywhere = walk("job-start-card-everywhere", [
     say: "Delivery is already his usual",
   },
   {
-    type: "Add a retry cap to the store client and stop at 3 attempts",
+    type: "Add a retry cap and stop at 3 attempts",
     into: composer,
     say: "He edits the words",
   },
@@ -91,7 +91,7 @@ const jobStartCardEverywhere = walk("job-start-card-everywhere", [
     say: "A Job whose agent can start another",
   },
   {
-    type: "Start a session to look into the settings loader ignoring a cap set for one repository\n",
+    type: "Look into the settings loader\n",
     into: composer,
     say: "He asks its agent to start a Job",
   },

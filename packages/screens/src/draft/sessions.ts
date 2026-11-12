@@ -1711,6 +1711,11 @@ export type SessionsDraft = {
   startQueued?: (id: string) => string | Promise<string | undefined>;
   /** Takes an idea off the queue without starting it. Absent with `queued`. */
   dropQueued?: (id: string) => void;
+  /**
+   * Starts a quick Job in the repository at `root`, by `start_terminal_job`: no workflow, the Operator never asked, and nothing runs until he
+   * writes. Answers its id, or nothing where it did not start (said as a toast). Absent where nothing serves it, and no card offers one.
+   */
+  startQuick?: (root: string) => string | Promise<string | undefined>;
   /** Opens a Session's thread for reading. Absent where the thread is already held. */
   watch?: (id: string) => void;
   /**

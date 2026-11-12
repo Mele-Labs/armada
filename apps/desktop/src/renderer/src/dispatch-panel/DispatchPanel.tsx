@@ -26,7 +26,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { Cpu, FolderGit2, LoaderCircle, Zap } from "lucide-react";
+import { Cpu, FolderGit2, LoaderCircle, Terminal, Zap } from "lucide-react";
 import {
   AttachmentChip,
   Button,
@@ -145,10 +145,10 @@ export type PanelWait = {
 /** What `@` offers after the Sessions and `#` offers, for the repository the request is for. Absent until one is known. */
 export type PanelTags = Pick<Tagging, "searchFiles" | "numbered" | "onTag">;
 
-/** `queue_session`'s binding drawn in Queue for later while ⌘ is held, as Start's is, in whatever key it is bound to now. */
-function QueueKbd({ available }: { available: boolean }) {
+/** `queue_session`'s binding drawn in Queue for later, and `draft_session`'s in Draft, while ⌘ is held, as Start's is, in whatever key it is bound to now. */
+function BoundKbd({ action, available }: { action: "queue_session" | "draft_session"; available: boolean }) {
   const revealing = useShortcutReveal();
-  const bound = boundKeyFor("queue_session");
+  const bound = boundKeyFor(action);
   if (!revealing || !available || bound === "") return null;
   const mods = [
     ...bound,
@@ -201,6 +201,16 @@ export type PanelProps = {
   onQueue?: () => void;
   /** Queue for later pressed and held until the repository is read. */
   queueing?: boolean;
+  /** Draft: starts a Job on its start card, where nothing runs until Start. Absent for every other kind. */
+  onDraft?: () => void;
+  /** Draft pressed and held until the repository is read, or until Fleet answers. */
+  drafting?: boolean;
+  /** The card under the sheet that starts a quick Job, as ⌘T does. Absent where nothing starts one. */
+  quick?: {
+    /** `New Job in <repository>`. */
+    label: string;
+    onStart: () => void;
+  };
   /** Esc. The draft stays. */
   onCollapse: () => void;
   /** A press on the scrim. */
@@ -266,6 +276,9 @@ export function DispatchPanel({
   onAfterFocused,
   onQueue,
   queueing = false,
+  onDraft,
+  drafting = false,
+  quick,
   onCollapse,
   onDismiss,
   onFieldKeyDown,
@@ -646,7 +659,7 @@ export function DispatchPanel({
               )}
               {onQueue === undefined ? null : (
                 <>
-                  <QueueKbd available={words.trim() !== ""} />
+                  <BoundKbd action="queue_session" available={words.trim() !== ""} />
                   <Button
                     variant="secondary"
                     size="sm"
@@ -658,12 +671,28 @@ export function DispatchPanel({
                   </Button>
                 </>
               )}
+              {onDraft === undefined ? null : (
+                <>
+                  <BoundKbd action="draft_session" available={worded} />
+                  <Tooltip label="Nothing runs until you press Start on its card">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      pending={drafting}
+                      disabled={disabled || sending || queueing || !worded}
+                      onClick={onDraft}
+                    >
+                      Draft
+                    </Button>
+                  </Tooltip>
+                </>
+              )}
               <SendKbd available={worded} />
               <Button
                 variant="primary"
                 size="sm"
                 pending={sending}
-                disabled={disabled || queueing || !worded}
+                disabled={disabled || queueing || drafting || !worded}
                 onClick={onAct}
               >
                 {act}
@@ -689,7 +718,23 @@ export function DispatchPanel({
       aria-label="Dispatch"
       onPointerDown={(event) => event.target === event.currentTarget && onDismiss?.()}
     >
-      {frameOf}
+      <div className="armada-dispatch-panel__stack">
+        {frameOf}
+        {quick === undefined ? null : (
+          <Tooltip label="No workflow; nothing runs until you write" shortcut="⌘T">
+            <button
+              type="button"
+              className="armada-dispatch-panel__quick"
+              disabled={disabled}
+              onClick={quick.onStart}
+            >
+              <Terminal aria-hidden className="armada-dispatch-panel__quick-glyph" />
+              <span className="armada-dispatch-panel__quick-label">{quick.label}</span>
+              <Kbd>⌘T</Kbd>
+            </button>
+          </Tooltip>
+        )}
+      </div>
     </div>
   );
 }

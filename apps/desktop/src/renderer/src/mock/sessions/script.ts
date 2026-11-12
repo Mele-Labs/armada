@@ -1096,6 +1096,17 @@ export function sessionsStore(
       });
       return session;
     },
+    // As `start_terminal_job`: a Job named for its folder, with no workflow and an empty thread.
+    startQuick(root) {
+      const session = store.start(undefined, root);
+      if (typeof session !== "string") return session;
+      const folder = root.split("/").filter((part) => part !== "").pop() ?? root;
+      store.edit(session, (one) => ({
+        ...one,
+        title: `Terminal in ${folder}`,
+      }));
+      return session;
+    },
     dropQueued(id) {
       queued = queued.filter((one) => one.id !== id);
       set([

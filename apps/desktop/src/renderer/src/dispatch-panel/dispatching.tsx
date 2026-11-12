@@ -43,6 +43,7 @@ import type { BridgeState } from "../../../shared/bridge";
 import { localNow, readingOf, settingsFrom } from "../cockpit/autopilot";
 import { searchFiles } from "../commands";
 import { useNumbered } from "../numbered";
+import { askComposerFocus } from "../session-focus";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { AutopilotBody, type AutopilotRead } from "./AutopilotBody";
 import type { SentView } from "./DispatchedStrip";
@@ -93,6 +94,8 @@ const handNow = () => readKept<Hand>(AFTER) ?? {};
 
 /** `queue_session`'s key in the request, rebindable: ⇧⌘Enter, with Control answering as ⌘ does everywhere in Bridge. */
 const queuesOn = (event: KeyboardEvent<HTMLElement>) => isPressed("queue_session", event);
+/** `draft_session`'s key in the request, rebindable: ⌥Enter starts the Job on its start card. */
+const draftsOn = (event: KeyboardEvent<HTMLElement>) => isPressed("draft_session", event);
 
 type Host = {
   state: BridgeState;
@@ -158,6 +161,8 @@ export type Dispatching = {
   openWorkflow: () => void;
   /** ⌥A: the panel on a Session, with an `@` typed at the end of the request and its menu open. Absent where a Session cannot wait. */
   openAfter?: () => void;
+  /** A quick Job in the repository the title bar picks, or the one used last, opened on its empty thread with the composer focused. Absent where nothing starts one. */
+  startQuick?: () => void;
   closeSheet: () => void;
   /** A hook, called by the sheet and nowhere else: it holds the words and their reading, which the rest of the window does not. */
   usePanel: () => EntryProps;
@@ -222,7 +227,9 @@ export function useDispatch({
   const [sheetGrown, setSheetGrown] = useState(false);
   const [asking, setAsking] = useState<"send" | "queue" | "chip" | false>(false);
   // The act is waiting on the repository being read, and then on Fleet's answer to it.
-  const [waiting, setWaiting] = useState<false | "start" | "queue">(false);
+  const [waiting, setWaiting] = useState<false | "start" | "draft" | "queue">(false);
+  // Set by Draft: the next start waits on its start card. Start and Enter run the Job at once.
+  const drafted = useRef(false);
   const [sending, setSending] = useState(false);
   const [read, setRead] = useState<AutopilotRead>();
   const [refused, setRefused] = useState<string>();
@@ -311,6 +318,7 @@ export function useDispatch({
       kept,
       sheet: true,
       open: true,
+      held: drafted.current,
     });
   }
 
@@ -351,6 +359,7 @@ export function useDispatch({
       kept: [],
       sheet: false,
       open,
+      held: false,
     });
     return true;
   }
@@ -368,6 +377,8 @@ export function useDispatch({
     kept: readonly File[];
     sheet: boolean;
     open: boolean;
+    /** On its start card, as Draft asks; otherwise the Job runs at once. */
+    held: boolean;
   }) {
     if (draft === undefined) return;
     const { text, at, tags, kept, tuning, hand } = one;
@@ -418,10 +429,10 @@ export function useDispatch({
         const started =
           rows === undefined
             ? after === undefined
-              ? draft.start(undefined, at, text, tuning, undefined, true, undefined, true)
+              ? draft.start(undefined, at, text, tuning, undefined, one.held, undefined, true)
               : draft.start(undefined, at, text, tuning, after, undefined, undefined, true)
             : after === undefined
-              ? draft.start(undefined, at, text, tuning, undefined, true, rows, true)
+              ? draft.start(undefined, at, text, tuning, undefined, one.held, rows, true)
               : draft.start(undefined, at, text, tuning, after, undefined, rows, true);
         return Promise.resolve(started).then((id) => ({
           id,
@@ -560,6 +571,30 @@ export function useDispatch({
     setSheet(false);
   };
 
+  /** Where a quick Job starts: the repository the title bar picks, else the one used last, else the first served. */
+  const quickRoot = (): string | undefined =>
+    repositories.find((one) => one.root === state.repository)?.root ??
+    recent.find((at) => repositories.some((one) => one.root === at)) ??
+    repositories[0]?.root;
+  const startQuick =
+    draft?.startQuick === undefined
+      ? undefined
+      : () => {
+          const at = quickRoot();
+          if (at === undefined || draft.startQuick === undefined) return;
+          recall(at);
+          collapse();
+          void Promise.resolve(draft.startQuick(at)).then((id) => {
+            if (id === undefined) return;
+            askComposerFocus(id);
+            openSession(id);
+          });
+        };
+  const quickIn = () => {
+    const at = quickRoot();
+    return optionsFor(repositories, []).find((one) => one.root === at)?.name;
+  };
+
   const usePanel = (): EntryProps => {
     const [words] = useKept(REQUEST, "");
     const [tuned, setTuned] = useKept<Tuning>(TUNING, {});
@@ -574,6 +609,14 @@ export function useDispatch({
     const { reading: found, likely } = useReading(words);
     const options = optionsFor(repositories, likely);
     const by = (root: string | null | undefined) => options.find((one) => one.root === root);
+    const quickName = quickIn();
+    const quick =
+      startQuick === undefined || quickName === undefined
+        ? undefined
+        : {
+            label: `New Job in ${quickName}`,
+            onStart: startQuick,
+          };
     // Fleet names the repository by its Manifest's id, and the panel works in roots.
     const detected =
       found.state === "detected"
@@ -627,10 +670,11 @@ export function useDispatch({
           );
 
     /** Nothing starts without a repository: a reading still out is waited for, and none found asks. */
-    const act = () => {
+    const act = (held = false) => {
       if (words.trim() === "" && snippets.length === 0) return;
+      drafted.current = held && kind === "session";
       if (root === undefined)
-        return found.state === "detecting" ? setWaiting("start") : setAsking("send");
+        return found.state === "detecting" ? setWaiting(held ? "draft" : "start") : setAsking("send");
       proceed(root);
     };
 
@@ -654,7 +698,7 @@ export function useDispatch({
       if (!waiting || (root === undefined && found.state === "detecting")) return;
       setWaiting(false);
       if (waiting === "queue") queue();
-      else act();
+      else act(waiting === "draft");
       // The reading settling, or a repository picked before it does, is all this waits on.
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
@@ -692,8 +736,8 @@ export function useDispatch({
         else setAsking(false);
       },
       act: kind === "session" ? "Start" : read === undefined ? "Read it" : "Start Autopilot",
-      sending: sending || waiting === "start",
-      onAct: act,
+      sending: (sending && !drafted.current) || waiting === "start",
+      onAct: () => act(),
       ...(kind === "session" && draft !== undefined
         ? {
             tuning: {
@@ -720,6 +764,13 @@ export function useDispatch({
                       }),
                 }),
             },
+            onDraft: () => act(true),
+            drafting: (sending && drafted.current) || waiting === "draft",
+            ...(quick === undefined
+              ? {}
+              : {
+                  quick,
+                }),
             // A queued idea is words alone, so one with a snippet would lose it.
             ...(draft.queue === undefined || snippets.length > 0
               ? {}
@@ -777,6 +828,9 @@ export function useDispatch({
         if (queuesOn(event) && kind === "session" && draft?.queue !== undefined) {
           event.preventDefault();
           if (words.trim() !== "") queue();
+        } else if (draftsOn(event) && kind === "session") {
+          event.preventDefault();
+          act(true);
         } else if (
           event.key === "Tab" &&
           kinds.length > 1 &&
@@ -925,6 +979,11 @@ export function useDispatch({
         }),
     openSheet,
     startDraft,
+    ...(startQuick === undefined
+      ? {}
+      : {
+          startQuick,
+        }),
     openSheets,
     closeSheet: collapse,
     usePanel,
