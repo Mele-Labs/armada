@@ -58,6 +58,10 @@ export type OperatorTurnItem = {
   then?: OperatorThenOffer[];
   /** Whether Always here and Always are offered. Absent where they are not. */
   keeps?: boolean;
+  /** What else raised the same ask, folded into this one, each as its tooltip names it, oldest first. Absent where nothing did. */
+  also_raised_by?: string[];
+  /** The Job's id, where it has two or more asks waiting: `turn` lists them together, at the place of the first of them, in the order the Job raised them. Drawn as one entry. Absent for a single ask. */
+  group?: string;
 };
 
 /** What the Operator is reading now. */
@@ -159,6 +163,12 @@ export type OperatorHold = {
   repository?: string;
   /** The hold in Fleet's words, such as `Hold src/a until Fix the clock pushes`. */
   said: string;
+  /** The paths held, as the order names them. Absent on an answer from before they were sent. */
+  paths?: string[];
+  /** The only Job that writes under them. Absent on an answer from before it was sent. */
+  job?: string;
+  /** What lifts the hold. Absent on an answer from before it was sent. */
+  until?: "pushes" | "ends";
   /** RFC 3339. */
   at: string;
 };
@@ -251,9 +261,11 @@ export type OperatorTurnOrder = {
   ids: string[];
 };
 
-/** `operator_later` (`POST /operator/page/later`): one item goes last for the rest of the local day. */
+/** `operator_later` (`POST /operator/page/later`): one item goes last until `until`, or for the rest of the local day. */
 export type OperatorLater = {
   id: string;
+  /** When it comes back, worked out by Bridge from the choice he pressed. Absent, the local day's end. */
+  until?: string;
 };
 
 /** `operator.page_changed`: the page is not what it was, so read it again. Nothing else rides. */

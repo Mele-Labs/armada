@@ -112,7 +112,10 @@ where
             Side::Holder(other) => {
                 let from = if *to == opposed.0 { other } else { &opposed.0 };
                 match self.peer_of(from).await {
-                    Some(peer) => About::Peer(peer),
+                    Some(Peer::Session { id, address, title, branch, paused }) => {
+                        let branch = reading.branches.get(from).cloned().or(branch);
+                        About::Peer(Peer::Session { id, address, title, branch, paused })
+                    }
                     None => return,
                 }
             }

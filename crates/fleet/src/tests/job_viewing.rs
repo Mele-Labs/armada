@@ -61,7 +61,7 @@ async fn a_message_he_sends_is_a_visit_and_one_fleet_sends_is_not() {
     rig.send(&id, "go").await;
     assert_eq!(viewed_at(&rig, &id).await, None, "Fleet's own send is no visit");
 
-    let sent = SendSessionMessage { session_id: id.clone(), text: "and the floor?".into(), attachments: Vec::new(), mentions: Vec::new() };
+    let sent = SendSessionMessage { session_id: id.clone(), text: "and the floor?".into(), attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() };
     let answered = Arc::clone(&rig.fleet).send_session_message_aiming(sent, None).await.expect("sent");
     assert!(answered.viewed_at.is_some(), "the answer carries the visit");
     assert_eq!(viewed_at(&rig, &id).await, answered.viewed_at);

@@ -21,7 +21,7 @@ import type { SettingsList } from "./settings";
 import type { CheckoutRunRecord } from "./rehearsal";
 import type { AppRun } from "./app-runs";
 import type { ServerState } from "./servers";
-import type { SessionRowChanged } from "./hosted-sessions";
+import type { SessionRowChanged, SessionSubagentChanged } from "./hosted-sessions";
 import type { ModelDownshiftState } from "./model-downshift";
 import type { Projects } from "./projects";
 import type { AgentSignIn } from "./agent-sign-in";
@@ -145,6 +145,10 @@ export type Event =
   | ({
       kind: "session.row";
     } & SessionRowChanged)
+  /** A subagent's own thread moved: read `get_session_subagent` again with its `subagent_id`. */
+  | ({
+      kind: "session.subagent";
+    } & SessionSubagentChanged)
   /** One of a Job's terminals opened, by the person's `open_terminal` or its agent's `type_in_terminal`. */
   | ({
       kind: "terminal.opened";

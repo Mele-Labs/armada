@@ -121,12 +121,12 @@ async fn a_read_with_a_before_no_item_holds_is_refused_and_a_read_follows_the_jo
     let _keeping = crate::thread_keeping::keep_the_threads(Arc::clone(&rig.fleet));
 
     let refused = Arc::clone(&rig.fleet)
-        .get_job_thread(ipc::JobThreadRead { session_id: id.clone(), before: Some("nowhere".into()), limit: None })
+        .get_job_thread(ipc::JobThreadRead { session_id: id.clone(), before: Some("nowhere".into()), limit: None, upto: None })
         .await;
     assert!(matches!(refused, Err(Refusal::Unacceptable(_))), "{refused:?}");
 
     let read = Arc::clone(&rig.fleet)
-        .get_job_thread(ipc::JobThreadRead { session_id: id.clone(), before: None, limit: Some(5) })
+        .get_job_thread(ipc::JobThreadRead { session_id: id.clone(), before: None, limit: Some(5), upto: None })
         .await
         .expect("a read");
     assert_eq!(read.session_id, id);
@@ -146,4 +146,86 @@ async fn a_read_with_a_before_no_item_holds_is_refused_and_a_read_follows_the_jo
     let tail = told.expect("a tail followed the row");
     assert_eq!(ids(&tail.items), ["fresh"]);
     assert_eq!(tail.session_id, id);
+}
+
+async fn read_upto(
+    rig: &super::session_host::Rig,
+    id: &ipc::SessionId,
+    upto: Option<&str>,
+    before: Option<&str>,
+    limit: Option<u32>,
+) -> Result<ipc::JobThread, Refusal> {
+    Arc::clone(&rig.fleet)
+        .get_job_thread(ipc::JobThreadRead {
+            session_id: id.clone(),
+            before: before.map(Into::into),
+            limit,
+            upto: upto.map(Into::into),
+        })
+        .await
+}
+
+#[tokio::test]
+async fn thread_read_upto_cuts_then_folds() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.row_put(id.as_str(), you("u1", 1, "go")).await;
+    for (n, name) in ["t1", "t2", "t3", "t4"].into_iter().enumerate() {
+        rig.fleet.row_put(id.as_str(), tool(name, 2 + n as u32, "Bash ls")).await;
+    }
+
+    let whole = read_upto(&rig, &id, None, None, None).await.expect("the whole thread");
+    let ThreadItem::Calls { rows, .. } = whole.items.last().expect("an item") else { panic!("a run of calls: {:?}", whole.items) };
+    assert_eq!(rows.len(), 4, "the whole run is one item");
+
+    let cut = read_upto(&rig, &id, Some("t2"), None, None).await.expect("a cut thread");
+    let ThreadItem::Calls { rows, .. } = cut.items.last().expect("an item") else { panic!("a run of calls: {:?}", cut.items) };
+    assert_eq!(rows.iter().map(SessionRow::id).collect::<Vec<_>>(), ["t1", "t2"], "the run ends at the cut row");
+    assert!(ids(&cut.items).contains(&"u1"), "{:?}", ids(&cut.items));
+
+}
+
+#[tokio::test]
+async fn thread_read_upto_is_not_held_for_the_tail() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.row_put(id.as_str(), you("u1", 1, "go")).await;
+
+    read_upto(&rig, &id, Some("u1"), None, None).await.expect("a cut thread");
+    assert!(!rig.fleet.hosts().threads.is_watched(id.as_str()), "a cut read is not the live thread");
+    read_upto(&rig, &id, None, None, None).await.expect("the whole thread");
+    assert!(rig.fleet.hosts().threads.is_watched(id.as_str()));
+}
+
+#[tokio::test]
+async fn thread_read_upto_unknown_is_refused() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.row_put(id.as_str(), you("u1", 1, "go")).await;
+
+    let refused = read_upto(&rig, &id, Some("nowhere"), None, None).await;
+    assert!(matches!(refused, Err(Refusal::Unacceptable(_))), "{refused:?}");
+    let found = read_upto(&rig, &id, Some("u1"), None, None).await;
+    assert!(found.is_ok(), "{found:?}");
+}
+
+#[tokio::test]
+async fn thread_read_upto_pages_older() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    for n in 1..=6u32 {
+        rig.fleet.row_put(id.as_str(), agent(&format!("m{n}"), n, "x")).await;
+    }
+
+    let newest = read_upto(&rig, &id, Some("m5"), None, Some(2)).await.expect("the newest of the cut");
+    assert_eq!(ids(&newest.items), ["m4", "m5"]);
+    assert_eq!(newest.older.as_deref(), Some("m4"));
+
+    let older = read_upto(&rig, &id, Some("m5"), newest.older.as_deref(), Some(2)).await.expect("older");
+    assert_eq!(ids(&older.items), ["m2", "m3"]);
+    assert_eq!(older.older.as_deref(), Some("m2"));
+
+    // `before` is found among the cut items only: a row after the cut is no cursor.
+    let past = read_upto(&rig, &id, Some("m5"), Some("m6"), None).await;
+    assert!(matches!(past, Err(Refusal::Unacceptable(_))), "{past:?}");
 }

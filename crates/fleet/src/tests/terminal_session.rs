@@ -86,6 +86,7 @@ impl Rig {
                 text: text.into(),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             })
             .await
             .map(|_| ())
@@ -246,6 +247,7 @@ async fn a_big_file_is_sent_with_its_size_and_a_small_one_as_its_path() {
             text: "look".into(),
             attachments: vec![upload("small.txt", 1_000), upload("response.txt", 40_000)],
             mentions: Vec::new(),
+            sketches: Vec::new(),
         })
         .await
         .expect("held");
@@ -284,6 +286,7 @@ async fn a_file_is_saved_and_sent_as_its_path_and_nothing_goes_to_an_ended_sessi
                 },
             ],
             mentions: Vec::new(),
+            sketches: Vec::new(),
         })
         .await
         .expect("held");
@@ -504,6 +507,34 @@ async fn a_subagent_of_a_session_reads_as_its_own_thread() {
     assert_eq!(done.rows.len(), 2);
 
     assert!(read("nope").await.is_err(), "a subagent that wrote nothing is refused");
+}
+
+/// A subagent's rows come folded as a Job's thread folds them, with no ledger to draw cards from: the
+/// agent's task list is not drawn, and calls that ran together are one run.
+#[tokio::test]
+async fn subagent_items_folded() {
+    let rig = rig();
+    let dir = rig.transcript.with_extension("").join("subagents");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(rig.transcript.clone(), "").unwrap();
+    let line = |uuid: &str, reason: &str, content: &str| {
+        format!(
+            r#"{{"type":"assistant","uuid":"{uuid}","isSidechain":true,"timestamp":"2026-10-07T08:48:10.000Z","message":{{"role":"x","stop_reason":{reason},"content":{content}}}}}"#
+        )
+    };
+    let calls = r#"[{"type":"text","text":"Looking."},{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls"}},{"type":"tool_use","id":"t2","name":"TaskCreate","input":{"subject":"x"}},{"type":"tool_use","id":"t3","name":"Read","input":{"file_path":"/a"}}]"#;
+    let file = dir.join("agent-x1.jsonl");
+    std::fs::write(&file, line("s1", "\"tool_use\"", calls) + "\n" + &line("s2", "\"end_turn\"", r#"[{"type":"text","text":"Done."}]"#) + "\n").unwrap();
+
+    let read = Arc::clone(&rig.fleet).get_session_subagent(SessionId::carried(ID), "x1".into()).await.expect("it reads");
+    let [ipc::ThreadItem::Row { row: first }, ipc::ThreadItem::Calls { names, rows, .. }, ipc::ThreadItem::Row { row: last }] = &read.items[..] else {
+        panic!("words, one run of calls, words: {:?}", read.items)
+    };
+    assert!(matches!(first, SessionRow::Message { text, .. } if text == "Looking."));
+    assert_eq!(names, &["Bash", "Read"], "the task list is not drawn");
+    assert_eq!(rows.len(), 2);
+    assert!(matches!(last, SessionRow::Message { text, .. } if text == "Done."));
+    assert_eq!(read.rows.len(), 5, "`rows` stays as the transcript drew it");
 }
 
 /// The mod never settles a subagent, so Fleet does: a ledger row reads done once the subagent's own
@@ -1154,4 +1185,98 @@ async fn ending_a_terminal_whose_mod_predates_ends_is_refused() {
     assert!(refused.contains("fleet.terminal_session_unreachable"), "{refused}");
     assert!(refused.contains("too old"), "{refused}");
     assert!(!rig.mod_takes().await.end, "nothing was held");
+}
+
+const READER: &str = "abcd1234-0000-4000-8000-000000000001";
+
+impl Rig {
+    /// A second terminal Job in the ledger, titled `Reader`, which `s-abcd1234` addresses.
+    async fn reader_started(&self) {
+        self.fleet
+            .report_session(SessionReport {
+                harness: adapters::HOSTED_HARNESS.into(),
+                session_id: SessionId::carried(READER),
+                fact: SessionFact::Started {
+                    cwd: self.root.clone(),
+                    title: Some("Reader".into()),
+                    origin: SessionOrigin::Terminal,
+                    mod_version: None,
+                },
+            })
+            .await
+            .unwrap();
+    }
+}
+
+fn from_a_peer(uuid: &str, tag: &str, body: &str) -> String {
+    format!(
+        r#"{{"type":"user","uuid":"{uuid}","timestamp":"2026-10-07T08:48:10.000Z","isMeta":true,"origin":{{"kind":"peer"}},"message":{{"role":"user","content":"Another Claude session sent a message:\n<cross-session-message {tag}>\n{body}\n</cross-session-message>\n\nThis came from another Claude session."}}}}"#
+    )
+}
+
+/// **A message another session sent is from that Job** where Fleet knows it: the Job's own id and
+/// title. Where it does not, the row keeps the name as the wrapper wrote it for both.
+#[tokio::test]
+async fn a_received_message_is_from_its_job() {
+    let rig = rig();
+    rig.started().await;
+    rig.reader_started().await;
+    let lines = [
+        from_a_peer("p1", r#"from=\"uds:/tmp/cc-socks/69566.sock\" from-name=\"s-abcd1234\""#, "Known by name."),
+        from_a_peer("p2", r#"from=\"uds:/tmp/cc-socks/5352.sock\" from-name=\"s-ffffffff\""#, "Not a Job."),
+        from_a_peer("p3", r#"from=\"uds:/tmp/cc-socks/5352.sock\""#, "A socket, and no Fleet pid for a terminal Job."),
+    ];
+    std::fs::write(&rig.transcript, lines.join("\n") + "\n").unwrap();
+
+    let voices: Vec<(SessionVoice, String)> = rig
+        .opened()
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { from, text, .. } => Some((from, text)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        voices,
+        [
+            (SessionVoice::Session { id: READER.into(), title: "Reader".into() }, "Known by name.".to_string()),
+            (SessionVoice::Session { id: "s-ffffffff".into(), title: "s-ffffffff".into() }, "Not a Job.".to_string()),
+            (
+                SessionVoice::Session { id: "uds:/tmp/cc-socks/5352.sock".into(), title: "uds:/tmp/cc-socks/5352.sock".into() },
+                "A socket, and no Fleet pid for a terminal Job.".to_string()
+            ),
+        ]
+    );
+}
+
+/// A terminal Job's own `SendMessage` names the Job it went to, as a hosted Job's does.
+#[tokio::test]
+async fn a_terminal_jobs_sent_message_names_the_job() {
+    let rig = rig();
+    rig.started().await;
+    rig.reader_started().await;
+    let sent = |uuid: &str, to: &str| {
+        format!(
+            r#"{{"type":"assistant","uuid":"{uuid}","timestamp":"2026-10-07T08:48:10.000Z","message":{{"role":"assistant","content":[{{"type":"tool_use","id":"toolu_{uuid}","name":"SendMessage","input":{{"to":"{to}","summary":"Heads up","message":"look at this"}}}}]}}}}"#
+        )
+    };
+    std::fs::write(&rig.transcript, [sent("m1", "s-abcd1234"), sent("m2", "stranger")].join("\n") + "\n").unwrap();
+
+    let peers: Vec<ipc::MessagePeer> = rig
+        .opened()
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Tool { message: Some(message), .. } => Some(message.to),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        peers,
+        [
+            ipc::MessagePeer { name: "s-abcd1234".into(), session_id: Some(SessionId::carried(READER)), title: Some("Reader".into()) },
+            ipc::MessagePeer { name: "stranger".into(), session_id: None, title: None },
+        ]
+    );
 }

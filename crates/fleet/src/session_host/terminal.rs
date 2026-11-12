@@ -368,9 +368,10 @@ where
         let home = self.host().home.clone();
         let id = session.id.clone();
         let threads = self.hosts().terminals().threads();
-        let (file, rows, next) = tokio::task::spawn_blocking(move || threads.thread(&home, &id))
+        let (file, mut rows, next) = tokio::task::spawn_blocking(move || threads.thread(&home, &id))
             .await
             .map_err(|why| self.hosted_fault(THREAD_UNREADABLE, &why.to_string()))?;
+        self.peers_named(&mut rows).await;
         if self.hosts().terminals().begin_watching(&session.id) {
             let fleet = Arc::clone(self);
             let id = session.id.clone();
@@ -399,8 +400,9 @@ where
                     adapters::terminal_thread::read_from(&path, at).map(|thread| (thread, at))
                 })
                 .await;
-                if let Ok(Ok((thread, _))) = read {
+                if let Ok(Ok((mut thread, _))) = read {
                     at = thread.next;
+                    self.peers_named(&mut thread.rows).await;
                     for row in thread.rows {
                         self.publish(ipc::Event::SessionRow(SessionRowChanged {
                             session_id: SessionId::carried(&id),

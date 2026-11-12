@@ -9,9 +9,9 @@ import type { SketchAnswer } from "./sketch-answer";
 
 /**
  * A page the Job wrote as its document, where in the thread Fleet kept its newest revision: a header band naming the page and
- * its revision, with a press at its end that opens the page over the Job. **Every revision is put to the person**, so the card
- * holds Approve and Send back under the band while it waits, and how it ended once answered. It wears the sketch card's frame,
- * so the two read as one kind of thing.
+ * its revision, with a press at its end that opens the page over the Job. **A page is for reading unless it asks**: only a
+ * revision Fleet put to the person (`asked`) holds Approve and Send back under the band while it waits, and how it ended once
+ * answered. It wears the sketch card's frame, so the two read as one kind of thing.
  */
 export function DocumentRow({
   row,

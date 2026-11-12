@@ -7,6 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::operator_talk::OperatorHoldUntil;
 use crate::{Instant, MainCiState, OperatorRead, SessionId, WaitingAct, WaitingItem};
 
 /// Whose act an item is.
@@ -121,6 +122,13 @@ pub struct OperatorTurnItem {
     /// a go-ahead and a red main are.
     #[serde(default, skip_serializing_if = "is_false")]
     pub keeps: bool,
+    /// What else raised the same ask, folded into this one, each as its tooltip names it, oldest first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub also_raised_by: Vec<String>,
+    /// The Job's id, where it has two or more asks waiting: `turn` lists them together, at the place of
+    /// the first of them, in the order the Job raised them, and Bridge draws them as one entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
 }
 
 /// What the Operator is reading now.
@@ -216,6 +224,15 @@ pub struct OperatorHold {
     pub repository: Option<String>,
     /// The hold in Fleet's words, such as `Hold src/a until Fix the clock pushes`.
     pub said: String,
+    /// The paths held, as the order names them. Empty on an answer from before they were sent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paths: Vec<String>,
+    /// The only Job that writes under them. Absent on an answer from before it was sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<SessionId>,
+    /// What lifts the hold. Absent on an answer from before it was sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<OperatorHoldUntil>,
     pub at: Instant,
 }
 
@@ -338,10 +355,13 @@ pub struct OperatorTurnOrder {
     pub ids: Vec<String>,
 }
 
-/// `operator_later`: one item goes last for the rest of the local day.
+/// `operator_later`: one item goes last until `until`, or for the rest of the local day.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorLater {
     pub id: String,
+    /// When it comes back, which Bridge works out from the choice he pressed. Absent, the local day's end.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
 }
 
 /// `operator.page_changed`: the page is not what it was, so read it again. Nothing else rides.

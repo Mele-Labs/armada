@@ -370,6 +370,7 @@ impl Rig {
                 text: text.into(),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             })
             .await
             .expect("taken");
@@ -736,7 +737,7 @@ async fn a_message_is_taken_while_the_process_it_needs_is_still_starting() {
     let held = rig.stand_in.gate.lock().unwrap();
     // On its own task: a send that waits on the start holds the thread it runs on.
     let fleet = Arc::clone(&rig.fleet);
-    let sent = SendSessionMessage { session_id: id.clone(), text: "again".into(), attachments: Vec::new(), mentions: Vec::new() };
+    let sent = SendSessionMessage { session_id: id.clone(), text: "again".into(), attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() };
     let sending = tokio::spawn(async move { fleet.send_session_message(sent).await });
     tokio::time::timeout(Duration::from_secs(10), sending)
         .await
@@ -975,6 +976,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             text: "go".into(),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         })
         .await
         .unwrap();
@@ -996,6 +998,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             text: "again".into(),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         })
         .await
         .unwrap();
@@ -1016,6 +1019,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             text: "more".into(),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         })
         .await;
     assert!(refused.is_err());
@@ -1592,4 +1596,28 @@ async fn fleets_notices_told_while_a_write_is_held_reach_the_session_after_it_mo
     assert!(sent[0].contains("You are now in"), "told where it is first: {sent:?}");
     assert!(sent[1].contains("The owner approved plan v1."), "{sent:?}");
     assert!(sent[2].contains("You are on the Implement step."), "{sent:?}");
+}
+
+/// A sketch the composer sent goes up as a picture and as a chip: the person's row keeps the chip,
+/// so it outlives the window that drew it.
+#[tokio::test]
+async fn a_sent_sketch_is_kept_on_the_message_row() {
+    let rig = rig();
+    let id = rig.start().await;
+    Arc::clone(&rig.fleet)
+        .send_session_message(SendSessionMessage {
+            session_id: id.clone(),
+            text: "like this".into(),
+            attachments: vec![ipc::SessionUpload { name: "sketch.png".into(), media_type: "image/png".into(), data: "aGVsbG8=".into() }],
+            mentions: Vec::new(),
+            sketches: vec![ipc::SentSketch { id: "sk-1".into(), title: "Header".into() }],
+        })
+        .await
+        .expect("taken");
+
+    let kept = rig.rows(&id).await.into_iter().find_map(|row| match row {
+        SessionRow::Message { from: SessionVoice::You, sketches, files, .. } => Some((sketches, files.len())),
+        _ => None,
+    });
+    assert_eq!(kept, Some((vec![ipc::SentSketch { id: "sk-1".into(), title: "Header".into() }], 1)), "the chip and the picture are on his row");
 }

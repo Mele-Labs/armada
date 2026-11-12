@@ -105,7 +105,7 @@ fn no_more_than_six_are_learnt() {
 // ---- What counts as a line he sent ----
 
 fn said(from: SessionVoice, text: &str, at: &str) -> SessionRow {
-    SessionRow::Message { id: format!("r{at}"), at: Instant::carried(at), from, text: text.to_string(), files: Vec::new(), tags: Vec::new(), notice: None, queued: false, edited_at: None }
+    SessionRow::Message { id: format!("r{at}"), at: Instant::carried(at), from, text: text.to_string(), files: Vec::new(), tags: Vec::new(), notice: None, queued: false, edited_at: None, sketches: Vec::new() }
 }
 
 fn you(text: &str, at: &str) -> SessionRow {
@@ -177,7 +177,7 @@ fn a_message_asks_something_when_it_ends_with_a_question() {
 fn the_agent_spoke_last_only_when_its_message_is_the_threads_last() {
     let mut rows = vec![you("Hi", "2026-10-30T12:00:01Z"), said(SessionVoice::Agent, "Ready?", "2026-10-30T12:00:02Z")];
     assert_eq!(agent_spoke_last(&rows), Some(("r2026-10-30T12:00:02Z", "Ready?")));
-    rows.push(SessionRow::Tool { id: "t1".into(), at: Instant::carried("2026-10-30T12:00:03Z"), text: "Reading a file".into(), description: None, subagent: None });
+    rows.push(SessionRow::Tool { id: "t1".into(), at: Instant::carried("2026-10-30T12:00:03Z"), text: "Reading a file".into(), description: None, subagent: None, image: None, message: None });
     assert!(agent_spoke_last(&rows).is_some(), "a call is no message");
     rows.push(you("Yes", "2026-10-30T12:00:04Z"));
     assert_eq!(agent_spoke_last(&rows), None);
@@ -249,7 +249,7 @@ fn questions(judge: &FakeJudge) -> usize {
 
 async fn agent_says(rig: &Rig, id: &SessionId, text: &str) -> String {
     let row = rig.fleet.row_id(id.as_str());
-    rig.fleet.row_put(id.as_str(), SessionRow::Message { id: row.clone(), at: rig.fleet.instant(), from: SessionVoice::Agent, text: text.into(), files: Vec::new(), tags: Vec::new(), notice: None, queued: false, edited_at: None }).await;
+    rig.fleet.row_put(id.as_str(), SessionRow::Message { id: row.clone(), at: rig.fleet.instant(), from: SessionVoice::Agent, text: text.into(), files: Vec::new(), tags: Vec::new(), notice: None, queued: false, edited_at: None, sketches: Vec::new() }).await;
     row
 }
 

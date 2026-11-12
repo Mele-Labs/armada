@@ -150,7 +150,7 @@ where
         let document = held.ok_or_else(|| not_open(format!("this job holds no document at `{path}`")))?;
         let title = document.detail.get("title").cloned().unwrap_or_else(|| path.clone());
         if document.detail.get(DOCUMENT_ASKED).map(String::as_str) != Some("true") {
-            return Err(not_open(format!("the document `{title}` was kept before documents asked, and is not put to the person")));
+            return Err(not_open(format!("the document `{title}` is for reading and asks for no approval")));
         }
         if document.detail.get(DOCUMENT_REVISION) != Some(&revision) {
             return Err(self.revised(&title, &revision));
@@ -167,6 +167,7 @@ where
             text: body,
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         };
         Arc::clone(&self).send_known(terminal, message).await?;
         // Read again after the send: a revision the Job kept meanwhile is not the one he answered.

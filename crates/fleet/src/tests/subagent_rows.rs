@@ -8,10 +8,10 @@ use std::time::Duration;
 
 use adapter_traits::AgentHarness;
 use adapters::HeadlessAgent;
-use api::Sessions;
+use api::{Next, Sessions};
 use ipc::{
-    AttachmentNamed, AttachmentReport, AttachmentState, SessionFact, SessionId, SessionReport, SessionRow, ToolSubagent,
-    ToolSubagentState,
+    AttachmentNamed, AttachmentReport, AttachmentState, Event, SessionFact, SessionId, SessionReport, SessionRow,
+    SessionSubagentChanged, ToolSubagent, ToolSubagentState,
 };
 
 use super::session_host::{eventually, rig_placing, Rig};
@@ -161,4 +161,138 @@ async fn words_sent_while_a_background_agent_call_runs_are_not_queued() {
 
     rig.send(&id, "Hello?").await;
     assert_eq!(queued(&rig, &id, "Hello?").await, [false], "a background call returns at once and holds nothing");
+}
+
+/// The transcript the CLI keeps for subagent `a7` of session `id`, ending on its report.
+fn subagent_transcript(rig: &Rig, id: &SessionId, report: &str) {
+    let home = rig.fleet.host().home.clone();
+    let dir = std::path::Path::new(&home).join(adapters::SESSIONS).join("-somewhere").join(id.as_str()).join("subagents");
+    std::fs::create_dir_all(&dir).unwrap();
+    let line = format!(
+        r#"{{"type":"assistant","uuid":"s1","isSidechain":true,"timestamp":"2026-10-07T08:48:10.000Z","message":{{"role":"x","stop_reason":"end_turn","content":[{{"type":"text","text":"{report}"}}]}}}}"#
+    );
+    std::fs::write(dir.join("agent-a7.jsonl"), line + "\n").unwrap();
+}
+
+#[tokio::test]
+async fn subagent_report_on_settle() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    working(&rig, &id).await;
+    subagent_transcript(&rig, &id, "Resizable now.");
+
+    told(&rig, &id, settled("a7", AttachmentState::Spent)).await;
+    let rows = agent_rows(&rig, &id).await;
+    let [(_, Some(subagent))] = &rows[..] else { panic!("one Agent row carrying its subagent: {rows:?}") };
+    assert_eq!(subagent.state, ToolSubagentState::Finished);
+    assert_eq!(subagent.report.as_deref(), Some("Resizable now."), "what it handed back, on its row");
+}
+
+#[tokio::test]
+async fn a_cut_off_subagent_has_no_report() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    working(&rig, &id).await;
+    subagent_transcript(&rig, &id, "Resizable now.");
+
+    told(&rig, &id, settled("a7", AttachmentState::GivenBack)).await;
+    let rows = agent_rows(&rig, &id).await;
+    let [(_, Some(subagent))] = &rows[..] else { panic!("one Agent row carrying its subagent: {rows:?}") };
+    assert_eq!(subagent.state, ToolSubagentState::CutOff);
+    assert_eq!(subagent.report, None, "a stop ended it before it reported");
+}
+
+/// Every `session.subagent` heard until `count` have, or five seconds.
+async fn subagent_events(watching: &mut api::Subscription, count: usize) -> Vec<SessionSubagentChanged> {
+    let mut heard = Vec::new();
+    let _ = tokio::time::timeout(Duration::from_secs(5), async {
+        while heard.len() < count {
+            if let Some(Next::Send(delivered)) = watching.next().await {
+                if let Event::SessionSubagent(changed) = delivered.event {
+                    heard.push(changed);
+                }
+            }
+        }
+    })
+    .await;
+    heard
+}
+
+#[tokio::test]
+async fn subagent_change_event_published() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    let mut watching = rig.fleet.events().subscribe();
+
+    working(&rig, &id).await;
+    let moved = subagent_events(&mut watching, 1).await;
+    assert_eq!(moved.len(), 1, "its latest call moved its row, and the thread moved with it");
+
+    told(&rig, &id, settled("a7", AttachmentState::Spent)).await;
+    let settled = subagent_events(&mut watching, 1).await;
+    assert_eq!(settled.len(), 1, "once more when it settled");
+    for one in moved.iter().chain(&settled) {
+        assert_eq!((one.session_id.as_str(), one.subagent_id.as_str()), (id.as_str(), "a7"), "the id get_session_subagent takes");
+    }
+}
+
+#[tokio::test]
+async fn a_cut_off_subagent_is_told() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    working(&rig, &id).await;
+    let mut watching = rig.fleet.events().subscribe();
+
+    rig.fleet.calls_let_go(id.as_str()).await;
+    let rows = agent_rows(&rig, &id).await;
+    let [(_, Some(subagent))] = &rows[..] else { panic!("one Agent row carrying its subagent: {rows:?}") };
+    assert_eq!(subagent.state, ToolSubagentState::CutOff);
+
+    let told = subagent_events(&mut watching, 1).await;
+    assert_eq!(told.len(), 1, "a subagent the process loss cut off has settled too");
+    assert_eq!((told[0].session_id.as_str(), told[0].subagent_id.as_str()), (id.as_str(), "a7"));
+}
+
+/// The transcript the CLI keeps for subagent `a7` of session `id` when its parent's `TaskStop` cut it
+/// off: its last calls answered as rejected, then the interrupt line, and no hand-back or ended turn.
+/// What `ab07e749ca481eeb4` of a Job's thread ended on (12 Nov 2026).
+fn stopped_transcript(rig: &Rig, id: &SessionId) {
+    let home = rig.fleet.host().home.clone();
+    let dir = std::path::Path::new(&home).join(adapters::SESSIONS).join("-somewhere").join(id.as_str()).join("subagents");
+    std::fs::create_dir_all(&dir).unwrap();
+    let lines = [
+        r#"{"type":"assistant","uuid":"s1","isSidechain":true,"timestamp":"2026-11-12T03:23:26.449Z","message":{"role":"assistant","stop_reason":"tool_use","content":[{"type":"tool_use","id":"toolu_s1","name":"Bash","input":{"command":"git status"}}]}}"#,
+        r#"{"type":"user","uuid":"s2","isSidechain":true,"timestamp":"2026-11-12T03:23:30.807Z","message":{"role":"user","content":[{"type":"tool_result","is_error":true,"tool_use_id":"toolu_s1","content":"The user doesn't want to proceed with this tool use."}]}}"#,
+        r#"{"type":"user","uuid":"s3","isSidechain":true,"timestamp":"2026-11-12T03:23:30.808Z","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user for tool use]"}]}}"#,
+    ];
+    std::fs::write(dir.join("agent-a7.jsonl"), lines.join("\n") + "\n").unwrap();
+}
+
+/// The way `ab07e749` stayed `running` for good. Its parent stopped it with `TaskStop`, the CLI wrote its
+/// interrupt line and sent no `SubagentStop`, so the mod settled nothing. The parent's next turn end read
+/// its transcript as ended and settled the attachment itself, which never touched the row.
+#[tokio::test]
+async fn a_subagent_stopped_without_a_stop_event_settles() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    let row = working(&rig, &id).await;
+    stopped_transcript(&rig, &id);
+    let mut watching = rig.fleet.events().subscribe();
+
+    told(&rig, &id, SessionFact::TurnCompleted { said: None }).await;
+
+    let rows = once(
+        || agent_rows(&rig, &id),
+        |rows| rows.first().and_then(|(_, subagent)| subagent.as_ref()).is_some_and(|one| one.state != ToolSubagentState::Running),
+    )
+    .await;
+    let [(settled_row, Some(subagent))] = &rows[..] else { panic!("one Agent row carrying its subagent: {rows:?}") };
+    assert_eq!(settled_row, &row, "the same row, put again");
+    assert_eq!(subagent.state, ToolSubagentState::CutOff, "it ended on the interrupt line, a stop and not a hand-back");
+    assert!(subagent.ended.is_some());
+    assert_eq!(subagent.report, None, "a stop ended it before it reported");
+
+    let told = subagent_events(&mut watching, 1).await;
+    assert_eq!(told.len(), 1, "the thread of that subagent moved, and Bridge is told");
+    assert_eq!((told[0].session_id.as_str(), told[0].subagent_id.as_str()), (id.as_str(), "a7"));
 }

@@ -485,7 +485,7 @@ impl JobView {
                 page.pending.push(Pending { key, text: text.clone(), seen });
                 let job = id.clone();
                 let sent_files = files.clone();
-                let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions };
+                let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions, sketches: Vec::new() };
                 cx.spawn_in(window, async move |this, cx| {
                     let uploads = cx.background_executor().spawn(async move { encoded_files(sent_files) }).await;
                     let _ = this.update_in(cx, |this, window, cx| {
@@ -519,6 +519,7 @@ impl JobView {
                             notice: None,
                             queued: false,
                             edited_at: None,
+                            sketches: Vec::new(),
                         },
                     });
                     held.version += 1;

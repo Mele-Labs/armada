@@ -69,6 +69,13 @@ where
         crate::transcript::note_aloud(&envelope);
     }
 
+    /// What the Operator did that nobody is told of, in Fleet's log so it can be traced.
+    pub(super) fn operator_noted(&self, msg: &str, why: impl std::fmt::Display) {
+        let envelope = Envelope::new(self.now(), Level::Info, Component::Fleet, self.run().clone(), msg)
+            .with_field("why", FieldValue::Str(why.to_string()));
+        crate::transcript::note_aloud(&envelope);
+    }
+
     /// Seat an Operator making its calls through `call`. `false` where one is already seated.
     pub(crate) fn operator_seated_with(self: &Arc<Self>, call: Arc<dyn Calling>) -> bool {
         self.operator_seated_looking(Arc::clone(&call), Arc::new(Blind(call)))

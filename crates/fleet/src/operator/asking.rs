@@ -60,6 +60,7 @@ Answer with nothing but one block for each item, in this form:
     shared: <the paths the two share, separated by commas, or none>
     issue: <for link, close or group, the reference of one open issue that item lists, or none>
     kind: <for group, duplicate or part, or none>
+    plain: <for a bug report only: what goes wrong for the person, in one plain sentence with no code, file, tool or setting names; otherwise none>
     because: <why, in one line the person will read>
 ";
 

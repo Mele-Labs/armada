@@ -165,12 +165,14 @@ pub struct Ruling {
     pub issue: Option<String>,
     /// How a group goes, which it always names.
     pub grouping: Option<Grouping>,
+    /// On a bug report: what goes wrong for the person, in one plain sentence, which its card says.
+    pub plain: Option<String>,
 }
 
 impl Ruling {
     /// A ruling of `way` alone, naming no other Job.
     pub fn alone(way: Way, because: impl Into<String>) -> Ruling {
-        Ruling { way, other: None, shared: Vec::new(), because: because.into(), refused: Vec::new(), issue: None, grouping: None }
+        Ruling { way, other: None, shared: Vec::new(), because: because.into(), refused: Vec::new(), issue: None, grouping: None, plain: None }
     }
 }
 
@@ -256,7 +258,10 @@ pub(super) fn read_rulings(answer: &str, items: &[Arrival], near: &[Vec<Near>]) 
         .map(|(at, item)| {
             let block = blocks.iter().find(|block| said(block, "item").and_then(|n| n.parse::<usize>().ok()) == Some(at + 1));
             match block {
-                Some(block) => read_one(block, item, &near[at]).map(Ruled::Ruled).unwrap_or_else(Ruled::PassedOn),
+                Some(block) => read_one(block, item, &near[at])
+                    .map(|ruling| Ruling { plain: said(block, "plain").filter(|plain| !none(plain) && !plain.is_empty()), ..ruling })
+                    .map(Ruled::Ruled)
+                    .unwrap_or_else(Ruled::PassedOn),
                 None => Ruled::PassedOn(PassedOn::Unreadable(format!("it gave no ruling for item {}", at + 1))),
             }
         })

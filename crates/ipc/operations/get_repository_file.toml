@@ -1,0 +1,8 @@
+[operations.get_repository_file]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "A file of a Job, read by Fleet as text or as a picture, for a client that cannot read the agent's disk"
+notes = """
+`GET /sessions/repository_file?session_id=&path=`. `RepositoryFile`, tagged by `kind`: `text` with `text` and `type` (`text/markdown` for `.md` and `.markdown`, else `text/plain`), or `picture` with `bytes` (base64) and `type` (`image/png`, `image/jpeg`, `image/gif`, `image/webp` or `image/svg+xml`, by the extension). Fleet reads a path the Job's ledger names, wherever on disk it is (an `artifact` attachment of `form` `file` or `image` whose target is the path, a note's `picture`, a document's or sketch's kept `revisions`), resolved against the Job's `cwd` when relative; otherwise a path that, links followed, is a regular file strictly inside the Job's checkout. Nothing else is read. A refusal, checked in this order, is 422 `fleet.repository_file_not_addressable` (no such Job, or neither rule places the path), 422 `fleet.repository_file_too_big` (over 8 MiB, by its size before it is read), 422 `fleet.repository_file_binary` (not a picture, and a NUL in its first 4096 bytes or not UTF-8), or 500 `fleet.repository_file_unreadable` (any other failure to read it). The Job may be hosted or terminal. Does not change `get_session`.
+"""

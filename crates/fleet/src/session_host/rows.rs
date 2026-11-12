@@ -37,6 +37,8 @@ where
     /// Keep a row and publish it. **Best effort**: a thread that will not write
     /// costs the row its place in the record and not the person the turn.
     pub(crate) async fn row_put(&self, session: &str, row: SessionRow) {
+        let mut row = row;
+        self.peers_named(std::slice::from_mut(&mut row)).await;
         if let Ok(body) = ipc::encode(&row) {
             let _ = self
                 .store()
@@ -68,6 +70,7 @@ where
                 notice: None,
                 queued: false,
                 edited_at: None,
+                sketches: Vec::new(),
             },
         )
         .await;

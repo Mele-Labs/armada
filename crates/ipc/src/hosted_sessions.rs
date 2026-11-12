@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::call::{CallAnswer, CallInFlight, QuestionAnswer};
 use crate::ids::{Instant, ManifestId};
+use crate::job_thread::ThreadItem;
 use crate::mods::ModAim;
 use crate::sessions::{SessionId, SessionRecord};
 
@@ -159,6 +160,10 @@ pub struct SendSessionMessage {
     pub attachments: Vec<SessionUpload>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mentions: Vec<SessionTag>,
+    /// The sketches the composer sent with the words, each also sent as a picture in `attachments`.
+    /// Fleet keeps them on the person's message row, so the chip outlives the window that drew it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sketches: Vec<SentSketch>,
 }
 
 /// `send_session_message`'s body: the message, and what he picked in an empty Mod Job. The aim
@@ -492,6 +497,15 @@ pub struct SentFile {
     pub media_type: String,
 }
 
+/// A sketch the person sent with a message, kept by Fleet so the thread can draw its chip.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SentSketch {
+    /// The sketch's own id, as the composer named it.
+    pub id: String,
+    /// The title on its chip.
+    pub title: String,
+}
+
 /// How an ask on the thread stands.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -571,6 +585,9 @@ pub struct ToolSubagent {
     pub since: Instant,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended: Option<Instant>,
+    /// What the subagent handed back, set once it settled `finished`. A `cut_off` one has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report: Option<String>,
 }
 
 /// Where a call's subagent stands. `cut_off` is one a stop or a replaced process ended before it reported.
@@ -580,6 +597,28 @@ pub enum ToolSubagentState {
     Running,
     Finished,
     CutOff,
+}
+
+/// What a `SendMessage` call said, and to whom, on that call's row. `text` is the whole message and
+/// `summary` the one line the call gave it, where it gave one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolMessage {
+    pub to: MessagePeer,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    pub text: String,
+}
+
+/// Who a message went to. `name` is the call's own `to`, as written: `s-<8 hex>`, a
+/// `uds:/tmp/cc-socks/<pid>.sock` path, or a bare name. **`session_id` and `title` are set only where
+/// Fleet resolved `name` to a Job**, and are absent for a name it could not place.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MessagePeer {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
 }
 
 /// One row of a hosted session's thread.
@@ -595,6 +634,10 @@ pub enum SessionRow {
         files: Vec<SentFile>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         tags: Vec<SessionTag>,
+        /// The sketches the person sent with these words (`SendSessionMessage::sketches`). Absent on a
+        /// message with none, and on every row kept before it existed.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        sketches: Vec<SentSketch>,
         /// The Fleet notice this row was sent for, when it was one (`Notice::word`). A person can
         /// mute a notice by it. Absent on every row kept before it existed.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -621,6 +664,16 @@ pub enum SessionRow {
         /// The subagent an `Agent` call started. **The row is replaced by id** as it works and settles.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         subagent: Option<ToolSubagent>,
+        /// The picture a `Read` of a `.png`, `.jpg`, `.jpeg`, `.gif` or `.webp` looked at: its absolute
+        /// path, the home put back. **The row carries no bytes**: a client reads them with
+        /// `GET /sessions/repository_file?session_id=&path=`, which serves the images the Job's ledger
+        /// names. Absent on any other call, and on every row kept before it existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        image: Option<String>,
+        /// What a `SendMessage` call said and to whom. Absent on any other call, and on every row kept
+        /// before it existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message: Option<ToolMessage>,
     },
     /// A command the person ran in the terminal, as typed: `/reload-plugins`,
     /// with its arguments. Its output is not drawn. Since 23.56.
@@ -972,6 +1025,10 @@ pub struct SessionThread {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionSubagent {
     pub rows: Vec<SessionRow>,
+    /// `rows` folded the way a Job's thread is, with no ledger: no sketch, file, document, change,
+    /// judged or plan card. `rows` stays, for a client that draws them itself.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub items: Vec<ThreadItem>,
     /// Its last turn ended and asked for nothing more.
     pub finished: bool,
     /// What it said last, once it has finished.
@@ -993,6 +1050,14 @@ pub struct SessionSubagent {
 pub struct SessionRowChanged {
     pub session_id: SessionId,
     pub row: SessionRow,
+}
+
+/// `session.subagent`: a subagent's own thread moved. A client holding it reads `get_session_subagent`
+/// again with `subagent_id`, which is the `ToolSubagent.id` its `Agent` row carries.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionSubagentChanged {
+    pub session_id: SessionId,
+    pub subagent_id: String,
 }
 
 /// What a session's `PreToolUse` hook sends Fleet before a tool runs. The

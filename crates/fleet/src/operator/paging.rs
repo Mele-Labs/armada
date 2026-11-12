@@ -87,7 +87,7 @@ where
             let mut turn: Vec<(bool, OperatorTurnItem)> = rows.iter().filter_map(|row| self.turn_item(&store, row, &live, now.as_str())).collect();
             // Later puts an item after the rest, and the sort is stable, so each group keeps his order.
             turn.sort_by_key(|(later, _)| *later);
-            (turn.into_iter().map(|(_, one)| one).collect::<Vec<_>>(), self.digest_read(&store, &since), kept)
+            (grouped(turn), self.digest_read(&store, &since), kept)
         };
         let mut digest = digest;
         digest.handled.log = self.journal_file_now().await;
@@ -167,6 +167,11 @@ where
             later_until: later.map(Instant::carried),
             then: thens,
             keeps,
+            also_raised_by: suggestion_number(&row.item)
+                .and_then(|n| store.operator_suggestion(n).ok().flatten())
+                .map(|kept| super::suggesting::folded_into(&kept, &store.operator_suggestions_of(&kept.session_id).unwrap_or_default()))
+                .unwrap_or_default(),
+            group: None,
         };
         Some((later.is_some(), shown))
     }
@@ -221,9 +226,9 @@ where
             .unwrap_or_default()
             .into_iter()
             .filter_map(|one| {
-                let OperatorOrderForm::HoldPaths { manifest_id, .. } = OperatorOrderForm::read(&one.form)?;
+                let OperatorOrderForm::HoldPaths { manifest_id, paths, job, until } = OperatorOrderForm::read(&one.form)?;
                 let repository = self.board_repository(&manifest_id);
-                Some(OperatorHold { id: one.n, manifest_id, repository, said: one.said, at: Instant::carried(&one.at) })
+                Some(OperatorHold { id: one.n, manifest_id, repository, said: one.said, paths, job: Some(job), until: Some(until), at: Instant::carried(&one.at) })
             })
             .collect();
         OperatorDigest { landed, handled: OperatorHandled { acts, log: None }, running, coming_up, learned, holds }
@@ -237,3 +242,31 @@ where
         path.is_file().then(|| OperatorLogFile { week: name.trim_end_matches(".md").to_string(), path: path.to_string_lossy().to_string() })
     }
 }
+
+/// Your turn with each Job's asks together. **Where a Job has two or more waiting they share its id as
+/// `group`**, and stand at the place of the first of them in his order, in the order the Job raised
+/// them, so naming any one of them in an order moves them all. Those put Later group among themselves.
+fn grouped(turn: Vec<(bool, OperatorTurnItem)>) -> Vec<OperatorTurnItem> {
+    let key = |(later, one): &(bool, OperatorTurnItem)| one.session_id.as_ref().map(|id| (*later, id.as_str().to_string()));
+    let mut counts: std::collections::BTreeMap<(bool, String), usize> = std::collections::BTreeMap::new();
+    for one in &turn {
+        if let Some(key) = key(one) {
+            *counts.entry(key).or_default() += 1;
+        }
+    }
+    let mut placed = std::collections::BTreeSet::new();
+    let mut out = Vec::with_capacity(turn.len());
+    for one in &turn {
+        match key(one).filter(|key| counts[key] > 1) {
+            None => out.push(one.1.clone()),
+            Some(group) if placed.insert(group.clone()) => {
+                let mut asks: Vec<OperatorTurnItem> = turn.iter().filter(|other| key(other).as_ref() == Some(&group)).map(|other| other.1.clone()).collect();
+                asks.sort_by(|a, b| a.raised_at.as_str().cmp(b.raised_at.as_str()));
+                out.extend(asks.into_iter().map(|ask| OperatorTurnItem { group: Some(group.1.clone()), ..ask }));
+            }
+            Some(_) => {}
+        }
+    }
+    out
+}
+

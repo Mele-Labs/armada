@@ -116,7 +116,7 @@ where
             }
             let (Some(read), Some(pick)) = (read, self.question_pick(&rules, &one.manifest_id)) else { continue };
             let said = rule_said(QUESTION, &pick);
-            let doing = Doing { session: &one.session, item: &one.item, pick: &read.pick, rule: Some(&said) };
+            let doing = Doing { session: &one.session, item: &one.item, pick: &read.pick, reason: &read.read, rule: Some(&said) };
             if let Err(fault) = self.turn_performed(&doing, None).await {
                 let (super::turning::Fault::NotOffered(why) | super::turning::Fault::NotDone(why)) = fault;
                 self.operator_warned("a rule could not be carried out, so its item is left to the person", why);

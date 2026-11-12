@@ -124,6 +124,7 @@ fn subagent_read(thread: adapters::terminal_thread::Subagent, parent: Option<(St
     let parent = parent.as_ref().map(|(model, window)| (model.as_str(), *window));
     let model = thread.gauge.model;
     SessionSubagent {
+        items: crate::thread_view::subagent_items(&thread.rows),
         rows: thread.rows,
         finished: thread.finished,
         report: thread.report,
@@ -691,6 +692,10 @@ where
                 Err(self.hosted_refusal(ATTACHMENT_REFUSED, "that job has no such subagent"))
             }
         }
+    }
+
+    async fn get_repository_file(&self, id: SessionId, path: String) -> Result<ipc::RepositoryFile, Refusal> {
+        self.repository_file_served(id, path).await
     }
 
     async fn get_session_file(&self, id: SessionId, file: String) -> Result<StoredFile, Refusal> {

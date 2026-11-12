@@ -13,6 +13,7 @@ import type { SlotReleased } from "./holding";
 import type { PlanChangeLine } from "./session-plan";
 import type { RequestBy, RequestHeader } from "./requests";
 import type { ThoughtTarget } from "./thought";
+import type { ThreadItem } from "./job-thread";
 import type { SessionRecord, WaitingOption, WalkStep, WindowPlace, WindowTake } from "./sessions";
 import type { ProjectRowRef } from "./projects";
 import type { ResolvedValues } from "./values";
@@ -120,6 +121,8 @@ export type SendSessionMessage = {
   text: string;
   attachments?: SessionUpload[];
   mentions?: SessionTag[];
+  /** The sketches the composer sent with the words, each also sent as a picture in `attachments`. Fleet keeps them on the person's message row. */
+  sketches?: SentSketch[];
   /** What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only. */
   aim?: ModAim;
 };
@@ -466,6 +469,14 @@ export type SentFile = {
   media_type: string;
 };
 
+/** A sketch the person sent with a message, kept by Fleet so the thread can draw its chip. */
+export type SentSketch = {
+  /** The sketch's own id, as the composer named it. */
+  id: string;
+  /** The title on its chip. */
+  title: string;
+};
+
 export type SessionAskState =
   | "waiting"
   | "ran_unasked"
@@ -525,6 +536,28 @@ export type ToolSubagent = {
   state: "running" | "finished" | "cut_off";
   since: string;
   ended?: string;
+  /** What the subagent handed back, set once it settled `finished`. A `cut_off` one has none. */
+  report?: string;
+};
+
+/**
+ * What a `SendMessage` call said and to whom, on that call's row. `text` is the whole message; `summary` the one line the
+ * call gave it, where it gave one. Fleet's `ipc::ToolMessage`.
+ */
+export type ToolMessage = {
+  to: MessagePeer;
+  summary?: string;
+  text: string;
+};
+
+/**
+ * Who a message went to. `name` is the call's own `to`, as written: `s-<8 hex>`, a `uds:/tmp/cc-socks/<pid>.sock` path or a
+ * bare name. `session_id` and `title` are set only where Fleet resolved `name` to a Job. Fleet's `ipc::MessagePeer`.
+ */
+export type MessagePeer = {
+  name: string;
+  session_id?: string;
+  title?: string;
 };
 
 /** One row of a hosted session's thread. A row is replaced by its `id`. */
@@ -537,6 +570,8 @@ export type SessionRow =
       text: string;
       files?: SentFile[];
       tags?: SessionTag[];
+      /** The sketches the person sent with these words. Absent on a message with none, and on every row kept before it existed. */
+      sketches?: SentSketch[];
       /** The Fleet notice this row was sent for (`behind_base`, `write_clash`, …: `Notice`), absent on every other row. Mute it by `set_notice_mute`. */
       notice?: string;
       /** The person's words, held by the agent's CLI until the call its turn waits on returns. Absent once the agent has read them. */
@@ -566,6 +601,10 @@ export type SessionRow =
       /** The call's own one-line phrase for what it does (the `description` of a `Bash` or `Agent` call's input), trimmed. Absent where the input had none, and on every row kept before it existed. */
       description?: string;
       subagent?: ToolSubagent;
+      /** The picture a `Read` of a `.png`, `.jpg`, `.jpeg`, `.gif` or `.webp` looked at: its absolute path. The row carries no bytes: `GET /sessions/repository_file?session_id=&path=` serves the images the Job's ledger names. Absent on any other call, and on every row kept before it existed. */
+      image?: string;
+      /** What a `SendMessage` call said and to whom. Absent on any other call, and on every row kept before it existed. */
+      message?: ToolMessage;
     }
   /** A command the person ran in the terminal, as typed, with no output. Since 23.56. */
   | {
@@ -866,6 +905,8 @@ export type SessionThread = {
 /** `get_session_subagent`: one subagent's own thread. A client reads it again while the subagent runs. */
 export type SessionSubagent = {
   rows: SessionRow[];
+  /** `rows` folded the way a Job's thread is, with no ledger: no sketch, file, document, change, judged or plan card. Absent for no rows. */
+  items?: ThreadItem[];
   finished: boolean;
   report?: string;
   /** The model id its last answer was written under. Absent until it has answered. */
@@ -879,4 +920,10 @@ export type SessionSubagent = {
 export type SessionRowChanged = {
   session_id: string;
   row: SessionRow;
+};
+
+/** `session.subagent`: a subagent's own thread moved. Read `get_session_subagent` again with `subagent_id`, a `ToolSubagent.id`. */
+export type SessionSubagentChanged = {
+  session_id: string;
+  subagent_id: string;
 };

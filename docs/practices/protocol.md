@@ -1775,3 +1775,134 @@ The native Bridge reads it.
 **The event stream.** No new event, and none grows: `done_waiting` and `withdraw_document` publish `session.changed` as `dismiss_waiting` does.
 The view is read, not pushed, so a Bridge that draws it reads it again on `session.changed`.
 The open risk below is neither better nor worse.
+
+## A thread read cut at a row: `get_job_thread`'s `upto`
+
+Since 12 Nov 2026. `docs/practices/protocol/a-jobs-thread-fleet-folds.md`.
+**Additive only**: one optional query parameter and the optional field it fills on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, the operation file and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `upto` on `JobThreadRead` in `packages/protocol/src/job-thread.ts`, written by hand, field for field.
+The native Bridge passes the `forked_from` attachment's `detail.at` to draw the thread a fork was cut from.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `JobThreadRead.upto` (`GET /sessions/thread?upto=`) | Bridge sends, Fleet reads | A row id. Fleet cuts the thread's rows after that row, included, then folds, then windows with `before` and `limit` as it does for the whole thread. Absent is the whole thread |
+
+**Cut, then fold, then window.** A run of calls that went on past the row ends at it, so an item is never the whole run when the cut falls inside it.
+A timeline change after the row's time is left out, and so is any item after the one that holds the row: a document, a Judge line or a change written after it.
+**Not held.** The read does not replace the live thread Fleet keeps for `job_thread.tail`, and no event follows it.
+**The head is empty**: `asked`, `open_call`, `lapsed`, `plan`, `sketch` absent, `fleet_acts` empty, and `trail` with `started` only (the Job's start, which `ThreadTrail` cannot go without) and no `bays` or `opened`.
+No ask is open for the fold either, so the last Fleet turn of the cut closes as it would with none, and a sketch card stays where its row is.
+An approved plan's card stays when its `plan` row is inside the cut.
+**Refused with nothing changed**: 422 `fleet.thread_item_unknown` for an `upto` no row of the thread holds, the code an unknown `before` already has. A `before` past the cut is the same refusal.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: a cut read subscribes nothing. The open risk below is neither better nor worse.
+
+## A subagent's report, its folded thread and its change event: `ToolSubagent.report`, `SessionSubagent.items` and `session.subagent`
+
+Since 12 Nov 2026. The thread Fleet folds is `docs/practices/protocol/a-jobs-thread-fleet-folds.md`.
+**Two fields on existing types and one event kind**: no operation, route or error.
+The route table gains the `session.subagent` line the event stream lists, and the operation file `crates/ipc/operations/session.subagent.toml`.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `report` on `ToolSubagent`, `items` on `SessionSubagent` and `SessionSubagentChanged` with the `session.subagent` member of `Event`, in `packages/protocol/src/hosted-sessions.ts` and `events.ts`, written by hand, field for field.
+Electron draws none of it: it is frozen.
+The native Bridge reads it.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `ToolSubagent.report` (an `Agent` row's `subagent`, in `session.row` and `get_session`) | Fleet writes, Bridge reads | `Option<String>` / `report?: string`. What the subagent handed back, set when it settles `finished`, read off its transcript as `get_session_subagent` reads it. Absent for a `running` or `cut_off` subagent, for one whose transcript cannot be read, and on every row kept before it |
+| `SessionSubagent.items` (`get_session_subagent`) | Fleet writes, Bridge reads | `Vec<ThreadItem>` / `items?: ThreadItem[]`. `rows` folded as a Job's thread folds them, with no ledger, timeline or pin: the same drawn and undrawn rows and the same runs of calls, and no sketch, file, document, change, judged or plan card. Absent where it is empty. `rows` stays as it was |
+| `session.subagent` (`GET /events`, `agent_access = "Bridge only"`) | Fleet publishes, Bridge reads | `SessionSubagentChanged` `{ session_id, subagent_id }`, `subagent_id` the `ToolSubagent.id` that `get_session_subagent` takes. It carries no rows: a client holding that subagent reads `GET /sessions/subagent` again |
+
+**When it is published.** Beside each put of a running subagent's row (which is at most once a second, `LATEST_EVERY`) and once when the subagent settles, whether Fleet drew its row or read it off the thread.
+A process that goes and cuts its subagents off publishes one for each, since each has settled too; a client then reads it once and expects no more.
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+
+**The event stream.** One kind added, and it is better than polling: a native Bridge that held `get_session_subagent` on a 1.5 s timer reads it on this event instead, and the event is at most one a second per running subagent.
+It rides the same sink as every event, so the open risk below is neither better nor worse for the stream.
+A reconnecting client reads the subagent again, as it reads a Job, rather than trusting that it kept every event.
+
+## A file of a Job, read by Fleet: `get_repository_file` and `RepositoryFile`
+
+Since 12 Nov 2026. `docs/concepts/session/showing-a-file.md`.
+**One operation, one route and one type**: no event kind and no field on an existing type. Error codes are declared outside the protocol ID's files and move nothing.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+The native Bridge's file panel and Pocket do not read the agent's disk, so Fleet reads the file by the rules Electron's panel reads it by (`locate`, `inCheckout` and `read` in `apps/desktop/src/main/file-panel.ts`, `namesFile` and `typeOfFile` in `session-file.ts`), and Electron keeps its own read.
+Bridge's half is `RepositoryFile` in `packages/protocol/src/repository-file.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_repository_file` (`GET /sessions/repository_file?session_id=&path=`, `agent_access = "No"`) | Bridge reads | `RepositoryFile`, tagged by `kind`: `text` `{ text, type }` with `type` `text/markdown` for `.md` and `.markdown`, else `text/plain`; or `picture` `{ bytes, type }` with `bytes` base64 and `type` `image/png`, `image/jpeg`, `image/gif`, `image/webp` or `image/svg+xml` by extension |
+
+**Where it reads.** A path the Job's ledger names, wherever it is on disk, resolved against the record's `cwd` when relative: an `artifact` of `form` `file` or `image` whose target is the path, a note's `picture`, or a document's or sketch's kept `revisions`.
+The mod and a hosted Fleet both record every image a Job `Read`s as an `image` artifact, so those read here.
+Otherwise a path that, links followed, is a regular file strictly inside the Job's canonical `cwd`.
+Nothing else is read.
+Electron's second candidate, the repository root a slot's `cwd` is under, can never pass that test, so it is not tried.
+The Job may be hosted or a terminal one: only its record is read.
+
+**Refused with nothing read**, in this order: 422 `fleet.repository_file_not_addressable` for no such Job or a path neither rule places; 422 `fleet.repository_file_too_big` over 8 MiB, judged by the size before the file is read; 422 `fleet.repository_file_binary` for a file that is not a picture and holds a NUL in its first 4096 bytes or is not UTF-8; 500 `fleet.repository_file_unreadable` for any other failure to read it.
+A refusal is never an answer of `RepositoryFile`, so a client that gets a `RepositoryFile` has one to draw.
+**The ledger is the Job's own.** A path an agent has recorded can be read from anywhere on the disk, as Electron's panel reads it, and the route is `agent_access = "No"`: an agent cannot ask for a file back through it.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: the route is read, not pushed, and a file is read when a client opens it. The open risk below is neither better nor worse.
+
+## A sketch's chip kept on the message, and what a hold names: `SentSketch`, `SendSessionMessage.sketches`, `SessionRow::Message.sketches`, `OperatorHold.paths`, `.job`, `.until`
+
+Since 12 Nov 2026. `docs/concepts/session/waiting-on-the-person.md` names neither; the native Bridge's composer and Operator page read them.
+**Additive only**: one type, one optional field on two existing types and three on a third; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `SentSketch` and the fields in `packages/protocol/src/hosted-sessions.ts` and `operator-page.ts`, written by hand, field for field.
+Electron draws none of it: it is frozen, and keeps its chip in window memory as it did.
+Every field is optional and defaults empty, so an older answer and an older row read on a Bridge that knows them.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SentSketch` | Bridge sends, Fleet writes | `{ id, title }`: the sketch's own id and the title on its chip |
+| `SendSessionMessage.sketches` (`send_session_message`) | Bridge sends | The sketches the composer sent with the words, each still sent as a picture in `attachments`. Absent when none |
+| `message` row `sketches` (`session.row`) | Fleet writes, Bridge reads | The same, kept on the person's row Fleet writes for that send, and on a held Job's first row when Start writes it. Absent on a message with none, and on every row kept before it. **Not on `sent` rows**: Fleet writes no new ones |
+| `OperatorHold.paths`, `.job`, `.until` (`get_operator_page`) | Fleet writes, Bridge reads | The paths the order holds; the Job that alone writes under them (`SessionId`); and what lifts it, `pushes` or `ends`. `job` and `until` are absent, `paths` empty, on an answer from before they were sent |
+
+**A terminal Job keeps none.** Its person rows are read off the transcript, which carries no files either, so the chip would need a table of its own to outlive the window.
+Bridge draws no chip on a terminal Job's rows until that is decided.
+**What changed under the field is the order.** `written_row` takes the sketches beside the files and tags, and a held Job's first turn (`FirstTurn`) keeps them in the store's own JSON, so no migration.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched in kind: the row is one `session.row`, as any row put again by id is. Nothing here sends more events, so the open risk below is neither better nor worse.
+
+## A tool row's picture and message: `SessionRow::Tool.image` and `SessionRow::Tool.message`
+
+Since 12 Nov 2026. `docs/concepts/session.md`, *A terminal session's thread*.
+**Additive only**: two optional fields on an existing variant and two new types, `ToolMessage` and `MessagePeer`; no operation, route, event kind or error, and no new `SessionRow` or `SessionVoice` variant.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `image`, `message`, `ToolMessage` and `MessagePeer` in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+Electron draws a `tool` row's `text` as it did and reads neither field.
+The native Bridge draws the picture on the row and names the Job a message went to.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `tool` row `image` (`session.row`, `get_session`, `get_job_thread`) | Fleet writes, Bridge reads | The absolute path, home put back, of the `.png`, `.jpg`, `.jpeg`, `.gif` or `.webp` a `Read` looked at. **No bytes**: a client reads them with `GET /sessions/repository_file?session_id=&path=`, which serves the images the Job's ledger names. Absent on any other call and on every row kept before it |
+| `tool` row `message` | Fleet writes, Bridge reads | `ToolMessage` `{ to, summary?, text }` for a `SendMessage` call: `text` is the whole message and `summary` the one line the call's input gave it. Absent on any other call and on every row kept before it |
+| `ToolMessage.to` | Fleet writes, Bridge reads | `MessagePeer` `{ name, session_id?, title? }`. `name` is the call's own `to`: `s-<8 hex>`, a `uds:/tmp/cc-socks/<pid>.sock` path or a bare name. `session_id` and `title` are set only where Fleet placed the name on a Job, and `title` is absent for a Job with none |
+
+**How a name is placed.** `s-<8 hex>` is the Job whose id begins with those eight; two Jobs that share them place none.
+A socket path is the Job whose **hosted agent** has the pid in its file name.
+Fleet keeps a pid for the agent it hosts and for no terminal Job, so a terminal Job is placed by its address and never by its socket.
+**Resolved where Fleet writes or takes the row, not where it is served.**
+A hosted Job's row is stored and published by `row_put`, so the event and a later `get_session` carry the same peer, and the title is the one the Job had then.
+A terminal Job's rows are never written, so they are resolved where Fleet takes them off the transcript, which is every read and every row the watcher publishes.
+A subagent's thread (`get_session_subagent`) is not resolved: its `SendMessage` rows keep `name` alone.
+
+**A terminal Job's received messages are rows now.**
+The line the CLI writes for another session's message, `Another Claude session sent a message:` around a `<cross-session-message from= from-name=>` wrapper, was skipped and is drawn as a `message` row from `SessionVoice::Session { id, title }`, the voice a hosted Job's delivered message has.
+`id` and `title` are the Job's where `from-name`, else the socket, places one, and both are the raw name where it does not.
+`text` is the body between the tags: the CLI's note after them, "This came from another Claude session...", is not drawn.
+**This is visible in Electron**, which draws any `message` row: a terminal Job's thread starts showing them.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+A row with either field reads on a Bridge that does not know them as a `tool` row with its text.
+**The event stream.** No new event.
+A `SendMessage` row now carries its message twice, in `text` and in `message.text`, and a terminal Job's thread gains a `session.row` for each message it received, so this makes the unbounded sink slightly worse.
+The open risk is otherwise as it was.
