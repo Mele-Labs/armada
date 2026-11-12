@@ -5,6 +5,31 @@
       "kind": "theme",
       "enabled": true,
       "valid": true
+    },
+    {
+      "name": "quiet-ci",
+      "kind": "fleet",
+      "description": "Batch CI failures",
+      "taught_on": "a Job's thread",
+      "made_by": "mock-02",
+      "enabled": true,
+      "valid": true,
+      "changed_at": "2026-11-10T09:12:00Z"
+    },
+    {
+      "name": "acme-issues",
+      "kind": "tracker",
+      "description": "Acme's issue tracker",
+      "enabled": true,
+      "valid": true,
+      "changed_at": "2026-11-10T08:40:00Z",
+      "tried": {
+        "at": "2026-11-10T08:45:00Z",
+        "manifest_id": "armada",
+        "passed": true,
+        "listed": 12,
+        "read": "ACME-7"
+      }
     }
   ]
 }

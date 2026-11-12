@@ -73,6 +73,8 @@ pub struct Scope {
 pub enum Picking {
     Setting(String),
     Value(&'static str),
+    /// A run's model on Models, by its place in `RUNS`.
+    Run(usize),
 }
 
 pub struct SettingsOverlay {
@@ -82,6 +84,8 @@ pub struct SettingsOverlay {
     pub focus: FocusHandle,
     /// The sidebar's keys: ↑ and ↓ move the pick while it holds them.
     pub side: FocusHandle,
+    /// The entries' scroll, which brings the group of the entry picked into view.
+    pub side_scroll: gpui::ScrollHandle,
     pub query: Entity<InputState>,
     /// The entry last picked, kept across opens; a search that hides it draws the first it found.
     pub picked: &'static str,
@@ -108,6 +112,10 @@ pub struct SettingsOverlay {
     /// Settings → Theme: its field, and the mod rows under it.
     pub theme: super::theme::ThemeField,
     pub mods: super::mods::ModRows,
+    /// Settings → Models.
+    pub models: super::models::ModelsPage,
+    /// Settings → Workflows.
+    pub workflows: super::workflows::WorkflowsPage,
     /// Where each slider's track was drawn last frame, by key, so a press reads as a figure.
     pub tracks: Rc<RefCell<BTreeMap<String, Bounds<Pixels>>>>,
     keys: Option<Subscription>,
@@ -169,6 +177,7 @@ impl SettingsOverlay {
             back_to: None,
             focus: cx.focus_handle(),
             side: cx.focus_handle().tab_stop(true),
+            side_scroll: gpui::ScrollHandle::new(),
             query,
             picked: entries::FIRST,
             list: None,
@@ -186,6 +195,8 @@ impl SettingsOverlay {
             keyboard: super::keyboard::Keyboard::new(cx),
             theme,
             mods: super::mods::ModRows::default(),
+            models: super::models::ModelsPage::new(window, cx),
+            workflows: super::workflows::WorkflowsPage::new(window, cx),
             tracks: Rc::default(),
             keys: None,
             _typing: typing,
@@ -224,6 +235,7 @@ impl SettingsOverlay {
         self.keyboard.set(super::keyboard::Bindings::read(&bindings));
         self.theme.refused = None;
         self.mods.refused.clear();
+        self.models.reopen();
         self.mod_keys(cx);
         window.focus(&self.side, cx);
         let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
@@ -247,6 +259,7 @@ impl SettingsOverlay {
         self.open = false;
         self.keys = None;
         self.popup = None;
+        self.mods.panel = None;
         match self.back_to.take() {
             Some(handle) => window.focus(&handle, cx),
             None => window.blur(cx),
@@ -388,6 +401,11 @@ impl SettingsOverlay {
         entries::visible(&query, self.list.as_ref(), self.scope.is_some())
             .into_iter()
             .filter(|one| one.body != Body::Repository || self.setting(super::view::CONNECTORS_OFF).is_some())
+            // Tracker and Fleet are listed once a mod of their kind is, as Classic's `made` lists them.
+            .filter(|one| match one.body {
+                Body::Mods(Some(kind)) => self.wire.mods(cx).iter().any(|row| row.kind == Some(kind)),
+                _ => true,
+            })
             // A section this Fleet's settings.json does not hold is left out once it has answered, not drawn blank.
             .filter(|one| match (one.body, &self.list) {
                 (Body::Schema(ids), Some(list)) => ids.iter().any(|id| !entries::settings_in(list, id).is_empty()),
@@ -411,6 +429,12 @@ impl SettingsOverlay {
         let at = visible.iter().position(|one| one.id == now.id).unwrap_or(0) as isize;
         let next = (at + by).clamp(0, visible.len() as isize - 1) as usize;
         self.picked = visible[next].id;
+        // The entries scroll by group, as they are drawn: the picked one's group comes into view.
+        let group = visible[next].group;
+        let drawn: Vec<entries::Group> = entries::GROUPS.into_iter().filter(|one| visible.iter().any(|entry| entry.group == *one)).collect();
+        if let Some(at) = drawn.iter().position(|one| *one == group) {
+            self.side_scroll.scroll_to_item(at);
+        }
         cx.notify();
     }
 
@@ -419,12 +443,18 @@ impl SettingsOverlay {
     /// Send one change, or a reset where `value` is `None`. One save is out at a time; a refusal is drawn against
     /// the key Fleet names where this page holds it, else the key sent.
     pub fn save(&mut self, key: String, value: Option<SettingValue>, window: &mut Window, cx: &mut Context<Self>) {
+        self.save_changes(key.clone(), [(key, value)].into_iter().collect(), window, cx);
+    }
+
+    /// Several changes sent as one save, held and refused against `key`: a model switched off moves every setting
+    /// that names it in the same save, since Fleet refuses one that leaves any naming it.
+    pub fn save_changes(&mut self, key: String, changes: BTreeMap<String, Option<SettingValue>>, window: &mut Window, cx: &mut Context<Self>) {
         if self.saving.is_some() || !self.live {
             return;
         }
         self.saving = Some(key.clone());
         self.refused.remove(&key);
-        let sent = self.wire.save([(key.clone(), value)].into_iter().collect(), cx);
+        let sent = self.wire.save(changes, cx);
         self._save = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = sent.await;
             let _ = this.update_in(cx, |this, window, cx| {
@@ -437,10 +467,12 @@ impl SettingsOverlay {
                         window.focus(&to, cx);
                     }
                 }
+                let taken = answer.is_ok();
                 match answer {
                     Ok(list) => this.set_list(list, window, cx),
                     Err(refused) => this.refuse(&key, refused, cx),
                 }
+                this.models_saved(taken, window, cx);
                 cx.notify();
             });
         }));
@@ -449,6 +481,11 @@ impl SettingsOverlay {
 
     fn refuse(&mut self, sent: &str, refused: Refused, cx: &mut Context<Self>) {
         let at = refused.key.filter(|key| self.setting(key).is_some()).unwrap_or_else(|| sent.to_string());
+        // Taken from outside the overlay, the refusal is said where he is, and held for the page as well.
+        if !self.open {
+            let said = refused.said.clone();
+            cx.defer(move |cx| crate::toasts::tell(said, cx));
+        }
         self.refused.insert(at, refused.said);
         cx.notify();
     }
@@ -524,6 +561,7 @@ impl SettingsOverlay {
                 self.save(key.clone(), Some(SettingValue::Text(word.clone())), window, cx);
             }
             Picking::Value(name) => self.choose_value(name, n, window, cx),
+            Picking::Run(at) => self.chose_run(*at, n, window, cx),
         }
     }
 
@@ -618,11 +656,19 @@ impl SettingsOverlay {
         if let Body::Keyboard = shown.body {
             return self.keyboard.stops(&self.query_text(cx));
         }
+        if let Body::Models = shown.body {
+            return self.model_stops(cx);
+        }
+        if let Body::Workflows = shown.body {
+            return self.workflow_stops(cx);
+        }
         if let Body::Theme = shown.body {
             let mut stops = vec![self.theme.focus.clone()];
-            stops.extend(self.mod_stops(ipc::ModKind::Theme, cx));
-            stops.extend(self.mod_stops(ipc::ModKind::Tweak, cx));
+            stops.extend(self.mod_stops(super::mods::Page::Theme, cx));
             return stops;
+        }
+        if let Some(page) = super::mods::page_of(shown.body) {
+            return self.mod_stops(page, cx);
         }
         stops.push(self.file_stop.clone());
         let Some(list) = &self.list else { return stops };
@@ -668,8 +714,8 @@ impl SettingsOverlay {
         stops
     }
 
-    fn in_text(&self, window: &Window, cx: &App) -> bool {
-        self.query.read(cx).focus_handle(cx).is_focused(window) || self.theme.focus.is_focused(window) || self.typed.values().any(|typed| typed.focus(cx).is_focused(window))
+    pub(super) fn in_text(&self, window: &Window, cx: &App) -> bool {
+        self.query.read(cx).focus_handle(cx).is_focused(window) || self.theme.focus.is_focused(window) || self.models.filter_focused(window, cx) || self.workflows.filter_focused(window, cx) || self.typed.values().any(|typed| typed.focus(cx).is_focused(window))
             || self.scope.as_ref().is_some_and(|scope| scope.typed.values().any(|field| field.read(cx).focus_handle(cx).is_focused(window)))
     }
 
@@ -700,6 +746,14 @@ impl SettingsOverlay {
         if self.popup.is_some() {
             return false;
         }
+        // A mod's panel beside the page takes its own keys; Esc outside it puts it away.
+        if let Some(opened) = &self.mods.panel {
+            if key.key == "escape" && !opened.view.focus_handle(cx).contains_focused(window, cx) {
+                self.close_panel(window, cx);
+                return true;
+            }
+            return false;
+        }
         // A key waiting for its binding takes the next key, whatever it is.
         if self.keyboard_key(key, window, cx) {
             return true;
@@ -707,6 +761,19 @@ impl SettingsOverlay {
         // The theme field types, and its list takes the arrows, Enter and Esc while it is open.
         if self.theme_key(key, window, cx) {
             return true;
+        }
+        // Models' own keys: its filter, its rows, its switches, selects and efforts.
+        if self.shown(cx).is_some_and(|shown| shown.body == Body::Models) && self.models_key(key, window, cx) {
+            return true;
+        }
+        if self.shown(cx).is_some_and(|shown| shown.body == Body::Workflows) && self.workflows_key(key, window, cx) {
+            return true;
+        }
+        // A mod row's arrows: open and shut what it holds, and move between rows.
+        if let Some(page) = self.shown(cx).and_then(|shown| super::mods::page_of(shown.body)) {
+            if self.mods_key(page, key, window, cx) {
+                return true;
+            }
         }
         let mods = &key.modifiers;
         let bare = !mods.platform && !mods.control && !mods.alt;
