@@ -183,7 +183,7 @@ pub(crate) fn ends_of(steps: &[RailStep], at: usize) -> Vec<End> {
         let listed = step.ends_on.iter().map(End::listed).filter(|end| *end != gated);
         return std::iter::once(gated.clone()).chain(listed).collect();
     }
-    if step.has_lifecycle_end() || step.ends_on.contains(&StepEnd::YouApproved) {
+    if step.holds() {
         return step.ends_on.iter().map(End::listed).collect();
     }
     if steps.iter().position(|one| one.records_plan).is_some_and(|recording| at < recording) {

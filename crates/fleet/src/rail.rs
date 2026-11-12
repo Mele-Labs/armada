@@ -92,6 +92,11 @@ impl RailStep {
         self.lifecycle_ends().next().is_some()
     }
 
+    /// The step lists what ends it and no anchor places it, so it holds the Job until one comes.
+    pub(crate) fn holds(&self) -> bool {
+        !self.ends_on.is_empty() && !(self.records_plan || self.walks || self.follows_plan || self.delivers)
+    }
+
     /// The step ends on his Approve, as a `you_approved` gate does, and holds the Job until then.
     pub(crate) fn waits_on_approval(&self) -> bool {
         self.ends_on.contains(&StepEnd::YouApproved)
@@ -385,8 +390,8 @@ fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     if recorder(steps).is_some_and(|recording| at < recording) {
         return facts.plan_recorded || facts.any_ended(at, &step.ends_on);
     }
-    // A step that lists a lifecycle end, or his Approve, holds the Job until it comes.
-    !(step.has_lifecycle_end() || step.waits_on_approval()) || facts.any_ended(at, &step.ends_on)
+    // A step that lists its ends holds the Job until one comes.
+    !step.holds() || facts.any_ended(at, &step.ends_on)
 }
 
 /// Whether the Job pushed toward the step at `at`. **A walk before it holds the push**: none counts
@@ -419,12 +424,14 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
             && steps[..at].iter().enumerate().all(|(earlier, one)| !one.walks || passed(steps, earlier, facts));
     }
     if step.delivers {
-        // A step that waits on a lifecycle holds the Job past the push, as a walk holds a refine step.
-        return pushed_past_walks(steps, at, facts)
-            && steps[..at]
-                .iter()
-                .enumerate()
-                .all(|(earlier, one)| !(one.has_lifecycle_end() || one.waits_on_approval()) || passed(steps, earlier, facts));
+        // A step that lists its ends holds the Job past the push, as a walk holds a refine step; once
+        // one comes the delivering step after it is entered, push or not.
+        let held = |earlier: usize| steps[earlier].holds() && !passed(steps, earlier, facts);
+        let after_a_hold = at > 0
+            && !steps[at - 1].has_lifecycle_end()
+            && steps[at - 1].holds()
+            && (0..at).all(|one| passed(steps, one, facts));
+        return after_a_hold || (pushed_past_walks(steps, at, facts) && !(0..at).any(held));
     }
     let before = |earlier: usize| (0..earlier).all(|one| passed(steps, one, facts));
     if recorder(steps).is_some_and(|recording| at < recording) {
@@ -436,10 +443,10 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     if step.has_lifecycle_end() {
         return facts.lifecycle_held.has(at) && !facts.any_ended(at, &step.ends_on) && before(at);
     }
-    if step.waits_on_approval() {
-        return !facts.you_approved.has(at) && before(at);
+    if step.holds() {
+        return !facts.any_ended(at, &step.ends_on) && before(at);
     }
-    let after_a_wait = at > 0 && (steps[at - 1].has_lifecycle_end() || steps[at - 1].waits_on_approval()) && before(at);
+    let after_a_wait = at > 0 && steps[at - 1].holds() && before(at);
     // **The step after a walk is entered once the walk is passed**, as after a wait: else the Job falls
     // back behind the walk he approved, is told to show it again, and the new window voids his approval.
     let after_a_walk = at > 0 && steps[at - 1].walks && passed(steps, at - 1, facts);
