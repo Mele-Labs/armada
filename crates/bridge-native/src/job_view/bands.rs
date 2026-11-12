@@ -28,8 +28,6 @@ fn encoded<T: serde::Serialize>(body: &T) -> Result<String, String> {
 /// What a band remembers of one Job.
 #[derive(Default)]
 pub(super) struct BandState {
-    /// The end band's panel; absent, it is open (it opens on coming into the Job).
-    pub end_open: Option<bool>,
     /// The `done_since` of the ending Keep going put away.
     pub kept: Option<String>,
     /// The pieces that were missing when the person put the tools band away.
@@ -144,13 +142,6 @@ impl JobView {
         Shown { tools, end, waiting }
     }
 
-    /// Whether the end panel is up over the thread.
-    pub(super) fn band_up(&self, id: &str, cx: &gpui::App) -> bool {
-        let shown = self.bands_of(id, cx);
-        let Some(page) = self.pages.get(id) else { return false };
-        shown.end && page.bands.end_open.unwrap_or(true)
-    }
-
     /// The bands, one over the other, each with its panel when it is open.
     pub(super) fn render_bands(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
         let look = cx.look();
@@ -159,7 +150,7 @@ impl JobView {
         if let Some(page) = self.pages.get(id) {
             page.keys.set(DONE, shown.end.then(|| self.done_card(id)));
         }
-        if !(shown.tools || shown.end) {
+        if !shown.tools {
             return None;
         }
         let record = self.record(id, cx)?;
@@ -168,9 +159,6 @@ impl JobView {
             if let Some(tools) = &record.tools_missing {
                 column = column.child(self.tools_band(id, tools, look, cx));
             }
-        }
-        if shown.end {
-            column = column.child(self.end_band(id, record, look, cx));
         }
         // The bands stand in the box's column, as Electron's sit in the Needs you panel over it.
         let outer = self.column(look) + super::bleed(look) * 2.;
@@ -193,11 +181,10 @@ impl JobView {
     }
 
     /// The panel above its bar: the same frame the Needs you panel has.
-    fn drawer(&self, look: &Look, hue: gpui::Hsla, name: &'static str, body: AnyElement, cx: &Context<Self>) -> AnyElement {
+    fn drawer(&self, look: &Look, hue: gpui::Hsla, name: &'static str, body: AnyElement) -> AnyElement {
         div()
             .id(SharedString::from(format!("{name}-panel")))
             .occlude()
-            .on_key_down(cx.listener(Self::on_band_key))
             .max_h(look.length(token::SPACE_12) * 10.)
             .overflow_y_scroll()
             .flex()
@@ -221,65 +208,6 @@ impl JobView {
             .w_full()
             .children(panel.map(|panel| div().absolute().bottom_full().left_0().right_0().child(panel)))
             .child(bar)
-    }
-
-    fn trigger(&self, id: &SharedString, look: &Look, key: &str, name: &'static str, icon: &'static str, glyphs: Vec<AnyElement>, open: bool, cx: &Context<Self>, press: impl Fn(&mut JobView, &mut Window, &mut Context<JobView>) + 'static) -> AnyElement {
-        let spot = self.pages.get(id).map(|page| page.keys.spot(key, cx));
-        let base = div()
-            .id(SharedString::from(key.to_string()))
-            .flex_1()
-            .min_w_0()
-            .h_full()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_3))
-            .cursor_pointer()
-            .focus_visible(|style| style.bg(look.color(token::FG_INVERSE).opacity(0.18)))
-            .child(glyph(look, icon, Size::Small, look.color(token::FG_INVERSE)))
-            .child(div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(name))
-            .child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(glyphs))
-            .child(div().flex_1())
-            .child(glyph(look, if open { "chevron-down" } else { "chevron-up" }, Size::Small, look.color(token::FG_INVERSE)))
-            .on_click(cx.listener(move |this, _, window, cx| press(this, window, cx)));
-        let base = match &spot {
-            Some(spot) => base.track_focus(&spot.focus),
-            None => base,
-        };
-        labelled(base, Role::Button, name).into_any_element()
-    }
-
-    /// Esc in a panel folds it and the band's own button has the focus again.
-    fn on_band_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        if event.keystroke.key == "escape" && self.fold_bands(true, window, cx) {
-            cx.stop_propagation();
-        }
-    }
-
-    /// Esc anywhere in the Job folds an open end panel, tools band excepted.
-    pub(super) fn on_job_escape(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        if event.keystroke.key == "escape" && self.fold_bands(false, window, cx) {
-            cx.stop_propagation();
-        }
-    }
-
-    /// Fold the panel that is up. The band's button takes the focus back only if it was inside the panel.
-    pub(super) fn fold_bands(&mut self, from_inside: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let Some(id) = self.shown.clone() else { return false };
-        let shown = self.bands_of(&id, cx);
-        let Some(page) = self.pages.get_mut(&id) else { return false };
-        let key = if shown.end && page.bands.end_open.unwrap_or(true) {
-            page.bands.end_open = Some(false);
-            "end-trigger"
-        } else {
-            return false;
-        };
-        if from_inside {
-            let spot = page.keys.spot(key, cx);
-            window.focus(&spot.focus, cx);
-        }
-        cx.notify();
-        true
     }
 
     // ---- Tools missing ------------------------------------------------------------------------------
@@ -356,7 +284,7 @@ impl JobView {
             "Dismiss",
         )
         .into_any_element();
-        let panel = self.drawer(look, hue, "tools", body, cx);
+        let panel = self.drawer(look, hue, "tools", body);
         // Its body is always up, and Esc inside it puts the band away.
         let panel = div().id("tools-keys").on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
             if event.keystroke.key == "escape" {
@@ -458,9 +386,10 @@ impl JobView {
         cx.notify();
     }
 
-    fn end_band(&self, id: &SharedString, record: &ipc::SessionRecord, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let hue = look.color(token::STEP_ADVANCED);
-        let open = self.pages.get(id).is_some_and(|page| page.bands.end_open.unwrap_or(true));
+    /// The agent's last word as the thread's last card, as Classic's spacious take draws it: the done
+    /// hue's check over what was made and the two ways on. It is part of the thread and never opens over it.
+    pub(super) fn end_card(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let record = self.record(id, cx)?;
         let target = self.is_target(DONE);
         let summary = record.done_summary.clone().filter(|text| !text.is_empty());
         let made: Vec<AnyElement> = record
@@ -472,18 +401,45 @@ impl JobView {
                     Some(title) => format!("#{} {title}", one.target),
                     None => format!("#{}", one.target),
                 };
+                // A ledger row (`DoneBody`): its state's mark, its words, and its Checks at the end; a press opens it.
+                let pull = super::pulls::pull_of(record, one, None);
+                let (state_icon, state_said, state_hue) = match pull.as_ref().map(|pull| pull.state) {
+                    Some(super::pulls::PullState::Merged) => ("git-merge", "Merged", token::STATUS_COMPLETED_SUCCESS),
+                    _ => ("git-pull-request", "Open", token::STATUS_AWAITING_REVIEW),
+                };
+                let checks = pull.as_ref().map(|pull| {
+                    let icon = match pull.checks {
+                        super::pulls::PullChecks::Passed => "circle-check",
+                        super::pulls::PullChecks::Running => "loader-circle",
+                        super::pulls::PullChecks::Failed => "circle-x",
+                    };
+                    div()
+                        .id(SharedString::from(format!("made-checks:{}", one.target)))
+                        .flex_none()
+                        .tooltip(tip(super::pulls::checks_said(pull)))
+                        .child(glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))
+                });
                 labelled(
                     div()
                         .id(SharedString::from(format!("made:{}", one.target)))
                         .flex()
                         .items_center()
                         .gap(look.length(token::SPACE_2))
-                        .px(look.length(token::SPACE_2))
-                        .text_size(look.length(token::TEXT_SM))
-                        .line_height(look.length(token::LEADING_SM))
+                        .min_h(look.length(token::H_ROW))
+                        .px(look.length(token::SPACE_3))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(look.color(token::BORDER_SUBTLE))
+                        .bg(look.color(token::BG_RAISED))
+                        .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                        .cursor_pointer()
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_XS))
                         .text_color(look.color(token::FG_DEFAULT))
-                        .child(glyph(look, "git-pull-request", Size::Small, look.color(token::FG_MUTED)))
-                        .child(div().min_w_0().truncate().child(SharedString::from(name.clone()))),
+                        .child(div().id(SharedString::from(format!("made-state:{}", one.target))).flex_none().tooltip(tip(state_said)).child(glyph(look, state_icon, Size::Small, look.color(state_hue))))
+                        .child(div().flex_1().min_w_0().truncate().child(SharedString::from(name.clone())))
+                        .children(checks)
+                        .when_some(pull, |row, pull| row.on_click(cx.listener(move |this, _, window, cx| this.open_pull(pull.clone(), window, cx)))),
                     Role::Row,
                     name,
                 )
@@ -509,36 +465,45 @@ impl JobView {
             ));
         let said = self.pages.get(id).and_then(|page| page.bands.said.get(DONE).cloned()).or_else(|| self.head_said(id));
         let aim = DONE.to_string();
-        let body = labelled(
-            div()
-                .id("done-body")
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_2))
-                .on_mouse_down(gpui::MouseButton::Left, cx.listener(move |this, _, _, cx| {
-                    this.aim(&aim);
-                    cx.notify();
-                }))
-                .children(summary.map(|text| div().px(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(SharedString::from(text))))
-                .children((!made.is_empty()).then(|| {
-                    labelled(div().id("done-made").flex().flex_col().gap(look.length(token::SPACE_2)).children(made), Role::Group, "Pull requests")
-                }))
-                .child(acts)
-                .children(said.map(|why| refusal(look, DONE, why))),
-            Role::Group,
-            "Nothing left to do",
+        let head = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
+            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child(glyph(look, "check", Size::Small, look.color(token::STEP_ADVANCED)))
+            .child("Nothing left to do");
+        Some(
+            labelled(
+                div()
+                    .id("done-body")
+                    .w_full()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_3))
+                    .p(look.length(token::SPACE_4))
+                    .rounded(look.length(token::RADIUS_LG))
+                    .bg(look.color(token::FG_DEFAULT).opacity(0.04))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::FG_DEFAULT).opacity(0.07))
+                    .on_mouse_down(gpui::MouseButton::Left, cx.listener(move |this, _, _, cx| {
+                        this.aim(&aim);
+                        cx.notify();
+                    }))
+                    .child(head)
+                    .children(summary.map(|text| div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(text))))
+                    .children((!made.is_empty()).then(|| {
+                        labelled(div().id("done-made").flex().flex_col().gap(look.length(token::SPACE_2)).children(made), Role::Group, "Pull requests")
+                    }))
+                    .child(acts)
+                    .children(said.map(|why| refusal(look, DONE, why))),
+                Role::Region,
+                "Nothing left to do",
+            )
+            .into_any_element(),
         )
-        .into_any_element();
-        let trigger = self.trigger(id, look, "end-trigger", "Nothing left to do", "check", Vec::new(), open, cx, |this, _, cx| {
-            if let Some(id) = this.shown.clone() {
-                if let Some(page) = this.pages.get_mut(&id) {
-                    page.bands.end_open = Some(!page.bands.end_open.unwrap_or(true));
-                }
-            }
-            cx.notify();
-        });
-        let panel = open.then(|| self.drawer(look, hue, "end", body, cx));
-        labelled(self.frame("end", panel, self.bar(look, hue, open, trigger, None)), Role::Region, "Nothing left to do").into_any_element()
     }
 
     // ---- Waiting ------------------------------------------------------------------------------------

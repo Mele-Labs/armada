@@ -613,6 +613,7 @@ impl JobView {
             }
             Extra::Subagents => return self.subagents_card(page.items + at, items, page, look, cx),
             Extra::Waiting => return self.waiting_card(&self.shown.clone()?, look, cx),
+            Extra::End => return self.end_card(&self.shown.clone()?, look, cx),
             Extra::MovedTo => {
                 let id = self.shown.clone()?;
                 let moved = self.moved(&id, "forked_to", cx)?;
