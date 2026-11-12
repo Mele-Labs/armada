@@ -13,7 +13,7 @@
 //!
 //! Still owed: a workflow's finished steps (`StepBeat`), which arrive with the workflow group; the mods
 //! a Job made, which Fleet does not serve; the report row with its conclusion; the lanes of a stack of
-//! pull requests; arrow keys between rows.
+//! pull requests.
 
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -277,9 +277,7 @@ impl JobView {
 impl JobView {
     /// The Done tab: its head, then By step or By kind.
     pub(super) fn side_done(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let made = self.made_of(id, cx);
-        let landed = self.landed(id, &made, cx);
-        let view = self.ledger_view;
+        let (landed, toggle, body) = self.done_parts(id, look, cx);
         let lamp = landed.then(|| {
             labelled(
                 div().id("done-lamp").flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(token::STEP_ADVANCED)).tooltip(tip("Done")),
@@ -287,6 +285,16 @@ impl JobView {
                 "Done",
             )
         });
+        let head = div().flex().items_center().gap(look.length(token::SPACE_2)).min_h(look.length(token::H_ROW)).children(lamp).child(div().flex_1()).child(toggle);
+        div().flex().flex_col().gap(look.length(token::SPACE_2)).child(head).children(body).into_any_element()
+    }
+
+    /// Done's pieces, for its own pane and for the Spine: whether all it made has landed, the By step /
+    /// By kind switch, and the list, absent with nothing in it.
+    pub(super) fn done_parts(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> (bool, AnyElement, Option<AnyElement>) {
+        let made = self.made_of(id, cx);
+        let landed = self.landed(id, &made, cx);
+        let view = self.ledger_view;
         let choice = |key: &'static str, icon: &'static str, said: &'static str, this: LedgerView| {
             labelled(
                 act_button(look, key, icon, "ledger", said.into(), view == this, false).on_click(cx.listener(move |me, _, _, cx| me.set_ledger_view(this, cx))),
@@ -298,13 +306,13 @@ impl JobView {
             div().id("done-view").flex().items_center().gap(look.length(token::SPACE_1)).child(choice("done-by-step", "milestone", "By step", LedgerView::Step)).child(choice("done-by-kind", "tags", "By kind", LedgerView::Kind)),
             Role::RadioGroup,
             "View",
-        );
-        let head = div().flex().items_center().gap(look.length(token::SPACE_2)).min_h(look.length(token::H_ROW)).children(lamp).child(div().flex_1()).child(toggle);
+        )
+        .into_any_element();
         let body = match view {
             LedgerView::Step => self.done_by_step(id, made, look, cx),
             LedgerView::Kind => self.done_by_kind(made, look, cx),
         };
-        div().flex().flex_col().gap(look.length(token::SPACE_2)).child(head).children(body).into_any_element()
+        (landed, toggle, body)
     }
 
     /// Each finished plan group with what it produced, then what no group claims, oldest first.
@@ -389,6 +397,8 @@ impl JobView {
                         .child(div().id(SharedString::from(format!("done-group-mark:{}", group.id))).flex_none().tooltip(tip("Done")).child(glyph(look, "check", Size::Small, look.color(token::STEP_ADVANCED))))
                         .child(div().flex_1().min_w_0().truncate().child(SharedString::from(group.title.clone())))
                         .children(track)
+                        .tab_index(0)
+                        .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.side_fold(&key);
                             cx.notify();
@@ -443,6 +453,8 @@ impl JobView {
                     .cursor_pointer()
                     .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
                     .child(said)
+                    .tab_index(0)
+                    .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.side_fold(&key);
                         cx.notify();
@@ -511,7 +523,7 @@ impl JobView {
             .child(labelled(div().id(SharedString::from(format!("made-mark:{}", line.key))).flex_none().w(look.length(token::SPACE_4)).flex().justify_center().tooltip(tip(line.said)).child(glyph(look, line.glyph, Size::Small, look.color(token::FG_MUTED))), Role::Image, line.said))
             .child(div().flex_1().min_w_0().truncate().child(SharedString::from(line.title.clone())))
             .children(ago.map(|ago| div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(ago))))
-            .when_some(opens, |row, opens| row.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(cx.listener(move |this, _, window, cx| opens(this, window, cx))));
+            .when_some(opens, |row, opens| row.cursor_pointer().tab_index(0).focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT))).hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(cx.listener(move |this, _, window, cx| opens(this, window, cx))));
         labelled(row, Role::Button, line.title).into_any_element()
     }
 }

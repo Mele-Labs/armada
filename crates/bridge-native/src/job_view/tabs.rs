@@ -47,6 +47,7 @@ impl Pane {
                 ("checks", "Checks", "shield-check"),
                 ("system", "System", "cpu"),
                 ("bays", "Bays", "layout-grid"),
+                ("spine", "Spine", "waypoints"),
                 ("judge", "Judge", "scale"),
             ],
             Pane::Now => &[("now", "Now", "activity")],

@@ -1,6 +1,6 @@
 //! The Job's right column, as Electron's `StoryColumn` draws it in its two default panes: Open, Done
 //! and Deferred over Now. Each tab has its × and each strip its +; the top pane's + also opens Plan,
-//! Changes, Ledger, Files, Subagents, Checks (`panes.rs`) and Judge (`judge_tab.rs`) until the pane
+//! Changes, Ledger, Files, Subagents, Checks (`panes.rs`), Spine (`spine.rs`) and Judge (`judge_tab.rs`) until the pane
 //! system can place them anywhere.
 //!
 //! Now is `now.rs`.
@@ -11,6 +11,7 @@ use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, Role, Share
 use ipc::{PlanTaskState, SessionPlanGroup};
 
 use super::rows::{glyph, Size};
+use super::spine::Area;
 use super::tabs::Pane;
 use super::JobView;
 use crate::labels::labelled;
@@ -38,11 +39,12 @@ pub(super) enum Zone {
     Checks,
     System,
     Bays,
+    Spine,
     Judge,
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 15] = [
+    pub(super) const ALL: [Zone; 16] = [
         Zone::Open,
         Zone::Done,
         Zone::Deferred,
@@ -57,6 +59,7 @@ impl Zone {
         Zone::Checks,
         Zone::System,
         Zone::Bays,
+        Zone::Spine,
         Zone::Judge,
     ];
 
@@ -76,6 +79,7 @@ impl Zone {
             Zone::Checks => "checks",
             Zone::System => "system",
             Zone::Bays => "bays",
+            Zone::Spine => "spine",
             Zone::Judge => "judge",
         }
     }
@@ -101,6 +105,7 @@ impl Zone {
             Zone::Checks => ("shield-check", "Checks"),
             Zone::System => ("cpu", "System"),
             Zone::Bays => ("layout-grid", "Bays"),
+            Zone::Spine => ("waypoints", "Spine"),
             Zone::Judge => ("scale", "Judge"),
         }
     }
@@ -116,6 +121,10 @@ pub(super) struct SideState {
     pub(super) watches_ended: bool,
     /// Watches stopped or deleted from here, drawn so until Fleet's record says so or refuses.
     pub(super) watch_acted: std::collections::HashMap<String, super::watching::Acted>,
+    /// The Spine's Deferred frame is open to its list.
+    pub(super) later_open: bool,
+    /// The Spine's Brief is open to the whole brief and how the Job started.
+    pub(super) brief_open: bool,
 }
 
 /// Where a group of an approved plan stands.
@@ -197,10 +206,13 @@ fn tab(look: &Look, id: &'static str, icon: &'static str, said: &'static str, fr
 }
 
 impl JobView {
-    pub(super) fn render_side(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_side(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let look = cx.look();
         let look = &look;
         let zone = self.zone_shown();
+        if zone != Some(Zone::Spine) {
+            self.spine.left();
+        }
         let tabs: Vec<_> = Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).map(|one| {
             let (icon, said) = one.look();
             let id = match one {
@@ -218,6 +230,7 @@ impl JobView {
                 Zone::Checks => "side-checks",
                 Zone::System => "side-system",
                 Zone::Bays => "side-bays",
+                Zone::Spine => "side-spine",
                 Zone::Judge => "side-judge",
             };
             let front = Some(one) == zone;
@@ -236,11 +249,11 @@ impl JobView {
             )
         }).collect();
         // Changes and Files draw their own strip over a body that scrolls, as `.job-pane__pick` does.
-        let own_frame = matches!(zone, Some(Zone::Changes | Zone::Files | Zone::Judge));
+        let own_frame = matches!(zone, Some(Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine));
         let top_body = self.shown.clone().zip(zone).and_then(|(id, zone)| match zone {
-            Zone::Open => Some(self.side_open(&id, look, cx)),
-            Zone::Done => Some(self.side_done(&id, look, cx)),
-            Zone::Deferred => Some(self.side_deferred(&id, look, cx)),
+            Zone::Open => Some(self.zone_alone(Area::Open, self.side_open(&id, look, cx), cx)),
+            Zone::Done => Some(self.zone_alone(Area::Done, self.side_done(&id, look, cx), cx)),
+            Zone::Deferred => Some(self.zone_alone(Area::Deferred, self.side_deferred(&id, look, cx), cx)),
             Zone::Plan => self.pane_plan(&id, look, cx),
             Zone::Changes => self.pane_changes(&id, look, cx),
             Zone::Pulls => self.pane_pulls(&id, look, cx),
@@ -252,10 +265,14 @@ impl JobView {
             Zone::Checks => Some(self.pane_checks(&id, look, cx)),
             Zone::System => self.pane_system(&id, look, cx),
             Zone::Bays => self.pane_bays(&id, look, cx),
+            Zone::Spine => Some(self.pane_spine(&id, look, cx)),
             Zone::Judge => self.pane_judge(&id, look, cx),
         });
+        if self.spine.settle.take() {
+            window.request_animation_frame();
+        }
         let now_open = !self.tab_closed("now");
-        let now_body = self.shown.clone().filter(|_| now_open).map(|id| self.side_now(&id, look, cx));
+        let now_body = self.shown.clone().filter(|_| now_open).map(|id| self.zone_alone(Area::Now, self.side_now(&id, look, cx), cx));
         let body = |id: &'static str, inner: Option<AnyElement>| {
             div()
                 .id(id)

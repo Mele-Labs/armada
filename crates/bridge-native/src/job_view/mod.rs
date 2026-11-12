@@ -64,6 +64,7 @@ mod pr_files;
 mod pr_panel;
 mod report_brief;
 mod side;
+mod spine;
 mod tabs;
 pub use side::JobSide;
 mod runs;
@@ -350,6 +351,8 @@ pub struct JobView {
     subagent_tab_polls: HashMap<String, gpui::Task<()>>,
     /// The Plan, Changes, Files and Checks bodies' state, and the panel one of their rows opened.
     panes: panes::Panes,
+    /// The Spine's folds, scroll and keys.
+    spine: spine::Spine,
     /// The Jobs a walk reads again for a moment when they come on screen, standing in for Fleet's read.
     mock_reading: HashSet<String>,
     _subscriptions: Vec<Subscription>,
@@ -462,6 +465,7 @@ impl JobView {
             subagents_read: Vec::new(),
             subagent_tab_polls: HashMap::new(),
             panes: panes::Panes::default(),
+            spine: spine::Spine::new(remember, cx),
             mock_reading: HashSet::new(),
             _subscriptions: subscriptions,
         }

@@ -11,8 +11,8 @@
 //!
 //! Owed: the workflow's step rows and the landings a workflow names (findings, a document, a report),
 //! which arrive with the workflow pane; a mod's route, whose mods Fleet does not serve; the live page,
-//! which Fleet serves no frame for; the helpers of a plan that ends on gates, which arrive with the
-//! plan's gates; Watching, which comes with the watch panel; and arrow keys between rows.
+//! which Fleet serves no frame for; and the helpers of a plan that ends on gates, which arrive with the
+//! plan's gates.
 
 use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, Role, SharedString};
@@ -40,7 +40,7 @@ pub(super) enum Lamp {
 
 impl Lamp {
     /// Its hue, its word, and whether it pulses (`MARK`).
-    fn look(self) -> (Token, &'static str, bool) {
+    pub(super) fn look(self) -> (Token, &'static str, bool) {
         match self {
             Lamp::Asks => (token::STATUS_AWAITING_REVIEW, "Waiting on you", true),
             Lamp::Failed => (token::STATUS_COMPLETED_FAILED, "Failed", false),
@@ -258,22 +258,42 @@ fn running_child(state: Option<JobState>) -> bool {
     !matches!(state, Some(JobState::Done | JobState::Ended | JobState::Quiet))
 }
 
+/// A band's lamp (`StateMark`): a dot in the state's hue that names the state on hover, pulsing on
+/// opacity alone where it calls him.
+pub(super) fn lamp_mark(look: &Look, key: &str, hue: Token, said: &'static str, pulse: bool) -> AnyElement {
+    let dot = div().id(SharedString::from(format!("{key}-lamp"))).flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(hue)).tooltip(tip(said));
+    let dot = if pulse {
+        dot.with_animation(SharedString::from(format!("{key}-lamp-pulse")), Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.35, 1.)), |dot, at| dot.opacity(at)).into_any_element()
+    } else {
+        dot.into_any_element()
+    };
+    labelled(div().id(SharedString::from(format!("{key}-lamp-mark"))).flex_none().child(dot), Role::Image, said).into_any_element()
+}
+
 impl JobView {
     /// Now's band (`bare`): the lamp, then Sketch while a plan with a sketch is drafted, Ask for an
     /// update, and Plan once the plan is approved.
     fn now_band(&self, id: &SharedString, lamp: Option<Lamp>, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let job = self.record(id, cx);
-        let plan = job.and_then(|job| job.plan.as_ref());
         let lamp = lamp.map(|lamp| {
             let (hue, said, pulse) = lamp.look();
-            let dot = div().id("now-lamp").flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(hue)).tooltip(tip(said));
-            let dot = if pulse {
-                dot.with_animation("now-lamp-pulse", Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.35, 1.)), |dot, at| dot.opacity(at)).into_any_element()
-            } else {
-                dot.into_any_element()
-            };
-            labelled(div().id("now-lamp-mark").flex_none().child(dot), Role::Image, said).into_any_element()
+            lamp_mark(look, "now", hue, said, pulse)
         });
+        div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .min_h(look.length(token::H_ROW))
+            .children(lamp)
+            .child(div().flex_1())
+            .child(self.now_acts(id, look, cx))
+            .into_any_element()
+    }
+
+    /// Now's acts: Sketch while a plan with a sketch is drafted, Ask for an update, and Plan once the
+    /// plan is approved.
+    pub(super) fn now_acts(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let job = self.record(id, cx);
+        let plan = job.and_then(|job| job.plan.as_ref());
         let sketch = plan.filter(|plan| !plan.approved).and_then(|plan| plan.sketch.as_ref()).and_then(|sketch| self.sketch_card(id, &sketch.id, cx)).map(|card| {
             labelled(
                 icon_button(look, "now-sketch", "pencil-ruler", "Sketch".into(), false, false).on_click(cx.listener(move |this, _, window, cx| this.read_sketch(&card, &card, window, cx))),
@@ -293,20 +313,19 @@ impl JobView {
         let whole = plan.filter(|plan| plan.approved).map(|_| {
             labelled(act_button(look, "now-plan", "list-tree", "whole", "Plan".into(), false, false).on_click(cx.listener(|this, _, window, cx| this.add_tab("plan", window, cx))), Role::Button, "Plan")
         });
-        div()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .min_h(look.length(token::H_ROW))
-            .children(lamp)
-            .child(div().flex_1())
-            .child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(sketch).children(ask).children(whole))
-            .into_any_element()
+        div().flex().items_center().gap(look.length(token::SPACE_1)).children(sketch).children(ask).children(whole).into_any_element()
     }
 
     /// Now, with Ahead under it.
     pub(super) fn side_now(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let Some(job) = self.record(id, cx).cloned() else { return div().into_any_element() };
+        let Some((lamp, body)) = self.now_parts(id, false, look, cx) else { return div().into_any_element() };
+        div().flex().flex_col().child(self.now_band(id, lamp, look, cx)).children(body).into_any_element()
+    }
+
+    /// Now's lamp and its rows, absent with none. On the Spine the route still to come stands in Open,
+    /// as Classic's `aheadList` does outside a pane of its own.
+    pub(super) fn now_parts(&self, id: &SharedString, spine: bool, look: &Look, cx: &Context<Self>) -> Option<(Option<Lamp>, Option<AnyElement>)> {
+        let job = self.record(id, cx).cloned()?;
         let head = self.thread(id, cx).map(|held| held.head.clone());
         let rows = self.thread_rows(id, cx);
         let working = self.working(id, cx);
@@ -403,26 +422,28 @@ impl JobView {
             None
         };
 
-        let beats = labelled(
-            div().id("now-beats").flex().flex_col().children(owed).children(walk_rows).children(agent).children(fleet).children(waits).children(under_way).children(check_rows),
-            Role::List,
-            "Now",
-        );
+        let beats: Vec<AnyElement> = owed.into_iter().chain(walk_rows).chain(agent.map(|agent| agent.into_any_element())).chain(fleet).chain(waits).chain(under_way).chain(check_rows).collect();
+        let beats = (!beats.is_empty()).then(|| labelled(div().id("now-beats").flex().flex_col().children(beats), Role::List, "Now").into_any_element());
+        let ahead = if spine { None } else { self.ahead_list(&job, look) };
+        let rows: Vec<AnyElement> = beats
+            .into_iter()
+            .chain(self.now_tasks(&job, look))
+            .chain(self.now_subagents(&job, look))
+            .chain(self.flight_rows(&job, &at_work, false, look, cx))
+            .chain(self.now_children(&job, look, cx))
+            .chain(self.now_plan(id, &job, look, cx))
+            .chain(self.watching(&job, look, cx).map(|watching| watching.into_any_element()))
+            .chain(ahead)
+            .collect();
+        let body = (!rows.is_empty()).then(|| div().flex().flex_col().children(rows).into_any_element());
+        Some((lamp, body))
+    }
+
+    /// The route still to come (`aheadList`).
+    pub(super) fn ahead_list(&self, job: &SessionRecord, look: &Look) -> Option<AnyElement> {
+        let route = if job.r#mod { Vec::new() } else { route_of(job) };
         let ahead = route.iter().filter(|step| step.state == PlanTaskState::Open).map(|step| route_beat(look, *step)).collect::<Vec<_>>();
-        let ahead = (!ahead.is_empty()).then(|| labelled(div().id("now-ahead").flex().flex_col().children(ahead), Role::List, "Ahead"));
-        div()
-            .flex()
-            .flex_col()
-            .child(self.now_band(id, lamp, look, cx))
-            .child(beats)
-            .children(self.now_tasks(&job, look))
-            .children(self.now_subagents(&job, look))
-            .children(self.flight_rows(&job, &at_work, false, look, cx))
-            .children(self.now_children(&job, look, cx))
-            .children(self.now_plan(id, &job, look, cx))
-            .children(self.watching(&job, look, cx))
-            .children(ahead)
-            .into_any_element()
+        (!ahead.is_empty()).then(|| labelled(div().id("now-ahead").flex().flex_col().children(ahead), Role::List, "Ahead").into_any_element())
     }
 }
 
@@ -436,6 +457,8 @@ impl JobView {
                 .id(SharedString::from(format!("now-walk:{url}")))
                 .cursor_pointer()
                 .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
+                .tab_index(0)
+                .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                 .on_click(cx.listener(move |this, _, window, cx| this.press_walk(&key, window, cx))),
             Role::Button,
             format!("Walk: {title}"),
@@ -479,6 +502,8 @@ impl JobView {
                 .text_color(look.color(token::FG_DEFAULT))
                 .child(div().id(SharedString::from(format!("owed-mark:{}", item.id))).flex_none().w(look.length(token::SPACE_4)).flex().justify_center().pt(look.length(token::SPACE_1) / 2.).tooltip(tip(item.glyph.said.clone())).child(glyph(look, super::dock::icon_of(item.glyph.kind), Size::Small, look.color(token::STATUS_AWAITING_REVIEW))))
                 .child(div().flex_1().min_w_0().line_clamp(2).child(SharedString::from(item.text.clone())))
+                .tab_index(0)
+                .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                 .on_click(cx.listener(move |this, _, window, cx| this.open_owed(&key, source, window, cx))),
             Role::Button,
             format!("Waiting on you: {}", item.text),
@@ -584,6 +609,8 @@ impl JobView {
                         .hover(|style| style.bg(look.color(token::BG_HOVER)))
                         .tooltip(tip(said.clone()))
                         .child(glyph(look, "drone", Size::Mark, look.color(if running { token::STEP_RUNNING } else { token::FG_SUBTLE })))
+                        .tab_index(0)
+                        .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                         .on_click(cx.listener(move |this, _, window, cx| this.open_subagent_tab(&target, window, cx))),
                     Role::Button,
                     said,
@@ -610,6 +637,8 @@ impl JobView {
                     .child(div().min_w_0().truncate().child(SharedString::from(group.title.clone())))
                     .child(div().flex_1())
                     .children(track)
+                    .tab_index(0)
+                    .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.side_fold(&shut_key);
                         cx.notify();

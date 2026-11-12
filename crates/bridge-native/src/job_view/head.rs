@@ -1404,6 +1404,11 @@ impl JobView {
             self.turn_ledger_view(cx);
             return true;
         }
+        // A zone of the column (`ZONE_KEYS`), from the message box too.
+        if let Some(area) = super::spine::Area::of_digit(&keys.key).filter(|_| alone) {
+            self.spine_key(area, window, cx);
+            return true;
+        }
         // The whole plan (`WHOLE_KEY`), on a Job in panes its Plan tab, from the same listener.
         if alone && keys.key == "n" && self.record(&id, cx).is_some_and(|job| job.plan.is_some()) {
             self.add_tab("plan", window, cx);

@@ -4,8 +4,7 @@
 //! for the Job. The route still to come stands under Now, as Ahead.
 //!
 //! Owed: a workflow's steps still to come and the Open that follows a gated plan's last step
-//! (`openPanel`), which arrive with the workflow pane and the plan's gates; and arrow keys between
-//! rows.
+//! (`openPanel`), which arrive with the workflow pane and the plan's gates.
 
 use gpui::{div, prelude::*, AnyElement, Context, Role, SharedString};
 use ipc::{FleetActState, SessionPlanGroup};
@@ -19,7 +18,13 @@ use crate::look::{token, Look};
 
 impl JobView {
     pub(super) fn side_open(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let Some(job) = self.record(id, cx).cloned() else { return div().into_any_element() };
+        self.open_body(id, false, look, cx).unwrap_or_else(|| div().into_any_element())
+    }
+
+    /// Open's rows, absent with none. On the Spine the route still to come stands here, after what
+    /// has not landed (`next`).
+    pub(super) fn open_body(&self, id: &SharedString, spine: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let job = self.record(id, cx).cloned()?;
         // A plan drafted or marked stands whole in Now to edit; its groups are not drawn again here.
         let editing = job.plan.as_ref().is_some_and(|plan| !plan.approved || !self.plan_marks(id).is_empty());
         let groups: Vec<&SessionPlanGroup> = job.plan.iter().flat_map(|plan| plan.groups.iter()).collect();
@@ -44,12 +49,14 @@ impl JobView {
             .collect();
         let coming = (!coming.is_empty()).then(|| labelled(div().id("open-fleet").flex().flex_col().pt(look.length(token::SPACE_2)).children(coming), Role::List, "Fleet"));
 
-        div()
-            .flex()
-            .flex_col()
-            .children(self.flight_rows(&job, &upcoming, true, look, cx))
-            .children(self.not_landed(&job, &held, look, cx))
-            .children(coming)
-            .into_any_element()
+        let ahead = if spine { self.ahead_list(&job, look) } else { None };
+        let rows: Vec<AnyElement> = self
+            .flight_rows(&job, &upcoming, true, look, cx)
+            .into_iter()
+            .chain(self.not_landed(&job, &held, look, cx))
+            .chain(ahead)
+            .chain(coming.map(|coming| coming.into_any_element()))
+            .collect();
+        (!rows.is_empty()).then(|| div().flex().flex_col().children(rows).into_any_element())
     }
 }
