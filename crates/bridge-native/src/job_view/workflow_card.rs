@@ -3,10 +3,12 @@
 //! folded under a toggle. Fleet reads the steps off the draft (`WorkflowChange::after_steps`); a card
 //! whose steps have not arrived draws the definition's text, as it did before.
 
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
-use ipc::{ChangeOrigin, ChangeStep, SessionRow, ThreadItem, WorkflowChange};
+use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
+use ipc::{AnswerWaiting, ChangeOrigin, ChangeStep, SessionId, SessionRow, ThreadItem, WorkflowChange};
+use std::rc::Rc;
 
-use super::acts::{button, Tone};
+use super::acts::{button, Answer, Mode, Tone};
+use super::cards::quote;
 use super::rows::{glyph, mono, tip, Size};
 use super::JobView;
 use crate::labels::labelled;
@@ -154,6 +156,32 @@ pub(super) fn card_of(change: Option<&WorkflowChange>, text: &str) -> Option<Car
     })
 }
 
+/// How a note on the whole workflow starts, in the text sent back.
+pub(super) const WHOLE: &str = "Whole workflow";
+
+/// The card key a note box is kept under: one for the whole workflow, one a lane.
+pub(super) fn note_key(key: &str, lane: Option<&str>) -> String {
+    match lane {
+        Some(id) => format!("{key}:lane:{id}"),
+        None => format!("{key}:whole"),
+    }
+}
+
+/// The notes as one text, each line led by what it is on: `Quiz (quiz): …`, the whole workflow's
+/// first. `None` while every note is blank, and Send back is not offered.
+pub(super) fn notes_sent(card: &Card, note: impl Fn(Option<&str>) -> String) -> Option<String> {
+    let whole = std::iter::once((WHOLE.to_string(), note(None)));
+    let lanes = card.lanes.iter().map(|lane| (format!("{} ({})", lane.label, lane.id), note(Some(&lane.id))));
+    let lines: Vec<String> = whole
+        .chain(lanes)
+        .filter_map(|(on, said)| {
+            let said = said.trim();
+            (!said.is_empty()).then(|| format!("{on}: {said}"))
+        })
+        .collect();
+    (!lines.is_empty()).then(|| lines.join("\n"))
+}
+
 /// The open workflow drafts of a thread whose change is to be read: change id, workflow id, text.
 pub(super) fn wanted(items: &[ThreadItem]) -> Vec<(i64, String, String)> {
     items
@@ -192,6 +220,176 @@ impl JobView {
         }
     }
 
+    /// The workflow draft a card key names, as the thread holds it: its change, and whether it still waits.
+    fn workflow_draft(&self, key: &str, cx: &gpui::App) -> Option<(i64, bool)> {
+        let id = self.shown.clone()?;
+        let row = key.strip_prefix("draft:")?;
+        let held = self.thread(&id, cx)?;
+        let (change, settled) = held.items.iter().find_map(|item| match item {
+            ThreadItem::Row { row: SessionRow::Draft { id, change: Some(change), settled, .. } } if id == row => Some((*change, settled.is_some())),
+            _ => None,
+        })?;
+        let answered = self.pages.get(&id).is_some_and(|page| page.cards.answers.contains_key(key));
+        Some((change, !settled && !answered))
+    }
+
+    /// Whether a note box of the card is open for typing.
+    fn note_open(&self, note: &str) -> bool {
+        self.shown.as_ref().and_then(|id| self.pages.get(id)).and_then(|page| page.cards.modes.get(note)) == Some(&Mode::Note)
+    }
+
+    /// Keep a note's words in its lane and shut its box; blank words keep nothing.
+    fn keep_note(&mut self, ix: usize, note: &str, cx: &mut Context<Self>) {
+        if self.typed_in(note, Mode::Note, cx).trim().is_empty() {
+            self.close_box(ix, note, cx);
+            return;
+        }
+        if let Some(page) = self.shown.clone().and_then(|id| self.pages.get_mut(&id)) {
+            page.cards.modes.remove(note);
+        }
+        self.card_changed(ix, cx);
+    }
+
+    /// The notes on a workflow draft's card as the text sent back, while it waits and has one.
+    fn workflow_notes(&self, key: &str, text: &str, cx: &Context<Self>) -> Option<String> {
+        let (change, open) = self.workflow_draft(key, cx)?;
+        let card = card_of(self.workflow_change(change, cx), text).filter(|_| open)?;
+        notes_sent(&card, |lane| self.typed_in(&note_key(key, lane), Mode::Note, cx))
+    }
+
+    /// Send the card's notes back to the Job that proposed it, as a draft's note is.
+    fn send_notes_back(&mut self, ix: usize, key: &str, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(notes) = self.workflow_notes(key, text, cx) else { return };
+        let session_id = SessionId::carried(self.shown.clone().unwrap_or_default().to_string());
+        let body = AnswerWaiting { session_id, item_id: key.to_string(), choice: None, text: Some(notes.clone()), mode: None, fixed: None };
+        let body = ipc::encode(&body).map_err(|why| format!("{why:?}"));
+        self.settle(ix, key.to_string(), Answer::SentBack(notes), "/sessions/waiting/answer", body, window, cx);
+    }
+
+    /// The thread's Send back key on a workflow draft with a note.
+    pub(super) fn workflow_send_back_key(&self, ix: usize, key: &str, text: &str, cx: &Context<Self>) -> Option<(String, super::keys::Run)> {
+        self.workflow_notes(key, text, cx)?;
+        let (key, text) = (key.to_string(), text.to_string());
+        Some(("Send back".to_string(), Rc::new(move |this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| this.send_notes_back(ix, &key, &text, window, cx)) as super::keys::Run))
+    }
+
+    /// Send back beside Approve and Dismiss, once the card has a note.
+    pub(super) fn workflow_send_back(&self, ix: usize, key: &str, text: &str, chip: Option<&'static str>, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        self.workflow_notes(key, text, cx)?;
+        let (sent, text) = (key.to_string(), text.to_string());
+        Some(
+            labelled(
+                button(look, SharedString::from(format!("Send back:{key}")), "Send back", Tone::Secondary, false, chip, true)
+                    .on_click(cx.listener(move |this, _, window, cx| this.send_notes_back(ix, &sent, &text, window, cx))),
+                Role::Button,
+                "Send back",
+            )
+            .into_any_element(),
+        )
+    }
+
+    /// The note control in its fixed column: Add note, or Edit note once one is kept.
+    fn note_button(&self, ix: usize, note: &str, on: &str, open: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        if !open || self.note_open(note) {
+            return None;
+        }
+        let word = if self.typed_in(note, Mode::Note, cx).trim().is_empty() { "Add note" } else { "Edit note" };
+        let opened = note.to_string();
+        let card = note.rsplit_once(if note.ends_with(":whole") { ":whole" } else { ":lane:" }).map(|(card, _)| card.to_string()).unwrap_or_default();
+        Some(
+            labelled(
+                button(look, SharedString::from(format!("{word}:{note}")), word, Tone::Ghost, false, None, true)
+                    .flex_none()
+                    // Held to the label's line, so a lane is as tall with its control as without.
+                    .my(-(look.length(token::H_CONTROL) - look.length(token::LEADING_SM)) / 2.)
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.open_box(ix, &opened, Mode::Note, "", window, cx);
+                        if let Some(page) = this.shown.clone().and_then(|id| this.pages.get_mut(&id)) {
+                            page.cards.reveal.insert(opened.clone(), Rc::new(std::cell::Cell::new(true)));
+                        }
+                        // The thread keys stay on the card, so Send back still reaches it.
+                        this.aim(&card);
+                    })),
+                Role::Button,
+                format!("{word} on {on}"),
+            )
+            .into_any_element(),
+        )
+    }
+
+    /// Under its lane or the head: the note's box while it is typed, its words quoted once kept.
+    fn note_below(&self, ix: usize, note: &str, on: &str, open: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        if open && self.note_open(note) {
+            let blank = self.typed_in(note, Mode::Note, cx).trim().is_empty();
+            let (kept, gone) = (note.to_string(), note.to_string());
+            let row = div()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .child(labelled(
+                    button(look, SharedString::from(format!("Keep note:{note}")), "Keep note", Tone::Primary, false, None, !blank)
+                        .when(!blank, |b| b.on_click(cx.listener(move |this, _, _, cx| this.keep_note(ix, &kept, cx)))),
+                    Role::Button,
+                    format!("Keep note on {on}"),
+                ))
+                .child(labelled(
+                    button(look, SharedString::from(format!("Remove note:{note}")), "Remove note", Tone::Ghost, false, None, true)
+                        .on_click(cx.listener(move |this, _, _, cx| this.close_box(ix, &gone, cx))),
+                    Role::Button,
+                    format!("Remove note on {on}"),
+                ));
+            // Once, as it is first measured: a box opened low in the thread is brought up clear of the composer.
+            let reveal = self.shown.as_ref().and_then(|id| self.pages.get(id)).and_then(|page| {
+                let flag = page.cards.reveal.get(note).filter(|flag| flag.get())?.clone();
+                let list = page.list.clone();
+                Some(
+                    gpui::canvas(
+                        move |bounds, window, cx| {
+                            if !flag.get() {
+                                return;
+                            }
+                            // The list is mid-layout here; it is read once this frame is done. A
+                            // measuring pass lays the box out away from the thread, and is passed over.
+                            let (list, flag) = (list.clone(), flag.clone());
+                            window.defer(cx, move |window, _| {
+                                let view = list.viewport_bounds();
+                                if !flag.get() || bounds.top() < view.top() || bounds.top() > view.bottom() {
+                                    return;
+                                }
+                                flag.set(false);
+                                let line = view.top() + view.size.height * 0.6;
+                                if bounds.bottom() > line {
+                                    list.scroll_by(bounds.bottom() - line);
+                                    window.refresh();
+                                }
+                            });
+                        },
+                        |_, _, _, _| {},
+                    )
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full(),
+                )
+            });
+            return Some(
+                div()
+                    .relative()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_2))
+                    .pt(look.length(token::SPACE_1))
+                    .children(self.box_of(note, Mode::Note, format!("Note on {on}"), look, cx))
+                    .child(row)
+                    .children(reveal)
+                    .into_any_element(),
+            );
+        }
+        let said = self.typed_in(note, Mode::Note, cx);
+        let said = said.trim();
+        (!said.is_empty()).then(|| labelled(div().id(SharedString::from(format!("note:{note}"))).child(quote(look, said)), Role::Label, said.to_string()).into_any_element())
+    }
+
     /// The eyebrow of a workflow draft whose card draws: `New workflow` or `Workflow change`. `None`
     /// keeps the draft card's own eyebrow and title, as the text draws.
     pub(super) fn workflow_proposal(&self, change: Option<i64>, text: &str, cx: &gpui::App) -> Option<&'static str> {
@@ -201,6 +399,8 @@ impl JobView {
     /// The draft card's body for a proposed workflow whose steps Fleet read. `None` draws the text.
     pub(super) fn workflow_card(&self, ix: usize, key: &str, change: Option<i64>, text: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let card = card_of(change.and_then(|change| self.workflow_change(change, cx)), text)?;
+        let open = self.workflow_draft(key, cx).is_some_and(|(_, open)| open);
+        let whole = note_key(key, None);
         let named = div()
             .flex()
             .items_center()
@@ -224,7 +424,8 @@ impl JobView {
                     .line_height(look.length(token::LEADING_2XS))
                     .text_color(look.color(token::FG_MUTED))
                     .child(SharedString::from(card.id.clone())),
-            );
+            )
+            .children(self.note_button(ix, &whole, "the whole workflow", open, look, cx));
         let approves = div()
             .id(SharedString::from(format!("approves:{key}")))
             .text_size(look.length(token::TEXT_SM))
@@ -256,7 +457,7 @@ impl JobView {
                 .child(SharedString::from(asked))
         });
         let last = card.lanes.len().saturating_sub(1);
-        let lanes = card.lanes.iter().enumerate().map(|(at, lane)| self.lane(ix, key, at, at == last, lane, look, cx));
+        let lanes = card.lanes.iter().enumerate().map(|(at, lane)| self.lane(ix, key, at, at == last, open, lane, look, cx));
         Some(
             div()
                 .flex()
@@ -265,13 +466,15 @@ impl JobView {
                 .gap(look.length(token::SPACE_3))
                 .child(labelled(head, Role::Heading, card.name.clone()))
                 .children(for_requests)
+                .children(self.note_below(ix, &whole, "the whole workflow", open, look, cx))
                 .child(div().flex().flex_col().min_w_0().children(lanes))
                 .into_any_element(),
         )
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn lane(&self, ix: usize, key: &str, at: usize, last: bool, lane: &Lane, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn lane(&self, ix: usize, key: &str, at: usize, last: bool, open: bool, lane: &Lane, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let note = note_key(key, Some(&lane.id));
         let kind = if lane.delivers { token::KIND_DELIVERY } else { token::KIND_STEP };
         let told_key = format!("{key}:step:{}", lane.id);
         let told = self.open_in_card(&told_key);
@@ -396,17 +599,28 @@ impl JobView {
             .border(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
             .child(
+                // The label, and the note control at the right edge, in one column down every lane.
                 div()
-                    .text_size(look.length(token::TEXT_SM))
-                    .line_height(look.length(token::LEADING_SM))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                    .text_color(look.color(token::FG_DEFAULT))
-                    .child(SharedString::from(lane.label.clone())),
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .text_size(look.length(token::TEXT_SM))
+                            .line_height(look.length(token::LEADING_SM))
+                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                            .text_color(look.color(token::FG_DEFAULT))
+                            .child(SharedString::from(lane.label.clone())),
+                    )
+                    .children(self.note_button(ix, &note, &lane.label, open, look, cx)),
             )
             .children(lane.about.clone().map(|about| line(SharedString::from(about), token::FG_MUTED)))
             .children(ends)
             .children(facts)
-            .children(toggle);
+            .children(toggle)
+            .children(self.note_below(ix, &note, &lane.label, open, look, cx));
         labelled(
             div().id(SharedString::from(format!("lane:{key}:{}", lane.id))).flex().gap(look.length(token::SPACE_3)).min_w_0().child(rail).child(body),
             Role::Group,
@@ -547,5 +761,28 @@ mod tests {
         assert_eq!(approves(Proposal::New, "kit", "annotations"), "Approve adds it to the workflows of every repository on this Mac.");
         assert_eq!(approves(Proposal::Change, "repository", "annotations"), "Approve replaces the steps of annotations.");
         assert_eq!(approves(Proposal::Change, "kit", "annotations"), "Approve replaces the steps of annotations on every repository on this Mac.");
+    }
+
+    #[test]
+    fn workflow_card_joins_notes_led_by_their_step() {
+        let card = card_of(Some(&change(Some(vec![step("quiz"), step("walk"), step("ship")]))), TEXT).expect("a card");
+        let notes = |lane: Option<&str>| match lane {
+            None => String::from("Name it for the notes it works"),
+            Some("quiz") => String::from("  Ask one question at a time\n"),
+            Some("ship") => String::from("Open the pull request as a draft"),
+            Some(_) => String::new(),
+        };
+        assert_eq!(
+            notes_sent(&card, notes).as_deref(),
+            Some("Whole workflow: Name it for the notes it works\nStep quiz (quiz): Ask one question at a time\nStep ship (ship): Open the pull request as a draft")
+        );
+    }
+
+    #[test]
+    fn workflow_card_offers_send_back_only_with_a_note() {
+        let card = card_of(Some(&change(Some(vec![step("quiz")]))), TEXT).expect("a card");
+        assert_eq!(notes_sent(&card, |_| String::new()), None);
+        assert_eq!(notes_sent(&card, |_| String::from("  \n ")), None);
+        assert!(notes_sent(&card, |lane| if lane == Some("quiz") { String::from("Shorter") } else { String::new() }).is_some());
     }
 }

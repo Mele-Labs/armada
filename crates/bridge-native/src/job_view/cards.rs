@@ -79,7 +79,7 @@ fn settled_line(look: &Look, key: &str, said: Said, words: Option<&str>) -> AnyE
 }
 
 /// The note a card was sent back with: a quote with the person's colour at its edge.
-fn quote(look: &Look, words: &str) -> AnyElement {
+pub(super) fn quote(look: &Look, words: &str) -> AnyElement {
     div()
         .px(look.length(token::SPACE_3))
         .py(look.length(token::SPACE_2))
@@ -801,6 +801,7 @@ impl JobView {
             let send_back: Option<(String, super::keys::Run)> = (!editing && !noting && kind != DraftKind::Workflow).then(|| {
                 ("Note".to_string(), Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| this.open_box(ix, &k4, Mode::Note, "", window, cx)) as super::keys::Run)
             });
+            let send_back = send_back.or_else(|| self.workflow_send_back_key(ix, key, text, cx));
             let no: Option<(String, super::keys::Run)> = (!editing).then(|| {
                 let _ = &out2;
                 (
@@ -857,6 +858,7 @@ impl JobView {
                         )
                     }))
                 })
+                .children(self.workflow_send_back(ix, key, text, back, look, cx))
                 .child(div().flex_1())
                 .child(labelled(
                     button(look, SharedString::from(format!("withdraw:{key}")), word_withdraw, Tone::Secondary, false, no, true).on_click(cx.listener(
