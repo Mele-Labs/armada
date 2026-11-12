@@ -15,7 +15,7 @@ use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::TermMode;
 use alacritty_terminal::vte::ansi::{Color, CursorShape, NamedColor};
 use gpui::{
-    canvas, div, fill, point, prelude::*, px, size, App, Bounds, ClipboardItem, Context, ElementInputHandler, Entity, EntityInputHandler, EventEmitter,
+    canvas, div, fill, point, prelude::*, pulsating_between, px, size, Animation, AnimationExt, App, Bounds, ClipboardItem, Context, ElementInputHandler, Entity, EntityInputHandler, EventEmitter,
     FocusHandle, Focusable, Font, FontFeatures, FontStyle, FontWeight, Hsla, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels,
     Role, ScrollEvent, SharedString, Size, Task, TextRun, UTF16Selection, UnderlineStyle, StrikethroughStyle, Window,
 };
@@ -35,6 +35,9 @@ pub const KEYS: &str = "terminal";
 
 /// Beside `KEYS` while the shell runs: a running shell keeps every key but a ⌘ chord.
 pub const SHELL: &str = "shell";
+
+/// The rows a run under a block keeps, as a program that addresses the screen expects; it shows only those it used.
+const RUN_ROWS: u16 = 24;
 
 /// How long the cursor shows and hides while it blinks (xterm.js's `cursorBlink`).
 const BLINK: Duration = Duration::from_millis(600);
@@ -61,6 +64,8 @@ pub enum PaneEvent {
     Ended,
     /// A program named the screen (OSC 0 or 2).
     Titled(String),
+    /// Close on a run that ended: whoever holds it puts it away.
+    Closed,
 }
 
 pub struct TerminalPane {
@@ -84,6 +89,8 @@ pub struct TerminalPane {
     blink_on: bool,
     /// What an input method is composing, drawn at the cursor until it is committed.
     marked: Option<String>,
+    /// How a run exited: its code, none where it was stopped or ended by a signal, and whether it was stopped.
+    exit: Option<(Option<i32>, bool)>,
     _read: Option<Task<()>>,
     _blink: Option<Task<()>>,
 }
@@ -121,6 +128,7 @@ impl TerminalPane {
             wheel: 0.0,
             blink_on: true,
             marked: None,
+            exit: None,
             _read: None,
             _blink: None,
         }
@@ -141,6 +149,21 @@ impl TerminalPane {
 
     pub fn phase(&self) -> &Phase {
         &self.phase
+    }
+
+    /// A command's run, not a shell: Run on a block, or a Needs you run item.
+    pub fn is_run(&self) -> bool {
+        matches!(self.which, Which::Command(_))
+    }
+
+    /// Where its screen was last drawn.
+    pub fn drawn(&self) -> Option<Bounds<Pixels>> {
+        self.grid.get().map(|(bounds, _)| bounds)
+    }
+
+    /// How a run exited, once it has.
+    pub fn exit(&self) -> Option<(Option<i32>, bool)> {
+        self.exit
     }
 
     pub fn title(&self) -> Option<&str> {
@@ -172,8 +195,10 @@ impl TerminalPane {
             let _ = this.update(cx, |this, cx| match answer {
                 Ok(underway) => this.adopt(underway.run_id, underway.terminal, cx),
                 Err(why) => {
-                    // A refused open prints the refusal and ends, as Electron's does (`job-shell.ts:470-476`).
+                    // A refused open prints the refusal and ends, as Electron's does (`job-shell.ts:470-476`); a refused
+                    // run ends with code 1 (`sessions-wired.tsx:1252-1257`).
                     this.screen.feed(format!("{why}\r\n").as_bytes(), true);
+                    this.exit = Some((Some(1), false));
                     this.end(cx);
                 }
             });
@@ -241,7 +266,10 @@ impl TerminalPane {
                     }
                     return;
                 }
-                SessionRunMessage::Exited { .. } => self.end(cx),
+                SessionRunMessage::Exited { code, stopped } => {
+                    self.exit = Some((code, stopped));
+                    self.end(cx);
+                }
                 SessionRunMessage::Opened { .. } => {}
             }
         }
@@ -293,6 +321,7 @@ impl TerminalPane {
         }
         self.screen = Screen::new(self.screen.size());
         self.phase = Phase::Opening;
+        self.exit = None;
         self.run = None;
         self.asked = true;
         self.replay_until = None;
@@ -449,28 +478,66 @@ impl TerminalPane {
 
     // -- drawing --------------------------------------------------------------------------------
 
+    /// A run's head, as Electron's `runHead`: its mark, the command on one line, and Stop while it runs, then
+    /// Run again and Close.
+    fn run_head(&self, look: &Look, cx: &mut Context<Self>) -> gpui::AnyElement {
+        let command = match &self.which {
+            Which::Command(command) => command.clone(),
+            _ => String::new(),
+        };
+        let (icon, colour, said, named) = match (self.phase != Phase::Ended, self.exit) {
+            (true, _) => ("square-terminal", token::RUN_RUNNING, "Running".to_string(), "Running"),
+            (false, Some((Some(0), _))) => ("circle-check", token::RUN_PASSED, "Exit 0".to_string(), "Passed"),
+            (false, Some((Some(code), _))) => ("circle-x", token::RUN_FAILED, format!("Exit {code}"), "Failed"),
+            (false, Some((None, false))) => ("circle-x", token::RUN_FAILED, "Ended by a signal".to_string(), "Failed"),
+            (false, _) => ("circle-x", token::RUN_STOPPED, "Stopped".to_string(), "Stopped"),
+        };
+        let running = self.phase != Phase::Ended;
+        let mark = div().id("run-mark").flex_none().flex().tooltip(tip(said)).child(if running {
+            glyph(icon, look.length(token::SPACE_4), look.color(colour))
+                .with_animation("run-pulse", Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(pulsating_between(0.45, 1.)), |mark, at| mark.opacity(at))
+                .into_any_element()
+        } else {
+            glyph(icon, look.length(token::SPACE_4), look.color(colour)).into_any_element()
+        });
+        let line = div()
+            .id("run-command")
+            .flex_1()
+            .min_w_0()
+            .truncate()
+            .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .tooltip(tip(command.clone()))
+            .child(command.lines().next().unwrap_or_default().to_string());
+        // Each key is named with the command it acts on, as several runs can be drawn at once; the tooltip is the act alone.
+        let first = command.lines().next().unwrap_or_default().to_string();
+        let keys = div().flex().flex_none().items_center().gap(look.length(token::SPACE_1));
+        let keys = if running {
+            keys.child(labelled(act("run-stop", "square", "Stop", look).on_click(cx.listener(|this, _, _, cx| this.end_shell(cx))), Role::Button, format!("Stop {first}")))
+        } else {
+            keys.child(labelled(act("run-again", "rotate-ccw", "Run again", look).on_click(cx.listener(|this, _, window, cx| this.new_shell(window, cx))), Role::Button, format!("Run again {first}")))
+                .child(labelled(act("run-close", "x", "Close", look).on_click(cx.listener(|_, _, _, cx| cx.emit(PaneEvent::Closed))), Role::Button, format!("Close {first}")))
+        };
+        div()
+            .flex()
+            .flex_none()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .min_h(look.length(token::H_CONTROL_SM))
+            .pl(look.length(token::SPACE_2))
+            .pr(look.length(token::SPACE_1))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .child(labelled(mark, Role::Image, named))
+            .child(line)
+            .child(keys)
+            .into_any_element()
+    }
+
     fn head(&self, look: &Look, cx: &mut Context<Self>) -> impl IntoElement {
         let running = self.phase != Phase::Ended;
-        let act = |id: &'static str, icon: &'static str, said: &'static str, look: &Look| {
-            let hover = look.color(token::BG_HOVER);
-            let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
-            div()
-                    .id(id)
-                    .flex_none()
-                    .size(look.length(token::H_CONTROL_SM))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(look.length(token::RADIUS_MD))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(gpui::transparent_black())
-                    .cursor_pointer()
-                    .tab_stop(true)
-                    .focus_visible(move |style| style.border_color(ring))
-                    .hover(move |style| style.bg(hover))
-                    .tooltip(tip(said))
-                    .child(glyph(icon, look.length(token::SPACE_4), look.color(token::FG_MUTED)))
-        };
         div()
             .flex()
             .flex_none()
@@ -678,6 +745,28 @@ fn measure(family: &SharedString, text_size: Pixels, line: Pixels, window: &mut 
     size(shaped.width.max(px(1.0)), line)
 }
 
+/// An act on a pane's head drawn as its glyph alone, which the tooltip names.
+fn act(id: &'static str, icon: &'static str, said: &'static str, look: &Look) -> gpui::Stateful<gpui::Div> {
+    let hover = look.color(token::BG_HOVER);
+    let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+    div()
+        .id(id)
+        .flex_none()
+        .size(look.length(token::H_CONTROL_SM))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(look.length(token::RADIUS_MD))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(gpui::transparent_black())
+        .cursor_pointer()
+        .tab_stop(true)
+        .focus_visible(move |style| style.border_color(ring))
+        .hover(move |style| style.bg(hover))
+        .tooltip(tip(said))
+        .child(glyph(icon, look.length(token::SPACE_4), look.color(token::FG_MUTED)))
+}
+
 impl Render for TerminalPane {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
@@ -691,6 +780,7 @@ impl Render for TerminalPane {
         let grid = self.grid.clone();
         let focus = self.focus.clone();
         let name: SharedString = self.terminal.as_deref().map_or_else(|| "Terminal".into(), |id| format!("Terminal {}", id.trim_start_matches('t')).into());
+        let is_run = self.is_run();
 
         let screen = canvas(
             {
@@ -699,7 +789,7 @@ impl Render for TerminalPane {
                 move |bounds, window, cx| {
                     let cell = measure(&family, text_size, line, window);
                     let cols = (f32::from(bounds.size.width) / f32::from(cell.width)).floor().max(1.0) as u16;
-                    let rows = (f32::from(bounds.size.height) / f32::from(cell.height)).floor().max(1.0) as u16;
+                    let rows = if is_run { RUN_ROWS } else { (f32::from(bounds.size.height) / f32::from(cell.height)).floor().max(1.0) as u16 };
                     let cells = Cells { cols, rows };
                     grid.set(Some((bounds, cell)));
                     let me = me.clone();
@@ -728,6 +818,8 @@ impl Render for TerminalPane {
                 .on_mouse_move(cx.listener(Self::mouse_move))
                 .on_mouse_up(MouseButton::Left, cx.listener(Self::mouse_up))
                 .on_scroll(cx.listener(Self::scroll))
+                // A run shows as many of its rows as it has used.
+                .when(is_run, |well| well.flex_none().h(line * self.screen.used_rows() as f32 + look.length(token::SPACE_2) * 2.))
                 .child(screen),
             Role::TextInput,
             name,
@@ -746,7 +838,7 @@ impl Render for TerminalPane {
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, key: &crate::keymap::Act, window, cx| {
                 // Bound only once the shell has ended (`!shell`): Enter opens a new one in its place.
-                if key.is("terminal_new_shell") && this.phase == Phase::Ended {
+                if key.is("terminal_new_shell") && this.phase == Phase::Ended && !this.is_run() {
                     this.new_shell(window, cx);
                 } else {
                     cx.propagate();
@@ -759,13 +851,15 @@ impl Render for TerminalPane {
                 this.screen.select_all();
                 cx.notify();
             }))
-            .size_full()
+            .when(!is_run, |root| root.size_full())
+            // `.armada-terminal`: a run under its block is a framed well.
+            .when(is_run, |root| root.w_full().border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_DEFAULT)).rounded(look.length(token::RADIUS_MD)).overflow_hidden())
             .flex()
             .flex_col()
             .min_w_0()
             .min_h_0()
             .bg(look.color(token::BG_SUNKEN))
-            .child(self.head(&look, cx))
+            .child(if is_run { self.run_head(&look, cx) } else { self.head(&look, cx).into_any_element() })
             .child(well)
     }
 }

@@ -398,7 +398,10 @@ impl JobView {
             TextSize::Base => token::TEXT_BASE,
             TextSize::Lg => token::TEXT_LG,
         };
-        let words = TextView::markdown(ElementId::Name(format!("md:{job}:{key}").into()), with_breaks(&text))
+        let source = with_breaks(&text);
+        // A block that runs takes Run beside Copy, and its words stop short of both.
+        let acts = if source.lines().any(|line| ["```bash", "```sh", "```zsh", "```shell", "```console"].contains(&line.trim())) { 2. } else { 1. };
+        let words = |id: String, source: String, base: usize| TextView::markdown(ElementId::Name(id.into()), source)
             .w_full()
             .text_size(look.length(size))
             .line_height(relative(1.6))
@@ -417,19 +420,38 @@ impl JobView {
             .selectable(true)
             // `.armada-prose__block[data-acts="1"]`: the block's words stop short of the Copy over its corner.
             .style(gpui_component::text::TextViewStyle {
-                code_block: gpui::StyleRefinement::default().pr(look.length(token::H_CONTROL_SM) + look.length(token::SPACE_2)),
+                code_block: gpui::StyleRefinement::default().pr(look.length(token::H_CONTROL_SM) * acts + look.length(token::SPACE_1) * (acts - 1.) + look.length(token::SPACE_2)),
                 ..Default::default()
             })
-            .code_block_actions(code_copy(look))
+            .code_block_actions(code_copy(look, job.to_string(), key.clone(), base))
             .when(!tags.is_empty(), |words| words.markdown_extensions(tag_extensions(tags, look)))
             // No surface navigates (design-system.md, hard rule 2): a Job opens here, an address in the browser.
-            .on_link_click(move |address, _, _, cx| match super::refs::Refs::job_of(address) {
-                Some(id) => {
-                    view.update(cx, |this, cx| this.open_job(id, cx)).ok();
+            .on_link_click({
+                let view = view.clone();
+                move |address, _, _, cx| match super::refs::Refs::job_of(address) {
+                    Some(id) => {
+                        view.update(cx, |this, cx| this.open_job(id, cx)).ok();
+                    }
+                    None => cx.open_url(address),
                 }
-                None => cx.open_url(address),
             });
-        div().w_full().group(PROSE_GROUP).child(words).into_any_element()
+        // A run a block of these words started is drawn right under that block (`InlineTerminal`): the words part there.
+        let ran = crate::terminal::run::in_thread(&job, cx)
+            .filter(|(block, end, _)| block.rsplit_once(crate::terminal::run::AT).is_some_and(|(of, _)| of == key) && *end <= source.len() && source.is_char_boundary(*end));
+        let Some((_, end, run)) = ran else {
+            return div().w_full().group(PROSE_GROUP).child(words(format!("md:{job}:{key}"), source, 0)).into_any_element();
+        };
+        let after = source[end..].trim_start_matches('\n').to_string();
+        let gap = source.len() - end - after.len();
+        div()
+            .w_full()
+            .group(PROSE_GROUP)
+            .flex()
+            .flex_col()
+            .child(words(format!("md:{job}:{key}"), source[..end].to_string(), 0))
+            .child(div().mt(look.length(token::SPACE_3)).child(run))
+            .when(!after.trim().is_empty(), |line| line.child(div().mt(look.length(token::SPACE_3)).child(words(format!("md:{job}:{key}:after"), after, end + gap))))
+            .into_any_element()
     }
 
     /// A disclosure: a line that opens a body under it on a press, and shuts it on the next. The
@@ -1087,7 +1109,7 @@ const CODE_COPIED_FOR: std::time::Duration = std::time::Duration::from_millis(15
 
 /// Copy over a fenced block's corner, as Electron's `CopyAct`: shown while the pointer is on the
 /// words, a check and "Copied" for a moment after a press. The fence's closing newline is not copied.
-fn code_copy(look: &Look) -> impl Fn(&gpui_base::text::CodeBlock, &mut Window, &mut gpui::App) -> AnyElement + Send + Sync + 'static {
+fn code_copy(look: &Look, job: String, key: String, base: usize) -> impl Fn(&gpui_base::text::CodeBlock, &mut Window, &mut gpui::App) -> AnyElement + Send + Sync + 'static {
     let (size, glyph_size, radius) = (look.length(token::H_CONTROL_SM), look.length(token::SPACE_4), look.length(token::RADIUS_MD));
     let (ink, hover) = (look.color(token::FG_SUBTLE), look.color(token::BG_HOVER));
     move |block, window, cx| {
@@ -1096,7 +1118,7 @@ fn code_copy(look: &Look) -> impl Fn(&gpui_base::text::CodeBlock, &mut Window, &
         let shown = *copied.read(cx);
         let name: SharedString = if shown { "Copied" } else { "Copy" }.into();
         let code = block.code().trim_end_matches('\n').to_string();
-        labelled(
+        let copy = labelled(
             div()
                 .id("copy")
                 .flex()
@@ -1129,7 +1151,12 @@ fn code_copy(look: &Look) -> impl Fn(&gpui_base::text::CodeBlock, &mut Window, &
             Role::Button,
             name,
         )
-        .into_any_element()
+        .into_any_element();
+        // Run beside Copy on a shell block, as Electron's `RunnableBlock` (`terminal::run`).
+        let (start, end) = block.span.map_or((0, 0), |span| (base + span.start, base + span.end));
+        let command = crate::terminal::run::command_of(block.lang().as_deref(), &block.code());
+        let look = cx.look().clone();
+        crate::terminal::run::block_acts(&job, format!("{key}{}{start}", crate::terminal::run::AT), end, command, copy, PROSE_GROUP, &look, cx)
     }
 }
 

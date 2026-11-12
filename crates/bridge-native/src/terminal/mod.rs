@@ -13,6 +13,7 @@
 pub mod colors;
 pub mod keys;
 pub mod pane;
+pub mod run;
 pub mod screen;
 pub mod shells;
 pub mod start;

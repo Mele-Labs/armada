@@ -10,6 +10,7 @@
 //! | End shell | `POST /sessions/run/stop` |
 //! | the Job's shells | `GET /sessions/terminal/list` |
 //! | Rename | `POST /sessions/terminal/rename` |
+//! | Run a command an agent showed | `POST /sessions/run/start` |
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -18,8 +19,8 @@ use std::rc::Rc;
 use async_channel::{Receiver, Sender};
 use gpui::{App, Task};
 use ipc::{
-    JobTerminals, ListedTerminal, OpenTerminal, RenameTerminal, ResizeSessionRun, SessionId, SessionRunMessage, SessionRunUnderway, StopSessionRun,
-    WireError, WriteSessionRun,
+    JobTerminals, ListedTerminal, OpenTerminal, RenameTerminal, ResizeSessionRun, SessionId, SessionRunMessage, SessionRunUnderway, StartSessionRun,
+    StopSessionRun, WireError, WriteSessionRun,
 };
 
 use super::screen::Cells;
@@ -33,6 +34,8 @@ pub enum Which {
     Named(String),
     /// The next id, with a new shell.
     New,
+    /// No shell: this command alone, on a terminal of its own where the Job works, as Run on a block runs it.
+    Command(String),
 }
 
 /// Where a terminal Job starts: a Manifest (or a repository's implicit id), or any folder.
@@ -72,6 +75,8 @@ pub trait Shells {
     fn rename(&self, job: &str, terminal: &str, name: &str, cx: &mut App) -> Task<Result<ListedTerminal, String>>;
     /// A terminal Job: no words, its first shell open.
     fn start(&self, start: Start, cx: &mut App) -> Task<Result<Started, String>>;
+    /// A command run where Job `job` works, as `$SHELL -lc` runs it, on a terminal of `size`.
+    fn run(&self, job: &str, command: &str, size: Cells, cx: &mut App) -> Task<Result<SessionRunUnderway, String>>;
 }
 
 /// Fleet's shells, on the port its connection holds.
@@ -123,6 +128,7 @@ impl Shells for Live {
             Which::First => (None, false),
             Which::Named(id) => (Some(id), false),
             Which::New => (None, true),
+            Which::Command(command) => return self.run(job, &command, size, cx),
         };
         let body = OpenTerminal { session_id: SessionId::carried(job.to_string()), terminal, new, cols: Some(size.cols), rows: Some(size.rows) };
         ask(self.port(cx), "/sessions/terminal/open".into(), encoded(&body), "SessionRunUnderway", cx)
@@ -165,6 +171,11 @@ impl Shells for Live {
     fn start(&self, _start: Start, _cx: &mut App) -> Task<Result<Started, String>> {
         // `POST /sessions/terminal/start` is the quick terminal Fleet Job's, not landed yet.
         Task::ready(Err("This Fleet does not start terminal Jobs yet".into()))
+    }
+
+    fn run(&self, job: &str, command: &str, size: Cells, cx: &mut App) -> Task<Result<SessionRunUnderway, String>> {
+        let body = StartSessionRun { session_id: SessionId::carried(job.to_string()), command: command.to_string(), cols: Some(size.cols), rows: Some(size.rows) };
+        ask(self.port(cx), "/sessions/run/start".into(), encoded(&body), "SessionRunUnderway", cx)
     }
 }
 
@@ -217,6 +228,8 @@ struct MockRun {
     at: usize,
     folder: String,
     ended: bool,
+    /// How it exited: the code, or none where it was stopped.
+    code: Option<i32>,
 }
 
 /// The start of the word before `at`, as zsh's backward-word finds it.
@@ -278,7 +291,7 @@ impl Mock {
             Some(held) => held.2 = run.clone(),
             None => shells.push((id, name, run.clone())),
         }
-        state.runs.insert(run.clone(), MockRun { tx: None, printed: prompt(folder), line: Vec::new(), at: 0, folder: folder.to_string(), ended: false });
+        state.runs.insert(run.clone(), MockRun { tx: None, printed: prompt(folder), line: Vec::new(), at: 0, folder: folder.to_string(), ended: false, code: None });
         run
     }
 
@@ -310,10 +323,18 @@ impl Mock {
     }
 
     fn finish(state: &mut MockState, run: &str, stopped: bool) {
+        Self::exit(state, run, if stopped { None } else { Some(0) });
+    }
+
+    fn exit(state: &mut MockState, run: &str, code: Option<i32>) {
         if let Some(one) = state.runs.get_mut(run) {
+            if one.ended {
+                return;
+            }
             one.ended = true;
+            one.code = code;
             if let Some(tx) = one.tx.take() {
-                let _ = tx.try_send(SessionRunMessage::Exited { code: if stopped { None } else { Some(0) }, stopped });
+                let _ = tx.try_send(SessionRunMessage::Exited { code, stopped: code.is_none() });
             }
         }
     }
@@ -328,6 +349,8 @@ impl Mock {
             Which::First => held.first().map_or_else(|| "t1".to_string(), |(id, _, _)| id.clone()),
             Which::Named(id) => id,
             Which::New => format!("t{}", held.iter().filter_map(|(id, _, _)| id[1..].parse::<u32>().ok()).max().unwrap_or(0) + 1),
+            // `open` hands a command to `run`.
+            Which::Command(_) => return SessionRunUnderway { run_id: String::new(), terminal: None },
         };
         let running = held.iter().find(|(one, _, _)| *one == id).map(|(_, _, run)| run.clone()).filter(|run| state.runs.get(run).is_some_and(|one| !one.ended));
         let run = running.unwrap_or_else(|| Self::shell(&mut state, job, id.clone(), "~/Development/armada"));
@@ -336,7 +359,10 @@ impl Mock {
 }
 
 impl Shells for Mock {
-    fn open(&self, job: &str, which: Which, _size: Cells, _cx: &mut App) -> Task<Result<SessionRunUnderway, String>> {
+    fn open(&self, job: &str, which: Which, size: Cells, cx: &mut App) -> Task<Result<SessionRunUnderway, String>> {
+        if let Which::Command(command) = &which {
+            return self.run(job, command, size, cx);
+        }
         Task::ready(Ok(self.opened(job, which)))
     }
 
@@ -346,7 +372,7 @@ impl Shells for Mock {
         if let Some(one) = state.runs.get_mut(run) {
             let _ = tx.try_send(SessionRunMessage::Output { text: one.printed.clone() });
             if one.ended {
-                let _ = tx.try_send(SessionRunMessage::Exited { code: Some(0), stopped: false });
+                let _ = tx.try_send(SessionRunMessage::Exited { code: one.code, stopped: one.code.is_none() });
             } else {
                 one.tx = Some(tx);
             }
@@ -470,6 +496,32 @@ impl Shells for Mock {
         };
         let run = Self::shell(&mut state, &job, "t1".into(), &folder);
         Task::ready(Ok(Started { job, terminal: "t1".into(), run }))
+    }
+
+    fn run(&self, _job: &str, command: &str, _size: Cells, _cx: &mut App) -> Task<Result<SessionRunUnderway, String>> {
+        let mut state = self.state.borrow_mut();
+        state.next_run += 1;
+        let run = format!("run-{}", state.next_run);
+        let (printed, code) = ran(command);
+        let ended = code.is_some();
+        state.runs.insert(run.clone(), MockRun { tx: None, printed, line: Vec::new(), at: 0, folder: String::new(), ended, code });
+        Task::ready(Ok(SessionRunUnderway { run_id: run, terminal: None }))
+    }
+}
+
+/// What a walk's run prints and how it exits: none where it keeps running until Stop, as a server does.
+fn ran(command: &str) -> (String, Option<i32>) {
+    match command.trim() {
+        "pnpm dev" => ("\r\n  \x1b[1;32mVITE\x1b[0m v6.2.0  ready in 412 ms\r\n\r\n  \x1b[32m➜\x1b[0m  Local:   \x1b[36mhttp://localhost:5173/\x1b[0m\r\n".into(), None),
+        "armada check test chip" => ("\x1b[2mchip_tone_reads_behind_by\x1b[0m \x1b[32mok\x1b[0m\r\n\x1b[2mchip_tooltip_says_behind_main\x1b[0m \x1b[32mok\x1b[0m\r\n\r\n2 passed\r\n".into(), Some(0)),
+        "cargo test -p fleet" => (
+            "\x1b[1;32m   Compiling\x1b[0m fleet v0.0.0\r\n\x1b[1;32m    Finished\x1b[0m `test` profile in 6.02s\r\n\r\nrunning 42 tests\r\ntest sessions::a_run_is_settled ... \x1b[31mFAILED\x1b[0m\r\n\r\ntest result: \x1b[31mFAILED\x1b[0m. 41 passed; 1 failed\r\n".into(),
+            Some(101),
+        ),
+        other => match answer(other) {
+            said if said.starts_with("zsh: command not found") => (said, Some(127)),
+            said => (said, Some(0)),
+        },
     }
 }
 

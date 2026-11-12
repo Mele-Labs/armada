@@ -134,6 +134,21 @@ impl Screen {
         self.title.as_deref()
     }
 
+    /// How many of its rows a run has used: to its last printed row or its cursor, whichever is lower.
+    /// A run under a block shows only these (`XtermScreen.tsx:132`).
+    pub fn used_rows(&self) -> u16 {
+        let grid = self.term.grid();
+        let cursor = grid.cursor.point.line.0.max(0) as u16 + 1;
+        let printed = (0..self.size.rows as i32)
+            .rev()
+            .find(|line| {
+                let row = &grid[Line(*line)];
+                (0..self.size.cols as usize).any(|col| row[Column(col)].c != ' ')
+            })
+            .map_or(0, |line| line as u16 + 1);
+        cursor.max(printed).min(self.size.rows)
+    }
+
     /// How many lines the screen is scrolled up from the end.
     pub fn scrolled(&self) -> usize {
         self.term.grid().display_offset()
