@@ -1,27 +1,25 @@
-//! A workflow's lanes as the Workflows page's editor draws them, at the default level: `editorLanes` in
-//! `LaneCanvas/build.ts`, read off the pieces as `workspaceOf` and `placesOf` in Bridge's
+//! A workflow's lanes as the Workflows page's editor draws them: `editorLanes` in `LaneCanvas/build.ts`, over the
+//! Workspace `workspace.rs` reads off the pieces as `workspaceOf` and `placesOf` in Bridge's
 //! `lifecycle-editing/` do. Served by `get_workflow_lanes`.
 //!
-//! **Departures, each because the default level needs no more.** A lifecycle is its default piece alone:
-//! Bridge's merges in the states and moves a narrower piece adds, then hides them on the default's tab, and
-//! lays the columns out over all of them. A rule is drawn from the piece at its widest level, as Bridge's
-//! is, with no mark yet of where it differs. The pieces are the one repository's that was asked about,
-//! where Bridge also reads the other repositories of its Workspaces, and two Workspaces that keep one id
-//! are taken in the order their pieces are read.
+//! **The default level's tab only.** A node and an edge say which levels below differ, and a lifecycle or a rule
+//! a keep draft waits on says so; a rule only a draft keeps is drawn as proposed.
+//!
+//! **Departures.** A proposed rule is drawn only where it belongs to this workflow and both its ends are drawn,
+//! as a held rule is; the TypeScript drew one whatever its ends. A step names no level that differs, since the
+//! pieces carry no step layers. Two Workspaces that keep one id are taken in the order their pieces are read.
 
 use std::collections::HashSet;
 
 use ipc::{
-    AppliedLifecycle, AppliedRule, JobLanesHeld, JobLanesView, LaneCopy, LaneEdge, LaneKept, LaneKind, LaneLifecycle,
-    LaneMoment, LaneNodeKind, LaneNodeRole, LaneOutcome, LaneRef, LaneRule, LaneStep, LaneView, LifecycleDefinition,
-    LifecycleRule, PieceKept, PieceScope, RuleAct, RuleCondition, RuleWhen,
+    JobLanesHeld, JobLanesView, LaneCopy, LaneEdge, LaneKind, LaneLifecycle, LaneLifecycleState, LaneNodeKind, LaneNodeRole,
+    LaneOutcome, LanePending, LaneRule, LaneStep, LaneView,
 };
 
 use super::draw::{kind_of_state, lane_of_lifecycle, node, node_id, with_ends};
-use super::read::{autonomy_of, lane_of_target, lifecycle};
-
-/// The lifecycle a watch's `deploy` lands on.
-const DEPLOY: &str = "deploy";
+use super::levels::{clash_at, differ_said, exists_at, is_workspace_level, level_name, levels_of, PiecesRead, DEFAULT};
+use super::read::columns;
+use super::workspace::{workspace_of, Drafts, LifecycleDef, RuleDef, StateDef, Workspace};
 
 /// What a workflow's editor lanes are read from.
 pub(crate) struct EditorInput<'a> {
@@ -29,132 +27,123 @@ pub(crate) struct EditorInput<'a> {
     pub workflow: &'a str,
     /// Each step's id and label, in order.
     pub steps: &'a [(String, String)],
-    /// Every lifecycle piece that applies to the repository, at every level: `list_lifecycles`' list.
-    pub lifecycles: &'a [AppliedLifecycle],
-    /// Every rule piece that applies to it: `list_lifecycle_rules`' list.
-    pub rules: &'a [AppliedRule],
+    /// The pieces of the repository asked about and of the other repositories of its Workspaces.
+    pub read: &'a PiecesRead,
+    /// What the repository's keep drafts would add.
+    pub drafts: &'a Drafts,
 }
 
-/// How wide a piece's level is: the default's, a Workspace's, or one repository's.
-fn width(kept: &PieceKept) -> u8 {
-    match kept.rank.reach.as_str() {
-        "everywhere" => 0,
-        "workspace" => 1,
-        _ => 2,
-    }
+/// The level whose tab is drawn.
+const SCOPE: &str = DEFAULT;
+
+/// Whether a state is there on the tab for `scope`: added at that level or above, and not left out of the piece
+/// that tab runs.
+fn state_exists_at(state: &StateDef, scope: &str, read: &PiecesRead) -> bool {
+    exists_at(&state.scope, scope, read, &state.clash) && !state.absent.iter().any(|one| one == scope)
 }
 
-/// Where a piece of one id and level is preferred from: the person's own, then the repository's, then Armada's.
-fn place(kept: &PieceKept) -> u8 {
-    match kept.rank.source.as_str() {
-        "kit" => 0,
-        "repository" => 1,
-        "armada" => 2,
-        _ => 9,
-    }
+/// A lifecycle as the tab draws it, and the states it draws in the order the lane lists them.
+struct Placed<'a> {
+    lane: LaneLifecycle,
+    states: Vec<&'a StateDef>,
 }
 
-fn scope_id(scope: &PieceScope) -> &str {
-    match scope {
-        PieceScope::Everywhere => "",
-        PieceScope::Within { id } => id,
-    }
-}
-
-/// Each id's piece at the widest level that keeps one, in the order the ids are first read. Within a level
-/// the preferred place wins, and the first read where two tie.
-fn widest<'a, T>(pieces: &'a [T], of: impl Fn(&'a T) -> (&'a str, &'a PieceScope, &'a PieceKept)) -> Vec<&'a T> {
-    let mut ids: Vec<&str> = Vec::new();
-    let mut levels: Vec<(u8, &str)> = Vec::new();
-    for one in pieces {
-        let (id, scope, kept) = of(one);
-        if !ids.contains(&id) {
-            ids.push(id);
-        }
-        let level = (width(kept), scope_id(scope));
-        if !levels.contains(&level) {
-            levels.push(level);
-        }
-    }
-    let level_of = |one: &'a T| {
-        let (_, scope, kept) = of(one);
-        let level = (width(kept), scope_id(scope));
-        (level.0, levels.iter().position(|each| *each == level).unwrap_or(usize::MAX))
-    };
-    ids.into_iter()
-        .filter_map(|id| {
-            let mine: Vec<&'a T> = pieces.iter().filter(|one| of(one).0 == id).collect();
-            let level = mine.iter().map(|one| level_of(one)).min()?;
-            mine.into_iter().filter(|one| level_of(one) == level).reduce(|best, one| if place(of(one).2) < place(of(best).2) { one } else { best })
+/// The lifecycles the tab draws, each with its states in the columns every level's states and moves give.
+/// **A state left out is stepped over**: whatever led into it now leads to whatever it led to.
+fn lifecycles_for<'a>(workspace: &'a Workspace, scope: &str, read: &PiecesRead) -> Vec<(&'a LifecycleDef, Placed<'a>)> {
+    workspace
+        .lifecycles
+        .iter()
+        .filter(|one| exists_at(&one.scope, scope, read, &Vec::new()))
+        .filter_map(|one| {
+            let ids: Vec<&str> = one.states.iter().map(|state| state.id.as_str()).collect();
+            let moves: Vec<(&str, &str)> = one.next.iter().map(|(from, to)| (from.as_str(), to.as_str())).collect();
+            let cols = columns(&ids, &moves);
+            let states: Vec<&StateDef> = one.states.iter().filter(|state| state_exists_at(state, scope, read)).collect();
+            if states.is_empty() {
+                return None;
+            }
+            let drawn = |id: &str| states.iter().any(|state| state.id == id);
+            let mut next = one.next.clone();
+            for gone in one.states.iter().filter(|state| !drawn(&state.id)) {
+                let into: Vec<String> = next.iter().filter(|(_, to)| *to == gone.id).map(|(from, _)| from.clone()).collect();
+                let out: Vec<String> = next.iter().filter(|(from, _)| *from == gone.id).map(|(_, to)| to.clone()).collect();
+                next.retain(|(from, to)| *from != gone.id && *to != gone.id);
+                for pair in into.iter().flat_map(|from| out.iter().map(move |to| (from.clone(), to.clone()))) {
+                    if !next.contains(&pair) {
+                        next.push(pair);
+                    }
+                }
+            }
+            next.retain(|(from, to)| drawn(from) && drawn(to));
+            let lane = LaneLifecycle {
+                id: one.id.clone(),
+                label: one.label.clone(),
+                from: one.from.to_string(),
+                kind: one.kind,
+                states: states
+                    .iter()
+                    .map(|state| LaneLifecycleState {
+                        id: state.id.clone(),
+                        label: state.label.clone(),
+                        col: cols.get(state.id.as_str()).copied().unwrap_or_default() as u32,
+                        end: state.end,
+                    })
+                    .collect(),
+                next,
+            };
+            Some((one, Placed { lane, states }))
         })
         .collect()
 }
 
-/// The node a rule lands on: the state a ticket is moved to or closed in, the state a pull request is
-/// brought to, the deploy a watch takes on, else the step an `at_step` condition names. None lands it nowhere.
-fn landing(rule: &LifecycleRule, defs: &[&LifecycleDefinition]) -> Option<LaneRef> {
-    let def = |id: &str| defs.iter().find(|one| one.id == id);
-    let at = |lane: String, item: &str| Some(LaneRef { lane, item: item.to_string() });
-    for one in &rule.does {
-        let found = match &one.what {
-            RuleAct::TrackerMove { to, target } => lane_of_target(target, rule).and_then(|lane| at(lane, to)),
-            RuleAct::TrackerClose { target } => lane_of_target(target, rule).and_then(|lane| {
-                // The first state, in the lifecycle's order, that ends it.
-                let found = def(&lane)?;
-                let end = found.states.iter().find(|state| found.ends.contains(&state.id))?;
-                at(lane, &end.id)
-            }),
-            RuleAct::ForgeMarkReady { target } => lane_of_target(target, rule).and_then(|lane| at(lane, "ready")),
-            RuleAct::ForgeMerge { target } => lane_of_target(target, rule).and_then(|lane| at(lane, "merged")),
-            RuleAct::StartWatch { deploy: Some(deploy), .. } if !deploy.is_empty() => {
-                def(DEPLOY).and_then(|one| one.states.first()).and_then(|first| at(DEPLOY.into(), &first.id))
-            }
-            _ => None,
-        };
-        if found.is_some() {
-            return found;
-        }
+/// The levels a mark names, by name: on the default's tab every one under it that differs; on a Workspace's, the
+/// repositories it holds that differ; on a repository's own tab only that one.
+fn marked(ids: &[String], scope: &str, read: &PiecesRead) -> Vec<String> {
+    ids.iter()
+        .filter(|id| {
+            scope == DEFAULT
+                || if is_workspace_level(scope) {
+                    !is_workspace_level(id) && levels_of(id, read, &Vec::new()).iter().any(|level| level == scope)
+                } else {
+                    *id == scope
+                }
+        })
+        .map(|id| level_name(read, id))
+        .collect()
+}
+
+/// What a mark says of the Workspaces whose pieces tie on this tab: only a repository's tab sets any aside.
+fn clash_said(clash: &super::levels::Clash, own: &[String], scope: &str, read: &PiecesRead) -> Option<String> {
+    let names: Vec<String> = clash_at(clash, scope, read, own).iter().map(|level| level_name(read, level)).collect();
+    (!names.is_empty()).then(|| differ_said(&names))
+}
+
+fn pending_of(drafts: &Drafts, key: String) -> Option<LanePending> {
+    drafts.keeps.contains(&key).then_some(LanePending::Keep)
+}
+
+fn lane_rule(rule: &RuleDef) -> LaneRule {
+    let drawn = &rule.drawn;
+    LaneRule {
+        id: rule.id.clone(),
+        label: drawn.label.clone(),
+        from: drawn.from.clone(),
+        at: drawn.at,
+        to: drawn.to.clone(),
+        autonomy: drawn.autonomy,
+        kept: rule.kept,
     }
-    rule.conditions.iter().find_map(|one| match one {
-        RuleCondition::AtStep { step } => at("workflow".into(), step),
-        _ => None,
-    })
 }
 
-/// A rule as the lanes draw it, and the one workflow it belongs to. None where a Job event or a gate sets
-/// it off, or it lands on no node.
-fn drawn_rule(applied: &AppliedRule, defs: &[&LifecycleDefinition]) -> Option<(LaneRule, Option<String>)> {
-    let AppliedRule { rule, kept } = applied;
-    let (from, at) = match &rule.when {
-        RuleWhen::Job { .. } | RuleWhen::GateCloses { .. } => return None,
-        RuleWhen::Enters { lifecycle, state } => (LaneRef { lane: lifecycle.clone(), item: state.clone() }, LaneMoment::Enters),
-        RuleWhen::StepStarts { step } => (LaneRef { lane: "workflow".into(), item: step.clone() }, LaneMoment::Starts),
-        RuleWhen::StepEnds { step } => (LaneRef { lane: "workflow".into(), item: step.clone() }, LaneMoment::Ends),
-    };
-    let to = landing(rule, defs)?;
-    let workflow = rule.conditions.iter().find_map(|one| match one {
-        RuleCondition::Workflow { workflow } => Some(workflow.clone()),
-        _ => None,
-    });
-    let kept = match kept.rank.source.as_str() {
-        "armada" => LaneKept::Armada,
-        "kit" => LaneKept::Yours,
-        _ => LaneKept::Repository,
-    };
-    Some((LaneRule { id: rule.id.clone(), label: rule.name.clone(), from, at, to, autonomy: autonomy_of(rule), kept }, workflow))
-}
-
-/// The editor's lanes: the workflow on top, then a lane for each lifecycle at the default level, its states
-/// in the columns the moves between them give, and an edge for each rule whose ends are both drawn. **No
-/// Job stands in them**, so `job` holds only the definitions they are drawn from, and an edge waits on nothing.
+/// The editor's lanes: the workflow on top, then a lane for each lifecycle the tab draws, its states in the
+/// columns the moves between them give, and an edge for each rule whose ends are both drawn, each marked where a
+/// level below differs or a draft waits. **No Job stands in them**, so `job` holds only the definitions they are
+/// drawn from, and an edge waits on nothing.
 pub(crate) fn editor_lanes(input: &EditorInput<'_>) -> JobLanesView {
-    let pieces = widest(input.lifecycles, |one| (one.lifecycle.id.as_str(), &one.lifecycle.scope, &one.kept));
-    let defs: Vec<&LifecycleDefinition> = pieces.iter().map(|one| &one.lifecycle).collect();
-    let lifecycles: Vec<LaneLifecycle> = pieces
-        .iter()
-        .filter(|one| width(&one.kept) == 0 && !one.lifecycle.states.is_empty())
-        .map(|one| lifecycle(&one.lifecycle))
-        .collect();
+    let (read, scope) = (input.read, SCOPE);
+    let workspace = workspace_of(read, input.drafts);
+    let placed = lifecycles_for(&workspace, scope, read);
     let steps: Vec<LaneStep> = input
         .steps
         .iter()
@@ -164,18 +153,15 @@ pub(crate) fn editor_lanes(input: &EditorInput<'_>) -> JobLanesView {
     let drawn: HashSet<String> = steps
         .iter()
         .map(|step| node_id("workflow", &step.id))
-        .chain(lifecycles.iter().flat_map(|one| one.states.iter().map(|state| node_id(&one.id, &state.id))))
+        .chain(placed.iter().flat_map(|(_, one)| one.lane.states.iter().map(|state| node_id(&one.lane.id, &state.id))))
         .collect();
-    let rules: Vec<LaneRule> = widest(input.rules, |one| (one.rule.id.as_str(), &one.rule.scope, &one.kept))
-        .into_iter()
-        .filter_map(|one| drawn_rule(one, &defs))
-        .filter(|(rule, workflow)| {
-            workflow.as_deref().is_none_or(|one| one == input.workflow)
-                && drawn.contains(&node_id(&rule.from.lane, &rule.from.item))
-                && drawn.contains(&node_id(&rule.to.lane, &rule.to.item))
-        })
-        .map(|(rule, _)| rule)
-        .collect();
+    let applies = |rule: &&RuleDef| {
+        rule.drawn.workflow.as_deref().is_none_or(|one| one == input.workflow)
+            && drawn.contains(&node_id(&rule.drawn.from.lane, &rule.drawn.from.item))
+            && drawn.contains(&node_id(&rule.drawn.to.lane, &rule.drawn.to.item))
+    };
+    let held: Vec<&RuleDef> = workspace.rules.iter().filter(applies).collect();
+    let proposed: Vec<&RuleDef> = workspace.drafted.iter().filter(applies).collect();
     let step_nodes = steps
         .iter()
         .map(|step| node(node_id("workflow", &step.id), &step.label, step.col, LaneNodeRole::Step, LaneNodeKind::Step))
@@ -192,47 +178,60 @@ pub(crate) fn editor_lanes(input: &EditorInput<'_>) -> JobLanesView {
         ticket: false,
         ended: false,
         changed: None,
+        pending: None,
         nodes,
         moves,
     };
     let lanes = std::iter::once(flow)
-        .chain(lifecycles.iter().map(|one| {
-            let nodes = one
+        .chain(placed.iter().map(|(_, one)| {
+            let lane = &one.lane;
+            let nodes = lane
                 .states
                 .iter()
-                .map(|state| {
-                    let mut drawn = node(node_id(&one.id, &state.id), &state.label, state.col, LaneNodeRole::State, kind_of_state(one));
+                .zip(&one.states)
+                .map(|(state, def)| {
+                    let mut drawn = node(node_id(&lane.id, &state.id), &state.label, state.col, LaneNodeRole::State, kind_of_state(lane));
                     drawn.end = state.end;
+                    drawn.differs = marked(&def.differs(), scope, read);
+                    drawn.clash = clash_said(&def.clash, &def.owners(), scope, read);
                     drawn
                 })
                 .collect();
-            lane_of_lifecycle(one, &one.id, &one.label, None, nodes)
+            let mut drawn = lane_of_lifecycle(lane, &lane.id, &lane.label, None, nodes);
+            drawn.pending = pending_of(input.drafts, format!("lifecycle:{}", lane.id));
+            drawn
         }))
         .collect();
-    let edges = rules
-        .iter()
-        .map(|rule| LaneEdge {
-            id: rule.id.clone(),
-            rule: rule.id.clone(),
-            from: node_id(&rule.from.lane, &rule.from.item),
-            to: node_id(&rule.to.lane, &rule.to.item),
-            label: rule.label.clone(),
-            waits: None,
-            fired_at: None,
-            autonomy: rule.autonomy,
-            status: LaneOutcome::Waiting,
-            did: Vec::new(),
-            changed: None,
-            quiet: false,
-        })
-        .collect();
+    let edge = |rule: &RuleDef, proposed: bool| LaneEdge {
+        id: rule.id.clone(),
+        rule: rule.id.clone(),
+        from: node_id(&rule.drawn.from.lane, &rule.drawn.from.item),
+        to: node_id(&rule.drawn.to.lane, &rule.drawn.to.item),
+        label: rule.drawn.label.clone(),
+        waits: None,
+        fired_at: None,
+        autonomy: rule.drawn.autonomy,
+        status: LaneOutcome::Waiting,
+        did: Vec::new(),
+        changed: None,
+        quiet: false,
+        differs: marked(&rule.differs(), scope, read),
+        clash: clash_said(&rule.clash, &rule.owners(), scope, read),
+        proposed,
+        pending: pending_of(input.drafts, format!("rule:{}", rule.id)),
+    };
+    let edges = held.iter().map(|rule| edge(rule, false)).chain(proposed.iter().map(|rule| edge(rule, true))).collect();
     JobLanesView {
         workflow: input.workflow.to_string(),
         at: -1,
         working: false,
         skipped: Vec::new(),
         job: JobLanesHeld {
-            copy: LaneCopy { steps, lifecycles, rules },
+            copy: LaneCopy {
+                steps,
+                lifecycles: placed.into_iter().map(|(_, one)| one.lane).collect(),
+                rules: held.iter().map(|rule| lane_rule(rule)).collect(),
+            },
             instances: Vec::new(),
             fired: Vec::new(),
             changes: Vec::new(),

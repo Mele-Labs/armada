@@ -81,10 +81,41 @@ Since 12 Nov 2026, for native Settings › Kit › Workflows. Classic's Workflow
 | `get_workflow_lanes` | `GET /workflows/lanes?workflow=&scope=&manifest_id=` | Fleet answers | `JobLanesView`, with no Job standing in it |
 
 **The same type a Job's lanes ride on**, so one canvas draws both.
-`at` is -1, `job` holds only `copy` (the steps, every lifecycle of the default level, and the rules drawn), which the forms that add a step, a lifecycle or a rule pick from, and every edge is `waiting` with no `waits`.
-The reading is `crates/fleet/src/job_lanes/editor.rs`: a lifecycle is its piece scoped everywhere, Kit's over the repository's over Armada's, laid out in columns as a Job's is; a rule is drawn from its piece at the widest level that keeps one, where it lands on a node, belongs to this workflow and has both ends drawn.
+`at` is -1, `job` holds only `copy` (the steps, every lifecycle the tab draws, and the rules drawn that some place keeps), which the forms that add a step, a lifecycle or a rule pick from, and every edge is `waiting` with no `waits`.
+
+The reading is `crates/fleet/src/job_lanes/`: `workspace.rs` ports `workspaceOf`, `levels.rs` ports `levels.ts` and the level helpers of `LaneCanvas/model.ts`, and `editor.rs` ports `editorLanes`.
+Fleet reads what Bridge's `readPieces` reads: the projects that hold the repository (`list_holding_projects`), then `list_lifecycles` and `list_lifecycle_rules` for it and for each other member Fleet serves.
+A member whose pieces do not read is left out; the repository asked about refuses with its own refusal.
+A lifecycle merges the states and moves of its pieces at every level, widest first, and lays its columns out over all of them.
+A rule is drawn from its piece at the widest level that keeps one, where it lands on a node, belongs to this workflow and has both ends drawn.
 A rule that is off is drawn.
-**The default level only.** The marks for where a level below differs, a clash, a proposed rule and a pending removal or keep are a second change.
+
+### The marks
+
+| Field | On | Carries |
+| --- | --- | --- |
+| `differs` | `LaneNode` of a state, `LaneEdge` | the names of the levels below that differ: a Workspace's project name, a repository's folder name |
+| `clash` | `LaneNode` of a state, `LaneEdge` | `Web and Mobile differ`: two Workspaces tie for the repository, so it reads the default's |
+| `proposed` | `LaneEdge` | a rule only a keep draft holds |
+| `pending` | `LaneView` of a lifecycle, `LaneEdge` | `keep` while a keep draft of it waits on Approve; `removal` is never set by Fleet |
+
+Each is left out when empty.
+A state differs at a level that names it otherwise, reads it as other tracker words, leaves it out of its own piece, or adds it.
+A rule differs at the level it applies at alone, and at each level below that keeps a piece saying something else.
+On the default's tab every level that differs is named, and no clash is marked: only a repository's own tab sets a Workspace aside.
+
+**The proposed rules are those of open keep drafts** (`list_keep_drafts`) that no repository keeps, read from the text Approve would save.
+A lifecycle only a draft holds is drawn as the repository's own.
+A workflow change waiting on Approve carries a workflow's text and no rule, so it draws nothing here.
+**A pending removal is the client's to draw**: Classic remembers the pull request it opened in the window that opened it, and Fleet keeps no record of one.
+
+### Where it departs from the TypeScript
+
+- A proposed rule is drawn only where it belongs to this workflow and both its ends are drawn, as a held rule is.
+- A move a left-out state is stepped over by is drawn once, where the TypeScript could draw it twice.
+- A step names no level that differs: the pieces carry no step layers, so Classic marks none either.
+
+**The default level only.** A Workspace's tab and a repository's tab are a third change.
 
 | Code | Where |
 | --- | --- |
