@@ -37,7 +37,7 @@ pub const CARRIED_AT: &str = "<carried by Armada>";
 
 /// Files under `.armada/workflows/` that are this repository's own workflows,
 /// for its contributors, and that Armada does not carry.
-pub const REPOSITORY_ONLY: &[&str] = &["annotations.json"];
+pub const REPOSITORY_ONLY: &[&str] = &["annotations.json", "doc-fix.json"];
 
 /// The set Armada carries: this repository's own nine, compiled in.
 ///
