@@ -50,8 +50,8 @@ pub struct JobThreadRead {
     /// The id of a row: the thread is read as it stood at that row, the rows after it left out before Fleet
     /// folds, so a run of calls that went on past it ends at it. **The thread is cut, not followed**: such a
     /// read is not held, and `job_thread.tail` never carries to it. `before` and `limit` page that cut
-    /// thread, and its `head` is the cut fold's. A row the thread does not hold is refused. Absent is the
-    /// whole thread.
+    /// thread, and its `head` is empty: nothing that stands now belongs on the old thread. A row the thread
+    /// does not hold is refused. Absent is the whole thread.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upto: Option<String>,
 }

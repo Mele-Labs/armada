@@ -1790,7 +1790,7 @@ The native Bridge passes the `forked_from` attachment's `detail.at` to draw the 
 
 **Cut, then fold, then window.** A run of calls that went on past the row ends at it, so an item is never the whole run when the cut falls inside it. A timeline change after the row's time is left out.
 **Not held.** The read does not replace the live thread Fleet keeps for `job_thread.tail`, and no event follows it.
-**The head** is the cut fold's: `open_call` and `lapsed` come from the cut rows. The open ask, the plan, the pinned sketch and the trail are read off the Job's record and are as the Job stands now.
+**The head is empty**: `asked`, `open_call`, `lapsed`, `plan`, `sketch` absent, `fleet_acts` empty, and `trail` with `started` only (the Job's start, which `ThreadTrail` cannot go without) and no `bays` or `opened`. No ask is open for the fold either, so the last Fleet turn of the cut closes as it would with none, and a sketch card stays where its row is. An approved plan's card stays when its `plan` row is inside the cut.
 **Refused with nothing changed**: 422 `fleet.thread_item_unknown` for an `upto` no row of the thread holds, the code an unknown `before` already has. A `before` past the cut is the same refusal.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.

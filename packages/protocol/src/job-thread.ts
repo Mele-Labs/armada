@@ -26,7 +26,7 @@ export type JobThreadRead = {
   /**
    * The id of a row: the thread is read as it stood at that row, the rows after it left out before Fleet folds, so a
    * run of calls that went on past it ends at it. The read is not held and `job_thread.tail` never carries to it;
-   * `before` and `limit` page the cut thread, and its `head` is the cut fold's. A row the thread does not hold is
+   * `before` and `limit` page the cut thread, and its `head` is empty. A row the thread does not hold is
    * refused 422 `fleet.thread_item_unknown`. Absent is the whole thread.
    */
   upto?: string;

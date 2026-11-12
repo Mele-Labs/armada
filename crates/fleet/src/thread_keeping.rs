@@ -16,7 +16,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::daemon::Fleet;
-use crate::thread_view::{folded, revision_paths, tail_of, window, Revisions};
+use crate::thread_view::{folded, folded_cut, revision_paths, tail_of, window, Revisions};
 
 /// How many Jobs are held at once: the ones read most recently.
 pub(crate) const HELD_MOST: usize = 32;
@@ -344,7 +344,7 @@ where
 
     /// `get_job_thread` with `upto`: the thread cut after that row, then folded, then windowed. **Not held**: the
     /// held reading is the whole live thread `job_thread.tail` follows, and a cut one must neither replace nor
-    /// join it. The head is the cut fold's.
+    /// join it. The head is empty: [`folded_cut`].
     async fn job_thread_cut(self: Arc<Self>, read: &JobThreadRead, upto: &str) -> Result<JobThread, api::Refusal> {
         let (mut thread, mut timeline) = self.thread_read(&read.session_id).await?;
         let Some(end) = thread.rows.iter().position(|row| row.id() == upto) else {
@@ -356,7 +356,7 @@ where
         timeline.retain(|event| event.at <= cut_at);
         let mut revisions = Revisions::new();
         revisions_read(&thread.session, &mut revisions).await;
-        let (head, items) = folded(&thread, &timeline, &revisions);
+        let (head, items) = folded_cut(&thread, &timeline, &revisions);
         match window(&items, read.before.as_deref(), read.limit) {
             Some((items, older)) => Ok(JobThread { session_id: read.session_id.clone(), head, items, older }),
             None => Err(self.hosted_refusal(THREAD_ITEM_UNKNOWN, "no item of that job's thread holds that id")),

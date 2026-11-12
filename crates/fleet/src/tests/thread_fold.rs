@@ -4,7 +4,7 @@
 use ipc::{PlanCardState, SessionAskState, SessionRow, SessionThread, ThreadItem};
 
 use super::thread_view::{agent, ask, at, fleet, held, ids, items, kept_sketch, kinds, record, show_sketch, thread, tool, you, SCENE};
-use crate::thread_view::{folded, Revisions};
+use crate::thread_view::{folded, folded_cut, Revisions};
 
 fn row(text: String) -> SessionRow {
     ipc::decode("a row", text.as_bytes()).expect("a row")
@@ -189,4 +189,29 @@ fn a_finished_judge_reading_stands_after_the_last_row_by_then() {
     assert_eq!(ids(&found), ["judged:r2", "a", "judged:r1", "t1"]);
     let ThreadItem::Judged { clean, .. } = &found[0] else { panic!("a judged line") };
     assert!(!clean, "it has a note");
+}
+
+#[test]
+fn thread_read_upto_head_is_blank() {
+    // A Job that asks him now, with a Fleet turn at the end of the rows the cut keeps.
+    let live = with(ASKED, turn_then_words());
+    let (head, whole) = folded(&live, &[], &Revisions::new());
+    assert!(head.asked.is_some(), "the live read carries the ask");
+    assert_eq!(kinds(&whole), ["fleet_turn", "row", "row", "calls", "row"], "the live read keeps the last turn open");
+
+    let (head, cut) = folded_cut(&live, &[], &Revisions::new());
+    assert!(head.asked.is_none() && head.open_call.is_none() && head.lapsed.is_none(), "{head:?}");
+    assert!(head.plan.is_none() && head.sketch.is_none() && head.fleet_acts.is_empty(), "{head:?}");
+    assert!(head.trail.bays.is_empty() && head.trail.opened.is_empty(), "{head:?}");
+    assert_eq!(kinds(&cut), ["fleet_turn", "row", "fleet_turn", "row"], "the last turn closes as with no ask open");
+
+    // A plan put to him now is no card of the old thread, and an approved one inside the cut still is.
+    let put = format!("{},{PLAN_ASKED}", plan(false, ""));
+    let (head, _) = folded_cut(&with(&put, turn_then_words()), &[], &Revisions::new());
+    assert!(head.plan.is_none());
+    let plan_row = |minute| SessionRow::Plan { id: "p".into(), at: at(minute), version: 2 };
+    let approved = with(&plan(true, ""), vec![agent("m1", 1, "here"), plan_row(2), you("y", 3, "ok")]);
+    assert_eq!(ids(&folded_cut(&approved, &[], &Revisions::new()).1), ["m1", "plan:v2", "y"]);
+    let before_its_row = with(&plan(true, ""), vec![agent("m1", 1, "here")]);
+    assert_eq!(ids(&folded_cut(&before_its_row, &[], &Revisions::new()).1), ["m1"], "its row is past the cut");
 }
