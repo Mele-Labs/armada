@@ -78,6 +78,8 @@ pub(super) struct Line {
     pub act: Option<Act>,
     /// A pull request, which draws as its own row (`PullRow`).
     pub pull: Option<super::pulls::Pull>,
+    /// A linked Job's pull request, drawn as its Merged or Open and Checks facts before the mark.
+    pub linked: Option<super::pulls::Pull>,
 }
 
 /// One group of the Ledger: its heading and its rows.
@@ -250,6 +252,7 @@ impl JobView {
                     opens: Some(opens),
                     act: None,
                     pull: None,
+                    linked: None,
                 }
             })
             .collect()
@@ -415,6 +418,7 @@ impl JobView {
                     sub,
                     mark,
                     opens: Some(opens),
+                    linked: super::pulls::pull_of_child(child),
                     ..Line::default()
                 })
             })
@@ -716,6 +720,7 @@ impl JobView {
         let stamp = line.stamp.map(|when| chip(when.into()).bg(ink.opacity(0.14)).text_color(ink).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))));
         let words = line.words.into_iter().map(|word| div().min_w_0().truncate().child(SharedString::from(word)));
         let kind_word = chip(line.said.into()).bg(ink.opacity(0.14)).text_color(ink).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)));
+        let linked = line.linked.as_ref().map(|pull| super::pulls::linked_facts(look, &line.key, pull)).into_iter().flatten();
         let fact = line.mark.map(|mark| {
             let (icon, tone, word) = mark.tone.look();
             let fact = look.color(tone);
@@ -777,6 +782,7 @@ impl JobView {
                             .children(stamp)
                             .children(words)
                             .child(kind_word)
+                            .children(linked)
                             .children(fact),
                     ),
             );

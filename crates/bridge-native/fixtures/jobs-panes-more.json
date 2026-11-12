@@ -117,6 +117,20 @@
      }
     },
     {
+     "kind": "started_to",
+     "target": "mock-09",
+     "state": "standing",
+     "since": "2026-11-08T09:30:00Z",
+     "changed_at": "2026-11-08T09:30:00Z"
+    },
+    {
+     "kind": "started_to",
+     "target": "mock-14",
+     "state": "standing",
+     "since": "2026-11-08T09:30:00Z",
+     "changed_at": "2026-11-08T09:30:00Z"
+    },
+    {
      "kind": "issue",
      "target": "ARM-12",
      "state": "standing",
@@ -696,7 +710,9 @@
      "since": "2026-11-08T09:00:00Z",
      "changed_at": "2026-11-08T09:00:00Z",
      "detail": {
-      "title": "Thread rows from Fleet"
+      "title": "Thread rows from Fleet",
+      "checks": "failed",
+      "failing": "desktop_unit"
      }
     }
    ],
@@ -922,7 +938,19 @@
    "started_at": "2026-11-08T16:56:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",
    "usage": {},
-   "attachments": [],
+   "attachments": [
+    {
+     "kind": "pr",
+     "target": "3391",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T10:00:00Z",
+     "detail": {
+      "title": "Router 7",
+      "checks": "pending"
+     }
+    }
+   ],
    "standing": "stopped"
   },
   {
@@ -1031,7 +1059,20 @@
    "started_at": "2026-11-08T11:31:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",
    "usage": {},
-   "attachments": [],
+   "attachments": [
+    {
+     "kind": "pr",
+     "target": "3366",
+     "state": "spent",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T10:00:00Z",
+     "detail": {
+      "title": "Drop the v1 endpoints",
+      "state": "merged",
+      "checks": "passed"
+     }
+    }
+   ],
    "standing": "working"
   },
   {

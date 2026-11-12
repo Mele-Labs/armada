@@ -236,6 +236,34 @@ fn act_of(pull: &Pull) -> Option<(PullAct, &'static str, &'static str, &'static 
     }
 }
 
+/// The pull request that stands for a started Job: its open one, else the last it merged (`pullOf`).
+pub(super) fn pull_of_child(child: &ipc::SessionRecord) -> Option<Pull> {
+    let all: Vec<Pull> = child.attachments.iter().filter_map(|one| pull_of(child, one, None)).collect();
+    let open = all.iter().position(|pull| pull.state != PullState::Merged);
+    open.or(all.len().checked_sub(1)).map(|at| all[at].clone())
+}
+
+/// A linked Job row's pull request facts: Merged or Open, then its Checks (`SessionLayers` row.pr).
+pub(super) fn linked_facts(look: &Look, key: &str, pull: &Pull) -> [AnyElement; 2] {
+    let merged = pull.state == PullState::Merged;
+    let (icon, word, hue) = if merged { ("git-merge", "Merged", token::STEP_ADVANCED) } else { ("git-pull-request", "Open", token::STEP_RUNNING) };
+    let (check_icon, check_word, check_hue) = match pull.checks {
+        PullChecks::Passed => ("circle-check", "Passed", token::STEP_ADVANCED),
+        PullChecks::Running => ("loader-circle", "Running", token::STEP_RUNNING),
+        PullChecks::Failed => ("circle-x", "Failed", token::STEP_FAILED),
+    };
+    // Classic's linked row names no failing Check outside the gate (`linked.ts` checksSaid).
+    let said = match pull.checks {
+        PullChecks::Failed => format!("Checks failed: {}", pull.failing),
+        PullChecks::Running => "Checks running".to_string(),
+        PullChecks::Passed => "Checks passed".to_string(),
+    };
+    [
+        fact(look, format!("linked-pull:{key}"), icon, word.to_string(), word, hue),
+        fact(look, format!("linked-checks:{key}"), check_icon, said, check_word, check_hue),
+    ]
+}
+
 /// A fact on the row's second line: its glyph, which carries the tooltip, and its word, filled in its hue.
 fn fact(look: &Look, id: String, icon: &'static str, said: String, word: &'static str, hue: Token) -> AnyElement {
     let ink = look.color(hue);
