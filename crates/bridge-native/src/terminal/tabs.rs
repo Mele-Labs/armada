@@ -149,10 +149,15 @@ fn shown(job: &str, terminal: &str, place: Option<ViewPane>, front: bool, cx: &m
     let view = JobView::live(cx)?;
     let pane = pane_of(job, terminal, cx)?;
     let tab = tab_of(job, terminal, &pane, cx);
-    let place = place.or_else(|| view.read(cx).view_tab_pane(job, &tab_id(terminal))).unwrap_or(ViewPane::Top);
+    let place = placed(place, view.read(cx).view_tab_pane(job, &tab_id(terminal)));
     view.update(cx, |view, cx| view.open_view_tab_in(job, place, tab, front, cx));
     named(job.to_string(), terminal.to_string(), cx);
     Some(pane)
+}
+
+/// The pane a terminal's tab goes to: the one asked for, else where it stands, else the top pane.
+fn placed(asked: Option<ViewPane>, standing: Option<ViewPane>) -> ViewPane {
+    asked.or(standing).unwrap_or(ViewPane::Top)
 }
 
 fn pane_of(job: &str, terminal: &str, cx: &mut App) -> Option<Entity<TerminalPane>> {
@@ -297,5 +302,22 @@ fn tab_of(job: &str, terminal: &str, pane: &Entity<TerminalPane>, cx: &App) -> V
         closing: Some(veto),
         closed: Some(gone),
         renamed: Some(renamed),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_terminal_goes_to_the_pane_asked_for() {
+        assert_eq!(placed(Some(ViewPane::Thread), Some(ViewPane::Top)), ViewPane::Thread);
+        assert_eq!(placed(Some(ViewPane::Bottom), None), ViewPane::Bottom);
+    }
+
+    #[test]
+    fn fleets_news_leaves_a_tab_where_it_stands_and_puts_a_new_one_on_top() {
+        assert_eq!(placed(None, Some(ViewPane::Thread)), ViewPane::Thread);
+        assert_eq!(placed(None, None), ViewPane::Top);
     }
 }
