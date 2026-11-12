@@ -15,7 +15,6 @@ import { quoteOf } from "../ForkFromSelection/ForkFromSelection";
 import { useTeachMenu } from "../TeachPanel/TeachMenu";
 import type { SessionThreadRow, TeachPick } from "./SessionThread";
 import { ThreadKbd, useThreadCard } from "./thread-keys";
-import { WorkflowDraft } from "./WorkflowDraft";
 
 export type DraftThreadRow = Extract<
   SessionThreadRow,
@@ -206,8 +205,6 @@ export function DraftRow({
     setMode("read");
   };
   const proposed = row.workflow;
-  // A workflow whose steps arrived draws its lanes in place of the definition's text.
-  const lanes = proposed?.steps !== undefined && proposed.steps.length > 0;
   const rule = row.rule;
   // A rule's card is the rule's own act: approving it sends what it says, so the card says Send.
   const state =
@@ -354,12 +351,8 @@ export function DraftRow({
           </span>
           <Stamp at={row.at} className="armada-session-draft__at" />
         </div>
-        {lanes ? (
-          <WorkflowDraft workflow={proposed!} />
-        ) : (
-          <p className="armada-session-draft__title">{row.title}</p>
-        )}
-        {proposed === undefined || lanes ? null : (
+        <p className="armada-session-draft__title">{row.title}</p>
+        {proposed === undefined ? null : (
           <dl className="armada-session-draft__facts">
             <dt>Name</dt>
             <dd>{proposed.name}</dd>
@@ -375,7 +368,7 @@ export function DraftRow({
             <dd>{rule.to}</dd>
           </dl>
         )}
-        {lanes ? null : editing ? (
+        {editing ? (
           <Textarea
             aria-label="Draft text"
             rows={8}

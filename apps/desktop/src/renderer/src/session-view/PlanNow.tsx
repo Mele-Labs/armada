@@ -7,17 +7,43 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDashed,
+  CircleCheck,
   CircleDot,
   Drone,
+  Footprints,
+  GitMerge,
+  Link,
+  NotebookPen,
+  PencilRuler,
+  ShieldCheck,
   ShieldMinus,
   ShieldX,
+  Stamp as StampGlyph,
   type LucideIcon,
 } from "lucide-react";
-import { GATE_GLYPH, Stamp, Tooltip } from "@armada/components";
+import { Stamp, Tooltip } from "@armada/components";
 import type { WorkGroup } from "@armada/screens/src/draft/sessions";
-import { GATE_ENDS, type Stretch, type StretchGate, type StretchState } from "./stretches";
+import {
+  GATE_ENDS,
+  type GateKind,
+  type Stretch,
+  type StretchGate,
+  type StretchState,
+} from "./stretches";
 import { Since } from "./StoryParts";
 import "./plan-now.css";
+
+export const GATE_GLYPH: Record<GateKind, LucideIcon> = {
+  plan_approved: StampGlyph,
+  walk_approved: Footprints,
+  sketch_approved: PencilRuler,
+  document_approved: NotebookPen,
+  you_approved: CircleCheck,
+  checks_green: ShieldCheck,
+  merged: GitMerge,
+  // The Jobs tab's glyph: the Jobs this one started.
+  jobs_ended: Link,
+};
 
 const STATE_GLYPH: Record<StretchState, LucideIcon> = {
   done: Check,

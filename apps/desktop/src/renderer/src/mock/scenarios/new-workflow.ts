@@ -18,79 +18,30 @@ const BEAT_MS = 1500;
 
 type Scope = "kit" | "repository";
 
-/** The workflow the Job proposes, whatever was asked: the annotations workflow, step by step as its card draws it. */
-const ANNOTATIONS = {
-  name: "annotations",
-  title: "Annotations: quiz, change, refresh preview, your sign-off, land",
-  forRequests:
-    "A Job dispatched from a set of annotations the owner left on the app: small changes to what he sees, made quickly, put into his running build with a preview refresh, and landed once he approves them there.",
-  steps: [
-    {
-      id: "quiz",
-      label: "Quiz",
-      about:
-        "Asks you about each annotation, one question at a time, until you agree on what each asks for.",
-      endsWhen: "you approve the plan",
-      gate: "plan_approved",
-      instructions:
-        "Read every open annotation. Ask about one at a time, with what you would change and why, until he agrees on what each asks for. Then record the plan, one group a part.",
-    },
-    {
-      id: "change",
-      label: "Change and walk",
-      about:
-        "Makes the changes quickly and walks each part you would see. Left out when nothing would be seen.",
-      endsWhen: "you approve the walk",
-      gate: "walk_approved",
-      instructions:
-        "Make each change in the mock first. Show each part he would see as a walk, one walk a part, and change it until he approves it.",
-    },
-    {
-      id: "refresh_preview",
-      label: "Refresh preview and sign off",
-      about:
-        "Puts the changes in your running build with a preview refresh, then asks whether you are good with them.",
-      endsWhen: "you press Approve",
-      gate: "you_approved",
-      asksDelivery: true,
-      instructions:
-        "Commit the changes, refresh the preview so his running build has them, and raise one item asking whether he is good with them. Ask how he wants it delivered on the same item.",
-    },
-    {
-      id: "land",
-      label: "Refine and land",
-      about:
-        "Refines the approved work, writes the tests and lands it through a pull request merged on a green ci.",
-      endsWhen: "the pull request merges",
-      gate: "merged",
-      delivers: true,
-      instructions:
-        "Tidy what was approved without changing what he sees. Write the tests, open the pull request and land it once ci is green.",
-    },
-  ],
-} as const;
+/** The name a workflow takes from the words: the first two, as an id. */
+const nameOf = (words: string) =>
+  words
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((one) => one !== "")
+    .slice(0, 2)
+    .join("-") || "workflow";
 
-/** The definition the Job proposes, as Fleet would keep it. */
-const definitionOf = () =>
+const definitionOf = (name: string, words: string) =>
   JSON.stringify(
     {
-      version: 1,
-      workflow_id: ANNOTATIONS.name,
-      name: ANNOTATIONS.title,
-      for_requests: ANNOTATIONS.forRequests,
-      steps: ANNOTATIONS.steps.map((step) => ({
-        id: step.id,
-        label: step.label,
-        about: `${step.about} Ends when ${step.endsWhen}.`,
-        gate: step.gate,
-        ...("asksDelivery" in step
-          ? {
-              asks_delivery: true,
-            }
-          : {}),
-        delivers: "delivers" in step,
-        instructions: step.instructions,
-      })),
+      workflow_id: name,
+      for_requests: words,
+      steps: [
+        {
+          id: "draft",
+          instructions: "Read the merged pull requests since the last tag and draft the notes.",
+        },
+        {
+          id: "deliver",
+          instructions: "Open a pull request with the notes.",
+        },
+      ],
     },
     null,
     2,
@@ -127,14 +78,15 @@ export const newWorkflow: Scenario = {
         send: async (id, message) => {
           const sent = (await store.send(id, message)) ?? true;
           if (!message.text.startsWith("New workflow:")) return sent;
+          const words = message.text.split("\n")[0]!.slice("New workflow:".length).trim();
           const scope: Scope = /^Scope: kit/m.test(message.text) ? "kit" : "repository";
-          const name = ANNOTATIONS.name;
+          const name = nameOf(words);
           const item = `draft:${id}-proposal`;
           const change = changes++;
           made.set(item, {
             name,
             scope,
-            text: definitionOf(),
+            text: definitionOf(name, words),
             change,
           });
           store.edit(id, (one) => ({
@@ -158,7 +110,7 @@ export const newWorkflow: Scenario = {
               options: [
                 {
                   label: "Approve",
-                  description: definitionOf().replace(/\s+/g, " "),
+                  description: definitionOf(name, words).replace(/\s+/g, " "),
                 },
                 {
                   label: "Dismiss",
@@ -172,10 +124,6 @@ export const newWorkflow: Scenario = {
               title: name,
               text: `\`\`\`json\n${made.get(item)!.text}\n\`\`\``,
               change,
-              workflow: {
-                ...ANNOTATIONS,
-                scope,
-              },
             };
             proposeWorkflowChange(change, name, scope, made.get(item)!.text);
             store.edit(id, (one) => ({
