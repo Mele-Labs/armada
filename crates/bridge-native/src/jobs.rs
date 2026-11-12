@@ -792,17 +792,11 @@ impl JobsList {
         self.hold_new(format!("started-{}", idea.id), idea.title().to_string(), &idea.repository, None, cx);
     }
 
-    /// A walk's stand-in for Fleet's yes to a start from the sheet: a Job of the words stands in the list and opens,
-    /// working at once, or held on its start card where the person pressed Draft.
-    pub fn hold_started_words(&mut self, words: &str, repository: &str, held: bool, cx: &mut Context<Self>) {
+    /// A walk's stand-in for Fleet's yes to a start from the sheet: a Job of the words stands in the list and opens, working.
+    pub fn hold_started_words(&mut self, words: &str, repository: &str, cx: &mut Context<Self>) {
         let title = words.lines().find(|line| !line.trim().is_empty()).map_or("", str::trim).to_string();
-        let mark = if held {
-            ipc::JobMark { state: ipc::JobState::Draft, lamp: ipc::JobLamp::Idle, group: ipc::JobGroup::Working }
-        } else {
-            ipc::JobMark { state: ipc::JobState::Working, lamp: ipc::JobLamp::Running, group: ipc::JobGroup::Working }
-        };
-        let id = if held { "drafted-from-sheet" } else { "started-from-sheet" };
-        self.hold_new(id.to_string(), title, repository, Some(mark), cx);
+        let mark = ipc::JobMark { state: ipc::JobState::Working, lamp: ipc::JobLamp::Running, group: ipc::JobGroup::Working };
+        self.hold_new("started-from-sheet".to_string(), title, repository, Some(mark), cx);
     }
 
     fn hold_new(&mut self, id: String, title: String, repository: &str, mark: Option<ipc::JobMark>, cx: &mut Context<Self>) {

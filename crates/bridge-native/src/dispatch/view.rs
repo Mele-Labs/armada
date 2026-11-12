@@ -476,31 +476,16 @@ impl DispatchSheet {
             );
             button
         });
-        let starting = self.sending && !self.drafting;
-        let said = if starting { "Starting" } else { "Start" };
+        let said = if self.sending { "Starting" } else { "Start" };
         let live = !off && !self.queueing && worded && !self.sending;
-        // A draft is a start held on its start card; a wait has no card.
-        let draft = self.wait.is_none().then(|| {
-            let said = if self.drafting { "Drafting" } else { "Draft" };
-            labelled(
-                Btn::new("dispatch-draft", said, Weight::Secondary)
-                    .disabled(!live)
-                    .pending(self.drafting)
-                    .draw(look, cx)
-                    .tooltip(tip("Nothing runs until you press Start on its card"))
-                    .when(live, |button| button.on_click(cx.listener(|this, _, window, cx| this.draft(window, cx)))),
-                Role::Button,
-                said,
-            )
-        });
-        // No key beside Queue for later, Draft or Start: Electron's sheet shows none.
+        // No key beside Queue for later or Start: Electron's sheet shows neither.
         let act = div()
             .flex()
             .items_center()
             .child(labelled(
                 Btn::new("dispatch-act", said, Weight::Primary)
                     .disabled(!live)
-                    .pending(starting)
+                    .pending(self.sending)
                     .draw(look, cx)
                     .when(live, |button| button.on_click(cx.listener(|this, _, window, cx| this.act(window, cx)))),
                 Role::Button,
@@ -520,7 +505,7 @@ impl DispatchSheet {
             // The acts are in the UI face; the chips and the selects stay mono.
             .font_family(sans(look))
             .child(picker)
-            .child(div().flex().items_center().gap(look.length(token::SPACE_3)).ml_auto().child(tuning).children(queue).children(draft).child(act));
+            .child(div().flex().items_center().gap(look.length(token::SPACE_3)).ml_auto().child(tuning).children(queue).child(act));
         div()
             .id("dispatch-drawer")
             .flex()

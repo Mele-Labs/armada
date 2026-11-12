@@ -158,18 +158,6 @@ destructive = false
 confirms = false
 notes = "In the Dispatch panel on a Session, saves the request as an idea to start later instead of starting it: the idea keeps its words, its repository and the model and effort picked, and waits at the head of its repository's group in the Cockpit's list, with Start and Remove. The same act as the Queue for later button, from inside the request where `Enter` starts. Global, because it is modifier-based, and the shifted form of `send_message` so the two keys read as one family: the ⌘ key that sends, and the same key with Shift that saves. Plain `Enter` still starts a Session. A Job and an Autopilot have no queue, so the key does nothing there. The button draws the key while ⌘ is held, as Send does. No glyph: the button is a word. Added 16 Oct 2026."
 
-[actions.draft_session]
-kind = "Action"
-tier = "Global"
-verb = "Draft"
-icon = ""
-icon_absent = "undecided"
-shortcut = "⌥Enter"
-scope = "anywhere"
-destructive = false
-confirms = false
-notes = "In the Dispatch panel on a Job, starts it on its start card: nothing runs until Start is pressed there. Start itself runs at once. Added 12 Nov 2026."
-
 [actions.dispatch_after]
 kind = "Action"
 tier = "Global"

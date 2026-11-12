@@ -861,14 +861,12 @@ impl DispatchScreen {
                 let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;
                 layer.update(cx, |layer, cx| layer.picture_arrives(cx));
             }
-            "answer-start-job" | "answer-draft" => {
-                // Fleet's yes to a start from the sheet: a Start runs at once and its Job opens working, a Draft opens
-                // held on its start card. The sheet goes with the words it held.
-                let held = name == "answer-draft";
+            "answer-start-job" => {
+                // Fleet's yes to a start from the sheet: the Job opens working and the sheet goes with the words it held.
                 let (words, repository) = self.sheet.read(cx).started(cx).ok_or("the sheet holds no start to answer")?;
                 self.sheet.update(cx, |sheet, cx| sheet.answered(window, cx));
                 let list = self.jobs.read(cx).list.clone();
-                list.update(cx, |list, cx| list.hold_started_words(&words, &repository, held, cx));
+                list.update(cx, |list, cx| list.hold_started_words(&words, &repository, cx));
             }
             "queued-started" => {
                 // Fleet's yes to the first queued idea's start: it leaves the queue and its Job opens.
