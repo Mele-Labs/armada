@@ -498,12 +498,23 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
     let Ok(envelope) = ipc::decode::<Envelope>("a transcript line", line.as_bytes()) else {
         return Vec::new();
     };
-    if (envelope.sidechain && !inside_agent) || envelope.meta {
+    if envelope.sidechain && !inside_agent {
         return Vec::new();
     }
     let Some(uuid) = envelope.uuid.as_deref() else {
         return Vec::new();
     };
+    // **Before the meta and origin guards**: the CLI writes another session's message as a meta line
+    // whose origin is that session's, so both of them would drop it.
+    if envelope.kind == "user" && line.contains(CROSS_SESSION) {
+        let received = received(line, uuid, &Instant::carried(envelope.timestamp.clone().unwrap_or_default()));
+        if !received.is_empty() {
+            return received;
+        }
+    }
+    if envelope.meta {
+        return Vec::new();
+    }
     let person = match envelope.kind.as_str() {
         "assistant" => false,
         "user" => match &envelope.origin {
@@ -568,6 +579,11 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
             }
             DroneEvent::Called { tool, detail, .. } if !person => {
                 let shown = detail.whole().unwrap_or(detail.shown()).to_string();
+                // Only a `Read` can look at a picture, so the home is read for no other call.
+                let image = (tool == "Read")
+                    .then(|| transcript::viewed_image(&tool, &shown, &std::env::var("HOME").unwrap_or_default()))
+                    .flatten();
+                let message = transcript::message_sent(&tool, &detail);
                 let text = if shown.is_empty() {
                     tool
                 } else {
@@ -579,6 +595,8 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
                     text,
                     description: detail.description().map(str::to_string),
                     subagent: None,
+                    image,
+                    message,
                 });
             }
             DroneEvent::Reasoned { text } if !person => {
@@ -588,6 +606,61 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
         }
     }
     rows
+}
+
+/// The tag the CLI wraps another session's message in.
+const CROSS_SESSION: &str = "<cross-session-message";
+
+/// The rows a user line draws where it is another session's message: one `Message` per wrapper, from a
+/// `SessionVoice::Session` **named as the wrapper names it** (`from-name`, else `from`) for both `id`
+/// and `title`, which Fleet replaces with the Job's where it knows it. The text is the body between
+/// the tags: the CLI's note after them, "This came from another Claude session...", is not drawn.
+/// None for a line that is not one.
+fn received(line: &str, uuid: &str, at: &Instant) -> Vec<SessionRow> {
+    let events = transcript::read(line);
+    let Some(text) = events.iter().find_map(|event| match event {
+        DroneEvent::Said { text, .. } => Some(text.as_str()),
+        _ => None,
+    }) else {
+        return Vec::new();
+    };
+    if !text.trim_start().starts_with("Another Claude session sent a message") {
+        return Vec::new();
+    }
+    let mut rows = Vec::new();
+    let mut rest = text;
+    while let Some(open) = rest.find(CROSS_SESSION) {
+        let Some(tag_end) = rest[open..].find('>').map(|at| open + at) else { break };
+        let Some(close) = rest[tag_end..].find("</cross-session-message>").map(|at| tag_end + at) else { break };
+        let tag = &rest[open..tag_end];
+        let name = attribute(tag, "from-name").filter(|name| !name.is_empty()).or_else(|| attribute(tag, "from"));
+        if let Some(name) = name {
+            rows.push(SessionRow::Message {
+                id: match rows.len() {
+                    0 => uuid.to_string(),
+                    n => format!("{uuid}.{n}"),
+                },
+                at: at.clone(),
+                from: SessionVoice::Session { id: name.to_string(), title: name.to_string() },
+                text: rest[tag_end + 1..close].trim().to_string(),
+                files: Vec::new(),
+                sketches: Vec::new(),
+                tags: Vec::new(),
+                notice: None,
+                queued: false,
+                edited_at: None,
+            });
+        }
+        rest = &rest[close + "</cross-session-message>".len()..];
+    }
+    rows
+}
+
+/// The value of `name="..."` in an opening tag.
+fn attribute<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
+    let key = format!(" {name}=\"");
+    let from = tag.find(&key)? + key.len();
+    Some(&tag[from..from + tag[from..].find('"')?])
 }
 
 /// What a user line's text is, once the CLI's own wrapper tags are read.

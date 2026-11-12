@@ -372,9 +372,11 @@ where
                 if let Some(path) = adapters::written_job_page(&tool, &shown, &home) {
                     runtime.state().pages.insert(call.clone(), path);
                 }
-                if let Some(path) = adapters::viewed_image(&tool, &shown, &home) {
-                    self.artifact_made(id, path, "image").await;
+                let image = adapters::viewed_image(&tool, &shown, &home);
+                if let Some(path) = &image {
+                    self.artifact_made(id, path.clone(), "image").await;
                 }
+                let message = adapters::message_sent(&tool, &detail);
                 let text = if shown.is_empty() {
                     tool
                 } else {
@@ -384,7 +386,7 @@ where
                 // A subagent call's row is put again as the subagent works, so it is remembered by its call.
                 let description = detail.description().map(str::to_string);
                 let drawn = runtime.state().call_rows.drawn(&call, &row, &at, &text, description.as_deref());
-                let row = drawn.unwrap_or(SessionRow::Tool { id: row, at, text, description, subagent: None });
+                let row = drawn.unwrap_or(SessionRow::Tool { id: row, at, text, description, subagent: None, image, message });
                 self.row_put(id, row).await;
             }
             // A page is read off the disk once the tool that wrote it has answered, and not when it was reached for.

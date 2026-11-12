@@ -18,6 +18,7 @@ mod ended;
 mod job_shell;
 mod job_terminals;
 mod kept_terminals;
+mod quick_terminal;
 pub(crate) mod plain;
 
 use std::collections::BTreeMap;
@@ -495,7 +496,7 @@ where
             .attachments_of(&Holder::session(&session.id))
             .map_err(|why| self.ledger_fault(why))?;
         let roots = self.ledger_roots();
-        Ok(held
+        let base = held
             .iter()
             .find(|one| one.kind == "slot" && one.state == AttachmentState::Standing)
             .and_then(|one| {
@@ -503,7 +504,17 @@ where
                 let root = &roots.iter().find(|(id, _)| *id == one.manifest_id)?.1;
                 Some(adapter_traits::slot_path(root.trim_end_matches('/'), slot))
             })
-            .unwrap_or(session.cwd))
+            .unwrap_or(session.cwd);
+        // A quick terminal started in a folder of its repository stands in that folder, in the
+        // slot as in the checkout, while the folder is there.
+        let under = store.hosting(session_id).ok().flatten().and_then(|hosting| hosting.terminal_dir);
+        Ok(match under {
+            Some(under) => {
+                let at = format!("{}/{}", base.trim_end_matches('/'), under.trim_matches('/'));
+                if std::path::Path::new(&at).is_dir() { at } else { base }
+            }
+            None => base,
+        })
     }
 
     pub(crate) fn end_session_run(

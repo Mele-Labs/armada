@@ -412,7 +412,7 @@ where
             addressed,
             ahead,
             instead,
-            ..
+            row,
         } = held;
         let mut turn = String::new();
         if let Some(line) = &ahead {
@@ -430,6 +430,14 @@ where
         if let Some(line) = mention_line(&addressed) {
             turn.push_str(&line);
             turn.push_str("\n\n");
+        }
+        // **A quick terminal's agent reads the terminals first**: what they show rides ahead of each
+        // message of the person's, so nothing waits on the agent choosing to call read_terminal.
+        if hosting.quick_terminal && row.is_some() {
+            if let Some(shown) = self.terminals_shown(id).await {
+                turn.push_str(&shown);
+                turn.push_str("\n\n");
+            }
         }
         turn.push_str(instead.as_deref().unwrap_or(&text));
         for path in &kept.paths {
