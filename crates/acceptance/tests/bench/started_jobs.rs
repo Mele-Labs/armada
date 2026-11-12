@@ -120,6 +120,7 @@ pub fn job(id: &str, title: &str, attachments: Vec<Attachment>) -> SessionRecord
         mark: None,
         viewed_at: None,
         compact: None,
+        lanes: None,
     }
 }
 

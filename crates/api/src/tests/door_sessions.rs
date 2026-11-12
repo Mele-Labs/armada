@@ -128,6 +128,7 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         mark: None,
         viewed_at: None,
         compact: None,
+        lanes: None,
     }
 }
 

@@ -111,6 +111,8 @@ mod job_thread;
 mod job_mark;
 /// Whether a Job offers Compact, on `SessionRecord::compact`.
 mod job_compact;
+/// A Job's lanes as a screen draws them, on `SessionRecord::lanes`.
+mod job_lanes;
 /// How full a limit is, as a ring draws it: `RingBand`.
 mod ring_band;
 /// When the person was last in a Job: `view_session`, and `SessionRecord::viewed_at`.
@@ -437,6 +439,11 @@ pub use session_quick::SessionQuick;
 pub use merge_line_view::{MainRedJob, MainView, MergeLineView, MergeLineViews, PullTone, PullView};
 pub use job_mark::{JobGroup, JobLamp, JobMark, JobState};
 pub use job_compact::{CompactHow, CompactOff, CompactOffer};
+pub use job_lanes::{
+    JobLanesHeld, JobLanesView, LaneAutonomy, LaneCarriedTicket, LaneChange, LaneCopy, LaneEdge, LaneFired, LaneFiredAct,
+    LaneInstance, LaneKept, LaneKind, LaneLifecycle, LaneLifecycleKind, LaneLifecycleState, LaneMoment, LaneNode,
+    LaneNodeKind, LaneNodeRole, LaneOutcome, LaneRef, LaneRule, LaneStep, LaneView,
+};
 pub use ring_band::{RingBand, DANGER_FROM, WARNING_FROM};
 pub use job_viewing::ViewSession;
 pub use standing_calls::{CallArrival, CallArrivalKind, CallTone, CallsChanged, OpenStandingCall, StandingCall, StandingCallKind, StandingCalls};

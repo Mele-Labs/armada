@@ -1524,6 +1524,12 @@ pub struct SessionRecord {
     /// not read one. Since 9 Nov 2026. `docs/practices/protocol/the-title-bars-views-fleet-reads.md`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub compact: Option<crate::CompactOffer>,
+    /// The Job's lanes, worked out by Fleet: where it stands in its workflow, what it holds and the lanes
+    /// and edges drawn from both. Set for a live Job that holds an instance or follows a workflow; absent
+    /// for one that has ended and for one that does neither. Since 11 Nov 2026.
+    /// `docs/practices/protocol/a-jobs-lanes-fleet-works-out.md`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lanes: Option<crate::JobLanesView>,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.
