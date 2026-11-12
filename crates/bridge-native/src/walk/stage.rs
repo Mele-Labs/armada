@@ -556,8 +556,14 @@ pub fn press_row(label: &str, window: &mut Window, cx: &mut App) {
 /// that shows at all stays where it is.
 fn reveal(target: Drawn, window: &mut Window, cx: &mut App) -> Drawn {
     let was = target.bounds;
-    let shown = uncover(scroll_to(target, window, cx), window, cx);
-    if shown.bounds == was {
+    let mut shown = scroll_to(target, window, cx);
+    if shown.bounds != was {
+        // What covers it is read from where it is drawn now, not from the frame before the scroll.
+        shown = settle(shown, window, cx);
+    }
+    let at = shown.bounds;
+    shown = uncover(shown, window, cx);
+    if shown.bounds == at {
         return shown;
     }
     settle(shown, window, cx)
