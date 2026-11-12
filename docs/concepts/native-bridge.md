@@ -130,7 +130,7 @@ The parity check takes each row here as chosen.
 | A thumb pressed on a Deferred row | The row stays until Fleet's record says it is settled; a refusal says nothing | The row goes at once and the keys go to the message box; a refusal brings it back and is said in a toast |
 | Stop or Delete on a watch | The watch stays as it was until Fleet's `watches.changed` says it stopped or went | It shows stopped, or goes, at once; a refusal puts it back, said in a toast in Fleet's words |
 | The watch panel's Stop | Named Stop to VoiceOver | Named Stop watch and the watch's name, so it is told apart from the thread's Stop |
-| A zone's band in Spine | No menu of its own; Teach comes from the pane's frame | A right press, Shift+F10 or the menu key opens Teach, Mod and Report for that zone |
+| A zone's band in Spine | A right press, Shift+F10 or the menu key opens Teach, where the window offers it | The same menu also holds Mod and Report |
 | Deferred's toggle in Spine | Named Deferred to VoiceOver, as its band is | Named Deferred list, so it is told apart from Deferred's band |
 | A band's height in Spine | The legend's height | The height of a control, as every other band in native |
 
