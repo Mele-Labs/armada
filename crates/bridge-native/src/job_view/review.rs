@@ -16,7 +16,7 @@ use gpui::{
     anchored, canvas, deferred, div, prelude::*, px, Anchor, AnyElement, Bounds, Context, Entity, FocusHandle, Focusable as _,
     FontWeight, KeyDownEvent, MouseButton, Pixels, Role, SharedString, Subscription, Window,
 };
-use gpui_component::input::{InputEvent, Textarea, TextareaState};
+use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 use ipc::{
     AnswerDocument, AnswerSketch, AnswerWaiting, ApprovePlan, DismissWaiting, DocumentHow, PlanCardState, PlanMark, SendPlanChanges, SessionId, SessionRow,
     SketchHow, ThreadDocument, ThreadHead, ThreadItem, ThreadSketch, WaitingItem, WaitingSource,
@@ -586,14 +586,12 @@ impl JobView {
         let kept = self.draft_words(&key);
         let area = cx.new(|cx| TextareaState::new(window, cx).auto_grow(3, 8));
         area.update(cx, |area, cx| area.set_value(kept, window, cx));
-        let typed = cx.subscribe_in(&area, window, move |this, area, event: &InputEvent, window, cx| match event {
-            InputEvent::Change => {
+        let typed = cx.subscribe_in(&area, window, move |this, area, event: &InputEvent, _, cx| {
+            if let InputEvent::Change = event {
                 let text = area.read(cx).value().to_string();
                 this.keep_words(&key, &text, cx);
                 cx.notify();
             }
-            InputEvent::PressEnter { secondary: true, .. } => this.review_send_note(window, cx),
-            _ => {}
         });
         if let Some(review) = self.review_mut() {
             review.note = Some(NoteBox { area: area.clone(), _typed: typed });
@@ -1150,6 +1148,13 @@ impl JobView {
                     div()
                         .id("review-note")
                         .key_context(crate::keymap::TEXT_BOX)
+                        // ⌘↩ sends, taken before the text area puts a line break in.
+                        .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                            if action.secondary {
+                                cx.stop_propagation();
+                                this.review_send_note(window, cx);
+                            }
+                        }))
                         .w_full()
                         .px(look.length(token::SPACE_3))
                         .py(look.length(token::SPACE_2))

@@ -10,7 +10,7 @@ use gpui::{
     anchored, deferred, div, point, prelude::*, px, Anchor, Animation, AnimationExt as _, AnyElement, ClipboardItem, Context, Entity, FontWeight, KeyDownEvent, Role, ScrollHandle, SharedString,
     Subscription, Task, Window,
 };
-use gpui_component::input::{InputEvent, Textarea, TextareaState};
+use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 use ipc::{
     PullRequestCheckState, PullRequestEntry, PullRequestMergeable, PullRequestPage, PullRequestReviewState, PullRequestReviewer, PullRequestReviewerKind, PullRequestVerdict, PullRequestWriteKind,
     PullReviewThread,
@@ -77,8 +77,8 @@ pub(super) struct PullPanel {
     /// The body's scroll, and the Files tab's sections, so a file pressed in the list is scrolled to.
     pub scroll: ScrollHandle,
     pub sections: ScrollHandle,
-    /// The box a note is written in, under its line, while one is open.
-    pub note_box: Option<super::pr_notes::NoteBox>,
+    /// The boxes notes are written in, each under its line: one for a new note and one per note being changed.
+    pub note_boxes: Vec<super::pr_notes::NoteBox>,
     /// His notes a Job resolved are drawn too.
     pub notes_resolved: bool,
     _typing: Subscription,
@@ -510,7 +510,7 @@ impl JobView {
             files_scroll: ScrollHandle::new(),
             scroll: ScrollHandle::new(),
             sections: ScrollHandle::new(),
-            note_box: None,
+            note_boxes: Vec::new(),
             notes_resolved: false,
             _typing: typing,
             _copied: None,
@@ -1527,9 +1527,10 @@ impl JobView {
         let said = panel.write_said.clone().map(|why| labelled(div().id("pull-write-said").text_size(look.length(token::TEXT_XS)).text_color(look.color(token::STATUS_COMPLETED_FAILED)).child(why.clone()), Role::Alert, why));
         let field = div()
             .id("pull-comment")
-            .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                let key = &event.keystroke;
-                if key.key == "enter" && key.modifiers.platform {
+            // ⌘↩ sends. The text area takes the key as its own action before any key listener, so it is
+            // caught there, ahead of the line break it would put in.
+            .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                if action.secondary {
                     cx.stop_propagation();
                     this.write_pull(window, cx);
                 }

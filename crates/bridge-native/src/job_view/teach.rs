@@ -9,7 +9,7 @@ use gpui::{
     div, prelude::*, Animation, AnimationExt, AnyElement, Context, Entity, FocusHandle, Focusable as _, FontWeight,
     KeyDownEvent, Role, SharedString, Subscription, Window,
 };
-use gpui_component::input::{InputEvent, Textarea, TextareaState};
+use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 use ipc::{
     ProposedFleet, ReadTeaching, SaveTeaching, SavedTeaching, TeachingProposal, TeachingReach, TeachingSource, TeachingSourceKind,
 };
@@ -457,17 +457,22 @@ impl JobView {
         self.teach_close(window, cx);
     }
 
+    /// ⌘↩ or Ctrl↩: read what was written, then teach what was read.
+    fn teach_forward(&mut self, stage: Stage, window: &mut Window, cx: &mut Context<Self>) {
+        match stage {
+            Stage::Writing => self.teach_read(window, cx),
+            Stage::Shown => self.teach_save(window, cx),
+            Stage::Reading => {}
+        }
+    }
+
     fn teach_keys(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let Some(stage) = self.teach.as_ref().map(|open| open.stage) else { return };
         let key = event.keystroke.key.as_str();
         let forward = key == "enter" && (event.keystroke.modifiers.platform || event.keystroke.modifiers.control);
         if forward {
             cx.stop_propagation();
-            match stage {
-                Stage::Writing => self.teach_read(window, cx),
-                Stage::Shown => self.teach_save(window, cx),
-                Stage::Reading => {}
-            }
+            self.teach_forward(stage, window, cx);
         } else if key == "escape" {
             cx.stop_propagation();
             self.teach_close(window, cx);
@@ -729,6 +734,14 @@ impl JobView {
                 .track_focus(&open.focus)
                 .key_context("teach")
                 .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.teach_keys(event, window, cx)))
+                // In the instruction box ⌘↩ is the text area's own action, which no key listener sees.
+                .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                    let Some(stage) = this.teach.as_ref().map(|open| open.stage) else { return };
+                    if action.secondary {
+                        cx.stop_propagation();
+                        this.teach_forward(stage, window, cx);
+                    }
+                }))
                 .w(look.length(token::W_DIALOG_WIDE))
                 .max_w_full()
                 .h_full()

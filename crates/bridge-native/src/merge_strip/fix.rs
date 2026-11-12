@@ -7,7 +7,7 @@ use gpui::{
     anchored, deferred, div, prelude::*, Anchor, AnyElement, Context, Entity, FocusHandle, FontWeight, Pixels, Role, SharedString,
     Window,
 };
-use gpui_component::input::{Textarea, TextareaState};
+use gpui_component::input::{Enter, Textarea, TextareaState};
 use ipc::{FixingElsewhere, MainMerge, MainRedJob, MainView};
 
 use super::{Asked, MergeStrip, Recent};
@@ -154,6 +154,13 @@ impl MergeStrip {
                                     cx.stop_propagation();
                                 }
                             }
+                        }
+                    }))
+                    // In the message ⌘↩ is the text area's own action, which no key listener sees.
+                    .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                        if action.secondary {
+                            cx.stop_propagation();
+                            this.fix_confirmed(window, cx);
                         }
                     }))
                     // A press inside the dialog is not a press on the scrim.

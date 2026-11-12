@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use chrono::Utc;
 use gpui::{div, prelude::*, px, AnyElement, Context, Entity, Role, SharedString, Subscription, Window};
-use gpui_component::input::{InputEvent, Textarea, TextareaState};
+use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 use ipc::{NoteSide, NoteStatus, PullRequestNote, PullRequestNotes, SavePullRequestNote, SendPullRequestNotes};
 
 use super::pr_panel::{icon_button, small_button, PullPanel};
@@ -21,7 +21,9 @@ use crate::look::{token, Look};
 
 const LABEL: &str = "Note for the job";
 
-/// The box a note is written in, under the line it is about. `editing` names the note it changes.
+/// The box a note is written in, under the line it is about. `editing` names the note it changes. A
+/// panel holds one box for a new note, which a press on another line moves (`composing`), and one box
+/// for each note being changed (`NoteCard`'s own `editing`), all open at once.
 pub(super) struct NoteBox {
     pub path: String,
     pub index: usize,
@@ -29,8 +31,8 @@ pub(super) struct NoteBox {
     pub side: NoteSide,
     pub editing: Option<String>,
     pub input: Entity<TextareaState>,
-    /// The words are kept under this while they are being written (`keep`).
-    keep: String,
+    /// The words are kept under this while they are being written (`keep`); it also names the box.
+    pub keep: String,
     _typing: Subscription,
 }
 
@@ -89,6 +91,10 @@ impl JobView {
             Some((id, _)) => format!("job-notes:edit:{id}"),
             None => format!("job-notes:{key}:{path}:{index}"),
         };
+        if let Some(open) = self.pull_panel().and_then(|panel| panel.note_boxes.iter().find(|open| open.keep == keep)) {
+            open.input.update(cx, |input, cx| input.focus(window, cx));
+            return;
+        }
         let kept = self.draft_words(&keep);
         let words = if kept.is_empty() { editing.as_ref().map(|(_, body)| body.clone()).unwrap_or_default() } else { kept };
         let input = cx.new(|cx| TextareaState::new(window, cx).auto_grow(3, 8));
@@ -97,34 +103,35 @@ impl JobView {
             input.focus(window, cx);
         });
         let kept_key = keep.clone();
-        // ⌘↩ is the box's own: the text area takes it and says so (`sendsOn`).
-        let typing = cx.subscribe_in(&input, window, move |this, input, event: &InputEvent, window, cx| match event {
-            InputEvent::Change => {
+        let typing = cx.subscribe_in(&input, window, move |this, input, event: &InputEvent, _, cx| {
+            if let InputEvent::Change = event {
                 let text = input.read(cx).value().to_string();
                 this.keep_words(&kept_key, &text, cx);
                 cx.notify();
             }
-            InputEvent::PressEnter { secondary: true, .. } => this.save_note(window, cx),
-            _ => {}
         });
         if let Some(panel) = self.pull_panel_mut() {
-            panel.note_box = Some(NoteBox { path, index, line: place.0, side: place.1, editing: editing.map(|(id, _)| id), input, keep, _typing: typing });
+            if editing.is_none() {
+                panel.note_boxes.retain(|open| open.editing.is_some());
+            }
+            panel.note_boxes.push(NoteBox { path, index, line: place.0, side: place.1, editing: editing.map(|(id, _)| id), input, keep, _typing: typing });
         }
         cx.notify();
     }
 
-    fn cancel_note(&mut self, cx: &mut Context<Self>) {
+    /// Cancel puts the box away and leaves its words kept (`LineComposer`).
+    fn cancel_note(&mut self, keep: &str, cx: &mut Context<Self>) {
         if let Some(panel) = self.pull_panel_mut() {
-            panel.note_box = None;
+            panel.note_boxes.retain(|open| open.keep != keep);
         }
         cx.notify();
     }
 
     /// Save note, or ⌘↩ in its box: a new note is made on its line, or the note being changed takes the words
     /// (`POST /pull_request_notes/:manifest/:number`). A blank box saves nothing.
-    fn save_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn save_note(&mut self, keep: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(panel) = self.pull_panel() else { return };
-        let Some(open) = panel.note_box.as_ref() else { return };
+        let Some(open) = panel.note_boxes.iter().find(|open| open.keep == keep) else { return };
         let body = open.input.read(cx).value().trim().to_string();
         if body.is_empty() {
             return;
@@ -133,7 +140,7 @@ impl JobView {
         let (path, line, side, editing, keep) = (open.path.clone(), open.line, open.side, open.editing.clone(), open.keep.clone());
         self.keep_words(&keep, "", cx);
         if let Some(panel) = self.pull_panel_mut() {
-            panel.note_box = None;
+            panel.note_boxes.retain(|open| open.keep != keep);
         }
         if self.fleet.is_none() {
             let notes = self.panes.notes.entry(key).or_default();
@@ -267,7 +274,7 @@ impl JobView {
                 .iter()
                 .filter(|note| note.path == path && u64::from(note.line) == line && note.side == side && (panel.notes_resolved || note.status == NoteStatus::Open))
                 .collect();
-            let writing = panel.note_box.as_ref().filter(|open| open.path == path && open.index == index);
+            let writing = panel.note_boxes.iter().find(|open| open.editing.is_none() && open.path == path && open.index == index);
             if here.is_empty() && writing.is_none() {
                 continue;
             }
@@ -276,12 +283,12 @@ impl JobView {
             }
             let mut under: Vec<AnyElement> = Vec::new();
             for note in here {
-                match panel.note_box.as_ref().filter(|open| open.editing.as_deref() == Some(note.id.as_str())) {
+                match panel.note_boxes.iter().find(|open| open.editing.as_deref() == Some(note.id.as_str())) {
                     Some(open) => under.push(self.note_box_view(open, look, cx)),
                     None => under.push(self.note_card(note, look, cx)),
                 }
             }
-            if let Some(open) = writing.filter(|open| open.editing.is_none()) {
+            if let Some(open) = writing {
                 under.push(self.note_box_view(open, look, cx));
             }
             slots.under.insert(index, div().flex().flex_col().gap(look.length(token::SPACE_2)).children(under).into_any_element());
@@ -360,7 +367,7 @@ impl JobView {
     fn note_box_view(&self, open: &NoteBox, look: &Look, cx: &Context<Self>) -> AnyElement {
         let blank = open.input.read(cx).value().trim().is_empty();
         let field = div()
-            .id("note-box-field")
+            .id(SharedString::from(format!("note-box-field:{}", open.keep)))
             .px(look.length(token::SPACE_3))
             .py(look.length(token::SPACE_2))
             .rounded(look.length(token::RADIUS_MD))
@@ -368,17 +375,29 @@ impl JobView {
             .border_color(look.color(token::BORDER_DEFAULT))
             .bg(look.color(token::BG_SUNKEN))
             .child(Textarea::new(&open.input).appearance(false));
-        let cancel = labelled(small_button(look, "note-box-cancel", "Cancel", false, true).on_click(cx.listener(|this, _, _, cx| this.cancel_note(cx))), Role::Button, "Cancel");
-        let save = small_button(look, "note-box-save", "Save note", false, !blank)
+        let (cancel_key, save_key, sent_key) = (open.keep.clone(), open.keep.clone(), open.keep.clone());
+        let cancel = labelled(
+            small_button(look, SharedString::from(format!("note-box-cancel:{}", open.keep)), "Cancel", false, true).on_click(cx.listener(move |this, _, _, cx| this.cancel_note(&cancel_key, cx))),
+            Role::Button,
+            "Cancel",
+        );
+        let save = small_button(look, SharedString::from(format!("note-box-save:{}", open.keep)), "Save note", false, !blank)
             .border(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_DEFAULT))
             .bg(look.color(token::BG_RAISED))
             .text_color(look.color(token::FG_DEFAULT))
             .tooltip(tip("Save note \u{b7} \u{2318}\u{21a9}"))
-            .when(!blank, |button| button.on_click(cx.listener(|this, _, window, cx| this.save_note(window, cx))));
+            .when(!blank, |button| button.on_click(cx.listener(move |this, _, window, cx| this.save_note(&save_key, window, cx))));
         labelled(
             div()
-                .id("note-box")
+                .id(SharedString::from(format!("note-box:{}", open.keep)))
+                // ⌘↩ saves (`sendsOn`). Taken before the text area, which would put a line break in first.
+                .capture_action(cx.listener(move |this, action: &Enter, window, cx| {
+                    if action.secondary {
+                        cx.stop_propagation();
+                        this.save_note(&sent_key, window, cx);
+                    }
+                }))
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
