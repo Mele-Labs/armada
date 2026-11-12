@@ -149,6 +149,19 @@ impl EventEmitter<Asked> for Layer {}
 struct Said {
     text: SharedString,
     fault: bool,
+    /// A Job's title inside the line, as the words before it and after it: the title is what is cut
+    /// when the line is too long for the bar, and the whole line stays in the tooltip.
+    title: Option<(SharedString, SharedString, SharedString)>,
+}
+
+impl Said {
+    fn plain(text: impl Into<SharedString>, fault: bool) -> Said {
+        Said { text: text.into(), fault, title: None }
+    }
+
+    fn naming(lead: &str, title: &str, tail: &str, fault: bool) -> Said {
+        Said { text: format!("{lead}{title}{tail}").into(), fault, title: Some((lead.to_string().into(), title.to_string().into(), tail.to_string().into())) }
+    }
 }
 
 struct Menu {
@@ -353,7 +366,7 @@ impl Layer {
                 .await;
             if let Err(why) = wrote {
                 let _ = this.update(cx, |this, cx| {
-                    this.said = Some(Said { text: format!("Note not saved: {why}").into(), fault: true });
+                    this.said = Some(Said::plain(format!("Note not saved: {why}"), true));
                     cx.notify();
                 });
             }
@@ -610,8 +623,7 @@ impl Layer {
         for id in ids {
             self.changed(id, cx);
         }
-        let text = if new_job { format!("Job started: {title}") } else { format!("Sent to Job {title}") };
-        self.said = Some(Said { text: text.into(), fault: false });
+        self.said = Some(if new_job { Said::naming("Job started: ", title, "", false) } else { Said::naming("Sent to Job ", title, "", false) });
         cx.notify();
     }
 
@@ -619,7 +631,7 @@ impl Layer {
     pub fn refused(&mut self, title: &str, why: &str, cx: &mut Context<Self>) {
         self.sending = None;
         self.sending_ids.clear();
-        self.said = Some(Said { text: format!("Notes not sent to \"{title}\": {why}").into(), fault: true });
+        self.said = Some(Said::naming("Notes not sent to \"", title, &format!("\": {why}"), true));
         cx.notify();
     }
 
@@ -1100,11 +1112,30 @@ impl Layer {
             )
         });
         let said = self.said.as_ref().map(|said| {
+            // A chip as tall as the Sending one beside it, with room inside its edge; too long for the bar,
+            // the Job's title is cut and the whole line is in the tooltip.
+            let words = match &said.title {
+                Some((lead, title, tail)) => div()
+                    .flex()
+                    .min_w_0()
+                    .child(div().flex_none().child(lead.clone()))
+                    .child(div().min_w_0().truncate().child(title.clone()))
+                    .children((!tail.is_empty()).then(|| div().flex_none().child(tail.clone()))),
+                None => div().min_w_0().truncate().child(said.text.clone()),
+            };
             labelled(
                 div()
                     .id("annotate-said")
+                    .flex()
+                    .items_center()
+                    .min_w_0()
+                    .max_w(look.length(token::SPACE_12) * 9.)
+                    .h(look.length(token::H_CONTROL))
+                    .px(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_LG))
                     .text_color(look.color(if said.fault { token::ERROR } else { token::FG_MUTED }))
-                    .child(said.text.clone()),
+                    .tooltip(tip(said.text.clone()))
+                    .child(words),
                 Role::Status,
                 said.text.clone(),
             )
