@@ -42,6 +42,8 @@ impl JobView {
                 .tooltip(tip("Go to what waits"))
                 .children(planned.then(|| div().child("Plan")))
                 .child(glyph(look, "arrow-down", Size::Small, look.color(token::STATUS_AWAITING_REVIEW)))
+                // The press is the chip's alone: a row under it would take the keys, then scroll out of view.
+                .block_mouse_except_scroll()
                 .on_click(cx.listener(move |this, _, window, cx| {
                     if let Some(page) = this.pages.get(&job) {
                         page.list.scroll_to(ListOffset { item_ix: page.entry(page.items), offset_in_item: gpui::px(0.) });

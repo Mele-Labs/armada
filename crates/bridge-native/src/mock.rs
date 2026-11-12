@@ -637,7 +637,8 @@ fn mock_act(item: &WaitingItem, job: &str) -> NeedsYouAct {
         WaitingSource::Document => NeedsYouAct::OpenDocument { path: named(DOCUMENT_ITEM_PREFIX) },
         WaitingSource::Draft => NeedsYouAct::OpenDraft { row: named("draft:") },
         _ if !item.options.is_empty() => NeedsYouAct::Answer { options: item.options.clone(), other: true },
-        _ if !item.steps.is_empty() => NeedsYouAct::Steps { steps: item.steps.clone(), command: command.clone() },
+        // A restart is the band's key even where the agent gave steps, as Classic's `restartOf` reads it.
+        _ if !item.steps.is_empty() && command.as_deref().and_then(mock_restart).is_none() => NeedsYouAct::Steps { steps: item.steps.clone(), command: command.clone() },
         _ => {
             let words = matches!(item.source, WaitingSource::Agent | WaitingSource::Replied);
             match &item.act {

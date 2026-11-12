@@ -181,7 +181,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             Ok(())
         }
         Verb::Press => {
-            let at = find(step, window, cx)?.bounds.center();
+            let at = aim(&find(step, window, cx)?);
             press(MouseButton::Left, at, window, cx);
             Ok(())
         }
@@ -215,7 +215,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         }
         Verb::Type(text) => {
             // The press focuses the box; each letter then goes in as the platform's input method would.
-            let at = find(step, window, cx)?.bounds.center();
+            let at = aim(&find(step, window, cx)?);
             press(MouseButton::Left, at, window, cx);
             for ch in text.chars() {
                 let key = if ch == ' ' { "space".to_string() } else { ch.to_string() };
@@ -248,7 +248,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .rev()
                 .find(|one| one.role == gpui::Role::Button && one.name == on && card.bounds.contains(&one.bounds.center()))
                 .ok_or_else(|| Missed(format!("no button named \"{on}\" in \"{article}\"")))?;
-            press(MouseButton::Left, button.bounds.center(), window, cx);
+            press(MouseButton::Left, aim(button), window, cx);
             Ok(())
         }
         Verb::RightOpen(role, on) => {
@@ -258,7 +258,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .try_global::<LabelBook>()
                 .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
                 .ok_or_else(|| Missed(format!("nothing named \"{on}\" to press")))?;
-            press(MouseButton::Right, drawn.bounds.center(), window, cx);
+            press(MouseButton::Right, aim(&drawn), window, cx);
             Ok(())
         }
         Verb::Wheel(role, on, by) => {
@@ -341,7 +341,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             let at = cx
                 .try_global::<LabelBook>()
                 .and_then(|book| book.find(window.window_handle().window_id(), role, name))
-                .map(|drawn| drawn.bounds.center())
+                .map(aim)
                 .ok_or_else(|| Missed(format!("nothing named \"{name}\" to press")))?;
             press(MouseButton::Left, at, window, cx);
             Ok(())
@@ -490,6 +490,11 @@ pub fn press_row(label: &str, window: &mut Window, cx: &mut App) {
     if let Some(at) = at {
         press(MouseButton::Left, at, window, cx);
     }
+}
+
+/// Where a person presses it: the middle of the part a clipping pane lets show, as Wheel aims.
+fn aim(drawn: &Drawn) -> Point<Pixels> {
+    if drawn.shown.size.width > px(0.) && drawn.shown.size.height > px(0.) { drawn.shown.center() } else { drawn.bounds.center() }
 }
 
 fn press(button: MouseButton, at: Point<Pixels>, window: &mut Window, cx: &mut App) {

@@ -215,6 +215,10 @@ impl JobView {
             cards.boxes.insert(box_key, area.clone());
         }
         area.update(cx, |area, cx| area.focus(window, cx));
+        // The box comes into view with the caret, as a focused box does in Classic.
+        if let Some(page) = self.shown.as_ref().and_then(|id| self.pages.get(id)).filter(|_| ix != SHEET) {
+            page.list.scroll_to_reveal_item(page.entry(ix));
+        }
         self.card_changed(ix, cx);
     }
 

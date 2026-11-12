@@ -327,6 +327,8 @@ pub struct JobView {
     open_group_set: Option<(bool, bool)>,
     /// The Needs you panel, so its keys work once focus is in it.
     dock_focus: FocusHandle,
+    /// A thread scroll key ran in the frame now drawing: a row it carries out of the list keeps the keys nearby.
+    scroll_keys: bool,
     /// The dialog a thread key opens to ask which card it goes to.
     confirm: Option<keys::Confirm>,
     /// The bar under agent messages: its responses, what was just copied, and the editor of a response.
@@ -430,8 +432,15 @@ impl JobView {
             this.visit(on, cx);
         }));
         // A press that takes away the thing the keys were on leaves them on nothing drawn, where no
-        // key reaches anything: they go to the message box, where a zone did not take them first.
+        // key reaches anything: they go to the message box, where a zone did not take them first. A row a
+        // scroll key carried out of the list hands them to what holds it, as Classic's focused row keeps them.
         subscriptions.push(cx.on_focus_lost(window, |this, window, cx| {
+            if std::mem::take(&mut this.scroll_keys) {
+                if let Some(near) = window.focus_lost_restore_target(cx) {
+                    window.focus(&near, cx);
+                    return;
+                }
+            }
             let keys = gpui::Focusable::focus_handle(this.composer.input.read(cx), cx);
             if this.composer.frame.contains(&keys, window) {
                 window.focus(&keys, cx);
@@ -476,6 +485,7 @@ impl JobView {
             pop: None,
             open_group_set: None,
             dock_focus: cx.focus_handle(),
+            scroll_keys: false,
             confirm: None,
             bar: bar::Bar::new(),
             fork: fork::Fork::default(),
@@ -783,11 +793,24 @@ impl JobView {
         cx.notify();
     }
 
-    fn on_page_up(&mut self, _: &PageUp, _: &mut Window, cx: &mut Context<Self>) {
+    /// Marks the next frame drawn, the one where a row this key moves out of the list stops being drawn.
+    fn scrolled_by_key(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.scroll_keys = true;
+        let view = cx.entity().downgrade();
+        window.on_next_frame(move |window, _| {
+            window.on_next_frame(move |_, cx| {
+                let _ = view.update(cx, |this, _| this.scroll_keys = false);
+            })
+        });
+    }
+
+    fn on_page_up(&mut self, _: &PageUp, window: &mut Window, cx: &mut Context<Self>) {
+        self.scrolled_by_key(window, cx);
         self.scroll_by(-0.9, cx);
     }
 
-    fn on_page_down(&mut self, _: &PageDown, _: &mut Window, cx: &mut Context<Self>) {
+    fn on_page_down(&mut self, _: &PageDown, window: &mut Window, cx: &mut Context<Self>) {
+        self.scrolled_by_key(window, cx);
         self.scroll_by(0.9, cx);
     }
 
@@ -809,14 +832,16 @@ impl JobView {
         }
     }
 
-    fn on_to_start(&mut self, _: &ToStart, _: &mut Window, cx: &mut Context<Self>) {
+    fn on_to_start(&mut self, _: &ToStart, window: &mut Window, cx: &mut Context<Self>) {
+        self.scrolled_by_key(window, cx);
         if let Some(page) = self.shown.as_ref().and_then(|id| self.pages.get(id)) {
             page.list.scroll_to(ListOffset { item_ix: 0, offset_in_item: gpui::px(0.) });
         }
         cx.notify();
     }
 
-    fn on_to_end(&mut self, _: &ToEnd, _: &mut Window, cx: &mut Context<Self>) {
+    fn on_to_end(&mut self, _: &ToEnd, window: &mut Window, cx: &mut Context<Self>) {
+        self.scrolled_by_key(window, cx);
         if let Some(id) = self.shown.clone() {
             self.pin(&id);
         }
