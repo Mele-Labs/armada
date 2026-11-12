@@ -54,6 +54,10 @@ fn shipped() -> Vec<(PathBuf, String)> {
     let mut found: Vec<PathBuf> = std::fs::read_dir(&dir)
         .expect("the shipped definitions are there")
         .map(|entry| entry.expect("a directory entry").path())
+        .filter(|path| {
+            let name = path.file_name().expect("a file").to_string_lossy();
+            !config::REPOSITORY_ONLY.contains(&name.as_ref())
+        })
         .collect();
     found.sort();
     found
@@ -74,12 +78,12 @@ fn every_shipped_workflow_definition_parses() {
         }
         seen += 1;
     }
-    assert!(seen >= 8, "eight workflows ship, and {seen} were read");
+    assert!(seen >= 9, "nine workflows ship, and {seen} were read");
 }
 
 /// **Which shipped workflows send their work out, read off the files.**
 ///
-/// Four of the eight produce a diff somebody merges and four produce something
+/// Five of the nine produce a diff somebody merges and four produce something
 /// somebody reads. Until a workflow could say so, all of them pushed a branch and
 /// opened a pull request for whatever was in the worktree — and the only thing
 /// standing between a design document and a pull request was this repository's
@@ -90,7 +94,7 @@ fn every_shipped_workflow_definition_parses() {
 /// everybody: a workflow that starts delivering opens pull requests for
 /// documents, and one that stops leaves a Job's diff on a branch nobody sees.
 #[test]
-fn four_shipped_workflows_send_their_work_out_and_four_do_not() {
+fn five_shipped_workflows_send_their_work_out_and_four_do_not() {
     let mut delivering: Vec<(String, String)> = Vec::new();
     let mut silent: Vec<String> = Vec::new();
     for (path, text) in shipped() {
@@ -112,11 +116,12 @@ fn four_shipped_workflows_send_their_work_out_and_four_do_not() {
         delivering,
         vec![
             (String::from("bug"), String::from("deliver")),
+            (String::from("create-workflow"), String::from("build")),
             (String::from("feature"), String::from("deliver")),
             (String::from("refactor"), String::from("handoff")),
             (String::from("revert"), String::from("handoff")),
         ],
-        "the four that produce a diff deliver, each on its last step",
+        "the five that produce a diff deliver, each on its last step",
     );
     assert_eq!(
         silent,
@@ -175,6 +180,7 @@ fn each_shipped_workflow_lands_in_what_it_is_for() {
         named,
         vec![
             ("bug", PullRequest),
+            ("create-workflow", PullRequest),
             ("design_plan", Document),
             ("feature", PullRequest),
             ("orchestrate", Report),
@@ -306,9 +312,10 @@ fn bug_and_feature_each_end_in_a_deliver_step() {
 /// A step with no gate is the one that ends the Job by itself: `uat`'s `writeback`.
 #[test]
 fn each_shipped_workflow_runs_the_steps_the_owner_settled() {
-    use core_model::StepGate::{self, DocumentApproved, JobsEnded, Merged, PlanApproved, WalkApproved};
-    let expected: [(&str, Vec<(&str, StepGate)>); 8] = [
+    use core_model::StepGate::{self, DocumentApproved, JobsEnded, Merged, PlanApproved, WalkApproved, YouApproved};
+    let expected: [(&str, Vec<(&str, StepGate)>); 9] = [
         ("bug", vec![("find_the_cause", PlanApproved), ("fix", WalkApproved), ("deliver", Merged)]),
+        ("create-workflow", vec![("quiz", PlanApproved), ("propose", YouApproved), ("build", Merged)]),
         ("design-plan", vec![("draft", DocumentApproved)]),
         ("feature", vec![("propose", PlanApproved), ("walk", WalkApproved), ("deliver", Merged)]),
         ("orchestrate", vec![("plan", PlanApproved), ("oversee", JobsEnded), ("summarise", DocumentApproved)]),

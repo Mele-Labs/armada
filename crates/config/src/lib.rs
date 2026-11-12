@@ -69,7 +69,7 @@ pub use amending::{
 pub use applying::{LifecycleFile, Lifecycles, Rank, Reach};
 pub use autonomy::{parse as parse_autonomy, AutonomyFile, AutonomyPiece, Autonomies};
 pub use catalogue::{
-    carried, fit, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile, Written,
+    carried, fit, REPOSITORY_ONLY, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile, Written,
     CARRIED_AT,
 };
 pub use error::{Disagreement, Fault, LoadError, Refusal, ResolveError, UnknownCheck};
