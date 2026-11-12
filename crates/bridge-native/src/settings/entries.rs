@@ -43,6 +43,8 @@ pub enum Body {
     Keyboard,
     /// The theme field, then the theme mods (`ThemeSettings`, `ModList`).
     Theme,
+    /// Every workflow Fleet runs, by where it is kept, each with its switch (`WorkflowManager`).
+    Workflows,
     /// The models the harness offers and the model each run starts on (`KitModels`).
     Models,
     /// A list of mods (`ModList`): All where no kind is named, else the mods of that kind, listed only while there is one.
@@ -93,6 +95,7 @@ pub const SECTIONS: &[Section] = &[
 /// Every entry this build draws, in Classic's order within each group.
 pub const ENTRIES: &[Entry] = &[
     Entry { id: "project:values", label: "Values", group: Group::Project, body: Body::ProjectValues },
+    Entry { id: "kit:workflows", label: "Workflows", group: Group::Kit, body: Body::Workflows },
     Entry { id: "kit:models", label: "Models", group: Group::Kit, body: Body::Models },
     Entry { id: "kit:prompts", label: "Prompts", group: Group::Kit, body: Body::Schema(&["prompts"]) },
     Entry { id: "kit:harness", label: "Harness", group: Group::Kit, body: Body::Schema(&["harness"]) },
@@ -168,7 +171,7 @@ pub(super) fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
         Body::Mods(None) => &["mods-all"],
         Body::Mods(Some(ipc::ModKind::Tracker)) => &["trackers"],
         Body::Mods(Some(_)) => &["fleet-mods"],
-        Body::Repository | Body::ProjectValues | Body::Keyboard => &[],
+        Body::Repository | Body::ProjectValues | Body::Keyboard | Body::Workflows => &[],
     };
     let mut words = vec![entry.label.to_string()];
     if let Body::Keyboard = entry.body {

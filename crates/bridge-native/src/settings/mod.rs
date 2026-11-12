@@ -14,5 +14,6 @@ mod theme;
 mod view;
 pub mod walk;
 mod wire;
+mod workflows;
 
 pub use screen::SettingsScreen;

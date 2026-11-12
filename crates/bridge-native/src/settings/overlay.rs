@@ -114,6 +114,8 @@ pub struct SettingsOverlay {
     pub mods: super::mods::ModRows,
     /// Settings → Models.
     pub models: super::models::ModelsPage,
+    /// Settings → Workflows.
+    pub workflows: super::workflows::WorkflowsPage,
     /// Where each slider's track was drawn last frame, by key, so a press reads as a figure.
     pub tracks: Rc<RefCell<BTreeMap<String, Bounds<Pixels>>>>,
     keys: Option<Subscription>,
@@ -194,6 +196,7 @@ impl SettingsOverlay {
             theme,
             mods: super::mods::ModRows::default(),
             models: super::models::ModelsPage::new(window, cx),
+            workflows: super::workflows::WorkflowsPage::new(window, cx),
             tracks: Rc::default(),
             keys: None,
             _typing: typing,
@@ -656,6 +659,9 @@ impl SettingsOverlay {
         if let Body::Models = shown.body {
             return self.model_stops(cx);
         }
+        if let Body::Workflows = shown.body {
+            return self.workflow_stops(cx);
+        }
         if let Body::Theme = shown.body {
             let mut stops = vec![self.theme.focus.clone()];
             stops.extend(self.mod_stops(super::mods::Page::Theme, cx));
@@ -708,8 +714,8 @@ impl SettingsOverlay {
         stops
     }
 
-    fn in_text(&self, window: &Window, cx: &App) -> bool {
-        self.query.read(cx).focus_handle(cx).is_focused(window) || self.theme.focus.is_focused(window) || self.models.filter_focused(window, cx) || self.typed.values().any(|typed| typed.focus(cx).is_focused(window))
+    pub(super) fn in_text(&self, window: &Window, cx: &App) -> bool {
+        self.query.read(cx).focus_handle(cx).is_focused(window) || self.theme.focus.is_focused(window) || self.models.filter_focused(window, cx) || self.workflows.filter_focused(window, cx) || self.typed.values().any(|typed| typed.focus(cx).is_focused(window))
             || self.scope.as_ref().is_some_and(|scope| scope.typed.values().any(|field| field.read(cx).focus_handle(cx).is_focused(window)))
     }
 
@@ -758,6 +764,9 @@ impl SettingsOverlay {
         }
         // Models' own keys: its filter, its rows, its switches, selects and efforts.
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Models) && self.models_key(key, window, cx) {
+            return true;
+        }
+        if self.shown(cx).is_some_and(|shown| shown.body == Body::Workflows) && self.workflows_key(key, window, cx) {
             return true;
         }
         // A mod row's arrows: open and shut what it holds, and move between rows.

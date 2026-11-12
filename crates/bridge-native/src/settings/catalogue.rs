@@ -36,7 +36,7 @@ pub enum Kind {
 /// One thing Settings holds.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Item {
-    /// `entry:<entry>`, `setting:<key>`, `theme`, `mod:<name>`, `connectors:<manifest>`, `model:<name>`, or a run's
+    /// `entry:<entry>`, `setting:<key>`, `theme`, `mod:<name>`, `connectors:<manifest>`, `model:<name>`, `workflow:<row>`, or a run's
     /// model or effort by its place on Models, `run:<n>` and `effort:<n>`.
     pub id: String,
     pub label: String,
@@ -110,6 +110,7 @@ impl SettingsOverlay {
                     }
                 }
                 Body::Models => items.extend(self.model_items(entry)),
+                Body::Workflows => items.extend(self.workflow_items(entry, cx)),
                 Body::Mods(None) | Body::ProjectValues | Body::Keyboard => {}
             }
         }
@@ -145,6 +146,14 @@ impl SettingsOverlay {
             }
         }
         items
+    }
+
+    /// Workflows: each row's switch, where it switches.
+    fn workflow_items(&self, entry: &'static Entry, cx: &App) -> Vec<Item> {
+        self.workflow_switches(cx)
+            .into_iter()
+            .map(|(key, said, on)| item(entry, format!("workflow:{key}"), said, vec!["workflow".into(), "switch".into()], Kind::Toggle(on)))
+            .collect()
     }
 
     /// A page's mods, each its switch.
@@ -183,6 +192,7 @@ impl SettingsOverlay {
                 let Some(yml_off) = self.wire.repositories(cx).unwrap_or_default().into_iter().find(|(id, _, _)| id == manifest).map(|(_, _, off)| off) else { return };
                 self.switch_connectors(manifest, yml_off, on, window, cx);
             }
+            (Some(("workflow", key)), Applied::Toggle(on)) => self.apply_workflow(key, on, window, cx),
             (Some(("model", name)), Applied::Toggle(on)) => self.switch_model(name, on, window, cx),
             (Some(("run", at)), Applied::Pick(word)) => {
                 if let Some(run) = at.parse::<usize>().ok().and_then(|at| super::models::RUNS.get(at)) {

@@ -106,6 +106,23 @@ pub struct Model {
     pub on: bool,
 }
 
+/// A Kit column: a raised panel that scrolls itself (`.armada-kit-browser__list`).
+pub(super) fn panel(look: &Look, id: &'static str) -> gpui::Stateful<gpui::Div> {
+    div()
+        .id(id)
+        .flex()
+        .flex_col()
+        .gap(look.length(token::SPACE_3))
+        .min_w_0()
+        .min_h_0()
+        .h_full()
+        .rounded(look.length(token::RADIUS_LG))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_DEFAULT))
+        .bg(look.color(token::BG_RAISED))
+        .overflow_y_scroll()
+}
+
 /// What the page draws (`KitModelsRead`).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Read {
@@ -530,21 +547,6 @@ impl SettingsOverlay {
 
     // ---- drawn --------------------------------------------------------------------------------
 
-    fn panel(look: &Look, id: &'static str) -> gpui::Stateful<gpui::Div> {
-        div()
-            .id(id)
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_3))
-            .min_w_0()
-            .min_h_0()
-            .h_full()
-            .rounded(look.length(token::RADIUS_LG))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_DEFAULT))
-            .bg(look.color(token::BG_RAISED))
-            .overflow_y_scroll()
-    }
 
     /// The list column and the detail beside it, as Classic's Kit browser lays them out.
     pub(super) fn render_models(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
@@ -556,7 +558,7 @@ impl SettingsOverlay {
             Role::SearchInput,
             "Filter Models",
         );
-        let mut list = Self::panel(look, "models-list").flex_none().w(look.length(token::W_GUIDE_LIST)).p(look.length(token::SPACE_3)).child(filter);
+        let mut list = panel(look, "models-list").flex_none().w(look.length(token::W_GUIDE_LIST)).p(look.length(token::SPACE_3)).child(filter);
         match &read {
             Read::Loading => {
                 for n in 0..4 {
@@ -593,7 +595,7 @@ impl SettingsOverlay {
                 list = list.child(self.render_runs(models, off, look, window, cx));
             }
         }
-        let detail = Self::panel(look, "models-detail").flex_1().p(look.length(token::SPACE_4)).children(row.map(|row| self.render_model_detail(&row, look)));
+        let detail = panel(look, "models-detail").flex_1().p(look.length(token::SPACE_4)).children(row.map(|row| self.render_model_detail(&row, look)));
         div()
             .id("settings-page")
             .flex_1()

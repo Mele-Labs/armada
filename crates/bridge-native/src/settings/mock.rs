@@ -24,8 +24,16 @@ pub struct MockFleet {
     pub mods: Vec<ipc::ModSummary>,
     /// The checked sheet of each theme mod that is on and valid.
     pub sheets: BTreeMap<String, String>,
+    /// What `GET /workflows` answers on All (`settings_workflows`).
+    pub workflows: Vec<ipc::WorkflowSummary>,
     /// What `GET /models` answers: Classic's mock models (`apps/desktop/src/renderer/src/mock/kit-models.ts`).
     pub models: ipc::ModelChoices,
+}
+
+/// What Fleet runs on All, as Classic's Workflows page is walked on (`mock/workflows-managed.ts`): Armada's four,
+/// armada's own copy of `feature`, sample-web's own `bug`, and Yours `docs_only`.
+pub fn settings_workflows() -> Vec<ipc::WorkflowSummary> {
+    ipc::decode("workflows", include_bytes!("mock-workflows.json")).unwrap_or_else(|why| panic!("the mock workflows do not decode: {why}"))
 }
 
 /// Classic's four mock models, as Fleet's `list_models` would answer them.
@@ -91,7 +99,7 @@ impl MockFleet {
                 ..ValuesSet::default()
             });
         }
-        MockFleet { list: with_models(settings()), models: kit_models(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
+        MockFleet { list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),

@@ -1,0 +1,80 @@
+[
+ {
+  "id": "feature",
+  "name": "feature",
+  "version": 1,
+  "steps": [],
+  "manifest_id": "armada",
+  "source": "repository",
+  "for_requests": "adding or changing something a person uses",
+  "lands": "pull_request",
+  "file": ".armada/workflows/feature.yml",
+  "overrides": [
+   {
+    "source": "armada",
+    "file": "[armada]/feature.yml"
+   }
+  ]
+ },
+ {
+  "id": "bug",
+  "name": "bug",
+  "version": 1,
+  "steps": [],
+  "manifest_id": "armada",
+  "source": "armada",
+  "for_requests": "something that worked and no longer does",
+  "lands": "pull_request",
+  "file": "[armada]/bug.yml"
+ },
+ {
+  "id": "design_plan",
+  "name": "design_plan",
+  "version": 1,
+  "steps": [],
+  "manifest_id": "armada",
+  "source": "armada",
+  "for_requests": "a design to settle before anything is built",
+  "lands": "document",
+  "file": "[armada]/design_plan.yml"
+ },
+ {
+  "id": "prototype",
+  "name": "prototype",
+  "version": 1,
+  "steps": [],
+  "manifest_id": "armada",
+  "source": "armada",
+  "for_requests": "a throwaway build to try an idea",
+  "lands": "spike",
+  "file": "[armada]/prototype.yml"
+ },
+ {
+  "id": "docs_only",
+  "name": "docs_only",
+  "version": 1,
+  "steps": [],
+  "manifest_id": "armada",
+  "source": "kit",
+  "for_requests": "a change to words only",
+  "lands": "pull_request",
+  "file": "~/.armada/kit/workflows/docs_only.yml"
+ },
+ {
+  "id": "bug",
+  "name": "bug",
+  "version": 1,
+  "steps": [],
+  "manifest_id": "sample-web",
+  "source": "repository",
+  "for_requests": "something that worked and no longer does",
+  "lands": "pull_request",
+  "file": ".armada/workflows/bug.yml",
+  "overrides": [
+   {
+    "source": "armada",
+    "file": "[armada]/bug.yml"
+   }
+  ]
+ }
+]

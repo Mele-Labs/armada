@@ -100,6 +100,14 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/settings/save".into(), said), "SettingsList", cx))
     }
 
+    /// What Fleet runs, every repository's, as the connection last read `GET /workflows`; `None` before it has.
+    pub fn workflows(&self, cx: &App) -> Option<Vec<ipc::WorkflowSummary>> {
+        match self {
+            Wire::Live(fleet) => fleet.read(cx).held().workflows.clone(),
+            Wire::Mock(mock) => Some(mock.workflows.clone()),
+        }
+    }
+
     /// `GET /models`: the models the harness offers, and the model a run that names none is given.
     pub fn models(&mut self, cx: &App) -> Task<Result<ipc::ModelChoices, Refused>> {
         if let Wire::Mock(mock) = self {

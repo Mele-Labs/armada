@@ -906,6 +906,9 @@ impl SettingsOverlay {
         if shown.is_some_and(|one| one.body == Body::Models) {
             return self.render_models(look, window, cx);
         }
+        if shown.is_some_and(|one| one.body == Body::Workflows) {
+            return self.render_workflows(look, window, cx);
+        }
         let mut cards: Vec<AnyElement> = Vec::new();
         match shown.map(|one| one.body) {
             Some(Body::Schema(ids)) => {
@@ -924,7 +927,7 @@ impl SettingsOverlay {
                 cards.push(self.render_theme(look, window, cx));
                 cards.extend(self.render_mods(super::mods::Page::Theme, look, window, cx));
             }
-            Some(Body::Models) => {}
+            Some(Body::Models | Body::Workflows) => {}
             Some(body @ Body::Mods(_)) => cards.extend(super::mods::page_of(body).and_then(|page| self.render_mods(page, look, window, cx))),
             None => {}
         }
@@ -951,6 +954,9 @@ impl SettingsOverlay {
         if self.shown(cx).is_some_and(|one| one.body == Body::Models) {
             self.read_models(cx);
             self.model_keys(cx);
+        }
+        if self.shown(cx).is_some_and(|one| one.body == Body::Workflows) {
+            self.workflow_keys(cx);
         }
         let look = cx.look();
         let room = crate::room::of(window, cx);
