@@ -336,7 +336,7 @@ pub static WALKS: &[Walk] = &[
     },
     Walk {
         name: "native-terminal",
-        title: "A terminal Job, from ⌘T, the sheet and the palette",
+        title: "A new Job from ⌘T and the palette, on its thread; its shells from the +",
         screen: Screen::App,
         scenario: "terminal-job",
         steps: &terminal::STEPS,

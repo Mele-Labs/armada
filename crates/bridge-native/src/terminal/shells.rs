@@ -46,13 +46,10 @@ pub enum Place {
     Folder(String),
 }
 
-/// What a terminal Job is started with: where, and the sheet's title, model and effort where it had them.
+/// What a quick Job is started with: where, and the size a shell would open at.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Start {
     pub place: Place,
-    pub title: Option<String>,
-    pub model: Option<String>,
-    pub effort: Option<String>,
     /// Its first shell's size.
     pub size: Cells,
 }
@@ -76,8 +73,8 @@ pub trait Shells {
     fn rename(&self, job: &str, terminal: &str, name: &str, cx: &mut App) -> Task<Result<ListedTerminal, String>>;
     /// A terminal Job: no words, its first shell open.
     fn start(&self, start: Start, cx: &mut App) -> Task<Result<Started, String>>;
-    /// Whether `start` can start a terminal Job here: ⌘T, the sheet's Terminal kind and the palette's New
-    /// terminal are offered only where it can.
+    /// Whether `start` can start a quick Job here: ⌘T and the palette's New Job here are offered only where
+    /// it can.
     fn starts(&self) -> bool;
     /// A command run where Job `job` works, as `$SHELL -lc` runs it, on a terminal of `size`.
     fn run(&self, job: &str, command: &str, size: Cells, cx: &mut App) -> Task<Result<SessionRunUnderway, String>>;
@@ -570,15 +567,15 @@ pub fn hold_live(fleet: &gpui::Entity<crate::fleet::FleetConnection>, cx: &mut A
 
 /// A walk's shells: one open on the first mock Job, and each terminal Job started is the scenario's fresh one.
 pub fn hold_walk(cx: &mut App) {
-    cx.set_global(Held(Rc::new(Mock::with(&[("mock-01", 1)]).starting_as(&["s-7c41e2a9"; 4]))));
+    cx.set_global(Held(Rc::new(Mock::with(&[("mock-01", 1)]).starting_as(&["s-7c41e2a9"; 8]))));
 }
 
 pub fn of(cx: &App) -> Option<Rc<dyn Shells>> {
     cx.try_global::<Held>().map(|held| held.0.clone())
 }
 
-/// What `POST /sessions/terminal/start` is sent for `start`. No title typed leaves Fleet to name it,
-/// `Terminal in <folder>`.
+/// What `POST /sessions/terminal/start` is sent for `start`. No title is sent: the Job takes one from its
+/// first message.
 fn start_body(start: Start) -> StartTerminalJob {
     let (manifest_id, dir) = match start.place {
         Place::Repository(id) => (Some(ManifestId::carried(id)), None),
@@ -587,9 +584,9 @@ fn start_body(start: Start) -> StartTerminalJob {
     StartTerminalJob {
         manifest_id,
         dir,
-        title: start.title.filter(|title| !title.trim().is_empty()),
-        model: start.model,
-        effort: start.effort,
+        title: None,
+        model: None,
+        effort: None,
         mode: None,
         project: None,
         cols: Some(start.size.cols),
@@ -622,8 +619,8 @@ mod tests {
         assert!(printed.contains("Cargo.toml"), "{printed:?}");
     }
 
-    fn start(place: Place, title: Option<&str>) -> Start {
-        Start { place, title: title.map(str::to_string), model: None, effort: None, size: Cells { cols: 120, rows: 32 } }
+    fn start(place: Place) -> Start {
+        Start { place, size: Cells { cols: 120, rows: 32 } }
     }
 
     #[test]
@@ -633,14 +630,14 @@ mod tests {
 
     #[test]
     fn a_folder_start_sends_the_folder_and_leaves_the_title_to_fleet() {
-        let body = start_body(start(Place::Folder("/work/shop".into()), Some("  ")));
+        let body = start_body(start(Place::Folder("/work/shop".into())));
         assert_eq!((body.manifest_id, body.dir.as_deref(), body.title), (None, Some("/work/shop"), None));
         assert_eq!((body.cols, body.rows), (Some(120), Some(32)));
     }
 
     #[test]
-    fn a_repository_start_sends_its_manifest_and_a_typed_title() {
-        let body = start_body(start(Place::Repository("armada".into()), Some("Logs")));
-        assert_eq!((body.manifest_id.as_ref().map(|id| id.as_str()), body.dir, body.title.as_deref()), (Some("armada"), None, Some("Logs")));
+    fn a_repository_start_sends_its_manifest() {
+        let body = start_body(start(Place::Repository("armada".into())));
+        assert_eq!((body.manifest_id.as_ref().map(|id| id.as_str()), body.dir, body.title), (Some("armada"), None, None));
     }
 }
