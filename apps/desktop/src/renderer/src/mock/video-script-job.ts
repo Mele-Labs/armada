@@ -97,7 +97,11 @@ function job(stage: 1 | 2 | "reading"): Session {
             VIDEO_SCRIPT_R1,
             VIDEO_SCRIPT_R2,
           ],
-    asked: !reading,
+    ...(reading
+      ? {}
+      : {
+          asked: true as const,
+        }),
     revision: reading ? "2" : String(stage),
     kept: ago(1),
   };
