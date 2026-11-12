@@ -740,9 +740,6 @@ impl JobView {
             // Esc puts the report away, as the dialog's Cancel does.
             self.close_report(window, cx);
             cx.stop_propagation();
-        } else if key == "escape" && self.fold_bands(false, window, cx) {
-            // Esc anywhere in the Job folds an open end or waiting panel first.
-            cx.stop_propagation();
         } else if key == "escape" {
             // Nothing over the box to put away: Esc gives the keys back to the list.
             let list = self.list.read(cx).focus_handle().clone();

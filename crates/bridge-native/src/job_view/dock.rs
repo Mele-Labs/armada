@@ -398,7 +398,7 @@ impl JobView {
     /// The thread dims while the panel is up; a press on it, or a scroll of it, folds the panel so the
     /// thread can be read (his word, 10 Nov). The scroll goes on to the thread.
     pub(super) fn render_scrim(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
-        if !self.needs_up(id, cx) && !self.band_up(id, cx) {
+        if !self.needs_up(id, cx) {
             return None;
         }
         let look = cx.look();
@@ -415,9 +415,7 @@ impl JobView {
     }
 
     fn fold_over_thread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.fold_bands(false, window, cx) {
-            self.set_needs(false, None, window, cx);
-        }
+        self.set_needs(false, None, window, cx);
     }
 
     /// The band, and over it the panel when it is open.
