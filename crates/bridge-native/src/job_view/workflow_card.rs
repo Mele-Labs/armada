@@ -144,11 +144,19 @@ impl JobView {
         });
     }
 
+    /// The workflow change Fleet (or the mock scenario) holds by id.
+    fn workflow_change<'a>(&'a self, change: i64, cx: &'a gpui::App) -> Option<&'a WorkflowChange> {
+        match &self.fleet {
+            Some(fleet) => fleet.read(cx).held().workflow_changes.get(&change),
+            None => self.mock_changes.get(&change),
+        }
+    }
+
     /// The draft card's body for a proposed workflow whose steps Fleet read. `None` draws the text.
     pub(super) fn workflow_card(&self, ix: usize, key: &str, change: Option<i64>, text: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let fleet = self.fleet.as_ref()?;
-        let card = card_of(change.and_then(|change| fleet.read(cx).held().workflow_changes.get(&change)), text)?;
+        let card = card_of(change.and_then(|change| self.workflow_change(change, cx)), text)?;
         let head = div()
+            .id(SharedString::from(format!("head:{key}")))
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_3))
@@ -199,7 +207,7 @@ impl JobView {
                 .flex_col()
                 .min_w_0()
                 .gap(look.length(token::SPACE_3))
-                .child(head)
+                .child(labelled(head, Role::Heading, card.name.clone()))
                 .children(for_requests)
                 .child(div().flex().flex_col().min_w_0().children(lanes))
                 .into_any_element(),
@@ -249,13 +257,15 @@ impl JobView {
         };
         let ends = lane.ends.clone().map(|ends| {
             let row = div()
+                .id(SharedString::from(format!("ends:{key}:{}", lane.id)))
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_2))
                 .text_size(look.length(token::TEXT_XS))
                 .line_height(look.length(token::LEADING_XS))
                 .text_color(look.color(token::FG_DEFAULT));
-            match lane.gate {
+            let named = ends.clone();
+            let row = match lane.gate {
                 Some(gate) => row
                     .child(
                         labelled(
@@ -269,11 +279,14 @@ impl JobView {
                         ),
                     )
                     .child(SharedString::from(ends)),
-                None => row.child(SharedString::from(ends)),
-            }
+                // A step no gate ends keeps the glyph's column, so every lane's words start at one edge.
+                None => row.child(div().flex_none().size(look.length(token::SPACE_3))).child(SharedString::from(ends)),
+            };
+            labelled(row, Role::Label, named)
         });
         let facts = lane.facts.iter().map(|fact| {
-            div()
+            let row = div()
+                .id(SharedString::from(format!("fact:{key}:{}:{}", lane.id, fact.glyph)))
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_2))
@@ -281,7 +294,8 @@ impl JobView {
                 .line_height(look.length(token::LEADING_XS))
                 .text_color(look.color(token::FG_MUTED))
                 .child(glyph(look, fact.glyph, Size::Small, look.color(token::KIND_DELIVERY)))
-                .child(fact.said)
+                .child(fact.said);
+            labelled(row, Role::Label, fact.said)
         });
         let toggle = lane.instructions.as_ref().map(|instructions| {
             let name = format!("What the agent is told on {}", lane.label);
@@ -292,20 +306,24 @@ impl JobView {
                 .items_start()
                 .gap(look.length(token::SPACE_2))
                 .child(labelled(
+                    // The ghost button's own padding pulled back, so its words start where the lane's do.
                     button(look, SharedString::from(format!("told:{told_key}")), "What the agent is told", Tone::Ghost, false, None, true)
+                        .ml(-look.length(token::SPACE_3))
                         .on_click(cx.listener(move |this, _, _, cx| this.flip_in_card(ix, &flip, cx))),
                     Role::Button,
                     name,
                 ))
                 .children(told.then(|| {
-                    div()
+                    let instructions_name = format!("Instructions for {}", lane.label);
+                    labelled(div()
+                        .id(SharedString::from(format!("instructions:{told_key}")))
                         .w_full()
                         .min_w_0()
                         .px(look.length(token::SPACE_3))
                         .py(look.length(token::SPACE_2))
                         .rounded(look.length(token::RADIUS_SM))
                         .bg(look.color(token::BG_BASE))
-                        .child(self.prose(format!("{told_key}:text"), instructions, look))
+                        .child(self.prose(format!("{told_key}:text"), instructions, look)), Role::Group, instructions_name)
                 }))
         });
         let body = div()

@@ -691,6 +691,22 @@ pub static WALKS: &[Walk] = &[
             step("Esc shuts the palette; the list is as it was and the keys are back where they were", Verb::Key("escape"), "textbox", "Message"),
         ],
     },
+    Walk {
+        name: "workflow-card",
+        title: "A proposed workflow's card",
+        screen: Screen::Jobs,
+        scenario: "workflow-card",
+        steps: &[
+            step("A press on the Job opens its thread, which ends on the workflow it proposes", Verb::Press, "row", "Audit the docs index"),
+            step("A press in the thread gives it the keys", Verb::Press, "region", "Thread"),
+            step("Page up reaches the card's head: the workflow's name, its id and where it is kept, then the requests it is for", Verb::Keys(&["pageup", "pageup"]), "heading", "Work the notes"),
+            step("Each lane says what ends its step, with the gate's glyph", Verb::Look, "label", "Ends when you approve the walk"),
+            step("Page down reaches the last lane, where how the work is delivered is a line of its own", Verb::Keys(&["pagedown", "pagedown"]), "label", "Asks how to deliver"),
+            step("What the agent is told opens under its step", Verb::Open("button", "What the agent is told on Refine and deliver"), "group", "Instructions for Refine and deliver"),
+            step("Approve saves the workflow", Verb::Look, "button", "Approve"),
+            step("Dismiss puts it aside", Verb::Look, "button", "Dismiss"),
+        ],
+    },
 ];
 
 pub fn named(name: &str) -> Option<&'static Walk> {
