@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, AnyElement, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Role, SharedString, Subscription, Window};
+use gpui::{div, prelude::*, AnyElement, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Pixels, Role, SharedString, Subscription, Window};
 use gpui_component::input::InputEvent;
 use ipc::{
     BuildSource, ConfirmWaiting, DismissWaiting, DoneWaiting, Lapsed, NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSectionKind,
@@ -488,17 +488,23 @@ impl JobView {
         );
         let high = look.length(token::SPACE_6) + look.length(token::SPACE_1);
         let edge = look.length(token::BORDER_WIDTH);
+        // Folded, the band sits inside the frame's edge; open, it rises out over it. gpui clips a child
+        // to a square box, so the key at the band's end takes the band's corner itself.
+        let corner = if open { look.length(token::RADIUS_LG) } else { look.length(token::RADIUS_LG) - edge };
+        let last = restarts.len().checked_sub(1);
         let band = div()
             .flex_none()
             .h(high)
             .flex()
             .items_center()
-            .rounded_t(look.length(token::RADIUS_LG) - edge)
+            .rounded_t(corner)
             .bg(hue)
             .text_color(look.color(token::FG_INVERSE))
             .overflow_hidden()
             .child(trigger)
-            .children(restarts.into_iter().map(|(command, build, adopt, label)| self.restart_key(id, command, build, adopt, label, look, cx)));
+            .children(restarts.into_iter().enumerate().map(|(at, (command, build, adopt, label))| {
+                self.restart_key(id, command, build, adopt, label, (Some(at) == last).then_some(corner), look, cx)
+            }));
         let keys = self.pages.get(id).map(|page| page.keys.clone());
         if let Some(keys) = &keys {
             keys.mark("question:");
@@ -520,7 +526,7 @@ impl JobView {
                         .right(-edge)
                         .flex()
                         .flex_col()
-                        .child(band.rounded_t(look.length(token::RADIUS_LG)))
+                        .child(band)
                         .child(panel),
                 ),
                 None => slot.child(band),
@@ -533,7 +539,7 @@ impl JobView {
     /// folded or open. Nothing starts it again while it runs or once it passed; a failure leaves it
     /// to press again.
     #[allow(clippy::too_many_arguments)]
-    fn restart_key(&self, id: &str, command: String, build: BuildSource, adopt: bool, label: SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn restart_key(&self, id: &str, command: String, build: BuildSource, adopt: bool, label: SharedString, corner: Option<Pixels>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let mark = self.dock_of(id).and_then(|dock| dock.runs.get(&command).cloned());
         let held = matches!(mark, Some(RunMark::Running | RunMark::Passed));
         let (icon, said) = mark.as_ref().map_or(("rotate-cw", SharedString::from(command.clone())), RunMark::look);
@@ -549,6 +555,7 @@ impl JobView {
                 .gap(look.length(token::SPACE_2))
                 .px(look.length(token::SPACE_3))
                 .bg(accent)
+                .when_some(corner, |key, corner| key.rounded_tr(corner))
                 .text_size(look.length(token::TEXT_XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .when(!held, move |key| key.cursor_pointer().hover(move |style| style.bg(hover)))
