@@ -43,10 +43,11 @@ pub static STEPS: [Step; 35] = [
 ];
 
 /// The start flow: a start he makes himself runs at once, and Draft is the one way it is held on its start card.
-pub static START_FLOW: [Step; 12] = [
+pub static START_FLOW: [Step; 13] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("Typing reads the repository: the mark turns to a spinner", Verb::Typed("Fix the flaky login test in sample-api"), "img", "Repository, finding"),
     answer("Fleet found sample-api in the words: the picker names it", "found", "combobox", "Repository sample-api"),
+    step("The card under the sheet follows the picker: it reads New Job in sample-api, where ⌘T would start", Verb::Hover, "button", "New Job in sample-api"),
     step("Draft stands beside Start; its tooltip says nothing runs until Start is pressed on its card", Verb::Hover, "button", "Draft"),
     press_on("Start runs the Job at once: the button turns to Starting", "button", "Start", "button", "Starting"),
     answer("Fleet took it: the sheet goes and the Job is working", "answer-start-job", "row", "Fix the flaky login test in sample-api"),

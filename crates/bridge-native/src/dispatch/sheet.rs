@@ -37,8 +37,8 @@ pub enum Asked {
     ReadWait { job: String, words: String },
     Start { words: String, repository: String, model: Option<String>, effort: Option<String>, held: bool },
     Queue { words: String, repository: String, model: Option<String>, effort: Option<String> },
-    /// New Job here, from the card under the sheet: what ⌘T starts. The sheet has shut.
-    JobHere,
+    /// New Job here, from the card under the sheet: what ⌘T starts, in the repository the picker named if it did. The sheet has shut.
+    JobHere(Option<String>),
 }
 
 impl EventEmitter<Asked> for DispatchSheet {}
@@ -158,13 +158,28 @@ impl DispatchSheet {
         cx.notify();
     }
 
+    /// The repository the picker names, chosen by the words or by hand. Where the rail is scoped it names the title bar's, not one picked.
+    pub(super) fn named_repository(&self) -> Option<String> {
+        if self.face.reading == Reading::Scoped {
+            return None;
+        }
+        self.face.chosen().map(|chip| chip.name.to_string())
+    }
+
+    /// Where the card under the sheet, and ⌘T over it, start a Job: the repository the picker names, else where the title bar is.
+    pub(super) fn here_in(&self) -> Option<SharedString> {
+        let here = self.here.as_ref()?;
+        Some(self.named_repository().map_or_else(|| here.clone(), SharedString::from))
+    }
+
     /// The card under the sheet: the sheet shuts, and the Job ⌘T starts is asked for.
     pub(super) fn job_here(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.here.is_none() {
             return;
         }
+        let picked = self.named_repository();
         self.close(window, cx);
-        cx.emit(Asked::JobHere);
+        cx.emit(Asked::JobHere(picked));
     }
 
     pub fn is_open(&self) -> bool {

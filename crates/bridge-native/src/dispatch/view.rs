@@ -98,9 +98,9 @@ impl Render for DispatchSheet {
 
 impl DispatchSheet {
     /// New Job in <project>: a card of its own under the sheet that starts what ⌘T starts. Tab from the
-    /// sheet reaches it, and Enter or Space starts it. None where the title bar names nowhere.
+    /// sheet reaches it, and Enter or Space starts it. It names the repository the picker names, else the title bar's. None where the title bar names nowhere.
     fn here_card(&self, window: &Window, cx: &Context<Self>) -> Option<gpui::AnyElement> {
-        let name = self.here.clone()?;
+        let name = self.here_in()?;
         let look = cx.look();
         let focused = self.here_key.is_focused(window);
         let said = format!("New Job in {name}");
