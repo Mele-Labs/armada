@@ -4,7 +4,7 @@
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
 use ipc::{ThreadItem, ToolSubagent, ToolSubagentState};
 
-use super::rows::{elapsed_words, glyph, mono, tip, Size};
+use super::rows::{glyph, tip, Size};
 use super::{JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -74,8 +74,6 @@ impl JobView {
 
     /// The subagents running now: a card at the foot with the count, and the list behind a press.
     pub(super) fn subagents_card(&self, ix: usize, items: &[ThreadItem], page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        // The clock a running call counts on, so on mock data a subagent reads its own seconds.
-        let now = super::runs::running_now(self.shown.as_deref().unwrap_or_default());
         let running: Vec<&ToolSubagent> = items
             .iter()
             .filter_map(|item| match item {
@@ -118,59 +116,8 @@ impl JobView {
                 .flex_col()
                 .border_t(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_SUBTLE))
-                .children(running.iter().map(|subagent| {
-                    let ran = elapsed_words(subagent.since.as_str(), &now.to_rfc3339());
-                    let mark_said = match &subagent.agent_type {
-                        Some(kind) => format!("Subagent running \u{b7} {kind}"),
-                        None => "Subagent running".to_string(),
-                    };
-                    labelled(
-                        div()
-                            .id(SharedString::from(format!("subagent-live:{}", subagent.id)))
-                            .cursor_pointer()
-                            .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                            .on_click({
-                                let opens = (*subagent).clone();
-                                cx.listener(move |this, _, window, cx| this.read_subagent(opens.clone(), window, cx))
-                            })
-                            .flex()
-                            .items_start()
-                            .gap(look.length(token::SPACE_2))
-                            .px(look.length(token::SPACE_3))
-                            .py(look.length(token::SPACE_2))
-                            .text_size(look.length(token::TEXT_SM))
-                            .line_height(look.length(token::LEADING_SM))
-                            .child(
-                                div()
-                                    .id(SharedString::from(format!("subagent-live-mark:{}", subagent.id)))
-                                    .pt(look.length(token::SPACE_1))
-                                    .child(glyph(look, "circle-dot", Size::Small, look.color(token::STEP_RUNNING)))
-                                    .tooltip(tip(mark_said)),
-                            )
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_w_0()
-                                    .flex()
-                                    .flex_col()
-                                    .child(
-                                        div()
-                                            .flex()
-                                            .items_center()
-                                            .gap(look.length(token::SPACE_2))
-                                            .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(subagent.task.clone())))
-                                            .children(ran.map(|ran| {
-                                                div().flex_none().text_size(look.length(token::TEXT_XS)).font_family(mono(look)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(ran))
-                                            })),
-                                    )
-                                    .children(subagent.latest.as_ref().map(|latest| {
-                                        div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(latest.clone()))
-                                    })),
-                            ),
-                        Role::Button,
-                        format!("Subagent {}", subagent.task),
-                    )
-                }))
+                .p(look.length(token::SPACE_1))
+                .children(running.iter().map(|subagent| self.subagent_line(&format!("subagent-live:{}", subagent.id), subagent, format!("Subagent {}", subagent.task), look, cx)))
         });
         let _ = page;
         Some(

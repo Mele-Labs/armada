@@ -6,7 +6,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use chrono::{DateTime, Local, Utc};
-use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, Role, SharedString};
+use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, Role, SharedString};
 use ipc::{SessionCheckState, SessionRow, ToolSubagent, ToolSubagentState};
 
 use super::acts::refusal;
@@ -326,71 +326,45 @@ impl JobView {
         self.fold(ix, format!("calls:{id}"), label, head, Some(body), page, look, cx)
     }
 
-    /// The subagent an `Agent` call started (`SubagentRow`). A press opens its own thread.
+    /// The subagent an `Agent` call started, as a take A call row: running, the agent's moving icon, its
+    /// brief, a counting time and its latest call on a second line; done, one grey line with the time it
+    /// took. A press opens its own thread.
     pub(super) fn subagent(&self, id: &str, subagent: &ToolSubagent, look: &Look, cx: &Context<Self>) -> AnyElement {
         let task = subagent.task.clone();
-        let opens = subagent.clone();
-        let open = cx.listener(move |this, _, window, cx| this.read_subagent(opens.clone(), window, cx));
-        if subagent.state == ToolSubagentState::Running {
-            let one = Call { kind: Kind::Agent, phrase: task.clone(), working_on: None };
-            return labelled(
-                div()
-                    .id(SharedString::from(format!("subagent:{id}")))
-                    .cursor_pointer()
-                    .on_click(open)
-                    .child(tool_row(self.shown.as_deref().unwrap_or_default(), &format!("subagent:{id}"), one, &subagent.since, None, true, None, look)),
-                Role::Button,
-                format!("Subagent {task}, running"),
-            )
-            .into_any_element();
-        }
-        let cut = subagent.state == ToolSubagentState::CutOff;
-        let said = if cut { "Subagent cut off" } else { "Subagent finished" };
-        let tooltip = match &subagent.agent_type {
-            Some(kind) => format!("{said} \u{b7} {kind}"),
-            None => said.to_string(),
+        let word = match subagent.state {
+            ToolSubagentState::Running => "running",
+            ToolSubagentState::Finished => "finished",
+            ToolSubagentState::CutOff => "cut off",
         };
-        let ran = subagent.ended.as_ref().and_then(|ended| elapsed_words(subagent.since.as_str(), ended.as_str()));
+        self.subagent_line(&format!("subagent:{id}"), subagent, format!("Subagent {task}, {word}"), look, cx)
+    }
+
+    /// One subagent's take A row, pressed to open its thread, labelled `said`. The thread's row and the
+    /// card at the foot both draw it.
+    pub(super) fn subagent_line(&self, key: &str, subagent: &ToolSubagent, said: String, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let running = subagent.state == ToolSubagentState::Running;
+        let one = Call { kind: Kind::Agent, phrase: subagent.task.clone(), working_on: subagent.latest.clone().filter(|_| running) };
+        let state = match subagent.state {
+            ToolSubagentState::Running => "Subagent running",
+            ToolSubagentState::Finished => "Subagent finished",
+            ToolSubagentState::CutOff => "Subagent cut off",
+        };
+        let tooltip = match &subagent.agent_type {
+            Some(kind) => format!("{state} \u{b7} {kind}"),
+            None => state.to_string(),
+        };
+        let opens = subagent.clone();
         labelled(
-            Self::padded(look, div())
-                .id(SharedString::from(format!("subagent:{id}")))
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_SUBTLE))
-                .bg(look.color(token::BG_SUNKEN))
-                .text_color(look.color(token::FG_DEFAULT))
-                .child(
-                    div()
-                        .id(SharedString::from(format!("subagent-mark:{id}")))
-                        .child(glyph(
-                            look,
-                            if cut { "power" } else { "check" },
-                            Size::Small,
-                            look.color(if cut { token::FG_DEFAULT } else { token::STEP_ADVANCED }),
-                        ))
-                        .tooltip(tip(tooltip)),
-                )
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .truncate()
-                        .text_size(look.length(token::TEXT_SM))
-                        .line_height(look.length(token::LEADING_SM))
-                        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                        .child(task.clone()),
-                )
-                .children(ran.map(|ran| {
-                    div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(ran)
-                }))
-                .child(glyph(look, "chevron-right", Size::Small, look.color(token::FG_MUTED)))
+            div()
+                .id(SharedString::from(key.to_string()))
                 .cursor_pointer()
+                .rounded(look.length(token::RADIUS_SM))
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .on_click(open),
+                .tooltip(tip(tooltip))
+                .on_click(cx.listener(move |this, _, window, cx| this.read_subagent(opens.clone(), window, cx)))
+                .child(tool_row(self.shown.as_deref().unwrap_or_default(), key, one, &subagent.since, subagent.ended.as_ref(), running, None, look)),
             Role::Button,
-            format!("Subagent {task}, {}", if cut { "cut off" } else { "finished" }),
+            said,
         )
         .into_any_element()
     }
