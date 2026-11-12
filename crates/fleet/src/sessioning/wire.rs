@@ -166,6 +166,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         from_job: None,
         from_tab: None,
         mod_of_bay: false,
+        quick_terminal: false,
         auto_land: false,
         activity: None,
         build: None,

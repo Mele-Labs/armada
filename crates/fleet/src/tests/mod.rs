@@ -158,6 +158,7 @@ mod plan_lands_in;
 mod session_plan;
 mod subagent_rows;
 mod tool_descriptions;
+mod tool_row_peers;
 mod task_marks;
 mod session_provenance;
 mod session_proposal;

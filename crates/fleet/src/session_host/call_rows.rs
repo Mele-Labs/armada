@@ -57,6 +57,8 @@ impl Drawn {
             text: self.text.clone(),
             description: self.description.clone(),
             subagent: self.subagent.clone(),
+            image: None,
+            message: None,
         }
     }
 }
@@ -248,13 +250,13 @@ fn settled_row(
     report: &Option<String>,
 ) -> Option<SessionRow> {
     match row {
-        SessionRow::Tool { id, at, text, description, subagent: Some(mut subagent) }
+        SessionRow::Tool { id, at, text, description, subagent: Some(mut subagent), image, message }
             if subagent.state == ToolSubagentState::Running && pick(&subagent.id) =>
         {
             subagent.state = state;
             subagent.ended = Some(ended.clone());
             subagent.report = report.clone();
-            Some(SessionRow::Tool { id, at, text, description, subagent: Some(subagent) })
+            Some(SessionRow::Tool { id, at, text, description, subagent: Some(subagent), image, message })
         }
         _ => None,
     }

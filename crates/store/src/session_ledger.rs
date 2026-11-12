@@ -283,6 +283,21 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// The sessions whose id begins with `prefix`: the eight characters another session addresses one by.
+    pub fn sessions_beginning(&self, prefix: &str) -> Result<Vec<KeptSession>, WriteError> {
+        let doing = "reading the jobs an address names";
+        let mut statement = self
+            .conn
+            .prepare(&format!("SELECT {SESSION_COLUMNS} FROM sessions WHERE id LIKE ?1 ESCAPE '\\' ORDER BY id"))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement
+            .query_map([format!("{}%", literally(prefix))], kept_session)
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)
+    }
+
     /// Sessions matching `search`, the most recently seen first.
     pub fn find_sessions(
         &self,

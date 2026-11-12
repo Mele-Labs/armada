@@ -38,7 +38,29 @@ fn tab_id(terminal: &str) -> String {
 /// Put Terminal in every Job's +, and an `Open <name>` row for each shell of the Job on screen that has no tab.
 pub fn init(cx: &mut App) {
     offer_tab(TabOffer { id: "terminal", label: "Terminal".into(), glyph: GLYPH, open: Rc::new(|job, pane, window, cx| open_new(job, pane, window, cx)) }, cx);
-    on_job_shown(|job, _, cx| untabbed(job, cx), cx);
+    on_job_shown(
+        |job, window, cx| {
+            onto_t1(job.clone(), window, cx);
+            untabbed(job, cx);
+        },
+        cx,
+    );
+}
+
+/// The quick terminals opened onto `t1` this run, so a later look at one keeps the tab he left in front.
+#[derive(Default)]
+struct OntoT1(std::collections::HashSet<String>);
+
+impl gpui::Global for OntoT1 {}
+
+/// A quick terminal shown for the first time opens onto `t1`, in the thread's pane.
+fn onto_t1(job: Option<String>, window: &mut Window, cx: &mut App) {
+    let Some(job) = job else { return };
+    let quick = JobView::live(cx).is_some_and(|view| view.read(cx).live_quick_terminal(&job, cx));
+    if !quick || !cx.default_global::<OntoT1>().0.insert(job.clone()) {
+        return;
+    }
+    open(&job, "t1", Some(ViewPane::Thread), true, window, cx);
 }
 
 const OPEN_PREFIX: &str = "terminal-open:";
@@ -127,10 +149,15 @@ fn shown(job: &str, terminal: &str, place: Option<ViewPane>, front: bool, cx: &m
     let view = JobView::live(cx)?;
     let pane = pane_of(job, terminal, cx)?;
     let tab = tab_of(job, terminal, &pane, cx);
-    let place = place.or_else(|| view.read(cx).view_tab_pane(job, &tab_id(terminal))).unwrap_or(ViewPane::Top);
+    let place = placed(place, view.read(cx).view_tab_pane(job, &tab_id(terminal)));
     view.update(cx, |view, cx| view.open_view_tab_in(job, place, tab, front, cx));
     named(job.to_string(), terminal.to_string(), cx);
     Some(pane)
+}
+
+/// The pane a terminal's tab goes to: the one asked for, else where it stands, else the top pane.
+fn placed(asked: Option<ViewPane>, standing: Option<ViewPane>) -> ViewPane {
+    asked.or(standing).unwrap_or(ViewPane::Top)
 }
 
 fn pane_of(job: &str, terminal: &str, cx: &mut App) -> Option<Entity<TerminalPane>> {
@@ -275,5 +302,22 @@ fn tab_of(job: &str, terminal: &str, pane: &Entity<TerminalPane>, cx: &App) -> V
         closing: Some(veto),
         closed: Some(gone),
         renamed: Some(renamed),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_terminal_goes_to_the_pane_asked_for() {
+        assert_eq!(placed(Some(ViewPane::Thread), Some(ViewPane::Top)), ViewPane::Thread);
+        assert_eq!(placed(Some(ViewPane::Bottom), None), ViewPane::Bottom);
+    }
+
+    #[test]
+    fn fleets_news_leaves_a_tab_where_it_stands_and_puts_a_new_one_on_top() {
+        assert_eq!(placed(None, Some(ViewPane::Thread)), ViewPane::Thread);
+        assert_eq!(placed(None, None), ViewPane::Top);
     }
 }

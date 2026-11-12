@@ -420,6 +420,8 @@ pub(super) fn hosting(session_id: &str, manifest: &str, on_your_words: bool) -> 
         from_job: None,
         from_tab: None,
         mod_of_bay: false,
+        quick_terminal: false,
+        terminal_dir: None,
     }
 }
 
