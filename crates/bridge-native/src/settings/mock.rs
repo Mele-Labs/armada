@@ -20,7 +20,14 @@ pub struct MockFleet {
     /// Every save it took, oldest first, for a test to read.
     pub saves: Vec<BTreeMap<String, Option<SettingValue>>>,
     pub preferences: ipc::Preferences,
+    /// The mods on this machine: Dusk, the theme Classic's `mods-themes` scenario writes into the mod folder.
+    pub mods: Vec<ipc::ModSummary>,
+    /// The checked sheet of each theme mod that is on and valid.
+    pub sheets: BTreeMap<String, String>,
 }
+
+/// Dusk's `theme.css`, as the example mod ships it.
+const DUSK_CSS: &str = include_str!("../../../../packages/tokens/themes/example-mod/dusk/theme.css");
 
 pub fn settings() -> SettingsList {
     ipc::decode("SettingsList", include_bytes!("mock-settings.json")).unwrap_or_else(|why| panic!("the mock settings do not decode: {why}"))
@@ -37,7 +44,11 @@ impl MockFleet {
                 ..ValuesSet::default()
             });
         }
-        MockFleet { list: settings(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(), preferences: ipc::Preferences::default() }
+        MockFleet { list: settings(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
+            preferences: ipc::Preferences::default(),
+            mods: ipc::decode::<ipc::ModList>("mods", br#"{"mods":[{"name":"dusk","kind":"theme","enabled":true,"valid":true}]}"#).map(|list| list.mods).unwrap_or_default(),
+            sheets: [("dusk".to_string(), DUSK_CSS.to_string())].into_iter().collect(),
+        }
     }
 
     pub fn settings(&self) -> Result<SettingsList, Refused> {
@@ -94,6 +105,30 @@ impl MockFleet {
             other => return Err(Refused::said(format!("there is no preference {other}"))),
         }
         Ok(self.preferences.clone())
+    }
+
+    /// A mod's switch, kept per machine as Fleet keeps it, answered with its row. A mod switched off has no sheet to draw.
+    pub fn set_mod_enabled(&mut self, name: &str, enabled: bool) -> Result<ipc::ModSummary, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let row = self.mods.iter_mut().find(|row| row.name == name).ok_or_else(|| Refused::said(format!("There is no mod named {name}.")))?;
+        row.enabled = enabled;
+        if !enabled {
+            self.sheets.remove(name);
+        } else if name == "dusk" {
+            self.sheets.insert(name.to_string(), DUSK_CSS.to_string());
+        }
+        Ok(row.clone())
+    }
+
+    /// Promote, as Fleet answers one where no pull request could open: the Job and its branch, with the commit on it.
+    pub fn promote_mod(&mut self, name: &str) -> Result<ipc::ModPromoted, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let said = format!(r#"{{"name":"{name}","session_id":"01SESSIONPROMOTEAAAAAAAAAA","title":"Add the {name} theme mod","branch":"armada/mod-{name}","commit":"4f2a9c1","pull_request_not_opened":"No remote to push to."}}"#);
+        ipc::decode("ModPromoted", said.as_bytes()).map_err(|why| Refused::said(why.to_string()))
     }
 
     /// What a project's values come to: its own over Kit's, Kit's over the defaults.

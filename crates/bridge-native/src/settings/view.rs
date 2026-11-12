@@ -915,6 +915,11 @@ impl SettingsOverlay {
             Some(Body::Repository) => cards.extend(self.connectors_card(look, window, cx)),
             Some(Body::ProjectValues) => cards.extend(super::project::render(self, look, window, cx)),
             Some(Body::Keyboard) => cards.push(self.render_keyboard(look, window, cx)),
+            Some(Body::Theme) => {
+                cards.push(self.render_theme(look, window, cx));
+                cards.extend(self.render_mods(ipc::ModKind::Theme, None, look, window, cx));
+                cards.extend(self.render_mods(ipc::ModKind::Tweak, Some("Tweaks"), look, window, cx));
+            }
             None => {}
         }
         div()
@@ -934,6 +939,8 @@ impl SettingsOverlay {
         if !self.open {
             return div().into_any_element();
         }
+        // A mod Fleet lists after Settings opened gets its keys before it is drawn.
+        self.mod_keys(cx);
         let look = cx.look();
         let room = crate::room::of(window, cx);
         let visible = self.visible(cx);

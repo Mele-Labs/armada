@@ -105,6 +105,9 @@ pub struct SettingsOverlay {
     pub panes: BTreeMap<String, FocusHandle>,
     /// Settings → Keyboard shortcuts.
     pub keyboard: super::keyboard::Keyboard,
+    /// Settings → Theme: its field, and the mod rows under it.
+    pub theme: super::theme::ThemeField,
+    pub mods: super::mods::ModRows,
     /// Where each slider's track was drawn last frame, by key, so a press reads as a figure.
     pub tracks: Rc<RefCell<BTreeMap<String, Bounds<Pixels>>>>,
     keys: Option<Subscription>,
@@ -149,11 +152,17 @@ fn keep_key(key: &str) -> String {
 impl SettingsOverlay {
     pub fn new(wire: Wire, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let query = cx.new(|cx| InputState::new(window, cx).placeholder("Search"));
-        let typing = vec![cx.subscribe_in(&query, window, |this, _, event: &InputEvent, _, cx| {
-            if matches!(event, InputEvent::Change) {
-                this.query_changed(cx);
-            }
-        })];
+        let theme = super::theme::ThemeField::new(cx);
+        let typing = vec![
+            cx.subscribe_in(&query, window, |this, _, event: &InputEvent, _, cx| {
+                if matches!(event, InputEvent::Change) {
+                    this.query_changed(cx);
+                }
+            }),
+            // The theme's list opens when the keys reach its field, and shuts when they leave.
+            cx.on_focus(&theme.focus, window, |this, _, cx| this.theme_focused(cx)),
+            cx.on_blur(&theme.focus, window, |this, _, cx| this.theme_shut(cx)),
+        ];
         SettingsOverlay {
             wire,
             open: false,
@@ -175,6 +184,8 @@ impl SettingsOverlay {
             popup: None,
             panes: BTreeMap::new(),
             keyboard: super::keyboard::Keyboard::new(cx),
+            theme,
+            mods: super::mods::ModRows::default(),
             tracks: Rc::default(),
             keys: None,
             _typing: typing,
@@ -211,6 +222,9 @@ impl SettingsOverlay {
         self.keyboard.listening = None;
         let bindings = self.wire.key_bindings(cx);
         self.keyboard.set(super::keyboard::Bindings::read(&bindings));
+        self.theme.refused = None;
+        self.mods.refused.clear();
+        self.mod_keys(cx);
         window.focus(&self.side, cx);
         let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
         self.keys = Some(cx.intercept_keystrokes(move |event, window, cx| {
@@ -604,6 +618,12 @@ impl SettingsOverlay {
         if let Body::Keyboard = shown.body {
             return self.keyboard.stops(&self.query_text(cx));
         }
+        if let Body::Theme = shown.body {
+            let mut stops = vec![self.theme.focus.clone()];
+            stops.extend(self.mod_stops(ipc::ModKind::Theme, cx));
+            stops.extend(self.mod_stops(ipc::ModKind::Tweak, cx));
+            return stops;
+        }
         stops.push(self.file_stop.clone());
         let Some(list) = &self.list else { return stops };
         let sections: Vec<&str> = match shown.body {
@@ -649,7 +669,7 @@ impl SettingsOverlay {
     }
 
     fn in_text(&self, window: &Window, cx: &App) -> bool {
-        self.query.read(cx).focus_handle(cx).is_focused(window) || self.typed.values().any(|typed| typed.focus(cx).is_focused(window))
+        self.query.read(cx).focus_handle(cx).is_focused(window) || self.theme.focus.is_focused(window) || self.typed.values().any(|typed| typed.focus(cx).is_focused(window))
             || self.scope.as_ref().is_some_and(|scope| scope.typed.values().any(|field| field.read(cx).focus_handle(cx).is_focused(window)))
     }
 
@@ -682,6 +702,10 @@ impl SettingsOverlay {
         }
         // A key waiting for its binding takes the next key, whatever it is.
         if self.keyboard_key(key, window, cx) {
+            return true;
+        }
+        // The theme field types, and its list takes the arrows, Enter and Esc while it is open.
+        if self.theme_key(key, window, cx) {
             return true;
         }
         let mods = &key.modifiers;

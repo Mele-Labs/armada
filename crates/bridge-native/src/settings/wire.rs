@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use gpui::{App, AppContext, Entity, Task};
+use gpui::{App, AppContext, Entity, Task, Window};
 use ipc::{EditProject, Projects, ResolvedValues, SaveSettings, SettingValue, SettingsList, ValuesSet};
 use serde::de::DeserializeOwned;
 
@@ -151,6 +151,68 @@ impl Wire {
         }
         let said = body(&ipc::SavePreference { name: name.to_string(), value: false, text: Some(text) });
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/preferences/save".into(), said), "Preferences", cx))
+    }
+
+    /// Every preference as Fleet answered a save: folded into what the connection holds, so the look and the keys
+    /// follow it as they do a read. The mock's walk has no controller to follow it, so it is put in force here.
+    pub fn preferences_saved(&mut self, answer: ipc::Preferences, window: &mut Window, cx: &mut App) {
+        match self {
+            Wire::Live(fleet) => fleet.update(cx, |fleet, cx| fleet.preferences_saved(answer, cx)),
+            Wire::Mock(mock) => {
+                crate::keymap::install(&crate::keymap::Rebinding::read(&answer.key_bindings), cx);
+                crate::look::install(super::theme::look_of(&answer.theme, &mock.sheets, window), cx);
+            }
+        }
+    }
+
+    /// A theme picked, drawn before Fleet answers. Only the mock draws it here: over a live Fleet the look
+    /// follows the answer, which is the one place the theme in force is decided.
+    pub fn show_theme(&self, word: &str, window: &mut Window, cx: &mut App) {
+        if let Wire::Mock(mock) = self {
+            crate::look::install(super::theme::look_of(word, &mock.sheets, window), cx);
+        }
+    }
+
+    /// The theme word in force, as Fleet last said it.
+    pub fn theme(&self, cx: &App) -> String {
+        match self {
+            Wire::Live(fleet) => fleet.read(cx).held().theme.clone().unwrap_or_else(|| ipc::DEFAULT_THEME.to_string()),
+            Wire::Mock(mock) => mock.preferences.theme.clone(),
+        }
+    }
+
+    /// Fleet's mod list as it stands.
+    pub fn mods(&self, cx: &App) -> Vec<ipc::ModSummary> {
+        match self {
+            Wire::Live(fleet) => fleet.read(cx).held().mods.clone().unwrap_or_default(),
+            Wire::Mock(mock) => mock.mods.clone(),
+        }
+    }
+
+    /// The checked stylesheets of the theme mods that are on and valid, by name.
+    pub fn theme_sheets(&self, cx: &App) -> BTreeMap<String, String> {
+        match self {
+            Wire::Live(fleet) => fleet.read(cx).held().theme_sheets(),
+            Wire::Mock(mock) => mock.sheets.clone(),
+        }
+    }
+
+    /// `POST /mods/enable`. Fleet answers with the mod's row, and publishes the list again.
+    pub fn set_mod_enabled(&mut self, name: &str, enabled: bool, cx: &App) -> Task<Result<ipc::ModSummary, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.set_mod_enabled(name, enabled));
+        }
+        let said = body(&ipc::SetModEnabled { name: name.to_string(), enabled });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/mods/enable".into(), said), "ModSummary", cx))
+    }
+
+    /// `POST /mods/promote`, into the first repository Fleet serves, as Classic's Promote sends it.
+    pub fn promote_mod(&mut self, name: &str, cx: &App) -> Task<Result<ipc::ModPromoted, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.promote_mod(name));
+        }
+        let said = body(&ipc::PromoteMod { name: name.to_string(), manifest_id: None });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/mods/promote".into(), said), "ModPromoted", cx))
     }
 
     /// Open settings.json in the editor settings.json names, off the main thread. The mock opens nothing.

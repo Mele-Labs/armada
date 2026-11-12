@@ -41,6 +41,8 @@ pub enum Body {
     ProjectValues,
     /// Every act with a key, each key a control (`KeyboardSettings`).
     Keyboard,
+    /// The theme field, then the theme mods and the tweaks (`ThemeSettings`, `ModList`).
+    Theme,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -75,6 +77,7 @@ pub const SECTIONS: &[Section] = &[
     Section { id: "editor", label: "Editor", palette: "Editor", words: &["Editor", "open", "code", "vscode", "visual"] },
     Section { id: "terminal", label: "Terminal", palette: "Terminal", words: &["Terminal", "iterm", "ghostty", "warp", "wezterm", "shell"] },
     Section { id: "links", label: "Links", palette: "Links", words: &["Open pull requests in", "pull request", "link", "browser", "panel"] },
+    Section { id: "theme", label: "Theme", palette: "Theme", words: &["Theme", "colours", "colors", "dark", "light", "appearance", "mods"] },
     Section { id: "spacing", label: "Spacing", palette: "Spacing", words: &["Spacing", "density", "compact", "default", "roomy", "room", "dense"] },
 ];
 
@@ -93,6 +96,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "fleet:store", label: "Store", group: Group::Fleet, body: Body::Schema(&["store"]) },
     Entry { id: "fleet:features", label: "Features", group: Group::Fleet, body: Body::Features },
     Entry { id: "fleet:repository", label: "Repository", group: Group::Fleet, body: Body::Repository },
+    Entry { id: "bridge:theme", label: "Theme", group: Group::Mods, body: Body::Theme },
     Entry { id: "bridge:spacing", label: "Spacing", group: Group::Bridge, body: Body::Schema(&["spacing"]) },
     Entry { id: "bridge:keyboard", label: "Keyboard shortcuts", group: Group::Bridge, body: Body::Keyboard },
     Entry { id: "bridge:editor", label: "Editor", group: Group::Bridge, body: Body::Schema(&["editor"]) },
@@ -146,6 +150,7 @@ fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
     let sections: &[&str] = match entry.body {
         Body::Schema(ids) => ids,
         Body::Features => &["features"],
+        Body::Theme => &["theme"],
         Body::Repository | Body::ProjectValues | Body::Keyboard => &[],
     };
     let mut words = vec![entry.label.to_string()];

@@ -4,9 +4,11 @@
 pub mod entries;
 mod keyboard;
 mod mock;
+mod mods;
 pub mod overlay;
 mod project;
 pub mod screen;
+mod theme;
 mod view;
 pub mod walk;
 mod wire;
