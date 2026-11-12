@@ -57,6 +57,7 @@ mod scene;
 mod settings;
 mod sketch;
 mod sketch_png;
+mod terminal;
 mod titlebar;
 mod toasts;
 mod transport;
@@ -174,6 +175,7 @@ pub fn init_app(cx: &mut App) {
     merge_strip::bind(cx);
     annotate::bind(cx);
     dispatch::screen::bind(cx);
+    terminal::init(cx);
     keymap::install(&keymap::Rebinding::default(), cx);
     menu::install(cx);
 }

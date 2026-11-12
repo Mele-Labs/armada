@@ -62,6 +62,9 @@ resvg = "=0.46.0"
 # A tool call's icon is stroked with round caps and joins; gpui paints paths with this version but does not
 # re-export its cap and join kinds.
 lyon = "=1.0.19"
+# A Job's terminal screen: the grid, the escape parser and the scrollback a shell's bytes are read into. Fleet
+# holds the shell; only the emulator is linked, and its own pty and event loop go unused.
+alacritty_terminal = "=0.26.0"
 # The run id every log line carries: 80 random bits, minted by this process (the one id Bridge mints).
 getrandom = "0.3"
 

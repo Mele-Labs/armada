@@ -89,6 +89,17 @@ destructive = false
 confirms = false
 notes = "Opens and shuts the history of what the Operator raised as toasts, from the bell in the native title bar. Native only. Taken 10 Nov 2026; nothing held it."
 
+[actions.new_terminal_job]
+kind = "Action"
+tier = "Global"
+verb = "New terminal"
+icon = "file-terminal"
+shortcut = "⌘T"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Starts a terminal Job and opens it on its first shell, with no sheet: in the project or repository the window is on, else the open Job's, else the place a terminal Job last started in, and the dispatch sheet on Terminal where there is none. The agent in its thread waits until it is written to. Native only: Classic has no terminal Job. Taken 12 Nov 2026; nothing held it, the walk window's takes are ⌥⌘T, and a shell never hears a ⌘ chord."
+
 [actions.toast_focus]
 kind = "Action"
 tier = "Global"
