@@ -1576,6 +1576,29 @@ export type PageShot = {
 };
 
 /** An idea saved to start later: the words, the repository it is for, and the model and effort picked for it. */
+/** Where his dispatch went: a Job started at once, or the Operator holding the words until it rules. */
+export type Dispatched =
+  | {
+      session: string;
+    }
+  | {
+      operator: string;
+    };
+
+/** What the Operator did with a dispatch it took (`operator.dispatched`): started a Job, handed the words to a live one, or asked him. */
+export type OperatorDispatch = {
+  /** The dispatch, as `Dispatched.operator` named it. */
+  id: string;
+  way: "started" | "handed" | "asked";
+  /** The Job started or handed to. Absent where it asked. */
+  session?: {
+    id: string;
+    title: string;
+  };
+  /** The first line of his words, for the toast where it asked. */
+  subject: string;
+};
+
 export type QueuedIdea = {
   id: string;
   text: string;
@@ -1716,6 +1739,23 @@ export type SessionsDraft = {
    * writes. Answers its id, or nothing where it did not start (said as a toast). Absent where nothing serves it, and no card offers one.
    */
   startQuick?: (root: string) => string | Promise<string | undefined>;
+  /**
+   * His own start, by `dispatch_job`: the Job starts at once, or the Operator takes the words first where it is on. `then` is the first
+   * message, sent into whatever Job the words end in. Answers the Job started, or the Operator holding it, or nothing where it was refused
+   * (said as a toast). Absent where nothing serves it, and `start` is used.
+   */
+  dispatch?: (one: {
+    root: string;
+    request: string;
+    tuning?: {
+      model?: string;
+      effort?: string;
+    };
+    projectRows?: readonly ProjectRowRef[];
+    then: SentMessage;
+  }) => Promise<Dispatched | undefined>;
+  /** What the Operator did with a dispatch it took, as it happens. Absent where nothing serves it, and no toast says. */
+  onDispatched?: (listener: (one: OperatorDispatch) => void) => () => void;
   /** Opens a Session's thread for reading. Absent where the thread is already held. */
   watch?: (id: string) => void;
   /**

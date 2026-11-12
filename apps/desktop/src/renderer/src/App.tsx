@@ -148,6 +148,7 @@ import { useMergeByHand } from "./merge-by-hand";
 import { LogbookSurface } from "./logbook";
 import { useTitleRow } from "./title-row";
 import { AgentSignInAlert } from "./agent-sign-in";
+import { OperatorDispatchToasts } from "./operator-dispatched";
 import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { LoadoutPanel } from "./session-loadout";
@@ -1228,6 +1229,7 @@ export function App() {
                         <DownshiftAlert choose={openModelSetting} />
                         <ProjectsUndo />
                         <AgentSignInAlert />
+                        <OperatorDispatchToasts open={openSession} />
                         <ImportPackage repositories={repositories} />
                         <DeckHost
                           state={shownState}

@@ -401,7 +401,7 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
             },
           });
         }),
-      editProject: (project, { name, members, place }) =>
+      editProject: (project, { name, members, place, values }) =>
         write(() => {
           const one = held.projects.find((it) => it.id === project);
           if (one === undefined) return noProject();
@@ -409,6 +409,8 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
           if (name !== undefined) one.name = name.trim();
           if (members !== undefined) one.members = members;
           if (place !== undefined) one.place = place;
+          // As Fleet does: the block is replaced whole.
+          if (values !== undefined) one.values = values;
         }),
       deleteProject: (project) =>
         write(() => {

@@ -209,6 +209,11 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
     group: "fleet",
   },
   {
+    id: "fleet:job-starts",
+    label: "Job starts",
+    group: "fleet",
+  },
+  {
     id: "bridge:all",
     label: "All",
     group: "mods",

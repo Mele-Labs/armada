@@ -425,6 +425,45 @@ export function useDispatch({
                       part: chosen.part,
                     }),
               };
+        const files = kept.map((file, number) => ({
+          id: `snippet-${number + 1}`,
+          name: file.name,
+          file,
+        }));
+        const first = {
+          text,
+          files,
+          sketches: [],
+          tags: [
+            ...(refers === undefined
+              ? []
+              : [
+                  refers,
+                ]),
+            ...tags.filter((tag) => text.includes(tag.title)),
+          ],
+        };
+        // His own start that waits on nothing runs at once, and goes to the Operator first where it is on: the first message rides with it.
+        if (!one.held && after === undefined && draft.dispatch !== undefined)
+          return draft
+            .dispatch({
+              root: at,
+              request: text,
+              tuning,
+              ...(rows === undefined
+                ? {}
+                : {
+                    projectRows: rows,
+                  }),
+              then: first,
+            })
+            .then((went) => ({
+              id: went !== undefined && "session" in went ? went.session : undefined,
+              operator: went !== undefined && "operator" in went,
+              sent: true,
+              after,
+              first,
+            }));
         // A refused start is the window's toast, and never a line on the open Job's thread. The sheet keeps its words.
         const started =
           rows === undefined
@@ -436,33 +475,19 @@ export function useDispatch({
               : draft.start(undefined, at, text, tuning, after, undefined, rows, true);
         return Promise.resolve(started).then((id) => ({
           id,
+          operator: false,
+          sent: false,
           after,
-          refers,
+          first,
         }));
       })
       .then(
-        ({ id, after, refers }) => {
+        ({ id, operator, sent, after, first }) => {
           drafting.current.delete(key);
+          // The Operator holds the words: the sheet goes, he stays where he was, and a toast says where they went.
+          if (operator) return one.sheet ? clearAll() : undefined;
           if (id === undefined) return one.sheet ? setSending(false) : undefined;
-          const files = kept.map((file, number) => ({
-            id: `snippet-${number + 1}`,
-            name: file.name,
-            file,
-          }));
-          if (after === undefined || files.length > 0)
-            draft.send(id, {
-              text,
-              files,
-              sketches: [],
-              tags: [
-                ...(refers === undefined
-                  ? []
-                  : [
-                      refers,
-                    ]),
-                ...tags.filter((tag) => text.includes(tag.title)),
-              ],
-            });
+          if (!sent && (after === undefined || first.files.length > 0)) draft.send(id, first);
           if (one.sheet) clearAll();
           if (one.open) openSession(id);
         },
