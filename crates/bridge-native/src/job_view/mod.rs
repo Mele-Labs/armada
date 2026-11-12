@@ -42,6 +42,7 @@ mod runs;
 mod talk;
 mod tune;
 mod wire;
+mod workflow_card;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -395,6 +396,7 @@ impl JobView {
             self.judge_read(&id, cx);
         }
         self.quick_follow(cx);
+        self.read_workflow_changes(cx);
         // A Fleet that was not there when the Job opened is asked again once it is.
         if let (Some(id), Some(fleet)) = (self.shown.clone(), self.fleet.clone()) {
             if self.thread(&id, cx).is_none() {

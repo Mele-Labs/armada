@@ -662,7 +662,7 @@ impl JobView {
         body = if editing {
             body.children(self.box_of(&key, Mode::Edit, "Draft text", look, cx))
         } else {
-            let words = div().min_w_0().child(self.prose(format!("{key}:text"), &shown_text, look)).into_any_element();
+            let words = self.workflow_card(ix, &key, change, &shown_text, look, cx).unwrap_or_else(|| div().min_w_0().child(self.prose(format!("{key}:text"), &shown_text, look)).into_any_element());
             // Words selected in an open draft take their own menu, Edit and Add note, in place of the selection bar.
             body.child(if open { self.block(page, &key, words, cx) } else { words })
         };
