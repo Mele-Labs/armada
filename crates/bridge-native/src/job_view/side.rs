@@ -112,6 +112,10 @@ pub(super) struct SideState {
     unfolded: HashSet<String>,
     /// Deferred rows settled from here, kept away until Fleet's record says so or refuses.
     pub(super) settled: HashSet<String>,
+    /// Watching draws the watches that ended too.
+    pub(super) watches_ended: bool,
+    /// Watches stopped or deleted from here, drawn so until Fleet's record says so or refuses.
+    pub(super) watch_acted: std::collections::HashMap<String, super::watching::Acted>,
 }
 
 /// Where a group of an approved plan stands.

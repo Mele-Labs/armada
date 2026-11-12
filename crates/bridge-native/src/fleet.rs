@@ -11,6 +11,7 @@ use gpui::{Context, EventEmitter, Task};
 use ipc::{
     CallArrival, Cursor, Event, FleetBuildReport, Instant, JobThread, JobThreadTail, MergeLineView, ModKind, ModSummary, NeedsYou, SessionRecord,
     Projects, RepositorySummary, SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem, WaitingItem,
+    WatchList, WatchSummary,
 };
 
 use crate::link::{self, LinkState, Signal};
@@ -128,6 +129,13 @@ pub struct Held {
     pub threads: BTreeMap<String, HeldThread>,
     /// The Needs you of each Job a view has read, by Job id.
     pub needs: BTreeMap<String, HeldNeeds>,
+    /// Each Job's watches, live and ended, newest first, as `watches.changed` last carried them or
+    /// `list_watches` answered when a view first asked. By Job id.
+    pub watches: BTreeMap<String, Vec<WatchSummary>>,
+    /// The Jobs whose watches a view has asked for since the connection, so each is read once.
+    watches_asked: BTreeSet<String>,
+    /// The Jobs `watches.changed` has spoken for since the connection: an older read must not land over it.
+    watches_spoken: BTreeSet<String>,
     /// Moves on each `operator.page_changed` and each gap in the stream: the Operator's page reads again.
     pub operator_page_moved: u64,
 }
@@ -159,6 +167,9 @@ impl Held {
             sheets: BTreeMap::new(),
             threads: BTreeMap::new(),
             needs: BTreeMap::new(),
+            watches: BTreeMap::new(),
+            watches_asked: BTreeSet::new(),
+            watches_spoken: BTreeSet::new(),
             operator_page_moved: 0,
         }
     }
@@ -201,6 +212,17 @@ impl Held {
     fn all_stale(&mut self) {
         self.threads.values_mut().for_each(|held| held.stale = true);
         self.operator_page_moved += 1;
+        // A gap may have lost a `watches.changed`: each Job's watches are read again when a view next asks.
+        self.watches_asked.clear();
+        self.watches_spoken.clear();
+    }
+
+    /// A read of a Job's watches lands unless `watches.changed` has spoken for that Job since it was asked.
+    fn watches_read(&mut self, list: WatchList) {
+        let id = list.session_id.as_str().to_string();
+        if !self.watches_spoken.contains(&id) {
+            self.watches.insert(id, list.watches);
+        }
     }
 
     /// The checked stylesheets of the theme mods that are on and valid, by mod name. A sheet checked
@@ -390,6 +412,12 @@ impl Held {
                         Event::WriteClashesChanged(all) => self.clashes = Some(all),
                         Event::PlanUsageChanged(usage) => self.plan_usage = Some(usage),
                         Event::ModelDownshiftChanged(state) => self.downshift = Some(state),
+                        // A Job's watches arrive whole and replace the ones held.
+                        Event::WatchesChanged(list) => {
+                            let id = list.session_id.as_str().to_string();
+                            self.watches_spoken.insert(id.clone());
+                            self.watches.insert(id, list.watches);
+                        }
                         _ => {}
                     }
                 }
@@ -768,6 +796,41 @@ impl FleetConnection {
                     Err(why) => {
                         Note::warn("a Job's Needs you could not be read").field("job", id.as_str()).field("why", why).emit();
                         this.needs_failed.insert(id, waiting);
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// Read a Job's watches, live and ended (`GET /watches?session_id=&ended=true`), once since the
+    /// connection; `watches.changed` keeps them current after. A failed read is asked again next time.
+    pub fn read_watches(&mut self, session: &str, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else { return };
+        if !self.held.watches_asked.insert(session.to_string()) {
+            return;
+        }
+        let id = session.to_string();
+        let path = format!("/watches?session_id={session}&ended=true");
+        cx.spawn(async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let (status, bytes) = runtime.block_on(crate::transport::get(port, &path))?;
+                    if !(200..300).contains(&status) {
+                        return Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message));
+                    }
+                    ipc::decode::<WatchList>("WatchList", &bytes).map_err(|why| why.to_string())
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                match answer {
+                    Ok(list) => this.held.watches_read(list),
+                    Err(why) => {
+                        this.held.watches_asked.remove(&id);
+                        Note::warn("a Job's watches could not be read").field("job", id.as_str()).field("why", why).emit();
                     }
                 }
                 cx.notify();

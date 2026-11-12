@@ -83,6 +83,7 @@ enum Of {
     Issue(Box<super::issues::IssuePanel>),
     Bay(Box<super::bays::BayPanel>),
     ClashFile(Box<super::bays::ClashFilePanel>),
+    Watch(Box<super::watching::WatchPanel>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -781,6 +782,32 @@ impl JobView {
         }
     }
 
+    /// A watch's panel, opened from its Watching row.
+    pub(super) fn open_watch(&mut self, panel: super::watching::WatchPanel, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_panel(Of::Watch(Box::new(panel)), window, cx);
+    }
+
+    pub(super) fn watch_panel(&self) -> Option<&super::watching::WatchPanel> {
+        match self.panes.panel.as_ref() {
+            Some(Panel { of: Of::Watch(panel), .. }) => Some(panel),
+            _ => None,
+        }
+    }
+
+    /// The keys go back to the panel itself, as when a pressed control in it goes away.
+    pub(super) fn keys_to_panel(&self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(panel) = self.panes.panel.as_ref() {
+            window.focus(&panel.focus, cx);
+        }
+    }
+
+    pub(super) fn watch_panel_mut(&mut self) -> Option<&mut super::watching::WatchPanel> {
+        match self.panes.panel.as_mut() {
+            Some(Panel { of: Of::Watch(panel), .. }) => Some(panel),
+            _ => None,
+        }
+    }
+
     /// A log of the Job's, in the file panel. Only the mock reads one: Fleet serves no Job log.
     pub(super) fn open_log(&mut self, path: String, window: &mut Window, cx: &mut Context<Self>) {
         self.open_file(path, window, cx);
@@ -841,6 +868,9 @@ impl JobView {
         } else if matches!(key, "[" | "]") && !event.keystroke.modifiers.modified() && self.issue_panel().is_some() {
             self.issue_panel_key(cx);
             cx.stop_propagation();
+        } else if matches!(key, "[" | "]") && !event.keystroke.modifiers.modified() && self.watch_panel().is_some() {
+            self.watch_panel_key(key == "[", window, cx);
+            cx.stop_propagation();
         } else if matches!(key, "[" | "]") && !event.keystroke.modifiers.modified() {
             if let Some(Panel { of: Of::Check { tab, .. }, .. }) = self.panes.panel.as_mut() {
                 *tab = if *tab == CheckTab::Runs { CheckTab::Log } else { CheckTab::Runs };
@@ -874,6 +904,7 @@ impl JobView {
                 let name = clash.path.rsplit('/').next().unwrap_or(&clash.path).to_string();
                 (name.into(), Some(clash.path.clone().into()), self.clash_file_body(clash, look, cx))
             }
+            Of::Watch(watch) => (format!("Watch {}", watch.name).into(), None, self.watch_body(watch, look, cx)),
         };
         let close = labelled(
             div()

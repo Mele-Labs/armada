@@ -552,7 +552,7 @@ fn button(look: &Look, id: impl Into<ElementId>, said: &str, off: bool, primary:
 
 /// A switch as Electron's `Switch`: its words, then at the row's end a recessed track with the knob
 /// and ON or OFF in the half the knob leaves. Pressing it anywhere turns it.
-fn switch(look: &Look, id: impl Into<ElementId>, said: &str, on: bool, off: bool) -> Stateful<Div> {
+pub(super) fn switch(look: &Look, id: impl Into<ElementId>, said: &str, on: bool, off: bool) -> Stateful<Div> {
     let edge = look.length(token::BORDER_WIDTH);
     let tall = look.length(token::H_BADGE) + look.length(token::SPACE_2);
     let pad = edge * 3.;

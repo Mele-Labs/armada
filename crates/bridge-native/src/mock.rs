@@ -43,6 +43,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same, the first with two more groups to come, one going to a Job not started yet, an issue
         // and a pull request no group holds, and the plan being drafted carrying a sketch.
         "job-open" => include_bytes!("../fixtures/jobs-open.json"),
+        // The same, the first holding four watches: one live, one ended not ours that Needs you asks
+        // about, one passed and one broken.
+        "job-watching" => include_bytes!("../fixtures/jobs-open.json"),
         "job-view-composer" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
@@ -68,9 +71,17 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     };
     let mut sessions = ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())?;
     // Now's figures count from now, so the scenario's clock is moved to the run's.
-    if matches!(scenario, "job-now" | "job-open") {
+    if matches!(scenario, "job-now" | "job-open" | "job-watching") {
         for one in &mut sessions {
             one.last_heard_at = one.last_heard_at.as_ref().map(|at| shifted(NOW_ANCHOR, at));
+        }
+    }
+    // Needs you asks about the watch that ended not ours, as Fleet derives the item.
+    if scenario == "job-watching" {
+        for ask in watch_reads().asks {
+            if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == ask.session_id) {
+                one.waiting_for.push(ask.item);
+            }
         }
     }
     Ok(sessions)
@@ -110,7 +121,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "job-done" => include_bytes!("../fixtures/done-threads.json"),
         "job-now" => include_bytes!("../fixtures/now-threads.json"),
         // The same, with Fleet's two acts to come on the first and the drafted plan's sketch.
-        "job-open" => include_bytes!("../fixtures/open-threads.json"),
+        "job-open" | "job-watching" => include_bytes!("../fixtures/open-threads.json"),
         // The same threads, and the earlier Job's, ended where it handed on.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff-threads.json"),
         // The same threads, with the Job that took the router upgrade on and the forked one.
@@ -142,7 +153,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
     let mut all: HashMap<String, JobThread> = read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect();
-    if matches!(scenario, "job-now" | "job-open") {
+    if matches!(scenario, "job-now" | "job-open" | "job-watching") {
         for thread in all.values_mut() {
             if let Some(call) = thread.head.open_call.as_mut() {
                 call.since = shifted(NOW_ANCHOR, &call.since);
@@ -622,6 +633,9 @@ mod tests {
         assert!(super::threads("job-now").expect("decodes").len() > 5);
         assert!(super::jobs("job-open").expect("decodes").len() > 10);
         assert!(super::threads("job-open").expect("decodes").len() > 5);
+        assert!(super::jobs("job-watching").expect("decodes").iter().any(|one| one.waiting_for.iter().any(|item| item.source == ipc::WaitingSource::WatchNotOurs)));
+        assert_eq!(super::watches("mock-01").map(|list| list.len()), Some(4));
+        assert!(super::watch_log("w-release", "/Users/nick/.armada/watches/w-release/2026-11-09T13-41-00.log").is_some());
     }
 }
 
@@ -674,6 +688,52 @@ fn system_reads() -> Option<SystemReads> {
     SCENARIO.lock().is_ok_and(|named| named.as_str() == "job-system").then(|| {
         ipc::decode::<SystemReads>("system reads", include_bytes!("../fixtures/system-reads.json")).unwrap_or_else(|why| panic!("the system reads fixture does not decode: {why}"))
     })
+}
+
+#[derive(Deserialize)]
+struct WatchReads {
+    asks: Vec<WatchAsk>,
+    lists: Vec<ipc::WatchList>,
+    logs: Vec<ipc::WatchLog>,
+}
+
+#[derive(Deserialize)]
+struct WatchAsk {
+    session_id: String,
+    item: WaitingItem,
+}
+
+fn watch_reads() -> WatchReads {
+    ipc::decode::<WatchReads>("watch reads", include_bytes!("../fixtures/watches.json")).unwrap_or_else(|why| panic!("the watches fixture does not decode: {why}"))
+}
+
+/// A Job's watches as `GET /watches?session_id=&ended=true` answers them, moved to the run's clock.
+/// Only `job-watching` holds any.
+pub fn watches(job: &str) -> Option<Vec<ipc::WatchSummary>> {
+    if !SCENARIO.lock().is_ok_and(|named| named.as_str() == "job-watching") {
+        return None;
+    }
+    let mut list = watch_reads().lists.into_iter().find(|one| one.session_id.as_str() == job)?.watches;
+    let moved = |reading: &mut ipc::WatchReading| match reading {
+        ipc::WatchReading::Read { at, last_at, .. } | ipc::WatchReading::Broken { at, last_at, .. } => {
+            *at = shifted(NOW_ANCHOR, at);
+            *last_at = last_at.as_ref().map(|at| shifted(NOW_ANCHOR, at));
+        }
+    };
+    for watch in &mut list {
+        watch.started_at = shifted(NOW_ANCHOR, &watch.started_at);
+        watch.last.iter_mut().for_each(moved);
+        watch.readings.iter_mut().for_each(moved);
+        for verdict in &mut watch.verdicts {
+            verdict.at = shifted(NOW_ANCHOR, &verdict.at);
+        }
+    }
+    Some(list)
+}
+
+/// A reading's log as `GET /watches/log?watch=&log=` answers it.
+pub fn watch_log(watch: &str, log: &str) -> Option<ipc::WatchLog> {
+    watch_reads().logs.into_iter().find(|one| one.watch == watch && one.log == log)
 }
 
 /// A fixture's time moved so its anchor is now.

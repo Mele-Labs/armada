@@ -25,6 +25,7 @@ mod done;
 mod now;
 mod open;
 mod deferred;
+mod watching;
 mod edit;
 mod fork;
 mod format;
@@ -637,6 +638,7 @@ impl JobView {
     /// changed and from no earlier, so a tail does not cost a thread's worth of layout.
     fn sync(&mut self, id: &SharedString, cx: &mut Context<Self>) {
         self.want_needs(id, cx);
+        self.want_watches(id, cx);
         let dirty = self.fleet.as_ref().and_then(|fleet| fleet.update(cx, |fleet, _| fleet.take_dirty(id)));
         let added = self.fleet.as_ref().map_or(0, |fleet| fleet.update(cx, |fleet, _| fleet.take_prepended(id)));
         let working = self.working(id, cx);

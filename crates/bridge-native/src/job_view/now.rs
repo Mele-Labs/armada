@@ -420,6 +420,7 @@ impl JobView {
             .children(self.flight_rows(&job, &at_work, false, look, cx))
             .children(self.now_children(&job, look, cx))
             .children(self.now_plan(id, &job, look, cx))
+            .children(self.watching(&job, look, cx))
             .children(ahead)
             .into_any_element()
     }
