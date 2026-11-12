@@ -147,6 +147,8 @@ The parity check takes each row here as chosen.
 | The message box's menus in a box under 400px wide | The menus lose their floor and their words truncate to nothing beside the caret | The words are not drawn, and each menu keeps its glyph and caret, so Send stays on the row at native's control sizes |
 | Close pane | The pane leaves the saved arrangement, and the Layout menu brings it back | The pane stays closed on that Job until Bridge restarts; the Layout menu, splits and the saved arrangement are held |
 | Zoom from a tab in the right column | Each tab's own menu has Zoom or Restore | The column's tabs have no menu yet: ⌥⌘Enter, a double press on the strip and Restore zoom them. The thread tab's menu has Zoom |
+| A terminal's tab glyph | `square-terminal`, which the icon registry reserves for a Session | `file-terminal`, the glyph the registry gives the Job's shell, as the dispatch line's Terminal kind and ⌘T's palette row draw it |
+| A terminal tab's menu | Send to agent, Copy terminal ID, Rename, Move to window, Zoom, Split right, Split down and Close | Send to agent, Copy terminal ID and Close; Rename comes with an inline rename of a view tab, and Move to window, Zoom and the splits wait for native panes to have them |
 
 ## Notifying
 
