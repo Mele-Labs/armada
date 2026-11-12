@@ -9,13 +9,16 @@ use super::{answer, press_on, step, Step, Verb};
 const NOTE: &str = "File your note: the slot meter flickers when a Job ends, and for a second the count reads one slot more than the pool holds before it settles";
 const HOLD: &str = "armada: only Slot pool controls writes under apps/cockpit until it pushes";
 const FORGET_HOLD: &str = "Forget armada: only Slot pool controls writes under apps/cockpit until it pushes";
+/// Fleet's why for a Later whose time has passed, as the scene `late` has it refuse.
+const LATE: &str = "Not done: 2026-11-11T14:05:00-05:00 has passed, so the item cannot wait until then";
 const TOP: &str = "Since you left, the red main's fix is up as #3414, waiting on ci. Quick dispatch's plan is still the one two Jobs wait on.";
 
-pub static STEPS: [Step; 59] = [
+pub static STEPS: [Step; 64] = [
     step("Coming back at 13:05: the day, and the pills say what stands. storefront's main has been red since 11:24", Verb::Look, "status", "storefront main is red since 11:24"),
     step("The Operator's one line on what changed, in grey under the day: nothing on it waits on you", Verb::Look, "status", TOP),
     step("What the Operator is reading now: the Job by name, what it asks, and its project", Verb::Look, "status", "The Operator is reading what Store reports its size asks: Review pull request #3415"),
     step("One item is open: its kind, its Job, what it asks and My read. A plan takes Approve, or Send changes in its Job", Verb::Look, "button", "Send changes"),
+    step("Two more Jobs raised the same ask, folded into this one: the mark beside its title names them", Verb::Look, "img", "Also raised by\nDispatch panel\nHelm composer"),
     step("A says Yes to the pick at once, and the go-ahead to file opens next: his note, and when he left it", Verb::Key("a"), "article", "File your note as an issue"),
     answer("What you answered leaves Your turn for Answered today, folded at its foot", "rest", "button", "Answered today"),
     step("A press opens it: each answer today, and what came of it", Verb::Open("button", "Answered today"), "row", "Quick dispatch, Answered Approve"),
@@ -23,9 +26,10 @@ pub static STEPS: [Step; 59] = [
     answer("A go-ahead to file is one row of outcomes, each saying what happens, and My pick filled", "top", "button", "File and hand to Slot pool controls"),
     step("Its tooltip says why the Operator picks it", Verb::Hover, "button", "File and hand to Slot pool controls"),
     step("1 to 3 press an outcome, D is Don't file, and Later and Ask keep the right", Verb::Look, "button", "Don't file"),
-    step("L puts it Later, last for today, and the next item opens", Verb::Key("l"), "article", "Rework the Map legend"),
+    step("L opens Later's menu: when it comes back, each choice with its time", Verb::Key("l"), "menuitem", "Tomorrow morning"),
+    step("Tomorrow morning puts it last until 09:00 tomorrow, and the next item opens", Verb::Open("menuitem", "Tomorrow morning"), "article", "Rework the Map legend"),
     step("Its pick is no option, so the button reads My pick, and the Operator's sentence is in its tooltip", Verb::Hover, "button", "My pick"),
-    answer("Its row wears the clock: later today", "rest", "row", NOTE),
+    answer("Its row wears the clock, which says when it comes back", "rest", "img", "Later, until tomorrow 09:00"),
     step("↓ opens the next item. Its card stands where its row was, second", Verb::Key("down"), "article", "Fix desktop_unit after #412"),
     step("⌥↑ moves it up a place: its card is first now, and the keys stay on it", Verb::Key("alt-up"), "article", "Fix desktop_unit after #412"),
     step("A row's grip drags it: the go-ahead lifted over Rework the Map legend", Verb::Lift(NOTE), "row", "Rework the Map legend"),
@@ -43,6 +47,9 @@ pub static STEPS: [Step; 59] = [
     step("Retry sends it again, and the item goes to Answered today", Verb::Open("button", "Retry"), "button", "Answered today"),
     step("Opened, it says what came of it", Verb::Open("button", "Answered today"), "row", "File your note: the slot meter flickers when a Job ends, and for a second the count reads one slot more than the pool holds before it settles, Filed #3421 and started a Job"),
     step("A press again folds it", Verb::Open("button", "Answered today"), "button", "Answered today"),
+    answer("Fleet will refuse the next Later, as the time it names has passed", "late", "button", "Later"),
+    step("L, then Enter on 1 hour: Fleet says no, and the item comes back open with Fleet's why", Verb::Key("l"), "menuitem", "1 hour"),
+    step("Fleet's why is under it", Verb::Key("enter"), "alert", LATE),
     step("Landed opens on a press, its first few rows one line each", Verb::Open("button", "Landed"), "listitem", "#3413 Slot meter shows free slots"),
     step("Show all draws the rest of them", Verb::Open("button", "Show all Landed"), "listitem", "#3401 Merge strip says how fresh each line is"),
     step("Show fewer goes back to the first few", Verb::Open("button", "Show fewer Landed"), "button", "Show all Landed"),

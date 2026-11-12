@@ -24,6 +24,8 @@ pub struct MockFleet {
     pub refuse_switch: Option<String>,
     /// How the next answer fails, where a scene wants it refused or its reply lost.
     pub fail_answer: Option<Failed>,
+    /// Why the next Later is refused, where a scene wants the time it names to have passed.
+    pub refuse_later: Option<String>,
     /// The week's Log, as Fleet writes it.
     pub log: String,
 }
@@ -69,7 +71,7 @@ pub fn day() -> SharedString {
 
 impl MockFleet {
     pub fn new() -> MockFleet {
-        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, fail_answer: None, log: LOG.to_string() }
+        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, fail_answer: None, refuse_later: None, log: LOG.to_string() }
     }
 
     fn take(&mut self, id: &str) -> Option<OperatorTurnItem> {
@@ -109,10 +111,15 @@ impl MockFleet {
         Ok(answered)
     }
 
-    /// What `operator_later` does: the item goes last for the rest of the day.
-    pub fn later(&mut self, id: &str) -> Result<OperatorPage, String> {
+    /// What `operator_later` does: the item goes last until `until`, or for the rest of the day; a time
+    /// already passed is refused, in Fleet's words.
+    pub fn later(&mut self, id: &str, until: Option<String>) -> Result<OperatorPage, String> {
+        let past = until.as_ref().filter(|until| chrono::DateTime::parse_from_rfc3339(until).is_ok_and(|at| at <= now()));
+        if let Some(why) = self.refuse_later.take().or_else(|| past.map(|until| format!("{until} has passed, so the item cannot wait until then"))) {
+            return Err(why);
+        }
         let Some(mut turn) = self.take(id) else { return Err("No open item has that id".into()) };
-        turn.later_until = Some(Instant::carried("2026-11-11T23:59:59-05:00"));
+        turn.later_until = Some(Instant::carried(until.unwrap_or_else(|| "2026-11-11T23:59:59-05:00".into())));
         self.page.turn.push(turn);
         Ok(self.page.clone())
     }

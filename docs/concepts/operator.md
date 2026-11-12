@@ -302,6 +302,8 @@ Settled with the person on 10 Nov, on sketches. It stays current all day; the mo
   One item is open at a time, with its kind, its Job, what it asks, the Operator's read and its acts, the pick marked: A presses the pick, L is Later, / is Ask.
   The rest are one line each. A row pressed low opens its card where it stands, and nothing reorders (12 Nov).
   The pick's button reads the option it names, Later, or My pick, with the Operator's sentence in its tooltip, never on the button (12 Nov).
+  Later opens a menu of when the item comes back, each choice with its time: 1 hour, 3 hours, Tomorrow morning (09:00) and Next week (Monday 09:00). The item goes last until then, its row's clock saying when; a time Fleet refuses as passed puts the item back open with Fleet's why. A Later pick answered Yes, and a toast's Later, keep it for the rest of the day (12 Nov).
+  An ask other Jobs raised too is folded into the first, and a mark beside its title names them in its tooltip.
 - An answered item leaves Your turn at once for Answered today, folded at the foot, with what came of each; it is drawn only once something was answered on the person's local day, and has no Undo (12 Nov).
   An item whose act Fleet leaves to him to open stays out of Your turn too, though Fleet keeps it until he opens it.
   A refused answer puts the item back open with Fleet's why under it; a reply that never arrives puts it back and raises a failure toast with Retry.

@@ -4,7 +4,7 @@
 //! rounder, as the native screens are.
 
 use gpui::{
-    div, prelude::*, AnyElement, App, Context, Div, FontWeight, Hsla, MouseButton, Pixels, Role, SharedString, Stateful, Window,
+    canvas, div, prelude::*, AnyElement, App, Context, Div, FontWeight, Hsla, MouseButton, Pixels, Role, SharedString, Stateful, Window,
 };
 use ipc::operator_page::{OperatorAnswer, OperatorPage, OperatorTurnItem, OperatorTurnKind};
 use ipc::MainCiState;
@@ -349,6 +349,22 @@ impl OperatorPageView {
         )
     }
 
+    /// Where other Jobs raised the same ask, folded into this one: a mark in its head, naming them in its tooltip.
+    fn also_raised(&self, turn: &OperatorTurnItem, look: &Look) -> Option<AnyElement> {
+        if turn.also_raised_by.is_empty() {
+            return None;
+        }
+        let said = format!("Also raised by\n{}", turn.also_raised_by.join("\n"));
+        Some(
+            labelled(
+                div().id("card-also-raised").flex_none().tooltip(tip(said.clone())).child(glyph("layers", look.length(token::SPACE_4), look.color(token::FG_MUTED))),
+                Role::Image,
+                said,
+            )
+            .into_any_element(),
+        )
+    }
+
     fn card(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> AnyElement {
         let kind = face::kind_of(turn);
         let title = face::card_title(turn);
@@ -363,8 +379,14 @@ impl OperatorPageView {
             .border_color(look.color(token::BORDER_SUBTLE))
             .child(kind_chip(kind, look))
             .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
+            .children(self.also_raised(turn, look))
             .when(turn.later_until.is_some(), |head| {
-                head.child(chip("Later", look.color(token::STATUS_NOT_STARTED), look.color(token::STATUS_NOT_STARTED_BG), look))
+                let said = face::later_said(turn, self.clock_now.unwrap_or_else(chrono::Local::now));
+                head.child(labelled(
+                    div().id("card-later").flex_none().tooltip(tip(said.clone())).child(chip("Later", look.color(token::STATUS_NOT_STARTED), look.color(token::STATUS_NOT_STARTED_BG), look)),
+                    Role::Image,
+                    said,
+                ))
             })
             .children(turn.repository.clone().map(|repository| chip(repository, look.color(token::FG_MUTED), look.color(token::BG_HOVER), look)));
         let read = turn.read.as_ref().map(|read| {
@@ -479,9 +501,14 @@ impl OperatorPageView {
             .children(answers)
             .children(changes)
             .child(div().ml_auto().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(
-                pressed(press("turn-later", "Later".into(), None, Some("L".into()), Weight::Bare, look).track_focus(&self.later_focus).tooltip(tip("Last for the rest of today")), cx, |this, _, cx| {
-                    this.later(cx)
-                }),
+                {
+                    // Its menu opens under it: where it is drawn is kept for that.
+                    let drawn = self.later_bounds.clone();
+                    pressed(press("turn-later", "Later".into(), Some("clock"), Some("L".into()), Weight::Bare, look).relative().track_focus(&self.later_focus).tooltip(tip("Choose when it comes back")), cx, |this, window, cx| {
+                        this.open_later(false, window, cx)
+                    })
+                    .child(canvas(move |bounds, _, _| drawn.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+                },
                 Role::Button,
                 "Later",
             ))
@@ -674,12 +701,13 @@ impl OperatorPageView {
         let id = turn.id.clone();
         let drop_id = turn.id.clone();
         let sub = face::pick_of(turn).map(|pick| format!("My pick: {pick}"));
-        // Put Later: the clock beside its kind, as nobody acts on it until later today.
+        // Put Later: the clock beside its kind, saying when it comes back.
         let later = turn.later_until.is_some().then(|| {
+            let said = face::later_said(turn, self.clock_now.unwrap_or_else(chrono::Local::now));
             labelled(
-                div().id(SharedString::from(format!("later-{at}"))).tooltip(tip("Later today")).child(glyph("clock", look.length(token::SPACE_4), look.color(token::STATUS_NOT_STARTED))),
+                div().id(SharedString::from(format!("later-{at}"))).tooltip(tip(said.clone())).child(glyph("clock", look.length(token::SPACE_4), look.color(token::STATUS_NOT_STARTED))),
                 Role::Image,
-                "Later today",
+                said,
             )
         });
         labelled(
@@ -1265,6 +1293,7 @@ impl Render for OperatorPageView {
             .child(div().flex_1().min_h_0().flex().child(main).child(side(look).id("operator-side").overflow_y_scroll().child(aside)))
             .children(sheet)
             .children(log)
+            .children(self.later_menu.as_ref().map(|(menu, _)| menu.clone()))
             .into_any_element()
     }
 }
