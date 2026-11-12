@@ -440,7 +440,7 @@ pub use job_compact::{CompactHow, CompactOff, CompactOffer};
 pub use job_lanes::{
     JobLanesHeld, JobLanesView, LaneAutonomy, LaneCarriedTicket, LaneChange, LaneCopy, LaneEdge, LaneFired, LaneFiredAct,
     LaneInstance, LaneKept, LaneKind, LaneLifecycle, LaneLifecycleKind, LaneLifecycleState, LaneMoment, LaneNode,
-    LaneNodeKind, LaneNodeRole, LaneOutcome, LaneRef, LaneRule, LaneStep, LaneView,
+    LaneNodeKind, LaneNodeRole, LaneOutcome, LanePending, LaneRef, LaneRule, LaneStep, LaneView,
 };
 pub use repository_file::RepositoryFile;
 pub use ring_band::{RingBand, DANGER_FROM, WARNING_FROM};

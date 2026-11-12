@@ -283,6 +283,24 @@ pub struct LaneNode {
     /// The Job's own copy changed here, and how.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub changed: Option<String>,
+    /// A workflow's editor only: the Workspaces and repositories, by name, that name or read this state
+    /// otherwise, add it, or leave it out.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub differs: Vec<String>,
+    /// A workflow's editor only: the Workspaces whose pieces tie for this repository, so it reads the
+    /// default's: `Web and Mobile differ`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clash: Option<String>,
+}
+
+/// What a piece's mark waits on in a workflow's editor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LanePending {
+    /// A pull request that removes it from the repository. Fleet sets none: the window that opened it knows.
+    Removal,
+    /// The owner's Approve of a draft that keeps it for every Job.
+    Keep,
 }
 
 /// A lane: the workflow's steps, or one instance's states.
@@ -308,6 +326,9 @@ pub struct LaneView {
     /// The Job's own copy of this lane's lifecycle changed, and how.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub changed: Option<String>,
+    /// A workflow's editor only: what this lane's lifecycle waits on before it is kept or goes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending: Option<LanePending>,
     pub nodes: Vec<LaneNode>,
     /// The ways a state is left within the lane, as pairs of node ids.
     pub moves: Vec<(String, String)>,
@@ -339,6 +360,19 @@ pub struct LaneEdge {
     /// The same rule's second edge: drawn with its mark and no words.
     #[serde(default, skip_serializing_if = "is_false")]
     pub quiet: bool,
+    /// A workflow's editor only: the Workspaces and repositories, by name, where the rule applies alone or
+    /// is changed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub differs: Vec<String>,
+    /// A workflow's editor only: the Workspaces whose rules tie for this repository: `Web and Mobile differ`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clash: Option<String>,
+    /// A workflow's editor only: a rule a draft waiting on Approve would add, which no place keeps yet.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub proposed: bool,
+    /// A workflow's editor only: what this rule waits on before it is kept or goes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending: Option<LanePending>,
 }
 
 /// `SessionRecord::lanes`: where the Job stands in its workflow, what it holds, and the lanes and edges
