@@ -132,13 +132,13 @@ fn shown_target(address: &str) -> &str {
     address.find("?walk=").or_else(|| address.find("&walk=")).map_or(address, |at| &address[at..])
 }
 
-pub(super) fn mono(look: &Look) -> SharedString {
+pub(crate) fn mono(look: &Look) -> SharedString {
     look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default()
 }
 
 /// The glyph sizes the thread draws at.
 #[derive(Clone, Copy)]
-pub(super) enum Size {
+pub(crate) enum Size {
     /// 12 px.
     Small,
     /// 14 px.
@@ -157,11 +157,11 @@ impl Size {
     }
 }
 
-pub(super) fn glyph(look: &Look, name: &'static str, size: Size, ink: Hsla) -> gpui::Svg {
+pub(crate) fn glyph(look: &Look, name: &'static str, size: Size, ink: Hsla) -> gpui::Svg {
     svg().path(icon_path(name)).flex_none().size(size.of(look)).text_color(ink)
 }
 
-pub(super) fn tip(said: impl Into<SharedString>) -> impl Fn(&mut Window, &mut gpui::App) -> gpui::AnyView {
+pub(crate) fn tip(said: impl Into<SharedString>) -> impl Fn(&mut Window, &mut gpui::App) -> gpui::AnyView {
     let said: SharedString = said.into();
     move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx)
 }
