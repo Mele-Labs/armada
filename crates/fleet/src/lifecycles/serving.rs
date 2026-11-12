@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{Lifecycles, Refusal};
+use api::{Lifecycles, Projects, Refusal};
 use core_model::{InstanceRef, Lifecycle, Standing};
 use ipc::{
     AppliedLifecycle, AppliedRule, AutonomyLayer, HeldInstance, InstanceLink, InstanceMove, JobLifecycles, ManifestId,
@@ -22,7 +22,7 @@ use super::holding::rebuilt;
 use super::keeping::{JOB, PULL_REQUEST};
 use super::wire;
 use crate::daemon::Fleet;
-use crate::job_lanes::{editor_lanes, EditorInput};
+use crate::job_lanes::{editor_lanes, Drafts, EditorInput, PiecesRead, RepositoryRead, WorkspaceRead};
 use crate::session_host::NO_SUCH_SESSION;
 
 /// `get_workflow_lanes` asked for a level other than the default's, which is not served yet. A 422.
@@ -225,6 +225,76 @@ where
         applied_rules(&applying, &autonomy.defaults())
     }
 
+    /// What a workflow's editor reads for `current`: the Workspaces that hold it, its pieces, then those of the
+    /// other repositories of its Workspaces that Fleet serves, as `readPieces` in Bridge's `fleet-pieces.ts` reads
+    /// them. **Another repository whose pieces do not read is left out**; the refusal for `current` is the answer.
+    async fn editor_pieces(&self, current: &ManifestId) -> Result<PiecesRead, Refusal> {
+        let holding = self.list_holding_projects(Some(current.clone())).await?;
+        let workspaces: Vec<WorkspaceRead> = holding
+            .projects
+            .iter()
+            .filter(|one| one.unread.is_none())
+            .map(|one| {
+                let mut repositories: Vec<String> = Vec::new();
+                for member in &one.members {
+                    if !repositories.iter().any(|id| id == member.manifest_id.as_str()) {
+                        repositories.push(member.manifest_id.as_str().to_string());
+                    }
+                }
+                WorkspaceRead { id: one.id.clone(), name: one.name.clone(), repositories }
+            })
+            .filter(|one| one.repositories.iter().any(|id| id == current.as_str()))
+            .collect();
+        let mut wanted: Vec<String> = vec![current.as_str().to_string()];
+        for id in workspaces.iter().flat_map(|one| &one.repositories) {
+            if !wanted.contains(id) {
+                wanted.push(id.clone());
+            }
+        }
+        let mut repositories = Vec::new();
+        for id in wanted {
+            let Some(there) = self.repositories().serving(&id) else { continue };
+            let named = Some(ManifestId::carried(id.clone()));
+            let lifecycles = self.list_lifecycles(named.clone()).await.map(|read| read.lifecycles);
+            let rules = self.list_lifecycle_rules(named).await.map(|read| read.rules);
+            match (lifecycles, rules) {
+                (Ok(lifecycles), Ok(rules)) => repositories.push(RepositoryRead {
+                    name: crate::wire::manifest_summary(there.manifest(), "").repository,
+                    id,
+                    lifecycles,
+                    rules,
+                }),
+                (Err(why), _) | (_, Err(why)) if id == current.as_str() => return Err(why),
+                _ => {}
+            }
+        }
+        Ok(PiecesRead { workspaces, repositories })
+    }
+
+    /// What `current`'s keep drafts would add, read from their text as Approve would save it. A draft whose text
+    /// does not read is still one the piece waits on; a list that does not read has none.
+    async fn editor_drafts(&self, current: &ManifestId) -> Drafts {
+        let mut drafts = Drafts::default();
+        for one in self.keep_drafts_listed(Some(current)).await.map(|kept| kept.drafts).unwrap_or_default() {
+            let path = std::path::PathBuf::from(format!("{}.yml", one.id));
+            match one.kind {
+                ipc::CopyPieceKind::Lifecycle => {
+                    drafts.keeps.push(format!("lifecycle:{}", one.id));
+                    if let Ok(read) = config::parse_lifecycle(&path, &one.text) {
+                        drafts.lifecycles.push(wire::lifecycle(&read));
+                    }
+                }
+                ipc::CopyPieceKind::Rule => {
+                    drafts.keeps.push(format!("rule:{}", one.id));
+                    if let Ok(read) = config::parse_rule(&path, &one.text) {
+                        drafts.rules.push(wire::rule(&read));
+                    }
+                }
+            }
+        }
+        drafts
+    }
+
     /// The Job a call is about: the hosted one holding the connection, else the one named, which
     /// Fleet must hold.
     async fn lifecycles_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<String, Refusal> {
@@ -309,9 +379,10 @@ where
             .get(&core_model::WorkflowId::carried(core_model::Ulid::carried(&workflow)))
             .ok_or_else(|| self.no_such_definition(&workflow, None))?;
         let steps: Vec<(String, String)> = crate::rail::steps_of(found).into_iter().map(|step| (step.id, step.label)).collect();
-        let lifecycles = self.list_lifecycles(manifest_id.clone()).await?.lifecycles;
-        let rules = self.list_lifecycle_rules(manifest_id).await?.rules;
-        Ok(editor_lanes(&EditorInput { workflow: &workflow, steps: &steps, lifecycles: &lifecycles, rules: &rules }))
+        let current = ManifestId::from(served.manifest().id());
+        let read = self.editor_pieces(&current).await?;
+        let drafts = self.editor_drafts(&current).await;
+        Ok(editor_lanes(&EditorInput { workflow: &workflow, steps: &steps, read: &read, drafts: &drafts }))
     }
 
     async fn list_autonomy_defaults(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryAutonomy, Refusal> {

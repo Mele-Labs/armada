@@ -182,7 +182,14 @@ export type LaneNode = {
   ticket?: LaneCarriedTicket;
   /** The Job's own copy changed here, and how. */
   changed?: string;
+  /** A workflow's editor only: the Workspaces and repositories, by name, that name or read this state otherwise, add it, or leave it out. */
+  differs?: string[];
+  /** A workflow's editor only: the Workspaces whose pieces tie for this repository, so it reads the default's: `Web and Mobile differ`. */
+  clash?: string;
 };
+
+/** What a piece's mark waits on in a workflow's editor: a pull request that removes it (Fleet sets none), or the owner's Approve of a draft that keeps it. */
+export type LanePending = "removal" | "keep";
 
 /** A lane: the workflow's steps, or one instance's states. */
 export type LaneView = {
@@ -201,6 +208,8 @@ export type LaneView = {
   ended?: boolean;
   /** The Job's own copy of this lane's lifecycle changed, and how. */
   changed?: string;
+  /** A workflow's editor only: what this lane's lifecycle waits on before it is kept or goes. */
+  pending?: LanePending;
   nodes: LaneNode[];
   /** The ways a state is left within the lane, as pairs of node ids. */
   moves: [
@@ -229,6 +238,14 @@ export type LaneEdge = {
   changed?: string;
   /** The same rule's second edge: drawn with its mark and no words. Absent where false. */
   quiet?: boolean;
+  /** A workflow's editor only: the Workspaces and repositories, by name, where the rule applies alone or is changed. */
+  differs?: string[];
+  /** A workflow's editor only: the Workspaces whose rules tie for this repository: `Web and Mobile differ`. */
+  clash?: string;
+  /** A workflow's editor only: a rule a draft waiting on Approve would add, which no place keeps yet. Absent where false. */
+  proposed?: boolean;
+  /** A workflow's editor only: what this rule waits on before it is kept or goes. */
+  pending?: LanePending;
 };
 
 /**
