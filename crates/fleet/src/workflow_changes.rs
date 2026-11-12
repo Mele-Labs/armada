@@ -18,7 +18,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use config::settings as keys;
-use core_model::{Component, Envelope, FieldValue, Level};
+use core_model::{Component, Envelope, FieldValue, Level, StepGate};
 use config::ResolvedWorkflow;
 use ipc::{
     ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, ManifestId, ProposeNewWorkflow,
@@ -405,6 +405,7 @@ where
                 text: support_brief(&kept.workflow_id, &request, &kept.missing),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             })
             .await;
         if let Err(refused) = sent {
@@ -489,6 +490,7 @@ where
                 text: proposal_brief(&id, &proposed.definition),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                sketches: Vec::new(),
             })
             .await;
         let send_failed = sent.err().map(|refused| refused.error().message.clone());
@@ -680,16 +682,25 @@ where
         let mut wire = change_wire(kept);
         if matches!(wire.state, ChangeState::Ready | ChangeState::Cannot) {
             wire.before_steps = self.change_steps(served, &wire.before);
-            wire.after_steps = wire.after.as_deref().and_then(|after| self.change_steps(served, after));
+            let after = wire.after.as_deref().and_then(|after| self.change_read_of(served, after));
+            if let Some((steps, name, for_requests)) = after {
+                (wire.after_steps, wire.after_name, wire.after_for_requests) = (Some(steps), Some(name), for_requests);
+            }
         }
         wire
     }
 
     /// A definition's text step by step, resolved as a Job would freeze it. `None` where it does not read.
     fn change_steps(&self, served: &Served, text: &str) -> Option<Vec<ChangeStep>> {
+        self.change_read_of(served, text).map(|(steps, ..)| steps)
+    }
+
+    /// `change_steps`, with the definition's `name` and `for_requests` read off the same parse.
+    fn change_read_of(&self, served: &Served, text: &str) -> Option<(Vec<ChangeStep>, String, Option<String>)> {
         let roster = config::Roster::of(self.models_on());
         let def = config::WorkflowDef::parse(Path::new("workflow.json"), text, &roster).ok()?;
-        let steps = rail::steps_of(&ResolvedWorkflow::resolve(&def, served.manifest()).ok()?);
+        let resolved = ResolvedWorkflow::resolve(&def, served.manifest()).ok()?;
+        let steps = rail::steps_of(&resolved);
         let read = (0..steps.len()).map(|at| ChangeStep {
             id: StepId::carried(steps[at].id.clone()),
             label: steps[at].label.clone(),
@@ -697,8 +708,12 @@ where
             ends_when: ends_when(&steps, at),
             ends_any: ends_any(&steps, at),
             passed_over_when: passed_over_when(&steps[at]).map(str::to_string),
+            about: steps[at].about.clone(),
+            gate: Some(resolved.steps()[at].gate()).filter(|gate| *gate != StepGate::None).map(|gate| gate.word().to_string()),
+            asks_delivery: steps[at].asks_delivery,
+            delivers: steps[at].delivers,
         });
-        Some(read.collect())
+        Some((read.collect(), resolved.name().to_string(), resolved.for_requests().map(str::to_string)))
     }
 }
 
@@ -784,6 +799,8 @@ fn change_wire(kept: &KeptWorkflowChange) -> WorkflowChange {
         missing: kept.missing.clone(),
         before_steps: None,
         after_steps: None,
+        after_name: None,
+        after_for_requests: None,
         notes: kept.notes.clone(),
         at: Instant::carried(kept.changed_at.clone()),
     }

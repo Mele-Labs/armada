@@ -48,6 +48,7 @@ pub(super) fn message(id: &str, minute: u32, from: SessionVoice, text: &str, not
         notice: notice.map(str::to_string),
         queued: false,
         edited_at: None,
+        sketches: Vec::new(),
     }
 }
 

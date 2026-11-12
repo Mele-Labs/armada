@@ -473,6 +473,14 @@ export type ChangeStep = {
   /** Every end of the step, as `StepReading.ends_any`. Absent where it has none. */
   ends_any?: string[];
   passed_over_when?: string;
+  /** What the step does for the Job, as the definition wrote it. */
+  about?: string;
+  /** The plan gate the step's group ends on. Absent where it is `none`. */
+  gate?: string;
+  /** Entering the step asks how the work is delivered. Absent where it does not. */
+  asks_delivery?: boolean;
+  /** The step sends the work out. Absent where it does not. */
+  delivers?: boolean;
 };
 
 /**
@@ -501,6 +509,10 @@ export type WorkflowChange = {
   before_steps?: ChangeStep[];
   /** `after`, step by step, present with it. */
   after_steps?: ChangeStep[];
+  /** The drafted definition's `name`, present with `after_steps`. */
+  after_name?: string;
+  /** The drafted definition's `for_requests`, where it says one. */
+  after_for_requests?: string;
   /** What he said when he sent it back, the latest. */
   notes?: string;
   /** When it last moved. */

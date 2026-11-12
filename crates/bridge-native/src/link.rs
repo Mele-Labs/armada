@@ -404,7 +404,7 @@ async fn read_with_retries<T: serde::de::DeserializeOwned>(
 }
 
 /// A query value with everything but unreserved characters escaped.
-fn percent_encoded(text: &str) -> String {
+pub(crate) fn percent_encoded(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for byte in text.bytes() {
         match byte {

@@ -70,8 +70,10 @@ He sees it beside what it was and approves it, dismisses it or sends it back wit
 | `build_workflow_support` | `POST /workflows/changes/build` | Bridge sends `WorkflowChangeRef` | `WorkflowSupportBuilding`: `job_id` |
 | `propose_workflow_to_armada` | `POST /workflows/propose` | Bridge sends `ProposeToArmada` (`workflow_id`, `definition`) | `ArmadaProposed`: `workflow_id`, `session_id`, `send_failed?` |
 
-`WorkflowChange` is `id`, `workflow_id`, `source` (`repository` or `kit`), `step_id?`, `origin` (`{kind: asked, text}`, `{kind: drift, nudges}` on a change kept before 5 Nov 2026, `{kind: job}` or `{kind: new}`), `before`, `after?`, `state` (`drafting`, `ready`, `approved`, `dismissed`, `failed`, `cannot`), `reason?`, `missing?`, `before_steps?`, `after_steps?`, `notes?` and `at`.
-`ChangeStep` is `id`, `label`, `instructions?`, `ends_when?` and `passed_over_when?`, as `StepReading` says them.
+`WorkflowChange` is `id`, `workflow_id`, `source` (`repository` or `kit`), `step_id?`, `origin` (`{kind: asked, text}`, `{kind: drift, nudges}` on a change kept before 5 Nov 2026, `{kind: job}` or `{kind: new}`), `before`, `after?`, `state` (`drafting`, `ready`, `approved`, `dismissed`, `failed`, `cannot`), `reason?`, `missing?`, `before_steps?`, `after_steps?`, `after_name?`, `after_for_requests?`, `notes?` and `at`.
+`ChangeStep` is `id`, `label`, `instructions?`, `ends_when?`, `ends_any?`, `passed_over_when?`, `about?`, `gate?` (absent for `none`), `asks_delivery?` and `delivers?`, each absent when empty or false.
+`after_name` and `after_for_requests` are read off the drafted definition beside `after_steps`.
+A step gated `you_approved` reads `ends_when` as `you approve`.
 Fleet keeps it in `workflow_changes`; no event carries it.
 
 **Drafting is one short model run and not a Job.** The call is the proposer's: its client, budget and `models.proposer`.
