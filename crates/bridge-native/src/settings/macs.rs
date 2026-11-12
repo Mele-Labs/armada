@@ -57,9 +57,19 @@ impl MacsPage {
     }
 }
 
-/// Whether Set up tunnel is the press that moves the state on.
+/// Whether Set up tunnel is the press that moves the state on. A tunnel that dropped signs in again the same way.
 fn asks_setup(state: &CloudflareState) -> bool {
-    matches!(state, CloudflareState::Missing | CloudflareState::SignedOut | CloudflareState::NoTunnel { .. })
+    matches!(state, CloudflareState::Missing | CloudflareState::SignedOut | CloudflareState::NoTunnel { .. } | CloudflareState::Down { .. })
+}
+
+/// The key of the one press a state draws.
+fn press_of(state: &CloudflareState) -> Option<&'static str> {
+    match state {
+        _ if asks_setup(state) => Some("setup"),
+        CloudflareState::SigningIn { .. } => Some("sign-in"),
+        CloudflareState::Running { .. } => Some("copy"),
+        _ => None,
+    }
 }
 
 /// A Unix time as the page says it: the clock today, else the day and the clock.
@@ -129,7 +139,7 @@ impl SettingsOverlay {
     }
 
     /// `GET /admin/setup`, and again every five seconds while the page is shown and the tunnel does not run. A
-    /// state that no longer draws the control the keys were on puts them on the Devices list.
+    /// state that no longer draws the control the keys were on puts them on the new state's press.
     fn read_setup(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let read = self.wire.gateway_setup(cx);
         self.macs._poll = Some(cx.spawn_in(window, async move |this, cx| {
@@ -140,8 +150,9 @@ impl SettingsOverlay {
                     let held = ["setup", "sign-in", "copy"].into_iter().filter_map(|name| this.macs.keys.get(name)).any(|focus| focus.is_focused(window));
                     this.macs.setup = Some(answer);
                     if held && !this.macs_stops().iter().any(|focus| focus.is_focused(window)) {
-                        if let Some(rest) = this.macs.keys.get(AT_REST).cloned() {
-                            window.focus(&rest, cx);
+                        let press = this.macs.cloudflare().and_then(|state| this.macs.keys.get(press_of(state)?)).or_else(|| this.macs.keys.get(AT_REST)).cloned();
+                        if let Some(press) = press {
+                            window.focus(&press, cx);
                         }
                     }
                     cx.notify();
@@ -177,12 +188,7 @@ impl SettingsOverlay {
         let page = &self.macs;
         let key = |name: &str| page.keys.get(name).cloned();
         let mut stops = Vec::new();
-        match page.cloudflare() {
-            Some(state) if asks_setup(state) => stops.extend(key("setup")),
-            Some(CloudflareState::SigningIn { .. }) => stops.extend(key("sign-in")),
-            Some(CloudflareState::Running { .. }) => stops.extend(key("copy")),
-            _ => {}
-        }
+        stops.extend(page.cloudflare().and_then(press_of).and_then(key));
         if let Some(Ok(phones)) = &page.phones {
             stops.extend(phones.iter().filter_map(|one| key(&format!("unpair:{}", one.id))));
         }
@@ -223,7 +229,8 @@ impl SettingsOverlay {
         }
     }
 
-    /// `POST /admin/setup/cloudflare`. A sign-in to wait for moves the keys to its button.
+    /// `POST /admin/setup/cloudflare`. A sign-in to wait for moves the keys to its button; a tunnel made moves them
+    /// when the next read draws it.
     fn set_up_tunnel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.macs.pressing {
             return;
@@ -241,11 +248,7 @@ impl SettingsOverlay {
                         if let (Tunnel::SignIn(login), Some(Ok(setup))) = (&made, this.macs.setup.as_mut()) {
                             setup.cloudflare = CloudflareState::SigningIn { login: login.clone() };
                         }
-                        let next = match made {
-                            Tunnel::SignIn(_) => "sign-in",
-                            Tunnel::Made => AT_REST,
-                        };
-                        if let Some(focus) = this.macs.keys.get(next).cloned() {
+                        if let Some(focus) = matches!(made, Tunnel::SignIn(_)).then(|| this.macs.keys.get("sign-in").cloned()).flatten() {
                             window.focus(&focus, cx);
                         }
                         this.read_setup(window, cx);
@@ -295,7 +298,7 @@ impl SettingsOverlay {
                     .gap(look.length(token::SPACE_3))
                     .child(chip(look, mac))
                     .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(mac.name.clone())))
-                    .children(mac.build.as_ref().map(|build| div().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(build.clone()))))
+                    .children(mac.build.as_ref().map(|build| build_mark(look, "macs-this-build", build)))
                     .into_any_element(),
             },
         };
@@ -314,7 +317,8 @@ impl SettingsOverlay {
             Some(Ok(setup)) => {
                 body.extend(self.tunnel_rows(&setup.cloudflare, look, window, cx));
                 if let Some(version) = &setup.cloudflared {
-                    body.push(div().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(format!("cloudflared {version}"))).into_any_element());
+                    let line = div().id("macs-cloudflared").flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).tooltip(tip("cloudflared version".to_string())).child(SharedString::from(format!("cloudflared {version}")));
+                    body.push(div().flex().child(labelled(line, Role::Label, "cloudflared version")).into_any_element());
                 }
             }
         }
@@ -341,8 +345,9 @@ impl SettingsOverlay {
             CloudflareState::Down { address, since, why } => {
                 let name = div().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(address.clone()));
                 let since = format!("Not connected since {}", clock_of(*since));
-                let lines = vec![labelled(div().id("macs-down").child(caption(look, &since)), Role::Status, since.clone()).into_any_element(), caption(look, why).into_any_element()];
-                step_row(look, glyph(look, "macs-down-mark", "cloud-off", look.color(token::STATUS_COMPLETED_FAILED), "Not connected"), name.into_any_element(), lines, None, true)
+                let mut lines = vec![labelled(div().id("macs-down").child(caption(look, &since)), Role::Status, since.clone()).into_any_element(), caption(look, why).into_any_element()];
+                lines.extend(refused);
+                step_row(look, glyph(look, "macs-down-mark", "cloud-off", look.color(token::STATUS_COMPLETED_FAILED), "Not connected"), name.into_any_element(), lines, Some(self.macs_button("setup", "Set up tunnel", Weight::Primary, page.pressing, look, window, cx)), true)
             }
             CloudflareState::SigningIn { .. } => {
                 let mut lines = vec![caption(look, "Waiting for the sign-in on Cloudflare's page.").into_any_element()];
@@ -386,7 +391,7 @@ impl SettingsOverlay {
                         glyph(look, SharedString::from(format!("macs-link-{}", mac.id)), name, ink, &said)
                     });
                     let row = device_row(look, chip(look, mac), &mac.name, mac.this_mac.then_some("This Mac"))
-                        .children(mac.build.as_ref().map(|build| div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(build.clone()))))
+                        .children(mac.build.as_ref().map(|build| build_mark(look, format!("macs-build-{}", mac.id), build)))
                         .child(div().flex_none().w(look.length(token::SPACE_6)).flex().justify_center().children(mark));
                     take(row, &mut rows);
                 }
@@ -465,6 +470,13 @@ fn caption(look: &Look, said: &str) -> gpui::Div {
 
 fn glyph(look: &Look, id: impl Into<SharedString>, name: &'static str, ink: Hsla, said: &str) -> AnyElement {
     labelled(div().id(id.into()).flex_none().tooltip(tip(said.to_string())).child(svg().path(icon_path(name)).size(look.length(token::SPACE_4)).text_color(ink)), Role::Image, said.to_string()).into_any_element()
+}
+
+/// A build's short hash, with a tooltip saying what the figure is.
+fn build_mark(look: &Look, id: impl Into<SharedString>, build: &str) -> AnyElement {
+    let said = format!("Build {build}");
+    let hash = div().id(id.into()).flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip(said.clone())).child(SharedString::from(build.to_string()));
+    labelled(hash, Role::Label, said).into_any_element()
 }
 
 fn not_done(look: &Look, id: &'static str) -> AnyElement {
