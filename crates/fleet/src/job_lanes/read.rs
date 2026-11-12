@@ -202,7 +202,7 @@ pub(super) fn carried(
 // ---- Rules and what they did ------------------------------------------------------------------------------------------------
 
 /// The lifecycle a rule's target is of: the one named, or the one whose entering set the rule off.
-fn lane_of_target(target: &RuleTarget, rule: &LifecycleRule) -> Option<String> {
+pub(super) fn lane_of_target(target: &RuleTarget, rule: &LifecycleRule) -> Option<String> {
     match &target.among {
         RuleAmong::Entered => match &rule.when {
             RuleWhen::Enters { lifecycle, .. } => Some(lifecycle.clone()),
@@ -215,7 +215,7 @@ fn lane_of_target(target: &RuleTarget, rule: &LifecycleRule) -> Option<String> {
 }
 
 /// The strongest word among a rule's acts: any that asks makes it Asks, and all of them off make it Off.
-fn autonomy_of(rule: &LifecycleRule) -> LaneAutonomy {
+pub(super) fn autonomy_of(rule: &LifecycleRule) -> LaneAutonomy {
     let words: Vec<&str> = match &rule.autonomy {
         Some(word) => vec![word.as_str()],
         None => rule.does.iter().map(|one| one.autonomy.as_str()).collect(),

@@ -318,6 +318,20 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Left, aim(&button), window, cx);
             Ok(())
         }
+        Verb::PressWithin(role, within, on) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let drawn = cx.try_global::<LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
+            let at = drawn.iter().rposition(|one| one.role == role && one.name == within).ok_or_else(|| Missed(format!("nothing named \"{within}\"")))?;
+            let outer = drawn[at].clone();
+            // Its own, drawn after it: a scrolled element's bounds can reach under a bar drawn later.
+            let button = drawn[at..]
+                .iter()
+                .find(|one| one.role == gpui::Role::Button && one.name == on && outer.bounds.contains(&one.bounds.center()))
+                .cloned()
+                .ok_or_else(|| Missed(format!("no button named \"{on}\" in \"{within}\"")))?;
+            press(MouseButton::Left, aim(&reveal(button, window, cx)), window, cx);
+            Ok(())
+        }
         Verb::RightOpen(role, on) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             // The last one drawn: an element the list measured off screen comes first in the book.

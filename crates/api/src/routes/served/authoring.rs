@@ -25,6 +25,11 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/workflows/steps",
     },
+    Route {
+        operation: "get_workflow_lanes",
+        method: "GET",
+        path: "/workflows/lanes",
+    },
     // The act in the last segment, beside `/manifest/save_file`'s. Under
     // `/workflows` with the reads, since what it writes is what they list.
     Route {

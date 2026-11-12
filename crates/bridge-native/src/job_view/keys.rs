@@ -81,6 +81,8 @@ pub(super) struct Cards {
     findings: RefCell<Vec<Found>>,
     /// What `⌘Enter` does in a card's open box, by card key (`DraftRow.tsx:309`).
     commits: RefCell<std::collections::HashMap<String, Run>>,
+    /// The width a row was drawn at when a part of it was left out for want of room, by part key.
+    pub cramped: RefCell<std::collections::HashMap<String, gpui::Pixels>>,
 }
 
 /// A Judge's note drawn and waiting: its row, and which note of which reading it is.

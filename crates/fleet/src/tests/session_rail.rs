@@ -48,6 +48,7 @@ pub(super) fn step(label: &str) -> RailStep {
         asks_delivery: false,
         walks: false,
         ends_on: Vec::new(),
+        gate: core_model::StepGate::None,
         criteria: Vec::new(),
         fit: None,
     }

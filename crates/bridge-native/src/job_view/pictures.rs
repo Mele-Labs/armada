@@ -93,6 +93,20 @@ pub(super) fn is_picture(file: &SentFile) -> bool {
     format_of(&file.media_type).is_some()
 }
 
+/// The picture a `Read` looked at, by its absolute path: named by its last part, its type from its
+/// ending. `None` for one gpui does not draw.
+pub(super) fn read_picture(path: &str) -> Option<SentFile> {
+    let name = path.rsplit('/').next().unwrap_or(path).to_string();
+    let media_type = match name.rsplit_once('.')?.1.to_ascii_lowercase().as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        _ => return None,
+    };
+    Some(SentFile { id: path.to_string(), name, media_type: media_type.to_string() })
+}
+
 /// A picture's width and height, read from its header: PNG, GIF, JPEG and WebP. Anything else is fitted
 /// whole inside the thumbnail's box.
 pub(super) fn natural_size(bytes: &[u8]) -> Option<(u32, u32)> {
@@ -188,6 +202,16 @@ fn mock_picture(name: &str) -> Option<Vec<u8>> {
 impl JobView {
     /// Read the pictures among `files` that have not been asked for yet. The row draws a placeholder until one comes.
     pub(super) fn want_pictures(&mut self, job: &SharedString, files: &[SentFile], window: &mut Window, cx: &mut Context<Self>) {
+        self.want(job, files, false, window, cx);
+    }
+
+    /// Read the pictures `Read` calls looked at, from the Job's own tree (`GET /sessions/repository_file`).
+    /// A refusal, or a file that came back as text, leaves the row without one.
+    pub(super) fn want_read_pictures(&mut self, job: &SharedString, files: &[SentFile], window: &mut Window, cx: &mut Context<Self>) {
+        self.want(job, files, true, window, cx);
+    }
+
+    fn want(&mut self, job: &SharedString, files: &[SentFile], from_tree: bool, window: &mut Window, cx: &mut Context<Self>) {
         for file in files.iter().filter(|file| is_picture(file)) {
             let held = key(job, &file.id);
             if self.pictures.held.contains_key(&held) {
@@ -201,6 +225,22 @@ impl JobView {
                     let _ = this.update(cx, |this, cx| this.keep_picture(held, &media_type, mock_picture(&name), cx));
                 })
                 .detach();
+                continue;
+            }
+            if from_tree {
+                let path = format!("/sessions/repository_file?session_id={}&path={}", encoded(job), encoded(&file.id));
+                let done: Done = Box::new(move |this, answer, _, cx| {
+                    use base64::Engine as _;
+                    let picture = answer.ok().and_then(|body| serde_json::from_slice::<ipc::RepositoryFile>(&body).ok()).and_then(|read| match read {
+                        ipc::RepositoryFile::Picture { bytes, media_type } => base64::engine::general_purpose::STANDARD.decode(bytes).ok().map(|bytes| (media_type, bytes)),
+                        ipc::RepositoryFile::Text { .. } => None,
+                    });
+                    match picture {
+                        Some((media_type, bytes)) => this.keep_picture(held, &media_type, Some(bytes), cx),
+                        None => this.keep_picture(held, "", None, cx),
+                    }
+                });
+                self.get(path, window, cx, done);
                 continue;
             }
             let path = format!("/sessions/file?session_id={}&file={}", encoded(job), encoded(&file.id));

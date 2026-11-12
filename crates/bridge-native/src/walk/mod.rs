@@ -56,6 +56,9 @@ pub enum Verb {
     /// A press on the button of this name inside the article of this name: where one card among several
     /// has a button the others have too.
     OpenIn(&'static str, &'static str),
+    /// A press on the button of this name inside the element of this role and name: where a button's name is
+    /// one the walk's own bar or another place also draws.
+    PressWithin(&'static str, &'static str, &'static str),
     /// A right press on the element of this role and name, before the target is ringed: the target is the menu it opens.
     RightOpen(&'static str, &'static str),
     /// A drag across the last line of the element of this role and name, as words are selected.
@@ -497,7 +500,7 @@ pub static WALKS: &[Walk] = &[
         scenario: "job-now",
         steps: &[
             press_on("A Job working its approved plan, with a walk and a question waiting on you: neither is in Now", "row", "Fix the merge line freshness chip", "list", "Now"),
-            step("The lamp says the Job is at work. Ask for an update and Plan stand at the band's end", Verb::Look, "img", "Live"),
+            step("Ask for an update and Plan stand at the band's end, with no lamp before them", Verb::Look, "button", "Ask for an update"),
             step("The agent's row: the call it is in, and how long it has been on it", Verb::Look, "group", "cargo check -p bridge-native"),
             step("Fleet at work beside the agent, with why in its tooltip", Verb::Look, "group", "Moving the Job to slot-5"),
             step("ci running on its pull request, and the native tests running", Verb::Look, "group", "native-tests"),
@@ -1000,6 +1003,15 @@ pub static WALKS: &[Walk] = &[
             step("Its preview stands beside the panel, level with the row", Verb::Look, "region", "Preview"),
             step("Each option shows its own", Verb::Hover, "radio", "Filled amber"),
             step("An option with no preview shows none", Verb::Hover, "radio", "Grey"),
+            press_on("A Job that looked at a picture and wrote to two others", "row", "Ask for a review", "button", "Tool calls: Read, SendMessage"),
+            press_on("Open, the Read draws the picture it looked at under its line, read from the Job's own files", "button", "Tool calls: Read, SendMessage", "button", "merge-line-amber.png"),
+            step("A press opens it full size", Verb::Open("button", "merge-line-amber.png"), "dialog", "merge-line-amber.png"),
+            step("Esc shuts it", Verb::Key("escape"), "button", "merge-line-amber.png"),
+            step("A message names the Job it went to by title, a link, with its summary under it", Verb::Look, "row", "Message to Finished calls"),
+            step("A name Fleet could not place is drawn as written", Verb::Look, "row", "Message to uds:/tmp/cc-socks/50461.sock"),
+            press_on("A press on the row shows the words it sent", "row", "Message to Finished calls", "group", "Sent to Finished calls"),
+            step("Another Job's answer stands in the thread as a received message, named by that Job", Verb::Look, "button", "Open Job Finished calls"),
+            press_on("The link opens the Job the message went to", "link", "Finished calls", "button", "Tool calls: Read, Grep, Edit, Bash, WebFetch, Agent"),
         ],
     },
     Walk {

@@ -114,8 +114,13 @@ impl MockFleet {
     /// What `operator_later` does: the item goes last until `until`, or for the rest of the day; a time
     /// already passed is refused, in Fleet's words.
     pub fn later(&mut self, id: &str, until: Option<String>) -> Result<OperatorPage, String> {
-        let past = until.as_ref().filter(|until| chrono::DateTime::parse_from_rfc3339(until).is_ok_and(|at| at <= now()));
-        if let Some(why) = self.refuse_later.take().or_else(|| past.map(|until| format!("{until} has passed, so the item cannot wait until then"))) {
+        // Fleet's two refusals, word for word (`operator_later_past`).
+        let said = until.as_ref().and_then(|until| match chrono::DateTime::parse_from_rfc3339(until) {
+            Err(_) => Some("That time could not be read. Pick another."),
+            Ok(at) if at <= now() => Some("That time has passed. Pick a later one."),
+            Ok(_) => None,
+        });
+        if let Some(why) = self.refuse_later.take().or_else(|| said.map(String::from)) {
             return Err(why);
         }
         let Some(mut turn) = self.take(id) else { return Err("No open item has that id".into()) };

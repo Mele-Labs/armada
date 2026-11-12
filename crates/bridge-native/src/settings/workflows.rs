@@ -425,6 +425,9 @@ impl SettingsOverlay {
             self.back_to_list(window, cx);
             return true;
         }
+        if self.band_key(key, window, cx) {
+            return true;
+        }
         if mods.platform || mods.control || mods.alt {
             return false;
         }
@@ -622,7 +625,7 @@ impl SettingsOverlay {
             );
             div().px(look.length(token::SPACE_3)).pt(look.length(token::SPACE_3)).child(labelled(back, Role::Button, "Back to Workflows"))
         });
-        let detail = super::models::panel(look, "workflows-detail").flex_1().children(back).children(picked.map(|one| self.render_workflow_detail(&one, look, window, cx)));
+        let detail = super::models::panel(look, "workflows-detail").track_scroll(&self.workflows.detail.scroll).flex_1().children(back).children(picked.map(|one| self.render_workflow_detail(&one, look, window, cx)));
         div()
             .id("settings-page")
             .relative()
