@@ -253,6 +253,7 @@ impl MockFleet {
             tracker: Some(ipc::ResolvedTracker { value: own.tracker.clone(), from: if own.tracker.is_some() { ValueLayer::Project } else { ValueLayer::Default } }),
             reviews: Some(reviews),
             autonomy: Vec::new(),
+            ..ResolvedValues::default()
         })
     }
 

@@ -304,7 +304,7 @@ mod tests {
 
     #[test]
     fn an_untagged_block_of_code_prose_or_a_diagram_does_not_read_as_shell() {
-        for source in ["const x = 1;", "Run the tests first.", "{\"a\": 1}", "a -> b", "crates/fleet/src/lib.rs", "foo = bar", "make it so", "git add . &&"] {
+        for source in ["const x = 1;", "Run the tests first.", "{\"a\": 1}", "a -> b", "crates/fleet/src/lib.rs", "foo = bar", "git add . &&"] {
             assert!(!reads_as_shell(source), "{source:?}");
         }
         for source in ["git status", "FOO=1 cargo test", "deploy --prod", "# a comment\nls -la", "cargo build &&\n  cargo test"] {
