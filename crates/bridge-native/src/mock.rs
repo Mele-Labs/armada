@@ -161,12 +161,20 @@ pub fn projects() -> ipc::Projects {
 }
 
 /// The workflows Fleet would serve (`GET /workflows`) in the walks: three of Armada's.
-/// The mods on this machine, in the scenario that walks the mods a Job made; none elsewhere.
+/// The mods on this machine: those a Job made in the scenario that walks them, Classic's `mods-themes`
+/// Dusk in the one Settings walks, and none elsewhere.
 pub fn mods() -> Vec<ipc::ModSummary> {
-    if !SCENARIO.lock().is_ok_and(|named| named.as_str() == "job-made") {
-        return Vec::new();
-    }
-    ipc::decode::<ipc::ModList>("mods", include_bytes!("../fixtures/mods-made.json")).unwrap_or_else(|why| panic!("the mods fixture does not decode: {why}")).mods
+    let bytes: &[u8] = match SCENARIO.lock().as_deref().map(String::as_str) {
+        Ok("job-made") => include_bytes!("../fixtures/mods-made.json"),
+        Ok("jobs-many") => include_bytes!("../fixtures/mods-settings.json"),
+        _ => return Vec::new(),
+    };
+    ipc::decode::<ipc::ModList>("mods", bytes).unwrap_or_else(|why| panic!("the mods fixture does not decode: {why}")).mods
+}
+
+/// A mock mod's sheet, as the mod folder holds it: Dusk's `theme.css` as the example mod ships it.
+pub fn mod_sheet(name: &str) -> Option<&'static str> {
+    (name == "dusk").then_some(include_str!("../../../packages/tokens/themes/example-mod/dusk/theme.css"))
 }
 
 pub fn workflows() -> Vec<ipc::WorkflowSummary> {
