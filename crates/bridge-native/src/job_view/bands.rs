@@ -450,6 +450,7 @@ impl JobView {
         let acts = div()
             .flex()
             .flex_none()
+            .flex_wrap()
             .gap(look.length(token::SPACE_2))
             .child(labelled(
                 button(look, "done-end", "End job", Tone::Secondary, false, target.then_some("\u{2325}\u{21b5}"), true)
