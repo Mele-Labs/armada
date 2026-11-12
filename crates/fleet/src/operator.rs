@@ -75,6 +75,7 @@ pub(crate) use erroring::fingerprint;
 pub use desk::FleetDesk;
 pub use hearing::keep_the_ends_told;
 pub use raising::keep_the_raises;
+pub(crate) use raising::without_echoes;
 #[cfg(test)]
 pub(crate) use raising::ToRaise;
 #[cfg(test)]
