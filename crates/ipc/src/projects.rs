@@ -41,6 +41,10 @@ pub struct Project {
     /// `get_values` says what each key comes to, and from which layer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub values: Option<crate::ValuesSet>,
+    /// Whether its Jobs may be seen and acted on from his other Macs. **False until he turns it on**, and
+    /// absent while false. A Job started for no project is never shared.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shared_with_macs: bool,
 }
 
 /// A member of a project: a whole repository, or a folder of it that carries its own `armada.yml`.
@@ -210,6 +214,9 @@ pub struct EditProject {
     pub place: Option<ProjectPlace>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub values: Option<crate::ValuesSet>,
+    /// Turns sharing with his other Macs on or off. Absent leaves it as it is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shared_with_macs: Option<bool>,
 }
 
 /// `edit_project_task` and `add_project_subtask`: a task's title and notes, whole.
