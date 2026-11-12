@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use adapter_traits::{FromOutside, OpenIssue};
-use api::Sessions;
+use api::{HostedSessions, Sessions};
 use ipc::{AutopilotDecision, LaterHow, ReportBug, SessionId, SettleLater};
 use testkit::{FakeBeads, FakeBeadsRemote, FakeTracker, FakeTrackers};
 
@@ -261,4 +261,32 @@ async fn a_red_main_a_job_already_holds_is_never_handed_to_the_operator() {
     assert_eq!(counted.0.load(Ordering::SeqCst), 0, "no call");
     assert!(rulings(&rig).await.is_empty(), "nothing in the Log");
     assert_eq!(jobs_titled(&rig, "Fix main").await, 0);
+}
+
+/// **A filed bug report is the Operator's own card**: kept for the Operator page and never on the
+/// reporting Job's list, it says which Job reported it and what goes wrong in the ruling's plain
+/// sentence, and its buttons name the outcome, with the reasoning as the first one's tooltip.
+#[tokio::test]
+async fn a_bug_report_card_says_who_reported_what_goes_wrong_and_the_outcome_on_its_buttons() {
+    let rig = rig_fitted(|_| {});
+    on(&rig).await;
+    let plain = "Approving one page can close a step that waits on another.";
+    let call = Answers::with(&[&format!("item: 1\nway: 1\nplain: {plain}\nbecause: no open issue is this fault and no live Job's plan covers it")]);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    let id = rig.start_titled(Some("Native Rebuild Orchestrator")).await;
+    reported(&rig, &id, "A document_approved gate closes on an approval of an older, unrelated page").await;
+
+    rig.fleet.sources_handed().await;
+
+    eventually(|| async { !rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty() }).await;
+    assert!(call.asked()[0].contains("plain:"), "the ruling is asked for the plain sentence");
+    let board = rig.fleet.store().lock().await.operator_suggestions_of("").expect("read");
+    let items: Vec<ipc::WaitingItem> = crate::operator::suggestion_items(&board).collect();
+    let [card] = &items[..] else { panic!("one card: {items:#?}") };
+    assert_eq!(card.text, format!("Native Rebuild Orchestrator reported a Fleet bug: {plain}"));
+    let labels: Vec<&str> = card.options.iter().map(|option| option.label.as_str()).collect();
+    assert_eq!(labels, ["Start a Job to fix it", "Leave it reported"]);
+    assert_eq!(card.options[0].description.as_deref(), Some("no open issue is this fault and no live Job's plan covers it"));
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("the Job").session;
+    assert!(record.waiting_for.iter().all(|item| item.source != ipc::WaitingSource::OperatorSuggestion), "not on the reporting Job's list: {:#?}", record.waiting_for);
 }

@@ -1,7 +1,7 @@
 //! The pass: which pairs are due, what git says of each, and who is told. Run by the notice loop's
 //! tick, so it costs a lock and an empty table where nothing was written.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -61,7 +61,7 @@ where
     /// pass credits each live Session and Job with what its worktrees changed since they left the
     /// base, so a pair that clashed before the restart is due again without either writing.
     async fn writes_seeded(&self) {
-        let mut holders = Vec::new();
+        let mut holders: Vec<Who> = Vec::new();
         {
             let store = self.store().lock().await;
             let live = store::SessionSearch {
@@ -75,25 +75,33 @@ where
             }
         }
         let now = self.now();
+        let mut standings = Vec::new();
         for who in holders {
-            let Some(standing) = self.writing_in(&who).await else {
-                continue;
-            };
+            if let Some(standing) = self.writing_in(&who).await {
+                standings.push((who, standing));
+            }
+        }
+        for (who, standing) in &standings {
             let Some(served) = self.repositories().serving(&standing.manifest) else {
                 continue;
             };
             let base = base_of(&served);
             let worktrees = standing.worktrees.clone();
+            let under: Vec<PathBuf> = standings
+                .iter()
+                .filter(|(other, theirs)| other != who && theirs.manifest == standing.manifest)
+                .flat_map(|(_, theirs)| theirs.worktrees.iter().cloned())
+                .collect();
             let changed = tokio::task::spawn_blocking(move || {
                 worktrees
                     .iter()
-                    .flat_map(|worktree| changed_since_base(worktree, &base).unwrap_or_default())
+                    .flat_map(|worktree| own_since_base(worktree, &base, &under).unwrap_or_default())
                     .collect::<BTreeSet<String>>()
             })
             .await
             .unwrap_or_default();
             if !changed.is_empty() {
-                self.writes().wrote(&who, &standing.manifest, changed, &now);
+                self.writes().wrote(who, &standing.manifest, changed, &now);
             }
         }
     }
@@ -118,10 +126,32 @@ where
         };
         let base = base_of(&served);
         let (a, b) = (one.worktrees.clone(), two.worktrees.clone());
-        let found = tokio::task::spawn_blocking(move || between_any(&a, &b, &base))
-            .await
-            .unwrap_or_else(|why| Err(NotChecked(format!("the check did not finish: {why}"))));
-        self.verdict_kept(opposed, found, None).await;
+        let all = self.worktrees_in(&one.manifest).await;
+        let (under_a, under_b) = (beside(&all, &opposed.0), beside(&all, other));
+        let (found, branches) =
+            tokio::task::spawn_blocking(move || between_any((&a[..], &under_a[..]), (&b[..], &under_b[..]), &base))
+                .await
+                .unwrap_or_else(|why| (Err(NotChecked(format!("the check did not finish: {why}"))), [None, None]));
+        let [branch_a, branch_b] = branches;
+        let named = [(opposed.0.clone(), branch_a), (other.clone(), branch_b)]
+            .into_iter()
+            .filter_map(|(who, branch)| Some((who, branch?)))
+            .collect();
+        self.verdict_kept(opposed, found, None, named).await;
+    }
+
+    /// Every live holder's worktrees in `manifest`, as each stands now.
+    async fn worktrees_in(&self, manifest: &str) -> Vec<(Who, Vec<PathBuf>)> {
+        let mut all = Vec::new();
+        for (who, held_in, _) in self.writes().holders() {
+            if held_in != manifest {
+                continue;
+            }
+            if let Some(standing) = self.writing_in(&who).await {
+                all.push((who, standing.worktrees));
+            }
+        }
+        all
     }
 
     /// A holder's standing, or nothing after it has been dropped from the table.
@@ -133,18 +163,21 @@ where
         standing
     }
 
-    /// Keep what a check found, and tell whoever it is new to.
+    /// Keep what a check found, and the branch each holder clashed on, and tell whoever it is new to.
     async fn verdict_kept(
         self: &Arc<Self>,
         opposed: &Opposed,
         found: Result<Option<BTreeSet<String>>, NotChecked>,
         landed: Option<String>,
+        named: BTreeMap<Who, String>,
     ) {
         let found = match found {
             Ok(found) => found,
             Err(why) => return self.not_checked(opposed, &why).await,
         };
-        if let Changed::Set(_) = self.writes().found(opposed, found, landed, &self.now()) {
+        let changed = self.writes().found(opposed, found, landed, &self.now());
+        self.writes().named(opposed, named);
+        if let Changed::Set(_) = changed {
             self.clash_announced(opposed).await;
         }
     }
@@ -239,17 +272,24 @@ where
                 Against::Unknown(why) => unknown = unknown.or(Some(why)),
             }
         }
-        self.verdict_kept(&opposed, merged(paths, unknown), landed).await;
+        self.verdict_kept(&opposed, merged(paths, unknown), landed, BTreeMap::new()).await;
     }
 }
 
 /// Every pair of one holder's worktrees and the other's: the files any pair conflicts on that both
 /// changed themselves. **A worktree cut from a newer main carries main's changes**, and git sets
 /// them against the older one's as if they were that holder's (15 Oct 2026: a Session was named
-/// over files only main had changed). A conflict with main's own changes is main's to tell.
-fn between_any(one: &[PathBuf], other: &[PathBuf], base: &str) -> Result<Option<BTreeSet<String>>, NotChecked> {
-    let (mut paths, mut unknown) = (BTreeSet::new(), None);
-    let mut own: std::collections::BTreeMap<&PathBuf, Result<BTreeSet<String>, NotChecked>> = Default::default();
+/// over files only main had changed). A conflict with main's own changes is main's to tell, and one
+/// with commits a side inherited from another holder's branch is that holder's: each side's own
+/// changes start above the heads of the worktrees beside it. With the verdict, the branch each side
+/// stood on in the first pair that clashed.
+fn between_any(
+    (one, under_one): (&[PathBuf], &[PathBuf]),
+    (other, under_other): (&[PathBuf], &[PathBuf]),
+    base: &str,
+) -> (Result<Option<BTreeSet<String>>, NotChecked>, [Option<String>; 2]) {
+    let (mut paths, mut unknown, mut branches) = (BTreeSet::new(), None, [None, None]);
+    let mut own: BTreeMap<&PathBuf, Result<BTreeSet<String>, NotChecked>> = BTreeMap::new();
     for a in one {
         for b in other.iter().filter(|b| *b != a) {
             let found = match clash::between(a, b) {
@@ -260,18 +300,33 @@ fn between_any(one: &[PathBuf], other: &[PathBuf], base: &str) -> Result<Option<
                     continue;
                 }
             };
-            for side in [a, b] {
-                own.entry(side).or_insert_with(|| changed_since_base(side, base));
-            }
+            own.entry(a).or_insert_with(|| own_since_base(a, base, under_one));
+            own.entry(b).or_insert_with(|| own_since_base(b, base, under_other));
             match (&own[a], &own[b]) {
                 (Ok(mine), Ok(theirs)) => {
+                    let before = paths.len();
                     paths.extend(found.into_iter().filter(|path| mine.contains(path) && theirs.contains(path)));
+                    if paths.len() > before && branches == [None, None] {
+                        branches = [a, b].map(|side| adapters::leasing::checked_out(side));
+                    }
                 }
                 (Err(why), _) | (_, Err(why)) => unknown = unknown.or(Some(why.clone())),
             }
         }
     }
-    merged(paths, unknown)
+    (merged(paths, unknown), branches)
+}
+
+/// The worktrees of every holder in `all` but `who`.
+fn beside(all: &[(Who, Vec<PathBuf>)], who: &Who) -> Vec<PathBuf> {
+    all.iter().filter(|(other, _)| other != who).flat_map(|(_, worktrees)| worktrees.iter().cloned()).collect()
+}
+
+/// [`changed_since_base`], above the head of any worktree in `under` it was built on.
+fn own_since_base(worktree: &Path, base: &str, under: &[PathBuf]) -> Result<BTreeSet<String>, NotChecked> {
+    clash::changed_above(worktree, &format!("origin/{base}"), under)
+        .or_else(|_| clash::changed_above(worktree, base, under))
+        .map(|changed| changed.into_iter().collect())
 }
 
 /// What the worktree as it stands changed since it left `base`, read against the remote's copy

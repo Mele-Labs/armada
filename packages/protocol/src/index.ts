@@ -44,6 +44,7 @@ export * from "./job-mark";
 export * from "./job-viewing";
 export * from "./standing-calls";
 export * from "./job-thread";
+export * from "./repository-file";
 export * from "./kit";
 export * from "./building";
 export * from "./limits";
