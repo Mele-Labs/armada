@@ -1,6 +1,7 @@
-//! `/admin/setup`: how far this Mac is along the way in Bridge walks the owner
-//! through, Tailscale installed, signed in and Funnel on, and the press that
-//! turns Funnel on. Bridge's Settings, Phone draws one row per step from it.
+//! `/admin/setup`: how far this Mac is along each way in Bridge walks the owner
+//! through, Tailscale installed, signed in and Funnel on, and Armada's own
+//! Cloudflare tunnel, with the presses that turn Funnel on and set the tunnel
+//! up. Bridge's Settings draws one row per step from it.
 //!
 //! **Read afresh at each ask**, so a step the owner finishes in Tailscale's own
 //! app shows done at Bridge's next look without a press here.
@@ -15,10 +16,13 @@ use std::time::{Duration, Instant};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use axum::Json;
+use ipc::{CloudflareSignIn, GatewaySetup, Served, StartCloudflare, TailscaleState as Tailscale};
 use serde::Serialize;
 
 use crate::pairing::{address_from_status, ADDRESS_FILE, TAILSCALE};
 use crate::reads::json;
+use crate::tunnel::{ForMac, Pressed, Refused, Tunnel};
 use crate::Gateway;
 
 /// What `tailscale funnel` did when asked to turn Funnel on.
@@ -41,38 +45,12 @@ pub struct WayIn {
     /// Turns Funnel on in front of the Gateway, given the Mac's own address so the one Tailscale prints
     /// on success is not read as a page to open. Blocking.
     pub funnel: Arc<dyn Fn(Option<&str>) -> Funnel + Send + Sync>,
-    /// The loopback port the Gateway listens on, which Funnel must name.
+    /// The loopback port the Gateway listens on, which Funnel and the tunnel must name.
     pub port: u16,
-}
-
-#[derive(Serialize, Debug, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-enum Tailscale {
-    Missing,
-    SignedOut,
-    Running,
-}
-
-#[derive(Serialize, Debug, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-enum Served {
-    /// Nothing in front of the Gateway: the phone cannot reach it.
-    None,
-    /// `tailscale serve`: the phone reaches it only while Tailscale runs on the phone.
-    Tailnet,
-    /// Tailscale Funnel: any phone reaches it, with nothing installed on it.
-    Funnel,
-}
-
-#[derive(Serialize)]
-struct Setup {
-    tailscale: Tailscale,
-    served: Served,
-    /// `pocket-address` names the address, and the steps above are not this Mac's.
-    named: bool,
-    /// The address the phone opens, where there is one.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    address: Option<String>,
+    /// Armada's own Cloudflare tunnel.
+    pub tunnel: Tunnel,
+    /// The commit this Fleet was built from, where its kept build says, for the Devices list.
+    pub build: Option<String>,
 }
 
 /// From `tailscale serve status --json`: whether something serves `127.0.0.1:<port>` at all, and with Funnel.
@@ -97,7 +75,7 @@ fn served_from_status(output: &str, port: u16) -> Served {
 
 /// The first `https://` word in what a command wrote that is not the Mac's own address: the page it asks
 /// the owner to open. Tailscale prints the Mac's own address once Funnel is on.
-fn page_in(output: &str, own: Option<&str>) -> Option<String> {
+pub(crate) fn page_in(output: &str, own: Option<&str>) -> Option<String> {
     output
         .split_whitespace()
         .map(|word| word.trim_end_matches(['.', ',', ')']))
@@ -105,7 +83,7 @@ fn page_in(output: &str, own: Option<&str>) -> Option<String> {
         .map(str::to_string)
 }
 
-fn read(gateway: &Gateway) -> Setup {
+fn read(gateway: &Gateway) -> GatewaySetup {
     let way = &gateway.way_in;
     let named = (way.named)();
     let tailscale = match (way.ask)(&["status", "--json"]) {
@@ -118,7 +96,8 @@ fn read(gateway: &Gateway) -> Setup {
             .map_or(Served::None, |out| served_from_status(&out, way.port)),
         _ => Served::None,
     };
-    Setup { tailscale, served, named, address: gateway.pairing.address().ok() }
+    let (cloudflare, cloudflared) = way.tunnel.state();
+    GatewaySetup { tailscale, served, named, address: gateway.pairing.address().ok(), cloudflare, cloudflared }
 }
 
 pub async fn setup(State(gateway): State<Gateway>) -> Response {
@@ -141,6 +120,24 @@ pub async fn funnel(State(gateway): State<Gateway>) -> Response {
         Ok(Funnel::Approve(page)) => json(&Approve { approve: page }),
         Ok(Funnel::Refused(said)) => (StatusCode::BAD_GATEWAY, said).into_response(),
         Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Funnel could not be turned on.").into_response(),
+    }
+}
+
+/// The tunnel's setup press: `{ domain }`. 204 once the tunnel is made, `{ login }` while it waits for the
+/// owner to sign in, 422 for a domain that is not one, 409 while a press is under way, 502 otherwise.
+pub async fn cloudflare(State(gateway): State<Gateway>, Json(start): Json<StartCloudflare>) -> Response {
+    let pressed = tokio::task::spawn_blocking(move || {
+        let mac = crate::machine::this_mac(&gateway).map_err(Refused::Failed)?;
+        gateway.way_in.tunnel.press(&start.domain, ForMac { id: &mac.id, name: &mac.name })
+    })
+    .await;
+    match pressed {
+        Ok(Ok(Pressed::Made)) => StatusCode::NO_CONTENT.into_response(),
+        Ok(Ok(Pressed::SignIn(login))) => json(&CloudflareSignIn { login }),
+        Ok(Err(Refused::Domain(why))) => (StatusCode::UNPROCESSABLE_ENTITY, why).into_response(),
+        Ok(Err(Refused::Busy)) => (StatusCode::CONFLICT, "The tunnel is already being set up.").into_response(),
+        Ok(Err(Refused::Failed(why))) => (StatusCode::BAD_GATEWAY, why).into_response(),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "The tunnel could not be set up.").into_response(),
     }
 }
 
@@ -203,20 +200,36 @@ fn turn_on_funnel(port: u16, own: Option<&str>) -> Funnel {
     }
 }
 
-/// The Mac as it is: `pocket-address` in `machine`, and the installed Tailscale in front of `port`.
-pub fn mac_way_in(machine: PathBuf, port: u16) -> WayIn {
+/// The Mac as it is: `pocket-address` in `machine`, the installed Tailscale and Armada's own `cloudflared`
+/// in front of `port`, and the commit Fleet was built from.
+pub fn mac_way_in(machine: PathBuf, port: u16, build: Option<String>) -> WayIn {
+    let driver = Arc::new(crate::cloudflared::MacCloudflared::new(&machine));
+    let tunnel = Tunnel::new(driver, machine.clone(), Arc::new(seconds_now));
     WayIn {
         named: Arc::new(move || machine.join(ADDRESS_FILE).is_file()),
         ask: Arc::new(tailscale),
         funnel: Arc::new(move |own| turn_on_funnel(port, own)),
         port,
+        tunnel,
+        build,
     }
+}
+
+fn seconds_now() -> i64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
 }
 
 /// A Mac with no Tailscale and no `pocket-address`, for tests about something else.
 #[cfg(test)]
 pub(crate) fn quiet_way_in() -> WayIn {
-    WayIn { named: Arc::new(|| false), ask: Arc::new(|_| None), funnel: Arc::new(|_| Funnel::Refused("no tailscale in tests".into())), port: 8443 }
+    WayIn {
+        named: Arc::new(|| false),
+        ask: Arc::new(|_| None),
+        funnel: Arc::new(|_| Funnel::Refused("no tailscale in tests".into())),
+        port: 8443,
+        tunnel: crate::tunnel_tests::quiet_tunnel(),
+        build: None,
+    }
 }
 
 #[cfg(test)]

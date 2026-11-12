@@ -240,11 +240,12 @@ const STANDS_IN_FOR_THE_FORGE: &[&str] = &[
     "apps/desktop/src/renderer/src/mock/walks/field-outposts.ts",
 ];
 
-/// The file that downloads Whisper, which may say `github`, and no other vendor.
+/// The files that download Whisper and `cloudflared`, which may say `github`, and no other vendor.
 ///
-/// whisper.cpp publishes its built library only as a release on the forge, so the pinned address names it. The address
+/// whisper.cpp and `cloudflared` publish their builds only as releases on the forge, so the addresses name it. Each
 /// is a download, checked against its SHA-256, not a forge the product talks to.
-const DOWNLOADS_FROM_THE_FORGE: &[&str] = &["apps/desktop/src/main/whisper-install.ts", "crates/bridge-native/src/whisper.rs"];
+const DOWNLOADS_FROM_THE_FORGE: &[&str] =
+    &["apps/desktop/src/main/whisper-install.ts", "crates/bridge-native/src/whisper.rs", "crates/pocket/src/cloudflared.rs"];
 
 /// The files that recognise a pull request's link in a thread, which may say `github`, and no other vendor.
 ///

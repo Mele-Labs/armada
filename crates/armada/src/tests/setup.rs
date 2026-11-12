@@ -493,6 +493,7 @@ fn a_repository_with_no_workflows_of_its_own_runs_on_what_armada_carries() {
             .unwrap_or_else(|why| panic!("no workflows of its own, directory made {made}: {why}"));
         let carried = [
             "bug",
+            "create-workflow",
             "design_plan",
             "feature",
             "orchestrate",

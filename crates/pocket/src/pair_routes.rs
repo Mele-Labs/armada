@@ -30,16 +30,8 @@ pub struct Confirm {
     code: String,
 }
 
-#[derive(Serialize)]
-pub struct DeviceView {
-    id: String,
-    name: String,
-    created_at: i64,
-    last_seen_at: Option<i64>,
-}
-
-fn view(d: store::Device) -> DeviceView {
-    DeviceView { id: d.id, name: d.name, created_at: d.created_at, last_seen_at: d.last_seen_at }
+fn view(d: store::Device) -> ipc::PairedPhone {
+    ipc::PairedPhone { id: d.id, name: d.name, created_at: d.created_at, last_seen_at: d.last_seen_at }
 }
 
 fn fault(why: impl ToString) -> Response {

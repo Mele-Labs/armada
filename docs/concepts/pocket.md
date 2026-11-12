@@ -16,6 +16,7 @@ You answer its question, approve its plan or send it a message from there, on an
 Phone (PWA) ──https──▶ the owner's tunnel ──▶ Fleet's process
                                            ├─ Phone Gateway 127.0.0.1:8443 ──http──▶ Fleet 127.0.0.1:<port>
                                            └─ Web Push (Apple / Google) ──▶ Phone
+                      cloudflared (Armada's own) ──outbound to Cloudflare──▶ the Mac's address
 Bridge (Settings → Phone) ──loopback /admin/*──▶ Phone Gateway
 Bridge (Settings → Phone) ──GET / POST /phone──▶ Fleet
 ```
@@ -37,7 +38,7 @@ Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 
 | The address is | When |
 |---|---|
-| The line in `pocket-address` in the machine directory | The file is there. One `https://` origin, no path; anything else refuses pairing with a sentence naming the file |
+| The line in `pocket-address` in the machine directory | The file is there. One `https://` origin, no path; anything else refuses pairing with a sentence naming the file. Setting up the Cloudflare tunnel writes it |
 | `https://<tailnet name>` from `tailscale status --json` | The file is not there |
 
 It is read at each ask, in `pocket::machine_address`, so an edit needs no restart.
@@ -46,8 +47,54 @@ It is read at each ask, in `pocket::machine_address`, so an edit needs no restar
 
 | Route | Does |
 |---|---|
-| `GET /admin/setup` | `{ tailscale, served, named, address? }`: Tailscale `missing`, `signed_out` or `running`; in front of the Gateway `none`, `tailnet` (`tailscale serve`) or `funnel`; and whether `pocket-address` names the address |
+| `GET /admin/setup` | `{ tailscale, served, named, address?, cloudflare, cloudflared? }`: Tailscale `missing`, `signed_out` or `running`; in front of the Gateway `none`, `tailnet` (`tailscale serve`) or `funnel`; whether `pocket-address` names the address; the tunnel's step, below; and the version of `cloudflared` Armada keeps |
 | `POST /admin/setup/funnel` | Runs `tailscale funnel --bg` in front of the Gateway. 204 once on; `{ approve }`, the tailnet's page to allow Funnel on, while the command waits for it; 502 with Tailscale's words otherwise |
+| `POST /admin/setup/cloudflare` `{ domain }` | Sets the tunnel up as far as it is not: 204 once the tunnel is made; `{ login }`, the page to sign in on, while it waits for the owner; 422 for a domain that is not one, 409 while a press is under way, 502 with the reason otherwise |
+
+The shapes are `GatewaySetup`, `CloudflareState`, `StartCloudflare` and `CloudflareSignIn` in `crates/ipc/src/phone.rs`.
+
+## The Cloudflare tunnel
+
+**Each Mac can have its own address on the owner's Cloudflare domain**, such as `studio.example.com`, with nothing installed by hand and no terminal.
+`cloudflared` holds an outbound connection to Cloudflare on port 7844 and hands whatever arrives at the address to the Gateway on loopback, so a Mac behind a VPN that takes no calls in still has a way in.
+Armada hosts nothing: the tunnel, its address and the domain are in the owner's account.
+
+One press does the whole setup, from Settings, with the domain typed once.
+
+| `cloudflare.state` | Means | The row offers |
+|---|---|---|
+| `missing` | Armada has not downloaded `cloudflared` | The press, which downloads it first |
+| `signed_out` | Not signed in to Cloudflare on this Mac | The press, which opens the sign-in |
+| `signing_in` `{ login }` | Waiting for the owner to sign in and pick the domain | A button that opens `login` |
+| `no_tunnel` `{ why? }` | Signed in, no tunnel yet; `why` is the last press's failure | The press |
+| `running` `{ address }` | Connected to Cloudflare, serving the Gateway at `address` | Nothing to do |
+| `down` `{ address, since, why }` | Made but not connected since `since`, in `cloudflared`'s own words where it said | Nothing to do: Fleet starts it again |
+
+- **The download is kept only when two checks pass.** The archive's SHA-256 must be the digest its release publishes, and the binary must be signed by Cloudflare's Developer ID (team `68WVV388M8`), which does not trust the forge the release sits on.
+  `crates/pocket/src/cloudflared.rs`.
+- **Armada keeps it current.** A running tunnel asks once a day whether a newer `cloudflared` is out, installs it under the same two checks, and restarts on it.
+- **The sign-in opens from Bridge's button, once.** `cloudflared tunnel login` runs with no way to open a browser itself, and its page is `login`.
+- **Armada's sign-in is its own.** Every `cloudflared` runs with its home in `cloudflared/home` in the machine directory, so the owner's own `~/.cloudflared` and any tunnel he runs himself are never touched.
+- **The tunnel is named for this Mac's id** (`armada-<id>`), so two Macs that share a name never take each other's.
+  The address is this Mac's name under the domain, and is pointed at the tunnel without overwriting, so a name already used for something else on the domain is refused with Cloudflare's words.
+- **It runs while the Gateway runs.** Fleet starts it with the Gateway and stops it with it, starts a `cloudflared` that stopped again after a rest that grows to a minute, and asks it every 5 s whether it is connected.
+- **Funnel stays.** The tunnel writes `pocket-address`, so new pairings get its address; a phone paired through Funnel keeps reaching the Gateway while Funnel is on.
+
+A tunnel held open for hours is unmeasured: the 12 Nov tests served one page each way for 3 minutes.
+If a network closes 7844, armada-hu76.15 is the fallback.
+
+## This Mac and the Devices list
+
+**Each Mac has an id minted once, a name and one colour**, kept in the store's `pocket_this_mac`.
+The name is the host's name when the id was minted, and the colour one of `blue`, `teal`, `green` or `orange`, drawn at random.
+
+| Route | Answers |
+|---|---|
+| `GET /admin/macs` | `[Mac]`, this Mac first: `{ id, name, colour, address?, this_mac, build?, link? }`. `build` is the commit Fleet's kept build was made from. `link` is absent on this Mac; a paired Mac's is `linked`, `asleep { since }`, `older_build`, `newer_build` or `claim_waiting` |
+| `GET /admin/devices` | `[PairedPhone]`: `{ id, name, created_at, last_seen_at }` |
+
+Settings draws the two as one Devices list.
+Pairing another Mac (armada-hu76.5) adds its rows to `/admin/macs`.
 
 ## Turning it on
 
@@ -69,7 +116,7 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 |---|---|
 | Loopback bind | `pocket::bind` and `pocket::bind_now` take a port and no host, so no setting opens the Gateway to a network. The tunnel the owner points at it is the only way in |
 | Allowlist | `router` in `crates/pocket/src/routes.rs` names every route. Anything else is 404, and so is a listed path asked with an unlisted method |
-| `/admin/*` | For Bridge's main process. Refused (403) when the request carries `Origin`, which means a web page sent it, or a header `tailscale serve`, Funnel, ngrok or `cloudflared` adds, or a `Host` other than loopback, which means it came through a tunnel |
+| `/admin/*` | For Bridge's main process. Refused (403) when the request carries `Origin`, which means a web page sent it, or a header `tailscale serve`, Funnel, ngrok or `cloudflared` adds, or a `Host` other than loopback, which means it came through a tunnel, Armada's own included |
 | Signed `/api/*` | The phone sends `X-Pocket-Device`, `X-Pocket-Time` and `X-Pocket-Signature`: ECDSA P-256 over the method, path and query, time, and the body's SHA-256. The private key is made on the phone, one per Mac, and never leaves it |
 | Cross-origin | `/api/*` and `POST /pair` answer a preflight and name the caller's origin when it is `https`, so the app one Mac served may call another. The signature is still the only auth. `/admin/*` never answers one |
 | Clock | A request more than 60 seconds from the Mac's clock is refused |
@@ -237,6 +284,8 @@ A subscription without one is pushed to under the Mac's own key.
 | VAPID key | `pocket-vapid.key` in Armada's machine directory, made on first start, mode 600 |
 | Devices, push subscriptions | The store, tables `pocket_devices` and `pocket_push_subscriptions`. A subscription made with another Mac's VAPID key keeps it in `vapid_private`, read into a `Secret` so it cannot be printed |
 | Pairing codes, claims, seen signatures | Memory. A Gateway that stops drops them, and a half-finished pairing starts again |
+| This Mac's id, name and colour | The store, table `pocket_this_mac`, one row |
+| `cloudflared`, its sign-in and the tunnel's credentials | `cloudflared/` in the machine directory: `bin/`, `home/.cloudflared/cert.pem`, `tunnel.json`, and `tunnel`, the tunnel's name and host |
 
 The VAPID `sub` is the Gateway's own address, so no personal address leaves the Mac. Where it cannot say one it falls back to a placeholder.
 

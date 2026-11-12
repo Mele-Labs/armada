@@ -1,0 +1,48 @@
+# Annotations, as the owner approved it on 12 Nov 2026: Quiz, Change and walk, Refresh preview and sign off,
+# Refine and land. A Job started from the notes he left on the app. The sign-off is a `you_approved` gate,
+# so it ends on his Approve in the running build, not when a refresh is pushed.
+{
+  "version": 1,
+  "workflow_id": "annotations",
+  "name": "Annotations: quiz, change, refresh preview, your sign-off, land",
+  "for_requests": "A Job dispatched from a set of annotations the owner left on the app: small changes to what he sees, made quickly, put into his running build with a preview refresh, and landed once he approves them there.",
+  "steps": [
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "about": "Asks you about each annotation, one question at a time, until you agree on what each asks for. Ends when you approve the short plan.",
+      "instructions": "Read every annotation in the request and the code each points at. Quiz the person one question at a time until you and he agree on what each annotation asks for. Edit nothing before then. Then record a short plan with record_plan saying what he gets, with seen: true where he would see it, and wait for his approval.",
+      "gate": "plan_approved",
+      "asks_delivery": false,
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "walk",
+      "label": "Change and walk",
+      "about": "Makes the changes quickly and walks each part you would see. Ends when you approve the walk. Left out when nothing would be seen.",
+      "instructions": "Make the changes quickly, handing each change whose shape is decided to a subagent. For each part the person would see and that a walk can show, make a walk group with ids walk, walk_2 and so on, each gated walk_approved, and show it with show_window naming its group. Leave the walk groups out when nothing would be seen. Mark each annotation done with mark_annotation_done once its change is made.",
+      "gate": "walk_approved",
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "refresh",
+      "label": "Refresh preview and sign off",
+      "about": "Puts the changes in your running build with a preview refresh, then asks whether you are good with them. Ends when you press Approve.",
+      "instructions": "Load the preview-app skill and offer the refresh as a waiting_for item whose act is a run of scripts/preview --restart. Do not restart it yourself. Once he has refreshed, raise a waiting_for item with approves: true asking whether he is good with the changes. If he asks for changes, make them, offer another refresh and raise a new approval item. His Approve closes this step's you_approved gate.",
+      "gate": "you_approved",
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "deliver",
+      "label": "Refine and land",
+      "about": "Refines the approved work, writes the tests and lands it through a pull request merged on a green ci.",
+      "instructions": "Refine the approved work: simplify it and write the tests, each new test shown failing without the change, then passing. Push the branch and open a pull request. Fix what is red; a test also red on main is not this Job's to fix, say so and carry on. Mark the pull request ready and merge it on a green ci. Report the branch and what is on it.",
+      "gate": "merged",
+      "delivers": true,
+      "advance_gate": "human_always"
+    }
+  ]
+}

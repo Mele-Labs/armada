@@ -5,6 +5,9 @@
 //! start while it is there, and `set_phone` writes or removes it and starts or
 //! stops the Gateway at once. A Gateway that cannot start says why on
 //! `get_phone` and Fleet carries on without it.
+//!
+//! **The Cloudflare tunnel runs with the Gateway**, once the owner has set it up: it starts when the
+//! Gateway starts and stops when it stops, since it has nothing else to serve.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -28,6 +31,7 @@ struct Running {
     stop: oneshot::Sender<()>,
     serving: JoinHandle<()>,
     following: JoinHandle<()>,
+    tunnel: pocket::Tunnel,
 }
 
 pub struct Phone {
@@ -108,12 +112,15 @@ impl Phone {
             .map_err(|why| format!("Armada could not open its store for the phone: {why}"))?;
         let push = pocket::Push::open(&self.machine, pocket::PLACEHOLDER_SUBJECT)?;
         let fleet_port = self.fleet_port;
+        let build = fleet::kept_builds::kept_at(&self.machine.join(fleet::kept_builds::BUILDS), fleet::kept_builds::CURRENT).map(|kept| kept.commit);
+        let way_in = pocket::mac_way_in(self.machine.clone(), port, build);
+        let tunnel = way_in.tunnel.clone();
         let gateway = Gateway {
             pairing: pocket::Pairing::new(store, Arc::new(now), pocket::machine_address(self.machine.clone())),
             fleet: Arc::new(move || Ok(fleet_port)),
             assets: Some(assets(&self.machine)),
             push,
-            way_in: pocket::mac_way_in(self.machine.clone(), port),
+            way_in,
         };
         let following = tokio::spawn(pocket::follow(gateway.clone()));
         let (stop, stopped) = oneshot::channel::<()>();
@@ -127,7 +134,8 @@ impl Phone {
                 eprintln!("Phone Gateway stopped: {why}");
             }
         });
-        Ok(Running { stop, serving, following })
+        tunnel.start(port);
+        Ok(Running { stop, serving, following, tunnel })
     }
 
     /// Stop listening and stop pushing. A phone's open `/api/live` is cut with the listener.
@@ -136,6 +144,7 @@ impl Phone {
             let _ = running.stop.send(());
             running.serving.abort();
             running.following.abort();
+            running.tunnel.stop();
         }
     }
 
