@@ -167,6 +167,10 @@ where
             later_until: later.map(Instant::carried),
             then: thens,
             keeps,
+            also_raised_by: suggestion_number(&row.item)
+                .and_then(|n| store.operator_suggestion(n).ok().flatten())
+                .map(|kept| super::suggesting::folded_into(&kept, &store.operator_suggestions_of(&kept.session_id).unwrap_or_default()))
+                .unwrap_or_default(),
         };
         Some((later.is_some(), shown))
     }

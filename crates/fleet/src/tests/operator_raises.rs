@@ -285,7 +285,7 @@ async fn he_orders_the_queue_and_puts_one_later_for_the_rest_of_the_local_day() 
     let dragged = rig.fleet.operator_turn_ordered(OperatorTurnOrder { ids: vec![c.clone(), "turn:9999".into(), a.clone()] }).await.expect("ordered");
     assert_eq!(ids(&dragged), ["c", "a", "b"], "the ones he named first, the rest as they were");
 
-    let later = rig.fleet.operator_turn_later(OperatorLater { id: c.clone() }).await.expect("later");
+    let later = rig.fleet.operator_turn_later(OperatorLater { id: c.clone(), until: None }).await.expect("later");
     assert_eq!(ids(&later), ["a", "b", "c"], "Later puts it last");
     assert!(later.turn[2].later_until.is_some());
 
@@ -294,7 +294,7 @@ async fn he_orders_the_queue_and_puts_one_later_for_the_rest_of_the_local_day() 
     assert_eq!(ids(&next_day), ["c", "a", "b"], "the day is over, so it is back where he left it");
     assert!(next_day.turn.iter().all(|one| one.later_until.is_none()));
 
-    let unknown = rig.fleet.operator_turn_later(OperatorLater { id: "turn:9999".into() }).await.expect_err("no such item");
+    let unknown = rig.fleet.operator_turn_later(OperatorLater { id: "turn:9999".into(), until: None }).await.expect_err("no such item");
     assert_eq!(code(unknown), (404, "fleet.operator_turn_unknown".to_string()));
     let _ = b;
 }
