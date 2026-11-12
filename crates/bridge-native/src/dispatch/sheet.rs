@@ -89,6 +89,8 @@ pub struct DispatchSheet {
     pub(super) attached: Vec<SharedString>,
     /// The act is out: Start is pending.
     pub(super) sending: bool,
+    /// The act out is Draft: the button reads Drafting, and a start waiting on the repository stays a draft.
+    pub(super) drafting: bool,
     pub(super) queueing: bool,
     /// A Job was started with no repository named; the row takes the keys until one is picked.
     pub(super) asking: bool,
@@ -135,6 +137,7 @@ impl DispatchSheet {
             _typed: typed,
             attached: Vec::new(),
             sending: false,
+            drafting: false,
             queueing: false,
             asking: false,
             waiting: false,
@@ -255,6 +258,8 @@ impl DispatchSheet {
         self.face.refused = None;
         self.asking = false;
         self.sending = false;
+        // A start waiting on the repository read stays what was pressed.
+        self.drafting = self.drafting && self.waiting;
         let cursor = request.read(cx).cursor().min(words.len());
         self.menu = self.mention(&words, cursor).filter(|menu| !menu.rows.is_empty());
         self.reread(&words, cx);
@@ -347,8 +352,20 @@ impl DispatchSheet {
         self.face.chosen().map(|chip| chip.name.to_string())
     }
 
-    /// Start, from the button or ↵: pending in this frame.
+    /// Start, from the button or ↵: it runs at once, pending in this frame.
     pub fn act(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.begin(false, window, cx);
+    }
+
+    /// Draft: the same start, held on its start card until Start is pressed there. A wait has no card.
+    pub(super) fn draft(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.kind != Kind::Job || self.wait.is_some() {
+            return;
+        }
+        self.begin(true, window, cx);
+    }
+
+    fn begin(&mut self, held: bool, window: &mut Window, cx: &mut Context<Self>) {
         if !self.face.connected || self.sending || self.queueing || !self.worded(cx) {
             return;
         }
@@ -358,6 +375,7 @@ impl DispatchSheet {
         if self.face.reading == Reading::Detecting && self.repository().is_none() {
             // Nothing starts without a repository: a read still out is waited for.
             self.sending = true;
+            self.drafting = held;
             self.waiting = true;
             cx.notify();
             return;
@@ -368,8 +386,8 @@ impl DispatchSheet {
         };
         self.asking = false;
         self.sending = true;
+        self.drafting = held;
         let words = self.words(cx);
-        let held = self.wait.is_none();
         self.face.refused = None;
         cx.emit(Asked::Start {
             words,
@@ -433,6 +451,7 @@ impl DispatchSheet {
     /// Fleet took it: the words go, the sheet clears and shuts.
     pub fn answered(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.sending = false;
+        self.drafting = false;
         self.queueing = false;
         self.waiting = false;
         crate::drafts::clear(KEEP_REQUEST, cx);
@@ -447,6 +466,7 @@ impl DispatchSheet {
     pub fn refused(&mut self, why: SharedString, cx: &mut Context<Self>) {
         self.face.refused = Some(why);
         self.sending = false;
+        self.drafting = false;
         self.queueing = false;
         self.waiting = false;
         cx.notify();
@@ -465,6 +485,7 @@ impl DispatchSheet {
             self.face.refused = refused.filter(|_| false);
         } else {
             self.sending = false;
+            self.drafting = false;
         }
         if let Some(wait) = self.face.wait.clone() {
             self.wait = Some(wait);
@@ -472,7 +493,8 @@ impl DispatchSheet {
         if self.waiting && self.face.reading != Reading::Detecting {
             self.waiting = false;
             self.sending = false;
-            self.act(window, cx);
+            let held = self.drafting;
+            self.begin(held, window, cx);
         }
         cx.notify();
     }
@@ -527,6 +549,7 @@ impl DispatchSheet {
                 cx.notify();
             }
             "queue_session" => self.queue(window, cx),
+            "draft_session" => self.draft(window, cx),
             _ => cx.propagate(),
         }
     }
