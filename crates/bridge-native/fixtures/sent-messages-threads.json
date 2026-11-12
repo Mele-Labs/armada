@@ -3917,6 +3917,12 @@
         "title": "#3290 Merge line",
         "url": "https://armada.test/pull/3290"
        }
+      ],
+      "sketches": [
+       {
+        "id": "sketch-merge-line",
+        "title": "Merge line as it is"
+       }
       ]
      }
     }

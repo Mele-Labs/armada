@@ -150,7 +150,7 @@
    { "id": 6, "scope": { "kind": "repository", "manifest_id": "storefront" }, "repository": "storefront", "said": "Approve a pull request whose ci is green", "at": "2026-11-06T11:20:00-05:00" }
   ],
   "holds": [
-   { "id": 11, "manifest_id": "armada", "repository": "armada", "said": "Only Slot pool controls writes under apps/cockpit until it pushes", "at": "2026-11-11T12:40:00-05:00" },
+   { "id": 11, "manifest_id": "armada", "repository": "armada", "said": "Only Slot pool controls writes under apps/cockpit until it pushes", "paths": ["apps/cockpit"], "job": "mock-05", "until": "pushes", "at": "2026-11-11T12:40:00-05:00" },
    { "id": 12, "manifest_id": "storefront", "repository": "storefront", "said": "Only Fix desktop_unit after #412 writes under tests/unit until it ends", "at": "2026-11-11T12:22:00-05:00" }
   ]
  }

@@ -7,12 +7,13 @@
 
 use chrono::{DateTime, Local};
 use gpui::{
-    div, prelude::*, relative, svg, Animation, AnimationExt, AnyElement, App, Context, ElementId, FontWeight, Hsla,
+    canvas, div, prelude::*, relative, svg, Animation, AnimationExt, AnyElement, App, Context, ElementId, FontWeight, Hsla,
     Role, SharedString, Transformation, Window,
 };
 use gpui_component::text::{markdown_ast, InlineElement, InlineRenderContext, MarkdownExtensions, MarkdownNode, MarkdownParseContext, MarkdownPlugin, TextView};
 use ipc::{SessionCheckState, SessionRow, SessionTag, SessionVoice, TagKind, ThreadItem};
 
+use std::cell::Cell;
 use std::rc::Rc;
 
 use super::acts::refusal;
@@ -203,14 +204,27 @@ impl JobView {
                 Some(ThreadItem::Row { row: SessionRow::Message { files, .. } | SessionRow::Sent { files, .. } })
                     if files.iter().any(super::pictures::is_picture) =>
                 {
-                    Some(files.clone())
+                    Some((files.clone(), false))
+                }
+                // And a picture a `Read` call looked at, the first time its run is drawn.
+                Some(ThreadItem::Calls { rows, .. }) => {
+                    let read: Vec<ipc::SentFile> = rows
+                        .iter()
+                        .filter_map(|row| match row {
+                            SessionRow::Tool { image: Some(path), .. } => super::pictures::read_picture(path),
+                            _ => None,
+                        })
+                        .collect();
+                    (!read.is_empty()).then_some((read, true))
                 }
                 _ => None,
             },
             _ => None,
         };
-        if let Some(files) = wanted {
-            self.want_pictures(&id, &files, window, cx);
+        match wanted {
+            Some((files, false)) => self.want_pictures(&id, &files, window, cx),
+            Some((files, true)) => self.want_read_pictures(&id, &files, window, cx),
+            None => {}
         }
         let (Some(page), Some(held)) = (self.pages.get(&id), self.thread(&id, cx)) else { return nothing() };
         let look = cx.look();
@@ -589,7 +603,7 @@ impl JobView {
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
                 let delivery = if one.failed { Delivery::NotSent(one.key) } else { Delivery::Sending };
-                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &one.tags, None, Some(delivery), false, false, None, look, now, cx)
+                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], &one.tags, None, Some(delivery), false, false, None, look, now, cx)
             }
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
@@ -613,6 +627,7 @@ impl JobView {
             }
             Extra::Subagents => return self.subagents_card(page.items + at, items, page, look, cx),
             Extra::Waiting => return self.waiting_card(&self.shown.clone()?, look, cx),
+            Extra::End => return self.end_card(&self.shown.clone()?, look, cx),
             Extra::MovedTo => {
                 let id = self.shown.clone()?;
                 let moved = self.moved(&id, "forked_to", cx)?;
@@ -718,6 +733,7 @@ impl JobView {
         id: &str,
         text: &str,
         files: &[ipc::SentFile],
+        sketches: &[ipc::SentSketch],
         tags: &[SessionTag],
         at: Option<&ipc::Instant>,
         delivery: Option<Delivery>,
@@ -810,8 +826,8 @@ impl JobView {
             .children(at.map(|at| self.stamp(at, look, now, false, cx)));
         let (said_parts, loose) = place_tags(said, tags);
         // What the message was sent with, under its words inside the bubble (`Sent`): each picture drawn, the
-        // other files and the tags the words did not place as chips, each after its kind.
-        let sent = (!files.is_empty() || !loose.is_empty()).then(|| {
+        // other files, the sketches and the tags the words did not place as chips, each after its kind.
+        let sent = (!files.is_empty() || !sketches.is_empty() || !loose.is_empty()).then(|| {
             div()
                 .flex()
                 .flex_wrap()
@@ -819,6 +835,10 @@ impl JobView {
                 .gap(look.length(token::SPACE_2))
                 .children(files.iter().map(|file| {
                     self.picture_tile(file, look, cx).unwrap_or_else(|| self.chip(None, &file.name, look).into_any_element())
+                }))
+                .children(sketches.iter().map(|one| {
+                    let said = format!("Sketch · {}", one.title);
+                    labelled(self.chip(Some("Sketch"), &one.title, look).id(SharedString::from(format!("sketch:{id}:{}", one.id))), Role::Group, said).into_any_element()
                 }))
                 .children(loose.iter().map(|tag| {
                     let said = format!("{} · {}", tag_kind(tag.kind), tag.title);
@@ -1006,16 +1026,58 @@ impl JobView {
     /// The messages, from the person, the agent and another Job (A2).
     pub(super) fn message(&self, ix: usize, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match row {
-            SessionRow::Message { id, at, from: SessionVoice::You, text, files, tags, queued, edited_at, .. } => {
+            SessionRow::Message { id, at, from: SessionVoice::You, text, files, sketches, tags, queued, edited_at, .. } => {
                 if let Some(act) = act_of(text) {
                     return Some(self.did(id, act, at, look, now, cx));
                 }
                 let text = page.edits.get(id).unwrap_or(text);
-                self.you(ix, page, id, text, files, tags, Some(at), None, *queued, true, edited_at.as_ref(), look, now, cx)
+                self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
             SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title }, text, notice, .. } => {
+                // At a narrow width the id gives way faster than the title, so the title stays. Squeezed to
+                // fewer than a few characters it leaves the band, and comes back once the band has that much
+                // more room than it had then. Both widths are the last frame's.
+                let band_spot = self.spot(page, &format!("from:{id}"), cx);
+                let id_spot = self.spot(page, &format!("from-id:{id}"), cx);
+                let few = {
+                    let start: String = sender.chars().take(4).chain(std::iter::once('…')).collect();
+                    let font = gpui::font(mono(look));
+                    window.text_system().shape_line(start.clone().into(), look.length(token::TEXT_2XS), &[gpui::TextRun { len: start.len(), font, ..Default::default() }], None).width
+                };
+                let (band_wide, id_wide) = (band_spot.bounds.get().size.width, id_spot.bounds.get().size.width);
+                let cramped_key = format!("from-id:{id}");
+                let mut cramped = page.keys.cramped.borrow_mut();
+                let shows_id = match cramped.get(&cramped_key).copied() {
+                    Some(then) if band_wide <= then + few => false,
+                    Some(_) => {
+                        cramped.remove(&cramped_key);
+                        true
+                    }
+                    None if band_wide > gpui::px(0.) && id_wide < few => {
+                        cramped.insert(cramped_key, band_wide);
+                        false
+                    }
+                    None => true,
+                };
+                drop(cramped);
+                let measure = |cell: Rc<Cell<gpui::Bounds<gpui::Pixels>>>| {
+                    canvas(
+                        move |bounds, window, _| {
+                            if cell.get().size.width != bounds.size.width {
+                                cell.set(bounds);
+                                window.refresh();
+                            }
+                        },
+                        |_, _, _, _| {},
+                    )
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full()
+                };
                 let band = div()
+                    .relative()
                     .flex()
                     .items_center()
                     .gap(look.length(token::SPACE_2))
@@ -1026,25 +1088,31 @@ impl JobView {
                     .text_size(look.length(token::TEXT_XS))
                     .line_height(look.length(token::LEADING_SM))
                     .text_color(look.color(token::FG_DEFAULT))
+                    .child(measure(band_spot.bounds.clone()))
                     .child(glyph(look, "square-terminal", Size::Small, look.color(token::FG_MUTED)))
+                    .when(shows_id, |band| {
+                        band.child(
+                            div()
+                                .relative()
+                                .min_w_0()
+                                .flex_shrink(4.)
+                                .truncate()
+                                .font_family(mono(look))
+                                .text_size(look.length(token::TEXT_2XS))
+                                .text_color(look.color(token::FG_MUTED))
+                                .child(sender.clone())
+                                .child(measure(id_spot.bounds.clone())),
+                        )
+                    })
                     .child(
                         div()
-                            .flex_none()
-                            .font_family(mono(look))
-                            .text_size(look.length(token::TEXT_2XS))
-                            .text_color(look.color(token::FG_MUTED))
-                            .child(sender.clone()),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
+                            .flex_auto()
                             .min_w_0()
                             .truncate()
                             .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                             .child(title.clone()),
                     )
                     .child(self.stamp(at, look, now, true, cx));
-                let band_spot = self.spot(page, &format!("from:{id}"), cx);
                 let band = if sender == "fleet" {
                     labelled(band.id(SharedString::from(format!("from:{id}"))).track_focus(&band_spot.focus), Role::Button, format!("Fleet notice {title}")).into_any_element()
                 } else {

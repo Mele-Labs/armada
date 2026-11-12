@@ -69,6 +69,18 @@ struct Call {
     kind: Kind,
     phrase: String,
     working_on: Option<String>,
+    /// Drawn after the phrase: the Job a message went to, as a link, and its name for the row's label.
+    peer: Option<(AnyElement, String)>,
+    /// A second line that stays once the call is done: a message's summary.
+    note: Option<String>,
+    /// Under the lines: the picture a `Read` looked at, or a message's words while its row is open.
+    below: Option<AnyElement>,
+}
+
+impl Call {
+    fn plain(kind: Kind, phrase: String, working_on: Option<String>) -> Self {
+        Self { kind, phrase, working_on, peer: None, note: None, below: None }
+    }
 }
 
 /// One call (take A, approved 10 Nov): a rail in its kind's colour, its kind's icon, the phrase and the
@@ -77,9 +89,10 @@ struct Call {
 /// `stop` ends the first line: the live fold's newest call carries Stop, as Electron's does.
 #[allow(clippy::too_many_arguments)]
 fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ipc::Instant>, running: bool, stop: Option<AnyElement>, look: &Look) -> AnyElement {
-    let Call { kind, phrase, working_on } = call;
+    let Call { kind, phrase, working_on, peer, note, below } = call;
+    let (peer, named) = peer.unzip();
     let ink = match kind {
-        Kind::Read | Kind::Search | Kind::Web | Kind::Other => token::ACCENT,
+        Kind::Read | Kind::Search | Kind::Web | Kind::Message | Kind::Other => token::ACCENT,
         Kind::Run => token::STATUS_RUNNING,
         Kind::Edit => token::STATUS_COMPLETED_SUCCESS,
         Kind::Agent => token::STATUS_AWAITING_REVIEW,
@@ -113,15 +126,24 @@ fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ip
     let icon_ink = look.color(if running { ink } else { token::FG_SUBTLE });
     // A brief is not a verb, so a running agent's row says it runs.
     let said = if running && kind == Kind::Agent { format!("{phrase}, running") } else { phrase.clone() };
+    let said = named.map_or(said.clone(), |named| format!("{said} {named}"));
     let first = div()
         .flex()
         .items_center()
         .gap(gap)
         .min_w_0()
-        .child(tool_icons::icon(kind, running, SharedString::from(format!("icon:{key}")), icon_ink, side))
+        .child(match kind {
+            Kind::Message => div()
+                .id(SharedString::from(format!("{key}:kind")))
+                .flex_none()
+                .child(tool_icons::icon(kind, running, SharedString::from(format!("icon:{key}")), icon_ink, side))
+                .tooltip(tip("Message"))
+                .into_any_element(),
+            _ => tool_icons::icon(kind, running, SharedString::from(format!("icon:{key}")), icon_ink, side),
+        })
         .child(
             div()
-                .flex_1()
+                .when(peer.is_none(), |words| words.flex_1())
                 .min_w_0()
                 .truncate()
                 .text_size(look.length(token::TEXT_SM))
@@ -129,6 +151,7 @@ fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ip
                 .text_color(look.color(if running { token::FG_DEFAULT } else { token::FG_MUTED }))
                 .child(phrase),
         )
+        .children(peer.map(|peer| div().flex_1().min_w_0().flex().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(peer)))
         .child(time)
         .children(stop);
     let second = working_on.map(|line| {
@@ -142,13 +165,24 @@ fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ip
             .text_color(look.color(token::FG_SUBTLE))
             .child(line)
     });
+    let note = note.map(|line| {
+        div()
+            .pl(side + gap)
+            .min_w_0()
+            .truncate()
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(look.color(token::FG_SUBTLE))
+            .child(line)
+    });
+    let below = below.map(|below| div().pl(side + gap).pt(look.length(token::SPACE_1)).min_w_0().child(below));
     labelled(
         div()
             .id(SharedString::from(format!("call:{key}")))
             .flex()
             .min_w_0()
             .child(rail)
-            .child(div().flex_1().min_w_0().flex().flex_col().pl(look.length(token::SPACE_3)).pr(look.length(token::SPACE_2)).py(look.length(token::SPACE_1)).child(first).children(second)),
+            .child(div().flex_1().min_w_0().flex().flex_col().pl(look.length(token::SPACE_3)).pr(look.length(token::SPACE_2)).py(look.length(token::SPACE_1)).child(first).children(second).children(note).children(below)),
         Role::Row,
         said,
     )
@@ -282,22 +316,40 @@ impl JobView {
             let running = live && at == last;
             let end = rows.get(at + 1).map(SessionRow::at).or(end);
             let one = match row {
-                SessionRow::WindowAsk { question, .. } => Call { kind: Kind::Other, phrase: question.clone(), working_on: None },
+                SessionRow::WindowAsk { question, .. } => Call::plain(Kind::Other, question.clone(), None),
+                SessionRow::Tool { message: Some(message), .. } => self.message_call(&format!("tool-message:{id}:{at}"), message, page, look, cx),
                 _ => Call {
-                    kind: calls::kind_of(&texts[at]),
-                    // Fleet's own phrase for the call, where its input carried one; else the one made from its line.
-                    phrase: match row {
-                        SessionRow::Tool { description: Some(said), .. } if !said.trim().is_empty() => said.clone(),
-                        _ => calls::call_line(&texts[at], running),
+                    // The picture a `Read` looked at, under its line; a press opens it full size.
+                    below: match row {
+                        SessionRow::Tool { image: Some(path), .. } => super::pictures::read_picture(path).and_then(|file| self.picture_tile(&file, look, cx)),
+                        _ => None,
                     },
-                    working_on: calls::working_on(&texts[at]).filter(|_| running),
+                    ..Call::plain(
+                        calls::kind_of(&texts[at]),
+                        // Fleet's own phrase for the call, where its input carried one; else the one made from its line.
+                        match row {
+                            SessionRow::Tool { description: Some(said), .. } if !said.trim().is_empty() => said.clone(),
+                            _ => calls::call_line(&texts[at], running),
+                        },
+                        calls::working_on(&texts[at]).filter(|_| running),
+                    )
                 },
             };
             let stop = running.then(|| self.stop_button(look, cx));
             let line = tool_row(&job, &format!("{id}:{at}"), one, row.at(), if running { None } else { end }, running, stop, look);
+            // A message's row opens on a press, and shows the words it sent.
+            let opens = matches!(row, SessionRow::Tool { message: Some(_), .. }).then(|| format!("tool-message:{id}:{at}"));
             // In a folded group each call is a Command, as Electron's: it takes focus and a right press offers Teach.
             if live || texts[at].is_empty() {
-                return line;
+                return match opens {
+                    Some(opened) => div()
+                        .id(SharedString::from(format!("{opened}:press")))
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _, _, cx| this.toggle(ix, opened.clone(), cx)))
+                        .child(line)
+                        .into_any_element(),
+                    None => line,
+                };
             }
             let key = format!("call-command:{id}:{at}");
             let spot = self.spot(page, &key, cx);
@@ -306,6 +358,18 @@ impl JobView {
                 .track_focus(&spot.focus)
                 .rounded(look.length(token::RADIUS_SM))
                 .focus_visible(|style| style.bg(look.color(token::BG_HOVER)))
+                .when_some(opens, |command, opened| {
+                    let keyed = opened.clone();
+                    command
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _, _, cx| this.toggle(ix, opened.clone(), cx)))
+                        .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, _, cx| {
+                            if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                                cx.stop_propagation();
+                                this.toggle(ix, keyed.clone(), cx);
+                            }
+                        }))
+                })
                 .child(line);
             self.menu_on(command, &spot, "Command", spot.focus.clone(), Rc::new(teach_entries), self.teach_pick("command", texts[at].clone(), Some(row.at().clone())), cx).into_any_element()
         });
@@ -326,6 +390,52 @@ impl JobView {
         self.fold(ix, format!("calls:{id}"), label, head, Some(body), page, look, cx)
     }
 
+    /// A `SendMessage` call: "Message to" and the Job it went to by title, a link where Fleet placed it; the
+    /// summary under it; the words it sent while the row is open.
+    fn message_call(&self, key: &str, message: &ipc::ToolMessage, page: &Page, look: &Look, cx: &Context<Self>) -> Call {
+        let to = &message.to;
+        let name = to.title.clone().filter(|title| !title.trim().is_empty()).unwrap_or_else(|| to.name.clone());
+        let peer = match to.session_id.as_ref() {
+            Some(job) => {
+                let job = job.as_str().to_string();
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("{key}:to")))
+                        .min_w_0()
+                        .truncate()
+                        .cursor_pointer()
+                        .text_color(look.color(token::ACCENT))
+                        .hover(|style| style.underline())
+                        .child(name.clone())
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            cx.stop_propagation();
+                            this.open_job(job.clone(), cx);
+                        })),
+                    Role::Link,
+                    name.clone(),
+                )
+                .into_any_element()
+            }
+            // A name Fleet could not place is drawn as written.
+            None => div().min_w_0().truncate().font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child(name.clone()).into_any_element(),
+        };
+        let below = page.opened.contains(key).then(|| {
+            labelled(div()
+                .id(SharedString::from(format!("{key}:text")))
+                .flex()
+                .flex_col()
+                .p(look.length(token::SPACE_2))
+                .rounded(look.length(token::RADIUS_MD))
+                .bg(look.color(token::BG_SUNKEN))
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
+                .text_color(look.color(token::FG_DEFAULT))
+                .children(message.text.lines().map(|line| div().min_h(look.length(token::LEADING_SM)).child(line.to_string()))), Role::Group, format!("Sent to {name}"))
+                .into_any_element()
+        });
+        Call { peer: Some((peer, name)), note: message.summary.clone().filter(|said| !said.trim().is_empty()), below, ..Call::plain(Kind::Message, "Message to".into(), None) }
+    }
+
     /// The subagent an `Agent` call started, as a take A call row: running, the agent's moving icon, its
     /// brief, a counting time and its latest call on a second line; done, one grey line with the time it
     /// took. A press opens its own thread.
@@ -343,7 +453,7 @@ impl JobView {
     /// card at the foot both draw it.
     pub(super) fn subagent_line(&self, key: &str, subagent: &ToolSubagent, said: String, look: &Look, cx: &Context<Self>) -> AnyElement {
         let running = subagent.state == ToolSubagentState::Running;
-        let one = Call { kind: Kind::Agent, phrase: subagent.task.clone(), working_on: subagent.latest.clone().filter(|_| running) };
+        let one = Call::plain(Kind::Agent, subagent.task.clone(), subagent.latest.clone().filter(|_| running));
         let state = match subagent.state {
             ToolSubagentState::Running => "Subagent running",
             ToolSubagentState::Finished => "Subagent finished",

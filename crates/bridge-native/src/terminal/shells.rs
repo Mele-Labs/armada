@@ -11,6 +11,7 @@
 //! | the Job's shells | `GET /sessions/terminal/list` |
 //! | Rename | `POST /sessions/terminal/rename` |
 //! | Run a command an agent showed | `POST /sessions/run/start` |
+//! | A terminal Job | `POST /sessions/terminal/start` |
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -19,8 +20,8 @@ use std::rc::Rc;
 use async_channel::{Receiver, Sender};
 use gpui::{App, Task};
 use ipc::{
-    JobTerminals, ListedTerminal, OpenTerminal, RenameTerminal, ResizeSessionRun, SessionId, SessionRunMessage, SessionRunUnderway, StartSessionRun,
-    StopSessionRun, WireError, WriteSessionRun,
+    JobTerminals, ListedTerminal, ManifestId, OpenTerminal, RenameTerminal, ResizeSessionRun, SessionId, SessionRunMessage, SessionRunUnderway, StartSessionRun,
+    StartTerminalJob, StopSessionRun, TerminalJobStarted, WireError, WriteSessionRun,
 };
 
 use super::screen::Cells;
@@ -171,14 +172,18 @@ impl Shells for Live {
         ask(self.port(cx), "/sessions/terminal/rename".into(), encoded(&body), "ListedTerminal", cx)
     }
 
-    fn start(&self, _start: Start, _cx: &mut App) -> Task<Result<Started, String>> {
-        // `POST /sessions/terminal/start` is the quick terminal Fleet Job's, not landed yet.
-        Task::ready(Err("This Fleet does not start terminal Jobs yet".into()))
+    /// A refusal is Fleet's sentence.
+    fn start(&self, start: Start, cx: &mut App) -> Task<Result<Started, String>> {
+        let body = start_body(start);
+        let asking: Task<Result<TerminalJobStarted, String>> = ask(self.port(cx), "/sessions/terminal/start".into(), encoded(&body), "TerminalJobStarted", cx);
+        cx.background_executor().spawn(async move {
+            let started = asking.await?;
+            Ok(Started { job: started.session_id.as_str().to_string(), terminal: started.terminal, run: started.run_id })
+        })
     }
 
     fn starts(&self) -> bool {
-        // Until the quick terminal route is on Fleet's main.
-        false
+        true
     }
 
     fn run(&self, job: &str, command: &str, size: Cells, cx: &mut App) -> Task<Result<SessionRunUnderway, String>> {
@@ -572,6 +577,26 @@ pub fn of(cx: &App) -> Option<Rc<dyn Shells>> {
     cx.try_global::<Held>().map(|held| held.0.clone())
 }
 
+/// What `POST /sessions/terminal/start` is sent for `start`. No title typed leaves Fleet to name it,
+/// `Terminal in <folder>`.
+fn start_body(start: Start) -> StartTerminalJob {
+    let (manifest_id, dir) = match start.place {
+        Place::Repository(id) => (Some(ManifestId::carried(id)), None),
+        Place::Folder(path) => (None, Some(path)),
+    };
+    StartTerminalJob {
+        manifest_id,
+        dir,
+        title: start.title.filter(|title| !title.trim().is_empty()),
+        model: start.model,
+        effort: start.effort,
+        mode: None,
+        project: None,
+        cols: Some(start.size.cols),
+        rows: Some(start.size.rows),
+    }
+}
+
 /// Whether a terminal Job can be started here (`Shells::starts`).
 pub fn starts(cx: &App) -> bool {
     cx.try_global::<Held>().is_some_and(|held| held.0.starts())
@@ -595,5 +620,27 @@ mod tests {
             .collect();
         assert!(printed.contains("ls\r\n"), "{printed:?}");
         assert!(printed.contains("Cargo.toml"), "{printed:?}");
+    }
+
+    fn start(place: Place, title: Option<&str>) -> Start {
+        Start { place, title: title.map(str::to_string), model: None, effort: None, size: Cells { cols: 120, rows: 32 } }
+    }
+
+    #[test]
+    fn a_live_fleet_starts_terminal_jobs() {
+        assert!(Live { port: Rc::new(|_| None) }.starts());
+    }
+
+    #[test]
+    fn a_folder_start_sends_the_folder_and_leaves_the_title_to_fleet() {
+        let body = start_body(start(Place::Folder("/work/shop".into()), Some("  ")));
+        assert_eq!((body.manifest_id, body.dir.as_deref(), body.title), (None, Some("/work/shop"), None));
+        assert_eq!((body.cols, body.rows), (Some(120), Some(32)));
+    }
+
+    #[test]
+    fn a_repository_start_sends_its_manifest_and_a_typed_title() {
+        let body = start_body(start(Place::Repository("armada".into()), Some("Logs")));
+        assert_eq!((body.manifest_id.as_ref().map(|id| id.as_str()), body.dir, body.title.as_deref()), (Some("armada"), None, Some("Logs")));
     }
 }

@@ -128,6 +128,8 @@ pub(crate) enum Extra {
     Working,
     /// The card of the subagents running now.
     Subagents,
+    /// The agent's last word: what it made and the two ways on (`DoneBody`).
+    End,
     /// Where a moved Job went, at the foot of its thread (`movedRowsOf`'s tail).
     MovedTo,
     /// The thread held is being read again (`transcript: "refreshing"`).
@@ -556,6 +558,11 @@ impl JobView {
         self.list.read(cx).record(id)
     }
 
+    /// Whether Job `id` is a live quick terminal, which opens onto its `t1` (`SessionRecord::quick_terminal`).
+    pub fn live_quick_terminal(&self, id: &str, cx: &App) -> bool {
+        self.record(id, cx).is_some_and(|job| job.quick_terminal && job.state == SessionState::Live)
+    }
+
     /// The Job this one took the place of when it was handed on: its turns stand above this one's,
     /// over a plain rule, as Electron's `replaces` draws them.
     /// A Job moved here carries the one it was moved from the same way, under its Moved from row and
@@ -758,8 +765,12 @@ impl JobView {
         let before = earlier_read.map_or(0, |(_, items, _)| items + rule);
         let earlier_version = earlier_read.map(|(version, ..)| version);
         let mut extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some(), self.refreshing(id, cx));
-        if self.bands_of(id, cx).waiting {
+        let bands = self.bands_of(id, cx);
+        if bands.waiting {
             extras.push(Extra::Waiting);
+        }
+        if bands.end {
+            extras.push(Extra::End);
         }
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
@@ -1065,7 +1076,6 @@ impl Render for JobView {
             .relative()
             .key_context("thread")
             .on_action(cx.listener(Self::on_act))
-            .on_key_down(cx.listener(Self::on_job_escape))
             // Selected words need the window's selection layer; the Job's view is where words are selected.
             .child(gpui_base::TextSelectionLayer)
             .child(head)

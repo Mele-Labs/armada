@@ -924,10 +924,10 @@ impl OperatorPageView {
                 self.set_page(page, cx);
             }
             // Fleet refuses the next answer, or its reply never arrives.
-            "refuse" => mock.fail_answer = Some(Failed::Refused("the tracker did not take the new issue".into())),
+            "refuse" => mock.fail_answer = Some(Failed::Refused("The tracker did not take the new issue.".into())),
             "lose" => mock.fail_answer = Some(Failed::Lost("no answer in 30 seconds".into())),
             // Fleet refuses the next Later: the time it names has passed by the time it reads it.
-            "late" => mock.refuse_later = Some("2026-11-11T14:05:00-05:00 has passed, so the item cannot wait until then".into()),
+            "late" => mock.refuse_later = Some("That time has passed. Pick a later one.".into()),
             "off" => {
                 mock.switch(false);
                 let page = mock.page.clone();

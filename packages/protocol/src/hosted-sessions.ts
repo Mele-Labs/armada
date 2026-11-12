@@ -540,6 +540,26 @@ export type ToolSubagent = {
   report?: string;
 };
 
+/**
+ * What a `SendMessage` call said and to whom, on that call's row. `text` is the whole message; `summary` the one line the
+ * call gave it, where it gave one. Fleet's `ipc::ToolMessage`.
+ */
+export type ToolMessage = {
+  to: MessagePeer;
+  summary?: string;
+  text: string;
+};
+
+/**
+ * Who a message went to. `name` is the call's own `to`, as written: `s-<8 hex>`, a `uds:/tmp/cc-socks/<pid>.sock` path or a
+ * bare name. `session_id` and `title` are set only where Fleet resolved `name` to a Job. Fleet's `ipc::MessagePeer`.
+ */
+export type MessagePeer = {
+  name: string;
+  session_id?: string;
+  title?: string;
+};
+
 /** One row of a hosted session's thread. A row is replaced by its `id`. */
 export type SessionRow =
   | {
@@ -581,6 +601,10 @@ export type SessionRow =
       /** The call's own one-line phrase for what it does (the `description` of a `Bash` or `Agent` call's input), trimmed. Absent where the input had none, and on every row kept before it existed. */
       description?: string;
       subagent?: ToolSubagent;
+      /** The picture a `Read` of a `.png`, `.jpg`, `.jpeg`, `.gif` or `.webp` looked at: its absolute path. The row carries no bytes: `GET /sessions/repository_file?session_id=&path=` serves the images the Job's ledger names. Absent on any other call, and on every row kept before it existed. */
+      image?: string;
+      /** What a `SendMessage` call said and to whom. Absent on any other call, and on every row kept before it existed. */
+      message?: ToolMessage;
     }
   /** A command the person ran in the terminal, as typed, with no output. Since 23.56. */
   | {

@@ -26,6 +26,46 @@ pub struct OpenTerminal {
     pub rows: Option<u16>,
 }
 
+/// `start_terminal_job`: a quick terminal, a Job that opens straight onto its terminal `t1` and whose
+/// agent runs nothing until the person's first message. `POST /sessions/terminal/start`. Answered 200
+/// with [`TerminalJobStarted`]. `docs/concepts/session/a-quick-terminal.md`.
+///
+/// **Exactly one of `manifest_id` and `dir`.** A `dir` inside a served repository is that
+/// repository's Job with `t1` in the folder; anywhere else it is a loose folder, run in place with no
+/// Manifest and never a slot, and nothing is written to make it a repository.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartTerminalJob {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_id: Option<crate::ManifestId>,
+    /// An absolute path to an existing directory.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<crate::SessionMode>,
+    /// As `start_session`'s. Not read for a loose folder.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    /// `t1`'s size in cells. Absent is 80 by 24.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cols: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rows: Option<u16>,
+}
+
+/// `start_terminal_job`'s answer: the Job, and the run of its terminal `t1`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TerminalJobStarted {
+    pub session_id: SessionId,
+    pub terminal: String,
+    pub run_id: String,
+}
+
 /// `start_terminal_run`: the person runs a command in a directory with no Job behind it, such as the
 /// fix a pull request panel names. `POST /sessions/terminal/run`. Answered 200 with
 /// `SessionRunUnderway`.

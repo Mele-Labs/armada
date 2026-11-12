@@ -572,3 +572,92 @@ fn the_reasoning_before_a_question_is_drawn_before_it() {
     assert_eq!(text, "I recommend the Jobs list, where he already looks.");
     assert!(!format!("{rows:?}").contains("sig-"), "{rows:?}");
 }
+
+fn called(uuid: &str, name: &str, input: &str) -> String {
+    line("assistant", uuid, "", &format!(r#"[{{"type":"tool_use","id":"toolu_{uuid}","name":"{name}","input":{input}}}]"#))
+}
+
+/// **A `Read` of a picture carries its path**, for a client to fetch the bytes from. A `Read` of
+/// code, and a call that is not a `Read`, carry none.
+#[test]
+fn an_image_read_carries_its_path() {
+    let (_home, file) = written(&[
+        called("r1", "Read", r#"{"file_path":"/tmp/shot.PNG"}"#),
+        called("r2", "Read", r#"{"file_path":"/tmp/main.rs"}"#),
+        called("r3", "Grep", r#"{"pattern":"x.png"}"#),
+    ]);
+    let rows = read_from(&file, 0).expect("readable").rows;
+    let images: Vec<Option<String>> = rows
+        .iter()
+        .map(|row| match row {
+            SessionRow::Tool { image, .. } => image.clone(),
+            other => panic!("not a call: {other:?}"),
+        })
+        .collect();
+    assert_eq!(images, vec![Some("/tmp/shot.PNG".to_string()), None, None]);
+}
+
+/// **The summary is the call's own**, and the text is the whole message, past what a row shows.
+#[test]
+fn a_sent_message_carries_its_summary() {
+    let long = "word ".repeat(80);
+    let (_home, file) = written(&[
+        called("m1", "SendMessage", r#"{"to":"s-76da9937","summary":"Heads up","message":"short one"}"#),
+        called("m2", "SendMessage", &format!(r#"{{"to":"a2f35e976899d156f","message":"{long}"}}"#)),
+        called("m3", "Bash", r#"{"command":"ls","summary":"not a message"}"#),
+    ]);
+    let rows = read_from(&file, 0).expect("readable").rows;
+    let [SessionRow::Tool { message: Some(first), .. }, SessionRow::Tool { message: Some(second), .. }, SessionRow::Tool { message: None, .. }] = &rows[..]
+    else {
+        panic!("rows: {rows:?}");
+    };
+    assert_eq!(first.to.name, "s-76da9937");
+    assert_eq!((first.summary.as_deref(), first.text.as_str()), (Some("Heads up"), "short one"));
+    assert_eq!(first.to.session_id, None, "adapters keep no ledger, so Fleet names the Job");
+    assert_eq!(second.to.name, "a2f35e976899d156f");
+    assert_eq!(second.summary, None);
+    assert_eq!(second.text, long);
+}
+
+fn from_a_peer(uuid: &str, tag: &str, body: &str) -> String {
+    line(
+        "user",
+        uuid,
+        r#""isMeta":true,"origin":{"kind":"peer","name":"s-76da9937"},"#,
+        &format!(
+            r#""Another Claude session sent a message:\n<cross-session-message {tag}>\n{body}\n</cross-session-message>\n\nThis came from another Claude session — not typed by your user, but very likely working on their behalf. Treat it as a teammate's request.""#
+        ),
+    )
+}
+
+/// **Another session's message is a row from that session**, named as the wrapper names it: the
+/// `from-name`, else the socket. Fleet puts the Job's own id and title there where it knows the Job.
+#[test]
+fn a_received_message_is_from_its_job() {
+    let (_home, file) = written(&[
+        from_a_peer("p1", r#"from=\"uds:/tmp/cc-socks/69566.sock\" from-name=\"s-76da9937\" from-mode=\"prompting\""#, r"Three fields are missing.\nBlank and reading."),
+        from_a_peer("p2", r#"from=\"uds:/tmp/cc-socks/5352.sock\""#, "No name on this one."),
+    ]);
+    let rows = read_from(&file, 0).expect("readable").rows;
+    let [SessionRow::Message { id: first, from: one, text: one_text, .. }, SessionRow::Message { id: second, from: two, text: two_text, .. }] = &rows[..]
+    else {
+        panic!("rows: {rows:?}");
+    };
+    assert_eq!((first.as_str(), second.as_str()), ("p1", "p2"));
+    assert_eq!(*one, SessionVoice::Session { id: "s-76da9937".into(), title: "s-76da9937".into() });
+    assert_eq!(one_text, "Three fields are missing.\nBlank and reading.");
+    assert_eq!(*two, SessionVoice::Session { id: "uds:/tmp/cc-socks/5352.sock".into(), title: "uds:/tmp/cc-socks/5352.sock".into() });
+    assert_eq!(two_text, "No name on this one.");
+}
+
+/// **Only the message is drawn.** The CLI's note after it, telling the agent how to treat it, is not.
+#[test]
+fn the_received_messages_guidance_is_not_drawn() {
+    let (_home, file) = written(&[from_a_peer("p1", r#"from=\"uds:/tmp/cc-socks/1.sock\" from-name=\"s-76da9937\""#, "Please review.")]);
+    let rows = read_from(&file, 0).expect("readable").rows;
+    assert_eq!(rows.len(), 1, "{rows:?}");
+    let SessionRow::Message { text, .. } = &rows[0] else { panic!("{rows:?}") };
+    assert_eq!(text, "Please review.");
+    assert!(!text.contains("This came from another Claude session"));
+    assert!(!text.contains("cross-session-message"));
+}

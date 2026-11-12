@@ -391,6 +391,92 @@
      }
     }
    ]
+  },
+  {
+   "session_id": "tool-message",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-8",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Look at the chip, then ask the reviewer and the docs Job."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "g-1",
+     "names": [
+      "Read",
+      "SendMessage"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "g-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Read /repos/armada/.playwright-mcp/merge-line-amber.png",
+       "image": "/repos/armada/.playwright-mcp/merge-line-amber.png"
+      },
+      {
+       "kind": "tool",
+       "id": "g-2",
+       "at": "2026-11-10T22:00:09Z",
+       "text": "SendMessage s-7c1e0b42",
+       "message": {
+        "to": {
+         "name": "s-7c1e0b42",
+         "session_id": "tool-done",
+         "title": "Finished calls"
+        },
+        "summary": "Review the amber chip before it lands",
+        "text": "The merge line chip is amber while the branch is behind main.\nPlease look at merge-line.ts and say if the tone reads right."
+       }
+      },
+      {
+       "kind": "tool",
+       "id": "g-3",
+       "at": "2026-11-10T22:00:14Z",
+       "text": "SendMessage uds:/tmp/cc-socks/50461.sock",
+       "message": {
+        "to": {
+         "name": "uds:/tmp/cc-socks/50461.sock"
+        },
+        "text": "The docs index names the chip; it may need a line."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-9",
+      "at": "2026-11-10T22:01:10Z",
+      "from": {
+       "kind": "session",
+       "id": "s-7c1e0b42",
+       "title": "Finished calls"
+      },
+      "text": "The tone reads right. Ship it."
+     }
+    }
+   ]
   }
  ]
 }

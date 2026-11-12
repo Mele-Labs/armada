@@ -254,7 +254,9 @@ fn blocks(message: MessageLine, by: Speaker) -> Vec<DroneEvent> {
         .into_iter()
         .filter_map(|block| match block {
             Block::ToolUse { id, name, input } => Some(DroneEvent::Called {
-                detail: detail(&name, &input).described(input.description.as_deref()),
+                detail: detail(&name, &input)
+                    .described(input.description.as_deref())
+                    .summarised(input.summary.as_deref().filter(|_| name == "SendMessage")),
                 tool: name,
                 call: id,
             }),
@@ -717,6 +719,9 @@ struct ToolInput {
     /// `SendMessage`: what one session said to another. Carried because
     /// the receiving session's thread draws it, and nothing else shows it.
     message: Option<String>,
+    /// `SendMessage`: the one line it gave the message. Read for the call's row and never joined
+    /// into the detail.
+    summary: Option<String>,
     /// `draft_fix`: the Check a test failed under. #999.
     check: Option<String>,
     /// `draft_fix`: the test the Drone said is broken on main. With `check`,
@@ -792,6 +797,18 @@ pub fn sent_message<'a>(tool: &str, detail: &'a str) -> Option<(&'a str, &'a str
     }
     let (to, message) = detail.strip_prefix("to ")?.split_once(": ")?;
     Some((to, message))
+}
+
+/// What a `SendMessage` call said and to whom, for its row. **The name is the call's own `to`**, and
+/// Fleet resolves it to a Job where it can: adapters keep no ledger. The summary is the one the call's
+/// input carried, kept on the detail beside the words [`sent_message`] reads.
+pub fn message_sent(tool: &str, detail: &CallDetail) -> Option<ipc::ToolMessage> {
+    let (to, text) = sent_message(tool, detail.whole().unwrap_or(detail.shown()))?;
+    Some(ipc::ToolMessage {
+        to: ipc::MessagePeer { name: to.to_string(), session_id: None, title: None },
+        summary: detail.summary().map(str::to_string),
+        text: text.to_string(),
+    })
 }
 
 /// The file a `Write` call wrote, when it is a document, picture or prose a
