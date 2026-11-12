@@ -1,7 +1,7 @@
 //! **Every workflow Armada carries resolves in a repository that is not this
 //! one.** #425.
 //!
-//! `shipped.rs` resolves the eight against this repository's own `armada.yml`,
+//! `shipped.rs` resolves the nine against this repository's own `armada.yml`,
 //! which is the one Manifest guaranteed to agree with them. Carried, they meet
 //! every other shape, so they are resolved here against three that share
 //! nothing with it: one declaring no Checks, one whose Checks are all named
@@ -58,8 +58,8 @@ fn gates_only_on_what_the_repository_declares(text: &str) -> Vec<ResolvedWorkflo
     let resolved = carried_against(&manifest);
     assert_eq!(
         resolved.len(),
-        8,
-        "all eight, against {}",
+        9,
+        "all nine, against {}",
         manifest.id().as_str()
     );
     for workflow in &resolved {
@@ -147,15 +147,19 @@ fn every_carried_workflow_resolves_against_a_manifest_declaring_no_review_gate()
     assert!(deferring.is_empty(), "{deferring:?}");
 }
 
-/// **The carried set is this repository's files, all of them.** A ninth
-/// definition added under `.armada/workflows/` and not to the carried list
-/// would be one this repository runs and no other repository gets.
+/// **The carried set is this repository's files, all of them** but the ones
+/// named in `REPOSITORY_ONLY`. A definition added under `.armada/workflows/`
+/// and to neither list would be one this repository runs and no other gets.
 #[test]
 fn armada_carries_every_definition_this_repository_ships_as_written() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.armada/workflows");
     let on_disk: BTreeSet<(String, String)> = std::fs::read_dir(&dir)
         .expect("the shipped definitions are there")
         .map(|entry| entry.expect("a directory entry").path())
+        .filter(|path| {
+            let name = path.file_name().expect("a file").to_string_lossy();
+            !config::REPOSITORY_ONLY.contains(&name.as_ref())
+        })
         .map(|path| {
             let file = path
                 .file_name()

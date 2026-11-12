@@ -155,7 +155,7 @@ fn draft_pr_is_carried_by_the_delivering_step_and_refused_on_any_other() {
 }
 
 /// And a workflow where no step declares it is legal, which is the whole point
-/// of the key: four of the eight shipped definitions produce something that is
+/// of the key: four of the nine shipped definitions produce something that is
 /// read rather than merged, and until this they had no way to say so.
 #[test]
 fn a_workflow_where_no_step_sends_the_work_out_loads() {
@@ -253,7 +253,7 @@ fn refused_names_a_step(refusals: &[crate::error::Refusal]) -> bool {
 }
 
 /// **A definition that says nothing about what it is for loads as it did.**
-/// Seven of the eight shipped definitions declare none, and every one written
+/// Eight of the nine shipped definitions declare none, and every one written
 /// before the key existed is that.
 #[test]
 fn a_definition_that_says_nothing_about_what_it_is_for_loads() {
