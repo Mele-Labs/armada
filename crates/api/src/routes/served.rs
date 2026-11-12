@@ -308,6 +308,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/terminal/run",
     },
     Route {
+        operation: "start_terminal_job",
+        method: "POST",
+        path: "/sessions/terminal/start",
+    },
+    Route {
         operation: "type_in_terminal",
         method: "POST",
         path: "/sessions/terminal/type",
