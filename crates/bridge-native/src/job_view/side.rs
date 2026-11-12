@@ -125,6 +125,19 @@ pub(super) struct SideState {
     pub(super) later_open: bool,
     /// The Spine's Brief is open to the whole brief and how the Job started.
     pub(super) brief_open: bool,
+    /// The workflow he picked from the head, with the one the record named then: it stands until
+    /// the record names another, or Fleet refuses it.
+    pub(super) flow_pick: Option<(Option<String>, Option<String>)>,
+    /// He changed the workflow here, so the proposer's mark goes (`unpick`).
+    pub(super) unpicked: bool,
+    /// Steps skipped or unskipped here, each with whether the record had it skipped then.
+    pub(super) skips: std::collections::HashMap<u32, (bool, bool)>,
+    /// A step he jumped to, with the step the record was at then.
+    pub(super) jumped: Option<(Option<u32>, u32)>,
+    /// The stretches of a gated plan whose tasks are open, by stretch and state.
+    pub(super) chunks: HashSet<String>,
+    /// The Open group after the last step is folded.
+    pub(super) open_group_shut: bool,
 }
 
 /// Where a group of an approved plan stands.
@@ -133,6 +146,13 @@ pub(super) enum Stands {
     Coming,
     Working,
     Done,
+}
+
+/// Where each group of an approved plan stands: where its stretch does, for a plan that ends on
+/// gates, else by its tasks.
+pub(super) fn placed(job: &ipc::SessionRecord) -> impl Fn(&SessionPlanGroup) -> Stands {
+    let gates = job.plan.as_ref().filter(|plan| plan.approved && super::workflow::gated(&plan.groups)).map(|plan| super::workflow::gate_places(&plan.groups, plan.held.as_ref()));
+    move |group| gates.as_ref().and_then(|gates| gates.get(&group.id).copied()).unwrap_or_else(|| stands(group))
 }
 
 pub(super) fn stands(group: &SessionPlanGroup) -> Stands {
@@ -251,8 +271,8 @@ impl JobView {
         // Changes and Files draw their own strip over a body that scrolls, as `.job-pane__pick` does.
         let own_frame = matches!(zone, Some(Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine));
         let top_body = self.shown.clone().zip(zone).and_then(|(id, zone)| match zone {
-            Zone::Open => Some(self.zone_alone(Area::Open, self.side_open(&id, look, cx), cx)),
-            Zone::Done => Some(self.zone_alone(Area::Done, self.side_done(&id, look, cx), cx)),
+            Zone::Open => Some(self.zone_alone(Area::Open, self.flow_alone(&id, Area::Open, look, cx).unwrap_or_else(|| self.side_open(&id, look, cx)), cx)),
+            Zone::Done => Some(self.zone_alone(Area::Done, self.flow_alone(&id, Area::Done, look, cx).unwrap_or_else(|| self.side_done(&id, look, cx)), cx)),
             Zone::Deferred => Some(self.zone_alone(Area::Deferred, self.side_deferred(&id, look, cx), cx)),
             Zone::Plan => self.pane_plan(&id, look, cx),
             Zone::Changes => self.pane_changes(&id, look, cx),
@@ -272,7 +292,7 @@ impl JobView {
             window.request_animation_frame();
         }
         let now_open = !self.tab_closed("now");
-        let now_body = self.shown.clone().filter(|_| now_open).map(|id| self.zone_alone(Area::Now, self.side_now(&id, look, cx), cx));
+        let now_body = self.shown.clone().filter(|_| now_open).map(|id| self.zone_alone(Area::Now, self.flow_alone(&id, Area::Now, look, cx).unwrap_or_else(|| self.side_now(&id, look, cx)), cx));
         let body = |id: &'static str, inner: Option<AnyElement>| {
             div()
                 .id(id)

@@ -27,7 +27,7 @@ use super::issues::{issue_of, job_card, IssueItem};
 use super::ledger::{artifact_line, commit_of, Line, Opens};
 use super::pulls::{pull_line, pull_of, Pull, PullState};
 use super::rows::{age, glyph, tip, Size};
-use super::side::{stands, Stands};
+use super::side::Stands;
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -99,15 +99,42 @@ enum Shape {
     Fleet(FleetAct),
 }
 
-/// One thing the Job made, with the plan group whose issue or pull request it is.
-struct Made {
+/// One thing the Job made, with the plan group whose issue or pull request it is, and when it was
+/// made where that is known (`madeTime`).
+pub(super) struct Made {
     bucket: Bucket,
     group: Option<String>,
     shape: Shape,
+    time: Option<String>,
+}
+
+/// Something finished that a workflow step or a gate's stretch holds: a plan group, or a thing made
+/// (`Done`).
+pub(super) enum Finished<'a> {
+    Group(&'a SessionPlanGroup, Option<String>),
+    Made(Made),
+}
+
+impl Finished<'_> {
+    pub(super) fn time(&self) -> Option<&str> {
+        match self {
+            Finished::Group(_, time) => time.as_deref(),
+            Finished::Made(made) => made.time.as_deref(),
+        }
+    }
+
+    pub(super) fn made(&self) -> bool {
+        matches!(self, Finished::Made(_))
+    }
+}
+
+/// When a group last moved: its latest task change (`groupTime`).
+pub(super) fn group_time(group: &SessionPlanGroup) -> Option<String> {
+    group.tasks.iter().filter_map(|task| task.changed_at.as_ref().map(|at| at.as_str().to_string())).max()
 }
 
 fn row(out: &mut Vec<Made>, bucket: Bucket, line: Line) {
-    out.push(Made { bucket, group: None, shape: Shape::Row(line) });
+    out.push(Made { bucket, group: None, shape: Shape::Row(line), time: None });
 }
 
 /// The numbers a comma list names, with no `#`.
@@ -201,16 +228,16 @@ impl JobView {
             }
         }
         // A walk ends in his Approve. One shown again stands once, where it was shown last.
-        let walks: Vec<(&String, &String)> = rows
+        let walks: Vec<(&String, &String, String)> = rows
             .iter()
             .filter_map(|one| match one {
-                SessionRow::Window { id, title, ended_at: Some(_), .. } => Some((id, title)),
+                SessionRow::Window { id, title, ended_at: Some(ended), .. } => Some((id, title, ended.as_str().to_string())),
                 _ => None,
             })
             .collect();
-        for (at, (id, title)) in walks.iter().enumerate() {
-            if !walks[at + 1..].iter().any(|(_, later)| later == title) {
-                row(&mut out, Bucket::Artifact, Line { key: format!("walk:{id}"), kind: "page", glyph: "footprints", said: "Walk approved", title: (*title).clone(), ..Line::default() });
+        for (at, (id, title, ended)) in walks.iter().enumerate() {
+            if !walks[at + 1..].iter().any(|(_, later, _)| later == title) {
+                out.push(Made { bucket: Bucket::Artifact, group: None, shape: Shape::Row(Line { key: format!("walk:{id}"), kind: "page", glyph: "footprints", said: "Walk approved", title: (*title).clone(), ..Line::default() }), time: Some(ended.clone()) });
             }
         }
 
@@ -219,12 +246,12 @@ impl JobView {
             let item = issue_of(record, one);
             if item.closed {
                 let group = groups.iter().find(|group| group.issue.as_deref() == Some(one.target.as_str())).map(|group| group.id.clone());
-                out.push(Made { bucket: Bucket::Issue, group, shape: Shape::Issue(item) });
+                out.push(Made { bucket: Bucket::Issue, group, shape: Shape::Issue(item), time: None });
             }
         }
         for one in &record.attachments {
             if let Some(pull) = pull_of(record, one, None).filter(|pull| pull.state == PullState::Merged) {
-                out.push(Made { bucket: Bucket::PullRequest, group: group_of_pull(record, groups, one), shape: Shape::Pull(pull) });
+                out.push(Made { bucket: Bucket::PullRequest, group: group_of_pull(record, groups, one), shape: Shape::Pull(pull), time: Some(one.since.as_str().to_string()) });
             }
         }
         // The report the Job was started on stands beside its issues.
@@ -238,15 +265,50 @@ impl JobView {
         }
         // A Job it started outside its plan, once finished; one handed a group stands on the group's row.
         for one in record.attachments.iter().filter(|one| one.kind == "started_to" && !one.detail.contains_key("group")) {
-            if self.record(&one.target, cx).and_then(|child| child.mark).is_some_and(|mark| finished(mark.state)) {
-                out.push(Made { bucket: Bucket::Job, group: None, shape: Shape::Job(one.target.clone()) });
+            if let Some(child) = self.record(&one.target, cx).filter(|child| child.mark.is_some_and(|mark| finished(mark.state))) {
+                out.push(Made { bucket: Bucket::Job, group: None, shape: Shape::Job(one.target.clone()), time: child.last_turn_at.as_ref().map(|at| at.as_str().to_string()) });
             }
         }
         // What Fleet did for it, oldest first.
         let mut acts: Vec<FleetAct> = thread.map(|held| held.head.fleet_acts.iter().filter(|act| act.state == FleetActState::Over).cloned().collect()).unwrap_or_default();
         acts.sort_by(|a, b| a.at.as_str().cmp(b.at.as_str()));
-        out.extend(acts.into_iter().map(|act| Made { bucket: Bucket::Fleet, group: None, shape: Shape::Fleet(act) }));
+        out.extend(acts.into_iter().map(|act| {
+            let time = Some(act.at.as_str().to_string());
+            Made { bucket: Bucket::Fleet, group: None, shape: Shape::Fleet(act), time }
+        }));
         out
+    }
+
+    /// What is finished, for a workflow's steps or a gated plan's stretches to hold: the finished groups,
+    /// then what was made that no finished group claims (`finishedThings`).
+    pub(super) fn finished_things<'a>(&self, id: &str, finished: &[&'a SessionPlanGroup], cx: &gpui::App) -> Vec<Finished<'a>> {
+        let ids: HashSet<&str> = finished.iter().map(|group| group.id.as_str()).collect();
+        let made = self.made_of(id, cx).into_iter().filter(|one| !one.group.as_deref().is_some_and(|group| ids.contains(group))).map(Finished::Made);
+        finished.iter().map(|group| Finished::Group(group, group_time(group))).chain(made).collect()
+    }
+
+    /// Finished groups and runs of made things, in the order given (`underDone`).
+    pub(super) fn under_done(&self, record: &SessionRecord, list: Vec<Finished>, key: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let mut rows: Vec<AnyElement> = Vec::new();
+        let mut run: Vec<Made> = Vec::new();
+        let mut runs = 0;
+        let flush = |run: &mut Vec<Made>, rows: &mut Vec<AnyElement>, runs: &mut usize| {
+            if !run.is_empty() {
+                rows.push(self.made_list(std::mem::take(run), Some(true), format!("{key}:made:{runs}"), look, cx));
+                *runs += 1;
+            }
+        };
+        for one in list {
+            match one {
+                Finished::Made(made) => run.push(made),
+                Finished::Group(group, _) => {
+                    flush(&mut run, &mut rows, &mut runs);
+                    rows.push(self.done_group(record, group, Vec::new(), look, cx));
+                }
+            }
+        }
+        flush(&mut run, &mut rows, &mut runs);
+        labelled(div().id(SharedString::from(format!("{key}:done"))).flex().flex_col().gap(look.length(token::SPACE_1)).children(rows), Role::List, "Done").into_any_element()
     }
 
     /// Done holds only merged pull requests, so it is landed once it holds one and none is still open.
@@ -318,7 +380,8 @@ impl JobView {
     /// Each finished plan group with what it produced, then what no group claims, oldest first.
     fn done_by_step(&self, id: &SharedString, made: Vec<Made>, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let record = self.record(id, cx)?;
-        let finished: Vec<&SessionPlanGroup> = record.plan.iter().filter(|plan| plan.approved).flat_map(|plan| plan.groups.iter()).filter(|group| stands(group) == Stands::Done).collect();
+        let place = super::side::placed(record);
+        let finished: Vec<&SessionPlanGroup> = record.plan.iter().filter(|plan| plan.approved).flat_map(|plan| plan.groups.iter()).filter(|group| place(group) == Stands::Done).collect();
         let ids: HashSet<&str> = finished.iter().map(|group| group.id.as_str()).collect();
         let (under, loose): (Vec<Made>, Vec<Made>) = made.into_iter().partition(|one| one.group.as_deref().is_some_and(|group| ids.contains(group)));
         if finished.is_empty() && loose.is_empty() {
@@ -492,12 +555,12 @@ impl JobView {
         for one in job.attachments.iter().filter(|one| one.kind == "issue" && one.state != AttachmentState::GivenBack) {
             let item = issue_of(job, one);
             if !item.closed && !holds(&one.target) {
-                list.push(Made { bucket: Bucket::Issue, group: None, shape: Shape::Issue(item) });
+                list.push(Made { bucket: Bucket::Issue, group: None, shape: Shape::Issue(item), time: None });
             }
         }
         for one in &job.attachments {
             if let Some(pull) = pull_of(job, one, None).filter(|pull| pull.state != PullState::Merged && !held_pull(one)) {
-                list.push(Made { bucket: Bucket::PullRequest, group: None, shape: Shape::Pull(pull) });
+                list.push(Made { bucket: Bucket::PullRequest, group: None, shape: Shape::Pull(pull), time: None });
             }
         }
         (!list.is_empty()).then(|| labelled(div().id("open-not-landed").child(self.made_list(list, None, "open:not-landed".into(), look, cx)), Role::List, "Not landed").into_any_element())

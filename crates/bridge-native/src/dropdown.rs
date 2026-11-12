@@ -154,6 +154,11 @@ impl Focusable for Dropdown {
 }
 
 impl Dropdown {
+    /// The menu's name, as VoiceOver reads it.
+    pub fn name(&self) -> &SharedString {
+        &self.name
+    }
+
     /// A menu at `at` named `name`; `cursor_first` puts the keys on its first entry, as a menu
     /// opened from the keyboard does.
     pub fn new(name: impl Into<SharedString>, entries: Vec<Entry>, at: Point<Pixels>, corner: Anchor, cursor_first: bool, cx: &mut Context<Self>) -> Self {

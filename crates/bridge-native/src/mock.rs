@@ -49,6 +49,10 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same, the first with how it was started and two of his project's tasks held: Audit the
         // docs index has a brief and kept nothing, Flaky login test has no brief.
         "job-spine" => include_bytes!("../fixtures/jobs-open.json"),
+        // The same Jobs on workflows: the first at Build of five steps with Review skipped, its workflow
+        // picked by the proposer; one at a step he skipped; one at its last step; two plans on gates, one
+        // held on him and one whose Checks failed; and one on a workflow with no step set.
+        "job-workflow" => include_bytes!("../fixtures/jobs-workflow.json"),
         "job-view-composer" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
@@ -74,9 +78,20 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     };
     let mut sessions = ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())?;
     // Now's figures count from now, so the scenario's clock is moved to the run's.
-    if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine") {
+    if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine" | "job-workflow") {
         for one in &mut sessions {
             one.last_heard_at = one.last_heard_at.as_ref().map(|at| shifted(NOW_ANCHOR, at));
+            if let Some(held) = one.plan.as_mut().and_then(|plan| plan.held.as_mut()) {
+                held.since = shifted(NOW_ANCHOR, &held.since);
+            }
+        }
+    }
+    // Every other walk was drawn before a workflow's steps were zones: their Jobs follow none.
+    if scenario != "job-workflow" {
+        for one in &mut sessions {
+            one.workflow = None;
+            one.workflow_step = None;
+            one.workflow_copy = None;
         }
     }
     if scenario == "job-spine" {
@@ -118,6 +133,11 @@ pub fn projects() -> ipc::Projects {
     projects
 }
 
+/// The workflows Fleet would serve (`GET /workflows`) in the walks: three of Armada's.
+pub fn workflows() -> Vec<ipc::WorkflowSummary> {
+    ipc::decode::<Vec<ipc::WorkflowSummary>>("workflows", include_bytes!("../fixtures/workflows.json")).unwrap_or_else(|why| panic!("the workflows fixture does not decode: {why}"))
+}
+
 /// How the Spine's first Job was started, and the tasks of his it holds.
 #[derive(Deserialize)]
 struct SpineStarts {
@@ -145,7 +165,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "job-done" => include_bytes!("../fixtures/done-threads.json"),
         "job-now" => include_bytes!("../fixtures/now-threads.json"),
         // The same, with Fleet's two acts to come on the first and the drafted plan's sketch.
-        "job-open" | "job-watching" | "job-spine" => include_bytes!("../fixtures/open-threads.json"),
+        "job-open" | "job-watching" | "job-spine" | "job-workflow" => include_bytes!("../fixtures/open-threads.json"),
         // The same threads, and the earlier Job's, ended where it handed on.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff-threads.json"),
         // The same threads, with the Job that took the router upgrade on and the forked one.
@@ -177,7 +197,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
     let mut all: HashMap<String, JobThread> = read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect();
-    if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine") {
+    if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine" | "job-workflow") {
         for thread in all.values_mut() {
             if let Some(call) = thread.head.open_call.as_mut() {
                 call.since = shifted(NOW_ANCHOR, &call.since);
@@ -272,7 +292,7 @@ pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T
 
 /// The scenario last named is the panes' own: their reads answer only there.
 fn panes_named() -> bool {
-    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more" | "job-pulls" | "job-issues" | "job-system" | "job-open" | "job-spine"))
+    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more" | "job-pulls" | "job-issues" | "job-system" | "job-open" | "job-spine" | "job-workflow"))
 }
 
 /// A pull request's files as `GET /pull_request_patches/:repository/:number` answers them, by

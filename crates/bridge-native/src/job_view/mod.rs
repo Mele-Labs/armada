@@ -65,6 +65,7 @@ mod pr_panel;
 mod report_brief;
 mod side;
 mod spine;
+mod workflow;
 mod tabs;
 pub use side::JobSide;
 mod runs;
@@ -315,6 +316,8 @@ pub struct JobView {
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
+    /// Hide Open group pressed here, with Fleet's setting then: it stands until Fleet's says otherwise.
+    open_group_set: Option<(bool, bool)>,
     /// The Needs you panel, so its keys work once focus is in it.
     dock_focus: FocusHandle,
     /// The dialog a thread key opens to ask which card it goes to.
@@ -444,6 +447,7 @@ impl JobView {
             row_strip: gpui::ScrollHandle::new(),
             focus: cx.focus_handle(),
             pop: None,
+            open_group_set: None,
             dock_focus: cx.focus_handle(),
             confirm: None,
             bar: bar::Bar::new(),

@@ -219,7 +219,7 @@ impl JobView {
     }
 
     /// The pressed row is gone, and the keys with it: they go to the message box, so they still reach the Job.
-    fn keys_to_box(&self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn keys_to_box(&self, window: &mut Window, cx: &mut Context<Self>) {
         let keys = gpui::Focusable::focus_handle(self.composer.input.read(cx), cx);
         window.focus(&keys, cx);
     }

@@ -119,6 +119,14 @@ pub struct Held {
     pub dropped: Option<std::time::Instant>,
     /// Whether `features.notifications` is on. On until Fleet's settings say false, as Electron reads it.
     pub notifications: bool,
+    /// Whether `features.workflows` is off, so Jobs follow no workflow (`workflowsOffIn`). Off only once
+    /// Fleet's settings say so.
+    pub workflows_off: bool,
+    /// Whether `bridge.openGroup` is on: a Job's open work is drawn as one group after its last step.
+    /// On until Fleet's settings say false, as Classic reads it (`useOpenGroupShown`).
+    pub open_group: bool,
+    /// Every workflow Fleet holds, as `GET /workflows` answered on connect. `None` until then.
+    pub workflows: Option<Vec<ipc::WorkflowSummary>>,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
     arrived: Vec<CallArrival>,
     /// The port of the Fleet last connected to, so a command goes where the events come from.
@@ -162,6 +170,9 @@ impl Held {
             read_at: None,
             dropped: None,
             notifications: true,
+            workflows_off: false,
+            open_group: true,
+            workflows: None,
             arrived: Vec::new(),
             port: None,
             sheets: BTreeMap::new(),
@@ -276,6 +287,9 @@ impl Held {
     fn set_settings(&mut self, list: &SettingsList) {
         let switch = list.settings.iter().find(|one| one.key == "features.notifications").map(|one| &one.value);
         self.notifications = switch != Some(&SettingValue::Bool(false));
+        let value = |key: &str| list.settings.iter().find(|one| one.key == key).map(|one| &one.value);
+        self.workflows_off = value("features.workflows") == Some(&SettingValue::Bool(false));
+        self.open_group = value("bridge.openGroup") != Some(&SettingValue::Bool(false));
     }
 
     fn listed(&mut self, mods: Vec<ModSummary>) {
@@ -347,6 +361,8 @@ impl Held {
                 Signal::Repositories(list) => self.repositories = Some(list.repositories),
                 Signal::RepositoriesFailed(why) => lines.push(Note::warn("repositories could not be read").field("why", why)),
                 Signal::Projects(read) => self.projects = Some(read),
+                Signal::Workflows(read) => self.workflows = Some(read),
+                Signal::WorkflowsFailed(why) => lines.push(Note::warn("workflows could not be read").field("why", why)),
                 Signal::ProjectsFailed(why) => lines.push(Note::warn("projects could not be read").field("why", why)),
                 Signal::MergeLines(view) => self.merge_lines = Some(view.lines),
                 Signal::MergeLinesFailed(why) => lines.push(Note::warn("the merge line could not be read").field("why", why)),

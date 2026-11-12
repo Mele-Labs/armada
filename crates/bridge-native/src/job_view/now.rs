@@ -24,7 +24,8 @@ use super::issues::{job_card, job_placeholder};
 use super::plan::task_look;
 use super::pulls::{pull_of, PullChecks, PullState};
 use super::rows::{glyph, mono, tip, Size};
-use super::side::{stands, Stands, ASK_FOR_UPDATE};
+use super::side::{Stands, ASK_FOR_UPDATE};
+use super::workflow::{walk_step, StretchState, Work};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look, Token};
@@ -217,6 +218,19 @@ pub(super) fn beat(look: &Look, lead: AnyElement, words: impl IntoElement, last:
 }
 
 /// A step's task mark: its glyph, hue and word, pulsing while it works (`Mark`).
+/// A step of the workflow (`StepBeat`): its mark, which pulses on the step the Job is on, its name,
+/// and what it made under it.
+pub(super) fn step_beat(look: &Look, key: &str, name: &str, state: StretchState, under: Option<AnyElement>) -> AnyElement {
+    let (icon, ink, said, about) = match state {
+        StretchState::Done => ("circle-check", token::STEP_ADVANCED, "Done", "A workflow step, done"),
+        StretchState::Now => ("circle-dot", token::STEP_RUNNING, "Now", "The workflow step the Job is on"),
+        StretchState::Next => ("circle-dashed", token::FG_SUBTLE, "Next", "A workflow step still to come"),
+    };
+    let name = words(look, name.to_string(), if state == StretchState::Next { token::FG_MUTED } else { token::FG_DEFAULT }, false, false, false).id(SharedString::from(format!("{key}-said"))).tooltip(tip(about));
+    let row = labelled(named(key, beat(look, lead(look, key, icon, ink, said, state == StretchState::Now), name, None, None)), Role::Group, about);
+    div().flex().flex_col().child(row).children(under.map(|under| div().pl(look.length(token::SPACE_6)).child(under))).into_any_element()
+}
+
 fn step_lead(look: &Look, key: &str, state: PlanTaskState) -> AnyElement {
     let (icon, ink, said) = task_look(state);
     lead(look, key, icon, ink, said, state == PlanTaskState::Working)
@@ -235,7 +249,7 @@ fn route_beat(look: &Look, step: Step) -> AnyElement {
 
 /// The walks shown to him that Fleet still holds an item for, the newest of each page (`walks`):
 /// address, name, and the takes where it shows several.
-fn shown_walks(record: &SessionRecord, rows: &[SessionRow]) -> Vec<(String, String, Option<usize>)> {
+pub(super) fn shown_walks(record: &SessionRecord, rows: &[SessionRow]) -> Vec<(String, String, Option<usize>)> {
     let held: Vec<&str> = record
         .waiting_for
         .iter()
@@ -334,7 +348,11 @@ impl JobView {
         let drafting = job.plan.as_ref().is_some_and(|plan| !plan.approved);
         let approved = job.plan.as_ref().is_some_and(|plan| plan.approved);
         let editing = job.plan.is_some() && (drafting || !marks.is_empty());
-        let at_work: Vec<&SessionPlanGroup> = if editing { Vec::new() } else { job.plan.iter().filter(|plan| plan.approved).flat_map(|plan| plan.groups.iter()).filter(|group| stands(group) == Stands::Working).collect() };
+        let work = self.work(&job, cx);
+        let gates = self.by_gates(id, &job);
+        let after_plan = work.stepped() || gates;
+        let place = super::side::placed(&job);
+        let at_work: Vec<&SessionPlanGroup> = if editing { Vec::new() } else { job.plan.iter().filter(|plan| plan.approved).flat_map(|plan| plan.groups.iter()).filter(|group| place(group) == Stands::Working).collect() };
 
         let walks = shown_walks(&job, &rows);
         // What Fleet says he owes, as the band lists it (#80): a Done or a put-away takes the row out
@@ -397,7 +415,9 @@ impl JobView {
         // A step held on a state an instance has yet to reach: a fact, so the clock does not pulse.
         let waits = job.workflow_waiting_on.iter().map(|said| labelled(named(&format!("wait:{said}"), beat(look, lead(look, &format!("wait:{said}"), "clock", token::FG_SUBTLE, "Waiting", false), words(look, said.clone(), token::FG_MUTED, false, false, true), None, None)), Role::Group, said.clone()).into_any_element());
         let route = if job.r#mod { Vec::new() } else { route_of(&job) };
-        let under_way = route.iter().filter(|step| matches!(step.state, PlanTaskState::Working | PlanTaskState::Failed)).map(|step| route_beat(look, *step));
+        // A step of the route the workflow already names is that step, not a second row; a plan that
+        // ends on gates says where it is in its stretches instead.
+        let under_way = route.iter().filter(|step| !gates && matches!(step.state, PlanTaskState::Working | PlanTaskState::Failed) && !work.names(step.label)).map(|step| route_beat(look, *step));
         let checks: Vec<(&String, SessionCheckState, String)> = rows.iter().filter_map(|row| if let SessionRow::Check { id, name, state, .. } = row { Some((name, *state, id.clone())) } else { None }).collect();
         let failed_check = checks.last().filter(|(_, state, _)| matches!(state, SessionCheckState::Failed | SessionCheckState::TimedOut)).cloned();
         let check_rows = checks
@@ -424,13 +444,22 @@ impl JobView {
 
         let beats: Vec<AnyElement> = owed.into_iter().chain(walk_rows).chain(agent.map(|agent| agent.into_any_element())).chain(fleet).chain(waits).chain(under_way).chain(check_rows).collect();
         let beats = (!beats.is_empty()).then(|| labelled(div().id("now-beats").flex().flex_col().children(beats), Role::List, "Now").into_any_element());
-        let ahead = if spine { None } else { self.ahead_list(&job, look) };
+        let ahead = if spine { None } else { self.ahead_list(&job, look, cx) };
+        // With a workflow and a plan group being worked, the agent's list follows the plan's tasks; a
+        // plan that ends on gates draws it under the live stretch's tasks instead.
+        let list_after = after_plan && !at_work.is_empty();
+        let list = if gates { None } else { self.now_tasks(&job, look) };
+        let (list_before, list_after) = if list_after { (None, list) } else { (list, None) };
+        let flight = if gates { None } else { self.flight_rows(&job, &at_work, false, look, cx) };
+        let helpers = if gates { self.helpers(&job, look, cx) } else { None };
         let rows: Vec<AnyElement> = beats
             .into_iter()
-            .chain(self.now_tasks(&job, look))
+            .chain(list_before)
             .chain(self.now_subagents(&job, look))
-            .chain(self.flight_rows(&job, &at_work, false, look, cx))
+            .chain(flight)
+            .chain(helpers)
             .chain(self.now_children(&job, look, cx))
+            .chain(list_after)
             .chain(self.now_plan(id, &job, look, cx))
             .chain(self.watching(&job, look, cx).map(|watching| watching.into_any_element()))
             .chain(ahead)
@@ -439,11 +468,29 @@ impl JobView {
         Some((lamp, body))
     }
 
-    /// The route still to come (`aheadList`).
-    pub(super) fn ahead_list(&self, job: &SessionRecord, look: &Look) -> Option<AnyElement> {
-        let route = if job.r#mod { Vec::new() } else { route_of(job) };
-        let ahead = route.iter().filter(|step| step.state == PlanTaskState::Open).map(|step| route_beat(look, *step)).collect::<Vec<_>>();
+    /// What is still to come (`aheadList`): the workflow's steps where the Job is at none of them,
+    /// a walk to come under a step that asks for one, then the route.
+    pub(super) fn ahead_list(&self, job: &SessionRecord, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let work = self.work(job, cx);
+        let walked = !shown_walks(job, &self.thread_rows(job.id.as_str(), cx)).is_empty();
+        let steps = work.steps.iter().enumerate().filter(|(at, _)| work.at.is_none_or(|now| *at > now)).map(|(at, name)| {
+            let under = (walk_step(name) && !walked).then(|| JobView::walk_to_come(look));
+            step_beat(look, &format!("ahead:{at}"), name, StretchState::Next, under)
+        });
+        let ahead: Vec<AnyElement> = steps.chain(self.route_ahead(job, &work, look)).collect();
         (!ahead.is_empty()).then(|| labelled(div().id("now-ahead").flex().flex_col().children(ahead), Role::List, "Ahead").into_any_element())
+    }
+
+    /// The route's steps still to come that the workflow does not name already.
+    fn route_ahead(&self, job: &SessionRecord, work: &Work, look: &Look) -> Vec<AnyElement> {
+        let route = if job.r#mod { Vec::new() } else { route_of(job) };
+        route.iter().filter(|step| step.state == PlanTaskState::Open && !work.names(step.label)).map(|step| route_beat(look, *step)).collect()
+    }
+
+    /// What was to land, under the workflow's last step: the route's outputs still to be made (`landing`).
+    pub(super) fn landing(&self, job: &SessionRecord, work: &Work, look: &Look) -> Option<AnyElement> {
+        let ahead = self.route_ahead(job, work, look);
+        (!ahead.is_empty()).then(|| labelled(div().id("landing").flex().flex_col().children(ahead), Role::List, "Ahead").into_any_element())
     }
 }
 
@@ -533,7 +580,7 @@ impl JobView {
 
     /// The agent's own list, open and working items only; a Job that stopped lists the tasks it
     /// stopped on, open.
-    fn now_tasks(&self, job: &SessionRecord, look: &Look) -> Option<AnyElement> {
+    pub(super) fn now_tasks(&self, job: &SessionRecord, look: &Look) -> Option<AnyElement> {
         let left = job.stopped.as_ref().map(|stopped| stopped.tasks.clone()).unwrap_or_default();
         let todos: Vec<(String, PlanTaskState)> = if left.is_empty() {
             job.activity

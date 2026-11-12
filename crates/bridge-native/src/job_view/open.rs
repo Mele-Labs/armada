@@ -3,15 +3,15 @@
 //! open or a pull request not merged that no group still to finish works; and what Fleet is to do
 //! for the Job. The route still to come stands under Now, as Ahead.
 //!
-//! Owed: a workflow's steps still to come and the Open that follows a gated plan's last step
-//! (`openPanel`), which arrive with the workflow pane and the plan's gates.
+//! With a workflow's steps or a gated plan's stretches as the zones, Open is those steps still to
+//! come and the Open group after them (`workflow.rs`, `spine.rs`).
 
 use gpui::{div, prelude::*, AnyElement, Context, Role, SharedString};
 use ipc::{FleetActState, SessionPlanGroup};
 
 use super::now::{beat, lead, named, words};
 use super::rows::tip;
-use super::side::{stands, Stands};
+use super::side::Stands;
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -28,10 +28,23 @@ impl JobView {
         // A plan drafted or marked stands whole in Now to edit; its groups are not drawn again here.
         let editing = job.plan.as_ref().is_some_and(|plan| !plan.approved || !self.plan_marks(id).is_empty());
         let groups: Vec<&SessionPlanGroup> = job.plan.iter().flat_map(|plan| plan.groups.iter()).collect();
-        let upcoming: Vec<&SessionPlanGroup> = if editing { Vec::new() } else { groups.iter().copied().filter(|group| stands(group) == Stands::Coming).collect() };
-        let held: Vec<&SessionPlanGroup> = groups.iter().copied().filter(|group| editing || stands(group) != Stands::Done).collect();
+        let place = super::side::placed(&job);
+        let upcoming: Vec<&SessionPlanGroup> = if editing { Vec::new() } else { groups.iter().copied().filter(|group| place(group) == Stands::Coming).collect() };
+        let held: Vec<&SessionPlanGroup> = groups.iter().copied().filter(|group| editing || place(group) != Stands::Done).collect();
 
-        // What Fleet is to do for the Job stands here as another worker's beats do (`FleetBeat`).
+        let ahead = if spine { self.ahead_list(&job, look, cx) } else { None };
+        let rows: Vec<AnyElement> = self
+            .flight_rows(&job, &upcoming, true, look, cx)
+            .into_iter()
+            .chain(self.not_landed(&job, &held, look, cx))
+            .chain(ahead)
+            .chain(self.fleet_coming(id, look, cx))
+            .collect();
+        (!rows.is_empty()).then(|| div().flex().flex_col().children(rows).into_any_element())
+    }
+
+    /// What Fleet is to do for the Job, as another worker's beats are (`comingList`).
+    fn fleet_coming(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let coming: Vec<AnyElement> = self
             .thread(id, cx)
             .iter()
@@ -47,16 +60,16 @@ impl JobView {
                 labelled(named(&key, beat(look, lead(look, &key, "server", token::FG_SUBTLE, "Fleet", false), said, None, None)), Role::Group, act.said.clone()).into_any_element()
             })
             .collect();
-        let coming = (!coming.is_empty()).then(|| labelled(div().id("open-fleet").flex().flex_col().pt(look.length(token::SPACE_2)).children(coming), Role::List, "Fleet"));
+        (!coming.is_empty()).then(|| labelled(div().id("open-fleet").flex().flex_col().pt(look.length(token::SPACE_2)).children(coming), Role::List, "Fleet").into_any_element())
+    }
 
-        let ahead = if spine { self.ahead_list(&job, look) } else { None };
-        let rows: Vec<AnyElement> = self
-            .flight_rows(&job, &upcoming, true, look, cx)
-            .into_iter()
-            .chain(self.not_landed(&job, &held, look, cx))
-            .chain(ahead)
-            .chain(coming.map(|coming| coming.into_any_element()))
-            .collect();
+    /// The work still open once a workflow's steps or a gated plan's stretches are the zones: what has
+    /// not landed, then what Fleet is to do (`openMade`, `comingList`). The Open group draws it after
+    /// the last step; hidden, the current step does.
+    pub(super) fn open_work(&self, id: &SharedString, job: &ipc::SessionRecord, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let place = super::side::placed(job);
+        let held: Vec<&SessionPlanGroup> = job.plan.iter().flat_map(|plan| plan.groups.iter()).filter(|group| place(group) != Stands::Done).collect();
+        let rows: Vec<AnyElement> = self.not_landed(job, &held, look, cx).into_iter().chain(self.fleet_coming(id, look, cx)).collect();
         (!rows.is_empty()).then(|| div().flex().flex_col().children(rows).into_any_element())
     }
 }

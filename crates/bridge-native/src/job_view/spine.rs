@@ -3,15 +3,19 @@
 //! Deferred at the foot while anything is kept. The line is solid through Done, heavier through Now
 //! and dashed through Open; each band is the marker on it, a hollow dot, or a filled one for Now.
 //! A band holds at the column's top while its zone passes under it. A press, Enter or Space on a
-//! band folds its zone (gpui presses a focused element on Enter and Space), kept per Job on this machine; Done starts folded. ⌥1 to ⌥4 fold a zone and
-//! bring its band to the top while the Spine is in front. The Spine opens with Now's band at the top.
+//! band folds its zone (gpui presses a focused element on Enter and Space), kept per Job on this
+//! machine; Done starts folded. ⌥1 to ⌥4 fold a zone and bring its band to the top while the Spine
+//! is in front. The Spine opens with Now's band at the top.
+//!
+//! A Job that follows a workflow draws the workflow's head first, and its zones are the workflow's
+//! steps; a plan that ends on gates draws a zone for each stretch whose gate closed and Now as the
+//! stretches still to finish (`workflow.rs`). Either way the open work stands in the Open group
+//! after them.
 //!
 //! gpui has no sticky position, so the band of the zone passing under the top is drawn again over
 //! the scroll, and its place in the zone is left empty, so each band stands once on screen.
 //!
-//! Owed: the workflow's head with ⌥W, its step zones with Skip and Jump, a gated plan's zones, and
-//! Hide Open group, which land with the Workflow pane; a task chip's press, which opens Projects,
-//! a page native does not have yet.
+//! Owed: a task chip's press, which opens Projects, a page native does not have yet.
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -22,7 +26,7 @@ use ipc::{DeliveryChoice, ProjectRow, ProjectTaskState, SessionMode, SessionRow,
 use super::head::drawn;
 use super::menus::Teach;
 use super::now::lamp_mark;
-use super::rows::{glyph, mono, Size};
+use super::rows::{glyph, mono, tip, Size};
 use super::side::Zone;
 use super::JobView;
 use crate::dropdown::Entry;
@@ -43,7 +47,7 @@ impl Area {
     const ALL: [Area; 4] = [Area::Done, Area::Now, Area::Open, Area::Deferred];
 
     /// Classic's name for the zone (`data-area`), which the fold is kept under and Teach names.
-    fn id(self) -> &'static str {
+    pub(super) fn id(self) -> &'static str {
         match self {
             Area::Done => "done",
             Area::Now => "now",
@@ -95,35 +99,120 @@ impl Area {
     }
 }
 
-/// A zone as the column lists them: the Brief, or one that folds.
+/// The marker a band stands on: the line's dot, or a step's own mark in its place.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum Mark {
+    Dot,
+    Done,
+    Skipped,
+}
+
+/// What a band's menu offers before Teach (`skipMenu`, `OpenGroupMenu`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum Offer {
+    None,
+    Skip { step: usize, skipped: bool },
+    HideOpen,
+}
+
+/// One zone on the line (`SvPanel`): its band and what folds under it.
+pub(super) struct Spec {
+    /// The zone's own name, which its band's keys are kept under.
+    key: String,
+    /// The fold it opens and shuts, shared by the steps of one kind; none where the band does not fold.
+    fold: Option<String>,
+    label: SharedString,
+    /// The zone it stands for, which its key brings forward.
+    area: Area,
+    /// Classic's `data-area`, which Teach names.
+    teach: &'static str,
+    mark: Mark,
+    skipped: bool,
+    /// Drawn alone without its label (`bare`).
+    bare: bool,
+    lamp: Option<AnyElement>,
+    acts: Option<AnyElement>,
+    offer: Offer,
+    body: Option<AnyElement>,
+}
+
+impl Spec {
+    pub(super) fn zone(key: String, fold: Option<String>, label: impl Into<SharedString>, area: Area, teach: &'static str) -> Spec {
+        Spec { key, fold, label: label.into(), area, teach, mark: Mark::Dot, skipped: false, bare: false, lamp: None, acts: None, offer: Offer::None, body: None }
+    }
+
+    pub(super) fn mark(self, mark: Mark) -> Spec {
+        Spec { mark, ..self }
+    }
+
+    pub(super) fn skipped(self, skipped: bool) -> Spec {
+        Spec { skipped, ..self }
+    }
+
+    pub(super) fn bare(self, bare: bool) -> Spec {
+        Spec { bare, ..self }
+    }
+
+    pub(super) fn lamp(self, lamp: Option<AnyElement>) -> Spec {
+        Spec { lamp, ..self }
+    }
+
+    pub(super) fn acts(self, acts: Option<AnyElement>) -> Spec {
+        Spec { acts, ..self }
+    }
+
+    pub(super) fn offer(self, offer: Offer) -> Spec {
+        Spec { offer, ..self }
+    }
+
+    pub(super) fn body(self, body: Option<AnyElement>) -> Spec {
+        Spec { body, ..self }
+    }
+
+    /// One of the four zones a Job without a workflow draws.
+    fn plain(&self) -> bool {
+        self.key == self.area.id()
+    }
+}
+
+/// What the column lists, in order: the workflow's head, the Brief, then each zone.
+#[derive(Clone, PartialEq, Eq, Debug)]
 enum Kind {
+    Head,
     Brief,
-    Zone(Area),
+    Zone(String, Area),
 }
 
 /// What the Spine keeps: each Job's folds, its scroll, and the bands' and bodies' keys.
 pub(super) struct Spine {
-    /// Each zone folded or opened by hand, by Job; a zone not here takes its default.
-    folds: HashMap<String, HashMap<Area, bool>>,
+    /// Each fold opened or shut by hand, by Job; a fold not here takes its default.
+    folds: HashMap<String, HashMap<String, bool>>,
     scroll: ScrollHandle,
     /// The zone to bring to the top once the scroll knows where its zones stand. gpui's own
     /// `scroll_to_top_of_item` misses on a scroll's first frame, before it knows its own bounds.
     place: Cell<Option<usize>>,
     /// The Job the Spine last opened at Now for.
     placed: RefCell<Option<SharedString>>,
-    /// The zones in the order last drawn, so a key finds its zone's place.
+    /// The column in the order last drawn, so a key finds its zone's place.
     order: RefCell<Vec<Kind>>,
     /// Where the zones stood and the scroll was when last drawn: while either moves, the Spine draws
     /// again, so the band held at the top is measured from where things came to rest.
     rest: RefCell<Vec<(Pixels, Pixels)>>,
     pub(super) settle: Cell<bool>,
-    /// The Brief's band, then each zone's.
-    bands: [FocusHandle; 5],
-    bodies: [FocusHandle; 4],
+    brief: FocusHandle,
+    /// The workflow head's picker, which ⌥W puts the keys on.
+    pub(super) head: FocusHandle,
+    /// The same, on the head over a Now tab of its own, which can stand beside the Spine.
+    pub(super) head_alone: FocusHandle,
+    /// Each zone's band and body, by the zone's key.
+    bands: RefCell<HashMap<String, FocusHandle>>,
+    bodies: RefCell<HashMap<String, FocusHandle>>,
     /// Each zone's keys in its own tab, outside the Spine.
     alone: [FocusHandle; 4],
 }
+
+/// The folds kept between runs: the four zones', not a step's or a stretch's.
+const KEPT: [&str; 4] = ["done", "now", "next", "deferred"];
 
 /// Where the folds are kept between runs, beside the list's own: `job`, `area`, `open` or `shut`, a
 /// line each.
@@ -131,24 +220,28 @@ fn folds_file() -> Option<std::path::PathBuf> {
     crate::jobs::deck_file().map(|deck| deck.with_file_name("native-spine-folds"))
 }
 
-fn read_folds() -> HashMap<String, HashMap<Area, bool>> {
-    let mut folds: HashMap<String, HashMap<Area, bool>> = HashMap::new();
+fn read_folds() -> HashMap<String, HashMap<String, bool>> {
+    let mut folds: HashMap<String, HashMap<String, bool>> = HashMap::new();
     let text = folds_file().and_then(|path| std::fs::read_to_string(path).ok()).unwrap_or_default();
     for line in text.lines() {
         let mut parts = line.split('\t');
         let (Some(job), Some(area), Some(open)) = (parts.next(), parts.next(), parts.next()) else { continue };
-        let Some(area) = Area::ALL.into_iter().find(|one| one.id() == area) else { continue };
-        folds.entry(job.to_string()).or_default().insert(area, open == "open");
+        if KEPT.contains(&area) {
+            folds.entry(job.to_string()).or_default().insert(area.to_string(), open == "open");
+        }
     }
     folds
 }
 
-fn write_folds(folds: &HashMap<String, HashMap<Area, bool>>) {
+fn write_folds(folds: &HashMap<String, HashMap<String, bool>>) {
     let Some(path) = folds_file() else { return };
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
-    let mut lines: Vec<String> = folds.iter().flat_map(|(job, areas)| areas.iter().map(move |(area, open)| format!("{job}\t{}\t{}", area.id(), if *open { "open" } else { "shut" }))).collect();
+    let mut lines: Vec<String> = folds
+        .iter()
+        .flat_map(|(job, keys)| keys.iter().filter(|(key, _)| KEPT.contains(&key.as_str())).map(move |(key, open)| format!("{job}\t{key}\t{}", if *open { "open" } else { "shut" })))
+        .collect();
     lines.sort();
     if let Err(why) = std::fs::write(&path, lines.join("\n")) {
         Note::warn("the Spine's folds were not kept").field("why", why.to_string()).emit();
@@ -165,8 +258,11 @@ impl Spine {
             order: RefCell::new(Vec::new()),
             rest: RefCell::new(Vec::new()),
             settle: Cell::new(false),
-            bands: std::array::from_fn(|_| cx.focus_handle().tab_stop(true)),
-            bodies: std::array::from_fn(|_| cx.focus_handle()),
+            brief: cx.focus_handle().tab_stop(true),
+            head: cx.focus_handle().tab_stop(true),
+            head_alone: cx.focus_handle().tab_stop(true),
+            bands: RefCell::new(HashMap::new()),
+            bodies: RefCell::new(HashMap::new()),
             alone: std::array::from_fn(|_| cx.focus_handle()),
         }
     }
@@ -176,15 +272,23 @@ impl Spine {
         self.placed.replace(None);
     }
 
-    fn open(&self, job: &str, area: Area) -> bool {
-        self.folds.get(job).and_then(|areas| areas.get(&area)).copied().unwrap_or(area != Area::Done)
+    /// Whether a fold is open: Done starts shut, a finished step or stretch as Done is, the rest open.
+    fn open(&self, job: &str, fold: &str) -> bool {
+        if let Some(open) = self.folds.get(job).and_then(|keys| keys.get(fold)) {
+            return *open;
+        }
+        if fold.starts_with("done:") {
+            return self.open(job, "done");
+        }
+        fold != "done"
     }
 
-    fn band(&self, kind: Kind) -> &FocusHandle {
-        match kind {
-            Kind::Brief => &self.bands[0],
-            Kind::Zone(area) => &self.bands[1 + area.at()],
-        }
+    fn band(&self, key: &str, cx: &App) -> FocusHandle {
+        self.bands.borrow_mut().entry(key.to_string()).or_insert_with(|| cx.focus_handle().tab_stop(true)).clone()
+    }
+
+    fn body(&self, key: &str, cx: &App) -> FocusHandle {
+        self.bodies.borrow_mut().entry(key.to_string()).or_insert_with(|| cx.focus_handle()).clone()
     }
 }
 
@@ -314,26 +418,53 @@ impl JobView {
             .into_any_element()
     }
 
+    /// A tab of its own for a Job whose zones are a workflow's steps or a plan's stretches: those of
+    /// its zone, with the head over Now and the Open group in Open. For a Job on a workflow with no
+    /// step set, Now alone under the head; none for any other Job.
+    pub(super) fn flow_alone(&self, id: &SharedString, area: Area, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let job = self.record(id, cx).cloned()?;
+        let work = self.work(&job, cx);
+        let head = (area == Area::Now && work.head() && !self.by_gates(id, &job)).then(|| self.workflow_head(&work, true, look, cx));
+        // A Job on a workflow with no step set draws the plain zones; its head still leads Now.
+        let Some(specs) = self.flow_specs(id, &job, true, look, cx) else {
+            return head.map(|head| div().flex().flex_col().child(head).child(self.side_now(id, look, cx)).into_any_element());
+        };
+        let zones: Vec<AnyElement> = specs.into_iter().filter(|spec| spec.area == area).map(|spec| self.spine_zone(id, spec, true, None, look, cx)).collect();
+        Some(div().flex().flex_col().children(head).children(zones).into_any_element())
+    }
+
+    /// The four zones of a Job with no workflow.
+    fn plain_specs(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Vec<Spec> {
+        let (landed, toggle, done_body) = self.done_parts(id, look, cx);
+        let (now_lamp, now_body) = self.now_parts(id, true, look, cx).unwrap_or((None, None));
+        let now_lamp = now_lamp.map(|lamp| {
+            let (hue, said, pulse) = lamp.look();
+            lamp_mark(look, "spine-now", hue, said, pulse)
+        });
+        let plain = |area: Area| Spec::zone(area.id().to_string(), Some(area.id().to_string()), area.label(), area, area.id());
+        vec![
+            plain(Area::Done).lamp(landed.then(|| lamp_mark(look, "spine-done", token::STATUS_COMPLETED_SUCCESS, "Done", false))).acts(Some(toggle)).body(done_body),
+            plain(Area::Now).lamp(now_lamp).acts(Some(self.now_acts(id, look, cx))).body(now_body),
+            plain(Area::Open).body(self.open_body(id, true, look, cx)),
+        ]
+    }
+
     /// The Spine on a Job.
     pub(super) fn pane_spine(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
         let Some(job) = self.record(id, cx).cloned() else { return div().into_any_element() };
         let items: &[ThreadItem] = self.thread(id, cx).map_or(&[], |held| held.items.as_slice());
         let ground = look.color(token::BG_RAISED);
-        let edge = look.length(token::BORDER_WIDTH);
-        let line = look.length(token::SPACE_4);
-        let lead = line + look.length(token::SPACE_4);
         let band_h = look.length(token::H_CONTROL);
 
-        let mut order = Vec::new();
-        if brief_of(&job, items).is_some() {
-            order.push(Kind::Brief);
+        let work = self.work(&job, cx);
+        let head = (work.head() && !self.by_gates(id, &job)).then(|| self.workflow_head(&work, false, look, cx));
+        let mut specs = self.flow_specs(id, &job, false, look, cx).unwrap_or_else(|| self.plain_specs(id, look, cx));
+        if let Some(deferred) = self.deferred_block(id, look, cx) {
+            specs.push(Spec::zone("deferred".into(), Some("deferred".into()), "Deferred", Area::Deferred, "deferred").body(Some(deferred)));
         }
-        order.extend([Kind::Zone(Area::Done), Kind::Zone(Area::Now), Kind::Zone(Area::Open)]);
-        let deferred = self.deferred_block(id, look, cx);
-        if deferred.is_some() {
-            order.push(Kind::Zone(Area::Deferred));
-        }
-        let now_at = order.iter().position(|kind| *kind == Kind::Zone(Area::Now)).unwrap_or_default();
+        let brief = brief_of(&job, items).is_some();
+        let order: Vec<Kind> = head.iter().map(|_| Kind::Head).chain(brief.then_some(Kind::Brief)).chain(specs.iter().map(|spec| Kind::Zone(spec.key.clone(), spec.area))).collect();
+        let now_at = order.iter().position(|kind| matches!(kind, Kind::Zone(_, Area::Now))).unwrap_or_default();
         if self.spine.placed.borrow().as_ref() != Some(id) {
             self.spine.placed.replace(Some(id.clone()));
             self.spine.place.set(Some(now_at));
@@ -350,9 +481,9 @@ impl JobView {
         }
 
         // The zone passing under the top, and where its band stands: at the top, or pushed up by
-        // the zone's own foot.
+        // the zone's own foot. The head is not a zone, and scrolls away.
         let offset = self.spine.scroll.offset().y;
-        let stuck = (0..order.len()).find_map(|at| {
+        let stuck = (0..order.len()).filter(|at| order[*at] != Kind::Head).find_map(|at| {
             let zone = self.spine.scroll.bounds_for_item(at)?;
             let from = zone.origin.y - view.origin.y + offset;
             let to = from + zone.size.height;
@@ -365,70 +496,25 @@ impl JobView {
             self.spine.settle.set(true);
         }
 
-        let (landed, toggle, done_body) = self.done_parts(id, look, cx);
-        let (now_lamp, now_body) = self.now_parts(id, true, look, cx).unwrap_or((None, None));
-        let mut acts: HashMap<Area, AnyElement> = HashMap::from([(Area::Done, toggle), (Area::Now, self.now_acts(id, look, cx))]);
-        let mut bodies: HashMap<Area, Option<AnyElement>> = HashMap::from([(Area::Done, done_body), (Area::Now, now_body), (Area::Open, self.open_body(id, true, look, cx)), (Area::Deferred, deferred)]);
-        let lamp = |area: Area| match area {
-            Area::Done => landed.then(|| lamp_mark(look, "spine-done", token::STATUS_COMPLETED_SUCCESS, "Done", false)),
-            Area::Now => now_lamp.map(|lamp| {
-                let (hue, said, pulse) = lamp.look();
-                lamp_mark(look, "spine-now", hue, said, pulse)
-            }),
-            _ => None,
-        };
-
         let mut overlay = None;
-        let zones: Vec<AnyElement> = order
-            .iter()
-            .enumerate()
-            .map(|(at, kind)| {
-                let band = match *kind {
-                    Kind::Brief => self.brief_band(id, &job, items, look, cx),
-                    Kind::Zone(area) => self.zone_band(id, area, lamp(area), acts.remove(&area), look, cx),
-                };
-                let band = if let Some((_, y)) = stuck.filter(|(stuck, _)| *stuck == at) {
+        let mut hold = |at: usize, band: AnyElement| -> AnyElement {
+            match stuck.filter(|(stuck, _)| *stuck == at) {
+                Some((_, y)) => {
                     overlay = Some(div().absolute().left_0().right_0().top(y).px(look.length(token::SPACE_2)).child(div().bg(ground).child(band)));
                     div().h(band_h).into_any_element()
-                } else {
-                    band
-                };
-                match *kind {
-                    Kind::Brief => self.brief_zone(id, &job, items, band, look, cx),
-                    Kind::Zone(area) => {
-                        let open = self.spine.open(id, area);
-                        let body = bodies.remove(&area).flatten().filter(|_| open);
-                        let now = area == Area::Now;
-                        let thread = (open || body.is_some()).then(|| {
-                            let rule = div().absolute().bottom_0().border_l(edge * if now { 2. } else { 1. }).border_color(look.color(if now { token::FG_DEFAULT } else { token::BORDER_STRONG }));
-                            let rule = if now { rule.left(line - edge / 2.) } else { rule.left(line) };
-                            let rule = if area == Area::Done { rule.top(band_h / 2.) } else { rule.top_0() };
-                            if area == Area::Open {
-                                rule.border_dashed()
-                            } else {
-                                rule
-                            }
-                        });
-                        let at = area.at();
-                        let body = body.map(|body| {
-                            let keys = self.spine.bodies[at].clone();
-                            div()
-                                .id(SharedString::from(format!("spine-body:{}", area.id())))
-                                .track_focus(&self.spine.bodies[at])
-                                .pl(lead)
-                                .pb(look.length(token::SPACE_3))
-                                .on_key_down(cx.listener(move |_, event: &KeyDownEvent, window, cx| {
-                                    if arrows(&keys, event, window, cx) {
-                                        cx.stop_propagation();
-                                    }
-                                }))
-                                .child(body)
-                        });
-                        div().relative().flex_none().flex().flex_col().children(thread).child(band).children(body).into_any_element()
-                    }
                 }
-            })
-            .collect();
+                None => band,
+            }
+        };
+        let mut zones: Vec<AnyElement> = head.into_iter().collect();
+        if brief {
+            let band = hold(zones.len(), self.brief_band(id, &job, items, look, cx));
+            zones.push(self.brief_zone(id, &job, items, band, look, cx));
+        }
+        for spec in specs {
+            let at = zones.len();
+            zones.push(self.spine_zone(id, spec, false, Some(&mut |band| hold(at, band)), look, cx));
+        }
 
         let column = div()
             .id("spine")
@@ -445,6 +531,53 @@ impl JobView {
         labelled(div().id("spine-frame").relative().flex_1().min_h_0().child(column).children(overlay), Role::Region, "Spine").into_any_element()
     }
 
+    /// One zone: its band, then its body while open, with the line down its left on the Spine.
+    /// `hold` takes the band where it is held at the top. Alone, a bare zone draws its lamp and acts
+    /// only, and its body always.
+    fn spine_zone(&self, id: &SharedString, mut spec: Spec, alone: bool, hold: Option<&mut dyn FnMut(AnyElement) -> AnyElement>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let edge = look.length(token::BORDER_WIDTH);
+        let line = look.length(token::SPACE_4);
+        let band_h = look.length(token::H_CONTROL);
+        let lead = if alone { look.length(token::SPACE_2) } else { line + look.length(token::SPACE_4) };
+        let key = if alone { format!("alone:{}", spec.key) } else { spec.key.clone() };
+        let open = (alone && spec.bare) || spec.fold.as_ref().is_none_or(|fold| self.spine.open(id, fold));
+        let body = spec.body.take().filter(|_| open);
+        let (lamp, acts) = (spec.lamp.take(), spec.acts.take());
+        let band = (!(alone && spec.bare && lamp.is_none() && acts.is_none())).then(|| self.zone_band(id, &key, &spec, lamp, acts, alone, look, cx));
+        let band = match (band, hold) {
+            (Some(band), Some(hold)) => Some(hold(band)),
+            (band, _) => band,
+        };
+        let now = spec.area == Area::Now;
+        // A step or a stretch keeps its line while folded.
+        let thread = (!alone && (open || body.is_some() || !spec.plain())).then(|| {
+            let rule = div().absolute().bottom_0().border_l(edge * if now { 2. } else { 1. }).border_color(look.color(if now { token::FG_DEFAULT } else { token::BORDER_STRONG }));
+            let rule = if now { rule.left(line - edge / 2.) } else { rule.left(line) };
+            let rule = if spec.key == "done" { rule.top(band_h / 2.) } else { rule.top_0() };
+            if spec.area == Area::Open {
+                rule.border_dashed()
+            } else {
+                rule
+            }
+        });
+        let body = body.map(|body| {
+            let focus = self.spine.body(&key, cx);
+            let keys = focus.clone();
+            div()
+                .id(SharedString::from(format!("spine-body:{key}")))
+                .track_focus(&focus)
+                .pl(if alone && !spec.bare { lead + look.length(token::SPACE_4) } else if alone { Pixels::ZERO } else { lead })
+                .pb(look.length(token::SPACE_3))
+                .on_key_down(cx.listener(move |_, event: &KeyDownEvent, window, cx| {
+                    if arrows(&keys, event, window, cx) {
+                        cx.stop_propagation();
+                    }
+                }))
+                .child(body)
+        });
+        div().relative().flex_none().flex().flex_col().children(thread).children(band).children(body).into_any_element()
+    }
+
     /// The marker on the line at the band's left: hollow, or filled and smaller for Now.
     fn spine_dot(look: &Look, now: bool) -> gpui::Div {
         let edge = look.length(token::BORDER_WIDTH);
@@ -457,61 +590,107 @@ impl JobView {
         }
     }
 
-    /// A zone's band: the lamp, the label with its key, the acts. A press, Enter or Space folds it;
-    /// a right press, the ContextMenu key or Shift+F10 opens its menu.
-    fn zone_band(&self, id: &SharedString, area: Area, lamp: Option<AnyElement>, acts: Option<AnyElement>, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let open = self.spine.open(id, area);
-        let label = area.label();
-        let said: SharedString = if open { format!("Fold {label}").into() } else { format!("Open {label}").into() };
-        let key = gpui::Keystroke::parse(area.key()).ok();
-        let now = area == Area::Now;
-        let acts = acts.map(|acts| div().flex().items_center().gap(look.length(token::SPACE_2)).on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation()).child(acts));
+    /// A step's own mark in the dot's place (`sv-panel__mark`): a tick once done, Skipped's glyph once
+    /// skipped. On the line it stands on the ground, so the line breaks around it; alone it leads the band.
+    fn step_mark(key: &str, mark: Mark, alone: bool, look: &Look) -> AnyElement {
+        let (icon, said, ink) = match mark {
+            Mark::Skipped => ("skip-forward", "Skipped", token::FG_SUBTLE),
+            _ => ("circle-check", "Done", token::STEP_ADVANCED),
+        };
+        let glyph = labelled(div().id(SharedString::from(format!("spine-mark:{key}"))).flex_none().rounded_full().bg(look.color(token::BG_RAISED)).tooltip(tip(said)).child(glyph(look, icon, Size::Mark, look.color(ink))), Role::Image, said);
+        if alone {
+            return glyph.into_any_element();
+        }
+        let line = look.length(token::SPACE_4);
+        let half = look.length(token::SPACE_2);
+        div().absolute().top_0().bottom_0().left(line + look.length(token::BORDER_WIDTH) / 2. - half).flex().items_center().child(glyph).into_any_element()
+    }
+
+    /// A zone's band: the marker, the lamp, the label with its key, the acts in their column. A press,
+    /// Enter or Space folds it where it folds; a right press, the ContextMenu key or Shift+F10 opens its menu.
+    #[allow(clippy::too_many_arguments)]
+    fn zone_band(&self, id: &SharedString, key: &str, spec: &Spec, lamp: Option<AnyElement>, acts: Option<AnyElement>, alone: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let open = spec.fold.as_ref().map(|fold| self.spine.open(id, fold));
+        let label = spec.label.clone();
+        let said: SharedString = match open {
+            Some(true) => format!("Fold {label}").into(),
+            Some(false) => format!("Open {label}").into(),
+            None => label.clone(),
+        };
+        let keycap = gpui::Keystroke::parse(spec.area.key()).ok();
+        let now = spec.area == Area::Now;
+        let plain = spec.plain();
+        let ink = if now {
+            token::FG_DEFAULT
+        } else if plain {
+            token::FG_MUTED
+        } else {
+            token::FG_SUBTLE
+        };
+        let focus = self.spine.band(key, cx);
+        let marker = match spec.mark {
+            Mark::Dot => (!alone).then(|| JobView::spine_dot(look, now).into_any_element()),
+            mark => Some(JobView::step_mark(key, mark, alone, look)),
+        };
+        let acts = acts.map(|acts| div().flex_none().flex().items_center().gap(look.length(token::SPACE_2)).on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation()).child(acts));
+        let name = (!(alone && spec.bare)).then(|| {
+            div()
+                .id(SharedString::from(format!("spine-label:{key}")))
+                .flex()
+                .items_baseline()
+                .gap(look.length(token::SPACE_2))
+                .min_w_0()
+                .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).key_binding(keycap.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
+                .child(div().min_w_0().truncate().when(spec.skipped, |name| name.line_through()).child(label.clone()))
+                .children(spec.skipped.then(|| div().flex_none().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_BODY))).child("Skipped")))
+        });
+        let fold = spec.fold.clone();
+        let (menu_key, teach, offer) = (key.to_string(), spec.teach, spec.offer);
+        let menu_label = label.clone();
         let band = div()
-            .id(SharedString::from(format!("spine-band:{}", area.id())))
-            .track_focus(self.spine.band(Kind::Zone(area)))
+            .id(SharedString::from(format!("spine-band:{key}")))
+            .track_focus(&focus)
             .relative()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_3))
             .h(look.length(token::H_CONTROL))
-            .pl(look.length(token::SPACE_4) * 2.)
+            .pl(if alone { look.length(token::SPACE_2) } else { look.length(token::SPACE_4) * 2. })
             .rounded(look.length(token::RADIUS_SM))
             .font_family(mono(look))
             .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
-            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-            .text_color(look.color(if now { token::FG_DEFAULT } else { token::FG_MUTED }))
-            .cursor_pointer()
-            .aria_expanded(open)
+            .font_weight(FontWeight(look.number(if plain { token::WEIGHT_HEADING } else { token::WEIGHT_MEDIUM })))
+            .text_color(look.color(ink))
             .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
-            .child(JobView::spine_dot(look, now))
+            .children(marker)
             .children(lamp)
-            .child(
-                div()
-                    .id(SharedString::from(format!("spine-label:{}", area.id())))
-                    .flex_1()
-                    .min_w_0()
-                    .truncate()
-                    .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
-                    .child(label),
-            )
+            .children(name)
+            .child(div().flex_1())
             .children(acts)
-            .on_click(cx.listener(move |this, _, _, cx| this.spine_fold(area, cx)))
-            .on_mouse_down(
-                MouseButton::Right,
+            .when_some(open, |band, open| band.cursor_pointer().aria_expanded(open))
+            .when_some(fold, |band, fold| {
+                let kind = Kind::Zone(spec.key.clone(), spec.area);
+                band.on_click(cx.listener(move |this, _, _, cx| {
+                    this.keep_band(&kind);
+                    this.spine_fold(&fold, cx);
+                }))
+            })
+            .on_mouse_down(MouseButton::Right, {
+                let (menu_key, menu_label) = (menu_key.clone(), menu_label.clone());
                 cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
-                    this.spine_menu(area, event.position, false, window, cx);
+                    this.spine_menu(&menu_key, menu_label.clone(), teach, offer, event.position, false, window, cx);
                     cx.stop_propagation();
-                }),
-            )
+                })
+            })
             .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
                 let keys = &event.keystroke;
-                if !this.spine.band(Kind::Zone(area)).is_focused(window) {
+                if !this.spine.band(&menu_key, cx).is_focused(window) {
                     return;
                 }
                 if keys.key == "menu" || (keys.key == "f10" && keys.modifiers.shift) {
-                    let at = drawn(window, cx, Role::Button, label).map_or_else(|| window.mouse_position(), |bounds| gpui::point(bounds.center().x, bounds.bottom()));
-                    this.spine_menu(area, at, true, window, cx);
+                    let at = drawn(window, cx, Role::Button, &menu_label).map_or_else(|| window.mouse_position(), |bounds| gpui::point(bounds.center().x, bounds.bottom()));
+                    this.spine_menu(&menu_key, menu_label.clone(), teach, offer, at, true, window, cx);
                     cx.stop_propagation();
                 }
             }));
@@ -537,7 +716,7 @@ impl JobView {
         });
         let band = div()
             .id("spine-band:brief")
-            .track_focus(self.spine.band(Kind::Brief))
+            .track_focus(&self.spine.brief)
             .relative()
             .flex()
             .items_center()
@@ -560,8 +739,22 @@ impl JobView {
             .children(excerpt)
             .child(div().flex_1())
             .child(caret)
-            .on_click(cx.listener(|this, _, _, cx| this.brief_turn(cx)));
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.keep_band(&Kind::Brief);
+                this.brief_turn(cx);
+            }));
         labelled(band, Role::Button, "Brief").into_any_element()
+    }
+
+    /// A band pressed while it holds at the top stays there as its zone folds or opens, so what
+    /// follows the zone comes up under it rather than the scroll keeping its old depth.
+    fn keep_band(&self, kind: &Kind) {
+        let Some(at) = self.spine.order.borrow().iter().position(|one| one == kind) else { return };
+        let view = self.spine.scroll.bounds();
+        let offset = self.spine.scroll.offset().y;
+        if self.spine.scroll.bounds_for_item(at).is_some_and(|zone| zone.origin.y - view.origin.y + offset < -gpui::px(0.5)) {
+            self.spine.place.set(Some(at));
+        }
     }
 
     fn brief_turn(&mut self, cx: &mut Context<Self>) {
@@ -669,31 +862,40 @@ impl JobView {
         labelled(div().id("spine-brief").relative().flex_none().flex().flex_col().pb(look.length(token::SPACE_3)).child(rule).child(band).children(body).children(tasks), Role::Region, "Brief").into_any_element()
     }
 
-    /// Fold or open a zone on the Job shown, kept on the machine where a Fleet is live.
-    fn spine_fold(&mut self, area: Area, cx: &mut Context<Self>) {
+    /// Fold or open a zone on the Job shown, the four zones' folds kept on the machine where a Fleet is live.
+    fn spine_fold(&mut self, fold: &str, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        let open = self.spine.open(&id, area);
-        self.spine.folds.entry(id.to_string()).or_default().insert(area, !open);
-        if self.fleet.is_some() {
+        let open = self.spine.open(&id, fold);
+        self.spine.folds.entry(id.to_string()).or_default().insert(fold.to_string(), !open);
+        if self.fleet.is_some() && KEPT.contains(&fold) {
             write_folds(&self.spine.folds);
         }
         cx.notify();
     }
 
-    /// The band's menu: Teach (`BandMenu`). Shut, the keys go back to the band.
-    fn spine_menu(&mut self, area: Area, at: gpui::Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let entries = vec![Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false }];
-        let back = Some(self.spine.band(Kind::Zone(area)).clone());
+    /// The band's menu (`BandMenu`): Skip step or Undo skip on a step that offers it, Hide Open group
+    /// on the Open group, then Teach. Shut, the keys go back to the band.
+    #[allow(clippy::too_many_arguments)]
+    fn spine_menu(&mut self, key: &str, label: SharedString, teach: &'static str, offer: Offer, at: gpui::Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let mut entries = match offer {
+            Offer::Skip { skipped: true, .. } => vec![Entry::Act { id: "skip", label: "Undo skip".into(), icon: Some("undo-2"), danger: false }],
+            Offer::Skip { skipped: false, .. } => vec![Entry::Act { id: "skip", label: "Skip step".into(), icon: Some("skip-forward"), danger: false }],
+            Offer::HideOpen => vec![Entry::Act { id: "hide-open", label: "Hide Open group".into(), icon: Some("eye-off"), danger: false }],
+            Offer::None => Vec::new(),
+        };
+        entries.push(Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false });
+        let back = Some(self.spine.band(key, cx));
         self.open_pop(
-            area.label(),
+            label.clone(),
             entries,
             at,
             from_keys,
             back,
-            move |this, picked, window, cx| {
-                if picked == "teach" {
-                    this.teach_open(Teach { kind: "panel", text: area.label().to_string(), at: None, ids: vec![area.id().to_string()] }, window, cx);
-                }
+            move |this, picked, window, cx| match (picked, offer) {
+                ("skip", Offer::Skip { step, skipped }) => this.skip_step(step, !skipped, window, cx),
+                ("hide-open", _) => this.hide_open_group(window, cx),
+                ("teach", _) => this.teach_open(Teach { kind: "panel", text: label.to_string(), at: None, ids: vec![teach.to_string()] }, window, cx),
+                _ => {}
             },
             window,
             cx,
@@ -706,7 +908,7 @@ impl JobView {
     pub(super) fn spine_key(&mut self, area: Area, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         if self.zone_shown() == Some(Zone::Spine) {
-            self.spine_fold(area, cx);
+            self.spine_fold(area.id(), cx);
             self.spine_place(area, window, cx);
             return;
         }
@@ -719,8 +921,8 @@ impl JobView {
         }
         if !self.tab_closed("spine") {
             self.zone = Zone::Spine;
-            if !self.spine.open(&id, area) {
-                self.spine_fold(area, cx);
+            if !self.spine.open(&id, area.id()) {
+                self.spine_fold(area.id(), cx);
             }
             self.spine_place(area, window, cx);
             return;
@@ -728,13 +930,34 @@ impl JobView {
         self.add_tab(area.tab(), window, cx);
     }
 
-    /// The zone's band at the Spine's top, with the keys on it.
+    /// The first band of the zone at the Spine's top, with the keys on it.
     fn spine_place(&mut self, area: Area, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(at) = self.spine.order.borrow().iter().position(|kind| *kind == Kind::Zone(area)) {
-            self.spine.place.set(Some(at));
-        }
-        let band = self.spine.band(Kind::Zone(area)).clone();
+        let found = self.spine.order.borrow().iter().enumerate().find_map(|(at, kind)| match kind {
+            Kind::Zone(key, one) if *one == area => Some((at, key.clone())),
+            _ => None,
+        });
+        let key = match found {
+            Some((at, key)) => {
+                self.spine.place.set(Some(at));
+                key
+            }
+            None => area.id().to_string(),
+        };
+        let band = self.spine.band(&key, cx);
         window.focus(&band, cx);
         cx.notify();
+    }
+
+    /// The Spine in front: its tab brought forward, or opened where it is shut.
+    pub(super) fn spine_forward(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.zone_shown() == Some(Zone::Spine) {
+            return;
+        }
+        if self.tab_closed("spine") {
+            self.add_tab("spine", window, cx);
+        } else {
+            self.zone = Zone::Spine;
+            cx.notify();
+        }
     }
 }
