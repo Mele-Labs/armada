@@ -121,10 +121,15 @@ fn readout(look: &Look, text: &str) -> Div {
         .child(SharedString::from(text.to_string()))
 }
 
+/// The focus colour, from the theme's focus edge, as every native ring takes it.
+pub fn ring_colour(look: &Look) -> Hsla {
+    look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour)
+}
+
 /// The ring a focused control draws, in the focus colour.
 pub fn ringed(look: &Look, element: Stateful<Div>, focus: &FocusHandle, window: &Window) -> Stateful<Div> {
     if focus.is_focused(window) {
-        element.border(look.length(token::FOCUS_RING_WIDTH)).border_color(look.color(token::FOCUS_RING))
+        element.border(look.length(token::FOCUS_RING_WIDTH)).border_color(ring_colour(look))
     } else {
         element
     }
@@ -252,18 +257,22 @@ impl SettingsOverlay {
                 (Group::Project, Some(scope)) => scope.name.clone(),
                 _ => group.label().to_string(),
             };
+            // A section label, as `SystemSidebar.css`'s caption: muted mono and a hairline out to the edge, so only the
+            // entries read as pickable.
             let caption = div()
                 .flex()
                 .items_center()
-                .h(look.length(token::H_CONTROL))
-                .px(look.length(token::SPACE_3))
-                .rounded(look.length(token::RADIUS_MD))
-                .bg(look.color(token::BG_HOVER))
+                .gap(look.length(token::SPACE_2))
+                .pt(look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_2))
+                .pb(look.length(token::SPACE_1))
                 .font_family(mono(look))
-                .text_size(look.length(token::TEXT_XS))
+                .text_size(look.length(token::TEXT_2XS))
+                .line_height(look.length(token::LEADING_2XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                .text_color(look.color(token::FG_DEFAULT))
-                .child(SharedString::from(label.clone()));
+                .text_color(look.color(token::FG_MUTED))
+                .child(div().flex_none().child(SharedString::from(label.clone())))
+                .child(div().flex_1().h(look.length(token::BORDER_WIDTH)).bg(look.color(token::BORDER_SUBTLE)));
             let mut list = div().flex().flex_col().gap(look.length(token::SPACE_1)).child(caption);
             for one in rows {
                 let on = shown.is_some_and(|shown| shown.id == one.id);
@@ -285,7 +294,7 @@ impl SettingsOverlay {
                             row.text_color(look.color(token::FG_MUTED)).hover(|style| style.bg(look.color(token::SURFACE_ROW_HOVER)))
                         }
                     })
-                    .when(on && side_keys, |row| row.border(look.length(token::FOCUS_RING_WIDTH)).border_color(look.color(token::FOCUS_RING)))
+                    .when(on && side_keys, |row| row.border(look.length(token::FOCUS_RING_WIDTH)).border_color(ring_colour(look)))
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.pick(id, cx);
                         window.focus(&this.side, cx);
@@ -661,7 +670,7 @@ impl SettingsOverlay {
                     .border(look.length(token::BORDER_WIDTH) * 2.)
                     .border_color(ink)
                     .bg(look.color(token::BG_BASE))
-                    .when(stops.slider.is_focused(window), |knob| knob.border_color(look.color(token::FOCUS_RING))),
+                    .when(stops.slider.is_focused(window), |knob| knob.border_color(ring_colour(look))),
             )
             .when(!off, |slider| {
                 let (down_key, move_key, down_tracks, move_tracks) = (key.clone(), key.clone(), tracks.clone(), tracks.clone());
