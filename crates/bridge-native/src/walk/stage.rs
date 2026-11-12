@@ -92,8 +92,10 @@ impl Stage {
                 let held: gpui::AnyView = cx.new(|cx| crate::operator::OperatorScreen::mock_behind(jobs.clone(), window, cx)).into();
                 let screen = cx.new(|cx| crate::dispatch::DispatchScreen::new(jobs, &records, window, cx).over(held));
                 let focus = Focus { keys, within: screen.read(cx).within.clone() };
+                // Settings over the whole, as main.rs stacks it, so ⌘, opens it and a note can be made on it.
+                let over = cx.new(|cx| crate::settings::SettingsScreen::mock(screen.into(), window, cx));
                 window.focus(&focus.keys, cx);
-                Ok(Stage { view: screen.into(), focus })
+                Ok(Stage { view: over.into(), focus })
             }
             Screen::Operator => {
                 super::strip_marks::leave(cx);

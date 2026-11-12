@@ -2051,6 +2051,11 @@ pub static WALKS: &[Walk] = &[
             step("Annotating stays on", Verb::Later(400), "status", "Annotating"),
             step("The pointer on the thread", Verb::Hover, "region", "Thread"),
             step("Annotating stays on", Verb::Later(400), "status", "Annotating"),
+            step("⌥⌘A turns annotating off", Verb::Key("alt-cmd-a"), "region", "Thread"),
+            step("⌘, opens Settings over the Job", Verb::Key("cmd-,"), "dialog", "Settings"),
+            step("⌥⌘A turns annotating on over Settings", Verb::Key("alt-cmd-a"), "status", "Annotating"),
+            step("The pointer on a page of Settings outlines it, not the Job under the overlay", Verb::Hover, "button", "Workflows"),
+            step("A press on it opens the note, headed with where it is", Verb::PressOn("button", "Workflows"), "label", "Settings › Kit › Button · Workflows"),
         ],
     },
     Walk {

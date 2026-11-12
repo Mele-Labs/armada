@@ -71,6 +71,13 @@ pub struct Drawn {
     pub shown: Bounds<Pixels>,
     /// Its own corner radius, the largest of its four, so a walk's ring follows its shape. None where it sets none.
     pub radius: Option<Pixels>,
+    /// The labelled element it is drawn in, by its place in the window's page. None for an element a
+    /// deferred surface (an overlay, a menu) draws, which stands on its own over the screen.
+    pub parent: Option<usize>,
+    /// The names of the labelled elements it is drawn in, outermost first: where a note says it is.
+    pub path: Vec<SharedString>,
+    /// When it was painted this frame: one painted later and not inside it covers it.
+    pub painted: usize,
 }
 
 /// What each window drew with a label, as of its last frame. Cleared by the window's
@@ -78,6 +85,10 @@ pub struct Drawn {
 #[derive(Default)]
 pub struct LabelBook {
     by_window: HashMap<WindowId, Vec<Drawn>>,
+    /// The labelled elements being prepainted or painted now, innermost last.
+    open: HashMap<WindowId, Vec<usize>>,
+    /// How many labelled elements the window has painted this frame.
+    painted: HashMap<WindowId, usize>,
 }
 
 impl gpui::Global for LabelBook {}
@@ -91,6 +102,40 @@ impl LabelBook {
     pub fn drawn(&self, window: WindowId) -> &[Drawn] {
         self.by_window.get(&window).map_or(&[], Vec::as_slice)
     }
+
+    /// A new entry on the window's page, drawn in whatever labelled element is open now.
+    fn push(&mut self, id: WindowId, role: Role, name: SharedString, bounds: Bounds<Pixels>, shown: Bounds<Pixels>, radius: Option<Pixels>, painted: usize) -> usize {
+        let parent = self.open.get(&id).and_then(|open| open.last().copied());
+        let page = self.by_window.entry(id).or_default();
+        let path = parent.map_or_else(Vec::new, |at| {
+            let outer = &page[at];
+            let mut path = outer.path.clone();
+            if !outer.name.is_empty() {
+                path.push(outer.name.clone());
+            }
+            path
+        });
+        page.push(Drawn { role, name, bounds, shown, radius, parent, path, painted });
+        page.len() - 1
+    }
+
+    fn next_painted(&mut self, id: WindowId) -> usize {
+        let count = self.painted.entry(id).or_default();
+        *count += 1;
+        *count
+    }
+}
+
+/// Whether `outer` is `inner` or one of the labelled elements it is drawn in.
+pub fn holds(drawn: &[Drawn], outer: usize, inner: usize) -> bool {
+    let mut at = Some(inner);
+    while let Some(one) = at {
+        if one == outer {
+            return true;
+        }
+        at = drawn.get(one).and_then(|one| one.parent);
+    }
+    false
 }
 
 /// Give `element` its role and name: what VoiceOver reads, and what a walk and a test aim at.
@@ -101,20 +146,28 @@ where
     let name = name.into();
     let corners = element.style().corner_radii.clone();
     let radius = [corners.top_left, corners.top_right, corners.bottom_right, corners.bottom_left];
-    Labelled { role, name: name.clone(), child: element.role(role).aria_label(name).into_any_element(), root: false, radius }
+    Labelled { role, name: name.clone(), child: element.role(role).aria_label(name).into_any_element(), root: false, radius, at: None }
 }
 
 /// Name a part a canvas paints, such as a node of a sketch, as `labelled` names an element: what a
 /// walk aims at. Called while painting, so the part stands in the book until the next frame's.
 pub fn note(role: Role, name: impl Into<SharedString>, bounds: Bounds<Pixels>, radius: Option<Pixels>, window: &Window, cx: &mut App) {
     let shown = bounds.intersect(&window.content_mask().bounds);
-    let page = cx.default_global::<LabelBook>().by_window.entry(window.window_handle().window_id()).or_default();
-    page.push(Drawn { role, name: name.into(), bounds, shown, radius });
+    let id = window.window_handle().window_id();
+    let book = cx.default_global::<LabelBook>();
+    let painted = book.next_painted(id);
+    book.push(id, role, name.into(), bounds, shown, radius, painted);
 }
 
 /// The window's outermost element: it clears the window's page of the book, then draws `child`.
 pub fn label_root(child: impl IntoElement) -> Labelled {
-    Labelled { role: Role::Window, name: SharedString::default(), child: child.into_any_element(), root: true, radius: [None; 4] }
+    Labelled { role: Role::Window, name: SharedString::default(), child: child.into_any_element(), root: true, radius: [None; 4], at: None }
+}
+
+/// A surface with no name of its own that hides what is under it, such as an overlay's scrim: no
+/// note is written on it, and none on what it covers.
+pub fn cover(child: impl IntoElement) -> Labelled {
+    Labelled { role: Role::Unknown, name: SharedString::default(), child: child.into_any_element(), root: false, radius: [None; 4], at: None }
 }
 
 pub struct Labelled {
@@ -123,6 +176,8 @@ pub struct Labelled {
     child: AnyElement,
     root: bool,
     radius: [Option<gpui::AbsoluteLength>; 4],
+    /// Its place on the window's page this frame, from prepaint.
+    at: Option<usize>,
 }
 
 impl IntoElement for Labelled {
@@ -165,17 +220,22 @@ impl Element for Labelled {
         cx: &mut App,
     ) {
         let id = window.window_handle().window_id();
+        let shown = bounds.intersect(&window.content_mask().bounds);
+        let rem = window.rem_size();
+        let radius = self.radius.iter().flatten().map(|corner| corner.to_pixels(rem)).reduce(Pixels::max);
         let book = cx.default_global::<LabelBook>();
-        let page = book.by_window.entry(id).or_default();
         if self.root {
-            page.clear();
-        } else {
-            let shown = bounds.intersect(&window.content_mask().bounds);
-            let rem = window.rem_size();
-            let radius = self.radius.iter().flatten().map(|corner| corner.to_pixels(rem)).reduce(Pixels::max);
-            page.push(Drawn { role: self.role, name: self.name.clone(), bounds, shown, radius });
+            book.by_window.entry(id).or_default().clear();
+            book.open.entry(id).or_default().clear();
+            book.painted.insert(id, 0);
+            self.child.prepaint(window, cx);
+            return;
         }
+        let at = book.push(id, self.role, self.name.clone(), bounds, shown, radius, 0);
+        self.at = Some(at);
+        book.open.entry(id).or_default().push(at);
         self.child.prepaint(window, cx);
+        cx.default_global::<LabelBook>().open.entry(id).or_default().pop();
     }
 
     fn paint(
@@ -188,6 +248,18 @@ impl Element for Labelled {
         window: &mut Window,
         cx: &mut App,
     ) {
+        let Some(at) = self.at else {
+            self.child.paint(window, cx);
+            return;
+        };
+        let id = window.window_handle().window_id();
+        let book = cx.default_global::<LabelBook>();
+        let painted = book.next_painted(id);
+        if let Some(one) = book.by_window.get_mut(&id).and_then(|page| page.get_mut(at)) {
+            one.painted = painted;
+        }
+        book.open.entry(id).or_default().push(at);
         self.child.paint(window, cx);
+        cx.default_global::<LabelBook>().open.entry(id).or_default().pop();
     }
 }
