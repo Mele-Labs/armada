@@ -57,6 +57,7 @@ mod scene;
 mod settings;
 mod sketch;
 mod sketch_png;
+mod terminal;
 mod titlebar;
 mod toasts;
 mod transport;
@@ -174,6 +175,7 @@ pub fn init_app(cx: &mut App) {
     merge_strip::bind(cx);
     annotate::bind(cx);
     dispatch::screen::bind(cx);
+    terminal::init(cx);
     keymap::install(&keymap::Rebinding::default(), cx);
     menu::install(cx);
 }
@@ -261,6 +263,7 @@ fn main() -> ExitCode {
             Mode::Live => cx
                 .open_window(options("Armada".into()), |window, cx| {
                     let fleet = cx.new(FleetConnection::new);
+                    terminal::shells::hold_live(&fleet, cx);
                     let look = cx.new(|cx| LookController::new(&fleet, window, cx));
                     let keys = cx.new(|cx| KeymapController::new(&fleet, cx));
                     let menu = cx.new(|cx| MenuController::new(&fleet, cx));
@@ -273,6 +276,7 @@ fn main() -> ExitCode {
                     let operator: gpui::AnyView = cx.new(|cx| operator::OperatorScreen::live(jobs_screen.clone(), &fleet, window, cx)).into();
                     // The sheet over the Operator's page: ⌘N and `n` open it, and its Start goes to this Fleet.
                     let screen = cx.new(|cx| dispatch::DispatchScreen::new(jobs_screen, &[], window, cx).over(operator));
+                    screen.update(cx, |screen, cx| screen.live_notes(window, cx));
                     // Settings over all of it: the title bar's Settings, the macOS menu's and ⌘, open it.
                     let screen = cx.new(|cx| settings::SettingsScreen::live(screen.into(), &fleet, window, cx));
                     cx.new(|_| Shell { screen: screen.into(), _fleet: Some((fleet, look, keys, menu, notifier)) })

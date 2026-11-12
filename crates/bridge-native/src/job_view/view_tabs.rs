@@ -7,7 +7,8 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use gpui::{prelude::*, AnyElement, AnyView, App, Context, DismissEvent, Entity, Focusable, MouseButton, Role, SharedString, WeakEntity, Window};
+use gpui::{div, prelude::*, AnyElement, AnyView, App, Context, DismissEvent, Entity, Focusable, KeyDownEvent, MouseButton, Role, SharedString, Subscription, WeakEntity, Window};
+use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::TagKind;
 
 use super::composer::{Kept, KeptTag};
@@ -31,6 +32,8 @@ pub struct ViewTab {
     pub closing: Option<Rc<dyn Fn(&mut Window, &mut App) -> bool>>,
     /// Told once it has closed, by × or by [`JobView::close_view_tab`].
     pub closed: Option<Rc<dyn Fn(&mut Window, &mut App)>>,
+    /// Told the new title when a rename started by [`JobView::rename_view_tab`] is kept with Enter.
+    pub renamed: Option<Rc<dyn Fn(String, &mut Window, &mut App)>>,
 }
 
 /// One row of a view tab's right-press menu.
@@ -85,6 +88,15 @@ const ACT_IDS: [&str; 12] = ["view-act:0", "view-act:1", "view-act:2", "view-act
 pub(super) struct ViewTabs {
     by_job: HashMap<SharedString, Vec<ViewTab>>,
     front: HashMap<SharedString, String>,
+    /// The tab whose title is a field now.
+    renaming: Option<TabRename>,
+}
+
+struct TabRename {
+    job: SharedString,
+    id: String,
+    input: Entity<InputState>,
+    _subs: Vec<Subscription>,
 }
 
 impl JobView {
@@ -186,6 +198,49 @@ impl JobView {
         self.view_tabs.by_job.get(job)?.iter().find(|one| &one.id == id)
     }
 
+    /// Ask before an act, in the Job view's dialog: `title`, its lines, the act's button and Cancel. Enter takes
+    /// the act, Esc gives it up. `on_yes` runs after the Job view's update.
+    #[allow(clippy::too_many_arguments)]
+    pub fn confirm(&mut self, title: &str, lines: &[&str], yes: &str, danger: bool, window: &mut Window, cx: &mut Context<Self>, on_yes: Rc<dyn Fn(&mut Window, &mut App)>) {
+        let confirm = cx.new(|cx| super::head::Confirm::new(title, lines, ("", Vec::new()), yes, "Cancel", danger, cx));
+        self.open_confirm(confirm, window, cx, move |_, window, cx| {
+            let on_yes = on_yes.clone();
+            window.defer(cx, move |window, cx| on_yes(window, cx));
+        });
+    }
+
+    /// The tab's title becomes a field in place, as Classic's tab does: Enter keeps it and tells the tab's
+    /// `renamed`, leaving keeps it too, Esc puts it back.
+    pub fn rename_view_tab(&mut self, job: &str, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(title) = self.view_tabs.by_job.get(job).and_then(|tabs| tabs.iter().find(|one| one.id == id)).map(|one| one.title.clone()) else { return };
+        let input = cx.new(|cx| InputState::new(window, cx));
+        input.update(cx, |input, cx| {
+            input.set_value(title.to_string(), window, cx);
+            input.select_all(window, cx);
+            input.focus(window, cx);
+        });
+        let entered = cx.subscribe_in(&input, window, |this, _, event: &InputEvent, window, cx| match event {
+            InputEvent::PressEnter { .. } | InputEvent::Blur => this.finish_view_rename(true, window, cx),
+            _ => {}
+        });
+        self.view_tabs.renaming = Some(TabRename { job: SharedString::from(job.to_string()), id: id.to_string(), input, _subs: vec![entered] });
+        cx.notify();
+    }
+
+    fn finish_view_rename(&mut self, keep: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(rename) = self.view_tabs.renaming.take() else { return };
+        let said = rename.input.read(cx).value().trim().to_string();
+        window.focus(&self.focus.clone(), cx);
+        let Some(tab) = self.view_tabs.by_job.get_mut(&rename.job).and_then(|tabs| tabs.iter_mut().find(|one| one.id == rename.id)) else { return cx.notify() };
+        if keep && !said.is_empty() && said != tab.title.as_ref() {
+            tab.title = said.clone().into();
+            if let Some(renamed) = tab.renamed.clone() {
+                window.defer(cx, move |window, cx| renamed(said, window, cx));
+            }
+        }
+        cx.notify();
+    }
+
     /// A press on one of the pane's own tabs puts it in front of the view tabs.
     pub(super) fn view_tab_back(&mut self) {
         if let Some(job) = self.shown.clone() {
@@ -212,8 +267,27 @@ impl JobView {
                 let key = SharedString::from(format!("view-tab:{}", one.id));
                 let (pick, close, menu) = (one.id.clone(), one.id.clone(), one.id.clone());
                 let job = (job.clone(), job.clone());
+                let field = self.view_tabs.renaming.as_ref().filter(|rename| rename.job == job.0 && rename.id == one.id).map(|rename| {
+                    labelled(
+                        div()
+                            .id("view-tab-rename")
+                            .key_context(crate::keymap::TEXT_BOX)
+                            .min_w(look.length(crate::look::token::SPACE_12) * 3.)
+                            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                                if event.keystroke.key == "escape" {
+                                    this.finish_view_rename(false, window, cx);
+                                    cx.stop_propagation();
+                                }
+                            }))
+                            .child(Input::new(&rename.input).appearance(false).cleanable(false)),
+                        Role::TextInput,
+                        format!("Rename {}", one.title),
+                    )
+                });
+                let said = if field.is_some() { SharedString::default() } else { one.title.clone() };
                 labelled(
-                    super::side::tab(look, key.clone(), one.glyph, one.title.clone(), is_front)
+                    super::side::tab(look, key.clone(), one.glyph, said, is_front)
+                        .children(field)
                         .group(key.clone())
                         .child(
                             labelled(

@@ -8,7 +8,9 @@
 use gpui::{div, point, prelude::*, Anchor, ClickEvent, Context, FontWeight, Role, SharedString, Stateful, Window};
 use gpui_component::input::Input;
 
-use super::{split, Layer, Note, Status};
+use std::rc::Rc;
+
+use super::{sends, split, Layer, Note, Status};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -270,19 +272,21 @@ impl Layer {
                         Role::CheckBox,
                         "Select all",
                     ))
-                    .child(split(
+                    .child(sends(
                         look,
                         cx,
-                        "selection-start".into(),
-                        "Start job".into(),
+                        "selection",
+                        "Send selected notes to job",
                         busy || chosen_sendable.is_empty(),
-                        false,
+                        self.targets.is_empty(),
                         None,
-                        cx.listener(move |this, _, _, cx| this.send(ids.clone(), None, cx)),
-                        cx.listener(move |this, event: &ClickEvent, window, cx| {
-                            let at = event.position();
-                            this.open_menu(again.clone(), point(at.x, at.y), Anchor::TopRight, window, cx)
+                        Rc::clone(&self.header_at),
+                        None,
+                        cx.listener(move |this, _, window, cx| {
+                            let from = Rc::clone(&this.header_at);
+                            this.open_menu_by(again.clone(), &from, window, cx)
                         }),
+                        cx.listener(move |this, _, _, cx| this.send(ids.clone(), None, cx)),
                     ))
                     .children(acts),
                 Role::Group,
@@ -394,6 +398,7 @@ impl Layer {
                 "Start job".into(),
                 busy,
                 false,
+                None,
                 None,
                 cx.listener(move |this, _, _, cx| this.send(ids.clone(), None, cx)),
                 cx.listener(move |this, event: &ClickEvent, window, cx| {

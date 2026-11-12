@@ -168,7 +168,7 @@ impl JobView {
         cx.spawn_in(window, async move |this, cx| {
             let uploads = cx.background_executor().spawn(async move { encoded_files(files) }).await;
             let _ = this.update_in(cx, |this, window, cx| {
-                let body = SendSessionMessageBody { message: SendSessionMessage { session_id, text: brief, attachments: uploads, mentions }, aim: None };
+                let body = SendSessionMessageBody { message: SendSessionMessage { session_id, text: brief, attachments: uploads, mentions, sketches: Vec::new() }, aim: None };
                 let done: Done = Box::new(move |this, answer, window, cx| match answer {
                     Ok(_) => this.report_sent(Some(id), window, cx),
                     Err(why) => this.report_refused(why.into(), cx),

@@ -22,6 +22,7 @@ use super::sheet::{Asked, DispatchSheet};
 use crate::annotate::{self, Layer, Shoot, Toggle};
 use crate::jobs::JobsScreen;
 use crate::keymap::Act;
+use crate::terminal::shells::{Place, Start};
 use crate::titlebar::{self, Asked as BarAsked, AskedSink};
 
 pub struct DispatchScreen {
@@ -98,6 +99,12 @@ pub fn live(cx: &App) -> Option<Entity<DispatchScreen>> {
 /// nothing at all holding the keys does not lose them. Each reaches the screen in front.
 pub fn bind(cx: &mut App) {
     cx.on_action(|key: &Act, cx: &mut App| {
+        if key.is("new_terminal_job") {
+            if !crate::terminal::shells::starts(cx) {
+                return;
+            }
+            return reach(cx, |this, window, cx| this.new_terminal(window, cx));
+        }
         let add = match key.id {
             "new_job" => "",
             "dispatch_after" => "@",
@@ -184,7 +191,7 @@ pub fn start_queued(idea: crate::queued::QueuedIdea, cx: &mut App) {
 /// The words are the Job's first message, as Electron's Start sends them once the Job exists.
 fn first_message(port: u16, id: String, text: String, mentions: Vec<SessionTag>, cx: &mut App) {
     let body = ipc::encode(&ipc::SendSessionMessageBody {
-        message: ipc::SendSessionMessage { session_id: SessionId::carried(id), text, attachments: Vec::new(), mentions },
+        message: ipc::SendSessionMessage { session_id: SessionId::carried(id), text, attachments: Vec::new(), mentions, sketches: Vec::new() },
         aim: None,
     })
     .map_err(|why| format!("{why:?}"));
@@ -273,6 +280,12 @@ impl DispatchScreen {
     /// What the sheet asks. On a live Fleet the acts are posted and the words are read; on mock data nothing is
     /// on the other end, and a walk answers by scene.
     fn sheet_asked(&mut self, asked: &Asked, window: &mut Window, cx: &mut Context<Self>) {
+        // A terminal Job starts through the shells the window holds, Fleet's or a walk's.
+        if let Asked::StartTerminal { title, place, model, effort } = asked {
+            let start = Start { place: place.clone(), title: title.clone(), model: model.clone(), effort: effort.clone(), size: crate::terminal::start::size(cx) };
+            self.start_terminal(start, window, cx);
+            return;
+        }
         // Queue for later is kept here, on a live Fleet or not.
         if let Asked::Queue { words, repository, model, effort } = asked {
             self.queue_idea(words, repository, model.clone(), effort.clone(), window, cx);
@@ -287,10 +300,64 @@ impl DispatchScreen {
                     let begin = Begin { words: words.clone(), repository: repository.clone(), model: model.clone(), effort: effort.clone(), held: *held };
                     self.start_job(begin, window, cx)
                 }
-                Asked::Queue { .. } | Asked::Closed => {}
+                Asked::Queue { .. } | Asked::StartTerminal { .. } | Asked::Closed => {}
             }
         }
         cx.notify();
+    }
+
+    /// ⌘T: a terminal Job where the window is, else where the last one started, with no sheet. With neither,
+    /// the sheet opens on Terminal to be told where.
+    fn new_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let here = scope(cx).and_then(|(_, names)| names.first().map(|name| Place::Repository(name.to_string())));
+        match here.or_else(|| crate::terminal::start::kept_place(cx)) {
+            Some(place) => self.start_terminal(Start { place, title: None, model: None, effort: None, size: crate::terminal::start::size(cx) }, window, cx),
+            None => {
+                self.refresh_face(window, cx);
+                self.sheet.update(cx, |sheet, cx| sheet.show_terminal(window, cx));
+            }
+        }
+    }
+
+    /// Start a terminal Job and open it. A refusal stands in the sheet, opened on Terminal if ⌘T started it.
+    fn start_terminal(&mut self, start: Start, window: &mut Window, cx: &mut Context<Self>) {
+        let place = start.place.clone();
+        let mut asked = start;
+        // A repository goes to Fleet as its Manifest's id; a walk's has none and keeps the name.
+        if let Place::Repository(name) = &place {
+            if let Some(id) = self.served.iter().find(|one| one.name == *name).map(|one| one.id.clone()) {
+                asked.place = Place::Repository(id.as_str().to_string());
+            }
+        }
+        let task = crate::terminal::start::start(asked, cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = task.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                let from_sheet = this.sheet.read(cx).is_open();
+                match answer {
+                    Ok(started) => {
+                        crate::terminal::start::keep_place(&place, cx);
+                        if from_sheet {
+                            this.sheet.update(cx, |sheet, cx| sheet.answered(window, cx));
+                        }
+                        let list = this.jobs.read(cx).list.clone();
+                        list.update(cx, |list, cx| list.open(started.job.clone().into(), cx));
+                        // After the Job comes on screen, so its tab is brought into view there.
+                        let (job, terminal) = (started.job.clone(), started.terminal.clone());
+                        window.defer(cx, move |window, cx| crate::terminal::tabs::open(&job, &terminal, true, window, cx));
+                    }
+                    Err(why) => {
+                        if !from_sheet {
+                            this.refresh_face(window, cx);
+                            this.sheet.update(cx, |sheet, cx| sheet.show_terminal(window, cx));
+                        }
+                        this.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     fn fleet_port(&self, cx: &App) -> Option<u16> {
@@ -564,6 +631,104 @@ impl DispatchScreen {
         if let Some(layer) = &self.layer {
             layer.update(cx, |layer, cx| layer.keep_in(dir, window, cx));
         }
+    }
+
+    /// The live app's notes: the walk's made-up ones go, and the layer keeps its notes where Classic keeps
+    /// them (`.armada/annotations` in the tree this build came from), so either app lists the other's.
+    pub fn live_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(layer) = self.layer.clone() else { return };
+        layer.update(cx, |layer, cx| layer.forget_seeded(cx));
+        match crate::annotate::store::dir() {
+            Some(dir) => self.keep_notes(dir, window, cx),
+            None => crate::toasts::tell("Notes are not saved: no repository found for this build", cx),
+        }
+        // The picker lists the live Jobs Fleet hosts, as Classic's does, kept as the list changes.
+        let list = self.jobs.read(cx).list.clone();
+        let targets_of = |records: &[SessionRecord]| -> Vec<super::face::Offered> {
+            records
+                .iter()
+                .filter(|record| record.state == ipc::SessionState::Live && (record.hosted.is_some() || record.terminal.is_some()))
+                .map(|record| {
+                    let id = record.id.as_str().to_string();
+                    let title = record.title.clone().unwrap_or_else(|| format!("s-{}", id.chars().take(8).collect::<String>()));
+                    super::face::Offered { id: id.into(), title: title.into() }
+                })
+                .collect()
+        };
+        let targets = targets_of(list.read(cx).records());
+        layer.update(cx, |layer, cx| layer.set_targets(targets, cx));
+        let watched = layer.clone();
+        self._subs.push(cx.observe(&list, move |_, list, cx| {
+            let targets = targets_of(list.read(cx).records());
+            watched.update(cx, |layer, cx| layer.set_targets(targets, cx));
+        }));
+        self._subs.push(cx.subscribe_in(&layer, window, |this, layer, asked: &annotate::Asked, window, cx| this.send_notes(layer.clone(), asked, window, cx)));
+    }
+
+    /// A send from the layer, posted to the live Fleet: into the Job picked, or a new held Job started with the
+    /// notes' words, as Classic's. The Job opens once Fleet took them; a refusal is said in the bar and a toast.
+    fn send_notes(&mut self, layer: Entity<Layer>, asked: &annotate::Asked, window: &mut Window, cx: &mut Context<Self>) {
+        let annotate::Asked::Send { to, notes } = asked;
+        let Some(port) = self.fleet_port(cx) else {
+            let title = to.as_ref().map_or_else(|| "a new Job".to_string(), |job| job.title.to_string());
+            layer.update(cx, |layer, cx| layer.refused(&title, "Fleet is not connected", cx));
+            return;
+        };
+        let manifest = match to {
+            Some(_) => None,
+            None => {
+                let repositories = self.jobs.read(cx).list.read(cx).fleet().and_then(|fleet| fleet.read(cx).held().repositories.clone()).unwrap_or_default();
+                let served = live::served(&repositories);
+                let dir = crate::annotate::store::dir();
+                let here = served.iter().find(|one| dir.as_ref().is_some_and(|dir| dir.starts_with(&one.root))).or(served.first());
+                match here {
+                    Some(one) => Some(one.id.clone()),
+                    None => {
+                        layer.update(cx, |layer, cx| layer.refused("a new Job", "Fleet serves no repository to start it in", cx));
+                        return;
+                    }
+                }
+            }
+        };
+        let look = crate::look::ActiveLook::look(&**cx);
+        let bytes = |name| {
+            let rgba = look.color(name).to_rgb();
+            [rgba.r, rgba.g, rgba.b, rgba.a].map(|part| (part * 255.).round() as u8)
+        };
+        let ink = annotate::live::Ink(bytes(crate::look::token::ACCENT), bytes(crate::look::token::TEXT_ON_ACCENT));
+        let outgoing = layer.read(cx).outgoing();
+        let to = to.clone();
+        let words = notes.join("\n");
+        let list = self.jobs.read(cx).list.clone();
+        let task = cx.background_spawn(async move {
+            let (session, title, new_job) = match (to, manifest) {
+                (Some(job), _) => (job.id.to_string(), job.title.to_string(), false),
+                (None, Some(manifest)) => {
+                    let (id, title) = annotate::live::start(port, manifest, words).map_err(|why| ("a new Job".to_string(), why))?;
+                    (id, title, true)
+                }
+                (None, None) => return Err(("a new Job".to_string(), "no repository".to_string())),
+            };
+            annotate::live::deliver(port, &session, outgoing, ink).map_err(|why| (title.clone(), why))?;
+            Ok::<_, (String, String)>((session, title, new_job))
+        });
+        cx.spawn_in(window, async move |_, cx| {
+            let answer = task.await;
+            let _ = cx.update(|_, cx| match answer {
+                Ok((session, title, new_job)) => {
+                    layer.update(cx, |layer, cx| {
+                        layer.sending_to(session.clone().into());
+                        layer.sent(&title, new_job, cx);
+                    });
+                    list.update(cx, |list, cx| list.open(session.into(), cx));
+                }
+                Err((title, why)) => {
+                    layer.update(cx, |layer, cx| layer.refused(&title, &why, cx));
+                    crate::toasts::tell(format!("Notes not sent to \"{title}\": {why}"), cx);
+                }
+            });
+        })
+        .detach();
     }
 
     fn toggle_layer(&mut self, window: &mut Window, cx: &mut Context<Self>) {

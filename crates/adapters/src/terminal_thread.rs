@@ -355,6 +355,12 @@ pub fn subagent_ended(home: &str, id: &str, agent: &str) -> bool {
     find_subagent(home, id, agent).is_some_and(|file| last_cached(&file).finished)
 }
 
+/// Whether subagent `agent` of session `id` ended on the CLI's interrupt, a stop, rather than a hand-back
+/// or an ended turn.
+pub fn subagent_cut_off(home: &str, id: &str, agent: &str) -> bool {
+    find_subagent(home, id, agent).is_some_and(|file| last_cached(&file).cut_off)
+}
+
 /// When subagent `agent` of session `id` last worked, where its transcript ends on work: that
 /// line's own stamp. `None` where it ends finished, has no stamp, or no file is found.
 pub fn subagent_working_at(home: &str, id: &str, agent: &str) -> Option<String> {
@@ -366,6 +372,8 @@ pub fn subagent_working_at(home: &str, id: &str, agent: &str) -> Option<String> 
 #[derive(Clone, Default)]
 pub(crate) struct Last {
     pub(crate) finished: bool,
+    /// It finished on the interrupt line.
+    pub(crate) cut_off: bool,
     pub(crate) at: Option<String>,
 }
 
@@ -412,11 +420,14 @@ pub(crate) fn last_at_the_end(file: &Path) -> std::io::Result<Last> {
         let first = if from == 0 { 0 } else { bytes.iter().position(|byte| *byte == b'\n').map_or(whole, |at| at + 1) };
         let text = String::from_utf8_lossy(&bytes[first.min(whole)..whole]);
         for line in text.lines().rev() {
-            if handed_back(line).is_some() || ended(line) || interrupted(line) {
-                return Ok(Last { finished: true, at: stamp(line) });
+            if handed_back(line).is_some() || ended(line) {
+                return Ok(Last { finished: true, cut_off: false, at: stamp(line) });
+            }
+            if interrupted(line) {
+                return Ok(Last { finished: true, cut_off: true, at: stamp(line) });
             }
             if worked(line) {
-                return Ok(Last { finished: false, at: stamp(line) });
+                return Ok(Last { finished: false, cut_off: false, at: stamp(line) });
             }
         }
         if from == 0 {
@@ -552,6 +563,7 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
                     notice: None,
                     queued: false,
                     edited_at: None,
+                    sketches: Vec::new(),
                 });
             }
             DroneEvent::Called { tool, detail, .. } if !person => {

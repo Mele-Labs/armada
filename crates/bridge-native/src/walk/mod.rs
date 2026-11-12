@@ -21,6 +21,8 @@ pub mod operator;
 pub mod stage;
 pub mod stand_in;
 pub mod strip_marks;
+pub mod run_commands;
+pub mod terminal;
 pub mod title_bar;
 pub mod window;
 
@@ -322,6 +324,20 @@ static EDGE: [Step; total(EDGE_PARTS)] = joined(EDGE_PARTS);
 
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
+    Walk {
+        name: "native-run",
+        title: "Run a command an agent showed, from the thread and from Needs you",
+        screen: Screen::Jobs,
+        scenario: "run-commands",
+        steps: &run_commands::STEPS,
+    },
+    Walk {
+        name: "native-terminal",
+        title: "A terminal Job, from ⌘T, the sheet and the palette",
+        screen: Screen::App,
+        scenario: "terminal-job",
+        steps: &terminal::STEPS,
+    },
     Walk {
         name: "native-today",
         title: "Native changes waiting on you",
@@ -1457,10 +1473,10 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "job-bands",
         steps: &[
-            step("A Job held open by what is not you shows a Waiting band", Verb::Press, "row", "Quiet the write-clash notices"),
-            step("The band names each wait in a glyph", Verb::Look, "button", "Waiting"),
-            step("A press opens a row for each wait, each with its own stop", Verb::Open("button", "Waiting"), "button", "Stop the watch: Held open by ci on branch"),
-            step("Esc folds it and the band has focus again", Verb::Key("escape"), "button", "Waiting"),
+            press_on("A Job held open by what is not you shows what it waits on in a card at the thread's end", "row", "Quiet the write-clash notices", "region", "Waiting on"),
+            step("Each wait is a row with its kind's glyph in its state's hue", Verb::Look, "row", "Held open by ci on branch"),
+            step("A right press offers its stop", Verb::RightOpen("row", "Held open by ci on branch"), "menuitem", "Stop the watch"),
+            step("Esc shuts the menu; the card has no close and leaves when the wait ends", Verb::Key("escape"), "region", "Waiting on"),
             step("A Job whose agent came up without its tools says so", Verb::Press, "row", "Upgrade the router"),
             step("Each missing piece has the act that puts it right", Verb::Look, "button", "Restart the agent"),
             step("The cross puts the band away", Verb::Open("button", "Dismiss"), "textbox", "Message"),
@@ -1827,7 +1843,7 @@ pub static WALKS: &[Walk] = &[
             step("The note is typed", Verb::Typed("Token rotated"), "textbox", "Note with Done"),
             step("Done goes to Fleet with it, and the row is gone at once", Verb::Open("button", "Done"), "button", "Needs you"),
             step("The section goes with its only row", Verb::Absent("region", "To do"), "button", "Needs you"),
-            step("Now on the right drops it too: both read Fleet's one list", Verb::Absent("button", "Waiting on you: Rotate the staging token"), "region", "Job column: Now"),
+            step("Now on the right never lists it: Now shows only what runs", Verb::Absent("button", "Waiting on you: Rotate the staging token"), "region", "Job column: Now"),
             step("A walk's × puts it away at once", Verb::Open("button", "Remove Walk the chip states"), "button", "Needs you"),
             step("An agent's own row takes a reason: × opens its box", Verb::Open("button", "Remove Land on a branch or a pull request?"), "textbox", "Reason"),
             step("The reason is typed", Verb::Typed("Decided in the thread"), "textbox", "Reason"),
@@ -1872,15 +1888,15 @@ pub static WALKS: &[Walk] = &[
             step("The plan keeps the column too", Verb::Fits("group", "Message box"), "article", "Plan to approve"),
             step("Down to the newest again", Verb::Wheel("region", "Thread", 4000), "region", "Thread"),
             step("⌥⌘Y opens it again", Verb::Key("alt-cmd-y"), "button", "Needs you"),
-            step("The right column: Now lists what waits on you, one row per item of Fleet's list", Verb::Look, "region", "Job column: Now"),
-            step("A press on a question opens it in Needs you", Verb::Open("button", "Waiting on you: Which colour does the stale chip take?"), "button", "Back"),
+            step("Needs you lists what waits on you, one row per item of Fleet's list", Verb::Look, "button", "Open Which colour does the stale chip take?"),
+            step("A press on a question opens it", Verb::Open("button", "Open Which colour does the stale chip take?"), "button", "Back"),
             step("Back returns to the panel's list, in Fleet's sections under its labels", Verb::Open("button", "Back"), "region", "Questions"),
             step("A To do row carries its steps and a Done", Verb::Look, "button", "Done"),
             step("A press on the row opens a box for a note", Verb::Open("button", "Open Rotate the staging token"), "textbox", "Note with Done"),
             step("The note is typed", Verb::Typed("Token rotated"), "textbox", "Note with Done"),
             step("Done goes to Fleet with it, and the row is gone at once", Verb::Open("button", "Done"), "button", "Needs you"),
             step("The section goes with its only row", Verb::Absent("region", "To do"), "button", "Needs you"),
-            step("Now on the right drops it too: both read Fleet's one list", Verb::Absent("button", "Waiting on you: Rotate the staging token"), "region", "Job column: Now"),
+            step("Now on the right never lists it: Now shows only what runs", Verb::Absent("button", "Waiting on you: Rotate the staging token"), "region", "Job column: Now"),
             step("A walk's × puts it away at once", Verb::Open("button", "Remove Walk the chip states"), "button", "Needs you"),
             step("An agent's own row takes a reason: × opens its box", Verb::Open("button", "Remove Land on a branch or a pull request?"), "textbox", "Reason"),
             step("The reason is typed", Verb::Typed("Decided in the thread"), "textbox", "Reason"),
@@ -1945,8 +1961,8 @@ pub static WALKS: &[Walk] = &[
             step("Esc shuts the sheet", Verb::Key("escape"), "button", "Needs you"),
             step("The ring under the box says how full the Job's window is; a press opens Compact", Verb::Open("button", "Context 63%"), "button", "Compact"),
             step("Compact sends /compact to the Job in the same frame; the popover goes and the thread drops to its end", Verb::Open("button", "Compact"), "region", "Thread"),
-            step("A Job held open by what is not you shows a Waiting band", Verb::Press, "row", "Quiet the write-clash notices"),
-            step("A press opens a row for each wait, each with its own stop", Verb::Open("button", "Waiting"), "button", "Stop the watch: Held open by ci on branch"),
+            press_on("A Job held open by what is not you shows what it waits on in a card at the thread's end", "row", "Quiet the write-clash notices", "region", "Waiting on"),
+            step("A row for each wait, its stop behind a right press", Verb::Look, "row", "Held open by ci on branch"),
             step("Another Job: its box, its pickers and its quick bar", Verb::Press, "row", "Audit the docs index"),
             step("Words are typed", Verb::Type("Check the index again"), "textbox", "Message"),
             step("Enter sends them, and they stand in the thread the same frame", Verb::Key("enter"), "region", "Your message"),
@@ -2034,6 +2050,36 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "jobs-many",
         steps: crate::settings::walk::STEPS,
+    },
+    Walk {
+        name: "workflow-card",
+        title: "A proposed workflow's card",
+        screen: Screen::Jobs,
+        scenario: "workflow-card",
+        steps: &[
+            step("A press on the Job opens its thread, which ends on the workflow it proposes", Verb::Press, "row", "Audit the docs index"),
+            step("A press in the thread gives it the keys", Verb::Press, "region", "Thread"),
+            step("Page up reaches the card's head: New workflow above it, then the workflow's name and id", Verb::Keys(&["pageup", "pageup"]), "heading", "Work the notes"),
+            step("Under the name, what Approve does, then the requests it is for", Verb::Look, "label", "Approve adds it to this repository's workflows."),
+            step("Each lane says what ends its step, with the gate's glyph", Verb::Look, "label", "Ends when you approve the walk"),
+            step("Add note sits at the right of every lane; on Quiz it opens a box that says the note is for the agent", Verb::Open("button", "Add note on Quiz"), "textbox", "Note for the agent on Quiz"),
+            step("The note is typed", Verb::Typed("Ask one question at a time"), "textbox", "Note for the agent on Quiz"),
+            step("Saved, it is your note under the step, set apart from it, with where it goes as its footnote; Add note leaves the column", Verb::Open("button", "Save note on Quiz"), "label", "Ask one question at a time"),
+            step("A press on the note opens it for editing where it is", Verb::Open("button", "Edit note on Quiz"), "textbox", "Note for the agent on Quiz"),
+            step("Its words are selected", Verb::Keys(&["cmd-a"]), "textbox", "Note for the agent on Quiz"),
+            step("New words are typed over them", Verb::Typed("Ask one question, then wait for the answer"), "textbox", "Note for the agent on Quiz"),
+            step("Saved again, the note says the new words", Verb::Open("button", "Save note on Quiz"), "label", "Ask one question, then wait for the answer"),
+            step("Page down reaches the last lane, where how the work is delivered is a line of its own", Verb::Keys(&["pagedown", "pagedown"]), "label", "Asks how to deliver"),
+            step("What the agent is told opens under its step, and its chevron turns down", Verb::Open("button", "What the agent is told on Refine and deliver"), "group", "Instructions for Refine and deliver"),
+            step("A second press shuts it, and the chevron turns back", Verb::PressOn("button", "What the agent is told on Refine and deliver"), "button", "What the agent is told on Refine and deliver"),
+            step("Add note on Refine and deliver opens its box", Verb::Open("button", "Add note on Refine and deliver"), "textbox", "Note for the agent on Refine and deliver"),
+            step("The note is typed", Verb::Typed("Open the pull request as a draft"), "textbox", "Note for the agent on Refine and deliver"),
+            step("Saved, it is quoted in its lane too", Verb::Open("button", "Save note on Refine and deliver"), "label", "Open the pull request as a draft"),
+            step("With a note on the card, Send notes stands beside Approve and Dismiss", Verb::Look, "button", "Send notes"),
+            step("Approve saves the workflow", Verb::Look, "button", "Approve"),
+            step("Dismiss puts it aside", Verb::Look, "button", "Dismiss"),
+            step("Send notes sends both to the Job, and the card says Sent back with them quoted", Verb::Open("button", "Send notes"), "status", "Sent back"),
+        ],
     },
 ];
 

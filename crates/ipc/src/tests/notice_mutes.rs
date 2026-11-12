@@ -1,7 +1,7 @@
 //! A mute's body round-trips, its scopes are spelt as words, and a thread row carries the notice
 //! it was sent for only when it was one.
 
-use crate::{decode, encode, Instant, Notice, NoticeScope, SessionRow, SessionVoice, SetNoticeMute};
+use crate::{decode, encode, Instant, Notice, NoticeScope, SentSketch, SessionRow, SessionVoice, SetNoticeMute};
 
 #[test]
 fn a_mute_names_its_notice_and_scope_and_round_trips() {
@@ -31,6 +31,7 @@ fn a_message_row_carries_its_notice_and_an_older_row_reads_without_one() {
         notice: notice.map(String::from),
         queued: false,
         edited_at: None,
+        sketches: Vec::new(),
     };
     let plain = encode(&row(None)).unwrap();
     assert!(!plain.contains("notice"), "{plain}");
@@ -39,6 +40,29 @@ fn a_message_row_carries_its_notice_and_an_older_row_reads_without_one() {
     let noticed = encode(&row(Some("behind_base"))).unwrap();
     assert!(noticed.contains(r#""notice":"behind_base""#), "{noticed}");
     assert_eq!(decode::<SessionRow>("a row", noticed.as_bytes()).unwrap(), row(Some("behind_base")));
+}
+
+#[test]
+fn a_message_row_carries_its_sketches_and_an_older_row_reads_without_them() {
+    let row = |sketches: Vec<SentSketch>| SessionRow::Message {
+        id: "r1".into(),
+        at: Instant::carried("2026-10-21T10:00:00.000Z"),
+        from: SessionVoice::You,
+        text: "like this".into(),
+        files: Vec::new(),
+        tags: Vec::new(),
+        notice: None,
+        queued: false,
+        edited_at: None,
+        sketches,
+    };
+    let plain = encode(&row(Vec::new())).unwrap();
+    assert!(!plain.contains("sketches"), "{plain}");
+    assert_eq!(decode::<SessionRow>("a row", plain.as_bytes()).unwrap(), row(Vec::new()));
+
+    let drawn = encode(&row(vec![SentSketch { id: "sk-1".into(), title: "Header".into() }])).unwrap();
+    assert!(drawn.contains(r#""sketches":[{"id":"sk-1","title":"Header"}]"#), "{drawn}");
+    assert_eq!(decode::<SessionRow>("a row", drawn.as_bytes()).unwrap(), row(vec![SentSketch { id: "sk-1".into(), title: "Header".into() }]));
 }
 
 /// **The word a row carries is the word a mute is sent by**: `word` and the wire spelling are written

@@ -628,7 +628,7 @@ impl JobView {
 
     pub(super) fn send_to_job(&mut self, job: String, text: String, row: String, window: &mut Window, cx: &mut Context<Self>, sent: impl FnOnce(&mut JobView, &mut Window, &mut Context<JobView>) + 'static) {
         let body = ipc::encode(&ipc::SendSessionMessageBody {
-            message: ipc::SendSessionMessage { session_id: ipc::SessionId::carried(job), text, attachments: Vec::new(), mentions: Vec::new() },
+            message: ipc::SendSessionMessage { session_id: ipc::SessionId::carried(job), text, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() },
             aim: None,
         });
         self.post(

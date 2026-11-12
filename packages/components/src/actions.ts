@@ -119,6 +119,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   plan: [],
   // The keys on a Job's thread cards: found from Settings → Keyboard and the kbds the target card draws.
   thread: [],
+  // A terminal's keys, in the native Bridge only: found from Settings → Keyboard and the tooltip on New shell.
+  terminal: [],
 };
 
 /**

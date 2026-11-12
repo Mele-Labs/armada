@@ -84,6 +84,7 @@ mod talk;
 mod tool_icons;
 mod tune;
 mod wire;
+mod workflow_card;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -131,6 +132,8 @@ pub(crate) enum Extra {
     MovedTo,
     /// The thread held is being read again (`transcript: "refreshing"`).
     Refreshing,
+    /// What the Job waits on that is not the person, last of all.
+    Waiting,
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -296,6 +299,8 @@ pub struct JobView {
     mock_needs: HashMap<String, ipc::NeedsYou>,
     /// How many more sends the mock refuses, so a walk can show a message Fleet did not take.
     mock_refusals: usize,
+    /// The workflow changes of a mock scenario, by id, as Fleet's `workflow_changes` holds them live.
+    mock_changes: std::collections::BTreeMap<i64, ipc::WorkflowChange>,
     /// The Job on screen.
     shown: Option<SharedString>,
     /// What Fleet refused a terminal Job's Compact for, by Job, until Compact is pressed again.
@@ -467,6 +472,13 @@ impl JobView {
         }));
         Self::offer_open_mod(cx);
         cx.set_global(view_tabs::LiveJobView(cx.weak_entity()));
+        let mock_changes = match &mock {
+            Some(_) => crate::mock::workflow_changes().unwrap_or_else(|why| {
+                crate::log::Note::warn("the mock's workflow changes did not decode").field("why", why).emit();
+                Default::default()
+            }),
+            None => Default::default(),
+        };
         let mock = mock
             .unwrap_or_default()
             .into_iter()
@@ -478,6 +490,7 @@ impl JobView {
             mock,
             mock_needs: HashMap::new(),
             mock_refusals: crate::mock::refusals(),
+            mock_changes,
             shown: None,
             compact_refused: HashMap::new(),
             pages: HashMap::new(),
@@ -692,6 +705,7 @@ impl JobView {
             self.judge_read(&id, cx);
         }
         self.quick_follow(cx);
+        self.read_workflow_changes(cx);
         // A Fleet that was not there when the Job opened is asked again once it is.
         if let (Some(id), Some(fleet)) = (self.shown.clone(), self.fleet.clone()) {
             if self.thread(&id, cx).is_none() {
@@ -743,7 +757,10 @@ impl JobView {
         let rule = usize::from(self.record(id, cx).is_some_and(|job| job.attachments.iter().any(|one| one.kind == "replaces")));
         let before = earlier_read.map_or(0, |(_, items, _)| items + rule);
         let earlier_version = earlier_read.map(|(version, ..)| version);
-        let extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some(), self.refreshing(id, cx));
+        let mut extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some(), self.refreshing(id, cx));
+        if self.bands_of(id, cx).waiting {
+            extras.push(Extra::Waiting);
+        }
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);

@@ -11,6 +11,7 @@ use gpui::{Context, EventEmitter, Task};
 use ipc::{
     CallArrival, Cursor, Event, FleetBuildReport, Instant, JobThread, JobThreadTail, MergeLineView, ModKind, ModSummary, NeedsYou, SessionRecord,
     Projects, RepositorySummary, SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem, WaitingItem,
+    WorkflowChange, WorkflowChanges,
     WatchList, WatchSummary,
 };
 
@@ -129,6 +130,8 @@ pub struct Held {
     pub workflows: Option<Vec<ipc::WorkflowSummary>>,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
     arrived: Vec<CallArrival>,
+    /// A Job's shells that opened, ended or were brought to the front since the last take. Told once.
+    shells: Vec<ShellNews>,
     /// The port of the Fleet last connected to, so a command goes where the events come from.
     port: Option<u16>,
     /// The stylesheet Fleet checked for a mod, with the `changed_at` of the row it was checked for.
@@ -146,6 +149,9 @@ pub struct Held {
     watches_spoken: BTreeSet<String>,
     /// Moves on each `operator.page_changed` and each gap in the stream: the Operator's page reads again.
     pub operator_page_moved: u64,
+    /// The workflow changes a proposed workflow's card was read for, by change id. Absent until read,
+    /// and where Fleet lists none by that id.
+    pub workflow_changes: BTreeMap<i64, WorkflowChange>,
 }
 
 impl Held {
@@ -174,6 +180,7 @@ impl Held {
             open_group: true,
             workflows: None,
             arrived: Vec::new(),
+            shells: Vec::new(),
             port: None,
             sheets: BTreeMap::new(),
             threads: BTreeMap::new(),
@@ -182,6 +189,7 @@ impl Held {
             watches_asked: BTreeSet::new(),
             watches_spoken: BTreeSet::new(),
             operator_page_moved: 0,
+            workflow_changes: BTreeMap::new(),
         }
     }
 
@@ -282,6 +290,11 @@ impl Held {
     /// The news folded since the last take, oldest first.
     pub fn take_arrived(&mut self) -> Vec<CallArrival> {
         std::mem::take(&mut self.arrived)
+    }
+
+    /// The shells' news folded since the last take, oldest first.
+    pub fn take_shells(&mut self) -> Vec<ShellNews> {
+        std::mem::take(&mut self.shells)
     }
 
     fn set_settings(&mut self, list: &SettingsList) {
@@ -434,6 +447,9 @@ impl Held {
                             self.watches_spoken.insert(id.clone());
                             self.watches.insert(id, list.watches);
                         }
+                        Event::TerminalOpened(shell) => self.shells.push(ShellNews::Opened(shell)),
+                        Event::TerminalExited(shell) => self.shells.push(ShellNews::Exited(shell)),
+                        Event::TerminalShown(shell) => self.shells.push(ShellNews::Shown(shell)),
                         _ => {}
                     }
                 }
@@ -504,6 +520,20 @@ pub struct Arrived(pub Vec<CallArrival>);
 
 impl EventEmitter<Arrived> for FleetConnection {}
 
+/// One of a Job's shells, as `terminal.opened`, `terminal.exited` and `terminal.shown` tell it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ShellNews {
+    Opened(ipc::JobTerminal),
+    Exited(ipc::JobTerminal),
+    /// The agent asked for it in front (`show_terminal`).
+    Shown(ipc::JobTerminal),
+}
+
+/// The shells' news in one folded batch, for a Job's terminal tabs to follow.
+pub struct Shells(pub Vec<ShellNews>);
+
+impl EventEmitter<Shells> for FleetConnection {}
+
 pub struct FleetConnection {
     held: Held,
     /// The Jobs whose thread is being read now, so one read is not asked twice.
@@ -520,6 +550,9 @@ pub struct FleetConnection {
     needs_failed: BTreeMap<String, Vec<WaitingItem>>,
     /// The build read every [`FOLLOW`] after an act, until the report stops saying a change is under way.
     following: Option<Task<()>>,
+    /// The workflow changes asked for, by id and the definition the card showed, so one is asked
+    /// once per text and a send back that redrafts it is asked again.
+    changes_asked: BTreeSet<(i64, u64)>,
     /// Kept, or the drain is cancelled with it.
     _drain: Task<()>,
 }
@@ -864,6 +897,55 @@ impl FleetConnection {
         .detach();
     }
 
+    /// Read workflow change `change` (`GET /workflows/changes`) off the main thread and hold it, for
+    /// a proposed workflow's card to draw its steps. The thread row names the workflow but not where
+    /// it is kept, so the repository's list is read, then Kit's. `after` is the definition the card
+    /// shows: the same text is asked once, and one Fleet lists nowhere leaves the card on its text.
+    pub fn read_workflow_change(&mut self, change: i64, workflow: &str, manifest: Option<&str>, after: &str, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else { return };
+        let asked = {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            after.hash(&mut hasher);
+            (change, hasher.finish())
+        };
+        if !self.changes_asked.insert(asked) {
+            return;
+        }
+        let workflow = crate::link::percent_encoded(workflow);
+        let manifest = manifest.map(|manifest| format!("&manifest_id={}", crate::link::percent_encoded(manifest))).unwrap_or_default();
+        let paths: Vec<String> =
+            ["repository", "kit"].iter().map(|source| format!("/workflows/changes?workflow_id={workflow}&source={source}{manifest}")).collect();
+        cx.spawn(async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    for path in &paths {
+                        let (status, bytes) = runtime.block_on(crate::transport::get(port, path))?;
+                        if !(200..300).contains(&status) {
+                            return Err(format!("Fleet answered {status}: {}", String::from_utf8_lossy(&bytes)));
+                        }
+                        let listed = ipc::decode::<WorkflowChanges>("WorkflowChanges", &bytes).map_err(|why| why.to_string())?;
+                        if let Some(found) = listed.changes.into_iter().find(|one| one.id == change) {
+                            return Ok(Some(found));
+                        }
+                    }
+                    Ok(None)
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| match answer {
+                Ok(Some(found)) => {
+                    this.held.workflow_changes.insert(change, found);
+                    cx.notify();
+                }
+                Ok(None) => {}
+                Err(why) => Note::warn("a workflow change could not be read").field("change", change.to_string()).field("why", why).emit(),
+            });
+        })
+        .detach();
+    }
+
     pub fn new(cx: &mut Context<Self>) -> Self {
         let (tx, rx) = async_channel::unbounded();
         let home = std::env::var("HOME").ok();
@@ -901,9 +983,13 @@ impl FleetConnection {
                         this.read_thread(&id, true, cx);
                     }
                     let arrived = this.held.take_arrived();
+                    let shells = this.held.take_shells();
                     cx.notify();
                     if !arrived.is_empty() {
                         cx.emit(Arrived(arrived));
+                    }
+                    if !shells.is_empty() {
+                        cx.emit(Shells(shells));
                     }
                     lines
                 });
@@ -924,6 +1010,7 @@ impl FleetConnection {
             needs_reading: BTreeMap::new(),
             needs_failed: BTreeMap::new(),
             following: None,
+            changes_asked: BTreeSet::new(),
             _drain: drain,
         }
     }
@@ -1099,6 +1186,30 @@ mod tests {
         assert!(held.take_arrived().is_empty(), "news is told once");
         held.fold(vec![changed("[]", "[]")]);
         assert!(held.take_arrived().is_empty());
+    }
+
+    #[test]
+    fn a_jobs_shells_news_is_handed_over_once_in_the_order_it_came() {
+        let shell = |kind: &str, terminal: &str| {
+            let wire = format!(
+                r#"{{"message":"event","cursor":1,"event":{{"kind":"{kind}","session_id":"s0","terminal":"{terminal}","run_id":"r-{terminal}"}}}}"#
+            );
+            Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+        };
+        let mut held = Held::new();
+        held.fold(vec![shell("terminal.opened", "t2"), shell("terminal.shown", "t2"), shell("terminal.exited", "t1")]);
+        let news = held.take_shells();
+        let told: Vec<(&str, &str)> = news
+            .iter()
+            .map(|one| match one {
+                ShellNews::Opened(at) => ("opened", at.terminal.as_str()),
+                ShellNews::Shown(at) => ("shown", at.terminal.as_str()),
+                ShellNews::Exited(at) => ("exited", at.terminal.as_str()),
+            })
+            .collect();
+        assert_eq!(told, [("opened", "t2"), ("shown", "t2"), ("exited", "t1")]);
+        assert_eq!(news[0].clone(), ShellNews::Opened(ipc::JobTerminal { session_id: ipc::SessionId::carried("s0"), terminal: "t2".into(), run_id: "r-t2".into() }));
+        assert!(held.take_shells().is_empty(), "news is told once");
     }
 
     #[test]

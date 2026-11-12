@@ -116,6 +116,7 @@ where
             text: message(&kept, note),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            sketches: Vec::new(),
         };
         Arc::clone(&self).send_known(None, sent).await?;
         self.judge_note_settled(&id, &kept, at, JudgeNoteHow::Sent).await

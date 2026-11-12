@@ -26,6 +26,7 @@ pub struct Focus {
 
 impl Stage {
     pub fn new(walk: &Walk, window: &mut Window, cx: &mut App) -> Result<Stage, String> {
+        crate::terminal::shells::hold_walk(cx);
         match walk.screen {
             Screen::Dispatch => {
                 super::strip_marks::leave(cx);

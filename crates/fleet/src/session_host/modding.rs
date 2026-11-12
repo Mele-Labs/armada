@@ -251,7 +251,7 @@ where
     ) -> Result<(), Refusal> {
         let terminal = self.terminal_session(session_id.as_str()).await?;
         let instead = format!("{brief}\n\n{words}");
-        let sent = SendSessionMessage { session_id, text: words, attachments: Vec::new(), mentions: Vec::new() };
+        let sent = SendSessionMessage { session_id, text: words, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() };
         self.send_known_added(terminal, sent, None, Some(instead)).await.map(|_| ())
     }
 }

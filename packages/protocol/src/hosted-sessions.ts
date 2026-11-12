@@ -121,6 +121,8 @@ export type SendSessionMessage = {
   text: string;
   attachments?: SessionUpload[];
   mentions?: SessionTag[];
+  /** The sketches the composer sent with the words, each also sent as a picture in `attachments`. Fleet keeps them on the person's message row. */
+  sketches?: SentSketch[];
   /** What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only. */
   aim?: ModAim;
 };
@@ -467,6 +469,14 @@ export type SentFile = {
   media_type: string;
 };
 
+/** A sketch the person sent with a message, kept by Fleet so the thread can draw its chip. */
+export type SentSketch = {
+  /** The sketch's own id, as the composer named it. */
+  id: string;
+  /** The title on its chip. */
+  title: string;
+};
+
 export type SessionAskState =
   | "waiting"
   | "ran_unasked"
@@ -540,6 +550,8 @@ export type SessionRow =
       text: string;
       files?: SentFile[];
       tags?: SessionTag[];
+      /** The sketches the person sent with these words. Absent on a message with none, and on every row kept before it existed. */
+      sketches?: SentSketch[];
       /** The Fleet notice this row was sent for (`behind_base`, `write_clash`, …: `Notice`), absent on every other row. Mute it by `set_notice_mute`. */
       notice?: string;
       /** The person's words, held by the agent's CLI until the call its turn waits on returns. Absent once the agent has read them. */

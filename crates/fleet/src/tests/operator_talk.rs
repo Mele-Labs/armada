@@ -391,6 +391,7 @@ async fn a_live_jobs_open_tasks_and_last_words_are_handed_to_the_call_and_bounde
                 notice: None,
                 queued: false,
                 edited_at: None,
+                sketches: Vec::new(),
             };
             store.keep_session_row(job.as_str(), row.id(), &ipc::encode(&row).expect("a row")).expect("kept");
         }
@@ -409,4 +410,19 @@ async fn a_live_jobs_open_tasks_and_last_words_are_handed_to_the_call_and_bounde
         assert!(line.chars().count() <= "    Its agent said: ".len() + 403, "a line is cut: {}", line.chars().count());
         assert!(line.ends_with("..."), "{line}");
     }
+}
+
+#[tokio::test]
+async fn an_operator_hold_carries_its_paths() {
+    let rig = rig_placing(None);
+    let _call = seated(&rig, &[]).await;
+    let holder = asked(&rig, "Build the console").await;
+    let manifest_id = rig.fleet.store().lock().await.hosting(holder.as_str()).expect("read").expect("hosted").manifest_id;
+    let form = OperatorOrderForm::HoldPaths { manifest_id, paths: vec!["apps/cockpit".into(), "apps/deck".into()], job: holder.clone(), until: OperatorHoldUntil::Pushes };
+    rig.fleet.operator_order_confirmed(form).await.expect("it stands");
+
+    let digest = rig.fleet.operator_page_wire().await.expect("read").digest;
+    let hold = &digest.holds[0];
+    assert_eq!(hold.paths, ["apps/cockpit", "apps/deck"]);
+    assert_eq!((hold.job.as_ref(), hold.until), (Some(&holder), Some(OperatorHoldUntil::Pushes)));
 }
