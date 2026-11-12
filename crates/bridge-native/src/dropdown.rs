@@ -310,6 +310,20 @@ impl Dropdown {
     }
 
     fn on_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        // ⌥1–9 picks the shown entry whose keycap reads so, as the dispatch chips take them.
+        let modifiers = event.keystroke.modifiers;
+        if modifiers.alt && !modifiers.platform && !modifiers.control && matches!(event.keystroke.key.as_str(), "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9") {
+            let cap = format!("⌥{}", event.keystroke.key);
+            let found = self.visible().0.into_iter().find(|&at| {
+                self.entries[at].pickable() && matches!(&self.entries[at], Entry::Item { key: Some(key), .. } if key.as_ref() == cap)
+            });
+            if let Some(at) = found {
+                cx.stop_propagation();
+                self.pick(at, cx);
+                cx.notify();
+            }
+            return;
+        }
         if self.searching() {
             let typed = if event.keystroke.key == "backspace" { self.query.pop().map(|_| ()) } else { Self::typed(event).map(|text| self.query.push_str(&text)) };
             if typed.is_some() || event.keystroke.key == "backspace" {

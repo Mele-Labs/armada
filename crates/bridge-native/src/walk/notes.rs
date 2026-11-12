@@ -3,7 +3,7 @@
 
 use super::{answer, press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 39] = [
+pub static STEPS: [Step; 41] = [
     step("⌥⌘A turns annotating on over any screen; the bar says so", Verb::Key("alt-cmd-a"), "status", "Annotating"),
     step("Aiming reaches the title bar too: it is outlined and named like anything on the screen", Verb::Hover, "tab", "Jobs"),
     step("A press holds it and opens the note", Verb::Press, "row", "Native Bridge foundation"),
@@ -16,6 +16,8 @@ pub static STEPS: [Step; 39] = [
     press_on("Variant lists the states the component is drawn in", "button", "Variant", "group", "Variant"),
     answer("A picture pasted or dropped sits under the tools", "layer-picture", "list", "Pictures"),
     step("⌘↵ saves it: pin 3 stands on the row, after the two saved on other screens", Verb::Key("cmd-enter"), "button", "Note 3, open: Show the repository in the title"),
+    step("The saved note stays open with Start job in hand: Enter starts a Job, Tab reaches the Jobs", Verb::Look, "dialog", "Note"),
+    step("Esc closes it and the keys go back to the layer", Verb::Key("escape"), "status", "Annotating"),
     step("A drag holds a box instead of an element", Verb::Drag, "row", "Native Bridge foundation"),
     step("The second note: on a box the tools stand off", Verb::Typed("Two Jobs share this title"), "textbox", "Note"),
     step("Pin 4 stands at the corner of its box, beside the first", Verb::Key("cmd-enter"), "button", "Note 4, open: Two Jobs share this title"),
@@ -26,8 +28,8 @@ pub static STEPS: [Step; 39] = [
     step("The words go in the note", Verb::Typed("Everything here sits too tight"), "textbox", "Note"),
     step("It is saved, with no pin on the screen", Verb::Key("cmd-enter"), "button", "Screenshot window"),
     press_on("The caret lists the live Jobs", "button", "Send to a Job", "menu", "Send to a Job"),
-    step("↓ lights the first Job", Verb::Key("down"), "menuitem", "Fix the merge line freshness chip"),
-    step("Enter picks it: the bar says Sending in the same frame", Verb::Key("enter"), "button", "Sending to Fix the merge line freshness chip"),
+    step("Typing finds a Job by its title", Verb::Typed("merge"), "menuitem", "Fix the merge line freshness chip"),
+    step("⌥1 picks the first Job shown: the bar says Sending in the same frame", Verb::Key("alt-1"), "button", "Sending to Fix the merge line freshness chip"),
     answer("A refusal leaves the notes held and says why", "layer-refused", "status", "Notes not sent to \"Fix the merge line freshness chip\": The Job has ended"),
     press_on("Start job puts the held note in a new held Job, pending in the same frame", "button", "Start job", "button", "Starting job"),
     answer("Started: the bar names the new Job", "layer-started", "status", "Job started: Dispatch sheet notes"),

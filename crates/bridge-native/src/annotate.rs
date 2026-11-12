@@ -13,6 +13,7 @@
 //!
 //! **Available only in a development build**, as Electron's is ([`dev_build`]).
 
+pub mod live;
 mod panel;
 pub mod store;
 pub mod tools;
@@ -25,7 +26,7 @@ use std::sync::Arc;
 
 use gpui::{
     actions, canvas, div, point, prelude::*, Anchor, App, Bounds, ClickEvent, Context, DismissEvent, Div, Entity, EventEmitter,
-    ExternalPaths, FocusHandle, Focusable, FontWeight, Global, KeyBinding, Pixels, Point, Role, SharedString, Subscription, Task, Window,
+    ExternalPaths, FocusHandle, Focusable, FontWeight, Global, KeyBinding, Pixels, Point, Role, SharedString, Stateful, Subscription, Task, Window,
     WindowId,
 };
 use serde_json::{json, Value};
@@ -120,7 +121,6 @@ pub(crate) struct Note {
     pub ring: Option<Bounds<Pixels>>,
     pub window: bool,
     /// The window as it was when the note was held: the send burns the ring and number into it.
-    #[allow(dead_code)]
     pub picture: Option<(Arc<image::RgbaImage>, f32)>,
     pub status: Status,
     /// The Job it went to, once Fleet took it.
@@ -185,6 +185,8 @@ pub struct Layer {
     said: Option<Said>,
     keys_were: Option<FocusHandle>,
     card_focus: FocusHandle,
+    /// The opened card's Start job and its caret, which a saved note opens on so the send is all keys.
+    card_keys: (FocusHandle, FocusHandle),
     /// ⌘V on the opened card reads a picture off the clipboard before anything else does.
     paste: Option<Subscription>,
     deleting_card: bool,
@@ -222,6 +224,7 @@ impl Layer {
             said: None,
             keys_were: None,
             card_focus: cx.focus_handle(),
+            card_keys: (cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true)),
             paste: None,
             deleting_card: false,
             listing: false,
@@ -254,6 +257,12 @@ impl Layer {
             let note = self.note_of(raw, cx);
             self.notes.push(note);
         }
+    }
+
+    /// The walk's made-up notes go, so the live app lists only what is on disk.
+    pub fn forget_seeded(&mut self, cx: &mut Context<Self>) {
+        self.notes.retain(|note| !note.key.ends_with("-seed"));
+        cx.notify();
     }
 
     /// A note as its file reads. It has a pin here when it was written on this screen, where it stood.
@@ -512,6 +521,11 @@ impl Layer {
         self.persist(id, pictures, cx);
         self.said = None;
         self.arm(window, cx);
+        // The saved note stays open on Start job, so the send is all keys: Enter starts a Job, Tab reaches the
+        // Jobs' picker, Esc closes.
+        self.open_note(id, window, cx);
+        let start = self.card_keys.0.clone();
+        window.defer(cx, move |window, cx| window.focus(&start, cx));
     }
 
     /// The unsent open notes standing on this screen, in the order they were written.
@@ -535,6 +549,39 @@ impl Layer {
         self.paste = None;
         cx.emit(Asked::Send { to, notes });
         cx.notify();
+    }
+
+    /// The live Jobs the picker lists, as Fleet says them now.
+    pub fn set_targets(&mut self, targets: Vec<Offered>, cx: &mut Context<Self>) {
+        if self.targets != targets {
+            self.targets = targets;
+            cx.notify();
+        }
+    }
+
+    /// The pending send's notes as the live send needs them, numbered in the order they were written.
+    pub fn outgoing(&self) -> Vec<live::Outgoing> {
+        self.notes
+            .iter()
+            .filter(|note| self.sending_ids.contains(&note.id))
+            .enumerate()
+            .map(|(at, note)| live::Outgoing {
+                key: note.key.clone(),
+                raw: note.raw.clone(),
+                window: note.window,
+                number: at + 1,
+                picture: match (&note.picture, note.raw["screenshot"].as_str(), &self.dir) {
+                    (Some((picture, scale)), _, _) => live::Picture::Held(Arc::clone(picture), *scale, note.ring),
+                    (None, Some(name), Some(dir)) => live::Picture::File(dir.join(name)),
+                    _ => live::Picture::None,
+                },
+            })
+            .collect()
+    }
+
+    /// The Job the pending send went to, once a new one has its id.
+    pub fn sending_to(&mut self, session: SharedString) {
+        self.sending_session = Some(session);
     }
 
     pub(crate) fn is_sending(&self) -> bool {
@@ -648,10 +695,16 @@ impl Layer {
         if self.sending.is_some() || self.menu.is_some() {
             return;
         }
-        let entries: Vec<Entry> = self
-            .targets
-            .iter()
-            .map(|job| Entry::Act { id: id_of(format!("job:{}", job.id)), label: job.title.clone(), icon: Some("square-terminal"), danger: false })
+        // Searchable by typing, and the first nine take ⌥1–9, as Classic's picker and the dispatch chips.
+        let entries: Vec<Entry> = std::iter::once(Entry::Search { label: "Find a Job", to_rule: false })
+            .chain(self.targets.iter().enumerate().map(|(at, job)| Entry::Item {
+                id: id_of(format!("job:{}", job.id)),
+                label: job.title.clone(),
+                icon: Some("square-terminal"),
+                danger: false,
+                key: (at < 9).then(|| format!("⌥{}", at + 1).into()),
+                off: None,
+            }))
             .collect();
         let dropdown = cx.new(|cx| Dropdown::new("Send to a Job", entries, at, corner, false, cx));
         let picked = cx.subscribe_in(&dropdown, window, |this, _, picked: &Picked, window, cx| {
@@ -701,6 +754,7 @@ pub(crate) fn split(
     off: bool,
     spin: bool,
     at: Option<Rc<Cell<Option<Bounds<Pixels>>>>>,
+    keys: Option<(&(FocusHandle, FocusHandle), [bool; 2])>,
     main: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     caret: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Div {
@@ -718,6 +772,26 @@ pub(crate) fn split(
             .when(!off, |part| part.cursor_pointer().hover(|style| style.opacity(0.9)))
             .when(off, |part| part.opacity(0.7))
     };
+    // Held by keys, a part takes Enter and Space as a press; focused, it is ringed as Classic's `:focus-visible`,
+    // an accent outline set off by `--focus-ring-offset`.
+    let ring = look.edge(token::FOCUS_RING).map_or(accent, |(_, colour)| colour);
+    let keyed = |part: Stateful<Div>, focus: Option<(&FocusHandle, bool)>| match focus {
+        Some((focus, on)) => part.relative().track_focus(focus).when(on, |part| {
+            let out = -(look.length(token::FOCUS_RING_WIDTH) + gpui::px(2.));
+            part.child(
+                div()
+                    .absolute()
+                    .top(out)
+                    .bottom(out)
+                    .left(out)
+                    .right(out)
+                    .rounded(look.length(token::RADIUS_LG) + gpui::px(4.))
+                    .border(look.length(token::FOCUS_RING_WIDTH))
+                    .border_color(ring),
+            )
+        }),
+        None => part,
+    };
     let measure = at.map(|at| canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full());
     div()
         .relative()
@@ -726,7 +800,7 @@ pub(crate) fn split(
         .gap(look.length(token::BORDER_WIDTH))
         .children(measure)
         .child(labelled(
-            part(format!("{id}-main").into())
+            keyed(part(format!("{id}-main").into()), keys.map(|(keys, on)| (&keys.0, on[0])))
                 .px(look.length(token::SPACE_4))
                 .gap(look.length(token::SPACE_2))
                 .rounded_l(look.length(token::RADIUS_LG))
@@ -739,7 +813,7 @@ pub(crate) fn split(
             label,
         ))
         .child(labelled(
-            part(format!("{id}-caret").into())
+            keyed(part(format!("{id}-caret").into()), keys.map(|(keys, on)| (&keys.1, on[1])))
                 .w(look.length(token::H_CONTROL))
                 .rounded_r(look.length(token::RADIUS_LG))
                 .child(glyph("chevron-down", look.length(token::SPACE_3), ink))
@@ -883,6 +957,7 @@ impl Render for Layer {
                                 off,
                                 false,
                                 None,
+                                Some((&self.card_keys, [self.card_keys.0.is_focused(window), self.card_keys.1.is_focused(window)])),
                                 cx.listener(move |this, _, _, cx| this.send(ids.clone(), None, cx)),
                                 cx.listener(move |this, event: &ClickEvent, window, cx| {
                                     let at = event.position();
@@ -942,6 +1017,7 @@ impl Layer {
                 pending.is_some(),
                 pending.is_some(),
                 Some(Rc::clone(&self.split_at)),
+                None,
                 cx.listener(|this, _, _, cx| {
                     let ids = this.sendable_here();
                     this.send(ids, None, cx)

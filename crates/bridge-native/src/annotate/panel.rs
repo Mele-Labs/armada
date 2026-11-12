@@ -278,6 +278,7 @@ impl Layer {
                         busy || chosen_sendable.is_empty(),
                         false,
                         None,
+                        None,
                         cx.listener(move |this, _, _, cx| this.send(ids.clone(), None, cx)),
                         cx.listener(move |this, event: &ClickEvent, window, cx| {
                             let at = event.position();
@@ -394,6 +395,7 @@ impl Layer {
                 "Start job".into(),
                 busy,
                 false,
+                None,
                 None,
                 cx.listener(move |this, _, _, cx| this.send(ids.clone(), None, cx)),
                 cx.listener(move |this, event: &ClickEvent, window, cx| {
