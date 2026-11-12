@@ -65,10 +65,15 @@ impl Rig {
 
     /// A terminal Session standing in a new slot, listening.
     async fn a_session_in_slot(&self, id: &str, n: u32) {
+        self.a_session_in_slot_cut_from(id, n, "main").await;
+    }
+
+    /// [`Rig::a_session_in_slot`], its branch cut from `from`.
+    async fn a_session_in_slot_cut_from(&self, id: &str, n: u32, from: &str) {
         let at = self.slot(n);
         git(
             self.home.path(),
-            &["worktree", "add", "--quiet", "-b", &format!("branch-{n}"), &at.to_string_lossy()],
+            &["worktree", "add", "--quiet", "-b", &format!("branch-{n}"), &at.to_string_lossy(), from],
         );
         let root = self.fleet.repositories().first().expect("served").root().to_string();
         lease_record(&root, n, &format!("branch-{n}"), By::Session(id));
@@ -346,6 +351,60 @@ async fn the_first_pass_after_a_start_credits_each_holder_with_what_its_worktree
     rig.fleet.writes().left(&Who::Session("sess-a".into()));
     rig.fleet.clashes_checked().await;
     assert!(!rig.fleet.writes().holders().iter().any(|(who, ..)| *who == Who::Session("sess-a".into())));
+}
+
+/// **A branch cut from another holder's branch did not write what it inherited** (12 Nov 2026: a
+/// Job stacked on another was named over files only the stack's commits had changed). The commits
+/// below the live branch it stands on are that holder's, and the clash is told to it alone.
+#[tokio::test]
+async fn a_branch_stacked_on_another_holders_is_not_told_of_what_it_inherited() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    rig.writes("sess-a", 1, "f.txt", 5, "the stack's five").await;
+    git(&rig.slot(1), &["commit", "--quiet", "-am", "the stack's five"]);
+    rig.a_session_in_slot_cut_from("sess-b", 2, "branch-1").await;
+    rig.writes("sess-b", 2, "g.txt", 1, "b's own g").await;
+    git(&rig.slot(2), &["commit", "--quiet", "-am", "b's own g"]);
+    rig.a_session_in_slot("sess-c", 3).await;
+    rig.writes("sess-c", 3, "f.txt", 5, "c's five").await;
+
+    rig.fleet.clashes_checked().await;
+    let held = rig.fleet.writes().holders();
+    let of_b = held.iter().find(|(who, ..)| *who == Who::Session("sess-b".into())).map(|(.., paths)| paths.clone());
+    assert_eq!(of_b, Some(["g.txt".to_string()].into()), "the first pass credits b only its own: {held:?}");
+
+    rig.checks("sess-b", "sess-c").await;
+    assert!(rig.the_mod_asks("sess-b").await.is_empty(), "b wrote no line of f.txt");
+    assert!(rig.the_mod_asks("sess-c").await.is_empty());
+
+    rig.checks("sess-a", "sess-c").await;
+    let told = rig.the_mod_asks("sess-c").await;
+    let [said] = told.as_slice() else { panic!("one message: {told:?}") };
+    assert!(said.contains("branch branch-1 (Job s-sess-a)") && said.contains("`f.txt`"), "{said}");
+}
+
+/// A holder in several worktrees is named by **the branch of the one that clashed**, not the one it
+/// was cut on.
+#[tokio::test]
+async fn a_holder_in_several_slots_is_named_by_the_branch_that_clashed() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    rig.writes("sess-a", 1, "g.txt", 1, "a's g").await;
+    let root = rig.fleet.repositories().first().expect("served").root().to_string();
+    git(rig.home.path(), &["worktree", "add", "--quiet", "-b", "branch-3", &rig.slot(3).to_string_lossy()]);
+    lease_record(&root, 3, "branch-3", By::Session("sess-a"));
+    rig.edited(3, "f.txt", 5, "a's five, in its other slot");
+    rig.a_session_in_slot("sess-b", 2).await;
+    rig.writes("sess-b", 2, "f.txt", 5, "b's five").await;
+
+    rig.checks("sess-a", "sess-b").await;
+
+    let told = rig.the_mod_asks("sess-b").await;
+    let [said] = told.as_slice() else { panic!("one message: {told:?}") };
+    assert!(said.contains("branch branch-3 (Job s-sess-a)"), "{said}");
+    let told = rig.the_mod_asks("sess-a").await;
+    let [said] = told.as_slice() else { panic!("one message: {told:?}") };
+    assert!(said.contains("branch branch-2 (Job s-sess-b)"), "{said}");
 }
 
 impl Rig {

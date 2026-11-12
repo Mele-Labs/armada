@@ -33,6 +33,8 @@ An `OperatorTurnItem` is what a card needs, with no second vocabulary beside the
 `raised_at` is when it joined the queue, and `later_until` is set while it waits at the end.
 `keeps` says Always here and Always are offered: for a go-ahead, which Fleet can do by itself, and not for a decision.
 `also_raised_by` names what else raised the same ask and was folded into this item, each in a few words for its tooltip, oldest first. Absent where nothing was.
+`group` is the Job's id where that Job has two or more asks waiting: `turn` lists them together, at the place of the first of them in his order, in the order the Job raised them, and Bridge draws them as one entry.
+Absent for a single ask.
 
 A red main nobody is on is an item: a `go_ahead` with no Job, its `item.id` `red:<repository>:<commit>`, its one option `Start a fix`.
 Every act the Operator would take is a go-ahead, so a note, an error or a report ruled to start, send or file is one, asked once.
@@ -47,7 +49,8 @@ Fleet finds that Job from the paths each live Job has written and its plan names
 That is the `until` Bridge sent, worked out from the choice he pressed, or the local day's end where it sent none.
 Fleet knows nothing of the choices.
 **A pick is a button that does what it says**: one of the item's own options, exactly as labelled, or `Later`, which a Yes does.
-Any other pick the call names is dropped. The vetting review's own labels, such as Walk it first, are Fleet's and stand.
+Any other pick the call names is dropped.
+A review of a Job's work picks one label of its kind, and Yes does it: on a plan, `Approve the plan` approves it and `Send the plan back` sends the Job the review's read as the reason; on a pull request, `Open the pull request` opens it, `Send it back` sends the Job the read, and `Walk it first` opens the Job's walk, or asks the Job for one where none is shown; on a walk, `Open the walk`.
 **One ask, one item.** A suggestion that would file or close the same issue as an earlier open one is folded into it, named in its `also_raised_by`, and answered with it.
 One that repeats a suggestion already answered is dropped, with no item and no row under Answered, and Fleet's log says so.
 An ask read off a Job's reply is not queued while one of Fleet's own items for that Job stands: a held Job's start, a plan, a walk, a draft, a sketch or a document.
@@ -89,6 +92,7 @@ It is absent where no pool is read.
 On a question or a card with options, the option the Operator picked is answered on the Job's list.
 **An item Fleet cannot perform itself**, such as a walk to open or a pull request, is left to Bridge: `open` is its `WaitingAct`, and the item stays in Your turn until its Job's list drops it.
 **Always here** and **Always** do the pick and keep it as a rule, for that item's repository or for every one.
+Pressed on an item he settled with Yes less than a minute ago, they only keep the rule, since the act is done, and `open` is absent; any other answer on a settled item, or an Always later than that, is 404 `fleet.operator_turn_unknown`.
 `project` on an Always here keeps it for that project instead, which the page filtered to a project sends: 404 `fleet.no_such_project`, and 422 `fleet.project_not_member` where the item's repository is not one of its members.
 A rule for the repository beats one for a project, which beats one for everywhere, and the same thing in the same place is kept once.
 A rule kept before scopes read as the repository it named, or everywhere.
@@ -109,6 +113,7 @@ Later is `operator_later` and Ask is Bridge opening the chat with `talk_to_opera
 | 422 | `fleet.operator_turn_not_done` | The pick could not be carried out. The item is left standing |
 
 `operator_turn_order` leaves out an id that is not an open item, and the open items it does not name follow in the order they had.
+Naming any ask of a group moves the whole group, since the page lists a group at the place of whichever of its asks comes first.
 
 ## When the window comes to the front
 
@@ -154,3 +159,22 @@ Bridge's half is `OperatorLater.until` and `OperatorTurnItem.also_raised_by` in 
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** No new event: `operator.page_changed` is also sent when a Later runs out, read on Fleet's tick.
+
+## Since 12 Nov 2026: a Job's asks as one entry, and Always after a Yes: `OperatorTurnItem.group`
+
+**Additive only**: one optional field on an answer, and Always here or Always taken on an item settled with Yes within the minute; no operation, route, event kind or error code.
+The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `OperatorTurnItem.group` in `packages/protocol/src/operator-page.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `OperatorTurnItem.group` | Fleet writes | The Job's id, on each of its asks where it has two or more waiting. Absent for a single ask |
+
+**Order.** A group's asks stand together in `turn`, at the place of the first of them in his order, oldest first.
+To drag a group, Bridge sends its ids in `operator_turn_order`; naming any one of them moves the whole group.
+Asks put Later group among themselves, after the rest.
+
+**Always after a Yes.** `operator_answer` with `always_here` or `always` on an item he settled with `yes` less than a minute ago keeps the rule only and is answered with no `open`; Bridge offers the line under a Yes for that minute.
+Any other answer on a settled item, and an Always after that minute, stays 404 `fleet.operator_turn_unknown`.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
