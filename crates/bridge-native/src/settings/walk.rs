@@ -164,6 +164,8 @@ pub static STEPS: &[Step] = &[
     press_on("Off hides a panel", "switch", "Activity", "switch", "Activity"),
     step("Under the switches, the layout mods", Verb::Wheel("region", "Layout", 1400), "group", "Layout mods"),
     press_on("Reset to defaults takes his choices back and switches the layout mods off", "button", "Reset to defaults", "switch", "Activity"),
+    press_on("Words: the mods that turn words such as a Jira key into links", "button", "Words", "region", "Words"),
+    press_on("A Words mod opens to its pattern, and where a match goes in each repository and where that was found", "button", "Details of jira-keys", "group", "Details of jira-keys"),
     press_on("Time: how every stamp Bridge draws is written", "button", "Time", "region", "Time"),
     step("The sample under the switches is now, as they write it", Verb::Look, "switch", "24-hour clock"),
     press_on("24-hour clock off writes the 12-hour clock", "switch", "24-hour clock", "switch", "24-hour clock"),
