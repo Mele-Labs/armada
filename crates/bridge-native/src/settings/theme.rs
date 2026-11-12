@@ -158,6 +158,11 @@ impl SettingsOverlay {
         }
     }
 
+    /// Every theme there is, each with the group it is listed under, whatever is typed in the field.
+    pub(super) fn theme_choices(&self, cx: &App) -> Vec<(&'static str, Offered)> {
+        groups(&self.theme_mods(cx)).into_iter().flat_map(|(group, choices)| choices.into_iter().map(move |one| (group, one))).collect()
+    }
+
     fn theme_flat(&self, cx: &App) -> Vec<Offered> {
         self.theme_shown(cx).into_iter().flat_map(|(_, choices)| choices).collect()
     }
@@ -194,19 +199,28 @@ impl SettingsOverlay {
         let Some(picked) = self.theme_flat(cx).into_iter().nth(at) else { return };
         self.theme_shut(cx);
         self.theme.selected = false;
-        if picked.id == self.theme_word(cx) || !self.live {
+        self.choose_theme(picked.id, window, cx);
+    }
+
+    /// Put a theme in force by its word, from the field or from anywhere that offers the themes.
+    pub(super) fn choose_theme(&mut self, word: String, window: &mut Window, cx: &mut Context<Self>) {
+        if word == self.theme_word(cx) || !self.live {
             return;
         }
-        self.theme.picked = Some(picked.id.clone());
+        self.theme.picked = Some(word.clone());
         self.theme.refused = None;
-        self.wire.show_theme(&picked.id, window, cx);
-        let sent = self.wire.save_preference("theme", picked.id, cx);
+        self.wire.show_theme(&word, window, cx);
+        let sent = self.wire.save_preference("theme", word, cx);
         cx.spawn_in(window, async move |this, cx| {
             let answer = sent.await;
             let _ = this.update_in(cx, |this, window, cx| {
                 match answer {
                     Ok(preferences) => this.wire.preferences_saved(preferences, window, cx),
                     Err(why) => {
+                        if !this.open {
+                            let said = why.said.clone();
+                            cx.defer(move |cx| crate::toasts::tell(said, cx));
+                        }
                         this.theme.refused = Some(why.said);
                         let was = this.wire.theme(cx);
                         this.wire.show_theme(&was, window, cx);

@@ -154,7 +154,7 @@ pub fn holds(words: &str, query: &str) -> bool {
 
 /// The words a search finds an entry by: its name, every word of the sections it holds, and once Fleet has read
 /// settings.json each of those settings' title, key, description and section (`wordsOf`, `system-entries.ts`).
-fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
+pub(super) fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
     let sections: &[&str] = match entry.body {
         Body::Schema(ids) => ids,
         Body::Features => &["features"],

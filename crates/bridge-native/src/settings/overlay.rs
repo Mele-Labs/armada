@@ -464,6 +464,11 @@ impl SettingsOverlay {
 
     fn refuse(&mut self, sent: &str, refused: Refused, cx: &mut Context<Self>) {
         let at = refused.key.filter(|key| self.setting(key).is_some()).unwrap_or_else(|| sent.to_string());
+        // Taken from outside the overlay, the refusal is said where he is, and held for the page as well.
+        if !self.open {
+            let said = refused.said.clone();
+            cx.defer(move |cx| crate::toasts::tell(said, cx));
+        }
         self.refused.insert(at, refused.said);
         cx.notify();
     }

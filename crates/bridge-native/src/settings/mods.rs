@@ -551,7 +551,7 @@ impl SettingsOverlay {
     }
 
     /// Fleet's `set_mod_enabled`: the switch moves at once, and a refusal puts it back and says why.
-    fn switch_mod(&mut self, name: String, kind: ModKind, on: bool, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn switch_mod(&mut self, name: String, kind: ModKind, on: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(was) = self.wire.mods(cx).iter().find(|one| one.name == name).map(|one| one.enabled) else { return };
         self.mods.switched.insert(name.clone(), (was, on));
         self.mods.refused.remove(&name);
@@ -564,6 +564,11 @@ impl SettingsOverlay {
                     if is_taught(kind) {
                         cx.defer(move |cx| crate::toasts::tell(why.said, cx));
                     } else {
+                        // Taken from outside the overlay, the refusal is said where he is.
+                        if !this.open {
+                            let said = why.said.clone();
+                            cx.defer(move |cx| crate::toasts::tell(said, cx));
+                        }
                         this.mods.refused.insert(name, why.said);
                     }
                 }
