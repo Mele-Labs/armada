@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use ipc::{
     Instant, JudgeState, PlanCardState, RawScene, SessionAskState, SessionRecord, SessionRow, SessionThread,
-    SessionVoice, ThreadHead, ThreadItem, ThreadPlan, TimelineEvent,
+    SessionVoice, ThreadHead, ThreadItem, ThreadPlan, ThreadTrail, TimelineEvent,
 };
 
 mod cards;
@@ -42,6 +42,23 @@ pub(crate) fn folded(thread: &SessionThread, timeline: &[TimelineEvent], revisio
     (head, items)
 }
 
+/// A thread cut at a row (`get_job_thread`'s `upto`), drawn as it stood there: **nothing that stands now is on
+/// it.** The head is empty, no ask is open so the last Fleet turn closes as it would, and no sketch is pinned, so
+/// a sketch card stays where its row is. An approved plan's card stays if its `plan` row is inside the cut. The
+/// trail is empty but for `started`, which a trail cannot go without and which is a fact of the Job, not a state.
+pub(crate) fn folded_cut(thread: &SessionThread, timeline: &[TimelineEvent], revisions: &Revisions) -> (ThreadHead, Vec<ThreadItem>) {
+    let head = ThreadHead {
+        asked: None,
+        open_call: None,
+        lapsed: None,
+        fleet_acts: Vec::new(),
+        trail: ThreadTrail { started: thread.session.started_at.clone(), bays: Vec::new(), opened: Vec::new() },
+        plan: None,
+        sketch: None,
+    };
+    (head, items_of(thread, timeline, revisions, None, false))
+}
+
 /// Every revision path the sketches of a record name, which [`folded`] draws once each is in [`Revisions`].
 pub(crate) fn revision_paths(record: &SessionRecord) -> Vec<String> {
     record
@@ -68,6 +85,16 @@ pub(crate) fn window(
     let start = end.saturating_sub(most);
     let older = (start > 0).then(|| items[start].id().to_string());
     Some((items[start..end].to_vec(), older))
+}
+
+/// Cut the items after the one that holds the row `upto`, which stays. A document, a Judge line or a change
+/// is placed by time among the rows, so one written after the cut row stands after it and is not on the old
+/// thread, as Electron's `upTo` keeps nothing past the cut. **Where no item holds the row**, because it is
+/// one no screen draws, the items stand as they are.
+pub(crate) fn cut_after(items: &mut Vec<ThreadItem>, upto: &str) {
+    if let Some(at) = items.iter().position(|item| holds(item, upto)) {
+        items.truncate(at + 1);
+    }
 }
 
 /// Whether the item is `id` or folds the row `id`.
