@@ -120,7 +120,7 @@ The parity check takes each row here as chosen.
 | A bay's panel: a confirm, a refusal or a receipt | Drawn where it falls, often out of sight in a short panel | Scrolled into view as it appears |
 | A walk the Job never showed | A tab with an empty heading and a live Open | No tab is made for it |
 | A draft whose row has gone from the thread | Its tab left standing as a blank frame | Its tab goes away and the next tab comes forward, as on a close; a press on it opens no tab |
-| Done's choice of By step or By kind | Kept on the machine | Kept for the run |
+| A finished plan group in Done | Its tasks listed under every group at once by Whole plan | A press unfolds that group's tasks, as Open's groups do |
 | A document in Done | Opens its page in the reading layer | Opens its card as a tab beside the thread; the page waits on Chrome |
 | A row in a Job's Checks pane | A press opens nothing, a fault | Opens the Check's panel, with its runs in this Job |
 | A judge note on a pull request with no line | Has nowhere to show | Stands at the top of Files, above the tree, in the line notes' look |

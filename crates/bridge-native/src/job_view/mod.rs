@@ -422,7 +422,7 @@ impl JobView {
             head: head::Head::new(cx),
             composer,
             aged: false,
-            ledger_view: done::LedgerView::default(),
+            ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },
             visiting: None,
             switched: None,
             pane: None,

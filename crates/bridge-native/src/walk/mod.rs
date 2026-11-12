@@ -426,6 +426,8 @@ pub static WALKS: &[Walk] = &[
             step("What Fleet did for the Job, with why in its tooltip", Verb::Wheel("region", "Open, Done and Deferred", 600), "group", "Fleet"),
             step("Back at the head", Verb::Wheel("region", "Open, Done and Deferred", -6000), "radio", "By step"),
             press_on("By step again", "radio", "By step", "list", "By step"),
+            press_on("Selecting the Job puts the keys in its message box", "row", "Fix the merge line freshness chip", "button", "Send"),
+            step("⌥L turns the view from there too, as Classic's does", Verb::Key("alt-l"), "group", "Jobs"),
             press_on("A Job that made nothing: Done draws its switch and no body", "row", "Dark mode for the settings page", "radiogroup", "View"),
         ],
     },

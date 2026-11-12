@@ -5,9 +5,11 @@
 //! Fleet, newest first. A list of more than five keeps the latest five behind Show earlier or Show
 //! more. With nothing made only the head is drawn.
 //!
-//! **Departures:** the view is kept for the run, where Classic keeps it on the machine; a document
-//! opens its card as a tab beside the thread, where Classic opens the page in the reading layer, which
-//! waits on Chrome.
+//! The view is kept on the machine beside the list's scope, as Classic keeps it in its `localStorage`.
+//!
+//! **Departures:** a document opens its card as a tab beside the thread, where Classic opens the page
+//! in the reading layer, which waits on Chrome; a finished group unfolds to its tasks on a press, as
+//! Open's groups do, where Classic lists every group's tasks with Whole plan.
 //!
 //! Still owed: a workflow's finished steps (`StepBeat`), which arrive with the workflow group; the mods
 //! a Job made, which Fleet does not serve; the report row with its conclusion; the lanes of a stack of
@@ -36,6 +38,27 @@ pub(super) enum LedgerView {
     #[default]
     Step,
     Kind,
+}
+
+/// Where the choice is kept between runs, beside the list's own (`armada.bridge.job-ledger`).
+fn ledger_file() -> Option<std::path::PathBuf> {
+    crate::jobs::deck_file().map(|deck| deck.with_file_name("native-job-ledger"))
+}
+
+/// The choice kept, By step where none is.
+pub(super) fn read_ledger_view() -> LedgerView {
+    match ledger_file().and_then(|path| std::fs::read_to_string(path).ok()).as_deref().map(str::trim) {
+        Some("kind") => LedgerView::Kind,
+        _ => LedgerView::Step,
+    }
+}
+
+fn write_ledger_view(view: LedgerView) {
+    let Some(path) = ledger_file() else { return };
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(path, if view == LedgerView::Kind { "kind" } else { "step" });
 }
 
 /// The lists By kind makes, in their order (`BUCKETS`).
@@ -234,10 +257,19 @@ impl JobView {
 
     /// ⌥L: By step and By kind, in turn.
     pub(super) fn turn_ledger_view(&mut self, cx: &mut Context<Self>) {
-        self.ledger_view = match self.ledger_view {
+        let next = match self.ledger_view {
             LedgerView::Step => LedgerView::Kind,
             LedgerView::Kind => LedgerView::Step,
         };
+        self.set_ledger_view(next, cx);
+    }
+
+    pub(super) fn set_ledger_view(&mut self, view: LedgerView, cx: &mut Context<Self>) {
+        self.ledger_view = view;
+        // A mock run keeps nothing, as the list's own store does.
+        if self.fleet.is_some() {
+            write_ledger_view(view);
+        }
         cx.notify();
     }
 }
@@ -257,10 +289,7 @@ impl JobView {
         });
         let choice = |key: &'static str, icon: &'static str, said: &'static str, this: LedgerView| {
             labelled(
-                act_button(look, key, icon, "ledger", said.into(), view == this, false).on_click(cx.listener(move |me, _, _, cx| {
-                    me.ledger_view = this;
-                    cx.notify();
-                })),
+                act_button(look, key, icon, "ledger", said.into(), view == this, false).on_click(cx.listener(move |me, _, _, cx| me.set_ledger_view(this, cx))),
                 Role::RadioButton,
                 said,
             )

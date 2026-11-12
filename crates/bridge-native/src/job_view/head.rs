@@ -1397,23 +1397,26 @@ pub(super) fn keyed_tip(act: &str, said: SharedString) -> impl Fn(&mut Window, &
 
 impl JobView {
     /// A press of a toolbelt act's key, from anywhere on the deck but a text box, where ⌥⇧ types a
-    /// character, and not while a dialog or menu is over the Job.
+    /// character, and not while a dialog or menu is over the Job. ⌥L reaches into a text box.
     pub fn tile_key(&mut self, event: &gpui::KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let Some(id) = self.shown.clone() else { return false };
         if self.reporting.is_some() || self.head.confirm.is_some() || self.composer.popup.is_some() {
             return false;
         }
+        let keys = &event.keystroke;
+        // Done's By step and By kind (`LEDGER_KEY`), from the message box too, as Classic's window
+        // listener takes it (`SessionWorkspace.tsx`).
+        if keys.modifiers.alt && !keys.modifiers.shift && !keys.modifiers.platform && !keys.modifiers.control && keys.key == "l" {
+            self.turn_ledger_view(cx);
+            return true;
+        }
         if window.context_stack().iter().any(|context| context.contains(crate::keymap::TEXT_BOX)) {
             return false;
         }
-        let keys = &event.keystroke;
         let bare = !keys.modifiers.modified();
         let chord = keys.modifiers.alt && keys.modifiers.shift && !keys.modifiers.platform && !keys.modifiers.control;
         let hosted = self.record(&id, cx).is_some_and(|job| job.hosted.is_some()) && !self.closed(&id, cx);
-        let alt = keys.modifiers.alt && !keys.modifiers.shift && !keys.modifiers.platform && !keys.modifiers.control;
         match (chord, bare, keys.key.as_str()) {
-            // Done's By step and By kind (`LEDGER_KEY`).
-            (false, false, "l") if alt => self.turn_ledger_view(cx),
             (true, _, "6") if hosted => self.head_act("land", window, cx),
             (true, _, "7") => self.open_judge_pane(window, cx),
             (true, _, "8") if self.record(&id, cx).is_some_and(|record| self.report_manifest(record, cx).is_some()) => self.toggle_report(window, cx),
