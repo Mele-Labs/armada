@@ -812,7 +812,7 @@ impl SettingsOverlay {
             let marks = div().flex_none().w(look.length(token::SPACE_6)).flex().items_center().justify_center().children(mark.map(|(glyph, said)| {
                 labelled(div().id(SharedString::from(format!("workflow-mark-{at}"))).tooltip(tip(said)).child(svg().path(icon_path(glyph)).size(look.length(token::SPACE_3) + look.length(token::BORDER_WIDTH) * 2.).text_color(look.color(token::ACCENT))), Role::Image, said)
             }));
-            let mut save = div().flex_none().min_w(look.length(token::SPACE_12) * 2.).flex().items_center().justify_end().gap(look.length(token::SPACE_1));
+            let mut save = div().flex_none().flex().items_center().justify_end().gap(look.length(token::SPACE_1));
             if changed && !live {
                 if let (Some(discard_key), Some(save_key)) = (detail.key(&format!("discard:{at}")).cloned(), detail.key(&format!("save:{at}")).cloned()) {
                     let press = at.clone();
@@ -839,8 +839,8 @@ impl SettingsOverlay {
                         .child(div().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(step.label.clone())))
                         .children(step.glyph.map(|glyph| svg().flex_none().path(icon_path(glyph)).size(look.length(token::SPACE_3) + look.length(token::BORDER_WIDTH) * 2.).text_color(look.color(token::FG_MUTED))))
                 })
-                // The marks and Save keep to the band's right, together, and go under its name together where it is narrow.
-                .child(div().flex_none().ml_auto().flex().items_center().gap(look.length(token::SPACE_3)).child(marks).child(save))
+                // Save and the marks keep to the band's right, together, the marks last so they line up from card to card.
+                .child(div().flex_none().ml_auto().flex().items_center().gap(look.length(token::SPACE_3)).child(save).child(marks))
         });
 
         let mut facts = div().flex().flex_col().gap(look.length(token::SPACE_2)).p(look.length(token::SPACE_4)).text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT));
