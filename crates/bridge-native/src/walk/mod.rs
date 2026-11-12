@@ -469,7 +469,7 @@ pub static WALKS: &[Walk] = &[
             step("Fleet at work beside the agent, with why in its tooltip", Verb::Look, "group", "Moving the Job to slot-5"),
             step("What the Job waits on, ci running on its pull request, and the native tests running", Verb::Look, "group", "native-tests"),
             step("The agent's open tasks", Verb::Wheel("region", "Job column: Now", 160), "list", "Agent tasks"),
-            step("The group being worked stands open, its drones beside it", Verb::Wheel("region", "Job column: Now", 160), "button", "Subagent at work on Read the chip's stories"),
+            step("The group being worked stands open, its drones beside it", Verb::Look, "button", "Subagent at work on Read the chip's stories"),
             press_on("A drone opens its subagent's thread as a tab beside the thread", "button", "Subagent at work on Read the chip's stories", "tab", "Job tab: Read the chip's stories"),
             press_on("A finished subagent's drone opens its thread too", "button", "Subagent, finished: Find every reader of mergeLineTone", "tab", "Job tab: Find every reader of mergeLineTone"),
             press_on("A press shuts the group, its tasks as one track", "button", "Plan group: Chip reads the stale state", "img", "Tasks in this group, done and to do"),
