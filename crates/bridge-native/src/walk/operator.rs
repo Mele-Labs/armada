@@ -11,7 +11,7 @@ const HOLD: &str = "armada: only Slot pool controls writes under apps/cockpit un
 const FORGET_HOLD: &str = "Forget armada: only Slot pool controls writes under apps/cockpit until it pushes";
 const TOP: &str = "Since you left, the red main's fix is up as #3414, waiting on ci. Quick dispatch's plan is still the one two Jobs wait on.";
 
-pub static STEPS: [Step; 57] = [
+pub static STEPS: [Step; 59] = [
     step("Coming back at 13:05: the day, and the pills say what stands. storefront's main has been red since 11:24", Verb::Look, "status", "storefront main is red since 11:24"),
     step("The Operator's one line on what changed, in grey under the day: nothing on it waits on you", Verb::Look, "status", TOP),
     step("What the Operator is reading now: the Job by name, what it asks, and its project", Verb::Look, "status", "The Operator is reading what Store reports its size asks: Review pull request #3415"),
@@ -20,9 +20,9 @@ pub static STEPS: [Step; 57] = [
     answer("What you answered leaves Your turn for Answered today, folded at its foot", "rest", "button", "Answered today"),
     step("A press opens it: each answer today, and what came of it", Verb::Open("button", "Answered today"), "row", "Quick dispatch, Answered Approve"),
     step("A press again folds it", Verb::Open("button", "Answered today"), "button", "Answered today"),
-    answer("A go-ahead to file names its Then, with My pick marked", "top", "radio", "File and hand to Slot pool controls"),
-    step("2 picks the second Then", Verb::Key("2"), "radio", "File and start a Job"),
-    step("H is Always here, ⇧A Always, D No: a rule is kept only where Fleet can do the pick alone", Verb::Look, "button", "Always here"),
+    answer("A go-ahead to file is one row of outcomes, each saying what happens, and My pick filled", "top", "button", "File and hand to Slot pool controls"),
+    step("Its tooltip says why the Operator picks it", Verb::Hover, "button", "File and hand to Slot pool controls"),
+    step("1 to 3 press an outcome, D is Don't file, and Later and Ask keep the right", Verb::Look, "button", "Don't file"),
     step("L puts it Later, last for today, and the next item opens", Verb::Key("l"), "article", "Rework the Map legend"),
     step("Its pick is no option, so the button reads My pick, and the Operator's sentence is in its tooltip", Verb::Hover, "button", "My pick"),
     answer("Its row wears the clock: later today", "rest", "row", NOTE),
@@ -39,8 +39,10 @@ pub static STEPS: [Step; 57] = [
     answer("Fleet will refuse the next answer", "refuse", "article", "File your note as an issue"),
     step("A sends Yes and Fleet says no: the item stays open, with Fleet's why under it", Verb::Key("a"), "alert", "Not done: the tracker did not take the new issue"),
     answer("Fleet's reply to the next answer will not arrive", "lose", "article", "File your note as an issue"),
-    step("A again: no reply in 30 seconds, so the item stays open and a toast offers Retry", Verb::Key("a"), "alert", "Toast: Your answer to File your note as an issue did not reach Fleet: no answer in 30 seconds"),
+    step("2 presses File and start a Job: no reply in 30 seconds, so the item stays open and a toast offers Retry", Verb::Key("2"), "alert", "Toast: Your answer to File your note as an issue did not reach Fleet: no answer in 30 seconds"),
     step("Retry sends it again, and the item goes to Answered today", Verb::Open("button", "Retry"), "button", "Answered today"),
+    step("Opened, it says what came of it", Verb::Open("button", "Answered today"), "row", "File your note: the slot meter flickers when a Job ends, and for a second the count reads one slot more than the pool holds before it settles, Filed #3421 and started a Job"),
+    step("A press again folds it", Verb::Open("button", "Answered today"), "button", "Answered today"),
     step("Landed opens on a press, its first few rows one line each", Verb::Open("button", "Landed"), "listitem", "#3413 Slot meter shows free slots"),
     step("Show all draws the rest of them", Verb::Open("button", "Show all Landed"), "listitem", "#3401 Merge strip says how fresh each line is"),
     step("Show fewer goes back to the first few", Verb::Open("button", "Show fewer Landed"), "button", "Show all Landed"),
@@ -67,6 +69,6 @@ pub static STEPS: [Step; 57] = [
     step("Switch on is the setting Electron's Permissions tab saves, and the page reads on at once", Verb::Open("button", "Switch the Operator on"), "status", "The Operator is reading what Store reports its size asks: Review pull request #3415"),
     step("Tab from the page starts at the pills, then goes through the presses, the times, the tiles and the links", Verb::Key("tab"), "status", "storefront main is red since 11:24"),
     step("Your turn is back as Fleet keeps it", Verb::Look, "article", "Quick dispatch"),
-    step("The keys: ↓ ↑ or j k move through Your turn; A Yes, H Always here, ⇧A Always, D No, C Send changes; 1–3 a Then", Verb::Look, "heading", "Your turn"),
+    step("The keys: ↓ ↑ or j k move through Your turn; A Yes, H Always here, ⇧A Always, D No, C Send changes; on a go-ahead to file, 1–3 an outcome and D Don't file", Verb::Look, "heading", "Your turn"),
     step("L Later; / Ask; F Forget a rule or a hold; ⌥↑ ⌥↓ move the item; Enter is Yes where the page has the keys; Tab moves through the page, and Enter or Space presses what it is on; Esc leaves the chat or a sheet", Verb::Look, "heading", "Your turn"),
 ];

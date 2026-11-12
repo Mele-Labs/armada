@@ -556,9 +556,16 @@ impl OperatorPageView {
             }
             return;
         }
+        // On a go-ahead to file, the digit is that outcome's press.
         let Some(offer) = digit.checked_sub(1).and_then(|at| turn.then.get(at)) else { return };
-        self.then.insert(turn.id.clone(), offer.then);
-        cx.notify();
+        self.outcome(offer.then, cx);
+    }
+
+    /// One outcome of a go-ahead to file, pressed: Yes with that Then.
+    pub fn outcome(&mut self, then: OperatorThen, cx: &mut Context<Self>) {
+        let Some(turn) = self.open_item().cloned() else { return };
+        self.then.insert(turn.id.clone(), then);
+        self.answer_now(OperatorAnswer::Yes, cx);
     }
 
     pub fn pick_option(&mut self, id: &str, label: &str, cx: &mut Context<Self>) {
@@ -566,14 +573,13 @@ impl OperatorPageView {
         cx.notify();
     }
 
-    pub fn pick_then(&mut self, id: &str, then: OperatorThen, cx: &mut Context<Self>) {
-        self.then.insert(id.to_string(), then);
-        cx.notify();
-    }
-
     /// One press on the open item. It leaves Your turn at once for Answered today, with a pending mark,
     /// and the next item opens.
     pub fn answer(&mut self, answer: OperatorAnswer, _window: &mut Window, cx: &mut Context<Self>) {
+        self.answer_now(answer, cx);
+    }
+
+    fn answer_now(&mut self, answer: OperatorAnswer, cx: &mut Context<Self>) {
         let Some(turn) = self.open_item().cloned() else { return };
         if !face::answers_of(&turn).contains(&answer) {
             return;

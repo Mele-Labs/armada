@@ -82,6 +82,7 @@ pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32]) -> Extract
             found.push(one.sentence.clone());
         }
     }
+    found.retain(|sentence| close.iter().find(|one| one.sentence == *sentence).is_none_or(|one| !one.listed || asks_from_a_list(one)));
     let asked: Vec<Ask> = found
         .iter()
         .enumerate()
@@ -93,6 +94,15 @@ pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32]) -> Extract
         })
         .collect();
     Extracted { asks: asked }
+}
+
+/// Whether a list line asks him: **a list mostly says what the work is**, though its lines start as an
+/// instruction would ("Press Start that starts the Job."), so only a question, a line that names him,
+/// or one that hands over a command is an ask.
+fn asks_from_a_list(line: &Closing) -> bool {
+    let said = line.sentence.to_lowercase();
+    let names_him = said.split(|c: char| !c.is_alphanumeric() && c != '\'').any(|word| matches!(word, "you" | "your" | "you'll" | "you're"));
+    line.command.is_some() || said.trim_end_matches(['*', '"', '\'', ')', ' ']).ends_with('?') || names_him
 }
 
 /// A pull request to approve where the sentence names one with approve, merge or land; else an answer.

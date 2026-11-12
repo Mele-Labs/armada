@@ -160,6 +160,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A subagent's own thread moved: a client holding it reads `get_session_subagent` again.
+    Route {
+        operation: "session.subagent",
+        method: "GET",
+        path: "/events",
+    },
     // A Job's shell opened or ended. Its output is `observe_session_run`'s.
     Route {
         operation: "terminal.opened",

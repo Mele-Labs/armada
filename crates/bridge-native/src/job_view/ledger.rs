@@ -144,6 +144,8 @@ pub(super) fn subagent_of(one: &ipc::Attachment) -> ToolSubagent {
         state: if standing { ToolSubagentState::Running } else { ToolSubagentState::Finished },
         since: one.since.clone(),
         ended: (!standing).then(|| one.changed_at.clone()),
+        // A ledger row carries no report; the sheet reads the subagent's own.
+        report: None,
     }
 }
 

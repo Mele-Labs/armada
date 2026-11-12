@@ -13,6 +13,7 @@ import type { SlotReleased } from "./holding";
 import type { PlanChangeLine } from "./session-plan";
 import type { RequestBy, RequestHeader } from "./requests";
 import type { ThoughtTarget } from "./thought";
+import type { ThreadItem } from "./job-thread";
 import type { SessionRecord, WaitingOption, WalkStep, WindowPlace, WindowTake } from "./sessions";
 import type { ProjectRowRef } from "./projects";
 import type { ResolvedValues } from "./values";
@@ -525,6 +526,8 @@ export type ToolSubagent = {
   state: "running" | "finished" | "cut_off";
   since: string;
   ended?: string;
+  /** What the subagent handed back, set once it settled `finished`. A `cut_off` one has none. */
+  report?: string;
 };
 
 /** One row of a hosted session's thread. A row is replaced by its `id`. */
@@ -866,6 +869,8 @@ export type SessionThread = {
 /** `get_session_subagent`: one subagent's own thread. A client reads it again while the subagent runs. */
 export type SessionSubagent = {
   rows: SessionRow[];
+  /** `rows` folded the way a Job's thread is, with no ledger: no sketch, file, document, change, judged or plan card. Absent for no rows. */
+  items?: ThreadItem[];
   finished: boolean;
   report?: string;
   /** The model id its last answer was written under. Absent until it has answered. */
@@ -879,4 +884,10 @@ export type SessionSubagent = {
 export type SessionRowChanged = {
   session_id: string;
   row: SessionRow;
+};
+
+/** `session.subagent`: a subagent's own thread moved. Read `get_session_subagent` again with `subagent_id`, a `ToolSubagent.id`. */
+export type SessionSubagentChanged = {
+  session_id: string;
+  subagent_id: string;
 };
