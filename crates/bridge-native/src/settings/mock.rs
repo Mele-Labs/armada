@@ -32,6 +32,10 @@ pub struct MockFleet {
     pub changes: Vec<super::mock_workflows::Kept>,
     /// What `GET /models` answers: Classic's mock models (`apps/desktop/src/renderer/src/mock/kit-models.ts`).
     pub models: ipc::ModelChoices,
+    /// The Phone Gateway Settings › Macs reads (`gateway.rs`).
+    pub gateway: super::gateway::MockGateway,
+    /// What a press would have opened in the browser or put on the clipboard: a walk touches neither of his.
+    pub handed: Vec<String>,
 }
 
 /// What Fleet runs on All, as Classic's Workflows page is walked on (`mock/workflows-managed.ts`): Armada's four,
@@ -105,6 +109,8 @@ impl MockFleet {
         }
         MockFleet { list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
+            gateway: super::gateway::MockGateway::new(),
+            handed: Vec::new(),
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
         }

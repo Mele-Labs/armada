@@ -47,6 +47,8 @@ pub enum Body {
     Workflows,
     /// The models the harness offers and the model each run starts on (`KitModels`).
     Models,
+    /// This Mac, its Cloudflare tunnel, and the Macs and phones that reach it, off the Phone Gateway (`macs.rs`).
+    Macs,
     /// A list of mods (`ModList`): All where no kind is named, else the mods of that kind, listed only while there is one.
     Mods(Option<ipc::ModKind>),
 }
@@ -89,6 +91,7 @@ pub const SECTIONS: &[Section] = &[
     Section { id: "theme", label: "Theme", palette: "Theme", words: &["Theme", "colours", "colors", "dark", "light", "appearance", "mods"] },
     Section { id: "trackers", label: "Tracker", palette: "Tracker mods", words: &["Tracker", "mods", "issue tracker", "tried", "valid", "stale", "try", "switch", "promote"] },
     Section { id: "fleet-mods", label: "Fleet", palette: "Fleet mods", words: &["Fleet", "mods", "teach", "taught", "notices", "batch", "quiet", "switch"] },
+    Section { id: "macs", label: "Macs", palette: "Macs", words: &["Macs", "mac", "this mac", "tunnel", "cloudflare", "devices", "phones", "unpair", "address"] },
     Section { id: "spacing", label: "Spacing", palette: "Spacing", words: &["Spacing", "density", "compact", "default", "roomy", "room", "dense"] },
 ];
 
@@ -118,6 +121,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "bridge:editor", label: "Editor", group: Group::Bridge, body: Body::Schema(&["editor"]) },
     Entry { id: "bridge:terminal", label: "Terminal", group: Group::Bridge, body: Body::Schema(&["terminal"]) },
     Entry { id: "bridge:links", label: "Links", group: Group::Bridge, body: Body::Schema(&["links"]) },
+    Entry { id: "bridge:macs", label: "Macs", group: Group::Bridge, body: Body::Macs },
 ];
 
 pub const GROUPS: [Group; 5] = [Group::Project, Group::Kit, Group::Fleet, Group::Mods, Group::Bridge];
@@ -171,6 +175,7 @@ pub(super) fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
         Body::Mods(None) => &["mods-all"],
         Body::Mods(Some(ipc::ModKind::Tracker)) => &["trackers"],
         Body::Mods(Some(_)) => &["fleet-mods"],
+        Body::Macs => &["macs"],
         Body::Repository | Body::ProjectValues | Body::Keyboard | Body::Workflows => &[],
     };
     let mut words = vec![entry.label.to_string()];
