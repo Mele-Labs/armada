@@ -680,6 +680,8 @@ export type PlanApproval = {
   }[];
   /** The Job opens pull requests: its groups stand under the chip of the one each lands in, a one pull request plan under one chip. Absent draws no chip. */
   opensPullRequests?: true;
+  /** Each group lists its tasks' words under it, a mark before each, where absent draws a mark for each task alone. A surface without hover, the phone, sets it. */
+  taskText?: true;
   /** Opens a pull request a chip names. */
   onOpenPullRequest?: (number: number) => void;
   approved: boolean;
@@ -2906,9 +2908,12 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   );
   // Where the Job opens pull requests, each list stands under the chip of the one its groups land in.
   const runs = landingsOf(approval.groups, approval.opensPullRequests === true);
-  // A group that goes to a Job of its own is that Job's card alone, in the place of a pull request chip: a placeholder until it is handed, then the Job. The Job plans its
-  // own tasks, so the group's line is not drawn under it.
-  const landed = (list: (groups: typeof approval.groups) => ReactNode) =>
+  // A group that goes to a Job of its own stands under that Job's card, in the place of a pull request chip: a placeholder until it is handed, then the Job. The
+  // card is drawn once, with the groups (`cards`); what each group gives lists the group with the others, under no card.
+  // Under its card, an own group's line is drawn only where it has something the card does not say: what it gives, or its tasks' words.
+  const ownLine = (group: (typeof approval.groups)[number]) =>
+    group.gives !== undefined || approval.taskText === true;
+  const landed = (list: (groups: typeof approval.groups) => ReactNode, cards = true) =>
     runs.length === 1 && runs[0]!.landsIn === undefined && runs[0]!.own === undefined ? (
       list(runs[0]!.groups)
     ) : (
@@ -2924,7 +2929,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
             }
           >
             {run.own !== undefined ? (
-              run.own.job === undefined ? (
+              !cards ? null : run.own.job === undefined ? (
                 <JobCard
                   placeholder={run.own.title}
                   {...(run.own.issue === undefined
@@ -2955,7 +2960,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
             ) : run.landsIn === undefined ? null : (
               <LandsInChip landsIn={run.landsIn} onOpen={approval.onOpenPullRequest} />
             )}
-            {run.own !== undefined ? null : list(run.groups)}
+            {cards && run.own !== undefined && !ownLine(run.own) ? null : list(run.groups)}
           </section>
         ))}
       </div>
@@ -2964,14 +2969,30 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
     <ul className="armada-session-thread__groups">
       {some.map((group) => (
         <li key={group.id} className="armada-session-thread__group">
-          <span className="armada-session-thread__group-title">{group.title}</span>
-          {approved ? null : (
+          {/* Under its Job's card, which carries the title, the group reads what it gives. */}
+          <span
+            className="armada-session-thread__group-title"
+            data-own={group.ownJob === true || undefined}
+          >
+            {group.ownJob === true ? group.gives : group.title}
+          </span>
+          {approved || approval.taskText === true ? null : (
             <span className="armada-session-thread__marks">
               {group.tasks.map((task) => (
                 <TaskMark key={task.id} state="open" />
               ))}
             </span>
           )}
+          {approval.taskText === true ? (
+            <ul className="armada-session-thread__tasks" aria-label="Tasks">
+              {group.tasks.map((task) => (
+                <li key={task.id}>
+                  {approved ? null : <TaskMark state="open" />}
+                  <span>{task.text}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <Tooltip label="Subagent type">
             <span
               className="armada-session-thread__agent"
@@ -3110,23 +3131,26 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
                 {anchors === undefined ? null : (
                   <FindingNotes findings={anchors.whole} label="Findings on the plan" {...acts} />
                 )}
-                {landed((some) => (
-                  <ul className="armada-session-thread__gives" aria-label="What each group gives">
-                    {some.map((group) =>
-                      anchors === undefined ? (
-                        <li key={group.id}>{group.gives ?? group.title}</li>
-                      ) : (
-                        <GivesRow
-                          key={group.id}
-                          text={group.gives ?? group.title}
-                          group={group}
-                          anchors={anchors}
-                          {...acts}
-                        />
-                      ),
-                    )}
-                  </ul>
-                ))}
+                {landed(
+                  (some) => (
+                    <ul className="armada-session-thread__gives" aria-label="What each group gives">
+                      {some.map((group) =>
+                        anchors === undefined ? (
+                          <li key={group.id}>{group.gives ?? group.title}</li>
+                        ) : (
+                          <GivesRow
+                            key={group.id}
+                            text={group.gives ?? group.title}
+                            group={group}
+                            anchors={anchors}
+                            {...acts}
+                          />
+                        ),
+                      )}
+                    </ul>
+                  ),
+                  false,
+                )}
                 <Button
                   size="sm"
                   variant="ghost"

@@ -405,6 +405,7 @@ export function approvalOf(session: Session, onApprove: () => void): PlanApprova
           opensPullRequests: true as const,
         }
       : {}),
+    taskText: true,
     approved: plan.approved,
     ...(plan.sketch === undefined
       ? {}
