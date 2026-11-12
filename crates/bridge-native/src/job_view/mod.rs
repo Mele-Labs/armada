@@ -75,7 +75,7 @@ mod workflow;
 mod tabs;
 mod view_tabs;
 pub use side::JobSide;
-pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewTab};
+pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;
 pub use mod_panel::{ModPanel, ModPanelAsked, OpenJobFrom};
 pub use teach::notice_name;
@@ -1032,11 +1032,14 @@ impl Render for JobView {
         // A closed Thread tab leaves its pane empty under the strip, as Electron's does; a tab beside
         // it in front draws its own body there.
         let front = self.row_front(&id).cloned();
-        let open = !self.tab_closed("thread") && front.is_none();
-        let body = match &front {
-            Some(tab) => self.row_tab_body(&id, tab, look, window, cx),
-            None if open => body,
-            None => div().into_any_element(),
+        // A row's tab stands first, then a view tab another part of the app opened here, then the thread.
+        let view = front.is_none().then(|| self.view_front(ViewPane::Thread).map(|one| one.view.clone())).flatten();
+        let open = !self.tab_closed("thread") && front.is_none() && view.is_none();
+        let body = match (&front, view) {
+            (Some(tab), _) => self.row_tab_body(&id, tab, look, window, cx),
+            (None, Some(view)) => div().size_full().child(view).into_any_element(),
+            (None, None) if open => body,
+            (None, None) => div().into_any_element(),
         };
         let head = self.render_head(&id, cx);
         let origin = if open { self.render_origin(&id, window, cx) } else { None };

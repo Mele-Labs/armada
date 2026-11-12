@@ -51,9 +51,9 @@ impl JobView {
     /// A pane with no tab left in it, which offers Close pane.
     pub(super) fn pane_empty(&self, pane: Pane) -> bool {
         match pane {
-            Pane::Thread => self.tab_closed("thread") && self.shown.as_ref().is_none_or(|id| self.row_tabs_empty(id)),
-            Pane::Top => self.zone_shown().is_none(),
-            Pane::Now => self.tab_closed("now"),
+            Pane::Thread => self.tab_closed("thread") && self.shown.as_ref().is_none_or(|id| self.row_tabs_empty(id)) && !self.view_tabs_in(super::ViewPane::Thread),
+            Pane::Top => self.zone_shown().is_none() && !self.view_tabs_in(super::ViewPane::Top),
+            Pane::Now => self.tab_closed("now") && !self.view_tabs_in(super::ViewPane::Bottom),
         }
     }
 
