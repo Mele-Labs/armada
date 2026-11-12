@@ -537,9 +537,9 @@ where
         let until = match &later.until {
             None => self.next_day_began(&now).await,
             Some(until) => {
-                let millis = utc_millis(until.as_str()).ok_or_else(|| self.hosted_refusal(LATER_PAST, &format!("{} does not read as a time", until.as_str())))?;
+                let millis = utc_millis(until.as_str()).ok_or_else(|| self.hosted_refusal(LATER_PAST, "That time could not be read. Pick another."))?;
                 if millis <= now.epoch_millis().unwrap_or(0) {
-                    return Err(self.hosted_refusal(LATER_PAST, &format!("{} has passed, so the item cannot wait until then", until.as_str())));
+                    return Err(self.hosted_refusal(LATER_PAST, "That time has passed. Pick a later one."));
                 }
                 crate::clock::rfc3339_utc(millis)
             }
