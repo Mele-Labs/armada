@@ -964,12 +964,13 @@ pub(crate) async fn get_session<D: HostedSessions>(
     }
 }
 
-/// `?session_id=`, `?before=` and `?limit=` on `get_job_thread`.
+/// `?session_id=`, `?before=`, `?limit=` and `?upto=` on `get_job_thread`.
 #[derive(Deserialize)]
 pub(crate) struct WhichThread {
     session_id: String,
     before: Option<String>,
     limit: Option<u32>,
+    upto: Option<String>,
 }
 
 pub(crate) async fn get_job_thread<D: HostedSessions>(
@@ -980,6 +981,7 @@ pub(crate) async fn get_job_thread<D: HostedSessions>(
         session_id: ipc::SessionId::carried(which.session_id),
         before: which.before,
         limit: which.limit,
+        upto: which.upto,
     };
     match served.shared().get_job_thread(read).await {
         Ok(thread) => answer(StatusCode::OK, &thread, served.run_id()),

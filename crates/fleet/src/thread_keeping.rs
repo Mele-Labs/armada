@@ -322,6 +322,9 @@ where
 
     /// `get_job_thread`: fold the Job's thread, answer the window asked for, and follow the Job.
     pub(crate) async fn job_thread_served(self: Arc<Self>, read: JobThreadRead) -> Result<JobThread, api::Refusal> {
+        if let Some(upto) = read.upto.as_deref() {
+            return self.job_thread_cut(&read, upto).await;
+        }
         let threads = Arc::clone(&self.hosts().threads);
         let id = read.session_id.clone();
         threads.begin(id.as_str()).await;
@@ -335,6 +338,27 @@ where
         let (head, items) = threads.read_through(id.as_str(), thread, timeline).await;
         match window(&items, read.before.as_deref(), read.limit) {
             Some((items, older)) => Ok(JobThread { session_id: id, head, items, older }),
+            None => Err(self.hosted_refusal(THREAD_ITEM_UNKNOWN, "no item of that job's thread holds that id")),
+        }
+    }
+
+    /// `get_job_thread` with `upto`: the thread cut after that row, then folded, then windowed. **Not held**: the
+    /// held reading is the whole live thread `job_thread.tail` follows, and a cut one must neither replace nor
+    /// join it. The head is the cut fold's.
+    async fn job_thread_cut(self: Arc<Self>, read: &JobThreadRead, upto: &str) -> Result<JobThread, api::Refusal> {
+        let (mut thread, mut timeline) = self.thread_read(&read.session_id).await?;
+        let Some(end) = thread.rows.iter().position(|row| row.id() == upto) else {
+            return Err(self.hosted_refusal(THREAD_ITEM_UNKNOWN, "no row of that job's thread holds that id"));
+        };
+        thread.rows.truncate(end + 1);
+        // A change after the cut row is not part of the old thread.
+        let cut_at = thread.rows[end].at().clone();
+        timeline.retain(|event| event.at <= cut_at);
+        let mut revisions = Revisions::new();
+        revisions_read(&thread.session, &mut revisions).await;
+        let (head, items) = folded(&thread, &timeline, &revisions);
+        match window(&items, read.before.as_deref(), read.limit) {
+            Some((items, older)) => Ok(JobThread { session_id: read.session_id.clone(), head, items, older }),
             None => Err(self.hosted_refusal(THREAD_ITEM_UNKNOWN, "no item of that job's thread holds that id")),
         }
     }

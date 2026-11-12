@@ -16,13 +16,20 @@ export const THREAD_ITEMS_MOST = 1000;
 /** The most items from the end a change may reach for `job_thread.tail` to carry it; one further back is `job_thread.changed`. */
 export const THREAD_TAIL_MOST = 200;
 
-/** `get_job_thread` (`GET /sessions/thread?session_id=&before=&limit=`): the newest items of a Job's thread, or the ones before an item a client holds. */
+/** `get_job_thread` (`GET /sessions/thread?session_id=&before=&limit=&upto=`): the newest items of a Job's thread, or the ones before an item a client holds. */
 export type JobThreadRead = {
   session_id: string;
   /** The id of an item, or of any row inside one: the answer holds the items before it. Absent is the newest. */
   before?: string;
   /** How many items, at most. Absent is `THREAD_ITEMS_SERVED`. */
   limit?: number;
+  /**
+   * The id of a row: the thread is read as it stood at that row, the rows after it left out before Fleet folds, so a
+   * run of calls that went on past it ends at it. The read is not held and `job_thread.tail` never carries to it;
+   * `before` and `limit` page the cut thread, and its `head` is the cut fold's. A row the thread does not hold is
+   * refused 422 `fleet.thread_item_unknown`. Absent is the whole thread.
+   */
+  upto?: string;
 };
 
 /** The answer to `get_job_thread`. */

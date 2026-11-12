@@ -1775,3 +1775,23 @@ The native Bridge reads it.
 **The event stream.** No new event, and none grows: `done_waiting` and `withdraw_document` publish `session.changed` as `dismiss_waiting` does.
 The view is read, not pushed, so a Bridge that draws it reads it again on `session.changed`.
 The open risk below is neither better nor worse.
+
+## A thread read cut at a row: `get_job_thread`'s `upto`
+
+Since 12 Nov 2026. `docs/practices/protocol/a-jobs-thread-fleet-folds.md`.
+**Additive only**: one optional query parameter and the optional field it fills on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, the operation file and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `upto` on `JobThreadRead` in `packages/protocol/src/job-thread.ts`, written by hand, field for field.
+The native Bridge passes the `forked_from` attachment's `detail.at` to draw the thread a fork was cut from.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `JobThreadRead.upto` (`GET /sessions/thread?upto=`) | Bridge sends, Fleet reads | A row id. Fleet cuts the thread's rows after that row, included, then folds, then windows with `before` and `limit` as it does for the whole thread. Absent is the whole thread |
+
+**Cut, then fold, then window.** A run of calls that went on past the row ends at it, so an item is never the whole run when the cut falls inside it. A timeline change after the row's time is left out.
+**Not held.** The read does not replace the live thread Fleet keeps for `job_thread.tail`, and no event follows it.
+**The head** is the cut fold's: `open_call` and `lapsed` come from the cut rows. The open ask, the plan, the pinned sketch and the trail are read off the Job's record and are as the Job stands now.
+**Refused with nothing changed**: 422 `fleet.thread_item_unknown` for an `upto` no row of the thread holds, the code an unknown `before` already has. A `before` past the cut is the same refusal.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: a cut read subscribes nothing. The open risk below is neither better nor worse.
