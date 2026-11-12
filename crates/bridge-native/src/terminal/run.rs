@@ -48,9 +48,6 @@ const COMMON: &[&str] = &[
     "source", "export",
 ];
 
-/// Words a sentence carries and a command's arguments do not.
-const PROSE: &[&str] = &["it", "so", "the", "a", "an", "is", "this", "that", "sure"];
-
 /// A first word that opens a line of code, not of a command.
 const CODE_WORDS: &[&str] =
     &["const", "let", "var", "function", "def", "class", "import", "from", "return", "fn", "pub", "use", "struct", "enum", "impl", "interface", "package", "public", "private", "type", "async", "await"];
@@ -133,11 +130,7 @@ pub fn reads_as_shell(source: &str) -> bool {
         if !worded || CODE_WORDS.contains(&first) {
             return false;
         }
-        // A command word followed by a word of prose is a sentence: "make it so".
         if COMMON.contains(&first) {
-            if rest.iter().any(|word| PROSE.contains(word)) {
-                return false;
-            }
             continue;
         }
         if !rest.iter().any(|word| word.starts_with('-') || word.contains(['/', '.', '~', '=', '$', '"', '\'', '*', '@'])) {
