@@ -96,6 +96,7 @@ fn page(manifest_id: ManifestId, number: u64) -> PullRequestPage {
         threads: Vec::new(),
         reviewers: Vec::new(),
         owner: None,
+        draft: None,
     }
 }
 
