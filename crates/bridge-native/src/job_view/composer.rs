@@ -1026,7 +1026,7 @@ impl JobView {
             .h(look.length(token::H_CONTROL))
             .pl(look.length(token::SPACE_3))
             .pr(look.length(token::SPACE_2))
-            // In a box under 400px its words are gone, as Electron's truncate to nothing there: its glyph and caret keep their room.
+            // In a box under 400px its words are gone and its glyph stands in for them, as Electron's truncate to nothing there: its glyph and caret keep their room.
             .when(narrow, |button| {
                 button.overflow_hidden().when(glyph.is_some(), |button| button.min_w(look.length(token::SPACE_1) * 3. + look.length(token::SPACE_4) * 2. + look.length(token::BORDER_WIDTH) * 2.)).gap(look.length(token::SPACE_1)).pl(look.length(token::SPACE_1)).pr(look.length(token::SPACE_1))
             })
@@ -1035,7 +1035,7 @@ impl JobView {
             .text_size(look.length(token::TEXT_SM))
             .text_color(look.color(token::FG_MUTED))
             .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
-            .children(glyph.map(|name| svg().flex_none().path(icon_path(name)).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))))
+            .children(glyph.filter(|_| narrow).map(|name| svg().flex_none().path(icon_path(name)).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))))
             .children((!narrow).then(|| div().min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis().child(said)))
             .children(meter)
             .child(svg().flex_none().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
