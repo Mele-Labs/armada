@@ -23,6 +23,7 @@ mod draft_doc;
 mod dock;
 mod done;
 mod now;
+mod open;
 mod edit;
 mod fork;
 mod format;

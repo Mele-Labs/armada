@@ -325,7 +325,7 @@ impl JobView {
                 self.done_group(record, group, mine, look, cx)
             })
             .collect();
-        let loose = (!loose.is_empty()).then(|| self.made_list(loose, true, "done:step".into(), look, cx));
+        let loose = (!loose.is_empty()).then(|| self.made_list(loose, Some(true), "done:step".into(), look, cx));
         Some(labelled(div().id("done-by-step").flex().flex_col().gap(look.length(token::SPACE_1)).children(groups).children(loose), Role::List, "By step").into_any_element())
     }
 
@@ -351,7 +351,7 @@ impl JobView {
                         .flex_col()
                         .gap(look.length(token::SPACE_1))
                         .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_SUBTLE)).child(label))
-                        .child(self.made_list(mine, false, format!("done:{label}"), look, cx)),
+                        .child(self.made_list(mine, Some(false), format!("done:{label}"), look, cx)),
                     Role::Group,
                     label,
                 )
@@ -409,16 +409,17 @@ impl JobView {
                 "Tasks",
             )
         });
-        let made = (!mine.is_empty()).then(|| div().pl(look.length(token::SPACE_6)).child(self.made_list(mine, true, format!("done:group:{}", group.id), look, cx)));
+        let made = (!mine.is_empty()).then(|| div().pl(look.length(token::SPACE_6)).child(self.made_list(mine, Some(true), format!("done:group:{}", group.id), look, cx)));
         div().flex().flex_col().child(head).children(tasks).children(made).into_any_element()
     }
 
     /// What was made, in the order given. Every pull request stands in one stack, where the first of
-    /// them stands. More than five keep the latest five behind Show earlier, above a list that runs
-    /// oldest first, or Show more, under one that runs newest first.
-    fn made_list(&self, list: Vec<Made>, newest_last: bool, key: String, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// them stands. Given which end is newest, more than five keep the latest five behind Show earlier,
+    /// above a list that runs oldest first, or Show more, under one that runs newest first.
+    fn made_list(&self, list: Vec<Made>, newest: Option<bool>, key: String, look: &Look, cx: &Context<Self>) -> AnyElement {
         let total = list.len();
-        let cut = total > RECENT && !self.side_unfolded(&key);
+        let newest_last = newest.unwrap_or(true);
+        let cut = newest.is_some() && total > RECENT && !self.side_unfolded(&key);
         let shown: Vec<Made> = match (cut, newest_last) {
             (false, _) => list,
             (true, true) => list.into_iter().skip(total - RECENT).collect(),
@@ -468,6 +469,26 @@ impl JobView {
         }
         let (before, after) = if newest_last { (more, None) } else { (None, more) };
         div().flex().flex_col().children(before).children(rows).children(after).into_any_element()
+    }
+
+    /// What has not landed (`unlandedOf`): an issue still open and a pull request not merged, unless a
+    /// group still to finish works it, where it stands under that group instead.
+    pub(super) fn not_landed(&self, job: &SessionRecord, held: &[&SessionPlanGroup], look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let holds = |number: &str| held.iter().any(|group| group.issue.as_deref() == Some(number));
+        let held_pull = |pull: &ipc::Attachment| held.iter().any(|group| group.issue.as_ref().is_some_and(|number| job.attachments.iter().any(|issue| issue.kind == "issue" && issue.target == *number && works(pull, issue))));
+        let mut list = Vec::new();
+        for one in job.attachments.iter().filter(|one| one.kind == "issue" && one.state != AttachmentState::GivenBack) {
+            let item = issue_of(job, one);
+            if !item.closed && !holds(&one.target) {
+                list.push(Made { bucket: Bucket::Issue, group: None, shape: Shape::Issue(item) });
+            }
+        }
+        for one in &job.attachments {
+            if let Some(pull) = pull_of(job, one, None).filter(|pull| pull.state != PullState::Merged && !held_pull(one)) {
+                list.push(Made { bucket: Bucket::PullRequest, group: None, shape: Shape::Pull(pull) });
+            }
+        }
+        (!list.is_empty()).then(|| labelled(div().id("open-not-landed").child(self.made_list(list, None, "open:not-landed".into(), look, cx)), Role::List, "Not landed").into_any_element())
     }
 
     /// A made thing that is neither a pull request nor an issue (`MadeLine`): its glyph, its words, and

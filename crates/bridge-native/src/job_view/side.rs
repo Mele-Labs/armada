@@ -10,7 +10,6 @@ use std::collections::HashSet;
 use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, Role, SharedString, Subscription, Window};
 use ipc::{ConfirmLater, LaterHow, PlanTaskState, SessionId, SessionPlanGroup, SettleLater};
 
-use super::plan::task_look;
 use super::rows::{glyph, tip, Size};
 use super::tabs::Pane;
 use super::JobView;
@@ -191,21 +190,6 @@ fn tab(look: &Look, id: &'static str, icon: &'static str, said: &'static str, fr
         .child(said)
 }
 
-/// One line of a zone, as `.sv-beat` draws it: a glyph, the words, and what stands after them.
-fn beat(look: &Look, icon: &'static str, ink: crate::look::Token, words: impl Into<SharedString>) -> gpui::Div {
-    div()
-        .flex()
-        .items_start()
-        .gap(look.length(token::SPACE_2))
-        .min_h(look.length(token::H_ROW))
-        .py(look.length(token::SPACE_1))
-        .text_size(look.length(token::TEXT_XS))
-        .line_height(look.length(token::LEADING_XS))
-        .text_color(look.color(token::FG_MUTED))
-        .child(div().flex_none().pt(look.length(token::SPACE_1) / 2.).child(glyph(look, icon, Size::Small, look.color(ink))))
-        .child(div().flex_1().min_w_0().child(words.into()))
-}
-
 impl JobView {
     pub(super) fn render_side(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let look = cx.look();
@@ -248,7 +232,7 @@ impl JobView {
         // Changes and Files draw their own strip over a body that scrolls, as `.job-pane__pick` does.
         let own_frame = matches!(zone, Some(Zone::Changes | Zone::Files | Zone::Judge));
         let top_body = self.shown.clone().zip(zone).and_then(|(id, zone)| match zone {
-            Zone::Open => Some(self.side_groups(&id, Stands::Coming, look, cx)),
+            Zone::Open => Some(self.side_open(&id, look, cx)),
             Zone::Done => Some(self.side_done(&id, look, cx)),
             Zone::Deferred => Some(self.side_deferred(&id, look, cx)),
             Zone::Plan => self.pane_plan(&id, look, cx),
@@ -321,55 +305,6 @@ impl JobView {
                 "Job column: Now",
             ))
             .into_any_element()
-    }
-
-    /// The groups of an approved plan that stand as `want`, each a line that unfolds to its tasks.
-    fn side_groups(&self, id: &SharedString, want: Stands, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let plan = self.record(id, cx).and_then(|job| job.plan.clone()).filter(|plan| plan.approved);
-        let unfolded = self.pages.get(id.as_str()).map(|page| page.side.unfolded.clone()).unwrap_or_default();
-        let groups = plan.iter().flat_map(|plan| plan.groups.iter()).filter(|group| stands(group) == want).map(|group| {
-            let open = unfolded.contains(&group.id);
-            let key = group.id.clone();
-            let (icon, ink) = match want {
-                Stands::Done => ("check", token::STEP_ADVANCED),
-                Stands::Working => ("circle-dot", token::STEP_RUNNING),
-                Stands::Coming => ("circle-dashed", token::FG_SUBTLE),
-            };
-            let head = labelled(
-                div()
-                    .id(SharedString::from(format!("side-group:{}", group.id)))
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .min_h(look.length(token::H_ROW))
-                    .cursor_pointer()
-                    .text_size(look.length(token::TEXT_XS))
-                    .text_color(look.color(token::FG_DEFAULT))
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .rounded(look.length(token::RADIUS_MD))
-                    .child(glyph(look, if open { "chevron-down" } else { "chevron-right" }, Size::Small, look.color(token::FG_SUBTLE)))
-                    .child(glyph(look, icon, Size::Small, look.color(ink)))
-                    .child(div().flex_1().min_w_0().truncate().child(SharedString::from(group.title.clone())))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        if let Some(page) = this.shown.clone().and_then(|id| this.pages.get_mut(&id)) {
-                            if !page.side.unfolded.remove(&key) {
-                                page.side.unfolded.insert(key.clone());
-                            }
-                        }
-                        cx.notify();
-                    })),
-                Role::Button,
-                format!("Plan group: {}", group.title),
-            );
-            let tasks = open.then(|| {
-                div().pl(look.length(token::SPACE_4)).children(group.tasks.iter().map(|task| {
-                    let (icon, ink, _) = task_look(task.state);
-                    beat(look, icon, ink, task.text.clone())
-                }))
-            });
-            div().child(head).children(tasks)
-        });
-        div().flex().flex_col().children(groups).into_any_element()
     }
 
     /// The follow-ups the agent kept and he has not confirmed, each with Remind, Deferred and Not deferred.

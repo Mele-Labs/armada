@@ -20,7 +20,7 @@ use ipc::{AttachmentState, FleetActState, JobState, PlanTaskState, SessionCheckS
 
 use super::acts::{button, Tone};
 use super::head::{act_button, icon_button};
-use super::issues::job_card;
+use super::issues::{job_card, job_placeholder};
 use super::plan::task_look;
 use super::pulls::{pull_of, PullChecks, PullState};
 use super::rows::{glyph, mono, tip, Size};
@@ -144,7 +144,7 @@ pub(super) fn detected_of(rows: &[SessionRow], working: bool) -> Option<String> 
 }
 
 /// A glyph that names itself on hover, in the row's lead column (`Lead`).
-fn lead(look: &Look, key: &str, icon: &'static str, ink: Token, said: &str, pulse: bool) -> AnyElement {
+pub(super) fn lead(look: &Look, key: &str, icon: &'static str, ink: Token, said: &str, pulse: bool) -> AnyElement {
     let mark = glyph(look, icon, Size::Small, look.color(ink));
     let mark = if pulse {
         mark.with_animation(
@@ -165,7 +165,7 @@ fn lead(look: &Look, key: &str, icon: &'static str, ink: Token, said: &str, puls
 }
 
 /// A row's words: quiet unless the row is at work or calls him, a reading where the system named it.
-fn words(look: &Look, text: impl Into<SharedString>, ink: Token, strong: bool, reading: bool, wraps: bool) -> gpui::Div {
+pub(super) fn words(look: &Look, text: impl Into<SharedString>, ink: Token, strong: bool, reading: bool, wraps: bool) -> gpui::Div {
     div()
         .flex_1()
         .min_w_0()
@@ -191,12 +191,12 @@ fn since(look: &Look, key: &str, at: &str, said: &str) -> Option<AnyElement> {
 }
 
 /// A row named to the accessibility tree, which needs an id to carry its label.
-fn named(key: &str, row: gpui::Div) -> gpui::Stateful<gpui::Div> {
+pub(super) fn named(key: &str, row: gpui::Div) -> gpui::Stateful<gpui::Div> {
     row.id(SharedString::from(format!("now-beat:{key}")))
 }
 
 /// One row (`.sv-beat`): the lead, the words, what stands last, and under them what the turn is doing.
-fn beat(look: &Look, lead: AnyElement, words: impl IntoElement, last: Option<AnyElement>, line: Option<(SharedString, Token)>) -> gpui::Div {
+pub(super) fn beat(look: &Look, lead: AnyElement, words: impl IntoElement, last: Option<AnyElement>, line: Option<(SharedString, Token)>) -> gpui::Div {
     div()
         .flex()
         .flex_col()
@@ -417,7 +417,7 @@ impl JobView {
             .child(beats)
             .children(self.now_tasks(&job, look))
             .children(self.now_subagents(&job, look))
-            .children(self.now_groups(&job, &at_work, look, cx))
+            .children(self.flight_rows(&job, &at_work, false, look, cx))
             .children(self.now_children(&job, look, cx))
             .children(self.now_plan(id, &job, look, cx))
             .children(ahead)
@@ -547,9 +547,11 @@ impl JobView {
         (!rows.is_empty()).then(|| labelled(div().id("now-subagents").flex().flex_col().children(rows), Role::List, "Subagents").into_any_element())
     }
 
-    /// The groups being worked (`FlightRows`): each open until pressed shut, its drones beside it, and
-    /// open, its issue, its tasks and its pull requests. A group handed to a Job is that Job's card.
-    fn now_groups(&self, job: &SessionRecord, groups: &[&SessionPlanGroup], look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// A plan's groups (`FlightRows`), each its drones beside it and, open, its issue, its tasks and its
+    /// pull requests. Those being worked stand open until pressed shut; `calm`, the groups still to come,
+    /// stand shut until pressed, read as titles. A group handed to a Job is that Job's card, and one
+    /// going to a Job not started yet is its placeholder card.
+    pub(super) fn flight_rows(&self, job: &SessionRecord, groups: &[&SessionPlanGroup], calm: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         if groups.is_empty() {
             return None;
         }
@@ -557,8 +559,12 @@ impl JobView {
             if let Some(child) = job.attachments.iter().find(|one| one.kind == "started_to" && one.detail.get("group") == Some(&group.id)).and_then(|one| self.record(&one.target, cx)) {
                 return job_card(child, look, cx);
             }
-            let shut_key = format!("now-shut:{}", group.id);
-            let open = !self.side_unfolded(&shut_key);
+            let issue = group.issue.as_ref().and_then(|number| job.attachments.iter().find(|one| one.kind == "issue" && one.target == *number));
+            if group.own_job {
+                return job_placeholder(&group.id, &group.title, issue.map(|one| super::issues::issue_of(job, one)), look, cx);
+            }
+            let shut_key = if calm { format!("open-open:{}", group.id) } else { format!("now-shut:{}", group.id) };
+            let open = self.side_unfolded(&shut_key) == calm;
             let drones = job.attachments.iter().filter(|one| one.kind == "subagent" && one.detail.get("group") == Some(&group.id)).map(|one| {
                 let subagent = super::ledger::subagent_of(one);
                 let running = one.state == AttachmentState::Standing;
@@ -583,7 +589,7 @@ impl JobView {
                 )
             });
             let track = (!open && !group.tasks.is_empty()).then(|| super::done::task_track(&group.id, &group.tasks, look));
-            let (icon, ink, said) = task_look(PlanTaskState::Working);
+            let (icon, ink, said) = task_look(if calm { PlanTaskState::Open } else { PlanTaskState::Working });
             let row = labelled(
                 div()
                     .id(SharedString::from(format!("now-group:{}", group.id)))
@@ -599,7 +605,7 @@ impl JobView {
                     .text_size(look.length(token::TEXT_XS))
                     .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                     .text_color(look.color(token::FG_DEFAULT))
-                    .child(lead(look, &format!("group:{}", group.id), icon, ink, said, true))
+                    .child(lead(look, &format!("group:{}", group.id), icon, ink, said, !calm))
                     .child(div().min_w_0().truncate().child(SharedString::from(group.title.clone())))
                     .child(div().flex_1())
                     .children(track)
@@ -610,7 +616,6 @@ impl JobView {
                 Role::Button,
                 format!("Plan group: {}", group.title),
             );
-            let issue = group.issue.as_ref().and_then(|number| job.attachments.iter().find(|one| one.kind == "issue" && one.target == *number));
             let body = open.then(|| {
                 let tasks = group.tasks.iter().enumerate().map(|(at, task)| {
                     let ink = if task.state == PlanTaskState::Working { token::FG_DEFAULT } else { token::FG_MUTED };

@@ -398,6 +398,66 @@ pub(super) fn job_card(job: &SessionRecord, look: &Look, cx: &Context<JobView>) 
     labelled(card, Role::Button, format!("Job {title}")).into_any_element()
 }
 
+/// What a placeholder's glyph says (`NOT_STARTED`).
+const NOT_STARTED: &str = "Not started yet";
+
+/// The card of a Job the plan will start and has not (`JobCard` placeholder): the same card with a
+/// dashed outline and no fill, the bot glyph muted, the title the plan gives it, and the issue it will
+/// work as a chip under it. It is read, never pressed; only its issue chip opens.
+pub(super) fn job_placeholder(key: &str, title: &str, issue: Option<IssueItem>, look: &Look, cx: &Context<JobView>) -> AnyElement {
+    let chip = issue.map(|item| {
+        let said = item.title.clone();
+        let label = item.label();
+        labelled(
+            div()
+                .id(SharedString::from(format!("job-placeholder-issue:{key}")))
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .px(look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_SM))
+                .cursor_pointer()
+                .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                .tooltip(tip(said.clone()))
+                .child(glyph(look, "ticket", Size::Small, look.color(token::FG_MUTED)))
+                .child(div().font_family(mono(look)).child(SharedString::from(label.clone())))
+                .on_click(cx.listener(move |this, _, window, cx| this.open_issue(item.clone(), window, cx))),
+            Role::Button,
+            format!("Issue {label} {said}"),
+        )
+    });
+    labelled(
+        div()
+            .id(SharedString::from(format!("job-placeholder:{key}")))
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_3))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_dashed()
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .rounded(look.length(token::RADIUS_MD))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .child(labelled(div().id(SharedString::from(format!("job-placeholder-kind:{key}"))).flex_none().tooltip(tip(NOT_STARTED)).child(glyph(look, "bot", Size::Large, look.color(token::FG_SUBTLE))), Role::Image, "Job, not started yet"))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .gap(gpui::px(2.))
+                    .child(div().min_w_0().truncate().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(SharedString::from(title.to_string())))
+                    .child(div().flex().items_center().min_h(look.length(token::LEADING_XS)).text_size(look.length(token::TEXT_2XS)).children(chip)),
+            ),
+        Role::Group,
+        format!("{title}, not started yet"),
+    )
+    .into_any_element()
+}
+
 /// A row's menu pick: the Ticket state chosen.
 fn ticket_pick(item: IssueItem) -> Pick {
     Rc::new(move |this, id, window, cx| {

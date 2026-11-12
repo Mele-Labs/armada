@@ -40,6 +40,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The panes' Jobs as Now draws each: the first working its plan with subagents, a walk and Fleet
         // at work; one stuck, one stopped, one at work with no plan, one failing and one drafting.
         "job-now" => include_bytes!("../fixtures/jobs-now.json"),
+        // The same, the first with two more groups to come, one going to a Job not started yet, an issue
+        // and a pull request no group holds, and the plan being drafted carrying a sketch.
+        "job-open" => include_bytes!("../fixtures/jobs-open.json"),
         "job-view-composer" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
@@ -65,7 +68,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     };
     let mut sessions = ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())?;
     // Now's figures count from now, so the scenario's clock is moved to the run's.
-    if scenario == "job-now" {
+    if matches!(scenario, "job-now" | "job-open") {
         for one in &mut sessions {
             one.last_heard_at = one.last_heard_at.as_ref().map(|at| shifted(NOW_ANCHOR, at));
         }
@@ -106,6 +109,8 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         // The panes' threads, with two walks ended, two commits and Fleet's acts on the first.
         "job-done" => include_bytes!("../fixtures/done-threads.json"),
         "job-now" => include_bytes!("../fixtures/now-threads.json"),
+        // The same, with Fleet's two acts to come on the first and the drafted plan's sketch.
+        "job-open" => include_bytes!("../fixtures/open-threads.json"),
         // The same threads, and the earlier Job's, ended where it handed on.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff-threads.json"),
         // The same threads, with the Job that took the router upgrade on and the forked one.
@@ -137,7 +142,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
     let mut all: HashMap<String, JobThread> = read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect();
-    if scenario == "job-now" {
+    if matches!(scenario, "job-now" | "job-open") {
         for thread in all.values_mut() {
             if let Some(call) = thread.head.open_call.as_mut() {
                 call.since = shifted(NOW_ANCHOR, &call.since);
@@ -232,7 +237,7 @@ pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T
 
 /// The scenario last named is the panes' own: their reads answer only there.
 fn panes_named() -> bool {
-    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more" | "job-pulls" | "job-issues" | "job-system"))
+    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more" | "job-pulls" | "job-issues" | "job-system" | "job-open"))
 }
 
 /// A pull request's files as `GET /pull_request_patches/:repository/:number` answers them, by
@@ -615,6 +620,8 @@ mod tests {
         assert!(!super::threads("job-done").expect("decodes").is_empty());
         assert!(super::jobs("job-now").expect("decodes").len() > 10);
         assert!(super::threads("job-now").expect("decodes").len() > 5);
+        assert!(super::jobs("job-open").expect("decodes").len() > 10);
+        assert!(super::threads("job-open").expect("decodes").len() > 5);
     }
 }
 

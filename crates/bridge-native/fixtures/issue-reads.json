@@ -166,6 +166,24 @@
    "linked_pull_requests": [],
    "fields": [],
    "holders": []
+  },
+  {
+   "key": "armada#3301",
+   "reference": "3301",
+   "title": "Operator does not say a branch is stale",
+   "url": "https://forge.invalid/issues/3301",
+   "state": "open",
+   "body": "Your turn lists a Job whose branch is behind main without saying so.",
+   "author": "nick",
+   "opened_at": "2026-11-09T09:05:00Z",
+   "labels": [
+    "operator"
+   ],
+   "assignees": [],
+   "comments": [],
+   "linked_pull_requests": [],
+   "fields": [],
+   "holders": []
   }
  ],
  "lifecycles": [
