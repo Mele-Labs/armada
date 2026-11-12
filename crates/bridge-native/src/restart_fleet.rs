@@ -6,15 +6,13 @@ use std::process::Command;
 
 use crate::titlebar::RestartWhy;
 
-/// The launchd label Armada's service runs under, unless `ARMADA_FLEET_LABEL` names another.
-const LABEL: &str = "com.armada.fleet";
-
 /// Restart the Fleet the runtime file names as `pid`, or say why not with what launchd answered.
 pub fn restart(pid: Option<u32>) -> Result<(), (RestartWhy, String)> {
     let Some(pid) = pid else {
         return Err((RestartWhy::NotRunning, "the runtime file names no Fleet".into()));
     };
-    let label = std::env::var("ARMADA_FLEET_LABEL").unwrap_or_else(|_| LABEL.into());
+    // The launchd label Armada's service runs under, unless `ARMADA_FLEET_LABEL` names another.
+    let label = std::env::var("ARMADA_FLEET_LABEL").unwrap_or_else(|_| "com.armada.fleet".into());
     let uid = Command::new("id")
         .arg("-u")
         .output()
