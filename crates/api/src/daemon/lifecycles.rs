@@ -8,7 +8,7 @@
 use std::future::Future;
 
 use ipc::{
-    DeleteLifecyclePiece, JobLifecycles, KeepDrafts, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
+    DeleteLifecyclePiece, JobLanesView, JobLifecycles, KeepDrafts, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
     RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, SaveLifecyclePiece, SessionId,
     TeachTicketWord, TicketWordTaught,
 };
@@ -27,6 +27,16 @@ pub trait Lifecycles: Send + Sync + 'static {
         &self,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<RepositoryLifecycleRules, Refusal>> + Send;
+
+    /// `get_workflow_lanes` — one workflow's lanes as its editor draws them, at the default level:
+    /// `scope` absent or `default`. [`Refusal::Unacceptable`] for a workflow the repository does not
+    /// run, or another level.
+    fn get_workflow_lanes(
+        &self,
+        workflow: String,
+        scope: Option<String>,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<JobLanesView, Refusal>> + Send;
 
     /// `list_autonomy_defaults` — Armada's default for every kind of act, and each layer of autonomy
     /// defaults that applies to one repository, unresolved. [`Refusal::Unacceptable`] where Fleet serves no repository by that id.

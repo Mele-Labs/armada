@@ -85,6 +85,15 @@ impl Lifecycles for FakeDaemon {
         Ok(RepositoryLifecycleRules { manifest_id: self.repository(manifest_id).await?, rules: Vec::new(), left_out: Vec::new() })
     }
 
+    async fn get_workflow_lanes(
+        &self,
+        _workflow: String,
+        _scope: Option<String>,
+        _manifest_id: Option<ManifestId>,
+    ) -> Result<ipc::JobLanesView, Refusal> {
+        Err(self.fault("the fake holds no definition files"))
+    }
+
     async fn list_autonomy_defaults(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryAutonomy, Refusal> {
         Ok(RepositoryAutonomy { manifest_id: self.repository(manifest_id).await?, armada: Vec::new(), layers: Vec::new(), left_out: Vec::new() })
     }

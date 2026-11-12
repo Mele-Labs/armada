@@ -15,7 +15,10 @@
 //! record's `in_flight` is that list, read by Fleet from the store.
 
 mod draw;
+mod editor;
 mod read;
+
+pub(crate) use editor::{editor_lanes, EditorInput};
 
 use std::collections::HashMap;
 
