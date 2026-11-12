@@ -31,6 +31,8 @@ pub(super) struct Picked {
 pub(super) struct Fork {
     down: Option<Point<Pixels>>,
     shown: Option<Picked>,
+    /// The thread's box as last laid out, read before its rows are: a row cannot read the list while it lays them out.
+    view: std::cell::Cell<Bounds<Pixels>>,
 }
 
 /// A draft's block id is its card key, which starts `draft:`.
@@ -61,7 +63,8 @@ impl JobView {
                 .w_full()
                 .child(words)
                 .child(canvas(move |bounds, _, _| edges.set(bounds), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
-                .children(self.render_fork_bar(row, cx)),
+                // Placed from the block's top-left: after the words in flow, its own origin would be the block's foot.
+                .children(self.render_fork_bar(row, cx).map(|bar| div().absolute().top_0().left_0().child(bar))),
             Role::Group,
             format!("Words {row}"),
         )
@@ -70,6 +73,9 @@ impl JobView {
 
     /// The thread's own presses and keys that start, show and end a selection's acts.
     pub(super) fn fork_hooks(&self, thread: Stateful<Div>, cx: &Context<Self>) -> Stateful<Div> {
+        if let Some(page) = self.shown.as_ref().and_then(|job| self.pages.get(job)) {
+            self.fork.view.set(page.list.viewport_bounds());
+        }
         thread
             .on_mouse_down(
                 MouseButton::Left,
@@ -280,6 +286,15 @@ impl JobView {
     /// again on every scroll (`ForkFromSelection.tsx`).
     fn render_fork_bar(&self, row: &str, cx: &Context<Self>) -> Option<AnyElement> {
         let picked = self.fork.shown.as_ref().filter(|picked| picked.row == row && !picked.row.starts_with("draft:"))?;
+        // The words scrolled wholly out of the thread take the bar with them (`ForkFromSelection.tsx`).
+        if let Some(page) = self.shown.as_ref().and_then(|job| self.pages.get(job)) {
+            let view = self.fork.view.get();
+            let moved = page.keys.block_origin(row).map_or(gpui::px(0.), |now| now.y - picked.block.y);
+            let (first, last) = (picked.span.top() + moved, picked.span.bottom() + moved);
+            if view.size.height > gpui::px(0.) && (last < view.top() || first > view.bottom()) {
+                return None;
+            }
+        }
         let look = cx.look();
         let live = self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
         let act = |id: &'static str, said: &'static str, icon: &'static str| {

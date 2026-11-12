@@ -655,6 +655,10 @@ impl JobView {
                                         labelled(
                                             div()
                                                 .id(SharedString::from(format!("cites:{}", found.key)))
+                                                // A path is never broken inside its name: one line, cut short, whole on hover (`ConcernCites`).
+                                                .min_w_0()
+                                                .truncate()
+                                                .tooltip(tip(place.clone()))
                                                 .text_size(look.length(token::TEXT_XS))
                                                 .line_height(look.length(token::LEADING_SM))
                                                 .font_family(mono(look))

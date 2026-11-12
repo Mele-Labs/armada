@@ -521,7 +521,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             let target = find(step, window, cx)?;
             let mut shown = reveal(target, window, cx);
             // What the pointer brings up can move the thread under it a frame later; it follows the target there.
-            for pass in 0..5 {
+            for _ in 0..5 {
                 let at = aim(&shown);
                 window.dispatch_event(
                     PlatformInput::MouseMove(MouseMoveEvent { position: at, pressed_button: None, modifiers: Modifiers::default() }),
@@ -555,8 +555,12 @@ pub fn press_row(label: &str, window: &mut Window, cx: &mut App) {
 /// wheel turns over the nearest showing element around it, and the book is read again. A target
 /// that shows at all stays where it is.
 fn reveal(target: Drawn, window: &mut Window, cx: &mut App) -> Drawn {
-    let shown = scroll_to(target, window, cx);
-    uncover(shown, window, cx)
+    let was = target.bounds;
+    let shown = uncover(scroll_to(target, window, cx), window, cx);
+    if shown.bounds == was {
+        return shown;
+    }
+    settle(shown, window, cx)
 }
 
 /// The target found again, drawn after drawn, until it stays put: after a scroll the book can still hold
@@ -564,6 +568,8 @@ fn reveal(target: Drawn, window: &mut Window, cx: &mut App) -> Drawn {
 fn settle(mut target: Drawn, window: &mut Window, cx: &mut App) -> Drawn {
     let id = window.window_handle().window_id();
     for _ in 0..4 {
+        // A view nobody marked changed is drawn from its last layout; the whole window is laid out again.
+        window.refresh();
         window.draw(cx).clear(cx);
         let near = target.bounds.center();
         let distance = |one: &Drawn| {
