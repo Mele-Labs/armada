@@ -3,9 +3,8 @@
 //! `packages/components/src/compositions/ModRow/`). Theme lists the theme mods and the tweaks; Layout and Mods
 //! list theirs from the same rows.
 //!
-//! A press on a mod's name opens its panel, which stands beside a Job (`job_view::OpenMod`), so Settings goes
-//! first. **Not here:** the shared home's marks, which native does not read; their columns are kept empty, as
-//! Classic keeps them.
+//! **Not yet here:** a press on a row opening the mod's panel, which the Jobs screen holds, and the shared
+//! home's marks, which native does not read.
 
 use std::collections::BTreeMap;
 
@@ -120,15 +119,14 @@ pub struct ModRows {
     pub promoted: BTreeMap<String, ModPromoted>,
     pub promoting: Option<String>,
     pub refused: BTreeMap<String, String>,
-    /// Each row's switch, Promote, pull request, Job and name, by mod name.
-    pub keys: BTreeMap<String, [FocusHandle; 5]>,
+    /// Each row's switch, Promote, pull request and Job, by mod name.
+    pub keys: BTreeMap<String, [FocusHandle; 4]>,
 }
 
 const SWITCH: usize = 0;
 const PROMOTE: usize = 1;
 const PULL: usize = 2;
 const JOB: usize = 3;
-const OPEN: usize = 4;
 
 impl SettingsOverlay {
     pub fn mod_rows(&self, kind: ModKind, cx: &App) -> Vec<Listed> {
@@ -140,9 +138,6 @@ impl SettingsOverlay {
         let mut stops = Vec::new();
         for one in self.mod_rows(kind, cx) {
             let Some(keys) = self.mods.keys.get(&one.name) else { continue };
-            if opens(cx) {
-                stops.push(keys[OPEN].clone());
-            }
             stops.push(keys[SWITCH].clone());
             if !one.built_in && !one.promote_off {
                 stops.push(keys[PROMOTE].clone());
@@ -160,7 +155,7 @@ impl SettingsOverlay {
     /// Make the keys of every row Fleet lists, once each.
     pub fn mod_keys(&mut self, cx: &mut App) {
         for row in self.wire.mods(cx) {
-            self.mods.keys.entry(row.name).or_insert_with(|| [cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true)]);
+            self.mods.keys.entry(row.name).or_insert_with(|| [cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true)]);
         }
     }
 
@@ -221,13 +216,6 @@ impl SettingsOverlay {
         (open.0)(&ipc::ClashHolder { kind: ipc::ClashSide::Session, id: id.to_string(), label: title.to_string() }, window, cx);
     }
 
-    /// Open a mod's panel: Settings goes, and the panel opens beside the Job shown.
-    fn open_mod(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(open) = cx.try_global::<crate::job_view::OpenMod>().cloned() else { return };
-        self.close(window, cx);
-        (open.0)(name, window, cx);
-    }
-
     /// A kind's rows in a card, titled where Classic titles it. Nothing is drawn while there are none.
     pub fn render_mods(&self, kind: ModKind, title: Option<&str>, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         let rows = self.mod_rows(kind, cx);
@@ -263,7 +251,6 @@ impl SettingsOverlay {
             kind_said(one.kind),
         );
         let text = div()
-            .id(SharedString::from(format!("mod-open-{}", one.name)))
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_1))
@@ -273,32 +260,6 @@ impl SettingsOverlay {
             .text_color(look.color(token::FG_DEFAULT))
             .child(SharedString::from(one.title.clone()))
             .children(one.detail.clone().map(|line| div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(line)));
-        // Its name opens it, as the row around it does in Classic; only the switch toggles it.
-        let text: AnyElement = if opens(cx) {
-            let (press, key) = (one.name.clone(), one.name.clone());
-            labelled(
-                ringed(
-                    look,
-                    text.track_focus(&keys[OPEN])
-                        .rounded(look.length(token::RADIUS_SM))
-                        .cursor_pointer()
-                        .on_click(cx.listener(move |this, _, window, cx| this.open_mod(&press, window, cx)))
-                        .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
-                            if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                                this.open_mod(&key, window, cx);
-                                cx.stop_propagation();
-                            }
-                        })),
-                    &keys[OPEN],
-                    window,
-                ),
-                Role::Button,
-                format!("Open {}", one.title),
-            )
-            .into_any_element()
-        } else {
-            text.into_any_element()
-        };
         let (name, on) = (one.name.clone(), one.enabled);
         let switch = ringed(
             look,
@@ -454,11 +415,6 @@ impl SettingsOverlay {
         let refused = self.mods.refused.get(&one.name).cloned().map(|said| labelled(super::view::small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id(SharedString::from(format!("mod-refused-{}", one.name))), Role::Alert, said));
         labelled(div().id(SharedString::from(format!("mod-{}", one.name))).flex().flex_col().gap(look.length(token::SPACE_1)).child(row).children(promoted).children(refused), Role::Group, one.title.clone()).into_any_element()
     }
-}
-
-/// Whether a press can open a mod's panel: the Job view has said how.
-fn opens(cx: &App) -> bool {
-    cx.has_global::<crate::job_view::OpenMod>()
 }
 
 #[cfg(test)]
