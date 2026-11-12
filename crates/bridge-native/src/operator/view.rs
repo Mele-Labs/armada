@@ -387,7 +387,6 @@ impl OperatorPageView {
                 )
                 .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(read.read.clone()))
         });
-        let then = has_then.then(|| self.thens(turn, look, cx));
         let options = face::chooses(turn).then(|| self.options(turn, look, cx));
         let chosen = self.option_of(turn);
         let refused = self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| {
@@ -432,10 +431,9 @@ impl OperatorPageView {
                     .child(div().w_full().min_w_0().child(note))
             }))
             .children(read)
-            .children(then)
             .children(options)
             .children(refused);
-        let answers = face::answers_of(turn).into_iter().enumerate().map(|(at, answer)| {
+        let answers: Vec<AnyElement> = if has_then { self.outcomes(turn, look, cx) } else { face::answers_of(turn).into_iter().enumerate().map(|(at, answer)| {
             let yes = answer == OperatorAnswer::Yes;
             // A decision's Yes says the option it carries, else the Operator's pick, as its card would; a
             // go-ahead's says Yes.
@@ -455,7 +453,7 @@ impl OperatorPageView {
                 .tooltip(tip(said));
             let button = pressed(button, cx, move |this, window, cx| this.answer(answer, window, cx));
             labelled(button, Role::Button, label).into_any_element()
-        });
+        }).collect() };
         let changes = face::sends_changes(turn).then(|| {
             labelled(
                 pressed(press("turn-changes", "Send changes".into(), None, Some("C".into()), Weight::Plain, look).tooltip(tip("Open the plan in its Job to suggest changes")), cx, |this, _, cx| {
@@ -534,51 +532,32 @@ impl OperatorPageView {
         .into_any_element()
     }
 
-    /// Then, on a go-ahead to file: each choice a row, his pick or else the Operator's filled, My pick marked.
-    fn thens(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> impl IntoElement {
-        let chosen = self.then_of(turn);
-        let rows = turn.then.iter().enumerate().map(|(at, offer)| {
-            let (label, mark) = face::then_said(offer.then, offer.hand_to.as_ref().map(|to| to.job.as_str()));
-            let on = chosen == Some(offer.then);
-            let id = turn.id.clone();
-            let then = offer.then;
-            labelled(
-                div()
-                    .id(SharedString::from(format!("then-{at}")))
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_1))
-                    .px(look.length(token::SPACE_3))
-                    .rounded(look.length(token::RADIUS_LG) * 1.25)
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(if on { token::OPERATOR } else { token::BORDER_DEFAULT }))
-                    .bg(look.color(if on { token::OPERATOR_FAINT } else { token::BG_OVERLAY }))
-                    .text_size(look.length(token::TEXT_SM))
-                    .font_weight(FontWeight(look.number(if on { token::WEIGHT_HEADING } else { token::WEIGHT_BODY })))
-                    .cursor_pointer()
-                    .hover(|style| style.border_color(cx.look().color(token::BORDER_STRONG)))
-                    .on_click(cx.listener(move |this, _, _, cx| this.pick_then(&id, then, cx)))
-                    .child(glyph(mark, look.length(token::SPACE_4), look.color(if on { token::OPERATOR } else { token::FG_MUTED })))
-                    .child(div().flex_1().child(label.clone()))
-                    .when(offer.pick, |row| {
-                        row.child(
-                            div()
-                                .text_size(look.length(token::TEXT_2XS))
-                                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                                .text_color(look.color(token::OPERATOR))
-                                .child("My pick"),
-                        )
-                    })
-                    .child(kbd((at + 1).to_string(), look)),
-                Role::RadioButton,
-                label,
-            )
-        });
-        div()
-            .mt(look.length(token::SPACE_1))
-            .child(div().mb(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child("Then"))
-            .child(labelled(div().id("then").flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::RadioGroup, "Then"))
+    /// A go-ahead to file: one press for each outcome, named for what happens, the Operator's pick filled
+    /// with its glyph and why in its tooltip, then Don't file. 1..n press an outcome and D Don't file.
+    fn outcomes(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+        let why = turn.read.as_ref().map(|read| read.read.clone()).filter(|read| !read.is_empty());
+        let mut out: Vec<AnyElement> = turn
+            .then
+            .iter()
+            .enumerate()
+            .map(|(at, offer)| {
+                let to = offer.hand_to.as_ref().map(|to| to.job.as_str());
+                let (label, mark) = face::then_said(offer.then, to);
+                let does = face::then_does(offer.then, to);
+                let said = match why.as_ref().filter(|_| offer.pick) {
+                    Some(why) => format!("My pick: {why}\n{does}"),
+                    None => does,
+                };
+                let then = offer.then;
+                let (icon, weight) = if offer.pick { ("check", Weight::Pick) } else { (mark, Weight::Plain) };
+                let button = press(format!("outcome-{at}"), label.clone(), Some(icon), Some((at + 1).to_string().into()), weight, look).tooltip(tip(said));
+                let button = pressed(button, cx, move |this, _, cx| this.outcome(then, cx));
+                labelled(button, Role::Button, label).into_any_element()
+            })
+            .collect();
+        let no = press("outcome-no", "Don't file".into(), None, Some(face::answer_key(OperatorAnswer::No).into()), Weight::Plain, look).tooltip(tip("Leave it unfiled, and it leaves Your turn"));
+        out.push(labelled(pressed(no, cx, |this, window, cx| this.answer(OperatorAnswer::No, window, cx)), Role::Button, "Don't file").into_any_element());
+        out
     }
 
     /// The item's options, where it offers more than one: each a row, his pick or else the Operator's
