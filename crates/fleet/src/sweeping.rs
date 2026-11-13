@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
 use adapter_traits::{Delivery, Vcs, WorkProduct, AgentHarness};
-use adapters::leasing::disk::{inventory, mark_landed, reclaim, shed_free_slots};
+use adapters::leasing::disk::{inventory, mark_landed, reclaim, shed_free_slots, Reclaimed};
 use adapters::leasing::{sweep_repository, Trim, Trimmed};
 use tokio::task::JoinHandle;
 
@@ -60,24 +60,23 @@ pub(crate) struct DiskState {
     pub next: Vec<PathBuf>,
 }
 
+/// One pass under pressure over `root`, whose slots lease from `base`: nothing unless free is
+/// under `floor`, and a floor of zero is off. `armada disk reclaim` runs it with no Fleet.
+pub fn reclaim_root(root: &Path, base: &str, floor: u64, free_at: &dyn Fn(&Path) -> Option<u64>, said: &mut dyn FnMut(&str)) -> Option<Reclaimed> {
+    if floor == 0 || !free_at(root).is_some_and(|free| free < floor) {
+        return None;
+    }
+    let mut folders = inventory(root, base, &[]);
+    mark_landed(&mut folders, base);
+    reclaim(&folders, SystemTime::now(), floor, &mut || free_at(root), said)
+}
+
 /// One look. `free_at` reads the free bytes on the volume holding a path.
 pub(crate) fn look(reach: &Reach, trim_due: bool, trim: Trim, free_at: &dyn Fn(&Path) -> Option<u64>) -> Looked {
     let mut lines = Vec::new();
     let mut seen = Vec::new();
     for (root, base) in &reach.roots {
-        let short = reach.floor > 0 && free_at(root).is_some_and(|free| free < reach.floor);
-        let mut passed = None;
-        if short {
-            let mut folders = inventory(root, base, &[]);
-            mark_landed(&mut folders, base);
-            passed = reclaim(
-                &folders,
-                SystemTime::now(),
-                reach.floor,
-                &mut || free_at(root),
-                &mut |line| lines.push(line.to_string()),
-            );
-        }
+        let passed = reclaim_root(root, base, reach.floor, free_at, &mut |line| lines.push(line.to_string()));
         if trim_due {
             shed_free_slots(&inventory(root, base, &[]), SystemTime::now(), &mut |line| {
                 lines.push(line.to_string());

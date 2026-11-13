@@ -1233,3 +1233,26 @@ Job.
 **An Armada worktree is never removed with `rm -rf`.** Git keeps an
 administrative record that outlives the directory and refuses the branch delete
 afterwards; `clean` does it in the order git needs.
+
+### Dropping build output: `armada disk reclaim`
+
+```bash
+armada disk reclaim          # one pass now, under limits.diskReclaimFloorGib, over every repository
+armada disk reclaim --help   # what it does; exits 0 on a build that has the verb
+```
+
+**It removes build output only**: the `target` folders Cargo tagged with `CACHEDIR.TAG`, in the order Fleet's own pass drops them.
+Incremental caches go first, then whole folders of checkouts the base already has, then free slots, then held slots unbuilt for six hours.
+The main checkout's and the preview's folders lose only their incremental caches.
+A folder a build holds is skipped, and nothing else is touched.
+
+**It needs no Fleet.**
+It reads `limits.diskReclaimFloorGib` from settings.json, and the repository at the working directory.
+Where a Fleet answers, it also reads every repository that Fleet serves.
+It does nothing while free space is at or over the floor, and a floor of 0 is off.
+
+**You run it when a build would fail for lack of disk and Fleet cannot do it for you**, as when the Fleet running is older than the reclaim.
+`scripts/restart` runs it before it builds, with the armada already installed, and goes on whether it worked or not: an armada without the verb answers `--help` with a failure and is skipped.
+
+**It prints a line for each folder removed whole and one for the pass**, as Fleet's log does.
+It prints nothing where free space was over the floor, and exits 0 either way.

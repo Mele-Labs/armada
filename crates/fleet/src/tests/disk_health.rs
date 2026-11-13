@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorTurnItem};
+use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorTurnItem, OperatorUrgency};
 
 use super::operator_sources::on;
 use super::session_host::{rig_fitted, rig_placing, Rig};
@@ -181,10 +181,17 @@ fn a_build_folder(rig: &Rig, name: &str) -> PathBuf {
     }
     std::fs::write(target.join("CACHEDIR.TAG"), "Signature: 8a477f597d28d172789f06886806bc55\n").unwrap();
     let long_ago = std::time::SystemTime::now() - Duration::from_secs(10 * 3600);
-    for dir in [target.join("debug/deps"), target.join("debug/.fingerprint"), target.join("debug/incremental"), target.join("debug")] {
-        std::fs::File::open(dir).unwrap().set_modified(long_ago).unwrap();
-    }
+    touch_all(&target.join("debug"), long_ago);
     target
+}
+
+fn touch_all(at: &std::path::Path, then: std::time::SystemTime) {
+    if at.is_dir() {
+        for entry in std::fs::read_dir(at).unwrap().flatten() {
+            touch_all(&entry.path(), then);
+        }
+    }
+    std::fs::File::open(at).unwrap().set_modified(then).unwrap();
 }
 
 fn press(item: &OperatorTurnItem, option: &str) -> OperatorAnswerPress {
@@ -223,4 +230,13 @@ async fn a_pick_the_card_does_not_offer_is_refused() {
     let refused = rig.fleet.operator_answered(press(&one, "Start a fix")).await.expect_err("not offered");
 
     assert_eq!(refused.error().code.as_str(), "fleet.operator_answer_not_offered");
+}
+
+#[tokio::test]
+async fn the_disk_card_is_urgent_as_a_red_main_is() {
+    let rig = rig_placing(None);
+    on(&rig).await;
+    rig.fleet.disk_looked(&looked(&rig, 1, &["a/target"])).await;
+
+    assert_eq!(the_card(&rig).await.urgency, OperatorUrgency::Urgent);
 }
