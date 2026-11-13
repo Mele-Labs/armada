@@ -191,6 +191,8 @@ pub(crate) fn workflow_summary(
             .find(|file| file.overridden_by().is_none())
             .and_then(config::WorkflowFile::hides)
             .map(|place| place.as_wire().to_string()),
+        based_on: None,
+        armada_changed: false,
     }
 }
 
@@ -205,6 +207,7 @@ pub(crate) fn workflow_definition(file: &config::WorkflowFile) -> ipc::WorkflowD
         overridden_by: file
             .overridden_by()
             .map(|place| place.as_wire().to_string()),
+        ..Default::default()
     }
 }
 

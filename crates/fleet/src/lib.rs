@@ -418,6 +418,7 @@ mod workflow_page;
 mod workflow_changes;
 /// The draft of a workflow the owner and an agent edit, and Publish.
 mod workflow_drafts;
+mod workflow_versions;
 /// The draft of a lifecycle, rule or autonomy default, and Publish.
 mod piece_drafts;
 /// The lifecycles a repository has and the Workspaces (sets of repositories) that scope them, read

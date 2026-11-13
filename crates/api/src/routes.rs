@@ -140,6 +140,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::publish_workflow_draft::<D>),
         )
         .route(
+            "/workflows/versions",
+            get(crate::repositories::get_workflow_versions::<D>),
+        )
+        .route(
+            "/workflows/revert",
+            post(crate::repositories::revert_workflow::<D>),
+        )
+        .route(
             "/workflows/delete",
             post(crate::repositories::delete_workflow_copy::<D>),
         )

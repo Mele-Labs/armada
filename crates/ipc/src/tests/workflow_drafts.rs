@@ -73,6 +73,7 @@ fn what_a_workflow_draft_is_put_discarded_and_published_with_round_trips_and_a_b
             replaced: false,
             runs_from: Some(String::from("kit")),
         },
+        version: 2,
     });
     let put: PutWorkflowDraft = decode("a put", br#"{"workflow_id":"feature","source":"kit","text":"{}"}"#).expect("reads without project or summary");
     assert_eq!((put.project, put.summary), (None, None));

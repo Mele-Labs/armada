@@ -70,6 +70,8 @@ mod claim_misreads;
 /// The changes to a workflow an agent drafted for the owner to approve.
 mod workflow_changes;
 mod workflow_drafts;
+/// The versions a workflow has had in one place, and what a copy of one of Armada's began from.
+mod workflow_versions;
 /// What this Mac syncs with the shared home.
 mod home_kinds;
 mod home_repositories;
@@ -233,6 +235,7 @@ pub use workflow_changes::{
     FAILED as CHANGE_FAILED, READY as CHANGE_READY,
 };
 pub use workflow_drafts::{DraftKey, KeptDraft, KeptDraftChange, NewDraftChange, BY_AGENT as DRAFT_BY_AGENT, BY_YOU as DRAFT_BY_YOU};
+pub use workflow_versions::{KeptBase, KeptVersion, NewVersion, WorkflowPlace, ORIGIN_FOUND as VERSION_FOUND, ORIGIN_PUBLISHED as VERSION_PUBLISHED};
 pub use session_later::{KeptHanded, KeptLater};
 pub use job_shells::KeptJobTerminal;
 pub use watches::{KeptWatch, KeptWatchPart, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};

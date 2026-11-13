@@ -237,10 +237,15 @@ pub trait Queries: Send + Sync + 'static {
     /// `repository`, so a definition a more specific place replaced can still be
     /// read. Absent is the one that runs. Absent `manifest_id` is the repository
     /// Fleet started in.
+    ///
+    /// **`source` may also be `base`**: the text the copy in the place `of` names (`kit`, `repository`
+    /// or `project`, which `project` names) began from. [`Refusal::NotFound`] where it has none.
     fn get_workflow(
         &self,
         workflow_id: ipc::WorkflowId,
         source: Option<String>,
+        of: Option<String>,
+        project: Option<String>,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<ipc::WorkflowDefinition, Refusal>> + Send;
 

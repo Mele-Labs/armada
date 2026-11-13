@@ -83,6 +83,8 @@ export type PublishWorkflowDraft = {
 /** What `POST /workflows/draft/publish` wrote: the save it made. */
 export type WorkflowPublished = {
   saved: WorkflowSaved;
+  /** The number this publish took in the place's versions, from 1. Where the text that was there is kept first, as `found`, it is version 1 and this is 2. */
+  version: number;
 };
 
 /**
