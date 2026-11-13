@@ -377,6 +377,8 @@ where
                     self.artifact_made(id, path.clone(), "image").await;
                 }
                 let message = adapters::message_sent(&tool, &detail);
+                let checks = adapters::background_form(&tool) == Some("command")
+                    && super::check_calls::runs_armada_check(&shown);
                 let text = if shown.is_empty() {
                     tool
                 } else {
@@ -387,10 +389,14 @@ where
                 let description = detail.description().map(str::to_string);
                 let drawn = runtime.state().call_rows.drawn(&call, &row, &at, &text, description.as_deref());
                 let row = drawn.unwrap_or(SessionRow::Tool { id: row, at, text, description, subagent: None, image, message });
+                if checks {
+                    runtime.state().check_calls.called(&call, row.id());
+                }
                 self.row_put(id, row).await;
             }
             // A page is read off the disk once the tool that wrote it has answered, and not when it was reached for.
             DroneEvent::Answered { call, failed } => {
+                runtime.state().check_calls.answered(&call);
                 let page = runtime.state().pages.remove(&call);
                 if let (Some(path), false) = (page, failed) {
                     self.page_written(id, path).await;

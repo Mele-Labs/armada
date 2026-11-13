@@ -833,6 +833,11 @@ pub enum SessionRow {
         /// the log names no file in the slot.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         blame: Option<crate::CheckBlame>,
+        /// The `id` of the `Tool` row whose call ran it: the one shell call of the agent's own running
+        /// `armada check` as the run began, read off the stream. Absent where none or several were, for
+        /// a subagent's run, in a terminal Job, and on every row kept before it existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_row: Option<String>,
     },
     /// A command the person ran from the thread or the Needs-you band, ended, and what the
     /// session was told of it. `code` is absent where the run was stopped or a signal ended it;

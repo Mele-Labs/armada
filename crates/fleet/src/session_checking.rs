@@ -107,8 +107,12 @@ where
         let run = store
             .start_session_check(&session, &manifest, slot, name, target, &at)
             .map_err(|why| self.ledger_fault(why))?;
+        let tool_row = self.hosts().check_call_row(&session);
+        if let Some(row) = &tool_row {
+            store.link_session_check(run, row).map_err(|why| self.ledger_fault(why))?;
+        }
         drop(store);
-        self.session_check_row(&session, name, target, None, run, &at, SessionCheckState::Running)
+        self.session_check_row(&session, name, target, None, tool_row.as_deref(), run, &at, SessionCheckState::Running)
             .await?;
         Ok(SessionCheckAnswer {
             run: u64::try_from(run).ok(),
@@ -151,7 +155,7 @@ where
                 (SessionCheckState::Failed, Some(log)) => self.blamed(&kept, log).await,
                 _ => None,
             };
-            self.session_check_row(&kept.session_id, &kept.name, target, blame, run, &kept.started_at, outcome)
+            self.session_check_row(&kept.session_id, &kept.name, target, blame, kept.tool_row.as_deref(), run, &kept.started_at, outcome)
                 .await?;
         }
         Ok(SessionCheckAnswer {
@@ -180,6 +184,7 @@ where
         name: &str,
         target: Option<&str>,
         blame: Option<ipc::CheckBlame>,
+        tool_row: Option<&str>,
         run: i64,
         at: &str,
         state: SessionCheckState,
@@ -194,6 +199,7 @@ where
                 state,
                 target: target.map(str::to_string),
                 blame,
+                tool_row: tool_row.map(str::to_string),
             },
         )
         .await;
@@ -255,6 +261,7 @@ where
                     &run.name,
                     run.target.as_deref(),
                     None,
+                    run.tool_row.as_deref(),
                     run.id,
                     &run.started_at,
                     SessionCheckState::Failed,

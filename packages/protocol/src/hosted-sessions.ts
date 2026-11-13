@@ -669,6 +669,7 @@ export type SessionRow =
    * An `armada check` the agent ran in its slot, replaced by id as it ends. `run` is the id `GET /sessions/checks/:run/output` reads. Since 23.75.
    * `target` is what the run was narrowed to, the filter it was given or the crates `--changed` narrowed to; absent, it ran whole.
    * `blame` is where a failed run's log says it failed, read by Fleet as the run ends; absent while running, on a pass, and where the log names no file.
+   * `tool_row` is the `id` of the `tool` row whose call ran it; absent where Fleet could not tell which call did.
    */
   | {
       kind: "check";
@@ -679,6 +680,7 @@ export type SessionRow =
       state: "running" | "passed" | "failed" | "timed_out";
       target?: string;
       blame?: CheckBlame;
+      tool_row?: string;
     }
   /**
    * A command the person ran from the thread or the Needs-you band, ended, and what the Session was told of it, in place
