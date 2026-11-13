@@ -243,6 +243,12 @@ pub trait LanesHost: Sized + 'static {
         true
     }
 
+    /// Read only where the canvas fits: it fits as though its lanes were at least this wide, so canvases drawn
+    /// together, with [`lanes_width`], share one zoom.
+    fn lanes_fit_width(&self, _id: &SharedString) -> f32 {
+        0.
+    }
+
     /// Whether `node` of the canvas under `id` is chosen: it wears a tick, in the accent hue, and says "Chosen".
     fn lanes_chosen(&self, _id: &SharedString, _node: &str) -> bool {
         false
@@ -409,6 +415,11 @@ fn hooks_of(lanes: &JobLanesView, placement: &Placement, chips: &HashMap<String,
     Hooks { picked, gaps }
 }
 
+/// How wide `lanes` stand at their own size with no heads, as a compact canvas draws them.
+pub fn lanes_width(lanes: &JobLanesView) -> f32 {
+    layout::place_at(&lanes.lanes, 0., 0.).width
+}
+
 pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesView, look: &Look, cx: &Context<H>) -> AnyElement {
     let state = host.lanes_state();
     let (frame_w, frame_h) = state.size.get();
@@ -416,7 +427,7 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
     let fit = compact && host.lanes_fit(id);
     // Fitted, the view is worked out from the frame's size each frame, so it follows the frame as it changes.
     let (placement, fitted) = if fit {
-        let (placement, view) = place_fitted(&lanes.lanes, (frame_w, frame_h));
+        let (placement, view) = place_fitted(&lanes.lanes, (frame_w, frame_h), host.lanes_fit_width(id));
         (placement, Some(view))
     } else if compact {
         (place_at(&lanes.lanes, frame_h, 0.), None)
