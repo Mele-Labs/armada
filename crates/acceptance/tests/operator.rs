@@ -249,14 +249,15 @@ async fn a_note_and_an_error_ruled_filed_are_each_asked_once() {
 // ---------------------------------------------------------------------------
 
 #[tokio::test(start_paused = true)]
-async fn every_act_asks_and_only_a_link_and_a_raise_are_done_as_they_come() {
+async fn only_a_hand_to_a_live_job_asks_and_a_link_a_new_job_and_a_raise_are_done_as_they_come() {
     let scrollback = || report("r1", "Terminal scrollback vanishes after the pane redraws", "Scrolling up in a terminal pane is empty once the pane redraws").arrival();
     let keys = || report("r2", "Pull request review tabs close when tmux keys are pressed", "Pressing the tmux keys to move between review tabs closes the open review").arrival();
     // The scrollback report offers 1. link, 2. existing job, 3. new job, 4. raise; the keys one 1. existing job, 2. new job, 3. raise.
     let cases = [
         (scrollback(), format!("item: 1\nway: 1\nissue: {SCROLLBACK_ISSUE}\nbecause: the issue already names it"), Outcome::Ruled(Way::Link), true),
         (keys(), format!("item: 1\nway: 1\njob: {TABS}\nshared: the review tabs' keys\nbecause: that Job is on it"), Outcome::Proposed(Way::ExistingJob), false),
-        (keys(), "item: 1\nway: 2\nbecause: no Job is near it".to_string(), Outcome::Proposed(Way::NewJob), false),
+        // A new Job starts as the project's `agent_starts` says, at once or on its start card, never on a Do it card (12 Nov 2026).
+        (keys(), "item: 1\nway: 2\nbecause: no Job is near it".to_string(), Outcome::Ruled(Way::NewJob), true),
         (keys(), "item: 1\nway: 3\nbecause: it is for him to read".to_string(), Outcome::Ruled(Way::Raise), true),
     ];
     for (arrival, ruling, outcome, done) in cases {
@@ -267,8 +268,8 @@ async fn every_act_asks_and_only_a_link_and_a_raise_are_done_as_they_come() {
         operator.ruled(arrival, NEEDS_YOU_WAIT).await;
 
         assert_eq!(fleet.log()[0].outcome, outcome, "{outcome:?}");
-        assert_eq!(!fleet.sourced().is_empty(), done, "{outcome:?}: done as it came only where it writes nothing");
-        assert_eq!(!fleet.suggested().is_empty(), !done, "{outcome:?}: asked first where it acts");
+        assert_eq!(!fleet.sourced().is_empty(), done, "{outcome:?}: done as it came");
+        assert_eq!(!fleet.suggested().is_empty(), !done, "{outcome:?}: asked first only where it hands work to a live Job");
     }
 }
 
