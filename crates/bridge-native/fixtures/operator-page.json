@@ -111,6 +111,48 @@
    },
    "raised_at": "2026-11-11T12:58:00-05:00",
    "keeps": true
+  },
+  {
+   "id": "turn:10",
+   "kind": "decision",
+   "session_id": "mock-06",
+   "job": "Pocket sign-in on the phone",
+   "manifest_id": "armada",
+   "repository": "armada",
+   "item": {
+    "id": "agent-6",
+    "text": "Which sign-in should Pocket offer first?",
+    "since": "2026-11-11T13:00:00-05:00",
+    "source": "agent",
+    "options": [{ "label": "Passkey" }, { "label": "Email link" }]
+   },
+   "read": {
+    "read": "Passkeys work on every phone you use, and the email link stays as the way back in.",
+    "pick": "Passkey"
+   },
+   "raised_at": "2026-11-11T13:00:00-05:00",
+   "group": "mock-06"
+  },
+  {
+   "id": "turn:11",
+   "kind": "decision",
+   "session_id": "mock-06",
+   "job": "Pocket sign-in on the phone",
+   "manifest_id": "armada",
+   "repository": "armada",
+   "item": {
+    "id": "ask:call-6",
+    "text": "Keep the old sign-in page for a week?",
+    "since": "2026-11-11T13:03:00-05:00",
+    "source": "ask_card",
+    "act": { "kind": "answer", "target": "call-6" }
+   },
+   "read": {
+    "read": "Nothing links to it now, so a week covers anyone signed in halfway.",
+    "pick": ""
+   },
+   "raised_at": "2026-11-11T13:03:00-05:00",
+   "group": "mock-06"
   }
  ],
  "digest": {
