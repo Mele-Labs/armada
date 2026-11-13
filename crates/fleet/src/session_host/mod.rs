@@ -116,6 +116,8 @@ pub(crate) use serving::{mode_of, Marked, QuickStart, RunEnd, NO_SUCH_SESSION};
 mod terminal;
 pub(crate) mod uploads;
 pub(crate) mod waiting;
+pub(crate) mod picture_keeping;
+mod picture_shown;
 mod ways_checking;
 pub(crate) mod readiness;
 pub(crate) mod walking;

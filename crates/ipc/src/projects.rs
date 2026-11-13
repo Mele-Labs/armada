@@ -47,7 +47,7 @@ pub struct Project {
     pub shared_with_macs: bool,
 }
 
-/// A member of a project: a whole repository, or a folder of it that carries its own `armada.yml`.
+/// A member of a project: a whole repository, or any folder of it, which needs no `armada.yml` of its own.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProjectMember {
     pub manifest_id: ManifestId,

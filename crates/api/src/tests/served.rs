@@ -238,6 +238,24 @@ async fn manifest_files_is_narrowed_by_q_and_answers_everything_with_none() {
     );
 }
 
+/// `?folders=true` and `?root=` reach the daemon, and the answer carries folders and no paths.
+#[tokio::test]
+async fn folders_true_answers_folders_and_no_paths() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+
+    let (status, body) = call(&app, "GET", "/manifest/files?folders=true&q=src", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let found: ipc::FilesFound = ipc::decode("files found", &body).expect("folders");
+    assert!(found.paths.is_empty(), "{found:?}");
+    assert_eq!(found.folders, shapes::files_found("src"));
+
+    let (_, body) = call(&app, "GET", "/manifest/files?q=src&root=%2Ftmp", "").await;
+    let found: ipc::FilesFound = ipc::decode("files found", &body).expect("paths");
+    assert_eq!(found.paths, shapes::files_found("src"), "`root` is read and files stay the default");
+    assert!(found.folders.is_empty());
+}
+
 /// The dispatch panel's repository chip. **A pick is the field, and no pick is
 /// the field left out** — Bridge types it `manifest_id?: string`, and a `null`
 /// would pass for a repository the words never named.

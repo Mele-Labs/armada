@@ -365,15 +365,17 @@ pub trait Queries: Send + Sync + 'static {
         server_id: String,
     ) -> impl Future<Output = Result<crate::ObservedServer, Refusal>> + Send;
 
-    /// `search_files` — paths under the checkout narrowed against typed text,
-    /// for Bridge's `@` mention popup.
+    /// `search_files` — paths, or with `folders` the folders, under the checkout narrowed
+    /// against typed text, for Bridge's `@` mention popup and the New project sheet.
     ///
     /// `manifest_id` names the checkout, absent being the one Fleet was started
-    /// in; this reads it before any Job — and so any worktree — exists.
+    /// in; this reads it before any Job — and so any worktree — exists. `root` names an
+    /// absolute folder Fleet does not serve yet instead, and giving both is a 422.
     ///
-    /// It never refuses. A directory it cannot read is skipped rather than
-    /// failing the whole search, [`Queries::get_capacity`]'s own reasoning for
-    /// answering rather than 500ing over a corner of the machine.
+    /// It refuses nothing else. A `root` that is relative or no folder here is a 422, but a
+    /// directory it cannot read is skipped rather than failing the whole search,
+    /// [`Queries::get_capacity`]'s own reasoning for answering rather than 500ing over a
+    /// corner of the machine.
     /// `list_repositories` — every repository this Fleet serves, the one it was
     /// started in first, each with its Manifest where one has loaded.
     fn list_repositories(
@@ -453,6 +455,8 @@ pub trait Queries: Send + Sync + 'static {
         &self,
         query: String,
         manifest_id: Option<ManifestId>,
+        folders: bool,
+        root: Option<String>,
     ) -> impl Future<Output = Result<FilesFound, Refusal>> + Send;
 
     /// `get_tests_reaching` — the tests the repository's test map says reach each of `paths`,

@@ -335,6 +335,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/document/answer", post(crate::sessions::answer_document::<D>))
         .route("/sessions/show_file", post(crate::sessions::show_file::<D>))
         .route("/sessions/shown", get(crate::shown::get_shown_file::<D>))
+        .route("/sessions/lead_picture", get(crate::sessions::get_lead_picture::<D>))
         .route("/sessions/style_sources", get(crate::styles::get_style_sources::<D>))
         .route("/sessions/design_catalogue", get(crate::styles::get_design_catalogue::<D>))
         .route("/sessions/kept_styles", get(crate::styles::get_kept_styles::<D>))

@@ -491,7 +491,7 @@ Its row carries `mod`.
 Its first message is a pinned note's, sent as `send_session_note` sends one, with the Mod brief ahead of his words; from Create mod the Job opens empty and sends nothing, then his first message is sent as a message is, with the same brief ahead of his words, and retitles a Job still titled `Mod` as `Mod <first line>`: load the `armada:armada-mods` skill and reach for a mod first.
 The skill ships in the Armada mod for Claude Code (`plugins/armada/skills/armada-mods/`), so a Job in any folder has it.
 A mod it makes applies live once `validate_mod` passes, and the switch in *Mods made* is the owner's undo.
-Where the ask needs more than a mod can say, the Job says so and changes Armada's source on its own branch, then asks for `scripts/preview --restart` as a `waiting_for` run item.
+Where the ask needs more than a mod can say, the Job says so and changes Armada's source on its own branch, then offers the branch with `offer_preview`, and the owner presses Refresh preview.
 An empty Mod Job's thread lists six aims to pick from, Colours, Panels, Words, Notices, Issue trackers and Anything else, and he can pick what he is aiming for before he writes, a theme, layout, words, Fleet rule, tracker or a change to Armada's source, and his first message carries one line naming it after the brief.
 The pick is kept per Job until his first message, which is the only one that carries it.
 Custom in a Job's panes starts the Job with `aim` set to `tab`, and `from_job` and `from_tab` naming the tab's Job and the tab, on `start_mod_session`, so the same line rides after the brief; the Job is then not empty, and its thread is the tab's body until it scaffolds the mod.

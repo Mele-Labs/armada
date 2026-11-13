@@ -1,8 +1,8 @@
-//! A Project is a set of members, each a whole repository or a monorepo folder inside one.
+//! A Project is a set of members, each a whole repository or any folder inside one.
 //!
-//! **A Workspace keeps only its monorepo meaning now**: the folder of a repository that carries its
-//! own `armada.yml`. A member may name one, by [`Folder`]. The owner decided this on 10 Nov 2026,
-//! when a Project replaced what was called a Workspace here.
+//! **A member is a whole repository or any folder inside one, and a folder needs no `armada.yml` of
+//! its own**: it takes its repository's. A member names a folder by [`Folder`]. A Workspace keeps only
+//! its monorepo meaning now, the folder of a repository that carries its own `armada.yml`.
 //!
 //! A Project is a scope: it says which repositories a lifecycle (and a workflow and a rule) applies
 //! to. A lifecycle names it by [`ScopeId`] and never holds it, so a lifecycle can be read before the
