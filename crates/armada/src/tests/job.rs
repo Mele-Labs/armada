@@ -273,6 +273,7 @@ fn a_repository_name_is_the_manifest_it_names_and_an_unknown_one_lists_what_exis
 fn status_tells_a_mod_that_never_reported_from_one_that_did() {
     let row = |mod_version: Option<&str>, missing: &[ipc::ToolMissing]| ipc::SessionSummary {
         id: ipc::SessionId::carried("s1"),
+        mac: None,
         title: Some("Fix it".into()),
         manifest_id: None,
         origin: ipc::SessionOrigin::Bridge,
