@@ -402,17 +402,49 @@ impl ReviewsScreen {
             .items_center()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_3))
-            .h(look.length(token::H_CONTROL_LG))
+            .py(look.length(token::SPACE_1))
+            .min_h(look.length(token::H_CONTROL_LG))
             .bg(look.color(token::BG_SUNKEN))
             .cursor_pointer()
             .aria_expanded(open)
             .on_click(cx.listener(move |this, _, _, cx| this.toggle_file(&path, viewed, cx)))
             .when(open, |head| head.border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
             .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3), look.color(token::FG_MUTED)))
-            .child(tick)
-            .child(mark(format!("file-mark-{at}"), name, ink, said, look))
-            .child(div().flex_1().min_w_0().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).child(SharedString::from(file.path.clone())))
-            .children((file.viewed == Viewed::ChangedAfter).then(|| chip(format!("file-after-{at}"), "Changed after you viewed it".into(), token::STATUS_HANDED_IN, token::STATUS_HANDED_IN_BG, look)))
+            // Viewed, the file's mark and its path share a line with Changed after you viewed it when they fit. When
+            // they do not, the chip wraps to a line of its own under them, so the path is never squeezed out; short
+            // of room for the path alone, it gives way from the left so the file's name stays.
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_wrap()
+                    .items_center()
+                    .gap_x(look.length(token::SPACE_3))
+                    .gap_y(look.length(token::SPACE_1))
+                    .child(
+                        div()
+                            .flex_auto()
+                            .min_w_0()
+                            .flex()
+                            .items_center()
+                            .gap(look.length(token::SPACE_3))
+                            .child(tick)
+                            .child(mark(format!("file-mark-{at}"), name, ink, said, look))
+                            .child(
+                                div()
+                                    .flex_auto()
+                                    .min_w_0()
+                                    .overflow_hidden()
+                                    .whitespace_nowrap()
+                                    .text_ellipsis_start()
+                                    .font_family(mono(look))
+                                    .text_size(look.length(token::TEXT_XS))
+                                    .child(SharedString::from(file.path.clone())),
+                            ),
+                    )
+                    .children((file.viewed == Viewed::ChangedAfter).then(|| chip(format!("file-after-{at}"), "Changed after you viewed it".into(), token::STATUS_HANDED_IN, token::STATUS_HANDED_IN_BG, look))),
+            )
             .child(
                 div()
                     .flex_none()

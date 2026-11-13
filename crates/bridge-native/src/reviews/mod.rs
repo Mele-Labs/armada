@@ -115,6 +115,8 @@ pub struct ReviewsScreen {
     control: Entity<LayoutControl>,
     /// The panes' area as last drawn, so a drop that would squeeze a pane is refused.
     area: Rc<Cell<Option<Size>>>,
+    /// Each pane's tab strip width as last drawn, so a crowded strip draws the tabs behind as glyphs.
+    strips: Rc<std::cell::RefCell<HashMap<String, gpui::Pixels>>>,
     /// The pane a tab is dragged over, where on it, and whether it can land there.
     over: Option<(String, tree::Zone, bool)>,
     lifted: Option<String>,
@@ -192,6 +194,7 @@ impl ReviewsScreen {
             arrangement,
             control,
             area: Rc::default(),
+            strips: Rc::default(),
             over: None,
             lifted: None,
             whole: false,
@@ -910,7 +913,7 @@ impl Render for ReviewsScreen {
             window.defer(cx, move |_, cx| bar.update(cx, |bar, cx| bar.fill_job_slot(Some(control.into()), cx)));
         }
         let inbox = self.render_inbox(&look, window, cx);
-        let page = self.render_page(&look, cx);
+        let page = self.render_page(&look, window, cx);
         let dialog = self.asking.map(|ask| self.render_dialog(ask, &look, cx));
         let menu = self.pop.as_ref().map(|pop| pop.menu.clone());
         div()
