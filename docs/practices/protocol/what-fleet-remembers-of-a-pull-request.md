@@ -38,15 +38,22 @@ Bridge's half is `packages/protocol/src/pull-review-memory.ts`, written by hand,
 **The compare is the forge's, from the merge base.** After a rebase its files can hold changes from the target branch and not the author's.
 **A lost base is an outcome, not an error**: `base_gone` is a 200, so Bridge offers the whole pull request rather than drawing a failure.
 
-**Still viewed.** A file marked at the page's head is still viewed. Marked at an older head, it is only while the forge's blob for it now is the one marked, which costs one forge read of the files, made only when such a mark exists. With no blob the mark goes stale once the head moves.
+**Still viewed.** A file marked at the page's head is still viewed.
+Marked at an older head, it is only while the forge's blob for it now is the one marked, which costs one forge read of the files, made only when such a mark exists.
+With no blob the mark goes stale once the head moves.
 
-**A ranged run's key.** The store keeps it at `<since>..<head>` in the `head` column of `review_runs`, so it is a key of its own beside the whole run at the same head and no column is added. A kept result answers a press only with the same `since`.
+**A ranged run's key.** The store keeps it at `<since>..<head>` in the `head` column of `review_runs`, so it is a key of its own beside the whole run at the same head and no column is added.
+A kept result answers a press only with the same `since`.
 
 **The finding comment rule** is [the review-run brief](../../contracts/agent-prompt/5j-the-review-run-brief.md)'s; a finding whose comment breaks it fails the run.
 
-**A review Fleet wrote is served until the forge shows a newer one.** After `write_pull_request` makes a review, Fleet keeps it in `pull_request_reviewed`, stamped with its own clock after the forge took it, at the request's `commit` or else the head it reads next. The page and the row serve whichever of that and the forge's latest has the later `submitted_at`, so a forge read that lags the write is never what he sees. A plain comment is not a review and is not kept.
+**A review Fleet wrote is served until the forge shows a newer one.** After `write_pull_request` makes a review, Fleet keeps it in `pull_request_reviewed`, stamped with its own clock after the forge took it, at the request's `commit` or else the head it reads next.
+The page and the row serve whichever of that and the forge's latest has the later `submitted_at`, so a forge read that lags the write is never what he sees.
+A plain comment is not a review and is not kept.
 
-**Layouts.** `arrangement` is the pane tree as Bridge writes it, `{ root, focus, next, threadWas? }`, kept as text Fleet does not read into. `Default` uses the tab kinds `pr-inbox`, `pr-changed`, `pr-files`, `pr-conversation`, `pr-checks`, `pr-findings` and `pr-comments`. Classic reads none of these operations.
+**Layouts.** `arrangement` is the pane tree as Bridge writes it, `{ root, focus, next, threadWas? }`, kept as text Fleet does not read into.
+`Default` uses the tab kinds `pr-inbox`, `pr-changed`, `pr-files`, `pr-conversation`, `pr-checks`, `pr-findings` and `pr-comments`.
+Classic reads none of these operations.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 Were a pair to meet anyway, a Fleet without the routes answers 404, and every new field is optional on both sides.

@@ -42,7 +42,7 @@ fn a_page_he_reviewed() -> PullRequestPageFacts {
     let mut page = a_page();
     page.commits = vec![commit("1a2b3c4"), commit("b42a108"), commit("3f9c1d2")];
     page.latest_reviews = [
-        ("nickmele".to_string(), latest(LatestReviewSaid::Commented, OLD, REVIEWED_AT)),
+        ("rowan-ashe".to_string(), latest(LatestReviewSaid::Commented, OLD, REVIEWED_AT)),
         ("ada".to_string(), latest(LatestReviewSaid::Approved, HEAD, "2026-08-21T10:00:00Z")),
     ]
     .into();
@@ -50,10 +50,10 @@ fn a_page_he_reviewed() -> PullRequestPageFacts {
         thread(
             "PRRT_1",
             vec![
-                said("C1", "NickMele", "2026-08-19T10:00:00Z"),
+                said("C1", "Rowan-Ashe", "2026-08-19T10:00:00Z"),
                 said("C2", "ada", "2026-08-19T12:00:00Z"),
                 said("C3", "ada", "2026-08-21T09:00:00Z"),
-                said("C4", "NickMele", "2026-08-22T09:00:00Z"),
+                said("C4", "Rowan-Ashe", "2026-08-22T09:00:00Z"),
                 said("C5", "grace", "2026-08-23T09:00:00Z"),
             ],
         ),
@@ -78,7 +78,7 @@ async fn the_page_carries_his_latest_review_and_the_commits_and_replies_since_it
     let home = TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    signed_in_as(&fleet, "NickMele");
+    signed_in_as(&fleet, "Rowan-Ashe");
     fleet.vcs().now_pull_request_page(Some(a_page_he_reviewed()));
 
     let page = fleet.get_pull_request_detail(id, 12).await.expect("read");
@@ -108,7 +108,7 @@ async fn after_he_approves_the_page_and_his_row_show_it_while_the_forge_still_an
     let home = TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    signed_in_as(&fleet, "NickMele");
+    signed_in_as(&fleet, "Rowan-Ashe");
     // The forge lags: every read below still says his latest is the comment at OLD.
     fleet.vcs().now_pull_request_page(Some(a_page_he_reviewed()));
     let mut row = pull(12, SLUG);
@@ -132,7 +132,7 @@ async fn after_he_approves_the_page_and_his_row_show_it_while_the_forge_still_an
     // The forge catches up with a review newer than Fleet's: the forge's wins.
     let mut caught_up = a_page_he_reviewed();
     caught_up.latest_reviews.insert(
-        "nickmele".into(),
+        "rowan-ashe".into(),
         latest(LatestReviewSaid::ChangesRequested, HEAD, "2026-09-01T00:00:00Z"),
     );
     fleet.vcs().now_pull_request_page(Some(caught_up));
