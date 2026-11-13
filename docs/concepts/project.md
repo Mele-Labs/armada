@@ -63,6 +63,19 @@ The tracker is [Tracker](tracker.md), and a pull request is read from the forge.
 It replaces its members' trackers for the Jobs in it, for the project's issues, and for the issues its tasks and issue rows link, which are read and checked through it.
 A loose task and a task in a project that names none keep their repository's ([Tracker](tracker.md), *A project's tracker*).
 
+## The built-in project
+
+**On a Mac where Fleet serves the armada repository (manifest id `armada`), Fleet makes a project named Armada by itself.**
+Its only member is the armada repository, whole, its place is This Mac, and it sets one value, `delivery: auto_land`.
+Auto merge and the tracker already come from the repository's committed `armada.yml`, and theme and layout stay each Mac's, so the project sets nothing else.
+Fleet makes it when it first serves the repository, or at its start for a repository it already serves, and it never asks him.
+
+> **Rule (13 Nov).** Fleet makes the project once per Mac and keeps a record that it did, so a project he deletes or renames is never made again.
+> Where a project already has the armada repository as a member, Fleet makes nothing and records it as made.
+> Why: he wants Armada ready to use on a new Mac, such as his work Mac, and a project he removed on purpose stays removed.
+
+The record is one row of `project_imports`, under `built-in:armada`, the same table that keeps a committed Workspace from coming back after a delete.
+
 ## What a project scopes
 
 A lifecycle, a rule or an autonomy piece names a project in its `scope:`.

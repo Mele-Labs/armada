@@ -63,6 +63,8 @@ where
     ) -> Result<Reconciled, Adrift> {
         self.reaped_left_servers(served.records_root()).await;
         self.reconciled_in_part(served).await;
+        // The repository is served now, so Armada's own project may be made. `crate::project_files`.
+        let _ = self.built_in_projects_made().await;
         Ok(Reconciled::default())
     }
 
