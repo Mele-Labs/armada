@@ -527,7 +527,9 @@ where
         terminal: Option<KeptSession>,
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
-        self.send_known_ahead(terminal, sent, None).await
+        // Boxed: a caller awaiting it in several arms, as answering a waiting item does, held a copy of the send's
+        // future for each and overflowed a test thread's stack.
+        Box::pin(self.send_known_ahead(terminal, sent, None)).await
     }
 
     /// [`Self::send_known`] with the line [`Self::send_hosted_ahead`] puts ahead of the words.
