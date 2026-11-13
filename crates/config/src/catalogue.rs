@@ -1,11 +1,21 @@
 //! Where a workflow comes from, and which one a repository runs.
 //!
-//! **Three sources, merged by `workflow_id`, a person's own winning**: the set
-//! Armada carries, then the repository's own, then Kit's. So a repository nobody
-//! set up dispatches on the carried set, one file in either later place
-//! replaces a carried definition by id (#425), and a teammate's commit never
-//! replaces what a person keeps in Kit. Where Kit's hides a repository file
-//! that says something else, the running file says so ([`WorkflowFile::hides`]).
+//! **Four sources, merged by `workflow_id`: yours first, then narrower.** A
+//! repository runs, for each id, the first of: a project it belongs to, Kit's,
+//! its own, and the set Armada carries. So a repository nobody set up
+//! dispatches on the carried set, one file in a later place replaces a carried
+//! definition by id (#425), a teammate's commit never replaces what a person
+//! keeps in Kit, and what a person keeps for a project never loses to Kit's for
+//! every project. Where Kit's or a project's hides a repository file that says
+//! something else, the running file says so ([`WorkflowFile::hides`]).
+//!
+//! **Lifecycles and rules rank the other way** (`resolving`): scope first, then
+//! whose. A workflow is a person's own way of working and a piece is a rule
+//! about a place, and the owner chose each order for its own.
+//!
+//! **Which projects apply is the caller's**: it hands a repository only the
+//! files of projects that hold it ([`Written::in_project`]), and a file of one
+//! that does not is never read here.
 //!
 //! **Text in, not directories**, so an acceptance test drives it with no file.
 //!
@@ -22,7 +32,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use core_model::{WorkflowId, WorkflowSource};
+use core_model::{ScopeId, WorkflowId, WorkflowSource};
 
 use crate::error::{LoadError, ResolveError};
 use crate::manifest::Manifest;
@@ -92,6 +102,7 @@ const CARRIED: [(&str, &str); 9] = [
 #[derive(Debug, Clone)]
 pub struct Written {
     source: WorkflowSource,
+    project: Option<ScopeId>,
     path: PathBuf,
     text: String,
 }
@@ -101,6 +112,18 @@ impl Written {
     pub fn in_kit(path: PathBuf, text: String) -> Written {
         Written {
             source: WorkflowSource::Kit,
+            project: None,
+            path,
+            text,
+        }
+    }
+
+    /// A definition read from Kit's folder for one project. **Handed only for a
+    /// project that holds the repository the catalogue is for.**
+    pub fn in_project(path: PathBuf, text: String, project: ScopeId) -> Written {
+        Written {
+            source: WorkflowSource::Project,
+            project: Some(project),
             path,
             text,
         }
@@ -110,6 +133,7 @@ impl Written {
     pub fn in_repository(path: PathBuf, text: String) -> Written {
         Written {
             source: WorkflowSource::Repository,
+            project: None,
             path,
             text,
         }
@@ -117,6 +141,11 @@ impl Written {
 
     pub fn source(&self) -> WorkflowSource {
         self.source
+    }
+
+    /// The project a [`WorkflowSource::Project`] file is kept for.
+    pub fn project(&self) -> Option<&ScopeId> {
+        self.project.as_ref()
     }
 
     pub fn path(&self) -> &Path {
@@ -134,6 +163,7 @@ pub fn carried() -> Vec<Written> {
         .iter()
         .map(|(file, text)| Written {
             source: WorkflowSource::Armada,
+            project: None,
             path: Path::new(CARRIED_AT).join(file),
             text: (*text).to_string(),
         })
@@ -143,8 +173,17 @@ pub fn carried() -> Vec<Written> {
 /// Every definition in hand, grouped by id, and the ones already set aside.
 #[derive(Debug)]
 pub struct Catalogue {
-    held: BTreeMap<WorkflowId, Vec<(WorkflowDef, WorkflowSource, String)>>,
+    held: BTreeMap<WorkflowId, Vec<Held>>,
     left_out: Vec<LeftOut>,
+}
+
+/// One definition that parsed, with the place it came from.
+#[derive(Debug)]
+struct Held {
+    def: WorkflowDef,
+    source: WorkflowSource,
+    project: Option<ScopeId>,
+    text: String,
 }
 
 impl Catalogue {
@@ -153,45 +192,60 @@ impl Catalogue {
     /// **The order they arrive in decides nothing**, and the source decides
     /// everything. Two definitions sharing an id *and* a place are a fault in
     /// that place: both are left out, naming both. Across places, it is an
-    /// override.
+    /// override. **Projects are one place**: two of them keeping an id that a
+    /// repository both belong to is a fault the same way, and names both.
     pub fn of(written: impl IntoIterator<Item = Written>, roster: &Roster) -> Catalogue {
-        let mut placed: BTreeMap<(WorkflowSource, WorkflowId), Vec<(WorkflowDef, String)>> =
+        let mut placed: BTreeMap<(WorkflowSource, WorkflowId), Vec<(WorkflowDef, Option<ScopeId>, String)>> =
             BTreeMap::new();
         let mut left_out = Vec::new();
         for one in written {
             let def = match WorkflowDef::parse(&one.path, &one.text, roster) {
                 Ok(def) => def,
                 Err(why) => {
-                    left_out.push(LeftOut::of(
-                        None,
-                        one.source,
-                        one.path,
-                        WhyLeftOut::Unparsed(why),
-                    ));
+                    left_out.push(
+                        LeftOut::of(None, one.source, one.path, WhyLeftOut::Unparsed(why))
+                            .in_project(one.project),
+                    );
                     continue;
                 }
             };
             placed
                 .entry((one.source, def.id().clone()))
                 .or_default()
-                .push((def, one.text));
+                .push((def, one.project, one.text));
         }
 
-        let mut held: BTreeMap<WorkflowId, Vec<(WorkflowDef, WorkflowSource, String)>> =
-            BTreeMap::new();
+        let mut held: BTreeMap<WorkflowId, Vec<Held>> = BTreeMap::new();
         for ((source, id), mut defs) in placed {
             if defs.len() > 1 {
-                let also = defs
-                    .drain(1..)
-                    .map(|(def, _)| def.path().to_path_buf())
+                let mut projects: Vec<(ScopeId, PathBuf)> = defs
+                    .iter()
+                    .filter_map(|(def, project, _)| {
+                        project.clone().map(|project| (project, def.path().to_path_buf()))
+                    })
                     .collect();
-                let first = defs.remove(0).0.path().to_path_buf();
-                let why = WhyLeftOut::Duplicated { also };
-                left_out.push(LeftOut::of(Some(id), source, first, why));
+                // **Named in the project's own order**, so the sentence is the same whatever order the files arrived in.
+                projects.sort();
+                let (first_project, first) = {
+                    let (def, project, _) = &defs[0];
+                    (project.clone(), def.path().to_path_buf())
+                };
+                let across = projects.iter().any(|(project, _)| Some(project) != first_project.as_ref());
+                let why = if across {
+                    WhyLeftOut::HeldByTwoProjects { files: projects }
+                } else {
+                    let also = defs
+                        .drain(1..)
+                        .map(|(def, _, _)| def.path().to_path_buf())
+                        .collect();
+                    WhyLeftOut::Duplicated { also }
+                };
+                let project = if across { None } else { first_project };
+                left_out.push(LeftOut::of(Some(id), source, first, why).in_project(project));
                 continue;
             }
-            let (def, text) = defs.remove(0);
-            held.entry(id).or_default().push((def, source, text));
+            let (def, project, text) = defs.remove(0);
+            held.entry(id).or_default().push(Held { def, source, project, text });
         }
         Catalogue { held, left_out }
     }
@@ -213,29 +267,32 @@ impl Catalogue {
         let mut files: Vec<WorkflowFile> = Vec::new();
         let mut left_out = self.left_out;
         for (id, mut candidates) in self.held {
-            candidates.sort_by(|a, b| b.1.cmp(&a.1));
+            candidates.sort_by(|a, b| b.source.cmp(&a.source));
             // The place that runs, and where its file sits in `files`.
             let mut winner: Option<(WorkflowSource, usize)> = None;
-            for (def, source, text) in candidates {
+            for Held { def, source, project, text } in candidates {
                 if let Some((by, at)) = winner {
                     if hidden(by, source, files[at].text(), &text) {
                         files[at].hides = Some(source);
                     }
-                    files.push(WorkflowFile::of(&id, source, &def, text, Some(by)));
+                    files.push(WorkflowFile::of(&id, source, project, &def, text, Some(by)));
                     continue;
                 }
                 match ResolvedWorkflow::resolve_gated(&def, manifest, gating) {
                     Ok(resolved) => {
                         workflows.insert(id.clone(), resolved.read_from(source));
-                        files.push(WorkflowFile::of(&id, source, &def, text, None));
+                        files.push(WorkflowFile::of(&id, source, project, &def, text, None));
                         winner = Some((source, files.len() - 1));
                     }
-                    Err(why) => left_out.push(LeftOut::of(
-                        Some(id.clone()),
-                        source,
-                        def.path().to_path_buf(),
-                        WhyLeftOut::Unresolved(why),
-                    )),
+                    Err(why) => left_out.push(
+                        LeftOut::of(
+                            Some(id.clone()),
+                            source,
+                            def.path().to_path_buf(),
+                            WhyLeftOut::Unresolved(why),
+                        )
+                        .in_project(project),
+                    ),
                 }
             }
         }
@@ -259,7 +316,7 @@ impl Catalogue {
 /// Whether a person's own definition hides a repository's that says something
 /// else. **Two copies that are the same hide nothing**, so they carry no mark.
 fn hidden(by: WorkflowSource, under: WorkflowSource, running: &str, replaced: &str) -> bool {
-    by == WorkflowSource::Kit
+    matches!(by, WorkflowSource::Kit | WorkflowSource::Project)
         && under == WorkflowSource::Repository
         && running.trim() != replaced.trim()
 }
@@ -308,6 +365,7 @@ impl ResolvedCatalogue {
 pub struct WorkflowFile {
     id: WorkflowId,
     source: WorkflowSource,
+    project: Option<ScopeId>,
     path: PathBuf,
     text: String,
     def: WorkflowDef,
@@ -319,6 +377,7 @@ impl WorkflowFile {
     fn of(
         id: &WorkflowId,
         source: WorkflowSource,
+        project: Option<ScopeId>,
         def: &WorkflowDef,
         text: String,
         overridden_by: Option<WorkflowSource>,
@@ -326,6 +385,7 @@ impl WorkflowFile {
         WorkflowFile {
             id: id.clone(),
             source,
+            project,
             path: def.path().to_path_buf(),
             text,
             def: def.clone(),
@@ -340,6 +400,11 @@ impl WorkflowFile {
 
     pub fn source(&self) -> WorkflowSource {
         self.source
+    }
+
+    /// The project a [`WorkflowSource::Project`] file is kept for. `None` of any other.
+    pub fn project(&self) -> Option<&ScopeId> {
+        self.project.as_ref()
     }
 
     /// Where it was read from. A bracketed name, not a path, for a carried one.
@@ -364,7 +429,7 @@ impl WorkflowFile {
     }
 
     /// The place whose different definition of this id this one hides from the
-    /// person: the repository's, where Kit's runs over it. `None` where the
+    /// person: the repository's, where Kit's or a project's runs over it. `None` where the
     /// two are the same, or nothing is hidden.
     pub fn hides(&self) -> Option<WorkflowSource> {
         self.hides
@@ -377,6 +442,8 @@ pub struct LeftOut {
     /// `None` where the file did not parse far enough to say.
     id: Option<WorkflowId>,
     source: WorkflowSource,
+    /// The project the file is kept for, where one project's file was left out alone.
+    project: Option<ScopeId>,
     path: PathBuf,
     why: WhyLeftOut,
     /// The place whose definition of the same id runs instead, if any does.
@@ -394,6 +461,10 @@ pub enum WhyLeftOut {
     /// Another file in the same place declares the same id, and nothing picks
     /// between them. `also` is every file after the first.
     Duplicated { also: Vec<PathBuf> },
+    /// Two or more projects that hold this repository each keep a file of the
+    /// id, and nothing picks between them. Every file, with the project it is
+    /// kept for.
+    HeldByTwoProjects { files: Vec<(ScopeId, PathBuf)> },
 }
 
 impl LeftOut {
@@ -406,10 +477,16 @@ impl LeftOut {
         LeftOut {
             id,
             source,
+            project: None,
             path,
             why,
             instead: None,
         }
+    }
+
+    fn in_project(mut self, project: Option<ScopeId>) -> LeftOut {
+        self.project = project;
+        self
     }
 
     pub fn id(&self) -> Option<&WorkflowId> {
@@ -418,6 +495,12 @@ impl LeftOut {
 
     pub fn source(&self) -> WorkflowSource {
         self.source
+    }
+
+    /// The project the file is kept for. `None` where it is not a project's, or where two projects'
+    /// files were left out together ([`WhyLeftOut::HeldByTwoProjects`] names them).
+    pub fn project(&self) -> Option<&ScopeId> {
+        self.project.as_ref()
     }
 
     pub fn path(&self) -> &Path {
@@ -441,6 +524,7 @@ fn whose(source: WorkflowSource) -> &'static str {
         WorkflowSource::Armada => "Armada's",
         WorkflowSource::Kit => "Kit's",
         WorkflowSource::Repository => "the repository's",
+        WorkflowSource::Project => "a project's",
     }
 }
 
@@ -448,7 +532,10 @@ impl fmt::Display for LeftOut {
     /// What Fleet prints at start: whose definition, why, and what runs instead
     /// — so a person who customised `bug` knows they are not running their own.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let whose = whose(self.source);
+        let whose = match &self.project {
+            Some(project) => format!("project `{}`'s", project.as_str()),
+            None => whose(self.source).to_string(),
+        };
         match &self.id {
             Some(id) => write!(f, "{whose} `{}` was left out, because ", id.as_str())?,
             None => write!(f, "a definition {} was left out, because ", self.source)?,
@@ -462,6 +549,17 @@ impl fmt::Display for LeftOut {
                     write!(f, " and {}", path.display())?;
                 }
                 write!(f, " all declare it")?;
+            }
+            WhyLeftOut::HeldByTwoProjects { files } => {
+                for (at, (project, path)) in files.iter().enumerate() {
+                    let joiner = match at {
+                        0 => "",
+                        last if last + 1 == files.len() => " and ",
+                        _ => ", ",
+                    };
+                    write!(f, "{joiner}project `{}` ({})", project.as_str(), path.display())?;
+                }
+                write!(f, " each keep it and each hold this repository")?;
             }
         }
         match (&self.id, self.instead) {

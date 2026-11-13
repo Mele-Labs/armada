@@ -107,6 +107,7 @@ WebSocket event stream, read this first.
 | [Protocol 23.84: a Job's running turn stopped](protocol/protocol-23-84-a-jobs-running-turn-stopped.md) |
 | [Protocol 23.92: a Job paused and resumed](protocol/protocol-23-92-a-job-paused-and-resumed.md) |
 | [Protocol 23.93: a Job's shared terminal](protocol/protocol-23-93-a-jobs-shared-terminal.md) |
+| [Protocol 23.94: a workflow kept for one project](protocol/protocol-23-94-a-workflow-kept-for-one-project.md) |
 | [Protocol 23.79: a Job forked at a message](protocol/protocol-23-79-a-job-forked-at-a-message.md) |
 | [Protocol 23.73: Skill and Drone steps run](protocol/protocol-23-73-skill-and-drone-steps-run.md) |
 | [Protocol 23.72: repair on an added step](protocol/protocol-23-72-repair-on-an-added-step.md) |
@@ -189,6 +190,7 @@ WebSocket event stream, read this first.
 | [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |
 | [How a Job started, and when each step began: `SessionRecord.started`, `SessionRecord.workflow_visits`](protocol/how-a-job-started-and-when-each-step-began.md) |
 | [Projects: tasks and linked issues, across repositories](protocol/projects.md) |
+| [His other Macs, Fleet's half: `share_sessions` and seven more](protocol/his-other-macs-fleets-half.md) |
 | [The Workflows page: `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy`](protocol/the-workflows-page.md) |
 | [Triggers leave the wire](protocol/triggers-leave-the-wire.md) |
 | [The pull request a plan's group lands in: `lands_in`](protocol/the-pull-request-a-plan-groups-lands-in.md) |

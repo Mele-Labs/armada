@@ -94,11 +94,20 @@ The name is the host's name when the id was minted, and the colour one of `blue`
 
 | Route | Answers |
 |---|---|
-| `GET /admin/macs` | `[Mac]`, this Mac first: `{ id, name, colour, address?, this_mac, build?, link? }`. `build` is the commit Fleet's kept build was made from. `link` is absent on this Mac; a paired Mac's is `linked`, `asleep { since }`, `older_build`, `newer_build` or `claim_waiting` |
+| `GET /admin/macs` | `[Mac]`: this Mac first, then each paired Mac in the order it was paired, then each Mac whose claim waits for Confirm here. `{ id, name, colour, address?, this_mac, build?, link?, last_heard_at?, why? }`. `build` is the commit Fleet's kept build was made from. `link` is absent on this Mac |
 | `GET /admin/devices` | `[PairedPhone]`: `{ id, name, created_at, last_seen_at }` |
 
 Settings draws the two as one Devices list.
-Pairing another Mac (armada-hu76.5) adds its rows to `/admin/macs`.
+**Every state of another Mac carries its one press, and `why` says where it is when it is not here.**
+
+| `link` | Means | The press | `why` |
+|---|---|---|---|
+| `linked` | Both Macs hold a key for the other, and the link is open | Forget | absent |
+| `asleep { since }` | The link dropped at `since` and is being opened again | Forget | The failure, such as `Work stopped answering.` |
+| `claim_waiting` | It pasted this Mac's link | Confirm, here | `Press Confirm to pair Work with this Mac` |
+| `confirm_waiting` | This Mac pasted its link | Confirm, on the other Mac | `Confirm on Home` |
+
+`older_build` and `newer_build` are a later stage, and nothing sets them yet.
 
 ## Turning it on
 
@@ -253,6 +262,58 @@ The app is served by whichever Mac the owner opened it from, and calls the other
 
 A 401 from one Mac marks that Mac as not paired, and the others carry on.
 
+## Another Mac
+
+**Two of the owner's Macs pair once, with a link and a Confirm, and then each Gateway calls the other's.**
+Each hands what it receives to its own Fleet over loopback, and each Fleet keeps the other's rows beside its own.
+What crosses has passed the share filter of the Fleet that holds the Job: `/other_mac/*` on Fleet hands out nothing else.
+
+**Pairing.** Home shows the link and work pastes it.
+
+| Step | Route | What happens |
+|---|---|---|
+| 1. Home makes a link | `POST /admin/macs/pair/start` | `MacPairLink { link, expires_at }`, the link `<home address>/pair/mac?code=<code>`. The code is single use and lives five minutes. No address answers 503 with why |
+| 2. Work claims it | `POST /admin/macs/pair/claim { link }` | Work needs an address of its own, else 503 with why. It makes a P-256 key, keeps the private half in the Keychain, mints a back code and posts `{ code, mac, spki_hex, back_code }` to home's `POST /pair/mac`, unsigned and rate-limited with `/pair`. Home holds the claim in memory and answers 202 with itself. Work keeps home as `confirm_waiting` and answers it as a `Mac` |
+| 3. Home lists the claim | `GET /admin/macs` | Work, `claim_waiting` |
+| 4. Home confirms | `POST /admin/macs/pair/confirm { mac }` | Home makes its own key, Keychain again, and posts `{ back_code, mac, spki_hex }` to work's `POST /pair/mac/back`. Work takes it only with the back code it minted for that Mac, and links. Home links on a 2xx. If work does not answer, home keeps the claim and answers 502, `Work did not answer. Press Confirm again.` |
+| 5. Either forgets | `POST /admin/macs/forget { mac }` | A signed `POST /api/mac/forget` to the other, as far as it answers, then the row and the key go here and Fleet is told with `POST /other_macs/forget`. The other side does the same on its own. Forget on a claim waiting here drops the claim |
+
+**A private key never leaves the Mac that made it.** Each side makes its own and hands over only the public half, so the one link and one Confirm give a key each way.
+A link is `https`, or `http` only to a loopback host, so two Gateways in a test can pair.
+A claim stays until it is confirmed or forgotten, or the Gateway restarts.
+
+**Signing.** A Mac signs exactly as the phone does, with `x-pocket-device` its own minted id.
+The signed layer finds the device among the phones, then among the linked Macs.
+
+| Caller | May call | Elsewhere |
+|---|---|---|
+| A paired phone | Every signed `/api/*` route but `/api/mac/*` | 404 |
+| A linked Mac | Only `/api/mac/*` | 404 |
+
+The wrong side gets 404 and never 401, so it reads as a route that is not there.
+**This line keeps private work off the other Mac**: the phone's routes are not share-filtered.
+
+| Route, for a linked Mac | Answers |
+|---|---|
+| `GET /api/mac/hello` | This Mac: `{ id, name, colour, address?, build? }` |
+| `GET /api/mac/sessions` | Fleet's `GET /other_mac/sessions`, a `SessionList` |
+| `GET /api/mac/bug_reports` | Fleet's `GET /other_mac/bug_reports`, `BugReports` |
+| `GET /api/mac/thread?session_id=&before=` | Fleet's `GET /other_mac/thread`, a `JobThread` |
+| `GET /api/mac/live` | Fleet's `/other_mac/events` as NDJSON: each `StreamMessage` on a line as Fleet wrote it, and an empty line after 15 seconds of quiet. It ends when the Gateway stops |
+| `POST /api/mac/forget` | Forgets the caller on this side |
+
+**The link.** For each linked Mac the Gateway holds one task.
+
+| When | It does |
+|---|---|
+| The stream opens | Reads `hello` and keeps the name, colour, address and build. Reads the sessions and the bug reports and hands them to Fleet with `PUT /other_macs/sessions` and `PUT /other_macs/bug_reports`. Sets `last_heard_at` and clears asleep |
+| Each event | `POST /other_macs/event { mac, event }`. On `projects.changed` it reads the sessions again, which is how a project that stops being shared leaves this side |
+| A resync or a missed count | Reads both lists again |
+| A drop, or 45 seconds without a line | Keeps `asleep_since`, the moment it dropped, and `why`, the failure as a sentence. Opens it again after 1 second, doubling to a minute |
+
+Pairing starts a task and forgetting stops it. Fleet keeps the rows while the Mac is asleep.
+Fleet's `read_other_mac` reaches the other Mac only for a `/other_mac/thread?…` path, read as `/api/mac/thread?…`; any other is refused.
+
 ## What pushes
 
 Only Needs you: a Job whose `waiting_for` gains an item id it did not have.
@@ -292,6 +353,9 @@ A subscription without one is pushed to under the Mac's own key.
 | Devices, push subscriptions | The store, tables `pocket_devices` and `pocket_push_subscriptions`. A subscription made with another Mac's VAPID key keeps it in `vapid_private`, read into a `Secret` so it cannot be printed |
 | Pairing codes, claims, seen signatures | Memory. A Gateway that stops drops them, and a half-finished pairing starts again |
 | This Mac's id, name and colour | The store, table `pocket_this_mac`, one row |
+| Other Macs | The store, table `pocket_macs`: id, name, colour, address, the other's public key, build, when paired, state, the back code while waiting, `last_heard_at`, `asleep_since` and `why` |
+| This Mac's key toward each other Mac | The Keychain, a generic password under `armada-mac-key` with the other Mac's id as its account, written through `security -i` so it is never in a process's arguments. A test keeps them in memory |
+| A Mac's pairing codes and claims | Memory, as a phone's are |
 | `cloudflared`, its sign-in and the tunnel's credentials | `cloudflared/` in the machine directory: `bin/`, `home/.cloudflared/cert.pem`, `tunnel.json`, and `tunnel`, the tunnel's name and host |
 
 The VAPID `sub` is the Gateway's own address, so no personal address leaves the Mac. Where it cannot say one it falls back to a placeholder.

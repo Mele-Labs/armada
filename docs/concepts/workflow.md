@@ -182,13 +182,27 @@ The timeline enters each change as `session.copy`, naming what changed and who.
 
 ### Where a definition comes from
 
-**A workflow is a piece, and takes the places every piece takes**: Armada's, carried in the binary; yours, in [Kit](kit.md); and the repository's, committed under `.armada/workflows/`.
+**A workflow is a piece, and takes the places every piece takes**: Armada's, carried in the binary; yours, in [Kit](kit.md), for every project or for one; and the repository's, committed under `.armada/workflows/`.
 [Who sees each piece of configuration](../design/who-sees-each-piece-of-configuration.md) owns the model, and this section does not restate it.
 **A new workflow is yours.** Nothing of it reaches the repository or anyone else until you press Commit to repository or Share ([Kit](kit.md#commit-to-repository)).
-The three are merged by `workflow_id`, and **yours wins over the repository's**, so a teammate's commit never replaces what a person set up for themselves.
-A repository with no workflows of its own uses the carried set, and one file in either later place replaces a carried definition by id.
+The four are merged by `workflow_id`, with **one rule: yours first, then narrower.** For each id a repository runs the first of these that holds it:
+
+| Order | Place | Read from |
+|---|---|---|
+| 1 | Your copy for a project the repository belongs to | `~/.armada/workflows/projects/<project-id>/` |
+| 2 | Your copy for every project | `~/.armada/workflows/` |
+| 3 | The repository's own | `.armada/workflows/` |
+| 4 | Armada's | Carried in the binary |
+
+So a teammate's commit never replaces what a person set up for themselves, and a copy kept for one project is not lost to the one kept for every project.
+A repository with no workflows of its own uses the carried set, and one file in any other place replaces a carried definition by id.
 Yours are read from `~/.armada/workflows/` on this Mac, whatever place the repository's other pieces are kept at.
-Where Kit's hides a repository definition of the same id that says something else, `list_workflows` carries `hides: "repository"` on it, and Bridge marks its row with the eclipse glyph; two copies that are the same carry nothing.
+**Workflows and the pieces rank differently, and both are chosen.** A lifecycle or a rule applies by scope first: one scoped to the repository beats one scoped to a Project, which beats one that applies everywhere, whoever kept it, and only at the same scope does yours beat the repository's (`config`'s `resolving`).
+A workflow is a person's own way of working, so it ranks by whose it is first: yours leads, and the narrower of yours leads among yours.
+A repository's Project is the one that holds it; a repository in two Projects reads the folders of both.
+**Two Projects that both hold the repository and both keep a copy of one id leave both out**, with a reason naming the two Projects, and the next place down answers for the id; keeping the copy for one of them settles it.
+A copy kept for a Project that does not hold the repository is never read for it.
+Where Kit's, or a Project's, hides a repository definition of the same id that says something else, `list_workflows` carries `hides: "repository"` on it, and Bridge marks its row with the eclipse glyph; two copies that are the same carry nothing.
 `config::Catalogue` holds the rule. #425.
 
 **The carried set is compiled in**, and is judged against a repository with tests — Armada's built-in support is for code-with-tests repositories, the owner's decision.
@@ -202,15 +216,16 @@ The trade is accepted, and overriding is one file so that the default does not b
 Two files in one place sharing an id are both left out.
 The repository's own is held to the same rule as Kit's and Armada's: a file somebody wrote badly does not stop Fleet starting, and the others stand.
 
-**Fleet reads the places a definition comes from again while it runs.** A definition saved or edited under the repository's `.armada/workflows/` or Kit's folder is held without a restart: `save_workflow` reads them before it answers, and a watch on both folders reads them after a hand edit, with the settle window `armada.yml`'s watch uses.
+**Fleet reads the places a definition comes from again while it runs.** A definition saved or edited under the repository's `.armada/workflows/` or Kit's folder is held without a restart: `save_workflow` reads them before it answers, and a watch on both folders, and on the folders of each Project inside Kit's, reads them after a hand edit, with the settle window `armada.yml`'s watch uses.
 **A re-read leaves out by the same rule as start**: a file that does not fit is left out with its reason and the others stand.
 
-**Saving one is `save_workflow`.** The caller names the place, the repository's own or Kit's, and sends the definition whole.
+**Saving one is `save_workflow`.** The caller names the place, the repository's own, Kit's or one Project's (`{"project":{"id":"…"}}`), and sends the definition whole.
+A Project's is refused, with nothing written, where Fleet holds no such Project (404 `fleet.workflow_project_unknown`) or where the repository is not one of its members (422 `fleet.workflow_project_not_member`), since the repository would never run it.
 Fleet parses it against the models this machine offers and resolves it against the Manifest, the parse and the resolve a catalogue does, so what is saved is what would load; a definition that does not fit is refused with the loader's reason and nothing is written.
 A definition already holding the id in that place is replaced only where the call says `overwrite`, and the file that held it is the one replaced, whatever it is called.
 **Commit to repository copies one of yours into the repository** under `.armada/workflows/`, by a Job of its own whose pull request carries it alone, and yours stays ([Kit](kit.md#commit-to-repository)).
 
-**A workflow says which place it came from.** It carries `source` — `armada`, `kit` or `repository` — beside its steps.
+**A workflow says which place it came from.** It carries `source` — `armada`, `kit`, `repository` or `project` — beside its steps, and `project` naming the Project where it is that.
 Fleet also says it for every workflow when it starts, and `list_workflows` says it with the file, each definition of the same id a more specific place replaced, and the repository definition it hides, so a surface can mark the source and draw the replaced ones apart.
 `get_workflow` reads any one of them whole, as the text `save_workflow` takes back.
 Fleet's health says whether anything was left out and never how many.

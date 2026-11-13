@@ -31,7 +31,27 @@ struct Running {
     stop: oneshot::Sender<()>,
     serving: JoinHandle<()>,
     following: JoinHandle<()>,
+    /// The link to each paired Mac. Aborting it stops every Mac's task.
+    linking: JoinHandle<()>,
     tunnel: pocket::Tunnel,
+    gateway: Gateway,
+}
+
+/// The Keychain's keys, as the Gateway keeps them. The `security` calls are the adapter's.
+struct KeychainKeys(adapters::KeychainMacKeys);
+
+impl pocket::MacKeys for KeychainKeys {
+    fn keep(&self, account: &str, key: adapter_traits::Secret<String>) -> Result<(), String> {
+        self.0.keep(account, key)
+    }
+
+    fn read(&self, account: &str) -> Result<Option<adapter_traits::Secret<String>>, String> {
+        self.0.read(account)
+    }
+
+    fn forget(&self, account: &str) -> Result<(), String> {
+        self.0.forget(account)
+    }
 }
 
 pub struct Phone {
@@ -121,8 +141,11 @@ impl Phone {
             assets: Some(assets(&self.machine)),
             push,
             way_in,
+            macs: pocket::Macs::new(Arc::new(KeychainKeys(adapters::KeychainMacKeys)))?,
         };
         let following = tokio::spawn(pocket::follow(gateway.clone()));
+        let linking = tokio::spawn(pocket::link(gateway.clone()));
+        let kept = gateway.clone();
         let (stop, stopped) = oneshot::channel::<()>();
         let serving = tokio::spawn(async move {
             let served = axum::serve(listener, pocket::router(gateway))
@@ -135,15 +158,18 @@ impl Phone {
             }
         });
         tunnel.start(port);
-        Ok(Running { stop, serving, following, tunnel })
+        Ok(Running { stop, serving, following, linking, tunnel, gateway: kept })
     }
 
     /// Stop listening and stop pushing. A phone's open `/api/live` is cut with the listener.
     fn stop(&self) {
         if let Some(running) = self.running.lock().unwrap().take() {
+            // Each other Mac's open stream ends now, so it marks this one asleep at once.
+            running.gateway.macs.close();
             let _ = running.stop.send(());
             running.serving.abort();
             running.following.abort();
+            running.linking.abort();
             running.tunnel.stop();
         }
     }
@@ -171,6 +197,14 @@ impl PhoneSwitch for Phone {
             false => None,
         };
         PhoneGateway { on, port: self.port, listening, why }
+    }
+
+    fn read_other_mac(&self, mac: &str, path: &str) -> fleet::phone::OtherMacRead {
+        let running = self.running.lock().unwrap();
+        match running.as_ref() {
+            Some(running) => Box::pin(pocket::read_other_mac(&running.gateway, mac, path)),
+            None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
     }
 
     fn set(&self, on: bool) -> PhoneGateway {
