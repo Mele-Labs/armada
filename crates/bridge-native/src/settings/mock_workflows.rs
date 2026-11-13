@@ -8,7 +8,7 @@
 use ipc::{AffectedJob, AffectedJobs, BasedOn, ManifestId, MigrateJobs, MigrateResult, MigratedJobs, DraftBy, DraftChange, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions, PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, OverriddenWorkflow, ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SessionId, StepId, StepReading, WorkflowChange, WorkflowChangeApproved, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted, WorkflowDefinition, WorkflowId, WorkflowSaved, WorkflowScope, WorkflowSteps, WorkflowSupportBuilding};
 use serde::Deserialize;
 
-use super::definition::{steps_of, text_of, tree_of, with_words, Json};
+use super::definition::{steps_of, text_of, tree_of, with_label, with_words, Json};
 use super::mock::MockFleet;
 use super::wire::Refused;
 
@@ -90,6 +90,37 @@ pub struct Drafts {
     workflows: Vec<(String, WorkflowDraft)>,
     pieces: Vec<PieceDraft>,
     last: i64,
+    /// The rules a publish wrote, which `GET /lifecycles/rules` lists after the ones the walk starts with.
+    rules: Vec<ipc::LifecycleRule>,
+    /// The lifecycles a publish wrote, which `GET /lifecycles` lists after the ones Armada carries.
+    lifecycles: Vec<ipc::LifecycleDefinition>,
+}
+
+impl Drafts {
+    pub fn published_rules(&self) -> &[ipc::LifecycleRule] {
+        &self.rules
+    }
+
+    pub fn published_lifecycles(&self) -> &[ipc::LifecycleDefinition] {
+        &self.lifecycles
+    }
+}
+
+/// Why a rule's draft would not publish, as the parser says it: an act that says words must say some.
+fn unfit_rule(piece: &LifecyclePiece) -> Option<String> {
+    let LifecyclePiece::Rule { rule } = piece else { return None };
+    rule.does.iter().enumerate().find_map(|(at, doing)| {
+        let (key, empty) = match &doing.what {
+            ipc::RuleAct::Tell { message } => ("tell_agent.message", message.trim().is_empty()),
+            ipc::RuleAct::RunCommand { command } => ("run_command.command", command.trim().is_empty()),
+            ipc::RuleAct::RunSkill { skill } => ("run_agent.skill", skill.trim().is_empty()),
+            ipc::RuleAct::RunDrone { prompt } => ("run_agent.drone", prompt.trim().is_empty()),
+            ipc::RuleAct::Draft { template, .. } => ("draft.template", template.trim().is_empty()),
+            ipc::RuleAct::StartJob { prompt, .. } => ("start_job.prompt", prompt.trim().is_empty()),
+            _ => return None,
+        };
+        empty.then(|| format!("`do[{at}].{key}` is empty: say what it is"))
+    })
 }
 
 /// Where a workflow is kept: its source, the place's own key (a repository's Manifest, a project's id, none for Kit) and its id.
@@ -135,13 +166,13 @@ fn declared(text: &str) -> u32 {
 }
 
 impl Versions {
-    /// The walk's scenario: armada's own copy of `feature` was made from an older Armada's, which had no Walk and said less
-    /// of Refine, so Armada has changed it since.
+    /// The walk's scenario: armada's own copy of `feature` was made from an older Armada's, which had no Walk, called Propose
+    /// Plan and said less of Refine, so Armada has changed it since in three ways.
     pub fn seeded(definitions: &[Held]) -> Versions {
         let mut versions = Versions::default();
         let Some(armada) = definitions.iter().find(|one| one.holds("feature", "armada", "armada")) else { return versions };
         let current = text_of(&armada.definition);
-        let Some(older) = with_words(&current, "refine", "Wire it to the real thing.") else { return versions };
+        let Some(older) = with_words(&current, "refine", "Wire it to the real thing.").and_then(|older| with_label(&older, "propose", "Plan")) else { return versions };
         let Some(Json::Map(mut fields)) = tree_of(&older) else { return versions };
         for (name, value) in fields.iter_mut() {
             if let (true, Json::List(steps)) = (name == "steps", value) {
@@ -691,6 +722,46 @@ impl MockFleet {
         self.relist("feature");
     }
 
+    /// For the walk of choosing what to take: the copy is what it began from with one change of his, Deliver's words, so none
+    /// of what Armada changed since is in it yet.
+    pub(super) fn copied_from_base(&mut self) {
+        let Some(base) = self.versions.base_at(&at_of("repository", None, "armada", "feature")).map(|base| base.text.clone()) else { return };
+        let Some(mine) = with_words(&base, "deliver", "Open the pull request as a draft and merge it on a green ci. Say what landed.").and_then(|text| tree_of(&text)) else { return };
+        if let Some(held) = self.definitions.iter_mut().find(|one| one.holds("feature", "repository", "armada")) {
+            held.definition = mine;
+        }
+        self.lanes_from_text = true;
+        self.relist("feature");
+    }
+
+    /// The lanes the drafts hold for `manifest` that Kit holds no lane under: a new lane's draft.
+    pub fn drafted_lifecycles(&self, manifest: &str) -> Vec<ipc::LifecycleDefinition> {
+        self.drafts
+            .pieces
+            .iter()
+            .filter(|piece| piece.kind == LifecyclePieceKind::Lifecycle && piece.base.is_empty() && piece.scope == (ipc::PieceScope::Within { id: manifest.into() }))
+            .filter_map(|piece| match ipc::decode::<LifecyclePiece>("piece", piece.text.as_bytes()) {
+                Ok(LifecyclePiece::Lifecycle { lifecycle }) => Some(lifecycle),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// For the walk of a lane restored from a draft: Fleet already holds a drafted lane, Deploys, for sample-web.
+    pub(super) fn drafted_lane(&mut self) {
+        let scope = ipc::PieceScope::Within { id: "sample-web".into() };
+        let text = crate::lanes_editor::restored_lane_text(scope.clone());
+        let now = Instant::carried("2026-11-12T09:00:00Z");
+        self.drafts.last += 1;
+        let change = DraftChange { id: self.drafts.last, by: DraftBy::You, at: now.clone(), text: text.clone(), summary: Some("Added the lane Watch".into()), change: None };
+        self.drafts.pieces.push(PieceDraft { kind: LifecyclePieceKind::Lifecycle, id: "deploys".into(), scope, text, base: String::new(), unfit: None, changes: vec![change], started_at: now.clone(), updated_at: now });
+    }
+
+    /// The text of `manifest`'s own copy of `workflow`, where it has one.
+    pub(super) fn repository_text(&self, workflow: &str, manifest: &str) -> Option<String> {
+        self.definitions.iter().find(|one| one.holds(workflow, "repository", manifest)).map(|held| text_of(&held.definition))
+    }
+
     /// `GET /workflows/versions`: newest first.
     pub fn workflow_versions(&self, id: &str, source: &str, project: Option<&str>, manifest: &str) -> Result<WorkflowVersions, Refused> {
         if !self.connected {
@@ -751,7 +822,10 @@ impl MockFleet {
             self.drafts.last += 1;
             one.changes.push(DraftChange { id: self.drafts.last, by: DraftBy::You, at: now.clone(), text: put.text.clone(), summary: put.summary, change: None });
         }
-        one.unfit = ipc::decode::<LifecyclePiece>("piece", put.text.as_bytes()).err().map(|why| why.to_string());
+        one.unfit = match ipc::decode::<LifecyclePiece>("piece", put.text.as_bytes()) {
+            Ok(piece) => unfit_rule(&piece),
+            Err(why) => Some(why.to_string()),
+        };
         one.text = put.text;
         one.updated_at = now;
         Ok(one.clone())
@@ -771,7 +845,15 @@ impl MockFleet {
             return Err(refused("fleet.piece_unfit", why));
         }
         let at = self.piece_at(publish.kind, &publish.id, &publish.scope).ok_or_else(|| draft_refused("fleet.piece_draft_none", "No draft is kept for that piece"))?;
-        self.drafts.pieces.remove(at);
+        let gone = self.drafts.pieces.remove(at);
+        if let Ok(LifecyclePiece::Rule { rule }) = ipc::decode::<LifecyclePiece>("piece", gone.text.as_bytes()) {
+            self.drafts.rules.retain(|one| one.id != rule.id);
+            self.drafts.rules.push(rule);
+        }
+        if let Ok(LifecyclePiece::Lifecycle { lifecycle }) = ipc::decode::<LifecyclePiece>("piece", gone.text.as_bytes()) {
+            self.drafts.lifecycles.retain(|one| one.id != lifecycle.id);
+            self.drafts.lifecycles.push(lifecycle);
+        }
         let saved = LifecyclePieceSaved { kind: publish.kind, file: format!("~/.armada/kit/{}s/{}.yml", publish.kind.as_wire(), publish.id), id: publish.id, scope: publish.scope, replaced: true };
         Ok(PiecePublished { saved })
     }

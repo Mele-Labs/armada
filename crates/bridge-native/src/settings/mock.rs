@@ -47,6 +47,9 @@ pub struct MockFleet {
     /// The project each Job was started for, by Job id (`HostedFacts.project`): the walk's Native Bridge
     /// foundation was started for Armada.
     pub job_projects: Vec<(&'static str, &'static str)>,
+    /// Whether a repository's copy has its workflow lane drawn from its text, as Fleet draws it: the walk of choosing what
+    /// to take sets it, where the other walks keep the lanes file's steps.
+    pub lanes_from_text: bool,
 }
 
 /// What Fleet runs on All, as Classic's Workflows page is walked on (`mock/workflows-managed.ts`): Armada's four,
@@ -136,6 +139,7 @@ impl MockFleet {
             gateway: super::gateway::MockGateway::new(),
             handed: Vec::new(),
             job_projects: vec![("mock-02", "armada")],
+            lanes_from_text: false,
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
         };
@@ -315,6 +319,20 @@ impl MockFleet {
             let words = workflow.replace('_', " ");
             head.title = words[..1].to_uppercase() + &words[1..];
         }
+        if self.lanes_from_text {
+            if let Some(text) = self.repository_text(workflow, scope) {
+                lanes = crate::lanes_editor::with_steps_of(lanes, &text);
+            }
+        }
+        // A rule a publish wrote is kept now: its chip is drawn as the others are.
+        if !self.drafts.published_rules().is_empty() {
+            let lifecycles = self.lifecycles(scope).map(|read| read.lifecycles.into_iter().map(|one| one.lifecycle).collect()).unwrap_or_default();
+            lanes = crate::lanes_editor::with_rules_kept(lanes, self.drafts.published_rules(), lifecycles);
+        }
+        // A lane a publish wrote is kept now: it is drawn under the others.
+        if !self.drafts.published_lifecycles().is_empty() {
+            lanes = crate::lanes_editor::with_lifecycles_kept(lanes, self.drafts.published_lifecycles());
+        }
         let ready = lanes.rules.iter_mut().find(|edge| edge.rule == "ready");
         match (scope, ready) {
             ("default", Some(ready)) => ready.differs = vec!["Platform".into(), "armada".into()],
@@ -358,11 +376,57 @@ impl MockFleet {
             transitions: moves(&[("draft", "open"), ("open", "merged")]),
             ends: vec!["merged".into()],
         };
-        Ok(ipc::RepositoryLifecycles {
-            manifest_id: ipc::ManifestId::carried(manifest),
-            lifecycles: vec![ipc::AppliedLifecycle { lifecycle: ticket, kept: carried() }, ipc::AppliedLifecycle { lifecycle: pull_request, kept: carried() }],
-            left_out: Vec::new(),
-        })
+        let mut lifecycles = vec![ipc::AppliedLifecycle { lifecycle: ticket, kept: carried() }, ipc::AppliedLifecycle { lifecycle: pull_request, kept: carried() }];
+        let carried_ids: Vec<String> = lifecycles.iter().map(|one| one.lifecycle.id.clone()).collect();
+        for written in self.drafts.published_lifecycles().iter().filter(|written| !carried_ids.contains(&written.id)) {
+            let kept = ipc::PieceKept { rank: ipc::PieceRank { reach: "everywhere".into(), source: "kit".into(), home: false }, path: Some(format!("~/.armada/kit/lifecycles/{}.yml", written.id)), overridden_by: None, hides: None };
+            lifecycles.push(ipc::AppliedLifecycle { lifecycle: written.clone(), kept });
+        }
+        // A lane a draft holds is listed with those that run, as Fleet lists what a repository has under it.
+        let running: Vec<String> = lifecycles.iter().map(|one| one.lifecycle.id.clone()).collect();
+        for drafted in self.drafted_lifecycles(manifest).into_iter().filter(|drafted| !running.contains(&drafted.id)) {
+            let kept = ipc::PieceKept { rank: ipc::PieceRank { reach: "repository".into(), source: "repository".into(), home: false }, path: None, overridden_by: None, hides: None };
+            lifecycles.push(ipc::AppliedLifecycle { lifecycle: drafted, kept });
+        }
+        Ok(ipc::RepositoryLifecycles { manifest_id: ipc::ManifestId::carried(manifest), lifecycles, left_out: Vec::new() })
+    }
+
+    /// `GET /lifecycles/rules`: the rules the mock lanes draw a chip for, then any a draft published since. A rule
+    /// published again replaces the one of its id.
+    pub fn lifecycle_rules(&self, manifest: &str) -> Result<ipc::RepositoryLifecycleRules, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let mut read: ipc::RepositoryLifecycleRules = ipc::decode("RepositoryLifecycleRules", include_bytes!("mock-rules.json")).map_err(|why| Refused::said(why.to_string()))?;
+        read.manifest_id = ipc::ManifestId::carried(manifest);
+        for rule in self.drafts.published_rules() {
+            let kept = ipc::PieceKept { rank: ipc::PieceRank { reach: "everywhere".into(), source: "kit".into(), home: false }, path: Some(format!("~/.armada/kit/rules/{}.yml", rule.id)), overridden_by: None, hides: None };
+            read.rules.retain(|one| one.rule.id != rule.id);
+            read.rules.push(ipc::AppliedRule { rule: rule.clone(), kept });
+        }
+        Ok(read)
+    }
+
+    /// `GET /autonomy`: Armada's own default for each kind of act, and no layer over it.
+    pub fn autonomy_defaults(&self, manifest: &str) -> Result<ipc::RepositoryAutonomy, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let armada = [("tracker_write", "asks"), ("forge_write", "asks"), ("draft", "asks"), ("start_job", "asks"), ("start_watch", "acts"), ("tell_agent", "acts"), ("run_command", "acts"), ("run_agent", "acts")]
+            .into_iter()
+            .map(|(kind, autonomy)| ipc::ActKindDefault { kind: kind.into(), autonomy: autonomy.into() })
+            .collect();
+        Ok(ipc::RepositoryAutonomy { manifest_id: ipc::ManifestId::carried(manifest), armada, layers: Vec::new(), left_out: Vec::new() })
+    }
+
+    /// `GET /watches/recipes`: the recipes a watch may start from.
+    pub fn watch_recipes(&self) -> Result<ipc::WatchRecipeList, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let recipe = |name: &str| format!(r#"{{"name":"{name}","values":[],"command":["true"],"source":"machine","every_seconds":60}}"#);
+        let said = format!(r#"{{"recipes":[{},{}]}}"#, recipe("deploy"), recipe("release"));
+        ipc::decode("WatchRecipeList", said.as_bytes()).map_err(|why| Refused::said(why.to_string()))
     }
 
     /// A tracker mod's try, passed against the first repository, as Fleet answers one.

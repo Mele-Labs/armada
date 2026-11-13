@@ -28,6 +28,8 @@ The card then reads Withdrawn, with the reason quoted under the text.
 The row settles `withdrawn` and the draft leaves the Needs you list; the job is sent nothing, since it withdrew it.
 Only an open draft the job proposed can be withdrawn: another job's draft, a settled one or an unknown id is refused.
 
+**A draft proposed under an earlier draft's title is its next revision**, and an earlier one still open settles `withdrawn` with nothing sent: [Artifact](../artifact.md).
+
 **A draft that should have been a Document becomes one on his press**, with `convert_draft_to_document` (`session_id`, `draft_id`).
 Fleet writes the draft's text as `.armada/documents/<its title as a slug>.html` in the job's worktree, with `-2`, `-3` and so on where the name is taken, and answers the page's `name` and `path`.
 The draft settles `withdrawn`, as `withdraw_draft` settles it, and the page is kept and asked as the job's own write is (*Document*, [document.md](../document.md)).
