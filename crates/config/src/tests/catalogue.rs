@@ -390,9 +390,8 @@ fn two_projects_keeping_one_id_are_both_left_out_naming_both_and_kits_answers() 
     assert_eq!(left.instead(), Some(WorkflowSource::Kit));
     let said = left.to_string();
     assert!(
-        said.starts_with("A project's `bug` was left out, because ")
-            && said.contains("project `backoffice`")
-            && said.contains("project `storefront`")
+        said.starts_with("a project's `bug` was left out, because ")
+            && said.contains("project `backoffice` (/kit/workflows/projects/backoffice/bug.yml) and project `storefront`")
             && said.contains("each keep it and each hold this repository")
             && said.ends_with("; Kit's `bug` is used instead"),
         "{said}"

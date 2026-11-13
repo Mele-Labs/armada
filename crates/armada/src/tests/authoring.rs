@@ -626,7 +626,7 @@ fn a_save_for_a_project_is_written_under_kits_projects_folder_and_the_repository
     assert_eq!(label(&held, "bug"), ("The project's".to_string(), WorkflowSource::Project));
     let running = files.iter().find(|file| file.id().as_str() == "bug" && file.overridden_by().is_none()).expect("one runs");
     assert_eq!(running.project(), Some(&storefront_id));
-    assert_eq!(files.iter().filter(|file| file.id().as_str() == "bug").count(), 3, "Kit's and the repository's are held under it");
+    assert_eq!(files.iter().filter(|file| file.id().as_str() == "bug").count(), 4, "Kit's, the repository's and Armada's are held under it");
 }
 
 /// **A copy kept for a project the repository is not in does not apply**: its folder is not read, though the

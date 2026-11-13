@@ -218,12 +218,14 @@ impl Catalogue {
         let mut held: BTreeMap<WorkflowId, Vec<Held>> = BTreeMap::new();
         for ((source, id), mut defs) in placed {
             if defs.len() > 1 {
-                let projects: Vec<(ScopeId, PathBuf)> = defs
+                let mut projects: Vec<(ScopeId, PathBuf)> = defs
                     .iter()
                     .filter_map(|(def, project, _)| {
                         project.clone().map(|project| (project, def.path().to_path_buf()))
                     })
                     .collect();
+                // **Named in the project's own order**, so the sentence is the same whatever order the files arrived in.
+                projects.sort();
                 let (first_project, first) = {
                     let (def, project, _) = &defs[0];
                     (project.clone(), def.path().to_path_buf())
