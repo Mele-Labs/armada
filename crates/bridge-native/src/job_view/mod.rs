@@ -327,6 +327,8 @@ pub struct JobView {
     switched: Option<std::time::Instant>,
     /// How wide the thread was last drawn: the words' column grows with it, as Electron's does with its pane.
     pane: Option<gpui::Pixels>,
+    /// The height of the shown thread's list when it was last drawn: a pinned sketch is cut to it.
+    pane_height: Option<gpui::Pixels>,
     /// The list's pick count last acted on: a new pick puts the keys in the box (his word, 10 Nov).
     picked: u64,
     /// The right column's top pane: Open, Done or Deferred.
@@ -514,6 +516,7 @@ impl JobView {
             visiting: None,
             switched: None,
             pane: None,
+            pane_height: None,
             picked: 0,
             zone: side::Zone::default(),
             tabs_closed: tabs::Closed::default(),
@@ -1037,6 +1040,15 @@ impl Render for JobView {
             self.pane = pane;
             self.pages.values().for_each(|page| page.list.remeasure());
             window.request_animation_frame();
+        }
+        // A pinned sketch is cut to the thread's height, so a change of it measures the thread again.
+        let room = self.pages.get(&id).map(|page| page.list.viewport_bounds().size.height).filter(|room| *room > gpui::px(0.));
+        if room.is_some() && room != self.pane_height {
+            self.pane_height = room;
+            if self.thread(&id, cx).is_some_and(|held| held.head.sketch.is_some()) {
+                self.pages.values().for_each(|page| page.list.remeasure());
+                window.request_animation_frame();
+            }
         }
         let loaded = self.thread(&id, cx).is_some() && self.pages.get(&id).is_some_and(|page| page.version.is_some());
         // A refused read was said in a toast: the shapes stop, and the thread draws once a read is answered.
