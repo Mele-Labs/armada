@@ -56,7 +56,7 @@ export type SaveReviewTool = {
 };
 
 /** What a run is of. */
-export type ReviewRunKind = "tool" | "explanation" | "ask" | "search" | "fix";
+export type ReviewRunKind = "tool" | "explanation" | "ask" | "search" | "fix" | "change_sets" | "overview" | "practices";
 
 /** How far a run has got. `failed` is never a result. */
 export type ReviewRunState = "queued" | "running" | "done" | "failed";
@@ -65,7 +65,10 @@ export type ReviewRunState = "queued" | "running" | "done" | "failed";
 export type StartReviewRun = {
   number: number;
   kind: ReviewRunKind;
-  /** The id of the tool or explanation, or for `ask` the question's words. */
+  /**
+   * The id of the tool or explanation, or for `ask` the question's words. For `practices` the change set's id;
+   * `change_sets` and `overview` do not read it.
+   */
   name: string;
   /** Run it again, whatever is kept. Without it a kept result is answered as it stands. */
   again?: boolean;
@@ -226,7 +229,88 @@ export type ReviewResult =
       before: string;
       after: string;
       why: string;
+    }
+  /** The change sets, in the order they run. Every hunk of the diff is in exactly one. */
+  | {
+      shape: "change_sets";
+      sets: ChangeSet[];
+    }
+  /** Blockers first, then risks, then bugs. None is an answer. */
+  | {
+      shape: "overview";
+      findings: OverviewFinding[];
+    }
+  /**
+   * One set against the practices catalogued for its kind and area. `read_at` and `sources` are when and from
+   * what the catalogue entry was read; `reused` is true where this run read no doc. No checks: no doc states one.
+   */
+  | {
+      shape: "practices";
+      set: string;
+      kind: ChangeSetKind;
+      area: string;
+      read_at: string;
+      reused: boolean;
+      sources: PracticeSource[];
+      checks: PracticeCheck[];
     };
+
+/** What kind of change a change set is. */
+export type ChangeSetKind = "migration" | "data" | "logic" | "api" | "ui" | "tests" | "config" | "other";
+
+/** One hunk of the diff by where it is, never its text: the hunk header's ranges. A count of 0 only adds, or only removes. */
+export type HunkRef = {
+  path: string;
+  old_start: number;
+  old_lines: number;
+  new_start: number;
+  new_lines: number;
+};
+
+/** A set of changes with one purpose, across every file it touches. */
+export type ChangeSet = {
+  /** `set-1`, `set-2`, and on, in the order the sets run. Fleet's. */
+  id: string;
+  title: string;
+  kind: ChangeSetKind;
+  /** One sentence on what the set makes happen. */
+  purpose: string;
+  /** The directory every hunk is under, `""` for the root. Fleet's: practices are catalogued by it and `kind`. */
+  area: string;
+  /** In the order they run. */
+  hunks: HunkRef[];
+};
+
+/** How much a problem the overview found matters. */
+export type OverviewSeverity = "blocker" | "risk" | "bug";
+
+/** One problem the overview found. Armada's own note: never posted. */
+export type OverviewFinding = {
+  severity: OverviewSeverity;
+  /** The id of the change set it is in. */
+  set: string;
+  title: string;
+  /** One plain sentence on what is wrong and what to do, at most `COMMENT_AT_MOST` characters. */
+  reason: string;
+  at: ReviewPlace;
+};
+
+export type PracticeVerdict = "met" | "missed" | "not_applicable";
+
+/** A doc a practice was read from, and its blob at the base when it was read. Absent where the base lacked it. */
+export type PracticeSource = {
+  path: string;
+  blob?: string;
+};
+
+/** One practice, checked against one change set. */
+export type PracticeCheck = {
+  item: string;
+  /** The path of the doc that states it. */
+  source: string;
+  verdict: PracticeVerdict;
+  note: string;
+};
 
 /** One run about one pull request at one commit, going or kept. Carried as `run` by `review_run.changed`. */
 export type ReviewRun = {

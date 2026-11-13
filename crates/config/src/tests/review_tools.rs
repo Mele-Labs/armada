@@ -21,13 +21,13 @@ fn found<'a>(defs: &'a [Def], id: &str) -> &'a Def {
 }
 
 #[test]
-fn armada_carries_five_tools_and_four_explanations_that_all_fit() {
+fn armada_carries_five_tools_and_five_explanations_that_all_fit() {
     let resolved = resolve(carried());
     assert!(resolved.left_out.is_empty(), "{:?}", resolved.left_out);
     let ids: Vec<&str> = resolved.defs.iter().map(|one| one.id.as_str()).collect();
     assert_eq!(
         ids,
-        ["risks", "possible-bugs", "api-breaking-changes", "how-it-works", "user-impact", "how-to-test", "why", "walk", "tour"]
+        ["risks", "possible-bugs", "api-breaking-changes", "how-it-works", "user-impact", "how-to-test", "why", "walk", "tour", "what-changed"]
     );
     assert_eq!(found(&resolved.defs, "walk").kind, ToolKind::Tool, "a tile in Bridge's tools");
     assert_eq!(found(&resolved.defs, "tour").kind, ToolKind::Tool, "a tile in Bridge's tools");

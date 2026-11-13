@@ -216,6 +216,8 @@ mod request_runs;
 mod judge;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
+/// A pull request's change sets, its overview, and its sets held to the repository's practices.
+mod review_change_sets;
 /// Natural Search, and where a change runs for the Walk tool.
 mod review_walks;
 /// The owner's notes on a pull request's lines, and a Job resolving one.
@@ -648,6 +650,10 @@ pub use review_runs::{
     ReviewStep, ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut, ReviewTourStop,
     ReviewToolScope, ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
     COMMENT_AT_MOST, COMMENT_SENTENCES_AT_MOST,
+};
+pub use review_change_sets::{
+    ChangeSet, ChangeSetKind, HunkRef, OverviewFinding, OverviewSeverity, PracticeCheck, PracticeItem, PracticeSource,
+    PracticeVerdict,
 };
 pub use pull_request_notes::{
     NoteSide, NoteStatus, PullRequestNote, PullRequestNotes, ResolvePullRequestNote, SavePullRequestNote,

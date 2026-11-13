@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::ManifestId;
 use crate::pull_reviews::DiffSide;
+use crate::review_change_sets::{ChangeSet, ChangeSetKind, OverviewFinding, PracticeCheck, PracticeSource};
 use crate::review_walks::{ReviewMatch, ReviewRequest, WalkPlace};
 use crate::walk_steps::WalkStep;
 
@@ -117,6 +118,15 @@ pub enum ReviewRunKind {
     Search,
     /// A fix for one finding's lines, asked from its card: answers [`ReviewResult::Fix`].
     Fix,
+    /// The pull request's change sets: answers [`ReviewResult::ChangeSets`]. `name` is not read,
+    /// and the run is kept as `change-sets`.
+    ChangeSets,
+    /// Blockers, risks and possible bugs, each in a change set: answers [`ReviewResult::Overview`].
+    /// Needs the change sets kept at the head. Kept as `overview`.
+    Overview,
+    /// One change set held to the repository's own practices for its kind and area: `name` is the
+    /// set's id. Answers [`ReviewResult::Practices`]. Needs the change sets kept at the head.
+    Practices,
 }
 
 /// How far a run has got.
@@ -304,6 +314,22 @@ pub enum ReviewResult {
         before: String,
         after: String,
         why: String,
+    },
+    /// The change sets, in the order they run. Every hunk of the diff is in exactly one.
+    ChangeSets { sets: Vec<ChangeSet> },
+    /// Blockers first, then risks, then bugs. None is an answer.
+    Overview { findings: Vec<OverviewFinding> },
+    /// One set against the practices catalogued for its `kind` and `area`. `read_at` and
+    /// `sources` are when and from what the catalogue entry was read; `reused` is true where this
+    /// run read no doc. No checks is an answer: no doc states a practice for the set.
+    Practices {
+        set: String,
+        kind: ChangeSetKind,
+        area: String,
+        read_at: String,
+        reused: bool,
+        sources: Vec<PracticeSource>,
+        checks: Vec<PracticeCheck>,
     },
 }
 
