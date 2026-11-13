@@ -333,6 +333,7 @@ pub struct SetSessionProject {
     pub session_ids: Vec<SessionId>,
     /// The project of his they go into, by id: `list_projects` names them. `null` or absent takes them out of any
     /// project. A repository of theirs that the project does not hold becomes a whole member of it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project: Option<String>,
 }
 

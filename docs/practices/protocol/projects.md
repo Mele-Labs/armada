@@ -69,7 +69,10 @@ a file that will not read is not written over. A repository leaves a project onl
 must list the Job's repository. The id is kept in `hosted_sessions.project`, which is new and additive, and served as `HostedFacts.project`; a Job replaced by a
 handoff keeps it. It is not read with `fork` or `root`.
 
-**A Job's project can be moved afterwards.** `set_session_project` sets `hosted_sessions.project` for each Job it names, live or ended, to a project made later or to none. It checks every Job and the project before writing anything: 404 `fleet.no_such_session` for a Job this Fleet does not host, a copy from another Mac included, 422 `fleet.session_command_refused` for no Job or a Job with no repository (Setup, mod), 404 `fleet.no_such_project` and 422 `fleet.project_unreadable` for the project. Unlike a start, **a repository the project does not hold is not a refusal**: it becomes a whole member, written to the file before the Jobs are set. `HostedFacts.values` and the tasks a Job holds stay as they were; the readers that follow the Job's project live (tracker, delivery question, lifecycles, rules, sharing) follow the new value.
+**A Job's project can be moved afterwards.** `set_session_project` sets `hosted_sessions.project` for each Job it names, live or ended, to a project made later or to none.
+It checks every Job and the project before writing anything: 404 `fleet.no_such_session` for a Job this Fleet does not host, a copy from another Mac included, 422 `fleet.session_command_refused` for no Job or a Job with no repository (Setup, mod), 404 `fleet.no_such_project` and 422 `fleet.project_unreadable` for the project.
+Unlike a start, **a repository the project does not hold is not a refusal**: it becomes a whole member, written to the file before the Jobs are set.
+`HostedFacts.values` and the tasks a Job holds stay as they were; the readers that follow the Job's project live (tracker, delivery question, lifecycles, rules, sharing) follow the new value.
 
 **Values.** Pull request mode, auto merge, autonomy, review model and the look (layout, theme, density) are a project's to set, key by key over Kit.
 How a repository runs (commands, Checks, ports, setup) stays the repository's `armada.yml`.

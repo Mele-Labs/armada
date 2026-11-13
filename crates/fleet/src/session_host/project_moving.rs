@@ -10,9 +10,9 @@ use std::collections::BTreeSet;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{SessionList, SetSessionProject};
+use ipc::{SessionList, SetSessionProject, WireError};
 
-use super::serving::SESSION_COMMAND_REFUSED;
+use super::serving::{NO_SUCH_SESSION, SESSION_COMMAND_REFUSED};
 use crate::daemon::Fleet;
 
 impl<H, V, W> Fleet<H, V, W>
@@ -37,7 +37,9 @@ where
         let mut repositories = BTreeSet::new();
         for id in &asked.session_ids {
             let id = id.as_str().to_string();
-            let (_, hosting) = self.session_and_hosting(&id).await?;
+            let hosting = self.store().lock().await.hosting(&id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| {
+                Refusal::NotFound(WireError::raised(NO_SUCH_SESSION, format!("no job Fleet hosts is named {id}"), self.run_id()))
+            })?;
             if hosting.manifest_id.is_empty() {
                 return Err(self.hosted_refusal(
                     SESSION_COMMAND_REFUSED,

@@ -292,8 +292,8 @@ export type SetSessionAutoLand = {
  */
 export type SetSessionProject = {
   session_ids: string[];
-  /** The project by id; `null` takes the Jobs out of any project. */
-  project: string | null;
+  /** The project by id; `null` or absent takes the Jobs out of any project. */
+  project?: string | null;
 };
 
 /** The marker on a paused hosted Session. Not a state: `state` stays `live`. Since 23.92. */

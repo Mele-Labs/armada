@@ -328,6 +328,7 @@ async fn two_jobs_one_ended_move_into_a_project_made_later_and_each_is_published
     Arc::clone(&rig.fleet).close_session(ipc::CloseSession { session_id: second.id.clone() }).await.expect("ended");
     let shop = rig.fleet.add_project(named("Shop", Some(vec![ProjectMember { manifest_id: at, folder: None }]), None)).await.expect("added").projects[0].id.clone();
     let mut watching = rig.fleet.events().subscribe();
+    published(&mut watching).await; // what ending the Job still says on a task of its own
 
     let moved = rig.fleet.set_session_project(move_into(&[&first.id, &second.id], Some(&shop))).await.expect("moved");
 
