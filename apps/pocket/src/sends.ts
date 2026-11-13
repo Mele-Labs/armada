@@ -68,11 +68,22 @@ const watching = (watch: () => void) => {
   return () => watchers.delete(watch);
 };
 const set = (next: Send[]) => {
-  sends = [...next].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  sends = [
+    ...next,
+  ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   emit();
 };
 const change = (id: string, to: Partial<Send>) =>
-  set(sends.map((one) => (one.id === id ? { ...one, ...to } : one)));
+  set(
+    sends.map((one) =>
+      one.id === id
+        ? {
+            ...one,
+            ...to,
+          }
+        : one,
+    ),
+  );
 
 export const useSends = (): Send[] => useSyncExternalStore(watching, () => sends);
 
@@ -105,7 +116,8 @@ const remember = (id: string, about: Remembered[string] | undefined) => {
 };
 
 /** The sentence for a refusal: Fleet's own message where it gave one, else the one for a Mac that did not answer. */
-const said = (why: unknown, machine: Machine): string => bodyOf(why).message ?? refusal(why, machine);
+const said = (why: unknown, machine: Machine): string =>
+  bodyOf(why).message ?? refusal(why, machine);
 
 /** The name the Gateway knows a Mac by: what it calls itself, or the first label of its address. */
 export const nameOf = (machine: Machine): string =>
@@ -117,9 +129,7 @@ export const asleep = (mac: Mac): boolean => mac.paired && mac.error !== undefin
 /** The Mac a send for a sleeping Mac goes through: the one serving this app if it answers, else the first paired Mac that does. */
 export function receiverOf(macs: Mac[]): Mac | undefined {
   const answering = macs.filter((mac) => mac.paired && !asleep(mac));
-  return (
-    answering.find((mac) => mac.machine.origin === window.location.origin) ?? answering[0]
-  );
+  return answering.find((mac) => mac.machine.origin === window.location.origin) ?? answering[0];
 }
 
 const apply = (held: OperatorDispatched) => {
@@ -368,9 +378,7 @@ export async function loadWaiting(machine: Machine): Promise<void> {
  * Takes back what waits, or says why it cannot: Fleet's own sentence for one already gone or being sent. Answers the send as
  * it was, for its words to go back into the composer. A refused send that never left the phone has only its row to drop.
  */
-export async function takeBack(
-  send: Send,
-): Promise<
+export async function takeBack(send: Send): Promise<
   | {
       sent: Send;
     }

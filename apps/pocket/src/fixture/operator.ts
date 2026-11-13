@@ -4,7 +4,13 @@
 import type { OperatorBody, OperatorDispatched } from "../gateway";
 
 /** A live Job to fold a bug into, by Mac and repository. */
-const FOLDS: Record<string, [string, string]> = {
+const FOLDS: Record<
+  string,
+  [
+    string,
+    string,
+  ]
+> = {
   "studio armada": [
     "a2",
     "Redraw the Needs you band",

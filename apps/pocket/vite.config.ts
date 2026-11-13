@@ -101,7 +101,10 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
       console.log(`[fixture ${mac().name}] ${JSON.stringify(posted.splice(0))}`);
     if (said.then !== undefined) {
       const { after, change } = said.then;
-      setTimeout(() => streams.forEach((one) => one.write(`data: ${JSON.stringify(change)}\n\n`)), after);
+      setTimeout(
+        () => streams.forEach((one) => one.write(`data: ${JSON.stringify(change)}\n\n`)),
+        after,
+      );
     }
     if (said.delay !== undefined) await new Promise((done) => setTimeout(done, said.delay));
     if (said.file !== undefined) return sendMedia(request, response, said.file, said.type);
@@ -138,7 +141,10 @@ function fixtureGateway(): Plugin {
   macs["studio"]!.live.unshift(media.listed);
   macs["studio"]!.threads[media.listed.id] = media.thread;
   const sleeping = process.env["POCKET_FIXTURE_ASLEEP"];
-  if (sleeping !== undefined) macs["studio"]!.asleep = [sleeping];
+  if (sleeping !== undefined)
+    macs["studio"]!.asleep = [
+      sleeping,
+    ];
   macs["studio"]!.media = {
     [media.listed.id]: media.files,
   };

@@ -209,7 +209,11 @@ export type QueuedAct = {
     body?: {
       request?: string;
       kind?: "idea" | "feature" | "bug";
-      then?: { message?: { text: string } }[];
+      then?: {
+        message?: {
+          text: string;
+        };
+      }[];
     };
   };
   /** Milliseconds since the epoch, on the Mac that kept it. */

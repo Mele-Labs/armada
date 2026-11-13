@@ -149,7 +149,10 @@ function SendRow({ send, onTakeBack }: { send: Send; onTakeBack: (send: Send) =>
       ? jobPath(send.origin, stage.session_id)
       : undefined;
   const title = stage.phase === "dispatched" ? stage.title : undefined;
-  const needs = stage.phase === "refused" || stage.phase === "queued" || (stage.phase === "dispatched" && stage.way === "asked");
+  const needs =
+    stage.phase === "refused" ||
+    stage.phase === "queued" ||
+    (stage.phase === "dispatched" && stage.way === "asked");
   const mac = send.mac === "" ? "That Mac" : send.mac;
   return (
     <li className="deck-list__item">
@@ -269,7 +272,12 @@ export function Operator() {
   const later = (act: () => void, ms: number) => timers.current.push(window.setTimeout(act, ms));
   const origins = macs.map((mac) => mac.machine.origin).join(" ");
   useEffect(() => void start(), []);
-  useEffect(() => watchOperator(fleet.macs), [origins]);
+  useEffect(
+    () => watchOperator(fleet.macs),
+    [
+      origins,
+    ],
+  );
   useEffect(() => {
     let gone = false;
     macs
@@ -300,7 +308,9 @@ export function Operator() {
     macs.map(asleep).join(" "),
   ]);
 
-  const repositories = [...new Set(macs.flatMap((mac) => listed[mac.machine.origin] ?? []))];
+  const repositories = [
+    ...new Set(macs.flatMap((mac) => listed[mac.machine.origin] ?? [])),
+  ];
   const named = repositories.includes(repository) ? repository : (repositories[0] ?? "");
   /** A repository checked out on one Mac only is offered on that Mac only. */
   const offered = macs.filter((mac) => (listed[mac.machine.origin] ?? []).includes(named));

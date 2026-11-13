@@ -2027,7 +2027,9 @@ describe("the Operator on the phone", {
         }),
       );
     await open("/operator");
-    await vi.waitFor(() => expect(host.querySelector('select[aria-label="Repository"] option')).toBeTruthy());
+    await vi.waitFor(() =>
+      expect(host.querySelector('select[aria-label="Repository"] option')).toBeTruthy(),
+    );
   };
 
   it("sends to the Mac it is paired with without naming one, with the kind as a hint", async () => {
@@ -2103,7 +2105,9 @@ describe("the Operator on the phone", {
     await press(button("Bug"));
     await press(button("Send"));
     await vi.waitFor(() =>
-      expect(host.querySelector('[role="alert"]')?.textContent).toContain("not in a project shared"),
+      expect(host.querySelector('[role="alert"]')?.textContent).toContain(
+        "not in a project shared",
+      ),
     );
     expect(dispatches(STUDIO)[0]).toMatchObject({
       mac: "laptop",
@@ -2154,7 +2158,9 @@ describe("the Operator on the phone", {
     ];
     await openOperator();
     await vi.waitFor(() => expect(sends().join()).toContain("Refused"));
-    expect(sends().join()).toContain("laptop runs an older build than this Mac, so it took nothing.");
+    expect(sends().join()).toContain(
+      "laptop runs an older build than this Mac, so it took nothing.",
+    );
     await press(button("Take back"));
     await vi.waitFor(() => expect(field()!.value).toBe("Rename the footer links"));
     expect(posted[STUDIO]![0]!.body).toEqual({
@@ -2179,7 +2185,9 @@ describe("the Operator on the phone", {
     macs[STUDIO]!.repositories = [];
     await press(button("Send"));
     await vi.waitFor(() => expect(sends().join()).toContain("Refused"));
-    expect(sends().join()).toContain("Armada does not know that repository. Pick one from the list.");
+    expect(sends().join()).toContain(
+      "Armada does not know that repository. Pick one from the list.",
+    );
     await press(button("Take back"));
     await vi.waitFor(() => expect(field()!.value).toBe("Rename the footer links"));
     expect(sends()).toEqual([]);
