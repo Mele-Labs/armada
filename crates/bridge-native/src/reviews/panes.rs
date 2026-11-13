@@ -61,7 +61,7 @@ fn zone_at(fx: f32, fy: f32, on_strip: bool) -> Zone {
 
 impl ReviewsScreen {
     /// The page: the panes of the open pull request, its skeleton while it is read, or the empty place.
-    pub(super) fn render_page(&mut self, look: &Look, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_page(&mut self, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let area = Rc::clone(&self.area);
         let measure = canvas(move |bounds, _, _| area.set(Some(Size { w: f64::from(f32::from(bounds.size.width)), h: f64::from(f32::from(bounds.size.height)) })), |_, _, _, _| {})
             .absolute()
@@ -71,8 +71,26 @@ impl ReviewsScreen {
         let shown: AnyElement = match (self.page().cloned(), self.waiting.or(if self.inbox.refreshing { self.restore } else { None })) {
             (_, Some(number)) => self.skeleton(number, look),
             (Some(page), None) => {
-                let root = self.arrangement.root.clone();
-                self.node(&root, &page, look, window, cx)
+                // The head and Your review stay put above the panes; Review changes takes the panes' place.
+                let head = self.render_head(&page, look, cx);
+                let below = if self.sheet {
+                    self.render_sheet(&page, look, cx)
+                } else {
+                    let root = self.arrangement.root.clone();
+                    let tree = self.node(&root, &page, look, cx);
+                    div().relative().size_full().child(measure).child(tree).into_any_element()
+                };
+                return div()
+                    .id("page")
+                    .flex_1()
+                    .min_w_0()
+                    .h_full()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::GAP_PANEL))
+                    .child(head)
+                    .child(div().flex_1().min_h_0().child(below))
+                    .into_any_element();
             }
             (None, None) => labelled(
                 panel(look)
@@ -89,7 +107,7 @@ impl ReviewsScreen {
             )
             .into_any_element(),
         };
-        div().id("page").relative().flex_1().min_w_0().h_full().child(measure).child(shown).into_any_element()
+        div().id("page").relative().flex_1().min_w_0().h_full().child(shown).into_any_element()
     }
 
     /// While its fresh page is read: the panes' shape in grey, and what it waits on.
@@ -138,13 +156,13 @@ impl ReviewsScreen {
             .into_any_element()
     }
 
-    fn node(&mut self, node: &Node, page: &Page, look: &Look, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    fn node(&mut self, node: &Node, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let split = match node {
-            Node::Pane(pane) => return self.pane(pane, page, look, window, cx),
+            Node::Pane(pane) => return self.pane(pane, page, look, cx),
             Node::Split(split) => split,
         };
-        let a = self.node(&split.a, page, look, window, cx);
-        let b = self.node(&split.b, page, look, window, cx);
+        let a = self.node(&split.a, page, look, cx);
+        let b = self.node(&split.b, page, look, cx);
         let row = split.dir == Dir::Row;
         let ratio = split.ratio as f32;
         let gap = look.length(token::GAP_PANEL);
@@ -211,7 +229,7 @@ impl ReviewsScreen {
             .into_any_element()
     }
 
-    fn pane(&mut self, pane: &Pane, page: &Page, look: &Look, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    fn pane(&mut self, pane: &Pane, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let labels: Vec<&str> = pane.tabs.iter().map(|tab| said(&tab.kind)).collect();
         let name = if labels.is_empty() { "Pane: empty".to_string() } else { format!("Pane: {}", labels.join(", ")) };
         let strip_h = look.length(token::H_CONTROL_LG);
@@ -256,7 +274,7 @@ impl ReviewsScreen {
             .child(div().h_full().flex().items_center().child(add));
         let kind = pane.tabs.iter().find(|tab| Some(&tab.id) == active.as_ref()).map(|tab| tab.kind.clone());
         let body: AnyElement = match kind {
-            Some(kind) => self.tab_body(&kind, page, look, window, cx),
+            Some(kind) => self.tab_body(&kind, page, look, cx),
             None => div()
                 .size_full()
                 .flex()

@@ -2,6 +2,7 @@
 //! what changed since he last looked. Drawn on mock data until Fleet's half lands; `model.rs` is the
 //! view model Fleet's views fill then, and nothing here works one out.
 
+mod bar;
 mod inbox;
 pub mod layout;
 mod mock;
@@ -20,7 +21,7 @@ use gpui::{
     Role, SharedString, Subscription, Task, Window,
 };
 use gpui_component::input::{Input, InputEvent, InputState, TextareaState};
-use ipc::{PullRequestWriteKind, PullReviewList};
+use ipc::PullReviewList;
 
 use crate::dropdown::{Dropdown, Entry, Picked};
 use crate::job_view::pane_tree::{self as tree, Arrangement, Dir, Shape, Size};
@@ -28,17 +29,16 @@ use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 use crate::titlebar::parts::{card, sans, Btn, Weight};
 use layout::{LayoutControl, Layouts};
-use model::{Critique, DraftOf, Group, Inbox, Page, Viewed};
+use model::{Critique, DraftOf, Group, Inbox, Mine, Page, Verdict, Viewed};
 
 /// Each tab a pull request's page can hold: its kind, as the pane tree keys it, and its name.
-pub const KINDS: [(&str, &str); 7] = [
+pub const KINDS: [(&str, &str); 6] = [
     ("pr-changed", "What changed"),
     ("pr-files", "Files"),
     ("pr-conversation", "Conversation"),
     ("pr-checks", "Checks"),
     ("pr-findings", "Findings"),
     ("pr-comments", "Comments"),
-    ("pr-review", "Review"),
 ];
 
 /// A tab kind's name, as its tab and VoiceOver say it.
@@ -114,9 +114,9 @@ pub struct ReviewsScreen {
     whole: bool,
     drafts: Vec<DraftOf>,
     boxes: HashMap<String, Boxed>,
-    body: Option<Boxed>,
-    verdict: PullRequestWriteKind,
-    submitted: HashMap<u64, PullRequestWriteKind>,
+    summary: Option<Boxed>,
+    /// Review changes is open, in place of the panes, until Send or Cancel.
+    sheet: bool,
     sent_notes: HashSet<u64>,
     asking: Option<Ask>,
     name_box: Entity<InputState>,
@@ -170,9 +170,8 @@ impl ReviewsScreen {
             whole: false,
             drafts: mock::drafts(),
             boxes: HashMap::new(),
-            body: None,
-            verdict: PullRequestWriteKind::Comment,
-            submitted: HashMap::new(),
+            summary: None,
+            sheet: false,
             sent_notes: HashSet::new(),
             asking: None,
             name_box,
@@ -252,9 +251,10 @@ impl ReviewsScreen {
         let gone = self.pages[&number].seen.as_ref().is_some_and(|seen| seen.gone);
         self.open = Some(number);
         self.focused = Some(number);
+        self.sheet = false;
         self.whole = !changed || gone;
         self.bring_kind(if changed { "pr-changed" } else { "pr-files" }, cx);
-        self.body = Some(self.boxed(&format!("reviews:body:{number}"), None, 3, 8, window, cx));
+        self.summary = Some(self.boxed(&format!("reviews:summary:{number}"), None, 3, 8, window, cx));
         let mine: Vec<DraftOf> = self.drafts.iter().filter(|draft| draft.number == number).cloned().collect();
         for draft in mine {
             if !self.boxes.contains_key(&draft.id) {
@@ -396,17 +396,31 @@ impl ReviewsScreen {
         cx.notify();
     }
 
-    /// Submit: the drafts and the body go as one review, and the boxes empty.
-    fn submit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// Review changes, in place of the panes.
+    fn open_sheet(&mut self, open: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.sheet = open;
+        if !open {
+            window.focus(&self.rows, cx);
+        }
+        cx.notify();
+    }
+
+    /// Send: the drafts and the summary go as one review at the head, and the bar says so at once.
+    fn submit(&mut self, verdict: Verdict, window: &mut Window, cx: &mut Context<Self>) {
         let Some(number) = self.open else { return };
         let gone: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).map(|draft| draft.id.clone()).collect();
         for id in gone {
             self.discard_draft(&id, cx);
         }
-        crate::drafts::clear(&format!("reviews:body:{number}"), cx);
-        self.body = Some(self.boxed(&format!("reviews:body:{number}"), None, 3, 8, window, cx));
-        self.submitted.insert(number, self.verdict);
-        cx.notify();
+        crate::drafts::clear(&format!("reviews:summary:{number}"), cx);
+        self.summary = Some(self.boxed(&format!("reviews:summary:{number}"), None, 3, 8, window, cx));
+        if let Some(page) = self.pages.get_mut(&number) {
+            page.mine = Mine { verdict, on: Some(page.head.clone()), requested: None, commits: 0, replies: 0 };
+        }
+        if let Some(row) = self.inbox.rows.iter_mut().find(|row| row.number == number) {
+            row.mine = verdict;
+        }
+        self.open_sheet(false, window, cx);
     }
 
     fn send_notes(&mut self, cx: &mut Context<Self>) {
@@ -543,6 +557,11 @@ impl ReviewsScreen {
             cx.stop_propagation();
             return;
         }
+        if keys.key == "escape" && self.sheet {
+            self.open_sheet(false, window, cx);
+            cx.stop_propagation();
+            return;
+        }
         let digit = keys.key.parse::<usize>().ok().filter(|digit| (1..=4).contains(digit));
         if let Some(digit) = digit.filter(|_| keys.modifiers.alt && !keys.modifiers.shift && !keys.modifiers.platform && !keys.modifiers.control) {
             let tab = tree::panes_of(&self.arrangement.root).first().and_then(|pane| pane.tabs.get(digit - 1)).map(|tab| tab.id.clone());
@@ -654,7 +673,7 @@ impl Render for ReviewsScreen {
             window.defer(cx, move |_, cx| bar.update(cx, |bar, cx| bar.fill_job_slot(Some(control.into()), cx)));
         }
         let inbox = self.render_inbox(&look, window, cx);
-        let page = self.render_page(&look, window, cx);
+        let page = self.render_page(&look, cx);
         let dialog = self.asking.map(|ask| self.render_dialog(ask, &look, cx));
         let menu = self.pop.as_ref().map(|pop| pop.menu.clone());
         div()

@@ -53,6 +53,8 @@ pub struct InboxRow {
     /// The forge lists it is on, which the filter picks between.
     pub lists: Vec<PullReviewList>,
     pub checks: PullReviewChecks,
+    /// Where his own review stands.
+    pub mine: Verdict,
 }
 
 impl InboxRow {
@@ -64,6 +66,85 @@ impl InboxRow {
     /// The row's name, as VoiceOver reads it and a walk aims at it.
     pub fn name(&self) -> String {
         format!("#{} {}", self.number, self.title)
+    }
+}
+
+/// Where his own review of a pull request stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Verdict {
+    NotReviewed,
+    Commented,
+    ChangesRequested,
+    Approved,
+}
+
+impl Verdict {
+    pub fn said(self) -> &'static str {
+        match self {
+            Verdict::NotReviewed => "Not reviewed",
+            Verdict::Commented => "Commented",
+            Verdict::ChangesRequested => "Changes requested",
+            Verdict::Approved => "Approved",
+        }
+    }
+
+    /// The registry's glyph for a review's verdict, as the pull request panel draws it.
+    pub fn glyph(self) -> &'static str {
+        match self {
+            Verdict::NotReviewed => "clock",
+            Verdict::Commented => "scroll-text",
+            Verdict::ChangesRequested => "ban",
+            Verdict::Approved => "check",
+        }
+    }
+}
+
+/// His last review, and what came after it: Fleet's review state of a pull request.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Mine {
+    pub verdict: Verdict,
+    /// The short sha he reviewed at.
+    pub on: Option<String>,
+    /// How long since he was asked, while he has not reviewed it.
+    pub requested: Option<String>,
+    /// Commits since his review.
+    pub commits: u32,
+    /// Replies to his comments since his review.
+    pub replies: u32,
+}
+
+impl Mine {
+    /// The bar's state chip.
+    pub fn chip(&self) -> String {
+        match (&self.on, self.verdict) {
+            (Some(on), verdict) if verdict != Verdict::NotReviewed => format!("{} on {on}", verdict.said()),
+            (_, verdict) => verdict.said().to_string(),
+        }
+    }
+
+    pub fn fresh(&self) -> bool {
+        self.commits > 0 || self.replies > 0
+    }
+
+    /// What came after his review, or how long he has been asked.
+    pub fn since(&self) -> Option<String> {
+        if self.verdict == Verdict::NotReviewed {
+            return self.requested.as_ref().map(|age| format!("Requested from you {age}"));
+        }
+        if !self.fresh() {
+            return Some("Nothing new since".into());
+        }
+        let commits = match self.commits {
+            0 => None,
+            1 => Some("1 commit".to_string()),
+            many => Some(format!("{many} commits")),
+        };
+        let replies = match self.replies {
+            0 => None,
+            1 => Some("1 reply to you".to_string()),
+            many => Some(format!("{many} replies to you")),
+        };
+        Some(format!("Since then: {}", commits.into_iter().chain(replies).collect::<Vec<_>>().join(", ")))
     }
 }
 
@@ -146,7 +227,10 @@ pub struct Page {
     pub author: String,
     pub branch: String,
     pub base: String,
+    /// The head's short sha.
+    pub head: String,
     pub body: String,
+    pub mine: Mine,
     /// Absent where he has never opened it.
     pub seen: Option<Seen>,
     /// Commits since he looked, newest first.

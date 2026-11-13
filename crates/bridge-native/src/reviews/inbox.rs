@@ -4,7 +4,7 @@
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
 use ipc::PullReviewChecks;
 
-use super::model::{Group, InboxRow};
+use super::model::{Group, InboxRow, Verdict};
 use super::{panel, ReviewsScreen};
 use crate::keymap::Act;
 use crate::labels::labelled;
@@ -33,9 +33,19 @@ fn band(group: Group) -> crate::look::Token {
 /// The checks' state as a registry glyph, its hue and what its tooltip says.
 pub(super) fn checks_mark(checks: PullReviewChecks) -> (&'static str, crate::look::Token, &'static str) {
     match checks {
-        PullReviewChecks::Passed => ("circle-check", token::RUN_PASSED, "Checks passed"),
-        PullReviewChecks::Failed => ("circle-x", token::RUN_FAILED, "Checks failed"),
-        PullReviewChecks::Running => ("circle-dashed", token::RUN_RUNNING, "Checks running"),
+        PullReviewChecks::Passed => ("shield-check", token::RUN_PASSED, "Checks passed"),
+        PullReviewChecks::Failed => ("shield-x", token::RUN_FAILED, "Checks failed"),
+        PullReviewChecks::Running => ("loader-circle", token::RUN_RUNNING, "Checks running"),
+    }
+}
+
+/// His review's hue, and the ground of its chip.
+pub(super) fn verdict_hue(verdict: Verdict) -> (crate::look::Token, crate::look::Token) {
+    match verdict {
+        Verdict::NotReviewed => (token::STATUS_AWAITING_REVIEW, token::STATUS_AWAITING_REVIEW_BG),
+        Verdict::Commented => (token::FG_MUTED, token::BG_SUNKEN),
+        Verdict::ChangesRequested => (token::STATUS_COMPLETED_FAILED, token::STATUS_COMPLETED_FAILED_BG),
+        Verdict::Approved => (token::STATUS_COMPLETED_SUCCESS, token::STATUS_COMPLETED_SUCCESS_BG),
     }
 }
 
@@ -329,6 +339,7 @@ impl ReviewsScreen {
             )
         });
         let meta = format!("#{number} · {} · {}", row.short_repository(), row.age);
+        let mine_said = format!("Your review: {}", row.mine.said());
         labelled(
             div()
                 .id(SharedString::from(format!("pr-row-{number}")))
@@ -341,7 +352,6 @@ impl ReviewsScreen {
                 .border_b(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .border_l(look.length(token::BORDER_WIDTH) * 2.)
-                .when(!open && !focused, |line| line.border_l(look.length(token::BORDER_WIDTH) * 2.).border_color(look.color(token::BORDER_SUBTLE)))
                 .when(open, |line| line.bg(look.color(token::SURFACE_ROW_SELECTED)).border_color(bar))
                 .when(focused && !open, |line| line.border_color(bar))
                 .cursor_pointer()
@@ -358,6 +368,18 @@ impl ReviewsScreen {
                         )),
                         Role::Image,
                         checks_said,
+                    ),
+                )
+                .child(
+                    // His review's state, in the next column.
+                    labelled(
+                        div().id(SharedString::from(format!("mine-{number}"))).flex_none().pt(look.length(token::SPACE_1)).tooltip(tip(mine_said.clone())).child(glyph(
+                            row.mine.glyph(),
+                            look.length(token::SPACE_4),
+                            look.color(verdict_hue(row.mine).0),
+                        )),
+                        Role::Image,
+                        mine_said,
                     ),
                 )
                 .child(

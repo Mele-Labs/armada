@@ -7,12 +7,13 @@ use ipc::{
     PullReviewChecks, PullReviewList, PullReviewThread, PullReviewThreadComment,
 };
 
-use super::model::{Critique, DraftOf, Finding, Group, Inbox, InboxRow, Page, PageFile, Reply, Seen, Viewed};
+use super::model::{Critique, DraftOf, Finding, Group, Inbox, InboxRow, Mine, Page, PageFile, Reply, Seen, Verdict, Viewed};
 
 /// The pull request his last visit had open, which opens again once its fresh page confirms it.
 pub const LAST_OPEN: u64 = 2190;
 
-fn row(number: u64, repository: &str, title: &str, author: &str, age: &str, group: Group, new_commits: Option<u32>, lists: &[PullReviewList], checks: PullReviewChecks) -> InboxRow {
+#[allow(clippy::too_many_arguments)]
+fn row(number: u64, repository: &str, title: &str, author: &str, age: &str, group: Group, new_commits: Option<u32>, lists: &[PullReviewList], checks: PullReviewChecks, mine: Verdict) -> InboxRow {
     InboxRow {
         number,
         repository: repository.into(),
@@ -23,6 +24,7 @@ fn row(number: u64, repository: &str, title: &str, author: &str, age: &str, grou
         new_commits,
         lists: lists.to_vec(),
         checks,
+        mine,
     }
 }
 
@@ -30,14 +32,14 @@ fn row(number: u64, repository: &str, title: &str, author: &str, age: &str, grou
 pub fn inbox() -> Inbox {
     use PullReviewList::*;
     let rows = vec![
-        row(2214, "harbor/ledger-api", "Add rate limits to the export endpoint", "mira", "2h", Group::FirstLook, None, &[Requested], PullReviewChecks::Passed),
-        row(871, "harbor/web-shell", "Move the settings page to the new form kit", "jun", "5h", Group::FirstLook, None, &[Team], PullReviewChecks::Running),
-        row(2198, "harbor/ledger-api", "Retry failed webhooks with backoff", "tobias", "40m", Group::Changed, Some(3), &[Requested, Assigned], PullReviewChecks::Running),
-        row(865, "harbor/web-shell", "Cache the avatar images", "priya", "1h", Group::Changed, Some(2), &[Assigned], PullReviewChecks::Failed),
-        row(2190, "harbor/ledger-api", "Split the invoice job into stages", "mira", "1d", Group::Waiting, None, &[Requested], PullReviewChecks::Passed),
-        row(143, "harbor/infra-kit", "Pin the runner image", "you", "3d", Group::Waiting, None, &[Mine], PullReviewChecks::Passed),
-        row(2177, "harbor/ledger-api", "Drop the old CSV export", "jun", "4d", Group::Done, None, &[Requested], PullReviewChecks::Passed),
-        row(859, "harbor/web-shell", "Fix the focus ring on menus", "priya", "6d", Group::Done, None, &[Team], PullReviewChecks::Passed),
+        row(2214, "harbor/ledger-api", "Add rate limits to the export endpoint", "mira", "2h", Group::FirstLook, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
+        row(871, "harbor/web-shell", "Move the settings page to the new form kit", "jun", "5h", Group::FirstLook, None, &[Team], PullReviewChecks::Running, Verdict::NotReviewed),
+        row(2198, "harbor/ledger-api", "Retry failed webhooks with backoff", "tobias", "40m", Group::Changed, Some(3), &[Requested, Assigned], PullReviewChecks::Running, Verdict::Commented),
+        row(865, "harbor/web-shell", "Cache the avatar images", "priya", "1h", Group::Changed, Some(2), &[Assigned], PullReviewChecks::Failed, Verdict::ChangesRequested),
+        row(2190, "harbor/ledger-api", "Split the invoice job into stages", "mira", "1d", Group::Waiting, None, &[Requested], PullReviewChecks::Passed, Verdict::Commented),
+        row(143, "harbor/infra-kit", "Pin the runner image", "you", "3d", Group::Waiting, None, &[Mine], PullReviewChecks::Passed, Verdict::NotReviewed),
+        row(2177, "harbor/ledger-api", "Drop the old CSV export", "jun", "4d", Group::Done, None, &[Requested], PullReviewChecks::Passed, Verdict::Approved),
+        row(859, "harbor/web-shell", "Fix the focus ring on menus", "priya", "6d", Group::Done, None, &[Team], PullReviewChecks::Passed, Verdict::Approved),
     ];
     Inbox { rows, refreshing: true }
 }
@@ -191,6 +193,8 @@ fn retry_page() -> Page {
         author: "tobias".into(),
         branch: "tobias/webhook-backoff".into(),
         base: "main".into(),
+        head: "e71b0d4".into(),
+        mine: Mine { verdict: Verdict::Commented, on: Some("a3f9c21".into()), requested: None, commits: 3, replies: 2 },
         body: "A failed webhook was tried three times, two seconds apart.\n\nNow it backs off: half a second, doubling, capped at thirty seconds, with jitter.".into(),
         seen: Some(Seen { when: "yesterday 16:40".into(), old: "a3f9c21".into(), new: "e71b0d4".into(), gone: false }),
         new_commits: vec![
@@ -285,6 +289,8 @@ fn avatar_page() -> Page {
         author: "priya".into(),
         branch: "priya/avatar-cache".into(),
         base: "main".into(),
+        head: "f3c7a12".into(),
+        mine: Mine { verdict: Verdict::ChangesRequested, on: Some("4d2a9e0".into()), requested: None, commits: 2, replies: 0 },
         body: "Avatars are fetched on every page. This keeps them for the session.".into(),
         seen: Some(Seen { when: "Monday 11:05".into(), old: "4d2a9e0".into(), new: "f3c7a12".into(), gone: true }),
         new_commits: vec![commit("f3c7a12", "Cache avatars for the session", "priya"), commit("08be4d1", "Clear the cache on sign out", "priya")],
@@ -311,6 +317,8 @@ fn limits_page() -> Page {
         author: "mira".into(),
         branch: "mira/export-limits".into(),
         base: "main".into(),
+        head: "5e0c9a4".into(),
+        mine: Mine { verdict: Verdict::NotReviewed, on: None, requested: Some("2h ago".into()), commits: 0, replies: 0 },
         body: "Exports are limited to ten a minute for each account.".into(),
         seen: None,
         new_commits: Vec::new(),
@@ -343,6 +351,8 @@ fn invoice_page() -> Page {
         author: "mira".into(),
         branch: "mira/invoice-stages".into(),
         base: "main".into(),
+        head: "b19f5e2".into(),
+        mine: Mine { verdict: Verdict::Commented, on: Some("77ac301".into()), requested: None, commits: 1, replies: 0 },
         body: "The invoice job runs as three stages, so a failed stage retries alone.".into(),
         seen: Some(Seen { when: "Tuesday 14:10".into(), old: "77ac301".into(), new: "b19f5e2".into(), gone: false }),
         new_commits: vec![commit("b19f5e2", "Name each stage in the log", "mira")],
@@ -388,9 +398,18 @@ pub fn page(number: u64) -> Option<Page> {
                 number,
                 repository: row.repository,
                 title: row.title,
-                author: row.author,
+                author: row.author.clone(),
                 branch: "topic".into(),
                 base: "main".into(),
+                head: "9d02b6e".into(),
+                // Approved ones were approved at the head; one asked of him waits since it was opened.
+                mine: Mine {
+                    verdict: row.mine,
+                    on: (row.mine != Verdict::NotReviewed).then(|| "9d02b6e".into()),
+                    requested: (row.mine == Verdict::NotReviewed && row.author != "you").then(|| format!("{} ago", row.age)),
+                    commits: 0,
+                    replies: 0,
+                },
                 body: String::new(),
                 seen: None,
                 new_commits: Vec::new(),

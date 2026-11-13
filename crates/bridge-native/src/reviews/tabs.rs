@@ -1,9 +1,8 @@
 //! What each tab of a pull request's page draws. Every tab reads the page as Fleet sends it.
 
-use gpui::{div, prelude::*, relative, AnyElement, Context, Div, ElementId, FontWeight, Role, SharedString, Toggled, Window};
-use gpui_component::input::Textarea;
+use gpui::{div, prelude::*, relative, AnyElement, Context, Div, ElementId, FontWeight, Role, SharedString, Toggled};
 use gpui_component::text::TextView;
-use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestVerdict, PullRequestWriteKind};
+use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestVerdict};
 
 use super::model::{Critique, Page, PageFile, Viewed};
 use super::panes::place_line;
@@ -11,7 +10,7 @@ use super::{Ask, ReviewsScreen};
 use crate::diff;
 use crate::labels::labelled;
 use crate::look::{token, Look, Token};
-use crate::titlebar::parts::{glyph, icon_button, mono, spinner, tip, Btn, Weight};
+use crate::titlebar::parts::{glyph, mono, spinner, tip, Btn, Weight};
 
 /// The glyph on a tab and in the Add tab menu.
 pub(super) fn glyph_of(kind: &str) -> &'static str {
@@ -22,17 +21,16 @@ pub(super) fn glyph_of(kind: &str) -> &'static str {
         "pr-checks" => "list-checks",
         "pr-findings" => "bot",
         "pr-comments" => "message-square-reply",
-        "pr-review" => "stamp",
         _ => "file-text",
     }
 }
 
 fn check_mark(state: PullRequestCheckState) -> (&'static str, Token, &'static str) {
     match state {
-        PullRequestCheckState::Passed => ("circle-check", token::RUN_PASSED, "Passed"),
-        PullRequestCheckState::Failed => ("circle-x", token::RUN_FAILED, "Failed"),
+        PullRequestCheckState::Passed => ("shield-check", token::RUN_PASSED, "Passed"),
+        PullRequestCheckState::Failed => ("shield-x", token::RUN_FAILED, "Failed"),
         PullRequestCheckState::Running => ("loader-circle", token::RUN_RUNNING, "Running"),
-        PullRequestCheckState::Skipped => ("circle-dashed", token::FG_SUBTLE, "Skipped"),
+        PullRequestCheckState::Skipped => ("shield-off", token::FG_SUBTLE, "Skipped"),
     }
 }
 
@@ -42,14 +40,6 @@ fn file_mark(status: PullRequestFileStatus) -> (&'static str, Token, &'static st
         PullRequestFileStatus::Removed => ("x", token::RUN_FAILED, "Removed"),
         PullRequestFileStatus::Modified => ("pencil", token::FG_MUTED, "Modified"),
         PullRequestFileStatus::Renamed => ("file-text", token::FG_MUTED, "Renamed"),
-    }
-}
-
-fn verdict_said(kind: PullRequestWriteKind) -> &'static str {
-    match kind {
-        PullRequestWriteKind::Comment => "Comment",
-        PullRequestWriteKind::Approve => "Approve",
-        PullRequestWriteKind::RequestChanges => "Request changes",
     }
 }
 
@@ -171,7 +161,7 @@ fn frame(look: &Look) -> Div {
 }
 
 impl ReviewsScreen {
-    pub(super) fn tab_body(&mut self, kind: &str, page: &Page, look: &Look, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn tab_body(&mut self, kind: &str, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let inner = match kind {
             "pr-changed" => self.changed_tab(page, look, cx),
             "pr-files" => self.files_tab(page, look, cx),
@@ -179,7 +169,6 @@ impl ReviewsScreen {
             "pr-checks" => checks_tab(page, look),
             "pr-findings" => self.findings_tab(page, look, cx),
             "pr-comments" => comments_tab(page, look),
-            "pr-review" => self.review_tab(page, look, window, cx),
             _ => div().into_any_element(),
         };
         div().w_full().p(look.length(token::SPACE_4)).flex().flex_col().gap(look.length(token::SPACE_3)).child(inner).into_any_element()
@@ -393,8 +382,31 @@ impl ReviewsScreen {
         labelled(frame(look).id(SharedString::from(format!("file-{at}"))).flex().flex_col().child(head).children(body), Role::Article, format!("File: {}", file.path)).into_any_element()
     }
 
-    /// Findings: what a critique of the range found, each one a draft away.
+    /// Findings: what a critique of the range found, each one a draft away, and the notes for the Job
+    /// that holds the pull request.
     fn findings_tab(&mut self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let found = self.critique_part(page, look, cx);
+        let notes = page.holder.clone().map(|holder| {
+            let mut column = div().flex().flex_col().gap(look.length(token::SPACE_2)).pt(look.length(token::SPACE_3)).border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE));
+            column = column.child(heading("notes-head", format!("Notes for {holder}"), look));
+            for (at, note) in page.notes.iter().enumerate() {
+                column = column.child(words(format!("note-{at}"), note.clone(), look));
+            }
+            column.child(if self.sent_notes.contains(&page.number) {
+                status("notes-sent", format!("Sent to {holder}"), glyph("check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look)
+            } else {
+                labelled(
+                    Btn::new("notes-send", "Send to job", Weight::Secondary).icon("send").draw(look, cx).on_click(cx.listener(|this, _, _, cx| this.send_notes(cx))),
+                    Role::Button,
+                    "Send to job",
+                )
+                .into_any_element()
+            })
+        });
+        div().flex().flex_col().gap(look.length(token::SPACE_4)).child(found).children(notes).into_any_element()
+    }
+
+    fn critique_part(&mut self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let muted = look.color(token::FG_MUTED);
         match &page.critique {
             Critique::None => div()
@@ -462,112 +474,6 @@ impl ReviewsScreen {
         }
     }
 
-    /// Review: the drafts, the body and the verdict, sent together; and the Job's notes.
-    fn review_tab(&mut self, page: &Page, look: &Look, _: &mut Window, cx: &mut Context<Self>) -> AnyElement {
-        let mut column = div().flex().flex_col().gap(look.length(token::SPACE_3));
-        if let Some(kind) = self.submitted.get(&page.number) {
-            column = column.child(status("review-sent", format!("Submitted as {}", verdict_said(*kind)), glyph("circle-check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look));
-        }
-        column = column.child(heading("review-drafts", "Drafts".into(), look));
-        let mine: Vec<_> = self.drafts.iter().filter(|draft| draft.number == page.number).cloned().collect();
-        if mine.is_empty() {
-            column = column.child(words("review-no-drafts", "No drafts on this pull request".into(), look));
-        }
-        for draft in mine {
-            let Some(boxed) = self.boxes.get(&draft.id) else { continue };
-            let place = draft.place();
-            let id = draft.id.clone();
-            let discard = labelled(
-                icon_button(SharedString::from(format!("draft-discard-{}", draft.id)), "x", look.color(token::FG_MUTED), look)
-                    .tooltip(tip("Discard draft"))
-                    .on_click(cx.listener(move |this, _, _, cx| this.discard_draft(&id, cx))),
-                Role::Button,
-                format!("Discard draft on {place}"),
-            );
-            column = column.child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_1))
-                    .child(div().flex().items_center().child(div().flex_1().child(place_line(format!("draft-place-{}", draft.id), place.clone(), look))).child(discard))
-                    .child(labelled(
-                        div().id(SharedString::from(format!("draft-box-{}", draft.id))).key_context(crate::keymap::TEXT_BOX).w_full().text_size(look.length(token::TEXT_SM)).child(Textarea::new(&boxed.state)),
-                        Role::TextInput,
-                        format!("Draft on {place}"),
-                    )),
-            );
-        }
-        column = column.child(heading("review-body-head", "Review".into(), look));
-        if let Some(body) = &self.body {
-            column = column.child(labelled(
-                div().id("review-body").key_context(crate::keymap::TEXT_BOX).w_full().text_size(look.length(token::TEXT_SM)).child(Textarea::new(&body.state)),
-                Role::TextInput,
-                "Review body",
-            ));
-        }
-        let verdicts = [PullRequestWriteKind::Comment, PullRequestWriteKind::Approve, PullRequestWriteKind::RequestChanges].map(|kind| {
-            let on = self.verdict == kind;
-            let said = verdict_said(kind);
-            labelled(
-                div()
-                    .id(SharedString::from(format!("verdict-{said}")))
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_1))
-                    .h(look.length(token::H_CONTROL))
-                    .px(look.length(token::SPACE_3))
-                    .rounded(look.length(token::RADIUS_MD))
-                    .cursor_pointer()
-                    .text_size(look.length(token::TEXT_XS))
-                    .text_color(if on { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) })
-                    .when(on, |radio| radio.bg(look.color(token::BG_RAISED)).shadow(look.shadows(token::SHADOW_CARD)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
-                    .aria_toggled(if on { Toggled::True } else { Toggled::False })
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.verdict = kind;
-                        cx.notify();
-                    }))
-                    .child(said),
-                Role::RadioButton,
-                said,
-            )
-        });
-        let submit = labelled(
-            Btn::new("review-submit", "Submit", Weight::Primary).icon("send").draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.submit(window, cx))),
-            Role::Button,
-            "Submit",
-        );
-        column = column.child(
-            div()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_3))
-                .child(labelled(
-                    div().id("review-verdict").flex().p(look.length(token::SPACE_1)).gap(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_LG)).bg(look.color(token::BG_SUNKEN)).children(verdicts),
-                    Role::RadioGroup,
-                    "Verdict",
-                ))
-                .child(div().flex_1())
-                .child(submit),
-        );
-        if let Some(holder) = page.holder.clone() {
-            column = column.child(heading("review-notes-head", format!("Notes for {holder}"), look));
-            for (at, note) in page.notes.iter().enumerate() {
-                column = column.child(words(format!("review-note-{at}"), note.clone(), look));
-            }
-            let sent = self.sent_notes.contains(&page.number);
-            column = column.child(if sent {
-                status("review-notes-sent", format!("Sent to {holder}"), glyph("check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look)
-            } else {
-                labelled(
-                    Btn::new("review-send-notes", "Send to job", Weight::Secondary).icon("send").draw(look, cx).on_click(cx.listener(|this, _, _, cx| this.send_notes(cx))),
-                    Role::Button,
-                    "Send to job",
-                )
-                .into_any_element()
-            });
-        }
-        column.into_any_element()
-    }
 }
 
 fn conversation_tab(page: &Page, look: &Look) -> AnyElement {
