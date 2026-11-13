@@ -219,16 +219,26 @@ where
         Ok(merged)
     }
 
-    /// The Mac that holds the project `project` as a copy here, where it is one.
+    /// The Mac that holds the project `project` as a copy here, where it is one. **None where this Mac keeps a
+    /// project by that id itself**, so another Mac can never stand in for one of this Mac's own.
     pub(crate) async fn copy_of_project(&self, project: Option<&str>) -> Result<Option<String>, Refusal> {
         let Some(project) = project.filter(|one| !one.is_empty()) else {
             return Ok(None);
         };
+        let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+        if kept.projects.iter().any(|one| one.id == project) {
+            return Ok(None);
+        }
         Ok(self.project_copies().await?.into_iter().find(|one| one.id == project).and_then(|one| one.mac))
     }
 
-    /// The Mac that holds a copy with the row `row` in it, a row queued while it slept included.
+    /// The Mac that holds a copy with the row `row` in it, a row queued while it slept included. None where this
+    /// Mac keeps a row by that id itself.
     pub(crate) async fn copy_of_row(&self, row: &str) -> Result<Option<String>, Refusal> {
+        let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+        if kept.projects.iter().flat_map(|one| &one.rows).chain(&kept.loose).any(|one| one.id == row) {
+            return Ok(None);
+        }
         let copies = self.project_copies().await?;
         Ok(copies.into_iter().find(|one| one.rows.iter().any(|found| row_id(found) == row)).and_then(|one| one.mac))
     }
