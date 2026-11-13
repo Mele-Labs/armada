@@ -7,6 +7,7 @@
 //!
 //! **Moved one method at a time.** A method not yet read over the API is `gh`'s, unchanged.
 
+mod account;
 mod ci;
 mod comments;
 mod connection;
@@ -423,6 +424,11 @@ impl Forge for ApiForge {
 
     fn can_request_reviewers(&self) -> Result<(), String> {
         Ok(())
+    }
+
+    /// The API's alone: `gh` reads the same token, so where the API has none `gh` has none either.
+    fn account_repositories(&self, most: usize) -> Result<adapter_traits::AccountRepositories, String> {
+        account::repositories(&self.api, most).map_err(|failure| failure.to_act_on())
     }
 
     fn pull_request_page(

@@ -296,6 +296,31 @@ export type CloneRepository = {
 };
 
 /**
+ * What the person's forge account can see, to pick one to clone — `GET /repositories/forge?q=`.
+ * `crates/ipc/src/repositories.rs`. `q` keeps those whose `owner/name` holds every word, case-blind.
+ * Newest pushed first, at most 200. Kept by Fleet for a minute, so typing asks the forge nothing. A 422
+ * `fleet.forge_repositories_unreadable` where the forge would not list them, in its own words.
+ */
+export type ForgeRepositories = {
+  repositories: ForgeRepository[];
+  /** More matched than the 200 answered, or the forge held more than Fleet reads. Absent while false. */
+  cut?: boolean;
+};
+
+/** One repository on the forge, and where this Mac already has it. */
+export type ForgeRepository = {
+  owner: string;
+  name: string;
+  /** What `CloneRepository.url` takes. */
+  url: string;
+  private: boolean;
+  /** Absent for a repository nothing was ever pushed to. */
+  pushed_at?: string;
+  /** The root of the served repository whose remote is this one. Absent where Fleet serves none. */
+  local_path?: string;
+};
+
+/**
  * A new project to make: a folder named `name` under `parent`, started as a git repository and served —
  * `POST /repositories/create`. `crates/ipc/src/repositories.rs`. Answers 201 with the `RepositorySummary`
  * an add does. A 422 `fleet.project_name_refused` for a `name` that is empty, `.`, `..` or holds a `/`; a 422

@@ -321,12 +321,12 @@ mod tests {
     #[test]
     fn a_first_review_kind_sets_all_three_from_what_they_come_to() {
         let now = ResolvedValues {
-            pr_mode: ResolvedValue { value: Some("ready".into()), from: ValueLayer::Default },
-            auto_merge: ResolvedValue { value: None, from: ValueLayer::Default },
-            review_model: ResolvedValue { value: None, from: ValueLayer::Default },
-            layout: ResolvedValue { value: None, from: ValueLayer::Default },
-            theme: ResolvedValue { value: None, from: ValueLayer::Default },
-            density: ResolvedValue { value: None, from: ValueLayer::Default },
+            pr_mode: ResolvedValue { value: Some("ready".into()), from: ValueLayer::Default, learned: false, inherited: None, inherited_from: None },
+            auto_merge: ResolvedValue { value: None, from: ValueLayer::Default, learned: false, inherited: None, inherited_from: None },
+            review_model: ResolvedValue { value: None, from: ValueLayer::Default, learned: false, inherited: None, inherited_from: None },
+            layout: ResolvedValue { value: None, from: ValueLayer::Default, learned: false, inherited: None, inherited_from: None },
+            theme: ResolvedValue { value: None, from: ValueLayer::Default, learned: false, inherited: None, inherited_from: None },
+            density: ResolvedValue { value: None, from: ValueLayer::Default, learned: false, inherited: None, inherited_from: None },
             tracker: None,
             reviews: Some(ResolvedReviews { plans: "review_and_approve".into(), pull_requests: "review".into(), walks: "off".into(), from: ValueLayer::Kit, plans_from: None, pull_requests_from: None, walks_from: None }),
             autonomy: Vec::new(),

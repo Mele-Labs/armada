@@ -29,6 +29,7 @@ mod adding;
 pub(crate) use adding::NO_SUCH_REPOSITORY;
 mod cloning;
 mod creating;
+pub(crate) mod forge_listing;
 pub(crate) mod reading;
 
 pub use cloning::{folder_named_by, CLONE_BUDGET};
@@ -510,24 +511,28 @@ impl std::fmt::Display for NotAdded {
     }
 }
 
-/// Every repository one Fleet serves, in the order they were added, and the
-/// folders a clone is writing into.
-pub struct Repositories(RwLock<Vec<Arc<Repository>>>, cloning::Cloning);
+/// Every repository one Fleet serves, in the order they were added, the
+/// folders a clone is writing into, and the forge's list of what there is to clone.
+pub struct Repositories(RwLock<Vec<Arc<Repository>>>, cloning::Cloning, forge_listing::ForgeListing);
 
 impl Repositories {
     /// Serving nothing, which is how a Fleet starts.
     pub fn none() -> Repositories {
-        Repositories(RwLock::new(Vec::new()), cloning::Cloning::default())
+        Repositories(RwLock::new(Vec::new()), cloning::Cloning::default(), forge_listing::ForgeListing::default())
     }
 
     /// Serving one repository that has a Manifest, for a fixture.
     pub fn starting_in(root: String, records_root: String, set_up: SetUp) -> Repositories {
         let first = Repository::of(root, records_root, Some(set_up));
-        Repositories(RwLock::new(vec![first]), cloning::Cloning::default())
+        Repositories(RwLock::new(vec![first]), cloning::Cloning::default(), forge_listing::ForgeListing::default())
     }
 
     fn cloning(&self) -> &cloning::Cloning {
         &self.1
+    }
+
+    fn forge_listing(&self) -> &forge_listing::ForgeListing {
+        &self.2
     }
 
     fn every_held(&self) -> std::sync::RwLockReadGuard<'_, Vec<Arc<Repository>>> {

@@ -372,6 +372,12 @@ where
         Ok(self.request_repository(words).await)
     }
 
+    /// What the person's forge account can see, to clone —
+    /// `crate::repositories::forge_listing`.
+    async fn list_forge_repositories(&self, q: Option<String>) -> Result<ipc::ForgeRepositories, Refusal> {
+        self.forge_repositories(q).await
+    }
+
     /// Who held one slot and what was checked out in it — [`crate::bay_history`].
     async fn get_slot_history(&self, ask: ipc::BayHistoryAsk) -> Result<ipc::BayHistory, Refusal> {
         self.slot_history(ask).await

@@ -394,6 +394,14 @@ pub trait Queries: Send + Sync + 'static {
         words: String,
     ) -> impl Future<Output = Result<ipc::RequestRepository, Refusal>> + Send;
 
+    /// `list_forge_repositories` — the repositories the person's forge account can see, each
+    /// marked with the served repository that is it, narrowed by `q` and capped.
+    /// [`Refusal::Unacceptable`] where the forge would not list them, in its own words.
+    fn list_forge_repositories(
+        &self,
+        q: Option<String>,
+    ) -> impl Future<Output = Result<ipc::ForgeRepositories, Refusal>> + Send;
+
     /// `get_fleet_timeline` — the entries Fleet kept for a window of time,
     /// oldest first. It never refuses.
     fn get_fleet_timeline(

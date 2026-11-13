@@ -410,6 +410,10 @@ impl Queries for FakeDaemon {
         Ok(shapes::request_repository(&words))
     }
 
+    async fn list_forge_repositories(&self, _q: Option<String>) -> Result<ipc::ForgeRepositories, Refusal> {
+        Ok(ipc::ForgeRepositories::default())
+    }
+
     async fn get_fleet_timeline(
         &self,
         ask: ipc::TimelineAsk,

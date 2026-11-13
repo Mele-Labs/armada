@@ -262,6 +262,7 @@ mod projects;
 mod values;
 /// His projects as files, kept where he chose for each, and the migration that makes them.
 mod project_files;
+mod project_learned;
 mod project_holds;
 /// What may leave this Mac for his other Macs: one filter, read from a Job's project at the moment of sending.
 pub mod share;

@@ -695,6 +695,7 @@ where
             None if edited != held => self.project_stored(&edited).await?,
             None => {}
         }
+        self.project_learned_standing(&project, edited.values()).await;
         let named = edited.name().as_str().to_string();
         self.projects_written_reading(|store, _| store.rename_project(&project, &named).map(drop).map_err(|why| self.ledger_fault(why)), true).await
     }

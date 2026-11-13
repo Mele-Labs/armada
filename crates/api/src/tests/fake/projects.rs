@@ -104,7 +104,7 @@ impl Projects for FakeDaemon {
             held(project)?;
         }
         let reached = format!("{} {}", project.as_deref().unwrap_or("-"), manifest_id.as_ref().map_or("-", ManifestId::as_str));
-        let said = |value: Option<String>| ipc::ResolvedValue { value, from: ipc::ValueLayer::Default };
+        let said = |value: Option<String>| ipc::ResolvedValue { value, from: ipc::ValueLayer::Default, learned: false, inherited: None, inherited_from: None };
         Ok(ipc::ResolvedValues {
             pr_mode: said(Some("ready".to_string())),
             auto_merge: said(Some("never".to_string())),
