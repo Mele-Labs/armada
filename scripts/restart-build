@@ -162,7 +162,9 @@ def main():
             log.write(f"$ {' '.join(command)}\n")
             log.flush()
             seen = log.tell()
-            process = subprocess.Popen(command, cwd=root, stdout=log, stderr=subprocess.STDOUT)
+            # Already in a session of its own, so `scripts/preview` and `scripts/restart` do not detach again.
+            process = subprocess.Popen(command, cwd=root, stdout=log, stderr=subprocess.STDOUT,
+                                       env={**os.environ, "ARMADA_RESTART_DETACHED": "1"})
             held = b""
             while True:
                 finished = False
