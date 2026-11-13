@@ -419,6 +419,8 @@ impl ReviewsScreen {
         }
         if let Some(row) = self.inbox.rows.iter_mut().find(|row| row.number == number) {
             row.mine = verdict;
+            // A review at the head has seen every commit, so none is new to him any more.
+            row.new_commits = None;
         }
         self.open_sheet(false, window, cx);
     }

@@ -1,6 +1,6 @@
 //! What each tab of a pull request's page draws. Every tab reads the page as Fleet sends it.
 
-use gpui::{div, prelude::*, relative, AnyElement, Context, Div, ElementId, FontWeight, Role, SharedString, Toggled};
+use gpui::{div, prelude::*, AnyElement, Context, Div, ElementId, FontWeight, Role, SharedString, Toggled};
 use gpui_component::text::TextView;
 use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestVerdict};
 
@@ -134,8 +134,8 @@ fn band(id: String, title: &'static str, look: &Look) -> AnyElement {
     .into_any_element()
 }
 
-/// One row of a table: a glyph column, a fixed key column, and what it says.
-fn table_row(id: String, name: String, lead: AnyElement, key: String, rest: Vec<AnyElement>, look: &Look) -> AnyElement {
+/// One row of a table: a glyph column, a narrow fixed key column, and what it says.
+fn table_row(id: String, name: String, lead: AnyElement, key: AnyElement, rest: Vec<AnyElement>, look: &Look) -> AnyElement {
     labelled(
         div()
             .id(SharedString::from(id))
@@ -148,7 +148,7 @@ fn table_row(id: String, name: String, lead: AnyElement, key: String, rest: Vec<
             .border_color(look.color(token::BORDER_SUBTLE))
             .text_size(look.length(token::TEXT_SM))
             .child(div().flex_none().w(look.length(token::SPACE_4)).child(lead))
-            .child(div().flex_none().w(relative(0.36)).font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(key)))
+            .child(div().flex_none().w(look.length(token::SPACE_12) * 2.).overflow_hidden().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(key))
             .child(div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_1)).children(rest)),
         Role::Row,
         name,
@@ -233,40 +233,45 @@ impl ReviewsScreen {
                 div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(by)).into_any_element(),
             ];
             let lead = glyph("git-commit-horizontal", look.length(token::SPACE_4), look.color(token::STATUS_HANDED_IN)).into_any_element();
-            table = table.child(table_row(format!("changed-commit-{}", commit.sha), format!("{} {}", commit.sha, commit.headline), lead, commit.sha.clone(), rest, look));
+            let key = div().font_family(mono(look)).child(SharedString::from(commit.sha.clone())).into_any_element();
+            table = table.child(table_row(format!("changed-commit-{}", commit.sha), format!("{} {}", commit.sha, commit.headline), lead, key, rest, look));
         }
         table = table.child(band("changed-band-files".into(), "Files changed", look));
         for (at, file) in page.files.iter().filter(|file| file.since).enumerate() {
             let (name, ink, said) = file_mark(file.status);
-            let mut rest = vec![div()
+            let key = div()
                 .flex()
                 .gap(look.length(token::SPACE_2))
-                .items_center()
+                .font_family(mono(look))
                 .child(div().text_color(look.color(token::RUN_PASSED)).child(SharedString::from(format!("+{}", file.additions))))
                 .child(div().text_color(look.color(token::RUN_FAILED)).child(SharedString::from(format!("−{}", file.deletions))))
-                .into_any_element()];
+                .into_any_element();
+            let mut rest = vec![div().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).child(SharedString::from(file.path.clone())).into_any_element()];
             if file.viewed == Viewed::ChangedAfter {
-                rest.push(chip(format!("changed-after-{at}"), "You had viewed it".into(), token::STATUS_HANDED_IN, token::STATUS_HANDED_IN_BG, look));
+                // In a row of its own, so the chip keeps its own width.
+                rest.push(div().flex().child(chip(format!("changed-after-{at}"), "You had viewed it".into(), token::STATUS_HANDED_IN, token::STATUS_HANDED_IN_BG, look)).into_any_element());
             }
-            table = table.child(table_row(format!("changed-file-{at}"), file.path.clone(), mark(format!("changed-file-mark-{at}"), name, ink, said, look), file.path.clone(), rest, look));
+            table = table.child(table_row(format!("changed-file-{at}"), file.path.clone(), mark(format!("changed-file-mark-{at}"), name, ink, said, look), key, rest, look));
         }
         if !page.replies.is_empty() {
             table = table.child(band("changed-band-replies".into(), "Replies to your comments", look));
             for (at, reply) in page.replies.iter().enumerate() {
                 let place = format!("{}:{}", reply.path, reply.line);
                 let rest = vec![
-                    div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(SharedString::from(reply.author.clone())).into_any_element(),
+                    div().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(place.clone())).into_any_element(),
                     div().child(SharedString::from(reply.body.clone())).into_any_element(),
                 ];
+                let key = div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).truncate().child(SharedString::from(reply.author.clone())).into_any_element();
                 let lead = glyph("message-square-reply", look.length(token::SPACE_4), look.color(token::ACCENT)).into_any_element();
-                table = table.child(table_row(format!("changed-reply-{at}"), format!("Reply on {place}"), lead, place, rest, look));
+                table = table.child(table_row(format!("changed-reply-{at}"), format!("Reply on {place}"), lead, key, rest, look));
             }
         }
         table = table.child(band("changed-band-checks".into(), "Checks", look));
         for (at, check) in page.checks.iter().enumerate() {
             let (name, ink, said) = check_mark(check.state);
-            let rest = vec![div().text_color(look.color(token::FG_MUTED)).child(said).into_any_element()];
-            table = table.child(table_row(format!("changed-check-{at}"), check.name.clone(), mark(format!("changed-check-mark-{at}"), name, ink, said, look), check.name.clone(), rest, look));
+            let rest = vec![div().child(SharedString::from(check.name.clone())).into_any_element()];
+            let key = div().text_color(look.color(ink)).child(said).into_any_element();
+            table = table.child(table_row(format!("changed-check-{at}"), check.name.clone(), mark(format!("changed-check-mark-{at}"), name, ink, said, look), key, rest, look));
         }
         let table = labelled(table.id("changed-table"), Role::Table, "What changed");
         let diff = labelled(
@@ -448,22 +453,16 @@ impl ReviewsScreen {
                         frame(look)
                             .id(SharedString::from(format!("finding-{}", finding.id)))
                             .flex()
-                            .gap(look.length(token::SPACE_3))
+                            .flex_col()
+                            .gap(look.length(token::SPACE_2))
                             .p(look.length(token::SPACE_3))
                             .border_l(look.length(token::BORDER_WIDTH) * 3.)
                             .border_color(look.color(token::STATUS_AWAITING_REVIEW))
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_w_0()
-                                    .flex()
-                                    .flex_col()
-                                    .gap(look.length(token::SPACE_1))
-                                    .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(finding.title.clone())))
-                                    .child(place_line(format!("finding-place-{}", finding.id), format!("{}:{}", finding.path, finding.line), look))
-                                    .child(words(format!("finding-said-{}", finding.id), finding.comment.clone(), look)),
-                            )
-                            .child(div().flex_none().w(look.length(token::SPACE_12) * 2.5).flex().justify_end().child(act)),
+                            .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(finding.title.clone())))
+                            .child(place_line(format!("finding-place-{}", finding.id), format!("{}:{}", finding.path, finding.line), look))
+                            .child(words(format!("finding-said-{}", finding.id), finding.comment.clone(), look))
+                            // One act per card, under what it acts on, so a narrow pane keeps the text wide.
+                            .child(div().flex().child(act)),
                         Role::Article,
                         format!("Finding: {}", finding.title),
                     );
@@ -515,8 +514,14 @@ fn checks_tab(page: &Page, look: &Look) -> AnyElement {
     for (at, check) in page.checks.iter().enumerate() {
         let (name, ink, said) = check_mark(check.state);
         let took = check.seconds.map_or_else(String::new, |seconds| format!("{}m {}s", seconds / 60, seconds % 60));
-        let rest = vec![div().flex().justify_between().child(div().text_color(look.color(token::FG_MUTED)).child(said)).child(div().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(took))).into_any_element()];
-        table = table.child(table_row(format!("check-{at}"), check.name.clone(), mark(format!("check-mark-{at}"), name, ink, said, look), check.name.clone(), rest, look));
+        let rest = vec![div()
+            .flex()
+            .gap(look.length(token::SPACE_2))
+            .child(div().flex_1().min_w_0().child(SharedString::from(check.name.clone())))
+            .child(div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(took)))
+            .into_any_element()];
+        let key = div().text_color(look.color(ink)).child(said).into_any_element();
+        table = table.child(table_row(format!("check-{at}"), check.name.clone(), mark(format!("check-mark-{at}"), name, ink, said, look), key, rest, look));
     }
     labelled(table.id("checks-table"), Role::Table, "Checks").into_any_element()
 }

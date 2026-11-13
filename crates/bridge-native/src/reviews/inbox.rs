@@ -321,6 +321,7 @@ impl ReviewsScreen {
             labelled(
                 div()
                     .id(SharedString::from(format!("chip-{number}")))
+                    .flex_none()
                     .flex()
                     .items_center()
                     .h(look.length(token::H_BADGE))
@@ -396,10 +397,16 @@ impl ReviewsScreen {
                                 .when(open, |title| title.font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
                                 .child(SharedString::from(row.title.clone())),
                         )
-                        .child(small(look).font_family(mono(look)).text_color(look.color(token::FG_MUTED)).truncate().child(SharedString::from(meta))),
-                )
-                // The chip's column is kept on a row without one, so the titles line up.
-                .child(div().flex_none().w(look.length(token::SPACE_12) + look.length(token::SPACE_8)).flex().justify_end().children(chip)),
+                        .child(
+                            // The meta line gives way first, so the chip always shows whole at its end.
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap(look.length(token::SPACE_2))
+                                .child(small(look).flex_1().min_w_0().font_family(mono(look)).text_color(look.color(token::FG_MUTED)).truncate().child(SharedString::from(meta)))
+                                .children(chip),
+                        ),
+                ),
             Role::Row,
             row.name(),
         )
