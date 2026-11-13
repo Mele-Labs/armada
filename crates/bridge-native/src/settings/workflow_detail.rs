@@ -283,7 +283,7 @@ pub(super) async fn ask<T: 'static>(this: &WeakEntity<SettingsOverlay>, cx: &mut
 }
 
 fn copy_of(one: &Listed) -> WorkflowCopy {
-    WorkflowCopy { workflow_id: WorkflowId::carried(&one.id), source: wire_of(one.place).into(), file: None }
+    WorkflowCopy { workflow_id: WorkflowId::carried(&one.id), source: wire_of(one.place).into(), file: None, ..Default::default() }
 }
 
 impl SettingsOverlay {
@@ -879,7 +879,7 @@ pub(super) async fn make_copy(one: &Listed, this: &WeakEntity<SettingsOverlay>, 
         Some(repository) => (wire_of(one.place), repository.clone(), WorkflowScope::Repository),
     };
     let held = ask(this, cx, |this, cx| this.wire.workflow_definition(&id, from, &into, cx)).await?;
-    let save = SaveWorkflow { scope, definition: held.definition, overwrite: false };
+    let save = SaveWorkflow { scope: scope.clone(), definition: held.definition, overwrite: false };
     match ask(this, cx, |this, cx| this.wire.save_workflow(&into, save, cx)).await {
         Err(why) if !why.is("fleet.workflow_exists") => return Err(why),
         _ => {}

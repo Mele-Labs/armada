@@ -298,6 +298,7 @@ async fn a_copy_left_out_is_deleted_by_its_file_and_a_file_not_left_out_is_not()
         file: "/repo/.armada/workflows/broken.json".to_string(),
         said: "will not parse".to_string(),
         instead: None,
+        ..Default::default()
     });
     planted.will_read(catalogue);
     fleet.workflows_changed(&home.path().to_string_lossy());
@@ -340,6 +341,7 @@ async fn a_copy_left_out_is_reset_after_armadas_definition_is_checked_and_before
             file: file.to_string(),
             said: "will not parse".to_string(),
             instead: None,
+            ..Default::default()
         });
         planted.will_read(catalogue);
         fleet.workflows_changed(&home.path().to_string_lossy());
