@@ -6,6 +6,9 @@ import type {
   Followed,
   FleetBuildReport,
   FleetRestart,
+  FleetStart,
+  BridgeReopen,
+  KeptBuilds,
   Outcome,
   PickFleetBuildJob,
   BridgeIdentity,
@@ -56,6 +59,18 @@ export type CoreApi<S = CoreState> = {
    * can still be restarted. `restart-fleet.ts` says what it promises.
    */
   restartFleet: () => Promise<FleetRestart>;
+  /**
+   * Start the Fleet launchd holds, by `armada fleet start` from the kept build `builds/current`
+   * names. For a Bridge with no Fleet to ask; `start-fleet.ts` says what it promises.
+   */
+  startFleet: () => Promise<FleetStart>;
+  /**
+   * Restart this Bridge's own launchd job, which reopens it on `builds/current`. The window closes
+   * as launchd stops it, so an answer is seldom read.
+   */
+  reopenBridge: () => Promise<BridgeReopen>;
+  /** The kept build this Bridge runs from and the one `builds/current` names, read now. */
+  keptBuilds: () => Promise<KeptBuilds>;
   /**
    * Restart Fleet and Bridge onto latest `main`, or onto a refreshed preview.
    * **Fleet starts `scripts/restart-build` detached and answers at once**: what
@@ -207,6 +222,9 @@ export const CORE_CHANNELS = {
   openServerLink: "bridge:open-server-link",
   openLink: "bridge:open-link",
   restartFleet: "bridge:restart-fleet",
+  startFleet: "bridge:start-fleet",
+  reopenBridge: "bridge:reopen-bridge",
+  keptBuilds: "bridge:kept-builds",
   changeFleetBuild: "bridge:change-fleet-build",
   revertFleetBuild: "bridge:revert-fleet-build",
   askRevertFleetBuild: "bridge:ask-revert-fleet-build",

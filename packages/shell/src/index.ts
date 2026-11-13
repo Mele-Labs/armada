@@ -15,6 +15,7 @@ export * from "./failures";
 export * from "./FailureSurface";
 export * from "./failure-shown";
 export * from "./FleetNotice";
+export * from "./fleet-repair";
 export * from "./fleet";
 export * from "./floor";
 export * from "./layout";

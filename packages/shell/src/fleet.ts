@@ -15,8 +15,8 @@ import type { Connection } from "@armada/protocol";
 import { spoken } from "@armada/protocol";
 import type { FleetState } from "@armada/components";
 
-/** The one thing to do about a mismatch, whichever side is stale. The button beside it does it. */
-const MATCH_THEM = "Restart Fleet onto the installed build.";
+/** The one thing to do about a mismatch: bring the stale side onto the current build. The button beside it names which. */
+const MATCH_THEM = "Restart Fleet or reopen Armada, whichever runs the older build.";
 
 /** Sentence, detail and hue. The detail is machine-derived and renders in mono. */
 export type Statement = {
@@ -53,7 +53,7 @@ export function statementOf(connection: Connection, now: number, readAt: number 
       return {
         headline: "Fleet is not running",
         detail: absence(connection.absence),
-        // Bridge cannot start Fleet, so the sentence says who does.
+        // The button beside it starts Fleet: `FleetNotice`.
         next: "Start Fleet. Bridge reconnects on its own.",
       };
 

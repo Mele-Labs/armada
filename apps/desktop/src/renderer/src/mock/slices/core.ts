@@ -1,6 +1,6 @@
 // Core's members: the connection, the rail's pick, servers, and the acts no surface owns.
 
-import type { Outcome } from "@armada/protocol";
+import type { KeptBuilds, Outcome } from "@armada/protocol";
 
 import type { CoreApi, CoreState } from "../../../../shared/api/core";
 import { CORE_NOTHING_YET } from "../../../../shared/api/core";
@@ -10,6 +10,11 @@ import type { Slice } from "../fake-context";
 const OK: Outcome = {
   ok: true,
 };
+
+// The build `builds/current` names in the mock, and one before it. A Fleet on `CURRENT` leaves this Bridge on the
+// older one, and the other way about: `scenarios/fleet-repair.ts`. A Fleet that names none runs from a tree.
+const CURRENT = "2026-11-13T004852Z-126b4bb";
+const OLDER = "2026-11-12T211515Z-2f88990";
 
 export const core: Slice<CoreApi<BridgeState>, CoreState> = {
   name: "core",
@@ -85,6 +90,54 @@ export const core: Slice<CoreApi<BridgeState>, CoreState> = {
         return {
           ok: true,
         };
+      },
+      // Start Fleet and Reopen Armada come to a Fleet answering, a moment on: the mock has no launchd.
+      startFleet: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        fleet.publish({
+          connection: {
+            state: "connected",
+            fleet: {
+              protocolId: "91bb07e4c25d8830",
+              pid: 61373,
+              port: 40000,
+              startedAt: new Date().toString(),
+              build: CURRENT,
+            },
+            cursor: 0,
+          },
+        });
+        return {
+          ok: true,
+        };
+      },
+      reopenBridge: async () => {
+        const now = fleet.state().connection;
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        if ("fleet" in now)
+          fleet.publish({
+            connection: {
+              state: "connected",
+              fleet: now.fleet,
+              cursor: 0,
+            },
+          });
+        return {
+          ok: true,
+        };
+      },
+      keptBuilds: async (): Promise<KeptBuilds> => {
+        const now = fleet.state().connection;
+        const build = "fleet" in now ? now.fleet.build : undefined;
+        return build === undefined
+          ? {
+              bridge: null,
+              current: null,
+            }
+          : {
+              bridge: build === CURRENT ? OLDER : CURRENT,
+              current: CURRENT,
+            };
       },
       onHistory: () => () => undefined,
       // Nothing in the mock presses a notification.
