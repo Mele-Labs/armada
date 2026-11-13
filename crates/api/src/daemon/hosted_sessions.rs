@@ -401,6 +401,24 @@ pub trait HostedSessions: Send + Sync + 'static {
         id: SessionId,
     ) -> impl Future<Output = Result<Vec<ipc::JobArtifact>, Refusal>> + Send;
 
+    /// `archive_artifact`: the agent, or the person where `by` is `Owner`, folds away a stale artifact, taking
+    /// one that waits on him off his list with no verdict. `caller` places a hosted session as `withdraw_sketch`'s
+    /// does. Answers with the artifact. [`Refusal::Unacceptable`] for an id the Job does not hold, or one archived already.
+    fn archive_artifact(
+        self: Arc<Self>,
+        caller: Option<crate::Caller>,
+        by: ipc::ArtifactBy,
+        archive: ipc::ArtifactRef,
+    ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
+
+    /// `restore_artifact`: lifts an archive, and the dismissal it wrote. Placed as `archive_artifact` is.
+    /// [`Refusal::Unacceptable`] for an id the Job does not hold, or one not archived.
+    fn restore_artifact(
+        &self,
+        caller: Option<crate::Caller>,
+        restore: ipc::ArtifactRef,
+    ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
+
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
     /// the servers again.
     fn act_on_session_mcp(

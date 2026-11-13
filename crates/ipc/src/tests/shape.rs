@@ -35,6 +35,7 @@ fn a_refused_body_names_its_shape_after_serdes_own_words() {
 fn every_agent_body_reads_as_an_object_of_named_fields() {
     let shapes = [
         ("all_done", shape::of::<crate::AllDone>()),
+        ("archive_artifact", shape::of::<crate::ArtifactRef>()),
         ("ask_in_window", shape::of::<crate::AskInWindow>()),
         ("change_waiting", shape::of::<crate::ChangeWaiting>()),
         ("claim_issue", shape::of::<crate::ClaimIssue>()),
@@ -47,6 +48,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("move_session", shape::of::<crate::MoveSession>()),
         ("record_plan", shape::of::<crate::RecordPlan>()),
         ("report_bug", shape::of::<crate::ReportBug>()),
+        ("restore_artifact", shape::of::<crate::ArtifactRef>()),
         ("save_kit_manifest", shape::of::<crate::SaveKitManifest>()),
         ("save_request_to_collection", shape::of::<crate::SaveRequestToCollection>()),
         ("scaffold_mod", shape::of::<crate::ScaffoldMod>()),

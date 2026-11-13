@@ -33,6 +33,7 @@ pub(crate) mod asking_in_window;
 pub(crate) mod draft_document;
 pub(crate) mod draft_page;
 mod artifacts;
+mod archiving;
 pub(crate) mod drafting;
 pub(crate) mod lapsed_asks;
 pub(crate) mod merge_waits;

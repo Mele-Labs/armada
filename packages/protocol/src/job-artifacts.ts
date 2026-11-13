@@ -1,13 +1,32 @@
 // A Job's sketches, drafts and pages as one record. `crates/ipc/src/artifact.rs`,
 // `docs/practices/protocol/a-jobs-artifacts-as-one-record.md`, `docs/concepts/artifact.md`.
 //
-// The header rules in `protocol.ts` hold here. Nothing is published: Bridge reads again on a `session.changed`.
+// The header rules in `protocol.ts` hold here. Nothing is published: Bridge reads again on a `session.changed`,
+// which an archive and a restore publish.
 
 /** What an artifact is. A page is a document under `.armada/documents/`. */
 export type ArtifactForm = "sketch" | "draft" | "page";
 
-/** Who wrote a revision. Always `agent` today. */
+/** Who wrote a revision, always `agent` today, or who archived an artifact. */
 export type ArtifactBy = "agent" | "owner";
+
+/** Who folded an artifact away, and when. Only `restore_artifact` lifts it; a new revision does not. */
+export type ArtifactArchived = {
+  by: ArtifactBy;
+  at: string;
+};
+
+/**
+ * `POST /sessions/artifacts/archive` and `POST /sessions/artifacts/restore`, each answered with the `JobArtifact` as it
+ * now reads. Bridge's press archives as `owner`. 422 `fleet.artifact_not_held` for an id the Job does not hold, naming
+ * at most 20 it does; `fleet.artifact_archived_already` and `fleet.artifact_not_archived`; `fleet.artifact_unnamed`
+ * and `fleet.session_unnamed` for a Job not named or not known.
+ */
+export type ArtifactRef = {
+  /** The artifact's `id`. */
+  artifact: string;
+  session_id?: string;
+};
 
 /** Where an artifact's newest revision stands. */
 export type ArtifactState =
@@ -44,6 +63,11 @@ export type JobArtifact = {
   state: ArtifactState;
   /** His note on a send back, his words with an approval, or his reason with a draft's dismissal. */
   words?: string;
-  /** The Needs you item that answers it now: `sketch:<title>`, `document:<path>` or `draft:<row id>`. */
+  /**
+   * The Needs you item that answers it now: `sketch:<title>`, `document:<path>` or `draft:<row id>`. Absent while an
+   * archive keeps it off his list.
+   */
   item?: string;
+  /** Set while archived. `state` still reads as it stood. */
+  archived?: ArtifactArchived;
 };

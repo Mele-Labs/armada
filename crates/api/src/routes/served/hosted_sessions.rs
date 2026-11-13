@@ -146,6 +146,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/artifacts",
     },
     Route {
+        operation: "archive_artifact",
+        method: "POST",
+        path: "/sessions/artifacts/archive",
+    },
+    Route {
+        operation: "restore_artifact",
+        method: "POST",
+        path: "/sessions/artifacts/restore",
+    },
+    Route {
         operation: "act_on_session_mcp",
         method: "POST",
         path: "/sessions/mcp/act",
