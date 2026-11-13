@@ -1630,6 +1630,11 @@ describe("a Job that waits on another", {
         "Group: Rename in the crate",
         "Task: Rename Pool to Slots",
         "Task: Rename the tests",
+        "Group: Rename in Bridge",
+        "Task: Rename the labels and tooltips",
+        "Task: Walk the Slots page",
+        "Group: Rename in the docs",
+        "Task: Rename the concept page",
       ]),
     );
     await pick("Plan part", "t2");
