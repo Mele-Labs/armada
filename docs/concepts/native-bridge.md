@@ -120,6 +120,7 @@ The parity check takes each row here as chosen.
 | A Job's System tab: a refused read | Placeholder shapes forever | A toast in Fleet's words; the shapes stop and the tab draws nothing until a later read succeeds |
 | A bay's panel: a confirm, a refusal or a receipt | Drawn where it falls, often out of sight in a short panel | Scrolled into view as it appears |
 | A walk the Job never showed | A tab with an empty heading and a live Open | No tab is made for it |
+| An opened call in a folded run | A mono Command line | A tool row, as every call is drawn: its icon, a time and the call's own description, per #59 and #61 |
 | A draft whose row has gone from the thread | Its tab left standing as a blank frame | Its tab goes away and the next tab comes forward, as on a close; a press on it opens no tab |
 | A subagent's tab once the Job no longer holds the subagent | Its tab left standing as a blank frame | Its tab goes away and the next tab comes forward, as on a close |
 | A subagent in the thread and in the running card at its foot (owner, 12 Nov) | `SubagentRow`: a bordered box with a state mark, the brief, the time and a chevron; the card lists each with a dot | The call row's take A, as every tool call: the Agent kind's rail and moving icon, the brief, a counting time and its latest call on a second line, cut short; done, one grey line with the time it took, and a cut-off one ends in the stopped state's mark. The card keeps its frame, fold and Stop, and lists only the subagents Fleet says run now |
@@ -167,7 +168,6 @@ The parity check takes each row here as chosen.
 | Add lifecycle over a workflow's lanes in Settings | Drawn where the lanes can be edited | Not drawn: native's lanes are read-only for now |
 | The clash shown in the Settings walk | api's own copy of feature, where Platform and Mobile differ | armada's own copy of feature, with the same words, since the mock serves no api repository |
 | New project (owner) | `LocateForm`: a name and a parent folder, made into a git repository | A project sheet: a name, his repositories ticked whole or by folder, a clone or a new repository, where its file is kept, and the settings it starts with. Create makes the project, goes to it and starts a Job in it on its empty thread |
-| An opened call in a folded run | A mono Command line | A tool row, as every call is drawn: its icon, a time and the call's own description, per #59 and #61 |
 
 ## Notifying
 
