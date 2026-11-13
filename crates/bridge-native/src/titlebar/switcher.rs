@@ -266,6 +266,7 @@ impl TitleBar {
             .children(snapshot)
             .children(failed)
             .children(left_out)
+            .children(self.origin_section(held, look, cx))
             .child(position)
             .into_any_element()
     }

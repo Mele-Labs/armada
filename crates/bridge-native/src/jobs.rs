@@ -2703,6 +2703,7 @@ impl JobsScreen {
                 crate::titlebar::Asked::Keep => Some(BuildAct::Keep),
                 crate::titlebar::Asked::Swap => Some(BuildAct::Swap),
                 crate::titlebar::Asked::Unpick(branch) => Some(BuildAct::Pick(ipc::PickFleetBuildJob { branch: Some(branch.clone()), session_id: None, picked: false })),
+                crate::titlebar::Asked::PickOrigin(branch) => Some(BuildAct::Pick(ipc::PickFleetBuildJob { branch: Some(branch.clone()), session_id: None, picked: true })),
                 _ => None,
             };
             if let Some(act) = act {
