@@ -84,6 +84,8 @@ fn followed(number: u64) -> FollowedPull {
         checks: Vec::new(),
         title: None,
         auto_merge: false,
+        draft: false,
+        approved: false,
     }
 }
 
@@ -340,4 +342,70 @@ async fn a_forge_that_will_not_land_a_passed_pull_request_is_told_to_the_job() {
     let said = sent.join("\n");
     assert!(said.contains("Auto land is on, and the forge would not turn on auto-merge for #12"), "{said}");
     assert!(said.contains("not allowed for this repository"), "{said}");
+}
+
+fn approved(state: CiState) -> FollowedPull {
+    FollowedPull { approved: true, ..checked(state) }
+}
+
+#[tokio::test]
+async fn an_approved_green_pull_request_is_told_ready_to_merge_once_with_auto_land_off() {
+    let (rig, _id) = opened_by_the_job(false).await;
+    rig.fleet.vcs().main_ci.followed_are(Some(vec![approved(CiState::Passed)]));
+
+    read_the_pull_reading(&rig).await;
+    assert!(told(&rig).contains("#12 is approved and its checks passed"), "{}", told(&rig));
+
+    read_the_pull_reading(&rig).await;
+    assert_eq!(told(&rig).matches("is ready to merge").count(), 1, "once a commit");
+}
+
+#[tokio::test]
+async fn a_pull_request_is_told_ready_again_at_a_new_commit() {
+    let (rig, _id) = opened_by_the_job(false).await;
+    rig.fleet.vcs().main_ci.followed_are(Some(vec![approved(CiState::Passed)]));
+    read_the_pull_reading(&rig).await;
+
+    rig.fleet.vcs().main_ci.followed_are(Some(vec![FollowedPull { head: Some("b".repeat(40)), ..approved(CiState::Passed) }]));
+    read_the_pull_reading(&rig).await;
+
+    assert_eq!(told(&rig).matches("is ready to merge").count(), 2, "{}", told(&rig));
+}
+
+#[tokio::test]
+async fn a_pull_request_is_not_told_ready_with_auto_land_on() {
+    let (rig, _id) = opened_by_the_job(true).await;
+    rig.fleet.vcs().main_ci.followed_are(Some(vec![approved(CiState::Passed)]));
+
+    read_the_pull_reading(&rig).await;
+
+    assert!(!told(&rig).contains("is ready to merge"), "{}", told(&rig));
+}
+
+#[tokio::test]
+async fn a_pull_request_is_not_told_ready_until_approved_green_and_clear() {
+    let mut draft = approved(CiState::Passed);
+    draft.draft = true;
+    let mut conflicting = approved(CiState::Passed);
+    conflicting.conflicting = true;
+    let mut on_auto_merge = approved(CiState::Passed);
+    on_auto_merge.auto_merge = true;
+    let mut queued = approved(CiState::Passed);
+    queued.queue = PullQueue::Waiting;
+    for (named, pull) in [
+        ("not approved", checked(CiState::Passed)),
+        ("red", approved(CiState::Failed)),
+        ("pending", approved(CiState::Pending)),
+        ("draft", draft),
+        ("conflicting", conflicting),
+        ("on auto-merge", on_auto_merge),
+        ("queued", queued),
+    ] {
+        let (rig, _id) = opened_by_the_job(false).await;
+        rig.fleet.vcs().main_ci.followed_are(Some(vec![pull]));
+
+        read_the_pull_reading(&rig).await;
+
+        assert!(!told(&rig).contains("is ready to merge"), "{named}: {}", told(&rig));
+    }
 }

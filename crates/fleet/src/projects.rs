@@ -690,6 +690,19 @@ where
         .await
     }
 
+    /// [`Fleet::members_followed`] for `repositories` the Jobs of `project` are in, and where its file changed the projects read
+    /// again and published as `projects.changed`. Whether the file changed.
+    pub(crate) async fn members_followed_published(&self, project: &str, repositories: Vec<String>) -> Result<bool, Refusal> {
+        if !self.members_followed((project.to_string(), repositories)).await? {
+            return Ok(false);
+        }
+        self.projects_reload().await;
+        let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+        let projects = self.projects_on_the_wire(kept).await;
+        self.publish(ipc::Event::ProjectsChanged(projects));
+        Ok(true)
+    }
+
     /// Make each repository of `put` a whole member of the project, where it holds none of it, and write its file.
     /// A project whose file did not read is left as it is, since a file that will not read is not written over.
     /// Whether the file changed.

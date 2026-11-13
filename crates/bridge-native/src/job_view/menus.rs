@@ -45,6 +45,7 @@ pub(super) fn disable_label(word: &str) -> Option<&'static str> {
         "pr_unmergeable" => "Disable unmergeable",
         "pr_merged" => "Disable merged",
         "pr_auto_merge" => "Disable auto-merge on",
+        "pr_ready_to_merge" => "Disable ready to merge",
         "pr_queued" => "Disable in the queue",
         "pr_handed" => "Disable pull request handed over",
         "pr_comments" => "Disable review comments",

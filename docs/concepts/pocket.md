@@ -351,6 +351,15 @@ Its `send_other_mac` posts only `/other_mac/project_act` and `/other_mac/act`.
 An act that arrives again under an `id` it ran is answered with what it answered then, and is not run again.
 The Fleet half is [His other Macs, Fleet's half](../practices/protocol/his-other-macs-fleets-half.md).
 
+**Messages and alerts.** A Job on one Mac writes to a Job on the other by its address, and alerts cross the same way.
+
+| What happens | Where it shows |
+|---|---|
+| A Job writes to a Job the other Mac holds | The receiver's thread draws it From the sender, naming its Mac, and the receiver wakes as for a Job on its own Mac. The sender's thread draws the call To the receiver, whose row names its Mac. A Mac asleep keeps it in the queue above, with take-back |
+| Either Job is in a project that is not shared | Nothing crosses. The writer is refused as for an address no Job has, and learns nothing of the other Mac's projects |
+| A shared Job on the other Mac needs him | It sounds, posts its notification, joins Needs you and counts on the Dock, with its Mac named, as a Job of this Mac does |
+| The Macs first link, or a Mac wakes with nothing changed | Nothing rings. What already waited stands in Needs you |
+
 ## What pushes
 
 Only Needs you: a Job whose `waiting_for` gains an item id it did not have, and that item is still open 60 seconds later.

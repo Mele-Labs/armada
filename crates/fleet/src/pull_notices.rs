@@ -47,6 +47,7 @@ enum Cause {
     Unmergeable,
     Merged,
     AutoMerge,
+    ReadyToMerge,
 }
 
 impl Cause {
@@ -58,6 +59,7 @@ impl Cause {
             Cause::Unmergeable => "unmergeable",
             Cause::Merged => "merged",
             Cause::AutoMerge => "auto_merge",
+            Cause::ReadyToMerge => "ready_to_merge",
         }
     }
 }
@@ -71,6 +73,7 @@ impl Cause {
             Cause::Unmergeable => ipc::Notice::PrUnmergeable,
             Cause::Merged => ipc::Notice::PrMerged,
             Cause::AutoMerge => ipc::Notice::PrAutoMerge,
+            Cause::ReadyToMerge => ipc::Notice::PrReadyToMerge,
         }
     }
 }
@@ -104,6 +107,12 @@ fn said(about: &About<'_>, cause: Cause, detail: &str) -> String {
         Cause::AutoMerge => format!(
             "Auto-merge is on for #{}: it merges into {} once its checks pass.",
             about.number, about.base
+        ),
+        Cause::ReadyToMerge => format!(
+            "#{} is approved and its checks passed at {}: it is ready to merge into {}.",
+            about.number,
+            short(about.head),
+            about.base
         ),
     };
     out.push_str(&format!("\n{}\nBranch: {}", about.url, about.branch));
@@ -280,6 +289,7 @@ where
             }
         }
         self.auto_land_followed(served, pull, head).await;
+        self.ready_told(served, &about, pull).await;
         // Running again at the same commit is a rerun: its failure is news, though no commit moved.
         if !pull.failed() {
             let key = Cause::ChecksFailed.key();
@@ -326,6 +336,22 @@ where
             }
         }
         everyone
+    }
+
+    /// A pull request that is approved, green and clear to merge is told to each owner whose Auto
+    /// land is off, once a commit. With it on, Fleet merges the pull request and has nothing to wait for.
+    async fn ready_told(self: &Arc<Self>, served: &Served, about: &About<'_>, pull: &FollowedPull) {
+        if !pull.ready_to_merge() {
+            return;
+        }
+        for owner in self.owners_of(served, pull.number, about.branch, false).await {
+            let Owner::Session(id) = &owner;
+            if self.auto_land_on(id).await {
+                continue;
+            }
+            let mut none = None;
+            self.told(served, about, Cause::ReadyToMerge, &owner, || async { String::new() }, &mut none).await;
+        }
     }
 
     /// Whether this failure is a job that hung and was started again, so nothing is said. **Once
