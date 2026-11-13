@@ -2399,6 +2399,26 @@ pub static WALKS: &[Walk] = &[
             step("Send notes sends both to the Job, and the card says Sent back with them quoted", Verb::Open("button", "Send notes"), "status", "Sent back"),
         ],
     },
+    Walk {
+        name: "native-fold-gaps",
+        title: "Folds in a Job's thread",
+        screen: Screen::Jobs,
+        scenario: "job-panes-more",
+        steps: &[
+            press_on("A Job's thread, its finished calls folded", "row", "Fix the merge line freshness chip", "region", "Thread"),
+            step("Its calls are one line with a chevron at its head", Verb::WheelTo("region", "Thread", -600), "button", "Tool calls: Read, Grep, Edit"),
+            step("A press opens them and the chevron turns down", Verb::Press, "button", "Tool calls: Read, Grep, Edit"),
+            step("A Check run on its own stands as a line with its target", Verb::WheelTo("region", "Thread", 300), "button", "Check foundations docs, passed"),
+            press_on("A press opens that run in Checks", "button", "Check foundations docs, passed", "list", "Runs"),
+            step("Esc shuts it", Verb::Key("escape"), "button", "Check foundations docs, passed"),
+            step("A Fleet turn is one line with a chevron, the bell and the notice's first sentence", Verb::WheelTo("region", "Thread", 300), "label", "The branch is 3 commits behind main"),
+            step("The pointer on its label shows the whole notice", Verb::Hover, "label", "The branch is 3 commits behind main"),
+            step("Hover shows the whole notice", Verb::Later(900), "label", "The branch is 3 commits behind main"),
+            step("A press on the line above puts the keys there", Verb::PressOn("button", "Exit 2: pnpm exec tsc --noEmit"), "button", "Fleet turn"),
+            step("Tab reaches the Fleet turn and Enter opens it", Verb::Keys(&["tab", "enter"]), "button", "Fleet turn"),
+            step("Space shuts it", Verb::Key("space"), "button", "Fleet turn"),
+        ],
+    },
 ];
 
 pub fn named(name: &str) -> Option<&'static Walk> {
