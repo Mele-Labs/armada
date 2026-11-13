@@ -146,6 +146,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/quick",
     },
     Route {
+        operation: "get_job_artifacts",
+        method: "GET",
+        path: "/sessions/artifacts",
+    },
+    Route {
         operation: "act_on_session_mcp",
         method: "POST",
         path: "/sessions/mcp/act",
