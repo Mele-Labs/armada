@@ -332,6 +332,7 @@ mod tests {
     fn a_host_that_sets_nothing_keeps_the_heads_the_rail_and_the_words() {
         let (host, id) = (Bare, SharedString::from("canvas"));
         assert!(!host.lanes_compact(&id));
+        assert!(host.lanes_fit(&id));
         assert!(!host.lanes_chosen(&id, "workflow/plan"));
         assert_eq!(host.changed_said(&id), "Changed on this Job");
         // Not compact, the canvas is placed with the heads' inset as before.
