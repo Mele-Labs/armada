@@ -78,9 +78,9 @@ where
         })
     }
 
-    /// A raise is its Log row.
+    /// A raise is its Log row, but for a dispatch's, which is asked of him.
     fn sourced(&self, arrival: &Arrival, ruling: &Ruling) -> Acted<'_> {
-        if ruling.way == Way::Raise {
+        if ruling.way == Way::Raise && !arrival.is_dispatch() {
             return carried();
         }
         let (arrival, ruling) = (arrival.clone(), ruling.clone());

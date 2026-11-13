@@ -24,6 +24,34 @@ pub struct Values {
     /// How the Operator reviews work before it reaches the person, a kind at a time. **A layer that sets it sets
     /// all three**: a kind it does not name is [`ReviewMode::Off`], and no layer setting it is the same as Off.
     pub reviews: Option<Reviews>,
+    /// Whether a Job that a Job or the Operator starts begins at once or waits on the person's start card.
+    pub agent_starts: Option<AgentStarts>,
+}
+
+/// What happens to a Job that an agent starts: a Job one starts, a lifecycle rule that starts one, or the Operator.
+/// **A Job the person starts himself is never held by this.**
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AgentStarts {
+    /// The Job begins running.
+    #[default]
+    AtOnce,
+    /// The Job waits on the person's start card.
+    AskMe,
+}
+
+impl AgentStarts {
+    pub const ALL: &'static [AgentStarts] = &[AgentStarts::AtOnce, AgentStarts::AskMe];
+
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            AgentStarts::AtOnce => "at_once",
+            AgentStarts::AskMe => "ask_me",
+        }
+    }
+
+    pub fn from_wire(word: &str) -> Option<AgentStarts> {
+        AgentStarts::ALL.iter().copied().find(|mode| mode.as_wire() == word)
+    }
 }
 
 /// What the Operator does with a Job's plan, pull request or walk before the person sees it.

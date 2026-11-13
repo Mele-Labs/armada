@@ -22,6 +22,12 @@ export type ValuesSet = {
    * leaves out is `off`.
    */
   reviews?: ReviewsSet;
+  /**
+   * Whether a Job that a Job or the Operator starts begins at once (`at_once`) or waits on the person's start card
+   * (`ask_me`). A word that is not one is refused 422 `fleet.project_values_refused`. A Job the person starts
+   * himself is never held by it.
+   */
+  agent_starts?: string;
 };
 
 /** `off`, `review` or `review_and_approve`; for `walks` only `off` or `review`. A word that is not one is refused 422 `fleet.project_values_refused`. */
@@ -94,6 +100,8 @@ export type ResolvedValues = {
   tracker?: ResolvedTracker;
   /** How the Operator reviews work before the person sees it. A Job is reviewed as its start said, whatever the project says since. */
   reviews?: ResolvedReviews;
+  /** `at_once` or `ask_me`. Absent from what a Job froze before the key existed. */
+  agent_starts?: ResolvedValue;
   /** One for each kind of act, where a repository was asked about; left out where only a project was. */
   autonomy?: ResolvedAutonomy[];
 };

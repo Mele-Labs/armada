@@ -28,6 +28,14 @@ use crate::ports::PortRange;
 use crate::slots::Concurrency;
 use crate::tests::tmp::TempDir;
 
+/// Kit's `agent_starts` as `ask_me` in `home`, which is what a Job another Job starts waited on before the word
+/// had `at_once`. The rigs of the hosted-session tests call it; a case of the word itself says its own.
+pub fn agents_ask(home: &TempDir) {
+    let kit = home.path().join("kit");
+    std::fs::create_dir_all(&kit).expect("Kit's folder");
+    std::fs::write(kit.join("values.yml"), "version: 1\nvalues:\n  agent_starts: ask_me\n").expect("Kit's values");
+}
+
 /// Everything a Fleet is assembled from, over one temporary directory.
 pub fn fittings(
     home: &TempDir,

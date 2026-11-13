@@ -24,6 +24,8 @@ though it never named it. The issue is closed, done by that pull request.
 - group it with the open issue it lists: a new issue is either a duplicate of that open issue, the \
 same fault or the same work, and is closed with a link to it, or a part of it, a piece of its work, and \
 is put under it and closed by nothing. Say which in kind.
+- park: a dispatch that is a loose idea, a thought with no clear ask yet, is kept for later and no Job is \
+started. Words and pictures that ask for something to be done now are not an idea.
 - leave: a note the person sent to a Job himself stays with that Job, and nothing follows. A merged \
 pull request whose work did not finish the issue it lists leaves it open.
 
@@ -44,6 +46,13 @@ say in one line what it is and which live Job, if any, works on the same ground.
 A Job started, and a live Job may already hold its work: choose existing job only where that Job's \
 paths, plan or issues cover what the new Job's words ask, so that handing the words over loses \
 nothing. Where it is only the same ground, or you cannot tell, choose leave, which keeps both Jobs.
+
+A dispatch is work the person has just given, and no Job holds it yet. New job starts a Job on it. \
+Choose existing job only where a live Job's paths, plan or issues cover what it asks, so that handing \
+its words over loses nothing, and name that Job. Where a live Job may hold the same work and you \
+cannot tell, choose raise, which asks the person whether to hand it over or start it as its own Job. \
+Where the item says what the person called it, that is his word and is not yours to change. Choose park \
+only where park is offered, and where the words are plainly a loose idea and not work to do now.
 
 A note the person sent to a Job himself names that Job. Leave it there unless another live Job \
 shares its work more closely, which is existing job, or it is work no live Job holds, which is \

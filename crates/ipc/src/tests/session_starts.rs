@@ -29,7 +29,7 @@ fn a_fork_may_leave_the_message_it_ends_at_to_fleet_and_writes_nothing_absent() 
 
 #[test]
 fn the_answer_the_row_and_the_item_round_trip() {
-    let held = json!({"session_id": "s2", "title": "Check the reader", "fork": false});
+    let held = json!({"session_id": "s2", "title": "Check the reader", "fork": false, "held": true});
     let read: SessionHeld = serde_json::from_value(held.clone()).unwrap();
     assert_eq!(serde_json::to_value(&read).unwrap(), held);
 

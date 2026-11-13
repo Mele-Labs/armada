@@ -158,6 +158,14 @@ where
             Some(manifest) => manifest,
             None => ManifestId::carried(&self.session_and_hosting(&me).await?.1.manifest_id),
         };
+        // The project's word, as the caller was started for it: held on its start card only where it says `ask_me`.
+        let held_by_word = match after {
+            Some(_) => false,
+            None => {
+                let project = self.session_and_hosting(&me).await.ok().and_then(|(_, hosting)| hosting.project);
+                self.agent_start_held(project.as_deref(), manifest.as_str()).await
+            }
+        };
         let made = self
             .start_session(StartSession {
                 project: None,
@@ -171,7 +179,7 @@ where
                 request: None,
                 after: None,
                 // A Session that waits is held once its wait is met.
-                held: after.is_none(),
+                held: held_by_word,
                 project_rows: Vec::new(),
                 on_your_words: None,
             })
@@ -185,10 +193,14 @@ where
             self.reading_begun(&session, &hosting, &brief);
         }
         let new = made.id.as_str().to_string();
-        if after.is_none() {
+        if held_by_word {
             self.held_with(&new, &brief).await?;
         }
-        let held = self.held_for_person(&me, made, words, false, group.as_deref()).await?;
+        let mut held = self.held_for_person(&me, made, words, false, group.as_deref()).await?;
+        // Otherwise it begins now, the brief its first turn from the caller; where that is not sent, it is held.
+        if after.is_none() && !held_by_word {
+            held.held = !self.agent_start_begun(&me, &new, &brief).await;
+        }
         // A Session that waits holds its first message until the condition is met, and then for the person.
         if let Some(after) = after {
             let told = after.session.as_str() != me;
@@ -202,6 +214,22 @@ where
             self.start_overlap_raised(held.session_id.as_str(), &overlap_brief, crate::operator::Source::Job(me.clone())).await;
         }
         Ok(held)
+    }
+
+    /// The brief of a Job an agent made, sent to it as the caller's word, which is how it begins at once. `false`
+    /// where it could not be, and the Job is then held on its start card with the brief for the person.
+    async fn agent_start_begun(self: &Arc<Self>, caller: &str, id: &str, brief: &str) -> bool {
+        let named = self.store().lock().await.session(caller).ok().flatten().and_then(|one| one.title);
+        let title = named.unwrap_or_else(|| caller.to_string());
+        let voice = ipc::SessionVoice::Session { id: caller.to_string(), title };
+        match self.first_message_from(id, voice, brief).await {
+            Ok(()) => true,
+            Err(why) => {
+                self.session_warned(id, "the brief of a job an agent started was not sent", format!("{why:?}"));
+                let _ = self.held_with(id, brief).await;
+                false
+            }
+        }
     }
 
     /// `fork_this_session`.
@@ -282,7 +310,7 @@ where
         self.session_spawned(caller, named.map(|one| (one.title, one.manifest_id)).unwrap_or_default(), &words.title, fork);
         let _ = self.published_hosted(caller).await;
         self.published_hosted(&new).await?;
-        Ok(SessionHeld { session_id: made.id, title: words.title, fork })
+        Ok(SessionHeld { session_id: made.id, title: words.title, fork, held: true })
     }
 
     /// `started_by` on `new` and `started_to` on `caller`, which Bridge nests `new` under. **Written

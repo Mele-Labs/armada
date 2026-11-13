@@ -499,6 +499,7 @@ where
                     place: place_on_the_wire(place),
                     unread,
                     values: read.and_then(|one| crate::values::values_set(one.values())),
+                    shared_with_macs: read.is_some_and(|one| one.shared_with_macs()),
                     id: project.id,
                     rows,
                 }
@@ -587,7 +588,7 @@ where
         let Ok(grown) = core_model::Project::declared(held.id().clone(), held.name().clone(), members) else {
             return Ok(false);
         };
-        let grown = grown.with_values(held.values().clone());
+        let grown = grown.with_values(held.values().clone()).with_shared_with_macs(held.shared_with_macs());
         self.project_stored(&grown).await?;
         Ok(true)
     }
@@ -625,6 +626,7 @@ where
                 place: place_on_the_wire(store.project_place(one.id().as_str()).ok().flatten()),
                 unread: None,
                 values: crate::values::values_set(one.values()),
+                shared_with_macs: one.shared_with_macs(),
             })
             .collect();
         Ok(ipc::Projects { projects, loose: Vec::new(), left_out: held.left_out().iter().map(left_out_on_the_wire).collect() })
@@ -678,10 +680,12 @@ where
             None => held.members().to_vec(),
         };
         let edited = self.project_declared(&project, name.unwrap_or(held.name().as_str()), members)?;
-        let edited = edited.with_values(match &edit.values {
-            Some(set) => self.values_read(set)?,
-            None => held.values().clone(),
-        });
+        let edited = edited
+            .with_values(match &edit.values {
+                Some(set) => self.values_read(set)?,
+                None => held.values().clone(),
+            })
+            .with_shared_with_macs(edit.shared_with_macs.unwrap_or(held.shared_with_macs()));
         let chosen = match edit.place {
             Some(place) => Some(self.project_place_chosen(&project, place.place, place.synced_folder, place.cloud).await?),
             None => None,

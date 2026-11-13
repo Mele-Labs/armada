@@ -256,6 +256,8 @@ mod values;
 /// His projects as files, kept where he chose for each, and the migration that makes them.
 mod project_files;
 mod project_holds;
+/// What may leave this Mac for his other Macs: one filter, read from a Job's project at the moment of sending.
+pub mod share;
 /// The review tools and explanations a repository has, and writing one.
 mod review_tools;
 /// A Walk run: where the change runs, and the walk played there. `docs/concepts/pull-review.md`, *Walk*.
