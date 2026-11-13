@@ -78,6 +78,11 @@ impl Queries for FakeDaemon {
 
     /// The build [`shapes::fleet_build`] describes, restarting onto whatever the
     /// last change asked for.
+    /// One ready offer the running build does not hold, so the Refresh row is drawn.
+    async fn get_preview_offers(&self) -> Result<ipc::PreviewOffers, Refusal> {
+        Ok(shapes::preview_offers())
+    }
+
     async fn get_fleet_build(&self) -> Result<ipc::FleetBuildReport, Refusal> {
         let mut report = shapes::fleet_build();
         report.restarting = self

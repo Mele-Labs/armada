@@ -141,6 +141,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         said: ipc::AnswerWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `answer_waiting_parts`: the person answers an item by picking parts across its options' pictures.
+    /// [`Refusal::IllegalMove`] where nothing holds the item, and [`Refusal::Unacceptable`] for no part, an
+    /// option the item lacks, or a part its picture lacks.
+    fn answer_waiting_parts(
+        self: Arc<Self>,
+        said: ipc::AnswerWaitingParts,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `free_slot`: the person gives back a slot a Job holds to the waiting Job whose call lists it.
     /// [`Refusal::IllegalMove`] where the call is gone, the holder is working or holds uncommitted work,
     /// or the slot is no longer the holder's.

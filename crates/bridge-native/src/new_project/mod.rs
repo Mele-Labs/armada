@@ -727,10 +727,8 @@ impl NewProjectSheet {
         let first = members.first().map(|member| member.manifest_id.as_str().to_string());
         let inherited = self.inherited.clone().unwrap_or_default();
         let project = create_body(name.clone(), members, (self.place != Place::Mac).then_some(place), self.custom, &self.picked, &inherited);
-        // How work lands has no place in `ValuesSet` yet; until it has, the walk's Fleet alone hears it.
-        let delivery = self.custom.then(|| self.picked.get(&Key::Delivery).cloned()).flatten().filter(|word| word != values::ASK);
         let share = self.custom && self.share;
-        let task = self.wire.add_project(project, delivery, cx);
+        let task = self.wire.add_project(project, cx);
         self.act = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
             let projects = match answer {
@@ -771,7 +769,9 @@ impl NewProjectSheet {
     }
 
     fn made(&mut self, project: String, name: String, repository: Option<String>, projects: Projects, window: &mut Window, cx: &mut Context<Self>) {
-        let lands = self.wire.delivery(&project).and_then(|word| values::delivery_said(&word)).map(|said| SharedString::from(format!("{said}, from {name}'s settings")));
+        // The project's own `delivery`, as Fleet kept it from the call that made it.
+        let kept = projects.projects.iter().find(|one| one.id == project).and_then(|one| one.values.as_ref()).and_then(|values| values.delivery.as_deref());
+        let lands = kept.and_then(values::delivery_said).map(|said| SharedString::from(format!("{said}, from {name}'s settings")));
         let served = self.wire.repositories(cx).unwrap_or_default();
         crate::drafts::clear(KEEP_NAME, cx);
         crate::drafts::clear(KEEP_SYNCED, cx);
@@ -905,8 +905,8 @@ mod tests {
         assert_eq!(body(false), serde_json::json!({"name": "Pocket", "members": [{"manifest_id": "sample-web", "folder": "web/checkout"}]}), "Use defaults sends no values");
         assert_eq!(
             body(true)["values"],
-            serde_json::json!({"auto_merge": "always", "agent_starts": "ask_me", "reviews": {"plans": "review", "pull_requests": "off", "walks": "review"}}),
-            "Customize sends what changed; how work lands has no field in ValuesSet to go in"
+            serde_json::json!({"auto_merge": "always", "agent_starts": "ask_me", "delivery": "auto_land", "reviews": {"plans": "review", "pull_requests": "off", "walks": "review"}}),
+            "Customize sends what changed, and how work lands goes in `delivery` with the rest"
         );
     }
 

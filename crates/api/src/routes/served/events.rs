@@ -34,6 +34,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // What `get_preview_offers` answers, whole, when an offer or the Refresh row moved.
+    Route {
+        operation: "preview_offers.changed",
+        method: "GET",
+        path: "/events",
+    },
     // What calls the person, whole, and the news since the last one.
     Route {
         operation: "calls.changed",

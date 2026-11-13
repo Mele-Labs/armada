@@ -81,6 +81,8 @@ mod build_notices;
 mod building;
 /// Every build Fleet has run, kept for the Usage page.
 mod builds_run;
+/// The branches Jobs offer for the owner's preview: checked, told, watched and served.
+mod previewing;
 /// The hours, builds and Jobs the Usage page reads time from.
 mod time_reading;
 /// What a repository runs in its checkout when the base moves there.
@@ -213,6 +215,8 @@ pub mod places;
 pub mod ports;
 /// A person's Bridge preferences, five keys of settings.json in their older shape.
 mod preferences;
+/// How the owner works with Jobs, said to a Job: the start note, the plan block and the checks' words.
+mod ways;
 pub mod preparing;
 /// The probes Fleet can run on itself, and the Doctor modules it cannot.
 /// **Not Doctor**, whose grid is ten modules and is not built.

@@ -584,6 +584,46 @@ pub struct WaitingOption {
     /// What choosing it means, where the asker said. Drawn under the label.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The option as a picture, where the asker drew one. Absent on an option that
+    /// is words only, and from a Fleet before it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picture: Option<OptionPicture>,
+}
+
+/// An option drawn as a still, which a person can press whole or pick named parts of.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OptionPicture {
+    /// A URL or a path Fleet serves.
+    pub image: String,
+    /// The still's size in pixels, which the boxes of `parts` are measured on.
+    pub width: u32,
+    pub height: u32,
+    /// The parts a person can pick across the options' pictures. Absent where the picture is only
+    /// pressed whole.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<PicturePart>,
+}
+
+/// A box on an option's still, in the still's pixels from its top left.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PicturePart {
+    /// What a pick of this part is called to the agent. Unique within its picture.
+    pub name: String,
+    /// What the person reads for it.
+    pub label: String,
+    pub x: u32,
+    pub y: u32,
+    pub w: u32,
+    pub h: u32,
+}
+
+/// One part of one option's picture, picked for a mix.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PartPicked {
+    /// An index into the item's `options`, as `choice` is.
+    pub option: u32,
+    /// The `name` of one of that option's picture's parts.
+    pub part: String,
 }
 
 /// Where on a walked page a question points: the address, and the element as a note taken in the
@@ -778,11 +818,8 @@ pub enum WaitingSource {
     /// whose `target` is the child's id. `begin_session` on the child settles it, and so does the
     /// child ending; answering or dismissing it is refused.
     HeldChild,
-    /// Fleet: a branch the preview left out, held by this Job, has moved past the tip it was left out
-    /// at, so Fleet offers a refresh instead of starting one. Kept once a (branch, tip) for the build:
-    /// id `preview:<branch>@<tip>`, text `<branch> moved since the preview left it out: <why>`, a
-    /// `run` act whose `target` is `scripts/preview --restart`. Dismissing it is Skip and tells the
-    /// agent nothing; answering it is refused. Gone once the build changes.
+    /// Fleet no longer raises this: the offers a Job makes with `offer_preview` are served by `get_preview_offers`.
+    /// Kept so a client that matches it, and the `preview_offers` table, stay readable.
     PreviewOffer,
     /// Fleet: an act a lifecycle rule of the Job planned is the person's to say first, or it failed
     /// past the rule's retries and the rule says to ask. Kept, never the agent's: id `rule_act:<row>`,
@@ -1140,6 +1177,17 @@ pub struct AnswerWaiting {
     /// an item of any other source.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixed: Option<String>,
+}
+
+/// `answer_waiting_parts`: the person answers an item by picking parts across its options' pictures, which asks
+/// the agent to build a mix of them. A separate act from `answer_waiting`, which takes a whole option or words.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AnswerWaitingParts {
+    pub session_id: SessionId,
+    pub item_id: String,
+    /// At least one. Each names an option by its index in the item's `options`, as `choice` does, and one part
+    /// of that option's picture by its `name`.
+    pub parts_picked: Vec<PartPicked>,
 }
 
 /// `dismiss_waiting`: the person drops one item for good. An item the agent stated tells it so;

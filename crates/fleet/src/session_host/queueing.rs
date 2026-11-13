@@ -58,7 +58,7 @@ pub(crate) struct SlotCall {
 /// options in this order: `answer_waiting` takes the index. **Both are always sent**, whether or not
 /// there are rows to free: a client that draws no rows keeps its Add.
 pub(crate) fn slot_choice_item(call: SlotCall) -> WaitingItem {
-    let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
+    let option = |label: &str| WaitingOption { label: label.to_string(), description: None, picture: None };
     WaitingItem {
         approves: false,
         id: SLOT_CHOICE_ITEM.to_string(),

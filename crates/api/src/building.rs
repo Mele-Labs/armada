@@ -9,7 +9,7 @@ use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{ChangeFleetBuild, PickFleetBuildJob};
+use ipc::{ChangeFleetBuild, PickFleetBuildJob, SkipPreviewRefresh};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries};
@@ -19,6 +19,26 @@ use crate::served::Served;
 pub(crate) async fn get_fleet_build<D: Queries>(State(served): State<Served<D>>) -> Response {
     match served.daemon().get_fleet_build().await {
         Ok(report) => answer(StatusCode::OK, &report, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The branches Jobs offered for the preview and the one Refresh row.
+pub(crate) async fn get_preview_offers<D: Queries>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_preview_offers().await {
+        Ok(offers) => answer(StatusCode::OK, &offers, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Skip the Refresh row with this id until the set of ready offers changes.
+pub(crate) async fn skip_preview_refresh<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: SkipPreviewRefresh = match ipc::decode_body("a Refresh row to skip", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().skip_preview_refresh(asked).await {
+        Ok(skipped) => answer(StatusCode::OK, &skipped, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
