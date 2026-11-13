@@ -269,7 +269,15 @@ fn press_of_mac(mac: &Mac) -> Option<(&'static str, &'static str)> {
 }
 
 fn age_of(at: i64) -> String {
-    format!("{} ago", crate::merge_strip::words::span_said((chrono::Utc::now().timestamp() - at).max(0)))
+    age_said((chrono::Utc::now().timestamp() - at).max(0))
+}
+
+/// How long ago a device was seen; under a minute is just now, never "0m ago".
+fn age_said(seconds: i64) -> String {
+    if seconds < 60 {
+        return "just now".into();
+    }
+    format!("{} ago", crate::merge_strip::words::span_said(seconds))
 }
 
 fn colour_of(look: &Look, colour: MacColour) -> Hsla {
@@ -1165,15 +1173,20 @@ impl SettingsOverlay {
         let pair = self.macs_button("pair", "Pair a Mac", Weight::Ghost, page.out.as_deref() == Some("pair"), look, window, cx);
         let pair_phone = self.macs_button("pair-phone", "Pair a phone", Weight::Ghost, page.out.as_deref() == Some("pair-phone"), look, window, cx);
         let presses = div().flex().items_center().gap(look.length(token::SPACE_2)).child(pair).child(pair_phone).into_any_element();
-        let body = vec![self.phone_panel(look, window, cx), self.pairing(look, window, cx), list.into_any_element()];
+        let body = self.phone_panel(look, window, cx).into_iter().chain([self.pairing(look, window, cx), list.into_any_element()]).collect();
         labelled(card(look, "settings-card-devices", "Devices", Some(presses), body), Role::Region, "Devices").into_any_element()
     }
 
     /// Pair a phone: the QR code and the link its camera opens with the time left, a claim to Confirm or Decline, or
-    /// Make a new link once the code has run out. A refusal is said here, in the Gateway's words.
-    fn phone_panel(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+    /// Make a new link once the code has run out. A refusal is said here, in the Gateway's words. With none of these
+    /// there is no panel, so the card keeps no gap for it.
+    fn phone_panel(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         let page = &self.macs;
         let said = |act: &str| page.refused.get(act).filter(|said| *said != NOT_RUNNING).map(|said| alert(look, SharedString::from(format!("macs-{act}-refused")), said));
+        let refused = ["pair-phone", "phone-confirm", "phone-decline"].iter().any(|act| page.refused.get(*act).is_some_and(|said| said != NOT_RUNNING));
+        if page.phone.is_none() && !page.lapsed && !refused {
+            return None;
+        }
         let live = page.phone.as_ref().map(|phone| {
             let left = format!("{} left", time_left(phone.code.expires_at - chrono::Utc::now().timestamp()));
             let link = div().id("macs-phone-link").min_w_0().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(phone.link.clone()));
@@ -1203,6 +1216,7 @@ impl SettingsOverlay {
                         .flex()
                         .items_center()
                         .gap(look.length(token::SPACE_3))
+                        .child(glyph(look, "macs-phone-claim-mark", "hourglass", look.color(token::STATUS_ESCALATED), "Waiting for Confirm on this Mac"))
                         .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(name.clone())))
                         .child(self.macs_button("phone-confirm", "Confirm", Weight::Primary, page.out.as_deref() == Some("phone-confirm"), look, window, cx))
                         .child(self.macs_button("phone-decline", "Decline", Weight::Ghost, false, look, window, cx)),
@@ -1220,16 +1234,18 @@ impl SettingsOverlay {
                 .child(caption(look, "The link has run out"))
                 .child(self.macs_button("phone-new", "Make a new link", Weight::Ghost, page.out.as_deref() == Some("pair-phone"), look, window, cx))
         });
-        div()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_2))
-            .children(said("pair-phone"))
-            .children(live)
-            .children(lapsed)
-            .children(said("phone-confirm"))
-            .children(said("phone-decline"))
-            .into_any_element()
+        Some(
+            div()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .children(said("pair-phone"))
+                .children(live)
+                .children(lapsed)
+                .children(said("phone-confirm"))
+                .children(said("phone-decline"))
+                .into_any_element(),
+        )
     }
 
     /// The link Pair a Mac made, to copy with its time left, and the box the other Mac's link is pasted into.
@@ -1503,6 +1519,14 @@ mod tests {
         assert_eq!(said(MacLink::ConfirmWaiting, Some("Confirm on MacBook Air")), ("hourglass", "Confirm on MacBook Air".to_string()));
         assert_eq!(said(MacLink::OlderBuild, None).0, "arrow-down-to-line");
         assert_eq!(said(MacLink::NewerBuild, None).0, "arrow-up-from-line");
+    }
+
+    #[test]
+    fn a_device_seen_under_a_minute_ago_was_seen_just_now() {
+        assert_eq!(age_said(0), "just now");
+        assert_eq!(age_said(59), "just now");
+        assert_eq!(age_said(60), "1m ago");
+        assert_eq!(age_said(4 * 60), "4m ago");
     }
 
     #[test]
