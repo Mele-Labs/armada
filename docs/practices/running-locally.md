@@ -403,7 +403,20 @@ scripts/preview --all                   # merge every live slot branch ahead of 
 scripts/preview --only a,b --skip c     # named slot branches, offered or not; --skip trims either set; both repeat or take a comma list
 scripts/preview --watch [seconds]       # merge again when main or an included branch moves (60)
 scripts/preview --restart [--dry-run] [--adopt]   # then scripts/restart --from .armada/preview
+scripts/preview [--restart] --push-as <name>      # also push the preview commit to preview/<name> on origin (forced)
+scripts/preview [--restart] --at <sha> [--ref <ref>]  # merge nothing: land on that commit, fetched from origin <ref> if missing
 ```
+
+**Two Macs build one preview commit.** The Mac that merges pushes its preview
+commit with `--push-as`, and the other builds exactly that commit with `--at`,
+so the two never hold different merges of the same branches. `--push-as` pushes
+again before each go-again after a branch is left out, and a failed push warns
+and the run goes on. `--at` records no branches held or left out, and a failed
+build is the run's failure, with nothing to leave out. It cannot be combined
+with `--all`, `--only`, `--skip`, `--picked`, `--watch` or `--push-as`, and
+`--ref` is for it alone. A `preview/` ref is never a branch in flight, so a
+pushed preview is never merged into the next one. `scripts/restart-build`
+drives both sides, below.
 
 **It merges the branches a Job offered and Fleet checked on top of `main`, in a
 worktree of its own, so you can use work while agents are still landing it.**
@@ -571,6 +584,17 @@ that was built.
 The log is matched for `incremental compilation`, `dep graph` or `dep-graph`, and `unstable fingerprints`.
 `main` is refused from a checkout that is not on `main`, which
 `scripts/restart` would otherwise build from whatever it holds.
+
+**`preview` takes the two-Mac forms too.** `--push-as <name>` passes through to
+`scripts/preview`. `--push-as <name> --tell <mac>` merges and pushes with no
+restart, posts `{mac, build: "preview", commit, ref}` to the local Fleet's
+`POST /macs/update` so `<mac>` builds that commit, then restarts this Mac with
+`--at <commit> --ref preview/<name>`. The commit is read from the preview
+worktree's `HEAD`, since a merge with no restart writes no `preview-held`. A
+failed push or post is logged and the restart goes on. `--at <sha> --ref <ref>`
+is the other Mac's side. `main` and `snapshot` take none of these.
+`ARMADA_FLEET_URL` names the Fleet `--tell` posts to, else the port in
+`Armada/fleet.json`. The route is `docs/concepts/pocket.md`, *Updating*.
 
 **Fleet counts the position, and fetches on its own time.** `get_fleet_build`
 reads the files above and counts `origin/main...commit`; `git fetch origin main`

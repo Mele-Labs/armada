@@ -349,6 +349,9 @@ async fn a_request_this_mac_signs_passes_another_gateways_check() {
         last_heard_at: None,
         asleep_since: None,
         why: None,
+        wire: None,
+        built_at: None,
+        source: None,
     };
     other.gateway.pairing.store.lock().unwrap().keep_mac(&mac).unwrap();
     let time = other.gateway.pairing.now();
@@ -369,6 +372,61 @@ async fn a_request_this_mac_signs_passes_another_gateways_check() {
     assert_eq!(ask(signed(&fresh_key().unwrap())).await, StatusCode::BAD_REQUEST, "a forged signature");
     let unknown = sign(&key, "ffff", "GET", "/api/mac/hello", time, b"").unwrap();
     assert_eq!(ask(unknown).await, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn a_mac_on_a_build_that_speaks_another_wire_is_answered_503_on_all_but_hello_and_update() {
+    let other = crate::pairing_tests::rig();
+    let key = fresh_key().unwrap();
+    // A build from before Macs compared wires says none, and is the older.
+    let mac = store::PairedMac {
+        id: "abc1".into(),
+        name: "Work".into(),
+        colour: "green".into(),
+        address: "https://work.example.com".into(),
+        public_key: from_hex(&spki_hex(&key).unwrap()),
+        build: Some("1111111".into()),
+        paired_at: 1,
+        state: store::MacState::Linked,
+        back_code: None,
+        last_heard_at: None,
+        asleep_since: None,
+        why: None,
+        wire: None,
+        built_at: None,
+        source: None,
+    };
+    other.gateway.pairing.store.lock().unwrap().keep_mac(&mac).unwrap();
+    let ask = |method: &'static str, path: &'static str| {
+        let time = other.gateway.pairing.now();
+        let headers = sign(&key, "abc1", method, path, time, b"").unwrap();
+        let mut request = axum::http::Request::builder().method(method).uri(path);
+        for (name, value) in headers {
+            request = request.header(name, value);
+        }
+        let app = other.app.clone();
+        async move {
+            let answer = app.oneshot(request.body(axum::body::Body::empty()).unwrap()).await.unwrap();
+            let status = answer.status();
+            let body = axum::body::to_bytes(answer.into_body(), 1 << 16).await.unwrap();
+            (status, String::from_utf8_lossy(&body).to_string())
+        }
+    };
+    let frozen = "Work runs an older build. Nothing crosses until it updates.";
+    for (method, path) in [("GET", "/api/mac/sessions"), ("GET", "/api/mac/live"), ("POST", "/api/mac/act"), ("POST", "/api/mac/project_act")] {
+        assert_eq!(ask(method, path).await, (StatusCode::SERVICE_UNAVAILABLE, frozen.to_string()), "{method} {path}");
+    }
+    assert_eq!(ask("GET", "/api/mac/hello").await.0, StatusCode::OK);
+    assert_ne!(ask("POST", "/api/mac/update").await.1, frozen, "the update crosses a frozen link");
+    let listed = crate::macs::listed(other.gateway.pairing.store.lock().unwrap().paired_mac("abc1").unwrap().unwrap(), &other.gateway.way_in);
+    assert_eq!((listed.link, listed.why.as_deref()), (Some(MacLink::OlderBuild), Some(frozen)));
+
+    // On this build's wire it is linked, whatever its commit.
+    let matched = store::PairedMac { wire: Some(other.gateway.way_in.wire.clone()), ..mac };
+    other.gateway.pairing.store.lock().unwrap().keep_mac(&matched).unwrap();
+    assert_ne!(ask("GET", "/api/mac/sessions").await.1, frozen);
+    let listed = crate::macs::listed(matched, &other.gateway.way_in);
+    assert_eq!(listed.link, Some(MacLink::Linked));
 }
 
 #[tokio::test]

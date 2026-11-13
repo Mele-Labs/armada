@@ -33,7 +33,7 @@ use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
 use crate::fleetwide::{get_events_since, get_health, get_manifest};
 use crate::building::{
-    change_fleet_build, get_fleet_build, get_preview_offers, keep_fleet_build, pick_fleet_build_job, revert_fleet_build,
+    change_fleet_build, get_fleet_build, get_preview_offers, keep_fleet_build, pick_fleet_build_job, revert_fleet_build, update_mac,
     skip_preview_refresh, swap_fleet_build,
 };
 use crate::limiting::{get_limits, save_limits};
@@ -823,6 +823,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/models", get(list_models::<D>))
         .route("/fleet/build", get(get_fleet_build::<D>))
         .route("/fleet/build/change", post(change_fleet_build::<D>))
+        .route("/macs/update", post(update_mac::<D>))
         .route("/fleet/build/revert", post(revert_fleet_build::<D>))
         .route("/fleet/build/pick", post(pick_fleet_build_job::<D>))
         .route("/fleet/build/swap", post(swap_fleet_build::<D>))
