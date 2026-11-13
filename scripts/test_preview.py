@@ -493,7 +493,8 @@ class Preview(unittest.TestCase):
         done = self.preview_restart(script)
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertEqual(self.count(runs), 2)
-        self.assertIn("error[E0432]: unresolved import", done.stderr)
+        # The detached run's log is one stream, which the foreground follows on stdout.
+        self.assertIn("error[E0432]: unresolved import", done.stdout)
         self.assertIn("feat/bad   skipped (does not build: bad.rs)", done.stdout)
         with open(os.path.join(self.wt, "PREVIEW.txt")) as f:
             self.assertIn("feat/bad   skipped (does not build: bad.rs)", f.read())
@@ -846,6 +847,8 @@ def scratch_root(base, main_list):
     root = os.path.join(base, "root")
     os.makedirs(os.path.join(root, "scripts"))
     shutil.copy(RESTART, os.path.join(root, "scripts", "restart"))
+    for helper in ("detach", "running-bridge"):
+        shutil.copy(os.path.join(HERE, "scripts", helper), os.path.join(root, "scripts", helper))
     run(root, "init", "-q", "-b", "main")
     os.makedirs(os.path.join(root, os.path.dirname(LEGACY)))
     with open(os.path.join(root, LEGACY), "w") as f:

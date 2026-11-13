@@ -119,6 +119,7 @@ pub(crate) fn context_reading(tokens: Option<u64>, window: Option<u64>) -> Optio
 pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord {
     SessionRecord {
         id: ipc::SessionId::carried(&session.id),
+        mac: None,
         harness: session.harness.clone(),
         origin: if session.origin == "bridge" {
             ipc::SessionOrigin::Bridge

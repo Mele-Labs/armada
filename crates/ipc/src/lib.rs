@@ -261,6 +261,7 @@ mod terminals;
 mod job_browser;
 mod setup;
 mod phone;
+mod macs;
 mod show_file;
 mod package_manifest;
 mod sketch;
@@ -672,6 +673,7 @@ pub use phone::{
     CloudflareSignIn, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone, PhoneGateway, Served, SetPhoneGateway,
     TailscaleState,
 };
+pub use macs::{ClaimMacLink, MacNamed, MacPairLink, OtherMacBugReports, OtherMacEvent, OtherMacSessions};
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
 pub use document_answer::{

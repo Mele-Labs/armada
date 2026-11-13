@@ -89,8 +89,8 @@ pub struct CloudflareSignIn {
     pub login: String,
 }
 
-/// A Mac on the Devices list: this one, or one paired with it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// A Mac on the Devices list: this one, or one paired with it, or one whose pairing waits on a Confirm.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Mac {
     /// Minted once by its own Fleet.
     pub id: String,
@@ -106,12 +106,19 @@ pub struct Mac {
     /// How the link to it stands. Absent on this Mac.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub link: Option<MacLink>,
+    /// When this Mac last heard from it (Unix seconds). Absent on this Mac and before the first answer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_heard_at: Option<i64>,
+    /// Why the link is stuck, or where the next press is, as a sentence the screen shows as it is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub why: Option<String>,
 }
 
 /// Each Mac's one colour, on its chip wherever its Jobs are drawn.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MacColour {
+    #[default]
     Blue,
     Teal,
     Green,
@@ -145,8 +152,11 @@ pub enum MacLink {
     /// It runs an older build than this Mac, so the link is frozen until it updates.
     OlderBuild,
     NewerBuild,
-    /// It claimed a pairing link and waits for Confirm on this Mac.
+    /// It claimed a pairing link and waits for Confirm on this Mac. The press is
+    /// `POST /admin/macs/pair/confirm { mac }`.
     ClaimWaiting,
+    /// This Mac claimed its link and waits for Confirm on it. `why` names the Mac to press it on.
+    ConfirmWaiting,
 }
 
 /// A phone on the Devices list. `GET /admin/devices`.

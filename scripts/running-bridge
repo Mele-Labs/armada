@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+#
+# Which protocol the Bridge running now was built for, and whether a restart
+# onto a Fleet that speaks `--want` must reopen it. Run by `scripts/restart`,
+# and by its dry run, which only reads.
+#
+#   scripts/running-bridge native  --support <dir> --service <launchd job> --want <protocol id>
+#   scripts/running-bridge classic --support <dir> --want <protocol id>
+#
+# Prints one line, `reopen<TAB>why` or `leave<TAB>why`.
+#
+# **Read off the live process, never off the build before.** A restart that died
+# after it moved `builds/current` leaves the next one comparing the new build with
+# itself, and a Bridge still on the old protocol looked current. The process says what it
+# runs: the native Bridge's binary, and the classic Bridge's working directory, are
+# paths `launchd` and the kernel resolved when it started, so a link moved since
+# does not change them. Each sits in `<support>/builds/<stamp>-<short>/`, whose
+# `build.toml` holds `protocol_id`.
+#
+# Nothing running leaves it closed, which is a quit the person meant. Running on
+# something that cannot be read reopens.
+
+import argparse
+import os
+import re
+import subprocess
+import sys
+
+UNREADABLE = "unreadable"
+
+
+def run(argv):
+    """What `argv` printed, or None where it would not run or failed."""
+    try:
+        done = subprocess.run(argv, capture_output=True, text=True)
+    except OSError:
+        return None
+    return done.stdout if done.returncode == 0 else None
+
+
+def build_protocol(support, path):
+    """The `protocol_id` of the kept build `path` is in, or None."""
+    builds = os.path.realpath(os.path.join(support, "builds"))
+    path = os.path.realpath(path)
+    if not path.startswith(builds + os.sep):
+        return None
+    stamp = path[len(builds) + 1:].split(os.sep)[0]
+    try:
+        with open(os.path.join(builds, stamp, "build.toml")) as f:
+            found = re.search(r'^protocol_id = "([^"]*)"$', f.read(), re.M)
+    except OSError:
+        return None
+    return found.group(1) if found else None
+
+
+def lsof_names(pid, kind, runner=run):
+    """The paths `lsof` lists for `pid`'s `kind` (`cwd` or `txt`), or None where it cannot say."""
+    said = runner(["lsof", "-a", "-p", str(pid), "-d", kind, "-Fn"])
+    if said is None:
+        return None
+    return [line[1:] for line in said.splitlines() if line.startswith("n")]
+
+
+def processes(runner=run):
+    """[(pid, ppid, command)] for every process, or None where `ps` would not answer."""
+    said = runner(["ps", "-ww", "-axo", "pid=,ppid=,command="])
+    if said is None:
+        return None
+    rows = []
+    for line in said.splitlines():
+        found = re.match(r"\s*(\d+)\s+(\d+)\s+(.*)$", line)
+        if found:
+            rows.append((int(found.group(1)), int(found.group(2)), found.group(3)))
+    return rows
+
+
+def native_protocols(support, service, runner=run):
+    """One protocol (or UNREADABLE) for each native Bridge running under `service`, none if it runs nothing."""
+    said = runner(["launchctl", "print", service])
+    pid = re.search(r"^\s*pid = (\d+)$", said or "", re.M)
+    if not pid:
+        return []
+    rows = processes(runner)
+    if rows is None:
+        return [UNREADABLE]
+    apps = [p for p, parent, command in rows
+            if parent == int(pid.group(1)) and re.search(r"/Contents/MacOS/Armada(?: |$)", command)]
+    if not apps:
+        return [UNREADABLE]
+    found = []
+    for app in apps:
+        paths = lsof_names(app, "txt", runner) or []
+        binary = next((p for p in paths if p.endswith("/Contents/MacOS/Armada")), None)
+        found.append((binary and build_protocol(support, binary)) or UNREADABLE)
+    return found
+
+
+def classic_protocols(support, runner=run):
+    """One protocol (or UNREADABLE) for each Bridge running a kept build, none if there is none.
+    A Bridge run from a tree, started by hand, is not a kept build and is not this to judge."""
+    rows = processes(runner)
+    if rows is None:
+        return []
+    here = re.escape(support)
+    kept = re.compile(rf"^{here}/.*\.app/Contents/MacOS/[^/]+ {here}/builds/[^/]+/bridge$")
+    found = []
+    for pid, _, command in rows:
+        if kept.match(command):
+            paths = lsof_names(pid, "cwd", runner) or []
+            found.append((paths and build_protocol(support, paths[0])) or UNREADABLE)
+    return found
+
+
+def decide(running, want):
+    """(reopen, why) for the protocols each running Bridge was built for, against the one the new Fleet speaks."""
+    if not running:
+        return False, "none is running, so it stays as it is"
+    if UNREADABLE in running:
+        return True, f"it runs a build whose protocol cannot be read, and the new Fleet speaks {want}"
+    differs = [p for p in running if p != want]
+    if differs:
+        return True, f"it runs protocol {differs[0]} and the new Fleet speaks {want}"
+    return False, f"it runs protocol {want}, the one the new Fleet speaks"
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("kind", choices=("native", "classic"))
+    ap.add_argument("--support", required=True)
+    ap.add_argument("--service")
+    ap.add_argument("--want", required=True)
+    args = ap.parse_args()
+    if args.kind == "native":
+        if not args.service:
+            ap.error("native needs --service")
+        running = native_protocols(args.support, args.service)
+    else:
+        running = classic_protocols(args.support)
+    reopen, why = decide(running, args.want)
+    print(f"{'reopen' if reopen else 'leave'}\t{why}")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -17,6 +17,7 @@ mod clean;
 mod cli;
 mod declared;
 mod fleet_features;
+mod fleet_start;
 mod job;
 mod kit;
 mod leasing;

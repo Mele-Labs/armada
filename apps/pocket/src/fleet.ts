@@ -4,7 +4,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
-import { bucketOf, type JobBucket, type SessionState } from "@armada/components";
+import type { SessionState } from "@armada/components";
 
 import { Refused, call, getJson, refusal, whenUnpaired } from "./client";
 import type { LiveChange, PhoneSession, SessionsBody } from "./gateway";
@@ -276,26 +276,30 @@ export type Item = {
   said: string;
 };
 
+/** A Job's row in the list, and how many starters stand over it. */
+export type Line = {
+  item: Item;
+  depth: number;
+  /** For each starter above its own, whether that starter's line runs on past this row to a later Job it started. */
+  through: readonly boolean[];
+  /** The last Job its starter started: the starter's line ends at this row. */
+  last: boolean;
+};
+
 export type Home = {
   /** More than one Mac is paired, so each row names its Mac. */
   several: boolean;
-  /** Held on their start cards, and Jobs never spoken in, newest first. */
-  drafts: Item[];
-  /** Asked something, stuck, stopped for good, failed to start or on failed Checks, oldest wait first. */
-  needs: Item[];
-  /** Jobs that said they are done, newest claim first. */
-  done: Item[];
-  /** Waiting on something that is not him: a pull request, a watch, the plan's limit, another Job. */
-  waiting: Item[];
-  running: Item[];
+  /** Each repository's Jobs in Fleet's order, a Job another started right under its starter. One repository draws no head. */
+  repositories: {
+    name: string;
+    lines: Line[];
+  }[];
   /** Macs that need the owner: not paired any more, or not answering. */
   troubled: Mac[];
 };
 
-const time = (at: string | undefined) => (at === undefined ? 0 : Date.parse(at));
-
 export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
-  const all = macs
+  const all: Item[] = macs
     .filter((mac) => mac.paired)
     .flatMap((mac) =>
       mac.live.map((session) => ({
@@ -304,25 +308,59 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
         ...rowStateOf(session),
       })),
     );
-  const newest = (a: Item, b: Item) => time(b.session.started_at) - time(a.session.started_at);
-  const inBucket = (bucket: JobBucket) =>
-    all.filter((item) => item.state !== "done" && bucketOf(item.state) === bucket);
+  const repositories: Home["repositories"] = [];
+  const kin = (a: Item, b: Item) =>
+    a.mac === b.mac && a.session.repository === b.session.repository;
+  const seen = new Set<string>();
+  for (const item of all) {
+    const name = item.session.repository ?? "";
+    const key = `${item.mac.machine.origin} ${name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const held = all.filter((one) => kin(one, item));
+    const lines: Line[] = [];
+    const placed = new Set<string>();
+    const under = (starter: Item, depth: number, through: readonly boolean[]) => {
+      const children = held.filter(
+        (one) => one.session.from?.id === starter.session.id && !placed.has(one.session.id),
+      );
+      children.forEach((child) => placed.add(child.session.id));
+      children.forEach((child, at) => {
+        const last = at === children.length - 1;
+        lines.push({
+          item: child,
+          depth,
+          through,
+          last,
+        });
+        under(child, depth + 1, [
+          ...through,
+          !last,
+        ]);
+      });
+    };
+    const listed = (id: string | undefined) => held.some((one) => one.session.id === id);
+    for (const root of held.filter((one) => !listed(one.session.from?.id))) {
+      placed.add(root.session.id);
+      lines.push({
+        item: root,
+        depth: 0,
+        through: [],
+        last: true,
+      });
+      under(root, 1, []);
+    }
+    const kept = repositories.find((one) => one.name === name);
+    if (kept === undefined)
+      repositories.push({
+        name,
+        lines,
+      });
+    else kept.lines.push(...lines);
+  }
   return {
     several: macs.length > 1,
-    drafts: inBucket("draft").sort(newest),
-    needs: inBucket("needs").sort(
-      (a, b) =>
-        time(a.session.waiting_since ?? a.session.started_at) -
-        time(b.session.waiting_since ?? b.session.started_at),
-    ),
-    done: all
-      .filter((item) => item.state === "done")
-      .sort((a, b) => time(b.session.done_since) - time(a.session.done_since)),
-    waiting: inBucket("waiting").sort(newest),
-    running: [
-      ...inBucket("working"),
-      ...inBucket("idle"),
-    ].sort(newest),
+    repositories,
     troubled: macs.filter((mac) => !mac.paired || mac.error !== undefined),
   };
 }

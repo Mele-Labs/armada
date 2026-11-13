@@ -112,6 +112,8 @@ export type RunningWork = {
  */
 export type SessionRecord = {
   id: string;
+  /** The id of the paired Mac that holds this Job. Absent means held by this Mac. */
+  mac?: string;
   harness: string;
   origin: SessionOrigin;
   manifest_id?: string;
