@@ -10,7 +10,7 @@ const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static 
 const ROW: &str = "#2198 Retry failed webhooks with backoff";
 const FINDING: &str = "Finding: Jitter can push the wait past the cap";
 
-pub static STEPS: [Step; 27] = [
+pub static STEPS: [Step; 28] = [
     step("Reviews in the strip. The inbox reads the forge again, and keeps the last one drawn meanwhile", Verb::PressOn("tab", "Reviews"), "status", "Refreshing"),
     step("The pull request open last time waits for its fresh page before it opens", Verb::Look, "status", "#2190 opens once the refresh confirms it"),
     step("Changed since you looked: three new commits on this one", Verb::Look, "label", "+3 commits"),
@@ -38,4 +38,5 @@ pub static STEPS: [Step; 27] = [
     step("The draft that will be sent, and a summary", Verb::Look, "textbox", "Draft on src/webhooks/retry.rs:9"),
     step("Approve: the bar says so at once, at the head", Verb::PressOn("button", "Approve"), "status", "Approved on e71b0d4"),
     step("Nothing new since, so Review changes steps back; the inbox row says Approved", Verb::Look, "img", "Your review: Approved"),
+    step("The finding that went with it says Sent, so it cannot go twice", Verb::Look, "status", "Sent"),
 ];

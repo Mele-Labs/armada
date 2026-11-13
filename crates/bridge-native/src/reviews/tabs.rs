@@ -436,7 +436,10 @@ impl ReviewsScreen {
                 for finding in findings {
                     let drafted = self.drafts.iter().any(|draft| draft.number == page.number && draft.finding.as_deref() == Some(&finding.id));
                     let id = finding.id.clone();
-                    let act: AnyElement = if drafted {
+                    let sent = self.sent_findings.contains(&(page.number, finding.id.clone()));
+                    let act: AnyElement = if sent {
+                        status(format!("finding-sent-{}", finding.id), "Sent".into(), glyph("check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look)
+                    } else if drafted {
                         status(format!("finding-drafted-{}", finding.id), "Drafted".into(), glyph("check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look)
                     } else {
                         labelled(
@@ -459,10 +462,10 @@ impl ReviewsScreen {
                             .border_l(look.length(token::BORDER_WIDTH) * 3.)
                             .border_color(look.color(token::STATUS_AWAITING_REVIEW))
                             .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(finding.title.clone())))
+                            // One act per card, under its title, so a narrow pane keeps the text wide and a short one still shows it.
+                            .child(div().flex().child(act))
                             .child(place_line(format!("finding-place-{}", finding.id), format!("{}:{}", finding.path, finding.line), look))
-                            .child(words(format!("finding-said-{}", finding.id), finding.comment.clone(), look))
-                            // One act per card, under what it acts on, so a narrow pane keeps the text wide.
-                            .child(div().flex().child(act)),
+                            .child(words(format!("finding-said-{}", finding.id), finding.comment.clone(), look)),
                         Role::Article,
                         format!("Finding: {}", finding.title),
                     );

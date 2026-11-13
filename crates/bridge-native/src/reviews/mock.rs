@@ -378,6 +378,12 @@ fn invoice_page() -> Page {
                 path: "src/jobs/invoice.rs".into(),
                 line: 41,
                 comment: "The error says which invoice failed but not which stage. Add the stage name to the error.".into(),
+            }, Finding {
+                id: "g2".into(),
+                title: "Stages share one retry budget".into(),
+                path: "src/jobs/invoice.rs".into(),
+                line: 28,
+                comment: "A slow first stage uses up the retries the later ones need. Give each stage its own.".into(),
             }],
         },
         holder: None,
@@ -424,6 +430,11 @@ pub fn page(number: u64) -> Option<Page> {
             }
         }
     })
+}
+
+/// Findings that already went out with an earlier review.
+pub fn sent_findings() -> std::collections::HashSet<(u64, String)> {
+    [(2190, "g2".to_string())].into_iter().collect()
 }
 
 /// The drafts kept from an earlier visit.

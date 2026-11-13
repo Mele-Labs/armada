@@ -118,6 +118,8 @@ pub struct ReviewsScreen {
     /// Review changes is open, in place of the panes, until Send or Cancel.
     sheet: bool,
     sent_notes: HashSet<u64>,
+    /// Findings that went out as drafts with a review, by pull request and finding, so none goes twice.
+    sent_findings: HashSet<(u64, String)>,
     asking: Option<Ask>,
     name_box: Entity<InputState>,
     dialog: FocusHandle,
@@ -173,6 +175,7 @@ impl ReviewsScreen {
             summary: None,
             sheet: false,
             sent_notes: HashSet::new(),
+            sent_findings: mock::sent_findings(),
             asking: None,
             name_box,
             dialog: cx.focus_handle(),
@@ -409,6 +412,8 @@ impl ReviewsScreen {
     fn submit(&mut self, verdict: Verdict, window: &mut Window, cx: &mut Context<Self>) {
         let Some(number) = self.open else { return };
         let gone: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).map(|draft| draft.id.clone()).collect();
+        let sent: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).filter_map(|draft| draft.finding.clone()).collect();
+        self.sent_findings.extend(sent.into_iter().map(|finding| (number, finding)));
         for id in gone {
             self.discard_draft(&id, cx);
         }
