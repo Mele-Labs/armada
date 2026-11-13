@@ -28,6 +28,11 @@ export type ValuesSet = {
    * himself is never held by it.
    */
   agent_starts?: string;
+  /**
+   * How a Job in the project lands its work: `auto_land`, `open_pr`, `keep_local` or `ask`. A word that is not one is
+   * refused 422 `fleet.project_values_refused`. Unset at every layer, the first answer to the delivery question is kept here.
+   */
+  delivery?: string;
 };
 
 /** `off`, `review` or `review_and_approve`; for `walks` only `off` or `review`. A word that is not one is refused 422 `fleet.project_values_refused`. */
@@ -102,6 +107,8 @@ export type ResolvedValues = {
   reviews?: ResolvedReviews;
   /** `at_once` or `ask_me`. Absent from what a Job froze before the key existed. */
   agent_starts?: ResolvedValue;
+  /** `auto_land`, `open_pr`, `keep_local` or `ask`; the value is empty where no layer sets it. Absent from what a Job froze before the key existed. */
+  delivery?: ResolvedValue;
   /** One for each kind of act, where a repository was asked about; left out where only a project was. */
   autonomy?: ResolvedAutonomy[];
 };

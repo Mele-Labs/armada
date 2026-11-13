@@ -17,6 +17,7 @@ use tokio::task::JoinHandle;
 use crate::daemon::Fleet;
 use crate::rail::{self, RailStep};
 use crate::session_host::delivering::{card_choice, chosen_words, delivery_asked, ASKED};
+use crate::session_host::delivery_setting::DeliveryKept;
 
 /// What the loop last acted on for a Session, so a row that moved nothing costs no read.
 #[derive(Clone, PartialEq, Eq)]
@@ -214,8 +215,12 @@ where
         let step = &steps[to as usize];
         let rows = self.rows_of(id).await.unwrap_or_default();
         let asked = delivery_asked(&rows);
-        if step.asks_delivery && !asked && self.delivery_row_kept(id, text).await {
-            return Some(ASKED.to_string());
+        if step.asks_delivery && !asked {
+            match self.delivery_row_kept(id, text).await {
+                DeliveryKept::Asked => return Some(ASKED.to_string()),
+                DeliveryKept::BySetting(words) => return Some(words),
+                DeliveryKept::Named => {}
+            }
         }
         // A landing the start card answered goes with the first turn, as an answer given later goes with its own.
         card_choice(&rows).filter(|_| step.asks_delivery).map(chosen_words)
