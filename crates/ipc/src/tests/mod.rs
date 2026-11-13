@@ -106,6 +106,10 @@ mod terminal_wire;
 mod workflow_changes;
 /// A draft of a workflow or a piece, its changes and Publish.
 mod workflow_drafts;
+/// The versions of a workflow in a place, a revert, and what a copy was based on.
+mod workflow_versions;
+/// Moving running Jobs to a new version of a workflow: who a publish pinned, who is affected, and the move.
+mod workflow_migrating;
 /// Where a workflow is kept: the words, and a project's object.
 mod workflow_scope;
 mod operator_board;

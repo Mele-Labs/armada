@@ -2,7 +2,7 @@
 
 use crate::{
     decode, encode, DraftBy, DraftChange, Instant, LifecyclePieceKind, LifecyclePieceSaved, PieceDraft, PieceDraftDiscarded, PiecePublished, PieceScope,
-    PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowId, WorkflowPublished,
+    PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, SessionId, WorkflowDraft, WorkflowDraftDiscarded, WorkflowId, WorkflowPublished,
     WorkflowSaved, WorkflowScope,
 };
 
@@ -58,7 +58,20 @@ fn what_a_workflow_draft_is_put_discarded_and_published_with_round_trips_and_a_b
         project: None,
         text: String::from("{half"),
         summary: Some(String::from("by hand")),
+        by: None,
+        change: None,
     });
+    let plain = round_trips(&PutWorkflowDraft { workflow_id: WorkflowId::carried("feature"), source: String::from("kit"), text: String::from("{}"), ..Default::default() });
+    assert!(!plain.contains(r#""by""#) && !plain.contains("change"), "a put by you names neither: {plain}");
+    let agent = round_trips(&PutWorkflowDraft {
+        workflow_id: WorkflowId::carried("feature"),
+        source: String::from("kit"),
+        text: String::from("{rebased}"),
+        by: Some(DraftBy::Agent),
+        change: Some(7),
+        ..Default::default()
+    });
+    assert!(agent.contains(r#""by":"agent""#) && agent.contains(r#""change":7"#), "{agent}");
     round_trips(&WorkflowDraftDiscarded { workflow_id: WorkflowId::carried("feature"), source: String::from("project"), project: Some(String::from("storefront")) });
     for scope in [None, Some(WorkflowScope::Kit), Some(WorkflowScope::Project { id: String::from("storefront") })] {
         for overwrite in [false, true] {
@@ -73,6 +86,8 @@ fn what_a_workflow_draft_is_put_discarded_and_published_with_round_trips_and_a_b
             replaced: false,
             runs_from: Some(String::from("kit")),
         },
+        version: 2,
+        pinned: vec![SessionId::carried("s1")],
     });
     let put: PutWorkflowDraft = decode("a put", br#"{"workflow_id":"feature","source":"kit","text":"{}"}"#).expect("reads without project or summary");
     assert_eq!((put.project, put.summary), (None, None));

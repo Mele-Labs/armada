@@ -48,6 +48,15 @@ fn listed(record: &SessionRecord, manifest: Option<&str>, text: Option<&str>, st
         })
 }
 
+/// A row of this Mac's as another Mac is sent it. **Its plan goes without `other_macs`**, which names Jobs as
+/// this Mac sees them, the receiver's own among them.
+fn sent_on(mut record: SessionRecord) -> SessionRecord {
+    if let Some(plan) = record.plan.as_mut() {
+        plan.other_macs.clear();
+    }
+    record
+}
+
 /// Newest seen first, then by id: the order `list_sessions` already uses.
 fn in_list_order(sessions: &mut [SessionRecord]) {
     sessions.sort_by(|a, b| b.last_seen_at.as_str().cmp(a.last_seen_at.as_str()).then_with(|| a.id.as_str().cmp(b.id.as_str())));
@@ -221,7 +230,7 @@ where
         for record in listed.sessions.into_iter().filter(|one| one.mac.is_none()) {
             let job = record.id.clone();
             if let Some(crossing) = self.of_job_for_other_mac(&job, record).await {
-                sessions.push(crossing.sent());
+                sessions.push(sent_on(crossing.sent()));
             }
         }
         Ok(SessionList { sessions })
@@ -243,7 +252,10 @@ where
     }
 
     async fn share_event(&self, event: Event) -> Option<Event> {
-        self.event_for_other_mac(event).await.map(|crossing| crossing.sent())
+        match self.event_for_other_mac(event).await?.sent() {
+            Event::SessionChanged(record) => Some(Event::SessionChanged(sent_on(record))),
+            other => Some(other),
+        }
     }
 
     async fn share_job_thread(self: Arc<Self>, read: JobThreadRead) -> Result<JobThread, Refusal> {

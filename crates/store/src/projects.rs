@@ -323,6 +323,7 @@ impl Store {
             )
             .map_err(database(doing))?;
             tx.execute("DELETE FROM project_rows WHERE project_id = ?1", params![id]).map_err(database(doing))?;
+            tx.execute("DELETE FROM project_learned WHERE project = ?1", params![id]).map_err(database(doing))?;
         }
         tx.commit().map_err(database(doing))?;
         Ok(gone > 0)

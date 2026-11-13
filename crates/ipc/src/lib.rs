@@ -50,6 +50,8 @@ mod lifecycles;
 mod piece_saving;
 mod piece_drafts;
 mod workflow_drafts;
+mod workflow_versions;
+mod workflow_migrating;
 mod codec;
 /// A body's whole shape, read off its type, for a refusal to name.
 pub mod shape;
@@ -343,6 +345,8 @@ pub use annotations::{
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
+pub use workflow_versions::{BasedOn, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions};
+pub use workflow_migrating::{AffectedJob, AffectedJobs, MigrateJobs, MigrateResult, MigratedJobs};
 pub use piece_drafts::{PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PutPieceDraft};
 pub use piece_saving::{
     AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind,
@@ -782,7 +786,7 @@ pub use session_activity::{
 pub use session_delivery::{DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, StartHeld};
 pub use session_plan::{
     ApprovePlan, CheckedPlan, FileTouch, GateChecks, GateClose, GateHeld, PlanChangeLine, PlanChanges, PlanGate, PlanGroupInput, PlanMark,
-    PlanHold, PlanHoldWhy, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
+    PlanHold, PlanHoldWhy, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanOverlap, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
     PlanTaskState, RecordPlan, SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask,
     TaskStale, TouchAct, TouchBy, FIRST_PULL_REQUEST, MOST_LANDS_IN_CHARS, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
 };

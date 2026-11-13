@@ -266,6 +266,7 @@ mod project_acts_held;
 mod values;
 /// His projects as files, kept where he chose for each, and the migration that makes them.
 mod project_files;
+mod project_learned;
 mod project_holds;
 /// What may leave this Mac for his other Macs: one filter, read from a Job's project at the moment of sending.
 pub mod share;
@@ -422,6 +423,9 @@ mod workflow_page;
 mod workflow_changes;
 /// The draft of a workflow the owner and an agent edit, and Publish.
 mod workflow_drafts;
+mod workflow_versions;
+/// Moving running Jobs to a workflow's new version: pins a publish makes, who is affected, and the move.
+mod workflow_migrating;
 /// The draft of a lifecycle, rule or autonomy default, and Publish.
 mod piece_drafts;
 /// The lifecycles a repository has and the Workspaces (sets of repositories) that scope them, read

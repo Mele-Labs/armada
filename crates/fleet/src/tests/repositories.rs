@@ -43,6 +43,8 @@ pub struct Planted {
     removals: Mutex<Vec<(ipc::WorkflowScope, String)>>,
     /// What the folders read as when Fleet reads them again, and the projects each read was handed.
     reading: Mutex<Option<Catalogued>>,
+    /// What each read after that answers, in turn, once `reading` is taken: a publish reads before its stale check and again after the save.
+    reading_next: Mutex<std::collections::VecDeque<Catalogued>>,
     read_for: Mutex<Vec<Vec<String>>>,
     /// Folders in no git repository, until one is started there.
     in_none: Mutex<Vec<PathBuf>>,
@@ -132,6 +134,11 @@ impl Planted {
     /// What the folders read as from now on.
     pub fn will_read(&self, read: Catalogued) {
         *self.reading.lock().unwrap_or_else(PoisonError::into_inner) = Some(read);
+    }
+
+    /// What the read after the next one answers, and each after that in turn. A read that has been given nothing answers nothing.
+    pub fn will_read_next(&self, read: Catalogued) {
+        self.reading_next.lock().unwrap_or_else(PoisonError::into_inner).push_back(read);
     }
 
     /// The projects each read of the folders was handed, in order: those that hold the repository read.
@@ -287,11 +294,8 @@ impl Locating for Planted {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .push(projects.iter().map(|project| project.as_str().to_string()).collect());
-        self.reading
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .take()
-            .unwrap_or_default()
+        let next = self.reading.lock().unwrap_or_else(PoisonError::into_inner).take();
+        next.or_else(|| self.reading_next.lock().unwrap_or_else(PoisonError::into_inner).pop_front()).unwrap_or_default()
     }
 
     fn serving(&self, root: &str) {

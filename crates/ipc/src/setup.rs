@@ -28,6 +28,7 @@ use serde::{Deserialize, Serialize};
 use crate::checks::{DeclaredCheck, DeclaredJudge};
 use crate::enums::AdvanceGate;
 use crate::ids::{ManifestId, StepId, WorkflowId};
+use crate::workflow_versions::BasedOn;
 
 /// One step of a workflow, as the definition declares it.
 ///
@@ -209,6 +210,14 @@ pub struct WorkflowSummary {
     /// the two are the same**, or nothing is hidden.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hides: Option<String>,
+    /// What this copy of one of Armada's workflows began from. **Absent** on Armada's own and on a copy made before Fleet kept
+    /// it, which is never guessed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub based_on: Option<BasedOn>,
+    /// This is a copy with a `based_on`, and Armada's carried text of the id is no longer that text: Armada shipped a new
+    /// version of it. **Absent where false.**
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub armada_changed: bool,
 }
 
 /// A definition of a workflow id that a more specific place replaced (protocol
@@ -244,6 +253,10 @@ pub struct WorkflowDefinition {
     /// replaced. Absent where this is the one that runs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overridden_by: Option<String>,
+    /// What this copy began from, as on `WorkflowSummary`. **Absent** on Armada's own, on a copy with no base, and on the
+    /// base itself, which is `source: "base"` and whose own `version` and `hash` are here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub based_on: Option<BasedOn>,
 }
 
 /// A definition this Fleet runs without, and why. #425: named only in
@@ -379,7 +392,7 @@ pub struct ManifestSummary {
     /// The `armada.yml` says `connectors: false`: Jobs here start without the person's connectors
     /// unless the person's own switch for the repository says otherwise. Absent where it says
     /// nothing or `true`.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub connectors_off: bool,
 }
 
@@ -390,7 +403,7 @@ pub struct ManifestFromKit {
     /// Kit's file, absolute.
     pub file: String,
     /// The repository has no `armada.yml`, and Kit's is the Manifest.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub whole: bool,
     /// The Checks and Commands read from Kit's file, in the order it writes them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -412,10 +425,10 @@ pub struct ManifestKitName {
     pub name: String,
     /// The repository declares this name and says something else for it, which Kit's hides.
     /// Absent where the two are the same.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub hides: bool,
     /// The repository declares no such name, and Kit's added it. Absent otherwise.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub added: bool,
     /// Whether a Check is part of a gate: on an added Check, and on each Check of a copy that is the
     /// whole Manifest. Absent on a Command and on a Check that replaces the repository's.
@@ -492,4 +505,8 @@ impl Default for ModelsRead {
     fn default() -> ModelsRead {
         ModelsRead::NotRead { why: String::new() }
     }
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }

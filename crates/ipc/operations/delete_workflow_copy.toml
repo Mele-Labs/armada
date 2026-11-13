@@ -10,5 +10,7 @@ notes = """
 
 422 `fleet.workflow_is_armadas` where `source` is `armada`: Armada's definitions are carried in the binary and are not deleted. 422 `fleet.no_such_workflow_definition` where that place holds no definition of the id; a definition that was left out is on `list_left_out_workflows` and is not here. 500 `fleet.workflow_unwritable` where a file cannot be deleted.
 
+**Since 23.96 a delete drops the place's versions and its base** (`get_workflow_versions`, `get_workflow` with `source=base`), since there is no copy left for them to belong to.
+
 `agent_access` is `Bridge only`: it is the person's press, and it cannot be undone.
 """

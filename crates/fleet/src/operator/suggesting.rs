@@ -350,7 +350,8 @@ where
         let mut row = pressed(&arrival, Outcome::Ruled(ruling.way), &ruling.because, at);
         row.other = ruling.other.clone();
         row.shared = ruling.shared.clone();
-        let sourced = self.operator_sourced(&arrival, &ruling).await.map(|made| {
+        // Boxed: what a ruling starts is deep enough to overflow a test thread's stack inline.
+        let sourced = Box::pin(self.operator_sourced(&arrival, &ruling)).await.map(|made| {
             done.filed = made.issue.clone();
             row.issue = made.issue;
             row.other = made.job.or(row.other.take());

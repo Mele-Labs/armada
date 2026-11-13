@@ -172,7 +172,7 @@ async fn get_values_names_the_layer_each_key_came_from_for_a_project_a_repositor
     assert_eq!((neither.auto_merge.value.as_deref(), neither.auto_merge.from), (Some("always"), ValueLayer::Kit));
     assert_eq!((neither.theme.value.as_deref(), neither.theme.from), (Some("paper"), ValueLayer::Kit));
     assert_eq!((neither.density.value.as_deref(), neither.density.from), (Some("roomy"), ValueLayer::Kit));
-    assert_eq!(neither.layout, ipc::ResolvedValue { value: None, from: ValueLayer::Default }, "a key nothing sets and nothing ships");
+    assert_eq!(neither.layout, ipc::ResolvedValue { value: None, from: ValueLayer::Default, learned: false, inherited: None, inherited_from: None }, "a key nothing sets and nothing ships");
     assert!(neither.autonomy.is_empty(), "no repository was asked about");
 
     let project_only = ask(Some(&project), None).await.expect("values");
@@ -426,6 +426,61 @@ async fn a_kind_no_layer_sets_is_off_from_the_default() {
     assert_eq!(none.from, ValueLayer::Default);
 }
 
+/// What a review kind carries as inherited, the word and its layer, for plans, pull requests and walks in turn.
+fn inherited_kinds(reviews: &ipc::ResolvedReviews) -> [(Option<&str>, Option<ValueLayer>); 3] {
+    [
+        (reviews.plans_inherited.as_deref(), reviews.plans_inherited_from),
+        (reviews.pull_requests_inherited.as_deref(), reviews.pull_requests_inherited_from),
+        (reviews.walks_inherited.as_deref(), reviews.walks_inherited_from),
+    ]
+}
+
+#[tokio::test]
+async fn a_review_kind_the_project_overrides_says_what_kit_would_give() {
+    let rig = a_rig("");
+    rig.kit_values("version: 1\nvalues:\n  reviews:\n    plans: review\n    walks: review\n");
+    let project = rig.project(Some(plans_only("review_and_approve"))).await;
+    let reviews = reviews_of(&rig, &project).await;
+    assert_eq!(reviews.plans_from, Some(ValueLayer::Project));
+    assert_eq!(inherited_kinds(&reviews)[0], (Some("review"), Some(ValueLayer::Kit)));
+}
+
+#[tokio::test]
+async fn an_override_of_a_review_kind_nothing_below_sets_says_off_from_default() {
+    let rig = a_rig("");
+    rig.kit_values(KIT_REVIEWS);
+    let project = rig.project(Some(plans_only("review_and_approve"))).await;
+    let reviews = reviews_of(&rig, &project).await;
+    assert_eq!(reviews.plans_from, Some(ValueLayer::Project));
+    assert_eq!(inherited_kinds(&reviews)[0], (Some("off"), Some(ValueLayer::Default)), "unset below is a word, not a missing one");
+}
+
+#[tokio::test]
+async fn a_review_kind_the_project_leaves_to_kit_carries_no_inherited() {
+    let rig = a_rig("");
+    rig.kit_values(KIT_REVIEWS);
+    let project = rig.project(Some(plans_only("review_and_approve"))).await;
+    let reviews = reviews_of(&rig, &project).await;
+    assert_eq!(reviews.pull_requests_from, Some(ValueLayer::Kit));
+    assert_eq!(reviews.walks_from, Some(ValueLayer::Kit));
+    assert_eq!(inherited_kinds(&reviews)[1..], [(None, None), (None, None)], "Kit's word is the answer, and nothing is below the project's");
+    let bare = rig.project(None).await;
+    assert_eq!(inherited_kinds(&reviews_of(&rig, &bare).await), [(None, None); 3], "a project that sets nothing overrides nothing");
+}
+
+#[tokio::test]
+async fn a_job_freezes_no_inherited_for_a_review_kind() {
+    let rig = a_rig("");
+    rig.kit_values("version: 1\nvalues:\n  reviews:\n    plans: review\n");
+    let project = rig.project(Some(plans_only("review_and_approve"))).await;
+    let job = rig.job(Some(&project)).await;
+    let said = job.hosted.and_then(|hosted| hosted.values).and_then(|values| values.reviews).expect("reviews");
+    assert_eq!(said.plans_from, Some(ValueLayer::Project));
+    assert_eq!(inherited_kinds(&said), [(None, None); 3]);
+    let frozen = rig.fleet.job_values(job.id.as_str()).await.expect("frozen").wire().reviews.expect("reviews");
+    assert_eq!(inherited_kinds(&frozen), [(None, None); 3], "nor does the read of its rows");
+}
+
 #[tokio::test]
 async fn an_all_three_block_reads_as_before() {
     let rig = a_rig("");
@@ -526,4 +581,42 @@ async fn a_projects_delivery_beats_kits_and_the_answer_names_the_layer() {
     assert_eq!((kits.value.as_deref(), kits.from), (Some("keep_local"), ValueLayer::Kit));
     let projects = asked(Some(set)).await.expect("read").delivery.expect("the key");
     assert_eq!((projects.value.as_deref(), projects.from), (Some("auto_land"), ValueLayer::Project));
+}
+
+#[tokio::test]
+async fn a_value_the_project_overrides_says_what_kit_would_give() {
+    let rig = a_rig("");
+    rig.kit_values("version: 1\nvalues:\n  pr_mode: draft\n");
+    let project = rig.project(Some(set(Some(core_model::PrMode::Ready), None))).await;
+
+    let asked = rig.fleet.values_asked(Some(project), Some(rig.manifest())).await.expect("read");
+    let (value, from) = (asked.pr_mode.value.as_deref(), asked.pr_mode.from);
+    assert_eq!((value, from), (Some("ready"), ValueLayer::Project));
+    assert_eq!((asked.pr_mode.inherited.as_deref(), asked.pr_mode.inherited_from), (Some("draft"), Some(ValueLayer::Kit)));
+}
+
+#[tokio::test]
+async fn a_value_not_from_the_project_carries_no_inherited() {
+    let rig = a_rig("");
+    rig.kit_values("version: 1\nvalues:\n  look:\n    theme: paper\n");
+    let project = rig.project(Some(set(Some(core_model::PrMode::Ready), None))).await;
+    let carries = |one: &ipc::ResolvedValue| (one.inherited.clone(), one.inherited_from);
+
+    let asked = rig.fleet.values_asked(Some(project), Some(rig.manifest())).await.expect("read");
+    assert_eq!(asked.theme.from, ValueLayer::Kit);
+    assert_eq!(carries(&asked.theme), (None, None), "Kit's word is the answer, and nothing is below the project's");
+    assert_eq!(carries(&asked.density), (None, None));
+    let no_project = rig.fleet.values_asked(None, Some(rig.manifest())).await.expect("read");
+    assert_eq!(carries(&no_project.pr_mode), (None, None), "no project, nothing overridden");
+    assert_eq!(carries(&no_project.delivery.expect("the key")), (None, None));
+}
+
+#[tokio::test]
+async fn an_override_of_a_value_unset_below_says_default() {
+    let rig = a_rig("");
+    let project = rig.project(Some(delivery_set("auto_land"))).await;
+
+    let delivery = rig.fleet.values_asked(Some(project), Some(rig.manifest())).await.expect("read").delivery.expect("the key");
+    assert_eq!((delivery.value.as_deref(), delivery.from), (Some("auto_land"), ValueLayer::Project));
+    assert_eq!((delivery.inherited, delivery.inherited_from), (None, Some(ValueLayer::Default)), "unset below, which is not missing");
 }

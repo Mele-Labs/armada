@@ -219,7 +219,7 @@ where
             return Ok(Done { started: Some(job), ..Done::default() });
         }
         if let Some(n) = suggestion_number(id) {
-            return self.suggestion_settled(doing.session, n, true, then.map(|then| (then, hand_to)), doing.rule).await.map_err(|refused| Fault::NotDone(refused.error().message.clone()));
+            return Box::pin(self.suggestion_settled(doing.session, n, true, then.map(|then| (then, hand_to)), doing.rule)).await.map_err(|refused| Fault::NotDone(refused.error().message.clone()));
         }
         // A held Job's start is pressed as its card's Start, with the landing the card picked. Where the
         // card still asks how the work lands, it is opened for him to answer.

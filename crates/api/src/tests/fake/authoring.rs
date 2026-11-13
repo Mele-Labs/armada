@@ -190,7 +190,31 @@ impl Authoring for FakeDaemon {
                 replaced: true,
                 runs_from: None,
             },
+            version: 1,
+            pinned: Vec::new(),
         })
+    }
+
+    async fn get_workflow_versions(
+        &self,
+        _workflow_id: WorkflowId,
+        _source: String,
+        _project: Option<String>,
+        _manifest_id: Option<ManifestId>,
+    ) -> Result<ipc::WorkflowVersions, Refusal> {
+        Ok(ipc::WorkflowVersions {
+            versions: vec![ipc::WorkflowVersion {
+                version: 2,
+                text: String::from("{}"),
+                hash: String::from("abc"),
+                at: ipc::Instant::carried("2026-11-13T09:00:00.000Z"),
+                origin: ipc::VersionOrigin::Published,
+            }],
+        })
+    }
+
+    async fn revert_workflow(&self, revert: ipc::RevertWorkflow, _manifest_id: Option<ManifestId>) -> Result<ipc::WorkflowDraft, Refusal> {
+        Ok(kept(revert.workflow_id, revert.source, revert.project, format!("{{back to {}}}", revert.version)))
     }
 }
 

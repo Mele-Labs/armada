@@ -59,6 +59,11 @@ export type ValueLayer = "default" | "machine" | "kit" | "repository" | "project
 export type ResolvedValue = {
   value?: string;
   from: ValueLayer;
+  /** True only for a project's `delivery` Fleet learned from the person's first answer, and that still stands as learned. */
+  learned?: boolean;
+  /** What the layers below the project give this key. Set only where `from` is `project`; absent there when nothing below sets a word, and `inherited_from` is then `default`. */
+  inherited?: string;
+  inherited_from?: ValueLayer;
 };
 
 /** The tracker a layer named. `value` is absent where none does (the forge's own), and `from` is then `default`. */
@@ -83,6 +88,15 @@ export type ResolvedReviews = {
   plans_from?: ValueLayer;
   pull_requests_from?: ValueLayer;
   walks_from?: ValueLayer;
+  /** What the layers below the project give the plans word. Set only where `plans_from` is `project`; `plans_inherited_from` comes with it, and is `default` where nothing below sets a word. */
+  plans_inherited?: string;
+  plans_inherited_from?: ValueLayer;
+  /** What the layers below the project give the pull requests word. Set only where `pull_requests_from` is `project`. */
+  pull_requests_inherited?: string;
+  pull_requests_inherited_from?: ValueLayer;
+  /** What the layers below the project give the walks word. Set only where `walks_from` is `project`. */
+  walks_inherited?: string;
+  walks_inherited_from?: ValueLayer;
 };
 
 /** What autonomy comes to for one kind of act. `from` is `kit`, `project` or `repository` where a piece sets it, else `default`. */

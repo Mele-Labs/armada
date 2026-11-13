@@ -25,6 +25,12 @@ where
     /// A Job titled `title` started in `manifest` on `brief`, in the Operator's name. Its id, or why none was
     /// started: a Job that could not be briefed is closed, so none is left standing empty.
     pub(super) async fn operator_job_started(self: &Arc<Self>, manifest: &str, title: &str, brief: &str) -> Result<String, &'static str> {
+        let found = self.found_elsewhere(manifest, title, brief).await;
+        let brief = match found.told() {
+            Some(told) => format!("{brief}\n\n{told}"),
+            None => brief.to_string(),
+        };
+        let brief = brief.as_str();
         let held = self.agent_start_held(None, manifest).await;
         let start = StartSession {
             project: None,
@@ -54,6 +60,7 @@ where
             let _ = self.closed_and_parked(CloseSession { session_id: record.id }).await;
             return Err("the Job was not briefed");
         }
+        self.elsewhere_logged(&job, manifest, title, &found).await;
         Ok(job)
     }
 }

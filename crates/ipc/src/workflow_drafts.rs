@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Instant, WorkflowId, WorkflowSaved, WorkflowScope};
+use crate::{Instant, SessionId, WorkflowId, WorkflowSaved, WorkflowScope};
 
 /// Who made a change to a draft.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,6 +73,14 @@ pub struct PutWorkflowDraft {
     pub text: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    /// Who made the change. Absent is `you`. **`agent` records an agent's change that the editor rebased onto a draft that moved after
+    /// the agent read it**, and names the `WorkflowChange` it is of in `change`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub by: Option<DraftBy>,
+    /// The `WorkflowChange` an agent's put is of: required with `by: agent`, and refused otherwise. It must be a ready change of the same
+    /// workflow, source and project that carries an `after` and is not `drafted` yet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change: Option<i64>,
 }
 
 /// What `discard_workflow_draft` removed.
@@ -107,4 +115,10 @@ pub struct PublishWorkflowDraft {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkflowPublished {
     pub saved: WorkflowSaved,
+    /// The number this publish took in the place's versions, from 1: where the text that was there is kept first, as
+    /// `found`, it is version 1 and this is 2.
+    pub version: u32,
+    /// The live Jobs this publish left pinned to the text they were running, so none moved by itself. A Job whose repository
+    /// runs the same text after the publish, as when another place still wins there, is not pinned. `get_affected_jobs` lists them.
+    pub pinned: Vec<SessionId>,
 }

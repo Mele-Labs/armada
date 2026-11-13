@@ -249,6 +249,24 @@ Lifecycles, rules and autonomy defaults get drafts the same way, kept in Kit.
 **`save_workflow` is unchanged and still writes at once**, as does Approve on a drafted change, since the Classic Bridge uses both.
 `docs/practices/protocol/protocol-23-95-a-workflow-edited-as-a-draft-and-published.md` owns the operations.
 
+**Each publish is a version, which the owner can go back to.** Fleet keeps the whole text of every publish in a place, numbered from 1. Where the text in the place is not the latest version kept, before the first publish or after a hand edit, a publish keeps it first as a version of its own (`found`), so the history has no hole.
+Going back puts that version's text in the draft as a change of his and publishes nothing, so he reads it and presses Publish, which is a version of its own.
+`save_workflow` and Classic's Approve write no version.
+**A copy of one of Armada's remembers the text it began from**, so when Armada ships a new version of a workflow he copied he sees what changed and chooses what to take into his draft: Fleet marks the copy where Armada's carried text no longer matches what it began from, and serves both texts; the native editor does the diff and the choosing.
+A copy made before Fleet kept it has no such text, and none is guessed for it; deleting a copy drops its versions and what it began from, and resetting it begins them again from Armada's text.
+`docs/practices/protocol/protocol-23-96-a-workflow-with-versions-and-a-base.md` owns the operations.
+
+**Publish asks which running Jobs move to the new version** (the owner's ruling of 13 Nov 2026), so a publish moves none by itself.
+A Job with no copy of its own reads the workflow live from what its repository serves, so a publish would change its steps under it.
+Before it writes, Publish pins each live Job that follows the workflow, holds no copy of its own and is in a repository the published place reaches: Fleet keeps it a copy of the text its repository runs now, marked as a pin, so the Job keeps its steps.
+After the save a repository that runs the same text it ran before, as where Kit is published and a project copy still wins there, has its Jobs unpinned, since nothing moved for them.
+The answer names the Jobs left pinned, and the person picks which move.
+A move drops the pin, so the Job reads the published definition and its rail, kept by step id, keeps its place; where the step it stood on is not in the new version, the rail goes to the first step after it that the new version has, else the new last step.
+A Job that has run is told once, on its step; the timeline says it was moved.
+A Job whose own step edit made a copy is listed so he sees it and is never moved, since a move would lose its edits.
+**Only Publish pins.** `save_workflow` and a file edited by hand change what Jobs read at once, as they always did.
+`docs/practices/protocol/protocol-23-97-moving-running-jobs-to-a-new-workflow-version.md` owns the operations.
+
 ### The plan step
 
 **A workflow may name at most one step as its recording step**, the one

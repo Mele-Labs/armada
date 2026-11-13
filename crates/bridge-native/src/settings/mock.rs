@@ -285,9 +285,9 @@ impl MockFleet {
     pub fn values(&self, project: &str) -> Result<ResolvedValues, Refused> {
         let own = self.projects.projects.iter().find(|one| one.id == project).ok_or_else(|| Refused::said(format!("there is no project {project}")))?.values.clone().unwrap_or_default();
         let word = |own: Option<String>, kit: Option<&str>, default: Option<&str>| match (own, kit, default) {
-            (Some(value), _, _) => ResolvedValue { value: Some(value), from: ValueLayer::Project },
-            (None, Some(value), _) => ResolvedValue { value: Some(value.into()), from: ValueLayer::Kit },
-            (None, None, value) => ResolvedValue { value: value.map(String::from), from: ValueLayer::Default },
+            (Some(value), _, _) => ResolvedValue { value: Some(value), from: ValueLayer::Project, learned: false, inherited: None, inherited_from: None },
+            (None, Some(value), _) => ResolvedValue { value: Some(value.into()), from: ValueLayer::Kit, learned: false, inherited: None, inherited_from: None },
+            (None, None, value) => ResolvedValue { value: value.map(String::from), from: ValueLayer::Default, learned: false, inherited: None, inherited_from: None },
         };
         let look = own.look.clone().unwrap_or_default();
         let reviews = match &own.reviews {
@@ -299,8 +299,14 @@ impl MockFleet {
                 plans_from: None,
                 pull_requests_from: None,
                 walks_from: None,
+                plans_inherited: None,
+                plans_inherited_from: None,
+                pull_requests_inherited: None,
+                pull_requests_inherited_from: None,
+                walks_inherited: None,
+                walks_inherited_from: None,
             },
-            None => ResolvedReviews { plans: "off".into(), pull_requests: "off".into(), walks: "off".into(), from: ValueLayer::Default, plans_from: None, pull_requests_from: None, walks_from: None },
+            None => ResolvedReviews { plans: "off".into(), pull_requests: "off".into(), walks: "off".into(), from: ValueLayer::Default, plans_from: None, pull_requests_from: None, walks_from: None, plans_inherited: None, plans_inherited_from: None, pull_requests_inherited: None, pull_requests_inherited_from: None, walks_inherited: None, walks_inherited_from: None },
         };
         Ok(ResolvedValues {
             pr_mode: word(own.pr_mode.map(|mode| mode.as_wire().to_string()), None, Some("ready")),
