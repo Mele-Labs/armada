@@ -100,7 +100,10 @@ pub enum Verb {
     /// The row of this name pressed and carried over the target's top edge, the button still held:
     /// the picture shows the lifted row and where it would land.
     Lift(&'static str),
-    /// The held button let go where the pointer stands, ending a `Lift`.
+    /// The element of this role and name pressed and carried onto the target, to the point this many
+    /// hundredths across and down it, the button still held: a tab dragged onto a pane's edge.
+    Carry(&'static str, &'static str, u8, u8),
+    /// The held button let go where the pointer stands, ending a `Lift` or a `Carry`.
     Release,
     /// Nothing pressed: the target must be drawn inside the element of this role and name, side to
     /// side, or the step fails. For a thing that must wrap rather than run past its column.
@@ -187,6 +190,8 @@ pub enum Screen {
     App,
     /// The app with Settings over it, on the mock Fleet in `settings/mock.rs`.
     Settings,
+    /// The Jobs screen in front inside the Operator's screen, with Reviews in the strip on `reviews/mock.rs`.
+    Reviews,
 }
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
@@ -349,6 +354,13 @@ static EDGE: [Step; total(EDGE_PARTS)] = joined(EDGE_PARTS);
 
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
+    Walk {
+        name: "reviews",
+        title: "Reviews: what changed since you looked, on free panes",
+        screen: Screen::Reviews,
+        scenario: "jobs-many",
+        steps: &crate::reviews::walk::STEPS,
+    },
     Walk {
         name: "native-run",
         title: "Run a command an agent showed, from the thread and from Needs you",
