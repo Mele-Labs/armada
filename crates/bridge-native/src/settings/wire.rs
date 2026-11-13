@@ -137,6 +137,15 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowSteps", cx))
     }
 
+    /// `GET /workflows/lanes`: one workflow's lanes at a level, as its editor draws them (`get_workflow_lanes`).
+    pub fn workflow_lanes(&mut self, workflow: &str, scope: &str, manifest: &str, cx: &App) -> Task<Result<ipc::JobLanesView, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.workflow_lanes(workflow, scope));
+        }
+        let path = scoped(&format!("/workflows/lanes?workflow={}&scope={}", crate::link::percent_encoded(workflow), crate::link::percent_encoded(scope)), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "JobLanesView", cx))
+    }
+
     /// `GET /workflows/definition`: the file's text, as `save_workflow` takes it back.
     pub fn workflow_definition(&mut self, id: &str, source: &str, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
         if let Wire::Mock(mock) = self {

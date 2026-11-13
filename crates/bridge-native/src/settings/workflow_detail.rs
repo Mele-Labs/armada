@@ -672,6 +672,8 @@ impl SettingsOverlay {
             .pb(look.length(token::SPACE_4))
             .child(self.render_workflow_head(one, armada.as_ref(), comparing, look, window, cx))
             .child(div().px(look.length(token::SPACE_4)).child(steps))
+            // Under the steps until the lanes' inspector takes the cards, as Classic's does (`WorkspaceEditor`).
+            .child(div().flex_none().px(look.length(token::SPACE_4)).child(self.render_lanes(one, look, cx)))
             .children(self.render_change_band(one, look, window, cx).map(|band| div().px(look.length(token::SPACE_4)).child(band)))
             .into_any_element()
     }
