@@ -93,7 +93,7 @@ pub static TAKE_STEPS: &[Step] = &[
     step("armada's copy of feature wears the band, with Choose what to take", Verb::PressWithin("group", "armada repository", "feature"), "button", "Choose what to take"),
     press_on("It opens Armada's lanes beside yours, where the canvas was", "button", "Choose what to take", "region", "Choose what to take"),
     step("Armada's side marks Propose, Walk and Refine, and a row names each", Verb::Look, "group", "Armada's lanes"),
-    step("A press on the Propose node chooses it: it takes a check", Verb::PressWithin("group", "Armada's lanes", "Step: Propose"), "button", "Step: Propose"),
+    step("A press on the Propose node chooses it: it takes a check", Verb::PressWithin("group", "Armada's lanes", "Step: Propose"), "button", "Step: Propose, chosen"),
     step("The page scrolls down to its row, now ticked, and the buttons", Verb::Wheel("heading", "Armada's", 700), "checkbox", "Propose renamed from Plan"),
     step("Tab, then Space, chooses the next row from the keys", Verb::Keys(&["tab", "space"]), "checkbox", "Walk added after Propose"),
     step("Space and Shift-Tab take both back off: nothing is chosen, so Take is dim", Verb::Keys(&["space", "shift-tab", "space"]), "button", "Take"),

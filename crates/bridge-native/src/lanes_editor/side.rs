@@ -10,6 +10,9 @@ use ipc::{JobLanesView, LaneKind, LaneNodeKind};
 use gpui::{div, prelude::*, px, AnyElement, Context, Entity, EventEmitter, FocusHandle, FontWeight, Hsla, Keystroke, Role, SharedString, Subscription, Window};
 
 use super::armada::{Difference, Kind};
+
+/// What a mark's tooltip opens with on either side: each one is a difference Armada made.
+const ARMADA_CHANGED: &str = "Armada changed";
 use super::patch::{node_id, step_node};
 use crate::labels::labelled;
 use crate::lanes_canvas::{lanes_canvas, LanesHost, LanesState, Pick, LANE_MIN};
@@ -94,6 +97,8 @@ struct Canvas {
     id: SharedString,
     state: LanesState,
     lanes: JobLanesView,
+    /// The nodes a chosen row is about.
+    chosen: Vec<String>,
 }
 
 impl EventEmitter<Pressed> for Canvas {}
@@ -105,6 +110,20 @@ impl LanesHost for Canvas {
 
     fn lanes_of<'a>(&'a self, _id: &SharedString, _cx: &'a gpui::App) -> Option<&'a JobLanesView> {
         Some(&self.lanes)
+    }
+
+    /// Two canvases stand side by side, so each is drawn whole in the width it has.
+    fn lanes_compact(&self, _id: &SharedString) -> bool {
+        true
+    }
+
+    fn lanes_chosen(&self, _id: &SharedString, node: &str) -> bool {
+        self.chosen.iter().any(|one| one == node)
+    }
+
+    /// Every mark on either side is a difference Armada made.
+    fn changed_said(&self, _id: &SharedString) -> SharedString {
+        ARMADA_CHANGED.into()
     }
 
     /// Every press toggles what the node is about, so the pick is let go at once: the next press on it is a pick again.
@@ -161,7 +180,7 @@ enum Which {
 
 impl Side {
     pub fn new(sides: Sides, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let canvas = |id: &'static str, lanes: &JobLanesView, cx: &mut Context<Self>| cx.new(|cx| Canvas { id: id.into(), state: LanesState::new(cx), lanes: lanes.clone() });
+        let canvas = |id: &'static str, lanes: &JobLanesView, cx: &mut Context<Self>| cx.new(|cx| Canvas { id: id.into(), state: LanesState::new(cx), lanes: lanes.clone(), chosen: Vec::new() });
         let (left, right) = (canvas("take-left", &sides.left.lanes, cx), canvas("take-right", &sides.right.lanes, cx));
         let subs = vec![
             cx.subscribe_in(&left, window, |this, _, pressed: &Pressed, window, cx| this.pressed(Which::Left, &pressed.0, window, cx)),
@@ -197,11 +216,11 @@ impl Side {
     fn marks(&mut self, cx: &mut Context<Self>) {
         let (left, right) = (marked(&self.left.lanes, &self.rows, Which::Left), marked(&self.right.lanes, &self.rows, Which::Right));
         self.left.canvas.update(cx, |canvas, cx| {
-            canvas.lanes = left;
+            (canvas.lanes, canvas.chosen) = left;
             cx.notify();
         });
         self.right.canvas.update(cx, |canvas, cx| {
-            canvas.lanes = right;
+            (canvas.lanes, canvas.chosen) = right;
             cx.notify();
         });
     }
@@ -374,10 +393,11 @@ impl gpui::Render for Side {
     }
 }
 
-/// `lanes` with each node a row of this side is about marked as the canvas marks a changed node, and as a step that went
-/// through where one of its rows is chosen.
-fn marked(lanes: &JobLanesView, rows: &[Row], side: Which) -> JobLanesView {
+/// `lanes` with each node a row of this side is about marked as the canvas marks a changed node, and the nodes one of whose
+/// rows is chosen.
+fn marked(lanes: &JobLanesView, rows: &[Row], side: Which) -> (JobLanesView, Vec<String>) {
     let mut view = lanes.clone();
+    let mut chosen = Vec::new();
     for node in view.lanes.iter_mut().flat_map(|lane| lane.nodes.iter_mut()) {
         let mine: Vec<&Row> = rows
             .iter()
@@ -389,10 +409,12 @@ fn marked(lanes: &JobLanesView, rows: &[Row], side: Which) -> JobLanesView {
         if mine.is_empty() {
             continue;
         }
-        node.changed = Some(mine.iter().map(|row| if row.chosen { format!("Taking: {}", row.spec.said) } else { row.spec.said.clone() }).collect::<Vec<_>>().join("\n"));
-        node.passed = mine.iter().any(|row| row.chosen);
+        node.changed = Some(mine.iter().map(|row| row.spec.said.clone()).collect::<Vec<_>>().join("\n"));
+        if mine.iter().any(|row| row.chosen) {
+            chosen.push(node.id.clone());
+        }
     }
-    view
+    (view, chosen)
 }
 
 /// The workflow's lane of `lanes` alone, with a node for each step of `text` in its order: Fleet's lanes of a workflow
