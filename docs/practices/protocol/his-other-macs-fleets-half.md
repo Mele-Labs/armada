@@ -38,7 +38,8 @@ Bridge's half is `packages/protocol/src/macs.ts`, written by hand, field for fie
 A blank `mac` on any of the four the Gateway hands in is 422 `fleet.other_mac_unnamed`.
 
 **Only the Gateway hands Fleet another Mac's rows.**
-The four routes it hands them in on are in `api::callers::THE_PERSONS_OWN`, so a call to one from inside a Job, around the door, is 403 `api.the_persons_own`: "only the person pairs his other Macs, from Bridge". This Mac's Phone Gateway calls them from inside Fleet's own process, which no Job holds.
+The four routes it hands them in on are in `api::callers::THE_PERSONS_OWN`, so a call to one from inside a Job, around the door, is 403 `api.the_persons_own`: "only the person pairs his other Macs, from Bridge".
+This Mac's Phone Gateway calls them from inside Fleet's own process, which no Job holds.
 The call is placed by the process holding the connection, never by `x-armada-caller`, and the Gateway runs in Fleet's own process, which no Job holds.
 
 **A row a replace or a forget drops leaves `list_sessions` at once, and `session.removed` says so.**
