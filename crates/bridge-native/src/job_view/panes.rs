@@ -1172,16 +1172,26 @@ impl JobView {
                     div()
                         .id(SharedString::from(format!("check-run:{one}")))
                         .flex()
-                        .items_center()
+                        .items_start()
                         .gap(look.length(token::SPACE_3))
                         .py(look.length(token::SPACE_2))
                         .when(ix + 1 < runs.len(), |row| row.border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
                         .text_size(look.length(token::TEXT_XS))
                         .line_height(look.length(token::LEADING_XS))
                         .text_color(look.color(token::FG_MUTED))
-                        .child(div().id(SharedString::from(format!("check-run-mark:{one}"))).flex_none().tooltip(tip(said)).child(glyph(look, mark, Size::Small, look.color(ink))))
-                        .child(div().flex_1().min_w_0().truncate().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(clock(at, now).unwrap_or_else(|| at.clone()))))
-                        .child(div().flex_none().child(SharedString::from(age(at, now).unwrap_or_default())))
+                        .child(div().id(SharedString::from(format!("check-run-mark:{one}"))).flex_none().h(look.length(token::LEADING_XS)).flex().items_center().tooltip(tip(said)).child(glyph(look, mark, Size::Small, look.color(ink))))
+                        // The time is what the row is for: it is never cut, and the age drops under it where the row is narrow.
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .flex_wrap()
+                                .justify_between()
+                                .gap_x(look.length(token::SPACE_3))
+                                .child(div().flex_none().whitespace_nowrap().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(clock(at, now).unwrap_or_else(|| at.clone()))))
+                                .child(div().flex_none().whitespace_nowrap().child(SharedString::from(age(at, now).unwrap_or_default()))),
+                        )
                 })),
                 Role::List,
                 "Runs",
