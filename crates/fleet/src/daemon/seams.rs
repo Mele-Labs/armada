@@ -343,6 +343,9 @@ where
     pub(crate) fn building(&self) -> &crate::building::Building {
         &self.building
     }
+    pub(crate) fn previewing(&self) -> &crate::previewing::Previewing {
+        &self.previewing
+    }
     /// The local language model, loaded or not yet.
     pub fn language_model(&self) -> &crate::language_model::LanguageModel {
         &self.language_model

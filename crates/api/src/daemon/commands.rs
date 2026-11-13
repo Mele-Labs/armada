@@ -190,6 +190,13 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::PickFleetBuildJob,
     ) -> impl Future<Output = Result<ipc::FleetBuildSnapshotting, Refusal>> + Send;
 
+    /// `skip_preview_refresh` — keep the Refresh row's id skipped, so it stays hidden until the set of
+    /// ready offers changes.
+    fn skip_preview_refresh(
+        &self,
+        asked: ipc::SkipPreviewRefresh,
+    ) -> impl Future<Output = Result<ipc::PreviewRefreshSkipped, Refusal>> + Send;
+
     /// `swap_fleet_build` — start `builds/current/armada build swap` detached, so that it outlives
     /// the Fleet it stops and can swap back from one that does not answer, and answer that it has
     /// begun.

@@ -1,0 +1,20 @@
+[operations.offer_preview]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Offer a branch for the owner's preview, with one line on what it holds, so Fleet checks it merges and compiles with main and the other offers"
+notes = """
+`POST /sessions/offer_preview`, body `OfferPreview`: optionally `branch`, `about` and `session_id`. Answered `PreviewOffered`: the `branch`, its `tip` in full as it stands now, and `state`, always `checking`.
+
+**`branch` is the branch of the slot the Job holds** when it is left out. **`about` is one line on what the branch holds**, at most 120 characters, no newline. It is required on a Job's first offer of a branch and kept on a re-offer that leaves it out.
+
+**Fleet keeps the offer at the tip it was made at**, one a (Job, branch): offering again replaces it at the new tip. It then checks the set, one check at a time for the whole Fleet, in one kept worktree. `main` goes first, then each offer's tip in the order they were offered; a conflict fails the offer that brought it in. What each offer touches is compiled against main. All the offers are tried together, and where that fails they are tried one at a time, each on top of those already passed.
+
+**What the check found reaches the Job as a notice, once a change of state**: `<branch> is on the preview list at <tip>.`, or why it is off it, with the files, or that its tip moved since the offer. The check runs again when an offer is made or withdrawn and when `origin/main` moves. `scripts/preview` reads the ready offers from `Armada/preview-offered`, and the owner's Refresh row is `get_preview_offers`'s `refresh`.
+
+**Fleet drops an offer without a word** when its tip is on main or its Job has ended. A branch whose tip moved is dropped and the Job told, since what was checked is no longer what the branch holds.
+
+Refused 422, each naming what is missing: `fleet.preview_no_branch` where the Job holds no branch and names none; `fleet.preview_branch_unknown` where the branch is not in the served repository; `fleet.preview_not_ahead` where the branch is not ahead of main; `fleet.preview_about_needed` on a first offer with no `about`; `fleet.preview_about_invalid` for an `about` over 120 characters or on more than one line; `fleet.preview_unavailable` where the served repository has no `scripts/preview`. 422 where the call places no Job.
+
+`agent_access` is `Yes`: only the Job knows its branch is ready to be tried.
+"""
