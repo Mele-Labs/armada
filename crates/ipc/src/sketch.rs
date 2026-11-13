@@ -104,6 +104,12 @@ pub struct ShowSketch {
     /// to. Fleet keeps that scene whole at the call, so a later replacement does not move the diff.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub against: Option<String>,
+    /// What the sketch is for and what his answer changes, in one sentence of at most 200 characters.
+    #[serde(rename = "for", default, skip_serializing_if = "Option::is_none")]
+    pub for_line: Option<String>,
+    /// At most 5, each `http(s)`. Fleet adds the task, plan step and pull requests it knows.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<crate::ForLink>,
 }
 
 /// The keys of a sketch's `detail` that put it to the person and say how he answered. `detail`

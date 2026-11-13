@@ -53,11 +53,12 @@ Bridge's half is `packages/protocol/src/macs.ts`, written by hand, field for fie
 | `take_back_queued` | Bridge calls | `POST /queued/take_back`, body `TakeBack { id }`, answered with `QueuedList`; 404 `fleet.queued_not_found`, 409 `fleet.queued_in_flight` |
 | `queued.changed` | Fleet sends | `QueuedList`, whole, to Bridge alone, whenever an act is kept, sent, refused or taken back |
 | `forget_other_mac` | the Gateway calls | `POST /other_macs/forget`, body `MacNamed`: every row, report, project copy and queued edit held from it dropped, `session.removed` for each row, then `bug_reports.changed`. Answers `MacNamed` |
+| `hold_mac_claims` | the Gateway calls | `PUT /other_macs/claims`, body `MacClaimsWaiting { claims }`: every other Mac waiting for his Confirm here, replacing all held, each a `mac_pairing` call on him ([What calls the person](a-jobs-calls.md)). Answers the same |
 
 A blank `mac` on any of the five the Gateway hands in is 422 `fleet.other_mac_unnamed`.
 
 **Only the Gateway hands Fleet another Mac's rows.**
-The five routes it hands them in on, and `project_act_from_mac`, are in `api::callers::THE_PERSONS_OWN`, so a call to one from inside a Job, around the door, is 403 `api.the_persons_own`: "only the person pairs his other Macs, from Bridge".
+The five routes it hands them in on, `hold_mac_claims` and `project_act_from_mac` are in `api::callers::THE_PERSONS_OWN`, so a call to one from inside a Job, around the door, is 403 `api.the_persons_own`: "only the person pairs his other Macs, from Bridge".
 This Mac's Phone Gateway calls them from inside Fleet's own process, which no Job holds.
 The call is placed by the process holding the connection, never by `x-armada-caller`, and the Gateway runs in Fleet's own process, which no Job holds.
 

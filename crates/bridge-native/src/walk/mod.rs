@@ -429,6 +429,18 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-answered-bubble",
+        title: "Your answers and approvals read as your own messages",
+        screen: Screen::Jobs,
+        scenario: "job-view-composer",
+        steps: &[
+            press_on("A Job you answered and approved in", "row", "Fix the merge line freshness chip", "region", "Thread"),
+            step("Your answer to a question sits on the right as your own message: a gold band says You answered, the question is quoted, then your answer", Verb::WheelTo("region", "Thread", -200), "region", "You answered"),
+            step("The question reads in full, in quiet words above your answer", Verb::Wheel("region", "Thread", -240), "group", "Question"),
+            step("An approval takes the same bubble: You approved, and the walk it approved", Verb::WheelTo("region", "Thread", -120), "region", "You approved"),
+        ],
+    },
+    Walk {
         name: "native-issues-jobs",
         title: "A Job's issues and the Jobs linked to it",
         screen: Screen::Jobs,
@@ -2604,6 +2616,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "jobs-many",
         steps: crate::settings::walk::MACS_PHONE_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::MACS_CLAIM,
+        title: "Settings › Macs: a claim from the other Mac",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_CLAIM_STEPS,
     },
     Walk {
         name: crate::settings::walk::WAYS,

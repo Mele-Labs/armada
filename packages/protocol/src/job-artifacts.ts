@@ -70,4 +70,32 @@ export type JobArtifact = {
   item?: string;
   /** Set while archived. `state` still reads as it stood. */
   archived?: ArtifactArchived;
+  /** What the newest revision is for, and what it links to. */
+  for_line?: ArtifactFor;
+};
+
+/** What a link on a For line points at. `link` is the agent's address; the rest are Fleet's. */
+export type ArtifactLinkKind = "plan_step" | "task" | "pull_request" | "link";
+
+/** One link on a For line. */
+export type ArtifactLink = {
+  kind: ArtifactLinkKind;
+  label: string;
+  /** A plan group's id, a plan task's id, `#<n>`, or an `http(s)` address. */
+  target: string;
+};
+
+/**
+ * What an artifact is for: the agent's one sentence (at most 200 characters), its links, then the links Fleet knows
+ * (the task in progress, its plan step, each open pull request the Job holds). Kept per revision.
+ */
+export type ArtifactFor = {
+  text?: string;
+  links: ArtifactLink[];
+};
+
+/** A link as the agent gives it to `show_sketch` or `propose_draft`: `http://` or `https://`, at most 5. */
+export type ForLink = {
+  label: string;
+  url: string;
 };

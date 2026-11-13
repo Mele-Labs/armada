@@ -18,7 +18,7 @@ The files are not `calls.rs` and `calls.ts`, since `crates/ipc/src/call.rs` and 
 | `calls.changed` | Fleet writes, Bridge reads | `CallsChanged { calls, arrived }`: the calls whole, and the news since the last publish |
 | `open_call` (`POST /calls/open`, `agent_access = "No"`) | Bridge writes | `OpenStandingCall { key }`, answered with `StandingCalls` |
 | `StandingCall` | | `{ key, owner, kind, session_id?, title, text, since, tone, opened }` |
-| `CallArrival` | | `{ session_id, title, text, tone, kind }`, `kind` being `needs` or `stopped` |
+| `CallArrival` | | `{ session_id, title, text, tone, kind }`, `kind` being `needs`, `stopped` or `mac_pairing` |
 
 ## What moved, and from where
 
@@ -69,10 +69,35 @@ A call that has been answered or dismissed for good is a window's own memory and
 | `checkout` | `checkout:<root>` | `<n> commits behind <base>`, and why it is held | a served checkout is held back |
 | `pull`, failing | `pull:<number>` | `#<number> <branch>`, and `checks failed` or `unmergeable` | a pull request of his failed or cannot merge, and its Job is not on it |
 | `pull`, by hand | `pull:<number>` | `armada.yml edit #<number>`, and `Needs merging by hand` | the forge would not auto-merge an `armada.yml` edit, and its Job is not on it |
+| `mac_pairing` | `mac:<id>` | `Confirm <Mac> pairing`, and what Settings › Macs says of it | another Mac pasted this Mac's link or asked from its Settings, and waits for his Confirm here |
 
 **A Job that needs him stays a call after he has seen its item**: the item leaves the list, and the row's own call takes its place.
 It is opened once he has been in the Job since its last turn ended, unless the Job asks him.
 **A Job Fleet gave up restarting** is news too, with `kind` `stopped`, the tone `waiting` and the words `stoppedSaid` in `packages/screens/src/session-state.ts` gives its reason, and a call as any Job that needs him is.
+
+## A Mac waiting to pair: `mac_pairing` and `hold_mac_claims`
+
+Since 13 Nov 2026. `docs/concepts/pocket.md`, *Another Mac*.
+**Two enum values, one operation, one route and the type it carries**: no event kind, no error and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `mac_pairing` in `packages/protocol/src/standing-calls.ts` and `MacClaimsWaiting` in `packages/protocol/src/macs.ts`.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `StandingCallKind` | Fleet writes, Bridge reads | Gains `mac_pairing`: key and owner `mac:<id>`, `mac` the asking Mac's id, no `session_id`, title `Confirm <Mac> pairing`, text what `GET /admin/macs` says (`Work wants to pair. Confirm if it shows 4821.`, or `Press Confirm to pair Work with this Mac`), tone `blocked`, `since` when the claim arrived |
+| `StandingCall.mac` | Fleet writes, Bridge reads | No new field. On `mac_pairing` it names the Mac waiting to pair, not the Mac that holds a Job |
+| `CallArrivalKind` | Fleet writes, Bridge reads | Gains `mac_pairing`, told once when a Mac Fleet did not hold begins to wait. Its `session_id` is the call's key, `mac:<id>`, and names no Job |
+| `hold_mac_claims` (`PUT /other_macs/claims`, `agent_access = "No"`) | the Gateway calls | `MacClaimsWaiting { claims }`, each `{ mac, name, why, at }`, `at` in Unix seconds: every claim waiting, replacing all held. Answers the same |
+
+**The acts are the Phone Gateway's, not Fleet's.**
+Confirm is `POST /admin/macs/pair/confirm` and Decline is `POST /admin/macs/forget`, each with `{ mac }` the call's `mac`, as on Settings › Macs.
+`open_call` does not open it: it asks him, as a Job that asks him does, so it stays unopened until it goes.
+
+**The Gateway holds the claims, and hands Fleet every one whole whenever they change**: a claim arriving on a link or an ask, Confirm, Decline, and an ask's five minutes passing.
+It hands them in on loopback, as it does another Mac's rows, one list at a time so the last Fleet takes is the last one read.
+A link's claim has no time limit, and stands until he confirms or declines it.
+Fleet drops them all when the Gateway is turned off or starts afresh, and a restart of Fleet forgets them with the Gateway's own.
+`hold_mac_claims` is in `api::callers::THE_PERSONS_OWN`, so a Job cannot plant one.
 
 ## Where Fleet's reading differs from Electron's
 

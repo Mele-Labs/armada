@@ -22,6 +22,7 @@ mod acting;
 mod messages;
 mod moving;
 mod pages;
+mod pairing_calls;
 mod updating;
 
 use super::session_host::{rig_fitted, Rig};

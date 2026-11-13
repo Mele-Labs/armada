@@ -9,8 +9,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacNamed, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent, OtherMacPageOpened,
-    OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
+    BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacClaimsWaiting, MacNamed, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent,
+    OtherMacPageOpened, OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
 };
 
 use crate::daemon::Refusal;
@@ -120,4 +120,7 @@ pub trait OtherMacs: Send + Sync + 'static {
 
     /// `forget_other_mac` — every row and report held from Mac `mac` dropped.
     fn forget_other_mac(&self, mac: MacNamed) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
+
+    /// `hold_mac_claims` — every other Mac waiting for his Confirm here, replacing all held, each a call on him.
+    fn hold_mac_claims(&self, claims: MacClaimsWaiting) -> impl Future<Output = Result<MacClaimsWaiting, Refusal>> + Send;
 }
