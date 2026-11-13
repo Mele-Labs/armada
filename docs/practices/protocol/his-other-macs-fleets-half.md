@@ -86,7 +86,8 @@ An answer drops it, and a 4xx keeps it with the Mac's words in `refused`, no lon
 **A Job's `SendMessage` to a Job his other Mac holds crosses as one more act**, `job_message`, body `JobMessage { from, title, to, text }`, through the door and queue above.
 `message_reach` allows an address no Job of this Mac has where it is a live Job held from another Mac and the writer is in a shared project; a private writer is refused as for an address no Job has (`refused_to`, `Unreachable::Unknown`), so it learns nothing of what the other Mac holds.
 The holding Mac's share filter answers for the receiver, so a message into a private Job is 404 `fleet.no_such_session` as for no Job; one into an ended Job is 409 `fleet.message_job_ended`, and the writer gets a Fleet note with its words.
-The receiver's row is the `Message` a Job on the same Mac gets, with `SessionVoice::Session.mac` the sending Mac's id. **The sender's own row stays the call's `Tool` row**: its `message.to.session_id` names the receiver, whose list row carries `mac`.
+The receiver's row is the `Message` a Job on the same Mac gets, with `SessionVoice::Session.mac` the sending Mac's id.
+**The sender's own row stays the call's `Tool` row**: its `message.to.session_id` names the receiver, whose list row carries `mac`.
 
 **The other Mac's shared Jobs call here as this Mac's do.** `relay` reaches no tap, so the rows held from another Mac are handed to the calls keeper where they are kept: each changed row of `hold_other_mac_sessions` and each `session.changed` of `hold_other_mac_event`.
 A Mac's first rows, with none held from it before, are heard quietly: what stood before the link is no news.
