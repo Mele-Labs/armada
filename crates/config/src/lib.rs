@@ -97,7 +97,7 @@ pub use workflow::{
     edit_steps, head_of, names_no_lifecycle, EditFault, Edited, EndFault, MechanicalCheck, NamesNoLifecycle, NewStep, Step, StepEdit, WorkflowDef,
     WorkflowHead,
 };
-pub use values::{kit_values_text, parse_kit_values, resolve, shipped_values, AutonomyLayers, Layers, ResolvedAutonomy, ResolvedValue, ResolvedValues};
+pub use values::{kit_values_text, parse_kit_values, resolve, shipped_values, AutonomyLayers, Layers, ResolvedAutonomy, ResolvedReviews, ResolvedValue, ResolvedValues};
 pub use project::{
     parse_project, parse_workspace_v1, project_text, ProjectError, ProjectFile, ProjectLeftOut, ProjectPlace, ProjectWritten, Projects,
 };
