@@ -96,6 +96,7 @@ async fn fake_fleet(rows: &[&str]) -> (FakeFleet, u16) {
         .route("/other_macs/bug_reports", put(keep))
         .route("/other_macs/event", post(keep))
         .route("/other_macs/forget", post(keep))
+        .route("/other_macs/claims", put(keep))
         .with_state(fleet.clone());
     let listener = crate::bind(0).await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -148,6 +149,12 @@ impl Side {
 
     pub(crate) fn id(&self) -> String {
         crate::machine::this_mac(&self.gateway).unwrap().id
+    }
+
+    /// The claims this Gateway last handed its Fleet, as `PUT /other_macs/claims` carried them.
+    pub(crate) fn claims_handed(&self) -> Option<ipc::MacClaimsWaiting> {
+        let sent = self.fleet.handed("PUT /other_macs/claims").pop()?;
+        Some(ipc::decode("the claims", sent.as_bytes()).unwrap())
     }
 
     /// Serve, and link, as `pocketing` does: a fresh `Macs` each start, over the same keys.

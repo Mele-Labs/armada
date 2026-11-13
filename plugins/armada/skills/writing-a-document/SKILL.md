@@ -31,6 +31,23 @@ A page asks without the mark while your plan has a `document_approved` gate
 open, or the workflow step you are on ends on `document_approved`. Then each
 new revision asks again, and his approval of an older one is refused.
 
+## What it is for
+
+A page may say what it is for in one line shown under its title. Put it in the
+`<head>`:
+
+```html
+<meta name="armada-for" content="Picks the store the lease reads; your answer decides which one is built.">
+<link rel="armada-for" href="https://example.com/issues/7" title="Issue 7">
+```
+
+The `content` is one sentence: what the page serves and what his answer
+changes. Fleet keeps the first 200 characters. Each `<link rel="armada-for">`
+links what it serves. Fleet keeps the first 5 whose `href` starts `http://` or
+`https://`, and tells you which it dropped. Fleet adds the task you have in
+progress, its plan step and the open pull requests you hold, so leave those
+out.
+
 ## The skeleton
 
 ```html

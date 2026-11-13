@@ -21,6 +21,7 @@ use tower::ServiceExt;
 mod acting;
 mod messages;
 mod moving;
+mod pairing_calls;
 mod terminals;
 mod updating;
 

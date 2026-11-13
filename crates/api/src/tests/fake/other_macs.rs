@@ -104,6 +104,10 @@ impl OtherMacs for FakeDaemon {
         Ok(mac)
     }
 
+    async fn hold_mac_claims(&self, claims: ipc::MacClaimsWaiting) -> Result<ipc::MacClaimsWaiting, Refusal> {
+        Ok(claims)
+    }
+
     async fn share_job_terminal(self: Arc<Self>, asked: ipc::TerminalFromMac) -> Result<crate::TerminalShared, Refusal> {
         Err(no_job(asked.session_id()))
     }

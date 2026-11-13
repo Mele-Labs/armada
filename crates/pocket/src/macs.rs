@@ -171,6 +171,8 @@ pub struct Macs {
     pub(crate) found: Arc<Mutex<FoundKept>>,
     /// Pairing or forgetting a Mac wakes the link, which starts or stops its task.
     pub(crate) changed: Arc<Notify>,
+    /// Held while the claims are read and handed to Fleet, so the last list Fleet takes is the last one read.
+    pub(crate) telling: Arc<tokio::sync::Mutex<()>>,
     closing: Arc<watch::Sender<bool>>,
     pub(crate) timing: Timing,
     pub(crate) http: reqwest::Client,
@@ -193,6 +195,7 @@ impl Macs {
             asking: Arc::default(),
             found: Arc::default(),
             changed: Arc::new(Notify::new()),
+            telling: Arc::default(),
             closing: Arc::new(watch::channel(false).0),
             timing,
             http,

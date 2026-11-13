@@ -883,6 +883,7 @@ mod tests {
                 before: None,
                 settled,
                 change,
+                for_line: None,
             },
         };
         let items = vec![

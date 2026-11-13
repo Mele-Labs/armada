@@ -11,6 +11,9 @@
 //! heard here, the Jobs kept slim in memory, and `calls.changed` published when the calls or the news moved.
 //! Nothing is kept on disk: what he has opened and what has been told are Fleet's memory, and a restart seeds
 //! from what stands.
+//!
+//! **A Mac waiting to pair is handed in, not heard**: the Phone Gateway holds the claims, and puts every one waiting
+//! on `hold_mac_claims` whenever they change.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
@@ -18,7 +21,7 @@ use std::sync::{Arc, Mutex};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
 use ipc::{
-    CallArrival, CallArrivalKind, CallTone, CallsChanged, Event, Instant, JobState, MainView, MergeLineViews, OpenStandingCall, SessionRecord,
+    CallArrival, CallArrivalKind, CallTone, CallsChanged, Event, Instant, JobState, MacClaimWaiting, MainView, MergeLineViews, OpenStandingCall, SessionRecord,
     SessionTurn, StandingCall, StandingCallKind, StandingCalls, StopReason, WaitingItem, WaitingSource,
 };
 use tokio::sync::mpsc;
@@ -254,6 +257,8 @@ pub(crate) struct Keeper {
     news: Vec<CallArrival>,
     pub(crate) told: HashMap<String, i64>,
     published: Vec<StandingCall>,
+    /// The other Macs waiting for his Confirm here, as the Phone Gateway last handed them in.
+    claims: Vec<MacClaimWaiting>,
 }
 
 impl Keeper {
@@ -262,7 +267,8 @@ impl Keeper {
         for record in records {
             self.hear(record);
         }
-        self.news.clear();
+        // A Mac that asked to pair before the seed is news still: nothing of it stood before.
+        self.news.retain(|one| one.kind == CallArrivalKind::MacPairing);
         self.lines = lines;
         self.seeded = true;
     }
@@ -329,6 +335,42 @@ impl Keeper {
         self.jobs.insert(id, job);
     }
 
+    /// Every Mac waiting to pair, whole, in place of those held. **A Mac not waiting before is news once.**
+    pub(crate) fn hold_claims(&mut self, claims: Vec<MacClaimWaiting>) {
+        for claim in &claims {
+            if !self.claims.iter().any(|held| held.mac == claim.mac) {
+                let call = Self::claim_call(claim);
+                self.news.push(CallArrival {
+                    session_id: ipc::SessionId::carried(call.key),
+                    title: call.title,
+                    text: call.text,
+                    tone: call.tone,
+                    kind: CallArrivalKind::MacPairing,
+                });
+            }
+        }
+        // One that went before it was told is not news any more.
+        self.news.retain(|one| one.kind != CallArrivalKind::MacPairing || claims.iter().any(|claim| one.session_id.as_str() == format!("mac:{}", claim.mac)));
+        self.claims = claims;
+    }
+
+    /// A Mac waiting to pair: it asks him, so it is never opened. Its acts are the Gateway's.
+    fn claim_call(claim: &MacClaimWaiting) -> StandingCall {
+        let key = format!("mac:{}", claim.mac);
+        StandingCall {
+            owner: key.clone(),
+            key,
+            kind: StandingCallKind::MacPairing,
+            session_id: None,
+            title: format!("Confirm {} pairing", claim.name),
+            text: claim.why.clone(),
+            since: Instant::carried(crate::clock::rfc3339_utc(claim.at.saturating_mul(1000))),
+            tone: CallTone::Blocked,
+            opened: false,
+            mac: Some(claim.mac.clone()),
+        }
+    }
+
     /// What a live Job waits on as a banner tells it, in `waitsOf`'s order: the start card it is held on, then
     /// the list's own. Each as its id, whether it holds the turn, and its words.
     fn waits_of(record: &SessionRecord) -> Vec<(String, bool, String)> {
@@ -369,6 +411,7 @@ impl Keeper {
             self.job_calls(id, job, on_screen(id), now, &mut calls);
         }
         self.line_calls(&mut calls);
+        calls.extend(self.claims.iter().map(Self::claim_call));
         calls.sort_by(|a, b| a.since.cmp(&b.since).then_with(|| a.key.cmp(&b.key)));
         calls
     }
@@ -517,10 +560,11 @@ impl Keeper {
         Some(CallsChanged { calls, arrived })
     }
 
-    /// He opened a main or pull request call. A key that names none standing opens nothing.
+    /// He opened a main, checkout or pull request call. A key that names none standing opens nothing.
     pub(crate) fn open(&mut self, key: &str, on_screen: &dyn Fn(&str) -> bool, now: i64) {
         let standing = self.standing(on_screen, now);
-        if standing.iter().any(|one| one.key == key && one.kind != StandingCallKind::Job) {
+        let opens = |kind| matches!(kind, StandingCallKind::Main | StandingCallKind::Checkout | StandingCallKind::Pull);
+        if standing.iter().any(|one| one.key == key && opens(one.kind)) {
             self.opened.insert(key.to_string());
         }
     }
@@ -619,6 +663,12 @@ where
                 }
             }
         }
+        self.calls_told();
+    }
+
+    /// `hold_mac_claims`: the Macs waiting for his Confirm here, handed in whole by the Phone Gateway, then told.
+    pub(crate) fn calls_claimed(&self, claims: Vec<MacClaimWaiting>) {
+        self.hosts().calls.0.lock().expect("held across no panic").hold_claims(claims);
         self.calls_told();
     }
 

@@ -33,6 +33,7 @@ pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullR
         .route("/other_macs/projects", put(hold_other_mac_projects::<D>))
         .route("/other_macs/event", post(hold_other_mac_event::<D>))
         .route("/other_macs/forget", post(forget_other_mac::<D>))
+        .route("/other_macs/claims", put(hold_mac_claims::<D>))
         .merge(crate::mac_terminals::mounted::<D>())
 }
 
@@ -168,6 +169,17 @@ async fn forget_other_mac<D: OtherMacs>(State(served): State<Served<D>>, body: B
     };
     match served.daemon().forget_other_mac(named).await {
         Ok(mac) => answer(StatusCode::OK, &mac, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+async fn hold_mac_claims<D: OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let held: ipc::MacClaimsWaiting = match ipc::decode_body("the Macs waiting to pair", &body) {
+        Ok(held) => held,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().hold_mac_claims(held).await {
+        Ok(held) => answer(StatusCode::OK, &held, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

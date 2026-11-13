@@ -23,6 +23,9 @@ use crate::look::{token, Look};
 /// The setup is read again this often until the tunnel runs (`RETRY_EVERY`).
 const RETRY: Duration = Duration::from_secs(5);
 
+/// The Macs and phones are read again this often while the page is shown, as a phone's claim is polled.
+const LIST_EVERY: Duration = Duration::from_secs(2);
+
 /// The page's own state: what the Gateway answered, the press out and what it said, and the key of each control.
 pub struct MacsPage {
     setup: Option<Result<GatewaySetup, String>>,
@@ -45,6 +48,8 @@ pub struct MacsPage {
     keys: BTreeMap<String, FocusHandle>,
     _poll: Option<Task<()>>,
     _reads: Vec<Task<()>>,
+    /// Reads the list again while Settings is open, so a claim from another Mac draws its Confirm.
+    _list: Option<Task<()>>,
     /// The link's time left, drawn again each second while it is good.
     _tick: Option<Task<()>>,
     _paste: Subscription,
@@ -152,6 +157,7 @@ impl MacsPage {
             keys: BTreeMap::new(),
             _poll: None,
             _reads: Vec::new(),
+            _list: None,
             _tick: None,
             _paste: sub,
             lead: None,
@@ -322,6 +328,26 @@ impl SettingsOverlay {
         self.macs.asked = true;
         self.read_setup(window, cx);
         self.read_devices(cx);
+        self.watch_list(window, cx);
+    }
+
+    /// `GET /admin/macs` and the phones every two seconds while the page is shown, whatever the tunnel's state: the
+    /// other Mac's claim arrives after the page opened, and its Confirm must be drawn without reopening Settings.
+    fn watch_list(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.macs._list = Some(cx.spawn_in(window, async move |this, cx| loop {
+            cx.background_executor().timer(LIST_EVERY).await;
+            let going = this
+                .update(cx, |this, cx| {
+                    if this.macs_shown(cx) {
+                        this.read_devices(cx);
+                    }
+                    this.open
+                })
+                .unwrap_or(false);
+            if !going {
+                break;
+            }
+        }));
     }
 
     fn read_devices(&mut self, cx: &mut Context<Self>) {
@@ -1666,6 +1692,30 @@ mod tests {
         press(&overlay, "phone-new", cx);
         assert_eq!(phone_claim(&overlay, cx), Some(None), "Make a new link starts again");
         assert!(overlay.read_with(cx, |this, _| !this.macs.lapsed));
+    }
+
+    #[gpui::test]
+    fn a_claim_from_another_mac_after_the_page_opened_draws_its_confirm(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        cx.update(|_, cx| overlay.update(cx, |this, _| {
+            this.open = true;
+            this.picked = "bridge:macs";
+        }));
+        assert!(links(&overlay, cx).iter().all(|(id, _)| id != "mac-office"));
+        cx.update(|_, cx| overlay.update(cx, |this, _| {
+            if let Wire::Mock(mock) = &mut this.wire {
+                mock.gateway.macs.push(Mac { id: "mac-office".into(), name: "Office Mac".into(), link: Some(MacLink::ClaimWaiting), ..Default::default() });
+            }
+        }));
+        cx.executor().advance_clock(LIST_EVERY);
+        cx.run_until_parked();
+        cx.update(|_, cx| overlay.update(cx, |this, cx| this.macs_keys(cx)));
+        assert!(links(&overlay, cx).contains(&("mac-office".into(), Some(MacLink::ClaimWaiting))), "the list is read again with the page open");
+        overlay.read_with(cx, |this, _| {
+            let office = this.macs.macs.iter().flatten().flatten().find(|mac| mac.id == "mac-office").expect("listed");
+            assert_eq!(press_of_mac(office), Some(("confirm", "Confirm")));
+            assert!(this.macs.keys.get("confirm:mac-office").is_some_and(|confirm| this.macs_stops().contains(confirm)), "its Confirm is a stop");
+        });
     }
 
     #[test]

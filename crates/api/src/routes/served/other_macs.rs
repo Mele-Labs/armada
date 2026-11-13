@@ -85,4 +85,9 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/other_macs/forget",
     },
+    Route {
+        operation: "hold_mac_claims",
+        method: "PUT",
+        path: "/other_macs/claims",
+    },
 ];

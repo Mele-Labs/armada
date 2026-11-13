@@ -594,3 +594,58 @@ async fn a_held_checkout_and_a_pull_request_to_merge_by_hand_are_calls_nobody_is
     keeper.open("checkout:/r", &nowhere, now());
     assert!(keeper.standing(&nowhere, now()).iter().any(|one| one.key == "checkout:/r" && one.opened));
 }
+
+fn waiting_to_pair(why: &str) -> ipc::MacClaimWaiting {
+    ipc::MacClaimWaiting { mac: "0a0b".into(), name: "Work".into(), why: why.into(), at: 1_762_000_000 }
+}
+
+#[test]
+fn a_mac_waiting_to_pair_calls_him_with_its_id_and_digits_once_and_stops_when_handed_in_no_more() {
+    let mut keeper = Keeper::default();
+    keeper.seed(&[], MergeLineViews::default());
+    let why = "Work wants to pair. Confirm if it shows 0042.";
+    keeper.hold_claims(vec![waiting_to_pair(why)]);
+    let told = keeper.changed(&nowhere, now()).expect("a call");
+    let call = ipc::StandingCall {
+        key: "mac:0a0b".into(),
+        owner: "mac:0a0b".into(),
+        kind: StandingCallKind::MacPairing,
+        session_id: None,
+        title: "Confirm Work pairing".into(),
+        text: why.into(),
+        since: Instant::carried("2025-11-01T12:26:40.000Z"),
+        tone: CallTone::Blocked,
+        opened: false,
+        mac: Some("0a0b".into()),
+    };
+    assert_eq!(told.calls, [call]);
+    let arrival = CallArrival {
+        session_id: SessionId::carried("mac:0a0b"),
+        title: "Confirm Work pairing".into(),
+        text: why.into(),
+        tone: CallTone::Blocked,
+        kind: CallArrivalKind::MacPairing,
+    };
+    assert_eq!(told.arrived, [arrival]);
+
+    // The Gateway hands the list in whole after every change: the same Mac again is no news.
+    keeper.hold_claims(vec![waiting_to_pair(why)]);
+    assert_eq!(keeper.changed(&nowhere, now()), None);
+    // It asks him, so `open_call` does not open it.
+    keeper.open("mac:0a0b", &nowhere, now());
+    assert!(!keeper.standing(&nowhere, now())[0].opened);
+
+    // Confirmed, declined, past its time or the Gateway gone: handed in no more.
+    keeper.hold_claims(Vec::new());
+    let gone = keeper.changed(&nowhere, now()).expect("it went");
+    assert!(gone.calls.is_empty() && gone.arrived.is_empty(), "{gone:?}");
+}
+
+#[test]
+fn a_mac_that_asked_before_the_calls_were_seeded_is_still_news() {
+    let mut keeper = Keeper::default();
+    keeper.hold_claims(vec![waiting_to_pair("Press Confirm to pair Work with this Mac")]);
+    keeper.seed(&[], MergeLineViews::default());
+    let told = keeper.changed(&nowhere, now()).expect("a call");
+    assert_eq!(told.arrived.len(), 1, "{told:?}");
+}
