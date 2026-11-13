@@ -75,6 +75,8 @@ fn macs(gateway: &Gateway) -> Result<Vec<Mac>, String> {
         this_mac: true,
         build: gateway.way_in.build.clone(),
         link: None,
+        last_heard_at: None,
+        why: None,
     }])
 }
 

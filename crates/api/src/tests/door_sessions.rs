@@ -69,6 +69,7 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
     attachments.push(held("job", format!("01JOB{number:04}"), AttachmentState::Standing, &[]));
     SessionRecord {
         id: SessionId::carried(format!("session-{number}")),
+        mac: None,
         harness: "a-harness".to_string(),
         origin: SessionOrigin::Terminal,
         manifest_id: Some(ManifestId::carried("armada")),
