@@ -30,7 +30,8 @@ A settled `ask` and a `window_ask` join the run as their own rows, where Electro
 The calls no screen draws (the agent's task list, tool loading and `show_window`) are dropped before the fold.
 A waiting `ask` is the head's `asked` and no item; a `browser_reminder`, a `plan` row, a `delivery` row and a `linked` row that `replaces` are dropped.
 **A Fleet notice folds with the work after it unless it is kept**: one the agent disputed, and the last Fleet turn while the Job waits on the person.
-The newest sketch put to him and not answered is the head's `sketch`, and its latest card is no item.
+Every sketch put to him and not answered is an item `sketch:<title>` in his Needs you, newest drawn first.
+The newest of them is the head's `sketch`, and its latest card is no item; the others keep their cards.
 An approved plan is a `plan` item after the item of the last row drawn before its `plan` row, and only where that item is a `row`.
 A Judge's finished reading is a `judged` item after the last row written by then.
 

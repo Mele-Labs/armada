@@ -293,6 +293,10 @@ impl HostedSessions for FakeDaemon {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }
 
+    async fn snooze_session(&self, _asked: ipc::SnoozeSession) -> Result<SessionRecord, Refusal> {
+        Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
+    }
+
     /// Refused as Fleet refuses a job it does not host, so a route test reads a refusal; the job named
     /// `closed` is refused as a closed one, any other restarts.
     async fn mend_session_tools(self: std::sync::Arc<Self>, asked: ipc::MendSessionTools) -> Result<SessionRecord, Refusal> {

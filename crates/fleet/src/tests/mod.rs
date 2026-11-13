@@ -102,6 +102,7 @@ mod notice_mutes;
 mod notice_rules;
 mod session_import;
 mod session_limit;
+mod session_snooze;
 mod peer;
 mod piece_places;
 mod project_migration;

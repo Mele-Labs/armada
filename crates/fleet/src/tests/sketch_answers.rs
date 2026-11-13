@@ -201,7 +201,7 @@ async fn a_sketch_the_job_never_showed_is_not_withdrawn() {
 }
 
 #[tokio::test]
-async fn a_sketch_drawn_again_under_a_new_title_takes_the_old_one_back_so_approving_it_leaves_nothing_waiting() {
+async fn a_sketch_drawn_under_a_new_title_leaves_the_old_one_waiting_and_each_is_answered_alone() {
     let rig = rig_placing(None);
     let (id, _) = shown(&rig).await;
     let retitled = "Request flow, settings too";
@@ -212,14 +212,14 @@ async fn a_sketch_drawn_again_under_a_new_title_takes_the_old_one_back_so_approv
     .unwrap();
     let record = rig.fleet.show_sketch(None, show).await.unwrap();
     let newer = format!("sketch:{retitled}");
-    assert_eq!(record.waiting_for.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [newer.as_str()], "only the newest waits");
-    assert_eq!(the_sketch(&record).detail.get("withdrawn").map(String::as_str), Some("true"), "the old title is taken back");
+    assert_eq!(record.waiting_for.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [newer.as_str(), TARGET], "both wait, newest first");
+    assert_eq!(the_sketch(&record).detail.get("withdrawn"), None, "the old title is not taken back");
 
     let drawn = record.attachments.iter().find(|one| one.target == newer).unwrap().detail["drawn"].clone();
     let mut approve = answer(&id, &drawn, SketchHow::Approved, None);
     approve.sketch = newer;
     let record = Arc::clone(&rig.fleet).answer_sketch(approve).await.unwrap();
-    assert!(record.waiting_for.is_empty(), "nothing comes back to wait on him: {:?}", record.waiting_for);
+    assert_eq!(record.waiting_for.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [TARGET], "the older one still waits");
 }
 
 #[tokio::test]
@@ -273,23 +273,32 @@ fn titled(id: &SessionId, title: &str, against: Option<&str>) -> ShowSketch {
 }
 
 #[tokio::test]
-async fn three_sketches_each_drawn_against_the_last_leave_nothing_waiting_once_the_newest_is_approved() {
+async fn three_sketches_drawn_are_three_items_and_answering_one_leaves_the_others() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     rig.fleet.show_sketch(None, titled(&id, "Plan", None)).await.unwrap();
     rig.fleet.show_sketch(None, titled(&id, "Plan (DSCR only)", Some("Plan"))).await.unwrap();
     let record = rig.fleet.show_sketch(None, titled(&id, "Plan (alerts)", Some("Plan (DSCR only)"))).await.unwrap();
-    assert_eq!(record.waiting_for.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["sketch:Plan (alerts)"]);
+    let waiting = |record: &ipc::SessionRecord| record.waiting_for.iter().map(|one| one.id.clone()).collect::<Vec<_>>();
+    assert_eq!(waiting(&record), ["sketch:Plan (alerts)", "sketch:Plan (DSCR only)", "sketch:Plan"]);
 
-    let drawn = record.attachments.iter().find(|one| one.target == "sketch:Plan (alerts)").unwrap().detail["drawn"].clone();
-    let mut approve = answer(&id, &drawn, SketchHow::Approved, None);
-    approve.sketch = "sketch:Plan (alerts)".into();
-    let record = Arc::clone(&rig.fleet).answer_sketch(approve).await.unwrap();
-    assert!(record.waiting_for.is_empty(), "no earlier sketch comes back: {:?}", record.waiting_for);
+    let approve = |record: &ipc::SessionRecord, title: &str| {
+        let target = format!("sketch:{title}");
+        let drawn = record.attachments.iter().find(|one| one.target == target).unwrap().detail["drawn"].clone();
+        let mut approve = answer(&id, &drawn, SketchHow::Approved, None);
+        approve.sketch = target;
+        approve
+    };
+    let record = Arc::clone(&rig.fleet).answer_sketch(approve(&record, "Plan (DSCR only)")).await.unwrap();
+    assert_eq!(waiting(&record), ["sketch:Plan (alerts)", "sketch:Plan"], "the middle one answered, two remain");
+    let record = Arc::clone(&rig.fleet).answer_sketch(approve(&record, "Plan (alerts)")).await.unwrap();
+    assert_eq!(waiting(&record), ["sketch:Plan"], "the newest answered, the next is the first and so the pin");
+    let record = Arc::clone(&rig.fleet).answer_sketch(approve(&record, "Plan")).await.unwrap();
+    assert!(record.waiting_for.is_empty(), "{:?}", record.waiting_for);
 }
 
 #[test]
-fn a_job_holding_two_sketches_left_open_lists_only_the_newest() {
+fn a_job_holding_two_sketches_left_open_lists_both_newest_first() {
     let open = |title: &str, at: &str| -> Attachment {
         ipc::decode(
             "an attachment",
@@ -300,9 +309,9 @@ fn a_job_holding_two_sketches_left_open_lists_only_the_newest() {
         )
         .unwrap()
     };
-    let held = [open("Newer", "2026-11-02T10:00:00Z"), open("Older", "2026-10-30T10:00:00Z")];
+    let held = [open("Older", "2026-10-30T10:00:00Z"), open("Newer", "2026-11-02T10:00:00Z")];
     let listed: Vec<String> = crate::session_host::sketching::sketch_items(&held, "job").map(|one| one.id).collect();
-    assert_eq!(listed, ["sketch:Newer"]);
+    assert_eq!(listed, ["sketch:Newer", "sketch:Older"]);
 }
 
 /// A sketch put to him, drawn as `drawn` says, and answered or taken back as `settled` says.
@@ -323,15 +332,10 @@ fn listed(held: &[Attachment]) -> Vec<String> {
 }
 
 #[test]
-fn an_older_sketch_left_open_waits_on_nothing_once_the_newest_drawn_is_approved() {
-    let older = asked("Older", "abcd1234-20261104T120000000Z-1", "2026-11-04T12:00:00Z", None);
-    let newest = asked("Newest", "abcd1234-20261104T151426339Z-2", "2026-11-04T16:00:00Z", Some("settled"));
-    assert!(listed(&[older, newest]).is_empty());
-}
-
-#[test]
-fn the_newest_drawn_waits_even_when_an_older_open_one_was_changed_later() {
+fn an_answered_sketch_never_stays_first_so_the_pin_moves_to_the_newest_still_open() {
     let older = asked("Older", "abcd1234-20261104T120000000Z-1", "2026-11-04T17:00:00Z", None);
+    let newest = asked("Newest", "abcd1234-20261104T151426339Z-2", "2026-11-04T16:00:00Z", Some("settled"));
+    assert_eq!(listed(&[older.clone(), newest]), ["sketch:Older"]);
     let newest = asked("Newest", "abcd1234-20261104T151426339Z-2", "2026-11-04T15:14:26Z", None);
-    assert_eq!(listed(&[older, newest]), ["sketch:Newest"]);
+    assert_eq!(listed(&[older, newest]), ["sketch:Newest", "sketch:Older"], "newest drawn first, whatever changed later");
 }
