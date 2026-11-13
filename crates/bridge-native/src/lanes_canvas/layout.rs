@@ -38,9 +38,9 @@ pub(super) fn place(lanes: &[LaneView], height: f32) -> Placement {
     Placement { bands, items, lane_h, width, height: lanes.len() as f32 * lane_h }
 }
 
-/// A time of day, 24-hour, as the chips read it (`clock`).
+/// A time of day in his clock, as the chips read it (`clock`).
 pub(crate) fn clock(at: &ipc::Instant) -> String {
-    chrono::DateTime::parse_from_rfc3339(at.as_str()).map(|at| at.with_timezone(&chrono::Local).format("%H:%M").to_string()).unwrap_or_default()
+    chrono::DateTime::parse_from_rfc3339(at.as_str()).map(|at| crate::settings::time::clock(at.with_timezone(&chrono::Local))).unwrap_or_default()
 }
 
 /// The quiet words beside a chip's name (`RuleView.meta`): what it waits for, else when it fired.

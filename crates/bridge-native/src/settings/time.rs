@@ -31,13 +31,34 @@ pub fn hold(text: &str) {
 /// The instant as he set it to be read (`stampOf`): "14:02:09", or "Nov 12 2:02 PM". With Date off, a day before
 /// today's still shows its day, so a bare time is always today's.
 pub fn stamp_of(at: DateTime<Local>, format: TimeFormat, now: DateTime<Local>) -> String {
-    let time = match (format.hour12, format.seconds) {
+    let time = time_of(at, format);
+    if format.date || at.date_naive() != now.date_naive() { format!("{} {time}", at.format("%b %-d")) } else { time }
+}
+
+/// The clock alone, as the switches write it: for a time whose day the words around it already say.
+pub fn time_of(at: DateTime<Local>, format: TimeFormat) -> String {
+    match (format.hour12, format.seconds) {
         (true, true) => at.format("%-I:%M:%S %p"),
         (true, false) => at.format("%-I:%M %p"),
         (false, true) => at.format("%H:%M:%S"),
         (false, false) => at.format("%H:%M"),
-    };
-    if format.date || at.date_naive() != now.date_naive() { format!("{} {time}", at.format("%b %-d")) } else { time.to_string() }
+    }
+    .to_string()
+}
+
+/// A stamp in what he has set, read today.
+pub fn stamp(at: DateTime<Local>) -> String {
+    stamp_of(at, held(), Local::now())
+}
+
+/// A wire instant as a stamp in what he has set; `None` where it is no instant.
+pub fn stamp_at(at: &str) -> Option<String> {
+    DateTime::parse_from_rfc3339(at).ok().map(|at| stamp(at.with_timezone(&Local)))
+}
+
+/// The clock alone in what he has set.
+pub fn clock(at: DateTime<Local>) -> String {
+    time_of(at, held())
 }
 
 impl SettingsOverlay {

@@ -607,7 +607,7 @@ impl JobView {
                 foot.push(mark(format!("{place}-unpushed:{}", slot.slot), "arrow-up-from-line", format!("{} not pushed", plural(stranded.unpushed as usize, "commit", "commits")), token::FG_SUBTLE));
             }
             if let Some(told) = stranded.told.as_ref() {
-                let at = DateTime::parse_from_rfc3339(told.as_str()).map(|at| at.with_timezone(&chrono::Local).format("%H:%M").to_string()).unwrap_or_default();
+                let at = crate::settings::time::stamp_at(told.as_str()).unwrap_or_default();
                 foot.push(mark(format!("{place}-told:{}", slot.slot), "mail", format!("Holder told at {at}"), token::FG_SUBTLE));
             }
             if stranded.last_holder.as_ref().is_some_and(|last| !last.open) {

@@ -235,9 +235,9 @@ pub(super) fn parse(at: &str) -> Option<DateTime<FixedOffset>> {
     DateTime::parse_from_rfc3339(at).ok()
 }
 
-/// The words a stamp says for a time: the date and the minute, local.
+/// The words a stamp says for a time, in his clock.
 fn stamp(at: &str) -> Option<String> {
-    parse(at).map(|at| at.with_timezone(&chrono::Local).format("%-d %b %H:%M").to_string())
+    crate::settings::time::stamp_at(at)
 }
 
 /// Index ids for a menu's dynamic rows: an entry id is `&'static str`.
