@@ -942,6 +942,14 @@ pub(crate) async fn get_job_time<D: Sessions>(State(served): State<Served<D>>, Q
     }
 }
 
+/// `?session_id=` on `get_lead_picture`.
+pub(crate) async fn get_lead_picture<D: Sessions>(State(served): State<Served<D>>, Query(which): Query<WhichSession>) -> Response {
+    match served.daemon().get_lead_picture(ipc::SessionId::carried(which.session_id)).await {
+        Ok(picture) => answer(StatusCode::OK, &picture, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?since=&until=&slowest=` on `get_usage_time`.
 #[derive(Deserialize)]
 pub(crate) struct TimeWindow {
