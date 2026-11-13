@@ -110,6 +110,7 @@ WebSocket event stream, read this first.
 | [Protocol 23.94: a workflow kept for one project](protocol/protocol-23-94-a-workflow-kept-for-one-project.md) |
 | [Protocol 23.95: a workflow edited as a draft and published](protocol/protocol-23-95-a-workflow-edited-as-a-draft-and-published.md) |
 | [Protocol 23.96: a workflow with versions and a base](protocol/protocol-23-96-a-workflow-with-versions-and-a-base.md) |
+| [Protocol 23.97: moving running Jobs to a new workflow version](protocol/protocol-23-97-moving-running-jobs-to-a-new-workflow-version.md) |
 | [Protocol 23.79: a Job forked at a message](protocol/protocol-23-79-a-job-forked-at-a-message.md) |
 | [Protocol 23.73: Skill and Drone steps run](protocol/protocol-23-73-skill-and-drone-steps-run.md) |
 | [Protocol 23.72: repair on an added step](protocol/protocol-23-72-repair-on-an-added-step.md) |

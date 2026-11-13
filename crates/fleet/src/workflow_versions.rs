@@ -123,6 +123,7 @@ where
                 project: revert.project.clone(),
                 text: version.text,
                 summary: Some(format!("Back to version {}", revert.version)),
+                ..Default::default()
             },
             served,
         )

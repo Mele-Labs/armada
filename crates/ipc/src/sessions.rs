@@ -1569,7 +1569,8 @@ pub struct SessionRecord {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub workflow_waiting_on: Vec<String>,
     /// The Job's own copy of its workflow, once a step of it was changed: the steps the rail and the lanes
-    /// draw, in place of the ones the repository's definition lists. Absent for a Job that changed none.
+    /// draw, in place of the ones the repository's definition lists. Also the steps a publish pinned the Job to
+    /// (`docs/practices/protocol/protocol-23-97-moving-running-jobs-to-a-new-workflow-version.md`). Absent for a Job with neither.
     /// Since 30 Oct 2026. `change_session_steps`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_copy: Option<crate::WorkflowSummary>,

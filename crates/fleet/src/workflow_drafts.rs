@@ -170,7 +170,45 @@ where
         }
         let at = self.now();
         let mut store = self.store().lock().await;
+        let not_pending = |why: String| {
+            Refusal::Unacceptable(
+                WireError::raised("fleet.workflow_draft_change_not_pending", why, self.run_id()).with_field("workflow_id", WireValue::Str(id.to_string())),
+            )
+        };
+        // **An agent's put is of one change that is waiting**, which it then marks drafted as the landing does; no other put names a change.
+        let agent = match (put.by, put.change) {
+            (Some(DraftBy::Agent), Some(change)) => {
+                let found = store.workflow_change(change).map_err(|why| self.draft_not_kept(why))?;
+                let Some(found) = found else {
+                    return Err(not_pending(format!("Fleet holds no change {change} of `{id}` to put in the draft")));
+                };
+                let place = (found.workflow_id.as_str(), found.source.as_str(), found.project.as_str(), found.manifest_id.as_str());
+                let here = (id, put.source.as_str(), project.unwrap_or_default(), if put.source == "repository" { key.manifest_id.as_str() } else { found.manifest_id.as_str() });
+                if !found.piece.is_empty() || place != here {
+                    return Err(not_pending(format!("change {change} is not a change to `{id}` from {}", put.source)));
+                }
+                if found.state != store::CHANGE_READY || found.after_text.is_none() {
+                    return Err(not_pending(format!("change {change} is not ready, so it has no drafted text to put in the draft")));
+                }
+                if found.drafted {
+                    return Err(not_pending(format!("change {change} is in the draft already")));
+                }
+                Some(found)
+            }
+            (Some(DraftBy::Agent), None) => return Err(not_pending(String::from("a put by an agent names the change it is of, and this names none"))),
+            (_, Some(change)) => return Err(not_pending(format!("a change is named only by an agent's put, and this put is by you; it names {change}"))),
+            (_, None) => None,
+        };
         let held = store.workflow_draft(&key).map_err(|why| self.draft_not_kept(why))?;
+        if let Some(found) = &agent {
+            let change = store::NewDraftChange { made_by: store::DRAFT_BY_AGENT, text: &put.text, summary: found.asked.as_deref(), change: Some(found.id) };
+            let kept = store
+                .put_draft_change(&key, published.as_deref().unwrap_or(""), &change, at.as_str())
+                .map_err(|why| self.draft_not_kept(why))?;
+            store.workflow_change_marked_drafted(found.id).map_err(|why| self.draft_not_kept(why))?;
+            drop(store);
+            return Ok(self.workflow_draft_wire(served, &kept));
+        }
         let kept = match held {
             Some(draft) if draft.text() == put.text => draft,
             _ => store
@@ -243,10 +281,21 @@ where
         // A draft of an existing copy replaces its own place, which the stale check guards; Armada's is a new file, replacing another only if asked.
         let asked = SaveWorkflow { scope, definition: text.clone(), overwrite: publish.overwrite || publish.source != "armada" };
         self.check_workflow_file(&asked, served)?;
-        let saved = self.save_workflow_file(asked, served)?;
+        // **A publish moves no running Job**: each one it would touch is pinned to what its repository runs now, before the save changes that.
+        let reach = self.place_reach(id, asked.scope.as_wire(), asked.scope.project(), served)?;
+        let pins = self.pins_kept(id, &reach).await?;
+        let saved = match self.save_workflow_file(asked, served) {
+            Ok(saved) => saved,
+            Err(refusal) => {
+                self.pins_dropped(&pins).await;
+                return Err(refusal);
+            }
+        };
+        // A repository that runs the same text after the save was not touched by it, so its Jobs are not pinned.
+        let pinned = self.pins_settled(id, pins, served).await?;
         let version = self.workflow_publish_kept(&place, found.as_deref(), &text, base).await?;
         self.store().lock().await.discard_draft(&key).map_err(|why| self.draft_not_kept(why))?;
-        Ok(WorkflowPublished { saved, version })
+        Ok(WorkflowPublished { saved, version, pinned })
     }
 
     /// Where a publish writes: Armada's draft names it, and every other draft is written where it was made.

@@ -3,6 +3,10 @@
 //!
 //! **A Job that changed no step has no workflow row**, and reads the workflow as the repository holds
 //! it. The text is the whole definition, as the loader reads it.
+//!
+//! **A copy is either the Job's own edit or a pin.** A publish of a workflow keeps a pin for each Job it would
+//! move, holding the text that Job was running, so the Job keeps its steps until the person moves it. A pin has no
+//! marks, and the Job's own step edit replaces it with a copy that is the Job's.
 
 use rusqlite::{params, OptionalExtension};
 
@@ -10,12 +14,14 @@ use crate::error::{fault, WriteError};
 use crate::open::Store;
 
 /// The workflow a Job holds its own copy of.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct KeptWorkflowCopy {
     pub workflow_id: String,
     /// Where the definition was read from, for a sentence that names the file.
     pub path: String,
     pub text: String,
+    /// The copy is a pin a publish made, not an edit of the Job's own.
+    pub pinned: bool,
 }
 
 /// One change the lanes mark. `lane` is `workflow`, a lifecycle's id or `rule`; `item` is the step,
@@ -38,9 +44,9 @@ impl Store {
     pub fn job_workflow_copy(&self, session_id: &str) -> Result<Option<KeptWorkflowCopy>, WriteError> {
         self.conn
             .query_row(
-                "SELECT workflow_id, path, text FROM job_copy_workflows WHERE session_id = ?1",
+                "SELECT workflow_id, path, text, pinned FROM job_copy_workflows WHERE session_id = ?1",
                 params![session_id],
-                |row| Ok(KeptWorkflowCopy { workflow_id: row.get(0)?, path: row.get(1)?, text: row.get(2)? }),
+                |row| Ok(KeptWorkflowCopy { workflow_id: row.get(0)?, path: row.get(1)?, text: row.get(2)?, pinned: row.get::<_, i64>(3)? != 0 }),
             )
             .optional()
             .map_err(failing("reading the copy of its workflow a job holds"))
@@ -50,8 +56,8 @@ impl Store {
     pub fn keep_job_workflow_copy(&mut self, session_id: &str, copy: &KeptWorkflowCopy) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "INSERT OR REPLACE INTO job_copy_workflows (session_id, workflow_id, path, text) VALUES (?1, ?2, ?3, ?4)",
-                params![session_id, copy.workflow_id, copy.path, copy.text],
+                "INSERT OR REPLACE INTO job_copy_workflows (session_id, workflow_id, path, text, pinned) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![session_id, copy.workflow_id, copy.path, copy.text, i64::from(copy.pinned)],
             )
             .map(drop)
             .map_err(failing("keeping the copy of its workflow a job holds"))

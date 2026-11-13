@@ -78,6 +78,23 @@ async fn versions_are_read_by_get_and_a_revert_is_posted_and_answers_the_draft()
 }
 
 #[tokio::test]
+async fn the_jobs_a_publish_left_are_read_by_get_and_moved_by_a_post_that_answers_a_result_for_each() {
+    let app = wired();
+    let (status, bytes) = call(&app, "GET", "/workflows/affected?workflow_id=feature&source=kit", "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let read: ipc::AffectedJobs = ipc::decode("affected", &bytes).expect("reads");
+    assert_eq!((read.jobs.len(), read.jobs[0].pinned, read.jobs[0].survives), (1, true, false));
+
+    let (status, bytes) = call(&app, "POST", "/workflows/migrate", r#"{"workflow_id":"feature","source":"kit","session_ids":["s1","s2"]}"#).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let moved: ipc::MigratedJobs = ipc::decode("moved", &bytes).expect("reads");
+    assert_eq!(moved.results.iter().map(|one| one.session_id.as_str()).collect::<Vec<_>>(), ["s1", "s2"], "one result for each, in order");
+
+    assert_eq!(call(&app, "GET", "/workflows/migrate", "").await.0, StatusCode::METHOD_NOT_ALLOWED, "a move is posted");
+    assert_eq!(call(&app, "POST", "/workflows/affected", "{}").await.0, StatusCode::METHOD_NOT_ALLOWED, "the list is read");
+}
+
+#[tokio::test]
 async fn a_piece_draft_is_keyed_by_kind_id_and_the_scope_it_is_within_and_is_everywhere_without_one() {
     let app = wired();
     let (status, bytes) = call(&app, "PUT", "/lifecycles/pieces/draft", r#"{"kind":"rule","id":"ticket_to_review","text":"{}"}"#).await;
