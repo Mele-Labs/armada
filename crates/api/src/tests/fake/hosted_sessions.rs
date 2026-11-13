@@ -253,6 +253,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn set_session_project(&self, _asked: ipc::SetSessionProject) -> Result<ipc::SessionList, Refusal> {
+        Err(nothing_hosted())
+    }
+
     /// Two servers, one waiting on a sign-in; the job named `closed` is refused as Fleet refuses one.
     async fn get_session_mcp(&self, id: SessionId) -> Result<ipc::SessionMcp, Refusal> {
         if id.as_str() == "closed" {

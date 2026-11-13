@@ -130,6 +130,26 @@ impl Stage {
                 if walk.name == crate::settings::walk::NO_FUNNEL {
                     over.update(cx, |over, cx| over.without_funnel(cx));
                 }
+                if walk.name == crate::settings::walk::MACS_SETUP {
+                    over.update(cx, |over, cx| over.fresh_mac(cx));
+                }
+                if walk.name == crate::settings::walk::WAYS {
+                    over.update(cx, |over, cx| over.refusing("pictures_whole", cx));
+                }
+                if walk.name == crate::settings::walk::LANES_ADD {
+                    over.update(cx, |over, cx| over.with_drafted_lane(cx));
+                }
+                if walk.name == crate::settings::walk::TAKE {
+                    over.update(cx, |over, cx| over.copied_from_base(cx));
+                }
+                if walk.name == crate::settings::walk::WAYS {
+                    // The first-run screen is over all of it, as the app opens on a Fleet that has not been asked.
+                    window.focus(&keys, cx);
+                    let settings = over.read(cx).overlay.clone();
+                    let first = cx.new(|cx| crate::first_run::FirstRunScreen::new(over.into(), settings, None, cx));
+                    let focus = Focus { keys, within: first.read(cx).within.clone() };
+                    return Ok(Stage { view: first.into(), focus });
+                }
                 let focus = Focus { keys, within: over.read(cx).within.clone() };
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: over.into(), focus })

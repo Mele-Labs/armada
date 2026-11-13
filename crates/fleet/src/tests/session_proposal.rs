@@ -371,7 +371,7 @@ async fn words_that_are_not_a_person_s_first_message_are_not_read() {
     // Fleet's own word, and the brief of a Session another started, are not a person's request.
     Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "main moved", ipc::Notice::MainRed).await.expect("told");
     rig.fleet
-        .first_message_from(id.as_str(), SessionVoice::Session { id: "rescue".into(), title: "Rescue".into() }, REQUEST)
+        .first_message_from(id.as_str(), SessionVoice::Session { id: "rescue".into(), title: "Rescue".into(), mac: None }, REQUEST)
         .await
         .expect("sent");
     eventually(|| async { !rig.stand_in.starts().is_empty() }).await;

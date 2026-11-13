@@ -168,7 +168,7 @@ async fn ends_starts_it_with_the_handoff_then_the_brief() {
     let started = rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
     assert!(started.hosted.is_some());
     let (from, text) = rig.first_message(&waiting.id).await;
-    assert!(matches!(from, SessionVoice::Session { ref id, ref title } if id == agent.as_str() && title == "The agent"), "{from:?}");
+    assert!(matches!(from, SessionVoice::Session { ref id, ref title, .. } if id == agent.as_str() && title == "The agent"), "{from:?}");
     assert!(text.starts_with("Handoff from The agent"), "the handoff first: {text}");
     assert!(text.contains("The agent ended"), "and why it starts: {text}");
     assert!(text.contains("You start from main"), "{text}");

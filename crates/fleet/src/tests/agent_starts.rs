@@ -29,7 +29,7 @@ pub(super) struct Rig {
     pub(super) fleet: Arc<Hosted>,
     pub(super) stand_in: Arc<StandIn>,
     pub(super) manifest: ManifestId,
-    home: TempDir,
+    pub(super) home: TempDir,
 }
 
 pub(super) fn rig(peers: Option<Arc<Placing>>) -> Rig {
