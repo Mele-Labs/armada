@@ -7,6 +7,7 @@ export const NOTICES = [
   "pr_unmergeable",
   "pr_merged",
   "pr_auto_merge",
+  "pr_ready_to_merge",
   "pr_queued",
   "pr_handed",
   "pr_comments",
