@@ -340,7 +340,9 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 Pairing starts a task and forgetting stops it. Fleet keeps the rows while the Mac is asleep.
 Fleet's `read_other_mac` reaches the other Mac only for a `/other_mac/thread?…` path, read as `/api/mac/thread?…`; any other is refused.
 Its `send_other_mac` posts only `/other_mac/project_act`, `/other_mac/act` and `/other_mac/update`.
-Its `open_other_mac_page` asks `/api/mac/page` and, where that answers 204, opens one loopback port on this Mac for that Job and page port, which signs every request through to `/api/mac/page/<job>/<port>/<path>`. A Mac with `asleep_since` is answered asleep without a call, and a frozen link with its why; a page port already open answers 503 with that why while the link is frozen, as the other Mac's `/api/mac/page` routes do. *Pages across Macs* in `docs/practices/protocol/his-other-macs-fleets-half.md` says the rest.
+Its `open_other_mac_page` asks `/api/mac/page` and, where that answers 204, opens one loopback port on this Mac for that Job and page port, which signs every request through to `/api/mac/page/<job>/<port>/<path>`.
+A Mac with `asleep_since` is answered asleep without a call, and a frozen link with its why; a page port already open answers 503 with that why while the link is frozen, as the other Mac's `/api/mac/page` routes do.
+*Pages across Macs* in `docs/practices/protocol/his-other-macs-fleets-half.md` says the rest.
 
 **Builds that differ.** Two Macs whose builds speak another wire do not talk half matched: the link freezes until one updates.
 The wire is the protocol ID, a hash of what the builds send each other, so two builds on different commits that speak the same wire stay linked.
