@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, AnyElement, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Pixels, Role, SharedString, Subscription, Window};
+use gpui::{anchored, canvas, deferred, div, point, prelude::*, Anchor, AnyElement, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Pixels, Role, SharedString, Subscription, Window};
 use gpui_component::input::InputEvent;
 use ipc::{
     BuildSource, ConfirmWaiting, DismissWaiting, DoneWaiting, Lapsed, NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSectionKind,
@@ -53,6 +53,8 @@ pub(super) struct DockState {
     pub row_box: Option<RowBox>,
     /// Where the panel is scrolled, so a run started from a row is brought into view under it.
     pub scroll: gpui::ScrollHandle,
+    /// The option under the pointer in a question's buttons, as (item, option): its sentence stands under it.
+    pub tip: Option<(String, usize)>,
     /// The run item's command whose run is being brought into view, and for how many more draws.
     pub reveal: Option<(String, Rc<std::cell::Cell<u8>>)>,
 }
@@ -1201,13 +1203,28 @@ impl JobView {
     fn answer_buttons(&self, row: &NeedsYouRow, keyed: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
         let options = row_options(row);
         let pick = ways::pick_of(options);
+        let page = self.shown.as_ref().and_then(|id| self.pages.get(id));
+        let group = page.map(|page| page.keys.spot(&format!("answers-group:{}", row.id), cx));
+        let tip_card = page.zip(self.shown.as_ref()).and_then(|(page, id)| {
+            let (_, at) = self.dock_of(id)?.tip.clone().filter(|(item, _)| *item == row.id)?;
+            let said = ways::button_tip(options, at)?;
+            let group = page.keys.spot_of(&format!("answers-group:{}", row.id))?.bounds.get();
+            let button = page.keys.spot_of(&format!("answer-btn:{}:{at}", row.id))?.bounds.get();
+            (group.size.width > gpui::px(0.)).then(|| answer_tip_card(said, group, button, look))
+        });
         let buttons = (0..options.len()).map(|at| {
             let word: SharedString = ways::button_word(options, at).into();
             let (weight, icon) = if pick == Some(at) { (Weight::JobPick, Some("check")) } else { (Weight::Plain, None) };
             let cap = (keyed && at < 9).then(|| SharedString::from((at + 1).to_string()));
             let mut button = press(format!("answer:{}:{at}", row.id), word.clone(), icon, cap, weight, look).max_w_full();
-            if let Some(said) = ways::button_tip(options, at) {
-                button = button.tooltip(tip(said));
+            // The sentence is drawn by this view under the button and no wider than the panel, where a tooltip runs to the window's edge.
+            if ways::button_tip(options, at).is_some() {
+                let over = row.id.clone();
+                button = button.on_hover(cx.listener(move |this, over_it: &bool, _, cx| this.answer_tip(&over, at, *over_it, cx)));
+            }
+            if let Some(spot) = page.map(|page| page.keys.spot(&format!("answer-btn:{}:{at}", row.id), cx)) {
+                let drawn = spot.bounds.clone();
+                button = button.child(canvas(move |bounds, _, _| drawn.set(bounds), |_, _, _, _| {}).absolute().top_0().left_0().size_full());
             }
             let (item, by_key) = (row.id.clone(), row.id.clone());
             let button = button
@@ -1237,11 +1254,27 @@ impl JobView {
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
                 .child(div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(buttons))
-                .children(words),
+                .children(words)
+                .children(group.map(|group| {
+                    let drawn = group.bounds.clone();
+                    canvas(move |bounds, _, _| drawn.set(bounds), |_, _, _, _| {}).absolute().top_0().left_0().size_full()
+                }))
+                .children(tip_card),
             Role::Group,
             "Answers",
         )
         .into_any_element()
+    }
+
+    /// The pointer came onto a button, or left it.
+    fn answer_tip(&mut self, item: &str, at: usize, over: bool, cx: &mut Context<Self>) {
+        let Some(dock) = self.dock_mut() else { return };
+        let this_one = (item.to_string(), at);
+        let next = if over { Some(this_one) } else { dock.tip.clone().filter(|one| *one != this_one) };
+        if dock.tip != next {
+            dock.tip = next;
+            cx.notify();
+        }
     }
 
     /// The question the number keys press now, and how many options it has: the one open, else the first the list
@@ -1426,3 +1459,30 @@ impl JobView {
     }
 }
 
+
+/// What choosing a button means, as a card under it: left edge and width the buttons' own, so it wraps inside the panel.
+fn answer_tip_card(said: String, group: gpui::Bounds<Pixels>, button: gpui::Bounds<Pixels>, look: &Look) -> AnyElement {
+    let card = div()
+        .id("answer-tip")
+        .w(group.size.width)
+        .px(look.length(token::SPACE_3))
+        .py(look.length(token::SPACE_2))
+        .rounded(look.length(token::RADIUS_MD))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_DEFAULT))
+        .bg(look.color(token::BG_OVERLAY))
+        .shadow(look.shadows(token::SHADOW_OVERLAY))
+        .text_size(look.length(token::TEXT_SM))
+        .line_height(look.length(token::LEADING_SM))
+        .text_color(look.color(token::FG_DEFAULT))
+        .child(SharedString::from(said.clone()));
+    deferred(
+        anchored()
+            .position(point(group.left(), button.bottom() + look.length(token::SPACE_1)))
+            .anchor(Anchor::TopLeft)
+            .snap_to_window_with_margin(look.length(token::SPACE_2))
+            .child(labelled(card, Role::Tooltip, said)),
+    )
+    .with_priority(1)
+    .into_any_element()
+}
