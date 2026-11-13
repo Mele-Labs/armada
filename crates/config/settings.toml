@@ -404,6 +404,8 @@ notes = """
 
 **The value lives in settings.json under `workflows.off`** (live), shaped `{ "machine": ["<workflow id>"], "repositories": { "<manifest id>": ["<workflow id>"] } }`, and is never written into a repository's checkout. Bridge saves it with the settings save it already has. A list absent or one that does not read is empty, so nothing is off.
 
+**A project switches workflows off for its own Jobs** in its file's `values.workflows_off`, through `set_project_workflow`. **Off wins**: the lists add up, so a workflow off on the machine or in a repository stays off in every project, and `get_values` names the furthest layer holding each one off. `docs/practices/protocol/projects.md`, *Workflows switched off*.
+
 **Off means what the main switch's off means, for the workflow alone.** The proposer and Autopilot's picker are shown no such workflow; `set_session_workflow` refuses to set it with `fleet.session_workflows_off`, and clearing one still works; a held Job's default is `feature` if that is on, else the first workflow that is on, else none; and a Job already on it has no `workflow_step`, hears no nudge for a step skipped, has no judge run at a step's boundary and is not told its steps on its first turn. Nothing is deleted: the Job keeps its workflow, so switching back on picks the rail up where the facts put it.
 """
 

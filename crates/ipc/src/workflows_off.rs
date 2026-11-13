@@ -9,6 +9,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::ValueLayer;
+
 /// Workflow ids per place, in the order they were switched off.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkflowsOff {
@@ -31,5 +33,21 @@ impl WorkflowsOff {
     pub fn has(&self, manifest: &str, workflow: &str) -> bool {
         self.machine.iter().any(|off| off == workflow)
             || self.repositories.get(manifest).is_some_and(|off| off.iter().any(|one| one == workflow))
+    }
+
+    /// The layer that switched `workflow` off for the repository `manifest`, in a project whose own list is
+    /// `project`, or `None` where it is on. **Off wins**: a project cannot switch back on what the machine or the
+    /// repository switched off, so the layer named is the furthest that lists it, machine then repository then
+    /// project; that is the switch that holds it off. No repository asks the machine's list and the project's.
+    pub fn off_from(&self, manifest: Option<&str>, project: &[String], workflow: &str) -> Option<ValueLayer> {
+        let names = |list: &[String]| list.iter().any(|one| one == workflow);
+        let repository = manifest.and_then(|manifest| self.repositories.get(manifest));
+        if names(&self.machine) {
+            Some(ValueLayer::Machine)
+        } else if repository.is_some_and(|list| names(list)) {
+            Some(ValueLayer::Repository)
+        } else {
+            names(project).then_some(ValueLayer::Project)
+        }
     }
 }

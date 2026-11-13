@@ -374,7 +374,7 @@ where
             .session_and_hosting(id)
             .await
             .map_err(|_| String::from("the job is gone"))?;
-        let answered = self.proposer_answered(&proposing, &hosting.manifest_id, request, hint).await?;
+        let answered = self.proposer_answered(&proposing, &hosting.manifest_id, hosting.project.as_deref(), request, hint).await?;
         answered
             .brief
             .read(&answered.reply, &answered.workflows, &proposing.choices)
@@ -388,6 +388,7 @@ where
         &self,
         proposing: &Proposing,
         manifest_id: &str,
+        project: Option<&str>,
         request: &str,
         hint: Option<&str>,
     ) -> Result<Answered, String> {
@@ -395,7 +396,7 @@ where
             .served_named(Some(&ManifestId::carried(manifest_id)))
             .map_err(|_| String::from("the repository is not served"))?;
         // The proposer is shown no workflow that is off, so it never picks one.
-        let workflows = self.workflows_offered(manifest_id, &served.workflows());
+        let workflows = self.workflows_offered(manifest_id, project, &served.workflows());
         // His renames teach the title. One that will not read leaves the question as it was.
         let renames = self
             .store()
@@ -613,7 +614,7 @@ where
     /// on it, and the turn that starts then tells.
     pub(crate) async fn turn_told(&self, id: &str, hosting: &KeptHosting) -> Option<String> {
         let mut said: Vec<String> = Vec::new();
-        let followed = hosting.workflow.as_deref().is_some_and(|workflow| self.workflow_on(&hosting.manifest_id, workflow));
+        let followed = hosting.workflow.as_deref().is_some_and(|workflow| self.workflow_on(&hosting.manifest_id, hosting.project.as_deref(), workflow));
         if !hosting.ran && followed {
             if let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
                 said.extend(workflow_words(&served.workflows(), hosting.workflow.as_deref(), false, &ways::plan_block(&self.preferences_in_force())));
@@ -679,11 +680,12 @@ where
         self.workflow_put(&id, set.workflow, by).await
     }
 
-    /// The workflow a Job of the repository `manifest` may follow, trimmed and none where blank, with the
-    /// repository's workflows. Refused where it holds no such workflow, or it is switched off.
+    /// The workflow a Job of the repository `manifest`, in `project` where it has one, may follow, trimmed and none
+    /// where blank, with the repository's workflows. Refused where it holds no such workflow, or it is switched off.
     pub(crate) fn workflow_checked(
         &self,
         manifest: &str,
+        project: Option<&str>,
         workflow: Option<String>,
     ) -> Result<(Option<String>, Arc<std::collections::BTreeMap<WorkflowId, ResolvedWorkflow>>), Refusal> {
         let held = self
@@ -693,10 +695,10 @@ where
         let workflow = workflow
             .map(|named| named.trim().to_string())
             .filter(|named| !named.is_empty());
-        if let Some(named) = workflow.as_deref().filter(|named| !self.workflow_on(manifest, named)) {
+        if let Some(named) = workflow.as_deref().filter(|named| !self.workflow_on(manifest, project, named)) {
             return Err(self.hosted_refusal(
                 WORKFLOWS_OFF,
-                &format!("workflow `{named}` is switched off in Settings for this repository, so no Job can follow it"),
+                &format!("workflow `{named}` is switched off in Settings, for this machine, this repository or this project, so no Job here can follow it"),
             ));
         }
         if let Some(named) = &workflow {
@@ -728,7 +730,7 @@ where
         if session.state == store::SessionState::Ended {
             return Err(self.closed(&id));
         }
-        let (workflow, held) = self.workflow_checked(&hosting.manifest_id, workflow)?;
+        let (workflow, held) = self.workflow_checked(&hosting.manifest_id, hosting.project.as_deref(), workflow)?;
         {
             let mut store = self.store().lock().await;
             let mut fresh = store
