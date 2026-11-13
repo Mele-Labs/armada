@@ -464,6 +464,12 @@ impl JobView {
                     .into_any_element()
             })
             .collect();
+        // An open item of Look is headed by the band itself: Back, where it stands, and the way to its neighbours.
+        let item = if open && crate::ways::looks() { self.look_place(id, cx) } else { None };
+        let mut item_keys = item.map(|place| {
+            let keys = self.look_band_keys(place, look, cx);
+            ItemKeys { back: Some(keys.back), stands: Some(keys.stands), previous: Some(keys.previous), next: Some(keys.next) }
+        });
         let trigger = labelled(
             div()
                 .id("needs-trigger")
@@ -477,22 +483,13 @@ impl JobView {
                 .cursor_pointer()
                 .child(glyph(look, "bell-ring", Size::Small, look.color(token::FG_INVERSE)))
                 .child(div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child("Needs you"))
+                .children(item_keys.as_mut().and_then(|keys| keys.stands.take()))
                 .child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(glyphs))
                 .child(div().flex_1())
-                .when(folds, |trigger| {
+                .when(folds && item.is_none(), |trigger| {
                     trigger.child(glyph(look, if open { "chevron-down" } else { "chevron-up" }, Size::Small, look.color(token::FG_INVERSE)))
                 })
-                .on_click(cx.listener(|this, _, window, cx| {
-                    let Some(id) = this.shown.clone() else { return };
-                    // With nothing else to answer, the band opens the sheet.
-                    let alone = !this.folds(&id, cx) && this.review_applies(&id, cx);
-                    if alone {
-                        this.review_press(window, cx);
-                    } else {
-                        let up = this.needs_up(&id, cx);
-                        this.set_needs(!up, None, window, cx);
-                    }
-                })),
+                .on_click(cx.listener(|this, _, window, cx| this.press_needs_band(window, cx))),
             Role::Button,
             "Needs you",
         );
@@ -516,7 +513,30 @@ impl JobView {
             .bg(hue)
             .text_color(look.color(token::FG_INVERSE))
             .overflow_hidden()
+            .children(item_keys.as_mut().and_then(|keys| keys.back.take()))
             .child(trigger)
+            .children(item_keys.as_mut().and_then(|keys| keys.previous.take()))
+            .children(item_keys.as_mut().and_then(|keys| keys.next.take()))
+            .when(item.is_some() && folds, |band| {
+                band.child(labelled(
+                    div()
+                        .id("needs-fold")
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .size(look.length(token::H_CONTROL_SM))
+                        .mx(look.length(token::SPACE_1))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .cursor_pointer()
+                        .hover(|style| style.bg(look.color(token::FG_INVERSE).opacity(0.2)))
+                        .tooltip(tip("Fold"))
+                        .child(glyph(look, if open { "chevron-down" } else { "chevron-up" }, Size::Small, look.color(token::FG_INVERSE)))
+                        .on_click(cx.listener(|this, _, window, cx| this.press_needs_band(window, cx))),
+                    Role::Button,
+                    "Fold Needs you",
+                ))
+            })
             .children(restarts.into_iter().enumerate().map(|(at, (command, build, adopt, label))| {
                 self.restart_key(id, command, build, adopt, label, (Some(at) == last).then_some(corner - edge), look, cx)
             }));
@@ -548,6 +568,18 @@ impl JobView {
             }
             .into_any_element(),
         )
+    }
+
+    /// A press on the band: it folds or opens the panel, or with nothing else to answer opens the sheet.
+    fn press_needs_band(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let alone = !self.folds(&id, cx) && self.review_applies(&id, cx);
+        if alone {
+            self.review_press(window, cx);
+        } else {
+            let up = self.needs_up(&id, cx);
+            self.set_needs(!up, None, window, cx);
+        }
     }
 
     /// A restart's key at the band's end, as Electron's `RestartKey`: its mark and its label, pressed
@@ -1277,7 +1309,6 @@ impl JobView {
                         .flex()
                         .flex_col()
                         .gap(look.length(token::SPACE_3))
-                        .child(self.look_head(id, &Self::thing_key(thing), look, cx))
                         .child(page)
                         .children(said.map(|why| super::acts::refusal(look, "dock", why)))
                         .into_any_element();
@@ -1339,3 +1370,11 @@ impl JobView {
     }
 }
 
+
+/// The pieces of an open item's head, held until the band takes each into its place.
+struct ItemKeys {
+    back: Option<AnyElement>,
+    stands: Option<AnyElement>,
+    previous: Option<AnyElement>,
+    next: Option<AnyElement>,
+}

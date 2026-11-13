@@ -25,7 +25,7 @@ use crate::labels::labelled;
 use crate::look::{token, Look};
 use crate::ways;
 
-/// The narrowest an option's card is drawn, in `--space-12`s: a narrower panel stands the options in fewer columns.
+/// The narrowest an option's card is drawn, in `--space-12`s, before the panel stands them in fewer columns, never below two.
 const NARROWEST: f32 = 4.;
 
 impl JobView {
@@ -34,7 +34,8 @@ impl JobView {
         let mixes = ways::mixes_parts();
         let taken: Vec<Taken> = self.dock_of(id).and_then(|dock| dock.looked.taken.get(&row.id).cloned()).unwrap_or_default();
         let pick = ways::pick_of(options);
-        let hint = if mixes { "Press a picture to take it whole, or press labelled parts across pictures." } else { "Press a picture to take it whole." };
+        // With pictures_whole there are no parts to press, and the hint is left out.
+        let hint = mixes.then_some("Press a picture to take it whole, or press labelled parts across pictures.");
         let across = self.look_across(id, options.len(), look);
         let rows = options.chunks(across).enumerate().map(|(line, chunk)| {
             let cards = chunk.iter().enumerate().map(|(at, option)| {
@@ -52,13 +53,13 @@ impl JobView {
             .flex_col()
             .gap(look.length(token::SPACE_3))
             .child(self.look_title(&row.text, look))
-            .child(div().text_size(look.length(token::TEXT_META)).text_color(look.color(token::FG_MUTED)).child(hint))
+            .children(hint.map(|hint| div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(hint)))
             .children(rows)
-            .children(mixes.then(|| self.look_mix_bar(row, options, &taken, look, cx)))
+            .children(mixes.then(|| self.look_mix_bar(id, row, options, &taken, look, cx)))
             .into_any_element()
     }
 
-    /// How many options stand side by side: one each while the panel holds them at their narrowest, else as many as it does.
+    /// How many options stand side by side: as many as the panel holds at their narrowest, and never fewer than two.
     fn look_across(&self, id: &SharedString, options: usize, look: &Look) -> usize {
         let panel = self.pages.get(id).map(|page| f32::from(page.list.viewport_bounds().size.width)).unwrap_or_default();
         let gap = f32::from(look.length(token::SPACE_3));
@@ -68,7 +69,8 @@ impl JobView {
         if panel <= 0. {
             return options.max(1);
         }
-        (((inside + gap) / (narrowest + gap)).floor() as usize).clamp(1, options.max(1))
+        // Never fewer than two side by side: a narrow panel scales the pictures down rather than stacking them.
+        (((inside + gap) / (narrowest + gap)).floor() as usize).clamp(options.min(2).max(1), options.max(1))
     }
 
     /// One option: its head, and its still in a well with its parts over it.
@@ -96,45 +98,58 @@ impl JobView {
             .flex_none()
             .tooltip(tip(format!("Takes {name} whole")))
             .child(kbd(look, &key.to_string()));
+        // The name, then the pill and the key cap at the right end; a card too narrow for all three wraps the pill and cap under the name.
         let head = div()
             .w_full()
             .flex()
+            .flex_wrap()
             .items_center()
-            .gap(look.length(token::SPACE_2))
+            .gap(look.length(token::SPACE_1))
             .child(
                 div()
-                    .flex_1()
-                    .min_w_0()
-                    .truncate()
-                    .text_size(look.length(token::TEXT_META))
+                    .flex_grow(1.)
+                    .max_w_full()
+                    .text_size(look.length(token::TEXT_2XS))
+                    .line_height(look.length(token::LEADING_2XS))
                     .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                     .text_color(look.color(token::FG_DEFAULT))
                     .child(SharedString::from(name.clone())),
             )
-            .children(pick.then(|| {
+            .child(
                 div()
-                    .id(SharedString::from(format!("look-pick:{}:{at}", row.id)))
                     .flex_none()
-                    .px(look.length(token::SPACE_2))
-                    .rounded_full()
-                    .bg(look.color(token::ACCENT_MUTED))
-                    .text_size(look.length(token::TEXT_2XS))
-                    .line_height(look.length(token::LEADING_2XS))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                    .text_color(accent)
-                    .child("My pick")
-            }))
-            .child(cap);
+                    .ml_auto()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .children(pick.then(|| {
+                        div()
+                            .id(SharedString::from(format!("look-pick:{}:{at}", row.id)))
+                            .flex_none()
+                            .px(look.length(token::SPACE_2))
+                            .rounded_full()
+                            .bg(look.color(token::ACCENT_MUTED))
+                            .text_size(look.length(token::TEXT_2XS))
+                            .line_height(look.length(token::LEADING_2XS))
+                            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                            .text_color(accent)
+                            .child("My pick")
+                    }))
+                    .child(cap),
+            );
         let picture = still.map(|(picture, read)| {
             let ratio = picture.width.max(1) as f32 / picture.height.max(1) as f32;
             let bounds: Rc<Cell<Bounds<Pixels>>> = Rc::new(Cell::new(Bounds::default()));
             let measured = bounds.clone();
+            let wide = f32::from(bounds.get().size.width);
             let pressed = (picture.clone(), bounds, whole_item.clone());
             let body = match read {
                 Some(Still::Ready(image)) => img(image.clone()).absolute().size_full().object_fit(ObjectFit::Fill).into_any_element(),
                 Some(Still::Unread) => div().absolute().size_full().bg(look.color(token::BG_HOVER)).into_any_element(),
                 _ => div().absolute().size_full().rounded(look.length(token::RADIUS_SM)).bg(look.color(token::FG_DEFAULT).opacity(0.07)).into_any_element(),
             };
+            // Labels are about ten points on a picture drawn wide and shrink with a narrow one, so they stay clear of one another.
+            let squeeze = 0.7 + 0.15 * if wide > 0. { (wide / (f32::from(look.length(token::SPACE_12)) * 6.)).clamp(0., 1.) } else { 1. };
             // Each part is a box and a label tab: the tabs are laid over every box, so a later part's edge never cuts an earlier part's label.
             let mut tabs = Vec::new();
             let parts: Vec<AnyElement> = picture.parts.iter().filter(|_| mixes).map(|part| {
@@ -152,8 +167,8 @@ impl JobView {
                     .border(edge)
                     .border_color(if on { look.color(token::SKETCH_TEAL) } else { look.color(token::BORDER_DEFAULT) })
                     .bg(if on { look.color(token::SKETCH_TEAL) } else { look.color(token::SURFACE_CARD) })
-                    .text_size(look.length(token::TEXT_2XS))
-                    .line_height(look.length(token::LEADING_2XS))
+                    .text_size(look.length(token::TEXT_2XS) * squeeze)
+                    .line_height(look.length(token::LEADING_2XS) * squeeze)
                     .text_color(if on { look.color(token::FG_INVERSE) } else { look.color(token::FG_MUTED) })
                     .whitespace_nowrap()
                     .child(SharedString::from(part.label.clone()));
@@ -241,7 +256,7 @@ impl JobView {
     }
 
     /// Your mix: what is taken, as pills, with Clear and Send mix at the end.
-    fn look_mix_bar(&self, row: &NeedsYouRow, options: &[WaitingOption], taken: &[Taken], look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn look_mix_bar(&self, id: &SharedString, row: &NeedsYouRow, options: &[WaitingOption], taken: &[Taken], look: &Look, cx: &Context<Self>) -> AnyElement {
         let teal = look.color(token::SKETCH_TEAL);
         let pills = taken.iter().filter_map(|one| pill(options, one)).enumerate().map(|(at, said)| {
             labelled(
@@ -269,7 +284,7 @@ impl JobView {
         let some = !taken.is_empty();
         let (clear_item, send_item) = (row.id.clone(), row.id.clone());
         let clear = labelled(
-            button(look, "look-clear", "Clear", Tone::Ghost, false, None, some).when(some, |press| press.on_click(cx.listener(move |this, _, _, cx| this.look_clear(&clear_item, cx)))),
+            button(look, "look-clear", "Clear", Tone::Ghost, false, None, some).when(some, |press| press.on_click(cx.listener(move |this, _, window, cx| this.look_clear(&clear_item, window, cx)))),
             Role::Button,
             "Clear",
         );
@@ -279,9 +294,14 @@ impl JobView {
             Role::Button,
             "Send mix",
         );
+        let measured = self.dock_of(id).map(|dock| dock.looked.mix_at.clone()).unwrap_or_default();
+        let pending = self.dock_of(id).map(|dock| dock.looked.reveal_mix.clone()).unwrap_or_default();
+        let scroll = self.dock_of(id).map(|dock| dock.scroll.clone()).unwrap_or_default();
+        let gap = look.length(token::SPACE_4);
         labelled(
             div()
                 .id("look-mix")
+                .relative()
                 .w_full()
                 .flex()
                 .flex_wrap()
@@ -300,7 +320,31 @@ impl JobView {
                         .child(div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Your mix"))
                         .children(pills),
                 )
-                .child(div().flex_none().ml_auto().flex().items_center().gap(look.length(token::SPACE_2)).child(clear).child(send)),
+                .child(div().flex_none().ml_auto().flex().items_center().gap(look.length(token::SPACE_2)).child(clear).child(send))
+                .child(
+                    canvas(
+                        move |area, window, _| {
+                            measured.set(area);
+                            if pending.replace(false) {
+                                // Whole in the panel's view, clear of its foot by a gap: the offset moves now and the next draw shows it.
+                                let view = scroll.bounds();
+                                let at = scroll.offset();
+                                if view.size.height > gpui::px(0.) {
+                                    if area.bottom() + gap > view.bottom() {
+                                        scroll.set_offset(gpui::point(at.x, at.y - (area.bottom() + gap - view.bottom())));
+                                        window.refresh();
+                                    } else if area.top() < view.top() {
+                                        scroll.set_offset(gpui::point(at.x, at.y + (view.top() - area.top())));
+                                        window.refresh();
+                                    }
+                                }
+                            }
+                        },
+                        |_, _, _, _| {},
+                    )
+                    .absolute()
+                    .size_full(),
+                ),
             Role::Group,
             "Your mix",
         )
@@ -317,15 +361,24 @@ impl JobView {
         if let Some(dock) = self.dock_mut() {
             toggled(dock.looked.taken.entry(item.to_string()).or_default(), option, part);
         }
+        self.reveal_mix(cx);
+    }
+
+    /// Bring the whole Your mix bar into view after it changed: the bar, once drawn at its new height, scrolls the
+    /// panel itself, and a redraw follows.
+    fn reveal_mix(&mut self, cx: &mut Context<Self>) {
+        if let Some(dock) = self.dock_mut() {
+            dock.looked.reveal_mix.set(true);
+        }
         cx.notify();
     }
 
     /// Clear lets every part go.
-    pub(super) fn look_clear(&mut self, item: &str, cx: &mut Context<Self>) {
+    pub(super) fn look_clear(&mut self, item: &str, _window: &mut Window, cx: &mut Context<Self>) {
         if let Some(dock) = self.dock_mut() {
             dock.looked.taken.remove(item);
         }
-        cx.notify();
+        self.reveal_mix(cx);
     }
 
     /// An option taken whole: the normal answer, its choice the option's index.

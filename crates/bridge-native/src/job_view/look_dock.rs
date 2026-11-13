@@ -6,10 +6,12 @@
 //!
 //! The keys here are the panel's own (`on_panel_key`), as the keys of its other items are.
 
+use std::cell::Cell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Arc;
 
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Image, ImageFormat, Role, SharedString, Window};
+use gpui::{div, prelude::*, AnyElement, Bounds, Context, Pixels, FontWeight, Image, ImageFormat, Role, SharedString, Window};
 use ipc::{NeedsYouAct, NeedsYouRow, SessionRow, WaitingOption};
 
 use super::acts::{button, Tone};
@@ -53,6 +55,10 @@ pub(super) struct Looked {
     pub lead: Lead,
     /// The `done_since` the lead was asked for.
     pub lead_for: Option<String>,
+    /// Where the Your mix bar was last drawn, so the panel can scroll it clear of its edge.
+    pub mix_at: Rc<Cell<Bounds<Pixels>>>,
+    /// The mix changed: the bar, once drawn at its new height, scrolls itself whole into the panel's view.
+    pub reveal_mix: Rc<Cell<bool>>,
 }
 
 /// What an item is when it is opened whole in Look.
@@ -215,13 +221,20 @@ impl JobView {
         self.set_needs(true, Some(order[to as usize].clone()), window, cx);
     }
 
-    /// The head of an open item: Back, the Needs you band with where this item stands, and the way to the next.
-    pub(super) fn look_head(&self, id: &SharedString, key: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// Where the open item stands among the ones that open whole: `None` when the open item is not one of them.
+    pub(super) fn look_place(&self, id: &str, cx: &gpui::App) -> Option<Place> {
+        let key = self.dock_of(id).and_then(|dock| dock.detail.clone())?;
         let order = self.look_order(id, cx);
-        let at = order.iter().position(|one| one == key);
-        let (before, after) = (at.is_some_and(|at| at > 0), at.is_some_and(|at| at + 1 < order.len()));
-        let hue = look.color(token::YOU);
-        let step = |name: &'static str, said: &'static str, icon: &'static str, by: isize, on: bool| {
+        let at = order.iter().position(|one| *one == key)?;
+        Some(Place { at, total: order.len() })
+    }
+
+    /// The pieces of an open item's head that the amber Needs you band carries: Back at its left, where the item
+    /// stands beside the words Needs you, and the way to the previous and next item at its right.
+    pub(super) fn look_band_keys(&self, place: Place, look: &Look, cx: &Context<Self>) -> BandKeys {
+        let (before, after) = (place.at > 0, place.at + 1 < place.total);
+        let ink = look.color(token::FG_INVERSE);
+        let key = |name: &'static str, said: &'static str, icon: &'static str, on: bool| {
             let press = div()
                 .id(name)
                 .flex_none()
@@ -231,58 +244,53 @@ impl JobView {
                 .size(look.length(token::H_CONTROL_SM))
                 .rounded(look.length(token::RADIUS_MD))
                 .tooltip(tip(said))
-                .child(glyph(look, icon, Size::Small, if on { look.color(token::FG_MUTED) } else { look.color(token::FG_SUBTLE) }));
-            let press = if on {
-                press.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(cx.listener(move |this, _, window, cx| this.look_step(by, window, cx)))
+                .child(glyph(look, icon, Size::Small, ink));
+            if on {
+                press.cursor_pointer().hover(|style| style.bg(ink.opacity(0.2)))
             } else {
                 press.opacity(0.4)
-            };
-            labelled(press, Role::Button, said)
+            }
         };
         let back = labelled(
-            div()
-                .id("needs-back")
-                .flex_none()
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(look.length(token::H_CONTROL_SM))
-                .rounded(look.length(token::RADIUS_MD))
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .tooltip(tip("Back"))
-                .child(glyph(look, "chevron-left", Size::Mark, look.color(token::FG_MUTED)))
-                .on_click(cx.listener(|this, _, window, cx| this.set_needs(true, None, window, cx))),
+            key("needs-back", "Back", "chevron-left", true).on_click(cx.listener(|this, _, window, cx| {
+                cx.stop_propagation();
+                this.set_needs(true, None, window, cx)
+            })),
             Role::Button,
             "Back",
-        );
-        let band = div()
-            .flex_1()
-            .min_w_0()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .h(look.length(token::H_CONTROL))
-            .pl(look.length(token::SPACE_3))
-            .pr(look.length(token::SPACE_1))
-            .border_l(look.length(token::BORDER_WIDTH) * 3.)
-            .border_color(hue)
-            .rounded_r(look.length(token::RADIUS_SM))
-            .bg(hue.opacity(0.12))
-            .child(glyph(look, "bell-ring", Size::Small, hue))
-            .child(div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(hue).child("Needs you"))
-            .children(at.map(|at| {
-                let place = format!("{} of {}", at + 1, order.len());
-                labelled(
-                    div().id("needs-place").text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(place.clone())),
-                    Role::Status,
-                    place,
-                )
-            }))
-            .child(div().flex_1())
-            .child(step("needs-previous", "Previous item", "chevron-up", -1, before))
-            .child(step("needs-next", "Next item", "chevron-down", 1, after));
-        div().w_full().flex().items_center().gap(look.length(token::SPACE_2)).child(back).child(band).into_any_element()
+        )
+        .into_any_element();
+        let step = |name: &'static str, said: &'static str, icon: &'static str, by: isize, on: bool| {
+            labelled(
+                key(name, said, icon, on).when(on, |press| {
+                    press.on_click(cx.listener(move |this, _, window, cx| {
+                        cx.stop_propagation();
+                        this.look_step(by, window, cx)
+                    }))
+                }),
+                Role::Button,
+                said,
+            )
+            .into_any_element()
+        };
+        let said = format!("{} of {}", place.at + 1, place.total);
+        let stands = labelled(
+            div()
+                .id("needs-place")
+                .flex_none()
+                .text_size(look.length(token::TEXT_XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                .child(SharedString::from(said.clone())),
+            Role::Status,
+            said,
+        )
+        .into_any_element();
+        BandKeys {
+            back,
+            stands,
+            previous: step("needs-previous", "Previous item", "chevron-up", -1, before),
+            next: step("needs-next", "Next item", "chevron-down", 1, after),
+        }
     }
 
     /// The title of an open item, as a question is titled.
@@ -516,4 +524,19 @@ impl JobView {
             .children(crate::terminal::run::under_item(id, command, cx))
             .into_any_element()
     }
+}
+
+/// Where the open item stands among those that open whole: its place, from 0, and how many there are.
+#[derive(Clone, Copy)]
+pub(super) struct Place {
+    pub at: usize,
+    pub total: usize,
+}
+
+/// The parts of an open item's head the amber band carries.
+pub(super) struct BandKeys {
+    pub back: AnyElement,
+    pub stands: AnyElement,
+    pub previous: AnyElement,
+    pub next: AnyElement,
 }
