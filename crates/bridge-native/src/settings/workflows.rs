@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use gpui::{canvas, div, prelude::*, px, svg, AnyElement, App, Context, Entity, FocusHandle, Focusable, FontWeight, Keystroke, Role, SharedString, Subscription, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
-use ipc::{SettingValue, WorkflowSummary};
+use ipc::{ResolvedWorkflow, SettingValue, ValueLayer, WorkflowSummary};
 
 use super::overlay::SettingsOverlay;
 use super::view::{bone, mono, ringed, small, switch_track, tip};
@@ -283,11 +283,29 @@ pub fn switched(off: &Off, id: &str, on: bool, manifest: Option<&str>) -> Settin
     )
 }
 
-/// What a row's switch draws: on or off where it switches, or the machine's off in its place.
+/// What a row's switch draws: on or off where it switches, or the machine's or a repository's off in its place.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RowSwitch {
     Switch { on: bool, label: String },
     OffOnMachine,
+    /// Off in the repository named, drawn under a project: a project cannot switch back on what its repository switched off.
+    OffInRepository(String),
+}
+
+/// A row's switch under a project: the project's own, where the machine and the row's repository leave the workflow on.
+/// **Off wins**, so where either switched it off it is drawn off with that layer named, and no switch.
+pub fn project_switch(off: &Off, resolved: &[ResolvedWorkflow], id: &str, at: Option<&(String, String)>, project: &str) -> RowSwitch {
+    let held = resolved.iter().find(|one| one.id == id);
+    if off.machine.iter().any(|one| one == id) || held.is_some_and(|one| one.from == ValueLayer::Machine) {
+        return RowSwitch::OffOnMachine;
+    }
+    if let Some((manifest, name)) = at {
+        if off.repositories.get(manifest).is_some_and(|ids| ids.iter().any(|one| one == id)) || held.is_some_and(|one| one.from == ValueLayer::Repository) {
+            return RowSwitch::OffInRepository(name.clone());
+        }
+    }
+    let on = held.is_none_or(|one| one.on);
+    RowSwitch::Switch { on, label: format!("{} in {project}", if on { "On" } else { "Off" }) }
 }
 
 pub fn row_switch(off: &Off, id: &str, at: Option<&(String, String)>) -> RowSwitch {
@@ -383,9 +401,12 @@ impl SettingsOverlay {
         Some((rows, groups))
     }
 
-    /// Whether a group's switches are the machine's, drawn under a project: its own are the repositories'.
-    fn inherited(&self, at: Option<&(String, String)>) -> bool {
-        self.scope.project.is_some() && at.is_none()
+    /// A row's switch: the project's under a project picked, else the machine's or the row's repository's.
+    fn switch_of(&self, off: &Off, id: &str, at: Option<&(String, String)>) -> RowSwitch {
+        match &self.scope.project {
+            Some((_, name)) => project_switch(off, self.scope.values.as_ref().map_or(&[][..], |values| values.workflows.as_slice()), id, at, name),
+            None => row_switch(off, id, at),
+        }
     }
 
     /// Every row's switch whatever is searched, for ⌘K: its key, what it switches, and whether it is on.
@@ -394,15 +415,18 @@ impl SettingsOverlay {
         let off = self.workflows_off();
         groups
             .into_iter()
-            .filter(|group| !self.inherited(group.at.as_ref()))
             .flat_map(|group| {
                 let off = off.clone();
-                group.rows.into_iter().filter_map(move |one| match row_switch(&off, &one.id, group.at.as_ref()) {
+                group.rows.into_iter().filter_map(move |one| match self.switch_of(&off, &one.id, group.at.as_ref()) {
                     RowSwitch::Switch { on, .. } => {
-                        let said = group.at.as_ref().map_or_else(|| format!("{} on this machine", one.id), |(_, name)| format!("{} in {name}", one.id));
+                        let said = match (&self.scope.project, group.at.as_ref()) {
+                            (Some((_, project)), _) => format!("{} in {project}", one.id),
+                            (None, None) => format!("{} on this machine", one.id),
+                            (None, Some((_, name))) => format!("{} in {name}", one.id),
+                        };
                         Some((one.key(), said, on))
                     }
-                    RowSwitch::OffOnMachine => None,
+                    RowSwitch::OffOnMachine | RowSwitch::OffInRepository(_) => None,
                 })
             })
             .collect()
@@ -412,10 +436,42 @@ impl SettingsOverlay {
     pub fn apply_workflow(&mut self, key: &str, on: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some((_, groups)) = self.workflow_groups_for("", cx) else { return };
         let Some((one, at)) = groups.into_iter().find_map(|group| group.rows.into_iter().find(|one| one.key() == key).map(|one| (one, group.at))) else { return };
-        if self.inherited(at.as_ref()) {
+        self.switch_listed(&one.id, on, at.as_ref(), window, cx);
+    }
+
+    /// A row switched: for the project picked, else on the machine or in the row's repository.
+    fn switch_listed(&mut self, id: &str, on: bool, at: Option<&(String, String)>, window: &mut Window, cx: &mut Context<Self>) {
+        match self.scope.project.clone() {
+            Some((project, _)) => self.switch_for_project(&project, id, on, window, cx),
+            None => self.switch_workflow(id, on, at.map(|(manifest, _)| manifest.as_str()), window, cx),
+        }
+    }
+
+    /// One workflow switched for a project: Fleet answers its projects, and what the project's values come to is read again.
+    fn switch_for_project(&mut self, project: &str, id: &str, on: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.saving.is_some() || !self.live {
             return;
         }
-        self.switch_workflow(&one.id, on, at.as_ref().map(|(manifest, _)| manifest.as_str()), window, cx);
+        self.saving = Some(OFF.to_string());
+        self.refused.remove(OFF);
+        let sent = self.wire.set_project_workflow(project, id, on, cx);
+        self._save = Some(cx.spawn_in(window, async move |this, cx| {
+            let answer = sent.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                this.saving = None;
+                match answer {
+                    Ok(projects) => {
+                        this.scope.projects = Some(projects);
+                        this.read_scope(window, cx);
+                    }
+                    Err(refused) => {
+                        this.refused.insert(OFF.to_string(), refused.said);
+                    }
+                }
+                cx.notify();
+            });
+        }));
+        cx.notify();
     }
 
     fn workflows_off(&self) -> Off {
@@ -456,7 +512,7 @@ impl SettingsOverlay {
             if picked.as_ref().is_some_and(|picked| picked.key() == one.key()) {
                 stops.push(row.clone());
             }
-            if matches!(row_switch(&off, &one.id, at.as_ref()), RowSwitch::Switch { .. }) && !self.inherited(at.as_ref()) {
+            if matches!(self.switch_of(&off, &one.id, at.as_ref()), RowSwitch::Switch { .. }) {
                 stops.push(switch.clone());
             }
         }
@@ -584,8 +640,8 @@ impl SettingsOverlay {
         let on_switch = shown.iter().find(|(one, _)| self.workflows.rows.get(&one.key()).is_some_and(|[_, switch]| switch.is_focused(window))).cloned();
         if let Some((one, at)) = on_switch {
             if matches!(word, "enter" | "space") {
-                if let RowSwitch::Switch { on, .. } = row_switch(&self.workflows_off(), &one.id, at.as_ref()) {
-                    self.switch_workflow(&one.id, !on, at.as_ref().map(|(manifest, _)| manifest.as_str()), window, cx);
+                if let RowSwitch::Switch { on, .. } = self.switch_of(&self.workflows_off(), &one.id, at.as_ref()) {
+                    self.switch_listed(&one.id, !on, at.as_ref(), window, cx);
                 }
                 return true;
             }
@@ -743,6 +799,7 @@ impl SettingsOverlay {
             .p(look.length(token::SPACE_3))
             .gap(look.length(token::SPACE_4))
             .child(head)
+            .children(self.refused.get(OFF).map(|said| labelled(super::view::refusal(look, said.clone()).id("workflows-refused"), Role::Alert, said.clone())))
             .child(labelled(jobs_switch, Role::Switch, "Workflows for Jobs"))
             .child(filter)
             .child(groups);
@@ -810,15 +867,18 @@ impl SettingsOverlay {
                 said,
             )
         }));
-        let switch_cell = match row_switch(off, &one.id, at) {
-            RowSwitch::OffOnMachine => div().child(small(look, "Off on this machine", look.color(token::FG_MUTED))).into_any_element(),
+        // Off where this row cannot switch it back on: the layer named, and the tooltip says for whom.
+        let held_off = |said: String, tipped: String| {
+            labelled(div().id(SharedString::from(format!("workflow-off-{key}"))).tooltip(tip(tipped)).child(small(look, said.clone(), look.color(token::FG_MUTED))), Role::Label, format!("{}: {said}", one.id)).into_any_element()
+        };
+        let switch_cell = match self.switch_of(off, &one.id, at) {
+            RowSwitch::OffOnMachine => held_off("Off on this machine".to_string(), "Off for every project on this machine".to_string()),
+            RowSwitch::OffInRepository(name) => held_off(format!("Off in {name}"), format!("Off for every project in {name}")),
             RowSwitch::Switch { on, label } => {
                 let id = one.id.clone();
-                let manifest = at.map(|(manifest, _)| manifest.clone());
-                // Under a project, the machine's switches are drawn for what they are and are switched under Every project.
-                let fixed = self.inherited(at);
-                let label = if fixed { format!("{label}. Switch it under Every project") } else { label };
-                let sending = sending || fixed;
+                let at = at.cloned();
+                // Under a project, its switches wait for what its values come to.
+                let sending = sending || (self.scope.project.is_some() && self.scope.values.is_none());
                 let switch = ringed(
                     look,
                     div()
@@ -831,7 +891,7 @@ impl SettingsOverlay {
                             switch.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| {
                                 // The row under it picks; the switch only switches.
                                 cx.stop_propagation();
-                                this.switch_workflow(&id, !on, manifest.as_deref(), window, cx);
+                                this.switch_listed(&id, !on, at.as_ref(), window, cx);
                             }))
                         }),
                     &switch_key,
@@ -971,6 +1031,21 @@ mod tests {
         assert!(back.repositories.is_empty());
         assert_eq!(row_switch(&machine, "bug", Some(&("armada".into(), "armada".into()))), RowSwitch::OffOnMachine);
         assert_eq!(row_switch(&there, "feature", Some(&("armada".into(), "armada".into()))), RowSwitch::Switch { on: false, label: "Off in armada".into() });
+    }
+
+    #[test]
+    fn under_a_project_off_wins_and_only_the_projects_own_off_switches() {
+        let off = Off { machine: vec!["bug".into()], repositories: [("sample-web".to_string(), vec!["feature".to_string()])].into_iter().collect() };
+        let web = ("sample-web".to_string(), "sample-web".to_string());
+        let resolved = [
+            ResolvedWorkflow { id: "bug".into(), on: false, from: ValueLayer::Machine },
+            ResolvedWorkflow { id: "docs_only".into(), on: false, from: ValueLayer::Project },
+            ResolvedWorkflow { id: "feature".into(), on: true, from: ValueLayer::Default },
+        ];
+        assert_eq!(project_switch(&off, &resolved, "bug", Some(&web), "Storefront"), RowSwitch::OffOnMachine);
+        assert_eq!(project_switch(&off, &resolved, "feature", Some(&web), "Storefront"), RowSwitch::OffInRepository("sample-web".into()), "the repository's off holds where Fleet was asked about no repository");
+        assert_eq!(project_switch(&off, &resolved, "feature", None, "Storefront"), RowSwitch::Switch { on: true, label: "On in Storefront".into() });
+        assert_eq!(project_switch(&off, &resolved, "docs_only", None, "Storefront"), RowSwitch::Switch { on: false, label: "Off in Storefront".into() });
     }
 
     use gpui::{TestAppContext, VisualTestContext};

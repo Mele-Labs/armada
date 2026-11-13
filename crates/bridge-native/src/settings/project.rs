@@ -764,8 +764,9 @@ mod tests {
 
     #[test]
     fn every_value_a_project_sets_is_on_one_page_under_the_project() {
-        // Every key `ValuesSet` has, named so a key added to it fails here until a page holds it.
-        let ValuesSet { pr_mode: _, auto_merge: _, review_model: _, look: _, tracker: _, reviews: _, agent_starts: _, delivery: _ } = ValuesSet::default();
+        // Every key `ValuesSet` has, named so a key added to it fails here until a page holds it. `workflows_off` is
+        // switched on the Workflows page, a row at a time.
+        let ValuesSet { pr_mode: _, auto_merge: _, review_model: _, look: _, tracker: _, reviews: _, agent_starts: _, delivery: _, workflows_off: _ } = ValuesSet::default();
         let keys: Vec<Key> = [Body::Values(Page::PullRequests), Body::Values(Page::StartingJobs), Body::Values(Page::Look), Body::Macs].into_iter().flat_map(|body| keys_of(body).iter().copied()).collect();
         let mut sorted = keys.clone();
         sorted.sort();

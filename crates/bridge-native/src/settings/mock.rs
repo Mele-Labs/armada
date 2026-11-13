@@ -507,6 +507,26 @@ impl MockFleet {
         let (own_starts, kit_starts) = pick(|set| set.agent_starts.clone());
         let (own_delivery, kit_delivery) = pick(|set| set.delivery.clone());
         let tracker = own.and_then(|own| own.tracker.clone());
+        // Off wins: the machine's list, then the project's, as Fleet adds them up where no repository is asked about.
+        let workflows = match own {
+            Some(own) => {
+                let machine = super::workflows::off_of(self.list.settings.iter().find(|one| one.key == super::workflows::OFF).map(|one| &one.value)).machine;
+                let ids: std::collections::BTreeSet<&str> = self.workflows.iter().map(|one| one.id.as_str()).collect();
+                ids.into_iter()
+                    .map(|id| {
+                        let from = if machine.iter().any(|one| one == id) {
+                            ValueLayer::Machine
+                        } else if own.workflows_off.iter().any(|one| one == id) {
+                            ValueLayer::Project
+                        } else {
+                            ValueLayer::Default
+                        };
+                        ipc::ResolvedWorkflow { id: id.to_string(), on: from == ValueLayer::Default, from }
+                    })
+                    .collect()
+            }
+            None => Vec::new(),
+        };
         ResolvedValues {
             pr_mode: word(own_mode, kit_mode, Some("ready")),
             auto_merge: word(own_merge, kit_merge, Some("never")),
@@ -520,6 +540,7 @@ impl MockFleet {
             // The first project's word is the one Fleet learned from his first answer, until he changes it.
             delivery: Some(ResolvedValue { learned: own_delivery.as_deref() == Some("auto_land"), ..word(own_delivery, kit_delivery, None) }),
             autonomy: Vec::new(),
+            workflows,
         }
     }
 
@@ -580,6 +601,17 @@ impl MockFleet {
             return Err(Refused::said(why.clone()));
         }
         one.shared_with_macs = on;
+        Ok(self.projects.clone())
+    }
+
+    /// `set_project_workflow`: off adds the id to the project's list, on takes it away.
+    pub fn set_project_workflow(&mut self, project: &str, workflow: &str, on: bool) -> Result<Projects, Refused> {
+        let one = self.projects.projects.iter_mut().find(|one| one.id == project).ok_or_else(|| Refused::said(format!("there is no project {project}")))?;
+        let values = one.values.get_or_insert_with(ValuesSet::default);
+        values.workflows_off.retain(|id| id != workflow);
+        if !on {
+            values.workflows_off.push(workflow.to_string());
+        }
         Ok(self.projects.clone())
     }
 }

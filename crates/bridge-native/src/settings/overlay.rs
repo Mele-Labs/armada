@@ -147,7 +147,7 @@ pub struct SettingsOverlay {
     keys: Option<Subscription>,
     _typing: Vec<Subscription>,
     _read: Option<Task<()>>,
-    _save: Option<Task<()>>,
+    pub(super) _save: Option<Task<()>>,
 }
 
 /// The ids a choice's entries carry in the dropdown: its place among the options.
@@ -613,7 +613,7 @@ impl SettingsOverlay {
 
     /// Read the projects, what every project uses and what the project picked comes to, each off the main
     /// thread. The review model's choices are the models the harness offers, read as Models reads them.
-    fn read_scope(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn read_scope(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.read_models(cx);
         let picked = self.scope.project.clone();
         let (projects, every) = (self.wire.projects_now(cx), self.wire.every_values(cx));
