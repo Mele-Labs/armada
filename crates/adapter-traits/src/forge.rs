@@ -17,6 +17,7 @@ use crate::{
 };
 
 const NO_REVIEWERS: &str = "this forge cannot request reviewers";
+const NO_LISTING: &str = "this forge cannot list the repositories an account can see";
 
 /// Asking the forge about pull requests and CI, and the few writes a person
 /// presses for.
@@ -364,6 +365,36 @@ pub trait Forge {
         title: &str,
         body: &str,
     ) -> Result<String, NotDelivered>;
+
+    /// The repositories the signed-in account can see, newest pushed first, at most `most` of
+    /// them. **Of the account, not of a repository**, so it names none: a person picks one to
+    /// clone before anything of it is on this machine. `Err` is the forge's own sentence, as a
+    /// person can act on it. **A forge with no call for it says so by default**, as
+    /// [`request_reviewers`](Forge::request_reviewers) does.
+    fn account_repositories(&self, most: usize) -> Result<AccountRepositories, String> {
+        let _ = most;
+        Err(String::from(NO_LISTING))
+    }
+}
+
+/// [`Forge::account_repositories`]' answer.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct AccountRepositories {
+    pub repositories: Vec<ForgeRepository>,
+    /// The forge held more than `most`, and the rest were not read.
+    pub cut: bool,
+}
+
+/// One repository an account can see on the forge.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ForgeRepository {
+    pub owner: String,
+    pub name: String,
+    /// What `git clone` takes, over HTTPS.
+    pub url: String,
+    pub private: bool,
+    /// When anything was last pushed to it, RFC 3339. `None` for one nothing was ever pushed to.
+    pub pushed_at: Option<String>,
 }
 
 /// [`Forge::landing`]'s answer: what became of the pull request, and for an
