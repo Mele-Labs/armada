@@ -128,7 +128,7 @@ async fn a_public_address_holds_three_asks_and_the_minutes_share_of_tries() {
     let home = Side::new("Home", &[]).await;
     let stranger = |n: u8| {
         let key = p256::ecdsa::SigningKey::from_slice(&[n; 32]).unwrap();
-        let mac = MacHello { id: format!("{n:02x}{n:02x}"), name: format!("Mac {n}"), colour: MacColour::Blue, address: Some("https://x.example.com".into()), build: None };
+        let mac = MacHello { id: format!("{n:02x}{n:02x}"), name: format!("Mac {n}"), colour: MacColour::Blue, address: Some("https://x.example.com".into()), build: None, wire: None, built_at: None, source: None };
         ipc::encode(&MacAsk { mac, spki_hex: crate::mac_keys::spki_hex(&key).unwrap(), back_code: "ab".into() }).unwrap()
     };
     let post = |body: String| {
@@ -205,7 +205,7 @@ fn both_macs_draw_the_same_four_digits_from_the_key_and_the_random_half() {
     // A claim held for an ask lives five minutes; one on a link waits for Confirm.
     let macs = crate::macs::quiet_macs();
     let claim = |digits: Option<String>| HeldClaim {
-        mac: MacHello { id: "ab".into(), name: "Work".into(), colour: MacColour::Blue, address: None, build: None },
+        mac: MacHello { id: "ab".into(), name: "Work".into(), colour: MacColour::Blue, address: None, build: None, wire: None, built_at: None, source: None },
         public_key: vec![],
         back_code: "cd".into(),
         at: 100,

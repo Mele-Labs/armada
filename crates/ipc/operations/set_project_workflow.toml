@@ -1,0 +1,12 @@
+[operations.set_project_workflow]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Switch one workflow off for a project's Jobs, or back on"
+notes = """
+`POST /projects/project/:project/workflow`, body `SetProjectWorkflow { workflow, on }`: `on: false` adds the workflow's id to the project's `values.workflows_off`, `on: true` takes it out, and nothing else of its values changes. It is written as `edit_project` writes `values`, so it answers `Projects` as `list_projects` does and publishes it as `projects.changed`. `docs/practices/protocol/projects.md`, *Values*.
+
+**Off wins**: the project's list adds to `workflows.off`, the machine's and each repository's, and never takes one away, so turning one on here does not turn on a workflow the machine or the repository switched off. `get_values` with the project serves each switch and the layer that holds it off.
+
+A 404 `fleet.no_such_project` for a `project` he has none of. A 422 `fleet.project_blank` for a blank `workflow`. A 422 `fleet.project_unwritable` where the project's file did not read; a 500 under the same code where it could not be written.
+"""

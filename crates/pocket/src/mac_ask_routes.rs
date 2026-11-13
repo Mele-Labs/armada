@@ -195,7 +195,7 @@ pub async fn ask(State(gateway): State<Gateway>, Json(body): Json<AskMacPair>) -
     };
     let expires = gateway.pairing.now() + CODE_TTL;
     gateway.macs.asking.lock().unwrap().insert(row.id.clone(), Asking { digits: code.clone(), expires });
-    json(&asked(row, code))
+    json(&asked(row, code, &gateway.way_in))
 }
 
 /// Who answered the ask and its half of the code, where it is the Mac on the tunnel that was asked.

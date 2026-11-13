@@ -126,6 +126,7 @@ async fn main() -> ExitCode {
         Verb::BuildSwap => build_swapped(),
         Verb::BuildSettle { was } => build_settled(was),
         Verb::FleetStart => fleet_started(),
+        Verb::DiskReclaim { help } => armada::disk::run(help),
         Verb::Worktree(act) => worktree_verb(act),
         Verb::TestMap(TestMapAct::Record { check, out }) => record_the_test_map(&check, &out),
         Verb::WatchLine { reader, values } => watch_line(reader, values).await,

@@ -849,6 +849,26 @@ where
         self.kit_values_saved(save).await
     }
 
+    async fn set_project_workflow(&self, project: String, set: ipc::SetProjectWorkflow) -> Result<ipc::Projects, Refusal> {
+        let workflow = set.workflow.trim();
+        if workflow.is_empty() {
+            return Err(self.blank("a workflow is switched by its id"));
+        }
+        self.project_not_held(&project).await?;
+        {
+            let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+            self.project_in(&kept, &project)?;
+        }
+        let mut values = self.project_read(&project)?.values().clone();
+        values.workflows_off.retain(|one| one != workflow);
+        if !set.on {
+            values.workflows_off.push(workflow.to_string());
+        }
+        // Through `edit_project`, so the file is written, checked and published as every edit of a project's values is.
+        let values = crate::values::values_set(&values).unwrap_or_default();
+        self.edit_project(project, EditProject { values: Some(values), ..EditProject::default() }).await
+    }
+
     async fn delete_project(&self, project: String) -> Result<ipc::Projects, Refusal> {
         self.project_not_held(&project).await?;
         {
