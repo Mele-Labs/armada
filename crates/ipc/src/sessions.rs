@@ -778,11 +778,8 @@ pub enum WaitingSource {
     /// whose `target` is the child's id. `begin_session` on the child settles it, and so does the
     /// child ending; answering or dismissing it is refused.
     HeldChild,
-    /// Fleet: a branch the preview left out, held by this Job, has moved past the tip it was left out
-    /// at, so Fleet offers a refresh instead of starting one. Kept once a (branch, tip) for the build:
-    /// id `preview:<branch>@<tip>`, text `<branch> moved since the preview left it out: <why>`, a
-    /// `run` act whose `target` is `scripts/preview --restart`. Dismissing it is Skip and tells the
-    /// agent nothing; answering it is refused. Gone once the build changes.
+    /// Fleet no longer raises this: the offers a Job makes with `offer_preview` are served by `get_preview_offers`.
+    /// Kept so a client that matches it, and the `preview_offers` table, stay readable.
     PreviewOffer,
     /// Fleet: an act a lifecycle rule of the Job planned is the person's to say first, or it failed
     /// past the rule's retries and the rule says to ask. Kept, never the agent's: id `rule_act:<row>`,

@@ -58,7 +58,7 @@ const fn rule(place: Place, dismiss: Dismiss) -> Rule {
 /// | `done` | done | plain |
 /// | `slot_choice`, `delivery`, `task_done`, `held_child`, `gate` | questions | none: Fleet refuses it |
 /// | `words_address`, `fleet_call`, `watch_not_ours`, `browser_ask` | questions | plain |
-/// | `preview_offer` | by act | skip |
+/// | `preview_offer` | by act | skip; Fleet no longer raises it |
 /// | `rule_act`, `operator_suggestion` | questions | skip |
 fn rule_of(source: WaitingSource) -> Rule {
     use Place::{ByAct, Done, Questions, Review, Walks};
