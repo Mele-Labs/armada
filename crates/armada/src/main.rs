@@ -125,6 +125,7 @@ async fn main() -> ExitCode {
         Verb::BuildRehearse => build_rehearsed(),
         Verb::BuildSwap => build_swapped(),
         Verb::BuildSettle { was } => build_settled(was),
+        Verb::FleetStart => fleet_started(),
         Verb::Worktree(act) => worktree_verb(act),
         Verb::TestMap(TestMapAct::Record { check, out }) => record_the_test_map(&check, &out),
         Verb::WatchLine { reader, values } => watch_line(reader, values).await,
@@ -138,6 +139,34 @@ fn kept_support() -> Option<PathBuf> {
         return None;
     };
     Some(fleet::runtime::support_dir(&home.to_string_lossy()))
+}
+
+/// Start the Fleet launchd holds, and say which of the three it was. The label and plist are the ones `scripts/restart` uses.
+fn fleet_started() -> ExitCode {
+    let Some(support) = kept_support() else {
+        return ExitCode::FAILURE;
+    };
+    let alive = |pid| matches!(fleet::process::holder_of(pid), Ok(fleet::process::Holder::Held(_)));
+    if let Some(pid) = armada::fleet_start::restart_under_way(&support, alive) {
+        eprintln!("A restart is under way as pid {pid}, and it starts Fleet itself. Its log is ~/Library/Logs/Armada/restart.log.");
+        return ExitCode::FAILURE;
+    }
+    let label = fleet::kept_builds::fleet_label();
+    let plist = support.join(format!("{label}.plist"));
+    let started = std::env::var_os("HOME")
+        .ok_or_else(|| String::from("HOME is not set"))
+        .and_then(|home| armada::fleet_start::uid_of(std::path::Path::new(&home)))
+        .and_then(|uid| armada::fleet_start::start(&armada::fleet_start::OnThisMac, uid, &label, &plist));
+    match started {
+        Ok(started) => {
+            println!("{started}");
+            ExitCode::SUCCESS
+        }
+        Err(why) => {
+            eprintln!("{why}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 /// Open a copy of the store with this build, and say if it could not.

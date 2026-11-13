@@ -563,6 +563,11 @@ A job that cannot be told now is asked again at the next reading and nothing is 
 Bridge already owns bootstrapping the launchd job, so it owns restarting it, and the operation is a `child_process` call rather than a protocol operation.
 It is the Restart Fleet button on the notice that says Fleet and Bridge do not match: `kickstart -k` restarts the job onto whatever `armada` is installed, hosted Jobs are reattached at boot, and a Fleet whose pid launchd does not hold is refused rather than doubled.
 
+**`armada fleet start` starts the Fleet launchd holds, from whatever state it is in.** It loads the job from `<support>/<label>.plist` when launchd does not hold it, starts it when it is loaded and stopped, and leaves a running Fleet alone.
+It refuses while `restart.lock` names a live restart, which starts Fleet itself.
+It is the one way both Bridges start a Fleet that is down.
+Fleet writes the kept build folder it runs from as `build` in its runtime file, absent when it runs from a tree, so a Bridge can tell which side of a mismatch is off `builds/current`.
+
 **Restarting onto another build is an API command, and the restart is not Fleet's.** `change_fleet_build` starts `scripts/restart-build` detached from Fleet and answers 202; `get_fleet_build` reads the outcome from the files the scripts leave.
 The Fleet panel's Select and button are it (`docs/practices/running-locally.md`, *Restarting from Bridge*).
 It is a different act from the one above: that one restarts the installed binary and builds nothing, and this one builds `main` or the preview and reopens Bridge.
