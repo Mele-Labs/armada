@@ -62,7 +62,8 @@ pub(crate) fn look(reach: &Reach, trim_due: bool, trim: Trim, free_at: &dyn Fn(&
 }
 
 /// Look every minute, trim every `every` (to the nearest minute), and hand `said` the lines of
-/// what was removed whole, since each costs a cold rebuild.
+/// what was removed whole, since each costs a cold rebuild. **The first look is at start**, so a
+/// Fleet started on a short disk reclaims before its admission floor holds every Job a minute.
 fn keep_sweeping(
     reach: impl Fn() -> Reach + Send + 'static,
     machine: Arc<dyn Machine>,
@@ -71,7 +72,7 @@ fn keep_sweeping(
     said: impl Fn(&str) + Send + 'static,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        let mut ticker = tokio::time::interval_at(tokio::time::Instant::now() + LOOK_EVERY, LOOK_EVERY);
+        let mut ticker = tokio::time::interval(LOOK_EVERY);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         let mut trimmed = Instant::now();
         loop {
