@@ -32,7 +32,7 @@
 #   shortcut    - the binding, as the contract's map spells it
 #   scope       - where the binding is offered: anywhere | list |
 #                 list and detail | open studio | dashboard | deck | review | call |
-#                 logbook | issues | report | plan | thread
+#                 logbook | issues | report | plan | thread | dispatch
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -165,10 +165,10 @@ verb = "Draft"
 icon = ""
 icon_absent = "undecided"
 shortcut = "⌥Enter"
-scope = "anywhere"
+scope = "dispatch"
 destructive = false
 confirms = false
-notes = "In the Dispatch panel on a Job, starts it on its start card: nothing runs until Start is pressed there. Start itself runs at once. Added 12 Nov 2026."
+notes = "In the Dispatch panel on a Job, starts it on its start card: nothing runs until Start is pressed there. Start itself runs at once. Added 12 Nov 2026. Its own `dispatch` scope, as the panel holds the keys while it is up: anywhere, `⌥Enter` met `thread_yes` (13 Nov 2026)."
 
 [actions.dispatch_after]
 kind = "Action"

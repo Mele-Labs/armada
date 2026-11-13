@@ -46,6 +46,7 @@ impl Sessions for FakeDaemon {
             so_far: None,
             standing: None,
             held_until: None,
+            snoozed_until: None,
             context_breakdown: None,
             loadout_summary: None,
             on_your_words: false,
@@ -576,6 +577,15 @@ impl Sessions for FakeDaemon {
         path: Option<String>,
     ) -> Result<ipc::StyleSources, Refusal> {
         Ok(ipc::StyleSources { sources: Vec::new(), start: path, packages: Vec::new() })
+    }
+
+    async fn get_design_catalogue(
+        &self,
+        _caller: Option<crate::Caller>,
+        _session_id: Option<ipc::SessionId>,
+        _asked: ipc::CatalogueAsked,
+    ) -> Result<ipc::DesignCatalogue, Refusal> {
+        Ok(ipc::DesignCatalogue::default())
     }
 
     async fn get_kept_styles(&self, hash: String) -> Result<ipc::KeptStyles, Refusal> {

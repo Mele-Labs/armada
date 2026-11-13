@@ -79,11 +79,25 @@ fn changed(id: &str, state: &str, standing: Option<&str>) -> String {
     )
 }
 
+/// A Job's update carrying these `(id, text, source)` Needs you items.
+fn needs(id: &str, items: &[(&str, &str, &str)]) -> String {
+    let items: Vec<String> = items
+        .iter()
+        .map(|(item, text, source)| {
+            format!(r#"{{"id":"{item}","text":"{text}","since":"2026-10-08T01:00:00.000Z","source":"{source}"}}"#)
+        })
+        .collect();
+    changed(id, "live", None).replace(r#""attachments":[]"#, &format!(r#""attachments":[],"waiting_for":[{}]"#, items.join(",")))
+}
+
 async fn watching(url: &str) -> (Watch, Rig, String) {
     let rig = rig_with(Arc::new(|| Err("down".into())));
     let device = paired(&rig).await;
     assert_eq!(subscribe(&rig, &device, &subscription(url)).await, StatusCode::NO_CONTENT);
-    (Watch::new(rig.gateway.clone()), rig, device)
+    let mut watch = Watch::new(rig.gateway.clone());
+    // The first update for a Job only records what is open, so it sends nothing.
+    watch.observe(&changed("s2", "live", None)).await;
+    (watch, rig, device)
 }
 
 #[tokio::test]
@@ -122,12 +136,12 @@ async fn a_phone_keeps_one_subscription_and_can_read_the_key() {
 }
 
 #[tokio::test]
-async fn a_stuck_session_pushes_once_however_many_events_repeat_it() {
+async fn a_new_needs_you_item_pushes_once_however_many_events_repeat_it() {
     let service = service().await;
     let (mut watch, _rig, _) = watching(&service.url).await;
-    let stuck = changed("s2", "live", Some("stuck"));
+    let asked = needs("s2", &[("a", "Which branch?", "agent")]);
     for _ in 0..3 {
-        watch.observe(&stuck).await;
+        watch.observe(&asked).await;
         watch.settle().await;
     }
     let got = service.got.lock().unwrap();
@@ -141,34 +155,116 @@ async fn a_stuck_session_pushes_once_however_many_events_repeat_it() {
 }
 
 #[tokio::test]
-async fn a_session_that_moves_on_and_goes_quiet_again_pushes_again() {
+async fn an_item_raised_again_after_it_left_pushes_again() {
     let service = service().await;
     let (mut watch, _rig, _) = watching(&service.url).await;
-    watch.observe(&changed("s2", "live", Some("stuck"))).await;
+    for event in [
+        needs("s2", &[("a", "Which branch?", "agent")]),
+        changed("s2", "live", None),
+        needs("s2", &[("a", "Which branch?", "agent")]),
+    ] {
+        watch.observe(&event).await;
+        watch.settle().await;
+    }
+    assert_eq!(service.got.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn a_second_item_pushes_and_the_first_does_not_repeat() {
+    let service = service().await;
+    let (mut watch, _rig, _) = watching(&service.url).await;
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent")])).await;
     watch.settle().await;
-    watch.observe(&changed("s2", "live", Some("working"))).await;
-    watch.settle().await;
-    watch.observe(&changed("s2", "live", Some("stuck"))).await;
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent"), ("b", "Approve the plan", "agent")])).await;
     watch.settle().await;
     assert_eq!(service.got.lock().unwrap().len(), 2);
 }
 
 #[tokio::test]
-async fn nothing_but_a_live_stuck_session_pushes() {
+async fn a_restart_does_not_push_items_that_were_already_open() {
+    let service = service().await;
+    let (_old, rig, _) = watching(&service.url).await;
+    let mut watch = Watch::new(rig.gateway.clone());
+    let open = needs("s2", &[("a", "Which branch?", "agent")]);
+    watch.observe(&open).await;
+    watch.observe(&open).await;
+    watch.settle().await;
+    assert_eq!(service.got.lock().unwrap().len(), 0);
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent"), ("b", "Run the restart", "agent")])).await;
+    watch.settle().await;
+    assert_eq!(service.got.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_stuck_session_pushes_nothing() {
     let service = service().await;
     let (mut watch, _rig, _) = watching(&service.url).await;
-    for (state, standing) in [
-        ("live", Some("working")),
-        ("live", Some("replied")),
-        ("live", Some("done")),
-        ("live", Some("idle")),
-        ("live", None),
-        ("ended", Some("stuck")),
-    ] {
+    for (state, standing) in [("live", Some("stuck")), ("live", Some("working")), ("live", Some("done")), ("ended", Some("stuck"))] {
         watch.observe(&changed("s2", state, standing)).await;
         watch.settle().await;
     }
     assert_eq!(service.got.lock().unwrap().len(), 0);
+}
+
+/// `needs`, with the Job snoozed.
+fn snoozed(id: &str, items: &[(&str, &str, &str)]) -> String {
+    needs(id, items).replace(r#""attachments":[]"#, r#""attachments":[],"snoozed_until":"2026-10-08T05:00:00.000Z""#)
+}
+
+#[tokio::test]
+async fn a_snoozed_job_pushes_once_when_it_wakes_saying_its_newest_item() {
+    let service = service().await;
+    let (mut watch, _rig, _) = watching(&service.url).await;
+    // Raised before the snooze: pushed then, and not again on waking.
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent")])).await;
+    watch.settle().await;
+    for event in [
+        snoozed("s2", &[("a", "Which branch?", "agent")]),
+        snoozed("s2", &[("a", "Which branch?", "agent"), ("b", "Approve the plan", "agent")]),
+        snoozed("s2", &[("a", "Which branch?", "agent"), ("b", "Approve the plan", "agent"), ("c", "Run the restart", "agent")]),
+    ] {
+        watch.observe(&event).await;
+        watch.settle().await;
+    }
+    assert_eq!(service.got.lock().unwrap().len(), 1, "nothing is pushed while snoozed");
+    let woken = needs("s2", &[("a", "Which branch?", "agent"), ("b", "Approve the plan", "agent"), ("c", "Run the restart", "agent")]);
+    for _ in 0..2 {
+        watch.observe(&woken).await;
+        watch.settle().await;
+    }
+    let got = service.got.lock().unwrap();
+    assert_eq!(got.len(), 2, "one push on waking");
+    let said = opened(&got[1].body);
+    assert!(said.contains(r#""title":"Title s2""#), "{said}");
+    assert!(said.contains(r#""reason":"Run the restart""#), "{said}");
+}
+
+#[tokio::test]
+async fn a_snoozed_job_whose_items_all_left_pushes_nothing_when_it_wakes() {
+    let service = service().await;
+    let (mut watch, _rig, _) = watching(&service.url).await;
+    watch.observe(&snoozed("s2", &[("a", "Which branch?", "agent")])).await;
+    watch.observe(&snoozed("s2", &[])).await;
+    watch.observe(&changed("s2", "live", None)).await;
+    watch.settle().await;
+    assert_eq!(service.got.lock().unwrap().len(), 0);
+    // Awake, a new item pushes as before.
+    watch.observe(&needs("s2", &[("b", "Approve the plan", "agent")])).await;
+    watch.settle().await;
+    assert_eq!(service.got.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_walk_item_says_a_walk_is_ready_and_no_url() {
+    let service = service().await;
+    let (mut watch, _rig, _) = watching(&service.url).await;
+    watch.observe(&needs("s2", &[("walk:armada://walk/pocket", "armada://walk/pocket", "walk")])).await;
+    watch.settle().await;
+    let got = service.got.lock().unwrap();
+    assert_eq!(got.len(), 1);
+    let said = opened(&got[0].body);
+    assert!(said.contains(r#""reason":"A walk is ready""#), "{said}");
+    assert!(!said.contains("armada://"), "{said}");
 }
 
 #[tokio::test]
@@ -177,7 +273,7 @@ async fn a_410_deletes_the_subscription() {
     service.status.store(410, Ordering::SeqCst);
     let (mut watch, rig, _) = watching(&service.url).await;
     assert_eq!(rig.gateway.pairing.store.lock().unwrap().push_subscriptions().unwrap().len(), 1);
-    watch.observe(&changed("s2", "live", Some("stuck"))).await;
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent")])).await;
     watch.settle().await;
     assert_eq!(service.got.lock().unwrap().len(), 1);
     assert!(rig.gateway.pairing.store.lock().unwrap().push_subscriptions().unwrap().is_empty());
@@ -189,7 +285,7 @@ async fn a_failed_push_is_retried_and_delivered_once() {
     *service.first.lock().unwrap() = vec![500];
     let (mut watch, _rig, _) = watching(&service.url).await;
     watch.retries = vec![std::time::Duration::from_millis(10); 3];
-    let stalled = changed("s2", "live", Some("stuck"));
+    let stalled = needs("s2", &[("a", "Which branch?", "agent")]);
     watch.observe(&stalled).await;
     watch.settle().await;
     watch.observe(&stalled).await;
@@ -204,7 +300,7 @@ async fn a_push_that_keeps_failing_stops_after_three_retries() {
     service.status.store(500, Ordering::SeqCst);
     let (mut watch, _rig, _) = watching(&service.url).await;
     watch.retries = vec![std::time::Duration::from_millis(10); 3];
-    let stalled = changed("s2", "live", Some("stuck"));
+    let stalled = needs("s2", &[("a", "Which branch?", "agent")]);
     watch.observe(&stalled).await;
     watch.settle().await;
     watch.observe(&stalled).await;
@@ -230,7 +326,7 @@ async fn a_phone_that_keeps_failing_does_not_hold_up_another() {
         vapid_private: None,
     };
     rig.gateway.pairing.store.lock().unwrap().set_push_subscription(&other).unwrap();
-    watch.observe(&changed("s2", "live", Some("stuck"))).await;
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent")])).await;
     tokio::time::timeout(std::time::Duration::from_secs(10), async {
         while working.got.lock().unwrap().is_empty() {
             tokio::task::yield_now().await;
@@ -241,7 +337,7 @@ async fn a_phone_that_keeps_failing_does_not_hold_up_another() {
     assert_eq!(working.got.lock().unwrap().len(), 1);
     assert!(!failing.got.lock().unwrap().is_empty());
     // The same stop again, while the first is still retrying, sends nothing more.
-    watch.observe(&changed("s2", "live", Some("stuck"))).await;
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent")])).await;
     assert_eq!(working.got.lock().unwrap().len(), 1);
 }
 
@@ -299,14 +395,15 @@ async fn a_second_mac_pushes_under_the_key_the_first_gave_the_phone() {
     assert_eq!(subscribe(&mac_b, &on_b, &carried).await, StatusCode::NO_CONTENT);
 
     let mut watch = Watch::new(mac_b.gateway.clone());
-    watch.observe(&changed("s2", "live", Some("stuck"))).await;
+    watch.observe(&changed("s2", "live", None)).await;
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent")])).await;
     watch.settle().await;
     let got = service.got.lock().unwrap();
     assert_eq!(got.len(), 1);
     assert_eq!(signed_with(&got[0].headers), test_push().vapid.public_key(), "signed with Mac A's key");
     assert_eq!(
         opened(&got[0].body),
-        r#"{"session_id":"s2","title":"Title s2","reason":"stalled","origin":"https://mac.tail.ts.net"}"#
+        r#"{"session_id":"s2","title":"Title s2","reason":"Which branch?","origin":"https://mac.tail.ts.net"}"#
     );
 }
 
@@ -314,7 +411,7 @@ async fn a_second_mac_pushes_under_the_key_the_first_gave_the_phone() {
 async fn a_mac_pushes_under_its_own_key_where_the_subscription_carries_none() {
     let service = service().await;
     let (mut watch, _rig, _) = watching(&service.url).await;
-    watch.observe(&changed("s2", "live", Some("stuck"))).await;
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent")])).await;
     watch.settle().await;
     let got = service.got.lock().unwrap();
     assert_eq!(signed_with(&got[0].headers), test_push().vapid.public_key());

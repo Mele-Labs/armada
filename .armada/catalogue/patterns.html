@@ -1,0 +1,45 @@
+<!doctype html>
+<!--
+  The house patterns a sketch's mock copies, read by Fleet into get_design_catalogue (area patterns).
+  One <template data-pattern="name" data-note="when to use it"> each; the body is the HTML, written with
+  the real classes of packages/components, so a mock drawn from it looks like Bridge.
+  Change one when the component it copies changes. docs/concepts/session/drawing-a-sketch.md.
+-->
+
+<template data-pattern="row-with-control" data-note="A setting: its title and what it means on the left, the switch on the right. SettingField and Switch.">
+  <div class="armada-setting-field">
+    <label class="armada-switch" data-described="">
+      <span class="armada-switch__text">
+        <span>Autopilot</span>
+        <span class="armada-switch__description">Starts the next ready Job when one lands.</span>
+      </span>
+      <input type="checkbox" role="switch" class="armada-switch__input" checked>
+      <span class="armada-switch__track" aria-hidden="true">
+        <span class="armada-switch__word" data-word="on">ON</span>
+        <span class="armada-switch__word" data-word="off">OFF</span>
+        <span class="armada-switch__thumb"></span>
+      </span>
+    </label>
+  </div>
+</template>
+
+<template data-pattern="card-choice" data-note="One of several cards, the chosen one marked with data-selected. ListCard.">
+  <div role="radiogroup" aria-label="Layout">
+    <button type="button" class="armada-list-card" data-selected="" aria-current="true">
+      <span class="armada-list-card__title">Split</span>
+      <span class="armada-list-card__lines">Thread left, panes right.</span>
+    </button>
+    <button type="button" class="armada-list-card">
+      <span class="armada-list-card__title">Stacked</span>
+      <span class="armada-list-card__lines">Panes under the thread.</span>
+    </button>
+  </div>
+</template>
+
+<template data-pattern="chip" data-note="A short fact beside a title, such as a branch or a count of checks. FactChip.">
+  <span class="armada-chip">armada/design-catalogue</span>
+</template>
+
+<template data-pattern="kbd" data-note="A key binding: one box, each key its own child, no plus sign between. Kbd and KbdChord.">
+  <kbd class="armada-kbd"><span class="armada-kbd__key">⌘</span><span class="armada-kbd__key">K</span></kbd>
+</template>

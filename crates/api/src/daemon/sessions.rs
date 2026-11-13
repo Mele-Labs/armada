@@ -346,6 +346,15 @@ pub trait Sessions: Send + Sync + 'static {
         path: Option<String>,
     ) -> impl Future<Output = Result<ipc::StyleSources, Refusal>> + Send;
 
+    /// `get_design_catalogue` — the tokens, components, glyphs and patterns a `mock` is drawn with,
+    /// for the Job's repository or the served one `asked.repository` names.
+    fn get_design_catalogue(
+        &self,
+        caller: Option<crate::Caller>,
+        session_id: Option<ipc::SessionId>,
+        asked: ipc::CatalogueAsked,
+    ) -> impl Future<Output = Result<ipc::DesignCatalogue, Refusal>> + Send;
+
     /// `get_kept_styles` — the style set Fleet kept, by content hash. [`Refusal::NotFound`] for a
     /// hash Fleet does not hold.
     fn get_kept_styles(&self, hash: String) -> impl Future<Output = Result<ipc::KeptStyles, Refusal>> + Send;

@@ -49,6 +49,8 @@ where
         for served in self.repositories().hosted() {
             self.reconciled_in_part(&served).await;
         }
+        // A rail kept by step index is kept by id, now the workflows are served, so a save does not move its Job.
+        self.rails_kept_by_id().await;
         // Before any lifecycle is read: Workspaces and task lists become projects, and every project is held.
         let _ = self.projects_migrated().await;
         Ok(Reconciled { recognised })

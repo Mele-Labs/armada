@@ -452,6 +452,21 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             super::stand_in::hide(cx);
             crate::titlebar::scenes::apply(name, cx).map_err(Missed)
         }
+        Verb::PressOnFirst(doors) => {
+            let shown = |role: gpui::Role, name: &str, cx: &App| {
+                cx.try_global::<LabelBook>().and_then(|book| {
+                    book.drawn(window.window_handle().window_id()).iter().find(|drawn| drawn.role == role && drawn.name == name && drawn.shown.size.width > px(0.) && drawn.shown.size.height > px(0.)).cloned()
+                })
+            };
+            let at = doors
+                .iter()
+                .find_map(|(role, name)| role_named(role).and_then(|role| shown(role, name, cx)))
+                .ok_or_else(|| Missed(format!("none of {doors:?} is drawn to press")))?;
+            let at = reveal(at, window, cx);
+            let at = aim(&at);
+            press(MouseButton::Left, at, window, cx);
+            Ok(())
+        }
         Verb::PressOn(role, name) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             // The first one showing: a list's off-screen measure of the same element comes first in the

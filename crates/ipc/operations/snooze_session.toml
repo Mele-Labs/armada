@@ -1,0 +1,16 @@
+[operations.snooze_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Snoozes a Job until an instant, or wakes it now: it keeps working and raises nothing to the person until then"
+notes = """
+`POST /sessions/snooze`, body `SnoozeSession`: `session_id`, `until` (an RFC3339 instant, or absent to wake it now). Answers the `SessionRecord` with `snoozed_until` set, or without it on a wake. `docs/concepts/session/snoozing-a-job.md`.
+
+**A snoozed Job keeps working.** Its turns, Checks and watches run as before, and its `waiting_for` items stay on the record. While `snoozed_until` stands, Pocket pushes nothing for its new items and the Operator raises nothing for it; a client leaves it out of its banners, sound and dock count by reading `snoozed_until`. The presets (an hour, three hours, tomorrow) are the client's to work out: Fleet takes the instant.
+
+**When the time comes, or on a wake, `snoozed_until` is cleared** and `session.changed` is published, and Pocket sends one push for the Job if it raised anything while snoozed. Fleet checks on each tick of its notice loop. The snooze is kept in the store, so a Fleet restart keeps it, and ending, pausing or repairing the Job leaves it standing.
+
+Refused with nothing changed: 409 `fleet.session_not_snoozable` for an ended Job ("This Job has ended, so it cannot be snoozed."); 422 `fleet.snooze_unreadable` for an `until` that is not a time; 422 `fleet.no_such_session`. A wake of an ended Job, or of one not snoozed, is not refused and answers its row. Snoozing again moves the time.
+
+Publishes `session.changed`. `agent_access` is `No`: a snooze is the person's.
+"""

@@ -42,6 +42,7 @@ export type ActionScope =
   | "call"
   | "dashboard"
   | "deck"
+  | "dispatch"
   | "issues"
   | "list"
   | "list and detail"
@@ -208,7 +209,7 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "⌥Enter",
-    scope: "anywhere",
+    scope: "dispatch",
     destructive: false,
     confirms: false,
     unbuilt: null,

@@ -7,7 +7,7 @@
 **Kind:** Surface.
 
 Work stops while you are away from the Mac.
-The phone buzzes once with the Job's title when it goes quiet, you tap it, and you see the Job's thread.
+The phone buzzes with the Job's title when the Job needs you, you tap it, and you see the Job's thread.
 You answer its question, approve its plan or send it a message from there, on any of your Macs.
 
 ## What it is
@@ -255,15 +255,18 @@ A 401 from one Mac marks that Mac as not paired, and the others carry on.
 
 ## What pushes
 
-Only a Job that has gone quiet: a live Job whose `standing` is `stuck`, a turn running with nothing happening for the quiet threshold.
+Only Needs you: a Job whose `waiting_for` gains an item id it did not have.
 
 | Job | Pushes |
 |---|---|
-| Live and `stuck` | yes, once |
-| A question, a permission ask, a plan to approve, a finished or replied Job | no, it queues in the app |
+| A new item in `waiting_for`: a question, a permission ask, a plan to approve, a walk | yes, once per item |
+| `stuck` | no, Fleet repairs it without the person |
 
-- **Once per condition.** A Job pushes once when it goes quiet. It pushes again only after it has moved on and gone quiet again.
-- **Payload.** `{ session_id, title, reason, origin }`: the reason is `stalled`, and `origin` is this Mac's address. `origin` is absent while the Gateway cannot say its address.
+- **Once per item.** Pocket keeps the item ids it has pushed, per Job.
+  An id leaves when its item does, so an item raised again pushes again.
+  The first update Pocket sees for a Job only records what is open, so a restart pushes nothing for items already waiting.
+- **Payload.** `{ session_id, title, reason, origin }`: the title is the Job's title, the reason is the item's text, or `A walk is ready` for a walk item whose text is an address, and `origin` is this Mac's address.
+  `origin` is absent while the Gateway cannot say its address.
 - **Tapping it** opens `/jobs/<origin>/<session_id>`, the Job on that Mac, or `/jobs/_/<session_id>` without an origin. The Gateway serves the app for any `/jobs/` path.
 - **Retries.** A failed send is tried again after 5 s, 30 s and 120 s, then dropped. Each phone sends on its own task, so a failing one holds up no other.
 - **Dead subscriptions.** A 404 or 410 from the push service removes the subscription.

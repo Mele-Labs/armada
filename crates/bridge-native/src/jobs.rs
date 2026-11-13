@@ -2148,6 +2148,11 @@ impl JobsScreen {
                 send_bare(port, path, cx);
                 return;
             }
+            // The switcher's New project: its sheet opens over the window.
+            if *asked == crate::titlebar::Asked::NewProject {
+                crate::dispatch::screen::open_new_project(cx);
+                return;
+            }
             if *asked != crate::titlebar::Asked::Palette {
                 return;
             }

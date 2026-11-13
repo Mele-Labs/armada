@@ -722,6 +722,20 @@ pub(crate) async fn pause_session<D: HostedSessions>(
     }
 }
 
+pub(crate) async fn snooze_session<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::SnoozeSession = match ipc::decode_body("a job to snooze", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().snooze_session(asked).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn set_session_auto_land<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

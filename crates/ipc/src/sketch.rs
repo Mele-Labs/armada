@@ -35,6 +35,17 @@ pub const SCENE_ICONS: [&str; 25] = [
     "server", "settings", "shield-check", "terminal", "webhook", "wrench", "zap",
 ];
 
+/// The glyphs a `mock` may name as `<i data-icon>`: the keys of `MOCK_ICONS` in
+/// `packages/components/src/compositions/SketchScene/mock-icons.ts`, which a test holds this to.
+pub const MOCK_GLYPHS: [&str; 53] = [
+    "activity", "bell", "bot", "box", "check", "chevron-down", "chevron-right", "circle", "circle-alert",
+    "circle-check", "circle-dot", "circle-help", "circle-pause", "circle-x", "clock", "cpu", "ellipsis", "eye",
+    "file", "file-text", "filter", "folder", "git-branch", "git-merge", "git-pull-request", "globe", "hammer",
+    "hard-drive", "layers", "link", "loader-circle", "lock", "package", "pencil", "play", "plus", "refresh-cw",
+    "rocket", "scale", "scroll-text", "search", "server", "settings", "shield-check", "sliders-horizontal",
+    "terminal", "ticket", "triangle-alert", "user", "webhook", "wrench", "x", "zap",
+];
+
 /// Most nodes, edges and strokes one scene holds.
 pub const MOST_NODES: usize = 80;
 pub const MOST_EDGES: usize = 120;
