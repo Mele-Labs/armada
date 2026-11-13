@@ -3,8 +3,8 @@
 //! beside this Mac's own. `docs/concepts/pocket.md`, *Another Mac*.
 //!
 //! **A Job held from another Mac is not one of this Mac's Jobs.** Its rows are kept in their own tables, so
-//! every read of this Mac's ledger, and every act on a Job, still finds none by its id; what is said about it
-//! is relayed to Bridge and never told to Fleet's own listeners.
+//! every read of this Mac's ledger finds none by its id, and an act on one is sent to the Mac that holds it
+//! (`crate::mac_acts`); what is said about it is relayed to Bridge and never told to Fleet's own listeners.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
