@@ -34,6 +34,7 @@ mod showing_file;
 mod sketching;
 mod sketch_answers;
 mod sketch_styles;
+mod design_catalogue;
 mod page_replies;
 mod document_answers;
 mod needs_you;
