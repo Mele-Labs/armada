@@ -2391,6 +2391,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::LANES_ADD_STEPS,
     },
     Walk {
+        name: crate::settings::walk::FOLLOWS_PICKER,
+        title: "Workflows follow the Editing picker",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::FOLLOWS_PICKER_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::TAKE,
         title: "Choose what to take from Armada",
         screen: Screen::Settings,

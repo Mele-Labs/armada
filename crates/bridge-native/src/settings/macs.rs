@@ -95,10 +95,6 @@ impl MacsPage {
         self.refused.clear();
     }
 
-    pub fn paste_focused(&self, window: &Window) -> bool {
-        self.paste_focus.is_focused(window)
-    }
-
     fn cloudflare(&self) -> Option<&CloudflareState> {
         self.setup.as_ref().and_then(|setup| setup.as_ref().ok()).map(|setup| &setup.cloudflare)
     }

@@ -107,6 +107,25 @@ pub static TAKE_STEPS: &[Step] = &[
     step("Cancel shuts it and changes nothing", Verb::Open("button", "Cancel"), "button", "Choose what to take"),
 ];
 
+/// `native-workflows-follow-picker`: the Workflows list headed for what the Editing picker has, and F typed into a box.
+pub const FOLLOWS_PICKER: &str = "native-workflows-follow-picker";
+
+pub static FOLLOWS_PICKER_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings over the app, editing every project", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Workflows is headed for every project", "button", "Workflows", "heading", "Workflows for every project"),
+    step("Each repository is under the project that keeps it", Verb::Look, "group", "Storefront"),
+    step("\u{2318}P opens the Editing picker", Verb::Key("cmd-p"), "menu", "Editing"),
+    press_on("Armada picked: the list is headed Workflows for Armada", "menuitem", "Armada", "heading", "Workflows for Armada"),
+    step("Its repository first, its own copies, then what it inherits", Verb::Look, "group", "Shipped with Armada"),
+    press_on("A switch in its repository turns the workflow off there", "switch", "bug: On in armada", "switch", "bug: Off in armada"),
+    step("What Armada ships is switched under Every project", Verb::Hover, "switch", "prototype: On on this machine. Switch it under Every project"),
+    step("\u{2318}P opens the picker again", Verb::Key("cmd-p"), "menu", "Editing"),
+    press_on("Storefront picked: only its own repository is listed", "menuitem", "Storefront", "heading", "Workflows for Storefront"),
+    step("A press on its bug draws it, with the box that asks an agent", Verb::PressWithin("group", "sample-web", "bug"), "textbox", "Tell an agent what to change"),
+    step("F typed in the box lands in the box", Verb::Type("f"), "textbox", "Tell an agent what to change"),
+    step("The keys stay in it: a second F is typed after the first", Verb::Typed("f"), "textbox", "Tell an agent what to change"),
+];
+
 /// `native-lanes-add`: Add lifecycle, its menu of what a lane follows, the lane a kind draws and a blank lane named from nothing.
 pub const LANES_ADD: &str = "native-lanes-add";
 

@@ -298,7 +298,7 @@ impl SettingsOverlay {
         if editor.read(cx).typing(window, cx) {
             return editor.update(cx, |editor, cx| editor.field_key(key, window, cx));
         }
-        if self.in_text(window, cx) {
+        if self.in_text(window) {
             return false;
         }
         editor.update(cx, |editor, cx| editor.key(key, window, cx))

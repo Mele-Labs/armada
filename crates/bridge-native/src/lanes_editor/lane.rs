@@ -136,6 +136,7 @@ pub(super) fn node_kind(read: &StateReadFrom) -> LaneNodeKind {
         StateReadFrom::Watch { .. } => LaneNodeKind::Watch,
         StateReadFrom::Fleet { .. } => LaneNodeKind::Job,
         StateReadFrom::Tracker { .. } => LaneNodeKind::Tracker,
+        StateReadFrom::Own => LaneNodeKind::Own,
     }
 }
 
