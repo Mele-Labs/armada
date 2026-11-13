@@ -419,11 +419,11 @@ impl JobView {
     }
 
     /// What a pressed call row opens.
-    fn open_call(&mut self, ix: usize, opens: &Opens, window: &mut Window, cx: &mut Context<Self>) {
+    fn open_call(&mut self, ix: usize, opens: &Opens, _window: &mut Window, cx: &mut Context<Self>) {
         match opens {
             Opens::Words(key) => self.toggle(ix, key.clone(), cx),
-            Opens::File(path) => self.open_file(path.clone(), window, cx),
-            Opens::Check(name, run) => self.open_check(name.clone(), *run, window, cx),
+            Opens::File(path) => self.open_file_tab(path.clone(), cx),
+            Opens::Check(name, run) => self.open_check_tab(name.clone(), *run, cx),
         }
     }
 

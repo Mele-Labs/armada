@@ -97,7 +97,7 @@ enum Of {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum CheckTab {
+pub(super) enum CheckTab {
     Runs,
     Log,
 }
@@ -949,9 +949,16 @@ impl JobView {
             Of::Pull(_) => return None,
             Of::File { path, read } => {
                 let name = path.rsplit('/').next().unwrap_or(path).to_string();
-                (name.into(), Some(path.clone().into()), self.file_body(read.as_ref(), look))
+                (name.into(), Some(path.clone().into()), Self::file_body(read.as_ref(), look))
             }
-            Of::Check { name, run, tab, output, .. } => (format!("Check {name}").into(), None, self.check_body(&panel.job, name, *run, *tab, output.as_ref(), look, cx)),
+            Of::Check { name, run, tab, output, .. } => (format!("Check {name}").into(), None, Self::check_body(name, *run, *tab, output.as_ref(), &Self::runs_of(self.check_rows(&panel.job, cx), name), look, |which| {
+                cx.listener(move |this, _, _, cx| {
+                    if let Some(Panel { of: Of::Check { tab, .. }, .. }) = this.panes.panel.as_mut() {
+                        *tab = which;
+                        cx.notify();
+                    }
+                })
+            })),
             Of::Issue(issue) => (format!("Issue {}", issue.item.label()).into(), issue.item.manifest.as_ref().map(|id| id.as_str().to_string().into()), self.issue_body(issue, look, cx)),
             Of::Bay(bay) => (format!("Bay slot-{}", bay.slot).into(), Some(bay.manifest.as_str().to_string().into()), self.bay_body(bay, look, cx)),
             Of::ClashFile(clash) => {
@@ -1047,7 +1054,7 @@ impl JobView {
     }
 
     /// The file: its lines under their numbers, or why it was not opened (`FileBody`, read-only).
-    fn file_body(&self, read: Option<&FileRead>, look: &Look) -> AnyElement {
+    pub(super) fn file_body(read: Option<&FileRead>, look: &Look) -> AnyElement {
         let body = div().id("file-body").flex_1().min_h_0().overflow_y_scroll();
         match read {
             None => body.into_any_element(),
@@ -1101,17 +1108,21 @@ impl JobView {
         }
     }
 
-    /// The Check: its name and state, then Runs and Log (`CheckPanel`).
-    #[allow(clippy::too_many_arguments)]
-    fn check_body(&self, job: &SharedString, name: &str, run: u64, tab: CheckTab, output: Option<&Result<CheckOutput, String>>, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let runs: Vec<(u64, SessionCheckState, String)> = self
-            .check_rows(job, cx)
-            .into_iter()
+    /// The runs of the Check named `name`, from a Job's Check rows: run, state and when it started.
+    pub(super) fn runs_of(rows: Vec<SessionRow>, name: &str) -> Vec<(u64, SessionCheckState, String)> {
+        rows.into_iter()
             .filter_map(|row| match row {
                 SessionRow::Check { name: one, run, state, at, .. } if one == name => Some((run, state, at.as_str().to_string())),
                 _ => None,
             })
-            .collect();
+            .collect()
+    }
+
+    /// The Check: its name and state, then Runs and Log (`CheckPanel`). `pick` makes the press that shows a tab.
+    pub(super) fn check_body<F>(name: &str, run: u64, tab: CheckTab, output: Option<&Result<CheckOutput, String>>, runs: &[(u64, SessionCheckState, String)], look: &Look, pick: impl Fn(CheckTab) -> F) -> AnyElement
+    where
+        F: Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App) + 'static,
+    {
         let state = runs.iter().find(|(one, ..)| *one == run).map_or(SessionCheckState::Running, |(_, state, _)| *state);
         let (icon, said, hue, ground) = check_badge(state);
         let badge = labelled(
@@ -1146,12 +1157,7 @@ impl JobView {
                     .border_color(if front { look.color(token::ACCENT) } else { gpui::transparent_black() })
                     .cursor_pointer()
                     .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        if let Some(Panel { of: Of::Check { tab, .. }, .. }) = this.panes.panel.as_mut() {
-                            *tab = which;
-                            cx.notify();
-                        }
-                    }))
+                    .on_click(pick(which))
                     .child(word),
                 Role::Tab,
                 word,
