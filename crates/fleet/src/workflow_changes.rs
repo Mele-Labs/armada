@@ -10,7 +10,8 @@
 //! Build support starts a Job on Armada's own repository to build it.
 //!
 //! **Nothing is written until he approves**, and then only if the file still holds what the draft was
-//! made from.
+//! made from. **A drafted change also lands in his draft of the workflow** (`workflow_drafts`), as the agent's, where the
+//! draft is still what the change was made from; Publish writes that, and Approve is the Classic Bridge's.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -156,12 +157,22 @@ where
             return Err(self.change_blank("What to change is blank; say what the workflow should do differently"));
         }
         let served = self.served_named(manifest_id.as_ref())?;
-        let before = self.copy_text(&served, asked.workflow_id.as_str(), &asked.source)?;
+        let (workflow, project) = (asked.workflow_id.as_str(), asked.project.as_deref());
+        // **What the agent rewrites is the owner's draft where he has one**, and else what is published or carried there.
+        let key = self.workflow_draft_key(&served, workflow, &asked.source, project)?;
+        let drafted = self.store().lock().await.workflow_draft(&key).map_err(|why| self.change_not_kept(why))?;
+        let before = match drafted {
+            Some(draft) => draft.text().to_string(),
+            None => self
+                .workflow_published_text(&served, workflow, &asked.source, project)
+                .ok_or_else(|| self.no_such_definition(workflow, Some(&asked.source)))?,
+        };
         self.agent_to_ask()?;
         let new = NewWorkflowChange {
             manifest_id: served.manifest().id().as_str(),
-            workflow_id: asked.workflow_id.as_str(),
+            workflow_id: workflow,
             source: &asked.source,
+            project: &key.project,
             step_id: None,
             asked: Some(asked.text.trim()),
             before_text: &before,
@@ -237,7 +248,7 @@ where
             Err(_) if new_allowed && source != "armada" => String::new(),
             Err(refusal) => return Err(refusal),
         };
-        self.check_workflow_file(&SaveWorkflow { scope: scope_of(source), definition: after.clone(), overwrite: true }, served)?;
+        self.check_workflow_file(&SaveWorkflow { scope: scope_of(source, None), definition: after.clone(), overwrite: true }, served)?;
         let roster = config::Roster::of(self.models_on());
         let path = Path::new("workflow.json");
         let proposed = config::WorkflowDef::parse(path, &after, &roster)
@@ -274,6 +285,7 @@ where
         &self,
         workflow_id: &WorkflowId,
         source: &str,
+        project: Option<&str>,
         manifest_id: Option<&ManifestId>,
     ) -> Result<WorkflowChanges, Refusal> {
         let served = self.served_named(manifest_id)?;
@@ -281,7 +293,7 @@ where
         let now = self.now();
         let mut store = self.store().lock().await;
         let held = store
-            .open_workflow_changes(workflow_id.as_str(), source, served.manifest().id().as_str())
+            .open_workflow_changes(workflow_id.as_str(), source, project.unwrap_or(""), served.manifest().id().as_str())
             .map_err(|why| self.change_not_kept(why))?;
         let mut changes = Vec::with_capacity(held.len());
         for one in held {
@@ -313,8 +325,20 @@ where
             )));
         }
         let served = self.served_named(Some(&ManifestId::carried(kept.manifest_id.clone())))?;
+        // Armada's own is carried and written nowhere; its change lands in a draft, which is published to the place he picks.
+        if kept.source == "armada" {
+            return Err(Refusal::Unacceptable(
+                WireError::raised(
+                    IS_ARMADAS,
+                    format!("`{}` from Armada is carried in the binary, so there is no file for Approve to write; publish its draft, choosing where the copy goes", kept.workflow_id),
+                    self.run_id(),
+                )
+                .with_field("workflow_id", WireValue::Str(kept.workflow_id.clone())),
+            ));
+        }
         self.read_workflows_again(&served);
-        let now = self.copy_text(&served, &kept.workflow_id, &kept.source).ok();
+        let project = Some(kept.project.as_str()).filter(|project| !project.is_empty());
+        let now = self.workflow_published_text(&served, &kept.workflow_id, &kept.source, project);
         // A new workflow has no earlier text to have changed; the save refuses it if the id is taken now.
         if !kept.is_new && now.as_deref() != Some(kept.before_text.as_str()) {
             return Err(Refusal::IllegalMove(
@@ -336,7 +360,7 @@ where
                 self.run_id(),
             )));
         };
-        let saved = self.save_workflow_file(SaveWorkflow { scope: scope_of(&kept.source), definition: after, overwrite: !kept.is_new }, &served)?;
+        let saved = self.save_workflow_file(SaveWorkflow { scope: scope_of(&kept.source, project), definition: after, overwrite: !kept.is_new }, &served)?;
         let at = self.now();
         let mut store = self.store().lock().await;
         store.workflow_change_approved(kept.id, at.as_str()).map_err(|why| self.change_not_kept(why))?;
@@ -586,6 +610,11 @@ where
             return;
         }
         let drafted = self.draft_for(&kept).await;
+        // Where a drafted change would land is read before the store is locked, so the change is never seen ready and then drafted.
+        let landing = match &drafted {
+            Ok(Drafted::Definition(_)) => self.landing_of(&kept),
+            _ => None,
+        };
         let at = self.now();
         let mut store = self.store().lock().await;
         let moved = match &drafted {
@@ -593,9 +622,48 @@ where
             Ok(Drafted::Cannot(missing)) => store.workflow_change_cannot(id, missing, at.as_str()),
             Err(because) => store.workflow_change_failed(id, because, at.as_str()),
         };
-        if let Err(why) = moved {
-            self.change_warned("a change's outcome was not kept", &id.to_string(), format!("{why:?}"));
+        match (moved, &drafted, landing) {
+            (Err(why), ..) => self.change_warned("a change's outcome was not kept", &id.to_string(), format!("{why:?}")),
+            (Ok(true), Ok(Drafted::Definition(after)), Some(landing)) => {
+                if let Err(why) = Self::change_landed(&mut store, &kept, after, &landing, at.as_str()) {
+                    self.change_warned("a change was not landed in its draft", &id.to_string(), format!("{why:?}"));
+                }
+            }
+            _ => {}
         }
+    }
+
+    /// The draft a drafted change would land in, and what is published (or carried) there now. `None` where the repository
+    /// or the place is not one a draft can be kept for.
+    fn landing_of(&self, kept: &KeptWorkflowChange) -> Option<Landing> {
+        let served = self.served_named(Some(&ManifestId::carried(kept.manifest_id.clone()))).ok()?;
+        let project = Some(kept.project.as_str()).filter(|project| !project.is_empty());
+        let key = self.workflow_draft_key(&served, &kept.workflow_id, &kept.source, project).ok()?;
+        Some(Landing { key, published: self.workflow_published_text(&served, &kept.workflow_id, &kept.source, project) })
+    }
+
+    /// **Write a drafted change into the owner's draft, as the agent's**, where the draft still is what the change was made
+    /// from: the draft's text is `before`, or there is no draft and what is published (or carried) there is `before`, which
+    /// begins one. Anywhere else the change stays ready for Approve, as it was before drafts. **Under the lock that moved the
+    /// change to ready**, so a reader never sees it ready and not yet drafted.
+    fn change_landed(
+        store: &mut store::Store,
+        kept: &KeptWorkflowChange,
+        after: &str,
+        landing: &Landing,
+        at: &str,
+    ) -> Result<(), store::WriteError> {
+        let held = store.workflow_draft(&landing.key)?;
+        let still = match &held {
+            Some(draft) => draft.text() == kept.before_text,
+            None => landing.published.as_deref() == Some(kept.before_text.as_str()),
+        };
+        if !still {
+            return Ok(());
+        }
+        let change = store::NewDraftChange { made_by: store::DRAFT_BY_AGENT, text: after, summary: kept.asked.as_deref(), change: Some(kept.id) };
+        store.put_draft_change(&landing.key, landing.published.as_deref().unwrap_or(""), &change, at)?;
+        store.workflow_change_marked_drafted(kept.id).map(drop)
     }
 
     /// The draft that fits, what Armada lacks to make one, or why none did.
@@ -648,7 +716,7 @@ where
     /// Whether a draft is one this change may take: it fits as a save does, it is the same workflow, it
     /// differs from what it was made from, and a suggestion differs in one step's words only.
     fn draft_fits(&self, served: &Served, kept: &KeptWorkflowChange, answer: &str) -> Result<(), Misfit> {
-        let scope = scope_of(&kept.source);
+        let scope = scope_of(&kept.source, Some(kept.project.as_str()).filter(|project| !project.is_empty()));
         self.check_workflow_file(&SaveWorkflow { scope, definition: answer.to_string(), overwrite: true }, served)
             .map_err(|refusal| Misfit::Because(refusal.error().message.clone()))?;
         let roster = config::Roster::of(self.models_on());
@@ -733,6 +801,12 @@ where
     }
 }
 
+/// Where a drafted change would land: the draft's key, and the text published (or carried) in its place when it was drafted.
+struct Landing {
+    key: store::DraftKey,
+    published: Option<String>,
+}
+
 /// What a draft came back as.
 enum Drafted {
     /// A definition that fits.
@@ -766,9 +840,11 @@ enum Misfit {
 }
 
 /// Which folder a place's copy is written to.
-fn scope_of(source: &str) -> WorkflowScope {
-    match source {
-        "kit" => WorkflowScope::Kit,
+fn scope_of(source: &str, project: Option<&str>) -> WorkflowScope {
+    match (source, project) {
+        ("kit", _) => WorkflowScope::Kit,
+        ("project", Some(id)) => WorkflowScope::Project { id: id.to_string() },
+        // Armada's has no folder of its own, and a check is the same wherever the copy would go.
         _ => WorkflowScope::Repository,
     }
 }
@@ -806,6 +882,7 @@ fn change_wire(kept: &KeptWorkflowChange) -> WorkflowChange {
         id: kept.id,
         workflow_id: WorkflowId::carried(kept.workflow_id.clone()),
         source: kept.source.clone(),
+        project: Some(kept.project.clone()).filter(|project| !project.is_empty()),
         step_id: kept.step_id.clone().map(StepId::carried),
         origin,
         before: kept.before_text.clone(),
@@ -818,6 +895,7 @@ fn change_wire(kept: &KeptWorkflowChange) -> WorkflowChange {
         after_name: None,
         after_for_requests: None,
         notes: kept.notes.clone(),
+        drafted: kept.drafted,
         at: Instant::carried(kept.changed_at.clone()),
     }
 }

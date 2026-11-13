@@ -365,6 +365,27 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/lifecycles/pieces/delete",
     },
+    // A piece's draft is read, kept and thrown away at one path as a workflow's is, and Publish is the act under it.
+    Route {
+        operation: "get_piece_draft",
+        method: "GET",
+        path: "/lifecycles/pieces/draft",
+    },
+    Route {
+        operation: "put_piece_draft",
+        method: "PUT",
+        path: "/lifecycles/pieces/draft",
+    },
+    Route {
+        operation: "discard_piece_draft",
+        method: "DELETE",
+        path: "/lifecycles/pieces/draft",
+    },
+    Route {
+        operation: "publish_piece_draft",
+        method: "POST",
+        path: "/lifecycles/pieces/draft/publish",
+    },
     Route {
         operation: "teach_ticket_word",
         method: "POST",

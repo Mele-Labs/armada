@@ -517,8 +517,10 @@ export type WorkflowChange = {
   /** What approve, dismiss and send back take. */
   id: number;
   workflow_id: string;
-  /** `repository` or `kit`. */
+  /** `repository`, `kit`, `project` or `armada`. */
   source: string;
+  /** The project, where `source` is `project`. */
+  project?: string;
   /** The one step a suggestion may change. Absent on a change he asked for. */
   step_id?: string;
   origin: ChangeOrigin;
@@ -541,20 +543,27 @@ export type WorkflowChange = {
   after_for_requests?: string;
   /** What he said when he sent it back, the latest. */
   notes?: string;
+  /** `after` landed in his draft of the workflow as an agent's change (`GET /workflows/draft` shows it). Absent where it did not. */
+  drafted?: boolean;
   /** When it last moved. */
   at: string;
 };
 
-/** `POST /workflows/changes/ask?manifest_id=`'s body. 422 `fleet.workflow_is_armadas` for `armada`. */
+/**
+ * `POST /workflows/changes/ask?manifest_id=`'s body. The result lands in his draft of the workflow (`WorkflowChange.drafted`), where the draft is still what
+ * the change was made from; a change to one of Armada's has nowhere else to land, and its draft has no scope.
+ */
 export type AskWorkflowChange = {
   workflow_id: string;
-  /** `repository` or `kit`. */
+  /** `repository`, `kit`, `project` or `armada`. */
   source: string;
+  /** The project, required where `source` is `project`. */
+  project?: string;
   /** What he wants changed, in his words. */
   text: string;
 };
 
-/** `GET /workflows/changes?workflow_id=&source=&manifest_id=`: the open changes, oldest first. */
+/** `GET /workflows/changes?workflow_id=&source=&project=&manifest_id=`: the open changes, oldest first; `project` names the project where `source` is `project`. */
 export type WorkflowChanges = {
   changes: WorkflowChange[];
 };

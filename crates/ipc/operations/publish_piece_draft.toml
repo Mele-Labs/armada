@@ -1,0 +1,14 @@
+[operations.publish_piece_draft]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Write the draft of a lifecycle, rule or autonomy default through the piece save, with overwrite, then delete the draft"
+notes = """
+`POST /lifecycles/pieces/draft/publish`, protocol 23.95. The body is `PublishPieceDraft` `{ kind, id, scope? }`. The answer is a `PiecePublished` `{ saved }`, `saved` being the `LifecyclePieceSaved` the save made.
+
+**It decodes the draft's text as a `LifecyclePiece` and runs `save_lifecycle_piece` with `overwrite`**, so the parser's refusals pass through unchanged and nothing is written on one: 422 `fleet.piece_unfit` with its sentence, where the text is not a piece, is another kind, id or scope than the draft's, or does not parse; 500 `fleet.piece_unwritable`. The draft is deleted only once the file is written.
+
+**A stale draft is refused**, 409 `fleet.piece_draft_stale`, where the piece Kit holds now, as the JSON `base` is, is no longer `base`. Nothing is written and the draft stays. 404 `fleet.piece_draft_none` where no draft is kept. `save_lifecycle_piece` is unchanged and still writes at once.
+
+`agent_access` is `Bridge only`: the person's own pieces decide what every Job of theirs does and asks.
+"""

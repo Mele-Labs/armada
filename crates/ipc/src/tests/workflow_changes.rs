@@ -8,6 +8,7 @@ fn change(state: ChangeState) -> WorkflowChange {
         id: 7,
         workflow_id: WorkflowId::carried("feature"),
         source: String::from("repository"),
+        project: None,
         step_id: None,
         origin: ChangeOrigin::Asked { text: String::from("end Propose on an approved document") },
         before: String::from("{}"),
@@ -20,6 +21,7 @@ fn change(state: ChangeState) -> WorkflowChange {
         after_name: None,
         after_for_requests: None,
         notes: None,
+        drafted: false,
         at: Instant::carried("2026-10-28T09:00:00.000Z"),
     }
 }
@@ -59,4 +61,18 @@ fn a_cannot_change_carries_what_armada_lacks_and_its_steps_and_reads_back() {
     assert!(written.contains(r#""before_steps":[{"id":"propose","label":"Propose","ends_when":"you reply"}]"#), "{written}");
     let read: WorkflowChange = decode("a change", written.as_bytes()).expect("it reads");
     assert_eq!(read, cannot);
+}
+
+/// A change that landed in the owner's draft says so, and one that did not sends no key; a project's change names its project.
+#[test]
+fn a_drafted_change_says_so_and_a_projects_names_its_project_and_each_is_absent_otherwise() {
+    let plain = encode(&change(ChangeState::Ready)).expect("a change encodes");
+    assert!(!plain.contains("drafted") && !plain.contains("project"), "{plain}");
+    let drafted = WorkflowChange { drafted: true, source: String::from("project"), project: Some(String::from("storefront")), ..change(ChangeState::Ready) };
+    let written = encode(&drafted).expect("a change encodes");
+    assert!(written.contains(r#""drafted":true"#) && written.contains(r#""project":"storefront""#), "{written}");
+    let read: WorkflowChange = decode("a change", written.as_bytes()).expect("it reads");
+    assert_eq!(read, drafted);
+    let before: WorkflowChange = decode("a change", plain.as_bytes()).expect("it reads");
+    assert!(!before.drafted && before.project.is_none(), "a Fleet from before sends neither");
 }

@@ -69,6 +69,7 @@ mod later_confirmed;
 mod claim_misreads;
 /// The changes to a workflow an agent drafted for the owner to approve.
 mod workflow_changes;
+mod workflow_drafts;
 /// What this Mac syncs with the shared home.
 mod home_kinds;
 mod home_repositories;
@@ -231,6 +232,7 @@ pub use workflow_changes::{
     KeptWorkflowChange, NewWorkflowChange, APPROVED as CHANGE_APPROVED, CANNOT as CHANGE_CANNOT, DISMISSED as CHANGE_DISMISSED, DRAFTING as CHANGE_DRAFTING,
     FAILED as CHANGE_FAILED, READY as CHANGE_READY,
 };
+pub use workflow_drafts::{DraftKey, KeptDraft, KeptDraftChange, NewDraftChange, BY_AGENT as DRAFT_BY_AGENT, BY_YOU as DRAFT_BY_YOU};
 pub use session_later::{KeptHanded, KeptLater};
 pub use job_shells::KeptJobTerminal;
 pub use watches::{KeptWatch, KeptWatchPart, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
