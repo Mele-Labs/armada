@@ -501,18 +501,15 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .map(|drawn| drawn.bounds.center())
                 .ok_or_else(|| Missed("no button named \"Active\"".into()))?;
             press(MouseButton::Left, at, window, cx);
-            // The menu is drawn, and holds the keys, before each key is sent, as a person's second press would find it.
+            // The menu is drawn before Paused is pressed, as a person's second press would find it. Paused is
+            // found by name, so the scopes' order can change under the step.
             window.defer(cx, |window, cx| {
                 window.draw(cx).clear(cx);
-                if let Ok(down) = Keystroke::parse("down") {
-                    window.dispatch_keystroke(down, cx);
+                let role = role_named("menuitemcheckbox").expect("a menu item checkbox is a role");
+                let paused = cx.try_global::<LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), role, "Paused")).map(|drawn| drawn.bounds.center());
+                if let Some(at) = paused {
+                    press(MouseButton::Left, at, window, cx);
                 }
-                window.defer(cx, |window, cx| {
-                    window.draw(cx).clear(cx);
-                    if let Ok(enter) = Keystroke::parse("enter") {
-                        window.dispatch_keystroke(enter, cx);
-                    }
-                });
             });
             Ok(())
         }

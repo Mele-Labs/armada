@@ -223,8 +223,54 @@ enum Line {
     Job(Row),
 }
 
-fn project_of(job: &SessionRecord) -> String {
+/// The repository a Job runs in, by the id it carries: the key its repository's group is held by.
+fn repository_of(job: &SessionRecord) -> String {
     job.manifest_id.as_ref().map_or_else(|| job.cwd.clone(), |id| id.as_str().to_string())
+}
+
+/// What the list calls a group: his projects by id (`list_projects`), and each repository Fleet serves by
+/// the id its Jobs carry, named as the title bar's picker names it.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct Names {
+    projects: HashMap<String, String>,
+    repositories: HashMap<String, String>,
+}
+
+impl Names {
+    fn of(served: &[ipc::RepositorySummary], projects: Option<&ipc::Projects>) -> Names {
+        let named = crate::titlebar::repositories_of(served, &[]);
+        let id_of = |one: &ipc::RepositorySummary| one.manifest.as_ref().map(|manifest| &manifest.id).or(one.implicit_id.as_ref()).map(|id| id.as_str().to_string());
+        Names {
+            projects: projects.map(|all| all.projects.iter().map(|one| (one.id.clone(), one.name.clone())).collect()).unwrap_or_default(),
+            repositories: served.iter().zip(named).filter_map(|(one, named)| Some((id_of(one)?, named.name.to_string()))).collect(),
+        }
+    }
+}
+
+/// The group a Job stands in, as its key and its heading: the project Fleet says it was started for, by
+/// that project's name, else its repository by name. A heading is never an id.
+fn group_of(job: &SessionRecord, names: &Names) -> (String, String) {
+    let project = job.hosted.as_ref().and_then(|hosted| hosted.project.as_ref());
+    if let Some((id, name)) = project.and_then(|id| names.projects.get(id).map(|name| (id, name))) {
+        return (format!("project:{id}"), name.clone());
+    }
+    let named = job.manifest_id.as_ref().and_then(|id| names.repositories.get(id.as_str())).cloned();
+    (repository_of(job), named.unwrap_or_else(|| folder_of(&job.cwd)))
+}
+
+/// The repository's folder a Job runs in, from its working directory: a slot's checkout is under the
+/// repository it was cut from, so its `.armada/slots/…` tail is not the name.
+fn folder_of(cwd: &str) -> String {
+    let root = cwd.split("/.armada/").next().unwrap_or(cwd);
+    root.rsplit('/').find(|part| !part.is_empty()).unwrap_or(root).to_string()
+}
+
+/// What a row calls a Job Fleet has not titled yet, as ⌘T names the Job it starts.
+const UNTITLED: &str = "New Job";
+
+/// A Job's title as its row draws it: never its id.
+fn title_of(job: &SessionRecord) -> SharedString {
+    job.title.as_deref().map(str::trim).filter(|title| !title.is_empty()).unwrap_or(UNTITLED).to_string().into()
 }
 
 fn attached<'a>(job: &'a SessionRecord, kind: &str) -> Option<&'a str> {
@@ -301,7 +347,7 @@ fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option
     Some(placed)
 }
 
-fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String]) -> Vec<Line> {
+fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names) -> Vec<Line> {
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
     let live = |job: &&SessionRecord| job.state == SessionState::Live;
@@ -341,37 +387,39 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
         kept
     };
     let now = chrono::Utc::now();
-    let title_of = |job: &SessionRecord| -> SharedString { job.title.clone().unwrap_or_else(|| job.id.as_str().to_string()).into() };
-    let mut projects: Vec<(String, Vec<&SessionRecord>)> = Vec::new();
+    // Each group by its key, its heading and its Jobs.
+    let mut projects: Vec<(String, String, Vec<&SessionRecord>)> = Vec::new();
     for job in picked {
-        let project = project_of(job);
-        match projects.iter_mut().find(|(name, _)| *name == project) {
-            Some((_, held)) => held.push(job),
-            None => projects.push((project, vec![job])),
+        let (key, name) = group_of(job, names);
+        match projects.iter_mut().find(|(held, ..)| *held == key) {
+            Some((.., held)) => held.push(job),
+            None => projects.push((key, name, vec![job])),
         }
     }
     // Groups stand in the order Fleet lists Jobs, so a state change never moves one.
-    projects.sort_by_key(|(name, _)| jobs.iter().position(|job| project_of(job) == *name));
+    projects.sort_by_key(|(key, ..)| jobs.iter().position(|job| group_of(job, names).0 == *key));
     // Ideas waiting to start, among the live Jobs, each under its repository's group (`bands.ts`): the group of a
     // Job in its root, else its repository's name. A group with only ideas stands after the rest.
     let waiting: Vec<&crate::queued::QueuedIdea> = match scope {
         Scope::Active | Scope::All => ideas.iter().filter(|idea| query.trim().is_empty() || idea.text.to_lowercase().contains(&query.trim().to_lowercase())).collect(),
         _ => Vec::new(),
     };
-    let group_of = |idea: &crate::queued::QueuedIdea| jobs.iter().find(|job| job.cwd == idea.root).map_or_else(|| idea.repository.clone(), project_of);
+    let idea_group = |idea: &crate::queued::QueuedIdea| {
+        jobs.iter().find(|job| job.cwd == idea.root).map_or_else(|| (idea.repository.clone(), idea.repository.clone()), |job| group_of(job, names))
+    };
     for idea in &waiting {
-        let group = group_of(idea);
-        if !projects.iter().any(|(name, _)| *name == group) {
-            projects.push((group, Vec::new()));
+        let (key, name) = idea_group(idea);
+        if !projects.iter().any(|(held, ..)| *held == key) {
+            projects.push((key, name, Vec::new()));
         }
     }
     let headed = projects.len() > 1;
     let mut lines = Vec::new();
-    for (project, held) in projects {
+    for (key, project, held) in projects {
         if headed {
             lines.push(Line::Project(project.clone().into()));
         }
-        for idea in waiting.iter().filter(|idea| group_of(idea) == project) {
+        for idea in waiting.iter().filter(|idea| idea_group(idea).0 == key) {
             lines.push(Line::Job(Row {
                 id: format!("queued:{}", idea.id).into(),
                 title: idea.title().to_string().into(),
@@ -408,7 +456,7 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
             depth,
             through: through.to_vec(),
             ends: last,
-            started_by: starter_of(job).and_then(|id| jobs.iter().find(|one| one.id.as_str() == id)).map(|one| (title_of(one), project_of(one).into())),
+            started_by: starter_of(job).and_then(|id| jobs.iter().find(|one| one.id.as_str() == id)).map(|one| (title_of(one), group_of(one, names).1.into())),
             slot: attached(job, "slot").map(|slot| slot.rsplit('/').next().unwrap_or(slot).to_string().into()),
             branch: attached(job, "branch").map(|branch| branch.to_string().into()),
             pr: attached(job, "pr").map(|pr| format!("#{pr}").into()),
@@ -595,6 +643,8 @@ pub struct JobsList {
     lifted: Option<SharedString>,
     /// The ideas waiting to start (`crate::queued`), each a row under its repository's group.
     ideas: Vec<crate::queued::QueuedIdea>,
+    /// What each group is called: his projects and the repositories Fleet serves, by name.
+    names: Names,
 }
 
 /// A Job's row while it is dragged to a new place in its project.
@@ -661,28 +711,35 @@ impl JobsList {
                     }
                 });
             }
-            let mut jobs = fleet.read(cx).held().jobs.clone();
+            let held = fleet.read(cx).held();
+            let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref());
+            let mut jobs = held.jobs.clone();
             this.hold_asked_titles(&mut jobs);
-            if jobs != this.jobs {
+            if jobs != this.jobs || names != this.names {
                 this.jobs = jobs;
+                this.names = names;
                 this.place_new();
                 this.relist(cx);
             }
         });
         let (scope, order) = read_deck();
         crate::queued::begin(true, cx);
-        let jobs = fleet.read(cx).held().jobs.clone();
-        Self::with(jobs, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx)
+        let held = fleet.read(cx).held();
+        let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref());
+        let jobs = held.jobs.clone();
+        Self::with(jobs, names, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx)
     }
 
     /// The list on mock Jobs, which never change, with the View as a first start has it, so a walk shows what he will.
     pub fn mock(jobs: &[SessionRecord], cx: &mut Context<Self>) -> Self {
         crate::queued::begin(false, cx);
-        Self::with(jobs.to_vec(), Scope::Active, Vec::new(), View::DEFAULT, false, None, None, cx)
+        let names = Names::of(&crate::mock::repositories(), Some(&crate::mock::projects()));
+        Self::with(jobs.to_vec(), names, Scope::Active, Vec::new(), View::DEFAULT, false, None, None, cx)
     }
 
     fn with(
         jobs: Vec<SessionRecord>,
+        names: Names,
         scope: Scope,
         order: Vec<String>,
         view: View,
@@ -718,6 +775,7 @@ impl JobsList {
             drop: None,
             lifted: None,
             ideas: crate::queued::ideas(cx),
+            names,
         };
         // The ideas waiting to start stand in the list as they change, from Dispatch or a row's own acts.
         cx.observe_global::<crate::queued::Queued>(|this, cx| {
@@ -734,7 +792,7 @@ impl JobsList {
     /// Put each live Job the order has not met at its end, in the standing order it is drawn in,
     /// so no later change of state moves it (`store.ts`, a new one is added at the end).
     fn place_new(&mut self) {
-        let fresh: Vec<String> = lines_of(&self.jobs, &[], Scope::All, "", &self.order)
+        let fresh: Vec<String> = lines_of(&self.jobs, &[], Scope::All, "", &self.order, &self.names)
             .into_iter()
             .filter_map(|line| match line {
                 Line::Job(one) if !one.ended && !self.order.iter().any(|id| *id == *one.id) => Some(one.id.to_string()),
@@ -909,7 +967,7 @@ impl JobsList {
 
     /// A Job stands in the list in its repository's group, as a start's record would, and is not opened.
     fn stand_new(&mut self, id: String, title: String, repository: &str, mark: Option<ipc::JobMark>, cx: &mut Context<Self>) -> Option<SharedString> {
-        let like = self.jobs.iter().find(|job| project_of(job) == repository).or_else(|| self.jobs.first());
+        let like = self.jobs.iter().find(|job| repository_of(job) == repository).or_else(|| self.jobs.first());
         let mut record = like.cloned()?;
         record.id = ipc::SessionId::carried(id);
         record.title = Some(title);
@@ -947,7 +1005,7 @@ impl JobsList {
     }
 
     fn lines_now(&self) -> Vec<Line> {
-        lines_of(&self.jobs, &self.ideas, self.scope, &self.query, &self.order)
+        lines_of(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names)
     }
 
     /// The keys on the first Job that needs him, as the deck's `c` puts them (`keys-model.ts`, the
@@ -1046,7 +1104,7 @@ impl JobsList {
         let Some(over) = at.checked_add_signed(by).and_then(|to| peers.get(to)).cloned() else { return };
         // Place every live Job, so the move holds whatever the list draws next.
         let mut placed: Vec<String> =
-            lines_of(&self.jobs, &[], Scope::All, "", &self.order).iter().filter_map(|line| match line {
+            lines_of(&self.jobs, &[], Scope::All, "", &self.order, &self.names).iter().filter_map(|line| match line {
                 Line::Job(one) if !one.ended => Some(one.id.to_string()),
                 _ => None,
             }).collect();
@@ -1067,7 +1125,7 @@ impl JobsList {
             return cx.notify();
         }
         let placed: Vec<String> =
-            lines_of(&self.jobs, &[], Scope::All, "", &self.order).iter().filter_map(|line| match line {
+            lines_of(&self.jobs, &[], Scope::All, "", &self.order, &self.names).iter().filter_map(|line| match line {
                 Line::Job(one) if !one.ended => Some(one.id.to_string()),
                 _ => None,
             }).collect();
@@ -2430,17 +2488,59 @@ mod tests {
 
     #[test]
     fn ended_jobs_leave_the_list_and_each_project_heads_its_own() {
-        let lines = lines_of(&jobs(), &[], Scope::Active, "", &[]);
+        let lines = lines_of(&jobs(), &[], Scope::Active, "", &[], &Names::default());
         assert_eq!(lines[0], Line::Project("armada".into()));
         assert!(!titles(&lines).iter().any(|title| title.contains("ended")));
         let projects: Vec<_> = lines.iter().filter_map(|line| match line { Line::Project(name) => Some(name.clone()), _ => None }).collect();
         assert_eq!(projects, vec![SharedString::from("armada"), "sample-web".into(), "sample-api".into()]);
     }
 
+    fn headings(lines: &[Line]) -> Vec<String> {
+        lines.iter().filter_map(|line| match line { Line::Project(name) => Some(name.to_string()), Line::Job(_) => None }).collect()
+    }
+
+    #[test]
+    fn a_job_stands_under_its_projects_name_else_its_repositorys_never_an_id() {
+        let all = crate::mock::jobs("jobs-projects").expect("the fixture decodes");
+        let names = Names::of(&crate::mock::repositories(), Some(&crate::mock::projects()));
+        let lines = lines_of(&all, &[], Scope::Active, "", &[], &names);
+        assert_eq!(headings(&lines), ["Armada", "Storefront", "sample-api"]);
+        // His Chariot: a folder with no Manifest, which Fleet gives an id of its own, and a Job in a slot cut from it.
+        let mut chariot = all[0].clone();
+        chariot.manifest_id = Some(ipc::ManifestId::carried("chariot-6e8ee791"));
+        chariot.cwd = "/Users/user/Development/chariot/.armada/slots/slot-2".into();
+        let mut projects = crate::mock::projects();
+        projects.projects[1].id = "0193".into();
+        projects.projects[1].name = "Chariot".into();
+        chariot.hosted.as_mut().expect("started for a project").project = Some("0193".into());
+        let names = Names::of(&[], Some(&projects));
+        assert_eq!(group_of(&chariot, &names).1, "Chariot");
+        chariot.hosted = None;
+        assert_eq!(group_of(&chariot, &names).1, "chariot", "in no project, the repository's folder names it");
+        let served: ipc::RepositoryList = ipc::decode(
+            "repositories",
+            br#"{"repositories":[{"root":"/Users/user/Development/chariot","records_root":"/r","implicit_id":"chariot-6e8ee791"}]}"#,
+        )
+        .expect("repositories");
+        assert_eq!(group_of(&chariot, &Names::of(&served.repositories, None)).1, "chariot", "a served repository by its name");
+    }
+
+    #[test]
+    fn a_job_with_no_title_reads_new_job_never_its_id() {
+        let all = crate::mock::jobs("jobs-projects").expect("the fixture decodes");
+        let lines = lines_of(&all, &[], Scope::All, "", &[], &Names::default());
+        let untitled = lines.iter().find_map(|line| match line { Line::Job(row) if row.id.as_ref() == "mock-06" => Some(row.title.to_string()), _ => None });
+        assert_eq!(untitled.as_deref(), Some(UNTITLED));
+        let mut blank = all[0].clone();
+        blank.title = Some("  ".into());
+        assert_eq!(title_of(&blank).as_ref(), UNTITLED);
+        assert!(lines.iter().all(|line| match line { Line::Job(row) => row.title != row.id, Line::Project(_) => true }));
+    }
+
     #[test]
     fn one_project_draws_its_jobs_with_no_head() {
         let armada: Vec<_> = jobs().into_iter().filter(|job| job.manifest_id.as_ref().is_some_and(|id| id.as_str() == "armada")).collect();
-        let lines = lines_of(&armada, &[], Scope::Active, "", &[]);
+        let lines = lines_of(&armada, &[], Scope::Active, "", &[], &Names::default());
         assert!(!lines.is_empty());
         assert!(lines.iter().all(|line| matches!(line, Line::Job(_))));
     }
@@ -2448,35 +2548,35 @@ mod tests {
     #[test]
     fn the_placed_order_holds_and_a_search_narrows_by_title() {
         let all = jobs();
-        let second = titles(&lines_of(&all, &[], Scope::Active, "", &[]))[1].clone();
+        let second = titles(&lines_of(&all, &[], Scope::Active, "", &[], &Names::default()))[1].clone();
         let id = all.iter().find(|job| job.title.as_deref() == Some(second.as_str())).map(|job| job.id.as_str().to_string()).expect("listed");
-        assert_eq!(titles(&lines_of(&all, &[], Scope::Active, "", &[id]))[0], second);
-        let found = titles(&lines_of(&all, &[], Scope::Active, &second[..6].to_uppercase(), &[]));
+        assert_eq!(titles(&lines_of(&all, &[], Scope::Active, "", &[id], &Names::default()))[0], second);
+        let found = titles(&lines_of(&all, &[], Scope::Active, &second[..6].to_uppercase(), &[], &Names::default()));
         assert!(found.contains(&second) && found.iter().all(|title| title.to_lowercase().contains(&second[..6].to_lowercase())));
     }
 
     #[test]
     fn jobs_not_yet_placed_stand_needs_first_and_the_loudest_first() {
-        let lines = lines_of(&jobs(), &[], Scope::Active, "", &[]);
+        let lines = lines_of(&jobs(), &[], Scope::Active, "", &[], &Names::default());
         let web: Vec<_> = titles(&lines).into_iter().filter(|title| ["Checkout", "Flaky", "Upgrade", "Dark"].iter().any(|word| title.starts_with(word))).collect();
         assert_eq!(web, ["Checkout page loads twice", "Flaky login test", "Upgrade the router", "Dark mode for the settings page"]);
         // A placed Job keeps its place whatever its state.
         let dark = jobs().into_iter().find(|job| job.title.as_deref() == Some("Dark mode for the settings page")).expect("listed");
-        let placed = titles(&lines_of(&jobs(), &[], Scope::Active, "", &[dark.id.as_str().to_string()]));
+        let placed = titles(&lines_of(&jobs(), &[], Scope::Active, "", &[dark.id.as_str().to_string()], &Names::default()));
         assert_eq!(placed.iter().find(|title| web.contains(title)).map(String::as_str), Some("Dark mode for the settings page"));
     }
 
     #[test]
     fn a_quiet_job_leaves_active_for_the_quiet_scope() {
-        let quiet = titles(&lines_of(&jobs(), &[], Scope::Quiet, "", &[]));
+        let quiet = titles(&lines_of(&jobs(), &[], Scope::Quiet, "", &[], &Names::default()));
         assert_eq!(quiet, ["Retry webhooks on a 503"]);
-        assert!(!titles(&lines_of(&jobs(), &[], Scope::Active, "", &[])).contains(&quiet[0]));
+        assert!(!titles(&lines_of(&jobs(), &[], Scope::Active, "", &[], &Names::default())).contains(&quiet[0]));
     }
 
     #[test]
     fn needs_you_holds_the_jobs_that_need_him_with_their_starters_for_place() {
         let tree = crate::mock::jobs("jobs-tree").expect("the fixture decodes");
-        let lines = lines_of(&tree, &[], Scope::Needs, "", &[]);
+        let lines = lines_of(&tree, &[], Scope::Needs, "", &[], &Names::default());
         let rows: Vec<(String, usize, bool)> =
             lines.iter().filter_map(|line| match line { Line::Job(row) => Some((row.title.to_string(), row.depth, row.place)), Line::Project(_) => None }).collect();
         assert_eq!(
@@ -2489,7 +2589,7 @@ mod tests {
             ]
         );
         let calm: Vec<SessionRecord> = tree.iter().cloned().map(|mut job| { job.mark = None; job }).collect();
-        assert!(lines_of(&calm, &[], Scope::Needs, "", &[]).is_empty(), "nothing needing him draws nothing, not even a head");
+        assert!(lines_of(&calm, &[], Scope::Needs, "", &[], &Names::default()).is_empty(), "nothing needing him draws nothing, not even a head");
         // A paused starter stays out of Active but keeps its place over the Job it started.
         let paused: Vec<SessionRecord> = tree
             .into_iter()
@@ -2502,7 +2602,7 @@ mod tests {
                 job
             })
             .collect();
-        let active = lines_of(&paused, &[], Scope::Active, "", &[]);
+        let active = lines_of(&paused, &[], Scope::Active, "", &[], &Names::default());
         let walk = active.iter().find_map(|line| match line { Line::Job(row) if row.title.as_ref() == "Fix the walk at 820" => Some((row.depth, row.place)), _ => None });
         let shots = active.iter().find_map(|line| match line { Line::Job(row) if row.title.as_ref() == "Re-take the shots" => Some(row.depth), _ => None });
         assert_eq!((walk, shots), (Some((1, true)), Some(2)));
@@ -2510,13 +2610,13 @@ mod tests {
 
     #[test]
     fn the_ended_scope_holds_only_ended_jobs() {
-        let ended = titles(&lines_of(&jobs(), &[], Scope::Ended, "", &[]));
+        let ended = titles(&lines_of(&jobs(), &[], Scope::Ended, "", &[], &Names::default()));
         assert!(!ended.is_empty() && ended.iter().all(|title| title.contains("ended")), "{ended:?}");
     }
 
     #[test]
     fn a_row_carries_its_issue_its_workflow_step_and_what_it_is_doing() {
-        let lines = lines_of(&jobs(), &[], Scope::Active, "", &[]);
+        let lines = lines_of(&jobs(), &[], Scope::Active, "", &[], &Names::default());
         let row = |title: &str| {
             lines.iter().find_map(|line| match line {
                 Line::Job(row) if row.title == title => Some(row.clone()),
@@ -2526,7 +2626,7 @@ mod tests {
         let first = row("Fix the merge line freshness chip");
         assert_eq!(first.issue, Some(("#3290".into(), "Merge line freshness chip stays green when stale".into())));
         // The list's scenarios follow no workflow; the workflow walk's do, its first at Build.
-        let flows = lines_of(&crate::mock::jobs("job-workflow").expect("the fixture decodes"), &[], Scope::Active, "", &[]);
+        let flows = lines_of(&crate::mock::jobs("job-workflow").expect("the fixture decodes"), &[], Scope::Active, "", &[], &Names::default());
         let flow = flows.iter().find_map(|line| match line {
             Line::Job(row) if row.title == "Fix the merge line freshness chip" => Some(row.flow.clone()),
             _ => None,

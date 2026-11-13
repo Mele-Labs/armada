@@ -32,6 +32,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same Jobs, with Checkout page loads twice moved from sample-web to sample-api.
         "thread-moved" => include_bytes!("../fixtures/jobs-moved.json"),
         "job-bands" => include_bytes!("../fixtures/jobs-bands.json"),
+        // The same Jobs, armada's started for his Armada project and sample-web's for Storefront, sample-api's
+        // for none, and Quiet the write-clash notices not titled yet.
+        "jobs-projects" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
         // The same Jobs: the first owing a draft and two native walks, Audit the docs index a draft whose
@@ -110,6 +113,26 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.workflow = None;
             one.workflow_step = None;
             one.workflow_copy = None;
+        }
+    }
+    if scenario == "jobs-projects" {
+        let facts = |project: &str| {
+            let raw = format!(r#"{{"turn":{{"state":"idle"}},"mode":"auto","running":false,"project":"{project}"}}"#);
+            ipc::decode::<ipc::HostedFacts>("HostedFacts", raw.as_bytes()).map_err(|why| why.to_string())
+        };
+        for one in &mut sessions {
+            let project = match one.manifest_id.as_ref().map(|id| id.as_str()) {
+                Some("armada") => "armada",
+                Some("sample-web") => "storefront",
+                _ => continue,
+            };
+            match one.hosted.as_mut() {
+                Some(hosted) => hosted.project = Some(project.to_string()),
+                None => one.hosted = Some(facts(project)?),
+            }
+        }
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-06") {
+            one.title = None;
         }
     }
     if scenario == "job-spine" {
