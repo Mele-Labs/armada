@@ -51,7 +51,6 @@ import { openLink } from "./links";
 import { askPhone } from "./phone-gateway";
 import type { PhoneRequest } from "@armada/settings/api";
 import { restartFleet } from "./restart-fleet";
-import { keptBuildsOf, reopenBridge, startFleet } from "./start-fleet";
 import { openServerLink } from "./servers";
 import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
@@ -1069,10 +1068,6 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.openLink, (_event, address: string) => openLink(address));
   // Asks launchd, not Fleet: `restart-fleet.ts`. Read from what main last published.
   ipcMain.handle(CHANNELS.restartFleet, () => restartFleet(published.connection));
-  // The CLI's act, and launchd's for this Bridge's own job: `start-fleet.ts`.
-  ipcMain.handle(CHANNELS.startFleet, () => startFleet(keptBuilds()));
-  ipcMain.handle(CHANNELS.reopenBridge, () => reopenBridge());
-  ipcMain.handle(CHANNELS.keptBuilds, () => keptBuildsOf(app.getAppPath(), keptBuilds()));
   // Asks Fleet, which starts `scripts/restart-build` detached: `fleet-build.ts`.
   ipcMain.handle(CHANNELS.changeFleetBuild, (_event, build: BuildSource, adopt: boolean) =>
     connection?.fleetBuild.change(build, adopt),

@@ -79,7 +79,7 @@ test("a Fleet on another protocol is told as a mismatch, with the one thing to p
 
   expect(failure?.payload.code).toBe("bridge.fleet.protocol_mismatch");
   expect(failure?.headline).toBe("Fleet and Bridge do not match");
-  expect(failure?.next).toBe("Restart Fleet or reopen Armada, whichever runs the older build.");
+  expect(failure?.next).toBe("Restart Fleet onto the installed build.");
   expect(failure?.kind).toBe("degraded");
 });
 

@@ -22,15 +22,7 @@
 
 import type { ReactNode } from "react";
 import { Alert, Button, ManifestNotice } from "@armada/components";
-import type {
-  BridgeIdentity,
-  BridgeReopen,
-  Connection,
-  FleetRestart,
-  FleetStart,
-  KeptBuilds,
-  ManifestReading,
-} from "@armada/protocol";
+import type { BridgeIdentity, Connection, FleetRestart, ManifestReading } from "@armada/protocol";
 import type { Failure } from "@armada/shell";
 import { FleetNotice } from "@armada/shell";
 
@@ -41,10 +33,7 @@ export type StandingProps = {
   connection: Connection;
   bridge: BridgeIdentity;
   /** Restart Fleet, offered where the connection is a protocol mismatch. */
-  onStartFleet: () => Promise<FleetStart>;
   onRestartFleet: () => Promise<FleetRestart>;
-  onReopenBridge: () => Promise<BridgeReopen>;
-  onReadBuilds: () => Promise<KeptBuilds>;
   /** What Fleet's last read of `armada.yml` came to. */
   manifestReading: ManifestReading | null;
   /** The reading already put away, by the instant Fleet read the file. */
@@ -67,10 +56,7 @@ export function Standing({
   fleet,
   connection,
   bridge,
-  onStartFleet,
   onRestartFleet,
-  onReopenBridge,
-  onReadBuilds,
   manifestReading,
   readingSeen,
   onReadingSeen,
@@ -92,13 +78,9 @@ export function Standing({
         <FleetNotice
           fleet={fleet}
           fleetPid={"fleet" in connection ? connection.fleet.pid : null}
-          fleetBuild={"fleet" in connection ? (connection.fleet.build ?? null) : null}
           bridge={bridge}
           onCopied={onCopied}
-          start={onStartFleet}
           restart={onRestartFleet}
-          reopen={onReopenBridge}
-          builds={onReadBuilds}
         />
       )}
 

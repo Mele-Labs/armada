@@ -19,13 +19,7 @@ import type {
   FailureMachineValue,
 } from "@armada/components";
 
-import type {
-  BridgeIdentity,
-  BridgeReopen,
-  FleetRestart,
-  FleetStart,
-  PendingAsked,
-} from "@armada/protocol";
+import type { BridgeIdentity, FleetRestart, PendingAsked } from "@armada/protocol";
 import type { Outcome, WireError } from "@armada/protocol";
 import { issueLink, pendingAt } from "@armada/protocol";
 import { elapsed } from "../fleet";
@@ -236,113 +230,6 @@ export function fleetRestartFailure(
         {
           key: "detail",
           value: restart.detail,
-        },
-        ...logField(bridge),
-      ],
-      ...versions(bridge),
-    },
-  };
-}
-
-/** Start Fleet was pressed and `armada fleet start`, or the wait after it, did not bring a Fleet up. */
-const FLEET_START_FAILED: BridgeCode = "bridge.fleet.start_failed";
-
-/** Reopen Armada was pressed and launchd would not restart this Bridge's job. */
-const BRIDGE_REOPEN_FAILED: BridgeCode = "bridge.app.reopen_failed";
-
-/**
- * Start Fleet, pressed, and no Fleet came of it. **A fault.** `refused` carries what the command
- * printed, which is launchctl's own; `no_answer` means the command exited clean and no runtime file
- * showed a Fleet in time. Minted by Bridge, so there is no run id to quote.
- */
-export function fleetStartFailure(
-  start: Extract<
-    FleetStart,
-    {
-      ok: false;
-    }
-  >,
-  bridge: BridgeIdentity,
-): Failure {
-  const said = {
-    refused: {
-      headline: "Fleet did not start",
-      next: "Read the Fleet log, or run armada fleet start in a terminal.",
-      note: "The detail is what armada fleet start printed.",
-    },
-    no_answer: {
-      headline: "Fleet did not answer inside 30 seconds",
-      next: "Read the Fleet log, then start Fleet again.",
-      note: "launchd took the request.",
-    },
-  }[start.why];
-  return {
-    kind: "fault",
-    headline: said.headline,
-    next: said.next,
-    detailsLabel: "What the command answered",
-    details: [
-      {
-        label: "Answer",
-        value: start.why,
-      },
-      {
-        label: "Detail",
-        value: start.detail,
-      },
-    ],
-    values: machineLog(bridge),
-    note: said.note,
-    payload: {
-      code: FLEET_START_FAILED,
-      message: said.headline,
-      fields: [
-        {
-          key: "why",
-          value: start.why,
-        },
-        {
-          key: "detail",
-          value: start.detail,
-        },
-        ...logField(bridge),
-      ],
-      ...versions(bridge),
-    },
-  };
-}
-
-/** Reopen Armada, pressed, and launchd would not restart this Bridge's job. This window is the old build still. */
-export function bridgeReopenFailure(
-  reopen: Extract<
-    BridgeReopen,
-    {
-      ok: false;
-    }
-  >,
-  bridge: BridgeIdentity,
-): Failure {
-  const headline = "Armada did not reopen";
-  return {
-    kind: "fault",
-    headline,
-    next: "Quit Armada and open it again.",
-    detailsLabel: "What launchd answered",
-    details: [
-      {
-        label: "Detail",
-        value: reopen.detail,
-      },
-    ],
-    values: machineLog(bridge),
-    note: "This window is still the build it was. Fleet was not touched.",
-    payload: {
-      code: BRIDGE_REOPEN_FAILED,
-      message: headline,
-      fields: [
-        {
-          key: "detail",
-          value: reopen.detail,
         },
         ...logField(bridge),
       ],

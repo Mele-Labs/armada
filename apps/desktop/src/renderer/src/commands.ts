@@ -302,9 +302,6 @@ export const openServerLink = (serverId: string, url: string) =>
 /** A link in a model's text. Main opens `http(s):` only — `main/links.ts`. */
 export const openLink = (address: string) => window.armada.openLink(address);
 export const restartFleet = () => window.armada.restartFleet();
-export const startFleet = () => window.armada.startFleet();
-export const reopenBridge = () => window.armada.reopenBridge();
-export const keptBuilds = () => window.armada.keptBuilds();
 export const changeFleetBuild = (build: BuildSource, adopt: boolean) =>
   window.armada.changeFleetBuild(build, adopt);
 export const revertFleetBuild = () => window.armada.revertFleetBuild();
