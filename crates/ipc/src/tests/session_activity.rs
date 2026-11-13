@@ -42,7 +42,7 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         from_job: None,
         from_tab: None,
         mod_of_bay: false,
-        quick_terminal: false,
+        side_job: false,
         auto_land: false,
         standing: None,
         activity,

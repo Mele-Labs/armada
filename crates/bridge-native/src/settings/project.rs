@@ -487,14 +487,16 @@ pub fn picker(this: &SettingsOverlay, look: &Look, window: &Window, cx: &Context
     labelled(ringed(look, button, focus, window), Role::ComboBox, format!("Editing {name}")).into_any_element()
 }
 
-/// The menu the picker opens: Every project, each project, then New project, which waits on its sheet.
+/// The menu the picker opens: Every project, each project, New project, then a Delete for the project being edited, so
+/// another is deleted by picking it first. Every project has none, and nor does a copy of another Mac's: that Mac keeps it.
 pub fn picker_rows(picked: &Editing, projects: Option<&Projects>) -> Vec<crate::dropdown::Entry> {
     use crate::dropdown::{Entry, Row};
     let every = picked.is_none();
     let mut rows = vec![Entry::Row(Row::new("every", "Every project").icon(if every { "check" } else { "globe" }).detail("defaults")), Entry::Rule];
-    for (n, one) in projects.map(|all| all.projects.as_slice()).unwrap_or_default().iter().take(super::overlay::AT.len()).enumerate() {
+    let shown = projects.map(|all| all.projects.as_slice()).unwrap_or_default().iter().take(super::overlay::AT.len()).enumerate().collect::<Vec<_>>();
+    for (n, one) in &shown {
         let on = picked.as_ref().is_some_and(|(id, _)| *id == one.id);
-        let mut row = Row::new(super::overlay::AT[n], one.name.clone()).icon(if on { "check" } else { "layers" });
+        let mut row = Row::new(super::overlay::AT[*n], one.name.clone()).icon(if on { "check" } else { "layers" });
         if on {
             row = row.detail(format!("{} set here", set_count(one.values.as_ref())));
         }
@@ -504,8 +506,22 @@ pub fn picker_rows(picked: &Editing, projects: Option<&Projects>) -> Vec<crate::
         rows.push(Entry::Row(row));
     }
     rows.push(Entry::Rule);
-    rows.push(Entry::Row(Row::new("new-project", "New project").icon("plus").key("⌘⇧N").off("Not in this build yet")));
+    rows.push(Entry::Row(Row::new("new-project", "New project").icon("plus").key("⌘⇧N")));
+    let edited = shown.iter().find(|(_, one)| picked.as_ref().is_some_and(|(id, _)| *id == one.id) && one.mac.is_none());
+    if let Some((_, one)) = edited {
+        rows.push(Entry::Rule);
+        rows.push(Entry::Act { id: "delete", label: format!("Delete {}", one.name).into(), icon: Some("trash"), danger: true });
+    }
     rows
+}
+
+/// What the confirm says: the project, and the tasks that go with it. None says no more than the project.
+pub fn delete_sentence(name: &str, tasks: usize) -> String {
+    match tasks {
+        0 => format!("Delete {name}?"),
+        1 => format!("Delete {name}? Its 1 task goes with it."),
+        n => format!("Delete {name}? Its {n} tasks go with it."),
+    }
 }
 
 /// Whether a page this wide lays its grid out in columns; narrower, each setting's words sit over its cells.
@@ -869,7 +885,7 @@ mod tests {
     }
 
     #[test]
-    fn the_picker_lists_every_project_each_project_and_new_project_off() {
+    fn the_picker_lists_every_project_each_project_new_project_and_a_delete_for_the_one_edited() {
         use crate::dropdown::Entry;
         let one = |id: &str, name: &str, values: Option<ValuesSet>, unread: Option<&str>| Project { id: id.into(), name: name.into(), values, unread: unread.map(String::from), ..Project::default() };
         let projects = Projects { projects: vec![one("armada", "Armada", Some(armada()), None), one("ledger", "Ledger", None, Some("the file is gone"))], loose: Vec::new(), left_out: Vec::new() };
@@ -883,9 +899,13 @@ mod tests {
             .collect();
         assert_eq!(
             said,
-            [("Every project".into(), Some("defaults".into()), false), ("Armada".into(), Some("4 set here".into()), false), ("Ledger".into(), None, true), ("New project".into(), None, true)]
+            [("Every project".into(), Some("defaults".into()), false), ("Armada".into(), Some("4 set here".into()), false), ("Ledger".into(), None, true), ("New project".into(), None, false)]
         );
-        assert_eq!(rows.iter().filter(|entry| matches!(entry, Entry::Rule)).count(), 2);
+        assert_eq!(rows.iter().filter(|entry| matches!(entry, Entry::Rule)).count(), 3);
+        let deletes: Vec<&str> = rows.iter().filter_map(|entry| if let Entry::Act { label, danger: true, .. } = entry { Some(label.as_ref()) } else { None }).collect();
+        assert_eq!(deletes, ["Delete Armada"], "only the project being edited");
+        let ledger = picker_rows(&Some(("ledger".into(), "Ledger".into())), Some(&projects));
+        assert!(ledger.iter().any(|entry| matches!(entry, Entry::Act { label, .. } if label.as_ref() == "Delete Ledger")), "an unread project can still be deleted");
     }
 
     #[test]

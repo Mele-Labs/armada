@@ -115,7 +115,7 @@ pub(crate) mod workflow_pick;
 mod standing_tick;
 mod thread_cache;
 pub(crate) use start_card::FIRST_MESSAGE_ITEM;
-pub(crate) use serving::{mode_of, Marked, QuickStart, RunEnd, NO_SUCH_SESSION};
+pub(crate) use serving::{mode_of, Marked, SideStart, RunEnd, NO_SUCH_SESSION};
 mod terminal;
 pub(crate) mod uploads;
 pub(crate) mod waiting;

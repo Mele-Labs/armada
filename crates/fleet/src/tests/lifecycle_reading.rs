@@ -34,6 +34,7 @@ fn a_tracker_word_is_the_status_it_names_and_else_its_own_open_or_closed() {
 
 fn page(review: ReviewStanding, reviewers: Vec<Reviewer>, conversation: Vec<Said>) -> PullRequestPageFacts {
     PullRequestPageFacts {
+        latest_reviews: Default::default(),
         base: "main".into(),
         author: Some("author".into()),
         created_at: None,
