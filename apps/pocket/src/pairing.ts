@@ -113,24 +113,26 @@ export async function claim(origin: string, name: string, code: string): Promise
   };
 }
 
-/** Polls a signed read until it stops answering 401: the owner has confirmed. */
+/** Polls a signed read until it stops answering 401: the owner has confirmed, or declined where it answers 403. */
 export async function waitForConfirm(
   machine: Machine,
   wait = 3000,
   limit = 5 * 60_000,
   signal?: AbortSignal,
-): Promise<boolean> {
+): Promise<"paired" | "declined" | "lapsed"> {
   const until = Date.now() + limit;
   while (Date.now() < until && signal?.aborted !== true) {
     try {
       await call(machine, "/api/needs");
-      return true;
+      return "paired";
     } catch (why) {
-      if (!(why instanceof Refused && why.status === 401)) return true; // paired; the Mac had another trouble
+      // The signed layer's one 403 is the owner's Decline on the Mac.
+      if (why instanceof Refused && why.status === 403) return "declined";
+      if (!(why instanceof Refused && why.status === 401)) return "paired"; // paired; the Mac had another trouble
     }
     await new Promise((resolve) => setTimeout(resolve, wait));
   }
-  return false;
+  return "lapsed";
 }
 
 /** The confirmed Mac with the name it gives itself; its origin's host where it does not say. */
