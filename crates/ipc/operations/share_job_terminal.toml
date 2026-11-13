@@ -1,0 +1,12 @@
+[operations.share_job_terminal]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Another Mac opens, lists, types into, resizes or stops a terminal of a shared Job through the link, as the person does at home"
+notes = """
+`POST /other_mac/terminal`, body `TerminalFromMac`, tagged by `kind`: `open` (the fields of `OpenTerminal`), `list` (`session_id`), `write` (`session_id`, `run_id`, `data`), `resize` (`session_id`, `run_id`, `cols`, `rows`) and `stop` (`session_id`, `run_id`). Each is answered as `open_terminal`, `list_terminals`, `write_session_run`, `resize_session_run` and `stop_session_run` answer it here: `SessionRunUnderway`, or `JobTerminals` for `list`, refused as they refuse.
+
+**A Job in an unshared project, in none, or held from another Mac is refused 404 `fleet.no_such_session`**, worded exactly as for a Job that does not exist, and nothing runs. **A `run_id` must be one of that Job's open terminals**: any other run of this Mac, a check or another Job's shell among them, is refused 404 `fleet.no_such_session` alike, so no run is reached by its id alone.
+
+The Gateway calls it for `/api/mac/terminal`, signed by a linked Mac; an unsigned call never reaches Fleet. Nothing is kept or queued: a keystroke the link could not carry is not typed later.
+"""

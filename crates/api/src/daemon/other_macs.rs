@@ -12,6 +12,7 @@ use ipc::{
     BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions,
     ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
 };
+use ipc::{JobTerminals, SessionRunUnderway, TerminalFromMac, TerminalOfJob};
 
 use crate::daemon::Refusal;
 
@@ -111,4 +112,20 @@ pub trait OtherMacs: Send + Sync + 'static {
 
     /// `forget_other_mac` — every row and report held from Mac `mac` dropped.
     fn forget_other_mac(&self, mac: MacNamed) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
+
+    /// `share_job_terminal` — another Mac opens, lists, types into, resizes or stops a terminal of a shared Job, as
+    /// the person does at home. [`Refusal::NotFound`] for a Job not shared, worded as for a Job that does not exist,
+    /// and for a run that is not one of the Job's open terminals. Takes the `Arc` as `open_terminal` does.
+    fn share_job_terminal(self: Arc<Self>, asked: TerminalFromMac) -> impl Future<Output = Result<TerminalShared, Refusal>> + Send;
+
+    /// `share_job_terminal_output` — what one of a shared Job's open terminals printed and prints next, refused as
+    /// `share_job_terminal` is.
+    fn share_job_terminal_output(&self, which: TerminalOfJob) -> impl Future<Output = Result<crate::ObservedSessionRun, Refusal>> + Send;
+}
+
+/// What `share_job_terminal` answers, as the same act answers at home.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TerminalShared {
+    Run(SessionRunUnderway),
+    Terminals(JobTerminals),
 }

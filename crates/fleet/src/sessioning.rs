@@ -1108,6 +1108,10 @@ where
         &self,
         stop: ipc::StopSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        let run_id = stop.run_id.clone();
+        if let Some(sent) = self.terminal_act_on_other_mac(&run_id, |session_id| ipc::TerminalFromMac::Stop { session_id, run_id: stop.run_id.clone() }).await {
+            return sent;
+        }
         self.end_session_run(stop)
     }
 
@@ -1115,6 +1119,10 @@ where
         &self,
         write: ipc::WriteSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        let (run_id, data) = (write.run_id.clone(), write.data.clone());
+        if let Some(sent) = self.terminal_act_on_other_mac(&run_id, |session_id| ipc::TerminalFromMac::Write { session_id, run_id: run_id.clone(), data }).await {
+            return sent;
+        }
         self.type_into_session_run(write).await
     }
 
@@ -1122,10 +1130,17 @@ where
         &self,
         resize: ipc::ResizeSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        let ipc::ResizeSessionRun { run_id, cols, rows } = resize.clone();
+        if let Some(sent) = self.terminal_act_on_other_mac(&run_id, |session_id| ipc::TerminalFromMac::Resize { session_id, run_id: run_id.clone(), cols, rows }).await {
+            return sent;
+        }
         self.resize_session_run_terminal(resize)
     }
 
     async fn observe_session_run(&self, run_id: String) -> Result<api::ObservedSessionRun, Refusal> {
+        if let Some(followed) = self.terminal_followed_on_other_mac(&run_id).await {
+            return followed;
+        }
         self.watch_session_run(&run_id)
     }
 
@@ -1133,6 +1148,10 @@ where
         self: Arc<Self>,
         open: ipc::OpenTerminal,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        // A Job held from another Mac: its shell runs there, in its slot.
+        if let Some(mac) = self.mac_holding(open.session_id.as_str()).await {
+            return self.terminal_opened_on_other_mac(&mac, open).await;
+        }
         let (terminal, run_id) = self
             .open_job_terminal(open.session_id.as_str(), open.terminal.as_deref(), open.new, open.cols, open.rows)
             .await?;
@@ -1174,6 +1193,12 @@ where
         caller: Option<api::Caller>,
         asked: ipc::ListTerminals,
     ) -> Result<ipc::JobTerminals, Refusal> {
+        // Bridge's list of a Job held from another Mac: a Job's own agent never lists another Mac's.
+        if let (None, Some(job)) = (&caller, &asked.session_id) {
+            if let Some(mac) = self.mac_holding(job.as_str()).await {
+                return self.terminals_listed_on_other_mac(&mac, job.clone()).await;
+            }
+        }
         self.job_terminals_listed(caller, asked).await
     }
 

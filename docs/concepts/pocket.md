@@ -324,6 +324,8 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 | `POST /api/mac/act` | Fleet's `POST /other_mac/act`, as the Mac the signature names: an act on one of this Mac's Jobs, or a Job started here. Fleet's status and body come back as they were said |
 | `GET /api/mac/live` | Fleet's `/other_mac/events` as NDJSON: each `StreamMessage` on a line as Fleet wrote it, and an empty line after 15 seconds of quiet. It ends when the Gateway stops |
 | `POST /api/mac/update` | Fleet's `POST /macs/update`, as the Mac the signature names: this Mac restarts onto the build it sends. Taken while the link is frozen |
+| `POST /api/mac/terminal` | Fleet's `POST /other_mac/terminal`, as the Mac the signature names: open, list, type into, resize or stop a terminal of a shared Job. Fleet's status and body come back as they were said |
+| `GET /api/mac/terminal/observe?session_id=&run_id=` | Fleet's `/other_mac/terminal/observe` as NDJSON, one `SessionRunMessage` a line and an empty line on a quiet beat, as `live`. Fleet's refusal comes back before anything streams |
 | `POST /api/mac/forget` | Forgets the caller on this side |
 
 **The link.** For each linked Mac the Gateway holds one task.
@@ -337,7 +339,12 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 
 Pairing starts a task and forgetting stops it. Fleet keeps the rows while the Mac is asleep.
 Fleet's `read_other_mac` reaches the other Mac only for a `/other_mac/thread?…` path, read as `/api/mac/thread?…`; any other is refused.
-Its `send_other_mac` posts only `/other_mac/project_act`, `/other_mac/act` and `/other_mac/update`.
+Its `send_other_mac` posts only `/other_mac/project_act`, `/other_mac/act`, `/other_mac/update` and `/other_mac/terminal`.
+Its `follow_other_mac` follows only `/other_mac/terminal/observe?…`, as `/api/mac/terminal/observe?…`, and refuses it on a frozen link.
+
+**A terminal of a Job on the other Mac** opens here with the calls Bridge makes at home, and its shell runs on the Mac that holds the Job, in that Job's slot.
+Typing goes at once, one keystroke after another, and is never queued: a keystroke the link cannot carry is refused, and is not typed when the Mac wakes.
+The stream ends when the link drops, the Mac sleeps or 45 seconds pass without a line, and the terminal here shows it ended.
 
 **Builds that differ.** Two Macs whose builds speak another wire do not talk half matched: the link freezes until one updates.
 The wire is the protocol ID, a hash of what the builds send each other, so two builds on different commits that speak the same wire stay linked.

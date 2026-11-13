@@ -413,7 +413,15 @@ async fn a_mac_on_a_build_that_speaks_another_wire_is_answered_503_on_all_but_he
         }
     };
     let frozen = "Work runs an older build. Nothing crosses until it updates.";
-    for (method, path) in [("GET", "/api/mac/sessions"), ("GET", "/api/mac/live"), ("POST", "/api/mac/act"), ("POST", "/api/mac/project_act")] {
+    let crossing = [
+        ("GET", "/api/mac/sessions"),
+        ("GET", "/api/mac/live"),
+        ("POST", "/api/mac/act"),
+        ("POST", "/api/mac/project_act"),
+        ("POST", "/api/mac/terminal"),
+        ("GET", "/api/mac/terminal/observe"),
+    ];
+    for (method, path) in crossing {
         assert_eq!(ask(method, path).await, (StatusCode::SERVICE_UNAVAILABLE, frozen.to_string()), "{method} {path}");
     }
     assert_eq!(ask("GET", "/api/mac/hello").await.0, StatusCode::OK);

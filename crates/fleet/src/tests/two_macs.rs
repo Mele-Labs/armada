@@ -20,6 +20,7 @@ use tower::ServiceExt;
 
 mod acting;
 mod messages;
+mod terminals;
 mod updating;
 
 use super::session_host::{rig_fitted, Rig};
@@ -73,6 +74,21 @@ impl PhoneSwitch for Switch {
     fn send_other_mac(&self, mac: &str, path: &str, body: Vec<u8>) -> OtherMacRead {
         match self.0.lock().expect("not poisoned").as_ref() {
             Some(gateway) => Box::pin(pocket::send_other_mac(gateway, mac, path, body)),
+            None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
+
+    fn follow_other_mac(&self, mac: &str, path: &str) -> crate::phone::OtherMacFollowing {
+        match self.0.lock().expect("not poisoned").as_ref() {
+            Some(gateway) => {
+                let following = pocket::follow_other_mac(gateway, mac, path);
+                Box::pin(async move {
+                    following.await.map(|followed| match followed {
+                        pocket::Followed::Open(lines) => crate::phone::OtherMacFollowed::Open(lines),
+                        pocket::Followed::Refused { status, body } => crate::phone::OtherMacFollowed::Refused { status, body },
+                    })
+                })
+            }
             None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
         }
     }

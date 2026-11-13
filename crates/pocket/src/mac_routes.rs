@@ -26,7 +26,7 @@ fn fleet_target(uri: &Uri) -> String {
 }
 
 /// 503 with why, where the link to Mac `mac` is frozen.
-fn refused_frozen(gateway: &Gateway, mac: &str) -> Option<Response> {
+pub(crate) fn refused_frozen(gateway: &Gateway, mac: &str) -> Option<Response> {
     let link = crate::mac_link::frozen_with(gateway, mac)?;
     let name = gateway.pairing.store.lock().unwrap().paired_mac(mac).ok().flatten().map_or_else(|| mac.to_string(), |row| row.name);
     Some((StatusCode::SERVICE_UNAVAILABLE, crate::macs::frozen_why(&link, &name)).into_response())

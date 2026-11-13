@@ -103,4 +103,17 @@ impl OtherMacs for FakeDaemon {
     async fn forget_other_mac(&self, mac: MacNamed) -> Result<MacNamed, Refusal> {
         Ok(mac)
     }
+
+    async fn share_job_terminal(self: Arc<Self>, asked: ipc::TerminalFromMac) -> Result<crate::TerminalShared, Refusal> {
+        Err(no_job(asked.session_id()))
+    }
+
+    async fn share_job_terminal_output(&self, which: ipc::TerminalOfJob) -> Result<crate::ObservedSessionRun, Refusal> {
+        Err(no_job(&which.session_id))
+    }
+}
+
+/// Nothing is shared here, so every Job is answered as one that does not exist.
+fn no_job(job: &SessionId) -> Refusal {
+    Refusal::NotFound(ipc::WireError::raised("fleet.no_such_session", format!("No Job has the id {}.", job.as_str()), super::shapes::run_id()))
 }

@@ -33,6 +33,7 @@ pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullR
         .route("/other_macs/projects", put(hold_other_mac_projects::<D>))
         .route("/other_macs/event", post(hold_other_mac_event::<D>))
         .route("/other_macs/forget", post(forget_other_mac::<D>))
+        .merge(crate::mac_terminals::mounted::<D>())
 }
 
 async fn share_sessions<D: OtherMacs>(State(served): State<Served<D>>) -> Response {

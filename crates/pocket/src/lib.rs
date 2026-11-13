@@ -22,6 +22,7 @@ mod mac_keys;
 mod mac_link;
 mod mac_pair_routes;
 mod mac_routes;
+mod mac_terminals;
 mod mac_setup;
 mod machine;
 mod macs;
@@ -50,6 +51,7 @@ use tokio::net::TcpListener;
 pub use fleet_client::{Answer, Unreachable};
 pub use mac_keys::{MacKeys, MemoryMacKeys};
 pub use mac_link::{link, read_other_mac, send_other_mac};
+pub use mac_terminals::{follow_other_mac, Followed};
 pub use mac_setup::{mac_setup, set_up_mac};
 pub use macs::{MacHello, Macs, Timing};
 pub use pairing::{

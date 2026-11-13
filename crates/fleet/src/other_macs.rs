@@ -292,6 +292,14 @@ where
         self.job_thread_served(read).await
     }
 
+    async fn share_job_terminal(self: Arc<Self>, asked: ipc::TerminalFromMac) -> Result<api::TerminalShared, Refusal> {
+        self.job_terminal_shared(asked).await
+    }
+
+    async fn share_job_terminal_output(&self, which: ipc::TerminalOfJob) -> Result<api::ObservedSessionRun, Refusal> {
+        self.job_terminal_output_shared(which).await
+    }
+
     async fn hold_other_mac_sessions(&self, held: OtherMacSessions) -> Result<MacNamed, Refusal> {
         let mac = self.mac_named(&held.mac)?;
         let before = self.sessions_held_from(&mac).await?;
