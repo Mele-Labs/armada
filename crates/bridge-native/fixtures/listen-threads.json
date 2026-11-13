@@ -1,0 +1,106 @@
+{
+ "threads": [
+  {
+   "session_id": "mock-01",
+   "head": {
+    "trail": {
+     "started": "2026-11-13T08:30:00Z"
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-01-m1",
+      "at": "2026-11-13T08:31:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Remove the v1 endpoint from the API and its tests."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-01-m2",
+      "at": "2026-11-13T08:40:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The v1 endpoint has no callers left in the repository. One caller outside it may remain, so I need a decision on when to remove it."
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "mock-02",
+   "head": {
+    "trail": {
+     "started": "2026-11-13T08:30:00Z"
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-02-m1",
+      "at": "2026-11-13T08:31:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Open Settings in its own window."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-02-m2",
+      "at": "2026-11-13T09:50:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Settings opens in its own window now. Every key still reaches it. A walk is waiting."
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "mock-03",
+   "head": {
+    "trail": {
+     "started": "2026-11-13T08:30:00Z"
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-03-m1",
+      "at": "2026-11-13T08:31:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Audit the docs index for stale links."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-03-m2",
+      "at": "2026-11-13T09:00:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Reading the index now."
+     }
+    }
+   ]
+  }
+ ]
+}
