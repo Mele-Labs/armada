@@ -158,8 +158,7 @@ impl Link<'_> {
 
     async fn both(&self) -> Result<(), String> {
         self.sessions().await?;
-        let projects: Projects = self.read("/api/mac/projects", "a project list").await?;
-        self.hand("PUT", "/other_macs/projects", &OtherMacProjects { mac: self.mac.to_string(), projects: projects.projects }).await?;
+        self.projects().await?;
         let reports: BugReports = self.read("/api/mac/bug_reports", "a bug report list").await?;
         self.hand("PUT", "/other_macs/bug_reports", &OtherMacBugReports { mac: self.mac.to_string(), reports: reports.reports })
             .await
@@ -169,6 +168,23 @@ impl Link<'_> {
         let list: SessionList = self.read("/api/mac/sessions", "a job list").await?;
         self.hand("PUT", "/other_macs/sessions", &OtherMacSessions { mac: self.mac.to_string(), sessions: list.sessions })
             .await
+    }
+
+    /// The other Mac's shared projects. **A Mac on a build from before shared projects answers 404**, and the
+    /// link stays up without them.
+    async fn projects(&self) -> Result<(), String> {
+        let came = signed_whole(self.gateway, self.mac, self.address, "GET", "/api/mac/projects", None)
+            .await
+            .map_err(|why| format!("{} could not be reached: {why}", self.name))?;
+        if came.status == 404 {
+            return Ok(());
+        }
+        if !came.ok() {
+            return Err(format!("{} answered {}: {}", self.name, came.status, came.sentence()));
+        }
+        let projects: Projects = ipc::decode("a project list", &came.body)
+            .map_err(|_| format!("{} sent a project list this Mac cannot read. Update Armada on both.", self.name))?;
+        self.hand("PUT", "/other_macs/projects", &OtherMacProjects { mac: self.mac.to_string(), projects: projects.projects }).await
     }
 
     async fn event(&self, event: Event) -> Result<(), String> {
