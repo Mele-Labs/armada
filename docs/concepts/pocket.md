@@ -134,7 +134,7 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 | Cross-origin | `/api/*` and `POST /pair` answer a preflight and name the caller's origin when it is `https`, so the app one Mac served may call another. The signature is still the only auth. `/admin/*` never answers one |
 | Clock | A request more than 60 seconds from the Mac's clock is refused |
 | Replay | A signature seen inside that window is refused the second time |
-| Pairing | A code lives five minutes and claims once. `/pair` answers ten requests a minute, wrong codes included. A claim is not a device until the owner confirms it in Bridge |
+| Pairing | A code lives five minutes and claims once. `/pair` answers ten requests a minute, wrong codes included. A claim is not a device until the owner confirms it in Bridge. `POST /admin/pair/decline { code }` burns the code at once, and the phone that claimed it is answered 403, `This Mac declined pairing with this phone.`, on every signed call until the code would have lapsed, so its wait says so rather than spinning |
 | Subscriptions | A push endpoint must be `https`, so a phone cannot make the Mac post to loopback |
 | Shown files | A file is read only where the Job showed it with `show_file`, or kept it as a revision of its document. Fleet refuses any other path with 404 |
 | Shown video | `GET /shown/<ticket>` is the one route outside the signed layer. A ticket stands in for the signature, is bound to the device that asked, and names only a path Fleet vouched for: see below |

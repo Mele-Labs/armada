@@ -203,7 +203,7 @@ impl JobView {
                 .child(eyebrow(look, word).text_color(look.color(token::FG_MUTED)))
                 .child(command)
                 .children(said.map(|why| super::acts::refusal(look, &call.call, why)))
-                .child(labelled(div().id(SharedString::from(format!("answers:{}", call.call))).child(answers), Role::Group, "Answers")),
+                .child(labelled(super::acts::gated(div().id(SharedString::from(format!("answers:{}", call.call))).child(answers), self.off_shown(cx)), Role::Group, "Answers")),
             Role::Region,
             "Waiting on you",
         )
@@ -276,7 +276,7 @@ impl JobView {
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_2))
-            .child(labelled(div().id(SharedString::from(format!("answers-once:{}", call.call))).flex().flex_wrap().gap(look.length(token::SPACE_2)).children(once), Role::Group, "Answers"))
+            .child(labelled(super::acts::gated(div().id(SharedString::from(format!("answers-once:{}", call.call))).flex().flex_wrap().gap(look.length(token::SPACE_2)).children(once), self.off_shown(cx)), Role::Group, "Answers"))
             .child(
                 div()
                     .flex()

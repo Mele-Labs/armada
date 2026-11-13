@@ -39,6 +39,8 @@ struct Memory {
     pair_attempts: Vec<i64>,
     /// Signature (hex) to the time it was accepted.
     seen: HashMap<String, i64>,
+    /// The id a declined phone claimed, to when its calls stop being told so.
+    declined: HashMap<String, i64>,
 }
 
 pub enum PairRefused {
@@ -172,6 +174,28 @@ impl Pairing {
             .add_device(&device)
             .map_err(|why| ConfirmRefused::Store(why.to_string()))?;
         Ok(device)
+    }
+
+    /// The owner declines: the code is burned, and a phone that claimed it is told it was declined for the
+    /// code's lifetime, rather than waiting until it lapses. `false` where the code is unknown or spent.
+    pub fn decline(&self, code: &str) -> bool {
+        let now = (self.clock)();
+        let mut memory = self.memory.lock().unwrap();
+        match memory.codes.remove(code) {
+            Some(c) if c.expires > now => {
+                if let Some(claim) = c.claimed {
+                    memory.declined.retain(|_, until| *until > now);
+                    memory.declined.insert(claim.id, now + CODE_TTL);
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether `device` is a phone whose pairing the owner declined, within the code's lifetime.
+    pub(crate) fn declined(&self, device: &str, now: i64) -> bool {
+        self.memory.lock().unwrap().declined.get(device).is_some_and(|until| *until > now)
     }
 
     /// Records a verified signature. `false` where it was already seen.

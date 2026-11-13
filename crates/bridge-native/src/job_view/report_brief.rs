@@ -150,7 +150,7 @@ fn who(from: &SessionVoice) -> String {
     match from {
         SessionVoice::You => "Owner".to_string(),
         SessionVoice::Agent => "Agent".to_string(),
-        SessionVoice::Session { id, title } => format!("Job {title} ({id})"),
+        SessionVoice::Session { id, title, .. } => format!("Job {title} ({id})"),
     }
 }
 
