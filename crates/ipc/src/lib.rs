@@ -693,7 +693,7 @@ pub use phone::{
     CloudflareSignIn, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone, PhoneGateway, Served, SetPhoneGateway,
     TailscaleState,
 };
-pub use mac_acts::{DispatchOn, JobAct, MacAct, Queued, QueuedList, StartOn, TakeBack};
+pub use mac_acts::{DispatchOn, JobAct, JobMessage, MacAct, Queued, QueuedList, StartOn, TakeBack};
 pub use macs::{ClaimMacLink, MacNamed, MacPairLink, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions};
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
