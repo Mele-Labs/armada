@@ -9,7 +9,7 @@ use ipc::{
 
 use super::model::{Critique, DraftOf, Finding, Group, Inbox, InboxRow, Mine, Page, PageFile, Reply, Seen, Span, Summary, ToolRun, Verdict, Viewed};
 
-/// The pull request his last visit had open, which opens again once its fresh page confirms it.
+/// The pull request his last visit had open, which opens again at once from what was kept.
 pub const LAST_OPEN: u64 = 2190;
 
 #[allow(clippy::too_many_arguments)]
@@ -243,6 +243,8 @@ fn retry_page() -> Page {
         tools: Default::default(),
         holder: Some("Retry failed webhooks".into()),
         notes: vec!["Ask for a test that waits for the second attempt.".into()],
+        kept: false,
+        ended: None,
     }
 }
 
@@ -312,6 +314,8 @@ fn avatar_page() -> Page {
         tools: Default::default(),
         holder: None,
         notes: Vec::new(),
+        kept: false,
+        ended: None,
     }
 }
 
@@ -348,6 +352,8 @@ fn limits_page() -> Page {
         tools: Default::default(),
         holder: None,
         notes: Vec::new(),
+        kept: false,
+        ended: None,
     }
 }
 
@@ -404,7 +410,23 @@ fn invoice_page() -> Page {
         tools: [("risks", ToolRun::Ran { on: "Tuesday's changes".into(), said: None })].into_iter().collect(),
         holder: None,
         notes: Vec::new(),
+        kept: false,
+        ended: None,
     }
+}
+
+/// The page his last visit had open, as it was kept then: no commits since he looked yet, and the
+/// checks, replies and summary still to read.
+pub fn kept(number: u64) -> Option<Page> {
+    let mut page = page(number)?;
+    page.kept = true;
+    page.new_commits.clear();
+    page.replies.clear();
+    page.checks.clear();
+    page.mine.commits = 0;
+    page.mine.replies = 0;
+    page.summary = Summary::None;
+    Some(page)
 }
 
 /// A pull request's fresh page, as the read after a press brings it.
@@ -446,6 +468,8 @@ pub fn page(number: u64) -> Option<Page> {
                 tools: Default::default(),
                 holder: None,
                 notes: Vec::new(),
+                kept: false,
+                ended: None,
             }
         }
     })

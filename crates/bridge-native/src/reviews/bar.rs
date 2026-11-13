@@ -7,11 +7,12 @@ use gpui_component::input::Textarea;
 
 use super::inbox::verdict_hue;
 use super::model::{Page, Verdict};
-use super::panes::place_line;
+use super::panes::{grey, place_line};
 use super::{panel, ReviewsScreen};
+use crate::job_view::pulls::state_chip;
 use crate::labels::labelled;
 use crate::look::{token, Look};
-use crate::titlebar::parts::{glyph, icon_button, mono, tip, Btn, Weight};
+use crate::titlebar::parts::{icon_button, mono, tip, Btn, Weight};
 
 impl ReviewsScreen {
     pub(super) fn render_head(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
@@ -45,60 +46,30 @@ impl ReviewsScreen {
     /// Your review at rest: its state and day, what came since, the drafts waiting, and Review changes.
     fn render_bar(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let mine = &page.mine;
-        let (hue, ground) = verdict_hue(mine.verdict);
+        let (hue, _) = verdict_hue(mine.verdict);
         let said = mine.chip();
-        let state = labelled(
-            div()
-                .id("mine-state")
-                .flex_none()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_1))
-                .h(look.length(token::H_BADGE))
-                .px(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_SM))
-                .bg(look.color(ground))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(hue))
-                .text_size(look.length(token::TEXT_XS))
-                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                .text_color(look.color(hue))
-                .tooltip(tip(mine.tip()))
-                .child(glyph(mine.verdict.glyph(), look.length(token::SPACE_3), look.color(hue)))
-                .child(SharedString::from(said.clone())),
-            Role::Status,
-            said,
-        );
-        let since = mine.since().map(|since| {
-            labelled(
-                div().id("mine-since").flex_none().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(since.clone())),
-                Role::Label,
-                since,
-            )
-        });
+        let chip = |chip: gpui::Stateful<gpui::Div>| chip.h(look.length(token::H_BADGE)).text_size(look.length(token::TEXT_XS));
+        let state = labelled(chip(state_chip(look, "mine-state".into(), mine.verdict.glyph(), mine.tip(), said.clone(), hue)), Role::Status, said);
+        // What came since waits in grey on a kept page; a page that ended says how, in its place.
+        let since = match (page.ended, page.kept) {
+            (Some(ended), _) => {
+                let (icon, said) = ended.said();
+                Some(labelled(chip(state_chip(look, "mine-ended".into(), icon, said.into(), said, token::FG_MUTED)), Role::Status, said).into_any_element())
+            }
+            (None, true) => Some(div().flex_none().w(look.length(token::SPACE_12) * 2.).child(grey("mine-since-wait", "Reading what came since", &[1.], token::BORDER_DEFAULT, look)).into_any_element()),
+            (None, false) => mine.since().map(|since| {
+                labelled(
+                    div().id("mine-since").flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(since.clone())),
+                    Role::Label,
+                    since,
+                )
+                .into_any_element()
+            }),
+        };
         let drafts = self.drafts.iter().filter(|draft| draft.number == page.number).count();
         let drafted = (drafts > 0).then(|| {
-            let said = if drafts == 1 { "1 draft".to_string() } else { format!("{drafts} drafts") };
-            labelled(
-                div()
-                    .id("mine-drafts")
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_1))
-                    .h(look.length(token::H_BADGE))
-                    .px(look.length(token::SPACE_2))
-                    .rounded(look.length(token::RADIUS_SM))
-                    .bg(look.color(token::ACCENT_FAINT))
-                    .text_color(look.color(token::ACCENT))
-                    .text_size(look.length(token::TEXT_XS))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                    .tooltip(tip("Drafts go with your next review"))
-                    .child(glyph("pencil", look.length(token::SPACE_3), look.color(token::ACCENT)))
-                    .child(SharedString::from(said.clone())),
-                Role::Label,
-                said,
-            )
+            let said = if drafts == 1 { "1 draft comment".to_string() } else { format!("{drafts} draft comments") };
+            labelled(chip(state_chip(look, "mine-drafts".into(), "pencil", "Draft comments go with your next review".into(), said.clone(), token::ACCENT)), Role::Label, said)
         });
         // Nothing to say on an approval that nothing has changed since: the button steps back.
         let weight = if mine.verdict == Verdict::Approved && !mine.fresh() { Weight::Secondary } else { Weight::Primary };
@@ -125,7 +96,7 @@ impl ReviewsScreen {
                 .children(since)
                 .children(drafted)
                 .child(div().flex_1())
-                .child(review),
+                .when(page.ended.is_none(), |bar| bar.child(review)),
             Role::Region,
             "Your review",
         )

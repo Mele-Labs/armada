@@ -68,7 +68,7 @@ impl ReviewsScreen {
             .top_0()
             .left_0()
             .size_full();
-        let shown: AnyElement = match (self.page().cloned(), self.waiting.or(if self.inbox.refreshing { self.restore } else { None })) {
+        let shown: AnyElement = match (self.page().cloned(), self.waiting) {
             (_, Some(number)) => self.skeleton(number, look),
             (Some(page), None) => {
                 // The head and Your review stay put above the panes; Review changes takes the panes' place.
@@ -112,7 +112,7 @@ impl ReviewsScreen {
 
     /// While its fresh page is read: the panes' shape in grey, and what it waits on.
     fn skeleton(&self, number: u64, look: &Look) -> AnyElement {
-        let said = if self.waiting == Some(number) { format!("Reading #{number}") } else { format!("#{number} opens once the refresh confirms it") };
+        let said = format!("Reading #{number}");
         let bar = |id: String, share: f32| {
             div().id(SharedString::from(id)).h(look.length(token::SPACE_3)).w(relative(share)).rounded(look.length(token::RADIUS_SM)).bg(look.color(token::BG_SUNKEN))
         };
@@ -403,6 +403,23 @@ pub(super) fn place_line(id: String, words: String, look: &Look) -> AnyElement {
         small(look).id(SharedString::from(id)).font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(words.clone())),
         Role::Label,
         words,
+    )
+    .into_any_element()
+}
+
+/// What a kept page waits on the refresh for: grey bars in the shape of its lines, one a share of the
+/// width each, on a ground of `ink`. VoiceOver reads `name`.
+pub(super) fn grey(id: &str, name: &str, shares: &[f32], ink: crate::look::Token, look: &Look) -> AnyElement {
+    labelled(
+        div()
+            .id(SharedString::from(id.to_string()))
+            .w_full()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_2))
+            .children(shares.iter().map(|share| div().h(look.length(token::SPACE_3)).w(relative(*share)).rounded(look.length(token::RADIUS_SM)).bg(look.color(ink)))),
+        Role::Status,
+        name.to_string(),
     )
     .into_any_element()
 }

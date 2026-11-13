@@ -70,7 +70,7 @@ mod zoom;
 mod panes;
 mod pane_store;
 pub(crate) mod pane_tree;
-mod pulls;
+pub(crate) mod pulls;
 mod issues;
 mod system;
 mod bays;

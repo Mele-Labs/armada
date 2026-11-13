@@ -6,6 +6,7 @@ use ipc::PullReviewChecks;
 
 use super::model::{Group, InboxRow, Verdict};
 use super::{panel, ReviewsScreen};
+use crate::jobs::{group_line, list_bar, list_control, list_search, row_card, row_edge, row_wash};
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -18,15 +19,6 @@ pub(super) fn hue(group: Group) -> crate::look::Token {
         Group::Changed => token::STATUS_HANDED_IN,
         Group::Waiting => token::STATUS_NOT_STARTED,
         Group::Done => token::STATUS_COMPLETED_SUCCESS,
-    }
-}
-
-fn band(group: Group) -> crate::look::Token {
-    match group {
-        Group::FirstLook => token::STATUS_AWAITING_REVIEW_BG,
-        Group::Changed => token::STATUS_HANDED_IN_BG,
-        Group::Waiting => token::STATUS_NOT_STARTED_BG,
-        Group::Done => token::STATUS_COMPLETED_SUCCESS_BG,
     }
 }
 
@@ -159,23 +151,11 @@ impl ReviewsScreen {
             Some(ipc::PullReviewList::Mine) => "Mine",
         };
         let lists_name = format!("Lists: {lists_said}");
-        let hover = look.color(token::BG_HOVER);
+        let ink = if self.lists.is_none() { token::FG_MUTED } else { token::ACCENT };
         let lists = labelled(
-            div()
+            list_control(look)
                 .id("inbox-lists")
-                .flex_none()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_1))
-                .h(look.length(token::H_CONTROL))
-                .px(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_LG))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .bg(look.color(token::BG_RAISED))
-                .text_size(look.length(token::TEXT_XS))
-                .cursor_pointer()
-                .hover(move |style| style.bg(hover))
+                .text_color(look.color(ink))
                 .tooltip(tip("The forge's lists: requested of you, of your team, assigned, your own"))
                 .on_click(cx.listener({
                     let name = lists_name.clone();
@@ -184,29 +164,15 @@ impl ReviewsScreen {
                         this.open_lists(at, window, cx);
                     }
                 }))
-                .child(glyph("filter", look.length(token::SPACE_3), muted))
                 .child(SharedString::from(lists_name.clone()))
-                .child(glyph("chevron-down", look.length(token::SPACE_3), muted)),
+                .child(glyph("chevron-down", look.length(token::SPACE_3), look.color(ink))),
             Role::Button,
             lists_name,
         );
-        let search = div()
-            .flex_none()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .p(look.length(token::SPACE_2))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
+        let search = list_bar(look)
             .child(
                 labelled(
-                    div()
-                        .id("inbox-search")
-                        .flex_1()
-                        .min_w_0()
-                        .key_context(crate::keymap::TEXT_BOX)
-                        .text_size(look.length(token::TEXT_SM))
-                        .child(gpui_component::input::Input::new(&self.search).prefix(glyph("search", look.length(token::SPACE_4), muted))),
+                    div().id("inbox-search").flex_1().min_w_0().key_context(crate::keymap::TEXT_BOX).child(list_search(&self.search, look)),
                     Role::SearchInput,
                     "Search or ask",
                 ),
@@ -221,12 +187,12 @@ impl ReviewsScreen {
                 continue;
             }
             let folded = self.folded.contains(&group);
-            body.push(self.group_head(group, folded, look, cx));
+            body.push(self.group_head(group, folded, body.is_empty(), look, cx));
             if folded {
                 continue;
             }
-            for row in mine {
-                body.push(self.inbox_row(row, look, cx));
+            for (at, row) in mine.into_iter().enumerate() {
+                body.push(self.inbox_row(row, at > 0, look, cx));
             }
         }
         if rows.is_empty() {
@@ -262,6 +228,7 @@ impl ReviewsScreen {
                             .overflow_y_scroll()
                             .flex()
                             .flex_col()
+                            .p(look.length(token::SPACE_3))
                             .when(refreshing, |rows| rows.opacity(0.75))
                             .children(body),
                         Role::List,
@@ -274,26 +241,17 @@ impl ReviewsScreen {
         .into_any_element()
     }
 
-    fn group_head(&self, group: Group, folded: bool, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    /// A group's heading, as the Jobs list heads a project, with its fold and its state's glyph.
+    fn group_head(&self, group: Group, folded: bool, first: bool, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let ink = look.color(hue(group));
         let name = group.said();
-        let hover = look.color(token::BG_HOVER);
+        let hover = look.color(token::FG_DEFAULT);
         labelled(
-            div()
+            group_line(look, first)
                 .id(SharedString::from(format!("group-{name}")))
-                .flex_none()
-                .flex()
-                .items_center()
                 .gap(look.length(token::SPACE_2))
-                .h(look.length(token::H_ROW_HEADER))
-                .px(look.length(token::SPACE_3))
-                .bg(look.color(band(group)))
-                .border_l(look.length(token::BORDER_WIDTH) * 2.)
-                .border_color(ink)
-                .text_size(look.length(token::TEXT_XS))
-                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                 .cursor_pointer()
-                .hover(move |style| style.bg(hover))
+                .hover(move |style| style.text_color(hover))
                 .aria_expanded(!folded)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     if !this.folded.remove(&group) {
@@ -302,7 +260,7 @@ impl ReviewsScreen {
                     cx.notify();
                 }))
                 .child(glyph(if folded { "chevron-right" } else { "chevron-down" }, look.length(token::SPACE_3), look.color(token::FG_MUTED)))
-                .child(glyph(group.glyph(), look.length(token::SPACE_4), ink))
+                .child(glyph(group.glyph(), look.length(token::SPACE_3), ink))
                 .child(name),
             Role::Button,
             name,
@@ -310,18 +268,17 @@ impl ReviewsScreen {
         .into_any_element()
     }
 
-    fn inbox_row(&self, row: &InboxRow, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    /// A pull request's row, as the Jobs list draws a Job's: its card edged in its group's hue.
+    fn inbox_row(&self, row: &InboxRow, after_row: bool, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let number = row.number;
         let open = self.open == Some(number) || self.waiting == Some(number);
         let focused = self.focused == Some(number);
-        let hover = look.color(token::BG_HOVER);
-        let bar = look.color(token::ROW_FOCUS_BAR);
+        let lamp = look.color(hue(row.group));
         let mut meta = format!("#{number} · {}", row.short_repository());
         if let Some(count) = row.new_commits {
             meta.push_str(&if count == 1 { " · 1 new commit".to_string() } else { format!(" · {count} new commits") });
         }
         meta.push_str(&format!(" · {}", row.age));
-        // The checks' column keeps its width on every row, so the titles line up whether it is marked or not.
         let checks = checks_mark(row.checks).map(|(name, ink, said)| {
             labelled(
                 div().id(SharedString::from(format!("checks-{number}"))).tooltip(tip(said)).child(glyph(name, look.length(token::SPACE_4), look.color(ink))),
@@ -329,48 +286,40 @@ impl ReviewsScreen {
                 said,
             )
         });
-        labelled(
-            div()
-                .id(SharedString::from(format!("pr-row-{number}")))
-                .flex_none()
-                .flex()
-                .items_start()
-                .gap(look.length(token::SPACE_2))
-                .px(look.length(token::SPACE_3))
-                .py(look.length(token::SPACE_2))
-                .border_b(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_SUBTLE))
-                .border_l(look.length(token::BORDER_WIDTH) * 2.)
-                .when(open, |line| line.bg(look.color(token::SURFACE_ROW_SELECTED)).border_color(bar))
-                .when(focused && !open, |line| line.border_color(bar))
-                .cursor_pointer()
-                .hover(move |style| style.bg(hover))
-                .aria_selected(open)
-                .on_click(cx.listener(move |this, _, window, cx| this.press_row(number, window, cx)))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .flex()
-                        .flex_col()
-                        .gap(look.length(token::SPACE_1))
-                        .child(
-                            div()
-                                .text_size(look.length(token::TEXT_SM))
-                                .line_height(look.length(token::LEADING_SM))
-                                .when(open, |title| title.font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
-                                .child(SharedString::from(row.title.clone())),
-                        )
-                        .child(labelled(
-                            small(look).id(SharedString::from(format!("meta-{number}"))).text_color(look.color(token::FG_MUTED)).truncate().child(SharedString::from(meta.clone())),
-                            Role::Label,
-                            meta,
-                        )),
-                )
-                .child(div().flex_none().w(look.length(token::SPACE_4)).pt(look.length(token::SPACE_1)).children(checks)),
-            Role::Row,
-            row.name(),
-        )
-        .into_any_element()
+        let weight = if open { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
+        let card = row_card(look, SharedString::from(format!("pr-row-{number}")), open, focused, true, look.length(token::SPACE_2))
+            .cursor_pointer()
+            .aria_selected(open)
+            .on_click(cx.listener(move |this, _, window, cx| this.press_row(number, window, cx)))
+            .when(!open, |card| card.child(row_wash(look, lamp)))
+            .child(row_edge(look, lamp))
+            .child(
+                div()
+                    .flex()
+                    .items_start()
+                    .gap(look.length(token::SPACE_2))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .text_size(look.length(token::TEXT_XS))
+                            .line_height(look.length(token::LEADING_XS))
+                            .font_weight(FontWeight(look.number(weight)))
+                            .child(SharedString::from(row.title.clone())),
+                    )
+                    // The checks' column keeps its width on every row, so the titles line up whether it is marked or not.
+                    .child(div().flex_none().w(look.length(token::SPACE_4)).children(checks)),
+            )
+            .child(labelled(
+                small(look).id(SharedString::from(format!("meta-{number}"))).text_color(look.color(token::FG_MUTED)).truncate().child(SharedString::from(meta.clone())),
+                Role::Label,
+                meta,
+            ));
+        div()
+            .flex_none()
+            .flex()
+            .when(after_row, |line| line.mt(look.length(token::SPACE_2)))
+            .child(labelled(card, Role::Row, row.name()))
+            .into_any_element()
     }
 }

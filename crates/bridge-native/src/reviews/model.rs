@@ -350,6 +350,30 @@ pub struct Page {
     pub holder: Option<String>,
     /// His notes for that Job, unsent.
     pub notes: Vec<String>,
+    /// Drawn from what his last visit kept, until the refresh brings the fresh page: its checks, the
+    /// commits since he looked, replies to him and the summary wait in grey.
+    pub kept: bool,
+    /// The refresh found it closed, or gone from the forge.
+    pub ended: Option<Ended>,
+}
+
+/// How a kept pull request ended before he came back to it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ended {
+    /// Fleet's view says so; the mock forge closes nothing.
+    #[allow(dead_code)]
+    Closed,
+    Gone,
+}
+
+impl Ended {
+    /// What the page says in place of Your review, and its registry glyph.
+    pub fn said(self) -> (&'static str, &'static str) {
+        match self {
+            Ended::Closed => ("git-pull-request-closed", "Closed"),
+            Ended::Gone => ("circle-slash", "No longer on the forge"),
+        }
+    }
 }
 
 impl Page {

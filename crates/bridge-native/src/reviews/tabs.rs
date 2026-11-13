@@ -7,7 +7,7 @@ use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRe
 use gpui_component::input::Textarea;
 
 use super::model::{on_day, Critique, Finding, Page, PageFile, Section, Summary, ToolRun, Viewed, TOOLS};
-use super::panes::place_line;
+use super::panes::{grey, place_line};
 use super::{Ask, ReviewsScreen};
 use crate::diff;
 use crate::labels::labelled;
@@ -239,6 +239,9 @@ impl ReviewsScreen {
         column = column.children(self.summary_part(page, look, cx));
         let mut table = frame(look).flex().flex_col();
         table = table.child(band("changed-band-commits".into(), "New commits", look));
+        if page.kept {
+            table = table.child(waiting("changed-commits-wait", "Reading the commits since you looked", &[0.7, 0.5], look));
+        }
         for commit in &page.new_commits {
             let by = [commit.author.clone(), commit.at.clone()].into_iter().flatten().collect::<Vec<_>>().join(" · ");
             let rest = vec![
@@ -266,6 +269,10 @@ impl ReviewsScreen {
             }
             table = table.child(table_row(format!("changed-file-{at}"), file.path.clone(), mark(format!("changed-file-mark-{at}"), name, ink, said, look), key, rest, None, look));
         }
+        if page.kept {
+            table = table.child(band("changed-band-replies".into(), "Replies to your comments", look));
+            table = table.child(waiting("changed-replies-wait", "Reading replies to you", &[0.6], look));
+        }
         if !page.replies.is_empty() {
             table = table.child(band("changed-band-replies".into(), "Replies to your comments", look));
             for (at, reply) in page.replies.iter().enumerate() {
@@ -280,6 +287,9 @@ impl ReviewsScreen {
             }
         }
         table = table.child(band("changed-band-checks".into(), "Checks", look));
+        if page.kept {
+            table = table.child(waiting("changed-checks-wait", "Reading checks", &[0.4, 0.5, 0.3], look));
+        }
         for (at, check) in page.checks.iter().enumerate() {
             let (name, ink, said) = check_mark(check.state);
             let state = match (check.state, check.seconds) {
@@ -709,6 +719,16 @@ impl ReviewsScreen {
 
     /// The summary of the new commits, written when he opens a pull request that changed.
     fn summary_part(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> Option<AnyElement> {
+        if page.kept {
+            return Some(
+                div()
+                    .p(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .bg(look.color(token::ACCENT_FAINT))
+                    .child(grey("changed-summary-wait", "The summary waits for the commits since you looked", &[0.9, 0.6], token::BG_SUNKEN, look))
+                    .into_any_element(),
+            );
+        }
         let (lead, said, role): (AnyElement, String, Role) = match &page.summary {
             Summary::None => return None,
             Summary::Writing => (spinner("summary-spin", look.length(token::SPACE_4), look.color(token::ACCENT), cx).into_any_element(), "Writing a summary of the new commits".into(), Role::Status),
@@ -736,6 +756,17 @@ impl ReviewsScreen {
             .into_any_element(),
         )
     }
+}
+
+/// A table's lines a kept page waits on the refresh for, in grey.
+fn waiting(id: &str, name: &str, shares: &[f32], look: &Look) -> AnyElement {
+    div()
+        .px(look.length(token::SPACE_3))
+        .py(look.length(token::SPACE_3))
+        .border_b(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_SUBTLE))
+        .child(grey(id, name, shares, token::BG_SUNKEN, look))
+        .into_any_element()
 }
 
 /// A card with a hued left edge: amber for his drafts, blue for suggestions.
@@ -788,6 +819,9 @@ fn conversation_tab(page: &Page, look: &Look) -> AnyElement {
 
 fn checks_tab(page: &Page, look: &Look) -> AnyElement {
     let mut table = frame(look).flex().flex_col().child(band("checks-band".into(), "Checks", look));
+    if page.kept {
+        table = table.child(waiting("checks-wait", "Reading checks", &[0.4, 0.5, 0.3], look));
+    }
     for (at, check) in page.checks.iter().enumerate() {
         let (name, ink, said) = check_mark(check.state);
         let took = check.seconds.map_or_else(String::new, |seconds| format!("{}m {}s", seconds / 60, seconds % 60));

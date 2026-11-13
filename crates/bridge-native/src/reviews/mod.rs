@@ -58,8 +58,8 @@ pub fn default_arrangement() -> Arrangement {
 
 /// How long the mock forge takes to read one pull request's page.
 const PAGE_READ: Duration = Duration::from_millis(1500);
-/// The longest a refresh of the inbox takes before it ends on its own.
-const REFRESH_MOST: Duration = Duration::from_secs(20);
+/// How long the mock forge takes to read the inbox again.
+const REFRESH_READ: Duration = Duration::from_millis(4000);
 /// How long the mock review run takes over a range.
 const CRITIQUE_RUN: Duration = Duration::from_millis(3000);
 /// How long the mock summary of the new commits takes to write.
@@ -104,8 +104,8 @@ pub struct ReviewsScreen {
     pages: HashMap<u64, Page>,
     /// Pressed while a refresh runs: it opens once its fresh page is read.
     waiting: Option<u64>,
-    /// His last visit's pull request, which opens only once the refresh confirms it.
-    restore: Option<u64>,
+    /// His last visit's pull request as it was kept, which opens at once on his first visit.
+    last_visit: Option<Page>,
     refreshed: bool,
     arrangement: Arrangement,
     layouts: Layouts,
@@ -177,7 +177,7 @@ impl ReviewsScreen {
             open: None,
             pages: HashMap::new(),
             waiting: None,
-            restore: Some(mock::LAST_OPEN),
+            last_visit: mock::kept(mock::LAST_OPEN),
             refreshed: false,
             layouts: Layouts::new(arrangement.clone()),
             arrangement,
@@ -210,10 +210,16 @@ impl ReviewsScreen {
         }
     }
 
-    /// Brought to the front: the keys go to the inbox, and the first visit reads the forge again.
+    /// Brought to the front: the keys go to the inbox, and the first visit opens the last pull request
+    /// as it was kept while the forge is read again.
     pub fn enter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.rows, cx);
         if !self.refreshed && self.refresh.is_none() {
+            if let Some(page) = self.last_visit.take() {
+                let number = page.number;
+                self.pages.insert(number, page);
+                self.show(number, window, cx);
+            }
             self.start_refresh(window, cx);
         }
         cx.notify();
@@ -229,13 +235,14 @@ impl ReviewsScreen {
     fn start_refresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.inbox.refreshing = true;
         self.refresh = Some(cx.spawn_in(window, async move |this, cx| {
-            cx.background_executor().timer(REFRESH_MOST).await;
+            cx.background_executor().timer(REFRESH_READ).await;
             let _ = this.update_in(cx, |this, window, cx| this.end_refresh(window, cx));
         }));
         cx.notify();
     }
 
-    /// The forge has answered: the inbox takes its fresh rows, and the pull request waiting on it opens.
+    /// The forge has answered: the inbox takes its fresh rows, a kept page takes its fresh parts, and
+    /// the pull request waiting on it opens.
     fn end_refresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.inbox.refreshing {
             self.inbox = mock::refreshed(std::mem::take(&mut self.inbox));
@@ -243,21 +250,44 @@ impl ReviewsScreen {
         self.refreshed = true;
         self.refresh = None;
         self.reading = None;
-        if let Some(number) = self.waiting.take().or_else(|| self.restore.take()) {
+        let kept: Vec<u64> = self.pages.values().filter(|page| page.kept).map(|page| page.number).collect();
+        for number in kept {
+            self.land_fresh(number, window, cx);
+        }
+        if let Some(number) = self.waiting.take() {
             self.show(number, window, cx);
         }
         cx.notify();
+    }
+
+    /// A kept page's fresh read: its checks, commits since, replies and what came since swap in where
+    /// they waited in grey, and what he did on the page stays. Closed or gone, the page says so.
+    fn land_fresh(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(was) = self.pages.get_mut(&number) else { return };
+        let Some(mut fresh) = mock::page(number) else {
+            was.kept = false;
+            was.ended = Some(model::Ended::Gone);
+            return;
+        };
+        fresh.critique = std::mem::replace(&mut was.critique, Critique::None);
+        fresh.tools = std::mem::take(&mut was.tools);
+        *was = fresh;
+        if self.open == Some(number) {
+            let page = &self.pages[&number];
+            self.whole = !page.changed() || page.seen.as_ref().is_some_and(|seen| seen.gone);
+        }
+        self.write_summary(number, window, cx);
     }
 
     /// A row pressed. While the inbox refreshes, its page is read first and opens once read.
     fn press_row(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
         self.focused = Some(number);
         window.focus(&self.rows, cx);
-        if !self.inbox.refreshing {
+        if !self.inbox.refreshing || self.pages.get(&number).is_some_and(|page| page.kept) {
+            self.waiting = None;
             self.show(number, window, cx);
             return;
         }
-        self.restore = None;
         self.waiting = Some(number);
         self.reading = Some(cx.spawn_in(window, async move |this, cx| {
             cx.background_executor().timer(PAGE_READ).await;
@@ -272,7 +302,8 @@ impl ReviewsScreen {
             let Some(page) = mock::page(number) else { return };
             self.pages.insert(number, page);
         }
-        let changed = self.pages[&number].changed();
+        // A kept page he had looked at opens on What changed, where the fresh read lands.
+        let changed = self.pages[&number].changed() || (self.pages[&number].kept && self.pages[&number].seen.is_some());
         let gone = self.pages[&number].seen.as_ref().is_some_and(|seen| seen.gone);
         self.open = Some(number);
         self.focused = Some(number);
@@ -295,7 +326,7 @@ impl ReviewsScreen {
     /// A pull request that changed since he looked gets its summary written once for its head.
     fn write_summary(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
         let Some(page) = self.pages.get_mut(&number) else { return };
-        if !page.changed() || page.seen.as_ref().is_some_and(|seen| seen.gone) || page.summary != Summary::None {
+        if page.kept || !page.changed() || page.seen.as_ref().is_some_and(|seen| seen.gone) || page.summary != Summary::None {
             return;
         }
         page.summary = Summary::Writing;
