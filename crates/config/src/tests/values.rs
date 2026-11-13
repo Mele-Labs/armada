@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use core_model::rule::{ActKind, Autonomy, AutonomyDefaults};
-use core_model::{AgentStarts, AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, TrackerNamed, Values, WalkReview};
+use core_model::{AgentStarts, AutoMerge, DeliverySetting, Layer, Look, PrMode, ReviewMode, Reviews, TrackerNamed, Values, WalkReview};
 
 use crate::{
     kit_values_text, parse_kit_values, parse_project, project_text, resolve, shipped_values, AutonomyLayers, Layers, ResolvedValues,
@@ -47,6 +47,7 @@ fn every_key_reads_and_writes_back() {
         tracker: Some(TrackerNamed { provider: Some("tickets".into()), keys: [("site".to_string(), "acme".to_string())].into() }),
         reviews: Some(Reviews { plans: ReviewMode::ReviewAndApprove, pull_requests: ReviewMode::Review, walks: WalkReview::Review }),
         agent_starts: Some(AgentStarts::AskMe),
+        delivery: Some(DeliverySetting::KeepLocal),
     };
     let project = parse_project(Path::new("shop.yml"), &project_with("")).expect("a Project").with_values(all.clone());
     let written = project_text(&project).expect("text");
@@ -140,6 +141,7 @@ fn saying(mode: PrMode, merge: AutoMerge, word: &str) -> Values {
         tracker: None,
         reviews: None,
         agent_starts: None,
+        delivery: None,
     }
 }
 
@@ -302,4 +304,32 @@ fn agent_starts_reads_a_word_refuses_any_other_and_ships_at_once() {
     assert_eq!((resolved.agent_starts.value, resolved.agent_starts.from), (Some(AgentStarts::AtOnce), Layer::Default));
     let nearer = resolve(&layers(&[(Layer::Kit, only(|values| values.agent_starts = Some(AgentStarts::AskMe)))]));
     assert_eq!((nearer.agent_starts.value, nearer.agent_starts.from), (Some(AgentStarts::AskMe), Layer::Kit));
+}
+
+#[test]
+fn delivery_reads_four_words_refuses_any_other_and_ships_none() {
+    for (word, setting) in [
+        ("auto_land", DeliverySetting::AutoLand),
+        ("open_pr", DeliverySetting::OpenPr),
+        ("keep_local", DeliverySetting::KeepLocal),
+        ("ask", DeliverySetting::Ask),
+    ] {
+        assert_eq!(values_of(&format!("values:\n  delivery: {word}\n")).delivery, Some(setting), "{word}");
+    }
+    assert_eq!(values_of("values:\n  pr_mode: draft\n").delivery, None, "a block that does not name it sets none");
+    assert!(refused("values:\n  delivery: whenever\n").contains("values.delivery"));
+    let kit = parse_kit_values(Path::new("values.yml"), "version: 1\nvalues:\n  delivery: open_pr\n").expect("Kit reads it");
+    assert_eq!(kit.delivery, Some(DeliverySetting::OpenPr));
+    let shipped = resolve(&layers(&[]));
+    assert_eq!((shipped.delivery.value, shipped.delivery.from), (None, Layer::Default), "unset at every layer is the question");
+}
+
+#[test]
+fn a_projects_delivery_beats_kits_and_the_answer_names_the_layer() {
+    let kit = only(|values| values.delivery = Some(DeliverySetting::KeepLocal));
+    let project = only(|values| values.delivery = Some(DeliverySetting::AutoLand));
+    let both = resolve(&layers(&[(Layer::Kit, kit.clone()), (Layer::Project, project)]));
+    assert_eq!((both.delivery.value, both.delivery.from), (Some(DeliverySetting::AutoLand), Layer::Project));
+    let kit_only = resolve(&layers(&[(Layer::Kit, kit)]));
+    assert_eq!((kit_only.delivery.value, kit_only.delivery.from), (Some(DeliverySetting::KeepLocal), Layer::Kit));
 }

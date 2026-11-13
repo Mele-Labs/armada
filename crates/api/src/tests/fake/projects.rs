@@ -115,6 +115,7 @@ impl Projects for FakeDaemon {
             tracker: None,
             reviews: None,
             agent_starts: None,
+            delivery: None,
             autonomy: Vec::new(),
         })
     }

@@ -237,3 +237,26 @@ fn allowing_calls_like_this_round_trips_with_its_kind() {
     assert!(json.contains(r#""kind":{"program":"node"}"#), "{json}");
     assert_eq!(decode::<crate::AnswerSessionAsk>("an answer", json.as_bytes()).expect("round-trips"), said);
 }
+
+#[test]
+fn a_delivery_row_carries_what_fleet_said_to_the_person_and_leaves_it_off_where_it_said_nothing() {
+    let at = Instant::carried("2026-11-12T09:00:00.000Z");
+    let said = SessionRow::Delivery {
+        id: "d1".into(),
+        at: at.clone(),
+        choice: Some(crate::DeliveryChoice::OpenPr),
+        named: false,
+        said: Some("Open PR only, as Shop is set. Change it in Settings, in the project's settings.".into()),
+    };
+    let wire = serde_json::to_value(&said).unwrap();
+    assert_eq!(wire["said"], "Open PR only, as Shop is set. Change it in Settings, in the project's settings.");
+    assert_eq!(serde_json::from_value::<SessionRow>(wire).unwrap(), said);
+
+    let silent = SessionRow::Delivery { id: "d2".into(), at, choice: None, named: false, said: None };
+    assert!(serde_json::to_value(&silent).unwrap().get("said").is_none(), "nothing said is nothing on the wire");
+    let old = br#"{"kind":"delivery","id":"d3","at":"2026-11-12T09:00:00.000Z","choice":"keep_local"}"#;
+    match decode::<SessionRow>("a row", old).unwrap() {
+        SessionRow::Delivery { said, .. } => assert_eq!(said, None, "a row written before the field reads as saying nothing"),
+        other => panic!("not a delivery row: {other:?}"),
+    }
+}
