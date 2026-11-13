@@ -2206,6 +2206,7 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             step("Studio is this Mac and Air is paired: every row names the Mac it runs on, in that Mac's colour, in a column of its own", Verb::Look, "img", "Air"),
             step("This Mac's Jobs carry the chip too, so the rows line up", Verb::Look, "img", "Studio"),
+            step("In a narrow window the chip takes about a word from each title. A smaller mark would leave more of it", Verb::Look, "row", "Audit the docs index"),
             step("Air has fallen asleep: its chip is dimmed, and the tooltip says since when", Verb::Hover, "img", "Air"),
             press_on("A press opens a Job on Air: its thread reads as any other, and its box takes no words", "row", "Fix the merge line freshness chip", "textbox", "Message"),
             step("The box is read-only, and says where the Job runs", Verb::Look, "group", "Message box"),
