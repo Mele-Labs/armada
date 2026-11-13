@@ -1,0 +1,66 @@
+{
+ "sessions": [
+  {
+   "id": "mock-01",
+   "mark": {
+    "state": "running",
+    "lamp": "running",
+    "group": "working"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Endpoint cleanup",
+   "last_turn_at": "2026-11-13T10:00:00Z",
+   "state": "live",
+   "started_at": "2026-11-13T08:30:00Z",
+   "last_seen_at": "2026-11-13T10:00:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "idle"
+  },
+  {
+   "id": "mock-02",
+   "mark": {
+    "state": "replied",
+    "lamp": "idle",
+    "group": "done"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Settings window",
+   "last_turn_at": "2026-11-13T10:00:00Z",
+   "state": "live",
+   "started_at": "2026-11-13T08:30:00Z",
+   "last_seen_at": "2026-11-13T10:00:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "idle",
+   "done_since": "2026-11-13T09:50:00Z",
+   "done_summary": "Settings opens in its own window, and every key still reaches it. A walk is waiting."
+  },
+  {
+   "id": "mock-03",
+   "mark": {
+    "state": "running",
+    "lamp": "running",
+    "group": "working"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Audit the docs index",
+   "last_turn_at": "2026-11-13T10:00:00Z",
+   "state": "live",
+   "started_at": "2026-11-13T08:30:00Z",
+   "last_seen_at": "2026-11-13T10:00:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "idle"
+  }
+ ]
+}

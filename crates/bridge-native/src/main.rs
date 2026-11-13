@@ -38,6 +38,7 @@ mod keymap;
 mod labels;
 mod lanes_canvas;
 mod link;
+mod listen;
 mod log;
 // A screen reads only some of what `look` offers so far.
 #[allow(dead_code)]

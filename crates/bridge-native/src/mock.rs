@@ -16,6 +16,11 @@ use serde::Deserialize;
 /// The scenario the last [`jobs`] call named, which the message box reads its catalogue by.
 static SCENARIO: Mutex<String> = Mutex::new(String::new());
 
+/// Whether the scenario last named is this one.
+pub fn scenario_is(name: &str) -> bool {
+    SCENARIO.lock().is_ok_and(|named| named.as_str() == name)
+}
+
 /// The Jobs of a named scenario, as `GET /sessions` would answer them.
 pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if let Ok(mut held) = SCENARIO.lock() {
@@ -76,6 +81,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "new-project" => include_bytes!("../fixtures/terminal-jobs.json"),
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
+        // Two Jobs for Listen: one that ends, one that asks.
+        "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
         "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
@@ -273,6 +280,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "sent-messages" => include_bytes!("../fixtures/sent-messages-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
         "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
+        "ways-listen" => include_bytes!("../fixtures/listen-threads.json"),
         "tool-rows" => include_bytes!("../fixtures/tools-threads.json"),
         // The tool-rows threads, with the finished Job's retro being written and Search for the queue asking with previews.
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
