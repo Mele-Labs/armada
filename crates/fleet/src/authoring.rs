@@ -129,6 +129,26 @@ where
         self.projects_held().holding(served.manifest().id()).into_iter().map(|project| project.id().clone()).collect()
     }
 
+    /// [`Self::read_workflows_again`] for a repository whose projects changed, **taken only where a project's copy
+    /// is held now or was before**: a project that keeps no workflow changes nothing the repository runs.
+    pub(crate) fn project_copies_read_again(&self, served: &Served) {
+        let project = |source: &str| source == core_model::WorkflowSource::Project.as_wire();
+        let read = self.locating().workflows(
+            Path::new(served.root()),
+            served.manifest(),
+            &served.workspaces(),
+            &self.projects_of(served),
+        );
+        let held = served.files().iter().any(|file| file.source() == core_model::WorkflowSource::Project)
+            || served.left_out().iter().any(|one| project(&one.source));
+        let reads = read.files.iter().any(|file| file.source() == core_model::WorkflowSource::Project)
+            || read.left_out.iter().any(|one| project(&one.source));
+        if held || reads {
+            served.catalogued(self.lifecycle_ends_checked(served.manifest().id().as_str(), read));
+            self.events().publish(ipc::Event::RepositoriesChanged(self.repository_list()));
+        }
+    }
+
     pub(crate) fn read_workflows_again(&self, served: &Served) {
         let read = self.locating().workflows(
             Path::new(served.root()),

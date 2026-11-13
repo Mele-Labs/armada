@@ -19,6 +19,7 @@ use crate::thought::WordsSent;
 use crate::hosted_sessions::{SessionRowChanged, SessionSubagentChanged};
 use crate::merge_line::MergeLines;
 use crate::mods::ModList;
+use crate::preview::PreviewOffers;
 use crate::protocol_id::ProtocolId;
 use crate::reading::ManifestReading;
 use crate::review_runs::ReviewRun;
@@ -42,7 +43,7 @@ use crate::merge_line_view::MergeLineViews;
 use crate::clashes::AllWriteClashes;
 use crate::standing_calls::CallsChanged;
 use crate::job_thread::{JobThreadChanged, JobThreadTail};
-use crate::sessions::SessionRecord;
+use crate::sessions::{SessionId, SessionRecord};
 use crate::studio::{Studio, StudioDeleted, StudioJobActed};
 use crate::terminals::JobTerminal;
 use crate::job_browser::{BrowserAskAnswered, BrowserRequest};
@@ -103,6 +104,13 @@ pub struct Missed {
     pub dropped: u64,
 }
 
+/// `session.removed`: the Job row a client holds by `session_id` is gone, so it drops the row. **Only ever
+/// a row held from another Mac**; this Mac's own Jobs end and stay listed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionRemoved {
+    pub session_id: SessionId,
+}
+
 /// An unsolicited push. The `kind` is the dotted name `operations/` keys it
 /// under, so a rule can compare the two without a mapping in between.
 ///
@@ -138,6 +146,9 @@ pub enum Event {
     // Every standing write clash of every served repository, whole, when the set moved.
     #[serde(rename = "write_clashes.changed")]
     WriteClashesChanged(AllWriteClashes),
+    // What `get_preview_offers` answers, whole, when an offer or the Refresh row moved.
+    #[serde(rename = "preview_offers.changed")]
+    PreviewOffersChanged(PreviewOffers),
     // What calls the person, whole, and the news since the last one: when the list or the news moved.
     #[serde(rename = "calls.changed")]
     CallsChanged(CallsChanged),
@@ -178,6 +189,9 @@ pub enum Event {
     // A subagent's own thread moved, for a client holding it to read `get_session_subagent` again.
     #[serde(rename = "session.subagent")]
     SessionSubagent(SessionSubagentChanged),
+    // A row held from another Mac went: that Mac left it out of its rows, or was forgotten.
+    #[serde(rename = "session.removed")]
+    SessionRemoved(SessionRemoved),
     // A Job's shell opened or ended, whoever opened or ended it. Its output is
     // `observe_session_run`'s, on the run id these carry.
     #[serde(rename = "terminal.opened")]

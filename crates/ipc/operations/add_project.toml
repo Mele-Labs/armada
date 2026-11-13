@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Start a project at the end of his list"
 notes = """
-`POST /projects`, body `NewProject`: `name`, trimmed, and optionally `members` (`{ manifest_id, folder? }`, none where absent) `place` (`{ place, synced_folder?, cloud? }` as `set_run_memory_place` takes it, this Mac where absent) and `values` (the block of values it sets, `{ pr_mode?, auto_merge?, review_model?, look?, tracker? }`, none where absent). It writes the file at the place, then the row in his order. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+`POST /projects`, body `NewProject`: `name`, trimmed, and optionally `members` (`{ manifest_id, folder? }`, none where absent) `place` (`{ place, synced_folder?, cloud? }` as `set_run_memory_place` takes it, this Mac where absent) and `values` (the block of values it sets, `{ pr_mode?, auto_merge?, review_model?, look?, tracker?, reviews?, agent_starts? }`, none where absent). It writes the file at the place, then the row in his order. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
 
 A 422 `fleet.project_blank` for a blank name. A 422 `fleet.project_malformed` for members that do not make a project. A 422 `fleet.project_place_refused` for a place that cannot be used, `repository` among them. A 422 `fleet.project_values_refused` for a value its key does not take. A 500 `fleet.project_unwritable` where the file could not be written, and then no row is made.
 """

@@ -20,6 +20,7 @@ mod issues;
 mod lifecycles;
 mod logbook;
 mod mods;
+mod other_macs;
 mod projects;
 mod settings;
 mod shared_home;
@@ -36,6 +37,7 @@ mod watches;
 pub use accounts::profile;
 pub use app_runs::THE_RUN;
 pub use lifecycles::{THE_KEPT_PIECE, THE_LIFECYCLE_JOB};
+pub use other_macs::THE_PRIVATE_STUDIO;
 pub use studios::{the_studio, THE_FRAME, THE_STUDIO};
 pub use watches::THE_WATCH;
 

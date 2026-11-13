@@ -35,7 +35,7 @@ const LOOSE_ASK: &str = "loose";
 /// What the person is asked about the tasks a Job finished in one project. Choice 0 and 1 are the
 /// options in this order: `answer_waiting` takes the index.
 pub(crate) fn task_done_item(asked: &KeptAsked) -> WaitingItem {
-    let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
+    let option = |label: &str| WaitingOption { label: label.to_string(), description: None, picture: None };
     let which = if asked.project_id == LOOSE_PROJECT { LOOSE_ASK } else { asked.project_id.as_str() };
     let id = format!("{TASK_DONE}{which}");
     let text = match asked.tasks.as_slice() {

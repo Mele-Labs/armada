@@ -29,6 +29,8 @@ export type HeldPullRequest = {
 /** One Job in a line, as `list_sessions` gives it with `view=summary`. */
 export type SessionSummary = {
   id: string;
+  /** The id of the paired Mac that holds this Job. Absent means this Mac. */
+  mac?: string;
   title?: string;
   manifest_id?: string;
   origin: SessionOrigin;

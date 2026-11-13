@@ -37,6 +37,7 @@ pub(super) fn item(id: &str, text: &str, options: &[&str]) -> KeptWaiting {
         since: OLD.into(),
         act: None,
         options: options.iter().map(|one| (*one).into()).collect(),
+        pictures: String::new(),
         steps: Vec::new(),
     }
 }
@@ -450,7 +451,7 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
             since: ipc::Instant::carried(OLD),
             source,
             act: None,
-            options: vec![ipc::WaitingOption { label: "Blue (Recommended)".into(), description: None }],
+            options: vec![ipc::WaitingOption { label: "Blue (Recommended)".into(), description: None, picture: None }],
             steps: Vec::new(),
             place: None,
             confirmed: false,
@@ -468,7 +469,7 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
         since: ipc::Instant::carried(OLD),
         source: ipc::WaitingSource::Agent,
         act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Run, target: "gh pr merge 1".into() }),
-        options: vec![ipc::WaitingOption { label: "Go (Recommended)".into(), description: None }],
+        options: vec![ipc::WaitingOption { label: "Go (Recommended)".into(), description: None, picture: None }],
         steps: Vec::new(),
         place: None,
         confirmed: false,

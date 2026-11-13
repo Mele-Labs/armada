@@ -191,6 +191,7 @@ WebSocket event stream, read this first.
 | [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |
 | [How a Job started, and when each step began: `SessionRecord.started`, `SessionRecord.workflow_visits`](protocol/how-a-job-started-and-when-each-step-began.md) |
 | [Projects: tasks and linked issues, across repositories](protocol/projects.md) |
+| [His other Macs, Fleet's half: `share_sessions` and seven more](protocol/his-other-macs-fleets-half.md) |
 | [The Workflows page: `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy`](protocol/the-workflows-page.md) |
 | [Triggers leave the wire](protocol/triggers-leave-the-wire.md) |
 | [The pull request a plan's group lands in: `lands_in`](protocol/the-pull-request-a-plan-groups-lands-in.md) |
@@ -201,6 +202,7 @@ WebSocket event stream, read this first.
 | [Autopilot's answers: `get_autopilot_decisions`, `review_autopilot_decision`, `override_autopilot_decision`](protocol/autopilot-decisions.md) |
 | [Sleep leaves the wire](protocol/sleep-leaves-the-wire.md) |
 | [A Job's several terminals: `terminal` and `new`, `list_terminals`, `rename_terminal`](protocol/a-jobs-several-terminals.md) |
+| [How he works with Jobs, and a question offered as pictures: twelve preferences, `picture` on an option, `answer_waiting_parts`](protocol/how-he-works-with-jobs-and-a-question-offered-as-pictures.md) |
 | [The Operator takes Helm's place](protocol/the-operator-takes-helms-place.md) |
 | [A Job's thread, folded by Fleet](protocol/a-jobs-thread-fleet-folds.md) |
 | [The merge line, read by Fleet](protocol/the-merge-line-fleet-reads.md) |
@@ -1135,7 +1137,7 @@ The job is told as his message, as a draft's answer is, and the rail reads an ap
 
 ## Fleet offers a refresh of the preview: `preview_offer`, and `moved` on a left-out branch
 
-Since 28 Oct 2026. `crates/fleet/src/session_host/preview_offers.rs`.
+Since 28 Oct 2026. Fleet stopped raising `preview_offer` on 13 Nov 2026 and the module is gone; the value stays on the wire.
 **One enum value and one optional field**: no operation, route, event kind or error.
 The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `preview_offer` on `WaitingSource` in `packages/protocol/src/sessions.ts` and `moved` on `left_out` in `building.ts`, written by hand, and it came first.
@@ -1154,6 +1156,23 @@ The build notice does not take an offer for a restart wait it answers, so a new 
 **Skew.** As above.
 **The event stream.** No new event: a new offer publishes `session.changed` on its Job, and so does a build change that drops one.
 The open risk below is neither better nor worse.
+
+## A Job offers a branch for the preview: `offer_preview`, `get_preview_offers`
+
+Since 13 Nov 2026. `crates/fleet/src/previewing.rs`, `crates/ipc/src/preview.rs`.
+**Five operations, one event kind and a table.** The protocol ID moves with `crates/ipc/src` and `crates/ipc/operations/`, and there is no number to take.
+`packages/protocol/src` has no half of these yet: no Bridge draws the row, and the native Bridge reads the answer when it is built to.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `offer_preview`, `withdraw_preview` | The Job writes | `POST /sessions/offer_preview` and `/sessions/withdraw_preview`, `agent_access = "Yes"`, placed by the connection as `defer_later` is. Answered `PreviewOffered { branch, tip, state }` and `PreviewWithdrawn { branch }` |
+| `get_preview_offers` | Bridge reads | `GET /fleet/build/offers`, `PreviewOffers { offers, refresh? }`. A row is `{branch, tip, session_id, title, about, offered_at, state, why?, files?, in_build}` and `refresh` is `{id, branches}` |
+| `skip_preview_refresh` | Bridge writes | `POST /fleet/build/offers/skip`, `SkipPreviewRefresh { id }`, `Bridge only` |
+| `preview_offers.changed` | Fleet writes, Bridge reads | `PreviewOffers`, whole, published when the answer differs from the last one sent, as `write_clashes.changed` is |
+| Notices to the Job | Fleet writes | `Notice::BuildMoved`: no new value, so no client that matches `Notice` gains one |
+
+**A Bridge that matches `Event` exhaustively** meets a kind it did not know. Native matches with a fallback.
+**Skew.** As above. **The store.** One additive migration, `preview_offered.table`: `preview_offered` and `preview_refresh_skipped`.
 
 ## Fleet asks about an act a rule planned: `rule_act`, and the `lifecycle_rule` notice
 

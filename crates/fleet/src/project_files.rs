@@ -164,7 +164,7 @@ where
         for served in self.repositories().served() {
             let held_by = |held: &Projects| -> Vec<ScopeId> { held.holding(served.manifest().id()).into_iter().map(|one| one.id().clone()).collect() };
             if held_by(&before) != held_by(&projects) {
-                self.read_workflows_again(&served);
+                self.project_copies_read_again(&served);
             }
         }
         projects

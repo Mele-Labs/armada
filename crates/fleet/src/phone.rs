@@ -51,7 +51,7 @@ where
         let _ = self.phone_held().switch.set(switch);
     }
 
-    fn phone_switch(&self) -> Result<&Arc<dyn PhoneSwitch>, Refusal> {
+    pub(crate) fn phone_switch(&self) -> Result<&Arc<dyn PhoneSwitch>, Refusal> {
         self.phone_held().switch.get().ok_or_else(|| {
             Refusal::IllegalMove(WireError::raised(
                 PHONE_NOT_SERVED,

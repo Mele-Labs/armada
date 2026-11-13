@@ -33,7 +33,8 @@ use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
 use crate::fleetwide::{get_events_since, get_health, get_manifest};
 use crate::building::{
-    change_fleet_build, get_fleet_build, keep_fleet_build, pick_fleet_build_job, revert_fleet_build, swap_fleet_build,
+    change_fleet_build, get_fleet_build, get_preview_offers, keep_fleet_build, pick_fleet_build_job, revert_fleet_build,
+    skip_preview_refresh, swap_fleet_build,
 };
 use crate::limiting::{get_limits, save_limits};
 use crate::preferring::{get_preferences, save_preferences};
@@ -244,6 +245,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::pull_request_panel::get_review_runs::<D>),
         )
         .merge(crate::review_walks::mounted::<D>())
+        .merge(crate::other_macs::mounted::<D>())
         .route(
             "/pull_request_notes/:repository/:number",
             get(crate::pull_request_notes::list_pull_request_notes::<D>)
@@ -388,6 +390,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/waiting", post(crate::sessions::waiting_for::<D>))
         .route("/sessions/done", post(crate::sessions::all_done::<D>))
         .route("/sessions/defer_later", post(crate::sessions::defer_later::<D>))
+        .route("/sessions/offer_preview", post(crate::sessions::offer_preview::<D>))
+        .route("/sessions/withdraw_preview", post(crate::sessions::withdraw_preview::<D>))
         .route("/sessions/settle_later", post(crate::sessions::settle_later::<D>))
         .route("/sessions/dispute_fleet", post(crate::sessions::dispute_fleet::<D>))
         .route("/sessions/report_bug", post(crate::sessions::report_bug::<D>))
@@ -403,6 +407,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/waiting/answer",
             post(crate::hosted_sessions::answer_waiting::<D>),
+        )
+        .route(
+            "/sessions/waiting/answer_parts",
+            post(crate::hosted_sessions::answer_waiting_parts::<D>),
         )
         .route(
             "/sessions/slot_choice/free",
@@ -784,6 +792,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/fleet/build/pick", post(pick_fleet_build_job::<D>))
         .route("/fleet/build/swap", post(swap_fleet_build::<D>))
         .route("/fleet/build/keep", post(keep_fleet_build::<D>))
+        .route("/fleet/build/offers", get(get_preview_offers::<D>))
+        .route("/fleet/build/offers/skip", post(skip_preview_refresh::<D>))
         .route("/limits", get(get_limits::<D>))
         .route("/limits/save", post(save_limits::<D>))
         .route("/preferences", get(get_preferences::<D>))

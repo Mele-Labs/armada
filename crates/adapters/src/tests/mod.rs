@@ -23,6 +23,7 @@ mod basing;
 mod bucket;
 mod browser_shell;
 mod build_standing;
+mod preview_check;
 mod deleting_merged_branch;
 mod catching_up_to_the_remote;
 mod check_blame;

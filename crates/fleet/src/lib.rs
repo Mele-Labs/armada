@@ -81,6 +81,8 @@ mod build_notices;
 mod building;
 /// Every build Fleet has run, kept for the Usage page.
 mod builds_run;
+/// The branches Jobs offer for the owner's preview: checked, told, watched and served.
+mod previewing;
 /// The hours, builds and Jobs the Usage page reads time from.
 mod time_reading;
 /// What a repository runs in its checkout when the base moves there.
@@ -165,6 +167,8 @@ mod model_downshifting;
 /// The models the harness offers, asked after Fleet is serving.
 pub mod models_read;
 pub mod phone;
+/// His other Macs: what this Mac shares with them through its Phone Gateway, and what it keeps of theirs.
+mod other_macs;
 /// The Judge's four operations Fleet serves: the one read-only call, the readings kept, and the person's acts.
 mod judge_serving;
 /// What a Judge is shown, and how its answer is read and pinned. Pure.
@@ -213,6 +217,8 @@ pub mod places;
 pub mod ports;
 /// A person's Bridge preferences, five keys of settings.json in their older shape.
 mod preferences;
+/// How the owner works with Jobs, said to a Job: the start note, the plan block and the checks' words.
+mod ways;
 pub mod preparing;
 /// The probes Fleet can run on itself, and the Doctor modules it cannot.
 /// **Not Doctor**, whose grid is ten modules and is not built.

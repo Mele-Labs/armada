@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "The Logbook entries a subagent is handed as it starts: the owner's habits and the repository's standing entries whose paths match those its prompt names"
 notes = """
-`POST /logbook/subagent`, body `SubagentAsk`: the Job's `session_id` and the subagent's `prompt`. Answers `ForSubagent`: `text`, empty where the Logbook holds nothing for it. A `POST` because a prompt is too long for a query. Nothing is written but the entries' `last_served`. `docs/concepts/logbook.md`, *Recall*.
+`POST /logbook/subagent`, body `SubagentAsk`: the Job's `session_id` and the subagent's `prompt`. Answers `ForSubagent`: `text`, the Logbook's note and then, always, the note of how the owner works with Jobs (`docs/practices/protocol/how-he-works-with-jobs-and-a-question-offered-as-pictures.md`, *What Fleet does with them*), so it is never empty. A `POST` because a prompt is too long for a query. Nothing is written but the entries' `last_served`. `docs/concepts/logbook.md`, *Recall*.
 
 **Paths are read out of the prompt.** Every word with a `/` in it is taken as a path, with a repository root or slot folder in front cut off. An entry is handed over when one of its `paths` globs matches one. A prompt that names no path is handed the habits and the repository's best-ranked standing entries.
 

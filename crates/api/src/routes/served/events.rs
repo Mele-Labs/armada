@@ -34,6 +34,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // What `get_preview_offers` answers, whole, when an offer or the Refresh row moved.
+    Route {
+        operation: "preview_offers.changed",
+        method: "GET",
+        path: "/events",
+    },
     // What calls the person, whole, and the news since the last one.
     Route {
         operation: "calls.changed",
@@ -163,6 +169,12 @@ pub(super) const ROUTES: &[Route] = &[
     // A subagent's own thread moved: a client holding it reads `get_session_subagent` again.
     Route {
         operation: "session.subagent",
+        method: "GET",
+        path: "/events",
+    },
+    // A row held from another Mac went, so a client holding it drops it.
+    Route {
+        operation: "session.removed",
         method: "GET",
         path: "/events",
     },

@@ -1010,6 +1010,22 @@ where
         self.later_deferred(caller, defer).await
     }
 
+    async fn offer_preview(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        offer: ipc::OfferPreview,
+    ) -> Result<ipc::PreviewOffered, Refusal> {
+        self.preview_offered(caller, offer).await
+    }
+
+    async fn withdraw_preview(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        withdraw: ipc::WithdrawPreview,
+    ) -> Result<ipc::PreviewWithdrawn, Refusal> {
+        self.preview_withdrawn(caller, withdraw).await
+    }
+
     async fn settle_later(
         &self,
         caller: Option<api::Caller>,
@@ -1290,6 +1306,7 @@ where
         }
         drop(store);
         let sessions = found.iter().zip(taken).map(|(session, reads)| self.ledger_built(session, reads)).collect();
+        let sessions = self.beside_other_macs(sessions, manifest.as_deref(), text.as_deref(), state).await?;
         Ok(SessionList { sessions })
     }
 

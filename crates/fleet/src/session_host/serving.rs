@@ -276,6 +276,13 @@ where
         Arc::clone(&self).settle_answer(said, super::waiting::Answerer::Him).await
     }
 
+    async fn answer_waiting_parts(
+        self: Arc<Self>,
+        said: ipc::AnswerWaitingParts,
+    ) -> Result<SessionRecord, Refusal> {
+        Arc::clone(&self).settle_parts(said).await
+    }
+
     async fn free_slot(self: Arc<Self>, free: ipc::FreeSlot) -> Result<SessionRecord, Refusal> {
         self.slot_freed_for(free).await
     }
@@ -666,6 +673,10 @@ where
     }
 
     async fn get_job_thread(self: Arc<Self>, read: ipc::JobThreadRead) -> Result<ipc::JobThread, Refusal> {
+        // A Job held from another Mac is read from that Mac's Fleet each time; no thread of it is kept here.
+        if let Some(mac) = self.mac_holding(read.session_id.as_str()).await {
+            return self.thread_from_other_mac(&mac, &read).await;
+        }
         self.job_thread_served(read).await
     }
 

@@ -60,6 +60,25 @@ pub const THE_FRAME: &str = "implement.1/job-detail-refused.png";
 
 
 
+/// One ready offer the running build does not hold, with the Refresh row it earns.
+pub fn preview_offers() -> ipc::PreviewOffers {
+    ipc::PreviewOffers {
+        offers: vec![ipc::PreviewOfferRow {
+            branch: String::from("armada/kept-builds"),
+            tip: "b".repeat(40),
+            session_id: ipc::SessionId::carried("01JOB"),
+            title: String::from("Kept builds"),
+            about: String::from("Keeps the last two builds"),
+            offered_at: ipc::Instant::carried("2026-11-13T09:00:00Z"),
+            state: ipc::PreviewState::Ready,
+            why: None,
+            files: Vec::new(),
+            in_build: false,
+        }],
+        refresh: Some(ipc::PreviewRefresh { id: String::from("p-1"), branches: vec![String::from("armada/kept-builds")] }),
+    }
+}
+
 /// Fleet on `main`, three commits behind `origin/main`, nothing restarting.
 pub fn fleet_build() -> ipc::FleetBuildReport {
     ipc::FleetBuildReport {

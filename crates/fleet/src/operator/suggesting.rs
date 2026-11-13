@@ -37,7 +37,7 @@ pub(crate) const SKIP: u32 = 1;
 pub(crate) fn suggestion_items(kept: &[KeptSuggestion]) -> impl Iterator<Item = WaitingItem> + '_ {
     let folded = |at: usize, one: &KeptSuggestion| kept[..at].iter().any(|first| first.item.is_none() && same_thing(first) == same_thing(one));
     kept.iter().enumerate().filter(move |(at, one)| one.item.is_none() && !folded(*at, one)).map(|(_, one)| {
-        let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
+        let option = |label: &str| WaitingOption { label: label.to_string(), description: None, picture: None };
         // A start that repeats a live Job's work reads as the hand-over it would make, and the other as keeping both.
         // A bug report's buttons name what becomes of it, and the first carries the reasoning as its tooltip.
         let (yes, no) = match (one.arrived.as_str(), one.way.as_str(), one.what.as_deref()) {

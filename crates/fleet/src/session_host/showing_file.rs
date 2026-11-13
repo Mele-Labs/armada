@@ -51,7 +51,7 @@ const MOST_BYTES: u64 = 8 * 1024 * 1024;
 const MOST_VIDEO_BYTES: u64 = 256 * 1024 * 1024;
 
 /// What `table` calls the file at `path`, by its extension, in any case.
-fn media_type_in(table: &[(&str, &'static str)], path: &str) -> Option<&'static str> {
+pub(super) fn media_type_in(table: &[(&str, &'static str)], path: &str) -> Option<&'static str> {
     let (_, extension) = path.rsplit_once('.')?;
     table.iter().find(|(known, _)| known.eq_ignore_ascii_case(extension)).map(|(_, media_type)| *media_type)
 }

@@ -22,6 +22,7 @@
 /// What Fleet told a session about the build it now runs, so it is told once.
 mod build_notice;
 mod devices;
+mod macs;
 mod error;
 mod fleet_outages;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
@@ -91,6 +92,8 @@ mod judge_readings;
 mod fleet_calls;
 /// The refreshes of the preview Fleet offered a Job, one a moved tip for the build.
 mod preview_offers;
+/// The branches Jobs offer for the owner's preview, and the Refresh row he skipped.
+mod preview_offered;
 mod notice_mutes;
 /// The issue queries a person saved, per repository.
 mod issue_queries;
@@ -105,6 +108,8 @@ mod autopilot;
 mod autopilot_decisions;
 mod operator_dispatches;
 mod parked_ideas;
+/// What his other Macs share with this one, kept whole.
+mod other_macs;
 /// The Operator's Log of rulings. `armada-ehhu`.
 mod operator_rulings;
 mod operator_orders;
@@ -197,6 +202,7 @@ mod timeline;
 mod tests;
 
 pub use devices::{Device, PushSubscription, ThisMac};
+pub use macs::{MacSaid, MacState, PairedMac};
 pub use error::{DatabaseFault, OpenError, ReadError, RowError, WriteError};
 pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
 pub use run_memory::{KeptPlace, KeptRun};
@@ -246,6 +252,7 @@ pub use plan_beads::KeptBead;
 pub use judge_readings::{KeptJudgeNote, KeptJudgeReading};
 pub use fleet_calls::KeptCall;
 pub use preview_offers::KeptPreviewOffer;
+pub use preview_offered::KeptPreviewOffered;
 pub use issue_queries::KeptIssueQuery;
 pub use projects::{
     KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskIssue, KeptTaskPull, KeptTaskState, LOOSE as LOOSE_PROJECT,
@@ -260,6 +267,7 @@ pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
 pub use operator_dispatches::KeptDispatch;
 pub use parked_ideas::KeptIdea;
+pub use other_macs::{FromMac, KeptFromMac};
 pub use operator_rulings::KeptRuling;
 pub use operator_orders::{KeptOrder, KeptTalk};
 pub use operator_switches::KeptSwitch;

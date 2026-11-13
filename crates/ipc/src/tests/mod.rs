@@ -53,6 +53,7 @@ mod time_format;
 mod time_summary;
 mod mods;
 mod preferences;
+mod option_pictures;
 mod projects;
 mod settings;
 /// The one DTO on this seam a peer *writes*, and what it refuses.
