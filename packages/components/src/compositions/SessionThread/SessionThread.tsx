@@ -680,6 +680,8 @@ export type PlanApproval = {
   }[];
   /** The Job opens pull requests: its groups stand under the chip of the one each lands in, a one pull request plan under one chip. Absent draws no chip. */
   opensPullRequests?: true;
+  /** Each group lists its tasks' words under it, a mark before each, where absent draws a mark for each task alone. A surface without hover, the phone, sets it. */
+  taskText?: true;
   /** Opens a pull request a chip names. */
   onOpenPullRequest?: (number: number) => void;
   approved: boolean;
@@ -751,6 +753,8 @@ export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
   /** A plan waiting on the person, or settled. Absent draws none. */
   approval?: PlanApproval;
+  /** Rows stand before the first in `rows` that the host has not read: once every row is drawn, Show earlier asks it for them. Absent, the thread starts at its first row. */
+  onOlder?: () => void;
   /** A sketch waiting on the person, pinned as the thread's last card after the plan to approve. Absent draws none. */
   sketching?: SketchPinProps;
   /** Sends a message that did not go again, by its row's id. Absent, a message that did not go draws without the press. */
@@ -2906,9 +2910,12 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   );
   // Where the Job opens pull requests, each list stands under the chip of the one its groups land in.
   const runs = landingsOf(approval.groups, approval.opensPullRequests === true);
-  // A group that goes to a Job of its own is that Job's card alone, in the place of a pull request chip: a placeholder until it is handed, then the Job. The Job plans its
-  // own tasks, so the group's line is not drawn under it.
-  const landed = (list: (groups: typeof approval.groups) => ReactNode) =>
+  // A group that goes to a Job of its own stands under that Job's card, in the place of a pull request chip: a placeholder until it is handed, then the Job. The
+  // card is drawn once, with the groups (`cards`); what each group gives lists the group with the others, under no card.
+  // Under its card, an own group's line is drawn only where it has something the card does not say: what it gives, or its tasks' words.
+  const ownLine = (group: (typeof approval.groups)[number]) =>
+    group.gives !== undefined || approval.taskText === true;
+  const landed = (list: (groups: typeof approval.groups) => ReactNode, cards = true) =>
     runs.length === 1 && runs[0]!.landsIn === undefined && runs[0]!.own === undefined ? (
       list(runs[0]!.groups)
     ) : (
@@ -2924,7 +2931,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
             }
           >
             {run.own !== undefined ? (
-              run.own.job === undefined ? (
+              !cards ? null : run.own.job === undefined ? (
                 <JobCard
                   placeholder={run.own.title}
                   {...(run.own.issue === undefined
@@ -2955,7 +2962,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
             ) : run.landsIn === undefined ? null : (
               <LandsInChip landsIn={run.landsIn} onOpen={approval.onOpenPullRequest} />
             )}
-            {run.own !== undefined ? null : list(run.groups)}
+            {cards && run.own !== undefined && !ownLine(run.own) ? null : list(run.groups)}
           </section>
         ))}
       </div>
@@ -2964,14 +2971,30 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
     <ul className="armada-session-thread__groups">
       {some.map((group) => (
         <li key={group.id} className="armada-session-thread__group">
-          <span className="armada-session-thread__group-title">{group.title}</span>
-          {approved ? null : (
+          {/* Under its Job's card, which carries the title, the group reads what it gives. */}
+          <span
+            className="armada-session-thread__group-title"
+            data-own={group.ownJob === true || undefined}
+          >
+            {group.ownJob === true ? group.gives : group.title}
+          </span>
+          {approved || approval.taskText === true ? null : (
             <span className="armada-session-thread__marks">
               {group.tasks.map((task) => (
                 <TaskMark key={task.id} state="open" />
               ))}
             </span>
           )}
+          {approval.taskText === true ? (
+            <ul className="armada-session-thread__tasks" aria-label="Tasks">
+              {group.tasks.map((task) => (
+                <li key={task.id}>
+                  {approved ? null : <TaskMark state="open" />}
+                  <span>{task.text}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <Tooltip label="Subagent type">
             <span
               className="armada-session-thread__agent"
@@ -3110,23 +3133,26 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
                 {anchors === undefined ? null : (
                   <FindingNotes findings={anchors.whole} label="Findings on the plan" {...acts} />
                 )}
-                {landed((some) => (
-                  <ul className="armada-session-thread__gives" aria-label="What each group gives">
-                    {some.map((group) =>
-                      anchors === undefined ? (
-                        <li key={group.id}>{group.gives ?? group.title}</li>
-                      ) : (
-                        <GivesRow
-                          key={group.id}
-                          text={group.gives ?? group.title}
-                          group={group}
-                          anchors={anchors}
-                          {...acts}
-                        />
-                      ),
-                    )}
-                  </ul>
-                ))}
+                {landed(
+                  (some) => (
+                    <ul className="armada-session-thread__gives" aria-label="What each group gives">
+                      {some.map((group) =>
+                        anchors === undefined ? (
+                          <li key={group.id}>{group.gives ?? group.title}</li>
+                        ) : (
+                          <GivesRow
+                            key={group.id}
+                            text={group.gives ?? group.title}
+                            group={group}
+                            anchors={anchors}
+                            {...acts}
+                          />
+                        ),
+                      )}
+                    </ul>
+                  ),
+                  false,
+                )}
                 <Button
                   size="sm"
                   variant="ghost"
@@ -3518,6 +3544,7 @@ export function SessionThread({
   onStartAgain,
   onReport,
   approval,
+  onOlder,
   sketching,
   asked,
   askRef,
@@ -3796,10 +3823,21 @@ export function SessionThread({
   ]);
   // A row arriving at the end widens what is drawn for a person reading higher up, so nothing above him drops out.
   const counted = useRef(all.length);
+  // Show earlier asked the host for rows before the first: they arrive at the top, and what he was reading keeps its place.
+  const askedOlder = useRef(false);
   useLayoutEffect(() => {
     const grew = all.length - counted.current;
     counted.current = all.length;
-    if (grew > 0 && !pinned.current) setDrawn((now) => now + grew);
+    if (grew > 0 && askedOlder.current) {
+      askedOlder.current = false;
+      const one = scroller.current;
+      if (one !== null)
+        grownFrom.current = {
+          height: one.scrollHeight,
+          top: one.scrollTop,
+        };
+      setDrawn((now) => now + Math.min(grew, DRAWN));
+    } else if (grew > 0 && !pinned.current) setDrawn((now) => now + grew);
   }, [
     all.length,
   ]);
@@ -3811,6 +3849,11 @@ export function SessionThread({
     top: number;
   }>(undefined);
   const drawEarlier = (): void => {
+    if (hidden === 0 && onOlder !== undefined) {
+      askedOlder.current = true;
+      onOlder();
+      return;
+    }
     const one = scroller.current;
     if (one !== null)
       grownFrom.current = {
@@ -3991,7 +4034,7 @@ export function SessionThread({
                             <li className="armada-session-thread__lead">{lead}</li>
                           )}
                           {transcript === "unread" ? <TranscriptSkeleton /> : null}
-                          {hidden === 0 ? null : (
+                          {hidden === 0 && onOlder === undefined ? null : (
                             <li ref={earlier} className="armada-session-thread__earlier">
                               <Tooltip label="Show earlier">
                                 <Button

@@ -117,6 +117,15 @@ refuses if it cannot be. Two callers: an agent, through Bash, after a merge that
 Fleet or Bridge; and Bridge itself, through the Fleet panel's build section
 (*Restarting from Bridge*, below).
 
+**A restart that changes anything runs in a session of its own** (`scripts/detach`).
+Pocket's Run and a Job's Run start it on a terminal Fleet holds, and booting Fleet out hangs that terminal up.
+On 13 Nov 2026 that SIGHUP ended the script between bootout and bootstrap, and Fleet stayed down.
+So `scripts/restart` and `scripts/preview --restart`, whichever starts first, run their work with SIGHUP ignored, no stdin and no terminal.
+Their output is appended to `~/Library/Logs/Armada/restart.log`.
+The first line printed is `restart: log <path>`; the command then follows the log to the end and exits with the run's code, and a terminal hung up meanwhile only stops the following.
+`ARMADA_RESTART_DETACHED` tells a script called inside one not to detach again, and `scripts/restart-build` sets it, since Fleet already starts it in a session of its own.
+A dry run and `--keep-only` stop no Fleet and run as they are.
+
 **Bridge is launched from a copy of Electron's app named Armada Classic**, made under
 `node_modules/.cache/armada-bridge/` with a changed `Info.plist`, the grey
 `ClassicIcon.icns` in place of Electron's icon, and an ad hoc
@@ -232,7 +241,10 @@ A build that fails stops the restart before Fleet is stopped.
 It is kept as `Armada.app` in the kept build, and has a launchd job of its own, `com.armada.fleet.native`, beside Bridge's.
 The job runs `builds/current/bridge-launch` on the app's binary, so launchd reopens it when it stops without a quit.
 The app writes `Armada/bridge-native-quit` when it quits after its window opened (`crates/bridge-native/src/main.rs`), and `bridge-launch` reads that as a quit the person meant.
-A restart opens it where its job is not loaded or runs from anywhere but `builds/current`, or the kept app differs from the build before's (`native` in `build.toml`); otherwise it is left as it is.
+A restart opens it where its job is not loaded or runs from anywhere but `builds/current`, the kept app differs from the build before's (`native` in `build.toml`), or the running app was built for another protocol than the new Fleet's; otherwise it is left as it is.
+**The protocol is read off the running process**, not the build before: `scripts/running-bridge` finds the build the app's binary is in and reads that build's `protocol_id`.
+A restart that died after it moved `builds/current` left the next one seeing no difference, and native on the old protocol (13 Nov 2026).
+A running app whose build cannot be read is reopened.
 Its job is booted out and in, never kickstarted, for the reason Bridge's is.
 
 **The Phone Gateway runs inside Fleet, not as a job of its own, and it is
@@ -277,6 +289,7 @@ A build a running Bridge was opened from is kept past the five, since that Bridg
 
 **Bridge reloads its page in place where only the page changed.**
 A swap, a revert or a restart reopens Bridge only where the two builds' `bridge_shell` (a hash of `out/main` and `out/preload`) or `electron` differ.
+A restart also reopens it where the running Bridge was built for another protocol than the new Fleet's, read off its process as the native Bridge's is, and a page reload does not stand in for that.
 Otherwise the running Bridge, once Fleet is back, loads its window's page from the build `current` names (`apps/desktop/src/main/page-reload.ts`), which keeps the window, its process and the voice addon in it.
 A build kept before Bridge could do this has no `page_reload = true` line, and is reopened as before.
 Only the main window reloads; another window keeps its page until it is opened again.
@@ -488,9 +501,10 @@ On another branch, or where it cannot fast-forward, it prints a `preview: warnin
 That never fails the refresh.
 `--dry-run` pulls nothing and says it would, and `--watch` and a plain `scripts/preview` never pull.
 
-**`python3 scripts/test_preview.py`** runs it against a throwaway repository
-with git alone, and a stub Fleet. CI runs it as `preview_test` when
-`scripts/preview`, `scripts/restart` or `scripts/restart-build` changes.
+**`python3 -m unittest scripts/test_preview.py scripts/test_restart_detach.py`** runs it against a throwaway repository
+with git alone, and a stub Fleet. `test_restart_detach.py` hangs up the terminal a restart started on and checks the run still ends.
+CI runs both as `preview_test` when
+`scripts/preview`, `scripts/restart`, `scripts/restart-build`, `scripts/detach` or `scripts/running-bridge` changes.
 
 ## Restarting from Bridge
 

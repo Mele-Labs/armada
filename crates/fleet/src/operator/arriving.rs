@@ -141,7 +141,7 @@ impl Arrived {
 /// Where it came from.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Source {
-    /// The person's dispatch, through the proposer, and what he called it where he did.
+    /// The person's dispatch, through the proposer, and what he marked it as where he did: a hint to the call.
     Dispatch(Option<ipc::DispatchKind>),
     /// Another Job's agent, named by its id.
     Job(String),
@@ -253,7 +253,12 @@ impl Arrival {
             out.push_str(&format!("     Its words: {}\n", one_line(&self.words)));
         }
         if let Source::Dispatch(Some(kind)) = &self.source {
-            out.push_str(&format!("     The person called it: {}\n", kind.as_wire()));
+            let a = match kind {
+                ipc::DispatchKind::Idea => "an idea",
+                ipc::DispatchKind::Feature => "a feature",
+                ipc::DispatchKind::Bug => "a bug",
+            };
+            out.push_str(&format!("     He marked it as {a}.\n"));
         }
         if !self.paths.is_empty() {
             out.push_str(&format!("     Its paths: {}\n", self.paths.join(", ")));

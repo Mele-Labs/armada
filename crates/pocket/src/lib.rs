@@ -34,6 +34,7 @@ mod setup;
 mod shown_address;
 mod signing;
 mod stat;
+mod thread_window;
 mod tunnel;
 mod vapid;
 mod watch;
