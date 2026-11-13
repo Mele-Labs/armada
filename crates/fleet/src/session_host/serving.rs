@@ -610,6 +610,22 @@ where
         self.steps_changed(change).await
     }
 
+    async fn get_affected_jobs(
+        self: Arc<Self>,
+        workflow_id: ipc::WorkflowId,
+        source: String,
+        project: Option<String>,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::AffectedJobs, Refusal> {
+        let served = self.served_named(manifest_id.as_ref())?;
+        self.affected_read(&workflow_id, &source, project.as_deref(), &served).await
+    }
+
+    async fn migrate_jobs(self: Arc<Self>, migrate: ipc::MigrateJobs, manifest_id: Option<ipc::ManifestId>) -> Result<ipc::MigratedJobs, Refusal> {
+        let served = self.served_named(manifest_id.as_ref())?;
+        self.jobs_migrated(migrate, &served).await
+    }
+
     async fn change_job_copy(self: Arc<Self>, change: ipc::ChangeJobCopy) -> Result<ipc::JobCopy, Refusal> {
         self.piece_changed(change).await
     }

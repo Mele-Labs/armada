@@ -17,7 +17,7 @@ fn a_job_holds_its_own_workflow_only_once_it_changed_a_step_and_gives_it_up_with
     let dir = TempDir::new();
     let mut store = open(&dir);
     assert_eq!(store.job_workflow_copy("s1").expect("reads"), None);
-    let copy = KeptWorkflowCopy { workflow_id: "feature".into(), path: "feature.json".into(), text: "steps".into() };
+    let copy = KeptWorkflowCopy { workflow_id: "feature".into(), path: "feature.json".into(), text: "steps".into(), ..Default::default() };
     store.keep_job_workflow_copy("s1", &copy).expect("keeps");
     store.keep_job_workflow_copy("s1", &KeptWorkflowCopy { text: "more steps".into(), ..copy.clone() }).expect("keeps again");
     assert_eq!(store.job_workflow_copy("s1").expect("reads").map(|one| one.text), Some("more steps".into()));
@@ -29,6 +29,23 @@ fn a_job_holds_its_own_workflow_only_once_it_changed_a_step_and_gives_it_up_with
     assert_eq!(store.job_workflow_copy("s1").expect("reads"), None);
     let left: Vec<String> = store.job_copy_marks("s1").expect("reads").into_iter().map(|one| one.lane).collect();
     assert_eq!(left, ["rule"], "the marks on its steps go with the steps, and a rule's stays");
+}
+
+/// **A pin a publish made reads back as one, and a Job's own edit of it keeps the copy as the Job's.**
+#[test]
+fn a_pinned_copy_reads_back_pinned_and_a_keep_from_an_edit_clears_the_pin() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let pin = KeptWorkflowCopy { workflow_id: "feature".into(), path: "feature.json".into(), text: "steps".into(), pinned: true };
+    store.keep_job_workflow_copy("s1", &pin).expect("pins");
+    assert_eq!(store.job_workflow_copy("s1").expect("reads"), Some(pin.clone()));
+
+    store.keep_job_workflow_copy("s1", &KeptWorkflowCopy { text: "edited steps".into(), pinned: false, ..pin.clone() }).expect("edits");
+    let kept = store.job_workflow_copy("s1").expect("reads").expect("held");
+    assert_eq!((kept.text.as_str(), kept.pinned), ("edited steps", false));
+
+    store.keep_job_workflow_copy("s2", &KeptWorkflowCopy { workflow_id: "feature".into(), text: "own".into(), ..Default::default() }).expect("keeps");
+    assert!(!store.job_workflow_copy("s2").expect("reads").expect("held").pinned, "a copy kept before pins existed, or by an edit, is not one");
 }
 
 #[test]

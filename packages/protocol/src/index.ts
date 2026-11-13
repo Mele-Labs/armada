@@ -119,3 +119,4 @@ export * from "./job-copy";
 export * from "./piece-saving";
 export * from "./workflow-drafts";
 export * from "./workflow-versions";
+export * from "./workflow-migrating";

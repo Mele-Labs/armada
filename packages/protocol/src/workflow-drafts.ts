@@ -56,6 +56,17 @@ export type PutWorkflowDraft = {
   project?: string;
   text: string;
   summary?: string;
+  /**
+   * Who made the change; absent is `you`. `agent` records an agent's change the editor rebased onto a draft that moved after the agent read it, and
+   * names the `WorkflowChange` in `change`. 422 `fleet.workflow_draft_change_not_pending` where it does not fit (below).
+   */
+  by?: DraftBy;
+  /**
+   * The `WorkflowChange` an agent's put is of: required with `by: "agent"` and refused otherwise. It must be a ready change of the same workflow, source and
+   * project that carries an `after` and is not `drafted` yet. The change is then marked `drafted`, and the draft's change is `by: "agent"` with this `change`
+   * and the change's ask as its summary. Pieces have no agent changes, so `PutPieceDraft` has neither.
+   */
+  change?: number;
 };
 
 /** What `DELETE /workflows/draft?workflow_id=&source=&project=&manifest_id=` removed, with every change in it. 404 `fleet.workflow_draft_none` where none was kept. */
@@ -85,6 +96,8 @@ export type WorkflowPublished = {
   saved: WorkflowSaved;
   /** The number this publish took in the place's versions, from 1. Where the text that was there is kept first, as `found`, it is version 1 and this is 2. */
   version: number;
+  /** The live Jobs this publish left pinned to the text they were running, so none moved by itself. `GET /workflows/affected` lists them; `POST /workflows/migrate` moves the ones he picks. */
+  pinned: string[];
 };
 
 /**

@@ -446,6 +446,22 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         change: ipc::ChangeSessionSteps,
     ) -> impl Future<Output = Result<ipc::JobCopy, Refusal>> + Send;
+    /// `get_affected_jobs`: every live Job that follows the workflow in a repository the place reaches, and where it
+    /// stands against what a publish there takes. Read-only.
+    fn get_affected_jobs(
+        self: Arc<Self>,
+        workflow_id: ipc::WorkflowId,
+        source: String,
+        project: Option<String>,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> impl Future<Output = Result<ipc::AffectedJobs, Refusal>> + Send;
+    /// `migrate_jobs`: the person moved the Jobs he picked to the published workflow, one result for each in order. A
+    /// Job that cannot move is refused in its own result, and the others move.
+    fn migrate_jobs(
+        self: Arc<Self>,
+        migrate: ipc::MigrateJobs,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> impl Future<Output = Result<ipc::MigratedJobs, Refusal>> + Send;
     /// `change_job_copy`: a lifecycle or a rule put in the Job's own copy, or taken out of it.
     fn change_job_copy(
         self: Arc<Self>,

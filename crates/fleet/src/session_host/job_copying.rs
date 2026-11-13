@@ -184,7 +184,7 @@ where
     }
 
     /// A workflow's text read as a repository would load it. The sentence is the loader's own.
-    fn text_resolved(&self, served: &Served, text: &str) -> Result<ResolvedWorkflow, String> {
+    pub(crate) fn text_resolved(&self, served: &Served, text: &str) -> Result<ResolvedWorkflow, String> {
         let roster = config::Roster::of(self.models_on());
         let def = config::WorkflowDef::parse(Path::new("workflow.json"), text, &roster).map_err(|why| why.to_string())?;
         ResolvedWorkflow::resolve(&def, served.manifest()).map_err(|why| why.to_string())
@@ -213,7 +213,7 @@ where
     }
 
     /// The file `workflow` is read from for a repository: the winning one, which a Job's copy starts as.
-    fn workflow_file(&self, served: &Served, workflow: &str) -> Result<(String, String), Refusal> {
+    pub(crate) fn workflow_file(&self, served: &Served, workflow: &str) -> Result<(String, String), Refusal> {
         let held = served.workflows();
         let source = held
             .get(&WorkflowId::carried(Ulid::carried(workflow)))
@@ -236,7 +236,7 @@ where
             return Ok(own);
         }
         let (text, path) = self.workflow_file(served, workflow)?;
-        Ok(KeptWorkflowCopy { workflow_id: workflow.to_string(), path, text })
+        Ok(KeptWorkflowCopy { workflow_id: workflow.to_string(), path, text, pinned: false })
     }
 
     fn step_refused(&self, fault: EditFault) -> Refusal {
@@ -298,7 +298,7 @@ where
         {
             let mut store = self.store().lock().await;
             store
-                .keep_job_workflow_copy(&id, &KeptWorkflowCopy { workflow_id: workflow.clone(), path: base.path, text: edited.text })
+                .keep_job_workflow_copy(&id, &KeptWorkflowCopy { workflow_id: workflow.clone(), path: base.path, text: edited.text, pinned: false })
                 .map_err(|why| self.ledger_fault(why))?;
             store
                 .keep_job_copy_mark(&id, &KeptCopyMark { lane: WORKFLOW_LANE.into(), item: edited.step.clone(), text: mark, by: who_kept(by).into(), at })
@@ -412,6 +412,7 @@ where
         };
         let workflow = hosting.workflow.clone();
         let own = own.filter(|own| workflow.as_deref() == Some(own.workflow_id.as_str()));
+        let held_own = own.as_ref().is_some_and(|own| !own.pinned);
         let held = workflow.as_deref().and_then(|workflow| self.steps_with(&hosting.manifest_id, workflow, own.as_ref()));
         // The kept skips are indexes into these steps, so they are read once the steps are resolved.
         let skipped = match &held {
@@ -425,7 +426,8 @@ where
         Ok(JobCopy {
             session_id: SessionId::carried(&session.id),
             workflow: workflow.map(ipc::WorkflowId::carried),
-            own: own.is_some(),
+            // A pin a publish made is the text the Job was running, not a change it made.
+            own: held_own,
             steps,
             lifecycles: piece(PieceKind::Lifecycle),
             rules: piece(PieceKind::Rule),
@@ -448,7 +450,7 @@ where
         let id = keep.session_id.as_str().trim().to_string();
         let (_, hosting) = self.copy_hosted(&id).await?;
         let own = self.store().lock().await.job_workflow_copy(&id).map_err(|why| self.ledger_fault(why))?;
-        let Some(own) = own.filter(|own| hosting.workflow.as_deref() == Some(own.workflow_id.as_str())) else {
+        let Some(own) = own.filter(|own| !own.pinned && hosting.workflow.as_deref() == Some(own.workflow_id.as_str())) else {
             return Err(self.hosted_refusal(
                 JOB_HOLDS_NO_COPY,
                 &format!("job {id} has not changed its workflow, so there is nothing of its own to keep"),
