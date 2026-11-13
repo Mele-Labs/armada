@@ -51,6 +51,10 @@ pub struct KeptWorkflowChange {
     /// is then the piece's id, `source` is `kit`, and `before_text` and `after_text` are the piece's file. Empty
     /// on a change to a workflow.
     pub piece: String,
+    /// The project a change is for where `source` is `project`. Empty otherwise, and on a change kept before projects.
+    pub project: String,
+    /// The drafted text landed in the owner's draft of the workflow, as the agent's change there.
+    pub drafted: bool,
 }
 
 /// What a change is begun with.
@@ -58,13 +62,15 @@ pub struct NewWorkflowChange<'a> {
     pub manifest_id: &'a str,
     pub workflow_id: &'a str,
     pub source: &'a str,
+    /// The project, where `source` is `project`; empty otherwise.
+    pub project: &'a str,
     pub step_id: Option<&'a str>,
     pub asked: Option<&'a str>,
     pub before_text: &'a str,
 }
 
 const COLUMNS: &str = "id, manifest_id, workflow_id, source, step_id, asked, nudges, before_text, after_text, state, \
-                       failed_because, notes, created_at, changed_at, missing, is_new, from_job, piece";
+                       failed_because, notes, created_at, changed_at, missing, is_new, from_job, piece, project, drafted";
 
 fn read(row: &Row<'_>) -> rusqlite::Result<KeptWorkflowChange> {
     let nudges: String = row.get(6)?;
@@ -87,6 +93,8 @@ fn read(row: &Row<'_>) -> rusqlite::Result<KeptWorkflowChange> {
         is_new: row.get::<_, i64>(15)? != 0,
         from_job: row.get::<_, i64>(16)? != 0,
         piece: row.get(17)?,
+        project: row.get(18)?,
+        drafted: row.get::<_, i64>(19)? != 0,
     })
 }
 
@@ -95,9 +103,9 @@ impl Store {
     pub fn begin_workflow_change(&mut self, new: &NewWorkflowChange<'_>, at: &str) -> Result<i64, WriteError> {
         self.conn
             .execute(
-                "INSERT INTO workflow_changes (manifest_id, workflow_id, source, step_id, asked, before_text, state, created_at, changed_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
-                params![new.manifest_id, new.workflow_id, new.source, new.step_id, new.asked, new.before_text, DRAFTING, at],
+                "INSERT INTO workflow_changes (manifest_id, workflow_id, source, project, step_id, asked, before_text, state, created_at, changed_at)
+                 VALUES (?1, ?2, ?3, ?9, ?4, ?5, ?6, ?7, ?8, ?8)",
+                params![new.manifest_id, new.workflow_id, new.source, new.step_id, new.asked, new.before_text, DRAFTING, at, new.project],
             )
             .map_err(fault("beginning a workflow change"))
             .map_err(WriteError::Database)?;
@@ -195,11 +203,13 @@ impl Store {
     }
 
     /// The open changes to a workflow in a place, oldest first. **A repository's copy is one repository's**,
-    /// so `manifest_id` narrows only that place; Kit's is every repository's.
+    /// so `manifest_id` narrows only that place; Kit's and Armada's are every repository's, and a project's is
+    /// narrowed by `project` instead, which is empty for any other place.
     pub fn open_workflow_changes(
         &self,
         workflow_id: &str,
         source: &str,
+        project: &str,
         manifest_id: &str,
     ) -> Result<Vec<KeptWorkflowChange>, WriteError> {
         let doing = "reading a workflow's open changes";
@@ -207,13 +217,13 @@ impl Store {
             .conn
             .prepare(&format!(
                 "SELECT {COLUMNS} FROM workflow_changes
-                 WHERE workflow_id = ?1 AND source = ?2 AND piece = '' AND state IN (?3, ?4, ?5, ?7) AND (source <> 'repository' OR manifest_id = ?6)
+                 WHERE workflow_id = ?1 AND source = ?2 AND piece = '' AND state IN (?3, ?4, ?5, ?7) AND (source <> 'repository' OR manifest_id = ?6) AND (source <> 'project' OR project = ?8)
                  ORDER BY id"
             ))
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
         let rows = statement
-            .query_map(params![workflow_id, source, DRAFTING, READY, FAILED, manifest_id, CANNOT], read)
+            .query_map(params![workflow_id, source, DRAFTING, READY, FAILED, manifest_id, CANNOT, project], read)
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
@@ -268,6 +278,17 @@ impl Store {
             .map_err(fault("moving a workflow change"))
             .map_err(WriteError::Database)?;
         Ok(true)
+    }
+
+    /// The drafted text of a ready change landed in the owner's draft of the workflow. Whether it was marked: a change
+    /// that is not ready is left alone.
+    pub fn workflow_change_marked_drafted(&mut self, id: i64) -> Result<bool, WriteError> {
+        let marked = self
+            .conn
+            .execute("UPDATE workflow_changes SET drafted = 1 WHERE id = ?1 AND state = ?2", params![id, READY])
+            .map_err(fault("marking a workflow change as drafted"))
+            .map_err(WriteError::Database)?;
+        Ok(marked > 0)
     }
 
     /// A draft came back: the change is ready with `after`.
