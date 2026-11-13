@@ -27,7 +27,7 @@ pub enum Entry {
     Label(&'static str),
     /// A line that cannot be picked now, with the reason in its tooltip.
     Off { label: SharedString, hint: &'static str },
-    /// A row with the parts the title bar's picker and menu give it: a glyph, a detail, a key, a gear.
+    /// A row with the parts the title bar's picker and menu give it: a glyph, a detail, a key.
     Row(Row),
     /// A filter field. What a person types narrows the entries after it, to the next rule when
     /// `to_rule`, else to the end, as Electron's `filterEntries` does.
@@ -48,33 +48,17 @@ pub struct Row {
     pub ticked: Option<bool>,
     /// Under a heading row: one glyph's width in.
     pub member: bool,
-    /// Drawn in the accent colour, as the acts below the picker's rule are.
-    pub accent: bool,
     /// A dot that says something wants the person, in the awaiting colour.
     pub attention: bool,
     /// The reason the row cannot be picked, said in its tooltip; `None` while it can.
     pub off: Option<SharedString>,
-    /// A gear at the row's end that opens what the row names, saying `Open <name>`.
-    pub gear: Option<SharedString>,
     /// Picking it flips its tick and leaves the menu open, as Electron's View group does.
     pub keep: bool,
-    /// A glyph button at the row's end that opens a layer about the row (the picker's place glyph); → on the row does the same.
-    pub trail: Option<Trail>,
-}
-
-/// The mark a row ends in, and what it says.
-#[derive(Clone)]
-pub struct Trail {
-    pub icon: &'static str,
-    /// The button's name.
-    pub said: SharedString,
-    /// Its tooltip.
-    pub tip: SharedString,
 }
 
 impl Row {
     pub fn new(id: &'static str, label: impl Into<SharedString>) -> Row {
-        Row { id, label: label.into(), icon: None, detail: None, key: None, ticked: None, member: false, accent: false, attention: false, off: None, gear: None, keep: false, trail: None }
+        Row { id, label: label.into(), icon: None, detail: None, key: None, ticked: None, member: false, attention: false, off: None, keep: false }
     }
 
     pub fn icon(mut self, icon: &'static str) -> Row {
@@ -103,11 +87,6 @@ impl Row {
         self
     }
 
-    pub fn accent(mut self) -> Row {
-        self.accent = true;
-        self
-    }
-
     pub fn attention(mut self) -> Row {
         self.attention = true;
         self
@@ -126,16 +105,6 @@ impl Row {
 
     pub fn keeps_open(mut self) -> Row {
         self.keep = true;
-        self
-    }
-
-    pub fn trail(mut self, icon: &'static str, said: impl Into<SharedString>, tip: impl Into<SharedString>) -> Row {
-        self.trail = Some(Trail { icon, said: said.into(), tip: tip.into() });
-        self
-    }
-
-    pub fn gear(mut self, said: impl Into<SharedString>) -> Row {
-        self.gear = Some(said.into());
         self
     }
 }
@@ -160,9 +129,6 @@ pub enum Picked {
     Entry { id: &'static str, keep: bool },
 }
 
-/// A gear or trail at a row's end was pressed, or → on the row: open what the row names, and leave the menu.
-pub struct Gear(pub &'static str);
-
 pub struct Dropdown {
     pub entries: Vec<Entry>,
     /// Where the menu's corner sits, in the window.
@@ -174,10 +140,11 @@ pub struct Dropdown {
     focus: FocusHandle,
     /// What has been typed into the menu's filter field, if it has one.
     query: String,
+    /// A menu opened at a point: what was pressed there, for Mod and Report.
+    pointed: Option<Option<crate::labels::Drawn>>,
 }
 
 impl EventEmitter<Picked> for Dropdown {}
-impl EventEmitter<Gear> for Dropdown {}
 impl EventEmitter<DismissEvent> for Dropdown {}
 
 impl Focusable for Dropdown {
@@ -187,14 +154,28 @@ impl Focusable for Dropdown {
 }
 
 impl Dropdown {
+    /// The menu's name, as VoiceOver reads it.
+    pub fn name(&self) -> &SharedString {
+        &self.name
+    }
+
     /// A menu at `at` named `name`; `cursor_first` puts the keys on its first entry, as a menu
     /// opened from the keyboard does.
     pub fn new(name: impl Into<SharedString>, entries: Vec<Entry>, at: Point<Pixels>, corner: Anchor, cursor_first: bool, cx: &mut Context<Self>) -> Self {
-        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle(), query: String::new() };
+        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle(), query: String::new(), pointed: None };
         if cursor_first {
             this.cursor = this.first();
         }
         this
+    }
+
+    /// A menu opened at a point: Mod and Report follow its own entries, aimed at what is drawn under `at`.
+    pub fn at_point(mut self, window: &Window, cx: &App) -> Self {
+        let drawn = cx.try_global::<crate::labels::LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
+        let whole = gpui::Bounds::new(gpui::point(px(0.), px(0.)), window.viewport_size());
+        self.pointed = Some(crate::capture::element_at(&drawn, self.at, whole));
+        self.entries.extend(crate::point::entries());
+        self
     }
 
     fn first(&self) -> Option<usize> {
@@ -276,6 +257,11 @@ impl Dropdown {
     fn pick(&mut self, at: usize, cx: &mut Context<Self>) {
         let Some(entry) = self.entries.get_mut(at) else { return };
         match entry {
+            Entry::Act { id, .. } if id.starts_with("point-") => {
+                let (id, at, pressed) = (*id, self.at, self.pointed.clone().flatten());
+                cx.emit(DismissEvent);
+                cx.defer(move |cx| crate::point::run(id, at, pressed, cx));
+            }
             Entry::Act { id, .. } | Entry::Choice { id, .. } => {
                 let id = *id;
                 cx.emit(Picked::Entry { id, keep: false });
@@ -324,6 +310,20 @@ impl Dropdown {
     }
 
     fn on_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        // ⌥1–9 picks the shown entry whose keycap reads so, as the dispatch chips take them.
+        let modifiers = event.keystroke.modifiers;
+        if modifiers.alt && !modifiers.platform && !modifiers.control && matches!(event.keystroke.key.as_str(), "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9") {
+            let cap = format!("⌥{}", event.keystroke.key);
+            let found = self.visible().0.into_iter().find(|&at| {
+                self.entries[at].pickable() && matches!(&self.entries[at], Entry::Item { key: Some(key), .. } if key.as_ref() == cap)
+            });
+            if let Some(at) = found {
+                cx.stop_propagation();
+                self.pick(at, cx);
+                cx.notify();
+            }
+            return;
+        }
         if self.searching() {
             let typed = if event.keystroke.key == "backspace" { self.query.pop().map(|_| ()) } else { Self::typed(event).map(|text| self.query.push_str(&text)) };
             if typed.is_some() || event.keystroke.key == "backspace" {
@@ -344,16 +344,6 @@ impl Dropdown {
                 None => return,
             },
             "escape" => cx.emit(DismissEvent),
-            "right" => match self.cursor.and_then(|at| match self.entries.get(at) {
-                Some(Entry::Row(row)) if row.gear.is_some() || row.trail.is_some() => Some(row.id),
-                _ => None,
-            }) {
-                Some(id) => {
-                    cx.emit(Gear(id));
-                    cx.emit(DismissEvent);
-                }
-                None => return,
-            },
             _ => return,
         }
         cx.stop_propagation();
@@ -458,8 +448,6 @@ impl Dropdown {
             Entry::Row(row) => {
                 let ink = if row.off.is_some() {
                     look.color(token::FG_SUBTLE)
-                } else if row.accent {
-                    look.color(token::ACCENT)
                 } else if row.ticked == Some(true) {
                     look.color(token::FG_DEFAULT)
                 } else {
@@ -468,56 +456,6 @@ impl Dropdown {
                 let role = if row.ticked.is_some() { Role::MenuItemCheckBox } else { Role::MenuItem };
                 let (id, label) = (row.id, row.label.clone());
                 let live = row.off.is_none();
-                let gear = row.gear.clone().map(|said| {
-                    let tip = said.clone();
-                    labelled(
-                        div()
-                            .id(SharedString::from(format!("gear-{id}")))
-                            .flex_none()
-                            .size(glyph)
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .cursor_pointer()
-                            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(tip.clone()).build(window, cx))
-                            .child(svg().path(icon_path("settings")).size(glyph).text_color(look.color(token::FG_MUTED)))
-                            .on_click(cx.listener(move |_, _, _, cx| {
-                                cx.stop_propagation();
-                                cx.emit(Gear(id));
-                                cx.emit(DismissEvent);
-                            })),
-                        Role::Button,
-                        said,
-                    )
-                });
-                let trail = row.trail.clone().map(|trail| {
-                    let tip = trail.tip.clone();
-                    labelled(
-                        div()
-                            .id(SharedString::from(format!("trail-{id}")))
-                            .flex_none()
-                            .size(look.length(token::SPACE_6))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .rounded(look.length(token::RADIUS_MD))
-                            .cursor_pointer()
-                            .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(tip.clone()).build(window, cx))
-                            .child(svg().path(icon_path(trail.icon)).size(look.length(token::SPACE_3)).text_color(look.color(token::STATUS_COMPLETED_SUCCESS)))
-                            .on_mouse_down(gpui::MouseButton::Left, |_, window, cx| {
-                                cx.stop_propagation();
-                                window.prevent_default();
-                            })
-                            .on_click(cx.listener(move |_, _, _, cx| {
-                                cx.stop_propagation();
-                                cx.emit(Gear(id));
-                                cx.emit(DismissEvent);
-                            })),
-                        Role::Button,
-                        trail.said,
-                    )
-                });
                 labelled(
                     div()
                         .id(id)
@@ -556,8 +494,6 @@ impl Dropdown {
                                 .text_color(look.color(token::FG_SUBTLE))
                                 .child(key)
                         }))
-                        .children(trail)
-                        .children(gear)
                         .when(has_checks, |line| {
                             line.child(div().flex_none().size(glyph).when(row.ticked == Some(true), |mark| {
                                 mark.child(svg().path(icon_path("check")).size(glyph).text_color(look.color(token::ACCENT)))
@@ -628,7 +564,7 @@ impl Dropdown {
 }
 
 impl Render for Dropdown {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let (shown, nothing) = self.visible();
         let mut entries: Vec<gpui::AnyElement> = Vec::new();
         for at in shown {
@@ -666,9 +602,10 @@ impl Render for Dropdown {
                         .capture_key_down(cx.listener(Self::on_key))
                         .on_mouse_down_out(cx.listener(|_, _, _, cx| cx.emit(DismissEvent)))
                         .occlude()
-                        // Room for a detail after a name; and a menu with a filter field is a long one.
+                        // Room for a detail after a name. A menu with a filter field is a long one, so it
+                        // scrolls under the field; any other runs its length, kept inside the window.
                         .w(look.length(token::W_MENU) + if detailed { look.length(token::SPACE_12) } else { px(0.) })
-                        .max_h(look.length(token::PALETTE_MAX_HEIGHT) + if self.searching() { look.length(token::SPACE_12) } else { px(0.) })
+                        .max_h(if self.searching() { look.length(token::PALETTE_MAX_HEIGHT) + look.length(token::SPACE_12) } else { window.viewport_size().height - look.length(token::SPACE_1) * 2. })
                         .overflow_y_scroll()
                         .flex()
                         .flex_col()
@@ -684,7 +621,8 @@ impl Render for Dropdown {
                     self.name.clone(),
                 )),
         )
-        .with_priority(1)
+        // Above every sheet: a menu opens from whatever is in front, such as the sketch reader's rail.
+        .with_priority(4)
     }
 }
 

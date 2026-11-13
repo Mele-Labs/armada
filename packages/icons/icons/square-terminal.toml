@@ -26,3 +26,10 @@
     size = "12px"
     status = "Specified"
     notes = "Chosen by the owner on 16 Oct 2026 for the walk `ledger-background`, tooltip `Background command`. A command run is not a Session and not Pilot, and the ledger already holds a piloted Job's `terminal` mark, so the square keeps the two apart at 12px. An exception to the reservation to a Session, on his word."
+
+  [[icons.square-terminal.usage]]
+    means = "A terminal's tab in a Job's panes, and Terminal in a pane's + menu"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Electron's pane kinds have drawn a Terminal tab with this glyph (`job-panes/kinds.ts`); native's tab and + offer follow it, 12 Nov 2026. `file-terminal` stays the Job's shell, on the dispatch line's Terminal kind and New terminal."

@@ -22,18 +22,40 @@ enum Ask {
     Bare(&'static str),
 }
 
-fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, cx: &App) -> Task<Result<T, String>> {
-    cx.background_spawn(async move {
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-        let (status, bytes) = match ask {
-            Ask::Get(path) => runtime.block_on(crate::transport::get(port, path))?,
-            Ask::Post(path, body) => runtime.block_on(crate::transport::post(port, path, body))?,
-            Ask::Bare(path) => runtime.block_on(crate::transport::post_bare(port, path))?,
-        };
-        if !(200..300).contains(&status) {
-            return Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message));
+/// Why a press did not come back answered: Fleet said no, or its reply never arrived.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Failed {
+    Refused(String),
+    Lost(String),
+}
+
+impl From<Failed> for String {
+    fn from(failed: Failed) -> String {
+        match failed {
+            Failed::Refused(why) | Failed::Lost(why) => why,
         }
-        ipc::decode::<T>(what, &bytes).map_err(|why| why.to_string())
+    }
+}
+
+fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, cx: &App) -> Task<Result<T, String>> {
+    let task = told(port, ask, what, cx);
+    cx.background_spawn(async move { task.await.map_err(String::from) })
+}
+
+fn told<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, cx: &App) -> Task<Result<T, Failed>> {
+    cx.background_spawn(async move {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| Failed::Lost(why.to_string()))?;
+        let sent = match ask {
+            Ask::Get(path) => runtime.block_on(crate::transport::get(port, path)),
+            Ask::Post(path, body) => runtime.block_on(crate::transport::post(port, path, body)),
+            Ask::Bare(path) => runtime.block_on(crate::transport::post_bare(port, path)),
+        };
+        let (status, bytes) = sent.map_err(Failed::Lost)?;
+        if !(200..300).contains(&status) {
+            return Err(Failed::Refused(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message)));
+        }
+        // A 2xx that does not read is Fleet's answer lost on the way: it may have done the press.
+        ipc::decode::<T>(what, &bytes).map_err(|why| Failed::Lost(why.to_string()))
     })
 }
 
@@ -66,20 +88,23 @@ impl Wire {
     }
 
     /// `POST /operator/page/answer`.
-    pub fn answer(&mut self, press: OperatorAnswerPress, cx: &App) -> Task<Result<OperatorAnswered, String>> {
+    pub fn answer(&mut self, press: OperatorAnswerPress, cx: &App) -> Task<Result<OperatorAnswered, Failed>> {
         if let Wire::Mock(mock) = self {
             return Task::ready(mock.answer(&press));
         }
         let said = body(&press);
-        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/page/answer", said), "OperatorAnswered", cx))
+        match self.port(cx) {
+            Some(port) => told(port, Ask::Post("/operator/page/answer", said), "OperatorAnswered", cx),
+            None => Task::ready(Err(Failed::Lost("Fleet is not connected".into()))),
+        }
     }
 
-    /// `POST /operator/page/later`.
-    pub fn later(&mut self, id: &str, cx: &App) -> Task<Result<OperatorPage, String>> {
+    /// `POST /operator/page/later`: last until `until`, RFC 3339, or for the rest of the local day.
+    pub fn later(&mut self, id: &str, until: Option<String>, cx: &App) -> Task<Result<OperatorPage, String>> {
         if let Wire::Mock(mock) = self {
-            return Task::ready(mock.later(id));
+            return Task::ready(mock.later(id, until));
         }
-        let said = body(&OperatorLater { id: id.to_string(), until: None });
+        let said = body(&OperatorLater { id: id.to_string(), until: until.map(ipc::Instant::carried) });
         self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/page/later", said), "OperatorPage", cx))
     }
 

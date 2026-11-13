@@ -79,6 +79,10 @@ pub(super) struct Cards {
     spots: RefCell<std::collections::HashMap<String, Spot>>,
     /// The Judge's notes not yet acted on, in the order the plan drew them this frame.
     findings: RefCell<Vec<Found>>,
+    /// What `⌘Enter` does in a card's open box, by card key (`DraftRow.tsx:309`).
+    commits: RefCell<std::collections::HashMap<String, Run>>,
+    /// The width a row was drawn at when a part of it was left out for want of room, by part key.
+    pub cramped: RefCell<std::collections::HashMap<String, gpui::Pixels>>,
 }
 
 /// A Judge's note drawn and waiting: its row, and which note of which reading it is.
@@ -126,11 +130,24 @@ impl Cards {
                 }
             }
             None => {
+                self.commits.borrow_mut().remove(key);
                 if cards.remove(key).is_some() {
                     self.changed.set(true);
                 }
             }
         }
+    }
+
+    /// What `⌘Enter` in the card's open box sends, or nothing while the box holds nothing to send.
+    pub fn commit(&self, key: &str, run: Option<Run>) {
+        match run {
+            Some(run) => self.commits.borrow_mut().insert(key.to_string(), run),
+            None => self.commits.borrow_mut().remove(key),
+        };
+    }
+
+    pub fn commit_of(&self, key: &str) -> Option<Run> {
+        self.commits.borrow().get(key).cloned()
     }
 
     /// The focus handle and the drawn edges of the row `key`, made on its first draw.
@@ -194,6 +211,11 @@ impl Cards {
             .filter(|(key, spot)| key.starts_with("block:") && spot.seen.get())
             .find(|(_, spot)| spot.bounds.get().contains(&a) && spot.bounds.get().contains(&b))
             .map(|(key, _)| key["block:".len()..].to_string())
+    }
+
+    /// Where the block of words under the id of its row was last drawn.
+    pub fn block_origin(&self, row: &str) -> Option<gpui::Point<gpui::Pixels>> {
+        self.spots.borrow().get(&format!("block:{row}")).map(|spot| spot.bounds.get().origin)
     }
 
     pub fn take_changed(&self) -> bool {
@@ -372,8 +394,8 @@ impl JobView {
         let dialog =
             div()
                 .id("thread-confirm-scrim")
-                .w(window.viewport_size().width)
-                .h(window.viewport_size().height)
+                .w(crate::room::of(window, cx).size.width)
+                .h(crate::room::of(window, cx).size.height)
                 .flex()
                 .items_center()
                 .justify_center()
@@ -419,7 +441,7 @@ impl JobView {
                     Role::Dialog,
                     title,
                 ));
-        Some(deferred(anchored().anchor(Anchor::TopLeft).position(gpui::point(gpui::px(0.), gpui::px(0.))).child(dialog)).with_priority(3).into_any_element())
+        Some(deferred(anchored().anchor(Anchor::TopLeft).position(crate::room::of(window, cx).origin).child(dialog)).with_priority(3).into_any_element())
     }
 }
 

@@ -21,8 +21,8 @@ use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
 
 use crate::assets::icon_path;
 use crate::dropdown::{under, Dropdown, Entry, Picked};
-use crate::fleet::FleetConnection;
-use crate::job_view::JobView;
+use crate::fleet::{BuildAct, FleetConnection};
+use crate::job_view::{JobSide, JobView};
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::log::Note;
@@ -76,6 +76,10 @@ struct Row {
     project: SharedString,
     paused: bool,
     ended: bool,
+    /// Asked to carry on in a new Job and told yes: a turning ring until the new one is up.
+    handing_off: bool,
+    /// The earlier Job this one took the place of, which the list does not draw: a mark beside the row opens it.
+    earlier: Option<SharedString>,
     /// How many listed Jobs up the line of starters this one stands.
     depth: usize,
     /// The Job that started this one, by title and project, for the link's tooltip.
@@ -91,6 +95,8 @@ struct Row {
     flow: Option<(SharedString, SharedString)>,
     /// What the Job is doing now, or last said.
     now: Option<SharedString>,
+    /// Not a Job: an idea saved to start later, drawn dashed with Start and Remove (`QueuedRow`).
+    queued: Option<crate::queued::QueuedIdea>,
 }
 
 /// What a row draws, chosen in the View group of its menu (`row-view.tsx`, `VIEW_FIELDS`), in the
@@ -225,6 +231,17 @@ fn flow_of(job: &SessionRecord) -> Option<(SharedString, SharedString)> {
     Some((name.into(), step.into()))
 }
 
+/// A hand off's ledger (`a-job-hands-off-to-a-new-one.md`), as `sessions-wire.ts` reads it: `replaces` and
+/// `replaced_by` are spent once written.
+fn spent<'a>(job: &'a SessionRecord, kind: &str) -> Option<&'a str> {
+    job.attachments.iter().find(|one| one.kind == kind && one.state == ipc::AttachmentState::Spent).map(|one| one.target.as_str())
+}
+
+/// Handing off: `handoff_starting` stands and no failure outranks it, on a Job not ended.
+fn handing_off(job: &SessionRecord) -> bool {
+    job.state != SessionState::Ended && attached(job, "handoff_starting").is_some() && attached(job, "handoff_failed").is_none()
+}
+
 fn starter_of(job: &SessionRecord) -> Option<&str> {
     job.attachments.iter().find(|one| one.kind == "started_by").map(|one| one.target.as_str())
 }
@@ -264,7 +281,17 @@ fn matches(job: &SessionRecord, query: &str) -> bool {
 /// sit under its name, projects in the order their first Job comes, and a Job started by another
 /// listed in its project stands right under it. One project draws no name, as Electron's list
 /// draws a head only when more than one repository is listed (`cockpit/deck/bands.ts`).
-fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String]) -> Vec<Line> {
+/// The list's order with `id` taken out and put back before or after `target`; `None` when either is
+/// not in it.
+fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option<Vec<String>> {
+    let at = placed.iter().position(|one| one == id)?;
+    let lifted = placed.remove(at);
+    let there = placed.iter().position(|one| one == target)?;
+    placed.insert(if after { there + 1 } else { there }, lifted);
+    Some(placed)
+}
+
+fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String]) -> Vec<Line> {
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
     let live = |job: &&SessionRecord| job.state == SessionState::Live;
@@ -280,7 +307,8 @@ fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String])
         Scope::Ended => ended,
         Scope::All => lives.into_iter().chain(ended).collect(),
     };
-    let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| matches(job, query)).collect();
+    // A Job another took the place of stands behind that one's row, as Electron's deck has it (`ship.ts`, `behind`).
+    let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| spent(job, "replaced_by").is_none() && matches(job, query)).collect();
     let now = chrono::Utc::now();
     let title_of = |job: &SessionRecord| -> SharedString { job.title.clone().unwrap_or_else(|| job.id.as_str().to_string()).into() };
     let mut projects: Vec<(String, Vec<&SessionRecord>)> = Vec::new();
@@ -293,11 +321,46 @@ fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String])
     }
     // Groups stand in the order Fleet lists Jobs, so a state change never moves one.
     projects.sort_by_key(|(name, _)| jobs.iter().position(|job| project_of(job) == *name));
+    // Ideas waiting to start, among the live Jobs, each under its repository's group (`bands.ts`): the group of a
+    // Job in its root, else its repository's name. A group with only ideas stands after the rest.
+    let waiting: Vec<&crate::queued::QueuedIdea> = match scope {
+        Scope::Active | Scope::All => ideas.iter().filter(|idea| query.trim().is_empty() || idea.text.to_lowercase().contains(&query.trim().to_lowercase())).collect(),
+        _ => Vec::new(),
+    };
+    let group_of = |idea: &crate::queued::QueuedIdea| jobs.iter().find(|job| job.cwd == idea.root).map_or_else(|| idea.repository.clone(), project_of);
+    for idea in &waiting {
+        let group = group_of(idea);
+        if !projects.iter().any(|(name, _)| *name == group) {
+            projects.push((group, Vec::new()));
+        }
+    }
     let headed = projects.len() > 1;
     let mut lines = Vec::new();
     for (project, held) in projects {
         if headed {
             lines.push(Line::Project(project.clone().into()));
+        }
+        for idea in waiting.iter().filter(|idea| group_of(idea) == project) {
+            lines.push(Line::Job(Row {
+                id: format!("queued:{}", idea.id).into(),
+                title: idea.title().to_string().into(),
+                project: project.clone().into(),
+                paused: false,
+                ended: false,
+                handing_off: false,
+                earlier: None,
+                depth: 0,
+                started_by: None,
+                slot: None,
+                branch: None,
+                pr: None,
+                last: None,
+                mark: None,
+                issue: None,
+                flow: None,
+                now: None,
+                queued: Some((*idea).clone()),
+            }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
         let row_of = |job: &SessionRecord, depth: usize| Row {
@@ -306,6 +369,8 @@ fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String])
             project: project.clone().into(),
             paused: paused(job),
             ended: job.state == SessionState::Ended,
+            handing_off: handing_off(job),
+            earlier: spent(job, "replaces").map(|id| id.to_string().into()),
             depth,
             started_by: starter_of(job).and_then(|id| jobs.iter().find(|one| one.id.as_str() == id)).map(|one| (title_of(one), project_of(one).into())),
             slot: attached(job, "slot").map(|slot| slot.rsplit('/').next().unwrap_or(slot).to_string().into()),
@@ -320,6 +385,7 @@ fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String])
             }),
             flow: flow_of(job),
             now: job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()).map(Into::into),
+            queued: None,
         };
         fn under<'a>(
             parent: &str,
@@ -414,6 +480,28 @@ pub(crate) fn send(port: Option<u16>, path: &'static str, body: Result<String, S
         .detach();
 }
 
+/// A command with no body, sent as [`send`] sends one. A refusal is noted, and Fleet's next state is drawn.
+pub(crate) fn send_bare(port: Option<u16>, path: &'static str, cx: &mut App) {
+    let Some(port) = port else {
+        Note::warn("not sent: no Fleet is connected").field("route", path).emit();
+        return;
+    };
+    cx.background_executor()
+        .spawn(async move {
+            let answer = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|why| why.to_string())
+                .and_then(|runtime| runtime.block_on(crate::transport::post_bare(port, path)));
+            match answer {
+                Ok((status, _)) if (200..300).contains(&status) => {}
+                Ok((status, bytes)) => Note::warn("Fleet refused an act").field("route", path).field("status", status as i64).field("said", String::from_utf8_lossy(&bytes).to_string()).emit(),
+                Err(why) => Note::warn("an act did not reach Fleet").field("route", path).field("why", why).emit(),
+            }
+        })
+        .detach();
+}
+
 /// A menu that is open, and what listens to it.
 struct Open {
     menu: Entity<Dropdown>,
@@ -436,6 +524,8 @@ pub struct JobsList {
     focused: Option<SharedString>,
     /// The Job opened with Enter or a press.
     opened: Option<SharedString>,
+    /// Counts each pick of a Job, the open one again too, so the view puts the keys in its box.
+    picks: u64,
     focus: FocusHandle,
     /// The whole panel's, which holds the list and what it opens over itself, its menus.
     within: FocusHandle,
@@ -456,12 +546,78 @@ pub struct JobsList {
     /// Every reader of a Job's title reads the record, so the head, the list, the review sheet and the
     /// palette cannot disagree while Fleet's answer is pending.
     asked: HashMap<String, (Option<String>, String)>,
+    /// While a row is dragged: the row under the pointer, and whether it drops after it (`reorder.ts`).
+    drop: Option<(SharedString, bool)>,
+    /// The row being dragged, faded where it stood.
+    lifted: Option<SharedString>,
+    /// The ideas waiting to start (`crate::queued`), each a row under its repository's group.
+    ideas: Vec<crate::queued::QueuedIdea>,
+}
+
+/// A Job's row while it is dragged to a new place in its project.
+#[derive(Clone)]
+struct DraggedRow {
+    id: SharedString,
+    title: SharedString,
+}
+
+/// What follows the pointer while a row is dragged: the row's title on a card.
+struct RowGhost(SharedString);
+
+impl Render for RowGhost {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let look = cx.look();
+        div()
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_LG))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::ACCENT))
+            .bg(look.color(token::BG_RAISED))
+            .shadow(look.shadows(token::SHADOW_OVERLAY))
+            .text_size(look.length(token::TEXT_SM))
+            .text_color(look.color(token::FG_DEFAULT))
+            .opacity(0.9)
+            .child(self.0.clone())
+    }
 }
 
 impl JobsList {
     /// The list on a live Fleet: it follows the Jobs the connection holds.
     pub fn live(fleet: &Entity<FleetConnection>, cx: &mut Context<Self>) -> Self {
+        // A press on a clash mark opens the other Job, as a press on its row does; `main` has nothing to open.
+        let opens = cx.entity().downgrade();
+        cx.set_global(crate::clash_mark::OpenHolder(Rc::new(move |holder: &ipc::ClashHolder, _window, cx| {
+            if holder.kind != ipc::ClashSide::Session {
+                return;
+            }
+            let id = SharedString::from(holder.id.clone());
+            let _ = opens.update(cx, |list, cx| list.open(id, cx));
+        })));
         let watch = cx.observe(fleet, |this, fleet, cx| {
+            // The title bar's picker lists what Fleet serves; the bar has no Fleet of its own to watch.
+            if let Some(bar) = crate::titlebar::live(cx) {
+                let (usage, downshift) = (fleet.read(cx).held().plan_usage.clone(), fleet.read(cx).held().downshift.clone());
+                let build = fleet.read(cx).held().build.clone();
+                let link = fleet.read(cx).held().link();
+                bar.update(cx, |bar, cx| {
+                    bar.set_fleet(&link, cx);
+                    bar.set_usage(usage.as_ref(), downshift.as_ref(), cx);
+                    bar.set_build(build.as_ref(), cx);
+                });
+            }
+            // Every row's write-clash mark reads what Fleet last said; nothing while it cannot say.
+            let clashes = fleet.read(cx).held().clashes.clone().unwrap_or_default();
+            crate::clash_mark::hold(clashes, cx);
+            if let (Some(served), Some(bar)) = (fleet.read(cx).held().repositories.clone(), crate::titlebar::live(cx)) {
+                let projects = fleet.read(cx).held().projects.clone();
+                bar.update(cx, |bar, cx| {
+                    bar.set_repositories(&served, cx);
+                    if let Some(projects) = &projects {
+                        bar.set_projects(&served, projects, cx);
+                    }
+                });
+            }
             let mut jobs = fleet.read(cx).held().jobs.clone();
             this.hold_asked_titles(&mut jobs);
             if jobs != this.jobs {
@@ -471,12 +627,14 @@ impl JobsList {
             }
         });
         let (scope, order) = read_deck();
+        crate::queued::begin(true, cx);
         let jobs = fleet.read(cx).held().jobs.clone();
         Self::with(jobs, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx)
     }
 
     /// The list on mock Jobs, which never change, with the View as a first start has it, so a walk shows what he will.
     pub fn mock(jobs: &[SessionRecord], cx: &mut Context<Self>) -> Self {
+        crate::queued::begin(false, cx);
         Self::with(jobs.to_vec(), Scope::Active, Vec::new(), View::DEFAULT, false, None, None, cx)
     }
 
@@ -500,6 +658,7 @@ impl JobsList {
             remember,
             focused: None,
             opened: None,
+            picks: 0,
             focus: cx.focus_handle(),
             within: cx.focus_handle(),
             scroll: ScrollHandle::new(),
@@ -512,7 +671,16 @@ impl JobsList {
             fleet,
             _watch: watch,
             asked: HashMap::new(),
+            drop: None,
+            lifted: None,
+            ideas: crate::queued::ideas(cx),
         };
+        // The ideas waiting to start stand in the list as they change, from Dispatch or a row's own acts.
+        cx.observe_global::<crate::queued::Queued>(|this, cx| {
+            this.ideas = crate::queued::ideas(cx);
+            this.relist(cx);
+        })
+        .detach();
         this.place_new();
         this.lines = this.lines_now();
         this.focused = this.first_row();
@@ -522,7 +690,7 @@ impl JobsList {
     /// Put each live Job the order has not met at its end, in the standing order it is drawn in,
     /// so no later change of state moves it (`store.ts`, a new one is added at the end).
     fn place_new(&mut self) {
-        let fresh: Vec<String> = lines_of(&self.jobs, Scope::All, "", &self.order)
+        let fresh: Vec<String> = lines_of(&self.jobs, &[], Scope::All, "", &self.order)
             .into_iter()
             .filter_map(|line| match line {
                 Line::Job(one) if !one.ended && !self.order.iter().any(|id| *id == *one.id) => Some(one.id.to_string()),
@@ -549,8 +717,14 @@ impl JobsList {
         self.focused = Some(id.clone());
         self.opened = Some(id);
         self.card = None;
+        self.picks += 1;
         cx.notify();
         true
+    }
+
+    /// How many times a Job was picked: a press, Enter, the palette or a banner.
+    pub fn picks(&self) -> u64 {
+        self.picks
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -568,8 +742,9 @@ impl JobsList {
             self.focused = Some(id.clone());
             self.opened = Some(id);
             self.card = None;
-            cx.notify();
         }
+        self.picks += 1;
+        cx.notify();
     }
 
     /// The title a rename asked for stands on the Job at once. On a live Fleet it stands until Fleet's
@@ -611,6 +786,26 @@ impl JobsList {
         self.jobs.iter().find(|job| job.id.as_str() == id)
     }
 
+    /// A walk's stand-in for Fleet's yes to a queued idea's start: a Job of its words, in its repository's group,
+    /// stands in the list at once and opens, as a live start's record would.
+    pub fn hold_started(&mut self, idea: &crate::queued::QueuedIdea, cx: &mut Context<Self>) {
+        let like = self.jobs.iter().find(|job| project_of(job) == idea.repository).or_else(|| self.jobs.first());
+        let Some(mut record) = like.cloned() else { return };
+        record.id = ipc::SessionId::carried(format!("started-{}", idea.id));
+        record.title = Some(idea.title().to_string());
+        record.state = SessionState::Live;
+        record.attachments = Vec::new();
+        record.activity = None;
+        record.so_far = None;
+        record.hosted = None;
+        record.mark = None;
+        record.ended_at = None;
+        let id: SharedString = record.id.as_str().to_string().into();
+        self.jobs.insert(0, record);
+        self.relist(cx);
+        self.open(id, cx);
+    }
+
     /// Every Job the list holds, for the message box's `@` to name.
     pub fn records(&self) -> &[SessionRecord] {
         &self.jobs
@@ -626,7 +821,22 @@ impl JobsList {
     }
 
     fn lines_now(&self) -> Vec<Line> {
-        lines_of(&self.jobs, self.scope, &self.query, &self.order)
+        lines_of(&self.jobs, &self.ideas, self.scope, &self.query, &self.order)
+    }
+
+    /// The keys on the first Job that needs him, as the deck's `c` puts them (`keys-model.ts`, the
+    /// `needs` slot). With none, they stay where they are.
+    pub fn to_first_needing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let first = self.lines.iter().enumerate().find_map(|(at, line)| match line {
+            Line::Job(row) if row.mark.is_some_and(|mark| mark.group == JobGroup::Needs) => Some((at, row.id.clone())),
+            _ => None,
+        });
+        if let Some((at, id)) = first {
+            self.focused = Some(id);
+            self.scroll.scroll_to_item(at);
+        }
+        window.focus(&self.focus, cx);
+        cx.notify();
     }
 
     fn first_row(&self) -> Option<SharedString> {
@@ -700,7 +910,7 @@ impl JobsList {
     fn shove(&mut self, by: isize, cx: &mut Context<Self>) {
         let Some(id) = self.focused.clone() else { return };
         let Some(row) = self.rows().find(|row| row.id == id).cloned() else { return };
-        if row.depth > 0 || row.ended {
+        if row.depth > 0 || row.ended || row.queued.is_some() {
             return;
         }
         let peers: Vec<SharedString> =
@@ -709,7 +919,7 @@ impl JobsList {
         let Some(over) = at.checked_add_signed(by).and_then(|to| peers.get(to)).cloned() else { return };
         // Place every live Job, so the move holds whatever the list draws next.
         let mut placed: Vec<String> =
-            lines_of(&self.jobs, Scope::All, "", &self.order).iter().filter_map(|line| match line {
+            lines_of(&self.jobs, &[], Scope::All, "", &self.order).iter().filter_map(|line| match line {
                 Line::Job(one) if !one.ended => Some(one.id.to_string()),
                 _ => None,
             }).collect();
@@ -720,13 +930,38 @@ impl JobsList {
         self.relist(cx);
     }
 
+    /// A dragged row dropped before or after another of its project's top rows (`Deck.tsx` `onMove`).
+    fn place(&mut self, id: &SharedString, target: &SharedString, after: bool, cx: &mut Context<Self>) {
+        self.drop = None;
+        self.lifted = None;
+        let peer = |id: &SharedString| self.rows().find(|row| &row.id == id).filter(|row| row.depth == 0 && !row.ended).map(|row| row.project.clone());
+        let (Some(from), Some(to)) = (peer(id), peer(target)) else { return cx.notify() };
+        if id == target || from != to {
+            return cx.notify();
+        }
+        let placed: Vec<String> =
+            lines_of(&self.jobs, &[], Scope::All, "", &self.order).iter().filter_map(|line| match line {
+                Line::Job(one) if !one.ended => Some(one.id.to_string()),
+                _ => None,
+            }).collect();
+        let Some(placed) = moved(placed, id, target, after) else { return };
+        self.order = placed;
+        self.focused = Some(id.clone());
+        self.keep();
+        self.relist(cx);
+    }
+
     fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         if act.is("move_focus") {
             // The registry's slots are j, k, ↓, ↑: even slots go down.
             self.step(if act.slot % 2 == 0 { 1 } else { -1 }, window, cx);
         } else if act.is("open_focused") {
-            if self.opened != self.focused {
+            // An idea's row starts it: ↵ is the press with no pointer (`QueuedRow`).
+            if let Some(idea) = self.focused_idea() {
+                crate::dispatch::start_queued(idea, cx);
+            } else if self.focused.is_some() {
                 self.opened = self.focused.clone();
+                self.picks += 1;
                 cx.notify();
             }
         } else if act.is("deck_search") {
@@ -739,16 +974,44 @@ impl JobsList {
         }
     }
 
+    /// `p` while the rows have the keys pauses or resumes the row under them (`pauseForP`).
+    pub(crate) fn pause_key(&mut self, event: &gpui::KeyDownEvent, window: &Window, cx: &mut Context<Self>) -> bool {
+        if event.keystroke.key != "p" || event.keystroke.modifiers.modified() || !self.focus.is_focused(window) {
+            return false;
+        }
+        let Some(row) = self.focused.as_ref().and_then(|id| self.rows().find(|row| &row.id == id)).filter(|row| !row.ended && row.queued.is_none()) else { return false };
+        let session_id = ipc::SessionId::carried(row.id.to_string());
+        let body = if row.paused {
+            ("/sessions/resume", ipc::encode(&ipc::ResumeSession { session_id }))
+        } else {
+            ("/sessions/pause", ipc::encode(&ipc::PauseSession { session_id }))
+        };
+        send(self.port(cx), body.0, body.1.map_err(|why| format!("{why:?}")), cx);
+        true
+    }
+
     fn on_row_menu(&mut self, _: &RowMenu, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.focused.clone() else { return };
+        // An idea's row has no menu, as Electron's has none.
+        if self.focused_idea().is_some() {
+            return;
+        }
         let Some(bounds) = self.bounds.borrow().get(&id).copied() else { return };
         self.open_menu(id, under(bounds), true, window, cx);
     }
 
+    /// The idea under the keys, where the focused row is one.
+    fn focused_idea(&self) -> Option<crate::queued::QueuedIdea> {
+        self.focused.as_ref().and_then(|id| self.rows().find(|row| &row.id == id)).and_then(|row| row.queued.clone())
+    }
+
+    /// `h`: the earlier Job behind the focused row, where it took one's place (`Deck.tsx`).
     fn on_earlier(&mut self, _: &Earlier, _window: &mut Window, cx: &mut Context<Self>) {
-        // A Job another took the place of is `behind` it, and Fleet does not say so on the record
-        // yet; until it does, `h` has nowhere to go.
-        cx.propagate();
+        let Some(earlier) = self.focused.as_ref().and_then(|id| self.rows().find(|row| &row.id == id)).and_then(|row| row.earlier.clone()) else {
+            cx.propagate();
+            return;
+        };
+        self.open(earlier, cx);
     }
 
     /// The row's menu (`RowMenu.tsx`), at `at`: Pause or Resume, Name it for me, Try it in your app
@@ -759,21 +1022,20 @@ impl JobsList {
             return;
         }
         self.card = None;
+        let (pause, label, icon) = if row.paused { ("resume", "Resume", "play") } else { ("pause", "Pause", "circle-pause") };
         let mut entries = vec![
-            if row.paused {
-                Entry::Act { id: "resume", label: "Resume".into(), icon: Some("play"), danger: false }
-            } else {
-                Entry::Act { id: "pause", label: "Pause".into(), icon: Some("circle-pause"), danger: false }
-            },
+            Entry::Item { id: pause, label: label.into(), icon: Some(icon), danger: false, key: Some("P".into()), off: None },
             Entry::Act { id: "name", label: "Name it for me".into(), icon: Some("wand-sparkles"), danger: false },
+            Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false },
             Entry::Act { id: "try", label: "Try it in your app".into(), icon: None, danger: false },
             Entry::Act { id: "close", label: "Close".into(), icon: Some("x"), danger: true },
             Entry::Rule,
         ];
-        // The View group comes after the Job's own acts, as in `RowMenu.tsx`.
+        // The View group comes after the Job's own acts, then Mod and Report, as in `RowMenu.tsx`.
         entries.extend(self.view.entries());
-        let menu = cx.new(|cx| Dropdown::new("Job", entries, at, Anchor::TopLeft, from_keys, cx));
+        let menu = cx.new(|cx| Dropdown::new("Job", entries, at, Anchor::TopLeft, from_keys, cx).at_point(window, cx));
         let job = id.clone();
+        let title = row.title.clone();
         let picked = cx.subscribe(&menu, move |this, _, picked: &Picked, cx| {
             let Picked::Entry { id: act, .. } = picked;
             let port = this.port(cx);
@@ -783,12 +1045,14 @@ impl JobsList {
                 "pause" => send(port, "/sessions/pause", encoded(ipc::encode(&ipc::PauseSession { session_id })), cx),
                 "resume" => send(port, "/sessions/resume", encoded(ipc::encode(&ipc::ResumeSession { session_id })), cx),
                 "name" => send(port, "/sessions/name", encoded(ipc::encode(&ipc::NameSession { session_id })), cx),
-                "try" => send(
-                    port,
-                    "/fleet/build/pick",
-                    encoded(ipc::encode(&ipc::PickFleetBuildJob { branch: None, session_id: Some(job.to_string()), picked: true })),
-                    cx,
-                ),
+                "teach" => crate::dispatch::screen::teach_row(title.to_string(), cx),
+                "try" => {
+                    let pick = BuildAct::Pick(ipc::PickFleetBuildJob { branch: None, session_id: Some(job.to_string()), picked: true });
+                    match this.fleet() {
+                        Some(fleet) => fleet.update(cx, |fleet, cx| fleet.build_act(pick, cx)),
+                        None => Note::warn("not sent: no Fleet is connected").field("route", "/fleet/build/pick").emit(),
+                    }
+                }
                 "close" => send(port, "/sessions/close", encoded(ipc::encode(&ipc::CloseSession { session_id })), cx),
                 field if field.starts_with("view:") => {
                     this.view.flip(field);
@@ -903,12 +1167,136 @@ impl JobsList {
     /// the time and the corner's marks on the first line, the issue and pull request chips and the
     /// lines under, each as the View has it. Rounder and roomier than
     /// Electron's strip, on the owner's word; the lamp is a bar inset at its left.
+    /// An idea saved to start later (`QueuedRow`): dashed in the not-started hue, its words' first line, its
+    /// repository and model, then Start and Remove. ↵ on it starts it; a press on its words only gives it the keys.
+    fn render_queued(&self, at: usize, row: &Row, idea: &crate::queued::QueuedIdea, cx: &mut Context<Self>) -> gpui::AnyElement {
+        let look = cx.look();
+        let tip = crate::titlebar::parts::tip;
+        let after_job = at > 0 && matches!(self.lines[at - 1], Line::Job(_));
+        let focused = self.focused.as_ref() == Some(&row.id);
+        let hue = look.color(token::STATUS_NOT_STARTED);
+        let starting = cx.try_global::<crate::queued::Queued>().is_some_and(|queued| queued.starting.contains(&idea.id));
+        let mono = look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default();
+        let tag = |id: String, said: String, kind: &'static str| {
+            labelled(
+                div()
+                    .id(SharedString::from(id))
+                    .flex_none()
+                    .font_family(mono.clone())
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(said.clone())
+                    .tooltip(tip(kind)),
+                Role::Image,
+                format!("{kind} {said}"),
+            )
+        };
+        let act = |id: String, icon: &'static str, said: &'static str, name: String, off: bool, press: Box<dyn Fn(&mut App)>| {
+            labelled(
+                div()
+                    .id(SharedString::from(id))
+                    .flex_none()
+                    .size(look.length(token::H_CONTROL_SM))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(look.length(token::RADIUS_MD))
+                    .when(off, |button| button.opacity(0.5))
+                    .when(!off, |button| button.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
+                    .child(svg().path(icon_path(icon)).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_MUTED)))
+                    .tooltip(tip(said))
+                    .on_click(move |_, _, cx| {
+                        cx.stop_propagation();
+                        press(cx);
+                    }),
+                Role::Button,
+                name,
+            )
+        };
+        let (start, remove, pressed) = (idea.clone(), idea.id.clone(), row.id.clone());
+        let strip = div()
+            .id(SharedString::from(format!("job-{}", row.id)))
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_1))
+            .pl(look.length(token::SPACE_3))
+            .pr(look.length(token::SPACE_1))
+            .rounded(look.length(token::RADIUS_LG))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_dashed()
+            .border_color(hue.opacity(0.55))
+            .when(focused, |strip| strip.bg(look.color(token::BG_HOVER)))
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            .child(labelled(
+                div()
+                    .id(SharedString::from(format!("queued-kind-{}", idea.id)))
+                    .flex_none()
+                    .child(svg().path(icon_path("circle-dashed")).size(look.length(token::SPACE_4)).text_color(hue))
+                    .tooltip(tip("Queued")),
+                Role::Image,
+                "Queued",
+            ))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .truncate()
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .child(row.title.clone()),
+            )
+            .child(
+                div()
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .child(tag(format!("queued-repo-{}", idea.id), idea.repository.clone(), "Repository"))
+                    .children(idea.model.clone().map(|model| tag(format!("queued-model-{}", idea.id), model, "Model"))),
+            )
+            .child(act(
+                format!("queued-start-{}", idea.id),
+                "play",
+                "Start",
+                format!("Start {}", row.title),
+                starting,
+                Box::new(move |cx| crate::dispatch::start_queued(start.clone(), cx)),
+            ))
+            .child(act(
+                format!("queued-remove-{}", idea.id),
+                "trash",
+                "Remove",
+                format!("Remove {}", row.title),
+                false,
+                Box::new(move |cx| crate::queued::remove(&remove, cx)),
+            ))
+            .on_click(cx.listener(move |this, _event, window, cx| {
+                this.focused = Some(pressed.clone());
+                window.focus(&this.focus, cx);
+                cx.notify();
+            }));
+        div()
+            .flex_none()
+            .flex()
+            .when(after_job, |line| line.mt(look.length(token::SPACE_2)))
+            .child(labelled(strip, Role::Row, row.title.clone()))
+            .into_any_element()
+    }
+
     fn render_job(&self, at: usize, row: &Row, cx: &mut Context<Self>) -> gpui::AnyElement {
+        if let Some(idea) = row.queued.clone() {
+            return self.render_queued(at, row, &idea, cx);
+        }
         let look = cx.look();
         let view = self.view;
         let after_job = at > 0 && matches!(self.lines[at - 1], Line::Job(_));
         let focused = self.focused.as_ref() == Some(&row.id);
-        let opened = self.opened.as_ref() == Some(&row.id);
+        // The row stands for the earlier Job too: it is open when that one is.
+        let opened = self.opened.as_ref() == Some(&row.id) || (row.earlier.is_some() && self.opened == row.earlier);
         let edge = if opened { token::ACCENT } else { token::BORDER_SUBTLE };
         let ground = if opened {
             look.color(token::ACCENT_MUTED)
@@ -979,6 +1367,32 @@ impl JobsList {
         let tagged = issue.is_some() || pr.is_some();
         let under = tagged || flow.is_some() || now.is_some();
         let lamp_ink = look.color(lamp);
+        // The earlier Job's mark stands in the state's slot, beside the state, as the ring does on the
+        // Job it replaced: one row never carries both.
+        let mut earlier_mark = row.earlier.clone().map(|earlier| {
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("earlier-{}", row.id)))
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .size(look.length(token::SPACE_4))
+                        .rounded(look.length(token::RADIUS_SM))
+                        .text_color(look.color(token::FG_MUTED))
+                        .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+                        .child(svg().path(icon_path("layers")).size(mark_glyph).text_color(look.color(token::FG_MUTED)))
+                        .tooltip(tip("Earlier Job".into()))
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            cx.stop_propagation();
+                            this.open(earlier.clone(), cx);
+                        })),
+                    Role::Button,
+                    "Earlier Job",
+                )
+                .into_any_element()
+            });
+        let status_on = view.on("view:status");
         let marks = div()
             .flex_none()
             .flex()
@@ -988,9 +1402,21 @@ impl JobsList {
             // The time stands right against the state; the glyphs end at the row's edge, so they
             // line up down the list.
             .children(time)
-            .when(view.on("view:status"), |marks| {
-                // The paused mark in place of the state's glyph.
-                marks.child(div().flex_none().flex().justify_end().children(state.map(|((glyph, said), hue)| {
+            .when(!status_on, |marks| marks.children(earlier_mark.take()))
+            .when(status_on, |marks| {
+                // The paused mark in place of the state's glyph, and a hand off's ring before it.
+                // Electron's wide mark (`ListCard.css`): two glyphs and the gap between, the state at its end.
+                let wide = look.length(token::SPACE_4) * 2. + look.length(token::SPACE_1);
+                marks.child(div().flex_none().w(wide).flex().items_center().justify_end().gap(look.length(token::SPACE_1)).when(row.handing_off, |slot| {
+                    slot.child(labelled(
+                        div()
+                            .id(SharedString::from(format!("handoff-{}", row.id)))
+                            .child(crate::titlebar::parts::spinner(SharedString::from(format!("handing-{}", row.id)), look.length(token::SPACE_4), look.color(token::FG_MUTED), cx))
+                            .tooltip(tip("Handing off".into())),
+                        Role::Image,
+                        "Handing off",
+                    ))
+                }).children(earlier_mark.take()).children(state.map(|((glyph, said), hue)| {
                     labelled(
                         div()
                             .id(SharedString::from(format!("state-{}", row.id)))
@@ -1010,8 +1436,17 @@ impl JobsList {
                     ))
                 }))
             });
+        // A top row of a live Job is dragged to a new place in its project, as Electron's deck does.
+        let lit = crate::clash_mark::lit(cx) == Some(row.id.as_ref());
+        let movable = row.depth == 0 && !row.ended;
+        let dragging = cx.has_active_drag();
+        let lifted = dragging && self.lifted.as_ref() == Some(&row.id);
+        let drop_here = self.drop.as_ref().filter(|(at, _)| dragging && *at == row.id).map(|(_, after)| *after);
+        let dragged = DraggedRow { id: row.id.clone(), title: row.title.clone() };
         let strip = div()
             .id(SharedString::from(format!("job-{}", row.id)))
+            .when(movable, |strip| strip.on_drag(dragged, |dragged, _, _, cx| cx.new(|_| RowGhost(dragged.title.clone()))))
+            .when(lifted, |strip| strip.opacity(0.55))
             .relative()
             .flex_1()
             .min_w_0()
@@ -1026,6 +1461,8 @@ impl JobsList {
             .border_color(look.color(edge))
             .bg(ground)
             .when(!opened, |strip| strip.hover(|style| style.bg(look.color(token::BG_HOVER))))
+            // Lit as hovered while the pointer is on a clash's link to this Job (`data-hover`).
+            .when(!opened && lit, |strip| strip.bg(look.color(token::BG_HOVER)))
             .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .when(needs, |strip| {
                 let tint = look.color(token::STATUS_AWAITING_REVIEW);
@@ -1038,7 +1475,25 @@ impl JobsList {
             // A Job pulsing for you already carries its colour, and a wash under the pulse muddies it.
             .when(!opened && !needs, |strip| strip.child(div().absolute().inset_0().rounded(radius).bg(lamp_ink.opacity(HULL))))
             // The lamp's edge down the row's left side (`ListCard.css` `border-left`).
-            .child(div().absolute().left_0().top_0().bottom_0().w(look.length(token::SPACE_1)).rounded_l(radius).bg(lamp_ink))
+            // Painted as the card's own rounded shape clipped to its left edge, so the edge follows the
+            // corners as a CSS `border-left` does instead of a straight bar poking past them.
+            .child({
+                let wide = look.length(token::SPACE_1);
+                canvas(
+                    |_, _, _| {},
+                    move |bounds, _, window, _| {
+                        let edge = gpui::Bounds { origin: bounds.origin, size: gpui::size(wide, bounds.size.height) };
+                        let card = gpui::Bounds { origin: bounds.origin, size: gpui::size(bounds.size.width.min(radius * 2. + wide), bounds.size.height) };
+                        window.with_content_mask(Some(gpui::ContentMask { bounds: edge }), |window| {
+                            window.paint_quad(gpui::fill(card, lamp_ink).corner_radii(radius));
+                        });
+                    },
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full()
+            })
             .child(
                 div()
                     .flex()
@@ -1089,6 +1544,7 @@ impl JobsList {
                 this.focused = Some(pressed.clone());
                 this.opened = Some(pressed.clone());
                 this.card = None;
+                this.picks += 1;
                 window.focus(&this.focus, cx);
                 cx.notify();
             }));
@@ -1096,11 +1552,49 @@ impl JobsList {
             Some(said) => format!("{}, {said}", row.title).into(),
             None => row.title.clone(),
         };
+        let (over_id, drop_id) = (row.id.clone(), row.id.clone());
+        let line_edge = look.length(token::BORDER_WIDTH) * 2.;
+        let gap_half = look.length(token::SPACE_1) / 2. + look.length(token::BORDER_WIDTH);
         div()
             .flex_none()
+            .relative()
             .flex()
             .when(after_job, |line| line.mt(look.length(token::SPACE_2)))
             .pl(indent)
+            .when(movable, |line| {
+                line.on_drag_move(cx.listener(move |this, event: &gpui::DragMoveEvent<DraggedRow>, _, cx| {
+                    if !event.bounds.contains(&event.event.position) {
+                        return;
+                    }
+                    let after = event.event.position.y > event.bounds.center().y;
+                    let lifted = event.drag(cx).id.clone();
+                    if this.drop.as_ref() != Some(&(over_id.clone(), after)) || this.lifted.as_ref() != Some(&lifted) {
+                        this.drop = Some((over_id.clone(), after));
+                        this.lifted = Some(lifted);
+                        cx.notify();
+                    }
+                }))
+                .on_drop(cx.listener(move |this, dragged: &DraggedRow, _, cx| {
+                    let after = this.drop.as_ref().filter(|(at, _)| *at == drop_id).is_some_and(|(_, after)| *after);
+                    this.place(&dragged.id, &drop_id, after, cx);
+                }))
+            })
+            // The drop line, before or after the row under the pointer (`deck.css` `[data-drop]`).
+            .children(drop_here.map(|after| {
+                labelled(
+                    div()
+                        .id("drop-line")
+                        .absolute()
+                        .left(indent)
+                        .right_0()
+                        .h(line_edge)
+                        .rounded(look.length(token::RADIUS_SM))
+                        .bg(look.color(token::ACCENT))
+                        .map(|bar| if after { bar.bottom(-gap_half) } else { bar.top(-gap_half) }),
+                    Role::Image,
+                    "Lands here",
+                )
+            }))
             .when(row.depth > 0, |row_line| {
                 // The elbow from the Job above to the middle of this one's first line.
                 row_line.child(
@@ -1142,7 +1636,7 @@ impl JobsList {
                         .line_height(look.length(token::LEADING_XS))
                         .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                         .text_color(look.color(token::FG_MUTED))
-                        .child(name.to_uppercase()),
+                        .child(name.clone()),
                     Role::Heading,
                     name.clone(),
                 )
@@ -1393,7 +1887,6 @@ impl Render for JobsList {
 /// narrowest it goes, the right column beside it, and the least the centre keeps.
 const REST_LEFT: f32 = 6.;
 const FLOOR_LEFT: f32 = 4.5;
-const RIGHT: f32 = 5.75;
 const CENTRE_FLOOR: f32 = 10.;
 /// What ← or → on the handle moves it by, in points (`DOCK_WIDTH_STEP`).
 const HANDLE_STEP: f32 = 16.;
@@ -1412,6 +1905,11 @@ impl Render for DeckHandle {
     }
 }
 
+/// The thread's share of the Job beside its right column, as Electron's inner split draws it (0.62 to
+/// 0.38), and the least a pane needs (`MIN_PANE_W`).
+const SPLIT_ARRIVES: f32 = 0.62;
+const PANE_LEAST: f32 = 160.;
+
 /// The Jobs screen in Electron's regions (`cockpit/deck/Deck.tsx`, `.deck-grid`): the list's panel at
 /// the left, the open Job's room in the middle, and the right column's panel, under the title row.
 /// A handle on the list's inner edge drags it wider or narrower, as Electron's `DockHandle` does.
@@ -1419,6 +1917,8 @@ pub struct JobsScreen {
     pub list: Entity<JobsList>,
     /// The open Job, in the middle.
     view: Entity<JobView>,
+    /// The open Job's right column: Open, Done and Deferred over Now.
+    side: Entity<JobSide>,
     /// The list's width as dragged; absent, it rests at Electron's width.
     left: Option<f32>,
     handle: FocusHandle,
@@ -1438,6 +1938,15 @@ impl JobsScreen {
     ) -> Self {
         let remember = list.read(cx).remember;
         let view = cx.new(|cx| JobView::new(list.clone(), threads, window, cx));
+        let side = cx.new(|cx| JobSide::new(view.clone(), cx));
+        // A zoom or a closed pane changes which halves of the split this screen draws.
+        let shows = std::cell::Cell::new(view.read(cx).split_shows());
+        cx.observe(&view, move |_, view, cx| {
+            if shows.replace(view.read(cx).split_shows()) != shows.get() {
+                cx.notify();
+            }
+        })
+        .detach();
         let left = remember
             .then(|| columns_file().and_then(|path| std::fs::read_to_string(path).ok()).and_then(|text| text.trim().parse::<f32>().ok()))
             .flatten();
@@ -1445,7 +1954,60 @@ impl JobsScreen {
         // The bar's search, and ⌘K where no screen took it, open this palette.
         let handle = window.window_handle();
         let opens = palette.downgrade();
+        let fleet_of = list.downgrade();
         cx.set_global(crate::titlebar::AskedSink(Rc::new(move |asked: &crate::titlebar::Asked, cx: &mut App| {
+            // The bar's build switcher: each press is Fleet's build act, followed until the report settles.
+            let act = match asked {
+                crate::titlebar::Asked::ChangeBuild { build, adopt } => Some(BuildAct::Change(ipc::ChangeFleetBuild { build: *build, adopt: *adopt })),
+                crate::titlebar::Asked::Revert => Some(BuildAct::Revert),
+                crate::titlebar::Asked::Keep => Some(BuildAct::Keep),
+                crate::titlebar::Asked::Swap => Some(BuildAct::Swap),
+                crate::titlebar::Asked::Unpick(branch) => Some(BuildAct::Pick(ipc::PickFleetBuildJob { branch: Some(branch.clone()), session_id: None, picked: false })),
+                _ => None,
+            };
+            if let Some(act) = act {
+                match fleet_of.upgrade().and_then(|list| list.read(cx).fleet()) {
+                    Some(fleet) => fleet.update(cx, |fleet, cx| fleet.build_act(act, cx)),
+                    None => Note::warn("not sent: no Fleet is connected").field("route", "/fleet/build").emit(),
+                }
+                return;
+            }
+            // Restart Fleet goes to launchd, never to Fleet: the Fleet it restarts is the one the runtime file names.
+            if *asked == crate::titlebar::Asked::RestartFleet {
+                let Some(fleet) = fleet_of.upgrade().and_then(|list| list.read(cx).fleet()) else {
+                    Note::warn("not restarted: this window has no Fleet connection").emit();
+                    return;
+                };
+                let pid = match &fleet.read(cx).held().presence {
+                    Some((crate::runtime_file::Presence::Running(file), _)) => Some(file.pid),
+                    _ => None,
+                };
+                let ran = cx.background_executor().spawn(async move { crate::restart_fleet::restart(pid) });
+                cx.spawn(async move |cx| {
+                    if let Err((why, detail)) = ran.await {
+                        Note::warn("Fleet was not restarted").field("why", why.word()).field("detail", detail.as_str()).emit();
+                        let _ = cx.update(|cx| {
+                            if let Some(bar) = crate::titlebar::live(cx) {
+                                bar.update(cx, |bar, cx| bar.restart_failed(why, detail, cx));
+                            }
+                        });
+                    }
+                })
+                .detach();
+                return;
+            }
+            // The step down's acts, each its own command; Choose settles it, as Electron's does before the model setting.
+            if let crate::titlebar::Asked::Remedy(remedy) = asked {
+                let port = fleet_of.upgrade().and_then(|list| list.read(cx).fleet()).and_then(|fleet| fleet.read(cx).held().port());
+                let path = match remedy {
+                    crate::titlebar::Remedy::Accept => "/model_downshift/accept",
+                    crate::titlebar::Remedy::Restore => "/model_downshift/restore",
+                    crate::titlebar::Remedy::Keep => "/model_downshift/keep",
+                    crate::titlebar::Remedy::Choose => "/model_downshift/settle",
+                };
+                send_bare(port, path, cx);
+                return;
+            }
             if *asked != crate::titlebar::Asked::Palette {
                 return;
             }
@@ -1456,29 +2018,43 @@ impl JobsScreen {
                 }
             });
         })));
-        JobsScreen { list, view, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember, palette }
+        JobsScreen {
+            list,
+            view,
+            side,
+            left,
+            handle: cx.focus_handle(),
+            within: cx.focus_handle(), remember, palette }
     }
 
     pub fn within(&self) -> &FocusHandle {
         &self.within
     }
 
-    /// The narrowest and widest the list may be in this window, so the centre keeps its floor.
-    fn range(&self, window: &Window, look: &Look) -> (f32, f32) {
-        let unit = f32::from(look.length(token::SPACE_12));
+    /// The room the three columns share: the window less its padding and the gaps between them.
+    fn room(window: &Window, look: &Look) -> f32 {
         let frame = f32::from(look.length(token::SPACE_3)) * 2. + f32::from(look.length(token::GAP_PANEL)) * 2.;
-        let room = f32::from(window.viewport_size().width) - frame;
-        let least = unit * FLOOR_LEFT;
-        (least, (room - unit * (RIGHT + CENTRE_FLOOR)).max(least))
+        f32::from(window.viewport_size().width) - frame
     }
 
-    fn width(&self, window: &Window, look: &Look) -> f32 {
-        let (least, most) = self.range(window, look);
-        self.left.unwrap_or(f32::from(look.length(token::SPACE_12)) * REST_LEFT).clamp(least, most)
+    /// The narrowest and widest the list may be in this window, so the centre keeps its floor. The Job's
+    /// own panes are the centre and there is no right column, as Electron's `session` layout draws it
+    /// (`NO_RIGHT`): the list may take its room and gap.
+    fn range(&self, window: &Window, cx: &App) -> (f32, f32) {
+        let look = cx.look();
+        let unit = f32::from(look.length(token::SPACE_12));
+        let least = unit * FLOOR_LEFT;
+        let beside = -f32::from(look.length(token::GAP_PANEL));
+        (least, (Self::room(window, look) - beside - unit * CENTRE_FLOOR).max(least))
+    }
+
+    fn width(&self, window: &Window, cx: &App) -> f32 {
+        let (least, most) = self.range(window, cx);
+        self.left.unwrap_or(f32::from(cx.look().length(token::SPACE_12)) * REST_LEFT).clamp(least, most)
     }
 
     fn resize(&mut self, to: Option<f32>, window: &Window, cx: &mut Context<Self>) {
-        let (least, most) = self.range(window, cx.look());
+        let (least, most) = self.range(window, cx);
         self.left = to.map(|to| to.clamp(least, most));
         if self.remember {
             if let Some(path) = columns_file() {
@@ -1494,12 +2070,23 @@ impl JobsScreen {
         cx.notify();
     }
 
-    /// `l` puts the keys in the list (`deck_panel`'s first slot), and `/` in its search from
-    /// anywhere on the deck; the other panels are not drawn yet.
+    /// Teach from a list row: the open Job's Teach box, holding what the row said.
+    pub(crate) fn teach_row(&mut self, text: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.view.update(cx, |view, cx| view.teach_row(text, window, cx));
+    }
+
+    /// `l` puts the keys in the list (`deck_panel`'s first slot), `c` on the first Job that needs
+    /// him, `d` opens the dispatch sheet, and `/` the list's search, from anywhere on the deck.
+    /// The bays, the queue, the flight controls, the timeline and the Field are not drawn, so `a`,
+    /// `b`, `q`, `f`, `t` and `e` reach nothing.
     fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         if act.is("deck_panel") && act.slot == 0 {
             let focus = self.list.read(cx).focus_handle().clone();
             window.focus(&focus, cx);
+        } else if act.is("deck_panel") && act.slot == 2 {
+            self.list.update(cx, |list, cx| list.to_first_needing(window, cx));
+        } else if act.is("deck_panel") && act.slot == 6 {
+            crate::dispatch::screen::open_dispatch(cx);
         } else if act.is("deck_search") {
             self.list.update(cx, |list, cx| list.to_search(window, cx));
         } else if act.is("command_palette") {
@@ -1515,8 +2102,8 @@ impl JobsScreen {
     /// The handle on the list's inner edge (`dock-handle.tsx`): a quiet line that shows on hover,
     /// focus or drag; ← and → move it, a double press puts the list back at its resting width.
     fn render_handle(&self, width: f32, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let (least, most) = self.range(window, cx);
         let look = cx.look();
-        let (least, most) = self.range(window, look);
         let line = look.color(token::BORDER_DEFAULT);
         let focused = self.handle.is_focused(window);
         labelled(
@@ -1579,20 +2166,25 @@ fn panel(look: &Look) -> gpui::Div {
 
 impl Render for JobsScreen {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let look = cx.look();
-        let column = look.length(token::SPACE_12);
-        let width = self.width(window, look);
+        let width = self.width(window, cx);
         let handle = self.render_handle(width, window, cx);
         let title = crate::chrome::title_row(window, cx);
         let look = cx.look();
         let pad = look.length(token::SPACE_3);
+        let look = cx.look();
+        // A zoomed pane covers the Job's own area, right of the list (`zoom.ts`); a closed pane gives its room up.
+        let (thread, side) = self.view.read(cx).split_shows();
         div()
             .key_context("deck")
             .track_focus(&self.within)
             .on_action(cx.listener(Self::on_act))
             // A chord the person gave a palette row runs that row from anywhere on the screen; Tab reaches every tab stop.
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
-                if this.palette.update(cx, |palette, cx| palette.hotkey(&event.keystroke, window, cx)) || crate::keymap::traverse(event, window, cx) {
+                if this.palette.update(cx, |palette, cx| palette.hotkey(&event.keystroke, window, cx))
+                    || this.list.update(cx, |list, cx| list.pause_key(event, window, cx))
+                    || this.view.update(cx, |view, cx| view.tile_key(event, window, cx))
+                    || crate::keymap::traverse(event, window, cx)
+                {
                     cx.stop_propagation();
                 }
             }))
@@ -1615,16 +2207,57 @@ impl Render for JobsScreen {
                         this.resize(Some(to), window, cx);
                     }))
                     .child(div().relative().h_full().flex_none().child(panel(look).w(gpui::px(width)).child(self.list.clone())).child(handle))
-                    .child(panel(look).flex_1().min_w_0().overflow_hidden().child(self.view.clone()))
-                    .child(panel(look).w(column * RIGHT)),
+                    .child(
+                        // The Job's own split, as Electron's tree draws it: the thread and the right column, 0.62 to 0.38.
+                        div()
+                            .id("job-split")
+                            .h_full()
+                            .flex_1()
+                            .min_w_0()
+                            .flex()
+                            .when(thread && side, |split| split.gap(look.length(token::GAP_PANEL)))
+                            .child(
+                                // Covered by a zoomed pane of the column, the thread's place keeps no room but stays drawn,
+                                // so the sheets and dialogs the Job view lays over the window still show.
+                                panel(look)
+                                    .min_w_0()
+                                    .overflow_hidden()
+                                    .map(|place| match (thread, side) {
+                                        (true, true) => place.flex_grow(SPLIT_ARRIVES * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST)),
+                                        (true, false) => place.flex_1(),
+                                        (false, _) => place.flex_none().w_0().border_0(),
+                                    })
+                                    .child(self.view.clone()),
+                            )
+                            .when(side, |split| {
+                                split.child(
+                                    div()
+                                        .h_full()
+                                        .min_w_0()
+                                        .map(|column| if thread { column.flex_grow((1. - SPLIT_ARRIVES) * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST)) } else { column.flex_1() })
+                                        .child(self.side.clone()),
+                                )
+                            }),
+                    ),
             )
-            .child(crate::merge_strip::strip(window, cx))
+            .child(crate::merge_strip::strip(&self.list, window, cx))
             .child(self.palette.clone())
     }
 }
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_dropped_row_stands_before_or_after_the_one_it_was_dropped_on() {
+        let order = |ids: &[&str]| ids.iter().map(|id| id.to_string()).collect::<Vec<_>>();
+        let list = order(&["a", "b", "c", "d"]);
+        assert_eq!(moved(list.clone(), "d", "b", false), Some(order(&["a", "d", "b", "c"])));
+        assert_eq!(moved(list.clone(), "a", "c", true), Some(order(&["b", "c", "a", "d"])));
+        assert_eq!(moved(list.clone(), "b", "d", true), Some(order(&["a", "c", "d", "b"])));
+        assert_eq!(moved(list, "x", "b", false), None);
+    }
+
     use super::*;
 
     fn jobs() -> Vec<SessionRecord> {
@@ -1651,7 +2284,7 @@ mod tests {
 
     #[test]
     fn ended_jobs_leave_the_list_and_each_project_heads_its_own() {
-        let lines = lines_of(&jobs(), Scope::Active, "", &[]);
+        let lines = lines_of(&jobs(), &[], Scope::Active, "", &[]);
         assert_eq!(lines[0], Line::Project("armada".into()));
         assert!(!titles(&lines).iter().any(|title| title.contains("ended")));
         let projects: Vec<_> = lines.iter().filter_map(|line| match line { Line::Project(name) => Some(name.clone()), _ => None }).collect();
@@ -1661,7 +2294,7 @@ mod tests {
     #[test]
     fn one_project_draws_its_jobs_with_no_head() {
         let armada: Vec<_> = jobs().into_iter().filter(|job| job.manifest_id.as_ref().is_some_and(|id| id.as_str() == "armada")).collect();
-        let lines = lines_of(&armada, Scope::Active, "", &[]);
+        let lines = lines_of(&armada, &[], Scope::Active, "", &[]);
         assert!(!lines.is_empty());
         assert!(lines.iter().all(|line| matches!(line, Line::Job(_))));
     }
@@ -1669,40 +2302,40 @@ mod tests {
     #[test]
     fn the_placed_order_holds_and_a_search_narrows_by_title() {
         let all = jobs();
-        let second = titles(&lines_of(&all, Scope::Active, "", &[]))[1].clone();
+        let second = titles(&lines_of(&all, &[], Scope::Active, "", &[]))[1].clone();
         let id = all.iter().find(|job| job.title.as_deref() == Some(second.as_str())).map(|job| job.id.as_str().to_string()).expect("listed");
-        assert_eq!(titles(&lines_of(&all, Scope::Active, "", &[id]))[0], second);
-        let found = titles(&lines_of(&all, Scope::Active, &second[..6].to_uppercase(), &[]));
+        assert_eq!(titles(&lines_of(&all, &[], Scope::Active, "", &[id]))[0], second);
+        let found = titles(&lines_of(&all, &[], Scope::Active, &second[..6].to_uppercase(), &[]));
         assert!(found.contains(&second) && found.iter().all(|title| title.to_lowercase().contains(&second[..6].to_lowercase())));
     }
 
     #[test]
     fn jobs_not_yet_placed_stand_needs_first_and_the_loudest_first() {
-        let lines = lines_of(&jobs(), Scope::Active, "", &[]);
+        let lines = lines_of(&jobs(), &[], Scope::Active, "", &[]);
         let web: Vec<_> = titles(&lines).into_iter().filter(|title| ["Checkout", "Flaky", "Upgrade", "Dark"].iter().any(|word| title.starts_with(word))).collect();
         assert_eq!(web, ["Checkout page loads twice", "Flaky login test", "Upgrade the router", "Dark mode for the settings page"]);
         // A placed Job keeps its place whatever its state.
         let dark = jobs().into_iter().find(|job| job.title.as_deref() == Some("Dark mode for the settings page")).expect("listed");
-        let placed = titles(&lines_of(&jobs(), Scope::Active, "", &[dark.id.as_str().to_string()]));
+        let placed = titles(&lines_of(&jobs(), &[], Scope::Active, "", &[dark.id.as_str().to_string()]));
         assert_eq!(placed.iter().find(|title| web.contains(title)).map(String::as_str), Some("Dark mode for the settings page"));
     }
 
     #[test]
     fn a_quiet_job_leaves_active_for_the_quiet_scope() {
-        let quiet = titles(&lines_of(&jobs(), Scope::Quiet, "", &[]));
+        let quiet = titles(&lines_of(&jobs(), &[], Scope::Quiet, "", &[]));
         assert_eq!(quiet, ["Retry webhooks on a 503"]);
-        assert!(!titles(&lines_of(&jobs(), Scope::Active, "", &[])).contains(&quiet[0]));
+        assert!(!titles(&lines_of(&jobs(), &[], Scope::Active, "", &[])).contains(&quiet[0]));
     }
 
     #[test]
     fn the_ended_scope_holds_only_ended_jobs() {
-        let ended = titles(&lines_of(&jobs(), Scope::Ended, "", &[]));
+        let ended = titles(&lines_of(&jobs(), &[], Scope::Ended, "", &[]));
         assert!(!ended.is_empty() && ended.iter().all(|title| title.contains("ended")), "{ended:?}");
     }
 
     #[test]
     fn a_row_carries_its_issue_its_workflow_step_and_what_it_is_doing() {
-        let lines = lines_of(&jobs(), Scope::Active, "", &[]);
+        let lines = lines_of(&jobs(), &[], Scope::Active, "", &[]);
         let row = |title: &str| {
             lines.iter().find_map(|line| match line {
                 Line::Job(row) if row.title == title => Some(row.clone()),
@@ -1711,7 +2344,14 @@ mod tests {
         };
         let first = row("Fix the merge line freshness chip");
         assert_eq!(first.issue, Some(("#3290".into(), "Merge line freshness chip stays green when stale".into())));
-        assert_eq!(first.flow, Some(("Feature".into(), "Walk".into())));
+        // The list's scenarios follow no workflow; the workflow walk's do, its first at Build.
+        let flows = lines_of(&crate::mock::jobs("job-workflow").expect("the fixture decodes"), &[], Scope::Active, "", &[]);
+        let flow = flows.iter().find_map(|line| match line {
+            Line::Job(row) if row.title == "Fix the merge line freshness chip" => Some(row.flow.clone()),
+            _ => None,
+        });
+        assert_eq!(flow, Some(Some(("Ship a screen".into(), "Build".into()))));
+        assert_eq!(first.flow, None);
         assert_eq!(first.now.as_deref(), Some("Asked which chip colour the stale state takes"));
         // What it is doing now comes before what it last summed up.
         assert_eq!(row("Native Bridge foundation").now.as_deref(), Some("Editing jobs.rs"));

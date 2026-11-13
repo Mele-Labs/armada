@@ -1,0 +1,9 @@
+{
+ "projects": [
+  {"id": "armada", "name": "Armada", "rows": [], "members": [{"manifest_id": "armada"}], "place": {"place": "this_mac"}},
+  {"id": "storefront", "name": "Storefront", "rows": [], "members": [{"manifest_id": "sample-web", "folder": "web/checkout"}, {"manifest_id": "sample-api", "folder": "services/pricing"}], "place": {"place": "this_mac"}},
+  {"id": "ledger", "name": "Ledger", "rows": [], "members": [], "place": {"place": "this_mac"}, "unread": "members: a repository is listed twice"}
+ ],
+ "loose": [],
+ "left_out": []
+}

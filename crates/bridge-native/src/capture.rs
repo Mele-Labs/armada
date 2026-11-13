@@ -19,7 +19,7 @@ use gpui::{
     anchored, deferred, div, Anchor, point, prelude::*, Bounds, Context, CursorStyle, Entity, EventEmitter, ExternalPaths, FocusHandle,
     Focusable, MouseButton, Pixels, Point, Role, SharedString, Subscription, Window,
 };
-use gpui_component::input::{InputEvent, Textarea, TextareaState};
+use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 
 use crate::annotate::tools::{self, Tools};
 use crate::labels::{labelled, Drawn, LabelBook};
@@ -268,6 +268,21 @@ impl Capture {
         cx.notify();
     }
 
+    /// A note on the element under `at`, as a press on it would begin one: what a point menu's Report asks.
+    pub fn element_at_point(&mut self, at: Point<Pixels>, window: &Window, cx: &mut Context<Self>) {
+        if self.held.is_some() {
+            return;
+        }
+        let drawn = cx.try_global::<LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
+        let Some(found) = self.within.get().and_then(|within| element_at(&drawn, at, within)) else { return };
+        self.hover = None;
+        self.from = None;
+        self.to = None;
+        self.held = Some(Held::Element(found));
+        self.clean = true;
+        cx.notify();
+    }
+
     fn pointer_moved(&mut self, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
         if self.held.is_some() {
             return;
@@ -346,18 +361,10 @@ impl Capture {
             state
         });
         let keep = self.keep.clone();
-        let watch = cx.subscribe_in(&input, window, move |this, input, event: &InputEvent, window, cx| match event {
-            InputEvent::Change => {
-                if let Some(key) = &keep {
-                    crate::drafts::keep(key, input.read(cx).value().as_ref(), cx);
-                }
+        let watch = cx.subscribe_in(&input, window, move |_, input, event: &InputEvent, _, cx| {
+            if let (InputEvent::Change, Some(key)) = (event, &keep) {
+                crate::drafts::keep(key, input.read(cx).value().as_ref(), cx);
             }
-            InputEvent::PressEnter { secondary: true, .. } => {
-                // The key also put a line break in the field; the note is the words without it.
-                let said = input.read(cx).value().trim().to_string();
-                this.write(said, window, cx);
-            }
-            _ => {}
         });
         input.update(cx, |input, cx| input.focus(window, cx));
         self.note = Some((input, watch));
@@ -531,7 +538,20 @@ impl gpui::Render for Capture {
                             .child(held.said()),
                     )
                     // The text-box key context, so typing here fires no list key; the walk window and the annotation layer share this note box.
-                    .child(labelled(div().id("capture-note").key_context(crate::keymap::TEXT_BOX).child(Textarea::new(&input)), Role::TextInput, "Note"))
+                    .child(labelled(
+                        div()
+                            .id("capture-note")
+                            .key_context(crate::keymap::TEXT_BOX)
+                            // ⌘↩ writes the note, taken before the text area puts a line break in.
+                            .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                                let Some(said) = action.secondary.then(|| this.note.as_ref().map(|(input, _)| input.read(cx).value().trim().to_string())).flatten() else { return };
+                                cx.stop_propagation();
+                                this.write(said, window, cx);
+                            }))
+                            .child(Textarea::new(&input)),
+                        Role::TextInput,
+                        "Note",
+                    ))
                     .children(tools)
                     .on_drop(move |paths: &ExternalPaths, _, cx| {
                         if let Some(tools) = &dropped {
@@ -576,7 +596,8 @@ mod tests {
     use gpui::{point, px, size};
 
     fn drawn(name: &str, role: Role, x: f32, y: f32, w: f32, h: f32) -> Drawn {
-        Drawn { role, name: name.to_string().into(), bounds: Bounds { origin: point(px(x), px(y)), size: size(px(w), px(h)) } }
+        let bounds = Bounds { origin: point(px(x), px(y)), size: size(px(w), px(h)) };
+        Drawn { role, name: name.to_string().into(), bounds, shown: bounds, radius: None }
     }
 
     #[test]

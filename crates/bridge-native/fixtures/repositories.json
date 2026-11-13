@@ -1,0 +1,8 @@
+{
+ "repositories": [
+  {"root": "/Users/user/Development/armada", "records_root": "/Users/user/Library/Application Support/Armada/records/armada", "manifest": {"id": "armada", "repository": "armada", "path": "/Users/user/Development/armada/armada.yml", "records_root": "/Users/user/Library/Application Support/Armada/records/armada", "version": 1, "checks": []}},
+  {"root": "/Users/user/Development/sample-web", "records_root": "/Users/user/Library/Application Support/Armada/records/sample-web", "manifest": {"id": "sample-web", "repository": "sample-web", "path": "/Users/user/Development/sample-web/armada.yml", "records_root": "/Users/user/Library/Application Support/Armada/records/sample-web", "version": 1, "checks": []}},
+  {"root": "/Users/user/Development/sample-api", "records_root": "/Users/user/Library/Application Support/Armada/records/sample-api", "manifest": {"id": "sample-api", "repository": "sample-api", "path": "/Users/user/Development/sample-api/armada.yml", "records_root": "/Users/user/Library/Application Support/Armada/records/sample-api", "version": 1, "checks": []}},
+  {"root": "/Users/user/Development/sample-docs", "records_root": "/Users/user/Library/Application Support/Armada/records/sample-docs", "implicit_id": "sample-docs"}
+ ]
+}

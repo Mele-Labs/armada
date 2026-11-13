@@ -8,7 +8,7 @@
 
 use gpui::App;
 
-use super::{marks, press_on, step, Step, Verb};
+use super::{marks, press_on, scene, step, Step, Verb};
 
 pub(super) const CALLING: &str = "#3381 Checkout page loads twice · armada/checkout-twice · ci failed · Job: Checkout page loads twice";
 pub(super) const RUNNING: &str = "#3392 Quiet the write-clash notices · armada/quiet-clashes · In the merge queue, running its checks, place 2 · Job: Quiet the write-clash notices";
@@ -19,16 +19,82 @@ pub(super) const SEVERAL: &str = "Conflicts with Quiet the write-clash notices, 
 pub(super) const FILES: &str = "Conflicts with Quiet the write-clash notices · crates/bridge-native/src/jobs.rs, crates/bridge-native/src/clash_mark.rs, crates/ipc/src/clashes.rs, crates/fleet/src/write_clashes/detect.rs, docs/concepts/write-clashes.md";
 pub(super) const PAUSED: &str = "Conflicts with Native Bridge foundation · crates/bridge-native/src/main.rs";
 
+/// The usage rings on Fleet's plan reading and step down, and a terminal Job's Compact: each title bar scene is
+/// Fleet's JSON read as the live app reads it (`titlebar/face.rs` `usage_of`, `downshift_of`).
+pub static PLAN: [Step; 13] = super::joined(&[&RING, &LIMITS]);
+
+/// The ring on the stand-in: each of its forms by scene.
+static RING: [Step; 4] = [
+    marks("A terminal Job's context ring: Compact is the command its mod runs", "ring-terminal", "button", "Context 63%"),
+    step("Hover opens the card with Compact", Verb::Hover, "button", "Context 63%"),
+    press_on("Compact is pending in the same frame", "button", "Compact", "button", "Compact"),
+    marks("A refusal is put back with Fleet's own words", "ring-terminal-refused", "alert", "Compact not sent: job mock-04 is not a terminal job, and only a terminal runs a slash command"),
+];
+
+/// The ring in an open Job's own head, as the app draws it from the Job's usage.
+pub static RING_IN_HEAD: [Step; 3] = [
+    press_on("Open a Job: its head carries the context ring, read from the Job's usage", "row", "Fix the merge line freshness chip", "button", "Context 63%"),
+    press_on("A press opens its fill and Compact, the command a terminal Job's mod runs", "button", "Context 63%", "button", "Compact"),
+    press_on("Compact goes to the Job's mod and the card shuts", "button", "Compact", "button", "Context 63%"),
+];
+
+/// The usage rings and the step down, on Fleet's plan reading.
+pub static LIMITS: [Step; 9] = [
+    scene("Fleet's reading: the 5-hour ring outside, the weekly inside", "plan-live", "button", "5-hour limit 42%, Weekly limit 71%"),
+    press_on("The card says each limit and when it resets, counted from Fleet's reset time", "button", "5-hour limit 42%, Weekly limit 71%", "region", "Weekly limit"),
+    step("Esc shuts the card and the keys go back to the meter", Verb::Key("escape"), "button", "5-hour limit 42%, Weekly limit 71%"),
+    scene("Until Fleet has a reading the rings are a sweeping glyph", "plan-live-loading", "img", "Analyzing Usage"),
+    scene("A reading with no limits in it draws no rings", "plan-live-off", "button", "Fleet — Running"),
+    scene("Fleet offers the step down: the weekly ring is amber and carries a bell", "plan-live-offered", "img", "Default to Sonnet offered"),
+    press_on("The card carries the offer, until the weekly limit resets", "button", "5-hour limit 62%, Weekly limit 84%", "button", "Default to Sonnet"),
+    step("Esc shuts the card", Verb::Key("escape"), "button", "5-hour limit 62%, Weekly limit 84%"),
+    scene("Fleet says the window reset: the offer is to go back", "plan-live-reset", "status", "Weekly limit reset"),
+];
+
+/// The write-clash marks on Fleet's clashes, then Fleet down and Restart Fleet as the live bar reads the link:
+/// each Fleet scene is the connection's state and the runtime file it read, timed by the clock.
+pub static FLEET_LIVE: [Step; 20] = [
+    scene("Fleet answers: the dot is green", "fleet-live-running", "button", "Fleet — Running"),
+    marks("A write clash in Fleet's clashes marks both rows of the pair", "clash-pair", "button", PAIR),
+    step("Hover names the other Job and the files that collide", Verb::Hover, "button", PAIR),
+    step("Esc puts the card away", Verb::Key("escape"), "button", PAIR),
+    scene("Fleet stopped: for 30 seconds after a drop the dot turns orange, the strip stands empty, and the clash marks go", "fleet-live-grace", "button", "Fleet — Not running"),
+    scene("Past 30 seconds an urgent toast says so, and the strip draws what Fleet last said", "fleet-live-down", "alert", "Toast: Fleet is not running"),
+    step("The panel says why", Verb::Press, "button", "Fleet — Not running"),
+    step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Not running"),
+    scene("Fleet alive and silent: what is shown is not live", "fleet-live-unreachable", "alert", "Toast: Fleet unreachable"),
+    step("The toast carries Copy debug info", Verb::Look, "button", "Copy debug info"),
+    scene("A Fleet on another protocol offers Restart Fleet", "fleet-live-mismatch", "button", "Restart Fleet"),
+    press_on("Restart Fleet answers in the same frame", "button", "Restart Fleet", "button", "Restarting Fleet"),
+    scene("launchd refused: the failure says so, with launchctl's own words", "fleet-live-refused", "alert", "Toast: launchd refused to restart Fleet"),
+    press_on("Dismiss puts it away", "button", "Dismiss", "button", "Restart Fleet"),
+    press_on("Restart Fleet again", "button", "Restart Fleet", "button", "Restarting Fleet"),
+    scene("A Fleet started by hand is not restarted: a second would start beside it", "fleet-live-not-ours", "alert", "Toast: Fleet was not started by Armada's service"),
+    press_on("Dismiss puts it away", "button", "Dismiss", "button", "Restart Fleet"),
+    press_on("Restart Fleet once more", "button", "Restart Fleet", "button", "Restarting Fleet"),
+    scene("A new Fleet answered and it still does not match", "fleet-live-apart", "alert", "Toast: Still not matching"),
+    scene("Fleet answers on this protocol: the notice and the restart go", "fleet-live-running", "button", "Fleet — Running"),
+];
+
+/// The strip on Fleet's live view: each scene is Fleet's answer folded and read as the live app reads it.
+pub static LIVE: [Step; 5] = [
+    marks("Fleet's view as the live app reads it: the open Job's repository alone, the pull request it holds ahead of the open ones", "strip-live", "button", READY),
+    marks("An act Fleet refused marks the chip it came from in red, Fleet's words its tooltip, until it is asked again", "strip-live-refused", "img", "Fleet answered 502"),
+    marks("A repository picked in the title bar: its line only", "strip-live-picked", "button", "#412 Dark mode for the settings page · web/dark-mode · In the merge queue, ready to merge, place 1"),
+    marks("Connected, and Fleet has not answered for the line yet: placeholder chips", "strip-live-loading", "region", "Merge queue"),
+    marks("Fleet stopped, with the same Job open: the title bar says so, and the line Fleet last said stays drawn, as Electron keeps it", "strip-live-down", "button", READY),
+];
+
 pub static STEPS: [Step; 41] = [
     marks("The strip stands along the bottom edge: the merge button, main's light, and the forge's queue in one track, each led by its place, then the rest", "strip-rest", "region", "Merge queue"),
-    step("A ring says a pull request is open and a filled lamp that a queue holds it; the hue is its checks. Rest the pointer on a chip for its card", Verb::Hover, "button", RUNNING),
+    step("A ring is an open pull request, a filled lamp a queued one, the hue its checks; a chip's card opens on hover", Verb::Hover, "button", RUNNING),
     step("A press selects the pull request, and the chip says so in the same frame", Verb::Press, "button", READY),
     marks("A call nobody holds pulses the chip it is about", "strip-calling", "button", CALLING),
     marks("A forge that stopped answering dims main's lamp and an unplugged glyph says since when", "strip-quiet", "img", "Main is green"),
     marks("Main red: the light says where, and a held checkout marks it", "strip-red", "button", RED),
     press_on("A press keeps the card open: what failed, what broke it, the checkout, and how old the reading is", "button", RED, "region", "main"),
     press_on("Dispatch a new Job is pending in the same frame", "button", "Dispatch a new Job", "button", "Dispatch a new Job"),
-    press_on("Send back, beside the pull request that broke main, asks which Job gets the work, the one that merged it chosen, with what goes with it and a Message", "button", "Send back", "dialog", "Send the work back"),
+    press_on("Send back, beside the pull request that broke main, asks which Job takes the work, the one that merged it chosen", "button", "Send back", "dialog", "Send the work back"),
     step("Esc shuts it and the keys go back to the light", Verb::Key("escape"), "button", RED),
     marks("Another machine's claim on the red main: who holds it and for how long, and Take over", "strip-red-elsewhere", "region", "main"),
     press_on("Take over asks once, naming the machine that holds it", "button", "Take over", "dialog", "Take over from Nicks-MacBook-Pro"),

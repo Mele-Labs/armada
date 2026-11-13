@@ -42,6 +42,9 @@ is the back-fill by hand that this section existed to prevent.
 ```
 ⌘K       command palette
 ⌘J       the Operator's page, in the native Bridge only: the Electron Bridge draws no Operator
+⌥⌘J      the newest toast the Operator raised, in the native Bridge only: A its pick, L Later, Esc shuts it
+⌥⌘N      the history of the Operator's toasts, in the native Bridge only
+⌘T       new terminal: a terminal Job, opened on its shell with no sheet, in the native Bridge only
 ⌥⌘C      capture a note onto the open Studio
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
@@ -55,7 +58,8 @@ is the back-fill by hand that this section existed to prevent.
 ⌥R       send back the thread's target card with a note
 ⌥X       no to a card waiting in the Job's thread: Deny, Skip, Dismiss  (confirms)
 ⇧⌘Y      open Needs you: the review sheet where the open Job has a plan, sketch, draft or document waiting, else fold its card
-⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them
+⌥⌘Y      fold Needs you: shut or open the open Job's card, to read the thread
+⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them, from a Job's message box too
 ⌘,       open Settings
 ⌘O       open a file in the side panel
 Esc      close an overlay, or return to the list from a detail route
@@ -170,6 +174,7 @@ Enter          Send to Job   (plan only)
 d / Backspace  Dismiss   (plan only)
 r              Retry the failed hand off   (thread only)
 d              Dispatch job to fix the failed hand off   (thread only)
+Enter          New shell, in a terminal whose shell ended   (terminal only)
 ```
 
 **The Cockpit's keys and a call in front have scopes of their own**, `dashboard`

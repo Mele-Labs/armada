@@ -9,7 +9,7 @@ use gpui::{
     div, prelude::*, Animation, AnimationExt, AnyElement, Context, Entity, FocusHandle, Focusable as _, FontWeight,
     KeyDownEvent, Role, SharedString, Subscription, Window,
 };
-use gpui_component::input::{InputEvent, Textarea, TextareaState};
+use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 use ipc::{
     ProposedFleet, ReadTeaching, SaveTeaching, SavedTeaching, TeachingProposal, TeachingReach, TeachingSource, TeachingSourceKind,
 };
@@ -121,7 +121,7 @@ fn source_of(kind: TeachingSourceKind, text: &str, ids: Vec<String>) -> Teaching
 }
 
 /// A notice's word as the menu names it, with a capital.
-fn notice_name(word: &str) -> String {
+pub fn notice_name(word: &str) -> String {
     let name = disable_label(word).and_then(|label| label.strip_prefix("Disable ")).map_or_else(|| word.replace('_', " "), str::to_string);
     let mut chars = name.chars();
     chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect())
@@ -231,11 +231,20 @@ fn read_body(open: &Open, said: &str) -> ReadTeaching {
         words: if open.source.kind == TeachingSourceKind::Words { open.source.text.clone() } else { String::new() },
         message: String::new(),
         said: said.to_string(),
-        repository: (!open.everywhere).then(|| open.root.clone()).flatten(),
+        repository: place_of(open).0,
         reach: reach_of(open.everywhere),
-        session_id: Some(open.job.to_string()),
+        session_id: place_of(open).1,
         source: Some(open.source.clone()),
     }
+}
+
+/// Where a teaching was given: the repository and the Job. Bridge's own interface was taught in
+/// neither, as Electron's `placeOf` sends it.
+fn place_of(open: &Open) -> (Option<String>, Option<String>) {
+    if matches!(open.source.kind, TeachingSourceKind::Panel | TeachingSourceKind::Row | TeachingSourceKind::TitleBar) {
+        return (None, None);
+    }
+    ((!open.everywhere).then(|| open.root.clone()).flatten(), Some(open.job.to_string()))
 }
 
 /// `save_teaching`'s body: the proposal as it was shown, and where it was taught.
@@ -246,8 +255,8 @@ fn save_body(open: &Open, proposal: &TeachingProposal) -> SaveTeaching {
     SaveTeaching {
         proposal,
         reach: reach_of(open.everywhere),
-        repository: (!open.everywhere).then(|| open.root.clone()).flatten(),
-        session_id: Some(open.job.to_string()),
+        repository: place_of(open).0,
+        session_id: place_of(open).1,
         cite: Some(format!("Teach, {}", source_name(open.source.kind).to_lowercase())),
         source: Some(open.source.clone()),
     }
@@ -274,6 +283,11 @@ fn ask(port: u16, route: &'static str, body: Result<String, String>) -> Result<V
 
 impl JobView {
     /// Teach was pressed: the panel opens over the Job, its box holding what was left in it before.
+    /// Teach from a list row, as Electron's `RowMenu` asks: kind `row`, the row's words.
+    pub(crate) fn teach_row(&mut self, text: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.teach_open(Teach { kind: "row", text, at: None, ids: Vec::new() }, window, cx);
+    }
+
     pub(super) fn teach_open(&mut self, teach: Teach, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let record = self.record(&job, cx);
@@ -443,17 +457,22 @@ impl JobView {
         self.teach_close(window, cx);
     }
 
+    /// ⌘↩ or Ctrl↩: read what was written, then teach what was read.
+    fn teach_forward(&mut self, stage: Stage, window: &mut Window, cx: &mut Context<Self>) {
+        match stage {
+            Stage::Writing => self.teach_read(window, cx),
+            Stage::Shown => self.teach_save(window, cx),
+            Stage::Reading => {}
+        }
+    }
+
     fn teach_keys(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let Some(stage) = self.teach.as_ref().map(|open| open.stage) else { return };
         let key = event.keystroke.key.as_str();
         let forward = key == "enter" && (event.keystroke.modifiers.platform || event.keystroke.modifiers.control);
         if forward {
             cx.stop_propagation();
-            match stage {
-                Stage::Writing => self.teach_read(window, cx),
-                Stage::Shown => self.teach_save(window, cx),
-                Stage::Reading => {}
-            }
+            self.teach_forward(stage, window, cx);
         } else if key == "escape" {
             cx.stop_propagation();
             self.teach_close(window, cx);
@@ -715,6 +734,14 @@ impl JobView {
                 .track_focus(&open.focus)
                 .key_context("teach")
                 .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.teach_keys(event, window, cx)))
+                // In the instruction box ⌘↩ is the text area's own action, which no key listener sees.
+                .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                    let Some(stage) = this.teach.as_ref().map(|open| open.stage) else { return };
+                    if action.secondary {
+                        cx.stop_propagation();
+                        this.teach_forward(stage, window, cx);
+                    }
+                }))
                 .w(look.length(token::W_DIALOG_WIDE))
                 .max_w_full()
                 .h_full()

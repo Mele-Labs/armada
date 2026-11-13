@@ -11,7 +11,7 @@ use chrono::{DateTime, Local};
 use gpui::{
     div, prelude::*, Context, ElementId, Entity, FontWeight, Role, SharedString, Stateful, Window,
 };
-use gpui_component::input::{Textarea, TextareaState};
+use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 
 use super::JobView;
 use crate::labels::labelled;
@@ -55,6 +55,11 @@ pub(super) struct CardState {
     pub said: HashMap<String, SharedString>,
     pub modes: HashMap<String, Mode>,
     pub boxes: HashMap<String, Entity<TextareaState>>,
+    /// Each open box keeping its words as they are typed, by box.
+    pub typing: HashMap<String, gpui::Subscription>,
+    /// Cards drawn with words kept for them: an open one gets its box back, a settled one lets them go.
+    /// A draw writes here and the next frame acts on it.
+    pub kept_seen: std::cell::RefCell<Vec<(String, usize, bool)>>,
     pub folded: HashMap<String, bool>,
     /// The revision of a sketch the person chose, counting from the oldest; absent is the newest.
     pub revision: HashMap<String, usize>,
@@ -64,6 +69,11 @@ pub(super) struct CardState {
     pub target: Option<String>,
     /// How the person settled a Judge's note, before Fleet's reading says so, by `reading/note`.
     pub judged: HashMap<String, ipc::JudgeNoteHow>,
+    /// The sketch card under the pointer, and the one holding the keys: either plays its steps.
+    pub pointed: Option<String>,
+    pub focused: Option<String>,
+    /// The sketch card playing its steps, and since when.
+    pub playing: Option<(String, std::time::Instant)>,
     /// Note boxes just opened, to be scrolled clear of the composer once they are measured.
     pub reveal: HashMap<String, std::rc::Rc<std::cell::Cell<bool>>>,
 }
@@ -175,13 +185,13 @@ impl JobView {
             if ix == SHEET {
                 page.list.remeasure();
             } else {
-                page.list.remeasure_items(ix + page.lead..ix + page.lead + 1);
+                page.remeasure(ix);
             }
         }
         cx.notify();
     }
 
-    fn cards_mut(&mut self) -> Option<&mut CardState> {
+    pub(super) fn cards_mut(&mut self) -> Option<&mut CardState> {
         let id = self.shown.clone()?;
         self.pages.get_mut(&id).map(|page| &mut page.cards)
     }
@@ -195,23 +205,49 @@ impl JobView {
 
     /// Open one of a card's boxes, with `text` in it, and put the caret there.
     pub(super) fn open_box(&mut self, ix: usize, key: &str, mode: Mode, text: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let existing = self.cards_mut().and_then(|cards| cards.boxes.get(&format!("{key}:{mode:?}")).cloned());
+        self.put_box(ix, key, mode, text, true, window, cx);
+    }
+
+    /// A box with its words, the ones kept for it before `text`; `focus` puts the caret in it and brings it into view.
+    #[allow(clippy::too_many_arguments)]
+    fn put_box(&mut self, ix: usize, key: &str, mode: Mode, text: &str, focus: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let box_key = format!("{key}:{mode:?}");
+        let existing = self.cards_mut().and_then(|cards| cards.boxes.get(&box_key).cloned());
         let area = match existing {
             Some(area) => area,
             None => {
                 let rows = if mode == Mode::Edit { (4, 12) } else { (3, 8) };
+                let kept = self.kept_key(key, mode).map(|kept| self.draft_words(&kept)).filter(|words| !words.is_empty());
                 let area = cx.new(|cx| TextareaState::new(window, cx).auto_grow(rows.0, rows.1));
-                area.update(cx, |area, cx| area.set_value(text.to_string(), window, cx));
+                area.update(cx, |area, cx| area.set_value(kept.unwrap_or_else(|| text.to_string()), window, cx));
+                if let Some(kept) = self.kept_key(key, mode) {
+                    let typing = cx.subscribe_in(&area, window, move |this, area, event: &InputEvent, _, cx| {
+                        if let InputEvent::Change = event {
+                            let words = area.read(cx).value().to_string();
+                            this.keep_words(&kept, &words, cx);
+                        }
+                    });
+                    if let Some(cards) = self.cards_mut() {
+                        cards.typing.insert(box_key.clone(), typing);
+                    }
+                }
                 area
             }
         };
-        let box_key = format!("{key}:{mode:?}");
-        self.aim(key);
+        if focus {
+            self.aim(key);
+        }
         if let Some(cards) = self.cards_mut() {
             cards.modes.insert(key.to_string(), mode);
             cards.boxes.insert(box_key, area.clone());
         }
-        area.update(cx, |area, cx| area.focus(window, cx));
+        if focus {
+            area.update(cx, |area, cx| area.focus(window, cx));
+            // The box comes into view with the caret, as a focused box does in Classic.
+            if let Some(page) = self.shown.as_ref().and_then(|id| self.pages.get(id)).filter(|_| ix != SHEET) {
+                page.list.scroll_to_reveal_item(page.entry(ix));
+            }
+        }
         self.card_changed(ix, cx);
     }
 
@@ -220,8 +256,67 @@ impl JobView {
         if let Some(cards) = self.cards_mut() {
             cards.modes.remove(key);
             cards.boxes.retain(|name, _| !name.starts_with(&format!("{key}:")));
+            cards.typing.retain(|name, _| !name.starts_with(&format!("{key}:")));
         }
+        self.forget_box_words(key, cx);
         self.card_changed(ix, cx);
+    }
+
+    /// Where a card's box keeps its words: Classic's `keep`, `<kind>:<job>:<item>`, then `:fixed` or
+    /// `:note` (`SessionThread.tsx:2130`, `DraftRow.tsx:159`).
+    fn kept_key(&self, key: &str, mode: Mode) -> Option<String> {
+        let job = self.shown.as_ref()?;
+        let end = match mode {
+            Mode::Edit => "fixed",
+            Mode::Note => "note",
+            Mode::Read => return None,
+        };
+        let (kind, item) = key.split_once(':').unwrap_or(("card", key));
+        Some(format!("{kind}:{job}:{item}:{end}"))
+    }
+
+    /// Whether words are kept for the card's Edit or Note box.
+    pub(super) fn holds_kept(&self, key: &str) -> bool {
+        [Mode::Edit, Mode::Note].into_iter().filter_map(|mode| self.kept_key(key, mode)).any(|kept| !self.draft_words(&kept).is_empty())
+    }
+
+    /// The words of a card's boxes go: it was cancelled or settled.
+    fn forget_box_words(&mut self, key: &str, cx: &mut Context<Self>) {
+        for mode in [Mode::Edit, Mode::Note] {
+            if let Some(kept) = self.kept_key(key, mode) {
+                self.keep_words(&kept, "", cx);
+            }
+        }
+    }
+
+    /// Cards drawn last frame with words kept: an open card's box comes back as it was left, Edit
+    /// before Note, without the caret; a settled card's words go (`DraftRow.tsx:161-185`).
+    pub(super) fn tend_kept(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(seen) = self.shown.as_ref().and_then(|id| self.pages.get(id)).map(|page| page.cards.kept_seen.take()) else { return };
+        for (key, ix, open) in seen {
+            if !open {
+                self.forget_box_words(&key, cx);
+                continue;
+            }
+            if self.cards_mut().is_some_and(|cards| cards.modes.contains_key(&key)) {
+                continue;
+            }
+            let kept = |mode| self.kept_key(&key, mode).is_some_and(|kept| !self.draft_words(&kept).is_empty());
+            let (fixed, noted) = (kept(Mode::Edit), kept(Mode::Note));
+            if fixed {
+                self.put_box(ix, &key, Mode::Edit, "", false, window, cx);
+            } else if noted {
+                self.put_box(ix, &key, Mode::Note, "", false, window, cx);
+            }
+        }
+    }
+
+    /// `⌘Enter` in a card's open box: the act the box is for, as its primary press does.
+    fn commit_box(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let run = self.shown.as_ref().and_then(|id| self.pages.get(id)).and_then(|page| page.keys.commit_of(key));
+        if let Some(run) = run {
+            run(self, window, cx);
+        }
     }
 
     /// The words in a card's open box.
@@ -238,12 +333,19 @@ impl JobView {
     pub(super) fn box_of(&self, key: &str, mode: Mode, name: impl Into<SharedString>, look: &Look, cx: &Context<Self>) -> Option<gpui::AnyElement> {
         let name: SharedString = name.into();
         let area = self.shown.as_ref().and_then(|id| self.pages.get(id))?.cards.boxes.get(&format!("{key}:{mode:?}"))?;
-        let _ = cx;
+        let commit_key = key.to_string();
         Some(
             labelled(
                 div()
                     .id(SharedString::from(format!("box:{key}:{name}")))
                     .key_context(crate::keymap::TEXT_BOX)
+                    // ⌘↩ sends, taken before the text area puts a line break in (`DraftRow.tsx:309`).
+                    .capture_action(cx.listener(move |this, action: &Enter, window, cx| {
+                        if action.secondary {
+                            cx.stop_propagation();
+                            this.commit_box(&commit_key, window, cx);
+                        }
+                    }))
                     .w_full()
                     .px(look.length(token::SPACE_3))
                     .py(look.length(token::SPACE_2))
@@ -281,7 +383,9 @@ impl JobView {
             cards.said.remove(&key);
             cards.modes.remove(&key);
             cards.boxes.retain(|name, _| !name.starts_with(&format!("{key}:")));
+            cards.typing.retain(|name, _| !name.starts_with(&format!("{key}:")));
         }
+        self.forget_box_words(&key, cx);
         self.card_changed(ix, cx);
         self.post_card(job, ix, key, route, body, window, cx);
     }
@@ -338,14 +442,14 @@ impl JobView {
     }
 
     /// Fleet refused: the answer is taken back and its reason stands on the card.
-    fn undo(&mut self, job: &SharedString, ix: usize, key: &str, why: SharedString, cx: &mut Context<Self>) {
+    pub(super) fn undo(&mut self, job: &SharedString, ix: usize, key: &str, why: SharedString, cx: &mut Context<Self>) {
         if let Some(page) = self.pages.get_mut(job) {
             page.cards.answers.remove(key);
             page.cards.said.insert(key.to_string(), why);
             if ix == SHEET {
                 page.list.remeasure();
             } else {
-                page.list.remeasure_items(ix + page.lead..ix + page.lead + 1);
+                page.remeasure(ix);
             }
         }
         cx.notify();

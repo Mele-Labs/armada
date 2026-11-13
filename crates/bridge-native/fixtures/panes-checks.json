@@ -1,0 +1,85 @@
+{
+ "outputs": [
+  {
+   "run": 412,
+   "attempt": 1,
+   "name": "desktop_unit",
+   "path": "checks/412/desktop_unit.log",
+   "lines": [
+    "$ pnpm exec vitest run --project desktop_unit",
+    "",
+    " RUN  v3.2.4 apps/desktop",
+    "",
+    " \u2713 src/renderer/src/rows.test.ts (14 tests) 41ms",
+    " \u2713 src/renderer/src/chip.test.ts (6 tests) 18ms",
+    " \u2717 src/renderer/src/merge-line.test.ts (9 tests | 1 failed) 27ms",
+    "   \u2717 mergeLineTone > a branch behind main is amber",
+    "     AssertionError: expected 'green' to be 'amber'",
+    "      \u276f src/renderer/src/merge-line.test.ts:48:31",
+    "",
+    " Test Files  1 failed | 2 passed (3)",
+    "      Tests  1 failed | 28 passed (29)",
+    "   Duration  1.92s"
+   ],
+   "from_line": 1,
+   "total_lines": 14,
+   "bytes": 485,
+   "whole": true
+  },
+  {
+   "run": 413,
+   "attempt": 2,
+   "name": "desktop_unit",
+   "path": "checks/413/desktop_unit.log",
+   "lines": [
+    "$ pnpm exec vitest run --project desktop_unit",
+    "",
+    " RUN  v3.2.4 apps/desktop",
+    "",
+    " \u2713 src/renderer/src/rows.test.ts (14 tests) 41ms",
+    " \u2713 src/renderer/src/chip.test.ts (6 tests) 18ms",
+    " \u2713 src/renderer/src/merge-line.test.ts (9 tests) 25ms",
+    "",
+    " Test Files  3 passed (3)",
+    "      Tests  29 passed (29)",
+    "   Duration  1.88s"
+   ],
+   "from_line": 1,
+   "total_lines": 11,
+   "bytes": 299,
+   "whole": true
+  },
+  {
+   "run": 414,
+   "attempt": 1,
+   "name": "foundations",
+   "path": "checks/414/foundations.log",
+   "lines": [
+    "$ cargo xtask verify-foundations --only docs",
+    "docs index: 412 documents listed",
+    "links: 0 broken",
+    "ok"
+   ],
+   "from_line": 1,
+   "total_lines": 4,
+   "bytes": 97,
+   "whole": true
+  },
+  {
+   "run": 415,
+   "attempt": 1,
+   "name": "ci",
+   "path": "checks/415/ci.log",
+   "lines": [
+    "$ cargo nextest run --workspace",
+    "   Compiling ipc v0.1.0",
+    "   Compiling fleet v0.1.0",
+    "    Starting 1844 tests across 31 binaries"
+   ],
+   "from_line": 1,
+   "total_lines": 4,
+   "bytes": 125,
+   "whole": false
+  }
+ ]
+}

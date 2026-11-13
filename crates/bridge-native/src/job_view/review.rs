@@ -13,10 +13,10 @@ use std::rc::Rc;
 
 use chrono::Local;
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, px, Anchor, AnyElement, Bounds, Context, Entity, FocusHandle, Focusable as _,
+    anchored, canvas, deferred, div, prelude::*, px, Anchor, AnyElement, Bounds, Context, Entity, FocusHandle, Focusable as _,
     FontWeight, KeyDownEvent, MouseButton, Pixels, Role, SharedString, Subscription, Window,
 };
-use gpui_component::input::{InputEvent, Textarea, TextareaState};
+use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 use ipc::{
     AnswerDocument, AnswerSketch, AnswerWaiting, ApprovePlan, DismissWaiting, DocumentHow, PlanCardState, PlanMark, SendPlanChanges, SessionId, SessionRow,
     SketchHow, ThreadDocument, ThreadHead, ThreadItem, ThreadSketch, WaitingItem, WaitingSource,
@@ -152,14 +152,14 @@ fn sketch_card<'a>(head: &'a ThreadHead, thread: &'a [ThreadItem], id: &str) -> 
 }
 
 /// The newest revision card of a page.
-fn document_card<'a>(thread: &'a [ThreadItem], page: &str) -> Option<&'a ThreadDocument> {
+pub(super) fn document_card<'a>(thread: &'a [ThreadItem], page: &str) -> Option<&'a ThreadDocument> {
     thread.iter().rev().find_map(|item| match item {
         ThreadItem::Document(card) if card.page == page => Some(card),
         _ => None,
     })
 }
 
-fn draft_row<'a>(thread: &'a [ThreadItem], row: &str) -> Option<&'a SessionRow> {
+pub(super) fn draft_row<'a>(thread: &'a [ThreadItem], row: &str) -> Option<&'a SessionRow> {
     thread.iter().rev().find_map(|item| match item {
         ThreadItem::Row { row: found @ SessionRow::Draft { id, .. } } if id == row => Some(found),
         _ => None,
@@ -306,26 +306,29 @@ impl JobView {
     // ---- opening and closing ---------------------------------------------------------------
 
     /// The Review row, the band with nothing else on it and `⇧⌘Y`: a page that is all the Job owes is
-    /// read on its own card, any other set opens the sheet.
+    /// read in its own tab, one beside other owed things on its card, and any other set opens the sheet.
     pub(super) fn review_press(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         let items = self.review_items(&id, cx);
         if let Some(one) = lone_page(&items).map(|one| one.id.clone()) {
             self.set_needs(false, None, window, cx);
-            self.go_to_card(&id, &one, cx);
+            match self.sole_document(&id, cx) {
+                Some(page) if one.strip_prefix("document:") == Some(page.as_str()) => self.open_document_tab(&page, window, cx),
+                _ => self.go_to_card(&id, &one, cx),
+            }
             return;
         }
         self.open_review(window, cx);
     }
 
-    /// The thread comes to the card of the page owed: a Job here has no tab for it, so its card is the page.
-    fn go_to_card(&mut self, id: &SharedString, waiting: &str, cx: &mut Context<Self>) {
+    /// The thread comes to the card of the page owed, where the page is not all the Job owes.
+    pub(super) fn go_to_card(&mut self, id: &SharedString, waiting: &str, cx: &mut Context<Self>) {
         let at = self.thread(id, cx).and_then(|held| {
             let page = waiting.strip_prefix("document:")?;
             held.items.iter().position(|item| matches!(item, ThreadItem::Document(card) if card.page == page))
         });
         if let (Some(at), Some(page)) = (at, self.pages.get(id)) {
-            page.list.scroll_to(gpui::ListOffset { item_ix: at + page.lead, offset_in_item: px(0.) });
+            page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(at), offset_in_item: px(0.) });
         }
         cx.notify();
     }
@@ -346,6 +349,14 @@ impl JobView {
             let up = self.needs_up(&id, cx);
             self.set_needs(!up, None, window, cx);
         }
+    }
+
+    /// The sheet's choice moves to `item`, as a press on its row does.
+    pub(super) fn review_at(&mut self, item: &str, _window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(review) = self.review_mut() {
+            review.at = Some(item.to_string());
+        }
+        cx.notify();
     }
 
     pub(super) fn open_review(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -575,14 +586,12 @@ impl JobView {
         let kept = self.draft_words(&key);
         let area = cx.new(|cx| TextareaState::new(window, cx).auto_grow(3, 8));
         area.update(cx, |area, cx| area.set_value(kept, window, cx));
-        let typed = cx.subscribe_in(&area, window, move |this, area, event: &InputEvent, window, cx| match event {
-            InputEvent::Change => {
+        let typed = cx.subscribe_in(&area, window, move |this, area, event: &InputEvent, _, cx| {
+            if let InputEvent::Change = event {
                 let text = area.read(cx).value().to_string();
                 this.keep_words(&key, &text, cx);
                 cx.notify();
             }
-            InputEvent::PressEnter { secondary: true, .. } => this.review_send_note(window, cx),
-            _ => {}
         });
         if let Some(review) = self.review_mut() {
             review.note = Some(NoteBox { area: area.clone(), _typed: typed });
@@ -620,7 +629,7 @@ impl JobView {
             return true;
         }
         // The cards behind take none of the thread's keys while the sheet is up.
-        act.is("thread_yes") || act.is("thread_change") || act.is("thread_no") || act.is("needs_you")
+        act.is("thread_yes") || act.is("thread_change") || act.is("thread_no") || act.is("needs_you") || act.is("needs_you_fold")
     }
 
     /// Esc and Tab, caught before anything inside the sheet hears them.
@@ -728,7 +737,8 @@ impl JobView {
         let page = self.pages.get(id)?;
         let review = Some(&page.review).filter(|review| review.open)?;
         let look = cx.look();
-        let viewport = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let viewport = room.size;
         let title: SharedString = self.record(id, cx).and_then(|job| job.title.clone()).map_or_else(|| "Review".into(), Into::into);
         let current = review.at.as_ref().and_then(|at| review.seen.iter().find(|item| &item.id == at)).cloned();
         let settled = current.as_ref().map(|item| self.review_standing(id, item, cx));
@@ -905,7 +915,7 @@ impl JobView {
         );
         Some(
             deferred(
-                anchored().position(point(px(0.), px(0.))).anchor(Anchor::TopLeft).child(
+                anchored().position(room.origin).anchor(Anchor::TopLeft).child(
                     // A press on the ground behind takes nothing: the close and Esc are the two exits.
                     div().id("review-scrim").occlude().w(viewport.width).h(viewport.height).flex().justify_end().bg(look.color(token::SCRIM)).child(sheet),
                 ),
@@ -938,8 +948,8 @@ impl JobView {
             .gap(look.length(token::SPACE_3))
             .h(look.length(token::H_ROW_UNIT))
             .px(look.length(token::SPACE_3))
-            .rounded(look.length(token::RADIUS_MD))
-            .border_l(look.length(token::EDGE_ACTIVE))
+            // The chosen item is filled and ringed thin, square, as Electron's focused `[data-on]` item draws.
+            .border(look.length(token::BORDER_WIDTH))
             .border_color(if on { look.color(token::ACCENT) } else { gpui::transparent_black() })
             .when(on, |row| row.bg(look.color(token::SURFACE_ROW_SELECTED)))
             .when(!on, |row| row.hover(|style| style.bg(look.color(token::SURFACE_ROW_HOVER))))
@@ -997,7 +1007,7 @@ impl JobView {
                             .as_ref()
                             .filter(|changes| plan.version >= 2 && !changes.is_empty())
                             .map(|changes| self.plan_revision(SHEET, &card.id, plan, changes, page, look, cx));
-                        self.plan_editor(id, plan, diff, look, cx)
+                        self.plan_editor(id, plan, diff, false, look, cx)
                     }
                     None => self.review_skeleton(look),
                 }
@@ -1005,7 +1015,16 @@ impl JobView {
             Kind::Sketch => match sketch_card(&held.head, &held.items, &item.id) {
                 Some(card) => {
                     let band = self.sketch_band(SHEET, &card.id, &card.title, card.replaced, card.against.as_deref(), Some((&card.at, card.revisions.len(), None)), look, now, cx);
-                    div().flex().flex_col().min_h(look.length(token::H_ROW_UNIT) * 8.).child(band).child(glass(look, card.replaced)).into_any_element()
+                    div().flex().flex_col().min_h(look.length(token::H_ROW_UNIT) * 8.).child(band)
+                        .child(glass(
+                            look,
+                            card.replaced,
+                            match super::cards::shown_scene(card, None) {
+                                (key, Some(scene)) => Some(crate::scene::view(key.into(), scene, crate::scene::Fit::Preview, crate::scene::Clock::default(), crate::scene::Lens::default()).into_any_element()),
+                                _ => None,
+                            },
+                        ))
+                        .into_any_element()
                 }
                 None => self.review_skeleton(look),
             },
@@ -1129,6 +1148,13 @@ impl JobView {
                     div()
                         .id("review-note")
                         .key_context(crate::keymap::TEXT_BOX)
+                        // ⌘↩ sends, taken before the text area puts a line break in.
+                        .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                            if action.secondary {
+                                cx.stop_propagation();
+                                this.review_send_note(window, cx);
+                            }
+                        }))
                         .w_full()
                         .px(look.length(token::SPACE_3))
                         .py(look.length(token::SPACE_2))

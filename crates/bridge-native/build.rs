@@ -71,6 +71,20 @@ fn main() {
     table.push_str("];\n");
 
     fs::write(out.join("look_sources.rs"), table).expect("the source table is written");
+
+    // How long a request with a model call inside it waits, read from Electron's `MODEL_CALL_MS` so the
+    // two apps wait the same and neither carries a copy.
+    let request = manifest.join("..").join("..").join("apps").join("desktop").join("src").join("main").join("request.ts");
+    println!("cargo:rerun-if-changed={}", request.display());
+    let said = fs::read_to_string(&request).expect("apps/desktop/src/main/request.ts is read");
+    let ms: u64 = said
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("export const MODEL_CALL_MS = ")?.strip_suffix(';').map(|figure| figure.replace('_', "")))
+        .expect("request.ts declares `export const MODEL_CALL_MS = <ms>;`")
+        .parse()
+        .expect("MODEL_CALL_MS is a whole number of milliseconds");
+    fs::write(out.join("model_call.rs"), format!("// Written by build.rs from apps/desktop/src/main/request.ts.\npub const MODEL_CALL_MS: u64 = {ms};\n"))
+        .expect("the model call wait is written");
 }
 
 fn absolute(path: &Path) -> String {

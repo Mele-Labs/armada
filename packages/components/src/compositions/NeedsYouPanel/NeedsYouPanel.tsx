@@ -370,9 +370,20 @@ export function NeedsYouPanel({
       press();
     }
   };
+  const foldKey = useRef<() => void>(() => undefined);
+  foldKey.current = () => {
+    if (!empty) press();
+  };
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.defaultPrevented || event.repeat || !isPressed("needs_you", event)) return;
+      if (event.defaultPrevented || event.repeat) return;
+      if (isPressed("needs_you_fold", event)) {
+        // `⌥⌘Y` folds or opens the card itself, so the thread can be read.
+        event.preventDefault();
+        foldKey.current();
+        return;
+      }
+      if (!isPressed("needs_you", event)) return;
       event.preventDefault();
       wide.current();
     };

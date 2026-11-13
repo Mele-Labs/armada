@@ -147,3 +147,20 @@ fn a_project_is_written_as_the_file_that_reads_back_to_it() {
     let empty = parse_project(Path::new("new.yml"), &text("new", "New", &[])).expect("an empty Project");
     assert_eq!(parse_project(Path::new("new.yml"), &project_text(&empty).expect("text")).expect("read back"), empty);
 }
+
+#[test]
+fn a_project_is_unshared_unless_its_file_says_so_and_is_written_shared_only_while_on() {
+    let file = "version: 2\nproject_id: shop\nname: Shop\nmembers:\n  - repository: web\n";
+    let unshared = parse_project(Path::new("shop.yml"), file).expect("a Project");
+    assert!(!unshared.shared_with_macs(), "a file that does not say is off");
+    assert!(!project_text(&unshared).expect("text").contains("shared_with_macs"), "off is not written");
+
+    let on = parse_project(Path::new("shop.yml"), &format!("{file}shared_with_macs: true\n")).expect("a shared Project");
+    assert!(on.shared_with_macs());
+    let written = project_text(&on).expect("text");
+    assert!(written.contains("shared_with_macs: true"), "{written}");
+    assert_eq!(parse_project(Path::new("shop.yml"), &written).expect("read back"), on);
+
+    let refused = parse_project(Path::new("shop.yml"), &format!("{file}shared_with_macs: yes please\n")).expect_err("not a flag");
+    assert!(refused.to_string().contains("shared_with_macs"), "{refused}");
+}

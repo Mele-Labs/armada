@@ -10,23 +10,20 @@ use gpui::SharedString;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
     Job,
-    Autopilot,
 }
 
 impl Kind {
-    /// The kind's word, which is also its tooltip and its tab (`DP/kinds.ts`).
+    /// The kind's word, which is also its tooltip (`DP/kinds.ts`).
     pub fn word(self) -> &'static str {
         match self {
             Kind::Job => "Job",
-            Kind::Autopilot => "Autopilot",
         }
     }
 
-    /// The kind's registry glyph, drawn on the line and in the strip.
+    /// The kind's registry glyph, drawn on the line.
     pub fn glyph(self) -> &'static str {
         match self {
             Kind::Job => "square-terminal",
-            Kind::Autopilot => "plane",
         }
     }
 }
@@ -341,22 +338,6 @@ impl Mentions {
     }
 }
 
-/// What Fleet read of an Autopilot sentence (`AutopilotProposal`, `quoted` included): the
-/// instruction and the fields, each with the words it was read from where the sentence said any.
-#[derive(Clone, Debug)]
-pub struct AutopilotRead {
-    pub instruction: SharedString,
-    pub fields: Vec<AutopilotField>,
-}
-
-#[derive(Clone, Debug)]
-pub struct AutopilotField {
-    pub label: &'static str,
-    pub value: SharedString,
-    pub placeholder: &'static str,
-    pub quoted: Option<SharedString>,
-}
-
 /// The model and effort lists, and what `Auto` stands for.
 #[derive(Clone, Debug)]
 pub struct Tuning {
@@ -370,8 +351,6 @@ pub struct Tuning {
 pub struct Face {
     /// Whether the window is connected to Fleet; off, everything is disabled.
     pub connected: bool,
-    /// The kinds offered, the default first.
-    pub kinds: Vec<Kind>,
     /// Chips in the order they are shown, the first nine keyed.
     pub chips: Vec<Chip>,
     /// Repositories past the ninth, under More.
@@ -384,23 +363,11 @@ pub struct Face {
     pub mentions: Mentions,
     /// The sentence a brief that waits on a Job reads as, once a read stands.
     pub wait: Option<Wait>,
-    /// What Fleet read of an Autopilot sentence, once asked.
-    pub read: Option<AutopilotRead>,
-    /// What the Autopilot read was refused with, in Fleet's sentence.
+    /// What a start was refused with, in Fleet's sentence.
     pub refused: Option<SharedString>,
 }
 
 impl Face {
-    /// The word on the act: `Start` on a Job; on an Autopilot `Read it`, then `Start Autopilot`
-    /// once a read stands (`DP/dispatching.tsx:694`).
-    pub fn act(&self, kind: Kind) -> &'static str {
-        match kind {
-            Kind::Job => "Start",
-            Kind::Autopilot if self.read.is_some() => "Start Autopilot",
-            Kind::Autopilot => "Read it",
-        }
-    }
-
     /// The name of the chip the request goes to.
     pub fn chosen(&self) -> Option<&Chip> {
         self.chips.iter().chain(&self.more).find(|chip| chip.mark == Mark::Chosen)
@@ -429,13 +396,4 @@ impl Face {
         }
         self.reading = Reading::Picked;
     }
-}
-
-/// What a send leaves: the strip's title and kind (`DP/dispatching.tsx:507-510`).
-#[derive(Clone, Debug)]
-pub struct Sent {
-    pub kind: Kind,
-    pub title: SharedString,
-    /// The repository it runs in, which the Open on the strip asks the Autopilot lane of.
-    pub root: SharedString,
 }

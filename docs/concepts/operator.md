@@ -309,12 +309,21 @@ Raising, leaving a note where it is and noting it are not acts.
 Settled with the person on 10 Nov, on sketches. It stays current all day; the morning only rewrites its top line.
 - The top line is the Operator's one sentence on what matters first, rewritten each time the person comes back to the page.
   It sits in grey under the day and the pills, with nothing on it to press, and only a red main's pill keeps its colour (11 Nov).
+  The pills are each repository's main and the slots held; the week's plan is not one of them, since the title bar's rings show it on every page (12 Nov).
 - Your turn is the short list, in an order the person drags.
   On it sits at the top, saying what the Operator is reading now: the Job by name, what it asks, and its project.
   One item is open at a time, with its kind, its Job, what it asks, the Operator's read and its acts, the pick marked: A presses the pick, L is Later, / is Ask.
-  The rest are one line each.
+  The rest are one line each. A row pressed low opens its card where it stands, and nothing reorders (12 Nov).
+  The pick's button reads the option it names, Later, or My pick, with the Operator's sentence in its tooltip, never on the button (12 Nov).
+  Later opens a menu of when the item comes back, each choice with its time: 1 hour, 3 hours, Tomorrow morning (09:00) and Next week (Monday 09:00). The item goes last until then, its row's clock saying when; a time Fleet refuses as passed puts the item back open with Fleet's why. A Later pick answered Yes, and a toast's Later, keep it for the rest of the day (12 Nov).
+  An ask other Jobs raised too is folded into the first, and a mark beside its title names them in its tooltip.
+- An answered item leaves Your turn at once for Answered today, folded at the foot, with what came of each; it is drawn only once something was answered on the person's local day, and has no Undo (12 Nov).
+  An item whose act Fleet leaves to him to open stays out of Your turn too, though Fleet keeps it until he opens it.
+  A refused answer puts the item back open with Fleet's why under it; a reply that never arrives puts it back and raises a failure toast with Retry.
 - Your turn holds the person's decisions (plans, walks, reviews, questions) and go-aheads, what the Operator would do itself, answered Yes, Always here, Always or No.
-- A go-ahead to file an issue also carries Then: Just file it, File and start a Job, or File and hand to a live Job already on the same files, with the Operator's pick marked My pick.
+- A go-ahead to file an issue is one row of outcomes, each naming what happens: File it, File and start a Job, File and hand to a live Job already on the same files, and Don't file (12 Nov).
+  The Operator's pick is filled with the pick glyph, its read in the tooltip; 1 to 3 press an outcome and D is Don't file.
+  Always here and Always leave this card and are offered after he answers.
 - Ask on an item opens the chat about that item inside its card, and the digest stays beside it (11 Nov). The chat holds conversation only; a raise is an item of Your turn, never a chat line.
 - The digest is Since you last looked: tiles for Landed, What I handled (ending in a link to the whole Log), Running, Coming up, and Learned, each project's rules, which replaces the Permissions tab, and Holds, the paths a Job holds until it pushes or ends.
   Running, Learned and Holds put their rows under each project's heading, Everywhere first, and a rule or hold takes two lines before it is cut (11 Nov).

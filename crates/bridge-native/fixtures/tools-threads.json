@@ -1,0 +1,344 @@
+{
+ "threads": [
+  {
+   "session_id": "tool-read",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-1",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Why does the router build its table on every call?"
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "r-1",
+     "names": [
+      "Grep",
+      "Read"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "r-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Grep router"
+      },
+      {
+       "kind": "tool",
+       "id": "r-2",
+       "at": "2026-11-10T22:00:04Z",
+       "text": "Read crates/api/src/router.rs"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "tool-run",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-2",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Run the docs check and the native walk."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "u-1",
+     "names": [
+      "Bash"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "u-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Bash armada check docs"
+      },
+      {
+       "kind": "tool",
+       "id": "u-2",
+       "at": "2026-11-10T22:00:20Z",
+       "description": "Build the native app and play the tool-rows walk",
+       "text": "Bash cd crates/bridge-native && ARMADA_LOG=debug cargo build --release --features walk-shots,native-menus && ./target/release/bridge-native --walk tool-rows --check --width 900 --shots /tmp/armada-red/tool-rows\necho done"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "tool-edit",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-3",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Make the freshness chip amber while the branch is behind."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "e-1",
+     "names": [
+      "Read",
+      "Edit"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "e-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Read packages/components/src/MergeLine/MergeLine.tsx"
+      },
+      {
+       "kind": "tool",
+       "id": "e-2",
+       "at": "2026-11-10T22:00:09Z",
+       "text": "Edit packages/components/src/MergeLine/MergeLine.tsx"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "tool-search",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-4",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Where is the webhook queue drained?"
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "s-1",
+     "names": [
+      "Glob",
+      "Grep"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "s-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Glob crates/**/webhook*.rs"
+      },
+      {
+       "kind": "tool",
+       "id": "s-2",
+       "at": "2026-11-10T22:00:03Z",
+       "text": "Grep drain_queue"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "tool-agent",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-5",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Have someone review the merge line change."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "a-1",
+     "names": [
+      "Read",
+      "Agent"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "a-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Read packages/components/src/MergeLine/MergeLine.tsx"
+      },
+      {
+       "kind": "tool",
+       "id": "a-2",
+       "at": "2026-11-10T22:00:05Z",
+       "text": "Agent Review the merge line change"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "tool-done",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-6",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Fix the merge line chip.\nThen have it reviewed."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "d-1",
+     "names": [
+      "Read",
+      "Grep",
+      "Edit",
+      "Bash",
+      "WebFetch",
+      "Agent"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "d-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Read crates/api/src/router.rs"
+      },
+      {
+       "kind": "tool",
+       "id": "d-2",
+       "at": "2026-11-10T22:00:05Z",
+       "text": "Grep mergeLineTone"
+      },
+      {
+       "kind": "tool",
+       "id": "d-3",
+       "at": "2026-11-10T22:00:06Z",
+       "text": "Edit packages/components/src/MergeLine/MergeLine.tsx"
+      },
+      {
+       "kind": "tool",
+       "id": "d-4",
+       "at": "2026-11-10T22:00:14Z",
+       "text": "Bash armada check docs"
+      },
+      {
+       "kind": "tool",
+       "id": "d-5",
+       "at": "2026-11-10T22:01:02Z",
+       "text": "WebFetch https://docs.rs/gpui"
+      },
+      {
+       "kind": "tool",
+       "id": "d-6",
+       "at": "2026-11-10T22:01:05Z",
+       "text": "Agent Review the merge line change"
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-7",
+      "at": "2026-11-10T22:02:31Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The chip is amber while the branch is behind. The review found nothing."
+     }
+    }
+   ]
+  }
+ ]
+}

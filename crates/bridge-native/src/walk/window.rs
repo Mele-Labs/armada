@@ -8,7 +8,7 @@
 //! the bar says so.
 
 use gpui::{
-    actions, div, prelude::*, px, App, Context, Entity, FocusHandle, FontWeight, KeyBinding, Role,
+    actions, div, prelude::*, px, AnyElement, App, Context, Entity, FocusHandle, FontWeight, KeyBinding, Role,
     SharedString, Subscription, Task, Window,
 };
 use std::cell::Cell;
@@ -169,6 +169,7 @@ impl WalkWindow {
         let from = if fresh { 0 } else { self.at + 1 };
         self.playing = true;
         if fresh {
+            crate::toasts::at_rest(cx);
             match Stage::new(walk, window, cx) {
                 Ok(stage) => self.stage = Some(stage),
                 Err(why) => {
@@ -181,9 +182,18 @@ impl WalkWindow {
         self._play = Some(cx.spawn_in(window, async move |this, cx| {
             for at in from..=to {
                 let step = walk.steps[at];
-                if step.verb == Verb::Fresh {
+                let again = match step.verb {
+                    Verb::Fresh => Some((walk.screen, walk.scenario)),
+                    Verb::FreshIn(screen, scenario) => Some((screen, scenario)),
+                    _ => None,
+                };
+                if let Some((screen, scenario)) = again {
                     // A part of a long walk starts on a screen built again, with nothing of the last part open.
-                    let rebuilt = this.update_in(cx, |this, window, cx| match Stage::new(walk, window, cx) {
+                    let part = Walk { screen, scenario, ..*walk };
+                    let rebuilt = this.update_in(cx, |this, window, cx| match {
+                        crate::toasts::at_rest(cx);
+                        Stage::new(&part, window, cx)
+                    } {
                         Ok(stage) => {
                             this.stage = Some(stage);
                             cx.notify();
@@ -201,6 +211,9 @@ impl WalkWindow {
                     }
                 }
                 let Ok(Some(focus)) = this.read_with(cx, |this, _| this.stage.as_ref().map(|stage| stage.focus.clone())) else { return };
+                if let Verb::Later(ms) = step.verb {
+                    cx.background_executor().timer(std::time::Duration::from_millis(ms)).await;
+                }
                 let person = step.verb == Verb::NoteKey;
                 if person {
                     let _ = this.update(cx, |this, _| this.playing = false);
@@ -561,6 +574,11 @@ impl WalkWindow {
 
     /// Where the walk stands, for the check: the step on screen, a fault the bar shows, and a
     /// target the window did not draw.
+    /// Whether a step is still being played.
+    pub fn playing(&self) -> bool {
+        self.playing
+    }
+
     pub fn reading(&self, window: &Window, cx: &App) -> Reading {
         Reading {
             at: self.at,
@@ -818,10 +836,19 @@ fn approve_button(take: Option<SharedString>, cx: &mut Context<WalkWindow>) -> i
 impl Render for WalkWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let bar = self.render_bar(cx);
+        // The app draws below the bar: its sheets and dialogs start there, so the step stays readable.
+        // The bar is two rows, each as `render_bar`'s `row` sets it.
+        let barred = {
+            let look = cx.look();
+            (look.length(token::SPACE_8) + look.length(token::SPACE_2) + look.length(token::SPACE_1)) * 2.
+        };
+        let viewport = window.viewport_size();
+        crate::room::set(window, Bounds::new(point(px(0.), barred), gpui::size(viewport.width, viewport.height - barred)), cx);
         let look = cx.look();
         let ring = if self.playing || self.capture.is_some() { None } else { find(&self.walk.steps[self.at], window, cx).ok() };
         let gap = look.length(token::FOCUS_RING_WIDTH) * 2.;
         let stage_at = Rc::clone(&self.stage_at);
+        let chrome = |element: AnyElement| gpui::deferred(element).with_priority(crate::room::WALK_CHROME);
         label_root(
             div()
                 .id("walk-window")
@@ -851,7 +878,8 @@ impl Render for WalkWindow {
                 // What a library widget inherits, such as the note's typed text; gpui's own is black.
                 .text_color(look.color(token::FG_DEFAULT))
                 .font_family(look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_default())
-                .child(bar)
+                // Walk chrome paints above every app layer: the bar, the ring on the target, the note and the takes menu.
+                .child(chrome(bar.into_any_element()))
                 .child(
                     div()
                         .relative()
@@ -860,19 +888,23 @@ impl Render for WalkWindow {
                         .children(self.stage.as_ref().map(|stage| stage.view.clone()))
                         .child(canvas(move |bounds, _, _| stage_at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full()),
                 )
-                .children(ring.map(|drawn| {
-                    div()
+                // A target its pane has scrolled out of sight shows nothing; its clipped bounds turn inside out and would draw as a stray line.
+                .children(ring.filter(|drawn| drawn.shown.size.width > px(0.) && drawn.shown.size.height > px(0.)).map(|drawn| {
+                    let shown = drawn.shown;
+                    chrome(div()
                         .absolute()
-                        .left(drawn.bounds.origin.x - gap)
-                        .top(drawn.bounds.origin.y - gap)
-                        .w(drawn.bounds.size.width + gap * 2.)
-                        .h(drawn.bounds.size.height + gap * 2.)
-                        .rounded(look.length(token::RADIUS_SM))
+                        .left(shown.origin.x - gap)
+                        .top(shown.origin.y - gap)
+                        .w(shown.size.width + gap * 2.)
+                        .h(shown.size.height + gap * 2.)
+                        // The ring follows the element's own corners, out by the gap; one that sets none takes the card's.
+                        .rounded(drawn.radius.unwrap_or(look.length(token::RADIUS_LG)) + gap)
                         .border(look.length(token::FOCUS_RING_WIDTH))
                         .border_color(look.color(token::ACCENT))
+                        .into_any_element())
                 }))
-                .children(self.capture.as_ref().map(|(capture, _)| capture.clone()))
-                .children(self.menu.as_ref().map(|(menu, ..)| menu.clone())),
+                .children(self.capture.as_ref().map(|(capture, _)| chrome(capture.clone().into_any_element())))
+                .children(self.menu.as_ref().map(|(menu, ..)| chrome(menu.clone().into_any_element()))),
         )
     }
 }
