@@ -549,6 +549,39 @@ export type PullRequestWait =
 export type WaitingOption = {
   label: string;
   description?: string;
+  /** The option as a picture, where the asker drew one. Absent on an option that is words only. */
+  picture?: OptionPicture;
+};
+
+/** An option drawn as a still, which a person can press whole or pick named parts of. */
+export type OptionPicture = {
+  /** A URL or a path Fleet serves. */
+  image: string;
+  /** The still's size in pixels, which the boxes of `parts` are measured on. */
+  width: number;
+  height: number;
+  /** The parts a person can pick across the options' pictures. Absent where the picture is only pressed whole. */
+  parts?: PicturePart[];
+};
+
+/** A box on an option's still, in the still's pixels from its top left. */
+export type PicturePart = {
+  /** What a pick of this part is called to the agent. Unique within its picture. */
+  name: string;
+  /** What the person reads for it. */
+  label: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+/** One part of one option's picture, picked for a mix. */
+export type PartPicked = {
+  /** An index into the item's `options`, as `choice` is. */
+  option: number;
+  /** The `name` of one of that option's picture's parts. */
+  part: string;
 };
 
 /**
@@ -764,6 +797,17 @@ export type AnswerWaiting = {
   text?: string;
   mode?: "best" | "quick";
   fixed?: string;
+};
+
+/**
+ * `POST /sessions/waiting/answer_parts`: answer an item by picking parts across its options' pictures, which asks
+ * the agent to build a mix of them. `parts_picked` is at least one; an option the item lacks, a part its picture
+ * lacks, or an item with no pictures is a 422 `fleet.session_waiting_empty`.
+ */
+export type AnswerWaitingParts = {
+  session_id: string;
+  item_id: string;
+  parts_picked: PartPicked[];
 };
 
 /**

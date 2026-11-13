@@ -276,6 +276,13 @@ where
         Arc::clone(&self).settle_answer(said, super::waiting::Answerer::Him).await
     }
 
+    async fn answer_waiting_parts(
+        self: Arc<Self>,
+        said: ipc::AnswerWaitingParts,
+    ) -> Result<SessionRecord, Refusal> {
+        Arc::clone(&self).settle_parts(said).await
+    }
+
     async fn free_slot(self: Arc<Self>, free: ipc::FreeSlot) -> Result<SessionRecord, Refusal> {
         self.slot_freed_for(free).await
     }

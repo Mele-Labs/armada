@@ -1,0 +1,14 @@
+[operations.withdraw_preview]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Take a branch back off the owner's preview list"
+notes = """
+`POST /sessions/withdraw_preview`, body `WithdrawPreview`: optionally `branch` and `session_id`. Answered `PreviewWithdrawn`: the `branch` withdrawn. **`branch` is the branch of the slot the Job holds** when it is left out.
+
+Fleet deletes the Job's offer of that branch and checks the set again without it, so an offer that failed on top of it may now be ready. The Job is told nothing: it asked.
+
+Refused 404 `fleet.preview_not_offered` where the Job has no offer of that branch; 422 `fleet.preview_no_branch` where the Job holds no branch and names none, and where the call places no Job.
+
+`agent_access` is `Yes`: the Job takes back its own offer.
+"""

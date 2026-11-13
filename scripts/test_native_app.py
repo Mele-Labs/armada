@@ -15,6 +15,12 @@ import unittest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NATIVE_APP = os.path.join(HERE, "scripts", "native-app")
+PLIST = (
+    '<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>'
+    "<key>CFBundleIdentifier</key><string>dev.armada.voice.test</string>"
+    "<key>CFBundleExecutable</key><string>armada-voice</string>"
+    "<key>CFBundlePackageType</key><string>APPL</string></dict></plist>"
+)
 BRAND_ICON = os.path.join(HERE, "packages", "brand", "macos", "AppIcon.icns")
 
 
@@ -29,8 +35,8 @@ class NativeApp(unittest.TestCase):
         shutil.copyfile("/usr/bin/true", self.binary)
         os.chmod(self.binary, 0o755)
 
-    def run_script(self, *args):
-        return subprocess.run([NATIVE_APP, *args], capture_output=True, text=True)
+    def run_script(self, *args, env=None):
+        return subprocess.run([NATIVE_APP, *args], capture_output=True, text=True, env=env)
 
     def make(self, *extra):
         done = self.run_script(self.binary, self.out, *extra)
@@ -41,7 +47,10 @@ class NativeApp(unittest.TestCase):
         app = self.make()
         self.assertEqual(app, os.path.join(self.out, "Armada.app"))
         contents = os.path.join(app, "Contents")
-        self.assertEqual(sorted(os.listdir(contents)), ["Info.plist", "MacOS", "Resources", "_CodeSignature"])
+        # Helpers is there when Armada Voice is, and the script builds it where it can.
+        helper = os.path.join(HERE, "apps", "desktop", "native", "voice", "build", "Armada Voice.app", "Contents", "MacOS", "armada-voice")
+        want = ["Info.plist", "MacOS", "Resources", "_CodeSignature"]
+        self.assertEqual(sorted(os.listdir(contents)), sorted(want + (["Helpers"] if os.path.isfile(helper) else [])))
         self.assertEqual(os.listdir(os.path.join(contents, "MacOS")), ["Armada"])
         self.assertTrue(os.access(os.path.join(contents, "MacOS", "Armada"), os.X_OK))
 
@@ -99,6 +108,83 @@ class NativeApp(unittest.TestCase):
         done = self.run_script(self.binary)
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("usage: native-app", done.stderr)
+
+
+@unittest.skipUnless(shutil.which("codesign") and shutil.which("node"), "the bundle is signed, and the helper is built with node")
+class NativeAppVoice(unittest.TestCase):
+    """Armada Voice is built into the app, from a scratch tree whose build.mjs only counts how often it ran."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.out = os.path.join(self.tmp, "out")
+        self.binary = os.path.join(self.tmp, "native")
+        shutil.copyfile("/usr/bin/true", self.binary)
+        self.voice = os.path.join(self.tmp, "tree", "apps", "desktop", "native", "voice")
+        os.makedirs(self.voice)
+        self.calls = os.path.join(self.tmp, "calls")
+        self.helper = os.path.join(self.voice, "build", "Armada Voice.app", "Contents", "MacOS", "armada-voice")
+        self.source = os.path.join(self.voice, "main.swift")
+        with open(self.source, "w") as f:
+            f.write("source\n")
+        self.script(
+            'import { appendFileSync, copyFileSync, mkdirSync, writeFileSync } from "node:fs";\n'
+            f'appendFileSync({self.calls!r}, "x");\n'
+            f'mkdirSync({os.path.dirname(self.helper)!r}, {{ recursive: true }});\n'
+            # A real Mach-O in a bundle with an Info.plist, since the app is signed with it inside.
+            f'copyFileSync("/usr/bin/true", {self.helper!r});\n'
+            f'writeFileSync({os.path.join(self.voice, "build", "Armada Voice.app", "Contents", "Info.plist")!r}, {PLIST!r});\n'
+            'console.log("voice: built");\n'
+        )
+
+    def script(self, text):
+        with open(os.path.join(self.voice, "build.mjs"), "w") as f:
+            f.write(text)
+
+    def built(self):
+        if not os.path.exists(self.calls):
+            return 0
+        with open(self.calls) as f:
+            return len(f.read())
+
+    def make(self):
+        env = {**os.environ, "NATIVE_APP_TREE": os.path.join(self.tmp, "tree")}
+        return subprocess.run([NATIVE_APP, self.binary, self.out], capture_output=True, text=True, env=env)
+
+    def carried(self):
+        return os.path.isfile(os.path.join(self.out, "Armada.app", "Contents", "Helpers", "Armada Voice.app", "Contents", "MacOS", "armada-voice"))
+
+    def test_a_missing_helper_is_built_and_carried_and_stdout_stays_the_apps_path(self):
+        done = self.make()
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(done.stdout.strip(), os.path.join(self.out, "Armada.app"))
+        self.assertEqual(self.built(), 1)
+        self.assertTrue(self.carried())
+
+    def test_a_helper_newer_than_every_source_is_not_built_again(self):
+        self.make()
+        past = os.path.getmtime(self.helper) - 100
+        for name in os.listdir(self.voice):
+            if os.path.isfile(os.path.join(self.voice, name)):
+                os.utime(os.path.join(self.voice, name), (past, past))
+        self.make()
+        self.assertEqual(self.built(), 1)
+        self.assertTrue(self.carried())
+
+    def test_a_source_newer_than_the_helper_builds_it_again(self):
+        self.make()
+        later = os.path.getmtime(self.helper) + 100
+        os.utime(self.source, (later, later))
+        self.make()
+        self.assertEqual(self.built(), 2)
+
+    def test_a_failed_build_says_so_in_one_line_and_the_app_is_made_without_it(self):
+        self.script("process.exit(1);\n")
+        done = self.make()
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(done.stdout.strip(), os.path.join(self.out, "Armada.app"))
+        self.assertEqual(len([line for line in done.stderr.splitlines() if "Armada Voice" in line]), 1)
+        self.assertFalse(self.carried())
 
 
 if __name__ == "__main__":

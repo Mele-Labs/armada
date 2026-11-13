@@ -1,16 +1,27 @@
 #!/usr/bin/env python3
 #
-# A rolling preview: every in-flight branch merged on top of `main`, in a
-# worktree of its own, with no Checks, so work that has not landed can be used
-# while agents land it. `docs/practices/running-locally.md`, "A preview of
-# unlanded work", is what it does and what it never promises.
+# A rolling preview: the branches a Job offered and Fleet checked, merged on top
+# of `main` in a worktree of its own, with no Checks, so work that has not landed
+# can be used while agents land it. `docs/practices/running-locally.md`, "A
+# preview of unlanded work", is what it does and what it never promises.
 #
-#   scripts/preview                      merge once, print the table
-#   scripts/preview --only a --skip b    a branch list is repeatable or comma-separated
+#   scripts/preview                      merge the offered branches once, print the table
+#   scripts/preview --all                every live slot branch ahead of main, offered or not
+#   scripts/preview --only a --skip b    named slot branches, offered or not; --skip leaves
+#                                        branches out of whichever set is in use. A branch list
+#                                        is repeatable or comma-separated
 #   scripts/preview --watch [seconds]    merge again when a branch or main moves (60)
 #   scripts/preview --restart [--dry-run] [--adopt]  then `scripts/restart --from .armada/preview`
 #   scripts/preview --restart --keep-only --picked <file>  build and keep main plus the branches
 #       the file names, one a line, and swap nothing; an empty file is main alone
+#
+# **What is offered is `Armada/preview-offered`**, which Fleet writes: a line of
+# `branch<TAB>tip sha<TAB>session id<TAB>about` for each offer Fleet checked, oldest first;
+# `#` lines and blank lines are ignored and no file is no offers. Each offered branch is
+# merged at its offered tip, never its head, and the table says so when the head has moved.
+# A tip already on main, or unknown to the repository, is left out and named. With no offers
+# the preview is `main` alone. `--all` is the whole slot set, as the preview always was, and
+# cannot be combined with `--only` or `--picked`.
 #
 # **The merges are built on the side and the worktree moves once.** Each branch
 # is merged into the last merge commit with `git merge-tree`, and the worktree
@@ -223,14 +234,72 @@ def names(values):
     return {n.strip() for v in values or [] for n in v.split(",") if n.strip()}
 
 
-def in_flight(root, base, only, skip):
-    """(branches oldest first, why each named one was left out, slots held)."""
+def support_dir():
+    return os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Armada")
+
+
+def offers():
+    """`Armada/preview-offered`: [(branch, tip sha, about)] in file order, oldest offer first.
+    A branch offered twice keeps its latest offer. No file is no offers."""
+    try:
+        with open(os.path.join(support_dir(), "preview-offered")) as f:
+            lines = f.read().splitlines()
+    except FileNotFoundError:
+        return []
+    found = {}
+    for line in lines:
+        if not line.strip() or line.startswith("#"):
+            continue
+        fields = line.split("\t", 3) + [""] * 4
+        if fields[0].strip() and fields[1].strip():
+            found.pop(fields[0].strip(), None)
+            found[fields[0].strip()] = (fields[1].strip(), fields[3].strip())
+    return [(branch, tip, about) for branch, (tip, about) in found.items()]
+
+
+class Chosen:
+    """What a run takes: `picked` is [(branch, sha to merge, about)] in merge order, `notes` what was
+    left out and why, `remarks` what was taken with a caveat, `held` the slots, `offered` how many
+    offers the default read."""
+    def __init__(self, held):
+        self.picked, self.notes, self.remarks, self.held, self.offered = [], [], [], held, None
+
+
+def offered_in_flight(root, base, skip, held):
+    """The default: the branches a Job offered and Fleet checked, each at the tip it offered."""
+    chosen = Chosen(held)
+    asked = offers()
+    chosen.offered = len(asked)
+    for branch, tip, about in asked:
+        if branch in NEVER:
+            continue
+        short = tip[:10]
+        if branch in skip:
+            chosen.notes.append(f"{branch}: skipped by --skip")
+        elif git(root, "cat-file", "-e", f"{tip}^{{commit}}", check=False).returncode != 0:
+            chosen.notes.append(f"{branch}: the offered {short} is not in this repository")
+        elif git(root, "merge-base", "--is-ancestor", tip, base, check=False).returncode == 0:
+            chosen.notes.append(f"{branch}: the offered {short} is already on main")
+        else:
+            full = out(root, "rev-parse", f"{tip}^{{commit}}")
+            if exists(root, branch) and out(root, "rev-parse", f"refs/heads/{branch}") != full:
+                chosen.remarks.append(f"{branch}: previewing the offered {short}; the branch has moved since")
+            chosen.picked.append((branch, full, about))
+    return chosen
+
+
+def in_flight(root, base, only, skip, every=False):
+    """What the run takes. By default the offered branches; with `--all` every live slot branch ahead
+    of main, oldest commit first, stranded ones noted; with `--only` the named slot branches."""
     held = slots(root)
+    if only is None and not every:
+        return offered_in_flight(root, base, skip, held)
+    chosen = Chosen(held)
     live = {b for _, _, b, why in held if not why}
     stranded = {b: why for _, _, b, why in held if why and b not in live}
     candidates = live | set(stranded)
-    notes = []
-    chosen = []
+    notes = chosen.notes
+    found = []
     for branch in sorted(candidates):
         if branch in NEVER or not exists(root, branch):
             continue
@@ -245,11 +314,12 @@ def in_flight(root, base, only, skip):
             continue
         else:
             oldest = out(root, "log", "--reverse", "--format=%ct", f"{base}..{branch}").split()[0]
-            chosen.append((int(oldest), branch))
-    for name in sorted((only or set()) - {b for _, b in chosen}):
+            found.append((int(oldest), branch))
+    for name in sorted((only or set()) - {b for _, b in found}):
         if name not in skip:
             notes.append(f"{name}: named by --only, but it is not ahead of main in a slot")
-    return [b for _, b in sorted(chosen)], notes, held
+    chosen.picked = [(b, out(root, "rev-parse", f"refs/heads/{b}"), "") for _, b in sorted(found)]
+    return chosen
 
 
 def migrations_in(cwd, rev):
@@ -308,8 +378,8 @@ def merge_tree(wt, cur, branch):
     sys.exit(f"preview: git merge-tree {cur} {branch} failed in {wt}: {(done.stderr or done.stdout).strip()}")
 
 
-def merge_pass(root, only, skip, dropped=None):
-    """Merge once; returns the worktree, the base and the table's rows.
+def merge_pass(root, only, skip, dropped=None, every=False):
+    """Merge once; returns the worktree, the base, the table's rows and {branch: sha merged}.
     `dropped` is {branch: why}: branches a restart showed it cannot take.
     The merge commits are built on the side from `cur` and the worktree moves
     to the last of them once, at the end."""
@@ -318,31 +388,34 @@ def merge_pass(root, only, skip, dropped=None):
     git(root, "fetch", "--quiet", "origin", check=False)
     base = base_of(root)
     prepare(root, wt, base)
-    branches, notes, held = in_flight(root, base, only, skip)
+    chosen = in_flight(root, base, only, skip, every)
+    held = chosen.held
+    tips = {branch: rev for branch, rev, _ in chosen.picked}
+    abouts = {branch: about for branch, _, about in chosen.picked if about}
 
     cur = out(root, "rev-parse", f"{base}^{{commit}}")
     taken = {v: "main" for v in migrations_in(wt, cur)}
     rows = []
-    for branch in branches:
+    for branch, rev, _ in chosen.picked:
         if branch in dropped:
             rows.append((branch, f"skipped ({dropped[branch]})", ""))
             continue
         # A branch that merged main can have several merge bases; one alone misses main's migrations.
-        before = {v for mb in out(wt, "merge-base", "--all", cur, branch).split() for v in migrations_in(wt, mb)}
-        added = [v for v in migrations_in(wt, branch) if v not in before]
+        before = {v for mb in out(wt, "merge-base", "--all", cur, rev).split() for v in migrations_in(wt, mb)}
+        added = [v for v in migrations_in(wt, rev) if v not in before]
         clash = [(v, taken[v]) for v in added if v in taken]
         if clash:
             v, who = clash[0]
             rows.append((branch, f"skipped (migration {v} is already taken by {who})", ""))
             continue
-        if git(wt, "merge-base", "--is-ancestor", branch, cur, check=False).returncode == 0:
+        if git(wt, "merge-base", "--is-ancestor", rev, cur, check=False).returncode == 0:
             rows.append((branch, "nothing new", ""))
             continue
-        tree, files = merge_tree(wt, cur, branch)
+        tree, files = merge_tree(wt, cur, rev)
         if tree is None:
             rows.append((branch, "skipped (conflict: " + ", ".join(files or ["unknown"]) + ")", ""))
             continue
-        cur = out(wt, "commit-tree", tree, "-p", cur, "-p", branch, "-m", f"Merge branch '{branch}' into preview")
+        cur = out(wt, "commit-tree", tree, "-p", cur, "-p", rev, "-m", f"Merge branch '{branch}' into preview")
         for v in added:
             taken[v] = branch
         rows.append((branch, "merged", out(wt, "rev-parse", "--short", cur)))
@@ -355,34 +428,40 @@ def merge_pass(root, only, skip, dropped=None):
             dirty = git(path, "status", "--porcelain", check=False).stdout.splitlines()
             if dirty:
                 warnings.append(f"{slot} ({branch}) has {len(dirty)} uncommitted files, not included")
-    text = render(base, out(root, "rev-parse", "--short", base), head, rows, notes, warnings)
+    text = render(base, out(root, "rev-parse", "--short", base), head, rows, chosen, warnings, abouts,
+                  "in-flight" if only is not None or every else "offered")
     with open(os.path.join(wt, "PREVIEW.txt"), "w") as f:
         f.write(text)
     sys.stdout.write(text)
     sys.stdout.flush()
-    return wt, base, rows
+    return wt, base, rows, tips
 
 
-def render(base, base_sha, head, rows, notes, warnings):
-    lines = [f"preview {head} = {base.split('/')[-1]} {base_sha} + in-flight branches",
+def render(base, base_sha, head, rows, chosen, warnings, abouts, kind):
+    lines = [f"preview {head} = {base.split('/')[-1]} {base_sha} + {kind} branches",
              "Only committed work is included. No Checks were run.", ""]
-    lines += [f"warning: {w}" for w in warnings] + [f"left out: {n}" for n in notes]
-    if warnings or notes:
+    lines += ([f"warning: {w}" for w in warnings] + [f"note: {r}" for r in chosen.remarks]
+              + [f"left out: {n}" for n in chosen.notes])
+    if warnings or chosen.notes or chosen.remarks:
         lines.append("")
     if rows:
         width = max(len(r[0]) for r in rows)
-        lines += [f"{b.ljust(width)}  {what}" + (f"  -> {sha}" if sha else "") for b, what, sha in rows]
+        lines += [f"{b.ljust(width)}  {what}" + (f"  -> {sha}" if sha else "") + (f"  ({abouts[b]})" if b in abouts else "")
+                  for b, what, sha in rows]
+    elif chosen.offered == 0:
+        lines.append("nothing is offered")
+    elif chosen.offered:
+        lines.append("no offered branch is ahead of main")
     else:
         lines.append("no branch is ahead of main in a slot")
     lines += ["", f"preview head: {head}", ""]
     return "\n".join(lines)
 
 
-def signature(root, only, skip):
+def signature(root, only, skip, every=False):
     base = base_of(root)
-    branches, _, _ = in_flight(root, base, only, skip)
-    return (out(root, "rev-parse", base),
-            tuple((b, out(root, "rev-parse", f"refs/heads/{b}")) for b in branches))
+    chosen = in_flight(root, base, only, skip, every)
+    return (out(root, "rev-parse", base), tuple((b, rev) for b, rev, _ in chosen.picked))
 
 
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
@@ -423,7 +502,7 @@ def error_paths(output, wt):
     return paths
 
 
-def does_not_build(root, base, rows, output, wt):
+def does_not_build(root, base, rows, tips, output, wt):
     """{branch: files} for the merged branches that changed a file the compiler errors name,
     whole or by its tail."""
     named = error_paths(output, wt)
@@ -431,7 +510,7 @@ def does_not_build(root, base, rows, output, wt):
     for branch, what, _ in rows:
         if what != "merged":
             continue
-        touched = set(out(root, "diff", "--name-only", f"{base}...{branch}").splitlines())
+        touched = set(out(root, "diff", "--name-only", f"{base}...{tips[branch]}").splitlines())
         # pnpm, tsc and vite print paths relative to the package (`src/App.tsx` for
         # `apps/desktop/src/App.tsx`), so a path no branch file equals is matched by its tail.
         files = []
@@ -478,11 +557,11 @@ def missing(output, wt):
     return files, items
 
 
-def removed_item(root, base, branch, crate, name):
+def removed_item(root, base, rev, crate, name):
     """Whether `branch` took `name` out of `crates/<crate>` and put it nowhere in that crate."""
     word = re.compile(rf"\b{re.escape(name)}\b")
     removed = added = False
-    for line in out(root, "diff", "-U0", f"{base}...{branch}", "--", f"crates/{crate}").splitlines():
+    for line in out(root, "diff", "-U0", f"{base}...{rev}", "--", f"crates/{crate}").splitlines():
         if line.startswith(("---", "+++")):
             continue
         if line.startswith("-") and word.search(line):
@@ -492,7 +571,7 @@ def removed_item(root, base, branch, crate, name):
     return removed and not added
 
 
-def removed_by(root, base, rows, output, wt):
+def removed_by(root, base, rows, tips, output, wt):
     """{branch: [what]} for the merged branches that removed a file or an item the Rust errors
     in `output` name and something still uses."""
     files, items = missing(output, wt)
@@ -501,11 +580,11 @@ def removed_by(root, base, rows, output, wt):
     for branch, what, _ in rows:
         if what != "merged":
             continue
-        deleted = set(out(root, "diff", "--name-only", "--diff-filter=D", f"{base}...{branch}").splitlines())
+        deleted = set(out(root, "diff", "--name-only", "--diff-filter=D", f"{base}...{tips[branch]}").splitlines())
         found = [f"removed {next(p for p in paths if p in deleted)} that {at} still uses"
                  for paths, at in files if deleted.intersection(paths)]
         found += [f"removed {name} that {at} still uses"
-                  for name, crate, at in items if removed_item(root, base, branch, crate, name)]
+                  for name, crate, at in items if removed_item(root, base, tips[branch], crate, name)]
         if found:
             culprits[branch] = list(dict.fromkeys(found))
     return culprits
@@ -514,14 +593,14 @@ def removed_by(root, base, rows, output, wt):
 LEAVE_OUT = re.compile(r"^restart: leave out (\S+): (.+)$")
 
 
-def write_left_out(wt, rows, name="preview-left-out"):
+def write_left_out(wt, rows, tips, name="preview-left-out"):
     """`Armada/preview-left-out`: the preview commit, then a `branch<TAB>tip<TAB>why` line for
     each branch it skipped. Once that commit is the build it runs, Fleet tells each branch's
     Job why, and refreshes the preview when a branch moves past its tip."""
-    support = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Armada")
+    support = support_dir()
     os.makedirs(support, exist_ok=True)
     lines = [out(wt, "rev-parse", "HEAD")]
-    lines += [f"{branch}\t{out(wt, 'rev-parse', f'refs/heads/{branch}')}\t{what[len('skipped ('):-1]}"
+    lines += [f"{branch}\t{tips[branch]}\t{what[len('skipped ('):-1]}"
               for branch, what, _ in rows if what.startswith("skipped (")]
     path = os.path.join(support, name)
     with open(path + ".tmp", "w") as f:
@@ -529,14 +608,14 @@ def write_left_out(wt, rows, name="preview-left-out"):
     os.replace(path + ".tmp", path)
 
 
-def write_held(root, wt, base, rows, name="preview-held"):
+def write_held(root, wt, base, rows, tips, name="preview-held"):
     """`Armada/preview-held`: the preview commit, then the main commit it stands on, then a
     `branch<TAB>tip` line for each branch merged into it. Fleet keeps these with the build, so a
     figure can be read against what the build held, and reads them only while that commit is the build."""
-    support = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Armada")
+    support = support_dir()
     os.makedirs(support, exist_ok=True)
     lines = [out(wt, "rev-parse", "HEAD"), out(root, "rev-parse", base)]
-    lines += [f"{branch}\t{out(wt, 'rev-parse', f'refs/heads/{branch}')}"
+    lines += [f"{branch}\t{tips[branch]}"
               for branch, what, _ in rows if what == "merged"]
     path = os.path.join(support, name)
     with open(path + ".tmp", "w") as f:
@@ -544,7 +623,7 @@ def write_held(root, wt, base, rows, name="preview-held"):
     os.replace(path + ".tmp", path)
 
 
-def cannot_take(root, base, rows, output, wt):
+def cannot_take(root, base, rows, tips, output, wt):
     """{branch: why} for the merged branches this restart's output says it cannot take: the
     ones the migration guard names, else the ones that changed a file the compiler errors name,
     else the ones that removed what the Rust errors say is missing."""
@@ -553,11 +632,11 @@ def cannot_take(root, base, rows, output, wt):
     named = {branch: why for branch, why in guarded.items() if branch in merged}
     if named:
         return named
-    culprits = does_not_build(root, base, rows, output, wt)
+    culprits = does_not_build(root, base, rows, tips, output, wt)
     if culprits:
         return {branch: "does not build: " + ", ".join(files) for branch, files in culprits.items()}
     return {branch: "does not build: " + "; ".join(what[:3]) + (f"; and {len(what) - 3} more" if len(what) > 3 else "")
-            for branch, what in removed_by(root, base, rows, output, wt).items()}
+            for branch, what in removed_by(root, base, rows, tips, output, wt).items()}
 
 
 def restart(root, wt, dry_run, adopt, keep_only=False):
@@ -595,7 +674,8 @@ def restart(root, wt, dry_run, adopt, keep_only=False):
 
 def main():
     ap = argparse.ArgumentParser(prog="scripts/preview", description=__doc__.strip() if __doc__ else None)
-    ap.add_argument("--only", action="append", metavar="BRANCH", help="include only these")
+    ap.add_argument("--all", action="store_true", help="every live slot branch ahead of main, not only the offered ones")
+    ap.add_argument("--only", action="append", metavar="BRANCH", help="include only these slot branches, offered or not")
     ap.add_argument("--skip", action="append", metavar="BRANCH", help="leave these out")
     ap.add_argument("--watch", nargs="?", const=60, type=int, metavar="SECONDS",
                     help="merge again when main or an included branch moves")
@@ -615,6 +695,8 @@ def main():
         sys.exit("preview: --dry-run is for --restart")
     if args.keep_only and not args.restart:
         sys.exit("preview: --keep-only is for --restart")
+    if args.all and (args.only or args.picked):
+        sys.exit("preview: --all takes every slot branch, so it cannot be combined with --only or --picked")
     if args.picked and args.only:
         sys.exit("preview: --picked and --only both name the branches; give one")
     only, skip = (names(args.only) if args.only else None), names(args.skip)
@@ -632,17 +714,17 @@ def main():
     if args.restart:
         pull_main(root, args.dry_run)
 
-    wt, base, rows = merge_pass(root, only, skip)
+    wt, base, rows, tips = merge_pass(root, only, skip, every=args.all)
     if args.watch is not None:
-        seen = signature(root, only, skip)
+        seen = signature(root, only, skip, args.all)
         try:
             while True:
                 time.sleep(max(args.watch, 1))
-                now = signature(root, only, skip)
+                now = signature(root, only, skip, args.all)
                 if now != seen:
                     print(f"\n{time.strftime('%H:%M:%S')} something moved, merging again", flush=True)
-                    wt = merge_pass(root, only, skip)[0]
-                    seen = signature(root, only, skip)
+                    wt = merge_pass(root, only, skip, every=args.all)[0]
+                    seen = signature(root, only, skip, args.all)
         except KeyboardInterrupt:
             return 0
     if args.restart:
@@ -650,15 +732,15 @@ def main():
         while True:
             # What a kept-only build held goes beside the running build's record, not over it.
             kept_only = "snapshot" if args.keep_only else "preview"
-            write_left_out(wt, rows, f"{kept_only}-left-out")
-            write_held(root, wt, base, rows, f"{kept_only}-held")
+            write_left_out(wt, rows, tips, f"{kept_only}-left-out")
+            write_held(root, wt, base, rows, tips, f"{kept_only}-held")
             code, output = restart(root, wt, args.dry_run, args.adopt, args.keep_only)
-            more = cannot_take(root, base, rows, output, wt) if code != 0 else {}
+            more = cannot_take(root, base, rows, tips, output, wt) if code != 0 else {}
             if not more:
                 return code
             print("\n".join(f"{b}: {why}; merging again without it" for b, why in more.items()), flush=True)
             dropped.update(more)
-            wt, base, rows = merge_pass(root, only, skip, dropped)
+            wt, base, rows, tips = merge_pass(root, only, skip, dropped, args.all)
     return 0
 
 

@@ -2,8 +2,8 @@
 //! connection read, or answered at once by the walk's mock. `crates/ipc/operations/`: `list_repositories`,
 //! `list_repository_areas`, `get_values`, `clone_repository`, `create_project`, `add_project` and `edit_project`.
 //!
-//! **Three reads Fleet does not serve yet** each have one function here, which answers nothing until it does:
-//! [`Wire::delivery`], [`Wire::search_folders`] and [`Wire::github_repositories`].
+//! **Two reads Fleet does not serve yet** each have one function here, which answers nothing until it does:
+//! [`Wire::search_folders`] and [`Wire::github_repositories`].
 
 use std::time::Duration;
 
@@ -116,9 +116,9 @@ impl Wire {
     }
 
     /// `POST /projects`. Fleet answers with every project, the new one last.
-    pub fn add_project(&mut self, project: NewProject, delivery: Option<String>, cx: &App) -> Task<Result<Projects, String>> {
+    pub fn add_project(&mut self, project: NewProject, cx: &App) -> Task<Result<Projects, String>> {
         if let Wire::Mock(mock) = self {
-            return Task::ready(Ok(mock.added(project, delivery)));
+            return Task::ready(Ok(mock.added(project)));
         }
         let said = body(&project);
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/projects".into(), said), "Projects", cx))
@@ -136,16 +136,6 @@ impl Wire {
 
     // -- what Fleet does not serve yet -----------------------------------------------------------------
 
-    /// How a project's work lands, `auto_land`, `open_pr` or `keep_local`, as its settings say. **Fleet keeps no
-    /// `delivery` value yet**, so a live project has none and the Job's line is not drawn.
-    /// Owed: a `delivery` field in `ipc::ValuesSet`, sent in `NewProject.values` and read back here.
-    pub fn delivery(&self, project: &str) -> Option<String> {
-        match self {
-            Wire::Live(_) => None,
-            Wire::Mock(mock) => mock.delivery.iter().find(|(id, _)| id == project).map(|(_, word)| word.clone()),
-        }
-    }
-
     /// Every folder of a repository whose path fuzzy-matches `query`, best first. **Fleet serves no folder
     /// search on `/manifest/files` yet**, so this is `None` and the sheet searches the folders it read.
     pub fn search_folders(&self, _manifest: &str, _query: &str) -> Option<Vec<String>> {
@@ -160,14 +150,13 @@ impl Wire {
 }
 
 /// The walk's Fleet: the walks' repositories and projects, folders for the first three, and what a project is
-/// made with kept, so the Job started in it can say how its work lands.
+/// made with kept in its `values`, so the Job started in it can say how its work lands.
 pub struct Mock {
     pub served: Vec<RepositorySummary>,
     pub areas: RepositoryAreas,
     pub values: ResolvedValues,
     pub models: Vec<String>,
     pub projects: Projects,
-    delivery: Vec<(String, String)>,
 }
 
 impl Mock {
@@ -178,7 +167,6 @@ impl Mock {
             values: ipc::decode("ResolvedValues", MOCK_VALUES.as_bytes()).unwrap_or_else(|why| panic!("the mock values do not decode: {why}")),
             models: vec!["opus".into(), "sonnet".into(), "haiku".into()],
             projects: crate::mock::projects(),
-            delivery: Vec::new(),
         }
     }
 
@@ -195,11 +183,8 @@ impl Mock {
         Ok(one)
     }
 
-    fn added(&mut self, project: NewProject, delivery: Option<String>) -> Projects {
+    fn added(&mut self, project: NewProject) -> Projects {
         let id = project.name.trim().to_lowercase().replace(' ', "-");
-        if let Some(word) = delivery {
-            self.delivery.push((id.clone(), word));
-        }
         self.projects.projects.push(ipc::Project {
             id,
             name: project.name.trim().to_string(),
@@ -221,5 +206,6 @@ const MOCK_VALUES: &str = r#"{
  "theme": {"from": "default"},
  "density": {"value": "default", "from": "default"},
  "reviews": {"plans": "review", "pull_requests": "review_and_approve", "walks": "off", "from": "kit"},
- "agent_starts": {"value": "at_once", "from": "default"}
+ "agent_starts": {"value": "at_once", "from": "default"},
+ "delivery": {"from": "default"}
 }"#;

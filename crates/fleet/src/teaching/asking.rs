@@ -99,9 +99,9 @@ where
                 let mut options: Vec<WaitingOption> = known_sites(&dir, &ask.mod_name)
                     .into_iter()
                     .take(MOST_OFFERED)
-                    .map(|(template, used)| WaitingOption { label: template, description: Some(used.join(", ")) })
+                    .map(|(template, used)| WaitingOption { label: template, description: Some(used.join(", ")), picture: None })
                     .collect();
-                options.push(WaitingOption { label: OTHER.to_string(), description: None });
+                options.push(WaitingOption { label: OTHER.to_string(), description: None, picture: None });
                 Some(WaitingItem {
                     approves: false,
                     id: id.clone(),

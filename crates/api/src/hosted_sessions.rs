@@ -226,6 +226,22 @@ pub(crate) async fn answer_waiting<D: HostedSessions>(
     }
 }
 
+/// The person answers a thing a session waits on by parts picked across its pictures. 200 with the row; 409
+/// where nothing holds it; 422 for no part or a part the item's pictures lack.
+pub(crate) async fn answer_waiting_parts<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let said: ipc::AnswerWaitingParts = match ipc::decode_body("parts picked for what a job waits on", &body) {
+        Ok(said) => said,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().answer_waiting_parts(said).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person gives back a slot another Job holds, to the Job whose full-pool call lists it. 200 with the
 /// waiting Job's row; 409 where the call is gone, the holder runs or holds work, or the slot changed hands.
 pub(crate) async fn free_slot<D: HostedSessions>(

@@ -11,7 +11,8 @@
 # The binary is renamed to `Contents/MacOS/Armada`, because the Dock and the app
 # switcher read the executable's file name (`scripts/armada-electron` has the
 # measurement). The icon is the brand's, from beside this script unless one is
-# given. The two notification tones go in Resources beside it. A caller that adds
+# given. The two notification tones go in Resources beside it. Armada Voice, the helper Talk hears and speaks
+# through, goes in `Contents/Helpers`, built first when it is missing or stale. A caller that adds
 # to the bundle afterwards signs it again: writing into a signed bundle breaks the seal.
 
 set -euo pipefail
@@ -42,10 +43,20 @@ for tone in armada-blocked armada-waiting; do
   [[ -f "$sounds/$tone.wav" ]] || fail "$sounds/$tone.wav is missing"
   cp "$sounds/$tone.wav" "$app/Contents/Resources/$tone.wav"
 done
-# Armada Voice, the helper Talk hears through, as the Electron app carries it: in `Contents/Helpers`, where the
-# binary looks first. Built by `node apps/desktop/native/voice/build.mjs`; where it is not built Talk has no voice.
-voice="$here/../apps/desktop/native/voice/build/Armada Voice.app"
-if [[ -d "$voice" ]]; then
+# Armada Voice, the helper Talk hears and speaks through, as the Electron app carries it: in `Contents/Helpers`,
+# where the binary looks first. Built here, by `node apps/desktop/native/voice/build.mjs`, when it is missing or older
+# than a file in its folder, from the tree this script sits in or `$NATIVE_APP_TREE` (`scripts/keep-build` names its
+# own). A build that fails says so in one line and the app is made without it: Talk then uses macOS Dictation.
+tree="${NATIVE_APP_TREE:-$here/..}"
+voice_dir="$tree/apps/desktop/native/voice"
+voice="$voice_dir/build/Armada Voice.app"
+voice_binary="$voice/Contents/MacOS/armada-voice"
+if [[ -f "$voice_dir/build.mjs" ]] \
+  && { [[ ! -x "$voice_binary" ]] || [[ -n "$(find "$voice_dir" -maxdepth 1 -type f -newer "$voice_binary")" ]]; }; then
+  # Its own output goes to stderr, never stdout, which is this script's answer: the app's path.
+  node "$voice_dir/build.mjs" >&2 || echo "native-app: Armada Voice did not build, so $app has no helper" >&2
+fi
+if [[ -x "$voice_binary" ]]; then
   mkdir -p "$app/Contents/Helpers"
   cp -R "$voice" "$app/Contents/Helpers/"
 fi

@@ -283,6 +283,9 @@ Its `tree` line is that tree's path, where Bridge's annotation layer writes note
 Electron is kept once per version under `Armada/electron/<version>/`, and `launch-bridge` runs that copy, so a relaunch onto an older build gets its own Electron.
 **`Armada.app` is the cargo binary renamed to `Contents/MacOS/Armada`**, because the Dock and the app switcher read the executable's file name, as for Electron's copy.
 `scripts/native-app` makes it, and the release job makes the app it ships with the same script, so a restart's app and a release's app are the same bundle.
+`scripts/native-app` also puts Armada Voice, the helper Talk hears and speaks through, in `Contents/Helpers`, and builds it first with `node apps/desktop/native/voice/build.mjs` when `Armada Voice.app` is missing from `apps/desktop/native/voice/build/` or older than a file in that folder.
+It needs Xcode's command line tools (`swiftc`); where the build fails it prints one line saying so and makes the app without the helper, so Talk falls back to macOS Dictation.
+`NATIVE_APP_TREE` names another tree to build and take the helper from, which `scripts/keep-build` sets to the tree it keeps, so a preview's helper is its own.
 Its `Info.plist` names it Armada under its own bundle identifier, `dev.armada.bridge.native`; `Contents/Resources/AppIcon.icns` is `packages/brand/macos/AppIcon.icns`; and it is signed ad hoc.
 `build.toml` holds a `native` hash of the binary and the icon, and a build kept before the native Bridge has neither.
 A build a running Bridge was opened from is kept past the five, since that Bridge may have reloaded another build's page and still runs its main process.
@@ -394,26 +397,42 @@ moving between trees rebuilds and reopens Bridge whatever either stamp says.
 ## A preview of unlanded work
 
 ```sh
-scripts/preview                         # merge every in-flight branch, print what happened
-scripts/preview --only a,b --skip c     # narrow it; both repeat or take a comma list
+scripts/preview                         # merge the branches a Job offered and Fleet checked, print what happened
+scripts/preview --all                   # merge every live slot branch ahead of main, offered or not
+scripts/preview --only a,b --skip c     # named slot branches, offered or not; --skip trims either set; both repeat or take a comma list
 scripts/preview --watch [seconds]       # merge again when main or an included branch moves (60)
 scripts/preview --restart [--dry-run] [--adopt]   # then scripts/restart --from .armada/preview
 ```
 
-**It merges every branch that is in flight on top of `main`, in a worktree of
-its own, so you can use work while agents are still landing it.** In flight is a
-local branch with commits ahead of `main` that a slot holds
-(`armada worktree --status`). `main`, `preview` and remote-only branches are
-ignored.
+**It merges the branches a Job offered and Fleet checked on top of `main`, in a
+worktree of its own, so you can use work while agents are still landing it.**
+Fleet writes the offers to `Armada/preview-offered`, one line for each, oldest
+first: `branch<TAB>tip sha<TAB>session id<TAB>about`. Blank lines and lines
+starting with `#` are ignored, and a missing file is no offers. Each offered
+branch is merged at the tip it offered, never at its head. When the head has
+moved past the tip, the table says `<branch>: previewing the offered <tip>; the
+branch has moved since`. A tip already on `main`, or one this repository does
+not have, is left out and named. With no offers the preview is `main` alone and
+the table says `nothing is offered`. The table shows an offered branch's `about`
+in parentheses after its result. Bridge's Refresh runs `scripts/preview --restart`
+with no flags, so it takes the offered branches.
 
-**A branch held only by a stranded Job is left out, and named.** Stranded is a
+**`--all` merges every branch that is in flight.** In flight is a local branch
+with commits ahead of `main` that a slot holds (`armada worktree --status`).
+`main`, `preview` and remote-only branches are ignored. `--only` takes the slot
+branches it names, offered or not, and `--picked <file>` the ones the file names.
+`--all` cannot be combined with either, and says so in one line.
+`--skip` removes branches from whichever set is in use.
+
+**With `--all` or `--only`, a branch held only by a stranded Job is left out, and named.** Stranded is a
 slot read as `kept` (the Job ended and could not give the slot back), or held by
 a Job that Fleet reports as killed, failed, rejected or superseded, or as
 running with no Drone. It comes back when the Job is restarted. A slot held by a
 live Job or a Job waiting on a person keeps its
 branch in. Where Fleet does not answer, a Job's slot counts as live. An open
 pull request is not read. It needs git and an `armada` on `PATH`, and
-`ARMADA_LAND_ARMADA` names another `armada`.
+`ARMADA_LAND_ARMADA` names another `armada`. The default asks `armada` too, for the
+slots whose uncommitted work it warns about.
 
 **It builds nothing, unless the installed `armada` is too old to read the manifest.**
 An `armada` that says a manifest key is not one it reads is installed again from the main checkout, once, and asked again.
@@ -426,13 +445,14 @@ every branch in it was green, and the reverse.
 **Only committed work is included.** A slot with uncommitted changes is named in
 a warning and never touched.
 
-**A preview can hold a branch that never lands.** A branch is in it until it
-leaves its slot, whether it merged or was abandoned. Use it, and land from the branch.
+**A preview can hold a branch that never lands.** An offered branch is in it until
+Fleet stops offering it, and a branch in `--all` until it leaves its slot, whether
+it merged or was abandoned. Use it, and land from the branch.
 
 | Each run | |
 |---|---|
 | Starts `preview` from | After a fetch, the newer of local `main` and `origin/main`: a checkout that has not pulled still previews what has landed. Local `main` wins only where it is ahead of the remote |
-| Orders the branches | Oldest commit first, so a branch's place does not move when another is added |
+| Orders the branches | The offers' order, oldest offer first. With `--all` or `--only`, oldest commit first. Either way a branch's place does not move when another is added |
 | Merges one | `git merge-tree --write-tree` onto the last merge commit, then `git commit-tree` with both parents. The worktree is not touched |
 | A conflict | The branch is skipped and reported with the files. It is never resolved, with one exception below |
 | A migration name taken twice | The later branch is skipped, though git merged it cleanly, and the table says which name and whose it was. Different names merge |

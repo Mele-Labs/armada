@@ -14,6 +14,9 @@ A merge wait is not a Needs you item, since Fleet follows the merge and tells th
 An item kept already, or written again as it was, is never taken off for it.
 **It refuses an item that repeats a question that lapsed** (`fleet.session_waiting_asked`): a question nobody answered inside the hold, or one kept for a walk, stays in his Needs you whole and his answer comes to the agent as a message.
 The reply to a timed-out question says so, and tells the agent not to ask it again or list it; one that does anyway is refused when its option labels are the question's or its text is the question's, and an item kept before the rule is left off every read while the question stands (`lapsed_asks.rs`).
+**Where he answers by buttons it refuses a question with no options, or more than four** (`fleet.session_waiting_options`), naming the item and telling the agent to ask it with two to four options, its pick first and a cost on each.
+A question is an item with no `approves`, no `steps` and no act but `answer`; a run, a pull request, a message and a procedure need no options (`ways_checking.rs`).
+A reply whose close asks in words, where he answers by buttons, makes Fleet tell the Job once to ask it again with options, as a `reply_claim` notice, and not again until he has written.
 Both his answer to a kept question and to a timed-out one start with "Answering your earlier question", which `handoff_answered_later` reads for a handoff card in either case.
 **Two items are never folded to one row**: whether two wordings are one ask is a guess, so each stands (*Items that are one ask*).
 An ended job holds nothing.
@@ -101,7 +104,7 @@ Its act is Done, with a note box (`2 remain`), and `done_waiting` closes it as a
 Only an item the agent stated is done: a page is approved, a call dismissed.
 `fold` is false when only review pages, a restart key or a done are owed, so there is no list to open.
 `review_in_band` is the sheet's rule: more than one page owed, or a Document the only thing owed; a lone plan, sketch or draft stays on the thread's card.
-A restart (`scripts/preview --restart`, `scripts/restart --main`) is the band's key in Restart, steps or none, except Fleet's own offer of one, which may be skipped and is listed under Commands.
+A restart (`scripts/preview --restart`, `scripts/restart --main`) is the band's key in Restart, steps or none, except the preview's Refresh, which Bridge draws from `get_preview_offers` and is no item here.
 `dismiss` is `none` for what is answered and never dismissed, `plain`, `skip` for what only drops, `reason` where a reason goes to the agent, and `not_a_question` for a sentence read from a reply.
 Where it is not `none`, `dismiss_waiting` takes the item.
 The rule per source, held to the code by a test (`crates/fleet/src/session_host/needs_you.rs`):
@@ -127,7 +130,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `task_done` | questions | none: Fleet refuses it |
 | `watch_not_ours` | questions | plain |
 | `held_child` | questions | none: Fleet refuses it |
-| `preview_offer` | by act: commands | skip |
+| `preview_offer` | by act: commands | skip; Fleet no longer raises it |
 | `rule_act` | questions | skip |
 | `operator_suggestion` | questions | skip |
 | `browser_ask` | questions | plain |
@@ -177,6 +180,8 @@ Without it the agent answers in prose, Fleet reads the job as replied, and the D
 A terminal job's mod reports a prompt going in as `turn_started`, which is the same turn-start signal; a mod from before it has none, and for that one only the first two apply.
 The mod's first-message note tells the agent to clear `waiting_for`, then call `all_done` only when nothing is owed and none of its background work is running.
 **`all_done` is refused while a follow-up is open** (*Follow-ups kept for Later*).
+**It is refused too, 409 `fleet.picture_owed`, where he looks and the Job has shown no picture** since it started: no `show_sketch`, no `show_window` and no image through `show_file`.
+`picture_screens` is not checked.
 
 **A question is never refused for want of words before it.** Fleet checks nothing about what the agent wrote since his message; the question check was deleted on 6 Nov 2026.
 Fleet sends nothing at a turn's end, and does not read a reply's words for a done or a walk the agent did not call: it takes a job's word only through `all_done` and `show_window`.
