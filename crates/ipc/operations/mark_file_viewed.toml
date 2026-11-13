@@ -1,0 +1,12 @@
+[operations.mark_file_viewed]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Mark one file of a pull request viewed, at the commit and content he read"
+notes = """
+`POST /pull_request_viewed/:repository`, `repository` a manifest id, body `MarkFileViewed`: `number`, `path`, `commit` (the head he read it at, whole) and `blob` (the file's `blob` as `get_pull_request_patches` gave it, optional). Answers the `PullViewedFile` kept, `still` true. A later mark of the same path replaces it.
+
+`get_pull_request_detail` carries every mark back in `viewed`, each with `still`: **viewed only while the file has not changed since**. Marked at the page's head it is still viewed; at an older head, only while the forge's blob for the file is the one he marked. A mark with no `blob` stops being viewed once the head moves at all.
+
+A 422 `fleet.pull_review_memory_invalid` for a blank `path` or a `commit` that is not a commit name, and a 422 for a repository Fleet does not serve.
+"""

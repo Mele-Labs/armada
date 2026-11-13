@@ -834,6 +834,20 @@ pub(crate) async fn get_session_quick<D: HostedSessions>(
     }
 }
 
+pub(crate) async fn get_job_artifacts<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<Which>,
+) -> Response {
+    match served
+        .daemon()
+        .get_job_artifacts(ipc::SessionId::carried(which.session_id))
+        .await
+    {
+        Ok(artifacts) => answer(StatusCode::OK, &artifacts, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn act_on_session_mcp<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

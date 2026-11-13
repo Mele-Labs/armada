@@ -259,13 +259,13 @@ impl JobView {
             let last = ix + 1 == page.items;
             let asking = held.head.asked.is_some();
             // A finished run's last call ended when the item after it began.
-            let next = held.items.get(ix + 1).and_then(began);
+            let after = held.items.get(ix + 1);
             match item {
                 ThreadItem::Row { row: SessionRow::Reasoning { id, text, .. } } => {
                     let (seconds, open) = super::lines::reasoning_reading(&held.items, ix);
                     Some(self.reasoning(ix, id, text, seconds, open, page, look, cx))
                 }
-                _ => self.item(ix, item, last && working && !asking, next, page, look, now, window, cx),
+                _ => self.item(ix, item, last && working && !asking, after, page, look, now, window, cx),
             }
         } else {
             self.extra(&held.head, &held.items, page, ix - page.items, look, now, cx)
@@ -332,8 +332,8 @@ impl JobView {
         };
         // Its own index runs below the shown Job's, so a fold it opens measures this element again.
         let ix = at.wrapping_sub(page.before);
-        let next = held.items.get(at + 1).and_then(began);
-        let Some(drawn) = self.item(ix, item, false, next, page, look, now, window, cx) else { return nothing() };
+        let after = held.items.get(at + 1);
+        let Some(drawn) = self.item(ix, item, false, after, page, look, now, window, cx) else { return nothing() };
         column(drawn).pb(self.row_gap(look)).into_any_element()
     }
 
@@ -582,16 +582,27 @@ impl JobView {
         ix: usize,
         item: &ThreadItem,
         live: bool,
-        next: Option<&ipc::Instant>,
+        after: Option<&ThreadItem>,
         page: &Page,
         look: &Look,
         now: DateTime<Local>,
         window: &mut Window,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
+        let next = after.and_then(began);
         Some(match item {
             ThreadItem::Row { row } => return self.row(ix, row, page, look, now, window, cx),
-            ThreadItem::Calls { id, rows, .. } => self.calls(ix, id, rows, live, next, page, look, cx),
+            ThreadItem::Calls { id, rows, .. } => {
+                // A dispute the agent called is one item, the record's, so its call is not drawn twice.
+                let rows = match (after, rows.split_last()) {
+                    (Some(ThreadItem::Row { row: SessionRow::Disputed { spotted: ipc::DisputeSpotted::Called, .. } }), Some((SessionRow::Tool { text, .. }, rest))) if super::calls::is_dispute(text) => rest,
+                    _ => rows.as_slice(),
+                };
+                if rows.is_empty() {
+                    return None;
+                }
+                self.calls(ix, id, rows, live, next, page, look, cx)
+            }
             ThreadItem::Subagent { id, subagent, .. } => self.subagent(id, subagent, look, cx),
             ThreadItem::Checks { id, rows } => self.checks(ix, id, rows, page, look, now, cx),
             ThreadItem::FleetTurn { id, notice, rows, handled } => self.fleet_turn(ix, id, notice, rows, *handled, page, look, cx),

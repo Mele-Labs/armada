@@ -37,6 +37,33 @@ impl SettingsScreen {
         });
     }
 
+    /// For the walk of choosing what to take from Armada: the copy of `feature` is what it began from, less what Armada changed.
+    pub fn copied_from_base(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.copied_from_base();
+            }
+        });
+    }
+
+    /// For the walk of adding a lane: Fleet already holds a drafted lane for sample-web.
+    pub fn with_drafted_lane(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.drafted_lane();
+            }
+        });
+    }
+
+    /// For the walk of deleting a project: Storefront holds four tasks, and Pricing is a copy of another Mac's.
+    pub fn with_deletable_projects(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.deletable_projects();
+            }
+        });
+    }
+
     /// For the walk of a Mac nothing is set up on.
     pub fn fresh_mac(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {

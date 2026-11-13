@@ -27,6 +27,13 @@ const MARKED_STEPS: i64 = 32;
 /// Why nothing can be sent.
 const NOT_LIVE: &str = "Fleet is not connected, so nothing can be changed.";
 
+/// How wide a page's cards stand at most: the content column of the approved sketch ("Native Settings: a calmer page",
+/// a 1000 wide overlay less its nav), so a wide window leaves room at the right instead of spreading each row.
+const PAGE_MAX: f32 = 720.;
+
+/// How wide a slider and a choice are drawn, so the figure typed, or the word picked, stays by its title.
+const CONTROL_W: f32 = 320.;
+
 pub fn slides(one: &Setting) -> bool {
     match one.kind {
         SettingKind::Integer { min, max, .. } | SettingKind::Seconds { min, max } => max - min <= DRAGGED_SPAN,
@@ -542,7 +549,7 @@ impl SettingsOverlay {
                 .flex_col()
                 .gap(look.length(token::SPACE_1))
                 .child(labelled(control, Role::Switch, one.title.clone()))
-                .child(div().flex().items_center().justify_between().gap(look.length(token::SPACE_2)).min_h(look.length(token::SPACE_6)).child(div().children(marks)).child(keyed))
+                .child(div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).min_h(look.length(token::SPACE_6)).children(marks).child(keyed))
                 .children(ships.map(|ships| small(look, format!("Ships {ships}."), look.color(token::FG_MUTED))))
                 .children(notes)
                 .children(refused_line(look))
@@ -639,8 +646,30 @@ impl SettingsOverlay {
             SettingKind::Integer { min, max, .. } | SettingKind::Seconds { min, max } if dirty && !in_range => Some(format!("Between {min} and {max}.")),
             _ => None,
         };
+        // Where a figure or a word is picked, what ships stands right after the control rather than on a line of its own.
+        let ships_said = ships.map(|ships| format!("Ships at {ships}."));
+        let figure = matches!(one.kind, SettingKind::Integer { .. } | SettingKind::Seconds { .. });
+        let beside = slides(one) || figure || matches!(one.kind, SettingKind::Choice { .. });
         let row: AnyElement = if slides(one) {
-            div().flex().items_center().gap(look.length(token::SPACE_4)).child(self.render_slider(one, &typed_text, in_range, off, look, window, cx)).child(div().flex_none().w(px(144.)).child(typed_field)).into_any_element()
+            div()
+                .flex()
+                .flex_wrap()
+                .items_center()
+                .gap_x(look.length(token::SPACE_4))
+                .gap_y(look.length(token::SPACE_1))
+                .child(div().flex().items_center().gap(look.length(token::SPACE_4)).w(px(CONTROL_W) + px(144.) + look.length(token::SPACE_4)).max_w_full().child(self.render_slider(one, &typed_text, in_range, off, look, window, cx)).child(div().flex_none().w(px(144.)).child(typed_field)))
+                .children(ships_said.clone().map(|said| small(look, said, look.color(token::FG_MUTED))))
+                .into_any_element()
+        } else if beside {
+            div()
+                .flex()
+                .flex_wrap()
+                .items_center()
+                .gap_x(look.length(token::SPACE_4))
+                .gap_y(look.length(token::SPACE_1))
+                .child(div().w(if figure { px(144.) } else { px(CONTROL_W) }).max_w_full().child(typed_field))
+                .children(ships_said.clone().map(|said| small(look, said, look.color(token::FG_MUTED))))
+                .into_any_element()
         } else if matches!(one.kind, SettingKind::Prompt | SettingKind::TextList) {
             div()
                 .flex()
@@ -664,9 +693,10 @@ impl SettingsOverlay {
             .child(
                 div()
                     .flex()
+                    .flex_wrap()
                     .items_center()
-                    .justify_between()
-                    .gap(look.length(token::SPACE_3))
+                    .gap_x(look.length(token::SPACE_3))
+                    .gap_y(look.length(token::SPACE_1))
                     .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(title))
                     .child(keyed),
             )
@@ -675,7 +705,7 @@ impl SettingsOverlay {
             .child(row)
             .children(range_said.map(|said| labelled(refusal(look, said.clone()).id(SharedString::from(format!("range-{key}"))), Role::Alert, said)))
             .children(seconds_said.map(|said| small(look, said, look.color(token::FG_MUTED))))
-            .children(ships.map(|ships| small(look, format!("Ships at {ships}."), look.color(token::FG_MUTED))))
+            .children(ships_said.filter(|_| !beside).map(|said| small(look, said, look.color(token::FG_MUTED))))
             .children(notes)
             .children(refused_line(look))
             .into_any_element()
@@ -882,16 +912,9 @@ impl SettingsOverlay {
                 if !self.live {
                     body.push(labelled(small(look, NOT_LIVE, look.color(token::FG_MUTED)).id("settings-not-live"), Role::Status, NOT_LIVE).into_any_element());
                 }
-                for (n, one) in entries::settings_in(list, id).into_iter().enumerate() {
-                    let field = self.render_field(one, look, window, cx);
-                    body.push(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .when(n > 0, |row| row.pt(look.length(token::SPACE_4)))
-                            .child(field)
-                            .into_any_element(),
-                    );
+                // The card's own gap stands between rows, about half what a row and its padding took before.
+                for one in entries::settings_in(list, id) {
+                    body.push(self.render_field(one, look, window, cx));
                 }
             }
         }
@@ -1031,8 +1054,7 @@ impl SettingsOverlay {
             .overflow_y_scroll()
             .flex()
             .flex_col()
-            .gap(look.length(token::GAP_PANEL))
-            .children(cards)
+            .child(div().flex().flex_col().gap(look.length(token::GAP_PANEL)).w_full().max_w(px(PAGE_MAX)).children(cards))
             .into_any_element()
     }
 
@@ -1070,6 +1092,7 @@ impl SettingsOverlay {
         let side = self.render_side(&visible, shown, look, window, cx);
         let page = self.render_page(shown, look, window, cx);
         let popup = self.popup.as_ref().map(|(menu, _)| menu.clone());
+        let deleting = self.render_delete(look, window, cx);
         let boxed = labelled(
             div()
                 .id("settings-box")
@@ -1116,7 +1139,8 @@ impl SettingsOverlay {
                     .bg(look.color(token::SCRIM))
                     .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| this.close(window, cx)))
                     .child(boxed)
-                    .children(popup),
+                    .children(popup)
+                    .children(deleting),
             )),
         )
         .with_priority(2)

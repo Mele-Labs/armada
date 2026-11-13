@@ -192,4 +192,56 @@ pub trait PullRequestPanel: Send + Sync + 'static {
         manifest_id: ManifestId,
         id: String,
     ) -> impl Future<Output = Result<ReviewWalk, Refusal>> + Send;
+
+    /// `mark_pull_request_seen` — keep the head he left a pull request at.
+    /// [`Refusal::Unacceptable`] for a head that is not a commit.
+    fn mark_pull_request_seen(
+        &self,
+        manifest_id: ManifestId,
+        mark: ipc::MarkPullSeen,
+    ) -> impl Future<Output = Result<ipc::PullSeen, Refusal>> + Send;
+
+    /// `mark_file_viewed` — keep a file as viewed at a commit and blob.
+    fn mark_file_viewed(
+        &self,
+        manifest_id: ManifestId,
+        mark: ipc::MarkFileViewed,
+    ) -> impl Future<Output = Result<ipc::PullViewedFile, Refusal>> + Send;
+
+    /// `unmark_file_viewed` — forget a file's viewed mark. Idempotent.
+    fn unmark_file_viewed(
+        &self,
+        manifest_id: ManifestId,
+        unmark: ipc::UnmarkFileViewed,
+    ) -> impl Future<Output = Result<ipc::UnmarkFileViewed, Refusal>> + Send;
+
+    /// `get_pull_request_compare` — the files changed between two commits, from their merge base.
+    /// A base the forge lost is [`ipc::PullRequestCompare::BaseGone`], not a refusal.
+    fn get_pull_request_compare(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+        of: ipc::PullRequestCompareOf,
+    ) -> impl Future<Output = Result<ipc::PullRequestCompare, Refusal>> + Send;
+
+    /// `list_review_layouts` — every named Reviews layout, Fleet's Default first, and the pick.
+    fn list_review_layouts(&self) -> impl Future<Output = Result<ipc::ReviewLayouts, Refusal>> + Send;
+
+    /// `save_review_layout` — keep a layout under a name. [`Refusal::Unacceptable`] for Default's.
+    fn save_review_layout(
+        &self,
+        save: ipc::SaveReviewLayout,
+    ) -> impl Future<Output = Result<ipc::ReviewLayouts, Refusal>> + Send;
+
+    /// `delete_review_layout` — forget one he saved; a deleted pick falls back to Default.
+    fn delete_review_layout(
+        &self,
+        named: ipc::NamedReviewLayout,
+    ) -> impl Future<Output = Result<ipc::ReviewLayouts, Refusal>> + Send;
+
+    /// `pick_review_layout` — the layout every pull request opens on.
+    fn pick_review_layout(
+        &self,
+        named: ipc::NamedReviewLayout,
+    ) -> impl Future<Output = Result<ipc::ReviewLayouts, Refusal>> + Send;
 }

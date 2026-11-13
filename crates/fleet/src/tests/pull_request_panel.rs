@@ -22,6 +22,7 @@ use super::pull_requesting::{
 
 pub(super) fn a_page() -> PullRequestPageFacts {
     PullRequestPageFacts {
+        latest_reviews: Default::default(),
         base: "main".into(),
         author: Some("NickMele".into()),
         created_at: Some("2026-10-13T15:13:44Z".into()),
@@ -236,8 +237,8 @@ async fn every_file_is_its_patch_or_the_sentence_in_the_forges_order() {
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
     fleet.vcs().now_pull_request_patches(Some(vec![
-        PatchedFile { path: "z.rs".into(), patch: Some("@@ -1 +1 @@\n-a\n+b".into()) },
-        PatchedFile { path: "logo.png".into(), patch: None },
+        PatchedFile { path: "z.rs".into(), patch: Some("@@ -1 +1 @@\n-a\n+b".into()), blob: None },
+        PatchedFile { path: "logo.png".into(), patch: None, blob: None },
     ]));
     let read = fleet
         .get_pull_request_patches(id.clone(), 12)
