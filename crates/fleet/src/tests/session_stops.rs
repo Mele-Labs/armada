@@ -208,6 +208,22 @@ async fn a_shown_walk_is_him_to_act_and_no_stop() {
     assert!(record(&rig, &id).await.stop_told_by.is_none(), "a shown walk waits on him");
 }
 
+/// The 13 Nov 2026 answer that was told to carry on, then to draw a picture before it could end.
+#[tokio::test]
+async fn a_side_job_that_answered_has_no_stop_until_it_records_a_plan() {
+    let rig = rig_placing(None);
+    let id = stopped_a_while_ago(&rig).await;
+    super::ways::made_side_job(&rig, &id).await;
+    assert!(record(&rig, &id).await.stop_told_by.is_none(), "its turn ending is the answer");
+
+    // The approval reaches the agent as a message and starts a turn; it ends saying nothing new.
+    super::session_rail::approved_plan(&rig, &id).await;
+    rig.stand_in.finishes(0, "Approved, building.");
+    eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+    aged(&rig, &id).await;
+    assert!(record(&rig, &id).await.stop_told_by.is_some(), "one building to a plan is owed a word like any Job");
+}
+
 #[tokio::test]
 async fn a_job_that_has_not_ended_a_turn_has_no_stop() {
     let rig = rig_placing(None);
@@ -671,6 +687,36 @@ async fn a_subagent_still_working_excuses_a_stop() {
     assert!(row.stop_told_by.is_none(), "its turn ended on work running, not on nothing");
     assert_eq!(row.running.len(), 1);
     assert_eq!((row.running[0].kind, row.running[0].what.as_str()), (ipc::RunningKind::Subagent, "sweep"));
+}
+
+/// **The minute counts from the work's end.** The agent is woken by that end a moment after its row says so, so
+/// a turn that ended long ago on a task is not ripe the instant the task stops.
+#[tokio::test]
+async fn a_stop_waits_a_full_minute_after_the_work_it_stood_on_ends() {
+    let rig = rig_placing(None);
+    let id = stopped_a_while_ago(&rig).await;
+    let began = crate::clock::rfc3339_utc(rig.fleet.now().epoch_millis().unwrap() - 90_000);
+    let task = |state: store::AttachmentState, changed_at: String| store::KeptAttachment {
+        holder: store::Holder::session(id.as_str()),
+        kind: "background".into(),
+        manifest_id: String::new(),
+        target: "t1".into(),
+        state,
+        detail: [("command", "sleep 100")].into_iter().map(|(key, value)| (key.to_string(), value.to_string())).collect(),
+        since: began.clone(),
+        changed_at,
+    };
+    rig.fleet.store().lock().await.attach(&task(store::AttachmentState::Standing, began.clone()), false).expect("attached");
+    assert!(record(&rig, &id).await.stop_told_by.is_none(), "the task running excuses it");
+
+    let ended = rig.fleet.now().as_str().to_string();
+    rig.fleet.store().lock().await.attach(&task(store::AttachmentState::Spent, ended.clone()), false).expect("attached");
+    let row = record(&rig, &id).await;
+    let told_by = millis(row.stop_told_by.expect("owed again once it ended").as_str());
+    assert_eq!(told_by, millis(&ended) + stopping::STOP_AFTER.as_millis() as i64, "a minute from the task's end");
+
+    rig.fleet.stops_told().await;
+    assert_eq!(nudges(&rig.rows(&id).await), 0, "not told in the instant the work ended");
 }
 
 /// **A repair never runs in the repository's own checkout.** A dead Job that holds no slot has one

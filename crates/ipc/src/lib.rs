@@ -216,6 +216,8 @@ mod request_runs;
 mod judge;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
+/// A pull request's change sets, its overview, and its sets held to the repository's practices.
+mod review_change_sets;
 /// Natural Search, and where a change runs for the Walk tool.
 mod review_walks;
 /// The owner's notes on a pull request's lines, and a Job resolving one.
@@ -371,7 +373,7 @@ pub use amending::{
 pub use building::{
     BuildPosition, BuildSource, BuildStage, BuildSwitcher, RestartAct, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept,
     FleetBuildReport, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, KeptBuildPrevious,
-    KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState,
+    KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
 };
 pub use preview::{
     OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
@@ -423,7 +425,7 @@ pub use event::{
 pub use files::FilesFound;
 pub use debug_report::DebugReport;
 pub use health::{
-    FleetHealth, ActionAuthority, Probe, Unprobed,
+    FleetHealth, ActionAuthority, DiskHealth, Probe, ReclaimPass, Unprobed,
 };
 pub use thought::{
     WordsSent, ReadThought, TellSession, ThoughtKind, ThoughtReading,
@@ -511,7 +513,7 @@ pub use issue_queries::{
     InstallTool, InstalledTool, IssueQueries, IssueQueryGuide, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
     WrittenIssueQuery,
 };
-pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedReviews, ResolvedTracker, ResolvedValue, ResolvedValues, ReviewsSet, SaveKitValues, ValueLayer, ValuesSet};
+pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedReviews, ResolvedTracker, ResolvedValue, ResolvedValues, ResolvedWorkflow, ReviewsSet, SaveKitValues, SetProjectWorkflow, ValueLayer, ValuesSet};
 pub use projects::{
     EditProject, EditedTaskFields, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue,
     NewProjectTask, Project, ProjectAct, ProjectActFromMac, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
@@ -649,6 +651,10 @@ pub use review_runs::{
     ReviewToolScope, ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
     COMMENT_AT_MOST, COMMENT_SENTENCES_AT_MOST,
 };
+pub use review_change_sets::{
+    ChangeSet, ChangeSetKind, HunkRef, OverviewFinding, OverviewSeverity, PracticeCheck, PracticeItem, PracticeSource,
+    PracticeVerdict,
+};
 pub use pull_request_notes::{
     NoteSide, NoteStatus, PullRequestNote, PullRequestNotes, ResolvePullRequestNote, SavePullRequestNote,
     SendPullRequestNotes,
@@ -711,7 +717,7 @@ pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
 };
-pub use artifact::{ArtifactBy, ArtifactForm, ArtifactRevision, ArtifactState, JobArtifact};
+pub use artifact::{ArtifactArchived, ArtifactBy, ArtifactForm, ArtifactRef, ArtifactRevision, ArtifactState, JobArtifact, ARTIFACT_WITHDRAWN_BY};
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
@@ -758,7 +764,7 @@ pub use needs_you::{
 };
 pub use draft_document::{ConvertDraftToDocument, DraftDocument};
 pub use pre_pr::{CheckBeforePr, PrePrCheckRan, PrePrChecked};
-pub use terminals::{StartTerminalJob, TerminalJobStarted};
+pub use terminals::{StartSideJob, SideJobStarted};
 pub use terminals::{
     JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, ShowTerminal, StartTerminalRun, TerminalScreen,
     TerminalTyped, TypeInTerminal,

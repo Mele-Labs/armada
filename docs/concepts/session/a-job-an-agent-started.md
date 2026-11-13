@@ -14,7 +14,7 @@ A Job's agent may start a Job, or fork its own conversation into one, through tw
 > **Rule.** A Job an agent starts follows one word per project, `agent_starts`: `at_once` (the default) begins it, and `ask_me` holds it on its start card until the owner presses Start.
 > Why: he asked for both.
 > A Job that starts itself is a model spending tokens in a repository nobody chose to open, and holding the message makes the start a proposal he reads and may edit; for the projects where he would rather not press Start every time, it begins.
-> A Job he starts himself is never held by this word, and neither is a quick terminal or a fork.
+> A Job he starts himself is never held by this word, and neither is a Side Job or a fork.
 
 **`agent_starts` is a value** (*Values*): Kit's, a project's or a repository's, the nearest winning.
 Fleet reads it live for the calling Job's project and the new Job's repository, so a Job that started before the word changed is not held by a later edit.
@@ -25,7 +25,7 @@ A project that does not read or does not hold the repository falls back to none,
 The brief is still read for the proposal, and the caller is told when it starts, as the next section says.
 The answer's `held` is `false`.
 Where the brief cannot be sent, the Job is held on its start card with the brief in the box, and `held` is `true`.
-A Job that waits on another (`after`) is held once its wait is met, whatever the word says.
+A Job that waits on another (`after`) follows the word once its wait is met: `at_once` begins it on the handoff and its brief, and `ask_me` holds it on its start card.
 
 The sections below describe the Job as it opens held, which is `ask_me`.
 

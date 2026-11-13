@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::Instant;
+use crate::{Instant, SessionId};
 
 /// One artifact a Job made, across every revision of it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,7 +26,31 @@ pub struct JobArtifact {
     /// Absent where nothing waits on him.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub item: Option<String>,
+    /// Who folded it away, and when. Only `restore_artifact` lifts it; a new revision does not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub archived: Option<ArtifactArchived>,
 }
+
+/// An artifact the agent or he archived as stale. `archive_artifact`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactArchived {
+    pub by: ArtifactBy,
+    pub at: Instant,
+}
+
+/// `archive_artifact` and `restore_artifact`: one artifact of a Job, by its [`JobArtifact::id`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactRef {
+    /// The artifact's id: `sketch:<title>`, the page's path, or `draft:<title>`.
+    pub artifact: String,
+    /// Which Job holds it. **Read only where the connection places no hosted session**, as `WithdrawSketch`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// On a sketch or page's attachment: `agent` where the Job took it back with `withdraw_sketch` or
+/// `withdraw_document`, so it reads `withdrawn` and his Dismiss reads `dismissed`.
+pub const ARTIFACT_WITHDRAWN_BY: &str = "withdrawn_by";
 
 /// One revision of an artifact.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

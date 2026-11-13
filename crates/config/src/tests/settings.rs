@@ -132,6 +132,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::CHECKS_AT_ONCE,
         s::MEMORY_SPARE_PERCENT,
         s::DISK_FLOOR_GIB,
+        s::DISK_RECLAIM_FLOOR_GIB,
         s::STANDING_RULES_KIB,
         s::SLOT_BUILD_TRIM_AFTER_DAYS,
         s::SLOT_BUILD_CEILING_GIB,
@@ -265,7 +266,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 20 + 12 + 16 + 27 + 2 + 21 + s::prompt_keys().count();
+    let handles = 21 + 12 + 16 + 27 + 2 + 21 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
@@ -641,4 +642,20 @@ fn a_value_under_the_new_name_stands_over_the_old_key() {
     assert!(crate::settings::carried_over(&mut both));
     assert_eq!(both.get("features.onYourWordsCanAct"), Some(&SettingValue::Bool(true)));
     assert!(both.get("features.helmCanAct").is_none());
+}
+
+#[test]
+fn the_disk_floors_ship_at_a_hundred_to_reclaim_at_and_thirty_to_hold_at() {
+    let reclaim = entry("limits.diskReclaimFloorGib").expect("a setting");
+    assert_eq!(reclaim.title, "Disk to start reclaiming at");
+    assert!(matches!(reclaim.shipped, Shipped::Integer(100)));
+    assert!(matches!(reclaim.kind, Kind::Integer { min: 0, max: 500, .. }));
+    assert!(matches!(reclaim.applies, s::Applies::Live));
+
+    let hold = entry("limits.diskFloorGib").expect("a setting");
+    assert!(matches!(hold.shipped, Shipped::Integer(30)));
+    assert!(
+        matches!(hold.shipped, Shipped::Integer(held) if held < 100),
+        "the hold floor stays under the reclaim floor, or Fleet would hold before it reclaimed"
+    );
 }

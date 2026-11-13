@@ -109,7 +109,7 @@ pub async fn claim(State(gateway): State<Gateway>, Json(body): Json<ClaimMacLink
         return said_why(StatusCode::BAD_GATEWAY, "The other Mac did not say who it is. Update Armada on both.");
     }
     match keep_waiting(&gateway, &home, &address, key, back_code).await {
-        Ok(row) => json(&listed(row)),
+        Ok(row) => json(&listed(row, &gateway.way_in)),
         Err(why) => fault(why),
     }
 }
@@ -135,6 +135,9 @@ pub(crate) async fn keep_waiting(
         last_heard_at: None,
         asleep_since: None,
         why: None,
+        wire: home.wire.clone(),
+        built_at: home.built_at.clone(),
+        source: home.source.clone(),
     };
     blocking({
         let (gateway, row) = (gateway.clone(), row.clone());
@@ -219,6 +222,9 @@ pub async fn confirm(State(gateway): State<Gateway>, Json(body): Json<MacNamed>)
         last_heard_at: None,
         asleep_since: None,
         why: None,
+        wire: claim.mac.wire.clone(),
+        built_at: claim.mac.built_at.clone(),
+        source: claim.mac.source.clone(),
     };
     // Kept before the other Mac is told, so its first call here, made the moment it links, is known.
     let kept = gateway.pairing.store.lock().unwrap().keep_mac(&row);
@@ -242,7 +248,7 @@ pub async fn confirm(State(gateway): State<Gateway>, Json(body): Json<MacNamed>)
     gateway.macs.held.put(&row.id, key);
     gateway.macs.drop_claim(&row.id);
     gateway.macs.changed.notify_one();
-    json(&listed(row))
+    json(&listed(row, &gateway.way_in))
 }
 
 /// `POST /pair/mac/back`: the Mac this one claimed confirmed. Taken only with the code minted for it.
@@ -369,8 +375,8 @@ pub(crate) fn others(gateway: &Gateway) -> Result<Vec<ipc::Mac>, String> {
                 let _ = gateway.macs.keys.forget(&row.id);
                 gateway.macs.asking.lock().unwrap().remove(&row.id);
             }
-            Some(ask) => all.push(asked(row, ask.digits.clone())),
-            None => all.push(listed(row)),
+            Some(ask) => all.push(asked(row, ask.digits.clone(), &gateway.way_in)),
+            None => all.push(listed(row, &gateway.way_in)),
         }
     }
     all.extend(gateway.macs.claims(now).into_iter().map(claimed));

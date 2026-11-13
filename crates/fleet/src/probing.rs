@@ -97,6 +97,27 @@ where
                 .served()
                 .iter()
                 .any(|one| !one.left_out().is_empty()),
+            disk: self.disk_health().await,
+        })
+    }
+
+    /// The first served repository's volume against both floors, and what the sweep last did about
+    /// it. **The volume is read now; the pass and the folders are the last look's.** `None` where no
+    /// repository is served or the volume would not answer.
+    async fn disk_health(&self) -> Option<ipc::DiskHealth> {
+        let root = std::path::PathBuf::from(self.repositories().served().first()?.root());
+        let machine = std::sync::Arc::clone(self.machine());
+        let free = tokio::task::spawn_blocking(move || machine.disk_free_at(&root)).await.ok().flatten()?;
+        let (last_pass, next) = {
+            let state = self.disk_state().lock().expect("the disk lock is not poisoned");
+            (state.last_pass.clone(), state.next.clone())
+        };
+        Some(ipc::DiskHealth {
+            free_bytes: free.count(),
+            reclaim_floor_bytes: self.reclaim_floor(),
+            hold_floor_bytes: self.headroom().disk_floor().count(),
+            last_pass: last_pass.map(|(at, freed_bytes)| ipc::ReclaimPass { at, freed_bytes }),
+            next_to_drop: next.iter().map(|folder| folder.display().to_string()).collect(),
         })
     }
 

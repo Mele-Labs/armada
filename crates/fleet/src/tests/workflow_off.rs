@@ -57,7 +57,7 @@ fn two_workflows(fittings: &mut crate::daemon::Fittings<testkit::FakeHarness, te
 #[tokio::test]
 async fn a_workflow_is_on_only_where_the_main_switch_is_on_and_neither_list_names_it() {
     let rig = rig_fitted(|_| {});
-    let on = |manifest: &str, workflow: &str| rig.fleet.workflow_on(manifest, workflow);
+    let on = |manifest: &str, workflow: &str| rig.fleet.workflow_on(manifest, None, workflow);
     assert!(on("one", "bug") && on("two", "bug"), "nothing is off to begin with");
 
     saved(&rig, off(&["bug"], &[])).await;
@@ -80,16 +80,16 @@ async fn a_workflow_is_on_only_where_the_main_switch_is_on_and_neither_list_name
 #[tokio::test]
 async fn workflows_off_saved_in_settings_takes_effect_on_the_next_read_with_no_restart() {
     let rig = rig_fitted(|_| {});
-    assert!(rig.fleet.workflow_on(&here(&rig), "bug"));
+    assert!(rig.fleet.workflow_on(&here(&rig), None, "bug"));
 
     let answered = saved(&rig, off(&[], &[(&here(&rig), &["bug"])])).await;
     let row = answered.settings.iter().find(|one| one.key == "workflows.off").expect("the row");
     assert!(!row.pending_restart, "nothing waits for a restart: {row:?}");
     assert!(row.saved.is_some(), "the value is kept: {row:?}");
-    assert!(!rig.fleet.workflow_on(&here(&rig), "bug"), "the next read sees it");
+    assert!(!rig.fleet.workflow_on(&here(&rig), None, "bug"), "the next read sees it");
 
     saved(&rig, back_on()).await;
-    assert!(rig.fleet.workflow_on(&here(&rig), "bug"), "and the next sees it taken out");
+    assert!(rig.fleet.workflow_on(&here(&rig), None, "bug"), "and the next sees it taken out");
 }
 
 #[tokio::test]

@@ -444,13 +444,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 adapters::language_model::load,
                 |said| eprintln!("  {said}"),
             );
-            // Stale build output, trimmed in every checkout of each served repository.
-            fleet::sweeping::keep_sweeping(
-                Arc::clone(&fleet),
-                sweep_interval,
-                trim,
-                |said| eprintln!("{said}"),
-            );
+            // Build output, trimmed in every checkout of each served repository and reclaimed when the disk runs short.
+            fleet.keep_sweeping(sweep_interval, trim, |said| eprintln!("{said}"));
             fleet::keep_ending_orphans(fleet::orphans::EVERY, |said| eprintln!("{said}"));
             reconciliation.finished();
             // After every loop that moves a Job runs and commands are let through, so a Job whose

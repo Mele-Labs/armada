@@ -21,7 +21,7 @@ use async_channel::{Receiver, Sender};
 use gpui::{App, Task};
 use ipc::{
     JobTerminals, ListedTerminal, ManifestId, OpenTerminal, RenameTerminal, ResizeSessionRun, SessionId, SessionRunMessage, SessionRunUnderway, StartSessionRun,
-    StartTerminalJob, StopSessionRun, TerminalJobStarted, WireError, WriteSessionRun,
+    StartSideJob, StopSessionRun, SideJobStarted, WireError, WriteSessionRun,
 };
 
 use super::screen::Cells;
@@ -174,7 +174,7 @@ impl Shells for Live {
     /// A refusal is Fleet's sentence.
     fn start(&self, start: Start, cx: &mut App) -> Task<Result<Started, String>> {
         let body = start_body(start);
-        let asking: Task<Result<TerminalJobStarted, String>> = ask(self.port(cx), "/sessions/terminal/start".into(), encoded(&body), "TerminalJobStarted", cx);
+        let asking: Task<Result<SideJobStarted, String>> = ask(self.port(cx), "/sessions/side_job/start".into(), encoded(&body), "SideJobStarted", cx);
         cx.background_executor().spawn(async move {
             let started = asking.await?;
             Ok(Started { job: started.session_id.as_str().to_string(), terminal: started.terminal, run: started.run_id })
@@ -578,13 +578,13 @@ pub fn of(cx: &App) -> Option<Rc<dyn Shells>> {
 
 /// What `POST /sessions/terminal/start` is sent for `start`. No title is sent: the Job takes one from its
 /// first message.
-fn start_body(start: Start) -> StartTerminalJob {
+fn start_body(start: Start) -> StartSideJob {
     let project = start.project;
     let (manifest_id, dir) = match start.place {
         Place::Repository(id) => (Some(ManifestId::carried(id)), None),
         Place::Folder(path) => (None, Some(path)),
     };
-    StartTerminalJob {
+    StartSideJob {
         manifest_id,
         dir,
         title: None,

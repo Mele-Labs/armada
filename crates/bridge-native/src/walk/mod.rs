@@ -100,7 +100,10 @@ pub enum Verb {
     /// The row of this name pressed and carried over the target's top edge, the button still held:
     /// the picture shows the lifted row and where it would land.
     Lift(&'static str),
-    /// The held button let go where the pointer stands, ending a `Lift`.
+    /// The element of this role and name pressed and carried onto the target, to the point this many
+    /// hundredths across and down it, the button still held: a tab dragged onto a pane's edge.
+    Carry(&'static str, &'static str, u8, u8),
+    /// The held button let go where the pointer stands, ending a `Lift` or a `Carry`.
     Release,
     /// Nothing pressed: the target must be drawn inside the element of this role and name, side to
     /// side, or the step fails. For a thing that must wrap rather than run past its column.
@@ -187,6 +190,8 @@ pub enum Screen {
     App,
     /// The app with Settings over it, on the mock Fleet in `settings/mock.rs`.
     Settings,
+    /// The Jobs screen in front inside the Operator's screen, with Reviews in the strip on `reviews/mock.rs`.
+    Reviews,
 }
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
@@ -349,6 +354,13 @@ static EDGE: [Step; total(EDGE_PARTS)] = joined(EDGE_PARTS);
 
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
+    Walk {
+        name: "reviews",
+        title: "Reviews: what changed since you looked, on free panes",
+        screen: Screen::Reviews,
+        scenario: "jobs-many",
+        steps: &crate::reviews::walk::STEPS,
+    },
     Walk {
         name: "native-run",
         title: "Run a command an agent showed, from the thread and from Needs you",
@@ -1708,7 +1720,7 @@ pub static WALKS: &[Walk] = &[
             step("A press on a Job opens it; its question is first in what waits on you", Verb::Press, "row", "Fix the merge line freshness chip"),
             step("The question opens whole: each option drawn as a picture is one card, its words under the still", Verb::Open("button", "Open Which look do the row's actions take?"), "button", "Picture of Actions in the row"),
             step("The pointer on a part names it", Verb::Hover, "img", "Actions"),
-            step("A press on a card picks its option", Verb::Press, "button", "Picture of One act and a menu"),
+            step("A press on a card picks its option", Verb::Press, "button", "Picture of Actions in the row"),
             step("Each part of the other still names itself too", Verb::Hover, "img", "More menu"),
             step("The corner button shows the still at its own size, every part named, without picking", Verb::Open("button", "Full size: Actions in the row"), "dialog", "Full size: Actions in the row"),
             step("Esc closes it", Verb::Key("escape"), "button", "Picture of One act and a menu"),
@@ -2278,6 +2290,23 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-pictures-shown",
+        title: "Pictures with buttons on: a question's stills above its buttons, and a picture the Job showed drawn in the thread",
+        screen: Screen::Jobs,
+        scenario: "ways-buttons",
+        steps: &[
+            step("A Job that asks with pictures and showed two files", Verb::Press, "row", "Jobs rows mark their Mac"),
+            step("A picture the Job showed draws under its name", Verb::Look, "button", "Row with its Mac mark.png"),
+            step("A press opens it larger", Verb::Open("button", "Row with its Mac mark.png"), "dialog", "Row with its Mac mark.png"),
+            step("Esc closes it", Verb::Key("escape"), "button", "Opened mac-mark.md"),
+            step("Any other file it showed opens in the side panel", Verb::Open("button", "Opened mac-mark.md"), "dialog", "mac-mark.md"),
+            step("Esc closes the panel", Verb::Key("escape"), "button", "Needs you"),
+            step("Needs you opens: each option's still stands above the buttons", Verb::Open("button", "Needs you"), "button", "Picture of Actions in the row"),
+            step("The buttons stay under the stills, the option in words with them", Verb::Look, "button", "Keep today's row"),
+            press_on("A press on a still answers with it, as its button does", "button", "Picture of Actions in the row", "region", "Thread"),
+        ],
+    },
+    Walk {
         name: "native-ways-look",
         title: "Looking: a Needs you item opened whole, a question asked in pictures he mixes parts of, and a result that leads with its picture",
         screen: Screen::Jobs,
@@ -2665,15 +2694,11 @@ pub static WALKS: &[Walk] = &[
             step("Studio is this Mac and Air is paired: every row carries a dot in the colour of the Mac it runs on, before its state glyph", Verb::Look, "img", "Air"),
             step("This Mac's Jobs carry the dot too, so the rows line up", Verb::Look, "img", "Studio"),
             step("In a narrow window the title keeps its width: the dot takes no more room than a glyph", Verb::Look, "row", "Audit the docs index"),
-            pairing("Air falls asleep: its dot is dimmed, so an asleep Mac reads apart from an awake one", "air-asleep", "img", "Air"),
-            step("The pointer on the dot rests on the row", Verb::Hover, "img", "Air"),
+            step("Air is asleep, so its dot is dimmed. The pointer on the dot rests on the row", Verb::Hover, "img", "Air"),
             step("The row's card opens, with the Mac as a line of its own: the dot, then Air and since when it sleeps", Verb::Later(900), "tooltip", "Fix the merge line freshness chip"),
-            press_on("A press opens a Job on Air: its thread reads as any other, and its box takes no words", "row", "Fix the merge line freshness chip", "textbox", "Message"),
-            step("The box is read-only, and says where the Job runs", Verb::Look, "group", "Message box"),
+            pairing("Air wakes: its dot is drawn whole, so an awake Mac reads apart from an asleep one", "air-awake", "img", "Air"),
+            press_on("A press opens a Job on Air: its thread reads as any other", "row", "Fix the merge line freshness chip", "textbox", "Message"),
             step("The head carries the chip with the Job's other marks", Verb::Look, "img", "Air"),
-            step("Send is off, and its tooltip says where the Job runs", Verb::Hover, "button", "Send"),
-            step("So is Stop on the agent's work", Verb::Hover, "button", "Stop"),
-            step("The answers on a card are off in the same way", Verb::Hover, "toolbar", "Answers"),
             step("A right press on a row of Air opens its menu: the acts are listed, off", Verb::RightPress("Fix the merge line freshness chip"), "menuitem", "Pause"),
             step("The tooltip is the same sentence", Verb::Hover, "menuitem", "Close"),
             step("Esc shuts it", Verb::Key("escape"), "row", "Fix the merge line freshness chip"),
@@ -2683,6 +2708,30 @@ pub static WALKS: &[Walk] = &[
             step("Nor is its tab: the Job open on it is let go of, and the box with it", Verb::Absent("textbox", "Message"), "row", "Audit the docs index"),
             pairing("Air is forgotten: only this Mac is listed, its Jobs go, and nothing changes anywhere", "one-mac", "row", "Native Bridge foundation"),
             step("No dot is drawn, and a row is as it was", Verb::Absent("img", "Studio"), "row", "Native Bridge foundation"),
+        ],
+    },
+    Walk {
+        name: "native-acting-across-macs",
+        title: "Acting on a Job on another Mac: sends that wait for it, and Take back",
+        screen: Screen::Jobs,
+        scenario: "jobs-pairing",
+        steps: &[
+            step("Air is asleep: its dot is dimmed, and the row's card says since when", Verb::Hover, "img", "Air"),
+            press_on("A press opens Fix the merge line freshness chip, which runs on Air: its box takes words, as on this Mac", "row", "Fix the merge line freshness chip", "textbox", "Message"),
+            press_on("Needs you folds, so the thread can be read to its end: the Waits for Air card holds what was sent to the Job while Air sleeps", "button", "Needs you", "region", "Waits for Air"),
+            step("Its head's tooltip says since when Air sleeps", Verb::Hover, "heading", "Waits for Air"),
+            step("A row for each send, oldest first: the message with its first line, its time and Take back", Verb::Look, "row", "Message Check the tokens file before the chip's hue."),
+            step("Air refused the answer when its turn came: its words stand under it in the warning hue, and the card's edge takes that hue", Verb::Look, "row", "Answer Branch"),
+            press_on("Take back on the message: it never goes to Air", "button", "Take back Message", "row", "Answer Branch"),
+            step("The message has left the card", Verb::Absent("row", "Message Check the tokens file before the chip's hue."), "row", "Answer Branch"),
+            press_on("A press in the box puts the keys there", "textbox", "Message", "textbox", "Message"),
+            step("Words for the Job", Verb::Typed("Use the amber hue for stale."), "textbox", "Message"),
+            step("Enter sends them. Air is asleep, so they wait in the card", Verb::Key("enter"), "row", "Message Use the amber hue for stale."),
+            step("Stop on the agent's work is on", Verb::Hover, "button", "Stop"),
+            press_on("Stop waits for Air in the same way", "button", "Stop", "row", "Stop"),
+            step("A right press on its row: Pause and the rest are acted on on Air alone, so they stay off", Verb::RightPress("Fix the merge line freshness chip"), "menuitem", "Pause"),
+            step("The tooltip says where the Job runs", Verb::Hover, "menuitem", "Pause"),
+            step("Esc shuts it", Verb::Key("escape"), "row", "Fix the merge line freshness chip"),
         ],
     },
     Walk {

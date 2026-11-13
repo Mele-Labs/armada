@@ -18,6 +18,8 @@ mod notice_mutes;
 mod started_jobs;
 mod annotations;
 mod building;
+/// Fleet's health answer: the disk is an addition an older Fleet does not send.
+mod health;
 mod title_bar_views;
 /// The allowlist rows and the Kit changes.
 mod commanding;

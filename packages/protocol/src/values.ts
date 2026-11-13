@@ -33,6 +33,11 @@ export type ValuesSet = {
    * refused 422 `fleet.project_values_refused`. Unset at every layer, the first answer to the delivery question is kept here.
    */
   delivery?: string;
+  /**
+   * The workflows the project switches off for its Jobs, by id. A project's only: the machine's and each repository's
+   * are the `workflows.off` setting, and Kit's values refuse one. Off wins, so a project adds to those lists.
+   */
+  workflows_off?: string[];
 };
 
 /** `off`, `review` or `review_and_approve`; for `walks` only `off` or `review`. A word that is not one is refused 422 `fleet.project_values_refused`. */
@@ -132,6 +137,24 @@ export type ResolvedValues = {
   delivery?: ResolvedValue;
   /** One for each kind of act, where a repository was asked about; left out where only a project was. */
   autonomy?: ResolvedAutonomy[];
+  /** One for each workflow, where a project was asked about, in id order. Absent from what a Job froze: it is read live. */
+  workflows?: ResolvedWorkflow[];
+};
+
+/**
+ * One workflow's switch for the project and the repository asked about. Off wins: `from` is the furthest layer that
+ * switched it off, `machine`, `repository` or `project`, and `default` where none did and it is on.
+ */
+export type ResolvedWorkflow = {
+  id: string;
+  on: boolean;
+  from: ValueLayer;
+};
+
+/** `POST /projects/project/:project/workflow`: one workflow switched off for the project's Jobs, or back on. */
+export type SetProjectWorkflow = {
+  workflow: string;
+  on: boolean;
 };
 
 /** `POST /kit/values`: Kit's values, whole. A key left out is taken away, and `{}` takes every value back. */
