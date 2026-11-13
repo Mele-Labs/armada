@@ -30,7 +30,7 @@ export type PullMyReview = {
 export type PullSinceMyReview = {
   /** Commits pushed after the one his review was written on. Absent where that commit is not among the pull request's. */
   commits?: number;
-  /** Comments someone else wrote after his review, on the review threads he wrote on. Absent where the forge gave no time. */
+  /** What another person, not an app, said after his review: on the review threads he wrote on, or on the conversation mentioning him. Absent where the forge gave no time. */
   replies?: number;
 };
 

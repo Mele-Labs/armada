@@ -46,8 +46,9 @@ pub struct PullSinceMyReview {
     /// among the pull request's, as after a force-push, or the forge did not say which it was.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub commits: Option<u64>,
-    /// Comments someone else wrote after his review, on the review threads he wrote on. Absent
-    /// where the forge did not say when his review was submitted.
+    /// What another person, not an app, said after his review: on the review threads he wrote on,
+    /// or on the conversation mentioning him. Absent where the forge did not say when his review
+    /// was submitted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replies: Option<u64>,
 }

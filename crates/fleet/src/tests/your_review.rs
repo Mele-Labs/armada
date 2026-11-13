@@ -5,7 +5,8 @@
 //! as a forge read just after a write can, and the page must not.
 
 use adapter_traits::{
-    CommitLine, DiffSide, LatestReview, LatestReviewSaid, PullRequestPageFacts, ReviewList, ReviewThreadFacts, ThreadSaid,
+    CommitLine, DiffSide, LatestReview, LatestReviewSaid, PullRequestPageFacts, ReviewList, ReviewThreadFacts, Said,
+    ThreadSaid,
 };
 use api::PullRequestPanel;
 use ipc::{MyReviewSaid, PullInbox, PullRequestWriteKind, PullSinceMyReview, WritePullRequest};
@@ -90,6 +91,56 @@ async fn the_page_carries_his_latest_review_and_the_commits_and_replies_since_it
         Some(PullSinceMyReview { commits: Some(2), replies: Some(2) }),
         "two pushes after OLD; ada and grace answered his thread since, and the thread he never wrote on is not his"
     );
+}
+
+/// What the page answers for replies, read as him.
+async fn replies_on(page: PullRequestPageFacts) -> Option<u64> {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    signed_in_as(&fleet, "Rowan-Ashe");
+    fleet.vcs().now_pull_request_page(Some(page));
+    let page = fleet.get_pull_request_detail(id, 12).await.expect("read");
+    page.since_my_review.and_then(|it| it.replies)
+}
+
+#[tokio::test]
+async fn an_apps_reply_on_his_thread_is_not_counted() {
+    let mut page = a_page_he_reviewed();
+    let by_an_app = |id: &str, author: &str, bot: bool| ThreadSaid { bot, ..said(id, author, "2026-08-24T09:00:00Z") };
+    page.threads = vec![thread(
+        "PRRT_1",
+        vec![
+            said("C1", "Rowan-Ashe", "2026-08-19T10:00:00Z"),
+            by_an_app("C2", "lint-helper", true),
+            by_an_app("C3", "dependency-keeper[bot]", false),
+            said("C4", "ada", "2026-08-24T10:00:00Z"),
+        ],
+    )];
+    assert_eq!(replies_on(page).await, Some(1), "ada's alone: the forge's app flag and a [bot] login are both apps");
+}
+
+#[tokio::test]
+async fn a_person_naming_him_on_the_conversation_after_his_review_is_a_reply() {
+    let comment = |id: &str, author: &str, bot: bool, at: &str, body: &str| Said::Comment {
+        id: id.into(),
+        author: author.into(),
+        bot,
+        at: at.into(),
+        edited_at: None,
+        body: body.into(),
+    };
+    let mut page = a_page_he_reviewed();
+    page.threads = Vec::new();
+    page.conversation = vec![
+        comment("I1", "ada", false, "2026-08-19T10:00:00Z", "@rowan-ashe before the review"),
+        comment("I2", "ada", false, "2026-08-24T10:00:00Z", "@Rowan-Ashe could you look again?"),
+        comment("I3", "grace", false, "2026-08-24T11:00:00Z", "Pushed a fix."),
+        comment("I4", "grace", false, "2026-08-24T12:00:00Z", "@rowan-ashes is somebody else"),
+        comment("I5", "lint-helper", true, "2026-08-24T13:00:00Z", "@rowan-ashe the lint passed"),
+        comment("I6", "Rowan-Ashe", false, "2026-08-24T14:00:00Z", "@rowan-ashe a note to myself"),
+    ];
+    assert_eq!(replies_on(page).await, Some(1), "ada's second comment alone names him, after his review, as a person");
 }
 
 #[tokio::test]

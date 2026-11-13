@@ -82,7 +82,8 @@ Deleting the picked layout picks `Default`.
 ## Your review
 
 **The page carries his own latest submitted review and what came since it**, for the bar pinned under the title: what it said, the commit it was written on and when.
-Beside it are two counts: the commits pushed after that commit, and the comments someone else wrote after it on the review threads he wrote on.
+Beside it are two counts: the commits pushed after that commit, and the replies to him since: what another person said after it on the review threads he wrote on, or on the conversation mentioning him.
+An app's comment is not a reply.
 A count Fleet cannot work out is left out rather than guessed: the commit is not among the pull request's, or the forge gave no time.
 Where Fleet does not know who he is, there is no bar.
 

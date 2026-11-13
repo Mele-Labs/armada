@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use adapter_traits::{
-    AgentHarness, Delivery, LatestReview, PullRequestPageFacts, PullRequestWrite, ReviewSaid, Vcs, WorkProduct,
+    AgentHarness, Delivery, LatestReview, PullRequestPageFacts, PullRequestWrite, ReviewSaid, Said, Vcs, WorkProduct,
 };
 use core_model::Timestamp;
 use ipc::{ManifestId, MyReviewSaid, PullMyReview, PullRequestPage, PullReviewRow, PullSinceMyReview};
@@ -16,6 +16,20 @@ use store::KeptWrittenReview;
 
 use crate::daemon::Fleet;
 use crate::pull_review_memory::my_review_of;
+
+/// Who said something and when, and whether an app said it.
+struct Spoken {
+    author: String,
+    at: String,
+    bot: bool,
+}
+
+impl Spoken {
+    /// A person, not an app: the forge says which, and a login ending `[bot]` is an app's either way.
+    fn by_a_person(&self) -> bool {
+        !self.bot && !self.author.to_ascii_lowercase().ends_with("[bot]")
+    }
+}
 
 /// What the page's read says about reviews, kept apart from the page so the bar can be worked out
 /// once Fleet knows who he is.
@@ -25,8 +39,10 @@ pub(crate) struct ReviewedOn {
     commits: Vec<String>,
     /// Commits past the last one read.
     commits_cut: usize,
-    /// Each review thread's comments, as author and time.
-    threads: Vec<Vec<(String, String)>>,
+    /// Each review thread's comments.
+    threads: Vec<Vec<Spoken>>,
+    /// What was said on the conversation, with what it said.
+    conversation: Vec<(Spoken, String)>,
 }
 
 impl ReviewedOn {
@@ -38,7 +54,18 @@ impl ReviewedOn {
             threads: facts
                 .threads
                 .iter()
-                .map(|thread| thread.comments.iter().map(|it| (it.author.clone(), it.at.clone())).collect())
+                .map(|thread| {
+                    thread.comments.iter().map(|it| Spoken { author: it.author.clone(), at: it.at.clone(), bot: it.bot }).collect()
+                })
+                .collect(),
+            conversation: facts
+                .conversation
+                .iter()
+                .map(|said| match said {
+                    Said::Comment { author, at, bot, body, .. } | Said::Review { author, at, bot, body, .. } => {
+                        (Spoken { author: author.clone(), at: at.clone(), bot: *bot }, body.clone())
+                    }
+                })
                 .collect(),
         }
     }
@@ -100,22 +127,42 @@ fn is_his(login: &str, logins: &[String]) -> bool {
     logins.iter().any(|mine| mine.eq_ignore_ascii_case(login))
 }
 
-/// What came after `mine`: the commits after the one it was written on, and the comments someone
-/// else wrote after it on the threads he wrote on.
+/// Whether `body` mentions `login` as the forge links one: `@login`, ending where a login cannot go on.
+fn mentions(body: &str, login: &str) -> bool {
+    let (body, at) = (body.to_ascii_lowercase(), format!("@{}", login.to_ascii_lowercase()));
+    body.match_indices(&at).any(|(start, _)| {
+        let after = body[start + at.len()..].chars().next();
+        !after.is_some_and(|next| next.is_ascii_alphanumeric() || next == '-')
+    })
+}
+
+/// What came after `mine`: the commits after the one it was written on, and what a person other
+/// than him said after it, on the review threads he wrote on or on the conversation naming him.
+/// **An app's comment is no reply.**
 pub(crate) fn since_of(on: &ReviewedOn, logins: &[String], mine: &PullMyReview) -> PullSinceMyReview {
     let commits = mine.commit.as_deref().and_then(|commit| {
         let at = on.commits.iter().position(|sha| !sha.is_empty() && commit.starts_with(sha.as_str()))?;
         Some((on.commits.len() - at - 1 + on.commits_cut) as u64)
     });
     let replies = instant(mine).map(|after| {
-        on.threads
+        let a_reply = |it: &Spoken| {
+            it.by_a_person()
+                && !is_his(&it.author, logins)
+                && Timestamp::from_rfc3339(it.at.clone()).epoch_millis().is_some_and(|at| at > after)
+        };
+        let on_threads = on
+            .threads
             .iter()
-            .filter(|thread| thread.iter().any(|(author, _)| is_his(author, logins)))
+            .filter(|thread| thread.iter().any(|it| is_his(&it.author, logins)))
             .flatten()
-            .filter(|(author, at)| {
-                !is_his(author, logins) && Timestamp::from_rfc3339(at.clone()).epoch_millis().is_some_and(|at| at > after)
-            })
-            .count() as u64
+            .filter(|it| a_reply(it))
+            .count();
+        let naming_him = on
+            .conversation
+            .iter()
+            .filter(|(it, body)| a_reply(it) && logins.iter().any(|login| mentions(body, login)))
+            .count();
+        (on_threads + naming_him) as u64
     });
     PullSinceMyReview { commits, replies }
 }
