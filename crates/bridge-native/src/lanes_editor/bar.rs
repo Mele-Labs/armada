@@ -82,7 +82,7 @@ impl LanesEditor {
             .gap_y(look.length(token::SPACE_1))
             .child(labelled(changes, Role::Button, "Changes"))
             .child(div().flex_auto())
-            .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(discard, Role::Button, "Discard")).child(labelled(publish, Role::Button, "Publish")));
+            .when(self.ask.is_none(), |acts| acts.child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(discard, Role::Button, "Discard")).child(labelled(publish, Role::Button, "Publish"))));
         // What Fleet refused with, else the loader's sentence for a draft that would not load.
         let unfit = self.draft.as_ref().and_then(|draft| draft.unfit.clone()).or_else(|| self.pieces.iter().find_map(|piece| piece.unfit.clone()));
         let refused = self.refused.clone().or(unfit).map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("workflow-draft-refused"), Role::Alert, said));

@@ -911,7 +911,8 @@ mod tests {
         assert_eq!(said(MacLink::Linked, None), ("link", "Linked".to_string()));
         let (glyph, asleep) = said(MacLink::Asleep { since }, Some("Mac mini went quiet for 90 seconds."));
         assert_eq!(glyph, "moon");
-        assert!(asleep.starts_with("Asleep since ") && asleep.matches(':').count() == 1, "to the minute, with no seconds: {asleep}");
+        let held = super::super::time::held();
+        assert!(asleep.starts_with("Asleep since ") && asleep.matches(':').count() == if held.seconds { 2 } else { 1 }, "as his time format says: {asleep}");
         assert_eq!(said(MacLink::ClaimWaiting, None), ("hourglass", "Waiting for Confirm on this Mac".to_string()));
         assert_eq!(said(MacLink::ConfirmWaiting, Some("Confirm on MacBook Air")), ("hourglass", "Confirm on MacBook Air".to_string()));
         assert_eq!(said(MacLink::OlderBuild, None).0, "arrow-down-to-line");

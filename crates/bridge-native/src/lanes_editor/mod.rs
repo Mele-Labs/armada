@@ -1001,7 +1001,11 @@ impl LanesEditor {
                 }
                 stops.extend([self.keys.repository.clone(), self.keys.every.clone()]);
             }
-            stops.extend([self.keys.changes.clone(), self.keys.discard.clone(), self.keys.publish.clone()]);
+            stops.push(self.keys.changes.clone());
+            // While the ask is open its own Publish and Cancel answer it; the bar's pair is not drawn.
+            if self.ask.is_none() {
+                stops.extend([self.keys.discard.clone(), self.keys.publish.clone()]);
+            }
             stops.extend(self.ask.iter().flat_map(|ask| ask.stops()));
             if self.stale {
                 stops.push(self.keys.restart.clone());
@@ -2007,10 +2011,11 @@ mod tests {
         );
         let names = editor.read_with(cx, |editor, _| editor.ask.as_ref().map(|ask| ask.rows.iter().map(|row| row.name()).collect::<Vec<_>>()).unwrap_or_default());
         assert_eq!(names, ["Add a retry", "Export invoices", "01EDITED"], "a Job with no title is read by its session");
-        // Its stops: the two ticks that can be changed, Publish and Cancel, after the bar's.
+        // Its stops: the two ticks that can be changed, Publish and Cancel, after Changes; the bar's pair is not drawn.
         editor.read_with(cx, |editor, _| {
             let stops = editor.stops();
-            let at = stops.iter().position(|stop| *stop == editor.keys.publish).expect("the bar's Publish");
+            assert!(!stops.contains(&editor.keys.publish) && !stops.contains(&editor.keys.discard), "the ask answers itself");
+            let at = stops.iter().position(|stop| *stop == editor.keys.changes).expect("Changes");
             let ask = editor.ask.as_ref().expect("asked");
             assert_eq!(stops[at + 1..at + 5], [ask.rows[0].focus.clone(), ask.rows[1].focus.clone(), ask.publish.clone(), ask.cancel.clone()]);
         });
