@@ -40,11 +40,13 @@ There is no number to bump: the protocol ID moves with the files below.
 **The first publish into a place also keeps the text that was there as version 1 (`found`)**, written before the publish's own row and only where a definition was there; the publish is then version 2.
 For a draft of Armada's, whose copy is a new file, the place held nothing and its first publish is version 1; where it replaced a copy with `overwrite`, that copy's text is kept as `found`.
 Nothing is written for a hand edit between publishes: the stale check refuses a draft that began from other text, and a later draft begins from what is there.
-**A revert is a put.** The version's text goes into the draft by the path `put_workflow_draft` takes: a change by `you` with the summary `Back to version N`, beginning the draft where there is none, and adding nothing where the draft already ends on that text. It publishes nothing.
+**A revert is a put.** The version's text goes into the draft by the path `put_workflow_draft` takes: a change by `you` with the summary `Back to version N`, beginning the draft where there is none, and adding nothing where the draft already ends on that text.
+It publishes nothing.
 **A base is kept only where it is known.** It is recorded by a publish of a draft of Armada's (the carried text the draft began from), by a `save_workflow` into a place with no base whose text is Armada's carried text of that id byte for byte (which is how a copy is made from the editor and from Classic's *Make a copy*), and by `reset_workflow_copy` (the carried text it wrote).
 **Otherwise none is recorded**: a copy made before this, or made by hand, has no `based_on`, and nothing is guessed for it.
 `delete_workflow_copy` drops the place's versions and base; `reset_workflow_copy` drops the versions and records the carried text as the new base.
-**`armada_changed`** is true on a summary whose copy has a base and where Armada's carried text of the id now hashes to something else. The summary is the one that runs; a copy a more specific place replaced (`overrides`) carries neither field.
+**`armada_changed`** is true on a summary whose copy has a base and where Armada's carried text of the id now hashes to something else.
+The summary is the one that runs; a copy a more specific place replaced (`overrides`) carries neither field.
 
 ## Refusals
 
