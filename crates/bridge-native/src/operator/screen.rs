@@ -147,6 +147,15 @@ impl OperatorScreen {
         cx.notify();
     }
 
+    /// A toast's press: the Jobs screen in front, the Job open on it.
+    pub fn open_job(&mut self, job: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.bring(Some(Front::Jobs), window, cx);
+        let list = self.jobs.read(cx).list.clone();
+        list.update(cx, |list, cx| {
+            list.open_job(job, cx);
+        });
+    }
+
     /// What the page asks: a Job opens on the Jobs screen.
     fn opened(&mut self, opened: &Opened, window: &mut Window, cx: &mut Context<Self>) {
         let job = match opened {
