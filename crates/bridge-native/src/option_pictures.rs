@@ -1,7 +1,8 @@
 //! The options of a Needs you question that the asker drew as stills (`ipc::OptionPicture`). Each still is
 //! read from Fleet once (`GET /sessions/shown`), off the main thread, and kept by gpui's asset cache. Stills
-//! sit side by side where the column fits them and stack where it does not. A press on one picks its option,
-//! and the pointer on a named part shows that part's label over its box.
+//! sit side by side where the column fits them and stack where it does not. A press on a still opens it large,
+//! never picks (owner, 13 Nov: a press to look cast his vote); the option's words under it pick. The pointer
+//! on a named part shows that part's label over its box.
 
 use std::sync::Arc;
 
@@ -82,9 +83,11 @@ pub fn card_size(picture: &OptionPicture) -> (f32, f32) {
     (w * scale, h * scale)
 }
 
-/// The still open at its own size over the window: its card's key, and the focus to give back on Esc.
+/// The still open at its own size over the window: its card's key, the keys of every still beside it in
+/// order (← and → move between them), and the focus to give back on Esc.
 struct Enlarged {
     key: SharedString,
+    ring: Vec<SharedString>,
     focus: FocusHandle,
     back: Option<FocusHandle>,
 }
@@ -96,11 +99,21 @@ thread_local! {
     static ROOM: std::cell::Cell<gpui::Size<gpui::Pixels>> = std::cell::Cell::new(gpui::size(px(1200.), px(800.)));
 }
 
-fn enlarge(key: SharedString, window: &mut Window, cx: &mut App) {
+fn enlarge(key: SharedString, ring: Vec<SharedString>, window: &mut Window, cx: &mut App) {
     let focus = cx.focus_handle();
     let back = window.focused(cx);
     window.focus(&focus, cx);
-    cx.set_global(Enlarged { key, focus, back });
+    cx.set_global(Enlarged { key, ring, focus, back });
+    window.refresh();
+}
+
+/// The still `by` places along from the open one, wrapping at either end.
+fn step_to(by: isize, window: &mut Window, cx: &mut App) {
+    let Some(open) = cx.try_global::<Enlarged>() else { return };
+    let Some(at) = open.ring.iter().position(|key| *key == open.key) else { return };
+    let len = open.ring.len() as isize;
+    let next = open.ring[(at as isize + by).rem_euclid(len) as usize].clone();
+    cx.global_mut::<Enlarged>().key = next;
     window.refresh();
 }
 
@@ -159,9 +172,9 @@ fn still(id: &SharedString, picture: &OptionPicture, source: &StillAt, (w, h): (
 }
 
 /// One card for each option the asker drew as a still, or nothing when none was: the still, then the
-/// option's number, label and what choosing it means. A press on the card picks it; the corner button and
-/// Space open the still at its own size without picking. `chosen` is the option picked; `pick` makes the
-/// press handler for an option, by its place.
+/// option's number, label and what choosing it means. A press on the still, or Space on the card, opens it
+/// large; only a press on its words picks it. `chosen` is the option picked; `pick` makes the press handler
+/// for an option, by its place.
 #[allow(clippy::too_many_arguments)]
 pub fn stills(
     key: &str,
@@ -177,7 +190,8 @@ pub fn stills(
     if drawn.is_empty() {
         return None;
     }
-    let open = cx.try_global::<Enlarged>().map(|open| (open.key.clone(), open.focus.clone()));
+    let open = cx.try_global::<Enlarged>().map(|open| (open.key.clone(), open.focus.clone(), open.ring.len()));
+    let ring: Vec<SharedString> = drawn.iter().map(|(at, _)| SharedString::from(format!("still:{key}:{at}"))).collect();
     let cards = drawn.into_iter().map(|(at, picture)| {
         let option = &options[at];
         let label = option.label.clone();
@@ -185,33 +199,24 @@ pub fn stills(
         let source = StillAt { port, image: picture.image.clone() };
         let card_key = SharedString::from(format!("still:{key}:{at}"));
         let (w, h) = card_size(picture);
-        let expand_key = card_key.clone();
-        let expand = labelled(
-            div()
-                .id(SharedString::from(format!("{card_key}:expand")))
-                .absolute()
-                .top(look.length(token::SPACE_1))
-                .right(look.length(token::SPACE_1))
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(look.length(token::H_CONTROL_SM))
-                .rounded(look.length(token::RADIUS_MD))
-                .bg(look.color(token::BG_OVERLAY).opacity(0.85))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .hover(|style| style.border_color(hue))
+        let (space_key, space_ring) = (card_key.clone(), ring.clone());
+        let (press_key, press_ring) = (card_key.clone(), ring.clone());
+        let picture_press = labelled(
+            still(&card_key, picture, &source, (w, h), false, hue, look)
+                .id(SharedString::from(format!("{card_key}:picture")))
+                .w_full()
+                .max_w(px(w))
+                .h_auto()
+                .aspect_ratio(w / h)
                 .cursor_pointer()
-                .tooltip(crate::titlebar::parts::tip("Full size (Space)"))
-                .child(crate::titlebar::parts::glyph("maximize-2", look.length(token::SPACE_4), look.color(token::FG_DEFAULT)))
+                .tooltip(crate::titlebar::parts::tip("Larger (Space)"))
                 .on_click(move |_, window, cx| {
                     cx.stop_propagation();
-                    enlarge(expand_key.clone(), window, cx);
+                    enlarge(press_key.clone(), press_ring.clone(), window, cx);
                 }),
             Role::Button,
-            format!("Full size: {label}"),
+            format!("Picture of {label}"),
         );
-        let space_key = card_key.clone();
         let card = div()
             .id(card_key.clone())
             .focusable()
@@ -223,21 +228,24 @@ pub fn stills(
             .gap(look.length(token::SPACE_2))
             .p(look.length(token::SPACE_2))
             .rounded(look.length(token::RADIUS_LG))
-            .cursor_pointer()
             .bg(if on { hue.opacity(0.14) } else { look.color(token::FG_DEFAULT).opacity(0.04) })
             .border(look.length(token::BORDER_WIDTH))
             .border_color(if on { hue } else { look.color(token::FG_DEFAULT).opacity(0.07) })
-            .hover(|style| style.border_color(hue.opacity(0.6)))
-            .on_click(pick(at))
             .on_key_down(move |event: &gpui::KeyDownEvent, window, cx| {
                 if event.keystroke.key == "space" {
                     cx.stop_propagation();
-                    enlarge(space_key.clone(), window, cx);
+                    enlarge(space_key.clone(), space_ring.clone(), window, cx);
                 }
             })
-            .child(still(&card_key, picture, &source, (w, h), false, hue, look).w_full().max_w(px(w)).h_auto().aspect_ratio(w / h).child(expand))
-            .child(
+            .child(picture_press)
+            .child(labelled(
                 div()
+                    .id(SharedString::from(format!("{card_key}:pick")))
+                    .cursor_pointer()
+                    .rounded(look.length(token::RADIUS_MD))
+                    .py(look.length(token::SPACE_1))
+                    .hover(|style| style.bg(hue.opacity(0.12)))
+                    .on_click(pick(at))
                     .flex()
                     .items_start()
                     .gap(look.length(token::SPACE_2))
@@ -254,9 +262,11 @@ pub fn stills(
                                 div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone()))
                             })),
                     ),
-            );
-        let enlarged = open.as_ref().filter(|(open_key, _)| *open_key == card_key).map(|(_, focus)| full_size(&card_key, picture, &source, &label, focus, hue, look));
-        div().flex_none().max_w_full().child(labelled(card, Role::Button, format!("Picture of {label}"))).children(enlarged).into_any_element()
+                Role::Button,
+                format!("Choose {label}"),
+            ));
+        let enlarged = open.as_ref().filter(|(open_key, _, _)| *open_key == card_key).map(|(_, focus, many)| full_size(&card_key, picture, &source, &label, focus, *many > 1, hue, look));
+        div().flex_none().max_w_full().child(labelled(card, Role::Group, label.clone())).children(enlarged).into_any_element()
     });
     let room = gpui::canvas(|_, window, _| ROOM.with(|room| room.set(window.viewport_size())), |_, _, _, _| {}).absolute().size_0();
     Some(labelled(div().id(SharedString::from(format!("stills:{key}"))).relative().flex().flex_wrap().gap(look.length(token::SPACE_3)).children(cards).child(room), Role::Group, "Pictures").into_any_element())
@@ -272,9 +282,10 @@ fn natural_in(picture: &OptionPicture, room: gpui::Size<gpui::Pixels>, look: &Lo
     (w * scale, h * scale)
 }
 
-/// The still over the window at its own size, every part named; Esc or a press beside it closes it.
+/// The still over the window at its own size, every part named; ← and → move to the still beside it, and Esc
+/// or a press beside it closes it. Nothing here picks.
 #[allow(clippy::too_many_arguments)]
-fn full_size(key: &SharedString, picture: &OptionPicture, source: &StillAt, label: &str, focus: &FocusHandle, hue: Hsla, look: &Look) -> AnyElement {
+fn full_size(key: &SharedString, picture: &OptionPicture, source: &StillAt, label: &str, focus: &FocusHandle, many: bool, hue: Hsla, look: &Look) -> AnyElement {
     let id = SharedString::from(format!("{key}:full"));
     let room = ROOM.with(|room| room.get());
     let body = div()
@@ -297,6 +308,7 @@ fn full_size(key: &SharedString, picture: &OptionPicture, source: &StillAt, labe
                 .items_center()
                 .gap(look.length(token::SPACE_3))
                 .child(div().flex_1().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(label.to_string())))
+                .when(many, |head| head.child(crate::titlebar::parts::kbd("\u{2190}", look)).child(crate::titlebar::parts::kbd("\u{2192}", look)))
                 .child(crate::titlebar::parts::kbd("Esc", look)),
         )
         .child(still(&id, picture, source, natural_in(picture, room, look), true, hue, look).mt(look.length(token::SPACE_4)));
@@ -315,11 +327,20 @@ fn full_size(key: &SharedString, picture: &OptionPicture, source: &StillAt, labe
                     .p(look.length(token::SPACE_8))
                     .bg(gpui::black().opacity(0.6))
                     .on_click(|_, window, cx| shrink(window, cx))
-                    .on_key_down(|event: &gpui::KeyDownEvent, window, cx| {
-                        if matches!(event.keystroke.key.as_str(), "escape" | "space") {
+                    .on_key_down(|event: &gpui::KeyDownEvent, window, cx| match event.keystroke.key.as_str() {
+                        "escape" | "space" => {
                             cx.stop_propagation();
                             shrink(window, cx);
                         }
+                        "left" => {
+                            cx.stop_propagation();
+                            step_to(-1, window, cx);
+                        }
+                        "right" => {
+                            cx.stop_propagation();
+                            step_to(1, window, cx);
+                        }
+                        _ => {}
                     })
                     .child(body),
                 Role::Dialog,
