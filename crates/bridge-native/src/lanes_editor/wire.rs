@@ -3,7 +3,7 @@
 //! editor.
 
 use gpui::{App, Task};
-use ipc::{DeleteLifecyclePiece, JobLanesView, LifecyclePieceDeleted, LifecyclePieceSaved, SaveLifecyclePiece, SaveWorkflow, WorkflowDefinition, WorkflowSaved};
+use ipc::{DeleteLifecyclePiece, JobLanesView, LifecyclePieceDeleted, LifecyclePieceSaved, RepositoryLifecycles, SaveLifecyclePiece, SaveWorkflow, WorkflowDefinition, WorkflowSaved};
 
 pub use crate::settings::wire::Refused;
 
@@ -38,7 +38,6 @@ impl Subject {
     }
 }
 
-#[allow(dead_code)] // The pieces' routes are for the steps after this one.
 pub trait EditorWire {
     /// `GET /workflows/lanes`.
     fn lanes(&self, at: &Subject, cx: &mut App) -> Task<Result<JobLanesView, Refused>>;
@@ -46,8 +45,12 @@ pub trait EditorWire {
     fn definition(&self, at: &Subject, cx: &mut App) -> Task<Result<WorkflowDefinition, Refused>>;
     /// `POST /workflows/save` under a Manifest.
     fn save_workflow(&self, manifest: &str, save: SaveWorkflow, cx: &mut App) -> Task<Result<WorkflowSaved, Refused>>;
-    /// `POST /lifecycles/pieces/save`: a lifecycle, rule or autonomy default, which the steps after this one edit in place.
+    /// `GET /lifecycles`: the lifecycles that apply to a repository, by its Manifest id, and where each was kept.
+    fn lifecycles(&self, manifest: &str, cx: &mut App) -> Task<Result<RepositoryLifecycles, Refused>>;
+    /// `POST /lifecycles/pieces/save`: a lifecycle, rule or autonomy default. A state renamed in place is written as
+    /// its lifecycle.
     fn save_piece(&self, save: SaveLifecyclePiece, cx: &mut App) -> Task<Result<LifecyclePieceSaved, Refused>>;
     /// `POST /lifecycles/pieces/delete`.
+    #[allow(dead_code)] // For the edits that take a piece out.
     fn delete_piece(&self, delete: DeleteLifecyclePiece, cx: &mut App) -> Task<Result<LifecyclePieceDeleted, Refused>>;
 }

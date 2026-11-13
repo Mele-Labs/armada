@@ -88,6 +88,20 @@ pub fn patched(lanes: &JobLanesView, base: &str, drafted: &str) -> JobLanesView 
     view
 }
 
+/// The lanes with each state the draft renames, `(lifecycle, state, name)`, under its new name and marked as a renamed
+/// step is.
+pub fn with_states_renamed(mut view: JobLanesView, labels: &[(String, String, String)]) -> JobLanesView {
+    for (lifecycle, state, label) in labels {
+        let id = format!("{lifecycle}/{state}");
+        let found = view.lanes.iter_mut().filter(|lane| lane.kind == LaneKind::Lifecycle).flat_map(|lane| lane.nodes.iter_mut()).find(|one| one.id == id);
+        if let Some(one) = found.filter(|one| one.label != *label) {
+            one.changed = Some(format!("Renamed from {}", one.label));
+            one.label = label.clone();
+        }
+    }
+    view
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

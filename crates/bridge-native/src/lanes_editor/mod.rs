@@ -108,6 +108,11 @@ pub struct LanesEditor {
     page: Option<gpui::ScrollHandle>,
     /// Fields opened since the page was last scrolled to them.
     reveal: Cell<bool>,
+    /// The lifecycles that apply where the lanes are read, as last read: a state is renamed in the one that runs.
+    lifecycles: Vec<ipc::AppliedLifecycle>,
+    /// The definition a Publish wrote before a lifecycle it then saved was refused: tried again, it is not written
+    /// twice.
+    written: Option<String>,
     _subs: Vec<Subscription>,
 }
 
@@ -129,7 +134,7 @@ impl LanesEditor {
         let keys = Keys { changes: stop(cx), discard: stop(cx), publish: stop(cx), repository: stop(cx), every: stop(cx) };
         let id: SharedString = format!("{}|{}|{}", subject.workflow, subject.level, subject.manifest).into();
         let draft = Draft::new(String::new(), subject.own_target());
-        let mut editor = LanesEditor { wire, subject, id, read: Read::Loading, saved: None, draft, shown: None, state, history_open: false, refused: None, busy: false, keys, undos: Vec::new(), loading: None, publishing: None, picked: None, armed: false, in_place: None, frame: Rc::default(), seen: Rc::default(), page: None, reveal: Cell::new(false), _subs: subs };
+        let mut editor = LanesEditor { wire, subject, id, read: Read::Loading, saved: None, draft, shown: None, state, history_open: false, refused: None, busy: false, keys, undos: Vec::new(), loading: None, publishing: None, picked: None, armed: false, in_place: None, frame: Rc::default(), seen: Rc::default(), page: None, reveal: Cell::new(false), lifecycles: Vec::new(), written: None, _subs: subs };
         editor.load(cx);
         editor
     }
@@ -156,9 +161,13 @@ impl LanesEditor {
     fn load(&mut self, cx: &mut Context<Self>) {
         let (wire, subject) = (self.wire.clone(), self.subject.clone());
         self.loading = Some(cx.spawn(async move |this, cx| {
-            let (lanes, definition) = cx.update(|app| (wire.lanes(&subject, app), wire.definition(&subject, app)));
-            let (lanes, definition) = (lanes.await, definition.await);
-            let _ = this.update(cx, |this, cx| this.loaded(lanes, definition.map(|read| read.definition).ok(), cx));
+            let (lanes, definition, lifecycles) = cx.update(|app| (wire.lanes(&subject, app), wire.definition(&subject, app), wire.lifecycles(&subject.repository, app)));
+            let (lanes, definition, lifecycles) = (lanes.await, definition.await, lifecycles.await);
+            let _ = this.update(cx, |this, cx| {
+                // Without them a state is read and not renamed.
+                this.lifecycles = lifecycles.map(|read| read.lifecycles).unwrap_or_default();
+                this.loaded(lanes, definition.map(|read| read.definition).ok(), cx)
+            });
         }));
     }
 
@@ -177,12 +186,15 @@ impl LanesEditor {
         cx.notify();
     }
 
-    /// The lanes the canvas draws: the read ones with the draft's steps over them while there are edits, and room
-    /// after the workflow's last step.
+    /// The lanes the canvas draws: the read ones with the draft's steps and states over them while there are edits,
+    /// and room after the workflow's last step.
     fn refresh(&mut self, cx: &mut Context<Self>) {
         self.shown = match &self.read {
-            Read::Read(lanes) if !self.draft.is_empty() && !self.draft.base().is_empty() => Some(in_place::with_room(patch::patched(lanes, self.draft.base(), &self.draft.drafted()))),
-            Read::Read(lanes) => Some(in_place::with_room(lanes.clone())),
+            Read::Read(lanes) if !self.draft.is_empty() && !self.draft.base().is_empty() => {
+                let steps = patch::patched(lanes, self.draft.base(), &self.draft.drafted());
+                Some(in_place::with_end_room(patch::with_states_renamed(steps, &self.draft.state_labels())))
+            }
+            Read::Read(lanes) => Some(in_place::with_end_room(lanes.clone())),
             _ => None,
         };
         while self.undos.len() < self.draft.edits().len() {
@@ -258,6 +270,7 @@ impl LanesEditor {
         let base = self.saved.clone().unwrap_or_else(|| self.draft.base().to_string());
         self.draft.clear(base);
         self.in_place = None;
+        self.written = None;
         self.draft.set_target(self.subject.own_target());
         self.refused = None;
         self.refresh(cx);
@@ -268,7 +281,8 @@ impl LanesEditor {
     }
 
     /// Writes the draft where it applies, if what it was made from is still what is saved: a copy at the place the
-    /// person chose for a workflow that is Armada's, or the copy itself where it is one.
+    /// person chose for a workflow that is Armada's, or the copy itself where it is one. Then each lifecycle it
+    /// renamed a state of, at the same place. A refusal keeps the draft.
     pub fn publish(&mut self, cx: &mut Context<Self>) {
         let Some(target) = self.draft.target().cloned().filter(|_| !self.busy && !self.draft.is_empty()) else { return };
         self.busy = true;
@@ -276,31 +290,65 @@ impl LanesEditor {
         cx.notify();
         let (wire, subject) = (self.wire.clone(), self.subject.clone());
         let (base, drafted) = (self.draft.base().to_string(), self.draft.drafted());
+        let pieces = self.pieces(&target);
+        let written = self.written.clone();
         self.publishing = Some(cx.spawn(async move |this, cx| {
+            let mut wrote = None;
             let answer: Result<(), Refused> = async {
-                let now = cx.update(|app| wire.definition(&subject, app)).await?;
-                if now.definition != base {
-                    return Err(Refused::said(CHANGED_SINCE));
+                // A definition no edit changed is not written: the draft renamed states only.
+                if drafted != base && written.as_ref() != Some(&drafted) {
+                    let now = cx.update(|app| wire.definition(&subject, app)).await?;
+                    if now.definition != base {
+                        return Err(Refused::said(CHANGED_SINCE));
+                    }
+                    let (scope, manifest) = match &target {
+                        Target::Repository(manifest) => (WorkflowScope::Repository, manifest.clone()),
+                        Target::EveryProject => (WorkflowScope::Kit, subject.repository.clone()),
+                    };
+                    // A copy is new where the workflow is Armada's: a copy that is already there is not replaced unasked.
+                    let save = SaveWorkflow { scope, definition: drafted.clone(), overwrite: !subject.shipped };
+                    cx.update(|app| wire.save_workflow(&manifest, save, app)).await?;
+                    wrote = Some(drafted.clone());
                 }
-                let (scope, manifest) = match &target {
-                    Target::Repository(manifest) => (WorkflowScope::Repository, manifest.clone()),
-                    Target::EveryProject => (WorkflowScope::Kit, subject.repository.clone()),
-                };
-                // A copy is new where the workflow is Armada's: a copy that is already there is not replaced unasked.
-                let save = SaveWorkflow { scope, definition: drafted.clone(), overwrite: !subject.shipped };
-                cx.update(|app| wire.save_workflow(&manifest, save, app)).await.map(|_| ())
+                for save in pieces {
+                    cx.update(|app| wire.save_piece(save, app)).await?;
+                }
+                Ok(())
             }
             .await;
-            let _ = this.update(cx, |this, cx| this.published(target, answer, cx));
+            let _ = this.update(cx, |this, cx| this.published(target, answer, wrote, cx));
         }));
     }
 
-    fn published(&mut self, target: Target, answer: Result<(), Refused>, cx: &mut Context<Self>) {
+    /// Each lifecycle the draft renamed a state of, as it is saved at `target`: the one that runs, renamed, scoped
+    /// there, and replacing the one already kept at that scope.
+    fn pieces(&self, target: &Target) -> Vec<ipc::SaveLifecyclePiece> {
+        let scope = match target {
+            Target::Repository(id) => ipc::PieceScope::Within { id: id.clone() },
+            Target::EveryProject => ipc::PieceScope::Everywhere,
+        };
+        let running: Vec<ipc::LifecycleDefinition> = self.lifecycles.iter().filter(|one| one.kept.overridden_by.is_none()).map(|one| one.lifecycle.clone()).collect();
+        self.draft
+            .renamed_lifecycles(&running)
+            .into_iter()
+            .map(|mut lifecycle| {
+                let overwrite = self.lifecycles.iter().any(|one| one.lifecycle.id == lifecycle.id && one.lifecycle.scope == scope);
+                lifecycle.scope = scope.clone();
+                ipc::SaveLifecyclePiece { piece: ipc::LifecyclePiece::Lifecycle { lifecycle }, overwrite }
+            })
+            .collect()
+    }
+
+    fn published(&mut self, target: Target, answer: Result<(), Refused>, wrote: Option<String>, cx: &mut Context<Self>) {
         self.busy = false;
         match answer {
-            Err(why) => self.refused = Some(why.said),
+            Err(why) => {
+                self.refused = Some(why.said);
+                self.written = wrote.or(self.written.take());
+            }
             Ok(()) => {
                 self.draft = Draft::new(String::new(), self.subject.own_target());
+                self.written = None;
                 self.history_open = false;
                 self.shown = None;
                 self.in_place = None;
@@ -435,8 +483,6 @@ impl LanesHost for LanesEditor {
         self.picked = pick.clone();
         self.armed = true;
         match pick {
-            // The room at the lane's end, picked by a press or Enter: a step added there.
-            Some(Pick::Node(node)) if node == in_place::ROOM => self.add_at_end(window, cx),
             Some(Pick::Node(node)) => self.open_at(&node, false, window, cx),
             _ => {
                 self.settle(window, cx);
@@ -510,10 +556,29 @@ mod tests {
     const BASE: &str = r#"{"version":1,"workflow_id":"prototype","name":"prototype","steps":[{"id":"plan","label":"Plan"},{"id":"build","label":"Build"},{"id":"land","label":"Land"}]}"#;
     const REVIEWED: &str = r#"{"version":1,"workflow_id":"prototype","name":"prototype","steps":[{"id":"plan","label":"Plan"},{"id":"build","label":"Build"},{"id":"review","label":"Review"},{"id":"land","label":"Land"}]}"#;
 
-    /// What Fleet holds for the editor, and what it was asked to save.
+    /// What Fleet holds for the editor, and what it was asked to save, in the order it was asked.
     struct Fleet {
         definition: RefCell<String>,
         saved: RefCell<Vec<(String, SaveWorkflow)>>,
+        pieces: RefCell<Vec<ipc::SaveLifecyclePiece>>,
+        asked: RefCell<Vec<&'static str>>,
+        /// Fleet's sentence for a piece save it refuses.
+        refuses_pieces: RefCell<Option<String>>,
+    }
+
+    /// The Ticket as Armada carries it, and a copy of it Kit keeps for every repository.
+    fn applied() -> Vec<ipc::AppliedLifecycle> {
+        let state = |id: &str, label: &str| ipc::LifecycleStateDefinition { id: id.into(), label: label.into(), read: ipc::StateReadFrom::Tracker { words: vec![label.into()] } };
+        let ticket = |scope: ipc::PieceScope, source: &str, over: bool| ipc::AppliedLifecycle {
+            lifecycle: ipc::LifecycleDefinition { id: "ticket".into(), name: "Ticket".into(), scope, states: vec![state("todo", "Todo"), state("in_progress", "In Progress"), state("done", "Done")], transitions: Vec::new(), ends: vec!["done".into()] },
+            kept: ipc::PieceKept {
+                rank: ipc::PieceRank { reach: "everywhere".into(), source: source.into(), home: false },
+                path: None,
+                overridden_by: over.then(|| ipc::PieceRank { reach: "everywhere".into(), source: "kit".into(), home: false }),
+                hides: None,
+            },
+        };
+        vec![ticket(ipc::PieceScope::Everywhere, "armada", true), ticket(ipc::PieceScope::Everywhere, "kit", false)]
     }
 
     struct FakeWire(Rc<Fleet>);
@@ -529,12 +594,24 @@ mod tests {
 
         fn save_workflow(&self, manifest: &str, save: SaveWorkflow, _: &mut gpui::App) -> Task<Result<ipc::WorkflowSaved, Refused>> {
             let scope = save.scope;
+            self.0.asked.borrow_mut().push("definition");
             self.0.saved.borrow_mut().push((manifest.to_string(), save));
             Task::ready(Ok(WorkflowSaved { workflow_id: WorkflowId::carried("prototype"), scope, file: "prototype.yml".into(), replaced: false, runs_from: None }))
         }
 
-        fn save_piece(&self, _: ipc::SaveLifecyclePiece, _: &mut gpui::App) -> Task<Result<ipc::LifecyclePieceSaved, Refused>> {
-            Task::ready(Err(Refused::said("not here")))
+        fn lifecycles(&self, manifest: &str, _: &mut gpui::App) -> Task<Result<ipc::RepositoryLifecycles, Refused>> {
+            Task::ready(Ok(ipc::RepositoryLifecycles { manifest_id: ipc::ManifestId::carried(manifest), lifecycles: applied(), left_out: Vec::new() }))
+        }
+
+        fn save_piece(&self, save: ipc::SaveLifecyclePiece, _: &mut gpui::App) -> Task<Result<ipc::LifecyclePieceSaved, Refused>> {
+            self.0.asked.borrow_mut().push("piece");
+            if let Some(said) = self.0.refuses_pieces.borrow().clone() {
+                return Task::ready(Err(Refused::said(said)));
+            }
+            let ipc::LifecyclePiece::Lifecycle { lifecycle } = &save.piece else { return Task::ready(Err(Refused::said("a lifecycle"))) };
+            let saved = ipc::LifecyclePieceSaved { kind: ipc::LifecyclePieceKind::Lifecycle, id: lifecycle.id.clone(), scope: lifecycle.scope.clone(), file: "ticket.yml".into(), replaced: save.overwrite };
+            self.0.pieces.borrow_mut().push(save);
+            Task::ready(Ok(saved))
         }
 
         fn delete_piece(&self, _: ipc::DeleteLifecyclePiece, _: &mut gpui::App) -> Task<Result<ipc::LifecyclePieceDeleted, Refused>> {
@@ -547,7 +624,7 @@ mod tests {
             gpui_component::init(cx);
             crate::look::init(cx);
         });
-        let fleet = Rc::new(Fleet { definition: RefCell::new(BASE.into()), saved: RefCell::default() });
+        let fleet = Rc::new(Fleet { definition: RefCell::new(BASE.into()), saved: RefCell::default(), pieces: RefCell::default(), asked: RefCell::default(), refuses_pieces: RefCell::default() });
         let subject = Subject { workflow: "prototype".into(), level: "default".into(), manifest: "armada".into(), held_under: "armada".into(), source: "armada", shipped, repository: "armada".into() };
         let wire: Rc<dyn EditorWire> = Rc::new(FakeWire(fleet.clone()));
         let (editor, cx) = cx.add_window_view(|window, cx| LanesEditor::new(subject, wire, window, cx));
@@ -608,7 +685,7 @@ mod tests {
                 name_box.update(cx, |state, cx| state.set_value(name.to_string(), window, cx));
             }
             if let Some(words) = words {
-                words_box.update(cx, |state, cx| state.set_value(words.to_string(), window, cx));
+                words_box.expect("a step's Words").update(cx, |state, cx| state.set_value(words.to_string(), window, cx));
             }
         });
     }
@@ -629,7 +706,7 @@ mod tests {
         assert!(cx.update(|window, cx| editor.read(cx).typing(window, cx)), "the keys are in its Name");
         type_in(&editor, cx, Some("Make"), None);
         assert!(key(&editor, cx, "tab"));
-        assert!(cx.update(|window, cx| editor.read(cx).in_place.as_ref().and_then(|one| one.fields.as_ref()).is_some_and(|fields| fields.words.read(cx).focus_handle(cx).is_focused(window))), "Tab goes to its Words");
+        assert!(cx.update(|window, cx| editor.read(cx).in_place.as_ref().and_then(|one| one.fields.as_ref()).is_some_and(|fields| fields.words.as_ref().is_some_and(|words| words.read(cx).focus_handle(cx).is_focused(window)))), "Tab goes to its Words");
         type_in(&editor, cx, None, Some("Build it small."));
         assert!(key(&editor, cx, "enter"));
         cx.run_until_parked();
@@ -687,13 +764,30 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_picked_state_opens_its_name_to_read_and_a_pick_let_go_lands_what_was_typed(cx: &mut TestAppContext) {
-        let (editor, _, _, cx) = open(cx, false);
+    fn a_picked_state_opens_its_name_and_a_rename_is_one_edit_of_his_held_apart_from_the_definition(cx: &mut TestAppContext) {
+        let (editor, fleet, _, cx) = open(cx, false);
         cx.update(|window, cx| editor.update(cx, |editor, cx| editor.lanes_picked(&"".into(), Some(Pick::Node("ticket/in_progress".into())), window, cx)));
-        editor.read_with(cx, |editor, _| {
+        editor.read_with(cx, |editor, cx| {
             let one = editor.in_place.as_ref().expect("open in place");
-            assert_eq!((one.label.as_str(), one.fields.is_none()), ("In Progress", true));
+            let fields = one.fields.as_ref().expect("its Name to edit");
+            assert_eq!((fields.name.read(cx).value().to_string().as_str(), fields.words.is_none()), ("In Progress", true), "a state has a Name and no Words");
         });
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.open_picked(window, cx)));
+        type_in(&editor, cx, Some("Working"), None);
+        assert!(key(&editor, cx, "tab"), "Tab stays in its only field");
+        assert!(key(&editor, cx, "enter"));
+        assert_eq!(history(&editor, cx), [(Author::Person, "Renamed In Progress to Working".to_string())]);
+        editor.read_with(cx, |editor, _| {
+            assert_eq!(editor.draft().drafted(), BASE, "the workflow's text is not the lifecycle's");
+            assert_eq!(editor.draft().edits()[0].change, Change::StateLabel { lifecycle: "ticket".into(), state: "in_progress".into(), label: "Working".into() });
+        });
+        let label = |cx: &mut VisualTestContext| editor.read_with(cx, |editor, cx| editor.lanes_of(&"".into(), cx).and_then(|lanes| lanes.lanes.iter().flat_map(|lane| lane.nodes.iter()).find(|one| one.id == "ticket/in_progress").map(|one| (one.label.clone(), one.changed.clone()))));
+        assert_eq!(label(cx), Some(("Working".into(), Some("Renamed from In Progress".into()))));
+        assert!(cx.update(|window, cx| editor.update(cx, |editor, cx| editor.undo_last(window, cx))));
+        assert_eq!(label(cx), Some(("In Progress".into(), None)), "its Undo takes the name back");
+        // A state of a lifecycle that was not read opens to read.
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.lanes_picked(&"".into(), Some(Pick::Node("watch/running".into())), window, cx)));
+        assert!(editor.read_with(cx, |editor, _| editor.in_place.as_ref().is_some_and(|one| one.fields.is_none())));
         // A step the definition does not hold is read, not edited.
         cx.update(|window, cx| editor.update(cx, |editor, cx| editor.lanes_picked(&"".into(), Some(Pick::Node("workflow/walk".into())), window, cx)));
         assert!(editor.read_with(cx, |editor, _| editor.in_place.as_ref().is_some_and(|one| one.fields.is_none())));
@@ -701,8 +795,76 @@ mod tests {
         cx.update(|window, cx| editor.update(cx, |editor, cx| editor.open_picked(window, cx)));
         type_in(&editor, cx, Some("Think"), None);
         cx.update(|window, cx| editor.update(cx, |editor, cx| editor.lanes_picked(&"".into(), None, window, cx)));
-        assert_eq!(history(&editor, cx), [(Author::Person, "Renamed Plan to Think".to_string())]);
+        assert_eq!(history(&editor, cx), [(Author::Person, "Renamed Plan to Think".to_string())], "a pick let go lands what was typed");
         assert!(editor.read_with(cx, |editor, _| editor.in_place.is_none()));
+        assert!(fleet.pieces.borrow().is_empty(), "nothing is written before Publish");
+    }
+
+    #[gpui::test]
+    fn a_step_added_is_picked_and_a_adds_the_next_after_it(cx: &mut TestAppContext) {
+        let (editor, _, _, cx) = open(cx, false);
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.add_after(Some("build".into()), window, cx)));
+        assert_eq!(editor.read_with(cx, |editor, _| editor.picked.clone()), Some(Pick::Node("workflow/new_step".into())));
+        assert!(key(&editor, cx, "enter"));
+        cx.run_until_parked();
+        assert!(cx.update(|window, cx| editor.update(cx, |editor, cx| editor.add_after_picked(window, cx))));
+        let steps = crate::settings::definition::steps_of(&editor.read_with(cx, |editor, _| editor.draft().drafted()));
+        assert_eq!(steps.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(), ["plan", "build", "new_step", "new_step_2", "land"]);
+    }
+
+    /// A state renamed and a step renamed, at `target`.
+    fn rename_both(editor: &Entity<LanesEditor>, cx: &mut VisualTestContext, target: Target) {
+        editor.update(cx, |editor, cx| {
+            editor.edit(Author::Person, "Renamed Build to Make", Change::StepLabel { step: "build".into(), label: "Make".into() }, cx);
+            editor.edit(Author::Person, "Renamed In Progress to Working", Change::StateLabel { lifecycle: "ticket".into(), state: "in_progress".into(), label: "Working".into() }, cx);
+            editor.apply_at(target, cx);
+        });
+    }
+
+    #[gpui::test]
+    fn publish_writes_the_definition_then_each_renamed_lifecycle_at_the_drafts_place(cx: &mut TestAppContext) {
+        let (editor, fleet, seen, cx) = open(cx, false);
+        rename_both(&editor, cx, Target::Repository("armada".into()));
+        editor.update(cx, |editor, cx| editor.publish(cx));
+        cx.run_until_parked();
+        assert_eq!(*fleet.asked.borrow(), ["definition", "piece"]);
+        let pieces = fleet.pieces.borrow();
+        let ipc::LifecyclePiece::Lifecycle { lifecycle } = &pieces[0].piece else { panic!("a lifecycle") };
+        assert_eq!(lifecycle.scope, ipc::PieceScope::Within { id: "armada".into() });
+        assert_eq!(lifecycle.states.iter().map(|one| one.label.as_str()).collect::<Vec<_>>(), ["Todo", "Working", "Done"], "the one that runs, renamed");
+        assert!(!pieces[0].overwrite, "nothing of its id is kept at that scope");
+        assert_eq!(*seen.borrow(), [EditorEvent::Published { target: Target::Repository("armada".into()) }]);
+    }
+
+    #[gpui::test]
+    fn a_rename_for_every_project_replaces_the_one_kept_for_every_repository(cx: &mut TestAppContext) {
+        let (editor, fleet, _, cx) = open(cx, false);
+        rename_both(&editor, cx, Target::EveryProject);
+        editor.update(cx, |editor, cx| editor.publish(cx));
+        cx.run_until_parked();
+        let pieces = fleet.pieces.borrow();
+        let ipc::LifecyclePiece::Lifecycle { lifecycle } = &pieces[0].piece else { panic!("a lifecycle") };
+        assert_eq!((lifecycle.scope.clone(), pieces[0].overwrite), (ipc::PieceScope::Everywhere, true), "Kit keeps one for every repository: it is replaced");
+    }
+
+    #[gpui::test]
+    fn a_lifecycle_refused_keeps_the_draft_with_fleets_sentence_and_the_definition_is_not_written_twice(cx: &mut TestAppContext) {
+        let (editor, fleet, seen, cx) = open(cx, false);
+        *fleet.refuses_pieces.borrow_mut() = Some("Ticket has no state Done to end on".into());
+        rename_both(&editor, cx, Target::EveryProject);
+        editor.update(cx, |editor, cx| editor.publish(cx));
+        cx.run_until_parked();
+        editor.read_with(cx, |editor, _| {
+            assert_eq!(editor.refused.as_deref(), Some("Ticket has no state Done to end on"));
+            assert_eq!(editor.draft().edits().len(), 2, "the draft stays");
+        });
+        assert!(seen.borrow().is_empty());
+        *fleet.refuses_pieces.borrow_mut() = None;
+        *fleet.definition.borrow_mut() = fleet.saved.borrow()[0].1.definition.clone();
+        editor.update(cx, |editor, cx| editor.publish(cx));
+        cx.run_until_parked();
+        assert_eq!(*fleet.asked.borrow(), ["definition", "piece", "piece"], "tried again, only what was refused is sent");
+        assert_eq!(seen.borrow().len(), 1);
     }
 
     #[gpui::test]

@@ -2,6 +2,8 @@
 //! shows and what Publish writes is the base with each edit replayed, never a copy that is edited in place, so
 //! dropping any one edit is dropping it from the list and replaying the rest.
 
+use ipc::LifecycleDefinition;
+
 use crate::settings::definition::{with_delta, with_label, with_step_added, with_words};
 
 /// Whose edit it is: the person's own, or an agent's that was asked for in the box.
@@ -24,6 +26,9 @@ pub enum Change {
     StepLabel { step: String, label: String },
     /// A step added just after `after`, with empty words.
     AddStep { after: String, id: String, label: String },
+    /// One state's name, in the lifecycle that holds it. A lifecycle is a piece of its own, not the workflow's
+    /// text: the rename is held apart from the definition and written as that lifecycle on Publish.
+    StateLabel { lifecycle: String, state: String, label: String },
 }
 
 impl Change {
@@ -34,6 +39,7 @@ impl Change {
             Change::StepWords { step, words } => with_words(text, step, words),
             Change::StepLabel { step, label } => with_label(text, step, label),
             Change::AddStep { after, id, label } => with_step_added(text, after, id, label),
+            Change::StateLabel { .. } => Some(text.to_string()),
         }
     }
 }
@@ -114,6 +120,38 @@ impl Draft {
     /// The definition as it reads with every edit in it.
     pub fn drafted(&self) -> String {
         replay(&self.base, &self.edits)
+    }
+
+    /// Each state the draft renames, `(lifecycle, state, name)`, with the name its last rename gave it, in the order
+    /// it was first renamed.
+    pub fn state_labels(&self) -> Vec<(String, String, String)> {
+        let mut labels: Vec<(String, String, String)> = Vec::new();
+        for edit in &self.edits {
+            let Change::StateLabel { lifecycle, state, label } = &edit.change else { continue };
+            match labels.iter_mut().find(|(at, one, _)| at == lifecycle && one == state) {
+                Some(held) => held.2 = label.clone(),
+                None => labels.push((lifecycle.clone(), state.clone(), label.clone())),
+            }
+        }
+        labels
+    }
+
+    /// The lifecycles of `read` the draft renames a state of, each with its states as the draft names them, in the
+    /// order first renamed. A rename of a state `read` does not hold is left out.
+    pub fn renamed_lifecycles(&self, read: &[LifecycleDefinition]) -> Vec<LifecycleDefinition> {
+        let mut out: Vec<LifecycleDefinition> = Vec::new();
+        for (lifecycle, state, label) in self.state_labels() {
+            if !out.iter().any(|one| one.id == lifecycle) {
+                let Some(found) = read.iter().find(|one| one.id == lifecycle) else { continue };
+                out.push(found.clone());
+            }
+            let Some(one) = out.iter_mut().find(|one| one.id == lifecycle) else { continue };
+            if let Some(held) = one.states.iter_mut().find(|one| one.id == state) {
+                held.label = label;
+            }
+        }
+        out.retain(|one| read.iter().any(|was| was.id == one.id && was != one));
+        out
     }
 }
 
@@ -322,6 +360,50 @@ mod tests {
         assert_eq!(drafted(&draft), (vec![step("fix", "Fix"), step("tests", "Tests")], vec![Some("Fix it.".to_string()), Some("Write the test first.".to_string())]));
         draft.undo_last();
         assert_eq!(draft.drafted(), BASE);
+    }
+
+    fn ticket() -> LifecycleDefinition {
+        let state = |id: &str, label: &str| ipc::LifecycleStateDefinition { id: id.into(), label: label.into(), read: ipc::StateReadFrom::Tracker { words: vec![label.into()] } };
+        LifecycleDefinition {
+            id: "ticket".into(),
+            name: "Ticket".into(),
+            scope: ipc::PieceScope::Everywhere,
+            states: vec![state("todo", "Todo"), state("in_progress", "In Progress"), state("done", "Done")],
+            transitions: Vec::new(),
+            ends: vec!["done".into()],
+        }
+    }
+
+    fn state(state: &str, label: &str) -> Edit {
+        Edit { author: Author::Person, said: format!("{state} renamed"), change: Change::StateLabel { lifecycle: "ticket".into(), state: state.into(), label: label.into() } }
+    }
+
+    #[test]
+    fn a_state_renamed_leaves_the_definition_and_renames_it_in_its_lifecycle_and_undo_takes_it_back() {
+        let mut draft = Draft::new(BASE, None);
+        draft.push(label("fix", "Repair"));
+        draft.push(state("in_progress", "Working"));
+        draft.push(state("in_progress", "Doing"));
+        assert_eq!(draft.drafted(), replay(BASE, &[label("fix", "Repair")]), "a state's name is not the workflow's text");
+        assert_eq!(draft.state_labels(), [("ticket".to_string(), "in_progress".to_string(), "Doing".to_string())], "the last rename names it");
+        let renamed = draft.renamed_lifecycles(&[ticket()]);
+        assert_eq!(renamed.iter().map(|one| one.states.iter().map(|state| state.label.as_str()).collect::<Vec<_>>()).collect::<Vec<_>>(), [["Todo", "Doing", "Done"]]);
+        assert!(draft.renamed_lifecycles(&[]).is_empty(), "a lifecycle the read does not hold is left out");
+
+        draft.undo_at(2);
+        assert_eq!(draft.state_labels()[0].2, "Working");
+        draft.undo_at(1);
+        assert!(draft.state_labels().is_empty());
+        assert!(draft.renamed_lifecycles(&[ticket()]).is_empty());
+        assert_eq!(draft.edits().len(), 1, "the step's rename stays");
+    }
+
+    #[test]
+    fn a_state_renamed_back_to_its_name_writes_nothing() {
+        let mut draft = Draft::new(BASE, None);
+        draft.push(state("todo", "Later"));
+        draft.push(state("todo", "Todo"));
+        assert!(draft.renamed_lifecycles(&[ticket()]).is_empty());
     }
 
     #[test]

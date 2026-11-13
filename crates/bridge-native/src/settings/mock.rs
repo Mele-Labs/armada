@@ -260,6 +260,39 @@ impl MockFleet {
         Ok(lanes)
     }
 
+    /// `GET /lifecycles`: the Ticket and Pull request the mock lanes draw, as Armada carries them.
+    pub fn lifecycles(&self, manifest: &str) -> Result<ipc::RepositoryLifecycles, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let state = |id: &str, label: &str, read: ipc::StateReadFrom| ipc::LifecycleStateDefinition { id: id.into(), label: label.into(), read };
+        let tracker = |label: &str| ipc::StateReadFrom::Tracker { words: vec![label.into()] };
+        let forge = |fact: &str| ipc::StateReadFrom::Forge { fact: fact.into() };
+        let moves = |pairs: &[(&str, &str)]| pairs.iter().map(|(from, to)| ipc::LifecycleTransition { from: (*from).into(), to: (*to).into() }).collect();
+        let carried = || ipc::PieceKept { rank: ipc::PieceRank { reach: "everywhere".into(), source: "armada".into(), home: false }, path: None, overridden_by: None, hides: None };
+        let ticket = ipc::LifecycleDefinition {
+            id: "ticket".into(),
+            name: "Ticket".into(),
+            scope: ipc::PieceScope::Everywhere,
+            states: vec![state("todo", "Todo", tracker("Todo")), state("in_progress", "In Progress", tracker("In Progress")), state("in_review", "In Review", tracker("In Review")), state("done", "Done", tracker("Done"))],
+            transitions: moves(&[("todo", "in_progress"), ("in_progress", "in_review"), ("in_review", "done")]),
+            ends: vec!["done".into()],
+        };
+        let pull_request = ipc::LifecycleDefinition {
+            id: "pull_request".into(),
+            name: "Pull request".into(),
+            scope: ipc::PieceScope::Everywhere,
+            states: vec![state("draft", "Draft", forge("draft")), state("open", "Open", forge("ready")), state("merged", "Merged", forge("merged"))],
+            transitions: moves(&[("draft", "open"), ("open", "merged")]),
+            ends: vec!["merged".into()],
+        };
+        Ok(ipc::RepositoryLifecycles {
+            manifest_id: ipc::ManifestId::carried(manifest),
+            lifecycles: vec![ipc::AppliedLifecycle { lifecycle: ticket, kept: carried() }, ipc::AppliedLifecycle { lifecycle: pull_request, kept: carried() }],
+            left_out: Vec::new(),
+        })
+    }
+
     /// A tracker mod's try, passed against the first repository, as Fleet answers one.
     pub fn try_tracker_mod(&mut self, name: &str) -> Result<ipc::TrackerTry, Refused> {
         if !self.connected {

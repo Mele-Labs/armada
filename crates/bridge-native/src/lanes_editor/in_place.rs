@@ -1,7 +1,7 @@
 //! What is picked on the canvas, opened where it stands: a step's Name and Words as fields under its node, a
-//! state's Name to read, a + in each gap between steps and an empty box at the workflow's end that add a step
-//! there. Each field he changed is one edit in the draft, marked as his. The fields stand over the canvas in window
-//! points, from where the canvas drew the node last (`picked_bounds`, `step_gaps`).
+//! state's Name where its lifecycle was read (else to read), a + in each gap between steps and an empty box at the
+//! workflow's end that add a step there, picked. Each field he changed is one edit in the draft, marked as his. The
+//! fields stand over the canvas in window points, under the picked node as the canvas drew it last (`picked_bounds`).
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -11,7 +11,7 @@ use gpui::{
     SharedString, Subscription, Window,
 };
 use gpui_component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
-use ipc::{JobLanesView, LaneKind, LaneNode, LaneNodeKind, LaneNodeRole};
+use ipc::{JobLanesView, LaneKind, LaneNodeKind};
 
 use super::draft::{Author, Change};
 use super::LanesEditor;
@@ -32,36 +32,15 @@ const NODE_PER_GAP: f32 = 6.;
 /// The most lines the Words grow to before they scroll, so the fields have a height to place by.
 const WORDS_ROWS: usize = 4;
 
-/// The column after the workflow's last step, kept empty for the box that adds one there.
-pub(super) const ROOM: &str = "workflow/:add";
-
-/// The lanes with a column of room after the workflow's last step, and where it ends moved past it. The canvas lays
-/// the room out as a node, so it pans to it and the arrows reach it, and the empty box is drawn over it. The canvas
-/// keeps its pans inside what it lays out, so a box past the last column would be out of reach on a narrow frame.
-pub(super) fn with_room(mut view: JobLanesView) -> JobLanesView {
+/// The lanes with where the workflow ends moved a column past its last step. The canvas keeps its pans inside what it
+/// lays out, so the column is room it pans to; nothing stands in it, and the empty box that adds a step at the end is
+/// drawn there, a column on from the last step.
+pub(super) fn with_end_room(mut view: JobLanesView) -> JobLanesView {
     let Some(lane) = view.lanes.iter_mut().find(|lane| lane.kind == LaneKind::Workflow) else { return view };
     let Some(col) = lane.nodes.iter().filter(|one| one.kind == LaneNodeKind::Step).map(|one| one.col + 1).max() else { return view };
     for one in lane.nodes.iter_mut().filter(|one| one.kind == LaneNodeKind::End) {
         one.col = col;
     }
-    lane.nodes.push(LaneNode {
-        id: ROOM.into(),
-        label: String::new(),
-        col,
-        role: LaneNodeRole::Step,
-        kind: LaneNodeKind::Step,
-        lit: false,
-        here: false,
-        passed: false,
-        waiting: Vec::new(),
-        end: false,
-        skipped: false,
-        ended: false,
-        ticket: None,
-        changed: None,
-        differs: Vec::new(),
-        clash: None,
-    });
     view
 }
 
@@ -75,10 +54,38 @@ pub(super) struct InPlace {
     pub(super) keyed: bool,
 }
 
+/// What the fields open in place edit.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum Editing {
+    /// A step of the definition: its Name and Words.
+    Step(String),
+    /// A state of a lifecycle that was read: its Name.
+    State { lifecycle: String, state: String },
+}
+
+/// What the panel holds, for its height.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Shape {
+    NameAndWords,
+    Name,
+    Read,
+}
+
+impl Shape {
+    fn of(one: &InPlace) -> Shape {
+        match &one.fields {
+            Some(fields) if fields.words.is_some() => Shape::NameAndWords,
+            Some(_) => Shape::Name,
+            None => Shape::Read,
+        }
+    }
+}
+
 pub(super) struct Fields {
-    pub(super) step: String,
+    pub(super) what: Editing,
     pub(super) name: Entity<InputState>,
-    pub(super) words: Entity<TextareaState>,
+    /// A step's Words; a state has none.
+    pub(super) words: Option<Entity<TextareaState>>,
     was_name: String,
     was_words: String,
     /// The lines the Words grow to, fewer where the frame has no room for them all.
@@ -114,7 +121,7 @@ fn node_width(gaps: &[StepGap]) -> Option<Pixels> {
     }
 }
 
-/// Where a step's node was drawn, from the gaps either side of it: for one the canvas has not picked.
+/// Where a step's node was drawn, from the gaps either side of it.
 fn node_bounds(node: &str, gaps: &[StepGap]) -> Option<Bounds<Pixels>> {
     let wide = node_width(gaps)?;
     let into = gaps.iter().find(|gap| gap.before == node);
@@ -124,10 +131,12 @@ fn node_bounds(node: &str, gaps: &[StepGap]) -> Option<Bounds<Pixels>> {
     Some(Bounds { origin: point(left, gap.bounds.top()), size: gpui::size(wide, gap.bounds.size.height) })
 }
 
-/// The empty box in the room after the workflow's last step, and that step.
+/// The empty box a column on from the workflow's last step, and that step.
 fn end_box(gaps: &[StepGap]) -> Option<(String, Bounds<Pixels>)> {
-    let last = gaps.iter().find(|gap| gap.before == ROOM)?;
-    Some((last.after.clone(), node_bounds(ROOM, gaps)?))
+    let last = gaps.iter().max_by(|a, b| f32::from(a.bounds.left()).total_cmp(&f32::from(b.bounds.left())))?;
+    let step = node_bounds(&last.before, gaps)?;
+    let on = step.size.width + last.bounds.size.width;
+    Some((last.before.clone(), Bounds { origin: point(step.left() + on, step.top()), size: step.size }))
 }
 
 impl LanesEditor {
@@ -147,13 +156,13 @@ impl LanesEditor {
 
     /// Whether the keys are in a field opened in place.
     pub fn typing(&self, window: &Window, cx: &gpui::App) -> bool {
-        self.in_place.as_ref().and_then(|one| one.fields.as_ref()).is_some_and(|fields| fields.name.read(cx).focus_handle(cx).is_focused(window) || fields.words.read(cx).focus_handle(cx).is_focused(window))
+        self.in_place.as_ref().and_then(|one| one.fields.as_ref()).is_some_and(|fields| fields.name.read(cx).focus_handle(cx).is_focused(window) || fields.words.as_ref().is_some_and(|words| words.read(cx).focus_handle(cx).is_focused(window)))
     }
 
     /// The picked node, where it is a step of the workflow's lane.
     fn picked_step(&self) -> Option<String> {
         match &self.picked {
-            Some(Pick::Node(node)) if step_of(node).is_some() && !node.ends_with(":start") && !node.ends_with(":end") && node != ROOM => Some(node.clone()),
+            Some(Pick::Node(node)) if step_of(node).is_some() && !node.ends_with(":start") && !node.ends_with(":end") => Some(node.clone()),
             _ => None,
         }
     }
@@ -179,19 +188,23 @@ impl LanesEditor {
             }
             return;
         }
-        let text = self.text();
-        let step = (lane == LaneKind::Workflow && kind == LaneNodeKind::Step).then(|| step_of(node)).flatten().and_then(|step| steps_of(&text).into_iter().find(|(id, _)| id == step));
-        let fields = step.map(|(step, name)| {
-            let words = words_of(&text, &step).unwrap_or_default();
+        let what = self.editing(node, lane, kind);
+        let fields = what.map(|what| {
+            let text = self.text();
+            let (name, words) = match &what {
+                Editing::Step(step) => (steps_of(&text).into_iter().find(|(id, _)| id == step).map(|(_, name)| name).unwrap_or_default(), Some(words_of(&text, step).unwrap_or_default())),
+                Editing::State { .. } => (label.clone(), None),
+            };
             let name_box = cx.new(|cx| InputState::new(window, cx));
             name_box.update(cx, |state, cx| state.set_value(name.clone(), window, cx));
-            let words_box = cx.new(|cx| TextareaState::new(window, cx).auto_grow(2, WORDS_ROWS));
-            words_box.update(cx, |state, cx| state.set_value(words.clone(), window, cx));
-            let subs = vec![
-                cx.subscribe_in(&name_box, window, |this, _, event: &InputEvent, window, cx| this.field_said(event, window, cx)),
-                cx.subscribe_in(&words_box, window, |this, _, event: &InputEvent, window, cx| this.field_said(event, window, cx)),
-            ];
-            Fields { step, name: name_box, words: words_box, was_name: name, was_words: words, rows: Cell::new(WORDS_ROWS), _subs: subs }
+            let mut subs = vec![cx.subscribe_in(&name_box, window, |this, _, event: &InputEvent, window, cx| this.field_said(event, window, cx))];
+            let words_box = words.as_ref().map(|words| {
+                let words_box = cx.new(|cx| TextareaState::new(window, cx).auto_grow(2, WORDS_ROWS));
+                words_box.update(cx, |state, cx| state.set_value(words.clone(), window, cx));
+                subs.push(cx.subscribe_in(&words_box, window, |this, _, event: &InputEvent, window, cx| this.field_said(event, window, cx)));
+                words_box
+            });
+            Fields { what, name: name_box, words: words_box, was_name: name, was_words: words.unwrap_or_default(), rows: Cell::new(WORDS_ROWS), _subs: subs }
         });
         let label = fields.as_ref().map_or(label, |fields| fields.was_name.clone());
         self.in_place = Some(InPlace { node: node.to_string(), label, fields, keyed: false });
@@ -200,6 +213,23 @@ impl LanesEditor {
             self.key_into_name(window, cx);
         }
         cx.notify();
+    }
+
+    /// What a node's fields edit: a step the definition holds, or a state of a lifecycle that was read. Anything else
+    /// opens to read.
+    fn editing(&self, node: &str, lane: LaneKind, kind: LaneNodeKind) -> Option<Editing> {
+        match (lane, kind) {
+            (LaneKind::Workflow, LaneNodeKind::Step) => {
+                let step = step_of(node)?;
+                steps_of(&self.text()).iter().any(|(id, _)| id == step).then(|| Editing::Step(step.to_string()))
+            }
+            (LaneKind::Lifecycle, _) => {
+                let (lifecycle, state) = node.split_once('/')?;
+                let running = self.lifecycles.iter().find(|one| one.lifecycle.id == lifecycle && one.kept.overridden_by.is_none())?;
+                running.lifecycle.states.iter().any(|one| one.id == state).then(|| Editing::State { lifecycle: lifecycle.to_string(), state: state.to_string() })
+            }
+            _ => None,
+        }
     }
 
     /// The keys into the Name, all of it selected so what is typed replaces it.
@@ -231,14 +261,24 @@ impl LanesEditor {
     pub(super) fn settle(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         let Some(InPlace { fields: Some(fields), .. }) = self.in_place.take() else { return };
         let name = fields.name.read(cx).value().trim().to_string();
-        let words = fields.words.read(cx).value().to_string();
-        let mut named = fields.was_name.clone();
-        if !name.is_empty() && name != fields.was_name {
-            self.edit(Author::Person, format!("Renamed {} to {name}", fields.was_name), Change::StepLabel { step: fields.step.clone(), label: name.clone() }, cx);
-            named = name;
-        }
-        if words != fields.was_words {
-            self.edit(Author::Person, format!("Changed the words of {named}"), Change::StepWords { step: fields.step.clone(), words }, cx);
+        let renamed = (!name.is_empty() && name != fields.was_name).then(|| format!("Renamed {} to {name}", fields.was_name));
+        match &fields.what {
+            Editing::Step(step) => {
+                let mut named = fields.was_name.clone();
+                if let Some(said) = renamed {
+                    self.edit(Author::Person, said, Change::StepLabel { step: step.clone(), label: name.clone() }, cx);
+                    named = name;
+                }
+                let words = fields.words.as_ref().map(|words| words.read(cx).value().to_string()).unwrap_or_default();
+                if words != fields.was_words {
+                    self.edit(Author::Person, format!("Changed the words of {named}"), Change::StepWords { step: step.clone(), words }, cx);
+                }
+            }
+            Editing::State { lifecycle, state } => {
+                if let Some(said) = renamed {
+                    self.edit(Author::Person, said, Change::StateLabel { lifecycle: lifecycle.clone(), state: state.clone(), label: name }, cx);
+                }
+            }
         }
         cx.notify();
     }
@@ -273,13 +313,18 @@ impl LanesEditor {
         let taken: Vec<String> = steps.iter().map(|(id, _)| id.clone()).collect();
         let id = unique_id(NEW_STEP, &taken);
         self.edit(Author::Person, format!("Added {NEW_STEP} after {named}"), Change::AddStep { after, id: id.clone(), label: NEW_STEP.into() }, cx);
-        self.open_at(&format!("workflow/{id}"), true, window, cx);
+        // The new step is picked, as a press on it would: its fields stand under it, and A adds after it next.
+        let node = format!("workflow/{id}");
+        self.state.pick(&self.id, Some(Pick::Node(node.clone())));
+        self.picked = Some(Pick::Node(node.clone()));
+        self.armed = false;
+        self.open_at(&node, true, window, cx);
     }
 
     /// The box at the lane's end: a step after the lane's last where the definition holds it, else after the
     /// definition's last.
     pub(super) fn add_at_end(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let last = self.state.step_gaps(&self.id).into_iter().find(|gap| gap.before == ROOM).map(|gap| gap.after);
+        let last = end_box(&self.state.step_gaps(&self.id)).map(|(last, _)| last);
         self.add_after(last.as_deref().and_then(step_of).map(String::from), window, cx);
     }
 
@@ -293,7 +338,9 @@ impl LanesEditor {
         match key.key.as_str() {
             "tab" => {
                 let Some(fields) = self.in_place.as_ref().and_then(|one| one.fields.as_ref()) else { return false };
-                let (name, words) = (fields.name.clone(), fields.words.clone());
+                // A state's Name is its only field: Tab stays in it.
+                let Some(words) = fields.words.clone() else { return true };
+                let name = fields.name.clone();
                 if name.read(cx).focus_handle(cx).is_focused(window) {
                     words.update(cx, |state, cx| state.focus(window, cx));
                 } else {
@@ -331,11 +378,14 @@ impl LanesEditor {
         }
     }
 
-    /// E: the picked step's fields, with the keys in its Name. `false` where it has none to edit.
+    /// E: the picked step's or state's fields, with the keys in its Name. `false` where it has none to edit.
     pub(super) fn open_picked(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let Some(node) = self.picked_step() else { return false };
-        let text = self.text();
-        if !step_of(&node).is_some_and(|step| steps_of(&text).iter().any(|(id, _)| id == step)) {
+        let Some(Pick::Node(node)) = self.picked.clone() else { return false };
+        let found = {
+            use crate::lanes_canvas::LanesHost;
+            self.lanes_of(&self.id, cx).and_then(|lanes| lanes.lanes.iter().find_map(|lane| lane.nodes.iter().find(|one| one.id == node).map(|one| (lane.kind, one.kind))))
+        };
+        if !found.is_some_and(|(lane, kind)| self.editing(&node, lane, kind).is_some()) {
             return false;
         }
         self.open_at(&node, true, window, cx);
@@ -366,7 +416,7 @@ impl LanesEditor {
         let shown = |bounds: &Bounds<Pixels>| bounds.right() > edge && bounds.left() < frame.right() && bounds.bottom() > frame.top() && bounds.top() < frame.bottom();
         let lanes = Bounds { origin: point(edge, frame.top()), size: gpui::size((frame.right() - edge).max(px(0.)), frame.size.height) };
         let mut cut = Vec::new();
-        for gap in gaps.iter().filter(|gap| gap.before != ROOM && shown(&gap.bounds)) {
+        for gap in gaps.iter().filter(|gap| shown(&gap.bounds)) {
             let named = self.label_of(&gap.after, cx).unwrap_or_default();
             cut.push(self.plus(look, lanes, gap.bounds, &gap.after, step_of(&gap.after).map(String::from), named, cx));
         }
@@ -436,14 +486,23 @@ impl LanesEditor {
     }
 
     /// The panel's height with the Words this many lines tall: padding and border, a label over each field, the
-    /// Name's line and the Words. A state's name to read is one label and one line.
-    fn panel_tall(look: &Look, fields: bool, rows: usize) -> Pixels {
+    /// Name's line and the Words. A state's Name is one label and its field; a name to read, one label and one line.
+    fn panel_tall(look: &Look, shape: Shape, rows: usize) -> Pixels {
         let label = look.length(token::LEADING_2XS) + look.length(token::SPACE_1);
         let shell = look.length(token::SPACE_3) * 2. + look.length(token::BORDER_WIDTH) * 2.;
-        if fields {
-            shell + look.length(token::SPACE_3) + label * 2. + look.length(token::SPACE_8) + look.length(token::LEADING_SM) * rows as f32 + look.length(token::SPACE_4)
-        } else {
-            shell + label + look.length(token::LEADING_SM)
+        match shape {
+            Shape::NameAndWords => shell + look.length(token::SPACE_3) + label * 2. + look.length(token::SPACE_8) + look.length(token::LEADING_SM) * rows as f32 + look.length(token::SPACE_4),
+            Shape::Name => shell + label + look.length(token::SPACE_8),
+            Shape::Read => shell + label + look.length(token::LEADING_SM),
+        }
+    }
+
+    /// The picked node the open fields stand under, as the canvas drew it last.
+    fn open_node(&self) -> Option<Bounds<Pixels>> {
+        let one = self.in_place.as_ref()?;
+        match &self.picked {
+            Some(Pick::Node(picked)) if *picked == one.node => self.state.picked_bounds(&self.id),
+            _ => None,
         }
     }
 
@@ -452,17 +511,14 @@ impl LanesEditor {
     /// fits it is cut to the frame's height, the Words shortened to what that leaves and the Name kept whole.
     pub(super) fn place(&self, look: &Look) -> Option<(Bounds<Pixels>, usize)> {
         let one = self.in_place.as_ref()?;
-        let node = match &self.picked {
-            Some(Pick::Node(picked)) if *picked == one.node => self.state.picked_bounds(&self.id),
-            _ => node_bounds(&one.node, &self.state.step_gaps(&self.id)),
-        }?;
+        let node = self.open_node()?;
         let seen = self.seen.get();
         let gap = look.length(token::SPACE_2);
         let area = Bounds { origin: point(seen.left() + gap, seen.top() + gap), size: gpui::size(seen.size.width - gap * 2., seen.size.height - gap * 2.) };
-        let fields = one.fields.is_some();
+        let shape = Shape::of(one);
         let wide = look.length(token::SPACE_12) * 6.;
         let wide = if wide > area.size.width { area.size.width.max(px(0.)) } else { wide };
-        let full = Self::panel_tall(look, fields, WORDS_ROWS);
+        let full = Self::panel_tall(look, shape, WORDS_ROWS);
         let clamp = |at: Pixels, low: Pixels, high: Pixels| if at > high { high } else { at }.max(low);
         let x = clamp(node.left(), area.left(), area.right() - wide);
         let below = area.bottom() - (node.bottom() + gap);
@@ -480,13 +536,13 @@ impl LanesEditor {
             let x = if right >= left { node.right() + gap } else { node.left() - gap - wide };
             return Some((at(x, clamp(node.top(), area.top(), area.bottom() - full), full), WORDS_ROWS));
         }
-        let rows = if fields {
-            let spare = area.size.height - Self::panel_tall(look, true, 0);
+        let rows = if shape == Shape::NameAndWords {
+            let spare = area.size.height - Self::panel_tall(look, shape, 0);
             ((spare / look.length(token::LEADING_SM)).floor() as usize).clamp(1, WORDS_ROWS)
         } else {
             WORDS_ROWS
         };
-        let tall = Self::panel_tall(look, fields, rows);
+        let tall = Self::panel_tall(look, shape, rows);
         let y = if below >= above { node.bottom() + gap } else { node.top() - gap - tall };
         Some((at(x, clamp(y, area.top(), area.bottom() - tall), tall), rows))
     }
@@ -500,13 +556,10 @@ impl LanesEditor {
     /// height under it.
     pub(super) fn reveal_target(&self, look: &Look) -> Option<Bounds<Pixels>> {
         let one = self.in_place.as_ref()?;
-        let node = match &self.picked {
-            Some(Pick::Node(picked)) if *picked == one.node => self.state.picked_bounds(&self.id),
-            _ => node_bounds(&one.node, &self.state.step_gaps(&self.id)),
-        }?;
+        let node = self.open_node()?;
         let frame = self.frame.get();
         let gap = look.length(token::SPACE_2);
-        let tall = node.size.height + (gap * 2. + Self::panel_tall(look, one.fields.is_some(), WORDS_ROWS));
+        let tall = node.size.height + (gap * 2. + Self::panel_tall(look, Shape::of(one), WORDS_ROWS));
         Some(Bounds { origin: point(node.left() - frame.left(), node.top() - frame.top()), size: gpui::size(node.size.width, tall) })
     }
 
@@ -514,8 +567,9 @@ impl LanesEditor {
     pub(super) fn fit_words(&self, look: &Look, cx: &mut Context<Self>) {
         let Some((_, rows)) = self.place(look) else { return };
         let Some(fields) = self.in_place.as_ref().and_then(|one| one.fields.as_ref()) else { return };
+        let Some(words) = &fields.words else { return };
         if fields.rows.replace(rows) != rows {
-            fields.words.update(cx, |state, cx| state.set_auto_grow(rows.min(2), rows, cx));
+            words.update(cx, |state, cx| state.set_auto_grow(rows.min(2), rows, cx));
         }
     }
 
@@ -525,10 +579,11 @@ impl LanesEditor {
         let (at, _) = self.place(look)?;
         let line = look.length(token::LEADING_SM);
         let rows: Vec<AnyElement> = match &one.fields {
-            Some(fields) => vec![
-                row(look, "Name", labelled(div().id("lanes-in-place-name").key_context(crate::keymap::TEXT_BOX).w_full().text_size(look.length(token::TEXT_SM)).line_height(line).child(Input::new(&fields.name)), Role::TextInput, "Name").into_any_element()).flex_none().into_any_element(),
-                row(look, "Words", labelled(div().id("lanes-in-place-words").key_context(crate::keymap::TEXT_BOX).w_full().flex_1().min_h_0().text_size(look.length(token::TEXT_SM)).line_height(line).child(Textarea::new(&fields.words)), Role::TextInput, "Words").into_any_element()).flex_1().min_h_0().into_any_element(),
-            ],
+            Some(fields) => std::iter::once(row(look, "Name", labelled(div().id("lanes-in-place-name").key_context(crate::keymap::TEXT_BOX).w_full().text_size(look.length(token::TEXT_SM)).line_height(line).child(Input::new(&fields.name)), Role::TextInput, "Name").into_any_element()).flex_none().into_any_element())
+                .chain(fields.words.as_ref().map(|words| {
+                    row(look, "Words", labelled(div().id("lanes-in-place-words").key_context(crate::keymap::TEXT_BOX).w_full().flex_1().min_h_0().text_size(look.length(token::TEXT_SM)).line_height(line).child(Textarea::new(words)), Role::TextInput, "Words").into_any_element()).flex_1().min_h_0().into_any_element()
+                }))
+                .collect(),
             None => vec![row(
                 look,
                 "Name",

@@ -92,6 +92,11 @@ impl EditorWire for SettingsWire {
         self.with(cx, move |this, cx| this.wire.save_workflow(&manifest, save, cx))
     }
 
+    fn lifecycles(&self, manifest: &str, cx: &mut App) -> Task<Result<ipc::RepositoryLifecycles, Refused>> {
+        let manifest = manifest.to_string();
+        self.with(cx, move |this, cx| this.wire.lifecycles(&manifest, cx))
+    }
+
     fn save_piece(&self, save: ipc::SaveLifecyclePiece, cx: &mut App) -> Task<Result<ipc::LifecyclePieceSaved, Refused>> {
         self.with(cx, move |this, cx| this.wire.save_lifecycle_piece(save, cx))
     }

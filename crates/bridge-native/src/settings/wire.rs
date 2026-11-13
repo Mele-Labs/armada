@@ -245,6 +245,15 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/workflows/changes/build".into(), said), "WorkflowSupportBuilding", cx))
     }
 
+    /// `GET /lifecycles`: the lifecycles that apply to one repository, and where each was kept.
+    pub fn lifecycles(&mut self, manifest: &str, cx: &App) -> Task<Result<ipc::RepositoryLifecycles, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.lifecycles(manifest));
+        }
+        let path = scoped("/lifecycles", manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "RepositoryLifecycles", cx))
+    }
+
     /// `POST /lifecycles/pieces/save`: a lifecycle, rule or autonomy default written to Kit.
     pub fn save_lifecycle_piece(&mut self, save: ipc::SaveLifecyclePiece, cx: &App) -> Task<Result<ipc::LifecyclePieceSaved, Refused>> {
         if let Wire::Mock(mock) = self {
