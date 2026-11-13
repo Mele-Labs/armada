@@ -33,7 +33,7 @@ use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
 use crate::fleetwide::{get_events_since, get_health, get_manifest};
 use crate::building::{
-    change_fleet_build, get_fleet_build, get_preview_offers, keep_fleet_build, pick_fleet_build_job, revert_fleet_build,
+    change_fleet_build, get_fleet_build, get_preview_offers, keep_fleet_build, pick_fleet_build_job, revert_fleet_build, update_mac,
     skip_preview_refresh, swap_fleet_build,
 };
 use crate::limiting::{get_limits, save_limits};
@@ -677,6 +677,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::hosted_sessions::get_job_artifacts::<D>),
         )
         .route(
+            "/sessions/artifacts/archive",
+            post(crate::hosted_sessions::archive_artifact::<D>),
+        )
+        .route(
+            "/sessions/artifacts/restore",
+            post(crate::hosted_sessions::restore_artifact::<D>),
+        )
+        .route(
             "/sessions/mcp/act",
             post(crate::hosted_sessions::act_on_session_mcp::<D>),
         )
@@ -816,6 +824,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/models", get(list_models::<D>))
         .route("/fleet/build", get(get_fleet_build::<D>))
         .route("/fleet/build/change", post(change_fleet_build::<D>))
+        .route("/macs/update", post(update_mac::<D>))
         .route("/fleet/build/revert", post(revert_fleet_build::<D>))
         .route("/fleet/build/pick", post(pick_fleet_build_job::<D>))
         .route("/fleet/build/swap", post(swap_fleet_build::<D>))
@@ -849,6 +858,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/kit/values", post(crate::projects::save_kit_values::<D>))
         .route("/projects/project/:project/issues", get(crate::projects::list_project_issues::<D>))
         .route("/projects/project/:project/edit", post(crate::projects::edit_project::<D>))
+        .route("/projects/project/:project/workflow", post(crate::projects::set_project_workflow::<D>))
         .route("/projects/project/:project/delete", post(crate::projects::delete_project::<D>))
         .route("/projects/tasks", post(crate::projects::add_project_task::<D>))
         .route("/projects/issues", post(crate::projects::link_project_issue::<D>))

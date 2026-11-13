@@ -24,6 +24,7 @@ use ipc::{
     SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 
+use super::artifact_for::with_for;
 use super::documents::{keep, one_name, revisions_in};
 use crate::daemon::Fleet;
 
@@ -60,6 +61,8 @@ where
             .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
         let against = show
             .against_title()
+            .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
+        let said = ipc::ArtifactFor::checked(show.for_line.as_deref(), &show.links)
             .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
         let id = caller
             .and_then(|caller| self.session_holding(&caller))
@@ -121,6 +124,7 @@ where
         if let Some(revisions) = revisions {
             attachment.detail.insert("revisions".into(), revisions);
         }
+        with_for(&mut attachment.detail, self.for_line(&id, said).await.as_ref());
         // A sketch he dismissed waits again once the job draws it again, as a walk shown again does.
         let target = attachment.target.clone();
         self.store().lock().await.restore_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
@@ -153,16 +157,20 @@ where
         }
         // The dismissal the person's own Withdraw writes, so both end the same way.
         self.store().lock().await.dismiss_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
-        self.sketch_withdrawn_mark(&id, &target).await;
+        self.sketch_withdrawn_mark(&id, &target, true).await;
         self.published_hosted(&id).await
     }
 
     /// Mark the sketch held as `target` withdrawn. **The one place the mark is written**: the job's
-    /// `withdraw_sketch` and the person's Withdraw both come here. A new drawing of the title replaces the
-    /// attachment, so it does not carry the mark. A sketch the job does not hold is left alone.
-    pub(crate) async fn sketch_withdrawn_mark(&self, id: &str, target: &str) {
+    /// `withdraw_sketch` and the person's Withdraw both come here, and `agent` is the job's, which also
+    /// writes `withdrawn_by`, so the artifact reads `withdrawn` and his reads `dismissed`. A new drawing of
+    /// the title replaces the attachment, so it does not carry the mark. A sketch the job does not hold is left alone.
+    pub(crate) async fn sketch_withdrawn_mark(&self, id: &str, target: &str, agent: bool) {
         let Ok((harness, Some(mut sketch))) = self.sketch_held(id, target).await else { return };
         sketch.detail.insert(SKETCH_WITHDRAWN.into(), "true".into());
+        if agent {
+            sketch.detail.insert(ipc::ARTIFACT_WITHDRAWN_BY.into(), "agent".into());
+        }
         let _ = self
             .report_session(SessionReport {
                 harness,

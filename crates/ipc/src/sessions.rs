@@ -680,6 +680,12 @@ pub struct ProposeDraft {
     /// Which session proposes it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// What the draft is for and what his answer changes, in one sentence of at most 200 characters.
+    #[serde(rename = "for", default, skip_serializing_if = "Option::is_none")]
+    pub for_line: Option<String>,
+    /// At most 5, each `http(s)`. Fleet adds the task, plan step and pull requests it knows.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<crate::ForLink>,
 }
 
 /// `withdraw_draft`: a session takes back a draft it proposed with `propose_draft`, so it leaves the

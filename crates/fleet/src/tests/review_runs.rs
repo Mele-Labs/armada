@@ -26,10 +26,10 @@ use crate::review_runs::answer_read;
 use crate::tests::daemon::{fittings, one, workflow_named};
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 /// What `a_page` says the head is.
-const HEAD: &str = "3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e";
+pub(super) const HEAD: &str = "3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e";
 const NEXT_HEAD: &str = "9a8b7c6d9a8b7c6d9a8b7c6d9a8b7c6d9a8b7c6d";
 
 const DIFF: &str = "diff --git a/a.rs b/a.rs\n--- a/a.rs\n+++ b/a.rs\n@@ -1,2 +1,2 @@\n-let x = 1;\n+let x = 2;\n";
@@ -37,6 +37,11 @@ const DIFF: &str = "diff --git a/a.rs b/a.rs\n--- a/a.rs\n+++ b/a.rs\n@@ -1,2 +1
 const FINDINGS: &str = r#"{"findings":[{"title":"Overflow","body":"`x` can wrap.","severity":"high","at":{"path":"a.rs","side":"right","start":1,"end":2},"comment":"This can wrap past its limit. Check the bound first."}]}"#;
 
 pub(super) fn a_fleet_judged_by(home: &TempDir, judge: Arc<FakeJudge>) -> Arc<Fixture> {
+    a_fleet_reading(home, judge, PullRequestDiff { files: vec!["a.rs".into()], patch: DIFF.into() })
+}
+
+/// [`a_fleet_judged_by`], with the forge giving `diff` as pull request 12's.
+pub(super) fn a_fleet_reading(home: &TempDir, judge: Arc<FakeJudge>, diff: PullRequestDiff) -> Arc<Fixture> {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&[]));
     fittings.starting().workflows = one(workflow_named("code_review"));
     fittings.starting().manifest = config::Manifest::parse(
@@ -45,10 +50,7 @@ pub(super) fn a_fleet_judged_by(home: &TempDir, judge: Arc<FakeJudge>) -> Arc<Fi
     )
     .expect("parses");
     fittings.vcs = FakeVcs::new().delivering(Delivering {
-        pull_request_diff: Some(PullRequestDiff {
-            files: vec!["a.rs".into()],
-            patch: DIFF.into(),
-        }),
+        pull_request_diff: Some(diff),
         ..Delivering::default()
     });
     fittings.judge = judge;

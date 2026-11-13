@@ -118,12 +118,18 @@ impl Projects for FakeDaemon {
             agent_starts: None,
             delivery: None,
             autonomy: Vec::new(),
+            workflows: Vec::new(),
         })
     }
 
     async fn list_project_issues(&self, project: String, _refresh: bool) -> Result<ipc::ProjectIssueList, Refusal> {
         held(&project)?;
         Ok(ipc::ProjectIssueList { project, fetched_at: ipc::Instant::carried("2026-11-10T12:00:00Z"), issues: Vec::new(), stale: None })
+    }
+
+    async fn set_project_workflow(&self, project: String, set: ipc::SetProjectWorkflow) -> Result<ipc::Projects, Refusal> {
+        held(&project)?;
+        Ok(echoed(&project, format!("set_project_workflow {} {}", set.workflow, if set.on { "on" } else { "off" })))
     }
 
     async fn save_kit_values(&self, save: ipc::SaveKitValues) -> Result<ipc::KitValuesSaved, Refusal> {

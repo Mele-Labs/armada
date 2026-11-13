@@ -5,6 +5,7 @@
 // text, so it is a `string`; the sets below that Fleet closes are written out.
 
 import type { BuildSource } from "./building";
+import type { ForLink } from "./job-artifacts";
 import type { CallInFlight } from "./calls";
 import type { DeliveryChoice, HostedFacts, SessionMode } from "./hosted-sessions";
 import type { ContextBreakdown } from "./context-breakdown";
@@ -623,6 +624,9 @@ export type ProposeDraft = {
   /** The number of the pull request whose description this is. Refused where the Job holds no such pull request. */
   pull_request?: number;
   session_id?: string;
+  /** What it is for and what his answer changes: one sentence, at most 200 characters. */
+  for?: string;
+  links?: ForLink[];
 };
 
 /**
@@ -1143,6 +1147,9 @@ export type ShowSketch = {
   title: string;
   scene: unknown;
   session_id?: string;
+  /** What it is for and what his answer changes: one sentence, at most 200 characters. */
+  for?: string;
+  links?: ForLink[];
 };
 
 /**

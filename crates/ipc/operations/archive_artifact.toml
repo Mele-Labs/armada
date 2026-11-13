@@ -1,0 +1,18 @@
+[operations.archive_artifact]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Archive one of your sketches, drafts or pages that is stale: a newer one replaced it, or it no longer bears on the work. It folds away in the owner's Artifacts tab, and one that waits on him leaves his Needs you list with no verdict. Fleet never archives anything itself, since it cannot tell which artifact replaces which. Body: artifact, the id get_job_artifacts names (sketch:<title>, the page's path, or draft:<title>), and session_id. restore_artifact brings it back. An id your Job does not hold, or one archived already, is refused"
+notes = """
+`POST /sessions/artifacts/archive`, body `ArtifactRef`: `artifact` and an optional `session_id`. Answered with the `JobArtifact` as it now reads, `archived` set.
+
+**The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal, and from Bridge, as `withdraw_sketch`'s is. **`archived.by` is who called**: `owner` where a person pressed it (Bridge, the phone or another of his Macs), `agent` through the agent's door or any other caller.
+
+**One that waits on him leaves his list with no verdict**: its Needs you item (`item`) gets the dismissal his Dismiss writes, so it stops calling him, and Fleet keeps that the archive wrote it. Its `state` reads as it stood before, never `dismissed`, and `item` is absent. Where he archived it, the Job is sent `He archived "<title>". It is off his list with no verdict.`, before anything is written, so a send that fails leaves it as it was; where the agent did, nothing is sent. One that waits on nothing is only folded.
+
+**Kept in Fleet's store, not on the attachment**, in `artifact_archives` keyed by the Job and the id, so a new revision, which rewrites the attachment whole, leaves it archived. A sketch drawn again, or a page revised, asks again all the same.
+
+Refused, with 422 and nothing written: `fleet.artifact_unnamed` for a call that places no job, `fleet.session_unnamed` for a job Fleet does not know, `fleet.artifact_not_held` for an id the job does not hold, naming at most 20 it does, and `fleet.artifact_archived_already` for one archived already.
+
+`agent_access` is `Yes`: the Job is the one that knows a newer artifact replaced an older one, and Fleet does not guess.
+"""

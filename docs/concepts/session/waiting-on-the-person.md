@@ -16,7 +16,7 @@ An item kept already, or written again as it was, is never taken off for it.
 The reply to a timed-out question says so, and tells the agent not to ask it again or list it; one that does anyway is refused when its option labels are the question's or its text is the question's, and an item kept before the rule is left off every read while the question stands (`lapsed_asks.rs`).
 **Where he answers by buttons it refuses a question with no options, or more than four** (`fleet.session_waiting_options`), naming the item and telling the agent to ask it with two to four options, its pick first and a cost on each.
 A question is an item with no `approves`, no `steps` and no act but `answer`; a run, a pull request, a message and a procedure need no options (`ways_checking.rs`).
-A reply whose close asks in words, where he answers by buttons, makes Fleet tell the Job once to ask it again with options, as a `reply_claim` notice, and not again until he has written.
+A reply that asks in words is not sent back to be asked with options: on 13 Nov 40 of the 51 sent were disputed, read off replies that asked nothing, quoted a question, handed takes to another Job or pointed at an item already in Needs you.
 Both his answer to a kept question and to a timed-out one start with "Answering your earlier question".
 **Two items are never folded to one row**: whether two wordings are one ask is a guess, so each stands (*Items that are one ask*).
 An ended job holds nothing.

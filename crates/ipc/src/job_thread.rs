@@ -314,6 +314,9 @@ pub struct ThreadSketch {
     /// every one reads**, so a menu over them never offers one that will not draw.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub revisions: Vec<RawScene>,
+    /// What the sketch as it stands is for, on the latest card only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub for_line: Option<crate::ArtifactFor>,
 }
 
 /// A document card: one per page, its newest revision. The page's earlier revisions are its own.
@@ -329,6 +332,9 @@ pub struct ThreadDocument {
     pub asked: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settled: Option<CardSettled>,
+    /// What this revision is for, read off the page's head.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub for_line: Option<crate::ArtifactFor>,
 }
 
 /// Where a plan's card stands. `id` is `plan:v<version>`.

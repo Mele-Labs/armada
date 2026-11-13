@@ -856,6 +856,9 @@ pub enum SessionRow {
         /// `Lifecycle <id>` for a piece a Job proposed for Kit. Absent on any other draft.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         change: Option<i64>,
+        /// What the draft is for, and what it links to. Absent where it has neither.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        for_line: Option<crate::ArtifactFor>,
     },
     /// Fleet's card asking the person whether a Job past its context limit carries on in a new one,
     /// raised by the brief the Job sent with `handoff_brief`. `tokens` is the Job's context then and

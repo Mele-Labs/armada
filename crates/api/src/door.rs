@@ -171,6 +171,8 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "withdraw_window",
     "withdraw_sketch",
     "withdraw_document",
+    "archive_artifact",
+    "restore_artifact",
     "show_sketch",
     "show_file",
     "record_plan",

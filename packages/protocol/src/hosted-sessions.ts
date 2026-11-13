@@ -13,6 +13,7 @@ import type { SlotReleased } from "./holding";
 import type { PlanChangeLine } from "./session-plan";
 import type { RequestBy, RequestHeader } from "./requests";
 import type { ThoughtTarget } from "./thought";
+import type { ArtifactFor } from "./job-artifacts";
 import type { ThreadItem } from "./job-thread";
 import type { SessionRecord, WaitingOption, WalkStep, WindowPlace, WindowTake } from "./sessions";
 import type { ProjectRowRef } from "./projects";
@@ -871,6 +872,8 @@ export type SessionRow =
       before?: string;
       settled?: DraftSettled;
       change?: number;
+      /** What the draft is for, and what it links to. */
+      for_line?: ArtifactFor;
     }
   /**
    * Fleet's card asking whether a Job past its context limit carries on in a new one, raised by the brief the Job sent with
