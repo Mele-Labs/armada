@@ -206,6 +206,54 @@ async fn a_stuck_session_pushes_nothing() {
     assert_eq!(service.got.lock().unwrap().len(), 0);
 }
 
+/// `needs`, with the Job snoozed.
+fn snoozed(id: &str, items: &[(&str, &str, &str)]) -> String {
+    needs(id, items).replace(r#""attachments":[]"#, r#""attachments":[],"snoozed_until":"2026-10-08T05:00:00.000Z""#)
+}
+
+#[tokio::test]
+async fn a_snoozed_job_pushes_once_when_it_wakes_saying_its_newest_item() {
+    let service = service().await;
+    let (mut watch, _rig, _) = watching(&service.url).await;
+    // Raised before the snooze: pushed then, and not again on waking.
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent")])).await;
+    watch.settle().await;
+    for event in [
+        snoozed("s2", &[("a", "Which branch?", "agent")]),
+        snoozed("s2", &[("a", "Which branch?", "agent"), ("b", "Approve the plan", "agent")]),
+        snoozed("s2", &[("a", "Which branch?", "agent"), ("b", "Approve the plan", "agent"), ("c", "Run the restart", "agent")]),
+    ] {
+        watch.observe(&event).await;
+        watch.settle().await;
+    }
+    assert_eq!(service.got.lock().unwrap().len(), 1, "nothing is pushed while snoozed");
+    let woken = needs("s2", &[("a", "Which branch?", "agent"), ("b", "Approve the plan", "agent"), ("c", "Run the restart", "agent")]);
+    for _ in 0..2 {
+        watch.observe(&woken).await;
+        watch.settle().await;
+    }
+    let got = service.got.lock().unwrap();
+    assert_eq!(got.len(), 2, "one push on waking");
+    let said = opened(&got[1].body);
+    assert!(said.contains(r#""title":"Title s2""#), "{said}");
+    assert!(said.contains(r#""reason":"Run the restart""#), "{said}");
+}
+
+#[tokio::test]
+async fn a_snoozed_job_whose_items_all_left_pushes_nothing_when_it_wakes() {
+    let service = service().await;
+    let (mut watch, _rig, _) = watching(&service.url).await;
+    watch.observe(&snoozed("s2", &[("a", "Which branch?", "agent")])).await;
+    watch.observe(&snoozed("s2", &[])).await;
+    watch.observe(&changed("s2", "live", None)).await;
+    watch.settle().await;
+    assert_eq!(service.got.lock().unwrap().len(), 0);
+    // Awake, a new item pushes as before.
+    watch.observe(&needs("s2", &[("b", "Approve the plan", "agent")])).await;
+    watch.settle().await;
+    assert_eq!(service.got.lock().unwrap().len(), 1);
+}
+
 #[tokio::test]
 async fn a_walk_item_says_a_walk_is_ready_and_no_url() {
     let service = service().await;
