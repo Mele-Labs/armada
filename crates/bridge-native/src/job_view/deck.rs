@@ -11,7 +11,7 @@ use ipc::{
 use super::acts::{button, kbd, refusal, Mode, Tone};
 use std::rc::Rc;
 
-use super::dock::Thing;
+use super::dock::{Pinned, Thing};
 use super::keys::{Card, Run};
 use super::rows::{glyph, mono, tip, Size};
 use super::JobView;
@@ -113,11 +113,11 @@ impl JobView {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn deck(&self, id: &SharedString, key: &str, questions: &[AskedQuestion], can_skip: bool, no_other: bool, source: Source, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn deck(&self, id: &SharedString, key: &str, questions: &[AskedQuestion], can_skip: bool, no_other: bool, source: Source, look: &Look, cx: &Context<Self>) -> Pinned {
         let hue = look.color(token::STEP_WAITING);
         let deck = self.deck_of(id, key, questions.len());
         let front = deck.front.min(questions.len().saturating_sub(1));
-        let Some(question) = questions.get(front) else { return div().into_any_element() };
+        let Some(question) = questions.get(front) else { return Pinned::body(div().into_any_element()) };
         let total = questions.len();
         let last = front + 1 == total;
         let target = self.is_target(&format!("question:{key}"));
@@ -255,16 +255,15 @@ impl JobView {
                 }),
             );
         }
-        let footer = div().flex().items_center().gap(look.length(token::SPACE_2)).child(if last { go } else { next }).children(skip).children(steps);
+        let footer = div().flex().items_center().gap(look.length(token::SPACE_2)).child(if last { go } else { next }).children(skip);
         let typed_box = other_on.then(|| self.box_of(&format!("dock:{key}:{front}"), Mode::Note, "Other", look, cx)).flatten();
         let said = self.dock_of(id).and_then(|dock| dock.said.get(&format!("question:{key}")).cloned());
-        labelled(
+        let body = labelled(
             div()
                 .id(SharedString::from(format!("deck:{key}")))
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_4))
-                .child(div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(question.question.clone())))
                 .child(labelled(
                     div().id(SharedString::from(format!("options:{key}"))).flex().flex_col().gap(look.length(token::SPACE_2)).children(options).children(other),
                     Role::Group,
@@ -272,7 +271,6 @@ impl JobView {
                 ))
                 .children(typed_box)
                 .children(said.map(|why| refusal(look, key, why)))
-                .child(labelled(footer.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers"))
                 .children(frame.map(|frame| {
                     let drawn = frame.bounds.clone();
                     canvas(
@@ -291,7 +289,13 @@ impl JobView {
             Role::Group,
             question.question.clone(),
         )
-        .into_any_element()
+        .into_any_element();
+        Pinned {
+            stepper: steps.map(IntoElement::into_any_element),
+            head: Some(div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(question.question.clone())).into_any_element()),
+            body,
+            foot: Some(labelled(footer.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers").into_any_element()),
+        }
     }
 
     /// The pointer or the keys came onto an option, or left it.

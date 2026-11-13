@@ -191,6 +191,22 @@ pub(super) fn ask_label(ask: &ThreadAsk) -> String {
     if header.is_empty() { "Question".into() } else { header.to_string() }
 }
 
+/// A Needs you item in three parts: the head and the foot stay put while the body scrolls between them.
+pub(super) struct Pinned {
+    /// Drawn beside the back key at the top.
+    pub stepper: Option<AnyElement>,
+    pub head: Option<AnyElement>,
+    pub body: AnyElement,
+    /// The item's acts, on the composer's top edge.
+    pub foot: Option<AnyElement>,
+}
+
+impl Pinned {
+    pub fn body(body: AnyElement) -> Self {
+        Self { stepper: None, head: None, body, foot: None }
+    }
+}
+
 impl JobView {
     pub(super) fn dock_of(&self, id: &str) -> Option<&DockState> {
         self.pages.get(id).map(|page| &page.dock)
@@ -664,9 +680,9 @@ impl JobView {
         let detail = self.dock_of(id).and_then(|dock| dock.detail.clone());
         let only = things.len() == 1 && review.is_empty() && matches!(things[0], Thing::Ask(_) | Thing::Lapsed(_));
         let detail = detail.or_else(|| only.then(|| Self::thing_key(&things[0])));
-        let content: AnyElement = match detail.as_ref().and_then(|key| things.iter().find(|thing| &Self::thing_key(thing) == key)) {
+        let content = match detail.as_ref().and_then(|key| things.iter().find(|thing| &Self::thing_key(thing) == key)) {
             Some(thing) => self.render_detail(id, thing, only, look, cx),
-            None => self.render_list(id, look, cx),
+            None => Pinned::body(self.render_list(id, look, cx)),
         };
         // Up to 95% of the thread, band included, so the Job's head always shows.
         let thread = self.pages.get(id).map(|page| page.list.viewport_bounds().size.height).unwrap_or_default();
@@ -684,24 +700,69 @@ impl JobView {
                 }
             }
         }
+        // A hairline under the head and over the foot once the body scrolls; a layout that changes it draws again.
+        let over = scroll.max_offset().y > gpui::px(0.);
+        let watched = scroll.clone();
+        let watch = gpui::canvas(
+            move |_, window, _| {
+                if (watched.max_offset().y > gpui::px(0.)) != over {
+                    window.refresh();
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .size_0();
+        let rule = look.color(token::BORDER_DEFAULT);
+        let (has_head, has_foot) = (content.head.is_some(), content.foot.is_some());
         div()
             .id("needs-panel")
-            .track_scroll(&scroll)
             .track_focus(&self.dock_focus)
             .occlude()
             .on_key_down(cx.listener(Self::on_panel_key))
+            .relative()
             .max_h(most)
-            .overflow_y_scroll()
             .flex()
             .flex_col()
-            .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_4))
-            .pt(look.length(token::SPACE_3))
-            .pb(look.length(token::SPACE_4))
             .border_x(look.length(token::BORDER_WIDTH))
             .border_color(hue)
             .bg(look.color(token::BG_RAISED))
-            .child(content)
+            .children(content.head.map(|head| {
+                div()
+                    .flex_none()
+                    .px(look.length(token::SPACE_4))
+                    .pt(look.length(token::SPACE_3))
+                    .pb(look.length(token::SPACE_3))
+                    .border_b(look.length(token::BORDER_WIDTH))
+                    .border_color(if over { rule } else { gpui::transparent_black() })
+                    .child(head)
+            }))
+            .child(
+                div()
+                    .id("needs-body")
+                    .track_scroll(&scroll)
+                    .min_h_0()
+                    .flex_shrink(1.)
+                    .overflow_y_scroll()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_3))
+                    .px(look.length(token::SPACE_4))
+                    .pt(if has_head { look.length(token::SPACE_1) } else { look.length(token::SPACE_3) })
+                    .pb(if has_foot { look.length(token::SPACE_3) } else { look.length(token::SPACE_4) })
+                    .child(content.body),
+            )
+            .children(content.foot.map(|foot| {
+                div()
+                    .flex_none()
+                    .px(look.length(token::SPACE_4))
+                    .pt(look.length(token::SPACE_3))
+                    .pb(look.length(token::SPACE_4))
+                    .border_t(look.length(token::BORDER_WIDTH))
+                    .border_color(if over { rule } else { gpui::transparent_black() })
+                    .child(foot)
+            }))
+            .child(watch)
             .into_any_element()
     }
 
@@ -1238,7 +1299,7 @@ impl JobView {
         self.dismiss_row(item, None, true, window, cx);
     }
 
-    fn render_detail(&self, id: &SharedString, thing: &Thing, only: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn render_detail(&self, id: &SharedString, thing: &Thing, only: bool, look: &Look, cx: &Context<Self>) -> Pinned {
         let back = labelled(
             div()
                 .id("needs-back")
@@ -1282,15 +1343,17 @@ impl JobView {
             }
             _ => None,
         };
-        div()
+        // The back key and the stepper, then the item's own head, stay at the top; its acts stay at the foot.
+        let head = div()
             .flex()
             .flex_col()
             .items_start()
             .gap(look.length(token::SPACE_2))
-            .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(back).children(head_thumbs))
-            .child(div().w_full().min_w_0().child(body))
-            .children(said.map(|why| super::acts::refusal(look, "dock", why)))
-            .into_any_element()
+            .child(div().w_full().flex().items_center().gap(look.length(token::SPACE_2)).child(back).children(head_thumbs).children(body.stepper))
+            .children(body.head)
+            .into_any_element();
+        let inside = div().w_full().min_w_0().flex().flex_col().gap(look.length(token::SPACE_2)).child(body.body).children(said.map(|why| super::acts::refusal(look, "dock", why))).into_any_element();
+        Pinned { stepper: None, head: Some(head), body: inside, foot: body.foot }
     }
 }
 

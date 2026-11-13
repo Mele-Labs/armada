@@ -352,6 +352,19 @@ pub static WALKS: &[Walk] = &[
         steps: &terminal::STEPS,
     },
     Walk {
+        name: "needs-long",
+        title: "A long question scrolls its options between a pinned head and its acts",
+        screen: Screen::Jobs,
+        scenario: "needs-long",
+        steps: &[
+            step("A press on a Job opens it; its long question is first in what waits on you", Verb::Press, "row", "Fix the merge line freshness chip"),
+            step("The question opens whole: back and the question at the top, Answer at the foot", Verb::Open("button", "Open How should a refused push be retried?"), "button", "Answer"),
+            step("Only the options scroll; a hairline marks each edge they pass under", Verb::Wheel("group", "Options", 160), "radio", "Wait for main to move"),
+            step("A pick in the middle, and Answer is still in view", Verb::Press, "radio", "Wait for main to move"),
+            step("The last option, with the head and Answer where they were", Verb::Wheel("group", "Options", 400), "radio", "Hand it to the merge queue"),
+        ],
+    },
+    Walk {
         name: "native-today",
         title: "Native changes waiting on you",
         screen: Screen::All,
