@@ -59,6 +59,17 @@ states:
 ends: [landed]
 ";
 
+const OWN: &str = "version: 1
+lifecycle_id: my_lane
+name: My lane
+states:
+  - { id: idea, label: Idea, read: { own: true } }
+  - { id: doing, label: Doing, read: { own: true } }
+transitions:
+  - { from: idea, to: doing }
+ends: [doing]
+";
+
 /// Words a YAML writer must quote to keep them text, in a name and in the tracker's own words.
 const AWKWARD_WORDS: &str = "version: 1
 lifecycle_id: awkward
@@ -180,7 +191,7 @@ fn refused_with(refusal: Refusal) -> (String, String) {
 #[tokio::test]
 async fn the_parsers_own_fixtures_come_back_the_same_through_the_writer() {
     let rig = rig_placing(None);
-    for fixture in [TICKET, PULL_REQUEST, DEPLOY, JOB, AWKWARD_WORDS] {
+    for fixture in [TICKET, PULL_REQUEST, DEPLOY, JOB, OWN, AWKWARD_WORDS] {
         let (read, piece) = lifecycle_of(fixture);
         let saved = rig.fleet.lifecycle_piece_saved(saving(piece, false)).expect("saved");
         let written = std::fs::read_to_string(&saved.file).expect("a file");
@@ -198,6 +209,52 @@ async fn the_parsers_own_fixtures_come_back_the_same_through_the_writer() {
     let saved = rig.fleet.lifecycle_piece_saved(saving(piece, false)).expect("saved");
     let written = std::fs::read_to_string(&saved.file).expect("a file");
     assert_eq!(config::parse_autonomy(Path::new(&saved.file), &written).expect("reads"), read, "{written}");
+}
+
+/// **A state the person names reads from nobody**: its file says `own: true`, it comes back as the state
+/// that no source claims, and its lane is drawn as the person's own, with its states of the `own` kind.
+#[tokio::test]
+async fn a_lifecycle_with_states_of_his_own_round_trips_and_reads_as_the_own_lane() {
+    let rig = rig_placing(None);
+    let (read, piece) = lifecycle_of(OWN);
+    assert!(read.states().iter().all(|state| *state.read() == core_model::StateRead::Own));
+    let saved = rig.fleet.lifecycle_piece_saved(saving(piece, false)).expect("saved");
+    let written = std::fs::read_to_string(&saved.file).expect("a file");
+    assert!(written.contains("own: true"), "{written}");
+    let again = config::parse_lifecycle(Path::new(&saved.file), &written).unwrap_or_else(|why| panic!("{why}\n{written}"));
+    assert_eq!(again, read, "{written}");
+
+    let held = ipc::JobLifecycles {
+        session_id: ipc::SessionId::carried("job"),
+        lifecycles: vec![wire::lifecycle(&again)],
+        instances: vec![ipc::HeldInstance {
+            lifecycle: "my_lane".into(),
+            key: "one".into(),
+            label: "One".into(),
+            standing: ipc::InstanceStanding::In { state: "idea".into() },
+            links: Vec::new(),
+            ended_at: None,
+        }],
+        moves: Vec::new(),
+        acts: Vec::new(),
+        rules: Vec::new(),
+        changes: Vec::new(),
+    };
+    let lanes = crate::job_lanes::lanes_of_job(&crate::job_lanes::LaneInput {
+        held: &held,
+        workflow: None,
+        rules: &[],
+        started: &Default::default(),
+        titles: &Default::default(),
+        working: false,
+        waiting: &[],
+    })
+    .expect("a Job with lanes");
+    let lifecycle = &lanes.job.copy.lifecycles[0];
+    assert_eq!((lifecycle.kind, lifecycle.from.as_str()), (ipc::LaneLifecycleKind::Own, "Your own"));
+    let lane = lanes.lanes.iter().find(|lane| lane.kind == ipc::LaneKind::Lifecycle).expect("the lane");
+    assert!(lane.nodes.iter().any(|node| node.kind == ipc::LaneNodeKind::Own), "{lane:?}");
+    assert!(lane.nodes.iter().all(|node| node.kind == ipc::LaneNodeKind::Own || node.kind == ipc::LaneNodeKind::Start || node.kind == ipc::LaneNodeKind::End));
 }
 
 /// What a person opens reads as the keys the parsers take, in the order a hand-written file has them.

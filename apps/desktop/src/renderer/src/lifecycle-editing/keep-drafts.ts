@@ -60,6 +60,10 @@ function readOf(raw: Table): StateReadFrom | undefined {
       source: "watch",
       state: watch,
     };
+  if (raw.own === true)
+    return {
+      source: "own",
+    };
   const fleet = word(raw.fleet);
   return fleet === undefined
     ? undefined

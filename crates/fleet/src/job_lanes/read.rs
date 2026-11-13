@@ -39,6 +39,7 @@ pub(super) fn source_of(read: Option<&StateReadFrom>) -> (LaneLifecycleKind, &'s
         Some(StateReadFrom::Forge { .. }) => (LaneLifecycleKind::Forge, "Forge"),
         Some(StateReadFrom::Watch { .. }) => (LaneLifecycleKind::Watch, "Watch"),
         Some(StateReadFrom::Fleet { .. }) => (LaneLifecycleKind::Job, "Fleet"),
+        Some(StateReadFrom::Own) => (LaneLifecycleKind::Own, "Your own"),
     }
 }
 
