@@ -161,6 +161,8 @@ pub struct FakeVcs {
     /// back, as `(slot, holder)`.
     review_leases: Mutex<Vec<(u64, String)>>,
     review_releases: Mutex<Vec<(u32, String)>>,
+    /// What a bay's base holds, by path: the blob [`Vcs::review_bay_base_blobs`] answers.
+    base_blobs: Mutex<BTreeMap<String, String>>,
     /// What [`Vcs::changes`] counts: every act on a slot or a checkout.
     changed: AtomicU64,
     /// How many times a pool was read. A snapshot that answers from memory

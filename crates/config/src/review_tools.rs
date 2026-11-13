@@ -25,7 +25,7 @@ use crate::yaml::{self, Table};
 pub const CARRIED_AT: &str = "<carried by Armada>";
 
 /// The set Armada carries, in the order Bridge draws it.
-const CARRIED: [(&str, &str); 9] = [
+const CARRIED: [(&str, &str); 10] = [
     ("risks.md", include_str!("../review-tools/risks.md")),
     ("bugs.md", include_str!("../review-tools/bugs.md")),
     (
@@ -38,6 +38,7 @@ const CARRIED: [(&str, &str); 9] = [
     ("why.md", include_str!("../review-tools/why.md")),
     ("walk.md", include_str!("../review-tools/walk.md")),
     ("tour.md", include_str!("../review-tools/tour.md")),
+    ("what-changed.md", include_str!("../review-tools/what-changed.md")),
 ];
 
 const KEYS: &[&str] = &["kind", "name"];
