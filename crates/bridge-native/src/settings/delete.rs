@@ -21,9 +21,10 @@ pub struct Deleting {
 }
 
 impl SettingsOverlay {
-    /// The picker's Delete on the project at `n` in the list: ask first, the keys on Cancel.
-    pub fn ask_delete(&mut self, n: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(one) = self.scope.projects.as_ref().and_then(|all| all.projects.get(n)) else { return };
+    /// The picker's Delete on the project being edited: ask first, the keys on Cancel.
+    pub fn ask_delete(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some((id, _)) = self.scope.project.as_ref() else { return };
+        let Some(one) = self.scope.projects.as_ref().and_then(|all| all.projects.iter().find(|one| one.id == *id)) else { return };
         if one.mac.is_some() {
             return;
         }
@@ -43,8 +44,8 @@ impl SettingsOverlay {
         cx.notify();
     }
 
-    /// Delete: Fleet takes the project and answers every one that is left. If it was the project being edited, the
-    /// picker falls back to Every project. A refusal is said under the confirm, which stays.
+    /// Delete: Fleet takes the project and answers every one that is left, and the picker falls back to Every project.
+    /// A refusal is said under the confirm, which stays.
     pub fn confirm_delete(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(asking) = self.scope.deleting.as_mut() else { return };
         if asking.sending {
@@ -211,17 +212,27 @@ mod tests {
         (overlay, cx)
     }
 
-    fn at(overlay: &Entity<SettingsOverlay>, id: &str, cx: &mut VisualTestContext) -> usize {
-        overlay.read_with(cx, |this, _| this.scope.projects.as_ref().and_then(|all| all.projects.iter().position(|one| one.id == id))).expect("the project is listed")
+    fn editing(overlay: &Entity<SettingsOverlay>, id: &str, name: &str, cx: &mut VisualTestContext) {
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.edit(Some((id.into(), name.into())), window, cx)));
+        cx.run_until_parked();
+    }
+
+    fn deletes(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Vec<String> {
+        let rows = overlay.read_with(cx, |this, _| super::super::project::picker_rows(&this.scope.project, this.scope.projects.as_ref()));
+        rows.iter()
+            .filter_map(|entry| match entry {
+                Entry::Act { id: "delete", label, .. } => Some(label.to_string()),
+                _ => None,
+            })
+            .collect()
     }
 
     #[gpui::test]
     fn deleting_the_project_being_edited_falls_back_to_every_project(cx: &mut TestAppContext) {
         let (overlay, cx) = opened(cx);
-        cx.update(|window, cx| overlay.update(cx, |this, cx| this.edit(Some(("storefront".into(), "Storefront".into())), window, cx)));
-        cx.run_until_parked();
-        let n = at(&overlay, "storefront", cx);
-        cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_delete(n, window, cx)));
+        editing(&overlay, "storefront", "Storefront", cx);
+        assert_eq!(deletes(&overlay, cx), ["Delete Storefront"], "one Delete, for the project being edited");
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_delete(window, cx)));
         let asked = overlay.read_with(cx, |this, _| this.scope.deleting.as_ref().map(|asking| (asking.name.clone(), asking.tasks)));
         assert_eq!(asked, Some(("Storefront".into(), 4)));
         cx.update(|window, cx| overlay.update(cx, |this, cx| this.confirm_delete(window, cx)));
@@ -234,40 +245,25 @@ mod tests {
     }
 
     #[gpui::test]
-    fn deleting_another_project_leaves_the_one_being_edited(cx: &mut TestAppContext) {
-        let (overlay, cx) = opened(cx);
-        cx.update(|window, cx| overlay.update(cx, |this, cx| this.edit(Some(("armada".into(), "Armada".into())), window, cx)));
-        cx.run_until_parked();
-        let n = at(&overlay, "storefront", cx);
-        cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_delete(n, window, cx)));
-        cx.update(|window, cx| overlay.update(cx, |this, cx| this.confirm_delete(window, cx)));
-        cx.run_until_parked();
-        overlay.read_with(cx, |this, _| assert_eq!(this.scope.project, Some(("armada".into(), "Armada".into()))));
-    }
-
-    #[gpui::test]
     fn cancel_changes_nothing(cx: &mut TestAppContext) {
         let (overlay, cx) = opened(cx);
-        let n = at(&overlay, "storefront", cx);
-        cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_delete(n, window, cx)));
+        editing(&overlay, "storefront", "Storefront", cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_delete(window, cx)));
         cx.update(|window, cx| overlay.update(cx, |this, cx| this.cancel_delete(window, cx)));
         overlay.read_with(cx, |this, _| {
             assert!(this.scope.deleting.is_none());
+            assert_eq!(this.scope.project, Some(("storefront".into(), "Storefront".into())));
             assert!(this.scope.projects.as_ref().is_some_and(|all| all.projects.iter().any(|one| one.id == "storefront")));
         });
     }
 
     #[gpui::test]
-    fn a_copy_from_another_mac_has_no_delete(cx: &mut TestAppContext) {
+    fn every_project_and_a_copy_from_another_mac_have_no_delete(cx: &mut TestAppContext) {
         let (overlay, cx) = opened(cx);
-        let rows = overlay.read_with(cx, |this, _| super::super::project::picker_rows(&this.scope.project, this.scope.projects.as_ref()));
-        let deletes: Vec<String> = rows.iter().filter_map(|entry| match entry {
-            Entry::Act { id, label, .. } if id.starts_with("delete-") => Some(label.to_string()),
-            _ => None,
-        }).collect();
-        assert_eq!(deletes, ["Delete Armada", "Delete Storefront", "Delete Ledger"], "Pricing is Armada's copy of another Mac's");
-        let copy = at(&overlay, "pricing", cx);
-        cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_delete(copy, window, cx)));
+        assert!(deletes(&overlay, cx).is_empty(), "Every project has no Delete");
+        editing(&overlay, "pricing", "Pricing", cx);
+        assert!(deletes(&overlay, cx).is_empty(), "Pricing is Armada's copy of another Mac's");
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_delete(window, cx)));
         overlay.read_with(cx, |this, _| assert!(this.scope.deleting.is_none(), "a copy is never asked about"));
     }
 

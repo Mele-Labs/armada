@@ -665,9 +665,8 @@ impl SettingsOverlay {
                     crate::dispatch::screen::open_new_project(cx);
                     return;
                 }
-                id if id.starts_with("delete-") => {
-                    let Some(n) = super::project::DELETE_AT.iter().position(|one| *one == id) else { return };
-                    this.ask_delete(n, window, cx);
+                "delete" => {
+                    this.ask_delete(window, cx);
                     return;
                 }
                 id => {

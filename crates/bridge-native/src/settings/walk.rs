@@ -84,15 +84,16 @@ pub static WAYS_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
-/// `native-delete-project`: the picker's Delete on each project this Mac keeps, its confirm, and the fall back to Every project.
+/// `native-delete-project`: the picker's Delete on the project being edited, its confirm, and the fall back to Every project.
 pub const DELETE_PROJECT: &str = "native-delete-project";
 
 pub static DELETE_PROJECT_STEPS: &[Step] = &[
     step("\u{2318}, opens Settings editing every project", Verb::Key("cmd-,"), "combobox", "Editing Every project"),
     step("\u{2318}P opens the picker", Verb::Key("cmd-p"), "menu", "Editing"),
+    step("Every project has no Delete", Verb::Absent("menuitem", "Delete Armada"), "menuitem", "New project"),
     step("\u{2193} twice and Enter pick Storefront", Verb::Keys(&["down", "down", "enter"]), "combobox", "Editing Storefront"),
-    step("\u{2318}P again: under New project, a Delete for each project this Mac keeps", Verb::Key("cmd-p"), "menuitem", "Delete Storefront"),
-    step("Pricing is another Mac's copy, so it has no Delete", Verb::Absent("menuitem", "Delete Pricing"), "menuitem", "Pricing"),
+    step("\u{2318}P again: under New project, Delete Storefront", Verb::Key("cmd-p"), "menuitem", "Delete Storefront"),
+    step("Only the project being edited has a Delete", Verb::Absent("menuitem", "Delete Armada"), "menuitem", "Armada"),
     press_on("Delete Storefront asks first, naming its tasks", "menuitem", "Delete Storefront", "dialog", "Delete Storefront? Its 4 tasks go with it."),
     step("The keys start on Cancel; Tab goes to Delete", Verb::Key("tab"), "button", "Delete"),
     step("Esc cancels, and Storefront is still edited", Verb::Key("escape"), "combobox", "Editing Storefront"),
@@ -100,8 +101,11 @@ pub static DELETE_PROJECT_STEPS: &[Step] = &[
     press_on("Delete Storefront asks again", "menuitem", "Delete Storefront", "dialog", "Delete Storefront? Its 4 tasks go with it."),
     step("Tab, Enter: Fleet deletes it, and the picker is on Every project", Verb::Keys(&["tab", "enter"]), "combobox", "Editing Every project"),
     step("\u{2318}P: Storefront is gone from the picker", Verb::Key("cmd-p"), "menuitem", "Armada"),
-    step("Its Delete went with it", Verb::Absent("menuitem", "Delete Storefront"), "menuitem", "Delete Armada"),
-    step("Esc shuts the picker", Verb::Key("escape"), "combobox", "Editing Every project"),
+    step("Storefront's row went with it", Verb::Absent("menuitem", "Storefront"), "menuitem", "Pricing"),
+    press_on("Pricing is another Mac's copy", "menuitem", "Pricing", "combobox", "Editing Pricing"),
+    step("\u{2318}P: that Mac keeps it, so it has no Delete", Verb::Key("cmd-p"), "menuitem", "New project"),
+    step("No Delete Pricing under New project", Verb::Absent("menuitem", "Delete Pricing"), "menuitem", "New project"),
+    step("Esc shuts the picker", Verb::Key("escape"), "combobox", "Editing Pricing"),
 ];
 
 /// `native-take`: a copy Armada has changed since it began, and choosing what to take from Armada's lanes beside its own.

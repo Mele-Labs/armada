@@ -487,14 +487,8 @@ pub fn picker(this: &SettingsOverlay, look: &Look, window: &Window, cx: &Context
     labelled(ringed(look, button, focus, window), Role::ComboBox, format!("Editing {name}")).into_any_element()
 }
 
-/// The ids a project's Delete carries in the picker's menu: its place among the projects, as `overlay::AT` does for its row.
-pub const DELETE_AT: [&str; 24] = [
-    "delete-0", "delete-1", "delete-2", "delete-3", "delete-4", "delete-5", "delete-6", "delete-7", "delete-8", "delete-9", "delete-10", "delete-11", "delete-12", "delete-13", "delete-14", "delete-15",
-    "delete-16", "delete-17", "delete-18", "delete-19", "delete-20", "delete-21", "delete-22", "delete-23",
-];
-
-/// The menu the picker opens: Every project, each project, New project, then a Delete for each project this Mac keeps. A copy
-/// of another Mac's has none: that Mac keeps the project.
+/// The menu the picker opens: Every project, each project, New project, then a Delete for the project being edited, so
+/// another is deleted by picking it first. Every project has none, and nor does a copy of another Mac's: that Mac keeps it.
 pub fn picker_rows(picked: &Editing, projects: Option<&Projects>) -> Vec<crate::dropdown::Entry> {
     use crate::dropdown::{Entry, Row};
     let every = picked.is_none();
@@ -513,12 +507,10 @@ pub fn picker_rows(picked: &Editing, projects: Option<&Projects>) -> Vec<crate::
     }
     rows.push(Entry::Rule);
     rows.push(Entry::Row(Row::new("new-project", "New project").icon("plus").key("⌘⇧N")));
-    let mut deletes = shown.iter().filter(|(_, one)| one.mac.is_none()).peekable();
-    if deletes.peek().is_some() {
+    let edited = shown.iter().find(|(_, one)| picked.as_ref().is_some_and(|(id, _)| *id == one.id) && one.mac.is_none());
+    if let Some((_, one)) = edited {
         rows.push(Entry::Rule);
-    }
-    for (n, one) in deletes {
-        rows.push(Entry::Act { id: DELETE_AT[*n], label: format!("Delete {}", one.name).into(), icon: Some("trash"), danger: true });
+        rows.push(Entry::Act { id: "delete", label: format!("Delete {}", one.name).into(), icon: Some("trash"), danger: true });
     }
     rows
 }
@@ -893,7 +885,7 @@ mod tests {
     }
 
     #[test]
-    fn the_picker_lists_every_project_each_project_new_project_and_a_delete_for_each_it_keeps() {
+    fn the_picker_lists_every_project_each_project_new_project_and_a_delete_for_the_one_edited() {
         use crate::dropdown::Entry;
         let one = |id: &str, name: &str, values: Option<ValuesSet>, unread: Option<&str>| Project { id: id.into(), name: name.into(), values, unread: unread.map(String::from), ..Project::default() };
         let projects = Projects { projects: vec![one("armada", "Armada", Some(armada()), None), one("ledger", "Ledger", None, Some("the file is gone"))], loose: Vec::new(), left_out: Vec::new() };
@@ -911,7 +903,9 @@ mod tests {
         );
         assert_eq!(rows.iter().filter(|entry| matches!(entry, Entry::Rule)).count(), 3);
         let deletes: Vec<&str> = rows.iter().filter_map(|entry| if let Entry::Act { label, danger: true, .. } = entry { Some(label.as_ref()) } else { None }).collect();
-        assert_eq!(deletes, ["Delete Armada", "Delete Ledger"], "an unread project can still be deleted");
+        assert_eq!(deletes, ["Delete Armada"], "only the project being edited");
+        let ledger = picker_rows(&Some(("ledger".into(), "Ledger".into())), Some(&projects));
+        assert!(ledger.iter().any(|entry| matches!(entry, Entry::Act { label, .. } if label.as_ref() == "Delete Ledger")), "an unread project can still be deleted");
     }
 
     #[test]
