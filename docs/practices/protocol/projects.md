@@ -113,7 +113,8 @@ Kit has none: `save_kit_values` refuses one, and Kit's `values.yml` does not rea
 The machine's list and each repository's are the `workflows.off` setting in `settings.json`, and Kit has none: `save_kit_values` refuses one, and Kit's `values.yml` does not read one.
 **Off wins.** The three lists add up: a workflow any of them names is off for a Job in the project, and a project cannot switch back on what the machine or its repository switched off.
 So each switch names the furthest layer that holds it off, `machine`, then `repository`, then `project`, and `default` where none does and it is on; a project's switch changes it only where `from` is `project` or `default`.
-`get_values` with a `project` serves `workflows`, one `{ id, on, from }` for each workflow the repository asked about holds, or every served repository's where none was, in id order. Without a repository, a workflow every repository the project keeps switches off is off from `repository`, since no Job in it can follow it; one off in only some is left as the machine's list and the project's say.
+`get_values` with a `project` serves `workflows`, one `{ id, on, from }` for each workflow the repository asked about holds, or every served repository's where none was, in id order.
+Without a repository, a workflow every repository the project keeps switches off is off from `repository`, since no Job in it can follow it; one off in only some is left as the machine's list and the project's say.
 `features.workflows`, the switch for all of them, is not folded in. `set_project_workflow` adds an id to the list or takes it out.
 Whether a workflow is on is read live, by the proposer, Autopilot's picker, `set_session_workflow` and the rail, for the Job's project and repository; it is not frozen in `HostedFacts.values`, whose `workflows` is always empty.
 
