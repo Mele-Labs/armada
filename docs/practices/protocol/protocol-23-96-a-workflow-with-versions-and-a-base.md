@@ -37,7 +37,8 @@ There is no number to bump: the protocol ID moves with the files below.
 ## What each does
 
 **A publish writes the log.** The text it wrote is the next version in the place it wrote to: the draft's own, or for a draft of Armada's the scope the owner picked.
-**A publish also keeps the text that was in the place (`found`) where it is not the latest version kept**, written before the publish's own row and only where a definition was there. That is the first publish into a place, which makes the text found version 1 and the publish version 2, and any publish after a hand edit, so the history has no hole.
+**A publish also keeps the text that was in the place (`found`) where it is not the latest version kept**, written before the publish's own row and only where a definition was there.
+That is the first publish into a place, which makes the text found version 1 and the publish version 2, and any publish after a hand edit, so the history has no hole.
 For a draft of Armada's, whose copy is a new file, the place held nothing and its first publish is version 1; where it replaced a copy with `overwrite`, that copy's text is kept as `found`.
 A draft begun before a hand edit is refused as stale; the draft begun after it starts from the edited text, which its publish keeps as `found`.
 **A revert is a put.** The version's text goes into the draft by the path `put_workflow_draft` takes: a change by `you` with the summary `Back to version N`, beginning the draft where there is none, and adding nothing where the draft already ends on that text.

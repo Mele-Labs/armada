@@ -38,15 +38,18 @@ impl Rig {
         assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
     }
 
-    /// Publish `staged` in the repository, the folders reading as they did at the start.
-    async fn publish_staged(&self) -> u32 {
+    /// Publish `staged` in the repository, which holds `was`, with the draft `text`: the folders then hold `text`, as a save
+    /// leaves them.
+    async fn publish_staged(&self, was: &str, text: &str) -> u32 {
+        let holding = |text: &str| read(vec![config::Written::in_repository(at("repo", "staged.json"), text.to_string())]);
         self.planted.will_save(Ok(saved("staged", "/repo/.armada/workflows/staged.json")));
-        self.planted.will_read(read(staged_in_repository()));
+        // A publish reads the folders before its stale check, which the fixture answers with what is there; the read after
+        // the save it does not answer, so the folders are then read again holding what was published.
+        self.planted.will_read(holding(was));
         let body = ipc::encode(&PublishWorkflowDraft { workflow_id: WorkflowId::carried("staged"), source: "repository".into(), ..Default::default() }).unwrap();
         let (status, body) = call(&self.app, "POST", "/workflows/draft/publish", &body).await;
         assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
-        // A publish reads the folders twice, and the fixture answers the first only: they read as they did, again.
-        self.planted.will_read(read(staged_in_repository()));
+        self.planted.will_read(holding(text));
         self.fleet.workflows_changed(&self.home.path().to_string_lossy());
         decoded::<WorkflowPublished>("a publish", &body).version
     }
@@ -83,9 +86,9 @@ async fn the_first_publish_keeps_the_text_that_was_there_as_version_one_and_each
     let (one, two) = (with_refine(), format!("{}\n# a second thought", with_refine()));
 
     rig.put_staged(&one).await;
-    assert_eq!(rig.publish_staged().await, 2, "`found` is version 1 and the publish's own row follows it");
+    assert_eq!(rig.publish_staged(STAGED, &one).await, 2, "`found` is version 1 and the publish's own row follows it");
     rig.put_staged(&two).await;
-    assert_eq!(rig.publish_staged().await, 3);
+    assert_eq!(rig.publish_staged(&one, &two).await, 3, "what the place holds is the latest version, so nothing is found again");
 
     let kept = rig.versions("workflow_id=staged&source=repository").await.versions;
     assert_eq!(kept.iter().map(|one| one.version).collect::<Vec<_>>(), [3, 2, 1]);
@@ -102,10 +105,11 @@ async fn the_first_publish_keeps_the_text_that_was_there_as_version_one_and_each
 async fn a_revert_puts_that_versions_text_in_the_draft_as_a_change_by_you_and_publishes_nothing() {
     let rig = rig(&[]).await;
     let one = with_refine();
+    let two = format!("{one}\n# a second thought");
     rig.put_staged(&one).await;
-    rig.publish_staged().await;
-    rig.put_staged(&format!("{one}\n# a second thought")).await;
-    rig.publish_staged().await;
+    rig.publish_staged(STAGED, &one).await;
+    rig.put_staged(&two).await;
+    rig.publish_staged(&one, &two).await;
     let saves = rig.planted.saves().len();
     assert_eq!(call(&rig.app, "GET", "/workflows/draft?workflow_id=staged&source=repository", "").await.0, StatusCode::NOT_FOUND, "no draft is kept");
 
@@ -115,7 +119,7 @@ async fn a_revert_puts_that_versions_text_in_the_draft_as_a_change_by_you_and_pu
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
     let draft: WorkflowDraft = decoded("a draft", &body);
     assert_eq!(draft.text, one);
-    assert_eq!(draft.base, STAGED, "it began from what is published");
+    assert_eq!(draft.base, two, "it began from what is published");
     assert_eq!(draft.changes.len(), 1);
     assert_eq!((draft.changes[0].by, draft.changes[0].summary.as_deref()), (DraftBy::You, Some("Back to version 2")));
     assert_eq!(rig.planted.saves().len(), saves, "nothing was published");
