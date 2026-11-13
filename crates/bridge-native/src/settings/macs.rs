@@ -131,11 +131,10 @@ fn press_of(state: &CloudflareState) -> Option<&'static str> {
     }
 }
 
-/// A Unix time as a stamp in his clock, to the minute: the day comes with it when it is not today.
+/// A Unix time as a stamp in his clock, as his time format says: the day comes with it when it is not today.
 fn clock_of(at: i64) -> String {
     use chrono::{Local, TimeZone};
-    let format = ipc::time_format::TimeFormat { seconds: false, ..super::time::held() };
-    Local.timestamp_opt(at, 0).single().map(|at| super::time::stamp_of(at, format, Local::now())).unwrap_or_default()
+    Local.timestamp_opt(at, 0).single().map(|at| super::time::stamp_of(at, super::time::held(), Local::now())).unwrap_or_default()
 }
 
 /// Time left on a link, as Classic's `timeLeft` writes it: `4:32`.
