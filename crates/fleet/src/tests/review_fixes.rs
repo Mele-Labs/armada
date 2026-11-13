@@ -34,7 +34,9 @@ fn fixing(finding: Option<ReviewPlace>) -> StartReviewRun {
             body: "`a + b` wraps past 255.".into(),
             severity: ReviewSeverity::High,
             at,
+            comment: "This sum wraps past 255. Use a saturating add.".into(),
         }),
+        since: None,
     }
 }
 

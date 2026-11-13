@@ -30,6 +30,17 @@
      },
      "reviewRequests": {
       "nodes": []
+     },
+     "myReview": {
+      "nodes": [
+       {
+        "state": "COMMENTED",
+        "submittedAt": "2026-10-22T04:30:00Z",
+        "commit": {
+         "oid": "1111111111111111111111111111111111111111"
+        }
+       }
+      ]
      }
     },
     {

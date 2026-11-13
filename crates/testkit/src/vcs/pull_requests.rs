@@ -4,7 +4,7 @@
 //! holding this fake exists.
 
 use adapter_traits::{
-    FilePatch, ListedPull, PatchedFile, PullRequestFacts, PullRequestPageFacts, PullRequestStanding, PullRequestWrite,
+    ComparedPatches, FilePatch, ListedPull, PatchedFile, PullRequestFacts, PullRequestPageFacts, PullRequestStanding, PullRequestWrite,
     Remark, ReviewList, ReviewListAsk, UnderReview,
 };
 
@@ -60,6 +60,10 @@ pub(super) struct PullRequests {
     pub(super) file_patch: Option<FilePatch>,
     /// What the forge answers for every file's patch. `None` is silence.
     pub(super) patches: Option<Vec<PatchedFile>>,
+    /// What the forge answers for a compare of two commits, by base and head. One not here is silent.
+    pub(super) compared: Vec<((String, String), ComparedPatches)>,
+    /// Every compare asked, as base and head.
+    pub(super) compares_asked: Vec<(String, String)>,
     /// The forge's reply to a write on a pull request.
     pub(super) written: Result<(), String>,
     /// What the forge answers for each review list. A list with no entry is silent.
@@ -90,6 +94,8 @@ impl Default for PullRequests {
             touched_asked: Vec::new(),
             file_patch: None,
             patches: None,
+            compared: Vec::new(),
+            compares_asked: Vec::new(),
             written: Ok(()),
             review_lists: Vec::new(),
             review_lists_together: None,
@@ -393,6 +399,28 @@ impl FakeVcs {
     /// Say what the forge holds for a file's patch, or that it is silent.
     pub fn now_pull_request_file_patch(&self, patch: Option<FilePatch>) {
         self.pull_requests.lock().expect("not poisoned").file_patch = patch;
+    }
+
+    /// `Forge::pull_request_compare`: recorded, then answered as scripted.
+    pub(super) fn compare_read(&self, base: &str, head: &str) -> Option<ComparedPatches> {
+        let mut held = self.pull_requests.lock().expect("not poisoned");
+        held.compares_asked.push((base.to_string(), head.to_string()));
+        held.compared
+            .iter()
+            .find(|((from, to), _)| from == base && to == head)
+            .map(|(_, answer)| answer.clone())
+    }
+
+    /// Say what the forge answers for a compare from `base` to `head`.
+    pub fn now_pull_request_compare(&self, base: &str, head: &str, answer: ComparedPatches) {
+        let mut held = self.pull_requests.lock().expect("not poisoned");
+        held.compared.retain(|((from, to), _)| !(from == base && to == head));
+        held.compared.push(((base.to_string(), head.to_string()), answer));
+    }
+
+    /// Every compare asked of the forge, as base and head.
+    pub fn compares_asked(&self) -> Vec<(String, String)> {
+        self.pull_requests.lock().expect("not poisoned").compares_asked.clone()
     }
 
     /// Say what the forge holds for every file's patch, or that it is silent.

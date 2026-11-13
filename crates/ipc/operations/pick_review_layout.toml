@@ -1,0 +1,10 @@
+[operations.pick_review_layout]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Pick the Reviews layout every pull request opens on"
+notes = """
+`POST /review_layouts/pick`, body `NamedReviewLayout`: `name`, one `list_review_layouts` lists, `Default` included. Answers `ReviewLayouts`. **One pick for every pull request**, not one each.
+
+A 422 `fleet.pull_review_memory_invalid` for a name no layout has.
+"""

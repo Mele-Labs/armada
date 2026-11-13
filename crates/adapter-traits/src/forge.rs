@@ -309,6 +309,22 @@ pub trait Forge {
         pull_request: &str,
     ) -> Option<Vec<crate::PatchedFile>>;
 
+    /// The patches of the files that changed from `base` to `head`, two commits of a pull request.
+    /// **The forge compares from the merge base of the two**, so where the branch was rebased the
+    /// answer can hold changes that came from the target branch and not from the author.
+    /// [`ComparedPatches::BaseGone`] where the forge no longer has `base`, as after a force-push.
+    /// **`None` is the forge's silence**, for [`landed`](crate::Delivery::landed)'s reason, and a
+    /// forge with no call for it is silent by default.
+    fn pull_request_compare(
+        &self,
+        in_repo: &str,
+        base: &str,
+        head: &str,
+    ) -> Option<crate::ComparedPatches> {
+        let _ = (in_repo, base, head);
+        None
+    }
+
     /// Every comment on a pull request, in no order: the conversation's, each review's body and
     /// every comment on the diff, **one forge call**. `None` is the forge's silence, for
     /// [`landed`](crate::Delivery::landed)'s reason; no comments is `Some(vec![])`.

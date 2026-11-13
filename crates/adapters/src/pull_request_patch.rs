@@ -6,15 +6,19 @@
 //! file lacks one. Read as `crate::pull_request_detail` reads its own: jq prints a record per
 //! line, and no document is parsed here.
 
-use adapter_traits::{FilePatch, PatchedFile};
+use adapter_traits::{ComparedPatches, FilePatch, PatchedFile};
 
 use crate::delivery::run_in;
 use crate::under_review::as_written;
 
 /// `+` where the forge sent a patch and `-` where it left it out, so an empty patch and an
-/// absent one are not the same record.
+/// absent one are not the same record. The blob is second and the patch last, so a patch's tabs
+/// stay in it.
 const REDUCTION: &str =
-    r#".[] | [(.filename // ""), (if .patch == null then "-" else "+" end), (.patch // "")] | @tsv"#;
+    r#".[] | [(.filename // ""), (.sha // ""), (if .patch == null then "-" else "+" end), (.patch // "")] | @tsv"#;
+/// [`REDUCTION`] over a compare's `files`.
+pub(crate) const COMPARED: &str =
+    r#".files[]? | [(.filename // ""), (.sha // ""), (if .patch == null then "-" else "+" end), (.patch // "")] | @tsv"#;
 
 /// `None` is the forge's silence: no tool, nobody signed in, no such pull request.
 pub(crate) fn read_every(in_repo: &str, pull_request: &str) -> Option<Vec<PatchedFile>> {
@@ -34,6 +38,26 @@ pub(crate) fn read_every(in_repo: &str, pull_request: &str) -> Option<Vec<Patche
     Some(listed(&lines))
 }
 
+/// The files changed from `base` to `head`. `gh` says `HTTP 404` for a commit the forge does not
+/// have, which for a head it just gave is the base.
+pub(crate) fn read_compared(in_repo: &str, base: &str, head: &str) -> Option<ComparedPatches> {
+    let (base, head) = (
+        crate::api_forge::commit_named(base)?,
+        crate::api_forge::commit_named(head)?,
+    );
+    let endpoint = format!("repos/{{owner}}/{{repo}}/compare/{base}...{head}?per_page=100");
+    let run = run_in(in_repo, "gh", &["api", "--paginate", &endpoint, "--jq", COMPARED]).ok()?;
+    if !run.status.success() {
+        let said = String::from_utf8_lossy(&run.stderr);
+        return said.contains("HTTP 404").then_some(ComparedPatches::BaseGone);
+    }
+    let lines: Vec<String> = String::from_utf8_lossy(&run.stdout)
+        .lines()
+        .map(str::to_string)
+        .collect();
+    Some(ComparedPatches::Patches(listed(&lines)))
+}
+
 /// One file's patch, out of [`read_every`]'s one read.
 pub(crate) fn read(in_repo: &str, pull_request: &str, path: &str) -> Option<FilePatch> {
     read_every(in_repo, pull_request).map(|files| folded(files, path))
@@ -45,14 +69,16 @@ pub(crate) fn listed(lines: &[String]) -> Vec<PatchedFile> {
     lines
         .iter()
         .filter_map(|line| {
-            let mut field = line.splitn(3, '\t').map(as_written);
-            let (Some(path), Some(sent), Some(patch)) = (field.next(), field.next(), field.next())
+            let mut field = line.splitn(4, '\t').map(as_written);
+            let (Some(path), Some(blob), Some(sent), Some(patch)) =
+                (field.next(), field.next(), field.next(), field.next())
             else {
                 return None;
             };
             Some(PatchedFile {
                 path,
                 patch: (sent == "+").then_some(patch),
+                blob: (!blob.is_empty()).then_some(blob),
             })
         })
         .collect()
