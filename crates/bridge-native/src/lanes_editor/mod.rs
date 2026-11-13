@@ -1477,7 +1477,7 @@ impl gpui::Render for LanesEditor {
                     self.reveal.set(false);
                 }
                 let watch = self.in_place.is_some() || self.sentence.is_some();
-                let over = self.render_in_place(self.frame.get(), &look, window, cx);
+                let over = self.render_in_place(self.frame.get(), &look, cx);
                 let sentence = self.render_sentence(self.frame.get(), &look, window, cx);
                 let row = self.render_rule_row(&look, window, cx);
                 let lanes = div()

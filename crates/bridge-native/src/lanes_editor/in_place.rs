@@ -416,7 +416,7 @@ impl LanesEditor {
 
     /// What stands over the canvas: a + in each gap it shows, the box at the workflow's end, and what is open in
     /// place. `frame` is where the canvas was drawn last, in window points.
-    pub(super) fn render_in_place(&self, frame: Bounds<Pixels>, look: &Look, window: &Window, cx: &Context<Self>) -> Vec<AnyElement> {
+    pub(super) fn render_in_place(&self, frame: Bounds<Pixels>, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
         let mut over = Vec::new();
         if frame.size.width <= px(0.) {
             return over;
