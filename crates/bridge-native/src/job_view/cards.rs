@@ -275,7 +275,10 @@ impl JobView {
         let most = look.length(token::SPACE_12) * 6.;
         // The height the list had when last drawn: the list is borrowed while its items draw, so it cannot be asked here.
         let Some(room) = self.pane_height else { return most };
-        (room - look.length(token::SPACE_12) * 5.).max(look.length(token::SPACE_12) * 2.).min(most)
+        // A narrow thread wraps the band and the answers onto more lines, which take their room too.
+        let wraps = self.pane.is_some_and(|width| width < look.length(token::SPACE_12) * 10.);
+        let around = look.length(token::SPACE_12) * if wraps { 6. } else { 4.5 };
+        (room - around).max(look.length(token::SPACE_12) * 2.).min(most)
     }
 
     /// The newest sketch put to the person, pinned after the plan (`SketchPin`, B1.4).
@@ -309,16 +312,12 @@ impl JobView {
             Role::Button,
             "Open in the panel",
         );
-        let band = div()
+        let tools = div()
+            .flex_none()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .text_color(look.color(token::FG_MUTED))
-            .child(div().flex_none().child(glyph(look, "pencil-ruler", Size::Small, look.color(token::FG_MUTED))))
-            // The title gives way in a narrow thread, so Fold stays inside the card.
-            .child(super::rows::eyebrow(look, &card.title).flex_shrink(1.).min_w_0().truncate().text_color(look.color(token::FG_MUTED)))
-            .child(div().flex_none().id(SharedString::from(format!("pin-mark:{key}"))).child(glyph(look, "bell-ring", Size::Mark, look.color(token::STEP_WAITING))).tooltip(tip("Sketch waiting for approval")))
-            .child(div().flex_1())
+            .ml_auto()
             .child(self.revision_button(ix, &key, &card.title, revisions, picked, look, cx))
             .child(open)
             .child(labelled(
@@ -341,6 +340,17 @@ impl JobView {
                 Role::Button,
                 if folded { "Unfold" } else { "Fold" },
             ));
+        // The title keeps its width: the bell and the tools wrap under it where the row is too narrow for all.
+        let band = div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .text_color(look.color(token::FG_MUTED))
+            .child(div().flex_none().child(glyph(look, "pencil-ruler", Size::Small, look.color(token::FG_MUTED))))
+            .child(super::rows::eyebrow(look, &card.title).flex_grow(1.).min_w_0().max_w_full().truncate().text_color(look.color(token::FG_MUTED)))
+            .child(div().flex_none().id(SharedString::from(format!("pin-mark:{key}"))).child(glyph(look, "bell-ring", Size::Mark, look.color(token::STEP_WAITING))).tooltip(tip("Sketch waiting for approval")))
+            .child(tools);
         let open = settled.is_none() && !shown_earlier;
         let aim = key.clone();
         labelled(

@@ -70,7 +70,15 @@ impl Fit {
     fn min_zoom(self) -> f32 {
         match self {
             Fit::Preview => 0.02,
-            Fit::Reading => 0.2,
+            Fit::Reading => 0.05,
+        }
+    }
+
+    /// Room kept clear on every side inside the box, in window pixels: `--space-4`, so nothing touches the frame.
+    fn inset(self) -> f32 {
+        match self {
+            Fit::Preview => 0.,
+            Fit::Reading => 16.,
         }
     }
 }
@@ -524,8 +532,8 @@ impl View {
     fn fit(bounds: Bounds<Pixels>, scene: Rect, fit: Fit, lens: Lens) -> View {
         let (w, h) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
         let pad = |side: f32| ((side - side / (1. + fit.padding())) / 2.).floor();
-        let across = if scene.w > 0. { (w - 2. * pad(w)) / scene.w } else { 1. };
-        let down = if scene.h > 0. { (h - 2. * pad(h)) / scene.h } else { 1. };
+        let across = if scene.w > 0. { (w - 2. * pad(w) - 2. * fit.inset()) / scene.w } else { 1. };
+        let down = if scene.h > 0. { (h - 2. * pad(h) - 2. * fit.inset()) / scene.h } else { 1. };
         let zoom = across.min(down).clamp(fit.min_zoom(), 1.) * lens.zoom;
         View { zoom, origin: bounds.center() + point(px(lens.pan.0), px(lens.pan.1)), centre: Pt { x: scene.x + scene.w / 2., y: scene.y + scene.h / 2. } }
     }
