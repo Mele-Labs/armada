@@ -238,8 +238,10 @@ pub struct Detail {
 }
 
 impl Detail {
-    pub fn in_words(&self, window: &Window, cx: &App) -> bool {
-        self.words.values().any(|one| one.state.read(cx).focus_handle(cx).is_focused(window)) || self.band.in_text(window, cx)
+    /// The keys of every box the detail has drawn: each step's words, and the band's, for a test that types into each.
+    #[cfg(test)]
+    pub(super) fn fields(&self, cx: &App) -> Vec<FocusHandle> {
+        self.words.values().map(|one| one.state.read(cx).focus_handle(cx)).chain(self.band.fields(cx)).collect()
     }
 
     /// The list to draw: what an act read last, while the connection still holds what it held then.

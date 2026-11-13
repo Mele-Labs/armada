@@ -26,6 +26,18 @@ pub static NO_FUNNEL_STEPS: &[Step] = &[
     step("Esc closes Settings, and the keys go back", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-keys-stay-in-text`: a letter typed into a box on Workflows is typed there, and the keys stay in it.
+pub const KEYS_STAY_IN_TEXT: &str = "native-settings-keys-stay-in-text";
+
+pub static KEYS_STAY_IN_TEXT_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Workflows: every workflow Fleet runs", "button", "Workflows", "group", "Shipped with Armada"),
+    press_on("A press on a workflow draws it", "button", "prototype", "textbox", "Tell an agent what to change"),
+    press_on("A press goes into the box that asks an agent", "textbox", "Tell an agent what to change", "textbox", "Tell an agent what to change"),
+    step("F typed in it lands in it", Verb::Typed("f"), "textbox", "Tell an agent what to change"),
+    step("A second F follows the first: the box reads ff, and the keys never left", Verb::Typed("f"), "textbox", "Tell an agent what to change"),
+];
+
 /// `native-layout-time`: what Layout and Time set, read on the app behind Settings.
 pub const LAYOUT_TIME: &str = "native-layout-time";
 

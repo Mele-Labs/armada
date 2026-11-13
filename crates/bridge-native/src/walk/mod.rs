@@ -2506,6 +2506,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::NO_FUNNEL_STEPS,
     },
     Walk {
+        name: crate::settings::walk::KEYS_STAY_IN_TEXT,
+        title: "Settings keys stay in a text box",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::KEYS_STAY_IN_TEXT_STEPS,
+    },
+    Walk {
         name: "stamps-follow-format",
         title: "Stamps follow Settings › Time",
         screen: Screen::Settings,
