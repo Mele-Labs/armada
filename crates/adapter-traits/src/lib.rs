@@ -85,7 +85,7 @@ pub use test_map::{
     CollectorSource, Lap, LapCost, LapGrain, LapsOnForge, NotAsked, NotRecorded, TestCollector, TestsToRecord,
 };
 pub use text_model::{NotEmbedded, TextModel, TextReading};
-pub use forge::{Compared, Forge, LandingOnTheForge};
+pub use forge::{AccountRepositories, Compared, Forge, ForgeRepository, LandingOnTheForge};
 pub use event::{CallDetail, DroneEvent, FileAct, HarnessReading, Reach, Speaker, TaskStatus, ToolUse};
 pub use harness::{
     DroneHandle, DroneSpawnConfig, Effort, Environment, Launch, McpConfig,

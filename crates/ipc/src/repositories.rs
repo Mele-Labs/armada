@@ -1,6 +1,7 @@
 //! The repositories one Fleet serves, and adding one by folder or by URL, or
 //! making a new one — `list_repositories`, `add_repository`, `clone_repository`
-//! and `create_project` in `crates/ipc/operations/`.
+//! and `create_project` in `crates/ipc/operations/` — and the forge's repositories
+//! one may be cloned from, `list_forge_repositories`.
 //!
 //! **A repository is listed whether or not it has a Manifest yet.** Setup
 //! starts from a folder nobody wrote an `armada.yml` for, so `manifest` is
@@ -9,7 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ManifestId, ManifestSummary};
+use crate::{Instant, ManifestId, ManifestSummary};
 
 /// A folder to serve, as a person chose it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,6 +28,34 @@ pub struct CloneRepository {
     /// Absolute, and already there. The clone lands in a new folder under it,
     /// named from the URL.
     pub parent: String,
+}
+
+/// The repositories the person's forge account can see, to pick one to clone.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ForgeRepositories {
+    /// Newest pushed first, as the forge lists them, at most 200.
+    pub repositories: Vec<ForgeRepository>,
+    /// Not every repository that matches is here: more matched than the cap, or the forge held
+    /// more than Fleet reads. Absent while false.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub cut: bool,
+}
+
+/// One repository on the forge, and where this Mac already has it.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ForgeRepository {
+    pub owner: String,
+    pub name: String,
+    /// What `clone_repository` takes as `url`.
+    pub url: String,
+    pub private: bool,
+    /// Absent for a repository nothing was ever pushed to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pushed_at: Option<Instant>,
+    /// The root of the repository Fleet serves that is this one, by its remote. Absent where
+    /// Fleet serves none: it is not cloned here, as far as Fleet knows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_path: Option<String>,
 }
 
 /// A new project to make: a folder named `name` under `parent`, started as a

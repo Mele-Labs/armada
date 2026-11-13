@@ -80,6 +80,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/repositories/clone",
     },
+    // What there is to clone: the forge account's repositories, beside the clone that takes one.
+    Route {
+        operation: "list_forge_repositories",
+        method: "GET",
+        path: "/repositories/forge",
+    },
     // What a person already has in their agent CLI, to be brought in: the folders, how one was run,
     // and the install of Fleet's mod. Under `/import` and not `/repositories`, which is what Fleet
     // serves; these are folders it does not serve yet.

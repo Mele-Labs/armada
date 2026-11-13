@@ -36,6 +36,24 @@ pub(crate) async fn read_request_repository<D: Queries>(
     }
 }
 
+/// `?q=` on `list_forge_repositories`: words to narrow by, absent for every one.
+#[derive(serde::Deserialize)]
+pub(crate) struct ForgeAsk {
+    #[serde(default)]
+    q: Option<String>,
+}
+
+/// The repositories the person's forge account can see, to clone one.
+pub(crate) async fn list_forge_repositories<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(ForgeAsk { q }): Query<ForgeAsk>,
+) -> Response {
+    match served.daemon().list_forge_repositories(q).await {
+        Ok(listed) => answer(StatusCode::OK, &listed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Each served repository's merge line, where it has one.
 pub(crate) async fn get_merge_lines<D: Queries>(State(served): State<Served<D>>) -> Response {
     match served.daemon().get_merge_lines().await {
