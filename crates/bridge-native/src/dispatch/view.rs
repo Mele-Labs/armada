@@ -5,7 +5,7 @@
 use std::rc::Rc;
 
 use gpui::{
-    canvas, div, point, prelude::*, px, App, Bounds, Context, Focusable, KeyDownEvent, Pixels, Role, SharedString, Window,
+    canvas, div, point, prelude::*, px, App, Bounds, Context, FocusHandle, KeyDownEvent, Pixels, Role, SharedString, Window,
 };
 use gpui_component::input::Textarea;
 
@@ -103,6 +103,7 @@ impl DispatchSheet {
         let name = self.here_in()?;
         let look = cx.look();
         let focused = self.here_key.is_focused(window);
+        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let said = format!("New Job in {name}");
         let hover = look.color(token::BG_HOVER);
         let card = div()
@@ -117,11 +118,8 @@ impl DispatchSheet {
                 match key.key.as_str() {
                     "enter" | "space" if plain => this.job_here(window, cx),
                     "escape" => this.close(window, cx),
-                    // Tab either way goes back to the request: the sheet keeps the keys while it is open.
-                    "tab" if !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt => {
-                        let request = this.request.focus_handle(cx);
-                        window.focus(&request, cx);
-                    }
+                    // Tab goes on round the sheet: the card is its last stop.
+                    "tab" if !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt => this.step_focus(key.modifiers.shift, window, cx),
                     _ => return,
                 }
                 cx.stop_propagation();
@@ -135,7 +133,7 @@ impl DispatchSheet {
             .cursor_pointer()
             .rounded(look.length(token::RADIUS_LG))
             .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(if focused { token::ACCENT } else { token::BORDER_SUBTLE }))
+            .border_color(if focused { ring } else { look.color(token::BORDER_SUBTLE) })
             .bg(look.color(token::BG_RAISED))
             .hover(move |style| style.bg(hover))
             .shadow(look.shadows(token::SHADOW_OVERLAY))
@@ -452,7 +450,6 @@ impl DispatchSheet {
                 .bg(look.color(token::BG_SUNKEN))
                 .child(labelled(div().id("dispatch-refused").text_color(look.color(token::ERROR)).child(why.clone()), Role::Alert, why))
         });
-        let worded = self.worded(cx);
         let tuning = {
             let model = self.model.clone().or_else(|| self.face.tuning.default_model.clone()).unwrap_or_else(|| "Auto".into());
             let effort = self.effort.clone().unwrap_or_else(|| "Auto".into());
@@ -460,16 +457,17 @@ impl DispatchSheet {
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_2))
-                .child(self.pick_button("dispatch-model", "cpu", "Model", model, Rc::clone(&self.at.model), off, cx.listener(|this, _, window, cx| this.open_model(window, cx)), cx))
-                .child(self.pick_button("dispatch-effort", "zap", "Effort", effort, Rc::clone(&self.at.effort), off, cx.listener(|this, _, window, cx| this.open_effort(window, cx)), cx))
+                .child(self.pick_button("dispatch-model", "cpu", "Model", model, Rc::clone(&self.at.model), (&self.model_key, self.model_key.is_focused(window)), off, cx.listener(|this, _, window, cx| this.open_model(window, cx)), cx))
+                .child(self.pick_button("dispatch-effort", "zap", "Effort", effort, Rc::clone(&self.at.effort), (&self.effort_key, self.effort_key.is_focused(window)), off, cx.listener(|this, _, window, cx| this.open_effort(window, cx)), cx))
         };
         let queue = (self.face.queue && self.attached.is_empty()).then(|| {
-            let live = !off && !self.sending && !self.queueing && !self.words(cx).trim().is_empty();
+            let live = self.queue_live(cx);
             let button = labelled(
                 Btn::new("dispatch-queue", "Queue for later", Weight::Secondary)
                     .disabled(!live)
                     .pending(self.queueing)
                     .draw(look, cx)
+                    .track_focus(&self.queue_key)
                     .when(live, |button| button.on_click(cx.listener(|this, _, window, cx| this.queue(window, cx)))),
                 Role::Button,
                 "Queue for later",
@@ -478,7 +476,7 @@ impl DispatchSheet {
         });
         let starting = self.sending && !self.drafting;
         let said = if starting { "Starting" } else { "Start" };
-        let live = !off && !self.queueing && worded && !self.sending;
+        let live = self.act_live(cx);
         // A draft is a start held on its start card; a wait has no card.
         let draft = self.wait.is_none().then(|| {
             let said = if self.drafting { "Drafting" } else { "Draft" };
@@ -487,6 +485,7 @@ impl DispatchSheet {
                     .disabled(!live)
                     .pending(self.drafting)
                     .draw(look, cx)
+                    .track_focus(&self.draft_key)
                     .tooltip(tip("Nothing runs until you press Start on its card"))
                     .when(live, |button| button.on_click(cx.listener(|this, _, window, cx| this.draft(window, cx)))),
                 Role::Button,
@@ -502,6 +501,7 @@ impl DispatchSheet {
                     .disabled(!live)
                     .pending(starting)
                     .draw(look, cx)
+                    .track_focus(&self.act_key)
                     .when(live, |button| button.on_click(cx.listener(|this, _, window, cx| this.act(window, cx)))),
                 Role::Button,
                 said,
@@ -541,14 +541,17 @@ impl DispatchSheet {
         name: &'static str,
         value: SharedString,
         at: Rc<std::cell::Cell<Option<Bounds<Pixels>>>>,
+        key: (&FocusHandle, bool),
         off: bool,
         press: impl Fn(&gpui::ClickEvent, &mut Window, &mut App) + 'static,
         cx: &Context<Self>,
     ) -> impl IntoElement {
         let look = cx.look();
+        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         labelled(
             div()
                 .id(id)
+                .track_focus(key.0)
                 .relative()
                 .h(look.length(token::H_CONTROL))
                 .min_w(look.length(token::SPACE_12) * 1.5)
@@ -558,7 +561,7 @@ impl DispatchSheet {
                 .gap(look.length(token::SPACE_2))
                 .rounded(look.length(token::RADIUS_MD))
                 .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
+                .border_color(if key.1 { ring } else { look.color(token::BORDER_DEFAULT) })
                 .bg(look.color(token::BG_SUNKEN))
                 .font_family(mono(look))
                 .text_color(look.color(token::FG_DEFAULT))
