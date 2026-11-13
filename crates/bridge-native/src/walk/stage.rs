@@ -90,6 +90,18 @@ impl Stage {
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: held.into(), focus })
             }
+            Screen::Reviews => {
+                super::strip_marks::leave(cx);
+                crate::titlebar::scenes::begin(cx);
+                let jobs = crate::mock::jobs(walk.scenario)?;
+                let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
+                let keys = list.read(cx).focus_handle().clone();
+                let screen = cx.new(|cx| JobsScreen::new(list, None, window, cx));
+                let held = cx.new(|cx| crate::operator::OperatorScreen::mock_reviews(screen, window, cx));
+                let focus = Focus { keys, within: held.read(cx).within.clone() };
+                window.focus(&focus.keys, cx);
+                Ok(Stage { view: held.into(), focus })
+            }
             Screen::App => {
                 super::strip_marks::leave(cx);
                 crate::titlebar::scenes::begin(cx);
@@ -632,6 +644,31 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             );
             // The first move past the threshold lifts the row; the list is drawn again so the next move reaches the rows' drop handlers.
             let past = point(start.x, start.y - gpui::px(8.));
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: past, pressed_button: held, modifiers: none }), cx);
+            window.defer(cx, move |window, cx| {
+                window.draw(cx).clear(cx);
+                window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: to, pressed_button: held, modifiers: none }), cx);
+            });
+            Ok(())
+        }
+        Verb::Carry(role, name, across, down) => {
+            let carried = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let start = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), carried, name))
+                .map(|drawn| drawn.bounds.center())
+                .ok_or_else(|| Missed(format!("no {role} named \"{name}\"")))?;
+            let over = find(step, window, cx)?.bounds;
+            let to = point(over.origin.x + over.size.width * (f32::from(across) / 100.), over.origin.y + over.size.height * (f32::from(down) / 100.));
+            let none = Modifiers::default();
+            let held = Some(MouseButton::Left);
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: start, pressed_button: None, modifiers: none }), cx);
+            window.dispatch_event(
+                PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: start, modifiers: none, click_count: 1, first_mouse: false }),
+                cx,
+            );
+            // Past the threshold the drag starts; drawn again, the next move reaches the drop targets, as `Lift` does.
+            let past = point(start.x, start.y + gpui::px(8.));
             window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: past, pressed_button: held, modifiers: none }), cx);
             window.defer(cx, move |window, cx| {
                 window.draw(cx).clear(cx);

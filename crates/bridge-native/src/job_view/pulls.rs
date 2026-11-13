@@ -323,6 +323,12 @@ pub(super) fn linked_facts(look: &Look, key: &str, pull: &Pull) -> [AnyElement; 
 
 /// A fact on the row's second line: its glyph, which carries the tooltip, and its word, filled in its hue.
 fn fact(look: &Look, id: String, icon: &'static str, said: String, word: &'static str, hue: Token) -> AnyElement {
+    state_chip(look, id, icon, said, word, hue).into_any_element()
+}
+
+/// A state as a chip: its registry glyph and its word, filled in its hue with no outline. The
+/// tooltip says what the word is short for.
+pub(crate) fn state_chip(look: &Look, id: String, icon: &'static str, said: String, word: impl Into<SharedString>, hue: Token) -> gpui::Stateful<gpui::Div> {
     let ink = look.color(hue);
     div()
         .id(SharedString::from(id))
@@ -338,8 +344,7 @@ fn fact(look: &Look, id: String, icon: &'static str, said: String, word: &'stati
         .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
         .tooltip(tip(said))
         .child(glyph(look, icon, Size::Small, ink))
-        .child(word)
-        .into_any_element()
+        .child(word.into())
 }
 
 impl JobView {

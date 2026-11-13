@@ -272,6 +272,11 @@ impl Vcs for FakeVcs {
         self.noted(self.slots.release(pool, slot, holder).map_err(|kept| kept.0))
     }
 
+    fn review_bay_base_blobs(&self, _pool: &SlotPool, _slot: u32, paths: &[String]) -> Result<Vec<Option<String>>, String> {
+        let blobs = self.base_blobs.lock().expect("not poisoned");
+        Ok(paths.iter().map(|path| blobs.get(path).cloned()).collect())
+    }
+
     fn paths_touched_by(&self, _pool: &SlotPool, authors: &[String], commits: usize) -> Vec<String> {
         self.history_read(authors, commits)
     }
