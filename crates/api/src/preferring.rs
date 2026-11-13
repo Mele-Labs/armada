@@ -37,8 +37,14 @@ pub(crate) async fn save_preferences<D: Settings>(
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    let before = served.daemon().get_preferences().await.ok();
     match served.daemon().save_preferences(save).await {
-        Ok(preferences) => answer(StatusCode::OK, &preferences, served.run_id()),
+        Ok(preferences) => {
+            if let Some(before) = before {
+                served.shared().preferences_saved(before, preferences.clone()).await;
+            }
+            answer(StatusCode::OK, &preferences, served.run_id())
+        }
         Err(refusal) => refused(refusal),
     }
 }

@@ -62,6 +62,7 @@ mod operator_shortlist;
 mod operator_shortlist_model;
 mod workflow_pick_model;
 mod workflow_words;
+mod ways;
 mod operator_telling;
 mod auto_gate_deciding;
 mod door_on_your_words;

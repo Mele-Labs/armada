@@ -40,6 +40,7 @@ use crate::judging::watched;
 use crate::session_links::LinkedBy;
 use crate::session_proposer::{Proposing, SessionBrief, SessionProposed};
 use crate::timeline::{Fact, Subject};
+use crate::ways;
 
 /// A workflow id the Session's repository does not hold. A 422.
 pub(super) const WORKFLOW_NOT_HELD: &str = "fleet.session_workflow_not_held";
@@ -165,6 +166,7 @@ pub(crate) fn workflow_words(
     held: &std::collections::BTreeMap<WorkflowId, ResolvedWorkflow>,
     workflow: Option<&str>,
     changed: bool,
+    plan_block: &str,
 ) -> Option<String> {
     let Some(id) = workflow else {
         return changed.then(|| {
@@ -173,13 +175,15 @@ pub(crate) fn workflow_words(
     };
     let found = held.get(&WorkflowId::carried(Ulid::carried(id)))?;
     let verb = if changed { "now follows" } else { "follows" };
-    Some(format!("Fleet: this Job {verb} the {} workflow. {}", found.name(), workflow_groups(found)))
+    Some(format!("Fleet: this Job {verb} the {} workflow. {}", found.name(), workflow_groups(found, plan_block)))
 }
 
 /// The groups of `found`, as the agent is told to record its plan with them: each step's id, label and
 /// gate, and its instructions. **Every telling of a workflow ends with this**, whether the Job starts on
-/// it, is moved to it or has the steps of its own copy changed.
-pub(crate) fn workflow_groups(found: &ResolvedWorkflow) -> String {
+/// it, is moved to it or has the steps of its own copy changed. **A step that settles a plan or approach
+/// with him ends with `plan_block`**, how he wants that talk to go (`crate::ways::plan_block`), added
+/// here and not to the workflow file so a copy of his own gets it too.
+pub(crate) fn workflow_groups(found: &ResolvedWorkflow, plan_block: &str) -> String {
     let mut words =
         String::from("Record your plan with these groups, in this order, each with its id and gate, and your own tasks under them:");
     for (place, step) in found.steps().iter().enumerate() {
@@ -190,15 +194,23 @@ pub(crate) fn workflow_groups(found: &ResolvedWorkflow) -> String {
             step.label(),
             step.gate().word()
         ));
-        if let Some(told) = step.instructions() {
-            let told = told.split_whitespace().collect::<Vec<_>>().join(" ");
-            if !told.is_empty() {
-                words.push_str(": ");
-                words.push_str(&told);
-            }
+        let told = step.instructions().map(|told| told.split_whitespace().collect::<Vec<_>>().join(" ")).unwrap_or_default();
+        let block = if settles_a_plan(step) { plan_block } else { "" };
+        let said: Vec<&str> = [told.as_str(), block].into_iter().filter(|one| !one.is_empty()).collect();
+        if !said.is_empty() {
+            words.push_str(": ");
+            words.push_str(&said.join(" "));
         }
     }
     words
+}
+
+/// Whether the step ends on his approval of a plan, approach, sketch or page, or records the plan:
+/// where the Job settles the shape of the work with him.
+fn settles_a_plan(step: &config::ResolvedStep) -> bool {
+    use core_model::StepGate;
+    step.records_plan()
+        || matches!(step.gate(), StepGate::PlanApproved | StepGate::YouApproved | StepGate::SketchApproved | StepGate::DocumentApproved)
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -604,7 +616,7 @@ where
         let followed = hosting.workflow.as_deref().is_some_and(|workflow| self.workflow_on(&hosting.manifest_id, workflow));
         if !hosting.ran && followed {
             if let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
-                said.extend(workflow_words(&served.workflows(), hosting.workflow.as_deref(), false));
+                said.extend(workflow_words(&served.workflows(), hosting.workflow.as_deref(), false, &ways::plan_block(&self.preferences_in_force())));
             }
         }
         if !self.hosts().of(id).state().restart_after_turn {
@@ -754,7 +766,7 @@ where
         // A Session that has not run is told with its first turn, which is when it starts. A Job that made
         // the change itself is not told what it did.
         if hosting.ran && by == ipc::ChangedBy::You {
-            if let Some(words) = workflow_words(&held, workflow.as_deref(), true) {
+            if let Some(words) = workflow_words(&held, workflow.as_deref(), true, &ways::plan_block(&self.preferences_in_force())) {
                 if let Err(why) = self.told_by_fleet(&id, &words, ipc::Notice::WorkflowChanged).await {
                     eprintln!("job {id}: the workflow change was not sent to the agent: {why:?}");
                 }

@@ -30,7 +30,7 @@ fn feature() -> BTreeMap<WorkflowId, ResolvedWorkflow> {
 fn a_steps_id_gate_and_instructions_reach_the_text_one_line_a_group() {
     let held = feature();
     let id = held.keys().next().expect("one workflow").as_str().to_string();
-    let words = workflow_words(&held, Some(&id), false).expect("a workflow Fleet holds is told");
+    let words = workflow_words(&held, Some(&id), false, "").expect("a workflow Fleet holds is told");
     assert_eq!(
         words,
         "Fleet: this Job follows the feature workflow. Record your plan with these groups, in this order, each with its id and gate, and your own tasks under them:\n\
@@ -44,16 +44,16 @@ fn a_steps_id_gate_and_instructions_reach_the_text_one_line_a_group() {
 fn a_change_made_to_a_running_job_says_now_follows() {
     let held = feature();
     let id = held.keys().next().expect("one workflow").as_str().to_string();
-    let words = workflow_words(&held, Some(&id), true).expect("told");
+    let words = workflow_words(&held, Some(&id), true, "").expect("told");
     assert!(words.starts_with("Fleet: this Job now follows the feature workflow. Record your plan"), "{words}");
 }
 
 #[test]
 fn a_job_that_follows_none_is_told_only_when_it_had_one() {
     let held = feature();
-    assert_eq!(workflow_words(&held, None, false), None);
+    assert_eq!(workflow_words(&held, None, false, ""), None);
     assert_eq!(
-        workflow_words(&held, None, true).as_deref(),
+        workflow_words(&held, None, true, "").as_deref(),
         Some("Fleet: this Job no longer follows a workflow. It is a custom Job.")
     );
 }
