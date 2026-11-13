@@ -66,6 +66,7 @@ pub(crate) fn values_set(values: &Values) -> Option<ValuesSet> {
         }),
         agent_starts: values.agent_starts.map(|starts| starts.as_wire().to_string()),
         delivery: values.delivery.map(|delivery| delivery.as_wire().to_string()),
+        workflows_off: values.workflows_off.clone(),
     })
 }
 
@@ -124,6 +125,7 @@ pub(crate) fn resolved_wire(resolved: &ResolvedValues) -> ipc::ResolvedValues {
             .iter()
             .map(|one| ipc::ResolvedAutonomy { kind: one.kind.as_wire().to_string(), value: one.value.as_wire().to_string(), from: layer_wire(one.from) })
             .collect(),
+        workflows: Vec::new(),
     }
 }
 
@@ -238,6 +240,7 @@ impl Frozen {
                     Some(ipc::ResolvedAutonomy { kind: kind.as_wire().to_string(), value: row.value.clone()?, from: layer_wire(layer_read(&row.layer)) })
                 })
                 .collect(),
+            workflows: Vec::new(),
         }
     }
 }
@@ -305,7 +308,16 @@ where
                 self.values_refused(format!("`{word}` is not a delivery: it is `auto_land`, `open_pr`, `keep_local` or `ask`"))
             })?),
         };
+        let mut workflows_off: Vec<String> = Vec::new();
+        for id in &written.workflows_off {
+            match id.trim() {
+                "" => return Err(self.values_refused("workflows_off names a blank workflow, and a switch is for one by its id".to_string())),
+                id if !workflows_off.iter().any(|held| held == id) => workflows_off.push(id.to_string()),
+                _ => {}
+            }
+        }
         Ok(Values {
+            workflows_off,
             tracker,
             reviews,
             agent_starts,
@@ -374,6 +386,7 @@ where
             reviews: ReviewsNamed::default(),
             agent_starts: None,
             delivery: None,
+            workflows_off: Vec::new(),
         }
     }
 
@@ -462,9 +475,30 @@ where
         let project = project.map(|id| id.trim().to_string()).filter(|id| !id.is_empty());
         let wire = resolved_wire(&self.values_resolved(project.as_deref(), repository.as_ref()).await?);
         match project {
-            Some(project) => self.project_values_annotated(wire, &project, repository.as_ref()).await,
+            Some(project) => {
+                let mut wire = self.project_values_annotated(wire, &project, repository.as_ref()).await?;
+                wire.workflows = self.workflow_switches(&project, repository.as_ref());
+                Ok(wire)
+            }
             None => Ok(wire),
         }
+    }
+
+    /// Each workflow's switch for `project`, of the repository asked or of every repository served where none was,
+    /// in id order, with the layer that holds it off (`workflow_off_from`). The main switch is not folded in.
+    fn workflow_switches(&self, project: &str, repository: Option<&ManifestId>) -> Vec<ipc::ResolvedWorkflow> {
+        let served = match repository {
+            Some(named) => self.repositories().serving(named.as_str()).into_iter().collect(),
+            None => self.repositories().served(),
+        };
+        let ids: std::collections::BTreeSet<String> =
+            served.iter().flat_map(|one| one.workflows().keys().map(|id| id.as_str().to_string()).collect::<Vec<_>>()).collect();
+        ids.into_iter()
+            .map(|id| {
+                let from = self.workflow_off_from(repository.map(ManifestId::as_str), Some(project), &id);
+                ipc::ResolvedWorkflow { on: from.is_none(), from: from.unwrap_or(ipc::ValueLayer::Default), id }
+            })
+            .collect()
     }
 
     /// The values a Job starting in `repository` for `project` takes. **`None` where they could not be read**, said
@@ -518,6 +552,9 @@ where
     pub(crate) async fn kit_values_saved(&self, save: SaveKitValues) -> Result<KitValuesSaved, Refusal> {
         if save.values.tracker.is_some() {
             return Err(self.values_refused("Kit sets no tracker: a tracker is a project's, or a repository's own".to_string()));
+        }
+        if !save.values.workflows_off.is_empty() {
+            return Err(self.values_refused("Kit switches no workflow off: the machine's and each repository's are the workflows.off setting, and a project's are its own".to_string()));
         }
         let values = self.values_read(&save.values)?;
         let path = self.kit_folder().join(KIT_FILE);

@@ -843,6 +843,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/kit/values", post(crate::projects::save_kit_values::<D>))
         .route("/projects/project/:project/issues", get(crate::projects::list_project_issues::<D>))
         .route("/projects/project/:project/edit", post(crate::projects::edit_project::<D>))
+        .route("/projects/project/:project/workflow", post(crate::projects::set_project_workflow::<D>))
         .route("/projects/project/:project/delete", post(crate::projects::delete_project::<D>))
         .route("/projects/tasks", post(crate::projects::add_project_task::<D>))
         .route("/projects/issues", post(crate::projects::link_project_issue::<D>))
