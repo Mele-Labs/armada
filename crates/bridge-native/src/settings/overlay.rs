@@ -789,6 +789,7 @@ impl SettingsOverlay {
     pub(super) fn in_text(&self, window: &Window, cx: &App) -> bool {
         self.query.read(cx).focus_handle(cx).is_focused(window) || self.theme.focus.is_focused(window) || self.models.filter_focused(window, cx) || self.workflows.filter_focused(window, cx) || self.workflows.detail.in_words(window, cx) || self.typed.values().any(|typed| typed.focus(cx).is_focused(window))
             || self.scope.as_ref().is_some_and(|scope| scope.typed.values().any(|field| field.read(cx).focus_handle(cx).is_focused(window)))
+            || self.lanes_typing(window, cx)
     }
 
     fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {

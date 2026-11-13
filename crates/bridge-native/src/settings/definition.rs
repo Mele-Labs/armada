@@ -178,6 +178,26 @@ pub fn with_label(text: &str, step: &str, label: &str) -> Option<String> {
     Some(text_of(&tree))
 }
 
+/// The definition with a step added just after `after`, as Classic adds one (`withStepAdded`): its id, its label and
+/// empty words. First where `after` is not a step; none where the id is taken or the text is not a workflow.
+pub fn with_step_added(text: &str, after: &str, id: &str, label: &str) -> Option<String> {
+    let mut tree = tree_of(text)?;
+    let Json::Map(fields) = &mut tree else { return None };
+    let (_, Json::List(steps)) = fields.iter_mut().find(|(name, _)| name == "steps")? else { return None };
+    if place_of(steps, id).is_some() {
+        return None;
+    }
+    let at = place_of(steps, after).map_or(0, |at| at + 1);
+    steps.insert(at, Json::Map(vec![("id".into(), Json::Text(id.into())), ("label".into(), Json::Text(label.into())), ("instructions".into(), Json::Text(String::new()))]));
+    Some(text_of(&tree))
+}
+
+/// One step's words, where it has them.
+pub fn words_of(text: &str, step: &str) -> Option<String> {
+    let Some(Json::List(steps)) = tree_of(text)?.get("steps").cloned() else { return None };
+    steps.iter().find(|one| one.id() == Some(step))?.get("instructions").and_then(Json::text).map(String::from)
+}
+
 /// `text` with what changed between `before` and `after` carried into it, and the rest of `text` as it was: the
 /// top-level keys and each step's fields (by id) that changed, steps removed, and steps added or moved laid after
 /// the step they follow in `after`. A step whose predecessor in `text` is not its predecessor in `before` was moved

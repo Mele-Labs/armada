@@ -64,15 +64,21 @@ pub fn patched(lanes: &JobLanesView, base: &str, drafted: &str) -> JobLanesView 
                     continue;
                 }
                 // Where it stands: after the nearest step before it that is drawn, else before the nearest after
-                // it, else at the end of the steps.
+                // it, else at the end of the steps. The last step of the workflow is at the end of the steps.
                 let drawn = |step: &str| view.lanes[at].nodes.iter().find(|one| one.id == node_id(step) && one.role == LaneNodeRole::Step).map(|one| one.col);
-                let col = now[..n].iter().rev().find_map(|(each, _)| drawn(each)).map(|col| col + 1).or_else(|| now[n + 1..].iter().find_map(|(each, _)| drawn(each))).unwrap_or_else(|| {
-                    view.lanes[at].nodes.iter().filter(|one| one.kind == LaneNodeKind::Step).map(|one| one.col + 1).max().unwrap_or(0)
-                });
+                let end = view.lanes[at].nodes.iter().filter(|one| one.kind == LaneNodeKind::Step).map(|one| one.col + 1).max().unwrap_or(0);
+                let last = n + 1 == now.len();
+                let col = if last { end } else { now[..n].iter().rev().find_map(|(each, _)| drawn(each)).map(|col| col + 1).or_else(|| now[n + 1..].iter().find_map(|(each, _)| drawn(each))).unwrap_or(end) };
                 // A column is every lane's: the ones from there on make room, but where the workflow starts.
                 for lane in &mut view.lanes {
                     for one in lane.nodes.iter_mut().filter(|one| one.col >= col && one.kind != LaneNodeKind::Start) {
                         one.col += 1;
+                    }
+                }
+                // Where the workflow ends follows its last step.
+                if last {
+                    for one in view.lanes[at].nodes.iter_mut().filter(|one| one.kind == LaneNodeKind::End) {
+                        one.col = col;
                     }
                 }
                 view.lanes[at].nodes.push(step_node(id, label, col));
@@ -129,6 +135,16 @@ mod tests {
         assert_eq!(node(&view, "pull_request/open").map(|one| one.col), was("pull_request/open").map(|col| col + 1));
         assert_eq!(node(&view, "ticket/in_progress").map(|one| one.col), was("ticket/in_progress"));
         assert_eq!(node(&view, "workflow/:start").map(|one| one.col), was("workflow/:start"));
+    }
+
+    #[test]
+    fn a_step_added_at_the_end_of_the_workflow_is_drawn_after_its_last_step_and_the_end_follows_it() {
+        let read = lanes();
+        let said = BASE.replace(r#"{"id":"land","label":"Land"}"#, r#"{"id":"land","label":"Land"},{"id":"retro","label":"Retro"}"#);
+        let view = patched(&read, BASE, &said);
+        let (land, retro, end) = (node(&view, "workflow/land").expect("land"), node(&view, "workflow/retro").expect("retro"), node(&view, "workflow/:end").expect("end"));
+        assert_eq!((retro.col, end.col), (land.col + 1, land.col + 1));
+        assert_eq!(land.col, node(&read, "workflow/land").map_or(0, |one| one.col));
     }
 
     #[test]

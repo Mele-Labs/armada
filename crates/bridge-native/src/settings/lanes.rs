@@ -159,10 +159,19 @@ impl SettingsOverlay {
         self.lanes.editors.values().any(|editor| editor.read(cx).canvas_focused(window))
     }
 
-    /// The keys the editor takes ahead of the page's: ⌘Z, Enter and Space on its bar, Esc on its history. Never from a text field.
+    /// Whether the keys are in a field the canvas opened in place.
+    pub(super) fn lanes_typing(&self, window: &Window, cx: &App) -> bool {
+        self.lanes.editors.values().any(|editor| editor.read(cx).typing(window, cx))
+    }
+
+    /// The keys the editor takes ahead of the page's: ⌘Z, Enter and Space on its bar, Esc on its history; Tab, Enter
+    /// and Esc in the fields it opened on the canvas. Never from another text field.
     pub(super) fn lanes_key(&mut self, key: &gpui::Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let (_, Some(one)) = self.shown_workflows(cx) else { return false };
         let Some(editor) = self.editor_of(&one) else { return false };
+        if editor.read(cx).typing(window, cx) {
+            return editor.update(cx, |editor, cx| editor.field_key(key, window, cx));
+        }
         if self.in_text(window, cx) {
             return false;
         }

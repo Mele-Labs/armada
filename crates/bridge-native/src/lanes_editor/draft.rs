@@ -2,7 +2,7 @@
 //! shows and what Publish writes is the base with each edit replayed, never a copy that is edited in place, so
 //! dropping any one edit is dropping it from the list and replaying the rest.
 
-use crate::settings::definition::{with_delta, with_label, with_words};
+use crate::settings::definition::{with_delta, with_label, with_step_added, with_words};
 
 /// Whose edit it is: the person's own, or an agent's that was asked for in the box.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -11,8 +11,8 @@ pub enum Author {
     Agent,
 }
 
-/// What an edit does to the definition's text. Later changes (a step's fields, a gap's new step, a rule) are more
-/// variants here and a line in `apply`.
+/// What an edit does to the definition's text. Later changes (a rule, a step taken out) are more variants here and a
+/// line in `apply`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Change {
     /// An agent's change, drafted from `before` as `after`. It carries only what differs between the two, so the
@@ -22,6 +22,8 @@ pub enum Change {
     StepWords { step: String, words: String },
     /// One step's name.
     StepLabel { step: String, label: String },
+    /// A step added just after `after`, with empty words.
+    AddStep { after: String, id: String, label: String },
 }
 
 impl Change {
@@ -31,6 +33,7 @@ impl Change {
             Change::Definition { before, after } => with_delta(text, before, after),
             Change::StepWords { step, words } => with_words(text, step, words),
             Change::StepLabel { step, label } => with_label(text, step, label),
+            Change::AddStep { after, id, label } => with_step_added(text, after, id, label),
         }
     }
 }
@@ -278,6 +281,47 @@ mod tests {
         draft.push(Edit { author: Author::Agent, said: "asked".into(), change: Change::Definition { before: read, after: agents } });
         let order: Vec<String> = drafted(&draft).0.into_iter().map(|(id, _)| id).collect();
         assert_eq!(order, ["b", "a", "d", "c"]);
+    }
+
+    fn added(after: &str, id: &str) -> Edit {
+        Edit { author: Author::Person, said: format!("Added {id}"), change: Change::AddStep { after: after.into(), id: id.into(), label: "New step".into() } }
+    }
+
+    #[test]
+    fn a_step_added_stands_after_the_one_it_was_added_after_with_empty_words_and_undo_takes_it_out() {
+        let mut draft = Draft::new(BASE, None);
+        draft.push(added("fix", "new_step"));
+        let (steps, words) = drafted(&draft);
+        assert_eq!(steps, [step("fix", "Fix"), step("new_step", "New step"), step("tests", "Tests")]);
+        assert_eq!(words, [Some("Fix it.".to_string()), Some(String::new()), None]);
+        // His name for it lands on it, and undoing the add leaves the rename with nothing to name: it is skipped.
+        draft.push(label("new_step", "Review"));
+        assert_eq!(drafted(&draft).0[1], step("new_step", "Review"));
+        draft.undo_at(0);
+        assert_eq!(drafted(&draft).0, [step("fix", "Fix"), step("tests", "Tests")]);
+        draft.undo_last();
+        assert_eq!(draft.drafted(), BASE);
+    }
+
+    #[test]
+    fn a_step_added_after_the_last_ends_the_workflow_and_an_id_taken_is_skipped() {
+        let mut draft = Draft::new(BASE, None);
+        draft.push(added("tests", "new_step"));
+        draft.push(added("fix", "new_step"));
+        assert_eq!(drafted(&draft).0, [step("fix", "Fix"), step("tests", "Tests"), step("new_step", "New step")]);
+        assert_eq!(draft.edits().len(), 2, "the skipped one stays in the history for its Undo");
+    }
+
+    #[test]
+    fn a_name_and_words_each_apply_and_each_undo_alone() {
+        let mut draft = Draft::new(BASE, None);
+        draft.push(label("tests", "Checks"));
+        draft.push(words("tests", "Write the test first."));
+        assert_eq!(drafted(&draft), (vec![step("fix", "Fix"), step("tests", "Checks")], vec![Some("Fix it.".to_string()), Some("Write the test first.".to_string())]));
+        draft.undo_at(0);
+        assert_eq!(drafted(&draft), (vec![step("fix", "Fix"), step("tests", "Tests")], vec![Some("Fix it.".to_string()), Some("Write the test first.".to_string())]));
+        draft.undo_last();
+        assert_eq!(draft.drafted(), BASE);
     }
 
     #[test]

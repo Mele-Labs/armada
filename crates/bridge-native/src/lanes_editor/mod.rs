@@ -7,27 +7,30 @@
 //! Fleet's reads and saves with, and draws the entity as a child. It adds [`LanesEditor::stops`] to its Tab stops
 //! before the canvas, passes keys it did not take to [`LanesEditor::key`] while no text field holds them, and
 //! subscribes to [`EditorEvent`]. An agent's change comes in through [`LanesEditor::agent_edit`]; a person's edit
-//! through [`LanesEditor::edit`].
+//! through [`LanesEditor::edit`], or on the canvas itself: a picked step opens its fields in place, and a + in a gap
+//! adds a step there (`in_place`). While [`LanesEditor::typing`], the host passes its keys to
+//! [`LanesEditor::field_key`] first, and counts the fields as text.
 //!
 //! **Nothing is written until Publish.** An edit lands in the [`Draft`]; the canvas shows the draft's lanes, with
 //! what differs marked as a changed node is.
 
 mod bar;
 mod draft;
-mod hooks;
+mod in_place;
 mod patch;
 mod wire;
 
+use std::cell::Cell;
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, px, AnyElement, Context, EventEmitter, FocusHandle, Keystroke, Role, SharedString, Subscription, Task, Window};
+use gpui::{div, prelude::*, px, AnyElement, Bounds, Context, EventEmitter, FocusHandle, Keystroke, Pixels, Role, SharedString, Subscription, Task, Window};
 use ipc::{JobLanesView, SaveWorkflow, WorkflowScope};
 
 pub use draft::{Author, Change, Draft, Edit, Target};
 pub use wire::{EditorWire, Refused, Subject};
 
 use crate::labels::labelled;
-use crate::lanes_canvas::{lanes_canvas, LanesHost, LanesState};
+use crate::lanes_canvas::{lanes_canvas, LanesHost, LanesState, Pick};
 use crate::look::{token, ActiveLook};
 use crate::settings::view::bone;
 
@@ -91,6 +94,14 @@ pub struct LanesEditor {
     undos: Vec<FocusHandle>,
     loading: Option<Task<()>>,
     publishing: Option<Task<()>>,
+    /// What the canvas has picked, as it last said.
+    picked: Option<Pick>,
+    /// The pick was the canvas's last act, so Enter on it opens its fields rather than letting it go.
+    armed: bool,
+    /// The node opened where it stands.
+    in_place: Option<in_place::InPlace>,
+    /// Where the canvas's frame was drawn last, in window points.
+    frame: Rc<Cell<Bounds<Pixels>>>,
     _subs: Vec<Subscription>,
 }
 
@@ -112,7 +123,7 @@ impl LanesEditor {
         let keys = Keys { changes: stop(cx), discard: stop(cx), publish: stop(cx), repository: stop(cx), every: stop(cx) };
         let id: SharedString = format!("{}|{}|{}", subject.workflow, subject.level, subject.manifest).into();
         let draft = Draft::new(String::new(), subject.own_target());
-        let mut editor = LanesEditor { wire, subject, id, read: Read::Loading, saved: None, draft, shown: None, state, history_open: false, refused: None, busy: false, keys, undos: Vec::new(), loading: None, publishing: None, _subs: subs };
+        let mut editor = LanesEditor { wire, subject, id, read: Read::Loading, saved: None, draft, shown: None, state, history_open: false, refused: None, busy: false, keys, undos: Vec::new(), loading: None, publishing: None, picked: None, armed: false, in_place: None, frame: Rc::default(), _subs: subs };
         editor.load(cx);
         editor
     }
@@ -160,10 +171,12 @@ impl LanesEditor {
         cx.notify();
     }
 
-    /// The lanes the canvas draws: the read ones with the draft's steps over them while there are edits.
+    /// The lanes the canvas draws: the read ones with the draft's steps over them while there are edits, and room
+    /// after the workflow's last step.
     fn refresh(&mut self, cx: &mut Context<Self>) {
         self.shown = match &self.read {
-            Read::Read(lanes) if !self.draft.is_empty() && !self.draft.base().is_empty() => Some(patch::patched(lanes, self.draft.base(), &self.draft.drafted())),
+            Read::Read(lanes) if !self.draft.is_empty() && !self.draft.base().is_empty() => Some(in_place::with_room(patch::patched(lanes, self.draft.base(), &self.draft.drafted()))),
+            Read::Read(lanes) => Some(in_place::with_room(lanes.clone())),
             _ => None,
         };
         while self.undos.len() < self.draft.edits().len() {
@@ -173,6 +186,10 @@ impl LanesEditor {
         if self.draft.is_empty() {
             self.history_open = false;
             self.draft.set_target(self.subject.own_target());
+        }
+        // Fields he is not in are opened again on what the draft says now.
+        if !self.in_place.as_ref().is_some_and(|one| one.keyed) {
+            self.in_place = None;
         }
     }
 
@@ -234,6 +251,7 @@ impl LanesEditor {
         let was_here = self.owns_focus(window);
         let base = self.saved.clone().unwrap_or_else(|| self.draft.base().to_string());
         self.draft.clear(base);
+        self.in_place = None;
         self.draft.set_target(self.subject.own_target());
         self.refused = None;
         self.refresh(cx);
@@ -279,6 +297,7 @@ impl LanesEditor {
                 self.draft = Draft::new(String::new(), self.subject.own_target());
                 self.history_open = false;
                 self.shown = None;
+                self.in_place = None;
                 self.undos.clear();
                 self.load(cx);
                 cx.emit(EditorEvent::Published { target });
@@ -361,7 +380,8 @@ impl LanesEditor {
     }
 
     /// The editor's keys, for a host that gets them first: ⌘Z drops the last change; Enter and Space press what has
-    /// the keys; Esc shuts the history. `true` where one was taken. A host calls it only while no text field has them.
+    /// the keys; Esc shuts the history; on the canvas, E opens the picked step's fields and A adds a step after it
+    /// (Classic's `E` and `A`). `true` where one was taken. A host calls it only while no text field has them.
     pub fn key(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let mods = &key.modifiers;
         let word = key.key.as_str();
@@ -378,6 +398,8 @@ impl LanesEditor {
                 cx.notify();
                 true
             }
+            "e" if !mods.shift && self.canvas_focused(window) => self.open_picked(window, cx),
+            "a" if !mods.shift && self.canvas_focused(window) => self.add_after_picked(window, cx),
             "enter" | "space" => match self.focused_press(window) {
                 Some(press) => {
                     self.pressed(press, window, cx);
@@ -401,6 +423,21 @@ impl LanesHost for LanesEditor {
             _ => None,
         })
     }
+
+    /// A pick opens what was picked where it stands; letting go closes it. What was typed lands first.
+    fn lanes_picked(&mut self, _id: &SharedString, pick: Option<Pick>, window: &mut Window, cx: &mut Context<Self>) {
+        self.picked = pick.clone();
+        self.armed = true;
+        match pick {
+            // The room at the lane's end, picked by a press or Enter: a step added there.
+            Some(Pick::Node(node)) if node == in_place::ROOM => self.add_at_end(window, cx),
+            Some(Pick::Node(node)) => self.open_at(&node, false, window, cx),
+            _ => {
+                self.settle(window, cx);
+                self.in_place = None;
+            }
+        }
+    }
 }
 
 impl gpui::Render for LanesEditor {
@@ -414,13 +451,33 @@ impl gpui::Render for LanesEditor {
                 // Four lanes of the least height fill it; a lane more makes it taller by that much.
                 let tall = (look.length(token::SPACE_12) * 11.).max(px(lanes.lanes.len() as f32 * crate::lanes_canvas::LANE_MIN) + look.length(token::BORDER_WIDTH) * 2.);
                 // An Esc the lanes did not take, with nothing picked, is the host's: it shuts what holds the editor.
-                let shut = cx.listener(|_, event: &gpui::KeyDownEvent, _, cx| {
-                    if event.keystroke.key == "escape" {
+                let shut = cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                    if event.keystroke.key == "escape" && this.canvas_focused(window) {
                         cx.emit(EditorEvent::Escaped);
                         cx.stop_propagation();
                     }
                 });
-                div().flex_none().h(tall).min_w_0().flex().flex_col().on_key_down(shut).child(lanes_canvas(self, &self.id, lanes, &look, cx)).into_any_element()
+                // Enter on the step just picked goes to its fields before the canvas lets the pick go.
+                let fields = cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                    if this.canvas_focused(window) && this.canvas_key(&event.keystroke, window, cx) {
+                        cx.stop_propagation();
+                    }
+                });
+                let canvas = lanes_canvas(self, &self.id, lanes, &look, cx);
+                let over = self.render_in_place(self.frame.get(), &look, window, cx);
+                div()
+                    .relative()
+                    .flex_none()
+                    .h(tall)
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .capture_key_down(fields)
+                    .on_key_down(shut)
+                    .child(in_place::measure(self.frame.clone()))
+                    .child(canvas)
+                    .children(over)
+                    .into_any_element()
             }
         };
         div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().children(self.render_bar(&look, window, cx)).child(body)
@@ -431,9 +488,10 @@ impl gpui::Render for LanesEditor {
 mod tests {
     use std::cell::RefCell;
 
-    use gpui::{Entity, TestAppContext, VisualTestContext};
+    use gpui::{Entity, Focusable, TestAppContext, VisualTestContext};
     use ipc::{WorkflowDefinition, WorkflowId, WorkflowSaved};
 
+    use super::in_place::NEW_STEP;
     use super::*;
 
     const BASE: &str = r#"{"version":1,"workflow_id":"prototype","name":"prototype","steps":[{"id":"plan","label":"Plan"},{"id":"build","label":"Build"},{"id":"land","label":"Land"}]}"#;
@@ -524,6 +582,114 @@ mod tests {
             assert_eq!(steps.iter().map(|(_, label)| label.as_str()).collect::<Vec<_>>(), ["Plan", "Make", "Ship"]);
         });
         assert_eq!(drawn(&editor, cx, "workflow/build"), Some((1, Some("Renamed from Build".into()))));
+    }
+
+    /// What is typed into the fields open in place.
+    fn type_in(editor: &Entity<LanesEditor>, cx: &mut VisualTestContext, name: Option<&str>, words: Option<&str>) {
+        cx.update(|window, cx| {
+            let (name_box, words_box) = editor.read_with(cx, |editor, _| {
+                let fields = editor.in_place.as_ref().and_then(|one| one.fields.as_ref()).expect("fields open in place");
+                (fields.name.clone(), fields.words.clone())
+            });
+            if let Some(name) = name {
+                name_box.update(cx, |state, cx| state.set_value(name.to_string(), window, cx));
+            }
+            if let Some(words) = words {
+                words_box.update(cx, |state, cx| state.set_value(words.to_string(), window, cx));
+            }
+        });
+    }
+
+    fn history(editor: &Entity<LanesEditor>, cx: &mut VisualTestContext) -> Vec<(Author, String)> {
+        editor.read_with(cx, |editor, _| editor.draft().edits().iter().map(|edit| (edit.author, edit.said.clone())).collect())
+    }
+
+    fn key(editor: &Entity<LanesEditor>, cx: &mut VisualTestContext, key: &'static str) -> bool {
+        let stroke = Keystroke::parse(key).expect("a key");
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.field_key(&stroke, window, cx)))
+    }
+
+    #[gpui::test]
+    fn each_field_he_changed_lands_as_one_edit_of_his_and_enter_gives_the_keys_back(cx: &mut TestAppContext) {
+        let (editor, fleet, _, cx) = open(cx, false);
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.open_at("workflow/build", true, window, cx)));
+        assert!(cx.update(|window, cx| editor.read(cx).typing(window, cx)), "the keys are in its Name");
+        type_in(&editor, cx, Some("Make"), None);
+        assert!(key(&editor, cx, "tab"));
+        assert!(cx.update(|window, cx| editor.read(cx).in_place.as_ref().and_then(|one| one.fields.as_ref()).is_some_and(|fields| fields.words.read(cx).focus_handle(cx).is_focused(window))), "Tab goes to its Words");
+        type_in(&editor, cx, None, Some("Build it small."));
+        assert!(key(&editor, cx, "enter"));
+        cx.run_until_parked();
+        assert_eq!(history(&editor, cx), [(Author::Person, "Renamed Build to Make".to_string()), (Author::Person, "Changed the words of Make".to_string())]);
+        editor.read_with(cx, |editor, _| {
+            let text = editor.draft().drafted();
+            assert_eq!(crate::settings::definition::steps_of(&text)[1], ("build".to_string(), "Make".to_string()));
+            assert_eq!(crate::settings::definition::words_of(&text, "build").as_deref(), Some("Build it small."));
+            assert!(editor.in_place.is_none());
+        });
+        assert!(cx.update(|window, cx| editor.read(cx).canvas_focused(window)), "the keys are back on the canvas");
+        assert_eq!(drawn(&editor, cx, "workflow/build"), Some((1, Some("Renamed from Build".into()))));
+        assert!(fleet.saved.borrow().is_empty(), "nothing is written before Publish");
+    }
+
+    #[gpui::test]
+    fn a_field_left_as_it_was_makes_no_edit_and_esc_drops_what_was_typed(cx: &mut TestAppContext) {
+        let (editor, _, _, cx) = open(cx, false);
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.open_at("workflow/land", true, window, cx)));
+        type_in(&editor, cx, None, Some("Land it."));
+        assert!(key(&editor, cx, "enter"));
+        assert_eq!(history(&editor, cx), [(Author::Person, "Changed the words of Land".to_string())]);
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.open_at("workflow/land", true, window, cx)));
+        type_in(&editor, cx, Some("Ship"), Some("Ship it."));
+        assert!(key(&editor, cx, "escape"));
+        assert_eq!(history(&editor, cx).len(), 1, "Esc closes without a change");
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.open_at("workflow/land", true, window, cx)));
+        type_in(&editor, cx, Some("  "), None);
+        assert!(key(&editor, cx, "enter"));
+        assert_eq!(history(&editor, cx).len(), 1, "an empty name is not a name");
+    }
+
+    #[gpui::test]
+    fn a_plus_adds_a_step_after_the_gaps_first_with_its_name_open_and_both_undo_alone(cx: &mut TestAppContext) {
+        let (editor, _, _, cx) = open(cx, false);
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.add_after(Some("build".into()), window, cx)));
+        assert_eq!(history(&editor, cx), [(Author::Person, "Added New step after Build".to_string())]);
+        assert_eq!(drawn(&editor, cx, "workflow/new_step"), Some((2, Some("Added".into()))));
+        editor.read_with(cx, |editor, cx| {
+            let one = editor.in_place.as_ref().expect("its fields are open");
+            assert_eq!(one.node, "workflow/new_step");
+            assert_eq!(one.fields.as_ref().map(|fields| fields.name.read(cx).value().to_string()).as_deref(), Some(NEW_STEP));
+        });
+        assert!(cx.update(|window, cx| editor.read(cx).typing(window, cx)), "the keys are in its Name");
+        type_in(&editor, cx, Some("Review"), None);
+        assert!(key(&editor, cx, "enter"));
+        assert_eq!(history(&editor, cx)[1], (Author::Person, "Renamed New step to Review".to_string()));
+        assert!(cx.update(|window, cx| editor.update(cx, |editor, cx| editor.undo_at(1, window, cx))));
+        assert_eq!(crate::settings::definition::steps_of(&editor.read_with(cx, |editor, _| editor.draft().drafted()))[2], ("new_step".to_string(), NEW_STEP.to_string()));
+        assert!(cx.update(|window, cx| editor.update(cx, |editor, cx| editor.undo_last(window, cx))));
+        assert_eq!(drawn(&editor, cx, "workflow/new_step"), None);
+        // With none named, it goes after the last step.
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.add_after(None, window, cx)));
+        assert_eq!(crate::settings::definition::steps_of(&editor.read_with(cx, |editor, _| editor.draft().drafted())).last().map(|(id, _)| id.clone()).as_deref(), Some("new_step"));
+    }
+
+    #[gpui::test]
+    fn a_picked_state_opens_its_name_to_read_and_a_pick_let_go_lands_what_was_typed(cx: &mut TestAppContext) {
+        let (editor, _, _, cx) = open(cx, false);
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.lanes_picked(&"".into(), Some(Pick::Node("ticket/in_progress".into())), window, cx)));
+        editor.read_with(cx, |editor, _| {
+            let one = editor.in_place.as_ref().expect("open in place");
+            assert_eq!((one.label.as_str(), one.fields.is_none()), ("In Progress", true));
+        });
+        // A step the definition does not hold is read, not edited.
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.lanes_picked(&"".into(), Some(Pick::Node("workflow/walk".into())), window, cx)));
+        assert!(editor.read_with(cx, |editor, _| editor.in_place.as_ref().is_some_and(|one| one.fields.is_none())));
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.lanes_picked(&"".into(), Some(Pick::Node("workflow/plan".into())), window, cx)));
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.open_picked(window, cx)));
+        type_in(&editor, cx, Some("Think"), None);
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.lanes_picked(&"".into(), None, window, cx)));
+        assert_eq!(history(&editor, cx), [(Author::Person, "Renamed Plan to Think".to_string())]);
+        assert!(editor.read_with(cx, |editor, _| editor.in_place.is_none()));
     }
 
     #[gpui::test]
