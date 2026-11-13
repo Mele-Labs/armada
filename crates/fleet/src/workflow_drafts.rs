@@ -233,7 +233,10 @@ where
                 ));
             }
         }
-        let saved = self.save_workflow_file(SaveWorkflow { scope, definition: text, overwrite: true }, served)?;
+        // Checked before the save is asked for, so a draft that does not load is refused without a write being tried.
+        let asked = SaveWorkflow { scope, definition: text, overwrite: true };
+        self.check_workflow_file(&asked, served)?;
+        let saved = self.save_workflow_file(asked, served)?;
         self.store().lock().await.discard_draft(&key).map_err(|why| self.draft_not_kept(why))?;
         Ok(WorkflowPublished { saved })
     }

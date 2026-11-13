@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "The open changes to one workflow in one place: drafting, ready or failed"
 notes = """
-`GET /workflows/changes?workflow_id=&source=&manifest_id=`, since 27 Oct 2026. The answer is a `WorkflowChanges`: the changes not yet approved or dismissed, oldest first. `source` is required.
+`GET /workflows/changes?workflow_id=&source=&project=&manifest_id=`, since 27 Oct 2026. `project` names the project where `source` is `project`, since 23.95; a project's changes are its own in every repository, as Kit's are. The answer is a `WorkflowChanges`: the changes not yet approved or dismissed, oldest first. `source` is required.
 
 **A read the page polls while one is `drafting`.** The event stream carries nothing of these, so this adds no load to the sink that is unbounded from the application side.
 

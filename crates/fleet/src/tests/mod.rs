@@ -181,6 +181,7 @@ mod job_copy;
 mod walk_rail;
 mod workflow_page;
 mod workflow_changes;
+mod workflow_drafts;
 mod workflow_proposal_waits;
 mod auto_land;
 mod auto_land_queue;

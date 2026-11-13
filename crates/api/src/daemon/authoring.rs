@@ -55,8 +55,8 @@ pub trait Authoring: Send + Sync + 'static {
 
     /// `ask_workflow_change` — begin a change an agent drafts from the owner's words, and answer it
     /// `drafting` at once. **Takes the `Arc`** because the draft is a task of its own.
-    /// [`Refusal::Unacceptable`] for Armada's own definition, one this place does not hold, blank words,
-    /// and where no model could be asked.
+    /// [`Refusal::Unacceptable`] for a place that holds none of the id (Armada's own is held), blank words,
+    /// and where no model could be asked. The result lands in the owner's draft where it still can.
     fn ask_workflow_change(
         self: Arc<Self>,
         asked: AskWorkflowChange,

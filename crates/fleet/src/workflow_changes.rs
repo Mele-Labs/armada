@@ -10,7 +10,8 @@
 //! Build support starts a Job on Armada's own repository to build it.
 //!
 //! **Nothing is written until he approves**, and then only if the file still holds what the draft was
-//! made from.
+//! made from. **A drafted change also lands in his draft of the workflow** (`workflow_drafts`), as the agent's, where the
+//! draft is still what the change was made from; Publish writes that, and Approve is the Classic Bridge's.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -609,6 +610,11 @@ where
             return;
         }
         let drafted = self.draft_for(&kept).await;
+        // Where a drafted change would land is read before the store is locked, so the change is never seen ready and then drafted.
+        let landing = match &drafted {
+            Ok(Drafted::Definition(_)) => self.landing_of(&kept),
+            _ => None,
+        };
         let at = self.now();
         let mut store = self.store().lock().await;
         let moved = match &drafted {
@@ -616,43 +622,48 @@ where
             Ok(Drafted::Cannot(missing)) => store.workflow_change_cannot(id, missing, at.as_str()),
             Err(because) => store.workflow_change_failed(id, because, at.as_str()),
         };
-        drop(store);
-        match (moved, drafted) {
-            (Err(why), _) => self.change_warned("a change's outcome was not kept", &id.to_string(), format!("{why:?}")),
-            (Ok(true), Ok(Drafted::Definition(after))) => self.change_landed(&kept, &after).await,
+        match (moved, &drafted, landing) {
+            (Err(why), ..) => self.change_warned("a change's outcome was not kept", &id.to_string(), format!("{why:?}")),
+            (Ok(true), Ok(Drafted::Definition(after)), Some(landing)) => {
+                if let Err(why) = Self::change_landed(&mut store, &kept, after, &landing, at.as_str()) {
+                    self.change_warned("a change was not landed in its draft", &id.to_string(), format!("{why:?}"));
+                }
+            }
             _ => {}
         }
     }
 
+    /// The draft a drafted change would land in, and what is published (or carried) there now. `None` where the repository
+    /// or the place is not one a draft can be kept for.
+    fn landing_of(&self, kept: &KeptWorkflowChange) -> Option<Landing> {
+        let served = self.served_named(Some(&ManifestId::carried(kept.manifest_id.clone()))).ok()?;
+        let project = Some(kept.project.as_str()).filter(|project| !project.is_empty());
+        let key = self.workflow_draft_key(&served, &kept.workflow_id, &kept.source, project).ok()?;
+        Some(Landing { key, published: self.workflow_published_text(&served, &kept.workflow_id, &kept.source, project) })
+    }
+
     /// **Write a drafted change into the owner's draft, as the agent's**, where the draft still is what the change was made
     /// from: the draft's text is `before`, or there is no draft and what is published (or carried) there is `before`, which
-    /// begins one. Anywhere else the change stays ready for Approve, as it was before drafts. A failure is a line on the
-    /// transcript and no more, since the change itself is kept.
-    async fn change_landed(&self, kept: &KeptWorkflowChange, after: &str) {
-        let Ok(served) = self.served_named(Some(&ManifestId::carried(kept.manifest_id.clone()))) else { return };
-        let project = Some(kept.project.as_str()).filter(|project| !project.is_empty());
-        let Ok(key) = self.workflow_draft_key(&served, &kept.workflow_id, &kept.source, project) else { return };
-        let published = self.workflow_published_text(&served, &kept.workflow_id, &kept.source, project);
-        let at = self.now();
-        let mut store = self.store().lock().await;
-        let held = match store.workflow_draft(&key) {
-            Ok(held) => held,
-            Err(why) => return self.change_warned("a change was not landed in its draft", &kept.id.to_string(), format!("{why:?}")),
-        };
+    /// begins one. Anywhere else the change stays ready for Approve, as it was before drafts. **Under the lock that moved the
+    /// change to ready**, so a reader never sees it ready and not yet drafted.
+    fn change_landed(
+        store: &mut store::Store,
+        kept: &KeptWorkflowChange,
+        after: &str,
+        landing: &Landing,
+        at: &str,
+    ) -> Result<(), store::WriteError> {
+        let held = store.workflow_draft(&landing.key)?;
         let still = match &held {
             Some(draft) => draft.text() == kept.before_text,
-            None => published.as_deref() == Some(kept.before_text.as_str()),
+            None => landing.published.as_deref() == Some(kept.before_text.as_str()),
         };
         if !still {
-            return;
+            return Ok(());
         }
         let change = store::NewDraftChange { made_by: store::DRAFT_BY_AGENT, text: after, summary: kept.asked.as_deref(), change: Some(kept.id) };
-        let landed = store
-            .put_draft_change(&key, published.as_deref().unwrap_or(""), &change, at.as_str())
-            .and_then(|_| store.workflow_change_marked_drafted(kept.id));
-        if let Err(why) = landed {
-            self.change_warned("a change was not landed in its draft", &kept.id.to_string(), format!("{why:?}"));
-        }
+        store.put_draft_change(&landing.key, landing.published.as_deref().unwrap_or(""), &change, at)?;
+        store.workflow_change_marked_drafted(kept.id).map(drop)
     }
 
     /// The draft that fits, what Armada lacks to make one, or why none did.
@@ -788,6 +799,12 @@ where
         });
         Some((read.collect(), resolved.name().to_string(), resolved.for_requests().map(str::to_string)))
     }
+}
+
+/// Where a drafted change would land: the draft's key, and the text published (or carried) in its place when it was drafted.
+struct Landing {
+    key: store::DraftKey,
+    published: Option<String>,
 }
 
 /// What a draft came back as.
