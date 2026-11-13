@@ -840,10 +840,21 @@ impl SettingsOverlay {
         stops
     }
 
-    pub(super) fn in_text(&self, window: &Window, cx: &App) -> bool {
-        self.query.read(cx).focus_handle(cx).is_focused(window) || self.theme.focus.is_focused(window) || self.models.filter_focused(window, cx) || self.workflows.filter_focused(window, cx) || self.workflows.detail.in_words(window, cx) || self.typed.values().any(|typed| typed.focus(cx).is_focused(window))
-            || self.lanes_typing(window, cx)
-            || self.macs.paste_focused(window)
+    /// Whether the keys are in a text input, asked of the focus path and nowhere else. gpui-component's input
+    /// carries the `Input` key context on the element that holds its focus, so a field made tomorrow is in this
+    /// answer without being listed; the theme field, which is not one, takes the same context where it is drawn.
+    pub(super) fn in_text(&self, window: &Window) -> bool {
+        window.context_stack().iter().any(|context| context.contains(crate::keymap::TEXT_BOX))
+    }
+
+    /// A key a text input takes as typing: a letter, figure or mark with no ⌘, ⌥ or ⌃, Space, and the keys that move
+    /// or cut inside what it holds. Ahead of any pane, such a key is the input's.
+    fn is_typing(key: &Keystroke) -> bool {
+        let held = &key.modifiers;
+        if held.platform || held.control || held.alt {
+            return false;
+        }
+        key.key.chars().count() == 1 || matches!(key.key.as_str(), "space" | "left" | "right" | "home" | "end" | "backspace" | "delete")
     }
 
     fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -900,6 +911,10 @@ impl SettingsOverlay {
         if self.theme_key(key, window, cx) {
             return true;
         }
+        // Whatever else is typed goes to the input that has the keys, and no page below takes it from there.
+        if Self::is_typing(key) && self.in_text(window) {
+            return false;
+        }
         // Models' own keys: its filter, its rows, its switches, selects and efforts.
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Models) && self.models_key(key, window, cx) {
             return true;
@@ -947,7 +962,7 @@ impl SettingsOverlay {
                 self.focus_search(window, cx);
                 true
             }
-            "/" if bare && !self.in_text(window, cx) => {
+            "/" if bare && !self.in_text(window) => {
                 self.focus_search(window, cx);
                 true
             }
@@ -971,7 +986,7 @@ impl SettingsOverlay {
                 }
                 true
             }
-            "left" if bare && !self.in_text(window, cx) && !self.side.is_focused(window) && !self.on_slider(window) => {
+            "left" if bare && !self.in_text(window) && !self.side.is_focused(window) && !self.on_slider(window) => {
                 window.focus(&self.side, cx);
                 cx.notify();
                 true
