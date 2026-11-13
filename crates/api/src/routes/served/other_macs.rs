@@ -15,6 +15,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/other_mac/bug_reports",
     },
     Route {
+        operation: "share_projects",
+        method: "GET",
+        path: "/other_mac/projects",
+    },
+    Route {
         operation: "share_events",
         method: "GET",
         path: "/other_mac/events",
@@ -31,6 +36,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/other_macs/sessions",
     },
     Route {
+        operation: "hold_other_mac_projects",
+        method: "PUT",
+        path: "/other_macs/projects",
+    },
+    Route {
         operation: "hold_other_mac_bug_reports",
         method: "PUT",
         path: "/other_macs/bug_reports",
@@ -39,6 +49,11 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "hold_other_mac_event",
         method: "POST",
         path: "/other_macs/event",
+    },
+    Route {
+        operation: "project_act_from_mac",
+        method: "POST",
+        path: "/other_mac/project_act",
     },
     Route {
         operation: "forget_other_mac",

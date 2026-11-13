@@ -77,7 +77,7 @@ fn question(text: &str, folder: Option<&std::path::Path>) -> String {
     match folder {
         Some(folder) => out.push_str(&format!(
             "You hold three tools, Read, Grep and Glob, and no others. The folder {} holds your journal of this week and \
-last week, named journal-<year>-W<week>.md, a file for each live Job, named job-<the Job's id>.txt, and issues.txt. \
+last week, named journal-<year>-W<week>.md, a file for each live Job, named job-<the Job's id>.txt, issues.txt and tasks.txt. \
 Read the journal first: it is what the week held.\n\n",
             folder.display()
         )),

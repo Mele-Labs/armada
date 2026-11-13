@@ -10,7 +10,8 @@ A task can link issues, pull requests and a running Job, and Fleet asks him befo
 **Kind:** A file at a place he chooses, and tasks in a store.
 The file is `projects/<id>.yml` in Kit's folder, or the same file in a synced folder or the cloud, chosen per project and This Mac by default.
 It names the project, lists its members and holds the values the project sets, and it is never kept in a repository.
-The tasks are in Fleet's store on this Mac and survive a restart, wherever the file is.
+The tasks are in Fleet's store on the Mac that holds the project and survive a restart, wherever the file is.
+A project he shares is also kept on his other paired Macs as a copy ([Sharing with his other Macs](#sharing-with-his-other-macs)).
 The wire is [Projects: tasks and linked issues, across repositories](../practices/protocol/projects.md), and this page does not repeat it.
 
 ## The model
@@ -86,9 +87,24 @@ Everything bound for another Mac passes one filter in Fleet, and only the filter
 | A Job started from the other Mac | Only into a shared project |
 | A message from a Job to a Job on the other Mac | Both Jobs' projects are shared |
 | A bug report | The Job that filed it is in a shared project, since a report's text can quote private work |
-| The list of projects itself | Only shared projects are named to the other Mac, without the loose tasks |
+| A project and its tasks | It is shared. Loose tasks never cross |
 
-A stream event that is not about one Job, such as servers, settings, mods or the Operator, stays on its Mac.
+A stream event that is not about one Job or a shared project, such as servers, settings, mods or the Operator, stays on its Mac.
+
+**A shared project is kept on the other Mac as a copy, with its tasks, and the Mac that holds it stays its authority.**
+The copy is listed beside that Mac's own projects with the Mac it is from, and turning the switch off removes it, at once or when the link next opens.
+A task edited, added, ticked, linked, moved within the project or removed on the copy is sent through the link to the holding Mac, which makes the change with its own code, and the copy is what that Mac answers.
+An edit on the holding Mac reaches the copy the same way.
+
+> **Rule.** Only the holding Mac changes the project itself: its name, members, values, place, switch and deletion, a Job linked to a task, and a task's repository.
+> Why: the file is on that Mac, and a Job of the other Mac is not this Mac's to link until acts cross between Macs.
+
+> **Rule (13 Nov).** An edit made on a copy while the holding Mac is asleep shows on the copy at once and is sent when that Mac wakes, oldest first.
+> Where both Macs changed the same field of one task during the sleep (title, notes, state or place), the later edit wins on both, and he is never asked.
+> Why: he chose that edits are never refused and he is never asked; a clash needs two edits to one field of one task within one sleep.
+
+Sync never ticks a task: a copy is only what the holding Mac says, and a tick crosses only as his own.
+The Operator's call is handed the open tasks of every project, the copies' among them, and only reads them.
 The phone's routes do not pass the filter yet.
 
 ## What a project sets
@@ -181,5 +197,6 @@ The palette's rows and the keys on the tab are in [Keyboard and command palette]
 | A project's autonomy set from its own file | Autonomy stays in its pieces, which a project is already a scope of; nothing here writes one |
 | A Job's own values | Nothing starts a Job with a value of its own, so the Job layer is empty |
 | The title-bar project switcher in the native Bridge | The native Bridge, built by another Job |
-| The switch in the native Bridge, and a link to another Mac | The native Bridge and the later stages of two Macs as one Armada |
+| The switch in the native Bridge | The native Bridge |
+| A Job on one Mac linked to a task on the other | Acts across Macs, a later stage of two Macs as one Armada |
 | Sharing a project with teammates | Not built. A project's file is on this Mac, in a synced folder or in the cloud its owner chose |

@@ -260,7 +260,7 @@ pub use preview_offers::KeptPreviewOffer;
 pub use preview_offered::KeptPreviewOffered;
 pub use issue_queries::KeptIssueQuery;
 pub use projects::{
-    KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskIssue, KeptTaskPull, KeptTaskState, LOOSE as LOOSE_PROJECT,
+    Edited, KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskIssue, KeptTaskPull, KeptTaskState, LOOSE as LOOSE_PROJECT,
 };
 pub use session_init::KeptInit;
 pub use session_waiting::{KeptApproval, KeptClosed, KeptWaiting};
@@ -272,7 +272,7 @@ pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
 pub use operator_dispatches::KeptDispatch;
 pub use parked_ideas::KeptIdea;
-pub use other_macs::{FromMac, KeptFromMac};
+pub use other_macs::{FromMac, KeptFromMac, KeptProjectAct};
 pub use operator_rulings::KeptRuling;
 pub use operator_orders::{KeptOrder, KeptTalk};
 pub use operator_switches::KeptSwitch;

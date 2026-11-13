@@ -28,3 +28,10 @@ fn a_card_in_the_thread_keeps_the_box_column() {
 fn needs_you_with_only_a_plan_opens_the_plan() {
     plays("needs-plan");
 }
+
+/// Switching between Jobs, a thread of six hundred items among them, with its scroll and its box's words
+/// kept; the notes the walk emits carry each switch's time.
+#[test]
+fn switching_jobs_keeps_each_place() {
+    plays("jobs-switching");
+}

@@ -134,7 +134,7 @@ fn question(items: &[ToRaise], folder: Option<&std::path::Path>) -> String {
         Some(folder) => out.push_str(&format!(
             "You hold three tools, Read, Grep and Glob, and no others. The folder {} holds a file for each live Job, named \
 job-<the Job's id>.txt, with its plan, its open tasks, what waits on the person and the last messages of its thread, \
-issues.txt, the open issues, and your journal of this week and last week, named journal-<year>-W<week>.md. Read the \
+issues.txt, the open issues, tasks.txt, the open tasks of his projects, and your journal of this week and last week, named journal-<year>-W<week>.md. Read the \
 Job's file for each item before you answer, and keep your reads few.\n\n",
             folder.display()
         )),

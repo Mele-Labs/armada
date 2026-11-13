@@ -5,6 +5,7 @@
 
 import type { BugReport } from "./bug-reports";
 import type { Event } from "./events";
+import type { Project } from "./projects";
 import type { SessionRecord } from "./sessions";
 
 /** Each Mac's one colour, on its chip wherever its Jobs are drawn. */
@@ -82,6 +83,12 @@ export type OtherMacSessions = {
 export type OtherMacBugReports = {
   mac: string;
   reports: BugReport[];
+};
+
+/** `PUT /other_macs/projects` on Fleet: every project Mac `mac` shares, with its tasks, replacing all this Fleet held from it. */
+export type OtherMacProjects = {
+  mac: string;
+  projects: Project[];
 };
 
 /** `POST /other_macs/event` on Fleet: one event that crossed from Mac `mac`, for this Fleet to keep and publish. */

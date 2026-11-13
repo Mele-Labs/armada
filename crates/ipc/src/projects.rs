@@ -45,6 +45,11 @@ pub struct Project {
     /// absent while false. A Job started for no project is never shared.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub shared_with_macs: bool,
+    /// The id of the other Mac that holds this project, where this is a read copy of it. **Absent for this
+    /// Mac's own projects.** A task act on a copy is sent to that Mac, which keeps the project; what a copy
+    /// refuses is `fleet.other_mac_project_held`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mac: Option<String>,
 }
 
 /// A member of a project: a whole repository, or any folder of it, which needs no `armada.yml` of its own.
@@ -291,4 +296,60 @@ pub struct LinkTaskJob {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LinkTaskPull {
     pub number: u64,
+}
+
+/// An act on a task of a project another Mac holds, sent to that Mac to be run there with its normal code.
+/// **One variant for each act a copy may make**; the rest a copy refuses. Tagged by `kind`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ProjectAct {
+    /// `id` is the row's id where the Mac that made the act minted it, as it does for a task added while the
+    /// holder was asleep; the holder keeps the row under it, and an act for an id it already has changes nothing.
+    AddProjectTask {
+        task: NewProjectTask,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+    },
+    AddProjectSubtask {
+        row: String,
+        task: ProjectTask,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+    },
+    /// `fields` says which of the two the person changed, so an edit of the notes does not send the title it
+    /// left as it was over a title changed at the holder since. Absent reads as both.
+    EditProjectTask {
+        row: String,
+        task: ProjectTask,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fields: Option<EditedTaskFields>,
+    },
+    TickProjectTask { row: String, tick: TickProjectTask },
+    LinkTaskIssue { row: String, link: LinkProjectIssue },
+    UnlinkTaskIssue { row: String, link: LinkProjectIssue },
+    LinkTaskPull { row: String, link: LinkTaskPull },
+    UnlinkTaskPull { row: String, link: LinkTaskPull },
+    LinkProjectIssue { link: NewProjectIssue },
+    /// Only within the projects of the Mac that holds the row.
+    MoveProjectRow { row: String, to: MoveProjectRow },
+    RemoveProjectRow { row: String },
+}
+
+/// Which fields of a task an edit changed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EditedTaskFields {
+    #[serde(default)]
+    pub title: bool,
+    #[serde(default)]
+    pub notes: bool,
+}
+
+/// `POST /other_mac/project_act`: `act`, and when its person made it, in the sending Mac's milliseconds since
+/// the epoch. **Where `at` is older than when a field of the task was last edited here, that field is left as
+/// it is**; absent reads as now.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectActFromMac {
+    pub act: ProjectAct,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<i64>,
 }
