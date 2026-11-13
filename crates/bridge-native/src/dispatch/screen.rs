@@ -715,7 +715,7 @@ impl DispatchScreen {
                 .filter(|record| record.state == ipc::SessionState::Live && (record.hosted.is_some() || record.terminal.is_some()))
                 .map(|record| {
                     let id = record.id.as_str().to_string();
-                    let title = record.title.clone().unwrap_or_else(|| format!("s-{}", id.chars().take(8).collect::<String>()));
+                    let title = crate::jobs::titled(record.title.as_deref());
                     super::face::Offered { id: id.into(), title: title.into() }
                 })
                 .collect()

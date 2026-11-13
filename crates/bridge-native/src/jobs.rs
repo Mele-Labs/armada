@@ -270,7 +270,12 @@ const UNTITLED: &str = "New Job";
 
 /// A Job's title as its row draws it: never its id.
 fn title_of(job: &SessionRecord) -> SharedString {
-    job.title.as_deref().map(str::trim).filter(|title| !title.is_empty()).unwrap_or(UNTITLED).to_string().into()
+    titled(job.title.as_deref()).into()
+}
+
+/// A Job's title wherever it is named, New Job until Fleet titles it: never its id.
+pub fn titled(title: Option<&str>) -> String {
+    title.map(str::trim).filter(|title| !title.is_empty()).unwrap_or(UNTITLED).to_string()
 }
 
 fn attached<'a>(job: &'a SessionRecord, kind: &str) -> Option<&'a str> {
