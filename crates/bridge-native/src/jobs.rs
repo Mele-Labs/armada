@@ -87,6 +87,8 @@ struct Row {
     ended: bool,
     /// Asked to carry on in a new Job and told yes: a turning ring until the new one is up.
     handing_off: bool,
+    /// Set where Jobs stand under this one: whether they are folded away, and what the fold keeps in view.
+    kids: Option<Kids>,
     /// The earlier Job this one took the place of, which the list does not draw: a mark beside the row opens it.
     earlier: Option<SharedString>,
     /// How many listed Jobs up the line of starters this one stands.
@@ -96,8 +98,6 @@ struct Row {
     through: Vec<bool>,
     /// The last Job its starter started, where the starter's line ends in an elbow.
     ends: bool,
-    /// Set where Jobs stand under this one: whether they are folded away, and what the fold keeps in view.
-    kids: Option<Kids>,
     /// The Job that started this one, by title and project, for the link's tooltip.
     started_by: Option<(SharedString, SharedString)>,
     slot: Option<SharedString>,
@@ -375,12 +375,6 @@ fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option
 }
 
 fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String]) -> Vec<Line> {
-    lines_folding(jobs, ideas, scope, query, order, &Folds::default())
-}
-
-/// [`lines_of`] with the parents `folds` shuts: their sub-Jobs are not drawn, and the parent's row keeps their
-/// glyphs. A parent drawn only for its place never folds, since the Jobs under it are why it is there.
-fn lines_folding(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], folds: &Folds) -> Vec<Line> {
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
     let live = |job: &&SessionRecord| job.state == SessionState::Live;
@@ -458,11 +452,11 @@ fn lines_folding(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sc
                 paused: false,
                 ended: false,
                 handing_off: false,
+                kids: None,
                 earlier: None,
                 depth: 0,
                 through: Vec::new(),
                 ends: true,
-                kids: None,
                 started_by: None,
                 slot: None,
                 branch: None,
@@ -477,41 +471,6 @@ fn lines_folding(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sc
             }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
-        fn below<'a>(parent: &str, held: &[&'a SessionRecord], down: &mut Vec<&'a SessionRecord>) {
-            for child in held.iter().filter(|job| starter_of(job) == Some(parent)) {
-                down.push(child);
-                below(child.id.as_str(), held, down);
-            }
-        }
-        let kids_of = |job: &SessionRecord| -> Option<Kids> {
-            if places.contains(job.id.as_str()) || !held.iter().any(|one| starter_of(one) == Some(job.id.as_str())) {
-                return None;
-            }
-            let folded = folds.folds(job.id.as_str());
-            let mut strip = Vec::new();
-            if folded {
-                let mut down = Vec::new();
-                below(job.id.as_str(), &held, &mut down);
-                strip = down
-                    .into_iter()
-                    .filter_map(|sub| {
-                        Some(Sub {
-                            id: sub.id.as_str().to_string().into(),
-                            title: title_of(sub),
-                            mark: sub.mark?,
-                            paused: paused(sub),
-                            pr: attached(sub, "pr").map(|pr| format!("#{pr}").into()),
-                        })
-                    })
-                    .collect();
-                strip.sort_by_key(|sub| match sub.mark.lamp {
-                    JobLamp::Needs => 0,
-                    JobLamp::Failed => 1,
-                    _ => 2,
-                });
-            }
-            Some(Kids { folded, strip })
-        };
         let row_of = |job: &SessionRecord, depth: usize, through: &[bool], last: bool| Row {
             id: job.id.as_str().to_string().into(),
             title: title_of(job),
@@ -519,11 +478,11 @@ fn lines_folding(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sc
             paused: paused(job),
             ended: job.state == SessionState::Ended,
             handing_off: handing_off(job),
+            kids: None,
             earlier: spent(job, "replaces").map(|id| id.to_string().into()),
             depth,
             through: through.to_vec(),
             ends: last,
-            kids: kids_of(job),
             started_by: starter_of(job).and_then(|id| jobs.iter().find(|one| one.id.as_str() == id)).map(|one| (title_of(one), project_of(one).into())),
             slot: attached(job, "slot").map(|slot| slot.rsplit('/').next().unwrap_or(slot).to_string().into()),
             branch: attached(job, "branch").map(|branch| branch.to_string().into()),
@@ -540,10 +499,6 @@ fn lines_folding(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sc
             queued: None,
             place: places.contains(job.id.as_str()),
         };
-        // Whether the row just drawn is a folded parent, whose sub-Jobs are not.
-        fn shut(lines: &[Line]) -> bool {
-            matches!(lines.last(), Some(Line::Job(row)) if row.kids.as_ref().is_some_and(|kids| kids.folded))
-        }
         fn under<'a>(
             parent: &str,
             depth: usize,
@@ -556,21 +511,58 @@ fn lines_folding(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sc
             for (at, child) in children.iter().enumerate() {
                 let last = at + 1 == children.len();
                 lines.push(Line::Job(row_of(child, depth, through, last)));
-                if shut(lines) {
-                    continue;
-                }
                 let on: Vec<bool> = through.iter().copied().chain([!last]).collect();
                 under(child.id.as_str(), depth + 1, &on, held, row_of, lines);
             }
         }
         for root in held.iter().filter(|job| !starter_of(job).is_some_and(listed)) {
             lines.push(Line::Job(row_of(root, 0, &[], true)));
-            if !shut(&lines) {
-                under(root.id.as_str(), 1, &[], &held, &row_of, &mut lines);
-            }
+            under(root.id.as_str(), 1, &[], &held, &row_of, &mut lines);
         }
     }
     lines
+}
+
+/// `lines` with each parent's sub-Jobs folded away where `folds` shuts it, and its row told what stands under
+/// it: a folded parent keeps their glyphs, one that needs him first, so folding hides no need. A parent drawn only
+/// for its place never folds, since the Jobs under it are why it is there.
+fn fold_lines(lines: Vec<Line>, folds: &Folds) -> Vec<Line> {
+    let mut out = Vec::with_capacity(lines.len());
+    let mut at = 0;
+    while at < lines.len() {
+        let Line::Job(row) = &lines[at] else {
+            out.push(lines[at].clone());
+            at += 1;
+            continue;
+        };
+        let below = lines[at + 1..].iter().take_while(|line| matches!(line, Line::Job(down) if down.depth > row.depth)).count();
+        at += 1;
+        if row.place || row.queued.is_some() || below == 0 {
+            out.push(Line::Job(row.clone()));
+            continue;
+        }
+        let folded = folds.folds(row.id.as_ref());
+        let mut row = row.clone();
+        let mut strip: Vec<Sub> = Vec::new();
+        if folded {
+            strip = lines[at..at + below]
+                .iter()
+                .filter_map(|line| match line {
+                    Line::Job(sub) if !sub.place => Some(Sub { id: sub.id.clone(), title: sub.title.clone(), mark: sub.mark?, paused: sub.paused, pr: sub.pr.clone() }),
+                    _ => None,
+                })
+                .collect();
+            strip.sort_by_key(|sub| match sub.mark.lamp {
+                JobLamp::Needs => 0,
+                JobLamp::Failed => 1,
+                _ => 2,
+            });
+            at += below;
+        }
+        row.kids = Some(Kids { folded, strip });
+        out.push(Line::Job(row));
+    }
+    out
 }
 
 /// Where the list's scope and placed order are kept between runs, as Electron keeps them in its
@@ -699,6 +691,8 @@ pub struct JobsList {
     lines: Vec<Line>,
     scope: Scope,
     query: String,
+    /// The parents whose sub-Jobs are folded away, and the switch that folds every one.
+    folds: Folds,
     /// What each row draws.
     view: View,
     /// Live Jobs in the order the person placed them, by id.
@@ -739,8 +733,6 @@ pub struct JobsList {
     lifted: Option<SharedString>,
     /// The ideas waiting to start (`crate::queued`), each a row under its repository's group.
     ideas: Vec<crate::queued::QueuedIdea>,
-    /// The parents whose sub-Jobs are folded away, and the switch that folds every one.
-    folds: Folds,
 }
 
 /// A Job's row while it is dragged to a new place in its project.
@@ -818,11 +810,7 @@ impl JobsList {
         let (scope, order) = read_deck();
         crate::queued::begin(true, cx);
         let jobs = fleet.read(cx).held().jobs.clone();
-        let mut this = Self::with(jobs, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx);
-        this.folds = Folds::load(folds_file().as_deref());
-        this.lines = this.lines_now();
-        this.focused = this.first_row();
-        this
+        Self::with(jobs, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx)
     }
 
     /// The list on mock Jobs, which never change, with the View as a first start has it, so a walk shows what he will.
@@ -846,6 +834,7 @@ impl JobsList {
             lines: Vec::new(),
             scope,
             query: String::new(),
+            folds: if remember { Folds::load(folds_file().as_deref()) } else { Folds::default() },
             view,
             order,
             remember,
@@ -868,7 +857,6 @@ impl JobsList {
             drop: None,
             lifted: None,
             ideas: crate::queued::ideas(cx),
-            folds: Folds::default(),
         };
         // The ideas waiting to start stand in the list as they change, from Dispatch or a row's own acts.
         cx.observe_global::<crate::queued::Queued>(|this, cx| {
@@ -877,7 +865,7 @@ impl JobsList {
         })
         .detach();
         this.place_new();
-        this.lines = this.lines_now();
+        this.lines = this.folded(this.lines_now());
         this.focused = this.first_row();
         this
     }
@@ -1098,7 +1086,7 @@ impl JobsList {
     }
 
     fn lines_now(&self) -> Vec<Line> {
-        lines_folding(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.folds)
+        lines_of(&self.jobs, &self.ideas, self.scope, &self.query, &self.order)
     }
 
     /// The keys on the first Job that needs him, as the deck's `c` puts them (`keys-model.ts`, the
@@ -1130,7 +1118,7 @@ impl JobsList {
 
     /// Draw the list again from the Jobs, the scope, the search and the order.
     fn relist(&mut self, cx: &mut Context<Self>) {
-        let lines = self.lines_now();
+        let lines = self.folded(self.lines_now());
         if lines != self.lines {
             self.lines = lines;
             if !self.focused.as_ref().is_some_and(|id| self.at_of(id).is_some()) {
@@ -1144,6 +1132,11 @@ impl JobsList {
         if self.remember {
             write_deck(self.scope, &self.order);
         }
+    }
+
+    /// `lines` with the parents this list has folded shut.
+    fn folded(&self, lines: Vec<Line>) -> Vec<Line> {
+        fold_lines(lines, &self.folds)
     }
 
     /// Every Job another is listed under, by id: the parents a fold reaches.
@@ -2917,9 +2910,9 @@ mod tests {
 
     #[test]
     fn a_folded_parent_draws_none_of_its_sub_jobs_and_its_siblings_keep_theirs() {
-        let open = lines_folding(&tree(), &[], Scope::Active, "", &[], &Folds::default());
+        let open = fold_lines(lines_of(&tree(), &[], Scope::Active, "", &[]), &Folds::default());
         assert_eq!(titles(&open).len(), 8);
-        let folded = lines_folding(&tree(), &[], Scope::Active, "", &[], &shut(&["t-land"]));
+        let folded = fold_lines(lines_of(&tree(), &[], Scope::Active, "", &[]), &shut(&["t-land"]));
         let titles = titles(&folded);
         assert!(titles.contains(&"Land the native stack".to_string()) && titles.contains(&"Pair the work Mac".to_string()));
         for gone in ["Fix the walk at 820", "Re-take the shots", "Write the docs row"] {
@@ -2940,7 +2933,7 @@ mod tests {
 
     #[test]
     fn a_folded_parent_keeps_a_sub_job_that_needs_him_first_in_its_strip_in_its_amber() {
-        let folded = lines_folding(&tree(), &[], Scope::Active, "", &[], &shut(&["t-land"]));
+        let folded = fold_lines(lines_of(&tree(), &[], Scope::Active, "", &[]), &shut(&["t-land"]));
         let strip = folded
             .iter()
             .find_map(|line| match line {
@@ -2954,7 +2947,7 @@ mod tests {
         assert_eq!(strip[0].mark.lamp, JobLamp::Needs);
         assert_eq!((glyph_of(strip[0].mark.state, None).0, hue_of(strip[0].mark.state)), ("eye", token::STATUS_AWAITING_REVIEW));
         // Open, a parent keeps no strip.
-        let open = lines_folding(&tree(), &[], Scope::Active, "", &[], &Folds::default());
+        let open = fold_lines(lines_of(&tree(), &[], Scope::Active, "", &[]), &Folds::default());
         let kept = open.iter().find_map(|line| match line {
             Line::Job(row) if row.id.as_ref() == "t-land" => row.kids.clone(),
             _ => None,
@@ -2964,7 +2957,7 @@ mod tests {
 
     #[test]
     fn a_parent_drawn_for_its_place_never_folds() {
-        let lines = lines_folding(&tree(), &[], Scope::Needs, "", &[], &Folds { root_only: true, parents: Default::default() });
+        let lines = fold_lines(lines_of(&tree(), &[], Scope::Needs, "", &[]), &Folds { root_only: true, parents: Default::default() });
         let place = lines.iter().find_map(|line| match line {
             Line::Job(row) if row.id.as_ref() == "t-walk" => Some((row.place, row.kids.clone())),
             _ => None,
