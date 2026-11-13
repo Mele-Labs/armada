@@ -8,9 +8,9 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use ipc::{
-    AnswerSessionAsk, ForkFrom, CallAnswer, ManifestId, ManifestSummary, QuestionAnswer, SendSessionMessage,
-    SessionList, SessionOrigin, SessionRecord, SessionRow, SessionState, SessionThread, SessionVoice, StartSession,
-    WireError,
+    AnswerSessionAsk, ForkFrom, CallAnswer, DispatchJob, DispatchKind, DispatchMessage, DispatchOn, DispatchThen, JobDispatched,
+    ManifestId, ManifestSummary, QuestionAnswer, Queued, SendSessionMessage, SessionList, SessionOrigin, SessionRecord,
+    SessionRow, SessionState, SessionThread, SessionVoice, StartSession, WireError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -26,6 +26,8 @@ const ANSWER_DOES_NOT_FIT: &str = "That answer does not fit the question. Open i
 const UNREADABLE_REQUEST: &str = "Armada could not read that from this phone. Update the app.";
 const NO_SUCH_REPOSITORY: &str = "Armada does not know that repository. Pick one from the list.";
 const NOTHING_TO_FORK_YET: &str = "That Job has not answered yet, so there is nothing to copy. Try again once it has.";
+const NO_SUCH_MAC: &str = "Armada does not know that Mac. Pair it, then try again.";
+const NOT_SHARED: &str = "That repository is not in a project shared between your Macs, so a Job cannot start there from here.";
 const NO_REPOSITORY_TO_FORK: &str = "That Job has no repository, so Armada cannot copy it. Fork it in Armada on your Mac.";
 
 /// The live Sessions. The phone has no list of ended ones.
@@ -175,6 +177,20 @@ pub async fn repository_labels(State(gateway): State<Gateway>) -> Response {
     }
 }
 
+/// The one Manifest whose repository is called `repository`, or the refusal for none or two.
+fn one_manifest<'a>(list: &'a [ManifestSummary], repository: &str) -> Result<&'a ManifestSummary, Response> {
+    let mut named = list.iter().filter(|m| m.repository == repository);
+    match (named.next(), named.next()) {
+        (Some(one), None) => Ok(one),
+        (None, _) => Err(refusal(StatusCode::BAD_REQUEST, NO_SUCH_REPOSITORY)),
+        (Some(_), Some(_)) => Err((
+            StatusCode::BAD_REQUEST,
+            format!("Two repositories on your Mac are called {repository}. Rename one, then try again."),
+        )
+            .into_response()),
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Dispatching {
@@ -190,20 +206,9 @@ pub async fn dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
         Ok(list) => list,
         Err(refused) => return refused,
     };
-    let mut named = list.iter().filter(|m| m.repository == dispatching.repository);
-    let manifest = match (named.next(), named.next()) {
-        (Some(one), None) => one,
-        (None, _) => return refusal(StatusCode::BAD_REQUEST, NO_SUCH_REPOSITORY),
-        (Some(_), Some(_)) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                format!(
-                    "Two repositories on your Mac are called {}. Rename one, then try again.",
-                    dispatching.repository
-                ),
-            )
-                .into_response()
-        }
+    let manifest = match one_manifest(&list, &dispatching.repository) {
+        Ok(one) => one,
+        Err(refused) => return refused,
     };
     // `request` only names the Job and picks its workflow; the words reach the agent as its
     // first message, which Fleet holds while the proposal is read. Bridge starts the same way.
@@ -233,6 +238,116 @@ pub async fn dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
         Err(_) => (StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING.to_string()),
     };
     (status, format!("The Job started, but your message did not reach it. {why}")).into_response()
+}
+
+/// What the phone sends the Operator: the words, a repository, a hint, and the Mac to dispatch on.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Operating {
+    text: String,
+    repository: String,
+    #[serde(default)]
+    kind: Option<DispatchKind>,
+    /// By id, or by the name the phone knows the Mac by. Absent is this Mac.
+    #[serde(default)]
+    mac: Option<String>,
+}
+
+/// What a dispatch comes to for the phone: `JobDispatched` with its Job trimmed as the lists trim it.
+#[derive(Serialize)]
+struct Handled {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    session: Option<PhoneSession>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    operator: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parked: Option<String>,
+}
+
+/// `POST /api/sessions/dispatch`: the words go to Fleet's `/sessions/dispatch` as Bridge's composer sends them,
+/// on the Mac `mac` names where it names another. 200 with what the dispatch came to; 202 with the `Queued`
+/// act where that Mac is asleep and the send waits for it. A Job started on another Mac needs a project shared
+/// between the two, which the Gateway finds, since the phone knows no project.
+pub async fn operator_dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
+    let Ok(operating) = ipc::decode::<Operating>("a dispatch", &body) else {
+        return refusal(StatusCode::BAD_REQUEST, UNREADABLE_REQUEST);
+    };
+    let list = match manifests(&gateway).await {
+        Ok(list) => list,
+        Err(refused) => return refused,
+    };
+    let manifest = match one_manifest(&list, &operating.repository) {
+        Ok(one) => one,
+        Err(refused) => return refused,
+    };
+    let mac = match operating.mac {
+        None => None,
+        Some(named) => {
+            let held = gateway.clone();
+            let Ok(Ok(all)) = tokio::task::spawn_blocking(move || crate::machine::macs(&held)).await else {
+                return refusal(StatusCode::INTERNAL_SERVER_ERROR, NOT_READABLE);
+            };
+            let found = all.into_iter().find(|one| {
+                let short = one.address.as_deref().and_then(crate::machine::short_name);
+                one.id == named || one.name == named || short.as_deref() == Some(named.as_str())
+            });
+            match found {
+                Some(one) if one.this_mac => None,
+                Some(one) => Some(one.id),
+                None => return refusal(StatusCode::NOT_FOUND, NO_SUCH_MAC),
+            }
+        }
+    };
+    let project = match &mac {
+        None => None,
+        Some(id) => {
+            let projects = match required::<ipc::Projects>(&gateway, "/projects", "a project list").await {
+                Ok(projects) => projects.projects,
+                Err(refused) => return refused,
+            };
+            let held = projects.into_iter().find(|one| {
+                one.mac.as_deref() == Some(id.as_str()) && one.members.iter().any(|member| member.manifest_id.as_str() == manifest.id.as_str())
+            });
+            match held {
+                Some(one) => Some(one.id),
+                None => return refusal(StatusCode::CONFLICT, NOT_SHARED),
+            }
+        }
+    };
+    let start = StartSession { request: Some(operating.text.clone()), project, ..starting(manifest.id.clone()) };
+    let then = vec![DispatchThen::Message(DispatchMessage {
+        text: operating.text,
+        attachments: Vec::new(),
+        mentions: Vec::new(),
+        sketches: Vec::new(),
+    })];
+    let sent = DispatchOn { mac, job: DispatchJob { start, kind: operating.kind, then } };
+    let Ok(sent) = ipc::encode(&sent) else {
+        return refusal(StatusCode::INTERNAL_SERVER_ERROR, NOT_READABLE);
+    };
+    let answer = match post(&gateway, "/sessions/dispatch", sent).await {
+        Ok(answer) => answer,
+        Err(refused) => return refused,
+    };
+    match answer.status {
+        200 => match ipc::decode::<JobDispatched>("a dispatch answer", &answer.body) {
+            Ok(done) => json(&Handled {
+                session: done.session.map(|record| PhoneSession::of(&record, Some(manifest.repository.as_str()), gateway.pairing.now())),
+                operator: done.operator,
+                parked: done.parked,
+            }),
+            Err(_) => refusal(StatusCode::BAD_GATEWAY, NOT_READABLE),
+        },
+        202 => match ipc::decode::<Queued>("a queued act", &answer.body) {
+            Ok(queued) => {
+                let mut kept = json(&queued);
+                *kept.status_mut() = StatusCode::ACCEPTED;
+                kept
+            }
+            Err(_) => refusal(StatusCode::BAD_GATEWAY, NOT_READABLE),
+        },
+        _ => passed(&answer),
+    }
 }
 
 /// A `StartSession` for a Manifest with nothing else chosen.

@@ -3,10 +3,13 @@
 
 use std::sync::Arc;
 
-use ipc::{BugReports, Event, JobThread, JobThreadRead, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, SessionList};
+use ipc::{
+    BugReports, Event, JobAct, JobThread, JobThreadRead, MacAct, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions,
+    ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
+};
 
 use super::FakeDaemon;
-use crate::{OtherMacs, Refusal};
+use crate::{ActAnswered, ActBegun, ActTurn, OtherMacs, Refusal};
 
 /// The Studio whose deletion the fake's share filter holds back.
 pub const THE_PRIVATE_STUDIO: &str = "01PRIVATE";
@@ -26,6 +29,36 @@ impl OtherMacs for FakeDaemon {
 
     async fn project_act_from_mac(&self, _sent: ProjectActFromMac) -> Result<Projects, Refusal> {
         Ok(Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() })
+    }
+
+    async fn begin_act_from_mac(&self, _mac: String, sent: &MacAct) -> Result<ActBegun, Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised(
+            "fleet.no_such_session",
+            format!("No Job Fleet holds is named {}.", sent.act.session_id().map_or("", SessionId::as_str)),
+            super::shapes::run_id(),
+        )))
+    }
+
+    async fn finish_act_from_mac(&self, _turn: ActTurn, _status: u16, _body: &[u8]) {}
+
+    async fn mac_holding_job(&self, _job: &str) -> Option<String> {
+        None
+    }
+
+    async fn mac_holding_pull(&self, _repository: &str, _number: u64) -> Option<(String, SessionId)> {
+        None
+    }
+
+    async fn act_on_other_mac(self: Arc<Self>, mac: String, _act: JobAct) -> Result<ActAnswered, Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised("fleet.other_mac_not_linked", format!("This Mac is not linked to Mac {mac}."), super::shapes::run_id())))
+    }
+
+    async fn list_queued(&self, _mac: Option<String>) -> Result<QueuedList, Refusal> {
+        Ok(QueuedList { queued: Vec::new() })
+    }
+
+    async fn take_back_queued(&self, take: TakeBack) -> Result<QueuedList, Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised("fleet.queued_not_found", format!("Nothing waits under {}.", take.id), super::shapes::run_id())))
     }
 
     async fn share_event(&self, event: Event) -> Option<Event> {

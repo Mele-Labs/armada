@@ -84,7 +84,7 @@ Everything bound for another Mac passes one filter in Fleet, and only the filter
 |---|---|
 | A Job's row, thread, live changes, documents, sketches and shown files | Its project is shared |
 | An act from the other Mac on a Job (message, answer, approve, stop, merge) | Its project is shared. Otherwise it is refused as not found, the same answer as a Job that does not exist |
-| A Job started from the other Mac | Only into a shared project |
+| A Job started from the other Mac | Only into a shared project, in one of its repositories, and never as a fork, in a folder or waiting on a Job of this Mac |
 | A message from a Job to a Job on the other Mac | Both Jobs' projects are shared |
 | A bug report | The Job that filed it is in a shared project, since a report's text can quote private work |
 | A project and its tasks | It is shared. Loose tasks never cross |

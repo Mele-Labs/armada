@@ -87,7 +87,7 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// Every row, report and project held from Mac `mac` dropped, and the edits queued for it.
+    /// Every row, report and project held from Mac `mac` dropped, the edits and acts queued for it, and the acts it sent.
     pub fn forget_mac(&mut self, mac: &str) -> Result<(), WriteError> {
         let doing = "forgetting what another Mac shared";
         let tx = self.conn.transaction().map_err(fault(doing)).map_err(WriteError::Database)?;
@@ -96,7 +96,9 @@ impl Store {
                 .map_err(fault(doing))
                 .map_err(WriteError::Database)?;
         }
-        tx.execute("DELETE FROM other_mac_project_acts WHERE mac = ?1", [mac]).map_err(fault(doing)).map_err(WriteError::Database)?;
+        for table in ["other_mac_project_acts", "other_mac_acts_run"] {
+            tx.execute(&format!("DELETE FROM {table} WHERE mac = ?1"), [mac]).map_err(fault(doing)).map_err(WriteError::Database)?;
+        }
         tx.commit().map_err(fault(doing)).map_err(WriteError::Database)
     }
 }
@@ -129,7 +131,7 @@ impl Store {
         let doing = "reading the edits queued for other Macs";
         let mut statement = self
             .conn
-            .prepare("SELECT seq, mac, at, act FROM other_mac_project_acts WHERE ?1 IS NULL OR mac = ?1 ORDER BY seq")
+            .prepare("SELECT seq, mac, at, act FROM other_mac_project_acts WHERE kind = 'project' AND (?1 IS NULL OR mac = ?1) ORDER BY seq")
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
         let rows = statement

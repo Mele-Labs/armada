@@ -260,6 +260,8 @@ mod issue_queries;
 mod projects;
 /// Projects his other Macs hold, kept here as read copies, and the edits made on them.
 mod project_copies;
+/// Acts on a Job another Mac holds, sent there or kept in order, and what another Mac sends here.
+mod mac_acts;
 /// A task act another Mac made on a shared project of this Mac, run here.
 mod project_acts_held;
 /// How work behaves, laid over its layers, and what a Job freezes of it at its start.

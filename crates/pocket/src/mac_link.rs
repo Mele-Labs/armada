@@ -219,9 +219,9 @@ impl Link<'_> {
     }
 }
 
-/// [`crate::Gateway`]'s answer to Fleet's `send_other_mac`: `body` posted to Mac `mac` as `/api/mac/project_act`, for
-/// the path `/other_mac/project_act` and no other. The status its Fleet answered and the bytes, so a refusal there is
-/// said here as it was said.
+/// [`crate::Gateway`]'s answer to Fleet's `send_other_mac`: `body` posted to Mac `mac` as `/api/mac/project_act` or
+/// `/api/mac/act`, for the paths `/other_mac/project_act` and `/other_mac/act` and no other. The status its Fleet
+/// answered and the bytes, so a refusal there is said here as it was said.
 pub fn send_other_mac(
     gateway: &Gateway,
     mac: &str,
@@ -230,15 +230,17 @@ pub fn send_other_mac(
 ) -> impl Future<Output = Result<(u16, Vec<u8>), String>> + Send + 'static {
     let (gateway, mac, path) = (gateway.clone(), mac.to_string(), path.to_string());
     async move {
-        if path != "/other_mac/project_act" {
-            return Err(format!("{path} is not sent to another Mac."));
-        }
+        let target = match path.as_str() {
+            "/other_mac/project_act" => "/api/mac/project_act",
+            "/other_mac/act" => "/api/mac/act",
+            _ => return Err(format!("{path} is not sent to another Mac.")),
+        };
         let found = gateway.pairing.store.lock().unwrap().paired_mac(&mac);
         let row = match found {
             Ok(Some(row)) if row.state == store::MacState::Linked => row,
             _ => return Err(format!("This Mac is not linked to Mac {mac}.")),
         };
-        let came = signed_whole(&gateway, &row.id, &row.address, "POST", "/api/mac/project_act", Some(body))
+        let came = signed_whole(&gateway, &row.id, &row.address, "POST", target, Some(body))
             .await
             .map_err(|why| format!("{} could not be reached: {why}", row.name))?;
         Ok((came.status, came.body))

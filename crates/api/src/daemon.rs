@@ -65,7 +65,7 @@ pub use lifecycles::Lifecycles;
 pub use logbook::Logbook;
 pub use teaching::Teaching;
 pub use mods::Mods;
-pub use other_macs::OtherMacs;
+pub use other_macs::{ActAnswered, ActBegun, ActTurn, OtherMacs};
 pub use projects::Projects;
 pub use pull_request_panel::PullRequestPanel;
 pub use pull_requests::PullRequests;

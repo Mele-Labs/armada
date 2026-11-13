@@ -9,24 +9,29 @@ use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::HostedSessions;
+use crate::daemon::{HostedSessions, OtherMacs};
+use crate::mac_acts::across;
 use crate::door::DoorCalled;
 use crate::receipts::Receipt;
 use crate::served::Served;
 
-pub(crate) async fn start_session<D: HostedSessions>(
+pub(crate) async fn start_session<D: HostedSessions + OtherMacs>(
     State(served): State<Served<D>>,
     door: Option<Extension<DoorCalled>>,
     body: Bytes,
 ) -> Response {
-    let mut start: ipc::StartSession = match ipc::decode_body("a job to start", &body) {
-        Ok(start) => start,
+    let on: ipc::StartOn = match ipc::decode_body("a job to start", &body) {
+        Ok(on) => on,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    let mut start = on.start;
     // A Job on your words may act as the person, so only Bridge may start one: a body that came
     // through the agent door is read as a plain Job whatever it says.
     if door.is_some() {
         start.on_your_words = None;
+    }
+    if let Some(mac) = on.mac {
+        return across(&served, mac, ipc::JobAct::Start(start)).await;
     }
     match served.shared().start_session_reading(start).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
@@ -35,14 +40,18 @@ pub(crate) async fn start_session<D: HostedSessions>(
 }
 
 /// The person dispatches work: a Job, or the Operator's hold of it. 200 with `JobDispatched`.
-pub(crate) async fn dispatch_job<D: HostedSessions>(
+pub(crate) async fn dispatch_job<D: HostedSessions + OtherMacs>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let dispatch: ipc::DispatchJob = match ipc::decode_body("work to dispatch", &body) {
-        Ok(dispatch) => dispatch,
+    let on: ipc::DispatchOn = match ipc::decode_body("work to dispatch", &body) {
+        Ok(on) => on,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    let dispatch = on.job;
+    if let Some(mac) = on.mac {
+        return across(&served, mac, ipc::JobAct::Dispatch(dispatch)).await;
+    }
     match served.shared().dispatch_job(dispatch).await {
         Ok(dispatched) => answer(StatusCode::OK, &dispatched, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -137,7 +146,7 @@ pub(crate) async fn message_reach<D: HostedSessions>(
 pub(crate) const MOST_A_MESSAGE_MAY_BE: usize = 64 * 1024 * 1024;
 
 /// **202**: the message is taken and the reply is not here yet.
-pub(crate) async fn send_session_message<D: HostedSessions>(
+pub(crate) async fn send_session_message<D: HostedSessions + OtherMacs>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
@@ -145,6 +154,9 @@ pub(crate) async fn send_session_message<D: HostedSessions>(
         Ok(sent) => sent,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(sent.message.session_id.as_str()).await {
+        return across(&served, mac, ipc::JobAct::Message(sent)).await;
+    }
     match served.shared().send_session_message_aiming(sent.message, sent.aim).await {
         Ok(record) => answer(StatusCode::ACCEPTED, &record, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -197,7 +209,7 @@ pub(crate) async fn send_session_notes<D: HostedSessions>(
     }
 }
 
-pub(crate) async fn answer_session_ask<D: HostedSessions>(
+pub(crate) async fn answer_session_ask<D: HostedSessions + OtherMacs>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
@@ -205,6 +217,9 @@ pub(crate) async fn answer_session_ask<D: HostedSessions>(
         Ok(said) => said,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(said.session_id.as_str()).await {
+        return across(&served, mac, ipc::JobAct::AskAnswer(said)).await;
+    }
     match served.daemon().answer_session_ask(said).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -212,7 +227,7 @@ pub(crate) async fn answer_session_ask<D: HostedSessions>(
 }
 
 /// The person settles one thing a session waits on. 200 with the row; 409 where nothing holds it.
-pub(crate) async fn answer_waiting<D: HostedSessions>(
+pub(crate) async fn answer_waiting<D: HostedSessions + OtherMacs>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
@@ -220,6 +235,9 @@ pub(crate) async fn answer_waiting<D: HostedSessions>(
         Ok(said) => said,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(said.session_id.as_str()).await {
+        return across(&served, mac, ipc::JobAct::WaitingAnswer(said)).await;
+    }
     match served.shared().answer_waiting(said).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -228,7 +246,7 @@ pub(crate) async fn answer_waiting<D: HostedSessions>(
 
 /// The person answers a thing a session waits on by parts picked across its pictures. 200 with the row; 409
 /// where nothing holds it; 422 for no part or a part the item's pictures lack.
-pub(crate) async fn answer_waiting_parts<D: HostedSessions>(
+pub(crate) async fn answer_waiting_parts<D: HostedSessions + OtherMacs>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
@@ -236,6 +254,9 @@ pub(crate) async fn answer_waiting_parts<D: HostedSessions>(
         Ok(said) => said,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(said.session_id.as_str()).await {
+        return across(&served, mac, ipc::JobAct::WaitingAnswerParts(said)).await;
+    }
     match served.shared().answer_waiting_parts(said).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -658,7 +679,7 @@ pub(crate) async fn move_session<D: HostedSessions>(
     }
 }
 
-pub(crate) async fn stop_session<D: HostedSessions>(
+pub(crate) async fn stop_session<D: HostedSessions + OtherMacs>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
@@ -666,6 +687,9 @@ pub(crate) async fn stop_session<D: HostedSessions>(
         Ok(stopped) => stopped,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(stopped.session_id.as_str()).await {
+        return across(&served, mac, ipc::JobAct::Stop(stopped)).await;
+    }
     match served.daemon().stop_session(stopped).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),

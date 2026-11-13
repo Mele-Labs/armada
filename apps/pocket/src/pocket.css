@@ -719,3 +719,186 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   color: var(--fg-default);
   overflow-wrap: anywhere;
 }
+
+/* Operator: the sends it took, and the box that sends. A hue is a state's token; "handed" and the feature kind take the accent,
+   which no Job state names. */
+.pk-app {
+  --status-handed: var(--accent-hover);
+  --status-handed-bg: var(--accent-muted);
+}
+.pk-send {
+  --pk-hue: var(--fg-subtle);
+  display: grid;
+  box-sizing: border-box;
+  width: 100%;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-left: var(--space-1) solid var(--pk-hue);
+  background: var(--bg-raised);
+}
+.pk-send[data-needs] {
+  background: color-mix(in srgb, var(--pk-hue) 8%, var(--bg-raised));
+}
+.pk-send[data-hue="running"] {
+  --pk-hue: var(--status-running);
+}
+.pk-send[data-hue="handed"] {
+  --pk-hue: var(--status-handed);
+}
+.pk-send[data-hue="awaiting-review"] {
+  --pk-hue: var(--status-awaiting-review);
+}
+.pk-send[data-hue="not-started"] {
+  --pk-hue: var(--status-not-started);
+}
+.pk-send[data-hue="escalated"] {
+  --pk-hue: var(--status-escalated);
+}
+.pk-send[data-hue="completed-failed"] {
+  --pk-hue: var(--status-completed-failed);
+}
+.pk-send__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.pk-send__head .armada-badge {
+  flex: none;
+}
+.pk-send__head .armada-stamp {
+  flex: none;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+}
+.pk-send__title {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-heading);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+button.pk-send__title {
+  cursor: pointer;
+}
+.pk-send__words {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.pk-send__meta {
+  display: flex;
+  margin: 0;
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+.pk-send__why {
+  display: grid;
+  gap: var(--space-2);
+}
+.pk-send__why p {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pk-send__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* The box is pinned under the list; the toast hangs over the list's foot. */
+.pk-toasts {
+  position: relative;
+  flex: none;
+  height: 0;
+}
+.pk-toasts .armada-toast {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-3);
+  left: var(--space-4);
+  max-width: none;
+}
+.pk-composer {
+  border-top-color: var(--operator-edge);
+}
+.pk-composer__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.pk-composer__repository {
+  flex: none;
+  min-width: 0;
+}
+.pk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.pk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--space-8);
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--status-hue, var(--fg-muted));
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.pk-chip[data-hue="awaiting-review"] {
+  --status-hue: var(--status-awaiting-review);
+  --chip-bg: var(--status-awaiting-review-bg);
+}
+.pk-chip[data-hue="handed"] {
+  --status-hue: var(--status-handed);
+  --chip-bg: var(--status-handed-bg);
+}
+.pk-chip[data-hue="completed-failed"] {
+  --status-hue: var(--status-completed-failed);
+  --chip-bg: var(--status-completed-failed-bg);
+}
+.pk-chip[data-hue="escalated"] {
+  --status-hue: var(--status-escalated);
+  --chip-bg: var(--status-escalated-bg);
+}
+.pk-chip[data-hue="completed-success"] {
+  --status-hue: var(--status-completed-success);
+  --chip-bg: var(--status-completed-success-bg);
+}
+.pk-chip[aria-pressed="true"],
+.pk-chip[aria-checked="true"] {
+  border-color: var(--status-hue);
+  background: var(--chip-bg);
+}
+.pk-composer__fact {
+  display: block;
+  color: var(--status-escalated);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  flex-wrap: wrap;
+}

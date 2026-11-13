@@ -94,6 +94,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // The acts waiting for a Mac that could not be reached, whole.
+    Route {
+        operation: "queued.changed",
+        method: "GET",
+        path: "/events",
+    },
     // The agents' account signed out or in, or its sign-in started or ended, whole.
     Route {
         operation: "agent_sign_in.changed",
