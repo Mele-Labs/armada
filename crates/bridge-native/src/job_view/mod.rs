@@ -84,7 +84,7 @@ mod runs;
 mod talk;
 mod tool_icons;
 mod tune;
-mod wire;
+pub(crate) mod wire;
 mod workflow_card;
 
 use std::cell::RefCell;

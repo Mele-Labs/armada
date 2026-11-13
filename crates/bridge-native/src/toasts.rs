@@ -9,6 +9,7 @@ use ipc::operator_page::OperatorTurnItem;
 
 mod view;
 
+pub(crate) use view::about;
 pub use view::{at_rest, bind, dispatch_held, dispatched, fleet, tell, tell_retry, BellSlot, Retry, Toasts};
 
 /// A state of Fleet the app reads for itself, raised as an urgent toast for as long as it lasts: Fleet

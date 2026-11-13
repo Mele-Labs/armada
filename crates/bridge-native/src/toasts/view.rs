@@ -104,7 +104,7 @@ pub fn dispatch_held(dispatch_id: &str, words: &str, cx: &mut App) {
 }
 
 /// The words a toast names a dispatch by: a line, cut where it runs long.
-fn about(words: &str) -> String {
+pub(crate) fn about(words: &str) -> String {
     let line = words.lines().next().unwrap_or_default().trim();
     if line.chars().count() > 48 {
         format!("{}...", line.chars().take(48).collect::<String>().trim_end())

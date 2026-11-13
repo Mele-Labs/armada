@@ -69,7 +69,7 @@ const READ_WAIT_AFTER: Duration = Duration::from_millis(400);
 
 /// What the window is scoped to: a project, by Fleet's id, with the names of the repositories it holds in the
 /// order its members name them, or one repository in no project, with no id. `None` on All.
-fn scope(cx: &App) -> Option<(Option<SharedString>, Vec<SharedString>)> {
+pub(crate) fn scope(cx: &App) -> Option<(Option<SharedString>, Vec<SharedString>)> {
     let bar = titlebar::live(cx)?;
     let face = &bar.read(cx).face;
     let Some(project) = face.scoped.and_then(|at| face.projects.get(at)) else {

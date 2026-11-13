@@ -1340,6 +1340,13 @@ pub static WALKS: &[Walk] = &[
         steps: &dispatch::OPERATOR_FLOW,
     },
     Walk {
+        name: "operator-composer",
+        title: "Operator page: the box at its foot, and the ideas it kept",
+        screen: Screen::Operator,
+        scenario: "jobs-many",
+        steps: &dispatch::COMPOSER_FLOW,
+    },
+    Walk {
         name: "notes",
         title: "Notes on ⌥⌘A",
         screen: Screen::Dispatch,
