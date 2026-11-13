@@ -1,0 +1,7 @@
+[icons.bell-off]
+  means = "A bell struck through: a Job kept quiet until a time"
+  group = "Navigation"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A snoozed Job on the Jobs list's row, and Snooze in a Job's menus and the palette. Never a Job that is paused, stopped or failing, and never the Alerts setting being off."
+  notes = "Proposed 13 Nov 2026 for the native walk `native-snooze`, for the owner to rule on. It is the bell's own opposite: a snoozed Job raises no banner, sound or Dock count, and keeps working. Tooltip `Quiet until 16:30`, the time alone today and with its day after. Wake now wears `bell`. `moon` was refused: it reads as a dark theme."

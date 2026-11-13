@@ -11,3 +11,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 23 Oct 2026 for the walk `teach-mods`, tooltip `Fleet`. A notice is what the bell was already for. Leads the Mods row. Borrowed and not minted: the owner may rule otherwise."
+
+[[icons.bell.usage]]
+  means = "Wake now: a snoozed Job is loud again, in its row's menu, its tab's menu and the palette"
+  group = "Navigation"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 13 Nov 2026 for the native walk `native-snooze`, with `bell-off` for Snooze. A Job that raises its notices again is what the bell was already for. The owner may rule otherwise."

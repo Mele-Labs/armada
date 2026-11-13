@@ -180,6 +180,10 @@ fn is_paused(job: &SessionRecord) -> bool {
     job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some())
 }
 
+fn is_snoozed(job: &SessionRecord) -> bool {
+    job.snoozed_until.is_some()
+}
+
 /// A live Job as a row. Ended and quiet Jobs are not found here.
 pub fn job_entry(job: &SessionRecord) -> Option<Entry> {
     if job.state == SessionState::Ended {
@@ -347,11 +351,13 @@ fn act(id: &'static str, label: &str, icon: Option<&'static str>, chord: Option<
 }
 
 /// What a Job row's panel offers (`ownActs`). `without` is the acts nothing answers for this Job, by act id.
-pub fn job_acts(paused: bool, pinned: bool, has_pull: bool, without: &[&str]) -> Vec<RowAct> {
+pub fn job_acts(paused: bool, snoozed: bool, pinned: bool, has_pull: bool, without: &[&str]) -> Vec<RowAct> {
     let apart = |one: RowAct| RowAct { apart: true, ..one };
     let all = [
         Some(act("open", "Open", None, Some("\u{21b5}"))),
         Some(if paused { act("pause", "Resume", Some("play"), Some("\u{2318}P")) } else { act("pause", "Pause", Some("pause"), Some("\u{2318}P")) }),
+        // ⌥⌘Z: ⌘Z and ⇧⌘Z undo and redo a pane, and the bare Z a row answers is typing in here.
+        Some(if snoozed { act("wake", "Wake now", Some("bell"), Some("\u{2325}\u{2318}Z")) } else { act("snooze", "Snooze", Some("bell-off"), Some("\u{2325}\u{2318}Z")) }),
         Some(act("fork", "Fork", Some("git-fork"), Some("\u{2325}\u{2318}F"))),
         has_pull.then(|| apart(act("open-pull", "Open pull request", Some("git-pull-request"), Some("\u{21e7}\u{2318}P")))),
         has_pull.then(|| act("merge-pull", "Merge pull request", Some("git-merge"), Some("\u{21e7}\u{2318}M"))),
@@ -703,7 +709,7 @@ impl Palette {
             Some(id) => {
                 let list = self.list.read(cx);
                 let Some(job) = list.record(id) else { return Vec::new() };
-                let mut acts = job_acts(is_paused(job), pinned, held_pull(job).is_some(), &without_of(job));
+                let mut acts = job_acts(is_paused(job), is_snoozed(job), pinned, held_pull(job).is_some(), &without_of(job));
                 acts.extend(memory_acts(alias, hotkey, false, None));
                 acts
             }
@@ -891,6 +897,19 @@ impl Palette {
                 cx.notify();
             }
             (id @ ("pause" | "fork" | "open-pull" | "merge-pull"), Some(job)) => self.go(id, job, window, cx),
+            // Snooze asks for its presets and Wake now posts at once: neither waits on the palette, which shuts.
+            ("snooze", Some(job)) => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                crate::dispatch::screen::snooze_ask(job.into(), entry.label.clone().into(), None, cx);
+            }
+            ("wake", Some(job)) => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                self.list.update(cx, |list, cx| list.snooze(&job, None, cx));
+            }
             _ => {}
         }
     }
@@ -1763,13 +1782,20 @@ mod tests {
 
     #[test]
     fn a_job_that_holds_a_pull_request_has_the_two_pull_acts_and_one_that_does_not_has_neither() {
-        assert_eq!(ids(job_acts(false, false, true, &[])), ["open", "pause", "fork", "open-pull", "merge-pull", "copy-id", "pin", "stop"]);
-        assert_eq!(ids(job_acts(false, false, false, &[])), ["open", "pause", "fork", "copy-id", "pin", "stop"]);
+        assert_eq!(ids(job_acts(false, false, false, true, &[])), ["open", "pause", "snooze", "fork", "open-pull", "merge-pull", "copy-id", "pin", "stop"]);
+        assert_eq!(ids(job_acts(false, false, false, false, &[])), ["open", "pause", "snooze", "fork", "copy-id", "pin", "stop"]);
+    }
+
+    #[test]
+    fn snooze_reads_wake_now_when_snoozed_and_keeps_its_chord() {
+        let label = |snoozed: bool| job_acts(false, snoozed, false, false, &[]).into_iter().find(|act| matches!(act.id, "snooze" | "wake")).map(|act| (act.id, act.label, act.chord));
+        assert_eq!(label(false), Some(("snooze", "Snooze".to_string(), Some("\u{2325}\u{2318}Z"))));
+        assert_eq!(label(true), Some(("wake", "Wake now".to_string(), Some("\u{2325}\u{2318}Z"))));
     }
 
     #[test]
     fn pause_reads_resume_when_paused_and_pin_reads_unpin_when_pinned() {
-        let acts = job_acts(true, true, false, &[]);
+        let acts = job_acts(true, false, true, false, &[]);
         let label = |id: &str| acts.iter().find(|act| act.id == id).map(|act| act.label.clone());
         assert_eq!(label("pause").as_deref(), Some("Resume"));
         assert_eq!(label("pin").as_deref(), Some("Unpin"));
@@ -1777,7 +1803,7 @@ mod tests {
 
     #[test]
     fn an_act_nothing_answers_for_the_job_is_left_out() {
-        let acts = job_acts(false, false, true, &["fork", "merge-pull"]);
+        let acts = job_acts(false, false, false, true, &["fork", "merge-pull"]);
         assert!(!acts.iter().any(|act| act.id == "fork" || act.id == "merge-pull"));
         assert!(acts.iter().any(|act| act.id == "open-pull"));
     }
@@ -1797,13 +1823,13 @@ mod tests {
         job.attachments.last_mut().expect("the pull").state = AttachmentState::Spent;
         assert_eq!(without_of(&job), ["merge-pull"]);
         assert!(pull_of(&job).is_none() && held_pull(&job).is_some_and(|(_, number, open)| number == 412 && !open));
-        let acts = ids(job_acts(false, false, true, &without_of(&job)));
+        let acts = ids(job_acts(false, false, false, true, &without_of(&job)));
         assert!(acts.contains(&"open-pull") && !acts.contains(&"merge-pull"));
     }
 
     #[test]
     fn the_job_acts_keep_their_chords_their_rules_and_what_stays_up() {
-        let acts = job_acts(false, false, true, &[]);
+        let acts = job_acts(false, false, false, true, &[]);
         let at = |id: &str| acts.iter().find(|act| act.id == id).expect(id).clone();
         assert_eq!(at("pause").chord, Some("\u{2318}P"));
         assert_eq!(at("fork").chord, Some("\u{2325}\u{2318}F"));

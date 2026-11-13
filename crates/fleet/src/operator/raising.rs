@@ -375,9 +375,10 @@ where
     }
 
     /// One record of a hosted Job: its list against its items. **A paused Job's list is empty while it
-    /// rests, so it is left alone**; an ended Job's items have all left.
+    /// rests, and a snoozed Job raises nothing until its time, so either is left alone**; an ended
+    /// Job's items have all left.
     async fn job_raises_reconciled(self: &Arc<Self>, record: &SessionRecord) {
-        if record.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some()) {
+        if resting(record) {
             return;
         }
         let items = if record.state == ipc::SessionState::Ended { Vec::new() } else { record.waiting_for.clone() };
@@ -410,7 +411,7 @@ where
                     resting.insert(session.id.clone());
                     continue;
                 };
-                if record.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some()) {
+                if self::resting(&record) {
                     resting.insert(session.id.clone());
                     continue;
                 }
@@ -650,5 +651,28 @@ where
             }
             self.operator_page_changed();
         }
+    }
+}
+
+/// A paused or snoozed Job, whose raises are left as they stand.
+fn resting(record: &SessionRecord) -> bool {
+    record.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some()) || record.snoozed_until.is_some()
+}
+
+#[cfg(test)]
+mod tests {
+    use ipc::SessionRecord;
+
+    fn row(extra: &str) -> SessionRecord {
+        let text = format!(
+            r#"{{"id":"s1","harness":"h","origin":"bridge","cwd":"/r","state":"live","started_at":"2026-10-08T01:00:00.000Z","last_seen_at":"2026-10-08T01:00:00.000Z","usage":{{}},"attachments":[]{extra}}}"#
+        );
+        ipc::decode("a session", text.as_bytes()).expect("a session")
+    }
+
+    #[test]
+    fn a_snoozed_job_rests_and_its_raises_are_left_as_they_stand() {
+        assert!(!super::resting(&row("")));
+        assert!(super::resting(&row(r#","snoozed_until":"2026-10-08T05:00:00.000Z""#)));
     }
 }

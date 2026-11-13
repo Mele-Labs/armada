@@ -58,6 +58,7 @@ mod runtime_file;
 mod scene;
 mod settings;
 mod sketch;
+mod snooze;
 mod sketch_png;
 mod terminal;
 mod titlebar;

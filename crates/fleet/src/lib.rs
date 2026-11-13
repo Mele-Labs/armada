@@ -198,6 +198,7 @@ pub mod noticing;
 /// Drone groups whose Fleet is gone, found by the mark Fleet put on them.
 pub mod orphans;
 mod session_limit;
+mod session_snooze;
 /// What a Session's proposer is asked and how its answer reads, with the words the Job proposer shares.
 mod session_proposer;
 /// What the account writer is asked of a Session at work and how its answer reads.

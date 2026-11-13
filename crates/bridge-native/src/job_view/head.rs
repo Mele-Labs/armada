@@ -333,6 +333,11 @@ impl JobView {
         self.head.overlays.entry(id.clone()).or_default()
     }
 
+    /// Whether the Job is snoozed, as Fleet's record says.
+    pub(super) fn snoozed(&self, id: &str, cx: &App) -> bool {
+        self.record(id, cx).is_some_and(|job| job.snoozed_until.is_some())
+    }
+
     pub(super) fn paused(&self, id: &str, cx: &App) -> bool {
         self.head.overlays.get(id).and_then(|overlay| overlay.paused).unwrap_or_else(|| {
             self.record(id, cx).is_some_and(|job| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some()))
@@ -448,6 +453,11 @@ impl JobView {
         }
         if live && hosted {
             acts.push(if self.paused(id, cx) { item("resume", "Resume", "play") } else { item("pause", "Pause", "circle-pause") });
+        }
+        if live {
+            acts.push(crate::snooze::menu_item(self.snoozed(id, cx)));
+        }
+        if live && hosted {
             acts.push(Entry::Toggle { id: "land", label: "Auto land".into(), on: self.auto_land(id, cx) });
             let holds = self.holds(id, cx).is_empty();
             acts.push(Entry::Item {
@@ -558,6 +568,8 @@ impl JobView {
                 self.overlay_mut(&id).paused = Some(false);
                 self.ask_act(id, "/sessions/resume".into(), encoded(ipc::encode(&ipc::ResumeSession { session_id })), |overlay| overlay.paused = None, window, cx);
             }
+            "snooze" => self.ask_snooze(&id, window, cx),
+            "wake" => self.list.update(cx, |list, cx| list.snooze(&id, None, cx)),
             "land" => {
                 let on = !self.auto_land(&id, cx);
                 self.overlay_mut(&id).auto_land = Some(on);
@@ -590,6 +602,13 @@ impl JobView {
             _ => {}
         }
         cx.notify();
+    }
+
+    /// The presets' menu, under the Job's tab where it is drawn. A refusal is said in a toast.
+    fn ask_snooze(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
+        let at = drawn(window, cx, Role::Row, &self.tab_name(id, cx)).map(below_left);
+        let title = self.title_of(id, cx).unwrap_or_else(|| id.clone());
+        crate::dispatch::screen::snooze_ask(id.clone(), title, at, cx);
     }
 
     /// Start a Job on a copy of this one's conversation, ending at its last message, and open it.
@@ -1459,6 +1478,10 @@ impl JobView {
             (_, true, "p") if hosted => {
                 let paused = self.paused(&id, cx);
                 self.head_act(if paused { "resume" } else { "pause" }, window, cx);
+            }
+            (_, true, "z") if !self.closed(&id, cx) => {
+                let snoozed = self.snoozed(&id, cx);
+                self.head_act(if snoozed { "wake" } else { "snooze" }, window, cx);
             }
             _ => return false,
         }
