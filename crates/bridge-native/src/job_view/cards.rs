@@ -219,7 +219,7 @@ impl JobView {
                     ))
                     .when(withdraw, |footer| {
                         footer.child(labelled(
-                            button(look, SharedString::from(format!("withdraw:{key}")), "Withdraw", Tone::Ghost, true, None, true).on_click(cx.listener(
+                            super::acts::gated(button(look, SharedString::from(format!("withdraw:{key}")), "Withdraw", Tone::Ghost, true, None, true), self.off_shown(cx)).on_click(cx.listener(
                                 move |this, _, window, cx| {
                                     let session_id = SessionId::carried(this.shown.clone().unwrap_or_default().to_string());
                                     let body = encoded(&DismissWaiting { session_id, item_id: title_id.clone(), reason: None, misread: false });
@@ -232,7 +232,7 @@ impl JobView {
                     })
                     .when(on_target, |footer| footer)
             };
-            column = column.child(labelled(super::acts::gated(footer.id(SharedString::from(format!("answers:{key}"))), self.off_shown(cx)), Role::Toolbar, "Answers"));
+            column = column.child(labelled(super::acts::gated(footer.id(SharedString::from(format!("answers:{key}"))), self.off_shown_to("/sessions/sketch/answer", cx)), Role::Toolbar, "Answers"));
         }
         column.into_any_element()
     }
@@ -1090,7 +1090,7 @@ impl JobView {
                 .children(self.workflow_send_back(ix, key, text, back, look, cx))
                 .child(div().flex_1())
                 .child(labelled(
-                    button(look, SharedString::from(format!("withdraw:{key}")), word_withdraw, Tone::Secondary, false, no, true).on_click(cx.listener(
+                    super::acts::gated(button(look, SharedString::from(format!("withdraw:{key}")), word_withdraw, Tone::Secondary, false, no, true), self.off_shown(cx)).on_click(cx.listener(
                         move |this, _, window, cx| {
                             let answer = if kind == DraftKind::Workflow { Answer::Dismissed } else { Answer::Withdrawn };
                             this.settle(ix, out_key.clone(), answer, "/sessions/waiting/dismiss", out_body(None), window, cx)
@@ -1144,7 +1144,7 @@ impl JobView {
                 ))
                 .child(div().flex_1())
                 .child(labelled(
-                    button(look, SharedString::from(format!("withdraw:{key}")), word_withdraw, Tone::Secondary, false, None, true).on_click(cx.listener(
+                    super::acts::gated(button(look, SharedString::from(format!("withdraw:{key}")), word_withdraw, Tone::Secondary, false, None, true), self.off_shown(cx)).on_click(cx.listener(
                         move |this, _, window, cx| {
                             let reason = this.typed_in(&out_key, Mode::Note, cx).trim().to_string();
                             let reason = (!reason.is_empty()).then_some(reason);
@@ -1156,7 +1156,7 @@ impl JobView {
                 ))
             }
         };
-        labelled(super::acts::gated(row.id(SharedString::from(format!("answers:{key}"))), self.off_shown(cx)), Role::Toolbar, "Answers").into_any_element()
+        labelled(super::acts::gated(row.id(SharedString::from(format!("answers:{key}"))), self.off_shown_to("/sessions/waiting/answer", cx)), Role::Toolbar, "Answers").into_any_element()
     }
 }
 

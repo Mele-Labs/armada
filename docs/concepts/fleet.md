@@ -688,6 +688,15 @@ A lease taken by hand, or before this was written, names none.
 **Every lease and release is also written to the slot's history**, `slot-<n>.history` beside the record, by the pool in whichever process writes or clears the record, so one an agent took with `armada worktree lease` is in it though Fleet never heard.
 It is kept thirty days, and `get_slot_history` serves it with the checkouts the slot's own `HEAD` reflog holds (`docs/practices/protocol.md`, *A bay's history*).
 
+**Fleet reclaims build output on its own, well before the disk is full.**
+A build folder is any directory named `target` that holds the `CACHEDIR.TAG` Cargo writes, within three levels of a checkout, so `crates/bridge-native/target` is swept like `target`.
+The checkouts are the main one, the slots, the bases, the land trees, the preview, the Job and agent worktrees, and every worktree git lists for the repository, wherever it sits.
+Every build sweep trims all of them, and a free slot also sheds by age: its incremental caches after two hours unbuilt, the whole folder after a day.
+Every minute Fleet reads free space under each served root, and under `limits.diskReclaimFloorGib` (100 GiB) it drops, until free space is twenty gibibytes over the floor: incremental caches of folders not built in the last hour, oldest first; whole folders of checkouts whose HEAD the base already has; whole folders of free slots; whole folders of held slots unbuilt for six hours.
+The main checkout's and the preview's folders lose only their incremental caches, since the running Fleet and Bridge come from them, and a folder a build holds the lock of is never touched.
+The hold floor, `limits.diskFloorGib`, is thirty gibibytes: measured on 13 Nov 2026, free space fell 50 GB an hour at the peak, and ten was ten minutes of runway.
+The owner's decision of 13 Nov 2026, `.armada/documents/disk-reclaim-policy.html`.
+
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
 > clean and every commit on it is on its branch, the remote or the base. Otherwise it stays held, and a lease
 > waiting for a slot names it.

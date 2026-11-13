@@ -649,6 +649,7 @@ impl JobView {
             Extra::Subagents => return self.subagents_card(page.items + at, items, page, look, cx),
             Extra::Waiting => return self.waiting_card(&self.shown.clone()?, look, cx),
             Extra::End => return self.end_card(&self.shown.clone()?, look, cx),
+            Extra::WaitsFor => return self.waits_for_card(&self.shown.clone()?, look, cx),
             Extra::Spoken(card, _) => return self.spoken_card(*card, look, cx),
             Extra::MovedTo => {
                 let id = self.shown.clone()?;

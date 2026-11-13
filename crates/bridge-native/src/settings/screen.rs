@@ -55,6 +55,15 @@ impl SettingsScreen {
         });
     }
 
+    /// For the walk of deleting a project: Storefront holds four tasks, and Pricing is a copy of another Mac's.
+    pub fn with_deletable_projects(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.deletable_projects();
+            }
+        });
+    }
+
     /// For the walk of a Mac nothing is set up on.
     pub fn fresh_mac(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {
