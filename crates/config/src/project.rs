@@ -1,6 +1,6 @@
-//! A Project is a set of members, whole repositories or monorepo folders, read off a file Fleet keeps
+//! A Project is a set of members, whole repositories or any folder of one, read off a file Fleet keeps
 //! in the place the person chose for it. **Nothing here touches the Manifest's workspace**, the
-//! monorepo unit `manifest/workspace.rs` reads; a member may name one by folder, and that is all.
+//! monorepo unit `manifest/workspace.rs` reads; a member names a folder, which needs no `armada.yml`.
 //!
 //! One file is one Project, version 2: `project_id` and `name` say which, `members` lists each as
 //! `repository` (a Manifest id) and, for a folder of it, `folder`. An optional `values:` block holds the
