@@ -7,7 +7,7 @@
 mod act;
 mod find;
 
-pub use act::{reclaim, shed_free_slots};
+pub use act::{drop_first, reclaim, shed_free_slots};
 pub use find::{build_folders_in, every_checkout, inventory, mark_landed};
 
 use std::path::PathBuf;
@@ -58,6 +58,15 @@ pub enum How {
 pub struct Act {
     pub folder: PathBuf,
     pub how: How,
+}
+
+/// What a pass under pressure did, for a surface to say: how many acts it carried out, what the
+/// volume gained over it, and the folders it left, in the order the next pass would drop them.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Reclaimed {
+    pub acts: usize,
+    pub freed: u64,
+    pub left: Vec<PathBuf>,
 }
 
 fn idle(folder: &BuildFolder, now: SystemTime) -> Duration {

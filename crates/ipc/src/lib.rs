@@ -423,7 +423,7 @@ pub use event::{
 pub use files::FilesFound;
 pub use debug_report::DebugReport;
 pub use health::{
-    FleetHealth, ActionAuthority, Probe, Unprobed,
+    FleetHealth, ActionAuthority, DiskHealth, Probe, ReclaimPass, Unprobed,
 };
 pub use thought::{
     WordsSent, ReadThought, TellSession, ThoughtKind, ThoughtReading,
