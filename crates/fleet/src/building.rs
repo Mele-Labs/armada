@@ -18,14 +18,14 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
     BuildPosition, BuildSource, BuildStage, BuildSwitcher, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept, FleetBuildReport,
     FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, Instant as WireInstant, KeptBuildPrevious,
-    KeptBuildRunning, KeptSnapshot, LeftOutBranch, PickFleetBuildJob, PickedJob, RestartAct, SnapshotState, WireError,
+    KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, RestartAct, SnapshotState, WireError,
 };
 
 use crate::daemon::Fleet;
@@ -80,6 +80,15 @@ const PREVIEW_TREE: &str = ".armada/preview";
 const FETCH_EVERY: Duration = Duration::from_secs(10 * 60);
 /// A fetch still running after this is stopped.
 const FETCH_WITHIN: Duration = Duration::from_secs(60);
+/// The whole of origin is larger than `main`, so its fetch, which follows main's, is given longer.
+const FETCH_ORIGIN_WITHIN: Duration = Duration::from_secs(5 * 60);
+/// The whole of origin is fetched only while the machine's fifteen-minute load is under this.
+const FETCH_ORIGIN_LOAD: f64 = 24.0;
+/// The set the native rebuild collects its work on, which a Mac with no Job on it picks to try
+/// that work: listed first whenever origin has it.
+const ORIGIN_FIRST: &str = "native/refresh-set";
+/// An origin branch with no commit in this long is not offered to a snapshot.
+const ORIGIN_RECENT: Duration = Duration::from_secs(14 * 24 * 60 * 60);
 /// A `running` status older than this is a wrapper that died, not one working.
 const RUNNING_FOR_AT_MOST: Duration = Duration::from_secs(20 * 60);
 
@@ -379,13 +388,26 @@ impl Building {
         let on = source_in(support)?;
         let commit = commit_in(support);
         let root = checkout.to_string_lossy().into_owned();
+        // A restart or a snapshot under way is a build, which the whole of origin is not fetched beside.
+        let building = matches!(status_in(support, now), Some(Status::Running(..)))
+            || matches!(snapshot_status_in(support, now), Some(SnapshotStatus::Running(_)));
         if self.fetched.lock().unwrap_or_else(PoisonError::into_inner).take_if_due(Instant::now()) {
             let root = root.clone();
             drop(tokio::task::spawn_blocking(move || {
                 // A fetch that fails leaves the counts as they were.
                 let _ = adapters::fetch_main(&root, FETCH_WITHIN);
+                // Then every branch, so one no Job here holds can be picked for a snapshot. Skipped until the
+                // next fetch is due where a build runs or the machine is loaded.
+                if !building && adapters::load_under(FETCH_ORIGIN_LOAD) {
+                    let _ = adapters::fetch_origin(&root, FETCH_ORIGIN_WITHIN);
+                }
             }));
         }
+        let since = now.duration_since(UNIX_EPOCH).unwrap_or_default().saturating_sub(ORIGIN_RECENT).as_secs();
+        let origin = {
+            let root = root.clone();
+            tokio::task::spawn_blocking(move || adapters::origin_branches(&root, since)).await.unwrap_or_default()
+        };
         let position = match commit.clone() {
             None => None,
             Some(commit) => {
@@ -474,7 +496,14 @@ impl Building {
                 }
             }),
         };
-        let picked = kept_builds::picked_in(support).into_iter().map(|branch| PickedJob { branch, title: None }).collect();
+        let picked: Vec<PickedJob> =
+            kept_builds::picked_in(support).into_iter().map(|branch| PickedJob { branch, title: None }).collect();
+        let mut origin: Vec<OriginBranch> = origin
+            .into_iter()
+            .filter(|(branch, _)| picked.iter().all(|one| one.branch != *branch))
+            .map(|(branch, at)| OriginBranch { branch, committed_at: WireInstant::carried(at) })
+            .collect();
+        origin.sort_by_key(|one| one.branch != ORIGIN_FIRST);
         let running = kept_builds::kept_at(&support.join(kept_builds::BUILDS), kept_builds::CURRENT).map(|kept| KeptBuildRunning {
             built_at: WireInstant::carried(kept.built_at),
             commit: kept.commit,
@@ -508,6 +537,7 @@ impl Building {
             trying: kept_builds::trying_in(support),
             swapping: matches!(swap, Some(RevertStatus::Running)),
             switcher,
+            origin,
         })
     }
 
@@ -680,6 +710,8 @@ where
             named(&mut snapshot.jobs);
         }
         named(&mut report.trying);
+        // A branch a Job here holds is picked from its Job; the origin list is for the rest.
+        report.origin.retain(|one| !titles.contains_key(one.branch.as_str()));
         if let Some(previous) = report.previous.as_mut() {
             named(&mut previous.takes_out);
             named(&mut previous.brings_back);

@@ -1978,3 +1978,24 @@ The link is kept on the run in the store, so the row the run's end writes carrie
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 A row with `tool_row` reads on a Bridge that does not know it as a `check` row.
 **The event stream.** No new event; a linked `check` row grows by one short id. The open risk below is neither better nor worse.
+
+## Branches on origin a snapshot can take: `FleetBuildReport.origin`
+
+Since 13 Nov 2026. `docs/practices/running-locally.md`.
+**Additive only**: one field on an existing type and the type it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `OriginBranch` in `packages/protocol/src/building.ts`, written by hand, field for field.
+Electron reads none of it. The native Bridge draws each as a row of the build switcher, whose press is `pick_fleet_build_job` with the `branch`.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `FleetBuildReport` (`get_fleet_build`) | Fleet writes, Bridge reads | Gains `origin`, absent when empty: the branches on origin ahead of `origin/main`, committed in the last fourteen days, newest first, less those a live Job here holds and those picked |
+| `OriginBranch` | Fleet writes | `{ branch, committed_at }`, the tip's commit time |
+
+**So a Mac with no Job on a branch can still try it.** Fleet fetches the whole of origin after `origin main`, in the background, at most every ten minutes, and lists the refs as last fetched.
+That fetch is skipped while a restart or a snapshot is building, and while the fifteen-minute load is 24 or more.
+`native/refresh-set` is first whenever origin has it.
+A pick names the branch, and `scripts/preview --picked` takes a branch no slot here holds at its tip on origin.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** No new event; Bridge reads `get_fleet_build` on every connection and on a minute's interval.
