@@ -137,7 +137,7 @@ async fn recall_answers_the_whole_logbook_and_refuses_a_blank_query_or_an_unknow
     assert!(rig.fleet.logbook_recalled(None, "walk", Some("repository")).await.is_err());
 
     let handed = rig.fleet.logbook_for_subagent("no-such-session", "work in apps/desktop/src").await;
-    assert_eq!(handed, "", "a faded habit is not handed over");
+    assert_eq!(handed, rig.fleet.ways_note(), "a faded habit is not handed over, and the owner's ways are all that is");
 
     rig.fleet.store().lock().await.save_logbook_entry(&entry(LogSection::Habits, "No AI-sounding copy.", &[], 2).entry).expect("kept");
     let handed = rig.fleet.logbook_for_subagent("no-such-session", "work in apps/desktop/src").await;
