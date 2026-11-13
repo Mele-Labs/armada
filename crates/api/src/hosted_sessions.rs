@@ -790,6 +790,22 @@ pub(crate) async fn set_session_auto_land<D: HostedSessions>(
     }
 }
 
+/// Jobs moved into a project, or out of any. 200 with the Jobs; 404 for a Job Fleet does not host or a
+/// project he has none of, 422 for no Job, a Job with no repository or a project whose file did not read.
+pub(crate) async fn set_session_project<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::SetSessionProject = match ipc::decode_body("a project for jobs", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().set_session_project(asked).await {
+        Ok(moved) => answer(StatusCode::OK, &moved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_session_mcp<D: HostedSessions>(
     State(served): State<Served<D>>,
     Query(which): Query<Which>,
@@ -814,6 +830,20 @@ pub(crate) async fn get_session_quick<D: HostedSessions>(
         .await
     {
         Ok(quick) => answer(StatusCode::OK, &quick, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_job_artifacts<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<Which>,
+) -> Response {
+    match served
+        .daemon()
+        .get_job_artifacts(ipc::SessionId::carried(which.session_id))
+        .await
+    {
+        Ok(artifacts) => answer(StatusCode::OK, &artifacts, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

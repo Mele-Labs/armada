@@ -187,6 +187,7 @@ where
                         let voice = SessionVoice::Session {
                             id: "rescue".to_string(),
                             title: "Rescue".to_string(),
+                            mac: None,
                         };
                         if fleet.first_message_from(&id, voice, &request).await.is_err() {
                             let _ = fleet

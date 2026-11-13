@@ -559,6 +559,10 @@ where
         self.session_auto_land_set(asked).await
     }
 
+    async fn set_session_project(&self, asked: ipc::SetSessionProject) -> Result<ipc::SessionList, Refusal> {
+        self.sessions_project_set(asked).await
+    }
+
     async fn get_session_mcp(&self, id: SessionId) -> Result<ipc::SessionMcp, Refusal> {
         let servers = self.session_mcp(id.as_str()).await?;
         Ok(ipc::SessionMcp { servers: super::mcp_servers::on_wire(servers) })
@@ -566,6 +570,10 @@ where
 
     async fn get_session_quick(&self, id: SessionId) -> Result<ipc::SessionQuick, Refusal> {
         self.session_quick(id.as_str()).await
+    }
+
+    async fn get_job_artifacts(&self, id: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
+        self.job_artifacts(id.as_str()).await
     }
 
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {

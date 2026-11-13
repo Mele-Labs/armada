@@ -204,7 +204,7 @@ fn approve(n: u32, url: &str) -> SessionRow {
 #[test]
 fn the_person_has_replied_only_with_a_message_of_his_after_the_agents_first_turn() {
     let you = || SessionVoice::You;
-    let fleet = || SessionVoice::Session { id: "fleet".into(), title: "Fleet".into() };
+    let fleet = || SessionVoice::Session { id: "fleet".into(), title: "Fleet".into(), mac: None };
     assert!(!thread_facts(&[message(1, you())], None).replied, "his request is not a reply");
     assert!(!thread_facts(&[message(1, you()), message(2, SessionVoice::Agent)], None).replied, "the agent has spoken and he has not");
     assert!(thread_facts(&[message(1, you()), message(2, SessionVoice::Agent), message(3, you())], None).replied);
@@ -222,7 +222,7 @@ fn a_window_is_shown_by_its_row_and_approved_only_by_his_approve_at_or_after_it(
     assert!(thread_facts(&[window(1, url), approve(2, url)], None).any_walk_approved);
     assert!(!thread_facts(&[approve(1, url), window(2, url)], None).any_walk_approved, "a page shown again must be approved again");
     assert!(!thread_facts(&[window(1, url), approve(2, "http://localhost:5391/?walk=b")], None).any_walk_approved, "another page's approve");
-    let fleet = said(2, SessionVoice::Session { id: "fleet".into(), title: "Fleet".into() }, &format!("Approved: {url}"));
+    let fleet = said(2, SessionVoice::Session { id: "fleet".into(), title: "Fleet".into(), mac: None }, &format!("Approved: {url}"));
     assert!(!thread_facts(&[window(1, url), fleet], None).any_walk_approved, "only the person approves");
 }
 

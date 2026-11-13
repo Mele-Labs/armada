@@ -13,6 +13,7 @@
 //! ([`Fleet::projects_held`]), so a lifecycle read never waits on a bucket. A place that cannot be
 //! read leaves that project's file out with the reason and stops nothing: Fleet runs without it.
 
+mod built_in;
 mod migrating;
 
 use std::path::PathBuf;

@@ -517,7 +517,7 @@ impl SettingsOverlay {
             );
         }
         if let Some(said) = &self.keyboard.refused {
-            body.push(labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("keys-refused"), Role::Alert, said.clone()).into_any_element());
+            body.push(labelled(super::view::refusal(look, said.clone()).id("keys-refused"), Role::Alert, said.clone()).into_any_element());
         }
         for (title, acts) in found(&query) {
             let rows: Vec<AnyElement> = acts.into_iter().map(|row| self.render_act(row, look, window, cx)).collect();

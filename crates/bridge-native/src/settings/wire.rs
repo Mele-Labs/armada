@@ -31,6 +31,13 @@ impl Refused {
     }
 }
 
+/// What a preference is saved as: a word or the text a page wrote, or a switch.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Put {
+    Text(String),
+    Switch(bool),
+}
+
 pub enum Wire {
     Live(Entity<FleetConnection>),
     Mock(Box<MockFleet>),
@@ -39,6 +46,8 @@ pub enum Wire {
 enum Ask {
     Get(String),
     Post(String, String),
+    Put(String, String),
+    Delete(String),
 }
 
 fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, cx: &App) -> Task<Result<T, Refused>> {
@@ -47,6 +56,8 @@ fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'st
         let (status, bytes) = match ask {
             Ask::Get(path) => runtime.block_on(crate::transport::get(port, &path)),
             Ask::Post(path, body) => runtime.block_on(crate::transport::post(port, &path, body)),
+            Ask::Put(path, body) => runtime.block_on(crate::transport::put(port, &path, body)),
+            Ask::Delete(path) => runtime.block_on(crate::transport::delete(port, &path)),
         }
         .map_err(Refused::said)?;
         if !(200..300).contains(&status) {
@@ -73,6 +84,21 @@ fn body(value: &impl serde::Serialize) -> String {
 fn scoped(route: &str, manifest: &str) -> String {
     let join = if route.contains('?') { '&' } else { '?' };
     format!("{route}{join}manifest_id={}", crate::link::percent_encoded(manifest))
+}
+
+/// A workflow draft's query: its id and place, and the project where the place is one.
+fn draft_query(id: &str, source: &str, project: Option<&str>) -> String {
+    let project = project.map(|project| format!("&project={}", crate::link::percent_encoded(project))).unwrap_or_default();
+    format!("workflow_id={}&source={}{project}", crate::link::percent_encoded(id), crate::link::percent_encoded(source))
+}
+
+/// A piece draft's query: its kind and id, and the scope's id as `within` where it is one workflow's, none for everywhere.
+fn piece_query(kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope) -> String {
+    let within = match scope {
+        ipc::PieceScope::Within { id } => format!("&within={}", crate::link::percent_encoded(id)),
+        ipc::PieceScope::Everywhere => String::new(),
+    };
+    format!("kind={}&id={}{within}", kind.as_wire(), crate::link::percent_encoded(id))
 }
 
 fn unreachable<T: Send + 'static>() -> Task<Result<T, Refused>> {
@@ -152,6 +178,35 @@ impl Wire {
             return Task::ready(mock.workflow_definition(id, source, manifest));
         }
         let path = scoped(&format!("/workflows/definition?workflow_id={}&source={}", crate::link::percent_encoded(id), crate::link::percent_encoded(source)), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowDefinition", cx))
+    }
+
+    /// `GET /workflows/versions`: the versions a workflow has had in one place, newest first; none where nothing was published.
+    pub fn workflow_versions(&mut self, id: &str, source: &str, project: Option<&str>, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowVersions, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.workflow_versions(id, source, project, manifest));
+        }
+        let path = scoped(&format!("/workflows/versions?{}", draft_query(id, source, project)), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowVersions", cx))
+    }
+
+    /// `POST /workflows/revert`: a version's text put in the draft as a change of his. Nothing is published.
+    pub fn revert_workflow(&mut self, manifest: &str, revert: ipc::RevertWorkflow, cx: &App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.revert_workflow(manifest, revert));
+        }
+        let (path, said) = (scoped("/workflows/revert", manifest), body(&revert));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "WorkflowDraft", cx))
+    }
+
+    /// `GET /workflows/definition` with `source=base`: the text the copy at `of` (`kit`, `repository` or `project`) began from;
+    /// `fleet.workflow_base_none` where it has no base.
+    pub fn workflow_base(&mut self, id: &str, of: &str, project: Option<&str>, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.workflow_base(id, of, project, manifest));
+        }
+        let query = format!("{}&of={}", draft_query(id, "base", project), crate::link::percent_encoded(of));
+        let path = scoped(&format!("/workflows/definition?{query}"), manifest);
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowDefinition", cx))
     }
 
@@ -245,12 +300,157 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/workflows/changes/build".into(), said), "WorkflowSupportBuilding", cx))
     }
 
+    /// `GET /lifecycles`: the lifecycles that apply to one repository, and where each was kept.
+    pub fn lifecycles(&mut self, manifest: &str, cx: &App) -> Task<Result<ipc::RepositoryLifecycles, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.lifecycles(manifest));
+        }
+        let path = scoped("/lifecycles", manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "RepositoryLifecycles", cx))
+    }
+
+    /// `GET /lifecycles/rules`: the rules that apply to one repository, and where each was kept.
+    pub fn lifecycle_rules(&mut self, manifest: &str, cx: &App) -> Task<Result<ipc::RepositoryLifecycleRules, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.lifecycle_rules(manifest));
+        }
+        let path = scoped("/lifecycles/rules", manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "RepositoryLifecycleRules", cx))
+    }
+
+    /// `GET /autonomy`: Armada's default autonomy for each kind of act, and each layer that sets some for one repository.
+    pub fn autonomy_defaults(&mut self, manifest: &str, cx: &App) -> Task<Result<ipc::RepositoryAutonomy, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.autonomy_defaults(manifest));
+        }
+        let path = scoped("/autonomy", manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "RepositoryAutonomy", cx))
+    }
+
+    /// `GET /watches/recipes`: the recipes a watch may start from.
+    pub fn watch_recipes(&mut self, cx: &App) -> Task<Result<ipc::WatchRecipeList, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.watch_recipes());
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/watches/recipes".into()), "WatchRecipeList", cx))
+    }
+
+    /// `POST /lifecycles/pieces/delete`.
+    pub fn delete_lifecycle_piece(&mut self, delete: ipc::DeleteLifecyclePiece, cx: &App) -> Task<Result<ipc::LifecyclePieceDeleted, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.delete_lifecycle_piece(delete));
+        }
+        let said = body(&delete);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/lifecycles/pieces/delete".into(), said), "LifecyclePieceDeleted", cx))
+    }
+
+    /// `GET /workflows/draft`: the draft kept for a workflow in a place; `fleet.workflow_draft_none` where none is.
+    pub fn workflow_draft(&mut self, id: &str, source: &str, project: Option<&str>, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.workflow_draft(id, source, project, manifest));
+        }
+        let path = scoped(&format!("/workflows/draft?{}", draft_query(id, source, project)), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowDraft", cx))
+    }
+
+    /// `PUT /workflows/draft`: the draft text as it is now.
+    pub fn put_workflow_draft(&mut self, manifest: &str, put: ipc::PutWorkflowDraft, cx: &App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.put_workflow_draft(manifest, put));
+        }
+        let (path, said) = (scoped("/workflows/draft", manifest), body(&put));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Put(path, said), "WorkflowDraft", cx))
+    }
+
+    /// `DELETE /workflows/draft`.
+    pub fn discard_workflow_draft(&mut self, id: &str, source: &str, project: Option<&str>, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowDraftDiscarded, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.discard_workflow_draft(id, source, project, manifest));
+        }
+        let path = scoped(&format!("/workflows/draft?{}", draft_query(id, source, project)), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Delete(path), "WorkflowDraftDiscarded", cx))
+    }
+
+    /// `POST /workflows/draft/publish`: the draft written where it applies.
+    pub fn publish_workflow_draft(&mut self, manifest: &str, publish: ipc::PublishWorkflowDraft, cx: &App) -> Task<Result<ipc::WorkflowPublished, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.publish_workflow_draft(manifest, publish));
+        }
+        let (path, said) = (scoped("/workflows/draft/publish", manifest), body(&publish));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "WorkflowPublished", cx))
+    }
+
+    /// `GET /workflows/affected`: the live Jobs a publish at this place would pin. `manifest_id` goes only for the repository's own.
+    pub fn affected_jobs(&mut self, id: &str, source: &str, project: Option<&str>, manifest: &str, cx: &App) -> Task<Result<ipc::AffectedJobs, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.affected_jobs(id, source, project, manifest));
+        }
+        let route = format!("/workflows/affected?{}", draft_query(id, source, project));
+        let path = if source == "repository" { scoped(&route, manifest) } else { route };
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "AffectedJobs", cx))
+    }
+
+    /// `POST /workflows/migrate`: the Jobs he picked, moved to the published version. Always answered, with a result for each.
+    pub fn migrate_jobs(&mut self, manifest: &str, migrate: ipc::MigrateJobs, cx: &App) -> Task<Result<ipc::MigratedJobs, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.migrate_jobs(migrate));
+        }
+        let (path, said) = (scoped("/workflows/migrate", manifest), body(&migrate));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "MigratedJobs", cx))
+    }
+
+    /// `GET /lifecycles/pieces/draft`: the draft kept for a piece at a scope; `fleet.piece_draft_none` where none is.
+    pub fn piece_draft(&mut self, kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope, cx: &App) -> Task<Result<ipc::PieceDraft, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.piece_draft(kind, id, scope));
+        }
+        let path = format!("/lifecycles/pieces/draft?{}", piece_query(kind, id, scope));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "PieceDraft", cx))
+    }
+
+    /// `PUT /lifecycles/pieces/draft`.
+    pub fn put_piece_draft(&mut self, put: ipc::PutPieceDraft, cx: &App) -> Task<Result<ipc::PieceDraft, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.put_piece_draft(put));
+        }
+        let said = body(&put);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Put("/lifecycles/pieces/draft".into(), said), "PieceDraft", cx))
+    }
+
+    /// `DELETE /lifecycles/pieces/draft`.
+    pub fn discard_piece_draft(&mut self, kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope, cx: &App) -> Task<Result<ipc::PieceDraftDiscarded, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.discard_piece_draft(kind, id, scope));
+        }
+        let path = format!("/lifecycles/pieces/draft?{}", piece_query(kind, id, scope));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Delete(path), "PieceDraftDiscarded", cx))
+    }
+
+    /// `POST /lifecycles/pieces/draft/publish`.
+    pub fn publish_piece_draft(&mut self, publish: ipc::PublishPieceDraft, cx: &App) -> Task<Result<ipc::PiecePublished, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.publish_piece_draft(publish));
+        }
+        let said = body(&publish);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/lifecycles/pieces/draft/publish".into(), said), "PiecePublished", cx))
+    }
+
     /// `GET /models`: the models the harness offers, and the model a run that names none is given.
     pub fn models(&mut self, cx: &App) -> Task<Result<ipc::ModelChoices, Refused>> {
         if let Wire::Mock(mock) = self {
             return Task::ready(if mock.connected { Ok(mock.models.clone()) } else { Err(Refused::said("Fleet is not connected")) });
         }
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/models".into()), "ModelChoices", cx))
+    }
+
+    /// `POST /phone {on: true}` on Fleet's socket: the Gateway starts now and at every start after.
+    pub fn phone_on(&mut self, cx: &App) -> Task<Result<ipc::PhoneGateway, Refused>> {
+        if let Wire::Mock(mock) = self {
+            mock.gateway.running = true;
+            return Task::ready(Ok(ipc::PhoneGateway { on: true, port: 8443, listening: true, why: None }));
+        }
+        let said = body(&ipc::SetPhoneGateway { on: true });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/phone".into(), said), "PhoneGateway", cx))
     }
 
     /// `GET /admin/setup` on the Phone Gateway, which runs whether or not Fleet answers.
@@ -263,8 +463,64 @@ impl Wire {
 
     pub fn gateway_macs(&mut self, cx: &App) -> Task<Result<Vec<ipc::Mac>, String>> {
         match self {
-            Wire::Mock(mock) => Task::ready(if mock.gateway.running { Ok(mock.gateway.macs.clone()) } else { Err(super::gateway::NOT_RUNNING.into()) }),
+            Wire::Mock(mock) => Task::ready(mock.gateway.read_macs()),
             Wire::Live(_) => super::gateway::macs(cx),
+        }
+    }
+
+    pub fn pair_start(&mut self, cx: &App) -> Task<Result<ipc::MacPairLink, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.pair_start()),
+            Wire::Live(_) => super::gateway::pair_start(cx),
+        }
+    }
+
+    pub fn pair_claim(&mut self, link: String, cx: &App) -> Task<Result<ipc::Mac, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.pair_claim(&link)),
+            Wire::Live(_) => super::gateway::pair_claim(link, cx),
+        }
+    }
+
+    pub fn pair_confirm(&mut self, mac: String, cx: &App) -> Task<Result<ipc::Mac, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.pair_confirm(&mac)),
+            Wire::Live(_) => super::gateway::pair_confirm(mac, cx),
+        }
+    }
+
+    pub fn phone_start(&mut self, cx: &App) -> Task<Result<super::gateway::PhoneCode, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.phone_start()),
+            Wire::Live(_) => super::gateway::phone_start(cx),
+        }
+    }
+
+    pub fn phone_pending(&mut self, cx: &App) -> Task<Result<Vec<super::gateway::PhoneClaim>, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.phone_pending()),
+            Wire::Live(_) => super::gateway::phone_pending(cx),
+        }
+    }
+
+    pub fn phone_confirm(&mut self, code: String, cx: &App) -> Task<Result<ipc::PairedPhone, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.phone_confirm(&code)),
+            Wire::Live(_) => super::gateway::phone_confirm(code, cx),
+        }
+    }
+
+    pub fn phone_decline(&mut self, code: String, cx: &App) -> Task<Result<(), String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.phone_decline(&code)),
+            Wire::Live(_) => super::gateway::phone_decline(code, cx),
+        }
+    }
+
+    pub fn forget_mac(&mut self, mac: String, cx: &App) -> Task<Result<(), String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.forget(&mac)),
+            Wire::Live(_) => super::gateway::forget(mac, cx),
         }
     }
 
@@ -305,6 +561,24 @@ impl Wire {
         }
     }
 
+    /// The project a Job was started for, by id and name, as Fleet holds its record. None for a Job started for
+    /// none, or one Fleet does not list.
+    pub fn project_of_job(&self, job: &str, cx: &App) -> Option<(String, String)> {
+        match self {
+            Wire::Live(fleet) => {
+                let held = fleet.read(cx).held();
+                let id = held.jobs.iter().find(|one| one.id.as_str() == job)?.hosted.as_ref()?.project.clone()?;
+                let name = held.projects.as_ref().and_then(|all| all.projects.iter().find(|one| one.id == id)).map_or_else(|| id.clone(), |one| one.name.clone());
+                Some((id, name))
+            }
+            Wire::Mock(mock) => {
+                let id = mock.job_projects.iter().find(|(one, _)| *one == job)?.1;
+                let name = mock.projects.projects.iter().find(|one| one.id == id).map_or_else(|| id.to_string(), |one| one.name.clone());
+                Some((id.to_string(), name))
+            }
+        }
+    }
+
     /// The repositories Fleet serves, by Manifest id, name and whether its armada.yml turns connectors off.
     pub fn repositories(&self, cx: &App) -> Option<Vec<(String, String, bool)>> {
         let held = match self {
@@ -314,13 +588,30 @@ impl Wire {
         Some(held.into_iter().filter_map(|one| one.manifest.map(|manifest| (manifest.id.as_str().to_string(), manifest.repository, manifest.connectors_off))).collect())
     }
 
-    /// `GET /projects/values?project=<id>`.
+    /// `GET /projects/values?project=<id>`: what the project's values come to.
     pub fn values(&mut self, project: &str, cx: &App) -> Task<Result<ResolvedValues, Refused>> {
         if let Wire::Mock(mock) = self {
             return Task::ready(mock.values(project));
         }
         let path = format!("/projects/values?project={}", crate::link::percent_encoded(project));
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "ResolvedValues", cx))
+    }
+
+    /// `GET /projects/values` for no project: what every project uses, Kit's over the defaults.
+    pub fn every_values(&mut self, cx: &App) -> Task<Result<ResolvedValues, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.every_values());
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/projects/values".into()), "ResolvedValues", cx))
+    }
+
+    /// `POST /kit/values`: Kit's values, whole. A key left out is taken away.
+    pub fn save_kit_values(&mut self, values: ValuesSet, cx: &App) -> Task<Result<ipc::KitValuesSaved, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.save_kit_values(values));
+        }
+        let said = body(&ipc::SaveKitValues { values });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/kit/values".into(), said), "KitValuesSaved", cx))
     }
 
     /// `GET /projects`, read fresh before a project's values are written whole.
@@ -341,11 +632,30 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
     }
 
+    /// `POST /projects/project/:id/edit` with `shared_with_macs` alone.
+    pub fn share_with_macs(&mut self, project: &str, on: bool, cx: &App) -> Task<Result<Projects, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.share_with_macs(project, on));
+        }
+        let path = format!("/projects/project/{}/edit", crate::link::percent_encoded(project));
+        let said = body(&EditProject { shared_with_macs: Some(on), ..EditProject::default() });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
+    }
+
     /// The person's key bindings as Fleet last said them, or the mock's.
     pub fn key_bindings(&self, cx: &App) -> String {
         match self {
             Wire::Live(fleet) => fleet.read(cx).held().key_bindings.clone().unwrap_or_default(),
             Wire::Mock(mock) => mock.preferences.key_bindings.clone(),
+        }
+    }
+
+    /// Whether the first-run screen is owed: Fleet has been read and he has not answered. Over a mock Fleet it is
+    /// the mock's own preference.
+    pub fn first_run_owed(&self, cx: &App) -> bool {
+        match self {
+            Wire::Live(fleet) => fleet.read(cx).held().first_run_answered == Some(false),
+            Wire::Mock(mock) => !mock.preferences.first_run_answered,
         }
     }
 
@@ -359,10 +669,18 @@ impl Wire {
 
     /// `POST /preferences/save` with a preference that is text. Fleet answers with every preference in force.
     pub fn save_preference(&mut self, name: &str, text: String, cx: &App) -> Task<Result<ipc::Preferences, Refused>> {
+        self.save_put(name, Put::Text(text), cx)
+    }
+
+    /// One preference saved, as the word or the text it is, or a switch, which rides in `value`.
+    pub fn save_put(&mut self, name: &str, put: Put, cx: &App) -> Task<Result<ipc::Preferences, Refused>> {
         if let Wire::Mock(mock) = self {
-            return Task::ready(mock.save_preference(name, text));
+            return Task::ready(mock.save_put(name, put));
         }
-        let said = body(&ipc::SavePreference { name: name.to_string(), value: false, text: Some(text) });
+        let said = body(&match put {
+            Put::Text(text) => ipc::SavePreference { name: name.to_string(), value: false, text: Some(text) },
+            Put::Switch(on) => ipc::SavePreference { name: name.to_string(), value: on, text: None },
+        });
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/preferences/save".into(), said), "Preferences", cx))
     }
 
@@ -474,39 +792,5 @@ impl Wire {
         }
         let (editor, path) = (crate::editor::configured(list), list.path.clone());
         cx.background_spawn(async move { crate::editor::open(&editor, &path, 1) })
-    }
-}
-
-/// A project's own values with a new `reviews`, every other key it sets kept as it was: the edit replaces the
-/// whole block, so a save that sent only `reviews` would take the rest back.
-pub fn with_reviews(own: Option<&ValuesSet>, reviews: ipc::ReviewsSet) -> ValuesSet {
-    ValuesSet { reviews: Some(reviews), ..own.cloned().unwrap_or_default() }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ipc::{LookSet, PrMode, ReviewsSet};
-
-    #[test]
-    fn a_reviews_change_keeps_the_projects_other_five_values() {
-        let own = ValuesSet {
-            pr_mode: PrMode::from_wire("draft"),
-            auto_merge: Some("checks-pass".into()),
-            review_model: Some("opus".into()),
-            look: Some(LookSet { layout: None, theme: Some("dusk".into()), density: Some("roomy".into()) }),
-            tracker: Some([("provider".to_string(), "linear".to_string())].into_iter().collect()),
-            reviews: Some(ReviewsSet { plans: Some("review".into()), pull_requests: Some("off".into()), walks: Some("off".into()) }),
-            ..ValuesSet::default()
-        };
-        let wanted = ReviewsSet { plans: Some("review_and_approve".into()), pull_requests: Some("review".into()), walks: Some("review".into()) };
-        let sent = with_reviews(Some(&own), wanted.clone());
-        assert_eq!(sent, ValuesSet { reviews: Some(wanted), ..own });
-    }
-
-    #[test]
-    fn a_project_that_sets_nothing_sends_its_reviews_alone() {
-        let wanted = ReviewsSet { plans: Some("review".into()), pull_requests: None, walks: None };
-        assert_eq!(with_reviews(None, wanted.clone()), ValuesSet { reviews: Some(wanted), ..ValuesSet::default() });
     }
 }
