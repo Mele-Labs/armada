@@ -1,6 +1,6 @@
 //! `GET /api/machine`: the name the phone labels this Mac's rows with when it
-//! is paired with more than one. `GET /admin/macs`: this Mac, and later the
-//! Macs paired with it, for the Devices list beside the phones.
+//! is paired with more than one. `GET /admin/macs`: this Mac and the Macs
+//! paired with it, for the Devices list beside the phones.
 
 use axum::extract::State;
 use axum::response::Response;
@@ -67,7 +67,7 @@ pub(crate) fn this_mac(gateway: &Gateway) -> Result<store::ThisMac, String> {
 
 fn macs(gateway: &Gateway) -> Result<Vec<Mac>, String> {
     let mac = this_mac(gateway)?;
-    Ok(vec![Mac {
+    let mut all = vec![Mac {
         colour: MacColour::named(&mac.colour).unwrap_or(MacColour::Blue),
         id: mac.id,
         name: mac.name,
@@ -77,10 +77,12 @@ fn macs(gateway: &Gateway) -> Result<Vec<Mac>, String> {
         link: None,
         last_heard_at: None,
         why: None,
-    }])
+    }];
+    all.extend(crate::mac_pair_routes::others(gateway)?);
+    Ok(all)
 }
 
-/// `GET /admin/macs`: this Mac first. Pairing a Mac adds the others.
+/// `GET /admin/macs`: this Mac first, then each paired Mac, then each claim waiting for Confirm here.
 pub async fn this_and_paired_macs(State(gateway): State<Gateway>) -> Response {
     match tokio::task::spawn_blocking(move || macs(&gateway)).await {
         Ok(Ok(macs)) => json(&macs),

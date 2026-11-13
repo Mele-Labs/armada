@@ -573,7 +573,7 @@ jobs:
       - uses: ./.github/actions/run-check
         with:
           name: preview_test
-          cmd: python3 scripts/test_preview.py
+          cmd: python3 -m unittest scripts/test_preview.py scripts/test_restart_detach.py
 
   sync_mod_test:
     name: sync_mod_test

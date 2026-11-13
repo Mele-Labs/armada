@@ -10,7 +10,12 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::Router;
 
-use crate::{admin, cors, fleet_client, forward, machine, pair_routes, push, reads, session_routes, setup, shown_address, signing, stat};
+use tower_http::compression::CompressionLayer;
+
+use crate::{
+    admin, cors, fleet_client, forward, mac_pair_routes, mac_routes, machine, pair_routes, push, reads, session_routes, setup,
+    shown_address, signing, stat, thread_window,
+};
 
 /// Where Fleet is now: its port out of the runtime file, read afresh each time
 /// so a Fleet that restarted is found, or the sentence saying why it is not.
@@ -24,6 +29,8 @@ pub struct Gateway {
     pub pairing: crate::Pairing,
     pub push: push::Push,
     pub way_in: setup::WayIn,
+    /// The owner's other Macs: pairing codes, keys, and the link's pace.
+    pub macs: crate::Macs,
 }
 
 
@@ -54,6 +61,10 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/admin/setup/funnel", post(setup::funnel))
         .route("/admin/setup/cloudflare", post(setup::cloudflare))
         .route("/admin/macs", get(machine::this_and_paired_macs))
+        .route("/admin/macs/pair/start", post(mac_pair_routes::start))
+        .route("/admin/macs/pair/claim", post(mac_pair_routes::claim))
+        .route("/admin/macs/pair/confirm", post(mac_pair_routes::confirm))
+        .route("/admin/macs/forget", post(mac_pair_routes::forget))
         .route("/admin/pair/start", post(pair_routes::start))
         .route("/admin/pair/pending", get(pair_routes::pending))
         .route("/admin/pair/confirm", post(pair_routes::confirm))
@@ -61,20 +72,33 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/admin/devices/:id", delete(pair_routes::unpair))
         .layer(from_fn(admin::loopback_only));
 
+    // The stream and the push routes stay uncompressed, so nothing holds a frame back to fill a block.
+    let plain = Router::new()
+        .route("/api/live", get(reads::live))
+        .route("/api/mac/live", get(mac_routes::live))
+        .route("/api/push/subscribe", post(push::subscribe))
+        .route("/api/push/key", get(push::key))
+        .route("/api/push/vapid_private", get(push::vapid_private));
+
     // Issues 1995, 1996, 2001, 2004 and 2006 fill these in.
     Router::new()
         // GET is the app's own Pair page, which Bridge's QR opens; POST is the claim.
         .route("/pair", get(stat::serve).post(pair_routes::claim))
+        // Another Mac pairing, unsigned: the claim carries the key its calls are signed with after.
+        .route("/pair/mac", post(mac_pair_routes::claimed_here))
+        .route("/pair/mac/back", post(mac_pair_routes::back))
+        // Only a linked Mac, and never a phone: `signing::signed`.
+        .route("/api/mac/hello", get(mac_routes::hello))
+        .route("/api/mac/sessions", get(mac_routes::read))
+        .route("/api/mac/bug_reports", get(mac_routes::read))
+        .route("/api/mac/thread", get(mac_routes::read))
+        .route("/api/mac/forget", post(mac_pair_routes::forgotten))
         .route("/api/needs", get(reads::needs))
-        .route("/api/live", get(reads::live))
-        .route("/api/push/subscribe", post(push::subscribe))
-        .route("/api/push/key", get(push::key))
-        .route("/api/push/vapid_private", get(push::vapid_private))
         .route("/api/sessions", get(session_routes::sessions).post(session_routes::dispatch))
         .route("/api/repositories", get(session_routes::repository_labels))
         .route("/api/sessions/answer", post(session_routes::answer))
         .route("/api/machine", get(machine::machine))
-        .route("/api/sessions/one", get(forward::forward))
+        .route("/api/sessions/one", get(thread_window::one))
         .route("/api/sessions/shown", get(forward::forward))
         .route("/api/sessions/shown/address", get(shown_address::address))
         .route("/api/sessions/kept_styles", get(forward::forward))
@@ -99,6 +123,9 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/plan_usage", get(forward::forward))
         // Bridge's model list reads Fleet's `/models` too, so the path maps as it is.
         .route("/api/models", get(forward::forward))
+        // A long Job's thread is mostly repeated JSON: gzip takes its newest rows from 768 KB to 96 KB.
+        .layer(CompressionLayer::new().gzip(true))
+        .merge(plain)
         .layer(from_fn_with_state(gateway.pairing.clone(), signing::signed))
         // After the signed layer, so it is unsigned: a video element cannot sign. See `shown_address`.
         .route("/shown/:ticket", get(shown_address::serve))

@@ -33,6 +33,12 @@
 # script it pulled, so a merged fix to these scripts runs on the next refresh. On any
 # other branch, or where it cannot fast-forward, it warns and runs them as they are.
 #
+# **A `--restart` that will change anything runs detached**, through `scripts/detach`: a
+# session of its own, SIGHUP ignored, its output in `~/Library/Logs/Armada/restart.log`,
+# which this process follows to its end.
+# Pocket's Run starts it on a terminal Fleet holds, and booting Fleet out would hang that
+# up before the new Fleet is bootstrapped. A dry run and a `--keep-only` build touch no Fleet and run as they are.
+#
 # Knobs for tests: `ARMADA_LAND_ARMADA` names the `armada` to ask about
 # slots, `ARMADA_PREVIEW_RESTART` the restart script `--restart` runs, and
 # `ARMADA_PREVIEW_INSTALL` the command that reinstalls a refused `armada`.
@@ -618,6 +624,10 @@ def main():
                 only = names(f.read().splitlines())
         except FileNotFoundError:
             only = set()
+    if args.restart and not (args.dry_run or args.keep_only or os.environ.get("ARMADA_RESTART_DETACHED")):
+        detach = os.path.join(os.path.dirname(os.path.abspath(__file__)), "detach")
+        log = os.path.join(os.path.expanduser("~"), "Library", "Logs", "Armada", "restart.log")
+        os.execv(detach, [detach, log, sys.executable, os.path.abspath(__file__), *sys.argv[1:]])
     root = repo_root()
     if args.restart:
         pull_main(root, args.dry_run)

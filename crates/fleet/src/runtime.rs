@@ -76,6 +76,21 @@ pub struct RuntimeFile {
     /// this file was written. **This is the field that makes `pid` a claim
     /// about a particular process rather than about a number.**
     pub started_at: StartedAt,
+    /// The kept build folder Fleet's own executable sits in, such as `2026-11-13T004852Z-126b4bb`,
+    /// so a Bridge can tell whether it is the Fleet `builds/current` points at. None when Fleet
+    /// runs from a tree, and in a file written before this field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build: Option<String>,
+}
+
+/// The name of the kept build folder `exe` sits in, under the `builds` folder of `support`.
+///
+/// Both paths are resolved first, so `builds/current/armada` names the build `current` points at.
+pub fn kept_build_of(exe: &Path, support: &Path) -> Option<String> {
+    let exe = fs::canonicalize(exe).ok()?;
+    let builds = fs::canonicalize(support.join("builds")).ok()?;
+    let folder = exe.parent()?;
+    (folder.parent()? == builds).then(|| folder.file_name()?.to_str().map(String::from))?
 }
 
 /// What is at the runtime file's path.
@@ -227,11 +242,16 @@ impl RuntimeFile {
             Holder::Vacant => return Err(PublishError::OwnPidNotHeld { pid }),
         };
 
+        let build = std::env::current_exe()
+            .ok()
+            .zip(path.parent())
+            .and_then(|(exe, support)| kept_build_of(&exe, support));
         let file = RuntimeFile {
             protocol_id,
             pid,
             port,
             started_at,
+            build,
         };
         let body = ipc::encode(&file).map_err(|cause| PublishError::Unencodable {
             cause: cause.to_string(),

@@ -11,12 +11,12 @@ import type { SessionRecord } from "./sessions";
  * with its `then` sent.
  */
 export type DispatchJob = StartSession & {
-  /** What he calls it. Left out, the Operator reads it from the words and pictures. */
+  /** What he marks it as: a hint the Operator is told, which picks no way and no workflow. Left out, the Operator reads it from the words and pictures. */
   kind?: DispatchKind;
   then?: DispatchThen[];
 };
 
-/** What the person calls the work he dispatches. */
+/** What the person marks the work he dispatches as: a hint to the Operator and nothing more. */
 export type DispatchKind = "idea" | "feature" | "bug";
 
 /** One send into the Job a dispatch became: the notes of a walk (`send_session_notes`), or a message (`send_session_message`). */
@@ -36,7 +36,7 @@ export type DispatchMessage = {
   sketches?: SentSketch[];
 };
 
-/** What `dispatch_job` answers. Exactly one is present: the Job started, the dispatch's id while the Operator holds it, or the id of the idea it was kept as. */
+/** What `dispatch_job` answers. Exactly one is present: the Job started, or the dispatch's id while the Operator holds it. `parked` is no longer answered: an idea is kept only by the Operator's ruling, which `operator.dispatched` names. */
 export type JobDispatched = {
   session?: SessionRecord;
   /** The dispatch's id: `operator.dispatched` says what became of it. */

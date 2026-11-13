@@ -323,16 +323,20 @@ checks:
       - ".claude/hooks/**"
 
   preview_test:
-    # `scripts/preview`, `scripts/restart` and `scripts/restart-build` against a throwaway repository, a
+    # `scripts/preview`, `scripts/restart`, `scripts/restart-build`, `scripts/detach` and
+    # `scripts/running-bridge` against a throwaway repository, a
     # stub `armada` and a stub Fleet. Git and Python only: no build, no real
     # Fleet, and `HOME` is a scratch directory. A failure means the preview
     # merges the wrong branches or a restart refuses or adopts wrongly.
-    run: python3 scripts/test_preview.py
+    run: python3 -m unittest scripts/test_preview.py scripts/test_restart_detach.py
     when:
       - ".github/**"
       - "scripts/preview"
       - "scripts/restart"
       - "scripts/restart-build"
+      - "scripts/detach"
+      - "scripts/running-bridge"
+      - "scripts/test_restart_detach.py"
       - "scripts/armada-electron"
       - "scripts/test_preview.py"
       - "armada.yml"

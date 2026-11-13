@@ -342,6 +342,7 @@ A record whose keeper is gone is removed, and so is one whose Job is gone, which
 The wire is frames of a kind byte, a length and bytes, not lines: Fleet sends `ATTACH`, `INPUT`, `RESIZE` and `END`, and the keeper sends `READY`, `OUTPUT`, `FOREGROUND` and `EXIT`.
 A stop, the Job ending and the shell exiting end the keeper and remove the record, and a keeper with no Fleet for 30 minutes ends its shell.
 A run with a command is not kept: it is Fleet's child, and a restart ends it.
+`scripts/restart` and `scripts/preview --restart` detach their own work, so one run this way outlives the Fleet it stops (`docs/practices/running-locally.md`, *Restarting onto a new build*).
 See [the shared terminal](shared-terminal.md).
 
 **A hosted Job's door also waits at its start.**
