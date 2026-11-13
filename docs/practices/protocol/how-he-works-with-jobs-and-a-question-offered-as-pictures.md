@@ -36,11 +36,11 @@ This is the inverse of `draft_pull_requests`, which is left out while `false`.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
-| `waiting_for` item `options[]`, and `SessionRecord.waiting_for[].options[]` | `picture?`: `{ image, width, height, parts? }` | `image` is a URL or a path Fleet serves. `width` and `height` are the still's pixels. Absent on an option of words |
+| `waiting_for` item `options[]`, and `SessionRecord.waiting_for[].options[]` | `picture?`: `{ image, width, height, parts? }` | On the way in, `image` is a PNG or JPEG path, or a file the Job showed. As stored and served it is the address Fleet serves the still at, `/sessions/shown?session_id=<id>&path=<kept path>`. `width` and `height` are the still's pixels. Absent on an option of words |
 | `picture.parts[]` | `{ name, label, x, y, w, h }` | A box on the still, in the still's pixels from its top left. `name` is unique within the picture and is what the agent is told. `label` is what the person reads |
 | `answer_waiting_parts`, a new operation: `POST /sessions/waiting/answer_parts` | `AnswerWaitingParts { session_id, item_id, parts_picked: [{ option, part }] }` | `parts_picked` is not empty. `option` is an index into the item's `options`, as `choice` is. `part` is a part's `name`. `AnswerWaiting` is unchanged |
 
-**Fleet carries and stores; it does not draw or judge a picture.** `session_waiting` has a `pictures` column, on the open item and on the closed one, holding the JSON of an array as long as `options`, each entry null or one picture.
+**Fleet checks and keeps a picture; it does not draw one.** `session_waiting` has a `pictures` column, on the open item and on the closed one, holding the JSON of an array as long as `options`, each entry null or one picture.
 A reopen puts them back.
 
 **A parts answer is its own operation, so `AnswerWaiting` keeps its body.**
@@ -51,11 +51,12 @@ An empty `parts_picked`, an `option` the item lacks, a `part` that option's pict
 An item nothing holds is a 409.
 Words and a mode are not taken here; a person who adds words answers with `answer_waiting`.
 
-**The agent's own tool description does not offer `picture` yet.** `waiting_for` takes it, and an agent is told of it when Bridge draws one.
+**The agent's tool description offers `picture`, and the Logbook says when to use it.** The `waiting_for` description names the field and the steps: render each option's mock at one width with the browser tools, save a PNG with `browser_screenshot`, read each `[data-part]` box with `browser_evaluate`, pass the path and the parts.
+It says to do so only where the Logbook says he looks at questions, which is the `look_questions` line below.
 
 ## What Fleet does with them
 
-No new operation or field: Fleet reads the five closed preferences and says them to the Job, and checks two of them.
+No new operation or field: Fleet reads the five closed preferences and says them to the Job, and checks two of them. It also checks and keeps each option's picture.
 
 | Where | What | Notes |
 | --- | --- | --- |
@@ -63,6 +64,7 @@ No new operation or field: Fleet reads the five closed preferences and says them
 | A saved change to the note, `save_preferences` | The whole new note, once, as a `taught` notice to each Job with a running process | A save that leaves the note as it was tells none |
 | `waiting_for`, `answer_with` = `buttons` | A question with no options or more than four is 422 `fleet.session_waiting_options`, naming the item | A run, an approval, a procedure, a pull request and a message are not questions |
 | A reply that asks in words, `answer_with` = `buttons` | One `reply_claim` notice telling the Job to ask it again with options | Not when the Job asked through a tool, and not for the reply to the notice itself |
+| `waiting_for`, an option with a `picture` | Checks the file: it exists, is a PNG or JPEG of at most 8 MiB, and is `width` by `height` pixels, read from its header. Checks every part's box lies inside the still and that part names are unique within the option. Copies the file into the Job's own kept files, and stores `image` as `/sessions/shown?session_id=<id>&path=<kept path>`, the address `GET /sessions/shown` serves | A bad picture is a 422 naming the option: `fleet.picture_missing`, `fleet.picture_too_large`, `fleet.picture_not_an_image`, `fleet.picture_size`, `fleet.picture_part_outside`, `fleet.picture_part_repeated`. Nothing in the list is kept. A file the Job showed is served where it is, and an `image` already of that address form for the same Job is kept as it is |
 | `all_done`, `take_in` = `look` and `look_results` not `picture_screens` | 409 `fleet.picture_owed` until a sketch, a window or an image through `show_file` has been shown | Listed with the other reasons `all_done` is refused |
 | A workflow's groups, handed to the Job | A step that ends on `plan_approved`, `you_approved`, `sketch_approved` or `document_approved`, or records the plan, ends with a block by `take_in`, and the buttons line where he answers by buttons | Added where the groups are built, so his own copy of a workflow gets it. None at every default, and no page-first block where `read_results` is `thread_only` |
 
