@@ -2594,6 +2594,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::MACS_PHONE_STEPS,
     },
     Walk {
+        name: crate::settings::walk::LIMITS,
+        title: "Settings › Limits",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::LIMITS_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::WAYS,
         title: "Ways of working",
         screen: Screen::Settings,
