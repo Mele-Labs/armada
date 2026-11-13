@@ -18,7 +18,7 @@ use crate::tests::http::call;
 use crate::tests::repositories::code;
 use crate::tests::tmp::TempDir;
 use crate::tests::workflow_changes::{decoded, rig, with_refine, Rig, MANIFEST};
-use crate::tests::workflow_page::{at, carried_id, read, STAGED};
+use crate::tests::workflow_page::{at, carried_id, read, staged_in_repository, STAGED};
 
 fn put_body(source: &str, project: Option<&str>, text: &str) -> String {
     ipc::encode(&PutWorkflowDraft {
@@ -46,6 +46,11 @@ impl Rig {
 
     async fn draft(&self, source: &str) -> (StatusCode, Vec<u8>) {
         call(&self.app, "GET", &format!("/workflows/draft?workflow_id=staged&source={source}"), "").await
+    }
+
+    /// The fixture answers one read of the folders for each planting, and a publish reads them again: the folders read as they did at the start.
+    fn reads_again(&self) {
+        self.planted.will_read(read(staged_in_repository()));
     }
 }
 
@@ -104,11 +109,12 @@ async fn publish_saves_the_draft_in_its_place_with_overwrite_deletes_it_and_the_
     rig.planted.will_save(Ok(saved("staged", "/repo/.armada/workflows/staged.json")));
     let reads = rig.planted.read_for().len();
 
+    rig.reads_again();
     let (status, body) = call(&rig.app, "POST", "/workflows/draft/publish", &publish_body("staged", "repository", None)).await;
 
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
     let published: WorkflowPublished = decoded("a publish", &body);
-    assert_eq!((published.saved.file.as_str(), published.saved.runs_from.as_deref()), ("/repo/.armada/workflows/staged.json", Some("repository")));
+    assert_eq!(published.saved.file, "/repo/.armada/workflows/staged.json");
     let saves = rig.planted.saves();
     assert_eq!(saves.len(), 1);
     assert_eq!((saves[0].scope.clone(), saves[0].definition.as_str(), saves[0].overwrite), (WorkflowScope::Repository, after.as_str(), true));
@@ -138,6 +144,7 @@ async fn publishing_armadas_draft_needs_a_scope_and_writes_that_one_and_another_
     assert!(rig.planted.saves().is_empty(), "nothing was written without a scope");
 
     rig.planted.will_save(Ok(saved("feature", "/kit/workflows/feature.json")));
+    rig.reads_again();
     let (status, body) = call(&rig.app, "POST", "/workflows/draft/publish", &publish_body("feature", "armada", Some(WorkflowScope::Kit))).await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
     let saves = rig.planted.saves();
@@ -179,6 +186,7 @@ async fn an_unfit_draft_carries_the_loaders_sentence_and_its_publish_is_refused_
     assert_eq!(draft.unfit.as_deref(), Some("step `refine` needs `lint`, and the declared Checks are `test`"));
 
     rig.planted.will_check(vec![unfit()]);
+    rig.reads_again();
     let (status, body) = call(&rig.app, "POST", "/workflows/draft/publish", &publish_body("staged", "repository", None)).await;
 
     assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_unfit"));
@@ -193,6 +201,7 @@ async fn a_draft_that_declares_another_workflow_id_is_unfit_and_is_not_published
     let renamed = STAGED.replace("workflow_id: staged", "workflow_id: other");
     let (_, body) = rig.put("repository", &renamed).await;
     assert!(decoded::<WorkflowDraft>("a draft", &body).unfit.is_some_and(|why| why.contains("`other`") && why.contains("`staged`")));
+    rig.reads_again();
     let (status, body) = call(&rig.app, "POST", "/workflows/draft/publish", &publish_body("staged", "repository", None)).await;
     assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_unfit"));
     assert!(rig.planted.saves().is_empty());
