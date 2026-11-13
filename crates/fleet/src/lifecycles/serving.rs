@@ -305,7 +305,7 @@ where
         let Some(named) = named.map(|named| named.as_str().trim().to_string()).filter(|id| !id.is_empty()) else {
             return Err(Refusal::Unacceptable(WireError::raised(
                 UNPLACED,
-                "what a Job holds is its own, and nothing places one",
+                "Name a Job: this call came from outside a Job and gave no Job id.",
                 self.run_id(),
             )));
         };
@@ -313,7 +313,7 @@ where
             Some(_) => Ok(named),
             None => Err(Refusal::NotFound(WireError::raised(
                 NO_SUCH_SESSION,
-                format!("No Job Fleet holds is named {named}."),
+                format!("No Job has the id {named}."),
                 self.run_id(),
             ))),
         }

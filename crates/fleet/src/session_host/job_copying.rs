@@ -463,7 +463,7 @@ where
         let placed = api::asking().and_then(|caller| self.session_holding(&caller));
         let id = placed
             .or_else(|| named.map(|id| id.as_str().trim().to_string()).filter(|id| !id.is_empty()))
-            .ok_or_else(|| self.hosted_refusal(JOB_COPY_UNPLACED, "what a Job holds is its own, and nothing places one"))?;
+            .ok_or_else(|| self.hosted_refusal(JOB_COPY_UNPLACED, "Name a Job: this call came from outside a Job and gave no Job id."))?;
         self.job_copy_read(&id).await
     }
 

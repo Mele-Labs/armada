@@ -70,7 +70,7 @@ where
         };
         match self.store().lock().await.session(&named).map_err(|why| self.ledger_fault(why))? {
             Some(_) => Ok(Some(named)),
-            None => Err(self.watch_unacceptable(NO_SUCH_SESSION, format!("No Job Fleet holds is named {named}."))),
+            None => Err(self.watch_unacceptable(NO_SUCH_SESSION, format!("No Job has the id {named}."))),
         }
     }
 
@@ -407,7 +407,7 @@ where
             let session = store
                 .session(&job)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.watch_unacceptable(NO_SUCH_SESSION, format!("No Job Fleet holds is named {job}.")))?;
+                .ok_or_else(|| self.watch_unacceptable(NO_SUCH_SESSION, format!("No Job has the id {job}.")))?;
             let held = store
                 .attachments_of(&store::Holder::session(&job))
                 .map_err(|why| self.ledger_fault(why))?
