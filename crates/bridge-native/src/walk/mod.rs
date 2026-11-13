@@ -1818,6 +1818,7 @@ pub static WALKS: &[Walk] = &[
             step("Down moves a line, and the keys stay on it", Verb::Press, "button", "Move Run the checks and land it down"),
             step("Alt+Up moves it back from anywhere on its row", Verb::Key("alt-up"), "button", "Move Run the checks and land it up"),
             step("Learn from my messages is a switch", Verb::Press, "switch", "Learn from my messages"),
+            step("Voice is a list here too: Apple on-device, Whisper or macOS Dictation", Verb::Look, "combobox", "Voice"),
             step("Esc puts the panel away, and the keys go back to Aa", Verb::Key("escape"), "button", "Thread look"),
             step("A line too long for the bar is cut at its edge and scrolls across", Verb::Look, "button", "Run the checks and land it"),
             step("The box is in front again", Verb::Press, "textbox", "Message"),

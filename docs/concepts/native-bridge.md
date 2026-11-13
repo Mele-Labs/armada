@@ -114,6 +114,7 @@ The parity check takes each row here as chosen.
 
 | Where | Armada Classic | Native |
 |---|---|---|
+| The composer's Aa panel | No Voice section; voice is picked in Settings › Thread | A Voice section (Apple on-device, Whisper, macOS Dictation), as native has no other place to pick a voice (13 Nov) |
 | A pull request's Files tab | "N files" beside the tree, which draws every file | No count, under the no-aggregate-counts rule of 29 Sep |
 | A Job's Issues tab | Two repositories' #7 show as one row, a fault | Each repository's #7 is a row of its own; a row from another repository names it before the number, as sample-web#7 |
 | A Job's System tab: Columns | Hides Port, CPU, Memory and I/O | Hides Port alone: Fleet reports nothing else for each process |
