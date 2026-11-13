@@ -36,6 +36,14 @@ fn filled(played: Duration, total: Duration) -> usize {
     ((played.as_secs_f32() / total.as_secs_f32()) * BARS as f32).floor().clamp(0., BARS as f32) as usize
 }
 
+/// What the disc of a card that cannot be pressed says when it is hovered: why nothing can speak.
+fn off_tip(state: State) -> &'static str {
+    match state {
+        State::Failed(why) => why.said(),
+        _ => "Waiting for the line ahead",
+    }
+}
+
 impl JobView {
     /// One spoken card of the shown Job.
     pub(super) fn spoken_card(&self, id: u64, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
@@ -68,12 +76,10 @@ impl JobView {
             )
             .into_any_element()
         } else {
-            let why = match card.state {
-                State::Failed(why) => why.said(),
-                _ => "Waiting for the line ahead",
-            };
+            let why = off_tip(card.state);
             labelled(
-                disc_base.bg(look.color(token::BG_SUNKEN)).tooltip(tip(why)).child(glyph(look, "play", Size::Mark, look.color(token::FG_SUBTLE))),
+                // Dimmed as Again is, and no press: nothing can speak yet. The tooltip says why.
+                disc_base.bg(look.color(token::BG_SUNKEN)).opacity(0.4).tooltip(tip(why)).child(glyph(look, "play", Size::Mark, look.color(token::FG_SUBTLE))),
                 Role::Image,
                 match card.state {
                     State::Failed(_) => "Not spoken",
@@ -232,6 +238,14 @@ impl JobView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_disc_that_cannot_speak_says_why_on_hover() {
+        use crate::listen::Why;
+        assert_eq!(off_tip(State::Failed(Why::HelperMissing)), "Armada Voice is missing");
+        assert_eq!(off_tip(State::Failed(Why::VoiceMissing)), "The voice is missing");
+        assert_eq!(off_tip(State::Queued), "Waiting for the line ahead");
+    }
 
     #[test]
     fn the_bars_fill_with_what_is_said_and_follow_the_sketch_s_heights() {
