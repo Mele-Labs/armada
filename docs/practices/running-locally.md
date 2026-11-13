@@ -500,8 +500,8 @@ Each round drops at least one branch, so it ends.
 `Armada/preview-left-out` gets the preview commit on its first line and a
 `branch<TAB>tip<TAB>why` line for every skipped branch, the tip being its commit when it was left out.
 Fleet reads it only while that commit is the build it runs, tells each branch's Job
-why it is not in the preview, and offers Refresh preview once a branch moves past its tip,
-never pressing it itself (`docs/concepts/fleet.md`, *Telling jobs the build they now run*).
+why it is not in the preview. The Job offers a branch that moved again with `offer_preview`, and the
+owner presses Refresh preview himself (`docs/concepts/fleet.md`, *Telling jobs the build they now run*).
 
 **What the preview holds is written down too.** `Armada/preview-held` gets the preview commit on its
 first line, the main commit it stands on on its second, and a `branch<TAB>tip` line for every branch
@@ -577,7 +577,9 @@ network and the counts are as fresh as the last fetch. Bridge reads it on every
 connection and every minute, and every two seconds while a restart is under way.
 A `running` status older than twenty minutes is a wrapper that died and is ignored.
 
-**A Job's restart is the same button.** Bridge reads a command a Job
+**A Job's restart is the same button.** A branch for the preview is offered with
+`offer_preview`, not handed over as a command (`docs/concepts/fleet.md`, *Offering a branch for the
+preview*). Bridge reads a command a Job
 hands the person, `scripts/preview --restart` or `scripts/restart --main` with
 `--adopt` at most, as this switch: ▶ on its waiting item, or on a shell block of
 it, presses the button rather than running a shell. A shell run is Fleet's
@@ -596,8 +598,8 @@ working there is no confirm. The costs are `scripts/restart --adopt`'s.
 ## A Fleet of your own
 
 **This is not how the app is started.** Day to day that is
-`scripts/preview --restart`, which runs the latest `main` plus every in-flight
-branch. `scripts/restart --main` starts from `main` alone. A scratch Fleet is for wire
+`scripts/preview --restart`, which runs the latest `main` plus the branches
+Jobs offered. `scripts/restart --main` starts from `main` alone. A scratch Fleet is for wire
 data and recording Jobs.
 
 **`scripts/dev-fleet <scratch-dir>` starts a Fleet that cannot touch yours.** It

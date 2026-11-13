@@ -21,7 +21,7 @@ contrast" are themes; "move", "hide", "put first" and "reorder" are layouts; "a 
 | Reach for a mod first | A mod needs no source change and applies live once valid |
 | Pass your `session_id` to `scaffold_mod` | The mod lists you as `made_by`, and *Mods made* shows it with its switch, which is his undo |
 | Where a mod cannot say it, tell him so | He should not wait on a mod that cannot do the ask |
-| On Armada's repository, change the source on the Job's branch, then put `scripts/preview --restart` in `waiting_for` as a `run` item | The change reaches him through the preview |
+| On Armada's repository, change the source on the Job's branch, then call `offer_preview` with an `about` line | Fleet checks the branch with the other offers, and the change reaches him through the preview when he presses Refresh preview |
 | In the mods folder, with no repository, say a mod cannot do it and stop | There is no source to change and no preview to restart |
 
 # Making a theme mod
