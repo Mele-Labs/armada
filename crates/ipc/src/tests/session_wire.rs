@@ -72,6 +72,7 @@ pub(super) fn a_record() -> SessionRecord {
         viewed_at: None,
         compact: None,
         lanes: None,
+        pull_request_drafts: Vec::new(),
     }
 }
 

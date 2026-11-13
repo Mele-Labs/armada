@@ -223,6 +223,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // The Operator did something with a dispatch it held.
+    Route {
+        operation: "operator.dispatched",
+        method: "GET",
+        path: "/events",
+    },
     // The Operator's page moved: read it again.
     Route {
         operation: "operator.page_changed",

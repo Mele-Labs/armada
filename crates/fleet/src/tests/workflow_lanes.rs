@@ -138,7 +138,11 @@ fn web(repositories: &[&str]) -> WorkspaceRead {
 }
 
 fn drawn_from(read: &PiecesRead, drafts: &Drafts) -> JobLanesView {
-    editor_lanes(&EditorInput { workflow: "feature", steps: &steps(), read, drafts })
+    drawn_at(read, drafts, "default")
+}
+
+fn drawn_at(read: &PiecesRead, drafts: &Drafts, scope: &str) -> JobLanesView {
+    editor_lanes(&EditorInput { workflow: "feature", steps: &steps(), read, drafts, scope })
 }
 
 fn lanes_of(lifecycles: &[AppliedLifecycle], rules: &[AppliedRule]) -> JobLanesView {
@@ -213,7 +217,7 @@ fn holds_the_definitions_and_no_job() {
 /// **A workflow with no step still has its lane**, empty, as the editor draws it, so a first step can be added to it.
 #[test]
 fn draws_a_workflow_with_no_step_as_an_empty_lane() {
-    let view = editor_lanes(&EditorInput { workflow: "empty", steps: &[], read: &PiecesRead::default(), drafts: &Drafts::default() });
+    let view = editor_lanes(&EditorInput { workflow: "empty", steps: &[], read: &PiecesRead::default(), drafts: &Drafts::default(), scope: "default" });
 
     assert_eq!(ids(&view), ["workflow"]);
     assert!(view.lanes[0].nodes.is_empty() && view.lanes[0].moves.is_empty());
@@ -608,6 +612,115 @@ fn draws_what_a_keep_draft_would_add_as_proposed_and_waiting_on_approve() {
     assert_eq!(copied, ["held", "plain"], "a proposed rule is no definition yet");
 }
 
+// ---- Each tab at its own level ------------------------------------------------------------------------------------------------
+
+/// Each state of the ticket's lane with its name and the levels its mark names.
+fn ticket_read(view: &JobLanesView) -> Vec<(&str, &str, Vec<&str>)> {
+    let lane = view.lanes.iter().find(|lane| lane.id == "ticket").expect("the ticket's lane");
+    lane.nodes.iter().map(|node| (node.id.as_str(), node.label.as_str(), node.differs.iter().map(String::as_str).collect())).collect()
+}
+
+/// **A Workspace's tab names each state as the Workspace does, and marks the repositories it holds that differ**;
+/// the Workspace itself is no mark on its own tab.
+#[test]
+fn a_workspaces_tab_names_states_as_it_does_and_marks_the_repositories_it_holds() {
+    let mut own = ticket_with("ready", "Queued", &["Ready"]);
+    own.states.iter_mut().filter(|state| state.id == "in_progress").for_each(|state| state.read = StateReadFrom::Tracker { words: vec!["Doing".into()] });
+    let lifecycles = vec![armadas(ticket()), kept_within(ticket_with("ready", "Queued", &["Ready"]), "web", "workspace"), kept_within(own, "store-api", "repository")];
+    let read = PiecesRead { workspaces: vec![web(&["store-api"])], repositories: vec![store_api(&lifecycles, &[])] };
+
+    let view = drawn_at(&read, &Drafts::default(), "workspace:web");
+
+    assert_eq!(
+        ticket_read(&view),
+        [
+            ("ticket/todo", "To do", vec![]),
+            ("ticket/ready", "Queued", vec![]),
+            ("ticket/in_progress", "In progress", vec!["store-api"]),
+            ("ticket/done", "Done", vec![]),
+        ]
+    );
+}
+
+/// **A repository's tab runs its own piece whole**: a state its piece leaves out is not drawn, one it adds is, each
+/// is named as the repository names it, and a rule reads as the repository keeps it. Only the repository is named
+/// on its own tab.
+#[test]
+fn a_repositorys_tab_runs_its_own_piece_whole() {
+    let mut own = ticket_with("ready", "Picked", &["Ready"]);
+    own.states.retain(|state| state.id != "todo");
+    own.states.insert(2, tracker("review", "Review"));
+    own.transitions = moves_of(&[("ready", "in_progress"), ("in_progress", "review"), ("review", "done")]);
+    let plan = rule("plan_moves", starts("plan"), vec![moves_ticket_to("ready")]);
+    let rules = vec![kits(plan.clone()), rule_within(LifecycleRule { name: "Ours".into(), ..plan }, "store-api", "repository")];
+    let read = PiecesRead { workspaces: vec![web(&["store-api"])], repositories: vec![store_api(&[armadas(ticket()), kept_within(own, "store-api", "repository")], &rules)] };
+
+    let view = drawn_at(&read, &Drafts::default(), "store-api");
+
+    assert_eq!(
+        ticket_read(&view),
+        [
+            ("ticket/ready", "Picked", vec!["store-api"]),
+            ("ticket/in_progress", "In progress", vec![]),
+            ("ticket/done", "Done", vec![]),
+            ("ticket/review", "Review", vec!["store-api"]),
+        ]
+    );
+    let edges: Vec<(&str, &str, Vec<&str>)> =
+        view.rules.iter().map(|edge| (edge.rule.as_str(), edge.label.as_str(), edge.differs.iter().map(String::as_str).collect())).collect();
+    assert_eq!(edges, [("plan_moves", "Ours", vec!["store-api"])]);
+    assert_eq!(view.job.copy.rules[0].label, "Ours", "the copy the forms pick from reads as the tab does");
+}
+
+/// **A repository in two Workspaces that set one piece alike reads the default's, and its tab says which tie**;
+/// each Workspace's own tab reads its own piece and marks no clash.
+#[test]
+fn a_repository_in_two_workspaces_that_tie_reads_the_defaults_and_says_so() {
+    let mobile = WorkspaceRead { id: "mobile".into(), name: "Mobile".into(), repositories: vec!["store-api".into()] };
+    let lifecycles = vec![
+        armadas(ticket()),
+        kept_within(ticket_with("ready", "Queued", &["Ready"]), "web", "workspace"),
+        kept_within(ticket_with("ready", "Waiting", &["Ready"]), "mobile", "workspace"),
+    ];
+    let read = PiecesRead { workspaces: vec![web(&["store-api"]), mobile], repositories: vec![store_api(&lifecycles, &[])] };
+    let ready = |view: &JobLanesView| {
+        let node = view.lanes.iter().flat_map(|lane| &lane.nodes).find(|node| node.id == "ticket/ready").expect("drawn").clone();
+        (node.label, node.clash)
+    };
+
+    assert_eq!(ready(&drawn_at(&read, &Drafts::default(), "store-api")), ("Ready".to_string(), Some("Web and Mobile differ".to_string())));
+    assert_eq!(ready(&drawn_at(&read, &Drafts::default(), "workspace:web")), ("Queued".to_string(), None));
+    assert_eq!(ready(&drawn_at(&read, &Drafts::default(), "workspace:mobile")), ("Waiting".to_string(), None));
+}
+
+/// **A rule is drawn on the tabs that read it**: a Workspace's tab draws the default's, its own and those of the
+/// repositories it holds; a repository's tab draws those of the levels it reads, and no other repository's.
+#[test]
+fn a_rule_is_drawn_on_the_tabs_that_read_it() {
+    let mobile = WorkspaceRead { id: "mobile".into(), name: "Mobile".into(), repositories: vec!["store-api".into()] };
+    let at = |id: &str, level: Option<&str>| {
+        let one = rule(id, starts("plan"), vec![moves_ticket_to("ready")]);
+        match level {
+            None => kits(one),
+            Some(level) => rule_within(one, level, "repository"),
+        }
+    };
+    let rules = vec![at("everyone", None), at("webs", Some("web")), at("mobiles", Some("mobile")), at("storefronts", Some("storefront"))];
+    let read = PiecesRead {
+        workspaces: vec![web(&["store-api", "storefront"]), mobile],
+        repositories: vec![
+            store_api(&[armadas(ticket())], &rules),
+            RepositoryRead { id: "storefront".into(), name: "Storefront".into(), lifecycles: vec![armadas(ticket())], rules: Vec::new() },
+        ],
+    };
+    let drawn = |scope: &str| -> Vec<String> { drawn_at(&read, &Drafts::default(), scope).rules.into_iter().map(|edge| edge.rule).collect() };
+
+    assert_eq!(drawn("default"), ["everyone", "webs", "mobiles", "storefronts"]);
+    assert_eq!(drawn("workspace:web"), ["everyone", "webs", "storefronts"]);
+    assert_eq!(drawn("store-api"), ["everyone", "webs", "mobiles"]);
+    assert_eq!(drawn("storefront"), ["everyone", "webs", "storefronts"]);
+}
+
 // ---- The route ----------------------------------------------------------------------------------------------------------------
 
 async fn holding() -> (TempDir, axum::Router) {
@@ -651,8 +764,8 @@ fn the_lanes_carry_no_mark_where_nothing_differs() {
     }
 }
 
-/// **Only the default level is served yet**, and a workflow the repository does not run is no workflow;
-/// both are 422 with a code of their own.
+/// **A level the repository's lanes do not have is refused**, as is a workflow the repository does not run; each
+/// is 422 with a code of its own.
 #[tokio::test]
 async fn another_level_or_a_workflow_not_run_is_refused() {
     let (_home, app) = holding().await;
@@ -660,7 +773,7 @@ async fn another_level_or_a_workflow_not_run_is_refused() {
     let (status, body) = call(&app, "GET", "/workflows/lanes?workflow=staged&scope=default", "").await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
     let (status, body) = call(&app, "GET", "/workflows/lanes?workflow=staged&scope=store-api", "").await;
-    assert_eq!((status, code(&body)), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.lanes_level_not_served".to_string()));
+    assert_eq!((status, code(&body)), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.no_such_lanes_level".to_string()));
     let (status, body) = call(&app, "GET", "/workflows/lanes?workflow=nowhere", "").await;
     assert_eq!((status, code(&body)), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.no_such_workflow_definition".to_string()));
 }

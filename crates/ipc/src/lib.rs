@@ -233,6 +233,7 @@ mod servers;
 /// answers. `docs/concepts/session.md`.
 mod session_checks;
 /// A note pinned on a page, sent to a Session whole. `send_session_note`, `send_session_notes`.
+mod job_dispatch;
 mod session_notes;
 /// A hosted job's MCP servers, read and acted on. `get_session_mcp`, `act_on_session_mcp`.
 mod session_mcp;
@@ -424,6 +425,7 @@ pub use holding::{
     SlotFinding, SlotFindingState, SlotHolderKind, SlotHolding, SlotLastHolder, SlotPoolChanged,
     SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeSlot, WorktreesHeld,
 };
+pub use job_dispatch::{DispatchJob, DispatchKind, DispatchMessage, DispatchThen, JobDispatched, ParkedIdea, ParkedIdeas, RemoveParkedIdea};
 pub use hosted_sessions::{
     AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, EditSessionMessage, ForkFrom, GateAnswer, GateHold, HeldCommand,
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
@@ -543,7 +545,7 @@ pub use settings::{
 };
 pub use pull_requests::{
     FailureWeight, ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit,
-    PullRequestEntry, PullRequestFile, PullRequestFileOf, PullRequestFilePatch,
+    PullRequestDraft, PullRequestEntry, PullRequestFile, PullRequestFileOf, PullRequestFilePatch,
     PullRequestFilePatches,
     PullRequestFileStatus, PullRequestMergeable, PullRequestPage, PullRequestReviewState, PullRequestReviewer,
     PullRequestReviewerKind,

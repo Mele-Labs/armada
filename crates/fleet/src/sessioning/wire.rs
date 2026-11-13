@@ -1,6 +1,7 @@
 //! The store rows and the wire records, each spelled as the other, and the plugin version check.
 
 use super::*;
+use crate::session_host::drafting::{pull_request_draft, PR_DRAFT};
 
 /// The `version` the `armada` plugin declares, where it carries one: the installed copy under `home`
 /// first, which is the one a session loads, and the repository's own where there is none.
@@ -146,7 +147,8 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
                 context_band: reading.map(|(_, band)| band),
             }
         },
-        attachments: held.iter().map(attachment_wire).collect(),
+        // A draft's link to its pull request is served typed, in `pull_request_drafts`, and only while it waits.
+        attachments: held.iter().filter(|one| one.kind != PR_DRAFT).map(attachment_wire).collect(),
         hosted: None,
         terminal: None,
         mod_out_of_date: false,
@@ -195,5 +197,10 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         viewed_at: None,
         compact: None,
         lanes: None,
+        pull_request_drafts: held
+            .iter()
+            .filter(|one| one.kind == PR_DRAFT && one.state == AttachmentState::Standing)
+            .filter_map(pull_request_draft)
+            .collect(),
     }
 }
