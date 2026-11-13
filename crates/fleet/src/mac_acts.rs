@@ -2,6 +2,9 @@
 //! the queue the edits of a project copy use, in one order, until it speaks again. What another Mac sends here is
 //! run only for a Job in a shared project, once for each id it sends. `docs/concepts/pocket.md`, *Another Mac*.
 //!
+//! **The next stage's Job message to another Mac plugs in here**, as one more kind of send behind
+//! `/api/mac/act`, queued and drained by this module's queue.
+//!
 //! **The Mac that holds a Job runs the act on its own checkout and slots**: nothing is run here for a Job held from
 //! another Mac, a merge included. Every refusal it gives is passed back as it said it.
 

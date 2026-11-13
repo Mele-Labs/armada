@@ -10,7 +10,8 @@ use crate::open::Store;
 /// What a retry could still arrive after is a week; an older run is forgotten when the next is kept.
 const RUNS_KEPT_MS: i64 = 7 * 24 * 60 * 60 * 1000;
 
-/// One thing queued for Mac `mac`, of either kind.
+/// One thing queued for Mac `mac`, of either kind. The next stage's Job message to another Mac is one more
+/// `kind` of send behind `/api/mac/act`, kept in this queue and drained with the rest.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptQueuedAct {
     /// Its place in the queue, which only grows.
