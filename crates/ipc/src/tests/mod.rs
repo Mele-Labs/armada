@@ -52,6 +52,8 @@ mod time_format;
 /// Where Jobs' time went: a figure nobody produced is an absent key.
 mod time_summary;
 mod mods;
+/// A files answer carries folders only where folders were asked for.
+mod files_found;
 mod preferences;
 mod option_pictures;
 mod projects;
@@ -102,6 +104,10 @@ mod watch_wire;
 /// A Job's terminals: the IDs on the bodies, answers and events, the list and the rename.
 mod terminal_wire;
 mod workflow_changes;
+/// A draft of a workflow or a piece, its changes and Publish.
+mod workflow_drafts;
+/// Where a workflow is kept: the words, and a project's object.
+mod workflow_scope;
 mod operator_board;
 mod operator_scopes;
 mod operator_errors;

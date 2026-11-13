@@ -1,0 +1,12 @@
+[operations.discard_workflow_draft]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Throw away the draft of one workflow in one place, with every change in it; what is published is untouched"
+notes = """
+`DELETE /workflows/draft?workflow_id=&source=&project=&manifest_id=`, protocol 23.95. The answer is a `WorkflowDraftDiscarded` `{ workflow_id, source, project? }`. **The draft and its list of changes are gone**, and nothing published moves. A change an agent made that landed in it stays on `list_workflow_changes`, marked `drafted`, and Dismiss settles it.
+
+404 `fleet.workflow_draft_none` where none was kept; the project refusals of `get_workflow_draft`. 500 `fleet.workflow_draft_not_kept`.
+
+`agent_access` is `Bridge only`: it cannot be undone.
+"""

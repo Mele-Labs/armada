@@ -1,0 +1,8 @@
+[operations.hold_other_mac_sessions]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Every Job row another Mac shares, handed in by this Mac's Phone Gateway, replacing all held from that Mac"
+notes = """
+`PUT /other_macs/sessions`, body `OtherMacSessions`: `mac` and `sessions`. Answered with `MacNamed`. Each row is kept with `mac` set to the sender, in the store, so a Mac that is asleep still has its rows after Fleet restarts, and `session.changed` is published for each row new or changed. A row the list leaves out is dropped from `list_sessions`, and `session.removed` is published for it. Held rows are listed beside this Mac's own by `list_sessions` in every view, under the same filters; no act reaches them, and their thread is read through the link. 422 `fleet.other_mac_unnamed` for a blank `mac`. Called on the port from inside a Job, around the door, it is a 403 `api.the_persons_own`: only the person pairs his other Macs, from Bridge. This Mac's Phone Gateway calls it from inside Fleet's own process.
+"""

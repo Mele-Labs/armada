@@ -1,0 +1,14 @@
+[operations.put_piece_draft]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Keep the owner's text as the draft of one lifecycle, rule or autonomy default, beginning the draft from what Kit holds, or adding a change to it"
+notes = """
+`PUT /lifecycles/pieces/draft`, protocol 23.95. The body is `PutPieceDraft`: `kind`, `id`, `scope` (everywhere where absent), `text` (the piece as the JSON `save_lifecycle_piece` takes in `piece`) and `summary`. The answer is the `PieceDraft`.
+
+It begins the draft where there is none, with `base` the piece Kit holds now as that JSON (empty where Kit holds none), and adds a change by `you` holding `text` whole; the list of changes is the one `put_workflow_draft` keeps. **It accepts any text**, since a draft may be half-edited: `unfit` says where it would not publish, whether it is not the JSON of a piece, is not the draft's kind, id and scope, or is a piece the parser would refuse.
+
+500 `fleet.piece_draft_not_kept` where the store would not answer.
+
+`agent_access` is `Bridge only`: it is the editor's own act.
+"""

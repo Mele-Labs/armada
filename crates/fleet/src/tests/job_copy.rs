@@ -237,7 +237,7 @@ async fn keeping_a_jobs_workflow_for_every_job_waits_on_the_owner_and_writes_not
     assert!(kept.after.as_deref().is_some_and(|after| after.contains("dispatch")));
     assert_eq!(kept.before, RAIL, "the file as it is, which an Approve is checked against");
 
-    let listed = rig.fleet.list_workflow_changes(WorkflowId::carried("rail"), "repository".into(), None).await.expect("listed");
+    let listed = rig.fleet.list_workflow_changes(WorkflowId::carried("rail"), "repository".into(), None, None).await.expect("listed");
     assert_eq!(listed.changes.len(), 1);
     let rows = rig.rows(&id).await;
     assert!(rows.iter().any(|row| matches!(row, ipc::SessionRow::Draft { title, change: Some(_), before: Some(_), .. } if title == "Workflow rail")), "the owner's call is on the Job");
@@ -404,7 +404,7 @@ async fn keeping_a_changed_rule_for_every_job_waits_on_the_owner_and_writes_noth
     assert_eq!((held.piece.as_str(), held.source.as_str(), held.state.as_str()), ("rule", "kit", store::CHANGE_READY));
     assert!(held.after_text.as_deref().is_some_and(|text| text.contains("retries: 1")), "the Job's change, not the frozen rule");
 
-    let listed = rig.fleet.list_workflow_changes(WorkflowId::carried("deploy_watch"), "kit".into(), None).await.expect("listed");
+    let listed = rig.fleet.list_workflow_changes(WorkflowId::carried("deploy_watch"), "kit".into(), None, None).await.expect("listed");
     assert!(listed.changes.is_empty(), "a workflow's page never lists a piece");
     let approved = rig.fleet.workflow_change_approved(ipc::WorkflowChangeRef { change: kept.change }).await;
     assert!(matches!(&approved, Err(Refusal::NotFound(_))), "a piece is approved from the Job's draft: {approved:?}");

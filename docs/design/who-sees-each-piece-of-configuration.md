@@ -18,7 +18,7 @@ Each piece answers differently today:
 |---|---|---|
 | Tiles | `~/.armada/flight-controls.toml`, every repository at once (`docs/concepts/kit.md`, *Flight controls*) | You |
 | How a repository runs | `armada.yml` at the workspace root, committed (`docs/contracts/system-architecture.md`) | Everyone with access to the repository |
-| Workflows | Armada's, `~/.armada/workflows/`, `.armada/workflows/` (`docs/concepts/workflow.md`, *Where a definition comes from*) | The place decides |
+| Workflows | Armada's, `~/.armada/workflows/`, `~/.armada/workflows/projects/<project-id>/`, `.armada/workflows/` (`docs/concepts/workflow.md`, *Where a definition comes from*) | The place decides |
 | Review tools | Armada's, `~/.armada/review-tools/`, `.armada/review-tools/` (`docs/concepts/pull-review.md`, *Review tools*) | The place decides |
 
 Pull request #2627 keeps a repository's tiles for you alone, beside its runs.
@@ -118,7 +118,7 @@ Under a synced folder or a bucket, its name in a file name and its tiles' comman
 
 | Where | Says now | Becomes |
 |---|---|---|
-| `docs/concepts/workflow.md`, *Where a definition comes from* | The repository's `.armada/workflows/` is most specific, and wins | Yours wins, marked |
+| `docs/concepts/workflow.md`, *Where a definition comes from* | The repository's `.armada/workflows/` is most specific, and wins | Yours wins, marked; a copy kept for one project wins over yours for every project (13 Nov 2026: yours first, then narrower) |
 | `docs/concepts/pull-review.md`, *Review tools* | `<repository>/.armada/review-tools/` wins over Kit's | Yours wins, marked |
 | `docs/concepts/kit.md`, *Flight controls*, as #2627 lands it | A repository's tiles are never committed into it, and sharing is not built | Commit and Share, as above |
 | `docs/contracts/system-architecture.md` | An `armada.yml` lives at the workspace root, version-controlled | The repository's lives there, and yours may live in Kit |

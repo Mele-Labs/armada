@@ -130,6 +130,16 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::save_workflow::<D>),
         )
         .route(
+            "/workflows/draft",
+            get(crate::repositories::get_workflow_draft::<D>)
+                .put(crate::repositories::put_workflow_draft::<D>)
+                .delete(crate::repositories::discard_workflow_draft::<D>),
+        )
+        .route(
+            "/workflows/draft/publish",
+            post(crate::repositories::publish_workflow_draft::<D>),
+        )
+        .route(
             "/workflows/delete",
             post(crate::repositories::delete_workflow_copy::<D>),
         )
@@ -235,6 +245,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::pull_request_panel::get_review_runs::<D>),
         )
         .merge(crate::review_walks::mounted::<D>())
+        .merge(crate::other_macs::mounted::<D>())
         .route(
             "/pull_request_notes/:repository/:number",
             get(crate::pull_request_notes::list_pull_request_notes::<D>)
@@ -334,6 +345,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/document/answer", post(crate::sessions::answer_document::<D>))
         .route("/sessions/show_file", post(crate::sessions::show_file::<D>))
         .route("/sessions/shown", get(crate::shown::get_shown_file::<D>))
+        .route("/sessions/lead_picture", get(crate::sessions::get_lead_picture::<D>))
         .route("/sessions/style_sources", get(crate::styles::get_style_sources::<D>))
         .route("/sessions/design_catalogue", get(crate::styles::get_design_catalogue::<D>))
         .route("/sessions/kept_styles", get(crate::styles::get_kept_styles::<D>))
@@ -890,6 +902,13 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/lifecycles/keep_drafts", get(crate::lifecycles::list_keep_drafts::<D>))
         .route("/lifecycles/pieces/save", post(crate::lifecycles::save_lifecycle_piece::<D>))
         .route("/lifecycles/pieces/delete", post(crate::lifecycles::delete_lifecycle_piece::<D>))
+        .route(
+            "/lifecycles/pieces/draft",
+            get(crate::lifecycles::get_piece_draft::<D>)
+                .put(crate::lifecycles::put_piece_draft::<D>)
+                .delete(crate::lifecycles::discard_piece_draft::<D>),
+        )
+        .route("/lifecycles/pieces/draft/publish", post(crate::lifecycles::publish_piece_draft::<D>))
         .route("/lifecycles/ticket/teach", post(crate::lifecycles::teach_ticket_word::<D>))
         .route("/sessions/lifecycles", get(crate::lifecycles::get_job_lifecycles::<D>))
         .route("/app_runs", get(crate::app_runs::list_app_runs::<D>))

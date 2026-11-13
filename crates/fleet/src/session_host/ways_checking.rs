@@ -12,7 +12,6 @@ use api::Refusal;
 use ipc::{SessionRow, SessionVoice, WaitingActKind, WaitingInput};
 use store::Holder;
 
-use super::showing_file::{media_type_in, PICTURES};
 use crate::daemon::Fleet;
 use crate::ways;
 
@@ -74,16 +73,7 @@ where
             return Ok(None);
         }
         let held = store.attachments_of(&Holder::session(id)).map_err(|why| self.ledger_fault(why))?;
-        let shown = held.iter().any(|one| {
-            one.kind == "artifact"
-                && match one.detail.get("form").map(String::as_str) {
-                    Some("sketch" | "window") => true,
-                    Some("file") => {
-                        one.detail.contains_key("shown") && media_type_in(&PICTURES, &one.target).is_some()
-                    }
-                    _ => false,
-                }
-        });
+        let shown = !super::picture_shown::pictures_shown(id, &held, &[]).is_empty();
         Ok((!shown).then(|| ways::PICTURE_REFUSAL.to_string()))
     }
 

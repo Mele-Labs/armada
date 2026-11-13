@@ -193,7 +193,7 @@ impl MockFleet {
 
     pub fn workflow_definition(&self, id: &str, source: &str, manifest: &str) -> Result<WorkflowDefinition, Refused> {
         let held = self.held(id, source, manifest)?;
-        Ok(WorkflowDefinition { workflow_id: WorkflowId::carried(id), source: source.into(), file: file_of(source, id), definition: text_of(&held.definition), overridden_by: None })
+        Ok(WorkflowDefinition { workflow_id: WorkflowId::carried(id), source: source.into(), file: file_of(source, id), definition: text_of(&held.definition), overridden_by: None, ..Default::default() })
     }
 
     pub fn save_workflow(&mut self, manifest: &str, save: SaveWorkflow) -> Result<WorkflowSaved, Refused> {
@@ -231,7 +231,7 @@ impl MockFleet {
         self.held(&id, &copy.source, manifest)?;
         self.definitions.retain(|one| !one.holds(&id, &copy.source, manifest));
         self.relist(&id);
-        Ok(WorkflowCopyDeleted { workflow_id: copy.workflow_id, file: file_of(&copy.source, &id), source: copy.source, runs_from: self.runs_from(&id, manifest) })
+        Ok(WorkflowCopyDeleted { workflow_id: copy.workflow_id, file: file_of(&copy.source, &id), source: copy.source, runs_from: self.runs_from(&id, manifest), ..Default::default() })
     }
 
     pub fn propose_workflow(&mut self, proposing: ProposeToArmada) -> Result<ArmadaProposed, Refused> {
@@ -255,6 +255,7 @@ impl MockFleet {
             id: self.changes.iter().map(|one| one.change.id).max().unwrap_or(0) + 1,
             workflow_id: asking.workflow_id,
             source: asking.source,
+            project: None,
             step_id: None,
             origin: ChangeOrigin::Asked { text: asking.text.trim().to_string() },
             before,
@@ -267,6 +268,7 @@ impl MockFleet {
             after_name: None,
             after_for_requests: None,
             notes: None,
+            drafted: false,
             at: Instant::carried("2026-11-12T09:00:00Z"),
         };
         self.changes.push(Kept { change: change.clone(), reads_left: 1, manifest: manifest.to_string() });
@@ -385,7 +387,7 @@ impl MockFleet {
             row.source = runs.source.clone();
             row.file = file_of(&runs.source, id);
             row.for_requests = runs.definition.get("for_requests").and_then(Json::text).map(String::from);
-            row.overrides = applying[1..].iter().map(|one| OverriddenWorkflow { source: one.source.clone(), file: file_of(&one.source, id) }).collect();
+            row.overrides = applying[1..].iter().map(|one| OverriddenWorkflow { source: one.source.clone(), file: file_of(&one.source, id), ..Default::default() }).collect();
             match at {
                 Some(at) => self.workflows[at] = row,
                 None => self.workflows.push(row),
@@ -399,7 +401,7 @@ mod tests {
     use super::*;
 
     fn copy(id: &str, source: &str) -> WorkflowCopy {
-        WorkflowCopy { workflow_id: WorkflowId::carried(id), source: source.into(), file: None }
+        WorkflowCopy { workflow_id: WorkflowId::carried(id), source: source.into(), file: None, ..Default::default() }
     }
 
     #[test]
@@ -431,7 +433,7 @@ mod tests {
     #[test]
     fn a_change_drafts_on_the_next_read_and_approving_it_writes_the_split_steps() {
         let mut fleet = MockFleet::new();
-        let ask = |text: &str| AskWorkflowChange { workflow_id: WorkflowId::carried("feature"), source: "repository".into(), text: text.into() };
+        let ask = |text: &str| AskWorkflowChange { workflow_id: WorkflowId::carried("feature"), source: "repository".into(), text: text.into(), ..Default::default() };
         let asked = fleet.ask_change("armada", ask("Split Refine into Wire and Tests")).expect("asked");
         let read = |fleet: &mut MockFleet| fleet.workflow_changes("feature", "repository", "armada").expect("read").changes.remove(0);
         assert_eq!(read(&mut fleet).state, ChangeState::Drafting);

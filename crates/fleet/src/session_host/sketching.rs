@@ -338,12 +338,17 @@ pub(crate) fn sketch_attachment(sketch: Sketch) -> AttachmentReport {
 /// it or taking it back, which change the row, do not make it the newest. One with no `drawn` reads its
 /// `changed_at`, written the way a row id writes an instant.
 fn drawn_at(sketch: &ipc::Attachment) -> (String, u64) {
-    let drawn = sketch.detail.get(SKETCH_DRAWN).and_then(|id| {
+    drawn_in(&sketch.detail, sketch.changed_at.as_str())
+}
+
+/// [`drawn_at`] of a sketch's detail and `changed_at`, so the ledger's own rows read it the same way.
+pub(super) fn drawn_in(detail: &std::collections::BTreeMap<String, String>, changed_at: &str) -> (String, u64) {
+    let drawn = detail.get(SKETCH_DRAWN).and_then(|id| {
         let mut parts = id.rsplitn(3, '-');
         let n = parts.next()?.parse().ok()?;
         Some((parts.next()?.to_string(), n))
     });
-    drawn.unwrap_or_else(|| (sketch.changed_at.as_str().replace([':', '-', '.'], ""), 0))
+    drawn.unwrap_or_else(|| (changed_at.replace([':', '-', '.'], ""), 0))
 }
 
 /// Every sketch put to the person, answered or not.

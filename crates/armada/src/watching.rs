@@ -138,7 +138,9 @@ pub(crate) fn watch_every(
 /// **The same poll, settle and ceiling as the Manifest's**, and for the same
 /// reasons — see [`SETTLE`] for what a save looks like. A folder need not exist
 /// yet: the poller re-resolves the path each round, so a repository's first
-/// definition, which makes `.armada/workflows/`, is seen like any other.
+/// definition, which makes `.armada/workflows/`, is seen like any other. **Each
+/// folder is watched with the folders inside it**, which is how a project's
+/// definitions under Kit's are seen.
 pub fn watch_folders(
     folders: Vec<PathBuf>,
     changed: impl FnMut() + Send + 'static,
@@ -172,8 +174,9 @@ pub(crate) fn watch_folders_every(
     // definition is the one most worth noticing.
     let (here, waiting): (Vec<PathBuf>, Vec<PathBuf>) =
         folders.into_iter().partition(|folder| folder.is_dir());
+    // **Recursive**, since Kit's folder holds a folder for each project under it.
     for folder in &here {
-        watcher.watch(folder, RecursiveMode::NonRecursive)?;
+        watcher.watch(folder, RecursiveMode::Recursive)?;
     }
     let watcher = Arc::new(Mutex::new(watcher));
     if !waiting.is_empty() {
@@ -213,7 +216,7 @@ async fn arming(
             if !folder.is_dir() {
                 return true;
             }
-            match watcher.watch(folder, RecursiveMode::NonRecursive) {
+            match watcher.watch(folder, RecursiveMode::Recursive) {
                 Ok(()) => {
                     let _ = told.send(());
                     false

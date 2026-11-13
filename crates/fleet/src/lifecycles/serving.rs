@@ -330,6 +330,22 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    async fn get_piece_draft(&self, piece: ipc::DeleteLifecyclePiece) -> Result<ipc::PieceDraft, Refusal> {
+        self.piece_draft_read(piece).await
+    }
+
+    async fn put_piece_draft(&self, put: ipc::PutPieceDraft) -> Result<ipc::PieceDraft, Refusal> {
+        self.piece_draft_put(put).await
+    }
+
+    async fn discard_piece_draft(&self, piece: ipc::DeleteLifecyclePiece) -> Result<ipc::PieceDraftDiscarded, Refusal> {
+        self.piece_draft_discarded(piece).await
+    }
+
+    async fn publish_piece_draft(&self, publish: ipc::PublishPieceDraft) -> Result<ipc::PiecePublished, Refusal> {
+        self.piece_draft_published(publish).await
+    }
+
     async fn list_lifecycles(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryLifecycles, Refusal> {
         let served = self.served_named(manifest_id.as_ref())?;
         let applying = self.lifecycles_applying_to(served.manifest().id())?;

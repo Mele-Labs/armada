@@ -25,6 +25,8 @@ use crate::repositories::{Served, WorkflowNotRemoved};
 const NO_SUCH_DEFINITION: &str = "fleet.no_such_workflow_definition";
 /// The definition is Armada's own, which is carried in the binary. A 422.
 pub(crate) const IS_ARMADAS: &str = "fleet.workflow_is_armadas";
+/// A copy was asked for in `project` and the request names no project. A 422.
+pub(crate) const PROJECT_UNNAMED: &str = "fleet.workflow_project_unnamed";
 /// Armada carries no definition of the id to reset a copy to. A 422.
 const NOT_CARRIED: &str = "fleet.workflow_not_carried";
 
@@ -103,6 +105,20 @@ where
         match copy.source.as_str() {
             "repository" => Ok(WorkflowScope::Repository),
             "kit" => Ok(WorkflowScope::Kit),
+            "project" => copy
+                .project
+                .clone()
+                .map(|id| WorkflowScope::Project { id })
+                .ok_or_else(|| {
+                    Refusal::Unacceptable(
+                        WireError::raised(
+                            PROJECT_UNNAMED,
+                            format!("a copy kept for a project is named by the project too, and `{}` names none", copy.workflow_id.as_str()),
+                            self.run_id(),
+                        )
+                        .with_field("workflow_id", WireValue::Str(copy.workflow_id.as_str().to_string())),
+                    )
+                }),
             "armada" => Err(Refusal::Unacceptable(
                 WireError::raised(
                     IS_ARMADAS,
@@ -122,11 +138,15 @@ where
     /// names its file, one that was left out for not fitting and is at that file in that place.
     fn holds_copy(&self, served: &Served, copy: &WorkflowCopy) -> bool {
         match &copy.file {
-            Some(file) => served.left_out().iter().any(|left| left.source == copy.source && &left.file == file),
-            None => served
-                .files()
+            Some(file) => served
+                .left_out()
                 .iter()
-                .any(|file| file.id().as_str() == copy.workflow_id.as_str() && file.source().as_wire() == copy.source),
+                .any(|left| left.source == copy.source && &left.file == file && (copy.source != "project" || left.project.is_none() || left.project == copy.project)),
+            None => served.files().iter().any(|file| {
+                file.id().as_str() == copy.workflow_id.as_str()
+                    && file.source().as_wire() == copy.source
+                    && (copy.source != "project" || file.project().map(|project| project.as_str()) == copy.project.as_deref())
+            }),
         }
     }
 
@@ -142,8 +162,8 @@ where
             return Err(self.no_such_definition(id, Some(&copy.source)));
         }
         let removed = match &copy.file {
-            Some(file) => self.locating().remove_workflow_file(Path::new(served.root()), scope, Path::new(file)),
-            None => self.locating().remove_workflow(Path::new(served.root()), scope, id),
+            Some(file) => self.locating().remove_workflow_file(Path::new(served.root()), &scope, Path::new(file)),
+            None => self.locating().remove_workflow(Path::new(served.root()), &scope, id),
         };
         let file = removed
             .map_err(|why| match why {
@@ -159,7 +179,7 @@ where
             .iter()
             .find(|(held, _)| held.as_str() == id)
             .map(|(_, workflow)| workflow.source().as_wire().to_string());
-        Ok(WorkflowCopyDeleted { workflow_id: copy.workflow_id, source: copy.source, file, runs_from })
+        Ok(WorkflowCopyDeleted { workflow_id: copy.workflow_id, source: copy.source, project: copy.project, file, runs_from })
     }
 
     /// Rewrite the copy's file with Armada's definition of the id, checked as a save is.
@@ -180,12 +200,12 @@ where
                 .with_field("workflow_id", WireValue::Str(id.to_string())),
             ));
         };
-        let save = ipc::SaveWorkflow { scope, definition: armadas.text().to_string(), overwrite: true };
+        let save = ipc::SaveWorkflow { scope: scope.clone(), definition: armadas.text().to_string(), overwrite: true };
         if let Some(left_out) = &copy.file {
             // **Checked before the copy goes**, so Armada's not fitting here leaves what was there.
             self.check_workflow_file(&save, served)?;
             self.locating()
-                .remove_workflow_file(Path::new(served.root()), scope, Path::new(left_out))
+                .remove_workflow_file(Path::new(served.root()), &scope, Path::new(left_out))
                 .map_err(|why| match why {
                     WorkflowNotRemoved::NotHere => self.no_such_definition(id, Some(&copy.source)),
                     WorkflowNotRemoved::Unwritable { file, cause } => Refusal::Fault(

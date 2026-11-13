@@ -1,0 +1,12 @@
+[operations.get_piece_draft]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The draft of one lifecycle, rule or autonomy default in Kit, with its changes oldest first"
+notes = """
+`GET /lifecycles/pieces/draft?kind=&id=&within=`, protocol 23.95. A piece is its `kind` (`lifecycle`, `rule` or `autonomy`), `id` and scope, as `delete_lifecycle_piece` keys it; `within` is the scope's id, and absent is everywhere. The answer is a `PieceDraft`: `kind`, `id`, `scope`, `text` (the piece as the JSON `save_lifecycle_piece` takes in `piece`, whole), `base` (the piece Kit held when the draft began, as the same JSON, empty where Kit held none), `unfit` (the parser's own sentence where `text` would not publish, absent where it would), `changes` (the `DraftChange` list `get_workflow_draft` carries) and `started_at` and `updated_at`.
+
+404 `fleet.piece_draft_none` where no draft is kept. A piece is kept in Kit alone, so there is no source and no repository.
+
+`agent_access` is `Bridge only`: it is the editor's own read.
+"""

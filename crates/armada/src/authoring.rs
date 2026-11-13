@@ -21,7 +21,16 @@ use config::{Manifest, Roster, WorkflowDef};
 use fleet::repositories::{SavedWorkflow, WorkflowNotRemoved, WorkflowNotSaved};
 use ipc::{SaveWorkflow, WorkflowScope};
 
-use crate::setup::{listed, KIT_WORKFLOWS, WORKFLOWS};
+use crate::setup::{listed, project_workflows, KIT_WORKFLOWS, WORKFLOWS};
+
+/// The folder a scope's definitions are in.
+fn folder_of(root: &Path, kit: &Path, scope: &WorkflowScope) -> PathBuf {
+    match scope {
+        WorkflowScope::Repository => root.join(WORKFLOWS),
+        WorkflowScope::Kit => kit.join(KIT_WORKFLOWS),
+        WorkflowScope::Project { id } => project_workflows(kit, id),
+    }
+}
 
 /// What a save has settled before it writes.
 struct Checked {
@@ -69,13 +78,10 @@ pub fn remove(
     root: &Path,
     kit: &Path,
     roster: &Roster,
-    scope: WorkflowScope,
+    scope: &WorkflowScope,
     id: &str,
 ) -> Result<String, WorkflowNotRemoved> {
-    let dir = match scope {
-        WorkflowScope::Repository => root.join(WORKFLOWS),
-        WorkflowScope::Kit => kit.join(KIT_WORKFLOWS),
-    };
+    let dir = folder_of(root, kit, scope);
     let held = holding(&dir, id, roster).map_err(|why| WorkflowNotRemoved::Unwritable {
         file: dir.display().to_string(),
         cause: std::io::Error::other(why),
@@ -94,11 +100,8 @@ pub fn remove(
 
 /// Delete one file of `scope`'s folder: a copy that was left out, found by its name. **A file that is not
 /// in that folder is not this one's to delete**, whatever it is called.
-pub fn remove_file(root: &Path, kit: &Path, scope: WorkflowScope, file: &Path) -> Result<String, WorkflowNotRemoved> {
-    let dir = match scope {
-        WorkflowScope::Repository => root.join(WORKFLOWS),
-        WorkflowScope::Kit => kit.join(KIT_WORKFLOWS),
-    };
+pub fn remove_file(root: &Path, kit: &Path, scope: &WorkflowScope, file: &Path) -> Result<String, WorkflowNotRemoved> {
+    let dir = folder_of(root, kit, scope);
     if file.parent() != Some(dir.as_path()) || !file.is_file() {
         return Err(WorkflowNotRemoved::NotHere);
     }
@@ -116,10 +119,7 @@ fn checked(
     roster: &Roster,
     asked: &SaveWorkflow,
 ) -> Result<Checked, WorkflowNotSaved> {
-    let dir = match asked.scope {
-        WorkflowScope::Repository => root.join(WORKFLOWS),
-        WorkflowScope::Kit => kit.join(KIT_WORKFLOWS),
-    };
+    let dir = folder_of(root, kit, &asked.scope);
     let text = asked.definition.trim();
 
     // A name for the loader's refusals to cite: the file is not named until the

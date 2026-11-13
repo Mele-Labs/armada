@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "Propose a workflow nothing holds yet, in the repository or in Kit, for the owner to approve; nothing is written until he does"
 notes = """
-`POST /workflows/changes/propose_new?manifest_id=`, since 28 Oct 2026. The body is `ProposeNewWorkflow`: `workflow_id` (the id the definition declares), `definition` (the whole definition as JSON text) and `scope` (`repository` or `kit`). The answer is the `WorkflowChange` kept: `origin` `new`, `before` empty, `after` the definition and `state` `ready` at once, since no model is asked to draft it.
+`POST /workflows/changes/propose_new?manifest_id=`, since 28 Oct 2026. The body is `ProposeNewWorkflow`: `workflow_id` (the id the definition declares), `definition` (the whole definition as JSON text) and `scope` (`repository` or `kit`; a project's is refused, 422 `fleet.workflow_change_not_for_project`). The answer is the `WorkflowChange` kept: `origin` `new`, `before` empty, `after` the definition and `state` `ready` at once, since no model is asked to draft it.
 
 **Nothing is written.** The definition is checked as `save_workflow` checks one, with `overwrite` false: the parse and the resolve against the repository's Manifest and this machine's models. It is then a change `list_workflow_changes` shows under `workflow_id` and `source`, the scope's name, until `approve_workflow_change` saves it and `dismiss_workflow_change` drops it. A Kit-scope proposal is checked and saved through the repository this Job is served in.
 

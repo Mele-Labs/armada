@@ -48,6 +48,8 @@ mod bug_reports;
 mod lifecycles;
 /// Saving and deleting one lifecycle, rule or autonomy default in Kit.
 mod piece_saving;
+mod piece_drafts;
+mod workflow_drafts;
 mod codec;
 /// A body's whole shape, read off its type, for a refusal to name.
 pub mod shape;
@@ -306,6 +308,8 @@ mod usage_summary;
 mod usage_spent;
 /// Where Jobs' time went: one Job's, a window's, and the hours and builds the Usage page draws.
 mod time_summary;
+/// The picture a Job last showed, which the native done card leads with.
+mod lead_picture;
 /// What a hosted Session is doing now, as Fleet saw it.
 mod session_activity;
 /// What a Session has built: its phase, pieces and road, read off what Fleet observed.
@@ -338,6 +342,8 @@ pub use annotations::{
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
+pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
+pub use piece_drafts::{PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PutPieceDraft};
 pub use piece_saving::{
     AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind,
     LifecyclePieceSaved, SaveLifecyclePiece, TeachTicketWord, TicketWordTaught,
@@ -403,7 +409,7 @@ pub use error::{
     RunId, WireError, WireValue,
 };
 pub use event::{
-    Cursor, Delivered, Event, Missed, Resync, StreamMessage,
+    Cursor, Delivered, Event, Missed, Resync, SessionRemoved, StreamMessage,
 };
 pub use files::FilesFound;
 pub use debug_report::DebugReport;
@@ -761,6 +767,7 @@ pub use usage_spent::{SpentBy, SpentJob, SpentOn, SpentSplit, SpentWindow, Usage
 pub use usage_summary::{
     DayUnits, NamedUnits, PriorUsage, RestUsage, SessionUsageSummary, TokenUnits, UsageBreakdown, UsageSummary,
 };
+pub use lead_picture::LeadPicture;
 pub use time_summary::{
     BuildFigures, HourFigures, JobSplit, JobTime, SlowJob, UsageHours, UsageTime, UsualTime,
 };

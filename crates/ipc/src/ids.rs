@@ -56,7 +56,8 @@ wire_id! {
     ManifestId, core_model::ManifestId
 }
 wire_id! {
-    /// The WorkflowDef a Session follows.
+    /// The WorkflowDef a Session follows. `Default` is the empty id, for a fixture that widens a type carrying one.
+    #[derive(Default)]
     WorkflowId, core_model::WorkflowId
 }
 wire_id! {

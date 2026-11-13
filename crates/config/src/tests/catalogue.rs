@@ -1,13 +1,14 @@
-//! The merge of a workflow's three sources, over text and nothing else.
+//! The merge of a workflow's four sources, over text and nothing else.
 //!
 //! The carried half needs the adapter's roster, because the carried
 //! definitions name its models, so it is `tests/carried.rs`. What is here is
-//! the rule itself: Kit's wins over the repository's and either over Armada's,
-//! whatever order the definitions arrive in.
+//! the rule itself, **yours first, then narrower**: a project's wins over Kit's,
+//! Kit's over the repository's and each over Armada's, whatever order the
+//! definitions arrive in.
 
 use std::path::Path;
 
-use core_model::WorkflowSource;
+use core_model::{ScopeId, WorkflowSource};
 
 use crate::catalogue::{Catalogue, WhyLeftOut, Written};
 use crate::manifest::Manifest;
@@ -32,6 +33,14 @@ fn one_step(id: &str, label: &str, gate: Option<&str>) -> String {
 
 fn kit(file: &str, text: String) -> Written {
     Written::in_kit(named(&format!("/kit/workflows/{file}")), text)
+}
+
+fn project(id: &str, file: &str, text: String) -> Written {
+    Written::in_project(
+        named(&format!("/kit/workflows/projects/{id}/{file}")),
+        text,
+        ScopeId::new(id).expect("a project id"),
+    )
 }
 
 fn repository(file: &str, text: String) -> Written {
@@ -324,4 +333,97 @@ fn every_parsed_file_is_kept_and_says_what_replaced_it() {
         "a left-out file is on the left-out list and not here"
     );
     assert_eq!(held.files()[1].text(), one_step("bug", "Mine", None));
+}
+
+/// **A project's copy beats Kit's and the repository's, and Kit's still beats the repository's**, in
+/// every order the files arrive in.
+#[test]
+fn a_projects_definition_wins_over_kits_and_kits_over_the_repositorys_in_any_order() {
+    let all = || {
+        vec![
+            repository("bug.yml", one_step("bug", "The repository's", None)),
+            kit("bug.yml", one_step("bug", "Kit's", None)),
+            project("storefront", "bug.yml", one_step("bug", "The project's", None)),
+        ]
+    };
+    for turn in 0..3 {
+        let mut written = all();
+        written.rotate_left(turn);
+        let held = resolved(written);
+        assert_eq!(
+            label_of(&held, "bug"),
+            ("The project's".to_string(), WorkflowSource::Project),
+            "rotated by {turn}"
+        );
+        let running = held
+            .files()
+            .iter()
+            .find(|file| file.overridden_by().is_none())
+            .expect("one runs");
+        assert_eq!(running.project().map(ScopeId::as_str), Some("storefront"));
+        assert_eq!(running.hides(), Some(WorkflowSource::Repository), "it hides what the repository says");
+    }
+    let without = resolved(vec![
+        repository("bug.yml", one_step("bug", "The repository's", None)),
+        kit("bug.yml", one_step("bug", "Kit's", None)),
+    ]);
+    assert_eq!(label_of(&without, "bug"), ("Kit's".to_string(), WorkflowSource::Kit));
+}
+
+/// **Two projects that both hold the repository and both keep an id are both left out**, naming both, and
+/// Kit's answers.
+#[test]
+fn two_projects_keeping_one_id_are_both_left_out_naming_both_and_kits_answers() {
+    let held = resolved(vec![
+        project("storefront", "bug.yml", one_step("bug", "Storefront's", None)),
+        project("backoffice", "bug.yml", one_step("bug", "Backoffice's", None)),
+        kit("bug.yml", one_step("bug", "Kit's", None)),
+        repository("bug.yml", one_step("bug", "The repository's", None)),
+    ]);
+    assert_eq!(label_of(&held, "bug"), ("Kit's".to_string(), WorkflowSource::Kit));
+    let [left] = held.left_out() else {
+        panic!("one sentence for the pair: {:?}", held.left_out());
+    };
+    assert!(matches!(left.why(), WhyLeftOut::HeldByTwoProjects { files } if files.len() == 2));
+    assert_eq!(left.source(), WorkflowSource::Project);
+    assert_eq!(left.project(), None, "neither project owns the pair");
+    assert_eq!(left.instead(), Some(WorkflowSource::Kit));
+    let said = left.to_string();
+    assert!(
+        said.starts_with("a project's `bug` was left out, because ")
+            && said.contains("project `backoffice` (/kit/workflows/projects/backoffice/bug.yml) and project `storefront`")
+            && said.contains("each keep it and each hold this repository")
+            && said.ends_with("; Kit's `bug` is used instead"),
+        "{said}"
+    );
+}
+
+/// **Two files of one id in one project are that project's fault alone**, not a disagreement between
+/// projects.
+#[test]
+fn one_id_twice_in_one_project_is_that_projects_own_duplicate() {
+    let held = resolved(vec![
+        project("storefront", "one.yml", one_step("bug", "One", None)),
+        project("storefront", "two.yml", one_step("bug", "Two", None)),
+    ]);
+    let [left] = held.left_out() else {
+        panic!("one sentence for the pair: {:?}", held.left_out());
+    };
+    assert!(matches!(left.why(), WhyLeftOut::Duplicated { also } if also.len() == 1));
+    assert_eq!(left.project().map(ScopeId::as_str), Some("storefront"));
+    assert!(left.to_string().starts_with("project `storefront`'s `bug` was left out"), "{left}");
+}
+
+/// A project's file that names a Check the repository lacks steps down to Kit's, and is named as the
+/// project's.
+#[test]
+fn a_projects_file_that_will_not_resolve_steps_down_to_kits() {
+    let held = resolved(vec![
+        project("storefront", "bug.yml", one_step("bug", "The project's", Some("missing"))),
+        kit("bug.yml", one_step("bug", "Kit's", None)),
+    ]);
+    assert_eq!(label_of(&held, "bug"), ("Kit's".to_string(), WorkflowSource::Kit));
+    let [left] = held.left_out() else { panic!("{:?}", held.left_out()) };
+    assert_eq!(left.project().map(ScopeId::as_str), Some("storefront"));
+    assert_eq!(left.instead(), Some(WorkflowSource::Kit));
 }

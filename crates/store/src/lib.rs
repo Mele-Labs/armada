@@ -22,6 +22,7 @@
 /// What Fleet told a session about the build it now runs, so it is told once.
 mod build_notice;
 mod devices;
+mod macs;
 mod error;
 mod fleet_outages;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
@@ -68,6 +69,7 @@ mod later_confirmed;
 mod claim_misreads;
 /// The changes to a workflow an agent drafted for the owner to approve.
 mod workflow_changes;
+mod workflow_drafts;
 /// What this Mac syncs with the shared home.
 mod home_kinds;
 mod home_repositories;
@@ -106,6 +108,8 @@ mod autopilot;
 mod autopilot_decisions;
 mod operator_dispatches;
 mod parked_ideas;
+/// What his other Macs share with this one, kept whole.
+mod other_macs;
 /// The Operator's Log of rulings. `armada-ehhu`.
 mod operator_rulings;
 mod operator_orders;
@@ -198,6 +202,7 @@ mod timeline;
 mod tests;
 
 pub use devices::{Device, PushSubscription, ThisMac};
+pub use macs::{MacSaid, MacState, PairedMac};
 pub use error::{DatabaseFault, OpenError, ReadError, RowError, WriteError};
 pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
 pub use run_memory::{KeptPlace, KeptRun};
@@ -227,6 +232,7 @@ pub use workflow_changes::{
     KeptWorkflowChange, NewWorkflowChange, APPROVED as CHANGE_APPROVED, CANNOT as CHANGE_CANNOT, DISMISSED as CHANGE_DISMISSED, DRAFTING as CHANGE_DRAFTING,
     FAILED as CHANGE_FAILED, READY as CHANGE_READY,
 };
+pub use workflow_drafts::{DraftKey, KeptDraft, KeptDraftChange, NewDraftChange, BY_AGENT as DRAFT_BY_AGENT, BY_YOU as DRAFT_BY_YOU};
 pub use session_later::{KeptHanded, KeptLater};
 pub use job_shells::KeptJobTerminal;
 pub use watches::{KeptWatch, KeptWatchPart, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
@@ -261,6 +267,7 @@ pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
 pub use operator_dispatches::KeptDispatch;
 pub use parked_ideas::KeptIdea;
+pub use other_macs::{FromMac, KeptFromMac};
 pub use operator_rulings::KeptRuling;
 pub use operator_orders::{KeptOrder, KeptTalk};
 pub use operator_switches::KeptSwitch;

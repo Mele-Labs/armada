@@ -178,10 +178,13 @@ pub struct WorkflowSummary {
     /// The `armada.yml` this workflow's Checks resolved against. Holding a
     /// resolved workflow means every Check its steps name was declared there.
     pub manifest_id: ManifestId,
-    /// Where the definition came from: `armada`, `kit` or `repository`. Empty from a Fleet
+    /// Where the definition came from: `armada`, `kit`, `repository` or `project`. Empty from a Fleet
     /// older than the field.
     #[serde(default)]
     pub source: String,
+    /// The project whose copy this is, where `source` is `project`. **Absent otherwise.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     /// The definition's `for_requests` line: the one sentence saying what kind of request this
     /// workflow is for, which the proposer reads when it picks one. **Absent where the
     /// definition declares none**, and from a Fleet older than 21.1. Since 21.1.
@@ -201,7 +204,7 @@ pub struct WorkflowSummary {
     /// runs. Absent where nothing is replaced. Since 23.33.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub overrides: Vec<OverriddenWorkflow>,
-    /// `repository` where this is Kit's and hides a repository definition of the
+    /// `repository` where this is Kit's or a project's and hides a repository definition of the
     /// same id that says something else, so a list can mark it. **Absent where
     /// the two are the same**, or nothing is hidden.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -210,21 +213,28 @@ pub struct WorkflowSummary {
 
 /// A definition of a workflow id that a more specific place replaced (protocol
 /// 23.33). It does not run; it can still be read with `get_workflow`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OverriddenWorkflow {
-    /// `armada` or `repository`; Kit's own is never replaced.
+    /// `armada`, `repository` or `kit`; a project's own is never replaced.
     pub source: String,
     /// The definition's file, as Fleet read it.
     pub file: String,
+    /// The project whose copy this is, where `source` is `project`. Never, today, since a project's is
+    /// not replaced; here so a copy is named the way every other read names one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
 }
 
 /// One definition as `get_workflow` answers it (protocol 23.33): the file's
 /// text, in the shape `save_workflow` takes back.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkflowDefinition {
     pub workflow_id: WorkflowId,
-    /// `armada`, `kit` or `repository`.
+    /// `armada`, `kit`, `repository` or `project`.
     pub source: String,
+    /// The project whose copy this is, where `source` is `project`. **Absent otherwise.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     /// The file as Fleet read it.
     pub file: String,
     /// The definition whole, as the file holds it. **Text, not a tree**, so what
@@ -238,14 +248,18 @@ pub struct WorkflowDefinition {
 
 /// A definition this Fleet runs without, and why. #425: named only in
 /// Fleet's log before, where a person picking a workflow never looks.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LeftOutWorkflow {
     /// Absent where the file did not parse far enough to say.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<WorkflowId>,
-    /// `armada`, `kit` or `repository`. A repository's own is left out the way
+    /// `armada`, `kit`, `repository` or `project`. A repository's own is left out the way
     /// Kit's is; before 23.33 one that did not fit refused Fleet's start.
     pub source: String,
+    /// The project whose copy this is, where `source` is `project` and the file is one project's.
+    /// **Absent where two projects' files of one id were left out together**: `said` names both.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     /// The definition's file, as Fleet read it.
     pub file: String,
     /// The whole sentence Fleet prints at start, rendered and never matched on.
@@ -256,21 +270,37 @@ pub struct LeftOutWorkflow {
 }
 
 /// Where a saved workflow definition lives (protocol 23.28).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// **Yours first, then narrower**, so a repository runs, for each workflow id, the first of: a project it
+/// belongs to, Kit's, its own, and Armada's (`docs/concepts/workflow.md`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkflowScope {
-    /// `<repository>/.armada/workflows/`: this repository's own, which beats
-    /// Kit's and Armada's by id.
+    /// `<repository>/.armada/workflows/`: this repository's own, which Kit's and a project's beat by id
+    /// and which beats Armada's.
     Repository,
-    /// `~/.armada/workflows/`: every repository on this machine.
+    /// `~/.armada/workflows/`: every repository on this machine. Beats the repository's own.
     Kit,
+    /// `~/.armada/workflows/projects/<id>/`: one project's, for each repository it holds. Beats Kit's.
+    /// Serialized as `{"project":{"id":"…"}}`, where the other two are bare words.
+    Project { id: String },
 }
 
 impl WorkflowScope {
-    pub fn as_wire(self) -> &'static str {
+    /// The word `LeftOutWorkflow.source` and `WorkflowSummary.source` use for this place.
+    pub fn as_wire(&self) -> &'static str {
         match self {
             WorkflowScope::Repository => "repository",
             WorkflowScope::Kit => "kit",
+            WorkflowScope::Project { .. } => "project",
+        }
+    }
+
+    /// The project this is for, where it is one's.
+    pub fn project(&self) -> Option<&str> {
+        match self {
+            WorkflowScope::Project { id } => Some(id),
+            _ => None,
         }
     }
 }
@@ -298,8 +328,8 @@ pub struct WorkflowSaved {
     pub file: String,
     /// Whether a definition of this id was there and is now replaced.
     pub replaced: bool,
-    /// Whose definition of this id runs in this repository now: `armada`, `kit`
-    /// or `repository`. Not the scope's where a more specific place holds the id
+    /// Whose definition of this id runs in this repository now: `armada`, `kit`,
+    /// `repository` or `project`. Not the scope's where a narrower place holds the id
     /// too. Absent where none does, which a definition that was checked does
     /// not reach.
     #[serde(default, skip_serializing_if = "Option::is_none")]

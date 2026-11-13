@@ -421,7 +421,7 @@ async fn a_workflow_is_saved_into_kit_through_the_repositorys_own_check() {
     assert_eq!(added.pieces[0].landed, Landed::Added);
     let saves = theirs.locator.saves();
     assert_eq!(saves.len(), 1);
-    assert_eq!((saves[0].scope, saves[0].definition.as_str(), saves[0].overwrite), (ipc::WorkflowScope::Kit, WORKFLOW, false));
+    assert_eq!((saves[0].scope.clone(), saves[0].definition.as_str(), saves[0].overwrite), (ipc::WorkflowScope::Kit, WORKFLOW, false));
 
     theirs.keeps_workflow(WORKFLOW);
     let (_, code, _) = refused_with(theirs.fleet.package_added(adding(&text, false)).await.expect_err("refused"));
