@@ -734,6 +734,11 @@ pub trait Sessions: Send + Sync + 'static {
     /// time where none is kept for it. [`Refusal::Unacceptable`] for a session Fleet does not know.
     fn get_job_time(&self, session_id: ipc::SessionId) -> impl Future<Output = Result<ipc::JobTime, Refusal>> + Send;
 
+    /// `get_lead_picture` — the picture the Job last showed: a sketch, a window or an image it showed,
+    /// the newest by when it was shown, one withdrawn skipped. [`Refusal::NotFound`] where it showed none,
+    /// or for a Job Fleet knows nothing of.
+    fn get_lead_picture(&self, session_id: ipc::SessionId) -> impl Future<Output = Result<ipc::LeadPicture, Refusal>> + Send;
+
     /// `get_usage_time` — where the time of the Jobs that ended in `[since, until)` went, the `slowest`
     /// of them (twenty where left out) and the usual of each workflow. `until` is now and `since` a week
     /// before it where left out. [`Refusal::Unacceptable`] for a bound that is not a time.

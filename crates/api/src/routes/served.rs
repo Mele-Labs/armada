@@ -444,6 +444,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/shown",
     },
     Route {
+        operation: "get_lead_picture",
+        method: "GET",
+        path: "/sessions/lead_picture",
+    },
+    Route {
         operation: "record_plan",
         method: "POST",
         path: "/sessions/plan",

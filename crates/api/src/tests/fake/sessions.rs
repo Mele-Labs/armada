@@ -923,6 +923,10 @@ impl Sessions for FakeDaemon {
         Ok(ipc::JobTime { session_id: session_id.as_str().to_string(), time: None })
     }
 
+    async fn get_lead_picture(&self, _session_id: ipc::SessionId) -> Result<ipc::LeadPicture, Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised("fleet.no_lead_picture", "a fake shows nothing", crate::tests::shapes::run_id())))
+    }
+
     async fn get_usage_time(
         &self,
         since: Option<String>,

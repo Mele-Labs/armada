@@ -691,6 +691,8 @@ where
                         detail: [
                             ("form".to_string(), "window".to_string()),
                             ("title".to_string(), title.clone()),
+                            // When it was shown, which `get_lead_picture` orders by: readiness marks move `changed_at`.
+                            ("shown".to_string(), self.now().as_str().to_string()),
                         ]
                         .into_iter()
                         .chain((!variations.is_empty()).then(|| ("variations".to_string(), ipc::WindowTake::as_detail(&variations))))
@@ -1404,6 +1406,10 @@ where
         let id = session_id.as_str().trim();
         let kept = self.job_split_read(id).await?;
         Ok(crate::time_summarising::job(id.to_string(), kept))
+    }
+
+    async fn get_lead_picture(&self, session_id: ipc::SessionId) -> Result<ipc::LeadPicture, Refusal> {
+        self.lead_picture(session_id.as_str().trim()).await
     }
 
     async fn get_usage_time(

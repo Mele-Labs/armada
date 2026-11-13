@@ -227,6 +227,7 @@ pub(crate) mod slot_leases;
 mod slot_reclaim;
 mod session_waiting;
 mod picture_keeping;
+mod lead_picture;
 mod closed_waiting;
 mod session_later;
 mod job_browser;

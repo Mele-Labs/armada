@@ -304,6 +304,8 @@ mod usage_summary;
 mod usage_spent;
 /// Where Jobs' time went: one Job's, a window's, and the hours and builds the Usage page draws.
 mod time_summary;
+/// The picture a Job last showed, which the native done card leads with.
+mod lead_picture;
 /// What a hosted Session is doing now, as Fleet saw it.
 mod session_activity;
 /// What a Session has built: its phase, pieces and road, read off what Fleet observed.
@@ -755,6 +757,7 @@ pub use usage_spent::{SpentBy, SpentJob, SpentOn, SpentSplit, SpentWindow, Usage
 pub use usage_summary::{
     DayUnits, NamedUnits, PriorUsage, RestUsage, SessionUsageSummary, TokenUnits, UsageBreakdown, UsageSummary,
 };
+pub use lead_picture::LeadPicture;
 pub use time_summary::{
     BuildFigures, HourFigures, JobSplit, JobTime, SlowJob, UsageHours, UsageTime, UsualTime,
 };

@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-**Additive only**: no operation, no event.
+**Additive only**: one read, `get_lead_picture`, and no event.
 Every field below is absent by default, so a peer that never learned one reads the default and writes nothing for it.
 
 ## Preferences
@@ -53,6 +53,27 @@ Words and a mode are not taken here; a person who adds words answers with `answe
 
 **The agent's tool description offers `picture`, and the Logbook says when to use it.** The `waiting_for` description names the field and the steps: render each option's mock at one width with the browser tools, save a PNG with `browser_screenshot`, read each `[data-part]` box with `browser_evaluate`, pass the path and the parts.
 It says to do so only where the Logbook says he looks at questions, which is the `look_questions` line below.
+
+## The picture a Job last showed
+
+`get_lead_picture`, `GET /sessions/lead_picture?session_id=`, `agent_access = "No"`: it is for Bridge.
+The native done card leads with it, and draws what Fleet says rather than working the picture out.
+It is a read of its own: `NeedsYou` and `NeedsYouRow` gain nothing.
+
+| Answer | Shape | When |
+| --- | --- | --- |
+| 200 | `{"kind":"sketch","title"}` | The newest picture is a `show_sketch`, `title` the sketch's title |
+| 200 | `{"kind":"window","url"}` | The newest picture is a `show_window`, `url` the address it was shown on |
+| 200 | `{"kind":"image","path"}` | The newest picture is a `show_file` of an image, `path` the address `GET /sessions/shown` serves it at, `/sessions/shown?session_id=&path=`, the shape a question's `picture.image` is kept in |
+| 404 `fleet.no_lead_picture` | | The Job has shown no picture, or withdrew every one |
+| 404 `fleet.no_such_session` | | Fleet knows no such Job |
+
+**"Shown a picture" is the notion the `all_done` row above uses, read by one helper** (`pictures_shown` in `picture_shown.rs`), so the check and the card never disagree.
+A sketch, a window, or an image through `show_file`, the kinds `GET /sessions/shown` serves as pictures.
+**"Last" is the newest by when it was shown**: a file's `shown`, a window's `shown` (written by `show_window`, so a readiness mark does not move it), and a sketch's `drawn`.
+Answering a sketch or taking it back does not make it newer, and showing a sketch or window again does.
+**A sketch or a window withdrawn is skipped**, so the card names the one before it, where the check counts it as shown.
+A sketch is withdrawn by `withdraw_sketch` or the person's Withdraw, a window by `withdraw_window` or the person's Dismiss.
 
 ## What Fleet does with them
 

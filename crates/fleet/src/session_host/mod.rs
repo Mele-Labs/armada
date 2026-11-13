@@ -117,6 +117,7 @@ mod terminal;
 pub(crate) mod uploads;
 pub(crate) mod waiting;
 pub(crate) mod picture_keeping;
+mod picture_shown;
 mod ways_checking;
 pub(crate) mod readiness;
 pub(crate) mod walking;
