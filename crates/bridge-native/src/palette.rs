@@ -1911,7 +1911,7 @@ mod tests {
         let ended = all.iter().find(|job| job.state == SessionState::Ended).expect("an ended Job");
         let row = job_entry(ended).expect("a row");
         let meta = row.meta.as_ref().expect("meta");
-        assert_eq!(meta.state, Some(("unplug", "Ended".to_string(), hue_of(JobState::Ended))));
+        assert_eq!(meta.state, Some(("power-off", "Ended".to_string(), hue_of(JobState::Ended))));
         let at = chrono::DateTime::parse_from_rfc3339(ended.ended_at.as_ref().expect("an end").as_str()).expect("an instant").with_timezone(&chrono::Local);
         assert_eq!(meta.when, Some((at.format("%b %-d %H:%M").to_string(), "Ended")));
         let quiet = all.iter().find(|job| job.mark.is_some_and(|mark| mark.state == JobState::Quiet)).expect("a quiet Job");
