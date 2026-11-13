@@ -30,6 +30,7 @@ Why: the page takes the shape its content needs. The cost is that a note anchors
 **Rule.** A document stays with the Job and can be shared out wherever the person wants.
 
 **Rule.** Notes are the feedback on a document's words, and his Approve or Send back answers a revision whole, on a page that asks.
+His Edit is feedback too: he changes the words in place, and the Job is sent each change ([Artifact](artifact.md#his-edit)).
 This rule said notes were the only feedback until the owner approved asking for an approval on 30 Oct 2026, as a sketch asks: [Asking for his approval](#asking-for-his-approval).
 
 ## Where it is written
@@ -189,7 +190,7 @@ Esc closes it and gives the Job back as it was.
 
 ## Notes
 
-**Rule.** A note is made on the page itself and is the only feedback.
+**Rule.** A note is made on the page itself, and notes and his Edit are the only feedback.
 
 | Point at | With | The note is on |
 |---|---|---|

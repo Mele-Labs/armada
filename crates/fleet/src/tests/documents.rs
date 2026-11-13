@@ -283,7 +283,7 @@ fn page_at_root(rig: &Rig, name: &str) -> (std::path::PathBuf, String) {
 
 /// Ends the Job's turn and waits out the sweep it starts: pages are read in name order, so a new page
 /// named last is kept once every page before it was read.
-async fn turn_swept(rig: &Rig, id: &SessionId, at: usize, last: &str) {
+pub(super) async fn turn_swept(rig: &Rig, id: &SessionId, at: usize, last: &str) {
     let (file, path) = page_at_root(rig, last);
     std::fs::write(&file, page(last, &[])).unwrap();
     rig.stand_in.finishes(at, "Read it.");
