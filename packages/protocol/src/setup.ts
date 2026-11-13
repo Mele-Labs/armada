@@ -13,6 +13,7 @@
 // for the same reason: the codegen that would emit both does not exist yet.
 
 import type { DeclaredCheck, DeclaredJudge } from "./protocol";
+import type { BasedOn } from "./workflow-versions";
 
 /** One workflow Fleet holds. `crates/ipc/src/setup.rs`. */
 export type WorkflowSummary = {
@@ -62,6 +63,10 @@ export type WorkflowSummary = {
    * two are the same, or nothing is hidden.
    */
   hides?: string;
+  /** What this copy of one of Armada's workflows began from. Absent on Armada's own and on a copy made before Fleet kept it. */
+  based_on?: BasedOn;
+  /** This is a copy with a `based_on`, and Armada's carried text of the id is no longer that text. Absent where false. */
+  armada_changed?: boolean;
 };
 
 /** A definition a more specific place replaced. It does not run; `GET /workflows/definition` reads it. Since 23.33. */
@@ -78,6 +83,9 @@ export type OverriddenWorkflow = {
  * as its file holds it. `source` is optional and names the place; absent is the
  * one that runs. 422 `fleet.no_such_workflow_definition` where none is held.
  * Since 23.33. `crates/ipc/src/setup.rs`.
+ *
+ * **`source=base&of=<kit|repository|project>&project=`** reads the text the copy in that place began from, as a definition
+ * with `source: "base"`. 404 `fleet.workflow_base_none` where the copy has none, 422 `fleet.workflow_base_of_needed` without `of`.
  */
 export type WorkflowDefinition = {
   workflow_id: string;
@@ -90,6 +98,8 @@ export type WorkflowDefinition = {
   definition: string;
   /** The place whose definition of this id runs instead. Absent where this one runs. */
   overridden_by?: string;
+  /** What this copy began from, as on `WorkflowSummary`. On `source=base`, the base's own `version` and `hash`. */
+  based_on?: BasedOn;
 };
 
 /** `GET /workflows/left_out`: a definition Fleet runs without. `crates/ipc/src/setup.rs`. */

@@ -353,6 +353,8 @@ impl Queries for FakeDaemon {
         &self,
         _workflow_id: ipc::WorkflowId,
         _source: Option<String>,
+        _of: Option<String>,
+        _project: Option<String>,
         _manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::WorkflowDefinition, Refusal> {
         Err(self.fault("the fake holds no definition files"))

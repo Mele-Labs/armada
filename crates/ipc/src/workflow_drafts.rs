@@ -107,4 +107,7 @@ pub struct PublishWorkflowDraft {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkflowPublished {
     pub saved: WorkflowSaved,
+    /// The number this publish took in the place's versions, from 1: where the text that was there is kept first, as
+    /// `found`, it is version 1 and this is 2.
+    pub version: u32,
 }

@@ -1,0 +1,16 @@
+[operations.get_workflow_versions]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The versions one workflow has had in one place, newest first, so the owner can step back through them"
+notes = """
+`GET /workflows/versions?workflow_id=&source=&project=&manifest_id=`, protocol 23.96. `source` is `kit`, `repository` or `project`, and `project` names the project where it is `project`; the repository is `manifest_id` where it is `repository`, and Kit's and a project's are the same in every repository. The answer is a `WorkflowVersions` `{ versions }`, newest first, each a `WorkflowVersion` `{ version, text, hash, at, origin }`: `version` from 1, `text` the definition whole, `hash` its sha256 in hex, `origin` `published` or `found`.
+
+**A publish writes the log.** `publish_workflow_draft` adds the text it wrote as the next version. **The first publish into a place also keeps the text that was there as version 1 (`found`)**, written before the publish's own row and only where a definition was there, so the publish after it is version 2; where the place held none (a draft of an `armada` workflow, whose copy is a new file) the first publish is version 1. `save_workflow` and `approve_workflow_change` write no version.
+
+**The list is empty, not a refusal, where nothing was published in that place**, and for `armada`, which is carried and not published to. `delete_workflow_copy` and `reset_workflow_copy` drop the place's versions.
+
+422 `fleet.workflow_project_unnamed`, 404 `fleet.workflow_project_unknown` and 422 `fleet.workflow_project_not_member` for a project's; 422 `fleet.no_such_workflow_definition` for a source that is none of the four. 500 `fleet.workflow_draft_not_kept` where the store would not answer.
+
+`agent_access` is `Bridge only`: it is the editor's own read.
+"""

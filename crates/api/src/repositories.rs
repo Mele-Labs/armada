@@ -134,18 +134,23 @@ pub(crate) async fn save_workflow<D: Authoring>(
     }
 }
 
-/// `?workflow_id=` and `?source=` on `get_workflow`, beside `?manifest_id=`.
+/// `?workflow_id=` and `?source=` on `get_workflow`, beside `?manifest_id=`. `?of=` and `?project=` are read only where the
+/// source is `base`, which is a copy's base and so names the copy's place.
 #[derive(serde::Deserialize)]
 pub(crate) struct OneWorkflow {
     workflow_id: String,
     #[serde(default)]
     source: Option<String>,
     #[serde(default)]
+    of: Option<String>,
+    #[serde(default)]
+    project: Option<String>,
+    #[serde(default)]
     manifest_id: Option<String>,
 }
 
-/// One definition as its file holds it. A 422 where this repository holds none
-/// by that id and source.
+/// One definition as its file holds it, or, for `source=base`, the text a copy began from. A 422 where this repository holds
+/// none by that id and source, and a 404 where a copy has no base.
 pub(crate) async fn get_workflow<D: Queries>(
     State(served): State<Served<D>>,
     Query(asked): Query<OneWorkflow>,
@@ -155,6 +160,8 @@ pub(crate) async fn get_workflow<D: Queries>(
         .get_workflow(
             ipc::WorkflowId::carried(asked.workflow_id),
             asked.source,
+            asked.of,
+            asked.project,
             asked.manifest_id.map(ipc::ManifestId::carried),
         )
         .await
@@ -440,5 +447,31 @@ pub(crate) async fn list_left_out_workflows<D: Queries>(
     }
 }
 
+/// The versions of one workflow in one place, newest first.
+pub(crate) async fn get_workflow_versions<D: Authoring>(State(served): State<Served<D>>, Query(asked): Query<ChangesOf>) -> Response {
+    match served
+        .daemon()
+        .get_workflow_versions(
+            ipc::WorkflowId::carried(asked.workflow_id),
+            asked.source,
+            asked.project,
+            asked.manifest_id.map(ipc::ManifestId::carried),
+        )
+        .await
+    {
+        Ok(found) => answer(StatusCode::OK, &found, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
 
-
+/// Put one version's text in the draft. **200**: the draft holds it when this answers, and nothing is published.
+pub(crate) async fn revert_workflow<D: Authoring>(State(served): State<Served<D>>, Query(scope): Query<InManifest>, body: Bytes) -> Response {
+    let asked: ipc::RevertWorkflow = match ipc::decode_body("a workflow version to go back to", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().revert_workflow(asked, scope.manifest()).await {
+        Ok(draft) => answer(StatusCode::OK, &draft, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

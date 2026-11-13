@@ -219,7 +219,12 @@ where
         asked: SaveWorkflow,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<WorkflowSaved, Refusal> {
-        self.save_workflow_file(asked, &self.served_named(manifest_id.as_ref())?)
+        let served = self.served_named(manifest_id.as_ref())?;
+        let (scope, definition) = (asked.scope.clone(), asked.definition.clone());
+        let saved = self.save_workflow_file(asked, &served)?;
+        // A save of Armada's own text into a place with no base is how a copy is made: what it began from is kept.
+        self.workflow_save_based(&served, &scope, &definition, &saved).await?;
+        Ok(saved)
     }
 
     async fn delete_workflow_copy(
@@ -227,7 +232,11 @@ where
         copy: ipc::WorkflowCopy,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::WorkflowCopyDeleted, Refusal> {
-        self.delete_workflow_copy_file(copy, &self.served_named(manifest_id.as_ref())?)
+        let served = self.served_named(manifest_id.as_ref())?;
+        let (id, source, project) = (copy.workflow_id.clone(), copy.source.clone(), copy.project.clone());
+        let deleted = self.delete_workflow_copy_file(copy, &served)?;
+        self.workflow_copy_dropped(&served, id.as_str(), &source, project.as_deref(), false).await?;
+        Ok(deleted)
     }
 
     async fn reset_workflow_copy(
@@ -235,7 +244,12 @@ where
         copy: ipc::WorkflowCopy,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<WorkflowSaved, Refusal> {
-        self.reset_workflow_copy_file(copy, &self.served_named(manifest_id.as_ref())?)
+        let served = self.served_named(manifest_id.as_ref())?;
+        let (id, source, project) = (copy.workflow_id.clone(), copy.source.clone(), copy.project.clone());
+        let saved = self.reset_workflow_copy_file(copy, &served)?;
+        // It was rewritten with Armada's text, so that is what it is now based on, and its versions began again.
+        self.workflow_copy_dropped(&served, id.as_str(), &source, project.as_deref(), true).await?;
+        Ok(saved)
     }
 
     async fn ask_workflow_change(
@@ -338,5 +352,23 @@ where
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::WorkflowPublished, Refusal> {
         self.workflow_draft_published(publish, &self.served_named(manifest_id.as_ref())?).await
+    }
+
+    async fn get_workflow_versions(
+        &self,
+        workflow_id: ipc::WorkflowId,
+        source: String,
+        project: Option<String>,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowVersions, Refusal> {
+        self.workflow_versions_read(&workflow_id, &source, project.as_deref(), &self.served_named(manifest_id.as_ref())?).await
+    }
+
+    async fn revert_workflow(
+        &self,
+        revert: ipc::RevertWorkflow,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowDraft, Refusal> {
+        self.workflow_reverted(revert, &self.served_named(manifest_id.as_ref())?).await
     }
 }
