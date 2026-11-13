@@ -250,6 +250,7 @@ mod pull_registry;
 /// Since 23.83.
 mod pull_request_panel;
 mod pull_review_lists;
+mod pull_review_memory;
 /// The agent runs about a pull request, kept per commit. `docs/concepts/pull-review.md`.
 mod review_runs;
 /// Natural Search: the person's words put to every open pull request. `docs/concepts/pull-review.md`.

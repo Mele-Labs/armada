@@ -97,6 +97,8 @@ fn page(manifest_id: ManifestId, number: u64) -> PullRequestPage {
         reviewers: Vec::new(),
         owner: None,
         draft: None,
+        seen: None,
+        viewed: Vec::new(),
     }
 }
 
@@ -121,6 +123,7 @@ impl PullRequestPanel for FakeDaemon {
             path,
             patch: None,
             said: None,
+            blob: None,
         })
     }
 
@@ -136,6 +139,7 @@ impl PullRequestPanel for FakeDaemon {
                 path: "a.rs".into(),
                 patch: Some("@@ -1 +1 @@\n-a\n+b".into()),
                 said: None,
+                blob: None,
             }],
         })
     }
@@ -189,6 +193,7 @@ impl PullRequestPanel for FakeDaemon {
             kind: start.kind,
             name: start.name,
             head: "0".repeat(40),
+            since: start.since,
             state: ipc::ReviewRunState::Queued,
             started_at: "2026-10-16T09:00:00Z".into(),
             finished_at: None,
@@ -209,6 +214,7 @@ impl PullRequestPanel for FakeDaemon {
             kind: ipc::ReviewRunKind::Search,
             name: start.words,
             head: String::new(),
+            since: None,
             state: ipc::ReviewRunState::Queued,
             started_at: "2026-10-16T09:00:00Z".into(),
             finished_at: None,
@@ -320,6 +326,47 @@ impl PullRequestPanel for FakeDaemon {
             api: String::new(),
             failed: None,
         })
+    }
+
+    async fn mark_pull_request_seen(&self, _manifest_id: ManifestId, mark: ipc::MarkPullSeen) -> Result<ipc::PullSeen, Refusal> {
+        Ok(ipc::PullSeen { head: mark.head, at: "2026-10-16T09:00:00Z".into() })
+    }
+
+    async fn mark_file_viewed(&self, _manifest_id: ManifestId, mark: ipc::MarkFileViewed) -> Result<ipc::PullViewedFile, Refusal> {
+        Ok(ipc::PullViewedFile { path: mark.path, commit: mark.commit, viewed_at: "2026-10-16T09:00:00Z".into(), still: true })
+    }
+
+    async fn unmark_file_viewed(
+        &self,
+        _manifest_id: ManifestId,
+        unmark: ipc::UnmarkFileViewed,
+    ) -> Result<ipc::UnmarkFileViewed, Refusal> {
+        Ok(unmark)
+    }
+
+    async fn get_pull_request_compare(
+        &self,
+        _manifest_id: ManifestId,
+        _number: u64,
+        of: ipc::PullRequestCompareOf,
+    ) -> Result<ipc::PullRequestCompare, Refusal> {
+        Ok(ipc::PullRequestCompare::BaseGone { since: of.since, head: of.head })
+    }
+
+    async fn list_review_layouts(&self) -> Result<ipc::ReviewLayouts, Refusal> {
+        Ok(ipc::ReviewLayouts { layouts: Vec::new(), picked: ipc::DEFAULT_REVIEW_LAYOUT.into() })
+    }
+
+    async fn save_review_layout(&self, _save: ipc::SaveReviewLayout) -> Result<ipc::ReviewLayouts, Refusal> {
+        self.list_review_layouts().await
+    }
+
+    async fn delete_review_layout(&self, _named: ipc::NamedReviewLayout) -> Result<ipc::ReviewLayouts, Refusal> {
+        self.list_review_layouts().await
+    }
+
+    async fn pick_review_layout(&self, _named: ipc::NamedReviewLayout) -> Result<ipc::ReviewLayouts, Refusal> {
+        self.list_review_layouts().await
     }
 
     async fn resolve_review_thread(
