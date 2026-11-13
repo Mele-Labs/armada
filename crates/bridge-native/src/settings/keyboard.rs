@@ -27,6 +27,7 @@ pub const GROUPS: &[(&str, &[ActionScope])] = &[
     ("Plans", &[ActionScope::Plan]),
     ("Job thread", &[ActionScope::Thread]),
     ("Terminal", &[ActionScope::Terminal]),
+    ("Dispatch", &[ActionScope::Dispatch]),
     ("Issues", &[ActionScope::Issues, ActionScope::Report]),
     ("Projects", &[ActionScope::Projects]),
     ("Studios", &[ActionScope::OpenStudio]),
@@ -45,7 +46,7 @@ fn slot_names(id: &str) -> &'static [&'static str] {
 /// Where an act's keys are heard, so two acts meet only where both listen (`PLACES`).
 fn places(scope: ActionScope) -> &'static [&'static str] {
     match scope {
-        ActionScope::Anywhere => &["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues", "report", "projects", "plan", "thread", "terminal"],
+        ActionScope::Anywhere => &["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues", "report", "projects", "plan", "thread", "terminal", "dispatch"],
         ActionScope::List => &["board", "dashboard", "deck"],
         ActionScope::ListAndDetail => &["board", "detail", "dashboard"],
         ActionScope::OpenStudio => &["studio"],
@@ -60,6 +61,7 @@ fn places(scope: ActionScope) -> &'static [&'static str] {
         ActionScope::Plan => &["plan"],
         ActionScope::Thread => &["thread"],
         ActionScope::Terminal => &["terminal"],
+        ActionScope::Dispatch => &["dispatch"],
     }
 }
 

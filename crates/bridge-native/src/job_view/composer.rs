@@ -43,13 +43,13 @@ use crate::log::Note;
 use crate::look::{token, ActiveLook, Look};
 
 /// A text paste this long, at four characters a token and 8000 tokens, becomes a file (`large-paste.ts`).
-const LARGE_PASTE: usize = 8000 * 4;
+pub(crate) const LARGE_PASTE: usize = 8000 * 4;
 
 // ---- the draft ---------------------------------------------------------------------------------
 
 /// A chip in a draft: its place in the text, and what it names.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub(super) struct KeptTag {
+pub(crate) struct KeptTag {
     pub start: usize,
     pub end: usize,
     pub id: String,
@@ -58,7 +58,7 @@ pub(super) struct KeptTag {
 
 /// What a box held: its words and the chips among them. Files are never kept (`keep.ts`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub(super) struct Kept {
+pub(crate) struct Kept {
     pub text: String,
     #[serde(default)]
     pub tags: Vec<KeptTag>,
@@ -66,7 +66,7 @@ pub(super) struct Kept {
 
 impl Kept {
     /// The words and chips as the box takes them back.
-    fn content(&self) -> InputContent {
+    pub(crate) fn content(&self) -> InputContent {
         let mut content = InputContent::new(self.text.clone());
         for tag in &self.tags {
             let Some(shown) = self.text.get(tag.start..tag.end) else { continue };
@@ -127,7 +127,7 @@ impl Drafts {
 // ---- what is attached --------------------------------------------------------------------------
 
 #[derive(Clone)]
-pub(super) struct Attached {
+pub(crate) struct Attached {
     pub key: u64,
     pub name: String,
     pub media_type: String,
@@ -137,12 +137,12 @@ pub(super) struct Attached {
 
 impl Attached {
     /// The kind word on a tile: the extension in capitals.
-    fn kind(&self) -> String {
+    pub(crate) fn kind(&self) -> String {
         self.name.rsplit_once('.').map_or_else(|| "File".to_string(), |(_, ext)| ext.to_uppercase())
     }
 }
 
-fn media_type_of(name: &str) -> &'static str {
+pub(crate) fn media_type_of(name: &str) -> &'static str {
     match name.rsplit_once('.').map(|(_, ext)| ext.to_lowercase()).as_deref() {
         Some("png") => "image/png",
         Some("jpg" | "jpeg") => "image/jpeg",
@@ -156,7 +156,7 @@ fn media_type_of(name: &str) -> &'static str {
     }
 }
 
-fn preview_of(media_type: &str, bytes: &[u8]) -> Option<Arc<Image>> {
+pub(crate) fn preview_of(media_type: &str, bytes: &[u8]) -> Option<Arc<Image>> {
     let format = match media_type {
         "image/png" => ImageFormat::Png,
         "image/jpeg" => ImageFormat::Jpeg,
@@ -275,9 +275,188 @@ pub(super) fn build(remember: bool, window: &mut Window, cx: &mut Context<JobVie
     (composer, subs)
 }
 
-pub(super) fn encoded_files(files: Vec<Attached>) -> Vec<SessionUpload> {
+pub(crate) fn encoded_files(files: Vec<Attached>) -> Vec<SessionUpload> {
     let engine = base64::engine::general_purpose::STANDARD;
     files.into_iter().map(|one| SessionUpload { name: one.name, media_type: one.media_type, data: engine.encode(one.bytes.as_slice()) }).collect()
+}
+
+/// What is attached, as tiles in a row above the words: a picture shows itself, any other file its name and kind.
+/// `remove` makes each tile's Remove press; `more` are tiles the caller draws itself.
+pub(crate) fn tray(files: &[Attached], more: Vec<AnyElement>, look: &Look, remove: impl Fn(u64) -> Box<dyn Fn(&ClickEvent, &mut Window, &mut App)>) -> AnyElement {
+    let tiles = files.iter().map(|one| {
+        let key = one.key;
+        let name: SharedString = one.name.clone().into();
+        let remove = labelled(
+            icon_button(look, "remove-file", "trash", format!("Remove {}", one.name).into(), false, false)
+                .absolute()
+                .top(look.length(token::SPACE_1))
+                .right(look.length(token::SPACE_1))
+                .size(look.length(token::SPACE_6))
+                .rounded_full()
+                .bg(look.color(token::BG_OVERLAY))
+                .on_click(remove(key)),
+            Role::Button,
+            format!("Remove {}", one.name),
+        );
+        let body = match &one.preview {
+            Some(image) => div()
+                .h_full()
+                .min_w(look.length(token::SPACE_12))
+                .max_w(look.length(token::SPACE_12) * 2.7)
+                .child(img(image.clone()).h_full().object_fit(gpui::ObjectFit::Cover))
+                .into_any_element(),
+            None => div()
+                .size_full()
+                .flex()
+                .flex_col()
+                .justify_between()
+                .px(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_2))
+                .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_DEFAULT)).overflow_hidden().child(name.clone()))
+                .child(
+                    div()
+                        .text_size(look.length(token::TEXT_2XS))
+                        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                        .text_color(look.color(token::FG_SUBTLE))
+                        .child(one.kind()),
+                )
+                .into_any_element(),
+        };
+        labelled(
+            div()
+                .id(SharedString::from(format!("file-{key}")))
+                .relative()
+                .flex_none()
+                .h(look.length(token::SPACE_12) + look.length(token::SPACE_4))
+                .when(one.preview.is_none(), |tile| tile.w(look.length(token::SPACE_12) * 3.))
+                .overflow_hidden()
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .bg(look.color(token::BG_RAISED))
+                .child(body)
+                .child(remove)
+                .tooltip(tip(name.clone())),
+            Role::ListItem,
+            name,
+        )
+    });
+    labelled(
+        div().id("tray").flex().gap(look.length(token::SPACE_2)).px(look.length(token::SPACE_4)).pt(look.length(token::SPACE_3)).overflow_x_scroll().children(tiles).children(more),
+        Role::Group,
+        "Attached",
+    )
+    .into_any_element()
+}
+
+/// What a paste carries that is not words: pictures and files as they are, a long text as a file, and paths to read.
+#[derive(Default)]
+pub(crate) struct Clipped {
+    pub files: Vec<(String, String, Vec<u8>)>,
+    pub paths: Vec<PathBuf>,
+}
+
+impl Clipped {
+    pub fn taken(&self) -> bool {
+        !self.files.is_empty() || !self.paths.is_empty()
+    }
+}
+
+/// A paste with a picture or files on the clipboard attaches them; a long text becomes a file named by `snippet`.
+pub(crate) fn clipped(item: &ClipboardItem, mut snippet: impl FnMut() -> u64) -> Clipped {
+    let mut taken = Clipped::default();
+    for entry in item.entries() {
+        match entry {
+            ClipboardEntry::Image(image) => {
+                let media_type = image.format.mime_type().to_string();
+                let ext = media_type.rsplit('/').next().unwrap_or("png").to_string();
+                taken.files.push((format!("Pasted file.{ext}"), media_type, image.bytes.clone()));
+            }
+            ClipboardEntry::ExternalPaths(paths) => taken.paths.extend(paths.paths().iter().cloned()),
+            ClipboardEntry::String(text) if text.text().len() > LARGE_PASTE => {
+                taken.files.push((format!("pasted-snippet-{}.txt", snippet()), "text/plain".into(), text.text().clone().into_bytes()));
+            }
+            ClipboardEntry::String(_) => {}
+        }
+    }
+    taken
+}
+
+/// Files named by a drop or a paste are read off the main thread, and `add` takes each one as it arrives.
+pub(crate) fn read_files<T: 'static>(paths: Vec<PathBuf>, cx: &mut Context<T>, add: impl Fn(&mut T, String, String, Vec<u8>, &mut Context<T>) + 'static) {
+    cx.spawn(async move |this, cx| {
+        for path in paths {
+            let name = path.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_else(|| "File".into());
+            let read = cx.background_executor().spawn(async move { std::fs::read(&path) }).await;
+            match read {
+                Ok(bytes) => {
+                    let _ = this.update(cx, |this, cx| {
+                        let media_type = media_type_of(&name).to_string();
+                        add(this, name, media_type, bytes, cx);
+                    });
+                }
+                Err(why) => {
+                    Note::warn("a file was not read for attaching").field("name", name).field("why", why.to_string()).emit();
+                }
+            }
+        }
+    })
+    .detach();
+}
+
+/// Send as a bar draws it, with no press on it: a ghost while there is nothing to send, else the accent's ground.
+/// `key_text` is the Command key held, which shows the key that sends.
+pub(crate) fn send_face(look: &Look, nothing: bool, said: &'static str, key_text: bool) -> gpui::Stateful<gpui::Div> {
+    div()
+        .id("send")
+        .flex_none()
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .h(look.length(token::H_CONTROL_LG))
+        .px(look.length(token::SPACE_4))
+        .rounded(look.length(token::RADIUS_LG))
+        .text_size(look.length(token::TEXT_SM))
+        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+        // With nothing to send it is a ghost: no ground, its words a step down.
+        .when(nothing, |button| button.text_color(look.color(token::FG_SUBTLE)))
+        .when(!nothing, |button| {
+            button.bg(look.color(token::ACCENT)).text_color(look.color(token::TEXT_ON_ACCENT)).cursor_pointer().hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
+        })
+        .child(svg().path(icon_path("send")).size(look.length(token::SPACE_3)).text_color(if nothing { look.color(token::FG_SUBTLE) } else { look.color(token::TEXT_ON_ACCENT) }))
+        .child(said)
+        .when(key_text, |button| button.child(div().text_color(look.color(token::TEXT_ON_ACCENT).opacity(0.7)).child("\u{2318}\u{21b5}")))
+}
+
+/// The words in a box: one text area whose chips are drawn as the Job's box draws them.
+pub(crate) fn words_area(input: &Entity<TextareaState>, look: &Look, on_paste: impl Fn(&ClipboardItem, &mut Window, &mut App) -> bool + 'static) -> Textarea {
+    let quote_bar = look.length(token::BORDER_WIDTH) * 2.;
+    let (accent, gap, mono) = (look.color(token::ACCENT), look.length(token::SPACE_2), look.font_stack(token::FONT_MONO).into_iter().next());
+    Textarea::new(input)
+        .appearance(false)
+        .aria_label("Message")
+        .on_paste(on_paste)
+        .token(move |drawn, _, _| match format_of(drawn.token().id()) {
+            None => gpui_component::input::InputToken::new(drawn).into_any_element(),
+            // A quote's marker is its accent edge; an item's is an accent bullet (`SessionComposer.css`).
+            Some(Format::Quote) => div().h(drawn.line_height()).pr(gap).flex().child(div().w(quote_bar).h_full().bg(accent)).into_any_element(),
+            Some(Format::Item) => div().h(drawn.line_height()).pr(gap).flex().items_center().text_color(accent).child("•").into_any_element(),
+            Some(Format::Web(_)) => div().h(drawn.line_height()).flex().items_center().text_color(accent).child(drawn.token().label().clone()).into_any_element(),
+            Some(Format::File(_)) => div()
+                .h(drawn.line_height())
+                .flex()
+                .items_center()
+                .text_color(accent)
+                .when_some(mono.clone(), |path, mono| path.font_family(mono))
+                .child(drawn.token().label().clone())
+                .into_any_element(),
+        })
+        .on_token_click(|clicked, _, cx| {
+            // A plain press places the caret; Cmd-press opens a web link (`onClick`).
+            if let (Some(Format::Web(href)), true) = (format_of(clicked.token().id()), clicked.click().modifiers().platform) {
+                cx.open_url(&href);
+            }
+        })
 }
 
 impl JobView {
@@ -397,7 +576,11 @@ impl JobView {
 
     /// The box takes the Job's own draft, and reads what the bar and the pickers need.
     pub(super) fn composer_enter(&mut self, to: Option<&SharedString>, window: &mut Window, cx: &mut Context<Self>) {
-        let kept = to.map(|id| self.composer.drafts.get(id)).unwrap_or_default();
+        let mut kept = to.map(|id| self.composer.drafts.get(id)).unwrap_or_default();
+        if let Some(id) = to {
+            // A held Job's first message is the box's first draft, once.
+            kept = self.seed_start(id, kept, cx);
+        }
         self.set_box(&kept, window, cx);
         if to.is_some() {
             self.want_models(cx);
@@ -514,6 +697,10 @@ impl JobView {
         let Some(id) = self.shown.clone() else { return };
         if self.closed(&id, cx) {
             return;
+        }
+        // A held Job's first send begins it: the box is the first message.
+        if self.held_card(&id, cx).is_some() {
+            return self.begin_start(window, cx);
         }
         let kept = self.kept(cx);
         if kept.text.trim().is_empty() && !self.composer.holds(&id) {
@@ -772,25 +959,7 @@ impl JobView {
     /// Files named by a drop or a paste are read off the main thread and attached to the Job in view.
     pub(super) fn take_paths(&mut self, paths: Vec<PathBuf>, cx: &mut Context<Self>) {
         let Some(id) = self.box_key() else { return };
-        cx.spawn(async move |this, cx| {
-            for path in paths {
-                let name = path.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_else(|| "File".into());
-                let read = cx.background_executor().spawn(async move { std::fs::read(&path) }).await;
-                let id = id.clone();
-                match read {
-                    Ok(bytes) => {
-                        let _ = this.update(cx, |this, cx| {
-                            let media_type = media_type_of(&name).to_string();
-                            this.add_file(&id, name, media_type, bytes, cx);
-                        });
-                    }
-                    Err(why) => {
-                        Note::warn("a file was not read for attaching").field("name", name).field("why", why.to_string()).emit();
-                    }
-                }
-            }
-        })
-        .detach();
+        read_files(paths, cx, move |this, name, media_type, bytes, cx| this.add_file(&id, name, media_type, bytes, cx));
     }
 
     fn add_file(&mut self, id: &SharedString, name: String, media_type: String, bytes: Vec<u8>, cx: &mut Context<Self>) {
@@ -812,29 +981,20 @@ impl JobView {
     /// A paste with a picture or files on the clipboard attaches them; a long text becomes a file.
     fn paste(&mut self, item: &ClipboardItem, cx: &mut Context<Self>) -> bool {
         let Some(id) = self.box_key() else { return false };
-        let mut taken = false;
-        for entry in item.entries() {
-            match entry {
-                ClipboardEntry::Image(image) => {
-                    let media_type = image.format.mime_type().to_string();
-                    let ext = media_type.rsplit('/').next().unwrap_or("png").to_string();
-                    self.add_file(&id, format!("Pasted file.{ext}"), media_type, image.bytes.clone(), cx);
-                    taken = true;
-                }
-                ClipboardEntry::ExternalPaths(paths) => {
-                    self.take_paths(paths.paths().to_vec(), cx);
-                    taken = true;
-                }
-                ClipboardEntry::String(text) if text.text().len() > LARGE_PASTE => {
-                    self.composer.next_key += 1;
-                    let name = format!("pasted-snippet-{}.txt", self.composer.next_key);
-                    self.add_file(&id, name, "text/plain".into(), text.text().clone().into_bytes(), cx);
-                    taken = true;
-                }
-                ClipboardEntry::String(_) => {}
-            }
+        let mut next = self.composer.next_key;
+        let taken = clipped(item, || {
+            next += 1;
+            next
+        });
+        self.composer.next_key = next;
+        for (name, media_type, bytes) in taken.files.iter().cloned() {
+            self.add_file(&id, name, media_type, bytes, cx);
         }
-        taken
+        let any = taken.taken();
+        if !taken.paths.is_empty() {
+            self.take_paths(taken.paths, cx);
+        }
+        any
     }
 
     // ---- pickers -------------------------------------------------------------------------
@@ -1006,27 +1166,28 @@ impl JobView {
     // ---- drawing -------------------------------------------------------------------------
 
     /// A quiet text button on the bar: its words, a chevron, and a tooltip that says what it sets.
-    fn bar_button(&self, look: &Look, id: &'static str, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>, narrow: bool) -> gpui::Stateful<gpui::Div> {
+    fn bar_button(&self, look: &Look, id: &'static str, glyph: Option<&'static str>, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>, narrow: bool) -> gpui::Stateful<gpui::Div> {
         div()
             .id(id)
-            // As Electron's: a menu gives up room before Send does, down to a floor, and its words truncate.
+            // Send never shrinks; a menu gives up room first: its words truncate, then only its glyph and caret are left.
             .flex_shrink(1.)
-            .min_w(look.length(token::SPACE_12) * 1.5)
+            .min_w_0()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
             .h(look.length(token::H_CONTROL))
             .pl(look.length(token::SPACE_3))
             .pr(look.length(token::SPACE_2))
-            // In a box under 400px its words are gone, as Electron's truncate to nothing there: its glyph and caret keep their room.
+            // In a box under 400px its words are gone and its glyph stands in for them, as Electron's truncate to nothing there: its glyph and caret keep their room.
             .when(narrow, |button| {
-                button.flex_none().min_w_0().gap(look.length(token::SPACE_1)).pl(look.length(token::SPACE_1)).pr(look.length(token::SPACE_1))
+                button.overflow_hidden().when(glyph.is_some(), |button| button.min_w(look.length(token::SPACE_1) * 3. + look.length(token::SPACE_4) * 2. + look.length(token::BORDER_WIDTH) * 2.)).gap(look.length(token::SPACE_1)).pl(look.length(token::SPACE_1)).pr(look.length(token::SPACE_1))
             })
             .rounded(look.length(token::RADIUS_MD))
             .cursor_pointer()
             .text_size(look.length(token::TEXT_SM))
             .text_color(look.color(token::FG_MUTED))
             .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+            .children(glyph.filter(|_| narrow).map(|name| svg().flex_none().path(icon_path(name)).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))))
             .children((!narrow).then(|| div().min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis().child(said)))
             .children(meter)
             .child(svg().flex_none().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
@@ -1034,36 +1195,12 @@ impl JobView {
     }
 
     /// Send, as the box's bar draws it: off while there is nothing to send.
-    pub(super) fn send_button(&self, nothing: bool, window: &Window, cx: &Context<Self>) -> gpui::AnyElement {
+    pub(super) fn send_button(&self, nothing: bool, said: &'static str, window: &Window, cx: &Context<Self>) -> gpui::AnyElement {
         let look = cx.look();
-        let key_text = window.modifiers().platform;
         labelled(
-            div()
-                .id("send")
-                .flex_none()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .h(look.length(token::H_CONTROL_LG))
-                .px(look.length(token::SPACE_4))
-                .rounded(look.length(token::RADIUS_LG))
-                .text_size(look.length(token::TEXT_SM))
-                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                // With nothing to send it is a ghost: no ground, its words a step down.
-                .when(nothing, |button| button.text_color(look.color(token::FG_SUBTLE)))
-                .when(!nothing, |button| {
-                    button
-                        .bg(look.color(token::ACCENT))
-                        .text_color(look.color(token::TEXT_ON_ACCENT))
-                        .cursor_pointer()
-                        .hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
-                        .on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))
-                })
-                .child(svg().path(icon_path("send")).size(look.length(token::SPACE_3)).text_color(if nothing { look.color(token::FG_SUBTLE) } else { look.color(token::TEXT_ON_ACCENT) }))
-                .child("Send")
-                .when(key_text, |button| button.child(div().text_color(look.color(token::TEXT_ON_ACCENT).opacity(0.7)).child("\u{2318}\u{21b5}"))),
+            send_face(look, nothing, said, window.modifiers().platform).when(!nothing, |button| button.on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))),
             Role::Button,
-            "Send",
+            said,
         )
         .into_any_element()
     }
@@ -1105,115 +1242,21 @@ impl JobView {
             .text_color(look.color(token::FG_DEFAULT))
             .child({
                 let view = cx.entity().downgrade();
-                let quote_bar = look.length(token::BORDER_WIDTH) * 2.;
-                let (accent, gap, mono) = (look.color(token::ACCENT), look.length(token::SPACE_2), look.font_stack(token::FONT_MONO).into_iter().next());
-                Textarea::new(&self.composer.input)
-                    .appearance(false)
-                    .aria_label("Message")
-                    .on_paste(move |item, _, cx| view.update(cx, |this, cx| this.paste(item, cx)).unwrap_or(false))
-                    .token(move |drawn, _, _| match format_of(drawn.token().id()) {
-                        None => gpui_component::input::InputToken::new(drawn).into_any_element(),
-                        // A quote's marker is its accent edge; an item's is an accent bullet (`SessionComposer.css`).
-                        Some(Format::Quote) => div().h(drawn.line_height()).pr(gap).flex().child(div().w(quote_bar).h_full().bg(accent)).into_any_element(),
-                        Some(Format::Item) => div().h(drawn.line_height()).pr(gap).flex().items_center().text_color(accent).child("•").into_any_element(),
-                        Some(Format::Web(_)) => div().h(drawn.line_height()).flex().items_center().text_color(accent).child(drawn.token().label().clone()).into_any_element(),
-                        Some(Format::File(_)) => div()
-                            .h(drawn.line_height())
-                            .flex()
-                            .items_center()
-                            .text_color(accent)
-                            .when_some(mono.clone(), |path, mono| path.font_family(mono))
-                            .child(drawn.token().label().clone())
-                            .into_any_element(),
-                    })
-                    .on_token_click(|clicked, _, cx| {
-                        // A plain press places the caret; Cmd-press opens a web link (`onClick`).
-                        if let (Some(Format::Web(href)), true) = (format_of(clicked.token().id()), clicked.click().modifiers().platform) {
-                            cx.open_url(&href);
-                        }
-                    })
+                words_area(&self.composer.input, look, move |item, _, cx| view.update(cx, |this, cx| this.paste(item, cx)).unwrap_or(false))
             })
     }
 
     pub(super) fn render_tray(&self, id: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let files = self.composer.files_of(id);
         if !self.composer.holds(id) {
             return None;
         }
-        let tiles = files.iter().map(|one| {
-            let key = one.key;
-            let name: SharedString = one.name.clone().into();
-            let remove = labelled(
-                icon_button(look, "remove-file", "trash", format!("Remove {}", one.name).into(), false, false)
-                    .absolute()
-                    .top(look.length(token::SPACE_1))
-                    .right(look.length(token::SPACE_1))
-                    .size(look.length(token::SPACE_6))
-                    .rounded_full()
-                    .bg(look.color(token::BG_OVERLAY))
-                    .on_click(cx.listener(move |this, _, window, cx| this.remove_file(key, window, cx))),
-                Role::Button,
-                format!("Remove {}", one.name),
-            );
-            let body = match &one.preview {
-                Some(image) => div()
-                    .h_full()
-                    .min_w(look.length(token::SPACE_12))
-                    .max_w(look.length(token::SPACE_12) * 2.7)
-                    .child(img(image.clone()).h_full().object_fit(gpui::ObjectFit::Cover))
-                    .into_any_element(),
-                None => div()
-                    .size_full()
-                    .flex()
-                    .flex_col()
-                    .justify_between()
-                    .px(look.length(token::SPACE_3))
-                    .py(look.length(token::SPACE_2))
-                    .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_DEFAULT)).overflow_hidden().child(name.clone()))
-                    .child(
-                        div()
-                            .text_size(look.length(token::TEXT_2XS))
-                            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                            .text_color(look.color(token::FG_SUBTLE))
-                            .child(one.kind()),
-                    )
-                    .into_any_element(),
-            };
-            labelled(
-                div()
-                    .id(SharedString::from(format!("file-{key}")))
-                    .relative()
-                    .flex_none()
-                    .h(look.length(token::SPACE_12) + look.length(token::SPACE_4))
-                    .when(one.preview.is_none(), |tile| tile.w(look.length(token::SPACE_12) * 3.))
-                    .overflow_hidden()
-                    .rounded(look.length(token::RADIUS_MD))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_SUBTLE))
-                    .bg(look.color(token::BG_RAISED))
-                    .child(body)
-                    .child(remove)
-                    .tooltip(tip(name.clone())),
-                Role::ListItem,
-                name,
-            )
-        });
-        Some(
-            labelled(
-                div()
-                    .id("tray")
-                    .flex()
-                    .gap(look.length(token::SPACE_2))
-                    .px(look.length(token::SPACE_4))
-                    .pt(look.length(token::SPACE_3))
-                    .overflow_x_scroll()
-                    .children(tiles)
-                    .children(self.drawn_tiles(id, look, cx)),
-                Role::Group,
-                "Attached",
-            )
-            .into_any_element(),
-        )
+        let remove = |key: u64| -> Box<dyn Fn(&ClickEvent, &mut Window, &mut App)> {
+            let this = cx.entity().downgrade();
+            Box::new(move |_, window, cx| {
+                let _ = this.update(cx, |this, cx| this.remove_file(key, window, cx));
+            })
+        };
+        Some(tray(self.composer.files_of(id), self.drawn_tiles(id, look, cx), look, remove))
     }
 
     /// The box and what hangs on it: refusal, hand-off band, quick bar, tray, words, bar and acts.
@@ -1245,7 +1288,13 @@ impl JobView {
         let (shown, tune_said) = trigger_name(offered, default, model.as_deref(), effort.as_deref());
         let (steps, lit) = effort_place(offered, default, model.as_deref(), effort.as_deref());
         let meter = (steps > 0).then(|| effort_meter(look, steps, lit).into_any_element());
-        let send = self.send_button(nothing, window, cx);
+        let card = self.held_card(id, cx);
+        // A held Job's Send reads Start, and works on an empty box where Fleet gave no first message.
+        let (nothing, said) = match &card {
+            Some(card) => ((kept_empty && !self.composer.holds(id) && card.has_message()) || card.starting(), "Start"),
+            None => (nothing, "Send"),
+        };
+        let send = self.send_button(nothing, said, window, cx);
         let attach = self.attach_button(look, cx);
         // The box, Needs you and the cards share one outer edge: the words' column and the bleed either side.
         let column = self.column(look) + super::bleed(look) * 2.;
@@ -1253,7 +1302,7 @@ impl JobView {
         let narrow = self.pane.is_some_and(|pane| (pane - look.length(token::SPACE_4) * 2.).min(column) < gpui::px(400.));
         let mode_button = labelled(
             // The permission picker is a select, as Electron's: a sunken well in a strong edge.
-            self.bar_button(look, "mode", mode_said, mode_tip, None, narrow)
+            self.bar_button(look, "mode", Some("zap"), mode_said, mode_tip, None, narrow)
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_STRONG))
                 .bg(look.color(token::BG_SUNKEN))
@@ -1265,7 +1314,7 @@ impl JobView {
             "Permission mode",
         );
         let tune_button = labelled(
-            self.bar_button(look, "tune", shown.into(), "The model and effort the next turn runs on".into(), meter, narrow).on_click(cx.listener(
+            self.bar_button(look, "tune", None, shown.into(), "The model and effort the next turn runs on".into(), meter, narrow).on_click(cx.listener(
                 |this, _, window, cx| this.open_tune(window, cx),
             )),
             Role::Button,
@@ -1335,6 +1384,7 @@ impl JobView {
                         )
                     }))
                     .children(self.render_handoff_band(id, cx))
+                    .children(lands_line(id, look, cx))
                     .child(labelled(
                         div()
                             .id("message-box")
@@ -1356,6 +1406,7 @@ impl JobView {
                             .when(needs.is_some(), |frame| frame.border_t(gpui::px(0.)))
                             .when(risen, |frame| frame.rounded_t(gpui::px(0.)))
                             .bg(look.color(token::BG_SUNKEN))
+                            .children(card.as_ref().map(|card| self.start_strip(card, look, cx)))
                             .children(needs)
                             .children(self.render_offer(look, cx))
                             .children(self.render_quick(id, look, window, cx))
@@ -1370,6 +1421,30 @@ impl JobView {
             )
             .into_any_element()
     }
+}
+
+/// How a New project's first Job lands, from the project's settings, on a line over its box.
+fn lands_line(id: &str, look: &Look, cx: &App) -> Option<AnyElement> {
+    let line = crate::new_project::lands(id, cx)?;
+    let ink = look.color(token::KIND_DELIVERY);
+    Some(
+        labelled(
+            div()
+                .id("lands")
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1) * 1.5)
+                .px(look.length(token::SPACE_1))
+                .text_size(look.length(token::TEXT_2XS))
+                .line_height(look.length(token::LEADING_2XS))
+                .text_color(ink)
+                .child(gpui::svg().path(crate::assets::icon_path("git-merge")).size(look.length(token::SPACE_3)).flex_none().text_color(ink))
+                .child(line.clone()),
+            Role::Status,
+            line,
+        )
+        .into_any_element(),
+    )
 }
 
 #[cfg(test)]

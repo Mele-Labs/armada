@@ -312,7 +312,7 @@ impl JobView {
                     held.memory.pop_front();
                 }
                 held.read = Some(system);
-                held.read_at = Some(Local::now().format("%H:%M:%S").to_string());
+                held.read_at = Some(crate::settings::time::stamp(Local::now()));
                 held.refused = false;
             }
             Err(why) => {

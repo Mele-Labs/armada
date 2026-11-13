@@ -137,6 +137,15 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowSteps", cx))
     }
 
+    /// `GET /workflows/lanes`: one workflow's lanes at a level, as its editor draws them (`get_workflow_lanes`).
+    pub fn workflow_lanes(&mut self, workflow: &str, scope: &str, manifest: &str, cx: &App) -> Task<Result<ipc::JobLanesView, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.workflow_lanes(workflow, scope));
+        }
+        let path = scoped(&format!("/workflows/lanes?workflow={}&scope={}", crate::link::percent_encoded(workflow), crate::link::percent_encoded(scope)), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "JobLanesView", cx))
+    }
+
     /// `GET /workflows/definition`: the file's text, as `save_workflow` takes it back.
     pub fn workflow_definition(&mut self, id: &str, source: &str, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
         if let Wire::Mock(mock) = self {
@@ -244,6 +253,58 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/models".into()), "ModelChoices", cx))
     }
 
+    /// `GET /admin/setup` on the Phone Gateway, which runs whether or not Fleet answers.
+    pub fn gateway_setup(&mut self, cx: &App) -> Task<Result<ipc::GatewaySetup, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.read_setup()),
+            Wire::Live(_) => super::gateway::setup(cx),
+        }
+    }
+
+    pub fn gateway_macs(&mut self, cx: &App) -> Task<Result<Vec<ipc::Mac>, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(if mock.gateway.running { Ok(mock.gateway.macs.clone()) } else { Err(super::gateway::NOT_RUNNING.into()) }),
+            Wire::Live(_) => super::gateway::macs(cx),
+        }
+    }
+
+    pub fn gateway_phones(&mut self, cx: &App) -> Task<Result<Vec<ipc::PairedPhone>, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(if mock.gateway.running { Ok(mock.gateway.phones.clone()) } else { Err(super::gateway::NOT_RUNNING.into()) }),
+            Wire::Live(_) => super::gateway::devices(cx),
+        }
+    }
+
+    pub fn start_tunnel(&mut self, cx: &App) -> Task<Result<super::gateway::Tunnel, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.start()),
+            Wire::Live(_) => super::gateway::start(cx),
+        }
+    }
+
+    pub fn gateway_unpair(&mut self, id: String, cx: &App) -> Task<Result<(), String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.unpair(&id)),
+            Wire::Live(_) => super::gateway::unpair(id, cx),
+        }
+    }
+
+    /// Opens a page in his browser; the mock keeps it instead.
+    pub fn open_link(&mut self, address: &str, cx: &mut App) {
+        match self {
+            Wire::Mock(mock) => mock.handed.push(address.to_string()),
+            Wire::Live(_) => cx.open_url(address),
+        }
+    }
+
+    /// Puts words on his clipboard; the mock keeps them instead.
+    pub fn copy(&mut self, words: &str, cx: &mut App) {
+        match self {
+            Wire::Mock(mock) => mock.handed.push(words.to_string()),
+            Wire::Live(_) => cx.write_to_clipboard(gpui::ClipboardItem::new_string(words.to_string())),
+        }
+    }
+
     /// The repositories Fleet serves, by Manifest id, name and whether its armada.yml turns connectors off.
     pub fn repositories(&self, cx: &App) -> Option<Vec<(String, String, bool)>> {
         let held = match self {
@@ -288,6 +349,14 @@ impl Wire {
         }
     }
 
+    /// `GET /preferences`: every preference in force.
+    pub fn preferences(&self, cx: &App) -> Task<Result<ipc::Preferences, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(if mock.connected { Ok(mock.preferences.clone()) } else { Err(Refused::said("Fleet is not connected")) });
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/preferences".into()), "Preferences", cx))
+    }
+
     /// `POST /preferences/save` with a preference that is text. Fleet answers with every preference in force.
     pub fn save_preference(&mut self, name: &str, text: String, cx: &App) -> Task<Result<ipc::Preferences, Refused>> {
         if let Wire::Mock(mock) = self {
@@ -303,6 +372,9 @@ impl Wire {
         match self {
             Wire::Live(fleet) => fleet.update(cx, |fleet, cx| fleet.preferences_saved(answer, cx)),
             Wire::Mock(mock) => {
+                super::time::hold(&answer.time_format);
+                super::layout::hold(&answer.layout_choices);
+                cx.refresh_windows();
                 crate::keymap::install(&crate::keymap::Rebinding::read(&answer.key_bindings), cx);
                 crate::look::install(super::theme::look_of(&answer.theme, &mock.sheets, window), cx);
             }

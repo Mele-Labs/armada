@@ -111,6 +111,8 @@ __screenshots__/
 # ignored, so no commit does either. `fleet::keeping` holds the reasoning.
 .armada/*
 !.armada/workflows/
+# The house patterns a sketch's mock copies, read by `get_design_catalogue`.
+!.armada/catalogue/
 
 # The code graph `pnpm gitnexus:index` builds: a database of a few hundred MB,
 # rebuilt from the source it describes. `docs/practices/code-graph.md`.

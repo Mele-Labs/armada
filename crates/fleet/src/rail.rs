@@ -34,6 +34,10 @@
 //!
 //! **A step the person skipped is passed and never entered**, so the Job moves on past it. A skipped
 //! recording step reads as a plan approved once the Job has edited, since no plan is coming.
+//!
+//! **A step added behind the Job is passed over.** The rail keeps steps by id, so a workflow save does not move
+//! the Job: a step before the one it stood on that it never began is neither stood on nor entered as a step before
+//! the recording step.
 
 use config::ResolvedWorkflow;
 use core_model::{EvidenceType, JudgeCriterion, LifecycleEnd, ResolvedCheck, ResolvedStep, StepEnd, StepGate, StepPhase};
@@ -116,6 +120,11 @@ fn fit_of(step: &ResolvedStep) -> Option<Fit> {
         Some(EvidenceType::Review) => Some(Fit::PrOpened),
         _ => None,
     }
+}
+
+/// The ids of `steps`, which the store keeps a rail by: a step's index moves when the workflow is saved, its id does not.
+pub(crate) fn step_ids(steps: &[RailStep]) -> Vec<String> {
+    steps.iter().map(|step| step.id.clone()).collect()
 }
 
 /// The workflow's steps as the rail reads them.
@@ -234,6 +243,10 @@ pub(crate) struct Facts {
     pub you_approved: StepBits,
     /// The steps the person skipped.
     pub skipped: Skipped,
+    /// The step the rail last kept the Job standing on, and the steps it has begun. A step before `stood` that it
+    /// never began was added after it passed that place, so [`standing`] passes it over.
+    pub stood: Option<usize>,
+    pub visited: StepBits,
     /// The steps he wrote on after they began. [`Extra::messaged`].
     pub messaged: StepBits,
     /// The steps that list a lifecycle end of which the Job holds an instance. Set where the row is
@@ -285,6 +298,12 @@ impl Facts {
             messaged: extra.messaged,
             ..Facts::default()
         }
+    }
+
+    /// Whether the step is before the one the Job stood on and the Job never began it: a workflow save added it behind
+    /// the Job. **Neither [`standing`] nor a step before the recording step is entered on it.**
+    fn added_behind(&self, at: usize) -> bool {
+        self.stood.is_some_and(|stood| at < stood) && !self.visited.has(at)
     }
 
     /// The facts with the person's skips counted: a skipped recording step reads as a plan recorded and
@@ -435,7 +454,7 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     }
     let before = |earlier: usize| (0..earlier).all(|one| passed(steps, one, facts));
     if recorder(steps).is_some_and(|recording| at < recording) {
-        return !facts.any_ended(at, &step.ends_on) && !facts.plan_recorded && before(at);
+        return !facts.added_behind(at) && !facts.any_ended(at, &step.ends_on) && !facts.plan_recorded && before(at);
     }
     // **A step that waits on a lifecycle is entered once the Job holds one**, and left when its end
     // comes. The step after it is entered at that moment, whatever fact would have entered it: the
@@ -477,11 +496,14 @@ pub(crate) fn current(steps: &[RailStep], facts: &Facts) -> Option<usize> {
 }
 
 /// Where no step is entered: the first step, or, past the person's skips, the first step neither
-/// skipped nor passed before the last of them. With nothing skipped this is the first step.
+/// skipped nor passed before the last of them. With nothing skipped this is the first step. **A step before the one
+/// the Job stood on that it never began is passed over**: a workflow save added it behind the Job.
 fn standing(steps: &[RailStep], facts: &Facts) -> usize {
     let last = facts.skipped.last();
     (0..steps.len())
-        .find(|at| !facts.skipped.has(*at) && !last.is_some_and(|last| *at < last && passed(steps, *at, facts)))
+        .find(|at| {
+            !facts.skipped.has(*at) && !facts.added_behind(*at) && !last.is_some_and(|last| *at < last && passed(steps, *at, facts))
+        })
         .unwrap_or(0)
 }
 

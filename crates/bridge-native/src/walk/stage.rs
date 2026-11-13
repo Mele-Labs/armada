@@ -27,6 +27,8 @@ pub struct Focus {
 impl Stage {
     pub fn new(walk: &Walk, window: &mut Window, cx: &mut App) -> Result<Stage, String> {
         crate::terminal::shells::hold_walk(cx);
+        // A walk starts with nothing kept; what it forgets here is only in memory, never in the owner's file.
+        crate::drafts::forget_all(cx);
         match walk.screen {
             Screen::Dispatch => {
                 super::strip_marks::leave(cx);
@@ -92,8 +94,10 @@ impl Stage {
                 let held: gpui::AnyView = cx.new(|cx| crate::operator::OperatorScreen::mock_behind(jobs.clone(), window, cx)).into();
                 let screen = cx.new(|cx| crate::dispatch::DispatchScreen::new(jobs, &records, window, cx).over(held));
                 let focus = Focus { keys, within: screen.read(cx).within.clone() };
+                // Settings over the whole, as main.rs stacks it, so ⌘, opens it and a note can be made on it.
+                let over = cx.new(|cx| crate::settings::SettingsScreen::mock(screen.into(), window, cx));
                 window.focus(&focus.keys, cx);
-                Ok(Stage { view: screen.into(), focus })
+                Ok(Stage { view: over.into(), focus })
             }
             Screen::Operator => {
                 super::strip_marks::leave(cx);
@@ -116,6 +120,9 @@ impl Stage {
                 let screen = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
                 let held = cx.new(|cx| crate::operator::OperatorScreen::mock_behind(screen, window, cx));
                 let over = cx.new(|cx| crate::settings::SettingsScreen::mock(held.into(), window, cx));
+                if walk.name == crate::settings::walk::NO_FUNNEL {
+                    over.update(cx, |over, cx| over.without_funnel(cx));
+                }
                 let focus = Focus { keys, within: over.read(cx).within.clone() };
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: over.into(), focus })
@@ -361,6 +368,31 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             );
             Ok(())
         }
+        Verb::WheelTo(role, on, by) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            for _ in 0..60 {
+                if find(step, window, cx).is_ok() {
+                    return Ok(());
+                }
+                let drawn = cx
+                    .try_global::<LabelBook>()
+                    .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
+                    .ok_or_else(|| Missed(format!("nothing named \"{on}\" to scroll")))?;
+                window.dispatch_event(
+                    PlatformInput::Scroll(gpui::ScrollEvent {
+                        position: drawn.shown.center(),
+                        delta: gpui::ScrollDelta::Pixels(point(px(0.), px(-(by as f32)))),
+                        modifiers: Modifiers::default(),
+                        touch_phase: gpui::TouchPhase::Moved,
+                        source: gpui::ScrollSource::default(),
+                    }),
+                    cx,
+                );
+                window.refresh();
+                window.draw(cx).clear(cx);
+            }
+            Ok(())
+        }
         Verb::PressStart(role, on) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             let drawn = cx
@@ -420,6 +452,21 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             super::stand_in::hide(cx);
             crate::titlebar::scenes::apply(name, cx).map_err(Missed)
         }
+        Verb::PressOnFirst(doors) => {
+            let shown = |role: gpui::Role, name: &str, cx: &App| {
+                cx.try_global::<LabelBook>().and_then(|book| {
+                    book.drawn(window.window_handle().window_id()).iter().find(|drawn| drawn.role == role && drawn.name == name && drawn.shown.size.width > px(0.) && drawn.shown.size.height > px(0.)).cloned()
+                })
+            };
+            let at = doors
+                .iter()
+                .find_map(|(role, name)| role_named(role).and_then(|role| shown(role, name, cx)))
+                .ok_or_else(|| Missed(format!("none of {doors:?} is drawn to press")))?;
+            let at = reveal(at, window, cx);
+            let at = aim(&at);
+            press(MouseButton::Left, at, window, cx);
+            Ok(())
+        }
         Verb::PressOn(role, name) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             // The first one showing: a list's off-screen measure of the same element comes first in the
@@ -471,7 +518,11 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         }
         Verb::Answer(name) => {
             if let Some(page) = crate::operator::live(cx) {
-                return page.update(cx, |page, cx| page.scene(name, cx)).map_err(Missed);
+                // A name the page does not know is the dispatch screen's, where the whole app is in the walk.
+                match page.update(cx, |page, cx| page.scene(name, cx)) {
+                    Err(why) if why.starts_with("no Operator scene named") && crate::dispatch::screen::live(cx).is_some() => {}
+                    done => return done.map_err(Missed),
+                }
             }
             let screen = crate::dispatch::screen::live(cx).ok_or_else(|| Missed("no dispatch screen is drawn yet".into()))?;
             screen.update(cx, |screen, cx| screen.scene(name, window, cx)).map_err(Missed)

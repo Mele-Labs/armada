@@ -674,6 +674,7 @@ impl TitleBar {
             }
             (MenuKind::Account, "search") => self.leave_with(Asked::Palette, window, cx),
             (MenuKind::Account, "dispatch") => self.leave_with(Asked::Dispatch, window, cx),
+            (MenuKind::Account, "new-project") => self.leave_with(Asked::NewProject, window, cx),
             (MenuKind::Account, "operator") => self.leave_with(Asked::Operator, window, cx),
             (MenuKind::Build, "main") => self.change_build(BuildSource::Main, window, cx),
             (MenuKind::Build, "preview") => self.change_build(BuildSource::Preview, window, cx),
@@ -1024,6 +1025,8 @@ impl TitleBar {
             let row = Row::new(REPO[at], one.name.clone()).icon("git-branch").member().ticked(face.chosen == Some(at) && face.scoped.is_none());
             entries.push(Entry::Row(if one.not_set_up { row.detail("Not set up") } else { row }));
         }
+        // Last, as the switcher's left pane ends on it.
+        entries.push(Entry::Row(Row::new("new-project", "New project").icon("plus")));
         entries
     }
 

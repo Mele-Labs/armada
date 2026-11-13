@@ -1,7 +1,7 @@
 //! The owner's time format's rules: exactly the three switches `hour12`, `seconds` and `date`,
 //! each true or false.
 
-use crate::time_format::problems;
+use crate::time_format::{problems, read, TimeFormat};
 
 #[test]
 fn three_switches_are_accepted() {
@@ -23,5 +23,14 @@ fn anything_else_is_named() {
         (r#"{"hour12":true,"seconds":true,"date":true,"zone":true}"#, "zone is not a switch"),
     ] {
         assert_eq!(problems(text).first().map(String::as_str), Some(first), "{text}");
+    }
+}
+
+#[test]
+fn a_saved_format_reads_back_and_anything_else_reads_as_what_ships() {
+    let set = TimeFormat { hour12: true, seconds: false, date: true };
+    assert_eq!(read(&set.text()), set);
+    for text in ["", "{", r#"{"hour12":true}"#, r#"{"hour12":1,"seconds":true,"date":false}"#] {
+        assert_eq!(read(text), TimeFormat::default(), "{text}");
     }
 }
