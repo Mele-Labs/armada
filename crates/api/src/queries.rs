@@ -88,17 +88,25 @@ pub(crate) struct Search {
     /// The checkout searched, absent being the one Fleet was started in.
     #[serde(default)]
     manifest_id: Option<String>,
+    /// Answer folders instead of files.
+    #[serde(default)]
+    folders: bool,
+    /// An absolute folder Fleet does not serve yet, searched instead of a checkout.
+    #[serde(default)]
+    root: Option<String>,
 }
 
-/// Paths under the checkout narrowed against typed text, for Bridge's `@`
-/// mention popup. It never refuses — see `Queries::search_files`.
+/// Paths or folders under a checkout or folder narrowed against typed text, for
+/// Bridge's `@` mention popup and the New project sheet. It refuses only a
+/// `root` that is no folder here or that comes with a `manifest_id` — see
+/// `Queries::search_files`.
 pub(crate) async fn search_files<D: Queries>(
     State(served): State<Served<D>>,
-    Query(Search { q, manifest_id }): Query<Search>,
+    Query(Search { q, manifest_id, folders, root }): Query<Search>,
 ) -> Response {
     match served
         .daemon()
-        .search_files(q, manifest_id.map(ipc::ManifestId::carried))
+        .search_files(q, manifest_id.map(ipc::ManifestId::carried), folders, root)
         .await
     {
         Ok(found) => answer(StatusCode::OK, &found, served.run_id()),

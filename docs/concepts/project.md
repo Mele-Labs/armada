@@ -1,7 +1,7 @@
 # Project
 
 **What it is:** The set of repositories one person works across as one body of work, with the tasks he keeps for it.
-A member is a whole repository or a folder inside one that carries its own `armada.yml`.
+A member is a whole repository or any folder inside one, and a folder needs no `armada.yml` of its own.
 A Job is started for a project, lifecycles and rules are scoped to one, and a task can sit in one.
 A task can link issues, pull requests and a running Job, and Fleet asks him before it marks one done.
 
@@ -21,7 +21,7 @@ The word Workspace keeps only the monorepo meaning, a folder with its own Manife
 
 | Piece | What it is |
 |---|---|
-| Member | A whole repository, or a folder of one that has its own `armada.yml` |
+| Member | A whole repository, or any folder of one; a folder needs no `armada.yml` of its own |
 | Place | Where the file is kept: This Mac, a synced folder or the cloud |
 | Task | A card with a title and notes, written by him. It names its repository and, optionally, its project |
 | Subtask | A task under a task, one level deep |
