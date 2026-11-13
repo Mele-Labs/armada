@@ -597,6 +597,15 @@ describe("the phone draws as Bridge does", {
     expect(at("Build the Draft screen")).toBe(at("Plan the phone screens") + 1);
     expect(at("Measure the Draft screen on a phone")).toBe(at("Build the Draft screen") + 1);
     expect(at("Write the Draft screen copy")).toBe(at("Measure the Draft screen on a phone") + 1);
+    // Each row turns its starter's line in at an elbow; the line runs on down only past rows its starter has more under.
+    const guides = (title: string) =>
+      Array.from(job(title)!.closest("li")!.querySelectorAll<HTMLElement>(".pk-guide")).map(
+        (one) => `${one.classList.contains("pk-guide--elbow") ? "elbow" : "line"}@${one.style.getPropertyValue("--pk-column")}`,
+      );
+    expect(guides("Plan the phone screens")).toEqual([]);
+    expect(guides("Build the Draft screen")).toEqual(["line@0", "elbow@0"]);
+    expect(guides("Measure the Draft screen on a phone")).toEqual(["line@0", "elbow@1"]);
+    expect(guides("Write the Draft screen copy")).toEqual(["elbow@0"]);
     // The link mark names the starter, and a row stepped in under it has no need of one.
     const linked = (title: string) => job(title)!.querySelector(".deck-row__link [role='img']");
     expect(linked("Build the Draft screen")).toBeNull();

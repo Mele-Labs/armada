@@ -332,6 +332,33 @@ describe("homeOf", () => {
     ]);
   });
 
+  it("ends a starter's line at the last Job it started, and runs it on past a grandchild above that one", () => {
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            session("p1"),
+            session("c1", startedBy("p1")),
+            session("c3", startedBy("c1")),
+            session("c2", startedBy("p1")),
+          ],
+        }),
+      ],
+    });
+    expect(
+      home.repositories[0]!.lines.map(({ item, through, last }) => [
+        item.session.id,
+        through,
+        last,
+      ]),
+    ).toEqual([
+      ["p1", [], true],
+      ["c1", [], false],
+      ["c3", [true], true],
+      ["c2", [], true],
+    ]);
+  });
+
   it("puts a Job under its starter even where Fleet listed it first", () => {
     const home = homeOf({
       macs: [
