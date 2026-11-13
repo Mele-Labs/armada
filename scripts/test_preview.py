@@ -480,7 +480,7 @@ class Preview(unittest.TestCase):
         self.hold()
         said = self.run_preview("--restart", "--keep-only")
         self.assertEqual(self.git("rev-parse", "HEAD"), landed)
-        self.assertIn("new script ran ['--restart', '--keep-only'] 1", said)
+        self.assertIn("new script ran ['--all', '--restart', '--keep-only'] 1", said)
 
     def test_a_restart_from_a_checkout_on_another_branch_leaves_it_and_warns(self):
         self.behind_an_origin()
