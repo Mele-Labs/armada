@@ -174,6 +174,7 @@ The parity check takes each row here as chosen.
 | The Jobs list's groups (his report, 13 Nov) | A group for each repository on All, by the repository's name | A group for each project a Job was started for, by the project's name; a Job started for none stands under its repository's name. A heading is never an id |
 | A Job Fleet has not titled yet, in the Jobs list (his report, 13 Nov) | Its row reads the Job's id | Its row reads New Job, as ⌘T names the Job it starts |
 | A question's options when he answers with buttons (`answer_with`, owner, 12 Nov) | Fleet carries the choice and Classic does not draw it: a question is a deck of numbered rows with an Answer press | Each option of a Needs you question is a press holding only its name, the Job's pick as My pick: its name filled, its sentence in the tooltip, 1 to 9 pressing them one question at a time, and Answer in words under them while `buttons_words` is on. A press is the whole pick and the row goes at once |
+| The branches Jobs offer for the preview | Armada Classic has no reader: its Fleet build switcher never shows an offer | The switcher's Refresh row, from Fleet's `preview_offers.changed`, while Fleet says there is a row. It names each branch by its Job's title and line, with a glyph for where its check stands: a green check for ready, a blue ring for checking, a red cross for failed, whose tooltip says what failed it. Refresh preview is the switcher's own preview switch, and Skip keeps the row away until the ready set changes |
 
 ## Notifying
 

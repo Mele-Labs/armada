@@ -16,6 +16,17 @@ use serde::Deserialize;
 /// The scenario the last [`jobs`] call named, which the message box reads its catalogue by.
 static SCENARIO: Mutex<String> = Mutex::new(String::new());
 
+/// The branches offered for the preview, as `GET /fleet/build/offers` answers: one ready, one being checked and one
+/// failed, with the Refresh row naming the ready one. Skipped, Fleet's answer is the same offers with no row.
+pub fn preview_offers(skipped: bool) -> ipc::PreviewOffers {
+    let mut offers = ipc::decode::<ipc::PreviewOffers>("PreviewOffers", include_bytes!("../fixtures/preview-offers.json"))
+        .unwrap_or_else(|why| panic!("the preview offers fixture does not decode: {why}"));
+    if skipped {
+        offers.refresh = None;
+    }
+    offers
+}
+
 /// The Jobs of a named scenario, as `GET /sessions` would answer them.
 pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if let Ok(mut held) = SCENARIO.lock() {
