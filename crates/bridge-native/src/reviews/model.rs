@@ -97,14 +97,26 @@ impl Verdict {
             Verdict::Approved => "check",
         }
     }
+
+    /// What he did, after "You".
+    pub fn done(self) -> &'static str {
+        match self {
+            Verdict::NotReviewed => "have not reviewed",
+            Verdict::Commented => "commented",
+            Verdict::ChangesRequested => "requested changes",
+            Verdict::Approved => "approved",
+        }
+    }
 }
 
 /// His last review, and what came after it: Fleet's review state of a pull request.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mine {
     pub verdict: Verdict,
-    /// The short sha he reviewed at.
+    /// The short sha he reviewed at, said only in a tooltip.
     pub on: Option<String>,
+    /// The day he reviewed, as the chip says it: `Tuesday`, `yesterday`, `today`.
+    pub day: Option<String>,
     /// How long since he was asked, while he has not reviewed it.
     pub requested: Option<String>,
     /// Commits since his review.
@@ -116,9 +128,17 @@ pub struct Mine {
 impl Mine {
     /// The bar's state chip.
     pub fn chip(&self) -> String {
-        match (&self.on, self.verdict) {
-            (Some(on), verdict) if verdict != Verdict::NotReviewed => format!("{} on {on}", verdict.said()),
+        match (&self.day, self.verdict) {
+            (Some(day), verdict) if verdict != Verdict::NotReviewed => format!("You {} {day}", verdict.done()),
             (_, verdict) => verdict.said().to_string(),
+        }
+    }
+
+    /// The chip's tooltip, which carries the commit.
+    pub fn tip(&self) -> String {
+        match &self.on {
+            Some(on) if self.verdict != Verdict::NotReviewed => format!("Your review: {} at {on}", self.verdict.said()),
+            _ => format!("Your review: {}", self.verdict.said()),
         }
     }
 
@@ -158,12 +178,28 @@ pub struct Inbox {
 /// Where he last looked, from Fleet's seen head.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Seen {
-    /// When, as the head says it.
-    pub when: String,
+    /// The day, as a person says it: `Tuesday`, `yesterday`.
+    pub day: String,
+    pub time: String,
     pub old: String,
     pub new: String,
     /// The commit he looked at is gone after a force push, so there is no range to read.
     pub gone: bool,
+}
+
+impl Seen {
+    /// `on Tuesday at 14:10`, or `yesterday at 16:40`.
+    pub fn when(&self) -> String {
+        match self.day.as_str() {
+            "today" | "yesterday" => format!("{} at {}", self.day, self.time),
+            day => format!("on {day} at {}", self.time),
+        }
+    }
+
+    /// The commits, `old → new`, said only in a tooltip.
+    pub fn commits(&self) -> String {
+        format!("{} → {}", self.old, self.new)
+    }
 }
 
 /// Whether he marked a file viewed, from Fleet's viewed files.
@@ -210,12 +246,20 @@ pub struct Finding {
     pub comment: String,
 }
 
+/// The range a critique reads: in words, and as commits for a tooltip.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Span {
+    /// After "Critique of": `the 1 commit since you looked`.
+    pub said: String,
+    pub commits: String,
+}
+
 /// A critique of a range: Fleet's range critique, a review run.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Critique {
     None,
-    Running { range: String },
-    Finished { range: String, findings: Vec<Finding> },
+    Running { range: Span },
+    Finished { range: Span, findings: Vec<Finding> },
 }
 
 /// A pull request's page.
@@ -253,9 +297,18 @@ impl Page {
         self.seen.as_ref().is_some_and(|seen| seen.gone || !self.new_commits.is_empty())
     }
 
-    /// The range a critique reads, `old → new`.
-    pub fn range(&self) -> Option<String> {
-        self.seen.as_ref().filter(|seen| !seen.gone).map(|seen| format!("{} → {}", seen.old, seen.new))
+    /// The range a critique reads: the commits since he looked, or else the whole pull request.
+    pub fn range(&self) -> Span {
+        match self.seen.as_ref().filter(|seen| !seen.gone) {
+            Some(seen) => {
+                let said = match self.new_commits.len() {
+                    1 => "the 1 commit since you looked".to_string(),
+                    many => format!("the {many} commits since you looked"),
+                };
+                Span { said, commits: seen.commits() }
+            }
+            None => Span { said: "the whole pull request".into(), commits: format!("{} → {}", self.base, self.head) },
+        }
     }
 }
 

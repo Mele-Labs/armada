@@ -112,6 +112,8 @@ pub struct ReviewsScreen {
     lifted: Option<String>,
     /// Files shows the whole pull request, not the change since he looked.
     whole: bool,
+    /// Files he opened or shut by hand, by pull request and path; the rest are open until viewed.
+    opened: HashMap<(u64, String), bool>,
     drafts: Vec<DraftOf>,
     boxes: HashMap<String, Boxed>,
     summary: Option<Boxed>,
@@ -170,6 +172,7 @@ impl ReviewsScreen {
             over: None,
             lifted: None,
             whole: false,
+            opened: HashMap::new(),
             drafts: mock::drafts(),
             boxes: HashMap::new(),
             summary: None,
@@ -324,6 +327,23 @@ impl ReviewsScreen {
         if let Some(file) = self.page_mut().and_then(|page| page.files.iter_mut().find(|file| file.path == path)) {
             file.viewed = if file.viewed == Viewed::Yes { Viewed::No } else { Viewed::Yes };
         }
+        // Ticking it folds it and clearing it opens it, whatever his hand did before.
+        if let Some(number) = self.open {
+            self.opened.remove(&(number, path.to_string()));
+        }
+        cx.notify();
+    }
+
+    /// Whether a file's diff is drawn: as he left it, or open until he marks it viewed.
+    fn file_open(&self, path: &str, viewed: bool) -> bool {
+        self.open.and_then(|number| self.opened.get(&(number, path.to_string())).copied()).unwrap_or(!viewed)
+    }
+
+    /// A press on a file's row opens or shuts it.
+    fn toggle_file(&mut self, path: &str, viewed: bool, cx: &mut Context<Self>) {
+        let Some(number) = self.open else { return };
+        let open = self.file_open(path, viewed);
+        self.opened.insert((number, path.to_string()), !open);
         cx.notify();
     }
 
@@ -353,7 +373,7 @@ impl ReviewsScreen {
         self.asking = None;
         let Some(number) = self.open else { return };
         let Some(page) = self.pages.get_mut(&number) else { return };
-        let range = page.range().unwrap_or_else(|| "the whole pull request".to_string());
+        let range = page.range();
         page.critique = Critique::Running { range: range.clone() };
         self.bring_kind("pr-findings", cx);
         window.focus(&self.rows, cx);
@@ -420,7 +440,7 @@ impl ReviewsScreen {
         crate::drafts::clear(&format!("reviews:summary:{number}"), cx);
         self.summary = Some(self.boxed(&format!("reviews:summary:{number}"), None, 3, 8, window, cx));
         if let Some(page) = self.pages.get_mut(&number) {
-            page.mine = Mine { verdict, on: Some(page.head.clone()), requested: None, commits: 0, replies: 0 };
+            page.mine = Mine { verdict, on: Some(page.head.clone()), day: Some("today".into()), requested: None, commits: 0, replies: 0 };
         }
         if let Some(row) = self.inbox.rows.iter_mut().find(|row| row.number == number) {
             row.mine = verdict;
@@ -612,7 +632,7 @@ impl ReviewsScreen {
         let body: gpui::AnyElement = match ask {
             Ask::Critique => {
                 let page = self.page();
-                let range = page.and_then(Page::range).unwrap_or_else(|| "the whole pull request".to_string());
+                let range = page.map_or_else(|| "the whole pull request".to_string(), |page| page.range().said);
                 let repository = page.map(|page| page.repository.clone()).unwrap_or_default();
                 said_line("reviews-dialog-said", format!("A review run reads {range} on {repository}. Its findings come to Findings."))
                     .into_any_element()

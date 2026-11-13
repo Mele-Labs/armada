@@ -27,9 +27,9 @@ pub(super) fn glyph_of(kind: &str) -> &'static str {
 
 fn check_mark(state: PullRequestCheckState) -> (&'static str, Token, &'static str) {
     match state {
-        PullRequestCheckState::Passed => ("shield-check", token::RUN_PASSED, "Passed"),
-        PullRequestCheckState::Failed => ("shield-x", token::RUN_FAILED, "Failed"),
-        PullRequestCheckState::Running => ("loader-circle", token::RUN_RUNNING, "Running"),
+        PullRequestCheckState::Passed => ("check", token::RUN_PASSED, "Passed"),
+        PullRequestCheckState::Failed => ("x", token::RUN_FAILED, "Failed"),
+        PullRequestCheckState::Running => ("loader", token::STATUS_AWAITING_REVIEW, "Running"),
         PullRequestCheckState::Skipped => ("shield-off", token::FG_SUBTLE, "Skipped"),
     }
 }
@@ -49,12 +49,18 @@ fn mark(id: String, name: &'static str, ink: Token, said: &'static str, look: &L
 }
 
 fn heading(id: impl Into<SharedString>, words: String, look: &Look) -> AnyElement {
+    heading_tipped(id, words, None, look)
+}
+
+/// A heading whose commits are said only in its tooltip.
+fn heading_tipped(id: impl Into<SharedString>, words: String, said: Option<String>, look: &Look) -> AnyElement {
     labelled(
         div()
             .id(ElementId::Name(id.into()))
             .text_size(look.length(token::TEXT_SM))
             .line_height(look.length(token::LEADING_SM))
             .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .when_some(said, |head, said| head.tooltip(tip(said)))
             .child(SharedString::from(words.clone())),
         Role::Heading,
         words,
@@ -135,10 +141,11 @@ fn band(id: String, title: &'static str, look: &Look) -> AnyElement {
 }
 
 /// One row of a table: a glyph column, a narrow fixed key column, and what it says.
-fn table_row(id: String, name: String, lead: AnyElement, key: AnyElement, rest: Vec<AnyElement>, look: &Look) -> AnyElement {
+fn table_row(id: String, name: String, lead: AnyElement, key: AnyElement, rest: Vec<AnyElement>, said: Option<String>, look: &Look) -> AnyElement {
     labelled(
         div()
             .id(SharedString::from(id))
+            .when_some(said, |row, said| row.tooltip(tip(said)))
             .flex()
             .items_start()
             .gap(look.length(token::SPACE_3))
@@ -191,11 +198,12 @@ impl ReviewsScreen {
         };
         let mut column = div().flex().flex_col().gap(look.length(token::SPACE_3));
         if seen.gone {
-            column = column.child(heading("changed-head", format!("Since you looked, {}", seen.when), look));
-            let said = format!("{} is gone after a force push, so there is no diff since you looked. The whole pull request is at {}.", seen.old, seen.new);
+            column = column.child(heading_tipped("changed-head", format!("Since you looked {}", seen.when()), Some(seen.commits()), look));
+            let said = "The commit you looked at is gone after a force push, so there is no diff since you looked.".to_string();
             let notice = labelled(
                 div()
                     .id("changed-gone")
+                    .tooltip(tip(seen.commits()))
                     .flex()
                     .items_start()
                     .gap(look.length(token::SPACE_2))
@@ -223,18 +231,18 @@ impl ReviewsScreen {
                 .child(div().flex().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique-whole", "Critique the whole PR", page, look, cx)).child(whole))
                 .into_any_element();
         }
-        column = column.child(heading("changed-head", format!("Since you looked, {} · {} → {}", seen.when, seen.old, seen.new), look));
+        column = column.child(heading_tipped("changed-head", format!("Since you looked {}", seen.when()), Some(seen.commits()), look));
         let mut table = frame(look).flex().flex_col();
         table = table.child(band("changed-band-commits".into(), "New commits", look));
         for commit in &page.new_commits {
-            let by = commit.author.clone().unwrap_or_default();
+            let by = [commit.author.clone(), commit.at.clone()].into_iter().flatten().collect::<Vec<_>>().join(" · ");
             let rest = vec![
                 div().child(SharedString::from(commit.headline.clone())).into_any_element(),
                 div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(by)).into_any_element(),
             ];
             let lead = glyph("git-commit-horizontal", look.length(token::SPACE_4), look.color(token::STATUS_HANDED_IN)).into_any_element();
-            let key = div().font_family(mono(look)).child(SharedString::from(commit.sha.clone())).into_any_element();
-            table = table.child(table_row(format!("changed-commit-{}", commit.sha), format!("{} {}", commit.sha, commit.headline), lead, key, rest, look));
+            let key = div().into_any_element();
+            table = table.child(table_row(format!("changed-commit-{}", commit.sha), commit.headline.clone(), lead, key, rest, Some(format!("Commit {}", commit.sha)), look));
         }
         table = table.child(band("changed-band-files".into(), "Files changed", look));
         for (at, file) in page.files.iter().filter(|file| file.since).enumerate() {
@@ -251,7 +259,7 @@ impl ReviewsScreen {
                 // In a row of its own, so the chip keeps its own width.
                 rest.push(div().flex().child(chip(format!("changed-after-{at}"), "You had viewed it".into(), token::STATUS_HANDED_IN, token::STATUS_HANDED_IN_BG, look)).into_any_element());
             }
-            table = table.child(table_row(format!("changed-file-{at}"), file.path.clone(), mark(format!("changed-file-mark-{at}"), name, ink, said, look), key, rest, look));
+            table = table.child(table_row(format!("changed-file-{at}"), file.path.clone(), mark(format!("changed-file-mark-{at}"), name, ink, said, look), key, rest, None, look));
         }
         if !page.replies.is_empty() {
             table = table.child(band("changed-band-replies".into(), "Replies to your comments", look));
@@ -263,15 +271,20 @@ impl ReviewsScreen {
                 ];
                 let key = div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).truncate().child(SharedString::from(reply.author.clone())).into_any_element();
                 let lead = glyph("message-square-reply", look.length(token::SPACE_4), look.color(token::ACCENT)).into_any_element();
-                table = table.child(table_row(format!("changed-reply-{at}"), format!("Reply on {place}"), lead, key, rest, look));
+                table = table.child(table_row(format!("changed-reply-{at}"), format!("Reply on {place}"), lead, key, rest, None, look));
             }
         }
         table = table.child(band("changed-band-checks".into(), "Checks", look));
         for (at, check) in page.checks.iter().enumerate() {
             let (name, ink, said) = check_mark(check.state);
+            let state = match (check.state, check.seconds) {
+                (PullRequestCheckState::Running, Some(seconds)) if seconds >= 60 => format!("Running, {} min", seconds / 60),
+                _ => said.to_string(),
+            };
             let rest = vec![div().child(SharedString::from(check.name.clone())).into_any_element()];
-            let key = div().text_color(look.color(ink)).child(said).into_any_element();
-            table = table.child(table_row(format!("changed-check-{at}"), check.name.clone(), mark(format!("changed-check-mark-{at}"), name, ink, said, look), key, rest, look));
+            let key = div().text_color(look.color(ink)).child(SharedString::from(state.clone())).into_any_element();
+            let row_name = format!("{}: {state}", check.name);
+            table = table.child(table_row(format!("changed-check-{at}"), row_name, mark(format!("changed-check-mark-{at}"), name, ink, said, look), key, rest, None, look));
         }
         let table = labelled(table.id("changed-table"), Role::Table, "What changed");
         let diff = labelled(
@@ -347,21 +360,32 @@ impl ReviewsScreen {
                 .text_size(look.length(token::TEXT_XS))
                 .text_color(tick_ink)
                 .aria_toggled(if viewed { Toggled::True } else { Toggled::False })
-                .on_click(cx.listener(move |this, _, _, cx| this.toggle_viewed(&path, cx)))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    // The row under it opens and shuts the file; the box only marks it viewed.
+                    cx.stop_propagation();
+                    this.toggle_viewed(&path, cx);
+                }))
                 .child(glyph(if viewed { "check" } else { "square" }, look.length(token::SPACE_4), tick_ink))
                 .child("Viewed"),
             Role::CheckBox,
             format!("Viewed: {}", file.path),
         );
         let (name, ink, said) = file_mark(file.status);
+        let open = self.file_open(&file.path, viewed);
+        let path = file.path.clone();
         let head = div()
+            .id(SharedString::from(format!("file-head-{at}")))
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_3))
             .h(look.length(token::H_CONTROL_LG))
             .bg(look.color(token::BG_SUNKEN))
-            .when(!viewed, |head| head.border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
+            .cursor_pointer()
+            .aria_expanded(open)
+            .on_click(cx.listener(move |this, _, _, cx| this.toggle_file(&path, viewed, cx)))
+            .when(open, |head| head.border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
+            .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3), look.color(token::FG_MUTED)))
             .child(tick)
             .child(mark(format!("file-mark-{at}"), name, ink, said, look))
             .child(div().flex_1().min_w_0().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).child(SharedString::from(file.path.clone())))
@@ -378,7 +402,8 @@ impl ReviewsScreen {
                     .child(div().text_color(look.color(token::RUN_PASSED)).child(SharedString::from(format!("+{}", file.additions))))
                     .child(div().text_color(look.color(token::RUN_FAILED)).child(SharedString::from(format!("−{}", file.deletions)))),
             );
-        let body = (!viewed).then(|| {
+        let head = labelled(head, Role::Button, file.path.clone());
+        let body = open.then(|| {
             let patch = if whole { file.patch.as_str() } else { file.patch_since.as_deref().unwrap_or(&file.patch) };
             let drawn = diff::file_diff_of(&file.path, Some(patch), None);
             let lines = drawn.files.first().map(|one| one.lines.clone()).unwrap_or_default();
@@ -426,10 +451,19 @@ impl ReviewsScreen {
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
                 .child(status("findings-running", "Critique running".into(), spinner("findings-spin", look.length(token::SPACE_4), look.color(token::STATUS_RUNNING), cx).into_any_element(), look))
-                .child(place_line("findings-range".into(), range.clone(), look))
+                .child(labelled(
+                    div()
+                        .id("findings-range")
+                        .text_size(look.length(token::TEXT_XS))
+                        .text_color(muted)
+                        .tooltip(tip(range.commits.clone()))
+                        .child(SharedString::from(format!("Reading {}", range.said))),
+                    Role::Label,
+                    format!("Reading {}", range.said),
+                ))
                 .into_any_element(),
             Critique::Finished { range, findings } => {
-                let mut column = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(heading("findings-head", format!("Critique of {range}"), look));
+                let mut column = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(heading_tipped("findings-head", format!("Critique of {}", range.said), Some(range.commits.clone()), look));
                 if findings.is_empty() {
                     column = column.child(status("findings-empty", "Critique found nothing".into(), glyph("circle-check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look));
                 }
@@ -524,7 +558,7 @@ fn checks_tab(page: &Page, look: &Look) -> AnyElement {
             .child(div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(took)))
             .into_any_element()];
         let key = div().text_color(look.color(ink)).child(said).into_any_element();
-        table = table.child(table_row(format!("check-{at}"), check.name.clone(), mark(format!("check-mark-{at}"), name, ink, said, look), key, rest, look));
+        table = table.child(table_row(format!("check-{at}"), check.name.clone(), mark(format!("check-mark-{at}"), name, ink, said, look), key, rest, None, look));
     }
     labelled(table.id("checks-table"), Role::Table, "Checks").into_any_element()
 }

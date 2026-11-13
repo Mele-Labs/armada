@@ -7,7 +7,7 @@ use ipc::{
     PullReviewChecks, PullReviewList, PullReviewThread, PullReviewThreadComment,
 };
 
-use super::model::{Critique, DraftOf, Finding, Group, Inbox, InboxRow, Mine, Page, PageFile, Reply, Seen, Verdict, Viewed};
+use super::model::{Critique, DraftOf, Finding, Group, Inbox, InboxRow, Mine, Page, PageFile, Reply, Seen, Span, Verdict, Viewed};
 
 /// The pull request his last visit had open, which opens again once its fresh page confirms it.
 pub const LAST_OPEN: u64 = 2190;
@@ -55,10 +55,11 @@ pub fn refreshed(mut inbox: Inbox) -> Inbox {
     inbox
 }
 
-fn commit(sha: &str, headline: &str, author: &str) -> PullRequestCommit {
-    PullRequestCommit { sha: sha.into(), headline: headline.into(), author: Some(author.into()), at: None }
+fn commit(sha: &str, headline: &str, author: &str, at: &str) -> PullRequestCommit {
+    PullRequestCommit { sha: sha.into(), headline: headline.into(), author: Some(author.into()), at: Some(at.into()) }
 }
 
+/// `seconds` is how long it took, or for a running one how long it has run.
 fn check(name: &str, state: PullRequestCheckState, seconds: Option<u64>) -> PullRequestCheckRow {
     PullRequestCheckRow { name: name.into(), state, seconds, address: None }
 }
@@ -194,13 +195,13 @@ fn retry_page() -> Page {
         branch: "tobias/webhook-backoff".into(),
         base: "main".into(),
         head: "e71b0d4".into(),
-        mine: Mine { verdict: Verdict::Commented, on: Some("a3f9c21".into()), requested: None, commits: 3, replies: 2 },
+        mine: Mine { verdict: Verdict::Commented, on: Some("a3f9c21".into()), day: Some("yesterday".into()), requested: None, commits: 3, replies: 2 },
         body: "A failed webhook was tried three times, two seconds apart.\n\nNow it backs off: half a second, doubling, capped at thirty seconds, with jitter.".into(),
-        seen: Some(Seen { when: "yesterday 16:40".into(), old: "a3f9c21".into(), new: "e71b0d4".into(), gone: false }),
+        seen: Some(Seen { day: "yesterday".into(), time: "16:40".into(), old: "a3f9c21".into(), new: "e71b0d4".into(), gone: false }),
         new_commits: vec![
-            commit("e71b0d4", "Back off with jitter between retries", "tobias"),
-            commit("c0d18ea", "Cap retries at five", "tobias"),
-            commit("9b2e7f1", "Log each retry with its attempt", "tobias"),
+            commit("e71b0d4", "Back off with jitter between retries", "tobias", "Fri 08:58"),
+            commit("c0d18ea", "Cap retries at five", "tobias", "Fri 08:41"),
+            commit("9b2e7f1", "Log each retry with its attempt", "tobias", "Fri 08:30"),
         ],
         files: vec![
             file("src/webhooks/retry.rs", Modified, 24, 3, Viewed::ChangedAfter, true, RETRY_WHOLE, Some(RETRY_SINCE)),
@@ -216,7 +217,7 @@ fn retry_page() -> Page {
         checks: vec![
             check("build", PullRequestCheckState::Passed, Some(184)),
             check("test", PullRequestCheckState::Passed, Some(371)),
-            check("lint", PullRequestCheckState::Running, None),
+            check("lint", PullRequestCheckState::Running, Some(95)),
         ],
         conversation: vec![
             said("c1", "tobias", "2026-11-11T09:12:00Z", "Ready for a look. The retry wait is the main change."),
@@ -290,10 +291,10 @@ fn avatar_page() -> Page {
         branch: "priya/avatar-cache".into(),
         base: "main".into(),
         head: "f3c7a12".into(),
-        mine: Mine { verdict: Verdict::ChangesRequested, on: Some("4d2a9e0".into()), requested: None, commits: 2, replies: 0 },
+        mine: Mine { verdict: Verdict::ChangesRequested, on: Some("4d2a9e0".into()), day: Some("Monday".into()), requested: None, commits: 2, replies: 0 },
         body: "Avatars are fetched on every page. This keeps them for the session.".into(),
-        seen: Some(Seen { when: "Monday 11:05".into(), old: "4d2a9e0".into(), new: "f3c7a12".into(), gone: true }),
-        new_commits: vec![commit("f3c7a12", "Cache avatars for the session", "priya"), commit("08be4d1", "Clear the cache on sign out", "priya")],
+        seen: Some(Seen { day: "Monday".into(), time: "11:05".into(), old: "4d2a9e0".into(), new: "f3c7a12".into(), gone: true }),
+        new_commits: vec![commit("f3c7a12", "Cache avatars for the session", "priya", "Thu 15:20"), commit("08be4d1", "Clear the cache on sign out", "priya", "Thu 14:02")],
         files: vec![
             file("src/avatar.rs", Modified, 6, 1, Viewed::ChangedAfter, true, AVATAR_WHOLE, None),
             file("src/session.rs", Modified, 2, 0, Viewed::No, true, "@@ -20,3 +20,5 @@\n pub fn sign_out() {\n+    CACHE.clear();\n+    tracing::debug!(\"cleared the avatar cache\");\n }\n", None),
@@ -318,7 +319,7 @@ fn limits_page() -> Page {
         branch: "mira/export-limits".into(),
         base: "main".into(),
         head: "5e0c9a4".into(),
-        mine: Mine { verdict: Verdict::NotReviewed, on: None, requested: Some("2h ago".into()), commits: 0, replies: 0 },
+        mine: Mine { verdict: Verdict::NotReviewed, on: None, day: None, requested: Some("2h ago".into()), commits: 0, replies: 0 },
         body: "Exports are limited to ten a minute for each account.".into(),
         seen: None,
         new_commits: Vec::new(),
@@ -352,10 +353,10 @@ fn invoice_page() -> Page {
         branch: "mira/invoice-stages".into(),
         base: "main".into(),
         head: "b19f5e2".into(),
-        mine: Mine { verdict: Verdict::Commented, on: Some("77ac301".into()), requested: None, commits: 1, replies: 0 },
+        mine: Mine { verdict: Verdict::Commented, on: Some("77ac301".into()), day: Some("Tuesday".into()), requested: None, commits: 1, replies: 0 },
         body: "The invoice job runs as three stages, so a failed stage retries alone.".into(),
-        seen: Some(Seen { when: "Tuesday 14:10".into(), old: "77ac301".into(), new: "b19f5e2".into(), gone: false }),
-        new_commits: vec![commit("b19f5e2", "Name each stage in the log", "mira")],
+        seen: Some(Seen { day: "Tuesday".into(), time: "14:10".into(), old: "77ac301".into(), new: "b19f5e2".into(), gone: false }),
+        new_commits: vec![commit("b19f5e2", "Name each stage in the log", "mira", "Wed 09:12")],
         files: vec![file(
             "src/jobs/invoice.rs",
             Modified,
@@ -367,11 +368,15 @@ fn invoice_page() -> Page {
             Some("@@ -40,3 +40,3 @@\n-    run(stage).await\n+    run(stage).instrument(info_span!(\"stage\", name = stage.name())).await\n"),
         )],
         replies: Vec::new(),
-        checks: vec![check("build", PullRequestCheckState::Passed, Some(201))],
+        checks: vec![
+            check("build", PullRequestCheckState::Passed, Some(201)),
+            check("lint", PullRequestCheckState::Passed, Some(48)),
+            check("test", PullRequestCheckState::Running, Some(190)),
+        ],
         conversation: Vec::new(),
         threads: Vec::new(),
         critique: Critique::Finished {
-            range: "4b0e9d7 → 77ac301".into(),
+            range: Span { said: "Mira's changes up to your review".into(), commits: "4b0e9d7 → 77ac301".into() },
             findings: vec![Finding {
                 id: "g1".into(),
                 title: "A failed stage is not named".into(),
@@ -412,6 +417,7 @@ pub fn page(number: u64) -> Option<Page> {
                 mine: Mine {
                     verdict: row.mine,
                     on: (row.mine != Verdict::NotReviewed).then(|| "9d02b6e".into()),
+                    day: (row.mine != Verdict::NotReviewed).then(|| if row.age == "6d" { "Saturday" } else { "Monday" }.into()),
                     requested: (row.mine == Verdict::NotReviewed && row.author != "you").then(|| format!("{} ago", row.age)),
                     commits: 0,
                     replies: 0,

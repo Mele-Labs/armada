@@ -42,7 +42,7 @@ impl ReviewsScreen {
             .into_any_element()
     }
 
-    /// Your review at rest: its state and commit, what came since, the drafts waiting, and Review changes.
+    /// Your review at rest: its state and day, what came since, the drafts waiting, and Review changes.
     fn render_bar(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let mine = &page.mine;
         let (hue, ground) = verdict_hue(mine.verdict);
@@ -63,7 +63,7 @@ impl ReviewsScreen {
                 .text_size(look.length(token::TEXT_XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .text_color(look.color(hue))
-                .tooltip(tip(format!("Your review: {}", mine.verdict.said())))
+                .tooltip(tip(mine.tip()))
                 .child(glyph(mine.verdict.glyph(), look.length(token::SPACE_3), look.color(hue)))
                 .child(SharedString::from(said.clone())),
             Role::Status,
