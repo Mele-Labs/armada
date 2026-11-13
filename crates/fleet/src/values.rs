@@ -99,7 +99,7 @@ fn layer_read(word: &str) -> Layer {
 }
 
 fn word<T>(one: &ResolvedValue<T>, said: impl Fn(&T) -> String) -> ipc::ResolvedValue {
-    ipc::ResolvedValue { value: one.value.as_ref().map(said), from: layer_wire(one.from) }
+    ipc::ResolvedValue { value: one.value.as_ref().map(said), from: layer_wire(one.from), learned: false, inherited: None, inherited_from: None }
 }
 
 /// Every key as the wire carries it.
@@ -205,8 +205,8 @@ impl Frozen {
     /// Every key as the wire carries it, the autonomy kinds in the order of the kinds.
     pub(crate) fn wire(&self) -> ipc::ResolvedValues {
         let one = |key: &str| match self.row(key) {
-            Some(row) => ipc::ResolvedValue { value: row.value.clone(), from: layer_wire(layer_read(&row.layer)) },
-            None => ipc::ResolvedValue { value: None, from: ipc::ValueLayer::Default },
+            Some(row) => ipc::ResolvedValue { value: row.value.clone(), from: layer_wire(layer_read(&row.layer)), learned: false, inherited: None, inherited_from: None },
+            None => ipc::ResolvedValue { value: None, from: ipc::ValueLayer::Default, learned: false, inherited: None, inherited_from: None },
         };
         ipc::ResolvedValues {
             pr_mode: one("pr_mode"),
@@ -223,8 +223,8 @@ impl Frozen {
                 let nearest = kinds.into_iter().max().unwrap_or(Layer::Default);
                 reviews_wire(&self.reviews(), layer_wire(nearest), kinds.map(layer_wire))
             }),
-            agent_starts: self.row(AGENT_STARTS).map(|row| ipc::ResolvedValue { value: row.value.clone(), from: layer_wire(layer_read(&row.layer)) }),
-            delivery: self.row(DELIVERY).map(|row| ipc::ResolvedValue { value: row.value.clone(), from: layer_wire(layer_read(&row.layer)) }),
+            agent_starts: self.row(AGENT_STARTS).map(|row| ipc::ResolvedValue { value: row.value.clone(), from: layer_wire(layer_read(&row.layer)), learned: false, inherited: None, inherited_from: None }),
+            delivery: self.row(DELIVERY).map(|row| ipc::ResolvedValue { value: row.value.clone(), from: layer_wire(layer_read(&row.layer)), learned: false, inherited: None, inherited_from: None }),
             autonomy: core_model::rule::ActKind::ALL
                 .iter()
                 .filter_map(|kind| {

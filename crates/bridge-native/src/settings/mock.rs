@@ -285,9 +285,9 @@ impl MockFleet {
     pub fn values(&self, project: &str) -> Result<ResolvedValues, Refused> {
         let own = self.projects.projects.iter().find(|one| one.id == project).ok_or_else(|| Refused::said(format!("there is no project {project}")))?.values.clone().unwrap_or_default();
         let word = |own: Option<String>, kit: Option<&str>, default: Option<&str>| match (own, kit, default) {
-            (Some(value), _, _) => ResolvedValue { value: Some(value), from: ValueLayer::Project },
-            (None, Some(value), _) => ResolvedValue { value: Some(value.into()), from: ValueLayer::Kit },
-            (None, None, value) => ResolvedValue { value: value.map(String::from), from: ValueLayer::Default },
+            (Some(value), _, _) => ResolvedValue { value: Some(value), from: ValueLayer::Project, learned: false, inherited: None, inherited_from: None },
+            (None, Some(value), _) => ResolvedValue { value: Some(value.into()), from: ValueLayer::Kit, learned: false, inherited: None, inherited_from: None },
+            (None, None, value) => ResolvedValue { value: value.map(String::from), from: ValueLayer::Default, learned: false, inherited: None, inherited_from: None },
         };
         let look = own.look.clone().unwrap_or_default();
         let reviews = match &own.reviews {

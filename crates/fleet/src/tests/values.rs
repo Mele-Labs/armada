@@ -172,7 +172,7 @@ async fn get_values_names_the_layer_each_key_came_from_for_a_project_a_repositor
     assert_eq!((neither.auto_merge.value.as_deref(), neither.auto_merge.from), (Some("always"), ValueLayer::Kit));
     assert_eq!((neither.theme.value.as_deref(), neither.theme.from), (Some("paper"), ValueLayer::Kit));
     assert_eq!((neither.density.value.as_deref(), neither.density.from), (Some("roomy"), ValueLayer::Kit));
-    assert_eq!(neither.layout, ipc::ResolvedValue { value: None, from: ValueLayer::Default }, "a key nothing sets and nothing ships");
+    assert_eq!(neither.layout, ipc::ResolvedValue { value: None, from: ValueLayer::Default, learned: false, inherited: None, inherited_from: None }, "a key nothing sets and nothing ships");
     assert!(neither.autonomy.is_empty(), "no repository was asked about");
 
     let project_only = ask(Some(&project), None).await.expect("values");
