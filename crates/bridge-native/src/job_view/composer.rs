@@ -1350,7 +1350,7 @@ impl JobView {
             .child(self.render_talk(look, cx))
             .child(send);
         let popup = self.composer.popup.as_ref().map(|popup| popup.view.clone());
-        let needs = self.render_needs(id, cx);
+        let needs = self.render_needs(id, window.viewport_size().height, cx);
         let risen = needs.is_some() && self.needs_up(id, cx);
         div()
             .flex_none()

@@ -2083,6 +2083,22 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-ways-buttons",
+        title: "Answering with buttons: a question's options as presses, the Job's pick, keys 1 to 9, and Answer in words",
+        screen: Screen::Jobs,
+        scenario: "ways-buttons",
+        steps: &[
+            step("A Job that asks two questions", Verb::Press, "row", "Endpoint cleanup"),
+            step("Needs you opens: each option is a button holding only its name, and the Job's pick reads My pick", Verb::Open("button", "Needs you"), "button", "Keep it a week"),
+            step("Answer in words stands under the buttons", Verb::Look, "button", "Answer in words"),
+            step("The pick's tooltip says what choosing it means", Verb::Hover, "button", "My pick: Redirect it"),
+            step("2 presses the second option of the first question and answers it", Verb::Key("2"), "button", "Pull request"),
+            step("The keys move to the next question", Verb::Look, "button", "Branch"),
+            step("Answer in words opens a box under the buttons", Verb::Open("button", "Answer in words"), "textbox", "Answer in words"),
+            step("His own words go as the answer", Verb::Typed("Branch, and tell me when ci is green"), "textbox", "Answer in words"),
+        ],
+    },
+    Walk {
         name: "jobs-screens",
         title: "Jobs: the list, the open Job, the box and the palette",
         screen: Screen::Jobs,
