@@ -1350,6 +1350,7 @@ impl JobView {
                         )
                     }))
                     .children(self.render_handoff_band(id, cx))
+                    .children(lands_line(id, look, cx))
                     .child(labelled(
                         div()
                             .id("message-box")
@@ -1386,6 +1387,30 @@ impl JobView {
             )
             .into_any_element()
     }
+}
+
+/// How a New project's first Job lands, from the project's settings, on a line over its box.
+fn lands_line(id: &str, look: &Look, cx: &App) -> Option<AnyElement> {
+    let line = crate::new_project::lands(id, cx)?;
+    let ink = look.color(token::KIND_DELIVERY);
+    Some(
+        labelled(
+            div()
+                .id("lands")
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1) * 1.5)
+                .px(look.length(token::SPACE_1))
+                .text_size(look.length(token::TEXT_2XS))
+                .line_height(look.length(token::LEADING_2XS))
+                .text_color(ink)
+                .child(gpui::svg().path(crate::assets::icon_path("git-merge")).size(look.length(token::SPACE_3)).flex_none().text_color(ink))
+                .child(line.clone()),
+            Role::Status,
+            line,
+        )
+        .into_any_element(),
+    )
 }
 
 #[cfg(test)]

@@ -113,6 +113,20 @@ impl TitleBar {
         cx.notify();
     }
 
+    /// A project made outside the switcher, by the New project sheet: Fleet's projects as it answered, and the
+    /// window goes to the new one as a pick of it would.
+    pub fn made_project(&mut self, served: &[ipc::RepositorySummary], read: &ipc::Projects, id: &str, cx: &mut Context<Self>) {
+        self.set_repositories(served, cx);
+        self.set_projects(served, read, cx);
+        let Some(at) = self.face.projects.iter().position(|one| one.id.as_ref() == id) else { return };
+        self.answer(|face| {
+            face.scoped = Some(at);
+            face.chosen = None;
+        }, cx);
+        cx.emit(Asked::Project(at));
+        cx.notify();
+    }
+
     /// What Settings opens for a row: the project's or the repository's, else the whole of Settings.
     pub(super) fn settings_of(pick: Option<Pick>) -> Asked {
         match pick {

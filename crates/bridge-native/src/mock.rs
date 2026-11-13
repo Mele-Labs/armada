@@ -72,6 +72,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Jobs started by Jobs: one starter with two, a chain two deep beside a third, and a lone Job; the
         // starter and the deepest Job need him.
         "jobs-tree" => include_bytes!("../fixtures/jobs-tree.json"),
+        // The terminal Job's Jobs: the New project sheet's walk ends on the Job it starts in the project it made.
+        "new-project" => include_bytes!("../fixtures/terminal-jobs.json"),
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
@@ -160,6 +162,13 @@ pub fn repositories() -> Vec<ipc::RepositorySummary> {
         .repositories
 }
 
+/// The folders of the walks' repositories, as `GET /repository_areas` would answer them: the New project
+/// sheet opens a repository on these.
+pub fn repository_areas() -> ipc::RepositoryAreas {
+    ipc::decode::<ipc::RepositoryAreas>("RepositoryAreas", include_bytes!("../fixtures/new-project-areas.json"))
+        .unwrap_or_else(|why| panic!("the repository areas fixture does not decode: {why}"))
+}
+
 /// His projects as `GET /projects` would answer them in the walks: two that read, over the repositories
 /// above, and one whose file did not, which the switcher leaves out.
 pub fn projects() -> ipc::Projects {
@@ -237,7 +246,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     }
     let bytes: &[u8] = match scenario {
         "jobs-screens" => return screens_threads(),
-        "job-view" | "review-palette" | "terminal-job" => include_bytes!("../fixtures/job-threads.json"),
+        "job-view" | "review-palette" | "terminal-job" | "new-project" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
         // The same threads, and Quiet the write-clash notices holding the page it asks him to read.

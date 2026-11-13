@@ -30,6 +30,8 @@ pub struct DispatchScreen {
     /// What the sheet stands over: the Jobs screen, or the Operator's page that holds it.
     under: AnyView,
     sheet: Entity<DispatchSheet>,
+    /// The New project sheet, which the title bar's switcher opens over the window.
+    new_project: Entity<crate::new_project::NewProjectSheet>,
     layer: Option<Entity<Layer>>,
     /// Where the notes are kept, once something says.
     kept_in: Option<std::path::PathBuf>,
@@ -206,6 +208,11 @@ pub fn report_at(at: gpui::Point<Pixels>, cx: &mut App) {
     });
 }
 
+/// The switcher's New project: its sheet opens over the window, on what was typed last time.
+pub fn open_new_project(cx: &mut App) {
+    reach(cx, |this, window, cx| this.new_project.update(cx, |sheet, cx| sheet.show(window, cx)));
+}
+
 /// Run something on the screen in front. A key's handler runs inside a window update, so the work
 /// waits until it is over.
 /// Start a queued idea from its row in the Jobs list, through the screen that knows the repositories.
@@ -255,7 +262,16 @@ impl DispatchScreen {
         // The layer is mounted only where Electron's is: a development build.
         annotate::forget_awake(cx);
         let layer = annotate::dev_build().then(|| new_layer(&area, targets, true, cx));
-        let mut subs = vec![cx.subscribe_in(&sheet, window, |this, _, asked: &Asked, window, cx| this.sheet_asked(asked, window, cx))];
+        // On a live Fleet the New project sheet sends to it; a walk's has the mock's answers.
+        let wire = match jobs.read(cx).list.read(cx).fleet() {
+            Some(fleet) => crate::new_project::wire::Wire::Live(fleet),
+            None => crate::new_project::wire::Wire::Mock(Box::new(crate::new_project::wire::Mock::new())),
+        };
+        let new_project = cx.new(|cx| crate::new_project::NewProjectSheet::new(wire, window, cx));
+        let mut subs = vec![
+            cx.subscribe_in(&sheet, window, |this, _, asked: &Asked, window, cx| this.sheet_asked(asked, window, cx)),
+            cx.subscribe_in(&new_project, window, |this, _, made: &crate::new_project::Made, window, cx| this.project_made(made, window, cx)),
+        ];
         if let Some(layer) = &layer {
             subs.push(cx.observe(layer, |_, _, cx| cx.notify()));
         }
@@ -277,7 +293,7 @@ impl DispatchScreen {
                 (behind.0)(asked, cx);
             }
         })));
-        DispatchScreen { under: jobs.clone().into(), jobs, sheet, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
+        DispatchScreen { under: jobs.clone().into(), jobs, sheet, new_project, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
     }
 
     /// The sheet over another screen that holds the Jobs screen it reads, as the Operator's page does.
@@ -333,13 +349,25 @@ impl DispatchScreen {
         }
         let here = picked.map(Place::Repository).or_else(|| scope(cx).and_then(|(_, names)| names.first().map(|name| Place::Repository(name.to_string()))));
         match here.or_else(|| crate::terminal::start::kept_place(cx)) {
-            Some(place) => self.start_terminal(Start { place, size: crate::terminal::start::size(cx) }, window, cx),
+            Some(place) => self.start_terminal(Start { place, size: crate::terminal::start::size(cx), project: None }, None, window, cx),
             None => self.open_sheet("", window, cx),
         }
     }
 
+    /// A New project was made: the window goes to it, and a Job starts in its first repository as ⌘T starts one,
+    /// with the line that says how its work lands over the box.
+    fn project_made(&mut self, made: &crate::new_project::Made, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(bar) = titlebar::live(cx) {
+            bar.update(cx, |bar, cx| bar.made_project(&made.served, &made.projects, &made.project, cx));
+        }
+        let Some(repository) = made.repository.clone() else { return };
+        let start = Start { place: Place::Repository(repository), size: crate::terminal::start::size(cx), project: Some(made.project.clone()) };
+        self.start_terminal(start, made.lands.clone(), window, cx);
+    }
+
     /// Start Fleet's quick Job and open it on its thread, the keys in its message box. A refusal is a toast.
-    fn start_terminal(&mut self, start: Start, window: &mut Window, cx: &mut Context<Self>) {
+    /// `lands` is the line over its box, for a New project's first Job.
+    fn start_terminal(&mut self, start: Start, lands: Option<SharedString>, window: &mut Window, cx: &mut Context<Self>) {
         let place = start.place.clone();
         let mut asked = start;
         // A repository goes to Fleet as its Manifest's id; a walk's has none and keeps the name.
@@ -355,6 +383,9 @@ impl DispatchScreen {
                 match answer {
                     Ok(started) => {
                         crate::terminal::start::keep_place(&place, cx);
+                        if let Some(line) = lands {
+                            crate::new_project::lands_on(&started.job, line, cx);
+                        }
                         let list = this.jobs.read(cx).list.clone();
                         list.update(cx, |list, cx| list.open(started.job.clone().into(), cx));
                         // After the Job comes on screen, so the box that takes the keys is its own.
@@ -976,6 +1007,8 @@ impl Render for DispatchScreen {
             .child(self.under.clone())
             .child(canvas(move |bounds, _, _| area.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .children(sheet)
+            // Drawn always: it draws nothing while shut, so its own opening and closing need no redraw here.
+            .child(self.new_project.clone())
             // Over every overlay the screen draws, Settings among them, so a note can be made on it.
             .children(self.layer.clone().map(|layer| gpui::deferred(layer).with_priority(annotate::OVER)))
     }

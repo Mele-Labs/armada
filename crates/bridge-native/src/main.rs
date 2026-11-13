@@ -45,6 +45,7 @@ mod look;
 mod menu;
 mod merge_strip;
 mod mock;
+mod new_project;
 mod notify;
 mod operator;
 mod palette;

@@ -16,6 +16,7 @@ pub mod bar;
 pub mod check;
 pub mod dispatch;
 pub mod fleet;
+pub mod new_project;
 pub mod notes;
 pub mod operator;
 pub mod stage;
@@ -87,6 +88,9 @@ pub enum Verb {
     /// A press on another element, `(role, name)`, before the target is ringed: for an act whose
     /// own button is gone once it is pressed.
     PressOn(&'static str, &'static str),
+    /// A press on the first of these elements, by role and name, that is drawn: for a door the window's width
+    /// moves, such as the project switcher, which a narrow title bar keeps in its menu.
+    PressOnFirst(&'static [(&'static str, &'static str)]),
     /// Characters typed into whatever holds the keys, one by one, with no press first (`Type` presses the target).
     Typed(&'static str),
     /// A drag across the target's inner area, to hold a box rather than the element.
@@ -1300,6 +1304,13 @@ pub static WALKS: &[Walk] = &[
             step("Enter picks it: the Jobs that need you, each under its starters, drawn muted for their place", Verb::Key("enter"), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
             step("A starter drawn for its place is not a match: ↓ goes from one Job that needs you to the next", Verb::Key("down"), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
         ],
+    },
+    Walk {
+        name: "new-project",
+        title: "New project: one sheet, then a Job in it",
+        screen: Screen::App,
+        scenario: "new-project",
+        steps: &new_project::STEPS,
     },
     Walk {
         name: "job-handoff",
