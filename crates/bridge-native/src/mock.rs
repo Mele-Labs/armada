@@ -118,6 +118,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
         "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
+        "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
         "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
         // The box's Jobs, with the first holding a plan, two pull requests and a Job it started with one of its own.
@@ -391,6 +393,8 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "sketch-changes" => include_bytes!("../fixtures/sketch-changes-threads.json"),
         // The tool-rows threads, with Brief a reviewer handing work to a reviewer that finished and an explorer still running.
         "subagent" => include_bytes!("../fixtures/subagent-threads.json"),
+        // Finished calls, with a dispute that started a review job, and Ask for a review, with one that started none and one Fleet read.
+        "disputed-row" => include_bytes!("../fixtures/disputed-row-threads.json"),
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         "jobs-switching" => return switching_threads(),

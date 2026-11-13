@@ -364,6 +364,19 @@ pub static WALKS: &[Walk] = &[
         steps: &terminal::STEPS,
     },
     Walk {
+        name: "disputed-row",
+        title: "A dispute in the thread, as one item",
+        screen: Screen::Jobs,
+        scenario: "disputed-row",
+        steps: &[
+            press_on("A notice the agent disputed is one item: the call and the record are one row, with the why, who spotted it and when. The review Job it started opens on a press", "row", "Finished calls", "button", "Open the review job"),
+            press_on("A dispute that started no review Job has no link. One Fleet read from the agent's replies, with no call before it, is the same row", "row", "Ask for a review", "region", "Notice disputed"),
+            press_on("In the thread the dispute stands among its calls and messages", "row", "Finished calls", "region", "Thread"),
+            press_on("A Job whose agent never started is drawn the same way, in red", "row", "Edit the merge line", "button", "Failed to start"),
+            press_on("A press opens its log", "button", "Failed to start", "region", "Failed to start"),
+        ],
+    },
+    Walk {
         name: "native-today",
         title: "Native changes waiting on you",
         screen: Screen::All,
