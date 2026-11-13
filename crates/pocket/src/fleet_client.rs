@@ -18,6 +18,11 @@ use tokio::net::TcpStream;
 /// phone's. Fleet's own spelling is `api::CALLER_HEADER`, which this crate
 /// does not depend on.
 const CALLER: &str = "x-armada-caller";
+
+/// What the Gateway says in [`CALLER`] for a call another Mac made, and the header that names that Mac. Fleet's
+/// spellings are `api::MAC` and `api::MAC_HEADER`.
+const MAC_CALLER: &str = "mac";
+const MAC_ID: &str = "x-armada-mac";
 use tokio::time::timeout;
 
 /// Fleet answered on a port the runtime file named, or it did not.
@@ -59,12 +64,33 @@ async fn connect(port: u16) -> Result<TcpStream, Unreachable> {
         .map_err(|why| cut(why.to_string()))
 }
 
-/// One request, one connection.
+/// One request, one connection, as the phone's.
 pub async fn send(
     port: u16,
     method: &str,
     path: &str,
     body: Option<&[u8]>,
+) -> Result<Answer, Unreachable> {
+    send_as(port, method, path, body, None).await
+}
+
+/// [`send`] as Mac `mac`, which Fleet records as the door the act came through.
+pub async fn send_as_mac(
+    port: u16,
+    method: &str,
+    path: &str,
+    body: Option<&[u8]>,
+    mac: &str,
+) -> Result<Answer, Unreachable> {
+    send_as(port, method, path, body, Some(mac)).await
+}
+
+async fn send_as(
+    port: u16,
+    method: &str,
+    path: &str,
+    body: Option<&[u8]>,
+    mac: Option<&str>,
 ) -> Result<Answer, Unreachable> {
     let cut = |cause: String| Unreachable { port, cause };
     let io = TokioIo::new(connect(port).await?);
@@ -76,7 +102,10 @@ pub async fn send(
         .method(method)
         .uri(path)
         .header(HOST, format!("127.0.0.1:{port}"))
-        .header(CALLER, "phone");
+        .header(CALLER, if mac.is_some() { MAC_CALLER } else { "phone" });
+    if let Some(mac) = mac {
+        request = request.header(MAC_ID, mac);
+    }
     if body.is_some() {
         request = request.header(CONTENT_TYPE, "application/json");
     }
