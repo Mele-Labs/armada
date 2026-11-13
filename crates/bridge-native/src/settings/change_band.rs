@@ -321,12 +321,10 @@ impl SettingsOverlay {
             let boxed = self.band_box(&format!("workflows:agent:{}", one.id), 2, 12, window, cx);
             self.workflows.detail.band.asks.insert(one.id.clone(), boxed);
         }
-        // Armada's own row, and what runs in a repository that keeps no copy, hold no changes until a first ask makes the copy.
+        // Every row's changes are read: an agent's change on a shipped row lands in its draft, where nothing is copied until Publish.
         if !self.workflows.detail.band.changes.contains_key(&key) {
             self.workflows.detail.band.changes.insert(key.clone(), Vec::new());
-            if editable(one) {
-                self.read_changes(one.clone(), window, cx);
-            }
+            self.read_changes(one.clone(), window, cx);
         }
         for passage in passages(&key, &self.band_phase(one)) {
             self.workflows.detail.band.more.entry(passage).or_insert_with(|| cx.focus_handle().tab_stop(true));
@@ -368,16 +366,47 @@ impl SettingsOverlay {
         let key = one.key();
         let Ok(read) = answer else { return };
         let drafting = read.changes.iter().any(|change| change.state == ChangeState::Drafting);
+        // An asked change that is ready is in the row's draft, marked as the agent's, and is put aside on Fleet: the
+        // draft holds it now.
+        let mut changes = read.changes;
+        let ready = changes.iter().position(|change| change.step_id.is_none() && change.state == ChangeState::Ready && change.after.is_some() && matches!(change.origin, ChangeOrigin::Asked { .. }));
+        let landed = match (ready, self.editor_of(&one)) {
+            (Some(at), Some(editor)) => {
+                let change = changes.remove(at);
+                // Fleet put a change it could in the draft as the agent's: the draft is read again. One it could not (the
+                // draft moved since) is laid on the draft here and put as his.
+                if change.drafted {
+                    editor.update(cx, |editor, cx| editor.drafted_by_agent(cx));
+                    Some(change.id)
+                } else if let (ChangeOrigin::Asked { text }, Some(after)) = (change.origin, change.after) {
+                    // Put as the agent's, naming the change: Fleet needs it still waiting, so the editor says when it is
+                    // settled and the change is put aside then (`EditorEvent::AgentPut`).
+                    editor.update(cx, |editor, cx| editor.agent_edit(text, change.id, change.before, after, cx));
+                    None
+                } else {
+                    Some(change.id)
+                }
+            }
+            _ => None,
+        };
+        if let Some(change) = landed {
+            let dismissed = self.wire.dismiss_change(change, cx);
+            cx.spawn(async move |_, _| {
+                let _ = dismissed.await;
+            })
+            .detach();
+        }
         let band = &mut self.workflows.detail.band;
-        if !matches!(phase_of(&read.changes, &[]), Phase::Proposed { .. }) && band.notes.as_ref().is_some_and(|(id, _)| *id == one.id) {
+        if !matches!(phase_of(&changes, &[]), Phase::Proposed { .. }) && band.notes.as_ref().is_some_and(|(id, _)| *id == one.id) {
             band.notes = None;
         }
         let shows = |changes: &[WorkflowChange]| matches!(phase_of(changes, &[]), Phase::Proposed { .. } | Phase::Cannot { .. });
         // Brought into view as it arrives, the way Classic's `scrollIntoView({ block: "nearest" })` does.
-        if shows(&read.changes) && !band.changes.get(&key).is_some_and(|was| shows(was)) {
+        if shows(&changes) && !band.changes.get(&key).is_some_and(|was| shows(was)) {
             band.reveal.set(true);
         }
-        band.changes.insert(key.clone(), read.changes);
+        band.changes.insert(key.clone(), changes);
+        let band = &mut self.workflows.detail.band;
         if drafting {
             band.poll = Some(cx.spawn_in(window, async move |this, cx| {
                 cx.background_executor().timer(POLL).await;
@@ -420,10 +449,6 @@ impl SettingsOverlay {
         let task: Task<Result<Option<String>, Refused>> = match act {
             BandAct::Send => {
                 let Some(text) = self.workflows.detail.band.asks.get(&one.id).map(|one| Band::typed(one, cx).trim().to_string()).filter(|text| !text.is_empty()) else { return };
-                if !editable(&one) {
-                    self.send_on_copy(one, text, window, cx);
-                    return;
-                }
                 self.workflows.detail.band.asked.insert(key.clone(), text.clone());
                 let asking = AskWorkflowChange { workflow_id: WorkflowId::carried(&one.id), source: wire_of(one.place).into(), text, ..Default::default() };
                 let task = self.wire.ask_change(&manifest, asking, cx);
@@ -518,6 +543,15 @@ impl SettingsOverlay {
 
     fn band_done(&mut self, one: &Listed, act: BandAct, answer: Result<Option<String>, Refused>, window: &mut Window, cx: &mut Context<Self>) {
         let key = one.key();
+        // A Fleet that draws no change on Armada's own workflow: the copy is made first, as it was before the draft.
+        if let (BandAct::Send, Err(why)) = (act, &answer) {
+            let typed = self.workflows.detail.band.asks.get(&one.id).map(|ask| Band::typed(ask, cx).trim().to_string()).filter(|text| !text.is_empty());
+            if let (true, true, Some(text)) = (why.is("fleet.workflow_is_armadas"), !editable(one), typed) {
+                self.workflows.detail.band.asked.remove(&key);
+                self.send_on_copy(one.clone(), text, window, cx);
+                return;
+            }
+        }
         let band = &mut self.workflows.detail.band;
         band.busy = false;
         match &answer {
@@ -893,7 +927,7 @@ enum Weight {
 }
 
 /// The primary button: the accent's fill (`Button variant="primary" size="sm"`).
-pub(super) fn filled(look: &Look, id: SharedString, said: &'static str, off: bool) -> gpui::Stateful<gpui::Div> {
+pub(crate) fn filled(look: &Look, id: SharedString, said: &'static str, off: bool) -> gpui::Stateful<gpui::Div> {
     div()
         .id(id)
         .flex_none()

@@ -2325,6 +2325,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::NO_FUNNEL_STEPS,
     },
     Walk {
+        name: crate::settings::walk::WAYS,
+        title: "Ways of working",
+        screen: Screen::Settings,
+        scenario: "job-view",
+        steps: crate::settings::walk::WAYS_STEPS,
+    },
+    Walk {
         name: "stamps-follow-format",
         title: "Stamps follow Settings › Time",
         screen: Screen::Settings,
@@ -2368,6 +2375,27 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "job-view",
         steps: crate::settings::walk::LAYOUT_TIME_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::RULES,
+        title: "Rules as a sentence",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::RULES_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::LANES_ADD,
+        title: "Add a lifecycle: what a new lane follows",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::LANES_ADD_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::TAKE,
+        title: "Choose what to take from Armada",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::TAKE_STEPS,
     },
     Walk {
         name: "workflow-card",

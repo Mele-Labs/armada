@@ -10,6 +10,7 @@ use gpui::{App, Context, FocusHandle, Task, Window};
 
 use super::entries::Body;
 use super::overlay::SettingsOverlay;
+use super::wire::Put;
 
 /// How often the Time page's sample is drawn again.
 const TICK: Duration = Duration::from_secs(1);
@@ -45,7 +46,7 @@ impl Prefs {
 
 impl SettingsOverlay {
     fn prefs_shown(&self, cx: &App) -> Option<Body> {
-        self.open.then(|| self.shown(cx).map(|one| one.body)).flatten().filter(|body| matches!(body, Body::Layout | Body::Time))
+        self.open.then(|| self.shown(cx).map(|one| one.body)).flatten().filter(|body| matches!(body, Body::Layout | Body::Time | Body::Ways))
     }
 
     /// Read once each time Settings opens on Layout or Time, and keep Time's sample moving while it is drawn.
@@ -89,6 +90,7 @@ impl SettingsOverlay {
         let mut names: Vec<String> = super::layout::REGIONS.iter().flat_map(|region| region.rows.iter().filter(|row| row.hideable).map(move |row| format!("layout:{}:{}", region.id, row.id))).collect();
         names.push("layout-reset".into());
         names.extend(super::time::SWITCHES.iter().map(|(name, _)| format!("time:{name}")));
+        names.extend(super::ways::key_names());
         for name in names {
             self.prefs.keys.entry(name).or_insert_with(|| cx.focus_handle().tab_stop(true));
         }
@@ -96,20 +98,24 @@ impl SettingsOverlay {
 
     /// `POST /preferences/save` with one preference's text, drawn before Fleet answers.
     pub(super) fn save_pref(&mut self, name: &'static str, text: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.save_put_pref(name, Put::Text(text), window, cx);
+    }
+
+    /// One preference saved as the word or the switch it is, drawn before Fleet answers and put back, with Fleet's
+    /// reason, if Fleet refuses.
+    pub(super) fn save_put_pref(&mut self, name: &'static str, put: Put, window: &mut Window, cx: &mut Context<Self>) {
         let Some(was) = self.prefs.held().cloned() else { return };
         if !self.live {
             return;
         }
         let mut now = was.clone();
-        match name {
-            "layout_choices" => now.layout_choices = text.clone(),
-            "time_format" => now.time_format = text.clone(),
-            _ => return,
+        if !super::ways::apply(&mut now, name, &put) {
+            return;
         }
         self.prefs.read = Some(Ok(now));
         self.prefs.refused.remove(name);
         self.prefs.pending += 1;
-        let sent = self.wire.save_preference(name, text, cx);
+        let sent = self.wire.save_put(name, put, cx);
         cx.spawn_in(window, async move |this, cx| {
             let answer = sent.await;
             let _ = this.update_in(cx, |this, window, cx| {
