@@ -16,6 +16,7 @@
 //! put one invariant in three files.
 
 mod answers;
+pub mod disk;
 mod existing;
 mod git;
 mod handing;

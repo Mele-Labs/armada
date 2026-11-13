@@ -33,7 +33,7 @@ mod starting;
 mod telling;
 
 pub(crate) use batching::NoticeBatches;
-pub(crate) use starting::QuickStart;
+pub(crate) use starting::SideStart;
 
 /// A session id that names nothing. A 422.
 pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
@@ -570,6 +570,23 @@ where
 
     async fn get_session_quick(&self, id: SessionId) -> Result<ipc::SessionQuick, Refusal> {
         self.session_quick(id.as_str()).await
+    }
+
+    async fn get_job_artifacts(&self, id: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
+        self.job_artifacts(id.as_str()).await
+    }
+
+    async fn archive_artifact(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        by: ipc::ArtifactBy,
+        archive: ipc::ArtifactRef,
+    ) -> Result<ipc::JobArtifact, Refusal> {
+        self.artifact_archived(caller, by, archive).await
+    }
+
+    async fn restore_artifact(&self, caller: Option<api::Caller>, restore: ipc::ArtifactRef) -> Result<ipc::JobArtifact, Refusal> {
+        self.artifact_restored(caller, restore).await
     }
 
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {

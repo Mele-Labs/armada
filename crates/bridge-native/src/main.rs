@@ -71,6 +71,7 @@ mod titlebar;
 mod toasts;
 mod transport;
 mod voice;
+mod waiting_sends;
 mod walk;
 mod ways;
 mod whisper;

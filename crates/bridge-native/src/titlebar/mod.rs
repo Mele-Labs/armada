@@ -18,6 +18,7 @@ mod fleet_down;
 mod link_layer;
 mod link_panel;
 pub mod offers;
+mod origin;
 pub mod parts;
 mod projects;
 pub mod scenes;
@@ -72,6 +73,8 @@ pub enum Asked {
     Keep,
     Swap,
     Unpick(String),
+    /// Pick a branch on origin that no Job here holds into the next build.
+    PickOrigin(String),
     /// Skip the Refresh row with this id.
     SkipOffers(String),
     RestartFleet,
@@ -235,6 +238,8 @@ pub struct TitleBar {
     _restart_wait: Option<Task<()>>,
     /// The centred Fleet panel, while Fleet is stopped, restarting or on another build (`link_layer.rs`).
     link: link_layer::LinkPanel,
+    /// The search over the switcher's On origin row.
+    origin: origin::OriginSearch,
 }
 
 /// How long a restart may take to bring back a new Fleet before it is called unanswered (`FleetNotice.tsx`).
@@ -326,6 +331,7 @@ impl TitleBar {
             _swap_tick: None,
             _swap_keys: None,
             build_read: None,
+            origin: Default::default(),
             offers_read: None,
             link_read: None,
             opened: std::time::Instant::now(),
@@ -620,6 +626,7 @@ impl TitleBar {
             self.shut(window, cx);
         } else {
             self.menu = None;
+            self.make_origin_search(window, cx);
             self.open_popup(Popup::Fleet, window, cx);
         }
     }

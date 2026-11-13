@@ -4,9 +4,10 @@
 //! waiting). **A Job's `mac` is the id of the Mac it runs on; absent means this one.** The window holds
 //! the list once ([`hold`]) and every row, head and menu reads it, as the write-clash marks do.
 //!
-//! **Nothing is drawn until a second Mac is linked or asleep** ([`shows_chips`]). A Job on another Mac is
-//! read here and acted on there: Fleet refuses an act on it until stage 2, so each act is left off with
-//! [`off_sentence`], gathered in [`Here::acts_here`].
+//! **Nothing is drawn until a second Mac is linked or asleep** ([`shows_chips`]). A Job on another Mac is read
+//! here, and the acts Fleet carries to that Mac ([`crosses`]: a message, an answer, the plan, Stop, Merge) go from
+//! here; one sent while that Mac sleeps waits in `crate::waiting_sends`. Every other act on it Fleet refuses, so
+//! it is left off with [`off_sentence`], as [`refusal_to`] says for the act's route.
 
 use std::time::Duration;
 
@@ -117,8 +118,8 @@ pub fn off_sentence(macs: &[Mac], mac: Option<&str>) -> Option<String> {
 
 /// What a Job's record says about where it can be acted on.
 pub trait Here {
-    /// Whether an act on this Job may go to Fleet from here: only a Job on this Mac. **The one place the
-    /// answer is worked out**; every button, menu, key and box asks it.
+    /// Whether every act on this Job may go to Fleet from here: only a Job on this Mac. An act Fleet carries to
+    /// another Mac goes from here too ([`crosses`]); [`refusal_to`] asks both.
     fn acts_here(&self) -> bool;
 }
 
@@ -128,14 +129,44 @@ impl Here for SessionRecord {
     }
 }
 
-/// Why acts on this Job are off, or `None` where they are on.
+/// Why acts on this Job that do not cross to its Mac are off, or `None` where they are on.
 pub fn refusal(job: &SessionRecord, cx: &App) -> Option<String> {
     if job.acts_here() { None } else { off_sentence(macs(cx), job.mac.as_deref()) }
+}
+
+/// Why the act posted to `path` is off for this Job, or `None` where it goes. **The one place the answer is worked
+/// out**; every button, menu, key and box asks it, or [`refusal`] for an act that names no route.
+pub fn refusal_to(job: &SessionRecord, path: &str, cx: &App) -> Option<String> {
+    if goes(path) { None } else { refusal(job, cx) }
 }
 
 /// Whether a POST only reads, or opens a window here: it goes on for a Job on another Mac, as the thread and panes do.
 pub fn reads(path: &str) -> bool {
     path.ends_with("/read") || path.ends_with("/view") || path.ends_with("/window/open")
+}
+
+/// Whether Fleet carries a POST on a Job another Mac holds to that Mac, or keeps it until that Mac speaks again
+/// (`docs/practices/protocol/his-other-macs-fleets-half.md`, *Acting across Macs*). A start and a dispatch cross
+/// too, but name their Mac in the body, so they are not acts on a Job held there.
+pub fn crosses(path: &str) -> bool {
+    const ROUTES: [&str; 9] = [
+        "/sessions/message",
+        "/sessions/ask/answer",
+        "/sessions/waiting/answer",
+        "/sessions/waiting/answer_parts",
+        "/sessions/plan/approve",
+        "/sessions/plan/changes",
+        "/sessions/sketch/answer",
+        "/sessions/document/answer",
+        "/sessions/stop",
+    ];
+    ROUTES.contains(&path) || (path.starts_with("/pull_requests/") && path.ends_with("/merge"))
+}
+
+/// Whether a POST goes to Fleet whichever Mac holds the Job on screen: it reads, it crosses, or it takes back a
+/// send this Mac keeps.
+pub fn goes(path: &str) -> bool {
+    reads(path) || crosses(path) || path == crate::waiting_sends::TAKE_BACK
 }
 
 /// The time the Mac fell asleep, in his clock.
@@ -221,6 +252,29 @@ mod tests {
         assert!(reads("/sessions/window/open"));
         assert!(!reads("/sessions/message"));
         assert!(!reads("/sessions/waiting/answer"));
+    }
+
+    #[test]
+    fn the_acts_fleet_carries_to_another_mac_cross_and_no_other() {
+        for path in [
+            "/sessions/message",
+            "/sessions/ask/answer",
+            "/sessions/waiting/answer",
+            "/sessions/waiting/answer_parts",
+            "/sessions/plan/approve",
+            "/sessions/plan/changes",
+            "/sessions/sketch/answer",
+            "/sessions/document/answer",
+            "/sessions/stop",
+            "/pull_requests/armada/3548/merge",
+        ] {
+            assert!(crosses(path), "{path} crosses");
+        }
+        for path in ["/sessions/pause", "/sessions/snooze", "/sessions/rename", "/sessions/close", "/sessions/judge", "/sessions/waiting/dismiss", "/sessions/tune", "/sessions/start", "/sessions/dispatch", "/pull_requests/armada/3548/refresh", "/sessions/message/edit"] {
+            assert!(!crosses(path), "{path} stays");
+        }
+        assert!(goes("/sessions/stop") && goes("/sessions/judge/read") && goes("/queued/take_back"));
+        assert!(!goes("/sessions/pause"));
     }
 
     #[test]

@@ -11,7 +11,7 @@
 //! `sketch:<title>` ([`sketch_items`]), never the agent's `waiting_for`: `answer_sketch` approves it or
 //! sends it back, and a redraw of the title asks again.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use sha2::{Digest, Sha256};
@@ -153,16 +153,20 @@ where
         }
         // The dismissal the person's own Withdraw writes, so both end the same way.
         self.store().lock().await.dismiss_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
-        self.sketch_withdrawn_mark(&id, &target).await;
+        self.sketch_withdrawn_mark(&id, &target, true).await;
         self.published_hosted(&id).await
     }
 
     /// Mark the sketch held as `target` withdrawn. **The one place the mark is written**: the job's
-    /// `withdraw_sketch` and the person's Withdraw both come here. A new drawing of the title replaces the
-    /// attachment, so it does not carry the mark. A sketch the job does not hold is left alone.
-    pub(crate) async fn sketch_withdrawn_mark(&self, id: &str, target: &str) {
+    /// `withdraw_sketch` and the person's Withdraw both come here, and `agent` is the job's, which also
+    /// writes `withdrawn_by`, so the artifact reads `withdrawn` and his reads `dismissed`. A new drawing of
+    /// the title replaces the attachment, so it does not carry the mark. A sketch the job does not hold is left alone.
+    pub(crate) async fn sketch_withdrawn_mark(&self, id: &str, target: &str, agent: bool) {
         let Ok((harness, Some(mut sketch))) = self.sketch_held(id, target).await else { return };
         sketch.detail.insert(SKETCH_WITHDRAWN.into(), "true".into());
+        if agent {
+            sketch.detail.insert(ipc::ARTIFACT_WITHDRAWN_BY.into(), "agent".into());
+        }
         let _ = self
             .report_session(SessionReport {
                 harness,
@@ -178,19 +182,28 @@ where
     /// answer every revision as the encoded list of paths, oldest first. `None` where keeping failed:
     /// the sketch is still drawn, only without its history.
     async fn scene_kept(&self, id: &str, sketch: &Sketch) -> Option<String> {
-        // The digest of the exact title keeps "a b" and "a_b" apart, and a title of `..` out of the parent.
-        let digest: String = Sha256::digest(sketch.title.as_bytes()).iter().take(6).map(|byte| format!("{byte:02x}")).collect();
-        let name = format!("{}-{digest}", one_name(&sketch.title));
-        let folder = Path::new(&self.host().attachments_dir).join("sketches").join(id).join(name);
-        let scene = sketch.scene.clone();
-        let kept = tokio::task::spawn_blocking(move || {
-            Ok::<_, std::io::Error>(keep(&folder, scene.as_bytes(), "json")?.unwrap_or_else(|| revisions_in(&folder, "json")))
-        })
-        .await;
-        let Ok(Ok(revisions)) = kept else { return None };
-        let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
-        ipc::encode(&names).ok()
+        let folder = Path::new(&self.host().attachments_dir).join("sketches").join(id).join(titled_folder(&sketch.title));
+        revisions_kept(folder, sketch.scene.clone().into_bytes(), "json").await
     }
+}
+
+/// `title` as one folder name. The digest of the exact title keeps "a b" and "a_b" apart, and a title of
+/// `..` out of the parent.
+pub(crate) fn titled_folder(title: &str) -> String {
+    let digest: String = Sha256::digest(title.as_bytes()).iter().take(6).map(|byte| format!("{byte:02x}")).collect();
+    format!("{}-{digest}", one_name(title))
+}
+
+/// Keep `bytes` as the next revision in `folder` unless the newest holds them, and answer every revision as
+/// the encoded list of paths, oldest first. `None` where keeping failed.
+pub(crate) async fn revisions_kept(folder: PathBuf, bytes: Vec<u8>, ext: &'static str) -> Option<String> {
+    let kept = tokio::task::spawn_blocking(move || {
+        Ok::<_, std::io::Error>(keep(&folder, &bytes, ext)?.unwrap_or_else(|| revisions_in(&folder, ext)))
+    })
+    .await;
+    let Ok(Ok(revisions)) = kept else { return None };
+    let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
+    ipc::encode(&names).ok()
 }
 
 /// The first words of the person's approval, which [`sketch_approved`] reads it back by.

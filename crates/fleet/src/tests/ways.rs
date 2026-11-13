@@ -263,6 +263,29 @@ async fn all_done_is_refused_by_name_until_a_picture_is_shown_where_he_looks() {
     assert!(rig.fleet.all_done(None, done(&id)).await.expect("an image shown is a picture").done_since.is_some());
 }
 
+/// Marks the Job a Side Job, as `start_side_job` keeps it.
+pub(super) async fn made_side_job(rig: &Rig, id: &SessionId) {
+    let mut store = rig.fleet.store().lock().await;
+    let mut hosting = store.hosting(id.as_str()).unwrap().expect("hosted");
+    hosting.side_job = true;
+    store.keep_hosting(&hosting).unwrap();
+}
+
+#[tokio::test]
+async fn a_side_job_that_answered_owes_no_picture_until_it_records_a_plan() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    save(&rig, "take_in", "look").await;
+    made_side_job(&rig, &id).await;
+    assert!(rig.fleet.all_done(None, done(&id)).await.expect("an answer needs no picture").done_since.is_some());
+
+    let id = rig.start().await;
+    made_side_job(&rig, &id).await;
+    super::session_rail::approved_plan(&rig, &id).await;
+    let refused = rig.fleet.all_done(None, done(&id)).await.unwrap_err();
+    assert_eq!(refused.error().code.as_str(), "fleet.picture_owed", "a Side Job that built something shows it");
+}
+
 #[tokio::test]
 async fn a_sketch_or_a_window_is_a_picture_and_the_other_looks_are_not_held() {
     let rig = rig_placing(None);

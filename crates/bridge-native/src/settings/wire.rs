@@ -201,7 +201,6 @@ impl Wire {
 
     /// `GET /workflows/definition` with `source=base`: the text the copy at `of` (`kit`, `repository` or `project`) began from;
     /// `fleet.workflow_base_none` where it has no base.
-    #[allow(dead_code)] // The chooser reads it when it is drawn.
     pub fn workflow_base(&mut self, id: &str, of: &str, project: Option<&str>, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
         if let Wire::Mock(mock) = self {
             return Task::ready(mock.workflow_base(id, of, project, manifest));
@@ -308,6 +307,32 @@ impl Wire {
         }
         let path = scoped("/lifecycles", manifest);
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "RepositoryLifecycles", cx))
+    }
+
+    /// `GET /lifecycles/rules`: the rules that apply to one repository, and where each was kept.
+    pub fn lifecycle_rules(&mut self, manifest: &str, cx: &App) -> Task<Result<ipc::RepositoryLifecycleRules, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.lifecycle_rules(manifest));
+        }
+        let path = scoped("/lifecycles/rules", manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "RepositoryLifecycleRules", cx))
+    }
+
+    /// `GET /autonomy`: Armada's default autonomy for each kind of act, and each layer that sets some for one repository.
+    pub fn autonomy_defaults(&mut self, manifest: &str, cx: &App) -> Task<Result<ipc::RepositoryAutonomy, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.autonomy_defaults(manifest));
+        }
+        let path = scoped("/autonomy", manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "RepositoryAutonomy", cx))
+    }
+
+    /// `GET /watches/recipes`: the recipes a watch may start from.
+    pub fn watch_recipes(&mut self, cx: &App) -> Task<Result<ipc::WatchRecipeList, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.watch_recipes());
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/watches/recipes".into()), "WatchRecipeList", cx))
     }
 
     /// `POST /lifecycles/pieces/delete`.
@@ -615,6 +640,15 @@ impl Wire {
         let path = format!("/projects/project/{}/edit", crate::link::percent_encoded(project));
         let said = body(&EditProject { shared_with_macs: Some(on), ..EditProject::default() });
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
+    }
+
+    /// `POST /projects/project/:id/delete`, no body: the project and its rows. Fleet answers every project that is left.
+    pub fn delete_project(&mut self, project: &str, cx: &App) -> Task<Result<Projects, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.delete_project(project));
+        }
+        let path = format!("/projects/project/{}/delete", crate::link::percent_encoded(project));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, String::new()), "Projects", cx))
     }
 
     /// The person's key bindings as Fleet last said them, or the mock's.

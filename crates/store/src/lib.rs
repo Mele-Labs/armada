@@ -80,6 +80,8 @@ mod delivery_picks;
 mod word_asks;
 /// The Jobs a person renamed, which the proposer names later Jobs from.
 mod job_renames;
+/// A Job's artifacts archived as stale, kept apart from their attachments.
+mod artifact_archives;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -183,6 +185,8 @@ mod review_runs;
 mod walk_places;
 /// The owner's notes on a pull request's lines, and which Job each was sent to.
 mod pull_request_notes;
+/// The head a person last left a pull request at, the files he marked viewed, and his Reviews layouts.
+mod pull_review_memory;
 mod row;
 mod schema;
 /// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
@@ -246,6 +250,7 @@ pub use watches::{KeptWatch, KeptWatchPart, KeptWatchReading, KeptWatchSetAside,
 pub use notice_mutes::LiveMutes;
 pub use word_asks::KeptWordAsk;
 pub use job_renames::KeptRename;
+pub use artifact_archives::KeptArchive;
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};
@@ -293,6 +298,7 @@ pub use retro::RetroLine;
 pub use review_runs::KeptReviewRun;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use pull_request_notes::KeptPullRequestNote;
+pub use pull_review_memory::{KeptReviewLayout, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use attachment_versions::KeptAttachmentVersion;
 pub use session_ledger::{

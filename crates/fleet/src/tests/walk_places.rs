@@ -13,6 +13,7 @@ use crate::tests::tmp::TempDir;
 
 fn page_changing(paths: &[&str]) -> PullRequestPageFacts {
     PullRequestPageFacts {
+        latest_reviews: Default::default(),
         conversation: Vec::new(),
         checks: Vec::new(),
         files: paths

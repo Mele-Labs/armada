@@ -113,17 +113,16 @@ fn shrink(window: &mut Window, cx: &mut App) {
 }
 
 /// One still with its parts' boxes, `w` by `h`. `named` shows every part's label; otherwise a label shows
-/// while the pointer is on its box.
+/// while the pointer is on its box. A label hangs under its box's right end, where a row's words
+/// seldom are, and over it when the box reaches the still's foot.
 fn still(id: &SharedString, picture: &OptionPicture, source: &StillAt, (w, h): (f32, f32), named: bool, hue: Hsla, look: &Look) -> gpui::Div {
     let source = source.clone();
     let parts = picture.parts.iter().map(|part| {
         let [x, y, pw, ph] = part_box(picture, part);
         let name = SharedString::from(format!("{id}:{}", part.name));
-        let label = div()
-            .absolute()
-            .bottom_full()
-            .left_0()
-            .mb(px(2.))
+        let label = div().absolute().right_0();
+        let label = if y + ph > 0.88 { label.bottom_full().mb(px(2.)) } else { label.top_full().mt(px(2.)) };
+        let label = label
             .px(look.length(token::SPACE_1))
             .py(px(1.))
             .rounded(look.length(token::RADIUS_SM))
@@ -378,5 +377,51 @@ mod tests {
         assert!(matches!(format_of(&[0x89, b'P', b'N', b'G', 13, 10]), Some(ImageFormat::Png)));
         assert!(matches!(format_of(&[0xFF, 0xD8, 0xFF]), Some(ImageFormat::Jpeg)));
         assert!(format_of(b"GIF89a").is_none());
+    }
+
+    /// The read a running Fleet answers: a real socket, the still's address sent as Fleet gave it, and the PNG
+    /// bytes back whole. Mock data never takes this path.
+    #[test]
+    fn a_still_is_read_from_fleet_over_its_own_port_with_its_address_whole() {
+        use std::io::{Read, Write};
+        let png: Vec<u8> = [&[0x89, b'P', b'N', b'G', 13, 10, 26, 10][..], &[7u8; 4000][..]].concat();
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let served = png.clone();
+        let fleet = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut asked = Vec::new();
+            let mut chunk = [0u8; 1024];
+            while !asked.windows(4).any(|end| end == b"\r\n\r\n") {
+                let n = stream.read(&mut chunk).unwrap();
+                asked.extend_from_slice(&chunk[..n]);
+            }
+            let head = format!("HTTP/1.1 200 OK\r\ncontent-type: image/png\r\ncontent-length: {}\r\n\r\n", served.len());
+            stream.write_all(head.as_bytes()).unwrap();
+            stream.write_all(&served).unwrap();
+            String::from_utf8(asked).unwrap()
+        });
+        let image = "/sessions/shown?session_id=j-1&path=%2FUsers%2Fme%2FApplication%20Support%2Fc70e.png".to_string();
+        let bytes = read(&StillAt { port: Some(port), image: image.clone() }).unwrap();
+        let asked = fleet.join().unwrap();
+        assert!(asked.starts_with(&format!("GET {image} HTTP/1.1\r\n")), "{asked}");
+        assert_eq!(bytes, png);
+        assert!(matches!(format_of(&bytes), Some(ImageFormat::Png)));
+    }
+
+    #[test]
+    fn a_still_fleet_will_not_give_is_a_failed_read() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let fleet = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut chunk = [0u8; 1024];
+            let _ = stream.read(&mut chunk).unwrap();
+            stream.write_all(b"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\n\r\n").unwrap();
+        });
+        let read = read(&StillAt { port: Some(port), image: "/sessions/shown?session_id=j&path=gone.png".into() });
+        fleet.join().unwrap();
+        assert_eq!(read, Err("Fleet answered 404".to_string()));
     }
 }

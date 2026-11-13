@@ -254,8 +254,10 @@ pub struct Band {
 }
 
 impl Band {
-    pub fn in_text(&self, window: &Window, cx: &App) -> bool {
-        self.asks.values().chain(self.notes.as_ref().map(|(_, notes)| notes)).any(|one| one.state.read(cx).focus_handle(cx).is_focused(window))
+    /// The keys of every box the band has drawn, for a test that types into each.
+    #[cfg(test)]
+    pub(super) fn fields(&self, cx: &App) -> Vec<FocusHandle> {
+        self.asks.values().chain(self.notes.as_ref().map(|(_, notes)| notes)).map(|one| one.state.read(cx).focus_handle(cx)).collect()
     }
 
     fn typed(one: &Boxed, cx: &App) -> String {

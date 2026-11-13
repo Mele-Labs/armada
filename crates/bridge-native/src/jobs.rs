@@ -49,15 +49,18 @@ pub enum Scope {
     Needs,
     Active,
     Paused,
+    /// The Jobs he snoozed, and only those: Needs you and Active leave them out until the snooze clears.
+    Snoozed,
     Quiet,
     Ended,
     All,
 }
 
-const SCOPES: [(Scope, &str, &str); 6] = [
+const SCOPES: [(Scope, &str, &str); 7] = [
     (Scope::Needs, "needs", "Needs you"),
     (Scope::Active, "active", "Active"),
     (Scope::Paused, "paused", "Paused"),
+    (Scope::Snoozed, "snoozed", "Snoozed"),
     (Scope::Quiet, "quiet", "Quiet"),
     (Scope::Ended, "ended", "Ended"),
     (Scope::All, "all", "All"),
@@ -447,6 +450,8 @@ fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option
 fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names) -> Vec<Line> {
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
+    // Fleet clears `snoozed_until` when the snooze runs out, so one that is set is still ahead (`Held::snoozed`).
+    let snoozed = |job: &SessionRecord| job.snoozed_until.is_some();
     let live = |job: &&SessionRecord| job.state == SessionState::Live;
     let placed = |job: &&SessionRecord| (order.iter().position(|id| id == job.id.as_str()).unwrap_or(usize::MAX), standing_of(job));
     let mut lives: Vec<&SessionRecord> = jobs.iter().filter(live).collect();
@@ -455,17 +460,18 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
     ended.sort_by(|a, b| b.ended_at.as_ref().map(|at| at.as_str()).cmp(&a.ended_at.as_ref().map(|at| at.as_str())));
     let needs = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs);
     let picked: Vec<&SessionRecord> = match scope {
-        Scope::Needs => lives.iter().copied().filter(|job| needs(job)).collect(),
-        Scope::Active => lives.iter().copied().filter(|job| !paused(job) && !quiet(job)).collect(),
+        Scope::Needs => lives.iter().copied().filter(|job| needs(job) && !snoozed(job)).collect(),
+        Scope::Active => lives.iter().copied().filter(|job| !paused(job) && !quiet(job) && !snoozed(job)).collect(),
         Scope::Paused => lives.iter().copied().filter(|job| paused(job)).collect(),
+        Scope::Snoozed => lives.iter().copied().filter(|job| snoozed(job)).collect(),
         Scope::Quiet => lives.iter().copied().filter(|job| quiet(job)).collect(),
         Scope::Ended => ended,
         Scope::All => lives.iter().copied().chain(ended).collect(),
     };
     // A Job another took the place of stands behind that one's row, as Electron's deck has it (`ship.ts`, `behind`).
     let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| spent(job, "replaced_by").is_none() && matches(job, query)).collect();
-    // In every scope a listed Job stands under its live starters; one the scope leaves out, a paused
-    // starter in Active or a calm one in Needs you, comes in for its place alone.
+    // In every scope a listed Job stands under its live starters; one the scope leaves out, a paused or
+    // snoozed starter in Active or a calm one in Needs you, comes in for its place alone.
     let mut places: std::collections::HashSet<&str> = std::collections::HashSet::new();
     for job in &picked {
         let mut up = starter_of(job);
@@ -2618,6 +2624,7 @@ impl JobsScreen {
                 crate::titlebar::Asked::Keep => Some(BuildAct::Keep),
                 crate::titlebar::Asked::Swap => Some(BuildAct::Swap),
                 crate::titlebar::Asked::Unpick(branch) => Some(BuildAct::Pick(ipc::PickFleetBuildJob { branch: Some(branch.clone()), session_id: None, picked: false })),
+                crate::titlebar::Asked::PickOrigin(branch) => Some(BuildAct::Pick(ipc::PickFleetBuildJob { branch: Some(branch.clone()), session_id: None, picked: true })),
                 _ => None,
             };
             if let Some(act) = act {
@@ -3188,6 +3195,88 @@ mod tests {
         let dark = jobs().into_iter().find(|job| job.title.as_deref() == Some("Dark mode for the settings page")).expect("listed");
         let placed = titles(&lines_of(&jobs(), &[], Scope::Active, "", &[dark.id.as_str().to_string()], &Names::default()));
         assert_eq!(placed.iter().find(|title| web.contains(title)).map(String::as_str), Some("Dark mode for the settings page"));
+    }
+
+    /// The fixture with a Job that needs him and a working one snoozed, and those two ids.
+    fn with_two_snoozed() -> (Vec<SessionRecord>, [String; 2]) {
+        let all = jobs();
+        let live = |job: &&SessionRecord| job.state == ipc::SessionState::Live && job.hosted.as_ref().is_none_or(|hosted| hosted.paused.is_none());
+        let needs = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs);
+        let asking = all.iter().filter(live).find(|job| needs(job)).expect("a Job that needs him").id.as_str().to_string();
+        let working = all
+            .iter()
+            .filter(live)
+            .find(|job| !needs(job) && job.mark.is_some_and(|mark| mark.state != JobState::Quiet))
+            .expect("a working Job")
+            .id
+            .as_str()
+            .to_string();
+        let ids = [asking, working];
+        let all = all
+            .into_iter()
+            .map(|mut job| {
+                if ids.iter().any(|id| id == job.id.as_str()) {
+                    job.snoozed_until = Some(ipc::Instant::carried("2026-11-13T16:30:00.000Z"));
+                }
+                job
+            })
+            .collect();
+        (all, ids)
+    }
+
+    /// The ids `scope` lists as Jobs of its own, leaving out a starter drawn only for its place.
+    fn listed(jobs: &[SessionRecord], scope: Scope) -> Vec<String> {
+        lines_of(jobs, &[], scope, "", &[], &Names::default())
+            .iter()
+            .filter_map(|line| match line { Line::Job(row) if !row.place => Some(row.id.to_string()), _ => None })
+            .collect()
+    }
+
+    #[test]
+    fn a_snoozed_job_is_not_in_needs_you() {
+        let (all, [asking, _]) = with_two_snoozed();
+        assert!(!listed(&all, Scope::Needs).contains(&asking));
+    }
+
+    #[test]
+    fn a_snoozed_job_is_not_in_active() {
+        let (all, [asking, working]) = with_two_snoozed();
+        let active = listed(&all, Scope::Active);
+        assert!(!active.contains(&asking) && !active.contains(&working), "{active:?}");
+    }
+
+    #[test]
+    fn the_snoozed_scope_lists_exactly_the_snoozed_jobs() {
+        let (all, mut ids) = with_two_snoozed();
+        let mut snoozed = listed(&all, Scope::Snoozed);
+        snoozed.sort();
+        ids.sort();
+        assert_eq!(snoozed, ids);
+    }
+
+    #[test]
+    fn all_keeps_the_snoozed_jobs() {
+        let (all, [asking, working]) = with_two_snoozed();
+        let every = listed(&all, Scope::All);
+        assert!(every.contains(&asking) && every.contains(&working), "{every:?}");
+    }
+
+    #[test]
+    fn a_snoozed_starter_comes_into_active_for_its_place_alone() {
+        let tree: Vec<SessionRecord> = crate::mock::jobs("jobs-tree")
+            .expect("the fixture decodes")
+            .into_iter()
+            .map(|mut job| {
+                if job.id.as_str() == "t-land" {
+                    job.snoozed_until = Some(ipc::Instant::carried("2026-11-13T16:30:00.000Z"));
+                }
+                job
+            })
+            .collect();
+        let land = lines_of(&tree, &[], Scope::Active, "", &[], &Names::default())
+            .iter()
+            .find_map(|line| match line { Line::Job(row) if row.id.as_ref() == "t-land" => Some(row.place), _ => None });
+        assert_eq!(land, Some(true));
     }
 
     #[test]

@@ -27,6 +27,18 @@ pub static NO_FUNNEL_STEPS: &[Step] = &[
     step("Esc closes Settings, and the keys go back", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-keys-stay-in-text`: a letter typed into a box on Workflows is typed there, and the keys stay in it.
+pub const KEYS_STAY_IN_TEXT: &str = "native-settings-keys-stay-in-text";
+
+pub static KEYS_STAY_IN_TEXT_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Workflows: every workflow Fleet runs", "button", "Workflows", "group", "Shipped with Armada"),
+    press_on("A press on a workflow draws it", "button", "prototype", "textbox", "Tell an agent what to change"),
+    press_on("A press goes into the box that asks an agent", "textbox", "Tell an agent what to change", "textbox", "Tell an agent what to change"),
+    step("F typed in it lands in it", Verb::Typed("f"), "textbox", "Tell an agent what to change"),
+    step("A second F follows the first: the box reads ff, and the keys never left", Verb::Typed("f"), "textbox", "Tell an agent what to change"),
+];
+
 /// `native-settings-macs-setup`: Macs on a Mac nothing is set up on. One card press runs the setup, and Find my
 /// Mac waits for the other Mac, with a link to pair by instead.
 pub const MACS_SETUP: &str = "native-settings-macs-setup";
@@ -110,6 +122,152 @@ pub static WAYS_STEPS: &[Step] = &[
     press_on("Look again, to ask for a choice Fleet refuses", "radio", "Look", "group", "Look options"),
     press_on("A choice Fleet refuses is put back, and says why", "radio", "Pictures side by side, whole only", "alert", "`pictures_whole` is not a choice of `look_questions`"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-delete-project`: the picker's Delete on the project being edited, its confirm, and the fall back to Every project.
+pub const DELETE_PROJECT: &str = "native-delete-project";
+
+pub static DELETE_PROJECT_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings editing every project", Verb::Key("cmd-,"), "combobox", "Editing Every project"),
+    step("\u{2318}P opens the picker", Verb::Key("cmd-p"), "menu", "Editing"),
+    step("Every project has no Delete", Verb::Absent("menuitem", "Delete Armada"), "menuitem", "New project"),
+    step("\u{2193} twice and Enter pick Storefront", Verb::Keys(&["down", "down", "enter"]), "combobox", "Editing Storefront"),
+    step("\u{2318}P again: under New project, Delete Storefront", Verb::Key("cmd-p"), "menuitem", "Delete Storefront"),
+    step("Only the project being edited has a Delete", Verb::Absent("menuitem", "Delete Armada"), "menuitem", "Armada"),
+    press_on("Delete Storefront asks first, naming its tasks", "menuitem", "Delete Storefront", "dialog", "Delete Storefront? Its 4 tasks go with it."),
+    step("The keys start on Cancel; Tab goes to Delete", Verb::Key("tab"), "button", "Delete"),
+    step("Esc cancels, and Storefront is still edited", Verb::Key("escape"), "combobox", "Editing Storefront"),
+    step("\u{2318}P opens the picker again", Verb::Key("cmd-p"), "menuitem", "Delete Storefront"),
+    press_on("Delete Storefront asks again", "menuitem", "Delete Storefront", "dialog", "Delete Storefront? Its 4 tasks go with it."),
+    step("Tab, Enter: Fleet deletes it, and the picker is on Every project", Verb::Keys(&["tab", "enter"]), "combobox", "Editing Every project"),
+    step("\u{2318}P: Storefront is gone from the picker", Verb::Key("cmd-p"), "menuitem", "Armada"),
+    step("Storefront's row went with it", Verb::Absent("menuitem", "Storefront"), "menuitem", "Pricing"),
+    press_on("Pricing is another Mac's copy", "menuitem", "Pricing", "combobox", "Editing Pricing"),
+    step("\u{2318}P: that Mac keeps it, so it has no Delete", Verb::Key("cmd-p"), "menuitem", "New project"),
+    step("No Delete Pricing under New project", Verb::Absent("menuitem", "Delete Pricing"), "menuitem", "New project"),
+    step("Esc shuts the picker", Verb::Key("escape"), "combobox", "Editing Pricing"),
+];
+
+/// `native-take`: a copy Armada has changed since it began, and choosing what to take from Armada's lanes beside its own.
+pub const TAKE: &str = "native-take";
+
+pub static TAKE_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings over the app", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Workflows lists every workflow Fleet runs", "button", "Workflows", "group", "Shipped with Armada"),
+    step("armada's copy of feature wears the band, with Choose what to take", Verb::PressWithin("group", "armada repository", "feature"), "button", "Choose what to take"),
+    press_on("It opens Armada's lanes beside yours, where the canvas was", "button", "Choose what to take", "region", "Choose what to take"),
+    step("Stacked: side by side, each lane would draw at 0.39 of its size", Verb::Look, "group", "Armada's lanes"),
+    step("Under both sides, a row names each mark, then Take and Cancel", Verb::Wheel("heading", "Armada's", 700), "button", "Take"),
+    step("Back up: Armada's marks Propose, Walk and Refine", Verb::Wheel("heading", "Armada's", -700), "group", "Armada's lanes"),
+    step("A press on the Propose node chooses it: it takes a check", Verb::PressWithin("group", "Armada's lanes", "Step: Propose"), "button", "Step: Propose, chosen"),
+    step("The page scrolls down to its row, now ticked, and the buttons", Verb::Wheel("heading", "Armada's", 700), "checkbox", "Propose renamed from Plan"),
+    step("Tab, then Space, chooses the next row from the keys", Verb::Keys(&["tab", "space"]), "checkbox", "Walk added after Propose"),
+    step("Space and Shift-Tab take both back off: nothing is chosen, so Take is dim", Verb::Keys(&["space", "shift-tab", "space"]), "button", "Take"),
+    step("Every row chosen again from the keys: Take is ready", Verb::Keys(&["space", "tab", "space", "tab", "space"]), "button", "Take"),
+    step("Take lays them in the draft as one change, and Armada's lanes close", Verb::Open("button", "Take"), "button", "Changes"),
+    press_on("Changes names what was taken, with its Undo", "button", "Changes", "button", "Undo Took from Armada: Propose's name, Walk added, Refine's words"),
+    step("\u{2318}Z takes it back", Verb::Key("cmd-z"), "button", "Choose what to take"),
+    press_on("Choose what to take opens again, with nothing chosen", "button", "Choose what to take", "region", "Choose what to take"),
+    step("Cancel shuts it and changes nothing", Verb::Open("button", "Cancel"), "button", "Choose what to take"),
+];
+
+/// `native-lanes-add`: Add lifecycle, its menu of what a lane follows, the lane a kind draws and a blank lane named from nothing.
+pub const LANES_ADD: &str = "native-lanes-add";
+
+pub static LANES_ADD_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings over the app", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Workflows lists every workflow Fleet runs", "button", "Workflows", "group", "Shipped with Armada"),
+    step("armada's own copy of feature draws, with Add lifecycle over its lanes", Verb::PressWithin("group", "armada repository", "feature"), "button", "Add lifecycle"),
+    press_on("Add lifecycle opens a menu: what does this lane follow?", "button", "Add lifecycle", "menu", "What does this lane follow?"),
+    step("\u{2193} moves the row under the keys: Ticket", Verb::Key("down"), "menuitem", "Ticket"),
+    step("\u{2191} goes back: Pull request, from your forge", Verb::Key("up"), "menuitem", "Pull request"),
+    step("Enter picks it: a lane under the others, its name box ready", Verb::Key("enter"), "textbox", "Lane name"),
+    step("Its name is selected, so typing renames the lane", Verb::Typed("Review"), "textbox", "Lane name"),
+    step("Enter lands the name: a change in the draft", Verb::Key("enter"), "textbox", "Lane name"),
+    step("The page scrolls up to the bar, where Changes names it", Verb::Wheel("button", "Zoom in", -1200), "button", "Changes"),
+    press_on("Changes names both changes, each with its Undo", "button", "Changes", "button", "Undo Renamed the lane Pull request to Review"),
+    step("\u{2318}Z takes back the rename", Verb::Key("cmd-z"), "button", "Undo Added the lane Pull request"),
+    step("\u{2318}Z again takes the lane out", Verb::Key("cmd-z"), "button", "Add lifecycle"),
+    press_on("Add lifecycle again: Blank lane is the last row", "button", "Add lifecycle", "menuitem", "Blank lane"),
+    step("\u{2193} four times reaches Blank lane", Verb::Keys(&["down", "down", "down", "down"]), "menuitem", "Blank lane"),
+    step("Enter picks it: an empty name box holds the keys", Verb::Key("enter"), "textbox", "Lane name"),
+    step("Under it its source, Your own, and Add a state", Verb::Look, "button", "Add a state"),
+    step("A long name wraps in the box. Nothing is drafted until it has a state", Verb::Typed("Reviews waiting on others"), "textbox", "Lane name"),
+    step("Enter lands the name, and the keys go to Add a state", Verb::Key("enter"), "button", "Add a state"),
+    step("Enter adds a state, its name open where it stands", Verb::Key("enter"), "textbox", "Name"),
+    step("The state is named", Verb::Typed("Waiting"), "textbox", "Name"),
+    step("Enter names it: the lane is in the draft", Verb::Key("enter"), "button", "Changes"),
+    step("The page scrolls up to Add lifecycle", Verb::Wheel("button", "Zoom in", -1200), "button", "Add lifecycle"),
+    press_on("Add lifecycle opens the menu once more", "button", "Add lifecycle", "menu", "What does this lane follow?"),
+    step("Esc shuts it, and the keys are back on the button", Verb::Key("escape"), "button", "Add lifecycle"),
+    press_on("Publish writes the lane where the draft applies", "button", "Publish", "button", "Add rule"),
+    step("The published lane is kept, drawn as any other", Verb::Wheel("button", "Zoom in", 700), "group", "Reviews waiting on others"),
+    step("The page scrolls up to the top", Verb::Wheel("button", "Zoom in", -1200), "button", "Add lifecycle"),
+    step("Back to the list, where sample-web's bug is", Verb::PressOnFirst(&[("button", "Back to Workflows"), ("button", "Workflows")]), "group", "sample-web repository"),
+    step("Fleet holds a lane for it from before: it draws, with Add lifecycle over it", Verb::PressWithin("group", "sample-web repository", "bug"), "button", "Add lifecycle"),
+    step("It has the same head: a name box, and its source under it", Verb::Wheel("button", "Zoom in", 1200), "textbox", "Lane name"),
+];
+
+/// `native-rules`: a rule opened as one sentence where its chip stands, each field set from its menu, and the changes
+/// kept in the draft like a step's.
+pub const RULES: &str = "native-rules";
+
+pub static RULES_STEPS: &[Step] = &[
+    step("⌘, opens Settings over the app", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Workflows lists every workflow Fleet runs", "button", "Workflows", "group", "Shipped with Armada"),
+    step("A press on armada's own copy of feature draws it, so an edit here changes armada only", Verb::PressWithin("group", "armada repository", "feature"), "button", "Add rule"),
+    step("Beside Add lifecycle is Add rule. Nothing is drafted yet", Verb::Look, "button", "Add lifecycle"),
+    press_on("A press on a rule's chip opens its sentence under it, where the rule sits", "button", "Ticket to In Progress", "group", "Ticket to In Progress"),
+    step("When a moment, if a condition, do an act, then Ask me first. Each is a field, and Ask me first is a switch", Verb::Look, "combobox", "When"),
+    step("Tab goes into the sentence, on When", Verb::Key("tab"), "combobox", "When"),
+    step("Three more Tabs go through If and Add condition to Do", Verb::Keys(&["tab", "tab", "tab"]), "combobox", "Do"),
+    step("Tab again reaches Ask me first, and Shift-Tab comes back to Do", Verb::Keys(&["tab", "shift-tab"]), "combobox", "Do"),
+    press_on("A press on When opens its choices in a small menu under it", "combobox", "When", "menu", "When choices"),
+    press_on("A choice that needs a value opens a second choice in the same menu", "menuitem", "A step starts", "menuitem", "Walk starts"),
+    press_on("Walk starts is picked, and the field reads it: one change in the draft", "menuitem", "Walk starts", "button", "Changes"),
+    press_on("Add condition opens an empty If with its choices", "button", "Add condition", "menu", "If 2 choices"),
+    press_on("A choice with no value sets the field at once", "menuitem", "The Job has opened a pull request", "combobox", "If 2"),
+    step("⌫ on a condition drops it from the sentence and the rule", Verb::Key("backspace"), "combobox", "If"),
+    press_on("Add condition again opens an empty If with its choices", "button", "Add condition", "menu", "If 2 choices"),
+    step("Esc shuts the menu, and the field stays empty", Verb::Key("escape"), "combobox", "If 2"),
+    step("⌫ on the empty field drops it, with no change to the draft", Verb::Key("backspace"), "combobox", "If"),
+    press_on("Do opens the acts Fleet offers", "combobox", "Do", "menu", "Do choices"),
+    press_on("An act that needs words opens a box in the same menu", "menuitem", "Tell the agent", "textbox", "Message"),
+    step("The words go in the box: Say what changed", Verb::Typed("Say what changed"), "textbox", "Message"),
+    step("Enter sets the act: one more change", Verb::Key("enter"), "combobox", "Do"),
+    press_on("A press on Ask me first turns it on, which is the rule's autonomy set to asks", "switch", "Ask me first", "switch", "Ask me first"),
+    press_on("Changes lists each change with its own Undo", "button", "Changes", "region", "Changes"),
+    step("The history opens with the change of trigger, and its Undo", Verb::Look, "button", "Undo Changed the trigger of Ticket to In Progress to Walk starts"),
+    step("⌘Z takes back the last change, Ask me first, and shuts the sentence", Verb::Key("cmd-z"), "button", "Undo Changed the act of Ticket to In Progress to tell the agent: Say what changed"),
+    press_on("Add rule opens an empty sentence at the top of the canvas, with When's choices open", "button", "Add rule", "menu", "When choices"),
+    press_on("A step ends opens the steps it can end", "menuitem", "A step ends", "menuitem", "Walk ends"),
+    press_on("Walk ends is picked, and Do is the next field", "menuitem", "Walk ends", "combobox", "Do"),
+    press_on("Nothing is drafted until it has a moment and an act. Do opens the acts", "combobox", "Do", "menu", "Do choices"),
+    press_on("Move each ticket opens the states a ticket moves to", "menuitem", "Move each ticket", "menuitem", "move each ticket to Done"),
+    press_on("The rule is named for what it does, and joins the draft as a change of its own", "menuitem", "move each ticket to Done", "button", "Move each ticket to Done"),
+    step("Changes lists it, with its Undo", Verb::Look, "button", "Undo Added the rule Move each ticket to Done"),
+    step("Esc shuts the new sentence, and what it set stays in the draft", Verb::Key("escape"), "button", "Ticket to In Progress"),
+    step("The page scrolls down to the canvas, where the chips sit", Verb::Wheel("textbox", "Tell an agent what to change", 260), "button", "Ticket to In Progress"),
+    press_on("A press on the rule's chip opens it again, as any rule's", "button", "Ticket to In Progress", "group", "Ticket to In Progress"),
+    press_on("Do opens the acts again", "combobox", "Do", "menu", "Do choices"),
+    press_on("Run a command opens a box for the command", "menuitem", "Run a command", "textbox", "Command"),
+    step("Enter on an empty box: Fleet refuses, and its sentence shows under the rule", Verb::Key("enter"), "alert", "`do[0].run_command.command` is empty: say what it is"),
+    press_on("Do opens the acts again, and Fleet's refusal stays under the rule", "combobox", "Do", "menu", "Do choices"),
+    press_on("Run a command opens the box again", "menuitem", "Run a command", "textbox", "Command"),
+    step("The command goes in the box: pnpm test", Verb::Typed("pnpm test"), "textbox", "Command"),
+    step("Enter sets it, and the refusal goes", Verb::Key("enter"), "button", "Publish"),
+    step("The page scrolls up to Add rule", Verb::Wheel("textbox", "Tell an agent what to change", -1200), "button", "Add rule"),
+    press_on("Add rule again, and the choices for When: a gate sets this one off", "button", "Add rule", "menu", "When choices"),
+    press_on("A gate closes opens the gates", "menuitem", "A gate closes", "menuitem", "the plan is approved"),
+    press_on("When the plan is approved is picked, and Do is the next field", "menuitem", "the plan is approved", "combobox", "Do"),
+    press_on("Do opens the acts", "combobox", "Do", "menu", "Do choices"),
+    press_on("Tell the agent opens a box for the words", "menuitem", "Tell the agent", "textbox", "Message"),
+    step("The words go in the box: Plan approved, start", Verb::Typed("Plan approved, start"), "textbox", "Message"),
+    step("Enter sets the act, and the rule is complete", Verb::Key("enter"), "combobox", "Do"),
+    step("Esc shuts it. The rule has no edge, so its chip sits over the canvas", Verb::Key("escape"), "button", "Tell the agent: Plan approved, start"),
+    press_on("A press on that chip opens the rule's sentence again, under the chip", "button", "Tell the agent: Plan approved, start", "group", "Tell the agent: Plan approved, start"),
+    press_on("Publish writes each rule's draft where it applies", "button", "Publish", "button", "Add rule"),
+    step("The rules are kept: the new rule's chip is drawn as any other", Verb::Look, "button", "Move each ticket to Done"),
 ];
 
 /// F reaches the Workflows search: where the page is narrow it brings the list back in the detail's place first.
@@ -364,8 +522,8 @@ pub static STEPS: &[Step] = &[
     press_on("It opens Settings again, its search empty", "menuitem", "Settings", "dialog", "Settings"),
     step("Esc closes it", Verb::Key("escape"), "button", "Menu"),
     step("⌘, opens Settings editing every project; the picker sits at the top of the sidebar", Verb::Key("cmd-,"), "combobox", "Editing Every project"),
-    step("⌘P opens the picker from anywhere in Settings: Every project, each project, then New project", Verb::Key("cmd-p"), "menu", "Editing"),
-    step("New project waits for its sheet, so it cannot be picked yet", Verb::Look, "menuitem", "New project"),
+    step("⌘P opens the picker from anywhere in Settings: Every project, each project, then New project and a Delete for each", Verb::Key("cmd-p"), "menu", "Editing"),
+    step("New project opens its sheet over the app", Verb::Look, "menuitem", "New project"),
     step("↓ moves to Armada, and Enter picks it", Verb::Keys(&["down", "enter"]), "group", "For Armada"),
     step("The pages Armada can set are under its name; everything else is under This Mac", Verb::Look, "group", "This Mac"),
     step("Models stays under This Mac; the sketch had it under the project", Verb::Look, "button", "Models"),
@@ -380,6 +538,9 @@ pub static STEPS: &[Step] = &[
     press_on("✕ clears Merging for Armada, so it follows every project again", "button", "Clear Merging for Armada", "combobox", "Merging for Armada"),
     press_on("A cell that follows every project opens its choices", "combobox", "Walks for Armada", "menuitemcheckbox", "Review"),
     press_on("Picking one sets it for Armada", "menuitemcheckbox", "Review", "button", "Clear Walks for Armada"),
+    press_on("Starting Jobs: whether a Job that a Job or the Operator starts runs at once, or waits on his start card", "button", "Starting Jobs", "combobox", "Jobs a Job or the Operator starts for Armada"),
+    press_on("Its choices: Start at once, or Ask me", "combobox", "Jobs a Job or the Operator starts for Armada", "menuitemcheckbox", "Ask me"),
+    press_on("Ask me sets it for Armada: what a Job or the Operator starts there waits on his start card", "menuitemcheckbox", "Ask me", "button", "Clear Jobs a Job or the Operator starts for Armada"),
     press_on("Macs: Armada's share switch, over this Mac's own", "button", "Macs", "switch", "Share with your other Macs"),
     press_on("A press turns it on; the switch takes what Fleet answers", "switch", "Share with your other Macs", "switch", "Share with your other Macs"),
     press_on("Workflows, editing Armada", "button", "Workflows", "region", "Workflow"),

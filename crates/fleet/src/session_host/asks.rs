@@ -339,8 +339,29 @@ pub(crate) fn only_approving(sentence: &str) -> bool {
     asks(sentence) && !asks(&said)
 }
 
+/// The sentence with what it quotes taken out: a span in double quotes or backticks is something said
+/// before or a name, never the reply asking. Code stands as an empty pair, so "run `x`" still tells
+/// him to run it. A quote left open is kept.
+fn unquoted(said: &str) -> String {
+    let mut out = String::with_capacity(said.len());
+    let mut rest = said;
+    while let Some(open) = rest.find(['"', '“', '`']) {
+        let mark = rest[open..].chars().next().unwrap_or('"');
+        let close = if mark == '“' { '”' } else { mark };
+        let after = &rest[open + mark.len_utf8()..];
+        let Some(end) = after.find(close) else { break };
+        out.push_str(&rest[..open]);
+        if mark == '`' {
+            out.push_str("``");
+        }
+        rest = &after[end + close.len_utf8()..];
+    }
+    out.push_str(rest);
+    out
+}
+
 fn asks(sentence: &str) -> bool {
-    let said = sentence.replace('*', "").replace('’', "'").to_lowercase();
+    let said = unquoted(&sentence.replace('*', "").replace('’', "'").to_lowercase());
     if NOTHING_OWED.iter().any(|phrase| said.contains(phrase)) {
         return false;
     }

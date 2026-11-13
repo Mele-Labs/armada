@@ -285,8 +285,11 @@ pub struct Detail {
 }
 
 impl Detail {
-    pub fn in_words(&self, window: &Window, cx: &App) -> bool {
-        self.words.values().any(|one| one.state.read(cx).focus_handle(cx).is_focused(window)) || self.band.in_text(window, cx)
+    /// The keys of every box the detail has drawn, for a test that types into each. The steps' words boxes are left
+    /// out: the lanes stand where their cards were, so none is drawn.
+    #[cfg(test)]
+    pub(super) fn fields(&self, cx: &App) -> Vec<FocusHandle> {
+        self.band.fields(cx)
     }
 
     /// The list to draw: what an act read last, while the connection still holds what it held then.
@@ -692,7 +695,7 @@ impl SettingsOverlay {
         if said.is_some_and(|said| said.job.is_some()) {
             stops.extend(detail.key("open-job").cloned());
         }
-        stops.push(self.lanes.add.clone());
+        stops.extend([self.lanes.add_rule.clone(), self.lanes.add.clone()]);
         stops.extend(self.band_stops(&one, cx));
         stops.extend(self.lanes_stops(&one, cx));
         stops
@@ -756,6 +759,10 @@ impl SettingsOverlay {
         }
         if let Some(act) = Act::ALL.into_iter().find(|act| self.workflows.detail.key(&format!("act:{}", act.id())).is_some_and(|focus| focus.is_focused(window))) {
             self.press_act(act, window, cx);
+            return true;
+        }
+        if self.lanes.add_rule.is_focused(window) {
+            self.add_rule(window, cx);
             return true;
         }
         if self.lanes.add.is_focused(window) {
