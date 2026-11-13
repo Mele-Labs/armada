@@ -168,6 +168,24 @@ pub fn pill(look: &Look, id: SharedString, chip: &Chip) -> AnyElement {
     labelled(drawn, Role::Image, SharedString::from(chip.name.clone())).into_any_element()
 }
 
+/// A Mac's mark on a Jobs row: a dot in its fixed colour, its name in the tooltip, dimmed while it sleeps.
+pub fn dot(look: &Look, id: SharedString, chip: &Chip) -> AnyElement {
+    let hue = crate::settings::macs::colour_of(look, chip.colour);
+    let said: SharedString = match chip.asleep_since {
+        Some(since) => format!("{}: {}", chip.name, asleep_said(since)).into(),
+        None => chip.name.clone().into(),
+    };
+    let drawn = div()
+        .id(id)
+        .flex_none()
+        .size(look.length(token::SPACE_2))
+        .rounded_full()
+        .bg(hue)
+        .when(chip.asleep_since.is_some(), |dot| dot.opacity(0.5))
+        .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx));
+    labelled(drawn, Role::Image, SharedString::from(chip.name.clone())).into_any_element()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

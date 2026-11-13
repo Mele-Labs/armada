@@ -2662,10 +2662,10 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "jobs-pairing",
         steps: &[
-            step("Studio is this Mac and Air is paired: every row names the Mac it runs on, in that Mac's colour, in a column of its own", Verb::Look, "img", "Air"),
-            step("This Mac's Jobs carry the chip too, so the rows line up", Verb::Look, "img", "Studio"),
-            step("In a narrow window the chip takes about a word from each title. A smaller mark would leave more of it", Verb::Look, "row", "Audit the docs index"),
-            step("Air has fallen asleep: its chip is dimmed, and the tooltip says since when", Verb::Hover, "img", "Air"),
+            step("Studio is this Mac and Air is paired: every row carries a dot in the colour of the Mac it runs on, in a column of its own", Verb::Look, "img", "Air"),
+            step("This Mac's Jobs carry the dot too, so the rows line up", Verb::Look, "img", "Studio"),
+            step("In a narrow window the title keeps its width: the dot takes no more room than a glyph", Verb::Look, "row", "Audit the docs index"),
+            step("Air has fallen asleep: its dot is dimmed, and the tooltip names it and says since when", Verb::Hover, "img", "Air"),
             press_on("A press opens a Job on Air: its thread reads as any other, and its box takes no words", "row", "Fix the merge line freshness chip", "textbox", "Message"),
             step("The box is read-only, and says where the Job runs", Verb::Look, "group", "Message box"),
             step("The head carries the chip with the Job's other marks", Verb::Look, "img", "Air"),
@@ -2680,7 +2680,7 @@ pub static WALKS: &[Walk] = &[
             step("Its row is not in the list", Verb::Absent("row", "Quiet the write-clash notices"), "row", "Audit the docs index"),
             step("Nor is its tab: the Job open on it is let go of, and the box with it", Verb::Absent("textbox", "Message"), "row", "Audit the docs index"),
             pairing("Air is forgotten: only this Mac is listed, its Jobs go, and nothing changes anywhere", "one-mac", "row", "Native Bridge foundation"),
-            step("No chip is drawn, and a row is as it was", Verb::Absent("img", "Studio"), "row", "Native Bridge foundation"),
+            step("No dot is drawn, and a row is as it was", Verb::Absent("img", "Studio"), "row", "Native Bridge foundation"),
         ],
     },
     Walk {

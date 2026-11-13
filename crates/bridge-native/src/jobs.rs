@@ -2154,10 +2154,10 @@ impl JobsList {
                     ))
                 }))
             });
-        // Once a second Mac is listed, every row keeps a column for the Mac it runs on, so the chips line up.
+        // Once a second Mac is listed, every row keeps a column for the dot of the Mac it runs on, so the dots line up.
         let mac_column = crate::pairing::shows_chips(crate::pairing::macs(cx)).then(|| {
-            let chip = crate::pairing::chip(row.mac.as_deref(), cx).map(|chip| crate::pairing::pill(look, SharedString::from(format!("mac-{}", row.id)), &chip));
-            div().flex_none().w(look.length(token::SPACE_12) * 1.25).flex().items_center().children(chip)
+            let dot = crate::pairing::chip(row.mac.as_deref(), cx).map(|chip| crate::pairing::dot(look, SharedString::from(format!("mac-{}", row.id)), &chip));
+            div().flex_none().w(look.length(token::SPACE_4)).flex().items_center().justify_center().children(dot)
         });
         // A top row of a live Job is dragged to a new place in its project, as Electron's deck does.
         let lit = crate::clash_mark::lit(cx) == Some(row.id.as_ref());
