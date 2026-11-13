@@ -89,6 +89,9 @@ impl Section {
 pub struct Meta {
     pub repo: Option<String>,
     pub state: Option<(&'static str, String, Token)>,
+    /// A time fact beside the name, in his time format, and the words its tooltip names it by: when an ended
+    /// Job ended.
+    pub when: Option<(String, &'static str)>,
 }
 
 /// One row the palette can show.
@@ -103,6 +106,10 @@ pub struct Entry {
     /// Words that find the row besides its label: a Job's id and its pull request.
     pub aliases: Vec<String>,
     pub meta: Option<Meta>,
+    /// Found only while something is typed: the opening list leaves it out. An ended or quiet Job.
+    pub typed_only: bool,
+    /// Ranks after every row that is not ended, among rows of the same block.
+    pub ended: bool,
 }
 
 impl Entry {
@@ -137,6 +144,8 @@ fn act_entry(row: &Registered, section: Section) -> Entry {
         shortcut: Some(row.shortcut.to_string()),
         aliases: Vec::new(),
         meta: None,
+        typed_only: false,
+        ended: false,
     }
 }
 
@@ -180,22 +189,20 @@ fn is_paused(job: &SessionRecord) -> bool {
     job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some())
 }
 
-/// A live Job as a row. Ended and quiet Jobs are not found here.
+/// A Job as a row. An ended or quiet Job is a row too, found only while something is typed; an ended one ranks
+/// after the rest and says when it ended.
 pub fn job_entry(job: &SessionRecord) -> Option<Entry> {
-    if job.state == SessionState::Ended {
-        return None;
-    }
-    let mark = job.mark?;
-    if matches!(mark.state, JobState::Ended | JobState::Quiet) {
-        return None;
-    }
+    let ended = job.state == SessionState::Ended || job.mark.is_some_and(|mark| mark.state == JobState::Ended);
+    let state_of = if ended { JobState::Ended } else { job.mark?.state };
+    let quiet = state_of == JobState::Quiet;
     let pull = pull_of(job);
-    let state = if is_paused(job) {
+    let state = if is_paused(job) && !ended {
         ("circle-pause", "Paused".to_string(), token::FG_MUTED)
     } else {
-        let (icon, said) = glyph_of(mark.state, pull.as_ref().map(|(_, number)| format!("#{number}")).as_deref());
-        (icon, said.to_string(), hue_of(mark.state))
+        let (icon, said) = glyph_of(state_of, pull.as_ref().map(|(_, number)| format!("#{number}")).as_deref());
+        (icon, said.to_string(), hue_of(state_of))
     };
+    let when = job.ended_at.as_ref().filter(|_| ended).and_then(|at| crate::settings::time::stamp_at(at.as_str())).map(|at| (at, "Ended"));
     Some(Entry {
         id: format!("session:{}", job.id.as_str()),
         section: Section::Jobs,
@@ -203,7 +210,9 @@ pub fn job_entry(job: &SessionRecord) -> Option<Entry> {
         icon: None,
         shortcut: None,
         aliases: std::iter::once(job.id.as_str().to_string()).chain(held_pull(job).iter().map(|(_, number, _)| format!("#{number}"))).collect(),
-        meta: Some(Meta { repo: job.manifest_id.as_ref().map(|id| id.as_str().to_string()), state: Some(state) }),
+        meta: Some(Meta { repo: job.manifest_id.as_ref().map(|id| id.as_str().to_string()), state: Some(state), when }),
+        typed_only: ended || quiet,
+        ended,
     })
 }
 
@@ -276,12 +285,13 @@ pub enum Line {
 
 /// The lines for a query. With nothing typed, *Palette opens with* decides: Pinned then Recent, or the whole
 /// list. A row found by a word he gave it, typed whole, comes first under no heading; then the blocks in order.
+/// An ended or quiet Job is found only by what is typed, and an ended one comes after every other match.
 pub fn lines_of(entries: &[Entry], query: &str, on: Option<&str>, opens: Opens, memory: &Memory) -> Vec<Line> {
     let mut lines = Vec::new();
     let typed = !query.trim().is_empty();
     if !typed && opens == Opens::Pinned {
         let find = |ids: &[String], skip: &[String]| -> Vec<usize> {
-            ids.iter().filter(|id| !skip.contains(id)).filter_map(|id| entries.iter().position(|entry| &entry.id == id)).collect()
+            ids.iter().filter(|id| !skip.contains(id)).filter_map(|id| entries.iter().position(|entry| &entry.id == id && !entry.typed_only)).collect()
         };
         let kept = find(&memory.pinned, &[]);
         let lately = find(&memory.recent, &memory.pinned);
@@ -298,16 +308,18 @@ pub fn lines_of(entries: &[Entry], query: &str, on: Option<&str>, opens: Opens, 
     let mut found: Vec<(u32, usize)> = entries
         .iter()
         .enumerate()
+        .filter(|(_, entry)| typed || !entry.typed_only)
         .filter_map(|(at, entry)| rank(query, entry, memory.aliases.get(&entry.id).map(String::as_str)).map(|rank| (rank, at)))
         .collect();
-    let named: Vec<usize> = if typed { found.iter().filter(|(rank, _)| *rank == 0).map(|(_, at)| *at).collect() } else { Vec::new() };
+    let mut named: Vec<usize> = if typed { found.iter().filter(|(rank, _)| *rank == 0).map(|(_, at)| *at).collect() } else { Vec::new() };
+    named.sort_by_key(|at| entries[*at].ended);
     lines.extend(named.iter().map(|at| Line::Row(*at)));
     found.retain(|(_, at)| !named.contains(at));
     for section in SECTION_ORDER {
         let mut rows: Vec<(u32, usize)> = found.iter().copied().filter(|(_, at)| entries[*at].section == section).collect();
         // The query ranks within a block; with nothing typed the block keeps its order.
         if typed {
-            rows.sort_by_key(|(rank, at)| (*rank, *at));
+            rows.sort_by_key(|(rank, at)| (entries[*at].ended, *rank, *at));
         }
         if !rows.is_empty() {
             lines.push(Line::Heading(section.title(on)));
@@ -703,7 +715,12 @@ impl Palette {
             Some(id) => {
                 let list = self.list.read(cx);
                 let Some(job) = list.record(id) else { return Vec::new() };
-                let mut acts = job_acts(is_paused(job), pinned, held_pull(job).is_some(), &without_of(job));
+                let mut without = without_of(job);
+                // An ended Job has nothing to pause or stop, as the Jobs list's menu leaves it none.
+                if job.state == SessionState::Ended {
+                    without.extend(["pause", "stop"]);
+                }
+                let mut acts = job_acts(is_paused(job), pinned, held_pull(job).is_some(), &without);
                 acts.extend(memory_acts(alias, hotkey, false, None));
                 acts
             }
@@ -1285,6 +1302,15 @@ impl Palette {
         .child(leading)
         .child(div().flex_1().min_w_0().truncate().child(label))
         .children(alias.map(|word| div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(word))))
+        .children(entry.meta.as_ref().and_then(|meta| meta.when.clone()).map(|(time, said)| {
+            div()
+                .id(SharedString::from(format!("palette-when:{}", entry.id)))
+                .flex_none()
+                .text_size(look.length(token::TEXT_XS))
+                .text_color(look.color(token::FG_SUBTLE))
+                .tooltip(tip(said))
+                .child(SharedString::from(time))
+        }))
         .child(
             div()
                 .flex_none()
@@ -1742,7 +1768,7 @@ mod tests {
     }
 
     #[test]
-    fn a_job_row_carries_its_repository_and_its_state_and_an_ended_or_quiet_job_is_not_found() {
+    fn a_job_row_carries_its_repository_and_its_state_and_a_quiet_job_is_found_only_when_typed_and_an_ended_one_last() {
         let entries = all();
         let row = entries.iter().find(|entry| entry.label == "Fix the merge line freshness chip").expect("listed");
         let meta = row.meta.as_ref().expect("meta");
@@ -1750,8 +1776,70 @@ mod tests {
         assert!(meta.state.is_some());
         assert_eq!(row.kind(), "Job");
         assert!(row.aliases.iter().any(|one| one == "#3388"), "{:?}", row.aliases);
-        assert!(!entries.iter().any(|entry| entry.label.contains("ended")));
-        assert!(!entries.iter().any(|entry| entry.label.contains("Retry webhooks")));
+        assert!(!row.typed_only && !row.ended);
+        let quiet = entries.iter().find(|entry| entry.label.contains("Retry webhooks")).expect("a quiet Job is a row");
+        let ended = entries.iter().find(|entry| entry.label.contains("ended")).expect("an ended Job is a row");
+        assert!(quiet.typed_only && !quiet.ended);
+        assert!(ended.typed_only && ended.ended);
+        let found = |query: &str| -> Vec<String> {
+            lines_of(&entries, query, None, Opens::Everything, &Memory::default())
+                .into_iter()
+                .filter_map(|line| if let Line::Row(at) = line { Some(entries[at].label.clone()) } else { None })
+                .collect()
+        };
+        assert!(found("retry").contains(&quiet.label), "typed, a quiet Job is found");
+        assert!(found("ended").contains(&ended.label), "typed, an ended Job is found");
+    }
+
+    #[test]
+    fn ended_and_quiet_jobs_are_not_in_the_opening_list_not_even_pinned() {
+        let entries = all();
+        let id_of = |word: &str| entries.iter().find(|entry| entry.label.contains(word)).expect("a row").id.clone();
+        let (quiet, ended) = (id_of("Retry webhooks"), id_of("ended"));
+        let memory = Memory { pinned: vec![ended.clone(), quiet.clone()], recent: vec![quiet.clone()], ..Memory::default() };
+        for (opens, memory) in [(Opens::Everything, Memory::default()), (Opens::Page, Memory::default()), (Opens::Pinned, Memory::default()), (Opens::Pinned, memory)] {
+            let lines = lines_of(&entries, "", None, opens, &memory);
+            let shown: Vec<&str> = lines.iter().filter_map(|line| if let Line::Row(at) = line { Some(entries[*at].id.as_str()) } else { None }).collect();
+            assert!(!shown.contains(&ended.as_str()) && !shown.contains(&quiet.as_str()), "{opens:?}: {shown:?}");
+        }
+    }
+
+    fn titled(job: &SessionRecord, title: &str) -> SessionRecord {
+        let mut job = job.clone();
+        job.title = Some(title.into());
+        job
+    }
+
+    #[test]
+    fn a_quiet_job_ranks_among_the_live_matches_and_an_ended_one_after_them_all() {
+        let all = jobs();
+        let of = |state: &str| all.iter().find(|job| job.mark.is_some_and(|mark| format!("{:?}", mark.state).to_lowercase() == state)).expect("a Job in the fixture").clone();
+        // The ended Job's name matches best and stands first; the quiet Job stands ahead of the live one.
+        let entries: Vec<Entry> = [titled(&of("ended"), "zebra"), titled(&of("quiet"), "a zebra"), titled(&of("working"), "xzebra")].iter().filter_map(job_entry).collect();
+        let order: Vec<&str> = lines_of(&entries, "zebra", None, Opens::Everything, &Memory::default())
+            .into_iter()
+            .filter_map(|line| if let Line::Row(at) = line { Some(entries[at].label.as_str()) } else { None })
+            .map(|label| if label == "a zebra" { "quiet" } else if label == "zebra" { "ended" } else { "live" })
+            .collect();
+        assert_eq!(order, ["quiet", "live", "ended"]);
+    }
+
+    #[test]
+    fn an_ended_job_reads_ended_in_its_hue_and_says_when_it_ended_and_a_quiet_one_says_no_time() {
+        crate::settings::time::hold(r#"{"hour12":false,"seconds":false,"date":true}"#);
+        let all = jobs();
+        let ended = all.iter().find(|job| job.state == SessionState::Ended).expect("an ended Job");
+        let row = job_entry(ended).expect("a row");
+        let meta = row.meta.as_ref().expect("meta");
+        assert_eq!(meta.state, Some(("unplug", "Ended".to_string(), hue_of(JobState::Ended))));
+        let at = chrono::DateTime::parse_from_rfc3339(ended.ended_at.as_ref().expect("an end").as_str()).expect("an instant").with_timezone(&chrono::Local);
+        assert_eq!(meta.when, Some((at.format("%b %-d %H:%M").to_string(), "Ended")));
+        let quiet = all.iter().find(|job| job.mark.is_some_and(|mark| mark.state == JobState::Quiet)).expect("a quiet Job");
+        let row = job_entry(quiet).expect("a row");
+        let meta = row.meta.as_ref().expect("meta");
+        assert_eq!(meta.state.as_ref().map(|state| (state.0, state.1.as_str())), Some(("unplug", "Not reachable")));
+        assert_eq!(meta.when, None);
+        crate::settings::time::hold("");
     }
 
     #[test]
