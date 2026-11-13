@@ -133,6 +133,19 @@ fn pressed(
     }))
 }
 
+/// A press on one ask: that ask is the open one before the press acts, so in a Job's card each ask's
+/// presses act on their own ask, and the keys go on acting on it after.
+fn on_ask(
+    id: &str,
+    act: impl Fn(&mut OperatorPageView, &mut Window, &mut Context<OperatorPageView>) + 'static,
+) -> impl Fn(&mut OperatorPageView, &mut Window, &mut Context<OperatorPageView>) + 'static {
+    let id = id.to_string();
+    move |this, window, cx| {
+        this.open = Some(id.clone());
+        act(this, window, cx)
+    }
+}
+
 /// A press drawn as words, such as a link or Show all: a tab stop whose ring sits on the words alone.
 fn worded(element: Stateful<Div>, look: &Look) -> Stateful<Div> {
     let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
@@ -266,10 +279,13 @@ impl OperatorPageView {
     // -- Your turn ---------------------------------------------------------------------------------
 
     fn turn_head(&self, look: &Look) -> impl IntoElement {
-        let items = self.items();
-        let dots = self.answered_today().into_iter().map(|_| token::STATUS_COMPLETED_SUCCESS).chain(
-            items.iter().map(|turn| if self.open.as_deref() == Some(turn.id.as_str()) { token::OPERATOR } else { token::BORDER_STRONG }),
-        );
+        let items = self.entries();
+        let open = |run: &[OperatorTurnItem]| run.iter().any(|turn| self.open.as_deref() == Some(turn.id.as_str()));
+        let dots = self
+            .answered_today()
+            .into_iter()
+            .map(|_| token::STATUS_COMPLETED_SUCCESS)
+            .chain(items.iter().map(|(_, run)| if open(run) { token::OPERATOR } else { token::BORDER_STRONG }));
         let dots: Vec<_> = dots
             .map(|hue| div().w(look.length(token::SPACE_4) + look.length(token::SPACE_1)).h(look.length(token::SPACE_1) * 1.5).rounded_full().bg(look.color(hue)))
             .collect();
@@ -365,10 +381,28 @@ impl OperatorPageView {
         )
     }
 
-    fn card(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let kind = face::kind_of(turn);
-        let title = face::card_title(turn);
-        let has_then = !turn.then.is_empty();
+    /// The marks beside an ask's kind: where other Jobs raised it too, and Later's chip.
+    fn marks(&self, turn: &OperatorTurnItem, look: &Look) -> Vec<AnyElement> {
+        let mut marks: Vec<AnyElement> = self.also_raised(turn, look).into_iter().collect();
+        if turn.later_until.is_some() {
+            let said = face::later_said(turn, self.clock_now.unwrap_or_else(chrono::Local::now));
+            marks.push(
+                labelled(
+                    div().id("card-later").flex_none().tooltip(tip(said.clone())).child(chip("Later", look.color(token::STATUS_NOT_STARTED), look.color(token::STATUS_NOT_STARTED_BG), look)),
+                    Role::Image,
+                    said,
+                )
+                .into_any_element(),
+            );
+        }
+        marks
+    }
+
+    /// The open item's card. A Job's asks share one: its head once, then each ask with its own acts.
+    fn card(&self, run: &[OperatorTurnItem], look: &Look, cx: &Context<Self>) -> AnyElement {
+        let first = &run[0];
+        let grouped = run.len() > 1;
+        let title = face::card_title(first);
         let head = div()
             .flex()
             .items_center()
@@ -377,18 +411,80 @@ impl OperatorPageView {
             .py(look.length(token::SPACE_3))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
-            .child(kind_chip(kind, look))
+            .when(!grouped, |head| head.child(kind_chip(face::kind_of(first), look)))
             .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
-            .children(self.also_raised(turn, look))
-            .when(turn.later_until.is_some(), |head| {
-                let said = face::later_said(turn, self.clock_now.unwrap_or_else(chrono::Local::now));
-                head.child(labelled(
-                    div().id("card-later").flex_none().tooltip(tip(said.clone())).child(chip("Later", look.color(token::STATUS_NOT_STARTED), look.color(token::STATUS_NOT_STARTED_BG), look)),
-                    Role::Image,
-                    said,
-                ))
-            })
-            .children(turn.repository.clone().map(|repository| chip(repository, look.color(token::FG_MUTED), look.color(token::BG_HOVER), look)));
+            .when(!grouped, |head| head.children(self.marks(first, look)))
+            .children(first.repository.clone().map(|repository| chip(repository, look.color(token::FG_MUTED), look.color(token::BG_HOVER), look)));
+        let card = div()
+            .id("operator-card")
+            .flex_none()
+            .rounded(round(look))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(if !grouped && first.kind == OperatorTurnKind::GoAhead { token::OPERATOR } else { token::OPERATOR_EDGE }))
+            .bg(look.color(token::BG_RAISED))
+            .overflow_hidden()
+            .on_drag(TurnDrag { id: first.id.clone(), title: title.clone() }, |drag, _, _, cx| cx.new(|_| drag.clone()))
+            .drag_over::<TurnDrag>(|style, _, _, cx| style.border_color(cx.look().color(token::OPERATOR)))
+            .on_drop(cx.listener({
+                let id = first.id.clone();
+                move |this, drag: &TurnDrag, _, cx| {
+                    if let Some(to) = this.items().iter().position(|one| one.id == id) {
+                        this.move_to(&drag.id, to, cx);
+                    }
+                }
+            }))
+            .child(head);
+        let card = if grouped {
+            // Ask's chat opens in the ask it is about, else in the open one.
+            let open = self.open.as_deref();
+            let about = self.chat.as_ref().map(|chat| chat.read(cx).about.clone());
+            let chat_at = about.and_then(|about| run.iter().position(|turn| about.as_deref() == Some(turn.id.as_str())).or_else(|| run.iter().position(|turn| Some(turn.id.as_str()) == open)));
+            card.children(run.iter().enumerate().map(|(at, turn)| self.ask_section(at, turn, at + 1 == run.len(), chat_at == Some(at), look, cx)))
+        } else {
+            card.child(self.body(first, None, look, cx)).children(self.chat_in_card(look)).child(self.acts(first, true, true, look, cx))
+        };
+        labelled(card, Role::Article, title).into_any_element()
+    }
+
+    /// One ask in a Job's card: its kind and marks, what it says, and its own acts. The open one, which the
+    /// keys act on, has an edge in the Operator's hue; a press anywhere in another opens it.
+    fn ask_section(&self, at: usize, turn: &OperatorTurnItem, last: bool, chat: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let open = self.open.as_deref() == Some(turn.id.as_str());
+        let id = turn.id.clone();
+        let name = face::asks_of(turn).unwrap_or_else(|| face::title_of(turn));
+        let line = div().flex().items_center().gap(look.length(token::SPACE_2)).child(kind_chip(face::kind_of(turn), look)).children(self.marks(turn, look));
+        let edge = open.then(|| {
+            div()
+                .absolute()
+                .left_0()
+                .top(look.length(token::SPACE_3))
+                .bottom(look.length(token::SPACE_3))
+                .w(look.length(token::BORDER_WIDTH) * 3.)
+                .rounded_r(look.length(token::RADIUS_SM))
+                .bg(look.color(token::OPERATOR))
+        });
+        labelled(
+            div()
+                .id(SharedString::from(format!("card-ask-{at}")))
+                .relative()
+                .when(at > 0, |section| section.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_DEFAULT)))
+                .on_click(cx.listener(move |this, _, _, cx| this.open_id(&id, cx)))
+                .child(self.body(turn, Some(line), look, cx))
+                .children(chat.then(|| self.chat_in_card(look)).flatten())
+                .child(self.acts(turn, open, last, look, cx))
+                .children(edge)
+                .child({
+                    let (drawn, key, scroll) = (self.ask_bounds.clone(), turn.id.clone(), self.main_scroll.clone());
+                    canvas(move |bounds, _, _| { drawn.borrow_mut().insert(key, bounds - gpui::point(gpui::px(0.), scroll.offset().y)); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full()
+                }),
+            Role::Group,
+            name,
+        )
+        .into_any_element()
+    }
+
+    /// What an ask says: its words under a Job's title, his note, My read, the options and Fleet's refusal.
+    fn body(&self, turn: &OperatorTurnItem, lead: Option<Div>, look: &Look, cx: &Context<Self>) -> Div {
         let read = turn.read.as_ref().map(|read| {
             div()
                 .px(look.length(token::SPACE_3))
@@ -410,7 +506,6 @@ impl OperatorPageView {
                 .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(read.read.clone()))
         });
         let options = face::chooses(turn).then(|| self.options(turn, look, cx));
-        let chosen = self.option_of(turn);
         let refused = self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| {
             labelled(
                 div()
@@ -426,12 +521,13 @@ impl OperatorPageView {
                 why.clone(),
             )
         });
-        let body = div()
+        div()
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_4))
+            .children(lead)
             .children(face::asks_of(turn).map(|asks| div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(asks)))
             .children(face::note_of(turn).map(|(since, note)| {
                 // The head is one line that keeps its colon on the time; the note under it wraps in the card.
@@ -454,8 +550,31 @@ impl OperatorPageView {
             }))
             .children(read)
             .children(options)
-            .children(refused);
-        let answers: Vec<AnyElement> = if has_then { self.outcomes(turn, look, cx) } else { face::answers_of(turn).into_iter().enumerate().map(|(at, answer)| {
+            .children(refused)
+    }
+
+    /// Ask's chat, in the card it is about: between what the item says and its answers.
+    fn chat_in_card(&self, look: &Look) -> Option<Div> {
+        self.chat.clone().map(|chat| {
+            div()
+                .h(look.length(token::SPACE_12) * 6.)
+                .flex()
+                .flex_col()
+                .px(look.length(token::SPACE_4))
+                .py(look.length(token::SPACE_3))
+                .border_t(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .bg(look.color(token::BG_BASE))
+                .child(chat)
+        })
+    }
+
+    /// An ask's answers or outcomes, Send changes, then Later and Ask at the right. Each press opens its
+    /// ask first, so in a Job's card it acts on its own ask, and only the open ask's show their keys.
+    /// `last` rounds the row into the card's corner.
+    fn acts(&self, turn: &OperatorTurnItem, open: bool, last: bool, look: &Look, cx: &Context<Self>) -> Div {
+        let chosen = self.option_of(turn);
+        let answers: Vec<AnyElement> = if !turn.then.is_empty() { self.outcomes(turn, look, cx) } else { face::answers_of(turn).into_iter().enumerate().map(|(at, answer)| {
             let yes = answer == OperatorAnswer::Yes;
             // A decision's Yes says the option it carries, else the Operator's pick, as its card would; a
             // go-ahead's says Yes.
@@ -470,22 +589,22 @@ impl OperatorPageView {
                 Some(sentence) => format!("{sentence}\n{said}"),
                 None => said,
             };
-            let key: Option<SharedString> = Some(face::answer_key(answer).into());
+            let key: Option<SharedString> = open.then(|| face::answer_key(answer).into());
             let button = press(format!("answer-{at}"), label.clone(), yes.then_some("check"), key, if yes { Weight::Pick } else { Weight::Plain }, look)
                 .tooltip(tip(said));
-            let button = pressed(button, cx, move |this, window, cx| this.answer(answer, window, cx));
+            let button = pressed(button, cx, on_ask(&turn.id, move |this, window, cx| this.answer(answer, window, cx)));
             labelled(button, Role::Button, label).into_any_element()
         }).collect() };
         let changes = face::sends_changes(turn).then(|| {
             labelled(
-                pressed(press("turn-changes", "Send changes".into(), None, Some("C".into()), Weight::Plain, look).tooltip(tip("Open the plan in its Job to suggest changes")), cx, |this, _, cx| {
+                pressed(press("turn-changes", "Send changes".into(), None, open.then(|| "C".into()), Weight::Plain, look).tooltip(tip("Open the plan in its Job to suggest changes")), cx, on_ask(&turn.id, |this, _, cx| {
                     this.send_changes(cx)
-                }),
+                })),
                 Role::Button,
                 "Send changes",
             )
         });
-        let acts = div()
+        div()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
@@ -495,73 +614,37 @@ impl OperatorPageView {
             .border_color(look.color(token::BORDER_SUBTLE))
             .bg(look.color(token::BG_OVERLAY))
             // The card clips its children square: its ground keeps inside the rounded corner itself.
-            .rounded_b(round(look) - look.length(token::BORDER_WIDTH))
+            .when(last, |acts| acts.rounded_b(round(look) - look.length(token::BORDER_WIDTH)))
             // In a narrow window the row wraps inside the card; Later and Ask keep the right of their line.
             .flex_wrap()
             .children(answers)
             .children(changes)
             .child(div().ml_auto().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(
                 {
-                    // Its menu opens under it: where it is drawn is kept for that.
-                    let drawn = self.later_bounds.clone();
-                    pressed(press("turn-later", "Later".into(), Some("clock"), Some("L".into()), Weight::Bare, look).relative().track_focus(&self.later_focus).tooltip(tip("Choose when it comes back")), cx, |this, window, cx| {
+                    // Its menu opens under it: where it is drawn is kept for that, by its ask.
+                    let (drawn, key) = (self.later_bounds.clone(), turn.id.clone());
+                    pressed(press("turn-later", "Later".into(), Some("clock"), open.then(|| "L".into()), Weight::Bare, look).relative().when(open, |later| later.track_focus(&self.later_focus)).tooltip(tip("Choose when it comes back")), cx, on_ask(&turn.id, |this, window, cx| {
                         this.open_later(false, window, cx)
-                    })
-                    .child(canvas(move |bounds, _, _| drawn.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+                    }))
+                    .child(canvas(move |bounds, _, _| { drawn.borrow_mut().insert(key, bounds); }, |_, _, _, _| {}).absolute().size_full())
                 },
                 Role::Button,
                 "Later",
             ))
             .child(labelled(
-                pressed(press("turn-ask", "Ask".into(), Some("bot"), Some("/".into()), Weight::Bare, look).tooltip(tip("Ask the Operator about this")), cx, |this, window, cx| {
+                pressed(press("turn-ask", "Ask".into(), Some("bot"), open.then(|| "/".into()), Weight::Bare, look).tooltip(tip("Ask the Operator about this")), cx, on_ask(&turn.id, |this, window, cx| {
                     this.ask(window, cx)
-                }),
+                })),
                 Role::Button,
                 "Ask",
-            )));
-        // Ask's chat opens in the card it is about, between what the item says and its answers.
-        let chat = self.chat.clone().map(|chat| {
-            div()
-                .h(look.length(token::SPACE_12) * 6.)
-                .flex()
-                .flex_col()
-                .px(look.length(token::SPACE_4))
-                .py(look.length(token::SPACE_3))
-                .border_t(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_SUBTLE))
-                .bg(look.color(token::BG_BASE))
-                .child(chat)
-        });
-        let id = turn.id.clone();
-        labelled(
-            div()
-                .id("operator-card")
-                .flex_none()
-                .rounded(round(look))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(if turn.kind == OperatorTurnKind::GoAhead { token::OPERATOR } else { token::OPERATOR_EDGE }))
-                .bg(look.color(token::BG_RAISED))
-                .overflow_hidden()
-                .on_drag(TurnDrag { id: turn.id.clone(), title: title.clone() }, |drag, _, _, cx| cx.new(|_| drag.clone()))
-                .drag_over::<TurnDrag>(|style, _, _, cx| style.border_color(cx.look().color(token::OPERATOR)))
-                .on_drop(cx.listener(move |this, drag: &TurnDrag, _, cx| {
-                    if let Some(to) = this.items().iter().position(|one| one.id == id) {
-                        this.move_to(&drag.id, to, cx);
-                    }
-                }))
-                .child(head)
-                .child(body)
-                .children(chat)
-                .child(acts),
-            Role::Article,
-            title,
-        )
-        .into_any_element()
+            )))
     }
 
     /// A go-ahead to file: one press for each outcome, named for what happens, the Operator's pick filled
     /// with its glyph and why in its tooltip, then Don't file. 1..n press an outcome and D Don't file.
     fn outcomes(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+        // The keys act on the open ask: only its presses show them.
+        let keyed = self.open.as_deref() == Some(turn.id.as_str());
         let why = turn.read.as_ref().map(|read| read.read.clone()).filter(|read| !read.is_empty());
         let mut out: Vec<AnyElement> = turn
             .then
@@ -577,19 +660,20 @@ impl OperatorPageView {
                 };
                 let then = offer.then;
                 let (icon, weight) = if offer.pick { ("check", Weight::Pick) } else { (mark, Weight::Plain) };
-                let button = press(format!("outcome-{at}"), label.clone(), Some(icon), Some((at + 1).to_string().into()), weight, look).tooltip(tip(said));
-                let button = pressed(button, cx, move |this, _, cx| this.outcome(then, cx));
+                let button = press(format!("outcome-{at}"), label.clone(), Some(icon), keyed.then(|| (at + 1).to_string().into()), weight, look).tooltip(tip(said));
+                let button = pressed(button, cx, on_ask(&turn.id, move |this, _, cx| this.outcome(then, cx)));
                 labelled(button, Role::Button, label).into_any_element()
             })
             .collect();
-        let no = press("outcome-no", "Don't file".into(), None, Some(face::answer_key(OperatorAnswer::No).into()), Weight::Plain, look).tooltip(tip("Leave it unfiled, and it leaves Your turn"));
-        out.push(labelled(pressed(no, cx, |this, window, cx| this.answer(OperatorAnswer::No, window, cx)), Role::Button, "Don't file").into_any_element());
+        let no = press("outcome-no", "Don't file".into(), None, keyed.then(|| face::answer_key(OperatorAnswer::No).into()), Weight::Plain, look).tooltip(tip("Leave it unfiled, and it leaves Your turn"));
+        out.push(labelled(pressed(no, cx, on_ask(&turn.id, |this, window, cx| this.answer(OperatorAnswer::No, window, cx))), Role::Button, "Don't file").into_any_element());
         out
     }
 
     /// The item's options, where it offers more than one: each a row, his pick or else the Operator's
     /// filled, My pick marked, as Then draws its choices. Yes, Always here and Always carry the filled one.
     fn options(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+        let keyed = self.open.as_deref() == Some(turn.id.as_str());
         let chosen = self.option_of(turn);
         let pick = face::pick_of(turn);
         let rows = turn.item.options.iter().enumerate().map(|(at, option)| {
@@ -613,7 +697,10 @@ impl OperatorPageView {
                     .font_weight(FontWeight(look.number(if on { token::WEIGHT_HEADING } else { token::WEIGHT_BODY })))
                     .cursor_pointer()
                     .hover(|style| style.border_color(cx.look().color(token::BORDER_STRONG)))
-                    .on_click(cx.listener(move |this, _, _, cx| this.pick_option(&id, &pressed_label, cx)))
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.open = Some(id.clone());
+                        this.pick_option(&id, &pressed_label, cx)
+                    }))
                     .child(glyph(if on { "circle-dot" } else { "circle" }, look.length(token::SPACE_4), look.color(if on { token::OPERATOR } else { token::FG_MUTED })))
                     .child(div().flex_1().child(label.clone()))
                     .when(pick.as_ref() == Some(&label), |row| {
@@ -625,7 +712,7 @@ impl OperatorPageView {
                                 .child("My pick"),
                         )
                     })
-                    .child(kbd((at + 1).to_string(), look)),
+                    .when(keyed, |row| row.child(kbd((at + 1).to_string(), look))),
                 Role::RadioButton,
                 label,
             )
@@ -695,14 +782,20 @@ impl OperatorPageView {
         self.rows_group("answered-today-list", ANSWERED, rows, look)
     }
 
-    fn turn_row(&self, at: usize, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// An entry of Your turn not open: one item, or a Job's asks as one row under its title, naming each.
+    fn turn_row(&self, at: usize, run: &[OperatorTurnItem], look: &Look, cx: &Context<Self>) -> AnyElement {
+        let turn = &run[0];
         let kind = face::kind_of(turn);
         let title = face::title_of(turn);
         let id = turn.id.clone();
         let drop_id = turn.id.clone();
-        let sub = face::pick_of(turn).map(|pick| format!("My pick: {pick}"));
+        let sub = if run.len() > 1 {
+            Some(run.iter().map(|ask| face::asks_of(ask).unwrap_or_else(|| face::title_of(ask)).to_string()).collect::<Vec<_>>().join(" · "))
+        } else {
+            face::pick_of(turn).map(|pick| format!("My pick: {pick}"))
+        };
         // Put Later: the clock beside its kind, saying when it comes back.
-        let later = turn.later_until.is_some().then(|| {
+        let later = run.iter().find(|ask| ask.later_until.is_some()).map(|turn| {
             let said = face::later_said(turn, self.clock_now.unwrap_or_else(chrono::Local::now));
             labelled(
                 div().id(SharedString::from(format!("later-{at}"))).tooltip(tip(said.clone())).child(glyph("clock", look.length(token::SPACE_4), look.color(token::STATUS_NOT_STARTED))),
@@ -747,13 +840,13 @@ impl OperatorPageView {
         let mut before: Vec<AnyElement> = Vec::new();
         let mut after = Vec::new();
         let mut card = None;
-        for (at, turn) in self.items().iter().enumerate() {
-            if Some(turn.id.as_str()) == open {
-                card = Some(self.card(turn, look, cx));
+        for (at, run) in self.entries() {
+            if run.iter().any(|turn| Some(turn.id.as_str()) == open) {
+                card = Some(self.card(run, look, cx));
             } else if card.is_none() {
-                before.push(self.turn_row(at, turn, look, cx));
+                before.push(self.turn_row(at, run, look, cx));
             } else {
-                after.push(self.turn_row(at, turn, look, cx));
+                after.push(self.turn_row(at, run, look, cx));
             }
         }
         let mut out: Vec<AnyElement> = self.rows_group("turn-before", "The rest of Your turn", before, look).into_iter().collect();
@@ -762,6 +855,20 @@ impl OperatorPageView {
         out.extend(self.rows_group("turn-after", "The rest of Your turn", after, look));
         out.extend(self.answered_fold(look, cx));
         (out, at)
+    }
+
+    /// Your turn's entries, each with where it starts: an item, or a Job's asks together.
+    fn entries(&self) -> Vec<(usize, &[OperatorTurnItem])> {
+        let items = self.items();
+        let groups: Vec<Option<&str>> = items.iter().map(|turn| turn.group.as_deref()).collect();
+        let mut entries = Vec::new();
+        let mut at = 0;
+        while at < items.len() {
+            let run = super::page::run_at(&groups, at);
+            entries.push((at, &items[run.clone()]));
+            at = run.end;
+        }
+        entries
     }
 
     /// A run of Your turn's rows in one frame, a rule between rows and never under the last.
@@ -1328,10 +1435,24 @@ impl Render for OperatorPageView {
         if self.parked.read(cx).draws() {
             parts.push(self.parked.clone().into_any_element());
         }
-        // A key or an answer that moves the card scrolls it into view; a press is already on it.
+        // A key or an answer that moves the card scrolls it into view; a press is already on it. In a Job's
+        // card, the open ask's top comes to the top of the view, as the card's own may be far above it.
+        let asks = std::mem::take(&mut *self.ask_bounds.borrow_mut());
         if std::mem::take(&mut self.reveal) {
-            if let Some(at) = card_at {
-                self.main_scroll.scroll_to_item(at);
+            let open = self.open.as_deref();
+            let grouped = self.entries().iter().any(|(_, run)| run.len() > 1 && run.iter().any(|turn| Some(turn.id.as_str()) == open));
+            match open.filter(|_| grouped).and_then(|open| asks.get(open)) {
+                Some(ask) => {
+                    // Where the ask sits in the scrolled content: a wheel turned since it was laid out moves it on screen, not there.
+                    let (view, offset) = (self.main_scroll.bounds(), self.main_scroll.offset());
+                    let to = view.top() + look.length(token::SPACE_4) - ask.top();
+                    self.main_scroll.set_offset(gpui::point(offset.x, to.max(-self.main_scroll.max_offset().y).min(gpui::px(0.))));
+                }
+                None => {
+                    if let Some(at) = card_at {
+                        self.main_scroll.scroll_to_item(at);
+                    }
+                }
             }
         }
         let main = div()
