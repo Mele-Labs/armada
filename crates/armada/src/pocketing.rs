@@ -226,6 +226,17 @@ impl PhoneSwitch for Phone {
         }
     }
 
+    fn open_other_mac_page(&self, mac: &str, job: &str, port: u16, rest: &str) -> fleet::phone::OtherMacPageOpening {
+        let running = self.running.lock().unwrap();
+        match running.as_ref() {
+            Some(running) => {
+                let opening = pocket::open_other_mac_page(&running.gateway, mac, job, port, rest);
+                Box::pin(async move { opening.await.map(page_said) })
+            }
+            None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
+
     fn setup(&self) -> MacSetup {
         match self.gateway() {
             Some(gateway) => pocket::mac_setup(&gateway),
@@ -322,5 +333,14 @@ mod tests {
         assert!(phone.state().listening && answers(port).await);
         phone.set(false);
         std::fs::remove_dir_all(&dir).ok();
+    }
+}
+
+/// The Gateway's word on another Mac's page, as Fleet reads it.
+fn page_said(open: pocket::PageOpen) -> fleet::phone::OtherMacPage {
+    match open {
+        pocket::PageOpen::Open(url) => fleet::phone::OtherMacPage::Open(url),
+        pocket::PageOpen::Asleep { name, since } => fleet::phone::OtherMacPage::Asleep { name, since },
+        pocket::PageOpen::Refused { status, body } => fleet::phone::OtherMacPage::Refused { status, body },
     }
 }

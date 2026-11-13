@@ -322,6 +322,8 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 | `GET /api/mac/bug_reports` | Fleet's `GET /other_mac/bug_reports`, `BugReports` |
 | `GET /api/mac/thread?session_id=&before=` | Fleet's `GET /other_mac/thread`, a `JobThread` |
 | `POST /api/mac/act` | Fleet's `POST /other_mac/act`, as the Mac the signature names: an act on one of this Mac's Jobs, or a Job started here. Fleet's status and body come back as they were said |
+| `GET /api/mac/page?session_id=&port=` | Fleet's `GET /other_mac/page`: 204 where the Job is shared and shows that loopback port, else Fleet's 404 as it came |
+| `GET`, `POST` and any method of `/api/mac/page/<job>/<port>/<path>` | The page itself: Fleet's `/other_mac/page` asked again, then the request sent on to `127.0.0.1:<port>/<path>` with its query, and the page's status, type and body handed back whole. Uncompressed. A Job not shared is Fleet's 404, worded as for a Job that does not exist |
 | `GET /api/mac/live` | Fleet's `/other_mac/events` as NDJSON: each `StreamMessage` on a line as Fleet wrote it, and an empty line after 15 seconds of quiet. It ends when the Gateway stops |
 | `POST /api/mac/forget` | Forgets the caller on this side |
 
@@ -337,6 +339,7 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 Pairing starts a task and forgetting stops it. Fleet keeps the rows while the Mac is asleep.
 Fleet's `read_other_mac` reaches the other Mac only for a `/other_mac/thread?…` path, read as `/api/mac/thread?…`; any other is refused.
 Its `send_other_mac` posts only `/other_mac/project_act` and `/other_mac/act`.
+Its `open_other_mac_page` asks `/api/mac/page` and, where that answers 204, opens one loopback port on this Mac for that Job and page port, which signs every request through to `/api/mac/page/<job>/<port>/<path>`. A Mac with `asleep_since` is answered asleep without a call. *Pages across Macs* in `docs/practices/protocol/his-other-macs-fleets-half.md` says the rest.
 
 **Acting across Macs.** The phone's routes cover what the phone does. A Mac can also message, answer, approve a plan, stop and merge a Job the other Mac holds, and start a Job there.
 
