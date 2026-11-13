@@ -662,6 +662,24 @@ impl JobView {
             self.picked = picks;
             self.to_composer(window, cx);
         }
+        // A Job `session.removed` took away leaves nothing of its tabs or page behind.
+        for id in self.list.update(cx, |list, _| list.take_gone()) {
+            self.pages.remove(&id);
+            self.row_tabs.remove(&id);
+            self.mock.remove(id.as_ref());
+            self.mock_needs.remove(id.as_ref());
+            self.compact_refused.remove(&id);
+        }
+    }
+
+    /// Why acts on the Job on screen are off, as [`Self::off_here`] says for the one shown.
+    pub(super) fn off_shown(&self, cx: &App) -> Option<SharedString> {
+        self.shown.as_ref().and_then(|id| self.off_here(id, cx))
+    }
+
+    /// Why acts on the Job on screen are off, where it runs on another Mac (`crate::pairing`).
+    pub(super) fn off_here(&self, id: &str, cx: &App) -> Option<SharedString> {
+        self.list.read(cx).record(id).and_then(|job| crate::pairing::refusal(job, cx)).map(Into::into)
     }
 
     /// Put another Job on screen: its place was kept, so this swaps what is drawn and the box's

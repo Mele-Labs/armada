@@ -695,7 +695,7 @@ impl JobView {
             return self.send_report(window, cx);
         }
         let Some(id) = self.shown.clone() else { return };
-        if self.closed(&id, cx) {
+        if self.closed(&id, cx) || self.off_here(&id, cx).is_some() {
             return;
         }
         // A held Job's first send begins it: the box is the first message.
@@ -723,7 +723,7 @@ impl JobView {
     /// A quick line goes as it is, and the box keeps its draft.
     pub(super) fn send_line(&mut self, text: String, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        if self.closed(&id, cx) || text.trim().is_empty() {
+        if self.closed(&id, cx) || self.off_here(&id, cx).is_some() || text.trim().is_empty() {
             return;
         }
         self.deliver(id, Some(text), window, cx);
@@ -1166,7 +1166,7 @@ impl JobView {
     // ---- drawing -------------------------------------------------------------------------
 
     /// A quiet text button on the bar: its words, a chevron, and a tooltip that says what it sets.
-    fn bar_button(&self, look: &Look, id: &'static str, glyph: Option<&'static str>, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>, narrow: bool) -> gpui::Stateful<gpui::Div> {
+    fn bar_button(&self, look: &Look, id: &'static str, glyph: Option<&'static str>, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>, narrow: bool, off: bool) -> gpui::Stateful<gpui::Div> {
         div()
             .id(id)
             // Send never shrinks; a menu gives up room first: its words truncate, then only its glyph and caret are left.
@@ -1183,10 +1183,12 @@ impl JobView {
                 button.overflow_hidden().when(glyph.is_some(), |button| button.min_w(look.length(token::SPACE_1) * 3. + look.length(token::SPACE_4) * 2. + look.length(token::BORDER_WIDTH) * 2.)).gap(look.length(token::SPACE_1)).pl(look.length(token::SPACE_1)).pr(look.length(token::SPACE_1))
             })
             .rounded(look.length(token::RADIUS_MD))
-            .cursor_pointer()
             .text_size(look.length(token::TEXT_SM))
-            .text_color(look.color(token::FG_MUTED))
-            .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+            // Off is --fg-subtle with no hover, never a lower opacity, as Classic's `[disabled]` draws it.
+            .when(off, |button| button.cursor_default().text_color(look.color(token::FG_SUBTLE)))
+            .when(!off, |button| {
+                button.cursor_pointer().text_color(look.color(token::FG_MUTED)).hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+            })
             .children(glyph.filter(|_| narrow).map(|name| svg().flex_none().path(icon_path(name)).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))))
             .children((!narrow).then(|| div().min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis().child(said)))
             .children(meter)
@@ -1197,8 +1199,12 @@ impl JobView {
     /// Send, as the box's bar draws it: off while there is nothing to send.
     pub(super) fn send_button(&self, nothing: bool, said: &'static str, window: &Window, cx: &Context<Self>) -> gpui::AnyElement {
         let look = cx.look();
+        let off = self.shown.as_ref().and_then(|id| self.off_here(id, cx));
+        let nothing = nothing || off.is_some();
         labelled(
-            send_face(look, nothing, said, window.modifiers().platform).when(!nothing, |button| button.on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))),
+            send_face(look, nothing, said, window.modifiers().platform)
+                .when(!nothing, |button| button.on_click(cx.listener(|this, _, window, cx| this.send(window, cx))))
+                .when_some(off, |button, why| button.tooltip(tip(why))),
             Role::Button,
             said,
         )
@@ -1206,9 +1212,10 @@ impl JobView {
     }
 
     pub(super) fn attach_button(&self, look: &Look, cx: &Context<Self>) -> gpui::AnyElement {
+        let off = self.shown.as_ref().and_then(|id| self.off_here(id, cx));
         labelled(
-            icon_button(look, "attach", "paperclip", "Attach a file or a picture".into(), false, false)
-                .on_click(cx.listener(|this, _, window, cx| this.attach(window, cx))),
+            icon_button(look, "attach", "paperclip", off.clone().unwrap_or_else(|| "Attach a file or a picture".into()), false, off.is_some())
+                .when(off.is_none(), |button| button.on_click(cx.listener(|this, _, window, cx| this.attach(window, cx)))),
             Role::Button,
             "Attach file",
         )
@@ -1242,7 +1249,19 @@ impl JobView {
             .text_color(look.color(token::FG_DEFAULT))
             .child({
                 let view = cx.entity().downgrade();
-                words_area(&self.composer.input, look, move |item, _, cx| view.update(cx, |this, cx| this.paste(item, cx)).unwrap_or(false))
+                let off = self.off_shown(cx);
+                match off {
+                    // A Job on another Mac takes no words: where the box is empty it says why, wrapped as the box is, since a
+                    // placeholder runs on one line and is cut at the box's edge.
+                    Some(why) if self.composer.input.read(cx).value().is_empty() => {
+                        // It holds the box's focus, so the keys that were in the box stay in the window's tree.
+                        let held = self.composer.input.read(cx).focus_handle(cx);
+                        labelled(div().id("message-off").track_focus(&held).min_h(look.length(token::SPACE_6)).text_color(look.color(token::FG_SUBTLE)).child(why), Role::TextInput, "Message").into_any_element()
+                    }
+                    off => words_area(&self.composer.input, look, move |item, _, cx| view.update(cx, |this, cx| this.paste(item, cx)).unwrap_or(false))
+                        .readonly(off.is_some())
+                        .into_any_element(),
+                }
             })
     }
 
@@ -1294,6 +1313,7 @@ impl JobView {
             Some(card) => ((kept_empty && !self.composer.holds(id) && card.has_message()) || card.starting(), "Start"),
             None => (nothing, "Send"),
         };
+        let off = self.off_here(id, cx);
         let send = self.send_button(nothing, said, window, cx);
         let attach = self.attach_button(look, cx);
         // The box, Needs you and the cards share one outer edge: the words' column and the bleed either side.
@@ -1302,21 +1322,24 @@ impl JobView {
         let narrow = self.pane.is_some_and(|pane| (pane - look.length(token::SPACE_4) * 2.).min(column) < gpui::px(400.));
         let mode_button = labelled(
             // The permission picker is a select, as Electron's: a sunken well in a strong edge.
-            self.bar_button(look, "mode", Some("zap"), mode_said, mode_tip, None, narrow)
+            self.bar_button(look, "mode", Some("zap"), mode_said, off.clone().unwrap_or(mode_tip), None, narrow, off.is_some())
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_STRONG))
                 .bg(look.color(token::BG_SUNKEN))
-                .text_color(look.color(token::FG_DEFAULT))
-                .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
-                this.open_mode(event.is_keyboard(), window, cx);
-            })),
+                .when(off.is_none(), |button| {
+                    button.text_color(look.color(token::FG_DEFAULT))
+                })
+                .when(off.is_none(), |button| {
+                    button.on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
+                        this.open_mode(event.is_keyboard(), window, cx);
+                    }))
+                }),
             Role::Button,
             "Permission mode",
         );
         let tune_button = labelled(
-            self.bar_button(look, "tune", None, shown.into(), "The model and effort the next turn runs on".into(), meter, narrow).on_click(cx.listener(
-                |this, _, window, cx| this.open_tune(window, cx),
-            )),
+            self.bar_button(look, "tune", None, shown.into(), off.clone().unwrap_or_else(|| "The model and effort the next turn runs on".into()), meter, narrow, off.is_some())
+                .when(off.is_none(), |button| button.on_click(cx.listener(|this, _, window, cx| this.open_tune(window, cx)))),
             Role::Button,
             tune_said,
         );

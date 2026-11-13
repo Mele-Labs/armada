@@ -142,6 +142,8 @@ pub struct Held {
     shells: Vec<ShellNews>,
     /// What the Operator did with dispatches, folded since the last take, oldest first.
     dispatched: Vec<ipc::operator_board::OperatorDispatched>,
+    /// The Jobs `session.removed` took away since the last take. Told once, so a screen drops what it held for each.
+    removed: Vec<String>,
     /// The port of the Fleet last connected to, so a command goes where the events come from.
     port: Option<u16>,
     /// The stylesheet Fleet checked for a mod, with the `changed_at` of the row it was checked for.
@@ -195,6 +197,7 @@ impl Held {
             arrived: Vec::new(),
             shells: Vec::new(),
             dispatched: Vec::new(),
+            removed: Vec::new(),
             port: None,
             sheets: BTreeMap::new(),
             threads: BTreeMap::new(),
@@ -327,6 +330,21 @@ impl Held {
     }
 
     /// What the Operator did with dispatches, folded since the last take, oldest first.
+    pub fn take_removed(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.removed)
+    }
+
+    /// `session.removed`: the row held from another Mac is gone, and so is everything read for it.
+    fn remove(&mut self, id: &str) {
+        self.jobs.retain(|held| held.id.as_str() != id);
+        self.threads.remove(id);
+        self.needs.remove(id);
+        self.watches.remove(id);
+        self.watches_asked.remove(id);
+        self.watches_spoken.remove(id);
+        self.removed.push(id.to_string());
+    }
+
     pub fn take_dispatched(&mut self) -> Vec<ipc::operator_board::OperatorDispatched> {
         std::mem::take(&mut self.dispatched)
     }
@@ -453,6 +471,7 @@ impl Held {
                                 None => self.jobs.push(record),
                             }
                         }
+                        Event::SessionRemoved(gone) => self.remove(gone.session_id.as_str()),
                         // The list arrives whole and replaces the one held.
                         Event::ModsChanged(list) => self.listed(list.mods),
                         Event::SessionSubagent(moved) => self.subagents_moved.push(moved),
@@ -583,6 +602,11 @@ pub enum ShellNews {
     /// The agent asked for it in front (`show_terminal`).
     Shown(ipc::JobTerminal),
 }
+
+/// The Jobs `session.removed` took away in one folded batch, for the list and the open Job to let go of.
+pub struct Removed(pub Vec<String>);
+
+impl EventEmitter<Removed> for FleetConnection {}
 
 /// The shells' news in one folded batch, for a Job's terminal tabs to follow.
 pub struct Shells(pub Vec<ShellNews>);
@@ -1088,7 +1112,11 @@ impl FleetConnection {
                     let arrived = this.held.take_arrived();
                     let shells = this.held.take_shells();
                     let dispatched = this.held.take_dispatched();
+                    let removed = this.held.take_removed();
                     cx.notify();
+                    if !removed.is_empty() {
+                        cx.emit(Removed(removed));
+                    }
                     if !arrived.is_empty() {
                         cx.emit(Arrived(arrived));
                     }
@@ -1184,6 +1212,22 @@ mod tests {
         let lines = held.fold(vec![Signal::Jobs(Vec::new())]);
         assert_eq!(lines[0].msg(), "jobs read on connect");
         assert_eq!(lines[0].get("jobs"), Some(&FieldValue::Int(0)));
+    }
+
+    #[test]
+    fn session_removed_drops_the_row_and_what_was_read_for_it_and_says_so_once() {
+        let mut held = Held::new();
+        let mut jobs = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+        let (gone, kept) = (jobs[0].id.as_str().to_string(), jobs[1].id.as_str().to_string());
+        held.fold(vec![Signal::Jobs(std::mem::take(&mut jobs))]);
+        held.watches.insert(gone.clone(), Vec::new());
+        let wire = format!(r#"{{"message":"event","cursor":1,"event":{{"kind":"session.removed","session_id":"{gone}"}}}}"#);
+        held.fold(vec![Signal::Stream(crate::frames::decode(&wire).expect("an event"))]);
+        assert!(held.jobs.iter().all(|job| job.id.as_str() != gone));
+        assert!(held.jobs.iter().any(|job| job.id.as_str() == kept), "the other rows stay");
+        assert!(!held.watches.contains_key(&gone));
+        assert_eq!(held.take_removed(), vec![gone]);
+        assert!(held.take_removed().is_empty(), "told once");
     }
 
     #[test]

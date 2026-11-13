@@ -114,6 +114,9 @@ pub enum Verb {
     /// The merge strip, the context ring or the write-clash marks move to a named scene
     /// (`strip_marks.rs`). A scene changes data and presses nothing.
     Marks(&'static str),
+    /// The Macs the Phone Gateway lists move to a named scene (`pairing.rs`): `one-mac`, or `removed`, which sends
+    /// the list the `session.removed` Fleet would. A scene changes data and presses nothing.
+    Pairing(&'static str),
     /// The Jobs list's scope picked as a person picks it: press the scope button, then Paused in its menu,
     /// found by name. One step for the two, since the list is on the same screen.
     PausedScope,
@@ -192,6 +195,10 @@ const fn right_on(say: &'static str, role: &'static str, name: &'static str, the
 
 const fn marks(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
     Step { say, verb: Verb::Marks(name), target: Target { role, name: target } }
+}
+
+const fn pairing(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
+    Step { say, verb: Verb::Pairing(name), target: Target { role, name: target } }
 }
 
 const fn answer(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
@@ -2321,6 +2328,33 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "job-view",
         steps: crate::settings::walk::LAYOUT_TIME_STEPS,
+    },
+    Walk {
+        name: "native-pairing-chips",
+        title: "Another Mac's Jobs in the list: the Mac chip, acts left off, and a Job taken away",
+        screen: Screen::Jobs,
+        scenario: "jobs-pairing",
+        steps: &[
+            step("Studio is this Mac and Air is paired: every row names the Mac it runs on, in that Mac's colour, in a column of its own", Verb::Look, "img", "Air"),
+            step("This Mac's Jobs carry the chip too, so the rows line up", Verb::Look, "img", "Studio"),
+            step("In a narrow window the chip takes about a word from each title. A smaller mark would leave more of it", Verb::Look, "row", "Audit the docs index"),
+            step("Air has fallen asleep: its chip is dimmed, and the tooltip says since when", Verb::Hover, "img", "Air"),
+            press_on("A press opens a Job on Air: its thread reads as any other, and its box takes no words", "row", "Fix the merge line freshness chip", "textbox", "Message"),
+            step("The box is read-only, and says where the Job runs", Verb::Look, "group", "Message box"),
+            step("The head carries the chip with the Job's other marks", Verb::Look, "img", "Air"),
+            step("Send is off, and its tooltip says where the Job runs", Verb::Hover, "button", "Send"),
+            step("So is Stop on the agent's work", Verb::Hover, "button", "Stop"),
+            step("The answers on a card are off in the same way", Verb::Hover, "toolbar", "Answers"),
+            step("A right press on a row of Air opens its menu: the acts are listed, off", Verb::RightPress("Fix the merge line freshness chip"), "menuitem", "Pause"),
+            step("The tooltip is the same sentence", Verb::Hover, "menuitem", "Close"),
+            step("Esc shuts it", Verb::Key("escape"), "row", "Fix the merge line freshness chip"),
+            press_on("Quiet the write-clash notices is open on Air", "row", "Quiet the write-clash notices", "textbox", "Message"),
+            pairing("Air says the Job is gone: its row goes", "removed", "row", "Audit the docs index"),
+            step("Its row is not in the list", Verb::Absent("row", "Quiet the write-clash notices"), "row", "Audit the docs index"),
+            step("Nor is its tab: the Job open on it is let go of, and the box with it", Verb::Absent("textbox", "Message"), "row", "Audit the docs index"),
+            pairing("Air is forgotten: only this Mac is listed, its Jobs go, and nothing changes anywhere", "one-mac", "row", "Native Bridge foundation"),
+            step("No chip is drawn, and a row is as it was", Verb::Absent("img", "Studio"), "row", "Native Bridge foundation"),
+        ],
     },
     Walk {
         name: "workflow-card",

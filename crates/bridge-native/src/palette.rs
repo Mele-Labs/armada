@@ -344,10 +344,12 @@ pub struct RowAct {
     pub stays: bool,
     pub destructive: bool,
     pub takes: Option<Takes>,
+    /// Why it cannot run now, said in its tooltip: the Job runs on another Mac. The act is listed, off.
+    pub off: Option<String>,
 }
 
 fn act(id: &'static str, label: &str, icon: Option<&'static str>, chord: Option<&'static str>) -> RowAct {
-    RowAct { id, label: label.into(), icon, chord, apart: false, stays: false, destructive: false, takes: None }
+    RowAct { id, label: label.into(), icon, chord, apart: false, stays: false, destructive: false, takes: None, off: None }
 }
 
 /// What a Job row's panel offers (`ownActs`). `without` is the acts nothing answers for this Job, by act id.
@@ -710,6 +712,12 @@ impl Palette {
                 let list = self.list.read(cx);
                 let Some(job) = list.record(id) else { return Vec::new() };
                 let mut acts = job_acts(is_paused(job), is_snoozed(job), pinned, held_pull(job).is_some(), &without_of(job));
+                // A Job on another Mac is read here: the acts that go to Fleet are listed, off, with why.
+                if let Some(why) = crate::pairing::refusal(job, cx) {
+                    for one in acts.iter_mut().filter(|one| matches!(one.id, "pause" | "snooze" | "wake" | "fork" | "merge-pull" | "stop")) {
+                        one.off = Some(why.clone());
+                    }
+                }
                 acts.extend(memory_acts(alias, hotkey, false, None));
                 acts
             }
@@ -825,6 +833,9 @@ impl Palette {
 
     /// Run an act on a row. The row says it is going in this frame; a refusal is said in the panel.
     fn run_for(&mut self, entry: &Entry, act: RowAct, window: &mut Window, cx: &mut Context<Self>) {
+        if act.off.is_some() {
+            return;
+        }
         // An act that asks for a word or a chord turns the panel's field into that ask first.
         if let Some(takes) = act.takes {
             let placeholder = if takes == Takes::Word { "Type a word" } else { "Press a chord" };
@@ -1365,7 +1376,14 @@ impl Palette {
         let rows = acts.iter().enumerate().map(|(at, shown)| {
             let on = panel.cursor == at;
             let going = panel.going == Some(shown.id);
-            let ink = if shown.destructive { token::STATUS_COMPLETED_FAILED } else { token::FG_DEFAULT };
+            let ink = if shown.off.is_some() {
+                token::FG_SUBTLE
+            } else if shown.destructive {
+                token::STATUS_COMPLETED_FAILED
+            } else {
+                token::FG_DEFAULT
+            };
+            let off = shown.off.clone().map(SharedString::from);
             let run = shown.clone();
             let held = match shown.id {
                 "set-alias" => self.memory.aliases.get(&entry.id).cloned(),
@@ -1388,15 +1406,19 @@ impl Palette {
                 on,
             )
             .when(going, |row| row.opacity(0.5))
+            .when_some(off, |row, why| row.tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(why.clone()).build(window, cx)))
             .child(match shown.icon {
-                Some(icon) => glyph(look, icon, look.color(if shown.destructive { token::STATUS_COMPLETED_FAILED } else { token::FG_MUTED })).into_any_element(),
+                Some(icon) => glyph(look, icon, look.color(if shown.off.is_some() { token::FG_SUBTLE } else if shown.destructive { token::STATUS_COMPLETED_FAILED } else { token::FG_MUTED })).into_any_element(),
                 None => div().flex_none().size(look.length(token::SPACE_4)).into_any_element(),
             })
             .child(div().flex_1().min_w_0().truncate().child(SharedString::from(shown.label.clone())))
             .children(held.map(|value| {
                 div().flex_none().max_w_1_2().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(value))
             }))
-            .children(shown.chord.map(|chord| kbd(look, chord)))
+            .children(shown.chord.map(|chord| {
+                let cap = kbd(look, chord);
+                if shown.off.is_some() { cap.text_color(look.color(token::FG_SUBTLE)) } else { cap }
+            }))
             .on_click(cx.listener(move |this, _, window, cx| this.run_act(run.clone(), window, cx)));
             div()
                 .flex()

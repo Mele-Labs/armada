@@ -29,6 +29,7 @@ impl Stage {
         crate::terminal::shells::hold_walk(cx);
         // A walk starts with nothing kept; what it forgets here is only in memory, never in the owner's file.
         crate::drafts::forget_all(cx);
+        crate::pairing::begin_mock(walk.scenario, cx);
         match walk.screen {
             Screen::Dispatch => {
                 super::strip_marks::leave(cx);
@@ -503,6 +504,18 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             let corner = point(gpui::px(1.), gpui::px(1.));
             window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: corner, pressed_button: None, modifiers: Modifiers::default() }), cx);
             super::strip_marks::apply(name, cx).map_err(Missed)
+        }
+        Verb::Pairing(name) => {
+            window.focus(&focus.keys, cx);
+            match name {
+                "removed" => JobsList::mock_gone(&[crate::mock::AIR_REMOVED.to_string()], cx).map_err(Missed),
+                // Forgetting Air takes its Jobs from the list as well.
+                "one-mac" => {
+                    crate::pairing::scene(name, cx).map_err(Missed)?;
+                    JobsList::mock_gone(&crate::mock::AIR_JOBS.map(String::from), cx).map_err(Missed)
+                }
+                other => crate::pairing::scene(other, cx).map_err(Missed),
+            }
         }
         Verb::PausedScope => {
             let role = role_named("button").expect("a button is a role");
