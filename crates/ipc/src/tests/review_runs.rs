@@ -171,3 +171,57 @@ fn the_walk_event_nests_the_walk() {
     assert!(text.contains(r#""kind":"review_walk.changed""#) && text.contains(r#""state":"checking_out""#), "{text}");
     assert!(!text.contains("failed") && !text.contains(r#""api""#), "{text}");
 }
+
+#[test]
+fn change_sets_overview_and_practices_read_back_whole_under_their_own_kinds() {
+    use crate::{
+        ChangeSet, ChangeSetKind, HunkRef, OverviewFinding, OverviewSeverity, PracticeCheck, PracticeSource,
+        PracticeVerdict,
+    };
+    let at = ReviewPlace { path: "db/0007_orders.sql".into(), side: DiffSide::Right, start: 3, end: 3 };
+    let results = [
+        (ReviewRunKind::ChangeSets, "change_sets", ReviewResult::ChangeSets {
+            sets: vec![ChangeSet {
+                id: "set-1".into(),
+                title: "Add the orders table".into(),
+                kind: ChangeSetKind::Migration,
+                purpose: "Orders are kept.".into(),
+                area: "db".into(),
+                hunks: vec![HunkRef { path: at.path.clone(), old_start: 0, old_lines: 0, new_start: 1, new_lines: 9 }],
+            }],
+        }),
+        (ReviewRunKind::Overview, "overview", ReviewResult::Overview {
+            findings: vec![OverviewFinding {
+                severity: OverviewSeverity::Blocker,
+                set: "set-1".into(),
+                title: "Not reversible".into(),
+                reason: "The migration drops a column with no way back, so add a down step.".into(),
+                at: at.clone(),
+            }],
+        }),
+        (ReviewRunKind::Practices, "practices", ReviewResult::Practices {
+            set: "set-1".into(),
+            kind: ChangeSetKind::Migration,
+            area: "db".into(),
+            read_at: "2026-11-10T09:00:00Z".into(),
+            reused: true,
+            sources: vec![PracticeSource { path: "docs/migrations.md".into(), blob: None }],
+            checks: vec![PracticeCheck {
+                item: "Every migration has a down step".into(),
+                source: "docs/migrations.md".into(),
+                verdict: PracticeVerdict::NotApplicable,
+                note: "Only adds a table.".into(),
+            }],
+        }),
+    ];
+    for (kind, word, result) in results {
+        let mut run = a_run();
+        run.kind = kind;
+        run.state = ReviewRunState::Done;
+        run.result = Some(result);
+        let text = encode(&run).expect("encodes");
+        assert!(text.contains(&format!(r#""kind":"{word}""#)), "{text}");
+        assert!(!text.contains("null") && !text.contains(r#""blob""#), "{text}");
+        assert_eq!(decode::<ReviewRun>("a run", text.as_bytes()).expect("decodes"), run);
+    }
+}

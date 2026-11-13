@@ -69,6 +69,13 @@ pub(crate) fn read(stop: &str, kept: &KeptStop, spoke: Option<&str>, now: i64) -
     }
 }
 
+/// When the latest work ended that wakes the agent as it ends: a background task, a subagent, a pull
+/// request. The agent is told of that end a moment after the row says it, so a stop is not ripe before then.
+pub(crate) fn woken_work_ended(held: &[store::KeptAttachment]) -> Option<i64> {
+    let wakes = |kind: &str| kind == super::backgrounding::KIND || kind == "subagent" || kind == crate::pull_requesting::PR;
+    held.iter().filter(|one| wakes(&one.kind) && one.state != store::AttachmentState::Standing).filter_map(|one| millis(&one.changed_at)).max()
+}
+
 /// Where the repair of a stop stands, from what is kept of it.
 fn repair_of(kept: &KeptStop, repair_over: bool) -> Option<ipc::StopRepair> {
     match (&kept.repair_job, repair_over) {

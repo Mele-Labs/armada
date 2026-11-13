@@ -44,6 +44,11 @@ pub struct ValuesSet {
     /// is kept here.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivery: Option<String>,
+    /// The workflows the project switches off for the Jobs in it, by id. **A project's only**: the machine's and each
+    /// repository's are the `workflows.off` setting, and Fleet refuses one in Kit's values, 422
+    /// `fleet.project_values_refused`. Off wins, so a project adds to those lists and never takes one away.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub workflows_off: Vec<String>,
 }
 
 /// How each kind of work is reviewed: `off`, `review` or `review_and_approve`, and for `walks` only `off` or
@@ -196,6 +201,27 @@ pub struct ResolvedValues {
     /// One for each kind of act, where a repository was asked about; empty where only a project was.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub autonomy: Vec<ResolvedAutonomy>,
+    /// One for each workflow, where a project was asked about, in id order. **Absent from what a Job froze**: whether
+    /// a workflow is on is read live.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub workflows: Vec<ResolvedWorkflow>,
+}
+
+/// One workflow's switch for the project and the repository asked about. **Off wins**: `from` is the furthest layer
+/// that switched it off, `machine`, `repository` or `project`, and `default` where none did and it is on. A project's
+/// switch changes it only where `from` is `project` or `default`. The main switch, `features.workflows`, is not folded in.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResolvedWorkflow {
+    pub id: String,
+    pub on: bool,
+    pub from: ValueLayer,
+}
+
+/// `set_project_workflow`: one workflow switched on or off for the project in the path.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetProjectWorkflow {
+    pub workflow: String,
+    pub on: bool,
 }
 
 /// `save_kit_values`: Kit's values, whole. A key absent here is taken away.

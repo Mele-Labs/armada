@@ -4,11 +4,13 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "Move Jobs, live or ended, into a project, or out to none"
 notes = """
-`POST /sessions/project`, body `SetSessionProject`: `session_ids`, the Jobs to move, and `project`, the id of the project of his they go into (`list_projects` names them), `null` or absent for none. Answers 200 with the `SessionList` of the Jobs as they are now, in the order named, and publishes each as `session.changed`. `docs/practices/protocol/projects.md`.
+`POST /sessions/project`, body `SetSessionProject`: `session_ids`, the Jobs to move, and `project`, the id of the project of his they go into (`list_projects` names them), `null` or absent for none. Answers 200 with the `SessionList` of the Jobs as they are now, in the order named, and publishes each as `session.changed`, and `projects.changed` once where a Job left a shared project. `docs/practices/protocol/projects.md`.
 
 **Every Job is checked before anything is written, and one refusal writes nothing.** A 404 `fleet.no_such_session` for a Job this Fleet does not host, a copy held from another Mac and a Job run in a terminal included; a 422 `fleet.session_command_refused` for no Job named and for a Job with no repository (a Setup or mod Job); a 404 `fleet.no_such_project` for a project he has none of; a 422 `fleet.project_unreadable` where its file did not read, so Fleet cannot say what it holds.
 
 **A Job's repository the project does not hold becomes a whole member of it**, as a task moved into it brings its repository: written to the project's file before the Jobs are set, and published as `projects.changed` where the file changed. A repository held by a folder counts as held. A non-member is never a refusal here, unlike `start_session`'s `project`, which refuses 422 `fleet.project_not_member`. A 500 `fleet.project_unwritable` where the file could not be written, with the Jobs left as they were.
 
 **What is kept.** Only `hosted_sessions.project` changes, and `null` clears it. The Job's frozen values (`HostedFacts.values`) stay what it froze when it started, and the tasks it holds stay held. What reads a Job's project live follows the new value: its tracker, the delivery question, its lifecycles and rules, and sharing with his other Macs.
+
+**A Job moved out of a shared project** is no longer sent to his other Macs, so its `session.changed` never reaches them. `projects.changed` is published once for the move instead, and a Mac that holds the Job reads its Jobs again on it and drops the row. Nothing naming the Job is sent.
 """

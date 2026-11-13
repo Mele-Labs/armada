@@ -256,6 +256,10 @@ mod pull_review_memory;
 mod your_review;
 /// The agent runs about a pull request, kept per commit. `docs/concepts/pull-review.md`.
 mod review_runs;
+/// Change sets, the overview and a practice check, in the run engine. `docs/concepts/pull-review.md`.
+mod review_change_sets;
+/// A change-set run's answer held to what it was told, and the diff's hunks it is told.
+mod review_change_set_answers;
 /// Natural Search: the person's words put to every open pull request. `docs/concepts/pull-review.md`.
 mod review_searches;
 /// Saved issue queries and the query writer. `docs/concepts/tracker.md`, *Saved queries*.

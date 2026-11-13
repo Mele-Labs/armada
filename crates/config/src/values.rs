@@ -20,8 +20,8 @@ use crate::error::{Fault, LoadError, Refusal};
 use crate::settings::{SHIPPED_THEME, SPACINGS};
 use crate::yaml::{self, Table};
 
-const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker", "reviews", "agent_starts", "delivery"];
-/// Kit's keys: a tracker is a Project's, so Kit's block refuses it as it does any key it has no word for.
+const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker", "reviews", "agent_starts", "delivery", "workflows_off"];
+/// Kit's keys: a tracker and the workflows switched off are a Project's, so Kit's block refuses it as it does any key it has no word for.
 const KIT_KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "reviews", "agent_starts", "delivery"];
 const LOOK: &[&str] = &["layout", "theme", "density"];
 const REVIEWS: &[&str] = &["plans", "pull_requests", "walks"];
@@ -49,7 +49,7 @@ const AUTO_MERGES_LEGAL: &[&str] = &["never", "checks-pass", "always"];
 
 /// The `values:` block at `key`, refusing every fault with its key. **A key not set is not held**,
 /// and a refused one reads as not set, since a file with any refusal does not load. **`tracker` is read
-/// only where `with_tracker`**, which is a Project's file and not Kit's.
+/// only where `with_tracker`**, which is a Project's file and not Kit's, and so is `workflows_off`.
 pub(crate) fn read_block(key: &str, root: &Value, with_tracker: bool, out: &mut Vec<Refusal>) -> Values {
     let Some(mut table) = Table::open(key, root, out) else { return Values::default() };
     let pr_mode = table
@@ -77,8 +77,26 @@ pub(crate) fn read_block(key: &str, root: &Value, with_tracker: bool, out: &mut 
     let delivery = table
         .optional("delivery")
         .and_then(|value| yaml::word(&table.at("delivery"), value, DELIVERIES, DELIVERIES_LEGAL, DELIVERIES_LEGAL, out));
+    // An empty list is nothing switched off, never a refusal: the last switch turned back on can leave one.
+    let workflows_off = match with_tracker.then(|| table.optional("workflows_off")).flatten() {
+        Some(Value::Sequence(items)) if items.is_empty() => Vec::new(),
+        Some(value) => yaml::list(&table.at("workflows_off"), value, out)
+            .map(|items| items.into_iter().filter_map(|(at, item)| yaml::text(&at, item, out)).map(|id| id.trim().to_string()).collect())
+            .unwrap_or_default(),
+        None => Vec::new(),
+    };
     table.close(if with_tracker { KEYS } else { KIT_KEYS }, out);
-    Values { pr_mode, auto_merge, review_model: review_model.map(|model| model.trim().to_string()), look, tracker, reviews, agent_starts, delivery }
+    Values {
+        pr_mode,
+        auto_merge,
+        review_model: review_model.map(|model| model.trim().to_string()),
+        look,
+        tracker,
+        reviews,
+        agent_starts,
+        delivery,
+        workflows_off,
+    }
 }
 
 /// The `reviews:` block. **A kind it does not name is not set**, and falls through to the next layer.
@@ -164,6 +182,9 @@ pub(crate) fn block_value(values: &Values) -> Option<Value> {
     if let Some(delivery) = values.delivery {
         block.insert(text("delivery"), text(delivery.as_wire()));
     }
+    if !values.workflows_off.is_empty() {
+        block.insert(text("workflows_off"), Value::Sequence(values.workflows_off.iter().map(|id| text(id)).collect()));
+    }
     (!block.is_empty()).then_some(Value::Mapping(block))
 }
 
@@ -211,6 +232,7 @@ pub fn shipped_values() -> Values {
         reviews: ReviewsNamed::default(),
         agent_starts: Some(AgentStarts::AtOnce),
         delivery: None,
+        workflows_off: Vec::new(),
     }
 }
 

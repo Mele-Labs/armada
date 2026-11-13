@@ -20,6 +20,7 @@ use tower::ServiceExt;
 
 mod acting;
 mod messages;
+mod moving;
 mod terminals;
 mod updating;
 

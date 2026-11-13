@@ -606,7 +606,12 @@ impl Render for Dropdown {
                         .id("menu")
                         .track_focus(&self.focus)
                         .capture_key_down(cx.listener(Self::on_key))
-                        .on_mouse_down_out(cx.listener(|_, _, _, cx| cx.emit(DismissEvent)))
+                        // A press on a walk's bar, outside the app's room, leaves the menu open for the step that picks from it.
+                        .on_mouse_down_out(cx.listener(|_, event: &gpui::MouseDownEvent, window, cx| {
+                            if crate::room::of(window, cx).contains(&event.position) {
+                                cx.emit(DismissEvent);
+                            }
+                        }))
                         .occlude()
                         // Room for a detail after a name. A menu with a filter field is a long one, so it
                         // scrolls under the field; any other runs its length, kept inside the window.

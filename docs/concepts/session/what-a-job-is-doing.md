@@ -53,6 +53,7 @@ A stop is named by when its turn ended (`last_turn_at`), so a turn that ended on
 A stop is excused by facts, never by the agent saying so: a turn, subagent, background command or Check running, a live watch, its own open pull request (except one Fleet told it failed or conflicts, with nothing pushed since), a lifecycle holding it other than a ticket, a Job it started that is still running, any item in `waiting_for`, a question that lapsed (it is no item but still waits on him), a shown walk, a plan, draft, sketch or page awaiting him, a `done`, a pause, its start card, a limit, a wait on another Job, or a terminal that is not listening.
 **Never while anything waits on him** (the owner, 5 Nov 2026: "if there is a needs me item, thats not silence. Thats waiting on me to act").
 A minute after a stop nothing excuses (`STOP_AFTER`, unmeasured), Fleet sends one word, `stop_nudge`: to carry on, to name what it waits on with `waiting_for`, or to finish.
+The minute counts from the turn's end or his last word, or from the latest end of a background task, subagent or pull request if that is later: the Job is woken by that end a moment after its row says so.
 A Job stopped on a step only it can end hears that step's own words instead ([The rail](the-rail.md)).
 **One nudge per stop.** The stop after it reads `stopped`, so a Job can never loop with Fleet.
 A word the person writes, or another Fleet word that wakes it, gives the next stop a nudge of its own; a word that arrives mid-turn does not.
