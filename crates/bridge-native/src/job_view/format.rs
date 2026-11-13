@@ -221,7 +221,7 @@ pub(super) fn enter_at(text: &str, caret: usize, shift: bool) -> Option<Enter> {
 /// The message as it is sent: a blank line where a quote or a list ends in a line of words (`sentText`).
 /// The box draws that line apart from the block; markdown would read it as the block's own lazy
 /// continuation, and the thread would draw what the box did not.
-pub(super) fn sent_text(text: &str) -> String {
+pub(crate) fn sent_text(text: &str) -> String {
     let lines: Vec<&str> = text.split('\n').collect();
     let mut sent = Vec::with_capacity(lines.len());
     for (at, line) in lines.iter().enumerate() {

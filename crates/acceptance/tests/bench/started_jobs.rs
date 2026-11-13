@@ -47,6 +47,7 @@ fn attachment(kind: &str, target: &str, state: AttachmentState, minute: u32, det
 pub fn job(id: &str, title: &str, attachments: Vec<Attachment>) -> SessionRecord {
     SessionRecord {
         id: SessionId::carried(id),
+        mac: None,
         harness: "a-harness".to_string(),
         origin: SessionOrigin::Bridge,
         manifest_id: Some(ManifestId::carried("armada")),

@@ -98,10 +98,10 @@ pub static STEPS: &[Step] = &[
     press_on("Start job puts the held note in a new held Job, pending in the same frame", "button", "Start job", "button", "Starting job"),
     answer("Started: the bar names the new Job", "layer-started", "status", "Job started: Dispatch sheet notes"),
     press_on("All notes opens the panel over the trailing edge, above the bar", "button", "All notes", "region", "All notes"),
-    press_on("No job lists the open notes nobody has taken, each screen under its name", "tab", "No job", "button", "Group the repositories under their Workspace"),
-    press_on("A note ticked brings the acts over the selection", "checkbox", "Select Group the repositories under their Workspace", "checkbox", "Select Group the repositories under their Workspace"),
+    press_on("No job lists the open notes nobody has taken, each screen under its name", "tab", "No job", "button", "Group the repositories under their project"),
+    press_on("A note ticked brings the acts over the selection", "checkbox", "Select Group the repositories under their project", "checkbox", "Select Group the repositories under their project"),
     press_on("Mark done takes the note off No job", "button", "Mark done", "tab", "Done"),
-    press_on("Done lists the finished notes, each with Reopen", "tab", "Done", "button", "Group the repositories under their Workspace"),
+    press_on("Done lists the finished notes, each with Reopen", "tab", "Done", "button", "Group the repositories under their project"),
     press_on("Delete asks again before it goes", "button", "Delete", "button", "Press again to delete"),
     press_on("Pressed again it goes: the note is gone from Done", "button", "Press again to delete", "tab", "Done"),
     // -- the merge strip and the Job marks -----------------------------------------------------

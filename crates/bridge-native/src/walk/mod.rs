@@ -68,6 +68,9 @@ pub enum Verb {
     /// The wheel turned over the element of this role and name, by this many points down, before the
     /// target is ringed: for a pane whose target is below its fold.
     Wheel(&'static str, &'static str, i32),
+    /// The wheel turned over the element of this role and name, this many points at a time, until the
+    /// target is drawn: for a target whose place below the fold changes with the window's width.
+    WheelTo(&'static str, &'static str, i32),
     /// A press on the first word of the last element of this role and name drawn, before the target is
     /// ringed: for a link inside words, which carries no label of its own.
     PressStart(&'static str, &'static str),
@@ -1145,6 +1148,29 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-sketch-approve",
+        title: "Approve on a sketch, refused, keeps the thread where it was",
+        screen: Screen::Jobs,
+        scenario: "sketch-approve",
+        steps: &[
+            press_on("A Job puts a sketch to him, pinned at the thread's end", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
+            step("Read up into the drawing, its buttons still in view", Verb::Wheel("region", "Thread", -120), "button", "Approve"),
+            press_on("Approve: Fleet refuses it here, and its reason stands under the buttons where they were", "button", "Approve", "status", "Refused"),
+            step("Approve again: refused again, and the thread stays put", Verb::Press, "button", "Approve"),
+        ],
+    },
+    Walk {
+        name: "native-sketch-approved",
+        title: "Approve on a sketch Fleet takes",
+        screen: Screen::Jobs,
+        scenario: "sketch-card",
+        steps: &[
+            press_on("A Job puts a sketch to him, pinned at the thread's end", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
+            step("Read up into the drawing, its buttons still in view", Verb::Wheel("region", "Thread", -120), "button", "Approve"),
+            press_on("Approve settles it where it stands", "button", "Approve", "status", "Approved"),
+        ],
+    },
+    Walk {
         name: "native-sketch-share",
         title: "Share a sketch with somebody who has no Armada",
         screen: Screen::Jobs,
@@ -1324,6 +1350,27 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Dispatch,
         scenario: "jobs-many",
         steps: &dispatch::STEPS,
+    },
+    Walk {
+        name: "start-flow-sheet",
+        title: "Dispatch: Start runs at once, Draft holds it on its start card",
+        screen: Screen::Dispatch,
+        scenario: "jobs-many",
+        steps: &dispatch::START_FLOW,
+    },
+    Walk {
+        name: "start-flow-operator",
+        title: "Dispatch: the Operator rules on a start, and a toast says what it did",
+        screen: Screen::App,
+        scenario: "jobs-many",
+        steps: &dispatch::OPERATOR_FLOW,
+    },
+    Walk {
+        name: "operator-composer",
+        title: "Operator page: the box at its foot, and the ideas it kept",
+        screen: Screen::Operator,
+        scenario: "jobs-many",
+        steps: &dispatch::COMPOSER_FLOW,
     },
     Walk {
         name: "notes",
@@ -1974,11 +2021,11 @@ pub static WALKS: &[Walk] = &[
             step("R opens the Judge's box under the plan", Verb::Key("r"), "dialog", "Judge"),
             step("Esc puts the box away", Verb::Key("escape"), "region", "Thread"),
             step("Home goes to the start of the thread", Verb::Key("home"), "button", "Show earlier"),
-            step("A run of calls is one line", Verb::Wheel("region", "Thread", 100), "button", "Tool calls: Read, Grep, Edit"),
+            step("A run of calls is one line", Verb::WheelTo("region", "Thread", 60), "button", "Tool calls: Read, Grep, Edit"),
             step("A press opens the run", Verb::Press, "button", "Tool calls: Read, Grep, Edit"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
-            step("The wheel reads on, past the Checks", Verb::Wheel("region", "Thread", 100), "listitem", "/reload-plugins"),
+            step("The wheel reads on, past the Checks", Verb::WheelTo("region", "Thread", 60), "listitem", "/reload-plugins"),
             step("A right press on a command offers Teach", Verb::RightOpen("listitem", "/reload-plugins"), "menuitem", "Teach"),
             step("Teach opens the panel over the thread, with the command and a box", Verb::Open("menuitem", "Teach"), "textbox", "Instruction"),
             step("Esc puts the panel away and the command has focus again", Verb::Key("escape"), "listitem", "/reload-plugins"),

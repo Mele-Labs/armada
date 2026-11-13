@@ -9,6 +9,7 @@ use crate::{
 pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
     SessionRecord {
         id: SessionId::carried("s1"),
+        mac: None,
         harness: "a-harness".to_string(),
         origin: SessionOrigin::Bridge,
         manifest_id: None,

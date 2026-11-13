@@ -42,9 +42,6 @@ pub enum EditorEvent {
 
 impl EventEmitter<EditorEvent> for LanesEditor {}
 
-/// A lane's least height (`LANE_MIN` in `lanes_canvas`, `--lane-min`), so every lane stands in the canvas.
-const LANE_MIN: f32 = 128.;
-
 /// Fleet's word where what a draft was made from is not what is saved now.
 const CHANGED_SINCE: &str = "This workflow changed since you started. Discard and edit again.";
 
@@ -415,7 +412,7 @@ impl gpui::Render for LanesEditor {
             Read::Read(read) => {
                 let lanes = self.shown.as_ref().unwrap_or(read);
                 // Four lanes of the least height fill it; a lane more makes it taller by that much.
-                let tall = (look.length(token::SPACE_12) * 11.).max(px(lanes.lanes.len() as f32 * LANE_MIN) + look.length(token::BORDER_WIDTH) * 2.);
+                let tall = (look.length(token::SPACE_12) * 11.).max(px(lanes.lanes.len() as f32 * crate::lanes_canvas::LANE_MIN) + look.length(token::BORDER_WIDTH) * 2.);
                 // An Esc the lanes did not take, with nothing picked, is the host's: it shuts what holds the editor.
                 let shut = cx.listener(|_, event: &gpui::KeyDownEvent, _, cx| {
                     if event.keystroke.key == "escape" {

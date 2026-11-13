@@ -16,6 +16,20 @@ use crate::look::{token, Look};
 /// How long the agent reasoned, in whole seconds from the item before (at least one, as Electron's
 /// `secondsSince`), and whether the row opens: it comes just before a question while the agent has
 /// written nothing to the person since their message (`openedBeforeBareQuestions`).
+/// Words, then the stamp. When both do not fit on the one line the stamp drops under the words, so the words keep the room
+/// and a long stamp (Date and Seconds on) never cuts them to a few letters.
+fn then_stamp(words: impl IntoElement, stamp: AnyElement, look: &Look) -> gpui::Div {
+    div()
+        .flex_1()
+        .min_w_0()
+        .flex()
+        .flex_wrap()
+        .items_center()
+        .gap_x(look.length(token::SPACE_2))
+        .child(div().flex_grow(1.).flex_shrink(1.).min_w_0().max_w_full().child(words))
+        .child(div().flex_none().ml_auto().child(stamp))
+}
+
 pub(super) fn reasoning_reading(items: &[ThreadItem], ix: usize) -> (u64, bool) {
     let parsed = |at: &Instant| DateTime::parse_from_rfc3339(at.as_str()).ok();
     let spent = ix
@@ -192,16 +206,11 @@ impl JobView {
                     .text_color(ink)
                     .child(glyph(look, if *fork { "git-fork" } else { "corner-up-right" }, Size::Large, ink))
                     .child(eyebrow(look, if *fork { "Forked" } else { "Started" }))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .truncate()
-                            .text_size(look.length(token::TEXT_SM))
-                            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                            .child(session.title.clone()),
-                    )
-                    .child(self.stamp(at, look, now, true, cx))
+                    .child(then_stamp(
+                        div().truncate().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(session.title.clone()),
+                        self.stamp(at, look, now, true, cx),
+                        look,
+                    ))
                     .child(glyph(look, "chevron-right", Size::Large, ink));
                 self.opens(session.id.as_str(), format!("started:{id}"), session.title.clone(), cx, bar)
             }
@@ -234,21 +243,22 @@ impl JobView {
                             .child(glyph(look, "link", Size::Small, look.color(token::FG_MUTED)))
                             .tooltip(tip("Linked Job")),
                     )
-                    .child(
+                    .child(then_stamp(
                         div()
-                            .flex_1()
-                            .min_w_0()
-                            .truncate()
-                            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                            .child(session.title.clone()),
-                    )
-                    .child(
-                        div()
-                            .id(SharedString::from(format!("linked-event:{id}")))
-                            .child(glyph(look, icon, Size::Small, look.color(ink)))
-                            .tooltip(tip(said)),
-                    )
-                    .child(self.stamp(at, look, now, true, cx))
+                            .flex()
+                            .items_center()
+                            .gap(look.length(token::SPACE_2))
+                            .child(div().min_w_0().truncate().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(session.title.clone()))
+                            .child(
+                                div()
+                                    .id(SharedString::from(format!("linked-event:{id}")))
+                                    .flex_none()
+                                    .child(glyph(look, icon, Size::Small, look.color(ink)))
+                                    .tooltip(tip(said)),
+                            ),
+                        self.stamp(at, look, now, true, cx),
+                        look,
+                    ))
                     .child(glyph(look, "chevron-right", Size::Small, look.color(token::FG_MUTED)));
                 self.opens(session.id.as_str(), format!("linked:{id}"), format!("{}, {said}", session.title), cx, bar)
             }
@@ -276,16 +286,11 @@ impl JobView {
                             .gap(look.length(token::SPACE_3))
                             .child(glyph(look, "link", Size::Small, ink))
                             .child(eyebrow(look, said))
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_w_0()
-                                    .truncate()
-                                    .text_size(look.length(token::TEXT_SM))
-                                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                                    .child(session.title.clone()),
-                            )
-                            .child(self.stamp(at, look, now, true, cx))
+                            .child(then_stamp(
+                                div().truncate().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(session.title.clone()),
+                                self.stamp(at, look, now, true, cx),
+                                look,
+                            ))
                             .child(glyph(look, "chevron-right", Size::Large, ink)),
                     )
                     .children(says.clone().map(|says| {
@@ -350,10 +355,8 @@ impl JobView {
                 .bg(look.color(token::YOU))
                 .text_color(ink)
                 .child(eyebrow(look, word))
-                .child(
+                .child(then_stamp(
                     div()
-                        .flex_1()
-                        .min_w_0()
                         .flex()
                         .items_center()
                         .gap(look.length(token::SPACE_2))
@@ -362,8 +365,9 @@ impl JobView {
                         .child(from.to_string())
                         .child(glyph(look, "arrow-right", Size::Small, ink))
                         .child(to.to_string()),
-                )
-                .child(self.stamp(at, look, now, true, cx)),
+                    self.stamp(at, look, now, true, cx),
+                    look,
+                )),
             Role::Region,
             format!("{word} changed"),
         )
@@ -387,8 +391,7 @@ impl JobView {
         let red = look.color(token::STATUS_COMPLETED_FAILED);
         let head = vec![
             glyph(look, "x", Size::Small, red).into_any_element(),
-            div().flex_1().min_w_0().truncate().child(format!("Did not start: {cause}")).into_any_element(),
-            self.stamp(at, look, now, true, cx),
+            then_stamp(div().truncate().child(format!("Did not start: {cause}")), self.stamp(at, look, now, true, cx), look).into_any_element(),
         ];
         let body = (!log.is_empty()).then(|| {
             div()

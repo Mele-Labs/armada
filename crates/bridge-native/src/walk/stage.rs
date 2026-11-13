@@ -27,6 +27,8 @@ pub struct Focus {
 impl Stage {
     pub fn new(walk: &Walk, window: &mut Window, cx: &mut App) -> Result<Stage, String> {
         crate::terminal::shells::hold_walk(cx);
+        // A walk starts with nothing kept; what it forgets here is only in memory, never in the owner's file.
+        crate::drafts::forget_all(cx);
         match walk.screen {
             Screen::Dispatch => {
                 super::strip_marks::leave(cx);
@@ -366,6 +368,31 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             );
             Ok(())
         }
+        Verb::WheelTo(role, on, by) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            for _ in 0..60 {
+                if find(step, window, cx).is_ok() {
+                    return Ok(());
+                }
+                let drawn = cx
+                    .try_global::<LabelBook>()
+                    .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
+                    .ok_or_else(|| Missed(format!("nothing named \"{on}\" to scroll")))?;
+                window.dispatch_event(
+                    PlatformInput::Scroll(gpui::ScrollEvent {
+                        position: drawn.shown.center(),
+                        delta: gpui::ScrollDelta::Pixels(point(px(0.), px(-(by as f32)))),
+                        modifiers: Modifiers::default(),
+                        touch_phase: gpui::TouchPhase::Moved,
+                        source: gpui::ScrollSource::default(),
+                    }),
+                    cx,
+                );
+                window.refresh();
+                window.draw(cx).clear(cx);
+            }
+            Ok(())
+        }
         Verb::PressStart(role, on) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             let drawn = cx
@@ -476,7 +503,11 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         }
         Verb::Answer(name) => {
             if let Some(page) = crate::operator::live(cx) {
-                return page.update(cx, |page, cx| page.scene(name, cx)).map_err(Missed);
+                // A name the page does not know is the dispatch screen's, where the whole app is in the walk.
+                match page.update(cx, |page, cx| page.scene(name, cx)) {
+                    Err(why) if why.starts_with("no Operator scene named") && crate::dispatch::screen::live(cx).is_some() => {}
+                    done => return done.map_err(Missed),
+                }
             }
             let screen = crate::dispatch::screen::live(cx).ok_or_else(|| Missed("no dispatch screen is drawn yet".into()))?;
             screen.update(cx, |screen, cx| screen.scene(name, window, cx)).map_err(Missed)

@@ -2,8 +2,10 @@
 //! answered by the walk's mock at once. `crates/ipc/operations/operator_page.toml` and its siblings.
 
 use gpui::{App, AppContext, Entity, Task};
+use ipc::operator_board::OperatorDispatched;
 use ipc::operator_page::{OperatorAnswerPress, OperatorAnswered, OperatorInFront, OperatorLater, OperatorPage, OperatorTurnOrder};
 use ipc::operator_talk::{OperatorOrders, OperatorSaid, OperatorTalk, RemoveOperatorOrder, TalkToOperator};
+use ipc::{DispatchJob, JobDispatched, ParkedIdeas, RemoveParkedIdea};
 use serde::de::DeserializeOwned;
 
 use super::scenes::MockFleet;
@@ -178,5 +180,34 @@ impl Wire {
         }
         let said = body(&TalkToOperator { words, about });
         Some(self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/talk", said), "OperatorSaid", cx)))
+    }
+
+    /// `POST /sessions/dispatch`: the composer's send and a parked idea's start. The mock answers at once, and with
+    /// it the `operator.dispatched` events Fleet would publish, which a live Fleet sends on its stream.
+    pub fn dispatch(&mut self, job: DispatchJob, cx: &App) -> Task<Result<(JobDispatched, Vec<OperatorDispatched>), String>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(Ok(mock.dispatch(job)));
+        }
+        let said = body(&job);
+        let Some(port) = self.port(cx) else { return Self::unreachable() };
+        let sent = request::<JobDispatched>(port, Ask::Post("/sessions/dispatch", said), "JobDispatched", cx);
+        cx.background_spawn(async move { sent.await.map(|answer| (answer, Vec::new())) })
+    }
+
+    /// `GET /sessions/parked`: the ideas kept for later.
+    pub fn parked(&mut self, cx: &App) -> Task<Result<ParkedIdeas, String>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(Ok(ParkedIdeas { ideas: mock.parked.clone() }));
+        }
+        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Get("/sessions/parked"), "ParkedIdeas", cx))
+    }
+
+    /// `POST /sessions/parked/remove`: one idea goes; the answer is the ideas that are left.
+    pub fn remove_parked(&mut self, id: String, cx: &App) -> Task<Result<ParkedIdeas, String>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.remove_parked(&id));
+        }
+        let said = body(&RemoveParkedIdea { id });
+        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/sessions/parked/remove", said), "ParkedIdeas", cx))
     }
 }

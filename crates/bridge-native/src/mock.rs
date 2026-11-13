@@ -72,7 +72,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "call-rows" | "sketch-card" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
         "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
         // The box's Jobs, with the first holding a plan, two pull requests and a Job it started with one of its own.
@@ -215,10 +215,15 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         if all.contains_key(id) || refused(scenario, id).is_some() {
             continue;
         }
-        let empty = format!(r#"{{"session_id":"{id}","head":{{"trail":{{"started":"{}"}}}},"items":[]}}"#, job.started_at.as_str());
-        all.insert(id.to_string(), ipc::decode::<JobThread>("empty thread", empty.as_bytes()).map_err(|why| why.to_string())?);
+        all.insert(id.to_string(), empty_thread(id, job.started_at.as_str())?);
     }
     Ok(all)
+}
+
+/// The thread Fleet answers for a Job with nothing in it yet: a head with its start, and no items.
+pub fn empty_thread(id: &str, started: &str) -> Result<JobThread, String> {
+    let empty = format!(r#"{{"session_id":"{id}","head":{{"trail":{{"started":"{started}"}}}},"items":[]}}"#);
+    ipc::decode::<JobThread>("empty thread", empty.as_bytes()).map_err(|why| why.to_string())
 }
 
 /// The threads a scenario's fixtures hold.
@@ -260,7 +265,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         // The tool-rows threads, with the finished Job's retro being written and Search for the queue asking with previews.
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
-        "sketch-card" => include_bytes!("../fixtures/sketch-card-threads.json"),
+        "sketch-card" | "sketch-approve" => include_bytes!("../fixtures/sketch-card-threads.json"),
         "sketch-share" => include_bytes!("../fixtures/sketch-share-threads.json"),
         // The same, with Edit the merge line drawing the store clock twice: Pinned clock read against Store clock reads, which has two revisions.
         "sketch-changes" => include_bytes!("../fixtures/sketch-changes-threads.json"),
@@ -359,6 +364,14 @@ pub fn walk_refused(url: &str) -> Option<String> {
 /// time: in `thread-moved`, so a walk can show the row that says new messages are loading.
 pub fn reads_slowly() -> bool {
     SCENARIO.lock().is_ok_and(|named| named.as_str() == "thread-moved")
+}
+
+/// Fleet's refusal of an act on this route, in the scenario last named: `sketch-approve` refuses a
+/// sketch's answer as Fleet does a drawing read before it was drawn again.
+pub fn act_refused(route: &str) -> Option<String> {
+    let named = SCENARIO.lock().ok()?;
+    (named.as_str() == "sketch-approve" && route == "/sessions/sketch/answer")
+        .then(|| "the sketch `Freshness chip` is not the drawing that was read: the job has drawn it again since".into())
 }
 
 /// How many sends the scenario last named refuses before it takes them: one in `sent-messages`, so a
