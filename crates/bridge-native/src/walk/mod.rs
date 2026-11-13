@@ -1145,6 +1145,29 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-sketch-approve",
+        title: "Approve on a sketch, refused, keeps the thread where it was",
+        screen: Screen::Jobs,
+        scenario: "sketch-approve",
+        steps: &[
+            press_on("A Job puts a sketch to him, pinned at the thread's end", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
+            step("Read up into the drawing, its buttons still in view", Verb::Wheel("region", "Thread", -120), "button", "Approve"),
+            press_on("Approve: Fleet refuses it here, and its reason stands under the buttons where they were", "button", "Approve", "status", "Refused"),
+            step("Approve again: refused again, and the thread stays put", Verb::Press, "button", "Approve"),
+        ],
+    },
+    Walk {
+        name: "native-sketch-approved",
+        title: "Approve on a sketch Fleet takes",
+        screen: Screen::Jobs,
+        scenario: "sketch-card",
+        steps: &[
+            press_on("A Job puts a sketch to him, pinned at the thread's end", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
+            step("Read up into the drawing, its buttons still in view", Verb::Wheel("region", "Thread", -120), "button", "Approve"),
+            press_on("Approve settles it where it stands", "button", "Approve", "status", "Approved"),
+        ],
+    },
+    Walk {
         name: "native-sketch-share",
         title: "Share a sketch with somebody who has no Armada",
         screen: Screen::Jobs,

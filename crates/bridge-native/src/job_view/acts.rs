@@ -416,7 +416,12 @@ impl JobView {
         cx: &mut Context<Self>,
     ) {
         let _ = job;
-        let Some(fleet) = self.fleet.clone() else { return };
+        let Some(fleet) = self.fleet.clone() else {
+            if let Some(why) = crate::mock::act_refused(route) {
+                failed(self, why.into(), cx);
+            }
+            return;
+        };
         let Some(port) = fleet.read(cx).held().port() else {
             failed(self, "Fleet is not connected".into(), cx);
             return;
