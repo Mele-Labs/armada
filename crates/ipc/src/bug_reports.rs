@@ -36,6 +36,9 @@ pub struct BugReported {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BugReport {
     pub id: String,
+    /// The id of the paired Mac whose Job filed it. **Absent means this Mac.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mac: Option<String>,
     /// The Job that reported it.
     pub session_id: String,
     /// The Job's title when it reported; empty where it had none.

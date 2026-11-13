@@ -21,6 +21,7 @@ const NO_SUCH_BUG_REPORT: &str = "fleet.no_such_bug_report";
 fn wire(kept: KeptBugReport) -> BugReport {
     BugReport {
         id: kept.id,
+        mac: None,
         session_id: kept.session_id,
         job_title: kept.job_title,
         title: kept.title,
