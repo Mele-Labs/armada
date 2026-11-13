@@ -74,6 +74,8 @@ mod manifest_proposals;
 mod mcp;
 /// Mods: folders on this machine that change how Bridge looks.
 mod mods;
+/// His other Macs, as this Mac's Phone Gateway reaches Fleet for them.
+mod other_macs;
 mod clashing;
 mod placed;
 /// A person's Bridge preferences, read and saved. `limiting`'s shape one
@@ -143,7 +145,7 @@ mod tests;
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use daemon::{
     offerable, Accounts, Admitting, AppRuns, Authoring, Commands, Conversations, Daemon,
-    Autopilots, WordsReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Teaching, Mods, Clashing,
+    Autopilots, WordsReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Teaching, Mods, Clashing, OtherMacs,
     Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, RunsAsked, Sessions, Settings, SharedHome, Steerer,
     ShownFile, StoredFile, Studios, Watches,
 };

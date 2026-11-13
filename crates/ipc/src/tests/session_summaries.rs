@@ -220,3 +220,19 @@ fn a_line_carries_what_is_running_past_the_turn_and_leaves_it_out_when_nothing_i
     let back: SessionSummaries = decode("a summary list", wire.as_bytes()).expect("a list decodes");
     assert_eq!(back, list);
 }
+
+#[test]
+fn a_line_held_from_another_mac_carries_its_mac_and_this_macs_own_carries_none() {
+    let mut record = session(Vec::new());
+    let own = SessionSummaries::of(&SessionList { sessions: vec![record.clone()] });
+    assert_eq!(own.sessions[0].mac, None);
+    assert!(!encode(&own).expect("a list encodes").contains("\"mac\""));
+
+    record.mac = Some("mac-work".to_string());
+    let theirs = SessionSummaries::of(&SessionList { sessions: vec![record] });
+    assert_eq!(theirs.sessions[0].mac.as_deref(), Some("mac-work"));
+    let wire = encode(&theirs).expect("a list encodes");
+    assert!(wire.contains(r#""mac":"mac-work""#), "{wire}");
+    let back: SessionSummaries = decode("a summary list", wire.as_bytes()).expect("a list decodes");
+    assert_eq!(back, theirs);
+}

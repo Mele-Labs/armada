@@ -145,6 +145,7 @@ mod bucket_credentials;
 mod bucket_signing;
 /// Requests: one HTTP request a person or an agent names, and its secret variables in the Keychain.
 mod requests;
+mod mac_keys;
 mod request_secrets;
 /// The central store over HTTP, signed with this machine's key.
 mod store;
@@ -223,6 +224,7 @@ pub use harness_home::AgentHome;
 pub use shared_home::{Folder, ForgeHomes};
 pub use sign_in::ForgeSignIn;
 pub use bucket::{BucketAddress, ObjectBucket};
+pub use mac_keys::{KeychainMacKeys, MAC_KEY_SERVICE};
 pub use request_secrets::{KeychainSecrets, SECRET_SERVICE};
 pub use requests::HttpRequests;
 pub use store::HttpStore;
