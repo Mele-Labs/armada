@@ -418,7 +418,12 @@ impl SettingsOverlay {
                     .tooltip(tip(SharedString::from(key.clone())))
                     .child(title.clone()),
             );
-        let says = div().flex_1().child(small(look, one.description.clone(), look.color(token::FG_MUTED)));
+        let shown = first_sentence(&one.description);
+        let mut said = small(look, shown.to_string(), look.color(token::FG_MUTED)).id(SharedString::from(format!("limits-says-{key}")));
+        if shown.len() < one.description.trim_end().len() {
+            said = said.tooltip(tip(SharedString::from(one.description.clone())));
+        }
+        let says = div().flex_1().child(said);
 
         let typed_text = self.typed.get(&key).map(|typed| typed.text(cx)).unwrap_or_default();
         let dirty = self.dirty(&key, cx);
@@ -647,6 +652,16 @@ impl SettingsOverlay {
     }
 }
 
+/// A tile shows the registry's first sentence, as the mock did; the whole
+/// description is the tooltip.
+fn first_sentence(text: &str) -> &str {
+    let text = text.trim_end();
+    match text.find(". ") {
+        Some(at) => &text[..=at],
+        None => text,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -725,5 +740,12 @@ mod tests {
         assert!(!changed(&one));
         one.saved = Some(SettingValue::Integer(3));
         assert!(changed(&one));
+    }
+
+    #[test]
+    fn a_tile_shows_the_first_sentence_of_the_description() {
+        assert_eq!(first_sentence("Disk to start reclaiming at. Fleet frees the oldest builds first."), "Disk to start reclaiming at.");
+        assert_eq!(first_sentence("Drones at once."), "Drones at once.");
+        assert_eq!(first_sentence("No full stop"), "No full stop");
     }
 }
