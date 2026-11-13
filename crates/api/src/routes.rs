@@ -253,6 +253,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::pull_request_panel::get_review_runs::<D>),
         )
         .merge(crate::review_walks::mounted::<D>())
+        .merge(crate::pull_review_memory::mounted::<D>())
         .merge(crate::other_macs::mounted::<D>())
         .route(
             "/pull_request_notes/:repository/:number",
@@ -318,7 +319,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/sessions/terminal/open", post(crate::terminals::open_terminal::<D>))
         .route("/sessions/terminal/run", post(crate::terminals::start_terminal_run::<D>))
-        .route("/sessions/terminal/start", post(crate::terminals::start_terminal_job::<D>))
+        .route("/sessions/side_job/start", post(crate::terminals::start_side_job::<D>))
         .route("/sessions/terminal/type", post(crate::terminals::type_in_terminal::<D>))
         .route("/sessions/terminal/read", get(crate::terminals::read_terminal::<D>))
         .route("/sessions/terminal/list", get(crate::terminals::list_terminals::<D>))
@@ -659,12 +660,20 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::set_session_auto_land::<D>),
         )
         .route(
+            "/sessions/project",
+            post(crate::hosted_sessions::set_session_project::<D>),
+        )
+        .route(
             "/sessions/mcp",
             get(crate::hosted_sessions::get_session_mcp::<D>),
         )
         .route(
             "/sessions/quick",
             get(crate::hosted_sessions::get_session_quick::<D>),
+        )
+        .route(
+            "/sessions/artifacts",
+            get(crate::hosted_sessions::get_job_artifacts::<D>),
         )
         .route(
             "/sessions/mcp/act",

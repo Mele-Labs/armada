@@ -13,7 +13,7 @@ use adapter_traits::{
 };
 use api::Refusal;
 use ipc::{
-    ManifestId, PullReviewChecks, PullReviewHolder, PullReviewList, PullReviewLists, PullReviewRow, PullThreadResolved,
+    ManifestId, PullInbox, PullReviewChecks, PullReviewHolder, PullReviewList, PullReviewLists, PullReviewRow, PullThreadResolved,
     ResolvePullThread, MOST_PER_LIST,
 };
 
@@ -67,6 +67,9 @@ pub(crate) fn row_of(pull: ListedPull, served: &[Named]) -> Option<PullReviewRow
         updated_at: pull.updated_at,
         team: pull.team,
         holder: None,
+        seen: None,
+        my_review: pull.my_latest.map(crate::pull_review_memory::my_review_of),
+        inbox: PullInbox::NeedsFirstLook,
     })
 }
 
@@ -178,6 +181,12 @@ where
         // Which Session of the owner's works each pull request, for a note that goes to it.
         for row in lists.iter_mut().flatten() {
             row.holder = self.holder_of(row).await;
+        }
+        // His review, the one Fleet just wrote where the forge does not show it yet, and where each
+        // stands in his inbox, from it and the head he last left it at.
+        for list in &mut lists {
+            self.written_onto(list).await;
+            self.inbox_onto(list).await;
         }
         let mut read = self.lists_of(me, lists);
         read.silent = silent;

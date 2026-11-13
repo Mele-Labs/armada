@@ -1,0 +1,98 @@
+{
+ "threads": [
+  {
+   "session_id": "mock-01",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T19:48:55.257Z",
+     "bays": [
+      {
+       "slot": 6,
+       "from": "2026-11-10T19:55:46.507Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-01-a1",
+      "at": "2026-11-10T19:52:52.718Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Clean up the old sessions endpoint."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-01-a2",
+      "at": "2026-11-10T19:54:00.416Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The old /v1/sessions endpoint has no callers left in the repository. The new one answers everything it did."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-01-a3",
+      "at": "2026-11-10T19:58:40.003Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Two things need you before I go on: what happens to the old endpoint, and how this lands."
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "mock-02",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T19:48:55.257Z",
+     "bays": [
+      {
+       "slot": 6,
+       "from": "2026-11-10T19:55:46.507Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-02-a1",
+      "at": "2026-11-10T19:58:52.718Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Show me the row with its Mac mark."
+     }
+    },
+    {
+     "kind": "file",
+     "id": "mock-02-f1",
+     "at": "2026-11-10T19:59:40.000Z",
+     "path": "/Users/me/Library/Application Support/Armada/attachments/pictures/mock-02/Row with its Mac mark.png",
+     "name": "Row with its Mac mark.png"
+    },
+    {
+     "kind": "file",
+     "id": "mock-02-f2",
+     "at": "2026-11-10T20:00:10.000Z",
+     "path": "/Users/me/Development/app/docs/mac-mark.md",
+     "name": "mac-mark.md"
+    }
+   ]
+  }
+ ]
+}

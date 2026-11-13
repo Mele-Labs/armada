@@ -588,6 +588,39 @@ fn a_redirect_to_nowhere_and_quoted_shell_marks_do_not_make_a_line_a_write() {
     }
 }
 
+/// The three lines a Side Job's agent ran to answer a question on 13 Nov 2026, each leasing a
+/// slot and moving the Job in the middle of its answer.
+#[test]
+fn a_loop_a_substitution_that_reads_and_a_sed_of_several_ranges_are_reads() {
+    for read in [
+        r#"cd /repo && ls .github/workflows && for f in .github/workflows/*.yml; do echo "== $f"; grep -nE '^(name:|on:)' "$f" | head -120; done"#,
+        "cd /repo && git show HEAD:docs/practices/ci.md | sed -n '168,180p;228,240p;269,275p'",
+        "cd /repo && f=$(git grep -l 'pub fn reads_only' -- crates/adapters) && echo $f && grep -n 'pub fn reads_only' -A60 $f | head -90",
+        r#"echo "$(git rev-parse HEAD)""#,
+        "echo `git rev-parse HEAD`",
+        "n=$(git log --oneline | wc -l)",
+        "echo $(echo $(pwd))",
+        "if git diff --quiet; then echo clean; else echo dirty; fi",
+        "while true; do git status; done",
+    ] {
+        assert!(reads_only(read), "{read}");
+    }
+    for write in [
+        "for f in *.txt; do rm $f; done",
+        "x=$(git commit -m y)",
+        "echo $(echo $(touch x))",
+        r#"echo "$(git log)" > out"#,
+        "if true; then touch x; fi",
+        "while true; do git push; done",
+        "sed -n '1p;w out' f",
+        "sed -n '1,5p;s/a/b/' f",
+        "echo $(git log",
+        "cat `git log",
+    ] {
+        assert!(!reads_only(write), "{write}");
+    }
+}
+
 #[test]
 fn a_line_that_only_looks_elsewhere_or_asks_the_forge_is_still_a_read() {
     for read in [

@@ -309,9 +309,11 @@ where
         if let Some(why) = faulted("start") {
             return Err(reason_of("new job did not start", &why));
         }
+        // The new Job is for the old one's project, from its start, so it takes the project's values as any Job does.
+        let project = self.started_project(old, hosting.project.clone(), &hosting.manifest_id).await;
         let made = self
             .start_session(StartSession {
-                project: None,
+                project,
                 manifest_id: ManifestId::carried(&hosting.manifest_id),
                 title: session.title.clone(),
                 model: hosting.model.clone(),
@@ -383,7 +385,7 @@ where
         hosting.setup = old.setup;
         hosting.mod_job = old.mod_job;
         hosting.mod_of_bay = old.mod_of_bay;
-        hosting.quick_terminal = old.quick_terminal;
+        hosting.side_job = old.side_job;
         hosting.terminal_dir = old.terminal_dir.clone();
         hosting.project = old.project.clone();
         hosting.from_job = old.from_job.clone();

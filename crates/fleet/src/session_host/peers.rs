@@ -73,7 +73,7 @@ where
                     message.to.session_id = Some(SessionId::carried(&peer.id));
                     message.to.title = peer.title;
                 }
-                SessionRow::Message { from: SessionVoice::Session { id, title }, .. } => {
+                SessionRow::Message { from: SessionVoice::Session { id, title, .. }, .. } => {
                     *title = peer.title.unwrap_or_else(|| address_of(&peer.id));
                     *id = peer.id;
                 }
@@ -87,10 +87,18 @@ where
     /// the agent it hosts and for no terminal Job, so a terminal Job is found by its address only.
     async fn job_named(&self, name: &str) -> Option<Peer> {
         if let Some(hex) = address_hex(name) {
-            let store = self.store().lock().await;
-            let kept = store.sessions_beginning(hex).ok()?;
+            let kept = self.store().lock().await.sessions_beginning(hex).ok()?;
             return match kept.as_slice() {
                 [one] => Some(Peer { id: one.id.clone(), title: one.title.clone() }),
+                // A Job his other Mac holds and shares, whose row names that Mac.
+                [] => {
+                    let held = self.sessions_from_macs().await.ok()?;
+                    let mut named = held.into_iter().filter(|one| address_of(one.id.as_str()) == name);
+                    match (named.next(), named.next()) {
+                        (Some(one), None) => Some(Peer { id: one.id.as_str().to_string(), title: one.title }),
+                        _ => None,
+                    }
+                }
                 _ => None,
             };
         }

@@ -455,7 +455,7 @@ where
         Ok(TerminalScreen { terminal: terminal_id(number), run_id, screen: kept(plain::last_lines(&held, lines)), matched })
     }
 
-    /// A quick terminal's open terminals as their screens stand, for the agent to read ahead of the
+    /// A Side Job's open terminals as their screens stand, for the agent to read ahead of the
     /// person's message: each one's last [`SCREEN_LINES`] lines, kept as `read_terminal` keeps them.
     /// `None` where none is open.
     pub(crate) async fn terminals_shown(&self, session: &str) -> Option<String> {
@@ -470,7 +470,7 @@ where
             return None;
         }
         Some(format!(
-            "This is a quick terminal: the person works in the terminals below and wrote to you about them. \
+            "This is a Side Job: the person works in the terminals below and wrote to you about them. \
              Here is what each shows now. Answer from it, and type into one with type_in_terminal only \
              when the person asks you to.\n\n{}",
             shown.join("\n\n")

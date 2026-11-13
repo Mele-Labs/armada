@@ -1,0 +1,7 @@
+[icons.volume-2]
+  means = "A speaker giving off sound: a Job's result read aloud"
+  group = "Action"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Listen, the chip on a Job's result card in Look that speaks the Job's summary. Never a sound the app plays, never an alert's sound setting, and never the microphone, which is `mic`."
+  notes = "Proposed 13 Nov 2026 for the native walk `native-ways-look`, for the owner to rule on. Listen has nothing to speak with yet, so the chip is drawn off with the tooltip `Listen is not available yet` until it exists."

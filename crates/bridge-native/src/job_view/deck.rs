@@ -11,7 +11,7 @@ use ipc::{
 use super::acts::{button, kbd, refusal, Mode, Tone};
 use std::rc::Rc;
 
-use super::dock::Thing;
+use super::dock::{Pinned, Thing};
 use super::keys::{Card, Run};
 use super::rows::{glyph, mono, tip, Size};
 use super::JobView;
@@ -113,11 +113,17 @@ impl JobView {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn deck(&self, id: &SharedString, key: &str, questions: &[AskedQuestion], can_skip: bool, no_other: bool, source: Source, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn deck(&self, id: &SharedString, key: &str, questions: &[AskedQuestion], can_skip: bool, no_other: bool, source: Source, look: &Look, cx: &Context<Self>) -> Pinned {
+        self.deck_with(id, key, questions, &[], can_skip, no_other, source, look, cx)
+    }
+
+    /// A deck whose options may carry stills: those options are cards above the rows.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn deck_with(&self, id: &SharedString, key: &str, questions: &[AskedQuestion], stills: &[ipc::WaitingOption], can_skip: bool, no_other: bool, source: Source, look: &Look, cx: &Context<Self>) -> Pinned {
         let hue = look.color(token::STEP_WAITING);
         let deck = self.deck_of(id, key, questions.len());
         let front = deck.front.min(questions.len().saturating_sub(1));
-        let Some(question) = questions.get(front) else { return div().into_any_element() };
+        let Some(question) = questions.get(front) else { return Pinned::body(div().into_any_element()) };
         let total = questions.len();
         let last = front + 1 == total;
         let target = self.is_target(&format!("question:{key}"));
@@ -167,6 +173,14 @@ impl JobView {
             .and_then(|n| question.options.get(n).filter(|option| !option.preview.is_empty()).map(|option| (n, option.preview.clone())))
             .and_then(|(n, text)| Some((page?.keys.spot(&format!("answer:{key}:{front}:{n}"), cx).bounds.get(), frame.as_ref()?.bounds.get(), text)))
             .map(|(row, frame, text)| preview_card(&text, row, frame, look));
+        // Options the asker drew as stills show them above the rows; a press on one picks it.
+        let stills_of = stills;
+        let stills = crate::option_pictures::stills(key, stills_of, deck.picked[front].first().copied(), self.port(cx), hue, look, &|n| {
+            let deck_key = key.to_string();
+            Box::new(cx.listener(move |this, _, window, cx| this.deck_pick(&deck_key, front, total, n, multi, window, cx)))
+        }, cx);
+        // A pictured option is its card above; only options in words are rows.
+        let pictured = |n: usize| stills_of.get(n).is_some_and(|option| option.picture.is_some());
         let other_on = deck.other[front];
         let other = (!no_other).then(|| {
             let deck_key = key.to_string();
@@ -229,8 +243,10 @@ impl JobView {
         };
         let skip = can_skip.then(|| {
             let (skip_id, skip_source) = (id.clone(), source.clone());
+            // A question's Skip refuses it, which crosses to the Job's Mac; a waiting item's puts it away, which does not.
+            let away = if matches!(source, Source::Waiting(_)) { self.off_shown(cx) } else { None };
             labelled(
-                button(look, SharedString::from(format!("answer-skip:{key}")), "Skip", Tone::Ghost, false, target.then_some("\u{2325}X"), true)
+                super::acts::gated(button(look, SharedString::from(format!("answer-skip:{key}")), "Skip", Tone::Ghost, false, target.then_some("\u{2325}X"), true), away)
                     .on_click(cx.listener(move |this, _, window, cx| this.deck_skip(&skip_id, &skip_source, window, cx))),
                 Role::Button,
                 "Skip",
@@ -255,24 +271,23 @@ impl JobView {
                 }),
             );
         }
-        let footer = div().flex().items_center().gap(look.length(token::SPACE_2)).child(if last { go } else { next }).children(skip).children(steps);
+        let footer = div().flex().items_center().gap(look.length(token::SPACE_2)).child(if last { go } else { next }).children(skip);
         let typed_box = other_on.then(|| self.box_of(&format!("dock:{key}:{front}"), Mode::Note, "Other", look, cx)).flatten();
         let said = self.dock_of(id).and_then(|dock| dock.said.get(&format!("question:{key}")).cloned());
-        labelled(
+        let body = labelled(
             div()
                 .id(SharedString::from(format!("deck:{key}")))
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_4))
-                .child(div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(question.question.clone())))
+                .children(stills)
                 .child(labelled(
-                    div().id(SharedString::from(format!("options:{key}"))).flex().flex_col().gap(look.length(token::SPACE_2)).children(options).children(other),
+                    div().id(SharedString::from(format!("options:{key}"))).flex().flex_col().gap(look.length(token::SPACE_2)).children(options.into_iter().enumerate().filter(|(n, _)| !pictured(*n)).map(|(_, row)| row)).children(other),
                     Role::Group,
                     "Options",
                 ))
                 .children(typed_box)
                 .children(said.map(|why| refusal(look, key, why)))
-                .child(labelled(footer.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers"))
                 .children(frame.map(|frame| {
                     let drawn = frame.bounds.clone();
                     canvas(
@@ -291,7 +306,13 @@ impl JobView {
             Role::Group,
             question.question.clone(),
         )
-        .into_any_element()
+        .into_any_element();
+        Pinned {
+            stepper: steps.map(IntoElement::into_any_element),
+            head: Some(div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(question.question.clone())).into_any_element()),
+            body,
+            foot: Some(labelled(super::acts::gated(footer.id(SharedString::from(format!("answers:{key}"))), self.off_shown_to("/sessions/waiting/answer", cx)), Role::Toolbar, "Answers").into_any_element()),
+        }
     }
 
     /// The pointer or the keys came onto an option, or left it.
@@ -372,6 +393,13 @@ impl JobView {
     /// `1` to `9` pick that option of the front question, or Other one past the last.
     pub(super) fn pick_digit(&mut self, n: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
+        // With buttons, a number presses that option of the question the keys are on, and answers it.
+        if let Some((item, count)) = self.keyed_row(&id, cx) {
+            if (1..=count).contains(&n) {
+                self.answer_row(&item, n - 1, window, cx);
+            }
+            return;
+        }
         let found = {
             let (things, _) = self.things(&id, cx);
             let detail = self.dock_of(&id).and_then(|dock| dock.detail.clone());

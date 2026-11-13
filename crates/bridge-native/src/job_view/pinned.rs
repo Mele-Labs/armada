@@ -1,5 +1,5 @@
-//! What the thread pins at its foot: Stop (A1.10), the card of the subagents running now (A4.3), and
-//! the card of what the Job waits on that is not the person.
+//! What the thread pins at its foot: Stop (A1.10), the card of the subagents running now (A4.3), the card of
+//! what the Job waits on that is not the person, and the card of what he sent that waits for the Job's Mac.
 
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
 use ipc::{ThreadItem, ToolSubagent, ToolSubagentState};
@@ -10,12 +10,12 @@ use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 
 impl JobView {
-    /// The last card that stands in sight, the subagents running or what the Job waits on, held in sight at the thread's foot while the rows scroll under it
+    /// The last card that stands in sight, the subagents running, what the Job waits on or what waits for its Mac, held in sight at the thread's foot while the rows scroll under it
     /// (`position: sticky; bottom: space-2`): where it stands in the thread it is drawn there, and while that
     /// place is below what is on screen it stands at the foot of the view instead.
     pub(super) fn render_subagents_pin(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
         let page = self.pages.get(id)?;
-        let at = page.extras.iter().rposition(|extra| matches!(extra, super::Extra::Subagents | super::Extra::Waiting))?;
+        let at = page.extras.iter().rposition(|extra| matches!(extra, super::Extra::Subagents | super::Extra::Waiting | super::Extra::WaitsFor))?;
         let item_ix = page.entry(page.items + at);
         let viewport = page.list.viewport_bounds();
         let seen = page.list.bounds_for_item(item_ix).is_some_and(|bounds| bounds.bottom() <= viewport.bottom());
@@ -26,6 +26,7 @@ impl JobView {
         let look = cx.look();
         let card = match page.extras[at] {
             super::Extra::Waiting => self.waiting_card(id, look, cx)?,
+            super::Extra::WaitsFor => self.waits_for_card(id, look, cx)?,
             _ => self.subagents_card(item_ix, &held.items, page, look, cx)?,
         };
         Some(
@@ -51,6 +52,7 @@ impl JobView {
 
     /// Stop: ends what the agent is doing. The Job stays live and its next message resumes it.
     pub(super) fn stop_button(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let off = self.off_shown_to("/sessions/stop", cx);
         labelled(
             div()
                 .id("stop")
@@ -60,10 +62,9 @@ impl JobView {
                 .justify_center()
                 .size(look.length(token::H_CONTROL_SM))
                 .rounded(look.length(token::RADIUS_MD))
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .tooltip(tip("Stop"))
-                .child(glyph(look, "square", Size::Mark, look.color(token::FG_MUTED)))
+                .when(off.is_none(), |button| button.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
+                .tooltip(tip(off.clone().unwrap_or_else(|| "Stop".into())))
+                .child(glyph(look, "square", Size::Mark, look.color(if off.is_some() { token::FG_SUBTLE } else { token::FG_MUTED })))
                 // The head's Stop, so both answer at once and a refusal is put back in one place.
                 .on_click(cx.listener(|this, _, window, cx| {
                     cx.stop_propagation();

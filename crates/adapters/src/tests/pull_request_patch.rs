@@ -13,8 +13,8 @@ fn lines(records: &[&str]) -> Vec<String> {
 #[test]
 fn a_patch_keeps_its_newlines() {
     let said = lines(&[
-        "a.rs\t+\t@@ -1 +1 @@\\n-old\\n+new",
-        "b.rs\t+\t@@ -2 +2 @@\\n-x\\n+y",
+        "a.rs\t\t+\t@@ -1 +1 @@\\n-old\\n+new",
+        "b.rs\t\t+\t@@ -2 +2 @@\\n-x\\n+y",
     ]);
     assert_eq!(
         folded(listed(&said), "b.rs"),
@@ -24,7 +24,7 @@ fn a_patch_keeps_its_newlines() {
 
 #[test]
 fn a_file_with_no_patch_is_not_empty() {
-    let said = lines(&["logo.png\t-\t", "empty.txt\t+\t"]);
+    let said = lines(&["logo.png\t\t-\t", "empty.txt\t\t+\t"]);
     assert_eq!(folded(listed(&said), "logo.png"), FilePatch::NoPatch);
     assert_eq!(folded(listed(&said), "empty.txt"), FilePatch::Patch(String::new()));
 }
@@ -32,14 +32,14 @@ fn a_file_with_no_patch_is_not_empty() {
 #[test]
 fn an_unlisted_path_is_no_such_file() {
     assert_eq!(
-        folded(listed(&lines(&["a.rs\t+\t@@ -1 +1 @@"])), "z.rs"),
+        folded(listed(&lines(&["a.rs\t\t+\t@@ -1 +1 @@"])), "z.rs"),
         FilePatch::NoSuchFile
     );
 }
 
 #[test]
 fn a_tab_in_a_patch_stays_one_field() {
-    let said = lines(&["Makefile\t+\t@@ -1 +1 @@\\n+\\tcc"]);
+    let said = lines(&["Makefile\t\t+\t@@ -1 +1 @@\\n+\\tcc"]);
     assert_eq!(
         folded(listed(&said), "Makefile"),
         FilePatch::Patch("@@ -1 +1 @@\n+\tcc".into())
@@ -49,17 +49,25 @@ fn a_tab_in_a_patch_stays_one_field() {
 #[test]
 fn every_file_is_listed_in_the_forges_order() {
     let said = lines(&[
-        "z.rs\t+\t@@ -1 +1 @@\\n-a\\n+b",
-        "logo.png\t-\t",
+        "z.rs\t\t+\t@@ -1 +1 @@\\n-a\\n+b",
+        "logo.png\t\t-\t",
         "not a record",
-        "a.rs\t+\t",
+        "a.rs\t\t+\t",
     ]);
     assert_eq!(
         listed(&said),
         vec![
-            PatchedFile { path: "z.rs".into(), patch: Some("@@ -1 +1 @@\n-a\n+b".into()) },
-            PatchedFile { path: "logo.png".into(), patch: None },
-            PatchedFile { path: "a.rs".into(), patch: Some(String::new()) },
+            PatchedFile { path: "z.rs".into(), patch: Some("@@ -1 +1 @@\n-a\n+b".into()), blob: None },
+            PatchedFile { path: "logo.png".into(), patch: None, blob: None },
+            PatchedFile { path: "a.rs".into(), patch: Some(String::new()), blob: None },
         ]
     );
+}
+
+#[test]
+fn each_file_keeps_the_forges_blob_for_its_content() {
+    let said = lines(&["a.rs\t3f1c9e\t+\t@@ -1 +1 @@", "gone.rs\t\t-\t"]);
+    let files = listed(&said);
+    assert_eq!(files[0].blob.as_deref(), Some("3f1c9e"));
+    assert_eq!(files[1].blob, None);
 }

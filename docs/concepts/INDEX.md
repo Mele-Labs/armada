@@ -14,6 +14,7 @@ assuming it is restated here.
 
 | Concept | What it is |
 |---|---|
+| [artifact.md](artifact.md) | A sketch, a draft or a page a Job made, read as one record with its revisions and where its newest stands |
 | [account.md](account.md) | The GitHub account a machine signs in to, the profiles it joins, and what each profile syncs |
 | [bridge.md](bridge.md) | The Electron command-center shell — Armada's only engineer-facing surface |
 | [cockpit.md](cockpit.md) | Bridge's first tab: the flight deck, with every Job, the calls waiting on a person, the worktree slots and the merge queue on one screen |

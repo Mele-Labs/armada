@@ -191,6 +191,8 @@ mod protocol_id;
 mod pull_requests;
 /// The pull requests waiting on a person as four lists, and the acts of a review on one.
 mod pull_reviews;
+/// What Fleet remembers of a pull request for the person between visits, and his Reviews layouts.
+mod pull_review_memory;
 /// Fleet's last read of `armada.yml`, held rather than announced. **The one shape here about the
 /// fleet and not about a Job**, beside `capacity`. What a scout answers a read-in with. `#1293`.
 mod read_in;
@@ -271,6 +273,8 @@ mod macs;
 mod mac_acts;
 mod show_file;
 mod package_manifest;
+/// A Job's sketches, drafts and pages as one record. `get_job_artifacts`.
+mod artifact;
 mod sketch;
 /// A sketch's scene read whole, as a client draws it.
 mod sketch_scene;
@@ -452,7 +456,7 @@ pub use hosted_sessions::{
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SentSketch, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionSubagentChanged, SessionTag,
     SetSessionWorkflow, SkipSessionStep, JumpSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolMessage, MessagePeer, ToolSubagent, ToolSubagentState,
-    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SnoozeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
+    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SnoozeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, SetSessionProject, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession, MessageReach, MessageTo,
 };
 pub use session_mcp::{
@@ -577,6 +581,11 @@ pub use pull_reviews::{
     PullReviewRow, PullReviewThread, PullReviewThreadComment, PullThreadResolved,
     ResolvePullThread, MOST_PER_LIST,
 };
+pub use pull_review_memory::{
+    MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview,
+    PullRequestCompare, PullRequestCompareOf, PullSeen, PullSinceMyReview, PullViewedFile, ReviewLayout, ReviewLayouts,
+    SaveReviewLayout, UnmarkFileViewed, DEFAULT_REVIEW_LAYOUT,
+};
 pub use read_in::{
     what_a_scout_read_in, ReadIn, ReadInCluster, ReadInContradiction, ReadInNote,
     ReadInRelation, MOST_CHARACTERS, MOST_CLUSTERS, MOST_CONTRADICTIONS, MOST_NOTES,
@@ -638,6 +647,7 @@ pub use review_runs::{
     ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity,
     ReviewStep, ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut, ReviewTourStop,
     ReviewToolScope, ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
+    COMMENT_AT_MOST, COMMENT_SENTENCES_AT_MOST,
 };
 pub use pull_request_notes::{
     NoteSide, NoteStatus, PullRequestNote, PullRequestNotes, ResolvePullRequestNote, SavePullRequestNote,
@@ -693,7 +703,7 @@ pub use phone::{
     CloudflareSignIn, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone, PhoneGateway, Served, SetPhoneGateway,
     TailscaleState,
 };
-pub use mac_acts::{DispatchOn, JobAct, MacAct, Queued, QueuedList, StartOn, TakeBack};
+pub use mac_acts::{DispatchOn, JobAct, JobMessage, MacAct, Queued, QueuedList, StartOn, TakeBack};
 pub use macs::{ClaimMacLink, MacNamed, MacPairLink, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions};
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
@@ -701,6 +711,7 @@ pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
 };
+pub use artifact::{ArtifactBy, ArtifactForm, ArtifactRevision, ArtifactState, JobArtifact};
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
@@ -747,7 +758,7 @@ pub use needs_you::{
 };
 pub use draft_document::{ConvertDraftToDocument, DraftDocument};
 pub use pre_pr::{CheckBeforePr, PrePrCheckRan, PrePrChecked};
-pub use terminals::{StartTerminalJob, TerminalJobStarted};
+pub use terminals::{StartSideJob, SideJobStarted};
 pub use terminals::{
     JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, ShowTerminal, StartTerminalRun, TerminalScreen,
     TerminalTyped, TypeInTerminal,

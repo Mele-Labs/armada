@@ -104,12 +104,12 @@ pub use pull_reading::{PullQueue, FollowedCheck, FollowedPull, FollowedPulls};
 pub use backlog::{Backlog, BeadState, CopyMark};
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use pull_request_detail::{
-    CheckRow, CheckStanding, CommitLine, FileChange, FilePatch, Mergeability, Omitted, PageFile,
+    CheckRow, CheckStanding, CommitLine, ComparedPatches, FileChange, FilePatch, Mergeability, Omitted, PageFile,
     PatchedFile, PullRequestPageFacts, PullRequestWrite, ReviewSaid, ReviewStanding, Reviewer,
     ReviewerKind, Said,
 };
 pub use pull_review::{
-    DiffSide, ListedChecks, ListedPull, ReviewComment, ReviewList, ReviewListAsk, ReviewThreadFacts,
+    DiffSide, LatestReview, LatestReviewSaid, ListedChecks, ListedPull, ReviewComment, ReviewList, ReviewListAsk, ReviewThreadFacts,
     ThreadSaid,
 };
 pub use request::{

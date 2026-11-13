@@ -621,7 +621,7 @@ impl JobView {
                     "Suggest",
                 ))
                 .child(labelled(
-                    button(look, SharedString::from(format!("plan-not-yet:{key}")), "Not yet", Tone::Secondary, false, chip("\u{2325}R"), true).on_click(cx.listener(
+                    super::acts::gated(button(look, SharedString::from(format!("plan-not-yet:{key}")), "Not yet", Tone::Secondary, false, chip("\u{2325}R"), true), self.off_shown(cx)).on_click(cx.listener(
                         move |this, _, window, cx| {
                             let session_id = SessionId::carried(this.shown.clone().unwrap_or_default().to_string());
                             let body = encoded(&DismissWaiting { session_id, item_id: format!("plan:{version}"), reason: None, misread: false });
@@ -639,7 +639,7 @@ impl JobView {
         }
         let row = row.child(self.judge_press(ix, key, super::judge::plan_artifact(version), reading, page, look, cx));
         column
-            .child(labelled(row.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers"))
+            .child(labelled(super::acts::gated(row.id(SharedString::from(format!("answers:{key}"))), self.off_shown_to("/sessions/plan/approve", cx)), Role::Toolbar, "Answers"))
             .into_any_element()
     }
 

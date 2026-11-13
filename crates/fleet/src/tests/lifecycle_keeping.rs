@@ -94,6 +94,7 @@ async fn a_job_started_now_takes_on_its_tickets_and_the_pull_request_for_them_an
 
 fn page(review: ReviewStanding, reviewers: Vec<Reviewer>) -> PullRequestPageFacts {
     PullRequestPageFacts {
+        latest_reviews: Default::default(),
         base: "main".into(),
         author: Some("author".into()),
         created_at: None,

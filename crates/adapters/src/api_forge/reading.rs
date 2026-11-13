@@ -31,6 +31,8 @@ pub(crate) struct Pull {
     number: Option<u64>,
     title: Option<String>,
     auto_merge_request: Option<serde::de::IgnoredAny>,
+    is_draft: Option<bool>,
+    review_decision: Option<String>,
     head_ref_name: Option<String>,
     url: Option<String>,
     head_ref_oid: Option<String>,
@@ -118,6 +120,8 @@ pub(crate) fn followed_pull_of(pull: Pull, gate: &str) -> Option<FollowedPull> {
             checks,
             title: pull.title.unwrap_or_default(),
             auto_merge: pull.auto_merge_request.is_some(),
+            draft: pull.is_draft.unwrap_or(false),
+            review: pull.review_decision.unwrap_or_default(),
         },
         gate,
     ))

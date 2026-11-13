@@ -1,7 +1,7 @@
 //! What jq prints for a list of pull requests waiting on a person, read as rows, and the search
 //! each list asks the forge. The forge is never called.
 
-use adapter_traits::{ListedChecks, ReviewList, ReviewListAsk, ReviewStanding};
+use adapter_traits::{LatestReview, LatestReviewSaid, ListedChecks, ReviewList, ReviewListAsk, ReviewStanding};
 
 use crate::pull_review_lists::{listed_folded, search_of, Teams};
 
@@ -146,4 +146,21 @@ fn a_search_that_would_not_stay_inside_the_served_repositories_is_not_asked() {
     let mut loose = ask(ReviewList::Mine, &repositories);
     loose.login = "me author:other";
     assert_eq!(search_of(&loose), None);
+}
+
+#[test]
+fn a_row_carries_the_persons_own_latest_review_and_a_pending_one_is_none() {
+    let reviewed = format!("{}\tCHANGES_REQUESTED\t{SHA}\t2026-10-22T04:30:00Z", row("", "", ""));
+    let pending = format!("{}\tPENDING\t{SHA}", row("", "", ""));
+    let rows = listed_folded(&[reviewed, pending, row("", "", "")], Teams::Unwanted);
+    assert_eq!(
+        rows[0].my_latest,
+        Some(LatestReview {
+            said: LatestReviewSaid::ChangesRequested,
+            commit: Some(SHA.to_string()),
+            submitted_at: Some("2026-10-22T04:30:00Z".to_string()),
+        })
+    );
+    assert_eq!(rows[1].my_latest, None);
+    assert_eq!(rows[2].my_latest, None);
 }

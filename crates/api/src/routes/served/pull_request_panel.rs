@@ -119,4 +119,44 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/review_walks/:repository/:id/close",
     },
+    Route {
+        operation: "mark_pull_request_seen",
+        method: "POST",
+        path: "/pull_request_seen/:repository",
+    },
+    Route {
+        operation: "mark_file_viewed",
+        method: "POST",
+        path: "/pull_request_viewed/:repository",
+    },
+    Route {
+        operation: "unmark_file_viewed",
+        method: "POST",
+        path: "/pull_request_viewed/:repository/unmark",
+    },
+    Route {
+        operation: "get_pull_request_compare",
+        method: "GET",
+        path: "/pull_request_compares/:repository/:number",
+    },
+    Route {
+        operation: "list_review_layouts",
+        method: "GET",
+        path: "/review_layouts",
+    },
+    Route {
+        operation: "save_review_layout",
+        method: "POST",
+        path: "/review_layouts",
+    },
+    Route {
+        operation: "delete_review_layout",
+        method: "POST",
+        path: "/review_layouts/delete",
+    },
+    Route {
+        operation: "pick_review_layout",
+        method: "POST",
+        path: "/review_layouts/pick",
+    },
 ];

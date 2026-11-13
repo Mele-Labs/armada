@@ -79,13 +79,27 @@ pub async fn post_bare(port: u16, path: &str) -> Result<(u16, Vec<u8>), String> 
     send_post(port, path, None, ANSWER_PATIENCE).await
 }
 
+/// PUT `body`, JSON already encoded, to `path`; the status and the bytes, nothing interpreted.
+pub async fn put(port: u16, path: &str, body: String) -> Result<(u16, Vec<u8>), String> {
+    send("PUT", port, path, Some(body), ANSWER_PATIENCE).await
+}
+
+/// DELETE `path`, with no body; the status and the bytes, nothing interpreted.
+pub async fn delete(port: u16, path: &str) -> Result<(u16, Vec<u8>), String> {
+    send("DELETE", port, path, None, ANSWER_PATIENCE).await
+}
+
 async fn send_post(port: u16, path: &str, body: Option<String>, patience: Duration) -> Result<(u16, Vec<u8>), String> {
+    send("POST", port, path, body, patience).await
+}
+
+async fn send(method: &str, port: u16, path: &str, body: Option<String>, patience: Duration) -> Result<(u16, Vec<u8>), String> {
     let io = TokioIo::new(connect(port).await?);
     let (mut sender, connection) =
         hyper::client::conn::http1::handshake(io).await.map_err(|why| why.to_string())?;
     tokio::spawn(connection);
     let request = Request::builder()
-        .method("POST")
+        .method(method)
         .uri(path)
         .header(HOST, format!("127.0.0.1:{port}"))
         .header(CALLER.0, CALLER.1);
