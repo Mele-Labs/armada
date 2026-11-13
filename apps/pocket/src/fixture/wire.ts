@@ -746,6 +746,38 @@ export function fixtureMacs(
     context_tokens: 38_200,
     context_window: WINDOW,
   });
+  // A second Job the planner started, and one the Draft screen's Job started in turn.
+  const sibling = phone({
+    id: "c2",
+    title: "Write the Draft screen copy",
+    repository: "armada",
+    kind: "hosted",
+    waiting: true,
+    working: false,
+    started_at: ago(now, 16),
+    waiting_since: ago(now, 5),
+    from: {
+      id: "p1",
+      title: parent.title!,
+    },
+    context_tokens: 22_800,
+    context_window: WINDOW,
+  });
+  const grandchild = phone({
+    id: "c3",
+    title: "Measure the Draft screen on a phone",
+    repository: "armada",
+    kind: "hosted",
+    waiting: false,
+    working: true,
+    started_at: ago(now, 9),
+    from: {
+      id: "c1",
+      title: child.title!,
+    },
+    context_tokens: 12_400,
+    context_window: WINDOW,
+  });
   const restart = phone({
     id: "r1",
     title: "Move Fleet to the preview",
@@ -1422,6 +1454,60 @@ export function fixtureMacs(
     ],
   };
 
+  const c2: SessionThread = {
+    session: record(now, "c2", sibling.title!, 16, {
+      started: {
+        by: {
+          id: "p1",
+          title: parent.title!,
+        },
+      },
+      waiting_for: [
+        {
+          id: "copy",
+          text: "Pick the Draft screen's empty line",
+          since: ago(now, 5),
+          source: "agent",
+          act: {
+            kind: "answer",
+            target: "copy",
+          },
+          options: [
+            {
+              label: "No text",
+            },
+            {
+              label: "Nothing drafted",
+            },
+          ],
+        },
+      ],
+    }),
+    rows: [
+      message("c2-1", ago(now, 16), "agent", "Writing the Draft screen's copy."),
+    ],
+  };
+  const c3: SessionThread = {
+    session: record(now, "c3", grandchild.title!, 9, {
+      hosted: {
+        turn: {
+          state: "working",
+        },
+        mode: "auto",
+        running: true,
+      },
+      started: {
+        by: {
+          id: "c1",
+          title: child.title!,
+        },
+      },
+    }),
+    rows: [
+      message("c3-1", ago(now, 9), "agent", "Measuring the Draft screen at 390 wide."),
+    ],
+  };
+
   const b1: SessionThread = {
     session: record(now, "b1", plan.title!, 90, {
       manifest_id: "store",
@@ -1436,23 +1522,28 @@ export function fixtureMacs(
       ],
       plan: {
         version: 1,
-        summary: "The pool is called slots everywhere.",
+        summary:
+          "The pool is called slots everywhere: in the crate, in what Bridge says and in the docs. Nothing behaves differently; a slot is the same thing it was.",
         recorded_at: ago(now, 40),
         approved: false,
         scope: [
           "crates/pool",
+          "apps/desktop/src",
+          "docs/concepts",
         ],
         groups: [
           {
             id: "g1",
             agent: "rust",
             title: "Rename in the crate",
+            gives: "The crate and its tests say slot",
             paths: [
               "crates/pool",
             ],
             lands_in: {
               label: "PR 1",
             },
+            gate: "checks_green",
             tasks: [
               {
                 id: "t1",
@@ -1462,6 +1553,52 @@ export function fixtureMacs(
               {
                 id: "t2",
                 text: "Rename the tests",
+                state: "open",
+              },
+            ],
+          },
+          {
+            id: "g2",
+            agent: "bridge-engineer",
+            title: "Rename in Bridge",
+            gives: "Every screen says slot where it said pool",
+            paths: [
+              "apps/desktop/src",
+            ],
+            lands_in: {
+              label: "PR 1",
+            },
+            gate: "walk_approved",
+            tasks: [
+              {
+                id: "t3",
+                text: "Rename the labels and tooltips",
+                state: "open",
+              },
+              {
+                id: "t4",
+                text: "Walk the Slots page",
+                state: "open",
+              },
+            ],
+          },
+          {
+            id: "g3",
+            agent: "docs-writer",
+            title: "Rename in the docs",
+            gives: "The docs say slot, with the old word named once",
+            paths: [
+              "docs/concepts",
+            ],
+            lands_in: {
+              label: "PR 2",
+            },
+            own_job: true,
+            gate: "merged",
+            tasks: [
+              {
+                id: "t5",
+                text: "Rename the concept page",
                 state: "open",
               },
             ],
@@ -1478,6 +1615,36 @@ export function fixtureMacs(
         version: 1,
       },
     ],
+  };
+
+  // A Job longer than one read: the phone opens on its newest rows and reads the rest as he scrolls up.
+  const long = phone({
+    id: "b4",
+    title: "Trace every slot lease",
+    repository: "store",
+    kind: "hosted",
+    waiting: false,
+    working: false,
+    started_at: ago(now, 300),
+  });
+  const b4: SessionThread = {
+    session: record(now, "b4", long.title!, 300, {
+      manifest_id: "store",
+    }),
+    rows: Array.from(
+      {
+        length: 450,
+      },
+      (_, at) =>
+        at % 3 === 0
+          ? message(
+              `b4-${at}`,
+              ago(now, 300 - at * 0.6),
+              at % 6 === 0 ? "you" : "agent",
+              `Turn ${at + 1} of 450.`,
+            )
+          : tool(`b4-${at}`, ago(now, 300 - at * 0.6), `Read crates/pool/src/lease_${at}.rs`),
+    ),
   };
 
   const b2: SessionThread = {
@@ -1802,6 +1969,7 @@ ${Array.from(
       needs: [
         review,
         draft,
+        sibling,
         restart,
         asked,
         landing,
@@ -1818,6 +1986,8 @@ ${Array.from(
         closing,
         parent,
         child,
+        grandchild,
+        sibling,
         showed,
         after,
         finished,
@@ -1832,6 +2002,8 @@ ${Array.from(
         p1,
         c0,
         c1,
+        c2,
+        c3,
         r1,
         l1,
         s1,
@@ -1880,12 +2052,14 @@ ${Array.from(
         plan,
         describe,
         reading,
+        long,
         afterPlan,
       ],
       threads: {
         w2,
         b1,
         b2,
+        b4,
         b3,
       },
       kept: {},
