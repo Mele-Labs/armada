@@ -7,7 +7,7 @@ use super::{press_on, step, Step, Verb};
 /// The switcher on a wide bar, its rows in the menu on a narrow one: either way Find has the keys.
 const SWITCHER: Verb = Verb::PressOnFirst(&[("button", "Project"), ("button", "Menu")]);
 
-pub static STEPS: [Step; 52] = [
+pub static STEPS: [Step; 54] = [
     step("The project switcher, or below 900 the menu that holds its rows: the keys are in Find", SWITCHER, "searchbox", "Find a project"),
     step("Typing narrows it to New project", Verb::Keys(&["n", "e", "w"]), "searchbox", "Find a project"),
     step("Enter opens the sheet over the window, the keys in Name", Verb::Key("enter"), "textbox", "Name"),
@@ -47,6 +47,8 @@ pub static STEPS: [Step; 52] = [
     step("Where more match than the list shows, it ends on a line that says so", Verb::Wheel("dialog", "New project", 240), "status", "More match. Type more to narrow it."),
     step("Cleared", Verb::Keys(&["cmd-a", "backspace"]), "textbox", "Repository to clone"),
     step("Where GitHub will not list, its sentence stands where the repositories would", Verb::Typed("offline"), "status", "GitHub has no token for this machine. Run gh auth login, then open it again."),
+    step("The sentence is no line: ↓ from the box passes it to New empty repository", Verb::Keys(&["down"]), "button", "New empty repository"),
+    press_on("A press in the box brings the keys back", "textbox", "Repository to clone", "textbox", "Repository to clone"),
     step("Cleared", Verb::Keys(&["cmd-a", "backspace"]), "textbox", "Repository to clone"),
     step("A URL or owner and name", Verb::Typed("github.com/acme/billing"), "textbox", "Repository to clone"),
     step("It clones into the folder his repositories are in, or another he picks", Verb::Look, "button", "Folder to clone into"),

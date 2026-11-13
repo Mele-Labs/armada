@@ -236,6 +236,9 @@ const MOCK_DEEP_FOLDERS: [(&str, &[&str]); 1] = [(
 
 impl Mock {
     pub fn new() -> Mock {
+        // A walk has no Fleet to say how he reads a time (fleet.rs holds its answer on connect), so the mock says it: a
+        // 12-hour clock with no seconds, as every other stamp on his screen is drawn.
+        crate::settings::time::hold(r#"{"hour12":true,"seconds":false,"date":false}"#);
         Mock {
             served: crate::mock::repositories(),
             areas: crate::mock::repository_areas(),

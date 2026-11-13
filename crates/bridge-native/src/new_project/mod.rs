@@ -706,14 +706,20 @@ impl NewProjectSheet {
                 if plain
                     && (self.boxes.find.focus_handle(cx).is_focused(window)
                         || self.boxes.folders.focus_handle(cx).is_focused(window)
-                        || (self.boxes.clone.focus_handle(cx).is_focused(window) && !self.forge_rows(cx).is_empty())) =>
+                        || (self.clone_open && self.boxes.clone.focus_handle(cx).is_focused(window))) =>
             {
-                // Out of a search, the keys land on its first folder, or on the first repository the Clone search found.
+                // Out of a search, the keys land on the next line of the list: its first folder, or the first
+                // repository the Clone search found. A refusal or a cut line is no line, so the keys pass it.
                 let lines = self.lines(cx);
                 if self.boxes.folders.focus_handle(cx).is_focused(window) {
-                    self.active = lines.iter().position(|line| matches!(line, Line::Folder { .. })).unwrap_or(0);
+                    // No folder found (Fleet refused, or nothing matches): the line after the opened repository's own.
+                    self.active = lines
+                        .iter()
+                        .position(|line| matches!(line, Line::Folder { .. }))
+                        .or_else(|| lines.iter().position(|line| matches!(line, Line::Whole(_))).map(|at| at + 1))
+                        .unwrap_or(0);
                 } else if self.boxes.clone.focus_handle(cx).is_focused(window) {
-                    self.active = lines.iter().position(|line| matches!(line, Line::Forge(_))).unwrap_or(0);
+                    self.active = lines.iter().position(|line| matches!(line, Line::Forge(_))).or_else(|| lines.iter().position(|line| *line == Line::New)).unwrap_or(0);
                 } else {
                     self.active = 0;
                 }
@@ -1305,6 +1311,46 @@ mod tests {
             assert!(sheet.forge_rows(cx).is_empty());
             sheet.forge_answered("ac".into(), wire::Forge::Down, cx);
             assert_eq!(sheet.forge_refusal(cx), None, "out of reach says nothing");
+        });
+    }
+
+    fn down(sheet: &mut NewProjectSheet, window: &mut Window, cx: &mut Context<NewProjectSheet>) {
+        let keystroke = gpui::Keystroke::parse("down").expect("a key");
+        sheet.intercepted(&KeyDownEvent { keystroke, is_held: false, prefer_character_input: false }, window, cx);
+    }
+
+    #[gpui::test]
+    fn down_from_the_clone_box_passes_a_refusal_and_lands_on_new_empty_repository(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = forged(cx, "ac");
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.forge_answered("ac".into(), wire::Forge::Refused("GitHub has no token for this machine.".into()), cx);
+            window.focus(&sheet.boxes.clone.focus_handle(cx), cx);
+            down(sheet, window, cx);
+            assert_eq!(sheet.lines(cx).get(sheet.active), Some(&Line::New), "the refusal is no line to land on");
+            assert!(sheet.at.list.is_focused(window));
+        });
+        sheet.update_in(cx, |sheet, window, cx| {
+            let found = ipc::ForgeRepositories { repositories: vec![repository("acme", "billing", None)], cut: true };
+            sheet.forge_answered("ac".into(), wire::Forge::Found(found), cx);
+            window.focus(&sheet.boxes.clone.focus_handle(cx), cx);
+            down(sheet, window, cx);
+            assert_eq!(sheet.lines(cx).get(sheet.active), Some(&Line::Forge(0)), "a found repository is a line");
+            let keystroke = gpui::Keystroke::parse("down").expect("a key");
+            sheet.list_key(&KeyDownEvent { keystroke, is_held: false, prefer_character_input: false }, window, cx);
+            assert_eq!(sheet.lines(cx).get(sheet.active), Some(&Line::New), "and the cut foot is passed the same way");
+        });
+    }
+
+    #[gpui::test]
+    fn down_from_the_folder_box_passes_a_refusal_to_the_line_after_the_opened_repository(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = sheet(cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.folders_answered(ask("chk"), wire::Folders::Refused("/Users/user/Development/sample-web is not a folder on this machine".into()), cx);
+            window.focus(&sheet.boxes.folders.focus_handle(cx), cx);
+            down(sheet, window, cx);
+            let lines = sheet.lines(cx);
+            let whole = lines.iter().position(|line| matches!(line, Line::Whole(_))).expect("opened");
+            assert_eq!(sheet.active, whole + 1, "the refusal is no line to land on");
         });
     }
 }
