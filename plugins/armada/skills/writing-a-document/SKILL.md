@@ -133,9 +133,13 @@ repository with no styles. The `show_sketch` tool describes them.
 **For a screen or component of a repository with styles, use `kind: "mock"`.**
 It is HTML in a sealed frame `w` wide, drawn with the repository's own
 stylesheets, and it sits on the canvas like any node, beside arrows and tables.
-Write `html` with the app's real class names, read from the component's markup
-and stylesheet, because a mock is only as true as the markup typed for it.
-`get_style_sources` lists the stylesheets closest to your work, and `styles` and
+Write `html` with the app's real class names, because a mock is only as true as
+the markup typed for it. **Call `get_design_catalogue` before the first mock**,
+rather than reading stylesheets: one call answers the repository's tokens by
+role with each theme's value, its components with their classes and a markup
+sample, the glyphs a mock may name and the house patterns it keeps. Ask for one
+`area`, narrowed with `match`, such as `tokens` with `--space`, or `components`
+with `settings`. `get_style_sources` lists the stylesheets closest to your work, and `styles` and
 `css` are optional: the tool describes both. A mock that cannot be styled is
 named in the same notice as a bad scene. A mock is a still picture, so what the
 person must press and move through is a walk.

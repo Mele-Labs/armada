@@ -1263,12 +1263,10 @@ fn log_day(head: &str) -> String {
         .map_or_else(|| head.to_string(), |date| date.format("%A %-d %B").to_string())
 }
 
-/// A time to the minute, as the page reads it: `12:47`, with the day when it is not today (`Nov 10 16:00`).
-/// The thread's clock carries seconds; a page of what happened today does not need them.
+/// A time as the page reads it, in his clock: `12:47:30`, with the day when it is not today (`Nov 10 16:00:00`).
 pub(super) fn minute(at: &str, now: chrono::DateTime<chrono::Local>) -> Option<String> {
     let then = chrono::DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&chrono::Local);
-    let time = then.format("%H:%M").to_string();
-    Some(if then.date_naive() == now.date_naive() { time } else { format!("{} {time}", then.format("%b %-d")) })
+    Some(crate::settings::time::stamp_of(then, crate::settings::time::held(), now))
 }
 
 /// A rule as the sketch writes it: where it holds, then the rule, its first letter small after the colon.
@@ -1317,7 +1315,7 @@ impl Render for OperatorPageView {
             .text_size(look.length(token::TEXT_SM));
         let top = div().flex_none().border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).child(self.head(look, cx));
         let Some(page) = self.page.as_ref() else {
-            return root.child(top).child(self.skeleton(look)).into_any_element();
+            return root.child(top).child(self.skeleton(look)).child(self.composer.clone()).into_any_element();
         };
         let off = (!page.on).then(|| self.off(look, cx));
         let mut parts: Vec<AnyElement> = vec![self.turn_head(look).into_any_element()];
@@ -1326,6 +1324,10 @@ impl Render for OperatorPageView {
         let (queue, card_at) = self.queue(look, cx);
         let card_at = card_at.map(|at| at + parts.len());
         parts.extend(queue);
+        // The ideas the Operator kept stand under Your turn; with none kept they draw nothing.
+        if self.parked.read(cx).draws() {
+            parts.push(self.parked.clone().into_any_element());
+        }
         // A key or an answer that moves the card scrolls it into view; a press is already on it.
         if std::mem::take(&mut self.reveal) {
             if let Some(at) = card_at {
@@ -1355,6 +1357,7 @@ impl Render for OperatorPageView {
         root.relative()
             .child(top.children(self.top_line(page, look)))
             .child(div().flex_1().min_h_0().flex().child(main).child(side(look).id("operator-side").overflow_y_scroll().child(aside)))
+            .child(self.composer.clone())
             .children(sheet)
             .children(log)
             .children(self.later_menu.as_ref().map(|(menu, _)| menu.clone()))
@@ -1616,14 +1619,16 @@ mod tests {
     }
 
     #[test]
-    fn a_time_reads_to_the_minute_with_its_day_when_not_today() {
+    fn a_time_reads_in_his_clock_with_its_day_when_not_today() {
         let now = chrono::DateTime::parse_from_rfc3339("2026-11-11T13:05:00-05:00").expect("a time").with_timezone(&chrono::Local);
         let at = |rfc: &str| chrono::DateTime::parse_from_rfc3339(rfc).expect("a time").with_timezone(&chrono::Local);
         let today = at("2026-11-11T12:47:30-05:00");
         let before = at("2026-11-10T16:00:00-05:00");
+        crate::settings::time::hold(r#"{"hour12":false,"seconds":false,"date":false}"#);
         assert_eq!(minute(&today.to_rfc3339(), now).as_deref(), Some(today.format("%H:%M").to_string().as_str()));
         assert_eq!(minute(&before.to_rfc3339(), now), Some(before.format("%b %-d %H:%M").to_string()));
-        assert!(!minute(&today.to_rfc3339(), now).unwrap_or_default().contains(":30"), "no seconds");
+        crate::settings::time::hold(r#"{"hour12":true,"seconds":true,"date":false}"#);
+        assert_eq!(minute(&today.to_rfc3339(), now).as_deref(), Some(today.format("%-I:%M:%S %p").to_string().as_str()));
     }
 
     #[test]

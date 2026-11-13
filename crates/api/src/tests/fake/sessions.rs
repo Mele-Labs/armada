@@ -20,6 +20,7 @@ impl Sessions for FakeDaemon {
         let at = ipc::Instant::carried("2026-10-06T09:00:00.000Z");
         Ok(SessionRecord {
             id: report.session_id,
+            mac: None,
             harness: report.harness,
             origin: SessionOrigin::Terminal,
             manifest_id: None,
@@ -577,6 +578,15 @@ impl Sessions for FakeDaemon {
         Ok(ipc::StyleSources { sources: Vec::new(), start: path, packages: Vec::new() })
     }
 
+    async fn get_design_catalogue(
+        &self,
+        _caller: Option<crate::Caller>,
+        _session_id: Option<ipc::SessionId>,
+        _asked: ipc::CatalogueAsked,
+    ) -> Result<ipc::DesignCatalogue, Refusal> {
+        Ok(ipc::DesignCatalogue::default())
+    }
+
     async fn get_kept_styles(&self, hash: String) -> Result<ipc::KeptStyles, Refusal> {
         Err(Refusal::NotFound(ipc::WireError::raised(
             "fleet.no_such_kept_styles",
@@ -751,6 +761,7 @@ impl Sessions for FakeDaemon {
     async fn keep_bug_report(&self, report_id: String) -> Result<ipc::BugReport, Refusal> {
         Ok(ipc::BugReport {
             id: report_id,
+            mac: None,
             session_id: String::from("session"),
             job_title: String::new(),
             title: String::from("Title"),

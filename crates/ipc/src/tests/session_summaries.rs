@@ -31,6 +31,7 @@ fn held(kind: &str, target: &str, state: AttachmentState, detail: &[(&str, &str)
 fn session(attachments: Vec<Attachment>) -> SessionRecord {
     SessionRecord {
         id: SessionId::carried("s1"),
+        mac: None,
         harness: "a-harness".to_string(),
         origin: SessionOrigin::Terminal,
         manifest_id: Some(ManifestId::carried("armada")),

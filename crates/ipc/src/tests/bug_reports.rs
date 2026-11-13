@@ -5,6 +5,7 @@ use crate::{decode, encode, BugFixed, BugReport, Instant};
 fn report(kept: Option<Instant>) -> BugReport {
     BugReport {
         id: "b1".into(),
+        mac: None,
         session_id: "s1".into(),
         job_title: "Build the report call".into(),
         title: "Preview restart drops the lease".into(),

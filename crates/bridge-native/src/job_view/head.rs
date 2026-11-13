@@ -106,7 +106,7 @@ impl Head {
 }
 
 /// A sentence a menu entry or tooltip says.
-pub(super) fn tip(said: SharedString) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
+pub(crate) fn tip(said: SharedString) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
     move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx)
 }
 
@@ -121,7 +121,7 @@ pub(super) fn below_left(bounds: Bounds<Pixels>) -> Point<Pixels> {
 }
 
 /// A quiet icon button, `--h-control` square, as the toolbelt and the head draw them.
-pub(super) fn icon_button(look: &Look, id: &'static str, icon: &'static str, tip_said: SharedString, lit: bool, off: bool) -> Stateful<gpui::Div> {
+pub(crate) fn icon_button(look: &Look, id: &'static str, icon: &'static str, tip_said: SharedString, lit: bool, off: bool) -> Stateful<gpui::Div> {
     icon_frame(look, id, icon, lit, off).tooltip(tip(tip_said))
 }
 

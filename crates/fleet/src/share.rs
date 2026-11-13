@@ -128,7 +128,7 @@ where
         if self.job_shared(job.as_str()).await {
             return Ok(());
         }
-        Err(Refusal::NotFound(WireError::raised(NO_SUCH_SESSION, format!("No Job Fleet holds is named {}.", job.as_str()), self.run_id())))
+        Err(Refusal::NotFound(WireError::raised(NO_SUCH_SESSION, format!("No Job has the id {}.", job.as_str()), self.run_id())))
     }
 
     /// A Job started from another Mac goes only into a shared project. An unshared project, one he does not

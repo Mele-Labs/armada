@@ -62,14 +62,22 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same Jobs, Checkout page loads twice at Build with its lanes as Fleet works them out: Build lit and waiting, Walk skipped and
         // Land changed, holding a Linear ticket, a draft pull request, two watches and a Job it started.
         "job-lanes" => include_bytes!("../fixtures/jobs-workflow.json"),
+        // The same, with a workflow editor's marks on its lanes: Plan set otherwise in Mobile, #88's Open a
+        // tie between Workspaces, Smoke tests' lifecycle waiting on a removal, and a proposed rule from #88's Merged.
+        "job-lanes-marks" => include_bytes!("../fixtures/jobs-workflow.json"),
         "job-view-composer" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
         "jobs-screens" => include_bytes!("../fixtures/jobs-screens.json"),
+        // Jobs started by Jobs: one starter with two, a chain two deep beside a third, and a lone Job; the
+        // starter and the deepest Job need him.
+        "jobs-tree" => include_bytes!("../fixtures/jobs-tree.json"),
+        // The terminal Job's Jobs: the New project sheet's walk ends on the Job it starts in the project it made.
+        "new-project" => include_bytes!("../fixtures/terminal-jobs.json"),
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "call-rows" | "sketch-card" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
         "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
         // The box's Jobs, with the first holding a plan, two pull requests and a Job it started with one of its own.
@@ -87,7 +95,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     };
     let mut sessions = ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())?;
     // Now's figures count from now, so the scenario's clock is moved to the run's.
-    if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes") {
+    if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes" | "job-lanes-marks") {
         for one in &mut sessions {
             one.last_heard_at = one.last_heard_at.as_ref().map(|at| shifted(NOW_ANCHOR, at));
             if let Some(held) = one.plan.as_mut().and_then(|plan| plan.held.as_mut()) {
@@ -97,7 +105,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     }
     // Every other walk was drawn before a workflow's steps were zones: their Jobs follow none, but for
     // the made walk's Job on a workflow that lands in a report.
-    if !matches!(scenario, "job-workflow" | "job-lanes") {
+    if !matches!(scenario, "job-workflow" | "job-lanes" | "job-lanes-marks") {
         for one in sessions.iter_mut().filter(|one| !(scenario == "job-made" && one.id.as_str() == "mock-04")) {
             one.workflow = None;
             one.workflow_step = None;
@@ -109,8 +117,11 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.started = Some(spine_starts().started);
         }
     }
-    if scenario == "job-lanes" {
-        let lanes = ipc::decode::<ipc::JobLanesView>("JobLanesView", include_bytes!("../fixtures/job-lanes.json")).map_err(|why| why.to_string())?;
+    if matches!(scenario, "job-lanes" | "job-lanes-marks") {
+        let mut lanes = ipc::decode::<ipc::JobLanesView>("JobLanesView", include_bytes!("../fixtures/job-lanes.json")).map_err(|why| why.to_string())?;
+        if scenario == "job-lanes-marks" {
+            lanes_marks(&mut lanes);
+        }
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-07") {
             one.workflow_step = Some(1);
             one.workflow_visits.truncate(2);
@@ -149,6 +160,13 @@ pub fn repositories() -> Vec<ipc::RepositorySummary> {
     ipc::decode::<ipc::RepositoryList>("RepositoryList", include_bytes!("../fixtures/repositories.json"))
         .unwrap_or_else(|why| panic!("the repositories fixture does not decode: {why}"))
         .repositories
+}
+
+/// The folders of the walks' repositories, as `GET /repository_areas` would answer them: the New project
+/// sheet opens a repository on these.
+pub fn repository_areas() -> ipc::RepositoryAreas {
+    ipc::decode::<ipc::RepositoryAreas>("RepositoryAreas", include_bytes!("../fixtures/new-project-areas.json"))
+        .unwrap_or_else(|why| panic!("the repository areas fixture does not decode: {why}"))
 }
 
 /// His projects as `GET /projects` would answer them in the walks: two that read, over the repositories
@@ -209,10 +227,15 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         if all.contains_key(id) || refused(scenario, id).is_some() {
             continue;
         }
-        let empty = format!(r#"{{"session_id":"{id}","head":{{"trail":{{"started":"{}"}}}},"items":[]}}"#, job.started_at.as_str());
-        all.insert(id.to_string(), ipc::decode::<JobThread>("empty thread", empty.as_bytes()).map_err(|why| why.to_string())?);
+        all.insert(id.to_string(), empty_thread(id, job.started_at.as_str())?);
     }
     Ok(all)
+}
+
+/// The thread Fleet answers for a Job with nothing in it yet: a head with its start, and no items.
+pub fn empty_thread(id: &str, started: &str) -> Result<JobThread, String> {
+    let empty = format!(r#"{{"session_id":"{id}","head":{{"trail":{{"started":"{started}"}}}},"items":[]}}"#);
+    ipc::decode::<JobThread>("empty thread", empty.as_bytes()).map_err(|why| why.to_string())
 }
 
 /// The threads a scenario's fixtures hold.
@@ -223,7 +246,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     }
     let bytes: &[u8] = match scenario {
         "jobs-screens" => return screens_threads(),
-        "job-view" | "review-palette" | "terminal-job" => include_bytes!("../fixtures/job-threads.json"),
+        "job-view" | "review-palette" | "terminal-job" | "new-project" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
         // The same threads, and Quiet the write-clash notices holding the page it asks him to read.
@@ -234,7 +257,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "job-made" => include_bytes!("../fixtures/made-threads.json"),
         "job-now" => include_bytes!("../fixtures/now-threads.json"),
         // The same, with Fleet's two acts to come on the first and the drafted plan's sketch.
-        "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes" => include_bytes!("../fixtures/open-threads.json"),
+        "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes" | "job-lanes-marks" => include_bytes!("../fixtures/open-threads.json"),
         // The same threads, and the earlier Job's, ended where it handed on.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff-threads.json"),
         // The same threads, with the Job that took the router upgrade on and the forked one.
@@ -254,7 +277,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         // The tool-rows threads, with the finished Job's retro being written and Search for the queue asking with previews.
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
-        "sketch-card" => include_bytes!("../fixtures/sketch-card-threads.json"),
+        "sketch-card" | "sketch-approve" => include_bytes!("../fixtures/sketch-card-threads.json"),
         "sketch-share" => include_bytes!("../fixtures/sketch-share-threads.json"),
         // The same, with Edit the merge line drawing the store clock twice: Pinned clock read against Store clock reads, which has two revisions.
         "sketch-changes" => include_bytes!("../fixtures/sketch-changes-threads.json"),
@@ -268,7 +291,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
     let mut all: HashMap<String, JobThread> = read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect();
-    if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes") {
+    if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes" | "job-lanes-marks") {
         for thread in all.values_mut() {
             if let Some(call) = thread.head.open_call.as_mut() {
                 call.since = shifted(NOW_ANCHOR, &call.since);
@@ -355,6 +378,14 @@ pub fn reads_slowly() -> bool {
     SCENARIO.lock().is_ok_and(|named| named.as_str() == "thread-moved")
 }
 
+/// Fleet's refusal of an act on this route, in the scenario last named: `sketch-approve` refuses a
+/// sketch's answer as Fleet does a drawing read before it was drawn again.
+pub fn act_refused(route: &str) -> Option<String> {
+    let named = SCENARIO.lock().ok()?;
+    (named.as_str() == "sketch-approve" && route == "/sessions/sketch/answer")
+        .then(|| "the sketch `Freshness chip` is not the drawing that was read: the job has drawn it again since".into())
+}
+
 /// How many sends the scenario last named refuses before it takes them: one in `sent-messages`, so a
 /// walk can show a message Fleet did not take and its Retry.
 pub fn refusals() -> usize {
@@ -386,7 +417,7 @@ pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T
 
 /// The scenario last named is the panes' own: their reads answer only there.
 fn panes_named() -> bool {
-    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more" | "job-pulls" | "job-issues" | "job-system" | "job-open" | "job-spine" | "job-workflow" | "job-lanes"))
+    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more" | "job-pulls" | "job-issues" | "job-system" | "job-open" | "job-spine" | "job-workflow" | "job-lanes" | "job-lanes-marks"))
 }
 
 /// A pull request's files as `GET /pull_request_patches/:repository/:number` answers them, by
@@ -1075,5 +1106,33 @@ pub fn rescue_act(pool: &mut [ipc::WorktreeSlot], manifest: &str, slot: u32, act
             one.branch = None;
             Ok(Some(rescued(committed)))
         }
+    }
+}
+
+/// A workflow editor's marks on the lanes fixture, which Fleet serves only to the editor, so the Job view's
+/// canvas can be seen drawing them.
+fn lanes_marks(lanes: &mut ipc::JobLanesView) {
+    for lane in &mut lanes.lanes {
+        if lane.id == "w-smoke" {
+            lane.pending = Some(ipc::LanePending::Removal);
+        }
+        for node in &mut lane.nodes {
+            match node.id.as_str() {
+                "workflow/plan" => node.differs = vec!["Mobile".into(), "sample-web".into()],
+                "pr-88/open" => node.clash = Some("Web and Mobile differ".into()),
+                _ => {}
+            }
+        }
+    }
+    if let Some(mut proposed) = lanes.rules.iter().find(|rule| rule.id == "ready:pr-88").cloned() {
+        proposed.id = "ticket-done:i-shop-142".into();
+        proposed.rule = "ticket-done".into();
+        proposed.from = "pr-88/merged".into();
+        proposed.to = "i-shop-142/done".into();
+        proposed.label = "Ticket to Done".into();
+        proposed.waits = None;
+        proposed.proposed = true;
+        proposed.pending = Some(ipc::LanePending::Keep);
+        lanes.rules.push(proposed);
     }
 }

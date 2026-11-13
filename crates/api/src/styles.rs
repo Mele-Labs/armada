@@ -34,6 +34,37 @@ pub(crate) async fn get_style_sources<D: Sessions>(
     }
 }
 
+/// `?area=` (contents, tokens, components, icons, patterns), `?match=` to narrow it, `?repository=`
+/// for another served repository than the Job's, and `?session_id=` where the connection places none.
+#[derive(Deserialize)]
+pub(crate) struct WhichCatalogue {
+    #[serde(default)]
+    area: Option<String>,
+    #[serde(default, rename = "match")]
+    matching: Option<String>,
+    #[serde(default)]
+    repository: Option<String>,
+    #[serde(default)]
+    session_id: Option<String>,
+}
+
+pub(crate) async fn get_design_catalogue<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<WhichCatalogue>,
+) -> Response {
+    let given = |one: Option<String>| one.map(|one| one.trim().to_string()).filter(|one| !one.is_empty());
+    let named = given(which.session_id).map(|id| ipc::SessionId::carried(&id));
+    let asked = ipc::CatalogueAsked {
+        area: given(which.area),
+        matching: given(which.matching),
+        repository: given(which.repository),
+    };
+    match served.daemon().get_design_catalogue(crate::acting::asking(), named, asked).await {
+        Ok(catalogue) => answer(StatusCode::OK, &catalogue, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?hash=`, the content hash a `mock` node's `kept` names.
 #[derive(Deserialize)]
 pub(crate) struct WhichKept {

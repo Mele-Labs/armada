@@ -71,6 +71,8 @@ pub enum Verb {
     BuildSwap,
     /// Wait for the Fleet `scripts/restart` booted to answer, or swap back. `was` is the Fleet it replaced.
     BuildSettle { was: Option<u32> },
+    /// Start the Fleet launchd holds: load it, or start it, or find it running.
+    FleetStart,
     /// What the verbs are.
     Help,
 }
@@ -131,6 +133,10 @@ const VERBS: &[(&str, &str)] = &[
         "swap Fleet and Bridge back onto the build before this one, or onto the kept snapshot, which restarts them; rehearse and settle are scripts/restart's",
     ),
     (
+        FLEET,
+        "start the Fleet launchd holds when it is not running, which Bridge offers while Fleet is down",
+    ),
+    (
         WATCH_LINE,
         "print one reading of a watch recipe Armada ships, as the line Fleet reads; Fleet runs it",
     ),
@@ -161,6 +167,8 @@ pub const TEST_MAP: &str = "test-map";
 pub const JOB: &str = "job";
 /// The builds a restart keeps.
 pub const BUILD: &str = "build";
+/// The Fleet launchd holds.
+pub const FLEET: &str = "fleet";
 /// The readers behind the watch recipes Armada ships, which name this verb.
 pub const WATCH_LINE: &str = "watch-line";
 
@@ -266,6 +274,13 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             [form, pid] if form == "settle" && pid.parse::<u32>().is_ok() => Some(Verb::BuildSettle { was: pid.parse().ok() }),
             _ => {
                 faults.push(Fault::BuildFormUnknown { given: rest.join(" ") });
+                None
+            }
+        },
+        FLEET => match rest {
+            [form] if form == "start" => Some(Verb::FleetStart),
+            _ => {
+                faults.push(Fault::FleetFormUnknown { given: rest.join(" ") });
                 None
             }
         },
@@ -385,6 +400,8 @@ pub enum Fault {
     NoReader,
     /// `build` with no form, or one it does not have.
     BuildFormUnknown { given: String },
+    /// `fleet` with no form, or one it does not have.
+    FleetFormUnknown { given: String },
     /// `worktree remove`, `close` or `open` without a slot's number.
     NoSlot {
         form: String,
@@ -492,6 +509,10 @@ impl fmt::Display for Fault {
                 out,
                 "`armada {BUILD} {given}` is not a form this verb takes — it takes `{BUILD} revert`, `{BUILD} swap`, `{BUILD} rehearse` or `{BUILD} settle [<pid>]`"
             ),
+            Fault::FleetFormUnknown { given } => write!(
+                out,
+                "`armada {FLEET} {given}` is not a form this verb takes: it takes `{FLEET} start`"
+            ),
             Fault::NoSlot { form } => write!(
                 out,
                 "`armada {WORKTREE} {form}` needs a slot's number, as `--status` prints it"
@@ -524,6 +545,7 @@ impl fmt::Display for Usage {
                 WATCH_LINE => format!("{WATCH_LINE} <reader> <values>"),
                 JOB => format!("{JOB} [<act> ...]"),
                 BUILD => format!("{BUILD} revert|swap|rehearse|settle"),
+                FLEET => format!("{FLEET} start"),
                 named => format!("{named} <name>"),
             };
             writeln!(out, "  armada {shape:<16}  {what}")?;

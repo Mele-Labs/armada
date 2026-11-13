@@ -624,7 +624,7 @@ impl JobView {
 fn report_card(line: Line, look: &Look, cx: &Context<JobView>) -> AnyElement {
     let hue = look.color(token::STATUS_REJECTED);
     let raised = look.color(token::BG_RAISED);
-    let (ground, over) = (super::lanes::mix(hue, raised, 0.08), super::lanes::mix(hue, raised, 0.14));
+    let (ground, over) = (crate::lanes_canvas::mix(hue, raised, 0.08), crate::lanes_canvas::mix(hue, raised, 0.14));
     let opens = line.opens.clone();
     let head = div()
         .flex()
@@ -647,7 +647,7 @@ fn report_card(line: Line, look: &Look, cx: &Context<JobView>) -> AnyElement {
         .py(look.length(token::SPACE_2))
         .px(look.length(token::SPACE_3))
         .border_1()
-        .border_color(super::lanes::mix(hue, look.color(token::BORDER_SUBTLE), 0.4))
+        .border_color(crate::lanes_canvas::mix(hue, look.color(token::BORDER_SUBTLE), 0.4))
         .rounded(look.length(token::RADIUS_MD))
         .bg(ground)
         .text_color(look.color(token::FG_MUTED))

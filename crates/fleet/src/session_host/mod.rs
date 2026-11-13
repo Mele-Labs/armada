@@ -18,6 +18,7 @@ mod note_resolving;
 pub(crate) mod asking;
 mod backgrounding;
 mod call_rows;
+pub(crate) mod check_calls;
 pub(crate) mod compacting;
 mod cut_off;
 pub(crate) mod disputing;
@@ -76,6 +77,7 @@ mod reach_folders;
 pub(crate) mod repository_file;
 pub(crate) mod token_use;
 pub(crate) mod delivering;
+pub(crate) mod delivery_setting;
 pub(crate) mod start_card;
 pub(crate) mod fleet_calls;
 pub(crate) mod needs_you;
@@ -414,6 +416,19 @@ impl Hosts {
         }))
     }
 
+    /// The thread row of the one shell call of `session` running `armada check` now. None where the
+    /// session is not hosted here, or none or several are running.
+    pub(crate) fn check_call_row(&self, session: &str) -> Option<String> {
+        let runtime = self
+            .runtime
+            .lock()
+            .expect("the runtime table is not held across a panic")
+            .get(session)
+            .map(Arc::clone)?;
+        let row = runtime.state().check_calls.running_row();
+        row
+    }
+
     /// Every session with a runtime, by id.
     pub(crate) fn all(&self) -> Vec<(String, Arc<Runtime>)> {
         self.runtime
@@ -546,6 +561,8 @@ pub(crate) struct State {
     pub call_rows: call_rows::CallRows,
     /// The shell and watch calls of the stream, to pair with the task each starts. In memory.
     pub background: backgrounding::Calls,
+    /// The agent's own shell calls running `armada check`, while they run. In memory.
+    pub check_calls: check_calls::CheckCalls,
     /// The commands the session ran and what came back, for `crate::run_memory`. In memory.
     pub runs: crate::run_memory::RunLog,
     /// Who waits on each control line written to the process, by its request id. In memory.
@@ -630,6 +647,7 @@ impl State {
             spawns: crate::file_touching::Spawns::default(),
             call_rows: call_rows::CallRows::default(),
             background: backgrounding::Calls::default(),
+            check_calls: check_calls::CheckCalls::default(),
             runs: crate::run_memory::RunLog::default(),
             controls: HashMap::new(),
             signed_out: false,

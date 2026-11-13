@@ -77,7 +77,7 @@ The binding rules are `../contracts/configuration.md`, *The Machine tier is one 
 
 ## Notification routing
 
-**Routing is a Machine setting with one value and no merge.** What bounds it is a **product rule on `../contracts/design-system.md`**, not a config tier: the loudness order, and the rule that an approval may never be promoted to push.
+**Routing is a Machine setting with one value and no merge.** What bounds it is a **product rule on `../contracts/design-system.md`**, not a config tier: the loudness order: routing may move an event down it, never up.
 
 That rule holds because escalations and approvals mean different things.
 An escalation means work has stopped and nothing progresses until a person looks.

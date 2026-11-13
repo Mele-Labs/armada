@@ -9,6 +9,8 @@
 //! | The page's state, keys and presses, each answered at once | `page.rs` |
 //! | The page drawn, and the pane from a Job | `view.rs` |
 //! | The chat Ask opens | `chat.rs` |
+//! | The box at the page's foot, whose send is a dispatch | `composer.rs` |
+//! | The ideas the Operator kept for later | `parked.rs` |
 //! | The six routes, live or mock | `wire.rs` |
 //! | The walk's Fleet and its scenes | `scenes.rs` |
 //! | The screen that puts the page beside the Jobs screen | `screen.rs` |
@@ -21,8 +23,10 @@
 //! reads nothing itself; the walk's mock sends no event, so there each reads the page in its place.
 
 mod chat;
+pub mod composer;
 pub mod face;
 pub mod page;
+mod parked;
 pub mod scenes;
 pub mod screen;
 pub(crate) mod view;
