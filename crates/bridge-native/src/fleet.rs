@@ -285,14 +285,24 @@ impl Held {
         }
     }
 
-    /// The Dock count: the calls still to be opened, one for each owner. `None` until Fleet has answered.
-    pub fn dock_count(&self) -> Option<usize> {
-        self.calls.as_ref().map(|calls| calls.unopened().len())
+    /// Whether the person snoozed this Job: it works on, and raises no banner, sound or Dock count until its
+    /// `snoozed_until` clears. **Fleet's calls do not leave a snoozed Job out** (`standing_calls.rs` reads
+    /// only a pause), so what puts a call on the OS leaves it out here. Fleet itself already holds back the
+    /// Operator's cards and Pocket's pushes for it.
+    pub fn snoozed(&self, session_id: &str) -> bool {
+        self.jobs.iter().any(|job| job.id.as_str() == session_id && job.snoozed_until.is_some())
     }
 
-    /// The news folded since the last take, oldest first.
+    /// The Dock count: the calls still to be opened, one for each owner, but for a snoozed Job's. `None` until
+    /// Fleet has answered.
+    pub fn dock_count(&self) -> Option<usize> {
+        self.calls.as_ref().map(|calls| calls.unopened().into_iter().filter(|call| !call.session_id.as_ref().is_some_and(|job| self.snoozed(job.as_str()))).count())
+    }
+
+    /// The news folded since the last take, oldest first, but for a snoozed Job's.
     pub fn take_arrived(&mut self) -> Vec<CallArrival> {
-        std::mem::take(&mut self.arrived)
+        let arrived = std::mem::take(&mut self.arrived);
+        arrived.into_iter().filter(|one| !self.snoozed(one.session_id.as_str())).collect()
     }
 
     /// The shells' news folded since the last take, oldest first.
@@ -1192,6 +1202,32 @@ mod tests {
         assert_eq!(held.dock_count(), Some(0), "an empty answer is a count of none");
         held.fold(vec![Signal::Calls(calls(&[false, true, false]))]);
         assert_eq!(held.dock_count(), Some(2));
+    }
+
+    fn snoozed_job(id: &str) -> SessionRecord {
+        let mut job = crate::mock::jobs("jobs-many").expect("the fixture decodes").remove(0);
+        job.id = ipc::SessionId::carried(id);
+        job.snoozed_until = Some(Instant::carried("2026-11-13T16:30:00.000Z"));
+        job
+    }
+
+    #[test]
+    fn a_snoozed_jobs_calls_are_not_counted_on_the_dock_and_the_rest_still_are() {
+        let mut held = Held::new();
+        held.fold(vec![Signal::Calls(calls(&[false, false, false])), Signal::Jobs(vec![snoozed_job("s1")])]);
+        assert!(held.snoozed("s1") && !held.snoozed("s0"));
+        assert_eq!(held.dock_count(), Some(2), "s1 stays out of the count");
+        held.jobs[0].snoozed_until = None;
+        assert_eq!(held.dock_count(), Some(3), "woken, it is counted again");
+    }
+
+    #[test]
+    fn a_snoozed_jobs_news_is_not_handed_over() {
+        let mut held = Held::new();
+        let arrival = |job: &str| format!(r#"{{"session_id":"{job}","title":"Fix it","text":"Pick a slot","tone":"blocked","kind":"needs"}}"#);
+        held.fold(vec![Signal::Jobs(vec![snoozed_job("s1")]), changed("[]", &format!("[{},{}]", arrival("s1"), arrival("s2")))]);
+        let news = held.take_arrived();
+        assert_eq!(news.iter().map(|one| one.session_id.as_str()).collect::<Vec<_>>(), ["s2"]);
     }
 
     #[test]
