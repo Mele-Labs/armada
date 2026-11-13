@@ -41,6 +41,16 @@ impl Json {
             None => fields.push((key.to_string(), value)),
         }
     }
+
+    fn unset(&mut self, key: &str) {
+        if let Json::Map(fields) = self {
+            fields.retain(|(name, _)| name != key);
+        }
+    }
+
+    fn id(&self) -> Option<&str> {
+        self.get("id").and_then(Json::text)
+    }
 }
 
 impl Serialize for Json {
@@ -166,6 +176,47 @@ pub fn with_label(text: &str, step: &str, label: &str) -> Option<String> {
     let one = steps.iter_mut().find(|one| one.get("id").and_then(Json::text) == Some(step))?;
     one.set("label", Json::Text(label.to_string()));
     Some(text_of(&tree))
+}
+
+/// `text` with what changed between `before` and `after` carried into it, and the rest of `text` as it was: the
+/// top-level keys and each step's fields (by id) that changed, steps added after the step they follow in `after`,
+/// and steps removed. None where any of the three is not a workflow.
+pub fn with_delta(text: &str, before: &str, after: &str) -> Option<String> {
+    let (mut tree, was, now) = (tree_of(text)?, tree_of(before)?, tree_of(after)?);
+    carry(&mut tree, &was, &now, "steps");
+    let (Some(Json::List(was_steps)), Some(Json::List(now_steps))) = (was.get("steps"), now.get("steps")) else { return None };
+    let Json::Map(fields) = &mut tree else { return None };
+    let (_, Json::List(steps)) = fields.iter_mut().find(|(name, _)| name == "steps")? else { return None };
+    let id_in = |list: &[Json], id: &str| list.iter().position(|one| one.id() == Some(id));
+    steps.retain(|one| one.id().is_none_or(|id| id_in(was_steps, id).is_none() || id_in(now_steps, id).is_some()));
+    for (at, one) in now_steps.iter().enumerate() {
+        let Some(id) = one.id() else { continue };
+        match (id_in(was_steps, id), id_in(steps, id)) {
+            (Some(was_at), Some(here)) => carry(&mut steps[here], &was_steps[was_at], one, "id"),
+            (Some(_), None) => {}
+            (None, Some(here)) => steps[here] = one.clone(),
+            (None, None) => {
+                let place = now_steps[..at].iter().rev().filter_map(Json::id).find_map(|prev| id_in(steps, prev)).map_or(0, |prev| prev + 1);
+                steps.insert(place, one.clone());
+            }
+        }
+    }
+    Some(text_of(&tree))
+}
+
+/// The keys of an object that differ between `was` and `now` set on `into`, and those `now` dropped taken out of it.
+fn carry(into: &mut Json, was: &Json, now: &Json, except: &str) {
+    let (Json::Map(was), Json::Map(now)) = (was, now) else { return };
+    for (key, value) in now.iter().filter(|(key, _)| key != except) {
+        if !was.iter().any(|(name, old)| name == key && old == value) {
+            into.set(key, value.clone());
+        }
+    }
+    for (key, _) in was.iter().filter(|(key, _)| key != except) {
+        if !now.iter().any(|(name, _)| name == key) {
+            into.unset(key);
+        }
+    }
 }
 
 /// The steps a definition lists, in order, as their ids and labels (a step with no label is named by its id).

@@ -542,7 +542,7 @@ mod tests {
         let saved = fleet.saved.borrow();
         assert_eq!(saved.len(), 1);
         assert_eq!((saved[0].0.as_str(), saved[0].1.scope, saved[0].1.overwrite), ("armada", WorkflowScope::Kit, false), "a copy is new where the workflow is Armada's");
-        assert_eq!(saved[0].1.definition, REVIEWED);
+        assert_eq!(crate::settings::definition::tree_of(&saved[0].1.definition), crate::settings::definition::tree_of(REVIEWED));
         assert_eq!(*seen.borrow(), [EditorEvent::Published { target: Target::EveryProject }]);
         assert!(!editor.read_with(cx, |editor, _| editor.has_edits()), "the draft is let go once it is written");
     }

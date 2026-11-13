@@ -2,7 +2,7 @@
 //! shows and what Publish writes is the base with each edit replayed, never a copy that is edited in place, so
 //! dropping any one edit is dropping it from the list and replaying the rest.
 
-use crate::settings::definition::{with_label, with_words};
+use crate::settings::definition::{with_delta, with_label, with_words};
 
 /// Whose edit it is: the person's own, or an agent's that was asked for in the box.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -15,8 +15,8 @@ pub enum Author {
 /// variants here and a line in `apply`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Change {
-    /// The whole definition replaced: what an agent's change is. `before` is the text it was drafted from; the
-    /// change takes `after` whole, so an edit made before it on the same text is not carried into it.
+    /// An agent's change, drafted from `before` as `after`. It carries only what differs between the two, so the
+    /// person's edits before it stay, and dropping one of his replays the agent's on top of what is left.
     Definition { before: String, after: String },
     /// One step's words.
     StepWords { step: String, words: String },
@@ -28,7 +28,7 @@ impl Change {
     /// The text after the change, or none where it does not fit the text (a step it names is not there).
     pub fn apply(&self, text: &str) -> Option<String> {
         match self {
-            Change::Definition { after, .. } => Some(after.clone()),
+            Change::Definition { before, after } => with_delta(text, before, after),
             Change::StepWords { step, words } => with_words(text, step, words),
             Change::StepLabel { step, label } => with_label(text, step, label),
         }
@@ -177,11 +177,11 @@ mod tests {
     }
 
     #[test]
-    fn an_agents_whole_definition_takes_the_place_of_what_it_was_drafted_from() {
+    fn an_agents_definition_carries_what_it_changed_from_what_it_was_drafted_from() {
         let after = BASE.replace("\"label\":\"Tests\"", "\"label\":\"Checks\"");
         let mut draft = Draft::new(BASE, None);
         draft.push(Edit { author: Author::Agent, said: "Rename Tests".into(), change: Change::Definition { before: BASE.into(), after: after.clone() } });
-        assert_eq!(draft.drafted(), after);
+        assert_eq!(crate::settings::definition::tree_of(&draft.drafted()), crate::settings::definition::tree_of(&after));
         // An edit after it lands on the agent's text; one that names a step it removed is skipped.
         draft.push(label("fix", "Repair"));
         assert_eq!(drafted(&draft).0, [("fix".to_string(), "Repair".to_string()), ("tests".to_string(), "Checks".to_string())]);
@@ -189,6 +189,59 @@ mod tests {
         assert_eq!(drafted(&draft).0.len(), 2);
         draft.undo_at(0);
         assert_eq!(drafted(&draft).0, [("fix".to_string(), "Repair".to_string()), ("tests".to_string(), "Tests".to_string())]);
+    }
+
+    fn agent(after: &str) -> Edit {
+        Edit { author: Author::Agent, said: "asked".into(), change: Change::Definition { before: BASE.into(), after: after.into() } }
+    }
+
+    fn renames_tests() -> String {
+        BASE.replace("\"label\":\"Tests\"", "\"label\":\"Checks\"")
+    }
+
+    fn step(id: &str, label: &str) -> (String, String) {
+        (id.to_string(), label.to_string())
+    }
+
+    #[test]
+    fn an_agents_edit_on_top_of_his_keeps_his() {
+        let mut draft = Draft::new(BASE, None);
+        draft.push(words("fix", "Make the smallest change."));
+        draft.push(agent(&renames_tests()));
+        let (steps, words) = drafted(&draft);
+        assert_eq!(steps, [step("fix", "Fix"), step("tests", "Checks")]);
+        assert_eq!(words, [Some("Make the smallest change.".to_string()), None]);
+    }
+
+    #[test]
+    fn his_edit_undone_under_an_agents_leaves_the_agents() {
+        let mut draft = Draft::new(BASE, None);
+        draft.push(words("fix", "Make the smallest change."));
+        draft.push(agent(&renames_tests()));
+        draft.undo_at(0);
+        let (steps, words) = drafted(&draft);
+        assert_eq!(steps, [step("fix", "Fix"), step("tests", "Checks")]);
+        assert_eq!(words, [Some("Fix it.".to_string()), None]);
+    }
+
+    #[test]
+    fn the_agents_edit_undone_leaves_only_his() {
+        let mut draft = Draft::new(BASE, None);
+        draft.push(words("fix", "Make the smallest change."));
+        draft.push(agent(&renames_tests()));
+        draft.undo_at(1);
+        let (steps, words) = drafted(&draft);
+        assert_eq!(steps, [step("fix", "Fix"), step("tests", "Tests")]);
+        assert_eq!(words, [Some("Make the smallest change.".to_string()), None]);
+    }
+
+    #[test]
+    fn a_step_the_agent_adds_lands_after_the_one_it_followed() {
+        let after = BASE.replace("{\"id\":\"tests\"", "{\"id\":\"review\",\"label\":\"Review\"},{\"id\":\"tests\"");
+        let mut draft = Draft::new(BASE, None);
+        draft.push(label("fix", "Repair"));
+        draft.push(agent(&after));
+        assert_eq!(drafted(&draft).0, [step("fix", "Repair"), step("review", "Review"), step("tests", "Tests")]);
     }
 
     #[test]
