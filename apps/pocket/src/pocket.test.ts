@@ -352,10 +352,28 @@ describe("homeOf", () => {
         last,
       ]),
     ).toEqual([
-      ["p1", [], true],
-      ["c1", [], false],
-      ["c3", [true], true],
-      ["c2", [], true],
+      [
+        "p1",
+        [],
+        true,
+      ],
+      [
+        "c1",
+        [],
+        false,
+      ],
+      [
+        "c3",
+        [
+          true,
+        ],
+        true,
+      ],
+      [
+        "c2",
+        [],
+        true,
+      ],
     ]);
   });
 
