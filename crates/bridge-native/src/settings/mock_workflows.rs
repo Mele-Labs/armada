@@ -591,7 +591,7 @@ impl MockFleet {
         }
         let version = self.versions.publish(place, found, draft.text);
         self.relist(&id);
-        Ok(WorkflowPublished { saved, version })
+        Ok(WorkflowPublished { saved, version, pinned: Vec::new() })
     }
 
     /// The scenario's base, and the list read again so the copy that began from it says Armada changed it.

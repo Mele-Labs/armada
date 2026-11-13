@@ -712,7 +712,7 @@ impl LanesEditor {
                 let ops = if text == self.base() && self.pieces.is_empty() {
                     self.draft.is_some().then_some(Op::Delete).into_iter().collect()
                 } else {
-                    vec![Op::Put(PutWorkflowDraft { workflow_id: workflow, source: source.into(), project, text, summary: said })]
+                    vec![Op::Put(PutWorkflowDraft { workflow_id: workflow, source: source.into(), project, text, summary: said, by: None, change: None })]
                 };
                 (ops, After::Nothing)
             }
@@ -1178,7 +1178,7 @@ mod tests {
             if let Some(draft) = self.0.draft.borrow_mut().take() {
                 *self.0.definition.borrow_mut() = draft.text;
             }
-            Task::ready(Ok(WorkflowPublished { saved: WorkflowSaved { workflow_id: WorkflowId::carried("prototype"), scope, file: "prototype.yml".into(), replaced: false, runs_from: None }, version: 1 }))
+            Task::ready(Ok(WorkflowPublished { saved: WorkflowSaved { workflow_id: WorkflowId::carried("prototype"), scope, file: "prototype.yml".into(), replaced: false, runs_from: None }, version: 1, pinned: Vec::new() }))
         }
 
         fn lifecycles(&self, manifest: &str, _: &mut gpui::App) -> Task<Result<ipc::RepositoryLifecycles, Refused>> {
