@@ -1362,6 +1362,13 @@ pub static WALKS: &[Walk] = &[
         steps: &strip_marks::FLEET_LIVE,
     },
     Walk {
+        name: "native-preview-offers",
+        title: "The build switcher's Refresh row on the branches offered for the preview",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &title_bar::PREVIEW_OFFERS,
+    },
+    Walk {
         name: "project-switcher",
         title: "The project switcher on Fleet's projects",
         screen: Screen::Jobs,

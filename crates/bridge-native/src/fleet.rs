@@ -96,6 +96,9 @@ pub struct Held {
     /// The build Fleet runs, as it last reported. **Held across a drop**, since a restart is the
     /// commonest reason Fleet does not answer. `None` until the first read, and where this Fleet serves none.
     pub build: Option<FleetBuildReport>,
+    /// The branches Jobs offered for the preview and the Refresh row, as Fleet last said them, **held across a
+    /// drop** as the build is. `None` until Fleet has answered.
+    pub offers: Option<ipc::PreviewOffers>,
     /// Every call standing, as Fleet last said. `None` until Fleet has answered once, so an empty
     /// first reading cannot be mistaken for a count that stands.
     pub calls: Option<StandingCalls>,
@@ -166,6 +169,7 @@ impl Held {
             key_bindings: None,
             mods: None,
             build: None,
+            offers: None,
             calls: None,
             repositories: None,
             projects: None,
@@ -395,6 +399,8 @@ impl Held {
                 Signal::PlanUsageFailed(why) => lines.push(Note::warn("the plan usage could not be read").field("why", why)),
                 Signal::Downshift(state) => self.downshift = Some(state),
                 Signal::DownshiftFailed(why) => lines.push(Note::warn("the step down could not be read").field("why", why)),
+                Signal::Offers(offers) => self.offers = Some(offers),
+                Signal::OffersFailed(why) => lines.push(Note::warn("the preview offers could not be read").field("why", why)),
                 Signal::Build(report) => self.build = Some(report),
                 Signal::BuildFailed(why) => lines.push(Note::warn("the build could not be read").field("why", why)),
                 Signal::Stream(StreamMessage::Resync(resync)) => {
@@ -452,6 +458,8 @@ impl Held {
                         Event::WriteClashesChanged(all) => self.clashes = Some(all),
                         Event::PlanUsageChanged(usage) => self.plan_usage = Some(usage),
                         Event::ModelDownshiftChanged(state) => self.downshift = Some(state),
+                        // The offers arrive whole and replace the ones held.
+                        Event::PreviewOffersChanged(offers) => self.offers = Some(offers),
                         // A Job's watches arrive whole and replace the ones held.
                         Event::WatchesChanged(list) => {
                             let id = list.session_id.as_str().to_string();
@@ -609,6 +617,14 @@ impl BuildAct {
     }
 }
 
+/// Where the Refresh row is skipped.
+const SKIP_OFFERS: &str = "/fleet/build/offers/skip";
+
+/// The body that skips the Refresh row with this id.
+fn skip_body(id: &str) -> Result<String, String> {
+    ipc::encode(&ipc::SkipPreviewRefresh { id: id.to_string() }).map_err(|why| format!("{why:?}"))
+}
+
 /// A restart, revert, swap or snapshot is under way, so the build is followed.
 fn changing(report: &FleetBuildReport) -> bool {
     report.restarting.is_some() || report.reverting || report.swapping || report.snapshot.as_ref().is_some_and(|kept| kept.state == ipc::SnapshotState::Building)
@@ -738,6 +754,45 @@ impl FleetConnection {
                 if took {
                     this.follow(!marks, cx);
                 }
+            });
+        })
+        .detach();
+    }
+
+    /// Skip the Refresh row (`POST /fleet/build/offers/skip`) off the main thread. Fleet's answer takes the row out
+    /// of the offers held; a refusal is a toast in Fleet's words, and the bar draws the row as Fleet last said it.
+    pub fn skip_offers(&mut self, id: String, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else {
+            Note::warn("not sent: no Fleet is connected").field("route", SKIP_OFFERS).emit();
+            cx.defer(|cx| crate::titlebar::offers_refused(cx));
+            return;
+        };
+        let sent = id.clone();
+        cx.spawn(async move |this, cx| {
+            let read = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    runtime.block_on(crate::transport::post(port, SKIP_OFFERS, skip_body(&sent)?))
+                })
+                .await;
+            let outcome = crate::revert::outcome_of(read);
+            let _ = this.update(cx, |this, cx| {
+                if outcome == crate::revert::Outcome::Started {
+                    if let Some(offers) = this.held.offers.as_mut() {
+                        if offers.refresh.as_ref().is_some_and(|refresh| refresh.id == id) {
+                            offers.refresh = None;
+                        }
+                    }
+                } else {
+                    let why = crate::revert::why_not(&outcome).to_string();
+                    Note::warn("Fleet refused the skip").field("route", SKIP_OFFERS).field("why", why.as_str()).emit();
+                    cx.defer(move |cx| {
+                        crate::toasts::tell(why, cx);
+                        crate::titlebar::offers_refused(cx);
+                    });
+                }
+                cx.notify();
             });
         })
         .detach();
@@ -1152,6 +1207,25 @@ mod tests {
         }]);
         assert!(held.theme_sheets().is_empty());
         assert_eq!(lines[0].get("mod"), Some(&FieldValue::Str("dusk".into())));
+    }
+
+    #[test]
+    fn the_skip_body_reads_back_as_the_wire_type() {
+        let body = skip_body("r-7f3a").expect("a body");
+        let read = ipc::decode::<ipc::SkipPreviewRefresh>("SkipPreviewRefresh", body.as_bytes()).expect("the wire type");
+        assert_eq!(read, ipc::SkipPreviewRefresh { id: "r-7f3a".into() });
+    }
+
+    #[test]
+    fn the_offers_are_held_whole_from_the_read_and_from_the_event() {
+        let offers = |id: &str| ipc::decode::<ipc::PreviewOffers>("offers", format!(r#"{{"offers":[],"refresh":{{"id":"{id}","branches":[]}}}}"#).as_bytes()).expect("offers");
+        let mut held = Held::new();
+        held.fold(vec![Signal::Offers(offers("a"))]);
+        assert_eq!(held.offers, Some(offers("a")));
+        let wire = r#"{"message":"event","cursor":2,"event":{"kind":"preview_offers.changed","offers":[]}}"#;
+        let event = crate::frames::decode(wire).expect("an event");
+        held.fold(vec![Signal::Stream(event)]);
+        assert_eq!(held.offers.as_ref().and_then(|held| held.refresh.as_ref()), None);
     }
 
     #[test]

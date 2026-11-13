@@ -15,6 +15,7 @@
 mod centred;
 mod face;
 mod fleet_down;
+pub mod offers;
 pub mod parts;
 mod projects;
 pub mod scenes;
@@ -68,6 +69,8 @@ pub enum Asked {
     Keep,
     Swap,
     Unpick(String),
+    /// Skip the Refresh row with this id.
+    SkipOffers(String),
     RestartFleet,
     Remedy(Remedy),
     CopyDebugInfo,
@@ -217,6 +220,8 @@ pub struct TitleBar {
     _swap_keys: Option<Subscription>,
     /// Fleet's build report as last handed in: a press's answer in the frame stands until Fleet's report moves.
     build_read: Option<ipc::FleetBuildReport>,
+    /// The offers as last handed in, which an optimistic skip stands over until Fleet answers.
+    offers_read: Option<ipc::PreviewOffers>,
     /// The live link as last handed in, read again by the clock while the face moves with time alone.
     link_read: Option<face::LiveLink>,
     /// When the window opened: a Fleet down at launch has the same grace as one that just dropped.
@@ -282,6 +287,13 @@ pub fn bind(cx: &mut App) {
     });
 }
 
+/// Fleet refused a skip: the bar of the window in front draws the Refresh row as Fleet last said it.
+pub fn offers_refused(cx: &mut App) {
+    if let Some(bar) = live(cx) {
+        bar.update(cx, |bar, cx| bar.offers_refused(cx));
+    }
+}
+
 /// The bar of the window in front, for a walk to move between scenes.
 pub fn live(cx: &App) -> Option<Entity<TitleBar>> {
     cx.try_global::<Live>().and_then(|live| live.0.upgrade())
@@ -331,6 +343,7 @@ impl TitleBar {
             _swap_tick: None,
             _swap_keys: None,
             build_read: None,
+            offers_read: None,
             link_read: None,
             opened: std::time::Instant::now(),
             _link_tick: None,
@@ -376,6 +389,23 @@ impl TitleBar {
         }
         self.build_read = report.cloned();
         self.face.build = report.map(face::build_of);
+        cx.notify();
+    }
+
+    /// The branches Jobs offered for the preview and the Refresh row, as Fleet last said them. A skip already
+    /// cleared the row in its frame; that stands until Fleet's offers are not the ones last handed in.
+    pub fn set_offers(&mut self, offers: Option<&ipc::PreviewOffers>, cx: &mut Context<Self>) {
+        if self.offers_read.as_ref() == offers {
+            return;
+        }
+        self.offers_read = offers.cloned();
+        self.face.offers = offers.cloned();
+        cx.notify();
+    }
+
+    /// Fleet refused a skip: the row is back as Fleet last said it.
+    pub fn offers_refused(&mut self, cx: &mut Context<Self>) {
+        self.face.offers = self.offers_read.clone();
         cx.notify();
     }
 

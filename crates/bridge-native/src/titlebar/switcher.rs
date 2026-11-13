@@ -257,6 +257,7 @@ impl TitleBar {
             .border_color(look.color(token::BORDER_SUBTLE))
             .child(select)
             .child(restart_button)
+            .children(self.offers_section(held, look, cx))
             .children(revert_button)
             .children(picked)
             .children(snapshot)

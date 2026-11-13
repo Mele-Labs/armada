@@ -642,11 +642,13 @@ impl JobsList {
             if let Some(bar) = crate::titlebar::live(cx) {
                 let (usage, downshift) = (fleet.read(cx).held().plan_usage.clone(), fleet.read(cx).held().downshift.clone());
                 let build = fleet.read(cx).held().build.clone();
+                let offers = fleet.read(cx).held().offers.clone();
                 let link = fleet.read(cx).held().link();
                 bar.update(cx, |bar, cx| {
                     bar.set_fleet(&link, cx);
                     bar.set_usage(usage.as_ref(), downshift.as_ref(), cx);
                     bar.set_build(build.as_ref(), cx);
+                    bar.set_offers(offers.as_ref(), cx);
                 });
             }
             // Every row's write-clash mark reads what Fleet last said; nothing while it cannot say.
@@ -2096,6 +2098,14 @@ impl JobsScreen {
         let opens = palette.downgrade();
         let fleet_of = list.downgrade();
         cx.set_global(crate::titlebar::AskedSink(Rc::new(move |asked: &crate::titlebar::Asked, cx: &mut App| {
+            // Skip on the Refresh row goes to Fleet, which keeps the row skipped.
+            if let crate::titlebar::Asked::SkipOffers(id) = asked {
+                match fleet_of.upgrade().and_then(|list| list.read(cx).fleet()) {
+                    Some(fleet) => fleet.update(cx, |fleet, cx| fleet.skip_offers(id.clone(), cx)),
+                    None => Note::warn("not sent: no Fleet is connected").field("route", "/fleet/build/offers/skip").emit(),
+                }
+                return;
+            }
             // The bar's build switcher: each press is Fleet's build act, followed until the report settles.
             let act = match asked {
                 crate::titlebar::Asked::ChangeBuild { build, adopt } => Some(BuildAct::Change(ipc::ChangeFleetBuild { build: *build, adopt: *adopt })),
