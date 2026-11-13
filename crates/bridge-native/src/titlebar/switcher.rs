@@ -265,7 +265,8 @@ impl TitleBar {
             .children(failed)
             .children(left_out)
             .children(self.origin_section(held, look, cx))
-            .child(position)
+            // A restart with no stage yet has only its button's spinner to say; the row comes back with the stage's words.
+            .children((!matches!(held.position(), Position::Restarting { stage: None, .. })).then_some(position))
             .into_any_element()
     }
 
