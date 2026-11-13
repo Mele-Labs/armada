@@ -12,5 +12,7 @@ notes = """
 
 **The rest is `start_another_session`'s.** The new job is created and listed at once with no process, held on its start card with the message as its first turn, waiting as `unsent:<session id>` until `begin_session`, and the ledgers carry `forked_from` and `forked_to` (the first with `detail.at` and `cut`, as `start_session`'s fork) beside the caller's thread row, `started`, `fork` true.
 
+**The new job keeps the caller's project**, as every fork does.
+
 `agent_access` is `Yes` for the caller's own conversation only. `start_session`'s `fork` stays `No`.
 """

@@ -162,6 +162,8 @@ The wire is [Projects](../practices/protocol/projects.md), *Values*.
 
 > **Rule (13 Nov).** A Job another Job starts is for its starter's project and takes that project's values, and its repository becomes a whole member where it was not.
 > Why: a Job an agent started was in no project, so how its work lands was unset and he was asked every time. A starter in no project starts its Job in none.
+> A fork or a handoff keeps its source Job's project, and a move into another repository adds that repository as a whole member.
+> Why: a Job that drops out of its project looks lost in a list grouped by project.
 
 ## Dispatching tasks
 
