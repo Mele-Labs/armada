@@ -43,7 +43,7 @@ pub(crate) async fn stub_fleet(seen: Seen) -> u16 {
                 let query = query.unwrap_or_default();
                 read.lock().unwrap().push(("/sessions/one".into(), caller(&headers), query.clone()));
                 match query.as_str() {
-                    "session_id=h1" => (StatusCode::OK, THREAD.to_string()),
+                    h1 if h1 == "session_id=h1" || h1.starts_with("session_id=h1&") => (StatusCode::OK, THREAD.to_string()),
                     // Fleet is sent the whole query, `last` and `before` too, and answers the whole thread.
                     long if long.starts_with("session_id=long") => (StatusCode::OK, thread_of(5)),
                     wide if wide.starts_with("session_id=wide") => (StatusCode::OK, thread_of(300)),
