@@ -26,7 +26,7 @@ pub(crate) fn not_ours_item(kept: &KeptWatchWhole) -> Option<WaitingItem> {
         return None;
     }
     let names: Vec<&str> = parts.iter().map(|(part, _)| part.as_str()).collect();
-    let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
+    let option = |label: &str| WaitingOption { label: label.to_string(), description: None, picture: None };
     let held = &kept.watch;
     Some(WaitingItem {
         approves: false,

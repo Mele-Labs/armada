@@ -18,5 +18,7 @@ Kept the way `get_limits` is: Fleet-wide, surviving a relaunch. **Read from sett
 
 **`time_format` is the sixth**: how Bridge draws a time, as the JSON Settings, Time wrote — three booleans, `hour12`, `seconds` and `date`. Left out while he has chosen none, which reads as the 24-hour clock with seconds and no date.
 
+**How he works with Jobs is the seventh to the eighteenth**, each left out while it is its default, so an older Fleet's answer and a newer one's agree: `take_in` (`read`), `answer_with` (`type`), `first_run_answered` (`false`), `read_results` (`note_then_page`), `look_results` (`picture_every`), `look_questions` (`pictures_mix`), `listen_end_summary` (`true`), `listen_needs_you` (`true`), `listen_progress` (`false`), `listen_operator` (`false`), `listen_voice` (empty, the Mac's default voice) and `buttons_words` (`true`). Read from `bridge.takeIn` and its eleven neighbours. A word in the file that is not in its set reads as the default.
+
 `agent_access` is `Yes` for `get_capacity`'s reason: a preference is cheap to read and a job asking what a person set is asking nothing it could not already see on the screen it is helping with.
 """

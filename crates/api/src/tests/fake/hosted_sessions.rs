@@ -83,6 +83,13 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn answer_waiting_parts(
+        self: Arc<Self>,
+        _said: ipc::AnswerWaitingParts,
+    ) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn free_slot(self: Arc<Self>, _free: ipc::FreeSlot) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }

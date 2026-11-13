@@ -31,7 +31,7 @@ pub(crate) fn delivery_item(since: Instant) -> WaitingItem {
         act: Some(WaitingAct { kind: WaitingActKind::Answer, target: DELIVERY_ITEM.to_string() }),
         options: DeliveryChoice::OFFERED
             .iter()
-            .map(|one| WaitingOption { label: one.label().to_string(), description: Some(one.detail().to_string()) })
+            .map(|one| WaitingOption { label: one.label().to_string(), description: Some(one.detail().to_string()), picture: None })
             .collect(),
         steps: Vec::new(),
         place: None,
