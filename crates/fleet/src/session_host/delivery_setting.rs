@@ -114,10 +114,11 @@ where
         let mut set = crate::values::values_set(held.values()).unwrap_or_default();
         set.delivery = Some(setting_of(choice).as_wire().to_string());
         let edit = EditProject { values: Some(set), ..EditProject::default() };
-        if let Err(refusal) = self.edit_project(project, edit).await {
+        if let Err(refusal) = self.edit_project(project.clone(), edit).await {
             self.values_warned("how a project's work lands was not kept", Some(id), &refusal.error().message);
             return None;
         }
+        self.project_learned_kept(&project, setting_of(choice).as_wire()).await;
         Some(format!("Kept for {name}: its Jobs land this way from now on. {WHERE_CHANGED}"))
     }
 }

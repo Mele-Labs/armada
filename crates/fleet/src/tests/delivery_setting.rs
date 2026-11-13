@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Projects};
 use ipc::{
-    AnswerWaiting, BeginSession, DeliveryChoice, NewProject, ProjectMember, SessionId, SessionRecord, SessionRow, SetSessionWorkflow,
+    AnswerWaiting, BeginSession, DeliveryChoice, EditProject, NewProject, ProjectMember, SessionId, SessionRecord, SessionRow, SetSessionWorkflow,
     ValueLayer, ValuesSet, WaitingItem, WaitingSource,
 };
 use testkit::FakeJudge;
@@ -237,4 +237,96 @@ async fn an_answer_in_no_project_learns_nothing() {
     assert_eq!(said(&rig, &id).await, None);
     assert_eq!(delivery_of_project(&rig, Some(&project)).await.value, None, "no project took it");
     assert_eq!(delivery_of_project(&rig, None).await.value, None);
+}
+
+fn delivery_values(word: &str) -> ValuesSet {
+    ValuesSet { delivery: Some(word.to_string()), ..ValuesSet::default() }
+}
+
+/// A project that learned `open_pr` from the first answer in it.
+async fn learned_open_pr(rig: &Rig) -> String {
+    let project = project(rig, None).await;
+    let id = entering_the_rail(rig, Some(&project), FIRST).await;
+    answered(rig, &id, 1).await;
+    eventually(|| async { delivery_of_project(rig, Some(&project)).await.value.is_some() }).await;
+    project
+}
+
+async fn learned_note(rig: &Rig, project: &str) -> Option<String> {
+    rig.fleet.store().lock().await.project_learned(project, "delivery").expect("reads")
+}
+
+#[tokio::test]
+async fn a_delivery_learned_from_the_first_answer_is_served_as_learned() {
+    let rig = rig();
+    let project = learned_open_pr(&rig).await;
+
+    let held = delivery_of_project(&rig, Some(&project)).await;
+    assert_eq!((held.value.as_deref(), held.from, held.learned), (Some("open_pr"), ValueLayer::Project, true));
+    assert_eq!(learned_note(&rig, &project).await.as_deref(), Some("open_pr"));
+}
+
+#[tokio::test]
+async fn a_delivery_he_set_himself_is_not_learned() {
+    let rig = rig();
+    let project = project(&rig, Some("open_pr")).await;
+    let id = entering_the_rail(&rig, Some(&project), FIRST).await;
+    assert_eq!(kept(&rig, &id).await, Some(DeliveryChoice::OpenPr));
+
+    assert!(!delivery_of_project(&rig, Some(&project)).await.learned);
+    assert_eq!(learned_note(&rig, &project).await, None);
+}
+
+#[tokio::test]
+async fn changing_the_learned_word_clears_learned_and_its_note() {
+    let rig = rig();
+    let project = learned_open_pr(&rig).await;
+
+    let edit = EditProject { values: Some(delivery_values("auto_land")), ..EditProject::default() };
+    rig.fleet.edit_project(project.clone(), edit).await.expect("edited");
+    let held = delivery_of_project(&rig, Some(&project)).await;
+    assert_eq!((held.value.as_deref(), held.learned), (Some("auto_land"), false), "his word is not the learned one");
+    assert_eq!(learned_note(&rig, &project).await, None);
+
+    // Putting the learned word back is his own setting now.
+    let edit = EditProject { values: Some(delivery_values("open_pr")), ..EditProject::default() };
+    rig.fleet.edit_project(project.clone(), edit).await.expect("edited");
+    assert!(!delivery_of_project(&rig, Some(&project)).await.learned);
+}
+
+#[tokio::test]
+async fn editing_another_value_keeps_the_delivery_learned() {
+    let rig = rig();
+    let project = learned_open_pr(&rig).await;
+
+    let edit = EditProject { name: Some("Store".into()), ..EditProject::default() };
+    rig.fleet.edit_project(project.clone(), edit).await.expect("edited");
+    assert!(delivery_of_project(&rig, Some(&project)).await.learned, "a rename leaves it");
+    let values = ValuesSet { pr_mode: Some(core_model::PrMode::Ready.into()), ..delivery_values("open_pr") };
+    rig.fleet.edit_project(project.clone(), EditProject { values: Some(values), ..EditProject::default() }).await.expect("edited");
+    assert!(delivery_of_project(&rig, Some(&project)).await.learned, "a rewrite of the same word with another value changed leaves it");
+    assert_eq!(learned_note(&rig, &project).await.as_deref(), Some("open_pr"));
+}
+
+#[tokio::test]
+async fn kits_delivery_is_never_learned() {
+    let rig = rig();
+    rig.kit_values("version: 1\nvalues:\n  delivery: open_pr\n");
+    let project = project(&rig, None).await;
+    // Even a note for the same word, left behind, does not make a layer other than the project's learned.
+    rig.fleet.store().lock().await.keep_project_learned(&project, "delivery", "open_pr", "2026-11-13T11:00:00Z").expect("kept");
+
+    let held = delivery_of_project(&rig, Some(&project)).await;
+    assert_eq!((held.value.as_deref(), held.from, held.learned), (Some("open_pr"), ValueLayer::Kit, false));
+    assert!(!delivery_of_project(&rig, None).await.learned);
+}
+
+#[tokio::test]
+async fn deleting_the_project_clears_its_learned_note() {
+    let rig = rig();
+    let project = learned_open_pr(&rig).await;
+    assert!(learned_note(&rig, &project).await.is_some());
+
+    rig.fleet.delete_project(project.clone()).await.expect("deleted");
+    assert_eq!(learned_note(&rig, &project).await, None);
 }

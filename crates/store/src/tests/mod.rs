@@ -77,6 +77,7 @@ mod preview_offered;
 mod session_open_turn;
 mod issue_queries;
 mod projects;
+mod project_learned;
 mod settings_file;
 mod studio;
 mod studio_authors;

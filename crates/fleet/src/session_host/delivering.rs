@@ -221,7 +221,8 @@ where
         else {
             return Err(self.settled_already());
         };
-        let said = self.delivery_learned(id, chosen).await;
+        // Boxed: editing the project's file inline put the answer's future past a test thread's stack.
+        let said = Box::pin(self.delivery_learned(id, chosen)).await;
         self.row_put(id, SessionRow::Delivery { id: row_id, at, choice: Some(chosen), named: false, said }).await;
         self.auto_land_follows(id, Some(chosen)).await;
         self.delivery_pick_kept(id, chosen).await;
