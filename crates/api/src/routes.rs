@@ -253,6 +253,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::pull_request_panel::get_review_runs::<D>),
         )
         .merge(crate::review_walks::mounted::<D>())
+        .merge(crate::pull_review_memory::mounted::<D>())
         .merge(crate::other_macs::mounted::<D>())
         .route(
             "/pull_request_notes/:repository/:number",
@@ -318,7 +319,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/sessions/terminal/open", post(crate::terminals::open_terminal::<D>))
         .route("/sessions/terminal/run", post(crate::terminals::start_terminal_run::<D>))
-        .route("/sessions/terminal/start", post(crate::terminals::start_terminal_job::<D>))
+        .route("/sessions/side_job/start", post(crate::terminals::start_side_job::<D>))
         .route("/sessions/terminal/type", post(crate::terminals::type_in_terminal::<D>))
         .route("/sessions/terminal/read", get(crate::terminals::read_terminal::<D>))
         .route("/sessions/terminal/list", get(crate::terminals::list_terminals::<D>))
@@ -659,12 +660,20 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::set_session_auto_land::<D>),
         )
         .route(
+            "/sessions/project",
+            post(crate::hosted_sessions::set_session_project::<D>),
+        )
+        .route(
             "/sessions/mcp",
             get(crate::hosted_sessions::get_session_mcp::<D>),
         )
         .route(
             "/sessions/quick",
             get(crate::hosted_sessions::get_session_quick::<D>),
+        )
+        .route(
+            "/sessions/artifacts",
+            get(crate::hosted_sessions::get_job_artifacts::<D>),
         )
         .route(
             "/sessions/mcp/act",
@@ -819,6 +828,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/settings", get(crate::settling::get_settings::<D>))
         .route("/settings/save", post(crate::settling::save_settings::<D>))
         .route("/phone", get(crate::settling::get_phone::<D>).post(crate::settling::set_phone::<D>))
+        .route("/phone/setup", get(crate::settling::get_mac_setup::<D>).post(crate::settling::set_up_mac::<D>))
         .route("/accounts", get(crate::accounting::get_accounts::<D>))
         .route("/accounts/start_sign_in", post(crate::accounting::start_sign_in::<D>))
         .route("/accounts/sign_out", post(crate::accounting::sign_out::<D>))

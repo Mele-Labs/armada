@@ -544,9 +544,37 @@ fn harmless_redirect(rest: &str) -> Option<usize> {
     })
 }
 
+/// Where the substitution opening at `at` (`$(` or a backtick) closes, as the byte after it, and the
+/// line it runs. `None` when it never closes. Quotes inside a `$(` are followed, so a `)` in them is text.
+fn substitution(line: &str, at: usize) -> Option<(usize, &str)> {
+    if line[at..].starts_with('`') {
+        let close = at + 1 + line[at + 1..].find('`')?;
+        return Some((close + 1, &line[at + 1..close]));
+    }
+    let (mut depth, mut quote) = (1usize, None::<char>);
+    for (offset, c) in line[at + 2..].char_indices() {
+        match (quote, c) {
+            (Some(open), _) if c == open => quote = None,
+            (Some(_), _) => {}
+            (None, '"' | '\'') => quote = Some(c),
+            (None, '(') => depth += 1,
+            (None, ')') => {
+                depth -= 1;
+                if depth == 0 {
+                    let close = at + 2 + offset;
+                    return Some((close + 1, &line[at + 2..close]));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 /// The line cut at `|`, `;`, `&` and newline outside quotes, with the harmless redirects
-/// taken out. `None` for a quote left open, a redirect, or a substitution the shell would run:
-/// a `>` inside quotes is text, and so is a backtick or `$(` inside single quotes.
+/// taken out. `None` for a quote left open, a redirect, or a substitution that writes: a
+/// substitution that only reads stands as a word, so `f=$(git grep -l x)` reads. A `>` inside
+/// quotes is text, and so is a backtick or `$(` inside single quotes.
 fn segments(line: &str) -> Option<Vec<String>> {
     let mut segments = vec![String::new()];
     let mut quote: Option<char> = None;
@@ -565,8 +593,17 @@ fn segments(line: &str) -> Option<Vec<String>> {
             word_start = false;
             continue;
         }
+        if substitutes && quote != Some('\'') {
+            let (end, inner) = substitution(line, at)?;
+            if !reads_only(inner) {
+                return None;
+            }
+            current.push('x');
+            skip_to = end;
+            word_start = false;
+            continue;
+        }
         match quote {
-            Some('"') if substitutes => return None,
             Some(open) => {
                 current.push(c);
                 if c == open {
@@ -580,7 +617,7 @@ fn segments(line: &str) -> Option<Vec<String>> {
                         continue;
                     }
                 }
-                if c == '>' || substitutes {
+                if c == '>' {
                     return None;
                 }
                 match c {
@@ -660,8 +697,9 @@ fn git_lists(segment: &str) -> bool {
     }
 }
 
-/// Whether a `sed` only prints lines: `-n` and a script that is an address and `p`, such as
-/// `sed -n 10,40p file`. Any other script can write a file (`w`) or run one (`e`).
+/// Whether a `sed` only prints lines: `-n` and a script of addresses each with `p`, such as
+/// `sed -n 10,40p file` or `sed -n '1,5p;9,12p' file`. Any other script can write a file (`w`) or
+/// run one (`e`).
 fn sed_reads(segment: &str) -> bool {
     let words: Vec<&str> = segment.split_whitespace().skip(1).collect();
     let script = words.iter().find(|word| !word.starts_with('-'));
@@ -673,9 +711,10 @@ fn sed_reads(segment: &str) -> bool {
     quiet
         && only_flags
         && script.is_some_and(|script| {
-            let script = script.trim_matches(['\'', '"']);
-            script.strip_suffix('p').is_some_and(|address| {
-                !address.is_empty() && address.chars().all(|c| c.is_ascii_digit() || c == ',' || c == '$')
+            script.trim_matches(['\'', '"']).split(';').all(|one| {
+                one.strip_suffix('p').is_some_and(|address| {
+                    !address.is_empty() && address.chars().all(|c| c.is_ascii_digit() || c == ',' || c == '$')
+                })
             })
         })
 }
@@ -684,7 +723,20 @@ fn sed_reads(segment: &str) -> bool {
 fn reads(segment: &str) -> bool {
     // A group's `(` `{` and `)` `}` run nothing of their own: `(cd x && ls)`.
     let segment = segment.trim_start_matches(['(', '{', ' ']).trim_end_matches([')', '}', ' ']);
-    if segment.is_empty() {
+    // A loop or a branch runs only the commands it leads (`do grep x`, `if git diff --quiet`), and
+    // `for f in a b` only names: [`segments`] has already refused a substitution that writes.
+    let segment = match segment.split_once(' ') {
+        Some((lead, rest)) if LEADS.contains(&lead) => return reads(rest),
+        _ => segment,
+    };
+    if segment.is_empty() || ["done", "fi", "do", "then", "else"].contains(&segment) {
+        return true;
+    }
+    let mut words = segment.split_whitespace();
+    if words.next() == Some("for")
+        && words.next().is_some_and(|name| name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+        && words.next().is_none_or(|word| word == "in")
+    {
         return true;
     }
     let segment = &*plain_git(segment);
@@ -728,6 +780,9 @@ fn reads(segment: &str) -> bool {
     }
     READS.iter().any(|read| named(read))
 }
+
+/// What leads a command inside a loop or a branch.
+const LEADS: &[&str] = &["do", "then", "else", "elif", "if", "while", "until", "!"];
 
 const READS: &[&str] = &[
     "cd",

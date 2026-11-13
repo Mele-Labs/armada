@@ -29,6 +29,7 @@ mod drafts;
 // No screen opens a file yet; the first one that does calls it.
 #[allow(dead_code)]
 mod editor;
+mod first_run;
 mod fleet;
 mod frames;
 mod job_view;
@@ -37,17 +38,21 @@ mod jobs;
 mod keymap;
 mod labels;
 mod lanes_canvas;
+mod lanes_editor;
 mod link;
+mod listen;
 mod log;
 // A screen reads only some of what `look` offers so far.
 #[allow(dead_code)]
 mod look;
 mod menu;
 mod merge_strip;
+mod option_pictures;
 mod mock;
 mod new_project;
 mod notify;
 mod operator;
+mod pairing;
 mod palette;
 mod point;
 mod queued;
@@ -58,13 +63,16 @@ mod runtime_file;
 mod scene;
 mod settings;
 mod sketch;
+mod snooze;
 mod sketch_png;
 mod terminal;
 mod titlebar;
 mod toasts;
 mod transport;
 mod voice;
+mod waiting_sends;
 mod walk;
+mod ways;
 mod whisper;
 
 /// Written by `pnpm --filter @armada/desktop codegen` from `crates/core-model/domain/`. Not edited.
@@ -241,6 +249,7 @@ fn main() -> ExitCode {
         // Only the live app keeps what he typed across a restart: a walk, a mock and a test never read or write his file.
         if matches!(mode, Mode::Live) {
             drafts::persist(drafts::file(), cx);
+            pairing::follow(cx);
         }
         cx.spawn(async move |cx| {
             while let Ok(address) = arrived.recv().await {
@@ -285,6 +294,9 @@ fn main() -> ExitCode {
                     screen.update(cx, |screen, cx| screen.live_notes(window, cx));
                     // Settings over all of it: the title bar's Settings, the macOS menu's and ⌘, open it.
                     let screen = cx.new(|cx| settings::SettingsScreen::live(screen.into(), &fleet, window, cx));
+                    // While he has not said how he works with Jobs, the first-run screen is over all of it.
+                    let settings = screen.read(cx).overlay.clone();
+                    let screen = cx.new(|cx| first_run::FirstRunScreen::new(screen.into(), settings, Some(&fleet), cx));
                     cx.new(|_| Shell { screen: screen.into(), _fleet: Some((fleet, look, keys, menu, notifier)) })
                 })
                 .map(|_| ()),

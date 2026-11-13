@@ -23,6 +23,35 @@ pub static BUILD_LIVE: [Step; 11] = [
     press_on("Keep tells each Job to land; the bar goes", "button", "Keep", "button", "Fleet — Running"),
 ];
 
+/// The On origin row of the build switcher: branches no Job here holds, picked into the next build (#3547).
+pub static ORIGIN: [Step; 9] = [
+    scene("Origin holds nine branches main lacks that no Job on this Mac holds", "build-origin", "button", "Fleet — Running"),
+    press_on("The panel lists them under On origin, newest first, each with how long ago it was last committed to", "button", "Fleet — Running", "list", "On origin"),
+    step("The list runs long, so a search sits over it", Verb::Press, "searchbox", "Search branches on origin"),
+    step("Typing narrows it to the branches whose name holds every word", Verb::Keys(&["n", "a", "t", "i", "v", "e"]), "list", "On origin"),
+    step("A name no branch holds says so", Verb::Keys(&["space", "z"]), "list", "On origin"),
+    step("Clearing the search brings the list back", Verb::Keys(&["backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace"]), "button", "Add native/refresh-set to the next build"),
+    press_on("The plus adds a branch to the next build: it joins the picked chips in the same frame and leaves the list", "button", "Add native/refresh-set to the next build", "button", "Leave native/refresh-set out of the build"),
+    scene("Fleet builds a snapshot of main and the branch beside the running build, and offers Swap when it is ready", "build-origin-ready", "button", "Swap"),
+    step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
+];
+
+/// The Refresh row of the build switcher on the branches Jobs offered for the preview.
+pub static PREVIEW_OFFERS: [Step; 12] = [
+    scene("Three branches are offered for the preview, one of them ready", "preview-offers", "button", "Fleet — Running"),
+    press_on("The panel opens with the Refresh row under the build: each branch by its Job's title and line", "button", "Fleet — Running", "list", "Offered for the preview"),
+    step("A ready branch has a green check; its tooltip says Ready", Verb::Hover, "img", "Ready"),
+    step("A branch still being checked has a turning ring in blue", Verb::Hover, "img", "Checking"),
+    step("A failed one has a red cross, and its tooltip says what failed it", Verb::Hover, "img", "Failed: merge conflict in crates/fleet/src/building.rs"),
+    step("Skip puts the row away and tells Fleet", Verb::Gone, "button", "Skip"),
+    scene("Fleet's answer carries the offers and no row: it stays away", "preview-offers-skipped", "button", "Fleet — Running"),
+    step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
+    scene("A different set of ready offers brings the row back", "preview-offers", "button", "Fleet — Running"),
+    press_on("The panel opens on the row again", "button", "Fleet — Running", "button", "Refresh preview"),
+    press_on("Refresh preview is the switcher's own switch: under way in the same frame", "button", "Refresh preview", "button", "Refreshing preview"),
+    step("Esc shuts the panel and the keys go back", Verb::Key("escape"), "button", "Fleet — Running"),
+];
+
 /// The switcher alone, on the projects Fleet serves, and how its two chips give way.
 pub static SWITCHER: [Step; 9] = [
     step("The wide bar: a window narrower than 900 widens to show it", Verb::Widen(1400), "button", "Project"),

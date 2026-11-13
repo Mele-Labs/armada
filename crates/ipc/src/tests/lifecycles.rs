@@ -89,6 +89,7 @@ fn a_lifecycle() -> LifecycleDefinition {
             state("ready", StateReadFrom::Forge { fact: "ready".to_string() }),
             state("rolling_out", StateReadFrom::Watch { state: "running".to_string() }),
             state("running", StateReadFrom::Fleet { fact: "started".to_string() }),
+            state("mine", StateReadFrom::Own),
         ],
         transitions: vec![LifecycleTransition { from: "todo".to_string(), to: "ready".to_string() }],
         ends: vec!["ready".to_string()],
@@ -327,7 +328,7 @@ fn the_typescript_mirror_names_every_field_and_every_tag_rust_sends() {
     }
 
     let tags = [
-        "everywhere", "within", "tracker", "forge", "watch", "fleet", "entered", "linked_from", "linking_to", "held", "enters",
+        "everywhere", "within", "tracker", "forge", "watch", "fleet", "own", "entered", "linked_from", "linking_to", "held", "enters",
         "step_starts", "step_ends", "job", "instances", "workflow", "at_step", "pull_request_opened", "tracker_assign",
         "tracker_move", "tracker_close", "forge_request_reviewers", "forge_mark_ready", "forge_merge", "forge_auto_merge",
         "draft", "start_job", "start_watch", "tell", "wake", "run_command", "run_skill", "run_drone", "unread", "in",

@@ -1,5 +1,6 @@
 //! The app with Settings over it. It stands in front of the title bar's sink: Settings from the bar's menu and
-//! ⌘, open it whole, and the project switcher's Settings opens it on that project.
+//! ⌘, open it on the project of the Job on screen, or every project where none is, and the project switcher's
+//! Settings opens it on that project's first page.
 
 use std::rc::Rc;
 
@@ -27,6 +28,51 @@ impl SettingsScreen {
         Self::new(under, Wire::Mock(Box::new(super::mock::MockFleet::new())), window, cx)
     }
 
+    /// For the walk of a refused save: the mock refuses this word as Fleet refuses one outside its set.
+    pub fn refusing(&mut self, word: &str, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.refuses.push(word.to_string());
+            }
+        });
+    }
+
+    /// For the walk of choosing what to take from Armada: the copy of `feature` is what it began from, less what Armada changed.
+    pub fn copied_from_base(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.copied_from_base();
+            }
+        });
+    }
+
+    /// For the walk of adding a lane: Fleet already holds a drafted lane for sample-web.
+    pub fn with_drafted_lane(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.drafted_lane();
+            }
+        });
+    }
+
+    /// For the walk of deleting a project: Storefront holds four tasks, and Pricing is a copy of another Mac's.
+    pub fn with_deletable_projects(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.deletable_projects();
+            }
+        });
+    }
+
+    /// For the walk of a Mac nothing is set up on.
+    pub fn fresh_mac(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.gateway = super::gateway::MockGateway::fresh();
+            }
+        });
+    }
+
     /// For the walk of a Mac Tailscale Funnel does not serve.
     pub fn without_funnel(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {
@@ -40,11 +86,21 @@ impl SettingsScreen {
         let overlay = cx.new(|cx| SettingsOverlay::new(wire, window, cx));
         let handle = window.window_handle();
         let me = overlay.downgrade();
+        let told = me.clone();
+        crate::job_view::on_job_shown(
+            move |job, _, cx| {
+                if let Some(me) = told.upgrade() {
+                    me.update(cx, |this, _| this.job_shown = job);
+                }
+            },
+            cx,
+        );
         let behind = cx.try_global::<AskedSink>().cloned();
         cx.set_global(AskedSink(Rc::new(move |asked: &Asked, cx: &mut App| {
             let project = match asked {
-                Asked::Settings | Asked::RepositorySettings(_) => None,
-                Asked::ProjectSettings(at) => Some(*at),
+                Asked::Settings => Some(None),
+                Asked::RepositorySettings(_) => None,
+                Asked::ProjectSettings(at) => Some(Some(*at)),
                 _ => {
                     if let Some(behind) = &behind {
                         (behind.0)(asked, cx);
@@ -55,18 +111,21 @@ impl SettingsScreen {
             // The bar asks from inside its own update, so its projects are read once it is done.
             let me = me.clone();
             cx.defer(move |cx| {
+                let Some(me) = me.upgrade() else { return };
                 let scope = match project {
                     None => None,
-                    Some(at) => match titlebar::live(cx).and_then(|bar| bar.read(cx).face.projects.get(at).map(|one| (one.id.to_string(), one.name.to_string()))) {
+                    // ⌘, and the bar's menu: the project the Job on screen was started for.
+                    Some(None) => {
+                        let this = me.read(cx);
+                        this.job_shown.as_deref().and_then(|job| this.wire.project_of_job(job, cx))
+                    }
+                    Some(Some(at)) => match titlebar::live(cx).and_then(|bar| bar.read(cx).face.projects.get(at).map(|one| (one.id.to_string(), one.name.to_string()))) {
                         Some(project) => Some(project),
                         None => return,
                     },
                 };
-                let _ = handle.update(cx, move |_, window, cx| {
-                    if let Some(me) = me.upgrade() {
-                        me.update(cx, |this, cx| this.show(scope, window, cx));
-                    }
-                });
+                let values = matches!(project, Some(Some(_)));
+                let _ = handle.update(cx, move |_, window, cx| me.update(cx, |this, cx| this.show(scope, values, window, cx)));
             });
         })));
         SettingsScreen { under, overlay, within: cx.focus_handle() }

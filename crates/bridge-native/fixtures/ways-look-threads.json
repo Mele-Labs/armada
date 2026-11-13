@@ -1,0 +1,587 @@
+{
+ "threads": [
+  {
+   "session_id": "mock-01",
+   "head": {
+    "trail": {
+     "started": "2026-11-12T08:30:00Z"
+    },
+    "sketch": {
+     "kind": "sketch",
+     "id": "sk-checkout",
+     "at": "2026-11-12T09:02:00Z",
+     "sketch": "sketch:Checkout flow",
+     "title": "Checkout flow",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "cart",
+        "kind": "box",
+        "x": 0,
+        "y": 0,
+        "title": "Cart",
+        "color": "blue",
+        "body": "items and totals",
+        "icon": "layers"
+       },
+       {
+        "id": "pay",
+        "kind": "box",
+        "x": 260,
+        "y": 0,
+        "title": "Pay",
+        "color": "teal",
+        "body": "card form",
+        "icon": "git-branch"
+       },
+       {
+        "id": "check",
+        "kind": "box",
+        "x": 520,
+        "y": 0,
+        "title": "Address known?",
+        "color": "amber",
+        "shape": "diamond"
+       },
+       {
+        "id": "ship",
+        "kind": "box",
+        "x": 260,
+        "y": 200,
+        "title": "Choose shipping",
+        "color": "green",
+        "icon": "git-merge"
+       },
+       {
+        "id": "done",
+        "kind": "box",
+        "x": 0,
+        "y": 200,
+        "title": "Confirmation",
+        "color": "grey",
+        "shape": "pill"
+       }
+      ],
+      "edges": [
+       {
+        "id": "e1",
+        "from": "cart",
+        "to": "pay",
+        "label": "checkout"
+       },
+       {
+        "id": "e2",
+        "from": "pay",
+        "to": "check"
+       },
+       {
+        "id": "e3",
+        "from": "check",
+        "to": "ship",
+        "label": "no",
+        "color": "amber"
+       },
+       {
+        "id": "e4",
+        "from": "ship",
+        "to": "done"
+       }
+      ]
+     },
+     "revisions": [
+      {
+       "nodes": [
+        {
+         "id": "cart",
+         "kind": "box",
+         "x": 0,
+         "y": 0,
+         "title": "Cart",
+         "color": "blue",
+         "body": "items and totals",
+         "icon": "layers"
+        },
+        {
+         "id": "pay",
+         "kind": "box",
+         "x": 260,
+         "y": 0,
+         "title": "Pay",
+         "color": "teal",
+         "body": "card form",
+         "icon": "git-branch"
+        },
+        {
+         "id": "check",
+         "kind": "box",
+         "x": 520,
+         "y": 0,
+         "title": "Address known?",
+         "color": "amber",
+         "shape": "diamond"
+        },
+        {
+         "id": "ship",
+         "kind": "box",
+         "x": 260,
+         "y": 200,
+         "title": "Choose shipping",
+         "color": "green",
+         "icon": "git-merge"
+        },
+        {
+         "id": "done",
+         "kind": "box",
+         "x": 0,
+         "y": 200,
+         "title": "Confirmation",
+         "color": "grey",
+         "shape": "pill"
+        }
+       ],
+       "edges": [
+        {
+         "id": "e1",
+         "from": "cart",
+         "to": "pay",
+         "label": "checkout"
+        },
+        {
+         "id": "e2",
+         "from": "pay",
+         "to": "check"
+        },
+        {
+         "id": "e3",
+         "from": "check",
+         "to": "ship",
+         "label": "no",
+         "color": "amber"
+        },
+        {
+         "id": "e4",
+         "from": "ship",
+         "to": "done"
+        }
+       ]
+      }
+     ],
+     "asked": true
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-1",
+      "at": "2026-11-12T08:31:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Lay out the checkout page."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-2",
+      "at": "2026-11-12T09:01:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Three layouts are drawn. I need your pick before I build the page."
+     }
+    },
+    {
+     "kind": "sketch",
+     "id": "sk-checkout",
+     "at": "2026-11-12T09:02:00Z",
+     "sketch": "sketch:Checkout flow",
+     "title": "Checkout flow",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "cart",
+        "kind": "box",
+        "x": 0,
+        "y": 0,
+        "title": "Cart",
+        "color": "blue",
+        "body": "items and totals",
+        "icon": "layers"
+       },
+       {
+        "id": "pay",
+        "kind": "box",
+        "x": 260,
+        "y": 0,
+        "title": "Pay",
+        "color": "teal",
+        "body": "card form",
+        "icon": "git-branch"
+       },
+       {
+        "id": "check",
+        "kind": "box",
+        "x": 520,
+        "y": 0,
+        "title": "Address known?",
+        "color": "amber",
+        "shape": "diamond"
+       },
+       {
+        "id": "ship",
+        "kind": "box",
+        "x": 260,
+        "y": 200,
+        "title": "Choose shipping",
+        "color": "green",
+        "icon": "git-merge"
+       },
+       {
+        "id": "done",
+        "kind": "box",
+        "x": 0,
+        "y": 200,
+        "title": "Confirmation",
+        "color": "grey",
+        "shape": "pill"
+       }
+      ],
+      "edges": [
+       {
+        "id": "e1",
+        "from": "cart",
+        "to": "pay",
+        "label": "checkout"
+       },
+       {
+        "id": "e2",
+        "from": "pay",
+        "to": "check"
+       },
+       {
+        "id": "e3",
+        "from": "check",
+        "to": "ship",
+        "label": "no",
+        "color": "amber"
+       },
+       {
+        "id": "e4",
+        "from": "ship",
+        "to": "done"
+       }
+      ]
+     },
+     "revisions": [
+      {
+       "nodes": [
+        {
+         "id": "cart",
+         "kind": "box",
+         "x": 0,
+         "y": 0,
+         "title": "Cart",
+         "color": "blue",
+         "body": "items and totals",
+         "icon": "layers"
+        },
+        {
+         "id": "pay",
+         "kind": "box",
+         "x": 260,
+         "y": 0,
+         "title": "Pay",
+         "color": "teal",
+         "body": "card form",
+         "icon": "git-branch"
+        },
+        {
+         "id": "check",
+         "kind": "box",
+         "x": 520,
+         "y": 0,
+         "title": "Address known?",
+         "color": "amber",
+         "shape": "diamond"
+        },
+        {
+         "id": "ship",
+         "kind": "box",
+         "x": 260,
+         "y": 200,
+         "title": "Choose shipping",
+         "color": "green",
+         "icon": "git-merge"
+        },
+        {
+         "id": "done",
+         "kind": "box",
+         "x": 0,
+         "y": 200,
+         "title": "Confirmation",
+         "color": "grey",
+         "shape": "pill"
+        }
+       ],
+       "edges": [
+        {
+         "id": "e1",
+         "from": "cart",
+         "to": "pay",
+         "label": "checkout"
+        },
+        {
+         "id": "e2",
+         "from": "pay",
+         "to": "check"
+        },
+        {
+         "id": "e3",
+         "from": "check",
+         "to": "ship",
+         "label": "no",
+         "color": "amber"
+        },
+        {
+         "id": "e4",
+         "from": "ship",
+         "to": "done"
+        }
+       ]
+      }
+     ],
+     "asked": true
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "window",
+      "id": "win-1",
+      "at": "2026-11-12T09:03:00Z",
+      "title": "The checkout page",
+      "url": "https://example.test/?walk=checkout",
+      "steps": [
+       {
+        "say": "The cart lists two items and the total"
+       },
+       {
+        "say": "Pay opens with the card form"
+       },
+       {
+        "say": "The address step asks for a postcode"
+       },
+       {
+        "say": "The confirmation names the order"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "mock-02",
+   "head": {
+    "trail": {
+     "started": "2026-11-12T07:00:00Z"
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "n-1",
+      "at": "2026-11-12T07:01:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Index the docs."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "n-2",
+      "at": "2026-11-12T08:11:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The index is built."
+     }
+    },
+    {
+     "kind": "sketch",
+     "id": "sk-index",
+     "at": "2026-11-12T08:10:00Z",
+     "sketch": "sketch:Docs index flow",
+     "title": "Docs index flow",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "home",
+        "kind": "box",
+        "x": 0,
+        "y": 0,
+        "title": "Docs home",
+        "color": "blue",
+        "body": "sections and search",
+        "icon": "layers"
+       },
+       {
+        "id": "sec",
+        "kind": "box",
+        "x": 260,
+        "y": 0,
+        "title": "Section page",
+        "color": "teal",
+        "body": "pages in order",
+        "icon": "git-merge"
+       },
+       {
+        "id": "mock-nav",
+        "kind": "mock",
+        "html": "<span class=\"armada-chip\">Unfiled</span>",
+        "x": 520,
+        "y": 8,
+        "w": 90,
+        "h": 36
+       },
+       {
+        "id": "search",
+        "kind": "box",
+        "x": 0,
+        "y": 200,
+        "title": "Search",
+        "color": "amber",
+        "body": "titles and lines",
+        "icon": "webhook"
+       },
+       {
+        "id": "unfiled",
+        "kind": "box",
+        "x": 260,
+        "y": 200,
+        "title": "Unfiled",
+        "color": "grey",
+        "body": "pages with no home",
+        "icon": "git-merge"
+       }
+      ],
+      "edges": [
+       {
+        "id": "e1",
+        "from": "home",
+        "to": "sec",
+        "label": "opens"
+       },
+       {
+        "id": "e2",
+        "from": "sec",
+        "to": "mock-nav",
+        "label": "leftovers"
+       },
+       {
+        "id": "e3",
+        "from": "home",
+        "to": "search",
+        "label": "finds"
+       },
+       {
+        "id": "e4",
+        "from": "sec",
+        "to": "unfiled",
+        "label": "no home"
+       }
+      ]
+     },
+     "revisions": [
+      {
+       "nodes": [
+        {
+         "id": "home",
+         "kind": "box",
+         "x": 0,
+         "y": 0,
+         "title": "Docs home",
+         "color": "blue",
+         "body": "sections and search",
+         "icon": "layers"
+        },
+        {
+         "id": "sec",
+         "kind": "box",
+         "x": 260,
+         "y": 0,
+         "title": "Section page",
+         "color": "teal",
+         "body": "pages in order",
+         "icon": "git-merge"
+        },
+        {
+         "id": "mock-nav",
+         "kind": "mock",
+         "html": "<span class=\"armada-chip\">Unfiled</span>",
+         "x": 520,
+         "y": 8,
+         "w": 90,
+         "h": 36
+        },
+        {
+         "id": "search",
+         "kind": "box",
+         "x": 0,
+         "y": 200,
+         "title": "Search",
+         "color": "amber",
+         "body": "titles and lines",
+         "icon": "webhook"
+        },
+        {
+         "id": "unfiled",
+         "kind": "box",
+         "x": 260,
+         "y": 200,
+         "title": "Unfiled",
+         "color": "grey",
+         "body": "pages with no home",
+         "icon": "git-merge"
+        }
+       ],
+       "edges": [
+        {
+         "id": "e1",
+         "from": "home",
+         "to": "sec",
+         "label": "opens"
+        },
+        {
+         "id": "e2",
+         "from": "sec",
+         "to": "mock-nav",
+         "label": "leftovers"
+        },
+        {
+         "id": "e3",
+         "from": "home",
+         "to": "search",
+         "label": "finds"
+        },
+        {
+         "id": "e4",
+         "from": "sec",
+         "to": "unfiled",
+         "label": "no home"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

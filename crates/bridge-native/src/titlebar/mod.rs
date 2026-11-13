@@ -17,6 +17,8 @@ mod face;
 mod fleet_down;
 mod link_layer;
 mod link_panel;
+pub mod offers;
+mod origin;
 pub mod parts;
 mod projects;
 pub mod scenes;
@@ -71,6 +73,10 @@ pub enum Asked {
     Keep,
     Swap,
     Unpick(String),
+    /// Pick a branch on origin that no Job here holds into the next build.
+    PickOrigin(String),
+    /// Skip the Refresh row with this id.
+    SkipOffers(String),
     RestartFleet,
     Remedy(Remedy),
     CopyDebugInfo,
@@ -220,6 +226,8 @@ pub struct TitleBar {
     _swap_keys: Option<Subscription>,
     /// Fleet's build report as last handed in: a press's answer in the frame stands until Fleet's report moves.
     build_read: Option<ipc::FleetBuildReport>,
+    /// The offers as last handed in, which an optimistic skip stands over until Fleet answers.
+    offers_read: Option<ipc::PreviewOffers>,
     /// The live link as last handed in, read again by the clock while the face moves with time alone.
     link_read: Option<face::LiveLink>,
     /// When the window opened: a Fleet down at launch has the same grace as one that just dropped.
@@ -230,6 +238,8 @@ pub struct TitleBar {
     _restart_wait: Option<Task<()>>,
     /// The centred Fleet panel, while Fleet is stopped, restarting or on another build (`link_layer.rs`).
     link: link_layer::LinkPanel,
+    /// The search over the switcher's On origin row.
+    origin: origin::OriginSearch,
 }
 
 /// How long a restart may take to bring back a new Fleet before it is called unanswered (`FleetNotice.tsx`).
@@ -263,6 +273,13 @@ pub fn bind(cx: &mut App) {
             bar.update(cx, |_, cx| cx.emit(asked));
         }
     });
+}
+
+/// Fleet refused a skip: the bar of the window in front draws the Refresh row as Fleet last said it.
+pub fn offers_refused(cx: &mut App) {
+    if let Some(bar) = live(cx) {
+        bar.update(cx, |bar, cx| bar.offers_refused(cx));
+    }
 }
 
 /// The bar of the window in front, for a walk to move between scenes.
@@ -314,6 +331,8 @@ impl TitleBar {
             _swap_tick: None,
             _swap_keys: None,
             build_read: None,
+            origin: Default::default(),
+            offers_read: None,
             link_read: None,
             opened: std::time::Instant::now(),
             _link_tick: None,
@@ -361,6 +380,23 @@ impl TitleBar {
         }
         self.build_read = report.cloned();
         self.face.build = report.map(face::build_of);
+        cx.notify();
+    }
+
+    /// The branches Jobs offered for the preview and the Refresh row, as Fleet last said them. A skip already
+    /// cleared the row in its frame; that stands until Fleet's offers are not the ones last handed in.
+    pub fn set_offers(&mut self, offers: Option<&ipc::PreviewOffers>, cx: &mut Context<Self>) {
+        if self.offers_read.as_ref() == offers {
+            return;
+        }
+        self.offers_read = offers.cloned();
+        self.face.offers = offers.cloned();
+        cx.notify();
+    }
+
+    /// Fleet refused a skip: the row is back as Fleet last said it.
+    pub fn offers_refused(&mut self, cx: &mut Context<Self>) {
+        self.face.offers = self.offers_read.clone();
         cx.notify();
     }
 
@@ -586,6 +622,7 @@ impl TitleBar {
             self.shut(window, cx);
         } else {
             self.menu = None;
+            self.make_origin_search(window, cx);
             self.open_popup(Popup::Fleet, window, cx);
         }
     }

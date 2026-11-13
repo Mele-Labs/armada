@@ -108,12 +108,12 @@ fn now() -> i64 {
 }
 
 /// One Mac: its Gateway served on loopback at `address`, and its link running.
-struct Side {
-    gateway: Gateway,
+pub(crate) struct Side {
+    pub(crate) gateway: Gateway,
     fleet: FakeFleet,
     port: u16,
-    address: String,
-    keys: Arc<MemoryMacKeys>,
+    pub(crate) address: String,
+    pub(crate) keys: Arc<MemoryMacKeys>,
     running: Option<(oneshot::Sender<()>, JoinHandle<()>, JoinHandle<()>)>,
 }
 
@@ -128,7 +128,7 @@ fn pairing(name: &str, address: String) -> Pairing {
 }
 
 impl Side {
-    async fn new(name: &str, rows: &[&str]) -> Side {
+    pub(crate) async fn new(name: &str, rows: &[&str]) -> Side {
         let (fleet, fleet_port) = fake_fleet(rows).await;
         let port = crate::bind(0).await.unwrap().local_addr().unwrap().port();
         let address = format!("http://127.0.0.1:{port}");
@@ -146,12 +146,12 @@ impl Side {
         side
     }
 
-    fn id(&self) -> String {
+    pub(crate) fn id(&self) -> String {
         crate::machine::this_mac(&self.gateway).unwrap().id
     }
 
     /// Serve, and link, as `pocketing` does: a fresh `Macs` each start, over the same keys.
-    fn start(&mut self) {
+    pub(crate) fn start(&mut self) {
         self.gateway.macs = Macs::with_timing(self.keys.clone(), QUICK).unwrap();
         let listener = crate::bind_now(self.port).unwrap();
         let (stop, stopped) = oneshot::channel::<()>();
@@ -166,7 +166,7 @@ impl Side {
         self.running = Some((stop, serving, linking));
     }
 
-    async fn stop(&mut self) {
+    pub(crate) async fn stop(&mut self) {
         let (stop, serving, linking) = self.running.take().unwrap();
         self.gateway.macs.close();
         linking.abort();
@@ -174,7 +174,7 @@ impl Side {
         tokio::time::timeout(Duration::from_secs(5), serving).await.expect("the Gateway stopped").ok();
     }
 
-    async fn admin(&self, method: Method, path: &str, body: &str) -> (StatusCode, String) {
+    pub(crate) async fn admin(&self, method: Method, path: &str, body: &str) -> (StatusCode, String) {
         let method = reqwest::Method::from_bytes(method.as_str().as_bytes()).unwrap();
         let answer = reqwest::Client::new()
             .request(method, format!("{}{path}", self.address))
@@ -187,13 +187,13 @@ impl Side {
         (status, answer.text().await.unwrap())
     }
 
-    async fn macs(&self) -> Vec<Mac> {
+    pub(crate) async fn macs(&self) -> Vec<Mac> {
         let (status, body) = self.admin(Method::GET, "/admin/macs", "").await;
         assert_eq!(status, StatusCode::OK, "{body}");
         ipc::decode("macs", body.as_bytes()).unwrap()
     }
 
-    async fn mac(&self, id: &str) -> Option<Mac> {
+    pub(crate) async fn mac(&self, id: &str) -> Option<Mac> {
         self.macs().await.into_iter().find(|mac| mac.id == id)
     }
 
@@ -207,7 +207,7 @@ impl Side {
 }
 
 /// Wait until `check` holds, up to ten seconds.
-async fn until<F, Fut>(what: &str, mut check: F)
+pub(crate) async fn until<F, Fut>(what: &str, mut check: F)
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = bool>,

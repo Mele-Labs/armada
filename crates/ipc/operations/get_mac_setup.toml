@@ -1,0 +1,8 @@
+[operations.get_mac_setup]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "How far this Mac's one-press setup for pairing his other Macs has come: Gateway, Cloudflare sign-in, tunnel"
+notes = """
+`GET /phone/setup`, answered with `MacSetup` `{ step, working, login?, why?, address? }`. Read afresh at each ask from the Phone Gateway and its tunnel, so it answers while the Gateway is off. `step` is `gateway`, `sign_in`, `tunnel` or `done`; every step before it is done. `working` is Armada doing the step now. `login` is the Cloudflare sign-in page while it waits on him. `why` is a step that is stuck, and the press that moves it on is `set_up_mac` again. Never pressed, it is `gateway`, not working, with no `why`. Settings › Macs draws its cards and the ticking steps from it. `docs/concepts/pocket.md`, *Another Mac*.
+"""

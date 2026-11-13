@@ -76,6 +76,7 @@ pub(crate) fn macs(gateway: &Gateway) -> Result<Vec<Mac>, String> {
         build: gateway.way_in.build.clone(),
         link: None,
         last_heard_at: None,
+        code: None,
         why: None,
     }];
     all.extend(crate::mac_pair_routes::others(gateway)?);

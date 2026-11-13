@@ -1,0 +1,10 @@
+[operations.save_review_layout]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Keep the Reviews layout as it is under a name"
+notes = """
+`POST /review_layouts`, body `SaveReviewLayout`: `name` and `arrangement`, the pane tree as a JSON string. A name already kept is replaced. Answers `ReviewLayouts` as `list_review_layouts` does. Saving does not pick it.
+
+A 422 `fleet.pull_review_memory_invalid` for a blank name or one past 60 characters, the name `Default`, which is Fleet's own, and an `arrangement` that is not a JSON object with a `root` or is past 64 KiB.
+"""

@@ -18,3 +18,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 23 Oct 2026 for the walk `job-shell`, on the owner's word that End shell should be an icon button with a tooltip. Icon-only, tooltip and aria-label `End shell`. Turning off a thing that stays open until someone ends it, as End session is. `square` is the Stop on a block's run, which docks beside the shell as a tab, so the shell could not wear it too."
+
+  [[icons.power-off.usage]]
+    means = "A Job that ended: a person ended it, or its terminal stopped asking"
+    group = "Job state"
+    size = "12 and 16px"
+    status = "Proposed"
+    notes = "Proposed 13 Nov 2026 for the walk `jobs-ended-glyph`. Quiet and ended both drew `unplug`, so a Job nothing could reach and one that was ended looked alike in the Jobs list. `unplug` stays Quiet's, the accidental half of the power pair, and the switched-off power is the deliberate one. End job is never offered on an ended Job, so the act and the mark do not meet on one row. Tooltip `Ended`, `--fg-muted`. Native Bridge draws it first; Classic still draws `unplug` for both. Refused: `archive`, superseded's; `square`, Stop on a run; `circle-stop` and `circle-off`, the `circle-*` family is Judge verdicts; `log-out`, refused for End session and read as a sign-out beside `log-in`; `door-closed`, the worktree slot's."

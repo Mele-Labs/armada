@@ -3,12 +3,18 @@
 //!
 //! **Only what is ported is listed** (the orchestrator, 12 Nov 2026): an entry Classic has that this
 //! build does not draw yet is left out rather than shown blank. Each port adds its entry here.
+//!
+//! **The sidebar is two groups** (the approved sketch "Native Settings: which project you're editing", 13 Nov):
+//! For the project picked, every page a project layer can set, then This Mac, everything else in its order. Which
+//! side a page is on is derived from the values it holds ([`side`]), never listed by hand.
 
 use ipc::{Setting, SettingKind, SettingsList};
 
+use crate::look::{token, Token};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Group {
-    /// The project Settings was opened on, from the switcher. Only while scoped.
+    /// The values a project or every project sets, drawn as a grid (`project.rs`).
     Project,
     Kit,
     Fleet,
@@ -37,8 +43,8 @@ pub enum Body {
     Features,
     /// One switch per repository for the connectors on his account (`tokens.connectorsOff`).
     Repository,
-    /// The project's own values (`GET /projects/values`).
-    ProjectValues,
+    /// A page of values a project, or every project, sets: every project beside the project picked (`project.rs`).
+    Values(super::project::Page),
     /// Every act with a key, each key a control (`KeyboardSettings`).
     Keyboard,
     /// The theme field, then the theme mods (`ThemeSettings`, `ModList`).
@@ -51,6 +57,8 @@ pub enum Body {
     Layout,
     /// How a stamp is written: three switches and a sample (`TimeSettings`, `time_format`).
     Time,
+    /// How he takes a Job's work in and how he answers it: two rows of cards, each way's options under its row (`ways.rs`).
+    Ways,
     /// This Mac, its Cloudflare tunnel, and the Macs and phones that reach it, off the Phone Gateway (`macs.rs`).
     Macs,
     /// A list of mods (`ModList`): All where no kind is named, else the mods of that kind, listed only while there is one.
@@ -63,6 +71,39 @@ pub struct Entry {
     pub label: &'static str,
     pub group: Group,
     pub body: Body,
+    /// The registry glyph on its tile, and the state hue the tile is tinted with.
+    pub icon: &'static str,
+    pub hue: Token,
+}
+
+/// Where the sidebar lists an entry: under the project picked, or under This Mac.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Side {
+    Project,
+    Mac,
+}
+
+/// A page goes under the project picked where a project layer can set anything it holds: a value of
+/// `ValuesSet`, the project's share switch, or a workflow (a project's own workflows come with #3505).
+pub fn side(entry: &Entry) -> Side {
+    let project = !super::project::keys_of(entry.body).is_empty() || entry.body == Body::Workflows;
+    if project {
+        Side::Project
+    } else {
+        Side::Mac
+    }
+}
+
+/// The sketch's six tile hues (`.c1`–`.c6`).
+const RUNNING: Token = token::STATUS_RUNNING;
+const SUCCESS: Token = token::STATUS_COMPLETED_SUCCESS;
+const REVIEW: Token = token::STATUS_AWAITING_REVIEW;
+const DELIVERY: Token = token::KIND_DELIVERY;
+const ESCALATED: Token = token::STATUS_ESCALATED;
+const FAILED: Token = token::STATUS_COMPLETED_FAILED;
+
+const fn page(id: &'static str, label: &'static str, group: Group, body: Body, icon: &'static str, hue: Token) -> Entry {
+    Entry { id, label, group, body, icon, hue }
 }
 
 /// One settings.json section: its id, its name, the palette's name for it, and the words that find it before
@@ -99,42 +140,55 @@ pub const SECTIONS: &[Section] = &[
     Section { id: "macs", label: "Macs", palette: "Macs", words: &["Macs", "mac", "this mac", "tunnel", "cloudflare", "devices", "phones", "unpair", "address"] },
     Section { id: "layout", label: "Layout", palette: "Layout", words: &["Layout", "tabs", "panels", "rail", "hide", "order", "reset"] },
     Section { id: "time", label: "Time", palette: "Time", words: &["Time", "clock", "24-hour", "12-hour", "seconds", "date", "timestamp", "stamp", "format"] },
+    Section {
+        id: "ways",
+        label: "Ways of working",
+        palette: "Ways of working",
+        words: &["Ways of working", "read", "look", "listen", "type", "talk", "buttons", "answer", "take in", "voice", "aloud", "sample", "pictures", "microphone", "whisper", "first run"],
+    },
     Section { id: "spacing", label: "Spacing", palette: "Spacing", words: &["Spacing", "density", "compact", "default", "roomy", "room", "dense"] },
+    Section { id: "pull-requests", label: "Pull requests", palette: "Pull requests", words: &["How work lands", "delivery", "auto land", "draft", "ready", "merging", "merge", "review model", "reviews", "plans", "walks", "project"] },
+    Section { id: "starting-jobs", label: "Starting Jobs", palette: "Starting Jobs", words: &["Starting Jobs", "start at once", "ask me", "operator", "tracker", "issues", "linear", "beads", "project"] },
+    Section { id: "look", label: "Look", palette: "Look", words: &["Look", "theme", "layout", "spacing", "density", "project"] },
 ];
 
 /// Every entry this build draws, in Classic's order within each group.
 pub const ENTRIES: &[Entry] = &[
-    Entry { id: "project:values", label: "Values", group: Group::Project, body: Body::ProjectValues },
-    Entry { id: "kit:workflows", label: "Workflows", group: Group::Kit, body: Body::Workflows },
-    Entry { id: "kit:models", label: "Models", group: Group::Kit, body: Body::Models },
-    Entry { id: "kit:prompts", label: "Prompts", group: Group::Kit, body: Body::Schema(&["prompts"]) },
-    Entry { id: "kit:harness", label: "Harness", group: Group::Kit, body: Body::Schema(&["harness"]) },
-    Entry { id: "fleet:limits", label: "Limits", group: Group::Fleet, body: Body::Schema(&["limits"]) },
-    Entry { id: "fleet:timeouts", label: "Timeouts", group: Group::Fleet, body: Body::Schema(&["timeouts"]) },
-    Entry { id: "fleet:retention", label: "Retention", group: Group::Fleet, body: Body::Schema(&["retention"]) },
-    Entry { id: "fleet:plan", label: "Plan", group: Group::Fleet, body: Body::Schema(&["plan"]) },
-    Entry { id: "fleet:token-use", label: "Token use", group: Group::Fleet, body: Body::Schema(&["token-use"]) },
-    Entry { id: "fleet:machine", label: "Machine", group: Group::Fleet, body: Body::Schema(&["machine"]) },
-    Entry { id: "fleet:account", label: "Account", group: Group::Fleet, body: Body::Schema(&["account"]) },
-    Entry { id: "fleet:store", label: "Store", group: Group::Fleet, body: Body::Schema(&["store"]) },
-    Entry { id: "fleet:features", label: "Features", group: Group::Fleet, body: Body::Features },
-    Entry { id: "fleet:repository", label: "Repository", group: Group::Fleet, body: Body::Repository },
-    Entry { id: "bridge:all", label: "All", group: Group::Mods, body: Body::Mods(None) },
-    Entry { id: "bridge:theme", label: "Theme", group: Group::Mods, body: Body::Theme },
-    Entry { id: "bridge:layout", label: "Layout", group: Group::Mods, body: Body::Layout },
-    Entry { id: "bridge:words", label: "Words", group: Group::Mods, body: Body::Mods(Some(ipc::ModKind::Words)) },
-    Entry { id: "bridge:tracker", label: "Tracker", group: Group::Mods, body: Body::Mods(Some(ipc::ModKind::Tracker)) },
-    Entry { id: "bridge:fleet", label: "Fleet", group: Group::Mods, body: Body::Mods(Some(ipc::ModKind::Fleet)) },
-    Entry { id: "bridge:spacing", label: "Spacing", group: Group::Bridge, body: Body::Schema(&["spacing"]) },
-    Entry { id: "bridge:keyboard", label: "Keyboard shortcuts", group: Group::Bridge, body: Body::Keyboard },
-    Entry { id: "bridge:time", label: "Time", group: Group::Bridge, body: Body::Time },
-    Entry { id: "bridge:editor", label: "Editor", group: Group::Bridge, body: Body::Schema(&["editor"]) },
-    Entry { id: "bridge:terminal", label: "Terminal", group: Group::Bridge, body: Body::Schema(&["terminal"]) },
-    Entry { id: "bridge:links", label: "Links", group: Group::Bridge, body: Body::Schema(&["links"]) },
-    Entry { id: "bridge:macs", label: "Macs", group: Group::Bridge, body: Body::Macs },
+    page("values:pull-requests", "Pull requests", Group::Project, Body::Values(super::project::Page::PullRequests), "git-merge", RUNNING),
+    page("values:starting-jobs", "Starting Jobs", Group::Project, Body::Values(super::project::Page::StartingJobs), "play", SUCCESS),
+    page("values:look", "Look", Group::Project, Body::Values(super::project::Page::Look), "layers", REVIEW),
+    page("kit:workflows", "Workflows", Group::Kit, Body::Workflows, "git-branch", DELIVERY),
+    page("kit:models", "Models", Group::Kit, Body::Models, "bot", ESCALATED),
+    page("kit:prompts", "Prompts", Group::Kit, Body::Schema(&["prompts"]), "message-square", REVIEW),
+    page("kit:harness", "Harness", Group::Kit, Body::Schema(&["harness"]), "cpu", ESCALATED),
+    page("fleet:limits", "Limits", Group::Fleet, Body::Schema(&["limits"]), "gauge", FAILED),
+    page("fleet:timeouts", "Timeouts", Group::Fleet, Body::Schema(&["timeouts"]), "hourglass", FAILED),
+    page("fleet:retention", "Retention", Group::Fleet, Body::Schema(&["retention"]), "archive", DELIVERY),
+    page("fleet:plan", "Plan", Group::Fleet, Body::Schema(&["plan"]), "calendar", REVIEW),
+    page("fleet:token-use", "Token use", Group::Fleet, Body::Schema(&["token-use"]), "zap", RUNNING),
+    page("fleet:machine", "Machine", Group::Fleet, Body::Schema(&["machine"]), "laptop", SUCCESS),
+    page("fleet:account", "Account", Group::Fleet, Body::Schema(&["account"]), "lock", SUCCESS),
+    page("fleet:store", "Store", Group::Fleet, Body::Schema(&["store"]), "database", DELIVERY),
+    page("fleet:features", "Features", Group::Fleet, Body::Features, "toggle-left", RUNNING),
+    page("fleet:repository", "Repository", Group::Fleet, Body::Repository, "plug", ESCALATED),
+    page("bridge:all", "All", Group::Mods, Body::Mods(None), "puzzle", ESCALATED),
+    page("bridge:theme", "Theme", Group::Mods, Body::Theme, "palette", REVIEW),
+    page("bridge:layout", "Layout", Group::Mods, Body::Layout, "layout-dashboard", RUNNING),
+    page("bridge:words", "Words", Group::Mods, Body::Mods(Some(ipc::ModKind::Words)), "link", DELIVERY),
+    page("bridge:tracker", "Tracker", Group::Mods, Body::Mods(Some(ipc::ModKind::Tracker)), "ticket", FAILED),
+    page("bridge:fleet", "Fleet", Group::Mods, Body::Mods(Some(ipc::ModKind::Fleet)), "drone", SUCCESS),
+    page("bridge:ways", "Ways of working", Group::Bridge, Body::Ways, "message-square", RUNNING),
+    page("bridge:spacing", "Spacing", Group::Bridge, Body::Schema(&["spacing"]), "rows-3", REVIEW),
+    page("bridge:keyboard", "Keyboard shortcuts", Group::Bridge, Body::Keyboard, "terminal", SUCCESS),
+    page("bridge:time", "Time", Group::Bridge, Body::Time, "clock", FAILED),
+    page("bridge:editor", "Editor", Group::Bridge, Body::Schema(&["editor"]), "file-pen-line", SUCCESS),
+    page("bridge:terminal", "Terminal", Group::Bridge, Body::Schema(&["terminal"]), "square-terminal", FAILED),
+    page("bridge:links", "Links", Group::Bridge, Body::Schema(&["links"]), "external-link", RUNNING),
+    page("bridge:macs", "Macs", Group::Bridge, Body::Macs, "globe", RUNNING),
 ];
 
-pub const GROUPS: [Group; 5] = [Group::Project, Group::Kit, Group::Fleet, Group::Mods, Group::Bridge];
+/// This Mac's parts, in order: the first drawn under This Mac itself, Mods and Bridge each under its own name.
+pub const MAC_PARTS: [(Option<&str>, &[Group]); 3] = [(None, &[Group::Kit, Group::Fleet]), (Some("Mods"), &[Group::Mods]), (Some("Bridge"), &[Group::Bridge])];
 
 /// ⌘, opens the entry last used, else Limits, as Classic's Settings surface does (`entryForSurface`).
 pub const FIRST: &str = "fleet:limits";
@@ -189,7 +243,9 @@ pub(super) fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
         Body::Macs => &["macs"],
         Body::Layout => &["layout"],
         Body::Time => &["time"],
-        Body::Repository | Body::ProjectValues | Body::Keyboard | Body::Workflows => &[],
+        Body::Ways => &["ways"],
+        Body::Values(page) => &[page.section()],
+        Body::Repository | Body::Keyboard | Body::Workflows => &[],
     };
     let mut words = vec![entry.label.to_string()];
     if let Body::Keyboard = entry.body {
@@ -216,9 +272,18 @@ pub fn found(entry: &Entry, query: &str, list: Option<&SettingsList>) -> bool {
     query.trim().is_empty() || holds(&words_of(entry, list), query)
 }
 
-/// The entries the sidebar lists for a search: the Project group only while Settings is scoped to one.
-pub fn visible(query: &str, list: Option<&SettingsList>, scoped: bool) -> Vec<&'static Entry> {
-    ENTRIES.iter().filter(|one| (scoped || one.group != Group::Project) && found(one, query, list)).collect()
+/// The entries the sidebar lists for a search.
+pub fn visible(query: &str, list: Option<&SettingsList>) -> Vec<&'static Entry> {
+    ENTRIES.iter().filter(|one| found(one, query, list)).collect()
+}
+
+/// The entries in the order the sidebar draws them: the project's, then This Mac's part by part.
+pub fn drawn_order<'a>(visible: &[&'a Entry]) -> Vec<&'a Entry> {
+    let mut order: Vec<&Entry> = visible.iter().copied().filter(|one| side(one) == Side::Project).collect();
+    for (_, groups) in MAC_PARTS {
+        order.extend(visible.iter().copied().filter(|one| side(one) == Side::Mac && groups.contains(&one.group)));
+    }
+    order
 }
 
 /// The entry drawn: the one picked while the search keeps it, else the first the search found, the pick kept
@@ -244,27 +309,47 @@ mod tests {
     #[test]
     fn a_search_finds_an_entry_by_its_name_its_words_or_a_setting_it_holds() {
         let list = list();
-        let ids = |query: &str| visible(query, Some(&list), false).iter().map(|one| one.id).collect::<Vec<_>>();
+        let ids = |query: &str| visible(query, Some(&list)).iter().map(|one| one.id).collect::<Vec<_>>();
         assert_eq!(ids("timeouts"), ["fleet:timeouts"]);
         assert!(ids("drones").contains(&"fleet:limits"), "a setting's title finds its entry");
         assert!(ids("limits.memorySparePercent").contains(&"fleet:limits"), "a key finds it too");
         assert!(ids("ghostty").contains(&"bridge:terminal"), "a section's own words");
         assert!(ids("nothing at all like this").is_empty());
-        assert_eq!(ids("").len(), ENTRIES.len() - 1, "every entry but the project's");
+        assert_eq!(ids("").len(), ENTRIES.len(), "every entry");
+        assert_eq!(ids("how work lands"), ["values:pull-requests"], "a value finds the page that holds it");
     }
 
     #[test]
-    fn the_project_group_is_listed_only_while_scoped() {
-        assert!(visible("", None, false).iter().all(|one| one.group != Group::Project));
-        assert_eq!(visible("", None, true).first().map(|one| one.id), Some("project:values"));
+    fn the_projects_pages_are_those_a_project_layer_sets_and_this_mac_holds_the_rest_in_order() {
+        let ids = |side_of: Side| ENTRIES.iter().filter(|one| side(one) == side_of).map(|one| one.id).collect::<Vec<_>>();
+        assert_eq!(ids(Side::Project), ["values:pull-requests", "values:starting-jobs", "values:look", "kit:workflows", "bridge:macs"]);
+        let mac = ids(Side::Mac);
+        assert_eq!(
+            mac,
+            [
+                "kit:models", "kit:prompts", "kit:harness", "fleet:limits", "fleet:timeouts", "fleet:retention", "fleet:plan", "fleet:token-use", "fleet:machine", "fleet:account", "fleet:store", "fleet:features",
+                "fleet:repository", "bridge:all", "bridge:theme", "bridge:layout", "bridge:words", "bridge:tracker", "bridge:fleet", "bridge:ways", "bridge:spacing", "bridge:keyboard", "bridge:time", "bridge:editor",
+                "bridge:terminal", "bridge:links",
+            ],
+            "everything else, in today's order"
+        );
+        let all: Vec<&str> = ENTRIES.iter().map(|one| one.id).collect();
+        assert_eq!(drawn_order(&ENTRIES.iter().collect::<Vec<_>>()).iter().map(|one| one.id).collect::<Vec<_>>().len(), all.len(), "no page is dropped");
+    }
+
+    #[test]
+    fn each_tile_is_a_registry_glyph() {
+        for one in ENTRIES {
+            assert!(gpui::AssetSource::load(&crate::assets::Assets, &crate::assets::icon_path(one.icon)).ok().flatten().is_some(), "{}: {}", one.id, one.icon);
+        }
     }
 
     #[test]
     fn a_search_that_hides_the_pick_draws_the_first_found_and_keeps_the_pick() {
         let list = list();
-        let found = visible("ghostty", Some(&list), false);
+        let found = visible("ghostty", Some(&list));
         assert_eq!(shown("fleet:limits", &found).map(|one| one.id), Some("bridge:terminal"));
-        let all = visible("", Some(&list), false);
+        let all = visible("", Some(&list));
         assert_eq!(shown("fleet:limits", &all).map(|one| one.id), Some("fleet:limits"));
     }
 

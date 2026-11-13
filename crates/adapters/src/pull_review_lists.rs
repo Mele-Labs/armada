@@ -5,7 +5,7 @@
 //! **One forge call a list for all the repositories**, because the search takes a `repo:`
 //! qualifier for each and ORs them. Nothing here polls; the caller reads when somebody looks.
 
-use adapter_traits::{ListedChecks, ListedPull, ReviewList, ReviewListAsk};
+use adapter_traits::{LatestReview, LatestReviewSaid, ListedChecks, ListedPull, ReviewList, ReviewListAsk};
 
 use crate::delivery::{read_in, FORGE};
 use crate::pull_request_detail::review_standing;
@@ -14,15 +14,17 @@ use crate::under_review::as_written;
 /// The most rows the forge's search will give a call.
 pub(crate) const MOST_A_CALL: usize = 100;
 
-pub(crate) const QUERY: &str = "query($q:String!,$n:Int!){search(query:$q,type:ISSUE,first:$n){nodes{\
+pub(crate) const QUERY: &str = "query($q:String!,$n:Int!,$me:String){search(query:$q,type:ISSUE,first:$n){nodes{\
     ... on PullRequest{repository{nameWithOwner} number title headRefName url isDraft headRefOid \
     author{login} updatedAt reviewDecision \
     commits(last:1){nodes{commit{statusCheckRollup{state}}}} \
-    reviewRequests(first:10){nodes{requestedReviewer{... on Team{name slug organization{login}}}}}}}}}";
+    reviewRequests(first:10){nodes{requestedReviewer{... on Team{name slug organization{login}}}}} \
+    myReview:reviews(author:$me,last:1,states:[APPROVED,CHANGES_REQUESTED,COMMENTED]){nodes{state submittedAt commit{oid}}}}}}}";
 
 /// One pull request a line: repository, number, title, branch, address, draft, head, author,
 /// updated, review decision, rollup state, then the teams asked (RS apart) as `org/slug` and the
-/// team's name (US apart). `// ""` on every field so a `null` cannot stop jq mid-stream.
+/// team's name (US apart), then the person's own latest review's state, commit and submitted time.
+/// `// ""` on every field so a `null` cannot stop jq mid-stream.
 const LINES: &str = concat!(
     r#".data.search.nodes[]? | select((.number // null) != null) | "#,
     r#"[(.repository.nameWithOwner // ""), (.number | tostring), (.title // ""), "#,
@@ -31,7 +33,9 @@ const LINES: &str = concat!(
     r#"(.reviewDecision // ""), "#,
     r#"(.commits.nodes[0].commit.statusCheckRollup.state // ""), "#,
     r#"([.reviewRequests.nodes[]? | .requestedReviewer | select((.slug // "") != "") | "#,
-    r#""\(.organization.login // "")/\(.slug)\u001f\(.name // .slug)"] | join("\u001e"))] | @tsv"#
+    r#""\(.organization.login // "")/\(.slug)\u001f\(.name // .slug)"] | join("\u001e")), "#,
+    r#"(.myReview.nodes[0].state // ""), (.myReview.nodes[0].commit.oid // ""), "#,
+    r#"(.myReview.nodes[0].submittedAt // "")] | @tsv"#
 );
 
 /// The teams the signed-in account is on, as `org/slug`, one to a line.
@@ -52,12 +56,13 @@ pub(crate) fn read(in_repo: &str, ask: &ReviewListAsk<'_>) -> Option<Vec<ListedP
     let search = search_of(ask)?;
     let (q, n) = (format!("q={search}"), format!("n={}", ask.most.clamp(1, MOST_A_CALL)));
     let query = format!("query={QUERY}");
-    let run = read_in(
-        in_repo,
-        FORGE,
-        &["api", "graphql", "-f", &q, "-F", &n, "-f", &query, "--jq", LINES],
-    )
-    .ok()?;
+    let me = format!("me={}", ask.login);
+    let mut args = vec!["api", "graphql", "-f", &q, "-F", &n, "-f", &query, "--jq", LINES];
+    // No login leaves `$me` null, and the open list's reviews are nobody's own.
+    if !ask.login.is_empty() && ask.list != ReviewList::Open {
+        args.extend(["-f", me.as_str()]);
+    }
+    let run = read_in(in_repo, FORGE, &args).ok()?;
     if !run.status.success() {
         return None;
     }
@@ -132,6 +137,7 @@ pub(crate) fn listed_folded(lines: &[String], teams: Teams<'_>) -> Vec<ListedPul
             let (title, branch, address, draft) = (next(), next(), next(), next());
             let (head, author, updated_at, decision, rollup, asked) =
                 (next(), next(), next(), next(), next(), next());
+            let (my_state, my_commit, my_at) = (next(), next(), next());
             Some(ListedPull {
                 repository,
                 number,
@@ -145,9 +151,23 @@ pub(crate) fn listed_folded(lines: &[String], teams: Teams<'_>) -> Vec<ListedPul
                 checks: checks_of(&rollup),
                 review: review_standing(&decision),
                 team: team_named(&asked_of(&asked), &teams),
+                my_latest: latest_of(&my_state, &my_commit, &my_at),
             })
         })
         .collect()
+}
+
+/// A person's latest review, from the forge's state word, the commit it was on and when it was
+/// submitted. A state that is not a submitted verdict, as a pending or dismissed one, is none.
+pub(crate) fn latest_of(state: &str, commit: &str, at: &str) -> Option<LatestReview> {
+    let said = match state {
+        "APPROVED" => LatestReviewSaid::Approved,
+        "CHANGES_REQUESTED" => LatestReviewSaid::ChangesRequested,
+        "COMMENTED" => LatestReviewSaid::Commented,
+        _ => return None,
+    };
+    let named = |it: &str| (!it.is_empty()).then(|| it.to_string());
+    Some(LatestReview { said, commit: named(commit), submitted_at: named(at) })
 }
 
 /// The teams asked, as the reduction joins them: `org/slug` US name, RS apart.

@@ -130,7 +130,7 @@ fn only_one_line_of_sixty_characters_or_fewer_is_a_line_he_sent() {
         you("two\nlines", "2026-10-30T12:00:03Z"),
         you("   ", "2026-10-30T12:00:04Z"),
         said(SessionVoice::Agent, "Done.", "2026-10-30T12:00:05Z"),
-        said(SessionVoice::Session { id: "fleet".into(), title: "Fleet".into() }, "A note", "2026-10-30T12:00:06Z"),
+        said(SessionVoice::Session { id: "fleet".into(), title: "Fleet".into(), mac: None }, "A note", "2026-10-30T12:00:06Z"),
         with_file,
         a_notice,
         you("  Keep going  ", "2026-10-30T12:00:09Z"),

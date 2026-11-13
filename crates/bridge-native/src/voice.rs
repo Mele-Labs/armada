@@ -397,6 +397,212 @@ pub fn helper() -> Option<PathBuf> {
     built.is_file().then_some(built)
 }
 
+// ---- Armada Voice's other commands: the voices a Mac can read with, what it may hear, and a sentence spoken ----
+
+/// How good a voice is, best first: the order `ordered` lists them in.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum Quality {
+    Premium,
+    Enhanced,
+    Default,
+}
+
+/// One voice the helper offers to read with.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Voice {
+    pub id: String,
+    pub name: String,
+    pub language: String,
+    pub quality: Quality,
+}
+
+/// A line of `armada-voice voices`, or `None` for the closing `end` line and anything that is not a voice.
+pub fn read_voice_line(line: &str) -> Option<Voice> {
+    #[derive(Deserialize)]
+    struct Raw {
+        kind: String,
+        id: Option<String>,
+        name: Option<String>,
+        language: Option<String>,
+        quality: Option<String>,
+    }
+    let raw = ipc::decode::<Raw>("armada voice", line.as_bytes()).ok()?;
+    if raw.kind != "voice" {
+        return None;
+    }
+    let quality = match raw.quality.as_deref() {
+        Some("premium") => Quality::Premium,
+        Some("enhanced") => Quality::Enhanced,
+        _ => Quality::Default,
+    };
+    Some(Voice { id: raw.id?, name: raw.name?, language: raw.language.unwrap_or_default(), quality })
+}
+
+/// Premium first, then Enhanced, then the rest, each by name.
+pub fn ordered(mut voices: Vec<Voice>) -> Vec<Voice> {
+    voices.sort_by(|a, b| a.quality.cmp(&b.quality).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase())).then_with(|| a.id.cmp(&b.id)));
+    voices
+}
+
+/// Every voice the helper lists, ordered. Blocks until the helper ends, so it runs off the main thread.
+pub fn list_voices(helper: &Path) -> Result<Vec<Voice>, Why> {
+    let out = Command::new(helper).arg("voices").stdin(Stdio::null()).stderr(Stdio::null()).output().map_err(|_| Why::HelperMissing)?;
+    if !out.status.success() {
+        return Err(Why::HelperFailed);
+    }
+    Ok(ordered(String::from_utf8_lossy(&out.stdout).lines().filter_map(read_voice_line).collect()))
+}
+
+/// The voices a walk lists, with no helper to ask.
+pub fn mock_voices() -> Vec<Voice> {
+    let voice = |name: &str, language: &str, quality| Voice { id: format!("com.apple.voice.{}", name.to_lowercase()), name: name.into(), language: language.into(), quality };
+    ordered(vec![
+        voice("Samantha", "en-US", Quality::Default),
+        voice("Zoe", "en-US", Quality::Premium),
+        voice("Daniel", "en-GB", Quality::Enhanced),
+        voice("Ava", "en-US", Quality::Premium),
+        voice("Alex", "en-US", Quality::Default),
+        voice("Allison", "en-US", Quality::Enhanced),
+        voice("Karen", "en-AU", Quality::Default),
+    ])
+}
+
+/// What macOS lets the helper do, as `probe` names it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Access {
+    Granted,
+    Denied,
+    Restricted,
+    Unasked,
+    Unknown,
+}
+
+impl Access {
+    fn named(word: &str) -> Access {
+        match word {
+            "granted" => Access::Granted,
+            "denied" => Access::Denied,
+            "restricted" => Access::Restricted,
+            "unasked" => Access::Unasked,
+            _ => Access::Unknown,
+        }
+    }
+}
+
+/// The line `armada-voice probe` prints, as the microphone's access. `None` for any other line.
+pub fn read_probe_line(line: &str) -> Option<Access> {
+    #[derive(Deserialize)]
+    struct Raw {
+        kind: String,
+        microphone: Option<String>,
+    }
+    let raw = ipc::decode::<Raw>("armada voice", line.as_bytes()).ok()?;
+    (raw.kind == "probe").then(|| Access::named(raw.microphone.as_deref().unwrap_or_default()))
+}
+
+/// Whether the microphone may be heard, asked of the helper. Blocks, so it runs off the main thread.
+pub fn microphone(helper: &Path) -> Option<Access> {
+    let out = Command::new(helper).arg("probe").stdin(Stdio::null()).stderr(Stdio::null()).output().ok()?;
+    String::from_utf8_lossy(&out.stdout).lines().find_map(read_probe_line)
+}
+
+/// What a sentence being spoken is doing.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Spoke {
+    Speaking,
+    Spoken,
+    Stopped,
+    /// The voice asked for is not on this Mac.
+    Missing,
+    Failed,
+}
+
+/// A line of `armada-voice speak`, or `None` for one that says nothing a person is told.
+pub fn read_speak_line(line: &str) -> Option<Spoke> {
+    #[derive(Deserialize)]
+    struct Raw {
+        kind: String,
+        code: Option<String>,
+    }
+    let raw = ipc::decode::<Raw>("armada voice", line.as_bytes()).ok()?;
+    match (raw.kind.as_str(), raw.code.as_deref()) {
+        ("speaking", _) => Some(Spoke::Speaking),
+        ("spoken", _) => Some(Spoke::Spoken),
+        ("stopped", _) => Some(Spoke::Stopped),
+        ("error", Some("voice_missing")) => Some(Spoke::Missing),
+        ("error", _) => Some(Spoke::Failed),
+        _ => None,
+    }
+}
+
+/// A sentence being spoken: what the helper says of it comes over `said`, and `stop` ends it.
+pub struct Speech {
+    pub said: async_channel::Receiver<Spoke>,
+    stdin: Arc<Mutex<Option<ChildStdin>>>,
+}
+
+impl Speech {
+    /// Asks the helper to stop; it answers `Stopped`.
+    pub fn stop(&self) {
+        use std::io::Write;
+        if let Ok(mut held) = self.stdin.lock() {
+            if let Some(stdin) = held.as_mut() {
+                let _ = stdin.write_all(b"{\"stop\":true}\n");
+                let _ = stdin.flush();
+            }
+        }
+    }
+}
+
+/// Speaks `text` in `voice` (empty is the Mac's own) through the helper, on a thread of its own.
+pub fn speak(helper: PathBuf, voice: &str, text: &str) -> Speech {
+    use std::io::Write;
+    let (send, said) = async_channel::unbounded();
+    let stdin: Arc<Mutex<Option<ChildStdin>>> = Arc::new(Mutex::new(None));
+    let held = stdin.clone();
+    let (voice, text) = (voice.to_string(), text.to_string());
+    std::thread::spawn(move || {
+        let mut command = Command::new(&helper);
+        command.arg("speak");
+        if !voice.is_empty() {
+            command.arg(&voice);
+        }
+        let Ok(mut child) = command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn() else {
+            let _ = send.send_blocking(Spoke::Failed);
+            return;
+        };
+        let (Some(mut input), Some(output)) = (child.stdin.take(), child.stdout.take()) else {
+            let _ = send.send_blocking(Spoke::Failed);
+            return;
+        };
+        // The line goes in, and the pipe stays open so a stop can follow it; the helper ends once it has spoken.
+        let _ = writeln!(input, "{}", text.replace('\n', " "));
+        let _ = input.flush();
+        if let Ok(mut held) = held.lock() {
+            *held = Some(input);
+        }
+        let mut told = false;
+        for line in BufReader::new(output).lines().map_while(Result::ok) {
+            let Some(spoke) = read_speak_line(&line) else { continue };
+            let over = !matches!(spoke, Spoke::Speaking);
+            told = over;
+            let _ = send.send_blocking(spoke);
+            if over {
+                break;
+            }
+        }
+        if let Ok(mut held) = held.lock() {
+            held.take();
+        }
+        let _ = child.kill();
+        let _ = child.wait();
+        if !told {
+            let _ = send.send_blocking(Spoke::Failed);
+        }
+    });
+    Speech { said, stdin }
+}
+
 /// The Settings pane a refused permission is fixed in.
 pub fn settings_address(microphone: bool) -> &'static str {
     if microphone {
@@ -500,5 +706,34 @@ mod tests {
             let hearing = hear(engine, Source { helper: None, whisper: None, script: None });
             assert_eq!(hearing.heard.recv_blocking().ok(), Some(Heard::Dictate));
         }
+    }
+
+    #[test]
+    fn a_voice_line_is_read_and_the_end_and_noise_are_not() {
+        let line = r#"{"kind":"voice","id":"com.apple.voice.premium.en-US.Zoe","name":"Zoe","language":"en-US","quality":"premium"}"#;
+        assert_eq!(read_voice_line(line), Some(Voice { id: "com.apple.voice.premium.en-US.Zoe".into(), name: "Zoe".into(), language: "en-US".into(), quality: Quality::Premium }));
+        assert_eq!(read_voice_line(r#"{"kind":"end"}"#), None);
+        assert_eq!(read_voice_line("loading voices"), None);
+        assert_eq!(read_voice_line(r#"{"kind":"voice","name":"Nobody"}"#), None);
+    }
+
+    #[test]
+    fn voices_go_premium_then_enhanced_then_the_rest_by_name() {
+        let names: Vec<(String, Quality)> = mock_voices().into_iter().map(|one| (one.name, one.quality)).collect();
+        let want = [("Ava", Quality::Premium), ("Zoe", Quality::Premium), ("Allison", Quality::Enhanced), ("Daniel", Quality::Enhanced), ("Alex", Quality::Default), ("Karen", Quality::Default), ("Samantha", Quality::Default)];
+        assert_eq!(names, want.map(|(name, quality)| (name.to_string(), quality)));
+    }
+
+    #[test]
+    fn a_probe_line_names_the_microphone_and_a_speak_line_says_what_the_voice_is_doing() {
+        assert_eq!(read_probe_line(r#"{"kind":"probe","pid":1,"microphone":"denied","speech":"granted","onDevice":true}"#), Some(Access::Denied));
+        assert_eq!(read_probe_line(r#"{"kind":"probe","microphone":"unasked"}"#), Some(Access::Unasked));
+        assert_eq!(read_probe_line(r#"{"kind":"ready"}"#), None);
+        assert_eq!(read_speak_line(r#"{"kind":"speaking","index":0}"#), Some(Spoke::Speaking));
+        assert_eq!(read_speak_line(r#"{"kind":"spoken","index":0}"#), Some(Spoke::Spoken));
+        assert_eq!(read_speak_line(r#"{"kind":"stopped"}"#), Some(Spoke::Stopped));
+        assert_eq!(read_speak_line(r#"{"kind":"error","code":"voice_missing"}"#), Some(Spoke::Missing));
+        assert_eq!(read_speak_line(r#"{"kind":"error","code":"respawn_failed"}"#), Some(Spoke::Failed));
+        assert_eq!(read_speak_line("hello"), None);
     }
 }

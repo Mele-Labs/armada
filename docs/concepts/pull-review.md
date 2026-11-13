@@ -47,6 +47,51 @@ Re-run and the close both mark the new commit seen, so the line does not come ba
 
 **A file's patch is read the first time its change is shown.** The forge numbers a line by path, line and side; the diff draws no numbers, so `apps/desktop/src/renderer/src/pr-review/patch.ts` is the one place the two meet.
 
+## Since you looked
+
+**Fleet remembers the head he last left each pull request at**, keyed by repository, manifest and number, in its store on his Mac and never on the forge.
+Bridge marks it seen when he leaves the pull request or presses Mark as seen, and never on open, so what changed since he looked holds for the whole visit.
+The page and each row of the lists carry it as `seen`.
+
+**Each row carries where it stands in his inbox, worked out in Fleet.** The first that holds wins:
+
+| State | When |
+|---|---|
+| `changed_since_you_looked` | He looked before, and the head has moved since |
+| `done` | His latest submitted review approved it |
+| `waiting_on_author` | His latest submitted review commented or asked for changes |
+| `needs_first_look` | Anything else |
+
+His latest review is his own last submitted one, as the forge says on the list's read; a pending review is not one.
+The four lists stay as they are, and the state is a field of the row.
+
+**What changed since he looked is the forge's compare from his seen head to the head.** The forge compares from the two commits' merge base, so after a rebase the change can hold commits that came from the target branch and not from the author.
+A seen head the forge no longer has, as after a force-push, is the outcome `base_gone` and not an error, and Bridge offers the whole pull request.
+
+**A file he marks viewed is kept with the commit he read it at and the forge's blob for its content then.** The page says of each whether it is still viewed: at the head it is, and at an older head only while the forge's blob for the file is the one he marked.
+A mark with no blob stops being viewed once the head moves at all.
+
+**A run can read only the change since he looked.** Started with `since`, it reads the compare's files and diff in place of the whole pull request's, and its result is kept for the range, so it never stands in for a whole run, nor one range for another.
+A fix reads the head and is never ranged, and a range from a commit the forge lost is refused before anything is spent.
+
+**He can keep a Reviews layout under a name and pick the one every pull request opens on.** One pick holds for every pull request.
+Fleet keeps each layout's pane tree as Bridge wrote it and reads no further into it.
+Fleet ships `Default`, which cannot be saved over or deleted: three columns, the inbox, then What changed, Files, Conversation and Checks as tabs of one pane, then Findings and Comments.
+Deleting the picked layout picks `Default`.
+
+## Your review
+
+**The page carries his own latest submitted review and what came since it**, for the bar pinned under the title: what it said, the commit it was written on and when.
+Beside it are two counts: the commits pushed after that commit, and the replies to him since: what another person said after it on the review threads he wrote on, or on the conversation mentioning him.
+An app's comment is not a reply.
+A count Fleet cannot work out is left out rather than guessed: the commit is not among the pull request's, or the forge gave no time.
+Where Fleet does not know who he is, there is no bar.
+
+**A review he just wrote shows at once.** The forge can answer the read straight after a write without it, so Fleet keeps the review it wrote, at the commit he read or else the head it reads after, and serves whichever of that and the forge's is newer.
+The page the write answers with, the next page and his row in the lists all show it.
+
+The wire is [what Fleet remembers of a pull request](../practices/protocol/what-fleet-remembers-of-a-pull-request.md).
+
 ## The panes
 
 **A pull request is drawn in the split panes a Job is, and its layouts are its own.** Panes, tabs, dragging a tab, and the Layout control in the title bar are [A Job open](session/a-job-open.md)'s, with the owner a pull request and not a Job.
@@ -97,7 +142,7 @@ It holds the forge's conversation, the threads on each change and his review; it
 | Kind | Asked with | Answers |
 |---|---|---|
 | Explanation | How it works, User Impact, How to Test, Why, or one a person added | Themes, before and after, steps, or the problem and its cost. An explanation added by a person answers text |
-| Tool | Risks, Possible bugs, API breaking changes, or one a person added | Findings, each pinned to a path and line range with a severity, title and body |
+| Tool | Risks, Possible bugs, API breaking changes, or one a person added | Findings, each pinned to a path and line range with a severity, title, body and comment |
 | Tool | Tour | Stops in the order the change runs, entry point first, each a line on what it does and the place it is about |
 | Ask | A question in his words | Markdown |
 | Fix | A finding, from its card | The lines that replace the finding's lines at the head, and one line on why |
@@ -114,6 +159,9 @@ The model is `models.review`, which ships as the Job model and is its own settin
 
 **The answer is JSON in the shape the kind has, and is checked before it is kept.** A finding or a change names a file the pull request touches and a range from line 1. A How to Test step names where it came from (the description first, then a README or an agent file in the checkout, up the tree from a changed path), and a doc it names must exist at the head.
 A Why link is an http or https address.
+**A finding's comment is words he can post on the pull request as they are**: one or two plain sentences to the author on what is wrong and what to do, at most 280 characters, with no jargon, no narration of the agent's reading and no detail dump.
+A finding with no comment, a comment of three sentences or one past the length fails the run.
+The rule is [the review-run brief](../contracts/agent-prompt/5j-the-review-run-brief.md)'s.
 **A fix is asked only for a finding on the head's lines of a file the pull request changes**, and Fleet refuses one on the old lines or outside the change before anything is spent.
 Fleet reads the lines the finding names from the bay at the head and keeps them as the fix's before, beside the finding's place, so the agent writes only the lines after and why.
 A finding past the end of its file, an empty fix, or a fix that is the lines as they are is a failed run.
@@ -234,6 +282,8 @@ The wire is [the owner's notes on a pull request's lines](../practices/protocol/
 | Resolve route | `crates/ipc/operations/resolve_review_thread.toml` |
 | Page and review | `crates/ipc/operations/get_pull_request_detail.toml`, `crates/ipc/operations/write_pull_request.toml` |
 | Lists in Fleet | `crates/fleet/src/pull_review_lists.rs` |
+| Seen heads, viewed files, the inbox state, the compare and layouts | `crates/fleet/src/pull_review_memory.rs`, `crates/store/src/pull_review_memory.rs`, `crates/ipc/src/pull_review_memory.rs`, `packages/protocol/src/pull-review-memory.ts` |
+| The compare at the forge | `Forge::pull_request_compare`, in `crates/adapters/src/api_forge/compare.rs` and `crates/adapters/src/pull_request_patch.rs` |
 | Store | `apps/desktop/src/renderer/src/pr-review/store.tsx` |
 | The panes and the tools list | `apps/desktop/src/renderer/src/pr-review/panes.tsx`; the layouts are `prPanes` in `apps/desktop/src/renderer/src/job-panes/store.ts` |
 | The Comments pane | `apps/desktop/src/renderer/src/pr-review/comments-pane.tsx` |

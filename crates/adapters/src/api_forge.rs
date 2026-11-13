@@ -10,6 +10,8 @@
 mod account;
 mod ci;
 mod comments;
+mod compare;
+pub(crate) use compare::commit_named;
 mod connection;
 mod diff;
 mod issues;
@@ -467,6 +469,19 @@ impl Forge for ApiForge {
         let gh = |gh: &GhForge| gh.pull_request_patches(in_repo, pull_request);
         let Some(number) = numbered(pull_request) else { return gh(&self.gh) };
         self.read(in_repo, |api, repository| patches::read(api, repository, number).map(Some), gh)
+    }
+
+    fn pull_request_compare(
+        &self,
+        in_repo: &str,
+        base: &str,
+        head: &str,
+    ) -> Option<adapter_traits::ComparedPatches> {
+        self.read(
+            in_repo,
+            |api, repository| compare::read(api, repository, base, head),
+            |gh| gh.pull_request_compare(in_repo, base, head),
+        )
     }
 
     fn pull_request_comments(&self, in_repo: &str, number: u64) -> Option<Vec<adapter_traits::PullComment>> {

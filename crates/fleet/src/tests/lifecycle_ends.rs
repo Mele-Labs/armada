@@ -135,7 +135,7 @@ fn only_what_the_person_wrote_after_a_step_began_counts_as_writing_on_it() {
     assert!(messaged_on(&rows, &began).has(0), "and the first step, written on at :01");
     let before = [visit(2, 7)];
     assert!(!messaged_on(&rows, &before).has(2), "everything he wrote came before");
-    let only_the_agent = [row(4, SessionVoice::Agent, "waiting"), row(5, SessionVoice::Session { id: "fleet".into(), title: "Fleet".into() }, "Fleet: ...")];
+    let only_the_agent = [row(4, SessionVoice::Agent, "waiting"), row(5, SessionVoice::Session { id: "fleet".into(), title: "Fleet".into(), mac: None }, "Fleet: ...")];
     assert_eq!(messaged_on(&only_the_agent, &[visit(2, 3)]), StepBits::default(), "neither the agent's words nor Fleet's");
     let twice = [visit(2, 1), visit(3, 2), visit(2, 5)];
     assert!(!messaged_on(&[from_you(3, "earlier")], &twice).has(2), "only the latest visit to a step counts");

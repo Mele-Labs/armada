@@ -641,7 +641,7 @@ fn received(line: &str, uuid: &str, at: &Instant) -> Vec<SessionRow> {
                     n => format!("{uuid}.{n}"),
                 },
                 at: at.clone(),
-                from: SessionVoice::Session { id: name.to_string(), title: name.to_string() },
+                from: SessionVoice::Session { id: name.to_string(), title: name.to_string(), mac: None },
                 text: rest[tag_end + 1..close].trim().to_string(),
                 files: Vec::new(),
                 sketches: Vec::new(),

@@ -73,6 +73,7 @@ mod leasing_settled;
 mod leasing_shape;
 mod leasing_strays;
 mod leasing_trim;
+mod disk_reclaim;
 mod manifest_edit;
 mod outside;
 mod mcp;

@@ -7,7 +7,7 @@ import { Button } from "@armada/components";
 
 import { refusal } from "./client";
 import { addMac, macOf, useFleet } from "./fleet";
-import { claim, defaultName, linkOf, named, waitForConfirm } from "./pairing";
+import { claim, defaultName, linkOf, linkTrouble, named, waitForConfirm } from "./pairing";
 import { subscribe } from "./push";
 import { go } from "./router";
 import { Band, Trouble } from "./ui";
@@ -37,7 +37,10 @@ export function Pair({ code: fromUrl, origin: again }: { code: string; origin?: 
       return;
     }
     setPhase("waiting");
-    if (!(await waitForConfirm(machine))) {
+    const waited = await waitForConfirm(machine);
+    if (waited !== "paired") {
+      if (waited === "declined")
+        setTrouble("The Mac declined. Start pairing again on the Mac to try once more.");
       setPhase("link");
       return;
     }
@@ -98,7 +101,7 @@ export function Pair({ code: fromUrl, origin: again }: { code: string; origin?: 
               autoCapitalize="words"
               onChange={(event) => setName(event.target.value)}
             />
-            <Trouble says={trouble} />
+            <Trouble says={trouble || (fromUrl === "" ? linkTrouble(link) : "")} />
           </>
         ) : (
           <p className="pk-fact pk-waiting">

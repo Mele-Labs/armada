@@ -1,22 +1,22 @@
-//! A quick terminal (`start_terminal_job`), through a real Fleet and a real shell: it opens onto
+//! A Side Job (`start_side_job`), through a real Fleet and a real shell: it opens onto
 //! `t1`, its agent starts nothing until the person writes, and each message of his carries what the
-//! terminals show. `docs/concepts/session/a-quick-terminal.md`.
+//! terminals show. `docs/concepts/session/a-side-job.md`.
 
 use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
-use ipc::{SessionId, SessionRecord, StartTerminalJob, StopSessionRun, TerminalJobStarted, WriteSessionRun};
+use ipc::{SessionId, SessionRecord, StartSideJob, StopSessionRun, SideJobStarted, WriteSessionRun};
 
 use super::session_host::{denied, eventually, rig_placing, Rig};
 use super::session_terminal::shortly;
 use crate::tests::tmp::TempDir;
 
-fn quick(manifest_id: Option<ipc::ManifestId>, dir: Option<String>) -> StartTerminalJob {
-    StartTerminalJob { manifest_id, dir, title: None, model: None, effort: None, mode: None, project: None, cols: None, rows: None }
+fn side(manifest_id: Option<ipc::ManifestId>, dir: Option<String>) -> StartSideJob {
+    StartSideJob { manifest_id, dir, title: None, model: None, effort: None, mode: None, project: None, cols: None, rows: None }
 }
 
-async fn started(rig: &Rig, start: StartTerminalJob) -> TerminalJobStarted {
-    Arc::clone(&rig.fleet).start_terminal_job(start).await.expect("started")
+async fn started(rig: &Rig, start: StartSideJob) -> SideJobStarted {
+    Arc::clone(&rig.fleet).start_side_job(start).await.expect("started")
 }
 
 async fn record(rig: &Rig, id: &SessionId) -> SessionRecord {
@@ -38,13 +38,13 @@ async fn ends(rig: &Rig, run_id: &str) {
 }
 
 #[tokio::test]
-async fn a_quick_terminal_opens_t1_and_starts_no_agent_until_the_person_writes() {
+async fn a_side_job_opens_t1_and_starts_no_agent_until_the_person_writes() {
     let rig = rig_placing(None);
-    let started = started(&rig, quick(Some(rig.manifest.clone()), None)).await;
+    let started = started(&rig, side(Some(rig.manifest.clone()), None)).await;
     assert_eq!(started.terminal, "t1");
 
     let job = record(&rig, &started.session_id).await;
-    assert!(job.quick_terminal, "listed as a quick terminal");
+    assert!(job.side_job, "listed as a Side Job");
     assert_eq!(job.workflow, None, "no workflow");
     assert_eq!(job.manifest_id.as_ref(), Some(&rig.manifest));
     assert_eq!(job.title, None, "untitled until his first message");
@@ -56,7 +56,7 @@ async fn a_quick_terminal_opens_t1_and_starts_no_agent_until_the_person_writes()
     assert!(!hosted.running && hosted.start.is_none(), "not held and nothing running");
     assert!(rig.stand_in.starts().is_empty(), "no agent process while it waits");
     let listed = rig.fleet.list_sessions(None, None, None).await.expect("listed");
-    assert!(listed.sessions.iter().any(|one| one.id == started.session_id && one.quick_terminal));
+    assert!(listed.sessions.iter().any(|one| one.id == started.session_id && one.side_job));
 
     types(&rig, &started.run_id, "echo quick-$((6*7))\r").await;
     assert!(printed(&rig, &started.run_id, "quick-42").await, "t1 is a live shell");
@@ -68,14 +68,14 @@ async fn a_quick_terminal_opens_t1_and_starts_no_agent_until_the_person_writes()
     ends(&rig, &titled.run_id).await;
 }
 
-async fn started_titled(rig: &Rig, title: &str) -> TerminalJobStarted {
-    started(rig, StartTerminalJob { title: Some(title.into()), ..quick(Some(rig.manifest.clone()), None) }).await
+async fn started_titled(rig: &Rig, title: &str) -> SideJobStarted {
+    started(rig, StartSideJob { title: Some(title.into()), ..side(Some(rig.manifest.clone()), None) }).await
 }
 
 #[tokio::test]
-async fn a_quick_start_with_no_title_is_named_by_the_first_message() {
+async fn a_side_job_with_no_title_is_named_by_the_first_message() {
     let rig = rig_placing(None);
-    let started = started(&rig, quick(Some(rig.manifest.clone()), None)).await;
+    let started = started(&rig, side(Some(rig.manifest.clone()), None)).await;
     assert_eq!(record(&rig, &started.session_id).await.title, None, "untitled while it waits");
 
     rig.send(&started.session_id, "  \nwhy did that fail?\nsecond line").await;
@@ -87,7 +87,7 @@ async fn a_quick_start_with_no_title_is_named_by_the_first_message() {
 #[tokio::test]
 async fn each_message_of_the_persons_carries_what_the_terminals_show_and_a_plain_jobs_does_not() {
     let rig = rig_placing(None);
-    let started = started(&rig, quick(Some(rig.manifest.clone()), None)).await;
+    let started = started(&rig, side(Some(rig.manifest.clone()), None)).await;
     types(&rig, &started.run_id, "echo failed-$((6*7))\r").await;
     assert!(printed(&rig, &started.run_id, "failed-42").await);
 
@@ -122,10 +122,10 @@ async fn a_folder_in_a_served_repository_is_its_job_with_the_shell_in_that_folde
     let rig = rig_placing(None);
     let folder = std::path::Path::new(&rig.root).join("tools").join("quick");
     std::fs::create_dir_all(&folder).expect("a folder");
-    let started = started(&rig, quick(None, Some(folder.to_string_lossy().into_owned()))).await;
+    let started = started(&rig, side(None, Some(folder.to_string_lossy().into_owned()))).await;
 
     let job = record(&rig, &started.session_id).await;
-    assert!(job.quick_terminal);
+    assert!(job.side_job);
     assert_eq!(job.manifest_id.as_ref(), Some(&rig.manifest), "the repository's own Job");
     assert_eq!(job.title, None, "untitled until his first message");
 
@@ -140,11 +140,11 @@ async fn a_loose_folder_runs_in_place_with_no_manifest_and_is_never_made_a_repos
     let rig = rig_placing(None);
     let loose = TempDir::new();
     let served_before = rig.fleet.repository_list().repositories.len();
-    let started = started(&rig, quick(None, Some(loose.path().to_string_lossy().into_owned()))).await;
+    let started = started(&rig, side(None, Some(loose.path().to_string_lossy().into_owned()))).await;
 
     let job = record(&rig, &started.session_id).await;
     let here = std::fs::canonicalize(loose.path()).unwrap().to_string_lossy().into_owned();
-    assert!(job.quick_terminal);
+    assert!(job.side_job);
     assert_eq!(job.manifest_id, None, "no Manifest");
     assert_eq!(job.title, None);
     assert_eq!(job.cwd, here, "runs where it was started");
@@ -165,14 +165,43 @@ async fn both_or_neither_place_a_relative_folder_or_no_cells_are_refused_and_not
     let dir = loose.path().to_string_lossy().into_owned();
     let before = rig.fleet.list_sessions(None, None, None).await.expect("listed").sessions.len();
     for start in [
-        quick(Some(rig.manifest.clone()), Some(dir.clone())),
-        quick(None, None),
-        quick(None, Some(String::from("relative/folder"))),
-        quick(None, Some(format!("{dir}/not-there"))),
-        StartTerminalJob { cols: Some(0), ..quick(Some(rig.manifest.clone()), None) },
+        side(Some(rig.manifest.clone()), Some(dir.clone())),
+        side(None, None),
+        side(None, Some(String::from("relative/folder"))),
+        side(None, Some(format!("{dir}/not-there"))),
+        StartSideJob { cols: Some(0), ..side(Some(rig.manifest.clone()), None) },
     ] {
-        let answer = Arc::clone(&rig.fleet).start_terminal_job(start.clone()).await;
+        let answer = Arc::clone(&rig.fleet).start_side_job(start.clone()).await;
         assert!(matches!(answer, Err(api::Refusal::Unacceptable(_))), "{start:?}: {answer:?}");
     }
     assert_eq!(rig.fleet.list_sessions(None, None, None).await.expect("listed").sessions.len(), before);
+}
+
+/// A Side Job answers under every rule a Job carries, so it never starts below Sonnet: the
+/// 13 Nov 2026 Haiku turn that lost the question under them. A stronger default is left to stand.
+#[tokio::test]
+async fn a_side_job_starts_on_sonnet_where_the_session_default_is_haiku() {
+    use std::collections::BTreeMap;
+    use api::Settings;
+    use ipc::{SaveSettings, SettingValue};
+    let rig = rig_placing(None);
+    let model_of = |id: SessionId| {
+        let fleet = Arc::clone(&rig.fleet);
+        async move { fleet.store().lock().await.hosting(id.as_str()).unwrap().expect("hosted").model }
+    };
+    let session = |name: &str| SaveSettings {
+        changes: BTreeMap::from([
+            ("models.roster".to_string(), Some(SettingValue::List(vec![SettingValue::Text("a-model".into()), SettingValue::Text("another-model".into()), SettingValue::Text("sonnet".into()), SettingValue::Text(name.into())]))),
+            ("models.session".to_string(), Some(SettingValue::Text(name.into()))),
+        ]),
+    };
+
+    rig.fleet.save_settings(session("haiku")).await.expect("saved");
+    assert_eq!(rig.fleet.side_job_model().as_deref(), Some("sonnet"));
+    let first = started(&rig, side(Some(rig.manifest.clone()), None)).await;
+    assert_eq!(model_of(first.session_id.clone()).await.as_deref(), Some("sonnet"), "kept on the Job it starts");
+    ends(&rig, &first.run_id).await;
+
+    rig.fleet.save_settings(session("opus")).await.expect("saved");
+    assert_eq!(rig.fleet.side_job_model(), None, "a stronger default is read when the process starts");
 }

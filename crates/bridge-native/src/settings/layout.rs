@@ -9,7 +9,7 @@ use ipc::layout::Choice;
 use ipc::ModKind;
 
 use super::overlay::SettingsOverlay;
-use super::view::{bone, card, ghost, ringed, small, switch_track, tip};
+use super::view::{bone, card, ghost, ringed, switch_track, tip};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -175,7 +175,7 @@ impl SettingsOverlay {
     pub(super) fn render_layout(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Vec<AnyElement> {
         let body = match &self.prefs.read {
             None => div().flex().flex_col().gap(look.length(token::SPACE_3)).children((0..6).map(|n| bone(look, look.length(token::SPACE_6) * (8 - n % 3) as f32, look.length(token::LEADING_SM)))).into_any_element(),
-            Some(Err(said)) => labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("layout-unread"), Role::Alert, said.clone()).into_any_element(),
+            Some(Err(said)) => labelled(super::view::refusal(look, said.clone()).id("layout-unread"), Role::Alert, said.clone()).into_any_element(),
             Some(Ok(_)) => self.layout_regions(look, window, cx),
         };
         let mut cards = vec![labelled(card(look, "settings-card-layout", "Layout", None, vec![body]), Role::Region, "Layout").into_any_element()];
@@ -222,7 +222,7 @@ impl SettingsOverlay {
             });
             div().flex().child(labelled(button, Role::Button, "Reset to defaults")).into_any_element()
         });
-        let refused = self.prefs.refused.get("layout_choices").map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("layout-refused"), Role::Alert, said.clone()).into_any_element());
+        let refused = self.prefs.refused.get("layout_choices").map(|said| labelled(super::view::refusal(look, said.clone()).id("layout-refused"), Role::Alert, said.clone()).into_any_element());
         div().flex().flex_col().gap(look.length(token::SPACE_6)).children(regions).children(reset).children(refused).into_any_element()
     }
 

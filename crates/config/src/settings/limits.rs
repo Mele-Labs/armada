@@ -8,6 +8,7 @@ pub const DRONES_AT_ONCE: Integer = Integer("limits.dronesAtOnce");
 pub const CHECKS_AT_ONCE: Integer = Integer("limits.checksAtOnce");
 pub const MEMORY_SPARE_PERCENT: Integer = Integer("limits.memorySparePercent");
 pub const DISK_FLOOR_GIB: Integer = Integer("limits.diskFloorGib");
+pub const DISK_RECLAIM_FLOOR_GIB: Integer = Integer("limits.diskReclaimFloorGib");
 pub const STANDING_RULES_KIB: Integer = Integer("limits.standingRulesKib");
 pub const SLOT_BUILD_TRIM_AFTER_DAYS: Integer = Integer("limits.slotBuildTrimAfterDays");
 pub const SLOT_BUILD_CEILING_GIB: Integer = Integer("limits.slotBuildCeilingGib");
@@ -71,21 +72,37 @@ pub(super) const LIMITS: &[Entry] = &[
         env: None,
         tip: None,
     },
-    // **Ten gibibytes, and that one is measured.** A parallel agent run filled a
-    // volume at 220 GB across 74 worktrees — three gigabytes each, cut worktree
-    // plus build output — and three agents died at zero bytes free holding
-    // uncommitted work. Ten is about three of those: enough that the Job being
-    // started can finish and the operator has warning before the next one. Bytes
-    // and not a share, which is why it is its own value — see `Headroom::of`.
+    // **Thirty gibibytes, and that one is measured.** A parallel agent run filled a
+    // volume at 220 GB across 74 worktrees and three agents died at zero bytes free
+    // holding uncommitted work. On 13 Nov 2026 free space fell 17 GB in about 20
+    // minutes, 50 GB an hour at the peak, and one cold native build writes over 10 GB:
+    // ten was ten minutes of runway, thirty is about half an hour for the operator to
+    // act. Bytes and not a share, which is why it is its own value — see `Headroom::of`.
     Entry {
         key: DISK_FLOOR_GIB.0,
         section: Section::Limits,
         title: "Disk to keep free",
         description: "The gibibytes that must be free on a Job's volume before its Drone starts. Zero accepts a full disk.",
         kind: Kind::Integer { min: 0, max: 100, unit: "GiB" },
-        shipped: Shipped::Integer(10),
+        shipped: Shipped::Integer(30),
         applies: Applies::Live,
         row: Some("disk-headroom-floor-for-spawning"),
+        env: None,
+        tip: None,
+    },
+    // **A hundred gibibytes**: the hold floor's thirty is half an hour at 50 GB an hour,
+    // and reclaiming has to finish before it. Dropping the oldest builds frees about 50
+    // GB a pass on this machine, so it starts three times as far up. The owner's
+    // decision of 13 Nov 2026, `.armada/documents/disk-reclaim-policy.html`.
+    Entry {
+        key: DISK_RECLAIM_FLOOR_GIB.0,
+        section: Section::Limits,
+        title: "Disk to start reclaiming at",
+        description: "The gibibytes free on a repository's volume under which Fleet drops old build output, oldest first, until there are twenty more. Zero never reclaims.",
+        kind: Kind::Integer { min: 0, max: 500, unit: "GiB" },
+        shipped: Shipped::Integer(100),
+        applies: Applies::Live,
+        row: Some("disk-reclaim-floor"),
         env: None,
         tip: None,
     },

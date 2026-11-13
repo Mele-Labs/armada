@@ -54,6 +54,8 @@ export type Mac = {
   last_heard_at?: number;
   /** Why the link is stuck, or where the next press is, as a sentence the screen shows as it is. */
   why?: string;
+  /** The four digits both Macs show while a pairing asked from Settings waits for Confirm. Absent on a pairing by link. */
+  code?: string;
 };
 
 /** `POST /admin/macs/pair/start` on the Gateway: the one-time link the other Mac's Settings takes. */

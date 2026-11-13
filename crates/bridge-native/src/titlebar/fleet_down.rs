@@ -7,7 +7,7 @@
 //! runtime file's presence (`face::connection_of`).
 
 use gpui::{
-    anchored, deferred, div, point, prelude::*, Anchor, AnimationExt as _, AnyElement, Context, FontWeight, Hsla, Role, SharedString, Window,
+    anchored, deferred, div, point, prelude::*, px, Anchor, AnimationExt as _, AnyElement, Context, FontWeight, Hsla, Role, SharedString, Window,
 };
 
 use super::face::{Dot, Kind, Outcome, Usage};
@@ -84,7 +84,7 @@ impl TitleBar {
     }
 
     /// The open popover under its trigger, right edges aligned.
-    pub(super) fn popover(&self, look: &Look, _window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn popover(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         // Over the Fleet panel's dim while it stands, as the bar above it stays live.
         let over = if self.link.panel.is_some() { super::link_layer::LAYER + 1 } else { 0 };
         let (from, body) = match self.popup? {
@@ -101,8 +101,12 @@ impl TitleBar {
                 return Some(deferred(anchored().position(at).anchor(Anchor::TopLeft).snap_to_window_with_margin(look.length(token::SPACE_1)).child(body)).with_priority(over).into_any_element());
             }
         };
-        let at = point(from.origin.x + from.size.width, from.origin.y + from.size.height + look.length(token::SPACE_1));
-        Some(deferred(anchored().position(at).anchor(Anchor::TopRight).snap_to_window_with_margin(look.length(token::SPACE_1)).child(body)).with_priority(over).into_any_element())
+        let margin = look.length(token::SPACE_1);
+        let at = point(from.origin.x + from.size.width, from.origin.y + from.size.height + margin);
+        // A panel taller than the room under its trigger scrolls there rather than sliding up over the bar.
+        let room = (window.viewport_size().height - at.y - margin).max(px(0.));
+        let body = div().id("popover-room").max_h(room).overflow_y_scroll().child(body);
+        Some(deferred(anchored().position(at).anchor(Anchor::TopRight).snap_to_window_with_margin(margin).child(body)).with_priority(over).into_any_element())
     }
 
     /// The Fleet panel: the head, the build switcher, the figures, the sentence, Doctor.

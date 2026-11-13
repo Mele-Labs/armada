@@ -590,7 +590,7 @@ impl SettingsOverlay {
                 }
                 list = list.child(labelled(items.id("models-items"), Role::List, "Models"));
                 if let Some(said) = self.refused.get("models.roster") {
-                    list = list.child(labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("models-refused"), Role::Alert, said.clone()));
+                    list = list.child(labelled(super::view::refusal(look, said.clone()).id("models-refused"), Role::Alert, said.clone()));
                 }
                 list = list.child(self.render_runs(models, off, look, window, cx));
             }
@@ -698,7 +698,7 @@ impl SettingsOverlay {
             }
             for slot in std::iter::once(run.model).chain(run.effort) {
                 if let Some(said) = self.refused.get(slot.key()) {
-                    block = block.child(labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id(SharedString::from(format!("run-refused-{}", slot.key()))), Role::Alert, said.clone()));
+                    block = block.child(labelled(super::view::refusal(look, said.clone()).id(SharedString::from(format!("run-refused-{}", slot.key()))), Role::Alert, said.clone()));
                 }
             }
             section = section.child(labelled(block, Role::Group, run.label));

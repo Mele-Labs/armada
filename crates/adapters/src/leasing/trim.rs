@@ -2,14 +2,17 @@
 //! artifact, so a slot kept warm for months grew to 50 GB. A release drops what
 //! no build has written in a while, then the incremental caches and, if that is
 //! not enough, the directory.
-//! A release does it for its own slot, and Fleet's sweep does it for every
-//! checkout of a repository; both go through [`trim_target`].
+//! A release does it for its own slot, and Fleet's sweep does it for every build
+//! folder of every checkout of a repository; both go through [`trim_target`].
+//! What Fleet does on top of it for a free slot's age and for a short disk is `disk`.
 //! The settings are `slot-build-trim-after-days`, `slot-build-ceiling-gib` and
 //! `build-sweep-interval-minutes`.
 
 use std::fs;
 use std::path::Path;
 use std::time::{Duration, SystemTime};
+
+use super::disk::{build_folders_in, every_checkout};
 
 /// Days a file under `target/` may go unwritten before a release drops it.
 pub const TRIM_AFTER_DAYS: u64 = 14;
@@ -76,7 +79,7 @@ pub fn trim_target(target: &Path, trim: Trim, now: SystemTime) -> Trimmed {
 /// Every `incremental` directory under `target`, removed. **The cheap thing to
 /// lose**: it is most of a slot's bytes, and without it the next change compiles
 /// its own crates in full and no third-party crate again.
-fn remove_incremental(target: &Path) {
+pub(super) fn remove_incremental(target: &Path) {
     let mut dirs = vec![target.to_path_buf()];
     for _ in 0..3 {
         let mut next = Vec::new();
@@ -101,7 +104,7 @@ fn remove_incremental(target: &Path) {
 
 /// Every `.cargo-lock` under `target` (the profile directories, with or
 /// without a target triple above them), locked; `None` where any is held.
-fn locks(target: &Path) -> Option<Vec<fs::File>> {
+pub(super) fn locks(target: &Path) -> Option<Vec<fs::File>> {
     let mut held = Vec::new();
     let mut dirs = vec![target.to_path_buf()];
     for depth in 0..3 {
@@ -130,48 +133,23 @@ fn locks(target: &Path) -> Option<Vec<fs::File>> {
     Some(held)
 }
 
-/// The `target/` of every checkout of the repository at `root`: its own, each
-/// pool slot, the merge line's bases, land trees and preview, and the Jobs'
-/// and agents' worktrees.
-pub fn targets_of(root: &Path) -> Vec<std::path::PathBuf> {
-    let mut checkouts = vec![root.to_path_buf()];
-    for parent in [
-        ".armada/slots",
-        ".armada/bases",
-        ".armada/land",
-        ".armada/worktrees",
-        ".claude/worktrees",
-    ] {
-        if let Ok(entries) = fs::read_dir(root.join(parent)) {
-            checkouts.extend(entries.flatten().map(|entry| entry.path()));
-        }
-    }
-    checkouts.push(root.join(".armada/preview"));
-    checkouts
-        .into_iter()
-        .map(|checkout| checkout.join("target"))
-        .filter(|target| target.is_dir())
-        .collect()
-}
-
-/// [`trim_target`] on every [`targets_of`] `root`, each with what it did.
+/// [`trim_target`] on every build folder of every checkout of `root` — see
+/// [`super::disk::every_checkout`] and [`super::disk::build_folders_in`] — each with what it did.
 ///
 /// **`held` are checkouts a person is working in** (a piloted Job's), and their
-/// `target/` is not looked at: a person's build output is not stale because no
-/// Drone wrote it.
+/// build folders are not looked at: a person's build output is not stale because
+/// no Drone wrote it.
 pub fn sweep_repository(
     root: &Path,
     trim: Trim,
     now: SystemTime,
     held: &[std::path::PathBuf],
 ) -> Vec<(std::path::PathBuf, Trimmed)> {
-    targets_of(root)
+    let held: Vec<_> = held.iter().filter_map(|checkout| checkout.canonicalize().ok()).collect();
+    every_checkout(root)
         .into_iter()
-        .filter(|target| {
-            !held
-                .iter()
-                .any(|held| target.parent() == Some(held.as_path()))
-        })
+        .filter(|checkout| !held.contains(checkout))
+        .flat_map(|checkout| build_folders_in(&checkout))
         .map(|target| {
             let done = trim_target(&target, trim, now);
             (target, done)
@@ -226,7 +204,7 @@ fn is_build_script_output(dir: &Path) -> bool {
 }
 
 /// The bytes under `dir`, counted toward the ceiling.
-fn size_of(dir: &Path) -> u64 {
+pub(super) fn size_of(dir: &Path) -> u64 {
     let Ok(entries) = fs::read_dir(dir) else {
         return 0;
     };
