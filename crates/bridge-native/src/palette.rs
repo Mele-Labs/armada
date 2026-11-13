@@ -199,7 +199,7 @@ pub fn job_entry(job: &SessionRecord) -> Option<Entry> {
     Some(Entry {
         id: format!("session:{}", job.id.as_str()),
         section: Section::Jobs,
-        label: job.title.clone().unwrap_or_else(|| job.id.as_str().to_string()),
+        label: crate::jobs::titled(job.title.as_deref()),
         icon: None,
         shortcut: None,
         aliases: std::iter::once(job.id.as_str().to_string()).chain(held_pull(job).iter().map(|(_, number, _)| format!("#{number}"))).collect(),
@@ -584,7 +584,7 @@ impl Palette {
 
     fn entries_now(&self, cx: &App) -> (Vec<Entry>, Option<String>) {
         let list = self.list.read(cx);
-        let on = list.opened_id().and_then(|id| list.record(&id).map(|job| job.title.clone().unwrap_or_else(|| id.to_string())));
+        let on = list.opened_id().and_then(|id| list.record(&id).map(|job| crate::jobs::titled(job.title.as_deref())));
         let mut entries = registered(on.is_some());
         // New Job here only where a quick Job can be started.
         entries.retain(|entry| entry.id != "act:new_terminal_job" || crate::terminal::shells::starts(cx));
