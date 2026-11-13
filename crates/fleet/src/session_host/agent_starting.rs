@@ -221,7 +221,7 @@ where
     async fn agent_start_begun(self: &Arc<Self>, caller: &str, id: &str, brief: &str) -> bool {
         let named = self.store().lock().await.session(caller).ok().flatten().and_then(|one| one.title);
         let title = named.unwrap_or_else(|| caller.to_string());
-        let voice = ipc::SessionVoice::Session { id: caller.to_string(), title };
+        let voice = ipc::SessionVoice::Session { id: caller.to_string(), title, mac: None };
         match self.first_message_from(id, voice, brief).await {
             Ok(()) => true,
             Err(why) => {

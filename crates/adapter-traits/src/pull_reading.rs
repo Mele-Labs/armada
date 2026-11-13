@@ -56,9 +56,25 @@ pub struct FollowedPull {
     pub title: Option<FromOutside>,
     /// Someone asked the forge to merge it once its checks pass.
     pub auto_merge: bool,
+    /// It is a draft.
+    pub draft: bool,
+    /// The forge's review rule is met: the reviews it needs are in and none asks for changes.
+    pub approved: bool,
 }
 
 impl FollowedPull {
+    /// Approved, its deciding checks passed, and nothing stands between it and a merge: not a
+    /// draft, no conflict, not queued, no auto-merge asked. What a person with the merge button
+    /// is waiting to be told.
+    pub fn ready_to_merge(&self) -> bool {
+        self.approved
+            && !self.draft
+            && !self.conflicting
+            && !self.auto_merge
+            && self.queue == PullQueue::Outside
+            && self.passed()
+    }
+
     /// A check that decides the pull request has failed.
     pub fn failed(&self) -> bool {
         self.checks

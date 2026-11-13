@@ -61,7 +61,7 @@ pub(super) fn you(id: &str, minute: u32, text: &str) -> SessionRow {
 }
 
 pub(super) fn fleet(id: &str, minute: u32, text: &str, notice: Option<&str>) -> SessionRow {
-    let from = SessionVoice::Session { id: "fleet".into(), title: "Fleet".into() };
+    let from = SessionVoice::Session { id: "fleet".into(), title: "Fleet".into(), mac: None };
     message(id, minute, from, text, notice)
 }
 

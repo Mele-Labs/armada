@@ -2,7 +2,7 @@
 
 **What it is:** The set of repositories one person works across as one body of work, with the tasks he keeps for it.
 A member is a whole repository or any folder inside one, and a folder needs no `armada.yml` of its own.
-A Job is started for a project, lifecycles and rules are scoped to one, and a task can sit in one.
+A Job is started for a project or moved into one, lifecycles and rules are scoped to one, and a task can sit in one.
 A task can link issues, pull requests and a running Job, and Fleet asks him before it marks one done.
 
 ---
@@ -37,8 +37,13 @@ The word Workspace keeps only the monorepo meaning, a folder with its own Manife
 > **Rule.** A repository leaves a project only when he edits its members.
 > Why: a task moving away or being deleted says nothing about whether the repository belongs.
 
-> **Rule.** A Job keeps the project it was started from, and the Job's repository must be a member.
-> Why: a Job of a repository the project does not list is not that project's work.
+> **Rule (13 Nov).** A Job, live or ended, can be moved into a project or out to no project, and its repository becomes a whole member as a task's does.
+> Why: he makes a project after the work has begun, and wants the Jobs he already ran grouped under it.
+> A Job of a repository the project does not list is still not that project's work, so the move adds the repository rather than refusing.
+
+A moved Job keeps the values it froze when it started and the tasks it holds.
+From the move on, what Fleet reads of the Job's project as it goes follows the new one: its tracker, the delivery setting, the lifecycles and rules scoped to it, and whether the Job is shared with his other Macs.
+A Job started for a project still needs its repository to be a member when it starts.
 
 > **Rule.** A project whose file cannot be read is shown as unread, with its members empty, and is not written over.
 > Why: a write over a file Fleet could not read would lose what it held.
@@ -62,6 +67,19 @@ The tracker is [Tracker](tracker.md), and a pull request is read from the forge.
 **A project may name its own tracker.**
 It replaces its members' trackers for the Jobs in it, for the project's issues, and for the issues its tasks and issue rows link, which are read and checked through it.
 A loose task and a task in a project that names none keep their repository's ([Tracker](tracker.md), *A project's tracker*).
+
+## The built-in project
+
+**On a Mac where Fleet serves the armada repository (manifest id `armada`), Fleet makes a project named Armada by itself.**
+Its only member is the armada repository, whole, its place is This Mac, and it sets one value, `delivery: auto_land`.
+Auto merge and the tracker already come from the repository's committed `armada.yml`, and theme and layout stay each Mac's, so the project sets nothing else.
+Fleet makes it when it first serves the repository, or at its start for a repository it already serves, and it never asks him.
+
+> **Rule (13 Nov).** Fleet makes the project once per Mac and keeps a record that it did, so a project he deletes or renames is never made again.
+> Where a project already has the armada repository as a member, Fleet makes nothing and records it as made.
+> Why: he wants Armada ready to use on a new Mac, such as his work Mac, and a project he removed on purpose stays removed.
+
+The record is one row of `project_imports`, under `built-in:armada`, the same table that keeps a committed Workspace from coming back after a delete.
 
 ## What a project scopes
 
@@ -96,7 +114,7 @@ The copy is listed beside that Mac's own projects with the Mac it is from, and t
 A task edited, added, ticked, linked, moved within the project or removed on the copy is sent through the link to the holding Mac, which makes the change with its own code, and the copy is what that Mac answers.
 An edit on the holding Mac reaches the copy the same way.
 
-> **Rule.** Only the holding Mac changes the project itself: its name, members, values, place, switch and deletion, a Job linked to a task, and a task's repository.
+> **Rule.** Only the holding Mac changes the project itself: its name, members, values, place, switch and deletion, a Job linked to a task or moved into it, and a task's repository.
 > Why: the file is on that Mac, and a Job of the other Mac is not this Mac's to link until acts cross between Macs.
 
 > **Rule (13 Nov).** An edit made on a copy while the holding Mac is asleep shows on the copy at once and is sent when that Mac wakes, oldest first.
@@ -129,7 +147,7 @@ Autonomy keeps the places it already has (a piece scoped to every repository, to
 > **Rule.** A project's value is over its repository's, and the repository's own keys sit just under it.
 > Why: the owner chose this explicitly. A project's auto merge replaces its repository's, and nothing is folded between them.
 
-> **Rule.** A Job takes its project's values when it starts and keeps them.
+> **Rule.** A Job takes its project's values when it starts and keeps them, and a Job moved into another project keeps them too.
 > Why: a Job in the middle of its work does not change what it was told to do because a layer moved. A Job started for no project runs on its repository's values.
 
 **Reviews are set a kind at a time: plans, pull requests and walks.**

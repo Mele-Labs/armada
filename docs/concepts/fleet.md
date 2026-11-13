@@ -399,7 +399,7 @@ Every visit moves `forge_read_at`, so the merge line is published once a visit.
 
 ### Telling the owner of a pull request
 
-**Nobody watches a pull request for failures. Fleet reads each open one once an interval and tells its owner when any of these happens.** One call a repository returns, for each open pull request, its checks on the newest commit with their log addresses, whether it conflicts with the base, and where the merge queue holds it.
+**Nobody watches a pull request for failures. Fleet reads each open one once an interval and tells its owner when any of these happens.** One call a repository returns, for each open pull request, its checks on the newest commit with their log addresses, whether it conflicts with the base, whether it is a draft or approved, and where the merge queue holds it.
 The merged pull requests are the listing already read for the hub.
 
 | Happened | Fires when |
@@ -410,6 +410,7 @@ The merged pull requests are the listing already read for the hub.
 | Unmergeable | The merge queue marks its entry unmergeable |
 | Merged | It merged in the last six hours |
 | Auto-merge on | Someone asked the forge to merge it once its checks pass; told once a pull request. A place in the queue is nothing to say by itself |
+| Ready to merge | The forge's review rule is met, the deciding checks passed, and it is not a draft, conflicting, queued or on auto-merge; told once a commit, to an owner whose Auto land is off |
 | A reviewer commented | A human reviewer wrote or edited a comment; a bot's and the owner's own are filed without a notice |
 
 **A held pull request is read by its number when the list leaves it out (decided for #2459, 16 Oct 2026).** Each list stops at 100 (the pull reading's the 100 updated last, the hub's the 100 created last), and a repository can have more open.

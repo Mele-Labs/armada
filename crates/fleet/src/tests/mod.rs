@@ -106,6 +106,7 @@ mod session_limit;
 mod session_snooze;
 mod peer;
 mod piece_places;
+mod built_in_project;
 mod project_migration;
 mod projects_kept;
 mod ports;
