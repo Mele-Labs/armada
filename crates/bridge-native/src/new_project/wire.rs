@@ -2,14 +2,13 @@
 //! connection read, or answered at once by the walk's mock. `crates/ipc/operations/`: `list_repositories`,
 //! `list_repository_areas`, `get_values`, `clone_repository`, `create_project`, `add_project` and `edit_project`.
 //!
-//! **One read Fleet does not serve yet** has a function here, which answers nothing until it does:
-//! [`Wire::github_repositories`]. The folder search is `GET /manifest/files` with `folders=true`
-//! ([`Wire::search_folders`]).
+//! **Two searches ask Fleet as he types**: [`Wire::search_folders`], `GET /manifest/files` with `folders=true`, and
+//! [`Wire::search_forge`], `GET /repositories/forge`, which both answer through [`Asked`].
 
 use std::time::Duration;
 
 use gpui::{App, AppContext, Entity, Task};
-use ipc::{EditProject, ModelChoices, NewProject, Projects, RepositoryAreas, RepositorySummary, ResolvedValues};
+use ipc::{EditProject, ForgeRepositories, ModelChoices, NewProject, Projects, RepositoryAreas, RepositorySummary, ResolvedValues};
 use serde::de::DeserializeOwned;
 
 use crate::fleet::FleetConnection;
@@ -26,14 +25,39 @@ pub enum Place {
     Root(String),
 }
 
-/// What Fleet said to a folder search.
+/// What Fleet said to a search as he typed.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Folders {
-    Found(Vec<String>),
+pub enum Asked<T> {
+    Found(T),
     /// Fleet's own sentence for a 422.
     Refused(String),
     /// Not asked, not answered, or answered with something the sheet cannot show.
     Down,
+}
+
+/// What Fleet said to a folder search.
+pub type Folders = Asked<Vec<String>>;
+
+/// What Fleet said to a search of his forge account.
+pub type Forge = Asked<ForgeRepositories>;
+
+/// The request for the repositories of his forge account matching `query`.
+pub fn forge_path(query: &str) -> String {
+    format!("/repositories/forge?q={}", crate::link::percent_encoded(query))
+}
+
+/// `GET path` off the main thread: the answer as `then` reads it, a 422 as Fleet's sentence, and anything else
+/// the sheet cannot show as down.
+fn asked<T: DeserializeOwned + Send + 'static, U: Send + 'static>(port: u16, path: String, what: &'static str, then: fn(T) -> U, cx: &App) -> Task<Asked<U>> {
+    cx.background_spawn(async move {
+        let Ok(runtime) = tokio::runtime::Builder::new_current_thread().enable_all().build() else { return Asked::Down };
+        let Ok((status, bytes)) = runtime.block_on(crate::transport::get(port, &path)) else { return Asked::Down };
+        match status {
+            200..=299 => ipc::decode::<T>(what, &bytes).map_or(Asked::Down, |found| Asked::Found(then(found))),
+            422 => ipc::decode::<ipc::WireError>("WireError", &bytes).map_or(Asked::Down, |error| Asked::Refused(error.message)),
+            _ => Asked::Down,
+        }
+    })
 }
 
 /// The request for a repository's folders matching `query`: Fleet takes one of `manifest_id` and `root`.
@@ -172,27 +196,22 @@ impl Wire {
             return Task::ready(mock.folders_found(place, query));
         }
         let Some(port) = self.port(cx) else { return Task::ready(Folders::Down) };
-        let path = folders_path(place, query);
-        cx.background_spawn(async move {
-            let Ok(runtime) = tokio::runtime::Builder::new_current_thread().enable_all().build() else { return Folders::Down };
-            let Ok((status, bytes)) = runtime.block_on(crate::transport::get(port, &path)) else { return Folders::Down };
-            match status {
-                200..=299 => ipc::decode::<ipc::FilesFound>("FilesFound", &bytes).map_or(Folders::Down, |found| Folders::Found(found.folders)),
-                422 => ipc::decode::<ipc::WireError>("WireError", &bytes).map_or(Folders::Down, |error| Folders::Refused(error.message)),
-                _ => Folders::Down,
-            }
-        })
+        asked(port, folders_path(place, query), "FilesFound", |found: ipc::FilesFound| found.folders, cx)
+    }
+
+    /// `GET /repositories/forge?q=`: the repositories his forge account can see whose owner and name hold every
+    /// word of `query`, each marked where Fleet already serves it.
+    pub fn search_forge(&self, query: &str, cx: &App) -> Task<Forge> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.forge_found(query));
+        }
+        let Some(port) = self.port(cx) else { return Task::ready(Forge::Down) };
+        asked(port, forge_path(query), "ForgeRepositories", |found: ForgeRepositories| found, cx)
     }
 
     /// Whether this is the walk's Fleet, which answers at once and needs no wait for typing to stop.
     pub fn is_mock(&self) -> bool {
         matches!(self, Wire::Mock(_))
-    }
-
-    /// The repositories his GitHub account sees, for the clone field to search. **Fleet serves no such list
-    /// yet**: none, and the field offers nothing as he types.
-    pub fn github_repositories(&self) -> Vec<String> {
-        Vec::new()
     }
 }
 
@@ -204,6 +223,8 @@ pub struct Mock {
     pub values: ResolvedValues,
     pub models: Vec<String>,
     pub projects: Projects,
+    /// The repositories his forge account sees in the walks.
+    pub forge: ForgeRepositories,
 }
 
 /// Folders below the two the areas read, as an index of every folder would hold them: what the walk's search
@@ -221,7 +242,20 @@ impl Mock {
             values: ipc::decode("ResolvedValues", MOCK_VALUES.as_bytes()).unwrap_or_else(|why| panic!("the mock values do not decode: {why}")),
             models: vec!["opus".into(), "sonnet".into(), "haiku".into()],
             projects: crate::mock::projects(),
+            forge: ipc::decode("ForgeRepositories", MOCK_FORGE.as_bytes()).unwrap_or_else(|why| panic!("the mock forge does not decode: {why}")),
         }
+    }
+
+    /// What the walk's forge answers a search: each repository whose owner and name hold every word, and `cut`
+    /// where the words are two letters or fewer, which stand in for more matching than Fleet lists. A search
+    /// for `offline` stands in for a forge that will not list, with the sentence Fleet gives for no token.
+    fn forge_found(&self, query: &str) -> Forge {
+        let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
+        if words.iter().any(|word| word == "offline") {
+            return Forge::Refused("GitHub has no token for this machine. Run `gh auth login`, then open it again.".into());
+        }
+        let repositories = self.forge.repositories.iter().filter(|one| words.iter().all(|word| format!("{}/{}", one.owner, one.name).to_lowercase().contains(word.as_str()))).cloned().collect();
+        Forge::Found(ForgeRepositories { repositories, cut: query.trim().chars().count() <= 2 })
     }
 
     /// What the walk's Fleet answers a folder search: the areas' folders and the deeper ones, ranked as the
@@ -282,9 +316,23 @@ const MOCK_VALUES: &str = r#"{
  "delivery": {"from": "default"}
 }"#;
 
+/// His forge account in the walks: a private repository, one Fleet serves already, and two more.
+const MOCK_FORGE: &str = r#"{"repositories": [
+ {"owner": "acme", "name": "billing", "url": "https://github.com/acme/billing", "private": true, "pushed_at": "2026-11-12T14:02:00Z"},
+ {"owner": "acme", "name": "sample-api", "url": "https://github.com/acme/sample-api", "private": false, "pushed_at": "2026-11-11T09:30:00Z", "local_path": "/Users/user/Development/sample-api"},
+ {"owner": "acme", "name": "ledger", "url": "https://github.com/acme/ledger", "private": true, "pushed_at": "2026-11-02T16:45:00Z"},
+ {"owner": "acme", "name": "brand-site", "url": "https://github.com/acme/brand-site", "private": false}
+]}"#;
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_forge_is_searched_by_the_words_typed_encoded() {
+        assert_eq!(forge_path("acme"), "/repositories/forge?q=acme");
+        assert_eq!(forge_path("acme/bill ing"), "/repositories/forge?q=acme%2Fbill%20ing");
+    }
 
     #[test]
     fn a_repository_with_a_manifest_is_searched_by_its_id_and_one_without_by_its_root_each_for_folders() {

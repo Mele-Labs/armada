@@ -1,5 +1,5 @@
 //! The New project walk: the sheet opened from the project switcher, a name, a repository opened on its
-//! folders and two ticked through its search, a third found three levels down by Fleet's search, a repository to clone, each tile, and Create, which lands on the
+//! folders and two ticked through its search, a third found three levels down by Fleet's search, a repository to clone, found by searching his GitHub account, each tile, and Create, which lands on the
 //! new Job's thread in the project with the keys in its box. The sheet's Fleet is `new_project::wire::Mock`.
 
 use super::{press_on, step, Step, Verb};
@@ -7,7 +7,7 @@ use super::{press_on, step, Step, Verb};
 /// The switcher on a wide bar, its rows in the menu on a narrow one: either way Find has the keys.
 const SWITCHER: Verb = Verb::PressOnFirst(&[("button", "Project"), ("button", "Menu")]);
 
-pub static STEPS: [Step; 39] = [
+pub static STEPS: [Step; 51] = [
     step("The project switcher, or below 900 the menu that holds its rows: the keys are in Find", SWITCHER, "searchbox", "Find a project"),
     step("Typing narrows it to New project", Verb::Keys(&["n", "e", "w"]), "searchbox", "Find a project"),
     step("Enter opens the sheet over the window, the keys in Name", Verb::Key("enter"), "textbox", "Name"),
@@ -35,6 +35,18 @@ pub static STEPS: [Step; 39] = [
     press_on("Its search takes the keys", "searchbox", "Find a folder in sample-docs", "searchbox", "Find a folder in sample-docs"),
     step("Fleet refuses the search of a folder that is gone, and says so where the folders would be", Verb::Typed("guides"), "status", "/Users/user/Development/sample-docs is not a folder on this machine"),
     press_on("Clone a repository opens its two fields, the keys in the first", "button", "Clone a repository", "textbox", "Repository to clone"),
+    step("Typing searches his GitHub account: each repository reads owner and name, with when it was last pushed", Verb::Typed("acme"), "button", "acme/billing"),
+    step("A private repository carries a lock", Verb::Hover, "img", "acme/billing is private"),
+    step("A repository Fleet serves already reads already here in place of a clone", Verb::Look, "button", "acme/sample-api"),
+    press_on("Pressed, it ticks that repository in the list above and clones nothing", "button", "acme/sample-api", "treeitem", "sample-api"),
+    press_on("Pressed again, it is unticked", "button", "acme/sample-api", "treeitem", "sample-api"),
+    press_on("The box takes the keys", "textbox", "Repository to clone", "textbox", "Repository to clone"),
+    step("Cleared", Verb::Keys(&["cmd-a", "backspace"]), "textbox", "Repository to clone"),
+    step("Two letters match more than Fleet lists", Verb::Typed("ac"), "button", "acme/billing"),
+    step("Where more match than the list shows, it ends on a line that says so", Verb::Wheel("dialog", "New project", 240), "status", "More match. Type more to narrow it."),
+    step("Cleared", Verb::Keys(&["cmd-a", "backspace"]), "textbox", "Repository to clone"),
+    step("Where GitHub will not list, its sentence stands where the repositories would", Verb::Typed("offline"), "status", "GitHub has no token for this machine. Run `gh auth login`, then open it again."),
+    step("Cleared", Verb::Keys(&["cmd-a", "backspace"]), "textbox", "Repository to clone"),
     step("A URL or owner and name", Verb::Typed("github.com/acme/billing"), "textbox", "Repository to clone"),
     step("It clones into the folder his repositories are in, or another he picks", Verb::Look, "button", "Folder to clone into"),
     step("Where its file is kept: this Mac, a synced folder or the cloud", Verb::Wheel("dialog", "New project", 240), "radiogroup", "Where its file is kept"),
@@ -45,6 +57,6 @@ pub static STEPS: [Step; 39] = [
     press_on("Picked, it is in full colour with the modified dot", "menuitemcheckbox", "Auto land", "img", "How work lands set for this project"),
     step("Sharing", Verb::Wheel("dialog", "New project", 900), "switch", "Share with your other Macs"),
     step("⌘↩ clones the repository, makes the project and goes to it: a Job starts in it on its empty thread, the keys in its box", Verb::Key("cmd-enter"), "textbox", "Message"),
-    step("The line over the box says how its work lands, from the project's settings. The bar names the project and its repositories: sample-web, for its two folders, and billing, the clone", Verb::Look, "status", "Auto land, from Pocket's settings"),
+    step("The line over the box says how its work lands, from the project's settings. The bar names the project and its repositories: sample-web, for its three folders, and billing, the clone", Verb::Look, "status", "Auto land, from Pocket's settings"),
     step("Its row in the list", Verb::Look, "row", "s-7c41e2a9"),
 ];

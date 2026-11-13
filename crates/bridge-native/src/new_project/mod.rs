@@ -56,14 +56,21 @@ pub struct Served {
     pub manifest: bool,
 }
 
-/// How long typing in a folder search is quiet before Fleet is asked: as the `@` mention's file lookup waits.
-const FOLDER_LOOKUP: Duration = Duration::from_millis(150);
+/// How long typing in a search is quiet before Fleet is asked: as the `@` mention's file lookup waits.
+const LOOKUP: Duration = Duration::from_millis(150);
 
 /// A folder search as it was asked: of which repository, for what words.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct FolderAsk {
     id: String,
     query: String,
+}
+
+/// What Fleet answered to a search of his forge account, for the words typed in Clone a repository.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum ForgeFound {
+    Listed(ipc::ForgeRepositories),
+    Refused(SharedString),
 }
 
 /// What Fleet answered to a [`FolderAsk`] that the sheet shows.
@@ -85,6 +92,8 @@ pub struct Pick {
 pub enum Line {
     Repository(usize),
     Whole(usize),
+    /// A repository of his forge account that the Clone search found, by its place in the answer.
+    Forge(usize),
     /// A folder of the opened repository, by its path, with the letters the search found, and whether it is
     /// drawn only because it is picked.
     Folder { at: usize, path: SharedString, lit: Vec<usize>, kept: bool },
@@ -173,6 +182,9 @@ pub struct NewProjectSheet {
     /// Fleet's last answer to a folder search, and the request waiting on typing to go quiet or on Fleet.
     found: Option<(FolderAsk, Found)>,
     lookup: Option<Task<()>>,
+    /// Fleet's last answer to a search of his forge account, with the words it answered, and the request waiting.
+    forged: Option<(String, ForgeFound)>,
+    forging: Option<Task<()>>,
     _subs: Vec<Subscription>,
 }
 
@@ -201,6 +213,11 @@ impl NewProjectSheet {
             if matches!(event, InputEvent::Change) {
                 this.active = 0;
                 cx.notify();
+            }
+        }));
+        subs.push(cx.subscribe_in(&boxes.clone, window, |this, _, event: &InputEvent, _, cx| {
+            if matches!(event, InputEvent::Change) {
+                this.want_forge(cx);
             }
         }));
         subs.push(cx.subscribe_in(&boxes.folders, window, |this, _, event: &InputEvent, _, cx| {
@@ -261,6 +278,8 @@ impl NewProjectSheet {
             act: None,
             found: None,
             lookup: None,
+            forged: None,
+            forging: None,
             _subs: subs,
         }
     }
@@ -295,6 +314,7 @@ impl NewProjectSheet {
         self.clone_open |= !self.boxes.clone.read(cx).value().is_empty();
         self.new_open |= !self.boxes.new.read(cx).value().is_empty();
         self.read(cx);
+        self.want_forge(cx);
         let name = self.boxes.name.clone();
         window.defer(cx, move |window, cx| name.update(cx, |name, cx| name.focus(window, cx)));
         cx.notify();
@@ -374,6 +394,9 @@ impl NewProjectSheet {
             }
         }
         lines.push(Line::Clone);
+        if self.clone_open {
+            lines.extend((0..self.forge_rows(cx).len()).map(Line::Forge));
+        }
         lines.push(Line::New);
         lines
     }
@@ -423,23 +446,36 @@ impl NewProjectSheet {
         Some((FolderAsk { id: one.id.clone(), query }, place))
     }
 
-    /// Ask Fleet for the folders the search now names, once typing has been quiet for `FOLDER_LOOKUP`. The
-    /// request waiting is dropped by the next key, so one keystroke in a run is never posted.
+    /// Run a search once typing has been quiet for `LOOKUP`: `asked` starts the request then, and `took` is given
+    /// the answer with the words it was for. The task is dropped by the next key, so one keystroke in a run is
+    /// never posted.
+    fn after_quiet<A: 'static, R: 'static>(
+        &self,
+        ask: A,
+        asked: impl FnOnce(&mut Self, &mut Context<Self>) -> Task<R> + 'static,
+        took: impl FnOnce(&mut Self, A, R, &mut Context<Self>) + 'static,
+        cx: &mut Context<Self>,
+    ) -> Task<()> {
+        let wait = if self.wire.is_mock() { None } else { Some(LOOKUP) };
+        cx.spawn(async move |this, cx| {
+            if let Some(wait) = wait {
+                cx.background_executor().timer(wait).await;
+            }
+            let Ok(task) = this.update(cx, |this, cx| asked(this, cx)) else { return };
+            let answer = task.await;
+            let _ = this.update(cx, |this, cx| took(this, ask, answer, cx));
+        })
+    }
+
+    /// Ask Fleet for the folders the search now names.
     fn want_folders(&mut self, cx: &mut Context<Self>) {
         self.lookup = None;
         let Some((ask, place)) = self.folder_ask(cx) else { return };
         if self.found.as_ref().is_some_and(|(held, _)| *held == ask) {
             return;
         }
-        let wait = if self.wire.is_mock() { None } else { Some(FOLDER_LOOKUP) };
-        self.lookup = Some(cx.spawn(async move |this, cx| {
-            if let Some(wait) = wait {
-                cx.background_executor().timer(wait).await;
-            }
-            let Ok(asked) = this.update(cx, |this, cx| this.wire.search_folders(&place, &ask.query, cx)) else { return };
-            let answer = asked.await;
-            let _ = this.update(cx, |this, cx| this.folders_answered(ask, answer, cx));
-        }));
+        let query = ask.query.clone();
+        self.lookup = Some(self.after_quiet(ask, move |this, cx| this.wire.search_folders(&place, &query, cx), |this, ask, answer, cx| this.folders_answered(ask, answer, cx), cx));
     }
 
     /// Fleet answered a folder search. An answer to words or a repository since changed is dropped, so a slow
@@ -463,6 +499,81 @@ impl NewProjectSheet {
             Some((held, Found::Refused(why))) if *held == ask => Some(why.clone()),
             _ => None,
         }
+    }
+
+    // -- the Clone search -------------------------------------------------------------------------------------
+
+    /// What was typed in Clone a repository, as searched on his forge account: none while the box is shut or
+    /// empty, or holds an address, which is a clone by URL and not a search.
+    fn forge_query(&self, cx: &App) -> Option<String> {
+        let typed = self.boxes.clone.read(cx).value().trim().to_string();
+        (self.clone_open && !typed.is_empty() && !typed.contains("://") && !typed.contains('@')).then_some(typed)
+    }
+
+    /// Ask Fleet for the repositories the Clone box's words name.
+    fn want_forge(&mut self, cx: &mut Context<Self>) {
+        self.forging = None;
+        let Some(query) = self.forge_query(cx) else { return };
+        if self.forged.as_ref().is_some_and(|(held, _)| *held == query) {
+            return;
+        }
+        let ask = query.clone();
+        self.forging = Some(self.after_quiet(ask, move |this, cx| this.wire.search_forge(&query, cx), |this, ask, answer, cx| this.forge_answered(ask, answer, cx), cx));
+    }
+
+    /// Fleet answered a search of his forge account. As with the folders, an answer to words since changed is
+    /// dropped; Fleet out of reach lists nothing and says nothing.
+    fn forge_answered(&mut self, ask: String, answer: wire::Forge, cx: &mut Context<Self>) {
+        if self.forge_query(cx).as_ref() != Some(&ask) {
+            return;
+        }
+        match answer {
+            wire::Forge::Found(listed) => self.forged = Some((ask, ForgeFound::Listed(listed))),
+            wire::Forge::Refused(why) => self.forged = Some((ask, ForgeFound::Refused(why.into()))),
+            wire::Forge::Down => self.forged = None,
+        }
+        cx.notify();
+    }
+
+    /// The repositories found for the words now typed.
+    pub fn forge_rows(&self, cx: &App) -> &[ipc::ForgeRepository] {
+        match (self.forge_query(cx), self.forged.as_ref()) {
+            (Some(now), Some((ask, ForgeFound::Listed(listed)))) if now == *ask => &listed.repositories,
+            _ => &[],
+        }
+    }
+
+    /// Whether more matched the words typed than the rows show.
+    pub fn forge_cut(&self, cx: &App) -> bool {
+        matches!((self.forge_query(cx), self.forged.as_ref()), (Some(now), Some((ask, ForgeFound::Listed(listed)))) if now == *ask && listed.cut)
+    }
+
+    /// The forge's sentence where it refused the words now typed, to draw where the rows would be.
+    pub fn forge_refusal(&self, cx: &App) -> Option<SharedString> {
+        match (self.forge_query(cx), self.forged.as_ref()) {
+            (Some(now), Some((ask, ForgeFound::Refused(why)))) if now == *ask => Some(why.clone()),
+            _ => None,
+        }
+    }
+
+    /// The place in the list of the repository Fleet already serves at `row`'s `local_path`, by its root.
+    pub fn forge_local(&self, row: &ipc::ForgeRepository) -> Option<usize> {
+        local_of(self.served.as_deref().unwrap_or_default(), row)
+    }
+
+    /// A press on a found repository: where Fleet serves it already, ticks it in the list above, as its own box
+    /// does; where it does not, the clone box takes its address, for Create to clone.
+    pub fn use_forge(&mut self, of: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(row) = self.forge_rows(cx).get(of).cloned() else { return };
+        match self.forge_local(&row) {
+            Some(at) => self.tick_whole(at, cx),
+            None => {
+                crate::drafts::keep(KEEP_CLONE, &row.url, cx);
+                self.boxes.clone.update(cx, |clone, cx| clone.set_value(row.url, window, cx));
+                self.forging = None;
+            }
+        }
+        cx.notify();
     }
 
     /// Whether the folders of the opened repository are still being read.
@@ -515,6 +626,7 @@ impl NewProjectSheet {
 
     pub fn toggle_clone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.clone_open = !self.clone_open;
+        self.want_forge(cx);
         if self.clone_open {
             let field = self.boxes.clone.clone();
             window.defer(cx, move |window, cx| field.update(cx, |field, cx| field.focus(window, cx)));
@@ -590,11 +702,18 @@ impl NewProjectSheet {
                 };
                 window.focus(&stops[next], cx);
             }
-            "down" if plain && (self.boxes.find.focus_handle(cx).is_focused(window) || self.boxes.folders.focus_handle(cx).is_focused(window)) => {
-                // Out of the folder search, the keys land on its first folder.
+            "down"
+                if plain
+                    && (self.boxes.find.focus_handle(cx).is_focused(window)
+                        || self.boxes.folders.focus_handle(cx).is_focused(window)
+                        || (self.boxes.clone.focus_handle(cx).is_focused(window) && !self.forge_rows(cx).is_empty())) =>
+            {
+                // Out of a search, the keys land on its first folder, or on the first repository the Clone search found.
                 let lines = self.lines(cx);
                 if self.boxes.folders.focus_handle(cx).is_focused(window) {
                     self.active = lines.iter().position(|line| matches!(line, Line::Folder { .. })).unwrap_or(0);
+                } else if self.boxes.clone.focus_handle(cx).is_focused(window) {
+                    self.active = lines.iter().position(|line| matches!(line, Line::Forge(_))).unwrap_or(0);
                 } else {
                     self.active = 0;
                 }
@@ -629,6 +748,7 @@ impl NewProjectSheet {
                 self.toggle_open(at, window, cx);
                 self.active = self.lines(cx).iter().position(|line| *line == Line::Repository(at)).unwrap_or(0);
             }
+            ("enter" | "space", Some(Line::Forge(of))) => self.use_forge(of, window, cx),
             ("enter" | "space", Some(Line::Clone)) => self.toggle_clone(window, cx),
             ("enter" | "space", Some(Line::New)) => self.toggle_new(window, cx),
             _ => return,
@@ -900,6 +1020,13 @@ fn served_of(one: &RepositorySummary) -> Served {
     Served { id, name: name.into(), root: one.root.clone(), manifest: one.manifest.is_some() }
 }
 
+/// The place in the list of the repository Fleet serves at `row`'s `local_path`: the roots compared as Fleet names
+/// them, without a closing `/`.
+fn local_of(served: &[Served], row: &ipc::ForgeRepository) -> Option<usize> {
+    let path = row.local_path.as_deref()?.trim_end_matches('/');
+    served.iter().position(|one| one.root.trim_end_matches('/') == path)
+}
+
 /// A repository's folders as Fleet read its tree: each top folder, then the folders inside it.
 fn folders_of(areas: Option<&RepositoryAreas>, id: &str) -> Vec<String> {
     let Some(one) = areas.and_then(|areas| areas.repositories.iter().find(|one| one.manifest_id.as_str() == id)) else { return Vec::new() };
@@ -1106,6 +1233,78 @@ mod tests {
             let local: Vec<String> = folders(sheet, cx).into_iter().map(|(path, _)| path).collect();
             assert!(local.contains(&"web/checkout".to_string()) && local.contains(&"services/checkout-api".to_string()), "the folders already read, searched here");
             assert!(local.iter().all(|path| path.matches('/').count() <= 1), "and none deeper than the two it read");
+        });
+    }
+
+    fn forged<'a>(cx: &'a mut gpui::TestAppContext, typed: &'static str) -> (Entity<NewProjectSheet>, &'a mut gpui::VisualTestContext) {
+        let (sheet, cx) = sheet(cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.clone_open = true;
+            sheet.boxes.clone.update(cx, |clone, cx| clone.set_value(typed, window, cx));
+        });
+        (sheet, cx)
+    }
+
+    fn repository(owner: &str, name: &str, local: Option<&str>) -> ipc::ForgeRepository {
+        ipc::ForgeRepository { owner: owner.into(), name: name.into(), url: format!("https://github.com/{owner}/{name}"), local_path: local.map(str::to_string), ..ipc::ForgeRepository::default() }
+    }
+
+    #[gpui::test]
+    fn a_forge_answer_for_words_since_changed_never_replaces_a_newer_one(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = forged(cx, "ac");
+        let listed = |name: &str| wire::Forge::Found(ipc::ForgeRepositories { repositories: vec![repository("acme", name, None)], cut: false });
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.forge_answered("a".into(), listed("old"), cx);
+            assert_eq!(sheet.forged, None, "an answer for words no longer typed is dropped");
+            sheet.forge_answered("ac".into(), listed("first"), cx);
+            sheet.boxes.clone.update(cx, |clone, cx| clone.set_value("acm", window, cx));
+            sheet.forge_answered("acm".into(), listed("newer"), cx);
+            // The slow answer to the words before comes last.
+            sheet.forge_answered("ac".into(), listed("first"), cx);
+            assert_eq!(sheet.forge_rows(cx).iter().map(|one| one.name.as_str()).collect::<Vec<_>>(), ["newer"]);
+        });
+    }
+
+    #[gpui::test]
+    fn a_repository_is_already_here_where_its_local_path_is_a_served_root(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = forged(cx, "ac");
+        sheet.update(cx, |sheet, _| {
+            let here = repository("acme", "sample-api", Some("/Users/user/Development/sample-api/"));
+            let at = sheet.forge_local(&here).expect("served");
+            assert_eq!(sheet.served.as_ref().expect("read")[at].id, "sample-api", "the root names the manifest the pick is made under");
+            assert_eq!(sheet.forge_local(&repository("acme", "billing", None)), None, "no local path: not here");
+            assert_eq!(sheet.forge_local(&repository("acme", "gone", Some("/Users/user/Development/gone"))), None, "a path no served root is: not here");
+        });
+    }
+
+    #[gpui::test]
+    fn pressing_a_repository_already_here_ticks_it_above_and_one_not_here_fills_the_clone_box(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = forged(cx, "ac");
+        sheet.update_in(cx, |sheet, window, cx| {
+            let found = ipc::ForgeRepositories { repositories: vec![repository("acme", "sample-api", Some("/Users/user/Development/sample-api")), repository("acme", "billing", None)], cut: false };
+            sheet.forge_answered("ac".into(), wire::Forge::Found(found), cx);
+            sheet.use_forge(0, window, cx);
+            assert_eq!(sheet.picks.get("sample-api").map(|pick| pick.whole), Some(true));
+            assert_eq!(sheet.boxes.clone.read(cx).value().as_ref(), "ac", "nothing is cloned");
+            sheet.use_forge(1, window, cx);
+            assert_eq!(sheet.boxes.clone.read(cx).value().as_ref(), "https://github.com/acme/billing");
+            assert!(sheet.forge_rows(cx).is_empty(), "an address is a clone, not a search");
+        });
+    }
+
+    #[gpui::test]
+    fn a_cut_answer_says_more_match_and_a_422_stands_in_the_list_with_the_forges_sentence(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = forged(cx, "ac");
+        sheet.update(cx, |sheet, cx| {
+            sheet.forge_answered("ac".into(), wire::Forge::Found(ipc::ForgeRepositories { repositories: vec![repository("acme", "billing", None)], cut: true }), cx);
+            assert!(sheet.forge_cut(cx));
+            sheet.forge_answered("ac".into(), wire::Forge::Found(ipc::ForgeRepositories { repositories: vec![repository("acme", "billing", None)], cut: false }), cx);
+            assert!(!sheet.forge_cut(cx));
+            sheet.forge_answered("ac".into(), wire::Forge::Refused("GitHub has no token for this machine.".into()), cx);
+            assert_eq!(sheet.forge_refusal(cx).as_deref(), Some("GitHub has no token for this machine."));
+            assert!(sheet.forge_rows(cx).is_empty());
+            sheet.forge_answered("ac".into(), wire::Forge::Down, cx);
+            assert_eq!(sheet.forge_refusal(cx), None, "out of reach says nothing");
         });
     }
 }

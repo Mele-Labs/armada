@@ -190,12 +190,18 @@ impl NewProjectSheet {
                             rows.push(self.fold_frame(look).child(bone(look, look.length(token::SPACE_12) * 2.)).into_any_element());
                         }
                         if let Some(why) = self.folder_refusal(cx) {
-                            let row = self.fold_frame(look).id("np-folder-refusal").text_color(look.color(token::FG_SUBTLE)).child(div().min_w_0().truncate().child(why.clone()));
-                            rows.push(labelled(row, Role::Status, why).into_any_element());
+                            rows.push(self.quiet_line("np-folder-refusal", why, cx));
                         }
                     }
                     if line == Line::Clone && self.clone_open {
                         rows.push(self.clone_fields(window, cx));
+                        if let Some(why) = self.forge_refusal(cx) {
+                            rows.push(self.quiet_line("np-forge-refusal", why, cx));
+                        }
+                    }
+                    // Where more matched than the rows show, the list ends on a line that says so.
+                    if matches!(line, Line::Forge(of) if of + 1 == self.forge_rows(cx).len()) && self.forge_cut(cx) {
+                        rows.push(self.quiet_line("np-forge-cut", "More match. Type more to narrow it.".into(), cx));
                     }
                     if line == Line::New && self.new_open {
                         rows.push(self.new_fields(window, cx));
@@ -238,6 +244,14 @@ impl NewProjectSheet {
     /// A line under an opened repository: lower, smaller, and set in past its chevron and box.
     fn fold_frame(&self, look: &Look) -> Div {
         self.row_frame(look).h(look.length(token::H_CONTROL_LG)).pl(look.length(token::SPACE_12) - look.length(token::SPACE_1) / 2.).text_size(look.length(token::TEXT_XS))
+    }
+
+    /// A line under an opened repository or a search that says a thing quietly: Fleet's sentence for a refusal, or
+    /// that the answer was cut.
+    fn quiet_line(&self, id: &'static str, said: SharedString, cx: &Context<Self>) -> AnyElement {
+        let look = cx.look();
+        let row = self.fold_frame(look).id(id).text_color(look.color(token::FG_SUBTLE)).child(div().min_w_0().truncate().child(said.clone()));
+        labelled(row, Role::Status, said).into_any_element()
     }
 
     fn meta(look: &Look, said: impl Into<SharedString>) -> Div {
@@ -307,6 +321,31 @@ impl NewProjectSheet {
                     .child("Whole repository")
                     .child(Self::meta(look, root));
                 labelled(keys_here(row), Role::CheckBox, "Whole repository").into_any_element()
+            }
+            Line::Forge(of) => {
+                let Some(found) = self.forge_rows(cx).get(of).cloned() else { return div().into_any_element() };
+                let here = self.forge_local(&found).is_some();
+                let said = format!("{}/{}", found.owner, found.name);
+                let when = found.pushed_at.as_ref().and_then(|at| crate::settings::time::stamp_at(at.as_str()));
+                let lock = found.private.then(|| {
+                    labelled(
+                        div().id(SharedString::from(format!("np-forge-private-{of}"))).flex_none().tooltip(tip("Private repository")).child(glyph("lock", look.length(token::SPACE_3), look.color(token::FG_MUTED))),
+                        Role::Image,
+                        format!("{} is private", said),
+                    )
+                });
+                let row = self
+                    .fold_frame(look)
+                    .id(SharedString::from(format!("np-forge-{of}")))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        to_line(this, window, cx);
+                        this.use_forge(of, window, cx);
+                    }))
+                    .child(glyph("git-branch", look.length(token::SPACE_3) + look.length(token::SPACE_1) / 2., look.color(token::FG_MUTED)))
+                    .child(div().min_w_0().truncate().child(said.clone()))
+                    .children(lock)
+                    .child(Self::meta(look, if here { "already here".to_string() } else { when.unwrap_or_default() }));
+                labelled(keys_here(row), Role::Button, said).into_any_element()
             }
             Line::Folder { at: of, path, lit, kept } => {
                 let ticked = self.pick_of(of).folders.contains(&path);
@@ -427,8 +466,6 @@ impl NewProjectSheet {
     fn clone_fields(&self, window: &Window, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
         let focused = self.boxes.clone.focus_handle(cx).is_focused(window);
-        // The repositories his GitHub account sees would be offered here as he types; Fleet serves none yet.
-        let _offered = self.wire.github_repositories();
         Self::sub(look)
             .child(labelled(
                 field(look, focused).id("np-clone-url").flex_1().child(glyph("globe", look.length(token::SPACE_3) + look.length(token::SPACE_1) / 2., look.color(token::FG_MUTED))).child(text_box(&self.boxes.clone)),
