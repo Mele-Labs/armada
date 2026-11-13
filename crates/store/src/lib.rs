@@ -22,6 +22,7 @@
 /// What Fleet told a session about the build it now runs, so it is told once.
 mod build_notice;
 mod devices;
+mod macs;
 mod error;
 mod fleet_outages;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
@@ -195,6 +196,7 @@ mod timeline;
 mod tests;
 
 pub use devices::{Device, PushSubscription, ThisMac};
+pub use macs::{MacSaid, MacState, PairedMac};
 pub use error::{DatabaseFault, OpenError, ReadError, RowError, WriteError};
 pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
 pub use run_memory::{KeptPlace, KeptRun};
