@@ -51,6 +51,7 @@ async fn job_waiting(compact: bool, old: bool, context: u64) -> (Rig, SessionId,
         since: "2026-08-26T08:00:00.000Z".into(),
         act: None,
         options: Vec::new(),
+        pictures: String::new(),
         steps: Vec::new(),
     };
     store.replace_waiting_for(id.as_str(), &[item]).unwrap();

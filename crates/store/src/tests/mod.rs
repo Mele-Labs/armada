@@ -30,6 +30,7 @@ mod preferences;
 mod rebuilding;
 mod session_build;
 mod session_waiting_approves;
+mod session_waiting_pictures;
 mod repositories;
 mod review_runs;
 mod walk_places;

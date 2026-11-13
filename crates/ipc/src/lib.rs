@@ -540,7 +540,7 @@ pub use territory::{
     SlotTouches, TouchesInRepository,
 };
 pub use preferences::{
-    Preferences, SavePreference, DEFAULT_THEME,
+    AnswerWith, LookQuestions, LookResults, Preferences, ReadResults, SavePreference, TakeIn, DEFAULT_THEME,
 };
 pub use settings::{
     SaveSettings, Setting, SettingApplies, SettingKind, SettingValue, SettingsList,
@@ -720,7 +720,7 @@ pub use sessions::{
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
-    WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
+    WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource, OptionPicture, PartPicked, PicturePart, AnswerWaitingParts,
     WalkTold, OpenNativeWalk, NativeWalkOpened, WindowClosed, WindowFailed, WithdrawDocument, WithdrawDraft, WithdrawSketch, WithdrawWindow,
 };
 pub use needs_you::{

@@ -617,6 +617,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/waiting/answer",
     },
     Route {
+        operation: "answer_waiting_parts",
+        method: "POST",
+        path: "/sessions/waiting/answer_parts",
+    },
+    Route {
         operation: "free_slot",
         method: "POST",
         path: "/sessions/slot_choice/free",

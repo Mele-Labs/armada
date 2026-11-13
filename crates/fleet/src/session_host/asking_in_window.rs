@@ -81,6 +81,7 @@ where
                     .description
                     .map(|said| said.trim().to_string())
                     .filter(|said| !said.is_empty()),
+                picture: None,
             })
             .collect();
         if options.iter().any(|one| one.label.is_empty()) {
