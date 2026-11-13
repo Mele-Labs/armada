@@ -88,7 +88,7 @@ export type StartSession = {
    */
   on_your_words?: boolean;
   /**
-   * The project of his the Job is for, by id; `list_projects` names them. The Job keeps it, and serves it as `hosted.project`. Refused 404
+   * The project of his the Job is for, by id; `list_projects` names them. The Job keeps it, and serves it as `hosted.project`, until `POST /sessions/project` moves it. Refused 404
    * `fleet.no_such_project` where he has none by that id, and 422 `fleet.project_not_member` where the Job's repository is not one of
    * its members. Not read with `fork` or `root`.
    */
@@ -285,6 +285,17 @@ export type SetSessionAutoLand = {
   on: boolean;
 };
 
+/**
+ * `POST /sessions/project`: move each Job into a project of his, or out to none, live or ended. Answers the `SessionList` of the Jobs as they are now.
+ * Every Job is checked first and one refusal writes nothing: 404 `fleet.no_such_session` for a Job this Fleet does not host, 422 `fleet.session_command_refused`
+ * for no Job or a Job with no repository, 404 `fleet.no_such_project`, 422 `fleet.project_unreadable`. A repository of theirs the project does not hold becomes a whole member.
+ */
+export type SetSessionProject = {
+  session_ids: string[];
+  /** The project by id; `null` or absent takes the Jobs out of any project. */
+  project?: string | null;
+};
+
 /** The marker on a paused hosted Session. Not a state: `state` stays `live`. Since 23.92. */
 export type SessionPaused = {
   at: string;
@@ -396,7 +407,7 @@ export type HostedFacts = {
   start?: StartHeld;
   /** Present while the Job's process would not start, tried twice, and nothing has sent its turns since: `POST /sessions/start_again`, or a message, tries again. */
   start_failed?: StartFailed;
-  /** The project the Job was started for, by id (`StartSession.project`). Absent for a Job started for none. */
+  /** The project the Job is in, by id: the one it was started for (`StartSession.project`), until `POST /sessions/project` moves it. Absent for a Job in none. */
   project?: string;
   /**
    * The values the Job froze when it started: its project's and its repository's, each key with the layer it came from. A Job already
