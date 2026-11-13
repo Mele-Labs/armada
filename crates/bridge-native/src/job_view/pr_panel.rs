@@ -20,6 +20,9 @@ use super::pulls::{Pull, PullAct, PullChecks, PullState};
 use super::rows::{age, glyph, mono, tip, Size};
 use super::JobView;
 use crate::labels::labelled;
+
+#[path = "pr_draft.rs"]
+mod pr_draft;
 use crate::look::{token, ActiveLook, Look, Token};
 
 /// The panel's tabs, in Electron's order (`TABS`). Review joins them with the Reviews screen.
@@ -81,6 +84,8 @@ pub(super) struct PullPanel {
     pub note_boxes: Vec<super::pr_notes::NoteBox>,
     /// His notes a Job resolved are drawn too.
     pub notes_resolved: bool,
+    /// A description the Job proposed, drawn in the description's place (`pr_draft`).
+    pub draft: pr_draft::DraftPane,
     _typing: Subscription,
     _copied: Option<Task<()>>,
 }
@@ -512,6 +517,7 @@ impl JobView {
             sections: ScrollHandle::new(),
             note_boxes: Vec::new(),
             notes_resolved: false,
+            draft: pr_draft::DraftPane::default(),
             _typing: typing,
             _copied: None,
         };
@@ -1325,12 +1331,14 @@ impl JobView {
             .chain(page.threads.iter().filter_map(|thread| thread.comments.first().map(|first| (time(&first.at), Said::Thread(thread)))))
             .collect();
         said.sort_by_key(|(at, _)| *at);
-        if description.trim().is_empty() && said.is_empty() {
+        if description.trim().is_empty() && said.is_empty() && page.draft.is_none() {
             return None;
         }
         let now = Local::now();
         let mut cards: Vec<AnyElement> = Vec::new();
-        if !description.trim().is_empty() {
+        if let Some(draft) = &page.draft {
+            cards.push(self.pull_draft_card(panel, page, draft, look, cx));
+        } else if !description.trim().is_empty() {
             let lead = mark(look, "pull-description-mark".into(), "file-text", "Description", None);
             cards.push(self.pull_card("pull-description", Some(lead), page.author.clone(), false, page.created_at.as_deref(), None, &description, "Description".into(), look, now, cx));
         }
