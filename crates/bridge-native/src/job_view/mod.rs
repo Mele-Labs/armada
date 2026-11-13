@@ -61,6 +61,8 @@ mod sketch_read;
 mod subagent_read;
 mod zoom;
 mod panes;
+mod pane_store;
+mod pane_tree;
 mod pulls;
 mod issues;
 mod system;
@@ -384,6 +386,8 @@ pub struct JobView {
     /// A subagent's thread open on its sheet, and the last threads read, newest last.
     subagent_reading: Option<subagent_read::Reading>,
     subagents_read: Vec<(String, subagent_read::SubagentRead)>,
+    /// The origin's thread as it stood where a fork began (`upto`), by origin and message: Fleet keeps no such read.
+    forks_read: HashMap<String, Vec<ThreadItem>>,
     /// The reads kept going for subagents open as tabs beside the thread, by `job/subagent`.
     subagent_tab_polls: HashMap<String, gpui::Task<()>>,
     /// The Plan, Changes, Files and Checks bodies' state, and the panel one of their rows opened.
@@ -445,6 +449,7 @@ impl JobView {
                 this.synced(cx);
                 this.review_sync(window, cx);
             }));
+            subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {
             // Back from Settings, the card that sent him there goes.
@@ -542,6 +547,7 @@ impl JobView {
             sketch_reading: None,
             subagent_reading: None,
             subagents_read: Vec::new(),
+            forks_read: HashMap::new(),
             subagent_tab_polls: HashMap::new(),
             panes: panes::Panes::default(),
             spine: spine::Spine::new(remember, cx),

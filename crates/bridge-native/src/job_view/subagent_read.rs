@@ -1,12 +1,12 @@
 //! A subagent's own thread, read on a sheet over the window, as Electron's `session-subagent.tsx` and
 //! its `session-reading` sheet draw it: "Subagent {task}", its type and model under the title, the
 //! context figure beside them, and the thread drawn as the Job's is. Read again every 1.5 s while it
-//! runs. Esc or Close shut it.
+//! runs, and each time Fleet says its thread moved (`session.subagent`). Esc or Close shut it.
 
 use std::time::Duration;
 
 use gpui::{anchored, deferred, div, point, prelude::*, px, Anchor, AnyElement, Context, FocusHandle, FontWeight, KeyDownEvent, Role, SharedString, Task, Window};
-use ipc::{RingBand, SessionRow, ThreadItem, ToolSubagent, ToolSubagentState};
+use ipc::{RingBand, SessionRow, SessionSubagentChanged, ThreadItem, ToolSubagent, ToolSubagentState};
 use serde::Deserialize;
 
 use super::rows::{glyph, mono, tip, Size};
@@ -107,7 +107,7 @@ impl JobView {
         let focus = cx.focus_handle();
         let back = window.focused(cx);
         window.focus(&focus, cx);
-        let poll = self.subagent_poll(&job, &subagent, cx);
+        let poll = self.subagent_poll(&job, &subagent.id, subagent.state == ToolSubagentState::Running, cx);
         self.subagent_reading = Some(Reading { job, subagent, focus, back, _poll: poll });
         cx.notify();
     }
@@ -123,18 +123,17 @@ impl JobView {
         self.subagents_read.drain(..over);
     }
 
-    /// Read the subagent's thread, and again every [`EVERY`] while it runs and has not finished. On
-    /// the mock the scenario's own read stands for Fleet's.
-    fn subagent_poll(&mut self, job: &SharedString, subagent: &ToolSubagent, cx: &mut Context<Self>) -> Option<Task<()>> {
-        let key = Self::subagent_key(job, &subagent.id);
+    /// Read the subagent's thread, and where it is `running`, again every [`EVERY`] until a read says
+    /// it finished. On the mock the scenario's own read stands for Fleet's.
+    fn subagent_poll(&mut self, job: &SharedString, subagent: &str, running: bool, cx: &mut Context<Self>) -> Option<Task<()>> {
+        let key = Self::subagent_key(job, subagent);
         let Some(port) = self.port(cx) else {
-            if let Some(read) = crate::mock::subagent::<SubagentRead>(job, &subagent.id) {
+            if let Some(read) = crate::mock::subagent::<SubagentRead>(job, subagent) {
                 self.keep_subagent(key, read);
             }
             return None;
         };
-        let running = subagent.state == ToolSubagentState::Running;
-        let path = format!("/sessions/subagent?session_id={job}&subagent_id={}", subagent.id);
+        let path = format!("/sessions/subagent?session_id={job}&subagent_id={subagent}");
         Some(cx.spawn(async move |this, cx| loop {
             let path = path.clone();
             let answer = cx
@@ -190,8 +189,23 @@ impl JobView {
     pub(super) fn watch_subagent(&mut self, subagent: &ToolSubagent, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let key = Self::subagent_key(&job, &subagent.id);
-        if let Some(poll) = self.subagent_poll(&job, subagent, cx) {
+        if let Some(poll) = self.subagent_poll(&job, &subagent.id, subagent.state == ToolSubagentState::Running, cx) {
             self.subagent_tab_polls.insert(key, poll);
+        }
+    }
+
+    /// Fleet says these subagents' threads moved: each one open on the sheet or as a tab is read once
+    /// more, beside any re-read already running for it.
+    pub(super) fn subagents_moved(&mut self, moved: &[SessionSubagentChanged], cx: &mut Context<Self>) {
+        for one in moved {
+            let job = SharedString::from(one.session_id.as_str().to_string());
+            let id = one.subagent_id.as_str();
+            let on_sheet = self.subagent_reading.as_ref().is_some_and(|reading| reading.job == job && reading.subagent.id == id);
+            if on_sheet || self.subagent_tab_open(&job, id) {
+                if let Some(read) = self.subagent_poll(&job, id, false, cx) {
+                    read.detach();
+                }
+            }
         }
     }
 
