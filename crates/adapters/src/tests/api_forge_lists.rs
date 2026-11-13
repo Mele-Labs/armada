@@ -206,3 +206,41 @@ fn the_login_a_token_belongs_to_is_read_over_the_api() {
     let forge = ApiForge::through(api(&nobody.url, &["t"]).0);
     assert_eq!(forge.forge_login(&repo.root_str()), None);
 }
+
+#[test]
+fn the_accounts_repositories_are_read_newest_pushed_first_and_cut_at_the_most_asked() {
+    let base = std::sync::Arc::new(std::sync::OnceLock::<String>::new());
+    let known = base.clone();
+    let server = serve(move |seen| match seen.target.as_str() {
+        "/user/repos?sort=pushed&per_page=100" => Reply {
+            status: 200,
+            headers: vec![("Link", format!(r#"<{}/user/repos?page=2>; rel="next""#, known.get().unwrap()))],
+            body: r#"[{"name":"shop","owner":{"login":"mele"},"clone_url":"https://example.test/mele/shop.git","private":true,"pushed_at":"2026-11-12T10:00:00Z"},
+                      {"name":"empty","owner":{"login":"org"},"clone_url":"https://example.test/org/empty.git","private":false,"pushed_at":null}]"#
+                .to_string(),
+        },
+        _ => not_found(),
+    });
+    base.set(server.url.clone()).unwrap();
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+
+    let listed = forge.account_repositories(2).unwrap();
+    assert!(listed.cut, "the forge named a next page");
+    assert_eq!(listed.repositories.len(), 2);
+    let shop = &listed.repositories[0];
+    assert_eq!((shop.owner.as_str(), shop.name.as_str()), ("mele", "shop"));
+    assert_eq!(shop.url, "https://example.test/mele/shop.git");
+    assert!(shop.private);
+    assert_eq!(shop.pushed_at.as_deref(), Some("2026-11-12T10:00:00Z"));
+    assert_eq!(listed.repositories[1].pushed_at, None, "nothing ever pushed");
+    assert_eq!(server.seen().len(), 1, "two fit one page");
+
+    let fewer = forge.account_repositories(1).unwrap();
+    assert_eq!(fewer.repositories.len(), 1);
+    assert!(fewer.cut);
+
+    let refusing = serve(|_| refused(401));
+    let forge = ApiForge::through(api(&refusing.url, &["t"]).0);
+    let said = forge.account_repositories(10).unwrap_err();
+    assert!(said.contains("Sign in again"), "{said}");
+}

@@ -1,0 +1,16 @@
+[operations.list_forge_repositories]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The repositories the person's forge account can see, to pick one to clone, each marked where this Mac already has it"
+notes = """
+`GET /repositories/forge?q=`, `q` optional. Answers `ForgeRepositories { repositories, cut? }`, each `ForgeRepository { owner, name, url, private, pushed_at?, local_path? }`, newest pushed first as the forge lists them. `url` is what `clone_repository` takes. `pushed_at` is absent for a repository nothing was pushed to.
+
+**Cloned is what Fleet serves.** `local_path` is the root of the served repository whose remote is this one, compared as host, owner and name without case; absent where Fleet serves none. No other folder on the disk is read.
+
+**`q` narrows by words**: each whitespace-separated word must be a case-blind substring of `owner/name`. Not fuzzy. **At most 200 are answered** (`MOST_LISTED` in `crates/fleet/src/repositories/forge_listing.rs`); `cut` is `true` where more matched, or where the forge held more than the 1,000 Fleet reads, and absent while false.
+
+**The forge is asked at most once a minute** (`LISTING_KEPT`): the whole listing is kept in memory and every `q` narrows the kept one, so typing asks the forge nothing. A refusal is not kept.
+
+422 `fleet.forge_repositories_unreadable` where the forge would not list them (no token, no network, a refusal), the message the forge's sentence a person can act on.
+"""
