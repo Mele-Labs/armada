@@ -7,11 +7,11 @@ use ipc::{JobLanesView, LaneKind, LaneNode, LaneNodeKind, LaneNodeRole};
 use crate::settings::definition::steps_of;
 
 /// The workflow lane's node for a step.
-fn node_id(step: &str) -> String {
+pub(super) fn node_id(step: &str) -> String {
     format!("workflow/{step}")
 }
 
-fn step_node(step: &str, label: &str, col: u32) -> LaneNode {
+pub(super) fn step_node(step: &str, label: &str, col: u32) -> LaneNode {
     LaneNode {
         id: node_id(step),
         label: label.to_string(),
@@ -97,6 +97,115 @@ pub fn with_states_renamed(mut view: JobLanesView, labels: &[(String, String, St
         if let Some(one) = found.filter(|one| one.label != *label) {
             one.changed = Some(format!("Renamed from {}", one.label));
             one.label = label.clone();
+        }
+    }
+    view
+}
+
+/// The lanes with each lifecycle the draft adds drawn under the others: its states in columns from the first, one node
+/// each, and the moves it expects between them. A lane the lanes already draw (one a publish has kept) is left as read.
+pub fn with_lifecycles(mut view: JobLanesView, added: &[ipc::LifecycleDefinition]) -> JobLanesView {
+    for one in added {
+        if view.lanes.iter().any(|lane| lane.id == one.id) {
+            continue;
+        }
+        let nodes = one
+            .states
+            .iter()
+            .enumerate()
+            .map(|(col, state)| LaneNode {
+                id: format!("{}/{}", one.id, state.id),
+                label: state.label.clone(),
+                col: col as u32,
+                role: LaneNodeRole::State,
+                kind: super::lane::node_kind(&state.read),
+                lit: false,
+                here: false,
+                passed: false,
+                waiting: Vec::new(),
+                end: one.ends.contains(&state.id),
+                skipped: false,
+                ended: false,
+                ticket: None,
+                changed: None,
+                differs: Vec::new(),
+                clash: None,
+            })
+            .collect();
+        let moves = one.transitions.iter().map(|one_move| (format!("{}/{}", one.id, one_move.from), format!("{}/{}", one.id, one_move.to))).collect();
+        view.lanes.push(ipc::LaneView {
+            id: one.id.clone(),
+            kind: LaneKind::Lifecycle,
+            title: one.name.clone(),
+            source: super::lane::source_of(one).to_string(),
+            what: None,
+            note: None,
+            ticket: false,
+            ended: false,
+            changed: None,
+            pending: None,
+            nodes,
+            moves,
+        });
+    }
+    view
+}
+
+/// A rule the draft sets, and the rule that runs where there is one.
+pub struct RuleChange {
+    pub was: Option<ipc::LifecycleRule>,
+    pub now: ipc::LifecycleRule,
+}
+
+/// The lanes with each rule the draft sets laid over them: a rule that runs has its chip's words, autonomy and ends changed
+/// and is marked as a step is; a rule the draft adds gets a chip where its moment and its act name two nodes the lanes
+/// draw. A rule the lanes do not draw (a gate or the Job sets it off) is not drawn here either.
+pub fn with_rules(mut view: JobLanesView, changes: &[RuleChange], vocab: &super::rule::Vocab, marked: bool) -> JobLanesView {
+    use super::rule::{autonomy_of, ends_of, when_phrase};
+    for change in changes {
+        let rule = &change.now;
+        let drawn = |id: &str| view.lanes.iter().flat_map(|lane| lane.nodes.iter()).any(|node| node.id == id);
+        let ends = ends_of(rule).filter(|(from, to)| drawn(from) && drawn(to));
+        let autonomy = match autonomy_of(vocab, rule) {
+            "asks" => ipc::LaneAutonomy::Asks,
+            "off" => ipc::LaneAutonomy::Off,
+            _ => ipc::LaneAutonomy::Acts,
+        };
+        let mark = marked.then(|| if change.was.is_some() { "Changed" } else { "Added" }.to_string());
+        let waits = Some(when_phrase(vocab, &rule.when));
+        match view.rules.iter().position(|edge| edge.rule == rule.id && !edge.quiet) {
+            Some(at) => {
+                let edge = &mut view.rules[at];
+                edge.label = rule.name.clone();
+                edge.autonomy = autonomy;
+                edge.waits = edge.waits.as_ref().and(waits);
+                edge.changed = mark;
+                if let Some((from, to)) = ends {
+                    edge.id = format!("{}:{from}>{to}", rule.id);
+                    (edge.from, edge.to) = (from, to);
+                }
+            }
+            None => {
+                let Some((from, to)) = ends else { continue };
+                view.rules.push(ipc::LaneEdge {
+                    id: format!("{}:{from}>{to}", rule.id),
+                    rule: rule.id.clone(),
+                    from,
+                    to,
+                    label: rule.name.clone(),
+                    waits,
+                    fired_at: None,
+                    autonomy,
+                    status: ipc::LaneOutcome::Waiting,
+                    did: Vec::new(),
+                    changed: mark,
+                    quiet: false,
+                    differs: Vec::new(),
+                    clash: None,
+                    proposed: false,
+                    pending: None,
+                });
+            }
         }
     }
     view

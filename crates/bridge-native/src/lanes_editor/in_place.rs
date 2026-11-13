@@ -94,6 +94,12 @@ pub(super) struct Fields {
 }
 
 /// `base`, or `base_2`, `base_3`, until no step holds it (`uniqueId`).
+/// Where the lanes begin in the frame, past the rail and the heads that stand over its left: a + under them is not drawn.
+pub(super) fn lanes_edge(frame: Bounds<Pixels>, look: &Look) -> Pixels {
+    let rail = look.length(token::BORDER_WIDTH) * 3. + look.length(token::SPACE_3) * 2. + look.length(token::SPACE_1) * 2. + look.length(token::H_CONTROL_SM);
+    frame.left() + rail + px(HEADS)
+}
+
 pub fn unique_id(label: &str, taken: &[String]) -> String {
     let slug: String = label.to_lowercase().chars().map(|one| if one.is_ascii_alphanumeric() { one } else { '_' }).collect();
     let slug = slug.split('_').filter(|part| !part.is_empty()).collect::<Vec<_>>().join("_");
@@ -122,7 +128,7 @@ fn node_width(gaps: &[StepGap]) -> Option<Pixels> {
 }
 
 /// Where a step's node was drawn, from the gaps either side of it.
-fn node_bounds(node: &str, gaps: &[StepGap]) -> Option<Bounds<Pixels>> {
+pub(super) fn node_bounds(node: &str, gaps: &[StepGap]) -> Option<Bounds<Pixels>> {
     let wide = node_width(gaps)?;
     let into = gaps.iter().find(|gap| gap.before == node);
     let out = gaps.iter().find(|gap| gap.after == node);
@@ -141,7 +147,7 @@ fn end_box(gaps: &[StepGap]) -> Option<(String, Bounds<Pixels>)> {
 
 impl LanesEditor {
     /// The definition as the draft has it: what a field opens on and what a new step is added to.
-    fn text(&self) -> String {
+    pub(super) fn text(&self) -> String {
         if self.text.is_empty() {
             self.saved.clone().unwrap_or_default()
         } else {
@@ -156,7 +162,7 @@ impl LanesEditor {
 
     /// Whether the keys are in a field opened in place.
     pub fn typing(&self, window: &Window, cx: &gpui::App) -> bool {
-        self.in_place.as_ref().and_then(|one| one.fields.as_ref()).is_some_and(|fields| fields.name.read(cx).focus_handle(cx).is_focused(window) || fields.words.as_ref().is_some_and(|words| words.read(cx).focus_handle(cx).is_focused(window)))
+        self.typing_words(window, cx) || self.lane_name_focused(window) || self.in_place.as_ref().and_then(|one| one.fields.as_ref()).is_some_and(|fields| fields.name.read(cx).focus_handle(cx).is_focused(window) || fields.words.as_ref().is_some_and(|words| words.read(cx).focus_handle(cx).is_focused(window)))
     }
 
     /// The picked node, where it is a step of the workflow's lane.
@@ -225,6 +231,9 @@ impl LanesEditor {
             }
             (LaneKind::Lifecycle, _) => {
                 let (lifecycle, state) = node.split_once('/')?;
+                if self.lane_def(lifecycle).is_some_and(|lane| lane.states.iter().any(|one| one.id == state)) {
+                    return Some(Editing::State { lifecycle: lifecycle.to_string(), state: state.to_string() });
+                }
                 let running = self.lifecycles.iter().find(|one| one.lifecycle.id == lifecycle && one.kept.overridden_by.is_none())?;
                 running.lifecycle.states.iter().any(|one| one.id == state).then(|| Editing::State { lifecycle: lifecycle.to_string(), state: state.to_string() })
             }
@@ -298,7 +307,7 @@ impl LanesEditor {
 
     /// The keys to the canvas once the key that closed the fields is through: gpui still sends a key a host took to
     /// the key-down listeners on its way, and the canvas's own would take it again.
-    fn give_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn give_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         cx.defer_in(window, |this, window, cx| window.focus(&this.state.frame, cx));
         cx.notify();
     }
@@ -331,6 +340,12 @@ impl LanesEditor {
     /// The fields' own keys while they hold them: Tab between Name and Words, Enter lands them, Esc closes them.
     /// Shift-Enter is the Words' new line.
     pub fn field_key(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.typing_words(window, cx) {
+            return self.words_key(key, window, cx);
+        }
+        if self.lane_name_focused(window) {
+            return self.lane_name_key(key, window, cx);
+        }
         let mods = &key.modifiers;
         if mods.platform || mods.control || mods.alt {
             return false;
@@ -380,6 +395,10 @@ impl LanesEditor {
 
     /// E: the picked step's or state's fields, with the keys in its Name. `false` where it has none to edit.
     pub(super) fn open_picked(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if let Some(Pick::Rule(rule)) = self.picked.clone() {
+            self.open_rule(&rule, true, window, cx);
+            return self.sentence.is_some();
+        }
         let Some(Pick::Node(node)) = self.picked.clone() else { return false };
         let found = {
             use crate::lanes_canvas::LanesHost;
@@ -409,9 +428,7 @@ impl LanesEditor {
             return over;
         }
         let gaps = self.state.step_gaps(&self.id);
-        // The rail and the heads stand over the left of the frame: a + under them is not drawn.
-        let rail = look.length(token::BORDER_WIDTH) * 3. + look.length(token::SPACE_3) * 2. + look.length(token::SPACE_1) * 2. + look.length(token::H_CONTROL_SM);
-        let edge = frame.left() + rail + px(HEADS);
+        let edge = lanes_edge(frame, look);
         // What stands over the lanes is cut where the canvas cuts its nodes, at the heads' edge and the frame's.
         let shown = |bounds: &Bounds<Pixels>| bounds.right() > edge && bounds.left() < frame.right() && bounds.bottom() > frame.top() && bounds.top() < frame.bottom();
         let lanes = Bounds { origin: point(edge, frame.top()), size: gpui::size((frame.right() - edge).max(px(0.)), frame.size.height) };
@@ -561,6 +578,12 @@ impl LanesEditor {
     /// What the page shows when fields open, relative to the canvas's frame: the node, and the panel at its whole
     /// height under it.
     pub(super) fn reveal_target(&self, look: &Look) -> Option<Bounds<Pixels>> {
+        if let Some(lane) = self.lane_reveal() {
+            return Some(lane);
+        }
+        if self.sentence.is_some() {
+            return self.sentence_reveal(look);
+        }
         let one = self.in_place.as_ref()?;
         let node = self.open_node()?;
         let frame = self.frame.get();

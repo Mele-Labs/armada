@@ -56,6 +56,20 @@ pub struct Waiting {
     pub label: String,
 }
 
+/// A rule edited while the draft has no place to apply at: Armada's own workflow has none until it is answered.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WaitingRule {
+    pub said: String,
+    pub rule: ipc::LifecycleRule,
+}
+
+/// A new lane edited while the draft has no place to apply at, as a rule is: each edit keeps the whole lifecycle as it stood.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WaitingLifecycle {
+    pub said: String,
+    pub lifecycle: ipc::LifecycleDefinition,
+}
+
 /// The summary a change carries that undoes another one in the middle of the list: `Undid #<id of the one undone>`.
 /// Nothing displays it; the list reads it to leave both out.
 pub fn undid_summary(id: i64) -> String {

@@ -2572,6 +2572,27 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::LAYOUT_TIME_STEPS,
     },
     Walk {
+        name: crate::settings::walk::RULES,
+        title: "Rules as a sentence",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::RULES_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::LANES_ADD,
+        title: "Add a lifecycle: what a new lane follows",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::LANES_ADD_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::TAKE,
+        title: "Choose what to take from Armada",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::TAKE_STEPS,
+    },
+    Walk {
         name: "native-pairing-chips",
         title: "Another Mac's Jobs in the list: the Mac chip, acts left off, and a Job taken away",
         screen: Screen::Jobs,

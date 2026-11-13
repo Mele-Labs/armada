@@ -28,11 +28,13 @@ pub struct WorkflowLanes {
     _subs: BTreeMap<String, Subscription>,
     /// The stop of "Add lifecycle", on the line that says what an edit changes.
     pub add: FocusHandle,
+    /// The stop of "Add rule", beside it.
+    pub add_rule: FocusHandle,
 }
 
 impl WorkflowLanes {
     pub fn new(cx: &mut App) -> Self {
-        Self { editors: BTreeMap::new(), _subs: BTreeMap::new(), add: cx.focus_handle().tab_stop(true) }
+        Self { editors: BTreeMap::new(), _subs: BTreeMap::new(), add: cx.focus_handle().tab_stop(true), add_rule: cx.focus_handle().tab_stop(true) }
     }
 
     /// Settings opened again: every row read afresh, except one that holds a draft.
@@ -87,6 +89,21 @@ impl EditorWire for SettingsWire {
         self.with(cx, move |this, cx| this.wire.workflow_definition(&at.workflow, at.source, &at.held_under, cx))
     }
 
+    fn armada_lanes(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::JobLanesView, Refused>> {
+        let at = at.clone();
+        self.with(cx, move |this, cx| this.wire.workflow_lanes(&at.workflow, DEFAULT, &at.manifest, cx))
+    }
+
+    fn armada_definition(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
+        let at = at.clone();
+        self.with(cx, move |this, cx| this.wire.workflow_definition(&at.workflow, "armada", &at.held_under, cx))
+    }
+
+    fn base_definition(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
+        let (at, (source, project)) = (at.clone(), at.place());
+        self.with(cx, move |this, cx| this.wire.workflow_base(&at.workflow, source, project.as_deref(), &at.held_under, cx))
+    }
+
     fn workflow_draft(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
         let (at, (source, project)) = (at.clone(), at.place());
         self.with(cx, move |this, cx| this.wire.workflow_draft(&at.workflow, source, project.as_deref(), &at.held_under, cx))
@@ -125,6 +142,24 @@ impl EditorWire for SettingsWire {
     fn lifecycles(&self, manifest: &str, cx: &mut App) -> Task<Result<ipc::RepositoryLifecycles, Refused>> {
         let manifest = manifest.to_string();
         self.with(cx, move |this, cx| this.wire.lifecycles(&manifest, cx))
+    }
+
+    fn lifecycle_rules(&self, manifest: &str, cx: &mut App) -> Task<Result<ipc::RepositoryLifecycleRules, Refused>> {
+        let manifest = manifest.to_string();
+        self.with(cx, move |this, cx| this.wire.lifecycle_rules(&manifest, cx))
+    }
+
+    fn autonomy_defaults(&self, manifest: &str, cx: &mut App) -> Task<Result<ipc::RepositoryAutonomy, Refused>> {
+        let manifest = manifest.to_string();
+        self.with(cx, move |this, cx| this.wire.autonomy_defaults(&manifest, cx))
+    }
+
+    fn watch_recipes(&self, cx: &mut App) -> Task<Result<ipc::WatchRecipeList, Refused>> {
+        self.with(cx, move |this, cx| this.wire.watch_recipes(cx))
+    }
+
+    fn workflow_names(&self, cx: &mut App) -> Vec<(String, String)> {
+        self.0.update(cx, |this, cx| this.wire.workflows(cx).unwrap_or_default().into_iter().map(|one| (one.id.as_str().to_string(), one.name)).collect()).unwrap_or_default()
     }
 
     fn piece_draft(&self, kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope, cx: &mut App) -> Task<Result<ipc::PieceDraft, Refused>> {
@@ -269,10 +304,24 @@ impl SettingsOverlay {
         editor.update(cx, |editor, cx| editor.key(key, window, cx))
     }
 
-    /// "Add lifecycle" saves a New lifecycle piece and picks it; built with the lifecycle inspector.
-    pub(super) fn add_lifecycle(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {}
+    /// "Add rule" opens an empty sentence on the picked row's canvas, which stays out of the draft until it has a moment and an act.
+    pub(super) fn add_rule(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let (_, Some(one)) = self.shown_workflows(cx) else { return };
+        if let Some(editor) = self.editor_of(&one) {
+            editor.update(cx, |editor, cx| editor.add_rule(window, cx));
+        }
+    }
 
-    /// The line saying what an edit changes and the button that adds a lifecycle, then what stands over the canvas
+    /// "Add lifecycle" opens the kind menu on the picked row's canvas; the keys go back to the button on Esc.
+    pub(super) fn add_lifecycle(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let (_, Some(one)) = self.shown_workflows(cx) else { return };
+        let opener = self.lanes.add.clone();
+        if let Some(editor) = self.editor_of(&one) {
+            editor.update(cx, |editor, cx| editor.add_lifecycle(opener, window, cx));
+        }
+    }
+
+    /// The line saying what an edit changes and the buttons that add a rule and a lifecycle, then what stands over the canvas
     /// (the box that asks an agent), then the editor: its draft bar over the canvas, placeholder shapes while the
     /// lanes are read, and what Fleet said where it refused the level.
     pub(super) fn render_lanes(&self, one: &Listed, above: Option<AnyElement>, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
@@ -285,6 +334,9 @@ impl SettingsOverlay {
         let add = ringed(look, ghost_with(look, "workflow-add-lifecycle", Some("plus"), "Add lifecycle", false), &self.lanes.add, window)
             .track_focus(&self.lanes.add)
             .on_click(cx.listener(|this, _, window, cx| this.add_lifecycle(window, cx)));
+        let rule = ringed(look, ghost_with(look, "workflow-add-rule", Some("plus"), "Add rule", false), &self.lanes.add_rule, window)
+            .track_focus(&self.lanes.add_rule)
+            .on_click(cx.listener(|this, _, window, cx| this.add_rule(window, cx)));
         let line = div()
             .flex()
             .flex_wrap()
@@ -296,6 +348,7 @@ impl SettingsOverlay {
                 Some(said) => labelled(small(look, said.clone(), look.color(token::FG_MUTED)).id("workflow-lanes-says").flex_auto().min_w_0().px(look.length(token::SPACE_3)), Role::Label, said).into_any_element(),
                 None => div().flex_auto().into_any_element(),
             })
+            .child(labelled(rule, Role::Button, "Add rule"))
             .child(labelled(add, Role::Button, "Add lifecycle"));
         let body = match self.lanes.editors.get(&one.key()) {
             None => bone(look, px(0.), look.length(token::SPACE_12) * 11.).w_full().into_any_element(),

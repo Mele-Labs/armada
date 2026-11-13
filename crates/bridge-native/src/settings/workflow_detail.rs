@@ -692,7 +692,7 @@ impl SettingsOverlay {
         if said.is_some_and(|said| said.job.is_some()) {
             stops.extend(detail.key("open-job").cloned());
         }
-        stops.push(self.lanes.add.clone());
+        stops.extend([self.lanes.add_rule.clone(), self.lanes.add.clone()]);
         stops.extend(self.band_stops(&one, cx));
         stops.extend(self.lanes_stops(&one, cx));
         stops
@@ -756,6 +756,10 @@ impl SettingsOverlay {
         }
         if let Some(act) = Act::ALL.into_iter().find(|act| self.workflows.detail.key(&format!("act:{}", act.id())).is_some_and(|focus| focus.is_focused(window))) {
             self.press_act(act, window, cx);
+            return true;
+        }
+        if self.lanes.add_rule.is_focused(window) {
+            self.add_rule(window, cx);
             return true;
         }
         if self.lanes.add.is_focused(window) {
