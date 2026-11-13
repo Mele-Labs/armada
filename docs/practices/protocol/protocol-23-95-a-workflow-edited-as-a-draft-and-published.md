@@ -36,7 +36,7 @@ These are the first routes served on `PUT` and `DELETE`; the gate's rule reads a
 | `WorkflowDraft` | `workflow_id`, `source` (`armada`, `kit`, `repository` or `project`), `project?`, `text` (the draft, whole: the last change's), `base` (the published text it began from, and for `armada` the carried text, empty where the place held none), `unfit?` (the loader's sentence where `text` would not load), `changes` (oldest first, never empty), `started_at`, `updated_at` |
 | `PutWorkflowDraft` | `workflow_id`, `source`, `project?`, `text`, `summary?` |
 | `WorkflowDraftDiscarded` | `workflow_id`, `source`, `project?` |
-| `PublishWorkflowDraft` | `workflow_id`, `source`, `project?`, `scope?` (a `WorkflowScope`) |
+| `PublishWorkflowDraft` | `workflow_id`, `source`, `project?`, `scope?` (a `WorkflowScope`), `overwrite?` (false where absent; read only for `armada`) |
 | `WorkflowPublished` | `saved` (the `WorkflowSaved`). A struct so a later field has room |
 | `PieceDraft` | `kind` (`lifecycle`, `rule` or `autonomy`), `id`, `scope` (a `PieceScope`), `text` (the piece as the JSON `SaveLifecyclePiece.piece` takes), `base` (the piece Kit held, as the same JSON, empty where Kit held none), `unfit?`, `changes`, `started_at`, `updated_at` |
 | `PutPieceDraft` | `kind`, `id`, `scope` (everywhere where absent), `text`, `summary?` |
@@ -57,11 +57,14 @@ A put of the text the draft already ends on adds nothing, so putting an earlier 
 `unfit` on the answer is the parse and resolve `save_workflow` runs, and also the sentence that the text declares another `workflow_id` than the draft's, since publishing it would write another workflow.
 For a piece it is that the text is not a piece, is another kind, id or scope than the draft's, or that the piece's parser refuses it.
 
-**A publish saves through the existing save, with overwrite.** A workflow draft is written in its own place, `repository`, `kit` or the project's, and the draft is deleted only once the file is.
+**A publish saves through the existing save.** A workflow draft is written in its own place, `repository`, `kit` or the project's, and always replaces what that place holds, since that is the copy it was drafted from and the stale check guards it.
+The draft is deleted only once the file is.
 A piece draft is decoded and run through `save_lifecycle_piece` with `overwrite`.
 The loader's and the parser's refusals pass through unchanged, and nothing is written on one.
 **The scope of a workflow publish.** For a draft of an `armada` workflow, `scope` is required and may be any of the three. For any other source it is absent, or names that same place.
-**A draft of Armada's is held against the carried text**, not against a copy already at the scope picked; a publish replaces that copy, as a save with `overwrite` does.
+**A draft of Armada's is held against the carried text**, not against a copy already at the scope picked, and its copy is a new file.
+Where the scope already holds a definition of the id, a publish without `overwrite` is refused with `fleet.workflow_exists`, which names the file: nothing is written and the draft stays.
+With `overwrite: true` it replaces that copy, as a save with `overwrite` does.
 
 **Where an agent's edit goes.** `ask_workflow_change` reads `before` from the draft's text where there is a draft, else the published or carried text.
 When the drafting finishes and the change is `ready`, Fleet writes `after` into the draft as a change by `agent`, with `change` the id of the `WorkflowChange` and `summary` its words, and sets `drafted`.
@@ -78,6 +81,7 @@ A change sent back is drafting again and `drafted` clears.
 | `fleet.workflow_draft_none` (404) | get, discard, publish of a workflow draft none is kept for |
 | `fleet.workflow_draft_scope_needed` (422) | publish of an `armada` draft without `scope` |
 | `fleet.workflow_draft_scope_differs` (422) | publish of any other draft with a `scope` that names another place |
+| `fleet.workflow_exists` (422) | publish of an `armada` draft, without `overwrite`, to a scope that already holds the id. Nothing is written and the draft stays |
 | `fleet.workflow_draft_stale` (409) | publish, where what is published in the place is no longer `base`. Nothing is written and the draft stays |
 | `fleet.workflow_draft_not_kept` (500) | any, where the store would not answer |
 | `fleet.workflow_unfit` (422), `fleet.workflow_id_not_a_name` (422), `fleet.workflow_unwritable` (500) | publish, as `save_workflow` refuses |

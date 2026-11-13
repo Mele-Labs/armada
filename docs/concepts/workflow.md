@@ -238,7 +238,8 @@ The instantiated `WorkflowDef` sits beside it as JSON in `crates/core-model/doma
 **Editing a workflow is a draft, then Publish** (the owner's ruling of 13 Nov 2026).
 A draft is Fleet's and not a file: kept for one place and one id, read by no loader and followed by no Job, so half an edit changes nothing that runs.
 Each change to it keeps the whole text after it, and the native editor steps back through them by putting an earlier text again, with ⌘Z and a list of changes that each has its own Undo; Fleet keeps the list and the editor does the stepping.
-**Publish writes it** through the same save `save_workflow` uses, with overwrite, so the loader's refusals pass through and nothing is written on one; the draft is deleted once the file is.
+**Publish writes it** through the same save `save_workflow` uses, so the loader's refusals pass through and nothing is written on one; the draft is deleted once the file is.
+A draft of an existing copy replaces its own place; a draft of Armada's, which is a new file, replaces a copy the scope already holds only where the owner says so, and is refused with the file named where he has not.
 It is refused as stale where the text published in that place is no longer the text the draft began from, because a hand edit or another save came in between.
 A draft that would not load carries the loader's sentence as `unfit`, and is still a draft.
 **A change an agent makes is a change to the draft, marked as the agent's.** An asked change begins from the draft's text where there is a draft, and its result goes onto the end of it when the draft is still what the change was made from.

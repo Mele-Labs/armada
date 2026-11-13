@@ -5,7 +5,8 @@
 //! the repository's), so no loader reads it and no Job follows it. Each change keeps the whole text, so the editor undoes
 //! by putting an earlier text again and Fleet keeps the list.
 //!
-//! **Publish is the existing save, with overwrite.** The loader's refusals pass through unchanged and nothing is written
+//! **Publish is the existing save.** A draft of an existing copy replaces its own place; Armada's, a new file, replaces a
+//! copy the scope holds only where the publish says `overwrite`. The loader's refusals pass through unchanged and nothing is written
 //! on one; the draft is deleted only once the file is. A draft of one of Armada's own workflows has no scope until then:
 //! the copy is made at the scope the owner picks.
 //!
@@ -199,7 +200,7 @@ where
         Ok(WorkflowDraftDiscarded { workflow_id: workflow, source, project: Some(key.project).filter(|project| !project.is_empty()) })
     }
 
-    /// Write the draft through the save path with overwrite, then delete it.
+    /// Write the draft through the save path, then delete it.
     pub(crate) async fn workflow_draft_published(&self, publish: PublishWorkflowDraft, served: &Served) -> Result<WorkflowPublished, Refusal> {
         let (id, project) = (publish.workflow_id.as_str(), publish.project.as_deref());
         let key = self.workflow_draft_key(served, id, &publish.source, project)?;
@@ -234,7 +235,8 @@ where
             }
         }
         // Checked before the save is asked for, so a draft that does not load is refused without a write being tried.
-        let asked = SaveWorkflow { scope, definition: text, overwrite: true };
+        // A draft of an existing copy replaces its own place, which the stale check guards; Armada's is a new file, replacing another only if asked.
+        let asked = SaveWorkflow { scope, definition: text, overwrite: publish.overwrite || publish.source != "armada" };
         self.check_workflow_file(&asked, served)?;
         let saved = self.save_workflow_file(asked, served)?;
         self.store().lock().await.discard_draft(&key).map_err(|why| self.draft_not_kept(why))?;

@@ -61,7 +61,9 @@ fn what_a_workflow_draft_is_put_discarded_and_published_with_round_trips_and_a_b
     });
     round_trips(&WorkflowDraftDiscarded { workflow_id: WorkflowId::carried("feature"), source: String::from("project"), project: Some(String::from("storefront")) });
     for scope in [None, Some(WorkflowScope::Kit), Some(WorkflowScope::Project { id: String::from("storefront") })] {
-        round_trips(&PublishWorkflowDraft { workflow_id: WorkflowId::carried("feature"), source: String::from("armada"), project: None, scope });
+        for overwrite in [false, true] {
+            round_trips(&PublishWorkflowDraft { workflow_id: WorkflowId::carried("feature"), source: String::from("armada"), project: None, scope: scope.clone(), overwrite });
+        }
     }
     round_trips(&WorkflowPublished {
         saved: WorkflowSaved {
@@ -75,7 +77,7 @@ fn what_a_workflow_draft_is_put_discarded_and_published_with_round_trips_and_a_b
     let put: PutWorkflowDraft = decode("a put", br#"{"workflow_id":"feature","source":"kit","text":"{}"}"#).expect("reads without project or summary");
     assert_eq!((put.project, put.summary), (None, None));
     let publish: PublishWorkflowDraft = decode("a publish", br#"{"workflow_id":"feature","source":"armada"}"#).expect("reads without a scope");
-    assert_eq!(publish.scope, None);
+    assert_eq!((publish.scope, publish.overwrite), (None, false), "a replace is something a caller says");
 }
 
 #[test]

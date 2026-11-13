@@ -69,13 +69,15 @@ export type WorkflowDraftDiscarded = {
  * `POST /workflows/draft/publish?manifest_id=`'s body. `scope` is required for a draft of an `armada` workflow, and may be any of the three (422
  * `fleet.workflow_draft_scope_needed` without it); for any other source it is absent or names that same place (422 `fleet.workflow_draft_scope_differs`).
  * 409 `fleet.workflow_draft_stale` where what is published there no longer equals the draft's `base`. The loader's refusals pass through the save unchanged:
- * 422 `fleet.workflow_unfit`, 422 `fleet.workflow_id_not_a_name`, 500 `fleet.workflow_unwritable`. Nothing is written on a refusal, and the draft stays.
+ * 422 `fleet.workflow_exists` (an `armada` draft to a scope that holds the id, without `overwrite`), 422 `fleet.workflow_unfit`, 422 `fleet.workflow_id_not_a_name`, 500 `fleet.workflow_unwritable`. Nothing is written on a refusal, and the draft stays.
  */
 export type PublishWorkflowDraft = {
   workflow_id: string;
   source: string;
   project?: string;
   scope?: WorkflowScope;
+  /** Replace the definition the scope already holds. Read only for an `armada` draft: without it, a scope that holds the id is 422 `fleet.workflow_exists`, nothing is written and the draft stays. Any other source always replaces its own place. */
+  overwrite?: boolean;
 };
 
 /** What `POST /workflows/draft/publish` wrote: the save it made. */

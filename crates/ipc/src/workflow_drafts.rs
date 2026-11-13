@@ -96,6 +96,11 @@ pub struct PublishWorkflowDraft {
     /// place, and 422 `fleet.workflow_draft_scope_differs` where it names another.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope: Option<WorkflowScope>,
+    /// **Replace the definition the scope already holds.** Read only for a draft of Armada's, whose copy is a new file: without
+    /// it, a scope that holds the id is 422 `fleet.workflow_exists`, naming the file, with nothing written and the draft kept.
+    /// A draft of any other source is a copy of what its own place holds, and a publish always replaces that.
+    #[serde(default)]
+    pub overwrite: bool,
 }
 
 /// What `publish_workflow_draft` wrote. A struct and not the save alone, since what a publish adds to it is its own.

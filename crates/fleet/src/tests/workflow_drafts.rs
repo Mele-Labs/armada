@@ -32,7 +32,7 @@ fn put_body(source: &str, project: Option<&str>, text: &str) -> String {
 }
 
 fn publish_body(workflow: &str, source: &str, scope: Option<WorkflowScope>) -> String {
-    ipc::encode(&PublishWorkflowDraft { workflow_id: WorkflowId::carried(workflow), source: source.into(), project: None, scope }).expect("plain data")
+    ipc::encode(&PublishWorkflowDraft { workflow_id: WorkflowId::carried(workflow), source: source.into(), project: None, scope, ..Default::default() }).expect("plain data")
 }
 
 fn saved(workflow: &str, file: &str) -> SavedWorkflow {
@@ -148,13 +148,51 @@ async fn publishing_armadas_draft_needs_a_scope_and_writes_that_one_and_another_
     let (status, body) = call(&rig.app, "POST", "/workflows/draft/publish", &publish_body("feature", "armada", Some(WorkflowScope::Kit))).await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
     let saves = rig.planted.saves();
-    assert_eq!((saves.len(), saves[0].scope.clone(), saves[0].overwrite), (1, WorkflowScope::Kit, true), "Kit's copy is written");
+    assert_eq!((saves.len(), saves[0].scope.clone(), saves[0].overwrite), (1, WorkflowScope::Kit, false), "Kit's copy is a new file");
     assert_eq!(saves[0].definition, edited);
 
     rig.put("repository", &with_refine()).await;
     let (status, body) = call(&rig.app, "POST", "/workflows/draft/publish", &publish_body("staged", "repository", Some(WorkflowScope::Kit))).await;
     assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_draft_scope_differs"));
     assert_eq!(rig.planted.saves().len(), 1, "nothing more was written");
+}
+
+/// **Armada's draft does not replace a copy the scope already holds unless it is told to**: the save's own refusal comes back,
+/// naming the file, with nothing written and the draft kept; with `overwrite` it writes. Any other source replaces its own place.
+#[tokio::test]
+async fn an_armada_draft_published_to_kit_where_kit_holds_the_id_is_refused_without_overwrite_and_writes_with_it() {
+    let rig = rig(&[]).await;
+    let (_, body) = call(&rig.app, "GET", "/workflows/definition?workflow_id=feature&source=armada", "").await;
+    let edited = format!("{}\n", decoded::<WorkflowDefinition>("a definition", &body).definition);
+    let put = ipc::encode(&PutWorkflowDraft { workflow_id: WorkflowId::carried("feature"), source: "armada".into(), text: edited.clone(), ..Default::default() }).unwrap();
+    assert_eq!(call(&rig.app, "PUT", "/workflows/draft", &put).await.0, StatusCode::OK);
+    let publish = |overwrite: bool| {
+        ipc::encode(&PublishWorkflowDraft {
+            workflow_id: WorkflowId::carried("feature"),
+            source: "armada".into(),
+            scope: Some(WorkflowScope::Kit),
+            overwrite,
+            ..Default::default()
+        })
+        .unwrap()
+    };
+
+    rig.planted.will_check(vec![Err(WorkflowNotSaved::Exists { id: "feature".into(), file: "/kit/workflows/feature.json".into() })]);
+    rig.reads_again();
+    let (status, body) = call(&rig.app, "POST", "/workflows/draft/publish", &publish(false)).await;
+    assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_exists"));
+    assert!(String::from_utf8_lossy(&body).contains("/kit/workflows/feature.json"), "the file is named");
+    assert_eq!(rig.planted.checks().last().map(|asked| asked.overwrite), Some(false), "the check was made without overwrite");
+    assert!(rig.planted.saves().is_empty(), "nothing was written");
+    let (status, _) = call(&rig.app, "GET", "/workflows/draft?workflow_id=feature&source=armada", "").await;
+    assert_eq!(status, StatusCode::OK, "the draft is kept");
+
+    rig.planted.will_save(Ok(saved("feature", "/kit/workflows/feature.json")));
+    rig.reads_again();
+    let (status, body) = call(&rig.app, "POST", "/workflows/draft/publish", &publish(true)).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let saves = rig.planted.saves();
+    assert_eq!((saves.len(), saves[0].scope.clone(), saves[0].overwrite, saves[0].definition.as_str()), (1, WorkflowScope::Kit, true, edited.as_str()));
 }
 
 /// **A file edited by hand since the draft began makes the publish stale**: nothing is written and the draft stays.
