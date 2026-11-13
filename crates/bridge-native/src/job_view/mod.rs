@@ -15,6 +15,7 @@ mod acts;
 mod bands;
 mod bar;
 mod calls;
+mod call_tabs;
 mod callchip;
 mod cards;
 pub(crate) mod composer;

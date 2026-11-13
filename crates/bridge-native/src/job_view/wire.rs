@@ -32,7 +32,7 @@ pub(super) fn reason(status: u16, bytes: &[u8]) -> String {
 }
 
 /// Fleet's reason for a refusal, with its code where the body carries one.
-fn refusal(status: u16, bytes: &[u8]) -> (String, Option<String>) {
+pub(super) fn refusal(status: u16, bytes: &[u8]) -> (String, Option<String>) {
     ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| (format!("Fleet answered {status}"), None), |error| (error.message, Some(error.code)))
 }
 
