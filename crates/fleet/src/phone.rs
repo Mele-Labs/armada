@@ -93,8 +93,15 @@ where
         Ok(self.phone_switch()?.state())
     }
 
+    /// A Gateway that stops, or starts afresh, holds no claim from another Mac, so none calls him any more.
     pub(crate) fn phone_set(&self, on: bool) -> Result<PhoneGateway, Refusal> {
-        Ok(self.phone_switch()?.set(on))
+        let switch = self.phone_switch()?;
+        let was = switch.state().listening;
+        let state = switch.set(on);
+        if !was || !state.listening {
+            self.calls_claimed(Vec::new());
+        }
+        Ok(state)
     }
 
     pub(crate) fn mac_setup_now(&self) -> Result<MacSetup, Refusal> {
