@@ -318,9 +318,11 @@ pub fn lines_of(entries: &[Entry], query: &str, on: Option<&str>, opens: Opens, 
             return lines;
         }
     }
+    // The fold commands are found by typing, so the list a person opens on keeps the blocks it has.
     let mut found: Vec<(u32, usize)> = entries
         .iter()
         .enumerate()
+        .filter(|(_, entry)| typed || !entry.id.starts_with("cmd:"))
         .filter_map(|(at, entry)| rank(query, entry, memory.aliases.get(&entry.id).map(String::as_str)).map(|rank| (rank, at)))
         .collect();
     let named: Vec<usize> = if typed { found.iter().filter(|(rank, _)| *rank == 0).map(|(_, at)| *at).collect() } else { Vec::new() };
@@ -1928,5 +1930,9 @@ mod tests {
         let flat: Vec<SessionRecord> = tree.into_iter().map(|mut job| { job.attachments.retain(|one| one.kind != "started_by"); job }).collect();
         let flat = cx.new(|cx| JobsList::mock(&flat, cx));
         flat.read_with(cx, |list, _| assert!(fold_commands(list).is_empty()));
+        // Nothing typed, they stay out of the list the palette opens on; a word finds them.
+        let entries = list.read_with(cx, |list, _| fold_commands(list));
+        let rows = |query: &str| lines_of(&entries, query, None, Opens::Everything, &Memory::default()).iter().filter(|line| matches!(line, Line::Row(_))).count();
+        assert_eq!((rows(""), rows("fold") > 0, rows("root")), (0, true, 1));
     }
 }
