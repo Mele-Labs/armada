@@ -65,6 +65,10 @@ export type StateReadFrom =
   | {
       source: "fleet";
       fact: string;
+    }
+  /** Nothing reads it: the person names the state, in a lane of his own. */
+  | {
+      source: "own";
     };
 
 export type LifecycleStateDefinition = {
