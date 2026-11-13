@@ -77,11 +77,13 @@ async fn rebuilt(mac: &mut OneMac, wire: &str, built_at: &str, commit: &str) {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn builds_that_speak_another_wire_freeze_the_link_until_an_update_brings_them_to_match() {
     let clock = Arc::new(Ticking::from_nine());
-    let (home, mut work) = (OneMac::new("Home", "01HMAC", &clock).await, OneMac::new("Work", "01WMAC", &clock).await);
+    let (mut home, mut work) = (OneMac::new("Home", "01HMAC", &clock).await, OneMac::new("Work", "01WMAC", &clock).await);
     let shop = project(&work.rig, "Shop").await;
     shared(&work.rig, &shop, true).await;
     let job = job_in(&work.rig, Some(&shop)).await;
     let wire = home.gateway.way_in.wire.clone();
+    // A Mac with no build time counts as the older (`macs::frozen`), so Home needs one to be the newer.
+    rebuilt(&mut home, &wire, "2026-11-10T090000Z", "0000000").await;
     paired(&home, &work).await;
     let id = job.clone();
     until("Work's Job reaches Home's list", || async { home.sessions().await.1.sessions.iter().any(|one| one.id == id) }).await;
