@@ -37,6 +37,15 @@ impl SettingsScreen {
         });
     }
 
+    /// For the walk of choosing what to take from Armada: the copy of `feature` is what it began from, less what Armada changed.
+    pub fn copied_from_base(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.copied_from_base();
+            }
+        });
+    }
+
     /// For the walk of a Mac Tailscale Funnel does not serve.
     pub fn without_funnel(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {

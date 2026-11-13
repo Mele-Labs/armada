@@ -8,7 +8,7 @@
 use ipc::{AffectedJob, AffectedJobs, BasedOn, ManifestId, MigrateJobs, MigrateResult, MigratedJobs, DraftBy, DraftChange, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions, PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, OverriddenWorkflow, ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SessionId, StepId, StepReading, WorkflowChange, WorkflowChangeApproved, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted, WorkflowDefinition, WorkflowId, WorkflowSaved, WorkflowScope, WorkflowSteps, WorkflowSupportBuilding};
 use serde::Deserialize;
 
-use super::definition::{steps_of, text_of, tree_of, with_words, Json};
+use super::definition::{steps_of, text_of, tree_of, with_label, with_words, Json};
 use super::mock::MockFleet;
 use super::wire::Refused;
 
@@ -160,13 +160,13 @@ fn declared(text: &str) -> u32 {
 }
 
 impl Versions {
-    /// The walk's scenario: armada's own copy of `feature` was made from an older Armada's, which had no Walk and said less
-    /// of Refine, so Armada has changed it since.
+    /// The walk's scenario: armada's own copy of `feature` was made from an older Armada's, which had no Walk, called Propose
+    /// Plan and said less of Refine, so Armada has changed it since in three ways.
     pub fn seeded(definitions: &[Held]) -> Versions {
         let mut versions = Versions::default();
         let Some(armada) = definitions.iter().find(|one| one.holds("feature", "armada", "armada")) else { return versions };
         let current = text_of(&armada.definition);
-        let Some(older) = with_words(&current, "refine", "Wire it to the real thing.") else { return versions };
+        let Some(older) = with_words(&current, "refine", "Wire it to the real thing.").and_then(|older| with_label(&older, "propose", "Plan")) else { return versions };
         let Some(Json::Map(mut fields)) = tree_of(&older) else { return versions };
         for (name, value) in fields.iter_mut() {
             if let (true, Json::List(steps)) = (name == "steps", value) {
@@ -713,6 +713,17 @@ impl MockFleet {
     /// The scenario's base, and the list read again so the copy that began from it says Armada changed it.
     pub(super) fn seed_versions(&mut self) {
         self.versions = Versions::seeded(&self.definitions);
+        self.relist("feature");
+    }
+
+    /// For the walk of choosing what to take: the copy is what it began from with one change of his, Deliver's words, so none
+    /// of what Armada changed since is in it yet.
+    pub(super) fn copied_from_base(&mut self) {
+        let Some(base) = self.versions.base_at(&at_of("repository", None, "armada", "feature")).map(|base| base.text.clone()) else { return };
+        let Some(mine) = with_words(&base, "deliver", "Open the pull request as a draft and merge it on a green ci. Say what landed.").and_then(|text| tree_of(&text)) else { return };
+        if let Some(held) = self.definitions.iter_mut().find(|one| one.holds("feature", "repository", "armada")) {
+            held.definition = mine;
+        }
         self.relist("feature");
     }
 

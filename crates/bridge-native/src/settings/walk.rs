@@ -84,6 +84,27 @@ pub static WAYS_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-take`: a copy Armada has changed since it began, and choosing what to take from Armada's lanes beside its own.
+pub const TAKE: &str = "native-take";
+
+pub static TAKE_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings over the app", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Workflows lists every workflow Fleet runs", "button", "Workflows", "group", "Shipped with Armada"),
+    step("armada's copy of feature wears the band, with Choose what to take", Verb::PressWithin("group", "armada repository", "feature"), "button", "Choose what to take"),
+    press_on("It opens Armada's lanes beside yours, where the canvas was", "button", "Choose what to take", "region", "Choose what to take"),
+    step("Armada's side marks Propose, Walk and Refine, and a row names each", Verb::Look, "group", "Armada's lanes"),
+    step("A press on the Propose node chooses it: it takes a check", Verb::PressWithin("group", "Armada's lanes", "Step: Propose"), "button", "Step: Propose"),
+    step("The page scrolls down to its row, now ticked, and the buttons", Verb::Wheel("heading", "Armada's", 700), "checkbox", "Propose renamed from Plan"),
+    step("Tab, then Space, chooses the next row from the keys", Verb::Keys(&["tab", "space"]), "checkbox", "Walk added after Propose"),
+    step("Space and Shift-Tab take both back off: nothing is chosen, so Take is dim", Verb::Keys(&["space", "shift-tab", "space"]), "button", "Take"),
+    step("Every row chosen again from the keys: Take is ready", Verb::Keys(&["space", "tab", "space", "tab", "space"]), "button", "Take"),
+    step("Take lays them in the draft as one change, and Armada's lanes close", Verb::Open("button", "Take"), "button", "Changes"),
+    press_on("Changes names what was taken, with its Undo", "button", "Changes", "button", "Undo Took from Armada: Propose's name, Walk added, Refine's words"),
+    step("\u{2318}Z takes it back", Verb::Key("cmd-z"), "button", "Choose what to take"),
+    press_on("Choose what to take opens again, with nothing chosen", "button", "Choose what to take", "region", "Choose what to take"),
+    step("Cancel shuts it and changes nothing", Verb::Open("button", "Cancel"), "button", "Choose what to take"),
+];
+
 /// `native-rules`: a rule opened as one sentence where its chip stands, each field set from its menu, and the changes
 /// kept in the draft like a step's.
 pub const RULES: &str = "native-rules";

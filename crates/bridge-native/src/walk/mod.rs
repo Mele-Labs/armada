@@ -2226,6 +2226,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::RULES_STEPS,
     },
     Walk {
+        name: crate::settings::walk::TAKE,
+        title: "Choose what to take from Armada",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::TAKE_STEPS,
+    },
+    Walk {
         name: "workflow-card",
         title: "A proposed workflow's card",
         screen: Screen::Jobs,
