@@ -900,6 +900,45 @@ pub(crate) async fn jump_session_step<D: HostedSessions>(
     }
 }
 
+/// `?workflow_id=`, `?source=` and `?project=` on `get_affected_jobs`, beside `?manifest_id=`.
+#[derive(Deserialize)]
+pub(crate) struct AffectedOf {
+    workflow_id: String,
+    source: String,
+    #[serde(default)]
+    project: Option<String>,
+    #[serde(default)]
+    manifest_id: Option<String>,
+}
+
+/// The live Jobs a publish of one workflow in one place would pin, or has pinned.
+pub(crate) async fn get_affected_jobs<D: HostedSessions>(State(served): State<Served<D>>, Query(asked): Query<AffectedOf>) -> Response {
+    match served
+        .shared()
+        .get_affected_jobs(ipc::WorkflowId::carried(asked.workflow_id), asked.source, asked.project, asked.manifest_id.map(ipc::ManifestId::carried))
+        .await
+    {
+        Ok(found) => answer(StatusCode::OK, &found, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Jobs moved to the published workflow, by the person. **200 whatever each Job's result is**: a Job that cannot move says so in its own.
+pub(crate) async fn migrate_jobs<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<crate::scoped::InManifest>,
+    body: Bytes,
+) -> Response {
+    let migrate: ipc::MigrateJobs = match ipc::decode_body("jobs to move to a workflow", &body) {
+        Ok(migrate) => migrate,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().migrate_jobs(migrate, scope.manifest()).await {
+        Ok(moved) => answer(StatusCode::OK, &moved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A step added, moved, reworded or dropped in a Job's own copy of its workflow. 200 with the `JobCopy`,
 /// or a [`Receipt`] through the door.
 pub(crate) async fn change_session_steps<D: HostedSessions>(

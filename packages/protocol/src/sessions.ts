@@ -274,7 +274,7 @@ export type SessionRecord = {
   workflow_waiting_on?: string[];
   /**
    * The Job's own copy of its workflow, once it changed a step of it (`change_session_steps`): what the rail and the lanes read
-   * in place of the repository's. Absent until then. Since 30 Oct 2026.
+   * in place of the repository's, and the steps a publish pinned the Job to. Absent for a Job with neither. Since 30 Oct 2026.
    */
   workflow_copy?: WorkflowSummary;
   /**

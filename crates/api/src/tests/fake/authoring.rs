@@ -191,6 +191,7 @@ impl Authoring for FakeDaemon {
                 runs_from: None,
             },
             version: 1,
+            pinned: Vec::new(),
         })
     }
 

@@ -175,6 +175,17 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sessions/step-jump",
     },
+    // Where a publish left the Jobs it did not move, and the person's move of the ones he picks.
+    Route {
+        operation: "get_affected_jobs",
+        method: "GET",
+        path: "/workflows/affected",
+    },
+    Route {
+        operation: "migrate_jobs",
+        method: "POST",
+        path: "/workflows/migrate",
+    },
     Route {
         operation: "change_session_steps",
         method: "POST",

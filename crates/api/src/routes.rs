@@ -695,6 +695,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::jump_session_step::<D>),
         )
         .route(
+            "/workflows/affected",
+            get(crate::hosted_sessions::get_affected_jobs::<D>),
+        )
+        .route(
+            "/workflows/migrate",
+            post(crate::hosted_sessions::migrate_jobs::<D>),
+        )
+        .route(
             "/sessions/workflow/steps",
             post(crate::hosted_sessions::change_session_steps::<D>),
         )

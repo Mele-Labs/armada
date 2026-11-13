@@ -335,6 +335,38 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn get_affected_jobs(
+        self: Arc<Self>,
+        _workflow_id: ipc::WorkflowId,
+        _source: String,
+        _project: Option<String>,
+        _manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::AffectedJobs, Refusal> {
+        Ok(ipc::AffectedJobs {
+            jobs: vec![ipc::AffectedJob {
+                session_id: SessionId::carried("s1"),
+                title: None,
+                manifest_id: ipc::ManifestId::carried("01FIXTUREMANIFEST"),
+                step_id: Some("plan".into()),
+                step_label: Some("Plan".into()),
+                survives: false,
+                pinned: true,
+                edited: false,
+                on_version: Some(2),
+            }],
+        })
+    }
+
+    async fn migrate_jobs(self: Arc<Self>, migrate: ipc::MigrateJobs, _manifest_id: Option<ipc::ManifestId>) -> Result<ipc::MigratedJobs, Refusal> {
+        Ok(ipc::MigratedJobs {
+            results: migrate
+                .session_ids
+                .into_iter()
+                .map(|session_id| ipc::MigrateResult { session_id, moved: true, step_id: None, step_label: None, code: None, message: None })
+                .collect(),
+        })
+    }
+
     /// A Job's copy with a rule long enough to show whether a door's answer carries the text of a piece.
     async fn change_session_steps(self: Arc<Self>, change: ipc::ChangeSessionSteps) -> Result<ipc::JobCopy, Refusal> {
         let step = |id: &str| ipc::JobCopyStep { id: id.into(), label: id.into(), about: None, instructions: None, ends_on: Vec::new(), skipped: false };
