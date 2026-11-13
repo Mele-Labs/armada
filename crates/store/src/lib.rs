@@ -180,6 +180,7 @@ mod repositories;
 mod retro;
 /// What an agent said about one pull request, kept for the commit it read.
 mod review_runs;
+mod practice_catalogue;
 mod walk_places;
 /// The owner's notes on a pull request's lines, and which Job each was sent to.
 mod pull_request_notes;
@@ -293,6 +294,7 @@ pub use ports::{PortClaim, PortClaimant};
 pub use preferences::{Preferences, SavedPreferences, SHIPPED_THEME};
 pub use retro::RetroLine;
 pub use review_runs::KeptReviewRun;
+pub use practice_catalogue::KeptPractices;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use pull_request_notes::KeptPullRequestNote;
 pub use pull_review_memory::{KeptReviewLayout, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
