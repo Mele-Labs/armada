@@ -2,13 +2,13 @@
 //! ⌘,, and from the project switcher on that project. A port of Classic's System page.
 
 pub mod catalogue;
-mod change_band;
-mod definition;
+pub(crate) mod change_band;
+pub(crate) mod definition;
 pub mod entries;
-mod gateway;
+pub(crate) mod gateway;
 mod keyboard;
 pub mod layout;
-mod macs;
+pub(crate) mod macs;
 mod mock;
 mod mock_workflows;
 mod models;
@@ -19,9 +19,10 @@ mod project;
 pub mod screen;
 mod theme;
 pub mod time;
-mod view;
+pub(crate) mod view;
 pub mod walk;
-mod wire;
+pub mod ways;
+pub(crate) mod wire;
 mod workflow_detail;
 mod workflows;
 mod lanes;

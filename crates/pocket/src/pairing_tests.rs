@@ -100,6 +100,11 @@ async fn confirm(rig: &Rig, code: &str) -> (StatusCode, String) {
     call(&rig.app, Method::POST, "/admin/pair/confirm", &[("content-type", "application/json".into())], &body).await
 }
 
+async fn decline(rig: &Rig, code: &str) -> (StatusCode, String) {
+    let body = format!("{{\"code\":\"{code}\"}}");
+    call(&rig.app, Method::POST, "/admin/pair/decline", &[("content-type", "application/json".into())], &body).await
+}
+
 /// The id the phone is told at claim is the one it is stored under at Confirm,
 /// so it can sign before anyone tells it anything else.
 pub(crate) async fn paired(rig: &Rig) -> String {
@@ -234,6 +239,29 @@ async fn a_claimed_code_is_pending_until_confirmed_or_expired() {
     claim(&rig, &code).await;
     rig.now.fetch_add(301, Ordering::Relaxed);
     assert_eq!(pending().await, "[]");
+}
+
+#[tokio::test]
+async fn a_declined_phone_is_told_so_at_once_until_its_code_would_have_lapsed() {
+    let rig = rig();
+    let code = start(&rig).await;
+    let (status, told) = claimed(&rig, &code).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{told}");
+    let id = field(&told, "device_id");
+    let now = rig.now.load(Ordering::Relaxed);
+    assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", now, "")).await, StatusCode::UNAUTHORIZED, "waiting");
+
+    assert_eq!(decline(&rig, &code).await.0, StatusCode::NO_CONTENT);
+    let (status, why) = call(&rig.app, Method::GET, "/api/needs", &signed(&id, "GET", "/api/needs", now + 1, ""), "").await;
+    assert_eq!((status, why.as_str()), (StatusCode::FORBIDDEN, "This Mac declined pairing with this phone."));
+    assert_eq!(call(&rig.app, Method::GET, "/admin/pair/pending", &[], "").await.1, "[]");
+    assert_eq!(confirm(&rig, &code).await.0, StatusCode::NOT_FOUND, "a declined code cannot be confirmed after");
+    let (status, why) = decline(&rig, &code).await;
+    assert_eq!((status, why.as_str()), (StatusCode::NOT_FOUND, "This code is not good any more."));
+
+    rig.now.fetch_add(301, Ordering::Relaxed);
+    let later = rig.now.load(Ordering::Relaxed);
+    assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", later, "")).await, StatusCode::UNAUTHORIZED, "then a stranger again");
 }
 
 #[tokio::test]

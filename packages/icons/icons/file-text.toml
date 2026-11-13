@@ -3,5 +3,5 @@
   group = "Pull request state"
   size = "16px"
   status = "Proposed"
-  reserved = "A mark on a quick action's step and on a pull request's description tab, with a tooltip `From the description`. Never evidence, which is `file-check` and `file-diff`: nothing here was submitted or checked."
+  reserved = "A mark on a quick action's step and on a pull request's description tab, with a tooltip `From the description`. Also the Page chip on a Job's result card in Look, which opens the document the Job wrote. Never evidence, which is `file-check` and `file-diff`: nothing here was submitted or checked."
   notes = "Borrowed for the pull request panel and the Reviews tab's mock walk `pr-review-tab`, and kept by the owner on 16 Oct 2026. It sits in the `file-*` family the contract keeps for evidence, so it is never drawn beside an evidence mark."

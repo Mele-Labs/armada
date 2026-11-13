@@ -71,7 +71,7 @@ fn a_message_row_carries_its_sketches_and_an_older_row_reads_without_them() {
 fn every_notice_carries_the_word_it_is_spelt_as_on_the_wire() {
     use Notice::*;
     for notice in [
-        BehindBase, PrChecksFailed, PrConflicts, PrDropped, PrUnmergeable, PrMerged, PrAutoMerge, PrQueued, PrHanded,
+        BehindBase, PrChecksFailed, PrConflicts, PrDropped, PrUnmergeable, PrMerged, PrAutoMerge, PrReadyToMerge, PrQueued, PrHanded,
         PrComments, SlotFree, SlotKept, BuildMoved, WriteClash, SlotStranded, MainRed, RailNudge, RailStep, StopNudge, UsageTrip,
         LimitWake, SignInWake, PlanApproved, AutoLandRefused, RetroNote, ReplyClaim, ContextHandoff, WalkFailed,
         WorkflowChanged, DeliveryAsked, DeliveryChosen, WatchSaw, Taught, DocumentSketch, TaskMarked,

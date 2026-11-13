@@ -55,8 +55,13 @@ impl JobView {
     /// The toolbelt's Report: off, with its reason, where the reported Job's repository is not known.
     pub(super) fn report_act(&self, id: &SharedString, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
-        let known = self.record(id, cx).is_some_and(|record| self.report_manifest(record, cx).is_some());
-        let tip: SharedString = if known { "Report an issue with the Job".into() } else { "The repository is not known".into() };
+        let off = self.off_here(id, cx);
+        let known = off.is_none() && self.record(id, cx).is_some_and(|record| self.report_manifest(record, cx).is_some());
+        let tip: SharedString = match off {
+            Some(why) => why,
+            None if known => "Report an issue with the Job".into(),
+            None => "The repository is not known".into(),
+        };
         let open = self.reporting.is_some();
         labelled(
             act_button(look, "act-report", "bug", "report", tip, open, !known).when(known, |button| button.on_click(cx.listener(|this, _, window, cx| this.toggle_report(window, cx)))),

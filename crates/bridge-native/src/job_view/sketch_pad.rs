@@ -380,9 +380,10 @@ impl JobView {
 
     /// The pencil-ruler beside Attach in the box's bar.
     pub(super) fn sketch_button(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let off = self.shown.as_ref().and_then(|id| self.off_here(id, cx));
         labelled(
-            super::head::icon_button(look, "draw-sketch", "pencil-ruler", "Draw a sketch to send with the message".into(), false, false)
-                .on_click(cx.listener(|this, _, window, cx| this.open_sketch(window, cx))),
+            super::head::icon_button(look, "draw-sketch", "pencil-ruler", off.clone().unwrap_or_else(|| "Draw a sketch to send with the message".into()), false, off.is_some())
+                .when(off.is_none(), |button| button.on_click(cx.listener(|this, _, window, cx| this.open_sketch(window, cx)))),
             Role::Button,
             "Draw sketch",
         )
