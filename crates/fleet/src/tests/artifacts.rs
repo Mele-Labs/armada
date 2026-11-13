@@ -2,12 +2,19 @@
 //! newest first, each with its revisions and where its newest stands; a draft proposed under the title
 //! of one still open is that draft's next revision, the earlier one withdrawn with nothing sent to the
 //! Job; and a sketch he dismissed reads `dismissed`.** `crates/ipc/operations/get_job_artifacts.toml`.
+//!
+//! And for archiving: **the agent or he archives a stale artifact, and one that waited on him leaves his list
+//! with no verdict, the Job told only where he did it; a restore lifts it; and a sketch the Job withdrew
+//! reads `withdrawn` where his Dismiss reads `dismissed`.** `crates/ipc/operations/archive_artifact.toml`.
 
 use std::sync::Arc;
 
 use adapter_traits::{CallDetail, DroneEvent};
-use api::{HostedSessions, Sessions};
-use ipc::{ArtifactBy, ArtifactForm, ArtifactState, DismissWaiting, DraftHow, ProposeDraft, SessionId, SessionRow, SessionVoice, ShowSketch};
+use api::{HostedSessions, Refusal, Sessions};
+use ipc::{
+    ArtifactBy, ArtifactForm, ArtifactRef, ArtifactState, DismissWaiting, DraftHow, ProposeDraft, SessionId, SessionRow, SessionVoice,
+    ShowSketch, WithdrawSketch,
+};
 
 use super::session_host::{eventually, rig_placing, Rig};
 
@@ -114,4 +121,89 @@ async fn a_sketch_he_dismissed_reads_dismissed() {
 
     let artifacts = rig.fleet.get_job_artifacts(id.clone()).await.unwrap();
     assert_eq!(artifacts.iter().map(|one| (one.id.as_str(), one.state, one.item.as_deref())).collect::<Vec<_>>(), [("sketch:Request flow", ArtifactState::Dismissed, None)]);
+}
+
+fn named(id: &SessionId, artifact: &str) -> ArtifactRef {
+    ArtifactRef { artifact: artifact.into(), session_id: Some(id.clone()) }
+}
+
+/// The ids his Needs you list holds now.
+async fn his_list(rig: &Rig, id: &SessionId) -> Vec<String> {
+    rig.fleet.published_hosted(id.as_str()).await.unwrap().waiting_for.into_iter().map(|one| one.id).collect()
+}
+
+#[tokio::test]
+async fn the_agent_archiving_an_asking_sketch_takes_it_off_his_list_and_sends_nothing() {
+    let rig = rig_placing(None);
+    let (id, _) = a_job(&rig).await;
+    rig.fleet.show_sketch(None, drawn(&id, "Request flow")).await.unwrap();
+    assert!(his_list(&rig, &id).await.contains(&"sketch:Request flow".to_string()));
+    let told_before = sent(&rig.rows(&id).await);
+
+    let archived = Arc::clone(&rig.fleet).archive_artifact(None, ArtifactBy::Agent, named(&id, "sketch:Request flow")).await.expect("archived");
+
+    assert_eq!((archived.state, archived.item.as_deref()), (ArtifactState::Asking, None), "its state as it stood, off his list");
+    assert_eq!(archived.archived.map(|one| one.by), Some(ArtifactBy::Agent));
+    assert!(!his_list(&rig, &id).await.contains(&"sketch:Request flow".to_string()));
+    assert_eq!(sent(&rig.rows(&id).await), told_before, "nothing is sent for the agent's own archive");
+    let Err(Refusal::Unacceptable(again)) = Arc::clone(&rig.fleet).archive_artifact(None, ArtifactBy::Agent, named(&id, "sketch:Request flow")).await
+    else {
+        panic!("one archived already is refused");
+    };
+    assert_eq!(again.code, "fleet.artifact_archived_already");
+}
+
+#[tokio::test]
+async fn his_archiving_a_draft_tells_the_job_once_and_a_restore_brings_it_back_to_his_list() {
+    let rig = rig_placing(None);
+    let (id, _) = a_job(&rig).await;
+    let proposed = rig.fleet.propose_draft(None, proposed(&id, "Description for #41", "Words.")).await.unwrap();
+    let row = proposed.waiting_for.iter().find(|one| one.id.starts_with("draft:")).expect("the draft waits").id.clone();
+    let told_before = sent(&rig.rows(&id).await);
+
+    let archived = Arc::clone(&rig.fleet).archive_artifact(None, ArtifactBy::Owner, named(&id, "draft:Description for #41")).await.expect("archived");
+
+    assert_eq!(archived.archived.as_ref().map(|one| one.by), Some(ArtifactBy::Owner));
+    assert!(!his_list(&rig, &id).await.contains(&row));
+    let told: Vec<String> = sent(&rig.rows(&id).await).into_iter().skip(told_before.len()).collect();
+    assert_eq!(told, ["He archived \"Description for #41\". It is off his list with no verdict."]);
+
+    let restored = rig.fleet.restore_artifact(None, named(&id, "draft:Description for #41")).await.expect("restored");
+    assert_eq!((restored.archived, restored.state, restored.item.as_deref()), (None, ArtifactState::Asking, Some(row.as_str())));
+    assert!(his_list(&rig, &id).await.contains(&row), "the dismissal the archive wrote is lifted");
+    assert_eq!(sent(&rig.rows(&id).await).len(), told_before.len() + 1, "a restore sends nothing");
+    let Err(Refusal::Unacceptable(again)) = rig.fleet.restore_artifact(None, named(&id, "draft:Description for #41")).await else {
+        panic!("one not archived is refused");
+    };
+    assert_eq!(again.code, "fleet.artifact_not_archived");
+}
+
+#[tokio::test]
+async fn archiving_an_id_the_job_does_not_hold_is_refused_naming_the_ids_it_does() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_sketch(None, drawn(&id, "Request flow")).await.unwrap();
+
+    let Err(Refusal::Unacceptable(refused)) = Arc::clone(&rig.fleet).archive_artifact(None, ArtifactBy::Agent, named(&id, "sketch:Storage")).await
+    else {
+        panic!("an id the job does not hold is refused");
+    };
+    assert_eq!(refused.code, "fleet.artifact_not_held");
+    assert!(refused.message.contains("`sketch:Storage`") && refused.message.contains("sketch:Request flow"), "{}", refused.message);
+}
+
+#[tokio::test]
+async fn a_sketch_the_job_withdrew_reads_withdrawn_and_one_he_dismissed_reads_dismissed() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_sketch(None, drawn(&id, "Request flow")).await.unwrap();
+    rig.fleet.show_sketch(None, drawn(&id, "Storage")).await.unwrap();
+    rig.fleet.withdraw_sketch(None, WithdrawSketch { title: "Request flow".into(), session_id: Some(id.clone()) }).await.expect("withdrawn");
+    let dismissal = DismissWaiting { session_id: id.clone(), item_id: "sketch:Storage".into(), reason: None, misread: false };
+    Arc::clone(&rig.fleet).dismiss_waiting(dismissal).await.expect("dismissed");
+
+    let mut read: Vec<(String, ArtifactState)> =
+        rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().map(|one| (one.id, one.state)).collect();
+    read.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(read, [("sketch:Request flow".to_string(), ArtifactState::Withdrawn), ("sketch:Storage".to_string(), ArtifactState::Dismissed)]);
 }

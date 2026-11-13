@@ -1,0 +1,23 @@
+[operations.update_mac]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Move this Mac, another of his Macs, or both onto one build, keeping running Jobs"
+notes = """
+`POST /macs/update`, body `UpdateMac`, answered `FleetBuildChanging` with a 202: the restart has begun, not finished. This Mac restarts as `change_fleet_build` does, always with `--adopt`, so running Jobs keep going.
+
+| Body | Who moves, onto what |
+|---|---|
+| `{ mac }` | Mac `mac`, onto the build this Mac runs: main, or this Mac's preview at its pushed commit. Update on an `older_build` row |
+| `{ like }` | This Mac, onto the build Mac `like` last said it runs. Update on a `newer_build` row |
+| `{ mac, this_mac_too, build }` | Both. `main`: the other Mac is asked first, then this Mac restarts. `preview`: `scripts/restart-build preview --push-as <this Mac> --tell <mac>` merges, pushes the commit to `preview/<this Mac>`, asks the other Mac to build that commit, and restarts this Mac onto it |
+| `{ build, commit?, ref? }` | This Mac. A preview with `commit` and `ref` runs `scripts/restart-build preview --at <commit> --ref <ref>`: that commit, fetched from that branch, merging nothing |
+
+Another Mac is asked over the link: Fleet's `/other_mac/update`, which the Gateway sends as `/api/mac/update`, the one call a frozen link carries. The other Mac's Gateway hands it to its Fleet's `/macs/update` as from a Mac.
+
+**A call from another Mac may only take the last form**, so an update is never sent on to a third: anything else is a 422 `fleet.mac_update_unacceptable`. So is a `commit` that is not 7 to 40 hex digits or a `ref` that is not `preview/<hex>`, since both reach `git fetch` as arguments. `like` naming no paired Mac is a 404 `fleet.mac_update_unknown`. What the other Mac refused is passed on with its status; one that cannot be reached is a 500 `fleet.other_mac_unreachable`. `change_fleet_build`'s own refusals apply to this Mac's restart.
+
+A preview refresh through `change_fleet_build` on a Mac with another linked passes `--push-as <this Mac>` too, so an Update on the other Mac can build the same commit.
+
+`Bridge only`: restarting a Fleet is a person's act.
+"""

@@ -169,6 +169,12 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::ChangeFleetBuild,
     ) -> impl Future<Output = Result<ipc::FleetBuildChanging, Refusal>> + Send;
 
+    /// `update_mac` — move this Mac, another of his Macs, or both onto one build, keeping running Jobs. This
+    /// Mac starts `scripts/restart-build` as `change_fleet_build` does, with `--adopt`; another Mac is asked over
+    /// the link. **Answers before the restart has done anything.** [`Refusal::Unacceptable`] for a body
+    /// another Mac may not send or a commit or branch that is not one; what the other Mac refused, as it said it.
+    fn update_mac(&self, asked: ipc::UpdateMac) -> impl Future<Output = Result<ipc::FleetBuildChanging, Refusal>> + Send;
+
     /// `revert_fleet_build` — start `builds/previous/armada build revert` detached, so that it
     /// outlives the Fleet it stops, and answer that it has begun.
     ///

@@ -17,7 +17,8 @@ The owner approved the design on 13 Nov 2026.
 |---|---|
 | The record and `get_job_artifacts` | Built in Fleet; native draws it later |
 | Drafts kept as artifacts keyed by title, with revisions | Built |
-| His revisions, the For line, archive, a plan's sketches, answering several at once | Not built |
+| Archive and restore, by the agent or by him | Built in Fleet; native draws the fold later |
+| His revisions, the For line, a plan's sketches, answering several at once | Not built |
 
 ## What an artifact is
 
@@ -39,7 +40,11 @@ An identical write keeps no new revision.
 **Rule.** The state is for the newest revision: `reading`, `asking`, `approved`, `sent_back`, `withdrawn` or `dismissed`.
 A page that does not ask reads `reading`; one that asks and whose file is gone reads `withdrawn`.
 `dismissed` is his Dismiss, with no verdict.
-`withdraw_sketch` and `withdraw_document` write the dismissal his Dismiss writes, so a sketch or a page the Job took back reads `dismissed`.
+`withdrawn` is the Job taking it back with `withdraw_sketch`, `withdraw_document` or `withdraw_draft`, or a draft replaced under its title.
+
+**Rule.** `withdraw_sketch` and `withdraw_document` write the dismissal his Dismiss writes, and mark the attachment `withdrawn_by` `agent`.
+The mark is what tells the Job's withdrawal from his Dismiss.
+A sketch or page withdrawn before the mark existed reads `dismissed`.
 
 **Rule.** An artifact that asks names the Needs you item that answers it: `sketch:<title>`, `document:<path>` or `draft:<row id>`.
 
@@ -52,3 +57,27 @@ The owner ruled this on 13 Nov 2026, so a draft revises as pages and sketches do
 His Needs you list holds one item for the title.
 
 **Rule.** A draft Fleet raises for a workflow change is not an artifact.
+
+## Archive
+
+**Rule.** The agent or he archives a stale artifact with `archive_artifact`: one a newer artifact replaced, or one that no longer bears on the work.
+Fleet never archives one itself, since it cannot tell whether one artifact replaces another.
+The owner ruled this on 13 Nov 2026.
+
+**Rule.** An archived artifact folds in the Artifacts tab, and `restore_artifact` brings it back.
+It says who archived it, `agent` or `owner`, and when.
+
+**Rule.** An archived artifact that waited on him leaves his Needs you list with no verdict, by the dismissal his Dismiss writes.
+Its state reads as it stood before, never `dismissed`, and it names no item.
+
+**Rule.** Where he archives one that waited on him, the Job is sent `He archived "<title>". It is off his list with no verdict.`
+Where the agent archives it, nothing is sent.
+
+**Rule.** A new revision keeps the archive, so only a restore lifts it.
+A sketch drawn again or a page revised asks him again all the same.
+
+**Rule.** A restore lifts the archive and the dismissal the archive wrote, and nothing else.
+An item answered meanwhile stays answered, so a restore never asks him again what he settled.
+The Job is sent nothing.
+
+**Rule.** The archive is kept in Fleet's store apart from the artifact's attachment, which a new revision rewrites whole.
