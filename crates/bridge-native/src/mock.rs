@@ -27,6 +27,23 @@ pub fn preview_offers(skipped: bool) -> ipc::PreviewOffers {
     offers
 }
 
+/// The sends Fleet keeps for Air while it sleeps, as `GET /queued` answers on the pairing walks: a message to the Job
+/// that needs him at 09:14, and an answer Air refused at 09:20. Every other scenario keeps none.
+pub fn queued() -> ipc::QueuedList {
+    if !scenario_is("jobs-pairing") {
+        return ipc::QueuedList::default();
+    }
+    let mut list = ipc::decode::<ipc::QueuedList>("QueuedList", include_bytes!("../fixtures/queued-pairing.json"))
+        .unwrap_or_else(|why| panic!("the queued fixture does not decode: {why}"));
+    let today = |hour: u32, minute: u32| {
+        chrono::Local::now().date_naive().and_hms_opt(hour, minute, 0).and_then(|at| at.and_local_timezone(chrono::Local).single()).map_or(0, |at| at.timestamp_millis())
+    };
+    for (one, at) in list.queued.iter_mut().zip([today(9, 14), today(9, 20)]) {
+        one.since = at;
+    }
+    list
+}
+
 /// The Jobs the pairing walk runs on Air: Fix the merge line freshness chip, which needs him, Audit the docs
 /// index, and Quiet the write-clash notices, which `session.removed` takes away.
 pub const AIR_JOBS: [&str; 3] = ["mock-01", "mock-04", "mock-06"];
@@ -714,6 +731,11 @@ const OPTION_PICTURES_ASK: &str = r#"{"id":"agent-looks","text":"Which look do t
 {"label":"Actions in the row","description":"Every act sits on the row; the sent state reads under it.","picture":{"image":"/sessions/shown?session_id=mock-01&path=pick-actions-a.png","width":760,"height":380,"parts":[{"name":"actions","label":"Actions","x":473,"y":134,"w":258,"h":24},{"name":"sent-state","label":"Sent state","x":29,"y":278,"w":702,"h":18}]}},
 {"label":"One act and a menu","description":"The main act stays; the rest go in a menu with a note under the row.","picture":{"image":"/sessions/shown?session_id=mock-01&path=pick-actions-b.png","width":760,"height":540,"parts":[{"name":"act-primary","label":"Main act","x":623,"y":134,"w":80,"h":24},{"name":"more-menu","label":"More menu","x":707,"y":134,"w":24,"h":24},{"name":"row-note","label":"Row note","x":29,"y":229,"w":702,"h":100},{"name":"menu","label":"Menu","x":599,"y":461,"w":132,"h":66}]}},
 {"label":"Keep today's row","description":"Nothing changes."}]}"#;
+
+/// A text file a mock Job showed, as `GET /sessions/shown` serves it.
+pub fn shown_text(path: &str) -> Option<String> {
+    path.ends_with("/mac-mark.md").then(|| "# Mac mark\n\nEach Jobs row carries a dot in its Mac's colour. The Mac's name is in the dot's tooltip.\n".to_string())
+}
 
 /// A still the option-pictures walk's question shows, as `GET /sessions/shown` serves it.
 pub fn shown_still(image: &str) -> Option<&'static [u8]> {

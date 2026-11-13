@@ -79,9 +79,28 @@ notes = """
 
 **Changed while Fleet runs.** Bridge saves it through `save_limits` (0 to 100 GiB); settings.json keeps it across restarts, a hand edit to the file counts the same, and the next admission turn applies it. Nothing already running is stopped. A floor of zero is allowed and is a person accepting the 31 Aug failure back.
 
-Where nothing is saved, `config::settings`' table supplies it and carries the argument for the number beside its entry. It ships at ten gibibytes, which is about three worktrees' worth: enough that the Job being started can finish and a person has warning before the next one.
+Where nothing is saved, `config::settings`' table supplies it and carries the argument for the number beside its entry. It ships at thirty gibibytes since 13 Nov 2026, up from ten. Measured that day, free space fell 17 GB in about 20 minutes, 50 GB an hour at the peak, and one cold native build writes over 10 GB: ten was ten minutes of runway, and thirty is about half an hour for a person to act. Fleet reclaims build output well above it, at `disk-reclaim-floor`, so reaching it means reclaiming did not keep up.
 
 **The value lives in settings.json under `limits.diskFloorGib`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
+"""
+
+[settings.disk-reclaim-floor]
+name = "Disk to start reclaiming at"
+scope = "Machine"
+default = "100 GiB"
+lifetime = "Live"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+**Enforced** by `fleet::sweeping::keep_sweeping`, which wakes every minute to read free space under each served repository's root. Under this floor it drops build output in a fixed order and re-reads free space after each folder, stopping once there are twenty gibibytes more than the floor: incremental caches of folders not built in the last hour, oldest first; whole folders of checkouts whose HEAD the base already has; whole folders of free slots, least recently built first; whole folders of held slots not built in six hours. `adapters::leasing::disk` holds the order. The main checkout's and the preview's build folders lose only their incremental caches, since the running Fleet and Bridge come from them. A folder a build is writing to is never touched, and neither is anything that is not a `target` holding Cargo's `CACHEDIR.TAG`.
+
+**Why it is not the hold floor.** `disk-headroom-floor-for-spawning` refuses new Jobs; this one only drops what rebuilds. Measured on 13 Nov 2026, build output was most of what grew: `crates/bridge-native/target` held 306 GB across the slots and the Jobs' worktrees under `/tmp` another 82 GB, and the sweep read neither. At 50 GB an hour the hold floor leaves half an hour, so reclaiming starts at three times that.
+
+**Zero never reclaims.** Read live, every minute, so a save applies within one.
+
+**The value lives in settings.json under `limits.diskReclaimFloorGib`** (live), the owner's decision of 13 Nov 2026, `.armada/documents/disk-reclaim-policy.html`.
 """
 
 [settings.slot-build-trim-after-days]
@@ -128,7 +147,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "adapters"
 notes = """
-**Enforced**, as `timeouts.buildSweepSeconds` in settings.json, read at start. Every interval `fleet::sweeping::keep_sweeping` applies the same trim to the `target/` of every checkout of each served repository: the main checkout, each pool slot held or free, `.armada/bases`, `.armada/land`, `.armada/preview`, `.armada/worktrees` and `.claude/worktrees`. It reaches the checkouts nothing releases or cleans. The first sweep is one interval after Fleet starts.
+**Enforced**, as `timeouts.buildSweepSeconds` in settings.json, read at start. Every interval `fleet::sweeping::keep_sweeping` applies the same trim to every build folder (a `target` holding Cargo's `CACHEDIR.TAG`, up to three levels down, so `crates/bridge-native/target` too) of every checkout of each served repository: the main checkout, each pool slot held or free, `.armada/bases`, `.armada/land`, `.armada/preview`, `.armada/worktrees`, `.claude/worktrees`, and every worktree git lists for it, wherever it sits. It also sheds free slots' builds by age: a free slot unbuilt for two hours loses its incremental caches, and for a day the whole folder. It reaches the checkouts nothing releases or cleans. The sweep wakes every minute for `disk-reclaim-floor`, so the interval is kept to the nearest minute. The first sweep is one interval after Fleet starts.
 
 **The value lives in settings.json under `timeouts.buildSweepSeconds`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
