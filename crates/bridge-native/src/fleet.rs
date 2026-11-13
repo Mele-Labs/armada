@@ -91,6 +91,9 @@ pub struct Held {
     /// The person's saved key changes, as the JSON Settings wrote them; empty while he has made none.
     /// `None` until Fleet has been read for them.
     pub key_bindings: Option<String>,
+    /// Whether he has answered how he works with Jobs. `None` until Fleet has been read for it, so the first-run
+    /// screen is not drawn for a preference nobody has read.
+    pub first_run_answered: Option<bool>,
     /// The mods on this machine, as Fleet last listed them. `None` until the first list.
     pub mods: Option<Vec<ModSummary>>,
     /// The build Fleet runs, as it last reported. **Held across a drop**, since a restart is the
@@ -169,6 +172,7 @@ impl Held {
             cursor: None,
             theme: None,
             key_bindings: None,
+            first_run_answered: None,
             mods: None,
             build: None,
             offers: None,
@@ -378,6 +382,7 @@ impl Held {
                     }
                     self.theme = Some(preferences.theme);
                     self.key_bindings = Some(preferences.key_bindings);
+                    self.first_run_answered = Some(preferences.first_run_answered);
                     crate::settings::time::hold(&preferences.time_format);
                     crate::settings::layout::hold(&preferences.layout_choices);
                 }

@@ -2309,6 +2309,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::NO_FUNNEL_STEPS,
     },
     Walk {
+        name: crate::settings::walk::WAYS,
+        title: "Ways of working",
+        screen: Screen::Settings,
+        scenario: "job-view",
+        steps: crate::settings::walk::WAYS_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::LAYOUT_TIME,
         title: "Layout and Time on the app",
         screen: Screen::Settings,

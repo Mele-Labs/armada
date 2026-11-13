@@ -6,7 +6,7 @@ use gpui::{div, prelude::*, AnyElement, App, Context, KeyDownEvent, Role, Shared
 use ipc::time_format::TimeFormat;
 
 use super::overlay::SettingsOverlay;
-use super::view::{bone, card, mono, ringed, small, switch_said};
+use super::view::{bone, card, mono, ringed, switch_said};
 use crate::labels::labelled;
 use crate::look::{token, Look};
 
@@ -85,7 +85,7 @@ impl SettingsOverlay {
     pub(super) fn render_time(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let body = match &self.prefs.read {
             None => div().flex().flex_col().gap(look.length(token::SPACE_3)).children((0..4).map(|n| bone(look, look.length(token::SPACE_6) * (7 - n % 2) as f32, look.length(token::LEADING_SM)))).into_any_element(),
-            Some(Err(said)) => labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("time-unread"), Role::Alert, said.clone()).into_any_element(),
+            Some(Err(said)) => labelled(super::view::refusal(look, said.clone()).id("time-unread"), Role::Alert, said.clone()).into_any_element(),
             Some(Ok(_)) => self.time_rows(look, window, cx),
         };
         labelled(card(look, "settings-card-time", "Time", None, vec![body]), Role::Region, "Time").into_any_element()
@@ -134,7 +134,7 @@ impl SettingsOverlay {
             .gap(look.length(token::SPACE_3))
             .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Sample"))
             .child(labelled(div().id("time-sample").font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(stamp)), Role::Label, "Sample"));
-        let refused = self.prefs.refused.get("time_format").map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("time-refused"), Role::Alert, said.clone()).into_any_element());
+        let refused = self.prefs.refused.get("time_format").map(|said| labelled(super::view::refusal(look, said.clone()).id("time-refused"), Role::Alert, said.clone()).into_any_element());
         div().flex().flex_col().gap(look.length(token::SPACE_3)).children(rows).child(sample).children(refused).into_any_element()
     }
 }
