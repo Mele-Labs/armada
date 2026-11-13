@@ -1515,7 +1515,7 @@ impl JobView {
                         .map(|option| ipc::AskedChoice { label: option.label.clone(), description: option.description.clone().unwrap_or_default(), preview: String::new() })
                         .collect(),
                 }];
-                self.deck(id, &row.id, &questions, false, true, super::deck::Source::Waiting(row.id.clone()), look, cx)
+                self.deck_with(id, &row.id, &questions, row_options(row), false, true, super::deck::Source::Waiting(row.id.clone()), look, cx)
             }
         };
         let said = self.dock_of(id).and_then(|dock| dock.said.get(&Self::thing_key(thing)).cloned());

@@ -346,6 +346,9 @@ async fn a_queued_act_the_mac_refuses_stays_with_its_why_and_the_acts_after_it_s
     let work_ref = &work;
     let after = job.clone();
     until("the act after it went", || async { said(work_ref, &after, "After it").await == 1 }).await;
+    // Work writes the message before Home reads its answer, so Home's queue lets it go a moment later.
+    let home_ref = &home;
+    until("and left Home's queue", || async { queued(home_ref).await.queued.len() == 1 }).await;
     let left = queued(&home).await.queued;
     assert_eq!(left.len(), 1, "{left:?}");
     assert_eq!(left[0].id, refused.id);
