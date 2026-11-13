@@ -84,7 +84,12 @@ impl LanesEditor {
             .child(div().flex_auto())
             .when(self.ask.is_none(), |acts| acts.child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(discard, Role::Button, "Discard")).child(labelled(publish, Role::Button, "Publish"))));
         // What Fleet refused with, else the loader's sentence for a draft that would not load.
-        let unfit = self.draft.as_ref().and_then(|draft| draft.unfit.clone()).or_else(|| self.pieces.iter().find_map(|piece| piece.unfit.clone()));
+        // A rule whose sentence is open says it under the sentence, so the bar does not say it twice.
+        let unfit = self
+            .draft
+            .as_ref()
+            .and_then(|draft| draft.unfit.clone())
+            .or_else(|| self.pieces.iter().filter(|piece| !self.sentence.as_ref().is_some_and(|open| open.is_rule(&piece.id))).find_map(|piece| piece.unfit.clone()));
         let refused = self.refused.clone().or(unfit).map(|said| labelled(crate::settings::view::refusal(look, said.clone()).id("workflow-draft-refused"), Role::Alert, said));
         let start_over = self.stale.then(|| {
             let button = ringed(look, ghost(look, "workflow-draft-restart", START_OVER, self.busy), &keys.restart, window)
