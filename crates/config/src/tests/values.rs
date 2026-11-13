@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use core_model::rule::{ActKind, Autonomy, AutonomyDefaults};
-use core_model::{AgentStarts, AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, TrackerNamed, Values, WalkReview};
+use core_model::{AgentStarts, AutoMerge, Layer, Look, PrMode, ReviewMode, ReviewsNamed, TrackerNamed, Values, WalkReview};
 
 use crate::{
     kit_values_text, parse_kit_values, parse_project, project_text, resolve, shipped_values, AutonomyLayers, Layers, ResolvedValues,
@@ -45,7 +45,7 @@ fn every_key_reads_and_writes_back() {
         review_model: Some("big-model".into()),
         look: Look { layout: Some("compact-deck".into()), theme: Some("paper".into()), density: Some("compact".into()) },
         tracker: Some(TrackerNamed { provider: Some("tickets".into()), keys: [("site".to_string(), "acme".to_string())].into() }),
-        reviews: Some(Reviews { plans: ReviewMode::ReviewAndApprove, pull_requests: ReviewMode::Review, walks: WalkReview::Review }),
+        reviews: ReviewsNamed { plans: Some(ReviewMode::ReviewAndApprove), pull_requests: Some(ReviewMode::Review), walks: Some(WalkReview::Review) },
         agent_starts: Some(AgentStarts::AskMe),
     };
     let project = parse_project(Path::new("shop.yml"), &project_with("")).expect("a Project").with_values(all.clone());
@@ -138,7 +138,7 @@ fn saying(mode: PrMode, merge: AutoMerge, word: &str) -> Values {
         review_model: Some(format!("model-{word}")),
         look: Look { layout: Some(format!("layout-{word}")), theme: Some(format!("theme-{word}")), density: Some("compact".into()) },
         tracker: None,
-        reviews: None,
+        reviews: ReviewsNamed::default(),
         agent_starts: None,
     }
 }
@@ -265,10 +265,20 @@ fn autonomy_is_read_for_each_kind_from_the_layers_it_already_has() {
 }
 
 #[test]
-fn reviews_read_a_kind_at_a_time_and_a_kind_left_out_is_off() {
-    let read = values_of("values:\n  reviews:\n    plans: review_and_approve\n    walks: review\n").reviews.expect("set");
-    assert_eq!(read, Reviews { plans: ReviewMode::ReviewAndApprove, pull_requests: ReviewMode::Off, walks: WalkReview::Review });
-    assert_eq!(values_of("values:\n  pr_mode: draft\n").reviews, None, "nothing said is nothing set, and Off for every kind");
+fn reviews_read_a_kind_at_a_time_and_a_kind_left_out_is_not_set() {
+    let read = values_of("values:\n  reviews:\n    plans: review_and_approve\n    walks: review\n").reviews;
+    assert_eq!(read, ReviewsNamed { plans: Some(ReviewMode::ReviewAndApprove), pull_requests: None, walks: Some(WalkReview::Review) });
+    assert_eq!(values_of("values:\n  pr_mode: draft\n").reviews, ReviewsNamed::default(), "nothing said is nothing set");
+}
+
+#[test]
+fn reviews_round_trip_a_kind_at_a_time_and_a_block_naming_none_is_not_written() {
+    let one = ReviewsNamed { plans: None, pull_requests: Some(ReviewMode::Review), walks: None };
+    let text = project_text(&parse_project(Path::new("shop.yml"), &project_with("")).expect("a Project").with_values(Values { reviews: one, ..Values::default() })).expect("text");
+    assert!(text.contains("pull_requests: review") && !text.contains("plans:") && !text.contains("walks:"), "only the kind set is written: {text}");
+    assert_eq!(parse_project(Path::new("shop.yml"), &text).expect("reads back").values().reviews, one);
+    let none = project_text(&parse_project(Path::new("shop.yml"), &project_with("")).expect("a Project").with_values(Values::default())).expect("text");
+    assert!(!none.contains("reviews"), "no kind named, no block: {none}");
 }
 
 #[test]
@@ -280,14 +290,18 @@ fn a_walk_is_refused_review_and_approve_and_a_word_that_is_not_one_is_refused_fo
 }
 
 #[test]
-fn reviews_are_read_from_kit_and_the_nearest_layer_sets_all_three() {
-    let kit = parse_kit_values(Path::new("values.yml"), "version: 1\nvalues:\n  reviews:\n    pull_requests: review\n").expect("Kit's values");
-    assert_eq!(kit.reviews.map(|reviews| reviews.pull_requests), Some(ReviewMode::Review));
-    let project = only(|v| v.reviews = Some(Reviews { plans: ReviewMode::Review, ..Reviews::default() }));
-    let resolved = resolve(&layers(&[(Layer::Kit, kit), (Layer::Project, project)]));
-    assert_eq!(resolved.reviews.from, Layer::Project);
-    assert_eq!(resolved.reviews.value, Some(Reviews { plans: ReviewMode::Review, ..Reviews::default() }), "a project that sets reviews sets all three");
-    assert_eq!(resolve(&layers(&[])).reviews.value, None, "no layer is Off");
+fn reviews_are_read_from_kit_and_each_kind_falls_through_on_its_own() {
+    let kit = parse_kit_values(Path::new("values.yml"), "version: 1\nvalues:\n  reviews:\n    pull_requests: review\n    walks: review\n").expect("Kit's values");
+    assert_eq!(kit.reviews.pull_requests, Some(ReviewMode::Review));
+    let project = only(|v| v.reviews.plans = Some(ReviewMode::Review));
+    let resolved = resolve(&layers(&[(Layer::Kit, kit), (Layer::Project, project)])).reviews;
+    assert_eq!((resolved.plans.value, resolved.plans.from), (Some(ReviewMode::Review), Layer::Project));
+    assert_eq!((resolved.pull_requests.value, resolved.pull_requests.from), (Some(ReviewMode::Review), Layer::Kit));
+    assert_eq!((resolved.walks.value, resolved.walks.from), (Some(WalkReview::Review), Layer::Kit));
+    assert_eq!(resolved.nearest_layer(), Layer::Project);
+    let bare = resolve(&layers(&[])).reviews;
+    assert_eq!(bare.all(), core_model::Reviews::default(), "no layer is Off");
+    assert_eq!((bare.plans.value, bare.plans.from, bare.nearest_layer()), (None, Layer::Default, Layer::Default));
 }
 
 #[test]

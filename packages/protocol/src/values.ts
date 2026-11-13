@@ -18,8 +18,8 @@ export type ValuesSet = {
    */
   tracker?: Record<string, string>;
   /**
-   * How the Operator reviews work before the person sees it. A layer that sets it sets all three, and a kind it
-   * leaves out is `off`.
+   * How the Operator reviews work before the person sees it. A layer sets only the kinds it names: a kind it leaves
+   * out falls through to the next layer, project then Kit then `off`. Sending the block without a kind clears it.
    */
   reviews?: ReviewsSet;
   /**
@@ -62,7 +62,11 @@ export type ResolvedTracker = {
   from: ValueLayer;
 };
 
-/** How each kind of work is reviewed, and the layer that said so. A kind no layer set is `off`, and `from` is then `default`. */
+/**
+ * How each kind of work is reviewed, and the layer that said so. A kind no layer set is `off` from `default`. Each kind
+ * falls through on its own: `from` is the nearest layer that set any kind, and the three `*_from` say where each word
+ * came from. Fleet always fills them; an older answer lacks them.
+ */
 export type ResolvedReviews = {
   /** `off`, `review` or `review_and_approve`. */
   plans: string;
@@ -71,6 +75,9 @@ export type ResolvedReviews = {
   /** `off` or `review`. */
   walks: string;
   from: ValueLayer;
+  plans_from?: ValueLayer;
+  pull_requests_from?: ValueLayer;
+  walks_from?: ValueLayer;
 };
 
 /** What autonomy comes to for one kind of act. `from` is `kit`, `project` or `repository` where a piece sets it, else `default`. */

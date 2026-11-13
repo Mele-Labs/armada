@@ -13,7 +13,7 @@
 use std::path::Path;
 
 use core_model::rule::{ActKind, Autonomy, AutonomyDefaults};
-use core_model::{AgentStarts, AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, TrackerNamed, Values, WalkReview};
+use core_model::{AgentStarts, AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, ReviewsNamed, TrackerNamed, Values, WalkReview};
 use serde_yaml_ng::{Mapping, Value};
 
 use crate::error::{Fault, LoadError, Refusal};
@@ -63,7 +63,7 @@ pub(crate) fn read_block(key: &str, root: &Value, with_tracker: bool, out: &mut 
         None
     };
     let reviews_at = table.at("reviews");
-    let reviews = table.optional("reviews").map(|value| read_reviews(&reviews_at, value, out));
+    let reviews = table.optional("reviews").map(|value| read_reviews(&reviews_at, value, out)).unwrap_or_default();
     let agent_starts = table
         .optional("agent_starts")
         .and_then(|value| yaml::word(&table.at("agent_starts"), value, AGENT_STARTS, AGENT_STARTS_LEGAL, AGENT_STARTS_LEGAL, out));
@@ -71,22 +71,19 @@ pub(crate) fn read_block(key: &str, root: &Value, with_tracker: bool, out: &mut 
     Values { pr_mode, auto_merge, review_model: review_model.map(|model| model.trim().to_string()), look, tracker, reviews, agent_starts }
 }
 
-/// The `reviews:` block. **A kind it does not name is Off.**
-fn read_reviews(key: &str, root: &Value, out: &mut Vec<Refusal>) -> Reviews {
-    let Some(mut table) = Table::open(key, root, out) else { return Reviews::default() };
+/// The `reviews:` block. **A kind it does not name is not set**, and falls through to the next layer.
+fn read_reviews(key: &str, root: &Value, out: &mut Vec<Refusal>) -> ReviewsNamed {
+    let Some(mut table) = Table::open(key, root, out) else { return ReviewsNamed::default() };
     let mode = |table: &mut Table<'_>, name: &str, out: &mut Vec<Refusal>| {
         let at = table.at(name);
-        table.optional(name).and_then(|value| yaml::word(&at, value, REVIEW_MODES, REVIEW_MODES_LEGAL, REVIEW_MODES_LEGAL, out)).unwrap_or_default()
+        table.optional(name).and_then(|value| yaml::word(&at, value, REVIEW_MODES, REVIEW_MODES_LEGAL, REVIEW_MODES_LEGAL, out))
     };
     let plans = mode(&mut table, "plans", out);
     let pull_requests = mode(&mut table, "pull_requests", out);
     let walks_at = table.at("walks");
-    let walks = table
-        .optional("walks")
-        .and_then(|value| yaml::word(&walks_at, value, WALK_REVIEWS, WALK_REVIEWS_LEGAL, WALK_REVIEWS_LEGAL, out))
-        .unwrap_or_default();
+    let walks = table.optional("walks").and_then(|value| yaml::word(&walks_at, value, WALK_REVIEWS, WALK_REVIEWS_LEGAL, WALK_REVIEWS_LEGAL, out));
     table.close(REVIEWS, out);
-    Reviews { plans, pull_requests, walks }
+    ReviewsNamed { plans, pull_requests, walks }
 }
 
 fn read_look(key: &str, root: &Value, out: &mut Vec<Refusal>) -> Look {
@@ -137,11 +134,18 @@ pub(crate) fn block_value(values: &Values) -> Option<Value> {
         }
         block.insert(text("tracker"), Value::Mapping(named));
     }
-    if let Some(reviews) = &values.reviews {
-        let mut named = Mapping::new();
-        named.insert(text("plans"), text(reviews.plans.as_wire()));
-        named.insert(text("pull_requests"), text(reviews.pull_requests.as_wire()));
-        named.insert(text("walks"), text(reviews.walks.as_wire()));
+    let reviews = &values.reviews;
+    let mut named = Mapping::new();
+    if let Some(mode) = reviews.plans {
+        named.insert(text("plans"), text(mode.as_wire()));
+    }
+    if let Some(mode) = reviews.pull_requests {
+        named.insert(text("pull_requests"), text(mode.as_wire()));
+    }
+    if let Some(mode) = reviews.walks {
+        named.insert(text("walks"), text(mode.as_wire()));
+    }
+    if !named.is_empty() {
         block.insert(text("reviews"), Value::Mapping(named));
     }
     if let Some(starts) = values.agent_starts {
@@ -191,7 +195,7 @@ pub fn shipped_values() -> Values {
         review_model: None,
         look: Look { layout: None, theme: Some(SHIPPED_THEME.to_string()), density: Some("default".to_string()) },
         tracker: None,
-        reviews: None,
+        reviews: ReviewsNamed::default(),
         agent_starts: Some(AgentStarts::AtOnce),
     }
 }
@@ -248,13 +252,42 @@ pub struct ResolvedValues {
     /// The tracker a layer named, a Project's over its repository's. **`None` is the forge's own**, or the
     /// repository's where this is a Job's: no Machine, Kit or default layer names one.
     pub tracker: ResolvedValue<TrackerNamed>,
-    /// How work is reviewed before the person sees it. **`None` is Off for every kind**: no layer sets it and the
-    /// default has no word for it.
-    pub reviews: ResolvedValue<Reviews>,
+    /// How work is reviewed before the person sees it, each kind resolved on its own. **A kind no layer sets is Off.**
+    pub reviews: ResolvedReviews,
     /// Whether a Job an agent or the Operator starts begins at once. **The shipped word is `AtOnce`.**
     pub agent_starts: ResolvedValue<AgentStarts>,
     /// One for each kind of act, in the order of the kinds.
     pub autonomy: Vec<ResolvedAutonomy>,
+}
+
+/// How each kind of work is reviewed, and the layer each kind's word came from. **A kind falls through on its own**:
+/// a project may set one and leave the others to Kit. `None` is a kind no layer sets, which is Off.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResolvedReviews {
+    pub plans: ResolvedValue<ReviewMode>,
+    pub pull_requests: ResolvedValue<ReviewMode>,
+    pub walks: ResolvedValue<WalkReview>,
+}
+
+impl ResolvedReviews {
+    /// Every kind as a word, Off where no layer set it.
+    pub fn all(&self) -> Reviews {
+        Reviews {
+            plans: self.plans.value.unwrap_or_default(),
+            pull_requests: self.pull_requests.value.unwrap_or_default(),
+            walks: self.walks.value.unwrap_or_default(),
+        }
+    }
+
+    /// The nearest layer that set any kind, else the default.
+    pub fn nearest_layer(&self) -> Layer {
+        let set = [
+            self.plans.value.is_some().then_some(self.plans.from),
+            self.pull_requests.value.is_some().then_some(self.pull_requests.from),
+            self.walks.value.is_some().then_some(self.walks.from),
+        ];
+        set.into_iter().flatten().max().unwrap_or(Layer::Default)
+    }
 }
 
 /// The nearest layer that sets the key, else the default's word, else nothing.
@@ -287,7 +320,11 @@ pub fn resolve(layers: &Layers) -> ResolvedValues {
         theme: nearest(layers, |values| values.look.theme.clone()),
         density: nearest(layers, |values| values.look.density.clone()),
         tracker: nearest(layers, |values| values.tracker.clone()),
-        reviews: nearest(layers, |values| values.reviews),
+        reviews: ResolvedReviews {
+            plans: nearest(layers, |values| values.reviews.plans),
+            pull_requests: nearest(layers, |values| values.reviews.pull_requests),
+            walks: nearest(layers, |values| values.reviews.walks),
+        },
         agent_starts: nearest(layers, |values| values.agent_starts),
         autonomy: ActKind::ALL
             .iter()

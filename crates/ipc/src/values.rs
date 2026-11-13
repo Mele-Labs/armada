@@ -29,8 +29,9 @@ pub struct ValuesSet {
     /// and Fleet refuses one in Kit's values, 422 `fleet.project_values_refused`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracker: Option<BTreeMap<String, String>>,
-    /// How the Operator reviews work before the person sees it, a kind at a time. **A layer that sets it sets all
-    /// three**, and a kind it leaves out is `off`.
+    /// How the Operator reviews work before the person sees it, a kind at a time. **A layer sets only the kinds it
+    /// names**: a kind it leaves out falls through to the next layer, project then Kit then `off`. Clearing one kind is
+    /// sending the block without it, and a block naming none is the same as none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reviews: Option<ReviewsSet>,
     /// Whether a Job that a Job or the Operator starts begins at once (`at_once`) or waits on the person's start
@@ -96,7 +97,8 @@ pub struct ResolvedTracker {
 }
 
 /// How each kind of work is reviewed once the layers are laid over each other, and the layer that said so.
-/// **Every kind is a word**: one no layer set is `off`, and `from` is then `default`.
+/// **Every kind is a word**: one no layer set is `off`, from `default`. Each kind falls through on its own, so a
+/// project can set one and leave the others to Kit.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResolvedReviews {
     /// `off`, `review` or `review_and_approve`.
@@ -105,7 +107,17 @@ pub struct ResolvedReviews {
     pub pull_requests: String,
     /// `off` or `review`.
     pub walks: String,
+    /// The nearest layer that set any kind, `default` where none did.
     pub from: ValueLayer,
+    /// The layer the plans word came from. Absent in an answer from a Fleet that did not say.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plans_from: Option<ValueLayer>,
+    /// The layer the pull requests word came from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_requests_from: Option<ValueLayer>,
+    /// The layer the walks word came from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub walks_from: Option<ValueLayer>,
 }
 
 /// What autonomy comes to for one kind of act: `acts`, `asks` or `off`. `from` is `kit`, `project` or

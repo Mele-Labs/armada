@@ -115,6 +115,19 @@ fn resolved_values_name_the_layer_of_each_key_and_leave_an_empty_one_without_a_v
 }
 
 #[test]
+fn resolved_reviews_carry_the_layer_of_each_kind_and_an_older_answer_without_them_still_reads() {
+    let each = json!({"plans": "review", "pull_requests": "off", "walks": "review", "from": "project",
+        "plans_from": "project", "pull_requests_from": "default", "walks_from": "kit"});
+    let read: crate::ResolvedReviews = serde_json::from_value(each.clone()).unwrap();
+    assert_eq!((read.plans_from, read.pull_requests_from, read.walks_from), (Some(crate::ValueLayer::Project), Some(crate::ValueLayer::Default), Some(crate::ValueLayer::Kit)));
+    assert_eq!(serde_json::to_value(&read).unwrap(), each);
+    let older = json!({"plans": "off", "pull_requests": "off", "walks": "off", "from": "default"});
+    let read: crate::ResolvedReviews = serde_json::from_value(older.clone()).unwrap();
+    assert_eq!((read.plans_from, read.pull_requests_from, read.walks_from), (None, None, None));
+    assert_eq!(serde_json::to_value(&read).unwrap(), older, "an absent layer is not written");
+}
+
+#[test]
 fn a_projects_tracker_is_the_manifest_block_as_a_map_and_a_resolved_one_names_its_layer() {
     let edit: EditProject = crate::decode("an edit", br#"{"values":{"tracker":{"provider":"tickets","site":"acme"}}}"#).unwrap();
     let block = edit.values.as_ref().and_then(|values| values.tracker.as_ref()).expect("a tracker");

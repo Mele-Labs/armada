@@ -21,9 +21,9 @@ pub struct Values {
     /// The tracker a Project names for its issues and for the Jobs in it. **Only a Project's layer sets one**:
     /// Kit has none, and a repository's is its Manifest's own block, which is not held here.
     pub tracker: Option<TrackerNamed>,
-    /// How the Operator reviews work before it reaches the person, a kind at a time. **A layer that sets it sets
-    /// all three**: a kind it does not name is [`ReviewMode::Off`], and no layer setting it is the same as Off.
-    pub reviews: Option<Reviews>,
+    /// How the Operator reviews work before it reaches the person, a kind at a time. **A layer sets only the kinds
+    /// it names**: one it leaves out falls through to the next layer, and no layer naming it is Off.
+    pub reviews: ReviewsNamed,
     /// Whether a Job that a Job or the Operator starts begins at once or waits on the person's start card.
     pub agent_starts: Option<AgentStarts>,
 }
@@ -112,6 +112,15 @@ pub struct Reviews {
     pub plans: ReviewMode,
     pub pull_requests: ReviewMode,
     pub walks: WalkReview,
+}
+
+/// The kinds of review one layer names. `None` is that layer saying nothing about the kind, so it falls through
+/// to the next layer. **Naming no kind is the same as no block.**
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ReviewsNamed {
+    pub plans: Option<ReviewMode>,
+    pub pull_requests: Option<ReviewMode>,
+    pub walks: Option<WalkReview>,
 }
 
 /// A tracker as a layer wrote it: the provider where it named one, and every other key as written, for that
