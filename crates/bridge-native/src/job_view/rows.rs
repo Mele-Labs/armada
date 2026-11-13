@@ -29,8 +29,7 @@ use crate::look::{token, ActiveLook, Look, Token};
 /// A time in the owner's clock, with the day when it is not today (`Stamp`, A1.11).
 pub(super) fn clock(at: &str, now: DateTime<Local>) -> Option<String> {
     let then = DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&Local);
-    let time = then.format("%H:%M:%S").to_string();
-    Some(if then.date_naive() == now.date_naive() { time } else { format!("{} {time}", then.format("%b %-d")) })
+    Some(crate::settings::time::stamp_of(then, crate::settings::time::held(), now))
 }
 
 /// A time as how long ago it was: `<1m ago`, `5m ago`, `3h ago`, `2d ago`.
