@@ -471,7 +471,14 @@ impl JobView {
             }
             // A text box keeps ⌘Z for what is typed in it.
             "pane_undo" | "pane_redo" if !in_text => {
-                self.step_panes(act.is("pane_redo"), cx);
+                let was = self.here(window, cx);
+                if self.step_panes(act.is("pane_redo"), cx) {
+                    // The pane the keys were in may be gone: they go to the one the arrangement says has the focus.
+                    let arrangement = self.arrangement().into_owned();
+                    if tree::pane_by_id(&arrangement, &was).is_none() {
+                        self.focus_in_pane(&arrangement.focus, window, cx);
+                    }
+                }
             }
             "next_tab" => self.cycle(1, window, cx),
             "previous_tab" => self.cycle(-1, window, cx),

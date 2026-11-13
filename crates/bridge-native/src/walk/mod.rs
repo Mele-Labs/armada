@@ -100,6 +100,9 @@ pub enum Verb {
     Lift(&'static str),
     /// The held button let go where the pointer stands, ending a `Lift`.
     Release,
+    /// The element of this role and name pressed in its middle and carried this many points across and down,
+    /// the button let go there: a divider dragged.
+    DragBy(&'static str, &'static str, i32, i32),
     /// Nothing pressed: the target must be drawn inside the element of this role and name, side to
     /// side, or the step fails. For a thing that must wrap rather than run past its column.
     Fits(&'static str, &'static str),
@@ -957,6 +960,31 @@ pub static WALKS: &[Walk] = &[
             ),
             press_on("Log shows what the run wrote", "tab", "Log", "region", "Log of run 412"),
             step("Esc shuts it", Verb::Key("escape"), "list", "Checks"),
+        ],
+    },
+    Walk {
+        name: "native-panes",
+        title: "Splitting, sizing and closing a Job's panes",
+        screen: Screen::Jobs,
+        scenario: "job-panes",
+        steps: &[
+            step("A pane keeps at least 160 by 120 points, so a window narrower than 1100 widens to take two panes side by side", Verb::Widen(1400), "row", "Fix the merge line freshness chip"),
+            press_on("A Job as it always opened: the thread, then Done over Now", "row", "Fix the merge line freshness chip", "tab", "Job column: Now"),
+            right_on("A right press on a tab: Zoom, Split right, Split down and Close", "tab", "Job column: Now", "menuitem", "Split right"),
+            press_on("Split right puts an empty pane beside Now", "menuitem", "Split right", "region", "Empty pane"),
+            press_on("Its + lists what a tab can show", "button", "Add tab", "menuitem", "Plan"),
+            press_on("The tab opens in that pane", "menuitem", "Plan", "tab", "Job column: Plan"),
+            press_on("+ again", "button", "Add tab", "menuitem", "Files"),
+            press_on("A second tab in the same pane", "menuitem", "Files", "tab", "Job column: Files"),
+            step("Control Tab brings the next tab in the pane forward", Verb::Key("ctrl-tab"), "tab", "Job column: Plan"),
+            press_on("A press in Now puts the keys there", "tab", "Job column: Now", "tab", "Job column: Now"),
+            step("Option Command and an arrow move to the pane beside it", Verb::Key("cmd-alt-right"), "tab", "Job column: Plan"),
+            step("A divider drags; a pane keeps its least size", Verb::DragBy("separator", "Resize the panes", -120, 0), "separator", "Resize the panes"),
+            step("A double press puts it back to halves", Verb::DoublePress, "separator", "Resize the panes"),
+            step("Option Command D splits the pane the keys are in, downward", Verb::Key("cmd-alt-d"), "button", "Close pane"),
+            step("Command Z takes the split back", Verb::Key("cmd-z"), "tab", "Job column: Plan"),
+            step("Split again", Verb::Key("cmd-alt-d"), "button", "Close pane"),
+            step("An empty pane closes from its strip", Verb::Gone, "button", "Close pane"),
         ],
     },
     Walk {
