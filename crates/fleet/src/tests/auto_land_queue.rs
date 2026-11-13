@@ -143,6 +143,8 @@ fn pull(number: u64, head: &str, queue: PullQueue) -> FollowedPull {
         checks: vec![FollowedCheck { name: FromOutside::verbatim("ci"), state: CiState::Passed, required: true, hung: false, log_url: None }],
         title: None,
         auto_merge: false,
+        draft: false,
+        approved: false,
     }
 }
 
