@@ -108,10 +108,9 @@ export type AnswerOperatorSuggestion = {
 export type DispatchWay = "started" | "handed" | "asked" | "parked";
 
 /**
- * `operator.dispatched`: what the Operator did with a dispatch it held (`dispatch_job`'s `operator`), or, with `way`
- * `started`, that the Job began at once because no live Job was near its words, or `parked`, that he called it an idea
- * (`dispatch_id` is then the idea's id). `session_id` and `title` name the Job started or the live Job the work was folded
- * into, and are absent while `asked`.
+ * `operator.dispatched`: what the Operator did with a dispatch it held (`dispatch_job`'s `operator`): started a Job,
+ * handed it to a live one, kept it for later (`parked`, `dispatch_id` then the idea's id) or asked him. `session_id` and
+ * `title` name the Job started or the live Job the work was folded into, and are absent while `asked`.
  */
 export type OperatorDispatched = {
   dispatch_id: string;
