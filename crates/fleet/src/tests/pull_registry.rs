@@ -39,6 +39,8 @@ fn open(machine: &Machine, numbers: &[u64]) {
                 checks: Vec::new(),
                 title: None,
                 auto_merge: false,
+                draft: false,
+                approved: false,
             })
             .collect(),
     ));

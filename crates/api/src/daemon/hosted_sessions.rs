@@ -383,6 +383,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         asked: ipc::SetSessionAutoLand,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `set_session_project`: moves each Job into a project of his, or out to none, and answers the Jobs
+    /// as they are now. Every Job is checked first, and a refusal writes nothing.
+    fn set_session_project(
+        &self,
+        asked: ipc::SetSessionProject,
+    ) -> impl Future<Output = Result<ipc::SessionList, Refusal>> + Send;
+
     /// `get_session_mcp`: the MCP servers a hosted job's process has, asked of it now.
     fn get_session_mcp(
         &self,
@@ -394,6 +401,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         &self,
         id: SessionId,
     ) -> impl Future<Output = Result<ipc::SessionQuick, Refusal>> + Send;
+
+    /// `get_job_artifacts`: a Job's sketches, drafts and pages, newest first.
+    fn get_job_artifacts(
+        &self,
+        id: SessionId,
+    ) -> impl Future<Output = Result<Vec<ipc::JobArtifact>, Refusal>> + Send;
 
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
     /// the servers again.

@@ -134,7 +134,7 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 | Cross-origin | `/api/*` and `POST /pair` answer a preflight and name the caller's origin when it is `https`, so the app one Mac served may call another. The signature is still the only auth. `/admin/*` never answers one |
 | Clock | A request more than 60 seconds from the Mac's clock is refused |
 | Replay | A signature seen inside that window is refused the second time |
-| Pairing | A code lives five minutes and claims once. `/pair` answers ten requests a minute, wrong codes included. A claim is not a device until the owner confirms it in Bridge |
+| Pairing | A code lives five minutes and claims once. `/pair` answers ten requests a minute, wrong codes included. A claim is not a device until the owner confirms it in Bridge. `POST /admin/pair/decline { code }` burns the code at once, and the phone that claimed it is answered 403, `This Mac declined pairing with this phone.`, on every signed call until the code would have lapsed, so its wait says so rather than spinning |
 | Subscriptions | A push endpoint must be `https`, so a phone cannot make the Mac post to loopback |
 | Shown files | A file is read only where the Job showed it with `show_file`, or kept it as a revision of its document. Fleet refuses any other path with 404 |
 | Shown video | `GET /shown/<ticket>` is the one route outside the signed layer. A ticket stands in for the signature, is bound to the device that asked, and names only a path Fleet vouched for: see below |
@@ -350,6 +350,15 @@ Its `send_other_mac` posts only `/other_mac/project_act` and `/other_mac/act`.
 **The Mac that holds the Job answers for it.** An act on a Job in a project that is not shared is refused 404, as one on a Job that does not exist, and nothing is written there.
 An act that arrives again under an `id` it ran is answered with what it answered then, and is not run again.
 The Fleet half is [His other Macs, Fleet's half](../practices/protocol/his-other-macs-fleets-half.md).
+
+**Messages and alerts.** A Job on one Mac writes to a Job on the other by its address, and alerts cross the same way.
+
+| What happens | Where it shows |
+|---|---|
+| A Job writes to a Job the other Mac holds | The receiver's thread draws it From the sender, naming its Mac, and the receiver wakes as for a Job on its own Mac. The sender's thread draws the call To the receiver, whose row names its Mac. A Mac asleep keeps it in the queue above, with take-back |
+| Either Job is in a project that is not shared | Nothing crosses. The writer is refused as for an address no Job has, and learns nothing of the other Mac's projects |
+| A shared Job on the other Mac needs him | It sounds, posts its notification, joins Needs you and counts on the Dock, with its Mac named, as a Job of this Mac does |
+| The Macs first link, or a Mac wakes with nothing changed | Nothing rings. What already waited stands in Needs you |
 
 ## What pushes
 

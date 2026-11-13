@@ -27,6 +27,34 @@ pub static NO_FUNNEL_STEPS: &[Step] = &[
     step("Esc closes Settings, and the keys go back", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-macs-setup`: Macs on a Mac nothing is set up on. One card press runs the setup, and Find my
+/// Mac waits for the other Mac, with a link to pair by instead.
+pub const MACS_SETUP: &str = "native-settings-macs-setup";
+
+pub static MACS_SETUP_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Nothing set up yet: two ways to start", "button", "Macs", "button", "Find my Mac"),
+    press_on("Find my Mac turns the Gateway on and signs in to Cloudflare", "button", "Find my Mac", "button", "Open it again"),
+    step("Once he has signed in, the tunnel is made and it waits", Verb::Later(12000), "status", "Waiting for your other Mac"),
+    press_on("A link pairs them instead", "button", "Pair with a link instead", "button", "Claim"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-settings-macs-phone`: Pair a phone on the Devices card. The link and its QR code, the phone's claim, and
+/// Confirm putting the phone in the list.
+pub const MACS_PHONE: &str = "native-settings-macs-phone";
+
+pub static MACS_PHONE_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: Devices has Pair a Mac and Pair a phone", "button", "Macs", "button", "Pair a phone"),
+    press_on("Pair a phone: a QR code for the camera, and the link", "button", "Pair a phone", "img", "QR code for the pairing link"),
+    step("The link, with Copy link and how long it has left", Verb::Look, "button", "Copy link"),
+    step("The phone opens it and waits on Confirm here", Verb::Later(4500), "button", "Confirm"),
+    press_on("Confirm pairs it, and the panel closes", "button", "Confirm", "button", "Unpair iPhone 15"),
+    step("The phone is in the list, with Unpair", Verb::Wheel("region", "Devices", 600), "button", "Unpair iPhone 15"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-layout-time`: what Layout and Time set, read on the app behind Settings.
 pub const LAYOUT_TIME: &str = "native-layout-time";
 

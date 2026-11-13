@@ -111,8 +111,7 @@ pub(super) fn with_state_added(mut lane: LifecycleDefinition) -> (LifecycleDefin
     if let Some(last) = lane.states.last() {
         lane.transitions.push(LifecycleTransition { from: last.id.clone(), to: id.clone() });
     }
-    // Own once it lands
-    let read = StateReadFrom::Tracker { words: Vec::new() };
+    let read = StateReadFrom::Own;
     lane.states.push(LifecycleStateDefinition { id: id.clone(), label: NEW_STATE.into(), read });
     lane.ends = vec![id.clone()];
     (lane, id)
