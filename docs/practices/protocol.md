@@ -1294,7 +1294,7 @@ A call through the agent door that places no Job is refused 422 `fleet.job_copy_
 **A workflow is copied at the first change to its steps**, as the file the Job followed read then, so the Job keeps that text while the repository's changes; until then it follows the repository's.
 A lifecycle or a rule is changed in the copy the Job froze on start (`job_copies`); 422 `fleet.job_holds_no_copy` for a Job started before copies were kept.
 A step is edited as text and the result is read by the loader again, so an edit that does not fit is refused with the loader's own sentence (422 `fleet.job_workflow_unfit`, `fleet.job_copy_step_refused`, `fleet.job_copy_piece_refused`) and the Job keeps what it had.
-The rail keeps a step's state by its index, so an edit remaps what it kept by step id: a skip stays on its step when one is added before it, and a step taken out is forgotten.
+The rail keeps a step's state by step id, so an edit needs nothing rewritten: a skip stays on its step when one is added before it, and a step taken out is forgotten when the rail is next read.
 Switching the workflow gives up the copy and the marks with it.
 
 **A mark is kept with who made it**, `job` or `you`, on `job_copy_marks`: a step is marked as `workflow` with its id, a rule as `rule` with its id, and a lifecycle by its own id with no item.

@@ -735,13 +735,9 @@ where
                 drop(store);
                 return self.published_hosted(&id).await;
             }
-            // A skip names a step by its index, which means another step in another workflow. So does the
-            // Job's own copy of the old one, and the marks on it.
-            let mut rail = store.session_rail(&id).map_err(|why| self.ledger_fault(why))?;
-            if !rail.skipped.is_empty() {
-                rail.skipped.clear();
-                store.keep_session_rail(&id, &rail).map_err(|why| self.ledger_fault(why))?;
-            }
+            // A skip names a step of the old workflow, which another may not have or may use for another step.
+            // So does the Job's own copy of the old one, and the marks on it.
+            store.clear_session_skips(&id).map_err(|why| self.ledger_fault(why))?;
             store.drop_job_workflow_copy(&id).map_err(|why| self.ledger_fault(why))?;
             self.person_changed(&mut store, &id, ProposedField::Workflow);
         }
