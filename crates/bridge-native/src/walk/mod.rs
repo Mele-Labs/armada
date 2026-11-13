@@ -2667,6 +2667,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::FOLLOWS_PICKER_STEPS,
     },
     Walk {
+        name: crate::settings::walk::OFF_EVERYWHERE,
+        title: "A workflow off in every repository a project keeps",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::OFF_EVERYWHERE_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::DELETE_PROJECT,
         title: "Delete a project from the picker",
         screen: Screen::Settings,

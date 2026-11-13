@@ -610,6 +610,13 @@ impl MockFleet {
     }
 
     /// `set_project_workflow`: off adds the id to the project's list, on takes it away.
+    /// For the walk of a workflow off in every repository a project keeps: the repository holds it off from the start.
+    pub fn off_in_repository(&mut self, manifest: &str, id: &str) {
+        let Some(one) = self.list.settings.iter_mut().find(|one| one.key == super::workflows::OFF) else { return };
+        let off = super::workflows::off_of(Some(&one.value));
+        one.value = super::workflows::switched(&off, id, false, Some(manifest));
+    }
+
     pub fn set_project_workflow(&mut self, project: &str, workflow: &str, on: bool) -> Result<Projects, Refused> {
         let one = self.projects.projects.iter_mut().find(|one| one.id == project).ok_or_else(|| Refused::said(format!("there is no project {project}")))?;
         let values = one.values.get_or_insert_with(ValuesSet::default);

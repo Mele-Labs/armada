@@ -196,6 +196,19 @@ pub static FOLLOWS_PICKER_STEPS: &[Step] = &[
     step("The keys stay in it: a second F is typed after the first", Verb::Typed("f"), "textbox", "Tell an agent what to change"),
 ];
 
+/// `native-workflows-off-everywhere`: a workflow off in every repository a project keeps is off for the project, with
+/// no switch. sample-api has bug off from the start; sample-web's switch turns it off there too.
+pub const OFF_EVERYWHERE: &str = "native-workflows-off-everywhere";
+
+pub static OFF_EVERYWHERE_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings over the app, editing every project", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Workflows is headed for every project", "button", "Workflows", "heading", "Workflows for every project"),
+    press_on("sample-web's switch turns bug off there. sample-api, Storefront's other repository, has it off already", "switch", "bug: On in sample-web", "switch", "bug: Off in sample-web"),
+    step("\u{2318}P opens the Editing picker", Verb::Key("cmd-p"), "menu", "Editing"),
+    press_on("Storefront: bug is off in every repository it keeps, so the bug Armada ships is off for Storefront too, with no switch", "menuitem", "Storefront", "heading", "Workflows for Storefront"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-lanes-add`: Add lifecycle, its menu of what a lane follows, the lane a kind draws and a blank lane named from nothing.
 pub const LANES_ADD: &str = "native-lanes-add";
 
