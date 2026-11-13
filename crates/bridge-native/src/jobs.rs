@@ -78,6 +78,8 @@ struct Row {
     title: SharedString,
     project: SharedString,
     paused: bool,
+    /// Kept quiet until this time: it works on and raises nothing to him (`snoozed_until`).
+    snoozed: Option<chrono::DateTime<chrono::Local>>,
     ended: bool,
     /// Asked to carry on in a new Job and told yes: a turning ring until the new one is up.
     handing_off: bool,
@@ -430,6 +432,7 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
                 title: idea.title().to_string().into(),
                 project: project.clone().into(),
                 paused: false,
+                snoozed: None,
                 ended: false,
                 handing_off: false,
                 earlier: None,
@@ -455,6 +458,7 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
             title: title_of(job),
             project: project.clone().into(),
             paused: paused(job),
+            snoozed: job.snoozed_until.as_ref().and_then(crate::snooze::local_of),
             ended: job.state == SessionState::Ended,
             handing_off: handing_off(job),
             earlier: spent(job, "replaces").map(|id| id.to_string().into()),
@@ -635,6 +639,8 @@ pub struct JobsList {
     search: Option<(Entity<InputState>, Subscription)>,
     /// The Job whose card is open, and the wait before one opens.
     card: Option<SharedString>,
+    /// The row whose quiet glyph the pointer is on: its tooltip stands alone, so the row's card does not open over it.
+    quiet_over: Option<SharedString>,
     _card_wait: Option<Task<()>>,
     fleet: Option<Entity<FleetConnection>>,
     _watch: Option<Subscription>,
@@ -773,6 +779,7 @@ impl JobsList {
             filter: None,
             search: None,
             card: None,
+            quiet_over: None,
             _card_wait: None,
             fleet,
             _watch: watch,
@@ -1180,6 +1187,38 @@ impl JobsList {
         true
     }
 
+    /// `z` while the rows have the keys opens the presets for the row under them, or wakes it where it is
+    /// snoozed, as `p` pauses or resumes.
+    pub(crate) fn snooze_key(&mut self, event: &gpui::KeyDownEvent, window: &Window, cx: &mut Context<Self>) -> bool {
+        if event.keystroke.key != "z" || event.keystroke.modifiers.modified() || !self.focus.is_focused(window) {
+            return false;
+        }
+        let Some(row) = self.focused.as_ref().and_then(|id| self.rows().find(|row| &row.id == id)).filter(|row| !row.ended && row.queued.is_none()).cloned() else { return false };
+        if row.snoozed.is_some() {
+            self.snooze(&row.id, None, cx);
+        } else {
+            let at = self.bounds.borrow().get(&row.id).copied().map(under);
+            crate::dispatch::screen::snooze_ask(row.id, row.title, at, cx);
+        }
+        true
+    }
+
+    /// Keep a Job quiet until `until`, or wake it now with none. A live Fleet is asked, and the row follows
+    /// the record it publishes; a refusal is said in a toast. On mock data there is no Fleet, so the record
+    /// the list holds takes the change, as a walk's stand-in for Fleet's yes.
+    pub fn snooze(&mut self, id: &str, until: Option<chrono::DateTime<chrono::Utc>>, cx: &mut Context<Self>) {
+        let at = until.map(crate::snooze::instant_of);
+        if self.fleet.is_none() {
+            if let Some(job) = self.jobs.iter_mut().find(|job| job.id.as_str() == id) {
+                job.snoozed_until = at;
+            }
+            self.relist(cx);
+            cx.notify();
+            return;
+        }
+        crate::snooze::post(self.port(cx), crate::snooze::body(id, until), cx);
+    }
+
     fn on_row_menu(&mut self, _: &RowMenu, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.focused.clone() else { return };
         // An idea's row has no menu, as Electron's has none.
@@ -1204,7 +1243,7 @@ impl JobsList {
         self.open(earlier, cx);
     }
 
-    /// The row's menu (`RowMenu.tsx`), at `at`: Pause or Resume, Name it for me, Try it in your app
+    /// The row's menu (`RowMenu.tsx`), at `at`: Pause or Resume, Snooze or Wake now, Name it for me, Try it in your app
     /// and Close. An ended Job has none of them, and draws no menu.
     pub(crate) fn open_menu(&mut self, id: SharedString, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(row) = self.rows().find(|row| row.id == id).cloned() else { return };
@@ -1215,6 +1254,7 @@ impl JobsList {
         let (pause, label, icon) = if row.paused { ("resume", "Resume", "play") } else { ("pause", "Pause", "circle-pause") };
         let mut entries = vec![
             Entry::Item { id: pause, label: label.into(), icon: Some(icon), danger: false, key: Some("P".into()), off: None },
+            crate::snooze::menu_item(row.snoozed.is_some()),
             Entry::Act { id: "name", label: "Name it for me".into(), icon: Some("wand-sparkles"), danger: false },
             Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false },
             Entry::Act { id: "try", label: "Try it in your app".into(), icon: None, danger: false },
@@ -1234,6 +1274,8 @@ impl JobsList {
             match *act {
                 "pause" => send(port, "/sessions/pause", encoded(ipc::encode(&ipc::PauseSession { session_id })), cx),
                 "resume" => send(port, "/sessions/resume", encoded(ipc::encode(&ipc::ResumeSession { session_id })), cx),
+                "snooze" => crate::dispatch::screen::snooze_ask(job.clone(), title.clone(), Some(at), cx),
+                "wake" => this.snooze(&job, None, cx),
                 "name" => send(port, "/sessions/name", encoded(ipc::encode(&ipc::NameSession { session_id })), cx),
                 "teach" => crate::dispatch::screen::teach_row(title.to_string(), cx),
                 "try" => {
@@ -1335,7 +1377,7 @@ impl JobsList {
             self._card_wait = None;
             return;
         }
-        if self.menu.is_some() {
+        if self.menu.is_some() || self.quiet_over.as_ref() == Some(&id) {
             return;
         }
         let wait = cx.look().duration(token::TOOLTIP_DELAY);
@@ -1351,6 +1393,21 @@ impl JobsList {
                 cx.notify();
             });
         }));
+    }
+
+    /// The pointer is on a row's quiet glyph or left it. On it, a card that is open or waiting goes, and none opens
+    /// until the pointer is back on the row from outside it.
+    fn quiet_hovered(&mut self, id: SharedString, on: bool, cx: &mut Context<Self>) {
+        if on {
+            if self.card.as_ref() == Some(&id) {
+                self.card = None;
+            }
+            self._card_wait = None;
+            self.quiet_over = Some(id);
+        } else if self.quiet_over.as_ref() == Some(&id) {
+            self.quiet_over = None;
+        }
+        cx.notify();
     }
 
     /// A Job's row as Electron's Cockpit list draws it (`ListCard.tsx`, `row-view.tsx`): the title,
@@ -1503,7 +1560,8 @@ impl JobsList {
             None => token::BORDER_STRONG,
         };
         // Needs him, and not the Job open now: the row's tint breathes (`ListCard.css`).
-        let needs = row.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs) && !opened;
+        // A snoozed Job is quiet to the eye as well: its edge stays amber and nothing moves.
+        let needs = row.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs) && !opened && row.snoozed.is_none();
         let state = row.mark.filter(|_| !row.paused).map(|mark| (glyph_of(mark.state, row.pr.as_deref()), hue_of(mark.state)));
         let rail = look.length(token::BORDER_WIDTH) * 2.;
         // Pocket's tree (`pocket.css`, `.pk-guide`): each level steps in by space-6.
@@ -1584,6 +1642,20 @@ impl JobsList {
                 )
                 .into_any_element()
             });
+        // Quiet until a time: the Job works on and raises nothing to him. Beside the state, never in place of it.
+        let quiet_id = row.id.clone();
+        let quiet = row.snoozed.map(|until| {
+            let said: SharedString = crate::snooze::quiet_until(until, crate::snooze::now(), crate::settings::time::held()).into();
+            labelled(
+                div()
+                    .id(SharedString::from(format!("snoozed-{}", row.id)))
+                    .on_hover(cx.listener(move |this, on: &bool, _, cx| this.quiet_hovered(quiet_id.clone(), *on, cx)))
+                    .child(svg().path(icon_path("bell-off")).size(mark_glyph).text_color(look.color(token::FG_MUTED)))
+                    .tooltip(tip(said.clone())),
+                Role::Image,
+                said,
+            )
+        });
         let status_on = view.on("view:status");
         let marks = div()
             .flex_none()
@@ -1608,7 +1680,7 @@ impl JobsList {
                         Role::Image,
                         "Handing off",
                     ))
-                }).children(earlier_mark.take()).children(state.map(|((glyph, said), hue)| {
+                }).children(quiet).children(earlier_mark.take()).children(state.map(|((glyph, said), hue)| {
                     labelled(
                         div()
                             .id(SharedString::from(format!("state-{}", row.id)))
@@ -2390,6 +2462,7 @@ impl Render for JobsScreen {
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
                 if this.palette.update(cx, |palette, cx| palette.hotkey(&event.keystroke, window, cx))
                     || this.list.update(cx, |list, cx| list.pause_key(event, window, cx))
+                    || this.list.update(cx, |list, cx| list.snooze_key(event, window, cx))
                     || this.view.update(cx, |view, cx| view.tile_key(event, window, cx))
                     || crate::keymap::traverse(event, window, cx)
                 {

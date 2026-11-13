@@ -23,7 +23,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         *held = if scenario == "jobs-switching" { "jobs-screens" } else { scenario }.to_string();
     }
     let bytes: &[u8] = match scenario {
-        "jobs-many" | "job-view" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
+        // `jobs-snoozed` is the same Jobs with the first snoozed, on a clock of its own (`fixed_now`).
+        "jobs-many" | "jobs-snoozed" | "job-view" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with a terminal Job just started: Fleet's title for it, nothing in its thread.
         "terminal-job" => include_bytes!("../fixtures/terminal-jobs.json"),
         // The same Jobs, with one handing off and one that took an earlier Job's place, that one ended behind it.
@@ -175,6 +176,12 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             }
         }
     }
+    // The first Job needs him and is snoozed until the afternoon: it keeps its items and raises nothing.
+    if scenario == "jobs-snoozed" {
+        if let (Some(one), Some(now)) = (sessions.iter_mut().find(|one| one.id.as_str() == "mock-01"), fixed_now()) {
+            one.snoozed_until = Some(crate::snooze::instant_of((now + chrono::Duration::minutes(148)).with_timezone(&chrono::Utc)));
+        }
+    }
     // Needs you asks about the watch that ended not ours, as Fleet derives the item.
     if scenario == "job-watching" {
         for ask in watch_reads().asks {
@@ -184,6 +191,17 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         }
     }
     Ok(sessions)
+}
+
+/// The moment `jobs-snoozed` counts from, so the times a snooze names read the same on every run and in every
+/// zone: 14:02 on 13 Nov 2026, local. `None` for any other scenario, which reads the real clock.
+pub fn fixed_now() -> Option<chrono::DateTime<chrono::Local>> {
+    use chrono::TimeZone;
+    let held = SCENARIO.lock().ok()?;
+    if *held != "jobs-snoozed" {
+        return None;
+    }
+    chrono::Local.with_ymd_and_hms(2026, 11, 13, 14, 2, 0).single()
 }
 
 /// The instant `job-now` was written at, which a run moves to its own now.
