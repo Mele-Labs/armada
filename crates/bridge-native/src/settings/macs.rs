@@ -13,7 +13,7 @@ use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{CloudflareState, GatewaySetup, Mac, MacColour, MacLink, MacPairLink, PairedPhone, Served};
 
 use super::entries::Body;
-use super::gateway::Tunnel;
+use super::gateway::{Tunnel, NOT_RUNNING};
 use super::overlay::SettingsOverlay;
 use super::view::{bone, card, ghost, mono, ringed, tip};
 use crate::assets::icon_path;
@@ -48,6 +48,36 @@ pub struct MacsPage {
     /// The link's time left, drawn again each second while it is good.
     _tick: Option<Task<()>>,
     _paste: Subscription,
+    /// The card he pressed on a Mac nothing was set up on; the setup runs on from it by itself.
+    lead: Option<Lead>,
+    /// `POST /phone`'s refusal.
+    phone_said: Option<String>,
+    /// The setup pressed Set up tunnel itself, once.
+    tunnel_asked: bool,
+    /// Pair with a link instead was pressed.
+    by_link: bool,
+}
+
+/// The two ways a Mac nothing is set up on starts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Lead {
+    /// Pair with a Mac that's set up.
+    Find,
+    /// Set up this Mac first.
+    SetUp,
+}
+
+/// What the page draws.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Part {
+    /// Nothing is set up, and nothing pressed: the two cards.
+    Cards,
+    /// This Mac's setup, its steps ticking off.
+    Steps,
+    /// This Mac is set up and no other Mac has turned up yet.
+    Waiting,
+    /// This Mac, its tunnel and every device.
+    Page,
 }
 
 /// Where the keys wait while the control they were on goes: the Devices list itself.
@@ -84,6 +114,49 @@ impl MacsPage {
             _reads: Vec::new(),
             _tick: None,
             _paste: sub,
+            lead: None,
+            phone_said: None,
+            tunnel_asked: false,
+            by_link: false,
+        }
+    }
+
+    /// Another Mac is on the list: paired, or a pairing waiting on a Confirm.
+    fn others(&self) -> bool {
+        matches!(&self.macs, Some(Ok(macs)) if macs.iter().any(|mac| !mac.this_mac))
+    }
+
+    /// Nothing is set up: the Gateway does not answer, or it answers with no way in and no other Mac.
+    fn bare(&self) -> bool {
+        match &self.setup {
+            None => false,
+            Some(Err(_)) => true,
+            Some(Ok(setup)) => matches!(setup.cloudflare, CloudflareState::Missing | CloudflareState::SignedOut | CloudflareState::NoTunnel { .. }) && setup.served != Served::Funnel && !self.others(),
+        }
+    }
+
+    fn runs(&self) -> bool {
+        matches!(self.cloudflare(), Some(CloudflareState::Running { .. }))
+    }
+
+    /// The tunnel's setup stopped: its press was refused, or the sign-in made no tunnel.
+    fn stuck(&self) -> Option<&str> {
+        self.said.as_deref().or(match self.cloudflare() {
+            Some(CloudflareState::NoTunnel { why: Some(why) }) => Some(why.as_str()),
+            _ => None,
+        })
+    }
+
+    fn part(&self) -> Part {
+        let Some(lead) = self.lead else { return if self.bare() { Part::Cards } else { Part::Page } };
+        if self.others() {
+            return Part::Page;
+        }
+        match lead {
+            // Finding a Mac waits for one however this Mac's tunnel went: the link still pairs them.
+            Lead::Find if self.phone_said.is_none() && (self.runs() || self.stuck().is_some()) => Part::Waiting,
+            Lead::SetUp if self.runs() => Part::Page,
+            _ => Part::Steps,
         }
     }
 
@@ -233,16 +306,23 @@ impl SettingsOverlay {
             let again = this
                 .update_in(cx, |this, window, cx| {
                     let runs = matches!(answer, Ok(GatewaySetup { cloudflare: CloudflareState::Running { .. }, .. }));
-                    let held = ["setup", "sign-in", "copy"].into_iter().filter_map(|name| this.macs.keys.get(name)).any(|focus| focus.is_focused(window));
+                    let held = this.macs.keys.values().any(|focus| focus.is_focused(window));
                     this.macs.setup = Some(answer);
+                    this.lead_on(window, cx);
+                    // While a setup leads, the list is read each round too, so a Mac that turns up is drawn.
+                    let leads = this.macs.lead.is_some() && !this.macs.others();
+                    if leads {
+                        this.read_devices(cx);
+                    }
+                    this.macs_keys(cx);
                     if held && !this.macs_stops().iter().any(|focus| focus.is_focused(window)) {
-                        let press = this.macs.cloudflare().and_then(|state| this.macs.keys.get(press_of(state)?)).or_else(|| this.macs.keys.get(AT_REST)).cloned();
-                        if let Some(press) = press {
+                        let press = if this.macs.part() == Part::Page { this.macs.cloudflare().and_then(|state| this.macs.keys.get(press_of(state)?)).cloned() } else { this.macs_stops().first().cloned() };
+                        if let Some(press) = press.or_else(|| this.macs.keys.get(AT_REST).cloned()) {
                             window.focus(&press, cx);
                         }
                     }
                     cx.notify();
-                    !runs
+                    !runs || leads
                 })
                 .unwrap_or(false);
             if !again {
@@ -257,9 +337,43 @@ impl SettingsOverlay {
         }));
     }
 
+    /// A card pressed: `POST /phone {on: true}`, then the setup reads the Gateway and runs on by itself.
+    fn start_setup(&mut self, lead: Lead, window: &mut Window, cx: &mut Context<Self>) {
+        let page = &mut self.macs;
+        page.lead = Some(lead);
+        page.phone_said = None;
+        page.said = None;
+        page.tunnel_asked = false;
+        page.by_link = false;
+        let press = self.wire.phone_on(cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = press.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                match answer {
+                    Ok(_) => this.read_setup(window, cx),
+                    Err(refused) => this.macs.phone_said = Some(refused.said),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// The setup's next press, made for him: Set up tunnel, once the Gateway answers and no tunnel runs.
+    fn lead_on(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.macs.lead.is_none() || self.macs.tunnel_asked {
+            return;
+        }
+        if matches!(self.macs.cloudflare(), Some(CloudflareState::Missing | CloudflareState::SignedOut | CloudflareState::NoTunnel { .. } | CloudflareState::Down { .. })) {
+            self.macs.tunnel_asked = true;
+            self.set_up_tunnel(window, cx);
+        }
+    }
+
     /// Keys for each control, made before they are drawn.
     pub(super) fn macs_keys(&mut self, cx: &mut Context<Self>) {
-        let mut names: Vec<String> = ["setup", "sign-in", "copy", "pair", "copy-link", "claim"].into_iter().map(String::from).collect();
+        let mut names: Vec<String> = ["setup", "sign-in", "copy", "pair", "copy-link", "claim", "find", "set-up", "again", "by-link"].into_iter().map(String::from).collect();
         if let Some(Ok(macs)) = &self.macs.macs {
             names.extend(macs.iter().filter_map(|mac| press_of_mac(mac).map(|(act, _)| format!("{act}:{}", mac.id))));
         }
@@ -277,6 +391,36 @@ impl SettingsOverlay {
         let page = &self.macs;
         let key = |name: &str| page.keys.get(name).cloned();
         let mut stops = Vec::new();
+        match page.part() {
+            Part::Cards => {
+                stops.extend(key("find"));
+                stops.extend(key("set-up"));
+                return stops;
+            }
+            Part::Steps => {
+                if matches!(page.cloudflare(), Some(CloudflareState::SigningIn { .. })) {
+                    stops.extend(key("sign-in"));
+                }
+                if page.phone_said.is_some() || page.stuck().is_some() {
+                    stops.extend(key("again"));
+                }
+                return stops;
+            }
+            Part::Waiting => {
+                if !page.by_link {
+                    stops.extend(key("by-link"));
+                    return stops;
+                }
+                stops.extend(key("pair"));
+                if page.link.is_some() {
+                    stops.extend(key("copy-link"));
+                }
+                stops.push(page.paste_focus.clone());
+                stops.extend(key("claim"));
+                return stops;
+            }
+            Part::Page => {}
+        }
         if page.funnel_row().is_some() {
             stops.extend(key("copy"));
         }
@@ -332,6 +476,18 @@ impl SettingsOverlay {
                 }
             }
             "claim" => self.claim(window, cx),
+            "find" => self.start_setup(Lead::Find, window, cx),
+            "set-up" => self.start_setup(Lead::SetUp, window, cx),
+            "again" => {
+                if let Some(lead) = self.macs.lead {
+                    self.start_setup(lead, window, cx);
+                }
+            }
+            "by-link" => {
+                self.macs.by_link = true;
+                window.focus(&self.macs.paste_focus.clone(), cx);
+                cx.notify();
+            }
             _ => {
                 if let Some(id) = name.strip_prefix("unpair:") {
                     self.unpair(id.to_string(), window, cx);
@@ -510,6 +666,10 @@ impl SettingsOverlay {
                         if let (Tunnel::SignIn(login), Some(Ok(setup))) = (&made, this.macs.setup.as_mut()) {
                             setup.cloudflare = CloudflareState::SigningIn { login: login.clone() };
                         }
+                        // A setup that leads opens Cloudflare's sign-in page itself.
+                        if let (Tunnel::SignIn(login), Some(_)) = (&made, this.macs.lead) {
+                            this.wire.open_link(login, cx);
+                        }
                         if let Some(focus) = matches!(made, Tunnel::SignIn(_)).then(|| this.macs.keys.get("sign-in").cloned()).flatten() {
                             window.focus(&focus, cx);
                         }
@@ -545,7 +705,106 @@ impl SettingsOverlay {
     // ---- drawn --------------------------------------------------------------------------------
 
     pub(super) fn render_macs(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Vec<AnyElement> {
-        vec![self.this_mac_card(look), self.tunnel_card(look, window, cx), self.devices_card(look, window, cx)]
+        match self.macs.part() {
+            Part::Cards => vec![self.lead_cards(look, window, cx)],
+            Part::Steps => vec![self.steps_card(look, window, cx)],
+            Part::Waiting => vec![self.waiting_card(look, window, cx)],
+            Part::Page => vec![self.this_mac_card(look), self.tunnel_card(look, window, cx), self.devices_card(look, window, cx)],
+        }
+    }
+
+    /// First open, nothing set up: the two ways to start, side by side, each one press.
+    fn lead_cards(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let one = |id: &'static str, icon: &'static str, title: &'static str, press: AnyElement| {
+            let tile = div().flex_none().size(look.length(token::SPACE_8)).rounded(look.length(token::RADIUS_MD)).bg(look.color(token::ACCENT_FAINT)).flex().items_center().justify_center().child(svg().path(icon_path(icon)).size(look.length(token::SPACE_4)).text_color(look.color(token::ACCENT)));
+            let name = div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(title);
+            let body = div()
+                .id(id)
+                .flex_1()
+                .min_w(look.length(token::SPACE_12) * 5.)
+                .flex()
+                .flex_col()
+                .items_start()
+                .gap(look.length(token::SPACE_4))
+                .p(look.length(token::PAD_CARD))
+                .rounded(look.length(token::RADIUS_LG))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .bg(look.color(token::SURFACE_CARD))
+                .child(tile)
+                .child(name)
+                .child(press);
+            labelled(body, Role::Region, title).into_any_element()
+        };
+        let heading = div().text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Connect your Macs");
+        let cards = div()
+            .flex()
+            .flex_wrap()
+            .gap(look.length(token::SPACE_4))
+            .child(one("macs-lead-find", "link", "Pair with a Mac that's set up", self.macs_button("find", "Find my Mac", Weight::Primary, false, look, window, cx)))
+            .child(one("macs-lead-set-up", "monitor", "Set up this Mac first", self.macs_button("set-up", "Set up", Weight::Secondary, false, look, window, cx)));
+        labelled(div().id("macs-connect").flex().flex_col().gap(look.length(token::SPACE_4)).child(heading).child(cards), Role::Region, "Connect your Macs").into_any_element()
+    }
+
+    /// This Mac's setup, one row a step, each ticking off as the Gateway says it is done.
+    fn steps_card(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let page = &self.macs;
+        let state = page.cloudflare();
+        let gateway_on = state.is_some();
+        let signed = matches!(state, Some(CloudflareState::NoTunnel { .. } | CloudflareState::Running { .. } | CloudflareState::Down { .. }));
+        let signing = matches!(state, Some(CloudflareState::SigningIn { .. })) || (gateway_on && !signed && page.tunnel_asked && page.said.is_none());
+        let again = || self.macs_button("again", "Try again", Weight::Ghost, false, look, window, cx);
+        let mut rows = Vec::new();
+
+        // The Gateway.
+        let (mark, name, lines, press) = match (&page.phone_said, gateway_on) {
+            (_, true) => (done(look, "macs-step-gateway"), "Gateway on", Vec::new(), None),
+            (Some(said), false) => (failed(look, "macs-step-gateway"), "Turn the Gateway on", vec![alert(look, "macs-phone-refused", said)], Some(again())),
+            (None, false) => (working(look, "macs-step-gateway"), "Turning the Gateway on", Vec::new(), None),
+        };
+        rows.push(step_row(look, mark, status_name(look, "macs-step-gateway-name", name), lines, press, true));
+
+        // Cloudflare's sign-in.
+        let stuck_here = !signed && page.said.is_some();
+        let (mark, name, lines, press) = if signed {
+            (done(look, "macs-step-sign-in"), "Signed in to Cloudflare", Vec::new(), None)
+        } else if stuck_here {
+            (failed(look, "macs-step-sign-in"), "Sign in to Cloudflare", page.said.iter().map(|said| alert(look, "macs-setup-refused", said)).collect(), Some(again()))
+        } else if signing {
+            let open = matches!(state, Some(CloudflareState::SigningIn { .. })).then(|| self.macs_button("sign-in", "Open it again", Weight::Ghost, false, look, window, cx));
+            let lines = open.is_some().then(|| caption(look, "Cloudflare's sign-in page is open in your browser.").into_any_element()).into_iter().collect();
+            (working(look, "macs-step-sign-in"), "Signing in to Cloudflare", lines, open)
+        } else {
+            (not_done(look, "macs-step-sign-in"), "Sign in to Cloudflare", Vec::new(), None)
+        };
+        rows.push(step_row(look, mark, status_name(look, "macs-step-sign-in-name", name), lines, press, false));
+
+        // The tunnel.
+        let (mark, name, lines, press) = match state {
+            Some(CloudflareState::Running { address }) => (done(look, "macs-step-tunnel"), "Tunnel made", vec![reach_line(look, "Your other Macs reach this Mac at", address).into_any_element()], None),
+            Some(CloudflareState::NoTunnel { why: Some(why) }) => (failed(look, "macs-step-tunnel"), "Make the tunnel", vec![alert(look, "macs-tunnel-why", why)], Some(again())),
+            Some(CloudflareState::NoTunnel { why: None }) if page.tunnel_asked => (working(look, "macs-step-tunnel"), "Making the tunnel", Vec::new(), None),
+            _ => (not_done(look, "macs-step-tunnel"), "Make the tunnel", Vec::new(), None),
+        };
+        rows.push(step_row(look, mark, status_name(look, "macs-step-tunnel-name", name), lines, press, false));
+
+        let rows = div().flex().flex_col().children(rows).into_any_element();
+        labelled(card(look, "settings-card-setup", "Setting up this Mac", None, vec![rows]), Role::Region, "Setting up this Mac").into_any_element()
+    }
+
+    /// This Mac is set up and no other Mac has turned up: the page reads again by itself, and a link pairs them
+    /// without the other Mac's tunnel.
+    fn waiting_card(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let page = &self.macs;
+        let line = div().flex().flex_col().gap(look.length(token::SPACE_1)).child(status_name(look, "macs-waiting", "Waiting for your other Mac")).child(caption(look, "On it, open Settings › Macs and press Set up."));
+        let mut body = vec![div().flex().items_start().gap(look.length(token::SPACE_3)).child(div().flex_none().w(look.length(token::SPACE_4)).pt(look.length(token::SPACE_1)).child(working(look, "macs-waiting-mark"))).child(line).into_any_element()];
+        if page.by_link {
+            body.push(div().flex().child(self.macs_button("pair", "Make a link", Weight::Ghost, page.out.as_deref() == Some("pair"), look, window, cx)).into_any_element());
+            body.push(self.pairing(look, window, cx));
+        } else {
+            body.push(div().flex().child(self.macs_button("by-link", "Pair with a link instead", Weight::GhostGlyph("link"), false, look, window, cx)).into_any_element());
+        }
+        labelled(card(look, "settings-card-waiting", "Your other Macs", None, body), Role::Region, "Your other Macs").into_any_element()
     }
 
     fn this_mac_card(&self, look: &Look) -> AnyElement {
@@ -655,7 +914,7 @@ impl SettingsOverlay {
                 }
             }
             (Some(macs), Some(phones)) => {
-                if let Err(said) = macs {
+                if let Some(said) = said_of(macs) {
                     rows.push(alert(look, "macs-list-refused", said));
                 }
                 for mac in macs.iter().flatten() {
@@ -677,7 +936,7 @@ impl SettingsOverlay {
                 for (key, said) in page.refused.iter().filter(|(key, _)| (key.starts_with("confirm:") || key.starts_with("forget:")) && !drawn(key)) {
                     rows.push(alert(look, SharedString::from(format!("macs-{key}-refused")), said));
                 }
-                if let Err(said) = phones {
+                if let Some(said) = said_of(phones) {
                     rows.push(alert(look, "macs-phones-refused", said));
                 }
                 for phone in phones.iter().flatten() {
@@ -753,6 +1012,8 @@ impl SettingsOverlay {
         let id = SharedString::from(format!("macs-{name}"));
         let button = match weight {
             Weight::Ghost => ghost(look, id, said, off),
+            Weight::GhostGlyph(glyph) => super::view::ghost_with(look, id, Some(glyph), said, off),
+            Weight::Secondary => super::workflow_detail::sunken_button(look, id, said, off),
             Weight::Primary => super::change_band::filled(look, id, said, off),
         };
         let button = ringed(look, button, &focus, window).track_focus(&focus).when(!off, |button| button.on_click(cx.listener(move |this, _, window, cx| this.press_macs(name, window, cx))));
@@ -763,7 +1024,31 @@ impl SettingsOverlay {
 #[derive(Clone, Copy)]
 enum Weight {
     Ghost,
+    GhostGlyph(&'static str),
+    Secondary,
     Primary,
+}
+
+/// A read's refusal to say on the page. A Gateway that does not answer is the two cards' to show, never red words.
+fn said_of<T>(read: &Result<T, String>) -> Option<&str> {
+    read.as_ref().err().map(String::as_str).filter(|said| *said != NOT_RUNNING)
+}
+
+/// A setup step's name, read out as its state.
+fn status_name(look: &Look, id: &'static str, said: &'static str) -> AnyElement {
+    labelled(div().id(id).child(step_name(look, said)), Role::Status, said).into_any_element()
+}
+
+fn done(look: &Look, id: &'static str) -> AnyElement {
+    glyph(look, id, "circle-check", look.color(token::STATUS_COMPLETED_SUCCESS), "Done")
+}
+
+fn working(look: &Look, id: &'static str) -> AnyElement {
+    glyph(look, id, "loader-circle", look.color(token::STATUS_RUNNING), "Working")
+}
+
+fn failed(look: &Look, id: &'static str) -> AnyElement {
+    glyph(look, id, "circle-x", look.color(token::STATUS_COMPLETED_FAILED), "Stopped")
 }
 
 /// One row as Classic's `.armada-phone__step`: the glyph, the name over its lines, and the press at the right.

@@ -175,6 +175,10 @@ pub struct MockGateway {
     presses: u8,
     /// Whether the sign-in's domain lookup has failed once.
     looked_up: bool,
+    /// Whether a running tunnel is found down at the next read, as when the page is opened later.
+    drops: bool,
+    /// Reads a sign-in takes.
+    sign_reads: u8,
 }
 
 /// This Mac's address under the domain the sign-in picks (`label_of` the Mac's name).
@@ -211,7 +215,21 @@ impl MockGateway {
             seen_running: false,
             presses: 0,
             looked_up: false,
+            drops: true,
+            sign_reads: 1,
         }
+    }
+
+    /// A Mac nothing is set up on: the Gateway is off, nothing serves it, and no other Mac is paired. Its setup runs
+    /// through in one go and stays up, and the sign-in takes a few reads.
+    pub fn fresh() -> MockGateway {
+        let mut gateway = MockGateway::without_funnel();
+        gateway.running = false;
+        gateway.macs.retain(|mac| mac.this_mac);
+        gateway.phones.clear();
+        gateway.drops = false;
+        gateway.sign_reads = 2;
+        gateway
     }
 
     /// A Mac Tailscale Funnel does not serve, set up in one go: the first press asks for the sign-in, and the sign-in
@@ -246,7 +264,7 @@ impl MockGateway {
                 self.setup.named = true;
                 Some(CloudflareState::Running { address: MOCK_ADDRESS.into() })
             }
-            CloudflareState::Running { address } if self.seen_running => Some(CloudflareState::Down { address: address.clone(), since, why: "Cloudflare closed the connection: the tunnel's credentials were refused.".into() }),
+            CloudflareState::Running { address } if self.seen_running && self.drops => Some(CloudflareState::Down { address: address.clone(), since, why: "Cloudflare closed the connection: the tunnel's credentials were refused.".into() }),
             CloudflareState::Running { .. } => {
                 self.seen_running = true;
                 None
@@ -276,7 +294,7 @@ impl MockGateway {
         let login = "https://dash.cloudflare.com/argotunnel?aud=&callback=https%3A%2F%2Flogin.cloudflareaccess.org%2Fmock".to_string();
         self.setup.cloudflared.get_or_insert_with(|| "2025.11.0".into());
         self.setup.cloudflare = CloudflareState::SigningIn { login: login.clone() };
-        self.signing = 1;
+        self.signing = self.sign_reads;
         Ok(Tunnel::SignIn(login))
     }
 

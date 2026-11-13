@@ -418,6 +418,16 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/models".into()), "ModelChoices", cx))
     }
 
+    /// `POST /phone {on: true}` on Fleet's socket: the Gateway starts now and at every start after.
+    pub fn phone_on(&mut self, cx: &App) -> Task<Result<ipc::PhoneGateway, Refused>> {
+        if let Wire::Mock(mock) = self {
+            mock.gateway.running = true;
+            return Task::ready(Ok(ipc::PhoneGateway { on: true, port: 8443, listening: true, why: None }));
+        }
+        let said = body(&ipc::SetPhoneGateway { on: true });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/phone".into(), said), "PhoneGateway", cx))
+    }
+
     /// `GET /admin/setup` on the Phone Gateway, which runs whether or not Fleet answers.
     pub fn gateway_setup(&mut self, cx: &App) -> Task<Result<ipc::GatewaySetup, String>> {
         match self {

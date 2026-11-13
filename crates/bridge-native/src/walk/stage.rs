@@ -123,6 +123,9 @@ impl Stage {
                 if walk.name == crate::settings::walk::NO_FUNNEL {
                     over.update(cx, |over, cx| over.without_funnel(cx));
                 }
+                if walk.name == crate::settings::walk::MACS_SETUP {
+                    over.update(cx, |over, cx| over.fresh_mac(cx));
+                }
                 if walk.name == crate::settings::walk::WAYS {
                     over.update(cx, |over, cx| over.refusing("pictures_whole", cx));
                 }
