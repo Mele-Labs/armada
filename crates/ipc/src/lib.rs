@@ -711,7 +711,7 @@ pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
 };
-pub use artifact::{ArtifactBy, ArtifactForm, ArtifactRevision, ArtifactState, JobArtifact};
+pub use artifact::{ArtifactArchived, ArtifactBy, ArtifactForm, ArtifactRef, ArtifactRevision, ArtifactState, JobArtifact, ARTIFACT_WITHDRAWN_BY};
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,

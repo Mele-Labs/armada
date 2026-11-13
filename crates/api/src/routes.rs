@@ -676,6 +676,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::hosted_sessions::get_job_artifacts::<D>),
         )
         .route(
+            "/sessions/artifacts/archive",
+            post(crate::hosted_sessions::archive_artifact::<D>),
+        )
+        .route(
+            "/sessions/artifacts/restore",
+            post(crate::hosted_sessions::restore_artifact::<D>),
+        )
+        .route(
             "/sessions/mcp/act",
             post(crate::hosted_sessions::act_on_session_mcp::<D>),
         )

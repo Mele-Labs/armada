@@ -220,7 +220,7 @@ where
 
     /// `withdraw_document`: the Job takes back a page it wrote, so it leaves his Needs you list and stops holding the
     /// plan. **The dismissal his own dismiss writes**, so a new revision lifts it, and no message goes to the Job that
-    /// made the call. The file is left as it is.
+    /// made the call. The page says `withdrawn_by` `agent`. The file is left as it is.
     pub(crate) async fn document_withdrawn(
         &self,
         caller: Option<api::Caller>,
@@ -254,6 +254,12 @@ where
             .await
             .dismiss_waiting(&id, &format!("{DOCUMENT_ITEM_PREFIX}{path}"))
             .map_err(|why| self.ledger_fault(why))?;
+        // Said on the page, so it reads `withdrawn` and his Dismiss `dismissed`. A new revision rewrites the detail.
+        if let (harness, Some(mut page)) = self.document_held(&id, &path).await? {
+            page.detail.insert(ipc::ARTIFACT_WITHDRAWN_BY.into(), "agent".into());
+            let attachment = AttachmentReport { kind: page.kind, target: page.target, detail: page.detail };
+            self.report_session(SessionReport { harness, session_id: SessionId::carried(&id), fact: SessionFact::Attached { attachment } }).await?;
+        }
         self.published_hosted(&id).await
     }
 

@@ -87,7 +87,7 @@ async fn a_withdrawn_last_falls_back_to_the_one_before() {
     sketch(&rig, &id, "Header", "20261113T100500000Z").await;
     assert_eq!(lead(&rig, &id).await, Ok(LeadPicture::Sketch { title: "Header".into() }));
 
-    rig.fleet.sketch_withdrawn_mark(id.as_str(), "sketch:Header").await;
+    rig.fleet.sketch_withdrawn_mark(id.as_str(), "sketch:Header", false).await;
     assert_eq!(lead(&rig, &id).await, Ok(image(&id, "/tmp/before.png")), "the sketch he took back is skipped");
 
     held(&rig, &id, "http://localhost:5173/", &[("form", "window"), ("shown", "2026-11-13T10:10:00.000Z")]).await;
@@ -104,7 +104,7 @@ async fn every_picture_withdrawn_is_none_to_lead_with() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     sketch(&rig, &id, "Header", "20261113T100500000Z").await;
-    rig.fleet.sketch_withdrawn_mark(id.as_str(), "sketch:Header").await;
+    rig.fleet.sketch_withdrawn_mark(id.as_str(), "sketch:Header", false).await;
     assert_eq!(lead(&rig, &id).await, Err((404, "fleet.no_lead_picture".to_string())));
 }
 
