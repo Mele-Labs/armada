@@ -114,6 +114,12 @@ impl JobView {
 
     #[allow(clippy::too_many_arguments)]
     pub(super) fn deck(&self, id: &SharedString, key: &str, questions: &[AskedQuestion], can_skip: bool, no_other: bool, source: Source, look: &Look, cx: &Context<Self>) -> Pinned {
+        self.deck_with(id, key, questions, &[], can_skip, no_other, source, look, cx)
+    }
+
+    /// A deck whose options may carry stills: those options are cards above the rows.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn deck_with(&self, id: &SharedString, key: &str, questions: &[AskedQuestion], stills: &[ipc::WaitingOption], can_skip: bool, no_other: bool, source: Source, look: &Look, cx: &Context<Self>) -> Pinned {
         let hue = look.color(token::STEP_WAITING);
         let deck = self.deck_of(id, key, questions.len());
         let front = deck.front.min(questions.len().saturating_sub(1));
@@ -167,6 +173,14 @@ impl JobView {
             .and_then(|n| question.options.get(n).filter(|option| !option.preview.is_empty()).map(|option| (n, option.preview.clone())))
             .and_then(|(n, text)| Some((page?.keys.spot(&format!("answer:{key}:{front}:{n}"), cx).bounds.get(), frame.as_ref()?.bounds.get(), text)))
             .map(|(row, frame, text)| preview_card(&text, row, frame, look));
+        // Options the asker drew as stills show them above the rows; a press on one picks it.
+        let stills_of = stills;
+        let stills = crate::option_pictures::stills(key, stills_of, deck.picked[front].first().copied(), self.port(cx), hue, look, &|n| {
+            let deck_key = key.to_string();
+            Box::new(cx.listener(move |this, _, window, cx| this.deck_pick(&deck_key, front, total, n, multi, window, cx)))
+        }, cx);
+        // A pictured option is its card above; only options in words are rows.
+        let pictured = |n: usize| stills_of.get(n).is_some_and(|option| option.picture.is_some());
         let other_on = deck.other[front];
         let other = (!no_other).then(|| {
             let deck_key = key.to_string();
@@ -264,8 +278,9 @@ impl JobView {
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_4))
+                .children(stills)
                 .child(labelled(
-                    div().id(SharedString::from(format!("options:{key}"))).flex().flex_col().gap(look.length(token::SPACE_2)).children(options).children(other),
+                    div().id(SharedString::from(format!("options:{key}"))).flex().flex_col().gap(look.length(token::SPACE_2)).children(options.into_iter().enumerate().filter(|(n, _)| !pictured(*n)).map(|(_, row)| row)).children(other),
                     Role::Group,
                     "Options",
                 ))

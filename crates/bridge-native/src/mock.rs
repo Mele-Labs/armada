@@ -53,6 +53,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "jobs-many" | "jobs-snoozed" | "job-view" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with a terminal Job just started: Fleet's title for it, nothing in its thread.
         "terminal-job" => include_bytes!("../fixtures/terminal-jobs.json"),
+        // The same Jobs, with a question whose options carry stills waiting on the first.
+        "option-pictures" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with one handing off and one that took an earlier Job's place, that one ended behind it.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff.json"),
         // The same Jobs, with a question of four long options waiting on the first.
@@ -182,6 +184,12 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     }
     if scenario == "needs-long" {
         let asked = ipc::decode::<WaitingItem>("long item", NEEDS_LONG_ASK.as_bytes()).map_err(|why| why.to_string())?;
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
+            one.waiting_for.insert(0, asked);
+        }
+    }
+    if scenario == "option-pictures" {
+        let asked = ipc::decode::<WaitingItem>("picture item", OPTION_PICTURES_ASK.as_bytes()).map_err(|why| why.to_string())?;
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
             one.waiting_for.insert(0, asked);
         }
@@ -350,6 +358,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     let bytes: &[u8] = match scenario {
         "jobs-screens" | "jobs-pairing" => return screens_threads(),
         "job-view" | "review-palette" | "terminal-job" | "new-project" => include_bytes!("../fixtures/job-threads.json"),
+        "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
         "needs-long" => include_bytes!("../fixtures/job-threads.json"),
@@ -694,6 +703,21 @@ pub fn issue(key: &str) -> Option<ipc::IssueRead> {
 /// A repository's lifecycles as `GET /lifecycles?manifest_id=` answers them.
 pub fn lifecycles(manifest: &str) -> Option<ipc::RepositoryLifecycles> {
     issue_reads()?.lifecycles.into_iter().find(|one| one.manifest_id.as_str() == manifest)
+}
+
+/// The option-pictures walk's question: two options drawn as stills with named parts, and one in words.
+const OPTION_PICTURES_ASK: &str = r#"{"id":"agent-looks","text":"Which look do the row's actions take?","since":"2026-11-09T14:03:00Z","source":"agent","options":[
+{"label":"Actions in the row","description":"Every act sits on the row; the sent state reads under it.","picture":{"image":"/sessions/shown?session_id=mock-01&path=pick-actions-a.png","width":760,"height":380,"parts":[{"name":"actions","label":"Actions","x":473,"y":134,"w":258,"h":24},{"name":"sent-state","label":"Sent state","x":29,"y":278,"w":702,"h":18}]}},
+{"label":"One act and a menu","description":"The main act stays; the rest go in a menu with a note under the row.","picture":{"image":"/sessions/shown?session_id=mock-01&path=pick-actions-b.png","width":760,"height":540,"parts":[{"name":"act-primary","label":"Main act","x":623,"y":134,"w":80,"h":24},{"name":"more-menu","label":"More menu","x":707,"y":134,"w":24,"h":24},{"name":"row-note","label":"Row note","x":29,"y":229,"w":702,"h":100},{"name":"menu","label":"Menu","x":599,"y":461,"w":132,"h":66}]}},
+{"label":"Keep today's row","description":"Nothing changes."}]}"#;
+
+/// A still the option-pictures walk's question shows, as `GET /sessions/shown` serves it.
+pub fn shown_still(image: &str) -> Option<&'static [u8]> {
+    match image.rsplit('=').next()? {
+        "pick-actions-a.png" => Some(include_bytes!("../fixtures/pictures/pick-actions-a.png")),
+        "pick-actions-b.png" => Some(include_bytes!("../fixtures/pictures/pick-actions-b.png")),
+        _ => None,
+    }
 }
 
 /// A file of the Job's repository as `GET /sessions/repository_file` will answer it: its text, or

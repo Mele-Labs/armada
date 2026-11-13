@@ -66,7 +66,7 @@ fn body(value: &impl serde::Serialize) -> String {
 }
 
 impl Wire {
-    fn port(&self, cx: &App) -> Option<u16> {
+    pub(super) fn port(&self, cx: &App) -> Option<u16> {
         match self {
             Wire::Live(fleet) => fleet.read(cx).held().port(),
             Wire::Mock(_) => None,
