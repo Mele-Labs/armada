@@ -54,6 +54,7 @@ mod queued;
 mod restart_fleet;
 mod room;
 mod revert;
+mod reviews;
 mod runtime_file;
 mod scene;
 mod settings;

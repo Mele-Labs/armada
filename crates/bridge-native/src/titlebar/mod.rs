@@ -441,10 +441,14 @@ impl TitleBar {
 
     /// Put the open Job's Layout control and view icons in the end region, or take them out. Empty,
     /// the slot takes no room.
-    #[allow(dead_code)]
     pub fn fill_job_slot(&mut self, view: Option<AnyView>, cx: &mut Context<Self>) {
         self.job = view;
         cx.notify();
+    }
+
+    /// Whether the end region holds a screen's own control.
+    pub fn job_slot_filled(&self) -> bool {
+        self.job.is_some()
     }
 
     /// A press asked for something and Fleet refused: the face goes back to what it was, and the

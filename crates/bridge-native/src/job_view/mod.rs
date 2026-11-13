@@ -64,7 +64,7 @@ mod subagent_read;
 mod zoom;
 mod panes;
 mod pane_store;
-mod pane_tree;
+pub(crate) mod pane_tree;
 mod pulls;
 mod issues;
 mod system;
