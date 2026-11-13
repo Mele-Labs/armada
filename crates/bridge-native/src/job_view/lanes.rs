@@ -11,7 +11,7 @@ use ipc::{JobLanesView, LaneAutonomy, LaneView};
 use super::rows::{glyph, mono, Size};
 use super::JobView;
 use crate::labels::labelled;
-use crate::lanes_canvas::{clock, LanesHost, LanesState, Pick};
+use crate::lanes_canvas::{stamp, LanesHost, LanesState, Pick};
 use crate::look::{token, Look};
 
 /// The Workflow tab's state on the Job view.
@@ -214,7 +214,7 @@ impl JobView {
                                     .children(act.said.as_ref().map(|why| small(div().mb(look.length(token::SPACE_1)).text_color(look.color(token::FG_SUBTLE))).child(SharedString::from(why.clone())))),
                             )
                             .child(mono_fact(if act.course == LaneAutonomy::Asks { "Asks".into() } else { "Acts".into() }))
-                            .child(mono_fact(clock(&act.at)).id(SharedString::from(format!("act-at:{}:{at}", one.instance))).tooltip(super::rows::tip("Time")))
+                            .child(mono_fact(stamp(&act.at)).id(SharedString::from(format!("act-at:{}:{at}", one.instance))).tooltip(super::rows::tip("Time")))
                             .into_any_element()
                     })
                     .collect();
