@@ -101,12 +101,10 @@ impl Pairing {
     /// the owner confirms; the id signs nothing before then.
     pub fn claim(&self, code: &str, name: &str, spki_hex: &str) -> Result<String, PairRefused> {
         let now = (self.clock)();
-        let mut memory = self.memory.lock().unwrap();
-        memory.pair_attempts.retain(|t| *t > now - 60);
-        if memory.pair_attempts.len() >= PAIR_PER_MINUTE {
+        if !self.attempt(now) {
             return Err(PairRefused::TooMany);
         }
-        memory.pair_attempts.push(now);
+        let mut memory = self.memory.lock().unwrap();
         let public_key = from_hex(spki_hex).ok_or(PairRefused::BadKey)?;
         crate::signing::verifying_key(&public_key).ok_or(PairRefused::BadKey)?;
         let name = name.trim();
@@ -121,6 +119,17 @@ impl Pairing {
             }
             _ => Err(PairRefused::BadCode),
         }
+    }
+
+    /// Counts one unsigned pairing request, a phone's or another Mac's. `false` past the minute's share.
+    pub(crate) fn attempt(&self, now: i64) -> bool {
+        let mut memory = self.memory.lock().unwrap();
+        memory.pair_attempts.retain(|t| *t > now - 60);
+        if memory.pair_attempts.len() >= PAIR_PER_MINUTE {
+            return false;
+        }
+        memory.pair_attempts.push(now);
+        true
     }
 
     /// Codes a phone has claimed that nobody has confirmed: code, name, when claimed.
@@ -176,7 +185,7 @@ impl Pairing {
 }
 
 /// 128 random bits as 32 hex characters, from the operating system.
-fn random_hex() -> Result<String, String> {
+pub(crate) fn random_hex() -> Result<String, String> {
     use std::io::Read;
     let mut bytes = [0u8; 16];
     std::fs::File::open("/dev/urandom")
