@@ -391,6 +391,7 @@ impl Held {
                 Signal::JobsFailed(why) => lines.push(Note::warn("jobs could not be read").field("why", why)),
                 Signal::Preferences(preferences) => {
                     crate::ways::hold(&preferences);
+                    crate::listen::hold(&preferences);
                     if self.theme.as_deref() != Some(preferences.theme.as_str()) {
                         lines.push(Note::info("theme preference read").field("theme", preferences.theme.as_str()));
                     }

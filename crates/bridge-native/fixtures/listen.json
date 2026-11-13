@@ -1,0 +1,259 @@
+{
+ "preferences": {
+  "where_things_are_open": false,
+  "take_in": "listen",
+  "listen_voice": "com.apple.voice.premium.en-US.Zoe"
+ },
+ "voices": [
+  {
+   "id": "com.apple.voice.premium.en-US.Zoe",
+   "name": "Zoe",
+   "quality": "premium"
+  },
+  {
+   "id": "com.apple.voice.compact.en-US.Samantha",
+   "name": "Samantha",
+   "quality": "default"
+  }
+ ],
+ "scenes": {
+  "job-ends": {
+   "ahead_secs": 6,
+   "jobs": [
+    {
+     "id": "mock-02",
+     "done_since": "2026-11-13T10:05:00Z",
+     "done_summary": "Settings opens in its own window, and every key still reaches it. A walk is waiting."
+    }
+   ]
+  },
+  "asks": {
+   "finish": true,
+   "ahead_secs": 2,
+   "jobs": [
+    {
+     "id": "mock-01",
+     "waiting_for": [
+      {
+       "id": "ask:call-1",
+       "text": "What happens to the old endpoint?",
+       "since": "2026-11-13T10:01:00Z",
+       "source": "ask_card",
+       "act": {
+        "kind": "answer",
+        "target": "call-1"
+       },
+       "options": [
+        {
+         "label": "Keep it a week"
+        },
+        {
+         "label": "Remove it now"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "asks-more": {
+   "jobs": [
+    {
+     "id": "mock-01",
+     "waiting_for": [
+      {
+       "id": "ask:call-1",
+       "text": "What happens to the old endpoint?",
+       "since": "2026-11-13T10:01:00Z",
+       "source": "ask_card",
+       "act": {
+        "kind": "answer",
+        "target": "call-1"
+       },
+       "options": [
+        {
+         "label": "Keep it a week"
+        },
+        {
+         "label": "Remove it now"
+        }
+       ]
+      },
+      {
+       "id": "ask:call-2",
+       "text": "Remove the old tests too?",
+       "since": "2026-11-13T10:02:00Z",
+       "source": "ask_card",
+       "act": {
+        "kind": "answer",
+        "target": "call-2"
+       },
+       "options": [
+        {
+         "label": "Yes"
+        },
+        {
+         "label": "No"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "first-ends": {
+   "finish": true,
+   "ahead_secs": 2
+  },
+  "helper-missing": {
+   "finish": true,
+   "missing": true,
+   "jobs": [
+    {
+     "id": "mock-01",
+     "waiting_for": [
+      {
+       "id": "ask:call-1",
+       "text": "What happens to the old endpoint?",
+       "since": "2026-11-13T10:01:00Z",
+       "source": "ask_card",
+       "act": {
+        "kind": "answer",
+        "target": "call-1"
+       },
+       "options": [
+        {
+         "label": "Keep it a week"
+        },
+        {
+         "label": "Remove it now"
+        }
+       ]
+      },
+      {
+       "id": "ask:call-2",
+       "text": "Remove the old tests too?",
+       "since": "2026-11-13T10:02:00Z",
+       "source": "ask_card",
+       "act": {
+        "kind": "answer",
+        "target": "call-2"
+       },
+       "options": [
+        {
+         "label": "Yes"
+        },
+        {
+         "label": "No"
+        }
+       ]
+      },
+      {
+       "id": "ask:call-3",
+       "text": "Archive the old logs?",
+       "since": "2026-11-13T10:03:00Z",
+       "source": "ask_card",
+       "act": {
+        "kind": "answer",
+        "target": "call-3"
+       },
+       "options": [
+        {
+         "label": "Yes"
+        },
+        {
+         "label": "No"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "read": {
+   "preferences": {
+    "where_things_are_open": false
+   },
+   "missing": false,
+   "jobs": [
+    {
+     "id": "mock-01",
+     "waiting_for": [
+      {
+       "id": "ask:call-1",
+       "text": "What happens to the old endpoint?",
+       "since": "2026-11-13T10:01:00Z",
+       "source": "ask_card",
+       "act": {
+        "kind": "answer",
+        "target": "call-1"
+       },
+       "options": [
+        {
+         "label": "Keep it a week"
+        },
+        {
+         "label": "Remove it now"
+        }
+       ]
+      },
+      {
+       "id": "ask:call-2",
+       "text": "Remove the old tests too?",
+       "since": "2026-11-13T10:02:00Z",
+       "source": "ask_card",
+       "act": {
+        "kind": "answer",
+        "target": "call-2"
+       },
+       "options": [
+        {
+         "label": "Yes"
+        },
+        {
+         "label": "No"
+        }
+       ]
+      },
+      {
+       "id": "ask:call-3",
+       "text": "Archive the old logs?",
+       "since": "2026-11-13T10:03:00Z",
+       "source": "ask_card",
+       "act": {
+        "kind": "answer",
+        "target": "call-3"
+       },
+       "options": [
+        {
+         "label": "Yes"
+        },
+        {
+         "label": "No"
+        }
+       ]
+      },
+      {
+       "id": "ask:call-4",
+       "text": "Delete the old docs?",
+       "since": "2026-11-13T10:04:00Z",
+       "source": "ask_card",
+       "act": {
+        "kind": "answer",
+        "target": "call-4"
+       },
+       "options": [
+        {
+         "label": "Yes"
+        },
+        {
+         "label": "No"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

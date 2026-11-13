@@ -34,6 +34,11 @@ pub const AIR_JOBS: [&str; 3] = ["mock-01", "mock-04", "mock-06"];
 /// The Job the pairing walk's `session.removed` names.
 pub const AIR_REMOVED: &str = "mock-06";
 
+/// Whether the scenario last named is this one.
+pub fn scenario_is(name: &str) -> bool {
+    SCENARIO.lock().is_ok_and(|named| named.as_str() == name)
+}
+
 /// The Jobs of a named scenario, as `GET /sessions` would answer them.
 pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if let Ok(mut held) = SCENARIO.lock() {
@@ -107,6 +112,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // One Job with four things waiting on him, taken in as pictures: a question asked in three pictures, a sketch, a walk of
         // four stops and a command of three steps; and one that said it is done, whose last picture is a sketch.
         "ways-look" => include_bytes!("../fixtures/ways-look.json"),
+        // Two Jobs for Listen: one that ends, one that asks.
+        "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
         "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
@@ -360,6 +367,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
         "ways-buttons" => include_bytes!("../fixtures/ways-buttons-threads.json"),
         "ways-look" => include_bytes!("../fixtures/ways-look-threads.json"),
+        "ways-listen" => include_bytes!("../fixtures/listen-threads.json"),
         "tool-rows" => include_bytes!("../fixtures/tools-threads.json"),
         // The tool-rows threads, with the finished Job's retro being written and Search for the queue asking with previews.
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),

@@ -129,6 +129,9 @@ pub enum Verb {
     /// The window takes this many points across, its height kept, as a person narrows it. Nothing
     /// puts it back: a walk narrows it at its end.
     Width(u32),
+    /// A scene of the Listen walk: what Fleet says about the Jobs changes (`listen/scenes.rs`), and what is new is
+    /// read out by the stand-in speaker. A scene changes data and presses nothing.
+    Listen(&'static str),
     /// The window takes at least this many points across: a narrower one widens and a wider one is
     /// left as it is. A walk of the wide title bar opens with it, so it plays the bar it shows at
     /// any width; the narrow bar has its own steps.
@@ -2340,6 +2343,27 @@ pub static WALKS: &[Walk] = &[
             step("⌥⌘A turns annotating on over Settings", Verb::Key("alt-cmd-a"), "status", "Annotating"),
             step("The pointer on a page of Settings outlines it, not the Job under the overlay", Verb::Hover, "button", "Workflows"),
             step("A press on it opens the note, headed with where it is", Verb::PressOn("button", "Workflows"), "label", "Settings › Kit › Button · Workflows"),
+        ],
+    },
+    Walk {
+        name: "native-ways-listen",
+        title: "Listen: Jobs read out loud",
+        screen: Screen::Jobs,
+        scenario: "ways-listen",
+        steps: &[
+            step("A Job that ended: a press on its row opens its thread", Verb::Press, "row", "Settings window"),
+            Step { say: "Its done summary is spoken, and the card in the thread shows how far it is", verb: Verb::Listen("job-ends"), target: Target { role: "timer", name: "0:06 / 0:11" } },
+            step("The card names the voice that speaks", Verb::Look, "label", "Zoe, Premium"),
+            step("Another Job: a press on its row opens its thread", Verb::Press, "row", "Endpoint cleanup"),
+            Step { say: "A question arrives and is spoken: the Job's name, the question, then its options", verb: Verb::Listen("asks"), target: Target { role: "timer", name: "0:02 / 0:08" } },
+            Step { say: "A second question waits behind it and is not spoken yet", verb: Verb::Listen("asks-more"), target: Target { role: "img", name: "Queued" } },
+            step("Pause stops the line where it is", Verb::OpenIn("Endpoint cleanup asks: What happens to the old endpoint? Keep it a week or remove it now?", "Pause"), "button", "Play"),
+            step("Play says it again from its start", Verb::OpenIn("Endpoint cleanup asks: What happens to the old endpoint? Keep it a week or remove it now?", "Play"), "button", "Pause"),
+            Step { say: "When the first ends the second is spoken, and the two never overlap", verb: Verb::Listen("first-ends"), target: Target { role: "timer", name: "0:02 / 0:05" } },
+            step("Again says the first card once more, and the second goes back behind it", Verb::OpenIn("Endpoint cleanup asks: What happens to the old endpoint? Keep it a week or remove it now?", "Again"), "timer", "0:00 / 0:08"),
+            Step { say: "Without Armada Voice the words stay and a fact says why", verb: Verb::Listen("helper-missing"), target: Target { role: "status", name: "Armada Voice is missing" } },
+            Step { say: "With take in set to read, a new question is not spoken and has no card", verb: Verb::Listen("read"), target: Target { role: "region", name: "Thread" } },
+            step("No card is drawn for it", Verb::Absent("article", "Endpoint cleanup asks: Delete the old docs? Yes or No?"), "region", "Thread"),
         ],
     },
     Walk {

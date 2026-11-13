@@ -485,6 +485,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Left, at, window, cx);
             Ok(())
         }
+        Verb::Listen(name) => crate::job_view::listen_scene(name, cx).map_err(Missed),
         Verb::Marks(name) => {
             // A scene is a jump: the keys go back to the screen first, so a chip or a card the scene
             // takes away does not leave them on nothing.
