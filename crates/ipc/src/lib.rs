@@ -34,6 +34,8 @@ mod amending;
 /// The build Fleet runs on, where it stands against `main`, and the request that
 /// moves it. **Fleet-wide, and not a Job's field.**
 mod building;
+/// The branches Jobs offer for the owner's preview, and the Refresh row built from them.
+mod preview;
 /// A scout's run, as its Finding records it, and the acts that start and stop one.
 /// `#1292`.
 mod capturing;
@@ -355,6 +357,10 @@ pub use building::{
     BuildPosition, BuildSource, BuildStage, BuildSwitcher, RestartAct, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept,
     FleetBuildReport, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, KeptBuildPrevious,
     KeptBuildRunning, KeptSnapshot, LeftOutBranch, PickFleetBuildJob, PickedJob, SnapshotState,
+};
+pub use preview::{
+    OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
+    PreviewWithdrawn, SkipPreviewRefresh, WithdrawPreview,
 };
 pub use capturing::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureStudioNote,

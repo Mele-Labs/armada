@@ -189,6 +189,8 @@ pub struct Fleet<H, V, W> {
     /// When `origin main` was last fetched, for `get_fleet_build`. Nothing else
     /// of the build is held: the files `scripts/restart` leaves are the record.
     building: crate::building::Building,
+    /// The offers' check, one at a time, and what was last said of them. Never written down: the offers are in the store — `crate::previewing`.
+    previewing: crate::previewing::Previewing,
     /// The mod list as last published. Never written down: a rescan after a
     /// restart sets it again from the folder, and says nothing for doing so.
     mods: crate::mods::Told,

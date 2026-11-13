@@ -585,6 +585,24 @@ pub trait Sessions: Send + Sync + 'static {
         defer: ipc::DeferLater,
     ) -> impl Future<Output = Result<ipc::LaterDeferred, Refusal>> + Send;
 
+    /// `offer_preview` — the Job offers a branch for the owner's preview. `caller` places a hosted session as
+    /// `all_done`'s does. [`Refusal::Unacceptable`] for a Job with no branch to offer, a branch the repository does
+    /// not hold or that is not ahead of main, an `about` missing or too long, a repository with no `scripts/preview`,
+    /// or a call that places no session.
+    fn offer_preview(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        offer: ipc::OfferPreview,
+    ) -> impl Future<Output = Result<ipc::PreviewOffered, Refusal>> + Send;
+
+    /// `withdraw_preview` — the Job takes an offer back. [`Refusal::NotFound`] where it has none for that
+    /// branch; [`Refusal::Unacceptable`] where the call names no branch and places none.
+    fn withdraw_preview(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        withdraw: ipc::WithdrawPreview,
+    ) -> impl Future<Output = Result<ipc::PreviewWithdrawn, Refusal>> + Send;
+
     /// `settle_later` — a follow-up the session kept for later is settled as done, filed or dropped,
     /// by the agent or by the person. `caller` places a hosted session as `all_done`'s does.
     /// [`Refusal::Unacceptable`] for a filed with no issue, an agent's drop with no reason, or a call

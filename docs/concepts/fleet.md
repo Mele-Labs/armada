@@ -546,16 +546,44 @@ What each job was last told of each branch is kept in `build_branch_notices`: th
 **A branch is in the build, not in it, or in it up to a commit.** Counted from the branch's own commits past `origin/main`, so a newer main merged into it is not counted as its own: all of them in the build, none, or some, naming the newest the build holds and how many since it are not.
 `main` and a branch with nothing of its own are not mentioned.
 
-**A left-out branch that moves is offered a refresh, never refreshed.** On the same sweep Fleet compares each branch in `Armada/preview-left-out` with the tip it was left out at.
-A moved tip is offered once, as a Needs you item on the Job holding the branch: a `run` item for `scripts/preview --restart`, source `preview_offer`, with Skip beside it.
-Skip hides it for that tip, and a newer push offers again.
-A branch left out for a breaking migration is not offered: it can only come back by landing on `main`.
-A moved branch with no live Job gets no item, only a moved mark (`Moved since it was left out`) on the Fleet panel's left-out row, beside Refresh preview.
-The offer is kept in the store, so a Fleet restart does not repeat it, and it goes when the preview rebuilds.
+**A left-out branch that moves is no longer offered a refresh.** Fleet raised a Needs you item of source `preview_offer` for it until 13 Nov 2026; the Jobs' own offers, below, replaced it.
+A moved branch is still marked on the Fleet panel's left-out row (`Moved since it was left out`), beside Refresh preview.
 Fleet never starts a restart the owner did not press for.
 
 **Each notice is told once per build, and a restart does not repeat it.** The store keeps (build commit, job).
 A job that cannot be told now is asked again at the next reading and nothing is kept for it, and its wait stands until it is.
+
+### Offering a branch for the preview
+
+**A Job says which branch is ready to be tried, and Fleet checks the offers together before the owner refreshes.** `offer_preview` keeps one offer a (Job, branch) at the tip the branch stands at, with one line on what it holds (`about`, at most 120 characters, required on the first offer and kept on a re-offer).
+`withdraw_preview` takes it back.
+Without a `branch`, the call names the one branch the Job holds a slot on.
+It is refused, 422, for a Job holding no branch and naming none, a branch the repository lacks or that is not ahead of main, an `about` missing or too long, and a repository with no `scripts/preview`.
+Only this repository has one.
+
+**One check at a time, for the whole Fleet, in one kept worktree** at `<checkout>/.armada/preview-check`, made once and moved onto each merged commit.
+Triggers that arrive during a check run it once more afterwards.
+The check runs on an offer, a re-offer, a withdrawal and a move of `origin/main`.
+Each offer is merged on the side with `git merge-tree`, main first and then each tip in the order offered; a conflict fails the offer that brought it in, with the files.
+What the merged tree changes against main decides what is compiled:
+
+| Changed | Compiled |
+|---|---|
+| `crates/` outside `bridge-native`, `xtask/`, a `Cargo.*` | `cargo check --workspace` |
+| `crates/bridge-native`, `crates/ipc`, `packages/tokens` | `cargo check` of the native Bridge |
+| `apps/`, `packages/` | the TypeScript typecheck (`pnpm typecheck`) |
+
+All the offers are tried at once.
+Where that fails they are tried one at a time, each on top of main and the offers that passed, and only the offer that breaks is `failed`, with the first compiler error as `why` and the files the errors name.
+Every compile runs at utility priority.
+
+**The Job is told a result once a (branch, tip, state)**, in `told_news_by_fleet`'s voice and as `build_moved`: on the list at a tip, off it with why and the files, or that its tip moved so it is off it.
+Fleet drops an offer on the sweep when its branch moved (the Job is told), its tip is on main, or its Job has ended (nothing is said).
+
+**`Armada/preview-offered` is what `scripts/preview` reads.** Written whole and renamed into place each time the set of ready offers changes: a line `<branch>`, `<tip>`, `<session id>`, `<about>` separated by tabs for each ready offer, oldest first, and an empty file for none.
+**`get_preview_offers` is what Bridge draws**: every offer with its state, and one Refresh row while a ready offer is not in the running build (`in_build` reads `Armada/preview-held`).
+The row's id hashes the ready set, `skip_preview_refresh` keeps it, and a different set brings the row back.
+`preview_offers.changed` carries the answer whole.
 
 ### Restarting Fleet
 
