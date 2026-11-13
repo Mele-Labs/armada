@@ -213,6 +213,13 @@ pub fn start_queued(idea: crate::queued::QueuedIdea, cx: &mut App) {
     reach(cx, move |this, window, cx| this.start_queued(idea, window, cx));
 }
 
+/// How a send of notes ended: into a Job, a new Job with the notes sent, or a dispatch the Operator holds.
+enum Sent {
+    Into { session: String, title: String },
+    Started { session: String, title: String },
+    Kept { dispatch: String, title: String },
+}
+
 /// The words are the Job's first message, as Electron's Start sends them once the Job exists.
 fn first_message(port: u16, id: String, text: String, mentions: Vec<SessionTag>, cx: &mut App) {
     let body = ipc::encode(&ipc::SendSessionMessageBody {
@@ -734,26 +741,40 @@ impl DispatchScreen {
         let words = notes.join("\n");
         let list = self.jobs.read(cx).list.clone();
         let task = cx.background_spawn(async move {
-            let (session, title, new_job) = match (to, manifest) {
-                (Some(job), _) => (job.id.to_string(), job.title.to_string(), false),
-                (None, Some(manifest)) => {
-                    let (id, title) = annotate::live::start(port, manifest, words).map_err(|why| ("a new Job".to_string(), why))?;
-                    (id, title, true)
+            match (to, manifest) {
+                (Some(job), _) => {
+                    let title = job.title.to_string();
+                    annotate::live::deliver(port, job.id.as_ref(), outgoing, ink).map_err(|why| (title.clone(), why))?;
+                    Ok::<_, (String, String)>(Sent::Into { session: job.id.to_string(), title })
                 }
-                (None, None) => return Err(("a new Job".to_string(), "no repository".to_string())),
-            };
-            annotate::live::deliver(port, &session, outgoing, ink).map_err(|why| (title.clone(), why))?;
-            Ok::<_, (String, String)>((session, title, new_job))
+                (None, Some(manifest)) => match annotate::live::dispatch(port, manifest, words, outgoing, ink).map_err(|why| ("a new Job".to_string(), why))? {
+                    annotate::live::Dispatched::Started { id, title } => Ok(Sent::Started { session: id, title }),
+                    annotate::live::Dispatched::Kept { id, title } => Ok(Sent::Kept { dispatch: id, title }),
+                },
+                (None, None) => Err(("a new Job".to_string(), "no repository".to_string())),
+            }
         });
         cx.spawn_in(window, async move |_, cx| {
             let answer = task.await;
             let _ = cx.update(|_, cx| match answer {
-                Ok((session, title, new_job)) => {
+                Ok(Sent::Into { session, title }) => {
                     layer.update(cx, |layer, cx| {
                         layer.sending_to(session.clone().into());
-                        layer.sent(&title, new_job, cx);
+                        layer.sent(&title, false, cx);
                     });
                     list.update(cx, |list, cx| list.open(session.into(), cx));
+                }
+                Ok(Sent::Started { session, title }) => {
+                    layer.update(cx, |layer, cx| {
+                        layer.sending_to(session.clone().into());
+                        layer.sent(&title, true, cx);
+                    });
+                    list.update(cx, |list, cx| list.open(session.into(), cx));
+                }
+                // The Operator holds the work: the notes are sent, and he stays where he was; the toast says what became of it.
+                Ok(Sent::Kept { dispatch, title }) => {
+                    crate::toasts::dispatch_held(&dispatch, &title, cx);
+                    layer.update(cx, |layer, cx| layer.sent(&title, true, cx));
                 }
                 Err((title, why)) => {
                     layer.update(cx, |layer, cx| layer.refused(&title, &why, cx));
