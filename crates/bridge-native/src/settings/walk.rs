@@ -1,6 +1,7 @@
 //! `native-settings`: the overlay opened each way, searched, and each kind of control used, on the mock Fleet in
 //! `mock.rs`. Its rows are Classic's mock settings, so the shots compare against Classic's on the same values.
 
+use super::gateway::MOCK_OTHER_LINK;
 use crate::walk::{Step, Target, Verb};
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
@@ -244,6 +245,24 @@ pub static STEPS: &[Step] = &[
     step("Devices: each Mac with its colour and build, and how its link stands", Verb::Look, "img", "Linked"),
     step("A build's short hash says what it is under the pointer", Verb::Hover, "label", "Build 1d199a1"),
     step("Its tooltip says so", Verb::Later(800), "label", "Build 1d199a1"),
+    step("Every Mac's build says so, as this one's does", Verb::Hover, "label", "Build 2930ac0"),
+    step("Its tooltip says so", Verb::Later(800), "label", "Build 2930ac0"),
+    step("A Mac that is asleep is dimmed, says why under its name, and its mark says since when", Verb::Hover, "img", "Asleep since Nov 12 9:12 AM"),
+    step("Its tooltip says so, to the minute", Verb::Later(800), "img", "Asleep since Nov 12 9:12 AM"),
+    step("A Mac that claimed this one's link waits for Confirm here", Verb::Look, "button", "Confirm Mac Pro"),
+    step("One that this Mac claimed says where to press Confirm, and has no press here", Verb::Look, "img", "Confirm on MacBook Air"),
+    press_on("Pair a Mac makes a link for the other Mac, with its time left", "button", "Pair a Mac", "button", "Copy link"),
+    press_on("Copy link puts it on the clipboard", "button", "Copy link", "button", "Copy link"),
+    step("On the other Mac, the link goes in the box", Verb::Type("hello"), "textbox", "Paste the link from your other Mac"),
+    press_on("Words that are not a link: Claim says why under it, as the Gateway said it", "button", "Claim", "alert", "This is not a pairing link from another Mac. Copy it again from Settings, Macs on that Mac."),
+    step("A press in the box gives it the keys", Verb::Press, "textbox", "Paste the link from your other Mac"),
+    step("⌘A takes what is in it", Verb::Keys(&["cmd-a"]), "textbox", "Paste the link from your other Mac"),
+    step("The other Mac's link goes in its place", Verb::Typed(MOCK_OTHER_LINK), "textbox", "Paste the link from your other Mac"),
+    step("Enter claims it: that Mac joins the list, and says to press Confirm on it", Verb::Key("enter"), "img", "Confirm on Office iMac"),
+    press_on("Confirm on the Mac waiting here: that Mac did not answer, and the Gateway says so under the row", "button", "Confirm Mac Pro", "alert", "Mac Pro did not answer. Press Confirm again."),
+    press_on("Confirm again links it, and its press is Forget", "button", "Confirm Mac Pro", "button", "Forget Mac Pro"),
+    press_on("Forget takes a Mac off the list at one press; the Gateway forgets it on that Mac too", "button", "Forget Work MacBook", "list", "Devices"),
+    step("It is gone", Verb::Absent("button", "Forget Work MacBook"), "list", "Devices"),
     press_on("Unpair takes a phone off the list", "button", "Unpair iPad", "button", "Unpair iPhone"),
     step("The phone is gone", Verb::Absent("button", "Unpair iPad"), "list", "Devices"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),

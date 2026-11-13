@@ -290,8 +290,36 @@ impl Wire {
 
     pub fn gateway_macs(&mut self, cx: &App) -> Task<Result<Vec<ipc::Mac>, String>> {
         match self {
-            Wire::Mock(mock) => Task::ready(if mock.gateway.running { Ok(mock.gateway.macs.clone()) } else { Err(super::gateway::NOT_RUNNING.into()) }),
+            Wire::Mock(mock) => Task::ready(mock.gateway.read_macs()),
             Wire::Live(_) => super::gateway::macs(cx),
+        }
+    }
+
+    pub fn pair_start(&mut self, cx: &App) -> Task<Result<ipc::MacPairLink, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.pair_start()),
+            Wire::Live(_) => super::gateway::pair_start(cx),
+        }
+    }
+
+    pub fn pair_claim(&mut self, link: String, cx: &App) -> Task<Result<ipc::Mac, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.pair_claim(&link)),
+            Wire::Live(_) => super::gateway::pair_claim(link, cx),
+        }
+    }
+
+    pub fn pair_confirm(&mut self, mac: String, cx: &App) -> Task<Result<ipc::Mac, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.pair_confirm(&mac)),
+            Wire::Live(_) => super::gateway::pair_confirm(mac, cx),
+        }
+    }
+
+    pub fn forget_mac(&mut self, mac: String, cx: &App) -> Task<Result<(), String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.forget(&mac)),
+            Wire::Live(_) => super::gateway::forget(mac, cx),
         }
     }
 

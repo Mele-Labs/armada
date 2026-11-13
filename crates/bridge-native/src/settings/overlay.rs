@@ -220,7 +220,7 @@ impl SettingsOverlay {
             theme,
             mods: super::mods::ModRows::default(),
             models: super::models::ModelsPage::new(window, cx),
-            macs: super::macs::MacsPage::new(),
+            macs: super::macs::MacsPage::new(window, cx),
             prefs: super::prefs::Prefs::new(),
             lanes,
             workflows: super::workflows::WorkflowsPage::new(window, cx),
@@ -836,6 +836,7 @@ impl SettingsOverlay {
     pub(super) fn in_text(&self, window: &Window, cx: &App) -> bool {
         self.query.read(cx).focus_handle(cx).is_focused(window) || self.theme.focus.is_focused(window) || self.models.filter_focused(window, cx) || self.workflows.filter_focused(window, cx) || self.workflows.detail.in_words(window, cx) || self.typed.values().any(|typed| typed.focus(cx).is_focused(window))
             || self.lanes_typing(window, cx)
+            || self.macs.paste_focused(window)
     }
 
     fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
