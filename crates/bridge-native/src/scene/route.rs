@@ -593,6 +593,48 @@ pub(crate) struct RouteEdge<'a> {
     pub heads: (bool, bool),
 }
 
+/// The corners of an arrowhead whose tip is `at`, `len` long and `half` either side of its axis, pointing away from `from`.
+/// The tip is where the way ends: the way is clipped at the box's edge, and the head never reaches into the box.
+pub(crate) fn head_triangle(at: Pt, from: Pt, len: f32, half: f32) -> Option<[Pt; 3]> {
+    let (dx, dy) = (at.x - from.x, at.y - from.y);
+    let long = dx.hypot(dy);
+    if long <= 0.0 {
+        return None;
+    }
+    let (ux, uy) = (dx / long, dy / long);
+    let back = Pt { x: at.x - ux * len, y: at.y - uy * len };
+    Some([at, Pt { x: back.x - uy * half, y: back.y + ux * half }, Pt { x: back.x + uy * half, y: back.y - ux * half }])
+}
+
+/// The pair of sides a straight run joins: the one whose line meets both boxes nearest square, so a head, which is
+/// as wide as it is long, lies outside the box it points at. Where no pair leaves and arrives outwards, the sides
+/// that face each other.
+fn straight_sides(from: Rect, to: Rect) -> (Side, Side) {
+    let mut best: Option<(Side, Side)> = None;
+    let mut least = f32::INFINITY;
+    for out in SIDES {
+        for into in SIDES {
+            let (a, b) = (side_of(from, out), side_of(to, into));
+            let long = (b.x - a.x).hypot(b.y - a.y);
+            if long <= 0.0 {
+                continue;
+            }
+            let (ux, uy) = ((b.x - a.x) / long, (b.y - a.y) / long);
+            let leave = ux * out_of(out).x + uy * out_of(out).y;
+            let arrive = -(ux * out_of(into).x + uy * out_of(into).y);
+            if leave <= 0.0 || arrive <= 0.0 {
+                continue;
+            }
+            let lean = leave.min(arrive).clamp(-1.0, 1.0).acos();
+            if lean < least - 1e-4 {
+                least = lean;
+                best = Some((out, into));
+            }
+        }
+    }
+    best.unwrap_or_else(|| facing(from, to))
+}
+
 /// The sides of two boxes that face each other: across where they are further apart than down, else down.
 fn facing(from: Rect, to: Rect) -> (Side, Side) {
     let across = (to.x + to.w / 2.0) - (from.x + from.w / 2.0);
@@ -681,7 +723,7 @@ pub(crate) fn route_all(
         .iter()
         .map(|(edge, from, to)| match edge.path {
             ScenePath::Straight => {
-                let (out, into) = facing(*from, *to);
+                let (out, into) = straight_sides(*from, *to);
                 vec![side_of(*from, out), side_of(*to, into)]
             }
             _ => route(*from, *to, &others_of(edge), gap, None, need(edge, radius)),
@@ -919,11 +961,39 @@ mod tests {
         assert!(matches!(segs[0], Seg::Move(_)) && matches!(segs[1], Seg::Line(_)), "{segs:?}");
         let Seg::Move(start) = segs[0] else { return };
         let Seg::Line(end) = segs[1] else { return };
-        // The second box is further down, for their sizes, than across: the bottom of one faces the top of the other.
-        assert_eq!(start, pt(50.0, 50.0), "leaves the side that faces it");
-        assert_eq!(end, pt(350.0, 200.0));
+        // The line meets both boxes nearest square from the right side of one to the left side of the other.
+        assert_eq!(start, pt(100.0, 25.0), "leaves the side that meets it nearest square");
+        assert_eq!(end, pt(300.0, 225.0));
         let level = ways_of(&two_boxes(rect(300.0, 0.0, 100.0, 50.0)), &[edge("e", "a", "b", ScenePath::Straight, (false, true))]);
         assert_eq!(level[0].1, vec![Seg::Move(pt(100.0, 25.0)), Seg::Line(pt(300.0, 25.0))]);
+    }
+
+    fn inside(r: Rect, p: Pt) -> bool {
+        p.x > r.x + 0.01 && p.x < r.x + r.w - 0.01 && p.y > r.y + 0.01 && p.y < r.y + r.h - 0.01
+    }
+
+    fn on_edge(r: Rect, p: Pt) -> bool {
+        let across = p.x >= r.x - 0.01 && p.x <= r.x + r.w + 0.01;
+        let down = p.y >= r.y - 0.01 && p.y <= r.y + r.h + 0.01;
+        ((p.x - r.x).abs() < 0.01 || (p.x - r.x - r.w).abs() < 0.01) && down || ((p.y - r.y).abs() < 0.01 || (p.y - r.y - r.h).abs() < 0.01) && across
+    }
+
+    #[test]
+    fn a_diagonal_arrows_tip_lies_on_the_target_boxes_edge_and_its_head_never_inside_it() {
+        let boxes = [("push", rect(0.0, 0.0, 140.0, 50.0)), ("gate", rect(420.0, 0.0, 140.0, 50.0)), ("merge", rect(660.0, 0.0, 140.0, 50.0)), ("checks", rect(0.0, 230.0, 140.0, 50.0)), ("review", rect(420.0, 230.0, 140.0, 50.0)), ("land", rect(660.0, 230.0, 140.0, 50.0))];
+        let rects: Vec<(String, Rect)> = boxes.iter().map(|(id, r)| (id.to_string(), *r)).collect();
+        let at = |id: &str| boxes.iter().find(|(one, _)| *one == id).map(|(_, r)| *r).expect("a box");
+        for (from, to, id) in [("push", "land", "a"), ("checks", "merge", "b"), ("push", "review", "c"), ("land", "push", "d")] {
+            let ways = ways_of(&rects, &[edge(id, from, to, ScenePath::Straight, (true, true))]);
+            let segs = &ways[0].1;
+            let tips = tips(segs).expect("a way");
+            assert!(on_edge(at(to), tips.end), "{from} to {to}: the tip {:?} is on {:?}'s edge", tips.end, at(to));
+            assert!(on_edge(at(from), tips.start), "{from} to {to}: the start {:?} is on {:?}'s edge", tips.start, at(from));
+            for (point, from_point, r) in [(tips.end, tips.before_end, at(to)), (tips.start, tips.after_start, at(from))] {
+                let head = head_triangle(point, from_point, 16.0, 8.0).expect("a head");
+                assert!(head.iter().all(|corner| !inside(r, *corner)), "{from} to {to}: a head corner {head:?} is inside {r:?}");
+            }
+        }
     }
 
     fn run_of(from: Pt, to: Pt) -> Vec<Seg> {

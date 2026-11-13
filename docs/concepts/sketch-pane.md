@@ -64,15 +64,16 @@ A group or a lane grows round the boxes it held.
 Arrows into one side of a box arrive spread along it, and an arrow's words keep off every box and every arrowhead.
 
 **Rule.** An arrow's `line` is solid, dashed or dotted, its `head` is at the end, the start, both or neither, and its `path` is an elbow, straight or a curve.
-An arrow that says none of them is an elbow with a head at its end, and one that says neither `line` nor `flow` is dashed, as a flow is.
+An arrow that says none of them is an elbow with a head at its end, and one that says neither `line` nor `flow` is solid.
 `flow: true` reads as dashed, and only a dashed flow crawls while no step plays.
-A `straight` arrow joins the two sides that face each other, and a `curve` leaves and arrives square to the sides an elbow would take.
+A `straight` arrow joins the two sides its line meets nearest square, and a `curve` leaves and arrives square to the sides an elbow would take.
 
 **Rule.** The last stretch before every head runs straight for at least two head lengths, whatever the path, so the head points along its line.
 A start head has the same run out of its box.
+A head's tip is on the box's edge and the head never lies inside the box.
 Where a box leaves less room, the run is what the room allows.
 
-**Rule.** Where two arrows cross, the one drawn later hops over the other with a half circle of `--space-1`, and the other stays whole.
+**Rule.** Where two arrows cross, the one drawn later hops over the other with a half circle of 6 units, and the other stays whole.
 No hop falls on a corner, within the straight run of a head, or so near another hop that the two touch.
 
 **Rule.** Mermaid has the line and the head and none of the path: a dotted arrow is `-.->`, a dashed one is that with longer dashes, `none` is `---`, `both` is `<-->`, and a head only at the start is written from the other end.

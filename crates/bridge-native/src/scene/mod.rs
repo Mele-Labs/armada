@@ -56,6 +56,8 @@ const CORNER_CUTS: usize = 6;
 /// The chords a curve and a hop are cut into for the dashes.
 const CURVE_CUTS: usize = 24;
 const HOP_CUTS: usize = 12;
+/// How far a hop over another arrow stands off the line, in scene units.
+const HOP: f32 = 6.;
 /// An arrowhead's length, and how far a way runs straight into one: two of them, so the head points along its line.
 const HEAD: f32 = 16.;
 const RUN: f32 = HEAD * 2.;
@@ -417,7 +419,7 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
     let sizes: Vec<(f32, f32)> = scene.nodes.iter().zip(sheets).map(|(node, sheet)| sheet.unwrap_or_else(|| size_of(node, &measure, limits))).collect();
     let order = arrange(scene, &sizes);
     let rects: Vec<Rect> = scene.nodes.iter().map(|node| order.iter().find(|(id, _)| *id == node.id).map_or_else(Rect::default, |(_, rect)| *rect)).collect();
-    let ways = ways(scene, &order, &rects, f32::from(look.length(token::SPACE_1)));
+    let ways = ways(scene, &order, &rects, HOP);
     let bounds = rects.iter().copied().reduce(union).unwrap_or_default();
     // A step is a number a node, an arrow or an element of a screen carries, and what shares a number plays together.
     let mut steps: Vec<f64> = scene
@@ -1083,18 +1085,11 @@ fn paint_edge(ink: &Ink, way: &Way, color: Option<SceneColor>, pattern: Pattern,
     }
 }
 
-/// The marker's 10-unit triangle drawn `HEAD` long, its point a tenth past where the way ends and pointing away from `from`.
+/// The marker's 10-unit triangle drawn `HEAD` long, its tip on where the way ends and pointing away from `from`.
 fn paint_head(view: View, at: Pt, from: Pt, color: Hsla, window: &mut Window) {
-    let (dx, dy) = (at.x - from.x, at.y - from.y);
-    let long = dx.hypot(dy);
-    if long <= 0. {
-        return;
-    }
-    let (ux, uy) = (dx / long, dy / long);
-    let tip = Pt { x: at.x + ux * 1.6, y: at.y + uy * 1.6 };
-    let back = Pt { x: tip.x - ux * HEAD, y: tip.y - uy * HEAD };
+    let Some(corners) = route::head_triangle(at, from, HEAD, HEAD / 2.) else { return };
     let mut head = PathBuilder::fill();
-    head.add_polygon(&[view.at(tip), view.at(Pt { x: back.x - uy * 8., y: back.y + ux * 8. }), view.at(Pt { x: back.x + uy * 8., y: back.y - ux * 8. })], true);
+    head.add_polygon(&corners.map(|corner| view.at(corner)), true);
     if let Ok(path) = head.build() {
         window.paint_path(path, color);
     }

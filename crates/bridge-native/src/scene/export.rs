@@ -204,16 +204,6 @@ impl<'a> Flow<'a> {
     }
 }
 
-/// The line Mermaid is told: an arrow that says neither `line` nor `flow` stays the plain link it has always been
-/// there, though the reader draws it as a flow.
-fn mermaid_pattern(edge: &SceneEdge) -> Pattern {
-    if edge.line.is_none() && edge.flow.is_none() {
-        Pattern::Solid
-    } else {
-        arrows::pattern(edge)
-    }
-}
-
 /// The link between two Mermaid ids: `-->`, `---`, `<-->`, and the same dotted as `-.->`, with the arrow's words
 /// between the halves as `-- "words" -->`. Mermaid has no per-arrow path, so an elbow, a straight run and a curve
 /// are one link.
@@ -274,7 +264,7 @@ pub(crate) fn mermaid(scene: &Scene, look: &Look) -> String {
     for edge in &scene.edges {
         let (Some(from), Some(to)) = (flow.ids.get(edge.from.as_str()), flow.ids.get(edge.to.as_str())) else { continue };
         let said = edge.label.as_deref().map(str::trim).filter(|label| !label.is_empty()).map(mermaid_text);
-        let (pattern, (start, end)) = (mermaid_pattern(edge), arrows::heads(edge));
+        let (pattern, (start, end)) = (arrows::pattern(edge), arrows::heads(edge));
         // Mermaid has no arrow with a head only at its start, so that arrow is written from the other end.
         let (from, to) = if start && !end { (to, from) } else { (from, to) };
         flow.lines.push(format!("  {from} {} {to}", mermaid_link(pattern, start && end, start || end, said.as_deref())));
@@ -753,26 +743,10 @@ fn line_dashes(pattern: Pattern) -> String {
     }
 }
 
-/// An arrowhead as a polygon at `at`, pointing away from `from`: the marker's 10-unit triangle drawn `HEAD` long, its
-/// point a tenth past the way's end.
+/// An arrowhead as a polygon with its tip at `at`, pointing away from `from`.
 fn head_svg(at: Pt, from: Pt, fill: &str) -> String {
-    let (dx, dy) = (at.x - from.x, at.y - from.y);
-    let long = dx.hypot(dy);
-    if long <= 0. {
-        return String::new();
-    }
-    let (ux, uy) = (dx / long, dy / long);
-    let tip = Pt { x: at.x + ux * 1.6, y: at.y + uy * 1.6 };
-    let back = Pt { x: tip.x - ux * HEAD, y: tip.y - uy * HEAD };
-    format!(
-        r#"<polygon class="sk-edge__head" points="{},{} {},{} {},{}" fill="{fill}"/>"#,
-        n(tip.x),
-        n(tip.y),
-        n(back.x - uy * 8.),
-        n(back.y + ux * 8.),
-        n(back.x + uy * 8.),
-        n(back.y - ux * 8.)
-    )
+    let Some([tip, left, right]) = route::head_triangle(at, from, HEAD, HEAD / 2.) else { return String::new() };
+    format!(r#"<polygon class="sk-edge__head" points="{},{} {},{} {},{}" fill="{fill}"/>"#, n(tip.x), n(tip.y), n(left.x), n(left.y), n(right.x), n(right.y))
 }
 
 /// `--text-base`: what a frame's name is set in where it has no node of its own to say.
@@ -1866,6 +1840,7 @@ mod tests {
         let dotted = line(SceneLine::Dotted);
         assert!(dotted.contains(r#"stroke-dasharray="0.5 5.5""#) && dotted.contains(r#"stroke-linecap="round""#), "{dotted}");
         assert!(drawn(&arrow(None, None, None, Some(true)), across()).contains(r#"stroke-dasharray="8 8""#), "a flow reads as dashed");
+        assert!(!drawn(&arrow(None, None, None, None), across()).contains("stroke-dasharray"), "an arrow that says nothing is solid");
     }
 
     #[test]
@@ -1876,11 +1851,11 @@ mod tests {
         assert_eq!(heads(Some(SceneHead::Start)), 1);
         assert_eq!(heads(Some(SceneHead::Both)), 2);
         assert_eq!(heads(Some(SceneHead::NoHead)), 0);
-        // The start head's point is a tenth behind where the way starts, and the end head's a tenth past where it ends.
+        // A head's tip is where the way ends, never past it.
         let start = drawn(&arrow(None, Some(SceneHead::Start), None, None), across());
-        assert!(start.contains(r#"points="-1.6,0 "#), "{start}");
+        assert!(start.contains(r#"points="0,0 "#), "{start}");
         let end = drawn(&arrow(None, Some(SceneHead::End), None, None), across());
-        assert!(end.contains(r#"points="101.6,0 "#), "{end}");
+        assert!(end.contains(r#"points="100,0 "#), "{end}");
     }
 
     #[test]
