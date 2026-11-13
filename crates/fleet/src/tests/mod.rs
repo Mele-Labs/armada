@@ -20,6 +20,7 @@ mod pre_pr;
 mod job_command;
 mod judge;
 mod sending_checkout;
+mod sweeping;
 mod agent_starts;
 mod agent_starts_at_once;
 mod agent_starts_project;
