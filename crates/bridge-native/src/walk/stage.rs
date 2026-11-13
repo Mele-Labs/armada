@@ -366,6 +366,31 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             );
             Ok(())
         }
+        Verb::WheelTo(role, on, by) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            for _ in 0..60 {
+                if find(step, window, cx).is_ok() {
+                    return Ok(());
+                }
+                let drawn = cx
+                    .try_global::<LabelBook>()
+                    .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
+                    .ok_or_else(|| Missed(format!("nothing named \"{on}\" to scroll")))?;
+                window.dispatch_event(
+                    PlatformInput::Scroll(gpui::ScrollEvent {
+                        position: drawn.shown.center(),
+                        delta: gpui::ScrollDelta::Pixels(point(px(0.), px(-(by as f32)))),
+                        modifiers: Modifiers::default(),
+                        touch_phase: gpui::TouchPhase::Moved,
+                        source: gpui::ScrollSource::default(),
+                    }),
+                    cx,
+                );
+                window.refresh();
+                window.draw(cx).clear(cx);
+            }
+            Ok(())
+        }
         Verb::PressStart(role, on) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             let drawn = cx

@@ -68,6 +68,9 @@ pub enum Verb {
     /// The wheel turned over the element of this role and name, by this many points down, before the
     /// target is ringed: for a pane whose target is below its fold.
     Wheel(&'static str, &'static str, i32),
+    /// The wheel turned over the element of this role and name, this many points at a time, until the
+    /// target is drawn: for a target whose place below the fold changes with the window's width.
+    WheelTo(&'static str, &'static str, i32),
     /// A press on the first word of the last element of this role and name drawn, before the target is
     /// ringed: for a link inside words, which carries no label of its own.
     PressStart(&'static str, &'static str),
@@ -1997,11 +2000,11 @@ pub static WALKS: &[Walk] = &[
             step("R opens the Judge's box under the plan", Verb::Key("r"), "dialog", "Judge"),
             step("Esc puts the box away", Verb::Key("escape"), "region", "Thread"),
             step("Home goes to the start of the thread", Verb::Key("home"), "button", "Show earlier"),
-            step("A run of calls is one line", Verb::Wheel("region", "Thread", 100), "button", "Tool calls: Read, Grep, Edit"),
+            step("A run of calls is one line", Verb::WheelTo("region", "Thread", 60), "button", "Tool calls: Read, Grep, Edit"),
             step("A press opens the run", Verb::Press, "button", "Tool calls: Read, Grep, Edit"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
-            step("The wheel reads on, past the Checks", Verb::Wheel("region", "Thread", 100), "listitem", "/reload-plugins"),
+            step("The wheel reads on, past the Checks", Verb::WheelTo("region", "Thread", 60), "listitem", "/reload-plugins"),
             step("A right press on a command offers Teach", Verb::RightOpen("listitem", "/reload-plugins"), "menuitem", "Teach"),
             step("Teach opens the panel over the thread, with the command and a box", Verb::Open("menuitem", "Teach"), "textbox", "Instruction"),
             step("Esc puts the panel away and the command has focus again", Verb::Key("escape"), "listitem", "/reload-plugins"),

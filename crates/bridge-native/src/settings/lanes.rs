@@ -18,8 +18,6 @@ use crate::look::{token, Look};
 /// The default's level.
 const DEFAULT: &str = "default";
 
-/// A lane's least height (`LANE_MIN` in `lanes_canvas`, `--lane-min`), so every lane stands in the canvas.
-const LANE_MIN: f32 = 128.;
 
 pub struct WorkflowLanes {
     read: BTreeMap<SharedString, Result<JobLanesView, String>>,
@@ -90,7 +88,7 @@ impl SettingsOverlay {
             Some(Err(said)) => labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("workflow-lanes-refused"), Role::Alert, said.clone()).into_any_element(),
             Some(Ok(lanes)) => {
                 // Four lanes of the least height fill it; a lane more makes it taller by that much.
-                let tall = (look.length(token::SPACE_12) * 11.).max(px(lanes.lanes.len() as f32 * LANE_MIN) + look.length(token::BORDER_WIDTH) * 2.);
+                let tall = (look.length(token::SPACE_12) * 11.).max(px(lanes.lanes.len() as f32 * crate::lanes_canvas::LANE_MIN) + look.length(token::BORDER_WIDTH) * 2.);
                 // An Esc the lanes did not take, with nothing picked, shuts Settings as it does on every page.
                 let shut = cx.listener(|this, event: &KeyDownEvent, window, cx| {
                     if event.keystroke.key == "escape" {
