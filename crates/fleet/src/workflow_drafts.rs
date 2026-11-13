@@ -170,7 +170,45 @@ where
         }
         let at = self.now();
         let mut store = self.store().lock().await;
+        let not_pending = |why: String| {
+            Refusal::Unacceptable(
+                WireError::raised("fleet.workflow_draft_change_not_pending", why, self.run_id()).with_field("workflow_id", WireValue::Str(id.to_string())),
+            )
+        };
+        // **An agent's put is of one change that is waiting**, which it then marks drafted as the landing does; no other put names a change.
+        let agent = match (put.by, put.change) {
+            (Some(DraftBy::Agent), Some(change)) => {
+                let found = store.workflow_change(change).map_err(|why| self.draft_not_kept(why))?;
+                let Some(found) = found else {
+                    return Err(not_pending(format!("Fleet holds no change {change} of `{id}` to put in the draft")));
+                };
+                let place = (found.workflow_id.as_str(), found.source.as_str(), found.project.as_str(), found.manifest_id.as_str());
+                let here = (id, put.source.as_str(), project.unwrap_or_default(), if put.source == "repository" { key.manifest_id.as_str() } else { found.manifest_id.as_str() });
+                if !found.piece.is_empty() || place != here {
+                    return Err(not_pending(format!("change {change} is not a change to `{id}` from {}", put.source)));
+                }
+                if found.state != store::CHANGE_READY || found.after_text.is_none() {
+                    return Err(not_pending(format!("change {change} is not ready, so it has no drafted text to put in the draft")));
+                }
+                if found.drafted {
+                    return Err(not_pending(format!("change {change} is in the draft already")));
+                }
+                Some(found)
+            }
+            (Some(DraftBy::Agent), None) => return Err(not_pending(String::from("a put by an agent names the change it is of, and this names none"))),
+            (_, Some(change)) => return Err(not_pending(format!("a change is named only by an agent's put, and this put is by you; it names {change}"))),
+            (_, None) => None,
+        };
         let held = store.workflow_draft(&key).map_err(|why| self.draft_not_kept(why))?;
+        if let Some(found) = &agent {
+            let change = store::NewDraftChange { made_by: store::DRAFT_BY_AGENT, text: &put.text, summary: found.asked.as_deref(), change: Some(found.id) };
+            let kept = store
+                .put_draft_change(&key, published.as_deref().unwrap_or(""), &change, at.as_str())
+                .map_err(|why| self.draft_not_kept(why))?;
+            store.workflow_change_marked_drafted(found.id).map_err(|why| self.draft_not_kept(why))?;
+            drop(store);
+            return Ok(self.workflow_draft_wire(served, &kept));
+        }
         let kept = match held {
             Some(draft) if draft.text() == put.text => draft,
             _ => store

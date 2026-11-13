@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use api::Lifecycles;
+use api::{Authoring, Lifecycles};
 use axum::http::StatusCode;
 use ipc::{
     AutonomyToSave, DraftBy, LifecyclePiece, LifecyclePieceKind, PieceDraft, PieceScope, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft,
@@ -27,6 +27,7 @@ fn put_body(source: &str, project: Option<&str>, text: &str) -> String {
         project: project.map(str::to_string),
         text: text.into(),
         summary: None,
+        ..Default::default()
     })
     .expect("plain data")
 }
@@ -325,6 +326,61 @@ async fn a_draft_that_is_no_longer_what_the_change_was_made_from_leaves_it_ready
     let (_, body) = rig.draft("repository").await;
     let draft: WorkflowDraft = decoded("a draft", &body);
     assert_eq!((draft.text.as_str(), draft.changes.len()), ("# he moved on", 1), "his draft is as he left it");
+}
+
+/// **An agent's change the editor rebased onto a draft that moved is the agent's in the draft**: the put names the change, it is recorded `agent` with that
+/// change and the ask as its summary, and the change is marked drafted. A put that names no change that is waiting is refused with the one code.
+#[tokio::test]
+async fn an_agent_put_is_recorded_as_the_agents_change_and_marks_the_change_drafted_and_nothing_else_may_name_one() {
+    let rig = rig(&[&with_refine()]).await;
+    let waiting = {
+        let mut kept = rig.fleet.store().lock().await;
+        let new = store::NewWorkflowChange {
+            manifest_id: MANIFEST,
+            workflow_id: "staged",
+            source: "repository",
+            project: "",
+            step_id: None,
+            asked: Some("add Refine"),
+            before_text: STAGED,
+        };
+        let id = kept.begin_workflow_change(&new, "2026-11-13T09:00:00.000Z").unwrap();
+        let key = store::DraftKey { kind: "workflow".into(), source: "repository".into(), manifest_id: MANIFEST.into(), item_id: "staged".into(), ..Default::default() };
+        let you = store::NewDraftChange { made_by: store::DRAFT_BY_YOU, text: "# he moved on", summary: None, change: None };
+        kept.put_draft_change(&key, STAGED, &you, "2026-11-13T09:01:00.000Z").unwrap();
+        id
+    };
+    Arc::clone(&rig.fleet).change_drafted(waiting).await;
+    assert!(!rig.settled(waiting).await.drafted, "the draft moved while it was written, so it waits");
+
+    let put = |by: Option<DraftBy>, change: Option<i64>, source: &str| PutWorkflowDraft {
+        workflow_id: WorkflowId::carried("staged"),
+        source: source.into(),
+        text: "# rebased by the editor".into(),
+        by,
+        change,
+        ..Default::default()
+    };
+    let refused = |result: Result<WorkflowDraft, api::Refusal>| {
+        let refusal = result.expect_err("refused");
+        assert!(matches!(refusal, api::Refusal::Unacceptable(_)), "a 422");
+        assert_eq!(refusal.error().code, "fleet.workflow_draft_change_not_pending", "{}", refusal.error().message);
+    };
+    refused(rig.fleet.put_workflow_draft(put(Some(DraftBy::You), Some(waiting), "repository"), None).await);
+    refused(rig.fleet.put_workflow_draft(put(None, Some(waiting), "repository"), None).await);
+    refused(rig.fleet.put_workflow_draft(put(Some(DraftBy::Agent), None, "repository"), None).await);
+    refused(rig.fleet.put_workflow_draft(put(Some(DraftBy::Agent), Some(9999), "repository"), None).await);
+    refused(rig.fleet.put_workflow_draft(put(Some(DraftBy::Agent), Some(waiting), "kit"), None).await);
+    assert!(!rig.settled(waiting).await.drafted, "none of those marked it");
+
+    let kept = rig.fleet.put_workflow_draft(put(Some(DraftBy::Agent), Some(waiting), "repository"), None).await.expect("accepted");
+
+    assert_eq!(kept.text, "# rebased by the editor");
+    let last = kept.changes.last().expect("a change");
+    assert_eq!((last.by, last.change, last.summary.as_deref()), (DraftBy::Agent, Some(waiting), Some("add Refine")));
+    assert_eq!(kept.changes.len(), 2, "after his");
+    assert!(rig.settled(waiting).await.drafted, "and the change is marked drafted");
+    refused(rig.fleet.put_workflow_draft(put(Some(DraftBy::Agent), Some(waiting), "repository"), None).await);
 }
 
 /// **An ask on one of Armada's own is accepted**, and its result lands in a draft that has no scope, begun from the carried text.

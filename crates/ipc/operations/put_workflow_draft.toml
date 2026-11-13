@@ -4,11 +4,15 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "Keep the owner's text as the draft of one workflow in one place, beginning the draft from what is published there, or adding a change to it"
 notes = """
-`PUT /workflows/draft?manifest_id=`, protocol 23.95. The body is `PutWorkflowDraft`: `workflow_id`, `source` (`armada`, `kit`, `repository` or `project`), `project` (required where `source` is `project`), `text` and `summary`. The answer is the `WorkflowDraft`, as `get_workflow_draft` reads it.
+`PUT /workflows/draft?manifest_id=`, protocol 23.95. The body is `PutWorkflowDraft`: `workflow_id`, `source` (`armada`, `kit`, `repository` or `project`), `project` (required where `source` is `project`), `text`, `summary`, `by` (`you` or `agent`; absent is `you`) and `change`. The answer is the `WorkflowDraft`, as `get_workflow_draft` reads it.
 
 **It begins the draft where there is none**, with `base` the text published in that place now, or Armada's carried text for `armada`, or empty where the place holds no file of that id, and then adds a change by `you` holding `text` whole. Where a draft is kept it adds a change by `you` and `base` stays. Putting an earlier change's text again is how the editor undoes: Fleet keeps the list of changes and the editor does the stepping.
 
 **It accepts any text.** A draft may be half-edited, so nothing is refused for not loading; `unfit` on the answer carries the loader's sentence. A text equal to the draft's last change adds no change.
+
+**An agent's put.** The native editor rebases an agent's change onto the draft when the draft moved after the agent read it, and records it as the agent's with `by: "agent"` and `change`, the id of the `WorkflowChange` it is of. That change must be one Fleet holds for the same `workflow_id`, `source` and `project`, ready, carrying an `after`, and not yet `drafted`. Fleet then adds the change to the draft `by` the agent, with `change` that id and the change's ask as the summary, holding `text` whole as put, and marks the `WorkflowChange` `drafted` as the landing of a drafted change does. A put by an agent does not take the shortcut of a text the draft already ends on, since it must record and mark.
+
+422 `fleet.workflow_draft_change_not_pending` with a sentence for any other put that names a change: `by: "agent"` with no `change`, an unknown id, a change of another workflow, place or piece, one that is not ready or has no `after`, one already `drafted`, and a `change` with `by` absent or `you`. Nothing is kept on one. Pieces have no agent changes, so `put_piece_draft` takes neither field.
 
 422 `fleet.workflow_project_unnamed`, 404 `fleet.workflow_project_unknown` and 422 `fleet.workflow_project_not_member` for a project's, and 422 `fleet.no_such_workflow_definition` for a source that is none of the four, or `armada` for an id Armada does not carry. 500 `fleet.workflow_draft_not_kept` where the store would not answer.
 

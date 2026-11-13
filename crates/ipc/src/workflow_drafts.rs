@@ -73,6 +73,14 @@ pub struct PutWorkflowDraft {
     pub text: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    /// Who made the change. Absent is `you`. **`agent` records an agent's change that the editor rebased onto a draft that moved after
+    /// the agent read it**, and names the `WorkflowChange` it is of in `change`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub by: Option<DraftBy>,
+    /// The `WorkflowChange` an agent's put is of: required with `by: agent`, and refused otherwise. It must be a ready change of the same
+    /// workflow, source and project that carries an `after` and is not `drafted` yet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change: Option<i64>,
 }
 
 /// What `discard_workflow_draft` removed.

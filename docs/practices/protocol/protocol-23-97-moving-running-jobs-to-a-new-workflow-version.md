@@ -8,6 +8,8 @@ The owner's ruling of 13 Nov 2026: **Publish asks which running Jobs move to the
 `save_workflow` and a file edited by hand pin nothing and change what Jobs read at once, as they did.
 There is no number to bump: the protocol ID moves with the files below.
 
+Also added here, for the native editor: **`PutWorkflowDraft` gains `by?` and `change?`**, so an agent's change rebased onto a draft that moved is recorded as the agent's (see *An agent's put*).
+
 ## Why a publish had to pin
 
 A hosted Job that holds no copy of its own reads its workflow's steps live from what its repository serves (`steps_with` falls back to `rail_steps`), so a publish changed the steps under every Job that followed it.
@@ -58,6 +60,15 @@ A Job that has run is sent one line, `Fleet: the person moved this Job to the ne
 The timeline gets a `session.workflow` entry, `workflow: moved to the newest <name>`, `by you`, and the Job's row and lanes are published again.
 **A Job with no copy is not refused**: it already reads the published workflow, so its result is `moved` false with a `message` and no `code`.
 
+## An agent's put
+
+The editor rebases an agent's change onto the draft when the draft moved after the agent read it, and `PUT /workflows/draft` used to record that text as `you`.
+Landing marks stay the agent's: `PutWorkflowDraft` gains `by?` (`you` or `agent`; absent is `you`) and `change?` (an `i64`).
+**With `by: "agent"`, `change` must name a `WorkflowChange` Fleet holds** for the same `workflow_id`, source and project (and, for the repository's own, the repository), that is ready, carries an `after`, and is not `drafted` yet.
+Fleet then adds the draft's change `by` the agent, with `change` that id, the change's ask as its summary and the put text whole, and marks the `WorkflowChange` `drafted`, the mark the landing of a drafted change sets.
+**Anything else is a 422, `fleet.workflow_draft_change_not_pending`, with a sentence, and nothing is kept**: no `change`, an unknown id, another workflow, place or piece, a change not ready or without an `after`, one already `drafted`, and a `change` on a put by `you` or by none.
+**Pieces are unchanged.** Fleet has no agent changes for pieces, so `PutPieceDraft` takes neither field.
+
 ## Refusals
 
 | Code | Where |
@@ -66,6 +77,7 @@ The timeline gets a `session.workflow` entry, `workflow: moved to the newest <na
 | `fleet.workflow_migrate_not_following` | a result: the Job follows a different workflow, is in a repository the place does not reach, or its repository no longer holds the workflow |
 | `fleet.workflow_migrate_edited` | a result: the Job edited its own copy, and a move would lose the edits |
 | `fleet.workflow_project_unnamed` (422), `fleet.workflow_project_unknown` (404) | either route, for a project's place |
+| `fleet.workflow_draft_change_not_pending` (422) | `put_workflow_draft`, for a `by` and `change` that do not fit a waiting change |
 | `fleet.no_such_workflow_definition` (422) | either route, for a source that is none of `kit`, `repository` and `project` |
 
 ## What is kept
@@ -76,6 +88,6 @@ Migration `20261113T1400Z-job_copy_pins.pinned.sql`, additive.
 ## Skew and the stream
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
-Bridge's half is `packages/protocol/src/workflow-migrating.ts` and `workflow-drafts.ts`, written by hand like the rest.
+Bridge's half is `packages/protocol/src/workflow-migrating.ts` and `workflow-drafts.ts` (which also carries `by` and `change` on `PutWorkflowDraft`), written by hand like the rest.
 **The event stream.** A move publishes the moved Job's row again, as any step change does, one row for each Job moved, and a publish raises the `repositories.changed` it already did.
 The open risk below is neither better nor worse.
