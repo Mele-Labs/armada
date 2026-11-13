@@ -642,6 +642,15 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
     }
 
+    /// `POST /projects/project/:id/delete`, no body: the project and its rows. Fleet answers every project that is left.
+    pub fn delete_project(&mut self, project: &str, cx: &App) -> Task<Result<Projects, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.delete_project(project));
+        }
+        let path = format!("/projects/project/{}/delete", crate::link::percent_encoded(project));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, String::new()), "Projects", cx))
+    }
+
     /// The person's key bindings as Fleet last said them, or the mock's.
     pub fn key_bindings(&self, cx: &App) -> String {
         match self {

@@ -66,6 +66,11 @@ fn tool_of(text: &str) -> Call<'_> {
     Call { tool: raw.rsplit("__").next().unwrap_or(raw), detail }
 }
 
+/// Whether a call's row is the agent's `dispute_fleet`.
+pub(super) fn is_dispute(text: &str) -> bool {
+    tool_of(text).tool == "dispute_fleet"
+}
+
 fn base_name(detail: &str) -> &str {
     detail.split_whitespace().next().unwrap_or("").rsplit('/').find(|part| !part.is_empty()).unwrap_or("")
 }
@@ -282,6 +287,13 @@ mod tests {
         assert_eq!(calls_line(&["Edit a.rs", "Foo bar", "Read b.rs"], false), "Read b.rs");
         assert_eq!(calls_line(&["Foo bar"], false), "Foo");
         assert_eq!(calls_line(&["mcp__armada-fleet__get_health"], false), "get_health");
+    }
+
+    #[test]
+    fn only_the_fleet_dispute_tool_is_a_dispute_call() {
+        assert!(is_dispute("mcp__armada-fleet__dispute_fleet {\"why\":\"x\"}"));
+        assert!(!is_dispute("mcp__armada-fleet__get_health"));
+        assert!(!is_dispute("Bash echo dispute_fleet"));
     }
 
     #[test]

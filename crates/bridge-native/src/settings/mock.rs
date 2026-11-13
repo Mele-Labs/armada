@@ -545,6 +545,35 @@ impl MockFleet {
     }
 
     /// The edit with `shared_with_macs` alone. A project whose file was not read cannot be written.
+    /// `delete_project`: the project goes, and a copy of another Mac's is refused as Fleet refuses it.
+    pub fn delete_project(&mut self, project: &str) -> Result<Projects, Refused> {
+        let at = self.projects.projects.iter().position(|one| one.id == project).ok_or_else(|| Refused::said(format!("there is no project {project}")))?;
+        if self.projects.projects[at].mac.is_some() {
+            return Err(Refused { key: None, said: "This project is held on another Mac, which keeps it".into(), code: Some("fleet.other_mac_project_held".into()) });
+        }
+        self.projects.projects.remove(at);
+        Ok(self.projects.clone())
+    }
+
+    /// For the walk of deleting a project: Storefront holds four tasks, and Pricing is a copy another Mac keeps.
+    pub fn deletable_projects(&mut self) {
+        let task = |n: usize| ipc::ProjectRow::Task {
+            id: format!("task-{n}"),
+            manifest_id: ipc::ManifestId::carried("armada"),
+            title: format!("Task {n}"),
+            notes: String::new(),
+            state: ipc::ProjectTaskState::Open,
+            held_by: None,
+            parent: None,
+            issues: Vec::new(),
+            pulls: Vec::new(),
+        };
+        if let Some(one) = self.projects.projects.iter_mut().find(|one| one.id == "storefront") {
+            one.rows = (1..=4).map(task).collect();
+        }
+        self.projects.projects.push(ipc::Project { id: "pricing".into(), name: "Pricing".into(), rows: (5..=7).map(task).collect(), mac: Some("mac-air".into()), ..ipc::Project::default() });
+    }
+
     pub fn share_with_macs(&mut self, project: &str, on: bool) -> Result<Projects, Refused> {
         let one = self.projects.projects.iter_mut().find(|one| one.id == project).ok_or_else(|| Refused::said(format!("there is no project {project}")))?;
         if let Some(why) = &one.unread {

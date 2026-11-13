@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{
-    slot_path, PullRequestDiff, PullRequestFacts, PullRequestStanding, ReviewList, ListedChecks,
+    slot_path, ComparedPatches, PatchedFile, PullRequestDiff, PullRequestFacts, PullRequestStanding, ReviewList, ListedChecks,
     ListedPull, ReviewStanding,
 };
 use api::{Next, PullRequestPanel, Refusal};
@@ -34,7 +34,7 @@ const NEXT_HEAD: &str = "9a8b7c6d9a8b7c6d9a8b7c6d9a8b7c6d9a8b7c6d";
 
 const DIFF: &str = "diff --git a/a.rs b/a.rs\n--- a/a.rs\n+++ b/a.rs\n@@ -1,2 +1,2 @@\n-let x = 1;\n+let x = 2;\n";
 
-const FINDINGS: &str = r#"{"findings":[{"title":"Overflow","body":"`x` can wrap.","severity":"high","at":{"path":"a.rs","side":"right","start":1,"end":2}}]}"#;
+const FINDINGS: &str = r#"{"findings":[{"title":"Overflow","body":"`x` can wrap.","severity":"high","at":{"path":"a.rs","side":"right","start":1,"end":2},"comment":"This can wrap past its limit. Check the bound first."}]}"#;
 
 pub(super) fn a_fleet_judged_by(home: &TempDir, judge: Arc<FakeJudge>) -> Arc<Fixture> {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&[]));
@@ -76,6 +76,7 @@ fn start(kind: ReviewRunKind, name: &str, again: bool) -> StartReviewRun {
         again,
         place: None,
         finding: None,
+        since: None,
     }
 }
 
@@ -239,6 +240,83 @@ async fn a_forge_that_will_not_give_the_head_starts_nothing() {
     let refused = Arc::clone(&fleet).start_review_run(id, start(ReviewRunKind::Tool, "risks", false)).await.unwrap_err();
     assert_eq!(code(&refused), "fleet.review_pull_request_unreadable");
     assert!(fleet.vcs().review_bays_leased().is_empty());
+}
+
+/// A head the pull request was at before, where he last looked.
+const SINCE: &str = "1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d";
+
+fn since(kind: ReviewRunKind, name: &str, from: &str) -> StartReviewRun {
+    StartReviewRun { since: Some(from.into()), ..start(kind, name, false) }
+}
+
+#[tokio::test]
+async fn a_ranged_run_reads_only_the_change_since_and_is_kept_for_its_range_alone() {
+    let home = TempDir::new();
+    let judge = Arc::new(FakeJudge::saying(FINDINGS));
+    let fleet = a_fleet_judged_by(&home, Arc::clone(&judge));
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_compare(
+        SINCE,
+        HEAD,
+        ComparedPatches::Patches(vec![PatchedFile {
+            path: "a.rs".into(),
+            patch: Some("@@ -1 +1 @@\n-let y = 1;\n+let y = 3;".into()),
+            blob: None,
+        }]),
+    );
+
+    let queued = Arc::clone(&fleet).start_review_run(id.clone(), since(ReviewRunKind::Tool, "risks", SINCE)).await.expect("started");
+    assert_eq!((queued.head.as_str(), queued.since.as_deref()), (HEAD, Some(SINCE)));
+    let runs = settled(&fleet, &id).await;
+    assert_eq!((runs.len(), runs[0].state, runs[0].since.as_deref()), (1, ReviewRunState::Done, Some(SINCE)));
+    assert_eq!(findings_of(&runs[0]), 1);
+    let asked = judge.asked();
+    for told in [SINCE, "merge base", "Files changed since then", "let y = 3;"] {
+        assert!(asked[0].contains(told), "the brief lacks {told}: {}", asked[0]);
+    }
+    assert!(!asked[0].contains("let x = 2;"), "the whole pull request's diff was sent: {}", asked[0]);
+
+    // The whole pull request is a key of its own, and runs.
+    Arc::clone(&fleet).start_review_run(id.clone(), start(ReviewRunKind::Tool, "risks", false)).await.expect("started");
+    let runs = settled(&fleet, &id).await;
+    assert_eq!(judge.asked().len(), 2, "a kept range does not answer for the whole");
+    assert!(!judge.asked()[1].contains(SINCE));
+    let mut ranges: Vec<Option<&str>> = runs.iter().map(|run| run.since.as_deref()).collect();
+    ranges.sort();
+    assert_eq!(ranges, [None, Some(SINCE)]);
+
+    // The same range again is answered by what was kept.
+    let kept = Arc::clone(&fleet).start_review_run(id.clone(), since(ReviewRunKind::Tool, "risks", SINCE)).await.expect("answered");
+    assert_eq!((kept.state, kept.since.as_deref()), (ReviewRunState::Done, Some(SINCE)));
+    assert_eq!(judge.asked().len(), 2);
+}
+
+#[tokio::test]
+async fn a_range_from_a_lost_base_the_head_itself_a_name_or_on_a_fix_starts_nothing() {
+    let home = TempDir::new();
+    let judge = Arc::new(FakeJudge::saying(FINDINGS));
+    let fleet = a_fleet_judged_by(&home, Arc::clone(&judge));
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_compare(SINCE, HEAD, ComparedPatches::BaseGone);
+
+    let gone = Arc::clone(&fleet).start_review_run(id.clone(), since(ReviewRunKind::Tool, "risks", SINCE)).await.unwrap_err();
+    assert_eq!((gone.status(), code(&gone)), (409, "fleet.review_range_base_gone"));
+
+    let mut fix = since(ReviewRunKind::Fix, "a.rs:1-2 Overflow", SINCE);
+    fix.finding = Some(ipc::ReviewFinding {
+        title: "Overflow".into(),
+        body: "`x` can wrap.".into(),
+        severity: ipc::ReviewSeverity::High,
+        at: ipc::ReviewPlace { path: "a.rs".into(), side: ipc::DiffSide::Right, start: 1, end: 2 },
+        comment: "This can wrap. Check the bound first.".into(),
+    });
+    for start in [since(ReviewRunKind::Tool, "risks", HEAD), since(ReviewRunKind::Tool, "risks", "main"), fix] {
+        let refused = Arc::clone(&fleet).start_review_run(id.clone(), start).await.unwrap_err();
+        assert_eq!((refused.status(), code(&refused)), (422, "fleet.review_range_invalid"));
+    }
+    assert!(judge.asked().is_empty());
+    assert!(fleet.vcs().review_bays_leased().is_empty(), "nothing was leased or spent");
+    assert!(fleet.get_review_runs(id, 12).await.expect("read").runs.is_empty(), "nothing was kept");
 }
 
 #[tokio::test]
@@ -445,7 +523,7 @@ fn an_answer_is_found_inside_a_fence_or_a_sentence_and_read_into_its_shape() {
 fn a_finding_must_sit_on_a_file_the_change_touches_and_on_a_real_range() {
     let dir = checkout_with(&[]);
     let at = |path: &str, start: u64, end: u64| {
-        format!(r#"{{"findings":[{{"title":"t","body":"b","severity":"low","at":{{"path":"{path}","side":"left","start":{start},"end":{end}}}}}]}}"#)
+        format!(r#"{{"findings":[{{"title":"t","body":"b","severity":"low","at":{{"path":"{path}","side":"left","start":{start},"end":{end}}},"comment":"c"}}]}}"#)
     };
     assert!(read("findings", &at("a.rs", 3, 3), &dir, None).is_ok());
     let outside = read("findings", &at("elsewhere.rs", 1, 1), &dir, None).unwrap_err();
@@ -454,6 +532,27 @@ fn a_finding_must_sit_on_a_file_the_change_touches_and_on_a_real_range() {
     assert!(read("findings", &at("a.rs", 5, 2), &dir, None).is_err());
     let unknown_severity = at("a.rs", 1, 1).replace("low", "dire");
     assert!(read("findings", &unknown_severity, &dir, None).is_err());
+}
+
+#[test]
+fn a_findings_comment_is_one_or_two_plain_sentences_and_no_longer() {
+    let dir = checkout_with(&[]);
+    let with = |comment: &str| {
+        let comment = comment.replace('"', "\\\"");
+        format!(r#"{{"findings":[{{"title":"t","body":"b","severity":"low","at":{{"path":"a.rs","side":"right","start":1,"end":1}},"comment":"{comment}"}}]}}"#)
+    };
+    let two = "This total can go past 255 and wrap. Use `saturating_add` here.";
+    match read("findings", &with(&format!("  {two}  ")), &dir, None) {
+        Ok(ReviewResult::Findings { findings }) => assert_eq!(findings[0].comment, two, "kept trimmed"),
+        other => panic!("two sentences are a comment: {other:?}"),
+    }
+    assert!(read("findings", &with("Version 1.2 of `a.b` drops this... Bump it"), &dir, None).is_ok(), "a dot inside a word ends nothing");
+    let three = read("findings", &with("It wraps. It is wrong. Fix it."), &dir, None).unwrap_err();
+    assert!(three.contains("3 sentences"), "{three}");
+    let long = read("findings", &with(&"word ".repeat(60)), &dir, None).unwrap_err();
+    assert!(long.contains("characters"), "{long}");
+    let blank = read("findings", &r#"{"findings":[{"title":"t","body":"b","severity":"low","at":{"path":"a.rs","side":"right","start":1,"end":1}}]}"#, &dir, None).unwrap_err();
+    assert!(blank.contains("comment"), "{blank}");
 }
 
 fn tour_of(stops: &[(&str, &str)]) -> String {
@@ -556,6 +655,7 @@ async fn a_listed_pull_request_names_the_session_that_holds_it() {
         checks: ListedChecks::Running,
         review: ReviewStanding::None,
         team: None,
+        my_latest: None,
     };
     for list in [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned] {
         fleet.vcs().now_review_list(list, Vec::new());

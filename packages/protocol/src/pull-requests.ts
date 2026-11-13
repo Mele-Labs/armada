@@ -5,6 +5,12 @@
 // The header rules in `protocol.ts` hold here.
 
 import type { PullRequestOwner } from "./merge-lines";
+import type {
+  PullMyReview,
+  PullSeen,
+  PullSinceMyReview,
+  PullViewedFile,
+} from "./pull-review-memory";
 import type { PullReviewComment, PullReviewThread } from "./pull-reviews";
 
 /** Where a pull request stands. A draft is open and not yet ready for review. */
@@ -163,6 +169,14 @@ export type PullRequestPage = {
   owner?: PullRequestOwner;
   /** A description a Job proposed for it and the person has not settled. Absent where none waits. */
   draft?: PullRequestDraft;
+  /** The head the person last left it at. Absent where he never has. */
+  seen?: PullSeen;
+  /** Each file he marked viewed, and whether it still is. Absent when he marked none. */
+  viewed?: PullViewedFile[];
+  /** His own latest submitted review. Absent where he has none, or Fleet does not know who he is. */
+  my_review?: PullMyReview;
+  /** What came since that review. Present exactly when `my_review` is. */
+  since_my_review?: PullSinceMyReview;
 };
 
 /**
@@ -190,6 +204,8 @@ export type PullRequestFilePatch = {
   path: string;
   patch?: string;
   said?: string;
+  /** The forge's blob for the file's content, which `mark_file_viewed` takes back. Absent where the forge gave none. */
+  blob?: string;
 };
 
 /**

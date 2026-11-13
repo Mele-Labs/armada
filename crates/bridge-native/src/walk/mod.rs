@@ -364,6 +364,19 @@ pub static WALKS: &[Walk] = &[
         steps: &terminal::STEPS,
     },
     Walk {
+        name: "needs-long",
+        title: "A long question scrolls its options between a pinned head and its acts",
+        screen: Screen::Jobs,
+        scenario: "needs-long",
+        steps: &[
+            step("A press on a Job opens it; its long question is first in what waits on you", Verb::Press, "row", "Fix the merge line freshness chip"),
+            step("The question opens whole: back and the question at the top, Answer at the foot", Verb::Open("button", "Open How should a refused push be retried?"), "button", "Answer"),
+            step("Only the options scroll; a hairline marks each edge they pass under", Verb::Wheel("group", "Options", 160), "radio", "Wait for main to move"),
+            step("A pick in the middle, and Answer is still in view", Verb::Press, "radio", "Wait for main to move"),
+            step("The last option, with the head and Answer where they were", Verb::Wheel("group", "Options", 400), "radio", "Hand it to the merge queue"),
+        ],
+    },
+    Walk {
         name: "native-today",
         title: "Native changes waiting on you",
         screen: Screen::All,
@@ -1528,6 +1541,13 @@ pub static WALKS: &[Walk] = &[
         steps: &title_bar::PREVIEW_OFFERS,
     },
     Walk {
+        name: "native-build-origin",
+        title: "The build switcher's On origin row: a branch no Job here holds, picked into the next build",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &title_bar::ORIGIN,
+    },
+    Walk {
         name: "project-switcher",
         title: "The project switcher on Fleet's projects",
         screen: Screen::Jobs,
@@ -2509,6 +2529,19 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "disputed-row",
+        title: "A dispute in the thread, as one item",
+        screen: Screen::Jobs,
+        scenario: "disputed-row",
+        steps: &[
+            press_on("A notice the agent disputed is one item: the call and the record are one row, with the why, who spotted it and when. The review Job it started opens on a press", "row", "Finished calls", "button", "Open the review job"),
+            press_on("A dispute that started no review Job has no link. One Fleet read from the agent's replies, with no call before it, is the same row", "row", "Ask for a review", "region", "Notice disputed"),
+            press_on("In the thread the dispute stands among its calls and messages", "row", "Finished calls", "region", "Thread"),
+            press_on("A Job whose agent never started is drawn the same way, in red", "row", "Edit the merge line", "button", "Failed to start"),
+            press_on("A press opens its log", "button", "Failed to start", "region", "Failed to start"),
+        ],
+    },
+    Walk {
         name: "native-settings",
         title: "Settings over the app",
         screen: Screen::Settings,
@@ -2608,6 +2641,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "jobs-many",
         steps: crate::settings::walk::LANES_ADD_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::DELETE_PROJECT,
+        title: "Delete a project from the picker",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::DELETE_PROJECT_STEPS,
     },
     Walk {
         name: crate::settings::walk::TAKE,

@@ -1,0 +1,10 @@
+[operations.delete_review_layout]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Delete a Reviews layout he saved"
+notes = """
+`POST /review_layouts/delete`, body `NamedReviewLayout`: `name`. Answers `ReviewLayouts`. Where it was picked, every pull request opens on `Default` after. A name not kept is not an error.
+
+A 422 `fleet.pull_review_memory_invalid` for `Default`, which cannot be deleted, and for a blank name.
+"""
