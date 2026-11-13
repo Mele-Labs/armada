@@ -10,7 +10,7 @@
 //! Fleet down is the exception that stays: Fleet is not there to send it, so it is read from
 //! [`runtime_file::Presence`] by [`connection_of`].
 
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 use gpui::SharedString;
 use ipc::{
     BuildPosition, BuildSource, BuildStage, FleetBuildReport, Instant, ManifestId, ModelDownshift, ProjectPlace, Projects, ProtocolId,
@@ -220,12 +220,9 @@ pub fn build_of(report: &FleetBuildReport) -> Build {
     Build { report: report.clone(), aligned, adopts: report.carried.clone() }
 }
 
-/// `Nov 5 17:05:00`, in his clock with its day, as a kept build is named. Text that is no instant comes back as it came.
+/// When a kept build was built, stamped as he set stamps to read. Text that is no instant comes back as it came.
 pub fn built_said(at: &Instant) -> String {
-    match DateTime::parse_from_rfc3339(at.as_str()) {
-        Ok(when) => crate::settings::time::stamp_of(when.with_timezone(&Local), ipc::time_format::TimeFormat { date: true, ..crate::settings::time::held() }, Local::now()),
-        Err(_) => at.as_str().to_string(),
-    }
+    crate::settings::time::stamp_at(at.as_str()).unwrap_or_else(|| at.as_str().to_string())
 }
 
 pub fn stage_word(stage: BuildStage) -> &'static str {
@@ -891,5 +888,25 @@ impl Face {
             Some(one) => format!("Settings for {}", one.name).into(),
             None => "Settings".into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{Duration, Local, SecondsFormat};
+
+    use super::*;
+
+    #[test]
+    fn a_kept_build_is_stamped_as_he_set_stamps_and_wears_todays_date_only_with_date_on() {
+        let at = |when: chrono::DateTime<Local>| Instant::carried(when.to_rfc3339_opts(SecondsFormat::Secs, false));
+        let today = Local::now();
+        let earlier = today - Duration::days(2);
+        crate::settings::time::hold(r#"{"hour12":true,"seconds":true,"date":false}"#);
+        assert_eq!(built_said(&at(today)), today.format("%-I:%M:%S %p").to_string());
+        assert_eq!(built_said(&at(earlier)), earlier.format("%b %-d %-I:%M:%S %p").to_string());
+        crate::settings::time::hold(r#"{"hour12":false,"seconds":false,"date":true}"#);
+        assert_eq!(built_said(&at(today)), today.format("%b %-d %H:%M").to_string());
+        assert_eq!(built_said(&Instant::carried("not a time")), "not a time");
     }
 }

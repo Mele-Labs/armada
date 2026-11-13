@@ -31,7 +31,7 @@ use layout::{nearest, pan_to, place, place_chips};
 use paint::PaintPlan;
 use wears::{mark_of_node, mark_of_rule};
 
-pub(crate) use layout::clock;
+pub(crate) use layout::stamp;
 pub(crate) use wears::mix;
 
 /// What a lane's head says when a double press opens the lanes of the Job it stands for.
@@ -608,9 +608,23 @@ fn lanes_press<H: LanesHost>(this: &mut H, id: &SharedString, current: String, p
 mod tests {
     use ipc::{LaneAutonomy, LaneEdge, LaneOutcome, LanePending};
 
-    use super::layout::{chip_size, pan_to};
+    use super::layout::{chip_size, meta, pan_to};
     use super::{Rect, View, HEAD, PAD};
     use super::wears::{chip_mark, mark_of_rule};
+
+    #[test]
+    fn a_rule_that_fired_on_an_earlier_day_says_its_day_and_date_on_says_todays() {
+        use chrono::{Duration, Local, SecondsFormat};
+        let at = |when: chrono::DateTime<Local>| ipc::Instant::carried(when.to_rfc3339_opts(SecondsFormat::Secs, false));
+        let fired = |when| meta(&LaneEdge { fired_at: Some(at(when)), ..edge() }).expect("a fired rule says when");
+        let today = Local::now();
+        let earlier = today - Duration::days(2);
+        crate::settings::time::hold(r#"{"hour12":true,"seconds":true,"date":false}"#);
+        assert_eq!(fired(today), today.format("%-I:%M:%S %p").to_string());
+        assert_eq!(fired(earlier), earlier.format("%b %-d %-I:%M:%S %p").to_string());
+        crate::settings::time::hold(r#"{"hour12":false,"seconds":false,"date":true}"#);
+        assert_eq!(fired(today), today.format("%b %-d %H:%M").to_string());
+    }
 
     fn edge() -> LaneEdge {
         LaneEdge {
