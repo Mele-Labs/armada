@@ -36,6 +36,16 @@ pub(super) enum RowKind {
     Subagent,
 }
 
+/// The word a kept tab names its kind by; a walk's tab is not kept.
+pub(super) fn kind_id(kind: RowKind) -> Option<&'static str> {
+    match kind {
+        RowKind::Draft => Some("draft"),
+        RowKind::Document => Some("document"),
+        RowKind::Subagent => Some("subagent"),
+        RowKind::Walk => None,
+    }
+}
+
 impl RowKind {
     /// The kind's glyph and the word a tab with no name of its own reads (`KINDS`).
     fn look(self) -> (&'static str, &'static str) {
@@ -318,10 +328,38 @@ impl JobView {
             });
             self.row_tabs_of(id).keep(|tab| rows.contains(&(tab.kind, tab.key.clone())));
         }
+        self.restore_row_front(id, cx);
         let Some(owed) = self.record(id, cx).map(owed_walks) else { return };
         if self.row_tabs_of(id).sync_walks(&owed) {
             self.reopen_thread(id);
         }
+    }
+
+    /// The tab that was in front of the thread's pane when he left, once the thread is held: it opens again
+    /// where its draft, page or subagent is still the Job's, and is let go where it is not.
+    fn restore_row_front(&mut self, id: &SharedString, cx: &mut Context<Self>) {
+        if self.thread(id, cx).is_none() {
+            return;
+        }
+        let Some((kind, key)) = self.place.wants_row.remove(id) else { return };
+        let held = self.thread(id, cx).map(|held| &held.items);
+        let (kind, title) = match kind.as_str() {
+            "draft" => match held.and_then(|items| super::review::draft_row(items, &key)) {
+                Some(SessionRow::Draft { title, .. }) => (RowKind::Draft, title.clone()),
+                _ => return,
+            },
+            "document" => match held.and_then(|items| super::review::document_card(items, &key)) {
+                Some(card) => (RowKind::Document, card.title.clone()),
+                None => return,
+            },
+            "subagent" => {
+                let Some(one) = self.record(id, cx).and_then(|record| record.attachments.iter().find(|one| one.kind == "subagent" && one.target == key)).map(super::ledger::subagent_of) else { return };
+                self.watch_subagent(&one, cx);
+                (RowKind::Subagent, one.task)
+            }
+            _ => return,
+        };
+        self.row_tabs_of(id).focus(kind, &key, title);
     }
 
     // ---- drawing -----------------------------------------------------------------------

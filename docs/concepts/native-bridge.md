@@ -167,6 +167,8 @@ The parity check takes each row here as chosen.
 | Add lifecycle over a workflow's lanes in Settings | Drawn where the lanes can be edited | Not drawn: native's lanes are read-only for now |
 | The clash shown in the Settings walk | api's own copy of feature, where Platform and Mobile differ | armada's own copy of feature, with the same words, since the mock serves no api repository |
 | New project (owner) | `LocateForm`: a name and a parent folder, made into a git repository | A project sheet: a name, his repositories ticked whole or by folder, a clone or a new repository, where its file is kept, and the settings it starts with. Create makes the project, goes to it and starts a Job in it on its empty thread |
+| The Job open after a restart | Keeps no open Job: `cockpit/deck/store.ts` holds the selection in memory and writes only the order, filters and scope | Opens on the Job that was open, where Fleet still lists it; a Job it no longer lists leaves the screen as a first start has it, with no message. Kept in `native-place` beside `native-deck` |
+| A thread's scrolled place after a restart | Keeps it in the window alone, so Back finds it, and none within 40px of the end (`session-view/place.ts:11,20`); a restart drops it | Keeps the row at the top and how far into it, where he had scrolled up, and puts it back when the thread is read. A thread that followed its tail keeps nothing and opens following |
 
 ## Notifying
 

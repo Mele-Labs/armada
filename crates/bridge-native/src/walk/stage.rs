@@ -49,7 +49,13 @@ impl Stage {
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
                 let keys = list.read(cx).focus_handle().clone();
                 let threads = crate::mock::threads(walk.scenario)?;
+                // A reopen opens the Job that was open, as a restart does; its tabs and place are read by the Job view.
+                let reopened = crate::job_view::reopened_job(cx);
+                let opens = list.clone();
                 let screen = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
+                if let Some(job) = reopened {
+                    opens.update(cx, |list, cx| list.open_job(&job, cx));
+                }
                 let focus = Focus { keys, within: screen.read(cx).within().clone() };
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: screen.into(), focus })
@@ -189,7 +195,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
     match step.verb {
         Verb::Look | Verb::Later(_) => Ok(()),
         // The walk window builds the screen again before it reaches here (`WalkWindow::play_to`).
-        Verb::Fresh | Verb::FreshIn(..) => Ok(()),
+        Verb::Fresh | Verb::FreshIn(..) | Verb::Reopen => Ok(()),
         Verb::Width(points) => {
             let height = window.viewport_size().height;
             window.resize(gpui::size(gpui::px(points as f32), height));
