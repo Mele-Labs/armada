@@ -32,6 +32,14 @@ use crate::workflow_drafts::WORKFLOW_KIND;
 use crate::workflow_page::PROJECT_UNNAMED;
 use crate::workflow_versions::text_hash;
 
+/// Where a rail goes when the step it stood on, `stood`, is not in `new`: the first step after it, in the `old` order, that
+/// `new` still has, and where none is, the last of `new`. `None` where `stood` is not in `old` or `new` has no steps.
+pub(crate) fn landing(old: &[String], new: &[String], stood: &str) -> Option<usize> {
+    let at = old.iter().position(|one| one == stood)?;
+    let after = old[at + 1..].iter().find_map(|one| new.iter().position(|step| step == one));
+    after.or_else(|| new.len().checked_sub(1))
+}
+
 /// A Job a publish pinned: what it was running.
 pub(crate) struct Pin {
     pub session: String,
@@ -266,8 +274,7 @@ where
             let stood = store.session_rail(&sid, &old_ids).map_err(fault)?.step.and_then(|at| old_ids.get(at as usize).cloned());
             store.drop_job_workflow_copy(&sid).map_err(fault)?;
             // Its step is gone: the first step after it that survives, else the last.
-            if let Some(gone) = stood.filter(|stood| !new_ids.contains(stood)).and_then(|stood| old_ids.iter().position(|one| *one == stood)) {
-                let to = old_ids[gone + 1..].iter().find_map(|one| new_ids.iter().position(|new| new == one)).unwrap_or(new_ids.len().saturating_sub(1));
+            if let Some(to) = stood.filter(|stood| !new_ids.contains(stood)).and_then(|stood| landing(&old_ids, &new_ids, &stood)) {
                 let mut kept = store.session_rail(&sid, &new_ids).map_err(fault)?;
                 kept.step = Some(to as u32);
                 kept.visits.push((to as u32, self.now().as_str().to_string()));
