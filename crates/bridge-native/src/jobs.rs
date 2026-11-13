@@ -107,6 +107,8 @@ struct Row {
     queued: Option<crate::queued::QueuedIdea>,
     /// Drawn only for its place, as the starter of a listed Job the scope leaves out: muted, never pressed.
     place: bool,
+    /// The Mac the Job runs on, by id; none is this one (`crate::pairing`).
+    mac: Option<SharedString>,
 }
 
 /// What a row draws, chosen in the View group of its menu (`row-view.tsx`, `VIEW_FIELDS`), in the
@@ -394,6 +396,7 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
                 now: None,
                 queued: Some((*idea).clone()),
                 place: false,
+                mac: None,
             }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
@@ -423,6 +426,7 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
             now: job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()).map(Into::into),
             queued: None,
             place: places.contains(job.id.as_str()),
+            mac: job.mac.clone().map(Into::into),
         };
         fn under<'a>(
             parent: &str,
@@ -595,7 +599,15 @@ pub struct JobsList {
     lifted: Option<SharedString>,
     /// The ideas waiting to start (`crate::queued`), each a row under its repository's group.
     ideas: Vec<crate::queued::QueuedIdea>,
+    /// Jobs `session.removed` took away that the open Job's screen has not let go of yet.
+    gone: Vec<SharedString>,
+    _removed: Option<Subscription>,
 }
+
+/// The list a walk plays on, so a scene can send it what Fleet would.
+struct MockList(gpui::WeakEntity<JobsList>);
+
+impl gpui::Global for MockList {}
 
 /// A Job's row while it is dragged to a new place in its project.
 #[derive(Clone)]
@@ -691,6 +703,7 @@ impl JobsList {
         watch: Option<Subscription>,
         cx: &mut Context<Self>,
     ) -> Self {
+        let fleet_held = fleet.is_some();
         let mut this = JobsList {
             jobs,
             lines: Vec::new(),
@@ -718,7 +731,14 @@ impl JobsList {
             drop: None,
             lifted: None,
             ideas: crate::queued::ideas(cx),
+            gone: Vec::new(),
+            _removed: None,
         };
+        if fleet_held {
+            this._removed = this.fleet.clone().map(|fleet| cx.subscribe(&fleet, |this, _, crate::fleet::Removed(ids), cx| this.gone(ids, cx)));
+        } else {
+            cx.set_global(MockList(cx.weak_entity()));
+        }
         // The ideas waiting to start stand in the list as they change, from Dispatch or a row's own acts.
         cx.observe_global::<crate::queued::Queued>(|this, cx| {
             this.ideas = crate::queued::ideas(cx);
@@ -729,6 +749,39 @@ impl JobsList {
         this.lines = this.lines_now();
         this.focused = this.first_row();
         this
+    }
+
+    /// `session.removed`: each row goes, and the Job open or focused on it is let go of, as the list does for a row
+    /// Fleet no longer serves. The open Job's screen takes the ids ([`Self::take_gone`]) to drop its tabs and page.
+    pub fn gone(&mut self, ids: &[String], cx: &mut Context<Self>) {
+        let named = |id: &str| ids.iter().any(|gone| gone == id);
+        self.jobs.retain(|job| !named(job.id.as_str()));
+        self.order.retain(|id| !named(id));
+        self.keep();
+        if self.opened.as_ref().is_some_and(|id| named(id)) {
+            self.opened = None;
+        }
+        if self.card.as_ref().is_some_and(|id| named(id)) {
+            self.card = None;
+        }
+        self.gone.extend(ids.iter().map(|id| SharedString::from(id.clone())));
+        self.lines = self.lines_now();
+        if !self.focused.as_ref().is_some_and(|id| self.at_of(id).is_some()) {
+            self.focused = self.first_row();
+        }
+        cx.notify();
+    }
+
+    /// A walk's `session.removed` for these Jobs, sent to the list it plays on.
+    pub fn mock_gone(ids: &[String], cx: &mut App) -> Result<(), String> {
+        let list = cx.try_global::<MockList>().and_then(|held| held.0.upgrade()).ok_or("no Jobs list is drawn yet")?;
+        list.update(cx, |list, cx| list.gone(ids, cx));
+        Ok(())
+    }
+
+    /// The Jobs taken away since the screen last asked, once.
+    pub fn take_gone(&mut self) -> Vec<SharedString> {
+        std::mem::take(&mut self.gone)
     }
 
     /// Put each live Job the order has not met at its end, in the standing order it is drawn in,
@@ -1107,6 +1160,10 @@ impl JobsList {
             return false;
         }
         let Some(row) = self.focused.as_ref().and_then(|id| self.rows().find(|row| &row.id == id)).filter(|row| !row.ended && row.queued.is_none()) else { return false };
+        // A Job on another Mac is paused there: the key does nothing here.
+        if self.record(&row.id).is_some_and(|job| !crate::pairing::Here::acts_here(job)) {
+            return true;
+        }
         let session_id = ipc::SessionId::carried(row.id.to_string());
         let body = if row.paused {
             ("/sessions/resume", ipc::encode(&ipc::ResumeSession { session_id }))
@@ -1150,12 +1207,18 @@ impl JobsList {
         }
         self.card = None;
         let (pause, label, icon) = if row.paused { ("resume", "Resume", "play") } else { ("pause", "Pause", "circle-pause") };
+        // A Job on another Mac is read here: its acts are shown, off, with why (`crate::pairing`).
+        let off: Option<SharedString> = self.record(&id).and_then(|job| crate::pairing::refusal(job, cx)).map(Into::into);
+        let act = |id: &'static str, label: &str, icon: Option<&'static str>, danger: bool| match &off {
+            Some(why) => Entry::Item { id, label: label.to_string().into(), icon, danger, key: None, off: Some(why.clone()) },
+            None => Entry::Act { id, label: label.to_string().into(), icon, danger },
+        };
         let mut entries = vec![
-            Entry::Item { id: pause, label: label.into(), icon: Some(icon), danger: false, key: Some("P".into()), off: None },
-            Entry::Act { id: "name", label: "Name it for me".into(), icon: Some("wand-sparkles"), danger: false },
+            Entry::Item { id: pause, label: label.into(), icon: Some(icon), danger: false, key: Some("P".into()), off: off.clone() },
+            act("name", "Name it for me", Some("wand-sparkles"), false),
             Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false },
-            Entry::Act { id: "try", label: "Try it in your app".into(), icon: None, danger: false },
-            Entry::Act { id: "close", label: "Close".into(), icon: Some("x"), danger: true },
+            act("try", "Try it in your app", None, false),
+            act("close", "Close", Some("x"), true),
             Entry::Rule,
         ];
         // The View group comes after the Job's own acts, then Mod and Report, as in `RowMenu.tsx`.
@@ -1565,6 +1628,11 @@ impl JobsList {
                     ))
                 }))
             });
+        // Once a second Mac is listed, every row keeps a column for the Mac it runs on, so the chips line up.
+        let mac_column = crate::pairing::shows_chips(crate::pairing::macs(cx)).then(|| {
+            let chip = crate::pairing::chip(row.mac.as_deref(), cx).map(|chip| crate::pairing::pill(look, SharedString::from(format!("mac-{}", row.id)), &chip));
+            div().flex_none().w(look.length(token::SPACE_12) * 1.25).flex().items_center().children(chip)
+        });
         // A top row of a live Job is dragged to a new place in its project, as Electron's deck does.
         let lit = crate::clash_mark::lit(cx) == Some(row.id.as_ref());
         let movable = row.depth == 0 && !row.ended;
@@ -1647,6 +1715,7 @@ impl JobsList {
                             .font_weight(FontWeight(look.number(weight)))
                             .child(row.title.clone()),
                     )
+                    .children(mac_column)
                     // The time keeps the title line on every row, beside the state, by the owner's
                     // choice, where Electron moves it to the foot of a row with lines.
                     .child(marks),

@@ -272,7 +272,7 @@ impl JobView {
                 ))
                 .children(typed_box)
                 .children(said.map(|why| refusal(look, key, why)))
-                .child(labelled(footer.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers"))
+                .child(labelled(super::acts::gated(footer.id(SharedString::from(format!("answers:{key}"))), self.off_shown(cx)), Role::Toolbar, "Answers"))
                 .children(frame.map(|frame| {
                     let drawn = frame.bounds.clone();
                     canvas(

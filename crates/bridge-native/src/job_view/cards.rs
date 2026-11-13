@@ -232,7 +232,7 @@ impl JobView {
                     })
                     .when(on_target, |footer| footer)
             };
-            column = column.child(labelled(footer.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers"));
+            column = column.child(labelled(super::acts::gated(footer.id(SharedString::from(format!("answers:{key}"))), self.off_shown(cx)), Role::Toolbar, "Answers"));
         }
         column.into_any_element()
     }
@@ -1132,7 +1132,7 @@ impl JobView {
                 ))
             }
         };
-        labelled(row.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers").into_any_element()
+        labelled(super::acts::gated(row.id(SharedString::from(format!("answers:{key}"))), self.off_shown(cx)), Role::Toolbar, "Answers").into_any_element()
     }
 }
 

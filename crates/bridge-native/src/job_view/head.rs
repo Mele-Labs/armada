@@ -497,6 +497,19 @@ impl JobView {
             }
             entries.extend(group);
         }
+        // A Job on another Mac keeps its acts in the menu, off, with why. Zoom is the tab's own and stays.
+        if let Some(why) = self.off_here(id, cx) {
+            for entry in &mut entries {
+                match entry {
+                    Entry::Item { id, .. } if *id == "zoom" => {}
+                    Entry::Item { off, .. } => *off = Some(why.clone()),
+                    Entry::Toggle { id, label, .. } => {
+                        *entry = Entry::Item { id, label: label.clone(), icon: None, danger: false, key: None, off: Some(why.clone()) };
+                    }
+                    _ => {}
+                }
+            }
+        }
         entries
     }
 
@@ -537,6 +550,9 @@ impl JobView {
 
     pub(super) fn head_act(&mut self, act: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
+        if act != "zoom" && self.off_here(&id, cx).is_some() {
+            return;
+        }
         let session_id = Self::session_id(&id);
         let encoded = |body: Result<String, ipc::Unencodable>| body;
         match act {
@@ -663,6 +679,9 @@ impl JobView {
 
     /// End job: at once if the Job holds nothing in flight, else after the list says what ending loses.
     pub(super) fn ask_end(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
+        if self.off_here(id, cx).is_some() {
+            return;
+        }
         let in_flight: Vec<String> = self
             .record(id, cx)
             .map(|job| job.in_flight.iter().map(|one| if one.state.is_empty() { one.label.clone() } else { format!("{}: {}", one.label, one.state) }).collect())
@@ -704,7 +723,7 @@ impl JobView {
     /// The title becomes a field in the tab: Enter and leaving save, Esc puts it back (1.1).
     pub(super) fn start_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        if self.head.rename.is_some() {
+        if self.head.rename.is_some() || self.off_here(&id, cx).is_some() {
             return;
         }
         let title = self.title_of(&id, cx).unwrap_or_default();
@@ -1227,6 +1246,8 @@ impl JobView {
         let land = self.auto_land(id, cx);
         let pending = self.fleet.is_some();
         let overlay = self.head.overlays.get(id.as_str());
+        // A Job on another Mac is read here: each act is off, and says on which Mac it runs.
+        let off = self.off_here(id, cx);
         let sending = |was: bool, now: bool| pending && was != now;
         // Land, Pause and Release act on a hosted Job that is live; the Judge reads any Job.
         let hosted_acts = hosted && live;
@@ -1234,7 +1255,8 @@ impl JobView {
             let land_tip: SharedString =
                 if overlay.and_then(|overlay| overlay.auto_land).is_some() && sending(job.auto_land, land) { "Sending".into() } else if land { "Auto land on".into() } else { "Auto land off".into() };
             labelled(
-                act_button(look, "act-land", "plane-landing", "land", land_tip, land, false).on_click(cx.listener(|this, _, window, cx| this.head_act("land", window, cx))),
+                act_button(look, "act-land", "plane-landing", "land", off.clone().unwrap_or(land_tip), land, off.is_some())
+                    .when(off.is_none(), |button| button.on_click(cx.listener(|this, _, window, cx| this.head_act("land", window, cx)))),
                 Role::Button,
                 "Auto land",
             )
@@ -1244,9 +1266,9 @@ impl JobView {
             let pause_name: SharedString = if paused { "Resume".into() } else { "Pause".into() };
             let pause_tip: SharedString = if sending(paused_was, paused) { "Sending".into() } else if paused { "Paused".into() } else { "Pause".into() };
             labelled(
-                act_button(look, "act-pause", if paused { "play" } else { "circle-pause" }, "pause", pause_tip, paused, false).on_click(cx.listener(
-                    move |this, _, window, cx| this.head_act(if paused { "resume" } else { "pause" }, window, cx),
-                )),
+                act_button(look, "act-pause", if paused { "play" } else { "circle-pause" }, "pause", off.clone().unwrap_or(pause_tip), paused, off.is_some()).when(off.is_none(), |button| {
+                    button.on_click(cx.listener(move |this, _, window, cx| this.head_act(if paused { "resume" } else { "pause" }, window, cx)))
+                }),
                 Role::Button,
                 pause_name,
             )
@@ -1255,7 +1277,8 @@ impl JobView {
             let holds = !self.holds(id, cx).is_empty();
             let release_tip: SharedString = if holds { "Release or hand over everything the Job holds".into() } else { "The Job holds nothing".into() };
             labelled(
-                act_button(look, "act-release", "unplug", "release", release_tip, false, !holds).on_click(cx.listener(|this, _, window, cx| this.head_act("release", window, cx))),
+                act_button(look, "act-release", "unplug", "release", off.clone().unwrap_or(release_tip), false, !holds || off.is_some())
+                    .when(off.is_none(), |button| button.on_click(cx.listener(|this, _, window, cx| this.head_act("release", window, cx)))),
                 Role::Button,
                 "Release everything the Job holds",
             )
@@ -1337,7 +1360,8 @@ impl JobView {
                     said,
                 )
             });
-            div().flex().items_center().gap(look.length(token::SPACE_2)).children(mod_mark).children(tools_mark)
+            let mac_mark = crate::pairing::chip(job.mac.as_deref(), cx).map(|chip| crate::pairing::pill(look, "mark-mac".into(), &chip));
+            div().flex().items_center().gap(look.length(token::SPACE_2)).children(mac_mark).children(mod_mark).children(tools_mark)
         };
         let aa = labelled(
             div()
