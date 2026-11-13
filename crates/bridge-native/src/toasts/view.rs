@@ -988,7 +988,7 @@ mod ruling_tests {
         assert_eq!(ruling_said(&news(DispatchWay::Asked, Some("Fix the build")), None), "Operator asks about Fix the build");
         let long = "Retry the webhook sender on a 503 and keep the dead letters for a day in sample-api";
         let said = ruling_said(&news(DispatchWay::Asked, None), Some(about(long)));
-        assert_eq!(said, "Operator asks about Retry the webhook sender on a 503 and keep the dead...");
+        assert_eq!(said, "Operator asks about Retry the webhook sender on a 503 and keep the d...");
         assert_eq!(about("one line\nsecond"), "one line");
     }
 }
