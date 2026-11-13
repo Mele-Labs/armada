@@ -1528,6 +1528,13 @@ pub static WALKS: &[Walk] = &[
         steps: &title_bar::PREVIEW_OFFERS,
     },
     Walk {
+        name: "native-build-origin",
+        title: "The build switcher's On origin row: a branch no Job here holds, picked into the next build",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &title_bar::ORIGIN,
+    },
+    Walk {
         name: "project-switcher",
         title: "The project switcher on Fleet's projects",
         screen: Screen::Jobs,
