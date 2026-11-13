@@ -63,6 +63,15 @@ pub struct PullReviewRow {
     /// keeps of who owns one. Absent where none does, and then a note on it stays in Armada.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub holder: Option<crate::review_runs::PullReviewHolder>,
+    /// The head the person last left it at. Absent where he never has.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seen: Option<crate::pull_review_memory::PullSeen>,
+    /// His own latest submitted review of it. Absent where he has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub my_review: Option<crate::pull_review_memory::PullMyReview>,
+    /// Where it stands in his inbox, worked out by Fleet from `seen`, `head` and `my_review`.
+    #[serde(default)]
+    pub inbox: crate::pull_review_memory::PullInbox,
 }
 
 /// `get_review_lists`: the four lists, one forge call each, at most [`MOST_PER_LIST`] a list

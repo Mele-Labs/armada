@@ -191,6 +191,8 @@ mod protocol_id;
 mod pull_requests;
 /// The pull requests waiting on a person as four lists, and the acts of a review on one.
 mod pull_reviews;
+/// What Fleet remembers of a pull request for the person between visits, and his Reviews layouts.
+mod pull_review_memory;
 /// Fleet's last read of `armada.yml`, held rather than announced. **The one shape here about the
 /// fleet and not about a Job**, beside `capacity`. What a scout answers a read-in with. `#1293`.
 mod read_in;
@@ -577,6 +579,11 @@ pub use pull_reviews::{
     PullReviewRow, PullReviewThread, PullReviewThreadComment, PullThreadResolved,
     ResolvePullThread, MOST_PER_LIST,
 };
+pub use pull_review_memory::{
+    MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview,
+    PullRequestCompare, PullRequestCompareOf, PullSeen, PullViewedFile, ReviewLayout, ReviewLayouts,
+    SaveReviewLayout, UnmarkFileViewed, DEFAULT_REVIEW_LAYOUT,
+};
 pub use read_in::{
     what_a_scout_read_in, ReadIn, ReadInCluster, ReadInContradiction, ReadInNote,
     ReadInRelation, MOST_CHARACTERS, MOST_CLUSTERS, MOST_CONTRADICTIONS, MOST_NOTES,
@@ -638,6 +645,7 @@ pub use review_runs::{
     ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity,
     ReviewStep, ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut, ReviewTourStop,
     ReviewToolScope, ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
+    COMMENT_AT_MOST, COMMENT_SENTENCES_AT_MOST,
 };
 pub use pull_request_notes::{
     NoteSide, NoteStatus, PullRequestNote, PullRequestNotes, ResolvePullRequestNote, SavePullRequestNote,

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use super::{joined, login_of, Login, Nodes};
 use crate::github_api::{ApiFailure, GitHubApi};
 use crate::pull_request_detail::review_standing;
-use crate::pull_review_lists::{checks_of, search_of, team_named, Teams, MOST_A_CALL, QUERY};
+use crate::pull_review_lists::{checks_of, latest_of, search_of, team_named, Teams, MOST_A_CALL, QUERY};
 
 /// The most pages of the person's teams read: 1,000 teams.
 const MOST_TEAM_PAGES: usize = 10;
@@ -16,6 +16,8 @@ const MOST_TEAM_PAGES: usize = 10;
 struct Asked<'a> {
     q: &'a str,
     n: usize,
+    /// Whose own latest review each row carries; null on the open list, whose rows are nobody's.
+    me: Option<&'a str>,
 }
 
 /// `data` of the search.
@@ -39,6 +41,18 @@ struct Found {
     review_decision: Option<String>,
     commits: Option<Nodes<Commit>>,
     review_requests: Option<Nodes<Request>>,
+    my_review: Option<Nodes<MyReview>>,
+}
+
+#[derive(Deserialize)]
+struct MyReview {
+    state: Option<String>,
+    commit: Option<Oid>,
+}
+
+#[derive(Deserialize)]
+struct Oid {
+    oid: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -88,7 +102,8 @@ struct HeldTeam {
 /// One list. `Ok(None)` where the search would not mean what it says, as for `gh`.
 pub(super) fn read(api: &GitHubApi, ask: &ReviewListAsk<'_>) -> Result<Option<Vec<ListedPull>>, ApiFailure> {
     let Some(search) = search_of(ask) else { return Ok(None) };
-    let asked = Asked { q: &search, n: ask.most.clamp(1, MOST_A_CALL) };
+    let me = (!ask.login.is_empty() && ask.list != ReviewList::Open).then_some(ask.login);
+    let asked = Asked { q: &search, n: ask.most.clamp(1, MOST_A_CALL), me };
     if ask.list != ReviewList::Team {
         let found: Searched = api.graphql(QUERY, &asked)?;
         return Ok(Some(listed(found, Teams::Unwanted)));
@@ -150,6 +165,10 @@ pub(crate) fn listed(found: Searched, teams: Teams<'_>) -> Vec<ListedPull> {
                 checks: checks_of(&rollup),
                 review: review_standing(&pull.review_decision.unwrap_or_default()),
                 team: team_named(&asked, &teams),
+                my_latest: Nodes::all(pull.my_review).next().and_then(|review| {
+                    let commit = review.commit.and_then(|it| it.oid).unwrap_or_default();
+                    latest_of(&review.state.unwrap_or_default(), &commit)
+                }),
             })
         })
         .collect()

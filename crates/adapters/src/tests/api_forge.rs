@@ -8,7 +8,7 @@
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
-use adapter_traits::{FilePatch, Forge, ReviewList, ReviewListAsk, Said};
+use adapter_traits::{ComparedPatches, FilePatch, Forge, ReviewList, ReviewListAsk, Said};
 
 use super::github_api::{api, ok, serve, Reply};
 use super::repo::TempRepo;
@@ -106,6 +106,10 @@ fn a_review_list_over_the_api_is_the_list_gh_reads() {
     let requested = forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Requested)).unwrap();
     assert_eq!(requested, listed_folded(&lines(LIST_GH), Teams::Unwanted));
     assert_eq!(requested.len(), 6, "the node that is no pull request is dropped");
+    let mine = requested[0].my_latest.as_ref().expect("the person's own latest review");
+    assert_eq!(mine.said, adapter_traits::LatestReviewSaid::Commented);
+    assert_eq!(mine.commit.as_deref(), Some("1111111111111111111111111111111111111111"));
+    assert_eq!(requested[1].my_latest, None);
 
     // The person is on Platform, the second team asked of #2712, and on no team asked of #2711.
     let team = forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Team)).unwrap();
@@ -222,6 +226,7 @@ fn patches_over_the_api_are_the_patches_gh_reads() {
 
     let patches = forge.pull_request_patches(&root, "2190").unwrap();
     assert_eq!(patches, listed(&lines(PATCHES_GH)));
+    assert_eq!(patches[0].blob.as_deref(), Some("5e1a2b3c4d5e6f708192a3b4c5d6e7f801234567"));
     let first = patches[0].patch.clone().unwrap();
     assert_eq!(forge.pull_request_file_patch(&root, "2190", &patches[0].path), Some(FilePatch::Patch(first)));
     assert_eq!(forge.pull_request_file_patch(&root, "2190", "crates/fleet/src/review.rs"), Some(FilePatch::NoPatch));
@@ -260,4 +265,23 @@ fn a_checkouts_repository_is_read_from_its_remote_once() {
     assert_eq!(asked(&forge, &repo.root_str(), Ok(Some("api"))), Some("api"));
     repo.git(&["remote", "set-url", "origin", "https://git.example.com/team/tool.git"]);
     assert_eq!(asked(&forge, &repo.root_str(), Ok(Some("api"))), Some("api"), "the remote is not read again");
+}
+
+#[test]
+fn a_compare_answers_the_files_between_two_commits_and_a_base_the_forge_lost_is_base_gone() {
+    let compared = format!(r#"{{"files":{PATCHES}}}"#);
+    let server = serve(move |seen| match seen.target.as_str() {
+        "/repos/mele-labs/armada/compare/aaaa1111...bbbb2222?per_page=100" => ok(&compared),
+        _ => not_found(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = on_github();
+    let root = repo.root_str();
+
+    assert_eq!(
+        forge.pull_request_compare(&root, "aaaa1111", "bbbb2222"),
+        Some(ComparedPatches::Patches(listed(&lines(PATCHES_GH))))
+    );
+    assert_eq!(forge.pull_request_compare(&root, "cccc3333", "bbbb2222"), Some(ComparedPatches::BaseGone));
+    assert_eq!(forge.pull_request_compare(&root, "not a sha", "bbbb2222"), None);
 }

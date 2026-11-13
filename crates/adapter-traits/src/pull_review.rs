@@ -68,6 +68,25 @@ pub struct ListedPull {
     /// The team the review was asked of, on the team list: the first requested team the person is
     /// on, else the first requested. Absent on the other lists.
     pub team: Option<String>,
+    /// The signed-in person's own latest submitted review, where he has one. A pending review and
+    /// a dismissed one are not his latest.
+    pub my_latest: Option<LatestReview>,
+}
+
+/// What a person's own latest submitted review said.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LatestReviewSaid {
+    Approved,
+    ChangesRequested,
+    Commented,
+}
+
+/// A person's own latest submitted review of a pull request.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LatestReview {
+    pub said: LatestReviewSaid,
+    /// The commit it was written on, whole. `None` where the forge did not say.
+    pub commit: Option<String>,
 }
 
 /// Which side of a diff a line is on.

@@ -158,6 +158,18 @@ pub struct PatchedFile {
     pub path: String,
     /// `None` where the forge gave no patch, as [`FilePatch::NoPatch`].
     pub patch: Option<String>,
+    /// The forge's blob for the file's content at the head it was read at: two reads with the
+    /// same blob hold the same content. `None` where the forge gave none.
+    pub blob: Option<String>,
+}
+
+/// What the forge answers for the files changed between two commits of a pull request.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ComparedPatches {
+    /// Every file changed from the base commit's merge base with the head, in the forge's order.
+    Patches(Vec<PatchedFile>),
+    /// The forge no longer has the base commit, as after a force-push. An answer, not a failure.
+    BaseGone,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
