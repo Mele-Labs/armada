@@ -249,6 +249,22 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1 }), cx);
             Ok(())
         }
+        Verb::AltPressOn(role, name) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let at = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| {
+                    let mut named = book.drawn(window.window_handle().window_id()).iter().filter(|drawn| drawn.role == role && drawn.name == name);
+                    let first = named.clone().next();
+                    named.find(|drawn| drawn.shown.size.width > px(0.) && drawn.shown.size.height > px(0.)).or(first).cloned()
+                })
+                .ok_or_else(|| Missed(format!("nothing named \"{name}\" to press")))?;
+            let at = aim(&reveal(at, window, cx));
+            let modifiers = Modifiers { alt: true, ..Modifiers::default() };
+            window.dispatch_event(PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1, first_mouse: false }), cx);
+            window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1 }), cx);
+            Ok(())
+        }
         Verb::Gone => {
             // The first drawn, which is the head's where the thread draws a twin below it.
             let role = role_named(step.target.role).ok_or_else(|| Missed(format!("no role named {}", step.target.role)))?;
@@ -482,22 +498,6 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             let at = reveal(at, window, cx);
             let at = aim(&at);
             press(MouseButton::Left, at, window, cx);
-            Ok(())
-        }
-        Verb::AltPressOn(role, name) => {
-            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
-            let at = cx
-                .try_global::<LabelBook>()
-                .and_then(|book| {
-                    let mut named = book.drawn(window.window_handle().window_id()).iter().filter(|drawn| drawn.role == role && drawn.name == name);
-                    let first = named.clone().next();
-                    named.find(|drawn| drawn.shown.size.width > px(0.) && drawn.shown.size.height > px(0.)).or(first).cloned()
-                })
-                .ok_or_else(|| Missed(format!("nothing named \"{name}\" to press")))?;
-            let at = aim(&reveal(at, window, cx));
-            let modifiers = Modifiers { alt: true, ..Modifiers::default() };
-            window.dispatch_event(PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1, first_mouse: false }), cx);
-            window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1 }), cx);
             Ok(())
         }
         Verb::Marks(name) => {

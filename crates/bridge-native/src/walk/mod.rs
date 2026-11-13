@@ -1295,19 +1295,6 @@ pub static WALKS: &[Walk] = &[
     ],
     },
     Walk {
-        name: "jobs-tree",
-        title: "Jobs started by Jobs, and the Jobs that need you",
-        screen: Screen::Jobs,
-        scenario: "jobs-tree",
-        steps: &[
-            step("A Job another started stands under it, a line from the starter to its last", Verb::Look, "row", "Jobs across home and work Macs"),
-            step("A chain two deep keeps its starter's line running past the rows that are not its own", Verb::Look, "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
-            step("The scope beside the search: Needs you comes first", Verb::Press, "button", "Active"),
-            step("Enter picks it: the Jobs that need you, each under its starters, drawn muted for their place", Verb::Key("enter"), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
-            step("A starter drawn for its place is not a match: ↓ goes from one Job that needs you to the next", Verb::Key("down"), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
-        ],
-    },
-    Walk {
         name: "jobs-fold",
         title: "Folding the sub-Jobs of a Job in the Jobs list",
         screen: Screen::Jobs,
@@ -1333,6 +1320,19 @@ pub static WALKS: &[Walk] = &[
             step("Typed words find them", Verb::Type("Unfold all"), "searchbox", "Search actions, jobs and settings"),
             step("Each ends in its kind, Command", Verb::Look, "option", "Unfold all sub-Jobs"),
             step("Enter runs it: every parent unfolds and the switch is off", Verb::Key("enter"), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
+        ],
+    },
+    Walk {
+        name: "jobs-tree",
+        title: "Jobs started by Jobs, and the Jobs that need you",
+        screen: Screen::Jobs,
+        scenario: "jobs-tree",
+        steps: &[
+            step("A Job another started stands under it, a line from the starter to its last", Verb::Look, "row", "Jobs across home and work Macs"),
+            step("A chain two deep keeps its starter's line running past the rows that are not its own", Verb::Look, "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
+            step("The scope beside the search: Needs you comes first", Verb::Press, "button", "Active"),
+            step("Enter picks it: the Jobs that need you, each under its starters, drawn muted for their place", Verb::Key("enter"), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
+            step("A starter drawn for its place is not a match: ↓ goes from one Job that needs you to the next", Verb::Key("down"), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
         ],
     },
     Walk {

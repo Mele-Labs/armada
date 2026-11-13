@@ -1775,31 +1775,6 @@ impl JobsList {
         let tagged = issue.is_some() || pr.is_some();
         let under = tagged || flow.is_some() || now.is_some();
         let lamp_ink = look.color(lamp);
-        // The earlier Job's mark stands in the state's slot, beside the state, as the ring does on the
-        // Job it replaced: one row never carries both.
-        let mut earlier_mark = row.earlier.clone().map(|earlier| {
-                labelled(
-                    div()
-                        .id(SharedString::from(format!("earlier-{}", row.id)))
-                        .flex_none()
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .size(look.length(token::SPACE_4))
-                        .rounded(look.length(token::RADIUS_SM))
-                        .text_color(look.color(token::FG_MUTED))
-                        .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
-                        .child(svg().path(icon_path("layers")).size(mark_glyph).text_color(look.color(token::FG_MUTED)))
-                        .tooltip(tip("Earlier Job".into()))
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            cx.stop_propagation();
-                            this.open(earlier.clone(), cx);
-                        })),
-                    Role::Button,
-                    "Earlier Job",
-                )
-                .into_any_element()
-            });
         // A folded parent keeps its sub-Jobs' glyphs in a strip, one that needs him first: folding hides no need.
         let strip_of = row.kids.as_ref().filter(|kids| kids.folded && !kids.strip.is_empty()).map(|kids| {
             div()
@@ -1864,6 +1839,31 @@ impl JobsList {
             }
             None => div().flex_none().w(column).into_any_element(),
         };
+        // The earlier Job's mark stands in the state's slot, beside the state, as the ring does on the
+        // Job it replaced: one row never carries both.
+        let mut earlier_mark = row.earlier.clone().map(|earlier| {
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("earlier-{}", row.id)))
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .size(look.length(token::SPACE_4))
+                        .rounded(look.length(token::RADIUS_SM))
+                        .text_color(look.color(token::FG_MUTED))
+                        .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+                        .child(svg().path(icon_path("layers")).size(mark_glyph).text_color(look.color(token::FG_MUTED)))
+                        .tooltip(tip("Earlier Job".into()))
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            cx.stop_propagation();
+                            this.open(earlier.clone(), cx);
+                        })),
+                    Role::Button,
+                    "Earlier Job",
+                )
+                .into_any_element()
+            });
         let status_on = view.on("view:status");
         let marks = div()
             .flex_none()
