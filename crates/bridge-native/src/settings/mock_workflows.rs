@@ -534,7 +534,7 @@ mod tests {
     #[test]
     fn a_step_asked_for_after_another_is_drafted_on_armadas_own_workflow_and_nothing_is_written() {
         let mut fleet = MockFleet::new();
-        let asking = AskWorkflowChange { workflow_id: WorkflowId::carried("prototype"), source: "armada".into(), text: "Add a Review step after Build".into() };
+        let asking = AskWorkflowChange { workflow_id: WorkflowId::carried("prototype"), source: "armada".into(), text: "Add a Review step after Build".into(), project: None };
         fleet.ask_change("armada", asking).expect("asked");
         let read = |fleet: &mut MockFleet| fleet.workflow_changes("prototype", "armada", "armada").expect("read").changes.remove(0);
         read(&mut fleet);

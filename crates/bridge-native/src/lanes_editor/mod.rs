@@ -497,6 +497,11 @@ impl LanesHost for LanesEditor {
         true
     }
 
+    /// Enter on the end box adds the step the box's press does, and the keys go to it.
+    fn lanes_add_at_end(&mut self, _id: &SharedString, _lane: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.add_at_end(window, cx);
+    }
+
     fn lanes_of<'a>(&'a self, _id: &SharedString, _cx: &'a gpui::App) -> Option<&'a JobLanesView> {
         self.shown.as_ref().or(match &self.read {
             Read::Read(lanes) => Some(lanes),
@@ -763,6 +768,15 @@ mod tests {
         type_in(&editor, cx, Some("  "), None);
         assert!(key(&editor, cx, "enter"));
         assert_eq!(history(&editor, cx).len(), 1, "an empty name is not a name");
+    }
+
+    #[gpui::test]
+    fn the_end_boxs_key_adds_one_step_after_the_last_and_picks_it(cx: &mut TestAppContext) {
+        let (editor, _, _, cx) = open(cx, false);
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.lanes_add_at_end(&"".into(), "workflow", window, cx)));
+        assert_eq!(history(&editor, cx), [(Author::Person, "Added New step after Land".to_string())]);
+        assert_eq!(editor.read_with(cx, |editor, _| editor.picked.clone()), Some(Pick::Node("workflow/new_step".into())));
+        assert!(cx.update(|window, cx| editor.read(cx).typing(window, cx)), "the keys are in its Name");
     }
 
     #[gpui::test]

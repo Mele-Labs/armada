@@ -20,7 +20,7 @@ use crate::labels::labelled;
 use crate::lanes_canvas::{Pick, StepGap};
 use crate::look::{token, Look};
 use crate::settings::definition::{steps_of, words_of};
-use crate::settings::view::{mono, tip};
+use crate::settings::view::{mono, ring_colour, tip};
 
 /// Classic's name for a step the + adds, and the id it is made from (`addAfter`).
 pub const NEW_STEP: &str = "New step";
@@ -460,6 +460,11 @@ impl LanesEditor {
 
     fn end_box(&self, look: &Look, frame: Bounds<Pixels>, bounds: Bounds<Pixels>, named: String, cx: &Context<Self>) -> AnyElement {
         let said = format!("Add after {named}");
+        // The keys are on this box once → went past the workflow lane's last step.
+        use crate::lanes_canvas::LanesHost;
+        let keyed = self.state.at_end(&self.id).is_some_and(|lane| {
+            self.lanes_of(&self.id, cx).is_some_and(|lanes| lanes.lanes.iter().any(|one| one.id == lane && one.kind == LaneKind::Workflow))
+        });
         let button = div()
             .id("lanes-add-at-end")
             .absolute()
@@ -472,8 +477,9 @@ impl LanesEditor {
             .justify_center()
             .rounded(look.length(token::RADIUS_MD))
             .border(look.length(token::BORDER_WIDTH))
-            .border_dashed()
+            .when(!keyed, |button| button.border_dashed())
             .border_color(look.color(token::BORDER_STRONG))
+            .when(keyed, |button| button.border(look.length(token::FOCUS_RING_WIDTH)).border_color(ring_colour(look)))
             .bg(look.color(token::BG_SUNKEN))
             .cursor_pointer()
             .hover(|style| style.bg(look.color(token::BG_HOVER)).border_color(look.color(token::ACCENT)))

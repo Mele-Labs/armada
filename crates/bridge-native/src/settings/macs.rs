@@ -145,12 +145,11 @@ fn time_left(seconds: i64) -> String {
 }
 
 /// The press a Mac's row carries, by its key's prefix and its words: Confirm on a claim waiting here, Forget on a
-/// paired Mac, and none on this Mac or on one waiting for Confirm there.
+/// paired Mac or one waiting for Confirm there, and none on this Mac.
 fn press_of_mac(mac: &Mac) -> Option<(&'static str, &'static str)> {
     match mac.link.as_ref()? {
         MacLink::ClaimWaiting => Some(("confirm", "Confirm")),
-        MacLink::ConfirmWaiting => None,
-        MacLink::Linked | MacLink::Asleep { .. } | MacLink::OlderBuild | MacLink::NewerBuild => Some(("forget", "Forget")),
+        MacLink::Linked | MacLink::Asleep { .. } | MacLink::OlderBuild | MacLink::NewerBuild | MacLink::ConfirmWaiting => Some(("forget", "Forget")),
     }
 }
 
@@ -667,7 +666,7 @@ impl SettingsOverlay {
                     });
                     let asleep = matches!(mac.link, Some(MacLink::Asleep { .. }));
                     let act = press_of_mac(mac).map(|(act, said)| (format!("{act}:{}", mac.id), said));
-                    let press = act.as_ref().and_then(|(key, said)| self.row_button(key, said, format!("{said} {}", mac.name), look, window, cx));
+                    let press = act.as_ref().and_then(|(key, said)| self.row_button(key, said, format!("{said} {}", mac.name), matches!(mac.link, Some(MacLink::ConfirmWaiting)), look, window, cx));
                     let row = device_row(look, chip(look, mac), &mac.name, mac.this_mac.then_some("This Mac"), mac.why.as_deref(), asleep)
                         .child(div().flex_none().children(mac.build.as_ref().map(|build| build_mark(look, format!("macs-build-{}", mac.id), build))))
                         .child(div().flex_none().w(look.length(token::SPACE_6)).flex().justify_center().children(mark))
@@ -727,12 +726,13 @@ impl SettingsOverlay {
     }
 
     /// A press on one row of the list, named for the row's Mac.
-    fn row_button(&self, key: &str, said: &'static str, name: String, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+    fn row_button(&self, key: &str, said: &'static str, name: String, withdraws: bool, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         let focus = self.macs.keys.get(key)?.clone();
         let off = !self.live_gateway() || self.macs.out.as_deref() == Some(key);
         let button = ghost(look, SharedString::from(format!("macs-{key}")), said, off);
         let key = key.to_string();
         let button = ringed(look, button, &focus, window).track_focus(&focus).when(!off, |button| button.on_click(cx.listener(move |this, _, window, cx| this.press_macs(&key, window, cx))));
+        let button = button.when(withdraws, |button| button.tooltip(tip("Withdraws this pairing")));
         Some(labelled(button, Role::Button, name).into_any_element())
     }
 
@@ -901,7 +901,7 @@ mod tests {
         assert_eq!(ids, ["mac-studio", "mac-work", "mac-mini", "mac-air", "mac-pro"]);
         overlay.read_with(cx, |this, _| {
             let presses: Vec<_> = this.macs.macs.iter().flatten().flatten().map(|mac| press_of_mac(mac).map(|(act, _)| act)).collect();
-            assert_eq!(presses, [None, Some("forget"), Some("forget"), None, Some("confirm")], "this Mac and one waiting on Confirm there have no press");
+            assert_eq!(presses, [None, Some("forget"), Some("forget"), Some("forget"), Some("confirm")], "this Mac has no press; one waiting on Confirm there can be forgotten");
         });
     }
 
@@ -966,5 +966,9 @@ mod tests {
         press(&overlay, "forget:mac-work", cx);
         assert_eq!(refused(&overlay, "forget:mac-work", cx), None);
         assert!(links(&overlay, cx).iter().all(|(id, _)| id != "mac-work"));
+        assert!(links(&overlay, cx).contains(&("mac-air".into(), Some(MacLink::ConfirmWaiting))));
+        press(&overlay, "forget:mac-air", cx);
+        assert_eq!(refused(&overlay, "forget:mac-air", cx), None);
+        assert!(links(&overlay, cx).iter().all(|(id, _)| id != "mac-air"), "a pairing waiting on Confirm there is withdrawn by the same route");
     }
 }
