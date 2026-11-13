@@ -992,61 +992,85 @@ impl JobView {
             .into_any_element()
     }
 
-    /// The person's act: an approval or an answer, a filled bar (A2.4).
+    /// The person's act: an approval or an answer, drawn as his own bubble on the right (his pick, 13 Nov): a
+    /// gold band with the act's glyph and time, what it answers quoted in quiet sans, then his answer.
     fn did(&self, id: &str, act: Act<'_>, at: &ipc::Instant, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
-        let (word, label, icon, target, said) = match act {
-            Act::Approved(address) => ("Approved", "You approved", "check", shown_target(address).to_string(), ""),
-            Act::Answered { target, said } => ("Answered", "You answered", "reply", target.to_string(), said),
+        let (label, icon, target, said) = match act {
+            Act::Approved(address) => ("You approved", "check", shown_target(address).to_string(), ""),
+            Act::Answered { target, said } => ("You answered", "reply", target.to_string(), said),
         };
-        let ink = look.color(token::FG_INVERSE);
-        let chip = div()
-            .id(SharedString::from(format!("did-chip:{id}")))
+        let you = look.color(token::YOU);
+        let edge = look.color(token::YOU_EDGE);
+        // A narrow bubble puts the time on a line of its own rather than cutting it.
+        let band = div()
             .flex()
+            .flex_wrap()
             .items_center()
-            .gap(look.length(token::SPACE_1))
-            .min_w_0()
-            .px(look.length(token::SPACE_2))
-            .rounded(look.length(token::RADIUS_SM))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(ink)
-            .font_family(mono(look))
-            .text_size(look.length(token::TEXT_2XS))
+            .gap_x(look.length(token::SPACE_2))
+            .gap_y(look.length(token::SPACE_1))
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_1) * 1.5)
+            .bg(you.opacity(0.1))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(edge)
+            .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
-            .child(glyph(look, icon, Size::Small, ink))
-            .child(div().min_w_0().truncate().child(target.clone()))
-            .when(target.len() > 40, |chip| chip.tooltip(tip(target.clone())));
-        labelled(
+            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .text_color(you)
+            .child(glyph(look, icon, Size::Small, you))
+            .child(div().flex_none().whitespace_nowrap().child(label))
+            .child(div().flex_1())
+            .child(div().flex_none().whitespace_nowrap().child(self.stamp(at, look, now, true, cx)));
+        let quote = (!target.is_empty()).then(|| {
+            labelled(
+                div()
+                    .id(SharedString::from(format!("did-quote:{id}")))
+                    .mx(look.length(token::SPACE_3))
+                    .mt(look.length(token::SPACE_2) + look.length(token::SPACE_1) * 0.5)
+                    .pl(look.length(token::SPACE_2) + look.length(token::SPACE_1) * 0.5)
+                    .border_l(look.length(token::BORDER_WIDTH) * 2.)
+                    .border_color(look.color(token::BORDER_DEFAULT))
+                    .text_size(look.length(token::TEXT_SM))
+                    .line_height(look.length(token::LEADING_SM))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(target),
+                Role::Group,
+                "Question",
+            )
+        });
+        let answer = (!said.is_empty()).then(|| {
             div()
-                .id(SharedString::from(format!("did:{id}")))
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_1))
                 .px(look.length(token::SPACE_3))
-                .py(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_MD))
-                .bg(look.color(token::FG_DEFAULT))
-                .text_color(ink)
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(look.length(token::SPACE_3))
-                        .child(eyebrow(look, word))
-                        .child(div().flex_1().min_w_0().flex().child(chip))
-                        .child(div().text_color(ink).child(self.stamp(at, look, now, true, cx))),
-                )
-                .when(!said.is_empty(), |bar| {
-                    bar.child(
-                        div()
-                            .text_size(look.length(token::TEXT_SM))
-                            .line_height(look.length(token::LEADING_SM))
-                            .child(said.to_string()),
-                    )
-                }),
-            Role::Region,
-            label,
-        )
-        .into_any_element()
+                .pt(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_BASE))
+                .line_height(look.length(token::LEADING_BASE))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                .text_color(look.color(token::FG_DEFAULT))
+                .child(said.to_string())
+        });
+        div()
+            .flex()
+            .justify_end()
+            .child(labelled(
+                div()
+                    .id(SharedString::from(format!("did:{id}")))
+                    .flex()
+                    .flex_col()
+                    .flex_none()
+                    .max_w(relative(0.8))
+                    .pb(look.length(token::SPACE_3))
+                    .overflow_hidden()
+                    .rounded(look.length(token::RADIUS_LG))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(edge)
+                    .bg(look.color(token::BG_RAISED))
+                    .child(band)
+                    .children(quote)
+                    .children(answer),
+                Role::Region,
+                label,
+            ))
+            .into_any_element()
     }
 
     /// The messages, from the person, the agent and another Job (A2).
