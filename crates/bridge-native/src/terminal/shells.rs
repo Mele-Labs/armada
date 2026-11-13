@@ -52,6 +52,8 @@ pub struct Start {
     pub place: Place,
     /// Its first shell's size.
     pub size: Cells,
+    /// The project it is started for, by id: a New project's first Job. None where ⌘T starts it.
+    pub project: Option<String>,
 }
 
 /// A terminal Job Fleet started: the Job and its first shell.
@@ -577,6 +579,7 @@ pub fn of(cx: &App) -> Option<Rc<dyn Shells>> {
 /// What `POST /sessions/terminal/start` is sent for `start`. No title is sent: the Job takes one from its
 /// first message.
 fn start_body(start: Start) -> StartTerminalJob {
+    let project = start.project;
     let (manifest_id, dir) = match start.place {
         Place::Repository(id) => (Some(ManifestId::carried(id)), None),
         Place::Folder(path) => (None, Some(path)),
@@ -588,7 +591,7 @@ fn start_body(start: Start) -> StartTerminalJob {
         model: None,
         effort: None,
         mode: None,
-        project: None,
+        project,
         cols: Some(start.size.cols),
         rows: Some(start.size.rows),
     }
@@ -620,7 +623,7 @@ mod tests {
     }
 
     fn start(place: Place) -> Start {
-        Start { place, size: Cells { cols: 120, rows: 32 } }
+        Start { place, size: Cells { cols: 120, rows: 32 }, project: None }
     }
 
     #[test]

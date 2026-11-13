@@ -16,6 +16,7 @@ pub mod bar;
 pub mod check;
 pub mod dispatch;
 pub mod fleet;
+pub mod new_project;
 pub mod notes;
 pub mod operator;
 pub mod stage;
@@ -68,6 +69,9 @@ pub enum Verb {
     /// The wheel turned over the element of this role and name, by this many points down, before the
     /// target is ringed: for a pane whose target is below its fold.
     Wheel(&'static str, &'static str, i32),
+    /// The wheel turned over the element of this role and name, this many points at a time, until the
+    /// target is drawn: for a target whose place below the fold changes with the window's width.
+    WheelTo(&'static str, &'static str, i32),
     /// A press on the first word of the last element of this role and name drawn, before the target is
     /// ringed: for a link inside words, which carries no label of its own.
     PressStart(&'static str, &'static str),
@@ -84,6 +88,9 @@ pub enum Verb {
     /// A press on another element, `(role, name)`, before the target is ringed: for an act whose
     /// own button is gone once it is pressed.
     PressOn(&'static str, &'static str),
+    /// A press on the first of these elements, by role and name, that is drawn: for a door the window's width
+    /// moves, such as the project switcher, which a narrow title bar keeps in its menu.
+    PressOnFirst(&'static [(&'static str, &'static str)]),
     /// Characters typed into whatever holds the keys, one by one, with no press first (`Type` presses the target).
     Typed(&'static str),
     /// A drag across the target's inner area, to hold a box rather than the element.
@@ -667,6 +674,32 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-lanes-marks",
+        title: "Workflow: a workflow editor's marks on the lanes",
+        screen: Screen::JobsInApp,
+        scenario: "job-lanes-marks",
+        steps: &[
+            press_on("The lanes Job, with the marks a workflow's editor reads", "row", "Checkout page loads twice", "button", "Add tab: Done"),
+            press_on("The top pane's +", "button", "Add tab: Done", "menuitem", "Workflow"),
+            press_on("A proposed rule is brought into view as the canvas opens", "menuitem", "Workflow", "button", "Proposed: Ticket to Done"),
+            step("A double press on the tab zooms the pane: the proposed rule's edge dashed, its chip marked", Verb::DoublePress, "tab", "Job column: Workflow"),
+            step("[ picks it and brings it into view again in the larger pane", Verb::Key("["), "button", "Proposed: Ticket to Done"),
+            step("Its tooltip says it waits on Approve", Verb::Hover, "button", "Proposed: Ticket to Done"),
+            step("Read", Verb::Later(900), "button", "Proposed: Ticket to Done"),
+            step("Esc lets go", Verb::Key("escape"), "button", "Proposed: Ticket to Done"),
+            press_on("Fit goes back to the start", "button", "Fit", "button", "Step: Plan"),
+            step("Plan is set otherwise in Mobile and sample-web: the split ring on its corner", Verb::Hover, "img", "Differs in Mobile, sample-web"),
+            step("Read", Verb::Later(900), "img", "Differs in Mobile, sample-web"),
+            press_on("The keys on Plan", "button", "Step: Plan", "button", "Step: Plan"),
+            step("The arrows go to #88's Open, and the view follows", Verb::Keys(&["right", "right", "down", "down"]), "button", "#88: Open"),
+            step("#88's Open is a tie between Workspaces: the caution ring", Verb::Hover, "img", "Web and Mobile differ"),
+            step("Read", Verb::Later(900), "img", "Web and Mobile differ"),
+            step("The wheel brings the watches' lanes up", Verb::Wheel("button", "Step: Build", 320), "group", "Smoke tests"),
+            step("Smoke tests' lifecycle waits on a removal: the clock on its head", Verb::Hover, "img", "Removed from the repository when its pull request merges"),
+            step("Read", Verb::Later(900), "img", "Removed from the repository when its pull request merges"),
+        ],
+    },
+    Walk {
         name: "native-job-lanes",
         title: "Workflow: a Job's lanes",
         screen: Screen::JobsInApp,
@@ -878,6 +911,16 @@ pub static WALKS: &[Walk] = &[
             step("A note on a line stands under that line, as in Armada Classic", Verb::Wheel("list", "Notes from the judge", 700), "list", "Notes on crates/api/src/auth/middleware.rs:88"),
             step("Esc", Verb::Key("escape"), "list", "Pull requests"),
             press_on("A draft offers Ready for review", "button", "Pull request #2214 Read the forge again when it answers empty", "button", "Ready for review"),
+            step("Esc", Verb::Key("escape"), "list", "Pull requests"),
+            step("#2210's row says a new description waits", Verb::Wheel("list", "Pull requests", -420), "button", "Pull request #2210 Show the merge line in a Session"),
+            press_on("Its panel has the draft in the description's place, revision 2", "button", "Pull request #2210 Show the merge line in a Session", "article", "Description draft"),
+            step("What the draft adds is marked in green", Verb::Look, "group", "Added by the draft"),
+            step("What it takes out is struck through", Verb::Look, "group", "Taken out by the draft"),
+            press_on("Current shows the description the pull request has now", "tab", "Current", "tab", "Draft"),
+            press_on("Draft goes back to the draft with its changes", "tab", "Draft", "group", "Added by the draft"),
+            step("The wheel brings up the draft's Approve, Edit and Note", Verb::Wheel("dialog", "Pull request #2210", 300), "button", "Edit the description"),
+            press_on("Edit opens a box holding the draft's words", "button", "Edit the description", "button", "Approve with fixes"),
+            press_on("Cancel shuts it and forgets what was typed", "button", "Cancel", "button", "Edit the description"),
         ],
     },
     Walk {
@@ -1109,6 +1152,29 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-sketch-approve",
+        title: "Approve on a sketch, refused, keeps the thread where it was",
+        screen: Screen::Jobs,
+        scenario: "sketch-approve",
+        steps: &[
+            press_on("A Job puts a sketch to him, pinned at the thread's end", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
+            step("Read up into the drawing, its buttons still in view", Verb::Wheel("region", "Thread", -120), "button", "Approve"),
+            press_on("Approve: Fleet refuses it here, and its reason stands under the buttons where they were", "button", "Approve", "status", "Refused"),
+            step("Approve again: refused again, and the thread stays put", Verb::Press, "button", "Approve"),
+        ],
+    },
+    Walk {
+        name: "native-sketch-approved",
+        title: "Approve on a sketch Fleet takes",
+        screen: Screen::Jobs,
+        scenario: "sketch-card",
+        steps: &[
+            press_on("A Job puts a sketch to him, pinned at the thread's end", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
+            step("Read up into the drawing, its buttons still in view", Verb::Wheel("region", "Thread", -120), "button", "Approve"),
+            press_on("Approve settles it where it stands", "button", "Approve", "status", "Approved"),
+        ],
+    },
+    Walk {
         name: "native-sketch-share",
         title: "Share a sketch with somebody who has no Armada",
         screen: Screen::Jobs,
@@ -1221,10 +1287,30 @@ pub static WALKS: &[Walk] = &[
         step("/ puts the keys in the search from anywhere on the screen", Verb::Key("/"), "searchbox", "Search Jobs"),
         step("↓ gives them back to the list", Verb::Key("down"), "row", "Fix the merge line freshness chip"),
         step("The scope beside the search picks which Jobs the list holds", Verb::Press, "button", "Active"),
-        step("↓ to Paused", Verb::Key("down"), "menuitemcheckbox", "Paused"),
+        step("↓ past Active to Paused", Verb::Keys(&["down", "down"]), "menuitemcheckbox", "Paused"),
         step("Enter picks it: only paused Jobs, each with its mark", Verb::Key("enter"), "img", "Paused"),
         step("The scope says what the list holds", Verb::Look, "button", "Paused"),
     ],
+    },
+    Walk {
+        name: "jobs-tree",
+        title: "Jobs started by Jobs, and the Jobs that need you",
+        screen: Screen::Jobs,
+        scenario: "jobs-tree",
+        steps: &[
+            step("A Job another started stands under it, a line from the starter to its last", Verb::Look, "row", "Jobs across home and work Macs"),
+            step("A chain two deep keeps its starter's line running past the rows that are not its own", Verb::Look, "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
+            step("The scope beside the search: Needs you comes first", Verb::Press, "button", "Active"),
+            step("Enter picks it: the Jobs that need you, each under its starters, drawn muted for their place", Verb::Key("enter"), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
+            step("A starter drawn for its place is not a match: ↓ goes from one Job that needs you to the next", Verb::Key("down"), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
+        ],
+    },
+    Walk {
+        name: "new-project",
+        title: "New project: one sheet, then a Job in it",
+        screen: Screen::App,
+        scenario: "new-project",
+        steps: &new_project::STEPS,
     },
     Walk {
         name: "job-handoff",
@@ -1288,6 +1374,27 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Dispatch,
         scenario: "jobs-many",
         steps: &dispatch::STEPS,
+    },
+    Walk {
+        name: "start-flow-sheet",
+        title: "Dispatch: Start runs at once, Draft holds it on its start card",
+        screen: Screen::Dispatch,
+        scenario: "jobs-many",
+        steps: &dispatch::START_FLOW,
+    },
+    Walk {
+        name: "start-flow-operator",
+        title: "Dispatch: the Operator rules on a start, and a toast says what it did",
+        screen: Screen::App,
+        scenario: "jobs-many",
+        steps: &dispatch::OPERATOR_FLOW,
+    },
+    Walk {
+        name: "operator-composer",
+        title: "Operator page: the box at its foot, and the ideas it kept",
+        screen: Screen::Operator,
+        scenario: "jobs-many",
+        steps: &dispatch::COMPOSER_FLOW,
     },
     Walk {
         name: "notes",
@@ -1885,6 +1992,11 @@ pub static WALKS: &[Walk] = &[
             step("Esc shuts it", Verb::Key("escape"), "row", "Audit the docs index"),
             step("/ puts the keys in the search from anywhere on the screen", Verb::Key("/"), "searchbox", "Search Jobs"),
             step("↓ gives them back to the list", Verb::Key("down"), "row", "Fix the merge line freshness chip"),
+            step("The scope beside the search: Needs you comes first", Verb::Press, "button", "Active"),
+            step("Enter picks it: only the Jobs that need you now", Verb::Key("enter"), "row", "Flaky login test"),
+            step("The scope says what the list holds; a press opens it again", Verb::Press, "button", "Needs you"),
+            step("↓ back to Active", Verb::Key("down"), "menuitemcheckbox", "Active"),
+            step("Enter picks it, and every live Job is back", Verb::Key("enter"), "row", "Native Bridge foundation"),
             step("Enter opens the focused Job; what waits on you is up", Verb::Key("enter"), "button", "Needs you"),
             step("The keys are in its box at once: words go straight in", Verb::Keys(&["o", "k"]), "textbox", "Message"),
             step("Backspace takes them out again", Verb::Keys(&["backspace", "backspace"]), "textbox", "Message"),
@@ -1938,11 +2050,11 @@ pub static WALKS: &[Walk] = &[
             step("R opens the Judge's box under the plan", Verb::Key("r"), "dialog", "Judge"),
             step("Esc puts the box away", Verb::Key("escape"), "region", "Thread"),
             step("Home goes to the start of the thread", Verb::Key("home"), "button", "Show earlier"),
-            step("A run of calls is one line", Verb::Wheel("region", "Thread", 100), "button", "Tool calls: Read, Grep, Edit"),
+            step("A run of calls is one line", Verb::WheelTo("region", "Thread", 60), "button", "Tool calls: Read, Grep, Edit"),
             step("A press opens the run", Verb::Press, "button", "Tool calls: Read, Grep, Edit"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
-            step("Page down reads on, past the Checks", Verb::Key("pagedown"), "listitem", "/reload-plugins"),
+            step("The wheel reads on, past the Checks", Verb::WheelTo("region", "Thread", 60), "listitem", "/reload-plugins"),
             step("A right press on a command offers Teach", Verb::RightOpen("listitem", "/reload-plugins"), "menuitem", "Teach"),
             step("Teach opens the panel over the thread, with the command and a box", Verb::Open("menuitem", "Teach"), "textbox", "Instruction"),
             step("Esc puts the panel away and the command has focus again", Verb::Key("escape"), "listitem", "/reload-plugins"),
@@ -2051,6 +2163,11 @@ pub static WALKS: &[Walk] = &[
             step("Annotating stays on", Verb::Later(400), "status", "Annotating"),
             step("The pointer on the thread", Verb::Hover, "region", "Thread"),
             step("Annotating stays on", Verb::Later(400), "status", "Annotating"),
+            step("⌥⌘A turns annotating off", Verb::Key("alt-cmd-a"), "region", "Thread"),
+            step("⌘, opens Settings over the Job", Verb::Key("cmd-,"), "dialog", "Settings"),
+            step("⌥⌘A turns annotating on over Settings", Verb::Key("alt-cmd-a"), "status", "Annotating"),
+            step("The pointer on a page of Settings outlines it, not the Job under the overlay", Verb::Hover, "button", "Workflows"),
+            step("A press on it opens the note, headed with where it is", Verb::PressOn("button", "Workflows"), "label", "Settings › Kit › Button · Workflows"),
         ],
     },
     Walk {
@@ -2059,6 +2176,20 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "jobs-many",
         steps: crate::settings::walk::STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::NO_FUNNEL,
+        title: "Settings › Macs on a Mac without Tailscale Funnel",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::NO_FUNNEL_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::LAYOUT_TIME,
+        title: "Layout and Time on the app",
+        screen: Screen::Settings,
+        scenario: "job-view",
+        steps: crate::settings::walk::LAYOUT_TIME_STEPS,
     },
     Walk {
         name: "workflow-card",

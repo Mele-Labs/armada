@@ -76,8 +76,21 @@ pub(super) struct Closed {
     opened: std::collections::HashMap<SharedString, HashSet<&'static str>>,
 }
 
+/// Done or Open switched off in Settings › Layout: neither drawn nor offered by +. Open is the registry's `next`.
+fn laid_off(tab: &str) -> bool {
+    let panel = match tab {
+        "done" => "done",
+        "open" => "next",
+        _ => return false,
+    };
+    crate::settings::layout::hidden("job.panels", panel)
+}
+
 impl JobView {
     pub(super) fn tab_closed(&self, tab: &str) -> bool {
+        if laid_off(tab) {
+            return true;
+        }
         if Zone::ALL.into_iter().any(|zone| zone.id() == tab && zone.opened_by_hand()) {
             return !self.shown.as_ref().and_then(|id| self.tabs_closed.opened.get(id)).is_some_and(|opened| opened.contains(tab));
         }
@@ -151,6 +164,7 @@ impl JobView {
         let entries = pane
             .kinds()
             .iter()
+            .filter(|&&(id, _, _)| !laid_off(id))
             .map(|&(id, word, glyph)| Entry::Item { id, label: word.into(), icon: Some(glyph), danger: false, key: None, off: None })
             .chain(offers.iter().map(|offer| Entry::Item { id: offer.id, label: offer.label.clone(), icon: Some(offer.glyph), danger: false, key: None, off: None }))
             .collect();

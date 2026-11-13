@@ -17,7 +17,7 @@ mod bar;
 mod calls;
 mod callchip;
 mod cards;
-mod composer;
+pub(crate) mod composer;
 mod deck;
 mod draft_doc;
 mod dock;
@@ -28,13 +28,13 @@ mod deferred;
 mod watching;
 mod edit;
 mod fork;
-mod format;
-mod head;
+pub(crate) mod format;
+pub(crate) mod head;
 mod judge;
 mod keys;
 mod lines;
 mod menus;
-mod offer;
+pub(crate) mod offer;
 mod perm;
 mod pictures;
 mod pinned;
@@ -48,7 +48,7 @@ mod records;
 mod refs;
 mod review;
 mod row_tabs;
-mod rows;
+pub(crate) mod rows;
 mod judge_tab;
 mod lanes;
 mod lanes_copy;
@@ -56,7 +56,7 @@ mod ledger;
 mod mods_made;
 mod mod_panel;
 mod report;
-mod sketch_pad;
+pub(crate) mod sketch_pad;
 mod sketch_read;
 mod subagent_read;
 mod zoom;
@@ -71,6 +71,7 @@ mod pr_panel;
 mod report_brief;
 mod side;
 mod spine;
+mod start_card;
 mod workflow;
 mod tabs;
 mod view_tabs;
@@ -83,7 +84,7 @@ mod runs;
 mod talk;
 mod tool_icons;
 mod tune;
-mod wire;
+pub(crate) mod wire;
 mod workflow_card;
 
 use std::cell::RefCell;
@@ -310,6 +311,8 @@ pub struct JobView {
     pages: HashMap<SharedString, Page>,
     head: head::Head,
     composer: composer::Composer,
+    /// What a person has settled on a held Job's start card that Fleet has not answered.
+    starts: start_card::Starts,
     /// Every stamp in the thread reads as an age, not a clock (a press flips them all).
     aged: bool,
     /// How Done lists what was made, for the run.
@@ -429,12 +432,12 @@ impl JobView {
         }
         subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| this.followed(window, cx)));
         let lanes = lanes::Lanes::new(cx);
-        subscriptions.push(cx.on_focus(&lanes.frame, window, |this, _, cx| {
-            this.lanes.keyed.set(true);
+        subscriptions.push(cx.on_focus(&lanes.canvas.frame, window, |this, _, cx| {
+            this.lanes.canvas.keyed.set(true);
             cx.notify();
         }));
-        subscriptions.push(cx.on_blur(&lanes.frame, window, |this, _, cx| {
-            this.lanes.keyed.set(false);
+        subscriptions.push(cx.on_blur(&lanes.canvas.frame, window, |this, _, cx| {
+            this.lanes.canvas.keyed.set(false);
             cx.notify();
         }));
         if let Some(fleet) = &fleet {
@@ -497,6 +500,7 @@ impl JobView {
             compact_refused: HashMap::new(),
             pages: HashMap::new(),
             head: head::Head::new(cx),
+            starts: start_card::Starts::default(),
             composer,
             aged: false,
             ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },
@@ -673,6 +677,14 @@ impl JobView {
             if let Some(fleet) = self.fleet.clone() {
                 let id = id.clone();
                 fleet.update(cx, |fleet, cx| fleet.read_thread(&id, true, cx));
+            } else if let Some(started) = self.list.read(cx).record(id).filter(|_| self.list.read(cx).made_here(id) && !self.mock.contains_key(id.as_ref())).map(|job| job.started_at.as_str().to_string()) {
+                // A Job a walk started has nothing in its thread yet, as Fleet answers for a Job just begun.
+                match crate::mock::empty_thread(id, &started) {
+                    Ok(read) => {
+                        self.mock.insert(id.to_string(), HeldThread::from_read(read, 1));
+                    }
+                    Err(why) => cx.defer(move |cx| crate::toasts::tell(why, cx)),
+                }
             } else if let Some(why) = crate::mock::thread_refused(id) {
                 cx.defer(move |cx| crate::toasts::tell(why, cx));
             } else if crate::mock::reads_slowly() {
@@ -783,12 +795,14 @@ impl JobView {
         let total = lead + before + items + extras.len();
         let from = if page.version.is_none() { 0 } else { dirty.unwrap_or(page.items).min(page.items).min(items) };
         let from_list = if above != above_was || from == 0 { 0 } else { lead + before + from };
-        // Items put in front, of this Job or the one above it, leave the person where they were reading.
+        // Items put in front, of this Job or the one above it, leave the person where they were reading. So
+        // does a row drawn again under the top: gpui's splice puts the top at the range's start otherwise.
         let shift = (lead + before + added) as isize - (page.lead + page.before) as isize;
-        let top = (page.version.is_some() && (added > 0 || added_earlier > 0 || before != page.before)).then(|| page.list.logical_scroll_top());
+        let top = page.version.is_some().then(|| page.list.logical_scroll_top());
         page.list.splice(from_list..page.count, total - from_list);
-        if let Some(top) = top {
-            page.list.scroll_to(ListOffset { item_ix: (top.item_ix as isize + shift).max(0) as usize, offset_in_item: top.offset_in_item });
+        if let Some(top) = top.filter(|top| shift != 0 || added_earlier > 0 || top.item_ix >= from_list) {
+            let item_ix = ((top.item_ix as isize + shift).max(0) as usize).min(total.saturating_sub(1));
+            page.list.scroll_to(ListOffset { item_ix, offset_in_item: top.offset_in_item });
         }
         page.before = before;
         page.earlier_version = earlier_version;

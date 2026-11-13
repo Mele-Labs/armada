@@ -30,6 +30,8 @@ pub struct DispatchScreen {
     /// What the sheet stands over: the Jobs screen, or the Operator's page that holds it.
     under: AnyView,
     sheet: Entity<DispatchSheet>,
+    /// The New project sheet, which the title bar's switcher opens over the window.
+    new_project: Entity<crate::new_project::NewProjectSheet>,
     layer: Option<Entity<Layer>>,
     /// Where the notes are kept, once something says.
     kept_in: Option<std::path::PathBuf>,
@@ -69,7 +71,7 @@ const READ_WAIT_AFTER: Duration = Duration::from_millis(400);
 
 /// What the window is scoped to: a project, by Fleet's id, with the names of the repositories it holds in the
 /// order its members name them, or one repository in no project, with no id. `None` on All.
-fn scope(cx: &App) -> Option<(Option<SharedString>, Vec<SharedString>)> {
+pub(crate) fn scope(cx: &App) -> Option<(Option<SharedString>, Vec<SharedString>)> {
     let bar = titlebar::live(cx)?;
     let face = &bar.read(cx).face;
     let Some(project) = face.scoped.and_then(|at| face.projects.get(at)) else {
@@ -125,7 +127,10 @@ pub fn bind(cx: &mut App) {
             if !crate::terminal::shells::starts(cx) {
                 return;
             }
-            return reach(cx, |this, window, cx| this.new_terminal(window, cx));
+            return reach(cx, |this, window, cx| {
+                let picked = this.sheet.read(cx).is_open().then(|| this.sheet.read(cx).named_repository()).flatten();
+                this.new_terminal(picked, window, cx)
+            });
         }
         let add = match key.id {
             "new_job" => "",
@@ -203,6 +208,11 @@ pub fn report_at(at: gpui::Point<Pixels>, cx: &mut App) {
     });
 }
 
+/// The switcher's New project: its sheet opens over the window, on what was typed last time.
+pub fn open_new_project(cx: &mut App) {
+    reach(cx, |this, window, cx| this.new_project.update(cx, |sheet, cx| sheet.show(window, cx)));
+}
+
 /// Run something on the screen in front. A key's handler runs inside a window update, so the work
 /// waits until it is over.
 /// Start a queued idea from its row in the Jobs list, through the screen that knows the repositories.
@@ -210,20 +220,11 @@ pub fn start_queued(idea: crate::queued::QueuedIdea, cx: &mut App) {
     reach(cx, move |this, window, cx| this.start_queued(idea, window, cx));
 }
 
-/// The words are the Job's first message, as Electron's Start sends them once the Job exists.
-fn first_message(port: u16, id: String, text: String, mentions: Vec<SessionTag>, cx: &mut App) {
-    let body = ipc::encode(&ipc::SendSessionMessageBody {
-        message: ipc::SendSessionMessage { session_id: SessionId::carried(id), text, attachments: Vec::new(), mentions, sketches: Vec::new() },
-        aim: None,
-    })
-    .map_err(|why| format!("{why:?}"));
-    cx.background_executor()
-        .spawn(async move {
-            if let Err(why) = body.and_then(|body| live::call(port, "/sessions/message".into(), Some(body))) {
-                crate::log::Note::warn("a started Job was not given its words").field("why", why).emit();
-            }
-        })
-        .detach();
+/// How a send of notes ended: into a Job, a new Job with the notes sent, or a dispatch the Operator holds.
+enum Sent {
+    Into { session: String, title: String },
+    Started { session: String, title: String },
+    Kept { dispatch: String, title: String },
 }
 
 fn reach(cx: &mut App, run: impl FnOnce(&mut DispatchScreen, &mut Window, &mut Context<DispatchScreen>) + 'static) {
@@ -253,7 +254,6 @@ fn new_layer(area: &Rc<Cell<Option<Bounds<Pixels>>>>, targets: Vec<super::face::
 
 impl DispatchScreen {
     pub fn new(jobs: Entity<JobsScreen>, records: &[SessionRecord], window: &mut Window, cx: &mut Context<Self>) -> Self {
-        crate::drafts::forget_all(cx);
         let face = scenes::rest(records);
         let targets = face.mentions.jobs.clone();
         let sheet = cx.new(|cx| DispatchSheet::new(face, window, cx));
@@ -261,7 +261,16 @@ impl DispatchScreen {
         // The layer is mounted only where Electron's is: a development build.
         annotate::forget_awake(cx);
         let layer = annotate::dev_build().then(|| new_layer(&area, targets, true, cx));
-        let mut subs = vec![cx.subscribe_in(&sheet, window, |this, _, asked: &Asked, window, cx| this.sheet_asked(asked, window, cx))];
+        // On a live Fleet the New project sheet sends to it; a walk's has the mock's answers.
+        let wire = match jobs.read(cx).list.read(cx).fleet() {
+            Some(fleet) => crate::new_project::wire::Wire::Live(fleet),
+            None => crate::new_project::wire::Wire::Mock(Box::new(crate::new_project::wire::Mock::new())),
+        };
+        let new_project = cx.new(|cx| crate::new_project::NewProjectSheet::new(wire, window, cx));
+        let mut subs = vec![
+            cx.subscribe_in(&sheet, window, |this, _, asked: &Asked, window, cx| this.sheet_asked(asked, window, cx)),
+            cx.subscribe_in(&new_project, window, |this, _, made: &crate::new_project::Made, window, cx| this.project_made(made, window, cx)),
+        ];
         if let Some(layer) = &layer {
             subs.push(cx.observe(layer, |_, _, cx| cx.notify()));
         }
@@ -283,7 +292,7 @@ impl DispatchScreen {
                 (behind.0)(asked, cx);
             }
         })));
-        DispatchScreen { under: jobs.clone().into(), jobs, sheet, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
+        DispatchScreen { under: jobs.clone().into(), jobs, sheet, new_project, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
     }
 
     /// The sheet over another screen that holds the Jobs screen it reads, as the Operator's page does.
@@ -305,8 +314,8 @@ impl DispatchScreen {
     /// on the other end, and a walk answers by scene.
     fn sheet_asked(&mut self, asked: &Asked, window: &mut Window, cx: &mut Context<Self>) {
         // The card under the sheet: what ⌘T starts.
-        if *asked == Asked::JobHere {
-            self.new_terminal(window, cx);
+        if let Asked::JobHere(picked) = asked {
+            self.new_terminal(picked.clone(), window, cx);
             return;
         }
         // Queue for later is kept here, on a live Fleet or not.
@@ -323,7 +332,7 @@ impl DispatchScreen {
                     let begin = Begin { words: words.clone(), repository: repository.clone(), model: model.clone(), effort: effort.clone(), held: *held };
                     self.start_job(begin, window, cx)
                 }
-                Asked::Queue { .. } | Asked::JobHere | Asked::Closed => {}
+                Asked::Queue { .. } | Asked::JobHere(_) | Asked::Closed => {}
             }
         }
         cx.notify();
@@ -331,20 +340,33 @@ impl DispatchScreen {
 
     /// ⌘T, New Job here: a Job where the window is, else where the last one started, with no sheet. With
     /// neither, the sheet opens to be told where.
-    fn new_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// A repository the sheet's picker named starts it there; none, where the title bar is.
+    fn new_terminal(&mut self, picked: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         // ⌘T over the sheet does what its card does: the sheet shuts first.
         if self.sheet.read(cx).is_open() && here_name(cx).is_some() {
             self.sheet.update(cx, |sheet, cx| sheet.close(window, cx));
         }
-        let here = scope(cx).and_then(|(_, names)| names.first().map(|name| Place::Repository(name.to_string())));
+        let here = picked.map(Place::Repository).or_else(|| scope(cx).and_then(|(_, names)| names.first().map(|name| Place::Repository(name.to_string()))));
         match here.or_else(|| crate::terminal::start::kept_place(cx)) {
-            Some(place) => self.start_terminal(Start { place, size: crate::terminal::start::size(cx) }, window, cx),
+            Some(place) => self.start_terminal(Start { place, size: crate::terminal::start::size(cx), project: None }, None, window, cx),
             None => self.open_sheet("", window, cx),
         }
     }
 
+    /// A New project was made: the window goes to it, and a Job starts in its first repository as ⌘T starts one,
+    /// with the line that says how its work lands over the box.
+    fn project_made(&mut self, made: &crate::new_project::Made, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(bar) = titlebar::live(cx) {
+            bar.update(cx, |bar, cx| bar.made_project(&made.served, &made.projects, &made.project, cx));
+        }
+        let Some(repository) = made.repository.clone() else { return };
+        let start = Start { place: Place::Repository(repository), size: crate::terminal::start::size(cx), project: Some(made.project.clone()) };
+        self.start_terminal(start, made.lands.clone(), window, cx);
+    }
+
     /// Start Fleet's quick Job and open it on its thread, the keys in its message box. A refusal is a toast.
-    fn start_terminal(&mut self, start: Start, window: &mut Window, cx: &mut Context<Self>) {
+    /// `lands` is the line over its box, for a New project's first Job.
+    fn start_terminal(&mut self, start: Start, lands: Option<SharedString>, window: &mut Window, cx: &mut Context<Self>) {
         let place = start.place.clone();
         let mut asked = start;
         // A repository goes to Fleet as its Manifest's id; a walk's has none and keeps the name.
@@ -360,6 +382,9 @@ impl DispatchScreen {
                 match answer {
                     Ok(started) => {
                         crate::terminal::start::keep_place(&place, cx);
+                        if let Some(line) = lands {
+                            crate::new_project::lands_on(&started.job, line, cx);
+                        }
                         let list = this.jobs.read(cx).list.clone();
                         list.update(cx, |list, cx| list.open(started.job.clone().into(), cx));
                         // After the Job comes on screen, so the box that takes the keys is its own.
@@ -534,11 +559,18 @@ impl DispatchScreen {
             on_your_words: None,
             project: scope(cx).and_then(|(id, _)| id).map(|id| id.to_string()),
         };
-        let body = ipc::encode(&start).map_err(|why| format!("{why:?}"));
+        // His own work goes to Fleet as a dispatch: with the Operator on it may rule on it, and what follows the
+        // start (his words as the first message) goes in `then`, so nothing is lost whoever starts the Job.
+        let then = if send {
+            vec![ipc::DispatchThen::Message(ipc::DispatchMessage { text: begin.words.clone(), attachments: Vec::new(), mentions, sketches: Vec::new() })]
+        } else {
+            Vec::new()
+        };
+        let body = ipc::encode(&ipc::DispatchJob { start, kind: None, then }).map_err(|why| format!("{why:?}"));
         let words = begin.words;
         cx.spawn_in(window, async move |this, cx| {
-            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/start".into(), Some(body?)) }).await;
-            let _ = this.update_in(cx, |this, window, cx| this.started(answer, send.then_some((words, mentions)), port, window, cx));
+            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/dispatch".into(), Some(body?)) }).await;
+            let _ = this.update_in(cx, |this, window, cx| this.dispatched(answer, &words, window, cx));
         })
         .detach();
     }
@@ -599,17 +631,28 @@ impl DispatchScreen {
             on_your_words: None,
             project: scope(cx).and_then(|(id, _)| id).map(|id| id.to_string()),
         };
-        let body = ipc::encode(&start).map_err(|why| format!("{why:?}"));
+        // His idea is his work: it goes as a dispatch, unheld, its words the first message, answered as the sheet's Start is.
+        let then = vec![ipc::DispatchThen::Message(ipc::DispatchMessage { text: idea.text.clone(), attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];
+        let body = ipc::encode(&ipc::DispatchJob { start, kind: None, then }).map_err(|why| format!("{why:?}"));
         cx.spawn_in(window, async move |this, cx| {
-            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/start".into(), Some(body?)) }).await;
+            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/dispatch".into(), Some(body?)) }).await;
             let _ = this.update_in(cx, |this, _window, cx| {
-                match answer.and_then(|bytes| ipc::decode::<SessionRecord>("SessionRecord", &bytes).map_err(|why| why.to_string())) {
-                    Ok(record) => {
-                        let id = record.id.as_str().to_string();
+                match answer.and_then(|bytes| ipc::decode::<ipc::JobDispatched>("JobDispatched", &bytes).map_err(|why| why.to_string())) {
+                    // Fleet took it, whoever starts the Job: it leaves the queue. A Job started opens; with the Operator
+                    // holding it, or keeping it as an idea, he stays where he was and the toast says what became of it.
+                    Ok(done) => {
                         crate::queued::remove(&idea.id, cx);
-                        first_message(port, id.clone(), idea.text.clone(), Vec::new(), cx);
-                        let list = this.jobs.read(cx).list.clone();
-                        list.update(cx, |list, cx| list.open(id.into(), cx));
+                        match done.session {
+                            Some(record) => {
+                                let list = this.jobs.read(cx).list.clone();
+                                list.update(cx, |list, cx| list.open(record.id.as_str().to_string().into(), cx));
+                            }
+                            None => {
+                                if let Some(id) = done.operator.as_deref().or(done.parked.as_deref()) {
+                                    crate::toasts::dispatch_held(id, &idea.text, cx);
+                                }
+                            }
+                        }
                     }
                     Err(why) => {
                         crate::queued::set_starting(&idea.id, false, cx);
@@ -621,20 +664,26 @@ impl DispatchScreen {
         .detach();
     }
 
-    /// The Job exists. `first` is the words and the tag they carry, sent as its first message where nothing waits.
-    fn started(&mut self, answer: Result<Vec<u8>, String>, first: Option<(String, Vec<SessionTag>)>, port: u16, window: &mut Window, cx: &mut Context<Self>) {
-        let record = answer.and_then(|bytes| ipc::decode::<SessionRecord>("SessionRecord", &bytes).map_err(|why| why.to_string()));
-        match record {
-            Ok(record) => {
+    /// Fleet answered the dispatch. A Job started opens; with the Operator holding it, or keeping it as an idea, the
+    /// sheet goes and he stays where he was: the toast `operator.dispatched` raises says what became of it.
+    fn dispatched(&mut self, answer: Result<Vec<u8>, String>, words: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let done = answer.and_then(|bytes| ipc::decode::<ipc::JobDispatched>("JobDispatched", &bytes).map_err(|why| why.to_string()));
+        match done {
+            Ok(ipc::JobDispatched { session: Some(record), .. }) => {
                 let id = record.id.as_str().to_string();
                 self.sheet.update(cx, |sheet, cx| {
                     sheet.answered(window, cx);
                 });
-                if let Some((text, mentions)) = first {
-                    first_message(port, id.clone(), text, mentions, cx);
-                }
                 let list = self.jobs.read(cx).list.clone();
                 list.update(cx, |list, cx| list.open(id.into(), cx));
+            }
+            Ok(held) => {
+                if let Some(id) = held.operator.as_deref().or(held.parked.as_deref()) {
+                    crate::toasts::dispatch_held(id, words, cx);
+                }
+                self.sheet.update(cx, |sheet, cx| {
+                    sheet.answered(window, cx);
+                });
             }
             Err(why) => self.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx)),
         }
@@ -717,26 +766,40 @@ impl DispatchScreen {
         let words = notes.join("\n");
         let list = self.jobs.read(cx).list.clone();
         let task = cx.background_spawn(async move {
-            let (session, title, new_job) = match (to, manifest) {
-                (Some(job), _) => (job.id.to_string(), job.title.to_string(), false),
-                (None, Some(manifest)) => {
-                    let (id, title) = annotate::live::start(port, manifest, words).map_err(|why| ("a new Job".to_string(), why))?;
-                    (id, title, true)
+            match (to, manifest) {
+                (Some(job), _) => {
+                    let title = job.title.to_string();
+                    annotate::live::deliver(port, job.id.as_ref(), outgoing, ink).map_err(|why| (title.clone(), why))?;
+                    Ok::<_, (String, String)>(Sent::Into { session: job.id.to_string(), title })
                 }
-                (None, None) => return Err(("a new Job".to_string(), "no repository".to_string())),
-            };
-            annotate::live::deliver(port, &session, outgoing, ink).map_err(|why| (title.clone(), why))?;
-            Ok::<_, (String, String)>((session, title, new_job))
+                (None, Some(manifest)) => match annotate::live::dispatch(port, manifest, words, outgoing, ink).map_err(|why| ("a new Job".to_string(), why))? {
+                    annotate::live::Dispatched::Started { id, title } => Ok(Sent::Started { session: id, title }),
+                    annotate::live::Dispatched::Kept { id, title } => Ok(Sent::Kept { dispatch: id, title }),
+                },
+                (None, None) => Err(("a new Job".to_string(), "no repository".to_string())),
+            }
         });
         cx.spawn_in(window, async move |_, cx| {
             let answer = task.await;
             let _ = cx.update(|_, cx| match answer {
-                Ok((session, title, new_job)) => {
+                Ok(Sent::Into { session, title }) => {
                     layer.update(cx, |layer, cx| {
                         layer.sending_to(session.clone().into());
-                        layer.sent(&title, new_job, cx);
+                        layer.sent(&title, false, cx);
                     });
                     list.update(cx, |list, cx| list.open(session.into(), cx));
+                }
+                Ok(Sent::Started { session, title }) => {
+                    layer.update(cx, |layer, cx| {
+                        layer.sending_to(session.clone().into());
+                        layer.sent(&title, true, cx);
+                    });
+                    list.update(cx, |list, cx| list.open(session.into(), cx));
+                }
+                // The Operator holds the work: the notes are sent, and he stays where he was; the toast says what became of it.
+                Ok(Sent::Kept { dispatch, title }) => {
+                    crate::toasts::dispatch_held(&dispatch, &title, cx);
+                    layer.update(cx, |layer, cx| layer.sent(&title, true, cx));
                 }
                 Err((title, why)) => {
                     layer.update(cx, |layer, cx| layer.refused(&title, &why, cx));
@@ -861,6 +924,45 @@ impl DispatchScreen {
                 let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;
                 layer.update(cx, |layer, cx| layer.picture_arrives(cx));
             }
+            "answer-start-job" | "answer-draft" => {
+                // Fleet's yes to a start from the sheet: a Start runs at once and its Job opens working, a Draft opens
+                // held on its start card. The sheet goes with the words it held.
+                let held = name == "answer-draft";
+                let (words, repository) = self.sheet.read(cx).started(cx).ok_or("the sheet holds no start to answer")?;
+                self.sheet.update(cx, |sheet, cx| sheet.answered(window, cx));
+                let list = self.jobs.read(cx).list.clone();
+                list.update(cx, |list, cx| list.hold_started_words(&words, &repository, held, cx));
+            }
+            "answer-operator-started" | "answer-operator-handed" | "answer-operator-parked" => {
+                // Fleet's answer to a Start with the Operator on is `operator`, and the sheet goes with him where he was.
+                // What the Operator did then arrives as `operator.dispatched`, which is said as a toast.
+                let (words, repository) = self.sheet.read(cx).started(cx).ok_or("the sheet holds no start to answer")?;
+                self.sheet.update(cx, |sheet, cx| sheet.answered(window, cx));
+                let list = self.jobs.read(cx).list.clone();
+                let (way, job) = match name {
+                    "answer-operator-started" => {
+                        let made = list.update(cx, |list, cx| list.operator_started(&words, &repository, cx));
+                        (ipc::operator_board::DispatchWay::Started, made.ok_or("the list holds no Job to stand the new one beside")?)
+                    }
+                    "answer-operator-handed" => {
+                        let live = "started-by-operator".to_string();
+                        let title = list.read(cx).title_of(&live).ok_or("no Job was started for the work to be handed to")?;
+                        (ipc::operator_board::DispatchWay::Handed, (live, title))
+                    }
+                    _ => (ipc::operator_board::DispatchWay::Parked, (String::new(), words.lines().next().unwrap_or_default().to_string())),
+                };
+                let kept = way == ipc::operator_board::DispatchWay::Parked;
+                crate::toasts::dispatched(
+                    ipc::operator_board::OperatorDispatched {
+                        dispatch_id: if kept { "idea:walk".into() } else { "start:dispatch:walk".into() },
+                        manifest_id: repository,
+                        way,
+                        session_id: (!kept).then(|| SessionId::carried(job.0)),
+                        title: Some(job.1),
+                    },
+                    cx,
+                );
+            }
             "queued-started" => {
                 // Fleet's yes to the first queued idea's start: it leaves the queue and its Job opens.
                 let idea = crate::queued::ideas(cx).into_iter().next().ok_or("no idea is queued")?;
@@ -904,6 +1006,9 @@ impl Render for DispatchScreen {
             .child(self.under.clone())
             .child(canvas(move |bounds, _, _| area.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .children(sheet)
-            .children(self.layer.clone())
+            // Drawn always: it draws nothing while shut, so its own opening and closing need no redraw here.
+            .child(self.new_project.clone())
+            // Over every overlay the screen draws, Settings among them, so a note can be made on it.
+            .children(self.layer.clone().map(|layer| gpui::deferred(layer).with_priority(annotate::OVER)))
     }
 }

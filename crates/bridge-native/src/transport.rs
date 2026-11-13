@@ -68,6 +68,11 @@ pub async fn post_to_model(port: u16, path: &str, body: String) -> Result<(u16, 
     send_post(port, path, Some(body), Duration::from_millis(MODEL_CALL_MS)).await
 }
 
+/// POST to a route that answers only once its work is done, such as a clone, waiting `patience` for it.
+pub async fn post_waiting(port: u16, path: &str, body: String, patience: Duration) -> Result<(u16, Vec<u8>), String> {
+    send_post(port, path, Some(body), patience).await
+}
+
 /// POST to `path` with no body and no `content-type`, as a route that takes none is asked
 /// (`POST /fleet/build/revert`).
 pub async fn post_bare(port: u16, path: &str) -> Result<(u16, Vec<u8>), String> {

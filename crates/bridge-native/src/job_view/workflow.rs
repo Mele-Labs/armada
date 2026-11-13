@@ -235,13 +235,13 @@ pub(super) fn parse(at: &str) -> Option<DateTime<FixedOffset>> {
     DateTime::parse_from_rfc3339(at).ok()
 }
 
-/// The words a stamp says for a time: the date and the minute, local.
+/// The words a stamp says for a time, in his clock.
 fn stamp(at: &str) -> Option<String> {
-    parse(at).map(|at| at.with_timezone(&chrono::Local).format("%-d %b %H:%M").to_string())
+    crate::settings::time::stamp_at(at)
 }
 
 /// Index ids for a menu's dynamic rows: an entry id is `&'static str`.
-const PICKS: [&str; 24] = ["w0", "w1", "w2", "w3", "w4", "w5", "w6", "w7", "w8", "w9", "w10", "w11", "w12", "w13", "w14", "w15", "w16", "w17", "w18", "w19", "w20", "w21", "w22", "w23"];
+pub(super) const PICKS: [&str; 24] = ["w0", "w1", "w2", "w3", "w4", "w5", "w6", "w7", "w8", "w9", "w10", "w11", "w12", "w13", "w14", "w15", "w16", "w17", "w18", "w19", "w20", "w21", "w22", "w23"];
 
 impl JobView {
     /// The workflow the Job follows and where it is, with what he pressed that Fleet has not answered yet.
@@ -412,7 +412,7 @@ impl JobView {
     }
 
     /// A workflow picked from the head: from the next turn the Job follows it.
-    fn choose_workflow(&mut self, pick: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn choose_workflow(&mut self, pick: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         let Some(job) = self.record(&id, cx).cloned() else { return };
         let was = job.workflow.clone();
