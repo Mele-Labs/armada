@@ -71,7 +71,7 @@ const READ_WAIT_AFTER: Duration = Duration::from_millis(400);
 
 /// What the window is scoped to: a project, by Fleet's id, with the names of the repositories it holds in the
 /// order its members name them, or one repository in no project, with no id. `None` on All.
-fn scope(cx: &App) -> Option<(Option<SharedString>, Vec<SharedString>)> {
+pub(crate) fn scope(cx: &App) -> Option<(Option<SharedString>, Vec<SharedString>)> {
     let bar = titlebar::live(cx)?;
     let face = &bar.read(cx).face;
     let Some(project) = face.scoped.and_then(|at| face.projects.get(at)) else {
@@ -254,7 +254,6 @@ fn new_layer(area: &Rc<Cell<Option<Bounds<Pixels>>>>, targets: Vec<super::face::
 
 impl DispatchScreen {
     pub fn new(jobs: Entity<JobsScreen>, records: &[SessionRecord], window: &mut Window, cx: &mut Context<Self>) -> Self {
-        crate::drafts::forget_all(cx);
         let face = scenes::rest(records);
         let targets = face.mentions.jobs.clone();
         let sheet = cx.new(|cx| DispatchSheet::new(face, window, cx));

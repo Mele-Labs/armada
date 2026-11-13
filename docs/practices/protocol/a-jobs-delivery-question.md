@@ -9,7 +9,7 @@ The protocol ID moves with the files below, and there is no number to take.
 | Where | Side | Change |
 | --- | --- | --- |
 | `WaitingSource` `delivery` | Fleet writes, Bridge reads | Derived on every read from the thread's `delivery` row while it has no choice. Id `delivery`, text `How should this work be delivered?`, `act` `{kind: "answer", target: "delivery"}`, `options` exactly `Auto land` (choice 0), `Open PR only` (choice 1) and `Keep local` (choice 2), each with a `description` |
-| `SessionRow` `delivery` | Fleet writes, Bridge reads | `id`, `at`, `choice` (`DeliveryChoice`, absent while asked) and `named`, set where the first message named it. Replaced by id when answered |
+| `SessionRow` `delivery` | Fleet writes, Bridge reads | `id`, `at`, `choice` (`DeliveryChoice`, absent while asked) and `named`, set where the first message named it. Replaced by id when answered. Additive `said`, absent where Fleet said nothing: its sentence for the person, where a project's or Kit's `delivery` answered the question or the first answer was kept as the project's |
 | `DeliveryChoice` | | `auto_land`, `open_pr`, `keep_local`. Bridge's half is `packages/protocol/src/hosted-sessions.ts` |
 | `answer_waiting` | Bridge sends, Fleet takes | `choice` 0, 1 or 2 on that item. Fleet keeps it on the row and sends the agent the choice. Words or a mode without a `choice` are a 422 `fleet.session_waiting_empty` |
 | `dismiss_waiting` | | Refused 422 `fleet.session_waiting_empty` for a `delivery` item: it is answered |

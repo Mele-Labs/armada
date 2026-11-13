@@ -1,0 +1,7 @@
+[icons.sparkles]
+  means = "A large four-pointed spark with two small ones: something new"
+  group = "Operator"
+  size = "12px"
+  status = "Proposed"
+  reserved = "The Feature chip on the Operator page's message box, and a Feature in a dispatch's kind. Never a state, a success, a Job that finished or anything an agent produced."
+  notes = "Proposed 12 Nov 2026 for the Operator page's composer, whose Idea, Feature and Bug chips are hints sent as `kind` on `dispatch_job`. Tooltip `A hint that this is a feature. The Operator decides what happens to it`. The owner may rule otherwise."

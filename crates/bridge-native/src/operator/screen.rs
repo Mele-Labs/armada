@@ -81,7 +81,12 @@ impl OperatorScreen {
 
     fn new(jobs: Entity<JobsScreen>, page: Entity<OperatorPageView>, front: Front, window: &mut Window, cx: &mut Context<Self>) -> Self {
         cx.set_global(Live(page.downgrade()));
-        let subs = vec![cx.subscribe_in(&page, window, |this, _, opened: &Opened, window, cx| this.opened(opened, window, cx))];
+        let list = jobs.read(cx).list.clone();
+        let subs = vec![
+            cx.subscribe_in(&page, window, |this, _, opened: &Opened, window, cx| this.opened(opened, window, cx)),
+            // The Jobs the box's `@` names are the ones the list holds.
+            cx.observe(&list, |this, _, cx| this.name_jobs(cx)),
+        ];
         let handle = window.window_handle();
         let me = cx.entity().downgrade();
         let behind = cx.try_global::<AskedSink>().cloned();
@@ -103,12 +108,26 @@ impl OperatorScreen {
         })));
         let toasts = crate::toasts::Toasts::mount(&page, cx.entity().downgrade(), window, cx);
         let mut this = OperatorScreen { jobs, page, front, within: cx.focus_handle(), toasts, _subs: subs };
+        this.name_jobs(cx);
         this.show_places(cx);
         if front == Front::Operator {
             let keys = this.page.read(cx).focus.clone();
             window.focus(&keys, cx);
         }
         this
+    }
+
+    /// The page's box offers the Jobs the list holds, but those that have ended.
+    fn name_jobs(&mut self, cx: &mut Context<Self>) {
+        let list = self.jobs.read(cx).list.clone();
+        let named: Vec<(String, String)> = list
+            .read(cx)
+            .records()
+            .iter()
+            .filter(|job| job.state != ipc::SessionState::Ended)
+            .filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title)))
+            .collect();
+        self.page.update(cx, |page, cx| page.set_jobs(named, cx));
     }
 
     /// The bar's strip says which place is in front: the bar there now, and the one the next screen opens.

@@ -70,14 +70,14 @@ where
         };
         match self.store().lock().await.session(&named).map_err(|why| self.ledger_fault(why))? {
             Some(_) => Ok(Some(named)),
-            None => Err(self.watch_unacceptable(NO_SUCH_SESSION, format!("No Job Fleet holds is named {named}."))),
+            None => Err(self.watch_unacceptable(NO_SUCH_SESSION, format!("No Job has the id {named}."))),
         }
     }
 
     pub(super) async fn placed_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<String, Refusal> {
         self.watching_job(caller, named)
             .await?
-            .ok_or_else(|| self.watch_unacceptable(UNPLACED, "A watch is a Job's, and nothing places one."))
+            .ok_or_else(|| self.watch_unacceptable(UNPLACED, "Name a Job: a watch belongs to a Job, and this call gave no Job id."))
     }
 
     /// The recipes Armada ships, the Job's repository holds and this machine holds, read on every
@@ -407,7 +407,7 @@ where
             let session = store
                 .session(&job)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.watch_unacceptable(NO_SUCH_SESSION, format!("No Job Fleet holds is named {job}.")))?;
+                .ok_or_else(|| self.watch_unacceptable(NO_SUCH_SESSION, format!("No Job has the id {job}.")))?;
             let held = store
                 .attachments_of(&store::Holder::session(&job))
                 .map_err(|why| self.ledger_fault(why))?

@@ -1315,7 +1315,7 @@ impl Render for OperatorPageView {
             .text_size(look.length(token::TEXT_SM));
         let top = div().flex_none().border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).child(self.head(look, cx));
         let Some(page) = self.page.as_ref() else {
-            return root.child(top).child(self.skeleton(look)).into_any_element();
+            return root.child(top).child(self.skeleton(look)).child(self.composer.clone()).into_any_element();
         };
         let off = (!page.on).then(|| self.off(look, cx));
         let mut parts: Vec<AnyElement> = vec![self.turn_head(look).into_any_element()];
@@ -1324,6 +1324,10 @@ impl Render for OperatorPageView {
         let (queue, card_at) = self.queue(look, cx);
         let card_at = card_at.map(|at| at + parts.len());
         parts.extend(queue);
+        // The ideas the Operator kept stand under Your turn; with none kept they draw nothing.
+        if self.parked.read(cx).draws() {
+            parts.push(self.parked.clone().into_any_element());
+        }
         // A key or an answer that moves the card scrolls it into view; a press is already on it.
         if std::mem::take(&mut self.reveal) {
             if let Some(at) = card_at {
@@ -1353,6 +1357,7 @@ impl Render for OperatorPageView {
         root.relative()
             .child(top.children(self.top_line(page, look)))
             .child(div().flex_1().min_h_0().flex().child(main).child(side(look).id("operator-side").overflow_y_scroll().child(aside)))
+            .child(self.composer.clone())
             .children(sheet)
             .children(log)
             .children(self.later_menu.as_ref().map(|(menu, _)| menu.clone()))

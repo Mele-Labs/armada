@@ -5,11 +5,14 @@
 use std::collections::{BTreeSet, HashMap};
 
 use gpui::{App, AppContext as _, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable as _, ScrollHandle, SharedString, Subscription, Task, Window};
+use ipc::operator_board::{DispatchWay, OperatorDispatched};
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorPage, OperatorThen, OperatorTurnItem};
 use ipc::{SessionId, WaitingAct};
 
 use super::chat::{ChatAsked, OperatorChat};
+use super::composer::{Composed, OperatorComposer, Outgoing};
 use super::face::{self, Kind};
+use super::parked::{ParkedAsked, ParkedIdeas};
 use super::scenes::{self, MockFleet};
 use super::wire::{Failed, Wire};
 use crate::dropdown::{Dropdown, Entry, Picked, Row};
@@ -72,6 +75,11 @@ pub struct OperatorPageView {
     /// The option he picked on an item that offers more than one, by its label; else the Operator's.
     pub(super) option: HashMap<String, String>,
     pub(super) chat: Option<Entity<OperatorChat>>,
+    /// The box at the page's foot, whose send is a dispatch to the Operator.
+    pub(super) composer: Entity<OperatorComposer>,
+    /// The ideas the Operator kept for later.
+    pub(super) parked: Entity<ParkedIdeas>,
+    parked_reading: bool,
     /// The digest's tiles he has folded or opened, by name, against how they open.
     pub(super) folded: HashMap<&'static str, bool>,
     pub focus: FocusHandle,
@@ -124,6 +132,14 @@ impl OperatorPageView {
         if pane {
             cx.defer_in(window, |this, window, cx| this.open_pane_chat(window, cx));
         }
+        let fleet = match &wire {
+            Wire::Live(fleet) => Some(fleet.clone()),
+            Wire::Mock(_) => None,
+        };
+        let composer = cx.new(|cx| OperatorComposer::new(fleet, window, cx));
+        let parked = cx.new(|_| ParkedIdeas::new(None));
+        subs.push(cx.subscribe_in(&composer, window, |this, _, event: &Composed, window, cx| this.composed(event, window, cx)));
+        subs.push(cx.subscribe(&parked, |this, _, asked: &ParkedAsked, cx| this.idea_asked(asked, cx)));
         OperatorPageView {
             wire,
             page: None,
@@ -137,6 +153,9 @@ impl OperatorPageView {
             then: HashMap::new(),
             option: HashMap::new(),
             chat: None,
+            composer,
+            parked,
+            parked_reading: false,
             folded: HashMap::new(),
             focus: cx.focus_handle(),
             pane,
@@ -175,6 +194,15 @@ impl OperatorPageView {
                 this.read_at = moved;
                 this.read(cx);
             }
+            if ready && !this.parked.read(cx).is_read() && !this.parked_reading {
+                this.read_parked(cx);
+            }
+        }));
+        // An idea kept for later is on the list as the Operator says it was kept.
+        this.subs.push(cx.subscribe(fleet, |this, _, done: &crate::fleet::Dispatched, cx| {
+            if done.0.iter().any(|one| one.way == DispatchWay::Parked) {
+                this.read_parked(cx);
+            }
         }));
         if window.is_window_active() {
             this.in_front(cx);
@@ -189,7 +217,9 @@ impl OperatorPageView {
         this.day = Some(scenes::day());
         this.back_at = Some(scenes::now().to_rfc3339());
         this.clock_now = Some(scenes::now());
+        this.parked.update(cx, |parked, _| parked.set_clock(Some(scenes::now())));
         this.read(cx);
+        this.read_parked(cx);
         this
     }
 
@@ -294,6 +324,19 @@ impl OperatorPageView {
     // -- the keys and presses ----------------------------------------------------------------------
 
     pub fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
+        // ⌥M puts the caret in the box from anywhere on the page, as it does in a Job's view.
+        if act.is("message_job") && !self.pane {
+            return self.composer.update(cx, |composer, cx| composer.focus(window, cx));
+        }
+        if self.composer.read(cx).has_keys(window, cx) {
+            // ⌘Enter sends from the box; every other act is the box's to take, or goes on.
+            if act.is("send_message") {
+                self.composer.update(cx, |composer, cx| composer.send(window, cx));
+            } else {
+                cx.propagate();
+            }
+            return;
+        }
         if self.chat_has_keys(window, cx) {
             return cx.propagate();
         }
@@ -883,6 +926,132 @@ impl OperatorPageView {
         self.track(task);
     }
 
+    // -- the box and the ideas ---------------------------------------------------------------------
+
+    /// The Jobs `@` names in the box.
+    pub fn set_jobs(&mut self, jobs: Vec<(String, String)>, cx: &mut Context<Self>) {
+        self.composer.update(cx, |composer, cx| composer.set_jobs(jobs, cx));
+    }
+
+    /// What the box asks: its dispatch goes to Fleet, or the keys come back to the page.
+    fn composed(&mut self, event: &Composed, window: &mut Window, cx: &mut Context<Self>) {
+        match event {
+            Composed::Leave => window.focus(&self.focus, cx),
+            Composed::Send(out) => self.dispatch(out.clone(), window, cx),
+        }
+    }
+
+    /// The box's send, as `dispatch_job`. The box empties on the answer, and keeps what it held on a refusal.
+    fn dispatch(&mut self, out: Outgoing, window: &mut Window, cx: &mut Context<Self>) {
+        let task = self.wire.dispatch(out.dispatch, cx);
+        let words = out.words;
+        cx.spawn_in(window, async move |this, cx| {
+            let sent = task.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                match sent {
+                    Ok((done, events)) => {
+                        this.composer.update(cx, |composer, cx| composer.answered(Ok(&done), window, cx));
+                        this.told(&done, events, &words, cx);
+                    }
+                    Err(why) => this.composer.update(cx, |composer, cx| composer.answered(Err(why), window, cx)),
+                }
+            });
+        })
+        .detach();
+    }
+
+    /// Fleet took a dispatch. With the Operator holding it, or keeping it as an idea, he stays where he is and the toast
+    /// that `operator.dispatched` raises says what became of it; the mock sends no event, so its answer brings them.
+    /// A Job started with the Operator off opens, as a start from the sheet does.
+    fn told(&mut self, done: &ipc::JobDispatched, events: Vec<OperatorDispatched>, words: &str, cx: &mut Context<Self>) {
+        if let Some(id) = done.operator.as_deref().or(done.parked.as_deref()) {
+            crate::toasts::dispatch_held(id, words, cx);
+        }
+        let kept = events.iter().any(|one| one.way == DispatchWay::Parked);
+        for one in events {
+            crate::toasts::dispatched(one, cx);
+        }
+        if kept || done.parked.is_some() {
+            self.read_parked(cx);
+        }
+        if let Some(record) = &done.session {
+            if self.page.as_ref().is_some_and(|page| !page.on) {
+                cx.emit(Opened::Job(record.id.clone()));
+            }
+        }
+    }
+
+    /// The ideas Fleet keeps, read again.
+    pub fn read_parked(&mut self, cx: &mut Context<Self>) {
+        self.parked_reading = true;
+        let task = self.wire.parked(cx);
+        let task = cx.spawn(async move |this, cx| {
+            let read = task.await;
+            let _ = this.update(cx, |this, cx| {
+                this.parked_reading = false;
+                match read {
+                    Ok(list) => this.parked.update(cx, |parked, cx| parked.set(list.ideas, cx)),
+                    Err(why) => Note::warn("the parked ideas could not be read").field("why", why).emit(),
+                }
+            });
+        });
+        self.track(task);
+    }
+
+    /// A press on an idea: Remove lets it go; Start sends it as a dispatch, unheld, and lets it go once Fleet has it.
+    fn idea_asked(&mut self, asked: &ParkedAsked, cx: &mut Context<Self>) {
+        match asked {
+            ParkedAsked::Remove(id) => {
+                self.parked.update(cx, |parked, cx| parked.busy(id, true, cx));
+                self.remove_idea(id.clone(), cx);
+            }
+            ParkedAsked::Start(idea) => {
+                self.parked.update(cx, |parked, cx| parked.busy(&idea.id, true, cx));
+                // An idea started is no longer one to keep: asked for as an idea it would be kept again.
+                let mut dispatch = idea.dispatch.clone();
+                dispatch.start.held = false;
+                if dispatch.kind == Some(ipc::DispatchKind::Idea) {
+                    dispatch.kind = None;
+                }
+                let words = dispatch.start.request.clone().unwrap_or_default();
+                let id = idea.id.clone();
+                let task = self.wire.dispatch(dispatch, cx);
+                let task = cx.spawn(async move |this, cx| {
+                    let sent = task.await;
+                    let _ = this.update(cx, |this, cx| match sent {
+                        Ok((done, events)) => {
+                            this.told(&done, events, &words, cx);
+                            this.remove_idea(id, cx);
+                        }
+                        Err(why) => this.parked.update(cx, |parked, cx| {
+                            parked.busy(&id, false, cx);
+                            parked.refuse(why, cx);
+                        }),
+                    });
+                });
+                self.track(task);
+            }
+        }
+    }
+
+    fn remove_idea(&mut self, id: String, cx: &mut Context<Self>) {
+        let task = self.wire.remove_parked(id.clone(), cx);
+        let task = cx.spawn(async move |this, cx| {
+            let removed = task.await;
+            let _ = this.update(cx, |this, cx| match removed {
+                Ok(list) => this.parked.update(cx, |parked, cx| parked.set(list.ideas, cx)),
+                Err(why) => {
+                    this.parked.update(cx, |parked, cx| {
+                        parked.busy(&id, false, cx);
+                        parked.refuse(why, cx);
+                    });
+                    this.read_parked(cx);
+                }
+            });
+        });
+        self.track(task);
+    }
+
     // -- the walk's scenes -------------------------------------------------------------------------
 
     /// Move the mock Fleet to a named scene: the Operator answers the chat (`said`), a new item joins
@@ -1127,6 +1296,87 @@ mod tests {
         cx.simulate_keystrokes("escape");
         assert!(page.read_with(cx, |page, _| page.chat.is_none()));
         cx.update(|window, cx| assert!(page.read(cx).focus.is_focused(window)));
+    }
+
+    fn type_in_box(page: &Entity<OperatorPageView>, words: &str, cx: &mut VisualTestContext) {
+        let composer = page.read_with(cx, |page, _| page.composer.clone());
+        cx.update(|window, cx| composer.update(cx, |composer, cx| composer.focus(window, cx)));
+        cx.simulate_input(words);
+    }
+
+    #[gpui::test]
+    fn alt_m_puts_the_caret_in_the_box_and_a_letter_there_is_typing_not_an_answer(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        cx.simulate_keystrokes("alt-m");
+        let composer = page.read_with(cx, |page, _| page.composer.clone());
+        cx.update(|window, cx| assert!(composer.read(cx).has_keys(window, cx), "the caret is in the box"));
+        cx.simulate_keystrokes("a");
+        assert!(pressed(&page, cx).is_empty(), "a letter in the box is not Yes");
+        assert_eq!(composer.read_with(cx, |composer, cx| composer.words(cx)), "a");
+        cx.simulate_keystrokes("escape");
+        cx.update(|window, cx| assert!(page.read(cx).focus.is_focused(window), "Esc gives the keys back to the page"));
+    }
+
+    #[gpui::test]
+    fn a_send_is_an_unheld_dispatch_that_carries_the_kind_picked_and_none_when_none_is(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let composer = page.read_with(cx, |page, _| page.composer.clone());
+        type_in_box(&page, "Keep the palette's last search", cx);
+        cx.simulate_keystrokes("cmd-enter");
+        cx.run_until_parked();
+        type_in_box(&page, "The meter jumps", cx);
+        composer.update(cx, |composer, cx| composer.pick_kind(ipc::DispatchKind::Bug, cx));
+        cx.simulate_keystrokes("cmd-enter");
+        cx.run_until_parked();
+        let sent = page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.dispatched.clone()).unwrap_or_default());
+        assert_eq!(sent.len(), 2);
+        assert_eq!(sent[0].kind, None, "no chip sends no kind");
+        assert_eq!(sent[1].kind, Some(ipc::DispatchKind::Bug));
+        assert!(sent.iter().all(|one| !one.start.held), "his send is never a draft");
+        assert_eq!(composer.read_with(cx, |composer, cx| composer.words(cx)), "", "the answer emptied the box");
+        assert_eq!(composer.read_with(cx, |composer, _| composer.kind()), None, "and the kind he picked went with it");
+    }
+
+    #[gpui::test]
+    fn what_the_operator_kept_is_listed_newest_first_and_a_kept_send_joins_it(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let parked = page.read_with(cx, |page, _| page.parked.clone());
+        let ids = |cx: &mut VisualTestContext| parked.read_with(cx, |parked, _| parked.ideas().iter().map(|idea| idea.id.clone()).collect::<Vec<_>>());
+        assert_eq!(ids(cx), ["idea:3", "idea:2", "idea:1"]);
+        type_in_box(&page, "A thought for later", cx);
+        cx.simulate_keystrokes("cmd-enter");
+        cx.run_until_parked();
+        assert_eq!(ids(cx).len(), 4);
+        assert_eq!(ids(cx)[0], "idea:101", "the idea the Operator just kept is the newest");
+    }
+
+    #[gpui::test]
+    fn start_sends_a_kept_idea_unheld_and_without_the_kind_idea_then_lets_it_go(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let parked = page.read_with(cx, |page, _| page.parked.clone());
+        let idea = parked.read_with(cx, |parked, _| parked.ideas().into_iter().find(|idea| idea.id == "idea:2").cloned()).expect("a kept idea");
+        parked.update(cx, |_, cx| cx.emit(ParkedAsked::Start(idea)));
+        cx.run_until_parked();
+        let sent = page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.dispatched.clone()).unwrap_or_default());
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].kind, None, "an idea started is no longer one to keep");
+        assert!(!sent[0].start.held);
+        let left = parked.read_with(cx, |parked, _| parked.ideas().iter().map(|idea| idea.id.clone()).collect::<Vec<_>>());
+        assert_eq!(left, ["idea:3", "idea:1"]);
+        let (kept, bug) = (parked.read_with(cx, |parked, _| parked.ideas().len()), left.contains(&"idea:3".to_string()));
+        assert!(bug && kept == 2);
+    }
+
+    #[gpui::test]
+    fn remove_lets_an_idea_go_and_an_empty_list_draws_nothing(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let parked = page.read_with(cx, |page, _| page.parked.clone());
+        for id in ["idea:1", "idea:2", "idea:3"] {
+            parked.update(cx, |_, cx| cx.emit(ParkedAsked::Remove(id.to_string())));
+            cx.run_until_parked();
+        }
+        assert!(parked.read_with(cx, |parked, _| parked.is_read() && !parked.draws()));
+        assert!(page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.dispatched.is_empty()).unwrap_or(false)), "removing starts nothing");
     }
 
     #[gpui::test]

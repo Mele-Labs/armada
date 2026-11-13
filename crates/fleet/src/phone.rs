@@ -17,7 +17,18 @@ const PHONE_NOT_SERVED: &str = "fleet.phone_not_served";
 pub trait PhoneSwitch: Send + Sync + 'static {
     fn state(&self) -> PhoneGateway;
     fn set(&self, on: bool) -> PhoneGateway;
+
+    /// Read `path`, one of the other Mac's `/other_mac/*` Fleet paths with its query, from paired Mac `mac`
+    /// through the link: the status its Fleet answered and the bytes. A Gateway with no link to it says why.
+    fn read_other_mac(&self, mac: &str, path: &str) -> OtherMacRead {
+        let _ = path;
+        let why = format!("this Mac has no link to Mac {mac}");
+        Box::pin(async move { Err(why) })
+    }
 }
+
+/// What [`PhoneSwitch::read_other_mac`] answers, once the other Mac has.
+pub type OtherMacRead = std::pin::Pin<Box<dyn std::future::Future<Output = Result<(u16, Vec<u8>), String>> + Send>>;
 
 /// The switch, once the composition root has handed it in.
 #[derive(Default)]

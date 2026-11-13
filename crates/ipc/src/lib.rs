@@ -261,6 +261,7 @@ mod terminals;
 mod job_browser;
 mod setup;
 mod phone;
+mod macs;
 mod show_file;
 mod package_manifest;
 mod sketch;
@@ -269,6 +270,8 @@ mod sketch_scene;
 /// A screen node's layout tree read whole, as a client draws it.
 mod sketch_screen;
 mod style_sources;
+/// What a Job draws a `mock` with, read once. `get_design_catalogue`.
+mod design_catalogue;
 /// A Job's document put to the person, and his answer.
 mod document_answer;
 /// What a Job waits on the person for, grouped once. `get_needs_you`.
@@ -672,6 +675,7 @@ pub use phone::{
     CloudflareSignIn, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone, PhoneGateway, Served, SetPhoneGateway,
     TailscaleState,
 };
+pub use macs::{ClaimMacLink, MacNamed, MacPairLink, OtherMacBugReports, OtherMacEvent, OtherMacSessions};
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
 pub use document_answer::{
@@ -679,7 +683,7 @@ pub use document_answer::{
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
 };
 pub use sketch::{
-    page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, SKETCH_ASKED, SKETCH_DRAWN,
+    page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 pub use sketch_scene::{Scene, SceneColor, SceneEdge, SceneKind, SceneNode, ScenePoint, SceneShape, SceneStroke, WirePart, SCENE_ICONS};
@@ -687,6 +691,9 @@ pub use sketch_screen::{
     ScreenAct, ScreenAlign, ScreenChrome, ScreenElement, ScreenField, ScreenFrom, ScreenGap, ScreenLayout, ScreenMessage, ScreenPart, ScreenRow, ScreenSize, ScreenSizeWord, ScreenText, ScreenVariant,
 };
 pub use package_manifest::{read_package_manifest, PackageManifest};
+pub use design_catalogue::{
+    CatalogueArea, CatalogueAsked, CatalogueComponent, CatalogueContents, CataloguePattern, CatalogueToken, DesignCatalogue, TokenFamily, TokenGroup, TokenRole,
+};
 pub use style_sources::{KeptFont, KeptSheet, KeptStyles, StyleKind, StyleSource, StyleSources, StyleToken};
 pub use session_starts::{
     ForkThisSession, HandToSession, SessionHeld, SessionLink, HeldOrRefused, SessionsHeld, StartAnotherSession,

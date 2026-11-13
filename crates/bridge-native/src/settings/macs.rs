@@ -104,13 +104,15 @@ fn colour_of(look: &Look, colour: MacColour) -> Hsla {
 }
 
 /// How a link stands, as its glyph, its ink and its tooltip.
-fn link_mark(look: &Look, link: &MacLink) -> (&'static str, Hsla, String) {
+fn link_mark(look: &Look, link: &MacLink, why: Option<&str>) -> (&'static str, Hsla, String) {
     match link {
         MacLink::Linked => ("link", look.color(token::STATUS_COMPLETED_SUCCESS), "Linked".into()),
         MacLink::Asleep { since } => ("moon", look.color(token::FG_MUTED), format!("Asleep since {}", clock_of(*since))),
         MacLink::OlderBuild => ("arrow-down-to-line", look.color(token::STATUS_ESCALATED), "Runs an older build. Linked again once it updates.".into()),
         MacLink::NewerBuild => ("arrow-up-from-line", look.color(token::STATUS_ESCALATED), "Runs a newer build. Linked again once this Mac updates.".into()),
         MacLink::ClaimWaiting => ("hourglass", look.color(token::STATUS_ESCALATED), "Waiting for Confirm on this Mac".into()),
+        // Fleet's sentence names the Mac to press Confirm on.
+        MacLink::ConfirmWaiting => ("hourglass", look.color(token::STATUS_ESCALATED), why.unwrap_or("Waiting for Confirm on the other Mac").into()),
     }
 }
 
@@ -412,7 +414,7 @@ impl SettingsOverlay {
                 }
                 for mac in macs.iter().flatten() {
                     let mark = mac.link.as_ref().map(|link| {
-                        let (name, ink, said) = link_mark(look, link);
+                        let (name, ink, said) = link_mark(look, link, mac.why.as_deref());
                         glyph(look, SharedString::from(format!("macs-link-{}", mac.id)), name, ink, &said)
                     });
                     let row = device_row(look, chip(look, mac), &mac.name, mac.this_mac.then_some("This Mac"))

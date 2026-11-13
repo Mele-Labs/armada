@@ -1,0 +1,33 @@
+{
+ "ideas": [
+  {
+   "id": "idea:1",
+   "at": "2026-11-11T09:40:00-05:00",
+   "dispatch": {
+    "manifest_id": "armada",
+    "request": "Keep the scrollback between terminal runs",
+    "then": [{ "message": { "text": "Keep the scrollback between terminal runs" } }]
+   }
+  },
+  {
+   "id": "idea:2",
+   "at": "2026-11-11T11:20:00-05:00",
+   "dispatch": {
+    "manifest_id": "armada",
+    "request": "Group the palette's recent rows by project",
+    "kind": "idea",
+    "then": [{ "message": { "text": "Group the palette's recent rows by project" } }]
+   }
+  },
+  {
+   "id": "idea:3",
+   "at": "2026-11-11T12:30:00-05:00",
+   "dispatch": {
+    "manifest_id": "storefront",
+    "request": "Checkout shows the total twice after a coupon",
+    "kind": "bug",
+    "then": [{ "message": { "text": "Checkout shows the total twice after a coupon" } }]
+  }
+  }
+ ]
+}

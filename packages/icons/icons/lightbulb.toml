@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "A value on a Session's composer or status panel that the proposer picked and the person has not. Never a hint or a tip, and never the proposer itself, which is `scan-line` while it reads."
   notes = "Proposed 16 Oct 2026 for the proposer's picks. A value the proposer chose is marked where it lives, and the bulb is the suggestion rather than the choice. Tooltip `Picked by the proposer`."
+
+[[icons.lightbulb.usage]]
+  means = "The Idea chip on the Operator page's message box, and an idea kept for later in its Ideas list"
+  group = "Operator"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 12 Nov 2026 for the Operator page's composer. Tooltip `A hint that this is an idea. The Operator decides what happens to it`. It marks the kind he called a dispatch, which is his own word and not a value the proposer picked, so the reservation above is stretched here: **the owner decides whether the bulb may mean it**. Refused: `sticky-note` and `notebook-pen`, reserved to a Studio's whiteboard and to a plan group's gate."

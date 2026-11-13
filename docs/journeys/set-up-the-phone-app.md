@@ -88,6 +88,6 @@ Settings, Phone then shows the phone as on and not listening, with the reason, a
 | `This code is not good any more` | Five minutes passed, or it was used | Start pairing again in Bridge |
 | 404 on the app's address | The built app is missing: `pocket-app` in `~/Library/Application Support/Armada/` | `scripts/restart` on that Mac |
 | `Armada could not listen on 127.0.0.1:8443` in Settings, Phone | Something else holds the port, such as the old `armada pocket` job | Quit it, then switch the phone off and on |
-| No push on a Job that went quiet | App not opened from the Home Screen, notifications not allowed, or the Job is not stuck | See [Pocket](../concepts/pocket.md), *What pushes* |
+| No push on a Job that needs you | App not opened from the Home Screen, notifications not allowed, or the item was already open when Pocket started | See [Pocket](../concepts/pocket.md), *What pushes* |
 
 To remove a phone, see *Unpairing* in [Pocket](../concepts/pocket.md).
