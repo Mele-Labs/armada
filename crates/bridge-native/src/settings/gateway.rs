@@ -202,8 +202,8 @@ pub fn phone_confirm(code: String, cx: &App) -> Task<Result<PairedPhone, String>
     posted("/admin/pair/confirm", coded(code), "PairedPhone", cx)
 }
 
-/// `POST /admin/pair/decline`: 204 ends the claim. The route is coming (#3561), so a 404 or 405 that does not say the code
-/// is gone means it is not there yet, and answers as done: the caller drops the code here either way.
+/// `POST /admin/pair/decline`: 204 ends the claim; a 404 says the code is gone, in the Gateway's words. The caller
+/// drops the code here either way.
 pub fn phone_decline(code: String, cx: &App) -> Task<Result<(), String>> {
     asked(cx, async move {
         let (status, bytes) = send("POST", "/admin/pair/decline".into(), coded(code)).await?;
@@ -212,15 +212,7 @@ pub fn phone_decline(code: String, cx: &App) -> Task<Result<(), String>> {
 }
 
 fn declined(status: u16, bytes: &[u8]) -> Result<(), String> {
-    if (200..300).contains(&status) {
-        return Ok(());
-    }
-    let said = said_of(status, bytes);
-    match status {
-        404 if said == CODE_GONE => Err(said),
-        404 | 405 => Ok(()),
-        _ => Err(said),
-    }
+    if (200..300).contains(&status) { Ok(()) } else { Err(said_of(status, bytes)) }
 }
 
 /// The walk's and the tests' Gateway, passing through every tunnel state: `cloudflared` not downloaded yet; the
@@ -637,12 +629,10 @@ mod tests {
     }
 
     #[test]
-    fn a_decline_the_gateway_does_not_have_yet_answers_as_done() {
+    fn a_decline_ends_on_204_and_a_refusal_is_said_in_the_gateways_words() {
         assert_eq!(declined(204, b""), Ok(()));
-        assert_eq!(declined(404, b""), Ok(()), "a missing route with no body");
-        assert_eq!(declined(404, b"Not Found"), Ok(()));
-        assert_eq!(declined(405, b"Method Not Allowed"), Ok(()));
         assert_eq!(declined(404, b"This code is not good any more.\n"), Err(CODE_GONE.into()));
+        assert_eq!(declined(404, b""), Err("The Gateway answered 404.".into()));
         assert_eq!(declined(500, b"The store failed."), Err("The store failed.".into()));
     }
 }
