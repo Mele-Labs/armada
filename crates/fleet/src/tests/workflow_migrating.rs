@@ -141,6 +141,7 @@ impl Migrating {
             .into_iter()
             .filter(|one| one.kind.as_wire() == "session.workflow")
             .map(|one| one.says)
+            .filter(|says| says.contains("moved to the newest"))
             .collect()
     }
 }
