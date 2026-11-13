@@ -15,7 +15,7 @@ use ipc::SessionRow;
 use store::{KeptInstance, Store};
 
 use crate::daemon::Fleet;
-use crate::rail::RailStep;
+use crate::rail::{self, RailStep};
 use crate::rail_keeping::rail_read;
 use crate::rail_lifecycle::{self, Held};
 
@@ -32,14 +32,13 @@ where
     /// A move was just kept for `session`. If its step waits on a lifecycle, draw the row again so the
     /// rail sees it; a Job on any other step is left alone.
     pub(crate) async fn lifecycle_wakes(&self, session: &str) {
-        let (manifest, workflow, at) = {
-            let store = self.store().lock().await;
-            let Some(hosting) = store.hosting(session).ok().flatten() else { return };
-            let Some(workflow) = hosting.workflow else { return };
-            let Some(at) = store.session_rail(session).ok().and_then(|kept| kept.step) else { return };
-            (hosting.manifest_id, workflow, at as usize)
+        let hosting = self.store().lock().await.hosting(session).ok().flatten();
+        let Some((manifest, Some(workflow))) = hosting.map(|hosting| (hosting.manifest_id, hosting.workflow)) else { return };
+        let Some(steps) = self.job_rail_steps(session, &manifest, &workflow).await else { return };
+        let Some(at) = self.store().lock().await.session_rail(session, &rail::step_ids(&steps)).ok().and_then(|kept| kept.step) else {
+            return;
         };
-        let waits = self.job_rail_steps(session, &manifest, &workflow).await.is_some_and(|steps| steps.get(at).is_some_and(RailStep::has_lifecycle_end));
+        let waits = steps.get(at as usize).is_some_and(RailStep::has_lifecycle_end);
         if waits {
             let _ = self.published_hosted(session).await;
         }
@@ -70,6 +69,7 @@ where
         session: &str,
         at: usize,
         step: &RailStep,
+        steps: &[RailStep],
         workflow: &str,
         manifest: &str,
     ) -> Option<String> {
@@ -79,7 +79,7 @@ where
         let (reads, titles, rows, lifecycles) = {
             let store = self.store().lock().await;
             let kept = store.session(session).ok().flatten()?;
-            let reads = rail_read(&store, &kept, true).ok()?;
+            let reads = rail_read(&store, &kept, true, steps.to_vec()).ok()?;
             let titles = titles_of(&store, &reads.held);
             let rows = store.session_rows(session).ok()?;
             let lifecycles = self.lifecycles_of_job(&store, session, manifest);

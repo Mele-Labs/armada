@@ -360,6 +360,17 @@ fn the_tool_description_lists_exactly_the_glyphs_a_mock_may_name() {
     }
 }
 
+/// The design catalogue answers `MOCK_GLYPHS`, so it must be what Bridge draws.
+#[test]
+fn the_mock_glyphs_are_exactly_what_mock_icons_draws() {
+    let mut names = mock_icon_names();
+    names.retain(|name| !name.is_empty());
+    let mut glyphs: Vec<String> = crate::MOCK_GLYPHS.iter().map(|one| one.to_string()).collect();
+    names.sort();
+    glyphs.sort();
+    assert_eq!(glyphs, names, "MOCK_GLYPHS in sketch.rs differs from MOCK_ICONS in mock-icons.ts");
+}
+
 #[test]
 fn the_tool_description_names_every_screen_element_type_and_enum_value() {
     for spec in &SPECS {

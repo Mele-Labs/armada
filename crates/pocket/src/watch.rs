@@ -1,13 +1,12 @@
-//! What pushes: Fleet's `/events`, narrowed to Sessions that went quiet.
+//! What pushes: Fleet's `/events`, narrowed to what a Job newly needs from the person.
 //!
-//! **Only Stuck.** "Escalations interrupt, approvals queue": a Session question
-//! or a plan to approve is a decision waiting, and neither is here, so no event
-//! of theirs can reach a phone as a push.
+//! **Only Needs you.** A push goes out when a Job's `waiting_for` gains an item id it
+//! did not have. A Stuck Job sends nothing: Fleet repairs it without the person.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
-use ipc::{Event, SessionState, SessionStanding, StreamMessage};
+use ipc::{Event, StreamMessage, WaitingItem, WaitingSource};
 use serde::Serialize;
 
 use crate::fleet_events::Messages;
@@ -20,7 +19,7 @@ use crate::{fleet_client, Gateway};
 struct Alert {
     session_id: String,
     title: String,
-    reason: &'static str,
+    reason: String,
     /// This Mac's `https://<tailnet name>`, the address the phone paired with.
     /// Absent while the Gateway cannot say its address; the app then finds the Mac holding the Job.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -29,9 +28,9 @@ struct Alert {
 
 pub struct Watch {
     gateway: Gateway,
-    /// The Sessions already pushed for. A Session leaves when it moves on, so
-    /// the next time it goes quiet it pushes again.
-    sent: HashSet<String>,
+    /// Per Job, the item ids already pushed for or already open when Pocket first saw it.
+    /// An id leaves when its item does, so an item raised again pushes again.
+    sent: HashMap<String, HashSet<String>>,
     /// How long to wait before each retry of a push that failed.
     pub(crate) retries: Vec<Duration>,
     pushes: tokio::task::JoinSet<()>,
@@ -41,7 +40,7 @@ impl Watch {
     pub fn new(gateway: Gateway) -> Watch {
         Watch {
             gateway,
-            sent: HashSet::new(),
+            sent: HashMap::new(),
             pushes: tokio::task::JoinSet::new(),
             retries: vec![Duration::from_secs(5), Duration::from_secs(30), Duration::from_secs(120)],
         }
@@ -54,15 +53,22 @@ impl Watch {
         };
         if let Event::SessionChanged(record) = delivered.event {
             let id = record.id.as_str().to_string();
-            let quiet = record.state == SessionState::Live && record.standing == Some(SessionStanding::Stuck);
-            if !quiet {
-                self.sent.remove(&id);
-            } else if self.sent.insert(id.clone()) {
+            let open: HashSet<String> = record.waiting_for.iter().map(|item| item.id.clone()).collect();
+            // The first event for a Job only records what is already open, so a restart
+            // of Pocket does not push every item again.
+            let Some(known) = self.sent.get_mut(&id) else {
+                self.sent.insert(id, open);
+                return;
+            };
+            known.retain(|item| open.contains(item));
+            let title = record.title.clone().unwrap_or_else(|| id.clone());
+            for item in &record.waiting_for {
                 // Marked in flight now, so a repeat of this event sends nothing
                 // while the push retries on its own task.
-                let title = record.title.unwrap_or_else(|| id.clone());
-                let alert = Alert { session_id: id, title, reason: "stalled", origin: None };
-                self.pushes.spawn(push(self.gateway.clone(), self.retries.clone(), alert));
+                if known.insert(item.id.clone()) {
+                    let alert = Alert { session_id: id.clone(), title: title.clone(), reason: body(item), origin: None };
+                    self.pushes.spawn(push(self.gateway.clone(), self.retries.clone(), alert));
+                }
             }
         }
     }
@@ -72,6 +78,16 @@ impl Watch {
     #[cfg(test)]
     pub(crate) async fn settle(&mut self) {
         while self.pushes.join_next().await.is_some() {}
+    }
+}
+
+/// What the push says: the item's text, except where it is not a sentence.
+fn body(item: &WaitingItem) -> String {
+    let text = item.text.trim();
+    if item.source == WaitingSource::Walk && (text.is_empty() || text.contains("://")) {
+        "A walk is ready".to_string()
+    } else {
+        text.to_string()
     }
 }
 

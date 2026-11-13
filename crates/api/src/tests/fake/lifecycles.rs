@@ -106,7 +106,7 @@ impl Lifecycles for FakeDaemon {
         let Some(job) = session_id else {
             return Err(Refusal::Unacceptable(ipc::WireError::raised(
                 "fleet.job_lifecycles_unplaced",
-                "what a Job holds is its own, and nothing places one",
+                "Name a Job: this call came from outside a Job and gave no Job id.",
                 super::run_id(),
             )));
         };

@@ -457,10 +457,10 @@ which workflow. They go consequence-forward on blast radius alone,
 meaning a job writing in several workspaces, auto-merge on, a job
 touching root `armada.yml`, or a pre-approved batch. Cost never triggers it.
 
-**Push alerts** carry facts rather than a ping. "Drone 4 stalled on
-step 2 of 5, `auth/session.rs`, 12 min." Kill and Redirect are not
-notification actions. When the line is cut, identity and verb survive,
-then location, then elapsed.
+**Push alerts** carry facts rather than a ping. The title is the Job's title
+and the body is the text of what it needs: "Which branch should this land on?"
+Kill and Redirect are not notification actions. A walk item says "A walk is
+ready", never its address.
 
 **Empty states** draw nothing. An empty slot stays empty: a sentence or a
 placeholder that only fills the space, or says that something is absent, is
@@ -514,23 +514,16 @@ is what lets the body be empty in the one state that has nothing for it. An
 unhealthy state adds a sentence naming what to do about it; a healthy one does
 not, because there is nothing to do.
 
-**Escalations interrupt, approvals queue.** Escalations cost money in
-real time. Approvals cost latency. Push inherits this, so escalations
-reach your phone and approvals never do.
+**Needs you interrupts.** Push sends one alert for each new item a Job
+waits on the person for: a question, a permission ask, a plan to approve.
+A Job that is stuck sends none, since Fleet repairs it without him.
 
-**Routing config is bounded by this rule.** The loudness order is
+**Routing config is bounded by the loudness order.** The loudness order is
 silent < in-app < OS notification < push. Routing may move an event
-type *down* that order, never up, and **an approval may never be
-promoted to push.**
+type *down* that order, never up.
 
 **This one is a contract rather than a preference, and it is the only
-"you may not" left in configuration.** It holds because the two event
-classes mean different things. An escalation means work has stopped and
-nothing progresses until a person looks. An approval means work is
-waiting to start and will keep. If approvals could reach push, the
-distinction collapses and the escalation signal stops being trusted —
-which is what Overview's counts and the push-alert design both
-rest on. It is a product rule about what these events mean, not a
+"you may not" left in configuration.** It is a product rule, not a
 config-tier rule: notification routing is a Machine setting with one
 value and no merge, so no Manifest is party to it.
 

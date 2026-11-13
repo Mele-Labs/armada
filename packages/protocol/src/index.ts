@@ -28,6 +28,7 @@ export * from "./pull-request-notes";
 export * from "./folding";
 export * from "./forge";
 export * from "./debug-report";
+export * from "./design-catalogue";
 export * from "./health";
 export * from "./calls";
 export * from "./thought";

@@ -102,7 +102,7 @@ where
         // When the step it is on began, read before the skip moves it.
         let since = {
             let mut store = self.store().lock().await;
-            let mut kept = store.session_rail(&id).map_err(|why| self.ledger_fault(why))?;
+            let mut kept = store.session_rail(&id, &rail::step_ids(&steps)).map_err(|why| self.ledger_fault(why))?;
             if kept.skipped.contains(&skip.step) == skip.skipped {
                 drop(store);
                 return self.published_hosted(&id).await;
@@ -114,7 +114,7 @@ where
             } else {
                 kept.skipped.retain(|one| *one != skip.step);
             }
-            store.keep_session_rail(&id, &kept).map_err(|why| self.ledger_fault(why))?;
+            store.keep_session_rail(&id, &kept, &rail::step_ids(&steps)).map_err(|why| self.ledger_fault(why))?;
             let since = kept.visits.iter().rev().find(|(visited, _)| *visited == skip.step).map(|(_, since)| since.clone());
             since.filter(|_| skip.skipped && on == Some(skip.step))
         };
@@ -198,7 +198,7 @@ where
         // stood before.
         let (passed, since) = {
             let mut store = self.store().lock().await;
-            let mut kept = store.session_rail(&id).map_err(|why| self.ledger_fault(why))?;
+            let mut kept = store.session_rail(&id, &rail::step_ids(&steps)).map_err(|why| self.ledger_fault(why))?;
             let Some(on) = self.ledger_row(&store, &session)?.workflow_step else {
                 return Err(self.hosted_refusal(STEP_NOT_AHEAD, "the Job is on no step of its workflow yet"));
             };
@@ -219,7 +219,7 @@ where
             // A step jumped to is wanted, so a skip of it is lifted.
             kept.skipped.retain(|one| *one != jump.step);
             kept.skipped.sort_unstable();
-            store.keep_session_rail(&id, &kept).map_err(|why| self.ledger_fault(why))?;
+            store.keep_session_rail(&id, &kept, &rail::step_ids(&steps)).map_err(|why| self.ledger_fault(why))?;
             let since = kept.visits.iter().rev().find(|(visited, _)| *visited == on).map(|(_, since)| since.clone());
             (passed, since)
         };
