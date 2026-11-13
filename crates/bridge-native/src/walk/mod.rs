@@ -1183,6 +1183,23 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-sketches-several",
+        title: "Several sketches waiting on him at once, each answered alone",
+        screen: Screen::Jobs,
+        scenario: "sketches-several",
+        steps: &[
+            press_on("A Job puts two sketches to him: the newest stands pinned at the thread's end", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
+            step("The older one keeps its own card in the thread, its Approve and Send back under it", Verb::Wheel("region", "Thread", -420), "article", "Sketch: Merge line flow"),
+            step("Back at the end, the pinned one waits too", Verb::Wheel("region", "Thread", 1200), "article", "Sketch to approve: Freshness chip"),
+            press_on("Needs you opens the review: each sketch is an item of its own, the older one drawn first with its own Approve", "button", "Needs you", "button", "Approve Merge line flow"),
+            step("The other waits in the list beside it", Verb::Look, "button", "Freshness chip"),
+            press_on("A press draws it with its own Approve and Send back", "button", "Freshness chip", "button", "Approve Freshness chip"),
+            press_on("Approve answers that one alone, and the other comes up", "button", "Approve Freshness chip", "button", "Approve Merge line flow"),
+            step("Its own Send back is still there", Verb::Look, "button", "Send back"),
+            step("Esc shuts the review, and the pin has moved to the sketch still waiting", Verb::Key("escape"), "article", "Sketch to approve: Merge line flow"),
+        ],
+    },
+    Walk {
         name: "native-sketch-share",
         title: "Share a sketch with somebody who has no Armada",
         screen: Screen::Jobs,

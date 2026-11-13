@@ -415,10 +415,11 @@ impl JobView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let _ = job;
         let Some(fleet) = self.fleet.clone() else {
-            if let Some(why) = crate::mock::act_refused(route) {
-                failed(self, why.into(), cx);
+            match crate::mock::act_refused(route) {
+                Some(why) => failed(self, why.into(), cx),
+                None if route == "/sessions/sketch/answer" => self.mock_sketch_answered(&job, body, cx),
+                None => {}
             }
             return;
         };
@@ -444,6 +445,23 @@ impl JobView {
             }
         })
         .detach();
+    }
+
+    /// Mock data: Fleet takes a sketch's answer as it does, settling only that sketch. It stops waiting
+    /// on him, and the thread's pin is read again, so it moves to the next sketch still open.
+    fn mock_sketch_answered(&mut self, job: &SharedString, body: Result<String, String>, cx: &mut Context<Self>) {
+        let Ok(answer) = body.map_err(|_| ()).and_then(|body| ipc::decode::<ipc::AnswerSketch>("AnswerSketch", body.as_bytes()).map_err(|_| ())) else { return };
+        let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        let Some(held) = self.mock.get_mut(job.as_str()) else { return };
+        if let Some(at) = crate::mock::sketch_answered(&mut held.head, &mut held.items, &answer.sketch, answer.how, &now, answer.words) {
+            held.version += 1;
+            held.mark_dirty(at);
+        }
+        if let Some(page) = self.pages.get_mut(job) {
+            page.dock.hidden.insert(answer.sketch);
+        }
+        self.sync(job, cx);
+        cx.notify();
     }
 
     /// Fleet refused: the answer is taken back and its reason stands on the card.
