@@ -55,6 +55,7 @@ enum ReadText<'a> {
     Forge { forge: &'a str },
     Watch { watch: &'a str },
     Fleet { fleet: &'a str },
+    Own { own: bool },
 }
 
 #[derive(Serialize)]
@@ -80,6 +81,7 @@ pub(super) fn lifecycle(lifecycle: &LifecycleDefinition) -> Result<String, Strin
                     StateReadFrom::Forge { fact } => ReadText::Forge { forge: fact },
                     StateReadFrom::Watch { state } => ReadText::Watch { watch: state },
                     StateReadFrom::Fleet { fact } => ReadText::Fleet { fleet: fact },
+                    StateReadFrom::Own => ReadText::Own { own: true },
                 },
             })
             .collect(),

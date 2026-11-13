@@ -4,7 +4,7 @@
 use std::sync::{Arc, Mutex};
 
 use api::{Refusal, Settings};
-use ipc::{PhoneGateway, SetPhoneGateway};
+use ipc::{MacSetup, MacSetupStep, PhoneGateway, SetPhoneGateway};
 
 use super::session_host::rig_placing;
 use crate::phone::PhoneSwitch;
@@ -38,4 +38,18 @@ async fn the_phone_is_switched_through_what_the_composition_root_handed_in() {
     assert_eq!(on, PhoneGateway { on: true, port: 8443, listening: true, why: None });
     assert!(rig.fleet.get_phone().await.unwrap().listening);
     assert!(!rig.fleet.set_phone(SetPhoneGateway { on: false }).await.unwrap().on);
+}
+
+#[tokio::test]
+async fn the_macs_setup_is_one_press_that_turns_the_gateway_on_first() {
+    let rig = rig_placing(None);
+    let refused = rig.fleet.set_up_mac().await;
+    assert!(matches!(&refused, Err(Refusal::IllegalMove(why)) if why.code == "fleet.phone_not_served"), "{refused:?}");
+
+    rig.fleet.switching_phone_with(Arc::new(Switch::default()));
+    let never = MacSetup { step: MacSetupStep::Gateway, working: false, login: None, why: None, address: None };
+    assert_eq!(rig.fleet.get_mac_setup().await.unwrap(), never, "never pressed: the cards");
+    let pressed = rig.fleet.set_up_mac().await.unwrap();
+    assert_eq!(pressed.step, MacSetupStep::SignIn, "{pressed:?}");
+    assert!(rig.fleet.get_phone().await.unwrap().on, "the Gateway is on, as set_phone turns it on");
 }

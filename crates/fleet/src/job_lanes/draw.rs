@@ -32,6 +32,7 @@ pub(super) fn kind_of_state(lifecycle: &LaneLifecycle) -> LaneNodeKind {
         LaneLifecycleKind::Forge => LaneNodeKind::Forge,
         LaneLifecycleKind::Watch => LaneNodeKind::Watch,
         LaneLifecycleKind::Job => LaneNodeKind::Job,
+        LaneLifecycleKind::Own => LaneNodeKind::Own,
     }
 }
 
