@@ -25,7 +25,7 @@ There is no number to bump: the protocol ID moves with the files below.
 
 | Type | Fields |
 | --- | --- |
-| `VersionOrigin` | `published` (a publish wrote it) or `found` (the text in the place when the first publish came) |
+| `VersionOrigin` | `published` (a publish wrote it) or `found` (the text in the place when a publish came, where it was not the latest version kept) |
 | `WorkflowVersion` | `version` (from 1), `text` (the definition whole), `hash` (the sha256 of `text`, in hex), `at`, `origin` |
 | `WorkflowVersions` | `versions` (newest first; empty where nothing was published) |
 | `RevertWorkflow` | `workflow_id`, `source` (`kit`, `repository` or `project`), `project?` (required for `project`), `version` |
@@ -37,9 +37,9 @@ There is no number to bump: the protocol ID moves with the files below.
 ## What each does
 
 **A publish writes the log.** The text it wrote is the next version in the place it wrote to: the draft's own, or for a draft of Armada's the scope the owner picked.
-**The first publish into a place also keeps the text that was there as version 1 (`found`)**, written before the publish's own row and only where a definition was there; the publish is then version 2.
+**A publish also keeps the text that was in the place (`found`) where it is not the latest version kept**, written before the publish's own row and only where a definition was there. That is the first publish into a place, which makes the text found version 1 and the publish version 2, and any publish after a hand edit, so the history has no hole.
 For a draft of Armada's, whose copy is a new file, the place held nothing and its first publish is version 1; where it replaced a copy with `overwrite`, that copy's text is kept as `found`.
-Nothing is written for a hand edit between publishes: the stale check refuses a draft that began from other text, and a later draft begins from what is there.
+A draft begun before a hand edit is refused as stale; the draft begun after it starts from the edited text, which its publish keeps as `found`.
 **A revert is a put.** The version's text goes into the draft by the path `put_workflow_draft` takes: a change by `you` with the summary `Back to version N`, beginning the draft where there is none, and adding nothing where the draft already ends on that text.
 It publishes nothing.
 **A base is kept only where it is known.** It is recorded by a publish of a draft of Armada's (the carried text the draft began from), by a `save_workflow` into a place with no base whose text is Armada's carried text of that id byte for byte (which is how a copy is made from the editor and from Classic's *Make a copy*), and by `reset_workflow_copy` (the carried text it wrote).

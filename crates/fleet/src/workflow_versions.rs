@@ -1,8 +1,8 @@
 //! The versions a workflow has had in one place, and what a copy of one of Armada's began from. Protocol
 //! `docs/practices/protocol/protocol-23-96-a-workflow-with-versions-and-a-base.md`.
 //!
-//! **A publish writes the log.** The first publish into a place keeps the text that was there as version 1 (`found`) where
-//! there was one, and every publish adds its own text (`published`). `save_workflow` and Classic's approve write no version.
+//! **A publish writes the log.** A publish keeps the text that was in the place first (`found`) where it is not the latest
+//! version kept, which is the first publish and any after a hand edit, and then its own text (`published`). `save_workflow` and Classic's approve write no version.
 //! **Going back is a put**: `revert_workflow` puts a version's text in the draft as a change by `you`, and publishes nothing.
 //!
 //! **A base is kept only where it is known.** A publish of a draft of Armada's records the carried text the draft began from;
@@ -129,7 +129,7 @@ where
         .await
     }
 
-    /// Keep a publish into `place`: `found`, the text that was there, as version 1 where this is the first; `text` as the next;
+    /// Keep a publish into `place`: `found`, the text that was there, where it is not the latest version kept; `text` as the next;
     /// and `base`, where the draft was of Armada's. The number `text` took.
     pub(crate) async fn workflow_publish_kept(
         &self,

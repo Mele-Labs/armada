@@ -103,8 +103,9 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// Keep a publish: `published` as the next version, **preceded by `found` where the place has no version yet**, which is
-    /// then version 1; and `base`, where one is given, in place of any the copy had. All or none. The number `published` got.
+    /// Keep a publish: `published` as the next version, **preceded by `found` where it is not the latest version kept** (the
+    /// place has none yet, or the file was edited by hand since), so the history has no hole; and `base`, where one is given,
+    /// in place of any the copy had. All or none. The number `published` got.
     pub fn record_workflow_publish(
         &mut self,
         place: &WorkflowPlace,
@@ -122,10 +123,20 @@ impl Store {
             )
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
+        let latest: Option<String> = tx
+            .query_row(
+                "SELECT hash FROM workflow_versions WHERE source = ?1 AND project = ?2 AND manifest_id = ?3 AND item_id = ?4 AND version = ?5",
+                params![place.source, place.project, place.manifest_id, place.item_id, held],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
         let mut number = held;
         let insert = "INSERT INTO workflow_versions (source, project, manifest_id, item_id, version, text, hash, at, origin)
                       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
-        for (new, origin) in found.filter(|_| held == 0).map(|found| (found, ORIGIN_FOUND)).into_iter().chain([(published, ORIGIN_PUBLISHED)]) {
+        let unkept = |found: &&NewVersion<'_>| latest.as_deref() != Some(found.hash);
+        for (new, origin) in found.filter(unkept).map(|found| (found, ORIGIN_FOUND)).into_iter().chain([(published, ORIGIN_PUBLISHED)]) {
             number += 1;
             tx.execute(insert, params![place.source, place.project, place.manifest_id, place.item_id, number, new.text, new.hash, new.at, origin])
                 .map_err(fault(doing))

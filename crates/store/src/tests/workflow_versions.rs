@@ -20,14 +20,19 @@ fn base(version: u32, text: &str) -> KeptBase {
 }
 
 #[test]
-fn versions_round_trip_in_order_newest_first_and_a_found_text_is_version_one_only_before_the_first_publish() {
+fn versions_round_trip_in_order_newest_first_and_a_found_text_is_kept_only_where_it_is_not_the_latest() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     assert!(store.workflow_versions(&place("kit")).unwrap().is_empty(), "nothing was published");
 
     let first = store.record_workflow_publish(&place("kit"), Some(&new("{found}", "h0", AT)), &new("{one}", "h1", AT), None).unwrap();
-    let second = store.record_workflow_publish(&place("kit"), Some(&new("{ignored}", "hx", LATER)), &new("{two}", "h2", LATER), None).unwrap();
-    assert_eq!((first, second), (2, 3), "the text found takes number 1 before the publish's own row, and only the first time");
+    let second = store.record_workflow_publish(&place("kit"), Some(&new("{one}", "h1", LATER)), &new("{two}", "h2", LATER), None).unwrap();
+    let third = store.record_workflow_publish(&place("kit"), Some(&new("{by hand}", "h3", LATER)), &new("{three}", "h4", LATER), None).unwrap();
+    assert_eq!(
+        (first, second, third),
+        (2, 3, 5),
+        "the text found takes a number before the publish's own row where it is not the latest kept: first, and after a hand edit"
+    );
     drop(store);
 
     let store = open(&dir);
@@ -35,10 +40,16 @@ fn versions_round_trip_in_order_newest_first_and_a_found_text_is_version_one_onl
     let row = |version: u32, text: &str, hash: &str, at: &str, origin: &str| (version, text.to_string(), hash.to_string(), at.to_string(), origin.to_string());
     assert_eq!(
         kept,
-        [row(3, "{two}", "h2", LATER, VERSION_PUBLISHED), row(2, "{one}", "h1", AT, VERSION_PUBLISHED), row(1, "{found}", "h0", AT, VERSION_FOUND)]
+        [
+            row(5, "{three}", "h4", LATER, VERSION_PUBLISHED),
+            row(4, "{by hand}", "h3", LATER, VERSION_FOUND),
+            row(3, "{two}", "h2", LATER, VERSION_PUBLISHED),
+            row(2, "{one}", "h1", AT, VERSION_PUBLISHED),
+            row(1, "{found}", "h0", AT, VERSION_FOUND),
+        ]
     );
     assert_eq!(store.workflow_version(&place("kit"), 2).unwrap().expect("kept").text, "{one}");
-    assert!(store.workflow_version(&place("kit"), 4).unwrap().is_none());
+    assert!(store.workflow_version(&place("kit"), 6).unwrap().is_none());
 }
 
 #[test]
