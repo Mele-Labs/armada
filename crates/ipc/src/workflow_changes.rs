@@ -2,7 +2,8 @@
 //! proposed by a Job. Protocol `docs/practices/protocol/the-workflows-page.md`.
 //!
 //! **Nothing here saves a definition.** A change holds the text as it was and as drafted; approving it
-//! is what writes, through the path `save_workflow` checks.
+//! is what writes, through the path `save_workflow` checks. **A change the owner asked for lands in his draft of the
+//! workflow as well** (`workflow_drafts`), marked `drafted`, and is published with the rest of the draft.
 
 use serde::{Deserialize, Serialize};
 
@@ -85,8 +86,11 @@ pub struct WorkflowChange {
     /// What approve, dismiss and send back take.
     pub id: i64,
     pub workflow_id: WorkflowId,
-    /// `repository` or `kit`.
+    /// `repository`, `kit`, `project` or `armada`.
     pub source: String,
+    /// The project, where `source` is `project`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     /// The one step a suggestion may change. Absent on a change the owner asked for.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub step_id: Option<StepId>,
@@ -118,16 +122,24 @@ pub struct WorkflowChange {
     /// What the owner said when he sent it back, the latest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
+    /// `after` landed in the owner's draft of the workflow as an agent's change, and `GET /workflows/draft` shows it. Absent
+    /// where it did not: the draft moved while it was being written, or the change is not one he asked for.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub drafted: bool,
     /// When it last moved.
     pub at: Instant,
 }
 
 /// `ask_workflow_change`'s body.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AskWorkflowChange {
     pub workflow_id: WorkflowId,
-    /// `repository` or `kit`. `armada` is refused: Armada's rows are read-only.
+    /// `repository`, `kit`, `project` or `armada`. **A change to Armada's has nowhere to be written but a draft**: it
+    /// lands there with no scope, and the copy is made when the draft is published.
     pub source: String,
+    /// The project, required where `source` is `project`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     /// What he wants changed, in his words.
     pub text: String,
 }

@@ -1,0 +1,10 @@
+[operations.discard_piece_draft]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Throw away the draft of one lifecycle, rule or autonomy default, with every change in it; what Kit holds is untouched"
+notes = """
+`DELETE /lifecycles/pieces/draft?kind=&id=&within=`, protocol 23.95. The answer is a `PieceDraftDiscarded` `{ kind, id, scope }`. 404 `fleet.piece_draft_none` where none was kept. 500 `fleet.piece_draft_not_kept`.
+
+`agent_access` is `Bridge only`: it cannot be undone.
+"""

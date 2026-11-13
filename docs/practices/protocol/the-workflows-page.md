@@ -54,23 +54,24 @@ Fleet reads the three places again before answering, as `save_workflow` does. No
 
 Since 27 Oct 2026. He types a change, and an agent drafts the whole new definition.
 He sees it beside what it was and approves it, dismisses it or sends it back with notes.
-**Nothing saves without his Approve.**
+**Nothing saves without his Approve**, or, since 23.95, his Publish: a change he asked for also lands in his draft of the workflow, marked as the agent's ([protocol 23.95](protocol-23-95-a-workflow-edited-as-a-draft-and-published.md)).
+Approve still saves the drafted definition at once, since the Classic Bridge uses it.
 
 | Operation | Route | Side | Carries |
 | --- | --- | --- | --- |
-| `ask_workflow_change` | `POST /workflows/changes/ask?manifest_id=` | Bridge sends `AskWorkflowChange` (`workflow_id`, `source`, `text`) | `WorkflowChange`, `drafting` |
+| `ask_workflow_change` | `POST /workflows/changes/ask?manifest_id=` | Bridge sends `AskWorkflowChange` (`workflow_id`, `source`, `project?`, `text`) | `WorkflowChange`, `drafting` |
 | `propose_new_workflow` | `POST /workflows/changes/propose_new?manifest_id=` | A Job sends `ProposeNewWorkflow` (`workflow_id`, `definition`, `scope`) | `WorkflowChange`, `ready`, `origin` `new`, `before` empty |
 | `propose_workflow_change` | `POST /workflows/changes/propose?manifest_id=` | A Job sends `ProposeWorkflowChange` (`workflow_id`, `source`, `definition`) | `WorkflowChange`, `ready`, `origin` `job`, `before` the file as it reads now |
 | `keep_job_workflow` | `POST /sessions/copy/keep` | Bridge sends `KeepJobWorkflow` (`session_id`, `source?`) | `WorkflowChange`, `ready`, `origin` `job`, `after` the Job's own copy of its workflow (*A Job's own copy*, [protocol](../protocol.md)) |
 | `keep_job_piece` | `POST /sessions/copy/keep_piece` | Bridge sends `KeepJobPiece` (`session_id`, `kind`, `id`) | `JobPieceProposed`: a rule or a lifecycle for Kit within the Job's repository, waiting on Approve on the Job's draft and listed by none of the operations below |
-| `list_workflow_changes` | `GET /workflows/changes?workflow_id=&source=&manifest_id=` | Fleet answers | `WorkflowChanges`: the open ones, oldest first |
+| `list_workflow_changes` | `GET /workflows/changes?workflow_id=&source=&project=&manifest_id=` | Fleet answers | `WorkflowChanges`: the open ones, oldest first |
 | `approve_workflow_change` | `POST /workflows/changes/approve` | Bridge sends `WorkflowChangeRef` (`change`) | `WorkflowChangeApproved`: the `change` and the `saved` |
 | `dismiss_workflow_change` | `POST /workflows/changes/dismiss` | Bridge sends `WorkflowChangeRef` | `WorkflowChange`, `dismissed` |
 | `send_back_workflow_change` | `POST /workflows/changes/send_back` | Bridge sends `SendBackWorkflowChange` (`change`, `notes`) | `WorkflowChange`, `drafting` |
 | `build_workflow_support` | `POST /workflows/changes/build` | Bridge sends `WorkflowChangeRef` | `WorkflowSupportBuilding`: `job_id` |
 | `propose_workflow_to_armada` | `POST /workflows/propose` | Bridge sends `ProposeToArmada` (`workflow_id`, `definition`) | `ArmadaProposed`: `workflow_id`, `session_id`, `send_failed?` |
 
-`WorkflowChange` is `id`, `workflow_id`, `source` (`repository` or `kit`), `step_id?`, `origin` (`{kind: asked, text}`, `{kind: drift, nudges}` on a change kept before 5 Nov 2026, `{kind: job}` or `{kind: new}`), `before`, `after?`, `state` (`drafting`, `ready`, `approved`, `dismissed`, `failed`, `cannot`), `reason?`, `missing?`, `before_steps?`, `after_steps?`, `after_name?`, `after_for_requests?`, `notes?` and `at`.
+`WorkflowChange` is `id`, `workflow_id`, `source` (`repository`, `kit`, `project` or `armada`), `project?`, `step_id?`, `origin` (`{kind: asked, text}`, `{kind: drift, nudges}` on a change kept before 5 Nov 2026, `{kind: job}` or `{kind: new}`), `before`, `after?`, `state` (`drafting`, `ready`, `approved`, `dismissed`, `failed`, `cannot`), `reason?`, `missing?`, `before_steps?`, `after_steps?`, `after_name?`, `after_for_requests?`, `notes?`, `drafted?` (it landed in his draft) and `at`.
 `ChangeStep` is `id`, `label`, `instructions?`, `ends_when?`, `ends_any?`, `passed_over_when?`, `about?`, `gate?` (absent for `none`), `asks_delivery?` and `delivers?`, each absent when empty or false.
 `after_name` and `after_for_requests` are read off the drafted definition beside `after_steps`.
 A step gated `you_approved` reads `ends_when` as `you approve`.
@@ -103,7 +104,9 @@ It is refused, and nothing is written, if the file no longer holds `before`: Fle
 He dismisses the draft and asks again.
 
 Fleet no longer drafts a suggestion from nudges, on its own or on a press (`suggest_workflow_change` is gone, 5 Nov 2026).
-Armada's own definitions get none: they are read-only, and a change to one is Propose to Armada, Make my copy, or a first change in the lanes, which makes the copy.
+**A change to one of Armada's own is accepted since 23.95** (`source: armada`), and lands in a draft that has no scope; the copy is made when the draft is published, at the scope he picks.
+Approve refuses it, since Armada's is carried and there is no file to write.
+The other ways to change one are Propose to Armada, Make my copy, or a first change in the lanes, which makes the copy.
 
 **Propose to Armada** starts a Job on the repository Fleet serves as `armada`, the manifest id a retro's fix in Armada also looks for, with `start_session` and a brief that says to set the carried `.armada/workflows/` file for the id to the definition and land it as a pull request.
 Nothing is written by Fleet.
@@ -113,7 +116,7 @@ Fleet holds no marker of which repository is Armada's, and a machine that serves
 
 | Code | Where |
 | --- | --- |
-| `fleet.workflow_is_armadas` (422) | ask, with `source: armada` |
+| `fleet.workflow_is_armadas` (422) | approve of a change to Armada's own, which lands in a draft and is published |
 | `fleet.no_such_workflow_definition` (422) | ask, where that place holds none |
 | `fleet.workflow_change_empty` (422) | ask with blank words, send back with blank notes, propose with a blank definition |
 | `fleet.workflow_change_no_agent` (422) | ask, send back, where no model could be asked |

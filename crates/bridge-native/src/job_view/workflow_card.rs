@@ -808,6 +808,7 @@ mod tests {
             id: 7,
             workflow_id: WorkflowId::carried("annotations"),
             source: String::from("repository"),
+            project: None,
             step_id: None,
             origin: ChangeOrigin::New,
             before: String::new(),
@@ -820,6 +821,7 @@ mod tests {
             after_name: Some(String::from("Work the notes")),
             after_for_requests: Some(String::from("Notes he left on Bridge")),
             notes: None,
+            drafted: false,
             at: Instant::carried("2026-11-12T09:00:00.000Z"),
         }
     }

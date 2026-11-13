@@ -86,6 +86,7 @@ impl Authoring for FakeDaemon {
         &self,
         _workflow_id: WorkflowId,
         _source: String,
+        _project: Option<String>,
         _manifest_id: Option<ManifestId>,
     ) -> Result<ipc::WorkflowChanges, Refusal> {
         Ok(ipc::WorkflowChanges { changes: Vec::new() })
@@ -147,9 +148,70 @@ impl Authoring for FakeDaemon {
 
 
 
+
+    async fn get_workflow_draft(
+        &self,
+        workflow_id: WorkflowId,
+        source: String,
+        project: Option<String>,
+        _manifest_id: Option<ManifestId>,
+    ) -> Result<ipc::WorkflowDraft, Refusal> {
+        Ok(kept(workflow_id, source, project, String::from("{}")))
+    }
+
+    async fn put_workflow_draft(
+        &self,
+        put: ipc::PutWorkflowDraft,
+        _manifest_id: Option<ManifestId>,
+    ) -> Result<ipc::WorkflowDraft, Refusal> {
+        Ok(kept(put.workflow_id, put.source, put.project, put.text))
+    }
+
+    async fn discard_workflow_draft(
+        &self,
+        workflow_id: WorkflowId,
+        source: String,
+        project: Option<String>,
+        _manifest_id: Option<ManifestId>,
+    ) -> Result<ipc::WorkflowDraftDiscarded, Refusal> {
+        Ok(ipc::WorkflowDraftDiscarded { workflow_id, source, project })
+    }
+
+    async fn publish_workflow_draft(
+        &self,
+        publish: ipc::PublishWorkflowDraft,
+        _manifest_id: Option<ManifestId>,
+    ) -> Result<ipc::WorkflowPublished, Refusal> {
+        Ok(ipc::WorkflowPublished {
+            saved: WorkflowSaved {
+                workflow_id: publish.workflow_id,
+                scope: publish.scope.unwrap_or(ipc::WorkflowScope::Kit),
+                file: String::from("bug.json"),
+                replaced: true,
+                runs_from: None,
+            },
+        })
+    }
 }
 
 impl FakeDaemon {
+}
+
+/// A draft as the fake answers it: one change by `you`, holding `text`, so a route test can tell the method and the
+/// query or the body arrived.
+fn kept(workflow_id: WorkflowId, source: String, project: Option<String>, text: String) -> ipc::WorkflowDraft {
+    let at = ipc::Instant::carried("2026-11-13T09:00:00.000Z");
+    ipc::WorkflowDraft {
+        workflow_id,
+        source,
+        project,
+        text: text.clone(),
+        base: String::from("{}"),
+        unfit: None,
+        changes: vec![ipc::DraftChange { id: 1, by: ipc::DraftBy::You, at: at.clone(), text, summary: None, change: None }],
+        started_at: at.clone(),
+        updated_at: at,
+    }
 }
 
 /// A change as it stands when begun.
@@ -163,6 +225,7 @@ fn drafting(
         id: 1,
         workflow_id,
         source,
+        project: None,
         step_id,
         origin,
         before: String::from("{}"),
@@ -175,6 +238,7 @@ fn drafting(
         after_name: None,
         after_for_requests: None,
         notes: None,
+        drafted: false,
         at: ipc::Instant::carried("2026-10-27T09:00:00.000Z"),
     }
 }
