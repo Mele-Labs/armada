@@ -108,15 +108,15 @@ pub trait Sessions: Send + Sync + 'static {
         open: ipc::OpenTerminal,
     ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
 
-    /// `start_terminal_job` — a quick terminal: a hosted Job started with no workflow, no hold and no
+    /// `start_side_job` — a Side Job: a hosted Job started with no workflow, no hold and no
     /// proposer, in a served repository or any folder, with its terminal `t1` opened. No agent runs
     /// until the person's first message. [`Refusal::Unacceptable`] for both or neither of
     /// `manifest_id` and `dir`, a `dir` that is not an absolute directory, a size with no cells, and
     /// as `start_session`'s. **Takes the `Arc`** as `open_terminal` does.
-    fn start_terminal_job(
+    fn start_side_job(
         self: std::sync::Arc<Self>,
-        start: ipc::StartTerminalJob,
-    ) -> impl Future<Output = Result<ipc::TerminalJobStarted, Refusal>> + Send;
+        start: ipc::StartSideJob,
+    ) -> impl Future<Output = Result<ipc::SideJobStarted, Refusal>> + Send;
 
     /// `start_terminal_run` — a command run in a directory with no Session behind it. Nobody is
     /// told how it ended. [`Refusal::Unacceptable`] for a blank command, a directory that does not

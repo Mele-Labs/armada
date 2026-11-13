@@ -1,10 +1,11 @@
-# A quick terminal
+# A Side Job
 
 **Part of:** [Job](../session.md).
 
-A quick terminal is a Job the person starts in a second to run his own commands.
+A Side Job is a Job the person starts in a second to run his own commands.
 It opens straight onto its terminal `t1`, and its agent waits in the thread and does nothing until he writes.
-Fleet starts one with `start_terminal_job` (`POST /sessions/terminal/start`), and the native Bridge sends it from the dispatch sheet, a key and the command palette.
+It was called a quick terminal until 13 Nov 2026.
+Fleet starts one with `start_side_job` (`POST /sessions/side_job/start`), and the native Bridge sends it from the dispatch sheet, a key and the command palette.
 
 **Where it runs.**
 
@@ -33,5 +34,5 @@ A title he types stands.
 **While it waits it is live and idle**, never ended or done: its agent has not run, and nothing has finished.
 Its row is marked `blank`, not started.
 
-**Lists mark it** with `quick_terminal`, so Bridge opens it onto `t1` and draws it apart from a working Job.
+**Lists mark it** with `side_job`, so Bridge opens it onto `t1` and draws it apart from a working Job.
 A Job that replaces it on a handoff keeps the mark, and its terminal folder.

@@ -251,6 +251,7 @@ mod session_terminal_replaced;
 mod session_terminal_kept;
 mod session_terminal_several;
 mod session_terminal_typing;
+mod side_job;
 mod session_shell;
 mod sessioning;
 mod session_list;
