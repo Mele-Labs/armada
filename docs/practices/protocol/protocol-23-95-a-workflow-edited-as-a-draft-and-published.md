@@ -2,14 +2,18 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/workflow.md`, *Drafts and Publish*. The owner's ruling of 13 Nov 2026: edits to a workflow are **a draft, then Publish**, with a history he can step back through, and **an agent's edits land in his draft, marked as the agent's**. Lifecycles, rules and autonomy defaults get drafts too.
-**Added**: eight operations, the types they carry, and `project` and `drafted` on `WorkflowChange`. **Changed**: `ask_workflow_change` accepts `armada` and `project`, and `list_workflow_changes` takes `project`.
+`docs/concepts/workflow.md`, *Drafts and Publish*.
+The owner's ruling of 13 Nov 2026: edits to a workflow are **a draft, then Publish**, with a history he can step back through, and **an agent's edits land in his draft, marked as the agent's**.
+Lifecycles, rules and autonomy defaults get drafts too.
+**Added**: eight operations, the types they carry, and `project` and `drafted` on `WorkflowChange`.
+**Changed**: `ask_workflow_change` accepts `armada` and `project`, and `list_workflow_changes` takes `project`.
 `save_workflow` is untouched and still writes at once, for the Classic Bridge, and so is `approve_workflow_change`, apart from refusing a change to one of Armada's own.
 There is no number to bump: the protocol ID moves with the files below.
 
 ## The routes
 
-A draft is read, kept and thrown away at one path, by three methods. Every workflow route takes `?manifest_id=` as the other `/workflows` routes do, and a draft is kept by it only where the place is `repository`: Kit's, a project's and Armada's are the same in every repository.
+A draft is read, kept and thrown away at one path, by three methods.
+Every workflow route takes `?manifest_id=` as the other `/workflows` routes do, and a draft is kept by it only where the place is `repository`: Kit's, a project's and Armada's are the same in every repository.
 
 | Operation | Route | Side | Carries |
 | --- | --- | --- | --- |
@@ -46,14 +50,25 @@ On a piece route the scope is `within` in a query (the scope's id; absent is eve
 
 ## What each does
 
-**A put begins the draft where there is none**, from what is published in that place now (Armada's carried text for `armada`, empty where the place holds no file of the id), and adds a change by `you`. Where one is kept it adds a change by `you` and `base` stays. A put of the text the draft already ends on adds nothing, so putting an earlier text again is how the editor undoes and a repeat does not grow the list.
-**A put accepts any text**, since a draft may be half-edited. `unfit` on the answer is the parse and resolve `save_workflow` runs, and also the sentence that the text declares another `workflow_id` than the draft's, since publishing it would write another workflow. For a piece it is that the text is not a piece, is another kind, id or scope than the draft's, or that the piece's parser refuses it.
+**A put begins the draft where there is none**, from what is published in that place now (Armada's carried text for `armada`, empty where the place holds no file of the id), and adds a change by `you`.
+Where one is kept it adds a change by `you` and `base` stays.
+A put of the text the draft already ends on adds nothing, so putting an earlier text again is how the editor undoes and a repeat does not grow the list.
+**A put accepts any text**, since a draft may be half-edited.
+`unfit` on the answer is the parse and resolve `save_workflow` runs, and also the sentence that the text declares another `workflow_id` than the draft's, since publishing it would write another workflow.
+For a piece it is that the text is not a piece, is another kind, id or scope than the draft's, or that the piece's parser refuses it.
 
-**A publish saves through the existing save, with overwrite.** A workflow draft is written in its own place, `repository`, `kit` or the project's, and the draft is deleted only once the file is. A piece draft is decoded and run through `save_lifecycle_piece` with `overwrite`. The loader's and the parser's refusals pass through unchanged, and nothing is written on one.
+**A publish saves through the existing save, with overwrite.** A workflow draft is written in its own place, `repository`, `kit` or the project's, and the draft is deleted only once the file is.
+A piece draft is decoded and run through `save_lifecycle_piece` with `overwrite`.
+The loader's and the parser's refusals pass through unchanged, and nothing is written on one.
 **The scope of a workflow publish.** For a draft of an `armada` workflow, `scope` is required and may be any of the three. For any other source it is absent, or names that same place.
 **A draft of Armada's is held against the carried text**, not against a copy already at the scope picked; a publish replaces that copy, as a save with `overwrite` does.
 
-**Where an agent's edit goes.** `ask_workflow_change` reads `before` from the draft's text where there is a draft, else the published or carried text. When the drafting finishes and the change is `ready`, Fleet writes `after` into the draft as a change by `agent`, with `change` the id of the `WorkflowChange` and `summary` its words, and sets `drafted`. It does so only where the draft's text still equals `before`, or, with no draft, where the published text still equals `before`, in which case it begins the draft. Anywhere else the change stays `ready`, as it was. It happens under the lock that moves the change to `ready`, so a reader never sees a ready change that has not yet landed. A change sent back is drafting again and `drafted` clears.
+**Where an agent's edit goes.** `ask_workflow_change` reads `before` from the draft's text where there is a draft, else the published or carried text.
+When the drafting finishes and the change is `ready`, Fleet writes `after` into the draft as a change by `agent`, with `change` the id of the `WorkflowChange` and `summary` its words, and sets `drafted`.
+It does so only where the draft's text still equals `before`, or, with no draft, where the published text still equals `before`, in which case it begins the draft.
+Anywhere else the change stays `ready`, as it was.
+It happens under the lock that moves the change to `ready`, so a reader never sees a ready change that has not yet landed.
+A change sent back is drafting again and `drafted` clears.
 `propose_workflow_change` and `propose_new_workflow` are untouched, and a project's is still refused there with `fleet.workflow_change_not_for_project`.
 
 ## Refusals
@@ -74,9 +89,14 @@ On a piece route the scope is `within` in a query (the scope's id; absent is eve
 
 ## What is kept
 
-`workflow_drafts` holds one row for each draft, keyed by kind (`workflow`, or a piece's kind), place (`source` and `project`), the repository where the place is `repository` and empty otherwise, a piece's scope and the id; `workflow_draft_changes` holds its changes under it. `workflow_changes` gains `project` and `drafted`. Migrations `20261113T1200Z-workflow_drafts.table.sql` and `20261113T1200Z-workflow_changes.drafted.sql`, both additive.
+`workflow_drafts` holds one row for each draft, keyed by kind (`workflow`, or a piece's kind), place (`source` and `project`), the repository where the place is `repository` and empty otherwise, a piece's scope and the id; `workflow_draft_changes` holds its changes under it.
+`workflow_changes` gains `project` and `drafted`.
+Migrations `20261113T1200Z-workflow_drafts.table.sql` and `20261113T1200Z-workflow_changes.drafted.sql`, both additive.
 
 ## Skew and the stream
 
-**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. Bridge's half is `packages/protocol/src/workflow-drafts.ts` and `setup.ts`, written by hand like the rest.
-**The event stream.** Untouched: a draft raises no event of its own, and a publish raises the `repositories.changed` a save already did. A Bridge learns an agent's change landed from `WorkflowChange.drafted` on the list it already polls while a change drafts, and reads the draft then. The open risk below is neither better nor worse.
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Bridge's half is `packages/protocol/src/workflow-drafts.ts` and `setup.ts`, written by hand like the rest.
+**The event stream.** Untouched: a draft raises no event of its own, and a publish raises the `repositories.changed` a save already did.
+A Bridge learns an agent's change landed from `WorkflowChange.drafted` on the list it already polls while a change drafts, and reads the draft then.
+The open risk below is neither better nor worse.

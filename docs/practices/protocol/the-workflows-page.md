@@ -104,7 +104,9 @@ It is refused, and nothing is written, if the file no longer holds `before`: Fle
 He dismisses the draft and asks again.
 
 Fleet no longer drafts a suggestion from nudges, on its own or on a press (`suggest_workflow_change` is gone, 5 Nov 2026).
-**A change to one of Armada's own is accepted since 23.95** (`source: armada`), and lands in a draft that has no scope; the copy is made when the draft is published, at the scope he picks. Approve refuses it, since Armada's is carried and there is no file to write. The other ways to change one are Propose to Armada, Make my copy, or a first change in the lanes, which makes the copy.
+**A change to one of Armada's own is accepted since 23.95** (`source: armada`), and lands in a draft that has no scope; the copy is made when the draft is published, at the scope he picks.
+Approve refuses it, since Armada's is carried and there is no file to write.
+The other ways to change one are Propose to Armada, Make my copy, or a first change in the lanes, which makes the copy.
 
 **Propose to Armada** starts a Job on the repository Fleet serves as `armada`, the manifest id a retro's fix in Armada also looks for, with `start_session` and a brief that says to set the carried `.armada/workflows/` file for the id to the definition and land it as a pull request.
 Nothing is written by Fleet.
