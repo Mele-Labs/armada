@@ -52,6 +52,17 @@ pub static PREVIEW_OFFERS: [Step; 12] = [
     step("Esc shuts the panel and the keys go back", Verb::Key("escape"), "button", "Fleet — Running"),
 ];
 
+/// The Disk section of the Fleet panel, on Fleet's `disk` in three states.
+pub static DISK: [Step; 7] = [
+    scene("Fleet reports 142 GB free against a reclaim floor of 100 GB", "disk-over", "button", "Fleet — Running"),
+    press_on("The panel opens with a Disk section: the figure, a meter with the two floors ticked, and what Fleet does under the floor. All green", "button", "Fleet — Running", "group", "Disk"),
+    scene("Under the reclaim floor: amber, with the pass Fleet last ran and the folders it drops next", "disk-reclaim", "img", "64 GB free of a 100 GB floor"),
+    step("A folder is cut short with an ellipsis; its tooltip says the whole path", Verb::Hover, "listitem", crate::titlebar::scenes::FIRST_TO_DROP),
+    scene("Under the hold floor: red, and no new Job starts", "disk-hold", "img", "22 GB free of a 100 GB floor"),
+    step("The fact under the meter says what the floor does", Verb::Look, "group", "Disk"),
+    step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
+];
+
 /// The switcher alone, on the projects Fleet serves, and how its two chips give way.
 pub static SWITCHER: [Step; 9] = [
     step("The wide bar: a window narrower than 900 widens to show it", Verb::Widen(1400), "button", "Project"),

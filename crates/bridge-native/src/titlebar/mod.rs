@@ -13,6 +13,7 @@
 
 #[cfg(test)]
 mod centred;
+mod disk;
 mod face;
 mod fleet_down;
 mod link_layer;
@@ -78,6 +79,8 @@ pub enum Asked {
     /// Skip the Refresh row with this id.
     SkipOffers(String),
     RestartFleet,
+    /// The Fleet popover opened: read the disk again, so the figure in it is fresh.
+    ReadDisk,
     Remedy(Remedy),
     CopyDebugInfo,
     /// Go to a place of the strip (⌘1 to ⌘9, or a press on it), by its id.
@@ -394,6 +397,15 @@ impl TitleBar {
         cx.notify();
     }
 
+    /// The disk Fleet last reported. Its section of the Fleet panel draws it, and nothing where there is none.
+    pub fn set_disk(&mut self, disk: Option<&ipc::DiskHealth>, cx: &mut Context<Self>) {
+        if self.face.fleet.disk.as_ref() == disk {
+            return;
+        }
+        self.face.fleet.disk = disk.cloned();
+        cx.notify();
+    }
+
     /// Fleet refused a skip: the row is back as Fleet last said it.
     pub fn offers_refused(&mut self, cx: &mut Context<Self>) {
         self.face.offers = self.offers_read.clone();
@@ -421,7 +433,7 @@ impl TitleBar {
             (Restarting::Working, Connection::Mismatch { pid, .. }) if self.restart_from.is_some_and(|from| from != *pid) => Restarting::Apart,
             (held, _) => held.clone(),
         };
-        let fleet = face::FleetFace { connection, power, restarting, doctor: self.face.fleet.doctor.clone() };
+        let fleet = face::FleetFace { connection, power, restarting, doctor: self.face.fleet.doctor.clone(), disk: self.face.fleet.disk.clone() };
         crate::merge_strip::set_standby(power == face::Power::Standby, cx);
         if fleet != self.face.fleet {
             self.face.fleet = fleet;
@@ -628,6 +640,7 @@ impl TitleBar {
             self.menu = None;
             self.make_origin_search(window, cx);
             self.open_popup(Popup::Fleet, window, cx);
+            cx.emit(Asked::ReadDisk);
         }
     }
 

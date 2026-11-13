@@ -881,12 +881,14 @@ impl JobsList {
                 let (usage, downshift) = (fleet.read(cx).held().plan_usage.clone(), fleet.read(cx).held().downshift.clone());
                 let build = fleet.read(cx).held().build.clone();
                 let offers = fleet.read(cx).held().offers.clone();
+                let disk = fleet.read(cx).held().disk.clone();
                 let link = fleet.read(cx).held().link();
                 bar.update(cx, |bar, cx| {
                     bar.set_fleet(&link, cx);
                     bar.set_usage(usage.as_ref(), downshift.as_ref(), cx);
                     bar.set_build(build.as_ref(), cx);
                     bar.set_offers(offers.as_ref(), cx);
+                    bar.set_disk(disk.as_ref(), cx);
                 });
             }
             // Every row's write-clash mark reads what Fleet last said; nothing while it cannot say.
@@ -2656,6 +2658,13 @@ impl JobsScreen {
                     }
                 })
                 .detach();
+                return;
+            }
+            // The Fleet popover opened: the disk is read again. A walk has no Fleet and reads nothing.
+            if *asked == crate::titlebar::Asked::ReadDisk {
+                if let Some(fleet) = fleet_of.upgrade().and_then(|list| list.read(cx).fleet()) {
+                    fleet.update(cx, |fleet, cx| fleet.read_disk(cx));
+                }
                 return;
             }
             // The step down's acts, each its own command; Choose settles it, as Electron's does before the model setting.

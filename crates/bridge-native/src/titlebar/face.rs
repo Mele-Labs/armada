@@ -634,6 +634,8 @@ pub struct FleetFace {
     pub power: Power,
     pub restarting: Restarting,
     pub doctor: Option<Doctor>,
+    /// The disk Fleet last reported; none draws no row.
+    pub disk: Option<ipc::DiskHealth>,
 }
 
 impl FleetFace {
@@ -823,7 +825,7 @@ impl Face {
             usage: Usage::Hidden,
             build: None,
             offers: None,
-            fleet: FleetFace { connection: Connection::Reading, power: Power::Standby, restarting: Restarting::Idle, doctor: None },
+            fleet: FleetFace { connection: Connection::Reading, power: Power::Standby, restarting: Restarting::Idle, doctor: None, disk: None },
             repositories: Vec::new(),
             chosen: None,
             projects: Vec::new(),
