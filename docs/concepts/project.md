@@ -38,7 +38,8 @@ The word Workspace keeps only the monorepo meaning, a folder with its own Manife
 > Why: a task moving away or being deleted says nothing about whether the repository belongs.
 
 > **Rule (13 Nov).** A Job, live or ended, can be moved into a project or out to no project, and its repository becomes a whole member as a task's does.
-> Why: he makes a project after the work has begun, and wants the Jobs he already ran grouped under it. A Job of a repository the project does not list is still not that project's work, so the move adds the repository rather than refusing.
+> Why: he makes a project after the work has begun, and wants the Jobs he already ran grouped under it.
+> A Job of a repository the project does not list is still not that project's work, so the move adds the repository rather than refusing.
 
 A moved Job keeps the values it froze when it started and the tasks it holds.
 From the move on, what Fleet reads of the Job's project as it goes follows the new one: its tracker, the delivery setting, the lifecycles and rules scoped to it, and whether the Job is shared with his other Macs.
