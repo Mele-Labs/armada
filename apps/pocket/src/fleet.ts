@@ -280,6 +280,10 @@ export type Item = {
 export type Line = {
   item: Item;
   depth: number;
+  /** For each starter above its own, whether that starter's line runs on past this row to a later Job it started. */
+  through: readonly boolean[];
+  /** The last Job its starter started: the starter's line ends at this row. */
+  last: boolean;
 };
 
 export type Home = {
@@ -316,16 +320,24 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
     const held = all.filter((one) => kin(one, item));
     const lines: Line[] = [];
     const placed = new Set<string>();
-    const under = (starter: Item, depth: number) => {
-      for (const child of held.filter((one) => one.session.from?.id === starter.session.id)) {
-        if (placed.has(child.session.id)) continue;
-        placed.add(child.session.id);
+    const under = (starter: Item, depth: number, through: readonly boolean[]) => {
+      const children = held.filter(
+        (one) => one.session.from?.id === starter.session.id && !placed.has(one.session.id),
+      );
+      children.forEach((child) => placed.add(child.session.id));
+      children.forEach((child, at) => {
+        const last = at === children.length - 1;
         lines.push({
           item: child,
           depth,
+          through,
+          last,
         });
-        under(child, depth + 1);
-      }
+        under(child, depth + 1, [
+          ...through,
+          !last,
+        ]);
+      });
     };
     const listed = (id: string | undefined) => held.some((one) => one.session.id === id);
     for (const root of held.filter((one) => !listed(one.session.from?.id))) {
@@ -333,8 +345,10 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
       lines.push({
         item: root,
         depth: 0,
+        through: [],
+        last: true,
       });
-      under(root, 1);
+      under(root, 1, []);
     }
     const kept = repositories.find((one) => one.name === name);
     if (kept === undefined)

@@ -110,7 +110,7 @@ export function Home() {
   /** Under a repository's head a row does not name it again. */
   const named = repositories.length > 1;
   const usage = usePlanUsage(fleet.macs, fleet.at);
-  const row = ({ item, depth }: Line) => {
+  const row = ({ item, depth, through, last }: Line) => {
     const { state, said } = item;
     const at =
       state === "done"
@@ -144,6 +144,8 @@ export function Home() {
               mac,
             })}
         depth={depth}
+        through={through}
+        last={last}
         {...(session.from === undefined || depth > 0
           ? {}
           : {

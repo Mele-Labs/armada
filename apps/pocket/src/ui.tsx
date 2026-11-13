@@ -95,6 +95,8 @@ export function Row({
   from,
   context,
   depth = 0,
+  through = [],
+  last = true,
   onOpen,
   onEnd,
 }: {
@@ -107,6 +109,10 @@ export function Row({
   from?: string;
   context?: number;
   depth?: number;
+  /** For each starter above its own, whether that starter's line runs on past this row. */
+  through?: readonly boolean[];
+  /** The last Job its starter started, where the starter's line ends. */
+  last?: boolean;
   onOpen: () => void;
   onEnd?: () => void;
 }) {
@@ -123,6 +129,41 @@ export function Row({
           : undefined
       }
     >
+      {depth === 0 ? null : (
+        <span className="pk-guides" aria-hidden="true">
+          {through.map((runs, at) =>
+            runs ? (
+              <span
+                key={at}
+                className="pk-guide"
+                style={
+                  {
+                    "--pk-column": at,
+                  } as CSSProperties
+                }
+              />
+            ) : null,
+          )}
+          {last ? null : (
+            <span
+              className="pk-guide"
+              style={
+                {
+                  "--pk-column": depth - 1,
+                } as CSSProperties
+              }
+            />
+          )}
+          <span
+            className="pk-guide pk-guide--elbow"
+            style={
+              {
+                "--pk-column": depth - 1,
+              } as CSSProperties
+            }
+          />
+        </span>
+      )}
       <button
         type="button"
         className="deck-row"
