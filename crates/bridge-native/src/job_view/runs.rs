@@ -433,7 +433,7 @@ impl JobView {
                 .children(message.text.lines().map(|line| div().min_h(look.length(token::LEADING_SM)).child(line.to_string()))), Role::Group, format!("Sent to {name}"))
                 .into_any_element()
         });
-        Call { peer: Some((peer, name)), note: message.summary.clone().filter(|said| !said.trim().is_empty()), below, ..Call::plain(Kind::Message, "Message to".into(), None) }
+        Call { peer: Some((peer, name)), note: message_note(message), below, ..Call::plain(Kind::Message, "Message to".into(), None) }
     }
 
     /// The subagent an `Agent` call started, as a take A call row: running, the agent's moving icon, its
@@ -559,9 +559,28 @@ impl JobView {
     }
 }
 
+/// The second line of a `SendMessage` row: its summary, else the first line of the words it sent.
+fn message_note(message: &ipc::ToolMessage) -> Option<String> {
+    let said = |line: &str| (!line.trim().is_empty()).then(|| line.to_string());
+    message.summary.as_deref().and_then(said).or_else(|| message.text.lines().find_map(said))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn sent(summary: Option<&str>, text: &str) -> ipc::ToolMessage {
+        ipc::ToolMessage { to: ipc::MessagePeer { name: "s-1a2b3c4d".into(), session_id: None, title: None }, summary: summary.map(str::to_string), text: text.into() }
+    }
+
+    #[test]
+    fn a_sent_message_notes_its_summary_else_the_first_line_of_its_words_else_nothing() {
+        assert_eq!(message_note(&sent(Some("Rebase done"), "Rebased on main.\nAll green.")).as_deref(), Some("Rebase done"));
+        assert_eq!(message_note(&sent(None, "\n  \nRebased on main.\nAll green.")).as_deref(), Some("Rebased on main."));
+        assert_eq!(message_note(&sent(Some("  "), "Rebased on main.")).as_deref(), Some("Rebased on main."));
+        assert_eq!(message_note(&sent(None, "")), None);
+        assert_eq!(message_note(&sent(Some(""), " \n ")), None);
+    }
 
     #[test]
     fn a_notice_is_summed_up_by_its_first_sentence() {
