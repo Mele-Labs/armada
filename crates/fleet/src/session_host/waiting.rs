@@ -1050,7 +1050,8 @@ where
         said: AnswerWaiting,
         by: Answerer,
     ) -> Result<SessionRecord, Refusal> {
-        self.settle_answer_picking(said, by, &[]).await
+        // Boxed: the settling's future is near a megabyte in a debug build, and inline it overflows a test thread's stack.
+        Box::pin(self.settle_answer_picking(said, by, &[])).await
     }
 
     /// `answer_waiting_parts`: the answer is parts picked across the item's pictures, and nothing else. The
@@ -1061,7 +1062,7 @@ where
         }
         self.visit_kept(said.session_id.as_str()).await;
         let whole = AnswerWaiting { session_id: said.session_id, item_id: said.item_id, choice: None, text: None, mode: None, fixed: None };
-        self.settle_answer_picking(whole, Answerer::Him, &said.parts_picked).await
+        Box::pin(self.settle_answer_picking(whole, Answerer::Him, &said.parts_picked)).await
     }
 
     /// The one settling of an answer: `parts` is what he picked across the pictures, empty for every answer but
