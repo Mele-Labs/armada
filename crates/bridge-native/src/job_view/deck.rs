@@ -294,7 +294,7 @@ impl JobView {
             stepper: steps.map(IntoElement::into_any_element),
             head: Some(div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(question.question.clone())).into_any_element()),
             body,
-            foot: Some(labelled(footer.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers").into_any_element()),
+            foot: Some(labelled(super::acts::gated(footer.id(SharedString::from(format!("answers:{key}"))), self.off_shown(cx)), Role::Toolbar, "Answers").into_any_element()),
         }
     }
 
@@ -376,6 +376,13 @@ impl JobView {
     /// `1` to `9` pick that option of the front question, or Other one past the last.
     pub(super) fn pick_digit(&mut self, n: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
+        // With buttons, a number presses that option of the question the keys are on, and answers it.
+        if let Some((item, count)) = self.keyed_row(&id, cx) {
+            if (1..=count).contains(&n) {
+                self.answer_row(&item, n - 1, window, cx);
+            }
+            return;
+        }
         let found = {
             let (things, _) = self.things(&id, cx);
             let detail = self.dock_of(&id).and_then(|dock| dock.detail.clone());

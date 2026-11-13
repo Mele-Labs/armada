@@ -13,11 +13,11 @@ use std::collections::{HashMap, HashSet};
 
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, AnyElement, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Pixels, Role, SharedString, Subscription, Window};
+use gpui::{anchored, canvas, deferred, div, point, prelude::*, Anchor, AnyElement, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Pixels, Role, SharedString, Subscription, Window};
 use gpui_component::input::InputEvent;
 use ipc::{
     BuildSource, ConfirmWaiting, DismissWaiting, DoneWaiting, Lapsed, NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSectionKind,
-    ReachesTo, SessionId, ThreadAsk,
+    AnswerWaiting, ReachesTo, SessionId, ThreadAsk,
 };
 
 use super::acts::Mode;
@@ -28,6 +28,8 @@ use super::JobView;
 use crate::dropdown::Entry;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
+use crate::operator::view::{press, Weight};
+use crate::ways;
 
 /// What the panel remembers of one Job.
 #[derive(Default)]
@@ -51,8 +53,12 @@ pub(super) struct DockState {
     pub row_box: Option<RowBox>,
     /// Where the panel is scrolled, so a run started from a row is brought into view under it.
     pub scroll: gpui::ScrollHandle,
+    /// The option under the pointer in a question's buttons, as (item, option): its sentence stands under it.
+    pub tip: Option<(String, usize)>,
     /// The run item's command whose run is being brought into view, and for how many more draws.
     pub reveal: Option<(String, Rc<std::cell::Cell<u8>>)>,
+    /// What he reads when he takes a Job's work in as pictures: the stills, the parts taken, the done card's lead.
+    pub looked: super::look_dock::Looked,
 }
 
 /// How many draws a run started from a row is kept in view for.
@@ -65,6 +71,8 @@ pub(super) enum RowBoxFor {
     Reason,
     /// A note that goes with Done.
     Note,
+    /// His own words for a question, in place of a button: Answer in words.
+    Words,
 }
 
 /// The box under a row: Enter sends it, Esc puts it away.
@@ -72,6 +80,8 @@ pub(super) struct RowBox {
     pub row: String,
     pub what: RowBoxFor,
     _enter: Subscription,
+    /// Keeps what is typed in a Words box, which a Reason or a Note does not.
+    _typing: Option<Subscription>,
 }
 
 /// Where a command pressed in the panel stands, as Electron's `RestartKey` marks it.
@@ -84,7 +94,7 @@ pub(super) enum RunMark {
 
 impl RunMark {
     /// Its glyph and its words.
-    fn look(&self) -> (&'static str, SharedString) {
+    pub(super) fn look(&self) -> (&'static str, SharedString) {
         match self {
             RunMark::Running => ("loader-circle", "Running".into()),
             RunMark::Passed => ("circle-check", "Passed".into()),
@@ -309,6 +319,9 @@ impl JobView {
         for group in self.groups(id, cx) {
             if group.kind != NeedsYouSectionKind::ToReview {
                 things.extend(group.things);
+            } else if !in_band && crate::ways::looks() {
+                // In Look a sketch to review is an item of the panel, opened whole there.
+                things.extend(group.things.into_iter().filter(|thing| matches!(thing, Thing::Row(row) if matches!(row.act, NeedsYouAct::OpenSketch { .. }))));
             } else if in_band {
                 review.extend(group.things.into_iter().filter_map(|thing| match thing {
                     Thing::Row(row) => Some(row),
@@ -435,7 +448,7 @@ impl JobView {
     }
 
     /// The band, and over it the panel when it is open.
-    pub(super) fn render_needs(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_needs(&self, id: &SharedString, room: Pixels, cx: &Context<Self>) -> Option<AnyElement> {
         let look = cx.look();
         let (things, review) = self.things(id, cx);
         let restarts = self.restarts(id, cx);
@@ -475,6 +488,12 @@ impl JobView {
                     .into_any_element()
             })
             .collect();
+        // An open item of Look is headed by the band itself: Back, where it stands, and the way to its neighbours.
+        let item = if open && crate::ways::looks() { self.look_place(id, cx) } else { None };
+        let mut item_keys = item.map(|place| {
+            let keys = self.look_band_keys(place, look, cx);
+            ItemKeys { back: Some(keys.back), stands: Some(keys.stands), previous: Some(keys.previous), next: Some(keys.next) }
+        });
         let trigger = labelled(
             div()
                 .id("needs-trigger")
@@ -483,27 +502,21 @@ impl JobView {
                 .h_full()
                 .flex()
                 .items_center()
-                .gap(look.length(token::SPACE_2))
-                .px(look.length(token::SPACE_3))
+                // With an item open the band also holds Back, ↑, ↓ and Fold, so the narrowest panel keeps all four by drawing
+                // the rest closer: nothing in the band may lie over a key.
+                .gap(look.length(if item.is_some() { token::SPACE_1 } else { token::SPACE_2 }))
+                .px(look.length(if item.is_some() { token::SPACE_1 } else { token::SPACE_3 }))
+                .overflow_hidden()
                 .cursor_pointer()
                 .child(glyph(look, "bell-ring", Size::Small, look.color(token::FG_INVERSE)))
                 .child(div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child("Needs you"))
+                .children(item_keys.as_mut().and_then(|keys| keys.stands.take()))
                 .child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(glyphs))
                 .child(div().flex_1())
-                .when(folds, |trigger| {
+                .when(folds && item.is_none(), |trigger| {
                     trigger.child(glyph(look, if open { "chevron-down" } else { "chevron-up" }, Size::Small, look.color(token::FG_INVERSE)))
                 })
-                .on_click(cx.listener(|this, _, window, cx| {
-                    let Some(id) = this.shown.clone() else { return };
-                    // With nothing else to answer, the band opens the sheet.
-                    let alone = !this.folds(&id, cx) && this.review_applies(&id, cx);
-                    if alone {
-                        this.review_press(window, cx);
-                    } else {
-                        let up = this.needs_up(&id, cx);
-                        this.set_needs(!up, None, window, cx);
-                    }
-                })),
+                .on_click(cx.listener(|this, _, window, cx| this.press_needs_band(window, cx))),
             Role::Button,
             "Needs you",
         );
@@ -527,7 +540,29 @@ impl JobView {
             .bg(hue)
             .text_color(look.color(token::FG_INVERSE))
             .overflow_hidden()
+            .children(item_keys.as_mut().and_then(|keys| keys.back.take()))
             .child(trigger)
+            .children(item_keys.as_mut().and_then(|keys| keys.previous.take()))
+            .children(item_keys.as_mut().and_then(|keys| keys.next.take()))
+            .when(item.is_some() && folds, |band| {
+                band.child(labelled(
+                    div()
+                        .id("needs-fold")
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .size(look.length(token::H_CONTROL_SM))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .cursor_pointer()
+                        .hover(|style| style.bg(look.color(token::FG_INVERSE).opacity(0.2)))
+                        .tooltip(tip("Fold"))
+                        .child(glyph(look, if open { "chevron-down" } else { "chevron-up" }, Size::Small, look.color(token::FG_INVERSE)))
+                        .on_click(cx.listener(|this, _, window, cx| this.press_needs_band(window, cx))),
+                    Role::Button,
+                    "Fold Needs you",
+                ))
+            })
             .children(restarts.into_iter().enumerate().map(|(at, (command, build, adopt, label))| {
                 self.restart_key(id, command, build, adopt, label, (Some(at) == last).then_some(corner - edge), look, cx)
             }));
@@ -535,7 +570,7 @@ impl JobView {
         if let Some(keys) = &keys {
             keys.mark("question:");
         }
-        let panel = open.then(|| self.render_panel(id, &things, &review, look, cx));
+        let panel = open.then(|| self.render_panel(id, &things, &review, room, look, cx));
         if let Some(keys) = &keys {
             keys.sweep();
         }
@@ -559,6 +594,18 @@ impl JobView {
             }
             .into_any_element(),
         )
+    }
+
+    /// A press on the band: it folds or opens the panel, or with nothing else to answer opens the sheet.
+    fn press_needs_band(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let alone = !self.folds(&id, cx) && self.review_applies(&id, cx);
+        if alone {
+            self.review_press(window, cx);
+        } else {
+            let up = self.needs_up(&id, cx);
+            self.set_needs(!up, None, window, cx);
+        }
     }
 
     /// A restart's key at the band's end, as Electron's `RestartKey`: its mark and its label, pressed
@@ -675,7 +722,7 @@ impl JobView {
         }
     }
 
-    fn render_panel(&self, id: &SharedString, things: &[Thing], review: &[&NeedsYouRow], look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn render_panel(&self, id: &SharedString, things: &[Thing], review: &[&NeedsYouRow], room: Pixels, look: &Look, cx: &Context<Self>) -> AnyElement {
         let hue = look.color(token::STEP_WAITING);
         let detail = self.dock_of(id).and_then(|dock| dock.detail.clone());
         let only = things.len() == 1 && review.is_empty() && matches!(things[0], Thing::Ask(_) | Thing::Lapsed(_));
@@ -684,10 +731,11 @@ impl JobView {
             Some(thing) => self.render_detail(id, thing, only, look, cx),
             None => Pinned::body(self.render_list(id, look, cx)),
         };
-        // Up to 95% of the thread, band included, so the Job's head always shows.
+        // Up to 95% of the thread, band included, so the Job's head always shows (`NeedsYouPanel.css`, `__body`). Before the
+        // thread has a height it is half the window, a little under Classic's 55vh stand-in, which would cover the tab strip here.
         let thread = self.pages.get(id).map(|page| page.list.viewport_bounds().size.height).unwrap_or_default();
         let band = look.length(token::SPACE_6) + look.length(token::SPACE_1);
-        let most = if thread > band { thread * 0.95 - band } else { look.length(token::SPACE_12) * 10. };
+        let most = if thread > band { thread * 0.95 - band } else { room * 0.5 - band };
         let scroll = self.dock_of(id).map(|dock| dock.scroll.clone()).unwrap_or_default();
         // A run just started from a row shows whole under it, from where it was last drawn.
         if let Some((command, left)) = self.dock_of(id).and_then(|dock| dock.reveal.clone()).filter(|(_, left)| left.get() > 0) {
@@ -783,10 +831,28 @@ impl JobView {
                 self.set_needs(true, None, window, cx);
                 cx.stop_propagation();
             }
+            // In Look an open item goes back on ←, moves on ↑ ↓, and sends the mix on Return, where the panel itself holds the keys.
+            "left" | "up" | "down" | "enter" if crate::ways::looks() && !typing && !event.keystroke.modifiers.modified() && self.dock_of(&id).is_some_and(|dock| dock.detail.is_some()) => {
+                match event.keystroke.key.as_str() {
+                    "left" => self.set_needs(true, None, window, cx),
+                    "up" => self.look_step(-1, window, cx),
+                    "down" => self.look_step(1, window, cx),
+                    _ if self.dock_focus.is_focused(window) => {
+                        let item = self.dock_of(&id).and_then(|dock| dock.detail.as_ref()).and_then(|key| key.strip_prefix("item:")).map(str::to_string);
+                        if let Some(item) = item {
+                            self.look_send_mix(&item, window, cx);
+                        }
+                    }
+                    _ => return,
+                }
+                cx.stop_propagation();
+            }
             key if !typing && key.len() == 1 && key.chars().all(|c| c.is_ascii_digit()) && !event.keystroke.modifiers.alt => {
                 let n = key.parse::<usize>().unwrap_or(0);
                 if n >= 1 {
-                    self.pick_digit(n, window, cx);
+                    if !(crate::ways::looks() && self.look_digit(n, window, cx)) {
+                        self.pick_digit(n, window, cx);
+                    }
                     cx.stop_propagation();
                 }
             }
@@ -888,6 +954,11 @@ impl JobView {
 
     /// What a press on a row does, as Fleet's `act` says.
     fn press_row(&mut self, key: &str, item: &str, act: &NeedsYouAct, window: &mut Window, cx: &mut Context<Self>) {
+        // In Look a sketch, a walk and a command open whole before anything is done to them.
+        if crate::ways::looks() && super::look_dock::opens_whole(act) {
+            self.set_needs(true, Some(key.to_string()), window, cx);
+            return;
+        }
         match act {
             NeedsYouAct::OpenPlan | NeedsYouAct::OpenSketch { .. } | NeedsYouAct::OpenDocument { .. } | NeedsYouAct::OpenDraft { .. } => {
                 // Where the band offers the sheet it opens; else the page is on the thread's card.
@@ -951,15 +1022,14 @@ impl JobView {
             Some(NeedsYouAct::Done { steps }) if !steps.is_empty() => Some(self.step_lines(key, steps, look)),
             _ => None,
         };
-        let boxed = row.zip(dock).and_then(|(row, dock)| dock.row_box.as_ref().filter(|open| open.row == row.id)).and_then(|open| {
-            let name = if open.what == RowBoxFor::Reason { "Reason" } else { "Note with Done" };
-            let area = row.and_then(|row| self.box_of(&format!("dock:row:{}", row.id), Mode::Note, name, look, cx))?;
-            // Enter sends it, as the cap beside the page's other boxes says.
-            Some(div().flex().items_center().gap(look.length(token::SPACE_2)).child(div().flex_1().min_w_0().child(area)).child(super::acts::kbd(look, "\u{21b5}")).into_any_element())
+        let boxed = row.and_then(|row| self.row_box_under(id, &row.id, look, cx));
+        let buttons = row.filter(|row| ways::answers_with_buttons() && !row_options(row).is_empty()).map(|row| {
+            let keyed = self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id);
+            self.answer_buttons(row, keyed, look, cx)
         });
         let line = filled(look, div().id(SharedString::from(format!("needs-row:{key}"))))
             .child(div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said)))
-            .child(div().flex_1().min_w_0().truncate().child(SharedString::from(text)))
+            .child(div().flex_1().min_w_0().when(buttons.is_none(), |text| text.truncate()).child(SharedString::from(text)))
             .children(thumbs)
             .children(done)
             .children(away)
@@ -992,7 +1062,7 @@ impl JobView {
                 _ => None,
             })
             .and_then(|command| crate::terminal::run::under_item(id, &command, cx));
-        if steps.is_none() && boxed.is_none() && refused.is_none() && ran.is_none() {
+        if steps.is_none() && boxed.is_none() && refused.is_none() && ran.is_none() && buttons.is_none() {
             return line;
         }
         div()
@@ -1000,6 +1070,7 @@ impl JobView {
             .flex_col()
             .gap(look.length(token::SPACE_1))
             .child(line)
+            .children(buttons)
             .children(steps)
             .children(boxed)
             .children(refused.map(|why| super::acts::refusal(look, key, why)))
@@ -1030,7 +1101,7 @@ impl JobView {
     }
 
     /// A small press at a row's end, a tab stop that Enter and Space press.
-    fn row_control(&self, id: impl Into<gpui::ElementId>, primary: bool, look: &Look) -> gpui::Stateful<gpui::Div> {
+    fn row_control(&self, id: impl Into<gpui::ElementId>, primary: bool, look: &Look, cx: &gpui::App) -> gpui::Stateful<gpui::Div> {
         let control = div()
             .id(id)
             .flex_none()
@@ -1045,18 +1116,20 @@ impl JobView {
             .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
             .tab_index(0)
             .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)));
-        if primary {
+        let control = if primary {
             control.bg(look.color(token::ACCENT)).text_color(look.color(token::TEXT_ON_ACCENT)).hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
         } else {
             control.text_color(look.color(token::FG_MUTED)).hover(|style| style.bg(look.color(token::BG_RAISED)).text_color(look.color(token::FG_DEFAULT)))
-        }
+        };
+        // On a Job that runs on another Mac the control is off, and its tooltip says where it runs.
+        super::acts::gated(control, self.off_shown(cx))
     }
 
     /// Done on a To do row: he did it. The row goes at once with whatever note is in its box.
     fn done_button(&self, row: &NeedsYouRow, look: &Look, cx: &Context<Self>) -> AnyElement {
         let item = row.id.clone();
         labelled(
-            self.row_control(SharedString::from(format!("needs-done:{}", row.id)), true, look)
+            self.row_control(SharedString::from(format!("needs-done:{}", row.id)), true, look, cx)
                 .px(look.length(token::SPACE_3))
                 .child("Done")
                 .on_click(cx.listener(move |this, _, window, cx| {
@@ -1079,9 +1152,9 @@ impl JobView {
             NeedsYouDismiss::None | NeedsYouDismiss::NotAQuestion => None,
             NeedsYouDismiss::Plain => Some(
                 labelled(
-                    self.row_control(SharedString::from(format!("needs-remove:{}", row.id)), false, look)
+                    self.row_control(SharedString::from(format!("needs-remove:{}", row.id)), false, look, cx)
                         .size(look.length(token::H_CONTROL_SM))
-                        .tooltip(tip("Remove"))
+                        .when(self.off_shown(cx).is_none(), |control| control.tooltip(tip("Remove")))
                         .child(glyph(look, "x", Size::Small, look.color(token::FG_MUTED)))
                         .on_click(cx.listener(move |this, _, window, cx| {
                             cx.stop_propagation();
@@ -1094,7 +1167,7 @@ impl JobView {
             ),
             NeedsYouDismiss::Skip => Some(
                 labelled(
-                    self.row_control(SharedString::from(format!("needs-skip:{}", row.id)), false, look)
+                    self.row_control(SharedString::from(format!("needs-skip:{}", row.id)), false, look, cx)
                         .px(look.length(token::SPACE_3))
                         .child("Skip")
                         .on_click(cx.listener(move |this, _, window, cx| {
@@ -1108,9 +1181,9 @@ impl JobView {
             ),
             NeedsYouDismiss::Reason => Some(
                 labelled(
-                    self.row_control(SharedString::from(format!("needs-remove:{}", row.id)), false, look)
+                    self.row_control(SharedString::from(format!("needs-remove:{}", row.id)), false, look, cx)
                         .size(look.length(token::H_CONTROL_SM))
-                        .tooltip(tip("Remove"))
+                        .when(self.off_shown(cx).is_none(), |control| control.tooltip(tip("Remove")))
                         .child(glyph(look, "x", Size::Small, look.color(token::FG_MUTED)))
                         .on_click(cx.listener(move |this, _, window, cx| {
                             cx.stop_propagation();
@@ -1133,6 +1206,20 @@ impl JobView {
         }
         self.drop_row_box();
         let area = cx.new(|cx| gpui_component::input::TextareaState::new(window, cx).auto_grow(1, 3).submit_on_enter(true));
+        // His words for a question are kept as he types them, under Classic's `waiting:<job>:<item>`.
+        let kept = (what == RowBoxFor::Words).then(|| format!("waiting:{id}:{row}"));
+        let typing = kept.map(|kept| {
+            let words = self.draft_words(&kept);
+            if !words.is_empty() {
+                area.update(cx, |area, cx| area.set_value(words, window, cx));
+            }
+            cx.subscribe_in(&area, window, move |this, area, event: &InputEvent, _, cx| {
+                if let InputEvent::Change = event {
+                    let words = area.read(cx).value().to_string();
+                    this.keep_words(&kept, &words, cx);
+                }
+            })
+        });
         let enter = cx.subscribe_in(&area, window, |this, _, event: &InputEvent, window, cx| {
             if matches!(event, InputEvent::PressEnter { shift: false, .. }) {
                 this.send_row_box(window, cx);
@@ -1141,7 +1228,7 @@ impl JobView {
         area.update(cx, |area, cx| area.focus(window, cx));
         if let Some(page) = self.pages.get_mut(&id) {
             page.cards.boxes.insert(format!("dock:row:{row}:{:?}", Mode::Note), area);
-            page.dock.row_box = Some(RowBox { row: row.to_string(), what, _enter: enter });
+            page.dock.row_box = Some(RowBox { row: row.to_string(), what, _enter: enter, _typing: typing });
         }
         cx.notify();
     }
@@ -1171,6 +1258,7 @@ impl JobView {
         match what {
             RowBoxFor::Reason => self.dismiss_row(&row, Some(words), false, window, cx),
             RowBoxFor::Note => self.done_row(&row, Some(words), window, cx),
+            RowBoxFor::Words => self.answer_row_words(&row, words, window, cx),
         }
         window.focus(&self.dock_focus, cx);
     }
@@ -1219,6 +1307,136 @@ impl JobView {
         );
         window.focus(&self.dock_focus, cx);
         cx.notify();
+    }
+
+    /// The box open under a row, as its press opened it: Enter sends it and Esc puts it away.
+    fn row_box_under(&self, id: &SharedString, row: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let open = self.dock_of(id)?.row_box.as_ref().filter(|open| open.row == row)?;
+        let name = match open.what {
+            RowBoxFor::Reason => "Reason",
+            RowBoxFor::Note => "Note with Done",
+            RowBoxFor::Words => "Answer in words",
+        };
+        let area = self.box_of(&format!("dock:row:{row}"), Mode::Note, name, look, cx)?;
+        // Enter sends it, as the cap beside the page's other boxes says.
+        Some(div().flex().items_center().gap(look.length(token::SPACE_2)).child(div().flex_1().min_w_0().child(area)).child(super::acts::kbd(look, "\u{21b5}")).into_any_element())
+    }
+
+    /// A question's options as presses, when he answers with buttons: only each option's name, the Job's pick as
+    /// "My pick: <name>" filled, what choosing means in the tooltip, and under them Answer in words while it is on.
+    /// `keyed` puts 1 to 9 on them: the keys press the options of one question at a time.
+    fn answer_buttons(&self, row: &NeedsYouRow, keyed: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let options = row_options(row);
+        let pick = ways::pick_of(options);
+        let page = self.shown.as_ref().and_then(|id| self.pages.get(id));
+        let group = page.map(|page| page.keys.spot(&format!("answers-group:{}", row.id), cx));
+        let tip_card = page.zip(self.shown.as_ref()).and_then(|(page, id)| {
+            let (_, at) = self.dock_of(id)?.tip.clone().filter(|(item, _)| *item == row.id)?;
+            let said = ways::button_tip(options, at)?;
+            let group = page.keys.spot_of(&format!("answers-group:{}", row.id))?.bounds.get();
+            let button = page.keys.spot_of(&format!("answer-btn:{}:{at}", row.id))?.bounds.get();
+            (group.size.width > gpui::px(0.)).then(|| answer_tip_card(said, group, button, look))
+        });
+        let buttons = (0..options.len()).map(|at| {
+            let word: SharedString = ways::button_word(options, at).into();
+            let (weight, icon) = if pick == Some(at) { (Weight::JobPick, Some("check")) } else { (Weight::Plain, None) };
+            let cap = (keyed && at < 9).then(|| SharedString::from((at + 1).to_string()));
+            let mut button = press(format!("answer:{}:{at}", row.id), word.clone(), icon, cap, weight, look).max_w_full();
+            // The sentence is drawn by this view under the button and no wider than the panel, where a tooltip runs to the window's edge.
+            if ways::button_tip(options, at).is_some() {
+                let over = row.id.clone();
+                button = button.on_hover(cx.listener(move |this, over_it: &bool, _, cx| this.answer_tip(&over, at, *over_it, cx)));
+            }
+            if let Some(spot) = page.map(|page| page.keys.spot(&format!("answer-btn:{}:{at}", row.id), cx)) {
+                let drawn = spot.bounds.clone();
+                button = button.child(canvas(move |bounds, _, _| drawn.set(bounds), |_, _, _, _| {}).absolute().top_0().left_0().size_full());
+            }
+            let (item, by_key) = (row.id.clone(), row.id.clone());
+            let button = button
+                .on_click(cx.listener(move |this, _, window, cx| this.answer_row(&item, at, window, cx)))
+                .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                    let key = &event.keystroke;
+                    if matches!(key.key.as_str(), "enter" | "space") && !key.modifiers.modified() {
+                        cx.stop_propagation();
+                        this.answer_row(&by_key, at, window, cx);
+                    }
+                }));
+            labelled(button, Role::Button, word).into_any_element()
+        });
+        let words = ways::words_under_buttons().then(|| {
+            let item = row.id.clone();
+            labelled(
+                press(format!("answer-words:{}", row.id), "Answer in words".into(), None, None, Weight::Bare, look)
+                    .on_click(cx.listener(move |this, _, window, cx| this.open_row_box(&item, RowBoxFor::Words, window, cx))),
+                Role::Button,
+                "Answer in words",
+            )
+        });
+        labelled(
+            div()
+                .id(SharedString::from(format!("answers:{}", row.id)))
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(buttons))
+                .children(words)
+                .children(group.map(|group| {
+                    let drawn = group.bounds.clone();
+                    canvas(move |bounds, _, _| drawn.set(bounds), |_, _, _, _| {}).absolute().top_0().left_0().size_full()
+                }))
+                .children(tip_card),
+            Role::Group,
+            "Answers",
+        )
+        .into_any_element()
+    }
+
+    /// The pointer came onto a button, or left it.
+    fn answer_tip(&mut self, item: &str, at: usize, over: bool, cx: &mut Context<Self>) {
+        let Some(dock) = self.dock_mut() else { return };
+        let this_one = (item.to_string(), at);
+        let next = if over { Some(this_one) } else { dock.tip.clone().filter(|one| *one != this_one) };
+        if dock.tip != next {
+            dock.tip = next;
+            cx.notify();
+        }
+    }
+
+    /// The question the number keys press now, and how many options it has: the one open, else the first the list
+    /// shows. A question the thread asks, which has its own deck, keeps the keys while it is up.
+    pub(super) fn keyed_row(&self, id: &str, cx: &gpui::App) -> Option<(String, usize)> {
+        if !ways::answers_with_buttons() {
+            return None;
+        }
+        let (things, _) = self.things(id, cx);
+        let asking = |thing: &Thing| match thing {
+            Thing::Row(row) if !row_options(row).is_empty() => Some((row.id.clone(), row_options(row).len())),
+            _ => None,
+        };
+        match self.dock_of(id).and_then(|dock| dock.detail.clone()) {
+            Some(open) => things.iter().find(|thing| Self::thing_key(thing) == open).and_then(asking),
+            None if things.iter().any(|thing| matches!(thing, Thing::Ask(_) | Thing::Lapsed(_))) => None,
+            None => things.iter().find_map(asking),
+        }
+    }
+
+    /// A button pressed: the option goes to Fleet as the whole pick and the row goes at once.
+    pub(super) fn answer_row(&mut self, item: &str, at: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(id.to_string()), item_id: item.to_string(), choice: u32::try_from(at).ok(), text: None, mode: None, fixed: None });
+        self.settle_row(item, "/sessions/waiting/answer", body.map_err(|why| format!("{why:?}")), window, cx);
+    }
+
+    /// Answer in words: what he typed goes as his own words, and what was kept for the box goes.
+    fn answer_row_words(&mut self, item: &str, words: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let words = words.trim().to_string();
+        if words.is_empty() {
+            return;
+        }
+        self.keep_words(&format!("waiting:{id}:{item}"), "", cx);
+        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(id.to_string()), item_id: item.to_string(), choice: None, text: Some(words), mode: None, fixed: None });
+        self.settle_row(item, "/sessions/waiting/answer", body.map_err(|why| format!("{why:?}")), window, cx);
     }
 
     /// The thread goes to its end.
@@ -1300,6 +1518,22 @@ impl JobView {
     }
 
     fn render_detail(&self, id: &SharedString, thing: &Thing, only: bool, look: &Look, cx: &Context<Self>) -> Pinned {
+        // In Look an item has the Needs you head, and a sketch, a walk, a command or a picture question its own page.
+        if crate::ways::looks() {
+            if let Thing::Row(row) = thing {
+                if let Some(page) = self.look_body(id, row, look, cx) {
+                    let said = self.dock_of(id).and_then(|dock| dock.said.get(&Self::thing_key(thing)).cloned());
+                    return Pinned::body(div()
+                        .w_full()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_3))
+                        .child(page)
+                        .children(said.map(|why| super::acts::refusal(look, "dock", why)))
+                        .into_any_element());
+                }
+            }
+        }
         let back = labelled(
             div()
                 .id("needs-back")
@@ -1321,6 +1555,12 @@ impl JobView {
             Thing::Ask(ask) if ask.call.questions.is_empty() => self.permission(id, ask, look, cx),
             Thing::Ask(ask) => self.deck(id, &ask.call.call, &ask.call.questions, true, false, super::deck::Source::Call(ask.call.call.clone()), look, cx),
             Thing::Lapsed(lapsed) => self.deck(id, &lapsed.id, &lapsed.questions, true, false, super::deck::Source::Lapsed(lapsed.id.clone()), look, cx),
+            Thing::Row(row) if ways::answers_with_buttons() && !row_options(row).is_empty() => {
+                let keyed = self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id);
+                let ask = div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.text.clone()));
+                let buttons = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(self.answer_buttons(row, keyed, look, cx)).children(self.row_box_under(id, &row.id, look, cx));
+                Pinned { stepper: None, head: Some(ask.into_any_element()), body: buttons.into_any_element(), foot: None }
+            }
             Thing::Row(row) => {
                 let questions = vec![ipc::AskedQuestion {
                     question: row.text.clone(),
@@ -1357,3 +1597,38 @@ impl JobView {
     }
 }
 
+
+/// What choosing a button means, as a card under it: left edge and width the buttons' own, so it wraps inside the panel.
+fn answer_tip_card(said: String, group: gpui::Bounds<Pixels>, button: gpui::Bounds<Pixels>, look: &Look) -> AnyElement {
+    let card = div()
+        .id("answer-tip")
+        .w(group.size.width)
+        .px(look.length(token::SPACE_3))
+        .py(look.length(token::SPACE_2))
+        .rounded(look.length(token::RADIUS_MD))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_DEFAULT))
+        .bg(look.color(token::BG_OVERLAY))
+        .shadow(look.shadows(token::SHADOW_OVERLAY))
+        .text_size(look.length(token::TEXT_SM))
+        .line_height(look.length(token::LEADING_SM))
+        .text_color(look.color(token::FG_DEFAULT))
+        .child(SharedString::from(said.clone()));
+    deferred(
+        anchored()
+            .position(point(group.left(), button.bottom() + look.length(token::SPACE_1)))
+            .anchor(Anchor::TopLeft)
+            .snap_to_window_with_margin(look.length(token::SPACE_2))
+            .child(labelled(card, Role::Tooltip, said)),
+    )
+    .with_priority(1)
+    .into_any_element()
+}
+
+/// The pieces of an open item's head, held until the band takes each into its place.
+struct ItemKeys {
+    back: Option<AnyElement>,
+    stands: Option<AnyElement>,
+    previous: Option<AnyElement>,
+    next: Option<AnyElement>,
+}
