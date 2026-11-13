@@ -1,0 +1,99 @@
+{
+ "asks": [
+  {
+   "session_id": "mock-01",
+   "item": {
+    "id": "watch_not_ours:w-staging",
+    "text": "deploy staging: provision failed",
+    "since": "2026-11-09T14:38:00Z",
+    "source": "watch_not_ours",
+    "act": {"kind": "answer", "target": "w-staging"},
+    "options": [{"label": "Ignore"}, {"label": "Fix it"}]
+   }
+  }
+ ],
+ "lists": [
+  {
+   "session_id": "mock-01",
+   "watches": [
+    {
+     "id": "w-ci",
+     "session_id": "mock-01",
+     "name": "ci on #3388",
+     "command": ["sh", "/Users/nick/.armada/watch-recipes/github-checks.sh", "Mele-Labs/armada", "3388"],
+     "recipe": "github-checks",
+     "every_seconds": 60,
+     "gives_up_after_seconds": 7200,
+     "follows": 3388,
+     "state": "running",
+     "live": true,
+     "started_at": "2026-11-09T14:30:00Z",
+     "last": {"kind": "read", "at": "2026-11-09T14:44:00Z", "state": "running", "finished": false, "says": "3 of 5 checks done", "link": "https://github.com/Mele-Labs/armada/pull/3388/checks", "parts": [{"name": "checks", "state": "passed"}, {"name": "desktop_unit", "state": "passed"}, {"name": "rust", "state": "passed"}, {"name": "native-tests", "state": "running"}, {"name": "smoke", "state": "waiting"}]},
+     "readings": [
+      {"kind": "read", "at": "2026-11-09T14:31:00Z", "state": "waiting", "finished": false, "says": "Checks are queued", "count": 3, "last_at": "2026-11-09T14:33:00Z"},
+      {"kind": "read", "at": "2026-11-09T14:34:00Z", "state": "running", "finished": false, "says": "1 of 5 checks done", "link": "https://github.com/Mele-Labs/armada/pull/3388/checks"},
+      {"kind": "read", "at": "2026-11-09T14:44:00Z", "state": "running", "finished": false, "says": "3 of 5 checks done", "link": "https://github.com/Mele-Labs/armada/pull/3388/checks", "parts": [{"name": "checks", "state": "passed"}, {"name": "desktop_unit", "state": "passed"}, {"name": "rust", "state": "passed"}, {"name": "native-tests", "state": "running"}, {"name": "smoke", "state": "waiting"}]}
+     ]
+    },
+    {
+     "id": "w-staging",
+     "session_id": "mock-01",
+     "name": "deploy staging",
+     "command": ["sh", "/Users/nick/.armada/watch-recipes/buildkite-build.sh", "armada-staging", "4127"],
+     "recipe": "buildkite-build",
+     "every_seconds": 120,
+     "gives_up_after_seconds": 3600,
+     "state": "not_ours",
+     "live": false,
+     "started_at": "2026-11-09T14:10:00Z",
+     "last": {"kind": "read", "at": "2026-11-09T14:36:00Z", "state": "failed", "finished": true, "says": "provision failed", "link": "https://buildkite.com/mele-labs/armada-staging/builds/4127", "parts": [{"name": "build", "state": "passed"}, {"name": "provision", "state": "failed", "link": "https://buildkite.com/mele-labs/armada-staging/builds/4127#provision", "error": "Error: timed out waiting for the staging database lock (held 600s by job 4119)", "tail": "applying migrations\nwaiting for lock on armada_staging\nwaiting for lock on armada_staging\nError: timed out waiting for the staging database lock (held 600s by job 4119)"}, {"name": "smoke", "state": "passed"}], "log": "/Users/nick/.armada/watches/w-staging/2026-11-09T14-36-00.log"},
+     "readings": [
+      {"kind": "read", "at": "2026-11-09T14:12:00Z", "state": "running", "finished": false, "says": "build running", "link": "https://buildkite.com/mele-labs/armada-staging/builds/4127", "count": 6, "last_at": "2026-11-09T14:22:00Z"},
+      {"kind": "read", "at": "2026-11-09T14:24:00Z", "state": "running", "finished": false, "says": "provision running", "link": "https://buildkite.com/mele-labs/armada-staging/builds/4127", "count": 6, "last_at": "2026-11-09T14:34:00Z"},
+      {"kind": "read", "at": "2026-11-09T14:36:00Z", "state": "failed", "finished": true, "says": "provision failed", "link": "https://buildkite.com/mele-labs/armada-staging/builds/4127", "parts": [{"name": "build", "state": "passed"}, {"name": "provision", "state": "failed", "link": "https://buildkite.com/mele-labs/armada-staging/builds/4127#provision", "error": "Error: timed out waiting for the staging database lock (held 600s by job 4119)", "tail": "applying migrations\nwaiting for lock on armada_staging\nwaiting for lock on armada_staging\nError: timed out waiting for the staging database lock (held 600s by job 4119)"}, {"name": "smoke", "state": "passed"}], "log": "/Users/nick/.armada/watches/w-staging/2026-11-09T14-36-00.log"}
+     ],
+     "set_aside": [{"part": "provision", "sentence": "Another Job's deploy held the staging database lock; the chip change touches no migration"}],
+     "verdicts": [
+      {"at": "2026-11-09T14:37:00Z", "verdict": "not_ours", "sentence": "Another Job's deploy held the staging database lock; the chip change touches no migration", "parts": ["provision"], "evidence": {"links": ["https://buildkite.com/mele-labs/armada-staging/builds/4119"], "errors": ["Error: timed out waiting for the staging database lock (held 600s by job 4119)"]}}
+     ]
+    },
+    {
+     "id": "w-tests",
+     "session_id": "mock-01",
+     "name": "native-tests",
+     "command": ["armada", "check", "test", "--changed"],
+     "every_seconds": 30,
+     "gives_up_after_seconds": 1800,
+     "state": "passed",
+     "live": false,
+     "started_at": "2026-11-09T13:50:00Z",
+     "last": {"kind": "read", "at": "2026-11-09T14:02:00Z", "state": "passed", "finished": true, "says": "46 passed"},
+     "readings": [
+      {"kind": "read", "at": "2026-11-09T13:51:00Z", "state": "running", "finished": false, "says": "building", "count": 8, "last_at": "2026-11-09T14:01:00Z"},
+      {"kind": "read", "at": "2026-11-09T14:02:00Z", "state": "passed", "finished": true, "says": "46 passed"}
+     ]
+    },
+    {
+     "id": "w-release",
+     "session_id": "mock-01",
+     "name": "release build",
+     "command": ["sh", "-c", "cargo build --release -p bridge-native 2>&1 | tail -1"],
+     "every_seconds": 60,
+     "gives_up_after_seconds": 1200,
+     "state": "broken",
+     "live": false,
+     "started_at": "2026-11-09T13:30:00Z",
+     "last": {"kind": "broken", "at": "2026-11-09T13:41:00Z", "why": "It exited 101 and its last line was not a reading", "output": "error[E0599]: no method named `focus_handle` found for reference `&InputBaseState<TextareaMode>`\nerror: could not compile `bridge-native` (bin \"bridge-native\") due to 1 previous error", "log": "/Users/nick/.armada/watches/w-release/2026-11-09T13-41-00.log"},
+     "readings": [
+      {"kind": "read", "at": "2026-11-09T13:31:00Z", "state": "running", "finished": false, "says": "Compiling bridge-native", "count": 9, "last_at": "2026-11-09T13:39:00Z"},
+      {"kind": "broken", "at": "2026-11-09T13:41:00Z", "why": "It exited 101 and its last line was not a reading", "output": "error[E0599]: no method named `focus_handle` found for reference `&InputBaseState<TextareaMode>`\nerror: could not compile `bridge-native` (bin \"bridge-native\") due to 1 previous error", "log": "/Users/nick/.armada/watches/w-release/2026-11-09T13-41-00.log"}
+     ]
+    }
+   ]
+  }
+ ],
+ "logs": [
+  {"watch": "w-staging", "log": "/Users/nick/.armada/watches/w-staging/2026-11-09T14-36-00.log", "text": "--- build 4127 ---\nbuild: passed in 4m12s\nprovision: applying migrations\nprovision: waiting for lock on armada_staging\nprovision: waiting for lock on armada_staging\nprovision: Error: timed out waiting for the staging database lock (held 600s by job 4119)\nsmoke: passed in 1m03s\n{\"state\":\"failed\",\"finished\":true,\"says\":\"provision failed\"}"},
+  {"watch": "w-release", "log": "/Users/nick/.armada/watches/w-release/2026-11-09T13-41-00.log", "text": "   Compiling bridge-native v0.0.0\nerror[E0599]: no method named `focus_handle` found for reference `&InputBaseState<TextareaMode>`\n   --> src/job_view/deferred.rs:140:49\nerror: could not compile `bridge-native` (bin \"bridge-native\") due to 1 previous error"}
+ ]
+}

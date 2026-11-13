@@ -1,0 +1,53 @@
+{
+ "threads": [
+  {
+   "session_id": "draft-job",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 3,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-1",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Draft the release note for 0.42."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "draft",
+      "id": "dra-2",
+      "at": "2026-11-10T22:01:00Z",
+      "title": "Workflow quick-fix",
+      "text": "steps:\n  - build\n  - land",
+      "change": 12
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "draft",
+      "id": "dra-1",
+      "at": "2026-11-10T22:02:00Z",
+      "title": "Release note for 0.42",
+      "text": "Armada 0.42 draws each tool call on a row of its own."
+     }
+    }
+   ]
+  }
+ ]
+}

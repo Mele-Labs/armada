@@ -1,0 +1,100 @@
+{
+  "workflow": "fix",
+  "at": 1,
+  "working": true,
+  "skipped": [],
+  "job": {
+    "copy": {
+      "steps": [
+        {
+          "id": "plan",
+          "label": "Plan",
+          "col": 0
+        },
+        {
+          "id": "fix",
+          "label": "Fix",
+          "col": 1
+        },
+        {
+          "id": "land",
+          "label": "Land",
+          "col": 2
+        }
+      ],
+      "lifecycles": [],
+      "rules": []
+    },
+    "instances": [],
+    "fired": [],
+    "changes": [],
+    "waiting": []
+  },
+  "lanes": [
+    {
+      "id": "workflow",
+      "kind": "workflow",
+      "title": "Fix",
+      "source": "Workflow",
+      "nodes": [
+        {
+          "id": "workflow/:start",
+          "label": "Start",
+          "col": 0,
+          "role": "step",
+          "kind": "start",
+          "passed": true
+        },
+        {
+          "id": "workflow/plan",
+          "label": "Plan",
+          "col": 0,
+          "role": "step",
+          "kind": "step",
+          "passed": true
+        },
+        {
+          "id": "workflow/fix",
+          "label": "Fix",
+          "col": 1,
+          "role": "step",
+          "kind": "step",
+          "lit": true
+        },
+        {
+          "id": "workflow/land",
+          "label": "Land",
+          "col": 2,
+          "role": "step",
+          "kind": "step"
+        },
+        {
+          "id": "workflow/:end",
+          "label": "End",
+          "col": 2,
+          "role": "step",
+          "kind": "end"
+        }
+      ],
+      "moves": [
+        [
+          "workflow/:start",
+          "workflow/plan"
+        ],
+        [
+          "workflow/plan",
+          "workflow/fix"
+        ],
+        [
+          "workflow/fix",
+          "workflow/land"
+        ],
+        [
+          "workflow/land",
+          "workflow/:end"
+        ]
+      ]
+    }
+  ],
+  "rules": []
+}

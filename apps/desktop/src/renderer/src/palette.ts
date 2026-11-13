@@ -122,6 +122,7 @@ export function dormantIn(where: {
     thread_no: "⌥X on a card in a Job's thread",
     // The sheet belongs to the Job on screen, which the palette holds no handle to.
     needs_you: "⇧⌘Y on a Job",
+    needs_you_fold: "⌥⌘Y on a Job",
     // The Board's own field answered this and went with the Board. This
     // palette is the search now, so a row reopening it would be circular.
     search: "this is the search",

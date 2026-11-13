@@ -30,6 +30,7 @@ use serde::{Deserialize, Serialize};
 
 use super::head::{drawn, icon_button, tip, Confirm};
 use super::keys;
+use super::format::{enter_at, format_of, marks_of, Enter as BlockEnter, Format};
 use super::offer::{mention_of, Offer};
 use super::quick::Quick;
 use super::tune::{effort_meter, effort_place, trigger_name, TunePicker, Tuned};
@@ -170,6 +171,8 @@ fn preview_of(media_type: &str, bytes: &[u8]) -> Option<Arc<Image>> {
 #[derive(Default)]
 pub(super) struct JobBox {
     pub files: Vec<Attached>,
+    /// Sketches drawn for this message and waiting to go.
+    pub drawn: Vec<crate::sketch::DrawnSketch>,
     pub mode: Option<SessionMode>,
     pub model: Option<Option<String>>,
     pub effort: Option<Option<String>>,
@@ -198,6 +201,8 @@ pub(super) struct Popup {
 
 pub(super) struct Composer {
     pub input: Entity<TextareaState>,
+    /// The box's frame, so the keys can tell whether the box was drawn.
+    pub frame: FocusHandle,
     drafts: Drafts,
     /// The box is being set to a draft, which is not the person typing.
     pub setting: bool,
@@ -226,6 +231,11 @@ impl Composer {
     pub fn files_of(&self, id: &str) -> &[Attached] {
         self.boxes.get(id).map_or(&[], |one| one.files.as_slice())
     }
+
+    /// The box holds something besides words: a file, or a sketch waiting to go.
+    pub fn holds(&self, id: &str) -> bool {
+        self.boxes.get(id).is_some_and(|one| !one.files.is_empty() || !one.drawn.is_empty())
+    }
 }
 
 /// The box, and the subscriptions that keep its parts answering.
@@ -234,15 +244,19 @@ pub(super) fn build(remember: bool, window: &mut Window, cx: &mut Context<JobVie
     let mut subs = Vec::new();
     subs.push(cx.subscribe_in(&input, window, |this, _, event: &InputEvent, window, cx| match event {
         InputEvent::Change => {
+            this.draw_format(window, cx);
             this.typed(cx);
             this.refresh_offer(window, cx);
         }
-        InputEvent::PressEnter { .. } => this.send(window, cx),
+        // Shift+Enter puts a new line in the box, which the box has done; only a plain Enter sends. Enter
+        // in a quote or a list was settled before the box saw it (`enter_in_block`).
+        InputEvent::PressEnter { shift: false, .. } => this.send(window, cx),
         _ => {}
     }));
     subs.push(cx.observe_window_bounds(window, |this, window, cx| this.fit_box(window, cx)));
     let composer = Composer {
         input,
+        frame: cx.focus_handle(),
         drafts: Drafts::read(remember),
         setting: false,
         keeping: None,
@@ -261,7 +275,7 @@ pub(super) fn build(remember: bool, window: &mut Window, cx: &mut Context<JobVie
     (composer, subs)
 }
 
-fn encoded_files(files: Vec<Attached>) -> Vec<SessionUpload> {
+pub(super) fn encoded_files(files: Vec<Attached>) -> Vec<SessionUpload> {
     let engine = base64::engine::general_purpose::STANDARD;
     files.into_iter().map(|one| SessionUpload { name: one.name, media_type: one.media_type, data: engine.encode(one.bytes.as_slice()) }).collect()
 }
@@ -299,12 +313,67 @@ impl JobView {
         if self.composer.setting {
             return;
         }
-        let Some(id) = self.shown.clone() else { return };
+        let Some(id) = self.box_key() else { return };
         let kept = self.kept(cx);
         if self.composer.drafts.set(&id, kept) {
             self.keep_soon(cx);
         }
         cx.notify();
+    }
+
+    /// Draw the box's markdown as it is typed: quotes, list items and links become format tokens over
+    /// their own words (`format.rs`), and a quote or item marker no longer at a line's start is words again.
+    fn draw_format(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.composer.setting {
+            return;
+        }
+        let input = self.composer.input.clone();
+        let (text, spans, caret) = {
+            let box_ = input.read(cx);
+            (box_.value().to_string(), box_.tokens().to_vec(), box_.selected_range())
+        };
+        let stale: Vec<_> = spans
+            .iter()
+            .filter(|span| matches!(format_of(span.token().id()), Some(Format::Quote | Format::Item)) && span.range().start != 0 && !text[..span.range().start].ends_with('\n'))
+            .map(|span| (span.range(), span.token().text().to_string()))
+            .collect();
+        let taken: Vec<_> = spans.iter().map(|span| span.range()).filter(|range| !stale.iter().any(|(gone, _)| gone == range)).collect();
+        let marks = marks_of(&text, &taken);
+        if stale.is_empty() && marks.is_empty() {
+            return;
+        }
+        input.update(cx, |box_, cx| {
+            for (range, words) in stale {
+                box_.set_selected_range(range, cx);
+                box_.replace(words, window, cx);
+            }
+            for (range, token) in marks {
+                let _ = box_.replace_range_with_token(range, token, window, cx);
+            }
+            box_.set_selected_range(caret, cx);
+        });
+    }
+
+    /// Enter in a quote or a list goes on with it or leaves it (`enterInBlock`). Returns whether it did;
+    /// anywhere else the key is the box's own.
+    fn enter_in_block(&mut self, shift: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let input = self.composer.input.clone();
+        let (text, caret) = {
+            let box_ = input.read(cx);
+            (box_.value().to_string(), box_.selected_range())
+        };
+        let act = if caret.is_empty() { enter_at(&text, caret.start, shift) } else { None };
+        match act {
+            Some(BlockEnter::Insert(words)) => input.update(cx, |box_, cx| box_.insert(words, window, cx)),
+            Some(BlockEnter::Leave(marker)) => input.update(cx, |box_, cx| {
+                box_.set_selected_range(marker, cx);
+                box_.replace("", window, cx);
+            }),
+            None => return false,
+        }
+        self.draw_format(window, cx);
+        self.typed(cx);
+        true
     }
 
     pub(super) fn typed_now(&mut self, cx: &mut Context<Self>) {
@@ -314,11 +383,13 @@ impl JobView {
 
     /// Fold what is in the box into the shown Job's draft before it leaves the screen.
     pub(super) fn composer_leave(&mut self, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
+        let Some(id) = self.box_key() else { return };
         let kept = self.kept(cx);
         if self.composer.drafts.set(&id, kept) {
             self.keep_soon(cx);
         }
+        // A report open on the Job leaving is put away; what was typed in it is kept.
+        self.reporting = None;
         self.composer.offer = None;
         self.composer.popup = None;
         self.talk_leave();
@@ -334,6 +405,18 @@ impl JobView {
             self.fit_box(window, cx);
         }
         self.quick_follow(cx);
+    }
+
+    /// The words and chips kept under `key`.
+    pub(super) fn draft_of(&self, key: &str) -> Kept {
+        self.composer.drafts.get(key)
+    }
+
+    /// Keep words and chips under `key`, and write the drafts soon if that changed them.
+    pub(super) fn keep_draft(&mut self, key: &str, kept: Kept, cx: &mut Context<Self>) {
+        if self.composer.drafts.set(key, kept) {
+            self.keep_soon(cx);
+        }
     }
 
     /// The plain words kept under `key`: a Teach panel's, a review note's or a fork's, which carry no chips.
@@ -425,12 +508,15 @@ impl JobView {
 
     /// Send what is in the box. A paused Job is asked about first.
     pub(super) fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.reporting.is_some() {
+            return self.send_report(window, cx);
+        }
         let Some(id) = self.shown.clone() else { return };
         if self.closed(&id, cx) {
             return;
         }
         let kept = self.kept(cx);
-        if kept.text.trim().is_empty() && self.composer.files_of(&id).is_empty() {
+        if kept.text.trim().is_empty() && !self.composer.holds(&id) {
             return;
         }
         if self.paused(&id, cx) {
@@ -457,20 +543,26 @@ impl JobView {
     }
 
     /// The words are in the thread this frame; Fleet's row replaces them when it arrives, and a
-    /// refusal puts them back with Fleet's reason. `line` is a quick line sent beside the draft.
+    /// refusal leaves them there marked Not sent, with a Retry. `line` is a quick line sent beside the draft.
     fn deliver(&mut self, id: SharedString, line: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
-        let (kept, files) = match &line {
-            Some(text) => (Kept { text: text.clone(), tags: Vec::new() }, Vec::new()),
-            None => (self.kept(cx), std::mem::take(&mut self.composer.box_of(&id).files)),
+        let (kept, files, drawn) = match &line {
+            Some(text) => (Kept { text: text.clone(), tags: Vec::new() }, Vec::new(), Vec::new()),
+            None => {
+                let kept = self.kept(cx);
+                let held = self.composer.box_of(&id);
+                (kept, std::mem::take(&mut held.files), std::mem::take(&mut held.drawn))
+            }
         };
-        let text = kept.text.trim().to_string();
-        if text.is_empty() && files.is_empty() {
+        let text = super::format::sent_text(kept.text.trim());
+        if text.is_empty() && files.is_empty() && drawn.is_empty() {
             return;
         }
         self.composer.next_key += 1;
         let key = self.composer.next_key;
         let seen = self.thread(&id, cx).map_or(0, |held| echoed(&held.items, &text));
         let mentions: Vec<SessionTag> = kept.tags.iter().filter_map(|tag| mention_of(&tag.id, &tag.label)).collect();
+        // Each sketch goes as its picture and, by name, as the chip Fleet keeps on his row.
+        let sketches: Vec<ipc::SentSketch> = drawn.iter().map(|one| ipc::SentSketch { id: one.id.clone(), title: one.title.clone() }).collect();
         if line.is_none() {
             self.set_box(&Kept::default(), window, cx);
             if self.composer.drafts.set(&id, Kept::default()) {
@@ -478,53 +570,50 @@ impl JobView {
             }
             self.composer.offer = None;
         }
+        let refuse = self.fleet.is_none() && self.mock_refusals > 0;
         let page = self.pages.entry(id.clone()).or_insert_with(Page::new);
         page.refused = None;
-        match self.fleet.clone() {
-            Some(_) => {
-                page.pending.push(Pending { key, text: text.clone(), seen });
-                let job = id.clone();
-                let sent_files = files.clone();
-                let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions, sketches: Vec::new() };
-                cx.spawn_in(window, async move |this, cx| {
-                    let uploads = cx.background_executor().spawn(async move { encoded_files(sent_files) }).await;
-                    let _ = this.update_in(cx, |this, window, cx| {
-                        let body = SendSessionMessageBody { message: SendSessionMessage { attachments: uploads, ..message }, aim: None };
-                        let back = (kept, files, line.is_some());
-                        let done: Done = Box::new(move |this, answer, window, cx| {
-                            if let Err(why) = answer {
-                                this.refused(&job, key, back, why.into(), window, cx);
+        if refuse {
+            // Mock data: this one Fleet does not take, so the walk shows Not sent and its Retry.
+            self.mock_refusals -= 1;
+            page.pending.push(Pending { key, text, seen, tags: mentions, body: None, failed: true });
+            self.tell_not_sent(&id, "Fleet did not take it".into(), cx);
+        } else {
+            match self.fleet.clone() {
+                Some(_) => {
+                    page.pending.push(Pending { key, text: text.clone(), seen, tags: mentions.clone(), body: None, failed: false });
+                    let job = id.clone();
+                    let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions, sketches };
+                    cx.spawn_in(window, async move |this, cx| {
+                        // A sketch goes as its picture, drawn off the main thread with the files' bytes (`uploadOfSketch`).
+                        let uploads = cx
+                            .background_executor()
+                            .spawn(async move { encoded_files(files).into_iter().chain(drawn.iter().map(crate::sketch_png::upload)).collect::<Vec<_>>() })
+                            .await;
+                        let _ = this.update_in(cx, |this, window, cx| {
+                            let body = SendSessionMessageBody { message: SendSessionMessage { attachments: uploads, ..message }, aim: None };
+                            let body = ipc::encode(&body);
+                            if let (Ok(posted), Some(page)) = (&body, this.pages.get_mut(&job)) {
+                                if let Some(one) = page.pending.iter_mut().find(|one| one.key == key) {
+                                    one.body = Some(posted.clone());
+                                }
                             }
+                            this.send_pending(&job, key, body, window, cx);
                         });
-                        this.post("/sessions/message".into(), ipc::encode(&body), window, cx, done);
-                    });
-                })
-                .detach();
-            }
-            None => {
-                // Mock data: Fleet's row for these words arrives at once.
-                let at = ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
-                if let Some(held) = self.mock.get_mut(id.as_str()) {
-                    held.items.push(ThreadItem::Row {
-                        row: SessionRow::Message {
-                            id: format!("sent-{key}"),
-                            at,
-                            from: SessionVoice::You,
-                            text,
-                            files: files
-                                .iter()
-                                .map(|one| SentFile { id: format!("file-{}", one.key), name: one.name.clone(), media_type: one.media_type.clone() })
-                                .collect(),
-                            tags: mentions,
-                            notice: None,
-                            queued: false,
-                            edited_at: None,
-                            sketches: Vec::new(),
-                        },
-                    });
-                    held.version += 1;
-                    let at = held.items.len() - 1;
-                    held.mark_dirty(at);
+                    })
+                    .detach();
+                }
+                None => {
+                    // His pictures are drawn from what he sent, as there is no Fleet to read them back from.
+                    for one in files.iter().filter(|one| one.preview.is_some()) {
+                        self.sent_picture(&id, &format!("file-{}", one.key), &one.media_type, &one.bytes, cx);
+                    }
+                    let sent = files
+                        .iter()
+                        .map(|one| SentFile { id: format!("file-{}", one.key), name: one.name.clone(), media_type: one.media_type.clone() })
+                        .chain(drawn.iter().map(|one| SentFile { id: one.id.clone(), name: format!("{}.png", one.title), media_type: "image/png".into() }))
+                        .collect();
+                    self.mock_sent(&id, key, text, sent, mentions, sketches);
                 }
             }
         }
@@ -533,27 +622,65 @@ impl JobView {
         cx.notify();
     }
 
-    /// Fleet refused the words: they go back in the box unless something was typed since, with their
-    /// chips and files, and its reason stands over the box.
-    fn refused(&mut self, id: &SharedString, key: u64, back: (Kept, Vec<Attached>, bool), why: SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        let (kept, files, was_line) = back;
-        if let Some(page) = self.pages.get_mut(id) {
-            page.pending.retain(|one| one.key != key);
-            page.refused = Some(why);
+    /// Mock data: Fleet's row for these words arrives at once.
+    fn mock_sent(&mut self, id: &SharedString, key: u64, text: String, files: Vec<SentFile>, tags: Vec<SessionTag>, sketches: Vec<ipc::SentSketch>) {
+        let at = ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+        if let Some(held) = self.mock.get_mut(id.as_str()) {
+            held.items.push(ThreadItem::Row {
+                row: SessionRow::Message { id: format!("sent-{key}"), at, from: SessionVoice::You, text, files, tags, notice: None, queued: false, edited_at: None, sketches },
+            });
+            held.version += 1;
+            let at = held.items.len() - 1;
+            held.mark_dirty(at);
         }
-        if !was_line {
-            self.composer.box_of(id).files.splice(0..0, files);
-            if self.shown.as_ref() == Some(id) {
-                if self.composer.input.read(cx).value().is_empty() {
-                    self.set_box(&kept, window, cx);
-                    self.composer.drafts.set(id, kept);
-                    self.keep_soon(cx);
-                }
-            } else if self.composer.drafts.get(id).text.is_empty() {
-                self.composer.drafts.set(id, kept);
-                self.keep_soon(cx);
+    }
+
+    /// Posts a held message; a refusal marks it Not sent, where Retry finds it.
+    fn send_pending(&mut self, id: &SharedString, key: u64, body: Result<String, ipc::Unencodable>, window: &mut Window, cx: &mut Context<Self>) {
+        let job = id.clone();
+        let done: Done = Box::new(move |this, answer, _, cx| {
+            if let Err(why) = answer {
+                this.not_sent(&job, key, why.into(), cx);
+            }
+        });
+        self.post("/sessions/message".into(), body, window, cx, done);
+    }
+
+    /// Fleet did not take the words: they stay in the thread marked Not sent, with a Retry, and its
+    /// reason stands over the box. The box takes nothing back, so words he has moved on from stay out of it.
+    fn not_sent(&mut self, id: &SharedString, key: u64, why: SharedString, cx: &mut Context<Self>) {
+        if let Some(page) = self.pages.get_mut(id) {
+            if let Some(one) = page.pending.iter_mut().find(|one| one.key == key) {
+                one.failed = true;
             }
         }
+        self.tell_not_sent(id, why, cx);
+        self.sync(id, cx);
+        cx.notify();
+    }
+
+    /// He is told in a toast, as Electron's `askToTell`; the box takes nothing back.
+    fn tell_not_sent(&self, id: &SharedString, why: SharedString, cx: &mut Context<Self>) {
+        let title = self.title_of(id, cx).unwrap_or_else(|| "the Job".into());
+        let sentence = format!("Message to {title} not sent. {why}");
+        cx.defer(move |cx| crate::toasts::tell(sentence, cx));
+    }
+
+    /// Retry: the same message again, as it first went (`outgoing.ts` `retry`).
+    pub(super) fn retry(&mut self, id: &SharedString, key: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(page) = self.pages.get_mut(id) else { return };
+        let Some(at) = page.pending.iter().position(|one| one.key == key && one.failed) else { return };
+        page.refused = None;
+        if self.fleet.is_none() {
+            let one = page.pending.remove(at);
+            self.mock_sent(id, key, one.text, Vec::new(), one.tags, Vec::new());
+        } else {
+            let one = &mut page.pending[at];
+            let Some(body) = one.body.clone() else { return };
+            one.failed = false;
+            self.send_pending(id, key, Ok(body), window, cx);
+        }
+        self.pin(id);
         self.sync(id, cx);
         cx.notify();
     }
@@ -566,6 +693,10 @@ impl JobView {
             self.needs_key(window, cx);
             return;
         }
+        if act.is("needs_you_fold") {
+            self.toggle_needs(window, cx);
+            return;
+        }
         let in_box = self.composer.input.read(cx).focus_handle(cx).contains_focused(window, cx);
         let thread_key = [keys::Which::Yes, keys::Which::Change, keys::Which::SendBack, keys::Which::No].into_iter().find(|which| act.is(which.act()));
         if let Some(which) = thread_key {
@@ -573,16 +704,16 @@ impl JobView {
         } else if act.is("send_message") && in_box {
             // ⌘Enter sends from the box too.
             self.send(window, cx);
-        } else if act.is("deck_tabs") && in_box && act.digit.is_some_and(|digit| self.press_quick(digit as usize - 1, false, window, cx)) {
-            // ⌘1 to ⌘9 in the box send quick line n, and the tabs do not move.
         } else if act.is("handoff_retry") && self.handoff_band_focused(window, cx) {
             self.retry_handoff(window, cx);
+        } else if act.is("handoff_dispatch") && self.handoff_band_focused(window, cx) {
+            self.dispatch_handoff_fix(window, cx);
         } else {
             cx.propagate();
         }
     }
 
-    /// ⇧⌘1 to ⇧⌘9 put quick line n after the draft (⌘1 to ⌘9 reach the line through `deck_tabs`).
+    /// ⇧⌘1 to ⇧⌘9 put quick line n after the draft, unsent. ⌘1 to ⌘9 switch screens even from the box (his word, 10 Nov).
     pub(super) fn on_box_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         if self.talk_key(event, window, cx) {
             cx.stop_propagation();
@@ -604,6 +735,18 @@ impl JobView {
             cx.stop_propagation();
         } else if self.offer_key(key, window, cx) {
             cx.stop_propagation();
+        } else if key == "up" && self.reporting.is_none() && self.edit_last(window, cx) {
+            // ↑ in an empty box edits the last message he sent.
+            cx.stop_propagation();
+        } else if key == "escape" && self.reporting.is_some() {
+            // Esc puts the report away, as the dialog's Cancel does.
+            self.close_report(window, cx);
+            cx.stop_propagation();
+        } else if key == "escape" {
+            // Nothing over the box to put away: Esc gives the keys back to the list.
+            let list = self.list.read(cx).focus_handle().clone();
+            window.focus(&list, cx);
+            cx.stop_propagation();
         }
     }
 
@@ -611,7 +754,7 @@ impl JobView {
 
     /// Attach opens the Mac's own picker. On mock data there is none to answer, so it adds a sample.
     pub(super) fn attach(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
+        let Some(id) = self.box_key() else { return };
         if self.fleet.is_none() {
             let bytes = b"fn main() {}\n".to_vec();
             self.add_file(&id, "sample.rs".into(), "text/plain".into(), bytes, cx);
@@ -628,7 +771,7 @@ impl JobView {
 
     /// Files named by a drop or a paste are read off the main thread and attached to the Job in view.
     pub(super) fn take_paths(&mut self, paths: Vec<PathBuf>, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
+        let Some(id) = self.box_key() else { return };
         cx.spawn(async move |this, cx| {
             for path in paths {
                 let name = path.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_else(|| "File".into());
@@ -659,7 +802,7 @@ impl JobView {
     }
 
     fn remove_file(&mut self, key: u64, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
+        let Some(id) = self.box_key() else { return };
         self.composer.box_of(&id).files.retain(|one| one.key != key);
         // The caret goes back to the box where the chip was.
         self.composer.input.update(cx, |input, cx| input.focus(window, cx));
@@ -668,7 +811,7 @@ impl JobView {
 
     /// A paste with a picture or files on the clipboard attaches them; a long text becomes a file.
     fn paste(&mut self, item: &ClipboardItem, cx: &mut Context<Self>) -> bool {
-        let Some(id) = self.shown.clone() else { return false };
+        let Some(id) = self.box_key() else { return false };
         let mut taken = false;
         for entry in item.entries() {
             match entry {
@@ -863,30 +1006,138 @@ impl JobView {
     // ---- drawing -------------------------------------------------------------------------
 
     /// A quiet text button on the bar: its words, a chevron, and a tooltip that says what it sets.
-    fn bar_button(&self, look: &Look, id: &'static str, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>) -> gpui::Stateful<gpui::Div> {
+    fn bar_button(&self, look: &Look, id: &'static str, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>, narrow: bool) -> gpui::Stateful<gpui::Div> {
         div()
             .id(id)
-            .flex_none()
+            // As Electron's: a menu gives up room before Send does, down to a floor, and its words truncate.
+            .flex_shrink(1.)
+            .min_w(look.length(token::SPACE_12) * 1.5)
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
             .h(look.length(token::H_CONTROL))
             .pl(look.length(token::SPACE_3))
             .pr(look.length(token::SPACE_2))
+            // In a box under 400px its words are gone, as Electron's truncate to nothing there: its glyph and caret keep their room.
+            .when(narrow, |button| {
+                button.flex_none().min_w_0().gap(look.length(token::SPACE_1)).pl(look.length(token::SPACE_1)).pr(look.length(token::SPACE_1))
+            })
             .rounded(look.length(token::RADIUS_MD))
             .cursor_pointer()
             .text_size(look.length(token::TEXT_SM))
             .text_color(look.color(token::FG_MUTED))
             .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
-            .child(div().whitespace_nowrap().child(said))
+            .children((!narrow).then(|| div().min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis().child(said)))
             .children(meter)
-            .child(svg().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
+            .child(svg().flex_none().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
             .tooltip(tip(tooltip))
     }
 
-    fn render_tray(&self, id: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// Send, as the box's bar draws it: off while there is nothing to send.
+    pub(super) fn send_button(&self, nothing: bool, window: &Window, cx: &Context<Self>) -> gpui::AnyElement {
+        let look = cx.look();
+        let key_text = window.modifiers().platform;
+        labelled(
+            div()
+                .id("send")
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .h(look.length(token::H_CONTROL_LG))
+                .px(look.length(token::SPACE_4))
+                .rounded(look.length(token::RADIUS_LG))
+                .text_size(look.length(token::TEXT_SM))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                // With nothing to send it is a ghost: no ground, its words a step down.
+                .when(nothing, |button| button.text_color(look.color(token::FG_SUBTLE)))
+                .when(!nothing, |button| {
+                    button
+                        .bg(look.color(token::ACCENT))
+                        .text_color(look.color(token::TEXT_ON_ACCENT))
+                        .cursor_pointer()
+                        .hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
+                        .on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))
+                })
+                .child(svg().path(icon_path("send")).size(look.length(token::SPACE_3)).text_color(if nothing { look.color(token::FG_SUBTLE) } else { look.color(token::TEXT_ON_ACCENT) }))
+                .child("Send")
+                .when(key_text, |button| button.child(div().text_color(look.color(token::TEXT_ON_ACCENT).opacity(0.7)).child("\u{2318}\u{21b5}"))),
+            Role::Button,
+            "Send",
+        )
+        .into_any_element()
+    }
+
+    pub(super) fn attach_button(&self, look: &Look, cx: &Context<Self>) -> gpui::AnyElement {
+        labelled(
+            icon_button(look, "attach", "paperclip", "Attach a file or a picture".into(), false, false)
+                .on_click(cx.listener(|this, _, window, cx| this.attach(window, cx))),
+            Role::Button,
+            "Attach file",
+        )
+        .into_any_element()
+    }
+
+    /// The box's words: the one text box, with the keys a list over it takes first.
+    pub(super) fn box_words(&self, look: &Look, cx: &Context<Self>) -> gpui::Stateful<gpui::Div> {
+        div()
+            .id("message")
+            .key_context(crate::keymap::TEXT_BOX)
+            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.on_box_key(event, window, cx)))
+            .on_key_up(cx.listener(|this, event: &KeyUpEvent, _, cx| this.talk_key_up(event, cx)))
+            .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                if action.secondary {
+                    return;
+                }
+                if !action.shift && this.offer_key("enter", window, cx) {
+                    cx.stop_propagation();
+                } else if this.enter_in_block(action.shift, window, cx) {
+                    cx.stop_propagation();
+                }
+            }))
+            .capture_action(cx.listener(|this, _: &MoveUp, window, cx| this.list_key("up", window, cx)))
+            .capture_action(cx.listener(|this, _: &MoveDown, window, cx| this.list_key("down", window, cx)))
+            .capture_action(cx.listener(|this, _: &Escape, window, cx| this.list_key("escape", window, cx)))
+            .capture_action(cx.listener(|this, _: &IndentInline, window, cx| this.list_key("tab", window, cx)))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_3))
+            .text_size(look.length(token::TEXT_BASE))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child({
+                let view = cx.entity().downgrade();
+                let quote_bar = look.length(token::BORDER_WIDTH) * 2.;
+                let (accent, gap, mono) = (look.color(token::ACCENT), look.length(token::SPACE_2), look.font_stack(token::FONT_MONO).into_iter().next());
+                Textarea::new(&self.composer.input)
+                    .appearance(false)
+                    .aria_label("Message")
+                    .on_paste(move |item, _, cx| view.update(cx, |this, cx| this.paste(item, cx)).unwrap_or(false))
+                    .token(move |drawn, _, _| match format_of(drawn.token().id()) {
+                        None => gpui_component::input::InputToken::new(drawn).into_any_element(),
+                        // A quote's marker is its accent edge; an item's is an accent bullet (`SessionComposer.css`).
+                        Some(Format::Quote) => div().h(drawn.line_height()).pr(gap).flex().child(div().w(quote_bar).h_full().bg(accent)).into_any_element(),
+                        Some(Format::Item) => div().h(drawn.line_height()).pr(gap).flex().items_center().text_color(accent).child("•").into_any_element(),
+                        Some(Format::Web(_)) => div().h(drawn.line_height()).flex().items_center().text_color(accent).child(drawn.token().label().clone()).into_any_element(),
+                        Some(Format::File(_)) => div()
+                            .h(drawn.line_height())
+                            .flex()
+                            .items_center()
+                            .text_color(accent)
+                            .when_some(mono.clone(), |path, mono| path.font_family(mono))
+                            .child(drawn.token().label().clone())
+                            .into_any_element(),
+                    })
+                    .on_token_click(|clicked, _, cx| {
+                        // A plain press places the caret; Cmd-press opens a web link (`onClick`).
+                        if let (Some(Format::Web(href)), true) = (format_of(clicked.token().id()), clicked.click().modifiers().platform) {
+                            cx.open_url(&href);
+                        }
+                    })
+            })
+    }
+
+    pub(super) fn render_tray(&self, id: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let files = self.composer.files_of(id);
-        if files.is_empty() {
+        if !self.composer.holds(id) {
             return None;
         }
         let tiles = files.iter().map(|one| {
@@ -956,7 +1207,8 @@ impl JobView {
                     .px(look.length(token::SPACE_4))
                     .pt(look.length(token::SPACE_3))
                     .overflow_x_scroll()
-                    .children(tiles),
+                    .children(tiles)
+                    .children(self.drawn_tiles(id, look, cx)),
                 Role::Group,
                 "Attached",
             )
@@ -969,7 +1221,7 @@ impl JobView {
         let look = cx.look();
         let refused = self.pages.get(id).and_then(|page| page.refused.clone());
         let kept_empty = self.composer.input.read(cx).value().trim().is_empty();
-        let nothing = kept_empty && self.composer.files_of(id).is_empty();
+        let nothing = kept_empty && !self.composer.holds(id);
         let focused = self.composer.input.read(cx).focus_handle(cx).contains_focused(window, cx);
         let (mode, ..) = self.tuning(id, cx);
         let mode_said: SharedString = match mode {
@@ -993,92 +1245,59 @@ impl JobView {
         let (shown, tune_said) = trigger_name(offered, default, model.as_deref(), effort.as_deref());
         let (steps, lit) = effort_place(offered, default, model.as_deref(), effort.as_deref());
         let meter = (steps > 0).then(|| effort_meter(look, steps, lit).into_any_element());
-        let key_text = window.modifiers().platform;
-        let send = labelled(
-            div()
-                .id("send")
-                .flex_none()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .h(look.length(token::H_CONTROL_LG))
-                .px(look.length(token::SPACE_4))
-                .rounded(look.length(token::RADIUS_LG))
-                .bg(look.color(token::ACCENT))
-                .text_color(look.color(token::TEXT_ON_ACCENT))
-                .text_size(look.length(token::TEXT_SM))
-                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                .when(nothing, |button| button.opacity(0.4))
-                .when(!nothing, |button| {
-                    button
-                        .cursor_pointer()
-                        .hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
-                        .on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))
-                })
-                .child(svg().path(icon_path("send")).size(look.length(token::SPACE_3)).text_color(look.color(token::TEXT_ON_ACCENT)))
-                .child("Send")
-                .when(key_text, |button| button.child(div().text_color(look.color(token::TEXT_ON_ACCENT).opacity(0.7)).child("\u{2318}\u{21b5}"))),
-            Role::Button,
-            "Send",
-        );
-        let attach = labelled(
-            icon_button(look, "attach", "paperclip", "Attach a file or a picture".into(), false, false)
-                .on_click(cx.listener(|this, _, window, cx| this.attach(window, cx))),
-            Role::Button,
-            "Attach file",
-        );
+        let send = self.send_button(nothing, window, cx);
+        let attach = self.attach_button(look, cx);
+        // The box, Needs you and the cards share one outer edge: the words' column and the bleed either side.
+        let column = self.column(look) + super::bleed(look) * 2.;
+        // The box narrower than 400px, as Electron's container query: the gaps close up and the menus give up their floor before Send does.
+        let narrow = self.pane.is_some_and(|pane| (pane - look.length(token::SPACE_4) * 2.).min(column) < gpui::px(400.));
         let mode_button = labelled(
-            self.bar_button(look, "mode", mode_said, mode_tip, None).on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
+            // The permission picker is a select, as Electron's: a sunken well in a strong edge.
+            self.bar_button(look, "mode", mode_said, mode_tip, None, narrow)
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_STRONG))
+                .bg(look.color(token::BG_SUNKEN))
+                .text_color(look.color(token::FG_DEFAULT))
+                .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
                 this.open_mode(event.is_keyboard(), window, cx);
             })),
             Role::Button,
             "Permission mode",
         );
         let tune_button = labelled(
-            self.bar_button(look, "tune", shown.into(), "The model and effort the next turn runs on".into(), meter).on_click(cx.listener(
+            self.bar_button(look, "tune", shown.into(), "The model and effort the next turn runs on".into(), meter, narrow).on_click(cx.listener(
                 |this, _, window, cx| this.open_tune(window, cx),
             )),
             Role::Button,
             tune_said,
         );
-        let column = look.length(token::SPACE_12) * 20. + look.length(token::SPACE_6) + look.length(token::SPACE_2) + look.length(token::SPACE_4);
-        let words = div()
-            .id("message")
-            .key_context(crate::keymap::TEXT_BOX)
-            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.on_box_key(event, window, cx)))
-            .on_key_up(cx.listener(|this, event: &KeyUpEvent, _, cx| this.talk_key_up(event, cx)))
-            .capture_action(cx.listener(|this, action: &Enter, window, cx| {
-                if !action.secondary && !action.shift {
-                    this.list_key("enter", window, cx);
-                }
-            }))
-            .capture_action(cx.listener(|this, _: &MoveUp, window, cx| this.list_key("up", window, cx)))
-            .capture_action(cx.listener(|this, _: &MoveDown, window, cx| this.list_key("down", window, cx)))
-            .capture_action(cx.listener(|this, _: &Escape, window, cx| this.list_key("escape", window, cx)))
-            .capture_action(cx.listener(|this, _: &IndentInline, window, cx| this.list_key("tab", window, cx)))
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_3))
-            .text_size(look.length(token::TEXT_BASE))
-            .text_color(look.color(token::FG_DEFAULT))
-            .child({
-                let view = cx.entity().downgrade();
-                Textarea::new(&self.composer.input).appearance(false).aria_label("Message").on_paste(move |item, _, cx| {
-                    view.update(cx, |this, cx| this.paste(item, cx)).unwrap_or(false)
-                })
-            });
+        // While a report is open the box is in its dialog; here the Job's draft stands as it was kept.
+        let words = if self.reporting.is_some() {
+            div()
+                .id("message")
+                .px(look.length(token::SPACE_4))
+                .py(look.length(token::SPACE_3))
+                .text_size(look.length(token::TEXT_BASE))
+                .text_color(look.color(token::FG_DEFAULT))
+                .min_h(look.length(token::SPACE_6))
+                .child(SharedString::from(self.composer.drafts.get(id).text))
+        } else {
+            self.box_words(look, cx)
+        };
+        // Send never wraps, as Electron's: the menus give up room first and truncate.
         let bar = div()
             .flex()
             .items_center()
-            .gap(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_2))
+            .gap(look.length(if narrow { token::SPACE_1 } else { token::SPACE_2 }))
+            .px(look.length(if narrow { token::SPACE_1 } else { token::SPACE_2 }))
             .py(look.length(token::SPACE_2))
             .border_t(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
             .child(mode_button)
             .child(tune_button)
             .child(attach)
-            .child(div().flex_1())
-            .child(div().id("context-figure").flex_none())
+            .child(self.sketch_button(look, cx))
+            .child(div().id("context-figure").flex_none().ml_auto())
             .child(self.render_talk(look, cx))
             .child(send);
         let popup = self.composer.popup.as_ref().map(|popup| popup.view.clone());
@@ -1116,8 +1335,10 @@ impl JobView {
                         )
                     }))
                     .children(self.render_handoff_band(id, cx))
-                    .child(
+                    .child(labelled(
                         div()
+                            .id("message-box")
+                            .track_focus(&self.composer.frame)
                             .relative()
                             .on_drop(cx.listener(|this, paths: &ExternalPaths, _, cx| this.take_paths(paths.paths().to_vec(), cx)))
                             .flex()
@@ -1141,7 +1362,9 @@ impl JobView {
                             .children(self.render_tray(id, look, cx))
                             .child(labelled(words, Role::TextInput, "Message"))
                             .child(bar),
-                    )
+                        Role::Group,
+                        "Message box",
+                    ))
                     .children(self.render_toolbelt(id, cx))
                     .children(popup),
             )

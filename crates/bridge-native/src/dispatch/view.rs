@@ -5,11 +5,11 @@
 use std::rc::Rc;
 
 use gpui::{
-    canvas, div, point, prelude::*, px, App, Bounds, Context, Entity, FontWeight, KeyDownEvent, Pixels, Role, SharedString, Window,
+    canvas, div, point, prelude::*, px, App, Bounds, Context, Focusable, KeyDownEvent, Pixels, Role, SharedString, Window,
 };
-use gpui_component::input::{Input, InputState, Textarea};
+use gpui_component::input::Textarea;
 
-use super::face::{Chip, Glyph, Kind, Mark, Mentions, Part, Reading, Row};
+use super::face::{Glyph, Kind, Mentions, Part, Reading, Row};
 use super::sheet::DispatchSheet;
 use crate::keymap::{self, Act};
 use crate::labels::labelled;
@@ -19,7 +19,7 @@ use crate::titlebar::parts::{glyph, kbd, mono, sans, spinner, tip, Btn, Weight};
 impl Render for DispatchSheet {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
-        let view = window.viewport_size();
+        let view = crate::room::of(window, cx).size;
         let width = (look.length(token::PALETTE_WIDTH) * 1.75).min(view.width - look.length(token::SPACE_6));
         let top = view.height * 0.12;
         let hue = look.color(token::STATUS_AWAITING_REVIEW);
@@ -42,6 +42,8 @@ impl Render for DispatchSheet {
         if focused || self.asking {
             shadows.push(ring);
         }
+        let here = self.here_card(window, cx);
+        let here_room = if here.is_some() { look.length(token::H_CONTROL_LG) + look.length(token::SPACE_6) } else { px(0.) };
         let frame = div()
             .id("dispatch-frame")
             .key_context("dispatch")
@@ -49,11 +51,8 @@ impl Render for DispatchSheet {
             .on_action(cx.listener(|this, key: &Act, window, cx| this.on_act(key, window, cx)))
             // A press on the sheet is not a press on the scrim.
             .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .absolute()
-            .top(top)
-            .left((view.width - width) / 2.)
-            .w(width)
-            .max_h(view.height - top - look.length(token::SPACE_6))
+            .w_full()
+            .max_h(view.height - top - look.length(token::SPACE_6) - here_room)
             .flex()
             .flex_col()
             .overflow_hidden()
@@ -65,7 +64,7 @@ impl Render for DispatchSheet {
             .text_color(look.color(token::FG_DEFAULT))
             .font_family(sans(look))
             .children(self.wait_chip(cx))
-            .child(self.line(window, cx))
+            .child(self.line(cx))
             .children(self.snippets(cx))
             .children(self.menu_view(cx))
             .child(self.drawer(window, cx));
@@ -77,8 +76,20 @@ impl Render for DispatchSheet {
             .occlude()
             .bg(look.color(token::SCRIM))
             .on_mouse_down(gpui::MouseButton::Left, cx.listener(|this, _, window, cx| this.close(window, cx)));
+        // The card under the sheet stands apart from it, the same width, and moves with it.
+        let column = div()
+            .id("dispatch-column")
+            .absolute()
+            .top(top)
+            .left((view.width - width) / 2.)
+            .w(width)
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_3))
+            .child(frame)
+            .children(here);
         labelled(
-            div().id("dispatch").absolute().inset_0().child(scrim).child(frame).children(self.popup.as_ref().map(|popup| popup.dropdown.clone())),
+            div().id("dispatch").absolute().inset_0().child(scrim).child(column).children(self.popup.as_ref().map(|popup| popup.dropdown.clone())),
             Role::Dialog,
             "Dispatch",
         )
@@ -86,9 +97,60 @@ impl Render for DispatchSheet {
 }
 
 impl DispatchSheet {
+    /// New Job in <project>: a card of its own under the sheet that starts what ⌘T starts. Tab from the
+    /// sheet reaches it, and Enter or Space starts it. None where the title bar names nowhere.
+    fn here_card(&self, window: &Window, cx: &Context<Self>) -> Option<gpui::AnyElement> {
+        let name = self.here.clone()?;
+        let look = cx.look();
+        let focused = self.here_key.is_focused(window);
+        let said = format!("New Job in {name}");
+        let hover = look.color(token::BG_HOVER);
+        let card = div()
+            .id("dispatch-here")
+            .track_focus(&self.here_key)
+            .tab_stop(true)
+            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_click(cx.listener(|this, _, window, cx| this.job_here(window, cx)))
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                let key = &event.keystroke;
+                let plain = !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt && !key.modifiers.shift;
+                match key.key.as_str() {
+                    "enter" | "space" if plain => this.job_here(window, cx),
+                    "escape" => this.close(window, cx),
+                    // Tab either way goes back to the request: the sheet keeps the keys while it is open.
+                    "tab" if !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt => {
+                        let request = this.request.focus_handle(cx);
+                        window.focus(&request, cx);
+                    }
+                    _ => return,
+                }
+                cx.stop_propagation();
+            }))
+            .tooltip(tip("Starts a Job with no workflow and opens its thread"))
+            .h(look.length(token::H_CONTROL_LG))
+            .px(look.length(token::SPACE_4))
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .cursor_pointer()
+            .rounded(look.length(token::RADIUS_LG))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(if focused { token::ACCENT } else { token::BORDER_SUBTLE }))
+            .bg(look.color(token::BG_RAISED))
+            .hover(move |style| style.bg(hover))
+            .shadow(look.shadows(token::SHADOW_OVERLAY))
+            .font_family(sans(look))
+            .text_size(look.length(token::TEXT_SM))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child(glyph("square-terminal", look.length(token::SPACE_4), look.color(token::ACCENT)))
+            .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said.clone())))
+            .child(kbd("⌘T", look));
+        Some(labelled(card, Role::Button, said).into_any_element())
+    }
+
     /// The sentence over the request: `Starts when [Job]'s [PR lands] · from [main] · needs [..]`.
     fn wait_chip(&self, cx: &Context<Self>) -> Option<gpui::AnyElement> {
-        let wait = self.wait.as_ref().filter(|_| self.kind == Kind::Job)?;
+        let wait = self.wait.as_ref()?;
         let look = cx.look();
         let off = !self.face.connected;
         let part = |id: &'static str, which: Part, at: usize, label: SharedString, name: String, icon: Option<&'static str>, cx: &Context<Self>| {
@@ -180,12 +242,9 @@ impl DispatchSheet {
     }
 
     /// The line: the kind's glyph, the words, `⇥` and the key that opens the sheet.
-    fn line(&self, window: &Window, cx: &Context<Self>) -> impl IntoElement {
+    fn line(&self, cx: &Context<Self>) -> impl IntoElement {
         let look = cx.look();
-        let kinds = self.face.kinds.clone();
         let mark = look.length(token::SPACE_4) + look.length(token::SPACE_1);
-        let tab_tip = kinds.iter().map(|kind| kind.word()).collect::<Vec<_>>().join(" / ");
-        let in_frame = self.frame.contains_focused(window, cx);
         let words = self.words(cx);
         let tag_range = self.tagged.as_ref().and_then(|(_, title)| {
             let needle = format!("@{title}");
@@ -226,16 +285,13 @@ impl DispatchSheet {
             .px(look.length(token::SPACE_6))
             .py(look.length(token::SPACE_4))
             .child(
-                div().id("dispatch-prompt").flex_none().h(line_h).flex().items_center().tooltip(tip(self.kind.word())).child(labelled(
-                    div().id("dispatch-kind").child(glyph(self.kind.glyph(), mark, look.color(token::ACCENT))),
+                div().id("dispatch-prompt").flex_none().h(line_h).flex().items_center().tooltip(tip(Kind::Job.word())).child(labelled(
+                    div().id("dispatch-kind").child(glyph(Kind::Job.glyph(), mark, look.color(token::ACCENT))),
                     Role::Image,
-                    self.kind.word(),
+                    Kind::Job.word(),
                 )),
             )
             .child(field)
-            .when(kinds.len() > 1 && in_frame, |line| {
-                line.child(div().id("dispatch-tab-key").h(line_h).flex().items_center().tooltip(tip(tab_tip)).child(kbd("⇥", look)))
-            })
             .child(
                 div()
                     .id("dispatch-key")
@@ -243,7 +299,8 @@ impl DispatchSheet {
                     .flex()
                     .items_center()
                     .tooltip(tip(format!("Dispatch  {}", keymap::shown("new_job"))))
-                    .child(kbd(keymap::shown("new_job"), look)),
+                    // Electron's sheet draws the bare letter.
+                    .child(kbd("N", look)),
             )
     }
 
@@ -310,7 +367,7 @@ impl DispatchSheet {
         Some(listbox(label, &menu.rows, menu.active, look, cx.listener(|this, at: &usize, window, cx| this.choose_row(*at, window, cx))))
     }
 
-    /// The drawer: the repository row, the band with the kinds and the act, and the settings.
+    /// The drawer: the repository row, the band with the act, and the settings.
     fn drawer(&self, window: &Window, cx: &Context<Self>) -> impl IntoElement {
         let look = cx.look();
         let asking = self.asking;
@@ -320,7 +377,7 @@ impl DispatchSheet {
         let reading = self.face.reading;
         let mark = {
             let ink = if asking {
-                look.color(token::FG_INVERSE)
+                hue
             } else if reading.found() || reading == Reading::Detecting {
                 look.color(token::ACCENT)
             } else {
@@ -338,67 +395,65 @@ impl DispatchSheet {
                 reading.name(chosen_name.as_deref()),
             )
         };
-        let on_row = self.row.is_focused(window);
-        let chips: Vec<gpui::AnyElement> = self
-            .face
-            .chips
-            .iter()
-            .enumerate()
-            .map(|(at, chip)| self.chip(at, chip, on_row && self.rover == at, off, asking, cx).into_any_element())
-            .collect();
-        let more = (!self.face.more.is_empty()).then(|| self.more_menu(off, cx));
-        let repos = labelled(
+        // The repository is one picker at the start of the band, as Model and Effort are: its list holds
+        // every repository with its key, and ⌥1 to ⌥9 still pick without opening it.
+        let chosen = chosen_name.is_some();
+        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+        let edge = if self.row.is_focused(window) {
+            ring
+        } else if asking {
+            hue
+        } else if chosen {
+            look.color(token::ACCENT)
+        } else {
+            look.color(token::BORDER_DEFAULT)
+        };
+        let at = Rc::clone(&self.at.repository);
+        let picker = labelled(
             div()
-                .id("dispatch-repos")
+                .id("dispatch-repository")
                 .track_focus(&self.row)
                 .tab_stop(true)
+                .relative()
+                .flex_none()
+                .h(look.length(token::H_CONTROL))
+                .min_w(look.length(token::SPACE_12) * 2.5)
+                .max_w(look.length(token::SPACE_12) * 5.)
+                .pl(look.length(token::SPACE_2))
+                .pr(look.length(token::SPACE_3))
                 .flex()
-                .flex_wrap()
                 .items_center()
                 .gap(look.length(token::SPACE_2))
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(edge)
+                .bg(if asking { hue.opacity(0.16) } else { look.color(token::BG_SUNKEN) })
+                // Sans, as Electron's repository menu draws its trigger and its rows (`DropdownMenu.css`).
+                .font_family(sans(look))
+                .text_color(look.color(if chosen { token::FG_DEFAULT } else { token::FG_MUTED }))
+                .when(!off, |pick| {
+                    pick.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(cx.listener(|this, _, window, cx| this.open_repositories(window, cx)))
+                })
+                .when(off, |pick| pick.opacity(0.5))
+                .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+                .child(mark)
+                .child(div().flex_1().min_w_0().truncate().child(SharedString::from(chosen_name.clone().unwrap_or_else(|| "Repository".into()))))
+                .child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::FG_MUTED))),
+            Role::ComboBox,
+            chosen_name.as_ref().map_or("Repository".to_string(), |name| format!("Repository {name}")),
+        );
+        // A start Fleet refused, in Fleet's words, on a line of its own over the band.
+        let refusal = self.face.refused.clone().map(|why| {
+            div()
                 .px(look.length(token::SPACE_4))
                 .py(look.length(token::SPACE_3))
                 .border_t(look.length(token::BORDER_WIDTH))
-                .border_color(if asking { hue } else { look.color(token::BORDER_DEFAULT) })
-                .bg(if asking { hue } else { look.color(token::BG_SUNKEN) })
-                .child(mark)
-                .children(chips)
-                .children(more),
-            Role::RadioGroup,
-            "Repository",
-        );
-        let kinds = self.face.kinds.clone();
-        let tabs = (kinds.len() > 1).then(|| {
-            labelled(
-                div().id("dispatch-tabs").flex().items_center().gap(look.length(token::SPACE_1)).children(kinds.iter().map(|kind| {
-                    let kind = *kind;
-                    let on = self.kind == kind;
-                    labelled(
-                        div()
-                            .id(SharedString::from(format!("tab-{}", kind.word())))
-                            .h(look.length(token::H_CONTROL))
-                            .px(look.length(token::SPACE_4))
-                            .flex()
-                            .items_center()
-                            .rounded(look.length(token::RADIUS_MD))
-                            .text_size(look.length(token::TEXT_XS))
-                            .font_weight(FontWeight(look.number(if on { token::WEIGHT_HEADING } else { token::WEIGHT_BODY })))
-                            .text_color(look.color(if on { token::FG_DEFAULT } else { token::FG_MUTED }))
-                            .bg(if on { look.color(token::BG_SUNKEN) } else { gpui::transparent_black() })
-                            .cursor_pointer()
-                            .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                            .child(kind.word())
-                            .on_click(cx.listener(move |this, _, window, cx| this.set_kind(kind, window, cx))),
-                        Role::Tab,
-                        kind.word(),
-                    )
-                })),
-                Role::TabList,
-                "Kind",
-            )
+                .border_color(look.color(token::BORDER_DEFAULT))
+                .bg(look.color(token::BG_SUNKEN))
+                .child(labelled(div().id("dispatch-refused").text_color(look.color(token::ERROR)).child(why.clone()), Role::Alert, why))
         });
         let worded = self.worded(cx);
-        let tuning = (self.kind == Kind::Job).then(|| {
+        let tuning = {
             let model = self.model.clone().or_else(|| self.face.tuning.default_model.clone()).unwrap_or_else(|| "Auto".into());
             let effort = self.effort.clone().unwrap_or_else(|| "Auto".into());
             div()
@@ -407,8 +462,8 @@ impl DispatchSheet {
                 .gap(look.length(token::SPACE_2))
                 .child(self.pick_button("dispatch-model", "cpu", "Model", model, Rc::clone(&self.at.model), off, cx.listener(|this, _, window, cx| this.open_model(window, cx)), cx))
                 .child(self.pick_button("dispatch-effort", "zap", "Effort", effort, Rc::clone(&self.at.effort), off, cx.listener(|this, _, window, cx| this.open_effort(window, cx)), cx))
-        });
-        let queue = (self.kind == Kind::Job && self.face.queue && self.attached.is_empty()).then(|| {
+        };
+        let queue = (self.face.queue && self.attached.is_empty()).then(|| {
             let live = !off && !self.sending && !self.queueing && !self.words(cx).trim().is_empty();
             let button = labelled(
                 Btn::new("dispatch-queue", "Queue for later", Weight::Secondary)
@@ -419,22 +474,14 @@ impl DispatchSheet {
                 Role::Button,
                 "Queue for later",
             );
-            div()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .child(kbd(keymap::shown("queue_session"), look).opacity(if live { 1. } else { 0.5 }))
-                .child(button)
+            button
         });
-        let word = self.face.act(self.kind);
-        let said = if self.sending { pending_word(self.kind, word) } else { word };
+        let said = if self.sending { "Starting" } else { "Start" };
         let live = !off && !self.queueing && worded && !self.sending;
-        let act_key = if self.kind == Kind::Job { "↵".to_string() } else { keymap::shown("send_message") };
+        // No key beside Queue for later or Start: Electron's sheet shows neither.
         let act = div()
             .flex()
             .items_center()
-            .gap(look.length(token::SPACE_2))
-            .child(kbd(act_key, look).opacity(if live { 1. } else { 0.5 }))
             .child(labelled(
                 Btn::new("dispatch-act", said, Weight::Primary)
                     .disabled(!live)
@@ -455,8 +502,10 @@ impl DispatchSheet {
             .border_color(look.color(token::BORDER_DEFAULT))
             .bg(look.color(token::BG_RAISED))
             .text_color(look.color(token::FG_MUTED))
-            .children(tabs)
-            .child(div().flex().items_center().gap(look.length(token::SPACE_3)).ml_auto().children(tuning).children(queue).child(act));
+            // The acts are in the UI face; the chips and the selects stay mono.
+            .font_family(sans(look))
+            .child(picker)
+            .child(div().flex().items_center().gap(look.length(token::SPACE_3)).ml_auto().child(tuning).children(queue).child(act));
         div()
             .id("dispatch-drawer")
             .flex()
@@ -464,94 +513,8 @@ impl DispatchSheet {
             .font_family(mono(look))
             .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
-            .child(repos)
+            .children(refusal)
             .child(band)
-            .children(self.settings(cx))
-    }
-
-    fn chip(&self, at: usize, chip: &Chip, rover: bool, off: bool, asking: bool, cx: &Context<Self>) -> impl IntoElement {
-        let look = cx.look();
-        let chosen = chip.mark == Mark::Chosen;
-        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
-        let (ground, ink, edge) = if asking {
-            (gpui::transparent_black(), look.color(token::FG_INVERSE), look.color(token::FG_INVERSE))
-        } else if chosen {
-            (look.color(token::ACCENT), look.color(token::FG_INVERSE), look.color(token::ACCENT))
-        } else if chip.mark == Mark::Read {
-            (look.color(token::BG_RAISED), look.color(token::FG_DEFAULT), look.color(token::ACCENT))
-        } else {
-            (look.color(token::BG_RAISED), look.color(token::FG_DEFAULT), look.color(token::BORDER_DEFAULT))
-        };
-        let name = chip.name.clone();
-        let picked = chip.name.clone();
-        labelled(
-            div()
-                .id(SharedString::from(format!("repo-{at}")))
-                .h(look.length(token::H_CONTROL))
-                .max_w_full()
-                .pl(look.length(token::SPACE_3))
-                .pr(look.length(token::SPACE_1))
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_3))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(if rover { ring } else { edge })
-                .bg(ground)
-                .text_color(ink)
-                .font_weight(FontWeight(look.number(if chosen { token::WEIGHT_HEADING } else { token::WEIGHT_BODY })))
-                .when(chosen && !asking, |chip| chip.shadow(look.shadows(token::SHADOW_PRIMARY)))
-                .when(!off, |chip| {
-                    chip.cursor_pointer().hover(|style| style.bg(if chosen { look.color(token::ACCENT_HOVER) } else { look.color(token::BG_HOVER) }))
-                })
-                .when(off, |chip| chip.opacity(0.5))
-                .child(div().min_w_0().truncate().child(name.clone()))
-                .children(chip.key.and_then(|n| keymap::shown_digit("dispatch_repository", n)).map(|key| kbd(key, look)))
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    if this.face.connected {
-                        this.pick(picked.clone(), window, cx);
-                    }
-                })),
-            Role::RadioButton,
-            format!("Repository {name}"),
-        )
-    }
-
-    fn more_menu(&self, off: bool, cx: &Context<Self>) -> gpui::AnyElement {
-        let look = cx.look();
-        let hidden = self.face.more.iter().find(|chip| chip.mark == Mark::Chosen);
-        let at = Rc::clone(&self.at.more);
-        let label: SharedString = hidden.map_or("More".into(), |chip| chip.name.clone());
-        let name = hidden.map_or("More repositories".to_string(), |chip| format!("Repository {}", chip.name));
-        let lit = hidden.is_some();
-        labelled(
-            div()
-                .id("dispatch-more")
-                .relative()
-                .h(look.length(token::H_CONTROL))
-                .px(look.length(token::SPACE_3))
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(if lit { token::ACCENT } else { token::BORDER_DEFAULT }))
-                .bg(look.color(if lit { token::ACCENT } else { token::BG_RAISED }))
-                .text_color(look.color(if lit { token::FG_INVERSE } else { token::FG_DEFAULT }))
-                .when(!off, |more| more.cursor_pointer().hover(|style| style.bg(look.color(if lit { token::ACCENT_HOVER } else { token::BG_HOVER }))))
-                .when(off, |more| more.opacity(0.5))
-                .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
-                .child(label)
-                .child(glyph("chevron-down", look.length(token::SPACE_3), look.color(if lit { token::FG_INVERSE } else { token::FG_MUTED })))
-                .on_click(cx.listener(|this, _, window, cx| {
-                    if this.face.connected {
-                        this.open_more(window, cx);
-                    }
-                })),
-            Role::ComboBox,
-            name,
-        )
-        .into_any_element()
     }
 
     /// A Model or Effort pick: a glyph and the value, opening its list.
@@ -582,6 +545,7 @@ impl DispatchSheet {
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_DEFAULT))
                 .bg(look.color(token::BG_SUNKEN))
+                .font_family(mono(look))
                 .text_color(look.color(token::FG_DEFAULT))
                 .tooltip(tip(name))
                 .when(!off, |pick| pick.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(press))
@@ -593,61 +557,6 @@ impl DispatchSheet {
             Role::ComboBox,
             name,
         )
-    }
-
-    /// The Autopilot body: the instruction and the fields, or what was refused.
-    fn settings(&self, cx: &Context<Self>) -> Option<gpui::AnyElement> {
-        if self.kind != Kind::Autopilot || (self.instruction.is_none() && self.face.refused.is_none()) {
-            return None;
-        }
-        let look = cx.look();
-        let field = |label: &'static str, input: &Entity<InputState>, said: Option<Option<SharedString>>| {
-            div()
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_1))
-                .child(div().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(label))
-                .child(labelled(div().id(SharedString::from(format!("field-{label}"))).child(Input::new(input)), Role::TextInput, label))
-                .children(said.map(|said| {
-                    div()
-                        .text_size(look.length(token::TEXT_2XS))
-                        .line_height(look.length(token::LEADING_2XS))
-                        .text_color(look.color(token::FG_SUBTLE))
-                        .child(match said {
-                            Some(words) => format!("“{words}”"),
-                            None => "not said".to_string(),
-                        })
-                }))
-        };
-        let body = div()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_4))
-            .border_t(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_DEFAULT))
-            .bg(look.color(token::BG_SUNKEN))
-            .children(self.instruction.as_ref().map(|input| field("Instruction", input, None)))
-            .child(div().flex().flex_wrap().gap(look.length(token::SPACE_3)).children(self.fields.iter().map(|(label, input, said)| {
-                div().w(look.length(token::SPACE_12) * 4.).child(field(label, input, Some(said.clone())))
-            })))
-            .children(
-                self.face
-                    .refused
-                    .clone()
-                    .map(|why| labelled(div().id("autopilot-refused").text_color(look.color(token::ERROR)).child(why.clone()), Role::Alert, why)),
-            );
-        Some(body.into_any_element())
-    }
-}
-
-/// The act's word while its act is out.
-fn pending_word(kind: Kind, act: &'static str) -> &'static str {
-    match (kind, act) {
-        (Kind::Job, _) => "Starting",
-        (Kind::Autopilot, "Read it") => "Reading",
-        (Kind::Autopilot, _) => "Starting Autopilot",
     }
 }
 

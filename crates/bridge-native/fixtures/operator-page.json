@@ -26,7 +26,8 @@
     "read": "It adds the repository chips you asked for on 15 Oct. Nothing else changes from the version you approved, and two Jobs start once you do.",
     "pick": "Approve"
    },
-   "raised_at": "2026-11-11T11:40:00-05:00"
+   "raised_at": "2026-11-11T11:40:00-05:00",
+   "also_raised_by": ["Dispatch panel", "Helm composer"]
   },
   {
    "id": "turn:2",
@@ -35,7 +36,7 @@
    "repository": "armada",
    "item": {
     "id": "note:41",
-    "text": "the slot meter flickers when a Job ends",
+    "text": "the slot meter flickers when a Job ends, and for a second the count reads one slot more than the pool holds before it settles",
     "since": "2026-11-11T11:52:00-05:00",
     "source": "agent"
    },
@@ -90,6 +91,26 @@
     "pick": "Approve"
    },
    "raised_at": "2026-11-11T12:44:00-05:00"
+  },
+  {
+   "id": "turn:9",
+   "kind": "go_ahead",
+   "urgency": "urgent",
+   "manifest_id": "armada",
+   "repository": "armada",
+   "item": {
+    "id": "red:armada:4c1d2e9",
+    "text": "Main is red at 4c1d2e9. desktop_unit fails in the slot meter test",
+    "since": "2026-11-11T12:58:00-05:00",
+    "source": "operator_suggestion",
+    "options": [{ "label": "Start a fix" }, { "label": "Hand to Slot pool controls" }]
+   },
+   "read": {
+    "read": "Slot pool controls changed the slot meter an hour ago and is live on the same files, so I'd hand the red to it.",
+    "pick": "Hand to Slot pool controls"
+   },
+   "raised_at": "2026-11-11T12:58:00-05:00",
+   "keeps": true
   }
  ],
  "digest": {
@@ -129,7 +150,7 @@
    { "id": 6, "scope": { "kind": "repository", "manifest_id": "storefront" }, "repository": "storefront", "said": "Approve a pull request whose ci is green", "at": "2026-11-06T11:20:00-05:00" }
   ],
   "holds": [
-   { "id": 11, "manifest_id": "armada", "repository": "armada", "said": "Only Slot pool controls writes under apps/cockpit until it pushes", "at": "2026-11-11T12:40:00-05:00" },
+   { "id": 11, "manifest_id": "armada", "repository": "armada", "said": "Only Slot pool controls writes under apps/cockpit until it pushes", "paths": ["apps/cockpit"], "job": "mock-05", "until": "pushes", "at": "2026-11-11T12:40:00-05:00" },
    { "id": 12, "manifest_id": "storefront", "repository": "storefront", "said": "Only Fix desktop_unit after #412 writes under tests/unit until it ends", "at": "2026-11-11T12:22:00-05:00" }
   ]
  }

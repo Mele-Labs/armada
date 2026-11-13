@@ -6,8 +6,7 @@
 //! asks Fleet; the overlay is put back with Fleet's reason when it refuses, and let go of once
 //! Fleet's own record has had time to arrive. With no Fleet, as on mock data, it stays.
 //!
-//! Only the Thread tab is drawn: the other panes and Add tab are a later step, so no entry or
-//! button here stands for one.
+//! The Thread tab has its × and the strip its +, which offers the thread alone (`tabs.rs`).
 
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -123,6 +122,15 @@ pub(super) fn below_left(bounds: Bounds<Pixels>) -> Point<Pixels> {
 
 /// A quiet icon button, `--h-control` square, as the toolbelt and the head draw them.
 pub(super) fn icon_button(look: &Look, id: &'static str, icon: &'static str, tip_said: SharedString, lit: bool, off: bool) -> Stateful<gpui::Div> {
+    icon_frame(look, id, icon, lit, off).tooltip(tip(tip_said))
+}
+
+/// A toolbelt act's button: an icon button whose tooltip wears the act's key.
+pub(super) fn act_button(look: &Look, id: &'static str, icon: &'static str, act: &str, tip_said: SharedString, lit: bool, off: bool) -> Stateful<gpui::Div> {
+    icon_frame(look, id, icon, lit, off).tooltip(keyed_tip(act, tip_said))
+}
+
+fn icon_frame(look: &Look, id: &'static str, icon: &'static str, lit: bool, off: bool) -> Stateful<gpui::Div> {
     let ink = if lit { look.color(token::FG_DEFAULT) } else { look.color(token::FG_SUBTLE) };
     div()
         .id(id)
@@ -138,7 +146,6 @@ pub(super) fn icon_button(look: &Look, id: &'static str, icon: &'static str, tip
             button.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
         })
         .child(svg().path(icon_path(icon)).size(look.length(token::SPACE_4)).text_color(if lit { look.color(token::ACCENT) } else { ink }))
-        .tooltip(tip(tip_said))
 }
 
 fn item(id: &'static str, label: impl Into<SharedString>, icon: &'static str) -> Entry {
@@ -210,7 +217,8 @@ impl Confirm {
 impl Render for Confirm {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
-        let size = window.viewport_size();
+        let room = crate::room::of(window, cx);
+        let size = room.size;
         let button = |id: &'static str, label: SharedString, primary: bool, yes: bool, cx: &Context<Self>| {
             let fill = if primary {
                 if self.danger { look.color(token::STATUS_COMPLETED_FAILED) } else { look.color(token::ACCENT) }
@@ -280,7 +288,7 @@ impl Render for Confirm {
                     .child(button("confirm-yes", self.confirm.clone(), true, true, cx)),
             );
         deferred(
-            anchored().position(point(gpui::px(0.), gpui::px(0.))).anchor(Anchor::TopLeft).child(
+            anchored().position(room.origin).anchor(Anchor::TopLeft).child(
                 labelled(
                     div()
                         .id("scrim")
@@ -452,6 +460,16 @@ impl JobView {
             });
         }
         groups.push(acts);
+        // The tab's own entries after the Job's acts, as Electron's `tabEntries`; Split and Move to window are held.
+        let zoomed = self.pane_zoomed(super::tabs::Pane::Thread);
+        groups.push(vec![Entry::Item {
+            id: "zoom",
+            label: if zoomed { "Restore" } else { "Zoom" }.into(),
+            icon: Some(if zoomed { "minimize-2" } else { "maximize-2" }),
+            danger: false,
+            key: Some("\u{2325}\u{2318}\u{21a9}".into()),
+            off: None,
+        }]);
         let mut ends = Vec::new();
         if self.fork_offered(id, cx) {
             ends.push(Entry::Item {
@@ -491,7 +509,7 @@ impl JobView {
             return;
         }
         let back = window.focused(cx);
-        let menu = cx.new(|cx| Dropdown::new("Tab actions", entries, at, Anchor::TopLeft, from_keys, cx));
+        let menu = cx.new(|cx| Dropdown::new("Tab actions", entries, at, Anchor::TopLeft, from_keys, cx).at_point(window, cx));
         let picked = cx.subscribe_in(&menu, window, |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id: act, .. } = picked;
             this.head_act(act, window, cx);
@@ -523,6 +541,7 @@ impl JobView {
         let encoded = |body: Result<String, ipc::Unencodable>| body;
         match act {
             "rename" => cx.defer_in(window, |this, window, cx| this.start_rename(window, cx)),
+            "zoom" => self.toggle_zoom(super::tabs::Pane::Thread, cx),
             "name" => {
                 self.overlay_mut(&id).naming = true;
                 self.ask_act(id, "/sessions/name".into(), encoded(ipc::encode(&ipc::NameSession { session_id })), |overlay| overlay.naming = false, window, cx);
@@ -738,7 +757,6 @@ impl JobView {
         let title: SharedString = self.title_of(id, cx).unwrap_or_else(|| "Thread".into());
         let name = self.tab_name(id, cx);
         let mark = mark_of(job, overlay);
-        let mono = look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default();
         let glyph = look.length(token::SPACE_4);
         let state = mark.map(|(icon, said, hue, working)| {
             let said_in: SharedString = format!("{said} \u{b7} {id}").into();
@@ -789,7 +807,6 @@ impl JobView {
                             cx.stop_propagation();
                         }
                     }))
-                    .font_family(mono.clone())
                     .text_size(look.length(token::TEXT_XS))
                     .text_color(look.color(token::FG_DEFAULT))
                     .child(Input::new(&rename.input).appearance(false).cleanable(false)),
@@ -802,7 +819,6 @@ impl JobView {
                 .flex_1()
                 .min_w_0()
                 .truncate()
-                .font_family(mono)
                 .text_size(look.length(token::TEXT_XS))
                 .line_height(look.length(token::LEADING_XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
@@ -811,6 +827,8 @@ impl JobView {
                 .tooltip(tip(title.clone()))
                 .into_any_element(),
         };
+        // A tab beside the thread in front takes the raised ground from it.
+        let thread_front = self.row_front(id).is_none();
         let tab = labelled(
             div()
                 .id("head-tab")
@@ -822,7 +840,11 @@ impl JobView {
                     cx.listener(|this, event: &MouseDownEvent, window, cx| this.open_head_menu(event.position, false, window, cx)),
                 )
                 .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
+                    this.front_thread();
+                    cx.notify();
                     if event.click_count() >= 2 {
+                        // The thread tab renames on a double press; the strip around it zooms.
+                        cx.stop_propagation();
                         this.start_rename(window, cx);
                     } else if !this.head.renaming() {
                         let tab = this.head.tab.clone();
@@ -837,17 +859,18 @@ impl JobView {
                 .items_center()
                 .gap(look.length(token::SPACE_2))
                 .pl(look.length(token::SPACE_3))
-                .pr(look.length(token::SPACE_1))
-                .bg(look.color(token::BG_RAISED))
+                .when(thread_front, |tab| tab.bg(look.color(token::BG_RAISED)))
                 .border_r(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_GLASS))
                 .children(state)
                 .child(label)
                 .children(stop)
-                .child(more),
+                .child(more)
+                .child(self.close_button("thread", &title, "head-tab".into(), thread_front, look, cx)),
             Role::Row,
             name,
         );
+        let tab = (!self.tab_closed("thread")).then_some(tab);
         let said = self.head.said.get(id).cloned().map(|why| {
             labelled(
                 div()
@@ -867,6 +890,14 @@ impl JobView {
             .flex_col()
             .child(
                 div()
+                    .id("thread-strip")
+                    // A press in the pane makes it the one ⌥⌘Enter zooms; a double press on the strip zooms it.
+                    .on_any_mouse_down(cx.listener(|this, _, _, _| this.pane_pressed(super::tabs::Pane::Thread)))
+                    .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
+                        if event.click_count() == 2 {
+                            this.toggle_zoom(super::tabs::Pane::Thread, cx);
+                        }
+                    }))
                     .flex_none()
                     .flex()
                     .items_stretch()
@@ -874,7 +905,21 @@ impl JobView {
                     .bg(look.color(token::BG_SUNKEN))
                     .border_b(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_GLASS))
-                    .child(div().max_w(look.length(token::SPACE_12) * 8.).min_w_0().flex().h_full().child(tab)),
+                    // Each tab keeps its width and the strip scrolls sideways, as `.job-pane__strip` does.
+                    .child(
+                        div()
+                            .id("thread-tabs")
+                            .flex()
+                            .items_stretch()
+                            .min_w_0()
+                            .overflow_x_scroll()
+                            .track_scroll(&self.row_strip)
+                            .children(tab.map(|tab| div().flex_none().max_w(look.length(token::SPACE_12) * 8.).flex().h_full().child(tab)))
+                            .children(self.row_tab_strip(id, look, cx))
+                            .children(self.view_tab_elements(super::ViewPane::Thread, look, cx)),
+                    )
+                    .child(self.add_button(super::tabs::Pane::Thread, look, cx))
+                    .children(self.strip_end(super::tabs::Pane::Thread, look, cx)),
             )
             .children(said)
             .children(self.head.menu.as_ref().map(|open| open.menu.clone()))
@@ -882,17 +927,15 @@ impl JobView {
             .into_any_element()
     }
 
-    /// The Jobs this one came from, above its thread: Forked from, Started by (1.6). A press opens
-    /// that Job.
-    pub(super) fn render_origin(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
+    /// The Jobs this one came from, above its thread: the conversation it was forked from, folded,
+    /// and Started by (1.6), whose press opens that Job.
+    pub(super) fn render_origin(&self, id: &SharedString, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
         let look = cx.look();
         let job = self.record(id, cx)?;
         let from = |kind: &str| job.attachments.iter().find(|one| one.kind == kind).map(|one| one.target.clone());
-        let lines: Vec<(&'static str, String)> = [("forked_from", "Forked from"), ("started_by", "Started by")]
-            .into_iter()
-            .filter_map(|(kind, words)| from(kind).map(|target| (words, target)))
-            .collect();
-        if lines.is_empty() {
+        let fork = self.render_forked_from(id, window, cx);
+        let lines: Vec<(&'static str, String)> = [("started_by", "Started by")].into_iter().filter_map(|(kind, words)| from(kind).map(|target| (words, target))).collect();
+        if lines.is_empty() && fork.is_none() {
             return None;
         }
         let rows = lines.into_iter().map(|(words, target)| {
@@ -926,8 +969,82 @@ impl JobView {
                 .gap(look.length(token::SPACE_2))
                 .px(look.length(token::SPACE_4))
                 .pt(look.length(token::SPACE_3))
+                .children(fork)
                 .children(rows)
                 .into_any_element(),
+        )
+    }
+
+    /// The conversation a fork began as a copy of, as Electron's `ForkedFrom` draws it: one quiet
+    /// row, closed until pressed, holding the origin's items up to the message it was forked at,
+    /// read only. A move carries its conversation into the thread instead, so it draws none here.
+    fn render_forked_from(&self, id: &SharedString, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
+        let look = cx.look();
+        let fork = self.record(id, cx)?.attachments.iter().find(|one| one.kind == "forked_from" && !one.detail.contains_key("moved"))?;
+        let (origin, at) = (fork.target.clone(), fork.detail.get("at").cloned());
+        let title: SharedString = self.record(&origin, cx).and_then(|job| job.title.clone()).unwrap_or_else(|| origin.clone()).into();
+        let name: SharedString = format!("Forked from {title}").into();
+        let page = self.pages.get(id)?;
+        let open = page.opened.contains(FORK_FOLD);
+        let (job, read) = (id.clone(), origin.clone());
+        let head = labelled(
+            div()
+                .id("forked-from")
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .px(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .text_color(look.color(token::FG_MUTED))
+                .cursor_pointer()
+                .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
+                .child(crate::titlebar::parts::glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3), look.color(token::FG_MUTED)))
+                .child(name.clone())
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    let Some(page) = this.pages.get_mut(&job) else { return };
+                    if !page.opened.remove(FORK_FOLD) {
+                        page.opened.insert(FORK_FOLD.to_string());
+                        // As it opens, the origin's thread is read if it is not held yet.
+                        if let (None, Some(fleet)) = (this.thread(&read, cx).map(|_| ()), this.fleet.clone()) {
+                            fleet.update(cx, |fleet, cx| fleet.read_thread(&read, false, cx));
+                        }
+                    }
+                    cx.notify();
+                })),
+            Role::Button,
+            name.clone(),
+        );
+        let rows = open.then(|| {
+            let items = self.thread(&origin, cx).map_or(&[][..], |held| up_to(&held.items, at.as_deref()));
+            let now = chrono::Local::now();
+            let drawn: Vec<AnyElement> = items
+                .iter()
+                .enumerate()
+                .filter_map(|(at, item)| {
+                    let next = items.get(at + 1).and_then(super::rows::began);
+                    self.item(FORK_ITEMS + at, item, false, next, page, look, now, window, cx)
+                })
+                .collect();
+            div()
+                .id("forked-from-rows")
+                .flex()
+                .flex_col()
+                .gap(self.row_gap(look))
+                .max_h(look.length(token::SPACE_12) * 6.)
+                .overflow_y_scroll()
+                .px(look.length(token::SPACE_3))
+                .pb(look.length(token::SPACE_3))
+                .children(drawn)
+        });
+        Some(
+            labelled(
+                div().id("forked-from-fold").flex_none().min_w_0().flex().flex_col().rounded(look.length(token::RADIUS_MD)).bg(look.color(token::BG_RAISED)).child(head).children(rows),
+                Role::Group,
+                name,
+            )
+            .into_any_element(),
         )
     }
 
@@ -964,6 +1081,28 @@ impl JobView {
                 .on_click(cx.listener(|this, _, window, cx| this.retry_handoff(window, cx))),
             Role::Button,
             "Retry",
+        );
+        let fix = labelled(
+            div()
+                .id("handoff-dispatch")
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .h(look.length(token::H_CONTROL))
+                .px(look.length(token::SPACE_3))
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_DEFAULT))
+                .bg(look.color(token::BG_RAISED))
+                .text_size(look.length(token::TEXT_XS))
+                .text_color(look.color(token::FG_DEFAULT))
+                .cursor_pointer()
+                .child("Dispatch job to fix")
+                .child(div().text_color(look.color(token::FG_SUBTLE)).child("d"))
+                .on_click(cx.listener(|this, _, window, cx| this.dispatch_handoff_fix(window, cx))),
+            Role::Button,
+            "Dispatch job to fix",
         );
         let band = labelled(
             div()
@@ -1010,7 +1149,8 @@ impl JobView {
                         .border_color(hue)
                         .bg(look.color(token::BG_RAISED))
                         .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(why))
-                        .child(retry),
+                        .child(retry)
+                        .child(fix),
                 )
                 .into_any_element(),
         )
@@ -1023,6 +1163,50 @@ impl JobView {
         self.to_composer(window, cx);
         let body = ipc::encode(&ipc::RetryHandoff { session_id: Self::session_id(&id) });
         self.ask_act(id, "/sessions/handoff/retry".into(), body, |overlay| overlay.retried = false, window, cx);
+    }
+
+    /// Dispatch job to fix (`handoff_dispatch`, `d`): a Job on Armada's own repository, told the failure, and
+    /// opened, as Electron's failure toast dispatches one (`failure-session.ts`).
+    pub(super) fn dispatch_handoff_fix(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let Some(record) = self.record(&id, cx).cloned() else { return };
+        let Some(manifest_id) = self.report_manifest(&record, cx) else { return };
+        let reason = record.attachments.iter().find(|one| one.kind == "handoff_failed").and_then(|one| one.detail.get("reason").cloned());
+        let mut text = format!("Failed to hand off to new job\n\ncode: handoff_failed\nsession_id: {id}");
+        if let Some(reason) = reason {
+            text.push_str(&format!("\nreason: {reason}"));
+        }
+        let start = ipc::StartSession {
+            manifest_id,
+            title: None,
+            model: None,
+            effort: None,
+            mode: None,
+            fork: None,
+            root: None,
+            request: None,
+            after: None,
+            held: false,
+            project_rows: Vec::new(),
+            on_your_words: None,
+            project: None,
+        };
+        let done: Done = Box::new(move |this, answer, window, cx| {
+            let Ok(bytes) = answer else { return };
+            let Ok(started) = ipc::decode::<SessionRecord>("SessionRecord", &bytes) else { return };
+            let fixer = started.id.as_str().to_string();
+            let body = ipc::SendSessionMessageBody {
+                message: ipc::SendSessionMessage { session_id: SessionId::carried(fixer.clone()), text, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() },
+                aim: None,
+            };
+            let opened: Done = Box::new(move |this, answer, _, cx| {
+                if answer.is_ok() {
+                    this.open_job(fixer, cx);
+                }
+            });
+            this.post("/sessions/message".into(), ipc::encode(&body), window, cx, opened);
+        });
+        self.post("/sessions/start".into(), ipc::encode(&start), window, cx, done);
     }
 
     /// Whether `r` presses Retry: the band is up and has the keys.
@@ -1044,49 +1228,75 @@ impl JobView {
         let pending = self.fleet.is_some();
         let overlay = self.head.overlays.get(id.as_str());
         let sending = |was: bool, now: bool| pending && was != now;
-        let acts = (hosted && live).then(|| {
+        // Land, Pause and Release act on a hosted Job that is live; the Judge reads any Job.
+        let hosted_acts = hosted && live;
+        let land_act = hosted_acts.then(|| {
             let land_tip: SharedString =
                 if overlay.and_then(|overlay| overlay.auto_land).is_some() && sending(job.auto_land, land) { "Sending".into() } else if land { "Auto land on".into() } else { "Auto land off".into() };
+            labelled(
+                act_button(look, "act-land", "plane-landing", "land", land_tip, land, false).on_click(cx.listener(|this, _, window, cx| this.head_act("land", window, cx))),
+                Role::Button,
+                "Auto land",
+            )
+        });
+        let pause_act = hosted_acts.then(|| {
             let paused_was = job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
             let pause_name: SharedString = if paused { "Resume".into() } else { "Pause".into() };
             let pause_tip: SharedString = if sending(paused_was, paused) { "Sending".into() } else if paused { "Paused".into() } else { "Pause".into() };
+            labelled(
+                act_button(look, "act-pause", if paused { "play" } else { "circle-pause" }, "pause", pause_tip, paused, false).on_click(cx.listener(
+                    move |this, _, window, cx| this.head_act(if paused { "resume" } else { "pause" }, window, cx),
+                )),
+                Role::Button,
+                pause_name,
+            )
+        });
+        let release_act = hosted_acts.then(|| {
             let holds = !self.holds(id, cx).is_empty();
             let release_tip: SharedString = if holds { "Release or hand over everything the Job holds".into() } else { "The Job holds nothing".into() };
             labelled(
-                div()
-                    .id("job-acts")
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_1))
-                    .child(labelled(
-                        icon_button(look, "act-land", "plane-landing", land_tip, land, false).on_click(cx.listener(|this, _, window, cx| this.head_act("land", window, cx))),
-                        Role::Button,
-                        "Auto land",
-                    ))
-                    .child(labelled(
-                        icon_button(look, "act-pause", if paused { "play" } else { "circle-pause" }, pause_tip, paused, false).on_click(cx.listener(
-                            move |this, _, window, cx| this.head_act(if paused { "resume" } else { "pause" }, window, cx),
-                        )),
-                        Role::Button,
-                        pause_name,
-                    ))
-                    .child(labelled(
-                        icon_button(look, "act-release", "unplug", release_tip, false, !holds).on_click(cx.listener(|this, _, window, cx| this.head_act("release", window, cx))),
-                        Role::Button,
-                        "Release everything the Job holds",
-                    )),
-                Role::Toolbar,
-                "Job acts",
+                act_button(look, "act-release", "unplug", "release", release_tip, false, !holds).on_click(cx.listener(|this, _, window, cx| this.head_act("release", window, cx))),
+                Role::Button,
+                "Release everything the Job holds",
             )
         });
-        // The context ring after the acts, as `SessionFrame`'s tools order it. Compact goes as a line, as a
-        // quick line does: the native app types into no terminal, so Fleet refuses what it cannot deliver.
-        let ring = crate::context_ring::Fill::of(&job.usage, job.context_breakdown.as_ref(), job.compact).map(|fill| {
+        let acts = Some(labelled(
+            div()
+                .id("job-acts")
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .children(land_act)
+                .children(pause_act)
+                .child(self.judge_act(id, &look, cx))
+                .child(self.report_act(id, cx))
+                .children(release_act),
+            Role::Toolbar,
+            "Job acts",
+        ));
+        // The context ring after the acts, as `SessionFrame`'s tools order it. Compact goes as Fleet says the Job
+        // takes it (`compact-act.ts`): a hosted Job's as a line, a terminal Job's as the command its mod runs.
+        let ring = crate::context_ring::Fill::of(&job.usage, job.context_breakdown.as_ref(), job.compact).map(|mut fill| {
+            fill.refused = self.compact_refused.get(id.as_ref()).cloned();
             let me = cx.entity().downgrade();
-            crate::context_ring::ContextRing::new(id.clone(), Some(fill)).on_compact(Rc::new(move |_, window, cx| {
-                if let Some(me) = me.upgrade() {
-                    me.update(cx, |this, cx| this.send_line("/compact".into(), window, cx));
-                }
+            let job_id = id.clone();
+            crate::context_ring::ContextRing::new(id.clone(), Some(fill)).on_compact(Rc::new(move |how, window, cx| {
+                let Some(me) = me.upgrade() else { return };
+                let job_id = job_id.clone();
+                me.update(cx, |this, cx| {
+                    this.compact_refused.remove(&job_id);
+                    match how {
+                        ipc::CompactHow::Message => this.send_line("/compact".into(), window, cx),
+                        ipc::CompactHow::Terminal => {
+                            let body = ipc::encode(&ipc::RunSessionCommand { session_id: ipc::SessionId::carried(job_id.to_string()), command: "/compact".into() }).map_err(|why| format!("{why:?}"));
+                            let refused = job_id.clone();
+                            this.post_with(job_id, "/sessions/command", body, move |this, why, cx| {
+                                this.compact_refused.insert(refused, format!("Compact not sent: {why}").into());
+                                cx.notify();
+                            }, window, cx);
+                        }
+                    }
+                });
             }))
         });
         let marks = {
@@ -1168,5 +1378,97 @@ impl JobView {
                 .child(marks)
                 .into_any_element(),
         )
+    }
+}
+
+/// The key the fork's fold keeps its open state under, among a page's opened folds.
+const FORK_FOLD: &str = "forked-from";
+
+/// Where the fork's fold numbers its origin's items: far past any list element, so a fold one of
+/// them opens measures nothing in the list.
+const FORK_ITEMS: usize = usize::MAX / 2;
+
+/// The origin's items up to and including the one holding the message it was forked at, as
+/// Electron's `upTo` cuts its rows: all of them with no message named, none where it is not held.
+fn up_to<'a>(items: &'a [ThreadItem], at: Option<&str>) -> &'a [ThreadItem] {
+    let Some(at) = at else { return items };
+    let holds = |item: &ThreadItem| match item {
+        ThreadItem::Row { row } => row.id() == at,
+        ThreadItem::Calls { rows, .. } | ThreadItem::Checks { rows, .. } => rows.iter().any(|row| row.id() == at),
+        ThreadItem::FleetTurn { notice, rows, .. } => notice.id() == at || rows.iter().any(|row| row.id() == at),
+        other => other.id() == at,
+    };
+    items.iter().position(holds).map_or(&[][..], |end| &items[..=end])
+}
+
+/// The toolbelt's keys, as Electron's flight controls wear them (`flight-order.ts`): ⌥⇧6 Auto land,
+/// ⌥⇧7 Judge, ⌥⇧8 Report, ⌥⇧9 Release, and `p` Pause. ⌥⇧1 to ⌥⇧5 are the Job head's views.
+const TILE_KEYS: [(&str, &str); 7] = [("land", "alt-shift-6"), ("judge", "alt-shift-7"), ("report", "alt-shift-8"), ("release", "alt-shift-9"), ("pause", "p"), ("ledger", "alt-l"), ("whole", "alt-n")];
+
+/// A toolbelt act's tooltip, with the key it wears beside the sentence, as Electron's `Tooltip shortcut`.
+pub(super) fn keyed_tip(act: &str, said: SharedString) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
+    let key = TILE_KEYS.iter().find(|(one, _)| *one == act).and_then(|(_, key)| gpui::Keystroke::parse(key).ok());
+    move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx)
+}
+
+impl JobView {
+    /// A press of a toolbelt act's key, from anywhere on the deck but a text box, where ⌥⇧ types a
+    /// character, and not while a dialog or menu is over the Job. ⌥L and ⌥N reach into a text box.
+    pub fn tile_key(&mut self, event: &gpui::KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(id) = self.shown.clone() else { return false };
+        if self.reporting.is_some() || self.head.confirm.is_some() || self.composer.popup.is_some() {
+            return false;
+        }
+        if self.zoom_key(event, window, cx) {
+            return true;
+        }
+        let keys = &event.keystroke;
+        // Done's By step and By kind (`LEDGER_KEY`), from the message box too, as Classic's window
+        // listener takes it (`SessionWorkspace.tsx`).
+        let alone = keys.modifiers.alt && !keys.modifiers.shift && !keys.modifiers.platform && !keys.modifiers.control;
+        if alone && keys.key == "l" {
+            self.turn_ledger_view(cx);
+            return true;
+        }
+        // A zone of the column (`ZONE_KEYS`), from the message box too.
+        if let Some(area) = super::spine::Area::of_digit(&keys.key).filter(|_| alone) {
+            self.spine_key(area, window, cx);
+            return true;
+        }
+        // The Workflow tab forward with the keys on its lanes (`WORKFLOW_KEY`), from the message box too.
+        if alone && keys.key == "w" {
+            self.lanes_forward(window, cx);
+            return true;
+        }
+        // The whole plan (`WHOLE_KEY`), on a Job in panes its Plan tab, from the same listener.
+        if alone && keys.key == "n" && self.record(&id, cx).is_some_and(|job| job.plan.is_some()) {
+            self.add_tab("plan", window, cx);
+            return true;
+        }
+        if window.context_stack().iter().any(|context| context.contains(crate::keymap::TEXT_BOX)) {
+            return false;
+        }
+        let bare = !keys.modifiers.modified();
+        let chord = keys.modifiers.alt && keys.modifiers.shift && !keys.modifiers.platform && !keys.modifiers.control;
+        let hosted = self.record(&id, cx).is_some_and(|job| job.hosted.is_some()) && !self.closed(&id, cx);
+        match (chord, bare, keys.key.as_str()) {
+            (true, _, "6") if hosted => self.head_act("land", window, cx),
+            (true, _, "7") => self.open_judge_pane(window, cx),
+            (true, _, "8") if self.record(&id, cx).is_some_and(|record| self.report_manifest(record, cx).is_some()) => self.toggle_report(window, cx),
+            (true, _, "9") if hosted && !self.holds(&id, cx).is_empty() => self.head_act("release", window, cx),
+            (_, true, "p") if hosted => {
+                let paused = self.paused(&id, cx);
+                self.head_act(if paused { "resume" } else { "pause" }, window, cx);
+            }
+            _ => return false,
+        }
+        true
+    }
+}
+
+impl JobView {
+    /// Whether the keys are on the thread's tab.
+    pub(super) fn head_tab_focused(&self, window: &Window, cx: &App) -> bool {
+        self.head.tab.contains_focused(window, cx)
     }
 }

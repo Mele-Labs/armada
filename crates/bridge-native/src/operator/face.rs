@@ -49,8 +49,8 @@ pub fn kind_of(turn: &OperatorTurnItem) -> Kind {
         (WaitingSource::Document, _) => kind("Document", "file-text", REVIEW),
         (WaitingSource::Draft, _) => kind("Draft", "file-pen-line", REVIEW),
         (WaitingSource::Permission, _) => kind("Permission", "shield", REVIEW),
-        (WaitingSource::AskCard, _) | (WaitingSource::WindowAsk, _) => kind("Question", "message-circle-question", REVIEW),
-        _ if !item.options.is_empty() => kind("Question", "message-circle-question", REVIEW),
+        (WaitingSource::AskCard, _) | (WaitingSource::WindowAsk, _) => kind("Question", "message-circle-question-mark", REVIEW),
+        _ if !item.options.is_empty() => kind("Question", "message-circle-question-mark", REVIEW),
         (_, Some(WaitingActKind::Run)) => kind("Command", "terminal", REVIEW),
         (_, Some(WaitingActKind::Message)) => kind("Message", "square-pen", REVIEW),
         _ => kind("Needs you", "bell-ring", REVIEW),
@@ -91,10 +91,80 @@ pub fn pick_of(turn: &OperatorTurnItem) -> Option<SharedString> {
     turn.read.as_ref().map(|read| read.pick.trim()).filter(|pick| !pick.is_empty()).map(|pick| SharedString::from(pick.to_string()))
 }
 
+/// The word on the pick's button: the option it names, exactly as labelled, Later, or else "My pick",
+/// whose sentence goes in its tooltip, never in the button (his ruling, 12 Nov). `chosen` is his own
+/// pick among the options. With no pick, Yes.
+pub fn pick_word(turn: &OperatorTurnItem, chosen: Option<&str>) -> SharedString {
+    let pick = chosen.map(SharedString::from).or_else(|| pick_of(turn));
+    match pick {
+        None => "Yes".into(),
+        Some(pick) if is_later(&pick) || turn.item.options.iter().any(|option| option.label == pick.as_ref()) => pick,
+        Some(_) => "My pick".into(),
+    }
+}
+
+/// The pick's sentence, where its button cannot say it: a pick that is neither an option nor Later.
+pub fn pick_sentence(turn: &OperatorTurnItem) -> Option<SharedString> {
+    pick_of(turn).filter(|pick| !is_later(pick) && !turn.item.options.iter().any(|option| option.label == pick.as_ref()))
+}
+
+/// Whether the Operator's pick is Later, which a Yes does.
+pub fn picks_later(turn: &OperatorTurnItem) -> bool {
+    pick_of(turn).is_some_and(|pick| is_later(&pick))
+}
+
+fn is_later(pick: &str) -> bool {
+    pick.eq_ignore_ascii_case("later")
+}
+
+/// The Later menu: each choice's id, its words, and when it brings the item back, from `now`. A
+/// morning is 09:00; next week is Monday's.
+pub fn later_choices(now: DateTime<Local>) -> [(&'static str, &'static str, DateTime<Local>); 4] {
+    let nine = |days: u64| {
+        (now.date_naive() + chrono::Days::new(days)).and_hms_opt(9, 0, 0).and_then(|at| at.and_local_timezone(Local).earliest()).unwrap_or(now + chrono::Duration::days(days as i64))
+    };
+    let to_monday = 7 - u64::from(chrono::Datelike::weekday(&now).num_days_from_monday());
+    [
+        ("later_hour", "1 hour", now + chrono::Duration::hours(1)),
+        ("later_hours", "3 hours", now + chrono::Duration::hours(3)),
+        ("later_morning", "Tomorrow morning", nine(1)),
+        ("later_week", "Next week", nine(to_monday)),
+    ]
+}
+
+/// When a Later item comes back, as the menu and its tooltip say it: `15:05`, `tomorrow 09:00`,
+/// `Mon 16 Nov 09:00`.
+pub fn back_at(at: DateTime<Local>, now: DateTime<Local>) -> String {
+    let time = at.format("%H:%M").to_string();
+    let days = (at.date_naive() - now.date_naive()).num_days();
+    match days {
+        0 => time,
+        1 => format!("tomorrow {time}"),
+        _ => format!("{} {time}", at.format("%a %-d %b")),
+    }
+}
+
+/// What a Later item's mark says: when it comes back, or the rest of today where Fleet gave no time.
+pub fn later_said(turn: &OperatorTurnItem, now: DateTime<Local>) -> String {
+    let at = turn.later_until.as_ref().and_then(|at| DateTime::parse_from_rfc3339(at.as_str()).ok());
+    match at {
+        Some(at) => format!("Later, until {}", back_at(at.with_timezone(&Local), now)),
+        None => "Later today".into(),
+    }
+}
+
+/// Whether the card offers the item's options to choose from: more than one, and no Then in their place.
+pub fn chooses(turn: &OperatorTurnItem) -> bool {
+    turn.then.is_empty() && turn.item.options.len() > 1
+}
+
 /// The answers drawn on the open item, in order, as the approved sketch offers them: a go-ahead Fleet can
 /// keep a rule for takes Yes, Always here, Always and No; anything else takes its pick alone.
 pub fn answers_of(turn: &OperatorTurnItem) -> Vec<OperatorAnswer> {
-    if turn.keeps {
+    // A go-ahead to file is one row of outcomes, Don't file among them; a rule is offered after he answers.
+    if !turn.then.is_empty() {
+        vec![OperatorAnswer::Yes, OperatorAnswer::No]
+    } else if turn.keeps {
         vec![OperatorAnswer::Yes, OperatorAnswer::AlwaysHere, OperatorAnswer::Always, OperatorAnswer::No]
     } else {
         vec![OperatorAnswer::Yes]
@@ -128,12 +198,12 @@ pub fn answer_word(answer: OperatorAnswer) -> &'static str {
 /// A Then offered on a go-ahead to file, in the sketch's words and glyph.
 /// What an answer's tooltip says it does on this item: the act Yes does, by the Then picked or the
 /// Operator's pick, and where Always here and Always keep it as a rule. A decision's says what it asks.
-pub fn answer_tip(turn: &OperatorTurnItem, answer: OperatorAnswer, then: Option<OperatorThen>) -> String {
+pub fn answer_tip(turn: &OperatorTurnItem, answer: OperatorAnswer, then: Option<OperatorThen>, option: Option<&str>) -> String {
     if turn.kind == OperatorTurnKind::Decision {
         return turn.item.text.clone();
     }
     let hand_to = turn.then.iter().find_map(|offer| offer.hand_to.as_ref()).map(|to| to.job.as_str());
-    let act = then.map(|then| then_said(then, hand_to).0.to_string()).or_else(|| pick_of(turn).map(|pick| pick.to_string())).unwrap_or_else(|| "Do my pick".into());
+    let act = then.map(|then| then_said(then, hand_to).0.to_string()).or_else(|| option.map(str::to_string)).or_else(|| pick_of(turn).map(|pick| pick.to_string())).unwrap_or_else(|| "Do my pick".into());
     let here = turn.repository.as_deref().unwrap_or("this project");
     match answer {
         OperatorAnswer::Yes => format!("{act}, this once"),
@@ -145,23 +215,24 @@ pub fn answer_tip(turn: &OperatorTurnItem, answer: OperatorAnswer, then: Option<
 
 pub fn then_said(then: OperatorThen, hand_to: Option<&str>) -> (SharedString, &'static str) {
     match then {
-        OperatorThen::JustFile => ("Just file it".into(), "file"),
+        OperatorThen::JustFile => ("File it".into(), "file"),
         OperatorThen::FileAndStart => ("File and start a Job".into(), "play"),
         OperatorThen::FileAndHand => (format!("File and hand to {}", hand_to.unwrap_or("the Job on these files")).into(), "git-branch"),
+    }
+}
+
+/// What an outcome of a go-ahead to file does, for its tooltip.
+pub fn then_does(then: OperatorThen, hand_to: Option<&str>) -> String {
+    match then {
+        OperatorThen::JustFile => "File the note as an issue".into(),
+        OperatorThen::FileAndStart => "File the note as an issue, and start a Job on it".into(),
+        OperatorThen::FileAndHand => format!("File the note as an issue, and hand it to {}", hand_to.unwrap_or("the Job on these files")),
     }
 }
 
 /// `Wednesday 11 November`.
 pub fn day(at: &DateTime<Local>) -> SharedString {
     at.format("%A %-d %B").to_string().into()
-}
-
-/// The head's week pill, which `operator_page` does not serve: the title bar's reading, or the walk's mock.
-/// The mains and the slots are the page's own.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Standing {
-    /// The week's share of the plan used, in whole percent.
-    pub week: Option<u32>,
 }
 
 /// A main's pill: what its tooltip says, and its mark and hue where Fleet has read a state that has one.
@@ -203,11 +274,11 @@ mod tests {
     fn each_answer_says_what_it_does_on_the_item() {
         const NOTE: &str = r#"{"id":"turn:3","kind":"go_ahead","repository":"armada","item":{"id":"note","text":"the slot meter flickers","since":"2026-11-11T11:52:00Z","source":"agent"},"read":{"read":"No issue covers it.","pick":"File and hand to Slot pool controls"},"then":[{"then":"just_file"},{"then":"file_and_hand","hand_to":{"session_id":"s-5","job":"Slot pool controls"},"pick":true}],"raised_at":"2026-11-11T12:00:00Z","keeps":true}"#;
         let note = turn(NOTE);
-        assert_eq!(answer_tip(&note, OperatorAnswer::Yes, Some(OperatorThen::FileAndHand)), "File and hand to Slot pool controls, this once");
-        assert_eq!(answer_tip(&note, OperatorAnswer::Yes, Some(OperatorThen::JustFile)), "Just file it, this once");
-        assert_eq!(answer_tip(&note, OperatorAnswer::AlwaysHere, Some(OperatorThen::FileAndHand)), "File and hand to Slot pool controls, and do the same in armada from now on without asking");
-        assert_eq!(answer_tip(&note, OperatorAnswer::No, None), "Do nothing, and it leaves Your turn");
-        assert_eq!(answer_tip(&turn(PLAN), OperatorAnswer::Yes, None), "Approve plan version 2");
+        assert_eq!(answer_tip(&note, OperatorAnswer::Yes, Some(OperatorThen::FileAndHand), None), "File and hand to Slot pool controls, this once");
+        assert_eq!(answer_tip(&note, OperatorAnswer::Yes, Some(OperatorThen::JustFile), None), "File it, this once");
+        assert_eq!(answer_tip(&note, OperatorAnswer::AlwaysHere, Some(OperatorThen::FileAndHand), None), "File and hand to Slot pool controls, and do the same in armada from now on without asking");
+        assert_eq!(answer_tip(&note, OperatorAnswer::No, None, None), "Do nothing, and it leaves Your turn");
+        assert_eq!(answer_tip(&turn(PLAN), OperatorAnswer::Yes, None, None), "Approve plan version 2");
     }
 
     #[test]

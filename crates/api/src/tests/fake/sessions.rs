@@ -20,6 +20,7 @@ impl Sessions for FakeDaemon {
         let at = ipc::Instant::carried("2026-10-06T09:00:00.000Z");
         Ok(SessionRecord {
             id: report.session_id,
+            mac: None,
             harness: report.harness,
             origin: SessionOrigin::Terminal,
             manifest_id: None,
@@ -751,6 +752,7 @@ impl Sessions for FakeDaemon {
     async fn keep_bug_report(&self, report_id: String) -> Result<ipc::BugReport, Refusal> {
         Ok(ipc::BugReport {
             id: report_id,
+            mac: None,
             session_id: String::from("session"),
             job_title: String::new(),
             title: String::from("Title"),

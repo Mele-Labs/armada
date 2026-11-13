@@ -14,8 +14,9 @@
 //! draws it with nothing served draws nothing.
 
 mod fix;
+mod live;
 mod scenes;
-mod words;
+pub(crate) mod words;
 
 pub use scenes::{apply, begin, end};
 
@@ -30,7 +31,7 @@ use gpui::{
     WeakEntity, Window,
 };
 use ipc::{
-    HeldCheckout, HubPullRequest, MainRedJob, MainView, MergeLineView, StandingCall, StandingCallKind,
+    HeldCheckout, HubPullRequest, MainRedJob, MainView, MergeLineView, PullTone, StandingCall, StandingCallKind,
 };
 
 use crate::dropdown::{Dropdown, Entry, Picked, Row};
@@ -38,36 +39,17 @@ use crate::inspect::{self, Fact, Spec, State, Width};
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
-use crate::titlebar::parts::{glyph, mono, no_drag, small, tip, Btn, Weight};
+use crate::titlebar::parts::{glyph, mono, small, tip, Btn, Weight};
 use words::{check_of, commits, hue_of, is_queued, reading_of, read_said, review_said, span_said, PullState, MERGE_BY_HAND};
 
 /// How long the stacked line rests on one repository before it moves to the next.
 const ROTATE: Duration = Duration::from_secs(15);
 
-/// A chip's tone, which the strip's dot takes over its state: a pull request that is red, one the
-/// person can merge, or neither. Fleet sends no field for it, so the head that knows the Job gives it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Tone {
-    Calm,
-    Ask,
-    Bad,
-}
-
-/// What the Jobs know of one pull request, which Fleet's view does not carry: the Job that holds it,
-/// and the tone its dot takes.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Held {
-    pub number: u64,
-    /// The Job that holds the pull request, by id and title.
-    pub job: Option<(SharedString, SharedString)>,
-    pub tone: Tone,
-}
-
-/// One repository's line: Fleet's view of it, and what the Jobs add.
+/// One repository's line, as Fleet's view reads it: each pull request carries the Job that holds it and
+/// its chip's tone.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Line {
     pub view: MergeLineView,
-    pub held: Vec<Held>,
 }
 
 /// A Job the red main's work could be sent back to.
@@ -101,8 +83,6 @@ pub struct Strip {
 /// What a press on the strip asks of the rest of the app. The wiring sends these; the walk reads none.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Asked {
-    /// The Merge line page.
-    MergeLine,
     /// A pull request, in the side panel.
     OpenPull { root: String, number: u64 },
     OpenJob(SharedString),
@@ -138,9 +118,24 @@ pub fn live(cx: &App) -> Option<gpui::Entity<MergeStrip>> {
     cx.try_global::<Live>().and_then(|live| live.0.upgrade())
 }
 
-/// The strip for the Jobs screen to draw as its last child.
-pub fn strip(window: &mut Window, cx: &mut App) -> AnyElement {
-    window.use_keyed_state("merge-strip", cx, |window, cx| MergeStrip::new(window, cx)).into_any_element()
+/// The title bar's reading of the live link: whether Fleet is on standby.
+pub fn set_standby(standby: bool, cx: &mut App) {
+    if let Some(strip) = live(cx) {
+        strip.update(cx, |strip, cx| {
+            if strip.standby != standby {
+                strip.standby = standby;
+                strip.card = None;
+                cx.notify();
+            }
+        });
+    }
+}
+
+/// The strip for the Jobs screen to draw as its last child. On a live Fleet it follows Fleet's merge
+/// lines, the title bar's pick and the open Job.
+pub fn strip(list: &Entity<crate::jobs::JobsList>, window: &mut Window, cx: &mut App) -> AnyElement {
+    let list = list.clone();
+    window.use_keyed_state("merge-strip", cx, move |window, cx| MergeStrip::new(&list, window, cx)).into_any_element()
 }
 
 /// `q`, the merge queue's panel key (`deck_panel`, scope deck, its fourth slot): the keys go to the
@@ -201,14 +196,27 @@ pub struct MergeStrip {
     menu: Option<ChipMenu>,
     /// The dialog a red band's act opened (`fix.rs`).
     fix: Option<fix::FixDialog>,
+    /// Fleet, the Jobs and the title bar, on a live Fleet; none on mock Jobs.
+    source: Option<live::Source>,
+    /// Fleet's words for an act it refused, by the chip or light it came from (`pull:<root>#<n>`, `main:<root>`),
+    /// drawn there until that act is asked again. Toasts take them once this app draws toasts.
+    refused: HashMap<SharedString, SharedString>,
+    /// Fleet is coming back inside its grace: the strip keeps its frame and hides what it holds, as
+    /// Electron's deck does on standby (`deck/power.css`). What Fleet last said is drawn again once it
+    /// answers or the grace runs out.
+    standby: bool,
     _rotate: Task<()>,
     _focus_in: Subscription,
     _focus_out: Subscription,
 }
 
 impl MergeStrip {
-    fn new(window: &mut Window, cx: &mut Context<Self>) -> MergeStrip {
+    fn new(list: &Entity<crate::jobs::JobsList>, window: &mut Window, cx: &mut Context<Self>) -> MergeStrip {
         let data = cx.try_global::<Opening>().map(|opening| opening.0.clone()).unwrap_or_default();
+        let source = live::Source::of(list, cx);
+        if source.is_some() {
+            cx.spawn(async move |this, cx| this.update(cx, |this, cx| this.follow(cx))).detach();
+        }
         cx.set_global(Live(cx.entity().downgrade()));
         let focus = cx.focus_handle();
         let focus_in = cx.on_focus_in(&focus, window, |this, _, cx| {
@@ -254,6 +262,9 @@ impl MergeStrip {
             by_keys: None,
             menu: None,
             fix: None,
+            source,
+            refused: HashMap::new(),
+            standby: false,
             _rotate: rotate,
             _focus_in: focus_in,
             _focus_out: focus_out,
@@ -261,7 +272,6 @@ impl MergeStrip {
     }
 
     /// New data, as Fleet's last answer made it. A main that turned red brings its row into view.
-    #[allow(dead_code)]
     pub fn set(&mut self, data: Strip, cx: &mut Context<Self>) {
         let was_red: Vec<bool> = self.data.lines.iter().map(|line| matches!(line.view.main, Some(MainView::Red { .. }))).collect();
         self.data = data;
@@ -432,7 +442,7 @@ impl MergeStrip {
         }
         entries.push(Entry::Row(Row::new("refresh", "Refresh")));
         let name = format!("Pull request #{number}");
-        let dropdown = cx.new(|cx| Dropdown::new(name, entries, at, Anchor::TopLeft, from_keys, cx));
+        let dropdown = cx.new(|cx| Dropdown::new(name, entries, at, Anchor::TopLeft, from_keys, cx).at_point(window, cx));
         let picked = cx.subscribe_in(&dropdown, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
             this.menu = None;
@@ -569,8 +579,8 @@ struct Dot<'a> {
     says: &'static str,
     queued: bool,
     place: Option<u32>,
-    tone: Tone,
-    job: Option<&'a (SharedString, SharedString)>,
+    tone: PullTone,
+    job: Option<(SharedString, SharedString)>,
     related: bool,
 }
 
@@ -583,7 +593,7 @@ impl Dot<'_> {
         if self.pull.merge_by_hand {
             parts.push(MERGE_BY_HAND.to_string());
         }
-        if let Some((_, title)) = self.job {
+        if let Some((_, title)) = &self.job {
             parts.push(format!("Job: {title}"));
         }
         parts.join(" · ")
@@ -591,9 +601,9 @@ impl Dot<'_> {
 
     fn hue(&self, look: &Look) -> Hsla {
         match self.tone {
-            Tone::Bad => look.color(token::STATUS_COMPLETED_FAILED),
-            Tone::Ask => look.color(token::STATUS_AWAITING_REVIEW),
-            Tone::Calm => look.color(hue_of(self.state)),
+            PullTone::Bad => look.color(token::STATUS_COMPLETED_FAILED),
+            PullTone::Ask => look.color(token::STATUS_AWAITING_REVIEW),
+            PullTone::Calm => look.color(hue_of(self.state)),
         }
     }
 }
@@ -606,15 +616,14 @@ fn dots_of<'a>(line: &'a Line, related: &[u64]) -> Vec<Dot<'a>> {
             // Fleet's view wraps each pull request with who holds it and how its chip reads; the strip reads the pull request.
             let pull = &view.pull;
             let reading = reading_of(pull);
-            let held = line.held.iter().find(|one| one.number == pull.number);
             Dot {
                 pull,
                 state: reading.state,
                 says: reading.says,
                 queued: is_queued(pull),
                 place: pull.queue.as_ref().and_then(|queue| queue.position),
-                tone: held.map_or(Tone::Calm, |one| one.tone),
-                job: held.and_then(|one| one.job.as_ref()),
+                tone: view.tone,
+                job: view.held_by.as_ref().map(|job| (job.id.clone().into(), job.title.clone().unwrap_or_else(|| job.id.clone()).into())),
                 related: related.contains(&pull.number),
             }
         })
@@ -746,6 +755,7 @@ impl MergeStrip {
             }))
             .child(if calling { pulse(dot_mark, SharedString::from(format!("calling-{id}")), look) } else { dot_mark.into_any_element() })
             .child(format!("#{number}"))
+            .children(self.refused_mark(&format!("pull:{}#{number}", self.data.lines[line].view.root), &id, look))
             .children(dot.pull.merge_by_hand.then(|| {
                 labelled(
                     div()
@@ -780,6 +790,19 @@ impl MergeStrip {
                 this.open_chip_menu(line, number, at, true, window, cx);
             }));
         labelled(body, Role::Button, name).into_any_element()
+    }
+
+    /// A red mark where Fleet refused an act asked from here, Fleet's words its tooltip.
+    fn refused_mark(&self, key: &str, id: &SharedString, look: &Look) -> Option<AnyElement> {
+        let said = self.refused.get(key)?.clone();
+        Some(
+            labelled(
+                div().id(SharedString::from(format!("refused-{id}"))).flex_none().child(glyph("circle-x", look.length(token::SPACE_3), look.color(token::STATUS_COMPLETED_FAILED))).tooltip(tip(said.clone())),
+                Role::Image,
+                said,
+            )
+            .into_any_element(),
+        )
     }
 
     /// Main's light. Green with the forge answering is a picture; red or a held checkout is a button
@@ -832,6 +855,7 @@ impl MergeStrip {
                     said,
                 )
             }))
+            .children(self.refused_mark(&format!("main:{}", one.view.root), &id, look))
             .child(name);
         if !red && held.is_none() {
             // A picture: its tooltip is the sentence, then how old the reading is.
@@ -895,12 +919,10 @@ impl MergeStrip {
         out
     }
 
-    /// The row of one repository: main's light, then its chips, scrolling across.
+    /// The row of one repository: main's light stands still, and its chips scroll across behind it.
     fn row_of(&self, line: usize, grouped: bool, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
-        let mut items = vec![self.light(line, grouped, cx)];
-        items.extend(self.chips_of(line, cx));
-        div()
+        let chips = div()
             .id(SharedString::from(format!("chips-{line}")))
             .flex_1()
             .min_w_0()
@@ -920,7 +942,15 @@ impl MergeStrip {
                     cx.stop_propagation();
                 }
             }))
-            .children(items)
+            .children(self.chips_of(line, cx));
+        div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .child(div().flex_none().child(self.light(line, grouped, cx)))
+            .child(chips)
             .into_any_element()
     }
 
@@ -1047,7 +1077,7 @@ impl MergeStrip {
         if pull.merge_by_hand {
             rows.push(Fact::new("Merge", MERGE_BY_HAND));
         }
-        let job = dot.job.cloned();
+        let job = dot.job.clone();
         let spec = Spec {
             kind_glyph: "git-pull-request",
             kind: "Pull request".into(),
@@ -1369,7 +1399,22 @@ impl Render for MergeStrip {
         }
 
         let grouped = shown.len() > 1;
-        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+        if self.standby {
+            // The frame stands at its height with nothing in it until Fleet answers or the grace runs out.
+            return labelled(
+                div()
+                    .id("merge-strip")
+                    .flex_none()
+                    .w_full()
+                    .min_h(look.length(token::H_CONTROL) + look.length(token::SPACE_2) + look.length(token::SPACE_1))
+                    .bg(look.color(token::BG_SUNKEN))
+                    .border_t(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_DEFAULT)),
+                Role::Region,
+                "Merge queue",
+            )
+            .into_any_element();
+        }
         let row = if self.data.loading {
             self.skeleton(look)
         } else if grouped {
@@ -1378,31 +1423,6 @@ impl Render for MergeStrip {
         } else {
             self.row_of(shown[0], false, cx)
         };
-        let merge = labelled(
-            no_drag(
-                div()
-                    .id("merge-line")
-                    .flex_none()
-                    .size(look.length(token::H_CONTROL))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(look.length(token::RADIUS_LG))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(gpui::transparent_black())
-                    .text_color(look.color(token::FG_SUBTLE))
-                    .cursor_pointer()
-                    .focusable()
-                    .tab_stop(true)
-                    .focus_visible(move |style| style.border_color(ring))
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
-                    .child(glyph("git-merge", look.length(token::SPACE_4), look.color(token::FG_SUBTLE)))
-                    .tooltip(tip("Merge line"))
-                    .on_click(cx.listener(|_, _, _, cx| cx.emit(Asked::MergeLine))),
-            ),
-            Role::Button,
-            "Merge line",
-        );
         let card = self.open_card(cx);
         labelled(
             div()
@@ -1443,12 +1463,11 @@ impl Render for MergeStrip {
                         .min_h(look.length(token::H_CONTROL) + look.length(token::SPACE_2))
                         .px(look.length(token::SPACE_4))
                         .text_color(look.color(token::FG_SUBTLE))
-                        .child(merge)
                         .child(row),
                 )
                 .children(card)
                 .children(self.menu.as_ref().map(|menu| menu.dropdown.clone()))
-                .children(self.fix_layer(look, window.viewport_size(), cx)),
+                .children(self.fix_layer(look, crate::room::of(window, cx), cx)),
             Role::Region,
             "Merge queue",
         )

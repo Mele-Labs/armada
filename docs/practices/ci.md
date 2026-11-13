@@ -189,7 +189,7 @@ requires for the Checks below. `desktop_test` is to be added.
 | `components`: `components_test` and `storybook` of `packages/components` | `ubuntu-latest`, one grouped job | The same | node_modules, Playwright |
 | `surface tests 1/2`, `2/2`: `screens_test` of `packages/screens` and a surface's `test`, split by a hash of the key so a key keeps its half | `ubuntu-latest`, two grouped jobs | The same | node_modules, Playwright |
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
-| `preview_test` | `ubuntu-latest` | `python3 scripts/test_preview.py` | none |
+| `preview_test` | `ubuntu-latest` | `python3 -m unittest scripts/test_preview.py scripts/test_restart_detach.py` | none |
 | `sync_mod_test` | `ubuntu-latest` | `python3 scripts/test_sync_mod.py` | none |
 | `keep_build_test` | `ubuntu-latest` | `python3 scripts/test_keep_build.py` | none |
 | `format_catch_up_test` | `ubuntu-latest` | `python3 scripts/test_format_catch_up.py` | none |

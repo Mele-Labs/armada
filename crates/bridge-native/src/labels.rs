@@ -13,7 +13,7 @@ use std::panic;
 
 use gpui::{
     AnyElement, App, Bounds, Element, ElementId, GlobalElementId, InspectorElementId, IntoElement,
-    LayoutId, Pixels, Role, SharedString, Stateful, StatefulInteractiveElement, Window, WindowId,
+    LayoutId, Pixels, Role, SharedString, Stateful, StatefulInteractiveElement, Styled, Window, WindowId,
 };
 
 /// A role as a walk names it: `button`, `row`, `heading`. The walk's own words, which are
@@ -29,6 +29,7 @@ pub fn role_named(word: &str) -> Option<Role> {
         "textbox" => Role::TextInput,
         "region" => Role::Region,
         "article" => Role::Article,
+        "form" => Role::Form,
         "radio" => Role::RadioButton,
         "checkbox" => Role::CheckBox,
         "group" => Role::Group,
@@ -36,6 +37,7 @@ pub fn role_named(word: &str) -> Option<Role> {
         "switch" => Role::Switch,
         "toolbar" => Role::Toolbar,
         "status" => Role::Status,
+        "timer" => Role::Timer,
         "label" => Role::Label,
         "link" => Role::Link,
         "menu" => Role::Menu,
@@ -52,6 +54,9 @@ pub fn role_named(word: &str) -> Option<Role> {
         "tab" => Role::Tab,
         "tablist" => Role::TabList,
         "tooltip" => Role::Tooltip,
+        "tree" => Role::Tree,
+        "treeitem" => Role::TreeItem,
+        "table" => Role::Table,
         _ => return None,
     })
 }
@@ -62,6 +67,10 @@ pub struct Drawn {
     pub role: Role,
     pub name: SharedString,
     pub bounds: Bounds<Pixels>,
+    /// The part of it a scrolled or clipped parent lets show: what a walk rings.
+    pub shown: Bounds<Pixels>,
+    /// Its own corner radius, the largest of its four, so a walk's ring follows its shape. None where it sets none.
+    pub radius: Option<Pixels>,
 }
 
 /// What each window drew with a label, as of its last frame. Cleared by the window's
@@ -85,17 +94,27 @@ impl LabelBook {
 }
 
 /// Give `element` its role and name: what VoiceOver reads, and what a walk and a test aim at.
-pub fn labelled<E>(element: Stateful<E>, role: Role, name: impl Into<SharedString>) -> Labelled
+pub fn labelled<E>(mut element: Stateful<E>, role: Role, name: impl Into<SharedString>) -> Labelled
 where
-    Stateful<E>: StatefulInteractiveElement + IntoElement,
+    Stateful<E>: StatefulInteractiveElement + IntoElement + Styled,
 {
     let name = name.into();
-    Labelled { role, name: name.clone(), child: element.role(role).aria_label(name).into_any_element(), root: false }
+    let corners = element.style().corner_radii.clone();
+    let radius = [corners.top_left, corners.top_right, corners.bottom_right, corners.bottom_left];
+    Labelled { role, name: name.clone(), child: element.role(role).aria_label(name).into_any_element(), root: false, radius }
+}
+
+/// Name a part a canvas paints, such as a node of a sketch, as `labelled` names an element: what a
+/// walk aims at. Called while painting, so the part stands in the book until the next frame's.
+pub fn note(role: Role, name: impl Into<SharedString>, bounds: Bounds<Pixels>, radius: Option<Pixels>, window: &Window, cx: &mut App) {
+    let shown = bounds.intersect(&window.content_mask().bounds);
+    let page = cx.default_global::<LabelBook>().by_window.entry(window.window_handle().window_id()).or_default();
+    page.push(Drawn { role, name: name.into(), bounds, shown, radius });
 }
 
 /// The window's outermost element: it clears the window's page of the book, then draws `child`.
 pub fn label_root(child: impl IntoElement) -> Labelled {
-    Labelled { role: Role::Window, name: SharedString::default(), child: child.into_any_element(), root: true }
+    Labelled { role: Role::Window, name: SharedString::default(), child: child.into_any_element(), root: true, radius: [None; 4] }
 }
 
 pub struct Labelled {
@@ -103,6 +122,7 @@ pub struct Labelled {
     name: SharedString,
     child: AnyElement,
     root: bool,
+    radius: [Option<gpui::AbsoluteLength>; 4],
 }
 
 impl IntoElement for Labelled {
@@ -150,7 +170,10 @@ impl Element for Labelled {
         if self.root {
             page.clear();
         } else {
-            page.push(Drawn { role: self.role, name: self.name.clone(), bounds });
+            let shown = bounds.intersect(&window.content_mask().bounds);
+            let rem = window.rem_size();
+            let radius = self.radius.iter().flatten().map(|corner| corner.to_pixels(rem)).reduce(Pixels::max);
+            page.push(Drawn { role: self.role, name: self.name.clone(), bounds, shown, radius });
         }
         self.child.prepaint(window, cx);
     }

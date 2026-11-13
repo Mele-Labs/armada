@@ -299,8 +299,7 @@ impl TitleBar {
                     div().flex().flex_col().gap(look.length(token::BORDER_WIDTH) * 2.).children(facts.into_iter().map(|(term, value, is_mono)| {
                         small(look)
                             .flex()
-                            .justify_between()
-                            .gap(look.length(token::SPACE_3))
+                            .gap(look.length(token::SPACE_2))
                             .child(div().text_color(look.color(token::FG_SUBTLE)).child(term))
                             .child(div().text_color(look.color(token::FG_DEFAULT)).when(is_mono, |value| value.font_family(mono(look))).child(value))
                     }))

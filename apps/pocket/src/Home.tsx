@@ -1,4 +1,4 @@
-// Home: every paired Mac's live Jobs in one list. Drafts first, then Needs you, oldest wait first, then Running.
+// Home: every paired Mac's live Jobs in one list, in Fleet's order, each Job another started right under its starter.
 // Over it, the plan's two limits as the newest Mac's reading has them.
 // Where more than one Mac is paired, each row names its Mac. A Mac that forgot the phone, or is
 // not answering, is a row of its own at the top, and the rest of the list carries on without it.
@@ -9,7 +9,7 @@ import { bucketOf, Button, SessionMark } from "@armada/components";
 
 import { getJson } from "./client";
 import { actsOn } from "./jobState";
-import { homeOf, useFleet, type Item, type Mac } from "./fleet";
+import { homeOf, useFleet, type Line, type Mac } from "./fleet";
 import type { PlanUsageBody } from "./gateway";
 import { draftPath, go, jobPath, pairPath } from "./router";
 import { Band, Figure, IconButton, Row, Section } from "./ui";
@@ -106,10 +106,18 @@ function MacRow({ mac }: { mac: Mac }) {
 
 export function Home() {
   const fleet = useFleet();
-  const { several, drafts, needs, done, waiting, running, troubled } = homeOf(fleet);
+  const { several, repositories, troubled } = homeOf(fleet);
+  /** Under a repository's head a row does not name it again. */
+  const named = repositories.length > 1;
   const usage = usePlanUsage(fleet.macs, fleet.at);
-  const row = (item: Item, at: string) => {
+  const row = ({ item, depth, through, last }: Line) => {
     const { state, said } = item;
+    const at =
+      state === "done"
+        ? (item.session.done_since ?? item.session.started_at)
+        : bucketOf(state) === "needs"
+          ? (item.session.waiting_since ?? item.session.started_at)
+          : item.session.started_at;
     const { session } = item;
     const key = `${item.mac.machine.origin} ${session.id}`;
     const open = () =>
@@ -123,17 +131,22 @@ export function Home() {
         title={session.title ?? ""}
         says={
           state === "done"
-            ? (session.done_summary ?? session.repository ?? "")
+            ? (session.done_summary ?? (named ? "" : (session.repository ?? "")))
             : bucketOf(state) === "waiting"
               ? said
-              : (session.repository ?? "")
+              : named
+                ? ""
+                : (session.repository ?? "")
         }
         {...(mac === undefined
           ? {}
           : {
               mac,
             })}
-        {...(session.from === undefined
+        depth={depth}
+        through={through}
+        last={last}
+        {...(session.from === undefined || depth > 0
           ? {}
           : {
               from: session.from.title,
@@ -184,30 +197,14 @@ export function Home() {
             </ul>
           </section>
         )}
-        {drafts.length === 0 ? null : (
-          <Section label="Drafts">
-            {drafts.map((item) => row(item, item.session.started_at))}
-          </Section>
-        )}
-        {needs.length === 0 ? null : (
-          <Section label="Needs you">
-            {needs.map((item) => row(item, item.session.waiting_since ?? item.session.started_at))}
-          </Section>
-        )}
-        {done.length === 0 ? null : (
-          <Section label="Done">
-            {done.map((item) => row(item, item.session.done_since ?? item.session.started_at))}
-          </Section>
-        )}
-        {waiting.length === 0 ? null : (
-          <Section label="Waiting">
-            {waiting.map((item) => row(item, item.session.started_at))}
-          </Section>
-        )}
-        {running.length === 0 ? null : (
-          <Section label="Running">
-            {running.map((item) => row(item, item.session.started_at))}
-          </Section>
+        {repositories.length > 1 ? (
+          repositories.map((one) => (
+            <Section key={one.name} label={one.name}>
+              {one.lines.map(row)}
+            </Section>
+          ))
+        ) : (
+          <ul className="deck-list__rows">{repositories[0]?.lines.map(row)}</ul>
         )}
       </div>
     </section>

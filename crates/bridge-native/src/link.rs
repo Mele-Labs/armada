@@ -15,8 +15,8 @@ use chrono::Local;
 use tokio::time::{sleep, Instant};
 
 use ipc::{
-    Event, FleetBuildReport, ModChecked, ModKind, ModList, ModSummary, Preferences, ProtocolId, SessionList, SessionRecord,
-    SettingsList, StandingCalls, StreamMessage,
+    Event, FleetBuildReport, MergeLineViews, ModChecked, ModKind, ModList, ModSummary, Preferences, Projects, ProtocolId, RepositoryList, SessionList,
+    SessionRecord, SettingsList, StandingCalls, StreamMessage,
 };
 
 use crate::frames::{self, Messages};
@@ -58,6 +58,8 @@ pub enum LinkState {
 /// What the link tells the entity.
 #[derive(Debug)]
 pub enum Signal {
+    /// What the runtime file said on this attempt, with the file's path: the title bar's words for a Fleet down read it.
+    Presence(Presence, String),
     State(LinkState),
     /// The Jobs, fetched once on connect, as `GET /sessions` answered.
     Jobs(Vec<SessionRecord>),
@@ -80,6 +82,27 @@ pub enum Signal {
     /// `GET /settings`, once per connection; `settings.changed` carries the list after that.
     Settings(SettingsList),
     SettingsFailed(String),
+    /// `GET /repositories`, once per connection; `repositories.changed` carries the list after that.
+    Repositories(RepositoryList),
+    RepositoriesFailed(String),
+    /// `GET /projects`, once per connection; `projects.changed` carries all of them after that.
+    Projects(Projects),
+    ProjectsFailed(String),
+    /// `GET /workflows`, once per connection: the head's picker and the steps a Job's workflow names.
+    Workflows(Vec<ipc::WorkflowSummary>),
+    WorkflowsFailed(String),
+    /// `GET /merge_lines/view`, on connect and after a `Missed`; `merge_line_view.changed` carries it after that.
+    MergeLines(MergeLineViews),
+    MergeLinesFailed(String),
+    /// `GET /plan_usage`, once per connection; `plan_usage.changed` carries it after that.
+    PlanUsage(ipc::PlanUsage),
+    PlanUsageFailed(String),
+    /// `GET /model_downshift`, once per connection; `model_downshift.changed` carries it after that.
+    Downshift(ipc::ModelDownshiftState),
+    DownshiftFailed(String),
+    /// `GET /clashes/all`, on connect and after a `Missed`; `write_clashes.changed` carries it after that.
+    Clashes(ipc::AllWriteClashes),
+    ClashesFailed(String),
     Stream(StreamMessage),
 }
 
@@ -129,12 +152,16 @@ macro_rules! tell_or_stop {
 }
 
 async fn attach(tx: &Sender<Signal>, path: PathBuf) -> Ended {
+    let said = path.display().to_string();
     // The probe shells out to `ps`, so it runs where it cannot hold this runtime.
     let presence = tokio::task::spawn_blocking(move || {
         runtime_file::classify(std::fs::read(&path), runtime_file::holder_of)
     })
     .await
     .unwrap_or_else(|why| Presence::Refused(format!("the runtime file read failed: {why}")));
+    if send(tx, Signal::Presence(presence.clone(), said)).await.is_err() {
+        return Ended::NobodyListening;
+    }
 
     let fleet = match presence {
         // Neither opens a socket: a stale file's port may not be Fleet's.
@@ -228,6 +255,12 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tokio::spawn(fetch_mods(tx.clone(), fleet.port));
                     tokio::spawn(fetch_calls(tx.clone(), fleet.port));
                     tokio::spawn(fetch_settings(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_repositories(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_projects(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_workflows(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_merge_lines(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_plan(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_clashes(tx.clone(), fleet.port));
                     // Stops with this connection: the guard aborts the task when `follow` returns.
                     _build_watch = Some(AbortOnDrop(tokio::spawn(watch_build(tx.clone(), fleet.port))));
                 }
@@ -235,6 +268,11 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     if let Event::ModsChanged(list) = &delivered.event {
                         check_themes(tx, fleet.port, &list.mods, &mut asked);
                     }
+                }
+                // A view sent whole is read again after events were lost, or the window would hold a line it never heard.
+                if let StreamMessage::Missed(_) = &message {
+                    tokio::spawn(fetch_merge_lines(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_clashes(tx.clone(), fleet.port));
                 }
                 if send(tx, Signal::Stream(message)).await.is_err() {
                     return Ended::NobodyListening;
@@ -328,6 +366,67 @@ async fn fetch_settings(tx: Sender<Signal>, port: u16) {
     let signal = match read_with_retries::<SettingsList>(port, "/settings", "settings").await {
         Ok(settings) => Signal::Settings(settings),
         Err(why) => Signal::SettingsFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /repositories`, once per connection, retried as the Jobs are.
+async fn fetch_repositories(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<RepositoryList>(port, "/repositories", "repository list").await {
+        Ok(list) => Signal::Repositories(list),
+        Err(why) => Signal::RepositoriesFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /projects`, once per connection, retried as the Jobs are.
+async fn fetch_projects(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<Projects>(port, "/projects", "projects").await {
+        Ok(projects) => Signal::Projects(projects),
+        Err(why) => Signal::ProjectsFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /workflows`, once per connection, retried as the Jobs are.
+async fn fetch_workflows(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<Vec<ipc::WorkflowSummary>>(port, "/workflows", "workflows").await {
+        Ok(list) => Signal::Workflows(list),
+        Err(why) => Signal::WorkflowsFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /plan_usage` and `GET /model_downshift`, once per connection, retried as the Jobs are.
+async fn fetch_plan(tx: Sender<Signal>, port: u16) {
+    let usage = match read_with_retries::<ipc::PlanUsage>(port, "/plan_usage", "plan usage").await {
+        Ok(usage) => Signal::PlanUsage(usage),
+        Err(why) => Signal::PlanUsageFailed(why),
+    };
+    if tx.send(usage).await.is_err() {
+        return;
+    }
+    let downshift = match read_with_retries::<ipc::ModelDownshiftState>(port, "/model_downshift", "model downshift").await {
+        Ok(state) => Signal::Downshift(state),
+        Err(why) => Signal::DownshiftFailed(why),
+    };
+    let _ = tx.send(downshift).await;
+}
+
+/// `GET /merge_lines/view`, retried as the Jobs are.
+async fn fetch_merge_lines(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<MergeLineViews>(port, "/merge_lines/view", "merge line view").await {
+        Ok(view) => Signal::MergeLines(view),
+        Err(why) => Signal::MergeLinesFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /clashes/all`, retried as the Jobs are.
+async fn fetch_clashes(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<ipc::AllWriteClashes>(port, "/clashes/all", "write clashes").await {
+        Ok(all) => Signal::Clashes(all),
+        Err(why) => Signal::ClashesFailed(why),
     };
     let _ = tx.send(signal).await;
 }

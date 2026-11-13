@@ -49,7 +49,34 @@ impl JobView {
         cx: &mut Context<Self>,
     ) {
         let name = name.into();
-        let menu = cx.new(|cx| Dropdown::new(name, entries, at, Anchor::TopLeft, from_keys, cx));
+        let menu = cx.new(|cx| Dropdown::new(name, entries, at, Anchor::TopLeft, from_keys, cx).at_point(window, cx));
+        self.hold_pop(menu, back, pick, window, cx);
+    }
+
+    /// A button's own menu: its entries only, with no Mod or Report, which only a context menu carries.
+    pub(super) fn open_button_menu(
+        &mut self,
+        name: impl Into<SharedString>,
+        entries: Vec<Entry>,
+        at: Point<Pixels>,
+        back: Option<FocusHandle>,
+        pick: impl Fn(&mut JobView, &'static str, &mut Window, &mut Context<JobView>) + 'static,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let name = name.into();
+        let menu = cx.new(|cx| Dropdown::new(name, entries, at, Anchor::TopLeft, false, cx));
+        self.hold_pop(menu, back, pick, window, cx);
+    }
+
+    fn hold_pop(
+        &mut self,
+        menu: Entity<Dropdown>,
+        back: Option<FocusHandle>,
+        pick: impl Fn(&mut JobView, &'static str, &mut Window, &mut Context<JobView>) + 'static,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, keep } = picked;
             if !keep {

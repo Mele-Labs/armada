@@ -1,8 +1,8 @@
 //! The bands over the message box that are not Needs you: the agent came up without some of its tools,
-//! the agent has nothing left to do, and the Job waits on something that is not the person
-//! (`ToolsBand`, `SessionEndBand`, `WaitingBand`). They share the Needs you band's shape: a bar in one
-//! hue, and a panel that rides up from it. Needs you has the slot first, so the end and waiting bands
-//! wait until nothing waits on the person.
+//! and the agent has nothing left to do (`ToolsBand`, `SessionEndBand`). They share the Needs you band's
+//! shape: a bar in one hue, and a panel that rides up from it. Needs you has the slot first, so the end
+//! band waits until nothing waits on the person. What the Job waits on that is not the person is a card
+//! at the thread's end in place of Classic's `WaitingBand`.
 
 use std::rc::Rc;
 
@@ -28,9 +28,6 @@ fn encoded<T: serde::Serialize>(body: &T) -> Result<String, String> {
 /// What a band remembers of one Job.
 #[derive(Default)]
 pub(super) struct BandState {
-    /// The end band's panel; absent, it is open (it opens on coming into the Job).
-    pub end_open: Option<bool>,
-    pub wait_open: bool,
     /// The `done_since` of the ending Keep going put away.
     pub kept: Option<String>,
     /// The pieces that were missing when the person put the tools band away.
@@ -49,6 +46,15 @@ pub(super) enum WaitKind {
 }
 
 impl WaitKind {
+    /// What its glyph's tooltip says.
+    fn said(self) -> &'static str {
+        match self {
+            WaitKind::Watch => "Watching",
+            WaitKind::Merge => "Merging",
+            WaitKind::Checks => "Checks running",
+        }
+    }
+
     fn glyph(self) -> &'static str {
         match self {
             WaitKind::Watch => "radar",
@@ -136,13 +142,6 @@ impl JobView {
         Shown { tools, end, waiting }
     }
 
-    /// Whether the end or waiting panel is up over the thread.
-    pub(super) fn band_up(&self, id: &str, cx: &gpui::App) -> bool {
-        let shown = self.bands_of(id, cx);
-        let Some(page) = self.pages.get(id) else { return false };
-        (shown.end && page.bands.end_open.unwrap_or(true)) || (shown.waiting && page.bands.wait_open)
-    }
-
     /// The bands, one over the other, each with its panel when it is open.
     pub(super) fn render_bands(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
         let look = cx.look();
@@ -151,7 +150,7 @@ impl JobView {
         if let Some(page) = self.pages.get(id) {
             page.keys.set(DONE, shown.end.then(|| self.done_card(id)));
         }
-        if !(shown.tools || shown.end || shown.waiting) {
+        if !shown.tools {
             return None;
         }
         let record = self.record(id, cx)?;
@@ -161,13 +160,9 @@ impl JobView {
                 column = column.child(self.tools_band(id, tools, look, cx));
             }
         }
-        if shown.end {
-            column = column.child(self.end_band(id, record, look, cx));
-        }
-        if shown.waiting {
-            column = column.child(self.waiting_band(id, &record.held_open_by, look, cx));
-        }
-        Some(column.into_any_element())
+        // The bands stand in the box's column, as Electron's sit in the Needs you panel over it.
+        let outer = self.column(look) + super::bleed(look) * 2.;
+        Some(div().flex_none().flex().justify_center().px(look.length(token::SPACE_4)).child(column.max_w(outer)).into_any_element())
     }
 
     /// The bar every band draws: a trigger, and the cross of those that can be put away.
@@ -186,11 +181,10 @@ impl JobView {
     }
 
     /// The panel above its bar: the same frame the Needs you panel has.
-    fn drawer(&self, look: &Look, hue: gpui::Hsla, name: &'static str, body: AnyElement, cx: &Context<Self>) -> AnyElement {
+    fn drawer(&self, look: &Look, hue: gpui::Hsla, name: &'static str, body: AnyElement) -> AnyElement {
         div()
             .id(SharedString::from(format!("{name}-panel")))
             .occlude()
-            .on_key_down(cx.listener(Self::on_band_key))
             .max_h(look.length(token::SPACE_12) * 10.)
             .overflow_y_scroll()
             .flex()
@@ -214,68 +208,6 @@ impl JobView {
             .w_full()
             .children(panel.map(|panel| div().absolute().bottom_full().left_0().right_0().child(panel)))
             .child(bar)
-    }
-
-    fn trigger(&self, id: &SharedString, look: &Look, key: &str, name: &'static str, icon: &'static str, glyphs: Vec<AnyElement>, open: bool, cx: &Context<Self>, press: impl Fn(&mut JobView, &mut Window, &mut Context<JobView>) + 'static) -> AnyElement {
-        let spot = self.pages.get(id).map(|page| page.keys.spot(key, cx));
-        let base = div()
-            .id(SharedString::from(key.to_string()))
-            .flex_1()
-            .min_w_0()
-            .h_full()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_3))
-            .cursor_pointer()
-            .focus_visible(|style| style.bg(look.color(token::FG_INVERSE).opacity(0.18)))
-            .child(glyph(look, icon, Size::Small, look.color(token::FG_INVERSE)))
-            .child(div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(name))
-            .child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(glyphs))
-            .child(div().flex_1())
-            .child(glyph(look, if open { "chevron-down" } else { "chevron-up" }, Size::Small, look.color(token::FG_INVERSE)))
-            .on_click(cx.listener(move |this, _, window, cx| press(this, window, cx)));
-        let base = match &spot {
-            Some(spot) => base.track_focus(&spot.focus),
-            None => base,
-        };
-        labelled(base, Role::Button, name).into_any_element()
-    }
-
-    /// Esc in a panel folds it and the band's own button has the focus again.
-    fn on_band_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        if event.keystroke.key == "escape" && self.fold_bands(true, window, cx) {
-            cx.stop_propagation();
-        }
-    }
-
-    /// Esc anywhere in the Job folds an open end or waiting panel, tools band excepted.
-    pub(super) fn on_job_escape(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        if event.keystroke.key == "escape" && self.fold_bands(false, window, cx) {
-            cx.stop_propagation();
-        }
-    }
-
-    /// Fold the panel that is up. The band's button takes the focus back only if it was inside the panel.
-    pub(super) fn fold_bands(&mut self, from_inside: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let Some(id) = self.shown.clone() else { return false };
-        let shown = self.bands_of(&id, cx);
-        let Some(page) = self.pages.get_mut(&id) else { return false };
-        let key = if shown.end && page.bands.end_open.unwrap_or(true) {
-            page.bands.end_open = Some(false);
-            "end-trigger"
-        } else if shown.waiting && page.bands.wait_open {
-            page.bands.wait_open = false;
-            "waiting-trigger"
-        } else {
-            return false;
-        };
-        if from_inside {
-            let spot = page.keys.spot(key, cx);
-            window.focus(&spot.focus, cx);
-        }
-        cx.notify();
-        true
     }
 
     // ---- Tools missing ------------------------------------------------------------------------------
@@ -352,7 +284,7 @@ impl JobView {
             "Dismiss",
         )
         .into_any_element();
-        let panel = self.drawer(look, hue, "tools", body, cx);
+        let panel = self.drawer(look, hue, "tools", body);
         // Its body is always up, and Esc inside it puts the band away.
         let panel = div().id("tools-keys").on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
             if event.keystroke.key == "escape" {
@@ -454,9 +386,10 @@ impl JobView {
         cx.notify();
     }
 
-    fn end_band(&self, id: &SharedString, record: &ipc::SessionRecord, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let hue = look.color(token::STEP_ADVANCED);
-        let open = self.pages.get(id).is_some_and(|page| page.bands.end_open.unwrap_or(true));
+    /// The agent's last word as the thread's last card, as Classic's spacious take draws it: the done
+    /// hue's check over what was made and the two ways on. It is part of the thread and never opens over it.
+    pub(super) fn end_card(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let record = self.record(id, cx)?;
         let target = self.is_target(DONE);
         let summary = record.done_summary.clone().filter(|text| !text.is_empty());
         let made: Vec<AnyElement> = record
@@ -468,18 +401,45 @@ impl JobView {
                     Some(title) => format!("#{} {title}", one.target),
                     None => format!("#{}", one.target),
                 };
+                // A ledger row (`DoneBody`): its state's mark, its words, and its Checks at the end; a press opens it.
+                let pull = super::pulls::pull_of(record, one, None);
+                let (state_icon, state_said, state_hue) = match pull.as_ref().map(|pull| pull.state) {
+                    Some(super::pulls::PullState::Merged) => ("git-merge", "Merged", token::STATUS_COMPLETED_SUCCESS),
+                    _ => ("git-pull-request", "Open", token::STATUS_AWAITING_REVIEW),
+                };
+                let checks = pull.as_ref().map(|pull| {
+                    let icon = match pull.checks {
+                        super::pulls::PullChecks::Passed => "circle-check",
+                        super::pulls::PullChecks::Running => "loader-circle",
+                        super::pulls::PullChecks::Failed => "circle-x",
+                    };
+                    div()
+                        .id(SharedString::from(format!("made-checks:{}", one.target)))
+                        .flex_none()
+                        .tooltip(tip(super::pulls::checks_said(pull)))
+                        .child(glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))
+                });
                 labelled(
                     div()
                         .id(SharedString::from(format!("made:{}", one.target)))
                         .flex()
                         .items_center()
                         .gap(look.length(token::SPACE_2))
-                        .px(look.length(token::SPACE_2))
-                        .text_size(look.length(token::TEXT_SM))
-                        .line_height(look.length(token::LEADING_SM))
+                        .min_h(look.length(token::H_ROW))
+                        .px(look.length(token::SPACE_3))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(look.color(token::BORDER_SUBTLE))
+                        .bg(look.color(token::BG_RAISED))
+                        .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                        .cursor_pointer()
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_XS))
                         .text_color(look.color(token::FG_DEFAULT))
-                        .child(glyph(look, "git-pull-request", Size::Small, look.color(token::FG_MUTED)))
-                        .child(div().min_w_0().truncate().child(SharedString::from(name.clone()))),
+                        .child(div().id(SharedString::from(format!("made-state:{}", one.target))).flex_none().tooltip(tip(state_said)).child(glyph(look, state_icon, Size::Small, look.color(state_hue))))
+                        .child(div().flex_1().min_w_0().truncate().child(SharedString::from(name.clone())))
+                        .children(checks)
+                        .when_some(pull, |row, pull| row.on_click(cx.listener(move |this, _, window, cx| this.open_pull(pull.clone(), window, cx)))),
                     Role::Row,
                     name,
                 )
@@ -505,121 +465,159 @@ impl JobView {
             ));
         let said = self.pages.get(id).and_then(|page| page.bands.said.get(DONE).cloned()).or_else(|| self.head_said(id));
         let aim = DONE.to_string();
-        let body = labelled(
-            div()
-                .id("done-body")
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_2))
-                .on_mouse_down(gpui::MouseButton::Left, cx.listener(move |this, _, _, cx| {
-                    this.aim(&aim);
-                    cx.notify();
-                }))
-                .children(summary.map(|text| div().px(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(SharedString::from(text))))
-                .children((!made.is_empty()).then(|| {
-                    labelled(div().id("done-made").flex().flex_col().gap(look.length(token::SPACE_2)).children(made), Role::Group, "Pull requests")
-                }))
-                .child(acts)
-                .children(said.map(|why| refusal(look, DONE, why))),
-            Role::Group,
-            "Nothing left to do",
+        let head = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
+            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child(glyph(look, "check", Size::Small, look.color(token::STEP_ADVANCED)))
+            .child("Nothing left to do");
+        Some(
+            labelled(
+                div()
+                    .id("done-body")
+                    // Out past the words to the composer's edge, as Classic's card and the thread's other cards reach.
+                    .mx(-super::bleed(look))
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_3))
+                    .p(look.length(token::SPACE_4))
+                    .rounded(look.length(token::RADIUS_LG))
+                    .bg(look.color(token::FG_DEFAULT).opacity(0.04))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::FG_DEFAULT).opacity(0.07))
+                    .on_mouse_down(gpui::MouseButton::Left, cx.listener(move |this, _, _, cx| {
+                        this.aim(&aim);
+                        cx.notify();
+                    }))
+                    .child(head)
+                    .children(summary.map(|text| div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(text))))
+                    .children((!made.is_empty()).then(|| {
+                        labelled(div().id("done-made").flex().flex_col().gap(look.length(token::SPACE_2)).children(made), Role::Group, "Pull requests")
+                    }))
+                    .child(acts)
+                    .children(said.map(|why| refusal(look, DONE, why))),
+                Role::Region,
+                "Nothing left to do",
+            )
+            .into_any_element(),
         )
-        .into_any_element();
-        let trigger = self.trigger(id, look, "end-trigger", "Nothing left to do", "check", Vec::new(), open, cx, |this, _, cx| {
-            if let Some(id) = this.shown.clone() {
-                if let Some(page) = this.pages.get_mut(&id) {
-                    page.bands.end_open = Some(!page.bands.end_open.unwrap_or(true));
-                }
-            }
-            cx.notify();
-        });
-        let panel = open.then(|| self.drawer(look, hue, "end", body, cx));
-        labelled(self.frame("end", panel, self.bar(look, hue, open, trigger, None)), Role::Region, "Nothing left to do").into_any_element()
     }
 
     // ---- Waiting ------------------------------------------------------------------------------------
 
-    fn waiting_band(&self, id: &SharedString, held: &[HeldOpenBy], look: &Look, cx: &Context<Self>) -> AnyElement {
-        let hue = look.color(token::STATUS_HANDED_IN);
-        let open = self.pages.get(id).is_some_and(|page| page.bands.wait_open);
-        let waits: Vec<(WaitKind, String)> = held.iter().map(wait_of).collect();
-        let glyphs: Vec<AnyElement> = waits
+    /// What the Job waits on that is not him, as a card at the thread's end (owner, 12 Nov): a row for each
+    /// wait with its kind's glyph in its state's hue, and the stop behind a right press. It has no close; it
+    /// leaves when Fleet says nothing holds the Job open.
+    pub(super) fn waiting_card(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let held = &self.record(id, cx)?.held_open_by;
+        if held.is_empty() {
+            return None;
+        }
+        let rows: Vec<AnyElement> = held
             .iter()
+            .map(wait_of)
             .enumerate()
             .map(|(at, (kind, said))| {
-                labelled(
-                    div()
-                        .id(SharedString::from(format!("wait-glyph:{at}")))
-                        .child(glyph(look, kind.glyph(), Size::Small, look.color(token::FG_INVERSE)))
-                        .tooltip(tip(said.clone())),
-                    Role::Image,
-                    said.clone(),
-                )
-                .into_any_element()
-            })
-            .collect();
-        let rows: Vec<AnyElement> = waits
-            .iter()
-            .enumerate()
-            .map(|(at, (kind, said))| {
-                let away = if *kind == WaitKind::Watch { "Stop the watch" } else { "Stop waiting on it" };
-                let name = format!("{away}: {said}");
-                let stop = labelled(
-                    div()
-                        .id(SharedString::from(format!("wait-stop:{at}")))
-                        .flex_none()
-                        .flex()
-                        .items_center()
-                        .self_stretch()
-                        .px(look.length(token::SPACE_3))
-                        .rounded(look.length(token::RADIUS_MD))
-                        .cursor_pointer()
-                        .text_color(look.color(token::FG_MUTED))
-                        .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
-                        .tooltip(tip(away))
-                        .child(glyph(look, "x", Size::Small, look.color(token::FG_MUTED)))
-                        .on_click(cx.listener(move |this, _, window, cx| this.stop_waiting(at, window, cx))),
-                    Role::Button,
-                    name,
-                );
+                let ink = look.color(match kind {
+                    WaitKind::Merge => token::STATUS_HANDED_IN,
+                    WaitKind::Checks | WaitKind::Watch => token::STATUS_RUNNING,
+                });
                 labelled(
                     div()
                         .id(SharedString::from(format!("wait:{at}")))
                         .flex()
-                        .items_center()
-                        .justify_between()
+                        // A long wait wraps under its glyph's first line before anything is cut.
+                        .items_start()
                         .gap(look.length(token::SPACE_2))
+                        .min_h(look.length(token::H_ROW))
+                        .py((look.length(token::H_ROW) - look.length(token::LEADING_SM)) / 2.)
+                        .px(look.length(token::SPACE_2))
+                        .rounded(look.length(token::RADIUS_SM))
+                        .hover(|style| style.bg(look.color(token::BG_HOVER)))
                         .text_size(look.length(token::TEXT_SM))
                         .line_height(look.length(token::LEADING_SM))
                         .text_color(look.color(token::FG_DEFAULT))
-                        .child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .gap(look.length(token::SPACE_2))
-                                .min_w_0()
-                                .child(glyph(look, kind.glyph(), Size::Small, look.color(token::FG_MUTED)))
-                                .child(div().min_w_0().truncate().child(SharedString::from(said.clone()))),
-                        )
-                        .child(stop),
+                        .child(div().id(SharedString::from(format!("wait-mark:{at}"))).flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(glyph(look, kind.glyph(), Size::Small, ink)).tooltip(tip(kind.said())))
+                        .child(div().flex_1().min_w_0().child(SharedString::from(said.clone())))
+                        .on_mouse_down(gpui::MouseButton::Right, cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
+                            cx.stop_propagation();
+                            this.open_wait_menu(at, kind, event.position, window, cx);
+                        })),
                     Role::Row,
-                    said.clone(),
+                    said,
                 )
                 .into_any_element()
             })
             .collect();
         let said = self.pages.get(id).and_then(|page| page.bands.said.get("waiting").cloned());
-        let body = labelled(div().id("waiting-on").flex().flex_col().gap(look.length(token::SPACE_2)).children(rows).children(said.map(|why| refusal(look, "waiting", why))), Role::List, "Waiting on").into_any_element();
-        let trigger = self.trigger(id, look, "waiting-trigger", "Waiting", "radar", glyphs, open, cx, |this, _, cx| {
-            if let Some(id) = this.shown.clone() {
-                if let Some(page) = this.pages.get_mut(&id) {
-                    page.bands.wait_open = !page.bands.wait_open;
-                }
+        let head = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_2))
+            .h(look.length(token::H_ROW))
+            .text_size(look.length(token::TEXT_XS))
+            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+            .text_color(look.color(token::FG_MUTED))
+            .child(glyph(look, "radar", Size::Small, look.color(token::STATUS_HANDED_IN)))
+            .child("Waiting on");
+        Some(
+            labelled(
+                div()
+                    .id("waiting")
+                    // The thread column's whole width, as the subagents card and Classic's card take it.
+                    .w_full()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
+                    .p(look.length(token::SPACE_2))
+                    .overflow_hidden()
+                    .rounded(look.length(token::RADIUS_MD))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::STATUS_HANDED_IN))
+                    .bg(look.color(token::BG_RAISED))
+                    .shadow(look.shadows(token::SHADOW_OVERLAY))
+                    .child(head)
+                    .children(rows)
+                    .children(said.map(|why| refusal(look, "waiting", why))),
+                Role::Region,
+                "Waiting on",
+            )
+            .into_any_element(),
+        )
+    }
+
+    /// A wait's right press: its stop, worded for what it is.
+    fn open_wait_menu(&mut self, at: usize, kind: WaitKind, point: gpui::Point<gpui::Pixels>, window: &mut Window, cx: &mut Context<Self>) {
+        use crate::dropdown::{Dropdown, Entry, Picked};
+        let label = if kind == WaitKind::Watch { "Stop the watch" } else { "Stop waiting on it" };
+        let entries = vec![Entry::Item { id: "wait-stop", label: label.into(), icon: Some("square"), danger: false, key: None, off: None }];
+        let back = window.focused(cx);
+        let menu = cx.new(|cx| Dropdown::new("Wait", entries, point, gpui::Anchor::TopLeft, false, cx).at_point(window, cx));
+        let again = back.clone();
+        let picked = cx.subscribe_in(&menu, window, move |this, _, _: &Picked, window, cx| {
+            this.tabs_menu = None;
+            this.stop_waiting(at, window, cx);
+            if let Some(back) = again.as_ref() {
+                window.focus(back, cx);
             }
             cx.notify();
         });
-        let panel = open.then(|| self.drawer(look, hue, "waiting", body, cx));
-        labelled(self.frame("waiting", panel, self.bar(look, hue, open, trigger, None)), Role::Region, "Waiting").into_any_element()
+        let dismissed = cx.subscribe_in(&menu, window, move |this, _, _: &gpui::DismissEvent, window, cx| {
+            this.tabs_menu = None;
+            if let Some(back) = back.as_ref() {
+                window.focus(back, cx);
+            }
+            cx.notify();
+        });
+        let keys = gpui::Focusable::focus_handle(menu.read(cx), cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.tabs_menu = Some(super::tabs::AddMenu { menu, _subs: vec![picked, dismissed] });
+        cx.notify();
     }
 
     /// A wait's cross: a watch is stopped as its own Stop does, and a pull request only stops holding the Job open.

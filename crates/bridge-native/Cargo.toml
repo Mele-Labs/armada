@@ -57,6 +57,14 @@ anyhow = "1"
 image = { version = "0.25", default-features = false, features = ["png"] }
 # A note's picture goes to Fleet as base64; gpui already links this version.
 base64 = "0.22"
+# The sketch pad's picture is drawn as SVG and rasterised. 0.46.0 is the build gpui already links with text on, so nothing new downloads.
+resvg = "=0.46.0"
+# A tool call's icon is stroked with round caps and joins; gpui paints paths with this version but does not
+# re-export its cap and join kinds.
+lyon = "=1.0.19"
+# A Job's terminal screen: the grid, the escape parser and the scrollback a shell's bytes are read into. Fleet
+# holds the shell; only the emulator is linked, and its own pty and event loop go unused.
+alacritty_terminal = "=0.26.0"
 # The run id every log line carries: 80 random bits, minted by this process (the one id Bridge mints).
 getrandom = "0.3"
 
@@ -69,6 +77,11 @@ block2 = "0.6"
 objc2-foundation = "0.3"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSDockTile", "NSResponder"] }
 objc2-user-notifications = { version = "0.3", default-features = false, features = ["std", "block2", "UNNotificationContent", "UNNotificationRequest", "UNNotificationSound", "UNUserNotificationCenter"] }
+
+[dev-dependencies]
+# The Mac's own text system for a layout test in gpui's test context: a test runs off the main thread,
+# where the Mac platform will not start. gpui already links this exact version.
+gpui-apple = { package = "gpui-pre-apple", version = "=0.3.11" }
 
 [build-dependencies]
 # The fonts in `packages/tokens/fonts` are WOFF2; gpui's text system takes TrueType, so the build

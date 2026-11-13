@@ -1,7 +1,7 @@
 // One Job, read from the Mac that holds it and read again when that Mac's stream says it changed;
 // and every reply the phone makes to it, each sent to that Mac.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
@@ -30,9 +30,58 @@ import type { Machine } from "./machines";
 export type JobRead = {
   thread?: WireThread;
   error?: string;
+  /** Rows stand before the first held: `onOlder` reads the next of them. */
+  older?: boolean;
+  onOlder?: () => void;
 };
 
-const one = (id: string) => `/api/sessions/one?session_id=${encodeURIComponent(id)}`;
+/** How many of a Job's newest rows a read brings: a long Job's whole thread was megabytes, read again on every change. */
+export const WINDOW = 200;
+
+type Windowed = WireThread & {
+  older?: boolean;
+};
+
+const one = (id: string, before?: string) =>
+  `/api/sessions/one?session_id=${encodeURIComponent(id)}&last=${WINDOW}${
+    before === undefined ? "" : `&before=${encodeURIComponent(before)}`
+  }`;
+
+/**
+ * The newest rows read again laid over those held: a row Fleet replaced (a draft settled) takes its place by id, and
+ * the older rows held stay. Where the newest no longer reach the rows held, they are the thread.
+ */
+export function withNewest(
+  held: Windowed | undefined,
+  newest: Windowed,
+): {
+  thread: WireThread;
+  older: boolean;
+} {
+  const first = newest.rows[0];
+  const at =
+    first === undefined || held === undefined
+      ? -1
+      : held.rows.findIndex((row) => row.id === first.id);
+  if (held === undefined || at < 0)
+    return {
+      thread: {
+        session: newest.session,
+        rows: newest.rows,
+      },
+      older: newest.older === true,
+    };
+  return {
+    thread: {
+      session: newest.session,
+      rows: [
+        ...held.rows.slice(0, at),
+        ...newest.rows,
+      ],
+    },
+    older: held.older === true,
+  };
+}
 
 export function useJob(
   machine: Machine | undefined,
@@ -43,6 +92,14 @@ export function useJob(
 ] {
   const [read, setRead] = useState<JobRead>({});
   const [epoch, setEpoch] = useState(0);
+  const held = useRef<Windowed | undefined>(undefined);
+  const reading = useRef(false);
+  useEffect(() => {
+    held.current = undefined;
+  }, [
+    machine?.origin,
+    id,
+  ]);
   useEffect(() => {
     if (machine === undefined) return;
     return onChange((origin, sessionId) => {
@@ -56,12 +113,19 @@ export function useJob(
   useEffect(() => {
     if (machine === undefined) return;
     let gone = false;
-    getJson<WireThread>(machine, one(id)).then(
-      (thread) =>
-        !gone &&
+    getJson<Windowed>(machine, one(id)).then(
+      (newest) => {
+        if (gone) return;
+        const { thread, older } = withNewest(held.current, newest);
+        held.current = {
+          ...thread,
+          older,
+        };
         setRead({
           thread,
-        }),
+          older,
+        });
+      },
       (why) =>
         !gone &&
         setRead((was) => ({
@@ -78,8 +142,44 @@ export function useJob(
     id,
     epoch,
   ]);
+  const onOlder = () => {
+    const was = held.current;
+    const first = was?.rows[0];
+    if (machine === undefined || was === undefined || first === undefined || reading.current)
+      return;
+    reading.current = true;
+    void getJson<Windowed>(machine, one(id, first.id))
+      .then((page) => {
+        if (held.current !== was) return;
+        const thread = {
+          session: was.session,
+          rows: [
+            ...page.rows,
+            ...was.rows,
+          ],
+        };
+        const older = page.older === true;
+        held.current = {
+          ...thread,
+          older,
+        };
+        setRead({
+          thread,
+          older,
+        });
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        reading.current = false;
+      });
+  };
   return [
-    read,
+    read.older === true
+      ? {
+          ...read,
+          onOlder,
+        }
+      : read,
     () => setEpoch((was) => was + 1),
   ];
 }

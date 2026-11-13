@@ -10,12 +10,14 @@
 //! Fleet down is the exception that stays: Fleet is not there to send it, so it is read from
 //! [`runtime_file::Presence`] by [`connection_of`].
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Utc};
 use gpui::SharedString;
 use ipc::{
-    BuildPosition, BuildSource, BuildStage, FleetBuildReport, Instant, ModelDownshift, ProtocolId,
+    BuildPosition, BuildSource, BuildStage, FleetBuildReport, Instant, ManifestId, ModelDownshift, ProjectPlace, Projects, ProtocolId,
+    RepositorySummary, RunCloud, RunPlace,
 };
 
+use crate::link::LinkState;
 use crate::runtime_file::Presence;
 
 /// Which tone a ring and its percent are drawn in.
@@ -78,6 +80,60 @@ impl Limit {
     fn new(name: &'static str, percent: u32, band: Band, resets_in: Option<&str>) -> Limit {
         Limit { name, percent, arc: (percent.min(100) as f32) / 100., band, resets_in: resets_in.map(SharedString::from) }
     }
+}
+
+/// The rings as Fleet's reading draws them (`PlanUsageFigures`, `plan-usage.tsx`): nothing before a reading
+/// or off a subscription, the sweep while Fleet has none, and the five-hour and weekly limits, banded by Fleet.
+pub fn usage_of(read: Option<&ipc::PlanUsage>, now: DateTime<Utc>) -> Usage {
+    let Some(read) = read else { return Usage::Hidden };
+    let limits: Vec<Limit> = read
+        .windows
+        .iter()
+        .filter_map(|window| {
+            let name = match window.kind.as_str() {
+                "five_hour" => "5-hour limit",
+                "seven_day" => "Weekly limit",
+                _ => return None,
+            };
+            let band = match window.band {
+                ipc::RingBand::Normal => Band::Normal,
+                ipc::RingBand::Warning => Band::Warning,
+                ipc::RingBand::Danger => Band::Danger,
+            };
+            let resets = window.resets_at.as_ref().and_then(|at| DateTime::parse_from_rfc3339(at.as_str()).ok()).map(|at| countdown((at.with_timezone(&Utc) - now).num_seconds()));
+            Some(Limit::new(name, window.percent_used.min(100), band, resets.as_deref()))
+        })
+        .collect();
+    if !limits.is_empty() {
+        Usage::Limits(limits)
+    } else if read.windows.is_empty() && read.read_at.is_some() {
+        Usage::Hidden
+    } else {
+        Usage::Loading
+    }
+}
+
+/// `2d 17h`, `2h 14m`, `9m`: how long until a window resets (`countdown`).
+pub fn countdown(seconds: i64) -> String {
+    let minutes = seconds.max(0) / 60;
+    let (days, hours) = (minutes / (24 * 60), minutes / 60 % 24);
+    if days > 0 {
+        format!("{days}d {hours}h")
+    } else if hours > 0 {
+        format!("{hours}h {}m", minutes % 60)
+    } else {
+        format!("{minutes}m")
+    }
+}
+
+/// The step down with the stamp its words say: the shift's own end, else the weekly window's reset.
+pub fn downshift_of(state: Option<&ipc::ModelDownshiftState>, usage: Option<&ipc::PlanUsage>) -> Option<(ModelDownshift, SharedString)> {
+    let shift = state?.downshift.clone()?;
+    let until = match &shift {
+        ModelDownshift::Shifted { until, .. } => Some(until.clone()),
+        _ => usage.and_then(|usage| usage.windows.iter().find(|window| window.kind == "seven_day")).and_then(|window| window.resets_at.clone()),
+    };
+    Some((shift, until.map(|at| built_said(&at)).unwrap_or_default().into()))
 }
 
 /// The rings in the end region.
@@ -155,6 +211,13 @@ pub struct Build {
     pub aligned: bool,
     /// The Jobs a restart adopts. Any asks first; none restarts at once.
     pub adopts: Vec<String>,
+}
+
+/// The switcher's reading of Fleet's report: level with main as Fleet's `switcher` says, else as its position
+/// counts (a position that cannot be counted is not level), and the Jobs a restart carries across.
+pub fn build_of(report: &FleetBuildReport) -> Build {
+    let aligned = report.switcher.map_or_else(|| report.position.is_some_and(|at| at.ahead == 0 && at.behind == 0), |switcher| switcher.aligned);
+    Build { report: report.clone(), aligned, adopts: report.carried.clone() }
 }
 
 /// `5 Nov, 17:05`, in this machine's time, as a kept build is named. Text that is no instant comes back as it came.
@@ -310,6 +373,87 @@ pub fn connection_of(presence: &Presence, link: Link, path: &str) -> Connection 
     }
 }
 
+/// How long a Fleet that went down may stay down before its notice draws (`cockpit/boot.ts` `POWER_GRACE_MS`).
+pub const POWER_GRACE: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// The live link as the Fleet connection holds it: the state, the runtime file it was read from with
+/// that file's path, and the instants the face is timed from.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LiveLink {
+    pub state: LinkState,
+    pub presence: Option<(Presence, String)>,
+    /// When the link last went unreachable.
+    pub silent_since: Option<std::time::Instant>,
+    /// When Fleet last sent anything.
+    pub read_at: Option<std::time::Instant>,
+    /// When a connection last dropped.
+    pub dropped: Option<std::time::Instant>,
+}
+
+/// A span as Electron's `elapsed` says it: seconds, then minutes, then hours.
+fn elapsed(span: std::time::Duration) -> String {
+    let seconds = span.as_secs_f64().round() as u64;
+    if seconds < 60 {
+        return format!("{seconds}s");
+    }
+    let minutes = (seconds as f64 / 60.).round() as u64;
+    if minutes < 60 { format!("{minutes}m") } else { format!("{}h", (minutes as f64 / 60.).round() as u64) }
+}
+
+impl LiveLink {
+    /// The connection at `now`. A mismatch Fleet sent on the stream names the Fleet the runtime file does.
+    pub fn connection(&self, now: std::time::Instant) -> Connection {
+        let Some((presence, path)) = &self.presence else {
+            return match &self.state {
+                LinkState::Refused(why) => Connection::Refused { detail: why.clone() },
+                _ => Connection::Reading,
+            };
+        };
+        let link = match &self.state {
+            LinkState::ProtocolMismatch { fleet, ours } => {
+                if let Presence::Running(file) = presence {
+                    let sent = (*fleet != ProtocolId::default()).then(|| fleet.to_string());
+                    return Connection::Mismatch { pid: file.pid, port: file.port, fleet: sent, bridge: ours.to_string() };
+                }
+                Link::Connecting
+            }
+            LinkState::Starting => Link::Starting,
+            LinkState::Connected => Link::Connected { up: None },
+            LinkState::Unreachable(_) => Link::Unreachable {
+                silent: elapsed(now.saturating_duration_since(self.silent_since.unwrap_or(now))),
+                last_read: self.read_at.map(|at| elapsed(now.saturating_duration_since(at))),
+            },
+            LinkState::NotRunning(_) | LinkState::Refused(_) | LinkState::Connecting { .. } => Link::Connecting,
+        };
+        connection_of(presence, link, path)
+    }
+
+    /// Whether Fleet is just coming back (`cockpit/boot.ts` `powerOf`): a Fleet down holds its notice for the
+    /// grace after the window opened or the connection last dropped, whichever is later.
+    pub fn power(&self, opened: std::time::Instant, now: std::time::Instant) -> Power {
+        match self.connection(now) {
+            Connection::Connected { .. } => Power::Live,
+            Connection::Reading | Connection::Connecting { .. } | Connection::Starting { .. } => Power::Standby,
+            Connection::NotRunning { .. } | Connection::Unreachable { .. } if now < self.grace_ends(opened) => Power::Standby,
+            _ => Power::Fault,
+        }
+    }
+
+    fn grace_ends(&self, opened: std::time::Instant) -> std::time::Instant {
+        self.dropped.map_or(opened, |dropped| dropped.max(opened)) + POWER_GRACE
+    }
+
+    /// The next instant the face moves by the clock alone: each second while Fleet is silent, since the
+    /// notice says for how long, and the grace's end while Fleet is down.
+    pub fn next_at(&self, opened: std::time::Instant, now: std::time::Instant) -> Option<std::time::Instant> {
+        match self.connection(now) {
+            Connection::Unreachable { .. } => Some(now + std::time::Duration::from_secs(1)),
+            Connection::NotRunning { .. } => Some(self.grace_ends(opened)).filter(|at| *at > now),
+            _ => None,
+        }
+    }
+}
+
 /// The dot's state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Dot {
@@ -439,8 +583,39 @@ pub enum Restarting {
     Working,
     /// A new pid answered and it still does not match.
     Apart,
-    /// No new runtime file inside 30 seconds.
+    /// launchd would not restart it, or no new Fleet answered inside 30 seconds; the detail is what was answered.
+    Failed { why: RestartWhy, detail: String },
+}
+
+/// Why a restart did not take, in `FleetRestart`'s words.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RestartWhy {
+    NotStartedByArmada,
+    NotRunning,
+    Refused,
     NoAnswer,
+}
+
+impl RestartWhy {
+    /// The headline and what to do, as `fleetRestartFailure` says them.
+    pub fn said(self) -> (&'static str, &'static str) {
+        match self {
+            RestartWhy::NotStartedByArmada => ("Fleet was not started by Armada's service", "Stop it in the terminal it runs in, then start Fleet again."),
+            RestartWhy::NotRunning => ("Fleet is not running", "Start Fleet. Bridge reconnects on its own."),
+            RestartWhy::Refused => ("launchd refused to restart Fleet", "Fleet is as it was. Read the log, or restart it from a terminal."),
+            RestartWhy::NoAnswer => ("Fleet did not come back inside 30 seconds", "Read the Fleet log, then restart it again."),
+        }
+    }
+
+    /// The wire word, as the failure's Answer row says it.
+    pub fn word(self) -> &'static str {
+        match self {
+            RestartWhy::NotStartedByArmada => "not_started_by_armada",
+            RestartWhy::NotRunning => "not_running",
+            RestartWhy::Refused => "refused",
+            RestartWhy::NoAnswer => "no_answer",
+        }
+    }
 }
 
 /// What Doctor said of the modules it read.
@@ -501,16 +676,6 @@ pub struct RunsPlace {
 }
 
 impl RunsPlace {
-    /// The registry glyph of the place (`PLACE_GLYPH`).
-    pub fn glyph(&self) -> &'static str {
-        match self.kind {
-            RunsPlaceKind::Mac => "laptop",
-            RunsPlaceKind::Repository => "folder-git-2",
-            RunsPlaceKind::Synced => "folder",
-            RunsPlaceKind::Cloud => "database",
-        }
-    }
-
     /// The place as a phrase (`placePhrase`): `on this Mac`, `in iCloud Drive`.
     pub fn phrase(&self) -> String {
         match (self.kind, &self.detail) {
@@ -523,11 +688,85 @@ impl RunsPlace {
     }
 }
 
-/// A Workspace the picker lists as a heading, with the repositories under it by place in [`Face::repositories`].
+/// A project the switcher lists: whole repositories, or folders of one, and what it holds of its own.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Workspace {
+pub struct Project {
+    /// Fleet's id for it, which keeps the window on the project when the list changes.
+    pub id: SharedString,
     pub name: SharedString,
-    pub members: Vec<usize>,
+    pub members: Vec<Member>,
+    /// The tracker and its key, as `Linear, STORE`. Fleet serves none yet, so live it is absent.
+    pub tracker: Option<SharedString>,
+    pub kept: Option<RunsPlace>,
+    /// The look it wears: `Yours` where it keeps the person's own. Fleet serves none yet.
+    pub look: Option<SharedString>,
+}
+
+/// A repository of a project by its place in [`Face::repositories`], or a folder of it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Member {
+    pub repository: usize,
+    pub folder: Option<SharedString>,
+}
+
+/// The repository Fleet names a served repository by: its Manifest's id, else the id it gives one with none.
+fn manifest_of(one: &RepositorySummary) -> Option<&ManifestId> {
+    one.manifest.as_ref().map(|manifest| &manifest.id).or(one.implicit_id.as_ref())
+}
+
+/// The repositories the picker lists: each by its directory's name, `Not set up` where no Manifest has
+/// loaded. Where one is in `held` by name, what Fleet said of where it is kept stays.
+pub fn repositories_of(served: &[RepositorySummary], held: &[Repository]) -> Vec<Repository> {
+    served
+        .iter()
+        .map(|one| {
+            let name = one.manifest.as_ref().map_or_else(|| one.root.rsplit('/').find(|part| !part.is_empty()).unwrap_or(&one.root).to_string(), |manifest| manifest.repository.clone());
+            let kept = held.iter().find(|one| one.name.as_ref() == name).and_then(|one| one.kept.clone());
+            Repository { name: name.into(), not_set_up: one.manifest.is_none(), kept }
+        })
+        .collect()
+}
+
+/// Where Fleet keeps a project's file, as a place the pane can phrase.
+fn place_of(place: &ProjectPlace) -> RunsPlace {
+    let (kind, detail) = match place.place {
+        RunPlace::ThisMac => (RunsPlaceKind::Mac, None),
+        RunPlace::Repository => (RunsPlaceKind::Repository, None),
+        RunPlace::Synced => (RunsPlaceKind::Synced, place.synced_folder.clone()),
+        RunPlace::Cloud => (
+            RunsPlaceKind::Cloud,
+            match &place.cloud {
+                Some(RunCloud::Bucket(address)) => Some(address.clone()),
+                Some(RunCloud::Store {}) | None => None,
+            },
+        ),
+    };
+    RunsPlace { kind, detail: detail.map(SharedString::from) }
+}
+
+/// The projects the switcher lists, in the order Fleet keeps them. A project whose file would not read
+/// has no members to draw and is left out, as the Workspaces page leaves it. A member Fleet serves no
+/// repository for is left out of its project.
+pub fn projects_of(served: &[RepositorySummary], read: &Projects) -> Vec<Project> {
+    read.projects
+        .iter()
+        .filter(|one| one.unread.is_none())
+        .map(|one| Project {
+            id: one.id.clone().into(),
+            name: one.name.clone().into(),
+            members: one
+                .members
+                .iter()
+                .filter_map(|member| {
+                    let repository = served.iter().position(|each| manifest_of(each) == Some(&member.manifest_id))?;
+                    Some(Member { repository, folder: member.folder.clone().map(SharedString::from) })
+                })
+                .collect(),
+            tracker: None,
+            kept: Some(place_of(&one.place)),
+            look: None,
+        })
+        .collect()
 }
 
 /// One place in the bar's centre (`DK/TabBar.tsx`, `DECK_TABS`): a screen the window can be in.
@@ -565,13 +804,11 @@ pub struct Face {
     /// The repositories the picker lists, and the one chosen; none chosen is All.
     pub repositories: Vec<Repository>,
     pub chosen: Option<usize>,
-    /// The Workspaces, each a heading over its repositories; the one the window is scoped to, if any.
-    pub workspaces: Vec<Workspace>,
+    /// The projects, and the one the window is scoped to, if any.
+    pub projects: Vec<Project>,
     pub scoped: Option<usize>,
     /// Whether a profile is the active one: the menu's account entry says Account, else Sign in.
     pub signed_in: bool,
-    /// Whether a repository is read, which the Manifest button needs.
-    pub manifest: bool,
     /// Where the step down stands, with the window's reset said as a stamp. The weekly limit's card
     /// and the notification both read it; absent is none, or settled.
     pub downshift: Option<(ModelDownshift, SharedString)>,
@@ -592,10 +829,9 @@ impl Face {
             fleet: FleetFace { connection: Connection::Reading, power: Power::Standby, restarting: Restarting::Idle, doctor: None },
             repositories: Vec::new(),
             chosen: None,
-            workspaces: Vec::new(),
+            projects: Vec::new(),
             scoped: None,
             signed_in: false,
-            manifest: false,
             downshift: None,
             places: Vec::new(),
             here: None,
@@ -615,15 +851,45 @@ impl Face {
             && !(self.drawn_places().count() == 1 && self.drawn_places().any(|place| place.id == id))
     }
 
-    /// The picker's trigger: the repository chosen, else `All repositories`, or the reason none is listed.
-    pub fn repository_said(&self) -> SharedString {
-        if let Some(one) = self.scoped.and_then(|at| self.workspaces.get(at)) {
-            return one.name.clone();
+    /// The switcher's trigger: the project and, muted, the repositories it draws on; else the
+    /// repository chosen, else `All`, or the reason none is listed.
+    pub fn chosen_said(&self) -> (SharedString, Option<SharedString>) {
+        if let Some(one) = self.scoped.and_then(|at| self.projects.get(at)) {
+            return (one.name.clone(), self.members_said(one));
         }
         match self.chosen.and_then(|at| self.repositories.get(at)) {
-            Some(one) => one.name.clone(),
-            None if self.repositories.is_empty() => "No repository read yet".into(),
-            None => "All repositories".into(),
+            Some(one) => (one.name.clone(), None),
+            None if self.repositories.is_empty() => ("No repository read yet".into(), None),
+            None => ("All".into(), None),
+        }
+    }
+
+    /// The repositories a project draws on, each once, in the order its members name them.
+    pub fn members_said(&self, project: &Project) -> Option<SharedString> {
+        let mut names: Vec<&str> = Vec::new();
+        for member in &project.members {
+            if let Some(one) = self.repositories.get(member.repository) {
+                if !names.contains(&one.name.as_ref()) {
+                    names.push(one.name.as_ref());
+                }
+            }
+        }
+        (!names.is_empty()).then(|| names.join(", ").into())
+    }
+
+    /// The repositories in no project, by place.
+    pub fn lone(&self) -> Vec<usize> {
+        (0..self.repositories.len()).filter(|&at| !self.projects.iter().any(|one| one.members.iter().any(|member| member.repository == at))).collect()
+    }
+
+    /// What the Settings button beside the trigger names: the project, else the repository, else nothing.
+    pub fn settings_said(&self) -> SharedString {
+        if let Some(one) = self.scoped.and_then(|at| self.projects.get(at)) {
+            return format!("Settings for {}", one.name).into();
+        }
+        match self.chosen.and_then(|at| self.repositories.get(at)) {
+            Some(one) => format!("Settings for {}", one.name).into(),
+            None => "Settings".into(),
         }
     }
 }

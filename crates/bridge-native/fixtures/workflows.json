@@ -1,0 +1,125 @@
+[
+  {
+    "id": "feature",
+    "name": "Feature",
+    "version": 1,
+    "manifest_id": "armada",
+    "lands": "pull_request",
+    "steps": [
+      {
+        "step_id": "plan",
+        "label": "Plan",
+        "checks": [],
+        "judge_checks": [],
+        "advance_gate": "auto",
+        "phase": "work"
+      },
+      {
+        "step_id": "build",
+        "label": "Build",
+        "checks": [],
+        "judge_checks": [],
+        "advance_gate": "auto",
+        "phase": "work"
+      },
+      {
+        "step_id": "walk",
+        "label": "Walk",
+        "checks": [],
+        "judge_checks": [],
+        "advance_gate": "auto",
+        "phase": "work"
+      },
+      {
+        "step_id": "land",
+        "label": "Land",
+        "checks": [],
+        "judge_checks": [],
+        "advance_gate": "auto",
+        "phase": "work"
+      }
+    ]
+  },
+  {
+    "id": "ship",
+    "name": "Ship a screen",
+    "version": 1,
+    "manifest_id": "armada",
+    "lands": "pull_request",
+    "steps": [
+      {
+        "step_id": "plan",
+        "label": "Plan",
+        "checks": [],
+        "judge_checks": [],
+        "advance_gate": "auto",
+        "phase": "work"
+      },
+      {
+        "step_id": "build",
+        "label": "Build",
+        "checks": [],
+        "judge_checks": [],
+        "advance_gate": "auto",
+        "phase": "work"
+      },
+      {
+        "step_id": "present-the-walk",
+        "label": "Present the walk",
+        "checks": [],
+        "judge_checks": [],
+        "advance_gate": "auto",
+        "phase": "work"
+      },
+      {
+        "step_id": "review",
+        "label": "Review",
+        "checks": [],
+        "judge_checks": [],
+        "advance_gate": "auto",
+        "phase": "work"
+      },
+      {
+        "step_id": "land",
+        "label": "Land",
+        "checks": [],
+        "judge_checks": [],
+        "advance_gate": "auto",
+        "phase": "work"
+      }
+    ]
+  },
+  {
+    "id": "fix",
+    "name": "Fix",
+    "version": 1,
+    "manifest_id": "armada",
+    "lands": "pull_request",
+    "steps": [
+      {
+        "step_id": "reproduce",
+        "label": "Reproduce",
+        "checks": [],
+        "judge_checks": [],
+        "advance_gate": "auto",
+        "phase": "work"
+      },
+      {
+        "step_id": "fix",
+        "label": "Fix",
+        "checks": [],
+        "judge_checks": [],
+        "advance_gate": "auto",
+        "phase": "work"
+      },
+      {
+        "step_id": "land",
+        "label": "Land",
+        "checks": [],
+        "judge_checks": [],
+        "advance_gate": "auto",
+        "phase": "work"
+      }
+    ]
+  }
+]

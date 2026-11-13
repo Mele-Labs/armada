@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import type { WaitingItem } from "@armada/protocol";
+import type { SessionRow, WaitingItem } from "@armada/protocol";
 import { describe, expect, it, vi } from "vitest";
 
 import { homeOf, type Mac } from "./fleet";
@@ -7,6 +7,7 @@ import { answer } from "./fixture/gateway";
 import { everyState, fixtureMacs } from "./fixture/wire";
 import { rowStateOf } from "./rowState";
 import {
+  approvalOf,
   asksOf,
   choicesOf,
   documentOf,
@@ -25,7 +26,7 @@ import {
 import { jobStateOf } from "@armada/screens/src/session-state";
 import { sketchAnswerOf, documentAnswerOf } from "@armada/screens/src/thread-cards";
 import { Refused } from "./client";
-import { attemptPage } from "./jobState";
+import { attemptPage, withNewest } from "./jobState";
 import { fit, followScreen } from "./viewport";
 import type { PhoneSession } from "./gateway";
 import { codeFromInput, linkOf } from "./pairing";
@@ -213,52 +214,23 @@ describe("routeOf", () => {
 });
 
 describe("homeOf", () => {
-  it("sorts each state into the section the desktop's bucket says", () => {
-    const { live } = everyState(Date.parse("2026-10-08T12:00:00Z"));
-    const home = homeOf({
-      macs: [
-        mac("https://a", {
-          live,
-        }),
-      ],
-    });
-    const ids = (
-      items: {
-        session: PhoneSession;
-      }[],
-    ) => items.map((one) => one.session.id).sort();
-    expect(ids(home.drafts)).toEqual([
-      "x-blank",
-    ]);
-    expect(ids(home.needs)).toEqual([
-      "x-failing",
-      "x-gave-up",
-      "x-stuck",
-      "x-unstarted",
-    ]);
-    expect(ids(home.waiting)).toEqual([
-      "x-checks",
-      "x-job",
-      "x-limited",
-      "x-queue",
-      "x-quit",
-      "x-restarting",
-      "x-watch",
-    ]);
-    expect(ids(home.running)).toEqual([
-      "x-paused",
-      "x-reading",
-    ]);
-  });
-
-  const session = (id: string, extra: Partial<PhoneSession>): PhoneSession => ({
+  const session = (id: string, extra: Partial<PhoneSession> = {}): PhoneSession => ({
     id,
+    title: `Job ${id}`,
+    repository: "armada",
     kind: "hosted",
     waiting: false,
     working: false,
     held: false,
     started_at: "2026-10-08T10:00:00Z",
     ...extra,
+  });
+  /** A Job another started. */
+  const startedBy = (id: string): Partial<PhoneSession> => ({
+    from: {
+      id,
+      title: `Job ${id}`,
+    },
   });
   const mac = (origin: string, extra: Partial<Mac>): Mac => ({
     machine: {
@@ -272,6 +244,298 @@ describe("homeOf", () => {
     live: [],
     ...extra,
   });
+  /** Each repository's lines as `mac/id`, one step of indent per starter above it. */
+  const tree = (home: ReturnType<typeof homeOf>) =>
+    home.repositories.map((one) => ({
+      name: one.name,
+      lines: one.lines.map(
+        ({ item, depth }) => `${"  ".repeat(depth)}${item.mac.machine.name}/${item.session.id}`,
+      ),
+    }));
+
+  it("lists every live Job once, in Fleet's order, each with the state its fields read as", () => {
+    const { live } = everyState(Date.parse("2026-10-08T12:00:00Z"));
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live,
+        }),
+      ],
+    });
+    expect(home.repositories.map((one) => one.name)).toEqual([
+      "armada",
+    ]);
+    const lines = home.repositories[0]!.lines;
+    expect(lines.map((one) => one.item.session.id)).toEqual(live.map((one) => one.id));
+    expect(lines.every((one) => one.depth === 0)).toBe(true);
+    const state = (id: string) => lines.find((one) => one.item.session.id === id)!.item.state;
+    expect(state("x-blank")).toBe("blank");
+    expect(state("x-stuck")).toBe("stuck");
+    expect(state("x-paused")).toBe("paused");
+  });
+
+  it("keeps Fleet's order, whatever order the Jobs started in", () => {
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            session("z9", {
+              started_at: "2026-10-08T09:00:00Z",
+            }),
+            session("a1", {
+              started_at: "2026-10-08T11:00:00Z",
+            }),
+            session("m5", {
+              started_at: "2026-10-08T10:00:00Z",
+            }),
+          ],
+        }),
+      ],
+    });
+    expect(tree(home)).toEqual([
+      {
+        name: "armada",
+        lines: [
+          "a/z9",
+          "a/a1",
+          "a/m5",
+        ],
+      },
+    ]);
+  });
+
+  it("lists a Job another started right under its starter, and a grandchild one step deeper", () => {
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            session("p1"),
+            session("x1"),
+            session("c1", startedBy("p1")),
+            session("c3", startedBy("c1")),
+            session("c2", startedBy("p1")),
+          ],
+        }),
+      ],
+    });
+    expect(tree(home)).toEqual([
+      {
+        name: "armada",
+        lines: [
+          "a/p1",
+          "  a/c1",
+          "    a/c3",
+          "  a/c2",
+          "a/x1",
+        ],
+      },
+    ]);
+  });
+
+  it("ends a starter's line at the last Job it started, and runs it on past a grandchild above that one", () => {
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            session("p1"),
+            session("c1", startedBy("p1")),
+            session("c3", startedBy("c1")),
+            session("c2", startedBy("p1")),
+          ],
+        }),
+      ],
+    });
+    expect(
+      home.repositories[0]!.lines.map(({ item, through, last }) => [
+        item.session.id,
+        through,
+        last,
+      ]),
+    ).toEqual([
+      [
+        "p1",
+        [],
+        true,
+      ],
+      [
+        "c1",
+        [],
+        false,
+      ],
+      [
+        "c3",
+        [
+          true,
+        ],
+        true,
+      ],
+      [
+        "c2",
+        [],
+        true,
+      ],
+    ]);
+  });
+
+  it("puts a Job under its starter even where Fleet listed it first", () => {
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            session("c1", startedBy("p1")),
+            session("p1"),
+          ],
+        }),
+      ],
+    });
+    expect(tree(home)[0]!.lines).toEqual([
+      "a/p1",
+      "  a/c1",
+    ]);
+  });
+
+  it("leaves a Job at depth 0 when its starter is not listed", () => {
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            session("c1", startedBy("gone")),
+            session("c3", startedBy("c1")),
+          ],
+        }),
+      ],
+    });
+    expect(tree(home)[0]!.lines).toEqual([
+      "a/c1",
+      "  a/c3",
+    ]);
+    // It still says who started it, which is what the row's link mark names.
+    expect(home.repositories[0]!.lines[0]!.item.session.from?.id).toBe("gone");
+  });
+
+  it("keeps each repository's Jobs together, in the order the repositories first appear", () => {
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            session("s1", {
+              repository: "store",
+            }),
+            session("a1"),
+            session("s2", {
+              repository: "store",
+            }),
+            session("n1", {
+              repository: undefined,
+            }),
+          ],
+        }),
+      ],
+    });
+    expect(tree(home)).toEqual([
+      {
+        name: "store",
+        lines: [
+          "a/s1",
+          "a/s2",
+        ],
+      },
+      {
+        name: "armada",
+        lines: [
+          "a/a1",
+        ],
+      },
+      {
+        name: "",
+        lines: [
+          "a/n1",
+        ],
+      },
+    ]);
+  });
+
+  it("does not nest a Job under a starter in another repository", () => {
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            session("p1"),
+            session("c1", {
+              ...startedBy("p1"),
+              repository: "store",
+            }),
+          ],
+        }),
+      ],
+    });
+    expect(tree(home)).toEqual([
+      {
+        name: "armada",
+        lines: [
+          "a/p1",
+        ],
+      },
+      {
+        name: "store",
+        lines: [
+          "a/c1",
+        ],
+      },
+    ]);
+  });
+
+  it("keeps one repository's name on two Macs apart: each Mac's Jobs nest under that Mac's starter", () => {
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            session("p1"),
+            session("c1", startedBy("p1")),
+          ],
+        }),
+        mac("https://b", {
+          live: [
+            session("p1"),
+            session("c2", startedBy("p1")),
+          ],
+        }),
+      ],
+    });
+    expect(tree(home)).toEqual([
+      {
+        name: "armada",
+        lines: [
+          "a/p1",
+          "  a/c1",
+          "b/p1",
+          "  b/c2",
+        ],
+      },
+    ]);
+  });
+
+  it("leaves a Job at depth 0 when only another Mac lists its starter", () => {
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            session("p1"),
+          ],
+        }),
+        mac("https://b", {
+          live: [
+            session("c9", startedBy("p1")),
+          ],
+        }),
+      ],
+    });
+    expect(tree(home)[0]!.lines).toEqual([
+      "a/p1",
+      "b/c9",
+    ]);
+  });
+
   it("leaves out an unpaired Mac's Jobs and lists it as troubled", () => {
     const home = homeOf({
       macs: [
@@ -293,36 +557,41 @@ describe("homeOf", () => {
         }),
       ],
     });
-    expect(home.needs.map((one) => one.session.id)).toEqual([
-      "a1",
+    expect(tree(home)).toEqual([
+      {
+        name: "armada",
+        lines: [
+          "a/a1",
+        ],
+      },
     ]);
     expect(home.troubled.map((one) => one.machine.origin)).toEqual([
       "https://b",
     ]);
     expect(home.several).toBe(true);
   });
-  it("keeps a waiting Job out of Running", () => {
+
+  it("lists a Mac that did not answer as troubled, and its Jobs still", () => {
     const home = homeOf({
       macs: [
         mac("https://a", {
+          error: "Not answering",
           live: [
-            session("a1", {
-              working: true,
-              waiting: true,
-            }),
-            session("a2", {
-              working: true,
-            }),
+            session("a1"),
           ],
         }),
       ],
     });
-    expect(home.running.map((one) => one.session.id)).toEqual([
-      "a2",
+    expect(tree(home)[0]!.lines).toEqual([
+      "a/a1",
+    ]);
+    expect(home.troubled.map((one) => one.machine.origin)).toEqual([
+      "https://a",
     ]);
     expect(home.several).toBe(false);
   });
-  it("lists a held Job under drafts alone, whether or not it waits on its first message", () => {
+
+  it("lists a draft once, a Job waiting while it works as waiting, and an open Job with no turn running as idle", () => {
     const home = homeOf({
       macs: [
         mac("https://a", {
@@ -342,39 +611,42 @@ describe("homeOf", () => {
             }),
             session("a1", {
               working: true,
-            }),
-          ],
-        }),
-      ],
-    });
-    expect(home.drafts.map((one) => one.session.id).sort()).toEqual([
-      "d1",
-      "d2",
-    ]);
-    expect(home.needs).toEqual([]);
-    expect(home.running.map((one) => one.session.id)).toEqual([
-      "a1",
-    ]);
-  });
-  it("lists an open Job with no turn running, which is neither waiting nor ended", () => {
-    const home = homeOf({
-      macs: [
-        mac("https://a", {
-          live: [
-            session("a1", {
-              working: true,
-            }),
-            session("a2", {}),
-            session("a3", {
               waiting: true,
             }),
+            session("a2", {
+              working: true,
+            }),
+            session("a3"),
           ],
         }),
       ],
     });
-    expect(home.running.map((one) => one.session.id).sort()).toEqual([
-      "a1",
-      "a2",
+    expect(
+      home.repositories[0]!.lines.map((one) => [
+        one.item.session.id,
+        one.item.state,
+      ]),
+    ).toEqual([
+      [
+        "d1",
+        "draft",
+      ],
+      [
+        "d2",
+        "draft",
+      ],
+      [
+        "a1",
+        "waiting",
+      ],
+      [
+        "a2",
+        "working",
+      ],
+      [
+        "a3",
+        "idle",
+      ],
     ]);
   });
 });
@@ -1266,5 +1538,204 @@ describe("what a Job waits on, on the phone", () => {
         page: "/a/b.html",
       });
     });
+  });
+});
+
+describe("approvalOf", () => {
+  const wire = () =>
+    structuredClone(
+      fixtureMacs(Date.now(), {
+        studio: "https://studio",
+        laptop: "https://laptop",
+      })["https://laptop"]!.threads["b1"]!,
+    );
+  const card = (thread = wire()) => approvalOf(sessionOfThread(thread), () => undefined);
+
+  it("gives the plan card the summary, and each group's gives, paths, landing and tasks' words", () => {
+    expect(card()).toMatchObject({
+      version: 1,
+      summary: wire().session.plan!.summary,
+      approved: false,
+      taskText: true,
+      groups: [
+        {
+          id: "g1",
+          agent: "rust",
+          title: "Rename in the crate",
+          gives: "The crate and its tests say slot",
+          paths: [
+            "crates/pool",
+          ],
+          landsIn: {
+            label: "PR 1",
+          },
+          tasks: [
+            {
+              id: "t1",
+              text: "Rename Pool to Slots",
+            },
+            {
+              id: "t2",
+              text: "Rename the tests",
+            },
+          ],
+        },
+        {
+          id: "g2",
+          agent: "bridge-engineer",
+          title: "Rename in Bridge",
+          gives: "Every screen says slot where it said pool",
+          paths: [
+            "apps/desktop/src",
+          ],
+          landsIn: {
+            label: "PR 1",
+          },
+          tasks: [
+            {
+              id: "t3",
+              text: "Rename the labels and tooltips",
+            },
+            {
+              id: "t4",
+              text: "Walk the Slots page",
+            },
+          ],
+        },
+        {
+          id: "g3",
+          agent: "docs-writer",
+          title: "Rename in the docs",
+          gives: "The docs say slot, with the old word named once",
+          paths: [
+            "docs/concepts",
+          ],
+          landsIn: {
+            label: "PR 2",
+          },
+          tasks: [
+            {
+              id: "t5",
+              text: "Rename the concept page",
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("marks the group that goes to a Job of its own, and no other", () => {
+    const groups = card()!.groups;
+    expect(groups.map((one) => one.ownJob === true)).toEqual([
+      false,
+      false,
+      true,
+    ]);
+    expect(groups[0]).not.toHaveProperty("ownJob");
+  });
+
+  it("leaves out a summary or a gives the plan does not have", () => {
+    const thread = wire();
+    thread.session.plan!.summary = "";
+    delete thread.session.plan!.groups[0]!.gives;
+    const bare = card(thread)!;
+    expect(bare).not.toHaveProperty("summary");
+    expect(bare.groups[0]).not.toHaveProperty("gives");
+    expect(bare.groups[1]!.gives).toBe("Every screen says slot where it said pool");
+  });
+
+  it("says the Job opens pull requests where its delivery opens or lands one", () => {
+    const delivered = (delivery: "open_pr" | "auto_land" | "keep_local") => {
+      const thread = wire();
+      thread.session.started = {
+        delivery,
+      };
+      return card(thread)!;
+    };
+    expect(delivered("open_pr").opensPullRequests).toBe(true);
+    expect(delivered("auto_land").opensPullRequests).toBe(true);
+    expect(delivered("keep_local")).not.toHaveProperty("opensPullRequests");
+    expect(card()).not.toHaveProperty("opensPullRequests");
+  });
+
+  it("approves through the handler it was given", () => {
+    const onApprove = vi.fn();
+    approvalOf(sessionOfThread(wire()), onApprove)!.onApprove();
+    expect(onApprove).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("withNewest", () => {
+  const { session, rows } = fixtureMacs(Date.now(), {
+    studio: "https://studio",
+    laptop: "https://laptop",
+  })["https://laptop"]!.threads["b4"]!;
+  /** Rows `from` to `to` of the long Job, as one read of them: `older` where rows stand before them. */
+  const read = (from: number, to: number, older?: true) => ({
+    session,
+    rows: rows.slice(from, to),
+    ...(older === undefined
+      ? {}
+      : {
+          older,
+        }),
+  });
+  const ids = (from: number, to: number) => rows.slice(from, to).map((one) => one.id);
+  type Message = Extract<
+    SessionRow,
+    {
+      kind: "message";
+    }
+  >;
+
+  it("is the newest rows alone where none are held, and says whether older ones stand before them", () => {
+    const first = withNewest(undefined, read(250, 450, true));
+    expect(first.thread.rows.map((one) => one.id)).toEqual(ids(250, 450));
+    expect(first.older).toBe(true);
+    expect(withNewest(undefined, read(0, 450)).older).toBe(false);
+  });
+
+  it("lays the newest rows over those held: a replaced row takes its new content, the older rows held stay", () => {
+    const held = read(50, 450, true);
+    const settled = {
+      ...(rows[300] as Message),
+      text: "Settled.",
+    };
+    const newest = {
+      session: {
+        ...session,
+        title: "Renamed",
+      },
+      rows: [
+        ...rows.slice(250, 300),
+        settled,
+        ...rows.slice(301, 450),
+      ],
+    };
+    const laid = withNewest(held, newest);
+    expect(laid.thread.rows.map((one) => one.id)).toEqual(ids(50, 450));
+    expect((laid.thread.rows[250] as Message).text).toBe("Settled.");
+    expect((rows[300] as Message).text).not.toBe("Settled.");
+    expect(laid.thread.rows[0]).toBe(held.rows[0]);
+    expect(laid.thread.session.title).toBe("Renamed");
+    expect(laid.older).toBe(true);
+  });
+
+  it("keeps older false once the rows held reach the Job's first", () => {
+    const laid = withNewest(read(0, 450), read(250, 450));
+    expect(laid.thread.rows.map((one) => one.id)).toEqual(ids(0, 450));
+    expect(laid.older).toBe(false);
+  });
+
+  it("takes in the rows that arrived since", () => {
+    const laid = withNewest(read(250, 440, true), read(250, 450, true));
+    expect(laid.thread.rows.map((one) => one.id)).toEqual(ids(250, 450));
+    expect(laid.older).toBe(true);
+  });
+
+  it("is the newest rows alone where they no longer reach the rows held", () => {
+    const laid = withNewest(read(0, 100), read(250, 450, true));
+    expect(laid.thread.rows.map((one) => one.id)).toEqual(ids(250, 450));
+    expect(laid.older).toBe(true);
   });
 });

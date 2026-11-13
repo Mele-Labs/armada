@@ -3,10 +3,10 @@
 //! fails here and not on screen. Instants are set from now, so an age reads as it would.
 
 use chrono::{Duration, SecondsFormat, Utc};
-use gpui::{App, SharedString};
-use ipc::{MergeLineView, StandingCall};
+use gpui::App;
+use ipc::{MergeLineView, PullTone, StandingCall};
 
-use super::{live, Held, Line, MergeStrip, Opening, Recent, Strip, Tone};
+use super::{live, Line, MergeStrip, Opening, Recent, Strip};
 
 fn ago(seconds: i64) -> String {
     (Utc::now() - Duration::seconds(seconds)).to_rfc3339_opts(SecondsFormat::Secs, true)
@@ -53,7 +53,7 @@ fn armada(main: &str, checkout: &str, read: i64, quiet: Option<i64>) -> MergeLin
     .join(",");
     let quiet = quiet.map(|seconds| format!(r#","quiet_since":"{}""#, ago(seconds))).unwrap_or_default();
     view(format!(
-        r#"{{"root":"/Users/nick/Development/armada","name":"armada"{main}{checkout},"pulls":[{pulls}],"read_at":"{}"{quiet}}}"#,
+        r#"{{"root":"/Users/user/Development/armada","name":"armada"{main}{checkout},"pulls":[{pulls}],"read_at":"{}"{quiet}}}"#,
         ago(read)
     ))
 }
@@ -68,18 +68,21 @@ fn red(more: &str) -> String {
 const GREEN: &str = r#","main":{"state":"green"}"#;
 const CHECKOUT: &str = r#","checkout":{"base":"main","behind":3,"ahead":0,"uncommitted":["crates/fleet/src/merge_hub.rs"],"clashing":[]}"#;
 
-fn held() -> Vec<Held> {
-    let job = |id: &str, title: &str| Some((SharedString::from(id.to_string()), SharedString::from(title.to_string())));
-    vec![
-        Held { number: 3395, job: job("mock-02", "Native Bridge foundation"), tone: Tone::Calm },
-        Held { number: 3392, job: job("mock-06", "Quiet the write-clash notices"), tone: Tone::Calm },
-        Held { number: 3388, job: job("mock-01", "Fix the merge line freshness chip"), tone: Tone::Ask },
-        Held { number: 3381, job: job("mock-07", "Checkout page loads twice"), tone: Tone::Bad },
-    ]
-}
-
-fn line(view: MergeLineView) -> Line {
-    Line { view, held: held() }
+/// The Jobs holding the pull requests, and their chips' tones, as Fleet's view carries them.
+fn line(mut view: MergeLineView) -> Line {
+    let held = [
+        (3395, "mock-02", "Native Bridge foundation", PullTone::Calm),
+        (3392, "mock-06", "Quiet the write-clash notices", PullTone::Calm),
+        (3388, "mock-01", "Fix the merge line freshness chip", PullTone::Ask),
+        (3381, "mock-07", "Checkout page loads twice", PullTone::Bad),
+    ];
+    for pull in &mut view.pulls {
+        if let Some((_, id, title, tone)) = held.iter().find(|(number, ..)| *number == pull.pull.number) {
+            pull.held_by = Some(ipc::HubSession { id: id.to_string(), title: Some(title.to_string()) });
+            pull.tone = *tone;
+        }
+    }
+    Line { view }
 }
 
 fn calls(keys: &[(&str, &str, &str)]) -> Vec<StandingCall> {
@@ -97,8 +100,7 @@ fn calls(keys: &[(&str, &str, &str)]) -> Vec<StandingCall> {
 fn others() -> Vec<Line> {
     let simple = |root: &str, name: &str, main: &str, pulls: &str| {
         Line {
-            view: view(format!(r#"{{"root":"/Users/nick/Development/{root}","name":"{name}"{main},"pulls":[{pulls}],"read_at":"{}"}}"#, ago(40))),
-            held: Vec::new(),
+            view: view(format!(r#"{{"root":"/Users/user/Development/{root}","name":"{name}"{main},"pulls":[{pulls}],"read_at":"{}"}}"#, ago(40))),
         }
     };
     vec![
@@ -173,7 +175,7 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "strip-quiet" => Strip { lines: vec![line(armada(GREEN, "", 900, Some(7 * 60)))], ..rest() },
         "strip-red" => Strip {
             lines: vec![line(armada(&red(""), CHECKOUT, 40, None))],
-            calls: calls(&[("main:/Users/nick/Development/armada", "main", "Main is red")]),
+            calls: calls(&[("main:/Users/user/Development/armada", "main", "Main is red")]),
             ..rest()
         },
         "strip-red-elsewhere" => Strip {
@@ -186,10 +188,30 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
             lines.extend(others());
             Strip { lines, on_all: true, ..rest() }
         }
+        // Fleet's answers through the live app's own reading of them (`live.rs`).
+        "strip-live" | "strip-live-refused" | "strip-live-picked" | "strip-live-loading" | "strip-live-down" => {
+            let mut lines = vec![line(armada(GREEN, "", 40, None)).view];
+            lines.extend(others().into_iter().map(|line| line.view));
+            // The title bar's Fleet dot says what the strip's Fleet is.
+            crate::titlebar::scenes::apply(if name == "strip-live-down" { "fleet-down" } else { "fleet-running" }, cx)?;
+            match name {
+                // The open Job holds #3388: its repository's row alone, its chip ahead of the open ones.
+                "strip-live" | "strip-live-refused" => super::live::walked(Some(lines), None, Some("mock-01"), false),
+                "strip-live-picked" => super::live::walked(Some(lines), Some(vec!["/Users/user/Development/sample-web".into()]), None, false),
+                "strip-live-loading" => super::live::walked(None, None, None, false),
+                // The same open Job as the first, after Fleet stopped.
+                _ => super::live::walked(Some(lines), None, Some("mock-01"), true),
+            }
+        }
         other => return Err(format!("no merge strip scene named {other}")),
     };
     strip.update(cx, |strip: &mut MergeStrip, cx| {
         strip.jump(data, cx);
+        strip.refused.clear();
+        if name == "strip-live-refused" {
+            // A refresh Fleet refused, where its answer could not be read for words.
+            strip.refused.insert("pull:/Users/user/Development/armada#3388".into(), "Fleet answered 502".into());
+        }
         if name == "strip-red-taken" || name == "strip-red-elsewhere" {
             strip.show_main(cx);
         }

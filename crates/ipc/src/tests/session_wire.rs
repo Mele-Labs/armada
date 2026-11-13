@@ -11,6 +11,7 @@ pub(super) fn a_record() -> SessionRecord {
     let at = Instant::carried("2026-10-13T09:00:00.000Z");
     SessionRecord {
         id: crate::SessionId::carried("01RECORD"),
+        mac: None,
         harness: "hosted".into(),
         origin: SessionOrigin::Bridge,
         manifest_id: Some(ManifestId::carried("armada")),
