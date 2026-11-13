@@ -1426,6 +1426,20 @@ pub static WALKS: &[Walk] = &[
         steps: &new_project::STEPS,
     },
     Walk {
+        name: "jobs-ended-glyph",
+        title: "An ended Job's mark beside a quiet one",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("The scope beside the search picks which Jobs the list holds", Verb::Press, "button", "Active"),
+            step("↓ past Needs you, Active and Paused to Quiet", Verb::Keys(&["down", "down", "down"]), "menuitemcheckbox", "Quiet"),
+            step("Enter picks it: a Job nothing reaches wears the broken plug, and its tooltip says Not reachable", Verb::Key("enter"), "row", "Retry webhooks on a 503"),
+            step("The scope again", Verb::Press, "button", "Quiet"),
+            step("↓ to Ended", Verb::Keys(&["down", "down", "down", "down"]), "menuitemcheckbox", "Ended"),
+            step("Enter picks it: a Job that was ended wears the power mark, switched off, and its tooltip says Ended", Verb::Key("enter"), "row", "An ended Job stays out of the list"),
+        ],
+    },
+    Walk {
         name: "job-handoff",
         title: "Hand off marks",
         screen: Screen::Marks,

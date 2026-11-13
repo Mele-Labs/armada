@@ -258,7 +258,7 @@ pub(crate) fn glyph_of(state: JobState, pr: Option<&str>) -> (&'static str, Shar
         JobState::Idle => ("check", "Idle"),
         JobState::Replied => ("reply", "Unread reply"),
         JobState::Quiet => ("unplug", "Not reachable"),
-        JobState::Ended => ("unplug", "Ended"),
+        JobState::Ended => ("power-off", "Ended"),
         JobState::Paused => ("circle-pause", "Paused"),
     };
     (glyph, said.into())
@@ -3196,6 +3196,12 @@ mod tests {
         let walk = active.iter().find_map(|line| match line { Line::Job(row) if row.title.as_ref() == "Fix the walk at 820" => Some((row.depth, row.place)), _ => None });
         let shots = active.iter().find_map(|line| match line { Line::Job(row) if row.title.as_ref() == "Re-take the shots" => Some(row.depth), _ => None });
         assert_eq!((walk, shots), (Some((1, true)), Some(2)));
+    }
+
+    #[test]
+    fn an_ended_job_does_not_wear_the_quiet_jobs_glyph() {
+        assert_eq!(glyph_of(JobState::Quiet, None), ("unplug", "Not reachable".into()));
+        assert_eq!(glyph_of(JobState::Ended, None), ("power-off", "Ended".into()));
     }
 
     #[test]
