@@ -56,7 +56,15 @@ export type SaveReviewTool = {
 };
 
 /** What a run is of. */
-export type ReviewRunKind = "tool" | "explanation" | "ask" | "search" | "fix" | "change_sets" | "overview" | "practices";
+export type ReviewRunKind =
+  | "tool"
+  | "explanation"
+  | "ask"
+  | "search"
+  | "fix"
+  | "change_sets"
+  | "overview"
+  | "practices";
 
 /** How far a run has got. `failed` is never a result. */
 export type ReviewRunState = "queued" | "running" | "done" | "failed";
@@ -256,7 +264,15 @@ export type ReviewResult =
     };
 
 /** What kind of change a change set is. */
-export type ChangeSetKind = "migration" | "data" | "logic" | "api" | "ui" | "tests" | "config" | "other";
+export type ChangeSetKind =
+  | "migration"
+  | "data"
+  | "logic"
+  | "api"
+  | "ui"
+  | "tests"
+  | "config"
+  | "other";
 
 /** One hunk of the diff by where it is, never its text: the hunk header's ranges. A count of 0 only adds, or only removes. */
 export type HunkRef = {
