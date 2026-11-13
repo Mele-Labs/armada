@@ -34,7 +34,7 @@ pub const MACS_SETUP: &str = "native-settings-macs-setup";
 pub static MACS_SETUP_STEPS: &[Step] = &[
     step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
     press_on("Nothing set up yet: two ways to start", "button", "Macs", "button", "Find my Mac"),
-    press_on("Find my Mac turns the Gateway on and signs in to Cloudflare", "button", "Find my Mac", "status", "Signing in to Cloudflare"),
+    press_on("Find my Mac turns the Gateway on and signs in to Cloudflare", "button", "Find my Mac", "button", "Open it again"),
     step("Once he has signed in, the tunnel is made and it waits", Verb::Later(12000), "status", "Waiting for your other Mac"),
     press_on("A link pairs them instead", "button", "Pair with a link instead", "button", "Claim"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),

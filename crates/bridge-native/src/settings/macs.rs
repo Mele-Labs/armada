@@ -706,16 +706,16 @@ impl SettingsOverlay {
 
     pub(super) fn render_macs(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Vec<AnyElement> {
         match self.macs.part() {
-            Part::Cards => vec![self.lead_cards(look, window, cx)],
-            Part::Steps => vec![self.steps_card(look, window, cx)],
-            Part::Waiting => vec![self.waiting_card(look, window, cx)],
+            Part::Cards => vec![capped(self.lead_cards(look, window, cx))],
+            Part::Steps => vec![capped(self.steps_card(look, window, cx))],
+            Part::Waiting => vec![capped(self.waiting_card(look, window, cx))],
             Part::Page => vec![self.this_mac_card(look), self.tunnel_card(look, window, cx), self.devices_card(look, window, cx)],
         }
     }
 
     /// First open, nothing set up: the two ways to start, side by side, each one press.
     fn lead_cards(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
-        let one = |id: &'static str, icon: &'static str, title: &'static str, press: AnyElement| {
+        let one = |id: &'static str, icon: &'static str, title: &'static str, said: &'static str, press: AnyElement| {
             let tile = div().flex_none().size(look.length(token::SPACE_8)).rounded(look.length(token::RADIUS_MD)).bg(look.color(token::ACCENT_FAINT)).flex().items_center().justify_center().child(svg().path(icon_path(icon)).size(look.length(token::SPACE_4)).text_color(look.color(token::ACCENT)));
             let name = div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(title);
             let body = div()
@@ -732,7 +732,7 @@ impl SettingsOverlay {
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .bg(look.color(token::SURFACE_CARD))
                 .child(tile)
-                .child(name)
+                .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(name).child(caption(look, said)))
                 .child(press);
             labelled(body, Role::Region, title).into_any_element()
         };
@@ -741,8 +741,8 @@ impl SettingsOverlay {
             .flex()
             .flex_wrap()
             .gap(look.length(token::SPACE_4))
-            .child(one("macs-lead-find", "link", "Pair with a Mac that's set up", self.macs_button("find", "Find my Mac", Weight::Primary, false, look, window, cx)))
-            .child(one("macs-lead-set-up", "monitor", "Set up this Mac first", self.macs_button("set-up", "Set up", Weight::Secondary, false, look, window, cx)));
+            .child(one("macs-lead-find", "link", "Pair with a Mac that's set up", "Your other Mac already runs Armada's link", self.macs_button("find", "Find my Mac", Weight::Primary, false, look, window, cx)))
+            .child(one("macs-lead-set-up", "monitor", "Set up this Mac first", "The first of your Macs", self.macs_button("set-up", "Set up", Weight::Secondary, false, look, window, cx)));
         labelled(div().id("macs-connect").flex().flex_col().gap(look.length(token::SPACE_4)).child(heading).child(cards), Role::Region, "Connect your Macs").into_any_element()
     }
 
@@ -1032,6 +1032,11 @@ enum Weight {
 /// A read's refusal to say on the page. A Gateway that does not answer is the two cards' to show, never red words.
 fn said_of<T>(read: &Result<T, String>) -> Option<&str> {
     read.as_ref().err().map(String::as_str).filter(|said| *said != NOT_RUNNING)
+}
+
+/// The setup's parts stand in the settings column's width (`view.rs`'s `PAGE_MAX` on the Settings stack).
+fn capped(part: AnyElement) -> AnyElement {
+    div().w_full().max_w(gpui::px(720.)).child(part).into_any_element()
 }
 
 /// A setup step's name, read out as its state.
