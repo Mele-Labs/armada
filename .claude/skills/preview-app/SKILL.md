@@ -140,9 +140,11 @@ Bridge asks before `--adopt`, listing the working Jobs. It runs
 
 **To ask him to restart, put the exact command in `waiting_for` as a `run`
 item**: `scripts/preview --restart`, with `--adopt` only once he said so. ▶ on
-it, or on a shell block of the command, presses that button. Never ask him to run it any other way: a shell run from Bridge is
-Fleet's child, dies with the Fleet it stops, and leaves Bridge on the old
-protocol. Confirmed 13 Oct 2026.
+it, or on a shell block of the command, presses that button. Never ask him to run it any other way.
+A shell run from Bridge or Pocket is Fleet's child, so the scripts run their work in a session of
+their own and log it to `~/Library/Logs/Armada/restart.log` (13 Nov 2026: Pocket's Run died between
+bootout and bootstrap and left Fleet down). A restart that stops before its last lines says where it
+got to in that log.
 
 **Starting a Fleet or Bridge of your own** is not this: that is
 `.claude/skills/armada-local/SKILL.md` and `.claude/skills/dev-fleet/SKILL.md`.
