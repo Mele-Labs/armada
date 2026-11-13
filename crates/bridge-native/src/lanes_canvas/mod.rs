@@ -201,6 +201,11 @@ pub trait LanesHost: Sized + 'static {
     fn head_words(&self, _id: &SharedString, _lane: &LaneView, _opens: bool, words: Stateful<Div>, _look: &Look, _cx: &Context<Self>) -> AnyElement {
         words.into_any_element()
     }
+
+    /// Whether a pan may go one empty column past the last node, where the host draws a box to add a step.
+    fn lanes_reach_past_end(&self) -> bool {
+        false
+    }
 }
 
 /// Each lane's band and each node's box (`Placement`).
@@ -210,6 +215,13 @@ struct Placement {
     lane_h: f32,
     width: f32,
     height: f32,
+}
+
+impl Placement {
+    /// How far right a pan may go: the lanes, and with `past_end` one empty column more.
+    fn reach(&self, past_end: bool) -> f32 {
+        self.width + if past_end { COL_W } else { 0. }
+    }
 }
 
 /// A node's hue, frame and ground, and its words' colour and weight, as its states set them in Classic's order.
@@ -336,7 +348,7 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
     let seen = all.entry(id.clone()).or_default();
     lanes_follow(seen, lanes, &placement, &chips);
     if let Some(ask) = seen.ask.clone().filter(|_| frame_w > 0. && frame_h > 0.) {
-        if let Some(next) = pan_to(&ask.rects, seen.view, (frame_w, frame_h), (placement.width, placement.height), ask.follow, ask.earliest, ask.keep) {
+        if let Some(next) = pan_to(&ask.rects, seen.view, (frame_w, frame_h), (placement.reach(host.lanes_reach_past_end()), placement.height), ask.follow, ask.earliest, ask.keep) {
             seen.view = next;
         }
         seen.ask = None;
@@ -695,5 +707,23 @@ mod tests {
             assert!(gap.w >= 22., "{gap:?}");
         }
         assert_eq!(super::hooks_of(&lanes, &placement, &chips, None, view).picked, None);
+    }
+
+    #[test]
+    fn a_pan_reaches_the_empty_column_past_the_last_node() {
+        let lanes = ipc::decode::<ipc::JobLanesView>("JobLanesView", include_bytes!("../../fixtures/job-lanes.json")).unwrap();
+        let placement = super::place(&lanes.lanes, 600.);
+        let last = lanes.lanes.iter().flat_map(|lane| lane.nodes.iter()).map(|node| node.col).max().unwrap_or(0) as f32;
+        // Settings' add box, one column past the last node.
+        let empty = Rect { x: HEAD + PAD + super::LEAD + (last + 1.) * super::COL_W, y: 40., w: super::NODE_W, h: 68. };
+        let frame = (600., 600.);
+        let view = View { x: 0., y: 0., zoom: 1. };
+        let next = pan_to(&[empty], view, frame, (placement.reach(true), placement.height), false, false, false).unwrap_or(view);
+        assert!(empty.x + empty.w + next.x <= frame.0 - PAD + 0.5, "{next:?}");
+        assert!(empty.x + next.x >= HEAD + PAD - 0.5, "{next:?}");
+        // A Job's lanes, which have no such box, stop at the last node as before.
+        assert_eq!(placement.reach(false), placement.width);
+        let short = pan_to(&[empty], view, frame, (placement.reach(false), placement.height), false, false, false).unwrap_or(view);
+        assert!(empty.x + empty.w + short.x > frame.0 - PAD + 0.5, "{short:?}");
     }
 }
