@@ -160,6 +160,11 @@ pub(crate) fn glyph(look: &Look, name: &'static str, size: Size, ink: Hsla) -> g
     svg().path(icon_path(name)).flex_none().size(size.of(look)).text_color(ink)
 }
 
+/// The mark at the head of a fold: right while shut, down while open, as the reasoning row draws it.
+pub(super) fn chevron(look: &Look, open: bool) -> AnyElement {
+    glyph(look, if open { "chevron-down" } else { "chevron-right" }, Size::Small, look.color(token::FG_MUTED)).into_any_element()
+}
+
 pub(crate) fn tip(said: impl Into<SharedString>) -> impl Fn(&mut Window, &mut gpui::App) -> gpui::AnyView {
     let said: SharedString = said.into();
     move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx)

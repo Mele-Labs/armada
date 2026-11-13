@@ -13,7 +13,7 @@ use super::acts::refusal;
 use super::calls;
 use super::tool_icons::{self, Kind};
 use super::menus::{notice_entries, teach_entries};
-use super::rows::{check_look, elapsed_words, glyph, mono, tip, Size};
+use super::rows::{check_look, chevron, elapsed_words, glyph, mono, tip, Size};
 use super::{JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -216,12 +216,32 @@ impl JobView {
         cx: &Context<Self>,
     ) -> AnyElement {
         let item = self.checks_item(ix, id, rows, page, look, now, cx);
-        let Some(SessionRow::Check { name, target, state, at, .. }) = rows.iter().rev().find(|row| matches!(row, SessionRow::Check { .. })) else { return item };
+        let Some(SessionRow::Check { name, target, state, at, run, .. }) = rows.iter().rev().find(|row| matches!(row, SessionRow::Check { .. })) else { return item };
         let spot = self.spot(page, &format!("check-item:{id}"), cx);
         let (_, _, word) = check_look(*state);
         let text = [name.as_str(), target.as_deref().unwrap_or(""), word].join(" ").split_whitespace().collect::<Vec<_>>().join(" ");
         let wrap = div().id(SharedString::from(format!("check-item:{id}"))).track_focus(&spot.focus).child(item);
-        self.menu_on(wrap, &spot, "Check", spot.focus.clone(), Rc::new(teach_entries), self.teach_pick("check", text, Some(at.clone())), cx).into_any_element()
+        // A lone run opens its run on a press, as Electron's does; Enter and Space reach it through the click.
+        let lone = rows.iter().filter(|row| matches!(row, SessionRow::Check { .. })).count() == 1;
+        let wrap = if lone {
+            let (open, run) = (name.clone(), *run);
+            wrap.cursor_pointer()
+                .rounded(look.length(token::RADIUS_SM))
+                .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                .focus_visible(|style| style.bg(look.color(token::BG_HOVER)))
+                .on_click(cx.listener(move |this, _, window, cx| this.open_check(open.clone(), run, window, cx)))
+        } else {
+            wrap
+        };
+        let menu = self.menu_on(wrap, &spot, "Check", spot.focus.clone(), Rc::new(teach_entries), self.teach_pick("check", text, Some(at.clone())), cx);
+        if !lone {
+            return menu.into_any_element();
+        }
+        let said = match target {
+            Some(target) => format!("Check {name} {target}, {word}"),
+            None => format!("Check {name}, {word}"),
+        };
+        labelled(menu, Role::Button, said).into_any_element()
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -254,22 +274,20 @@ impl JobView {
                 .child(target.cloned().unwrap_or_default())
         };
         if runs.len() == 1 {
-            let said = match target {
-                Some(target) => format!("Check {name} {target}, {word}"),
-                None => format!("Check {name}, {word}"),
-            };
-            return self.plain(
-                format!("check:{id}"),
-                said,
-                look,
-                vec![
-                    self.check_mark(state, look),
-                    div().flex_none().text_color(look.color(token::FG_MUTED)).child(name.clone()).into_any_element(),
-                    target_line(target).into_any_element(),
-                ],
-            );
+            return div()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .min_w_0()
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_SM))
+                .child(self.check_mark(state, look))
+                .child(div().flex_none().text_color(look.color(token::FG_MUTED)).child(name.clone()))
+                .child(target_line(target))
+                .into_any_element();
         }
-        let head = vec![self.check_mark(state, look), div().child(name.clone()).into_any_element()];
+        let key = format!("checks:{id}");
+        let head = vec![chevron(look, page.opened.contains(&key)), self.check_mark(state, look), div().child(name.clone()).into_any_element()];
         let body = div()
             .flex()
             .flex_col()
@@ -284,7 +302,7 @@ impl JobView {
                     .child(self.stamp(at, look, now, true, cx))
             }))
             .into_any_element();
-        self.fold(ix, format!("checks:{id}"), format!("Check {name}, latest {word}"), head, Some(body), page, look, cx)
+        self.fold(ix, key, format!("Check {name}, latest {word}"), head, Some(body), page, look, cx)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -382,12 +400,14 @@ impl JobView {
             .into_any_element();
         }
         let line = calls::calls_line(&refs, false);
+        let key = format!("calls:{id}");
         let head = vec![
+            chevron(look, page.opened.contains(&key)),
             glyph(look, "wrench", Size::Small, look.color(token::FG_MUTED)).into_any_element(),
             div().min_w_0().truncate().child(line).into_any_element(),
         ];
         let body = div().flex().flex_col().gap(look.length(token::SPACE_1)).children(lines).into_any_element();
-        self.fold(ix, format!("calls:{id}"), label, head, Some(body), page, look, cx)
+        self.fold(ix, key, label, head, Some(body), page, look, cx)
     }
 
     /// A `SendMessage` call: "Message to" and the Job it went to by title, a link where Fleet placed it; the
@@ -496,13 +516,21 @@ impl JobView {
         cx: &Context<Self>,
     ) -> AnyElement {
         let SessionRow::Message { text, at, notice: word, .. } = notice else { return div().into_any_element() };
+        let fold_key = format!("fleet-turn-fold:{id}");
         let mut head = vec![
+            chevron(look, page.opened.contains(&fold_key)),
             div()
                 .id(SharedString::from(format!("fleet-mark:{id}")))
                 .child(glyph(look, "bell-ring", Size::Large, look.color(token::FG_SUBTLE)))
                 .tooltip(tip("Fleet notice"))
                 .into_any_element(),
-            div().min_w_0().truncate().child(summary_of(text)).into_any_element(),
+            // The whole notice is the label's tooltip, as Electron's.
+            labelled(
+                div().id(SharedString::from(format!("fleet-label:{id}"))).min_w_0().truncate().child(summary_of(text)).tooltip(tip(text.clone())),
+                Role::Label,
+                summary_of(text),
+            )
+            .into_any_element(),
         ];
         if handled {
             head.push(
@@ -535,7 +563,6 @@ impl JobView {
                 _ => div().into_any_element(),
             }))
             .into_any_element();
-        let fold_key = format!("fleet-turn-fold:{id}");
         let spot = self.spot(page, &format!("fleet-turn:{id}"), cx);
         let back = self.spot(page, &fold_key, cx).focus;
         let said = page.cards.said.get(&format!("notice:{id}")).cloned();

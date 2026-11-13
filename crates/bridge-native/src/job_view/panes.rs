@@ -746,7 +746,7 @@ impl JobView {
     }
 
     /// A Check the agent ran: its runs in this Job, and the pressed run's log, read again while it runs.
-    fn open_check(&mut self, name: String, run: u64, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_check(&mut self, name: String, run: u64, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let running = self.check_rows(&job, cx).iter().any(|row| matches!(row, SessionRow::Check { run: one, state: SessionCheckState::Running, .. } if *one == run));
         let (output, poll) = match self.port(cx) {

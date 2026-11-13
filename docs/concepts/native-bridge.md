@@ -167,6 +167,7 @@ The parity check takes each row here as chosen.
 | Add lifecycle over a workflow's lanes in Settings | Drawn where the lanes can be edited | Not drawn: native's lanes are read-only for now |
 | The clash shown in the Settings walk | api's own copy of feature, where Platform and Mobile differ | armada's own copy of feature, with the same words, since the mock serves no api repository |
 | New project (owner) | `LocateForm`: a name and a parent folder, made into a git repository | A project sheet: a name, his repositories ticked whole or by folder, a clone or a new repository, where its file is kept, and the settings it starts with. Create makes the project, goes to it and starts a Job in it on its empty thread |
+| An opened call in a folded run | A mono Command line | A tool row, as every call is drawn: its icon, a time and the call's own description, per #59 and #61 |
 
 ## Notifying
 
