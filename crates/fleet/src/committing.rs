@@ -245,7 +245,7 @@ where
         let name = kit.path().file_name().map(|name| name.to_string_lossy().to_string()).ok_or_else(not_yours)?;
         // The file on the branch that defines this id is the one replaced, whatever it is called.
         let in_tree = Path::new(&tree.path);
-        let catalogued = self.locating().workflows(in_tree, served.manifest(), &served.workspaces());
+        let catalogued = self.locating().workflows(in_tree, served.manifest(), &served.workspaces(), &[]);
         let defined = catalogued
             .files
             .iter()

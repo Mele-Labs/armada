@@ -41,8 +41,9 @@ pub struct Planted {
     /// What the next removal answers, and every removal asked for: the scope and the id.
     removing: Mutex<Option<Result<String, WorkflowNotRemoved>>>,
     removals: Mutex<Vec<(ipc::WorkflowScope, String)>>,
-    /// What the folders read as when Fleet reads them again.
+    /// What the folders read as when Fleet reads them again, and the projects each read was handed.
     reading: Mutex<Option<Catalogued>>,
+    read_for: Mutex<Vec<Vec<String>>>,
     /// Folders in no git repository, until one is started there.
     in_none: Mutex<Vec<PathBuf>>,
     /// Every folder Fleet asked the composition root to start a repository in.
@@ -131,6 +132,11 @@ impl Planted {
     /// What the folders read as from now on.
     pub fn will_read(&self, read: Catalogued) {
         *self.reading.lock().unwrap_or_else(PoisonError::into_inner) = Some(read);
+    }
+
+    /// The projects each read of the folders was handed, in order: those that hold the repository read.
+    pub fn read_for(&self) -> Vec<Vec<String>> {
+        self.read_for.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
     /// Every save Fleet asked the composition root to make.
@@ -228,10 +234,10 @@ impl Locating for Planted {
     fn remove_workflow(
         &self,
         _root: &Path,
-        scope: ipc::WorkflowScope,
+        scope: &ipc::WorkflowScope,
         id: &str,
     ) -> Result<String, WorkflowNotRemoved> {
-        self.removals.lock().unwrap_or_else(PoisonError::into_inner).push((scope, id.to_string()));
+        self.removals.lock().unwrap_or_else(PoisonError::into_inner).push((scope.clone(), id.to_string()));
         self.removing
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -242,10 +248,10 @@ impl Locating for Planted {
     fn remove_workflow_file(
         &self,
         _root: &Path,
-        scope: ipc::WorkflowScope,
+        scope: &ipc::WorkflowScope,
         file: &Path,
     ) -> Result<String, WorkflowNotRemoved> {
-        self.removals.lock().unwrap_or_else(PoisonError::into_inner).push((scope, file.display().to_string()));
+        self.removals.lock().unwrap_or_else(PoisonError::into_inner).push((scope.clone(), file.display().to_string()));
         self.removing
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -275,7 +281,12 @@ impl Locating for Planted {
         _root: &Path,
         _manifest: &config::Manifest,
         _workspaces: &[config::Manifest],
+        projects: &[core_model::ScopeId],
     ) -> Catalogued {
+        self.read_for
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(projects.iter().map(|project| project.as_str().to_string()).collect());
         self.reading
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -315,6 +326,7 @@ pub(crate) fn second_repository(home: &TempDir) -> Located {
         file: String::from("/kit/workflows/broken.yml"),
         said: String::from("a Kit definition that does not resolve here"),
         instead: None,
+        ..Default::default()
     };
     let set_up = SetUp::of(manifest, one(workflow)).leaving_out(vec![left]);
     folder_at(home, "second", Some(set_up))

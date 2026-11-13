@@ -50,6 +50,16 @@ pub const KIT_HOME: &str = ".armada";
 /// so a definition moves between the two without an edit.
 pub const KIT_WORKFLOWS: &str = "workflows";
 
+/// The folder inside Kit's Workflows that holds a folder for each project, and in it that project's
+/// definitions of its own. **Never read as a definition's place for every repository**: `listed`
+/// takes files, and these are folders.
+pub const PROJECT_WORKFLOWS: &str = "projects";
+
+/// Where the definitions kept for project `id` are, inside Kit.
+pub fn project_workflows(kit: &Path, id: &str) -> PathBuf {
+    kit.join(KIT_WORKFLOWS).join(PROJECT_WORKFLOWS).join(id)
+}
+
 /// Kit's home under `home`, with its Workflows directory made if it was not.
 ///
 /// **`home` is handed in**, because the composition root is the one place that
@@ -251,7 +261,7 @@ fn definitions(
 /// The same read **for a Fleet that is already running**: a folder or a file
 /// that cannot be read is said at the console and skipped, since refusing here
 /// would take down every workflow beside it.
-fn definitions_leniently(dir: &Path, place: fn(PathBuf, String) -> Written) -> Vec<Written> {
+fn definitions_leniently(dir: &Path, place: impl Fn(PathBuf, String) -> Written) -> Vec<Written> {
     let paths = match listed(dir) {
         Ok(paths) => paths,
         Err(why) => {
@@ -303,7 +313,10 @@ pub(crate) fn listed(dir: &Path) -> Result<Vec<PathBuf>, SetupRefused> {
     Ok(found)
 }
 
-/// Every workflow `root` runs now, read again from the three places.
+/// Every workflow `root` runs now, read again from the four places.
+///
+/// **`projects` are the ones that hold `root`**, and only their folders in Kit are read: a copy kept
+/// for a project that does not hold this repository is never one it runs.
 ///
 /// **A definition that does not fit is left out with its reason and the others
 /// stand**, as at start; and a file that cannot be read is said and skipped
@@ -316,6 +329,7 @@ pub fn workflows_again(
     roster: &Roster,
     manifest: &Manifest,
     workspaces: &[Manifest],
+    projects: &[core_model::ScopeId],
 ) -> (
     BTreeMap<core_model::WorkflowId, ResolvedWorkflow>,
     Vec<LeftOut>,
@@ -330,6 +344,12 @@ pub fn workflows_again(
         &root.join(WORKFLOWS),
         Written::in_repository,
     ));
+    for project in projects {
+        written.extend(definitions_leniently(
+            &project_workflows(kit, project.as_str()),
+            |path, text| Written::in_project(path, text, project.clone()),
+        ));
+    }
     let gating: Vec<&Manifest> = std::iter::once(manifest).chain(workspaces).collect();
     Catalogue::of(written, roster)
         .resolve_gated(manifest, &gating)

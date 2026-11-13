@@ -30,8 +30,10 @@ export type WorkflowSummary = {
    */
   steps: WorkflowStep[];
   manifest_id: string;
-  /** `armada`, `kit` or `repository`. Absent from a Fleet older than the field. */
+  /** `armada`, `kit`, `repository` or `project`. Absent from a Fleet older than the field. */
   source?: string;
+  /** The project whose copy this is, where `source` is `project`. Absent otherwise. */
+  project?: string;
   /**
    * The definition's `for_requests` line: what kind of request this workflow is
    * for. Absent where the definition declares none, and from a Fleet older than
@@ -55,7 +57,7 @@ export type WorkflowSummary = {
    */
   overrides?: OverriddenWorkflow[];
   /**
-   * `repository` where this is Kit's and hides a repository definition of the
+   * `repository` where this is Kit's or a project's and hides a repository definition of the
    * same id that says something else, so a list can mark it. Absent where the
    * two are the same, or nothing is hidden.
    */
@@ -64,9 +66,11 @@ export type WorkflowSummary = {
 
 /** A definition a more specific place replaced. It does not run; `GET /workflows/definition` reads it. Since 23.33. */
 export type OverriddenWorkflow = {
-  /** `armada` or `repository`; Kit's own is never replaced. */
+  /** `armada`, `repository` or `kit`; a project's own is never replaced. */
   source: string;
   file: string;
+  /** The project whose copy this is, where `source` is `project`. Absent otherwise. */
+  project?: string;
 };
 
 /**
@@ -77,8 +81,10 @@ export type OverriddenWorkflow = {
  */
 export type WorkflowDefinition = {
   workflow_id: string;
-  /** `armada`, `kit` or `repository`. */
+  /** `armada`, `kit`, `repository` or `project`. */
   source: string;
+  /** The project whose copy this is, where `source` is `project`. Absent otherwise. */
+  project?: string;
   file: string;
   /** The definition whole, as text: what `POST /workflows/save` takes as `definition`. */
   definition: string;
@@ -90,8 +96,13 @@ export type WorkflowDefinition = {
 export type LeftOutWorkflow = {
   /** Absent where the file did not parse far enough to say. */
   id?: string;
-  /** `armada`, `kit` or `repository`. */
+  /** `armada`, `kit`, `repository` or `project`. */
   source: string;
+  /**
+   * The project whose copy this is, where `source` is `project` and one project's file was left out alone.
+   * Absent where two projects' files of one id were left out together: `said` names both.
+   */
+  project?: string;
   file: string;
   /** Fleet's own sentence. Rendered, never matched on. */
   said: string;
@@ -361,8 +372,19 @@ export type ModelsRead =
       why: string;
     };
 
-/** Where a saved definition lives. Since 23.28. */
-export type WorkflowScope = "repository" | "kit";
+/**
+ * Where a saved definition lives. Since 23.28. **Yours first, then narrower**: a repository runs, for each id,
+ * a project it belongs to, then Kit's, then its own, then Armada's. The two places that are one place are bare
+ * words, and a project's is `{ project: { id } }`, kept in Kit's folder for one project.
+ */
+export type WorkflowScope =
+  | "repository"
+  | "kit"
+  | {
+      project: {
+        id: string;
+      };
+    };
 
 /** `POST /workflows/save?manifest_id=`'s body. Since 23.28. `crates/ipc/src/setup.rs`. */
 export type SaveWorkflow = {
@@ -380,7 +402,7 @@ export type WorkflowSaved = {
   /** The file as written, absolute. */
   file: string;
   replaced: boolean;
-  /** Whose definition of this id runs now: `armada`, `kit` or `repository`. */
+  /** Whose definition of this id runs now: `armada`, `kit`, `repository` or `project`. */
   runs_from?: string;
 };
 
@@ -392,7 +414,7 @@ export type WorkflowSaved = {
  */
 export type WorkflowSteps = {
   workflow_id: string;
-  /** `armada`, `kit` or `repository`. */
+  /** `armada`, `kit`, `repository` or `project`. */
   source: string;
   /** In order. */
   steps: StepReading[];
@@ -418,8 +440,10 @@ export type StepReading = {
  */
 export type WorkflowCopy = {
   workflow_id: string;
-  /** `repository` or `kit`. */
+  /** `repository`, `kit` or `project`. */
   source: string;
+  /** The project whose copy it is. Required where `source` is `project`, and ignored otherwise. */
+  project?: string;
   /**
    * The file of a copy that was left out for not fitting, as `LeftOutWorkflow.file` names it. It is found by
    * that file and not by the id it declares, which may be none Fleet can read. Absent for a copy that runs.
@@ -432,9 +456,11 @@ export type WorkflowCopyDeleted = {
   workflow_id: string;
   /** The place it was removed from. */
   source: string;
+  /** The project it was removed from, where `source` is `project`. */
+  project?: string;
   /** The file deleted, absolute. */
   file: string;
-  /** Whose definition of this id runs now: `armada`, `kit` or `repository`. Absent where none does. */
+  /** Whose definition of this id runs now: `armada`, `kit`, `repository` or `project`. Absent where none does. */
   runs_from?: string;
 };
 
@@ -565,6 +591,7 @@ export type ProposeNewWorkflow = {
   workflow_id: string;
   /** The definition, whole, as JSON text. */
   definition: string;
+  /** Where approving saves it. A project's is refused: 422 `fleet.workflow_change_not_for_project`. */
   scope: WorkflowScope;
 };
 
