@@ -173,6 +173,7 @@ The parity check takes each row here as chosen.
 | New project (owner) | `LocateForm`: a name and a parent folder, made into a git repository | A project sheet: a name, his repositories ticked whole or by folder, a clone or a new repository, where its file is kept, and the settings it starts with. Create makes the project, goes to it and starts a Job in it on its empty thread |
 | The Jobs list's groups (his report, 13 Nov) | A group for each repository on All, by the repository's name | A group for each project a Job was started for, by the project's name; a Job started for none stands under its repository's name. A heading is never an id |
 | A Job Fleet has not titled yet, in the Jobs list (his report, 13 Nov) | Its row reads the Job's id | Its row reads New Job, as ⌘T names the Job it starts |
+| A question's options when he answers with buttons (`answer_with`, owner, 12 Nov) | Fleet carries the choice and Classic does not draw it: a question is a deck of numbered rows with an Answer press | Each option of a Needs you question is a press holding only its name, the Job's pick as My pick: its name filled, its sentence in the tooltip, 1 to 9 pressing them one question at a time, and Answer in words under them while `buttons_words` is on. A press is the whole pick and the row goes at once |
 
 ## Notifying
 
