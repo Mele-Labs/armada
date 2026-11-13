@@ -64,14 +64,14 @@ export const workspacesHome = walk(
       say: "Remove is off: platform lives in store-docs",
     },
     {
-      press: button("New Workspace", {
+      press: button("New project", {
         exact: true,
       }),
-      say: "New Workspace",
+      say: "New project",
     },
     {
       look: inside(
-        role("form", "New Workspace", {
+        role("form", "New project", {
           exact: true,
         }),
         role("textbox", "Name", {
@@ -85,7 +85,7 @@ export const workspacesHome = walk(
       say: "Workflows, on store-api",
     },
     {
-      look: text("Edits here change every Workspace and repository that keeps the default"),
+      look: text("Edits here change every project and repository that keeps the default"),
       say: "The picked row sets the level, with no tab row",
     },
   ],

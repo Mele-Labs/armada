@@ -69,8 +69,8 @@ const inSpine = (name: string) =>
 const notes = walk("workspaces-lanes", [
   ...toSystemPage("Workflows", "Workflows, from System"),
   {
-    look: text("Edits here change every Workspace and repository that keeps the default"),
-    say: "The picked row sets the level: Armada's feature is the default, the workflow as it runs anywhere no Workspace or repository changed it",
+    look: text("Edits here change every project and repository that keeps the default"),
+    say: "The picked row sets the level: Armada's feature is the default, the workflow as it runs anywhere no project or repository changed it",
   },
   {
     look: ASK,
@@ -142,7 +142,7 @@ const notes = walk("workspaces-lanes", [
   },
   {
     press: button("Add after step Open PR"),
-    say: "A step added on the default runs in every Workspace and repository that keeps it",
+    say: "A step added on the default runs in every project and repository that keeps it",
   },
   closePanel,
   {

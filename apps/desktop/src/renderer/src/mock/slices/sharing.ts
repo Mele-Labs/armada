@@ -110,7 +110,7 @@ export const sharing: Slice<SharingApi, Record<string, never>> = {
         if (!body.pieces.every(carried))
           return refusal(
             "fleet.share_refused",
-            "Share does not carry Workspaces, lifecycles, rules or autonomy defaults yet.",
+            "Share does not carry projects, lifecycles, rules or autonomy defaults yet.",
           );
         const text = textOf(body.pieces);
         made.set(

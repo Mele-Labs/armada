@@ -15,11 +15,11 @@ const MOBILE = "01M1CNPKTV0018H2M1CXDNBK0B";
 async function workspaces(): Promise<ReturnType<typeof mount>> {
   const app = mount(workspacesAndAutonomy);
   await onScreen();
-  await toSystemPage("Workspaces");
+  await toSystemPage("Projects");
   await expect
     .element(
       page.getByRole("button", {
-        name: "New Workspace",
+        name: "New project",
         exact: true,
       }),
     )
@@ -34,14 +34,14 @@ const levels = () =>
   });
 const form = () =>
   page.getByRole("form", {
-    name: "New Workspace",
+    name: "New project",
     exact: true,
   });
 
 async function created(): Promise<void> {
   await page
     .getByRole("button", {
-      name: "New Workspace",
+      name: "New project",
       exact: true,
     })
     .click();

@@ -38,7 +38,7 @@ const ISSUES = [
   issue("armada-7gs", "A rule proposed for every Job shows nowhere on the Workflows page"),
   issue(
     "armada-cwj",
-    "You can't create a Workspace or set autonomy defaults from the Workflows page",
+    "You can't create a project or set autonomy defaults from the Workflows page",
   ),
   // No group names this one, so Open holds it throughout.
   issue("armada-m8r", "Keep on a changed rule row stays lit after the Job ends"),
@@ -99,7 +99,7 @@ const groups: WorkGroup[] = [
   {
     id: "g4",
     agent: "bridge-engineer",
-    title: "Create a Workspace and set autonomy defaults from the Workflows page",
+    title: "Create a project and set autonomy defaults from the Workflows page",
     paths: [
       "apps/desktop/src/renderer/src/workflows",
     ],
@@ -109,7 +109,7 @@ const groups: WorkGroup[] = [
     },
     ownJob: true,
     tasks: [
-      task("T7", "Add a Workspace from the page", "open"),
+      task("T7", "Add a project from the page", "open"),
       task("T8", "Set its autonomy defaults", "open"),
     ],
   },

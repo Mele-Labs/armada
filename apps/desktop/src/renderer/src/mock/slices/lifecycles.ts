@@ -96,7 +96,7 @@ function workspaceUnfit(workspace: {
   repositories: readonly string[];
 }): string | undefined {
   if (workspace.repositories.length === 0)
-    return "a Workspace holds at least one repository, and this holds none";
+    return "a project holds at least one repository, and this holds none";
   const same = workspace.repositories.find((one) => one === workspace.id);
   return same === undefined
     ? undefined

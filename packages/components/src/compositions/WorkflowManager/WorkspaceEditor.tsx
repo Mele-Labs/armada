@@ -1151,7 +1151,7 @@ function LifecycleFacts({
 /** What an edit on the picked copy changes, said above the canvas. */
 const SAYS = (scope: string, repository: string | undefined): string =>
   scope === DEFAULT
-    ? "Edits here change every Workspace and repository that keeps the default"
+    ? "Edits here change every project and repository that keeps the default"
     : `Edits here change ${repository ?? scope} only`;
 
 /** The box that tells an agent what to change about what is picked, answered with the diff the page draws. */

@@ -202,7 +202,7 @@ export function WorkspacesPage({
           }
         >
           <Plus size={16} strokeWidth={2} aria-hidden="true" />
-          New Workspace
+          New project
         </Button>
         <div className="armada-scroll-area armada-workspaces__scroll">
           <ul className="armada-workspaces__items">
@@ -227,7 +227,7 @@ export function WorkspacesPage({
               </li>
             ))}
             {inNone.length === 0 ? null : (
-              <li role="group" aria-label="In no Workspace" className="armada-workspaces__none">
+              <li role="group" aria-label="In no project" className="armada-workspaces__none">
                 {inNone.map((one) => repositoryRow(one.id, false, one.id))}
               </li>
             )}

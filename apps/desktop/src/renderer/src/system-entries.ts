@@ -103,7 +103,7 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
   },
   {
     id: "kit:workspaces",
-    label: "Workspaces",
+    label: "Projects",
     group: "kit",
   },
   {

@@ -34,7 +34,7 @@ export const REPOSITORIES = [
 export const workspacesAndAutonomy: Scenario = {
   ...workspacesLanes,
   name: "workspaces-and-autonomy",
-  says: "The repository picker lists my-store and platform with their repositories under them, and System > Workspaces sets how far Armada goes for each kind of act at Everywhere, at each Workspace and at each repository. store-api is in both Workspaces, which set Commands differently",
+  says: "The repository picker lists my-store and platform with their repositories under them, and System > Projects sets how far Armada goes for each kind of act at Everywhere, at each project and at each repository. store-api is in both projects, which set Commands differently",
   // Opens on store-api, which is in both Workspaces.
   state: {
     ...workspacesLanes.state,
