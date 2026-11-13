@@ -125,14 +125,29 @@ struct Kids {
     strip: Vec<Sub>,
 }
 
-/// One sub-Job in a folded parent's strip.
+/// One state in a folded parent's strip, with the sub-Jobs that stand in it: a glyph per state, never one per Job.
 #[derive(Clone, Debug, PartialEq)]
 struct Sub {
-    id: SharedString,
-    title: SharedString,
     mark: JobMark,
     paused: bool,
-    pr: Option<SharedString>,
+    titles: Vec<SharedString>,
+}
+
+impl Sub {
+    /// The glyph, its hue and the state's words. A Job that needs him reads Needs you whatever state asks it.
+    fn look(&self) -> (&'static str, crate::look::Token, SharedString) {
+        if self.paused {
+            return ("circle-pause", token::FG_MUTED, "Paused".into());
+        }
+        let (glyph, said) = glyph_of(self.mark.state, None);
+        let said = if self.mark.lamp == JobLamp::Needs { "Needs you".into() } else { said };
+        (glyph, hue_of(self.mark.state), said)
+    }
+
+    /// The tooltip and the name VoiceOver reads: the state, then the sub-Jobs in it.
+    fn words(&self) -> SharedString {
+        format!("{}: {}", self.look().2, self.titles.join(", ")).into()
+    }
 }
 
 /// Which parents are folded, and the switch that folds every one, new ones too. Kept between runs.
@@ -545,17 +560,21 @@ fn fold_lines(lines: Vec<Line>, folds: &Folds) -> Vec<Line> {
         let mut row = row.clone();
         let mut strip: Vec<Sub> = Vec::new();
         if folded {
-            strip = lines[at..at + below]
-                .iter()
-                .filter_map(|line| match line {
-                    Line::Job(sub) if !sub.place => Some(Sub { id: sub.id.clone(), title: sub.title.clone(), mark: sub.mark?, paused: sub.paused, pr: sub.pr.clone() }),
-                    _ => None,
-                })
-                .collect();
+            for line in &lines[at..at + below] {
+                let Line::Job(sub) = line else { continue };
+                let Some(mark) = sub.mark.filter(|_| !sub.place) else { continue };
+                let held = strip.iter_mut().find(|one| one.paused == sub.paused && (sub.paused || one.mark.state == mark.state));
+                match held {
+                    Some(one) => one.titles.push(sub.title.clone()),
+                    None => strip.push(Sub { mark, paused: sub.paused, titles: vec![sub.title.clone()] }),
+                }
+            }
+            // Needs you first, then failed, then running, then the rest as they stand.
             strip.sort_by_key(|sub| match sub.mark.lamp {
                 JobLamp::Needs => 0,
                 JobLamp::Failed => 1,
-                _ => 2,
+                JobLamp::Running => 2,
+                _ => 3,
             });
             at += below;
         }
@@ -1784,17 +1803,12 @@ impl JobsList {
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_1))
-                .children(kids.strip.iter().map(|sub| {
-                    let (glyph, said, hue) = if sub.paused {
-                        ("circle-pause", SharedString::from("Paused"), token::FG_MUTED)
-                    } else {
-                        let (glyph, said) = glyph_of(sub.mark.state, sub.pr.as_deref());
-                        (glyph, said, hue_of(sub.mark.state))
-                    };
-                    let said: SharedString = format!("{}: {said}", sub.title).into();
+                .children(kids.strip.iter().enumerate().map(|(at, sub)| {
+                    let (glyph, hue, _) = sub.look();
+                    let said = sub.words();
                     labelled(
                         div()
-                            .id(SharedString::from(format!("sub-{}-{}", row.id, sub.id)))
+                            .id(SharedString::from(format!("sub-{}-{at}", row.id)))
                             .flex_none()
                             .child(svg().path(icon_path(glyph)).size(mark_glyph).text_color(look.color(hue)))
                             .tooltip(tip(said.clone())),
@@ -2931,21 +2945,25 @@ mod tests {
         assert_eq!(chip, Some(None));
     }
 
-    #[test]
-    fn a_folded_parent_keeps_a_sub_job_that_needs_him_first_in_its_strip_in_its_amber() {
-        let folded = fold_lines(lines_of(&tree(), &[], Scope::Active, "", &[]), &shut(&["t-land"]));
-        let strip = folded
+    fn strip_of(jobs: &[SessionRecord], parent: &str) -> Vec<Sub> {
+        let folded = fold_lines(lines_of(jobs, &[], Scope::Active, "", &[]), &shut(&[parent]));
+        folded
             .iter()
             .find_map(|line| match line {
-                Line::Job(row) if row.id.as_ref() == "t-land" => row.kids.as_ref().map(|kids| kids.strip.clone()),
+                Line::Job(row) if row.id.as_ref() == parent => row.kids.as_ref().map(|kids| kids.strip.clone()),
                 _ => None,
             })
-            .expect("a folded parent has a strip");
-        let ids: Vec<&str> = strip.iter().map(|sub| sub.id.as_ref()).collect();
-        // The need first, the failure next, then the rest as the tree runs. The sub-Job two down is in it too.
-        assert_eq!(ids, ["t-shots", "t-docs", "t-walk"]);
+            .expect("a folded parent has a strip")
+    }
+
+    #[test]
+    fn a_folded_parent_draws_one_glyph_per_state_needs_you_first_and_names_the_jobs_in_it() {
+        let strip = strip_of(&tree(), "t-land");
+        // The need first, the failure next, then running. The sub-Job two down is in it too.
+        let words: Vec<String> = strip.iter().map(|sub| sub.words().to_string()).collect();
+        assert_eq!(words, ["Needs you: Re-take the shots", "Checks failed: Write the docs row", "Working: Fix the walk at 820"]);
         assert_eq!(strip[0].mark.lamp, JobLamp::Needs);
-        assert_eq!((glyph_of(strip[0].mark.state, None).0, hue_of(strip[0].mark.state)), ("eye", token::STATUS_AWAITING_REVIEW));
+        assert_eq!((strip[0].look().0, strip[0].look().1), ("eye", token::STATUS_AWAITING_REVIEW));
         // Open, a parent keeps no strip.
         let open = fold_lines(lines_of(&tree(), &[], Scope::Active, "", &[]), &Folds::default());
         let kept = open.iter().find_map(|line| match line {
@@ -2953,6 +2971,25 @@ mod tests {
             _ => None,
         });
         assert_eq!(kept.map(|kids| (kids.folded, kids.strip.len())), Some((false, 0)));
+    }
+
+    #[test]
+    fn sub_jobs_in_one_state_share_a_glyph_whose_tooltip_names_every_one_of_them() {
+        let mut jobs = tree();
+        let mut twin = jobs.iter().find(|job| job.id.as_str() == "t-pair").cloned().expect("a working sub-Job");
+        twin.id = ipc::SessionId::carried("t-pair-2".to_string());
+        twin.title = Some("Pair the second Mac".to_string());
+        jobs.push(twin);
+        let strip = strip_of(&jobs, "t-macs");
+        // Three sub-Jobs, two states: two glyphs, not three.
+        assert_eq!(strip.len(), 2);
+        let working = &strip[0];
+        assert_eq!(working.titles.len(), 2);
+        assert_eq!(working.words().as_ref(), "Working: Pair the work Mac, Pair the second Mac");
+        assert_eq!(strip[1].words().as_ref(), "Subagent working: Read Fleet on the home Mac");
+        // Each state is drawn once, however many Jobs stand in it.
+        let states: Vec<_> = strip.iter().map(|sub| sub.mark.state).collect();
+        assert_ne!(states[0], states[1]);
     }
 
     #[test]
