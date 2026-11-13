@@ -36,34 +36,6 @@ fn refusal(status: u16, bytes: &[u8]) -> (String, Option<String>) {
     ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| (format!("Fleet answered {status}"), None), |error| (error.message, Some(error.code)))
 }
 
-/// What `GET /sessions/lead_picture?session_id=` answers: the last thing a Job showed before it said it was done, or before
-/// now while it runs. A 404 is a Job that showed none.
-///
-/// **Built against Fleet's route (operation `get_lead_picture`, pull request #3517, TS type `LeadPicture` in
-/// `packages/protocol/src/sessions.ts`), so no `ipc` type reads it yet.** It is read here from the
-/// JSON by hand; when the ipc type lands this is replaced by it and `read_lead_picture` goes.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum LeadPicture {
-    /// A sketch the Job showed, by its title.
-    Sketch { title: String },
-    /// A page the Job showed in a window.
-    Window { url: String },
-    /// A file the Job showed, at the address `/sessions/shown` takes as its `path`.
-    Image { path: String },
-}
-
-/// The picture a `lead_picture` answer names. A body of another shape, or a kind this build does not know, is none.
-pub(crate) fn read_lead_picture(bytes: &[u8]) -> Option<LeadPicture> {
-    let read: serde_json::Value = serde_json::from_slice(bytes).ok()?;
-    let said = |field: &str| read.get(field).and_then(serde_json::Value::as_str).filter(|text| !text.is_empty()).map(str::to_string);
-    match read.get("kind")?.as_str()? {
-        "sketch" => Some(LeadPicture::Sketch { title: said("title")? }),
-        "window" => Some(LeadPicture::Window { url: said("url")? }),
-        "image" => Some(LeadPicture::Image { path: said("path")? }),
-        _ => None,
-    }
-}
-
 #[derive(Clone, Copy)]
 enum Verb {
     Get,
@@ -150,12 +122,11 @@ mod tests {
     }
 
     #[test]
-    fn a_lead_picture_is_read_by_its_kind_and_anything_else_is_none() {
-        assert_eq!(read_lead_picture(br#"{"kind":"sketch","title":"Flow"}"#), Some(LeadPicture::Sketch { title: "Flow".into() }));
-        assert_eq!(read_lead_picture(br#"{"kind":"window","url":"https://example.test/"}"#), Some(LeadPicture::Window { url: "https://example.test/".into() }));
-        assert_eq!(read_lead_picture(br#"{"kind":"image","path":"/repo/shot.png"}"#), Some(LeadPicture::Image { path: "/repo/shot.png".into() }));
-        assert_eq!(read_lead_picture(br#"{"kind":"video","path":"/repo/a.mov"}"#), None);
-        assert_eq!(read_lead_picture(br#"{"kind":"sketch"}"#), None);
-        assert_eq!(read_lead_picture(b"not json"), None);
+    fn a_lead_picture_reads_as_the_ipc_type_and_anything_else_is_none() {
+        let read = |bytes: &[u8]| ipc::decode::<ipc::LeadPicture>("LeadPicture", bytes).ok();
+        assert_eq!(read(br#"{"kind":"sketch","title":"Flow"}"#), Some(ipc::LeadPicture::Sketch { title: "Flow".into() }));
+        assert_eq!(read(br#"{"kind":"image","path":"/repo/shot.png"}"#), Some(ipc::LeadPicture::Image { path: "/repo/shot.png".into() }));
+        assert_eq!(read(br#"{"kind":"video","path":"/repo/a.mov"}"#), None);
+        assert_eq!(read(b"not json"), None);
     }
 }

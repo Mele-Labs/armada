@@ -478,8 +478,11 @@ impl JobView {
                 .h_full()
                 .flex()
                 .items_center()
-                .gap(look.length(token::SPACE_2))
-                .px(look.length(token::SPACE_3))
+                // With an item open the band also holds Back, ↑, ↓ and Fold, so the narrowest panel keeps all four by drawing
+                // the rest closer: nothing in the band may lie over a key.
+                .gap(look.length(if item.is_some() { token::SPACE_1 } else { token::SPACE_2 }))
+                .px(look.length(if item.is_some() { token::SPACE_1 } else { token::SPACE_3 }))
+                .overflow_hidden()
                 .cursor_pointer()
                 .child(glyph(look, "bell-ring", Size::Small, look.color(token::FG_INVERSE)))
                 .child(div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child("Needs you"))
@@ -526,7 +529,6 @@ impl JobView {
                         .items_center()
                         .justify_center()
                         .size(look.length(token::H_CONTROL_SM))
-                        .mx(look.length(token::SPACE_1))
                         .rounded(look.length(token::RADIUS_MD))
                         .cursor_pointer()
                         .hover(|style| style.bg(look.color(token::FG_INVERSE).opacity(0.2)))

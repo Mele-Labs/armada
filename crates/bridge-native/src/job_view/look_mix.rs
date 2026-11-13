@@ -28,6 +28,59 @@ pub(super) fn part_at(picture: &OptionPicture, shown: f32, x: f32, y: f32) -> Op
         .map(|(at, _)| at)
 }
 
+/// What a part's label tab measures, in points as drawn: one character's width, the tab's height, how far it is lifted above its
+/// part's top edge, how far in from the part's left edge, the padding either side of its text, and the gap kept between tabs.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct Tab {
+    pub char_width: f32,
+    pub height: f32,
+    pub lift: f32,
+    pub inset: f32,
+    pub pad: f32,
+    pub gap: f32,
+}
+
+/// How far down each part's label tab steps from its part's top-left so that no two tabs in a picture overlap, whatever width the
+/// picture is drawn at. Parts keep their own order in the answer; a tab goes down by whole steps under the tab it would have
+/// covered, so it stays at its part's left edge. The tab is judged wider than its text, so a measured one never reaches further.
+pub(super) fn label_drops(picture: &OptionPicture, shown: f32, tab: Tab) -> Vec<f32> {
+    // A picture not yet drawn has no width to place against.
+    if shown <= 0. {
+        return vec![0.; picture.parts.len()];
+    }
+    let still_height = shown * picture.height.max(1) as f32 / picture.width.max(1) as f32;
+    let rects: Vec<[f32; 3]> = picture
+        .parts
+        .iter()
+        .map(|part| {
+            let [x, y, ..] = fractions(picture, part);
+            [x * shown + tab.inset, y * still_height - tab.lift, part.label.chars().count() as f32 * tab.char_width + 2. * tab.pad]
+        })
+        .collect();
+    let mut order: Vec<usize> = (0..rects.len()).collect();
+    order.sort_by(|a, b| (rects[*a][1], rects[*a][0]).partial_cmp(&(rects[*b][1], rects[*b][0])).unwrap_or(std::cmp::Ordering::Equal));
+    let mut drops = vec![0.; rects.len()];
+    let mut placed: Vec<usize> = Vec::new();
+    for at in order {
+        let [left, top, wide] = rects[at];
+        let mut drop = 0.;
+        // Each pass moves the tab under one tab it covers; the tabs already placed are finitely many, so this ends.
+        while let Some(under) = placed.iter().copied().find(|&other| {
+            let [other_left, other_top, other_wide] = rects[other];
+            let other_top = other_top + drops[other];
+            left < other_left + other_wide + tab.gap
+                && other_left < left + wide + tab.gap
+                && top + drop < other_top + tab.height + tab.gap
+                && other_top < top + drop + tab.height + tab.gap
+        }) {
+            drop = rects[under][1] + drops[under] + tab.height + tab.gap - top;
+        }
+        drops[at] = drop;
+        placed.push(at);
+    }
+    drops
+}
+
 /// One part of one option's picture, taken into the mix.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Taken {
@@ -112,6 +165,58 @@ mod tests {
             WaitingOption { label: "Stacked (Recommended)".into(), description: None, picture: Some(page()) },
             WaitingOption { label: "Sidebar".into(), description: None, picture: Some(OptionPicture { parts: vec![part("sidebar", "Sidebar", 0, 0, 280, 800)], ..page() }) },
         ]
+    }
+
+    /// The three pictures the `ways-look` fixture asks with.
+    fn fixture() -> Vec<OptionPicture> {
+        let still = |height, parts| OptionPicture { height, parts, ..page() };
+        vec![
+            still(800, vec![part("header", "Header", 0, 0, 1200, 110), part("cards", "Cards", 60, 150, 1080, 430), part("footer", "Footer", 0, 700, 1200, 100)]),
+            still(800, vec![part("sidebar", "Sidebar", 0, 0, 280, 800), part("content", "Content", 320, 140, 840, 600)]),
+            still(750, vec![part("list", "List", 0, 90, 520, 660), part("detail", "Detail", 520, 90, 680, 660)]),
+        ]
+    }
+
+    /// Where the 820 window draws a tab: the 12 point label squeezed to 0.7, with the tokens' lift, inset and padding.
+    fn tab_at_820() -> Tab {
+        Tab { char_width: 12. * 0.7 * 0.6, height: 16. * 0.7 + 2., lift: 8., inset: 6., pad: 5., gap: 1. }
+    }
+
+    fn overlap(picture: &OptionPicture, shown: f32, tab: Tab, drops: &[f32]) -> bool {
+        let rects: Vec<[f32; 4]> = picture
+            .parts
+            .iter()
+            .zip(drops)
+            .map(|(part, drop)| {
+                let [x, y, ..] = fractions(picture, part);
+                let top = y * shown * picture.height as f32 / picture.width as f32 - tab.lift + drop;
+                [x * shown + tab.inset, top, part.label.chars().count() as f32 * tab.char_width + 2. * tab.pad, tab.height]
+            })
+            .collect();
+        rects.iter().enumerate().any(|(i, a)| rects.iter().skip(i + 1).any(|b| a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3]))
+    }
+
+    #[test]
+    fn no_two_labels_in_a_picture_overlap_at_the_width_820_draws_a_card_or_any_other() {
+        let tab = tab_at_820();
+        // What the 820 window gives a picture is about 95 points across. Left where their parts put them, the labels of the
+        // stacked and the sidebar picture cover one another there.
+        let narrow = fixture();
+        assert!(overlap(&narrow[0], 95., tab, &[0.; 3]));
+        assert!(overlap(&narrow[1], 95., tab, &[0.; 2]));
+        for picture in fixture() {
+            for shown in (60..=520).step_by(5) {
+                let drops = label_drops(&picture, shown as f32, tab);
+                assert!(!overlap(&picture, shown as f32, tab, &drops), "labels overlap at {shown} points over {:?}", picture.parts.iter().map(|part| &part.name).collect::<Vec<_>>());
+            }
+        }
+    }
+
+    #[test]
+    fn a_label_that_clears_every_other_stays_at_its_parts_top_left() {
+        let tab = tab_at_820();
+        let wide = label_drops(&fixture()[2], 400., tab);
+        assert_eq!(wide, vec![0., 0.]);
     }
 
     #[test]

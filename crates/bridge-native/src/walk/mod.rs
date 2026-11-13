@@ -1998,7 +1998,7 @@ pub static WALKS: &[Walk] = &[
             step("The command stands in a mono well under the steps, with Run", Verb::Look, "button", "Run"),
             step("↑ goes back one item", Verb::Key("up"), "status", "3 of 4"),
             step("← goes back to the list", Verb::Key("left"), "button", "Open Which layout does the checkout page take?"),
-            step("The question opens as three pictures side by side, the Job's pick ringed and marked", Verb::Open("button", "Open Which layout does the checkout page take?"), "group", "Stacked, my pick"),
+            step("The question opens with a picture for each option, named, with the Job's pick ringed and marked", Verb::Open("button", "Open Which layout does the checkout page take?"), "group", "Stacked, my pick"),
             step("Keys 1 to 3 take an option whole, and each picture's parts are outlined with a label", Verb::Look, "button", "Header of Stacked"),
             step("A press on a part takes it: a teal border and a filled label", Verb::Open("button", "Header of Stacked"), "listitem", "Header from Stacked"),
             step("A part of another picture joins the mix", Verb::Open("button", "List of Split"), "listitem", "List from Split"),

@@ -13,12 +13,12 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use gpui::{canvas, div, img, prelude::*, relative, AnyElement, Bounds, ClickEvent, Context, FontWeight, ObjectFit, Pixels, Role, SharedString, Window};
+use gpui::{canvas, div, img, prelude::*, px, relative, AnyElement, Bounds, ClickEvent, Context, FontWeight, ObjectFit, Pixels, Role, SharedString, Window};
 use ipc::{AnswerWaiting, NeedsYouRow, SessionId, WaitingOption};
 
 use super::acts::{button, kbd, Tone};
 use super::look_dock::Still;
-use super::look_mix::{body, fractions, is_taken, part_at, pill, toggled, Taken};
+use super::look_mix::{body, fractions, is_taken, label_drops, part_at, pill, toggled, Tab, Taken};
 use super::rows::{glyph, tip, Size};
 use super::JobView;
 use crate::labels::labelled;
@@ -141,7 +141,9 @@ impl JobView {
             let ratio = picture.width.max(1) as f32 / picture.height.max(1) as f32;
             let bounds: Rc<Cell<Bounds<Pixels>>> = Rc::new(Cell::new(Bounds::default()));
             let measured = bounds.clone();
-            let wide = f32::from(bounds.get().size.width);
+            // The width this picture was drawn at the last time: a frame knows its own only once it has been laid out.
+            let (widths, width_key) = (self.dock_of(id).map(|dock| dock.looked.widths.clone()), format!("{}:{at}", row.id));
+            let wide = widths.as_ref().and_then(|widths| widths.borrow().get(&width_key).copied()).unwrap_or(0.);
             let pressed = (picture.clone(), bounds, whole_item.clone());
             let body = match read {
                 Some(Still::Ready(image)) => img(image.clone()).absolute().size_full().object_fit(ObjectFit::Fill).into_any_element(),
@@ -150,9 +152,22 @@ impl JobView {
             };
             // Labels are about ten points on a picture drawn wide and shrink with a narrow one, so they stay clear of one another.
             let squeeze = 0.7 + 0.15 * if wide > 0. { (wide / (f32::from(look.length(token::SPACE_12)) * 6.)).clamp(0., 1.) } else { 1. };
+            // A label starts at its part's top-left and steps down under any label it would cover, so no two overlap at any width.
+            let drops = label_drops(
+                picture,
+                wide,
+                Tab {
+                    char_width: f32::from(look.length(token::TEXT_2XS)) * squeeze * 0.6,
+                    height: f32::from(look.length(token::LEADING_2XS)) * squeeze + 2. * f32::from(edge),
+                    lift: f32::from(look.length(token::SPACE_2)),
+                    inset: f32::from(look.length(token::SPACE_1)) * 1.5,
+                    pad: f32::from(look.length(token::SPACE_1) + edge),
+                    gap: f32::from(edge),
+                },
+            );
             // Each part is a box and a label tab: the tabs are laid over every box, so a later part's edge never cuts an earlier part's label.
             let mut tabs = Vec::new();
-            let parts: Vec<AnyElement> = picture.parts.iter().filter(|_| mixes).map(|part| {
+            let parts: Vec<AnyElement> = picture.parts.iter().enumerate().filter(|_| mixes).map(|(index, part)| {
                 let [x, y, w, h] = fractions(picture, part);
                 let on = is_taken(taken, at as u32, &part.name);
                 let said = format!("{} of {name}", part.label);
@@ -160,7 +175,7 @@ impl JobView {
                 let (item, taking) = (row.id.clone(), part.name.clone());
                 let tab = div()
                     .absolute()
-                    .top(-look.length(token::SPACE_2))
+                    .top(px(drops.get(index).copied().unwrap_or(0.)) - look.length(token::SPACE_2))
                     .left(look.length(token::SPACE_1) * 1.5)
                     .px(look.length(token::SPACE_1))
                     .rounded(look.length(token::RADIUS_SM))
@@ -210,7 +225,24 @@ impl JobView {
                 .child(body)
                 .children(parts)
                 .children(tabs)
-                .child(canvas(move |area, _, _| measured.set(area), |_, _, _, _| {}).absolute().size_full())
+                .child(
+                    canvas(
+                        move |area, window, _| {
+                            // The labels are placed by the width drawn, which is known only once it has been: draw again when it changed.
+                            if let Some(widths) = &widths {
+                                let now = f32::from(area.size.width);
+                                if widths.borrow().get(&width_key).is_none_or(|was| (was - now).abs() > 0.5) {
+                                    widths.borrow_mut().insert(width_key.clone(), now);
+                                    window.refresh();
+                                }
+                            }
+                            measured.set(area)
+                        },
+                        |_, _, _, _| {},
+                    )
+                    .absolute()
+                    .size_full(),
+                )
                 .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                     let (picture, bounds, item) = (&pressed.0, &pressed.1, &pressed.2);
                     let area = bounds.get();

@@ -2,19 +2,17 @@
 //! showed before it said it was done, then two lines of what it did, then how the picture is opened, and an Also line
 //! with a chip for each other form the Job made. A Job that showed no picture leads with its summary alone.
 //!
-//! **Built against Fleet's `GET /sessions/lead_picture`, which is not merged yet**, through `wire::read_lead_picture`.
-//!
 //! **Listen** is a chip that is drawn off: it has nothing to speak with until Listen is built.
 
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
-use ipc::{ThreadItem, ThreadSketch};
+use ipc::{LeadPicture, ThreadItem, ThreadSketch};
 
 use super::look_dock::{Lead, Still};
 use super::look_mix::{also, Form, Produced};
 use super::pictures::natural_size;
 use super::acts::{button, Tone};
 use super::rows::{glyph, tip, Size};
-use super::wire::{encoded, read_lead_picture, LeadPicture};
+use super::wire::encoded;
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -47,7 +45,7 @@ impl JobView {
             cx,
             move |this, answer, cx| {
                 // A 404 is a Job that showed none, and so is an answer that does not read.
-                let lead = answer.ok().filter(|(status, _)| (200..300).contains(status)).and_then(|(_, bytes)| read_lead_picture(&bytes));
+                let lead = answer.ok().filter(|(status, _)| (200..300).contains(status)).and_then(|(_, bytes)| ipc::decode::<LeadPicture>("LeadPicture", &bytes).ok());
                 if let Some(LeadPicture::Image { path }) = &lead {
                     this.read_still(job.clone(), format!("lead:{path}"), Self::still_path(&job, path), cx);
                 }

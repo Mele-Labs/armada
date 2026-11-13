@@ -12,14 +12,14 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{div, prelude::*, AnyElement, Bounds, Context, Pixels, FontWeight, Image, ImageFormat, Role, SharedString, Window};
-use ipc::{NeedsYouAct, NeedsYouRow, SessionRow, WaitingOption};
+use ipc::{LeadPicture, NeedsYouAct, NeedsYouRow, SessionRow, WaitingOption};
 
 use super::acts::{button, Tone};
 use super::cards::{settled_of, shown_scene, Subject};
 use super::dock::{row_options, Thing};
 use super::look_mix::Taken;
 use super::rows::{glyph, tip, Size};
-use super::wire::{encoded, LeadPicture};
+use super::wire::encoded;
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -59,6 +59,8 @@ pub(super) struct Looked {
     pub mix_at: Rc<Cell<Bounds<Pixels>>>,
     /// The mix changed: the bar, once drawn at its new height, scrolls itself whole into the panel's view.
     pub reveal_mix: Rc<Cell<bool>>,
+    /// How wide each option's picture was last drawn, by item and option, so its labels are placed by the width it has.
+    pub widths: Rc<std::cell::RefCell<HashMap<String, f32>>>,
 }
 
 /// What an item is when it is opened whole in Look.
