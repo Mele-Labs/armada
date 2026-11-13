@@ -156,6 +156,7 @@ pub(super) fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String, su
         "new_job" if matches!(Arrived::from_word(&row.arrived), Some(Arrived::Stopped | Arrived::Red)) => said("Started", "the rest as a new Job".to_string()),
         "new_job" => said("Started", other()),
         "existing_job" => said("Handed over", format!("to {}", other())),
+        "park" => said("Parked", row.subject.clone()),
         "merge" => said("Merged", format!("into {}", other())),
         "keep_in_touch" => said("Kept in touch", format!("with {}", other())),
         "sent" => said("Sent", format!("to {}", other())),

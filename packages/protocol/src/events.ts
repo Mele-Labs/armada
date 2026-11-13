@@ -22,6 +22,7 @@ import type { CheckoutRunRecord } from "./rehearsal";
 import type { AppRun } from "./app-runs";
 import type { ServerState } from "./servers";
 import type { SessionRowChanged, SessionSubagentChanged } from "./hosted-sessions";
+import type { OperatorDispatched } from "./operator-board";
 import type { ModelDownshiftState } from "./model-downshift";
 import type { Projects } from "./projects";
 import type { AgentSignIn } from "./agent-sign-in";
@@ -225,6 +226,10 @@ export type Event =
   | {
       kind: "operator.board_changed";
     }
+  /** The Operator did something with a dispatch it held: started a Job, folded it into a live one, or asked. Not replayed. */
+  | ({
+      kind: "operator.dispatched";
+    } & OperatorDispatched)
   /** The Operator's page is not what it was: read `operator_page` again. Carries nothing else. */
   | {
       kind: "operator.page_changed";

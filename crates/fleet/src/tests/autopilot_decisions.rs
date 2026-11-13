@@ -398,6 +398,7 @@ async fn a_draft_is_approved_as_written() {
                 title: "Description for #41".into(),
                 text: "Reads the draft row back.".into(),
                 before: None,
+                pull_request: None,
                 session_id: Some(id.clone()),
             },
         )

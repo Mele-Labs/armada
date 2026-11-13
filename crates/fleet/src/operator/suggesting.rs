@@ -404,6 +404,10 @@ where
         if let Some(pick) = arrival.id.strip_prefix(super::duplicating::PICK) {
             self.pick_released(&arrival.manifest_id, pick).await;
         }
+        // A dispatch held for this answer is started as he asked it: Keep both.
+        if arrival.is_dispatch() {
+            self.dispatch_released(&arrival.id).await;
+        }
         let row = pressed(&arrival, Outcome::Skipped, &kept.because, at);
         let _ = self.store().lock().await.add_operator_ruling(&row.kept());
     }

@@ -11,12 +11,88 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{DraftHow, DraftSettled, ProposeDraft, SendSessionMessage, SessionRecord, SessionRow, WithdrawDraft, WorkflowChangeRef};
-use store::KeptSession;
+use store::{AttachmentState, Holder, KeptAttachment, KeptSession};
 
 use crate::daemon::Fleet;
+use crate::pull_requesting::PR;
 
 const DRAFT_UNNAMED: &str = "fleet.draft_unnamed";
 const DRAFT_EMPTY: &str = "fleet.draft_empty";
+const DRAFT_PULL_REQUEST_NOT_HELD: &str = "fleet.draft_pull_request_not_held";
+
+/// The ledger row linking an open draft to the pull request it describes. Its target is the draft's
+/// row id and its repository the pull request's; `detail` holds what `PullRequestDraft` serves, so
+/// a record is drawn without reading the thread. **Given back when the draft is settled.**
+pub(crate) const PR_DRAFT: &str = "pr_draft";
+/// On a `pr_draft` row: the pull request's number, the draft's text, the text it replaces and its revision.
+pub(crate) const PR_DRAFT_NUMBER: &str = "pull_request";
+pub(crate) const PR_DRAFT_TEXT: &str = "text";
+pub(crate) const PR_DRAFT_BEFORE: &str = "before";
+pub(crate) const PR_DRAFT_REVISION: &str = "revision";
+
+/// A description as it is compared with a draft's `before`: whitespace runs as one space, none at either end.
+fn normalised(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// The pull request a draft describes, of the `pr` rows a Job has not given back: the one it names,
+/// else the newest whose body is its `before`. **`Err` with the number where it names one not held.**
+fn described(held: &[KeptAttachment], named: Option<u64>, before: Option<&str>) -> Result<Option<KeptAttachment>, u64> {
+    let mut pulls = held.iter().filter(|one| one.kind == PR && one.state != AttachmentState::GivenBack);
+    if let Some(number) = named {
+        return pulls
+            .find(|one| one.target.trim_start_matches('#').parse::<u64>() == Ok(number))
+            .cloned()
+            .map(Some)
+            .ok_or(number);
+    }
+    let Some(before) = before.map(normalised).filter(|said| !said.is_empty()) else {
+        return Ok(None);
+    };
+    Ok(pulls.find(|one| one.detail.get("body").is_some_and(|body| normalised(body) == before)).cloned())
+}
+
+/// The `pr_draft` row for draft `row` on `pull`: its revision one more than the Job's earlier
+/// drafts for the same pull request, settled ones too.
+fn link_of(session: &str, row: &str, pull: &KeptAttachment, held: &[KeptAttachment], draft: (&str, Option<&str>), now: &str) -> KeptAttachment {
+    let number = pull.target.trim_start_matches('#').to_string();
+    let earlier = held
+        .iter()
+        .filter(|one| one.kind == PR_DRAFT && one.manifest_id == pull.manifest_id)
+        .filter(|one| one.detail.get(PR_DRAFT_NUMBER) == Some(&number))
+        .count();
+    let mut detail = std::collections::BTreeMap::from([
+        (PR_DRAFT_NUMBER.to_string(), number),
+        (PR_DRAFT_TEXT.to_string(), draft.0.to_string()),
+        (PR_DRAFT_REVISION.to_string(), (earlier + 1).to_string()),
+    ]);
+    if let Some(before) = draft.1 {
+        detail.insert(PR_DRAFT_BEFORE.to_string(), before.to_string());
+    }
+    KeptAttachment {
+        holder: Holder::session(session),
+        kind: PR_DRAFT.to_string(),
+        manifest_id: pull.manifest_id.clone(),
+        target: row.to_string(),
+        state: AttachmentState::Standing,
+        detail,
+        since: now.to_string(),
+        changed_at: now.to_string(),
+    }
+}
+
+/// A `pr_draft` row as the wire carries it. None where it names no pull request.
+pub(crate) fn pull_request_draft(one: &KeptAttachment) -> Option<ipc::PullRequestDraft> {
+    let detail = |key: &str| one.detail.get(key);
+    Some(ipc::PullRequestDraft {
+        manifest_id: ipc::ManifestId::carried(&one.manifest_id),
+        number: detail(PR_DRAFT_NUMBER)?.parse().ok()?,
+        draft: one.target.clone(),
+        text: detail(PR_DRAFT_TEXT).cloned().unwrap_or_default(),
+        before: detail(PR_DRAFT_BEFORE).cloned(),
+        revision: detail(PR_DRAFT_REVISION).and_then(|said| said.parse().ok()).unwrap_or(1),
+    })
+}
 const DRAFT_WITHDRAW_UNNAMED: &str = "fleet.draft_withdraw_unnamed";
 const DRAFT_WITHDRAW_NOT_OPEN: &str = "fleet.draft_withdraw_not_open";
 pub(crate) const FIXED_NOT_A_DRAFT: &str = "fleet.fixed_not_a_draft";
@@ -89,20 +165,25 @@ where
             .or_else(|| draft.session_id.map(|named| named.as_str().trim().to_string()))
             .filter(|id| !id.is_empty())
             .ok_or_else(|| self.hosted_refusal(DRAFT_UNNAMED, "a job to propose it for"))?;
-        if self
-            .store()
-            .lock()
-            .await
-            .session(&id)
-            .map_err(|why| self.ledger_fault(why))?
-            .is_none()
-        {
-            return Err(self.hosted_refusal(DRAFT_UNNAMED, "a job Fleet knows"));
-        }
+        let held = {
+            let store = self.store().lock().await;
+            if store.session(&id).map_err(|why| self.ledger_fault(why))?.is_none() {
+                return Err(self.hosted_refusal(DRAFT_UNNAMED, "a job Fleet knows"));
+            }
+            store.attachments_of(&Holder::session(&id)).map_err(|why| self.ledger_fault(why))?
+        };
+        let pull = described(&held, draft.pull_request, before.as_deref()).map_err(|number| {
+            self.hosted_refusal(
+                DRAFT_PULL_REQUEST_NOT_HELD,
+                &format!("this job holds no pull request #{number}. Name one it opened or claimed, or leave pull_request out"),
+            )
+        })?;
+        let row = self.row_id(&id);
+        let link = pull.map(|pull| link_of(&id, &row, &pull, &held, (&text, before.as_deref()), self.instant().as_str()));
         self.row_put(
             &id,
             SessionRow::Draft {
-                id: self.row_id(&id),
+                id: row,
                 at: self.instant(),
                 title,
                 text,
@@ -112,6 +193,9 @@ where
             },
         )
         .await;
+        if let Some(link) = link {
+            let _ = self.store().lock().await.attach(&link, false);
+        }
         self.draft_record(&id).await
     }
 
@@ -175,6 +259,18 @@ where
         });
         if let Some(row) = found {
             self.row_put(session, row).await;
+        }
+        // A settled draft waits on nobody, so it is no longer any pull request's.
+        {
+            let mut store = self.store().lock().await;
+            let link = store.attachments_of(&Holder::session(session)).ok().and_then(|held| {
+                held.into_iter()
+                    .find(|one| one.kind == PR_DRAFT && one.target == row_id && one.state == AttachmentState::Standing)
+            });
+            if let Some(link) = link {
+                let now = self.instant().as_str().to_string();
+                let _ = store.attach(&KeptAttachment { state: AttachmentState::GivenBack, changed_at: now, ..link }, false);
+            }
         }
         self.draft_record(session).await
     }

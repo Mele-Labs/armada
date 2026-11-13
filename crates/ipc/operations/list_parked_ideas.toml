@@ -1,0 +1,8 @@
+[operations.list_parked_ideas]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The dispatches kept for later as ideas"
+notes = """
+`GET /sessions/parked`, answered with `ParkedIdeas`: `ideas`, oldest first, each `{ id, dispatch, at }`. `dispatch` is the `DispatchJob` as it was sent, so starting an idea is `dispatch_job` with it and then `remove_parked_idea`. An idea is kept where the person called the dispatch `idea` with the Operator on, or where the Operator ruled it one (`operator.dispatched` with `way` `parked`). **Fleet keeps them, since a Bridge that is closed when the Operator parks one has no list to put it in**; a list of queued ideas a Bridge keeps for itself is a different list and is not read.
+"""
