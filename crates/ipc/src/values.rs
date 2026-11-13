@@ -33,6 +33,11 @@ pub struct ValuesSet {
     /// three**, and a kind it leaves out is `off`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reviews: Option<ReviewsSet>,
+    /// Whether a Job that a Job or the Operator starts begins at once (`at_once`) or waits on the person's start
+    /// card (`ask_me`). Fleet refuses another word, 422 `fleet.project_values_refused`. A Job the person starts
+    /// himself is never held by it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_starts: Option<String>,
 }
 
 /// How each kind of work is reviewed: `off`, `review` or `review_and_approve`, and for `walks` only `off` or
@@ -134,6 +139,10 @@ pub struct ResolvedValues {
     /// its start said**, whatever the project says since.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reviews: Option<ResolvedReviews>,
+    /// `at_once` or `ask_me`: how a Job that a Job or the Operator starts begins. Absent from what a Job froze
+    /// before the key existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_starts: Option<ResolvedValue>,
     /// One for each kind of act, where a repository was asked about; empty where only a project was.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub autonomy: Vec<ResolvedAutonomy>,

@@ -1,0 +1,8 @@
+[operations."operator.dispatched"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "What the Operator did with a dispatch it held"
+notes = """
+Published for each `dispatch_job` the Operator held, when it is ruled, and for one that began at once because no live Job was near its words. The body is `OperatorDispatched`: `dispatch_id` (the `operator` `dispatch_job` answered with, or a fresh id for the one that began at once, or the idea's id for one kept at once), `manifest_id`, `way` (`started`, `handed`, `asked` or `parked`), and `session_id` and `title` of the Job started or the live Job the work was folded into, absent while `asked`. With `parked` it is the idea's id that `dispatch_id` names, `title` is its first line, and `list_parked_ideas` holds it. Bridge draws a toast from it. Not replayed.
+"""
