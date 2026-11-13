@@ -34,7 +34,7 @@ pub(crate) const NOT_SERVED: &str = "fleet.repository_not_served";
 /// reads. A 422, refused by name — `name` rides on the field the message quotes.
 const UNKNOWN_PREFERENCE: &str = "fleet.unknown_preference";
 /// A request that decoded and names something that cannot work.
-const UNACCEPTABLE: &str = "fleet.unacceptable_proposal";
+pub(crate) const UNACCEPTABLE: &str = "fleet.unacceptable_proposal";
 /// Main is not red, or a Session already has this red. A 409.
 const MAIN_NOT_RED: &str = "fleet.main_not_red";
 /// A newer commit's CI is running on main, so a red is held and not handed to a Session. A 409.

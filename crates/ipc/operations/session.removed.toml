@@ -1,0 +1,8 @@
+[operations."session.removed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job row held from another Mac went, and a client holding it drops it"
+notes = """
+Carries `session_id` alone. Published when `hold_other_mac_sessions` replaces a Mac's rows with a list that leaves the row out, and when `forget_other_mac` drops every row of that Mac, once for each row that went. Never published for this Mac's own Jobs, which end and stay listed. Relayed to sockets only, as every event about another Mac's Jobs is, and never sent on to another Mac. A client that missed one reads `list_sessions` on the resync that follows a `Missed`.
+"""

@@ -52,6 +52,8 @@ mod time_format;
 /// Where Jobs' time went: a figure nobody produced is an absent key.
 mod time_summary;
 mod mods;
+/// A files answer carries folders only where folders were asked for.
+mod files_found;
 mod preferences;
 mod option_pictures;
 mod projects;

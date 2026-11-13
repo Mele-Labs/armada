@@ -23,6 +23,7 @@ mod issue_reading;
 mod issue_queries;
 mod projects;
 mod operator_tells;
+mod other_macs;
 mod hosted_sessions;
 mod started_jobs;
 mod bug_reports;

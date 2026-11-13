@@ -593,7 +593,8 @@ pub struct WaitingOption {
 /// An option drawn as a still, which a person can press whole or pick named parts of.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OptionPicture {
-    /// A URL or a path Fleet serves.
+    /// What the asker passes: a PNG or JPEG path, or a file the Job showed. What Fleet keeps and serves: the
+    /// address of the still, `/sessions/shown?session_id=<id>&path=<kept path>`.
     pub image: String,
     /// The still's size in pixels, which the boxes of `parts` are measured on.
     pub width: u32,

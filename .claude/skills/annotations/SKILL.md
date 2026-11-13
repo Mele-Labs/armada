@@ -152,7 +152,7 @@ was in Storybook, and he had to ask what was left to walk after all four landed.
 Two of those agents also named their walk file alike, and the second was refused
 by the merge line on the clash.
 
-**Any other green change goes into the preview, is adopted, and goes up as a
+**Any other green change is offered for the preview and goes up as a
 pull request, with no question in between** (`work-issue`, step 6); report the
 pull request. It merges once `ci` passes, and the worktree goes back after, as
 `work-issue` and `agent-worktrees` say.

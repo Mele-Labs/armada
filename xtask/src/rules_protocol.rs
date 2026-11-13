@@ -47,8 +47,8 @@ const INVENTORY: &str = "crates/ipc/operations";
 const TABLE: &str = "crates/api/src/routes.rs";
 /// Routers [`TABLE`] merges whole, read with it as one text: the issues and Autopilot's, mounted
 /// together because `routes.rs` sits at the line count the gate reports. #2092. Natural Search and
-/// the Walk tool's, for the same reason.
-const ROUTER_PARTS: &[&str] = &["crates/api/src/issues.rs", "crates/api/src/review_walks.rs"];
+/// the Walk tool's, and his other Macs', for the same reason.
+const ROUTER_PARTS: &[&str] = &["crates/api/src/issues.rs", "crates/api/src/review_walks.rs", "crates/api/src/other_macs.rs"];
 /// The inventory half of the same subject: every `SERVED` row.
 const SERVED_TABLE: &str = "crates/api/src/routes/served.rs";
 /// The tables [`SERVED_TABLE`] joins into `SERVED`, split out of it at the
@@ -66,6 +66,7 @@ const SERVED_PARTS: &[&str] = &[
     "crates/api/src/routes/served/retro.rs",
     "crates/api/src/routes/served/runs.rs",
     "crates/api/src/routes/served/judge.rs",
+    "crates/api/src/routes/served/other_macs.rs",
 ];
 const EVENT_ENUM: &str = "crates/ipc/src/event.rs";
 
@@ -130,7 +131,9 @@ fn check(inventory: &str, table: &str, event_source: &str, report: &mut Report) 
                     "command" => "POST",
                     _ => "GET",
                 };
-                if method != expected {
+                // A command that hands a whole list in place of the one held is a `PUT`.
+                let replaces = kind == "command" && method == "PUT";
+                if method != expected && !replaces {
                     report.fail(format!(
                         "`{operation}` is a {kind} and is served on {method}, not {expected}"
                     ));

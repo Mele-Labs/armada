@@ -55,6 +55,9 @@ pub struct HeldPullRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionSummary {
     pub id: SessionId,
+    /// The id of the paired Mac that holds this Job, as on its record. **Absent means held by this Mac.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mac: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     /// Absent for a Session in no repository Fleet serves.
@@ -106,6 +109,7 @@ impl SessionSummary {
         let held = |kind: &'static str| standing(kind).next().map(|one| one.target.clone());
         SessionSummary {
             id: record.id.clone(),
+            mac: record.mac.clone(),
             title: record.title.as_deref().map(shortened),
             manifest_id: record.manifest_id.clone(),
             origin: record.origin,

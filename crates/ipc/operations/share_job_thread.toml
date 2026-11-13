@@ -1,0 +1,8 @@
+[operations.share_job_thread]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "A shared Job's thread, for another Mac reading it through the link"
+notes = """
+`GET /other_mac/thread?session_id=&before=&limit=&upto=`, answered as `get_job_thread` answers, with `JobThread`, and like it the read makes Fleet follow the Job so `job_thread.tail` carries it on. A Job in an unshared project, in none, or held from another Mac is refused 404 `fleet.no_such_session`, worded exactly as for a Job that does not exist.
+"""

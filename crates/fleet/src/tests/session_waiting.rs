@@ -752,7 +752,7 @@ async fn an_item_kept_before_the_refusal_is_left_off_while_the_question_lapsed()
 
 fn picture(parts: &[&str]) -> ipc::OptionPicture {
     ipc::OptionPicture {
-        image: "/files/header.png".into(),
+        image: "header.png".into(),
         width: 1200,
         height: 800,
         parts: parts
@@ -764,7 +764,8 @@ fn picture(parts: &[&str]) -> ipc::OptionPicture {
 }
 
 /// A question of two options, the first a picture of two parts and the second words.
-fn picture_question(id: &ipc::SessionId) -> SetWaitingFor {
+fn picture_question(rig: &Rig, id: &ipc::SessionId) -> SetWaitingFor {
+    super::picture_keeping::plant(rig, "header.png", &super::picture_keeping::png(1200, 800));
     let mut set = answer_item(id, "header", "Which header?", &["Wide", "Words only"]);
     set.items[0].options[0].picture = Some(picture(&["nav", "hero"]));
     set
@@ -774,10 +775,12 @@ fn picture_question(id: &ipc::SessionId) -> SetWaitingFor {
 async fn an_option_drawn_as_a_picture_is_kept_and_served_with_its_parts() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    rig.fleet.waiting_for(None, picture_question(&id)).await.unwrap();
+    rig.fleet.waiting_for(None, picture_question(&rig, &id)).await.unwrap();
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
     let options = &record.waiting_for[0].options;
-    assert_eq!(options[0].picture, Some(picture(&["nav", "hero"])));
+    let served = options[0].picture.clone().expect("the picture is kept");
+    assert!(served.image.starts_with("/sessions/shown?session_id="), "{}", served.image);
+    assert_eq!(served, ipc::OptionPicture { image: served.image.clone(), ..picture(&["nav", "hero"]) });
     assert_eq!(options[1].picture, None, "an option of words stays words");
 }
 
@@ -793,7 +796,7 @@ fn parts(id: &ipc::SessionId, picked: &[(u32, &str)]) -> ipc::AnswerWaitingParts
 async fn parts_picked_across_the_pictures_reach_the_agent_as_a_mix_and_settle_the_item() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    let mut set = picture_question(&id);
+    let mut set = picture_question(&rig, &id);
     set.items[0].options[1].picture = Some(picture(&["nav", "footer"]));
     rig.fleet.waiting_for(None, set).await.unwrap();
     let after = Arc::clone(&rig.fleet).answer_waiting_parts(parts(&id, &[(0, "hero"), (1, "footer")])).await.unwrap();
@@ -809,7 +812,7 @@ async fn parts_picked_across_the_pictures_reach_the_agent_as_a_mix_and_settle_th
 async fn a_part_the_picture_lacks_is_refused_and_the_item_stays() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    rig.fleet.waiting_for(None, picture_question(&id)).await.unwrap();
+    rig.fleet.waiting_for(None, picture_question(&rig, &id)).await.unwrap();
     let before = said_by_the_person(&rig, &id).await.len();
     for picked in [&[][..], &[(0, "footer")], &[(1, "nav")], &[(7, "nav")], &[(0, "nav"), (0, "footer")]] {
         let refused = Arc::clone(&rig.fleet).answer_waiting_parts(parts(&id, picked)).await.expect_err("not a part of a picture");

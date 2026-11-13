@@ -1,0 +1,8 @@
+[operations.hold_other_mac_event]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "One event that crossed from another Mac, handed in by this Mac's Phone Gateway to be kept and published"
+notes = """
+`POST /other_macs/event`, body `OtherMacEvent`: `mac` and `event`. Answered with `MacNamed`. `session.changed` is kept with `mac` set and published where it changed. `session.row`, `session.subagent`, `job_thread.tail` and `job_thread.changed` are published as they are, only for a Job held from that Mac, else 404 `fleet.other_mac_job_not_held`. `bug_reports.changed` is kept as `hold_other_mac_bug_reports` keeps it. `projects.changed` is taken and nothing is done: the Gateway reads the rows again on it. Any other kind is 422 `fleet.other_mac_event_not_kept`. **What is published from another Mac reaches the event stream only**: Fleet's own listeners, such as the calls on the person, never hear it. Called on the port from inside a Job, around the door, it is a 403 `api.the_persons_own`: only the person pairs his other Macs, from Bridge. This Mac's Phone Gateway calls it from inside Fleet's own process.
+"""
