@@ -257,14 +257,14 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         Verb::NoteKey => perform(&Step { verb: Verb::Key("alt-cmd-a"), ..*step }, focus, window, cx),
         Verb::Key(key) => {
             let keystroke = Keystroke::parse(key).map_err(|why| Missed(format!("the key {key} does not parse: {why}")))?;
-            if !focus.within.contains_focused(window, cx) {
+            if !focus.within.contains_focused(window, cx) && !crate::option_pictures::holds_keys(window, cx) {
                 window.focus(&focus.keys, cx);
             }
             strike(keystroke, window, cx);
             Ok(())
         }
         Verb::Keys(keys) => {
-            if !focus.within.contains_focused(window, cx) {
+            if !focus.within.contains_focused(window, cx) && !crate::option_pictures::holds_keys(window, cx) {
                 window.focus(&focus.keys, cx);
             }
             for key in keys {
