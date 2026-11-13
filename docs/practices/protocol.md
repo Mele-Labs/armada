@@ -153,6 +153,7 @@ WebSocket event stream, read this first.
 | [The Reviews tab: the lists waiting on a person, a page's threads and a review's comments](protocol/the-reviews-tab-the-lists-waiting-on-a-person-a-pages-threads-and-a.md) |
 | [The Reviews tab: agent runs and review tools](protocol/the-reviews-tab-agent-runs-and-review-tools.md) |
 | [A comment on several lines, and a fix for a finding](protocol/a-comment-on-several-lines-and-a-fix-for-a-finding.md) |
+| [Change sets, an overview and practices: three run kinds and a catalogue](protocol/change-sets-an-overview-and-practices.md) |
 | [A Job's running Check: its log live, and a stop](protocol/a-jobs-running-check-its-log-live-and-a-stop.md) |
 | [A Job's reach past its slots: the folder answers](protocol/a-jobs-reach-past-its-slots-the-folder-answers.md) |
 | [A Job follows the Jobs its plan was handed to](protocol/a-job-follows-the-jobs-its-plan-was-handed-to.md) |
@@ -182,6 +183,7 @@ WebSocket event stream, read this first.
 | [A walk's notes, sent as one turn: `send_session_notes`](protocol/a-walks-notes-sent-as-one-turn.md) |
 | [The owner's notes on a pull request's lines: `list_pull_request_notes` and four more](protocol/the-owners-notes-on-a-pull-requests-lines.md) |
 | [What Fleet remembers of a pull request: seen heads, viewed files, his review, the inbox, the compare and layouts](protocol/what-fleet-remembers-of-a-pull-request.md) |
+| [The disk in `get_health`: free space, the two floors, the last pass and what the next would drop](protocol/the-disk-in-get-health.md) |
 | [A Job's MCP servers: `get_session_mcp`, `act_on_session_mcp`](protocol/a-jobs-mcp-servers.md) |
 | [A Job's quick replies: `get_session_quick`](protocol/a-jobs-quick-replies.md) |
 | [A background act's failure: `act.failed`](protocol/a-background-acts-failure-act-failed.md) |

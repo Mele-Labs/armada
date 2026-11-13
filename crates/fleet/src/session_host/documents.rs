@@ -119,7 +119,7 @@ where
             store.hosting(id).ok().flatten()
         };
         let Some(hosting) = hosting else { return false };
-        let Some(workflow) = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow)) else {
+        let Some(workflow) = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, hosting.project.as_deref(), workflow)) else {
             return false;
         };
         let Some(steps) = self.job_rail_steps(id, &hosting.manifest_id, workflow).await else { return false };

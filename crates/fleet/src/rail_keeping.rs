@@ -290,7 +290,8 @@ where
         let (Some(manifest), Some(workflow)) = (session.manifest_id.as_deref(), record.workflow.as_deref()) else {
             return;
         };
-        if !self.workflow_on(manifest, workflow) {
+        let project = record.hosted.as_ref().and_then(|hosted| hosted.project.as_deref());
+        if !self.workflow_on(manifest, project, workflow) {
             return;
         }
         // The steps the rail was read against, so the indexes it kept are into these.

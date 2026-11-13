@@ -14,6 +14,10 @@
 #   scripts/preview --restart [--dry-run] [--adopt]  then `scripts/restart --from .armada/preview`
 #   scripts/preview --restart --keep-only --picked <file>  build and keep main plus the branches
 #       the file names, one a line, and swap nothing; an empty file is main alone
+#   scripts/preview [--restart] --push-as <name>  after the merge, push the preview commit
+#       to `preview/<name>` on origin (forced) so another Mac can build exactly it
+#   scripts/preview [--restart] --at <sha> [--ref <ref>]  merge nothing: land the preview on
+#       that commit, fetched from `origin <ref>` when this repository lacks it
 #
 # **What is offered is `Armada/preview-offered`**, which Fleet writes: a line of
 # `branch<TAB>tip sha<TAB>session id<TAB>about` for each offer Fleet checked, oldest first;
@@ -50,6 +54,13 @@
 # Pocket's Run starts it on a terminal Fleet holds, and booting Fleet out would hang that
 # up before the new Fleet is bootstrapped. A dry run and a `--keep-only` build touch no Fleet and run as they are.
 #
+# **`--push-as <name>` pushes the preview commit to `preview/<name>`** before the restart, and
+# again before each go-again after branches are left out. A failed push warns and the run goes
+# on. **`--at <sha>` is the other Mac's side**: the worktree lands on exactly that commit, the
+# records say it holds no branches and left none out, and a failed build is the failure, with no
+# branch to leave out. It cannot be combined with `--all`, `--only`, `--skip`, `--picked`,
+# `--watch` or `--push-as`; `--ref` is for it alone.
+#
 # Knobs for tests: `ARMADA_LAND_ARMADA` names the `armada` to ask about
 # slots, `ARMADA_PREVIEW_RESTART` the restart script `--restart` runs, and
 # `ARMADA_PREVIEW_INSTALL` the command that reinstalls a refused `armada`.
@@ -67,8 +78,10 @@ import urllib.request
 MIGRATIONS = "crates/store/migrations"
 # The numbered list a branch cut before names still carries.
 OLD_MIGRATIONS = "crates/store/src/migrations.rs"
-# `preview` itself and `main` are never in flight.
+# `preview` itself and `main` are never in flight, nor is a `preview/<name>` ref, which
+# is what a Mac pushes its merged preview to for another Mac to build.
 NEVER = ("main", "preview")
+PUSHED = "preview/"
 # What `git clean` keeps: the build directories, the Bridge, native Bridge and
 # phone app build stamps `scripts/restart` compares sources against, the test
 # list Fleet's build script writes (a recompile of Fleet when it goes), and the
@@ -225,6 +238,10 @@ def base_of(root):
     return have[0]
 
 
+def never(branch):
+    return branch in NEVER or branch.startswith(PUSHED)
+
+
 def exists(root, branch):
     return git(root, "rev-parse", "--verify", "--quiet",
                f"refs/heads/{branch}", check=False).returncode == 0
@@ -271,7 +288,7 @@ def offered_in_flight(root, base, skip, held):
     asked = offers()
     chosen.offered = len(asked)
     for branch, tip, about in asked:
-        if branch in NEVER:
+        if never(branch):
             continue
         short = tip[:10]
         if branch in skip:
@@ -302,7 +319,7 @@ def in_flight(root, base, only, skip, every=False):
     notes = chosen.notes
     found = []
     for branch in sorted(candidates):
-        if branch in NEVER or not exists(root, branch):
+        if never(branch) or not exists(root, branch):
             continue
         ahead = out(root, "rev-list", "--count", f"{base}..{branch}")
         if ahead == "0":
@@ -318,7 +335,7 @@ def in_flight(root, base, only, skip, every=False):
             found.append((int(oldest), branch, out(root, "rev-parse", f"refs/heads/{branch}")))
     for name in sorted((only or set()) - {b for _, b, _ in found} - skip):
         remote = f"refs/remotes/origin/{name}"
-        if (name not in candidates and name not in NEVER
+        if (name not in candidates and not never(name)
                 and git(root, "rev-parse", "--verify", "--quiet", f"{remote}^{{commit}}", check=False).returncode == 0
                 and out(root, "rev-list", "--count", f"{base}..{remote}") != "0"):
             oldest = out(root, "log", "--reverse", "--format=%ct", f"{base}..{remote}").split()[0]
@@ -371,6 +388,47 @@ def settle(wt, final):
     git(wt, "reset", "-q", "--hard")
     git(wt, "checkout", "-q", "-B", "preview", final)
     git(wt, "clean", "-xdffq", *[a for k in KEEP for a in ("-e", k)])
+
+
+def push_preview(root, wt, name, dry_run):
+    """Force `preview/<name>` on origin to the preview commit, for another Mac to build. A push that
+    fails warns and the run goes on: the build here does not need it."""
+    sha = out(wt, "rev-parse", "HEAD")
+    short = out(wt, "rev-parse", "--short", sha)
+    if dry_run:
+        print(f"preview: would push {short} to {PUSHED}{name}", flush=True)
+        return
+    done = git(root, "push", "--quiet", "--force", "--no-verify", "origin", f"{sha}:refs/heads/{PUSHED}{name}", check=False)
+    if done.returncode != 0:
+        print(f"preview: warning: could not push {short} to {PUSHED}{name}: "
+              f"{(done.stderr or done.stdout).strip()}", flush=True)
+        return
+    print(f"preview: pushed {short} to {PUSHED}{name}", flush=True)
+
+
+def land_at(root, sha, ref):
+    """The preview worktree on exactly `sha`, merging nothing: what another Mac pushed. The commit is
+    fetched from `origin <ref>` only when this repository does not have it. Returns the worktree, and
+    the main commit the preview stands on."""
+    wt = os.path.join(root, ".armada", "preview")
+    commit = f"{sha}^{{commit}}"
+    if git(root, "cat-file", "-e", commit, check=False).returncode != 0 and ref:
+        git(root, "fetch", "--quiet", "origin", ref, check=False)
+    if git(root, "cat-file", "-e", commit, check=False).returncode != 0:
+        sys.exit(f"preview: the commit {sha[:10]} is not in this repository"
+                 + (f" and `origin {ref}` did not bring it" if ref else " and no --ref says where to fetch it"))
+    full = out(root, "rev-parse", commit)
+    base = base_of(root)
+    prepare(root, wt, base)
+    settle(wt, full)
+    # The main commit it stands on; this Mac's own `origin/main` may be older or newer than the one it was built on.
+    stands = git(root, "merge-base", full, "origin/main", check=False).stdout.strip() or out(root, "rev-parse", base)
+    text = f"preview {full[:10]} = exactly the commit it was told to build; nothing was merged here\n"
+    with open(os.path.join(wt, "PREVIEW.txt"), "w") as f:
+        f.write(text)
+    sys.stdout.write(text)
+    sys.stdout.flush()
+    return wt, stands
 
 
 def merge_tree(wt, cur, branch):
@@ -691,7 +749,26 @@ def main():
     ap.add_argument("--adopt", action="store_true", help="with --restart: restart Fleet with a Drone working, adopting it")
     ap.add_argument("--keep-only", action="store_true", help="with --restart: build and keep it, and swap nothing")
     ap.add_argument("--picked", metavar="FILE", help="include only the branches this file names, one a line")
+    ap.add_argument("--push-as", metavar="NAME", help="push the preview commit to preview/NAME on origin")
+    ap.add_argument("--at", metavar="SHA", help="land the preview on exactly this commit and merge nothing")
+    ap.add_argument("--ref", metavar="REF", help="with --at: where on origin to fetch the commit from")
     args = ap.parse_args()
+    if args.push_as is not None and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", args.push_as):
+        sys.exit("preview: --push-as takes a name of letters, digits, dots, dashes and underscores")
+    if args.push_as is not None and (args.watch is not None or args.keep_only):
+        sys.exit("preview: --push-as is for the build that runs here, which --watch and --keep-only are not")
+    if args.ref and not args.at:
+        sys.exit("preview: --ref is for --at")
+    if args.at:
+        if not re.fullmatch(r"[0-9a-fA-F]{7,64}", args.at):
+            sys.exit("preview: --at takes a commit sha")
+        if args.ref and (args.ref.startswith("-") or not args.ref.strip()):
+            sys.exit("preview: --ref takes a ref on origin, such as preview/<name>")
+        if args.all or args.only or args.skip or args.picked or args.watch is not None or args.keep_only:
+            sys.exit("preview: --at lands one commit and merges nothing, so it cannot be combined with "
+                     "--all, --only, --skip, --picked, --watch or --keep-only")
+        if args.push_as is not None:
+            sys.exit("preview: --at lands a commit that is already pushed, so it cannot be combined with --push-as")
     if args.watch is not None and args.restart:
         sys.exit("preview: --watch never restarts Fleet. Run --restart on its own.")
     if args.adopt and args.watch is not None:
@@ -721,7 +798,13 @@ def main():
     if args.restart:
         pull_main(root, args.dry_run)
 
-    wt, base, rows, tips = merge_pass(root, only, skip, every=args.all)
+    if args.at:
+        wt, base = land_at(root, args.at, args.ref)
+        rows, tips = [], {}
+    else:
+        wt, base, rows, tips = merge_pass(root, only, skip, every=args.all)
+    if args.push_as is not None and not args.restart:
+        push_preview(root, wt, args.push_as, args.dry_run)
     if args.watch is not None:
         seen = signature(root, only, skip, args.all)
         try:
@@ -741,8 +824,11 @@ def main():
             kept_only = "snapshot" if args.keep_only else "preview"
             write_left_out(wt, rows, tips, f"{kept_only}-left-out")
             write_held(root, wt, base, rows, tips, f"{kept_only}-held")
+            if args.push_as is not None:
+                push_preview(root, wt, args.push_as, args.dry_run)
             code, output = restart(root, wt, args.dry_run, args.adopt, args.keep_only)
-            more = cannot_take(root, base, rows, tips, output, wt) if code != 0 else {}
+            # A commit built elsewhere has no branch to leave out: its failure is the failure.
+            more = cannot_take(root, base, rows, tips, output, wt) if code != 0 and not args.at else {}
             if not more:
                 return code
             print("\n".join(f"{b}: {why}; merging again without it" for b, why in more.items()), flush=True)
