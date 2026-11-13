@@ -88,6 +88,8 @@ pub enum Verb {
     /// A press on another element, `(role, name)`, before the target is ringed: for an act whose
     /// own button is gone once it is pressed.
     PressOn(&'static str, &'static str),
+    /// As [`Verb::PressOn`], with ⌥ held.
+    AltPressOn(&'static str, &'static str),
     /// A press on the first of these elements, by role and name, that is drawn: for a door the window's width
     /// moves, such as the project switcher, which a narrow title bar keeps in its menu.
     PressOnFirst(&'static [(&'static str, &'static str)]),
@@ -1328,6 +1330,34 @@ pub static WALKS: &[Walk] = &[
         step("Enter picks it: only paused Jobs, each with its mark", Verb::Key("enter"), "img", "Paused"),
         step("The scope says what the list holds", Verb::Look, "button", "Paused"),
     ],
+    },
+    Walk {
+        name: "jobs-fold",
+        title: "Folding the sub-Jobs of a Job in the Jobs list",
+        screen: Screen::Jobs,
+        scenario: "jobs-tree",
+        steps: &[
+            step("The list unfolded: a parent has a chevron at the left of its row, and a Job with none keeps the column", Verb::Look, "button", "Fold sub-Jobs of Land the native stack"),
+            press_on("A press on the chevron folds that parent's sub-Jobs away", "button", "Fold sub-Jobs of Fix the walk at 820", "img", "Needs you: Re-take the shots"),
+            step("Its row keeps one glyph for each state its sub-Jobs are in, in the state's hue. Needs you stays amber and first, so folding hides no need, and the tooltip names the sub-Jobs in that state", Verb::Hover, "img", "Needs you: Re-take the shots"),
+            step("The chevron points right, and a press unfolds it", Verb::Look, "button", "Unfold sub-Jobs of Fix the walk at 820"),
+            Step { say: "⌥ and a press on a chevron folds every parent", verb: Verb::AltPressOn("button", "Fold sub-Jobs of Land the native stack"), target: Target { role: "button", name: "Unfold sub-Jobs of Jobs across home and work Macs" } },
+            step("Land the native stack shows needs you, failed and working, one glyph each", Verb::Look, "img", "Needs you: Re-take the shots"),
+            Step { say: "⌥ and a press on a folded chevron unfolds every parent", verb: Verb::AltPressOn("button", "Unfold sub-Jobs of Land the native stack"), target: Target { role: "row", name: "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada" } },
+            step("← on a highlighted parent folds it", Verb::Key("left"), "button", "Unfold sub-Jobs of Land the native stack"),
+            step("→ unfolds it", Verb::Key("right"), "button", "Fold sub-Jobs of Land the native stack"),
+            step("A right press on a parent: Fold sub-Jobs and Fold all sub-Jobs", Verb::RightPress("Land the native stack"), "menuitem", "Fold all sub-Jobs"),
+            step("Fold sub-Jobs folds that one", Verb::Open("menuitem", "Fold sub-Jobs"), "button", "Unfold sub-Jobs of Land the native stack"),
+            step("The menu of a folded parent says Unfold sub-Jobs and Unfold all sub-Jobs", Verb::RightPress("Land the native stack"), "menuitem", "Unfold all sub-Jobs"),
+            step("Esc shuts it", Verb::Key("escape"), "row", "Land the native stack"),
+            step("The scope menu holds Root Jobs only", Verb::Press, "button", "Active"),
+            step("Root Jobs only folds every parent at once", Verb::Open("menuitemcheckbox", "Root Jobs only"), "button", "Unfold sub-Jobs of Jobs across home and work Macs"),
+            step("Esc shuts the menu", Verb::Key("escape"), "button", "Active"),
+            step("⌘K offers Fold all sub-Jobs, Unfold all sub-Jobs and Root Jobs only", Verb::Key("cmd-k"), "dialog", "Command palette"),
+            step("Typed words find them", Verb::Type("Unfold all"), "searchbox", "Search actions, jobs and settings"),
+            step("Each ends in its kind, Command", Verb::Look, "option", "Unfold all sub-Jobs"),
+            step("Enter runs it: every parent unfolds and the switch is off", Verb::Key("enter"), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
+        ],
     },
     Walk {
         name: "jobs-tree",

@@ -154,6 +154,29 @@ pub fn registered(job_open: bool) -> Vec<Entry> {
         .collect()
 }
 
+/// The Jobs list's fold commands, offered where a Job has sub-Jobs. Electron's list does not fold, so the registry
+/// has no row for them. Root Jobs only reads On while the switch is.
+fn fold_commands(list: &JobsList) -> Vec<Entry> {
+    let (any, root_only, _) = list.fold_facts();
+    if !any {
+        return Vec::new();
+    }
+    let command = |id: &str, label: &str, icon: &'static str, on: bool| Entry {
+        id: format!("cmd:{id}"),
+        section: Section::Commands,
+        label: label.into(),
+        icon: Some(icon),
+        shortcut: None,
+        aliases: Vec::new(),
+        meta: on.then(|| Meta { repo: None, state: Some(("check", "On".into(), token::FG_MUTED)) }),
+    };
+    vec![
+        command("fold-all", "Fold all sub-Jobs", "list-tree", false),
+        command("unfold-all", "Unfold all sub-Jobs", "list-tree", false),
+        command("root-only", "Root Jobs only", "list-tree", root_only),
+    ]
+}
+
 /// The open pull request a Job holds: its repository and number.
 pub fn pull_of(job: &SessionRecord) -> Option<(ManifestId, u64)> {
     held_pull(job).filter(|(_, _, open)| *open).map(|(repo, number, _)| (repo, number))
@@ -299,9 +322,11 @@ pub fn lines_of(entries: &[Entry], query: &str, on: Option<&str>, opens: Opens, 
             return lines;
         }
     }
+    // The fold commands are found by typing, so the list a person opens on keeps the blocks it has.
     let mut found: Vec<(u32, usize)> = entries
         .iter()
         .enumerate()
+        .filter(|(_, entry)| typed || !entry.id.starts_with("cmd:"))
         .filter_map(|(at, entry)| rank(query, entry, memory.aliases.get(&entry.id).map(String::as_str)).map(|rank| (rank, at)))
         .collect();
     let named: Vec<usize> = if typed { found.iter().filter(|(rank, _)| *rank == 0).map(|(_, at)| *at).collect() } else { Vec::new() };
@@ -596,6 +621,7 @@ impl Palette {
         let mut entries = registered(on.is_some());
         // New Job here only where a quick Job can be started.
         entries.retain(|entry| entry.id != "act:new_terminal_job" || crate::terminal::shells::starts(cx));
+        entries.extend(fold_commands(list));
         entries.extend(list.records().iter().filter_map(job_entry));
         (entries, on)
     }
@@ -863,6 +889,13 @@ impl Palette {
                 self.close(window, cx);
                 self.list.update(cx, |list, cx| list.open(job.into(), cx));
             }
+            ("run", None) if entry.id.starts_with("cmd:") => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                let command = entry.id.trim_start_matches("cmd:").to_string();
+                self.list.update(cx, |list, cx| list.fold_command(&command, cx));
+            }
             ("run", None) => {
                 self.memory.used(&entry.id);
                 self.keep(cx);
@@ -1115,7 +1148,9 @@ impl Palette {
         match entry.id.strip_prefix("session:") {
             Some(job) => self.list.update(cx, |list, cx| list.open(job.to_string().into(), cx)),
             None => {
-                if let Some(row) = entry.id.strip_prefix("act:").and_then(|id| ACTIONS.iter().find(|row| row.id == id)) {
+                if let Some(command) = entry.id.strip_prefix("cmd:") {
+                    self.list.update(cx, |list, cx| list.fold_command(command, cx));
+                } else if let Some(row) = entry.id.strip_prefix("act:").and_then(|id| ACTIONS.iter().find(|row| row.id == id)) {
                     window.dispatch_action(Box::new(Act { id: row.id, slot: 0, digit: None }), cx);
                 }
             }
@@ -1926,5 +1961,26 @@ mod tests {
         memory.hotkeys.insert("session:mock-01".into(), "\u{2325}\u{2318}1".into());
         memory.opens = Opens::Everything;
         assert_eq!(Memory::parse(&memory.text()), memory);
+    }
+
+    #[gpui::test]
+    fn the_fold_commands_are_offered_where_a_job_has_sub_jobs_and_root_jobs_only_reads_on(cx: &mut gpui::TestAppContext) {
+        let tree = crate::mock::jobs("jobs-tree").expect("the fixture decodes");
+        let list = cx.new(|cx| JobsList::mock(&tree, cx));
+        let labels = |list: &JobsList| fold_commands(list).iter().map(|entry| (entry.label.clone(), entry.meta.is_some(), entry.kind())).collect::<Vec<_>>();
+        let said = |label: &str, on: bool| (label.to_string(), on, "Command");
+        list.read_with(cx, |list, _| {
+            assert_eq!(labels(list), [said("Fold all sub-Jobs", false), said("Unfold all sub-Jobs", false), said("Root Jobs only", false)]);
+        });
+        list.update(cx, |list, cx| list.fold_command("root-only", cx));
+        list.read_with(cx, |list, _| assert_eq!(labels(list)[2], said("Root Jobs only", true)));
+        // A list with no sub-Jobs offers none of them.
+        let flat: Vec<SessionRecord> = tree.into_iter().map(|mut job| { job.attachments.retain(|one| one.kind != "started_by"); job }).collect();
+        let flat = cx.new(|cx| JobsList::mock(&flat, cx));
+        flat.read_with(cx, |list, _| assert!(fold_commands(list).is_empty()));
+        // Nothing typed, they stay out of the list the palette opens on; a word finds them.
+        let entries = list.read_with(cx, |list, _| fold_commands(list));
+        let rows = |query: &str| lines_of(&entries, query, None, Opens::Everything, &Memory::default()).iter().filter(|line| matches!(line, Line::Row(_))).count();
+        assert_eq!((rows(""), rows("fold") > 0, rows("root")), (0, true, 1));
     }
 }
