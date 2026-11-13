@@ -29,7 +29,7 @@ import { Refused } from "./client";
 import { attemptPage, withNewest } from "./jobState";
 import { fit, followScreen } from "./viewport";
 import type { PhoneSession } from "./gateway";
-import { codeFromInput, linkOf, waitForConfirm } from "./pairing";
+import { codeFromInput, linkOf, linkTrouble, waitForConfirm } from "./pairing";
 import { routeOf } from "./router";
 import { bytesOf } from "./push";
 import { SseParser } from "./sse";
@@ -165,6 +165,30 @@ describe("linkOf", () => {
     expect(
       linkOf("https://laptop.tail0.ts.net/pair", "https://studio.tail0.ts.net"),
     ).toBeUndefined();
+  });
+  it("takes a Cloudflare tunnel's link as it takes any other Mac's", () =>
+    expect(linkOf(`https://home.armada.codes/pair?code=${code}`, "")).toEqual({
+      origin: "https://home.armada.codes",
+      code,
+    }));
+  it("refuses a link that pairs two Macs", () =>
+    expect(linkOf(`https://home.armada.codes/pair/mac?code=${code}`, "")).toBeUndefined());
+});
+
+describe("linkTrouble", () => {
+  const code = "0123456789abcdef0123456789abcdef";
+  it("says nothing while the box is empty or the link is usable", () => {
+    expect(linkTrouble("")).toBe("");
+    expect(linkTrouble(`https://home.armada.codes/pair?code=${code}`)).toBe("");
+    expect(linkTrouble(code)).toBe("");
+  });
+  it("names what was pasted instead of a phone's pairing link", () => {
+    expect(linkTrouble("https://home.armada.codes")).toMatch(/^That is the Mac's address/);
+    expect(linkTrouble(`https://home.armada.codes/pair/mac?code=${code}`)).toMatch(
+      /pairs two Macs/,
+    );
+    expect(linkTrouble("https://home.armada.codes/pair?code=0123")).toMatch(/cut short/);
+    expect(linkTrouble("home.armada.codes")).toMatch(/^That is not a pairing link/);
   });
 });
 
