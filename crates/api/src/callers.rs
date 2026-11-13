@@ -73,51 +73,53 @@ pub(crate) async fn refuse_a_page(
 /// too; which process holds the socket is the kernel's record, and a Job cannot write it.
 pub(crate) const A_JOBS_CALL: &str = "api.the_persons_own";
 
-/// The acts only the person takes, from Bridge or through this Mac's Phone Gateway, each with what
-/// its refusal says. **The door already offers none of them to an ordinary Job**; this closes the
-/// same routes to a Job calling the port around the door, as Job `8fd49e7c` turned the Operator on.
+/// The acts only the person takes, from Bridge, each with what its refusal says the person
+/// does. **The door already offers none of them to an ordinary Job**; this closes the same routes
+/// to a Job calling the port around the door, as Job `8fd49e7c` turned the Operator on.
 pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
-    ("save_settings", "only the person changes settings, from Bridge"),
-    ("save_limits", "only the person changes settings, from Bridge"),
-    ("save_preferences", "only the person changes settings, from Bridge"),
-    ("set_phone", "only the person changes settings, from Bridge"),
-    ("set_repository_profile", "only the person changes settings, from Bridge"),
-    ("set_notice_mute", "only the person changes settings, from Bridge"),
-    ("accept_downshift", "only the person changes settings, from Bridge"),
-    ("restore_downshift", "only the person changes settings, from Bridge"),
-    ("keep_downshift", "only the person changes settings, from Bridge"),
-    ("settle_downshift", "only the person changes settings, from Bridge"),
-    ("save_flight_controls", "only the person changes settings, from Bridge"),
-    ("save_repository_flight_controls", "only the person changes settings, from Bridge"),
-    ("approve_repository_tile", "only the person changes settings, from Bridge"),
-    ("change_slot_pool", "only the person changes the slot pool, from Bridge"),
-    ("confirm_operator_order", "only the person gives the Operator its orders, from Bridge"),
-    ("remove_operator_order", "only the person gives the Operator its orders, from Bridge"),
-    ("move_on_operator_board", "only the person moves the Operator's board, from Bridge"),
-    ("answer_operator_suggestion", "only the person answers the Operator, from Bridge"),
-    ("operator_answer", "only the person answers the Operator, from Bridge"),
-    ("operator_turn_order", "only the person orders the Operator's Your turn, from Bridge"),
-    ("operator_later", "only the person puts an item of the Operator's Your turn last, from Bridge"),
-    ("talk_to_operator", "only the person talks to the Operator, from Bridge"),
-    ("start_autopilot", "only the person runs the Autopilot, from Bridge"),
-    ("stop_autopilot", "only the person runs the Autopilot, from Bridge"),
-    ("pause_autopilot", "only the person runs the Autopilot, from Bridge"),
-    ("resume_autopilot", "only the person runs the Autopilot, from Bridge"),
-    ("update_autopilot", "only the person runs the Autopilot, from Bridge"),
-    ("override_autopilot_decision", "only the person runs the Autopilot, from Bridge"),
-    ("review_autopilot_decision", "only the person runs the Autopilot, from Bridge"),
-    ("change_fleet_build", "only the person chooses the build Fleet runs, from Bridge"),
-    ("swap_fleet_build", "only the person chooses the build Fleet runs, from Bridge"),
-    ("keep_fleet_build", "only the person chooses the build Fleet runs, from Bridge"),
-    ("revert_fleet_build", "only the person chooses the build Fleet runs, from Bridge"),
-    ("pick_fleet_build_job", "only the person chooses the build Fleet runs, from Bridge"),
-    ("start_sign_in", "only the person signs this Mac in and out, from Bridge"),
-    ("sign_out", "only the person signs this Mac in and out, from Bridge"),
-    // What his other Macs hold, as the Gateway hands it in: a Job planting rows would be drawn as another Mac's.
-    ("hold_other_mac_sessions", "only this Mac's Phone Gateway hands Fleet his other Macs' Jobs"),
-    ("hold_other_mac_bug_reports", "only this Mac's Phone Gateway hands Fleet his other Macs' Jobs"),
-    ("hold_other_mac_event", "only this Mac's Phone Gateway hands Fleet his other Macs' Jobs"),
-    ("forget_other_mac", "only this Mac's Phone Gateway hands Fleet his other Macs' Jobs"),
+    ("save_settings", "changes settings"),
+    ("save_limits", "changes settings"),
+    ("save_preferences", "changes settings"),
+    ("set_phone", "changes settings"),
+    ("set_repository_profile", "changes settings"),
+    ("set_notice_mute", "changes settings"),
+    ("accept_downshift", "changes settings"),
+    ("restore_downshift", "changes settings"),
+    ("keep_downshift", "changes settings"),
+    ("settle_downshift", "changes settings"),
+    ("save_flight_controls", "changes settings"),
+    ("save_repository_flight_controls", "changes settings"),
+    ("approve_repository_tile", "changes settings"),
+    ("change_slot_pool", "changes the slot pool"),
+    ("confirm_operator_order", "gives the Operator its orders"),
+    ("remove_operator_order", "gives the Operator its orders"),
+    ("move_on_operator_board", "moves the Operator's board"),
+    ("answer_operator_suggestion", "answers the Operator"),
+    ("operator_answer", "answers the Operator"),
+    ("operator_turn_order", "orders the Operator's Your turn"),
+    ("operator_later", "puts an item of the Operator's Your turn last"),
+    ("talk_to_operator", "talks to the Operator"),
+    ("start_autopilot", "runs the Autopilot"),
+    ("stop_autopilot", "runs the Autopilot"),
+    ("pause_autopilot", "runs the Autopilot"),
+    ("resume_autopilot", "runs the Autopilot"),
+    ("update_autopilot", "runs the Autopilot"),
+    ("override_autopilot_decision", "runs the Autopilot"),
+    ("review_autopilot_decision", "runs the Autopilot"),
+    ("change_fleet_build", "chooses the build Fleet runs"),
+    ("swap_fleet_build", "chooses the build Fleet runs"),
+    ("keep_fleet_build", "chooses the build Fleet runs"),
+    ("revert_fleet_build", "chooses the build Fleet runs"),
+    ("pick_fleet_build_job", "chooses the build Fleet runs"),
+    ("skip_preview_refresh", "chooses the build Fleet runs"),
+    ("start_sign_in", "signs this Mac in and out"),
+    ("sign_out", "signs this Mac in and out"),
+    // What his other Macs hold, as this Mac's Phone Gateway hands it in: a Job planting rows would be drawn
+    // as another Mac's. The Gateway runs in Fleet's own process, which no Job holds.
+    ("hold_other_mac_sessions", "pairs his other Macs"),
+    ("hold_other_mac_bug_reports", "pairs his other Macs"),
+    ("hold_other_mac_event", "pairs his other Macs"),
+    ("forget_other_mac", "pairs his other Macs"),
 ];
 
 /// The operation a matched route serves and what its refusal says, where it is the person's.
@@ -147,7 +149,7 @@ pub(crate) async fn refuse_a_job<D: Admitting>(
         .extensions()
         .get::<ConnectInfo<SocketAddr>>()
         .map(|ConnectInfo(peer)| *peer);
-    let (Some((operation, only)), Some(peer)) = (persons, peer) else {
+    let (Some((operation, does)), Some(peer)) = (persons, peer) else {
         return next.run(request).await;
     };
     if !served.daemon().job_at(Caller::at(peer)) {
@@ -157,7 +159,7 @@ pub(crate) async fn refuse_a_job<D: Admitting>(
         StatusCode::FORBIDDEN,
         &WireError::raised(
             A_JOBS_CALL,
-            format!("`{operation}` is refused to a Job: {only}"),
+            format!("`{operation}` is refused to a Job: only the person {does}, from Bridge"),
             served.run_id().clone(),
         )
         .with_field("operation", WireValue::Str(operation.to_string())),

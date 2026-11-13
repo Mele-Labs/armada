@@ -109,7 +109,7 @@ async fn a_job_cannot_hand_fleet_another_macs_rows_and_the_gateway_can() {
         let refused: WireError = ipc::decode("a refusal", &refused).expect("decodes");
         assert_eq!(refused.code, A_JOBS_CALL);
         assert!(
-            refused.message.ends_with("is refused to a Job: only this Mac's Phone Gateway hands Fleet his other Macs' Jobs"),
+            refused.message.ends_with("is refused to a Job: only the person pairs his other Macs, from Bridge"),
             "{}",
             refused.message
         );

@@ -45,6 +45,8 @@ mod annotations;
 /// The forge over GitHub's API where the repository is on `github.com`, and `gh` where not.
 mod api_forge;
 mod background;
+/// The check an offer for the owner's preview gets: merged with main and the other offers, and compiled.
+pub mod preview_check;
 mod base;
 mod basing;
 /// The beads tracker, which Fleet also writes to and syncs.

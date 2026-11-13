@@ -33,6 +33,7 @@ mod door_receipts;
 mod accounts;
 mod judge;
 mod building;
+mod preview_offers;
 mod flight_controls;
 mod sharing;
 mod requests;
