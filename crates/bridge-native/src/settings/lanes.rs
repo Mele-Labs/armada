@@ -84,7 +84,7 @@ impl SettingsOverlay {
         let (scope, manifest) = scope_of(one);
         let repository = self.wire.repositories(cx).unwrap_or_default().into_iter().find(|(id, _, _)| *id == scope).map_or(manifest, |(_, name, _)| name);
         let said = says(&scope, &repository);
-        let line = labelled(small(look, said.clone(), look.color(token::FG_MUTED)).id("workflow-lanes-says"), Role::Label, said);
+        let line = labelled(small(look, said.clone(), look.color(token::FG_MUTED)).id("workflow-lanes-says").px(look.length(token::SPACE_3)), Role::Label, said);
         let body = match self.lanes.read.get(&key) {
             None => bone(look, px(0.), look.length(token::SPACE_12) * 11.).w_full().into_any_element(),
             Some(Err(said)) => labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("workflow-lanes-refused"), Role::Alert, said.clone()).into_any_element(),

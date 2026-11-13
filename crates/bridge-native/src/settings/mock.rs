@@ -238,6 +238,11 @@ impl MockFleet {
         }
         let mut lanes: ipc::JobLanesView = ipc::decode("JobLanesView", include_bytes!("mock-lanes.json")).map_err(|why| Refused::said(why.to_string()))?;
         lanes.workflow = workflow.to_string();
+        // The workflow's lane is headed with the workflow asked for, as Fleet heads it.
+        if let Some(head) = lanes.lanes.first_mut() {
+            let words = workflow.replace('_', " ");
+            head.title = words[..1].to_uppercase() + &words[1..];
+        }
         let ready = lanes.rules.iter_mut().find(|edge| edge.rule == "ready");
         match (scope, ready) {
             ("default", Some(ready)) => ready.differs = vec!["Platform".into(), "armada".into()],

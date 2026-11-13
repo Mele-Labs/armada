@@ -157,6 +157,9 @@ The parity check takes each row here as chosen.
 | A hold on the Operator page | Electron is frozen and draws no paths, Job or until | Fleet's words, then a line under them with each held path in mono and "until it pushes" or "until it ends"; a press opens the Job that alone writes there. A hold Fleet sent before it named them keeps its words alone |
 | A picture a call read, and a message a call sent | Electron is frozen and draws a `Read` of a picture and a `SendMessage` as their bare lines | A `Read` of a picture draws it under its line, read from the Job's own files, and a press opens it full size. A `SendMessage` reads "Message to" and the Job's title, a link where Fleet placed it, else the name as written; its summary is the second line, and a press on the row shows the words it sent |
 | A switch in Settings (owner, 12 Nov) | The default `Switch`, two space-units taller than a badge, near a row's height, so the rows read as one column | Classic's small switch (`data-size="sm"`): one badge tall, with each row's height kept, so a row has air above and below its switch |
+| A workflow's lanes in Settings › Workflows | The lanes stand in place of the step cards, and an inspector shows a picked step | The lanes stand under the step cards, until the inspector is ported |
+| Add lifecycle over a workflow's lanes in Settings | Drawn where the lanes can be edited | Not drawn: native's lanes are read-only for now |
+| The clash shown in the Settings walk | api's own copy of feature, where Platform and Mobile differ | armada's own copy of feature, with the same words, since the mock serves no api repository |
 
 ## Notifying
 
