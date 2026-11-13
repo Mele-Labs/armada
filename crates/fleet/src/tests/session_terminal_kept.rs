@@ -311,7 +311,8 @@ async fn a_terminal_whose_fleet_died_comes_back_at_boot_under_its_id_with_its_sc
     let listed = rig.fleet.list_terminals(None, ListTerminals { session_id: Some(rig.session.clone()) }).await.unwrap().terminals;
     assert_eq!(listed.len(), 1);
     assert_eq!((listed[0].terminal.as_str(), listed[0].name.as_str(), listed[0].run_id.as_str()), ("t1", "Terminal 1", shell.as_str()));
-    assert!(rig.observes(&shell).await.history.contains("screen-42"), "the screen is rebuilt from the spool");
+    // The replay reaches the history on the run's output thread, after the reattach has returned.
+    rig.printed(&shell, "screen-42").await;
 
     let watch = StartWatch {
         session_id: Some(rig.session.clone()),
