@@ -709,9 +709,9 @@ mod tests {
 
     fn values(plans: ValueLayer, pull_requests: ValueLayer) -> ResolvedValues {
         ResolvedValues {
-            pr_mode: ResolvedValue { value: Some("draft".into()), from: ValueLayer::Kit },
-            auto_merge: ResolvedValue { value: Some("always".into()), from: ValueLayer::Project },
-            delivery: Some(ResolvedValue { value: Some("auto_land".into()), from: ValueLayer::Project }),
+            pr_mode: ResolvedValue { value: Some("draft".into()), from: ValueLayer::Kit, ..ResolvedValue::default() },
+            auto_merge: ResolvedValue { value: Some("always".into()), from: ValueLayer::Project, ..ResolvedValue::default() },
+            delivery: Some(ResolvedValue { value: Some("auto_land".into()), from: ValueLayer::Project, ..ResolvedValue::default() }),
             reviews: Some(ResolvedReviews {
                 plans: "review_and_approve".into(),
                 pull_requests: "review".into(),

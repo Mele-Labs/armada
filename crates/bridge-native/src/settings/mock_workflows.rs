@@ -244,7 +244,7 @@ impl MockFleet {
 
     pub fn workflow_definition(&self, id: &str, source: &str, manifest: &str) -> Result<WorkflowDefinition, Refused> {
         let held = self.held(id, source, manifest)?;
-        Ok(WorkflowDefinition { workflow_id: WorkflowId::carried(id), source: source.into(), project: held.project.clone(), file: held.file(), definition: text_of(&held.definition), overridden_by: None })
+        Ok(WorkflowDefinition { workflow_id: WorkflowId::carried(id), source: source.into(), project: held.project.clone(), file: held.file(), definition: text_of(&held.definition), overridden_by: None, based_on: None })
     }
 
     pub fn save_workflow(&mut self, manifest: &str, save: SaveWorkflow) -> Result<WorkflowSaved, Refused> {
@@ -466,7 +466,7 @@ impl MockFleet {
         }
         let saved = self.save_workflow(manifest, SaveWorkflow { scope, definition: draft.text.clone(), overwrite: !armada || publish.overwrite })?;
         self.drafts.workflows.retain(|(_, one)| !(one.workflow_id.as_str() == id && one.source == publish.source && one.project == publish.project));
-        Ok(WorkflowPublished { saved })
+        Ok(WorkflowPublished { saved, version: 1 })
     }
 
     fn piece_at(&self, kind: LifecyclePieceKind, id: &str, scope: &ipc::PieceScope) -> Option<usize> {

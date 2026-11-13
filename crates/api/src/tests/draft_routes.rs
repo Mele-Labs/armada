@@ -61,6 +61,23 @@ async fn a_workflow_draft_is_put_read_discarded_and_published_by_the_method_and_
 }
 
 #[tokio::test]
+async fn versions_are_read_by_get_and_a_revert_is_posted_and_answers_the_draft() {
+    let app = wired();
+    let (status, bytes) = call(&app, "GET", "/workflows/versions?workflow_id=feature&source=kit", "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let read: ipc::WorkflowVersions = ipc::decode("versions", &bytes).expect("reads");
+    assert_eq!(read.versions.len(), 1);
+
+    let (status, bytes) = call(&app, "POST", "/workflows/revert", r#"{"workflow_id":"feature","source":"project","project":"storefront","version":3}"#).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let draft: WorkflowDraft = ipc::decode("a draft", &bytes).expect("reads");
+    assert_eq!((draft.source.as_str(), draft.project.as_deref(), draft.text.as_str()), ("project", Some("storefront"), "{back to 3}"));
+
+    let (status, _) = call(&app, "GET", "/workflows/revert", "").await;
+    assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED, "a revert is posted");
+}
+
+#[tokio::test]
 async fn a_piece_draft_is_keyed_by_kind_id_and_the_scope_it_is_within_and_is_everywhere_without_one() {
     let app = wired();
     let (status, bytes) = call(&app, "PUT", "/lifecycles/pieces/draft", r#"{"kind":"rule","id":"ticket_to_review","text":"{}"}"#).await;

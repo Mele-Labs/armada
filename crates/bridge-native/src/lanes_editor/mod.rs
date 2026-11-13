@@ -1094,7 +1094,7 @@ mod tests {
         }
 
         fn definition(&self, _: &Subject, _: &mut gpui::App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
-            Task::ready(Ok(WorkflowDefinition { workflow_id: WorkflowId::carried("prototype"), source: "armada".into(), file: "prototype.yml".into(), definition: self.0.definition.borrow().clone(), overridden_by: None, project: None }))
+            Task::ready(Ok(WorkflowDefinition { workflow_id: WorkflowId::carried("prototype"), source: "armada".into(), file: "prototype.yml".into(), definition: self.0.definition.borrow().clone(), overridden_by: None, project: None, based_on: None }))
         }
 
         fn workflow_draft(&self, _: &Subject, _: &mut gpui::App) -> Task<Result<WorkflowDraft, Refused>> {
@@ -1124,7 +1124,7 @@ mod tests {
             if let Some(draft) = self.0.draft.borrow_mut().take() {
                 *self.0.definition.borrow_mut() = draft.text;
             }
-            Task::ready(Ok(WorkflowPublished { saved: WorkflowSaved { workflow_id: WorkflowId::carried("prototype"), scope, file: "prototype.yml".into(), replaced: false, runs_from: None } }))
+            Task::ready(Ok(WorkflowPublished { saved: WorkflowSaved { workflow_id: WorkflowId::carried("prototype"), scope, file: "prototype.yml".into(), replaced: false, runs_from: None }, version: 1 }))
         }
 
         fn lifecycles(&self, manifest: &str, _: &mut gpui::App) -> Task<Result<ipc::RepositoryLifecycles, Refused>> {

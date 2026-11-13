@@ -351,9 +351,16 @@ impl MockFleet {
     fn resolved(&self, own: Option<&ValuesSet>) -> ResolvedValues {
         let kit = &self.kit;
         let word = |own: Option<String>, kit: Option<String>, default: Option<&str>| match (own, kit) {
-            (Some(value), _) => ResolvedValue { value: Some(value), from: ValueLayer::Project },
-            (None, Some(value)) => ResolvedValue { value: Some(value), from: ValueLayer::Kit },
-            (None, None) => ResolvedValue { value: default.map(String::from), from: ValueLayer::Default },
+            // What the project overrides: Kit's word, else nothing below sets it.
+            (Some(value), kit) => ResolvedValue {
+                value: Some(value),
+                from: ValueLayer::Project,
+                inherited_from: Some(if kit.is_some() { ValueLayer::Kit } else { ValueLayer::Default }),
+                inherited: kit,
+                ..ResolvedValue::default()
+            },
+            (None, Some(value)) => ResolvedValue { value: Some(value), from: ValueLayer::Kit, ..ResolvedValue::default() },
+            (None, None) => ResolvedValue { value: default.map(String::from), from: ValueLayer::Default, ..ResolvedValue::default() },
         };
         let own_look = own.and_then(|own| own.look.clone()).unwrap_or_default();
         let kit_look = kit.look.clone().unwrap_or_default();
