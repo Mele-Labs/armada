@@ -833,7 +833,7 @@ mod tests {
         let mut found = vec![("Search workflows", overlay.read_with(cx, |this, cx| this.workflows.filter.read(cx).focus_handle(cx)))];
         let boxes = overlay.read_with(cx, |this, cx| this.workflows.detail.fields(cx));
         found.extend(boxes.into_iter().map(|handle| ("a box in the detail", handle)));
-        assert!(found.len() >= 3, "the search, the box that asks an agent and a step's words are all reached: {}", found.len());
+        assert!(found.len() >= 2, "the search and the box that asks an agent are both reached: {}", found.len());
         for (name, handle) in found {
             cx.update(|window, cx| window.focus(&handle, cx));
             cx.simulate_keystrokes("f");

@@ -285,10 +285,11 @@ pub struct Detail {
 }
 
 impl Detail {
-    /// The keys of every box the detail has drawn: each step's words, and the band's, for a test that types into each.
+    /// The keys of every box the detail has drawn, for a test that types into each. The steps' words boxes are left
+    /// out: the lanes stand where their cards were, so none is drawn.
     #[cfg(test)]
     pub(super) fn fields(&self, cx: &App) -> Vec<FocusHandle> {
-        self.words.values().map(|one| one.state.read(cx).focus_handle(cx)).chain(self.band.fields(cx)).collect()
+        self.band.fields(cx)
     }
 
     /// The list to draw: what an act read last, while the connection still holds what it held then.
