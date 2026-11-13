@@ -61,6 +61,7 @@ struct Keys {
     publish: FocusHandle,
     repository: FocusHandle,
     every: FocusHandle,
+    project: FocusHandle,
 }
 
 /// A press the bar's keys answer.
@@ -71,6 +72,7 @@ enum Press {
     Publish,
     Repository,
     Every,
+    Project,
     Undo(usize),
 }
 
@@ -131,7 +133,7 @@ impl LanesEditor {
             }),
         ];
         let stop = |cx: &mut Context<Self>| cx.focus_handle().tab_stop(true);
-        let keys = Keys { changes: stop(cx), discard: stop(cx), publish: stop(cx), repository: stop(cx), every: stop(cx) };
+        let keys = Keys { changes: stop(cx), discard: stop(cx), publish: stop(cx), repository: stop(cx), every: stop(cx), project: stop(cx) };
         let id: SharedString = format!("{}|{}|{}", subject.workflow, subject.level, subject.manifest).into();
         let draft = Draft::new(String::new(), subject.own_target());
         let mut editor = LanesEditor { wire, subject, id, read: Read::Loading, saved: None, draft, shown: None, state, history_open: false, refused: None, busy: false, keys, undos: Vec::new(), loading: None, publishing: None, picked: None, armed: false, in_place: None, frame: Rc::default(), seen: Rc::default(), page: None, reveal: Cell::new(false), lifecycles: Vec::new(), written: None, _subs: subs };
@@ -142,6 +144,14 @@ impl LanesEditor {
     #[allow(dead_code)] // The surface a Job's Workflow tab mounts it through.
     pub fn subject(&self) -> &Subject {
         &self.subject
+    }
+
+    /// The project the host is editing now, offered first where an edit asks where it applies.
+    pub fn offer_project(&mut self, project: Option<(String, String)>, cx: &mut Context<Self>) {
+        if self.subject.project != project {
+            self.subject.project = project;
+            cx.notify();
+        }
     }
 
     #[allow(dead_code)] // The surface a Job's Workflow tab mounts it through.
@@ -303,6 +313,7 @@ impl LanesEditor {
                     }
                     let (scope, manifest) = match &target {
                         Target::Repository(manifest) => (WorkflowScope::Repository, manifest.clone()),
+                        Target::Project(id) => (WorkflowScope::Project { id: id.clone() }, subject.repository.clone()),
                         Target::EveryProject => (WorkflowScope::Kit, subject.repository.clone()),
                     };
                     // A copy is new where the workflow is Armada's: a copy that is already there is not replaced unasked.
@@ -324,7 +335,8 @@ impl LanesEditor {
     /// there, and replacing the one already kept at that scope.
     fn pieces(&self, target: &Target) -> Vec<ipc::SaveLifecyclePiece> {
         let scope = match target {
-            Target::Repository(id) => ipc::PieceScope::Within { id: id.clone() },
+            // A project is a Workspace grown: its lifecycles are scoped within it, by its id.
+            Target::Repository(id) | Target::Project(id) => ipc::PieceScope::Within { id: id.clone() },
             Target::EveryProject => ipc::PieceScope::Everywhere,
         };
         let running: Vec<ipc::LifecycleDefinition> = self.lifecycles.iter().filter(|one| one.kept.overridden_by.is_none()).map(|one| one.lifecycle.clone()).collect();
@@ -373,6 +385,9 @@ impl LanesEditor {
         let mut stops = Vec::new();
         if !self.draft.is_empty() {
             if self.question_shown() {
+                if self.subject.project.is_some() {
+                    stops.push(self.keys.project.clone());
+                }
                 stops.extend([self.keys.repository.clone(), self.keys.every.clone()]);
             }
             stops.extend([self.keys.changes.clone(), self.keys.discard.clone(), self.keys.publish.clone()]);
@@ -418,6 +433,12 @@ impl LanesEditor {
                 self.apply_at(Target::EveryProject, cx);
                 window.focus(&self.keys.changes, cx);
             }
+            Press::Project => {
+                if let Some((id, _)) = self.subject.project.clone() {
+                    self.apply_at(Target::Project(id), cx);
+                }
+                window.focus(&self.keys.changes, cx);
+            }
             Press::Undo(at) => {
                 self.undo_at(at, window, cx);
             }
@@ -426,7 +447,7 @@ impl LanesEditor {
 
     fn focused_press(&self, window: &Window) -> Option<Press> {
         let keys = &self.keys;
-        [(&keys.repository, Press::Repository), (&keys.every, Press::Every), (&keys.changes, Press::Changes), (&keys.discard, Press::Discard), (&keys.publish, Press::Publish)]
+        [(&keys.project, Press::Project), (&keys.repository, Press::Repository), (&keys.every, Press::Every), (&keys.changes, Press::Changes), (&keys.discard, Press::Discard), (&keys.publish, Press::Publish)]
             .into_iter()
             .find(|(stop, _)| stop.is_focused(window))
             .map(|(_, press)| press)
@@ -469,6 +490,11 @@ impl LanesEditor {
 impl LanesHost for LanesEditor {
     fn lanes_state(&self) -> &LanesState {
         &self.state
+    }
+
+    /// The canvas pans one empty column past the last step, where the box that adds a step at the end stands.
+    fn lanes_reach_past_end(&self) -> bool {
+        true
     }
 
     fn lanes_of<'a>(&'a self, _id: &SharedString, _cx: &'a gpui::App) -> Option<&'a JobLanesView> {
@@ -589,11 +615,11 @@ mod tests {
         }
 
         fn definition(&self, _: &Subject, _: &mut gpui::App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
-            Task::ready(Ok(WorkflowDefinition { workflow_id: WorkflowId::carried("prototype"), source: "armada".into(), file: "prototype.yml".into(), definition: self.0.definition.borrow().clone(), overridden_by: None }))
+            Task::ready(Ok(WorkflowDefinition { workflow_id: WorkflowId::carried("prototype"), source: "armada".into(), file: "prototype.yml".into(), definition: self.0.definition.borrow().clone(), overridden_by: None, project: None }))
         }
 
         fn save_workflow(&self, manifest: &str, save: SaveWorkflow, _: &mut gpui::App) -> Task<Result<ipc::WorkflowSaved, Refused>> {
-            let scope = save.scope;
+            let scope = save.scope.clone();
             self.0.asked.borrow_mut().push("definition");
             self.0.saved.borrow_mut().push((manifest.to_string(), save));
             Task::ready(Ok(WorkflowSaved { workflow_id: WorkflowId::carried("prototype"), scope, file: "prototype.yml".into(), replaced: false, runs_from: None }))
@@ -625,7 +651,7 @@ mod tests {
             crate::look::init(cx);
         });
         let fleet = Rc::new(Fleet { definition: RefCell::new(BASE.into()), saved: RefCell::default(), pieces: RefCell::default(), asked: RefCell::default(), refuses_pieces: RefCell::default() });
-        let subject = Subject { workflow: "prototype".into(), level: "default".into(), manifest: "armada".into(), held_under: "armada".into(), source: "armada", shipped, repository: "armada".into() };
+        let subject = Subject { workflow: "prototype".into(), level: "default".into(), manifest: "armada".into(), held_under: "armada".into(), source: "armada", shipped, repository: "armada".into(), project: None };
         let wire: Rc<dyn EditorWire> = Rc::new(FakeWire(fleet.clone()));
         let (editor, cx) = cx.add_window_view(|window, cx| LanesEditor::new(subject, wire, window, cx));
         let seen = Rc::new(RefCell::new(Vec::new()));
@@ -879,7 +905,7 @@ mod tests {
         cx.run_until_parked();
         let saved = fleet.saved.borrow();
         assert_eq!(saved.len(), 1);
-        assert_eq!((saved[0].0.as_str(), saved[0].1.scope, saved[0].1.overwrite), ("armada", WorkflowScope::Kit, false), "a copy is new where the workflow is Armada's");
+        assert_eq!((saved[0].0.as_str(), saved[0].1.scope.clone(), saved[0].1.overwrite), ("armada", WorkflowScope::Kit, false), "a copy is new where the workflow is Armada's");
         assert_eq!(crate::settings::definition::tree_of(&saved[0].1.definition), crate::settings::definition::tree_of(REVIEWED));
         assert_eq!(*seen.borrow(), [EditorEvent::Published { target: Target::EveryProject }]);
         assert!(!editor.read_with(cx, |editor, _| editor.has_edits()), "the draft is let go once it is written");

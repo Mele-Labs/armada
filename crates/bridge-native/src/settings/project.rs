@@ -279,6 +279,13 @@ pub fn cells(keys: &[Key], project: bool) -> Vec<Vec<(Key, Column)>> {
         .collect()
 }
 
+/// The cells with a project picked, less every project's cell of each key the project sets: that one is left
+/// empty, and is no stop.
+pub fn cells_beside(keys: &[Key], project: bool, own: Option<&ResolvedValues>) -> Vec<Vec<(Key, Column)>> {
+    let set = |key: Key| project && own.is_some_and(|own| set_here(own, key));
+    cells(keys, project).into_iter().map(|row| row.into_iter().filter(|(key, column)| !(*column == Column::Every && set(*key))).collect()).collect()
+}
+
 /// Where the keys go from a cell on an arrow: along its row, or to the nearest cell in the row above or below.
 pub fn moved(grid: &[Vec<(Key, Column)>], from: (Key, Column), arrow: &str) -> Option<(Key, Column)> {
     let (row, at) = grid.iter().enumerate().find_map(|(row, cells)| cells.iter().position(|one| *one == from).map(|at| (row, at)))?;
@@ -295,6 +302,11 @@ pub fn moved(grid: &[Vec<(Key, Column)>], from: (Key, Column), arrow: &str) -> O
 }
 
 impl SettingsOverlay {
+    /// A project's name as Fleet last listed it, or its id before then.
+    pub fn project_name(&self, id: &str) -> String {
+        self.scope.projects.as_ref().and_then(|all| all.projects.iter().find(|one| one.id == id)).map_or_else(|| id.to_string(), |one| one.name.clone())
+    }
+
     /// A key's words and how each reads: fixed ones, or what this Mac has for the review model, the theme and
     /// the layout. A word in force that is not among them is kept, as it reads.
     pub fn options(&self, key: Key, now: Option<&str>, cx: &App) -> Vec<(String, String)> {
@@ -332,7 +344,7 @@ impl SettingsOverlay {
         if keys.is_empty() || (shown.body == Body::Macs && !project) {
             return Vec::new();
         }
-        cells(keys, project)
+        cells_beside(keys, project, self.scope.values.as_ref())
     }
 
     /// The grid's keys, in the order Tab reaches them, once what they show has been read.
@@ -550,6 +562,11 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
     if column == Column::Every && !key.every() {
         return div().h(tall).into_any_element();
     }
+    // A key the project sets: what every project uses beside it is left out.
+    let picked = this.scope.project.is_some();
+    if column == Column::Every && picked && this.scope.values.as_ref().is_some_and(|own| set_here(own, key)) {
+        return div().h(tall).into_any_element();
+    }
     if key == Key::Shared {
         return shared(this, look, window, cx).unwrap_or_else(|| bone(look, look.length(token::SPACE_12), look.length(token::H_BADGE)).into_any_element());
     }
@@ -591,6 +608,7 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
             }
         })
         .when(!off, |control| control.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| this.open_cell((key, column), false, window, cx))))
+        .when(column == Column::Every && picked, |control| control.tooltip(tip("Changes every project")))
         .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said)));
     let control = if set {
         let project = this.scope.project.as_ref().map(|(_, name)| name.clone()).unwrap_or_default();
@@ -734,6 +752,14 @@ mod tests {
         let two = cells(Page::StartingJobs.keys(), true);
         assert_eq!(two, vec![vec![(Key::AgentStarts, Column::Every), (Key::AgentStarts, Column::Own)], vec![(Key::Tracker, Column::Own)]], "the tracker's every project cell is empty");
         assert_eq!(cells(keys_of(Body::Macs), true), vec![vec![(Key::Shared, Column::Own)]]);
+    }
+
+    #[test]
+    fn beside_a_key_the_project_sets_every_projects_cell_is_left_out() {
+        let own = values(ValueLayer::Project, ValueLayer::Kit);
+        let grid = cells_beside(&[Key::Plans, Key::PullRequests], true, Some(&own));
+        assert_eq!(grid, vec![vec![(Key::Plans, Column::Own)], vec![(Key::PullRequests, Column::Every), (Key::PullRequests, Column::Own)]]);
+        assert_eq!(cells_beside(&[Key::Plans], false, Some(&own)), vec![vec![(Key::Plans, Column::Every)]], "with every project picked its one column stays");
     }
 
     #[test]

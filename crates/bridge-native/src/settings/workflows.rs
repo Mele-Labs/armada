@@ -21,12 +21,14 @@ use crate::look::{token, Look};
 pub const FOR_JOBS: &str = "features.workflows";
 pub const OFF: &str = "workflows.off";
 
-/// Where a definition is kept, as the page names Fleet's `armada`, `repository` and `kit`.
+/// Where a definition is kept, as the page names Fleet's `armada`, `repository`, `kit` and `project`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Place {
     Armada,
     Repository,
     Yours,
+    /// One project's copy; the row's `project` says whose.
+    Project,
 }
 
 fn place_of(wire: &str) -> Option<Place> {
@@ -34,6 +36,7 @@ fn place_of(wire: &str) -> Option<Place> {
         "armada" => Some(Place::Armada),
         "repository" => Some(Place::Repository),
         "kit" => Some(Place::Yours),
+        "project" => Some(Place::Project),
         _ => None,
     }
 }
@@ -47,6 +50,8 @@ pub struct Listed {
     /// The repository a row of Armada's or Yours runs in, where it keeps no copy of its own.
     pub runs_in: Option<String>,
     pub for_requests: Option<String>,
+    /// The project whose copy this is, where `place` is `Project`.
+    pub project: Option<String>,
 }
 
 impl Listed {
@@ -56,9 +61,12 @@ impl Listed {
             Place::Armada => "armada",
             Place::Repository => "repository",
             Place::Yours => "yours",
+            Place::Project => "project",
         };
         let at = match (&self.place, &self.runs_in) {
             (Place::Repository, _) => format!("@{}", self.manifest),
+            (Place::Project, None) => format!("/{}", self.project.as_deref().unwrap_or_default()),
+            (Place::Project, Some(runs_in)) => format!("/{}>{runs_in}", self.project.as_deref().unwrap_or_default()),
             (_, Some(runs_in)) => format!(">{runs_in}"),
             _ => String::new(),
         };
@@ -83,10 +91,10 @@ pub fn listed_of(workflows: &[WorkflowSummary], served: &[String]) -> Vec<Listed
     for one in workflows {
         let Some(place) = place_of(&one.source) else { continue };
         let manifest = one.manifest_id.as_str().to_string();
-        add(Listed { id: one.id.as_str().to_string(), place, manifest: manifest.clone(), runs_in: None, for_requests: one.for_requests.clone() }, &mut out);
+        add(Listed { id: one.id.as_str().to_string(), place, manifest: manifest.clone(), runs_in: None, for_requests: one.for_requests.clone(), project: one.project.clone() }, &mut out);
         for under in &one.overrides {
             if let Some(place) = place_of(&under.source) {
-                add(Listed { id: one.id.as_str().to_string(), place, manifest: manifest.clone(), runs_in: None, for_requests: None }, &mut out);
+                add(Listed { id: one.id.as_str().to_string(), place, manifest: manifest.clone(), runs_in: None, for_requests: None, project: under.project.clone() }, &mut out);
             }
         }
     }
@@ -97,7 +105,7 @@ pub fn listed_of(workflows: &[WorkflowSummary], served: &[String]) -> Vec<Listed
             if one.manifest_id.as_str() != manifest || place == Place::Repository || keeps.contains(&format!("{manifest}/{}", one.id.as_str())) {
                 continue;
             }
-            add(Listed { id: one.id.as_str().to_string(), place, manifest: manifest.clone(), runs_in: Some(manifest.clone()), for_requests: one.for_requests.clone() }, &mut out);
+            add(Listed { id: one.id.as_str().to_string(), place, manifest: manifest.clone(), runs_in: Some(manifest.clone()), for_requests: one.for_requests.clone(), project: one.project.clone() }, &mut out);
         }
     }
     let ran = |one: &Listed| {
@@ -124,8 +132,9 @@ pub struct Group {
     pub at: Option<(String, String)>,
 }
 
-/// Shipped with Armada, each repository's, then Yours, each with what the search keeps.
-pub fn groups_of(rows: &[Listed], query: &str, name_of: &dyn Fn(&str) -> String) -> Vec<Group> {
+/// Shipped with Armada, each repository's, the picked project's own copies, then Yours, each with what the search
+/// keeps. Another project's copies are drawn only where they run.
+pub fn groups_of(rows: &[Listed], query: &str, name_of: &dyn Fn(&str) -> String, project: Option<&(String, String)>) -> Vec<Group> {
     let wanted = query.trim().to_lowercase();
     let found: Vec<&Listed> = rows.iter().filter(|one| one.id.to_lowercase().contains(&wanted)).collect();
     let mut groups = vec![Group { label: "Shipped with Armada".into(), rows: found.iter().filter(|one| one.place == Place::Armada && one.runs_in.is_none()).map(|one| (*one).clone()).collect(), at: None }];
@@ -143,6 +152,10 @@ pub fn groups_of(rows: &[Listed], query: &str, name_of: &dyn Fn(&str) -> String)
             at: Some((manifest.to_string(), name)),
         });
     }
+    if let Some((id, name)) = project {
+        let own = found.iter().filter(|one| one.place == Place::Project && one.runs_in.is_none() && one.project.as_deref() == Some(id.as_str()));
+        groups.push(Group { label: format!("{name} project"), rows: own.map(|one| (*one).clone()).collect(), at: None });
+    }
     groups.push(Group { label: "Yours".into(), rows: found.iter().filter(|one| one.place == Place::Yours && one.runs_in.is_none()).map(|one| (*one).clone()).collect(), at: None });
     groups.retain(|group| !group.rows.is_empty());
     groups
@@ -150,11 +163,12 @@ pub fn groups_of(rows: &[Listed], query: &str, name_of: &dyn Fn(&str) -> String)
 
 /// In a repository's group, the mark of a row that is not shipped with Armada: the repository's own copy, or Yours
 /// (`customOf`). Its glyph and what its tooltip says.
-fn custom_of(one: &Listed, rows: &[Listed], name: &str) -> Option<(&'static str, String)> {
+fn custom_of(one: &Listed, rows: &[Listed], name: &str, project_name: &dyn Fn(&str) -> String) -> Option<(&'static str, String)> {
     let replaces = if rows.iter().any(|other| other.id == one.id && other.place == Place::Armada) { ", replaces Armada's" } else { "" };
     match one.place {
         Place::Repository => Some(("folder-git-2", format!("{name}'s own copy{replaces}"))),
         Place::Yours => Some(("briefcase", format!("Yours{replaces}"))),
+        Place::Project => Some(("layers", format!("{} project's copy{replaces}", project_name(one.project.as_deref().unwrap_or_default())))),
         Place::Armada => None,
     }
 }
@@ -166,6 +180,9 @@ fn replaces_of(one: &Listed, rows: &[Listed]) -> Option<&'static str> {
         Place::Repository if has(Place::Armada) => Some("This repository's copy replaces Armada's"),
         Place::Yours if has(Place::Repository) => Some("Yours replaces this repository's"),
         Place::Yours if has(Place::Armada) => Some("Yours replaces Armada's"),
+        Place::Project if has(Place::Yours) => Some("This project's copy replaces Yours"),
+        Place::Project if has(Place::Repository) => Some("This project's copy replaces this repository's"),
+        Place::Project if has(Place::Armada) => Some("This project's copy replaces Armada's"),
         _ => None,
     }
 }
@@ -298,7 +315,7 @@ impl SettingsOverlay {
         let rows = self.workflow_rows(cx)?;
         let names = self.wire.repositories(cx).unwrap_or_default();
         let name_of = |manifest: &str| names.iter().find(|(id, _, _)| id == manifest).map_or_else(|| manifest.to_string(), |(_, name, _)| name.clone());
-        let groups = groups_of(&rows, query, &name_of);
+        let groups = groups_of(&rows, query, &name_of, self.scope.project.as_ref());
         Some((rows, groups))
     }
 
@@ -647,7 +664,8 @@ impl SettingsOverlay {
     fn render_workflow_row(&self, one: &Listed, rows: &[Listed], at: Option<&(String, String)>, current: bool, off: &Off, sending: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let key = one.key();
         let Some([row_key, switch_key]) = self.workflows.rows.get(&key).cloned() else { return div().into_any_element() };
-        let custom = at.and_then(|(_, name)| custom_of(one, rows, name));
+        let project_name = |id: &str| self.project_name(id);
+        let custom = at.and_then(|(_, name)| custom_of(one, rows, name, &project_name));
         let replaces = if at.is_none() { replaces_of(one, rows) } else { None };
         let ink = if custom.is_some() { look.color(token::ACCENT) } else if current { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) };
         let press = key.clone();
@@ -727,7 +745,7 @@ mod tests {
     #[test]
     fn each_place_is_a_group_and_each_repository_holds_what_runs_there() {
         let rows = rows();
-        let groups = groups_of(&rows, "", &|manifest| manifest.to_string());
+        let groups = groups_of(&rows, "", &|manifest| manifest.to_string(), None);
         let said: Vec<(String, Vec<String>)> = groups.iter().map(|group| (group.label.clone(), group.rows.iter().map(|one| one.id.clone()).collect())).collect();
         let said: Vec<(&str, Vec<&str>)> = said.iter().map(|(label, ids)| (label.as_str(), ids.iter().map(String::as_str).collect())).collect();
         assert_eq!(
@@ -742,8 +760,22 @@ mod tests {
     }
 
     #[test]
+    fn with_a_project_picked_its_own_copies_are_a_group_above_yours() {
+        let rows = rows();
+        let armada = ("armada".to_string(), "Armada".to_string());
+        let groups = groups_of(&rows, "", &|manifest| manifest.to_string(), Some(&armada));
+        let labels: Vec<&str> = groups.iter().map(|group| group.label.as_str()).collect();
+        assert_eq!(labels, ["Shipped with Armada", "armada repository", "sample-web repository", "Armada project", "Yours"]);
+        let own = &groups[3].rows;
+        assert_eq!((own.len(), own[0].id.as_str(), own[0].project.as_deref()), (1, "design_plan", Some("armada")));
+        assert_eq!(replaces_of(&own[0], &rows), Some("This project's copy replaces Armada's"));
+        let storefront = ("storefront".to_string(), "Storefront".to_string());
+        assert!(!groups_of(&rows, "", &|manifest| manifest.to_string(), Some(&storefront)).iter().any(|group| group.label == "Storefront project"), "a project with no copies has no group");
+    }
+
+    #[test]
     fn the_search_keeps_the_ids_that_hold_it_and_drops_empty_groups() {
-        let groups = groups_of(&rows(), "DOCS", &|manifest| manifest.to_string());
+        let groups = groups_of(&rows(), "DOCS", &|manifest| manifest.to_string(), None);
         assert_eq!(groups.iter().map(|group| group.label.as_str()).collect::<Vec<_>>(), ["armada repository", "Yours"]);
     }
 
@@ -751,9 +783,9 @@ mod tests {
     fn a_repositorys_own_copy_and_yours_are_marked_in_its_group() {
         let rows = rows();
         let own = rows.iter().find(|one| one.place == Place::Repository && one.manifest == "armada").expect("armada's feature");
-        assert_eq!(custom_of(own, &rows, "armada"), Some(("folder-git-2", "armada's own copy, replaces Armada's".to_string())));
+        assert_eq!(custom_of(own, &rows, "armada", &|id| id.to_string()), Some(("folder-git-2", "armada's own copy, replaces Armada's".to_string())));
         let yours = rows.iter().find(|one| one.place == Place::Yours && one.runs_in.is_some()).expect("Yours in armada");
-        assert_eq!(custom_of(yours, &rows, "armada").map(|(glyph, _)| glyph), Some("briefcase"));
+        assert_eq!(custom_of(yours, &rows, "armada", &|id| id.to_string()).map(|(glyph, _)| glyph), Some("briefcase"));
     }
 
     #[test]

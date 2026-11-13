@@ -28,6 +28,7 @@ pub fn wire_of(place: Place) -> &'static str {
         Place::Armada => "armada",
         Place::Repository => "repository",
         Place::Yours => "kit",
+        Place::Project => "project",
     }
 }
 
@@ -283,7 +284,7 @@ pub(super) async fn ask<T: 'static>(this: &WeakEntity<SettingsOverlay>, cx: &mut
 }
 
 fn copy_of(one: &Listed) -> WorkflowCopy {
-    WorkflowCopy { workflow_id: WorkflowId::carried(&one.id), source: wire_of(one.place).into(), file: None, ..Default::default() }
+    WorkflowCopy { workflow_id: WorkflowId::carried(&one.id), source: wire_of(one.place).into(), project: one.project.clone().filter(|_| one.place == Place::Project), file: None }
 }
 
 impl SettingsOverlay {
@@ -885,7 +886,7 @@ pub(super) async fn make_copy(one: &Listed, this: &WeakEntity<SettingsOverlay>, 
         _ => {}
     }
     let place = if scope == WorkflowScope::Kit { Place::Yours } else { Place::Repository };
-    Ok(Listed { id, place, manifest: into, runs_in: None, for_requests: one.for_requests.clone() })
+    Ok(Listed { id, place, manifest: into, runs_in: None, for_requests: one.for_requests.clone(), project: None })
 }
 
 /// The ask behind each act (`onCopyInto`, `onMakeCopy`, `onReset`, `onPropose`, `onDelete`).
@@ -922,7 +923,11 @@ async fn save_words(one: &Listed, step: &str, words: &str, this: &WeakEntity<Set
     let (id, manifest, source) = (one.id.clone(), one.manifest.clone(), wire_of(one.place));
     let held = ask(this, cx, |this, cx| this.wire.workflow_definition(&id, source, &manifest, cx)).await?;
     let definition = with_words(&held.definition, step, words).ok_or_else(|| Refused::said(format!("{step} is not a step of {}", held.file)))?;
-    let scope = if one.place == Place::Repository { WorkflowScope::Repository } else { WorkflowScope::Kit };
+    let scope = match (one.place, &one.project) {
+        (Place::Repository, _) => WorkflowScope::Repository,
+        (Place::Project, Some(id)) => WorkflowScope::Project { id: id.clone() },
+        _ => WorkflowScope::Kit,
+    };
     ask(this, cx, |this, cx| this.wire.save_workflow(&manifest, SaveWorkflow { scope, definition, overwrite: true }, cx)).await?;
     Ok(After { steps: true, list: true, saved: Some(step.to_string()), ..After::default() })
 }
@@ -1060,7 +1065,7 @@ mod tests {
     use super::*;
 
     fn row(place: Place, runs_in: Option<&str>) -> Listed {
-        Listed { id: "bug".into(), place, manifest: "armada".into(), runs_in: runs_in.map(String::from), for_requests: None }
+        Listed { id: "bug".into(), place, manifest: "armada".into(), runs_in: runs_in.map(String::from), for_requests: None, project: None }
     }
 
     #[test]

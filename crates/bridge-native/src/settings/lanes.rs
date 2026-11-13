@@ -61,10 +61,11 @@ pub fn shipped(one: &Listed) -> bool {
     one.place == Place::Armada || one.runs_in.is_some()
 }
 
-/// The workflow a row draws, as the editor is told it.
-fn subject_of(one: &Listed) -> Subject {
+/// The workflow a row draws, as the editor is told it, with the project it is offered: a project's own copy is
+/// that project's, any other row is offered the project picked.
+fn subject_of(one: &Listed, project: Option<(String, String)>) -> Subject {
     let (level, manifest) = scope_of(one);
-    Subject { workflow: one.id.clone(), level, repository: manifest.clone(), manifest, held_under: one.manifest.clone(), source: wire_of(one.place), shipped: shipped(one) }
+    Subject { workflow: one.id.clone(), level, repository: manifest.clone(), manifest, held_under: one.manifest.clone(), source: wire_of(one.place), shipped: shipped(one), project }
 }
 
 /// The editor's reads and saves, answered by Settings' own wire.
@@ -111,17 +112,27 @@ impl SettingsOverlay {
     pub(super) fn read_lanes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(one) = self.shown_workflows(cx).1 else { return };
         let key = one.key();
-        if self.lanes.editors.contains_key(&key) {
+        let project = self.offered_project(&one);
+        if let Some(editor) = self.lanes.editors.get(&key) {
+            editor.update(cx, |editor, cx| editor.offer_project(project, cx));
             return;
         }
         let wire: Rc<dyn EditorWire> = Rc::new(SettingsWire(cx.entity().downgrade()));
-        let subject = subject_of(&one);
+        let subject = subject_of(&one, project);
         let editor = cx.new(|cx| LanesEditor::new(subject, wire, window, cx));
         editor.update(cx, |editor, _| editor.scrolls_in(self.workflows.detail.scroll.clone()));
         let row = one.clone();
         let sub = cx.subscribe_in(&editor, window, move |this, _, event: &EditorEvent, window, cx| this.editor_said(&row, event, window, cx));
         self.lanes.editors.insert(key.clone(), editor);
         self.lanes._subs.insert(key, sub);
+    }
+
+    /// The project a row's editor is offered: the row's own where it is a project's copy, else the one picked.
+    fn offered_project(&self, one: &Listed) -> Option<(String, String)> {
+        match (one.place, &one.project) {
+            (Place::Project, Some(id)) => Some((id.clone(), self.project_name(id))),
+            _ => self.scope.project.clone(),
+        }
     }
 
     /// What an editor told the page: shut Settings on an Esc it did not take, and after a Publish read what was
@@ -131,8 +142,9 @@ impl SettingsOverlay {
             EditorEvent::Escaped => self.close(window, cx),
             EditorEvent::Published { target } => {
                 let copy = shipped(one).then(|| match target {
-                    Target::Repository(manifest) => Listed { id: one.id.clone(), place: Place::Repository, manifest: manifest.clone(), runs_in: None, for_requests: one.for_requests.clone() },
-                    Target::EveryProject => Listed { id: one.id.clone(), place: Place::Yours, manifest: one.manifest.clone(), runs_in: None, for_requests: one.for_requests.clone() },
+                    Target::Repository(manifest) => Listed { id: one.id.clone(), place: Place::Repository, manifest: manifest.clone(), runs_in: None, for_requests: one.for_requests.clone(), project: None },
+                    Target::Project(id) => Listed { id: one.id.clone(), place: Place::Project, manifest: one.manifest.clone(), runs_in: None, for_requests: one.for_requests.clone(), project: Some(id.clone()) },
+                    Target::EveryProject => Listed { id: one.id.clone(), place: Place::Yours, manifest: one.manifest.clone(), runs_in: None, for_requests: one.for_requests.clone(), project: None },
                 });
                 // The rows that read the same workflow read it again, and the page its steps and its list.
                 let key = one.key();
@@ -193,7 +205,10 @@ impl SettingsOverlay {
     pub(super) fn render_lanes(&self, one: &Listed, above: Option<AnyElement>, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let (scope, manifest) = scope_of(one);
         let repository = self.wire.repositories(cx).unwrap_or_default().into_iter().find(|(id, _, _)| *id == scope).map_or(manifest, |(_, name, _)| name);
-        let said = says(&scope, &repository);
+        let said = match (one.place, &one.project) {
+            (Place::Project, Some(id)) => Some(format!("Edits here change {} only", self.project_name(id))),
+            _ => says(&scope, &repository),
+        };
         let add = ringed(look, ghost_with(look, "workflow-add-lifecycle", Some("plus"), "Add lifecycle", false), &self.lanes.add, window)
             .track_focus(&self.lanes.add)
             .on_click(cx.listener(|this, _, window, cx| this.add_lifecycle(window, cx)));
@@ -222,7 +237,7 @@ mod tests {
     use super::*;
 
     fn row(place: Place, manifest: &str, runs_in: Option<&str>) -> Listed {
-        Listed { id: "feature".into(), place, manifest: manifest.into(), runs_in: runs_in.map(String::from), for_requests: None }
+        Listed { id: "feature".into(), place, manifest: manifest.into(), runs_in: runs_in.map(String::from), for_requests: None, project: None }
     }
 
     #[test]
@@ -240,10 +255,12 @@ mod tests {
         assert!(shipped(&row(Place::Yours, "armada", Some("api"))));
         assert!(!shipped(&row(Place::Yours, "armada", None)));
         assert!(!shipped(&row(Place::Repository, "api", None)));
-        let own = subject_of(&row(Place::Repository, "api", None));
+        let own = subject_of(&row(Place::Repository, "api", None), None);
         assert_eq!(own.own_target(), Some(Target::Repository("api".into())));
-        assert_eq!(subject_of(&row(Place::Yours, "armada", None)).own_target(), Some(Target::EveryProject));
-        let kept = subject_of(&row(Place::Armada, "armada", Some("api")));
+        assert_eq!(subject_of(&row(Place::Yours, "armada", None), None).own_target(), Some(Target::EveryProject));
+        let project = Some(("armada".to_string(), "Armada".to_string()));
+        assert_eq!(subject_of(&Listed { project: Some("armada".into()), ..row(Place::Project, "armada", None) }, project).own_target(), Some(Target::Project("armada".into())));
+        let kept = subject_of(&row(Place::Armada, "armada", Some("api")), None);
         assert_eq!((kept.own_target(), kept.repository.as_str()), (None, "api"));
     }
 }

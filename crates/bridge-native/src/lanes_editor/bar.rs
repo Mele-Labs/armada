@@ -65,11 +65,17 @@ impl LanesEditor {
     fn render_question(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let keys = &self.keys;
         let here = Target::Repository(self.subject.repository.clone());
+        // The project being edited is offered first, by its name.
+        let project = self.subject.project.as_ref().map(|(id, name)| {
+            let on = self.draft.target() == Some(&Target::Project(id.clone()));
+            self.radio(look, "workflow-draft-project", name.clone(), on, &keys.project, Press::Project, window, cx)
+        });
         let choices = div()
             .flex()
             .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_2))
+            .children(project)
             .child(self.radio(look, "workflow-draft-repository", "This repository", self.draft.target() == Some(&here), &keys.repository, Press::Repository, window, cx))
             .child(self.radio(look, "workflow-draft-every", "Every project", self.draft.target() == Some(&Target::EveryProject), &keys.every, Press::Every, window, cx));
         let ask = div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_MUTED)).child("Where does this apply?");
@@ -77,7 +83,8 @@ impl LanesEditor {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn radio(&self, look: &Look, id: &'static str, said: &'static str, on: bool, focus: &FocusHandle, press: Press, window: &Window, cx: &Context<Self>) -> AnyElement {
+    fn radio(&self, look: &Look, id: &'static str, said: impl Into<SharedString>, on: bool, focus: &FocusHandle, press: Press, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let said: SharedString = said.into();
         let ring = look.color(if on { token::ACCENT } else { token::BORDER_STRONG });
         let dot = div()
             .flex_none()
@@ -106,7 +113,7 @@ impl LanesEditor {
             .cursor_pointer()
             .hover(|style| style.bg(look.color(token::BG_HOVER)))
             .child(dot)
-            .child(said);
+            .child(said.clone());
         let row = ringed(look, row, focus, window).track_focus(focus).on_click(cx.listener(move |this, _, window, cx| this.pressed(press, window, cx)));
         labelled(row, Role::RadioButton, said).into_any_element()
     }

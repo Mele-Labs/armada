@@ -52,11 +52,13 @@ pub struct Edit {
     pub change: Change,
 }
 
-/// Where the draft is published: one repository's own copy, or Kit's for every project.
+/// Where the draft is published: one repository's own copy, one project's, or Kit's for every project.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Target {
     /// A repository, by its Manifest id.
     Repository(String),
+    /// A project, by its id: `WorkflowScope::Project`, for each repository it holds.
+    Project(String),
     EveryProject,
 }
 

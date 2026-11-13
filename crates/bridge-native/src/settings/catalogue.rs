@@ -169,7 +169,7 @@ impl SettingsOverlay {
         match (id.split_once(':'), applied) {
             (Some(("entry", entry)), Applied::Open) => {
                 let Some(entry) = entries::entry(entry) else { return };
-                self.show(None, window, cx);
+                self.show(None, false, window, cx);
                 self.pick(entry.id, cx);
             }
             (Some(("setting", key)), applied) => {

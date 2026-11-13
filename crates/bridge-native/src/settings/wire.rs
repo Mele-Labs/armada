@@ -332,6 +332,24 @@ impl Wire {
         }
     }
 
+    /// The project a Job was started for, by id and name, as Fleet holds its record. None for a Job started for
+    /// none, or one Fleet does not list.
+    pub fn project_of_job(&self, job: &str, cx: &App) -> Option<(String, String)> {
+        match self {
+            Wire::Live(fleet) => {
+                let held = fleet.read(cx).held();
+                let id = held.jobs.iter().find(|one| one.id.as_str() == job)?.hosted.as_ref()?.project.clone()?;
+                let name = held.projects.as_ref().and_then(|all| all.projects.iter().find(|one| one.id == id)).map_or_else(|| id.clone(), |one| one.name.clone());
+                Some((id, name))
+            }
+            Wire::Mock(mock) => {
+                let id = mock.job_projects.iter().find(|(one, _)| *one == job)?.1;
+                let name = mock.projects.projects.iter().find(|one| one.id == id).map_or_else(|| id.to_string(), |one| one.name.clone());
+                Some((id.to_string(), name))
+            }
+        }
+    }
+
     /// The repositories Fleet serves, by Manifest id, name and whether its armada.yml turns connectors off.
     pub fn repositories(&self, cx: &App) -> Option<Vec<(String, String, bool)>> {
         let held = match self {

@@ -33,10 +33,17 @@
   "version": 1,
   "steps": [],
   "manifest_id": "armada",
-  "source": "armada",
+  "source": "project",
+  "project": "armada",
   "for_requests": "a design to settle before anything is built",
   "lands": "document",
-  "file": "[armada]/design_plan.yml"
+  "file": "~/.armada/workflows/projects/armada/design_plan.yml",
+  "overrides": [
+   {
+    "source": "armada",
+    "file": "[armada]/design_plan.yml"
+   }
+  ]
  },
  {
   "id": "prototype",

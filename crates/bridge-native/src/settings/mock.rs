@@ -38,6 +38,9 @@ pub struct MockFleet {
     pub gateway: super::gateway::MockGateway,
     /// What a press would have opened in the browser or put on the clipboard: a walk touches neither of his.
     pub handed: Vec<String>,
+    /// The project each Job was started for, by Job id (`HostedFacts.project`): the walk's Native Bridge
+    /// foundation was started for Armada.
+    pub job_projects: Vec<(&'static str, &'static str)>,
 }
 
 /// What Fleet runs on All, as Classic's Workflows page is walked on (`mock/workflows-managed.ts`): Armada's four,
@@ -125,6 +128,7 @@ impl MockFleet {
             preferences: ipc::Preferences::default(),
             gateway: super::gateway::MockGateway::new(),
             handed: Vec::new(),
+            job_projects: vec![("mock-02", "armada")],
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
         }

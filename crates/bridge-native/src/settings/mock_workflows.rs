@@ -12,12 +12,15 @@ use super::definition::{text_of, tree_of, with_words, Json};
 use super::mock::MockFleet;
 use super::wire::Refused;
 
-/// One definition held in a place; a repository's under the Manifest of the repository it is in.
+/// One definition held in a place; a repository's under the Manifest of the repository it is in, and a project's
+/// under the Manifest of the repository of the project it applies in.
 #[derive(Clone, Debug, Deserialize)]
 pub struct Held {
     pub source: String,
     #[serde(default)]
     pub manifest: Option<String>,
+    #[serde(default)]
+    pub project: Option<String>,
     pub definition: Json,
 }
 
@@ -27,7 +30,11 @@ impl Held {
     }
 
     fn holds(&self, id: &str, source: &str, manifest: &str) -> bool {
-        self.id() == id && self.source == source && (source != "repository" || self.manifest.as_deref() == Some(manifest))
+        self.id() == id && self.source == source && (!matches!(source, "repository" | "project") || self.manifest.as_deref() == Some(manifest))
+    }
+
+    fn file(&self) -> String {
+        file_of(&self.source, self.project.as_deref(), self.id())
     }
 }
 
@@ -59,10 +66,11 @@ const ENDS: &[(&str, &str, &[&str], Option<&str>)] = &[
     ("draft", "the page reads right", &[], None),
 ];
 
-fn file_of(source: &str, id: &str) -> String {
+fn file_of(source: &str, project: Option<&str>, id: &str) -> String {
     match source {
         "armada" => format!("[armada]/{id}.yml"),
         "repository" => format!(".armada/workflows/{id}.yml"),
+        "project" => format!("~/.armada/workflows/projects/{}/{id}.yml", project.unwrap_or_default()),
         _ => format!("~/.armada/kit/workflows/{id}.yml"),
     }
 }
@@ -87,6 +95,15 @@ const WIRE_AND_TESTS: [(&str, &str, &str); 2] = [("wire", "Wire", "Wire it to th
 /// The Job a press on Start a job to build it starts.
 const SUPPORT_JOB: &str = "01SESSIONSUPPORTAAAAAAAAAA";
 
+/// The place a copy's source names, a project's with its id.
+fn scope_of(source: &str, project: Option<String>) -> WorkflowScope {
+    match (source, project) {
+        ("repository", _) => WorkflowScope::Repository,
+        ("project", Some(id)) => WorkflowScope::Project { id },
+        _ => WorkflowScope::Kit,
+    }
+}
+
 fn refused(code: &str, said: String) -> Refused {
     Refused { key: None, said, code: Some(code.to_string()) }
 }
@@ -95,6 +112,7 @@ fn place_said(source: &str) -> &'static str {
     match source {
         "armada" => "Armada",
         "repository" => "This repository",
+        "project" => "This project",
         _ => "Kit",
     }
 }
@@ -207,7 +225,7 @@ impl MockFleet {
 
     pub fn workflow_definition(&self, id: &str, source: &str, manifest: &str) -> Result<WorkflowDefinition, Refused> {
         let held = self.held(id, source, manifest)?;
-        Ok(WorkflowDefinition { workflow_id: WorkflowId::carried(id), source: source.into(), file: file_of(source, id), definition: text_of(&held.definition), overridden_by: None, ..Default::default() })
+        Ok(WorkflowDefinition { workflow_id: WorkflowId::carried(id), source: source.into(), project: held.project.clone(), file: held.file(), definition: text_of(&held.definition), overridden_by: None })
     }
 
     pub fn save_workflow(&mut self, manifest: &str, save: SaveWorkflow) -> Result<WorkflowSaved, Refused> {
@@ -217,14 +235,22 @@ impl MockFleet {
         let tree = tree_of(&save.definition).ok_or_else(|| refused("fleet.workflow_unfit", "The definition is not a workflow".into()))?;
         let id = tree.get("workflow_id").and_then(Json::text).unwrap_or_default().to_string();
         let source = save.scope.as_wire();
+        if let Some(project) = save.scope.project() {
+            let Some(one) = self.projects.projects.iter().find(|one| one.id == project) else {
+                return Err(refused("fleet.workflow_project_unknown", format!("There is no project `{project}`")));
+            };
+            if !one.members.iter().any(|member| member.manifest_id.as_str() == manifest) {
+                return Err(refused("fleet.workflow_project_not_member", format!("{manifest} is not in {}", one.name)));
+            }
+        }
         let at = self.definitions.iter().position(|one| one.holds(&id, source, manifest));
         match at {
             Some(_) if !save.overwrite => return Err(refused("fleet.workflow_exists", format!("{} already holds a workflow `{id}`", place_said(source)))),
             Some(at) => self.definitions[at].definition = tree,
-            None => self.definitions.push(Held { source: source.into(), manifest: (source == "repository").then(|| manifest.to_string()), definition: tree }),
+            None => self.definitions.push(Held { source: source.into(), manifest: matches!(source, "repository" | "project").then(|| manifest.to_string()), project: save.scope.project().map(String::from), definition: tree }),
         }
         self.relist(&id);
-        Ok(WorkflowSaved { workflow_id: WorkflowId::carried(&id), scope: save.scope, file: file_of(source, &id), replaced: at.is_some(), runs_from: self.runs_from(&id, manifest) })
+        Ok(WorkflowSaved { workflow_id: WorkflowId::carried(&id), file: file_of(source, save.scope.project(), &id), scope: save.scope, replaced: at.is_some(), runs_from: self.runs_from(&id, manifest) })
     }
 
     pub fn reset_workflow(&mut self, manifest: &str, copy: WorkflowCopy) -> Result<WorkflowSaved, Refused> {
@@ -233,8 +259,9 @@ impl MockFleet {
         let at = self.definitions.iter().position(|one| one.holds(&id, &copy.source, manifest)).ok_or_else(|| refused("fleet.workflow_not_found", format!("{} holds no workflow `{id}`", place_said(&copy.source))))?;
         self.definitions[at].definition = armada;
         self.relist(&id);
-        let scope = if copy.source == "repository" { WorkflowScope::Repository } else { WorkflowScope::Kit };
-        Ok(WorkflowSaved { workflow_id: copy.workflow_id, scope, file: file_of(&copy.source, &id), replaced: true, runs_from: self.runs_from(&id, manifest) })
+        let file = self.definitions[at].file();
+        let scope = scope_of(&copy.source, copy.project.clone());
+        Ok(WorkflowSaved { workflow_id: copy.workflow_id, scope, file, replaced: true, runs_from: self.runs_from(&id, manifest) })
     }
 
     pub fn delete_workflow(&mut self, manifest: &str, copy: WorkflowCopy) -> Result<WorkflowCopyDeleted, Refused> {
@@ -242,10 +269,10 @@ impl MockFleet {
         if copy.source == "armada" {
             return Err(refused("fleet.workflow_armada", "Armada's own workflow is not a copy, and is not deleted".into()));
         }
-        self.held(&id, &copy.source, manifest)?;
+        let file = self.held(&id, &copy.source, manifest)?.file();
         self.definitions.retain(|one| !one.holds(&id, &copy.source, manifest));
         self.relist(&id);
-        Ok(WorkflowCopyDeleted { workflow_id: copy.workflow_id, file: file_of(&copy.source, &id), source: copy.source, runs_from: self.runs_from(&id, manifest), ..Default::default() })
+        Ok(WorkflowCopyDeleted { workflow_id: copy.workflow_id, file, source: copy.source, project: copy.project, runs_from: self.runs_from(&id, manifest) })
     }
 
     pub fn propose_workflow(&mut self, proposing: ProposeToArmada) -> Result<ArmadaProposed, Refused> {
@@ -336,11 +363,12 @@ impl MockFleet {
         let Kept { change, manifest, .. } = self.changes[at].clone();
         let Some(after) = change.after.clone().filter(|_| change.state == ChangeState::Ready) else { return Err(refused("fleet.workflow_change_not_ready", "That change is not ready to approve".into())) };
         let id = change.workflow_id.as_str().to_string();
-        let now = text_of(&self.held(&id, &change.source, &manifest)?.definition);
+        let held = self.held(&id, &change.source, &manifest)?;
+        let (now, file, project) = (text_of(&held.definition), held.file(), held.project.clone());
         if now != change.before {
-            return Err(refused("fleet.workflow_changed_since", format!("{} changed since the draft was made. Dismiss the draft and ask again", file_of(&change.source, &id))));
+            return Err(refused("fleet.workflow_changed_since", format!("{file} changed since the draft was made. Dismiss the draft and ask again")));
         }
-        let scope = if change.source == "repository" { WorkflowScope::Repository } else { WorkflowScope::Kit };
+        let scope = scope_of(&change.source, project);
         let saved = self.save_workflow(&manifest, SaveWorkflow { scope, definition: after, overwrite: true })?;
         self.changes.remove(at);
         Ok(WorkflowChangeApproved { change: WorkflowChange { state: ChangeState::Approved, ..change }, saved })
@@ -381,10 +409,10 @@ impl MockFleet {
         Ok(WorkflowSupportBuilding { job_id: SessionId::carried(SUPPORT_JOB) })
     }
 
-    /// The definitions of an id that apply in a repository, the one that runs first: Kit's, the repository's,
-    /// then Armada's.
+    /// The definitions of an id that apply in a repository, the one that runs first: its project's, Kit's, the
+    /// repository's, then Armada's.
     fn applying(&self, id: &str, manifest: &str) -> Vec<&Held> {
-        ["kit", "repository", "armada"].iter().filter_map(|source| self.definitions.iter().find(|one| one.holds(id, source, manifest))).collect()
+        ["project", "kit", "repository", "armada"].iter().filter_map(|source| self.definitions.iter().find(|one| one.holds(id, source, manifest))).collect()
     }
 
     fn runs_from(&self, id: &str, manifest: &str) -> Option<String> {
@@ -417,9 +445,10 @@ impl MockFleet {
             let Some(mut row) = at.map(|at| self.workflows[at].clone()).or_else(|| self.workflows.iter().find(|one| one.id.as_str() == id).cloned()) else { continue };
             row.manifest_id = ipc::ManifestId::carried(&manifest);
             row.source = runs.source.clone();
-            row.file = file_of(&runs.source, id);
+            row.project = runs.project.clone();
+            row.file = runs.file();
             row.for_requests = runs.definition.get("for_requests").and_then(Json::text).map(String::from);
-            row.overrides = applying[1..].iter().map(|one| OverriddenWorkflow { source: one.source.clone(), file: file_of(&one.source, id), ..Default::default() }).collect();
+            row.overrides = applying[1..].iter().map(|one| OverriddenWorkflow { source: one.source.clone(), file: one.file(), project: one.project.clone() }).collect();
             match at {
                 Some(at) => self.workflows[at] = row,
                 None => self.workflows.push(row),
@@ -448,6 +477,21 @@ mod tests {
         fleet.delete_workflow("armada", copy("prototype", "kit")).expect("deleted");
         let row = fleet.workflows.iter().find(|one| one.id.as_str() == "prototype").expect("still listed");
         assert_eq!((row.source.as_str(), row.overrides.len()), ("armada", 0));
+    }
+
+    #[test]
+    fn a_projects_copy_runs_ahead_of_kits_and_a_project_the_repository_is_not_in_is_refused() {
+        let mut fleet = MockFleet::new();
+        let text = fleet.workflow_definition("prototype", "armada", "armada").expect("Armada's prototype").definition;
+        fleet.save_workflow("armada", SaveWorkflow { scope: WorkflowScope::Kit, definition: text.clone(), overwrite: false }).expect("Kit's");
+        let saved = fleet.save_workflow("armada", SaveWorkflow { scope: WorkflowScope::Project { id: "armada".into() }, definition: text.clone(), overwrite: false }).expect("Armada's project");
+        assert_eq!(saved.file, "~/.armada/workflows/projects/armada/prototype.yml");
+        let row = fleet.workflows.iter().find(|one| one.id.as_str() == "prototype").expect("listed");
+        assert_eq!((row.source.as_str(), row.project.as_deref(), row.overrides.iter().map(|one| one.source.as_str()).collect::<Vec<_>>()), ("project", Some("armada"), vec!["kit", "armada"]));
+        let elsewhere = fleet.save_workflow("armada", SaveWorkflow { scope: WorkflowScope::Project { id: "storefront".into() }, definition: text, overwrite: false });
+        assert!(elsewhere.is_err_and(|why| why.is("fleet.workflow_project_not_member")));
+        let gone = fleet.delete_workflow("armada", WorkflowCopy { project: Some("armada".into()), ..copy("prototype", "project") }).expect("deleted");
+        assert_eq!((gone.project.as_deref(), gone.runs_from.as_deref()), (Some("armada"), Some("kit")));
     }
 
     #[test]

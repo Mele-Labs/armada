@@ -25,6 +25,9 @@ pub struct Subject {
     pub shipped: bool,
     /// The repository "This repository" means: the one it runs in, else the one it is read under.
     pub repository: String,
+    /// The project the host is editing, by id and name, offered first where an edit asks where it applies. A
+    /// project's own copy is that project's.
+    pub project: Option<(String, String)>,
 }
 
 impl Subject {
@@ -33,6 +36,7 @@ impl Subject {
         match (self.shipped, self.source) {
             (true, _) => None,
             (false, "repository") => Some(Target::Repository(self.held_under.clone())),
+            (false, "project") => self.project.as_ref().map(|(id, _)| Target::Project(id.clone())),
             (false, _) => Some(Target::EveryProject),
         }
     }

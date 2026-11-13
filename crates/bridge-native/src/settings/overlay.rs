@@ -94,6 +94,8 @@ pub struct SettingsOverlay {
     pub wire: Wire,
     pub open: bool,
     back_to: Option<FocusHandle>,
+    /// The Job on screen behind Settings, whose project ⌘, opens on.
+    pub job_shown: Option<String>,
     pub focus: FocusHandle,
     /// The sidebar's keys: ↑ and ↓ move the pick while it holds them.
     pub side: FocusHandle,
@@ -196,6 +198,7 @@ impl SettingsOverlay {
             wire,
             open: false,
             back_to: None,
+            job_shown: None,
             focus: cx.focus_handle(),
             side: cx.focus_handle().tab_stop(true),
             side_scroll: gpui::ScrollHandle::new(),
@@ -229,16 +232,16 @@ impl SettingsOverlay {
         }
     }
 
-    /// Open over whatever has the keys, editing `project`, by its id and name, or every project. Opened on a
-    /// project it shows the first page that project sets. The search is cleared every time, and settings.json is
-    /// read again.
-    pub fn show(&mut self, project: Editing, window: &mut Window, cx: &mut Context<Self>) {
+    /// Open over whatever has the keys, editing `project`, by its id and name, or every project. With `values` it
+    /// shows the first page a project sets, as the project switcher's Settings does; else the page it was on. The
+    /// search is cleared every time, and settings.json is read again.
+    pub fn show(&mut self, project: Editing, values: bool, window: &mut Window, cx: &mut Context<Self>) {
         if !self.open {
             self.back_to = window.focused(cx);
         }
         self.open = true;
         self.query.update(cx, |query, cx| query.set_value("", window, cx));
-        if project.is_some() {
+        if values {
             self.picked = FIRST_VALUES;
         } else if entries::entry(self.picked).is_none() {
             self.picked = entries::FIRST;
@@ -879,6 +882,12 @@ impl SettingsOverlay {
         if self.keyboard_key(key, window, cx) {
             return true;
         }
+        // ⌘P opens the picker from anywhere in Settings, a page's own fields and the lanes' included.
+        let held = &key.modifiers;
+        if key.key == "p" && held.platform && !held.control && !held.alt && !held.shift {
+            self.open_picker(true, window, cx);
+            return true;
+        }
         // The theme field types, and its list takes the arrows, Enter and Esc while it is open.
         if self.theme_key(key, window, cx) {
             return true;
@@ -901,11 +910,7 @@ impl SettingsOverlay {
         }
         let mods = &key.modifiers;
         let bare = !mods.platform && !mods.control && !mods.alt;
-        // ⌘P opens the picker from anywhere in Settings; Enter and Space open it where it holds the keys.
-        if key.key == "p" && mods.platform && !mods.control && !mods.alt && !mods.shift {
-            self.open_picker(true, window, cx);
-            return true;
-        }
+        // Enter and Space open the picker where it holds the keys.
         if bare && matches!(key.key.as_str(), "enter" | "space" | "down") && self.scope.picker.is_focused(window) {
             self.open_picker(true, window, cx);
             return true;

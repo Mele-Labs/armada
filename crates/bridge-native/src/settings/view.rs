@@ -987,7 +987,7 @@ impl SettingsOverlay {
             Some(Body::Macs) => {
                 // The share switch is the project's, over this Mac's own.
                 if self.scope.project.is_some() {
-                    cards.push(super::project::grid(self, "Shared", None, super::project::keys_of(Body::Macs), look, window, cx));
+                    cards.push(super::project::grid(self, "Shared with your other Macs", None, super::project::keys_of(Body::Macs), look, window, cx));
                 }
                 cards.extend(self.render_macs(look, window, cx));
             }
