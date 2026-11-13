@@ -45,7 +45,7 @@ fn carried<T: Serialize>(value: &T, run_id: &ipc::RunId) -> Result<Bytes, Respon
 }
 
 /// The act run by the handler its own route has.
-async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs>(served: Served<D>, act: JobAct) -> Response {
+async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs>(served: Served<D>, mac: String, act: JobAct) -> Response {
     use crate::{hosted_sessions as hosted, pull_requests, sessions};
     let run_id = served.run_id().clone();
     macro_rules! through {
@@ -81,6 +81,11 @@ async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs>(served: Se
             dispatch.start.on_your_words = None;
             through!(hosted::dispatch_job, &dispatch)
         }
+        // No route of the person's own takes a Job's words, so it has its own call.
+        JobAct::JobMessage(message) => match served.shared().message_from_mac(mac, message).await {
+            Ok(()) => StatusCode::NO_CONTENT.into_response(),
+            Err(refusal) => refused(refusal),
+        },
     }
 }
 
@@ -103,7 +108,7 @@ pub(crate) async fn act_from_mac<D: HostedSessions + Sessions + PullRequests + O
         Ok(ActBegun::Run(turn)) => turn,
         Err(refusal) => return refused(refusal),
     };
-    let (parts, body) = run(served.clone(), sent.act).await.into_parts();
+    let (parts, body) = run(served.clone(), mac.to_string(), sent.act).await.into_parts();
     let Ok(bytes) = axum::body::to_bytes(body, MOST_AN_ANSWER_MAY_BE).await else {
         return refused(Refusal::Fault(WireError::raised(ANSWER_UNREADABLE, "the answer to the act could not be read", served.run_id().clone())));
     };

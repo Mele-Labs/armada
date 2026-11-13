@@ -24,6 +24,8 @@ export type StandingCall = {
   tone: CallTone;
   /** He has seen it: a Job call while he is in the Job or has been since it began and the Job does not ask him, a main, checkout or pull request call once `open_call` said so. */
   opened: boolean;
+  /** The id of the paired Mac that holds the Job. Absent means this Mac. */
+  mac?: string;
 };
 
 /** `get_calls` (`GET /calls`), and what `open_call` answers: every call standing, oldest first. */

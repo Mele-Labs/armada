@@ -9,7 +9,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    BugReports, Event, JobAct, JobThread, JobThreadRead, MacAct, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions,
+    BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions,
     ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
 };
 
@@ -102,6 +102,12 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// `hold_other_mac_event` — one event that crossed from Mac `mac`. [`Refusal::Unacceptable`] for a kind
     /// that does not cross, [`Refusal::NotFound`] for one about a Job not held from that Mac.
     fn hold_other_mac_event(self: Arc<Self>, event: OtherMacEvent) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
+
+    /// `act_from_mac`'s `job_message` — Job `message.from` on Mac `mac` wrote to Job `message.to` of this Mac, which
+    /// the share filter already let through. Written into `to`'s thread in `from`'s voice with `mac` named, and `to`
+    /// woken as for a message from a Job of this Mac. [`Refusal::NotFound`] for a Job not here, and
+    /// [`Refusal::IllegalMove`] for one that has ended.
+    fn message_from_mac(self: Arc<Self>, mac: String, message: JobMessage) -> impl Future<Output = Result<(), Refusal>> + Send;
 
     /// `forget_other_mac` — every row and report held from Mac `mac` dropped.
     fn forget_other_mac(&self, mac: MacNamed) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;

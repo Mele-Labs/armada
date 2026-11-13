@@ -28,6 +28,19 @@ pub enum JobAct {
     Merge { session_id: SessionId, repository: String, number: u64 },
     Start(StartSession),
     Dispatch(DispatchJob),
+    /// A Job's `SendMessage` to a Job the receiving Mac holds.
+    JobMessage(JobMessage),
+}
+
+/// A message from Job `from` on the sending Mac to Job `to` on the Mac that holds it, written into `to`'s thread
+/// in `from`'s voice, with the sending Mac named.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobMessage {
+    pub from: SessionId,
+    /// `from`'s title, as the receiving thread names it.
+    pub title: String,
+    pub to: SessionId,
+    pub text: String,
 }
 
 impl JobAct {
@@ -44,6 +57,7 @@ impl JobAct {
             JobAct::DocumentAnswer(one) => Some(&one.session_id),
             JobAct::Stop(one) => Some(&one.session_id),
             JobAct::Merge { session_id, .. } => Some(session_id),
+            JobAct::JobMessage(one) => Some(&one.to),
             JobAct::Start(_) | JobAct::Dispatch(_) => None,
         }
     }
@@ -72,6 +86,7 @@ impl JobAct {
             JobAct::Merge { .. } => "merge",
             JobAct::Start(_) => "start",
             JobAct::Dispatch(_) => "dispatch",
+            JobAct::JobMessage(_) => "job_message",
         }
     }
 }

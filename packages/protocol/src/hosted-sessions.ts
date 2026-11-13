@@ -471,6 +471,8 @@ export type SessionVoice =
       kind: "session";
       id: string;
       title: string;
+      /** The id of the paired Mac that holds that session. Absent means this Mac. */
+      mac?: string;
     };
 
 /** A file or picture a message carried, kept by Fleet. `get_session_file` serves it. */
