@@ -28,7 +28,10 @@ where
     /// `set_session_project`. Refused with nothing written: 422 for no Job and for a Job with no repository,
     /// 404 `fleet.no_such_session` for a Job Fleet does not host, and the refusals of a project: 404
     /// `fleet.no_such_project`, 422 `fleet.project_unreadable`. Each Job is published as `session.changed`,
-    /// and the projects as `projects.changed` where the project took a repository in.
+    /// and the projects as `projects.changed` where the project took a repository in. **A Job that was in a
+    /// shared project and is not any more** also has `projects.changed` published once, whatever the move: the
+    /// other Mac reads its Jobs again on that and drops the row. `session.changed` for it is cut by the share
+    /// filter, and nothing is sent naming the Job, so a private Job's id never crosses.
     pub(crate) async fn sessions_project_set(&self, asked: SetSessionProject) -> Result<SessionList, Refusal> {
         if asked.session_ids.is_empty() {
             return Err(self.hosted_refusal(SESSION_COMMAND_REFUSED, "no job was named to move into a project"));
@@ -55,6 +58,12 @@ where
             self.project_repositories(project).await?;
             self.members_followed_published(project, repositories.into_iter().collect()).await?;
         }
+        let mut was_shared = Vec::new();
+        for id in &ids {
+            if self.job_shared(id).await {
+                was_shared.push(id.clone());
+            }
+        }
         {
             let mut store = self.store().lock().await;
             for id in &ids {
@@ -67,6 +76,13 @@ where
         let mut sessions = Vec::with_capacity(ids.len());
         for id in &ids {
             sessions.push(self.published_hosted(id).await?);
+        }
+        let mut left_sharing = false;
+        for id in &was_shared {
+            left_sharing |= !self.job_shared(id).await;
+        }
+        if left_sharing {
+            self.projects_published().await;
         }
         Ok(SessionList { sessions })
     }

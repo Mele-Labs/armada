@@ -1938,14 +1938,6 @@ impl JobsList {
         let focused = self.focused.as_ref() == Some(&row.id);
         // The row stands for the earlier Job too: it is open when that one is.
         let opened = self.opened.as_ref() == Some(&row.id) || (row.earlier.is_some() && self.opened == row.earlier);
-        let edge = if opened { token::ACCENT } else { token::BORDER_SUBTLE };
-        let ground = if opened {
-            look.color(token::ACCENT_MUTED)
-        } else if focused {
-            look.color(token::BG_HOVER)
-        } else {
-            look.color(token::BG_SUNKEN)
-        };
         let weight = if opened { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
         let ink = if row.paused || row.ended || row.place { token::FG_MUTED } else { token::FG_DEFAULT };
         let lamp = match row.mark {
@@ -2166,24 +2158,9 @@ impl JobsList {
         let lifted = dragging && self.lifted.as_ref() == Some(&row.id);
         let drop_here = self.drop.as_ref().filter(|(at, _)| dragging && *at == row.id).map(|(_, after)| *after);
         let dragged = DraggedRow { id: row.id.clone(), title: row.title.clone() };
-        let strip = div()
-            .id(SharedString::from(format!("job-{}", row.id)))
+        let strip = row_card(look, SharedString::from(format!("job-{}", row.id)), opened, focused, !row.place, pad)
             .when(movable, |strip| strip.on_drag(dragged, |dragged, _, _, cx| cx.new(|_| RowGhost(dragged.title.clone()))))
             .when(lifted, |strip| strip.opacity(0.55))
-            .relative()
-            .flex_1()
-            .min_w_0()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_1))
-            .py(pad)
-            .pl(look.length(token::SPACE_3))
-            .pr(look.length(token::SPACE_3))
-            .rounded(radius)
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(edge))
-            .bg(ground)
-            .when(!opened && !row.place, |strip| strip.hover(|style| style.bg(look.color(token::BG_HOVER))))
             // Lit as hovered while the pointer is on a clash's link to this Job (`data-hover`).
             .when(!opened && lit, |strip| strip.bg(look.color(token::BG_HOVER)))
             .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
@@ -2196,27 +2173,8 @@ impl JobsList {
                 ))
             })
             // A Job pulsing for you already carries its colour, and a wash under the pulse muddies it.
-            .when(!opened && !needs, |strip| strip.child(div().absolute().inset_0().rounded(radius).bg(lamp_ink.opacity(HULL))))
-            // The lamp's edge down the row's left side (`ListCard.css` `border-left`).
-            // Painted as the card's own rounded shape clipped to its left edge, so the edge follows the
-            // corners as a CSS `border-left` does instead of a straight bar poking past them.
-            .child({
-                let wide = look.length(token::SPACE_1);
-                canvas(
-                    |_, _, _| {},
-                    move |bounds, _, window, _| {
-                        let edge = gpui::Bounds { origin: bounds.origin, size: gpui::size(wide, bounds.size.height) };
-                        let card = gpui::Bounds { origin: bounds.origin, size: gpui::size(bounds.size.width.min(radius * 2. + wide), bounds.size.height) };
-                        window.with_content_mask(Some(gpui::ContentMask { bounds: edge }), |window| {
-                            window.paint_quad(gpui::fill(card, lamp_ink).corner_radii(radius));
-                        });
-                    },
-                )
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full()
-            })
+            .when(!opened && !needs, |strip| strip.child(row_wash(look, lamp_ink)))
+            .child(row_edge(look, lamp_ink))
             .child(
                 div()
                     .flex()
@@ -2355,24 +2313,7 @@ impl JobsList {
             Line::Project(name) => {
                 let look = cx.look();
                 labelled(
-                    div()
-                        .id(("project", at))
-                        .flex_none()
-                        .flex()
-                        .items_center()
-                        .h(look.length(token::SPACE_6))
-                        .when(at > 0, |head| head.mt(look.length(token::SPACE_4)))
-                        .mb(look.length(token::SPACE_2))
-                        .px(look.length(token::SPACE_2))
-                        .border_b(look.length(token::BORDER_WIDTH))
-                        .border_color(look.color(token::BORDER_SUBTLE))
-                        .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
-                        // `--cb-code`: four fifths of the smallest text.
-                        .text_size(look.length(token::TEXT_2XS) * 0.8)
-                        .line_height(look.length(token::LEADING_XS))
-                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                        .text_color(look.color(token::FG_MUTED))
-                        .child(name.clone()),
+                    group_line(look, at == 0).id(("project", at)).child(name.clone()),
                     Role::Heading,
                     name.clone(),
                 )
@@ -2393,24 +2334,12 @@ impl JobsList {
         let ink = if self.scope == Scope::Active { token::FG_MUTED } else { token::ACCENT };
         let field = self.search.as_ref().map(|(search, _)| {
             labelled(
-                div().id("search").key_context(crate::keymap::TEXT_BOX).flex_1().min_w_0().child(
-                    Input::new(search)
-                        .h(look.length(token::H_CONTROL_LG))
-                        .rounded(look.length(token::RADIUS_LG))
-                        .prefix(svg().path(icon_path("search")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))),
-                ),
+                div().id("search").key_context(crate::keymap::TEXT_BOX).flex_1().min_w_0().child(list_search(search, look)),
                 Role::SearchInput,
                 "Search Jobs",
             )
         });
-        div()
-            .flex_none()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_3))
-            .pt(look.length(token::SPACE_3))
-            .pb(look.length(token::SPACE_2))
+        list_bar(look)
             // ↓, Enter or Esc give the keys to the rows; Tab opens the scope.
             .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| match event.keystroke.key.as_str() {
                 "down" | "escape" => {
@@ -2425,22 +2354,8 @@ impl JobsList {
             }))
             .children(field)
             .child(labelled(
-                div()
+                list_control(look)
                     .id("scope")
-                    .relative()
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .h(look.length(token::H_CONTROL_LG))
-                    .px(look.length(token::SPACE_3))
-                    .rounded(look.length(token::RADIUS_LG))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_DEFAULT))
-                    .bg(look.color(token::BG_SUNKEN))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .text_size(look.length(token::TEXT_SM))
                     .text_color(look.color(ink))
                     .child(canvas(move |bounds, _, _| { store.borrow_mut().insert("scope".into(), bounds); }, |_, _, _, _| {}).absolute().size_full())
                     .child(label)
@@ -2902,6 +2817,125 @@ impl JobsScreen {
             "Resize the Jobs list",
         )
     }
+}
+
+/// A row's card in a list (`ListCard.css`), as the Jobs list draws it and every list of rows on a panel
+/// shares: its spacing, edge, ground, hover and the open row's accent. `pad` is its height above and below.
+pub(crate) fn row_card(look: &Look, id: SharedString, opened: bool, focused: bool, hover: bool, pad: Pixels) -> gpui::Stateful<gpui::Div> {
+    let edge = if opened { token::ACCENT } else { token::BORDER_SUBTLE };
+    let ground = if opened {
+        token::ACCENT_MUTED
+    } else if focused {
+        token::BG_HOVER
+    } else {
+        token::BG_SUNKEN
+    };
+    let hovered = look.color(token::BG_HOVER);
+    let radius = look.length(token::RADIUS_LG);
+    div()
+        .id(id)
+        .relative()
+        .flex_1()
+        .min_w_0()
+        .flex()
+        .flex_col()
+        .gap(look.length(token::SPACE_1))
+        .py(pad)
+        .pl(look.length(token::SPACE_3))
+        .pr(look.length(token::SPACE_3))
+        .rounded(radius)
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(edge))
+        .bg(look.color(ground))
+        .when(hover && !opened, |card| card.hover(move |style| style.bg(hovered)))
+}
+
+/// A row's lamp as a faint wash over its card's ground.
+pub(crate) fn row_wash(look: &Look, lamp: gpui::Hsla) -> gpui::Div {
+    div().absolute().inset_0().rounded(look.length(token::RADIUS_LG)).bg(lamp.opacity(HULL))
+}
+
+/// The lamp's edge down a row's left side (`ListCard.css` `border-left`).
+/// Painted as the card's own rounded shape clipped to its left edge, so the edge follows the
+/// corners as a CSS `border-left` does instead of a straight bar poking past them.
+pub(crate) fn row_edge(look: &Look, lamp: gpui::Hsla) -> impl IntoElement {
+    let wide = look.length(token::SPACE_1);
+    let radius = look.length(token::RADIUS_LG);
+    canvas(
+        |_, _, _| {},
+        move |bounds, _, window, _| {
+            let edge = gpui::Bounds { origin: bounds.origin, size: gpui::size(wide, bounds.size.height) };
+            let card = gpui::Bounds { origin: bounds.origin, size: gpui::size(bounds.size.width.min(radius * 2. + wide), bounds.size.height) };
+            window.with_content_mask(Some(gpui::ContentMask { bounds: edge }), |window| {
+                window.paint_quad(gpui::fill(card, lamp).corner_radii(radius));
+            });
+        },
+    )
+    .absolute()
+    .top_0()
+    .left_0()
+    .size_full()
+}
+
+/// A group's heading in a list, as the Jobs list heads a project: small mono words over a rule.
+/// The first group sits at the list's top; each after it keeps a gap above.
+pub(crate) fn group_line(look: &Look, first: bool) -> gpui::Div {
+    div()
+        .flex_none()
+        .flex()
+        .items_center()
+        .h(look.length(token::SPACE_6))
+        .when(!first, |head| head.mt(look.length(token::SPACE_4)))
+        .mb(look.length(token::SPACE_2))
+        .px(look.length(token::SPACE_2))
+        .border_b(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_SUBTLE))
+        .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+        // `--cb-code`: four fifths of the smallest text.
+        .text_size(look.length(token::TEXT_2XS) * 0.8)
+        .line_height(look.length(token::LEADING_XS))
+        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+        .text_color(look.color(token::FG_MUTED))
+}
+
+/// The bar over a list: its search field, then the controls beside it.
+pub(crate) fn list_bar(look: &Look) -> gpui::Div {
+    div()
+        .flex_none()
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .px(look.length(token::SPACE_3))
+        .pt(look.length(token::SPACE_3))
+        .pb(look.length(token::SPACE_2))
+}
+
+/// The search field of a list's bar.
+pub(crate) fn list_search(state: &Entity<InputState>, look: &Look) -> Input {
+    Input::new(state)
+        .h(look.length(token::H_CONTROL_LG))
+        .rounded(look.length(token::RADIUS_LG))
+        .prefix(svg().path(icon_path("search")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
+}
+
+/// A control beside a list's search field, at the field's height: the Jobs list's scope.
+pub(crate) fn list_control(look: &Look) -> gpui::Div {
+    let hovered = look.color(token::BG_HOVER);
+    div()
+        .relative()
+        .flex_none()
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .h(look.length(token::H_CONTROL_LG))
+        .px(look.length(token::SPACE_3))
+        .rounded(look.length(token::RADIUS_LG))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_DEFAULT))
+        .bg(look.color(token::BG_SUNKEN))
+        .cursor_pointer()
+        .hover(move |style| style.bg(hovered))
+        .text_size(look.length(token::TEXT_SM))
 }
 
 /// A deck panel's frame (`.deck-panel`): the raised ground, a heavier top edge.

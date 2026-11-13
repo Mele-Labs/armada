@@ -75,25 +75,43 @@ where
     pub(crate) fn run_log_retention(&self) -> std::time::Duration {
         self.tuned(|dials| dials.run_log_retention)
     }
-    /// Whether `workflow` may be followed in the repository `manifest`: the main switch is on and
-    /// `workflows.off` names it for neither the machine nor that repository. **The one place the
-    /// two are read together**, so a workflow's offer, its default, its setting and its rail agree.
-    pub(crate) fn workflow_on(&self, manifest: &str, workflow: &str) -> bool {
-        self.tuned(|dials| dials.workflows && !dials.workflows_off.has(manifest, workflow))
+    /// The layer that switched `workflow` off for the repository `manifest` in `project`, or `None` where it is on:
+    /// `workflows.off` for the machine and the repository, then the project's own list. **Off wins**, so the layer named
+    /// is the furthest that lists it (`ipc::workflows_off`). A project that did not read sets nothing. The main switch is
+    /// not asked here.
+    pub(crate) fn workflow_off_from(&self, manifest: Option<&str>, project: Option<&str>, workflow: &str) -> Option<ipc::ValueLayer> {
+        let held = project.and_then(|id| core_model::ScopeId::new(id).ok()).and_then(|scope| self.projects_held().get(&scope).cloned());
+        let listed = held.as_ref().map_or(&[][..], |project| project.values().workflows_off.as_slice());
+        self.tuned(|dials| dials.workflows_off.off_from(manifest, listed, workflow))
     }
-    /// `held` less every workflow that is off for the repository `manifest`: what a picker or the
+    /// The layer holding `workflow` off for `project` asked about without one repository: off from `repository` where
+    /// every repository the project keeps switches it off (`ipc::workflows_off`). A project that did not read keeps none.
+    pub(crate) fn workflow_off_across(&self, project: &str, workflow: &str) -> Option<ipc::ValueLayer> {
+        let held = core_model::ScopeId::new(project).ok().and_then(|scope| self.projects_held().get(&scope).cloned());
+        let listed = held.as_ref().map_or(&[][..], |project| project.values().workflows_off.as_slice());
+        let manifests: Vec<&str> = held.as_ref().map_or_else(Vec::new, |project| project.members().iter().map(|one| one.repository().as_str()).collect());
+        self.tuned(|dials| dials.workflows_off.off_across(&manifests, listed, workflow))
+    }
+    /// Whether `workflow` may be followed in the repository `manifest`, for a Job in `project` where it has one: the
+    /// main switch is on and no layer switched it off. **The one place they are read together**, so a workflow's
+    /// offer, its default, its setting and its rail agree.
+    pub(crate) fn workflow_on(&self, manifest: &str, project: Option<&str>, workflow: &str) -> bool {
+        self.tuned(|dials| dials.workflows) && self.workflow_off_from(Some(manifest), project, workflow).is_none()
+    }
+    /// `held` less every workflow that is off for the repository `manifest` in `project`: what a picker or the
     /// proposer is shown. Nothing, with the main switch off.
     pub(crate) fn workflows_offered(
         &self,
         manifest: &str,
+        project: Option<&str>,
         held: &Arc<std::collections::BTreeMap<core_model::WorkflowId, config::ResolvedWorkflow>>,
     ) -> Arc<std::collections::BTreeMap<core_model::WorkflowId, config::ResolvedWorkflow>> {
-        if held.keys().all(|id| self.workflow_on(manifest, id.as_str())) {
+        if held.keys().all(|id| self.workflow_on(manifest, project, id.as_str())) {
             return Arc::clone(held);
         }
         Arc::new(
             held.iter()
-                .filter(|(id, _)| self.workflow_on(manifest, id.as_str()))
+                .filter(|(id, _)| self.workflow_on(manifest, project, id.as_str()))
                 .map(|(id, found)| (id.clone(), found.clone()))
                 .collect(),
         )
@@ -466,6 +484,11 @@ where
     }
     pub(crate) fn territory(&self) -> &Arc<crate::territory::Territory> {
         &self.territory
+    }
+
+    /// What the sweep last found of the disk. A short lock, never held across an await.
+    pub(crate) fn disk_state(&self) -> &std::sync::Mutex<crate::sweeping::DiskState> {
+        &self.disk
     }
 
     /// The rebase-and-push tail's lock. See the field.

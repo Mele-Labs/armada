@@ -78,6 +78,17 @@ async fn add_project_takes_a_name_and_a_blank_one_is_a_422() {
 }
 
 #[tokio::test]
+async fn set_project_workflow_takes_the_project_the_workflow_and_whether_it_is_on() {
+    let (said, id) = reached("POST", "/projects/project/p7/workflow", r#"{"workflow":"bug","on":false}"#).await;
+    assert_eq!((said.as_str(), id.as_str()), ("set_project_workflow bug off", "p7"));
+    let (status, text) = refused("POST", "/projects/project/nope/workflow", r#"{"workflow":"bug","on":true}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(text.contains("fleet.no_such_project"), "{text}");
+    let (status, _) = refused("POST", "/projects/project/p7/workflow", r#"{"workflow":"bug"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "on is required");
+}
+
+#[tokio::test]
 async fn edit_project_takes_the_project_and_what_changes_and_a_missing_one_is_a_404() {
     let (said, id) = reached("POST", "/projects/project/p7/edit", r#"{"name":"Later"}"#).await;
     assert_eq!((said.as_str(), id.as_str()), ("edit_project Later - -", "p7"));

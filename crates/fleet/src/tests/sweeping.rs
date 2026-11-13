@@ -34,7 +34,7 @@ fn a_look_under_the_floor_drops_a_nested_builds_incremental_caches_and_one_over_
     let reach = Reach { roots: vec![(root.clone(), "main".into())], floor: 100 * GIB };
 
     let over = look(&reach, false, trim(), &|_| Some(150 * GIB));
-    assert!(over.is_empty());
+    assert!(over.lines.is_empty());
     assert!(incremental.exists());
 
     let reads = Cell::new(0u64);
@@ -44,7 +44,7 @@ fn a_look_under_the_floor_drops_a_nested_builds_incremental_caches_and_one_over_
         Some(if reads.get() <= 2 { 40 * GIB } else { 130 * GIB })
     });
     assert!(!incremental.exists(), "the main checkout's own caches go");
-    assert_eq!(under.len(), 1, "{under:?}");
+    assert_eq!(under.lines.len(), 1, "{:?}", under.lines);
 
     std::fs::remove_dir_all(&root).ok();
 }

@@ -202,7 +202,7 @@ where
         hosting
             .workflow
             .as_deref()
-            .filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow))
+            .filter(|workflow| self.workflow_on(&hosting.manifest_id, hosting.project.as_deref(), workflow))
             .and_then(|workflow| self.steps_with(&hosting.manifest_id, workflow, own))
             .is_some_and(|steps| steps.iter().any(|step| step.asks_delivery))
     }
@@ -316,7 +316,7 @@ where
         }
         let held = self
             .served_named(Some(&ManifestId::carried(&hosting.manifest_id)))
-            .map(|served| self.workflows_offered(&hosting.manifest_id, &served.workflows()))
+            .map(|served| self.workflows_offered(&hosting.manifest_id, hosting.project.as_deref(), &served.workflows()))
             .unwrap_or_default();
         let Some(workflow) = default_workflow(&held) else {
             drop(store);

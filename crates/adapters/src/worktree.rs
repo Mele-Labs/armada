@@ -257,6 +257,10 @@ impl<F> Vcs for GitVcs<F> {
         noted(crate::leasing::hosted::release_review(pool, slot, holder))
     }
 
+    fn review_bay_base_blobs(&self, pool: &SlotPool, slot: u32, paths: &[String]) -> Result<Vec<Option<String>>, String> {
+        crate::leasing::hosted::review_base_blobs(pool, slot, paths)
+    }
+
     fn paths_touched_by(&self, pool: &SlotPool, authors: &[String], commits: usize) -> Vec<String> {
         crate::history::paths_touched_by(pool.repo_root(), authors, commits)
     }

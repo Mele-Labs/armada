@@ -520,6 +520,7 @@ impl MockFleet {
             // The first project's word is the one Fleet learned from his first answer, until he changes it.
             delivery: Some(ResolvedValue { learned: own_delivery.as_deref() == Some("auto_land"), ..word(own_delivery, kit_delivery, None) }),
             autonomy: Vec::new(),
+            workflows: Vec::new(),
         }
     }
 
