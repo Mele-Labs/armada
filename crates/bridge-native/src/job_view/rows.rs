@@ -126,9 +126,34 @@ fn act_of(text: &str) -> Option<Act<'_>> {
     Some(Act::Answered { target, said })
 }
 
-/// The address a walk approval shows: the query that names the walk, else the whole address.
-fn shown_target(address: &str) -> &str {
-    address.find("?walk=").or_else(|| address.find("&walk=")).map_or(address, |at| &address[at..])
+/// What an approval quotes: the title the Job gave the window it approved, and the take's name where it
+/// approved one take of several, never the address. A window the thread no longer holds reads "a walk".
+fn approved_name(address: &str, rows: &[SessionRow]) -> String {
+    let walk = walk_of(address);
+    let take = query(address, "take");
+    for row in rows.iter().rev() {
+        let SessionRow::Window { url, title, variations, .. } = row else { continue };
+        if let Some(one) = variations.iter().find(|one| one.url == address) {
+            return format!("{title} \u{00B7} {}", one.name);
+        }
+        if url == address || (walk.is_some() && walk_of(url) == walk) {
+            return match take {
+                Some(take) => format!("{title} \u{00B7} take {take}"),
+                None => title.clone(),
+            };
+        }
+    }
+    "a walk".to_string()
+}
+
+/// The walk an address opens: `?walk=` in a page's address, or the name after `armada://walk/`.
+fn walk_of(address: &str) -> Option<&str> {
+    query(address, "walk").or_else(|| address.strip_prefix("armada://walk/").map(|rest| rest.split(['?', '#']).next().unwrap_or(rest)))
+}
+
+fn query<'a>(address: &'a str, key: &str) -> Option<&'a str> {
+    let (_, query) = address.split_once('?')?;
+    query.split(['&', '#']).find_map(|pair| pair.strip_prefix(key)?.strip_prefix('=')).filter(|value| !value.is_empty())
 }
 
 pub(crate) fn mono(look: &Look) -> SharedString {
@@ -996,7 +1021,7 @@ impl JobView {
     /// gold band with the act's glyph and time, what it answers quoted in quiet sans, then his answer.
     fn did(&self, id: &str, act: Act<'_>, at: &ipc::Instant, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
         let (label, icon, target, said) = match act {
-            Act::Approved(address) => ("You approved", "check", shown_target(address).to_string(), ""),
+            Act::Approved(address) => ("You approved", "check", approved_name(address, &self.shown.as_ref().map(|job| self.thread_rows(job, cx)).unwrap_or_default()), ""),
             Act::Answered { target, said } => ("You answered", "reply", target.to_string(), said),
         };
         let you = look.color(token::YOU);
@@ -1536,8 +1561,19 @@ mod tests {
         );
         assert_eq!(act_of("Re: Which branch?"), Some(Act::Answered { target: "Which branch?", said: "" }));
         assert_eq!(act_of("Please go on"), None);
-        assert_eq!(shown_target("http://localhost:5173/page?walk=abc"), "?walk=abc");
-        assert_eq!(shown_target("http://example.com/x"), "http://example.com/x");
+    }
+
+    #[test]
+    fn an_approval_quotes_the_window_by_its_title_and_take_never_its_address() {
+        let window = |url: &str, takes: serde_json::Value| -> SessionRow {
+            serde_json::from_value(serde_json::json!({"kind": "window", "id": "w", "at": "2026-11-09T13:25:55Z", "title": "Merge line chip", "url": url, "variations": takes})).expect("a window row")
+        };
+        let rows = vec![window("armada://walk/mergeLine", serde_json::json!([]))];
+        assert_eq!(approved_name("http://localhost:5173/?walk=mergeLine&take=amber", &rows), "Merge line chip \u{00B7} take amber");
+        assert_eq!(approved_name("armada://walk/mergeLine", &rows), "Merge line chip");
+        let takes = vec![window("http://localhost:5173/a", serde_json::json!([{"name": "Amber", "url": "http://localhost:5173/a"}, {"name": "Grey", "url": "http://localhost:5173/b"}]))];
+        assert_eq!(approved_name("http://localhost:5173/b", &takes), "Merge line chip \u{00B7} Grey");
+        assert_eq!(approved_name("http://example.com/x?walk=other", &rows), "a walk");
     }
 }
 
