@@ -993,6 +993,7 @@ impl SettingsOverlay {
             }
             Some(Body::Layout) => cards.extend(self.render_layout(look, window, cx)),
             Some(Body::Time) => cards.push(self.render_time(look, window, cx)),
+            Some(Body::Ways) => cards.extend(self.render_ways(look, window, cx)),
             Some(Body::Models | Body::Workflows) => {}
             Some(body @ Body::Mods(_)) => cards.extend(super::mods::page_of(body).and_then(|page| self.render_mods(page, look, window, cx))),
             None => {}
@@ -1030,9 +1031,12 @@ impl SettingsOverlay {
             self.read_macs(window, cx);
             self.macs_keys(cx);
         }
-        if self.shown(cx).is_some_and(|one| matches!(one.body, Body::Layout | Body::Time)) {
+        if self.shown(cx).is_some_and(|one| matches!(one.body, Body::Layout | Body::Time | Body::Ways)) {
             self.read_prefs(cx);
             self.prefs_keys(cx);
+        }
+        if self.shown(cx).is_some_and(|one| one.body == Body::Ways) {
+            self.read_ways(cx);
         }
         let look = cx.look();
         let room = crate::room::of(window, cx);

@@ -31,6 +31,13 @@ impl Refused {
     }
 }
 
+/// What a preference is saved as: a word or the text a page wrote, or a switch.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Put {
+    Text(String),
+    Switch(bool),
+}
+
 pub enum Wire {
     Live(Entity<FleetConnection>),
     Mock(Box<MockFleet>),
@@ -580,6 +587,15 @@ impl Wire {
         }
     }
 
+    /// Whether the first-run screen is owed: Fleet has been read and he has not answered. Over a mock Fleet it is
+    /// the mock's own preference.
+    pub fn first_run_owed(&self, cx: &App) -> bool {
+        match self {
+            Wire::Live(fleet) => fleet.read(cx).held().first_run_answered == Some(false),
+            Wire::Mock(mock) => !mock.preferences.first_run_answered,
+        }
+    }
+
     /// `GET /preferences`: every preference in force.
     pub fn preferences(&self, cx: &App) -> Task<Result<ipc::Preferences, Refused>> {
         if let Wire::Mock(mock) = self {
@@ -590,10 +606,18 @@ impl Wire {
 
     /// `POST /preferences/save` with a preference that is text. Fleet answers with every preference in force.
     pub fn save_preference(&mut self, name: &str, text: String, cx: &App) -> Task<Result<ipc::Preferences, Refused>> {
+        self.save_put(name, Put::Text(text), cx)
+    }
+
+    /// One preference saved, as the word or the text it is, or a switch, which rides in `value`.
+    pub fn save_put(&mut self, name: &str, put: Put, cx: &App) -> Task<Result<ipc::Preferences, Refused>> {
         if let Wire::Mock(mock) = self {
-            return Task::ready(mock.save_preference(name, text));
+            return Task::ready(mock.save_put(name, put));
         }
-        let said = body(&ipc::SavePreference { name: name.to_string(), value: false, text: Some(text) });
+        let said = body(&match put {
+            Put::Text(text) => ipc::SavePreference { name: name.to_string(), value: false, text: Some(text) },
+            Put::Switch(on) => ipc::SavePreference { name: name.to_string(), value: on, text: None },
+        });
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/preferences/save".into(), said), "Preferences", cx))
     }
 

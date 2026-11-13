@@ -21,6 +21,7 @@ mod theme;
 pub mod time;
 pub(crate) mod view;
 pub mod walk;
+pub mod ways;
 pub(crate) mod wire;
 mod workflow_detail;
 mod workflows;

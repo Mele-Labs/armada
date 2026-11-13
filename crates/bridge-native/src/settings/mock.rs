@@ -22,6 +22,8 @@ pub struct MockFleet {
     /// Every save it took, oldest first, for a test to read.
     pub saves: Vec<BTreeMap<String, Option<SettingValue>>>,
     pub preferences: ipc::Preferences,
+    /// Words a save is refused for, as Fleet refuses one outside a set: the walk of a refused save names one.
+    pub refuses: Vec<String>,
     /// The mods on this machine, as the walk's scenario lists them (`crate::mock::mods`).
     pub mods: Vec<ipc::ModSummary>,
     /// The checked sheet of each theme mod that is on and valid.
@@ -130,6 +132,7 @@ impl MockFleet {
         let mut fleet = MockFleet {
             kit, list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), drafts: Default::default(), versions: Default::default(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
+            refuses: Vec::new(),
             gateway: super::gateway::MockGateway::new(),
             handed: Vec::new(),
             job_projects: vec![("mock-02", "armada")],
@@ -177,11 +180,56 @@ impl MockFleet {
         Ok(self.list.clone())
     }
 
-    /// A preference that is text, kept as Fleet keeps it: key bindings it would not read are refused whole.
+    /// A preference saved as Fleet takes it: a switch for the names that are switches, a word or text for the rest.
+    pub fn save_put(&mut self, name: &str, put: super::wire::Put) -> Result<ipc::Preferences, Refused> {
+        match put {
+            super::wire::Put::Text(text) => self.save_preference(name, text),
+            super::wire::Put::Switch(on) => self.save_switch(name, on),
+        }
+    }
+
+    /// A switch, kept as Fleet keeps it. A name that is not a switch is refused by name.
+    pub fn save_switch(&mut self, name: &str, on: bool) -> Result<ipc::Preferences, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let held = &mut self.preferences;
+        match name {
+            "first_run_answered" => held.first_run_answered = on,
+            "listen_end_summary" => held.listen_end_summary = on,
+            "listen_needs_you" => held.listen_needs_you = on,
+            "listen_progress" => held.listen_progress = on,
+            "listen_operator" => held.listen_operator = on,
+            "buttons_words" => held.buttons_words = on,
+            other => return Err(Refused::said(format!("there is no preference {other}"))),
+        }
+        Ok(self.preferences.clone())
+    }
+
+    /// A preference that is text, kept as Fleet keeps it: key bindings it would not read are refused whole, and a
+    /// word outside its set is refused as `fleet.unacceptable_choice`.
     pub fn save_preference(&mut self, name: &str, text: String) -> Result<ipc::Preferences, Refused> {
         if !self.connected {
             return Err(Refused::said("Fleet is not connected"));
         }
+        let unacceptable = |text: &str| Refused { key: None, said: format!("`{text}` is not a choice of `{name}`"), code: Some("fleet.unacceptable_choice".into()) };
+        if self.refuses.contains(&text) {
+            return Err(unacceptable(&text));
+        }
+        match name {
+            "take_in" => self.preferences.take_in = ipc::TakeIn::from_word(&text).ok_or_else(|| unacceptable(&text))?,
+            "answer_with" => self.preferences.answer_with = ipc::AnswerWith::from_word(&text).ok_or_else(|| unacceptable(&text))?,
+            "read_results" => self.preferences.read_results = ipc::ReadResults::from_word(&text).ok_or_else(|| unacceptable(&text))?,
+            "look_results" => self.preferences.look_results = ipc::LookResults::from_word(&text).ok_or_else(|| unacceptable(&text))?,
+            "look_questions" => self.preferences.look_questions = ipc::LookQuestions::from_word(&text).ok_or_else(|| unacceptable(&text))?,
+            // Blank takes his choice back: the Mac's own voice.
+            "listen_voice" => self.preferences.listen_voice = text.trim().to_string(),
+            _ => return self.save_text(name, text),
+        }
+        Ok(self.preferences.clone())
+    }
+
+    fn save_text(&mut self, name: &str, text: String) -> Result<ipc::Preferences, Refused> {
         match name {
             "key_bindings" => {
                 // Empty takes the person's changes back, as Fleet does.

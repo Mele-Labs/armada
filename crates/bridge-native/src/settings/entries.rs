@@ -57,6 +57,8 @@ pub enum Body {
     Layout,
     /// How a stamp is written: three switches and a sample (`TimeSettings`, `time_format`).
     Time,
+    /// How he takes a Job's work in and how he answers it: two rows of cards, each way's options under its row (`ways.rs`).
+    Ways,
     /// This Mac, its Cloudflare tunnel, and the Macs and phones that reach it, off the Phone Gateway (`macs.rs`).
     Macs,
     /// A list of mods (`ModList`): All where no kind is named, else the mods of that kind, listed only while there is one.
@@ -138,6 +140,12 @@ pub const SECTIONS: &[Section] = &[
     Section { id: "macs", label: "Macs", palette: "Macs", words: &["Macs", "mac", "this mac", "tunnel", "cloudflare", "devices", "phones", "unpair", "address"] },
     Section { id: "layout", label: "Layout", palette: "Layout", words: &["Layout", "tabs", "panels", "rail", "hide", "order", "reset"] },
     Section { id: "time", label: "Time", palette: "Time", words: &["Time", "clock", "24-hour", "12-hour", "seconds", "date", "timestamp", "stamp", "format"] },
+    Section {
+        id: "ways",
+        label: "Ways of working",
+        palette: "Ways of working",
+        words: &["Ways of working", "read", "look", "listen", "type", "talk", "buttons", "answer", "take in", "voice", "aloud", "sample", "pictures", "microphone", "whisper", "first run"],
+    },
     Section { id: "spacing", label: "Spacing", palette: "Spacing", words: &["Spacing", "density", "compact", "default", "roomy", "room", "dense"] },
     Section { id: "pull-requests", label: "Pull requests", palette: "Pull requests", words: &["How work lands", "delivery", "auto land", "draft", "ready", "merging", "merge", "review model", "reviews", "plans", "walks", "project"] },
     Section { id: "starting-jobs", label: "Starting Jobs", palette: "Starting Jobs", words: &["Starting Jobs", "start at once", "ask me", "operator", "tracker", "issues", "linear", "beads", "project"] },
@@ -169,6 +177,7 @@ pub const ENTRIES: &[Entry] = &[
     page("bridge:words", "Words", Group::Mods, Body::Mods(Some(ipc::ModKind::Words)), "link", DELIVERY),
     page("bridge:tracker", "Tracker", Group::Mods, Body::Mods(Some(ipc::ModKind::Tracker)), "ticket", FAILED),
     page("bridge:fleet", "Fleet", Group::Mods, Body::Mods(Some(ipc::ModKind::Fleet)), "drone", SUCCESS),
+    page("bridge:ways", "Ways of working", Group::Bridge, Body::Ways, "message-square", RUNNING),
     page("bridge:spacing", "Spacing", Group::Bridge, Body::Schema(&["spacing"]), "rows-3", REVIEW),
     page("bridge:keyboard", "Keyboard shortcuts", Group::Bridge, Body::Keyboard, "terminal", SUCCESS),
     page("bridge:time", "Time", Group::Bridge, Body::Time, "clock", FAILED),
@@ -234,6 +243,7 @@ pub(super) fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
         Body::Macs => &["macs"],
         Body::Layout => &["layout"],
         Body::Time => &["time"],
+        Body::Ways => &["ways"],
         Body::Values(page) => &[page.section()],
         Body::Repository | Body::Keyboard | Body::Workflows => &[],
     };
@@ -318,7 +328,7 @@ mod tests {
             mac,
             [
                 "kit:models", "kit:prompts", "kit:harness", "fleet:limits", "fleet:timeouts", "fleet:retention", "fleet:plan", "fleet:token-use", "fleet:machine", "fleet:account", "fleet:store", "fleet:features",
-                "fleet:repository", "bridge:all", "bridge:theme", "bridge:layout", "bridge:words", "bridge:tracker", "bridge:fleet", "bridge:spacing", "bridge:keyboard", "bridge:time", "bridge:editor",
+                "fleet:repository", "bridge:all", "bridge:theme", "bridge:layout", "bridge:words", "bridge:tracker", "bridge:fleet", "bridge:ways", "bridge:spacing", "bridge:keyboard", "bridge:time", "bridge:editor",
                 "bridge:terminal", "bridge:links",
             ],
             "everything else, in today's order"

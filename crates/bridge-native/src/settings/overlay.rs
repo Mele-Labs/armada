@@ -132,6 +132,8 @@ pub struct SettingsOverlay {
     pub macs: super::macs::MacsPage,
     /// Settings › Layout and Settings › Time: the preferences they write.
     pub prefs: super::prefs::Prefs,
+    /// Settings › Ways of working: what the helper and Whisper said, and the sample.
+    pub ways: super::ways::WaysPage,
     pub lanes: super::lanes::WorkflowLanes,
     /// Settings → Workflows.
     pub workflows: super::workflows::WorkflowsPage,
@@ -222,6 +224,7 @@ impl SettingsOverlay {
             models: super::models::ModelsPage::new(window, cx),
             macs: super::macs::MacsPage::new(window, cx),
             prefs: super::prefs::Prefs::new(),
+            ways: super::ways::WaysPage::new(cx),
             lanes,
             workflows: super::workflows::WorkflowsPage::new(window, cx),
             tracks: Rc::default(),
@@ -256,6 +259,7 @@ impl SettingsOverlay {
         self.models.reopen();
         self.macs.reopen();
         self.prefs.reopen();
+        self.ways.reopen();
         self.lanes.reopen(cx);
         self.mod_keys(cx);
         window.focus(&self.side, cx);
@@ -781,6 +785,9 @@ impl SettingsOverlay {
         if let Body::Time = shown.body {
             return self.time_stops(cx);
         }
+        if let Body::Ways = shown.body {
+            return self.ways_stops(cx);
+        }
         if let Body::Theme = shown.body {
             let mut stops = vec![self.theme.focus.clone()];
             stops.extend(self.mod_stops(super::mods::Page::Theme, cx));
@@ -901,6 +908,9 @@ impl SettingsOverlay {
             return true;
         }
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Macs) && self.macs_key(key, window, cx) {
+            return true;
+        }
+        if self.shown(cx).is_some_and(|shown| shown.body == Body::Ways) && self.ways_key(key, window, cx) {
             return true;
         }
         // A mod row's arrows: open and shut what it holds, and move between rows.
