@@ -22,45 +22,10 @@ use store::{KeptPiece, PieceKind};
 use testkit::FakeJudge;
 
 use super::session_host::Rig;
-use super::session_rail::{at, delivers, follows, on_the_rail, plan_step, record, ruled_on, step, told, workflow};
+use super::session_rail::{at, delivers, follows, on_the_rail, plan_step, record, ruled_on, told, workflow};
 use super::workflow_page::read;
-use crate::rail::RailStep;
-use crate::session_host::job_copying::rail_remapped;
 
 // ---- The rail's bookkeeping ----
-
-fn ids(of: &[&str]) -> Vec<RailStep> {
-    of.iter().map(|id| RailStep { id: (*id).to_string(), ..step(id) }).collect()
-}
-
-#[test]
-fn what_the_rail_kept_by_index_follows_a_step_to_where_an_edit_put_it() {
-    let before = ids(&["plan", "implement", "handoff"]);
-    let after = ids(&["plan", "dispatch", "implement", "handoff"]);
-    let mut kept = store::KeptRail {
-        step: Some(1),
-        judged: vec![0, 1],
-        stalled: vec![2],
-        visits: vec![(0, "a".into()), (1, "b".into())],
-        skipped: vec![1],
-    };
-    rail_remapped(&mut kept, &before, &after);
-    assert_eq!(kept.step, Some(2), "the step it stood on is the same step");
-    assert_eq!(kept.skipped, [2], "and a skip stays with the step it was for");
-    assert_eq!((kept.judged, kept.stalled), (vec![0, 2], vec![3]));
-    assert_eq!(kept.visits, [(0, "a".to_string()), (2, "b".to_string())]);
-}
-
-#[test]
-fn a_step_the_edit_took_out_is_forgotten_and_the_rest_close_up() {
-    let before = ids(&["plan", "implement", "handoff"]);
-    let after = ids(&["plan", "handoff"]);
-    let mut kept = store::KeptRail { step: Some(1), skipped: vec![1, 2], visits: vec![(1, "b".into()), (2, "c".into())], ..Default::default() };
-    rail_remapped(&mut kept, &before, &after);
-    assert_eq!(kept.step, None, "it stood on the step that went");
-    assert_eq!(kept.skipped, [1], "the delivering step is now the second");
-    assert_eq!(kept.visits, [(1, "c".to_string())]);
-}
 
 #[test]
 fn the_fixture_steps_are_what_the_tests_below_expect() {

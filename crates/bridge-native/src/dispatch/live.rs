@@ -8,7 +8,7 @@ use super::face::{Chip, Cycle, Face, Mark, Mentions, Offered, Part, Reading, Tun
 
 /// A repository Fleet serves: the name its chip carries and the id a Job there starts with.
 #[derive(Clone, Debug, PartialEq)]
-pub(super) struct Served {
+pub(crate) struct Served {
     pub name: SharedString,
     pub id: ManifestId,
     /// Where it is checked out: what a queued idea keeps, as Electron's does.
@@ -17,7 +17,7 @@ pub(super) struct Served {
 
 /// The served repositories that can start a Job: each by the name the title bar's picker gives it, with the
 /// id it starts on (its Manifest's, else the one Fleet gives a repository with none). One with neither is left out.
-pub(super) fn served(repositories: &[RepositorySummary]) -> Vec<Served> {
+pub(crate) fn served(repositories: &[RepositorySummary]) -> Vec<Served> {
     let listed = crate::titlebar::repositories_of(repositories, &[]);
     repositories
         .iter()
@@ -95,7 +95,7 @@ pub(super) fn tuning(models: Option<&ipc::ModelChoices>) -> Tuning {
 
 /// Ask Fleet: a POST where there is a body, else a GET. Blocks, so it runs on the background executor. A refusal
 /// is Fleet's own sentence.
-pub(super) fn call(port: u16, path: String, body: Option<String>) -> Result<Vec<u8>, String> {
+pub(crate) fn call(port: u16, path: String, body: Option<String>) -> Result<Vec<u8>, String> {
     answered(port, path, body, false)
 }
 

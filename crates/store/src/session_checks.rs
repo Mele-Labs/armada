@@ -20,10 +20,12 @@ pub struct KeptSessionCheck {
     pub took_ms: Option<u64>,
     /// What the run was narrowed to. Absent where it ran whole.
     pub target: Option<String>,
+    /// The thread row of the call that ran it. Absent where Fleet could not tell.
+    pub tool_row: Option<String>,
 }
 
 const COLUMNS: &str =
-    "id, session_id, manifest_id, slot, name, state, started_at, ended_at, took_ms, target";
+    "id, session_id, manifest_id, slot, name, state, started_at, ended_at, took_ms, target, tool_row";
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptSessionCheck> {
     Ok(KeptSessionCheck {
@@ -37,6 +39,7 @@ fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptSessionCheck> {
         ended_at: row.get(7)?,
         took_ms: row.get::<_, Option<i64>>(8)?.map(|ms| ms.max(0) as u64),
         target: row.get(9)?,
+        tool_row: row.get(10)?,
     })
 }
 
@@ -61,6 +64,15 @@ impl Store {
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
         Ok(self.conn.last_insert_rowid())
+    }
+
+    /// The thread row of the call that ran `run`.
+    pub fn link_session_check(&mut self, run: i64, tool_row: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("UPDATE session_check_runs SET tool_row = ?2 WHERE id = ?1", params![run, tool_row])
+            .map(|_| ())
+            .map_err(fault("linking a Job's Check run to its call"))
+            .map_err(WriteError::Database)
     }
 
     /// A run ends. **False where it was not running**, so an end is kept once. A `target` told

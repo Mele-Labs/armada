@@ -23,8 +23,6 @@ use crate::look::{token, Look};
 const ADD_SAID: &str = "Add to this Job";
 const KEEP_SAID: &str = "Keep for every Job";
 const KEPT_SAID: &str = "Proposed for every Job";
-/// The line a head that opens a Job's Workflow adds to its tooltip.
-pub(super) const OPENS_SAID: &str = "Double-click to open its Workflow";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Adding {

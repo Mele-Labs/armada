@@ -21,7 +21,7 @@ use ipc::{
     ChangeJobCopy, ChangeSessionSteps, ChangedBy, CopyPieceKind, JobCopy, JobCopyChange, JobCopyPiece, JobCopyStep,
     KeepJobWorkflow, ManifestId, SaveWorkflow, SessionId, StepChange, TimelineKind, WorkflowChange, WorkflowScope,
 };
-use store::{KeptCopyMark, KeptHosting, KeptPiece, KeptRail, KeptSession, KeptWorkflowCopy, PieceKind};
+use store::{KeptCopyMark, KeptHosting, KeptPiece, KeptSession, KeptWorkflowCopy, PieceKind};
 
 use super::proposing::{WORKFLOWS_OFF, WORKFLOW_NOT_HELD};
 use super::serving::SESSION_COMMAND_REFUSED;
@@ -90,29 +90,6 @@ pub(crate) fn mark_wire(kept: &KeptCopyMark, held: &[KeptPiece]) -> JobCopyChang
         at: ipc::Instant::carried(&kept.at),
         dropped,
     }
-}
-
-/// Where each step of `old` stands in `new`, by the id it declares. Absent for a step the edit took out.
-fn moved_to(old: &[RailStep], new: &[RailStep]) -> impl Fn(u32) -> Option<u32> {
-    let places: Vec<Option<u32>> =
-        old.iter().map(|step| new.iter().position(|one| one.id == step.id).map(|at| at as u32)).collect();
-    move |at| places.get(at as usize).copied().flatten()
-}
-
-/// What the rail kept by step index, kept against the same steps after an edit moved them. **A step is
-/// followed by the id it declares**, so a skip stays on the step it was for when another is added before it.
-pub(crate) fn rail_remapped(rail: &mut KeptRail, old: &[RailStep], new: &[RailStep]) {
-    let to = moved_to(old, new);
-    rail.step = rail.step.and_then(&to);
-    let mapped = |list: &mut Vec<u32>| {
-        *list = list.iter().filter_map(|at| to(*at)).collect();
-        list.sort_unstable();
-        list.dedup();
-    };
-    mapped(&mut rail.judged);
-    mapped(&mut rail.stalled);
-    mapped(&mut rail.skipped);
-    rail.visits = rail.visits.iter().filter_map(|(at, since)| Some((to(*at)?, since.clone()))).collect();
 }
 
 fn edit_of(change: &StepChange) -> StepEdit {
@@ -323,9 +300,6 @@ where
             store
                 .keep_job_workflow_copy(&id, &KeptWorkflowCopy { workflow_id: workflow.clone(), path: base.path, text: edited.text })
                 .map_err(|why| self.ledger_fault(why))?;
-            let mut kept = store.session_rail(&id).map_err(|why| self.ledger_fault(why))?;
-            rail_remapped(&mut kept, &old, &new);
-            store.keep_session_rail(&id, &kept).map_err(|why| self.ledger_fault(why))?;
             store
                 .keep_job_copy_mark(&id, &KeptCopyMark { lane: WORKFLOW_LANE.into(), item: edited.step.clone(), text: mark, by: who_kept(by).into(), at })
                 .map_err(|why| self.ledger_fault(why))?;
@@ -427,23 +401,24 @@ where
     /// What the Job holds of its workflow, lifecycles and rules, and what was changed in it.
     pub(crate) async fn job_copy_read(&self, id: &str) -> Result<JobCopy, Refusal> {
         let (session, hosting) = self.session_and_hosting(id).await?;
-        let (own, pieces, marks, skipped) = {
+        let (own, pieces, marks) = {
             let store = self.store().lock().await;
             let fault = |why| self.ledger_fault(why);
             (
                 store.job_workflow_copy(id).map_err(fault)?,
                 store.job_copy_of(id).map_err(fault)?.map(|kept| kept.pieces).unwrap_or_default(),
                 store.job_copy_marks(id).map_err(fault)?,
-                store.session_rail(id).map_err(fault)?.skipped,
             )
         };
         let workflow = hosting.workflow.clone();
         let own = own.filter(|own| workflow.as_deref() == Some(own.workflow_id.as_str()));
-        let steps = workflow
-            .as_deref()
-            .and_then(|workflow| self.steps_with(&hosting.manifest_id, workflow, own.as_ref()))
-            .map(|steps| steps_wire(&steps, &skipped))
-            .unwrap_or_default();
+        let held = workflow.as_deref().and_then(|workflow| self.steps_with(&hosting.manifest_id, workflow, own.as_ref()));
+        // The kept skips are indexes into these steps, so they are read once the steps are resolved.
+        let skipped = match &held {
+            Some(steps) => self.store().lock().await.session_rail(id, &rail::step_ids(steps)).map_err(|why| self.ledger_fault(why))?.skipped,
+            None => Vec::new(),
+        };
+        let steps = held.map(|steps| steps_wire(&steps, &skipped)).unwrap_or_default();
         let piece = |kind| -> Vec<JobCopyPiece> {
             pieces.iter().filter(|one| one.kind == kind).map(|one| JobCopyPiece { id: one.piece_id.clone(), text: one.text.clone() }).collect()
         };

@@ -649,9 +649,9 @@ fn forge_of(lines: &[&Line]) -> Forge {
     }
 }
 
-/// `GitHub not answering since 18:40:00`, naming each repository only where more than one is served.
+/// `GitHub not answering since 18:40:00`, in his clock, naming each repository only where more than one is served.
 fn quiet_said(forge: &Forge, several: bool) -> Option<String> {
-    let time = |at: &chrono::DateTime<chrono::Utc>| at.with_timezone(&chrono::Local).format("%H:%M:%S").to_string();
+    let time = |at: &chrono::DateTime<chrono::Utc>| crate::settings::time::stamp(at.with_timezone(&chrono::Local));
     match forge.quiet.as_slice() {
         [] => None,
         [(_, since)] if !several => Some(format!("GitHub not answering since {}", time(since))),

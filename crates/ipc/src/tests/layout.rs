@@ -90,3 +90,22 @@ fn the_regions_are_the_ones_the_registry_file_names() {
     found.sort();
     assert_eq!(found, ["dashboard.panels", "job.panels", "rail"]);
 }
+
+#[test]
+fn choices_read_back_what_text_of_wrote_and_an_empty_hidden_list_is_kept() {
+    use std::collections::BTreeMap;
+
+    use crate::layout::{choices, text_of, Choice};
+
+    assert_eq!(text_of(&BTreeMap::new()), "", "nothing chosen is no text");
+    let mut own = BTreeMap::new();
+    own.insert("rail".to_string(), Choice { hidden: Some(vec!["guides".into()]), ..Choice::default() });
+    own.insert("job.panels".to_string(), Choice { hidden: Some(Vec::new()), ..Choice::default() });
+    own.insert("dashboard.panels".to_string(), Choice::default());
+    let text = text_of(&own);
+    let read = choices(&text);
+    assert_eq!(read.get("rail"), own.get("rail"));
+    assert_eq!(read.get("job.panels").and_then(|one| one.hidden.clone()), Some(Vec::new()), "an empty list still shows what a mod hid");
+    assert!(!read.contains_key("dashboard.panels"), "a region that says nothing is left out");
+    assert!(choices(r#"{"version":2,"rail":{"hidden":["guides"]}}"#).is_empty(), "a file with a problem says nothing");
+}

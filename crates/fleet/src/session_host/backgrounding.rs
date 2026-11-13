@@ -65,6 +65,7 @@ where
                 }
             }
             DroneEvent::TaskStarted { task, call, description, backgrounded: true } => {
+                self.hosts().of(id).state().check_calls.backgrounded(call, task);
                 let asked = self.hosts().of(id).state().background.take(call);
                 let Some((form, command)) = asked else { return };
                 let detail = [("form", form), ("task", description.as_str()), ("command", command.as_str())]
@@ -82,6 +83,7 @@ where
                     .await;
             }
             DroneEvent::TaskEnded { task, status, output, exit } => {
+                self.hosts().of(id).state().check_calls.task_ended(task);
                 self.background_ended(id, task, *status, output.as_deref(), *exit).await;
             }
             _ => {}
@@ -118,6 +120,7 @@ where
     /// process starts for a session that has run**: they ran in the process that is gone, so none of
     /// them can still be running. Their rows are given back.
     pub(crate) async fn cut_off_background(&self, id: &str) -> Vec<String> {
+        self.hosts().of(id).state().check_calls.ended_all();
         let holder = Holder::session(id);
         let at = self.now().as_str().to_string();
         let mut store = self.store().lock().await;

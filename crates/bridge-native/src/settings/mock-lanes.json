@@ -1,0 +1,518 @@
+{
+ "workflow": "feature",
+ "at": -1,
+ "job": {
+  "copy": {
+   "steps": [
+    {
+     "id": "plan",
+     "label": "Plan",
+     "col": 0
+    },
+    {
+     "id": "build",
+     "label": "Build",
+     "col": 1
+    },
+    {
+     "id": "walk",
+     "label": "Walk",
+     "col": 2
+    },
+    {
+     "id": "land",
+     "label": "Land",
+     "col": 3
+    }
+   ],
+   "lifecycles": [
+    {
+     "id": "ticket",
+     "label": "Ticket",
+     "from": "Tracker",
+     "kind": "tracker",
+     "states": [
+      {
+       "id": "todo",
+       "label": "Todo",
+       "col": 0
+      },
+      {
+       "id": "in_progress",
+       "label": "In Progress",
+       "col": 1
+      },
+      {
+       "id": "in_review",
+       "label": "In Review",
+       "col": 2
+      },
+      {
+       "id": "done",
+       "label": "Done",
+       "col": 3,
+       "end": true
+      }
+     ],
+     "next": [
+      [
+       "todo",
+       "in_progress"
+      ],
+      [
+       "in_progress",
+       "in_review"
+      ],
+      [
+       "in_review",
+       "done"
+      ]
+     ]
+    },
+    {
+     "id": "pull_request",
+     "label": "Pull request",
+     "from": "Forge",
+     "kind": "forge",
+     "states": [
+      {
+       "id": "draft",
+       "label": "Draft",
+       "col": 1
+      },
+      {
+       "id": "open",
+       "label": "Open",
+       "col": 2
+      },
+      {
+       "id": "merged",
+       "label": "Merged",
+       "col": 3,
+       "end": true
+      }
+     ],
+     "next": [
+      [
+       "draft",
+       "open"
+      ],
+      [
+       "open",
+       "merged"
+      ]
+     ]
+    },
+    {
+     "id": "watch",
+     "label": "Watch",
+     "from": "Watch",
+     "kind": "watch",
+     "states": [
+      {
+       "id": "running",
+       "label": "Running",
+       "col": 1
+      },
+      {
+       "id": "passed",
+       "label": "Passed",
+       "col": 2
+      },
+      {
+       "id": "failed",
+       "label": "Failed",
+       "col": 3,
+       "end": true
+      }
+     ],
+     "next": [
+      [
+       "running",
+       "passed"
+      ],
+      [
+       "running",
+       "failed"
+      ]
+     ]
+    },
+    {
+     "id": "job",
+     "label": "Job",
+     "from": "Fleet",
+     "kind": "job",
+     "states": [
+      {
+       "id": "working",
+       "label": "Working",
+       "col": 2
+      },
+      {
+       "id": "landed",
+       "label": "Landed",
+       "col": 3,
+       "end": true
+      }
+     ],
+     "next": [
+      [
+       "working",
+       "landed"
+      ]
+     ]
+    }
+   ],
+   "rules": [
+    {
+     "id": "ticket-started",
+     "label": "Ticket to In Progress",
+     "from": {
+      "lane": "workflow",
+      "item": "plan"
+     },
+     "at": "starts",
+     "to": {
+      "lane": "ticket",
+      "item": "in_progress"
+     },
+     "autonomy": "acts",
+     "kept": "armada"
+    },
+    {
+     "id": "open-draft",
+     "label": "Open a draft pull request",
+     "from": {
+      "lane": "workflow",
+      "item": "build"
+     },
+     "at": "starts",
+     "to": {
+      "lane": "pull_request",
+      "item": "draft"
+     },
+     "autonomy": "acts",
+     "kept": "armada"
+    },
+    {
+     "id": "watch-deploy",
+     "label": "Watch each deploy",
+     "from": {
+      "lane": "workflow",
+      "item": "build"
+     },
+     "at": "starts",
+     "to": {
+      "lane": "watch",
+      "item": "running"
+     },
+     "autonomy": "acts",
+     "kept": "repository"
+    },
+    {
+     "id": "start-flaky",
+     "label": "Start a Job for a flaky test",
+     "from": {
+      "lane": "workflow",
+      "item": "plan"
+     },
+     "at": "ends",
+     "to": {
+      "lane": "job",
+      "item": "working"
+     },
+     "autonomy": "asks",
+     "kept": "yours"
+    },
+    {
+     "id": "ready",
+     "label": "Mark ready for review",
+     "from": {
+      "lane": "workflow",
+      "item": "build"
+     },
+     "at": "ends",
+     "to": {
+      "lane": "pull_request",
+      "item": "open"
+     },
+     "autonomy": "acts",
+     "kept": "armada"
+    },
+    {
+     "id": "review-request",
+     "label": "Ask the team to review",
+     "from": {
+      "lane": "workflow",
+      "item": "walk"
+     },
+     "at": "starts",
+     "to": {
+      "lane": "pull_request",
+      "item": "open"
+     },
+     "autonomy": "acts",
+     "kept": "repository"
+    },
+    {
+     "id": "ticket-review",
+     "label": "Ticket to In Review",
+     "from": {
+      "lane": "pull_request",
+      "item": "open"
+     },
+     "at": "enters",
+     "to": {
+      "lane": "ticket",
+      "item": "in_review"
+     },
+     "autonomy": "acts",
+     "kept": "armada"
+    }
+   ]
+  },
+  "instances": [],
+  "fired": [],
+  "changes": []
+ },
+ "lanes": [
+  {
+   "id": "workflow",
+   "kind": "workflow",
+   "title": "Feature",
+   "source": "Workflow",
+   "nodes": [
+    {
+     "id": "workflow/:start",
+     "label": "Start",
+     "col": 0,
+     "role": "step",
+     "kind": "start"
+    },
+    {
+     "id": "workflow/plan",
+     "label": "Plan",
+     "col": 0,
+     "role": "step",
+     "kind": "step"
+    },
+    {
+     "id": "workflow/build",
+     "label": "Build",
+     "col": 1,
+     "role": "step",
+     "kind": "step"
+    },
+    {
+     "id": "workflow/walk",
+     "label": "Walk",
+     "col": 2,
+     "role": "step",
+     "kind": "step"
+    },
+    {
+     "id": "workflow/land",
+     "label": "Land",
+     "col": 3,
+     "role": "step",
+     "kind": "step"
+    },
+    {
+     "id": "workflow/:end",
+     "label": "End",
+     "col": 3,
+     "role": "step",
+     "kind": "end"
+    }
+   ],
+   "moves": []
+  },
+  {
+   "id": "ticket",
+   "kind": "lifecycle",
+   "title": "Ticket",
+   "source": "Tracker",
+   "nodes": [
+    {
+     "id": "ticket/todo",
+     "label": "Todo",
+     "col": 0,
+     "role": "state",
+     "kind": "tracker"
+    },
+    {
+     "id": "ticket/in_progress",
+     "label": "In Progress",
+     "col": 1,
+     "role": "state",
+     "kind": "tracker"
+    },
+    {
+     "id": "ticket/in_review",
+     "label": "In Review",
+     "col": 2,
+     "role": "state",
+     "kind": "tracker"
+    },
+    {
+     "id": "ticket/done",
+     "label": "Done",
+     "col": 3,
+     "role": "state",
+     "kind": "tracker",
+     "end": true
+    }
+   ],
+   "moves": [
+    [
+     "ticket/todo",
+     "ticket/in_progress"
+    ],
+    [
+     "ticket/in_progress",
+     "ticket/in_review"
+    ],
+    [
+     "ticket/in_review",
+     "ticket/done"
+    ]
+   ]
+  },
+  {
+   "id": "pull_request",
+   "kind": "lifecycle",
+   "title": "Pull request",
+   "source": "Forge",
+   "nodes": [
+    {
+     "id": "pull_request/draft",
+     "label": "Draft",
+     "col": 1,
+     "role": "state",
+     "kind": "forge"
+    },
+    {
+     "id": "pull_request/open",
+     "label": "Open",
+     "col": 2,
+     "role": "state",
+     "kind": "forge"
+    },
+    {
+     "id": "pull_request/merged",
+     "label": "Merged",
+     "col": 3,
+     "role": "state",
+     "kind": "forge",
+     "end": true
+    }
+   ],
+   "moves": [
+    [
+     "pull_request/draft",
+     "pull_request/open"
+    ],
+    [
+     "pull_request/open",
+     "pull_request/merged"
+    ]
+   ]
+  },
+  {
+   "id": "watch",
+   "kind": "lifecycle",
+   "title": "Watch",
+   "source": "Watch",
+   "nodes": [
+    {
+     "id": "watch/running",
+     "label": "Running",
+     "col": 1,
+     "role": "state",
+     "kind": "watch"
+    },
+    {
+     "id": "watch/passed",
+     "label": "Passed",
+     "col": 2,
+     "role": "state",
+     "kind": "watch"
+    },
+    {
+     "id": "watch/failed",
+     "label": "Failed",
+     "col": 3,
+     "role": "state",
+     "kind": "watch",
+     "end": true
+    }
+   ],
+   "moves": [
+    [
+     "watch/running",
+     "watch/passed"
+    ],
+    [
+     "watch/running",
+     "watch/failed"
+    ]
+   ]
+  }
+ ],
+ "rules": [
+  {
+   "id": "ticket-started:workflow/plan>ticket/in_progress",
+   "rule": "ticket-started",
+   "from": "workflow/plan",
+   "to": "ticket/in_progress",
+   "label": "Ticket to In Progress",
+   "autonomy": "acts",
+   "status": "waiting"
+  },
+  {
+   "id": "open-draft:workflow/build>pull_request/draft",
+   "rule": "open-draft",
+   "from": "workflow/build",
+   "to": "pull_request/draft",
+   "label": "Open a draft pull request",
+   "autonomy": "acts",
+   "status": "waiting"
+  },
+  {
+   "id": "watch-deploy:workflow/build>watch/running",
+   "rule": "watch-deploy",
+   "from": "workflow/build",
+   "to": "watch/running",
+   "label": "Watch each deploy",
+   "autonomy": "acts",
+   "status": "waiting"
+  },
+  {
+   "id": "ready:workflow/build>pull_request/open",
+   "rule": "ready",
+   "from": "workflow/build",
+   "to": "pull_request/open",
+   "label": "Mark ready for review",
+   "autonomy": "acts",
+   "status": "waiting"
+  },
+  {
+   "id": "review-request:workflow/walk>pull_request/open",
+   "rule": "review-request",
+   "from": "workflow/walk",
+   "to": "pull_request/open",
+   "label": "Ask the team to review",
+   "autonomy": "acts",
+   "status": "waiting"
+  },
+  {
+   "id": "ticket-review:pull_request/open>ticket/in_review",
+   "rule": "ticket-review",
+   "from": "pull_request/open",
+   "to": "ticket/in_review",
+   "label": "Ticket to In Review",
+   "autonomy": "acts",
+   "status": "waiting"
+  }
+ ]
+}
