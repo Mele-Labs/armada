@@ -399,9 +399,13 @@ impl JobView {
             .justify_center()
             .tooltip(tip(lead_said))
             .child(glyph(look, lead, Size::Small, lead_ink));
+        // A title longer than two lines ends in an ellipsis, its whole in the tooltip, as a Jobs list row's does.
         let title = div()
+            .id(SharedString::from(format!("pull-title:{key}")))
             .min_w_0()
             .line_clamp(2)
+            .text_ellipsis()
+            .tooltip(tip(format!("#{number} {}", pull.title)))
             .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
             .text_color(look.color(token::FG_DEFAULT))
