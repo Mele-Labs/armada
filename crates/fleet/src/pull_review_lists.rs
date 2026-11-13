@@ -182,8 +182,10 @@ where
         for row in lists.iter_mut().flatten() {
             row.holder = self.holder_of(row).await;
         }
-        // Where each stands in his inbox, from the head he last left it at.
+        // His review, the one Fleet just wrote where the forge does not show it yet, and where each
+        // stands in his inbox, from it and the head he last left it at.
         for list in &mut lists {
+            self.written_onto(list).await;
             self.inbox_onto(list).await;
         }
         let mut read = self.lists_of(me, lists);

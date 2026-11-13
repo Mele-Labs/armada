@@ -22,6 +22,7 @@ use super::pull_requesting::{
 
 pub(super) fn a_page() -> PullRequestPageFacts {
     PullRequestPageFacts {
+        latest_reviews: Default::default(),
         base: "main".into(),
         author: Some("NickMele".into()),
         created_at: Some("2026-10-13T15:13:44Z".into()),

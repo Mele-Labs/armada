@@ -22,6 +22,16 @@ export type PullMyReview = {
   said: MyReviewSaid;
   /** The commit it was written on, whole. Absent where the forge did not say. */
   commit?: string;
+  /** When it was submitted, RFC 3339. Absent where the forge did not say. */
+  submitted_at?: string;
+};
+
+/** What came on a pull request since his own latest review: the page's Your review bar. */
+export type PullSinceMyReview = {
+  /** Commits pushed after the one his review was written on. Absent where that commit is not among the pull request's. */
+  commits?: number;
+  /** Comments someone else wrote after his review, on the review threads he wrote on. Absent where the forge gave no time. */
+  replies?: number;
 };
 
 /**

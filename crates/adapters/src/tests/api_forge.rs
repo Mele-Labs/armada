@@ -8,7 +8,7 @@
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
-use adapter_traits::{ComparedPatches, FilePatch, Forge, ReviewList, ReviewListAsk, Said};
+use adapter_traits::{ComparedPatches, FilePatch, Forge, LatestReview, LatestReviewSaid, ReviewList, ReviewListAsk, Said};
 
 use super::github_api::{api, ok, serve, Reply};
 use super::repo::TempRepo;
@@ -136,6 +136,40 @@ fn a_page_over_the_api_is_the_page_gh_reads() {
     assert_eq!(page, folded(&lines(PAGE_GH)).unwrap());
     let read = (page.conversation.len(), page.checks.len(), page.files.len(), page.commits.len());
     assert_eq!(read, (2, 4, 7, 4));
+}
+
+#[test]
+fn each_reviewers_latest_review_carries_its_commit_and_time_and_a_pending_one_is_nobodys() {
+    const OID: &str = "56f4a35c21a3024703be8a3183109b4a607c0066";
+    let reviewed = PAGE.replacen(
+        "\"latestReviews\": {\n     \"nodes\": []",
+        &format!(
+            "\"latestReviews\": {{\"nodes\": [\
+             {{\"author\": {{\"login\": \"ada\"}}, \"state\": \"APPROVED\", \"submittedAt\": \"2026-10-12T19:00:00Z\", \"commit\": {{\"oid\": \"{OID}\"}}}}, \
+             {{\"author\": {{\"login\": \"grace\"}}, \"state\": \"PENDING\", \"submittedAt\": null, \"commit\": {{\"oid\": \"{OID}\"}}}}]"
+        ),
+        1,
+    );
+    assert_ne!(reviewed, PAGE, "the fixture's latestReviews moved");
+    let server = serve(move |seen| match (seen.method.as_str(), seen.target.as_str()) {
+        ("POST", "/graphql") if seen.body.contains("reviewThreads") => ok(NO_THREADS),
+        ("POST", "/graphql") if seen.body.contains("baseRefName") => ok(&reviewed),
+        _ => not_found(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let page = forge.pull_request_page(&on_github().root_str(), "2190").unwrap();
+
+    let latest = LatestReview {
+        said: LatestReviewSaid::Approved,
+        commit: Some(OID.into()),
+        submitted_at: Some("2026-10-12T19:00:00Z".into()),
+    };
+    assert_eq!(page.latest_reviews.clone().into_iter().collect::<Vec<_>>(), [("ada".to_string(), latest)]);
+
+    let mut records = lines(PAGE_GH);
+    records.push(format!("verdict\tada\tAPPROVED\t{OID}\t2026-10-12T19:00:00Z"));
+    records.push(format!("verdict\tgrace\tPENDING\t{OID}\t"));
+    assert_eq!(folded(&records).unwrap().latest_reviews, page.latest_reviews, "gh reads the same");
 }
 
 #[test]

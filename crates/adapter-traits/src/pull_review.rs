@@ -87,6 +87,8 @@ pub struct LatestReview {
     pub said: LatestReviewSaid,
     /// The commit it was written on, whole. `None` where the forge did not say.
     pub commit: Option<String>,
+    /// When it was submitted, as the forge prints it (RFC 3339). `None` where the forge did not say.
+    pub submitted_at: Option<String>,
 }
 
 /// Which side of a diff a line is on.

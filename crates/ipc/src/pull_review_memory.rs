@@ -34,6 +34,22 @@ pub struct PullMyReview {
     /// The commit it was written on, whole. Absent where the forge did not say.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub commit: Option<String>,
+    /// When it was submitted, RFC 3339. Absent where the forge did not say.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub submitted_at: Option<String>,
+}
+
+/// What came on a pull request since his own latest review: the page's *Your review* bar.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullSinceMyReview {
+    /// Commits pushed after the one his review was written on. Absent where that commit is not
+    /// among the pull request's, as after a force-push, or the forge did not say which it was.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commits: Option<u64>,
+    /// Comments someone else wrote after his review, on the review threads he wrote on. Absent
+    /// where the forge did not say when his review was submitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replies: Option<u64>,
 }
 
 /// Where a pull request stands in his inbox. **The first that holds wins**, in this order.

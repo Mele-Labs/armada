@@ -45,9 +45,11 @@ struct Found {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct MyReview {
     state: Option<String>,
     commit: Option<Oid>,
+    submitted_at: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -167,7 +169,7 @@ pub(crate) fn listed(found: Searched, teams: Teams<'_>) -> Vec<ListedPull> {
                 team: team_named(&asked, &teams),
                 my_latest: Nodes::all(pull.my_review).next().and_then(|review| {
                     let commit = review.commit.and_then(|it| it.oid).unwrap_or_default();
-                    latest_of(&review.state.unwrap_or_default(), &commit)
+                    latest_of(&review.state.unwrap_or_default(), &commit, &review.submitted_at.unwrap_or_default())
                 }),
             })
         })

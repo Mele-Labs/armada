@@ -26,7 +26,7 @@ fn seen_at(head: &str) -> PullSeen {
 }
 
 fn mine(said: MyReviewSaid) -> PullMyReview {
-    PullMyReview { said, commit: Some(OLD.into()) }
+    PullMyReview { said, commit: Some(OLD.into()), submitted_at: None }
 }
 
 #[test]
@@ -52,7 +52,7 @@ async fn a_pull_request_marked_seen_shows_it_on_its_page_and_its_row_and_a_moved
     let (id, _) = manifest(&fleet);
     signed_in_as(&fleet, "NickMele");
     let mut approved = pull(12, SLUG);
-    approved.my_latest = Some(LatestReview { said: LatestReviewSaid::Approved, commit: Some(OLD.into()) });
+    approved.my_latest = Some(LatestReview { said: LatestReviewSaid::Approved, commit: Some(OLD.into()), submitted_at: None });
     fleet.vcs().now_review_list(ReviewList::Requested, vec![approved, pull(13, SLUG)]);
     fleet.vcs().now_pull_request_page(Some(a_page()));
 

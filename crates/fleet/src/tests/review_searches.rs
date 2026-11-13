@@ -44,6 +44,7 @@ fn open_pull(number: u64, title: &str) -> ListedPull {
 
 fn page_changing(path: &str) -> PullRequestPageFacts {
     PullRequestPageFacts {
+        latest_reviews: Default::default(),
         files: vec![PageFile { path: path.into(), additions: 2, deletions: 1, change: FileChange::Modified }],
         ..a_page()
     }

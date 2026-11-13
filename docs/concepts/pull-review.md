@@ -79,6 +79,16 @@ Fleet keeps each layout's pane tree as Bridge wrote it and reads no further into
 Fleet ships `Default`, which cannot be saved over or deleted: three columns, the inbox, then What changed, Files, Conversation and Checks as tabs of one pane, then Findings and Comments.
 Deleting the picked layout picks `Default`.
 
+## Your review
+
+**The page carries his own latest submitted review and what came since it**, for the bar pinned under the title: what it said, the commit it was written on and when.
+Beside it are two counts: the commits pushed after that commit, and the comments someone else wrote after it on the review threads he wrote on.
+A count Fleet cannot work out is left out rather than guessed: the commit is not among the pull request's, or the forge gave no time.
+Where Fleet does not know who he is, there is no bar.
+
+**A review he just wrote shows at once.** The forge can answer the read straight after a write without it, so Fleet keeps the review it wrote, at the commit he read or else the head it reads after, and serves whichever of that and the forge's is newer.
+The page the write answers with, the next page and his row in the lists all show it.
+
 The wire is [what Fleet remembers of a pull request](../practices/protocol/what-fleet-remembers-of-a-pull-request.md).
 
 ## The panes

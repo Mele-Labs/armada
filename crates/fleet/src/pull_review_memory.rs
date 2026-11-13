@@ -53,6 +53,7 @@ pub(crate) fn my_review_of(latest: LatestReview) -> PullMyReview {
             LatestReviewSaid::Commented => MyReviewSaid::Commented,
         },
         commit: latest.commit,
+        submitted_at: latest.submitted_at,
     }
 }
 

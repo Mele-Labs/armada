@@ -1,5 +1,5 @@
 //! What the person remembers of a pull request between visits: the head he last left it at, the
-//! files he marked viewed, and the Reviews layouts he named. `docs/concepts/pull-review.md`,
+//! files he marked viewed, the review Fleet last wrote for him, and the Reviews layouts he named. `docs/concepts/pull-review.md`,
 //! *Since you looked*.
 //!
 //! **Plain text here**: the arrangement is opaque JSON, and which file is still viewed is Fleet's.
@@ -66,6 +66,31 @@ fn viewed(row: &Row<'_>) -> rusqlite::Result<KeptViewedFile> {
         commit: row.get(4)?,
         blob: row.get(5)?,
         viewed_at: row.get(6)?,
+    })
+}
+
+/// The review Fleet last wrote for a person on a pull request, as it wrote it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptWrittenReview {
+    pub manifest_id: String,
+    /// As the forge names it: `owner/name`.
+    pub repository: String,
+    pub number: u64,
+    /// `approved`, `changes_requested` or `commented`.
+    pub said: String,
+    /// The commit it was written on, whole, where Fleet knew it.
+    pub commit: Option<String>,
+    pub submitted_at: String,
+}
+
+fn written(row: &Row<'_>) -> rusqlite::Result<KeptWrittenReview> {
+    Ok(KeptWrittenReview {
+        manifest_id: row.get(0)?,
+        repository: row.get(1)?,
+        number: row.get::<_, i64>(2)?.try_into().unwrap_or_default(),
+        said: row.get(3)?,
+        commit: row.get(4)?,
+        submitted_at: row.get(5)?,
     })
 }
 
@@ -208,6 +233,37 @@ impl Store {
             .map(|_| ())
             .map_err(fault("picking a review layout"))
             .map_err(WriteError::Database)
+    }
+
+    /// Keep the review Fleet just wrote for a person, replacing the one before.
+    pub fn keep_written_review(&mut self, kept: &KeptWrittenReview) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO pull_request_reviewed \
+                 (manifest_id, repository, number, said, commit_sha, submitted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                rusqlite::params![
+                    kept.manifest_id,
+                    kept.repository,
+                    number_of(kept.number),
+                    kept.said,
+                    kept.commit,
+                    kept.submitted_at
+                ],
+            )
+            .map(|_| ())
+            .map_err(fault("keeping a written review"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Every review Fleet wrote, the latest for each pull request.
+    pub fn written_reviews(&self) -> Result<Vec<KeptWrittenReview>, WriteError> {
+        let unreadable = |why: rusqlite::Error| WriteError::Database(fault("reading written reviews")(why));
+        let mut statement = self
+            .conn
+            .prepare("SELECT manifest_id, repository, number, said, commit_sha, submitted_at FROM pull_request_reviewed")
+            .map_err(unreadable)?;
+        let rows = statement.query_map([], written).map_err(unreadable)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(unreadable)
     }
 
     /// The layout picked, if one was.

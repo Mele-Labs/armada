@@ -150,12 +150,16 @@ fn a_search_that_would_not_stay_inside_the_served_repositories_is_not_asked() {
 
 #[test]
 fn a_row_carries_the_persons_own_latest_review_and_a_pending_one_is_none() {
-    let reviewed = format!("{}\tCHANGES_REQUESTED\t{SHA}", row("", "", ""));
+    let reviewed = format!("{}\tCHANGES_REQUESTED\t{SHA}\t2026-10-22T04:30:00Z", row("", "", ""));
     let pending = format!("{}\tPENDING\t{SHA}", row("", "", ""));
     let rows = listed_folded(&[reviewed, pending, row("", "", "")], Teams::Unwanted);
     assert_eq!(
         rows[0].my_latest,
-        Some(LatestReview { said: LatestReviewSaid::ChangesRequested, commit: Some(SHA.to_string()) })
+        Some(LatestReview {
+            said: LatestReviewSaid::ChangesRequested,
+            commit: Some(SHA.to_string()),
+            submitted_at: Some("2026-10-22T04:30:00Z".to_string()),
+        })
     );
     assert_eq!(rows[1].my_latest, None);
     assert_eq!(rows[2].my_latest, None);

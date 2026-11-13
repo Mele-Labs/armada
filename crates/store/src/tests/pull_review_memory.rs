@@ -1,7 +1,7 @@
 //! What the person remembers of a pull request between visits, kept across a restart.
 
 use crate::tests::{open, TempDir};
-use crate::{KeptReviewLayout, KeptSeenHead, KeptViewedFile};
+use crate::{KeptReviewLayout, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
 
 fn seen(number: u64, head: &str, at: &str) -> KeptSeenHead {
     KeptSeenHead {
@@ -74,4 +74,29 @@ fn a_named_layout_is_saved_picked_and_deleting_it_drops_the_pick() {
     store.forget_review_layout("Wide").unwrap();
     assert_eq!(store.review_layouts().unwrap(), vec![]);
     assert_eq!(store.picked_review_layout().unwrap(), None);
+}
+
+fn written(number: u64, said: &str, at: &str) -> KeptWrittenReview {
+    KeptWrittenReview {
+        manifest_id: "harbour".to_string(),
+        repository: "example-org/harbour".to_string(),
+        number,
+        said: said.to_string(),
+        commit: Some("a1b2c3d4".to_string()),
+        submitted_at: at.to_string(),
+    }
+}
+
+#[test]
+fn the_review_fleet_wrote_is_kept_per_pull_request_and_a_later_one_replaces_it() {
+    let dir = TempDir::new();
+    {
+        let mut store = open(&dir);
+        store.keep_written_review(&written(41, "commented", "2026-11-13T09:00:00Z")).expect("kept");
+        store.keep_written_review(&written(41, "approved", "2026-11-13T10:00:00Z")).expect("kept");
+        store.keep_written_review(&written(42, "changes_requested", "2026-11-13T09:30:00Z")).expect("kept");
+    }
+    let mut kept = open(&dir).written_reviews().expect("read");
+    kept.sort_by_key(|it| it.number);
+    assert_eq!(kept, [written(41, "approved", "2026-11-13T10:00:00Z"), written(42, "changes_requested", "2026-11-13T09:30:00Z")]);
 }

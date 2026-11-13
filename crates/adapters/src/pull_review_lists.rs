@@ -19,11 +19,11 @@ pub(crate) const QUERY: &str = "query($q:String!,$n:Int!,$me:String){search(quer
     author{login} updatedAt reviewDecision \
     commits(last:1){nodes{commit{statusCheckRollup{state}}}} \
     reviewRequests(first:10){nodes{requestedReviewer{... on Team{name slug organization{login}}}}} \
-    myReview:reviews(author:$me,last:1,states:[APPROVED,CHANGES_REQUESTED,COMMENTED]){nodes{state commit{oid}}}}}}}";
+    myReview:reviews(author:$me,last:1,states:[APPROVED,CHANGES_REQUESTED,COMMENTED]){nodes{state submittedAt commit{oid}}}}}}}";
 
 /// One pull request a line: repository, number, title, branch, address, draft, head, author,
 /// updated, review decision, rollup state, then the teams asked (RS apart) as `org/slug` and the
-/// team's name (US apart), then the person's own latest review's state and commit.
+/// team's name (US apart), then the person's own latest review's state, commit and submitted time.
 /// `// ""` on every field so a `null` cannot stop jq mid-stream.
 const LINES: &str = concat!(
     r#".data.search.nodes[]? | select((.number // null) != null) | "#,
@@ -34,7 +34,8 @@ const LINES: &str = concat!(
     r#"(.commits.nodes[0].commit.statusCheckRollup.state // ""), "#,
     r#"([.reviewRequests.nodes[]? | .requestedReviewer | select((.slug // "") != "") | "#,
     r#""\(.organization.login // "")/\(.slug)\u001f\(.name // .slug)"] | join("\u001e")), "#,
-    r#"(.myReview.nodes[0].state // ""), (.myReview.nodes[0].commit.oid // "")] | @tsv"#
+    r#"(.myReview.nodes[0].state // ""), (.myReview.nodes[0].commit.oid // ""), "#,
+    r#"(.myReview.nodes[0].submittedAt // "")] | @tsv"#
 );
 
 /// The teams the signed-in account is on, as `org/slug`, one to a line.
@@ -136,7 +137,7 @@ pub(crate) fn listed_folded(lines: &[String], teams: Teams<'_>) -> Vec<ListedPul
             let (title, branch, address, draft) = (next(), next(), next(), next());
             let (head, author, updated_at, decision, rollup, asked) =
                 (next(), next(), next(), next(), next(), next());
-            let (my_state, my_commit) = (next(), next());
+            let (my_state, my_commit, my_at) = (next(), next(), next());
             Some(ListedPull {
                 repository,
                 number,
@@ -150,22 +151,23 @@ pub(crate) fn listed_folded(lines: &[String], teams: Teams<'_>) -> Vec<ListedPul
                 checks: checks_of(&rollup),
                 review: review_standing(&decision),
                 team: team_named(&asked_of(&asked), &teams),
-                my_latest: latest_of(&my_state, &my_commit),
+                my_latest: latest_of(&my_state, &my_commit, &my_at),
             })
         })
         .collect()
 }
 
-/// The person's own latest review, from the forge's state word and the commit it was on. A
-/// state that is not a submitted verdict is none.
-pub(crate) fn latest_of(state: &str, commit: &str) -> Option<LatestReview> {
+/// A person's latest review, from the forge's state word, the commit it was on and when it was
+/// submitted. A state that is not a submitted verdict, as a pending or dismissed one, is none.
+pub(crate) fn latest_of(state: &str, commit: &str, at: &str) -> Option<LatestReview> {
     let said = match state {
         "APPROVED" => LatestReviewSaid::Approved,
         "CHANGES_REQUESTED" => LatestReviewSaid::ChangesRequested,
         "COMMENTED" => LatestReviewSaid::Commented,
         _ => return None,
     };
-    Some(LatestReview { said, commit: (!commit.is_empty()).then(|| commit.to_string()) })
+    let named = |it: &str| (!it.is_empty()).then(|| it.to_string());
+    Some(LatestReview { said, commit: named(commit), submitted_at: named(at) })
 }
 
 /// The teams asked, as the reduction joins them: `org/slug` US name, RS apart.

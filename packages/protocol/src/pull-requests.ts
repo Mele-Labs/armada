@@ -5,7 +5,12 @@
 // The header rules in `protocol.ts` hold here.
 
 import type { PullRequestOwner } from "./merge-lines";
-import type { PullSeen, PullViewedFile } from "./pull-review-memory";
+import type {
+  PullMyReview,
+  PullSeen,
+  PullSinceMyReview,
+  PullViewedFile,
+} from "./pull-review-memory";
 import type { PullReviewComment, PullReviewThread } from "./pull-reviews";
 
 /** Where a pull request stands. A draft is open and not yet ready for review. */
@@ -168,6 +173,10 @@ export type PullRequestPage = {
   seen?: PullSeen;
   /** Each file he marked viewed, and whether it still is. Absent when he marked none. */
   viewed?: PullViewedFile[];
+  /** His own latest submitted review. Absent where he has none, or Fleet does not know who he is. */
+  my_review?: PullMyReview;
+  /** What came since that review. Present exactly when `my_review` is. */
+  since_my_review?: PullSinceMyReview;
 };
 
 /**

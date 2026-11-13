@@ -581,7 +581,7 @@ pub use pull_reviews::{
 };
 pub use pull_review_memory::{
     MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview,
-    PullRequestCompare, PullRequestCompareOf, PullSeen, PullViewedFile, ReviewLayout, ReviewLayouts,
+    PullRequestCompare, PullRequestCompareOf, PullSeen, PullSinceMyReview, PullViewedFile, ReviewLayout, ReviewLayouts,
     SaveReviewLayout, UnmarkFileViewed, DEFAULT_REVIEW_LAYOUT,
 };
 pub use read_in::{

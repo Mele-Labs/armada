@@ -295,6 +295,12 @@ pub struct PullRequestPage {
     /// Each file he marked viewed, and whether it still is. Left out when he marked none.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub viewed: Vec<crate::pull_review_memory::PullViewedFile>,
+    /// His own latest submitted review. Absent where he has none, or Fleet does not know who he is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub my_review: Option<crate::pull_review_memory::PullMyReview>,
+    /// What came since that review. Present exactly when `my_review` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since_my_review: Option<crate::pull_review_memory::PullSinceMyReview>,
 }
 
 /// `get_pull_request_file`'s query string: the file a person opened, as the page's `files` names it.

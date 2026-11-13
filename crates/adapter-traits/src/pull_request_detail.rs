@@ -220,6 +220,9 @@ pub struct PullRequestPageFacts {
     pub threads: Vec<ReviewThreadFacts>,
     /// Who is asked to review, then who reviewed unasked, each once.
     pub reviewers: Vec<Reviewer>,
+    /// Each reviewer's latest submitted review, by login as the forge writes it. A pending review
+    /// and a dismissed one are nobody's latest.
+    pub latest_reviews: alloc::collections::BTreeMap<String, crate::LatestReview>,
 }
 
 /// What a person writes on a pull request.

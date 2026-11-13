@@ -99,6 +99,8 @@ fn page(manifest_id: ManifestId, number: u64) -> PullRequestPage {
         draft: None,
         seen: None,
         viewed: Vec::new(),
+        my_review: None,
+        since_my_review: None,
     }
 }
 
