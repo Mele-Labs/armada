@@ -693,6 +693,17 @@ pub struct WithdrawDraft {
     pub session_id: Option<SessionId>,
 }
 
+/// `handoff_brief`: a Job the Context rule told it is past its limit sends its brief, and Fleet raises
+/// the handoff card for the person. **Refused unless Fleet asked this Job for one.**
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HandoffBrief {
+    /// Where the work is, what is open, what the Job holds. The new Job starts from it.
+    pub brief: String,
+    /// Which Job sends it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
 /// `withdraw_window`: a session takes back a walk it showed with `show_window`, so it leaves the
 /// person's Needs you list and stops holding the session's pending plan. Showing the page again
 /// makes it wait again.
@@ -745,6 +756,9 @@ pub enum WaitingSource {
     /// Fleet: a draft the session proposed with `propose_draft` waits on the person. Read off its
     /// row as `draft:<row>`; settled by `answer_waiting`.
     Draft,
+    /// Fleet: the handoff card a Job's `handoff_brief` raised is not answered. Read off its `handoff`
+    /// row as `handoff:<row>`; settled by `answer_waiting` with a `choice`, and Dismiss is Stay.
+    Handoff,
     /// Fleet: a sketch the session showed with `show_sketch` is not answered. Derived on every read off
     /// the sketch, never kept: id the sketch's target `sketch:<title>`, text its title, a `message` act
     /// that opens the Session. Settled by `answer_sketch` on its card, or by dismissing it; answering it

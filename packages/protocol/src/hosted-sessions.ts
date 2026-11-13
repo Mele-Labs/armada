@@ -35,6 +35,13 @@ export type DraftSettled = {
   at: string;
 };
 
+/** What the person pressed on a Job's handoff card: carry on in a new Job, stay (his Dismiss too), don't ask again, or remind at `tokens`. */
+export type HandoffPick =
+  | { kind: "carry_on" }
+  | { kind: "stay" }
+  | { kind: "quiet" }
+  | { kind: "remind_at"; tokens: number };
+
 /** `POST /sessions/start`. The row holds no slot and no branch until the agent writes. */
 export type StartSession = {
   manifest_id: string;
@@ -864,6 +871,21 @@ export type SessionRow =
       before?: string;
       settled?: DraftSettled;
       change?: number;
+    }
+  /**
+   * Fleet's card asking whether a Job past its context limit carries on in a new one, raised by the brief the Job sent with
+   * `handoff_brief`. `tokens` is its context then, `limit` the Context rule's, `remind_at` the three figures the card offers.
+   * **Replaced by id once answered**, with `answer` set to what he pressed.
+   */
+  | {
+      kind: "handoff";
+      id: string;
+      at: string;
+      tokens: number;
+      limit: number;
+      brief: string;
+      remind_at: number[];
+      answer?: HandoffPick;
     }
   /** A call put to the person. Replaced as it is answered. */
   | {

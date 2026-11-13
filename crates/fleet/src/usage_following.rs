@@ -8,8 +8,8 @@
 //! ended hears nothing and is read again at its next turn. The trip is written after the words were
 //! taken, never before.
 //!
-//! **The Context rule answers to the owner first.** His answer on the Job's own card (stay and do not
-//! ask again, or remind at a figure) wins for that Job; then the Large context setting says ask, carry
+//! **The Context rule answers to the owner first.** His answer on the Job's handoff card (don't ask
+//! again, or remind at a figure) wins for that Job; then the Large context setting says ask, carry
 //! on automatically, or never. `session_host::handoff_answers`.
 
 use std::sync::Arc;
@@ -102,6 +102,10 @@ where
                 };
                 if let Some(kind) = kind.filter(|_| sent) {
                     self.tell_kept(session, kind).await;
+                }
+                // Told to send its brief: `handoff_brief` takes one from it now.
+                if context && !handing && sent {
+                    self.handoff_asked(session).await;
                 }
                 if context && reminded && sent {
                     self.handoff_reminded(session).await;

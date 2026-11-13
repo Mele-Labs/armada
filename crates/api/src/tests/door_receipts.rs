@@ -109,6 +109,7 @@ fn long_lived() -> SessionRecord {
                 }),
             ),
             waiting("draft:9", "Pull request description for the label", WaitingSource::Draft, None),
+            waiting("handoff:11", "Carry on in a new Job?", WaitingSource::Handoff, None),
         ],
         done_since: Some(at()),
         done_summary: None,
@@ -219,6 +220,7 @@ const DRAFT: &str = r#"{"title":" Pull request description for the label ","text
 const WITHDRAW_SKETCH: &str = r#"{"title":" Request flow "}"#;
 const WITHDRAW_DOCUMENT: &str = r#"{"path":" .armada/documents/lease.html "}"#;
 const WITHDRAW_DRAFT: &str = r#"{"draft":" draft:9 "}"#;
+const BRIEF: &str = r#"{"brief":"The fix is on branch fix/reader."}"#;
 const WAIT: &str = r#"{"items":[{"id":"merge","text":"Approve the pull request"}]}"#;
 
 #[tokio::test]
@@ -229,7 +231,7 @@ async fn waiting_for_answers_each_item_as_it_was_kept_with_its_act_steps_and_opt
     assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
     assert_eq!(
         said,
-        r#"{"session_id":"session-1","waiting_for":[{"id":"merge","text":"Approve the pull request","act":{"kind":"run","target":"scripts/restart"},"steps":["Quit Bridge","Run `scripts/restart`"]},{"id":"pick","text":"Which of the two","options":[{"label":"The first"},{"label":"The second","description":"Slower"}]}],"fleet":[{"id":"walk:http://localhost:5173/","kind":"walk","text":"Walk the page"},{"id":"window_ask:7","kind":"window_ask","text":"Is this the right label?"},{"id":"draft:9","kind":"draft","text":"Pull request description for the label"}]}"#
+        r#"{"session_id":"session-1","waiting_for":[{"id":"merge","text":"Approve the pull request","act":{"kind":"run","target":"scripts/restart"},"steps":["Quit Bridge","Run `scripts/restart`"]},{"id":"pick","text":"Which of the two","options":[{"label":"The first"},{"label":"The second","description":"Slower"}]}],"fleet":[{"id":"walk:http://localhost:5173/","kind":"walk","text":"Walk the page"},{"id":"window_ask:7","kind":"window_ask","text":"Is this the right label?"},{"id":"draft:9","kind":"draft","text":"Pull request description for the label"},{"id":"handoff:11","kind":"handoff","text":"Carry on in a new Job?"}]}"#
     );
 }
 
@@ -445,6 +447,14 @@ async fn propose_draft_answers_the_id_of_the_draft() {
 }
 
 #[tokio::test]
+async fn handoff_brief_answers_the_id_of_the_card_it_raised() {
+    let (app, _) = a_fleet();
+    let said = through_the_door(&app, "handoff_brief", BRIEF).await;
+    assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
+    assert_eq!(said, r#"{"session_id":"session-1","handoff":"handoff:11"}"#);
+}
+
+#[tokio::test]
 async fn withdraw_draft_answers_the_draft_it_took_back() {
     let (app, _) = a_fleet();
     let said = through_the_door(&app, "withdraw_draft", WITHDRAW_DRAFT).await;
@@ -492,6 +502,7 @@ async fn off_the_door_each_act_answers_the_whole_row_as_it_did() {
         ("/sessions/window/ask", ASK),
         ("/sessions/draft", DRAFT),
         ("/sessions/withdraw_draft", WITHDRAW_DRAFT),
+        ("/sessions/handoff_brief", BRIEF),
         ("/sessions/waiting", WAIT),
         ("/sessions/done", "{}"),
     ] {

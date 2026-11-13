@@ -18,7 +18,6 @@ use ipc::{
     RunOrNot, SessionAskState, SessionMode, SessionRow, TerminalAsked,
 };
 
-use super::handoff_answers::HandoffAnswer;
 use super::serving::mode_of;
 use crate::daemon::Fleet;
 use crate::asks::{answering, blocked_folder, question_unanswered, restarted, unanswered, Reach, Said};
@@ -256,15 +255,9 @@ where
 
         let held = asks.hold();
         let mut said_aloud = None;
-        let mut handoff = HandoffAnswer::Other;
-        let mut chosen = Vec::new();
-        let (mut decided, state) = match tokio::time::timeout(held, answer).await {
+        let (decided, state) = match tokio::time::timeout(held, answer).await {
             Ok(Ok(said)) => {
                 said_aloud = answers_text(&said);
-                if said.answer == CallAnswer::AllowOnce {
-                    handoff = HandoffAnswer::of(&said.answers);
-                    chosen = said.answers.clone();
-                }
                 let state = match said.answer {
                     CallAnswer::AllowOnce => SessionAskState::AllowedOnce,
                     CallAnswer::Refuse => SessionAskState::Refused,
@@ -333,67 +326,7 @@ where
             self.person_said(id, &row_id, text).await;
         }
         let _ = self.published_hosted(id).await;
-        // **Only the person's own press starts a successor.** The hand runs after this call answers: it
-        // ends the process the call came from, and the call with it. His other two answers are kept on
-        // the Job's ledger, read off this card and never off what the agent says.
-        match handoff {
-            HandoffAnswer::Yes => decided = self.handed_on(id, Self::handoff_brief(&asking.questions())).await,
-            HandoffAnswer::Quiet => self.handoff_quieted(id).await,
-            HandoffAnswer::Remind => {
-                if let Some(figure) = self.handoff_remind_asked(id, &hosting.manifest_id).await {
-                    chosen.push(figure);
-                    decided = RunOrNot::Allow { updated_input: asking.answered(&chosen) };
-                }
-            }
-            HandoffAnswer::Other => {}
-        }
         Ok(decided)
-    }
-
-    /// The person chose to be reminded at a higher limit: Fleet's own follow-on question,
-    /// [`ipc::HANDOFF_REMIND_QUESTION`], is put to him on the same Job's card while the Job's call
-    /// waits, and the figure he presses is kept. His answer to it, for the Job to read beside his
-    /// first; `None` where he did not choose a figure inside the hold.
-    async fn handoff_remind_asked(&self, id: &str, manifest: &str) -> Option<ipc::QuestionAnswer> {
-        let follow = AskingToRun::handoff_remind();
-        let asks = self.hosts().asks();
-        let (waiting, answer) = asks.minted(&ManifestId::carried(manifest), &follow, &self.now());
-        self.hosts().of(id).state().asked = Some(waiting.clone());
-        self.row_put(id, self.ask_row(id, &waiting, SessionAskState::Waiting, None)).await;
-        let _ = self.published_hosted(id).await;
-        let said = match tokio::time::timeout(asks.hold(), answer).await {
-            Ok(Ok(said)) => Some(said),
-            Ok(Err(_)) => None,
-            Err(_) => {
-                let _ = asks.withdraw(&waiting.call);
-                None
-            }
-        };
-        let state = match &said {
-            Some(said) if said.answer == CallAnswer::AllowOnce => SessionAskState::AllowedOnce,
-            Some(_) => SessionAskState::Refused,
-            None => SessionAskState::Unanswered,
-        };
-        let via = {
-            let host = self.hosts().of(id);
-            let mut held = host.state();
-            held.asked = None;
-            held.answered_via.take()
-        };
-        self.row_put(id, self.ask_row(id, &waiting, state, via)).await;
-        let said = said?;
-        if let Some(text) = answers_text(&said) {
-            self.person_said(id, &format!("ask-{}-{id}", waiting.call), text).await;
-        }
-        let picked = said.answers.into_iter().find(|one| one.question == ipc::HANDOFF_REMIND_QUESTION)?;
-        let tokens = picked.chosen.iter().find_map(|label| {
-            ipc::HANDOFF_REMIND_AT.into_iter().find(|tokens| ipc::handoff_figure(*tokens) == *label)
-        });
-        if let Some(tokens) = tokens {
-            self.handoff_remind_kept(id, tokens).await;
-        }
-        let _ = self.published_hosted(id).await;
-        tokens.map(|_| picked)
     }
 
     /// What the person chose, as a message of theirs in the thread: the ask row settles into a

@@ -185,7 +185,7 @@ pub(super) fn pick_of(pick: &str, item: &WaitingItem) -> String {
 
 /// What only Fleet raises, each for one thing he does: an ask read off a reply beside one of these
 /// says what it already asks.
-const FLEETS_OWN: &[WaitingSource] = &[WaitingSource::HeldChild, WaitingSource::Plan, WaitingSource::Walk, WaitingSource::Draft, WaitingSource::Sketch, WaitingSource::Document];
+const FLEETS_OWN: &[WaitingSource] = &[WaitingSource::HeldChild, WaitingSource::Plan, WaitingSource::Walk, WaitingSource::Draft, WaitingSource::Handoff, WaitingSource::Sketch, WaitingSource::Document];
 
 /// A Job's items as the Operator meets them: **an ask read off a reply is left out while one of
 /// Fleet's own items stands**, since the reply only repeats what that item asks. Alone, it is raised.

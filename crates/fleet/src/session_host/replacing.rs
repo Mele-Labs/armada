@@ -1,20 +1,18 @@
-//! A Job hands on to a new one in its place, once the person has said yes on the Job's own question
-//! card, presses Retry on the band of a hand that failed, or set Large context to carry on
+//! A Job hands on to a new one in its place, once the person has pressed Carry on on the Job's
+//! handoff card, presses Retry on the band of a hand that failed, or set Large context to carry on
 //! automatically. `docs/concepts/session/a-handed-off-job.md`.
 //!
-//! **Fleet never starts the successor unasked.** The ways in are [`Fleet::handed_on`], called from
-//! the permission door with the person's answer to a question that chose [`ipc::HANDOFF_YES`], or
-//! from his message answering such a question kept for a walk (`handoff_answered_later`),
+//! **Fleet never starts the successor unasked.** The ways in are [`Fleet::handed_on_apart`], called
+//! with his press of [`ipc::HANDOFF_YES`] on the card (`handoff_answered`),
 //! [`Fleet::handoff_retried`], the person's press on a standing `handoff_failed` row, and
 //! [`Fleet::handed_on_by_setting`], the Large context setting at carry on automatically. **The hand runs
 //! on a task of its own, never on the Job's call.** Ending the old Job ends the process the call came
 //! from; the connection goes with it, and the server drops a hand run on that call partway, leaving
-//! a `handoff_starting` that never settles and a successor with no link (19 Oct 2026). The call is
-//! answered first, telling the agent the work moved and to stop.
+//! a `handoff_starting` that never settles and a successor with no link (19 Oct 2026).
 //!
 //! **The successor is a fresh Job, not a fork.** A fork would carry the whole thread and start as
 //! heavy as the Job it replaces. What it starts from is [`Fleet::handoff_of`] (ids, where the work
-//! is, the last of the thread) and the brief the Job wrote in the card, both kept on its `replaces`
+//! is, the last of the thread) and the brief the Job sent with `handoff_brief`, both kept on its `replaces`
 //! row and told to every process of it in the system prompt.
 //!
 //! **The order is the point.** The new Job is started first, then the two are linked and published,
@@ -32,7 +30,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    CloseSession, ManifestId, ReleaseSessionHolds, RetryHandoff, RunOrNot, SessionId,
+    CloseSession, ManifestId, ReleaseSessionHolds, RetryHandoff, SessionId,
     SessionRecord, StartSession,
 };
 use store::{AttachmentState, Holder, KeptAttachment};
@@ -63,8 +61,6 @@ const STOPPED: &str = "fleet stopped during the hand off";
 /// How long after a hand began a successor an older Fleet made, which wrote no id, was started.
 const MADE_WITHIN_MS: i64 = 60_000;
 
-/// What the old Job's agent reads as the answer to its card.
-const MOVED: &str = "The work moved to a new job, which carries on from your brief. Stop here: end your turn now and make no more tool calls.";
 /// The new Job's first turn, so it carries on without the person writing first.
 const CARRY_ON: &str = "Carry on with the work of the job you took the place of. What it left you, with its brief if it wrote one, is in your instructions.";
 
@@ -73,7 +69,7 @@ const STILL_RUNNING: &str = "fleet.handoff_running";
 const HANDOFF_FAILED: &str = "fleet.handoff_failed";
 
 /// How much of a brief is kept: a brief is where the work stands, not the work.
-const BRIEF_CHARS: usize = 6_000;
+pub(crate) const BRIEF_CHARS: usize = 6_000;
 
 /// What a Job is told when the Large context setting carries it on with no card: no card carries a
 /// brief, so it is asked for one.
@@ -158,25 +154,12 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The brief the Job wrote on its card: the description of the option that carries on. Read off the
-    /// question Fleet holds, so nothing the agent calls says it.
-    pub(crate) fn handoff_brief(questions: &[ipc::AskedQuestion]) -> Option<String> {
-        let said = questions
-            .iter()
-            .flat_map(|question| question.options.iter())
-            .find(|option| option.label == ipc::HANDOFF_YES)?
-            .description
-            .trim();
-        (!said.is_empty()).then(|| said.chars().take(BRIEF_CHARS).collect())
-    }
-
-    /// The person said yes to Job `old`'s card. Marks the hand running, starts it on a task of its own
-    /// and answers the call at once: the hand ends the process this call came from.
-    pub(crate) async fn handed_on(self: &Arc<Self>, old: &str, brief: Option<String>) -> RunOrNot {
+    /// The person pressed Carry on on Job `old`'s card. Marks the hand running and starts it on a task
+    /// of its own: the hand ends the Job's process.
+    pub(crate) async fn handed_on(self: &Arc<Self>, old: &str, brief: Option<String>) {
         self.handoff_mark(old, STARTING, old, AttachmentState::Standing, brief_of(&brief)).await;
         let (fleet, old) = (Arc::clone(self), old.to_string());
         tokio::spawn(async move { fleet.handing_on(&old, brief).await });
-        RunOrNot::Deny { message: String::from(MOVED) }
     }
 
     /// [`Self::handed_on`] on a task of its own, for a caller with no call to answer. **Not async, and

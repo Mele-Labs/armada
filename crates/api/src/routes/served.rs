@@ -522,6 +522,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/withdraw_draft",
     },
     Route {
+        operation: "handoff_brief",
+        method: "POST",
+        path: "/sessions/handoff_brief",
+    },
+    Route {
         operation: "answer_sketch",
         method: "POST",
         path: "/sessions/sketch/answer",
