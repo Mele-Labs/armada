@@ -677,25 +677,7 @@ impl JobsList {
         let (scope, order) = read_deck();
         crate::queued::begin(true, cx);
         let jobs = fleet.read(cx).held().jobs.clone();
-        let mut list = Self::with(jobs, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx);
-        list.resume = crate::job_view::place_kept_open();
-        list
-    }
-
-    /// Open the Job kept open at the last run once Fleet lists Jobs: nothing where it lists none yet, and the
-    /// wish is let go where the Job is gone or another was opened first. True where it opened one.
-    fn resume_open(&mut self) -> bool {
-        if self.resume.is_none() || self.jobs.is_empty() {
-            return false;
-        }
-        let Some(id) = self.resume.take() else { return false };
-        if self.opened.is_some() || !self.jobs.iter().any(|job| job.id.as_str() == id) {
-            return false;
-        }
-        let id = SharedString::from(id);
-        self.focused = Some(id.clone());
-        self.opened = Some(id);
-        true
+        Self::with(jobs, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx)
     }
 
     /// The list on mock Jobs, which never change, with the View as a first start has it, so a walk shows what he will.
@@ -724,7 +706,7 @@ impl JobsList {
             remember,
             focused: None,
             opened: None,
-            resume: None,
+            resume: if remember { crate::job_view::place_kept_open() } else { None },
             picks: 0,
             made: Vec::new(),
             focus: cx.focus_handle(),
@@ -769,6 +751,22 @@ impl JobsList {
             self.order.extend(fresh);
             self.keep();
         }
+    }
+
+    /// Open the Job kept open at the last run once Fleet lists Jobs: nothing where it lists none yet, and the
+    /// wish is let go where the Job is gone or another was opened first. True where it opened one.
+    fn resume_open(&mut self) -> bool {
+        if self.resume.is_none() || self.jobs.is_empty() {
+            return false;
+        }
+        let Some(id) = self.resume.take() else { return false };
+        if self.opened.is_some() || !self.jobs.iter().any(|job| job.id.as_str() == id) {
+            return false;
+        }
+        let id = SharedString::from(id);
+        self.focused = Some(id.clone());
+        self.opened = Some(id);
+        true
     }
 
     pub fn focus_handle(&self) -> &FocusHandle {

@@ -253,8 +253,8 @@ mod tests {
     #[test]
     fn the_tab_comes_back_for_each_job() {
         let back = Kept::from_text(&kept().text());
-        assert_eq!(back.jobs["job-a"].top.as_deref().and_then(zone_of), Some(Zone::Plan));
-        assert_eq!(back.jobs["job-b"].top.as_deref().and_then(zone_of), Some(Zone::Done));
+        assert_eq!(back.jobs["job-a"].top.as_deref().and_then(zone_of).map(Zone::id), Some("plan"));
+        assert_eq!(back.jobs["job-b"].top.as_deref().and_then(zone_of).map(Zone::id), Some("done"));
         assert_eq!(back.jobs["job-a"].row, Some(("draft".into(), "dra-1".into())));
     }
 
@@ -268,8 +268,8 @@ mod tests {
 
     #[test]
     fn a_zone_no_longer_built_is_no_tab() {
-        assert_eq!(zone_of("plan"), Some(Zone::Plan));
-        assert_eq!(zone_of("retired"), None);
+        assert_eq!(zone_of("plan").map(Zone::id), Some("plan"));
+        assert!(zone_of("retired").is_none());
     }
 
     #[test]

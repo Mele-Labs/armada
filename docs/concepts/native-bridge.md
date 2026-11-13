@@ -154,6 +154,8 @@ The parity check takes each row here as chosen.
 | A pinned sketch's head in a narrow thread | The band shrinks and its title wraps beside Revision, open and Fold | The title is one line, cut short, so Fold stays inside the card |
 | The message box's menus in a box under 400px wide | The menus lose their floor and their words truncate to nothing beside the caret | The words are not drawn, and each menu keeps its glyph and caret, so Send stays on the row at native's control sizes |
 | Close pane | The pane leaves the saved arrangement, and the Layout menu brings it back | The pane stays closed on that Job until Bridge restarts; the Layout menu, splits and the saved arrangement are held |
+| The Job open after a restart | Keeps no open Job: `cockpit/deck/store.ts` holds the selection in memory and writes only the order, filters and scope | Opens on the Job that was open, where Fleet still lists it; a Job it no longer lists leaves the screen as a first start has it, with no message. Kept in `native-place` beside `native-deck` |
+| A thread's scrolled place after a restart | Keeps it in the window alone, so Back finds it, and none within 40px of the end (`session-view/place.ts:11,20`); a restart drops it | Keeps the row at the top and how far into it, where he had scrolled up, and puts it back when the thread is read. A thread that followed its tail keeps nothing and opens following |
 | Zoom from a tab in the right column | Each tab's own menu has Zoom or Restore | The column's tabs have no menu yet: ⌥⌘Enter, a double press on the strip and Restore zoom them. The thread tab's menu has Zoom |
 | A terminal's tab glyph | `square-terminal`, which the icon registry reserves for a Session | `file-terminal`, the glyph the registry gives the Job's shell, as the dispatch line's Terminal kind and ⌘T's palette row draw it |
 | A terminal tab's menu | Send to agent, Copy terminal ID, Rename, Move to window, Zoom, Split right, Split down and Close | Send to agent, Copy terminal ID, Rename and Close; Move to window, Zoom and the splits wait for native panes to have them |
@@ -167,8 +169,6 @@ The parity check takes each row here as chosen.
 | Add lifecycle over a workflow's lanes in Settings | Drawn where the lanes can be edited | Not drawn: native's lanes are read-only for now |
 | The clash shown in the Settings walk | api's own copy of feature, where Platform and Mobile differ | armada's own copy of feature, with the same words, since the mock serves no api repository |
 | New project (owner) | `LocateForm`: a name and a parent folder, made into a git repository | A project sheet: a name, his repositories ticked whole or by folder, a clone or a new repository, where its file is kept, and the settings it starts with. Create makes the project, goes to it and starts a Job in it on its empty thread |
-| The Job open after a restart | Keeps no open Job: `cockpit/deck/store.ts` holds the selection in memory and writes only the order, filters and scope | Opens on the Job that was open, where Fleet still lists it; a Job it no longer lists leaves the screen as a first start has it, with no message. Kept in `native-place` beside `native-deck` |
-| A thread's scrolled place after a restart | Keeps it in the window alone, so Back finds it, and none within 40px of the end (`session-view/place.ts:11,20`); a restart drops it | Keeps the row at the top and how far into it, where he had scrolled up, and puts it back when the thread is read. A thread that followed its tail keeps nothing and opens following |
 
 ## Notifying
 

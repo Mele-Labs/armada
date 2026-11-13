@@ -360,6 +360,8 @@ pub struct JobView {
     row_focus: FocusHandle,
     /// The thread's strip, which scrolls sideways once its tabs are wider than the pane.
     row_strip: gpui::ScrollHandle,
+    /// Where he left off, kept between runs.
+    place: place::Place,
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
@@ -411,8 +413,6 @@ pub struct JobView {
     spine: spine::Spine,
     /// The Jobs a walk reads again for a moment when they come on screen, standing in for Fleet's read.
     mock_reading: HashSet<String>,
-    /// Where he left off, kept between runs.
-    place: place::Place,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -541,6 +541,7 @@ impl JobView {
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
             row_strip: gpui::ScrollHandle::new(),
+            place: place::Place::begin(remember, cx),
             focus: cx.focus_handle(),
             pop: None,
             open_group_set: None,
@@ -570,7 +571,6 @@ impl JobView {
             panes: panes::Panes::default(),
             spine: spine::Spine::new(remember, cx),
             mock_reading: HashSet::new(),
-            place: place::Place::begin(remember, cx),
             _subscriptions: subscriptions,
         }
     }
