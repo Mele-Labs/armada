@@ -117,6 +117,11 @@ impl LanesHost for Canvas {
         true
     }
 
+    /// At its own size, so the steps read; a lane wider than its half pans sideways.
+    fn lanes_fit(&self, _id: &SharedString) -> bool {
+        false
+    }
+
     fn lanes_chosen(&self, _id: &SharedString, node: &str) -> bool {
         self.chosen.iter().any(|one| one == node)
     }
@@ -138,8 +143,8 @@ impl LanesHost for Canvas {
 impl gpui::Render for Canvas {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
-        // One lane and room above and below its steps.
-        let tall = px(LANE_MIN) + look.length(token::SPACE_8);
+        // As tall as its lanes at their own size.
+        let tall = px(LANE_MIN * self.lanes.lanes.len().max(1) as f32);
         div().flex().flex_col().h(tall).min_w_0().child(lanes_canvas(self, &self.id, &self.lanes, &look, cx))
     }
 }
