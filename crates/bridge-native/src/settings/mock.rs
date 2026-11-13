@@ -13,6 +13,8 @@ pub struct MockFleet {
     pub list: SettingsList,
     pub repositories: Vec<RepositorySummary>,
     pub projects: Projects,
+    /// What Kit sets for every project (`values.yml` in Kit's folder).
+    pub kit: ValuesSet,
     /// Whether the mock answers: a walk turns it off to show Settings with Fleet gone.
     pub connected: bool,
     /// How many times settings.json was asked to open.
@@ -99,15 +101,27 @@ pub fn settings() -> SettingsList {
 impl MockFleet {
     pub fn new() -> MockFleet {
         let mut projects = crate::mock::projects();
-        // The first project sets its own reviews and its pull request mode; the rest come from Kit and the defaults.
+        // The first project lands on its own, always merges, and reviews its plans; its pull requests' and walks'
+        // reviews fall through, to Kit and to the default. The rest come from Kit and the defaults.
         if let Some(first) = projects.projects.first_mut() {
             first.values = Some(ValuesSet {
-                pr_mode: ipc::PrMode::from_wire("draft"),
-                reviews: Some(ipc::ReviewsSet { plans: Some("review".into()), pull_requests: Some("review_and_approve".into()), walks: Some("off".into()) }),
+                delivery: Some("auto_land".into()),
+                auto_merge: Some("always".into()),
+                reviews: Some(ipc::ReviewsSet { plans: Some("review_and_approve".into()), ..ipc::ReviewsSet::default() }),
                 ..ValuesSet::default()
             });
         }
-        MockFleet { list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
+        // Every project asks each Job how work lands, opens drafts, merges once checks pass, and reviews pull requests.
+        let kit = ValuesSet {
+            delivery: Some("ask".into()),
+            pr_mode: ipc::PrMode::from_wire("draft"),
+            auto_merge: Some("checks-pass".into()),
+            review_model: Some("opus".into()),
+            reviews: Some(ipc::ReviewsSet { pull_requests: Some("review".into()), ..ipc::ReviewsSet::default() }),
+            ..ValuesSet::default()
+        };
+        MockFleet {
+            kit, list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
             gateway: super::gateway::MockGateway::new(),
             handed: Vec::new(),
@@ -314,39 +328,72 @@ impl MockFleet {
         ipc::decode("ModSessionStarted", br#"{"session_id":"01SESSIONMODJOBAAAAAAAAAAA","title":"Mod Job"}"#).map_err(|why| Refused::said(why.to_string()))
     }
 
-    /// What a project's values come to: its own over Kit's, Kit's over the defaults.
+    /// What a project's values come to: its own over Kit's, Kit's over the defaults, a kind of review at a time.
     pub fn values(&self, project: &str) -> Result<ResolvedValues, Refused> {
         let own = self.projects.projects.iter().find(|one| one.id == project).ok_or_else(|| Refused::said(format!("there is no project {project}")))?.values.clone().unwrap_or_default();
-        let word = |own: Option<String>, kit: Option<&str>, default: Option<&str>| match (own, kit, default) {
-            (Some(value), _, _) => ResolvedValue { value: Some(value), from: ValueLayer::Project },
-            (None, Some(value), _) => ResolvedValue { value: Some(value.into()), from: ValueLayer::Kit },
-            (None, None, value) => ResolvedValue { value: value.map(String::from), from: ValueLayer::Default },
+        Ok(self.resolved(Some(&own)))
+    }
+
+    /// What every project uses: Kit's over the defaults.
+    pub fn every_values(&self) -> Result<ResolvedValues, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        Ok(self.resolved(None))
+    }
+
+    fn resolved(&self, own: Option<&ValuesSet>) -> ResolvedValues {
+        let kit = &self.kit;
+        let word = |own: Option<String>, kit: Option<String>, default: Option<&str>| match (own, kit) {
+            (Some(value), _) => ResolvedValue { value: Some(value), from: ValueLayer::Project },
+            (None, Some(value)) => ResolvedValue { value: Some(value), from: ValueLayer::Kit },
+            (None, None) => ResolvedValue { value: default.map(String::from), from: ValueLayer::Default },
         };
-        let look = own.look.clone().unwrap_or_default();
-        let reviews = match &own.reviews {
-            Some(set) => ResolvedReviews {
-                plans: set.plans.clone().unwrap_or_else(|| "off".into()),
-                pull_requests: set.pull_requests.clone().unwrap_or_else(|| "off".into()),
-                walks: set.walks.clone().unwrap_or_else(|| "off".into()),
-                from: ValueLayer::Project,
-                plans_from: None,
-                pull_requests_from: None,
-                walks_from: None,
-            },
-            None => ResolvedReviews { plans: "off".into(), pull_requests: "off".into(), walks: "off".into(), from: ValueLayer::Default, plans_from: None, pull_requests_from: None, walks_from: None },
+        let own_look = own.and_then(|own| own.look.clone()).unwrap_or_default();
+        let kit_look = kit.look.clone().unwrap_or_default();
+        let own_reviews = own.and_then(|own| own.reviews.clone()).unwrap_or_default();
+        let kit_reviews = kit.reviews.clone().unwrap_or_default();
+        let kind = |own: Option<String>, kit: Option<String>| word(own, kit, Some("off"));
+        let (plans, pull_requests, walks) = (kind(own_reviews.plans, kit_reviews.plans), kind(own_reviews.pull_requests, kit_reviews.pull_requests), kind(own_reviews.walks, kit_reviews.walks));
+        let nearest = [plans.from, pull_requests.from, walks.from].into_iter().max_by_key(|from| *from as u8).unwrap_or_default();
+        let reviews = ResolvedReviews {
+            plans: plans.value.clone().unwrap_or_default(),
+            pull_requests: pull_requests.value.clone().unwrap_or_default(),
+            walks: walks.value.clone().unwrap_or_default(),
+            from: nearest,
+            plans_from: Some(plans.from),
+            pull_requests_from: Some(pull_requests.from),
+            walks_from: Some(walks.from),
         };
-        Ok(ResolvedValues {
-            pr_mode: word(own.pr_mode.map(|mode| mode.as_wire().to_string()), None, Some("ready")),
-            auto_merge: word(own.auto_merge, Some("checks-pass"), Some("never")),
-            review_model: word(own.review_model, Some("opus"), None),
-            layout: word(look.layout, None, None),
-            theme: word(look.theme, None, Some("dark")),
-            density: word(look.density, None, Some("default")),
-            tracker: Some(ipc::ResolvedTracker { value: own.tracker.clone(), from: if own.tracker.is_some() { ValueLayer::Project } else { ValueLayer::Default } }),
+        let pick = |field: fn(&ValuesSet) -> Option<String>| (own.and_then(field), field(kit));
+        let (own_mode, kit_mode) = pick(|set| set.pr_mode.map(|mode| mode.as_wire().to_string()));
+        let (own_merge, kit_merge) = pick(|set| set.auto_merge.clone());
+        let (own_model, kit_model) = pick(|set| set.review_model.clone());
+        let (own_starts, kit_starts) = pick(|set| set.agent_starts.clone());
+        let (own_delivery, kit_delivery) = pick(|set| set.delivery.clone());
+        let tracker = own.and_then(|own| own.tracker.clone());
+        ResolvedValues {
+            pr_mode: word(own_mode, kit_mode, Some("ready")),
+            auto_merge: word(own_merge, kit_merge, Some("never")),
+            review_model: word(own_model, kit_model, None),
+            layout: word(own_look.layout, kit_look.layout, None),
+            theme: word(own_look.theme, kit_look.theme, Some("dark")),
+            density: word(own_look.density, kit_look.density, Some("default")),
+            tracker: Some(ipc::ResolvedTracker { from: if tracker.is_some() { ValueLayer::Project } else { ValueLayer::Default }, value: tracker }),
             reviews: Some(reviews),
+            agent_starts: Some(word(own_starts, kit_starts, Some("at_once"))),
+            delivery: Some(word(own_delivery, kit_delivery, None)),
             autonomy: Vec::new(),
-            ..ResolvedValues::default()
-        })
+        }
+    }
+
+    /// Kit's values kept whole, as Fleet does. Kit names no tracker.
+    pub fn save_kit_values(&mut self, values: ValuesSet) -> Result<ipc::KitValuesSaved, Refused> {
+        if values.tracker.is_some() {
+            return Err(Refused::said("Kit's values name no tracker: a tracker is a project's"));
+        }
+        self.kit = values.clone();
+        Ok(ipc::KitValuesSaved { file: "~/.armada/kit/values.yml".into(), values })
     }
 
     /// The edit: the project's values replaced whole, as Fleet does.

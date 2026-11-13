@@ -11,9 +11,10 @@ use std::rc::Rc;
 
 use gpui::{prelude::*, App, Bounds, Focusable, Context, DismissEvent, Entity, FocusHandle, Keystroke, Pixels, SharedString, Subscription, Task, Window};
 use gpui_component::input::{InputEvent, InputState, TextareaState};
-use ipc::{ResolvedValues, SettingKind, SettingValue, SettingsList};
+use ipc::{Projects, ResolvedValues, SettingKind, SettingValue, SettingsList};
 
 use super::entries::{self, Body, Entry};
+use super::project::{Column, Editing, Key};
 use super::wire::{Refused, Wire};
 use crate::dropdown::{Dropdown, Picked};
 
@@ -54,29 +55,37 @@ pub struct Stops {
     pub reset: FocusHandle,
 }
 
-/// The project Settings was opened on, from the switcher.
+/// Which project's values Settings edits, picked at the top of the sidebar, and what they come to.
 pub struct Scope {
-    pub id: String,
-    pub name: String,
-    /// What its values come to, and from which layer. `None` until Fleet has answered.
+    /// The project picked; `None` is Every project.
+    pub project: Editing,
+    /// What every project uses: `GET /projects/values` for no project. `None` until Fleet has answered.
+    pub every: Option<ResolvedValues>,
+    /// What the project's values come to, and from which layer. `None` until read, and while Every project is picked.
     pub values: Option<ResolvedValues>,
-    pub saving: Option<&'static str>,
+    /// Every project as `GET /projects` last listed them: the picker's rows, each one's own block and its share switch.
+    pub projects: Option<Projects>,
+    /// The one write out, by its cell.
+    pub saving: Option<(Key, Column)>,
     pub refused: Option<String>,
-    /// The words typed into a value that is text: the review model, the theme and the layout.
-    pub typed: BTreeMap<&'static str, Entity<InputState>>,
-    /// Each choice's key, and each typed value's Save.
-    pub stops: BTreeMap<&'static str, FocusHandle>,
-    pub saves: BTreeMap<&'static str, FocusHandle>,
-    /// Whether its Jobs are shared with his other Macs, as `GET /projects` last said. `None` until read, and for a
-    /// project shown as `unread`, which has no switch.
-    pub shared: Option<bool>,
     pub share_refused: Option<String>,
+    /// Each cell's key.
+    pub cells: BTreeMap<(Key, Column), FocusHandle>,
+    /// The picker's key.
+    pub picker: FocusHandle,
+}
+
+impl Scope {
+    fn new(cx: &mut App) -> Scope {
+        let cells = super::project::KEYS.into_iter().flat_map(|key| [(key, Column::Every), (key, Column::Own)]).map(|cell| (cell, cx.focus_handle().tab_stop(true))).collect();
+        Scope { project: None, every: None, values: None, projects: None, saving: None, refused: None, share_refused: None, cells, picker: cx.focus_handle().tab_stop(true) }
+    }
 }
 
 /// What a dropdown open over Settings picks for.
 pub enum Picking {
     Setting(String),
-    Value(&'static str),
+    Cell(Key, Column),
     /// A run's model on Models, by its place in `RUNS`.
     Run(usize),
 }
@@ -103,7 +112,7 @@ pub struct SettingsOverlay {
     /// One save in flight for the whole page, as Classic's section allows (`SchemaSection`).
     pub saving: Option<String>,
     pub refused: BTreeMap<String, String>,
-    pub scope: Option<Scope>,
+    pub scope: Scope,
     /// What opening settings.json answered when it did not open.
     pub file_said: Option<String>,
     pub file_stop: FocusHandle,
@@ -160,6 +169,9 @@ pub fn typed_value(kind: &SettingKind, text: &str) -> Option<SettingValue> {
     }
 }
 
+/// The first page a project sets, which Settings opens on from the project switcher.
+pub const FIRST_VALUES: &str = "values:pull-requests";
+
 /// The draft a typed setting keeps across a close and a restart (`drafts.rs`).
 fn keep_key(key: &str) -> String {
     format!("settings:{key}")
@@ -196,7 +208,7 @@ impl SettingsOverlay {
             stops: BTreeMap::new(),
             saving: None,
             refused: BTreeMap::new(),
-            scope: None,
+            scope: Scope::new(cx),
             file_said: None,
             file_stop: cx.focus_handle().tab_stop(true),
             popup: None,
@@ -217,32 +229,21 @@ impl SettingsOverlay {
         }
     }
 
-    /// Open over whatever has the keys. `project` scopes it to one project, by its id and name. The search is
-    /// cleared every time, and settings.json is read again.
-    pub fn show(&mut self, project: Option<(String, String)>, window: &mut Window, cx: &mut Context<Self>) {
+    /// Open over whatever has the keys, editing `project`, by its id and name, or every project. Opened on a
+    /// project it shows the first page that project sets. The search is cleared every time, and settings.json is
+    /// read again.
+    pub fn show(&mut self, project: Editing, window: &mut Window, cx: &mut Context<Self>) {
         if !self.open {
             self.back_to = window.focused(cx);
         }
         self.open = true;
         self.query.update(cx, |query, cx| query.set_value("", window, cx));
-        self.scope = project.map(|(id, name)| Scope {
-            id,
-            name,
-            values: None,
-            saving: None,
-            refused: None,
-            typed: BTreeMap::new(),
-            stops: super::project::CHOICES.into_iter().chain([super::project::SHARED]).map(|name| (name, cx.focus_handle().tab_stop(true))).collect(),
-            saves: super::project::TYPED.into_iter().map(|name| (name, cx.focus_handle().tab_stop(true))).collect(),
-            shared: None,
-            share_refused: None,
-        });
-        if self.scope.is_some() {
-            self.picked = "project:values";
-            self.read_values(window, cx);
-        } else if entries::entry(self.picked).is_none_or(|entry| entry.group == entries::Group::Project) {
+        if project.is_some() {
+            self.picked = FIRST_VALUES;
+        } else if entries::entry(self.picked).is_none() {
             self.picked = entries::FIRST;
         }
+        self.edit(project, window, cx);
         self.read(window, cx);
         self.keyboard.listening = None;
         let bindings = self.wire.key_bindings(cx);
@@ -411,11 +412,11 @@ impl SettingsOverlay {
         self.query.read(cx).value().to_string()
     }
 
-    /// The entries the sidebar lists now. Repository is listed once Fleet serves the switches it holds, as
-    /// Classic lists it while `tokens.connectorsOff` is in the list.
+    /// The entries the sidebar lists now, in the order it draws them. Repository is listed once Fleet serves the
+    /// switches it holds, as Classic lists it while `tokens.connectorsOff` is in the list.
     pub fn visible(&self, cx: &App) -> Vec<&'static Entry> {
         let query = self.query_text(cx);
-        entries::visible(&query, self.list.as_ref(), self.scope.is_some())
+        let found: Vec<&'static Entry> = entries::visible(&query, self.list.as_ref())
             .into_iter()
             .filter(|one| one.body != Body::Repository || self.setting(super::view::CONNECTORS_OFF).is_some())
             // Tracker and Fleet are listed once a mod of their kind is, as Classic's `made` lists them.
@@ -428,7 +429,8 @@ impl SettingsOverlay {
                 (Body::Schema(ids), Some(list)) => ids.iter().any(|id| !entries::settings_in(list, id).is_empty()),
                 _ => true,
             })
-            .collect()
+            .collect();
+        entries::drawn_order(&found)
     }
 
     pub fn shown(&self, cx: &App) -> Option<&'static Entry> {
@@ -446,10 +448,9 @@ impl SettingsOverlay {
         let at = visible.iter().position(|one| one.id == now.id).unwrap_or(0) as isize;
         let next = (at + by).clamp(0, visible.len() as isize - 1) as usize;
         self.picked = visible[next].id;
-        // The entries scroll by group, as they are drawn: the picked one's group comes into view.
-        let group = visible[next].group;
-        let drawn: Vec<entries::Group> = entries::GROUPS.into_iter().filter(|one| visible.iter().any(|entry| entry.group == *one)).collect();
-        if let Some(at) = drawn.iter().position(|one| *one == group) {
+        // The entries scroll by part, as they are drawn: the picked one's part comes into view.
+        let parts = super::view::side_parts(&visible);
+        if let Some(at) = parts.iter().position(|(_, rows)| rows.iter().any(|one| one.id == self.picked)) {
             self.side_scroll.scroll_to_item(at);
         }
         cx.notify();
@@ -577,32 +578,56 @@ impl SettingsOverlay {
                 }
                 self.save(key.clone(), Some(SettingValue::Text(word.clone())), window, cx);
             }
-            Picking::Value(name) => self.choose_value(name, n, window, cx),
+            Picking::Cell(key, column) => self.chose_cell((*key, *column), n, window, cx),
             Picking::Run(at) => self.chose_run(*at, n, window, cx),
         }
     }
 
-    // ---- the project's values -----------------------------------------------------------------
+    // ---- the values a project, or every project, sets ----------------------------------------------
 
-    fn read_values(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(id) = self.scope.as_ref().map(|scope| scope.id.clone()) else { return };
-        self.read_shared(window, cx);
-        let read = self.wire.values(&id, cx);
+    /// Edit `project`'s values, or every project's, and read what they come to.
+    pub fn edit(&mut self, project: Editing, window: &mut Window, cx: &mut Context<Self>) {
+        let scope = &mut self.scope;
+        if scope.project != project {
+            scope.values = None;
+        }
+        scope.project = project;
+        scope.refused = None;
+        scope.share_refused = None;
+        self.read_scope(window, cx);
+        cx.notify();
+    }
+
+    /// Read the projects, what every project uses and what the project picked comes to, each off the main
+    /// thread. The review model's choices are the models the harness offers, read as Models reads them.
+    fn read_scope(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.read_models(cx);
+        let picked = self.scope.project.clone();
+        let (projects, every) = (self.wire.projects_now(cx), self.wire.every_values(cx));
+        let values = picked.as_ref().map(|(id, _)| self.wire.values(id, cx));
         cx.spawn_in(window, async move |this, cx| {
-            let answer = read.await;
-            let _ = this.update_in(cx, |this, window, cx| {
-                let Some(scope) = this.scope.as_mut().filter(|scope| scope.id == id) else { return };
-                match answer {
-                    Ok(values) => {
-                        for (name, value) in [("review_model", &values.review_model), ("theme", &values.theme), ("layout", &values.layout)] {
-                            let text = value.value.clone().unwrap_or_default();
-                            let field = scope.typed.entry(name).or_insert_with(|| cx.new(|cx| InputState::new(window, cx)));
-                            field.update(cx, |field, cx| field.set_value(text, window, cx));
-                        }
-                        scope.values = Some(values);
-                        scope.refused = None;
-                    }
+            let projects = projects.await;
+            let every = every.await;
+            let values = match values {
+                Some(read) => Some(read.await),
+                None => None,
+            };
+            let _ = this.update_in(cx, |this, _, cx| {
+                let scope = &mut this.scope;
+                if let Ok(projects) = projects {
+                    scope.projects = Some(projects);
+                }
+                match every {
+                    Ok(every) => scope.every = Some(every),
                     Err(why) => scope.refused = Some(why.said),
+                }
+                // An answer for a project no longer picked is let go.
+                if scope.project == picked {
+                    match values {
+                        Some(Ok(values)) => scope.values = Some(values),
+                        Some(Err(why)) => scope.refused = Some(why.said),
+                        None => {}
+                    }
                 }
                 cx.notify();
             });
@@ -610,43 +635,56 @@ impl SettingsOverlay {
         .detach();
     }
 
-    /// The share switch's state, from the project as `GET /projects` lists it.
-    fn read_shared(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(id) = self.scope.as_ref().map(|scope| scope.id.clone()) else { return };
-        let read = self.wire.projects_now(cx);
-        cx.spawn_in(window, async move |this, cx| {
-            let answer = read.await;
-            let _ = this.update_in(cx, |this, _, cx| {
-                let Some(scope) = this.scope.as_mut().filter(|scope| scope.id == id) else { return };
-                if let Ok(projects) = answer {
-                    scope.shared = super::project::shared_of(&projects, &id);
+    /// Open the picker's menu under it.
+    pub fn open_picker(&mut self, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let rows = super::project::picker_rows(&self.scope.project, self.scope.projects.as_ref());
+        let name = self.scope.project.as_ref().map_or("Every project".to_string(), |(_, name)| name.clone());
+        let at = super::view::bounds_of(window, cx, gpui::Role::ComboBox, &format!("Editing {name}")).map(|bounds| bounds.bottom_left()).unwrap_or_default();
+        let back = window.focused(cx);
+        let menu = cx.new(|cx| Dropdown::new("Editing", rows, at, gpui::Anchor::TopLeft, from_keys, cx));
+        let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
+            let Picked::Entry { id, .. } = picked;
+            let project = match *id {
+                "every" => None,
+                id => {
+                    let Some(n) = AT.iter().position(|one| *one == id) else { return };
+                    let Some(one) = this.scope.projects.as_ref().and_then(|all| all.projects.get(n)) else { return };
+                    Some((one.id.clone(), one.name.clone()))
                 }
-                cx.notify();
-            });
-        })
-        .detach();
+            };
+            this.edit(project, window, cx);
+        });
+        let dismissed = cx.subscribe_in(&menu, window, move |this, _, _: &DismissEvent, window, cx| {
+            this.popup = None;
+            if let Some(back) = &back {
+                window.focus(back, cx);
+            }
+            cx.notify();
+        });
+        let keys = menu.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.popup = Some((menu, vec![picked, dismissed]));
+        cx.notify();
     }
 
     /// Turn sharing with his other Macs on or off: `edit_project` with that field alone, and the switch takes what
     /// Fleet answers.
     pub fn flip_shared(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(scope) = self.scope.as_mut() else { return };
-        let Some(on) = scope.shared else { return };
-        if scope.saving.is_some() || !self.live {
+        let Some((id, _)) = self.scope.project.clone() else { return };
+        let Some(on) = self.scope.projects.as_ref().and_then(|projects| super::project::shared_of(projects, &id)) else { return };
+        if self.scope.saving.is_some() || !self.live {
             return;
         }
-        scope.saving = Some(super::project::SHARED);
-        scope.share_refused = None;
-        let id = scope.id.clone();
+        self.scope.saving = Some((Key::Shared, Column::Own));
+        self.scope.share_refused = None;
         let sent = self.wire.share_with_macs(&id, !on, cx);
         cx.spawn_in(window, async move |this, cx| {
             let answer = sent.await;
             let _ = this.update_in(cx, |this, _, cx| {
-                let Some(scope) = this.scope.as_mut().filter(|scope| scope.id == id) else { return };
-                scope.saving = None;
+                this.scope.saving = None;
                 match answer {
-                    Ok(projects) => scope.shared = super::project::shared_of(&projects, &id),
-                    Err(why) => scope.share_refused = Some(why.said),
+                    Ok(projects) => this.scope.projects = Some(projects),
+                    Err(why) => this.scope.share_refused = Some(why.said),
                 }
                 cx.notify();
             });
@@ -655,50 +693,54 @@ impl SettingsOverlay {
         cx.notify();
     }
 
-    fn choose_value(&mut self, name: &'static str, n: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(word) = super::project::options(name).get(n).map(|(word, _)| word.to_string()) else { return };
-        self.write_value(name, word, window, cx);
-    }
-
-    /// Save the text typed into a value.
-    pub fn save_value(&mut self, name: &'static str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(word) = self.scope.as_ref().and_then(|scope| scope.typed.get(name)).map(|field| field.read(cx).value().trim().to_string()) else { return };
-        self.write_value(name, word, window, cx);
-    }
-
-    /// Write one value: the project's own block read fresh, the one key changed, and the block sent whole, so
-    /// nothing else it sets is taken back.
-    fn write_value(&mut self, name: &'static str, word: String, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(scope) = self.scope.as_mut() else { return };
-        if scope.saving.is_some() {
+    /// Write one cell: the project's own block, or Kit's, read fresh, the one key set or taken out, and the block
+    /// sent whole, so nothing else it sets is taken back. Then what they come to is read again.
+    pub fn write_cell(&mut self, (key, column): (Key, Column), word: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+        if self.scope.saving.is_some() || !self.live {
             return;
         }
-        scope.saving = Some(name);
-        scope.refused = None;
-        let id = scope.id.clone();
-        let fresh = self.wire.projects_now(cx);
+        let project = self.scope.project.clone();
+        if column == Column::Own && project.is_none() {
+            return;
+        }
+        self.scope.saving = Some((key, column));
+        self.scope.refused = None;
+        let fresh_projects = self.wire.projects_now(cx);
+        let fresh_every = self.wire.every_values(cx);
         cx.spawn_in(window, async move |this, cx| {
-            let projects = fresh.await;
-            let sent = this.update_in(cx, |this, _, cx| {
-                let projects = projects?;
-                let own = projects.projects.iter().find(|one| one.id == id).ok_or_else(|| Refused::said(format!("there is no project {id}")))?.values.clone();
-                let now = this.scope.as_ref().and_then(|scope| scope.values.clone());
-                let values = super::project::with_value(own.as_ref(), now.as_ref(), name, &word);
-                Ok::<_, Refused>(this.wire.set_values(&id, values, cx))
-            });
+            let sent = match column {
+                Column::Own => {
+                    let projects = fresh_projects.await;
+                    this.update_in(cx, |this, _, cx| {
+                        let id = project.map(|(id, _)| id).unwrap_or_default();
+                        let projects = projects?;
+                        let own = projects.projects.iter().find(|one| one.id == id).ok_or_else(|| Refused::said(format!("there is no project {id}")))?.values.clone();
+                        let values = super::project::with(own.as_ref(), key, word.as_deref());
+                        let sent = this.wire.set_values(&id, values, cx);
+                        Ok::<_, Refused>(cx.background_spawn(async move { sent.await.map(|_| ()) }))
+                    })
+                }
+                Column::Every => {
+                    let every = fresh_every.await;
+                    this.update_in(cx, |this, _, cx| {
+                        let kit = super::project::kit_own(&every?);
+                        let values = super::project::with(Some(&kit), key, word.as_deref());
+                        let sent = this.wire.save_kit_values(values, cx);
+                        Ok::<_, Refused>(cx.background_spawn(async move { sent.await.map(|_| ()) }))
+                    })
+                }
+            };
             let answer = match sent {
-                Ok(Ok(task)) => task.await.map(|_| ()),
+                Ok(Ok(task)) => task.await,
                 Ok(Err(why)) => Err(why),
                 Err(_) => return,
             };
             let _ = this.update_in(cx, |this, window, cx| {
-                if let Some(scope) = this.scope.as_mut() {
-                    scope.saving = None;
-                    if let Err(why) = answer {
-                        scope.refused = Some(why.said);
-                    }
+                this.scope.saving = None;
+                if let Err(why) = answer {
+                    this.scope.refused = Some(why.said);
                 }
-                this.read_values(window, cx);
+                this.read_scope(window, cx);
                 cx.notify();
             });
         })
@@ -713,8 +755,8 @@ impl SettingsOverlay {
     pub fn detail_stops(&self, window: &Window, cx: &App) -> Vec<FocusHandle> {
         let Some(shown) = self.shown(cx) else { return Vec::new() };
         let mut stops = Vec::new();
-        if let Body::ProjectValues = shown.body {
-            return self.scope.as_ref().map(|scope| super::project::stops(scope, cx)).unwrap_or_default();
+        if let Body::Values(_) = shown.body {
+            return self.grid_stops(cx);
         }
         if let Body::Keyboard = shown.body {
             return self.keyboard.stops(&self.query_text(cx));
@@ -726,7 +768,9 @@ impl SettingsOverlay {
             return self.workflow_stops(window, cx);
         }
         if let Body::Macs = shown.body {
-            return self.macs_stops();
+            let mut stops = self.grid_stops(cx);
+            stops.extend(self.macs_stops());
+            return stops;
         }
         if let Body::Layout = shown.body {
             return self.layout_stops(cx);
@@ -781,14 +825,13 @@ impl SettingsOverlay {
     }
 
     fn all_stops(&self, window: &Window, cx: &App) -> Vec<FocusHandle> {
-        let mut stops = vec![self.query.read(cx).focus_handle(cx), self.side.clone()];
+        let mut stops = vec![self.scope.picker.clone(), self.query.read(cx).focus_handle(cx), self.side.clone()];
         stops.extend(self.detail_stops(window, cx));
         stops
     }
 
     pub(super) fn in_text(&self, window: &Window, cx: &App) -> bool {
         self.query.read(cx).focus_handle(cx).is_focused(window) || self.theme.focus.is_focused(window) || self.models.filter_focused(window, cx) || self.workflows.filter_focused(window, cx) || self.workflows.detail.in_words(window, cx) || self.typed.values().any(|typed| typed.focus(cx).is_focused(window))
-            || self.scope.as_ref().is_some_and(|scope| scope.typed.values().any(|field| field.read(cx).focus_handle(cx).is_focused(window)))
             || self.lanes_typing(window, cx)
     }
 
@@ -858,6 +901,18 @@ impl SettingsOverlay {
         }
         let mods = &key.modifiers;
         let bare = !mods.platform && !mods.control && !mods.alt;
+        // ⌘P opens the picker from anywhere in Settings; Enter and Space open it where it holds the keys.
+        if key.key == "p" && mods.platform && !mods.control && !mods.alt && !mods.shift {
+            self.open_picker(true, window, cx);
+            return true;
+        }
+        if bare && matches!(key.key.as_str(), "enter" | "space" | "down") && self.scope.picker.is_focused(window) {
+            self.open_picker(true, window, cx);
+            return true;
+        }
+        if bare && self.grid_key(&key.key, window, cx) {
+            return true;
+        }
         match key.key.as_str() {
             "escape" if bare => {
                 if !self.query_text(cx).is_empty() {
@@ -911,6 +966,26 @@ impl SettingsOverlay {
             }
             _ => false,
         }
+    }
+
+    /// A grid cell's keys: Enter and Space open its choices, or flip the share switch; Backspace and Delete clear a
+    /// value the project sets; the arrows move between cells. ← from the first column is the sidebar's.
+    fn grid_key(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(cell) = self.cell_focused(window) else { return false };
+        match key {
+            "enter" | "space" if cell.0 == Key::Shared => self.flip_shared(window, cx),
+            "enter" | "space" => self.open_cell(cell, true, window, cx),
+            "backspace" | "delete" if cell.1 == Column::Own => self.clear_cell(cell.0, window, cx),
+            "left" | "right" | "up" | "down" => {
+                let Some(to) = super::project::moved(&self.grid_of(cx), cell, key) else { return key != "left" };
+                if let Some(handle) = self.scope.cells.get(&to) {
+                    window.focus(handle, cx);
+                }
+                cx.notify();
+            }
+            _ => return false,
+        }
+        true
     }
 
     fn on_slider(&self, window: &Window) -> bool {

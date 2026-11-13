@@ -341,13 +341,30 @@ impl Wire {
         Some(held.into_iter().filter_map(|one| one.manifest.map(|manifest| (manifest.id.as_str().to_string(), manifest.repository, manifest.connectors_off))).collect())
     }
 
-    /// `GET /projects/values?project=<id>`.
+    /// `GET /projects/values?project=<id>`: what the project's values come to.
     pub fn values(&mut self, project: &str, cx: &App) -> Task<Result<ResolvedValues, Refused>> {
         if let Wire::Mock(mock) = self {
             return Task::ready(mock.values(project));
         }
         let path = format!("/projects/values?project={}", crate::link::percent_encoded(project));
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "ResolvedValues", cx))
+    }
+
+    /// `GET /projects/values` for no project: what every project uses, Kit's over the defaults.
+    pub fn every_values(&mut self, cx: &App) -> Task<Result<ResolvedValues, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.every_values());
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/projects/values".into()), "ResolvedValues", cx))
+    }
+
+    /// `POST /kit/values`: Kit's values, whole. A key left out is taken away.
+    pub fn save_kit_values(&mut self, values: ValuesSet, cx: &App) -> Task<Result<ipc::KitValuesSaved, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.save_kit_values(values));
+        }
+        let said = body(&ipc::SaveKitValues { values });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/kit/values".into(), said), "KitValuesSaved", cx))
     }
 
     /// `GET /projects`, read fresh before a project's values are written whole.
@@ -511,39 +528,5 @@ impl Wire {
         }
         let (editor, path) = (crate::editor::configured(list), list.path.clone());
         cx.background_spawn(async move { crate::editor::open(&editor, &path, 1) })
-    }
-}
-
-/// A project's own values with a new `reviews`, every other key it sets kept as it was: the edit replaces the
-/// whole block, so a save that sent only `reviews` would take the rest back.
-pub fn with_reviews(own: Option<&ValuesSet>, reviews: ipc::ReviewsSet) -> ValuesSet {
-    ValuesSet { reviews: Some(reviews), ..own.cloned().unwrap_or_default() }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ipc::{LookSet, PrMode, ReviewsSet};
-
-    #[test]
-    fn a_reviews_change_keeps_the_projects_other_five_values() {
-        let own = ValuesSet {
-            pr_mode: PrMode::from_wire("draft"),
-            auto_merge: Some("checks-pass".into()),
-            review_model: Some("opus".into()),
-            look: Some(LookSet { layout: None, theme: Some("dusk".into()), density: Some("roomy".into()) }),
-            tracker: Some([("provider".to_string(), "linear".to_string())].into_iter().collect()),
-            reviews: Some(ReviewsSet { plans: Some("review".into()), pull_requests: Some("off".into()), walks: Some("off".into()) }),
-            ..ValuesSet::default()
-        };
-        let wanted = ReviewsSet { plans: Some("review_and_approve".into()), pull_requests: Some("review".into()), walks: Some("review".into()) };
-        let sent = with_reviews(Some(&own), wanted.clone());
-        assert_eq!(sent, ValuesSet { reviews: Some(wanted), ..own });
-    }
-
-    #[test]
-    fn a_project_that_sets_nothing_sends_its_reviews_alone() {
-        let wanted = ReviewsSet { plans: Some("review".into()), pull_requests: None, walks: None };
-        assert_eq!(with_reviews(None, wanted.clone()), ValuesSet { reviews: Some(wanted), ..ValuesSet::default() });
     }
 }

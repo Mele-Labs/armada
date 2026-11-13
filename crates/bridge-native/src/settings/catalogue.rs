@@ -81,7 +81,7 @@ impl SettingsOverlay {
     /// Before Fleet has answered, the entries alone.
     pub fn catalogue(&self, cx: &App) -> Vec<Item> {
         let mut items = Vec::new();
-        for entry in entries::visible("", self.list.as_ref(), false).into_iter().filter(|one| self.offered(one, cx)) {
+        for entry in entries::visible("", self.list.as_ref()).into_iter().filter(|one| self.offered(one, cx)) {
             items.push(item(entry, format!("entry:{}", entry.id), entry.label.to_string(), vec![entries::words_of(entry, self.list.as_ref())], Kind::Open));
             match entry.body {
                 Body::Schema(ids) => {
@@ -111,7 +111,7 @@ impl SettingsOverlay {
                 }
                 Body::Models => items.extend(self.model_items(entry)),
                 Body::Workflows => items.extend(self.workflow_items(entry, cx)),
-                Body::Mods(None) | Body::ProjectValues | Body::Keyboard | Body::Macs | Body::Layout | Body::Time => {}
+                Body::Mods(None) | Body::Values(_) | Body::Keyboard | Body::Macs | Body::Layout | Body::Time => {}
             }
         }
         items
