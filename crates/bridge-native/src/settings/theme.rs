@@ -352,6 +352,7 @@ impl SettingsOverlay {
             look,
             div()
                 .id("theme-field")
+                .key_context(crate::keymap::TEXT_BOX)
                 .track_focus(&self.theme.focus)
                 .flex()
                 .items_center()
