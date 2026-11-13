@@ -53,6 +53,8 @@ pub(super) struct DockState {
     pub scroll: gpui::ScrollHandle,
     /// The run item's command whose run is being brought into view, and for how many more draws.
     pub reveal: Option<(String, Rc<std::cell::Cell<u8>>)>,
+    /// What he reads when he takes a Job's work in as pictures: the stills, the parts taken, the done card's lead.
+    pub looked: super::look_dock::Looked,
 }
 
 /// How many draws a run started from a row is kept in view for.
@@ -84,7 +86,7 @@ pub(super) enum RunMark {
 
 impl RunMark {
     /// Its glyph and its words.
-    fn look(&self) -> (&'static str, SharedString) {
+    pub(super) fn look(&self) -> (&'static str, SharedString) {
         match self {
             RunMark::Running => ("loader-circle", "Running".into()),
             RunMark::Passed => ("circle-check", "Passed".into()),
@@ -293,6 +295,9 @@ impl JobView {
         for group in self.groups(id, cx) {
             if group.kind != NeedsYouSectionKind::ToReview {
                 things.extend(group.things);
+            } else if !in_band && crate::ways::looks() {
+                // In Look a sketch to review is an item of the panel, opened whole there.
+                things.extend(group.things.into_iter().filter(|thing| matches!(thing, Thing::Row(row) if matches!(row.act, NeedsYouAct::OpenSketch { .. }))));
             } else if in_band {
                 review.extend(group.things.into_iter().filter_map(|thing| match thing {
                     Thing::Row(row) => Some(row),
@@ -722,10 +727,28 @@ impl JobView {
                 self.set_needs(true, None, window, cx);
                 cx.stop_propagation();
             }
+            // In Look an open item goes back on ←, moves on ↑ ↓, and sends the mix on Return, where the panel itself holds the keys.
+            "left" | "up" | "down" | "enter" if crate::ways::looks() && !typing && !event.keystroke.modifiers.modified() && self.dock_of(&id).is_some_and(|dock| dock.detail.is_some()) => {
+                match event.keystroke.key.as_str() {
+                    "left" => self.set_needs(true, None, window, cx),
+                    "up" => self.look_step(-1, window, cx),
+                    "down" => self.look_step(1, window, cx),
+                    _ if self.dock_focus.is_focused(window) => {
+                        let item = self.dock_of(&id).and_then(|dock| dock.detail.as_ref()).and_then(|key| key.strip_prefix("item:")).map(str::to_string);
+                        if let Some(item) = item {
+                            self.look_send_mix(&item, window, cx);
+                        }
+                    }
+                    _ => return,
+                }
+                cx.stop_propagation();
+            }
             key if !typing && key.len() == 1 && key.chars().all(|c| c.is_ascii_digit()) && !event.keystroke.modifiers.alt => {
                 let n = key.parse::<usize>().unwrap_or(0);
                 if n >= 1 {
-                    self.pick_digit(n, window, cx);
+                    if !(crate::ways::looks() && self.look_digit(n, window, cx)) {
+                        self.pick_digit(n, window, cx);
+                    }
                     cx.stop_propagation();
                 }
             }
@@ -827,6 +850,11 @@ impl JobView {
 
     /// What a press on a row does, as Fleet's `act` says.
     fn press_row(&mut self, key: &str, item: &str, act: &NeedsYouAct, window: &mut Window, cx: &mut Context<Self>) {
+        // In Look a sketch, a walk and a command open whole before anything is done to them.
+        if crate::ways::looks() && super::look_dock::opens_whole(act) {
+            self.set_needs(true, Some(key.to_string()), window, cx);
+            return;
+        }
         match act {
             NeedsYouAct::OpenPlan | NeedsYouAct::OpenSketch { .. } | NeedsYouAct::OpenDocument { .. } | NeedsYouAct::OpenDraft { .. } => {
                 // Where the band offers the sheet it opens; else the page is on the thread's card.
@@ -1239,6 +1267,23 @@ impl JobView {
     }
 
     fn render_detail(&self, id: &SharedString, thing: &Thing, only: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        // In Look an item has the Needs you head, and a sketch, a walk, a command or a picture question its own page.
+        if crate::ways::looks() {
+            if let Thing::Row(row) = thing {
+                if let Some(page) = self.look_body(id, row, look, cx) {
+                    let said = self.dock_of(id).and_then(|dock| dock.said.get(&Self::thing_key(thing)).cloned());
+                    return div()
+                        .w_full()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_3))
+                        .child(self.look_head(id, &Self::thing_key(thing), look, cx))
+                        .child(page)
+                        .children(said.map(|why| super::acts::refusal(look, "dock", why)))
+                        .into_any_element();
+                }
+            }
+        }
         let back = labelled(
             div()
                 .id("needs-back")

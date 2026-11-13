@@ -65,6 +65,7 @@ mod toasts;
 mod transport;
 mod voice;
 mod walk;
+mod ways;
 mod whisper;
 
 /// Written by `pnpm --filter @armada/desktop codegen` from `crates/core-model/domain/`. Not edited.

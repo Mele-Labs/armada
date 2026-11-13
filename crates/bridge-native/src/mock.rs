@@ -21,6 +21,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if let Ok(mut held) = SCENARIO.lock() {
         *held = scenario.to_string();
     }
+    // The preferences a scenario is read with: Fleet answers none on mock data, and the rest read as defaults.
+    crate::ways::set(if scenario == "ways-look" { ipc::TakeIn::Look } else { ipc::TakeIn::Read }, ipc::LookQuestions::PicturesMix, ipc::LookResults::PictureEvery);
     let bytes: &[u8] = match scenario {
         "jobs-many" | "job-view" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with a terminal Job just started: Fleet's title for it, nothing in its thread.
@@ -76,6 +78,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "new-project" => include_bytes!("../fixtures/terminal-jobs.json"),
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
+        // One Job with four things waiting on him, taken in as pictures: a question asked in three pictures, a sketch, a walk of
+        // four stops and a command of three steps; and one that said it is done, whose last picture is a sketch.
+        "ways-look" => include_bytes!("../fixtures/ways-look.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
         "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
@@ -273,6 +278,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "sent-messages" => include_bytes!("../fixtures/sent-messages-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
         "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
+        "ways-look" => include_bytes!("../fixtures/ways-look-threads.json"),
         "tool-rows" => include_bytes!("../fixtures/tools-threads.json"),
         // The tool-rows threads, with the finished Job's retro being written and Search for the queue asking with previews.
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
@@ -384,6 +390,27 @@ pub fn act_refused(route: &str) -> Option<String> {
     let named = SCENARIO.lock().ok()?;
     (named.as_str() == "sketch-approve" && route == "/sessions/sketch/answer")
         .then(|| "the sketch `Freshness chip` is not the drawing that was read: the job has drawn it again since".into())
+}
+
+/// What `GET /sessions/lead_picture` answers for a Job in the scenario last named: the last thing the Job showed before
+/// `all_done`. `ways-look` serves its ended Job's sketch; every other Job and scenario answers as Fleet does for a Job
+/// that showed none, which is a 404 and reads as nothing.
+pub fn lead_picture(job: &str) -> Option<Vec<u8>> {
+    let named = SCENARIO.lock().ok()?;
+    (named.as_str() == "ways-look" && job == "mock-02").then(|| br#"{"kind":"sketch","title":"Docs index flow"}"#.to_vec())
+}
+
+/// The bytes of a still the scenarios' questions carry, by the address their options name.
+pub fn still(image: &str) -> Option<&'static [u8]> {
+    // The address Fleet gives a shown file carries its path percent-encoded, so the name is found inside it.
+    [
+        ("ways-look-stacked.png", &include_bytes!("../fixtures/ways-look-stacked.png")[..]),
+        ("ways-look-sidebar.png", &include_bytes!("../fixtures/ways-look-sidebar.png")[..]),
+        ("ways-look-split.png", &include_bytes!("../fixtures/ways-look-split.png")[..]),
+    ]
+    .into_iter()
+    .find(|(name, _)| image.contains(name))
+    .map(|(_, bytes)| bytes)
 }
 
 /// How many sends the scenario last named refuses before it takes them: one in `sent-messages`, so a
