@@ -56,6 +56,8 @@ pub(crate) const SETTLED: &str = "fleet.workflow_change_settled";
 const ARMADA_NOT_SERVED: &str = "fleet.workflow_armada_not_served";
 /// The store would not answer. A 500.
 const NOT_KEPT: &str = "fleet.workflow_change_not_kept";
+/// A change was asked for a project's copy. A change is kept for the repository's or Kit's. A 422.
+const NOT_FOR_PROJECT: &str = "fleet.workflow_change_not_for_project";
 
 /// The question as it ships: `prompts.workflowChange`'s default. **The words that say how to read what
 /// follows come first**; the definition, the request and any earlier draft come after them as material.
@@ -178,9 +180,12 @@ where
         if proposed.definition.trim().is_empty() {
             return Err(self.change_blank("The definition is blank; there is nothing to propose"));
         }
+        if proposed.scope.project().is_some() {
+            return Err(self.change_not_for_project());
+        }
         let served = self.served_named(manifest_id.as_ref())?;
         let definition = proposed.definition.trim().to_string();
-        self.check_workflow_file(&SaveWorkflow { scope: proposed.scope, definition: definition.clone(), overwrite: false }, &served)?;
+        self.check_workflow_file(&SaveWorkflow { scope: proposed.scope.clone(), definition: definition.clone(), overwrite: false }, &served)?;
         let at = self.now();
         let mut store = self.store().lock().await;
         let id = store
@@ -519,6 +524,9 @@ where
     /// The definition's file text in a place, or why it cannot be drafted: Armada's is read-only, and a
     /// place with none has nothing to change.
     fn copy_text(&self, served: &Served, workflow: &str, source: &str) -> Result<String, Refusal> {
+        if source == "project" {
+            return Err(self.change_not_for_project());
+        }
         if source == "armada" {
             return Err(Refusal::Unacceptable(
                 WireError::raised(
@@ -542,6 +550,14 @@ where
         self.proposing().map(drop).map_err(|why| {
             Refusal::Unacceptable(WireError::raised(NO_AGENT, format!("no model could be asked: {why:?}"), self.run_id()))
         })
+    }
+
+    fn change_not_for_project(&self) -> Refusal {
+        Refusal::Unacceptable(WireError::raised(
+            NOT_FOR_PROJECT,
+            "a change is kept for the repository's workflow or Kit's; a project's copy is saved with `save_workflow`",
+            self.run_id(),
+        ))
     }
 
     fn change_blank(&self, said: &str) -> Refusal {

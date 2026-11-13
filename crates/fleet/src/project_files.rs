@@ -156,7 +156,17 @@ where
                 }
             }
         }
+        let before = self.projects_held();
         *self.project_files().0.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::clone(&projects);
+        // A repository whose projects changed runs a different set of workflows: the copies each project keeps are
+        // read for the projects that hold it. **Only those whose projects moved**, so a read that moved nothing
+        // does not read every repository's folders again.
+        for served in self.repositories().served() {
+            let held_by = |held: &Projects| -> Vec<ScopeId> { held.holding(served.manifest().id()).into_iter().map(|one| one.id().clone()).collect() };
+            if held_by(&before) != held_by(&projects) {
+                self.project_copies_read_again(&served);
+            }
+        }
         projects
     }
 

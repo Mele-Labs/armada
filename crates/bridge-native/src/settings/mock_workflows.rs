@@ -193,7 +193,7 @@ impl MockFleet {
 
     pub fn workflow_definition(&self, id: &str, source: &str, manifest: &str) -> Result<WorkflowDefinition, Refused> {
         let held = self.held(id, source, manifest)?;
-        Ok(WorkflowDefinition { workflow_id: WorkflowId::carried(id), source: source.into(), file: file_of(source, id), definition: text_of(&held.definition), overridden_by: None })
+        Ok(WorkflowDefinition { workflow_id: WorkflowId::carried(id), source: source.into(), file: file_of(source, id), definition: text_of(&held.definition), overridden_by: None, ..Default::default() })
     }
 
     pub fn save_workflow(&mut self, manifest: &str, save: SaveWorkflow) -> Result<WorkflowSaved, Refused> {
@@ -231,7 +231,7 @@ impl MockFleet {
         self.held(&id, &copy.source, manifest)?;
         self.definitions.retain(|one| !one.holds(&id, &copy.source, manifest));
         self.relist(&id);
-        Ok(WorkflowCopyDeleted { workflow_id: copy.workflow_id, file: file_of(&copy.source, &id), source: copy.source, runs_from: self.runs_from(&id, manifest) })
+        Ok(WorkflowCopyDeleted { workflow_id: copy.workflow_id, file: file_of(&copy.source, &id), source: copy.source, runs_from: self.runs_from(&id, manifest), ..Default::default() })
     }
 
     pub fn propose_workflow(&mut self, proposing: ProposeToArmada) -> Result<ArmadaProposed, Refused> {
@@ -385,7 +385,7 @@ impl MockFleet {
             row.source = runs.source.clone();
             row.file = file_of(&runs.source, id);
             row.for_requests = runs.definition.get("for_requests").and_then(Json::text).map(String::from);
-            row.overrides = applying[1..].iter().map(|one| OverriddenWorkflow { source: one.source.clone(), file: file_of(&one.source, id) }).collect();
+            row.overrides = applying[1..].iter().map(|one| OverriddenWorkflow { source: one.source.clone(), file: file_of(&one.source, id), ..Default::default() }).collect();
             match at {
                 Some(at) => self.workflows[at] = row,
                 None => self.workflows.push(row),
@@ -399,7 +399,7 @@ mod tests {
     use super::*;
 
     fn copy(id: &str, source: &str) -> WorkflowCopy {
-        WorkflowCopy { workflow_id: WorkflowId::carried(id), source: source.into(), file: None }
+        WorkflowCopy { workflow_id: WorkflowId::carried(id), source: source.into(), file: None, ..Default::default() }
     }
 
     #[test]

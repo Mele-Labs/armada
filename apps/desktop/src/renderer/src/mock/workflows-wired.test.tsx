@@ -3,6 +3,7 @@
 // drafts read again while one is drafting. Fleet's own sentence is drawn as it said it.
 
 import { expect, test } from "vitest";
+import type { WorkflowScope } from "@armada/protocol";
 import { page, userEvent } from "vitest/browser";
 
 import { mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
@@ -52,7 +53,7 @@ async function pickRepositoryFeature(): Promise<void> {
 /** The definitions saved, as they went to Fleet. */
 function recordSaves(app: ReturnType<typeof mount>) {
   const saved: {
-    scope: string;
+    scope: WorkflowScope;
     overwrite: boolean | undefined;
     definition: Record<string, unknown>;
   }[] = [];
@@ -795,7 +796,7 @@ test("Copy into lighthouse on a row that runs there saves a repository copy unde
   const app = await onAllWithAnEmptyRepository();
   const saves: {
     manifestId: string | null;
-    scope: string;
+    scope: WorkflowScope;
   }[] = [];
   const original = app.api.saveWorkflow;
   app.api.saveWorkflow = async (saving) => {
