@@ -63,7 +63,9 @@ The code is `crates/fleet/src/lifecycles/ending.rs`.
 | anything else | never by itself |
 
 **Where a step cannot be told apart from the one before it, the earlier is kept**: a step that fits the same fact as its neighbour is not entered.
-A workflow edited under a running Job moves the indexes; the rail does not follow that.
+**The rail keeps its steps by id** (`session_rail`, `by_id`): the step the Job stood on, the ones it began, skipped, stalled on and was judged at.
+A workflow saved under a running Job, with a step added, dropped or moved, changes the indexes and not the steps: each kept id is read back as its place in the steps the Job has now, and a step the workflow no longer has is left out.
+**A step added before where the Job stood is passed over** where no step is entered, since the Job never began it; a rail kept before ids is read as indexes until Fleet's start rewrites it by id.
 
 **Every move is entered on the timeline** as `session.step`, `says` `step: <old> → <new>`, a step by its label, `start` before the first and `done` past the last.
 

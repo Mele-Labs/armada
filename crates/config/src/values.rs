@@ -13,16 +13,16 @@
 use std::path::Path;
 
 use core_model::rule::{ActKind, Autonomy, AutonomyDefaults};
-use core_model::{AgentStarts, AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, ReviewsNamed, TrackerNamed, Values, WalkReview};
+use core_model::{AgentStarts, AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, ReviewsNamed, TrackerNamed, Values, WalkReview, DeliverySetting};
 use serde_yaml_ng::{Mapping, Value};
 
 use crate::error::{Fault, LoadError, Refusal};
 use crate::settings::{SHIPPED_THEME, SPACINGS};
 use crate::yaml::{self, Table};
 
-const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker", "reviews", "agent_starts"];
+const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker", "reviews", "agent_starts", "delivery"];
 /// Kit's keys: a tracker is a Project's, so Kit's block refuses it as it does any key it has no word for.
-const KIT_KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "reviews", "agent_starts"];
+const KIT_KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "reviews", "agent_starts", "delivery"];
 const LOOK: &[&str] = &["layout", "theme", "density"];
 const REVIEWS: &[&str] = &["plans", "pull_requests", "walks"];
 const REVIEW_MODES: &[(&str, ReviewMode)] =
@@ -33,6 +33,13 @@ const WALK_REVIEWS: &[(&str, WalkReview)] = &[("off", WalkReview::Off), ("review
 const WALK_REVIEWS_LEGAL: &[&str] = &["off", "review"];
 const AGENT_STARTS: &[(&str, AgentStarts)] = &[("at_once", AgentStarts::AtOnce), ("ask_me", AgentStarts::AskMe)];
 const AGENT_STARTS_LEGAL: &[&str] = &["at_once", "ask_me"];
+const DELIVERIES: &[(&str, DeliverySetting)] = &[
+    ("auto_land", DeliverySetting::AutoLand),
+    ("open_pr", DeliverySetting::OpenPr),
+    ("keep_local", DeliverySetting::KeepLocal),
+    ("ask", DeliverySetting::Ask),
+];
+const DELIVERIES_LEGAL: &[&str] = &["auto_land", "open_pr", "keep_local", "ask"];
 const KIT_FILE: &[&str] = &["version", "values"];
 const PR_MODES: &[(&str, PrMode)] = &[("draft", PrMode::Draft), ("ready", PrMode::Ready)];
 const PR_MODES_LEGAL: &[&str] = &["draft", "ready"];
@@ -67,8 +74,11 @@ pub(crate) fn read_block(key: &str, root: &Value, with_tracker: bool, out: &mut 
     let agent_starts = table
         .optional("agent_starts")
         .and_then(|value| yaml::word(&table.at("agent_starts"), value, AGENT_STARTS, AGENT_STARTS_LEGAL, AGENT_STARTS_LEGAL, out));
+    let delivery = table
+        .optional("delivery")
+        .and_then(|value| yaml::word(&table.at("delivery"), value, DELIVERIES, DELIVERIES_LEGAL, DELIVERIES_LEGAL, out));
     table.close(if with_tracker { KEYS } else { KIT_KEYS }, out);
-    Values { pr_mode, auto_merge, review_model: review_model.map(|model| model.trim().to_string()), look, tracker, reviews, agent_starts }
+    Values { pr_mode, auto_merge, review_model: review_model.map(|model| model.trim().to_string()), look, tracker, reviews, agent_starts, delivery }
 }
 
 /// The `reviews:` block. **A kind it does not name is not set**, and falls through to the next layer.
@@ -151,6 +161,9 @@ pub(crate) fn block_value(values: &Values) -> Option<Value> {
     if let Some(starts) = values.agent_starts {
         block.insert(text("agent_starts"), text(starts.as_wire()));
     }
+    if let Some(delivery) = values.delivery {
+        block.insert(text("delivery"), text(delivery.as_wire()));
+    }
     (!block.is_empty()).then_some(Value::Mapping(block))
 }
 
@@ -197,6 +210,7 @@ pub fn shipped_values() -> Values {
         tracker: None,
         reviews: ReviewsNamed::default(),
         agent_starts: Some(AgentStarts::AtOnce),
+        delivery: None,
     }
 }
 
@@ -256,6 +270,8 @@ pub struct ResolvedValues {
     pub reviews: ResolvedReviews,
     /// Whether a Job an agent or the Operator starts begins at once. **The shipped word is `AtOnce`.**
     pub agent_starts: ResolvedValue<AgentStarts>,
+    /// How a Job lands its work. **`None` is the question**: no layer sets it and the default has no word for it.
+    pub delivery: ResolvedValue<DeliverySetting>,
     /// One for each kind of act, in the order of the kinds.
     pub autonomy: Vec<ResolvedAutonomy>,
 }
@@ -326,6 +342,7 @@ pub fn resolve(layers: &Layers) -> ResolvedValues {
             walks: nearest(layers, |values| values.reviews.walks),
         },
         agent_starts: nearest(layers, |values| values.agent_starts),
+        delivery: nearest(layers, |values| values.delivery),
         autonomy: ActKind::ALL
             .iter()
             .map(|kind| {

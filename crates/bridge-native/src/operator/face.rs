@@ -28,6 +28,27 @@ const fn kind(word: &'static str, glyph: &'static str, (hue, ground): (Token, To
     Kind { word, glyph, hue, ground }
 }
 
+/// What he may call a dispatch, as a chip: its word, its registry glyph and its hue. A hint: the Operator still decides.
+pub fn dispatch_kind(kind: ipc::DispatchKind) -> Kind {
+    match kind {
+        ipc::DispatchKind::Idea => self::kind("Idea", "lightbulb", REVIEW),
+        ipc::DispatchKind::Feature => self::kind("Feature", "sparkles", WALK),
+        ipc::DispatchKind::Bug => self::kind("Bug", "bug", FAILED),
+    }
+}
+
+/// What the chip's tooltip says: the word is a hint and nothing is decided by it.
+pub fn dispatch_kind_tip(kind: ipc::DispatchKind) -> &'static str {
+    match kind {
+        ipc::DispatchKind::Idea => "A hint that this is an idea. The Operator decides what happens to it",
+        ipc::DispatchKind::Feature => "A hint that this is a feature. The Operator decides what happens to it",
+        ipc::DispatchKind::Bug => "A hint that this is a bug. The Operator decides what happens to it",
+    }
+}
+
+/// The three kinds he may pick, in the order the chips stand.
+pub const DISPATCH_KINDS: [ipc::DispatchKind; 3] = [ipc::DispatchKind::Idea, ipc::DispatchKind::Feature, ipc::DispatchKind::Bug];
+
 /// A red main nobody is on is a go-ahead whose item id is `red:<repository>:<commit>`.
 pub fn is_red_main(turn: &OperatorTurnItem) -> bool {
     turn.item.id.starts_with("red:")
@@ -132,10 +153,10 @@ pub fn later_choices(now: DateTime<Local>) -> [(&'static str, &'static str, Date
     ]
 }
 
-/// When a Later item comes back, as the menu and its tooltip say it: `15:05`, `tomorrow 09:00`,
+/// When a Later item comes back, as the menu and its tooltip say it, in his clock: `15:05`, `tomorrow 09:00`,
 /// `Mon 16 Nov 09:00`.
 pub fn back_at(at: DateTime<Local>, now: DateTime<Local>) -> String {
-    let time = at.format("%H:%M").to_string();
+    let time = crate::settings::time::clock(at);
     let days = (at.date_naive() - now.date_naive()).num_days();
     match days {
         0 => time,

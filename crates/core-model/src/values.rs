@@ -26,6 +26,40 @@ pub struct Values {
     pub reviews: ReviewsNamed,
     /// Whether a Job that a Job or the Operator starts begins at once or waits on the person's start card.
     pub agent_starts: Option<AgentStarts>,
+    /// How a Job in the Project lands its work. **Unset at every layer is the delivery question**, put to the person
+    /// once and kept as the Project's value.
+    pub delivery: Option<DeliverySetting>,
+}
+
+/// How a Job's work lands, as a Project or Kit sets it. `Ask` is the person saying the question is theirs to put each time.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DeliverySetting {
+    /// Open a pull request, watch ci and merge it.
+    AutoLand,
+    /// Open a pull request and leave the merge to the person.
+    OpenPr,
+    /// Keep the work on the branch; no pull request.
+    KeepLocal,
+    /// Put the delivery question to the person, and keep nothing from the answer.
+    Ask,
+}
+
+impl DeliverySetting {
+    pub const ALL: &'static [DeliverySetting] =
+        &[DeliverySetting::AutoLand, DeliverySetting::OpenPr, DeliverySetting::KeepLocal, DeliverySetting::Ask];
+
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            DeliverySetting::AutoLand => "auto_land",
+            DeliverySetting::OpenPr => "open_pr",
+            DeliverySetting::KeepLocal => "keep_local",
+            DeliverySetting::Ask => "ask",
+        }
+    }
+
+    pub fn from_wire(word: &str) -> Option<DeliverySetting> {
+        DeliverySetting::ALL.iter().copied().find(|setting| setting.as_wire() == word)
+    }
 }
 
 /// What happens to a Job that an agent starts: a Job one starts, a lifecycle rule that starts one, or the Operator.

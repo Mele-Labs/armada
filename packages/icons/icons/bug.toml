@@ -12,3 +12,10 @@
   size = "12px"
   status = "Specified"
   notes = "Specified 29 Oct 2026 on the walk `reported-bugs`, which the owner walked and approved. Tooltip `Reported a bug`. A press opens the report on the Issues tab. It marks a report an agent made, which is the Report issue flight control's own subject seen from the other side, and never an error state, a failed Job or a Check that failed."
+
+[[icons.bug.usage]]
+  means = "The Bug chip on the Operator page's message box, and a dispatch kept for later that he called a bug"
+  group = "Operator"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 12 Nov 2026 for the Operator page's composer. Tooltip `A hint that this is a bug. The Operator decides what happens to it`. It names the kind he called a dispatch and is never an error state, a failed Job or a Check that failed. **The owner decides whether the beetle may mean it**, since the reservation above names two other uses."

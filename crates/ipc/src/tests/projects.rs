@@ -159,3 +159,19 @@ fn kit_values_are_saved_whole() {
     assert_eq!(body.values.auto_merge.as_deref(), Some("always"));
     assert!(crate::decode::<crate::SaveKitValues>("Kit's values", b"{}").is_err(), "the block is required, an empty one taking every value back");
 }
+
+#[test]
+fn a_projects_delivery_is_a_word_carried_only_where_set() {
+    let new: NewProject = crate::decode("a project to add", br#"{"name":"Shop","values":{"delivery":"auto_land"}}"#).unwrap();
+    assert_eq!(new.values.and_then(|values| values.delivery).as_deref(), Some("auto_land"));
+    let none = crate::ValuesSet::default();
+    assert_eq!(serde_json::to_value(&none).unwrap(), json!({}), "a project that sets none says none");
+    let resolved = json!({
+        "pr_mode": {"value": "ready", "from": "default"}, "auto_merge": {"value": "never", "from": "default"},
+        "review_model": {"from": "default"}, "layout": {"from": "default"}, "theme": {"from": "default"}, "density": {"from": "default"},
+        "delivery": {"value": "keep_local", "from": "kit"}
+    });
+    let read: crate::ResolvedValues = serde_json::from_value(resolved.clone()).unwrap();
+    assert_eq!(read.delivery.as_ref().and_then(|one| one.value.as_deref()), Some("keep_local"));
+    assert_eq!(serde_json::to_value(&read).unwrap(), resolved);
+}

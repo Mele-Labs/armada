@@ -224,6 +224,35 @@ impl Rig {
         std::fs::write(self._home.path().join("kit/values.yml"), format!("version: 1\nvalues:\n  agent_starts: {word}\n")).expect("Kit's values");
     }
 
+    /// Kit's `values.yml`, as written.
+    pub(super) fn kit_values(&self, text: &str) {
+        std::fs::create_dir_all(self._home.path().join("kit")).expect("Kit's folder");
+        std::fs::write(self._home.path().join("kit/values.yml"), text).expect("Kit's values");
+    }
+
+    /// A start for `project`, held where `held`.
+    pub(super) async fn start_for(&self, project: Option<&str>, held: bool) -> SessionId {
+        self.fleet
+            .start_session(StartSession {
+                project: project.map(str::to_string),
+                manifest_id: self.manifest.clone(),
+                title: None,
+                model: None,
+                effort: None,
+                mode: None,
+                root: None,
+                fork: None,
+                request: None,
+                after: None,
+                held,
+                project_rows: Vec::new(),
+                on_your_words: None,
+            })
+            .await
+            .expect("started")
+            .id
+    }
+
     /// Fleet restarted over the same home: what it kept in memory is gone and the store stays. The clock
     /// is moved on, as real time is, so a row written now never takes the id of one written before.
     pub(super) fn restarted(self, fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>)) -> Rig {

@@ -535,7 +535,7 @@ where
         if let Some(choice) = delivery {
             if !delivery_asked(&rows) {
                 let named = first_message(&rows).and_then(named_delivery) == Some(choice);
-                self.row_put(id, SessionRow::Delivery { id: self.row_id(id), at: self.instant(), choice: Some(choice), named }).await;
+                self.row_put(id, SessionRow::Delivery { id: self.row_id(id), at: self.instant(), choice: Some(choice), named, said: None }).await;
             }
             self.auto_land_follows(id, Some(choice)).await;
             self.delivery_pick_kept(id, choice).await;

@@ -95,7 +95,7 @@ The phone's routes do not pass the filter yet.
 
 **Behaviour is a project's to set, key by key over Kit.**
 How a repository runs (its commands, Checks, ports and setup) stays the repository's `armada.yml`.
-How work behaves is a value: pull request mode, auto merge, autonomy, the review model, reviews and the look (layout, theme, density).
+How work behaves is a value: pull request mode, auto merge, autonomy, the review model, reviews, how a Job's work lands (`delivery`) and the look (layout, theme, density).
 
 | Layer, furthest first | Says |
 |---|---|

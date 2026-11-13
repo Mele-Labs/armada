@@ -19,7 +19,7 @@ use adapter_traits::{AgentHarness, Delivery, Review, Vcs, WorkProduct};
 use api::Refusal;
 use config::settings::{self as keys, Key as _};
 use config::{kit_values_text, parse_kit_values, shipped_values, Layers, ResolvedValue, ResolvedValues};
-use core_model::{AgentStarts, AutoMerge, Component, Envelope, FieldValue, Layer, Level, Look, ManifestId as Repository, PrMode, ReviewMode, Reviews, ReviewsNamed, ScopeId, TrackerNamed, Ulid, Values, WalkReview};
+use core_model::{AgentStarts, AutoMerge, Component, Envelope, FieldValue, Layer, Level, Look, ManifestId as Repository, PrMode, ReviewMode, Reviews, ReviewsNamed, ScopeId, TrackerNamed, Ulid, Values, WalkReview, DeliverySetting};
 use ipc::{KitValuesSaved, LookSet, ManifestId, ReviewsSet, SaveKitValues, ValuesSet};
 use store::KeptValue;
 
@@ -41,6 +41,7 @@ const REVIEWS_PLANS: &str = "reviews.plans";
 const REVIEWS_PULL_REQUESTS: &str = "reviews.pull_requests";
 const REVIEWS_WALKS: &str = "reviews.walks";
 const AGENT_STARTS: &str = "agent_starts";
+const DELIVERY: &str = "delivery";
 
 /// The tracker key that names the implementation, as the Manifest writes it.
 const PROVIDER: &str = "provider";
@@ -64,6 +65,7 @@ pub(crate) fn values_set(values: &Values) -> Option<ValuesSet> {
             walks: values.reviews.walks.map(|mode| mode.as_wire().to_string()),
         }),
         agent_starts: values.agent_starts.map(|starts| starts.as_wire().to_string()),
+        delivery: values.delivery.map(|delivery| delivery.as_wire().to_string()),
     })
 }
 
@@ -116,6 +118,7 @@ pub(crate) fn resolved_wire(resolved: &ResolvedValues) -> ipc::ResolvedValues {
             [layer_wire(resolved.reviews.plans.from), layer_wire(resolved.reviews.pull_requests.from), layer_wire(resolved.reviews.walks.from)],
         )),
         agent_starts: Some(word(&resolved.agent_starts, |starts| starts.as_wire().to_string())),
+        delivery: Some(word(&resolved.delivery, |delivery| delivery.as_wire().to_string())),
         autonomy: resolved
             .autonomy
             .iter()
@@ -153,6 +156,7 @@ fn rows_of(resolved: &ResolvedValues) -> Vec<KeptValue> {
     rows.push(row(REVIEWS_PULL_REQUESTS, Some(reviews.pull_requests.as_wire().to_string()), resolved.reviews.pull_requests.from));
     rows.push(row(REVIEWS_WALKS, Some(reviews.walks.as_wire().to_string()), resolved.reviews.walks.from));
     rows.push(row(AGENT_STARTS, Some(resolved.agent_starts.value.unwrap_or_default().as_wire().to_string()), resolved.agent_starts.from));
+    rows.push(row(DELIVERY, resolved.delivery.value.map(|delivery| delivery.as_wire().to_string()), resolved.delivery.from));
     rows.extend(resolved.autonomy.iter().map(|one| row(&format!("{AUTONOMY}{}", one.kind.as_wire()), Some(one.value.as_wire().to_string()), one.from)));
     rows
 }
@@ -220,6 +224,7 @@ impl Frozen {
                 reviews_wire(&self.reviews(), layer_wire(nearest), kinds.map(layer_wire))
             }),
             agent_starts: self.row(AGENT_STARTS).map(|row| ipc::ResolvedValue { value: row.value.clone(), from: layer_wire(layer_read(&row.layer)) }),
+            delivery: self.row(DELIVERY).map(|row| ipc::ResolvedValue { value: row.value.clone(), from: layer_wire(layer_read(&row.layer)) }),
             autonomy: core_model::rule::ActKind::ALL
                 .iter()
                 .filter_map(|kind| {
@@ -288,10 +293,17 @@ where
                 self.values_refused(format!("`{word}` is not an agent start: it is `at_once` or `ask_me`"))
             })?),
         };
+        let delivery = match written.delivery.as_deref().map(str::trim) {
+            None => None,
+            Some(word) => Some(DeliverySetting::from_wire(word).ok_or_else(|| {
+                self.values_refused(format!("`{word}` is not a delivery: it is `auto_land`, `open_pr`, `keep_local` or `ask`"))
+            })?),
+        };
         Ok(Values {
             tracker,
             reviews,
             agent_starts,
+            delivery,
             pr_mode: written.pr_mode.map(|mode| mode.domain()),
             auto_merge,
             review_model: text("review_model", &written.review_model)?,
@@ -355,6 +367,7 @@ where
             tracker: None,
             reviews: ReviewsNamed::default(),
             agent_starts: None,
+            delivery: None,
         }
     }
 

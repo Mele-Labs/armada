@@ -18,14 +18,14 @@ use crate::look::{token, Look};
 
 /// What choosing a row does.
 #[derive(Clone, Debug, PartialEq)]
-pub(super) enum Pick {
+pub(crate) enum Pick {
     Command(String),
     File(String),
     Tag { kind: TagKind, id: String, title: String, url: Option<String> },
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub(super) struct Row {
+pub(crate) struct Row {
     pub group: Option<&'static str>,
     pub glyph: &'static str,
     pub name: String,
@@ -33,7 +33,7 @@ pub(super) struct Row {
     pub pick: Pick,
 }
 
-pub(super) struct Offer {
+pub(crate) struct Offer {
     pub label: &'static str,
     pub rows: Vec<Row>,
     pub current: usize,
@@ -47,7 +47,7 @@ pub(super) struct Offer {
 
 /// The word under the caret and its trigger (`tokenAt`): `/` only at the very start, `@` and `#` at
 /// the start of a word. Its byte range and the text after the trigger.
-pub(super) fn token_at(text: &str, cursor: usize) -> Option<(char, usize, String)> {
+pub(crate) fn token_at(text: &str, cursor: usize) -> Option<(char, usize, String)> {
     let cursor = cursor.min(text.len());
     if !text.is_char_boundary(cursor) {
         return None;
@@ -79,7 +79,7 @@ pub(super) fn commands_for(commands: &[String], query: &str) -> Vec<Row> {
 }
 
 /// Issues and pull requests the query names, newest number first, at most six (`NUMBERED_ROWS`).
-pub(super) fn numbers_for(mut numbered: Vec<(bool, String, String, Option<String>)>, query: &str) -> Vec<Row> {
+pub(crate) fn numbers_for(mut numbered: Vec<(bool, String, String, Option<String>)>, query: &str) -> Vec<Row> {
     let query = query.to_lowercase();
     numbered.retain(|(_, reference, title, _)| {
         query.is_empty() || reference.trim_start_matches('#').starts_with(&query) || reference.to_lowercase().contains(&query) || title.to_lowercase().contains(&query)
@@ -107,7 +107,7 @@ pub(super) fn numbers_for(mut numbered: Vec<(bool, String, String, Option<String
 }
 
 /// A tag as the text holds it: `@<title>`, with the kind and id kept in the chip's own id.
-pub(super) fn chip_of(kind: TagKind, id: &str, title: &str, url: Option<&str>) -> InlineToken {
+pub(crate) fn chip_of(kind: TagKind, id: &str, title: &str, url: Option<&str>) -> InlineToken {
     let kind = match kind {
         TagKind::Session => "session",
         TagKind::PullRequest => "pull_request",
@@ -121,7 +121,7 @@ pub(super) fn chip_of(kind: TagKind, id: &str, title: &str, url: Option<&str>) -
 }
 
 /// The mention a chip stands for, read back from its id and label.
-pub(super) fn mention_of(id: &str, label: &str) -> Option<ipc::SessionTag> {
+pub(crate) fn mention_of(id: &str, label: &str) -> Option<ipc::SessionTag> {
     let mut parts = id.split('\u{1f}');
     let kind = match parts.next()? {
         "session" => TagKind::Session,
@@ -336,104 +336,113 @@ impl JobView {
     /// The list over the box (`.armada-mention`): rows with a glyph, a name and its words, in groups.
     pub(super) fn render_offer(&self, look: &Look, cx: &Context<Self>) -> Option<gpui::AnyElement> {
         let offer = self.composer.offer.as_ref()?;
-        let mut rows: Vec<gpui::AnyElement> = Vec::new();
-        for (at, row) in offer.rows.iter().enumerate() {
-            if let Some(group) = row.group {
-                rows.push(
-                    div()
-                        .px(look.length(token::SPACE_3))
-                        .py(look.length(token::SPACE_1))
-                        .text_size(look.length(token::TEXT_2XS))
-                        .font_weight(gpui::FontWeight(look.number(token::WEIGHT_HEADING)))
-                        .text_color(look.color(token::FG_SUBTLE))
-                        .child(group.to_uppercase())
-                        .into_any_element(),
-                );
-            }
-            let name: SharedString = if row.says.is_empty() { row.name.clone().into() } else { format!("{} {}", row.name, row.says).into() };
-            let mono = look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default();
+        Some(offer_list(offer, look, |at| {
+            let this = cx.entity().downgrade();
+            Box::new(move |_, window, cx| {
+                let _ = this.update(cx, |this, cx| this.choose(at, window, cx));
+            })
+        }))
+    }
+}
+
+/// The list over a box (`.armada-mention`): rows with a glyph, a name and its words, in groups. `choose` makes
+/// each row's press.
+pub(crate) fn offer_list(offer: &Offer, look: &Look, choose: impl Fn(usize) -> Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App)>) -> gpui::AnyElement {
+    let mut rows: Vec<gpui::AnyElement> = Vec::new();
+    for (at, row) in offer.rows.iter().enumerate() {
+        if let Some(group) = row.group {
             rows.push(
-                labelled(
-                    div()
-                        .id(SharedString::from(format!("offer-{at}")))
-                        .flex_none()
-                        .flex()
-                        .items_center()
-                        .h(look.length(token::H_CONTROL))
-                        .px(look.length(token::SPACE_3))
-                        .rounded(look.length(token::RADIUS_MD))
-                        .text_size(look.length(token::TEXT_XS))
-                        .when(offer.current == at, |row| row.bg(look.color(token::BG_HOVER)))
-                        .cursor_pointer()
-                        .child(
-                            div().flex_none().mr(look.length(token::SPACE_2)).child(
-                                svg().path(icon_path(row.glyph)).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_MUTED)),
-                            ),
-                        )
-                        .child(div().flex_none().font_family(mono).text_color(look.color(token::FG_DEFAULT)).child(row.name.clone()))
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .truncate()
-                                .ml(look.length(token::SPACE_3))
-                                .text_color(look.color(token::FG_MUTED))
-                                .child(row.says.clone()),
-                        )
-                        .on_click(cx.listener(move |this, _, window, cx| this.choose(at, window, cx))),
-                    Role::ListItem,
-                    name,
-                )
-                .into_any_element(),
+                div()
+                    .px(look.length(token::SPACE_3))
+                    .py(look.length(token::SPACE_1))
+                    .text_size(look.length(token::TEXT_2XS))
+                    .font_weight(gpui::FontWeight(look.number(token::WEIGHT_HEADING)))
+                    .text_color(look.color(token::FG_SUBTLE))
+                    .child(group.to_uppercase())
+                    .into_any_element(),
             );
         }
-        if offer.loading {
-            for at in 0..2 {
-                rows.push(
-                    div()
-                        .h(look.length(token::H_CONTROL))
-                        .flex()
-                        .items_center()
-                        .px(look.length(token::SPACE_3))
-                        .child(
-                            div()
-                                .h(look.length(token::SPACE_2))
-                                .w(gpui::relative(0.4 + 0.2 * at as f32))
-                                .rounded(look.length(token::RADIUS_SM))
-                                .bg(look.color(token::FG_DEFAULT).opacity(0.07)),
-                        )
-                        .into_any_element(),
-                );
-            }
-        }
-        Some(
+        let name: SharedString = if row.says.is_empty() { row.name.clone().into() } else { format!("{} {}", row.name, row.says).into() };
+        let mono = look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default();
+        rows.push(
             labelled(
                 div()
-                    .id("offer")
-                    .absolute()
-                    .bottom_full()
-                    .left_0()
-                    .mb(look.length(token::SPACE_1))
-                    .w(look.length(token::SPACE_12) * 8.)
-                    .max_w_full()
-                    .max_h(look.length(token::H_CONTROL) * 8.)
-                    .overflow_y_scroll()
+                    .id(SharedString::from(format!("offer-{at}")))
+                    .flex_none()
                     .flex()
-                    .flex_col()
-                    .p(look.length(token::SPACE_1))
-                    .rounded(look.length(token::RADIUS_LG))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_DEFAULT))
-                    .bg(look.color(token::BG_OVERLAY))
-                    .shadow(look.shadows(token::SHADOW_OVERLAY))
-                    .occlude()
-                    .children(rows),
-                Role::List,
-                offer.label,
+                    .items_center()
+                    .h(look.length(token::H_CONTROL))
+                    .px(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .text_size(look.length(token::TEXT_XS))
+                    .when(offer.current == at, |row| row.bg(look.color(token::BG_HOVER)))
+                    .cursor_pointer()
+                    .child(
+                        div().flex_none().mr(look.length(token::SPACE_2)).child(
+                            svg().path(icon_path(row.glyph)).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_MUTED)),
+                        ),
+                    )
+                    .child(div().flex_none().font_family(mono).text_color(look.color(token::FG_DEFAULT)).child(row.name.clone()))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .ml(look.length(token::SPACE_3))
+                            .text_color(look.color(token::FG_MUTED))
+                            .child(row.says.clone()),
+                    )
+                    .on_click(choose(at)),
+                Role::ListItem,
+                name,
             )
             .into_any_element(),
-        )
+        );
     }
+    if offer.loading {
+        for at in 0..2 {
+            rows.push(
+                div()
+                    .h(look.length(token::H_CONTROL))
+                    .flex()
+                    .items_center()
+                    .px(look.length(token::SPACE_3))
+                    .child(
+                        div()
+                            .h(look.length(token::SPACE_2))
+                            .w(gpui::relative(0.4 + 0.2 * at as f32))
+                            .rounded(look.length(token::RADIUS_SM))
+                            .bg(look.color(token::FG_DEFAULT).opacity(0.07)),
+                    )
+                    .into_any_element(),
+            );
+        }
+    }
+    labelled(
+        div()
+            .id("offer")
+            .absolute()
+            .bottom_full()
+            .left_0()
+            .mb(look.length(token::SPACE_1))
+            .w(look.length(token::SPACE_12) * 8.)
+            .max_w_full()
+            .max_h(look.length(token::H_CONTROL) * 8.)
+            .overflow_y_scroll()
+            .flex()
+            .flex_col()
+            .p(look.length(token::SPACE_1))
+            .rounded(look.length(token::RADIUS_LG))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .bg(look.color(token::BG_OVERLAY))
+            .shadow(look.shadows(token::SHADOW_OVERLAY))
+            .occlude()
+            .children(rows),
+        Role::List,
+        offer.label,
+    )
+    .into_any_element()
 }
 
 #[cfg(test)]

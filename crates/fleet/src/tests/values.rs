@@ -468,3 +468,43 @@ async fn a_job_freezes_each_kind_with_its_own_layer() {
         "a Job in no project still has Kit's kinds"
     );
 }
+
+fn delivery_set(word: &str) -> ValuesSet {
+    ValuesSet { delivery: Some(word.to_string()), ..ValuesSet::default() }
+}
+
+#[tokio::test]
+async fn delivery_takes_four_words_and_refuses_another() {
+    let rig = a_rig("");
+    let id = rig.project(None).await;
+    for word in ["auto_land", "open_pr", "keep_local", "ask"] {
+        let edited = rig.fleet.edit_project(id.clone(), EditProject { values: Some(delivery_set(word)), ..Default::default() }).await.expect(word);
+        let held = edited.projects.last().and_then(|one| one.values.clone()).and_then(|values| values.delivery);
+        assert_eq!(held.as_deref(), Some(word), "{word} is kept");
+    }
+    let before = std::fs::read_to_string(file(&rig.home, &id)).expect("its file");
+    for word in ["land", "at_once", "AUTO_LAND", " "] {
+        let refused = rig.fleet.edit_project(id.clone(), EditProject { values: Some(delivery_set(word)), ..Default::default() }).await.expect_err(word);
+        assert_eq!(code_of(refused), (422, "fleet.project_values_refused".to_string()), "{word:?}");
+    }
+    assert_eq!(std::fs::read_to_string(file(&rig.home, &id)).expect("its file"), before, "nothing was written");
+    let saved = rig.fleet.save_kit_values(SaveKitValues { values: delivery_set("later") }).await.expect_err("Kit refuses it too");
+    assert_eq!(code_of(saved).1, "fleet.project_values_refused");
+}
+
+#[tokio::test]
+async fn a_projects_delivery_beats_kits_and_the_answer_names_the_layer() {
+    let rig = a_rig("");
+    let repository = rig.manifest();
+    let unset = rig.project(None).await;
+    let set = rig.project(Some(delivery_set("auto_land"))).await;
+    let asked = |project: Option<String>| rig.fleet.values_asked(project, Some(repository.clone()));
+
+    let nothing = asked(Some(unset.clone())).await.expect("read").delivery.expect("the key");
+    assert_eq!((nothing.value, nothing.from), (None, ValueLayer::Default), "no layer sets it");
+    rig.kit_values("version: 1\nvalues:\n  delivery: keep_local\n");
+    let kits = asked(Some(unset)).await.expect("read").delivery.expect("the key");
+    assert_eq!((kits.value.as_deref(), kits.from), (Some("keep_local"), ValueLayer::Kit));
+    let projects = asked(Some(set)).await.expect("read").delivery.expect("the key");
+    assert_eq!((projects.value.as_deref(), projects.from), (Some("auto_land"), ValueLayer::Project));
+}

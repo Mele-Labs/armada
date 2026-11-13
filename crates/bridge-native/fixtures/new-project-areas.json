@@ -1,0 +1,191 @@
+{
+ "repositories": [
+  {
+   "manifest_id": "armada",
+   "root": "/Users/user/Development/armada",
+   "head": "9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b",
+   "areas": [
+    {
+     "dir": "crates",
+     "files": 2140,
+     "kids": [
+      {
+       "name": "fleet",
+       "files": 610
+      },
+      {
+       "name": "bridge-native",
+       "files": 420
+      },
+      {
+       "name": "ipc",
+       "files": 180
+      },
+      {
+       "name": "config",
+       "files": 95
+      }
+     ]
+    },
+    {
+     "dir": "apps",
+     "files": 880,
+     "kids": [
+      {
+       "name": "desktop",
+       "files": 880
+      }
+     ]
+    },
+    {
+     "dir": "packages",
+     "files": 760,
+     "kids": [
+      {
+       "name": "components",
+       "files": 410
+      },
+      {
+       "name": "tokens",
+       "files": 60
+      },
+      {
+       "name": "screens",
+       "files": 290
+      }
+     ]
+    },
+    {
+     "dir": "docs",
+     "files": 350,
+     "kids": [
+      {
+       "name": "concepts",
+       "files": 90
+      },
+      {
+       "name": "practices",
+       "files": 70
+      },
+      {
+       "name": "contracts",
+       "files": 40
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "manifest_id": "sample-web",
+   "root": "/Users/user/Development/sample-web",
+   "head": "9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b",
+   "areas": [
+    {
+     "dir": "web",
+     "files": 320,
+     "kids": [
+      {
+       "name": "checkout",
+       "files": 88
+      },
+      {
+       "name": "cart",
+       "files": 64
+      },
+      {
+       "name": "account",
+       "files": 41
+      },
+      {
+       "name": "search",
+       "files": 37
+      }
+     ]
+    },
+    {
+     "dir": "services",
+     "files": 210,
+     "kids": [
+      {
+       "name": "checkout-api",
+       "files": 72
+      },
+      {
+       "name": "pricing",
+       "files": 58
+      },
+      {
+       "name": "cache",
+       "files": 30
+      }
+     ]
+    },
+    {
+     "dir": "packages",
+     "files": 140,
+     "kids": [
+      {
+       "name": "ui-kit",
+       "files": 90
+      },
+      {
+       "name": "hooks",
+       "files": 50
+      }
+     ]
+    },
+    {
+     "dir": "docs",
+     "files": 12
+    }
+   ]
+  },
+  {
+   "manifest_id": "sample-api",
+   "root": "/Users/user/Development/sample-api",
+   "head": "9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b",
+   "areas": [
+    {
+     "dir": "src",
+     "files": 260,
+     "kids": [
+      {
+       "name": "routes",
+       "files": 90
+      },
+      {
+       "name": "billing",
+       "files": 70
+      },
+      {
+       "name": "auth",
+       "files": 54
+      },
+      {
+       "name": "webhooks",
+       "files": 46
+      }
+     ]
+    },
+    {
+     "dir": "migrations",
+     "files": 40
+    },
+    {
+     "dir": "tests",
+     "files": 120,
+     "kids": [
+      {
+       "name": "routes",
+       "files": 60
+      },
+      {
+       "name": "billing",
+       "files": 60
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

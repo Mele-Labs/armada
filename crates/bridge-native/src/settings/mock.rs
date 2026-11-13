@@ -32,6 +32,10 @@ pub struct MockFleet {
     pub changes: Vec<super::mock_workflows::Kept>,
     /// What `GET /models` answers: Classic's mock models (`apps/desktop/src/renderer/src/mock/kit-models.ts`).
     pub models: ipc::ModelChoices,
+    /// The Phone Gateway Settings › Macs reads (`gateway.rs`).
+    pub gateway: super::gateway::MockGateway,
+    /// What a press would have opened in the browser or put on the clipboard: a walk touches neither of his.
+    pub handed: Vec<String>,
 }
 
 /// What Fleet runs on All, as Classic's Workflows page is walked on (`mock/workflows-managed.ts`): Armada's four,
@@ -105,6 +109,8 @@ impl MockFleet {
         }
         MockFleet { list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
+            gateway: super::gateway::MockGateway::new(),
+            handed: Vec::new(),
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
         }
@@ -161,6 +167,19 @@ impl MockFleet {
                 self.preferences.key_bindings = text;
             }
             "theme" => self.preferences.theme = text,
+            // Empty takes his choice back; text Fleet would not read is refused whole.
+            "layout_choices" => {
+                if let Some(problem) = (!text.is_empty()).then(|| ipc::layout::problems(&text)).unwrap_or_default().into_iter().next() {
+                    return Err(Refused::said(format!("layout_choices: {problem}")));
+                }
+                self.preferences.layout_choices = text;
+            }
+            "time_format" => {
+                if let Some(problem) = (!text.is_empty()).then(|| ipc::time_format::problems(&text)).unwrap_or_default().into_iter().next() {
+                    return Err(Refused::said(format!("time_format: {problem}")));
+                }
+                self.preferences.time_format = text;
+            }
             other => return Err(Refused::said(format!("there is no preference {other}"))),
         }
         Ok(self.preferences.clone())
@@ -193,9 +212,52 @@ impl MockFleet {
     /// What Fleet's check of a mod read: quiet-ci's one rule, batching CI failures except where one blocks a merge.
     pub fn validate_mod(&self, name: &str) -> Result<ipc::ModChecked, Refused> {
         let row = self.mods.iter().find(|row| row.name == name).ok_or_else(|| Refused::said(format!("There is no mod named {name}.")))?;
-        let fleet = (row.kind == Some(ipc::ModKind::Fleet)).then_some(r#","fleet":{"rule":[{"notice":"pr_checks_failed","does":"batch","where":"everywhere","when":[{"if":"blocks_merge","does":"tell"}]}]}"#).unwrap_or_default();
+        let fleet = match row.kind {
+            Some(ipc::ModKind::Fleet) => r#","fleet":{"rule":[{"notice":"pr_checks_failed","does":"batch","where":"everywhere","when":[{"if":"blocks_merge","does":"tell"}]}]}"#,
+            Some(ipc::ModKind::Layout) => r#","layout":"{\"version\":1,\"rail\":{\"hidden\":[\"guides\"]}}""#,
+            Some(ipc::ModKind::Words) => r#","words":{"name":"Jira key","pattern":"[A-Z][A-Z0-9]+-\\d+","example":"STORE-1234","address":[{"repository":"armada","template":"https://acme.atlassian.net/browse/{match}","found":"settings"},{"repository":"*","template":"https://jira.example.com/browse/{match}","found":"pull_request #2140"}]}"#,
+            _ => "",
+        };
         let said = format!(r#"{{"name":"{name}","valid":true,"problems":[]{fleet}}}"#);
         ipc::decode("ModChecked", said.as_bytes()).map_err(|why| Refused::said(why.to_string()))
+    }
+
+    /// A workflow's lanes at a level, as `get_workflow_lanes` answers: the default's and each repository's. The
+    /// default's marks what armada changes; armada's own level is where Platform and Mobile tie on Mark ready.
+    pub fn workflow_lanes(&self, workflow: &str, scope: &str) -> Result<ipc::JobLanesView, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let served = self.repositories.iter().filter_map(|one| one.manifest.as_ref()).any(|manifest| manifest.id.as_str() == scope);
+        if scope != "default" && !served {
+            return Err(Refused {
+                key: None,
+                said: format!("`{scope}` is not a level of this repository's lanes: the default's, a Workspace that holds it, or a repository read with it"),
+                code: Some("fleet.no_such_lanes_level".into()),
+            });
+        }
+        let mut lanes: ipc::JobLanesView = ipc::decode("JobLanesView", include_bytes!("mock-lanes.json")).map_err(|why| Refused::said(why.to_string()))?;
+        lanes.workflow = workflow.to_string();
+        // The workflow's lane is headed with the workflow asked for, as Fleet heads it.
+        if let Some(head) = lanes.lanes.first_mut() {
+            let words = workflow.replace('_', " ");
+            head.title = words[..1].to_uppercase() + &words[1..];
+        }
+        let ready = lanes.rules.iter_mut().find(|edge| edge.rule == "ready");
+        match (scope, ready) {
+            ("default", Some(ready)) => ready.differs = vec!["Platform".into(), "armada".into()],
+            ("armada", Some(ready)) => {
+                ready.differs = vec!["armada".into()];
+                ready.clash = Some("Platform and Mobile differ".into());
+            }
+            _ => {}
+        }
+        if scope == "default" {
+            if let Some(open) = lanes.lanes.iter_mut().flat_map(|lane| lane.nodes.iter_mut()).find(|node| node.id == "pull_request/open") {
+                open.differs = vec!["sample-web".into()];
+            }
+        }
+        Ok(lanes)
     }
 
     /// A tracker mod's try, passed against the first repository, as Fleet answers one.
