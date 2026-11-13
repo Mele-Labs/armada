@@ -1005,7 +1005,7 @@ impl SettingsOverlay {
             div().flex().flex_col().pl(look.length(token::SPACE_4) + look.length(token::SPACE_3)).children(pull).children(job)
         });
         let rules = (opened && !one.parts.is_empty()).then(|| render_rules(&one.title, &one.parts, look));
-        let refused = self.mods.refused.get(&one.name).cloned().map(|said| labelled(super::view::small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id(SharedString::from(format!("mod-refused-{}", one.name))), Role::Alert, said));
+        let refused = self.mods.refused.get(&one.name).cloned().map(|said| labelled(super::view::refusal(look, said.clone()).id(SharedString::from(format!("mod-refused-{}", one.name))), Role::Alert, said));
         // Under the name's line where the words column is narrow: from the name's start to the row's end.
         let below = one.detail.clone().filter(|_| under).map(|said| line(said).pl(look.length(token::SPACE_4) + look.length(token::SPACE_3)));
         let framed = div().id(SharedString::from(format!("mod-{}", one.name))).relative().flex().flex_col().gap(look.length(token::SPACE_1)).child(row).children(below).children(promoted).children(rules).children(refused);

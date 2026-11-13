@@ -54,6 +54,9 @@ pub struct StandingCall {
     /// He has seen it: a Job call when he has been in the Job since it began or has it on screen
     /// and it is not asking him, a main, checkout or pull request call when `open_call` said so.
     pub opened: bool,
+    /// The id of the paired Mac that holds the Job. **Absent means this Mac.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mac: Option<String>,
 }
 
 /// `get_calls`: every call standing, oldest first.

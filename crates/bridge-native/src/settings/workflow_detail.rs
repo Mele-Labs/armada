@@ -5,12 +5,12 @@
 //! agent for a change (`change_band.rs`). The lanes come after; `step_card` takes `StepRows` so the lanes'
 //! inspector draws the same card.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use gpui::{div, prelude::*, svg, AnyElement, App, AsyncWindowContext, Context, Div, Entity, FocusHandle, Focusable, FontWeight, HighlightStyle, Hsla, Role, SharedString, StyledText, Subscription, Task, WeakEntity, Window};
 use gpui_component::input::{InputEvent, Textarea, TextareaState};
-use ipc::{ProposeToArmada, SaveWorkflow, WorkflowCopy, WorkflowId, WorkflowScope, WorkflowSummary};
+use ipc::{ProposeToArmada, SaveWorkflow, VersionOrigin, WorkflowCopy, WorkflowId, WorkflowScope, WorkflowSummary, WorkflowVersion};
 
 use super::definition::with_words;
 use super::overlay::SettingsOverlay;
@@ -20,7 +20,7 @@ use super::workflows::{Listed, Place};
 use crate::assets::icon_path;
 use crate::job_view::OpenJobFrom;
 use crate::labels::labelled;
-use crate::look::{token, Look};
+use crate::look::{token, ActiveLook, Look};
 
 /// Fleet's word for a place (`WIRE_OF`).
 pub fn wire_of(place: Place) -> &'static str {
@@ -28,6 +28,7 @@ pub fn wire_of(place: Place) -> &'static str {
         Place::Armada => "armada",
         Place::Repository => "repository",
         Place::Yours => "kit",
+        Place::Project => "project",
     }
 }
 
@@ -110,6 +111,8 @@ pub enum Act {
     Compare,
     Reset,
     Propose,
+    /// Opens the versions the copy has had; drawn only where Fleet holds some.
+    Versions,
     Delete,
 }
 
@@ -121,6 +124,7 @@ impl Act {
             Act::Compare => "compare",
             Act::Reset => "reset",
             Act::Propose => "propose",
+            Act::Versions => "versions",
             Act::Delete => "delete",
         }
     }
@@ -131,11 +135,12 @@ impl Act {
             Act::Compare => "git-compare",
             Act::Reset => "undo-2",
             Act::Propose => "git-pull-request-arrow",
+            Act::Versions => "clock",
             Act::Delete => "trash",
         }
     }
 
-    const ALL: [Act; 6] = [Act::CopyInto, Act::MakeCopy, Act::Compare, Act::Reset, Act::Propose, Act::Delete];
+    const ALL: [Act; 7] = [Act::CopyInto, Act::MakeCopy, Act::Compare, Act::Reset, Act::Propose, Act::Versions, Act::Delete];
 }
 
 /// The acts a workflow offers, in their groups: what runs in a repository that keeps no copy is copied into it;
@@ -165,6 +170,44 @@ pub fn acts_of(one: &Listed, armada: Option<&Listed>) -> Vec<(&'static str, Vec<
         groups.push(("Delete", vec![Act::Delete]));
     }
     groups
+}
+
+/// What the Versions act and its menu are called.
+const VERSIONS: &str = "Versions";
+
+/// The id a version's row carries in the menu, by its place in it. Ids are `&'static str`, so each is made once.
+fn version_id(n: usize) -> &'static str {
+    use std::sync::{Mutex, OnceLock};
+    static IDS: OnceLock<Mutex<Vec<&'static str>>> = OnceLock::new();
+    let mut ids = IDS.get_or_init(Mutex::default).lock().unwrap_or_else(|held| held.into_inner());
+    while ids.len() <= n {
+        let next = ids.len();
+        ids.push(Box::leak(format!("version-{next}").into_boxed_str()));
+    }
+    ids[n]
+}
+
+/// The menu's rows, newest first: the stamp is each row's detail, and its name carries what Fleet says of it: the newest
+/// published one is the one in force, and one Fleet kept from the file says where it was found.
+fn versions_rows(versions: &[WorkflowVersion]) -> Vec<crate::dropdown::Entry> {
+    use crate::dropdown::{Entry, Row};
+    let newest = versions.iter().find(|one| one.origin == VersionOrigin::Published).map(|one| one.version);
+    versions
+        .iter()
+        .enumerate()
+        .map(|(n, one)| {
+            let name = match (one.origin, Some(one.version) == newest) {
+                (VersionOrigin::Found, _) => format!("Version {}, found in the file", one.version),
+                (VersionOrigin::Published, true) => format!("Version {}, published now", one.version),
+                _ => format!("Version {}", one.version),
+            };
+            let row = Row::new(version_id(n), name).icon("clock");
+            Entry::Row(match super::time::stamp_at(one.at.as_str()) {
+                Some(at) => row.detail(at),
+                None => row,
+            })
+        })
+        .collect()
 }
 
 /// Armada's own row of an id, which a copy is compared with and reset to.
@@ -235,6 +278,10 @@ pub struct Detail {
     pub(super) band: super::change_band::Band,
     /// The detail's scroll, so a proposed change is brought into view when it arrives.
     pub(super) scroll: gpui::ScrollHandle,
+    /// The versions each copy has had, newest first, by row key, once Fleet has answered. A copy with none has no Versions act.
+    versions: BTreeMap<String, Vec<WorkflowVersion>>,
+    /// The rows whose versions are being read.
+    reading: BTreeSet<String>,
 }
 
 impl Detail {
@@ -254,6 +301,16 @@ impl Detail {
 
     fn key(&self, name: &str) -> Option<&FocusHandle> {
         self.keys.get(name)
+    }
+
+    /// The row's versions are read again before they are next drawn: a publish added one.
+    pub(super) fn versions_changed(&mut self, row: &str) {
+        self.versions.remove(row);
+        self.reading.remove(row);
+    }
+
+    fn has_versions(&self, row: &str) -> bool {
+        self.versions.get(row).is_some_and(|held| !held.is_empty())
     }
 
     fn typed(&self, at: &str, cx: &App) -> Option<String> {
@@ -285,7 +342,7 @@ pub(super) async fn ask<T: 'static>(this: &WeakEntity<SettingsOverlay>, cx: &mut
 }
 
 fn copy_of(one: &Listed) -> WorkflowCopy {
-    WorkflowCopy { workflow_id: WorkflowId::carried(&one.id), source: wire_of(one.place).into(), file: None, ..Default::default() }
+    WorkflowCopy { workflow_id: WorkflowId::carried(&one.id), source: wire_of(one.place).into(), project: one.project.clone().filter(|_| one.place == Place::Project), file: None }
 }
 
 impl SettingsOverlay {
@@ -322,6 +379,7 @@ impl SettingsOverlay {
             }
         }
         self.band_keys(&one, window, cx);
+        self.read_versions(&one, window, cx);
     }
 
     /// A step's words, as typed: what was kept from before, else what Fleet read.
@@ -404,9 +462,89 @@ impl SettingsOverlay {
         cx.notify();
     }
 
+    /// The acts a workflow offers, and where its copy has had versions, Versions beside them, before Delete.
+    fn acts_shown(&self, one: &Listed, armada: Option<&Listed>) -> Vec<(&'static str, Vec<Act>)> {
+        let mut groups = acts_of(one, armada);
+        if self.workflows.detail.has_versions(&one.key()) {
+            let at = groups.iter().position(|(group, _)| *group == "Delete").unwrap_or(groups.len());
+            groups.insert(at, ("Versions", vec![Act::Versions]));
+        }
+        groups
+    }
+
+    /// The picked copy's versions read, once each: a copy is the only thing that has had any. Where Fleet answers none, or
+    /// refuses, there is no Versions act.
+    pub(super) fn read_versions(&mut self, one: &Listed, window: &mut Window, cx: &mut Context<Self>) {
+        let key = one.key();
+        let detail = &mut self.workflows.detail;
+        if one.place == Place::Armada || one.runs_in.is_some() || detail.versions.contains_key(&key) || !detail.reading.insert(key.clone()) {
+            return;
+        }
+        let task = self.wire.workflow_versions(&one.id, wire_of(one.place), one.project.as_deref().filter(|_| one.place == Place::Project), &one.manifest, cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = task.await;
+            let _ = this.update_in(cx, |this, _, cx| {
+                let detail = &mut this.workflows.detail;
+                // A publish since asked for it again: this answer is the old one.
+                if detail.reading.remove(&key) {
+                    detail.versions.insert(key, answer.map(|read| read.versions).unwrap_or_default());
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
+
+    /// The menu of the copy's versions under its button, newest first. Picking one puts it in the draft.
+    pub(super) fn open_versions(&mut self, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let (_, Some(one)) = self.shown_workflows(cx) else { return };
+        let versions = self.workflows.detail.versions.get(&one.key()).cloned().unwrap_or_default();
+        if versions.is_empty() {
+            return;
+        }
+        let rows = versions_rows(&versions);
+        let numbers: Vec<u32> = versions.iter().map(|one| one.version).collect();
+        // Hung from the button's left edge, so it opens into the content pane; flipped to its right edge only where the
+        // overlay's right edge would cut it.
+        let Some(button) = super::view::bounds_of(window, cx, gpui::Role::Button, VERSIONS) else { return };
+        let look = cx.look();
+        let wide = look.length(token::W_MENU) + look.length(token::SPACE_12);
+        let room = crate::room::of(window, cx);
+        let right = room.origin.x + room.size.width * 0.95 - look.length(token::GAP_PANEL);
+        let (at, anchor) = if button.left() + wide <= right { (button.bottom_left(), gpui::Anchor::TopLeft) } else { (button.bottom_right(), gpui::Anchor::TopRight) };
+        let back = window.focused(cx);
+        let menu = cx.new(|cx| crate::dropdown::Dropdown::new(VERSIONS, rows, at, anchor, from_keys, cx));
+        let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &crate::dropdown::Picked, _, cx| {
+            let crate::dropdown::Picked::Entry { id, .. } = picked;
+            let Some(version) = (0..numbers.len()).find(|n| version_id(*n) == *id).map(|n| numbers[n]) else { return };
+            this.revert_to(&one, version, cx);
+        });
+        let dismissed = cx.subscribe_in(&menu, window, move |this, _, _: &gpui::DismissEvent, window, cx| {
+            this.popup = None;
+            if let Some(back) = &back {
+                window.focus(back, cx);
+            }
+            cx.notify();
+        });
+        let keys = gpui::Focusable::focus_handle(menu.read(cx), cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.popup = Some((menu, vec![picked, dismissed]));
+        cx.notify();
+    }
+
+    /// A version put in the copy's draft as a change of his. The editor takes Fleet's answer as its draft.
+    fn revert_to(&mut self, one: &Listed, version: u32, cx: &mut Context<Self>) {
+        if let Some(editor) = self.editor_of(one) {
+            editor.update(cx, |editor, cx| editor.revert(version, cx));
+        }
+    }
+
     /// An act pressed on the picked workflow. Compare only draws; the rest ask Fleet, one at a time.
     fn press_act(&mut self, act: Act, window: &mut Window, cx: &mut Context<Self>) {
         let (_, Some(one)) = self.shown_workflows(cx) else { return };
+        if act == Act::Versions {
+            return self.open_versions(true, window, cx);
+        }
         if act == Act::Compare {
             let key = one.key();
             let detail = &mut self.workflows.detail;
@@ -545,7 +683,7 @@ impl SettingsOverlay {
         let rows = self.workflow_rows(cx).unwrap_or_default();
         let mut stops = Vec::new();
         let said = detail.said.as_ref().filter(|(row, _)| *row == key).map(|(_, said)| said);
-        for (_, acts) in acts_of(&one, armada_of(&rows, &one.id).as_ref()) {
+        for (_, acts) in self.acts_shown(&one, armada_of(&rows, &one.id).as_ref()) {
             for act in acts {
                 if act == Act::Propose && said.is_some_and(|said| !said.refused) {
                     continue;
@@ -558,7 +696,7 @@ impl SettingsOverlay {
         }
         stops.push(self.lanes.add.clone());
         stops.extend(self.band_stops(&one, cx));
-        stops.extend(self.lanes_stops(&one));
+        stops.extend(self.lanes_stops(&one, cx));
         stops
     }
 
@@ -676,7 +814,7 @@ impl SettingsOverlay {
                     .child(div().min_w_0().max_w_full().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(line)))
             }));
         let mut toolbar = div().id("workflow-acts").flex().flex_wrap().items_center().gap_y(look.length(token::SPACE_2)).gap_x(look.length(token::SPACE_6));
-        for (group, acts) in acts_of(one, armada) {
+        for (group, acts) in self.acts_shown(one, armada) {
             let mut row = div().flex().items_center().gap(look.length(token::SPACE_1));
             for act in acts {
                 let label = match act {
@@ -685,10 +823,11 @@ impl SettingsOverlay {
                     Act::Compare => "Compare with Armada's".into(),
                     Act::Reset => "Reset to Armada's".into(),
                     Act::Propose => "Propose to Armada".into(),
+                    Act::Versions => VERSIONS.into(),
                     Act::Delete => "Delete".into(),
                 };
                 let held_off = off || (act == Act::Propose && said.is_some_and(|said| !said.refused));
-                row = row.child(self.act_button(act, label, act == Act::Compare && comparing, if act == Act::Compare { false } else { held_off }, look, window, cx));
+                row = row.child(self.act_button(act, label, act == Act::Compare && comparing, if matches!(act, Act::Compare | Act::Versions) { false } else { held_off }, look, window, cx));
             }
             let row = labelled(row.id(SharedString::from(format!("workflow-acts-{group}"))), Role::Group, group);
             toolbar = toolbar.child(if group == "Delete" { div().ml(look.length(token::SPACE_4)).child(row).into_any_element() } else { row.into_any_element() });
@@ -741,7 +880,7 @@ impl SettingsOverlay {
         let failed = look.color(token::STATUS_COMPLETED_FAILED);
         let (ground, edge, ink, hover): (Hsla, Hsla, Hsla, Hsla) = match act {
             _ if pressed => (look.color(token::ACCENT_MUTED), look.color(token::ACCENT), look.color(token::FG_DEFAULT), look.color(token::ACCENT_MUTED)),
-            Act::Compare | Act::Reset => (look.color(token::BG_SUNKEN), look.color(token::BORDER_STRONG), look.color(token::FG_DEFAULT), look.color(token::BG_HOVER)),
+            Act::Compare | Act::Reset | Act::Versions => (look.color(token::BG_SUNKEN), look.color(token::BORDER_STRONG), look.color(token::FG_DEFAULT), look.color(token::BG_HOVER)),
             Act::Delete => (gpui::transparent_black(), failed, failed, look.color(token::STATUS_COMPLETED_FAILED_BG)),
             Act::CopyInto | Act::MakeCopy | Act::Propose => (gpui::transparent_black(), gpui::transparent_black(), look.color(token::FG_MUTED), look.color(token::BG_HOVER)),
         };
@@ -760,7 +899,12 @@ impl SettingsOverlay {
             .tooltip(tip(label.clone()))
             .child(svg().path(icon_path(act.glyph())).size(look.length(token::SPACE_4)).text_color(ink))
             .when(off, |button| button.opacity(0.5))
-            .when(!off, |button| button.cursor_pointer().hover(move |style| style.bg(hover)).on_click(cx.listener(move |this, _, window, cx| this.press_act(act, window, cx))));
+            .when(!off, |button| {
+                button.cursor_pointer().hover(move |style| style.bg(hover)).on_click(cx.listener(move |this, _, window, cx| match act {
+                    Act::Versions => this.open_versions(false, window, cx),
+                    _ => this.press_act(act, window, cx),
+                }))
+            });
         labelled(ringed(look, button, &focus, window), Role::Button, label).into_any_element()
     }
 
@@ -887,7 +1031,7 @@ pub(super) async fn make_copy(one: &Listed, this: &WeakEntity<SettingsOverlay>, 
         _ => {}
     }
     let place = if scope == WorkflowScope::Kit { Place::Yours } else { Place::Repository };
-    Ok(Listed { id, place, manifest: into, runs_in: None, for_requests: one.for_requests.clone() })
+    Ok(Listed { id, place, manifest: into, runs_in: None, for_requests: one.for_requests.clone(), project: None })
 }
 
 /// The ask behind each act (`onCopyInto`, `onMakeCopy`, `onReset`, `onPropose`, `onDelete`).
@@ -915,7 +1059,7 @@ async fn run_act(act: Act, one: &Listed, this: &WeakEntity<SettingsOverlay>, cx:
             ask(this, cx, |this, cx| this.wire.delete_workflow(&manifest, copy, cx)).await?;
             Ok(After { list: true, drop_words: true, deleted: Some(id), ..After::default() })
         }
-        Act::Compare => Ok(After::default()),
+        Act::Compare | Act::Versions => Ok(After::default()),
     }
 }
 
@@ -924,7 +1068,11 @@ async fn save_words(one: &Listed, step: &str, words: &str, this: &WeakEntity<Set
     let (id, manifest, source) = (one.id.clone(), one.manifest.clone(), wire_of(one.place));
     let held = ask(this, cx, |this, cx| this.wire.workflow_definition(&id, source, &manifest, cx)).await?;
     let definition = with_words(&held.definition, step, words).ok_or_else(|| Refused::said(format!("{step} is not a step of {}", held.file)))?;
-    let scope = if one.place == Place::Repository { WorkflowScope::Repository } else { WorkflowScope::Kit };
+    let scope = match (one.place, &one.project) {
+        (Place::Repository, _) => WorkflowScope::Repository,
+        (Place::Project, Some(id)) => WorkflowScope::Project { id: id.clone() },
+        _ => WorkflowScope::Kit,
+    };
     ask(this, cx, |this, cx| this.wire.save_workflow(&manifest, SaveWorkflow { scope, definition, overwrite: true }, cx)).await?;
     Ok(After { steps: true, list: true, saved: Some(step.to_string()), ..After::default() })
 }
@@ -1062,7 +1210,7 @@ mod tests {
     use super::*;
 
     fn row(place: Place, runs_in: Option<&str>) -> Listed {
-        Listed { id: "bug".into(), place, manifest: "armada".into(), runs_in: runs_in.map(String::from), for_requests: None }
+        Listed { id: "bug".into(), place, manifest: "armada".into(), runs_in: runs_in.map(String::from), for_requests: None, project: None }
     }
 
     #[test]

@@ -197,5 +197,33 @@
     }
    ]
   }
+ },
+ {
+  "source": "project",
+  "manifest": "armada",
+  "project": "armada",
+  "definition": {
+   "version": 1,
+   "workflow_id": "design_plan",
+   "name": "design_plan",
+   "for_requests": "a design to settle before anything is built",
+   "steps": [
+    {
+     "id": "propose",
+     "label": "Propose",
+     "instructions": "Ask what is unclear, one question at a time. Then put one proposal to the person: a plan, with a sketch inside it if a picture helps, or a sketch, a draft, a document or a rough walk alone. Prefer one. Wait for the person to approve it. After an approved card that was not a plan, record the tasks at once: the person is not asked again."
+    },
+    {
+     "id": "sketch",
+     "label": "Sketch",
+     "instructions": "Show two options as sketches, one idea each, beside what Armada looks like now. Build nothing."
+    },
+    {
+     "id": "record_plan",
+     "label": "Record plan",
+     "instructions": "Record what was chosen and what it leaves out. Wait for approval."
+    }
+   ]
+  }
  }
 ]

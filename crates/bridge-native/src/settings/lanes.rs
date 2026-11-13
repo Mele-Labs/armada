@@ -2,39 +2,44 @@
 //! sets, read from Fleet (`get_workflow_lanes`), under the line that says what an edit there changes. **A repository's
 //! own copy is that repository's level; Armada's and Yours are the default's**, as Classic has had it since the tabs
 //! went. What differs below a level and where Workspaces tie are Fleet's marks, which the canvas draws.
+//!
+//! The canvas, the draft laid over it and Publish are the `lanes_editor`'s: one for each row, kept here while Settings
+//! is open, and this page answers its Fleet reads and saves through its own wire.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
+use std::rc::Rc;
 
-use gpui::{div, prelude::*, px, AnyElement, App, Context, FocusHandle, KeyDownEvent, Role, SharedString, Window};
-use ipc::JobLanesView;
+use gpui::{div, prelude::*, px, AnyElement, App, Context, Entity, FocusHandle, Role, Subscription, Task, WeakEntity, Window};
 
 use super::overlay::SettingsOverlay;
 use super::view::{bone, ghost_with, ringed, small};
+use super::workflow_detail::wire_of;
 use super::workflows::{Listed, Place};
 use crate::labels::labelled;
-use crate::lanes_canvas::{lanes_canvas, LanesHost, LanesState};
+use crate::lanes_editor::{EditorEvent, EditorWire, LanesEditor, Place as PublishedAt, Refused, Subject, Target};
 use crate::look::{token, Look};
 
 /// The default's level.
 const DEFAULT: &str = "default";
 
-
 pub struct WorkflowLanes {
-    read: BTreeMap<SharedString, Result<JobLanesView, String>>,
-    asking: BTreeSet<SharedString>,
-    pub canvas: LanesState,
+    /// The editor of each row, by its key: the draft stays with the row while Settings is open.
+    editors: BTreeMap<String, Entity<LanesEditor>>,
+    _subs: BTreeMap<String, Subscription>,
     /// The stop of "Add lifecycle", on the line that says what an edit changes.
     pub add: FocusHandle,
 }
 
 impl WorkflowLanes {
     pub fn new(cx: &mut App) -> Self {
-        Self { read: BTreeMap::new(), asking: BTreeSet::new(), canvas: LanesState::new(cx), add: cx.focus_handle().tab_stop(true) }
+        Self { editors: BTreeMap::new(), _subs: BTreeMap::new(), add: cx.focus_handle().tab_stop(true) }
     }
 
-    /// Settings opened again: read afresh.
-    pub fn reopen(&mut self) {
-        self.read.clear();
+    /// Settings opened again: every row read afresh, except one that holds a draft.
+    pub fn reopen(&mut self, cx: &App) {
+        self.editors.retain(|_, editor| editor.read(cx).has_edits());
+        let kept: Vec<String> = self.editors.keys().cloned().collect();
+        self._subs.retain(|key, _| kept.contains(key));
     }
 }
 
@@ -44,55 +49,234 @@ pub fn scope_of(one: &Listed) -> (String, String) {
     (scope, one.runs_in.clone().unwrap_or_else(|| one.manifest.clone()))
 }
 
-/// What an edit on the picked copy changes (`SAYS`).
-pub fn says(scope: &str, repository: &str) -> String {
-    if scope == DEFAULT { "Edits here change every Workspace and repository that keeps the default".into() } else { format!("Edits here change {repository} only") }
+/// What an edit on the picked copy changes (`SAYS`). None for the default: the draft's question answers where it
+/// applies.
+pub fn says(scope: &str, repository: &str) -> Option<String> {
+    (scope != DEFAULT).then(|| format!("Edits here change {repository} only"))
 }
 
-/// One read for each workflow, level and repository, which the canvas keeps its view under too.
-fn key_of(one: &Listed) -> SharedString {
-    let (scope, manifest) = scope_of(one);
-    format!("{}|{scope}|{manifest}", one.id).into()
+/// Armada's own workflow, and what runs in a repository that keeps no copy: an edit on it asks where it applies.
+pub fn shipped(one: &Listed) -> bool {
+    one.place == Place::Armada || one.runs_in.is_some()
+}
+
+/// The workflow a row draws, as the editor is told it, with the project it is offered: a project's own copy is
+/// that project's, any other row is offered the project picked.
+fn subject_of(one: &Listed, project: Option<(String, String)>) -> Subject {
+    let (level, manifest) = scope_of(one);
+    Subject { workflow: one.id.clone(), level, repository: manifest.clone(), manifest, held_under: one.manifest.clone(), source: wire_of(one.place), shipped: shipped(one), project }
+}
+
+/// The editor's reads and saves, answered by Settings' own wire.
+struct SettingsWire(WeakEntity<SettingsOverlay>);
+
+impl SettingsWire {
+    fn with<T: 'static>(&self, cx: &mut App, make: impl FnOnce(&mut SettingsOverlay, &mut Context<SettingsOverlay>) -> Task<Result<T, Refused>>) -> Task<Result<T, Refused>> {
+        self.0.update(cx, make).unwrap_or_else(|_| Task::ready(Err(Refused::said("Settings closed"))))
+    }
+}
+
+impl EditorWire for SettingsWire {
+    fn lanes(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::JobLanesView, Refused>> {
+        let at = at.clone();
+        self.with(cx, move |this, cx| this.wire.workflow_lanes(&at.workflow, &at.level, &at.manifest, cx))
+    }
+
+    fn definition(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
+        let at = at.clone();
+        self.with(cx, move |this, cx| this.wire.workflow_definition(&at.workflow, at.source, &at.held_under, cx))
+    }
+
+    fn workflow_draft(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
+        let (at, (source, project)) = (at.clone(), at.place());
+        self.with(cx, move |this, cx| this.wire.workflow_draft(&at.workflow, source, project.as_deref(), &at.held_under, cx))
+    }
+
+    fn put_workflow_draft(&self, manifest: &str, put: ipc::PutWorkflowDraft, cx: &mut App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
+        let manifest = manifest.to_string();
+        self.with(cx, move |this, cx| this.wire.put_workflow_draft(&manifest, put, cx))
+    }
+
+    fn revert_workflow(&self, manifest: &str, revert: ipc::RevertWorkflow, cx: &mut App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
+        let manifest = manifest.to_string();
+        self.with(cx, move |this, cx| this.wire.revert_workflow(&manifest, revert, cx))
+    }
+
+    fn discard_workflow_draft(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::WorkflowDraftDiscarded, Refused>> {
+        let (at, (source, project)) = (at.clone(), at.place());
+        self.with(cx, move |this, cx| this.wire.discard_workflow_draft(&at.workflow, source, project.as_deref(), &at.held_under, cx))
+    }
+
+    fn publish_workflow_draft(&self, manifest: &str, publish: ipc::PublishWorkflowDraft, cx: &mut App) -> Task<Result<ipc::WorkflowPublished, Refused>> {
+        let manifest = manifest.to_string();
+        self.with(cx, move |this, cx| this.wire.publish_workflow_draft(&manifest, publish, cx))
+    }
+
+    fn affected_jobs(&self, at: &Subject, place: &PublishedAt, cx: &mut App) -> Task<Result<ipc::AffectedJobs, Refused>> {
+        let (workflow, place) = (at.workflow.clone(), place.clone());
+        self.with(cx, move |this, cx| this.wire.affected_jobs(&workflow, &place.source, place.project.as_deref(), &place.manifest, cx))
+    }
+
+    fn migrate_jobs(&self, manifest: &str, migrate: ipc::MigrateJobs, cx: &mut App) -> Task<Result<ipc::MigratedJobs, Refused>> {
+        let manifest = manifest.to_string();
+        self.with(cx, move |this, cx| this.wire.migrate_jobs(&manifest, migrate, cx))
+    }
+
+    fn lifecycles(&self, manifest: &str, cx: &mut App) -> Task<Result<ipc::RepositoryLifecycles, Refused>> {
+        let manifest = manifest.to_string();
+        self.with(cx, move |this, cx| this.wire.lifecycles(&manifest, cx))
+    }
+
+    fn piece_draft(&self, kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope, cx: &mut App) -> Task<Result<ipc::PieceDraft, Refused>> {
+        let (id, scope) = (id.to_string(), scope.clone());
+        self.with(cx, move |this, cx| this.wire.piece_draft(kind, &id, &scope, cx))
+    }
+
+    fn put_piece_draft(&self, put: ipc::PutPieceDraft, cx: &mut App) -> Task<Result<ipc::PieceDraft, Refused>> {
+        self.with(cx, move |this, cx| this.wire.put_piece_draft(put, cx))
+    }
+
+    fn discard_piece_draft(&self, kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope, cx: &mut App) -> Task<Result<ipc::PieceDraftDiscarded, Refused>> {
+        let (id, scope) = (id.to_string(), scope.clone());
+        self.with(cx, move |this, cx| this.wire.discard_piece_draft(kind, &id, &scope, cx))
+    }
+
+    fn publish_piece_draft(&self, publish: ipc::PublishPieceDraft, cx: &mut App) -> Task<Result<ipc::PiecePublished, Refused>> {
+        self.with(cx, move |this, cx| this.wire.publish_piece_draft(publish, cx))
+    }
+
+    fn delete_piece(&self, delete: ipc::DeleteLifecyclePiece, cx: &mut App) -> Task<Result<ipc::LifecyclePieceDeleted, Refused>> {
+        self.with(cx, move |this, cx| this.wire.delete_lifecycle_piece(delete, cx))
+    }
 }
 
 impl SettingsOverlay {
-    /// Ask Fleet for the picked workflow's lanes, once for each level it is picked at.
-    pub(super) fn read_lanes(&mut self, cx: &mut Context<Self>) {
+    /// The picked row's editor, made once for each row.
+    pub(super) fn read_lanes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(one) = self.shown_workflows(cx).1 else { return };
-        let key = key_of(&one);
-        if self.lanes.read.contains_key(&key) || self.lanes.asking.contains(&key) {
+        let key = one.key();
+        let project = self.offered_project(&one);
+        let changed = self.armada_changed(&one, cx);
+        if let Some(editor) = self.lanes.editors.get(&key) {
+            editor.update(cx, |editor, cx| {
+                editor.offer_project(project, cx);
+                editor.offer_armada_changed(changed, cx);
+            });
             return;
         }
-        self.lanes.asking.insert(key.clone());
-        let (scope, manifest) = scope_of(&one);
-        let sent = self.wire.workflow_lanes(&one.id, &scope, &manifest, cx);
-        cx.spawn(async move |this, cx| {
-            let answer = sent.await;
-            let _ = this.update(cx, |this, cx| {
-                this.lanes.asking.remove(&key);
-                this.lanes.read.insert(key, answer.map_err(|why| why.said));
-                cx.notify();
-            });
-        })
-        .detach();
+        let wire: Rc<dyn EditorWire> = Rc::new(SettingsWire(cx.entity().downgrade()));
+        let subject = subject_of(&one, project);
+        let editor = cx.new(|cx| LanesEditor::new(subject, wire, window, cx));
+        editor.update(cx, |editor, cx| {
+            editor.scrolls_in(self.workflows.detail.scroll.clone());
+            editor.offer_armada_changed(changed, cx);
+        });
+        let row = one.clone();
+        let sub = cx.subscribe_in(&editor, window, move |this, _, event: &EditorEvent, window, cx| this.editor_said(&row, event, window, cx));
+        self.lanes.editors.insert(key.clone(), editor);
+        self.lanes._subs.insert(key, sub);
     }
 
-    /// The canvas's stop, once the lanes are read and it is drawn: the last of the page's stops.
-    pub(super) fn lanes_stops(&self, one: &Listed) -> Vec<FocusHandle> {
-        if matches!(self.lanes.read.get(&key_of(one)), Some(Ok(_))) { vec![self.lanes.canvas.frame.clone()] } else { Vec::new() }
+    /// Whether Fleet says Armada changed this copy's workflow since it was copied, as its list row carries.
+    fn armada_changed(&self, one: &Listed, cx: &Context<Self>) -> bool {
+        if one.place == Place::Armada || one.runs_in.is_some() {
+            return false;
+        }
+        let project = one.project.as_deref().filter(|_| one.place == Place::Project);
+        self.workflows.detail.listed(self.wire.workflows(cx)).is_some_and(|rows| {
+            rows.iter().any(|row| row.armada_changed && row.id.as_str() == one.id && row.manifest_id.as_str() == one.manifest && row.source == wire_of(one.place) && row.project.as_deref() == project)
+        })
+    }
+
+    /// The project a row's editor is offered: the row's own where it is a project's copy, else the one picked.
+    fn offered_project(&self, one: &Listed) -> Option<(String, String)> {
+        match (one.place, &one.project) {
+            (Place::Project, Some(id)) => Some((id.clone(), self.project_name(id))),
+            _ => self.scope.project.clone(),
+        }
+    }
+
+    /// What an editor told the page: shut Settings on an Esc it did not take, and after a Publish read what was
+    /// written again, picking the copy it made.
+    fn editor_said(&mut self, one: &Listed, event: &EditorEvent, window: &mut Window, cx: &mut Context<Self>) {
+        match event {
+            EditorEvent::Escaped => self.close(window, cx),
+            // The agent's change is in the draft, or Fleet says it no longer waits: it is put aside either way.
+            EditorEvent::AgentPut { change } => {
+                let dismissed = self.wire.dismiss_change(*change, cx);
+                cx.spawn(async move |_, _| {
+                    let _ = dismissed.await;
+                })
+                .detach();
+            }
+            EditorEvent::Published { target } => {
+                let copy = shipped(one).then(|| match target {
+                    Target::Repository(manifest) => Listed { id: one.id.clone(), place: Place::Repository, manifest: manifest.clone(), runs_in: None, for_requests: one.for_requests.clone(), project: None },
+                    Target::Project(id) => Listed { id: one.id.clone(), place: Place::Project, manifest: one.manifest.clone(), runs_in: None, for_requests: one.for_requests.clone(), project: Some(id.clone()) },
+                    Target::EveryProject => Listed { id: one.id.clone(), place: Place::Yours, manifest: one.manifest.clone(), runs_in: None, for_requests: one.for_requests.clone(), project: None },
+                });
+                // The rows that read the same workflow read it again, and the page its steps and its list.
+                let key = one.key();
+                self.workflows.detail.versions_changed(&key);
+                if let Some(copy) = &copy {
+                    self.workflows.detail.versions_changed(&copy.key());
+                }
+                for (_, editor) in self.lanes.editors.iter().filter(|(row, _)| **row != key) {
+                    editor.update(cx, |editor, cx| editor.reload(cx));
+                }
+                // The bar the keys were on is gone: they go to the canvas where the row stays, else to the pages.
+                match (&copy, self.lanes.editors.get(&key)) {
+                    (None, Some(editor)) => editor.update(cx, |editor, cx| editor.focus_canvas(window, cx)),
+                    _ => window.focus(&self.side, cx),
+                }
+                self.read_steps(one.clone(), window, cx);
+                self.read_list(copy.map(|copy| copy.key()), None, window, cx);
+            }
+        }
+    }
+
+    /// The picked row's editor, which an agent's change lands in.
+    pub(super) fn editor_of(&self, one: &Listed) -> Option<Entity<LanesEditor>> {
+        self.lanes.editors.get(&one.key()).cloned()
+    }
+
+    /// The editor's stops: its bar and history where the draft has changes, then the canvas.
+    pub(super) fn lanes_stops(&self, one: &Listed, cx: &App) -> Vec<FocusHandle> {
+        self.lanes.editors.get(&one.key()).map(|editor| editor.read(cx).stops()).unwrap_or_default()
+    }
+
+    /// Whether the canvas of the picked row holds the keys.
+    pub(super) fn canvas_keyed(&self, window: &Window, cx: &App) -> bool {
+        self.lanes.editors.values().any(|editor| editor.read(cx).canvas_focused(window))
+    }
+
+    /// The keys the editor takes ahead of the page's: ⌘Z, Enter and Space on its bar, Esc on its history; Tab, Enter
+    /// and Esc in the fields it opened on the canvas. Never from another text field.
+    pub(super) fn lanes_key(&mut self, key: &gpui::Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let (_, Some(one)) = self.shown_workflows(cx) else { return false };
+        let Some(editor) = self.editor_of(&one) else { return false };
+        if editor.read(cx).typing(window, cx) {
+            return editor.update(cx, |editor, cx| editor.field_key(key, window, cx));
+        }
+        if self.in_text(window) {
+            return false;
+        }
+        editor.update(cx, |editor, cx| editor.key(key, window, cx))
     }
 
     /// "Add lifecycle" saves a New lifecycle piece and picks it; built with the lifecycle inspector.
     pub(super) fn add_lifecycle(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {}
 
     /// The line saying what an edit changes and the button that adds a lifecycle, then what stands over the canvas
-    /// (the box that asks an agent), then the canvas: placeholder shapes while it is read, and what Fleet said
-    /// where it refused the level.
+    /// (the box that asks an agent), then the editor: its draft bar over the canvas, placeholder shapes while the
+    /// lanes are read, and what Fleet said where it refused the level.
     pub(super) fn render_lanes(&self, one: &Listed, above: Option<AnyElement>, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
-        let key = key_of(one);
         let (scope, manifest) = scope_of(one);
         let repository = self.wire.repositories(cx).unwrap_or_default().into_iter().find(|(id, _, _)| *id == scope).map_or(manifest, |(_, name, _)| name);
-        let said = says(&scope, &repository);
+        let said = match (one.place, &one.project) {
+            (Place::Project, Some(id)) => Some(format!("Edits here change {} only", self.project_name(id))),
+            _ => says(&scope, &repository),
+        };
         let add = ringed(look, ghost_with(look, "workflow-add-lifecycle", Some("plus"), "Add lifecycle", false), &self.lanes.add, window)
             .track_focus(&self.lanes.add)
             .on_click(cx.listener(|this, _, window, cx| this.add_lifecycle(window, cx)));
@@ -103,35 +287,16 @@ impl SettingsOverlay {
             .gap_x(look.length(token::SPACE_3))
             .gap_y(look.length(token::SPACE_1))
             .min_w_0()
-            .child(labelled(small(look, said.clone(), look.color(token::FG_MUTED)).id("workflow-lanes-says").flex_auto().min_w_0().px(look.length(token::SPACE_3)), Role::Label, said))
+            .child(match said {
+                Some(said) => labelled(small(look, said.clone(), look.color(token::FG_MUTED)).id("workflow-lanes-says").flex_auto().min_w_0().px(look.length(token::SPACE_3)), Role::Label, said).into_any_element(),
+                None => div().flex_auto().into_any_element(),
+            })
             .child(labelled(add, Role::Button, "Add lifecycle"));
-        let body = match self.lanes.read.get(&key) {
+        let body = match self.lanes.editors.get(&one.key()) {
             None => bone(look, px(0.), look.length(token::SPACE_12) * 11.).w_full().into_any_element(),
-            Some(Err(said)) => labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("workflow-lanes-refused"), Role::Alert, said.clone()).into_any_element(),
-            Some(Ok(lanes)) => {
-                // Four lanes of the least height fill it; a lane more makes it taller by that much.
-                let tall = (look.length(token::SPACE_12) * 11.).max(px(lanes.lanes.len() as f32 * crate::lanes_canvas::LANE_MIN) + look.length(token::BORDER_WIDTH) * 2.);
-                // An Esc the lanes did not take, with nothing picked, shuts Settings as it does on every page.
-                let shut = cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                    if event.keystroke.key == "escape" {
-                        this.close(window, cx);
-                        cx.stop_propagation();
-                    }
-                });
-                div().flex_none().h(tall).min_w_0().flex().flex_col().on_key_down(shut).child(lanes_canvas(self, &key, lanes, look, cx)).into_any_element()
-            }
+            Some(editor) => editor.clone().into_any_element(),
         };
         labelled(div().id("workflow-lanes").flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(line).children(above).child(body), Role::Region, "Workflow").into_any_element()
-    }
-}
-
-impl LanesHost for SettingsOverlay {
-    fn lanes_state(&self) -> &LanesState {
-        &self.lanes.canvas
-    }
-
-    fn lanes_of<'a>(&'a self, id: &SharedString, _cx: &'a App) -> Option<&'a JobLanesView> {
-        self.lanes.read.get(id).and_then(|read| read.as_ref().ok())
     }
 }
 
@@ -140,7 +305,7 @@ mod tests {
     use super::*;
 
     fn row(place: Place, manifest: &str, runs_in: Option<&str>) -> Listed {
-        Listed { id: "feature".into(), place, manifest: manifest.into(), runs_in: runs_in.map(String::from), for_requests: None }
+        Listed { id: "feature".into(), place, manifest: manifest.into(), runs_in: runs_in.map(String::from), for_requests: None, project: None }
     }
 
     #[test]
@@ -148,7 +313,22 @@ mod tests {
         assert_eq!(scope_of(&row(Place::Repository, "api", None)), ("api".to_string(), "api".to_string()));
         assert_eq!(scope_of(&row(Place::Armada, "armada", Some("api"))), ("default".to_string(), "api".to_string()));
         assert_eq!(scope_of(&row(Place::Yours, "armada", None)), ("default".to_string(), "armada".to_string()));
-        assert_eq!(says("api", "api"), "Edits here change api only");
-        assert_eq!(says("default", "api"), "Edits here change every Workspace and repository that keeps the default");
+        assert_eq!(says("api", "api").as_deref(), Some("Edits here change api only"));
+        assert_eq!(says("default", "api"), None);
+    }
+
+    #[test]
+    fn an_edit_asks_where_it_applies_on_armadas_own_and_on_what_runs_in_a_repository_that_keeps_no_copy() {
+        assert!(shipped(&row(Place::Armada, "armada", None)));
+        assert!(shipped(&row(Place::Yours, "armada", Some("api"))));
+        assert!(!shipped(&row(Place::Yours, "armada", None)));
+        assert!(!shipped(&row(Place::Repository, "api", None)));
+        let own = subject_of(&row(Place::Repository, "api", None), None);
+        assert_eq!(own.own_target(), Some(Target::Repository("api".into())));
+        assert_eq!(subject_of(&row(Place::Yours, "armada", None), None).own_target(), Some(Target::EveryProject));
+        let project = Some(("armada".to_string(), "Armada".to_string()));
+        assert_eq!(subject_of(&Listed { project: Some("armada".into()), ..row(Place::Project, "armada", None) }, project).own_target(), Some(Target::Project("armada".into())));
+        let kept = subject_of(&row(Place::Armada, "armada", Some("api")), None);
+        assert_eq!((kept.own_target(), kept.repository.as_str()), (None, "api"));
     }
 }
