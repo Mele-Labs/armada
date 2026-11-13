@@ -734,6 +734,29 @@ impl MockFleet {
         self.relist("feature");
     }
 
+    /// The lanes the drafts hold for `manifest` that Kit holds no lane under: a new lane's draft.
+    pub fn drafted_lifecycles(&self, manifest: &str) -> Vec<ipc::LifecycleDefinition> {
+        self.drafts
+            .pieces
+            .iter()
+            .filter(|piece| piece.kind == LifecyclePieceKind::Lifecycle && piece.base.is_empty() && piece.scope == (ipc::PieceScope::Within { id: manifest.into() }))
+            .filter_map(|piece| match ipc::decode::<LifecyclePiece>("piece", piece.text.as_bytes()) {
+                Ok(LifecyclePiece::Lifecycle { lifecycle }) => Some(lifecycle),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// For the walk of a lane restored from a draft: Fleet already holds a drafted lane, Deploys, for sample-web.
+    pub(super) fn drafted_lane(&mut self) {
+        let scope = ipc::PieceScope::Within { id: "sample-web".into() };
+        let text = crate::lanes_editor::restored_lane_text(scope.clone());
+        let now = Instant::carried("2026-11-12T09:00:00Z");
+        self.drafts.last += 1;
+        let change = DraftChange { id: self.drafts.last, by: DraftBy::You, at: now.clone(), text: text.clone(), summary: Some("Added the lane Watch".into()), change: None };
+        self.drafts.pieces.push(PieceDraft { kind: LifecyclePieceKind::Lifecycle, id: "deploys".into(), scope, text, base: String::new(), unfit: None, changes: vec![change], started_at: now.clone(), updated_at: now });
+    }
+
     /// The text of `manifest`'s own copy of `workflow`, where it has one.
     pub(super) fn repository_text(&self, workflow: &str, manifest: &str) -> Option<String> {
         self.definitions.iter().find(|one| one.holds(workflow, "repository", manifest)).map(|held| text_of(&held.definition))

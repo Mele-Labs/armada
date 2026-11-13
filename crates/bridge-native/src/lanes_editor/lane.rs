@@ -11,7 +11,7 @@
 //! reaches the name box and the press.
 
 use gpui::{anchored, canvas, deferred, div, point, prelude::*, px, svg, Anchor, AnyElement, Bounds, Context, Entity, FocusHandle, Focusable, FontWeight, Keystroke, MouseButton, Pixels, Role, SharedString, Stateful, Subscription, Window};
-use gpui_component::input::{Input, InputEvent, InputState};
+use gpui_component::input::{InputEvent, Textarea, TextareaState};
 use gpui_component::{Sizable, Size};
 use ipc::{LaneNodeKind, LifecycleDefinition, LifecycleStateDefinition, LifecycleTransition, PieceScope, StateReadFrom};
 
@@ -32,6 +32,8 @@ pub(super) const NEW_STATE: &str = "New state";
 /// What a blank lane's name box says while it is empty.
 /// A state node's height over its width, as the canvas draws one.
 const STATE_PER_NODE: f32 = 56. / 168.;
+/// The lines a name may take in its box before it scrolls.
+const NAME_ROWS: usize = 3;
 const NAME_THIS: &str = "Lane name";
 
 /// The source word under the name of a lane that reads its states from nothing the wire names.
@@ -109,7 +111,9 @@ pub(super) fn with_state_added(mut lane: LifecycleDefinition) -> (LifecycleDefin
     if let Some(last) = lane.states.last() {
         lane.transitions.push(LifecycleTransition { from: last.id.clone(), to: id.clone() });
     }
-    lane.states.push(LifecycleStateDefinition { id: id.clone(), label: NEW_STATE.into(), read: StateReadFrom::Tracker { words: Vec::new() } });
+    // Own once it lands
+    let read = StateReadFrom::Tracker { words: Vec::new() };
+    lane.states.push(LifecycleStateDefinition { id: id.clone(), label: NEW_STATE.into(), read });
     lane.ends = vec![id.clone()];
     (lane, id)
 }
@@ -156,7 +160,7 @@ pub(super) struct KindMenu {
 /// What a lane just added holds in its head: the box its name is typed in, and the press that adds a state.
 pub(super) struct NewLane {
     pub id: String,
-    pub name: Entity<InputState>,
+    pub name: Entity<TextareaState>,
     /// The name box's own stop, kept so the lane's stops can name it without reading the box.
     name_focus: FocusHandle,
     pill: FocusHandle,
@@ -167,7 +171,8 @@ pub(super) struct NewLane {
 
 impl NewLane {
     pub(super) fn new(id: String, name: &str, window: &mut Window, cx: &mut Context<LanesEditor>) -> Self {
-        let input = cx.new(|cx| InputState::new(window, cx).placeholder(NAME_THIS));
+        // A long name wraps in the box rather than running past it.
+        let input = cx.new(|cx| TextareaState::new(window, cx).auto_grow(1, NAME_ROWS).placeholder(NAME_THIS));
         input.update(cx, |state, cx| state.set_value(name.to_string(), window, cx));
         let name_focus = input.read(cx).focus_handle(cx);
         // The keys leaving the box, or Enter in it, land what was typed.
@@ -209,7 +214,8 @@ impl LanesEditor {
         let mut now: Vec<LifecycleDefinition> = self
             .pieces
             .iter()
-            .filter(|piece| piece.kind == ipc::LifecyclePieceKind::Lifecycle && !self.lifecycles.iter().any(|one| one.lifecycle.id == piece.id) && !drawn.contains(&piece.id.as_str()))
+            // A draft Kit holds no lane under is a new lane, whether or not Fleet lists it among those that run.
+            .filter(|piece| piece.kind == ipc::LifecyclePieceKind::Lifecycle && (piece.base.is_empty() || (!self.lifecycles.iter().any(|one| one.lifecycle.id == piece.id) && !drawn.contains(&piece.id.as_str()))))
             .filter_map(|piece| super::lifecycle_of(&piece.text))
             .collect();
         for waiting in &self.waiting_lifecycles {
@@ -504,7 +510,7 @@ impl LanesEditor {
         for at in 0..self.new_lanes.len() {
             let (id, name, was) = {
                 let one = &self.new_lanes[at];
-                (one.id.clone(), one.name.read(cx).value().trim().to_string(), one.was.clone())
+                (one.id.clone(), one.name.read(cx).value().replace(['\n', '\r'], " ").trim().to_string(), one.was.clone())
             };
             // Still being typed: the keys are in the box and Enter has not been pressed.
             if name == was || (self.new_lanes[at].name_focus.is_focused(window) && !done) {
@@ -524,6 +530,12 @@ impl LanesEditor {
 
     /// A name box not in use shows the lane's name as the draft has it now, which a change taken back may have moved.
     pub(super) fn sync_lane_names(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // A lane the draft held from before (one restored from Fleet) has no box yet: it gets the same one a new lane has.
+        for lane in self.added.clone() {
+            if !self.new_lanes.iter().any(|one| one.id == lane.id) {
+                self.new_lanes.push(NewLane::new(lane.id.clone(), &lane.name, window, cx));
+            }
+        }
         for at in 0..self.new_lanes.len() {
             let one = &self.new_lanes[at];
             let Some(name) = self.lane_def(&one.id).map(|lane| lane.name).filter(|name| !name.is_empty()) else { continue };
@@ -642,7 +654,7 @@ impl LanesEditor {
                 .w_full()
                 .text_size(look.length(token::TEXT_2XS))
                 .line_height(look.length(token::LEADING_2XS))
-                .child(Input::new(&held.name).with_size(Size::Small)),
+                .child(Textarea::new(&held.name).with_size(Size::Small)),
             Role::TextInput,
             "Lane name",
         );
@@ -654,12 +666,11 @@ impl LanesEditor {
             .flex_col()
             .justify_center()
             .gap(look.length(token::SPACE_1))
-            .px(look.length(token::SPACE_2))
             .py(look.length(token::SPACE_2))
             .bg(look.color(token::ACCENT_MUTED))
             .child(measured)
-            .child(field)
-            .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(source))
+            .child(div().w_full().px(look.length(token::BORDER_WIDTH) * 2.).child(field))
+            .child(div().min_w_0().truncate().px(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(source))
             .into_any_element()
     }
 

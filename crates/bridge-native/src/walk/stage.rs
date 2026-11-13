@@ -126,6 +126,9 @@ impl Stage {
                 if walk.name == crate::settings::walk::WAYS {
                     over.update(cx, |over, cx| over.refusing("pictures_whole", cx));
                 }
+                if walk.name == crate::settings::walk::LANES_ADD {
+                    over.update(cx, |over, cx| over.with_drafted_lane(cx));
+                }
                 if walk.name == crate::settings::walk::TAKE {
                     over.update(cx, |over, cx| over.copied_from_base(cx));
                 }

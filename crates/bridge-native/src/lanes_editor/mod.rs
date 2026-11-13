@@ -265,6 +265,14 @@ fn piece_text(lifecycle: LifecycleDefinition) -> String {
     serde_json::to_string(&LifecyclePiece::Lifecycle { lifecycle }).unwrap_or_default()
 }
 
+/// A watch's lane named Deploys, as the text of its piece: a lane a draft already holds, for the walk of a lane restored from
+/// Fleet's drafts.
+pub fn restored_lane_text(scope: PieceScope) -> String {
+    let mut lane = lane::lifecycle_of_kind(lane::Kind::Watch, "deploys", scope);
+    lane.name = "Deploys".into();
+    piece_text(lane)
+}
+
 fn lifecycle_of(text: &str) -> Option<LifecycleDefinition> {
     match ipc::decode::<LifecyclePiece>("piece", text.as_bytes()) {
         Ok(LifecyclePiece::Lifecycle { lifecycle }) => Some(lifecycle),

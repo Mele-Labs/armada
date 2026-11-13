@@ -46,6 +46,15 @@ impl SettingsScreen {
         });
     }
 
+    /// For the walk of adding a lane: Fleet already holds a drafted lane for sample-web.
+    pub fn with_drafted_lane(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.drafted_lane();
+            }
+        });
+    }
+
     /// For the walk of a Mac Tailscale Funnel does not serve.
     pub fn without_funnel(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {

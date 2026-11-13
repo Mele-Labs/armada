@@ -126,7 +126,7 @@ pub static LANES_ADD_STEPS: &[Step] = &[
     step("\u{2193} four times reaches Blank lane", Verb::Keys(&["down", "down", "down", "down"]), "menuitem", "Blank lane"),
     step("Enter picks it: an empty name box holds the keys", Verb::Key("enter"), "textbox", "Lane name"),
     step("Under it its source, Your own, and Add a state", Verb::Look, "button", "Add a state"),
-    step("A name is typed. Nothing is drafted until it has a state", Verb::Typed("Reviews"), "textbox", "Lane name"),
+    step("A long name wraps in the box. Nothing is drafted until it has a state", Verb::Typed("Reviews waiting on others"), "textbox", "Lane name"),
     step("Enter lands the name, and the keys go to Add a state", Verb::Key("enter"), "button", "Add a state"),
     step("Enter adds a state, its name open where it stands", Verb::Key("enter"), "textbox", "Name"),
     step("The state is named", Verb::Typed("Waiting"), "textbox", "Name"),
@@ -135,7 +135,11 @@ pub static LANES_ADD_STEPS: &[Step] = &[
     press_on("Add lifecycle opens the menu once more", "button", "Add lifecycle", "menu", "What does this lane follow?"),
     step("Esc shuts it, and the keys are back on the button", Verb::Key("escape"), "button", "Add lifecycle"),
     press_on("Publish writes the lane where the draft applies", "button", "Publish", "button", "Add rule"),
-    step("The published lane is kept, drawn as any other", Verb::Wheel("button", "Zoom in", 700), "group", "Reviews"),
+    step("The published lane is kept, drawn as any other", Verb::Wheel("button", "Zoom in", 700), "group", "Reviews waiting on others"),
+    step("The page scrolls up to the top", Verb::Wheel("button", "Zoom in", -1200), "button", "Add lifecycle"),
+    step("Back to the list, where sample-web's bug is", Verb::PressOnFirst(&[("button", "Back to Workflows"), ("button", "Workflows")]), "group", "sample-web repository"),
+    step("Fleet holds a lane for it from before: it draws, with Add lifecycle over it", Verb::PressWithin("group", "sample-web repository", "bug"), "button", "Add lifecycle"),
+    step("It has the same head: a name box, and its source under it", Verb::Wheel("button", "Zoom in", 1200), "textbox", "Lane name"),
 ];
 
 /// `native-rules`: a rule opened as one sentence where its chip stands, each field set from its menu, and the changes

@@ -382,6 +382,12 @@ impl MockFleet {
             let kept = ipc::PieceKept { rank: ipc::PieceRank { reach: "everywhere".into(), source: "kit".into(), home: false }, path: Some(format!("~/.armada/kit/lifecycles/{}.yml", written.id)), overridden_by: None, hides: None };
             lifecycles.push(ipc::AppliedLifecycle { lifecycle: written.clone(), kept });
         }
+        // A lane a draft holds is listed with those that run, as Fleet lists what a repository has under it.
+        let running: Vec<String> = lifecycles.iter().map(|one| one.lifecycle.id.clone()).collect();
+        for drafted in self.drafted_lifecycles(manifest).into_iter().filter(|drafted| !running.contains(&drafted.id)) {
+            let kept = ipc::PieceKept { rank: ipc::PieceRank { reach: "repository".into(), source: "repository".into(), home: false }, path: None, overridden_by: None, hides: None };
+            lifecycles.push(ipc::AppliedLifecycle { lifecycle: drafted, kept });
+        }
         Ok(ipc::RepositoryLifecycles { manifest_id: ipc::ManifestId::carried(manifest), lifecycles, left_out: Vec::new() })
     }
 
