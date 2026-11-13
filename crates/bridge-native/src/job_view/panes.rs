@@ -102,8 +102,7 @@ pub(super) enum CheckTab {
     Log,
 }
 
-/// A file as the panel reads it: its text, or why it was not opened. The shape of the
-/// `GET /sessions/repository_file` answer Fleet is adding, so the live read only changes the source.
+/// A file as the panel reads it: its text, or why it was not opened.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum FileRead {
     Text(String),
