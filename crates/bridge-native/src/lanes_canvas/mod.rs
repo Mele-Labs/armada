@@ -165,6 +165,17 @@ impl LanesState {
         let Some(seen) = seen.get(id) else { return Vec::new() };
         seen.hooks.gaps.iter().map(|(after, before, rect)| StepGap { after: after.clone(), before: before.clone(), bounds: self.in_window(*rect) }).collect()
     }
+
+    /// Pick a node or rule of the canvas drawn under `id`, or let go (`None`), from outside the canvas,
+    /// as a press would; a picked node takes the keys too. The host repaints.
+    pub fn pick(&self, id: &SharedString, pick: Option<Pick>) {
+        let mut seen = self.seen.borrow_mut();
+        let seen = seen.entry(id.clone()).or_default();
+        if let Some(Pick::Node(node)) = &pick {
+            seen.current = Some(node.clone());
+        }
+        seen.picked = pick;
+    }
 }
 
 /// A view that draws the canvas. What a press means is the host's; the defaults do nothing.
