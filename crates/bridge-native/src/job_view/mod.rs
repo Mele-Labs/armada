@@ -39,6 +39,7 @@ pub(crate) mod offer;
 mod perm;
 mod pictures;
 mod pinned;
+mod place;
 mod plan;
 mod plan_edit;
 mod plan_marks;
@@ -289,6 +290,24 @@ fn echoed(items: &[ThreadItem], text: &str) -> usize {
         .count()
 }
 
+/// The Job kept open at the last run, for the list to open once Fleet lists it.
+pub(crate) fn place_kept_open() -> Option<String> {
+    place::Kept::read().open
+}
+
+/// What a walk's reopen builds the next screen from: where the Job view stands now.
+pub(crate) fn hand_over_place(cx: &mut App) {
+    if let Some(view) = JobView::live(cx) {
+        let kept = view.update(cx, |view, cx| view.place_now(cx));
+        cx.set_global(place::Reopened(kept));
+    }
+}
+
+/// The Job a walk's reopen left open, for the screen it builds to open again.
+pub(crate) fn reopened_job(cx: &App) -> Option<String> {
+    place::reopened(cx).and_then(|kept| kept.open)
+}
+
 /// Tell Fleet a Job's view is on screen or off it (`view_session`).
 fn tell_fleet(port: Option<u16>, job: &str, on: bool, cx: &mut App) {
     Note::info("a Job's view was told to Fleet").field("job", job).field("on", on).emit();
@@ -346,6 +365,8 @@ pub struct JobView {
     row_focus: FocusHandle,
     /// The thread's strip, which scrolls sideways once its tabs are wider than the pane.
     row_strip: gpui::ScrollHandle,
+    /// Where he left off, kept between runs.
+    place: place::Place,
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
@@ -483,6 +504,9 @@ impl JobView {
                 tell_fleet(port, &job, false, cx);
             }
         }));
+        // Where he is is noted on each change, which is cheap where nothing moved, and written a moment later.
+        let own = cx.entity();
+        subscriptions.push(cx.observe(&own, |this, _, cx| this.keep_place(cx)));
         Self::offer_open_mod(cx);
         cx.set_global(view_tabs::LiveJobView(cx.weak_entity()));
         let mock_changes = match &mock {
@@ -526,6 +550,7 @@ impl JobView {
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
             row_strip: gpui::ScrollHandle::new(),
+            place: place::Place::begin(remember, cx),
             focus: cx.focus_handle(),
             pop: None,
             open_group_set: None,
@@ -677,6 +702,9 @@ impl JobView {
         self.end_zoom();
         self.shown = to.clone();
         self.switched = Some(started);
+        if let Some(id) = &to {
+            self.place_arrive(id);
+        }
         // Each Job has its own tabs, so the top strip starts at its head with the tab in front in view.
         self.panes.top_tabs.set_offset(gpui::point(gpui::px(0.), gpui::px(0.)));
         if let Some(at) = self.zone_shown().and_then(|zone| side::Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).position(|one| one == zone)) {
@@ -832,6 +860,7 @@ impl JobView {
                     weak.update(cx, |this, cx| this.want_earlier(&job, cx)).ok();
                 }
             });
+            self.place_scroll(id, cx);
         }
         if let Some(arrived) = arrived {
             if let Some(page) = self.pages.get_mut(id) {

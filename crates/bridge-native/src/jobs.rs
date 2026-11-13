@@ -618,6 +618,8 @@ pub struct JobsList {
     focused: Option<SharedString>,
     /// The Job opened with Enter or a press.
     opened: Option<SharedString>,
+    /// The Job that was open when the last run ended, opened once Fleet lists it (`job_view::place`).
+    resume: Option<String>,
     /// Counts each pick of a Job, the open one again too, so the view puts the keys in its box.
     picks: u64,
     /// The Jobs a walk's stand-in for Fleet started: their threads are empty, as Fleet answers for a Job with nothing in it.
@@ -726,6 +728,9 @@ impl JobsList {
                 this.place_new();
                 this.relist(cx);
             }
+            if this.resume_open() {
+                cx.notify();
+            }
         });
         let (scope, order) = read_deck();
         crate::queued::begin(true, cx);
@@ -763,6 +768,7 @@ impl JobsList {
             remember,
             focused: None,
             opened: None,
+            resume: if remember { crate::job_view::place_kept_open() } else { None },
             picks: 0,
             made: Vec::new(),
             focus: cx.focus_handle(),
@@ -808,6 +814,22 @@ impl JobsList {
             self.order.extend(fresh);
             self.keep();
         }
+    }
+
+    /// Open the Job kept open at the last run once Fleet lists Jobs: nothing where it lists none yet, and the
+    /// wish is let go where the Job is gone or another was opened first. True where it opened one.
+    fn resume_open(&mut self) -> bool {
+        if self.resume.is_none() || self.jobs.is_empty() {
+            return false;
+        }
+        let Some(id) = self.resume.take() else { return false };
+        if self.opened.is_some() || !self.jobs.iter().any(|job| job.id.as_str() == id) {
+            return false;
+        }
+        let id = SharedString::from(id);
+        self.focused = Some(id.clone());
+        self.opened = Some(id);
+        true
     }
 
     pub fn focus_handle(&self) -> &FocusHandle {
@@ -2489,6 +2511,32 @@ mod tests {
         });
         assert!(!list.update(cx, |list, cx| list.open_job("no-such-job", cx)), "a Job the list does not hold is not opened");
         list.read_with(cx, |list, _| assert_eq!(list.opened.as_ref().map(|id| id.as_ref()), Some(live.as_str())));
+    }
+
+    #[gpui::test]
+    fn the_job_kept_open_opens_once_listed_and_a_gone_one_leaves_the_list_as_it_was(cx: &mut gpui::TestAppContext) {
+        let all = jobs();
+        let kept = all[1].id.as_str().to_string();
+        let list = cx.new(|cx| JobsList::mock(&all, cx));
+        list.update(cx, |list, _| {
+            list.resume = Some(kept.clone());
+            assert!(list.resume_open());
+            assert_eq!(list.opened.as_ref().map(|id| id.as_ref()), Some(kept.as_str()));
+            assert!(list.resume.is_none(), "it is opened once");
+        });
+        let list = cx.new(|cx| JobsList::mock(&all, cx));
+        list.update(cx, |list, _| {
+            list.resume = Some("a-job-fleet-no-longer-lists".into());
+            assert!(!list.resume_open());
+            assert!(list.opened.is_none(), "a gone Job opens nothing and says nothing");
+            assert!(list.resume.is_none(), "and is let go");
+        });
+        let list = cx.new(|cx| JobsList::mock(&[], cx));
+        list.update(cx, |list, _| {
+            list.resume = Some(kept.clone());
+            assert!(!list.resume_open());
+            assert_eq!(list.resume.as_deref(), Some(kept.as_str()), "it waits for Fleet's Jobs");
+        });
     }
 
     #[test]

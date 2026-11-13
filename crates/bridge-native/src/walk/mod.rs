@@ -120,6 +120,9 @@ pub enum Verb {
     /// The screen is built again from its mock, so a part of a long walk starts from the state its
     /// first step expects: no popup, sheet or layer open, every scene at rest. The target is ringed.
     Fresh,
+    /// The screen is built again from its mock as a restart builds it, from where the Job view stands now: the Job
+    /// open, each Job's tab in front and the thread's scrolled place come back, and nothing else does. The target is ringed.
+    Reopen,
     /// As [`Verb::Fresh`], on another screen and scenario, so one walk can carry parts that each
     /// need their own mock.
     FreshIn(Screen, &'static str),
@@ -1256,6 +1259,8 @@ pub static WALKS: &[Walk] = &[
             press_on("A press opens the Job it became, in sample-api", "button", "Moved to sample-api", "region", "Thread"),
             step("Its thread starts with where it came from, and carries the whole conversation in, with no rule", Verb::Wheel("region", "Thread", -400), "button", "Moved from sample-web"),
             press_on("A press goes back", "button", "Moved from sample-web", "button", "Moved to sample-api"),
+            press_on("The Ledger names the move as the Classic ledger does: Moved to, and the other Job's title", "button", "Add tab: Done", "menuitem", "Ledger"),
+            press_on("It stands under Jobs, with the other Job's own mark", "menuitem", "Ledger", "button", "Moved to Checkout page loads twice"),
         ],
     },
     Walk {
@@ -1276,6 +1281,23 @@ pub static WALKS: &[Walk] = &[
             step("He is told, in a toast", Verb::Look, "alert", "Toast: Message to Audit the docs index not sent. Fleet did not take it"),
             step("Retry sends the same message again. Fleet takes it: the cross and Retry are gone, and the message is in the thread once", Verb::PressOn("button", "Retry"), "region", "Your message"),
             step("A press on the tag opens that Job", Verb::PressOn("link", "Native Bridge foundation"), "row", "Native Bridge foundation"),
+        ],
+    },
+    Walk {
+        name: "native-open-where-left",
+        title: "Opens where he left off",
+        screen: Screen::Jobs,
+        scenario: "job-view",
+        steps: &[
+            step("A long Job, with Done in front of its top pane", Verb::Press, "row", "Native Bridge foundation"),
+            step("Done in front", Verb::Press, "tab", "Job column: Done"),
+            step("Scrolled up, the thread leaves its tail and is somewhere in the middle", Verb::Wheel("region", "Thread", -900), "region", "Thread"),
+            step("Another Job, its thread at its tail, with Deferred in front", Verb::Press, "row", "Fix the merge line freshness chip"),
+            step("Deferred in front of this Job", Verb::Press, "tab", "Job column: Deferred"),
+            step("The app restarts: it opens on that Job, with the thread at its tail", Verb::Reopen, "tab", "Job column: Deferred"),
+            step("Deferred is in front of its top pane, as it was left", Verb::Look, "tab", "Job column: Deferred"),
+            step("The first Job again: Done is in front as it was left", Verb::Press, "row", "Native Bridge foundation"),
+            step("Its thread is scrolled where it was, not at its tail", Verb::Look, "region", "Thread"),
         ],
     },
     Walk {

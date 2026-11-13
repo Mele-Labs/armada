@@ -97,6 +97,14 @@ impl JobView {
         self.shown.as_ref().and_then(|id| self.tabs_closed.shut.get(id)).is_some_and(|closed| closed.contains(tab))
     }
 
+    /// A tab kept in front of a Job's top pane is open there, as + opens it, unless he closed it this run.
+    pub(super) fn bring_zone(&mut self, id: &SharedString, zone: Zone) {
+        let shut = self.tabs_closed.shut.get(id).is_some_and(|closed| closed.contains(zone.id()));
+        if zone.opened_by_hand() && !shut {
+            self.tabs_closed.opened.entry(id.clone()).or_default().insert(zone.id());
+        }
+    }
+
     /// Top's tab in front: the zone, or the first of its tabs still open.
     pub(super) fn zone_shown(&self) -> Option<Zone> {
         if !self.tab_closed(self.zone.id()) {
