@@ -7,6 +7,7 @@
 //! node draws nothing until the app can draw a page (plan task #20). A screen node is a wireframe
 //! sheet gpui lays out as the browser lays out `ScreenView`, under its title.
 
+mod arrows;
 pub(crate) mod export;
 mod geometry;
 mod labels;
@@ -27,6 +28,7 @@ use ipc::{Scene, SceneColor, SceneKind, SceneNode, SceneShape, ScreenElement, Wi
 use lyon::tessellation::{LineCap, LineJoin};
 
 use crate::look::{token, Look};
+use arrows::Pattern;
 use geometry::{Pt, Rect};
 use route::Seg;
 
@@ -51,6 +53,15 @@ const DIMMED: f32 = 0.35;
 const DASH: f32 = 8.;
 /// The chords a rounded corner is cut into for the dashes.
 const CORNER_CUTS: usize = 6;
+/// The chords a curve and a hop are cut into for the dashes.
+const CURVE_CUTS: usize = 24;
+const HOP_CUTS: usize = 12;
+/// An arrowhead's length, and how far a way runs straight into one: two of them, so the head points along its line.
+const HEAD: f32 = 16.;
+const RUN: f32 = HEAD * 2.;
+/// A dotted line's dots: a round dot as long as nothing, one every `--space-1` and a half over the line's own width.
+const DOT: f32 = 0.5;
+const DOT_PERIOD: f32 = 6.;
 
 /// How the scene is drawn: shrunk on a thread card, or read in a sheet of its own.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -406,7 +417,7 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
     let sizes: Vec<(f32, f32)> = scene.nodes.iter().zip(sheets).map(|(node, sheet)| sheet.unwrap_or_else(|| size_of(node, &measure, limits))).collect();
     let order = arrange(scene, &sizes);
     let rects: Vec<Rect> = scene.nodes.iter().map(|node| order.iter().find(|(id, _)| *id == node.id).map_or_else(Rect::default, |(_, rect)| *rect)).collect();
-    let ways = ways(scene, &order, &rects);
+    let ways = ways(scene, &order, &rects, f32::from(look.length(token::SPACE_1)));
     let bounds = rects.iter().copied().reduce(union).unwrap_or_default();
     // A step is a number a node, an arrow or an element of a screen carries, and what shares a number plays together.
     let mut steps: Vec<f64> = scene
@@ -453,15 +464,24 @@ fn metrics() -> labels::LabelMetrics {
     labels::LabelMetrics { char_w: TEXT * 0.56, line_h: LEAD, pad: 4. }
 }
 
-fn ways(scene: &Scene, order: &[(String, Rect)], rects: &[Rect]) -> Vec<Option<Way>> {
+fn ways(scene: &Scene, order: &[(String, Rect)], rects: &[Rect], hop_radius: f32) -> Vec<Option<Way>> {
     let grounds: HashSet<String> = scene.nodes.iter().filter(|node| ground(node)).map(|node| node.id.clone()).collect();
     let pointed: HashSet<String> =
         scene.nodes.iter().filter(|node| node.shape.is_some_and(|shape| !matches!(shape, SceneShape::Box | SceneShape::Cylinder))).map(|node| node.id.clone()).collect();
-    let edges: Vec<route::RouteEdge> = scene.edges.iter().map(|edge| route::RouteEdge { id: &edge.id, from: &edge.from, to: &edge.to }).collect();
-    let found = route::route_all(order, &edges, GAP, &grounds, &pointed);
-    let way_of = |id: &str| found.iter().find(|(one, _)| one == id).map(|(_, way)| way);
-    let paths: Vec<Option<Vec<Seg>>> = scene.edges.iter().map(|edge| way_of(&edge.id).map(|way| route::rounded_path(way, GAP / 4.))).collect();
-    let heads: Vec<Rect> = found.iter().filter_map(|(_, way)| way.last()).map(|end| Rect { x: end.x - GAP / 4., y: end.y - GAP / 4., w: GAP / 2., h: GAP / 2. }).collect();
+    let edges: Vec<route::RouteEdge> =
+        scene.edges.iter().map(|edge| route::RouteEdge { id: &edge.id, from: &edge.from, to: &edge.to, path: arrows::path(edge), heads: arrows::heads(edge) }).collect();
+    let found = route::route_all(order, &edges, GAP, &grounds, &pointed, RUN, GAP / 4.);
+    let paths: Vec<Option<Vec<Seg>>> = scene.edges.iter().map(|edge| found.iter().find(|(one, _)| *one == edge.id).map(|(_, way)| way.clone())).collect();
+    // Where each head stands, so no arrow's words sit on one.
+    let heads: Vec<Rect> = scene
+        .edges
+        .iter()
+        .zip(&paths)
+        .filter_map(|(edge, path)| Some((arrows::heads(edge), route::tips(path.as_deref()?)?)))
+        .flat_map(|((start, end), tips)| [start.then_some(tips.start), end.then_some(tips.end)])
+        .flatten()
+        .map(|at| Rect { x: at.x - GAP / 4., y: at.y - GAP / 4., w: GAP / 2., h: GAP / 2. })
+        .collect();
     let solid: Vec<Rect> = scene.nodes.iter().zip(rects).filter(|(node, _)| !ground(node)).map(|(_, rect)| *rect).collect();
     let drawn: Vec<labels::LabelEdge> = scene
         .edges
@@ -470,6 +490,16 @@ fn ways(scene: &Scene, order: &[(String, Rect)], rects: &[Rect]) -> Vec<Option<W
         .filter_map(|(edge, path)| Some(labels::LabelEdge { id: &edge.id, label: edge.label.as_deref(), path: path.as_deref()? }))
         .collect();
     let places = labels::place_labels(&drawn, &solid, metrics(), &heads);
+    // Each arrow hops the ones laid before it, but never within the run a head asks to be straight.
+    let keeps: Vec<(f32, f32)> = scene
+        .edges
+        .iter()
+        .map(|edge| {
+            let (start, end) = arrows::heads(edge);
+            (if start { RUN } else { 0. }, if end { RUN } else { 0. })
+        })
+        .collect();
+    let paths = route::hop_all(&paths, hop_radius, &keeps);
     scene
         .edges
         .iter()
@@ -739,8 +769,8 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
             let change = changes.and_then(|changes| changes.edges.get(&edge.id).copied());
             let active = now.as_ref().is_some_and(|now| edge.step == Some(now.at));
             let dim = (now.is_some() && !active) || change == Some(Change::Same);
-            let flow = (edge.flow != Some(false)).then_some(crawl.unwrap_or(0.));
-            paint_edge(&Ink { struck: false, ..ink.changed(change) }, way, edge.color, flow, active, dim, window, cx);
+            let phase = if arrows::crawls(edge) { crawl.unwrap_or(0.) } else { 0. };
+            paint_edge(&Ink { struck: false, ..ink.changed(change) }, way, edge.color, arrows::pattern(edge), phase, arrows::heads(edge), active, dim, window, cx);
         }
         for (index, (node, rect)) in scene.nodes.iter().zip(&laid.rects).enumerate().filter(|(_, (node, _))| !ground(node)) {
             let change = node_change(node);
@@ -990,10 +1020,10 @@ fn paint_wire(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut 
     }
 }
 
-/// An arrow along its way: 2px in its hue, dashed where it is a flow, a filled head at its end, and its words on a sunken backing.
-/// A flow carries its dashes' phase: how far along the way they have crawled.
+/// An arrow along its way: 2px in its hue, solid, dashed or dotted, a filled head at the ends that carry one, and its
+/// words on a sunken backing. A dashed line carries its dashes' phase: how far along the way they have crawled.
 #[allow(clippy::too_many_arguments)]
-fn paint_edge(ink: &Ink, way: &Way, color: Option<SceneColor>, flow: Option<f32>, active: bool, dim: bool, window: &mut Window, cx: &mut App) {
+fn paint_edge(ink: &Ink, way: &Way, color: Option<SceneColor>, pattern: Pattern, phase: f32, heads: (bool, bool), active: bool, dim: bool, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
     let base = if active {
         look.color(token::EDGE_FOCUS)
@@ -1001,51 +1031,46 @@ fn paint_edge(ink: &Ink, way: &Way, color: Option<SceneColor>, flow: Option<f32>
         ink.over.unwrap_or_else(|| color.map_or(look.color(token::FG_MUTED), |color| hue(look, Some(color), SceneColor::Grey)))
     };
     let stroke = if dim { base.opacity(base.a * DIMMED) } else { base };
-    let mut line = PathBuilder::stroke(view.len(2.));
-    let mut last = Pt::default();
-    let mut before = Pt::default();
-    for seg in &way.path {
-        match *seg {
-            Seg::Move(p) => {
-                last = p;
-                before = p;
-            }
-            Seg::Line(p) => {
-                before = last;
-                last = p;
-            }
-            Seg::Quad(ctrl, p) => {
-                before = ctrl;
-                last = p;
-            }
+    let mut line = match pattern {
+        // A dot is a round cap on a run of no length.
+        Pattern::Dotted => {
+            let width = view.len(2.);
+            PathBuilder::stroke(width).with_style(PathStyle::Stroke(StrokeOptions::default().with_line_width(f32::from(width)).with_line_cap(LineCap::Round)))
         }
-    }
-    match flow {
-        Some(phase) => dashes(&mut line, &flat(&way.path), phase, view),
-        None => {
+        _ => PathBuilder::stroke(view.len(2.)),
+    };
+    match pattern {
+        Pattern::Dashed => dashes(&mut line, &flat(&way.path), phase, DASH, DASH * 2., view),
+        Pattern::Dotted => dashes(&mut line, &flat(&way.path), 0., DOT, DOT_PERIOD, view),
+        Pattern::Solid => {
+            let mut cursor = Pt::default();
             for seg in &way.path {
                 match *seg {
                     Seg::Move(p) => line.move_to(view.at(p)),
                     Seg::Line(p) => line.line_to(view.at(p)),
                     Seg::Quad(ctrl, p) => line.curve_to(view.at(p), view.at(ctrl)),
+                    Seg::Cubic(c1, c2, p) => line.cubic_bezier_to(view.at(p), view.at(c1), view.at(c2)),
+                    Seg::Arc(p, _, sweep) => {
+                        for at in route::arc_points(cursor, p, sweep, HOP_CUTS) {
+                            line.line_to(view.at(at));
+                        }
+                    }
                 }
+                cursor = match *seg {
+                    Seg::Move(p) | Seg::Line(p) | Seg::Quad(_, p) | Seg::Cubic(_, _, p) | Seg::Arc(p, _, _) => p,
+                };
             }
         }
     }
     if let Ok(path) = line.build() {
         window.paint_path(path, stroke);
     }
-    // The marker's 10-unit triangle drawn 16px long, its point a tenth past the way's end.
-    let (dx, dy) = (last.x - before.x, last.y - before.y);
-    let long = dx.hypot(dy);
-    if long > 0. {
-        let (ux, uy) = (dx / long, dy / long);
-        let tip = Pt { x: last.x + ux * 1.6, y: last.y + uy * 1.6 };
-        let back = Pt { x: tip.x - ux * 16., y: tip.y - uy * 16. };
-        let mut head = PathBuilder::fill();
-        head.add_polygon(&[view.at(tip), view.at(Pt { x: back.x - uy * 8., y: back.y + ux * 8. }), view.at(Pt { x: back.x + uy * 8., y: back.y - ux * 8. })], true);
-        if let Ok(path) = head.build() {
-            window.paint_path(path, stroke);
+    if let Some(tips) = route::tips(&way.path) {
+        if heads.1 {
+            paint_head(view, tips.end, tips.before_end, stroke, window);
+        }
+        if heads.0 {
+            paint_head(view, tips.start, tips.after_start, stroke, window);
         }
     }
     if let Some((rect, lines)) = &way.words {
@@ -1055,6 +1080,23 @@ fn paint_edge(ink: &Ink, way: &Way, color: Option<SceneColor>, flow: Option<f32>
         for (at, text) in lines.iter().enumerate() {
             ink.words(text, Pt { x: rect.x, y: rect.y + 4. + at as f32 * LEAD }, Some(rect.w), TEXT, 400., false, muted, TextAlign::Center, window, cx);
         }
+    }
+}
+
+/// The marker's 10-unit triangle drawn `HEAD` long, its point a tenth past where the way ends and pointing away from `from`.
+fn paint_head(view: View, at: Pt, from: Pt, color: Hsla, window: &mut Window) {
+    let (dx, dy) = (at.x - from.x, at.y - from.y);
+    let long = dx.hypot(dy);
+    if long <= 0. {
+        return;
+    }
+    let (ux, uy) = (dx / long, dy / long);
+    let tip = Pt { x: at.x + ux * 1.6, y: at.y + uy * 1.6 };
+    let back = Pt { x: tip.x - ux * HEAD, y: tip.y - uy * HEAD };
+    let mut head = PathBuilder::fill();
+    head.add_polygon(&[view.at(tip), view.at(Pt { x: back.x - uy * 8., y: back.y + ux * 8. }), view.at(Pt { x: back.x + uy * 8., y: back.y - ux * 8. })], true);
+    if let Ok(path) = head.build() {
+        window.paint_path(path, color);
     }
 }
 
@@ -1078,7 +1120,7 @@ fn paint_ink(ink: &Ink, points: &[Pt], window: &mut Window) {
     }
 }
 
-/// The way as a line through points, its rounded corners cut into short chords.
+/// The way as a line through points, its rounded corners, curves and hops cut into short chords.
 fn flat(path: &[Seg]) -> Vec<Pt> {
     let mut points: Vec<Pt> = Vec::new();
     for seg in path {
@@ -1092,15 +1134,24 @@ fn flat(path: &[Seg]) -> Vec<Pt> {
                     points.push(Pt { x: u * u * from.x + 2. * u * t * ctrl.x + t * t * p.x, y: u * u * from.y + 2. * u * t * ctrl.y + t * t * p.y });
                 }
             }
+            Seg::Cubic(c1, c2, p) => {
+                let from = points.last().copied().unwrap_or(c1);
+                for step in 1..=CURVE_CUTS {
+                    points.push(route::cubic_at(from, c1, c2, p, step as f32 / CURVE_CUTS as f32));
+                }
+            }
+            Seg::Arc(p, _, sweep) => {
+                let from = points.last().copied().unwrap_or(p);
+                points.extend(route::arc_points(from, p, sweep, HOP_CUTS));
+            }
         }
     }
     points
 }
 
-/// `stroke-dasharray: DASH DASH` along the points, `phase` further on than where it starts, as a
+/// `stroke-dasharray: on (period - on)` along the points, `phase` further on than where it starts, as a
 /// falling `stroke-dashoffset` moves it.
-fn dashes(line: &mut PathBuilder, points: &[Pt], phase: f32, view: View) {
-    let period = DASH * 2.;
+fn dashes(line: &mut PathBuilder, points: &[Pt], phase: f32, on_len: f32, period: f32, view: View) {
     let mut walked = 0.;
     for pair in points.windows(2) {
         let (a, b) = (pair[0], pair[1]);
@@ -1113,7 +1164,7 @@ fn dashes(line: &mut PathBuilder, points: &[Pt], phase: f32, view: View) {
         let mut s = 0.;
         while s < long {
             let into = (walked + s - phase).rem_euclid(period);
-            let (on, left) = if into < DASH { (true, DASH - into) } else { (false, period - into) };
+            let (on, left) = if into < on_len { (true, on_len - into) } else { (false, period - into) };
             let end = (s + left.max(0.01)).min(long);
             if on {
                 line.move_to(view.at(at(s)));
@@ -1127,9 +1178,7 @@ fn dashes(line: &mut PathBuilder, points: &[Pt], phase: f32, view: View) {
 
 /// The point `t` of the way along it, by length; quadratic corners are read as their chords.
 fn along(path: &[Seg], t: f32) -> Option<Pt> {
-    let points: Vec<Pt> = path.iter().map(|seg| match *seg {
-        Seg::Move(p) | Seg::Line(p) | Seg::Quad(_, p) => p,
-    }).collect();
+    let points = route::polyline(path);
     let total: f32 = points.windows(2).map(|pair| (pair[1].x - pair[0].x).hypot(pair[1].y - pair[0].y)).sum();
     let mut left = total * t.clamp(0., 1.);
     for pair in points.windows(2) {

@@ -1,5 +1,5 @@
 //! A sketch read on its own, as Electron's `SketchReading` reads it in the panel: the whole drawing
-//! fitted to a sheet over the window, its steps playing round, read-only. Its rail, as
+//! fitted to a sheet over the window, paused with every step lit until Play, read-only. Its rail, as
 //! `GraphCanvas` draws one, stops and restarts the steps and zooms; a wheel or `+`, `-` and `0`
 //! zoom it too, a drag or the arrows move it, and Esc, Close or a press beside it shut it.
 
@@ -108,9 +108,8 @@ impl JobView {
         let focus = cx.focus_handle();
         let back = window.focused(cx);
         window.focus(&focus, cx);
-        let now = Instant::now();
-        let steps = crate::scene::plays(&scene).then_some(now);
-        self.sketch_reading = Some(Reading { key: scene_key, title: title.into(), scene, against, changes: true, steps, opened: now, focus, back, lens: Lens::default(), drag: None, said: None, handed: None });
+        // It opens paused with every step drawn lit, and Play starts it from the first.
+        self.sketch_reading = Some(Reading { key: scene_key, title: title.into(), scene, against, changes: true, steps: None, opened: Instant::now(), focus, back, lens: Lens::default(), drag: None, said: None, handed: None });
         cx.notify();
     }
 
