@@ -106,7 +106,7 @@ where
                     .await;
                 let record = started.map_err(|_| "the Job did not start".to_string())?;
                 let job = record.id.as_str().to_string();
-                let voice = SessionVoice::Session { id: OPERATOR.to_lowercase(), title: OPERATOR.to_string() };
+                let voice = SessionVoice::Session { id: OPERATOR.to_lowercase(), title: OPERATOR.to_string(), mac: None };
                 let brief = format!("The Operator filed this for the person and started you on it. {named}Do what it asks.\n\n{}", arrival.words);
                 if self.first_message_from(&job, voice, &brief).await.is_err() {
                     let _ = self.closed_and_parked(ipc::CloseSession { session_id: record.id }).await;

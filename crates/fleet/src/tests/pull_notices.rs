@@ -48,6 +48,8 @@ pub(super) fn pull(number: u64, checks: Vec<FollowedCheck>) -> FollowedPull {
         checks,
         title: None,
         auto_merge: false,
+        draft: false,
+        approved: false,
     }
 }
 

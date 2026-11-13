@@ -10,7 +10,7 @@ use gpui::{
 use gpui_component::input::{Input, Textarea};
 use ipc::{Setting, SettingKind, SettingValue};
 
-use super::entries::{self, Body, Entry, Group, GROUPS};
+use super::entries::{self, Body, Entry, Side};
 use super::overlay::{held_text, Picking, SettingsOverlay, Typed};
 use crate::assets::icon_path;
 use crate::labels::labelled;
@@ -251,6 +251,49 @@ pub fn small(look: &Look, said: impl Into<SharedString>, ink: Hsla) -> Div {
     div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(ink).child(said.into())
 }
 
+/// What Fleet refused with, in its own words, red. A span it puts in backticks (a preference's name, a word it would
+/// not take) is drawn as inline code, as the thread draws it. Each word is its own piece, so the line wraps between
+/// words.
+pub fn refusal(look: &Look, said: impl Into<SharedString>) -> Div {
+    let said: SharedString = said.into();
+    let ink = look.color(token::STATUS_COMPLETED_FAILED);
+    let words = said.split('`').enumerate().flat_map(|(n, part)| part.split_whitespace().map(move |word| (n % 2 == 1, word.to_string()))).map(|(code, word)| {
+        let piece = div().child(word);
+        if code {
+            piece.px(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).bg(look.color(token::BG_SUNKEN)).font_family(mono(look))
+        } else {
+            piece
+        }
+    });
+    div()
+        .flex()
+        .flex_wrap()
+        .items_baseline()
+        .gap_x(look.length(token::SPACE_1))
+        .text_size(look.length(token::TEXT_XS))
+        .line_height(look.length(token::LEADING_XS))
+        .text_color(ink)
+        .children(words)
+}
+
+/// A part of the sidebar: the pages the project picked sets, This Mac's own, and This Mac's Mods and Bridge.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Part {
+    Project,
+    Mac,
+    Under(&'static str),
+}
+
+/// The sidebar's parts in order, each with its entries; a part a search emptied is left out.
+pub fn side_parts<'a>(visible: &[&'a Entry]) -> Vec<(Part, Vec<&'a Entry>)> {
+    let mut parts = vec![(Part::Project, visible.iter().copied().filter(|one| entries::side(one) == Side::Project).collect::<Vec<_>>())];
+    for (under, groups) in entries::MAC_PARTS {
+        let part = under.map_or(Part::Mac, Part::Under);
+        parts.push((part, visible.iter().copied().filter(|one| entries::side(one) == Side::Mac && groups.contains(&one.group)).collect()));
+    }
+    parts.into_iter().filter(|(_, rows)| !rows.is_empty()).collect()
+}
+
 /// Where a labelled element was drawn last frame, for a list opened under it.
 pub fn bounds_of(window: &Window, cx: &App, role: Role, name: &str) -> Option<Bounds<Pixels>> {
     cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), role, name)).map(|drawn| drawn.bounds)
@@ -262,41 +305,64 @@ impl SettingsOverlay {
     fn render_side(&self, visible: &[&'static Entry], shown: Option<&'static Entry>, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let side_keys = self.side.is_focused(window);
         let mut groups: Vec<AnyElement> = Vec::new();
-        for group in GROUPS {
-            let rows: Vec<&&Entry> = visible.iter().filter(|one| one.group == group).collect();
-            if rows.is_empty() {
-                continue;
-            }
-            let label = match (group, &self.scope) {
-                (Group::Project, Some(scope)) => scope.name.clone(),
-                _ => group.label().to_string(),
+        for (part, rows) in side_parts(visible) {
+            let label = match (part, &self.scope.project) {
+                (Part::Project, Some((_, name))) => format!("For {name}"),
+                (Part::Project, None) => "For every project".to_string(),
+                (Part::Mac, _) => "This Mac".to_string(),
+                (Part::Under(under), _) => under.to_string(),
             };
             // The new look's band (`depth.css`, `.armada-system-side__head`), which Classic always runs: the foreground at
-            // 8% under mono words. The words are muted, so only the entries read as pickable.
-            let caption = div()
-                .flex()
-                .items_center()
-                .min_h(look.length(token::H_CONTROL_SM))
-                .pl(look.length(token::SPACE_3))
-                .pr(look.length(token::SPACE_1))
-                .rounded(look.length(token::RADIUS_MD))
-                .bg(look.color(token::FG_DEFAULT).opacity(0.08))
-                .font_family(mono(look))
-                .text_size(look.length(token::TEXT_XS))
-                .line_height(look.length(token::LEADING_XS))
-                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                .text_color(look.color(token::FG_MUTED))
-                .child(SharedString::from(label.clone()));
+            // 8% under mono words. The words are muted, so only the entries read as pickable. Mods and Bridge are
+            // parts of This Mac, named in quiet words under it.
+            let caption = match part {
+                Part::Under(_) => div()
+                    .flex()
+                    .items_center()
+                    .min_h(look.length(token::H_CONTROL_SM))
+                    .pl(look.length(token::SPACE_3))
+                    .font_family(mono(look))
+                    .text_size(look.length(token::TEXT_2XS))
+                    .line_height(look.length(token::LEADING_2XS))
+                    .text_color(look.color(token::FG_SUBTLE))
+                    .child(SharedString::from(label.clone())),
+                _ => div()
+                    .flex()
+                    .items_center()
+                    .min_h(look.length(token::H_CONTROL_SM))
+                    .pl(look.length(token::SPACE_3))
+                    .pr(look.length(token::SPACE_1))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .bg(look.color(token::FG_DEFAULT).opacity(0.08))
+                    .font_family(mono(look))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(SharedString::from(label.clone())),
+            };
             let mut list = div().flex().flex_col().gap(look.length(token::SPACE_1)).child(caption);
             for one in rows {
                 let on = shown.is_some_and(|shown| shown.id == one.id);
                 let id = one.id;
+                let hue = look.color(one.hue);
+                // A tile in the entry's hue at 22% behind its glyph, as the sketch's `.c1`–`.c6`.
+                let tile = div()
+                    .flex_none()
+                    .size(look.length(token::H_CONTROL_SM))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(look.length(token::RADIUS_MD))
+                    .bg(hue.opacity(0.22))
+                    .child(svg().path(icon_path(one.icon)).size(look.length(token::SPACE_3) + look.length(token::BORDER_WIDTH)).text_color(hue));
                 let row = div()
                     .id(SharedString::from(format!("settings-entry-{id}")))
                     .flex()
                     .items_center()
-                    .min_h(look.length(token::H_CONTROL))
-                    .px(look.length(token::SPACE_3))
+                    .gap(look.length(token::SPACE_2) + look.length(token::BORDER_WIDTH) * 2.)
+                    .min_h(look.length(token::H_CONTROL_LG))
+                    .px(look.length(token::SPACE_2))
                     .rounded(look.length(token::RADIUS_MD))
                     .text_size(look.length(token::TEXT_XS))
                     .line_height(look.length(token::LEADING_XS))
@@ -313,10 +379,11 @@ impl SettingsOverlay {
                         this.pick(id, cx);
                         window.focus(&this.side, cx);
                     }))
+                    .child(tile)
                     .child(one.label);
                 list = list.child(labelled(row, Role::Button, one.label));
             }
-            groups.push(labelled(list.id(SharedString::from(format!("settings-group-{}", group.label()))), Role::Group, label).into_any_element());
+            groups.push(labelled(list.id(SharedString::from(format!("settings-group-{label}"))), Role::Group, label).into_any_element());
         }
         let search = labelled(
             div()
@@ -361,6 +428,7 @@ impl SettingsOverlay {
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .bg(look.color(token::SURFACE_CARD))
                 .child(head)
+                .child(super::project::picker(self, look, window, cx))
                 .child(search)
                 .child(
                     div()
@@ -429,7 +497,7 @@ impl SettingsOverlay {
             let said = format!("Overridden by ${env} where Fleet runs, so the value here is not the one in force.");
             notes.push(labelled(small(look, said.clone(), look.color(token::FG_DEFAULT)).id(SharedString::from(format!("env-{key}"))), Role::Status, said).into_any_element());
         }
-        let refused_line = |look: &Look| refused.clone().map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id(SharedString::from(format!("refused-{}", one.key))), Role::Alert, said));
+        let refused_line = |look: &Look| refused.clone().map(|said| labelled(refusal(look, said.clone()).id(SharedString::from(format!("refused-{}", one.key))), Role::Alert, said));
         let ships = shipped(one);
 
         if let SettingKind::Boolean = one.kind {
@@ -605,7 +673,7 @@ impl SettingsOverlay {
             .children(marks)
             .when(!one.description.is_empty(), |field| field.child(small(look, one.description.clone(), look.color(token::FG_MUTED))))
             .child(row)
-            .children(range_said.map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id(SharedString::from(format!("range-{key}"))), Role::Alert, said)))
+            .children(range_said.map(|said| labelled(refusal(look, said.clone()).id(SharedString::from(format!("range-{key}"))), Role::Alert, said)))
             .children(seconds_said.map(|said| small(look, said, look.color(token::FG_MUTED))))
             .children(ships.map(|ships| small(look, format!("Ships at {ships}."), look.color(token::FG_MUTED))))
             .children(notes)
@@ -870,7 +938,7 @@ impl SettingsOverlay {
         }
         body.push(labelled(list.id("reach-folders"), Role::List, "Folders jobs reach").into_any_element());
         if let Some(said) = self.refused.get(REACH_FOLDERS) {
-            body.push(labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("reach-refused"), Role::Alert, said.clone()).into_any_element());
+            body.push(labelled(refusal(look, said.clone()).id("reach-refused"), Role::Alert, said.clone()).into_any_element());
         }
         Some(labelled(card(look, "settings-card-reach", "Folders jobs reach", None, body), Role::Region, "Folders jobs reach").into_any_element())
     }
@@ -910,7 +978,7 @@ impl SettingsOverlay {
             body.push(labelled(row, Role::Switch, said).into_any_element());
         }
         if let Some(said) = self.refused.get(CONNECTORS_OFF) {
-            body.push(labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("connectors-refused"), Role::Alert, said.clone()).into_any_element());
+            body.push(labelled(refusal(look, said.clone()).id("connectors-refused"), Role::Alert, said.clone()).into_any_element());
         }
         Some(labelled(card(look, "settings-card-connectors", "Connectors", None, body), Role::Region, "Connectors").into_any_element())
     }
@@ -935,15 +1003,22 @@ impl SettingsOverlay {
                 cards.extend(self.reach_card(look, window, cx));
             }
             Some(Body::Repository) => cards.extend(self.connectors_card(look, window, cx)),
-            Some(Body::ProjectValues) => cards.extend(super::project::render(self, look, window, cx)),
+            Some(Body::Values(page)) => cards.extend(super::project::render(self, page, shown.map_or("", |one| one.label), look, window, cx)),
             Some(Body::Keyboard) => cards.push(self.render_keyboard(look, window, cx)),
             Some(Body::Theme) => {
                 cards.push(self.render_theme(look, window, cx));
                 cards.extend(self.render_mods(super::mods::Page::Theme, look, window, cx));
             }
-            Some(Body::Macs) => cards.extend(self.render_macs(look, window, cx)),
+            Some(Body::Macs) => {
+                // The share switch is the project's, over this Mac's own.
+                if self.scope.project.is_some() {
+                    cards.push(super::project::grid(self, "Shared with your other Macs", None, super::project::keys_of(Body::Macs), look, window, cx));
+                }
+                cards.extend(self.render_macs(look, window, cx));
+            }
             Some(Body::Layout) => cards.extend(self.render_layout(look, window, cx)),
             Some(Body::Time) => cards.push(self.render_time(look, window, cx)),
+            Some(Body::Ways) => cards.extend(self.render_ways(look, window, cx)),
             Some(Body::Models | Body::Workflows) => {}
             Some(body @ Body::Mods(_)) => cards.extend(super::mods::page_of(body).and_then(|page| self.render_mods(page, look, window, cx))),
             None => {}
@@ -975,15 +1050,18 @@ impl SettingsOverlay {
         if self.shown(cx).is_some_and(|one| one.body == Body::Workflows) {
             self.workflow_keys(cx);
             self.detail_keys(window, cx);
-            self.read_lanes(cx);
+            self.read_lanes(window, cx);
         }
         if self.shown(cx).is_some_and(|one| one.body == Body::Macs) {
             self.read_macs(window, cx);
             self.macs_keys(cx);
         }
-        if self.shown(cx).is_some_and(|one| matches!(one.body, Body::Layout | Body::Time)) {
+        if self.shown(cx).is_some_and(|one| matches!(one.body, Body::Layout | Body::Time | Body::Ways)) {
             self.read_prefs(cx);
             self.prefs_keys(cx);
+        }
+        if self.shown(cx).is_some_and(|one| one.body == Body::Ways) {
+            self.read_ways(cx);
         }
         let look = cx.look();
         let room = crate::room::of(window, cx);

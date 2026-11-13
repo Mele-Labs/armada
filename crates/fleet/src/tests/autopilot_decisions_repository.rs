@@ -54,6 +54,8 @@ fn pull(state: CiState) -> FollowedPull {
         checks: vec![FollowedCheck { name: FromOutside::verbatim("ci"), state, required: true, hung: false, log_url: None }],
         title: None,
         auto_merge: false,
+        draft: false,
+        approved: false,
     }
 }
 
