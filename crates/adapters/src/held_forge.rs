@@ -231,4 +231,8 @@ impl<F: Forge> Forge for GitVcs<F> {
     ) -> Result<String, NotDelivered> {
         self.forge.open_branch_for_review(in_repo, base, branch, title, body)
     }
+
+    fn account_repositories(&self, most: usize) -> Result<adapter_traits::AccountRepositories, String> {
+        self.forge.account_repositories(most)
+    }
 }
