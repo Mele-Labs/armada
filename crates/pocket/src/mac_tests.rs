@@ -376,11 +376,11 @@ async fn the_link_hands_the_other_macs_rows_to_this_fleet_and_reads_them_again_w
     let (home, work) = (Side::new("Home", &[]).await, Side::new("Work", &["w1"]).await);
     paired(&home, &work).await;
     let work_id = work.id();
-    until("work's rows reach home's Fleet", || async {
-        home.fleet.handed("PUT /other_macs/sessions").iter().any(|body| body.contains("\"w1\"") && body.contains(&work_id))
+    until("work's rows and reports reach home's Fleet", || async {
+        let rows = home.fleet.handed("PUT /other_macs/sessions").iter().any(|body| body.contains("\"w1\"") && body.contains(&work_id));
+        rows && home.fleet.handed("PUT /other_macs/bug_reports").iter().any(|body| body.contains(&work_id))
     })
     .await;
-    assert!(home.fleet.handed("PUT /other_macs/bug_reports").iter().any(|body| body.contains(&work_id)));
     let heard = home.mac(&work_id).await.unwrap();
     assert!(heard.last_heard_at.is_some() && heard.link == Some(MacLink::Linked), "{heard:?}");
 
