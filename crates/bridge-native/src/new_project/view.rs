@@ -190,7 +190,8 @@ impl NewProjectSheet {
                             rows.push(self.fold_frame(look).child(bone(look, look.length(token::SPACE_12) * 2.)).into_any_element());
                         }
                         if let Some(why) = self.folder_refusal(cx) {
-                            rows.push(self.fold_frame(look).text_color(look.color(token::FG_SUBTLE)).child(div().min_w_0().truncate().child(why)).into_any_element());
+                            let row = self.fold_frame(look).id("np-folder-refusal").text_color(look.color(token::FG_SUBTLE)).child(div().min_w_0().truncate().child(why.clone()));
+                            rows.push(labelled(row, Role::Status, why).into_any_element());
                         }
                     }
                     if line == Line::Clone && self.clone_open {

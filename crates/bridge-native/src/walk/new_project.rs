@@ -7,7 +7,7 @@ use super::{press_on, step, Step, Verb};
 /// The switcher on a wide bar, its rows in the menu on a narrow one: either way Find has the keys.
 const SWITCHER: Verb = Verb::PressOnFirst(&[("button", "Project"), ("button", "Menu")]);
 
-pub static STEPS: [Step; 36] = [
+pub static STEPS: [Step; 39] = [
     step("The project switcher, or below 900 the menu that holds its rows: the keys are in Find", SWITCHER, "searchbox", "Find a project"),
     step("Typing narrows it to New project", Verb::Keys(&["n", "e", "w"]), "searchbox", "Find a project"),
     step("Enter opens the sheet over the window, the keys in Name", Verb::Key("enter"), "textbox", "Name"),
@@ -31,6 +31,9 @@ pub static STEPS: [Step; 36] = [
     press_on("The search takes the keys again", "searchbox", "Find a folder in sample-web", "searchbox", "Find a folder in sample-web"),
     step("Cleared, the folder stays ticked beside the others the list does not show", Verb::Keys(&["cmd-a", "backspace"]), "checkbox", "services/pricing/rules"),
     step("3 folders picked", Verb::Look, "treeitem", "sample-web"),
+    press_on("A repository with no Manifest opens on its search too", "treeitem", "sample-docs", "searchbox", "Find a folder in sample-docs"),
+    press_on("Its search takes the keys", "searchbox", "Find a folder in sample-docs", "searchbox", "Find a folder in sample-docs"),
+    step("Fleet refuses the search of a folder that is gone, and says so where the folders would be", Verb::Typed("guides"), "status", "/Users/user/Development/sample-docs is not a folder on this machine"),
     press_on("Clone a repository opens its two fields, the keys in the first", "button", "Clone a repository", "textbox", "Repository to clone"),
     step("A URL or owner and name", Verb::Typed("github.com/acme/billing"), "textbox", "Repository to clone"),
     step("It clones into the folder his repositories are in, or another he picks", Verb::Look, "button", "Folder to clone into"),

@@ -169,7 +169,7 @@ impl Wire {
     /// and the sheet searches the folders it read.
     pub fn search_folders(&self, place: &Place, query: &str, cx: &App) -> Task<Folders> {
         if let Wire::Mock(mock) = self {
-            return Task::ready(Folders::Found(mock.folders_found(place, query)));
+            return Task::ready(mock.folders_found(place, query));
         }
         let Some(port) = self.port(cx) else { return Task::ready(Folders::Down) };
         let path = folders_path(place, query);
@@ -224,17 +224,22 @@ impl Mock {
         }
     }
 
-    /// The folders the walk's Fleet finds for `query`: the areas' folders and the deeper ones, ranked as the
-    /// sheet ranks its own.
-    fn folders_found(&self, place: &Place, query: &str) -> Vec<String> {
-        let Place::Manifest(id) = place else { return Vec::new() };
+    /// What the walk's Fleet answers a folder search: the areas' folders and the deeper ones, ranked as the
+    /// sheet ranks its own. **A repository searched by its root is refused**, as Fleet refuses a root that is no
+    /// longer a folder on this machine (`fleet.no_such_folder`, in `existing_folder`): the walk's repositories
+    /// with no Manifest are not on a disk.
+    fn folders_found(&self, place: &Place, query: &str) -> Folders {
+        let id = match place {
+            Place::Manifest(id) => id,
+            Place::Root(root) => return Folders::Refused(format!("{root} is not a folder on this machine")),
+        };
         let mut all: Vec<String> = self.areas.repositories.iter().filter(|one| one.manifest_id.as_str() == id).flat_map(|one| one.areas.iter()).flat_map(|area| {
             std::iter::once(area.dir.clone()).chain(area.kids.iter().map(|kid| format!("{}/{}", area.dir, kid.name)))
         }).collect();
         all.extend(MOCK_DEEP_FOLDERS.iter().filter(|(of, _)| of == id).flat_map(|(_, deep)| deep.iter().map(|path| path.to_string())));
         let mut found: Vec<(u32, String)> = all.into_iter().filter_map(|path| super::fuzzy(query, &path.to_lowercase()).map(|(score, _)| (score, path))).collect();
         found.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.len().cmp(&b.1.len())).then(a.1.cmp(&b.1)));
-        found.into_iter().map(|(_, path)| path).collect()
+        Folders::Found(found.into_iter().map(|(_, path)| path).collect())
     }
 
     /// A clone or a new repository, served as Fleet answers one: no Manifest, the folder's name its id.
