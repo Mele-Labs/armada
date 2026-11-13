@@ -337,24 +337,59 @@ impl JobView {
         if self.fleet.is_none() {
             // Mock data: Fleet's yes, as a Fleet that took it would answer. The Job is working and the box is empty.
             self.starts.starting.remove(&id);
-            self.keep_draft(&id, Kept::default(), cx);
-            self.set_box(&Kept::default(), window, cx);
+            self.started_clears(&id, &text, window, cx);
             self.list.update(cx, |list, cx| list.began(&id, cx));
             return;
         }
-        let body = ipc::encode(&BeginSession { session_id: SessionId::carried(id.to_string()), delivery, message }).map_err(|why| format!("{why:?}"));
+        let body = ipc::encode(&BeginSession { session_id: SessionId::carried(id.to_string()), delivery, message });
         let owner = id.clone();
-        self.post_with(
-            id,
-            "/sessions/begin",
+        self.post(
+            "/sessions/begin".into(),
             body,
-            move |this, why, cx| {
-                this.starts.starting.remove(&owner);
-                cx.notify();
-                cx.defer(move |cx| crate::toasts::tell(why, cx));
-            },
             window,
             cx,
+            Box::new(move |this, answer, window, cx| {
+                this.starts.starting.remove(&owner);
+                match answer {
+                    Ok(_) => this.started_clears(&owner, &text, window, cx),
+                    // The box was never emptied, so what he wrote is still there to send again.
+                    Err(why) => cx.defer(move |cx| crate::toasts::tell(why, cx)),
+                }
+                cx.notify();
+            }),
         );
+    }
+
+    /// Fleet took the start: the brief it was sent leaves the Job's box and its kept draft. Words he typed after
+    /// pressing Start stay.
+    fn started_clears(&mut self, id: &SharedString, sent: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if still_sent(&self.draft_of(id).text, sent) {
+            self.keep_draft(id, Kept::default(), cx);
+        }
+        if self.shown.as_ref() == Some(id) && still_sent(&self.kept(cx).text, sent) {
+            self.set_box(&Kept::default(), window, cx);
+        }
+    }
+}
+
+/// Whether the words in a box are still the brief a start sent, so the start may take them away.
+fn still_sent(now: &str, sent: &str) -> bool {
+    now == sent
+}
+
+#[cfg(test)]
+mod tests {
+    use super::still_sent;
+
+    #[test]
+    fn a_started_brief_leaves_the_box_and_words_typed_after_start_stay() {
+        let brief = "Handoff from Stage 1: carry the alerts across Macs.";
+        // Fleet took it and the box still holds what was sent: the box and the draft empty.
+        assert!(still_sent(brief, brief));
+        // He typed on after pressing Start: those words are his next message and stay.
+        assert!(!still_sent("Handoff from Stage 1: carry the alerts across Macs. Also the dock.", brief));
+        assert!(!still_sent("Something else entirely", brief));
+        // An empty box has nothing to take away from a brief that was sent.
+        assert!(!still_sent("", brief));
     }
 }
