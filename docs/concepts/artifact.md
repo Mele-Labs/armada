@@ -19,7 +19,8 @@ The owner approved the design on 13 Nov 2026.
 | Drafts kept as artifacts keyed by title, with revisions | Built |
 | Archive and restore, by the agent or by him | Built in Fleet; native draws the fold later |
 | The For line, the agent's and Fleet's links | Built in Fleet; native draws it later |
-| His revisions, a plan's sketches, answering several at once | Not built |
+| His Edit of a page's or a draft's words, kept as his revision | Built in Fleet; native draws the toggle later |
+| A plan's sketches, answering several at once | Not built |
 
 ## What an artifact is
 
@@ -34,7 +35,7 @@ A file, an image, a window or a note shown to him is not one.
 A sketch keeps `r<n>.json`, a page `r<n>.html` and a draft `r<n>.md`.
 An identical write keeps no new revision.
 
-**Rule.** Every revision today is the agent's.
+**Rule.** Every revision is the agent's, except one he wrote with his Edit, which is his (`by` `owner`).
 
 ## Where it stands
 
@@ -82,6 +83,36 @@ An item answered meanwhile stays answered, so a restore never asks him again wha
 The Job is sent nothing.
 
 **Rule.** The archive is kept in Fleet's store apart from the artifact's attachment, which a new revision rewrites whole.
+
+## His Edit
+
+**Rule.** He edits a page's or a draft's words in place, with Edit on, and Save keeps them as the artifact's next revision, his.
+The owner decided this on 13 Nov 2026; native draws the toggle, the faint underline under editable words and the typing in place.
+Fleet's half is `save_artifact_edit` (`crates/ipc/operations/save_artifact_edit.toml`), in `crates/fleet/src/session_host/artifact_editing.rs`.
+
+**Rule.** An Edit reaches words only: text, headings, lists and table cells.
+A page he saves holds the same elements with the same attributes in the same order as the revision he edited, or it is refused naming the first element that differs.
+A sketch or a mock takes notes, not edits.
+
+**Rule.** Only the newest revision takes an Edit, and the refusal names the newest.
+An archived artifact, a settled draft and one the Job no longer holds take none.
+
+**Rule.** The Job is sent each Edit as his message before anything is kept, so a send that fails keeps nothing:
+`He edited "<title>": revision <n> is his, from revision <n-1>.`, then one line a change, then what to do.
+A page's change is a block whose words changed, as `- <section>: "<old>" → "<new>"`, the section the `h2` it comes under or `Top`.
+A draft's is a line diff of `-` and `+` lines.
+At most 40 changes are listed, then `and <k> more`, and each quote is cut at 300 characters.
+
+**Rule.** A page he edited is written to its file in the worktree, so the agent's next write builds on his words.
+The turn's end reads the same bytes as the newest revision and keeps nothing more.
+
+**Rule.** A draft he edited takes his text on its open row, so his Approve sends his text for the Job to apply.
+
+**Rule.** An Edit settles nothing: a page or a draft that asked still asks on his revision, and he may then Approve it.
+An Edit that changes no words keeps nothing and sends nothing.
+
+**Rule.** Who wrote each revision is kept in Fleet's store apart from the artifact's attachment, as the archive is.
+A Job that takes another's place carries his revisions of its pages.
 
 ## The For line
 
