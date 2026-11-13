@@ -33,7 +33,7 @@ pub(super) fn instance_id(lifecycle: &str, key: &str) -> String {
 }
 
 /// Where a lifecycle's states are read from, in a word under the lane's title.
-fn source_of(read: Option<&StateReadFrom>) -> (LaneLifecycleKind, &'static str) {
+pub(super) fn source_of(read: Option<&StateReadFrom>) -> (LaneLifecycleKind, &'static str) {
     match read {
         None | Some(StateReadFrom::Tracker { .. }) => (LaneLifecycleKind::Tracker, "Tracker"),
         Some(StateReadFrom::Forge { .. }) => (LaneLifecycleKind::Forge, "Forge"),
@@ -46,16 +46,23 @@ fn source_of(read: Option<&StateReadFrom>) -> (LaneLifecycleKind, &'static str) 
 /// are taken in the order the definition lists them, so a move back to an earlier state leads nowhere new,
 /// and one nothing leads to follows the states before it.
 pub(super) fn columns_of(lifecycle: &LifecycleDefinition) -> HashMap<&str, i64> {
-    let order: HashMap<&str, usize> = lifecycle.states.iter().enumerate().map(|(at, state)| (state.id.as_str(), at)).collect();
-    let mut cols: HashMap<&str, i64> = HashMap::new();
+    let states: Vec<&str> = lifecycle.states.iter().map(|state| state.id.as_str()).collect();
+    let moves: Vec<(&str, &str)> = lifecycle.transitions.iter().map(|step| (step.from.as_str(), step.to.as_str())).collect();
+    columns(&states, &moves)
+}
+
+/// [`columns_of`] over states and moves that no one definition holds: a workflow editor's lifecycle, whose
+/// states and moves are those of its pieces at every level.
+pub(super) fn columns<'a>(states: &[&'a str], moves: &[(&str, &str)]) -> HashMap<&'a str, i64> {
+    let order: HashMap<&str, usize> = states.iter().enumerate().map(|(at, state)| (*state, at)).collect();
+    let mut cols: HashMap<&'a str, i64> = HashMap::new();
     let mut taken: HashSet<i64> = HashSet::new();
     let mut last: i64 = -1;
-    for (at, state) in lifecycle.states.iter().enumerate() {
-        let behind = lifecycle
-            .transitions
+    for (at, state) in states.iter().copied().enumerate() {
+        let behind = moves
             .iter()
-            .filter(|step| step.to == state.id && order.get(step.from.as_str()).copied().unwrap_or(at) < at)
-            .filter_map(|step| cols.get(step.from.as_str()).copied())
+            .filter(|(from, to)| *to == state && order.get(from).copied().unwrap_or(at) < at)
+            .filter_map(|(from, _)| cols.get(from).copied())
             .max();
         let mut col = match behind {
             Some(behind) => behind + 1,
@@ -66,7 +73,7 @@ pub(super) fn columns_of(lifecycle: &LifecycleDefinition) -> HashMap<&str, i64> 
             col += 1;
         }
         taken.insert(col);
-        cols.insert(state.id.as_str(), col);
+        cols.insert(state, col);
         last = last.max(col);
     }
     cols

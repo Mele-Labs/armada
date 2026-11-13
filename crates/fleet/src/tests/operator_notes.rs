@@ -118,27 +118,37 @@ async fn a_note_ruled_filed_is_kept_as_a_suggestion_and_filed_and_marked_done_on
     assert_eq!(read(&rig, "n-1").sent, None, "filed, so it went to no Job");
 }
 
-#[tokio::test]
-async fn a_note_ruled_a_new_job_starts_it_on_do_it_and_is_marked_sent_to_it() {
+/// A note ruled a new Job under Kit's `agent_starts` `word`, once the Operator has handled it: the Job it was sent to.
+async fn note_started_under(word: &str) -> (super::session_host::Rig, String) {
     let rig = filing().await;
+    rig.agents_start(word);
     let call = Answers::with(&["item: 1\nway: 2\nbecause: no Job is near it"]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     rig.fleet.sources_handed().await;
     leave(&rig, "n-1", "open", None, TEXT);
     rig.fleet.sources_handed().await;
-
-    eventually(|| async { rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").len() == 1 }).await;
-    let suggestion = kept(&rig).await;
-    assert_eq!(suggestion.text, format!("The Operator would start a Job on your note \"{TEXT}\": no Job is near it"));
-    assert_eq!(read(&rig, "n-1").sent, None, "no Job until he presses");
-
-    do_it(&rig, &suggestion).await;
-
     eventually(|| async { read(&rig, "n-1").sent.is_some() }).await;
     let job = read(&rig, "n-1").sent.expect("sent").session_id;
+    (rig, job)
+}
+
+#[tokio::test]
+async fn a_note_ruled_a_new_job_starts_it_at_once_and_asks_nothing_when_agent_starts_is_at_once() {
+    let (rig, job) = note_started_under("at_once").await;
+
+    assert!(rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty(), "no go-ahead is kept for it");
     let session = rig.fleet.store().lock().await.session(&job).expect("read").expect("a Job");
     assert_eq!(session.title.as_deref(), Some(TEXT));
+    assert!(!rig.fleet.store().lock().await.hosting(&job).expect("read").expect("hosted").start_held, "it is running, not on a start card");
     assert_eq!(read(&rig, "n-1").status, "open", "the Job marks it done when it finishes");
+}
+
+#[tokio::test]
+async fn a_note_ruled_a_new_job_starts_it_held_on_its_start_card_when_agent_starts_is_ask_me() {
+    let (rig, job) = note_started_under("ask_me").await;
+
+    assert!(rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty(), "the start card is the ask, not a go-ahead");
+    assert!(rig.fleet.store().lock().await.hosting(&job).expect("read").expect("hosted").start_held, "held on its start card");
 }
 
 #[tokio::test]

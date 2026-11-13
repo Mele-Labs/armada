@@ -622,15 +622,20 @@ pub struct AskInWindow {
 /// `propose_draft`: a session puts a draft to the person for approval, such as a pull request
 /// description, a comment or a message. Fleet keeps a `draft` row and answers at once; the answer
 /// comes back later as a message from the person.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProposeDraft {
     /// One short line naming what it is and where it goes.
     pub title: String,
     /// The draft, in markdown.
     pub text: String,
-    /// The text it replaces, where there is one.
+    /// The text it replaces, where there is one. Where it is the body of a pull request the Job
+    /// holds, whitespace aside, Fleet links the draft to that pull request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub before: Option<String>,
+    /// The number of the pull request whose description this is. **Refused where the Job holds no
+    /// such pull request.** Absent leaves the link to `before`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request: Option<u64>,
     /// Which session proposes it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
@@ -1534,6 +1539,12 @@ pub struct SessionRecord {
     /// `docs/practices/protocol/a-jobs-lanes-fleet-works-out.md`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lanes: Option<crate::JobLanesView>,
+    /// The pull request descriptions this Job proposed that wait on the person, each with the pull
+    /// request it is for. A `draft` row finds its pull request here by `draft`, and a `pr` row its
+    /// draft by repository and number. Empty where none waits. Since 12 Nov 2026.
+    /// `docs/practices/protocol/a-draft-names-the-pull-request-it-describes.md`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pull_request_drafts: Vec<crate::PullRequestDraft>,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.

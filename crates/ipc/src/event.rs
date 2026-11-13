@@ -13,7 +13,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::act_failed::ActFailed;
-use crate::operator_board::OperatorBoardChanged;
+use crate::operator_board::{OperatorBoardChanged, OperatorDispatched};
 use crate::operator_page::OperatorPageChanged;
 use crate::thought::WordsSent;
 use crate::hosted_sessions::{SessionRowChanged, SessionSubagentChanged};
@@ -162,6 +162,9 @@ pub enum Event {
     // The Operator's board moved: an arrival came, went into a call, was ruled, or was reordered.
     #[serde(rename = "operator.board_changed")]
     OperatorBoardChanged(OperatorBoardChanged),
+    // The Operator did something with a dispatch it held: started a Job, folded it into a live one, or asked.
+    #[serde(rename = "operator.dispatched")]
+    OperatorDispatched(OperatorDispatched),
     // The Operator's page moved: an item joined Your turn or settled, the order, the top line.
     #[serde(rename = "operator.page_changed")]
     OperatorPageChanged(OperatorPageChanged),

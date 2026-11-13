@@ -1,0 +1,8 @@
+[operations.remove_parked_idea]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The person removes an idea kept for later with one press"
+notes = """
+`POST /sessions/parked/remove`, body `RemoveParkedIdea`: `id`. Answered with `ParkedIdeas`, the ideas left. 422 `fleet.parked_idea_unknown` where none is kept under the id.
+"""

@@ -51,7 +51,8 @@ macro_rules! wire_id {
 }
 
 wire_id! {
-    /// The project a Session belongs to.
+    /// The project a Session belongs to. `Default` is the empty id, for a fixture that widens a type carrying one.
+    #[derive(Default)]
     ManifestId, core_model::ManifestId
 }
 wire_id! {

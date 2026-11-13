@@ -589,7 +589,7 @@ where
 
     /// One session's `SendMessage` to another that Fleet hosts: the receiving
     /// thread draws it as that session's, the timeline enters it, and a receiver whose process was ended is started with it, unless it is paused
-    /// or the sender is outside its tree (`message_reach`).
+    /// or the Job itself has ended (`message_reach`).
     async fn delivered(self: &Arc<Self>, from: &str, to: &str, message: &str) {
         let (target, title, named, hosting) = {
             let store = self.store().lock().await;
@@ -610,10 +610,9 @@ where
         if target == from {
             return;
         }
-        // A live receiver already has it from the CLI. An ended one is started only for a Job inside its tree,
-        // for where the mod's hooks are skipped and nothing refused it before it was sent.
-        if self.hosts().of(&target).state().process.is_none() && !self.reaches(from, &target).await.unwrap_or(true) {
-            self.fleet_note(from, super::message_reach::refused_to(to)).await;
+        // An ended Job is not started for it, for where the mod's hooks are skipped and nothing refused it before it was sent.
+        if let Ok(Some(why)) = self.unreachable(to).await {
+            self.fleet_note(from, super::message_reach::refused_to(to, why)).await;
             return;
         }
         // Before the row is written, so a Job held across a restart does not read it back as an old one.

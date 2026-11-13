@@ -99,6 +99,7 @@ where
             | Event::WordsSent(_)
             | Event::OperatorBoardChanged(_)
             | Event::OperatorPageChanged(_)
+            | Event::OperatorDispatched(_)
             | Event::TerminalOpened(_)
             | Event::TerminalExited(_)
             | Event::TerminalShown(_)

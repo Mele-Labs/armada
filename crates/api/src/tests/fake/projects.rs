@@ -114,6 +114,7 @@ impl Projects for FakeDaemon {
             density: said(None),
             tracker: None,
             reviews: None,
+            agent_starts: None,
             autonomy: Vec::new(),
         })
     }

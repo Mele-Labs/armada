@@ -2,9 +2,9 @@
 //! domain. `cloudflared` holds an outbound connection to Cloudflare and hands whatever arrives at the Mac's
 //! address to the Gateway on loopback, so the Mac takes calls without listening on any port.
 //!
-//! **One press does the whole setup.** It downloads `cloudflared` where Armada has none, opens the sign-in,
-//! and once the owner has signed in makes the tunnel and its address and writes the address as the Mac's way
-//! in. Fleet runs the tunnel while the Gateway runs, and starts it again when it stops.
+//! **One press does the whole setup, with nothing typed.** It downloads `cloudflared` where Armada has none,
+//! opens the sign-in, where the owner picks the domain, and once he has signed in makes the tunnel and its
+//! address under that domain and writes the address as the Mac's way in. Fleet runs the tunnel while the Gateway runs, and starts it again when it stops.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpStream};
@@ -48,12 +48,24 @@ pub trait Cloudflared: Send + Sync {
     /// Download the newest version, check it is Cloudflare's, and keep it. The version kept.
     fn install(&self) -> Result<String, String>;
     fn signed_in(&self) -> bool;
+    /// Sign in again, replacing any sign-in this Mac has.
     fn sign_in(&self) -> Result<SignIn, String>;
+    /// The domain the owner picked on the sign-in page, as Cloudflare names it.
+    fn zone(&self) -> Result<String, NoZone>;
     /// Make the tunnel `name`, or take this Mac's of that name, and point `host` at it.
     fn create(&self, name: &str, host: &str) -> Result<(), String>;
     /// The command that runs the tunnel `name` in front of the Gateway's `port`, answering whether it is
     /// connected on `metrics`.
     fn run(&self, name: &str, port: u16, metrics: u16) -> Command;
+}
+
+/// Why the sign-in's domain could not be read. The sentence says what was wrong.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NoZone {
+    /// The sign-in names no domain Cloudflare will answer for. A fresh sign-in mends it.
+    SignIn(String),
+    /// Cloudflare did not answer this time.
+    Retry(String),
 }
 
 /// What a press on the setup row did.
@@ -67,8 +79,6 @@ pub enum Pressed {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Refused {
-    /// The domain is not one a host can go under. The sentence says what was wrong.
-    Domain(String),
     /// A press is already under way.
     Busy,
     Failed(String),
@@ -92,6 +102,8 @@ struct Live {
     /// The last press's failure, until a press succeeds.
     failed: Option<String>,
     pressing: bool,
+    /// The sign-in names no usable domain, so the next press signs in again.
+    sign_in_again: bool,
     connected: bool,
     /// When `connected` last changed.
     since: i64,
@@ -110,20 +122,6 @@ pub struct Tunnel {
     clock: Clock,
     live: Arc<Mutex<Live>>,
     running: Arc<Mutex<Option<Runner>>>,
-}
-
-/// `example.com` from what the owner typed, which may carry a scheme or a trailing slash.
-pub(crate) fn domain_from(typed: &str) -> Result<String, String> {
-    let bare = typed.trim().trim_start_matches("https://").trim_start_matches("http://").trim_end_matches('/').to_ascii_lowercase();
-    let labels: Vec<&str> = bare.split('.').collect();
-    let fits = |label: &&str| {
-        !label.is_empty() && label.len() <= 63 && !label.starts_with('-') && !label.ends_with('-') && label.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
-    };
-    if labels.len() >= 2 && labels.iter().all(fits) && bare.len() <= 200 {
-        Ok(bare)
-    } else {
-        Err(format!("{:?} is not a domain such as example.com. Use one whose DNS is on your Cloudflare account.", typed.trim()))
-    }
 }
 
 /// The first label of this Mac's address, from its name: `studio` from `Studio`, `nicks-mac` from `Nick's Mac`.
@@ -206,8 +204,7 @@ impl Tunnel {
     }
 
     /// The setup press: download, sign in and make the tunnel, as far as each is not done.
-    pub fn press(&self, typed_domain: &str, mac: ForMac<'_>) -> Result<Pressed, Refused> {
-        let domain = domain_from(typed_domain).map_err(Refused::Domain)?;
+    pub fn press(&self, mac: ForMac<'_>) -> Result<Pressed, Refused> {
         {
             let mut live = self.live.lock().unwrap();
             if let Some(page) = &live.signing_in {
@@ -218,25 +215,28 @@ impl Tunnel {
             }
             live.pressing = true;
         }
-        let done = self.pressed(domain, mac.id.to_string(), mac.name.to_string());
+        let done = self.pressed(mac.id.to_string(), mac.name.to_string());
         let mut live = self.live.lock().unwrap();
         live.pressing = false;
         live.failed = done.as_ref().err().cloned();
         done.map_err(Refused::Failed)
     }
 
-    fn pressed(&self, domain: String, id: String, name: String) -> Result<Pressed, String> {
+    fn pressed(&self, id: String, name: String) -> Result<Pressed, String> {
         if self.driver.version().is_none() {
             self.driver.install()?;
         }
-        if self.driver.signed_in() {
-            return self.make(&domain, &id, &name).map(|()| Pressed::Made);
+        if self.driver.signed_in() && !self.live.lock().unwrap().sign_in_again {
+            return self.make(&id, &name).map(|()| Pressed::Made);
         }
         let SignIn { page, finished } = self.driver.sign_in()?;
         self.live.lock().unwrap().signing_in = Some(page.clone());
         let tunnel = self.clone();
         std::thread::spawn(move || {
-            let made = finished().and_then(|()| tunnel.make(&domain, &id, &name));
+            let made = finished().and_then(|()| {
+                tunnel.live.lock().unwrap().sign_in_again = false;
+                tunnel.make(&id, &name)
+            });
             let mut live = tunnel.live.lock().unwrap();
             live.signing_in = None;
             live.failed = made.err();
@@ -244,8 +244,17 @@ impl Tunnel {
         Ok(Pressed::SignIn(page))
     }
 
-    /// The tunnel is named for this Mac's id, so two Macs that share a name never take each other's.
-    fn make(&self, domain: &str, id: &str, name: &str) -> Result<(), String> {
+    /// The tunnel is named for this Mac's id, so two Macs that share a name never take each other's. Its
+    /// address is this Mac's name under the domain the sign-in picked.
+    fn make(&self, id: &str, name: &str) -> Result<(), String> {
+        let domain = match self.driver.zone() {
+            Ok(domain) => domain,
+            Err(NoZone::SignIn(why)) => {
+                self.live.lock().unwrap().sign_in_again = true;
+                return Err(format!("{why} Press Set up to sign in again."));
+            }
+            Err(NoZone::Retry(why)) => return Err(format!("{why} Press Set up to try again.")),
+        };
         let made = Made { name: format!("armada-{}", &id[..id.len().min(12)]), host: format!("{}.{domain}", label_of(name)) };
         self.driver.create(&made.name, &made.host)?;
         let dir = self.machine.join(DIR);
@@ -301,13 +310,8 @@ impl Tunnel {
         if !newer(&latest, &kept) {
             return false;
         }
-        match self.driver.install() {
-            Ok(_) => true,
-            Err(why) => {
-                eprintln!("cloudflared {latest} not installed: {why}");
-                false
-            }
-        }
+        // One that fails leaves the running one as it is, and is tried again a day later.
+        self.driver.install().is_ok()
     }
 
     fn keep_up(&self, port: u16, stop: &AtomicBool) {

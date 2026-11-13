@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use core_model::rule::{ActKind, Autonomy, AutonomyDefaults};
-use core_model::{AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, TrackerNamed, Values, WalkReview};
+use core_model::{AgentStarts, AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, TrackerNamed, Values, WalkReview};
 
 use crate::{
     kit_values_text, parse_kit_values, parse_project, project_text, resolve, shipped_values, AutonomyLayers, Layers, ResolvedValues,
@@ -46,6 +46,7 @@ fn every_key_reads_and_writes_back() {
         look: Look { layout: Some("compact-deck".into()), theme: Some("paper".into()), density: Some("compact".into()) },
         tracker: Some(TrackerNamed { provider: Some("tickets".into()), keys: [("site".to_string(), "acme".to_string())].into() }),
         reviews: Some(Reviews { plans: ReviewMode::ReviewAndApprove, pull_requests: ReviewMode::Review, walks: WalkReview::Review }),
+        agent_starts: Some(AgentStarts::AskMe),
     };
     let project = parse_project(Path::new("shop.yml"), &project_with("")).expect("a Project").with_values(all.clone());
     let written = project_text(&project).expect("text");
@@ -138,6 +139,7 @@ fn saying(mode: PrMode, merge: AutoMerge, word: &str) -> Values {
         look: Look { layout: Some(format!("layout-{word}")), theme: Some(format!("theme-{word}")), density: Some("compact".into()) },
         tracker: None,
         reviews: None,
+        agent_starts: None,
     }
 }
 
@@ -286,4 +288,18 @@ fn reviews_are_read_from_kit_and_the_nearest_layer_sets_all_three() {
     assert_eq!(resolved.reviews.from, Layer::Project);
     assert_eq!(resolved.reviews.value, Some(Reviews { plans: ReviewMode::Review, ..Reviews::default() }), "a project that sets reviews sets all three");
     assert_eq!(resolve(&layers(&[])).reviews.value, None, "no layer is Off");
+}
+
+#[test]
+fn agent_starts_reads_a_word_refuses_any_other_and_ships_at_once() {
+    assert_eq!(values_of("values:\n  agent_starts: ask_me\n").agent_starts, Some(AgentStarts::AskMe));
+    assert_eq!(values_of("values:\n  agent_starts: at_once\n").agent_starts, Some(AgentStarts::AtOnce));
+    assert_eq!(values_of("values:\n  pr_mode: draft\n").agent_starts, None, "a block that does not name it sets none");
+    assert!(refused("values:\n  agent_starts: later\n").contains("values.agent_starts"));
+    let kit = parse_kit_values(Path::new("values.yml"), "version: 1\nvalues:\n  agent_starts: ask_me\n").expect("Kit reads it");
+    assert_eq!(kit.agent_starts, Some(AgentStarts::AskMe));
+    let resolved = resolve(&layers(&[]));
+    assert_eq!((resolved.agent_starts.value, resolved.agent_starts.from), (Some(AgentStarts::AtOnce), Layer::Default));
+    let nearer = resolve(&layers(&[(Layer::Kit, only(|values| values.agent_starts = Some(AgentStarts::AskMe)))]));
+    assert_eq!((nearer.agent_starts.value, nearer.agent_starts.from), (Some(AgentStarts::AskMe), Layer::Kit));
 }

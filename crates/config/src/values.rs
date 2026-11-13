@@ -13,16 +13,16 @@
 use std::path::Path;
 
 use core_model::rule::{ActKind, Autonomy, AutonomyDefaults};
-use core_model::{AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, TrackerNamed, Values, WalkReview};
+use core_model::{AgentStarts, AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, TrackerNamed, Values, WalkReview};
 use serde_yaml_ng::{Mapping, Value};
 
 use crate::error::{Fault, LoadError, Refusal};
 use crate::settings::{SHIPPED_THEME, SPACINGS};
 use crate::yaml::{self, Table};
 
-const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker", "reviews"];
+const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker", "reviews", "agent_starts"];
 /// Kit's keys: a tracker is a Project's, so Kit's block refuses it as it does any key it has no word for.
-const KIT_KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "reviews"];
+const KIT_KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "reviews", "agent_starts"];
 const LOOK: &[&str] = &["layout", "theme", "density"];
 const REVIEWS: &[&str] = &["plans", "pull_requests", "walks"];
 const REVIEW_MODES: &[(&str, ReviewMode)] =
@@ -31,6 +31,8 @@ const REVIEW_MODES_LEGAL: &[&str] = &["off", "review", "review_and_approve"];
 /// A walk takes no `review_and_approve`: it is the person's to look at.
 const WALK_REVIEWS: &[(&str, WalkReview)] = &[("off", WalkReview::Off), ("review", WalkReview::Review)];
 const WALK_REVIEWS_LEGAL: &[&str] = &["off", "review"];
+const AGENT_STARTS: &[(&str, AgentStarts)] = &[("at_once", AgentStarts::AtOnce), ("ask_me", AgentStarts::AskMe)];
+const AGENT_STARTS_LEGAL: &[&str] = &["at_once", "ask_me"];
 const KIT_FILE: &[&str] = &["version", "values"];
 const PR_MODES: &[(&str, PrMode)] = &[("draft", PrMode::Draft), ("ready", PrMode::Ready)];
 const PR_MODES_LEGAL: &[&str] = &["draft", "ready"];
@@ -62,8 +64,11 @@ pub(crate) fn read_block(key: &str, root: &Value, with_tracker: bool, out: &mut 
     };
     let reviews_at = table.at("reviews");
     let reviews = table.optional("reviews").map(|value| read_reviews(&reviews_at, value, out));
+    let agent_starts = table
+        .optional("agent_starts")
+        .and_then(|value| yaml::word(&table.at("agent_starts"), value, AGENT_STARTS, AGENT_STARTS_LEGAL, AGENT_STARTS_LEGAL, out));
     table.close(if with_tracker { KEYS } else { KIT_KEYS }, out);
-    Values { pr_mode, auto_merge, review_model: review_model.map(|model| model.trim().to_string()), look, tracker, reviews }
+    Values { pr_mode, auto_merge, review_model: review_model.map(|model| model.trim().to_string()), look, tracker, reviews, agent_starts }
 }
 
 /// The `reviews:` block. **A kind it does not name is Off.**
@@ -139,6 +144,9 @@ pub(crate) fn block_value(values: &Values) -> Option<Value> {
         named.insert(text("walks"), text(reviews.walks.as_wire()));
         block.insert(text("reviews"), Value::Mapping(named));
     }
+    if let Some(starts) = values.agent_starts {
+        block.insert(text("agent_starts"), text(starts.as_wire()));
+    }
     (!block.is_empty()).then_some(Value::Mapping(block))
 }
 
@@ -184,6 +192,7 @@ pub fn shipped_values() -> Values {
         look: Look { layout: None, theme: Some(SHIPPED_THEME.to_string()), density: Some("default".to_string()) },
         tracker: None,
         reviews: None,
+        agent_starts: Some(AgentStarts::AtOnce),
     }
 }
 
@@ -242,6 +251,8 @@ pub struct ResolvedValues {
     /// How work is reviewed before the person sees it. **`None` is Off for every kind**: no layer sets it and the
     /// default has no word for it.
     pub reviews: ResolvedValue<Reviews>,
+    /// Whether a Job an agent or the Operator starts begins at once. **The shipped word is `AtOnce`.**
+    pub agent_starts: ResolvedValue<AgentStarts>,
     /// One for each kind of act, in the order of the kinds.
     pub autonomy: Vec<ResolvedAutonomy>,
 }
@@ -277,6 +288,7 @@ pub fn resolve(layers: &Layers) -> ResolvedValues {
         density: nearest(layers, |values| values.look.density.clone()),
         tracker: nearest(layers, |values| values.tracker.clone()),
         reviews: nearest(layers, |values| values.reviews),
+        agent_starts: nearest(layers, |values| values.agent_starts),
         autonomy: ActKind::ALL
             .iter()
             .map(|kind| {

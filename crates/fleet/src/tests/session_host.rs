@@ -195,6 +195,7 @@ fn rig_standing_in(
     stand_in: Arc<StandIn>,
     fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
 ) -> Rig {
+    crate::tests::daemon::agents_ask(&home);
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
     fit(&mut fittings);
     let fleet = Fleet::assembled(fittings).hosting_sessions_on(
@@ -217,6 +218,12 @@ fn rig_standing_in(
 }
 
 impl Rig {
+    /// Kit's `agent_starts` from now on: `at_once` or `ask_me`.
+    pub(super) fn agents_start(&self, word: &str) {
+        std::fs::create_dir_all(self._home.path().join("kit")).expect("Kit's folder");
+        std::fs::write(self._home.path().join("kit/values.yml"), format!("version: 1\nvalues:\n  agent_starts: {word}\n")).expect("Kit's values");
+    }
+
     /// Fleet restarted over the same home: what it kept in memory is gone and the store stays. The clock
     /// is moved on, as real time is, so a row written now never takes the id of one written before.
     pub(super) fn restarted(self, fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>)) -> Rig {
@@ -831,10 +838,10 @@ async fn a_message_to_a_session_whose_process_ended_resumes_it() {
     assert!(line.contains("are you there"));
 }
 
-/// Where the mod's hooks are skipped, a `SendMessage` from outside the receiver's tree is sent before
-/// anything can refuse it. Fleet does not wake the ended receiver with it, and says so on the sender's thread.
+/// A Job that did not start the receiver, and was not started by it, wakes it as any Job does: the
+/// receiver's process is started with the message, which its thread draws as the sender's.
 #[tokio::test]
-async fn a_message_from_outside_its_tree_leaves_an_ended_session_ended() {
+async fn a_message_from_a_job_outside_its_tree_resumes_a_session_whose_process_ended() {
     let rig = rig();
     let a = rig.start().await;
     let b = rig.start().await;
@@ -847,6 +854,40 @@ async fn a_message_from_outside_its_tree_leaves_an_ended_session_ended() {
         .tune_session(TuneSession { session_id: b.clone(), model: None, effort: None, mode: SessionMode::Auto })
         .await
         .unwrap();
+
+    rig.stand_in.says(
+        0,
+        vec![DroneEvent::Called {
+            tool: "SendMessage".into(),
+            call: "toolu_2".into(),
+            detail: CallDetail::of(&format!("to {}: are you there", address_of(b.as_str()))),
+        }],
+    );
+    eventually(|| async { rig.stand_in.starts().len() == 3 }).await;
+    let resumed = &rig.stand_in.starts()[2];
+    assert_eq!(resumed.session, b.as_str());
+    assert!(resumed.resuming);
+    let line = rig.stand_in.process(2).sent.lock().unwrap()[0].clone();
+    assert!(line.contains("are you there") && line.contains(&address_of(a.as_str())), "the sender is named: {line}");
+    assert!(rig.rows(&b).await.iter().any(|row| matches!(
+        row,
+        SessionRow::Message { from: SessionVoice::Session { id, .. }, text, .. } if id == a.as_str() && text == "are you there"
+    )));
+}
+
+/// Where the mod's hooks are skipped, a `SendMessage` to an ended Job is sent before anything can
+/// refuse it. Fleet does not start the ended Job with it, and says so on the sender's thread.
+#[tokio::test]
+async fn a_message_to_an_ended_session_leaves_it_ended_and_tells_the_sender() {
+    let rig = rig();
+    let a = rig.start().await;
+    let b = rig.start().await;
+    rig.send(&a, "hello a").await;
+    rig.send(&b, "hello b").await;
+    rig.stand_in.init(1);
+    rig.stand_in.finishes(1, "b ready");
+    eventually(|| async { rig.turn(&b).await == SessionTurn::Idle }).await;
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: b.clone() }).await.unwrap();
     let before = rig.rows(&b).await.len();
 
     rig.stand_in.says(
@@ -857,10 +898,7 @@ async fn a_message_from_outside_its_tree_leaves_an_ended_session_ended() {
             detail: CallDetail::of(&format!("to {}: are you there", address_of(b.as_str()))),
         }],
     );
-    let refused = format!(
-        "`SendMessage` to {} is refused: a Job writes only to the Jobs that started it, the Jobs it started and the Jobs the person names to it",
-        address_of(b.as_str())
-    );
+    let refused = format!("`SendMessage` to {} is refused: that Job has ended", address_of(b.as_str()));
     eventually(|| async {
         rig.rows(&a).await.iter().any(|row| matches!(row, SessionRow::Message { text, .. } if *text == refused))
     })

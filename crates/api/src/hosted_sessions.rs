@@ -34,6 +34,41 @@ pub(crate) async fn start_session<D: HostedSessions>(
     }
 }
 
+/// The person dispatches work: a Job, or the Operator's hold of it. 200 with `JobDispatched`.
+pub(crate) async fn dispatch_job<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let dispatch: ipc::DispatchJob = match ipc::decode_body("work to dispatch", &body) {
+        Ok(dispatch) => dispatch,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().dispatch_job(dispatch).await {
+        Ok(dispatched) => answer(StatusCode::OK, &dispatched, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The dispatches kept for later. 200 with `ParkedIdeas`.
+pub(crate) async fn list_parked_ideas<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.shared().list_parked_ideas().await {
+        Ok(ideas) => answer(StatusCode::OK, &ideas, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One press removes an idea. 200 with the ideas left; 422 where none is kept under the id.
+pub(crate) async fn remove_parked_idea<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let remove: ipc::RemoveParkedIdea = match ipc::decode_body("an idea to remove", &body) {
+        Ok(remove) => remove,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().remove_parked_idea(remove).await {
+        Ok(ideas) => answer(StatusCode::OK, &ideas, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person hands a group of a Session's plan to a linked Session. 200 with `SessionHeld`.
 pub(crate) async fn hand_to_session<D: HostedSessions>(
     State(served): State<Served<D>>,

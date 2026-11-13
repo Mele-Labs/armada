@@ -164,6 +164,10 @@ where
         self.started_reading(start).await
     }
 
+    async fn dispatch_job(self: Arc<Self>, dispatch: ipc::DispatchJob) -> Result<ipc::JobDispatched, Refusal> {
+        self.job_dispatched(dispatch).await
+    }
+
     async fn hand_to_session(self: Arc<Self>, hand: ipc::HandToSession) -> Result<ipc::SessionHeld, Refusal> {
         self.group_handed(hand).await
     }
@@ -333,6 +337,14 @@ where
 
     async fn confirm_operator_order(self: Arc<Self>, confirm: ipc::operator_talk::ConfirmOperatorOrder) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
         self.operator_order_confirmed(confirm.form).await
+    }
+
+    async fn list_parked_ideas(self: Arc<Self>) -> Result<ipc::ParkedIdeas, Refusal> {
+        self.parked_ideas_wire().await
+    }
+
+    async fn remove_parked_idea(self: Arc<Self>, remove: ipc::RemoveParkedIdea) -> Result<ipc::ParkedIdeas, Refusal> {
+        self.parked_idea_removed(&remove.id).await
     }
 
     async fn operator_orders(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {

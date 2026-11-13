@@ -27,10 +27,11 @@ Ahead of his words the agent reads what each open terminal shows, its last 60 li
 It types into one with `type_in_terminal` only when he asks it to.
 A note or another Job's message does not carry them.
 
-**A title he does not type names the folder**, as *Terminal in shop*: the folder he picked, or the repository's for a project.
+**A title he does not type waits for his first message**, which names the Job as it does any other.
+A title he types stands.
 
 **While it waits it is live and idle**, never ended or done: its agent has not run, and nothing has finished.
-Its row is marked `blank`, not started, though Fleet gave it a title.
+Its row is marked `blank`, not started.
 
 **Lists mark it** with `quick_terminal`, so Bridge opens it onto `t1` and draws it apart from a working Job.
 A Job that replaces it on a handoff keeps the mark, and its terminal folder.

@@ -92,6 +92,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         viewed_at: None,
         compact: None,
         lanes: None,
+        pull_request_drafts: Vec::new(),
     }
 }
 

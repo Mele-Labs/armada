@@ -33,6 +33,11 @@ pub struct ValuesSet {
     /// three**, and a kind it leaves out is `off`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reviews: Option<ReviewsSet>,
+    /// Whether a Job that a Job or the Operator starts begins at once (`at_once`) or waits on the person's start
+    /// card (`ask_me`). Fleet refuses another word, 422 `fleet.project_values_refused`. A Job the person starts
+    /// himself is never held by it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_starts: Option<String>,
 }
 
 /// How each kind of work is reviewed: `off`, `review` or `review_and_approve`, and for `walks` only `off` or
@@ -60,9 +65,10 @@ pub struct LookSet {
 
 /// The layer a value came from, from the furthest to the nearest: `default`, `machine`, `kit`,
 /// `repository`, `project` or `job`. The nearest that sets a key wins.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ValueLayer {
+    #[default]
     Default,
     Machine,
     Kit,
@@ -73,7 +79,7 @@ pub enum ValueLayer {
 
 /// One key's answer. **`value` is absent where no layer sets the key and the default has no word
 /// for it**, and `from` is then `default`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResolvedValue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
@@ -114,7 +120,7 @@ pub struct ResolvedAutonomy {
 
 /// Every key resolved, each with the layer it came from. `get_values`' answer, and what a Job froze at
 /// its start (`hosted.values`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResolvedValues {
     /// `ready` or `draft`.
     pub pr_mode: ResolvedValue,
@@ -133,6 +139,10 @@ pub struct ResolvedValues {
     /// its start said**, whatever the project says since.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reviews: Option<ResolvedReviews>,
+    /// `at_once` or `ask_me`: how a Job that a Job or the Operator starts begins. Absent from what a Job froze
+    /// before the key existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_starts: Option<ResolvedValue>,
     /// One for each kind of act, where a repository was asked about; empty where only a project was.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub autonomy: Vec<ResolvedAutonomy>,
