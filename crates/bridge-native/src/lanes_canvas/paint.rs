@@ -111,7 +111,7 @@ pub(super) struct PaintPlan {
 }
 
 impl PaintPlan {
-    pub(super) fn of(lanes: &JobLanesView, placement: &Placement, picked: Option<&Pick>, look: &Look) -> Self {
+    pub(super) fn of(lanes: &JobLanesView, placement: &Placement, picked: Option<&Pick>, chosen: &std::collections::HashSet<String>, look: &Look) -> Self {
         let hairline = f32::from(look.length(token::BORDER_WIDTH));
         let space_1 = f32::from(look.length(token::SPACE_1));
         let space_2 = f32::from(look.length(token::SPACE_2));
@@ -139,7 +139,7 @@ impl PaintPlan {
             .filter(|node| node.kind == LaneNodeKind::Watch)
             .filter_map(|node| {
                 let rect = *placement.items.get(&node.id)?;
-                let w = wears(look, node, picked == Some(&Pick::Node(node.id.clone())));
+                let w = wears(look, node, picked == Some(&Pick::Node(node.id.clone())), chosen.contains(&node.id));
                 Some((rect, w.ground, w.frame, w.dashed))
             })
             .collect();

@@ -4,12 +4,17 @@ use std::collections::{HashMap, HashSet};
 
 use ipc::{LaneEdge, LaneKind, LaneNodeKind, LaneView};
 
-use super::{Placement, Rect, View, CHIP_H, COL_W, DOT, DOT_GAP, HEAD, LANE_MIN, LEAD, NODE_W, PAD, STATE_H, STEP_H, SUB_CHARS, SUB_LINE};
+use super::{Placement, Rect, View, CHIP_H, COL_W, DOT, DOT_GAP, HEAD, HOME, LANE_MIN, LEAD, NODE_W, PAD, STATE_H, STEP_H, SUB_CHARS, SUB_LINE};
 
 /// The lanes fill `height`, and stand at the least the lane height tall each when it is short (`place`).
 pub(super) fn place(lanes: &[LaneView], height: f32) -> Placement {
+    place_at(lanes, height, HEAD)
+}
+
+/// `place` with `head` points of room at the left for the lane heads: none where the canvas draws without them.
+pub(super) fn place_at(lanes: &[LaneView], height: f32, head: f32) -> Placement {
     let last = lanes.iter().flat_map(|lane| lane.nodes.iter()).map(|node| node.col).max().unwrap_or(0) as f32;
-    let origin = HEAD + PAD + LEAD;
+    let origin = head + PAD + LEAD;
     let tail = if lanes.iter().flat_map(|lane| lane.nodes.iter()).any(|node| node.kind == LaneNodeKind::End) { DOT_GAP + DOT } else { 0. };
     let width = origin + PAD + last * COL_W + NODE_W + tail;
     let lane_h = LANE_MIN.max((height / lanes.len().max(1) as f32).floor());
@@ -35,7 +40,20 @@ pub(super) fn place(lanes: &[LaneView], height: f32) -> Placement {
             items.insert(node.id.clone(), rect);
         }
     }
-    Placement { bands, items, lane_h, width, height: lanes.len() as f32 * lane_h }
+    Placement { bands, items, lane_h, width, height: lanes.len() as f32 * lane_h, head }
+}
+
+/// The lanes of a canvas with no heads and no rail, placed and zoomed so the whole of them shows in `frame`:
+/// as far out as that takes, past `MIN_ZOOM` where it must, and never in past 1. The lanes fill the frame's
+/// height at that zoom. Not yet measured, the canvas is at `HOME`.
+pub(super) fn place_fitted(lanes: &[LaneView], frame: (f32, f32)) -> (Placement, View) {
+    let bare = place_at(lanes, frame.1, 0.);
+    if frame.0 <= 0. || frame.1 <= 0. {
+        return (bare, HOME);
+    }
+    let least = lanes.len().max(1) as f32 * LANE_MIN;
+    let zoom = (frame.0 / bare.width).min(frame.1 / least).min(1.);
+    (place_at(lanes, frame.1 / zoom, 0.), View { x: 0., y: 0., zoom })
 }
 
 /// A time of day in his clock, as the chips read it (`clock`).
@@ -107,7 +125,7 @@ pub(super) fn place_chips(edges: &[LaneEdge], placement: &Placement) -> HashMap<
         };
         let (w, h) = chip_size(edge);
         let fit = |x: f32, y: f32| -> Rect {
-            let left = (x - w / 2.).max(HEAD + PAD / 2.).min((HEAD + PAD / 2.).max(placement.width - w - PAD / 2.));
+            let left = (x - w / 2.).max(placement.head + PAD / 2.).min((placement.head + PAD / 2.).max(placement.width - w - PAD / 2.));
             Rect { x: left, y: y - h / 2., w, h }
         };
         let mut chosen = None;
@@ -127,7 +145,7 @@ pub(super) fn place_chips(edges: &[LaneEdge], placement: &Placement) -> HashMap<
                 let Some(hit) = taken.iter().find(|one| touches(one, &sits, 4.)) else { break };
                 sits.x = hit.x + hit.w + 6.;
             }
-            let (left_edge, right_edge) = (HEAD + PAD / 2., placement.width - PAD / 2.);
+            let (left_edge, right_edge) = (placement.head + PAD / 2., placement.width - PAD / 2.);
             if sits.x + sits.w <= right_edge {
                 return sits;
             }
@@ -263,4 +281,64 @@ pub(super) fn bezier(from: &Rect, to: &Rect) -> [(f32, f32); 4] {
         Side::Bottom => (a.0, a.1 + offset(b.1 - a.1)),
     };
     [s, control(out, s, t), control(into, t, s), t]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lanes_canvas::{LanesHost, LanesState, MIN_ZOOM};
+    use gpui::{App, SharedString};
+    use ipc::JobLanesView;
+
+    fn fixture() -> JobLanesView {
+        ipc::decode::<JobLanesView>("JobLanesView", include_bytes!("../../fixtures/job-lanes.json")).unwrap()
+    }
+
+    #[test]
+    fn a_compact_canvas_zooms_to_the_width_it_is_given_with_no_head_inset() {
+        let lanes = fixture();
+        let bare = place_at(&lanes.lanes, 1000., 0.);
+        for width in [340., 1400.] {
+            let (placement, view) = place_fitted(&lanes.lanes, (width, 1000.));
+            assert_eq!(placement.head, 0.);
+            // The Start dot stands inside PAD + LEAD of the frame's left, where the heads' 144 would have been.
+            let first = placement.items.values().map(|rect| rect.x).fold(f32::INFINITY, f32::min);
+            assert!(first < PAD + LEAD, "{first}");
+            assert_eq!((view.x, view.y), (0., 0.));
+            assert!(placement.width * view.zoom <= width + 0.01, "{width}: {} at {}", placement.width, view.zoom);
+            assert_eq!(placement.width, bare.width);
+        }
+        // Wide enough, it stays at its own size; narrow, it goes out past what the rail allows.
+        assert_eq!(place_fitted(&lanes.lanes, (1400., 1000.)).1.zoom, 1.);
+        let narrow = place_fitted(&lanes.lanes, (340., 1000.)).1.zoom;
+        assert!(narrow < MIN_ZOOM && (narrow - 340. / bare.width).abs() < 1e-4, "{narrow}");
+        // The lanes fill the frame's height at that zoom, and a frame not yet measured is at home.
+        let (placement, view) = place_fitted(&lanes.lanes, (340., 1000.));
+        assert!((placement.height * view.zoom - 1000.).abs() < lanes.lanes.len() as f32 * view.zoom + 0.01);
+        assert_eq!(place_fitted(&lanes.lanes, (0., 0.)).1, HOME);
+    }
+
+    struct Bare;
+    impl LanesHost for Bare {
+        fn lanes_state(&self) -> &LanesState {
+            unreachable!()
+        }
+        fn lanes_of<'a>(&'a self, _: &SharedString, _: &'a App) -> Option<&'a JobLanesView> {
+            unreachable!()
+        }
+    }
+
+    #[test]
+    fn a_host_that_sets_nothing_keeps_the_heads_the_rail_and_the_words() {
+        let (host, id) = (Bare, SharedString::from("canvas"));
+        assert!(!host.lanes_compact(&id));
+        assert!(!host.lanes_chosen(&id, "workflow/plan"));
+        assert_eq!(host.changed_said(&id), "Changed on this Job");
+        // Not compact, the canvas is placed with the heads' inset as before.
+        let lanes = fixture();
+        let placement = place(&lanes.lanes, 600.);
+        assert_eq!(placement.head, HEAD);
+        let first = lanes.lanes[0].nodes.iter().find(|node| node.id == "workflow/plan").unwrap();
+        assert_eq!(placement.items[&first.id].x, HEAD + PAD + LEAD);
+    }
 }

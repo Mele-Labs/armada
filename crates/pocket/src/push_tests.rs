@@ -95,9 +95,34 @@ async fn watching(url: &str) -> (Watch, Rig, String) {
     let device = paired(&rig).await;
     assert_eq!(subscribe(&rig, &device, &subscription(url)).await, StatusCode::NO_CONTENT);
     let mut watch = Watch::new(rig.gateway.clone());
+    // No hold: most tests are about what is pushed, not when.
+    watch.hold = std::time::Duration::ZERO;
     // The first update for a Job only records what is open, so it sends nothing.
     watch.observe(&changed("s2", "live", None)).await;
     (watch, rig, device)
+}
+
+/// `watching`, with the hold a new item waits out outside a test.
+async fn watching_held(url: &str) -> (Watch, Rig) {
+    let (mut watch, rig, _) = watching(url).await;
+    watch.hold = crate::watch::SETTLE;
+    (watch, rig)
+}
+
+/// Waits until `count` pushes reached the fake service. The clock is paused, so this yields instead of
+/// sleeping: an idle runtime would jump the clock past the request's timeout and retry it.
+async fn reached(service: &Service, count: usize) {
+    let by = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while service.got.lock().unwrap().len() < count {
+        assert!(std::time::Instant::now() < by, "{count} pushes never reached the service");
+        tokio::task::yield_now().await;
+    }
+}
+
+/// Moves the paused clock on and lets the watch push what is due, as `follow` does on its timer.
+async fn after(watch: &mut Watch, by: std::time::Duration) {
+    tokio::time::advance(by).await;
+    watch.flush_due();
 }
 
 #[tokio::test]
@@ -166,7 +191,8 @@ async fn an_item_raised_again_after_it_left_pushes_again() {
         watch.observe(&event).await;
         watch.settle().await;
     }
-    assert_eq!(service.got.lock().unwrap().len(), 2);
+    // The push, the clear when its item left, and the push again.
+    assert_eq!(service.got.lock().unwrap().len(), 3);
 }
 
 #[tokio::test]
@@ -185,6 +211,7 @@ async fn a_restart_does_not_push_items_that_were_already_open() {
     let service = service().await;
     let (_old, rig, _) = watching(&service.url).await;
     let mut watch = Watch::new(rig.gateway.clone());
+    watch.hold = std::time::Duration::ZERO;
     let open = needs("s2", &[("a", "Which branch?", "agent")]);
     watch.observe(&open).await;
     watch.observe(&open).await;
@@ -341,6 +368,101 @@ async fn a_phone_that_keeps_failing_does_not_hold_up_another() {
     assert_eq!(working.got.lock().unwrap().len(), 1);
 }
 
+const SECOND: std::time::Duration = std::time::Duration::from_secs(1);
+
+#[tokio::test]
+async fn an_item_cleared_inside_the_window_pushes_nothing() {
+    tokio::time::pause();
+    let service = service().await;
+    let (mut watch, _rig) = watching_held(&service.url).await;
+    watch.observe(&needs("s2", &[("a", "Allow cargo build?", "permission")])).await;
+    after(&mut watch, crate::watch::SETTLE - SECOND).await;
+    watch.observe(&changed("s2", "live", None)).await;
+    after(&mut watch, 2 * SECOND).await;
+    after(&mut watch, crate::watch::SETTLE).await;
+    assert_eq!(watch.pushes_started(), 0);
+    assert!(service.got.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn an_item_still_open_after_the_window_pushes_once() {
+    tokio::time::pause();
+    let service = service().await;
+    let (mut watch, _rig) = watching_held(&service.url).await;
+    let asked = needs("s2", &[("a", "Which branch?", "agent")]);
+    watch.observe(&asked).await;
+    after(&mut watch, crate::watch::SETTLE - SECOND).await;
+    assert_eq!(watch.pushes_started(), 0, "held until the window ends");
+    after(&mut watch, SECOND).await;
+    watch.observe(&asked).await;
+    after(&mut watch, crate::watch::SETTLE).await;
+    assert_eq!(watch.pushes_started(), 1);
+    reached(&service, 1).await;
+    assert!(opened(&service.got.lock().unwrap()[0].body).contains(r#""reason":"Which branch?""#));
+}
+
+#[tokio::test]
+async fn two_items_in_the_window_push_once_saying_the_newest() {
+    tokio::time::pause();
+    let service = service().await;
+    let (mut watch, _rig) = watching_held(&service.url).await;
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent")])).await;
+    after(&mut watch, 20 * SECOND).await;
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent"), ("b", "Approve the plan", "agent")])).await;
+    after(&mut watch, 41 * SECOND).await;
+    assert_eq!(watch.pushes_started(), 1);
+    reached(&service, 1).await;
+    assert!(opened(&service.got.lock().unwrap()[0].body).contains(r#""reason":"Approve the plan""#));
+}
+
+#[tokio::test]
+async fn when_the_newest_left_inside_the_window_the_push_says_the_one_still_open() {
+    tokio::time::pause();
+    let service = service().await;
+    let (mut watch, _rig) = watching_held(&service.url).await;
+    watch.observe(&needs("s2", &[("c", "Run the restart", "agent"), ("d", "Review the walk", "agent")])).await;
+    watch.observe(&needs("s2", &[("c", "Run the restart", "agent")])).await;
+    after(&mut watch, crate::watch::SETTLE).await;
+    assert_eq!(watch.pushes_started(), 1);
+    reached(&service, 1).await;
+    assert!(opened(&service.got.lock().unwrap()[0].body).contains(r#""reason":"Run the restart""#));
+}
+
+#[tokio::test]
+async fn a_job_whose_pushed_items_all_left_sends_one_clear() {
+    tokio::time::pause();
+    let service = service().await;
+    let (mut watch, _rig) = watching_held(&service.url).await;
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent")])).await;
+    after(&mut watch, crate::watch::SETTLE).await;
+    reached(&service, 1).await;
+    let gone = changed("s2", "live", None);
+    watch.observe(&gone).await;
+    watch.observe(&gone).await;
+    after(&mut watch, crate::watch::SETTLE).await;
+    assert_eq!(watch.pushes_started(), 2, "the push and one clear");
+    reached(&service, 2).await;
+    let said = opened(&service.got.lock().unwrap()[1].body);
+    assert!(said.contains(r#""clear":true"#) && said.contains(r#""session_id":"s2""#), "{said}");
+    assert!(!opened(&service.got.lock().unwrap()[0].body).contains("clear"));
+}
+
+#[tokio::test]
+async fn an_item_that_left_before_its_hold_ended_sends_no_clear_and_a_snooze_keeps_it_for_the_wake() {
+    tokio::time::pause();
+    let service = service().await;
+    let (mut watch, _rig) = watching_held(&service.url).await;
+    watch.observe(&needs("s2", &[("a", "Which branch?", "agent")])).await;
+    watch.observe(&changed("s2", "live", None)).await;
+    assert_eq!(watch.pushes_started(), 0, "nothing was pushed, so nothing is taken back");
+    watch.observe(&needs("s2", &[("b", "Approve the plan", "agent")])).await;
+    watch.observe(&snoozed("s2", &[("b", "Approve the plan", "agent")])).await;
+    after(&mut watch, crate::watch::SETTLE).await;
+    assert_eq!(watch.pushes_started(), 0, "a snoozed Job pushes nothing");
+    watch.observe(&needs("s2", &[("b", "Approve the plan", "agent")])).await;
+    assert_eq!(watch.pushes_started(), 1, "one push when it wakes");
+}
+
 /// RFC 8291 undone with the phone's key from [`subscription`]: the payload as sent.
 fn opened(body: &[u8]) -> String {
     use aes_gcm::aead::Aead;
@@ -395,6 +517,7 @@ async fn a_second_mac_pushes_under_the_key_the_first_gave_the_phone() {
     assert_eq!(subscribe(&mac_b, &on_b, &carried).await, StatusCode::NO_CONTENT);
 
     let mut watch = Watch::new(mac_b.gateway.clone());
+    watch.hold = std::time::Duration::ZERO;
     watch.observe(&changed("s2", "live", None)).await;
     watch.observe(&needs("s2", &[("a", "Which branch?", "agent")])).await;
     watch.settle().await;

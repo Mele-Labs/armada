@@ -1,7 +1,7 @@
 // Keeps the app: a page that arrives is kept, and answers when the network does not (a Home Screen app
 // opened while the tailnet is still waking would otherwise be a blank page). Receives a push, shows it,
 // and opens the Job it is about when it is tapped.
-// Payload: {session_id, title, reason, origin}. `origin` is the Mac that sent it; where it is absent
+// Payload: {session_id, title, reason, origin}, or {session_id, clear: true} to take that Job's notification back. `origin` is the Mac that sent it; where it is absent
 // the app finds the Mac that holds the Job (`/jobs/_/<id>`).
 
 self.addEventListener("install", () => self.skipWaiting());
@@ -9,6 +9,18 @@ self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim(
 
 self.addEventListener("push", (event) => {
   const push = event.data ? event.data.json() : {};
+  if (push.clear) {
+    // Nothing that was pushed for this Job is open any more: close its notification and show nothing.
+    // The Mac sends no clear to an iPhone, where a push that shows nothing counts against the subscription.
+    event.waitUntil(
+      self.registration
+        .getNotifications({
+          tag: push.session_id,
+        })
+        .then((shown) => shown.forEach((notification) => notification.close())),
+    );
+    return;
+  }
   event.waitUntil(
     self.registration.showNotification(push.title ?? "Armada", {
       body: push.reason ?? "",

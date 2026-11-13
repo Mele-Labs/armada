@@ -11,6 +11,7 @@ The presets (an hour, three hours, tomorrow, a time he picks) are the client's t
 **When the time comes, the Job is back with everything it raised.** Each tick of Fleet's notice loop clears a snooze whose time has passed and publishes `session.changed`.
 `snooze_session` with no `until` wakes the Job at once in the same way.
 Pocket then sends one push for the Job, titled with the Job and saying its newest item, if it raised anything while snoozed that is still open.
+Items still waiting out Pocket's 60 second hold when the snooze began count as raised while snoozed.
 Items raised before the snooze were pushed then and are not pushed again.
 The Operator reads the Job's list again on that `session.changed`.
 
