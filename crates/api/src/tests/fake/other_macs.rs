@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use ipc::{BugReports, Event, JobThread, JobThreadRead, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacSessions, SessionList};
+use ipc::{BugReports, Event, JobThread, JobThreadRead, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, SessionList};
 
 use super::FakeDaemon;
 use crate::{OtherMacs, Refusal};
@@ -18,6 +18,14 @@ impl OtherMacs for FakeDaemon {
 
     async fn share_bug_reports(&self) -> Result<BugReports, Refusal> {
         Ok(BugReports { reports: Vec::new() })
+    }
+
+    async fn share_projects(&self) -> Result<Projects, Refusal> {
+        Ok(Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() })
+    }
+
+    async fn project_act_from_mac(&self, _sent: ProjectActFromMac) -> Result<Projects, Refusal> {
+        Ok(Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() })
     }
 
     async fn share_event(&self, event: Event) -> Option<Event> {
@@ -39,11 +47,15 @@ impl OtherMacs for FakeDaemon {
         Ok(MacNamed { mac: held.mac })
     }
 
+    async fn hold_other_mac_projects(self: Arc<Self>, held: OtherMacProjects) -> Result<MacNamed, Refusal> {
+        Ok(MacNamed { mac: held.mac })
+    }
+
     async fn hold_other_mac_bug_reports(&self, held: OtherMacBugReports) -> Result<MacNamed, Refusal> {
         Ok(MacNamed { mac: held.mac })
     }
 
-    async fn hold_other_mac_event(&self, event: OtherMacEvent) -> Result<MacNamed, Refusal> {
+    async fn hold_other_mac_event(self: Arc<Self>, event: OtherMacEvent) -> Result<MacNamed, Refusal> {
         Ok(MacNamed { mac: event.mac })
     }
 

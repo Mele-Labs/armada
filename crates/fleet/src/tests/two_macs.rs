@@ -1,17 +1,19 @@
 //! Two of his Macs on loopback, each a real Fleet served over its own router and its own Phone Gateway in front,
 //! paired by link and Confirm through the Gateways' admin routes. What one shares reaches the other's lists with
-//! its Mac's id; a Job of an unshared project, and its report, never reach the other Mac at all.
+//! its Mac's id; a Job of an unshared project, and its report, never reach the other Mac at all. A shared project
+//! and its tasks are kept on both, an edit on either shows on the other, and one made while a Mac slept is
+//! replayed when it wakes, the later edit of a field winning on both.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use api::Sessions;
+use api::{Projects as _, Sessions};
 use axum::body::{to_bytes, Body};
 use axum::http::{Method, Request, StatusCode};
 use core_model::Ulid;
 use futures_util::StreamExt;
-use ipc::{BugReports, Mac, MacLink, ReportBug, SessionId, SessionList};
+use ipc::{BugReports, Mac, MacLink, NewProjectTask, ProjectRow, ProjectTask, Projects, ReportBug, SessionId, SessionList};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tower::ServiceExt;
@@ -19,6 +21,8 @@ use tower::ServiceExt;
 use super::session_host::{rig_fitted, Rig};
 use super::share::{job_in, project, shared};
 use crate::mint::Mint;
+use crate::phone::{OtherMacRead, PhoneSwitch};
+use crate::tests::planted::Ticking;
 use crate::tests::tmp::TempDir;
 
 /// The link's pace, shortened as `pocket`'s own tests shorten it.
@@ -43,20 +47,54 @@ fn now() -> i64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("after 1970").as_secs() as i64
 }
 
+/// What `pocketing` hands Fleet: the other Mac reached through this Mac's Gateway while it runs.
+struct Switch(Arc<Mutex<Option<pocket::Gateway>>>);
+
+impl PhoneSwitch for Switch {
+    fn state(&self) -> ipc::PhoneGateway {
+        ipc::PhoneGateway { on: true, port: 0, listening: true, why: None }
+    }
+
+    fn set(&self, _on: bool) -> ipc::PhoneGateway {
+        self.state()
+    }
+
+    fn read_other_mac(&self, mac: &str, path: &str) -> OtherMacRead {
+        match self.0.lock().expect("not poisoned").as_ref() {
+            Some(gateway) => Box::pin(pocket::read_other_mac(gateway, mac, path)),
+            None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
+
+    fn send_other_mac(&self, mac: &str, path: &str, body: Vec<u8>) -> OtherMacRead {
+        match self.0.lock().expect("not poisoned").as_ref() {
+            Some(gateway) => Box::pin(pocket::send_other_mac(gateway, mac, path, body)),
+            None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
+}
+
 /// One Mac: its Fleet served on a loopback port, and its Gateway served on another, linking.
 struct OneMac {
     id: String,
     rig: Rig,
     fleet: axum::Router,
     gateway: pocket::Gateway,
+    keys: Arc<pocket::MemoryMacKeys>,
+    serving: Arc<Mutex<Option<pocket::Gateway>>>,
     port: u16,
     running: Option<(oneshot::Sender<()>, JoinHandle<()>, JoinHandle<()>)>,
     _gateway_home: TempDir,
 }
 
 impl OneMac {
-    async fn new(name: &str, ids: &'static str) -> OneMac {
-        let rig = rig_fitted(|fittings| fittings.mint = Arc::new(Minting(ids, AtomicU64::new(1))));
+    /// `clock` is shared by both Macs, so which of two edits came later is the order the test made them in.
+    async fn new(name: &str, ids: &'static str, clock: &Arc<Ticking>) -> OneMac {
+        let clock = Arc::clone(clock);
+        let rig = rig_fitted(|fittings| {
+            fittings.mint = Arc::new(Minting(ids, AtomicU64::new(1)));
+            fittings.clock = clock;
+        });
         let fleet = api::router(api::Served::sharing(Arc::clone(&rig.fleet), ipc::RunId::carried("01RUN"), rig.fleet.events()));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("a loopback port for Fleet");
         let fleet_port = listener.local_addr().expect("bound").port();
@@ -70,15 +108,18 @@ impl OneMac {
         store.this_mac_or(&this).expect("this Mac");
         let port = pocket::bind(0).await.expect("a loopback port").local_addr().expect("bound").port();
         let address = format!("http://127.0.0.1:{port}");
+        let keys = Arc::new(pocket::MemoryMacKeys::default());
         let gateway = pocket::Gateway {
             fleet: Arc::new(move || Ok(fleet_port)),
             assets: None,
             pairing: pocket::Pairing::new(store, Arc::new(now), Arc::new(move || Ok(address.clone()))),
             push: pocket::Push::open(home.path(), pocket::PLACEHOLDER_SUBJECT).expect("a push key"),
             way_in: pocket::mac_way_in(home.path().to_path_buf(), port, None),
-            macs: pocket::Macs::with_timing(Arc::new(pocket::MemoryMacKeys::default()), QUICK).expect("keys"),
+            macs: pocket::Macs::with_timing(Arc::clone(&keys) as Arc<dyn pocket::MacKeys>, QUICK).expect("keys"),
         };
-        let mut mac = OneMac { id, rig, fleet, gateway, port, running: None, _gateway_home: home };
+        let serving = Arc::new(Mutex::new(None));
+        rig.fleet.switching_phone_with(Arc::new(Switch(Arc::clone(&serving))));
+        let mut mac = OneMac { id, rig, fleet, gateway, keys, serving, port, running: None, _gateway_home: home };
         mac.start();
         mac
     }
@@ -96,11 +137,19 @@ impl OneMac {
         });
         let linking = tokio::spawn(pocket::link(self.gateway.clone()));
         self.running = Some((stop, serving, linking));
+        *self.serving.lock().expect("not poisoned") = Some(self.gateway.clone());
+    }
+
+    /// Start it again after [`OneMac::stop`], as `pocketing` makes a new Gateway over the same keys and store.
+    fn restart(&mut self) {
+        self.gateway.macs = pocket::Macs::with_timing(Arc::clone(&self.keys) as Arc<dyn pocket::MacKeys>, QUICK).expect("keys");
+        self.start();
     }
 
     /// Stop it, as `pocketing` stops the Gateway.
     async fn stop(&mut self) {
         let (stop, serving, linking) = self.running.take().expect("running");
+        *self.serving.lock().expect("not poisoned") = None;
         self.gateway.macs.close();
         stop.send(()).ok();
         linking.abort();
@@ -171,6 +220,12 @@ impl OneMac {
         carried
     }
 
+    async fn projects(&self) -> (String, Projects) {
+        let raw = self.read("/projects").await;
+        let projects = ipc::decode("the projects", raw.as_bytes()).expect("projects");
+        (raw, projects)
+    }
+
     async fn reported(&self, job: &SessionId) -> String {
         let report = ReportBug {
             title: "Refresh drops the lease".into(),
@@ -221,7 +276,8 @@ fn from(list: &SessionList, job: &SessionId) -> Option<Option<String>> {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn two_paired_macs_see_each_others_shared_jobs_and_never_a_private_one() {
-    let (home, work) = (OneMac::new("Home", "01HMAC").await, OneMac::new("Work", "01WMAC").await);
+    let clock = Arc::new(Ticking::from_nine());
+    let (home, work) = (OneMac::new("Home", "01HMAC", &clock).await, OneMac::new("Work", "01WMAC", &clock).await);
     let open = project(&home.rig, "Shop").await;
     let private = project(&home.rig, "Taxes").await;
     shared(&home.rig, &open, true).await;
@@ -276,6 +332,108 @@ async fn two_paired_macs_see_each_others_shared_jobs_and_never_a_private_one() {
     assert!(since >= before - 1 && since <= now(), "asleep since {since}");
     assert!(asleep.why.as_deref().is_some_and(|why| why.starts_with("Home ")), "{asleep:?}");
 
+    let carried = carried.lock().expect("not poisoned").join("\n");
+    nowhere("event stream", &carried);
+}
+
+/// The titles of project `id`'s tasks in `projects`, and the Mac it is held from. None where it is not listed.
+fn tasks_of(projects: &Projects, id: &str) -> Option<(Option<String>, Vec<String>)> {
+    let project = projects.projects.iter().find(|one| one.id == id)?;
+    let titles = project
+        .rows
+        .iter()
+        .filter_map(|row| match row {
+            ProjectRow::Task { title, .. } => Some(title.clone()),
+            ProjectRow::Issue { .. } => None,
+        })
+        .collect();
+    Some((project.mac.clone(), titles))
+}
+
+/// A task in `project` on `mac`, by its title: its row's id.
+async fn task_in(mac: &OneMac, project: &str, title: &str) -> String {
+    let task = NewProjectTask { manifest_id: mac.rig.manifest.clone(), project: Some(project.to_string()), title: title.into(), notes: String::new() };
+    let projects = mac.rig.fleet.add_project_task(task).await.expect("added");
+    let rows = &projects.projects.iter().find(|one| one.id == project).expect("the project").rows;
+    rows.iter()
+        .find_map(|row| match row {
+            ProjectRow::Task { id, title: said, .. } if said == title => Some(id.clone()),
+            _ => None,
+        })
+        .expect("the task")
+}
+
+/// Whether `mac` lists project `open`, held by Mac `holder`, with the one task `title`.
+async fn shows(mac: &OneMac, holder: &str, open: &str, title: &str) -> bool {
+    let held_from = (mac.id != holder).then(|| holder.to_string());
+    tasks_of(&mac.projects().await.1, open) == Some((held_from, vec![title.to_string()]))
+}
+
+async fn titled(mac: &OneMac, row: &str, title: &str) {
+    let task = ProjectTask { title: title.into(), notes: String::new() };
+    mac.rig.fleet.edit_project_task(row.to_string(), task).await.expect("edited");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_shared_project_is_kept_in_step_on_both_macs_and_a_private_one_never_crosses() {
+    let clock = Arc::new(Ticking::from_nine());
+    let (home, work) = (OneMac::new("Home", "01HMAC", &clock).await, OneMac::new("Work", "01WMAC", &clock).await);
+    let open = project(&home.rig, "Shop").await;
+    let private = project(&home.rig, "Taxes").await;
+    shared(&home.rig, &open, true).await;
+    let row = task_in(&home, &open, "Buy tape").await;
+    let secret = task_in(&home, &private, "Amend the 2025 return").await;
+    let carried = work.every_event().await;
+    paired(&home, &work).await;
+    let mut home = home;
+    let home_id = home.id.clone();
+
+    // 1. The shared project reaches Work with its task, held from Home. Taxes and its task are nowhere on Work.
+    until("Shop reaches Work with its task", || shows(&work, &home_id, &open, "Buy tape")).await;
+    let nowhere = |what: &str, raw: &str| {
+        assert!(!raw.contains(private.as_str()), "Taxes is in Work's {what}: {raw}");
+        assert!(!raw.contains(secret.as_str()) && !raw.contains("Amend the 2025 return"), "Taxes' task is in Work's {what}: {raw}");
+    };
+    nowhere("projects", &work.projects().await.0);
+
+    // 2. An edit on Work's copy is made on Home, and comes back to the copy; an edit on Home reaches Work.
+    titled(&work, &row, "Buy blue tape").await;
+    until("Work's edit reaches Home", || shows(&home, &home_id, &open, "Buy blue tape")).await;
+    until("Work's copy shows Home's answer", || shows(&work, &home_id, &open, "Buy blue tape")).await;
+    titled(&home, &row, "Buy red tape").await;
+    until("Home's edit reaches Work", || shows(&work, &home_id, &open, "Buy red tape")).await;
+
+    // 3. Both edit the title while Home sleeps, Work later: Work's edit shows on its copy at once, and wins on both.
+    home.stop().await;
+    until("Home shows asleep on Work", || async {
+        matches!(work.mac(&home.id).await.and_then(|mac| mac.link), Some(MacLink::Asleep { .. }))
+    })
+    .await;
+    titled(&home, &row, "Home, first").await;
+    titled(&work, &row, "Work, later").await;
+    assert!(shows(&work, &home_id, &open, "Work, later").await, "Work's edit shows on its copy while Home sleeps");
+    assert!(shows(&home, &home_id, &open, "Home, first").await, "Home has not heard it yet");
+    home.restart();
+    until("Work's later edit wins on Home", || shows(&home, &home_id, &open, "Work, later")).await;
+    until("and on Work", || shows(&work, &home_id, &open, "Work, later")).await;
+
+    // 4. Again, Home later: Home's edit wins on both.
+    home.stop().await;
+    until("Home shows asleep on Work again", || async {
+        matches!(work.mac(&home.id).await.and_then(|mac| mac.link), Some(MacLink::Asleep { .. }))
+    })
+    .await;
+    titled(&work, &row, "Work, first").await;
+    titled(&home, &row, "Home, later").await;
+    assert!(shows(&work, &home_id, &open, "Work, first").await, "Work's edit shows on its copy while Home sleeps");
+    home.restart();
+    until("Home's later edit wins on Work", || shows(&work, &home_id, &open, "Home, later")).await;
+    assert!(shows(&home, &home_id, &open, "Home, later").await, "and stays on Home");
+
+    // 5. Sharing turned off on Home, the copy leaves Work.
+    shared(&home.rig, &open, false).await;
+    until("Shop leaves Work", || async { tasks_of(&work.projects().await.1, &open).is_none() }).await;
+    nowhere("projects", &work.projects().await.0);
     let carried = carried.lock().expect("not poisoned").join("\n");
     nowhere("event stream", &carried);
 }

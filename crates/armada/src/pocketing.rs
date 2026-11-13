@@ -207,6 +207,14 @@ impl PhoneSwitch for Phone {
         }
     }
 
+    fn send_other_mac(&self, mac: &str, path: &str, body: Vec<u8>) -> fleet::phone::OtherMacRead {
+        let running = self.running.lock().unwrap();
+        match running.as_ref() {
+            Some(running) => Box::pin(pocket::send_other_mac(&running.gateway, mac, path, body)),
+            None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
+
     fn set(&self, on: bool) -> PhoneGateway {
         let opted = self.opt(on);
         let moved = match on {

@@ -1,4 +1,4 @@
-//! What his other Macs share with this one: their Job rows and their bug reports. **Each is Fleet's, opaque
+//! What his other Macs share with this one: their Job rows, their bug reports and their projects. **Each is Fleet's, opaque
 //! here**: the text the wire carried, keyed by the Mac that holds it and its id, so a Mac that is asleep still
 //! has its rows to draw after a restart.
 
@@ -20,6 +20,7 @@ pub struct KeptFromMac {
 pub enum FromMac {
     Sessions,
     BugReports,
+    Projects,
 }
 
 impl FromMac {
@@ -27,6 +28,7 @@ impl FromMac {
         match self {
             FromMac::Sessions => "other_mac_sessions",
             FromMac::BugReports => "other_mac_bug_reports",
+            FromMac::Projects => "other_mac_projects",
         }
     }
 
@@ -34,6 +36,7 @@ impl FromMac {
         match self {
             FromMac::Sessions => "record",
             FromMac::BugReports => "report",
+            FromMac::Projects => "project",
         }
     }
 }
@@ -84,15 +87,64 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// Every row and report held from Mac `mac` dropped.
+    /// Every row, report and project held from Mac `mac` dropped, and the edits queued for it.
     pub fn forget_mac(&mut self, mac: &str) -> Result<(), WriteError> {
         let doing = "forgetting what another Mac shared";
         let tx = self.conn.transaction().map_err(fault(doing)).map_err(WriteError::Database)?;
-        for list in [FromMac::Sessions, FromMac::BugReports] {
+        for list in [FromMac::Sessions, FromMac::BugReports, FromMac::Projects] {
             tx.execute(&format!("DELETE FROM {} WHERE mac = ?1", list.table()), [mac])
                 .map_err(fault(doing))
                 .map_err(WriteError::Database)?;
         }
+        tx.execute("DELETE FROM other_mac_project_acts WHERE mac = ?1", [mac]).map_err(fault(doing)).map_err(WriteError::Database)?;
         tx.commit().map_err(fault(doing)).map_err(WriteError::Database)
+    }
+}
+
+/// A task act made on a copy of a project of Mac `mac` while that Mac could not be reached.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptProjectAct {
+    /// Its place in the queue, which only grows.
+    pub seq: i64,
+    pub mac: String,
+    /// When the person made it, in this Mac's milliseconds since the epoch.
+    pub at: i64,
+    /// A `ProjectAct`, opaque here.
+    pub act: String,
+}
+
+impl Store {
+    /// `act` queued for Mac `mac`, made at `at`, after every act already queued. Its `seq`.
+    pub fn queue_project_act(&mut self, mac: &str, at: i64, act: &str) -> Result<i64, WriteError> {
+        let doing = "queueing an edit for another Mac";
+        self.conn
+            .execute("INSERT INTO other_mac_project_acts (mac, at, act) VALUES (?1, ?2, ?3)", params![mac, at, act])
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    /// Every act queued, for Mac `mac` or for every Mac, oldest first.
+    pub fn queued_project_acts(&self, mac: Option<&str>) -> Result<Vec<KeptProjectAct>, WriteError> {
+        let doing = "reading the edits queued for other Macs";
+        let mut statement = self
+            .conn
+            .prepare("SELECT seq, mac, at, act FROM other_mac_project_acts WHERE ?1 IS NULL OR mac = ?1 ORDER BY seq")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement
+            .query_map([mac], |row| Ok(KeptProjectAct { seq: row.get(0)?, mac: row.get(1)?, at: row.get(2)?, act: row.get(3)? }))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)
+    }
+
+    /// The act `seq` dropped from the queue: Mac answered it, or refused it.
+    pub fn drop_project_act(&mut self, seq: i64) -> Result<(), WriteError> {
+        self.conn
+            .execute("DELETE FROM other_mac_project_acts WHERE seq = ?1", [seq])
+            .map(|_| ())
+            .map_err(fault("dropping an edit queued for another Mac"))
+            .map_err(WriteError::Database)
     }
 }

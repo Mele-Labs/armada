@@ -201,23 +201,23 @@ async fn what_another_mac_says_of_its_jobs_reaches_bridge_and_never_fleets_own_l
     assert!(!sent(&mut watching).await.iter().any(|one| matches!(one, Event::SessionChanged(_))), "an unchanged row is not sent again");
 
     let changed = Event::SessionChanged(theirs(&template, "01WORKA", "Fix the sync for good"));
-    rig.fleet.hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: changed }).await.expect("kept");
+    Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: changed }).await.expect("kept");
     assert!(sent(&mut watching).await.iter().any(|one| matches!(one, Event::SessionChanged(row) if row.title.as_deref() == Some("Fix the sync for good"))));
     let listed = rig.fleet.list_sessions(None, Some("for good".into()), None).await.expect("listed").sessions;
     assert_eq!(ids(&listed), ["01WORKA"], "kept, not only passed on");
 
     let moved = |job: &str| Event::JobThreadChanged(JobThreadChanged { session_id: SessionId::carried(job), from: "r1".into() });
-    rig.fleet.hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: moved("01WORKA") }).await.expect("passed on");
+    Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: moved("01WORKA") }).await.expect("passed on");
     assert!(sent(&mut watching).await.contains(&moved("01WORKA")));
-    let unheld = rig.fleet.hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: moved("01WORKZ") }).await.expect_err("not held");
+    let unheld = Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: moved("01WORKZ") }).await.expect_err("not held");
     assert_eq!(unheld.status(), 404);
-    let elsewhere = rig.fleet.hold_other_mac_event(OtherMacEvent { mac: "mac-home".into(), event: moved("01WORKA") }).await;
+    let elsewhere = Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: "mac-home".into(), event: moved("01WORKA") }).await;
     assert_eq!(elsewhere.expect_err("held from another Mac").status(), 404);
 
     let projects = Event::ProjectsChanged(ipc::Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() });
-    rig.fleet.hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: projects }).await.expect("taken, and nothing done");
+    Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: projects }).await.expect("taken, and nothing done");
     let studio = Event::StudioDeleted(ipc::StudioDeleted { id: ipc::StudioId::carried("01S"), manifest_id: rig.manifest.clone() });
-    let refused = rig.fleet.hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: studio }).await.expect_err("not a kind that crosses");
+    let refused = Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: studio }).await.expect_err("not a kind that crosses");
     assert_eq!(refused.status(), 422);
     assert!(refused.error().message.ends_with('.'), "{}", refused.error().message);
 
@@ -282,7 +282,7 @@ async fn another_macs_bug_reports_are_listed_and_published_beside_this_macs() {
     assert!(macs(&after).contains(&("work-report".into(), Some(WORK.into()))), "this Mac's own change keeps theirs in the list");
 
     let emptied = Event::BugReportsChanged(BugReports { reports: Vec::new() });
-    rig.fleet.hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: emptied }).await.expect("kept");
+    Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: emptied }).await.expect("kept");
     assert!(rig.fleet.list_bug_reports().await.expect("listed").reports.iter().all(|one| one.mac.is_none()));
 
     rig.fleet.hold_other_mac_bug_reports(OtherMacBugReports { mac: WORK.into(), reports: vec![theirs] }).await.expect("held");

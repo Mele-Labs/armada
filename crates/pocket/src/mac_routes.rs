@@ -1,7 +1,7 @@
 //! The routes only a linked Mac may call, each a read of this Fleet's `/other_mac/*`, which hands
 //! out only what the owner shares with his other Macs. `signing::signed` keeps a phone off them.
 
-use axum::body::Body;
+use axum::body::{Body, Bytes};
 use axum::extract::State;
 use axum::http::{header, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
@@ -20,13 +20,30 @@ fn fleet_target(uri: &Uri) -> String {
     format!("/other_mac/{}", whole.strip_prefix("/api/mac/").unwrap_or(whole))
 }
 
-/// `GET /api/mac/sessions`, `/api/mac/bug_reports` and `/api/mac/thread`: Fleet's answer as it came.
+/// `GET /api/mac/sessions`, `/api/mac/bug_reports`, `/api/mac/projects` and `/api/mac/thread`: Fleet's answer as it came.
 pub async fn read(State(gateway): State<Gateway>, uri: Uri) -> Response {
     let port = match port(&gateway) {
         Ok(port) => port,
         Err(refused) => return refused,
     };
     let answer = match fleet_client::send(port, "GET", &fleet_target(&uri), None).await {
+        Ok(answer) => answer,
+        Err(_) => return refusal(StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING),
+    };
+    let status = StatusCode::from_u16(answer.status).unwrap_or(StatusCode::BAD_GATEWAY);
+    let kind = answer.content_type.unwrap_or_else(|| String::from("application/json"));
+    (status, [(header::CONTENT_TYPE, kind)], answer.body).into_response()
+}
+
+/// `POST /api/mac/project_act`: the other Mac's edit of a task on its copy of one of this Mac's shared projects,
+/// handed to Fleet's `/other_mac/project_act` as it came. Fleet answers it, and refuses it where the project is
+/// not shared; its status and body are passed back as they were said.
+pub async fn project_act(State(gateway): State<Gateway>, body: Bytes) -> Response {
+    let port = match port(&gateway) {
+        Ok(port) => port,
+        Err(refused) => return refused,
+    };
+    let answer = match fleet_client::send(port, "POST", "/other_mac/project_act", Some(&body)).await {
         Ok(answer) => answer,
         Err(_) => return refusal(StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING),
     };

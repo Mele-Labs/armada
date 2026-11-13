@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{BugReport, Event, SessionRecord};
+use crate::{BugReport, Event, Project, SessionRecord};
 
 /// `POST /admin/macs/pair/start` on the Gateway: the one-time link the other Mac's Settings takes.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,6 +43,13 @@ pub struct OtherMacSessions {
 pub struct OtherMacBugReports {
     pub mac: String,
     pub reports: Vec<BugReport>,
+}
+
+/// `PUT /other_macs/projects` on Fleet: every project Mac `mac` shares, with its tasks, replacing all this Fleet held from it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OtherMacProjects {
+    pub mac: String,
+    pub projects: Vec<Project>,
 }
 
 /// `POST /other_macs/event` on Fleet: one event that crossed from Mac `mac`, for this Fleet to keep and publish.
