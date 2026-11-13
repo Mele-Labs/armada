@@ -2255,7 +2255,7 @@ pub static WALKS: &[Walk] = &[
             step("Esc shuts it", Verb::Key("escape"), "button", "Check foundations docs, passed"),
             step("A Fleet turn is one line with a chevron, the bell and the notice's first sentence", Verb::WheelTo("region", "Thread", 300), "label", "The branch is 3 commits behind main"),
             step("The pointer on its label shows the whole notice", Verb::Hover, "label", "The branch is 3 commits behind main"),
-            step("Read", Verb::Later(900), "label", "The branch is 3 commits behind main"),
+            step("Hover shows the whole notice", Verb::Later(900), "label", "The branch is 3 commits behind main"),
             step("A press on the line above puts the keys there", Verb::PressOn("button", "Exit 2: pnpm exec tsc --noEmit"), "button", "Fleet turn"),
             step("Tab reaches the Fleet turn and Enter opens it", Verb::Keys(&["tab", "enter"]), "button", "Fleet turn"),
             step("Space shuts it", Verb::Key("space"), "button", "Fleet turn"),
