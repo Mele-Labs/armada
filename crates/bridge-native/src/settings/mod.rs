@@ -7,7 +7,6 @@ mod definition;
 pub mod entries;
 mod gateway;
 mod keyboard;
-mod lanes;
 mod layout;
 mod macs;
 mod mock;
@@ -25,5 +24,6 @@ pub mod walk;
 mod wire;
 mod workflow_detail;
 mod workflows;
+mod lanes;
 
 pub use screen::SettingsScreen;
