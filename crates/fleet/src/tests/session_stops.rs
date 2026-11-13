@@ -216,7 +216,10 @@ async fn a_side_job_that_answered_has_no_stop_until_it_records_a_plan() {
     super::ways::made_side_job(&rig, &id).await;
     assert!(record(&rig, &id).await.stop_told_by.is_none(), "its turn ending is the answer");
 
+    // The approval reaches the agent as a message and starts a turn; it ends saying nothing new.
     super::session_rail::approved_plan(&rig, &id).await;
+    rig.stand_in.finishes(0, "Approved, building.");
+    eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
     aged(&rig, &id).await;
     assert!(record(&rig, &id).await.stop_told_by.is_some(), "one building to a plan is owed a word like any Job");
 }

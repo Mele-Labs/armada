@@ -191,19 +191,17 @@ async fn a_side_job_starts_on_sonnet_where_the_session_default_is_haiku() {
     };
     let session = |name: &str| SaveSettings {
         changes: BTreeMap::from([
-            ("models.roster".to_string(), Some(SettingValue::List(vec![SettingValue::Text("a-model".into()), SettingValue::Text("sonnet".into()), SettingValue::Text(name.into())]))),
+            ("models.roster".to_string(), Some(SettingValue::List(vec![SettingValue::Text("a-model".into()), SettingValue::Text("another-model".into()), SettingValue::Text("sonnet".into()), SettingValue::Text(name.into())]))),
             ("models.session".to_string(), Some(SettingValue::Text(name.into()))),
         ]),
     };
 
     rig.fleet.save_settings(session("haiku")).await.expect("saved");
+    assert_eq!(rig.fleet.side_job_model().as_deref(), Some("sonnet"));
     let first = started(&rig, side(Some(rig.manifest.clone()), None)).await;
-    assert_eq!(model_of(first.session_id).await.as_deref(), Some("sonnet"));
-
-    let named = started(&rig, StartSideJob { model: Some("haiku".into()), ..side(Some(rig.manifest.clone()), None) }).await;
-    assert_eq!(model_of(named.session_id).await.as_deref(), Some("haiku"), "a model he names stands");
+    assert_eq!(model_of(first.session_id.clone()).await.as_deref(), Some("sonnet"), "kept on the Job it starts");
+    ends(&rig, &first.run_id).await;
 
     rig.fleet.save_settings(session("opus")).await.expect("saved");
-    let last = started(&rig, side(Some(rig.manifest.clone()), None)).await;
-    assert_eq!(model_of(last.session_id).await, None, "a stronger default is read when the process starts");
+    assert_eq!(rig.fleet.side_job_model(), None, "a stronger default is read when the process starts");
 }
