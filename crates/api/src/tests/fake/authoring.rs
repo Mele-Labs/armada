@@ -34,6 +34,7 @@ impl Authoring for FakeDaemon {
             source: copy.source,
             file: String::from("bug.json"),
             runs_from: None,
+            ..Default::default()
         })
     }
 

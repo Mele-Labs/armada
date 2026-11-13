@@ -262,7 +262,7 @@ pub trait Locating: Send + Sync {
     fn remove_workflow(
         &self,
         _root: &Path,
-        _scope: ipc::WorkflowScope,
+        _scope: &ipc::WorkflowScope,
         _id: &str,
     ) -> Result<String, WorkflowNotRemoved> {
         Err(WorkflowNotRemoved::NotHere)
@@ -273,14 +273,21 @@ pub trait Locating: Send + Sync {
     fn remove_workflow_file(
         &self,
         _root: &Path,
-        _scope: ipc::WorkflowScope,
+        _scope: &ipc::WorkflowScope,
         _file: &Path,
     ) -> Result<String, WorkflowNotRemoved> {
         Err(WorkflowNotRemoved::NotHere)
     }
-    /// Read the three places again, leniently: a definition that does not fit
-    /// is set aside with its reason and the rest stand.
-    fn workflows(&self, root: &Path, manifest: &Manifest, workspaces: &[Manifest]) -> Catalogued;
+    /// Read the places again, leniently: a definition that does not fit
+    /// is set aside with its reason and the rest stand. **`projects` are the projects that hold this
+    /// repository**, and only their folders in Kit's are read.
+    fn workflows(
+        &self,
+        root: &Path,
+        manifest: &Manifest,
+        workspaces: &[Manifest],
+        projects: &[core_model::ScopeId],
+    ) -> Catalogued;
     /// The watch recipe files for the repository at `root`: its own `.armada/watches/` as
     /// `base` holds them, and this machine's. **None by
     /// default**, so a locator that reads no files offers no recipe.
