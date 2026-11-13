@@ -797,6 +797,8 @@ pub struct Dropped {
 pub struct Face {
     pub usage: Usage,
     pub build: Option<Build>,
+    /// The branches Jobs offered for the preview, and the Refresh row Fleet reads from them.
+    pub offers: Option<ipc::PreviewOffers>,
     pub fleet: FleetFace,
     /// The repositories the picker lists, and the one chosen; none chosen is All.
     pub repositories: Vec<Repository>,
@@ -823,6 +825,7 @@ impl Face {
         Face {
             usage: Usage::Hidden,
             build: None,
+            offers: None,
             fleet: FleetFace { connection: Connection::Reading, power: Power::Standby, restarting: Restarting::Idle, doctor: None },
             repositories: Vec::new(),
             chosen: None,

@@ -203,6 +203,7 @@ pub fn rest() -> Face {
     Face {
         usage: limits((42, Band::Normal, "2h 14m"), (71, Band::Normal, "2d 17h")),
         build: Some(main_aligned()),
+        offers: None,
         fleet: fleet(connected(), Power::Live),
         repositories,
         chosen: None,
@@ -451,6 +452,12 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-live-refused" => |face| face.build = build_live("build-live-refused"),
         "build-live-carried" => |face| face.build = build_live("build-live-carried"),
         "build-live-trying" => |face| face.build = build_live("build-live-trying"),
+        // Fleet's offers for the preview on a main level with its own: the Refresh row, then Fleet's answer to a skip.
+        "preview-offers" => |face| {
+            face.build = build_live("build-live-main");
+            face.offers = Some(crate::mock::preview_offers(false));
+        },
+        "preview-offers-skipped" => |face| face.offers = Some(crate::mock::preview_offers(true)),
         other => return Err(format!("no scene named {other}")),
     };
     let bar = live(cx).ok_or("no title bar is drawn yet")?;
