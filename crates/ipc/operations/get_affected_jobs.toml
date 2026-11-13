@@ -1,0 +1,18 @@
+[operations.get_affected_jobs]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The live Jobs that follow a workflow in the repositories a place reaches, and where each stands against the text a publish there takes"
+notes = """
+`GET /workflows/affected?workflow_id=&source=&project=&manifest_id=`, protocol 23.97. `source` is `kit`, `repository` or `project`, and `project` names the project where it is `project`; the repository is `manifest_id` where it is `repository`. The answer is an `AffectedJobs` `{ jobs }`, each an `AffectedJob` `{ session_id, title?, manifest_id, step_id?, step_label?, survives, pinned, edited, on_version? }`.
+
+**Who is listed.** Every live hosted Job that follows `workflow_id` in a repository the place reaches: the repository's own for `repository`, every served repository for `kit`, and the repositories the project holds for `project`. A Job with a copy of its own that it edited is listed too, with `edited` true, so he sees it; `migrate_jobs` refuses it.
+
+**The target** is the draft's text where a draft is kept for that place, else the text published there. Before a publish this is the preview of what Publish will pin; after it, it is the list to move.
+
+`step_id` and `step_label` are where the rail stands now, as the Job reads its own steps, and absent where it stands on none. `survives` is true where that step's id is one of the target's steps, and so is true where the Job stands on no step or the target does not read. `pinned` is true where a publish pinned the Job to the text it was running. `on_version` is the number of the version in `get_workflow_versions` for the place whose hash is the hash of the Job's copy text, and absent where none matches or the Job holds no copy.
+
+422 `fleet.workflow_project_unnamed`, 404 `fleet.workflow_project_unknown` for a project's; 422 `fleet.no_such_workflow_definition` for a source that is none of the three.
+
+`agent_access` is `Bridge only`: it is the person's list to choose from.
+"""

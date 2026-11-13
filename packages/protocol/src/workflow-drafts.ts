@@ -85,6 +85,8 @@ export type WorkflowPublished = {
   saved: WorkflowSaved;
   /** The number this publish took in the place's versions, from 1. Where the text that was there is kept first, as `found`, it is version 1 and this is 2. */
   version: number;
+  /** The live Jobs this publish left pinned to the text they were running, so none moved by itself. `GET /workflows/affected` lists them; `POST /workflows/migrate` moves the ones he picks. */
+  pinned: string[];
 };
 
 /**

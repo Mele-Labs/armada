@@ -1,0 +1,20 @@
+[operations.migrate_jobs]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Move the running Jobs he picked to the published version of a workflow, each on the step it stood on or the next that survives"
+notes = """
+`POST /workflows/migrate?manifest_id=`, protocol 23.97. The body is `MigrateJobs`: `workflow_id`, `source` (`kit`, `repository` or `project`), `project` (required where `source` is `project`) and `session_ids`. The answer is a `MigratedJobs` `{ results }`, one `MigrateResult` `{ session_id, moved, step_id?, step_label?, code?, message? }` for each id asked, in order. **The call is 200 whatever the results are**: a Job that cannot move says why in its own result and the others move.
+
+**What a move is.** A publish pins each live Job it would touch (`publish_workflow_draft`), and a move drops the pin, so the Job reads the published definition. The rail is kept by step id and keeps its place. Where the step the Job stood on is not in the new steps, the rail goes to the first step after it, in the old order, whose id is in the new steps, and where none is, to the new last step; that is kept with a visit at now. `step_id` and `step_label` are where the Job stands after the move.
+
+**The Job is told once.** A Job that has run is sent `Fleet: the person moved this Job to the newest <workflow name> workflow; it is on the "<label>" step.` A Job that has not run is told nothing, since it reads the new steps when it begins. The timeline gets a `session.workflow` entry, `workflow: moved to the newest <name>`, `by you`, and the Job's row and lanes are published again.
+
+**Refused per Job, `moved` false with a `code`:** `fleet.workflow_migrate_not_live` for a Job that is not a live job Fleet hosts; `fleet.workflow_migrate_not_following` for a Job that follows a different workflow, is in a repository the place does not reach, or whose repository no longer holds the workflow; `fleet.workflow_migrate_edited` for a Job that edited the steps of its own copy, whose edits a move would lose.
+
+**A Job with no copy is not refused.** It already reads the published workflow, which is where a move would put it, so its result is `moved` false with a `message` and no `code`.
+
+The whole call is refused with 422 `fleet.workflow_project_unnamed`, 404 `fleet.workflow_project_unknown` for a project's place, and 422 `fleet.no_such_workflow_definition` for a source that is none of the three.
+
+`agent_access` is `Bridge only`: it changes what a running Job is held to, and it is the person's press.
+"""

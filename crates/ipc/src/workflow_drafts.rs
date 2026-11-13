@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Instant, WorkflowId, WorkflowSaved, WorkflowScope};
+use crate::{Instant, SessionId, WorkflowId, WorkflowSaved, WorkflowScope};
 
 /// Who made a change to a draft.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -110,4 +110,7 @@ pub struct WorkflowPublished {
     /// The number this publish took in the place's versions, from 1: where the text that was there is kept first, as
     /// `found`, it is version 1 and this is 2.
     pub version: u32,
+    /// The live Jobs this publish left pinned to the text they were running, so none moved by itself. A Job whose repository
+    /// runs the same text after the publish, as when another place still wins there, is not pinned. `get_affected_jobs` lists them.
+    pub pinned: Vec<SessionId>,
 }
