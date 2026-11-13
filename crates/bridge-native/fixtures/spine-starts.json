@@ -1,0 +1,7 @@
+{
+ "started": {"workflow": "Plan, build, land", "delivery": "auto_land", "model": "opus", "effort": "high", "mode": "auto", "by": {"id": "mock-02", "title": "Native Bridge foundation"}},
+ "tasks": [
+  {"kind": "task", "id": "task-chip-amber", "manifest_id": "armada", "title": "Merge chip turns amber when the branch is behind", "notes": "", "state": "held", "held_by": {"session_id": "mock-01", "title": "Fix the merge line freshness chip"}},
+  {"kind": "task", "id": "task-chip-notes", "manifest_id": "armada", "title": "Release notes name the chip's new colour", "notes": "", "state": "asked", "held_by": {"session_id": "mock-01", "title": "Fix the merge line freshness chip"}}
+ ]
+}

@@ -84,7 +84,7 @@
    "standing": "working",
    "plan": {
     "version": 2,
-    "summary": "The merge line chip turns amber once the branch is behind main.\nA press on it opens the pull request.",
+    "summary": "The merge line chip turns amber once the branch is behind main, and a press on it opens the pull request where the merge waits.",
     "recorded_at": "2026-11-09T13:40:00Z",
     "approved": false,
     "scope": [
@@ -227,6 +227,16 @@
      }
     },
     {
+     "id": "todo-1",
+     "text": "Rotate the staging token",
+     "since": "2026-11-09T14:05:00Z",
+     "source": "agent",
+     "steps": [
+      "Open the staging settings",
+      "Paste the new token"
+     ]
+    },
+    {
      "id": "run-1",
      "text": "Run the chip checks",
      "since": "2026-11-09T14:06:00Z",
@@ -320,6 +330,7 @@
   },
   {
    "id": "mock-02",
+   "hosted": {"turn": {"state": "idle"}, "mode": "auto", "running": true},
    "mark": {
     "state": "working",
     "lamp": "running",
@@ -330,9 +341,134 @@
    "manifest_id": "armada",
    "cwd": "/repos/armada",
    "title": "Native Bridge foundation",
+   "judge_readings": [
+    {
+     "id": "reading-whole",
+     "artifact": {
+      "kind": "job",
+      "id": "mock-02",
+      "title": "Native Bridge foundation"
+     },
+     "prompt": "the list keeps its place when a Job ends",
+     "state": "done",
+     "asked_at": "2026-11-09T15:02:00Z",
+     "finished_at": "2026-11-09T15:04:10Z",
+     "read": false,
+     "notes": [
+      {
+       "id": "w1",
+       "claim": "A Job that ends while focused moves the focus to the top of the list",
+       "where": "crates/bridge-native/src/jobs.rs:640"
+      },
+      {
+       "id": "w2",
+       "claim": "Nothing tests the list with more than one repository",
+       "where": "crates/bridge-native/src/jobs.rs"
+      }
+     ]
+    }
+   ],
    "activity": {
-    "now": "Editing jobs.rs"
+    "now": "Editing jobs.rs",
+    "todos": [
+     {
+      "text": "Read the list's rows",
+      "state": "done"
+     },
+     {
+      "text": "Group rows by project",
+      "state": "doing"
+     },
+     {
+      "text": "Draw the project headings",
+      "state": "todo"
+     }
+    ]
    },
+   "plan": {
+    "version": 1,
+    "summary": "The native app draws the Jobs screens from Fleet's own wire.",
+    "recorded_at": "2026-11-08T09:00:00Z",
+    "approved": true,
+    "approved_at": "2026-11-08T09:20:00Z",
+    "scope": [
+     "crates/bridge-native"
+    ],
+    "groups": [
+     {
+      "id": "n1",
+      "agent": "rust-engineer",
+      "title": "Read the Jobs from Fleet",
+      "paths": [
+       "crates/bridge-native/src/fleet.rs"
+      ],
+      "tasks": [
+       {
+        "id": "n1a",
+        "text": "Open the event stream",
+        "state": "done"
+       },
+       {
+        "id": "n1b",
+        "text": "Hold each Job's record",
+        "state": "done"
+       }
+      ]
+     },
+     {
+      "id": "n2",
+      "agent": "gpui-engineer",
+      "title": "Draw the list",
+      "paths": [
+       "crates/bridge-native/src/jobs.rs"
+      ],
+      "tasks": [
+       {
+        "id": "n2a",
+        "text": "One row per Job",
+        "state": "done"
+       },
+       {
+        "id": "n2b",
+        "text": "Group rows by project",
+        "state": "working"
+       }
+      ]
+     },
+     {
+      "id": "n3",
+      "agent": "gpui-engineer",
+      "title": "Draw the thread",
+      "paths": [
+       "crates/bridge-native/src/job_view"
+      ],
+      "tasks": [
+       {
+        "id": "n3a",
+        "text": "Fold runs of tool calls",
+        "state": "open"
+       },
+       {
+        "id": "n3b",
+        "text": "Keep each Job's place",
+        "state": "open"
+       }
+      ]
+     }
+    ]
+   },
+   "later": [
+    {
+     "id": "later-1",
+     "sentence": "Measure the switch time with forty Jobs live.",
+     "said_at": "2026-11-09T10:00:00Z"
+    },
+    {
+     "id": "later-2",
+     "sentence": "File the scroll jump on a long thread.",
+     "said_at": "2026-11-09T11:00:00Z"
+    }
+   ],
    "workflow": "feature",
    "workflow_step": 1,
    "workflow_copy": {

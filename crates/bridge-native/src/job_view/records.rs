@@ -3,10 +3,13 @@
 //! card the next slice draws, and here a row naming its kind.
 
 use chrono::{DateTime, Local};
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
+use std::time::Duration;
+
+use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, Role, SharedString};
 use ipc::{RetroStage, SessionRow};
 
-use super::rows::{eyebrow, glyph, mono, tip, Size};
+use super::rows::{elapsed_words, eyebrow, glyph, mono, tip, Size};
+use super::runs::running_now;
 use super::{JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -77,7 +80,7 @@ impl JobView {
                 format!("Saved {name} to {collection}"),
             )
             .into_any_element(),
-            SessionRow::Retro { id, stage, characters, retro, why, items, .. } => {
+            SessionRow::Retro { id, stage, stage_since, characters, retro, why, items, .. } => {
                 let head = match stage {
                     RetroStage::AskingAgent => "Asking the agent what got in the way".to_string(),
                     RetroStage::ReadingRecord => "Reading what Fleet kept of the Job".to_string(),
@@ -93,6 +96,35 @@ impl JobView {
                     }
                     RetroStage::Failed => "The retro was not written".to_string(),
                 };
+                // While Fleet is at it the mark plays back and the stage counts its time, as Electron's.
+                let running = !matches!(stage, RetroStage::Written | RetroStage::Failed);
+                let mark = glyph(look, "rewind", Size::Small, look.color(token::FG_MUTED));
+                let mark = if running {
+                    div()
+                        .flex_none()
+                        .child(mark)
+                        .with_animation(
+                            SharedString::from(format!("retro-mark:{id}")),
+                            Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.5, 1.)),
+                            |mark, at| mark.opacity(at),
+                        )
+                        .into_any_element()
+                } else {
+                    mark.into_any_element()
+                };
+                let (since, job) = (stage_since.as_str().to_string(), self.shown.clone().unwrap_or_default().to_string());
+                let elapsed = running.then(|| {
+                    let count = div()
+                        .font_family(mono(look))
+                        .text_size(look.length(token::TEXT_2XS))
+                        .line_height(look.length(token::LEADING_2XS))
+                        .text_color(look.color(token::FG_SUBTLE))
+                        // The count goes on each frame the row is drawn.
+                        .with_animation(SharedString::from(format!("retro-count:{id}")), Animation::new(Duration::from_secs(1)).repeat(), move |time, _| {
+                            time.child(elapsed_words(&since, &running_now(&job).to_rfc3339()).unwrap_or_default())
+                        });
+                    labelled(div().id(SharedString::from(format!("retro-elapsed:{id}"))).flex_none().child(count), Role::Timer, "Time in this stage")
+                });
                 let titles: Vec<String> =
                     if *stage == RetroStage::Written { items.iter().filter_map(|item| item.title.clone()).collect() } else { Vec::new() };
                 labelled(
@@ -116,10 +148,20 @@ impl JobView {
                                 .flex()
                                 .items_center()
                                 .gap(look.length(token::SPACE_2))
-                                .child(glyph(look, "rewind", Size::Small, look.color(token::FG_MUTED)))
+                                .child(mark)
                                 .child(div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(head))
+                                .children(elapsed)
                                 .when(*stage == RetroStage::Writing && *characters > 0, |line| {
-                                    line.child(div().flex_1().flex().justify_end().child(format!("{characters} characters")))
+                                    line.child(
+                                        div()
+                                            .flex_1()
+                                            .flex()
+                                            .justify_end()
+                                            .text_size(look.length(token::TEXT_2XS))
+                                            .line_height(look.length(token::LEADING_2XS))
+                                            .text_color(look.color(token::FG_SUBTLE))
+                                            .child(format!("{characters} characters")),
+                                    )
                                 }),
                         )
                         .children(
@@ -134,9 +176,7 @@ impl JobView {
                 .into_any_element()
             }
             SessionRow::Sent { id, at, text, target, files, tags } => {
-                let chips: Vec<String> =
-                    files.iter().map(|file| file.name.clone()).chain(tags.iter().map(|tag| tag.title.clone())).collect();
-                let you = self.you(ix, page, id, text, &chips, Some(at), false, false, look, now, cx);
+                let you = self.you(ix, page, id, text, files, &[], tags, Some(at), None, false, false, None, look, now, cx);
                 let chip = div()
                     .flex()
                     .items_center()

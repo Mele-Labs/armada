@@ -21,6 +21,9 @@ const CONNECT_PATIENCE: Duration = Duration::from_secs(2);
 /// A read of a busy Fleet can be slow; past this the read failed.
 const ANSWER_PATIENCE: Duration = Duration::from_secs(30);
 
+// `MODEL_CALL_MS`: what a route with a model call inside it waits, as Electron's does.
+include!(concat!(env!("OUT_DIR"), "/model_call.rs"));
+
 /// Bridge names itself on every request so Fleet tells a press from an agent's
 /// (`api::CALLER_HEADER`, and `CALLER` in `apps/desktop/src/main/request.ts`).
 const CALLER: (&str, &str) = ("x-armada-caller", "bridge");
@@ -56,16 +59,22 @@ pub async fn get(port: u16, path: &str) -> Result<(u16, Vec<u8>), String> {
 
 /// POST `body`, JSON already encoded, to `path`; the status and the bytes, nothing interpreted.
 pub async fn post(port: u16, path: &str, body: String) -> Result<(u16, Vec<u8>), String> {
-    send_post(port, path, Some(body)).await
+    send_post(port, path, Some(body), ANSWER_PATIENCE).await
+}
+
+/// POST to a route that asks a model inside the request, so it waits `MODEL_CALL_MS` and Fleet's own
+/// refusal arrives first.
+pub async fn post_to_model(port: u16, path: &str, body: String) -> Result<(u16, Vec<u8>), String> {
+    send_post(port, path, Some(body), Duration::from_millis(MODEL_CALL_MS)).await
 }
 
 /// POST to `path` with no body and no `content-type`, as a route that takes none is asked
 /// (`POST /fleet/build/revert`).
 pub async fn post_bare(port: u16, path: &str) -> Result<(u16, Vec<u8>), String> {
-    send_post(port, path, None).await
+    send_post(port, path, None, ANSWER_PATIENCE).await
 }
 
-async fn send_post(port: u16, path: &str, body: Option<String>) -> Result<(u16, Vec<u8>), String> {
+async fn send_post(port: u16, path: &str, body: Option<String>, patience: Duration) -> Result<(u16, Vec<u8>), String> {
     let io = TokioIo::new(connect(port).await?);
     let (mut sender, connection) =
         hyper::client::conn::http1::handshake(io).await.map_err(|why| why.to_string())?;
@@ -86,7 +95,7 @@ async fn send_post(port: u16, path: &str, body: Option<String>) -> Result<(u16, 
         let body = response.into_body().collect().await.map_err(|why| why.to_string())?;
         Ok((status, body.to_bytes().to_vec()))
     };
-    timeout(ANSWER_PATIENCE, read).await.map_err(|_| "no answer in 30 seconds".to_string())?
+    timeout(patience, read).await.map_err(|_| format!("no answer in {} seconds", patience.as_secs()))?
 }
 
 /// Open Fleet's WebSocket at `path` and hand back the upgraded stream.

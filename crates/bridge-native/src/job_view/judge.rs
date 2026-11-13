@@ -37,15 +37,24 @@ fn shortcut_of(id: &str) -> &'static str {
     ACTIONS.iter().find(|row| row.id == id).map_or("", |row| row.shortcut)
 }
 
+/// The reading of one artifact, going or kept: Fleet keeps one per kind and id.
+pub(super) fn reading_of<'a>(record: &'a SessionRecord, kind: JudgeKind, id: &str) -> Option<&'a JudgeReading> {
+    record.judge_readings.iter().find(|one| one.artifact.kind == kind && one.artifact.id == id)
+}
+
 /// The reading of the plan at `version`, going or kept.
 pub(super) fn plan_reading(record: &SessionRecord, version: u32) -> Option<&JudgeReading> {
-    let id = version.to_string();
-    record.judge_readings.iter().find(|one| one.artifact.kind == JudgeKind::Plan && one.artifact.id == id)
+    reading_of(record, JudgeKind::Plan, &version.to_string())
+}
+
+/// The plan at `version`, as a judge is asked to read it.
+pub(super) fn plan_artifact(version: u32) -> JudgeArtifact {
+    JudgeArtifact { kind: JudgeKind::Plan, id: version.to_string(), title: format!("Plan v{version}") }
 }
 
 /// What the Judge's press shows, from the last reading.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Press {
+pub(super) enum Press {
     Idle,
     Reading,
     /// Done, with notes not yet opened and some still waiting.
@@ -55,7 +64,7 @@ enum Press {
     Failed,
 }
 
-fn press_of(reading: Option<&JudgeReading>, judging: bool, waiting: impl Fn(&JudgeNote) -> bool) -> Press {
+pub(super) fn press_of(reading: Option<&JudgeReading>, judging: bool, waiting: impl Fn(&JudgeNote) -> bool) -> Press {
     if judging {
         return Press::Reading;
     }
@@ -71,10 +80,12 @@ fn press_of(reading: Option<&JudgeReading>, judging: bool, waiting: impl Fn(&Jud
     }
 }
 
-/// The box the Judge's press opened, over the card.
+/// The box the Judge's press opened, over the plan card or a row of the Job's lists.
 pub(super) struct Open {
     job: SharedString,
     key: String,
+    /// What the box asks a judge to read.
+    artifact: JudgeArtifact,
     area: Entity<TextareaState>,
     /// The box's two buttons, which Tab goes round with the box.
     stops: [gpui::FocusHandle; 2],
@@ -96,9 +107,19 @@ impl<'a> Pinned<'a> {
         Some(Self { ix, key, reading, known })
     }
 
+    /// The notes of a reading of the whole Job: every one stands as a note on the whole.
+    pub fn whole_job(ix: usize, key: &'a str, reading: &'a JudgeReading) -> Option<Self> {
+        (reading.state == JudgeState::Done).then(|| Self { ix, key, reading, known: HashSet::new() })
+    }
+
     /// Notes about the plan as a whole, or about a part the plan no longer holds.
     pub fn whole(&self) -> Vec<&'a JudgeNote> {
         self.reading.notes.iter().filter(|note| note.about.as_deref().is_none_or(|about| !self.known.contains(about))).collect()
+    }
+
+    /// Whether a note's place is the very pull request these notes stand under, which the panel's title already names.
+    fn names_itself(&self, place: &str) -> bool {
+        self.key.strip_prefix("ledger:pr:").is_some_and(|number| place.strip_prefix('#') == Some(number))
     }
 
     /// Notes about one group or task.
@@ -108,17 +129,19 @@ impl<'a> Pinned<'a> {
 }
 
 /// How the person settled a note: Fleet's record says, else what was pressed here.
-fn how_of(page: &Page, reading: &JudgeReading, note: &JudgeNote) -> Option<JudgeNoteHow> {
+pub(super) fn how_of(page: &Page, reading: &JudgeReading, note: &JudgeNote) -> Option<JudgeNoteHow> {
     note.settled.as_ref().map(|settled| settled.how).or_else(|| page.cards.judged.get(&format!("{}/{}", reading.id, note.id)).copied())
 }
 
 impl JobView {
     // ---- The press and its box -------------------------------------------------------------
 
-    /// The Judge's press for the plan card, and the box it opens under it.
+    /// The Judge's press, and the box it opens under it: on the plan card, or smaller in a row of the Job's lists.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn judge_press(&self, ix: usize, key: &str, version: u32, reading: Option<&JudgeReading>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn judge_press(&self, ix: usize, key: &str, artifact: JudgeArtifact, reading: Option<&JudgeReading>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let job = self.shown.clone().unwrap_or_default();
+        let plan = artifact.kind == JudgeKind::Plan;
+        let (side, size) = if plan { (look.length(token::H_CONTROL), Size::Mark) } else { (look.length(token::H_CONTROL_SM), Size::Small) };
         let judging = matches!(page.cards.answers.get(&format!("judge:{key}")), Some(Answer::Judging(held)) if *held == reading.map(|one| one.id.clone()));
         let waiting = |note: &JudgeNote| reading.is_none_or(|one| how_of(page, one, note).is_none());
         let state = press_of(reading, judging, waiting);
@@ -134,13 +157,17 @@ impl JobView {
         let open = self.judge.as_ref().is_some_and(|open| open.job == job && open.key == key);
         let noted = reading.is_some_and(|one| one.state == JudgeState::Done && !one.notes.is_empty());
         let mark = match state {
-            Press::Reading => glyph(look, "circle-dot", Size::Mark, look.color(token::STEP_RUNNING))
-                .with_animation("judge-reading", Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.4, 1.)), |mark, delta| mark.opacity(delta))
+            Press::Reading => glyph(look, "circle-dot", size, look.color(token::STEP_RUNNING))
+                .with_animation(SharedString::from(format!("judge-reading:{key}")), Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.4, 1.)), |mark, delta| mark.opacity(delta))
                 .into_any_element(),
-            Press::Clean => glyph(look, "circle-check", Size::Mark, look.color(token::STEP_ADVANCED)).into_any_element(),
-            _ => glyph(look, "scale", Size::Mark, look.color(token::FG_MUTED)).into_any_element(),
+            Press::Clean => glyph(look, "circle-check", size, look.color(token::STEP_ADVANCED)).into_any_element(),
+            _ => glyph(look, "scale", size, look.color(token::FG_MUTED)).into_any_element(),
         };
+        // The plan's press has a key of its own; a row's has none.
+        let said = if plan { format!("{said} ({})", shortcut_of("plan_judge")) } else { said };
+        let name = if plan { "Judge plan".to_string() } else { format!("Judge {}", artifact.title) };
         let (toggle_key, enter_key) = (key.to_string(), key.to_string());
+        let (toggle_what, enter_what) = (artifact.clone(), artifact.clone());
         let press = labelled(
             div()
                 .id(SharedString::from(format!("judge:{key}")))
@@ -150,13 +177,13 @@ impl JobView {
                 .flex()
                 .items_center()
                 .justify_center()
-                .size(look.length(token::H_CONTROL))
+                .size(side)
                 .rounded(look.length(token::RADIUS_MD))
                 .cursor_pointer()
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
                 .focus_visible(|style| style.bg(look.color(token::BG_HOVER)))
                 .when(open, |press| press.bg(look.color(token::BG_HOVER)))
-                .tooltip(tip(format!("{said} ({})", shortcut_of("plan_judge"))))
+                .tooltip(tip(said))
                 .child(mark)
                 .children((state == Press::Unread).then(|| {
                     div()
@@ -172,21 +199,25 @@ impl JobView {
                 .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
                     if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
                         cx.stop_propagation();
-                        this.toggle_judge(ix, &enter_key, version, window, cx);
+                        this.toggle_judge(ix, &enter_key, enter_what.clone(), window, cx);
                     }
                 }))
-                .on_click(cx.listener(move |this, _, window, cx| this.toggle_judge(ix, &toggle_key, version, window, cx)))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    this.toggle_judge(ix, &toggle_key, toggle_what.clone(), window, cx);
+                }))
                 .child(canvas(move |bounds, _, _| edges.set(bounds), |_, _, _, _| {}).absolute().top_0().left_0().size_full()),
             Role::Button,
-            "Judge plan",
+            name,
         );
-        let pop = open.then(|| self.judge_pop(ix, key, version, noted, &spot.bounds, look, cx));
+        let pop = open.then(|| self.judge_pop(ix, key, plan, side, noted, &spot.bounds, look, cx));
         div().relative().flex_none().child(press).children(pop).into_any_element()
     }
 
     /// The box under the press: what to verify, and Judge.
     #[allow(clippy::too_many_arguments)]
-    fn judge_pop(&self, ix: usize, key: &str, version: u32, noted: bool, anchor: &std::rc::Rc<std::cell::Cell<gpui::Bounds<gpui::Pixels>>>, look: &Look, cx: &Context<Self>) -> AnyElement {
+    #[allow(clippy::too_many_arguments)]
+    fn judge_pop(&self, ix: usize, key: &str, plan: bool, side: gpui::Pixels, noted: bool, anchor: &std::rc::Rc<std::cell::Cell<gpui::Bounds<gpui::Pixels>>>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let Some(open) = self.judge.as_ref() else { return div().into_any_element() };
         let (close_key, notes_key, out_key) = (key.to_string(), key.to_string(), key.to_string());
         let anchor = anchor.clone();
@@ -226,8 +257,13 @@ impl JobView {
                 .line_height(look.length(token::LEADING_SM))
                 .text_color(look.color(token::FG_DEFAULT))
                 .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
-                    // A key made in the box is not heard by the card or the thread under it.
-                    cx.stop_propagation();
+                    // A key made in the box is not heard by the card or the thread under it, except a letter: a Mac
+                    // hands a letter to the box's input only once no listener has stopped it.
+                    let key = &event.keystroke;
+                    let letter = key.key_char.is_some() && !(key.modifiers.control || key.modifiers.platform || key.modifiers.function);
+                    if !letter || matches!(key.key.as_str(), "escape" | "tab") {
+                        cx.stop_propagation();
+                    }
                     if event.keystroke.key == "escape" {
                         this.close_judge(ix, &close_key, true, window, cx);
                     } else if event.keystroke.key == "tab" {
@@ -258,8 +294,13 @@ impl JobView {
                             labelled(
                                 button(look, SharedString::from(format!("judge-notes:{key}")), "Read the notes", Tone::Ghost, false, None, true).track_focus(&open.stops[0]).on_click(cx.listener(
                                     move |this, _, window, cx| {
+                                        // The plan's notes stand on its card; a row's stand under the row.
+                                        let artifact = this.judge.as_ref().map(|open| open.artifact.clone());
                                         this.close_judge(ix, &notes_key, false, window, cx);
-                                        this.show_notes(window, cx);
+                                        match artifact {
+                                            Some(artifact) if !plan => this.show_row_notes(&artifact, window, cx),
+                                            _ => this.show_notes(window, cx),
+                                        }
                                     },
                                 )),
                                 Role::Button,
@@ -267,7 +308,7 @@ impl JobView {
                             )
                         }))
                         .child(labelled(
-                            button(look, SharedString::from(format!("judge-run:{key}")), "Judge", Tone::Primary, false, None, true).track_focus(&open.stops[1]).on_click(cx.listener(move |this, _, window, cx| this.run_judge(version, window, cx))),
+                            button(look, SharedString::from(format!("judge-run:{key}")), "Judge", Tone::Primary, false, None, true).track_focus(&open.stops[1]).on_click(cx.listener(move |this, _, window, cx| this.run_judge(window, cx))),
                             Role::Button,
                             "Judge",
                         )),
@@ -279,7 +320,7 @@ impl JobView {
             anchored()
                 .anchor(Anchor::TopRight)
                 .position_mode(AnchoredPositionMode::Local)
-                .position(point(look.length(token::H_CONTROL), look.length(token::H_CONTROL) + look.length(token::SPACE_1)))
+                .position(point(side, side + look.length(token::SPACE_1)))
                 .snap_to_window_with_margin(look.length(token::SPACE_2))
                 .child(panel),
         )
@@ -287,17 +328,17 @@ impl JobView {
         .into_any_element()
     }
 
-    fn toggle_judge(&mut self, ix: usize, key: &str, version: u32, window: &mut Window, cx: &mut Context<Self>) {
+    fn toggle_judge(&mut self, ix: usize, key: &str, artifact: JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         if self.judge.as_ref().is_some_and(|open| open.job == job && open.key == key) {
             self.close_judge(ix, key, true, window, cx);
         } else {
-            self.open_judge(ix, key, version, window, cx);
+            self.open_judge(ix, key, artifact, window, cx);
         }
     }
 
-    /// Open the Judge's box on the plan, with what was typed in it before, and put the caret there.
-    pub(super) fn open_judge(&mut self, ix: usize, key: &str, version: u32, window: &mut Window, cx: &mut Context<Self>) {
+    /// Open the Judge's box, with what was typed in it before, and put the caret there.
+    pub(super) fn open_judge(&mut self, ix: usize, key: &str, artifact: JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let box_key = format!("judge:{key}:Judge");
         let held = self.pages.get(&job).and_then(|page| page.cards.boxes.get(&box_key).cloned());
@@ -310,10 +351,10 @@ impl JobView {
         }
         let enter = cx.subscribe_in(&area, window, move |this, _, event: &InputEvent, window, cx| {
             if matches!(event, InputEvent::PressEnter { .. }) {
-                this.run_judge(version, window, cx);
+                this.run_judge(window, cx);
             }
         });
-        self.judge = Some(Open { job, key: key.to_string(), area: area.clone(), stops: [cx.focus_handle(), cx.focus_handle()], _enter: enter });
+        self.judge = Some(Open { job, key: key.to_string(), artifact, area: area.clone(), stops: [cx.focus_handle(), cx.focus_handle()], _enter: enter });
         area.update(cx, |area, cx| area.focus(window, cx));
         self.card_changed(ix, cx);
     }
@@ -333,12 +374,13 @@ impl JobView {
     }
 
     /// Ask the Judge. The press reads as reading in this frame; Fleet's reading replaces it.
-    fn run_judge(&mut self, version: u32, window: &mut Window, cx: &mut Context<Self>) {
+    fn run_judge(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(open) = self.judge.take() else { return };
-        let Open { job, key, area, .. } = open;
+        let Open { job, key, artifact, area, .. } = open;
         let prompt = area.read(cx).value().trim().to_string();
-        let held = self.record(&job, cx).and_then(|record| plan_reading(record, version)).map(|one| one.id.clone());
-        let ix = self.plan_ix(&job, cx);
+        let held = self.record(&job, cx).and_then(|record| reading_of(record, artifact.kind, &artifact.id)).map(|one| one.id.clone());
+        // A row has no place in the thread's list: the list measures again, as for a card on the sheet.
+        let ix = if artifact.kind == JudgeKind::Plan { self.plan_ix(&job, cx) } else { Some(super::acts::SHEET) };
         let mark = format!("judge:{key}");
         if let Some(page) = self.pages.get_mut(&job) {
             page.cards.boxes.remove(&format!("judge:{key}:Judge"));
@@ -351,11 +393,7 @@ impl JobView {
         if let Some(ix) = ix {
             self.card_changed(ix, cx);
         }
-        let body = encoded(&AskJudge {
-            session_id: SessionId::carried(job.to_string()),
-            artifact: JudgeArtifact { kind: JudgeKind::Plan, id: version.to_string(), title: format!("Plan v{version}") },
-            prompt,
-        });
+        let body = encoded(&AskJudge { session_id: SessionId::carried(job.to_string()), artifact, prompt });
         let back = job.clone();
         self.post_with(
             job,
@@ -386,7 +424,7 @@ impl JobView {
         let Some(job) = self.shown.clone() else { return };
         let Some(ix) = self.plan_ix(&job, cx) else { return };
         if let Some(page) = self.pages.get(&job) {
-            page.list.scroll_to_reveal_item(page.lead + ix);
+            page.list.scroll_to_reveal_item(page.entry(ix));
         }
         cx.notify();
         let view = cx.weak_entity();
@@ -402,6 +440,18 @@ impl JobView {
         });
     }
 
+    /// Open a row at its notes, which stand under it: the first note still waiting takes focus.
+    pub(super) fn show_row_notes(&mut self, artifact: &JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let Some(page) = self.pages.get(&job) else { return };
+        let Some(reading) = self.record(&job, cx).and_then(|record| reading_of(record, artifact.kind, &artifact.id)) else { return };
+        let first = reading.notes.iter().find(|note| how_of(page, reading, note).is_none()).or_else(|| reading.notes.first());
+        if let Some(spot) = first.and_then(|note| page.keys.spot_of(&format!("finding:{}:{}", reading.id, note.id))) {
+            window.focus(&spot.focus, cx);
+        }
+        cx.notify();
+    }
+
     // ---- The keys --------------------------------------------------------------------------
 
     /// A registry act made on the plan card. `live` says the card shows the Judge: waiting and open.
@@ -409,7 +459,7 @@ impl JobView {
     pub(super) fn plan_act(&mut self, act: &Act, ix: usize, key: &str, version: u32, live: bool, window: &mut Window, cx: &mut Context<Self>) {
         if act.is("plan_judge") {
             if live {
-                self.open_judge(ix, key, version, window, cx);
+                self.open_judge(ix, key, plan_artifact(version), window, cx);
             } else {
                 cx.propagate();
             }
@@ -481,28 +531,31 @@ impl JobView {
         );
     }
 
-    /// The reading's notes are read once the Job's page is open and has them.
+    /// A reading's notes are read once something draws them: the plan's on its card, the whole Job's on the
+    /// Judge tab, and a row's under the row while the Ledger or Subagents tab is in front.
     pub(super) fn judge_read(&mut self, job: &SharedString, cx: &mut Context<Self>) {
         let Some(record) = self.record(job, cx) else { return };
-        let Some(plan) = record.plan.as_ref() else { return };
-        let Some(reading) = plan_reading(record, plan.version) else { return };
-        if reading.state != JudgeState::Done || reading.read || reading.notes.is_empty() {
-            return;
-        }
-        let marker = format!("read:{}", reading.id);
-        let body = encoded(&MarkJudgeRead { session_id: SessionId::carried(job.to_string()), reading: reading.id.clone() });
+        let whole = self.pages.get(job).is_some_and(|page| page.judge.is_some()).then(|| super::judge_tab::whole_reading(record, job)).flatten();
+        let plan = record.plan.as_ref().and_then(|plan| plan_reading(record, plan.version));
+        let rows_drawn = matches!(self.zone_shown(), Some(super::side::Zone::Ledger | super::side::Zone::Pulls | super::side::Zone::Subagents));
+        let rows = record.judge_readings.iter().filter(|one| rows_drawn && !matches!(one.artifact.kind, JudgeKind::Job | JudgeKind::Plan));
+        let unread: Vec<String> = whole.into_iter().chain(plan).chain(rows).filter(|one| one.state == JudgeState::Done && !one.read && !one.notes.is_empty()).map(|one| one.id.clone()).collect();
+        let port = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port());
         let Some(page) = self.pages.get_mut(job) else { return };
-        if !page.cards.opened.insert(marker) {
-            return;
+        for reading in unread {
+            if !page.cards.opened.insert(format!("read:{reading}")) {
+                continue;
+            }
+            let Some(port) = port else { continue };
+            let body = encoded(&MarkJudgeRead { session_id: SessionId::carried(job.to_string()), reading });
+            cx.background_executor()
+                .spawn(async move {
+                    let body = body?;
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    runtime.block_on(crate::transport::post(port, "/sessions/judge/read", body)).map(|_| ())
+                })
+                .detach();
         }
-        let Some(port) = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()) else { return };
-        cx.background_executor()
-            .spawn(async move {
-                let body = body?;
-                let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                runtime.block_on(crate::transport::post(port, "/sessions/judge/read", body)).map(|_| ())
-            })
-            .detach();
     }
 
     // ---- The notes -------------------------------------------------------------------------
@@ -596,12 +649,16 @@ impl JobView {
                                 .gap(look.length(token::SPACE_2))
                                 .min_w_0()
                                 .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(hue).child(SharedString::from(note.claim.clone())))
-                                .children(note.r#where.as_ref().map(|place| {
+                                .children(note.r#where.as_ref().filter(|place| !at.names_itself(place)).map(|place| {
                                     claim_row(
                                         "Where",
                                         labelled(
                                             div()
                                                 .id(SharedString::from(format!("cites:{}", found.key)))
+                                                // A path is never broken inside its name: one line, cut short, whole on hover (`ConcernCites`).
+                                                .min_w_0()
+                                                .truncate()
+                                                .tooltip(tip(place.clone()))
                                                 .text_size(look.length(token::TEXT_XS))
                                                 .line_height(look.length(token::LEADING_SM))
                                                 .font_family(mono(look))
@@ -620,6 +677,8 @@ impl JobView {
                         div()
                             .id(SharedString::from(format!("finding-acts:{}", found.key)))
                             .flex()
+                            // Classic's row holds both at its smaller button size; native's wrap where a narrow pane can't.
+                            .flex_wrap()
                             .items_center()
                             .gap(look.length(token::SPACE_2))
                             .pt(look.length(token::SPACE_3))
@@ -818,5 +877,16 @@ mod tests {
     fn a_reading_still_going_pins_nothing() {
         let going = reading(&DONE.replace(r#""state":"done""#, r#""state":"reading""#));
         assert!(Pinned::new(0, "plan:v2", Some(&going), &plan("")).is_none());
+    }
+
+    #[test]
+    fn a_note_placed_on_its_own_pull_request_names_no_place() {
+        let one = reading(DONE);
+        let pinned = Pinned::whole_job(0, "ledger:pr:2418", &one).expect("a finished reading");
+        assert!(pinned.names_itself("#2418"));
+        assert!(!pinned.names_itself("#2419"));
+        assert!(!pinned.names_itself("crates/api/src/auth/tokens.rs:41"));
+        let plan = Pinned::whole_job(0, "plan:v2", &one).expect("a finished reading");
+        assert!(!plan.names_itself("#2418"));
     }
 }

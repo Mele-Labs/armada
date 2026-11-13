@@ -546,15 +546,17 @@ impl Figure {
             labelled(
                 div()
                     .id("context-refused")
+                    .w_full()
                     .flex()
-                    .items_center()
+                    .items_start()
                     .gap(look.length(token::SPACE_2))
                     .justify_end()
                     .text_size(look.length(token::TEXT_2XS))
                     .line_height(look.length(token::LEADING_2XS))
                     .text_color(look.color(token::STATUS_COMPLETED_FAILED))
-                    .child(glyph("circle-x", look.length(token::SPACE_3), look.color(token::STATUS_COMPLETED_FAILED)))
-                    .child(said.clone()),
+                    .child(div().flex_none().h(look.length(token::LEADING_2XS)).flex().items_center().child(glyph("circle-x", look.length(token::SPACE_3), look.color(token::STATUS_COMPLETED_FAILED))))
+                    // Fleet's words can run long: they wrap inside the card.
+                    .child(div().min_w_0().child(said.clone())),
                 Role::Alert,
                 said,
             )
@@ -675,6 +677,18 @@ impl Render for Figure {
                 (point(right, from.origin.y + from.size.height + gap), Anchor::TopRight)
             }
         };
+        // A tooltip hangs as Electron's does (`Tooltip.css`): below, leading edges aligned, above where a line
+        // of it would not fit under.
+        let floor = window.viewport_size().height;
+        let tip_room = look.length(token::LEADING_XS) + look.length(token::SPACE_2) * 2. + gap;
+        let tip_at = move |from: Bounds<Pixels>| {
+            let under = from.origin.y + from.size.height + gap;
+            if under + tip_room > floor {
+                (point(from.origin.x, from.origin.y - gap), Anchor::BottomLeft)
+            } else {
+                (point(from.origin.x, under), Anchor::TopLeft)
+            }
+        };
         let tone = tone_of(fill.band, look);
         let form = form_of(&fill);
         let side = look.length(token::SPACE_4);
@@ -768,7 +782,7 @@ impl Render for Figure {
                         CompactOffer::Offered { .. } => "Compact the Job's context",
                         CompactOffer::Off { why } => why_said(why),
                     };
-                    let (at, anchor) = hang(from);
+                    let (at, anchor) = tip_at(from);
                     Some(
                         deferred(
                             anchored().position(at).anchor(anchor).snap_to_window_with_margin(look.length(token::SPACE_1)).child(labelled(

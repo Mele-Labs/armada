@@ -5,9 +5,7 @@
 
 use ipc::{SessionRecord, SessionState};
 
-use super::face::{
-    AutopilotField, AutopilotRead, Chip, Cycle, Face, Glyph, Kind, Mark, Mentions, Offered, Reading, Ticket, Tuning, Wait,
-};
+use super::face::{Chip, Cycle, Face, Glyph, Mark, Mentions, Offered, Reading, Ticket, Tuning, Wait};
 
 /// Repositories the mock Mac serves, in the order the chips take: the first nine keyed, the rest under More.
 const REPOSITORIES: [&str; 4] = ["sample-api", "armada", "sample-web", "sample-docs"];
@@ -30,11 +28,10 @@ pub fn live(records: &[SessionRecord]) -> Vec<Offered> {
         .collect()
 }
 
-/// The sheet at rest: connected, both kinds, every repository a chip, no one named.
+/// The sheet at rest: connected, every repository a chip, no one named.
 pub fn rest(records: &[SessionRecord]) -> Face {
     Face {
         connected: true,
-        kinds: vec![Kind::Job, Kind::Autopilot],
         chips: chips(&REPOSITORIES, 1),
         more: Vec::new(),
         reading: Reading::Idle,
@@ -65,7 +62,6 @@ pub fn rest(records: &[SessionRecord]) -> Face {
             ],
         },
         wait: None,
-        read: None,
         refused: None,
     }
 }
@@ -126,35 +122,6 @@ pub fn waiting(mut face: Face, tagged: Option<Offered>) -> Face {
         his: Vec::new(),
         others,
     });
-    face
-}
-
-/// Fleet read an Autopilot sentence.
-pub fn autopilot_read(mut face: Face) -> Face {
-    let field = |label, value: &str, placeholder, quoted: Option<&str>| AutopilotField {
-        label,
-        value: value.to_string().into(),
-        placeholder,
-        quoted: quoted.map(|one| one.to_string().into()),
-    };
-    face.read = Some(AutopilotRead {
-        instruction: "Work through the open bugs labelled flaky".into(),
-        fields: vec![
-            field("At once", "2", "1", Some("two at a time")),
-            field("Until", "", "no time set", None),
-            field("Spend, in dollars", "20", "no cap", Some("twenty dollars")),
-            field("Jobs", "", "no cap", None),
-            field("Weekly usage, in percent", "", "no cap", None),
-        ],
-    });
-    face.refused = None;
-    face
-}
-
-/// Fleet refused to read it.
-pub fn autopilot_refused(mut face: Face) -> Face {
-    face.read = None;
-    face.refused = Some("Autopilot needs a repository with a Manifest, and sample-docs has none".into());
     face
 }
 

@@ -1,0 +1,1065 @@
+{
+ "threads": [
+  {
+   "session_id": "mock-01",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-09T13:00:00Z"
+      }
+     ]
+    },
+    "open_call": {
+     "text": "cargo check -p bridge-native",
+     "since": "2026-11-09T14:41:00Z"
+    },
+    "fleet_acts": [
+     {
+      "id": "fa-1",
+      "at": "2026-11-09T13:19:00Z",
+      "state": "over",
+      "kind": "slot",
+      "said": "Moved the Job to slot-3",
+      "why": "slot-4 was needed for a walk"
+     },
+     {
+      "id": "fa-4",
+      "at": "2026-11-09T14:44:00Z",
+      "state": "under_way",
+      "kind": "slot",
+      "said": "Moving the Job to slot-5",
+      "why": "slot-3 is needed for a walk"
+     },
+     {
+      "id": "fa-5",
+      "at": "2026-11-09T14:44:00Z",
+      "state": "coming",
+      "kind": "restart",
+      "said": "Restart the agent once this call ends",
+      "why": "its context is near full"
+     },
+     {
+      "id": "fa-6",
+      "at": "2026-11-09T14:44:00Z",
+      "state": "coming",
+      "kind": "slot",
+      "said": "Give slot-3 back once #3388 merges",
+      "why": "nothing else on the Job needs it"
+     }
+    ]
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-001",
+      "at": "2026-11-09T13:01:07Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "The merge line chip stays green when the branch is behind main. It should turn amber while it is stale.\n\nCan you look at where the chip reads its colour, and tell me before you change it?"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "lease",
+      "id": "lea-002",
+      "at": "2026-11-09T13:02:14Z",
+      "slot": 4,
+      "branch": "armada/merge-line-chip"
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "t-003",
+     "names": [
+      "Read",
+      "Grep",
+      "Edit"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "t-003",
+       "at": "2026-11-09T13:03:21Z",
+       "text": "Read apps/desktop/src/renderer/src/merge-line.ts"
+      },
+      {
+       "kind": "tool",
+       "id": "t-004",
+       "at": "2026-11-09T13:04:28Z",
+       "text": "Grep mergeLineTone"
+      },
+      {
+       "kind": "tool",
+       "id": "t-005",
+       "at": "2026-11-09T13:05:35Z",
+       "text": "Read packages/components/src/MergeLine/MergeLine.tsx"
+      },
+      {
+       "kind": "tool",
+       "id": "t-006",
+       "at": "2026-11-09T13:06:42Z",
+       "text": "Edit packages/components/src/MergeLine/MergeLine.tsx"
+      }
+     ]
+    },
+    {
+     "kind": "calls",
+     "id": "b-calls",
+     "names": [
+      "Bash"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "b-000",
+       "at": "2026-11-09T13:10:30Z",
+       "text": "Bash git status --short"
+      },
+      {
+       "kind": "tool",
+       "id": "b-001",
+       "at": "2026-11-09T13:11:30Z",
+       "text": "Bash git diff --stat"
+      },
+      {
+       "kind": "tool",
+       "id": "b-002",
+       "at": "2026-11-09T13:12:30Z",
+       "text": "Bash git commit -m \"Merge line turns amber when the branch is behind main\""
+      },
+      {
+       "kind": "tool",
+       "id": "b-003",
+       "at": "2026-11-09T13:13:30Z",
+       "text": "Bash pnpm exec vitest run MergeLine"
+      },
+      {
+       "kind": "tool",
+       "id": "b-004",
+       "at": "2026-11-09T13:14:30Z",
+       "text": "Bash pnpm exec tsc --noEmit -p tsconfig.web.json"
+      },
+      {
+       "kind": "tool",
+       "id": "b-005",
+       "at": "2026-11-09T13:15:30Z",
+       "text": "Bash pnpm exec biome format --write chip.tsx"
+      },
+      {
+       "kind": "tool",
+       "id": "b-006",
+       "at": "2026-11-09T13:16:30Z",
+       "text": "Bash grep -rn mergeLineTone apps packages"
+      },
+      {
+       "kind": "tool",
+       "id": "b-007",
+       "at": "2026-11-09T13:17:30Z",
+       "text": "Bash git log --oneline -5"
+      },
+      {
+       "kind": "tool",
+       "id": "b-008",
+       "at": "2026-11-09T13:18:30Z",
+       "text": "Bash git commit --amend -m 'Say how far behind in the tooltip'"
+      },
+      {
+       "kind": "tool",
+       "id": "b-009",
+       "at": "2026-11-09T13:19:30Z",
+       "text": "Bash ls packages/components/src/MergeLine"
+      },
+      {
+       "kind": "tool",
+       "id": "b-010",
+       "at": "2026-11-09T13:20:30Z",
+       "text": "Bash cat package.json"
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-007",
+      "at": "2026-11-09T13:07:49Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "I found where the chip takes its colour. It reads `mergeLineTone` in `merge-line.ts` and the tone comes from the pull request's `mergeable` field alone.\n\n## What I will change\n\n- Read `behind_by` from the record as well\n- Keep green only when `behind_by` is `0`\n- Show amber for a stale branch, with the tooltip `Behind main`\n\n```rust\nfn tone(pr: &Pull) -> Tone {\n    if pr.behind_by > 0 { Tone::Amber } else { Tone::Green }\n}\n```\n\nThis leaves **red** for a failed Check alone. Tell me if you want the stale state to take another colour."
+     }
+    },
+    {
+     "kind": "checks",
+     "id": "chk-1",
+     "rows": [
+      {
+       "kind": "check",
+       "id": "chk-1",
+       "at": "2026-11-09T13:08:56Z",
+       "name": "desktop_unit",
+       "run": 412,
+       "state": "failed"
+      },
+      {
+       "kind": "check",
+       "id": "chk-2",
+       "at": "2026-11-09T13:09:03Z",
+       "name": "desktop_unit",
+       "run": 413,
+       "state": "passed"
+      }
+     ]
+    },
+    {
+     "kind": "checks",
+     "id": "chk-3",
+     "rows": [
+      {
+       "kind": "check",
+       "id": "chk-3",
+       "at": "2026-11-09T13:10:10Z",
+       "name": "foundations",
+       "run": 414,
+       "state": "passed",
+       "target": "docs"
+      }
+     ]
+    },
+    {
+     "kind": "checks",
+     "id": "chk-4",
+     "rows": [
+      {
+       "kind": "check",
+       "id": "chk-4",
+       "at": "2026-11-09T13:11:17Z",
+       "name": "ci",
+       "run": 415,
+       "state": "running"
+      }
+     ]
+    },
+    {
+     "kind": "subagent",
+     "id": "sub-1",
+     "at": "2026-11-09T13:12:24Z",
+     "subagent": {
+      "id": "agent-1",
+      "agent_type": "explorer",
+      "task": "Find every reader of mergeLineTone",
+      "state": "finished",
+      "since": "2026-11-09T13:20:00Z",
+      "ended": "2026-11-09T13:20:42Z"
+     }
+    },
+    {
+     "kind": "subagent",
+     "id": "sub-2",
+     "at": "2026-11-09T13:13:31Z",
+     "subagent": {
+      "id": "agent-2",
+      "task": "Read the chip's stories",
+      "state": "running",
+      "since": "2026-11-09T13:22:00Z"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "command",
+      "id": "com-008",
+      "at": "2026-11-09T13:14:38Z",
+      "text": "/reload-plugins"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "ran",
+      "id": "ran-009",
+      "at": "2026-11-09T13:15:45Z",
+      "command": "cargo check -p core-model\nsecond line",
+      "code": 0,
+      "tail": "Finished dev profile in 4.2s"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "ran",
+      "id": "ran-010",
+      "at": "2026-11-09T13:16:52Z",
+      "command": "pnpm exec tsc --noEmit",
+      "code": 2,
+      "tail": "src/merge-line.ts(41,9): error TS2322\nsrc/merge-line.ts(44,3): error TS2304"
+     }
+    },
+    {
+     "kind": "fleet_turn",
+     "id": "n-011",
+     "notice": {
+      "kind": "message",
+      "id": "n-011",
+      "at": "2026-11-09T13:17:59Z",
+      "from": {
+       "kind": "session",
+       "id": "fleet",
+       "title": "Fleet"
+      },
+      "text": "The branch is 3 commits behind main. Merge main in before you push.\nThe slot is clean.",
+      "notice": "slot_behind"
+     },
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "t-012",
+       "at": "2026-11-09T13:18:06Z",
+       "text": "Bash git merge origin/main"
+      }
+     ],
+     "handled": true
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-014",
+      "at": "2026-11-09T13:20:20Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Merged main in. No conflicts."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-015",
+      "at": "2026-11-09T13:21:27Z",
+      "from": {
+       "kind": "session",
+       "id": "mock-02",
+       "title": "Native Bridge foundation"
+      },
+      "text": "The list's tokens moved to `look::token`. Your chip reads them from `packages/tokens` already."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-016",
+      "at": "2026-11-09T13:22:34Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Approved: http://localhost:5173/?walk=mergeLine&take=amber"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-017",
+      "at": "2026-11-09T13:23:41Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Re: Which colour should the stale state take?\nAmber, the same as the Needs you hue.\nFleet took this off your waiting list."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "compaction",
+      "id": "com-018",
+      "at": "2026-11-09T13:24:48Z",
+      "text": "The agent read the merge line chip and its tone rule, proposed reading `behind_by`, and merged main in."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "window",
+      "id": "win-019",
+      "at": "2026-11-09T13:25:55Z",
+      "title": "Merge line chip: stale state",
+      "url": "armada://walk/mergeLine"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "requested",
+      "id": "req-020",
+      "at": "2026-11-09T13:26:02Z",
+      "by": "owner",
+      "method": "GET",
+      "url": "http://localhost:5173/api/health",
+      "status": 200,
+      "ms": 84,
+      "response": "ok"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "requested",
+      "id": "req-021",
+      "at": "2026-11-09T13:27:09Z",
+      "by": "agent",
+      "method": "POST",
+      "url": "http://localhost:5173/api/chip",
+      "status": 503,
+      "ms": 1520,
+      "response": "busy",
+      "truncated": false
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "saved",
+      "id": "sav-022",
+      "at": "2026-11-09T13:28:16Z",
+      "name": "Chip colour",
+      "collection": "Merge line",
+      "collection_id": "c1",
+      "request": "r1"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "started",
+      "id": "sta-023",
+      "at": "2026-11-09T13:29:23Z",
+      "session": {
+       "id": "mock-03",
+       "title": "Move Bridge's thread rows into Fleet"
+      },
+      "fork": false
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "started",
+      "id": "sta-024",
+      "at": "2026-11-09T13:30:30Z",
+      "session": {
+       "id": "mock-04",
+       "title": "Audit the docs index"
+      },
+      "fork": true
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "linked",
+      "id": "lin-025",
+      "at": "2026-11-09T13:31:37Z",
+      "session": {
+       "id": "mock-09",
+       "title": "Upgrade the router"
+      },
+      "event": "merged"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "linked",
+      "id": "lin-026",
+      "at": "2026-11-09T13:32:44Z",
+      "session": {
+       "id": "mock-12",
+       "title": "Retry webhooks on a 503"
+      },
+      "event": "done"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "waiter",
+      "id": "wai-027",
+      "at": "2026-11-09T13:33:51Z",
+      "session": {
+       "id": "mock-06",
+       "title": "Quiet the write-clash notices"
+      },
+      "event": "waits",
+      "says": "Wait for the chip to land"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "waiter",
+      "id": "wai-028",
+      "at": "2026-11-09T13:34:58Z",
+      "session": {
+       "id": "mock-06",
+       "title": "Quiet the write-clash notices"
+      },
+      "event": "changed",
+      "from": "After a pull request merges",
+      "to": "After a Check passes"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "disputed",
+      "id": "dis-029",
+      "at": "2026-11-09T13:35:05Z",
+      "notice": "n-x",
+      "why": "The slot was clean; the notice said it had changes.",
+      "spotted": "called",
+      "review": "mock-14"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "plan_changes",
+      "id": "pla-030",
+      "at": "2026-11-09T13:36:12Z",
+      "version": 1,
+      "approved": false,
+      "lines": [
+       {
+        "verb": "Renamed",
+        "place": "Build",
+        "from": "Chip",
+        "text": "Merge line chip"
+       },
+       {
+        "verb": "Added",
+        "place": "Walk",
+        "text": "Show the stale state"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "sent",
+      "id": "sen-031",
+      "at": "2026-11-09T13:37:19Z",
+      "text": "Use amber for the stale chip.",
+      "target": {
+       "id": "mock-02",
+       "kind": "session",
+       "title": "Native Bridge foundation"
+      }
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "retro",
+      "id": "ret-032",
+      "at": "2026-11-09T13:39:33Z",
+      "stage": "written",
+      "stage_since": "2026-11-09T13:38:26Z",
+      "characters": 0,
+      "items": [],
+      "retro": 14
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "release",
+      "id": "rel-033",
+      "at": "2026-11-09T13:40:40Z",
+      "slot": 4,
+      "branch": "armada/merge-line-chip"
+     }
+    },
+    {
+     "kind": "change",
+     "id": "chg-1",
+     "at": "2026-11-09T13:41:47Z",
+     "what": "model",
+     "from": "opus",
+     "to": "sonnet"
+    },
+    {
+     "kind": "change",
+     "id": "chg-2",
+     "at": "2026-11-09T13:42:54Z",
+     "what": "workflow",
+     "from": "Feature",
+     "to": "Fix"
+    },
+    {
+     "kind": "plan",
+     "id": "plan:v1",
+     "version": 1,
+     "state": "approved"
+    },
+    {
+     "kind": "sketch",
+     "id": "sk-1",
+     "at": "2026-11-09T13:43:01Z",
+     "sketch": "sketch:Chip states",
+     "title": "Chip states",
+     "drawing": {
+      "nodes": []
+     },
+     "settled": {
+      "how": "approved",
+      "at": "2026-11-09T13:44:08Z"
+     }
+    },
+    {
+     "kind": "document",
+     "id": "document:design:r2",
+     "at": "2026-11-09T13:45:15Z",
+     "page": "design",
+     "title": "Stale branch design",
+     "revision": 2
+    },
+    {
+     "kind": "file",
+     "id": "file-1",
+     "at": "2026-11-09T13:46:22Z",
+     "path": "/tmp/chip.png",
+     "name": "chip.png"
+    },
+    {
+     "kind": "judged",
+     "id": "judged:7",
+     "at": "2026-11-09T13:47:29Z",
+     "artifact": {
+      "kind": "plan",
+      "id": "p1",
+      "title": "Plan v1"
+     },
+     "clean": false
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "draft",
+      "id": "dra-034",
+      "at": "2026-11-09T13:48:36Z",
+      "title": "Comment on #3290",
+      "text": "The chip now reads `behind_by`."
+     }
+    },
+    {
+     "kind": "not_started",
+     "id": "ns-1",
+     "at": "2026-11-09T13:49:43Z",
+     "cause": "the agent exited before its first turn",
+     "log": [
+      "error: no such file"
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-035",
+      "at": "2026-11-09T13:50:50Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The chip is amber while the branch is behind. Everything above is on the branch."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "window",
+      "id": "win-n1",
+      "at": "2026-11-09T14:20:00Z",
+      "title": "Merge line chip: stale state",
+      "url": "armada://walk/mergeLine",
+      "variations": [
+       {
+        "name": "Amber",
+        "url": "armada://walk/mergeLine"
+       },
+       {
+        "name": "Amber, ringed",
+        "url": "armada://walk/mergeLineRinged"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "check",
+      "id": "chk-n1",
+      "at": "2026-11-09T14:42:00Z",
+      "name": "native-tests",
+      "run": 41,
+      "state": "running"
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "mock-04",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-09T13:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-336",
+      "at": "2026-11-09T18:51:57Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Check that the docs index lists every page.",
+      "files": [
+       {
+        "id": "pasted-1",
+        "name": "Pasted file.png",
+        "media_type": "image/png"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "t-337",
+     "names": [
+      "Bash"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "t-337",
+       "at": "2026-11-09T18:52:04Z",
+       "text": "Bash armada check docs"
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-338",
+      "at": "2026-11-09T18:53:11Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Every page is listed. The index is current."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-341",
+      "at": "2026-11-09T18:55:10Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "The index page at full width.",
+      "files": [
+       {
+        "id": "pasted-2",
+        "name": "Wide index.png",
+        "media_type": "image/png"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-342",
+      "at": "2026-11-09T18:55:40Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "And the phone layout.",
+      "files": [
+       {
+        "id": "pasted-3",
+        "name": "Tall phone.png",
+        "media_type": "image/png"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-343",
+      "at": "2026-11-09T18:56:20Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Before and after the fix.",
+      "files": [
+       {
+        "id": "pasted-4",
+        "name": "Before.png",
+        "media_type": "image/png"
+       },
+       {
+        "id": "pasted-5",
+        "name": "After.png",
+        "media_type": "image/png"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m04-9",
+      "at": "2026-11-09T14:33:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Reading the index against the docs tree."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "c04",
+     "names": [
+      "Read"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "c04-0",
+       "at": "2026-11-09T14:34:00Z",
+       "text": "Read docs/INDEX.md"
+      },
+      {
+       "kind": "tool",
+       "id": "c04-1",
+       "at": "2026-11-09T14:35:00Z",
+       "text": "Read docs/OPEN.md"
+      },
+      {
+       "kind": "tool",
+       "id": "c04-2",
+       "at": "2026-11-09T14:36:00Z",
+       "text": "Read docs/scope.md"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "mock-10",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:00:00Z"
+    },
+    "open_call": {
+     "text": "pnpm vitest run login.test.ts --repeat 40",
+     "since": "2026-11-09T14:21:00Z"
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m10-1",
+      "at": "2026-11-09T14:20:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Running the login test 40 more times under load."
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "mock-06",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:00:00Z"
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m06-1",
+      "at": "2026-11-09T14:09:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The notices now group by file."
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "mock-07",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:00:00Z"
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m07-1",
+      "at": "2026-11-09T14:28:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The redirect no longer fires twice."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "check",
+      "id": "chk-7",
+      "at": "2026-11-09T14:30:00Z",
+      "name": "e2e",
+      "run": 12,
+      "state": "failed"
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "mock-13",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:00:00Z"
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m13-1",
+      "at": "2026-11-09T14:40:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Here is the plan for paging the log."
+     }
+    },
+    {
+     "kind": "sketch",
+     "id": "sk-pages",
+     "at": "2026-11-09T14:40:00Z",
+     "sketch": "sketch:Audit log pages",
+     "title": "Audit log pages",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "first",
+        "kind": "box",
+        "x": 0,
+        "y": 0,
+        "title": "First fifty",
+        "icon": "file",
+        "color": "blue"
+       },
+       {
+        "id": "cursor",
+        "kind": "box",
+        "x": 260,
+        "y": 0,
+        "title": "Next cursor",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "more",
+        "kind": "box",
+        "x": 520,
+        "y": 0,
+        "title": "Load more",
+        "icon": "zap",
+        "color": "amber"
+       }
+      ],
+      "edges": [
+       {
+        "id": "e1",
+        "from": "first",
+        "to": "cursor",
+        "label": "answers"
+       },
+       {
+        "id": "e2",
+        "from": "cursor",
+        "to": "more",
+        "label": "a press sends"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "mock-03",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:00:00Z"
+    }
+   },
+   "items": []
+  },
+  {
+   "session_id": "mock-09",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:00:00Z"
+    }
+   },
+   "items": []
+  },
+  {
+   "session_id": "mock-08",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:00:00Z"
+    }
+   },
+   "items": []
+  }
+ ]
+}

@@ -1,0 +1,826 @@
+{
+  "sessions": [
+    {
+      "id": "mock-01",
+      "mark": {
+        "state": "waiting",
+        "lamp": "needs",
+        "group": "needs"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "Fix the merge line freshness chip",
+      "last_turn_at": "2026-11-09T15:52:00Z",
+      "so_far": "Asked which chip colour the stale state takes",
+      "workflow": "feature",
+      "workflow_step": 2,
+      "workflow_copy": {
+        "id": "feature",
+        "name": "Feature",
+        "version": 1,
+        "manifest_id": "armada",
+        "lands": "pull_request",
+        "steps": [
+          {
+            "step_id": "plan",
+            "label": "Plan",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "build",
+            "label": "Build",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "walk",
+            "label": "Walk",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "land",
+            "label": "Land",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          }
+        ]
+      },
+      "state": "live",
+      "started_at": "2026-11-08T08:00:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {"context_tokens": 126000, "context_window": 200000, "context_percent": 63, "context_band": "normal"},
+      "compact": {"state": "offered", "how": "terminal"},
+      "attachments": [
+        {
+          "kind": "issue",
+          "target": "3290",
+          "state": "standing",
+          "detail": {
+            "title": "Merge line freshness chip stays green when stale"
+          },
+          "since": "2026-11-08T09:00:00Z",
+          "changed_at": "2026-11-08T09:00:00Z"
+        },
+        {
+          "kind": "pr",
+          "target": "3388",
+          "state": "standing",
+          "since": "2026-11-08T09:00:00Z",
+          "changed_at": "2026-11-08T09:00:00Z"
+        }
+      ],
+      "standing": "working",
+      "judge_readings": [
+        {
+          "id": "reading-1",
+          "artifact": {
+            "kind": "plan",
+            "id": "2",
+            "title": "Plan v2"
+          },
+          "prompt": "",
+          "state": "done",
+          "asked_at": "2026-11-09T13:46:00Z",
+          "finished_at": "2026-11-09T13:47:29Z",
+          "read": false,
+          "notes": [
+            {
+              "id": "n1",
+              "claim": "Nothing says what the chip shows when the branch has no upstream",
+              "where": "Plan, summary"
+            },
+            {
+              "id": "n2",
+              "about": "t3",
+              "claim": "The tooltip names a figure no row carries yet",
+              "where": "Plan, task Say how far behind in the tooltip"
+            },
+            {
+              "id": "n3",
+              "about": "g2",
+              "claim": "behind_by counts commits on a branch with no merge base as zero",
+              "where": "crates/fleet/src/branches.rs:88"
+            },
+            {
+              "id": "n4",
+              "about": "g1",
+              "claim": "A row refreshed mid-press shows the old colour",
+              "where": "apps/desktop/src/renderer/src/chip.tsx:41",
+              "settled": {
+                "how": "dismissed",
+                "at": "2026-11-09T13:48:00Z"
+              }
+            }
+          ]
+        }
+      ],
+      "plan": {
+        "version": 2,
+        "summary": "The merge line chip turns amber once the branch is behind main.\nA press on it opens the pull request.",
+        "recorded_at": "2026-11-09T13:40:00Z",
+        "approved": false,
+        "scope": [
+          "apps/desktop/src/renderer/src/chip.tsx"
+        ],
+        "groups": [
+          {
+            "id": "g1",
+            "agent": "bridge-engineer",
+            "title": "Chip reads the stale state",
+            "gives": "The chip turns amber when the branch is behind main",
+            "paths": [
+              "apps/desktop/src/renderer/src/chip.tsx"
+            ],
+            "tasks": [
+              {
+                "id": "t1",
+                "text": "Read behind_by on the row",
+                "state": "done"
+              },
+              {
+                "id": "t2",
+                "text": "Colour the chip amber when it is above zero",
+                "state": "working"
+              },
+              {
+                "id": "t3",
+                "text": "Say how far behind in the tooltip",
+                "state": "open"
+              }
+            ]
+          },
+          {
+            "id": "g2",
+            "agent": "rust-engineer",
+            "title": "Fleet reports how far behind",
+            "gives": "Fleet sends behind_by with each branch",
+            "paths": [
+              "crates/fleet/src/branches.rs"
+            ],
+            "tasks": [
+              {
+                "id": "t4",
+                "text": "Count commits behind main",
+                "state": "done"
+              },
+              {
+                "id": "t5",
+                "text": "Add behind_by to the wire",
+                "state": "open"
+              }
+            ]
+          },
+          {
+            "id": "g3",
+            "agent": "general-purpose",
+            "title": "Write it down",
+            "paths": [
+              "docs/concepts/chip.md"
+            ],
+            "tasks": [
+              {
+                "id": "t6",
+                "text": "Describe the amber state",
+                "state": "open"
+              }
+            ]
+          }
+        ],
+        "changes": {
+          "added": [
+            "t3"
+          ],
+          "renamed": [
+            {
+              "id": "t2",
+              "from": "Colour the chip"
+            }
+          ],
+          "moved": [],
+          "removed": [
+            {
+              "group": "g1",
+              "text": "Add a legend"
+            }
+          ]
+        }
+      },
+      "waiting_for": [
+        {
+          "id": "plan:2",
+          "text": "Plan to approve",
+          "since": "2026-11-09T13:41:00Z",
+          "source": "plan"
+        },
+        {
+          "id": "sketch:Tail layout",
+          "text": "Tail layout",
+          "since": "2026-11-09T14:01:00Z",
+          "source": "sketch",
+          "act": {
+            "kind": "message",
+            "target": "mock-01"
+          }
+        },
+        {
+          "id": "ask:call-1",
+          "text": "Which colour does the stale chip take?",
+          "since": "2026-11-09T14:02:00Z",
+          "source": "ask_card",
+          "act": {
+            "kind": "answer",
+            "target": "call-1"
+          }
+        },
+        {
+          "id": "agent-2",
+          "text": "Land on a branch or a pull request?",
+          "since": "2026-11-09T14:04:00Z",
+          "source": "agent",
+          "options": [
+            {
+              "label": "Pull request",
+              "description": "Opens one and watches ci."
+            },
+            {
+              "label": "Branch",
+              "description": "Stops at the commit."
+            }
+          ]
+        },
+        {
+          "id": "walk:https://example.test/?walk=chip",
+          "text": "Walk the chip states",
+          "since": "2026-11-09T14:05:00Z",
+          "source": "walk",
+          "act": {
+            "kind": "walk",
+            "target": "https://example.test/?walk=chip"
+          }
+        },
+        {
+          "id": "run-1",
+          "text": "Run the chip checks",
+          "since": "2026-11-09T14:06:00Z",
+          "source": "agent",
+          "act": {
+            "kind": "run",
+            "target": "armada check test chip"
+          },
+          "steps": [
+            "Open a terminal",
+            "Run the command"
+          ]
+        },
+        {
+          "id": "restart-1",
+          "text": "Restart onto the chip fix",
+          "since": "2026-11-09T14:06:30Z",
+          "source": "agent",
+          "act": {
+            "kind": "run",
+            "target": "scripts/preview --restart"
+          },
+          "steps": [
+            "Run `scripts/preview --restart`",
+            "Open the chip"
+          ]
+        },
+        {
+          "id": "pr-3388",
+          "text": "Merge pull request 3388",
+          "since": "2026-11-09T14:07:00Z",
+          "source": "agent",
+          "act": {
+            "kind": "approve_pr",
+            "target": "3388"
+          }
+        },
+        {
+          "id": "replied:2026-11-09T14:08:00Z",
+          "text": "Should the legend come back as a row in the tooltip?",
+          "since": "2026-11-09T14:08:00Z",
+          "source": "replied"
+        }
+      ]
+    },
+    {
+      "id": "mock-02",
+      "mark": {
+        "state": "working",
+        "lamp": "running",
+        "group": "working"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "Native Bridge foundation",
+      "activity": {
+        "now": "Editing jobs.rs"
+      },
+      "workflow": "feature",
+      "workflow_step": 1,
+      "workflow_copy": {
+        "id": "feature",
+        "name": "Feature",
+        "version": 1,
+        "manifest_id": "armada",
+        "lands": "pull_request",
+        "steps": [
+          {
+            "step_id": "plan",
+            "label": "Plan",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "build",
+            "label": "Build",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "walk",
+            "label": "Walk",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "land",
+            "label": "Land",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          }
+        ]
+      },
+      "state": "live",
+      "started_at": "2026-11-08T09:07:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "slot",
+          "manifest_id": "armada",
+          "target": "/repos/armada/.armada/slots/slot-7",
+          "state": "standing",
+          "since": "2026-11-08T09:00:00Z",
+          "changed_at": "2026-11-08T09:00:00Z"
+        },
+        {
+          "kind": "branch",
+          "manifest_id": "armada",
+          "target": "armada/native-foundation",
+          "state": "standing",
+          "since": "2026-11-08T09:00:00Z",
+          "changed_at": "2026-11-08T09:00:00Z"
+        },
+        {
+          "kind": "pr",
+          "manifest_id": "armada",
+          "target": "3371",
+          "state": "standing",
+          "since": "2026-11-08T09:00:00Z",
+          "changed_at": "2026-11-08T09:00:00Z"
+        }
+      ],
+      "standing": "working",
+      "last_turn_at": "2026-11-08T21:36:00Z"
+    },
+    {
+      "id": "mock-03",
+      "mark": {
+        "state": "subagent",
+        "lamp": "running",
+        "group": "working"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "Move Bridge's thread rows into Fleet",
+      "last_turn_at": "2026-11-09T15:20:00Z",
+      "activity": {
+        "now": "Running armada check test"
+      },
+      "state": "live",
+      "started_at": "2026-11-08T10:14:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "started_by",
+          "manifest_id": "armada",
+          "target": "mock-02",
+          "state": "spent",
+          "since": "2026-11-08T09:00:00Z",
+          "changed_at": "2026-11-08T09:00:00Z"
+        },
+        {
+          "kind": "pr",
+          "target": "3380",
+          "state": "standing",
+          "since": "2026-11-08T09:00:00Z",
+          "changed_at": "2026-11-08T09:00:00Z"
+        }
+      ],
+      "standing": "replied"
+    },
+    {
+      "id": "mock-04",
+      "mark": {
+        "state": "idle",
+        "lamp": "idle",
+        "group": "done"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "Audit the docs index",
+      "last_turn_at": "2026-11-09T13:05:00Z",
+      "so_far": "Listed eleven pages the index does not name",
+      "state": "live",
+      "started_at": "2026-11-08T11:21:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "issue",
+          "target": "3301",
+          "state": "standing",
+          "detail": {
+            "title": "Docs index misses pages"
+          },
+          "since": "2026-11-08T09:00:00Z",
+          "changed_at": "2026-11-08T09:00:00Z"
+        }
+      ],
+      "standing": "done"
+    },
+    {
+      "id": "mock-05",
+      "mark": {
+        "state": "paused",
+        "lamp": "idle",
+        "group": "held"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "Pocket sign-in on the phone",
+      "state": "live",
+      "started_at": "2026-11-08T12:28:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [],
+      "standing": "stuck",
+      "hosted": {
+        "turn": {
+          "state": "idle"
+        },
+        "mode": "auto",
+        "running": false,
+        "paused": {
+          "at": "2026-11-08T20:00:00Z",
+          "resuming": false
+        }
+      }
+    },
+    {
+      "id": "mock-06",
+      "mark": {
+        "state": "held",
+        "lamp": "idle",
+        "group": "held"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "Quiet the write-clash notices",
+      "state": "live",
+      "started_at": "2026-11-08T13:35:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "handoff_starting",
+          "target": "mock-06",
+          "state": "standing",
+          "since": "2026-11-10T08:00:00Z",
+          "changed_at": "2026-11-10T08:00:00Z"
+        }
+      ],
+      "standing": "idle"
+    },
+    {
+      "id": "mock-07",
+      "mark": {
+        "state": "failing",
+        "lamp": "failed",
+        "group": "needs"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "sample-web",
+      "cwd": "/repos/sample-web",
+      "title": "Checkout page loads twice",
+      "last_turn_at": "2026-11-09T14:40:00Z",
+      "so_far": "The second load comes from the auth redirect",
+      "workflow": "feature",
+      "workflow_step": 1,
+      "workflow_copy": {
+        "id": "feature",
+        "name": "Feature",
+        "version": 1,
+        "manifest_id": "sample-web",
+        "lands": "pull_request",
+        "steps": [
+          {
+            "step_id": "plan",
+            "label": "Plan",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "build",
+            "label": "Build",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "walk",
+            "label": "Walk",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "land",
+            "label": "Land",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          }
+        ]
+      },
+      "state": "live",
+      "started_at": "2026-11-08T14:42:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "issue",
+          "target": "412",
+          "state": "standing",
+          "detail": {
+            "title": "Checkout page loads twice"
+          },
+          "since": "2026-11-08T09:00:00Z",
+          "changed_at": "2026-11-08T09:00:00Z"
+        },
+        {
+          "kind": "pr",
+          "target": "418",
+          "state": "standing",
+          "since": "2026-11-08T09:00:00Z",
+          "changed_at": "2026-11-08T09:00:00Z"
+        }
+      ],
+      "standing": "working"
+    },
+    {
+      "id": "mock-08",
+      "mark": {
+        "state": "replied",
+        "lamp": "idle",
+        "group": "done"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "sample-web",
+      "cwd": "/repos/sample-web",
+      "title": "Dark mode for the settings page",
+      "state": "live",
+      "started_at": "2026-11-08T15:49:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [],
+      "standing": "replied"
+    },
+    {
+      "id": "mock-09",
+      "mark": {
+        "state": "running",
+        "lamp": "running",
+        "group": "working"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "sample-web",
+      "cwd": "/repos/sample-web",
+      "title": "Upgrade the router",
+      "last_turn_at": "2026-11-09T15:58:00Z",
+      "activity": {
+        "now": "Reading routes.ts"
+      },
+      "state": "live",
+      "started_at": "2026-11-08T16:56:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "replaces",
+          "target": "mock-16",
+          "state": "spent",
+          "since": "2026-11-10T08:00:00Z",
+          "changed_at": "2026-11-10T08:00:00Z"
+        }
+      ],
+      "standing": "stopped"
+    },
+    {
+      "id": "mock-10",
+      "mark": {
+        "state": "stuck",
+        "lamp": "needs",
+        "group": "needs"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "sample-web",
+      "cwd": "/repos/sample-web",
+      "title": "Flaky login test",
+      "last_turn_at": "2026-11-09T11:10:00Z",
+      "so_far": "Retried the login test 40 times with no failure",
+      "state": "live",
+      "started_at": "2026-11-08T17:03:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "issue",
+          "target": "407",
+          "state": "standing",
+          "detail": {
+            "title": "Login test fails one run in ten"
+          },
+          "since": "2026-11-08T09:00:00Z",
+          "changed_at": "2026-11-08T09:00:00Z"
+        }
+      ],
+      "standing": "working"
+    },
+    {
+      "id": "mock-11",
+      "mark": {
+        "state": "limited",
+        "lamp": "idle",
+        "group": "held"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "sample-api",
+      "cwd": "/repos/sample-api",
+      "title": "Rate limits per token",
+      "state": "live",
+      "started_at": "2026-11-08T08:10:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [],
+      "standing": "working"
+    },
+    {
+      "id": "mock-12",
+      "mark": {
+        "state": "quiet",
+        "lamp": "idle",
+        "group": "done"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "sample-api",
+      "cwd": "/repos/sample-api",
+      "title": "Retry webhooks on a 503",
+      "state": "live",
+      "started_at": "2026-11-08T09:17:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [],
+      "standing": "idle"
+    },
+    {
+      "id": "mock-13",
+      "mark": {
+        "state": "draft",
+        "lamp": "idle",
+        "group": "working"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "sample-api",
+      "cwd": "/repos/sample-api",
+      "title": "Paginate the audit log",
+      "so_far": "Reading the request",
+      "state": "live",
+      "started_at": "2026-11-08T10:24:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [],
+      "standing": "done"
+    },
+    {
+      "id": "mock-14",
+      "mark": {
+        "state": "done",
+        "lamp": "done",
+        "group": "done"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "sample-api",
+      "cwd": "/repos/sample-api",
+      "title": "Remove the v1 endpoints",
+      "state": "live",
+      "started_at": "2026-11-08T11:31:00Z",
+      "last_seen_at": "2026-11-08T21:40:00Z",
+      "usage": {},
+      "attachments": [],
+      "standing": "working"
+    },
+    {
+      "id": "mock-15",
+      "mark": {
+        "state": "ended",
+        "lamp": "idle",
+        "group": "done"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "An ended Job stays out of the list",
+      "state": "ended",
+      "started_at": "2026-11-07T10:00:00Z",
+      "last_seen_at": "2026-11-07T12:00:00Z",
+      "ended_at": "2026-11-07T12:00:00Z",
+      "usage": {},
+      "attachments": []
+    },
+    {
+      "id": "mock-16",
+      "mark": {
+        "state": "ended",
+        "lamp": "idle",
+        "group": "done"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "sample-web",
+      "cwd": "/repos/sample-web",
+      "title": "Upgrade the router",
+      "state": "ended",
+      "started_at": "2026-11-07T10:00:00Z",
+      "last_seen_at": "2026-11-07T12:00:00Z",
+      "ended_at": "2026-11-07T12:00:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "replaced_by",
+          "target": "mock-09",
+          "state": "spent",
+          "since": "2026-11-10T08:00:00Z",
+          "changed_at": "2026-11-10T08:00:00Z"
+        }
+      ]
+    }
+  ]
+}

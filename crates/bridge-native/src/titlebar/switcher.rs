@@ -3,7 +3,7 @@
 //! `trying-bar.tsx`).
 
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, px, Anchor, AnyElement, Context, FontWeight, Pixels, Role, SharedString,
+    anchored, canvas, deferred, div, prelude::*, px, Anchor, AnyElement, Context, FontWeight, Pixels, Role, SharedString,
 };
 use ipc::{BuildSource, SnapshotState};
 
@@ -415,7 +415,7 @@ impl TitleBar {
     }
 
     /// The Revert confirm or the Drones confirm, over the window, when one is asked.
-    pub(super) fn dialog_layer(&self, look: &Look, viewport: gpui::Size<Pixels>, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn dialog_layer(&self, look: &Look, room: gpui::Bounds<Pixels>, cx: &Context<Self>) -> Option<AnyElement> {
         let dialog = self.dialog?;
         let held = self.face.build.as_ref()?;
         let (title, confirm, body): (SharedString, &'static str, AnyElement) = match dialog {
@@ -480,7 +480,7 @@ impl TitleBar {
                 title,
             ));
         Some(
-            deferred(anchored().position(point(px(0.), px(0.))).anchor(Anchor::TopLeft).child(div().w(viewport.width).h(viewport.height).child(scrim)))
+            deferred(anchored().position(room.origin).anchor(Anchor::TopLeft).child(div().w(room.size.width).h(room.size.height).child(scrim)))
                 .with_priority(2)
                 .into_any_element(),
         )
