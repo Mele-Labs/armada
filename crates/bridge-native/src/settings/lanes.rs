@@ -112,6 +112,7 @@ impl SettingsOverlay {
         let wire: Rc<dyn EditorWire> = Rc::new(SettingsWire(cx.entity().downgrade()));
         let subject = subject_of(&one);
         let editor = cx.new(|cx| LanesEditor::new(subject, wire, window, cx));
+        editor.update(cx, |editor, _| editor.scrolls_in(self.workflows.detail.scroll.clone()));
         let row = one.clone();
         let sub = cx.subscribe_in(&editor, window, move |this, _, event: &EditorEvent, window, cx| this.editor_said(&row, event, window, cx));
         self.lanes.editors.insert(key.clone(), editor);

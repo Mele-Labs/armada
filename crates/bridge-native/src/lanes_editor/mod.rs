@@ -102,6 +102,12 @@ pub struct LanesEditor {
     in_place: Option<in_place::InPlace>,
     /// Where the canvas's frame was drawn last, in window points.
     frame: Rc<Cell<Bounds<Pixels>>>,
+    /// The part of that frame the page let be seen: the fields stand inside it.
+    seen: Rc<Cell<Bounds<Pixels>>>,
+    /// The page the editor scrolls in, from its host: fields that open are scrolled into view in it.
+    page: Option<gpui::ScrollHandle>,
+    /// Fields opened since the page was last scrolled to them.
+    reveal: Cell<bool>,
     _subs: Vec<Subscription>,
 }
 
@@ -123,7 +129,7 @@ impl LanesEditor {
         let keys = Keys { changes: stop(cx), discard: stop(cx), publish: stop(cx), repository: stop(cx), every: stop(cx) };
         let id: SharedString = format!("{}|{}|{}", subject.workflow, subject.level, subject.manifest).into();
         let draft = Draft::new(String::new(), subject.own_target());
-        let mut editor = LanesEditor { wire, subject, id, read: Read::Loading, saved: None, draft, shown: None, state, history_open: false, refused: None, busy: false, keys, undos: Vec::new(), loading: None, publishing: None, picked: None, armed: false, in_place: None, frame: Rc::default(), _subs: subs };
+        let mut editor = LanesEditor { wire, subject, id, read: Read::Loading, saved: None, draft, shown: None, state, history_open: false, refused: None, busy: false, keys, undos: Vec::new(), loading: None, publishing: None, picked: None, armed: false, in_place: None, frame: Rc::default(), seen: Rc::default(), page: None, reveal: Cell::new(false), _subs: subs };
         editor.load(cx);
         editor
     }
@@ -464,7 +470,14 @@ impl gpui::Render for LanesEditor {
                     }
                 });
                 let canvas = lanes_canvas(self, &self.id, lanes, &look, cx);
-                let over = self.render_in_place(self.frame.get(), &look, window, cx);
+                // After the canvas has laid out this frame's nodes, so a step just added has its place.
+                self.fit_words(&look, cx);
+                let reveal = if self.reveal.get() { self.reveal_target(&look) } else { None };
+                if reveal.is_some() {
+                    self.reveal.set(false);
+                }
+                let watch = self.in_place.is_some();
+                let over = self.render_in_place(self.frame.get(), &look, cx);
                 div()
                     .relative()
                     .flex_none()
@@ -474,7 +487,7 @@ impl gpui::Render for LanesEditor {
                     .flex_col()
                     .capture_key_down(fields)
                     .on_key_down(shut)
-                    .child(in_place::measure(self.frame.clone()))
+                    .child(in_place::measure(self.frame.clone(), self.seen.clone(), reveal.zip(self.page.clone()), watch))
                     .child(canvas)
                     .children(over)
                     .into_any_element()

@@ -3,8 +3,11 @@
 //! there. Each field he changed is one edit in the draft, marked as his. The fields stand over the canvas in window
 //! points, from where the canvas drew the node last (`picked_bounds`, `step_gaps`).
 
+use std::cell::Cell;
+use std::rc::Rc;
+
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, px, svg, Anchor, AnyElement, Bounds, Context, Div, Entity, Focusable, FontWeight, Keystroke, MouseButton, Pixels, Role,
+    canvas, div, point, prelude::*, px, svg, AnyElement, ScrollHandle, Bounds, Context, Div, Entity, Focusable, FontWeight, Keystroke, MouseButton, Pixels, Role,
     SharedString, Subscription, Window,
 };
 use gpui_component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
@@ -78,6 +81,8 @@ pub(super) struct Fields {
     pub(super) words: Entity<TextareaState>,
     was_name: String,
     was_words: String,
+    /// The lines the Words grow to, fewer where the frame has no room for them all.
+    rows: Cell<usize>,
     _subs: Vec<Subscription>,
 }
 
@@ -186,10 +191,11 @@ impl LanesEditor {
                 cx.subscribe_in(&name_box, window, |this, _, event: &InputEvent, window, cx| this.field_said(event, window, cx)),
                 cx.subscribe_in(&words_box, window, |this, _, event: &InputEvent, window, cx| this.field_said(event, window, cx)),
             ];
-            Fields { step, name: name_box, words: words_box, was_name: name, was_words: words, _subs: subs }
+            Fields { step, name: name_box, words: words_box, was_name: name, was_words: words, rows: Cell::new(WORDS_ROWS), _subs: subs }
         });
         let label = fields.as_ref().map_or(label, |fields| fields.was_name.clone());
         self.in_place = Some(InPlace { node: node.to_string(), label, fields, keyed: false });
+        self.reveal.set(true);
         if keyed {
             self.key_into_name(window, cx);
         }
@@ -347,7 +353,7 @@ impl LanesEditor {
 
     /// What stands over the canvas: a + in each gap it shows, the box at the workflow's end, and what is open in
     /// place. `frame` is where the canvas was drawn last, in window points.
-    pub(super) fn render_in_place(&self, frame: Bounds<Pixels>, look: &Look, window: &Window, cx: &Context<Self>) -> Vec<AnyElement> {
+    pub(super) fn render_in_place(&self, frame: Bounds<Pixels>, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
         let mut over = Vec::new();
         if frame.size.width <= px(0.) {
             return over;
@@ -369,7 +375,7 @@ impl LanesEditor {
             cut.push(self.end_box(look, lanes, bounds, named, cx));
         }
         over.push(div().absolute().left(edge - frame.left()).top_0().right_0().bottom_0().overflow_hidden().children(cut).into_any_element());
-        over.extend(self.render_fields(frame, &gaps, look, window));
+        over.extend(self.render_fields(frame, look));
         over
     }
 
@@ -429,48 +435,115 @@ impl LanesEditor {
         labelled(button, Role::Button, said).into_any_element()
     }
 
-    /// The fields under the node they belong to, inside the canvas's width, over it where the window has no room
-    /// under it.
-    fn render_fields(&self, frame: Bounds<Pixels>, gaps: &[StepGap], look: &Look, window: &Window) -> Option<AnyElement> {
+    /// The panel's height with the Words this many lines tall: padding and border, a label over each field, the
+    /// Name's line and the Words. A state's name to read is one label and one line.
+    fn panel_tall(look: &Look, fields: bool, rows: usize) -> Pixels {
+        let label = look.length(token::LEADING_2XS) + look.length(token::SPACE_1);
+        let shell = look.length(token::SPACE_3) * 2. + look.length(token::BORDER_WIDTH) * 2.;
+        if fields {
+            shell + look.length(token::SPACE_3) + label * 2. + look.length(token::SPACE_8) + look.length(token::LEADING_SM) * rows as f32 + look.length(token::SPACE_4)
+        } else {
+            shell + label + look.length(token::LEADING_SM)
+        }
+    }
+
+    /// Where the panel stands, and how many lines its Words get. It stays inside the part of the canvas's frame that
+    /// is drawn: under the node where it fits, else over it, else beside it on the side with more room; where none
+    /// fits it is cut to the frame's height, the Words shortened to what that leaves and the Name kept whole.
+    pub(super) fn place(&self, look: &Look) -> Option<(Bounds<Pixels>, usize)> {
         let one = self.in_place.as_ref()?;
         let node = match &self.picked {
             Some(Pick::Node(picked)) if *picked == one.node => self.state.picked_bounds(&self.id),
-            _ => node_bounds(&one.node, gaps),
+            _ => node_bounds(&one.node, &self.state.step_gaps(&self.id)),
         }?;
+        let seen = self.seen.get();
         let gap = look.length(token::SPACE_2);
+        let area = Bounds { origin: point(seen.left() + gap, seen.top() + gap), size: gpui::size(seen.size.width - gap * 2., seen.size.height - gap * 2.) };
+        let fields = one.fields.is_some();
         let wide = look.length(token::SPACE_12) * 6.;
-        // The panel's height from what it holds: padding, a label over each field, the Name's
-        // line and the Words grown to their most.
-        let label = look.length(token::LEADING_2XS) + look.length(token::SPACE_1);
-        let shell = look.length(token::SPACE_3) * 2.;
-        let tall = if one.fields.is_some() {
-            shell + look.length(token::SPACE_3) + label * 2. + look.length(token::SPACE_8) + look.length(token::LEADING_SM) * WORDS_ROWS as f32 + look.length(token::SPACE_4)
+        let wide = if wide > area.size.width { area.size.width.max(px(0.)) } else { wide };
+        let full = Self::panel_tall(look, fields, WORDS_ROWS);
+        let clamp = |at: Pixels, low: Pixels, high: Pixels| if at > high { high } else { at }.max(low);
+        let x = clamp(node.left(), area.left(), area.right() - wide);
+        let below = area.bottom() - (node.bottom() + gap);
+        let above = (node.top() - gap) - area.top();
+        let at = |x: Pixels, y: Pixels, tall: Pixels| Bounds { origin: point(x, y), size: gpui::size(wide, tall) };
+        if below >= full {
+            return Some((at(x, node.bottom() + gap, full), WORDS_ROWS));
+        }
+        if above >= full {
+            return Some((at(x, node.top() - gap - full, full), WORDS_ROWS));
+        }
+        let right = area.right() - (node.right() + gap);
+        let left = (node.left() - gap) - area.left();
+        if right.max(left) >= wide && area.size.height >= full {
+            let x = if right >= left { node.right() + gap } else { node.left() - gap - wide };
+            return Some((at(x, clamp(node.top(), area.top(), area.bottom() - full), full), WORDS_ROWS));
+        }
+        let rows = if fields {
+            let spare = area.size.height - Self::panel_tall(look, true, 0);
+            ((spare / look.length(token::LEADING_SM)).floor() as usize).clamp(1, WORDS_ROWS)
         } else {
-            shell + label + look.length(token::LEADING_SM)
+            WORDS_ROWS
         };
-        let most = frame.right() - wide - gap;
-        let x = if node.left() > most { most } else { node.left() };
-        let x = if x < frame.left() + gap { frame.left() + gap } else { x };
-        // Under the node where it fits, else over it, else on whichever side has more room: never on it.
-        let below = window.viewport_size().height - node.bottom();
-        let under = below >= gap + tall || (node.top() < gap + tall && below > node.top());
-        let (at, anchor) = if under { (point(x, node.bottom() + gap), Anchor::TopLeft) } else { (point(x, node.top() - gap), Anchor::BottomLeft) };
+        let tall = Self::panel_tall(look, fields, rows);
+        let y = if below >= above { node.bottom() + gap } else { node.top() - gap - tall };
+        Some((at(x, clamp(y, area.top(), area.bottom() - tall), tall), rows))
+    }
 
+    /// The page the editor scrolls in: fields that open are scrolled into view in it. The host's one line.
+    pub fn scrolls_in(&mut self, page: ScrollHandle) {
+        self.page = Some(page);
+    }
+
+    /// What the page shows when fields open, relative to the canvas's frame: the node, and the panel at its whole
+    /// height under it.
+    pub(super) fn reveal_target(&self, look: &Look) -> Option<Bounds<Pixels>> {
+        let one = self.in_place.as_ref()?;
+        let node = match &self.picked {
+            Some(Pick::Node(picked)) if *picked == one.node => self.state.picked_bounds(&self.id),
+            _ => node_bounds(&one.node, &self.state.step_gaps(&self.id)),
+        }?;
+        let frame = self.frame.get();
+        let gap = look.length(token::SPACE_2);
+        let tall = node.size.height + (gap * 2. + Self::panel_tall(look, one.fields.is_some(), WORDS_ROWS));
+        Some(Bounds { origin: point(node.left() - frame.left(), node.top() - frame.top()), size: gpui::size(node.size.width, tall) })
+    }
+
+    /// The Words shortened to the lines `place` leaves them, before the panel is drawn at that height.
+    pub(super) fn fit_words(&self, look: &Look, cx: &mut Context<Self>) {
+        let Some((_, rows)) = self.place(look) else { return };
+        let Some(fields) = self.in_place.as_ref().and_then(|one| one.fields.as_ref()) else { return };
+        if fields.rows.replace(rows) != rows {
+            fields.words.update(cx, |state, cx| state.set_auto_grow(rows.min(2), rows, cx));
+        }
+    }
+
+    /// The fields where `place` puts them, in a layer cut to the canvas's frame: nothing outside it is covered.
+    fn render_fields(&self, frame: Bounds<Pixels>, look: &Look) -> Option<AnyElement> {
+        let one = self.in_place.as_ref()?;
+        let (at, _) = self.place(look)?;
+        let line = look.length(token::LEADING_SM);
         let rows: Vec<AnyElement> = match &one.fields {
             Some(fields) => vec![
-                row(look, "Name", labelled(div().id("lanes-in-place-name").key_context(crate::keymap::TEXT_BOX).w_full().text_size(look.length(token::TEXT_SM)).child(Input::new(&fields.name)), Role::TextInput, "Name").into_any_element()).into_any_element(),
-                row(look, "Words", labelled(div().id("lanes-in-place-words").key_context(crate::keymap::TEXT_BOX).w_full().text_size(look.length(token::TEXT_SM)).child(Textarea::new(&fields.words)), Role::TextInput, "Words").into_any_element()).into_any_element(),
+                row(look, "Name", labelled(div().id("lanes-in-place-name").key_context(crate::keymap::TEXT_BOX).w_full().text_size(look.length(token::TEXT_SM)).line_height(line).child(Input::new(&fields.name)), Role::TextInput, "Name").into_any_element()).flex_none().into_any_element(),
+                row(look, "Words", labelled(div().id("lanes-in-place-words").key_context(crate::keymap::TEXT_BOX).w_full().flex_1().min_h_0().text_size(look.length(token::TEXT_SM)).line_height(line).child(Textarea::new(&fields.words)), Role::TextInput, "Words").into_any_element()).flex_1().min_h_0().into_any_element(),
             ],
             None => vec![row(
                 look,
                 "Name",
-                labelled(div().id("lanes-in-place-read").text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(one.label.clone())), Role::Label, one.label.clone()).into_any_element(),
+                labelled(div().id("lanes-in-place-read").text_size(look.length(token::TEXT_SM)).line_height(line).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(one.label.clone())), Role::Label, one.label.clone()).into_any_element(),
             )
             .into_any_element()],
         };
         let panel = div()
             .id("lanes-in-place")
-            .w(wide)
+            .absolute()
+            .left(at.left() - frame.left())
+            .top(at.top() - frame.top())
+            .w(at.size.width)
+            .max_h(at.size.height)
+            .overflow_hidden()
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_3))
@@ -483,7 +556,7 @@ impl LanesEditor {
             .occlude()
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .children(rows);
-        Some(deferred(anchored().position(at).anchor(anchor).snap_to_window_with_margin(gap).child(labelled(panel, Role::Group, one.label.clone()))).with_priority(3).into_any_element())
+        Some(div().absolute().top_0().left_0().size_full().overflow_hidden().child(labelled(panel, Role::Group, one.label.clone())).into_any_element())
     }
 }
 
@@ -499,9 +572,42 @@ fn row(look: &Look, said: &'static str, value: AnyElement) -> Div {
     div().flex().flex_col().gap(look.length(token::SPACE_1)).min_w_0().child(label).child(value)
 }
 
-/// Records where the canvas's frame was drawn, for what stands over it.
-pub(super) fn measure(at: std::rc::Rc<std::cell::Cell<Bounds<Pixels>>>) -> impl IntoElement {
-    canvas(move |bounds, _, _| at.set(bounds), |_, _, _, _| {}).absolute().top_0().left_0().size_full()
+/// Records where the canvas's frame was drawn, for what stands over it, and the part of it the page let be seen.
+/// While fields are open (`watch`), a change in that part draws again, so the fields follow a scroll of the page.
+/// `reveal` is a place relative to the frame that the page is scrolled the least to show whole, or its top where it is
+/// taller than the page.
+pub(super) fn measure(at: Rc<Cell<Bounds<Pixels>>>, seen: Rc<Cell<Bounds<Pixels>>>, reveal: Option<(Bounds<Pixels>, ScrollHandle)>, watch: bool) -> impl IntoElement {
+    canvas(
+        move |bounds, window, _| {
+            at.set(bounds);
+            let shown = bounds.intersect(&window.content_mask().bounds);
+            if seen.replace(shown) != shown && watch {
+                window.refresh();
+            }
+            let Some((place, page)) = reveal else { return };
+            let place = Bounds { origin: point(bounds.left() + place.left(), bounds.top() + place.top()), size: place.size };
+            let view = page.bounds();
+            let mut by = Pixels::ZERO;
+            if place.bottom() > view.bottom() {
+                by = place.bottom() - view.bottom();
+            }
+            if place.top() - by < view.top() {
+                by = place.top() - view.top();
+            }
+            if by == Pixels::ZERO {
+                return;
+            }
+            let offset = page.offset();
+            let y = (offset.y - by).max(-page.max_offset().y).min(Pixels::ZERO);
+            page.set_offset(point(offset.x, y));
+            window.refresh();
+        },
+        |_, _, _, _| {},
+    )
+    .absolute()
+    .top_0()
+    .left_0()
+    .size_full()
 }
 
 #[cfg(test)]
