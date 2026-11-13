@@ -1,0 +1,8 @@
+[operations.unmark_file_viewed]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Take a file's viewed mark off"
+notes = """
+`POST /pull_request_viewed/:repository/unmark`, `repository` a manifest id, body `UnmarkFileViewed`: `number` and `path`. Answers the same body. A file that was not marked is not an error.
+"""

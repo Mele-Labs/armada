@@ -4,6 +4,7 @@
 // The header rules in `protocol.ts` hold here.
 
 import type { PullRequestReviewState } from "./pull-requests";
+import type { PullInbox, PullMyReview, PullSeen } from "./pull-review-memory";
 import type { PullReviewHolder } from "./review-runs";
 
 /** The four lists. A pull request can be on several. */
@@ -35,6 +36,12 @@ export type PullReviewRow = {
   team?: string;
   /** The Session of the person's that holds it, where one does. Absent, and a note on it stays in Armada. */
   holder?: PullReviewHolder;
+  /** The head the person last left it at. Absent where he never has. */
+  seen?: PullSeen;
+  /** His own latest submitted review of it. Absent where he has none. */
+  my_review?: PullMyReview;
+  /** Where it stands in his inbox, worked out by Fleet. Absent from a Fleet before it, read as `needs_first_look`. */
+  inbox?: PullInbox;
 };
 
 /** `get_review_lists`: read when the Reviews tab opens and on Refresh, never polled. At most `MOST_PER_LIST` a list. */

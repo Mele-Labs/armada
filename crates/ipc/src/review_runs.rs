@@ -154,6 +154,11 @@ pub struct StartReviewRun {
     /// two runs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub finding: Option<ReviewFinding>,
+    /// Read only the change from this commit to the head, as `get_pull_request_compare` answers
+    /// it: the person's seen head, for what changed since he looked. Its result is kept for the
+    /// range. A base the forge no longer has fails the run with that reason. Not for a fix.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since: Option<String>,
 }
 
 /// A place in the change: a range of lines of a file, on one side of the diff.
@@ -240,7 +245,17 @@ pub struct ReviewFinding {
     pub body: String,
     pub severity: ReviewSeverity,
     pub at: ReviewPlace,
+    /// Words the person can post on the pull request for it as they are, to its author: one or two
+    /// plain sentences on what is wrong and what to do, at most [`COMMENT_AT_MOST`] characters.
+    /// **Fleet posts nothing.** Empty only on a finding kept before comments were asked for.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub comment: String,
 }
+
+/// The longest a finding's [`ReviewFinding::comment`] may be, in characters.
+pub const COMMENT_AT_MOST: usize = 280;
+/// The most sentences a finding's [`ReviewFinding::comment`] may have.
+pub const COMMENT_SENTENCES_AT_MOST: usize = 2;
 
 /// One stop of a tour: a piece of the change and one line on what it does.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -302,6 +317,11 @@ pub struct ReviewRun {
     pub name: String,
     /// The commit it ran on, whole. A reader that holds a newer head marks the run out of date.
     pub head: String,
+    /// The commit its range starts from, where it read only the change from there to `head`.
+    /// **A ranged run never stands in for a whole one**, nor one range for another. Absent for the
+    /// whole pull request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since: Option<String>,
     pub state: ReviewRunState,
     /// RFC 3339.
     pub started_at: String,

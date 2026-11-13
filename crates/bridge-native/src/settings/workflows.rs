@@ -995,11 +995,12 @@ mod tests {
         cx.run_until_parked();
         cx.update(|window, cx| overlay.update(cx, |this, cx| this.pick_workflow("repository@armada:feature", window, cx)));
         cx.run_until_parked();
+        cx.run_until_parked();
         (overlay, cx)
     }
 
     /// Every text field the pane draws for the picked row, each with the name a person knows it by: the search, the
-    /// box that asks an agent, each step's words, and a lane named from nothing.
+    /// box that asks an agent, and a lane named from nothing.
     fn fields(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Vec<(&'static str, gpui::FocusHandle)> {
         cx.update(|window, cx| {
             overlay.update(cx, |this, cx| {
@@ -1011,7 +1012,7 @@ mod tests {
         let mut found = vec![("Search workflows", overlay.read_with(cx, |this, cx| this.workflows.filter.read(cx).focus_handle(cx)))];
         let boxes = overlay.read_with(cx, |this, cx| this.workflows.detail.fields(cx));
         found.extend(boxes.into_iter().map(|handle| ("a box in the detail", handle)));
-        let lane = cx.update(|window, cx| overlay.read(cx).lanes_typing(window, cx).then(|| window.focused(cx)).flatten());
+        let lane = cx.update(|window, cx| overlay.read(cx).in_text(window).then(|| window.focused(cx)).flatten());
         found.extend(lane.map(|handle| ("Lane name", handle)));
         found
     }
@@ -1021,7 +1022,7 @@ mod tests {
         let (overlay, cx) = opened(cx);
         let found = fields(&overlay, cx);
         let names: Vec<&str> = found.iter().map(|(name, _)| *name).collect();
-        assert!(names.contains(&"Search workflows") && names.contains(&"Lane name") && names.len() >= 4, "the search, the lane, the ask box and each step's words are all reached: {names:?}");
+        assert!(names.contains(&"Search workflows") && names.contains(&"Lane name") && names.len() >= 3, "the search, the lane and the ask box are all reached: {names:?}");
         for (name, handle) in found {
             cx.update(|window, cx| window.focus(&handle, cx));
             cx.simulate_keystrokes("f");
@@ -1041,5 +1042,15 @@ mod tests {
         cx.update(|window, cx| window.focus(&row, cx));
         cx.simulate_keystrokes("f");
         assert!(cx.update(|window, _| search.is_focused(window)), "off a field, F still goes to the search");
+    }
+
+    #[gpui::test]
+    fn a_bare_letter_typed_in_the_settings_search_stays_in_it(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        let search = overlay.read_with(cx, |this, cx| this.query.read(cx).focus_handle(cx));
+        cx.update(|window, cx| window.focus(&search, cx));
+        cx.simulate_keystrokes("/ f left");
+        assert!(cx.update(|window, _| search.is_focused(window)), "the Settings search lost the keys to a shortcut");
+        assert_eq!(overlay.read_with(cx, |this, cx| this.query_text(cx)), "/f");
     }
 }

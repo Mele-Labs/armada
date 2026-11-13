@@ -50,6 +50,7 @@ fn pull(number: u64, repository: &str) -> ListedPull {
         checks: ListedChecks::Running,
         review: ReviewStanding::None,
         team: None,
+        my_latest: None,
     }
 }
 

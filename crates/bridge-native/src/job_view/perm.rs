@@ -88,7 +88,7 @@ impl JobView {
         .into_any_element()
     }
 
-    pub(super) fn permission(&self, id: &SharedString, ask: &ThreadAsk, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn permission(&self, id: &SharedString, ask: &ThreadAsk, look: &Look, cx: &Context<Self>) -> super::dock::Pinned {
         let call = &ask.call;
         let target = self.is_target(&format!("question:{}", call.call));
         let word = match call.reaches_to {
@@ -194,20 +194,23 @@ impl JobView {
             div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(offers).into_any_element()
         };
         let said = self.dock_of(id).and_then(|dock| dock.said.get(&format!("question:{}", call.call)).cloned());
-        labelled(
+        let answers = labelled(super::acts::gated(div().id(SharedString::from(format!("answers:{}", call.call))).child(answers), self.off_shown(cx)), Role::Group, "Answers").into_any_element();
+        // The reach card's answers are long and read with the command, so they scroll with it; plain answers stay at the foot.
+        let (inside, foot) = if reach { (Some(answers), None) } else { (None, Some(answers)) };
+        let body = labelled(
             div()
                 .id(SharedString::from(format!("permission:{}", call.call)))
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
-                .child(eyebrow(look, word).text_color(look.color(token::FG_MUTED)))
                 .child(command)
                 .children(said.map(|why| super::acts::refusal(look, &call.call, why)))
-                .child(labelled(super::acts::gated(div().id(SharedString::from(format!("answers:{}", call.call))).child(answers), self.off_shown(cx)), Role::Group, "Answers")),
+                .children(inside),
             Role::Region,
             "Waiting on you",
         )
-        .into_any_element()
+        .into_any_element();
+        super::dock::Pinned { stepper: None, head: Some(eyebrow(look, word).text_color(look.color(token::FG_MUTED)).into_any_element()), body, foot }
     }
 
     /// The reach card: the once answers, then what always applies to, and calls like this.

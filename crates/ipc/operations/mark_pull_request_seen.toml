@@ -1,0 +1,12 @@
+[operations.mark_pull_request_seen]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Remember the head a person left a pull request at, so the next visit can show what changed since"
+notes = """
+`POST /pull_request_seen/:repository`, `repository` a manifest id, body `MarkPullSeen`: `number` and `head`, the whole commit he was looking at. Answers the `PullSeen` kept: `head` and `at`. A later mark replaces it.
+
+**Bridge sends it when he leaves the pull request or presses Mark as seen, never on open**, so the range since he looked holds for the whole visit. Kept per manifest, repository and number in Fleet's store, never on the forge. `get_pull_request_detail` and each row of `get_review_lists` carry it back as `seen`.
+
+A 422 `fleet.pull_review_memory_invalid` for a `head` that is not a commit name, and a 422 for a repository Fleet does not serve.
+"""

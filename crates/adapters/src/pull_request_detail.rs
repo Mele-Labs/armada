@@ -13,11 +13,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use adapter_traits::{
-    CheckRow, CheckStanding, CommitLine, FileChange, Mergeability, Omitted, PageFile,
+    CheckRow, CheckStanding, CommitLine, FileChange, LatestReview, Mergeability, Omitted, PageFile,
     PullRequestPageFacts, ReviewSaid, ReviewStanding, Reviewer, ReviewerKind, Said,
 };
 
 use crate::delivery::asked_lines;
+use crate::pull_review_lists::latest_of;
 use crate::under_review::as_written;
 
 /// The most files one read keeps, from the first.
@@ -44,7 +45,8 @@ const REDUCTION: &str = "\
     (.latestReviews // [] | .[] | select(.state == \"APPROVED\") | \
         [\"approver\", (.author.login // \"\")]), \
     (.latestReviews // [] | .[] | select(.state != \"PENDING\") | \
-        [\"verdict\", (.author.login // \"\"), (.state // \"\")]), \
+        [\"verdict\", (.author.login // \"\"), (.state // \"\"), (.commit.oid // \"\"), \
+         (.submittedAt // \"\")]), \
     (.reviewRequests // [] | .[] | \
         [\"requested\", (if .__typename == \"Team\" then \"team\" else \"person\" end), \
          (.login // .slug // .name // \"\")]), \
@@ -196,7 +198,10 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
                 parts.approvers.insert(next());
             }
             "verdict" => {
-                let (login, state) = (next(), next());
+                let (login, state, commit, at) = (next(), next(), next(), next());
+                if let Some(latest) = latest_of(&state, &commit, &at) {
+                    parts.latest.insert(login.clone(), latest);
+                }
                 parts.verdicts.insert(login, review_said(&state));
             }
             "requested" => {
@@ -273,6 +278,8 @@ pub(crate) struct PageParts {
     pub head: Option<Head>,
     pub approvers: BTreeSet<String>,
     pub verdicts: BTreeMap<String, ReviewSaid>,
+    /// Each reviewer's latest submitted review, with its commit and time.
+    pub latest: BTreeMap<String, LatestReview>,
     pub requested: Vec<(ReviewerKind, String)>,
     pub said: Vec<Said>,
     pub checks: Vec<CheckRow>,
@@ -285,7 +292,7 @@ pub(crate) struct PageParts {
 impl PageParts {
     /// `None` without a head record naming a base.
     pub(crate) fn facts(self) -> Option<PullRequestPageFacts> {
-        let PageParts { head, approvers, verdicts, requested, mut said, mut checks, mut files, mut commits, unread } = self;
+        let PageParts { head, approvers, verdicts, latest, requested, mut said, mut checks, mut files, mut commits, unread } = self;
         let head = head.filter(|head| !head.base.is_empty())?;
         // Comments and reviews arrive as two lists; the sort is stable.
         said.sort_by(|a, b| a.at().cmp(b.at()));
@@ -323,6 +330,7 @@ impl PageParts {
             body: (!head.body.trim().is_empty()).then_some(head.body),
             threads: Vec::new(),
             reviewers,
+            latest_reviews: latest,
         })
     }
 }

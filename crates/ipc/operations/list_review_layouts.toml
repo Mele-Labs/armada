@@ -1,0 +1,10 @@
+[operations.list_review_layouts]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The named Reviews layouts and the one every pull request opens on"
+notes = """
+`GET /review_layouts`. Answers `ReviewLayouts`: `layouts`, Fleet's `Default` first (`shipped` true) and then his by name, and `picked`, the name every pull request opens on. Each `arrangement` is a pane tree as Bridge writes it, `{ root, focus, next, threadWas? }`, as a JSON string Fleet does not read into.
+
+`Default` is three columns: the inbox, then what changed, the files, the conversation and the checks as tabs of one pane, then the findings and the comments. `picked` is `Default` where he never picked one or deleted the one he picked.
+"""

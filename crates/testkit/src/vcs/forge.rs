@@ -290,6 +290,15 @@ impl Forge for FakeVcs {
         self.patches_read(pull_request)
     }
 
+    fn pull_request_compare(
+        &self,
+        _in_repo: &str,
+        base: &str,
+        head: &str,
+    ) -> Option<adapter_traits::ComparedPatches> {
+        self.compare_read(base, head)
+    }
+
     fn pull_request_comments(&self, _in_repo: &str, number: u64) -> Option<Vec<adapter_traits::PullComment>> {
         self.main_ci.comments(number)
     }
