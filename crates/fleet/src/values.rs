@@ -454,7 +454,11 @@ where
     /// `get_values`.
     pub(crate) async fn values_asked(&self, project: Option<String>, repository: Option<ManifestId>) -> Result<ipc::ResolvedValues, Refusal> {
         let project = project.map(|id| id.trim().to_string()).filter(|id| !id.is_empty());
-        self.values_resolved(project.as_deref(), repository.as_ref()).await.map(|resolved| resolved_wire(&resolved))
+        let wire = resolved_wire(&self.values_resolved(project.as_deref(), repository.as_ref()).await?);
+        match project {
+            Some(project) => self.project_values_annotated(wire, &project, repository.as_ref()).await,
+            None => Ok(wire),
+        }
     }
 
     /// The values a Job starting in `repository` for `project` takes. **`None` where they could not be read**, said

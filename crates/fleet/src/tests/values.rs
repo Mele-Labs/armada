@@ -508,3 +508,41 @@ async fn a_projects_delivery_beats_kits_and_the_answer_names_the_layer() {
     let projects = asked(Some(set)).await.expect("read").delivery.expect("the key");
     assert_eq!((projects.value.as_deref(), projects.from), (Some("auto_land"), ValueLayer::Project));
 }
+
+#[tokio::test]
+async fn a_value_the_project_overrides_says_what_kit_would_give() {
+    let rig = a_rig("");
+    rig.kit_values("version: 1\nvalues:\n  pr_mode: draft\n");
+    let project = rig.project(Some(set(Some(core_model::PrMode::Ready), None))).await;
+
+    let asked = rig.fleet.values_asked(Some(project), Some(rig.manifest())).await.expect("read");
+    let (value, from) = (asked.pr_mode.value.as_deref(), asked.pr_mode.from);
+    assert_eq!((value, from), (Some("ready"), ValueLayer::Project));
+    assert_eq!((asked.pr_mode.inherited.as_deref(), asked.pr_mode.inherited_from), (Some("draft"), Some(ValueLayer::Kit)));
+}
+
+#[tokio::test]
+async fn a_value_not_from_the_project_carries_no_inherited() {
+    let rig = a_rig("");
+    rig.kit_values("version: 1\nvalues:\n  look:\n    theme: paper\n");
+    let project = rig.project(Some(set(Some(core_model::PrMode::Ready), None))).await;
+    let carries = |one: &ipc::ResolvedValue| (one.inherited.clone(), one.inherited_from);
+
+    let asked = rig.fleet.values_asked(Some(project), Some(rig.manifest())).await.expect("read");
+    assert_eq!(asked.theme.from, ValueLayer::Kit);
+    assert_eq!(carries(&asked.theme), (None, None), "Kit's word is the answer, and nothing is below the project's");
+    assert_eq!(carries(&asked.density), (None, None));
+    let no_project = rig.fleet.values_asked(None, Some(rig.manifest())).await.expect("read");
+    assert_eq!(carries(&no_project.pr_mode), (None, None), "no project, nothing overridden");
+    assert_eq!(carries(&no_project.delivery.expect("the key")), (None, None));
+}
+
+#[tokio::test]
+async fn an_override_of_a_value_unset_below_says_default() {
+    let rig = a_rig("");
+    let project = rig.project(Some(delivery_set("auto_land"))).await;
+
+    let delivery = rig.fleet.values_asked(Some(project), Some(rig.manifest())).await.expect("read").delivery.expect("the key");
+    assert_eq!((delivery.value.as_deref(), delivery.from), (Some("auto_land"), ValueLayer::Project));
+    assert_eq!((delivery.inherited, delivery.inherited_from), (None, Some(ValueLayer::Default)), "unset below, which is not missing");
+}
