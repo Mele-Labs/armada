@@ -59,6 +59,17 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/workflows/draft/publish",
     },
+    // What a publish keeps: read as a list, and gone back to by an act that puts one in the draft.
+    Route {
+        operation: "get_workflow_versions",
+        method: "GET",
+        path: "/workflows/versions",
+    },
+    Route {
+        operation: "revert_workflow",
+        method: "POST",
+        path: "/workflows/revert",
+    },
     Route {
         operation: "delete_workflow_copy",
         method: "POST",

@@ -11,9 +11,9 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    ArmadaProposed, AskWorkflowChange, ManifestId, ProposeNewWorkflow, ProposeToArmada, ProposeWorkflowChange, PublishWorkflowDraft,
+    ArmadaProposed, AskWorkflowChange, ManifestId, ProposeNewWorkflow, ProposeToArmada, ProposeWorkflowChange, PublishWorkflowDraft, RevertWorkflow,
     PutWorkflowDraft, SaveWorkflow, SendBackWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
-    WorkflowCopy, WorkflowCopyDeleted, WorkflowDraft, WorkflowDraftDiscarded, WorkflowId, WorkflowPublished, WorkflowSaved,
+    WorkflowCopy, WorkflowCopyDeleted, WorkflowDraft, WorkflowDraftDiscarded, WorkflowId, WorkflowPublished, WorkflowSaved, WorkflowVersions,
     WorkflowSupportBuilding,
 };
 
@@ -160,4 +160,22 @@ pub trait Authoring: Send + Sync + 'static {
         publish: PublishWorkflowDraft,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<WorkflowPublished, Refusal>> + Send;
+
+    /// `get_workflow_versions` — the versions of one workflow in one place, newest first. Empty, not
+    /// [`Refusal::NotFound`], where nothing was published there.
+    fn get_workflow_versions(
+        &self,
+        workflow_id: WorkflowId,
+        source: String,
+        project: Option<String>,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowVersions, Refusal>> + Send;
+
+    /// `revert_workflow` — put one version's text in the draft as a change by `you`, beginning the draft where there is none.
+    /// Nothing is published. [`Refusal::NotFound`] where the place has no such version.
+    fn revert_workflow(
+        &self,
+        revert: RevertWorkflow,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowDraft, Refusal>> + Send;
 }
