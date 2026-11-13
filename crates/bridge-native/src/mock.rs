@@ -27,6 +27,13 @@ pub fn preview_offers(skipped: bool) -> ipc::PreviewOffers {
     offers
 }
 
+/// The Jobs the pairing walk runs on Air: Fix the merge line freshness chip, which needs him, Audit the docs
+/// index, and Quiet the write-clash notices, which `session.removed` takes away.
+pub const AIR_JOBS: [&str; 3] = ["mock-01", "mock-04", "mock-06"];
+
+/// The Job the pairing walk's `session.removed` names.
+pub const AIR_REMOVED: &str = "mock-06";
+
 /// The Jobs of a named scenario, as `GET /sessions` would answer them.
 pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if let Ok(mut held) = SCENARIO.lock() {
@@ -86,7 +93,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "job-view-composer" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
-        "jobs-screens" => include_bytes!("../fixtures/jobs-screens.json"),
+        "jobs-screens" | "jobs-pairing" => include_bytes!("../fixtures/jobs-screens.json"),
         // Jobs started by Jobs: one starter with two, a chain two deep beside a third, and a lone Job; the
         // starter and the deepest Job need him.
         "jobs-tree" => include_bytes!("../fixtures/jobs-tree.json"),
@@ -116,6 +123,12 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         other => return Err(format!("no mock scenario named {other}")),
     };
     let mut sessions = ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())?;
+    // The tour's Jobs with three on another Mac: the one that needs him, a quiet one and one a walk has removed.
+    if scenario == "jobs-pairing" {
+        for one in sessions.iter_mut().filter(|one| AIR_JOBS.contains(&one.id.as_str())) {
+            one.mac = Some("air".into());
+        }
+    }
     // Now's figures count from now, so the scenario's clock is moved to the run's.
     if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes" | "job-lanes-marks") {
         for one in &mut sessions {
@@ -313,7 +326,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         threads: Vec<JobThread>,
     }
     let bytes: &[u8] = match scenario {
-        "jobs-screens" => return screens_threads(),
+        "jobs-screens" | "jobs-pairing" => return screens_threads(),
         "job-view" | "review-palette" | "terminal-job" | "new-project" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
@@ -720,7 +733,7 @@ pub fn catalogue() -> Option<Catalogue> {
         scripts: Vec<Talk>,
     }
     let named = SCENARIO.lock().ok()?.clone();
-    if !matches!(named.as_str(), "job-view-composer" | "jobs-screens" | "thread-presses" | "sent-messages" | "history" | "job-panes" | "job-panes-more") {
+    if !matches!(named.as_str(), "job-view-composer" | "jobs-screens" | "jobs-pairing" | "thread-presses" | "sent-messages" | "history" | "job-panes" | "job-panes-more") {
         return None;
     }
     let read = || -> Result<Catalogue, String> {

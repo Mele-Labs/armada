@@ -48,6 +48,7 @@ mod mock;
 mod new_project;
 mod notify;
 mod operator;
+mod pairing;
 mod palette;
 mod point;
 mod queued;
@@ -243,6 +244,7 @@ fn main() -> ExitCode {
         // Only the live app keeps what he typed across a restart: a walk, a mock and a test never read or write his file.
         if matches!(mode, Mode::Live) {
             drafts::persist(drafts::file(), cx);
+            pairing::follow(cx);
         }
         cx.spawn(async move |cx| {
             while let Ok(address) = arrived.recv().await {

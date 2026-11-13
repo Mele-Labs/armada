@@ -978,7 +978,7 @@ impl JobView {
     }
 
     /// A small press at a row's end, a tab stop that Enter and Space press.
-    fn row_control(&self, id: impl Into<gpui::ElementId>, primary: bool, look: &Look) -> gpui::Stateful<gpui::Div> {
+    fn row_control(&self, id: impl Into<gpui::ElementId>, primary: bool, look: &Look, cx: &gpui::App) -> gpui::Stateful<gpui::Div> {
         let control = div()
             .id(id)
             .flex_none()
@@ -993,18 +993,20 @@ impl JobView {
             .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
             .tab_index(0)
             .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)));
-        if primary {
+        let control = if primary {
             control.bg(look.color(token::ACCENT)).text_color(look.color(token::TEXT_ON_ACCENT)).hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
         } else {
             control.text_color(look.color(token::FG_MUTED)).hover(|style| style.bg(look.color(token::BG_RAISED)).text_color(look.color(token::FG_DEFAULT)))
-        }
+        };
+        // On a Job that runs on another Mac the control is off, and its tooltip says where it runs.
+        super::acts::gated(control, self.off_shown(cx))
     }
 
     /// Done on a To do row: he did it. The row goes at once with whatever note is in its box.
     fn done_button(&self, row: &NeedsYouRow, look: &Look, cx: &Context<Self>) -> AnyElement {
         let item = row.id.clone();
         labelled(
-            self.row_control(SharedString::from(format!("needs-done:{}", row.id)), true, look)
+            self.row_control(SharedString::from(format!("needs-done:{}", row.id)), true, look, cx)
                 .px(look.length(token::SPACE_3))
                 .child("Done")
                 .on_click(cx.listener(move |this, _, window, cx| {
@@ -1027,9 +1029,9 @@ impl JobView {
             NeedsYouDismiss::None | NeedsYouDismiss::NotAQuestion => None,
             NeedsYouDismiss::Plain => Some(
                 labelled(
-                    self.row_control(SharedString::from(format!("needs-remove:{}", row.id)), false, look)
+                    self.row_control(SharedString::from(format!("needs-remove:{}", row.id)), false, look, cx)
                         .size(look.length(token::H_CONTROL_SM))
-                        .tooltip(tip("Remove"))
+                        .when(self.off_shown(cx).is_none(), |control| control.tooltip(tip("Remove")))
                         .child(glyph(look, "x", Size::Small, look.color(token::FG_MUTED)))
                         .on_click(cx.listener(move |this, _, window, cx| {
                             cx.stop_propagation();
@@ -1042,7 +1044,7 @@ impl JobView {
             ),
             NeedsYouDismiss::Skip => Some(
                 labelled(
-                    self.row_control(SharedString::from(format!("needs-skip:{}", row.id)), false, look)
+                    self.row_control(SharedString::from(format!("needs-skip:{}", row.id)), false, look, cx)
                         .px(look.length(token::SPACE_3))
                         .child("Skip")
                         .on_click(cx.listener(move |this, _, window, cx| {
@@ -1056,9 +1058,9 @@ impl JobView {
             ),
             NeedsYouDismiss::Reason => Some(
                 labelled(
-                    self.row_control(SharedString::from(format!("needs-remove:{}", row.id)), false, look)
+                    self.row_control(SharedString::from(format!("needs-remove:{}", row.id)), false, look, cx)
                         .size(look.length(token::H_CONTROL_SM))
-                        .tooltip(tip("Remove"))
+                        .when(self.off_shown(cx).is_none(), |control| control.tooltip(tip("Remove")))
                         .child(glyph(look, "x", Size::Small, look.color(token::FG_MUTED)))
                         .on_click(cx.listener(move |this, _, window, cx| {
                             cx.stop_propagation();
