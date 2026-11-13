@@ -28,12 +28,18 @@ use crate::labels::labelled;
 use crate::log::Note;
 use crate::look::{token, ActiveLook, Look};
 
-actions!(jobs, [RowMenu, Earlier]);
+actions!(jobs, [RowMenu, Earlier, FoldRow, UnfoldRow]);
 
 /// The list's keys the registry does not carry yet: Shift+F10 for a row's menu, as Electron binds
 /// it in `Deck.tsx`, and `h` for the Job this one took over from, whose registry row waits on the look.
+/// ← and → fold and unfold a parent's sub-Jobs; Electron's list does not fold, so they have no registry row.
 pub fn bind(cx: &mut App) {
-    cx.bind_keys([KeyBinding::new("shift-f10", RowMenu, Some("list")), KeyBinding::new("h", Earlier, Some("list"))]);
+    cx.bind_keys([
+        KeyBinding::new("shift-f10", RowMenu, Some("list")),
+        KeyBinding::new("h", Earlier, Some("list")),
+        KeyBinding::new("left", FoldRow, Some("list")),
+        KeyBinding::new("right", UnfoldRow, Some("list")),
+    ]);
 }
 
 /// Which Jobs the list holds (`cockpit/deck/store.ts`, `SCOPES`).
@@ -90,6 +96,8 @@ struct Row {
     through: Vec<bool>,
     /// The last Job its starter started, where the starter's line ends in an elbow.
     ends: bool,
+    /// Set where Jobs stand under this one: whether they are folded away, and what the fold keeps in view.
+    kids: Option<Kids>,
     /// The Job that started this one, by title and project, for the link's tooltip.
     started_by: Option<(SharedString, SharedString)>,
     slot: Option<SharedString>,
@@ -108,6 +116,71 @@ struct Row {
     /// Drawn only for its place, as the starter of a listed Job the scope leaves out: muted, never pressed.
     place: bool,
 }
+
+/// A parent's sub-Jobs as its row knows them.
+#[derive(Clone, Debug, PartialEq)]
+struct Kids {
+    folded: bool,
+    /// While folded: each sub-Job down the tree, one that needs him first, so a clipped strip never loses a need.
+    strip: Vec<Sub>,
+}
+
+/// One sub-Job in a folded parent's strip.
+#[derive(Clone, Debug, PartialEq)]
+struct Sub {
+    id: SharedString,
+    title: SharedString,
+    mark: JobMark,
+    paused: bool,
+    pr: Option<SharedString>,
+}
+
+/// Which parents are folded, and the switch that folds every one, new ones too. Kept between runs.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct Folds {
+    root_only: bool,
+    parents: std::collections::BTreeSet<String>,
+}
+
+impl Folds {
+    fn folds(&self, id: &str) -> bool {
+        self.root_only || self.parents.contains(id)
+    }
+
+    /// An unfold under the switch ends it and keeps every other parent folded, the one way to open one parent
+    /// while the rest stay shut.
+    fn unfold(&mut self, id: &str, parents: &[String]) {
+        if self.root_only {
+            self.root_only = false;
+            self.parents = parents.iter().cloned().collect();
+        }
+        self.parents.remove(id);
+    }
+
+    fn fold_all(&mut self, parents: &[String]) {
+        self.parents = parents.iter().cloned().collect();
+    }
+
+    fn unfold_all(&mut self) {
+        self.root_only = false;
+        self.parents.clear();
+    }
+
+    /// The switch on its own line, then `fold <id>` for each parent.
+    fn text(&self) -> String {
+        let switch = self.root_only.then(|| ROOT_ONLY.to_string());
+        switch.into_iter().chain(self.parents.iter().map(|id| format!("fold {id}"))).collect::<Vec<_>>().join("\n")
+    }
+
+    fn from_text(text: &str) -> Folds {
+        Folds {
+            root_only: text.lines().any(|line| line == ROOT_ONLY),
+            parents: text.lines().filter_map(|line| line.strip_prefix("fold ")).map(str::to_string).collect(),
+        }
+    }
+}
+
+const ROOT_ONLY: &str = "root-only";
 
 /// What a row draws, chosen in the View group of its menu (`row-view.tsx`, `VIEW_FIELDS`), in the
 /// menu's order. Electron's default is the Status and Conflicts marks.
@@ -302,6 +375,12 @@ fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option
 }
 
 fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String]) -> Vec<Line> {
+    lines_folding(jobs, ideas, scope, query, order, &Folds::default())
+}
+
+/// [`lines_of`] with the parents `folds` shuts: their sub-Jobs are not drawn, and the parent's row keeps their
+/// glyphs. A parent drawn only for its place never folds, since the Jobs under it are why it is there.
+fn lines_folding(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], folds: &Folds) -> Vec<Line> {
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
     let live = |job: &&SessionRecord| job.state == SessionState::Live;
@@ -383,6 +462,7 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
                 depth: 0,
                 through: Vec::new(),
                 ends: true,
+                kids: None,
                 started_by: None,
                 slot: None,
                 branch: None,
@@ -397,6 +477,41 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
             }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
+        fn below<'a>(parent: &str, held: &[&'a SessionRecord], down: &mut Vec<&'a SessionRecord>) {
+            for child in held.iter().filter(|job| starter_of(job) == Some(parent)) {
+                down.push(child);
+                below(child.id.as_str(), held, down);
+            }
+        }
+        let kids_of = |job: &SessionRecord| -> Option<Kids> {
+            if places.contains(job.id.as_str()) || !held.iter().any(|one| starter_of(one) == Some(job.id.as_str())) {
+                return None;
+            }
+            let folded = folds.folds(job.id.as_str());
+            let mut strip = Vec::new();
+            if folded {
+                let mut down = Vec::new();
+                below(job.id.as_str(), &held, &mut down);
+                strip = down
+                    .into_iter()
+                    .filter_map(|sub| {
+                        Some(Sub {
+                            id: sub.id.as_str().to_string().into(),
+                            title: title_of(sub),
+                            mark: sub.mark?,
+                            paused: paused(sub),
+                            pr: attached(sub, "pr").map(|pr| format!("#{pr}").into()),
+                        })
+                    })
+                    .collect();
+                strip.sort_by_key(|sub| match sub.mark.lamp {
+                    JobLamp::Needs => 0,
+                    JobLamp::Failed => 1,
+                    _ => 2,
+                });
+            }
+            Some(Kids { folded, strip })
+        };
         let row_of = |job: &SessionRecord, depth: usize, through: &[bool], last: bool| Row {
             id: job.id.as_str().to_string().into(),
             title: title_of(job),
@@ -408,6 +523,7 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
             depth,
             through: through.to_vec(),
             ends: last,
+            kids: kids_of(job),
             started_by: starter_of(job).and_then(|id| jobs.iter().find(|one| one.id.as_str() == id)).map(|one| (title_of(one), project_of(one).into())),
             slot: attached(job, "slot").map(|slot| slot.rsplit('/').next().unwrap_or(slot).to_string().into()),
             branch: attached(job, "branch").map(|branch| branch.to_string().into()),
@@ -424,6 +540,10 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
             queued: None,
             place: places.contains(job.id.as_str()),
         };
+        // Whether the row just drawn is a folded parent, whose sub-Jobs are not.
+        fn shut(lines: &[Line]) -> bool {
+            matches!(lines.last(), Some(Line::Job(row)) if row.kids.as_ref().is_some_and(|kids| kids.folded))
+        }
         fn under<'a>(
             parent: &str,
             depth: usize,
@@ -436,13 +556,18 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
             for (at, child) in children.iter().enumerate() {
                 let last = at + 1 == children.len();
                 lines.push(Line::Job(row_of(child, depth, through, last)));
+                if shut(lines) {
+                    continue;
+                }
                 let on: Vec<bool> = through.iter().copied().chain([!last]).collect();
                 under(child.id.as_str(), depth + 1, &on, held, row_of, lines);
             }
         }
         for root in held.iter().filter(|job| !starter_of(job).is_some_and(listed)) {
             lines.push(Line::Job(row_of(root, 0, &[], true)));
-            under(root.id.as_str(), 1, &[], &held, &row_of, &mut lines);
+            if !shut(&lines) {
+                under(root.id.as_str(), 1, &[], &held, &row_of, &mut lines);
+            }
         }
     }
     lines
@@ -480,6 +605,25 @@ fn write_view(view: View) {
     let text = VIEW_FIELDS.iter().filter(|(id, _)| view.on(id)).map(|(id, _)| *id).collect::<Vec<_>>().join("\n");
     if let Err(why) = std::fs::write(&path, text) {
         Note::warn("the row's view was not kept").field("why", why.to_string()).emit();
+    }
+}
+
+/// Where the folded parents and the Root Jobs only switch are kept between runs, beside the list's order.
+fn folds_file() -> Option<PathBuf> {
+    deck_file().map(|deck| deck.with_file_name("native-folds"))
+}
+
+impl Folds {
+    /// What `path` holds; nothing folded where it holds none or cannot be read.
+    fn load(path: Option<&std::path::Path>) -> Folds {
+        path.and_then(|path| std::fs::read_to_string(path).ok()).map(|text| Folds::from_text(&text)).unwrap_or_default()
+    }
+
+    fn save(&self, path: Option<&std::path::Path>) {
+        let Some(path) = path else { return };
+        if let Err(why) = path.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|()| std::fs::write(path, self.text())) {
+            Note::warn("the folded Jobs were not kept").field("why", why.to_string()).emit();
+        }
     }
 }
 
@@ -595,6 +739,8 @@ pub struct JobsList {
     lifted: Option<SharedString>,
     /// The ideas waiting to start (`crate::queued`), each a row under its repository's group.
     ideas: Vec<crate::queued::QueuedIdea>,
+    /// The parents whose sub-Jobs are folded away, and the switch that folds every one.
+    folds: Folds,
 }
 
 /// A Job's row while it is dragged to a new place in its project.
@@ -672,7 +818,11 @@ impl JobsList {
         let (scope, order) = read_deck();
         crate::queued::begin(true, cx);
         let jobs = fleet.read(cx).held().jobs.clone();
-        Self::with(jobs, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx)
+        let mut this = Self::with(jobs, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx);
+        this.folds = Folds::load(folds_file().as_deref());
+        this.lines = this.lines_now();
+        this.focused = this.first_row();
+        this
     }
 
     /// The list on mock Jobs, which never change, with the View as a first start has it, so a walk shows what he will.
@@ -718,6 +868,7 @@ impl JobsList {
             drop: None,
             lifted: None,
             ideas: crate::queued::ideas(cx),
+            folds: Folds::default(),
         };
         // The ideas waiting to start stand in the list as they change, from Dispatch or a row's own acts.
         cx.observe_global::<crate::queued::Queued>(|this, cx| {
@@ -947,7 +1098,7 @@ impl JobsList {
     }
 
     fn lines_now(&self) -> Vec<Line> {
-        lines_of(&self.jobs, &self.ideas, self.scope, &self.query, &self.order)
+        lines_folding(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.folds)
     }
 
     /// The keys on the first Job that needs him, as the deck's `c` puts them (`keys-model.ts`, the
@@ -993,6 +1144,113 @@ impl JobsList {
         if self.remember {
             write_deck(self.scope, &self.order);
         }
+    }
+
+    /// Every Job another is listed under, by id: the parents a fold reaches.
+    fn parent_ids(&self) -> Vec<String> {
+        let mut parents: Vec<String> =
+            self.jobs.iter().filter_map(starter_of).filter(|id| self.jobs.iter().any(|one| one.id.as_str() == *id)).map(str::to_string).collect();
+        parents.sort();
+        parents.dedup();
+        parents
+    }
+
+    /// Whether any parent stands, whether the switch is on, and whether every parent is folded.
+    pub(crate) fn fold_facts(&self) -> (bool, bool, bool) {
+        let parents = self.parent_ids();
+        let every = !parents.is_empty() && (self.folds.root_only || parents.iter().all(|id| self.folds.parents.contains(id)));
+        (!parents.is_empty(), self.folds.root_only, every)
+    }
+
+    /// The nearest listed Job above `id` up the line of starters.
+    fn shown_starter(&self, id: &str) -> Option<SharedString> {
+        let mut up = self.jobs.iter().find(|job| job.id.as_str() == id).and_then(starter_of);
+        while let Some(parent) = up {
+            let parent: SharedString = parent.to_string().into();
+            if self.at_of(&parent).is_some() {
+                return Some(parent);
+            }
+            up = self.jobs.iter().find(|job| job.id.as_str() == parent.as_ref()).and_then(starter_of);
+        }
+        None
+    }
+
+    /// Change what is folded, keep it, and draw the list again. The keys on a Job that folded away go to the
+    /// parent it stood under.
+    fn change_folds(&mut self, change: impl FnOnce(&mut Folds, &[String]), cx: &mut Context<Self>) {
+        let parents = self.parent_ids();
+        let before = self.folds.clone();
+        change(&mut self.folds, &parents);
+        if self.folds == before {
+            return;
+        }
+        if self.remember {
+            if !self.jobs.is_empty() {
+                let jobs = &self.jobs;
+                self.folds.parents.retain(|id| jobs.iter().any(|job| job.id.as_str() == id));
+            }
+            self.folds.save(folds_file().as_deref());
+        }
+        let held = self.focused.clone();
+        self.relist(cx);
+        if let Some(id) = held.filter(|id| self.at_of(id).is_none()) {
+            if let Some(parent) = self.shown_starter(&id) {
+                self.focused = Some(parent);
+            }
+        }
+        cx.notify();
+    }
+
+    /// Fold or unfold one parent's sub-Jobs.
+    pub(crate) fn set_row_fold(&mut self, id: &str, fold: bool, cx: &mut Context<Self>) {
+        let id = id.to_string();
+        self.change_folds(
+            move |folds, parents| {
+                if !fold {
+                    folds.unfold(&id, parents);
+                } else if !folds.root_only {
+                    folds.parents.insert(id);
+                }
+            },
+            cx,
+        );
+    }
+
+    /// Fold or unfold every parent's sub-Jobs.
+    pub(crate) fn set_all_folds(&mut self, fold: bool, cx: &mut Context<Self>) {
+        self.change_folds(|folds, parents| if fold { folds.fold_all(parents) } else { folds.unfold_all() }, cx);
+    }
+
+    /// The Root Jobs only switch.
+    pub(crate) fn set_root_only(&mut self, on: bool, cx: &mut Context<Self>) {
+        self.change_folds(|folds, _| folds.root_only = on, cx);
+    }
+
+    /// A palette command: `fold-all`, `unfold-all` or `root-only`.
+    pub(crate) fn fold_command(&mut self, command: &str, cx: &mut Context<Self>) {
+        match command {
+            "fold-all" => self.set_all_folds(true, cx),
+            "unfold-all" => self.set_all_folds(false, cx),
+            "root-only" => self.set_root_only(!self.folds.root_only, cx),
+            _ => {}
+        }
+    }
+
+    /// ← folds the focused parent and → unfolds it; on any other row the key is left for others.
+    fn fold_focused(&mut self, fold: bool, cx: &mut Context<Self>) {
+        let held = self.focused.as_ref().and_then(|id| self.rows().find(|row| &row.id == id)).filter(|row| row.kids.as_ref().is_some_and(|kids| kids.folded != fold)).map(|row| row.id.clone());
+        match held {
+            Some(id) => self.set_row_fold(&id, fold, cx),
+            None => cx.propagate(),
+        }
+    }
+
+    fn on_fold_row(&mut self, _: &FoldRow, _: &mut Window, cx: &mut Context<Self>) {
+        self.fold_focused(true, cx);
+    }
+
+    fn on_unfold_row(&mut self, _: &UnfoldRow, _: &mut Window, cx: &mut Context<Self>) {
+        self.fold_focused(false, cx);
     }
 
     fn row_at(&self, at: usize) -> Option<&Row> {
@@ -1159,6 +1417,12 @@ impl JobsList {
             Entry::Rule,
         ];
         // The View group comes after the Job's own acts, then Mod and Report, as in `RowMenu.tsx`.
+        let (any_parents, _, all_folded) = self.fold_facts();
+        let row_folded = row.kids.as_ref().map(|kids| kids.folded);
+        let all_unfold = row_folded.unwrap_or(all_folded);
+        if any_parents {
+            entries.extend(Self::fold_entries(row_folded, all_unfold));
+        }
         entries.extend(self.view.entries());
         let menu = cx.new(|cx| Dropdown::new("Job", entries, at, Anchor::TopLeft, from_keys, cx).at_point(window, cx));
         let job = id.clone();
@@ -1181,6 +1445,8 @@ impl JobsList {
                     }
                 }
                 "close" => send(port, "/sessions/close", encoded(ipc::encode(&ipc::CloseSession { session_id })), cx),
+                "fold" => this.set_row_fold(&job, !row_folded.unwrap_or(false), cx),
+                "fold_all" => this.set_all_folds(!all_unfold, cx),
                 field if field.starts_with("view:") => {
                     this.view.flip(field);
                     if this.remember {
@@ -1201,6 +1467,20 @@ impl JobsList {
         window.defer(cx, move |window, cx| window.focus(&keys, cx));
         self.menu = Some(Open { menu, _picked: picked, _dismissed: dismissed });
         cx.notify();
+    }
+
+    /// The row menu's fold group: this parent's sub-Jobs where it has some, and every parent's, with the
+    /// unfold words while the row is folded.
+    fn fold_entries(row_folded: Option<bool>, all_unfold: bool) -> Vec<Entry> {
+        let mut entries = Vec::new();
+        if let Some(folded) = row_folded {
+            let label = if folded { "Unfold sub-Jobs" } else { "Fold sub-Jobs" };
+            entries.push(Entry::Act { id: "fold", label: label.into(), icon: None, danger: false });
+        }
+        let label = if all_unfold { "Unfold all sub-Jobs" } else { "Fold all sub-Jobs" };
+        entries.push(Entry::Act { id: "fold_all", label: label.into(), icon: None, danger: false });
+        entries.push(Entry::Rule);
+        entries
     }
 
     /// The keys to the search field over the groups.
@@ -1242,10 +1522,16 @@ impl JobsList {
         let Some(bounds) = self.bounds.borrow().get("scope").copied() else { return };
         let gap = cx.look().length(token::SPACE_1);
         let at = point(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height + gap);
-        let entries = SCOPES.iter().map(|(scope, id, label)| Entry::Choice { id, label: (*label).into(), on: *scope == self.scope }).collect();
+        let mut entries: Vec<Entry> = SCOPES.iter().map(|(scope, id, label)| Entry::Choice { id, label: (*label).into(), on: *scope == self.scope }).collect();
+        entries.push(Entry::Rule);
+        entries.push(Entry::Toggle { id: "root_only", label: "Root Jobs only".into(), on: self.folds.root_only });
         let menu = cx.new(|cx| Dropdown::new("Scope", entries, at, Anchor::TopRight, true, cx));
         let picked = cx.subscribe(&menu, |this, _, picked: &Picked, cx| {
             let Picked::Entry { id, .. } = picked;
+            if *id == "root_only" {
+                this.set_root_only(!this.folds.root_only, cx);
+                return;
+            }
             this.scope = Scope::of(id);
             this.keep();
             this.relist(cx);
@@ -1521,12 +1807,77 @@ impl JobsList {
                 )
                 .into_any_element()
             });
+        // A folded parent keeps its sub-Jobs' glyphs in a strip, one that needs him first: folding hides no need.
+        let strip_of = row.kids.as_ref().filter(|kids| kids.folded && !kids.strip.is_empty()).map(|kids| {
+            div()
+                .flex_none()
+                .max_w(look.length(token::SPACE_8) * 5.)
+                .overflow_hidden()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .children(kids.strip.iter().map(|sub| {
+                    let (glyph, said, hue) = if sub.paused {
+                        ("circle-pause", SharedString::from("Paused"), token::FG_MUTED)
+                    } else {
+                        let (glyph, said) = glyph_of(sub.mark.state, sub.pr.as_deref());
+                        (glyph, said, hue_of(sub.mark.state))
+                    };
+                    let said: SharedString = format!("{}: {said}", sub.title).into();
+                    labelled(
+                        div()
+                            .id(SharedString::from(format!("sub-{}-{}", row.id, sub.id)))
+                            .flex_none()
+                            .child(svg().path(icon_path(glyph)).size(mark_glyph).text_color(look.color(hue)))
+                            .tooltip(tip(said.clone())),
+                        Role::Image,
+                        said,
+                    )
+                }))
+        });
+        // The chevron column is on every row, so titles line up down the list; only a parent draws its chevron.
+        let column = look.length(token::SPACE_4);
+        let chevron = match row.kids.as_ref().map(|kids| kids.folded) {
+            Some(folded) => {
+                let (name, said) = if folded { ("Unfold sub-Jobs", "Unfold sub-Jobs. \u{2325} unfolds every parent") } else { ("Fold sub-Jobs", "Fold sub-Jobs. \u{2325} folds every parent") };
+                let id = row.id.clone();
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("fold-{}", row.id)))
+                        .flex_none()
+                        .size(column)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .rounded(look.length(token::RADIUS_SM))
+                        .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                        .child(svg().path(icon_path(if folded { "chevron-right" } else { "chevron-down" })).size(mark_glyph).text_color(look.color(token::FG_MUTED)))
+                        .tooltip(tip(said.into()))
+                        .on_click(cx.listener(move |this, event: &gpui::ClickEvent, window, cx| {
+                            cx.stop_propagation();
+                            this.focused = Some(id.clone());
+                            window.focus(&this.focus, cx);
+                            if event.modifiers().alt {
+                                this.set_all_folds(!folded, cx);
+                            } else {
+                                this.set_row_fold(&id, !folded, cx);
+                            }
+                            cx.notify();
+                        })),
+                    Role::Button,
+                    format!("{name} of {}", row.title),
+                )
+                .into_any_element()
+            }
+            None => div().flex_none().w(column).into_any_element(),
+        };
         let status_on = view.on("view:status");
         let marks = div()
             .flex_none()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_1))
+            .children(strip_of)
             .when(view.on("view:conflicts"), |marks| marks.child(crate::clash_mark::ClashMark::in_row(row.id.clone())))
             // The time stands right against the state; the glyphs end at the row's edge, so they
             // line up down the list.
@@ -1629,6 +1980,7 @@ impl JobsList {
                     .items_center()
                     .gap(look.length(token::SPACE_2))
                     .h(line)
+                    .child(chevron)
                     .children(linked.clone().map(|said| {
                         div()
                             .id(SharedString::from(format!("link-{}", row.id)))
@@ -1996,6 +2348,8 @@ impl Render for JobsList {
                     .on_action(cx.listener(Self::on_act))
                     .on_action(cx.listener(Self::on_row_menu))
                     .on_action(cx.listener(Self::on_earlier))
+                    .on_action(cx.listener(Self::on_fold_row))
+                    .on_action(cx.listener(Self::on_unfold_row))
                     .track_scroll(&self.scroll)
                     .overflow_y_scroll()
                     .size_full()
@@ -2547,5 +2901,173 @@ mod tests {
         let entries = view.entries();
         assert!(matches!(entries[0], Entry::Label("View")));
         assert_eq!(entries.len(), VIEW_FIELDS.len() + 1);
+    }
+
+    fn tree() -> Vec<SessionRecord> {
+        crate::mock::jobs("jobs-tree").expect("the fixture decodes")
+    }
+
+    fn drawn(list: &JobsList) -> Vec<String> {
+        list.rows().map(|row| row.id.to_string()).collect()
+    }
+
+    fn shut(parents: &[&str]) -> Folds {
+        Folds { root_only: false, parents: parents.iter().map(|id| id.to_string()).collect() }
+    }
+
+    #[test]
+    fn a_folded_parent_draws_none_of_its_sub_jobs_and_its_siblings_keep_theirs() {
+        let open = lines_folding(&tree(), &[], Scope::Active, "", &[], &Folds::default());
+        assert_eq!(titles(&open).len(), 8);
+        let folded = lines_folding(&tree(), &[], Scope::Active, "", &[], &shut(&["t-land"]));
+        let titles = titles(&folded);
+        assert!(titles.contains(&"Land the native stack".to_string()) && titles.contains(&"Pair the work Mac".to_string()));
+        for gone in ["Fix the walk at 820", "Re-take the shots", "Write the docs row"] {
+            assert!(!titles.contains(&gone.to_string()), "{gone} is folded away");
+        }
+        let kids = folded.iter().find_map(|line| match line {
+            Line::Job(row) if row.id.as_ref() == "t-land" => row.kids.clone(),
+            _ => None,
+        });
+        assert_eq!(kids.map(|kids| kids.folded), Some(true));
+        // A Job with nothing under it has no fold to draw.
+        let chip = folded.iter().find_map(|line| match line {
+            Line::Job(row) if row.id.as_ref() == "t-chip" => Some(row.kids.clone()),
+            _ => None,
+        });
+        assert_eq!(chip, Some(None));
+    }
+
+    #[test]
+    fn a_folded_parent_keeps_a_sub_job_that_needs_him_first_in_its_strip_in_its_amber() {
+        let folded = lines_folding(&tree(), &[], Scope::Active, "", &[], &shut(&["t-land"]));
+        let strip = folded
+            .iter()
+            .find_map(|line| match line {
+                Line::Job(row) if row.id.as_ref() == "t-land" => row.kids.as_ref().map(|kids| kids.strip.clone()),
+                _ => None,
+            })
+            .expect("a folded parent has a strip");
+        let ids: Vec<&str> = strip.iter().map(|sub| sub.id.as_ref()).collect();
+        // The need first, the failure next, then the rest as the tree runs. The sub-Job two down is in it too.
+        assert_eq!(ids, ["t-shots", "t-docs", "t-walk"]);
+        assert_eq!(strip[0].mark.lamp, JobLamp::Needs);
+        assert_eq!((glyph_of(strip[0].mark.state, None).0, hue_of(strip[0].mark.state)), ("eye", token::STATUS_AWAITING_REVIEW));
+        // Open, a parent keeps no strip.
+        let open = lines_folding(&tree(), &[], Scope::Active, "", &[], &Folds::default());
+        let kept = open.iter().find_map(|line| match line {
+            Line::Job(row) if row.id.as_ref() == "t-land" => row.kids.clone(),
+            _ => None,
+        });
+        assert_eq!(kept.map(|kids| (kids.folded, kids.strip.len())), Some((false, 0)));
+    }
+
+    #[test]
+    fn a_parent_drawn_for_its_place_never_folds() {
+        let lines = lines_folding(&tree(), &[], Scope::Needs, "", &[], &Folds { root_only: true, parents: Default::default() });
+        let place = lines.iter().find_map(|line| match line {
+            Line::Job(row) if row.id.as_ref() == "t-walk" => Some((row.place, row.kids.clone())),
+            _ => None,
+        });
+        assert_eq!(place, Some((true, None)));
+        assert!(titles(&lines).contains(&"Re-take the shots".to_string()), "the Job that needs him stays drawn under its starters for place");
+    }
+
+    #[gpui::test]
+    fn one_parent_folds_and_unfolds_from_its_row(cx: &mut gpui::TestAppContext) {
+        let list = cx.new(|cx| JobsList::mock(&tree(), cx));
+        list.update(cx, |list, cx| list.set_row_fold("t-land", true, cx));
+        list.read_with(cx, |list, _| {
+            let rows = drawn(list);
+            assert!(rows.contains(&"t-land".to_string()) && !rows.contains(&"t-walk".to_string()) && rows.contains(&"t-pair".to_string()));
+        });
+        list.update(cx, |list, cx| list.set_row_fold("t-land", false, cx));
+        list.read_with(cx, |list, _| assert_eq!(drawn(list).len(), 8));
+    }
+
+    #[gpui::test]
+    fn left_and_right_fold_and_unfold_the_parent_the_keys_are_on(cx: &mut gpui::TestAppContext) {
+        let list = cx.new(|cx| JobsList::mock(&tree(), cx));
+        list.update(cx, |list, cx| {
+            list.focused = Some("t-land".into());
+            list.fold_focused(false, cx);
+        });
+        // → on an open parent changes nothing.
+        list.read_with(cx, |list, _| assert_eq!(drawn(list).len(), 8));
+        list.update(cx, |list, cx| list.fold_focused(true, cx));
+        list.read_with(cx, |list, _| {
+            assert!(!drawn(list).contains(&"t-walk".to_string()));
+            assert_eq!(list.focused.as_deref(), Some("t-land"));
+        });
+        list.update(cx, |list, cx| list.fold_focused(false, cx));
+        list.read_with(cx, |list, _| assert!(drawn(list).contains(&"t-shots".to_string())));
+        // A Job with nothing under it is left alone.
+        list.update(cx, |list, cx| {
+            list.focused = Some("t-chip".into());
+            list.fold_focused(true, cx);
+        });
+        list.read_with(cx, |list, _| assert_eq!(drawn(list).len(), 8));
+    }
+
+    #[gpui::test]
+    fn the_keys_follow_a_job_that_folds_away_to_the_parent_that_holds_it(cx: &mut gpui::TestAppContext) {
+        let list = cx.new(|cx| JobsList::mock(&tree(), cx));
+        list.update(cx, |list, cx| {
+            list.focused = Some("t-shots".into());
+            list.set_row_fold("t-land", true, cx);
+        });
+        list.read_with(cx, |list, _| assert_eq!(list.focused.as_deref(), Some("t-land")));
+    }
+
+    #[gpui::test]
+    fn fold_all_and_unfold_all_reach_every_parent_at_every_depth(cx: &mut gpui::TestAppContext) {
+        let list = cx.new(|cx| JobsList::mock(&tree(), cx));
+        list.update(cx, |list, cx| list.set_all_folds(true, cx));
+        list.read_with(cx, |list, _| {
+            assert_eq!(drawn(list), ["t-macs", "t-land", "t-chip"]);
+            assert_eq!(list.fold_facts(), (true, false, true));
+        });
+        list.update(cx, |list, cx| list.set_all_folds(false, cx));
+        list.read_with(cx, |list, _| {
+            assert_eq!(drawn(list).len(), 8);
+            assert_eq!(list.fold_facts(), (true, false, false));
+        });
+    }
+
+    #[gpui::test]
+    fn root_jobs_only_folds_every_parent_and_an_unfold_ends_it_keeping_the_rest_folded(cx: &mut gpui::TestAppContext) {
+        let list = cx.new(|cx| JobsList::mock(&tree(), cx));
+        list.update(cx, |list, cx| list.set_root_only(true, cx));
+        list.read_with(cx, |list, _| {
+            assert_eq!(drawn(list), ["t-macs", "t-land", "t-chip"]);
+            assert!(list.fold_facts().1);
+        });
+        // Opening one parent ends the switch and leaves every other parent folded.
+        list.update(cx, |list, cx| list.set_row_fold("t-land", false, cx));
+        list.read_with(cx, |list, _| {
+            assert!(!list.fold_facts().1);
+            let rows = drawn(list);
+            assert!(rows.contains(&"t-walk".to_string()) && rows.contains(&"t-docs".to_string()));
+            assert!(!rows.contains(&"t-shots".to_string()) && !rows.contains(&"t-pair".to_string()));
+        });
+        list.update(cx, |list, cx| list.set_root_only(false, cx));
+        list.update(cx, |list, cx| list.fold_command("root-only", cx));
+        list.read_with(cx, |list, _| assert!(list.fold_facts().1));
+        list.update(cx, |list, cx| list.fold_command("unfold-all", cx));
+        list.read_with(cx, |list, _| assert_eq!((drawn(list).len(), list.fold_facts().1), (8, false)));
+    }
+
+    #[test]
+    fn the_fold_state_survives_a_save_and_a_load() {
+        let path = std::env::temp_dir().join(format!("armada-folds-test-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(Folds::load(Some(&path)), Folds::default(), "nothing kept, nothing folded");
+        let folds = Folds { root_only: true, parents: ["t-land".to_string(), "t-walk".to_string()].into_iter().collect() };
+        folds.save(Some(&path));
+        assert_eq!(Folds::load(Some(&path)), folds);
+        let per_parent = shut(&["t-macs"]);
+        per_parent.save(Some(&path));
+        assert_eq!(Folds::load(Some(&path)), per_parent, "the switch off is kept off");
+        let _ = std::fs::remove_file(&path);
     }
 }

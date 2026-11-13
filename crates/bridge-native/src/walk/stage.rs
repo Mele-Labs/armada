@@ -484,6 +484,22 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Left, at, window, cx);
             Ok(())
         }
+        Verb::AltPressOn(role, name) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let at = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| {
+                    let mut named = book.drawn(window.window_handle().window_id()).iter().filter(|drawn| drawn.role == role && drawn.name == name);
+                    let first = named.clone().next();
+                    named.find(|drawn| drawn.shown.size.width > px(0.) && drawn.shown.size.height > px(0.)).or(first).cloned()
+                })
+                .ok_or_else(|| Missed(format!("nothing named \"{name}\" to press")))?;
+            let at = aim(&reveal(at, window, cx));
+            let modifiers = Modifiers { alt: true, ..Modifiers::default() };
+            window.dispatch_event(PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1, first_mouse: false }), cx);
+            window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1 }), cx);
+            Ok(())
+        }
         Verb::Marks(name) => {
             // A scene is a jump: the keys go back to the screen first, so a chip or a card the scene
             // takes away does not leave them on nothing.
