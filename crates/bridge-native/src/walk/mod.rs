@@ -1734,7 +1734,7 @@ pub static WALKS: &[Walk] = &[
             step("Type a word of an ended Job", Verb::Type("ended"), "searchbox", "Search actions, jobs and settings"),
             step("Its row reads as a Job's, with its state and when it ended", Verb::Look, "option", "An ended Job stays out of the list"),
             step("The glyph says Ended", Verb::Hover, "img", "Ended"),
-            step("A press on the row opens the ended Job, though its list's scope holds no row for it", Verb::Open("option", "An ended Job stays out of the list"), "row", "An ended Job stays out of the list"),
+            step("A press on the row opens the ended Job, though its list's scope holds no row for it", Verb::Open("option", "An ended Job stays out of the list"), "row", "Thread: An ended Job stays out of the list"),
         ],
     },
     Walk {
