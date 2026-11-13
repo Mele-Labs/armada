@@ -147,6 +147,7 @@ mod session_dispute;
 mod bug_reports;
 mod share;
 mod other_macs;
+mod two_macs;
 mod session_dispute_reading;
 mod session_done;
 mod session_finish_up;
