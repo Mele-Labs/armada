@@ -151,7 +151,7 @@ wire_enum! {
 
 wire_enum! {
     /// Which door a request that moved a Job came through: `bridge`, `job`,
-    /// `door`, `http` or `phone`. Since 23.12. `docs/concepts/retro.md`.
+    /// `door`, `http`, `phone` or `mac`. Since 23.12. `docs/concepts/retro.md`.
     Via, core_model::Via, "a door a request came through"
 }
 wire_enum! {

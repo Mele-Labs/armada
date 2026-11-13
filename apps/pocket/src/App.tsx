@@ -8,6 +8,7 @@ import { Draft } from "./Draft";
 import { start, useFleet } from "./fleet";
 import { Home } from "./Home";
 import { Job } from "./Job";
+import { Operator } from "./Operator";
 import { Pair } from "./Pair";
 import { subscribe } from "./push";
 import { go, routeOf, usePath, type Route } from "./router";
@@ -32,6 +33,8 @@ function Screen({ route }: { route: Route }) {
       );
     case "dispatch":
       return <Dispatch />;
+    case "operator":
+      return <Operator />;
     case "job":
       return <Job key={`${route.origin ?? "_"} ${route.id}`} origin={route.origin} id={route.id} />;
     case "draft":

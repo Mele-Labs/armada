@@ -80,6 +80,17 @@ export type FleetBuildReport = {
   swapping?: boolean;
   /** What the build switcher draws, read by Fleet from `on`, `position` and `restarting`. Absent from a report built without it. Since 9 Nov 2026. */
   switcher?: BuildSwitcher;
+  /**
+   * Branches on origin a snapshot can take that no Job here holds and none picked: ahead of `origin/main` and committed
+   * in the last fourteen days, newest first. Omitted when none. Since 13 Nov 2026.
+   */
+  origin?: OriginBranch[];
+};
+
+/** A branch on origin a snapshot can take, and when its tip was committed. */
+export type OriginBranch = {
+  branch: string;
+  committed_at: string;
 };
 
 /**

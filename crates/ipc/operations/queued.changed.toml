@@ -1,0 +1,8 @@
+[operations."queued.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "The acts waiting for another Mac changed, and this is all of them now"
+notes = """
+Carries `QueuedList` itself, as `list_queued` answers it. Sent to Bridge alone, never published to Fleet's own listeners or on to another Mac, after an act was kept, sent, refused by the Mac that holds its Job, or taken back.
+"""

@@ -15,12 +15,13 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Projects, Refusal};
 use core_model::{Component, Envelope, FieldValue, Level};
 use ipc::{
-    EditedTaskFields, Event, MoveProjectRow, Project, ProjectAct, ProjectActFromMac, ProjectRow, ProjectTask, ProjectTaskState,
+    EditedTaskFields, Event, JobAct, MacAct, MoveProjectRow, Project, ProjectAct, ProjectActFromMac, ProjectRow, ProjectTask, ProjectTaskState,
     WireError,
 };
-use store::{Edited, FromMac, KeptProjectAct};
+use store::{Edited, FromMac, KeptQueuedAct};
 
 use crate::daemon::Fleet;
+use crate::mac_acts::Flushed;
 use crate::other_macs::MAC_UNREADABLE;
 use crate::projects::{NOT_A_TASK, NO_SUCH_ROW, TOO_DEEP};
 
@@ -29,12 +30,17 @@ pub(crate) const PROJECT_HELD: &str = "fleet.other_mac_project_held";
 /// A row id another Mac chose is not one this Fleet keeps rows under. A 422.
 const ROW_ID_UNREADABLE: &str = "fleet.project_row_id_unreadable";
 
-/// An edit queued for a Mac, read back.
+/// What waits for a Mac, read back: a task edit of one of its project copies, or an act on one of its Jobs.
 struct Queued {
     seq: i64,
     mac: String,
     at: i64,
-    act: ProjectAct,
+    act: Waiting,
+}
+
+enum Waiting {
+    Project(ProjectAct),
+    Job { id: String, act: JobAct },
 }
 
 /// The answer from the other Mac to a sent act.
@@ -131,10 +137,20 @@ fn overlaid(project: &mut Project, act: &ProjectAct) {
     }
 }
 
+/// A queued row read back as what it holds. `None` for one a later build wrote that this one cannot read.
+fn waiting_of(kept: KeptQueuedAct) -> Option<Queued> {
+    let act = match kept.kind.as_str() {
+        "project" => Waiting::Project(ipc::decode("an edit queued for another Mac", kept.act.as_bytes()).ok()?),
+        "job" => Waiting::Job { id: kept.id, act: ipc::decode("an act queued for another Mac", kept.act.as_bytes()).ok()? },
+        _ => return None,
+    };
+    Some(Queued { seq: kept.seq, mac: kept.mac, at: kept.at, act })
+}
+
 /// Unlocks a Mac's flush when it ends, however it ends.
-struct Flushing<'a> {
-    held: &'a std::sync::Mutex<std::collections::BTreeSet<String>>,
-    mac: String,
+pub(crate) struct Flushing<'a> {
+    pub(crate) held: &'a std::sync::Mutex<std::collections::BTreeSet<String>>,
+    pub(crate) mac: String,
 }
 
 impl Drop for Flushing<'_> {
@@ -153,7 +169,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn now_ms(&self) -> i64 {
+    pub(crate) fn now_ms(&self) -> i64 {
         self.now().epoch_millis().unwrap_or(0)
     }
 
@@ -175,16 +191,11 @@ where
             .collect())
     }
 
-    /// Every edit queued, for Mac `mac` or for all, oldest first. One a later build wrote that this one cannot
-    /// read is left out.
+    /// Every edit and act still to be sent, for Mac `mac` or for all, in the one order, oldest first. One a later
+    /// build wrote that this one cannot read is left out, and so is an act the Mac refused.
     async fn queued_acts(&self, mac: Option<&str>) -> Result<Vec<Queued>, Refusal> {
-        let kept = self.store().lock().await.queued_project_acts(mac).map_err(|why| self.ledger_fault(why))?;
-        Ok(kept
-            .into_iter()
-            .filter_map(|KeptProjectAct { seq, mac, at, act }| {
-                ipc::decode("an edit queued for another Mac", act.as_bytes()).ok().map(|act| Queued { seq, mac, at, act })
-            })
-            .collect())
+        let kept = self.store().lock().await.queued_acts(mac, true).map_err(|why| self.ledger_fault(why))?;
+        Ok(kept.into_iter().filter_map(waiting_of).collect())
     }
 
     /// The copies, with what he edited on each while its Mac could not be reached shown on it.
@@ -194,8 +205,11 @@ where
             return Ok(copies);
         }
         for queued in self.queued_acts(None).await? {
+            let Waiting::Project(act) = &queued.act else {
+                continue;
+            };
             for project in copies.iter_mut().filter(|one| one.mac.as_deref() == Some(queued.mac.as_str())) {
-                overlaid(project, &queued.act);
+                overlaid(project, act);
             }
         }
         Ok(copies)
@@ -433,9 +447,10 @@ where
         self.queued_acts(Some(mac)).await.is_ok_and(|queued| !queued.is_empty())
     }
 
-    /// Send Mac `mac` the edits queued for it, oldest first, each with when he made it. **An answer drops the
-    /// act, and so does a refusal**, said once; a Mac that cannot be reached stops it, and the rest wait. The
-    /// last answer is kept as the copy. One task for a Mac at a time.
+    /// Send Mac `mac` what is queued for it, oldest first: each edit with when he made it, each act on a Job with
+    /// the id it was made under. **An answer drops an edit, and so does a refusal**, said once; a Job act a Mac
+    /// refuses stays with its why. A Mac that cannot be reached stops it, and the rest wait. The last answer to
+    /// an edit is kept as the copy. One task for a Mac at a time.
     pub(crate) async fn project_acts_flushed(self: Arc<Self>, mac: String) {
         if !self.phone_held().flushing.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(mac.clone()) {
             return;
@@ -443,20 +458,30 @@ where
         let _unlock = Flushing { held: &self.phone_held().flushing, mac: mac.clone() };
         let mut last = None;
         let mut progressed = false;
+        let mut jobs_moved = false;
         loop {
             let Some(next) = self.queued_acts(Some(&mac)).await.ok().and_then(|queued| queued.into_iter().next()) else {
                 break;
             };
-            let sent = ProjectActFromMac { act: next.act, at: Some(next.at) };
-            match self.send_project_act(&mac, &sent).await {
-                Ok(Sent::Answered(answer)) => last = Some(answer.projects),
-                Ok(Sent::Refused(refusal)) => {
-                    let said = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "a queued edit was refused by the Mac that holds its project, and dropped")
-                        .with_field("mac", FieldValue::Str(mac.clone()))
-                        .with_field("why", FieldValue::Str(refusal.error().message.clone()));
-                    crate::transcript::note_aloud(&said);
+            match next.act {
+                Waiting::Project(act) => match self.send_project_act(&mac, &ProjectActFromMac { act, at: Some(next.at) }).await {
+                    Ok(Sent::Answered(answer)) => last = Some(answer.projects),
+                    Ok(Sent::Refused(refusal)) => {
+                        let said = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "a queued edit was refused by the Mac that holds its project, and dropped")
+                            .with_field("mac", FieldValue::Str(mac.clone()))
+                            .with_field("why", FieldValue::Str(refusal.error().message.clone()));
+                        crate::transcript::note_aloud(&said);
+                    }
+                    Ok(Sent::Unreachable) | Err(_) => break,
+                },
+                Waiting::Job { id, act } => {
+                    jobs_moved = true;
+                    match self.job_act_flushed(&mac, next.seq, MacAct { id, act, at: next.at }).await {
+                        Flushed::Sent => {}
+                        Flushed::Kept => continue,
+                        Flushed::Stopped => break,
+                    }
                 }
-                Ok(Sent::Unreachable) | Err(_) => break,
             }
             if self.store().lock().await.drop_project_act(next.seq).is_err() {
                 break;
@@ -468,6 +493,9 @@ where
                 let _ = self.copies_kept(&mac, projects).await;
             }
             let _ = self.projects_relayed().await;
+        }
+        if jobs_moved {
+            self.queued_relayed().await;
         }
     }
 

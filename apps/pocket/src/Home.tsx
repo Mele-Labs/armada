@@ -4,7 +4,7 @@
 // not answering, is a row of its own at the top, and the rest of the list carries on without it.
 
 import { useEffect, useState } from "react";
-import { Laptop, Plus } from "lucide-react";
+import { Bot, Laptop, Plus } from "lucide-react";
 import { bucketOf, Button, SessionMark } from "@armada/components";
 
 import { getJson } from "./client";
@@ -179,6 +179,9 @@ export function Home() {
           <>
             <IconButton label="Pair a Mac" onClick={() => go(pairPath())}>
               <Laptop size={16} aria-hidden="true" />
+            </IconButton>
+            <IconButton label="Operator" onClick={() => go("/operator")}>
+              <Bot size={16} aria-hidden="true" />
             </IconButton>
             <IconButton label="Dispatch" onClick={() => go("/dispatch")}>
               <Plus size={16} aria-hidden="true" />

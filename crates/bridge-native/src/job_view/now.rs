@@ -218,7 +218,7 @@ pub(super) fn words(look: &Look, text: impl Into<SharedString>, ink: Token, stro
 }
 
 /// How long a call or an act has run, in the row's last column (`Since`).
-fn since(look: &Look, key: &str, at: &str, said: &str) -> Option<AnyElement> {
+pub(super) fn since(look: &Look, key: &str, at: &str, said: &str) -> Option<AnyElement> {
     let span = span_since(at, Local::now())?;
     Some(
         labelled(

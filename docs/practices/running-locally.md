@@ -326,6 +326,7 @@ Revert refuses to go back onto a build marked `unhealthy`, and says why.
 
 **A snapshot is a build of the Jobs the person picked, kept and not swapped onto.**
 `Armada/preview-picked` lists the picked branches, one a line; until the person picks one it reads as the running build's own `[[job]]` branches, and an empty file is main alone.
+**A branch no Job here holds is picked from origin**: `get_fleet_build`'s `origin` lists the branches on origin that main lacks, and a pick names one, so a Mac with no Job on it can still try it.
 Try it, or × on a chip, changes the list and has Fleet run `scripts/restart-build snapshot`, which runs `scripts/preview --restart --keep-only --picked Armada/preview-picked` under its own `snapshot.status` and `snapshot.log`.
 `scripts/restart --keep-only` builds, keeps and rehearses, names the kept build in `Armada/snapshot`, and stops before anything that runs is touched: no Drone is waited for, and the CLI, the mod and the phone app are left as they are.
 What the preview held goes in `snapshot-held` and `snapshot-left-out`, beside the running build's own record.
@@ -421,6 +422,7 @@ with no flags, so it takes the offered branches.
 with commits ahead of `main` that a slot holds (`armada worktree --status`).
 `main`, `preview` and remote-only branches are ignored. `--only` takes the slot
 branches it names, offered or not, and `--picked <file>` the ones the file names.
+A named branch no slot holds is taken at its tip on origin, where origin has it ahead of main.
 `--all` cannot be combined with either, and says so in one line.
 `--skip` removes branches from whichever set is in use.
 
