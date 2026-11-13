@@ -1452,6 +1452,22 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-operator-groups",
+        title: "A Job's asks as one card",
+        screen: Screen::Operator,
+        scenario: "jobs-many",
+        steps: &[
+            answer("A Job with two asks waiting is one row: its title, and what each asks under it", "rest", "row", "Pocket sign-in on the phone"),
+            press_on("A press opens its card where the row was", "row", "Pocket sign-in on the phone", "article", "Pocket sign-in on the phone"),
+            step("The Job's title and project once, then each ask with its own answers, Later and Ask. The edge marks the ask the keys act on", Verb::Wheel("article", "Pocket sign-in on the phone", -320), "group", "Which sign-in should Pocket offer first?"),
+            step("J puts the keys on the second ask: the edge moves to it, and so do the keys under its presses. It has its own Yes, Later and Ask", Verb::Key("j"), "group", "Keep the old sign-in page for a week?"),
+            step("⌥↑ moves the card whole: both asks go above the red main", Verb::Key("alt-up"), "row", "Main is red at 4c1d2e9. desktop_unit fails in the slot meter test"),
+            step("Yes on the second ask answers it alone: it leaves for Answered today, and the card keeps the first", Verb::Open("button", "Yes"), "button", "Passkey"),
+            step("One ask left is a card like any other, its kind beside the title", Verb::Look, "article", "Pocket sign-in on the phone"),
+            step("⌥↓ moves it back under the red main", Verb::Key("alt-down"), "article", "Pocket sign-in on the phone"),
+        ],
+    },
+    Walk {
         name: "native-title-bar",
         title: "Dispatch and the title bar",
         screen: Screen::All,
