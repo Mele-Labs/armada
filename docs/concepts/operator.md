@@ -131,6 +131,14 @@ When a new issue arrives, Fleet offers the call the open issues near it, and the
 "Put #new under #open" makes the new issue a part of the open one, writes only that link, and closes nothing.
 Only the new issue is ever written to, and the open one is left as it was.
 
+**Work on his other Macs is told, never waited on.**
+When a dispatch or a Job of the Operator's starts, Fleet weighs it against the live Jobs his other Macs share, as this Mac keeps their rows, and nothing else.
+A Job there is near on the same terms as one here: the same repository by manifest id, and a shared path, issue or two uncommon words.
+The new Job is told which Mac, which Job and what they share, after the person's own words, and a Log row names the Mac.
+Nothing holds, since no Job here can wait on a Job another Mac holds.
+A Mac asleep more than 2 hours is left out, and the Log row says which and for how long.
+A live Job's plan carries the Jobs on his other Macs whose plans name the same paths, as `other_macs`, and that list is never sent back out.
+
 **A change is a Log row, and an issue closed can be reopened.**
 Each close and group is a row of the Log that names the issue, and the pull request for a close.
 What a rule did is in Done as well, signed by the Operator.

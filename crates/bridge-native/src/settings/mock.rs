@@ -377,6 +377,12 @@ impl MockFleet {
             plans_from: Some(plans.from),
             pull_requests_from: Some(pull_requests.from),
             walks_from: Some(walks.from),
+            plans_inherited: plans.inherited.clone(),
+            plans_inherited_from: plans.inherited_from,
+            pull_requests_inherited: pull_requests.inherited.clone(),
+            pull_requests_inherited_from: pull_requests.inherited_from,
+            walks_inherited: walks.inherited.clone(),
+            walks_inherited_from: walks.inherited_from,
         };
         let pick = |field: fn(&ValuesSet) -> Option<String>| (own.and_then(field), field(kit));
         let (own_mode, kit_mode) = pick(|set| set.pr_mode.map(|mode| mode.as_wire().to_string()));

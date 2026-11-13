@@ -319,6 +319,7 @@ async fn record_with_plan(states: &[ipc::PlanTaskState]) -> SessionRecord {
         sketch: None,
         held_by: Vec::new(),
         held: None,
+        other_macs: Vec::new(),
     });
     record
 }

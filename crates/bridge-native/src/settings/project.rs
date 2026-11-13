@@ -186,8 +186,21 @@ pub fn resolved(values: &ResolvedValues, key: Key) -> (Option<String>, ValueLaye
 }
 
 /// What a key the project sets overrides, from the layers below it (#3519): the word, absent where nothing below
-/// sets one, and its layer. `None` where Fleet does not say, as for a kind of review, or the project does not set it.
+/// sets one, and its layer. `None` where the project does not set it.
 pub fn inherited(values: &ResolvedValues, key: Key) -> Option<(Option<String>, ValueLayer)> {
+    let below = |word: Option<&String>, from: Option<ValueLayer>| {
+        let from = from.unwrap_or_default();
+        (word.cloned().filter(|_| from != ValueLayer::Default), from)
+    };
+    // A kind of review says its own (#3524), where that kind is the project's.
+    let kind = |own: Option<ValueLayer>, word: Option<&String>, from: Option<ValueLayer>| (own == Some(ValueLayer::Project)).then(|| below(word, from));
+    let reviews = values.reviews.as_ref();
+    match key {
+        Key::Plans => return reviews.and_then(|set| kind(set.plans_from, set.plans_inherited.as_ref(), set.plans_inherited_from)),
+        Key::PullRequests => return reviews.and_then(|set| kind(set.pull_requests_from, set.pull_requests_inherited.as_ref(), set.pull_requests_inherited_from)),
+        Key::Walks => return reviews.and_then(|set| kind(set.walks_from, set.walks_inherited.as_ref(), set.walks_inherited_from)),
+        _ => {}
+    }
     let plain = match key {
         Key::PrMode => Some(&values.pr_mode),
         Key::AutoMerge => Some(&values.auto_merge),
@@ -199,10 +212,7 @@ pub fn inherited(values: &ResolvedValues, key: Key) -> Option<(Option<String>, V
         Key::Delivery => values.delivery.as_ref(),
         Key::Plans | Key::PullRequests | Key::Walks | Key::Tracker | Key::Shared => None,
     }?;
-    (plain.from == ValueLayer::Project).then(|| {
-        let from = plain.inherited_from.unwrap_or_default();
-        (plain.inherited.clone().filter(|_| from != ValueLayer::Default), from)
-    })
+    (plain.from == ValueLayer::Project).then(|| below(plain.inherited.as_ref(), plain.inherited_from))
 }
 
 /// Whether the project's own block sets the key, as the layers say: a kind of review by its own layer.
@@ -299,13 +309,6 @@ pub fn cells(keys: &[Key], project: bool) -> Vec<Vec<(Key, Column)>> {
         .collect()
 }
 
-/// The cells with a project picked, less every project's cell of each key the project sets where Fleet does not
-/// say what it overrides: that one is left empty, and is no stop.
-pub fn cells_beside(keys: &[Key], project: bool, own: Option<&ResolvedValues>) -> Vec<Vec<(Key, Column)>> {
-    let set = |key: Key| project && own.is_some_and(|own| set_here(own, key) && inherited(own, key).is_none());
-    cells(keys, project).into_iter().map(|row| row.into_iter().filter(|(key, column)| !(*column == Column::Every && set(*key))).collect()).collect()
-}
-
 /// Where the keys go from a cell on an arrow: along its row, or to the nearest cell in the row above or below.
 pub fn moved(grid: &[Vec<(Key, Column)>], from: (Key, Column), arrow: &str) -> Option<(Key, Column)> {
     let (row, at) = grid.iter().enumerate().find_map(|(row, cells)| cells.iter().position(|one| *one == from).map(|at| (row, at)))?;
@@ -364,7 +367,7 @@ impl SettingsOverlay {
         if keys.is_empty() || (shown.body == Body::Macs && !project) {
             return Vec::new();
         }
-        cells_beside(keys, project, self.scope.values.as_ref())
+        cells(keys, project)
     }
 
     /// The grid's keys, in the order Tab reaches them, once what they show has been read.
@@ -612,12 +615,9 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
     if column == Column::Every && !key.every() {
         return div().h(tall).into_any_element();
     }
-    // A key the project sets: every project's cell says what it overrides, or is left out where Fleet does not say.
+    // A key the project sets: every project's cell says what it overrides.
     let picked = this.scope.project.is_some();
-    let overridden = (column == Column::Every && picked).then(|| this.scope.values.as_ref().filter(|own| set_here(own, key)).map(|own| inherited(own, key))).flatten();
-    if matches!(overridden, Some(None)) {
-        return div().h(tall).into_any_element();
-    }
+    let overridden = (column == Column::Every && picked).then(|| this.scope.values.as_ref().and_then(|own| inherited(own, key))).flatten();
     if key == Key::Shared {
         return shared(this, look, window, cx).unwrap_or_else(|| bone(look, look.length(token::SPACE_12), look.length(token::H_BADGE)).into_any_element());
     }
@@ -627,7 +627,7 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
     };
     let Some(values) = values else { return bone(look, look.length(token::W_GUIDE_LIST_MIN), tall).into_any_element() };
     let Some(focus) = this.scope.cells.get(&(key, column)) else { return div().into_any_element() };
-    let (word, from) = match overridden.flatten() {
+    let (word, from) = match overridden {
         Some((word, from)) => (word, from),
         None => resolved(values, key),
     };
@@ -774,6 +774,12 @@ mod tests {
                 plans_from: Some(plans),
                 pull_requests_from: Some(pull_requests),
                 walks_from: Some(ValueLayer::Default),
+                plans_inherited: None,
+                plans_inherited_from: None,
+                pull_requests_inherited: None,
+                pull_requests_inherited_from: None,
+                walks_inherited: None,
+                walks_inherited_from: None,
             }),
             ..ResolvedValues::default()
         }
@@ -817,18 +823,15 @@ mod tests {
         assert_eq!(inherited(&own, Key::AutoMerge), Some((Some("checks-pass".into()), ValueLayer::Kit)));
         assert_eq!(inherited(&own, Key::Delivery), Some((None, ValueLayer::Default)), "nothing below sets it: drawn unset");
         assert_eq!(inherited(&own, Key::PrMode), None, "a key the project does not set overrides nothing");
-        assert_eq!(inherited(&own, Key::Plans), None, "a kind of review waits on Fleet");
-        let grid = cells_beside(&[Key::AutoMerge, Key::Delivery, Key::Plans], true, Some(&own));
-        assert_eq!(grid, vec![vec![(Key::AutoMerge, Column::Every), (Key::AutoMerge, Column::Own)], vec![(Key::Delivery, Column::Every), (Key::Delivery, Column::Own)], vec![(Key::Plans, Column::Own)]]);
+        if let Some(reviews) = own.reviews.as_mut() {
+            reviews.plans_inherited_from = Some(ValueLayer::Default);
+        }
+        assert_eq!(inherited(&own, Key::Plans), Some((None, ValueLayer::Default)), "a kind nothing below sets reads off from the default: unset");
+        assert_eq!(inherited(&own, Key::PullRequests), None, "a kind the project does not set");
+        let grid = cells(&[Key::AutoMerge, Key::Delivery, Key::Plans], true);
+        assert_eq!(grid, vec![vec![(Key::AutoMerge, Column::Every), (Key::AutoMerge, Column::Own)], vec![(Key::Delivery, Column::Every), (Key::Delivery, Column::Own)], vec![(Key::Plans, Column::Every), (Key::Plans, Column::Own)]]);
     }
 
-    #[test]
-    fn beside_a_key_the_project_sets_every_projects_cell_is_left_out() {
-        let own = values(ValueLayer::Project, ValueLayer::Kit);
-        let grid = cells_beside(&[Key::Plans, Key::PullRequests], true, Some(&own));
-        assert_eq!(grid, vec![vec![(Key::Plans, Column::Own)], vec![(Key::PullRequests, Column::Every), (Key::PullRequests, Column::Own)]]);
-        assert_eq!(cells_beside(&[Key::Plans], false, Some(&own)), vec![vec![(Key::Plans, Column::Every)]], "with every project picked its one column stays");
-    }
 
     #[test]
     fn the_arrows_move_along_a_row_and_to_the_same_column_above_and_below() {

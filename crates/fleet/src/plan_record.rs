@@ -595,5 +595,6 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
             let group = plan.groups.iter().find(|group| group.gate.is_some() && group.closed.is_none())?;
             Some(GateHeld { group: group.id.clone(), since: Instant::carried(&held.since) })
         }),
+        other_macs: Vec::new(),
     }
 }
