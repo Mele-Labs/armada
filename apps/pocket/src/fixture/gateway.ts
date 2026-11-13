@@ -98,7 +98,23 @@ export function answer(
         return json(mac.models);
       case "/api/sessions/one": {
         const thread = mac.threads[id];
-        return thread === undefined ? said(404, "No Job has that id on this Mac.") : json(thread);
+        if (thread === undefined) return said(404, "No Job has that id on this Mac.");
+        // The Gateway's window (`crates/pocket/src/thread_window.rs`): the newest `last` rows before `before`.
+        const last = url.searchParams.get("last");
+        if (last === null) return json(thread);
+        const before = url.searchParams.get("before");
+        const at = before === null ? -1 : thread.rows.findIndex((row) => row.id === before);
+        const end = at < 0 ? thread.rows.length : at;
+        const start = Math.max(0, end - Number(last));
+        return json({
+          session: thread.session,
+          rows: thread.rows.slice(start, end),
+          ...(start > 0
+            ? {
+                older: true,
+              }
+            : {}),
+        });
       }
       case "/api/sessions/kept_styles": {
         const styles = mac.kept[url.searchParams.get("hash") ?? ""];

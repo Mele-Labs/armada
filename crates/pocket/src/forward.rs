@@ -14,7 +14,7 @@ use crate::reads::{port, refusal, NOT_ANSWERING};
 use crate::{fleet_client, Gateway};
 
 /// Fleet's path for a listed phone path: the same, without `/api`.
-fn fleet_target(uri: &Uri) -> &str {
+pub(crate) fn fleet_target(uri: &Uri) -> &str {
     let whole = uri.path_and_query().map_or(uri.path(), |p| p.as_str());
     whole.strip_prefix("/api").unwrap_or(whole)
 }

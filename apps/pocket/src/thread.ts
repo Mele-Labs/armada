@@ -19,6 +19,7 @@ import type {
 } from "@armada/protocol";
 import { offeredOf, reachOfferedOf } from "@armada/screens/src/copy";
 import {
+  opensPullRequests,
   planAsked,
   type Session,
   type SessionAttachment,
@@ -369,15 +370,42 @@ export function approvalOf(session: Session, onApprove: () => void): PlanApprova
       : {
           version: plan.version,
         }),
+    ...(plan.summary === undefined
+      ? {}
+      : {
+          summary: plan.summary,
+        }),
     groups: plan.groups.map((one) => ({
       id: one.id,
       agent: one.agent,
       title: one.title,
+      ...(one.gives === undefined
+        ? {}
+        : {
+            gives: one.gives,
+          }),
+      paths: one.paths,
+      ...(one.landsIn === undefined
+        ? {}
+        : {
+            landsIn: one.landsIn,
+          }),
+      ...(one.ownJob === true
+        ? {
+            ownJob: true as const,
+          }
+        : {}),
       tasks: one.tasks.map((task) => ({
         id: task.id,
         text: task.text,
       })),
     })),
+    ...(opensPullRequests(session)
+      ? {
+          opensPullRequests: true as const,
+        }
+      : {}),
+    taskText: true,
     approved: plan.approved,
     ...(plan.sketch === undefined
       ? {}

@@ -155,6 +155,7 @@ fn pretend_a_fleet_is_running(machine: &Path) {
         pid,
         port: 12345,
         started_at,
+        build: None,
     };
     std::fs::write(
         machine.join(fleet::runtime::FILE_NAME),

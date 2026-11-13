@@ -21,6 +21,7 @@ fn file(id: ProtocolId) -> RuntimeFile {
         pid: 4242,
         port: 51888,
         started_at: StartedAt::carried("Tue Sep  1 09:00:00 2026"),
+        build: None,
     }
 }
 

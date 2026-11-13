@@ -156,9 +156,8 @@ pub enum DispatchWay {
     Parked,
 }
 
-/// `operator.dispatched`: what the Operator did with a dispatch it held (`dispatch_job`'s `operator`), or, with
-/// `way` `started`, that the Job began at once because no live Job was near its words, or, with `way` `parked`,
-/// that he called it an idea. `dispatch_id` is then the idea's id.
+/// `operator.dispatched`: what the Operator did with a dispatch it held (`dispatch_job`'s `operator`): started a
+/// Job, handed it to a live one, kept it for later (`way` `parked`, `dispatch_id` then the idea's id) or asked him.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorDispatched {
     /// The `operator` `dispatch_job` answered with.
