@@ -556,7 +556,7 @@ impl SettingsOverlay {
         }
         stops.push(self.lanes.add.clone());
         stops.extend(self.band_stops(&one, cx));
-        stops.extend(self.lanes_stops(&one));
+        stops.extend(self.lanes_stops(&one, cx));
         stops
     }
 

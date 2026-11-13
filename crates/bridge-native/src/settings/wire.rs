@@ -245,6 +245,24 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/workflows/changes/build".into(), said), "WorkflowSupportBuilding", cx))
     }
 
+    /// `POST /lifecycles/pieces/save`: a lifecycle, rule or autonomy default written to Kit.
+    pub fn save_lifecycle_piece(&mut self, save: ipc::SaveLifecyclePiece, cx: &App) -> Task<Result<ipc::LifecyclePieceSaved, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.save_lifecycle_piece(save));
+        }
+        let said = body(&save);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/lifecycles/pieces/save".into(), said), "LifecyclePieceSaved", cx))
+    }
+
+    /// `POST /lifecycles/pieces/delete`.
+    pub fn delete_lifecycle_piece(&mut self, delete: ipc::DeleteLifecyclePiece, cx: &App) -> Task<Result<ipc::LifecyclePieceDeleted, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.delete_lifecycle_piece(delete));
+        }
+        let said = body(&delete);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/lifecycles/pieces/delete".into(), said), "LifecyclePieceDeleted", cx))
+    }
+
     /// `GET /models`: the models the harness offers, and the model a run that names none is given.
     pub fn models(&mut self, cx: &App) -> Task<Result<ipc::ModelChoices, Refused>> {
         if let Wire::Mock(mock) = self {

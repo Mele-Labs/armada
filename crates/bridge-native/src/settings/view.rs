@@ -975,7 +975,7 @@ impl SettingsOverlay {
         if self.shown(cx).is_some_and(|one| one.body == Body::Workflows) {
             self.workflow_keys(cx);
             self.detail_keys(window, cx);
-            self.read_lanes(cx);
+            self.read_lanes(window, cx);
         }
         if self.shown(cx).is_some_and(|one| one.body == Body::Macs) {
             self.read_macs(window, cx);

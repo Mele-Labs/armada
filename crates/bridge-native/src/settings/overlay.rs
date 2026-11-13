@@ -179,15 +179,6 @@ impl SettingsOverlay {
             // The theme's list opens when the keys reach its field, and shuts when they leave.
             cx.on_focus(&theme.focus, window, |this, _, cx| this.theme_focused(cx)),
             cx.on_blur(&theme.focus, window, |this, _, cx| this.theme_shut(cx)),
-            // The node or chip the keys are on wears the ring while the canvas holds them.
-            cx.on_focus(&lanes.canvas.frame, window, |this, _, cx| {
-                this.lanes.canvas.keyed.set(true);
-                cx.notify();
-            }),
-            cx.on_blur(&lanes.canvas.frame, window, |this, _, cx| {
-                this.lanes.canvas.keyed.set(false);
-                cx.notify();
-            }),
         ];
         SettingsOverlay {
             wire,
@@ -261,7 +252,7 @@ impl SettingsOverlay {
         self.models.reopen();
         self.macs.reopen();
         self.prefs.reopen();
-        self.lanes.reopen();
+        self.lanes.reopen(cx);
         self.mod_keys(cx);
         window.focus(&self.side, cx);
         let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
@@ -829,7 +820,7 @@ impl SettingsOverlay {
         }
         // The lanes take their own keys while they hold them; an Esc they leave comes back to `render_lanes`.
         let canvas = matches!(key.key.as_str(), "escape" | "enter" | "space" | "]" | "[" | "up" | "down" | "left" | "right");
-        if canvas && !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt && self.lanes.canvas.frame.is_focused(window) {
+        if canvas && !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt && self.canvas_keyed(window, cx) {
             return false;
         }
         // A mod's panel beside the page takes its own keys; Esc outside it puts it away.

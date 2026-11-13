@@ -37,6 +37,7 @@ mod jobs;
 mod keymap;
 mod labels;
 mod lanes_canvas;
+mod lanes_editor;
 mod link;
 mod log;
 // A screen reads only some of what `look` offers so far.

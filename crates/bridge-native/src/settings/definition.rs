@@ -158,6 +158,29 @@ pub fn with_words(text: &str, step: &str, words: &str) -> Option<String> {
     Some(text_of(&tree))
 }
 
+/// The definition with one step's label replaced and every other key as it was, or none where the step is not there.
+pub fn with_label(text: &str, step: &str, label: &str) -> Option<String> {
+    let mut tree = tree_of(text)?;
+    let Json::Map(fields) = &mut tree else { return None };
+    let (_, Json::List(steps)) = fields.iter_mut().find(|(name, _)| name == "steps")? else { return None };
+    let one = steps.iter_mut().find(|one| one.get("id").and_then(Json::text) == Some(step))?;
+    one.set("label", Json::Text(label.to_string()));
+    Some(text_of(&tree))
+}
+
+/// The steps a definition lists, in order, as their ids and labels (a step with no label is named by its id).
+pub fn steps_of(text: &str) -> Vec<(String, String)> {
+    let Some(Json::List(steps)) = tree_of(text).and_then(|tree| tree.get("steps").cloned()) else { return Vec::new() };
+    steps
+        .iter()
+        .filter_map(|one| {
+            let id = one.get("id").and_then(Json::text)?.to_string();
+            let label = one.get("label").and_then(Json::text).unwrap_or(&id).to_string();
+            Some((id, label))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,5 +207,18 @@ mod tests {
         assert_eq!(steps[1].get("instructions").and_then(Json::text), Some("Write the test."));
         assert_eq!(with_words(TEXT, "deliver", "x"), None);
         assert_eq!(with_words("steps: []", "fix", "x"), None);
+    }
+
+    #[test]
+    fn a_steps_label_changes_and_every_other_key_keeps_its_place() {
+        let changed = with_label(TEXT, "fix", "Repair").expect("fix is a step");
+        let tree = tree_of(&changed).expect("still a workflow");
+        let Some(Json::List(steps)) = tree.get("steps") else { panic!("steps") };
+        let Json::Map(fix) = &steps[0] else { panic!("a step") };
+        assert_eq!(fix.iter().map(|(key, _)| key.as_str()).collect::<Vec<_>>(), ["id", "label", "instructions", "rules"]);
+        assert_eq!(steps[0].get("label").and_then(Json::text), Some("Repair"));
+        assert_eq!(steps[1].get("label").and_then(Json::text), Some("Tests"));
+        assert_eq!(with_label(TEXT, "deliver", "x"), None);
+        assert_eq!(steps_of(&changed), [("fix".to_string(), "Repair".to_string()), ("tests".to_string(), "Tests".to_string())]);
     }
 }

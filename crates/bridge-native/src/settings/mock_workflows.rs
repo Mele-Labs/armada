@@ -5,7 +5,7 @@
 //! A change asked of an agent is `drafting` for one read and drafted on the next, as Classic's mock drafts it
 //! (`apps/desktop/src/renderer/src/mock/workflows-fleet.ts`, `settled`).
 
-use ipc::{ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, OverriddenWorkflow, ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SessionId, StepId, StepReading, WorkflowChange, WorkflowChangeApproved, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted, WorkflowDefinition, WorkflowId, WorkflowSaved, WorkflowScope, WorkflowSteps, WorkflowSupportBuilding};
+use ipc::{DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, SaveLifecyclePiece, ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, OverriddenWorkflow, ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SessionId, StepId, StepReading, WorkflowChange, WorkflowChangeApproved, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted, WorkflowDefinition, WorkflowId, WorkflowSaved, WorkflowScope, WorkflowSteps, WorkflowSupportBuilding};
 use serde::Deserialize;
 
 use super::definition::{text_of, tree_of, with_words, Json};
@@ -155,6 +155,20 @@ fn drafted(mut change: WorkflowChange) -> WorkflowChange {
                 }
             }
         }
+        // "Add a Review step after Build": a step of that name after the one named.
+        if let Some((name, anchor)) = asked.strip_prefix("add a ").and_then(|rest| rest.split_once(" step after ")) {
+            let (name, anchor) = (name.trim(), anchor.trim().trim_end_matches('.'));
+            if let Json::Map(fields) = &mut tree {
+                if let Some((_, Json::List(steps))) = fields.iter_mut().find(|(field, _)| field == "steps") {
+                    let at = steps.iter().position(|one| one.get("id").and_then(Json::text) == Some(anchor) || one.get("label").and_then(Json::text).is_some_and(|label| label.to_lowercase() == anchor));
+                    if let (Some(at), false) = (at, name.is_empty()) {
+                        let label = name[..1].to_uppercase() + &name[1..];
+                        steps.insert(at + 1, Json::Map(vec![("id".into(), Json::Text(name.replace(' ', "_"))), ("label".into(), Json::Text(label)), ("instructions".into(), Json::Text("Check the work so far before going on.".into()))]));
+                        after = Some(text_of(&tree));
+                    }
+                }
+            }
+        }
         let walk = readings(&id, &tree).into_iter().find(|one| one.id.as_str() == "walk").and_then(|one| one.instructions);
         if let Some(words) = walk.filter(|_| has(&["walk", "say why", "skip"])) {
             let closing = "Notes come back as another take.";
@@ -241,11 +255,31 @@ impl MockFleet {
         Ok(ArmadaProposed { workflow_id: proposing.workflow_id, session_id: SessionId::carried("01SESSIONPROPOSEAAAAAAAAAA"), send_failed: None })
     }
 
+    /// `POST /lifecycles/pieces/save`: answered as written, kept nowhere.
+    pub fn save_lifecycle_piece(&mut self, save: SaveLifecyclePiece) -> Result<LifecyclePieceSaved, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let (kind, id, scope) = match save.piece {
+            LifecyclePiece::Lifecycle { lifecycle } => (LifecyclePieceKind::Lifecycle, lifecycle.id, lifecycle.scope),
+            LifecyclePiece::Rule { rule } => (LifecyclePieceKind::Rule, rule.id, rule.scope),
+            LifecyclePiece::Autonomy { autonomy } => (LifecyclePieceKind::Autonomy, autonomy.id, autonomy.scope),
+        };
+        Ok(LifecyclePieceSaved { kind, file: format!("~/.armada/kit/{}s/{id}.yml", kind.as_wire()), id, scope, replaced: save.overwrite })
+    }
+
+    /// `POST /lifecycles/pieces/delete`.
+    pub fn delete_lifecycle_piece(&mut self, delete: DeleteLifecyclePiece) -> Result<LifecyclePieceDeleted, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        Ok(LifecyclePieceDeleted { kind: delete.kind, file: format!("~/.armada/kit/{}s/{}.yml", delete.kind.as_wire(), delete.id), id: delete.id, scope: delete.scope })
+    }
+
     /// `POST /workflows/changes/ask`: kept `drafting`, with the read an agent takes.
     pub fn ask_change(&mut self, manifest: &str, asking: AskWorkflowChange) -> Result<WorkflowChange, Refused> {
-        if asking.source == "armada" {
-            return Err(refused("fleet.workflow_is_armadas", "Armada's workflows are read-only here".into()));
-        }
+        // Fleet draws no change on Armada's own workflow today, and the draft over a shipped workflow needs one:
+        // the mock answers it, as a Fleet that does will.
         let id = asking.workflow_id.as_str().to_string();
         let before = text_of(&self.held(&id, &asking.source, manifest)?.definition);
         if asking.text.trim().is_empty() {
@@ -449,6 +483,21 @@ mod tests {
         assert_eq!((read(&mut fleet).state, fleet.approve_change(cannot.id).is_err()), (ChangeState::Cannot, true));
         assert_eq!(fleet.build_support(cannot.id).expect("started").job_id.as_str(), SUPPORT_JOB);
         assert!(fleet.ask_change("armada", ask("feature")).is_ok_and(|one| one.state == ChangeState::Drafting));
-        assert!(fleet.ask_change("armada", AskWorkflowChange { source: "armada".into(), ..ask("x") }).is_err());
+    }
+
+    #[test]
+    fn a_step_asked_for_after_another_is_drafted_on_armadas_own_workflow_and_nothing_is_written() {
+        let mut fleet = MockFleet::new();
+        let asking = AskWorkflowChange { workflow_id: WorkflowId::carried("prototype"), source: "armada".into(), text: "Add a Review step after Build".into() };
+        fleet.ask_change("armada", asking).expect("asked");
+        let read = |fleet: &mut MockFleet| fleet.workflow_changes("prototype", "armada", "armada").expect("read").changes.remove(0);
+        read(&mut fleet);
+        let ready = read(&mut fleet);
+        assert_eq!(ready.state, ChangeState::Ready);
+        let ids = |steps: &Option<Vec<ChangeStep>>| steps.iter().flatten().map(|one| one.id.as_str().to_string()).collect::<Vec<_>>();
+        assert_eq!(ids(&ready.after_steps), ["propose", "build", "review", "show"]);
+        assert_eq!(ids(&ready.before_steps), ["propose", "build", "show"]);
+        let held = fleet.workflow_steps("prototype", "armada", "armada").expect("read").steps;
+        assert_eq!(held.len(), 3, "Armada's own is not written");
     }
 }
