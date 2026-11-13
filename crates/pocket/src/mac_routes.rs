@@ -1,5 +1,8 @@
 //! The routes only a linked Mac may call, each a read of this Fleet's `/other_mac/*`, which hands
 //! out only what the owner shares with his other Macs. `signing::signed` keeps a phone off them.
+//!
+//! **A Mac whose build speaks another wire is answered 503** on all but hello and update
+//! (`macs::frozen`): nothing runs half matched, and a 503 is what keeps its queue waiting.
 
 use axum::body::{Body, Bytes};
 use axum::extract::State;
@@ -22,8 +25,18 @@ fn fleet_target(uri: &Uri) -> String {
     format!("/other_mac/{}", whole.strip_prefix("/api/mac/").unwrap_or(whole))
 }
 
+/// 503 with why, where the link to Mac `mac` is frozen.
+pub(crate) fn refused_frozen(gateway: &Gateway, mac: &str) -> Option<Response> {
+    let link = crate::mac_link::frozen_with(gateway, mac)?;
+    let name = gateway.pairing.store.lock().unwrap().paired_mac(mac).ok().flatten().map_or_else(|| mac.to_string(), |row| row.name);
+    Some((StatusCode::SERVICE_UNAVAILABLE, crate::macs::frozen_why(&link, &name)).into_response())
+}
+
 /// `GET /api/mac/sessions`, `/api/mac/bug_reports`, `/api/mac/projects` and `/api/mac/thread`: Fleet's answer as it came.
-pub async fn read(State(gateway): State<Gateway>, uri: Uri) -> Response {
+pub async fn read(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, uri: Uri) -> Response {
+    if let Some(refused) = refused_frozen(&gateway, &mac) {
+        return refused;
+    }
     let port = match port(&gateway) {
         Ok(port) => port,
         Err(refused) => return refused,
@@ -40,7 +53,10 @@ pub async fn read(State(gateway): State<Gateway>, uri: Uri) -> Response {
 /// `POST /api/mac/project_act`: the other Mac's edit of a task on its copy of one of this Mac's shared projects,
 /// handed to Fleet's `/other_mac/project_act` as it came. Fleet answers it, and refuses it where the project is
 /// not shared; its status and body are passed back as they were said.
-pub async fn project_act(State(gateway): State<Gateway>, body: Bytes) -> Response {
+pub async fn project_act(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, body: Bytes) -> Response {
+    if let Some(refused) = refused_frozen(&gateway, &mac) {
+        return refused;
+    }
     let port = match port(&gateway) {
         Ok(port) => port,
         Err(refused) => return refused,
@@ -58,11 +74,30 @@ pub async fn project_act(State(gateway): State<Gateway>, body: Bytes) -> Respons
 /// `/other_mac/act` as the Mac the signature names. Fleet answers it, and refuses it where the Job is not
 /// shared; its status and body are passed back as they were said.
 pub async fn act(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, body: Bytes) -> Response {
+    if let Some(refused) = refused_frozen(&gateway, &mac) {
+        return refused;
+    }
     let port = match port(&gateway) {
         Ok(port) => port,
         Err(refused) => return refused,
     };
     let answer = match fleet_client::send_as_mac(port, "POST", "/other_mac/act", Some(&body), &mac).await {
+        Ok(answer) => answer,
+        Err(_) => return refusal(StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING),
+    };
+    let status = StatusCode::from_u16(answer.status).unwrap_or(StatusCode::BAD_GATEWAY);
+    let kind = answer.content_type.unwrap_or_else(|| String::from("application/json"));
+    (status, [(header::CONTENT_TYPE, kind)], answer.body).into_response()
+}
+
+/// `POST /api/mac/update`: the other Mac asks this one to update, handed to Fleet's `/macs/update` as the Mac the
+/// signature names. **Taken while the link is frozen**, since it is how the two builds come to match.
+pub async fn update(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, body: Bytes) -> Response {
+    let port = match port(&gateway) {
+        Ok(port) => port,
+        Err(refused) => return refused,
+    };
+    let answer = match fleet_client::send_as_mac(port, "POST", "/macs/update", Some(&body), &mac).await {
         Ok(answer) => answer,
         Err(_) => return refusal(StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING),
     };
@@ -82,7 +117,10 @@ pub async fn hello(State(gateway): State<Gateway>) -> Response {
 /// `GET /api/mac/live`: Fleet's `/other_mac/events`, one message a line as Fleet wrote it, and an
 /// empty line whenever it is quiet for a beat. It ends when the Gateway stops, so the other Mac
 /// sees the drop at once.
-pub async fn live(State(gateway): State<Gateway>) -> Response {
+pub async fn live(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>) -> Response {
+    if let Some(refused) = refused_frozen(&gateway, &mac) {
+        return refused;
+    }
     let port = match port(&gateway) {
         Ok(port) => port,
         Err(refused) => return refused,

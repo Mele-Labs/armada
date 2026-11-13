@@ -14,12 +14,14 @@ use std::time::Duration;
 
 use axum::body::Bytes;
 use axum::extract::{Path, State};
+use axum::Extension;
 use axum::http::{header, HeaderMap, HeaderValue, Method, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 
 use crate::mac_client::signer;
 use crate::mac_keys::sign;
 use crate::reads::{port, refusal, NOT_ANSWERING};
+use crate::signing::MacId;
 use crate::{fleet_client, Gateway};
 
 /// How long one page request may take, either leg.
@@ -61,6 +63,7 @@ pub enum PageOpen {
 /// is shared and showed or serves `port`. Fleet's refusal is handed back as it came.
 pub async fn serve(
     State(gateway): State<Gateway>,
+    Extension(MacId(mac)): Extension<MacId>,
     Path(named): Path<HashMap<String, String>>,
     method: Method,
     uri: Uri,
@@ -70,6 +73,9 @@ pub async fn serve(
     let (Some(job), Some(Ok(page_port))) = (named.get("job"), named.get("port").map(|port| port.parse::<u16>())) else {
         return StatusCode::NOT_FOUND.into_response();
     };
+    if let Some(refused) = crate::mac_routes::refused_frozen(&gateway, &mac) {
+        return refused;
+    }
     let fleet = match port(&gateway) {
         Ok(fleet) => fleet,
         Err(refused) => return refused,
@@ -129,6 +135,9 @@ pub fn open_other_mac_page(
             Ok(Some(row)) if row.state == store::MacState::Linked => row,
             _ => return Err(format!("This Mac is not linked to Mac {mac}.")),
         };
+        if let Some(link) = crate::macs::frozen(&gateway.way_in, &row) {
+            return Err(crate::macs::frozen_why(&link, &row.name));
+        }
         if let Some(since) = row.asleep_since {
             return Ok(PageOpen::Asleep { name: row.name, since });
         }
@@ -177,6 +186,9 @@ async fn through(State(page): State<Page>, method: Method, uri: Uri, headers: He
     let Ok(Some(row)) = found.map(|row| row.filter(|row| row.state == store::MacState::Linked)) else {
         return StatusCode::NOT_FOUND.into_response();
     };
+    if let Some(link) = crate::macs::frozen(&page.gateway.way_in, &row) {
+        return (StatusCode::SERVICE_UNAVAILABLE, crate::macs::frozen_why(&link, &row.name)).into_response();
+    }
     let rest = uri.path_and_query().map_or("/", |whole| whole.as_str());
     let target = format!("/api/mac/page/{}/{}{rest}", ipc::door::encoded(&page.job), page.port);
     match signed_page(&page.gateway, &page.mac, &row.address, method, &target, &headers, body).await {

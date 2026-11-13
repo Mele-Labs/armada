@@ -132,7 +132,8 @@ impl Phone {
             .map_err(|why| format!("Armada could not open its store for the phone: {why}"))?;
         let push = pocket::Push::open(&self.machine, pocket::PLACEHOLDER_SUBJECT)?;
         let fleet_port = self.fleet_port;
-        let build = fleet::kept_builds::kept_at(&self.machine.join(fleet::kept_builds::BUILDS), fleet::kept_builds::CURRENT).map(|kept| kept.commit);
+        let build = fleet::kept_builds::kept_at(&self.machine.join(fleet::kept_builds::BUILDS), fleet::kept_builds::CURRENT)
+            .map(|kept| pocket::ThisBuild { commit: kept.commit, built_at: kept.built_at, source: kept.source });
         let way_in = pocket::mac_way_in(self.machine.clone(), port, build);
         let tunnel = way_in.tunnel.clone();
         let gateway = Gateway {

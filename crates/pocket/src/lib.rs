@@ -60,7 +60,7 @@ pub use pairing::{
 pub use push::{Push, PLACEHOLDER_SUBJECT};
 pub use watch::follow;
 pub use routes::{router, Fleet, Gateway};
-pub use setup::{mac_way_in, Funnel, WayIn};
+pub use setup::{mac_way_in, Funnel, ThisBuild, WayIn};
 pub use tunnel::Tunnel;
 
 /// Bind the Gateway's listener. **There is no host parameter**: the address is

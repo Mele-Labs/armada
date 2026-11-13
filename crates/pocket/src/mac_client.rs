@@ -64,6 +64,9 @@ pub(crate) fn hello(gateway: &Gateway) -> Result<MacHello, String> {
         name: mac.name,
         address: gateway.pairing.address().ok(),
         build: gateway.way_in.build.clone(),
+        wire: Some(gateway.way_in.wire.clone()),
+        built_at: gateway.way_in.built_at.clone(),
+        source: gateway.way_in.source.clone(),
     })
 }
 

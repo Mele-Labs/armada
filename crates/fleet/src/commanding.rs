@@ -99,7 +99,12 @@ where
         &self,
         asked: ipc::ChangeFleetBuild,
     ) -> Result<ipc::FleetBuildChanging, Refusal> {
-        self.change_fleet_build_now(&asked)
+        self.fleet_build_changed(&asked).await
+    }
+
+    /// Move his Macs onto one build — [`crate::mac_update`]. **Not `budgeted`**, `change_fleet_build`'s reason.
+    async fn update_mac(&self, asked: ipc::UpdateMac) -> Result<ipc::FleetBuildChanging, Refusal> {
+        self.mac_updated(asked).await
     }
 
     /// Start the undo of the last restart — [`crate::building`]. **Not `budgeted`**, for the same
