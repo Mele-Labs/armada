@@ -416,6 +416,10 @@ mod workflow_lifecycles;
 mod workflow_page;
 /// A change to a workflow an agent drafts for the owner to approve.
 mod workflow_changes;
+/// The draft of a workflow the owner and an agent edit, and Publish.
+mod workflow_drafts;
+/// The draft of a lifecycle, rule or autonomy default, and Publish.
+mod piece_drafts;
 /// The lifecycles a repository has and the Workspaces (sets of repositories) that scope them, read
 /// from the places a piece is kept.
 mod piece_places;

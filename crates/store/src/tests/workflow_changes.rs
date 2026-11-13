@@ -12,6 +12,7 @@ fn asked<'a>(manifest: &'a str, source: &'a str) -> NewWorkflowChange<'a> {
         manifest_id: manifest,
         workflow_id: "feature",
         source,
+        project: "",
         step_id: None,
         asked: Some("split Refine in two"),
         before_text: "{before}",
@@ -87,8 +88,8 @@ fn only_open_changes_are_listed_for_the_workflow_and_place_and_a_repositorys_is_
     store.begin_workflow_change(&asked("elsewhere", "repository"), AT).unwrap();
     store.begin_workflow_change(&NewWorkflowChange { workflow_id: "bug", ..asked("repo", "repository") }, AT).unwrap();
     let ids = |found: Vec<crate::KeptWorkflowChange>| found.into_iter().map(|one| one.id).collect::<Vec<_>>();
-    assert_eq!(ids(store.open_workflow_changes("feature", "repository", "repo").unwrap()), [mine]);
-    assert_eq!(ids(store.open_workflow_changes("feature", "kit", "another").unwrap()), [kit], "Kit's is every repository's");
+    assert_eq!(ids(store.open_workflow_changes("feature", "repository", "", "repo").unwrap()), [mine]);
+    assert_eq!(ids(store.open_workflow_changes("feature", "kit", "", "another").unwrap()), [kit], "Kit's is every repository's");
 }
 
 #[test]
@@ -104,14 +105,14 @@ fn a_change_armada_cannot_make_keeps_what_it_lacks_is_listed_and_is_dismissed_bu
     assert_eq!(kept.state, CHANGE_CANNOT);
     assert_eq!(kept.missing, ["A step can't end when a document is approved.", "A step can't end on a sketch being approved."], "one line each");
     assert_eq!(kept.after_text, None);
-    assert_eq!(store.open_workflow_changes("feature", "repository", "repo").unwrap().len(), 1, "it is open");
+    assert_eq!(store.open_workflow_changes("feature", "repository", "", "repo").unwrap().len(), 1, "it is open");
     assert!(!store.workflow_change_drafted(id, "{late}", LATER).unwrap(), "a straggler does not draft it");
     assert!(!store.workflow_change_sent_back(id, "try again", LATER).unwrap());
     assert!(!store.workflow_change_cannot(id, &missing, LATER).unwrap(), "only from drafting");
     assert!(store.workflow_change_dismissed(id, LATER).unwrap());
     let dismissed = store.workflow_change(id).unwrap().unwrap();
     assert_eq!((dismissed.state.as_str(), dismissed.missing.len()), (CHANGE_DISMISSED, 2));
-    assert!(store.open_workflow_changes("feature", "repository", "repo").unwrap().is_empty());
+    assert!(store.open_workflow_changes("feature", "repository", "", "repo").unwrap().is_empty());
     let other = store.begin_workflow_change(&asked("repo", "repository"), AT).unwrap();
     assert!(store.workflow_change(other).unwrap().unwrap().missing.is_empty(), "every other change lacks nothing");
 }
@@ -132,7 +133,7 @@ fn a_piece_a_job_proposes_is_ready_at_once_is_kept_across_reopens_and_is_no_work
     let replaced = store.workflow_change(replacing).unwrap().expect("kept");
     assert!(!replaced.is_new, "Kit held a file");
     assert_eq!(store.workflow_change(replacing + 1).unwrap().expect("kept").piece, "", "a workflow's change holds no piece");
-    assert!(store.open_workflow_changes("ticket_to_review", "kit", "other").unwrap().is_empty(), "a workflow's page never lists a piece");
+    assert!(store.open_workflow_changes("ticket_to_review", "kit", "", "other").unwrap().is_empty(), "a workflow's page never lists a piece");
     assert!(store.ready_workflow_change_ids().unwrap().contains(&new), "it waits on the owner as a proposal does");
     assert!(store.workflow_change_dismissed(new, LATER).unwrap());
 }
@@ -160,4 +161,22 @@ fn a_repositorys_open_piece_changes_are_its_own_pieces_that_wait_with_the_newest
     let open = store.open_piece_changes("repo").unwrap();
     assert_eq!(open.iter().map(|one| one.id).collect::<Vec<_>>(), [first, lifecycle], "once the newest goes the one before it stands");
     assert!(store.open_piece_changes("nobody").unwrap().is_empty());
+}
+
+#[test]
+fn a_project_changes_are_the_projects_and_a_drafted_mark_is_kept_only_on_a_ready_change() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let storefront = store.begin_workflow_change(&NewWorkflowChange { project: "storefront", ..asked("repo", "project") }, AT).unwrap();
+    store.begin_workflow_change(&NewWorkflowChange { project: "backoffice", ..asked("repo", "project") }, AT).unwrap();
+    let ids = |found: Vec<crate::KeptWorkflowChange>| found.into_iter().map(|one| one.id).collect::<Vec<_>>();
+    assert_eq!(ids(store.open_workflow_changes("feature", "project", "storefront", "another").unwrap()), [storefront], "a project's is its own, in every repository");
+    let kept = store.workflow_change(storefront).unwrap().unwrap();
+    assert_eq!((kept.project.as_str(), kept.drafted), ("storefront", false));
+
+    assert!(!store.workflow_change_marked_drafted(storefront).unwrap(), "a change still drafting has landed nowhere");
+    store.workflow_change_drafted(storefront, "{after}", LATER).unwrap();
+    assert!(store.workflow_change_marked_drafted(storefront).unwrap());
+    drop(store);
+    assert!(open(&dir).workflow_change(storefront).unwrap().unwrap().drafted, "kept across a reopen");
 }

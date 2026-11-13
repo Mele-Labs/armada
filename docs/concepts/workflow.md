@@ -233,6 +233,22 @@ Fleet's health says whether anything was left out and never how many.
 **The full workflow catalogue is `crates/core-model/domain/workflows.toml`**, one row per workflow shape — the shape, gate profile and status, including policy variants and workflows still needing a step list, so there is one list rather than three.
 The instantiated `WorkflowDef` sits beside it as JSON in `crates/core-model/domain/workflow-samples/`, where a sample exists.
 
+### Drafts and Publish
+
+**Editing a workflow is a draft, then Publish** (the owner's ruling of 13 Nov 2026).
+A draft is Fleet's and not a file: kept for one place and one id, read by no loader and followed by no Job, so half an edit changes nothing that runs.
+Each change to it keeps the whole text after it, and the native editor steps back through them by putting an earlier text again, with ⌘Z and a list of changes that each has its own Undo; Fleet keeps the list and the editor does the stepping.
+**Publish writes it** through the same save `save_workflow` uses, so the loader's refusals pass through and nothing is written on one; the draft is deleted once the file is.
+A draft of an existing copy replaces its own place; a draft of Armada's, which is a new file, replaces a copy the scope already holds only where the owner says so, and is refused with the file named where he has not.
+It is refused as stale where the text published in that place is no longer the text the draft began from, because a hand edit or another save came in between.
+A draft that would not load carries the loader's sentence as `unfit`, and is still a draft.
+**A change an agent makes is a change to the draft, marked as the agent's.** An asked change begins from the draft's text where there is a draft, and its result goes onto the end of it when the draft is still what the change was made from.
+Where the draft moved while the agent wrote, the change stays ready for Approve, as before drafts.
+**A draft of one of Armada's own has no scope**, since the carried set is written nowhere: the copy is made on Publish, at the scope he picks, the repository's own, Kit's or one Project's.
+Lifecycles, rules and autonomy defaults get drafts the same way, kept in Kit.
+**`save_workflow` is unchanged and still writes at once**, as does Approve on a drafted change, since the Classic Bridge uses both.
+`docs/practices/protocol/protocol-23-95-a-workflow-edited-as-a-draft-and-published.md` owns the operations.
+
 ### The plan step
 
 **A workflow may name at most one step as its recording step**, the one
@@ -280,7 +296,7 @@ The page carries none of the gate boxes, retries or passes the old editor offere
 | To | He |
 |---|---|
 | Change a step's words | Edits them where they stand, and the page saves them in the place that copy is |
-| Change a workflow's shape | Types the change under *Tell an agent what to change*; an agent drafts the whole definition, the page shows it beside what it was, and he approves it, sends it back with notes, or dismisses it. Nothing saves without his Approve |
+| Change a workflow's shape | Types the change under *Tell an agent what to change*; an agent drafts the whole definition, the page shows it beside what it was, and he approves it, sends it back with notes, or dismisses it. On the native editor the drafted definition also lands in his draft, marked as the agent's, and is written by Publish ([Drafts and Publish](#drafts-and-publish)); on the Classic Bridge nothing saves without his Approve |
 | Change one Armada carries | In the project's lanes, changes it where it stands: the first change makes his own copy, written to Kit under the same id for every repository on this Mac, and nothing says copy. In the column of steps Armada's rows are read-only, and he presses Make my copy, which writes the same file. Or he presses Propose to Armada, which starts a Job on Armada's repository that lands it as a pull request for every install |
 | See how a copy differs | Presses Compare with Armada's, and each step's words show beside Armada's |
 | Go back to Armada's | Presses Reset to Armada's on a copy, which replaces the file with Armada's definition |
@@ -289,8 +305,8 @@ The page carries none of the gate boxes, retries or passes the old editor offere
 **Under each step is its words and what ends it.**
 Fleet no longer lists the Jobs that drifted at a step, and no longer drafts a suggestion from them (5 Nov 2026).
 A change to a workflow is typed under *Tell an agent what to change*, or proposed by a Job.
-Armada's own rows get none; a change to one is made in the lanes, which makes a copy, or is Make my copy or Propose to Armada.
-Approve saves the drafted definition.
+A change to one of Armada's own lands in a draft with no scope, and the copy is made when it is published; it can also be made in the lanes, which makes a copy, or be Make my copy or Propose to Armada.
+Approve saves the drafted definition at once, and refuses one of Armada's own, which has no file to write.
 
 ## What is not a workflow
 

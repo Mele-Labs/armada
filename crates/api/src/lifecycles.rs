@@ -140,3 +140,63 @@ pub(crate) async fn delete_lifecycle_piece<D: Lifecycles>(State(served): State<S
         Err(refusal) => refused(refusal),
     }
 }
+
+/// `?kind=&id=&within=` on `get_piece_draft` and `discard_piece_draft`: a piece as `delete_lifecycle_piece` keys it,
+/// its scope as the id it is within, and absent is everywhere.
+#[derive(Deserialize)]
+pub(crate) struct PieceOf {
+    kind: ipc::LifecyclePieceKind,
+    id: String,
+    #[serde(default)]
+    within: Option<String>,
+}
+
+impl PieceOf {
+    fn key(self) -> ipc::DeleteLifecyclePiece {
+        let scope = match self.within {
+            Some(id) => ipc::PieceScope::Within { id },
+            None => ipc::PieceScope::Everywhere,
+        };
+        ipc::DeleteLifecyclePiece { kind: self.kind, id: self.id, scope }
+    }
+}
+
+/// The draft of one piece.
+pub(crate) async fn get_piece_draft<D: Lifecycles>(State(served): State<Served<D>>, Query(piece): Query<PieceOf>) -> Response {
+    match served.daemon().get_piece_draft(piece.key()).await {
+        Ok(draft) => answer(StatusCode::OK, &draft, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Keep the owner's text as a piece's draft.
+pub(crate) async fn put_piece_draft<D: Lifecycles>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::PutPieceDraft = match ipc::decode_body("a piece draft to keep", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().put_piece_draft(asked).await {
+        Ok(draft) => answer(StatusCode::OK, &draft, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Throw away a piece's draft.
+pub(crate) async fn discard_piece_draft<D: Lifecycles>(State(served): State<Served<D>>, Query(piece): Query<PieceOf>) -> Response {
+    match served.daemon().discard_piece_draft(piece.key()).await {
+        Ok(discarded) => answer(StatusCode::OK, &discarded, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Write a piece's draft through the piece save. 200, for `save_lifecycle_piece`'s reason.
+pub(crate) async fn publish_piece_draft<D: Lifecycles>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::PublishPieceDraft = match ipc::decode_body("a piece draft to publish", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().publish_piece_draft(asked).await {
+        Ok(published) => answer(StatusCode::OK, &published, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

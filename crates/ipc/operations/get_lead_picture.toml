@@ -1,0 +1,14 @@
+[operations.get_lead_picture]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The picture a job last showed, which the native done card leads with: a sketch by its title, a window by its address, or an image by the address it is served at"
+notes = """
+`GET /sessions/lead_picture?session_id=`. `LeadPicture`, one of `{"kind":"sketch","title"}` for a `show_sketch`, `{"kind":"window","url"}` for a `show_window`, and `{"kind":"image","path"}` for a `show_file` of an image, `path` the address `GET /sessions/shown` serves it at, `/sessions/shown?session_id=&path=`, the shape a question's `picture.image` is kept in. The native app draws what this says and works nothing out.
+
+**"Shown a picture" is the notion the Look `all_done` check uses** (`fleet.picture_owed`): one helper reads both, so the two never disagree. A sketch, a window, or an image through `show_file` (`png`, `jpg`, `jpeg`, `gif`, `webp`, `heic`, `svg`, a file the job showed and did not only write). **"Last" is the newest by when it was shown**, not by when it was answered or marked since.
+
+**A sketch or a window the job withdrew is skipped**, as one the person dismissed is: the check counts a picture withdrawn as shown, and this names the one before it. A sketch drawn again, or a window shown again, is shown again and is the newest.
+
+**404 `fleet.no_lead_picture`** where the job has shown none, or every one it showed was withdrawn. 404 `fleet.no_such_session` where Fleet knows no such job.
+"""
