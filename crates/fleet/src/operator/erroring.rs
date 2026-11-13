@@ -6,14 +6,12 @@
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::HostedSessions;
 use ipc::operator_errors::{BridgeErrorTaken, ReportBridgeError};
-use ipc::{ManifestId, Notice, SessionVoice, StartSession};
+use ipc::{ManifestId, Notice};
 
 use super::{held, Arrival, BridgeError};
 use crate::daemon::Fleet;
 
-const OPERATOR: &str = "Operator";
 /// The shortest a token of hex digits is read as an id.
 const HEX_ID: usize = 8;
 /// The shortest a token with a digit in it is read as an id.
@@ -142,32 +140,8 @@ where
     /// An error the Operator ruled a Job of its own: started on it and briefed with every word the
     /// card carried. The Job's id.
     pub(super) async fn operator_started_error(self: &Arc<Self>, manifest: &str, arrival: &Arrival) -> Option<String> {
-        let started = self
-            .start_session(StartSession {
-                project: None,
-                manifest_id: ManifestId::carried(manifest),
-                title: Some(arrival.subject.clone()),
-                model: None,
-                effort: None,
-                mode: None,
-                root: None,
-                fork: None,
-                request: None,
-                after: None,
-                held: false,
-                project_rows: Vec::new(),
-                on_your_words: None,
-            })
-            .await;
-        let record = started.ok()?;
-        let job = record.id.as_str().to_string();
-        let voice = SessionVoice::Session { id: OPERATOR.to_lowercase(), title: OPERATOR.to_string() };
         let brief = format!("Bridge showed the person this error. Find its cause and fix it.\n\n{}", arrival.words);
-        if self.first_message_from(&job, voice, &brief).await.is_err() {
-            let _ = self.closed_and_parked(ipc::CloseSession { session_id: record.id }).await;
-            return None;
-        }
-        Some(job)
+        self.operator_job_started(manifest, &arrival.subject, &brief).await.ok()
     }
 
     /// An error the Operator ruled to live Job `into`, whose work is near it: told it.

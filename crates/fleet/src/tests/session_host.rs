@@ -195,6 +195,7 @@ fn rig_standing_in(
     stand_in: Arc<StandIn>,
     fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
 ) -> Rig {
+    crate::tests::daemon::agents_ask(&home);
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
     fit(&mut fittings);
     let fleet = Fleet::assembled(fittings).hosting_sessions_on(
@@ -217,6 +218,12 @@ fn rig_standing_in(
 }
 
 impl Rig {
+    /// Kit's `agent_starts` from now on: `at_once` or `ask_me`.
+    pub(super) fn agents_start(&self, word: &str) {
+        std::fs::create_dir_all(self._home.path().join("kit")).expect("Kit's folder");
+        std::fs::write(self._home.path().join("kit/values.yml"), format!("version: 1\nvalues:\n  agent_starts: {word}\n")).expect("Kit's values");
+    }
+
     /// Fleet restarted over the same home: what it kept in memory is gone and the store stays. The clock
     /// is moved on, as real time is, so a row written now never takes the id of one written before.
     pub(super) fn restarted(self, fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>)) -> Rig {

@@ -125,7 +125,10 @@ pub fn bind(cx: &mut App) {
             if !crate::terminal::shells::starts(cx) {
                 return;
             }
-            return reach(cx, |this, window, cx| this.new_terminal(window, cx));
+            return reach(cx, |this, window, cx| {
+                let picked = this.sheet.read(cx).is_open().then(|| this.sheet.read(cx).named_repository()).flatten();
+                this.new_terminal(picked, window, cx)
+            });
         }
         let add = match key.id {
             "new_job" => "",
@@ -305,8 +308,8 @@ impl DispatchScreen {
     /// on the other end, and a walk answers by scene.
     fn sheet_asked(&mut self, asked: &Asked, window: &mut Window, cx: &mut Context<Self>) {
         // The card under the sheet: what ⌘T starts.
-        if *asked == Asked::JobHere {
-            self.new_terminal(window, cx);
+        if let Asked::JobHere(picked) = asked {
+            self.new_terminal(picked.clone(), window, cx);
             return;
         }
         // Queue for later is kept here, on a live Fleet or not.
@@ -323,7 +326,7 @@ impl DispatchScreen {
                     let begin = Begin { words: words.clone(), repository: repository.clone(), model: model.clone(), effort: effort.clone(), held: *held };
                     self.start_job(begin, window, cx)
                 }
-                Asked::Queue { .. } | Asked::JobHere | Asked::Closed => {}
+                Asked::Queue { .. } | Asked::JobHere(_) | Asked::Closed => {}
             }
         }
         cx.notify();
@@ -331,12 +334,13 @@ impl DispatchScreen {
 
     /// ⌘T, New Job here: a Job where the window is, else where the last one started, with no sheet. With
     /// neither, the sheet opens to be told where.
-    fn new_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// A repository the sheet's picker named starts it there; none, where the title bar is.
+    fn new_terminal(&mut self, picked: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         // ⌘T over the sheet does what its card does: the sheet shuts first.
         if self.sheet.read(cx).is_open() && here_name(cx).is_some() {
             self.sheet.update(cx, |sheet, cx| sheet.close(window, cx));
         }
-        let here = scope(cx).and_then(|(_, names)| names.first().map(|name| Place::Repository(name.to_string())));
+        let here = picked.map(Place::Repository).or_else(|| scope(cx).and_then(|(_, names)| names.first().map(|name| Place::Repository(name.to_string()))));
         match here.or_else(|| crate::terminal::start::kept_place(cx)) {
             Some(place) => self.start_terminal(Start { place, size: crate::terminal::start::size(cx) }, window, cx),
             None => self.open_sheet("", window, cx),
@@ -860,6 +864,15 @@ impl DispatchScreen {
             "layer-picture" => {
                 let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;
                 layer.update(cx, |layer, cx| layer.picture_arrives(cx));
+            }
+            "answer-start-job" | "answer-draft" => {
+                // Fleet's yes to a start from the sheet: a Start runs at once and its Job opens working, a Draft opens
+                // held on its start card. The sheet goes with the words it held.
+                let held = name == "answer-draft";
+                let (words, repository) = self.sheet.read(cx).started(cx).ok_or("the sheet holds no start to answer")?;
+                self.sheet.update(cx, |sheet, cx| sheet.answered(window, cx));
+                let list = self.jobs.read(cx).list.clone();
+                list.update(cx, |list, cx| list.hold_started_words(&words, &repository, held, cx));
             }
             "queued-started" => {
                 // Fleet's yes to the first queued idea's start: it leaves the queue and its Job opens.

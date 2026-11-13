@@ -103,3 +103,20 @@ export type AnswerOperatorSuggestion = {
   id: string;
   choice: number;
 };
+
+/** What became of a dispatch the Operator held: a Job started on it, folded into a live Job, waiting on the person's card, or kept for later as an idea. */
+export type DispatchWay = "started" | "handed" | "asked" | "parked";
+
+/**
+ * `operator.dispatched`: what the Operator did with a dispatch it held (`dispatch_job`'s `operator`), or, with `way`
+ * `started`, that the Job began at once because no live Job was near its words, or `parked`, that he called it an idea
+ * (`dispatch_id` is then the idea's id). `session_id` and `title` name the Job started or the live Job the work was folded
+ * into, and are absent while `asked`.
+ */
+export type OperatorDispatched = {
+  dispatch_id: string;
+  manifest_id: string;
+  way: DispatchWay;
+  session_id?: string;
+  title?: string;
+};

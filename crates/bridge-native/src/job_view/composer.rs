@@ -397,7 +397,11 @@ impl JobView {
 
     /// The box takes the Job's own draft, and reads what the bar and the pickers need.
     pub(super) fn composer_enter(&mut self, to: Option<&SharedString>, window: &mut Window, cx: &mut Context<Self>) {
-        let kept = to.map(|id| self.composer.drafts.get(id)).unwrap_or_default();
+        let mut kept = to.map(|id| self.composer.drafts.get(id)).unwrap_or_default();
+        if let Some(id) = to {
+            // A held Job's first message is the box's first draft, once.
+            kept = self.seed_start(id, kept, cx);
+        }
         self.set_box(&kept, window, cx);
         if to.is_some() {
             self.want_models(cx);
@@ -514,6 +518,10 @@ impl JobView {
         let Some(id) = self.shown.clone() else { return };
         if self.closed(&id, cx) {
             return;
+        }
+        // A held Job's first send begins it: the box is the first message.
+        if self.held_card(&id, cx).is_some() {
+            return self.begin_start(window, cx);
         }
         let kept = self.kept(cx);
         if kept.text.trim().is_empty() && !self.composer.holds(&id) {
@@ -1006,27 +1014,28 @@ impl JobView {
     // ---- drawing -------------------------------------------------------------------------
 
     /// A quiet text button on the bar: its words, a chevron, and a tooltip that says what it sets.
-    fn bar_button(&self, look: &Look, id: &'static str, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>, narrow: bool) -> gpui::Stateful<gpui::Div> {
+    fn bar_button(&self, look: &Look, id: &'static str, glyph: Option<&'static str>, said: SharedString, tooltip: SharedString, meter: Option<AnyElement>, narrow: bool) -> gpui::Stateful<gpui::Div> {
         div()
             .id(id)
-            // As Electron's: a menu gives up room before Send does, down to a floor, and its words truncate.
+            // Send never shrinks; a menu gives up room first: its words truncate, then only its glyph and caret are left.
             .flex_shrink(1.)
-            .min_w(look.length(token::SPACE_12) * 1.5)
+            .min_w_0()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
             .h(look.length(token::H_CONTROL))
             .pl(look.length(token::SPACE_3))
             .pr(look.length(token::SPACE_2))
-            // In a box under 400px its words are gone, as Electron's truncate to nothing there: its glyph and caret keep their room.
+            // In a box under 400px its words are gone and its glyph stands in for them, as Electron's truncate to nothing there: its glyph and caret keep their room.
             .when(narrow, |button| {
-                button.flex_none().min_w_0().gap(look.length(token::SPACE_1)).pl(look.length(token::SPACE_1)).pr(look.length(token::SPACE_1))
+                button.overflow_hidden().when(glyph.is_some(), |button| button.min_w(look.length(token::SPACE_1) * 3. + look.length(token::SPACE_4) * 2. + look.length(token::BORDER_WIDTH) * 2.)).gap(look.length(token::SPACE_1)).pl(look.length(token::SPACE_1)).pr(look.length(token::SPACE_1))
             })
             .rounded(look.length(token::RADIUS_MD))
             .cursor_pointer()
             .text_size(look.length(token::TEXT_SM))
             .text_color(look.color(token::FG_MUTED))
             .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+            .children(glyph.filter(|_| narrow).map(|name| svg().flex_none().path(icon_path(name)).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))))
             .children((!narrow).then(|| div().min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis().child(said)))
             .children(meter)
             .child(svg().flex_none().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
@@ -1034,7 +1043,7 @@ impl JobView {
     }
 
     /// Send, as the box's bar draws it: off while there is nothing to send.
-    pub(super) fn send_button(&self, nothing: bool, window: &Window, cx: &Context<Self>) -> gpui::AnyElement {
+    pub(super) fn send_button(&self, nothing: bool, said: &'static str, window: &Window, cx: &Context<Self>) -> gpui::AnyElement {
         let look = cx.look();
         let key_text = window.modifiers().platform;
         labelled(
@@ -1060,10 +1069,10 @@ impl JobView {
                         .on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))
                 })
                 .child(svg().path(icon_path("send")).size(look.length(token::SPACE_3)).text_color(if nothing { look.color(token::FG_SUBTLE) } else { look.color(token::TEXT_ON_ACCENT) }))
-                .child("Send")
+                .child(said)
                 .when(key_text, |button| button.child(div().text_color(look.color(token::TEXT_ON_ACCENT).opacity(0.7)).child("\u{2318}\u{21b5}"))),
             Role::Button,
-            "Send",
+            said,
         )
         .into_any_element()
     }
@@ -1245,7 +1254,13 @@ impl JobView {
         let (shown, tune_said) = trigger_name(offered, default, model.as_deref(), effort.as_deref());
         let (steps, lit) = effort_place(offered, default, model.as_deref(), effort.as_deref());
         let meter = (steps > 0).then(|| effort_meter(look, steps, lit).into_any_element());
-        let send = self.send_button(nothing, window, cx);
+        let card = self.held_card(id, cx);
+        // A held Job's Send reads Start, and works on an empty box where Fleet gave no first message.
+        let (nothing, said) = match &card {
+            Some(card) => ((kept_empty && !self.composer.holds(id) && card.has_message()) || card.starting(), "Start"),
+            None => (nothing, "Send"),
+        };
+        let send = self.send_button(nothing, said, window, cx);
         let attach = self.attach_button(look, cx);
         // The box, Needs you and the cards share one outer edge: the words' column and the bleed either side.
         let column = self.column(look) + super::bleed(look) * 2.;
@@ -1253,7 +1268,7 @@ impl JobView {
         let narrow = self.pane.is_some_and(|pane| (pane - look.length(token::SPACE_4) * 2.).min(column) < gpui::px(400.));
         let mode_button = labelled(
             // The permission picker is a select, as Electron's: a sunken well in a strong edge.
-            self.bar_button(look, "mode", mode_said, mode_tip, None, narrow)
+            self.bar_button(look, "mode", Some("zap"), mode_said, mode_tip, None, narrow)
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_STRONG))
                 .bg(look.color(token::BG_SUNKEN))
@@ -1265,7 +1280,7 @@ impl JobView {
             "Permission mode",
         );
         let tune_button = labelled(
-            self.bar_button(look, "tune", shown.into(), "The model and effort the next turn runs on".into(), meter, narrow).on_click(cx.listener(
+            self.bar_button(look, "tune", None, shown.into(), "The model and effort the next turn runs on".into(), meter, narrow).on_click(cx.listener(
                 |this, _, window, cx| this.open_tune(window, cx),
             )),
             Role::Button,
@@ -1356,6 +1371,7 @@ impl JobView {
                             .when(needs.is_some(), |frame| frame.border_t(gpui::px(0.)))
                             .when(risen, |frame| frame.rounded_t(gpui::px(0.)))
                             .bg(look.color(token::BG_SUNKEN))
+                            .children(card.as_ref().map(|card| self.start_strip(card, look, cx)))
                             .children(needs)
                             .children(self.render_offer(look, cx))
                             .children(self.render_quick(id, look, window, cx))

@@ -8,5 +8,5 @@
 mod fleets;
 mod workflows;
 
-pub use fleets::{a_fleet, fitted_with, fittings};
+pub use fleets::{a_fleet, agents_ask, fitted_with, fittings};
 pub use workflows::{manifest, one, workflow_named};

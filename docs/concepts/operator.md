@@ -137,12 +137,25 @@ What a rule did is in Done as well, signed by the Operator.
 
 **The Operator starts no Job for another Job's work.**
 A Job it starts is one he asked for, or work no Job holds: a note, an error, a report or a red main.
+**A Job the Operator rules new starts at once, or held where the project says `ask_me`.**
+A new Job is no longer a go-ahead to press: the ruling starts it, on the project's `agent_starts` word.
+**His own dispatch goes to the Operator before any Job exists**, where it is on and seated.
+It starts a Job, folds the work into the live Job, keeps the work for later as an idea, or asks him on a card, Hand to or Keep both.
+**What he calls it decides what is asked.**
+An idea is kept for later at once, with no call.
+A feature or a bug is never kept for later, and a Job started on it follows the repository's workflow of that name where it has one.
+Left unnamed, the Operator reads the words and decides, and makes the call even where no live Job is near.
+With the Operator off, a dispatch starts at once whatever it is called.
+**The ideas are Fleet's list**, since a Bridge that is closed when one is kept has no list to put it in.
+A start or a fold it rules is done at once, and a toast names the Job started or folded into.
+A late ruling, a failed call or an act that could not be carried out starts the Job as he asked, and a dispatch still kept when Fleet starts is started then.
+Where the Operator is off or not seated, or he named it a feature or a bug and no live Job is near, the Job starts at once with no call.
 **A Job that starts on what a live Job holds is handed to that Job, after one go-ahead.**
 Fleet looks first: a start by a Job, by Autopilot or by him is put against the live Jobs in its repository, and only where one shares a path, an issue or two uncommon words is one call made.
 With no Job near it there is no call and no row.
 Hand to the live Job or Keep both is the go-ahead's pick, answered Yes, Always here, Always or No, and a kept rule hands it alone.
 Yes sends the brief to the live Job, tells the Job that started it where it went, and closes the duplicate.
-A Job's own start is held on its start card until he answers, and Autopilot's is set aside, then started as it was asked on No.
+A Job's own start is held on its start card until he answers where `agent_starts` is `ask_me`, and otherwise begins; Autopilot's is set aside, then started as it was asked on No.
 **A Job he started himself is never held or closed unasked**: it starts, and Your turn carries the item.
 Every hand-over is a row of the Log signed by the Operator that names both Jobs, and the rule where one did it.
 Why: "the Operator keeps spinning up these 'Rest of' Jobs and I hate it." It had started a second "Rest of" Job while a subagent of the first still ran.
@@ -372,7 +385,7 @@ The Operator replaced it.
 | Its old threads | Stay readable as ended Jobs. Nothing is deleted |
 | One Helm per repository | One Operator per machine |
 | Autopilot's own loop, and its answers HUD | Folded in. The answers are rows of the Log |
-| A Job started by a Job waits on its start card | The start card is the person's. The Operator takes no start |
+| A Job started by a Job waits on its start card | It begins at once unless the project says `ask_me`. The Operator takes no start of a Job's own |
 | Fleet never writes to the forge for you | File creates new issues, Close and Group close or move one in beads, and nothing else changes. On a tracker with a forge it needs a yes |
 
 **The old threads read as they did.**

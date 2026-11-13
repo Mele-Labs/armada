@@ -71,6 +71,7 @@ mod pr_panel;
 mod report_brief;
 mod side;
 mod spine;
+mod start_card;
 mod workflow;
 mod tabs;
 mod view_tabs;
@@ -310,6 +311,8 @@ pub struct JobView {
     pages: HashMap<SharedString, Page>,
     head: head::Head,
     composer: composer::Composer,
+    /// What a person has settled on a held Job's start card that Fleet has not answered.
+    starts: start_card::Starts,
     /// Every stamp in the thread reads as an age, not a clock (a press flips them all).
     aged: bool,
     /// How Done lists what was made, for the run.
@@ -497,6 +500,7 @@ impl JobView {
             compact_refused: HashMap::new(),
             pages: HashMap::new(),
             head: head::Head::new(cx),
+            starts: start_card::Starts::default(),
             composer,
             aged: false,
             ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },
@@ -673,6 +677,14 @@ impl JobView {
             if let Some(fleet) = self.fleet.clone() {
                 let id = id.clone();
                 fleet.update(cx, |fleet, cx| fleet.read_thread(&id, true, cx));
+            } else if let Some(started) = self.list.read(cx).record(id).filter(|_| self.list.read(cx).made_here(id) && !self.mock.contains_key(id.as_ref())).map(|job| job.started_at.as_str().to_string()) {
+                // A Job a walk started has nothing in its thread yet, as Fleet answers for a Job just begun.
+                match crate::mock::empty_thread(id, &started) {
+                    Ok(read) => {
+                        self.mock.insert(id.to_string(), HeldThread::from_read(read, 1));
+                    }
+                    Err(why) => cx.defer(move |cx| crate::toasts::tell(why, cx)),
+                }
             } else if let Some(why) = crate::mock::thread_refused(id) {
                 cx.defer(move |cx| crate::toasts::tell(why, cx));
             } else if crate::mock::reads_slowly() {

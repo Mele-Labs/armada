@@ -77,6 +77,7 @@ export * from "./autopilot";
 export * from "./servers";
 export * from "./app-runs";
 export * from "./hosted-sessions";
+export * from "./job-dispatch";
 export * from "./started-jobs";
 export * from "./sessions";
 export * from "./session-notes";

@@ -103,13 +103,17 @@ pub struct ForkThisSession {
     pub at: Option<String>,
 }
 
-/// What both calls answer. The Session exists and is listed; no process has started.
+/// What both calls answer. The Session exists and is listed. **A fork is always held**; a Job started by a Job
+/// is held on its start card only where the project's `agent_starts` is `ask_me`, and otherwise runs at once.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionHeld {
     pub session_id: SessionId,
     pub title: String,
     /// Whether it is a fork of the caller's conversation.
     pub fork: bool,
+    /// Whether it waits on its start card. `false` is a Job that has begun, or is about to once the proposer has
+    /// read its brief.
+    pub held: bool,
 }
 
 /// A Session as another's thread names it, to open it by.

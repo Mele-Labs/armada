@@ -526,6 +526,8 @@ pub struct JobsList {
     opened: Option<SharedString>,
     /// Counts each pick of a Job, the open one again too, so the view puts the keys in its box.
     picks: u64,
+    /// The Jobs a walk's stand-in for Fleet started: their threads are empty, as Fleet answers for a Job with nothing in it.
+    made: Vec<String>,
     focus: FocusHandle,
     /// The whole panel's, which holds the list and what it opens over itself, its menus.
     within: FocusHandle,
@@ -659,6 +661,7 @@ impl JobsList {
             focused: None,
             opened: None,
             picks: 0,
+            made: Vec::new(),
             focus: cx.focus_handle(),
             within: cx.focus_handle(),
             scroll: ScrollHandle::new(),
@@ -789,21 +792,82 @@ impl JobsList {
     /// A walk's stand-in for Fleet's yes to a queued idea's start: a Job of its words, in its repository's group,
     /// stands in the list at once and opens, as a live start's record would.
     pub fn hold_started(&mut self, idea: &crate::queued::QueuedIdea, cx: &mut Context<Self>) {
-        let like = self.jobs.iter().find(|job| project_of(job) == idea.repository).or_else(|| self.jobs.first());
+        self.hold_new(format!("started-{}", idea.id), idea.title().to_string(), &idea.repository, None, cx);
+    }
+
+    /// A walk's stand-in for Fleet's yes to a start from the sheet: a Job of the words stands in the list and opens,
+    /// working at once, or held on its start card where the person pressed Draft.
+    pub fn hold_started_words(&mut self, words: &str, repository: &str, held: bool, cx: &mut Context<Self>) {
+        let title = words.lines().find(|line| !line.trim().is_empty()).map_or("", str::trim).to_string();
+        let mark = if held {
+            ipc::JobMark { state: ipc::JobState::Draft, lamp: ipc::JobLamp::Idle, group: ipc::JobGroup::Working }
+        } else {
+            ipc::JobMark { state: ipc::JobState::Working, lamp: ipc::JobLamp::Running, group: ipc::JobGroup::Working }
+        };
+        let id = if held { "drafted-from-sheet" } else { "started-from-sheet" };
+        self.hold_new(id.to_string(), title, repository, Some(mark), cx);
+        if held {
+            self.hold_on_card(id, words, cx);
+        }
+    }
+
+    /// The Job held on its start card, as Fleet's record carries one: the first message, the proposer's read workflow and the usual landing.
+    fn hold_on_card(&mut self, id: &str, words: &str, cx: &mut Context<Self>) {
+        let hosted = self.jobs.iter().find_map(|job| job.hosted.clone());
+        let Some(job) = self.jobs.iter_mut().find(|job| job.id.as_str() == id) else { return };
+        job.hosted = hosted.map(|mut hosted| {
+            hosted.turn = ipc::SessionTurn::Idle;
+            hosted.asked = None;
+            hosted.paused = None;
+            hosted.start_failed = None;
+            hosted.running = false;
+            hosted.start = Some(ipc::StartHeld {
+                asks_delivery: true,
+                picked: Some(ipc::DeliveryPicked { choice: ipc::DeliveryChoice::AutoLand, from: ipc::DeliveryPickedFrom::Usual }),
+                message: Some(words.to_string()),
+                queued: false,
+            });
+            hosted
+        });
+        job.workflow = Some("feature".into());
+        job.proposal = Some(ipc::SessionProposal { reading: false, picked: vec![ipc::ProposedField::Workflow] });
+        self.relist(cx);
+        cx.notify();
+    }
+
+    /// A walk's stand-in for Fleet's yes to Start on a held Job: the card goes and the Job is working.
+    pub fn began(&mut self, id: &str, cx: &mut Context<Self>) {
+        let Some(job) = self.jobs.iter_mut().find(|job| job.id.as_str() == id) else { return };
+        if let Some(hosted) = job.hosted.as_mut() {
+            hosted.start = None;
+        }
+        job.mark = Some(ipc::JobMark { state: ipc::JobState::Working, lamp: ipc::JobLamp::Running, group: ipc::JobGroup::Working });
+        self.relist(cx);
+        cx.notify();
+    }
+
+    fn hold_new(&mut self, id: String, title: String, repository: &str, mark: Option<ipc::JobMark>, cx: &mut Context<Self>) {
+        let like = self.jobs.iter().find(|job| project_of(job) == repository).or_else(|| self.jobs.first());
         let Some(mut record) = like.cloned() else { return };
-        record.id = ipc::SessionId::carried(format!("started-{}", idea.id));
-        record.title = Some(idea.title().to_string());
+        record.id = ipc::SessionId::carried(id);
+        record.title = Some(title);
         record.state = SessionState::Live;
         record.attachments = Vec::new();
         record.activity = None;
         record.so_far = None;
         record.hosted = None;
-        record.mark = None;
+        record.mark = mark;
         record.ended_at = None;
         let id: SharedString = record.id.as_str().to_string().into();
+        self.made.push(id.to_string());
         self.jobs.insert(0, record);
         self.relist(cx);
         self.open(id, cx);
+    }
+
+    /// Whether a walk's stand-in for Fleet started this Job.
+    pub fn made_here(&self, id: &str) -> bool {
+        self.made.iter().any(|made| made == id)
     }
 
     /// Every Job the list holds, for the message box's `@` to name.

@@ -34,6 +34,8 @@ pub enum Way {
     Noted,
     /// A note the person sent to a Job stays where he sent it. Nothing follows and nothing is in Done.
     Leave,
+    /// A dispatch that is a loose idea is kept for later, and no Job is started.
+    Park,
 }
 
 impl Way {
@@ -48,6 +50,7 @@ impl Way {
             Way::Group => "group",
             Way::Noted => "noted",
             Way::Leave => "leave",
+            Way::Park => "park",
         }
     }
 
@@ -63,12 +66,13 @@ impl Way {
             Way::Group => "proposed_group",
             Way::Noted => "proposed_noted",
             Way::Leave => "proposed_leave",
+            Way::Park => "proposed_park",
         }
     }
 
     /// The way a word from the store names.
     pub(super) fn from_word(word: &str) -> Option<Way> {
-        [Way::NewJob, Way::ExistingJob, Way::Raise, Way::Link, Way::File, Way::Close, Way::Group, Way::Noted, Way::Leave].into_iter().find(|way| way.word() == word)
+        [Way::NewJob, Way::ExistingJob, Way::Raise, Way::Link, Way::File, Way::Close, Way::Group, Way::Noted, Way::Leave, Way::Park].into_iter().find(|way| way.word() == word)
     }
 
     pub(super) fn word_shown(self) -> &'static str {
@@ -82,6 +86,7 @@ impl Way {
             Way::Group => "group it with the open issue it lists, as its duplicate (closed) or a part of it (put under it), saying which in kind",
             Way::Noted => "note it",
             Way::Leave => "leave it with the Job he sent it to",
+            Way::Park => "keep it for later as an idea",
         }
     }
 

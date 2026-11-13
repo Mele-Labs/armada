@@ -32,6 +32,7 @@ mod calling;
 mod candidates;
 mod closing;
 mod desk;
+mod dispatching;
 mod duplicating;
 mod erroring;
 mod handing;
@@ -48,6 +49,7 @@ mod seat;
 pub(crate) mod shortlist;
 mod sources;
 mod sourcing;
+mod starting;
 mod suggesting;
 mod talking;
 mod thening;
@@ -471,14 +473,17 @@ impl Operator {
         let _ = tell.send(ruled);
     }
 
-    /// What Fleet does on `ruling`. **An act asks**: a new Job, words to a live Job and a new issue are
-    /// kept as a suggestion, which raising turns into a go-ahead in Your turn, answered Yes, Always
-    /// here, Always or No, and which a kept rule covering it does as it is raised. A link writes
-    /// nothing, and a raise, a leave and a note are not acts, so they are done as they came.
+    /// What Fleet does on `ruling`. **An act asks**: words to a live Job and a new issue are kept as a
+    /// suggestion, which raising turns into a go-ahead in Your turn, answered Yes, Always here, Always
+    /// or No, and which a kept rule covering it does as it is raised. **A new Job is started, as the
+    /// project's `agent_starts` says**: running, or held on its start card, which is the ask. A dispatch's
+    /// hand-over is done at once too, since he has not seen a Job for it. A link writes nothing, and a
+    /// raise, a leave and a note are not acts, so they are done as they came.
     async fn act(&self, arrival: &Arrival, ruling: &Ruling) -> Result<Carried, String> {
         match ruling.way {
-            Way::NewJob | Way::ExistingJob | Way::File | Way::Close | Way::Group => self.acting.suggest_once(arrival, ruling).await.map(Carried::kept),
-            Way::Raise | Way::Link | Way::Leave | Way::Noted => self.acted(arrival, ruling).await.map(|()| Carried::Done),
+            Way::ExistingJob if !arrival.is_dispatch() => self.acting.suggest_once(arrival, ruling).await.map(Carried::kept),
+            Way::File | Way::Close | Way::Group => self.acting.suggest_once(arrival, ruling).await.map(Carried::kept),
+            Way::NewJob | Way::ExistingJob | Way::Raise | Way::Link | Way::Leave | Way::Noted | Way::Park => self.acted(arrival, ruling).await.map(|()| Carried::Done),
         }
     }
 
