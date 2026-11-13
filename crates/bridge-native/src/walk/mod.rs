@@ -114,8 +114,8 @@ pub enum Verb {
     /// The merge strip, the context ring or the write-clash marks move to a named scene
     /// (`strip_marks.rs`). A scene changes data and presses nothing.
     Marks(&'static str),
-    /// The Jobs list's scope picked as a person picks it, from the keys: press the scope button, ↓ to
-    /// Paused, Enter. One step for the three, since the list is on the same screen.
+    /// The Jobs list's scope picked as a person picks it: press the scope button, then Paused in its menu,
+    /// found by name. One step for the two, since the list is on the same screen.
     PausedScope,
     /// The screen is built again from its mock, so a part of a long walk starts from the state its
     /// first step expects: no popup, sheet or layer open, every scene at rest. The target is ringed.
@@ -1257,20 +1257,22 @@ pub static WALKS: &[Walk] = &[
     name: "jobs-list",
     title: "Jobs list",
     screen: Screen::Jobs,
-    scenario: "jobs-many",
+    scenario: "jobs-projects",
     steps: &[
-        step("Live Jobs, grouped by project", Verb::Look, "heading", "armada"),
+        step("Live Jobs, grouped by project, each heading the project's name", Verb::Look, "heading", "Armada"),
+        step("A Job Fleet has not titled yet reads New Job", Verb::Look, "row", "New Job"),
         step("Each glyph says the Job's state, and a Job that needs you breathes amber", Verb::Look, "img", "Waiting on you"),
         step("J or ↓ moves down the list", Verb::Key("j"), "row", "Native Bridge foundation"),
         step("K or ↑ moves back up", Verb::Key("k"), "row", "Fix the merge line freshness chip"),
         step("Enter opens the focused Job", Verb::Key("enter"), "row", "Fix the merge line freshness chip"),
         step("A press opens a Job too", Verb::Press, "row", "Checkout page loads twice"),
-        step("Each project heads its own Jobs", Verb::Look, "heading", "sample-api"),
+        step("Each project heads its own Jobs", Verb::Look, "heading", "Storefront"),
+        step("Jobs started for no project stand under their repository's name", Verb::Look, "heading", "sample-api"),
         step(
             "A Job another started stands under it, linked",
             Verb::Look,
             "row",
-            "Move Bridge's thread rows into Fleet, Linked Job, started by Native Bridge foundation in armada",
+            "Move Bridge's thread rows into Fleet, Linked Job, started by Native Bridge foundation in Armada",
         ),
         step("Rest the pointer on a Job and its card opens beside it", Verb::Hover, "row", "Native Bridge foundation"),
         step("A right press opens the Job's menu", Verb::RightPress("Audit the docs index"), "menuitem", "Pause"),

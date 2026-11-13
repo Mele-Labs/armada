@@ -623,7 +623,7 @@ fn dots_of<'a>(line: &'a Line, related: &[u64]) -> Vec<Dot<'a>> {
                 queued: is_queued(pull),
                 place: pull.queue.as_ref().and_then(|queue| queue.position),
                 tone: view.tone,
-                job: view.held_by.as_ref().map(|job| (job.id.clone().into(), job.title.clone().unwrap_or_else(|| job.id.clone()).into())),
+                job: view.held_by.as_ref().map(|job| (job.id.clone().into(), crate::jobs::titled(job.title.as_deref()).into())),
                 related: related.contains(&pull.number),
             }
         })
@@ -1213,7 +1213,7 @@ impl MergeStrip {
         if let Some(merge) = merge {
             let branch = merge.branch.clone().map(|branch| format!(" {branch}")).unwrap_or_default();
             let owner = merge.session.as_ref().map(|session| {
-                let title = session.title.clone().unwrap_or_else(|| session.id.clone());
+                let title = crate::jobs::titled(session.title.as_deref());
                 div()
                     .flex()
                     .items_center()
@@ -1254,7 +1254,7 @@ impl MergeStrip {
             });
             elsewhere.map(|held| fix::held_by(held, look, act)).unwrap_or_else(|| div().into_any_element())
         });
-        let taken = taken_by.map(|session| session.title.clone().unwrap_or_else(|| session.id.clone()));
+        let taken = taken_by.map(|session| crate::jobs::titled(session.title.as_deref()));
         let band = div()
             .flex()
             .flex_col()

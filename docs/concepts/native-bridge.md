@@ -169,6 +169,8 @@ The parity check takes each row here as chosen.
 | Add lifecycle over a workflow's lanes in Settings | Drawn where the lanes can be edited | Not drawn: native's lanes are read-only for now |
 | The clash shown in the Settings walk | api's own copy of feature, where Platform and Mobile differ | armada's own copy of feature, with the same words, since the mock serves no api repository |
 | New project (owner) | `LocateForm`: a name and a parent folder, made into a git repository | A project sheet: a name, his repositories ticked whole or by folder, a clone or a new repository, where its file is kept, and the settings it starts with. Create makes the project, goes to it and starts a Job in it on its empty thread |
+| The Jobs list's groups (his report, 13 Nov) | A group for each repository on All, by the repository's name | A group for each project a Job was started for, by the project's name; a Job started for none stands under its repository's name. A heading is never an id |
+| A Job Fleet has not titled yet, in the Jobs list (his report, 13 Nov) | Its row reads the Job's id | Its row reads New Job, as ⌘T names the Job it starts |
 
 ## Notifying
 
