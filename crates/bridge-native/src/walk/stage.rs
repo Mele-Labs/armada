@@ -49,7 +49,13 @@ impl Stage {
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
                 let keys = list.read(cx).focus_handle().clone();
                 let threads = crate::mock::threads(walk.scenario)?;
+                // A reopen opens the Job that was open, as a restart does; its tabs and place are read by the Job view.
+                let reopened = crate::job_view::reopened_job(cx);
+                let opens = list.clone();
                 let screen = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
+                if let Some(job) = reopened {
+                    opens.update(cx, |list, cx| list.open_job(&job, cx));
+                }
                 let focus = Focus { keys, within: screen.read(cx).within().clone() };
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: screen.into(), focus })
@@ -189,7 +195,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
     match step.verb {
         Verb::Look | Verb::Later(_) => Ok(()),
         // The walk window builds the screen again before it reaches here (`WalkWindow::play_to`).
-        Verb::Fresh | Verb::FreshIn(..) => Ok(()),
+        Verb::Fresh | Verb::FreshIn(..) | Verb::Reopen => Ok(()),
         Verb::Width(points) => {
             let height = window.viewport_size().height;
             window.resize(gpui::size(gpui::px(points as f32), height));
@@ -520,18 +526,15 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .map(|drawn| drawn.bounds.center())
                 .ok_or_else(|| Missed("no button named \"Active\"".into()))?;
             press(MouseButton::Left, at, window, cx);
-            // The menu is drawn, and holds the keys, before each key is sent, as a person's second press would find it.
+            // The menu is drawn before Paused is pressed, as a person's second press would find it. Paused is
+            // found by name, so the scopes' order can change under the step.
             window.defer(cx, |window, cx| {
                 window.draw(cx).clear(cx);
-                if let Ok(down) = Keystroke::parse("down") {
-                    window.dispatch_keystroke(down, cx);
+                let role = role_named("menuitemcheckbox").expect("a menu item checkbox is a role");
+                let paused = cx.try_global::<LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), role, "Paused")).map(|drawn| drawn.bounds.center());
+                if let Some(at) = paused {
+                    press(MouseButton::Left, at, window, cx);
                 }
-                window.defer(cx, |window, cx| {
-                    window.draw(cx).clear(cx);
-                    if let Ok(enter) = Keystroke::parse("enter") {
-                        window.dispatch_keystroke(enter, cx);
-                    }
-                });
             });
             Ok(())
         }

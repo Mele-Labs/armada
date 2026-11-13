@@ -66,6 +66,51 @@ pub struct MacBack {
     pub spki_hex: String,
 }
 
+/// `POST /pair/mac/ask`: another Mac on his account asks this one to pair, with no link. What a claim
+/// carries, since the owner's Confirm here answers it the same way.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MacAsk {
+    pub mac: MacHello,
+    pub spki_hex: String,
+    pub back_code: String,
+}
+
+/// The answer to [`MacAsk`]: who this Mac is, and the random half of the code both Macs show.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MacAsked {
+    pub mac: MacHello,
+    pub nonce: String,
+}
+
+/// `POST /pair/mac/declined`: the Mac that was asked declined, so the asking one drops its wait.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MacDeclined {
+    /// The Mac that declined.
+    pub mac: String,
+    pub back_code: String,
+}
+
+/// `GET /pair/mac/hello`, unsigned: what any caller may know of this Mac, for the list of Macs on his
+/// account. Nothing that lets it act here.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MacGreeting {
+    pub name: String,
+    pub colour: MacColour,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build: Option<String>,
+}
+
+/// The four digits both Macs show for an ask: from the asking Mac's key and the asked Mac's random half,
+/// which only the two of them hold.
+pub(crate) fn digits(spki_hex: &str, nonce: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::digest(format!("{spki_hex}:{nonce}").as_bytes());
+    format!("{:04}", u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]]) % 10_000)
+}
+
+/// How many asks from other Macs wait here at once. His address is public, so a stranger can fill no more.
+pub(crate) const ASKS_HELD: usize = 3;
+
 /// A claim held until the owner presses Confirm here.
 #[derive(Clone)]
 pub(crate) struct HeldClaim {
@@ -73,11 +118,38 @@ pub(crate) struct HeldClaim {
     pub public_key: Vec<u8>,
     pub back_code: String,
     pub at: i64,
+    /// The four digits, where the claim is an ask from Settings rather than a pasted link.
+    pub digits: Option<String>,
 }
 
 struct Code {
     expires: i64,
     claim: Option<HeldClaim>,
+}
+
+impl Code {
+    /// An ask is gone once its time is past, claimed or not. A claim on a link waits for Confirm.
+    fn live(&self, now: i64) -> bool {
+        match &self.claim {
+            Some(claim) if claim.digits.is_none() => true,
+            _ => self.expires > now,
+        }
+    }
+}
+
+/// An ask this Mac sent, waiting for Confirm on the other.
+#[derive(Clone)]
+pub(crate) struct Asking {
+    pub digits: String,
+    pub expires: i64,
+}
+
+/// The account's other Macs as last read, so Settings' polling does not ask Cloudflare at each look.
+#[derive(Default)]
+pub(crate) struct FoundKept {
+    pub at: Option<std::time::Instant>,
+    pub macs: Vec<ipc::FoundMac>,
+    pub why: Option<String>,
 }
 
 /// This Gateway's half of its links to other Macs.
@@ -86,6 +158,9 @@ pub struct Macs {
     pub(crate) keys: Arc<dyn MacKeys>,
     pub(crate) held: Held,
     codes: Arc<Mutex<HashMap<String, Code>>>,
+    /// The asks this Mac sent, by the asked Mac's id.
+    pub(crate) asking: Arc<Mutex<HashMap<String, Asking>>>,
+    pub(crate) found: Arc<Mutex<FoundKept>>,
     /// Pairing or forgetting a Mac wakes the link, which starts or stops its task.
     pub(crate) changed: Arc<Notify>,
     closing: Arc<watch::Sender<bool>>,
@@ -107,6 +182,8 @@ impl Macs {
             keys,
             held: Held::default(),
             codes: Arc::default(),
+            asking: Arc::default(),
+            found: Arc::default(),
             changed: Arc::new(Notify::new()),
             closing: Arc::new(watch::channel(false).0),
             timing,
@@ -129,8 +206,22 @@ impl Macs {
 
     pub(crate) fn start(&self, code: String, now: i64) {
         let mut codes = self.codes.lock().unwrap();
-        codes.retain(|_, c| c.claim.is_some() || c.expires > now);
+        codes.retain(|_, c| c.live(now));
         codes.insert(code, Code { expires: now + CODE_TTL, claim: None });
+    }
+
+    /// Hold an ask from another Mac against `nonce` until it is confirmed or its time passes. A Mac asking
+    /// again replaces its own ask. `false` where [`ASKS_HELD`] others already wait.
+    pub(crate) fn hold_ask(&self, nonce: String, claim: HeldClaim) -> bool {
+        let mut codes = self.codes.lock().unwrap();
+        let now = claim.at;
+        codes.retain(|_, c| c.live(now) && c.claim.as_ref().is_none_or(|held| held.mac.id != claim.mac.id));
+        let waiting = codes.values().filter(|c| c.claim.as_ref().is_some_and(|held| held.digits.is_some())).count();
+        if waiting >= ASKS_HELD {
+            return false;
+        }
+        codes.insert(nonce, Code { expires: now + CODE_TTL, claim: Some(claim) });
+        true
     }
 
     /// Hold `claim` against `code`, once. `false` where the code is unknown, spent or past its time.
@@ -151,15 +242,15 @@ impl Macs {
 
     /// Claims waiting for Confirm here, oldest first. A claim stays until it is confirmed or
     /// forgotten, so a Confirm the other Mac missed can be pressed again.
-    pub(crate) fn claims(&self) -> Vec<HeldClaim> {
+    pub(crate) fn claims(&self, now: i64) -> Vec<HeldClaim> {
         let codes = self.codes.lock().unwrap();
-        let mut all: Vec<HeldClaim> = codes.values().filter_map(|c| c.claim.clone()).collect();
+        let mut all: Vec<HeldClaim> = codes.values().filter(|c| c.live(now)).filter_map(|c| c.claim.clone()).collect();
         all.sort_by(|a, b| (a.at, &a.mac.id).cmp(&(b.at, &b.mac.id)));
         all
     }
 
-    pub(crate) fn claim_of(&self, mac: &str) -> Option<HeldClaim> {
-        self.claims().into_iter().find(|claim| claim.mac.id == mac)
+    pub(crate) fn claim_of(&self, mac: &str, now: i64) -> Option<HeldClaim> {
+        self.claims(now).into_iter().find(|claim| claim.mac.id == mac)
     }
 
     /// Drop the claim of `mac`. `false` where none waited.
@@ -224,14 +315,26 @@ pub(crate) fn listed(row: store::PairedMac) -> Mac {
         link: Some(link),
         last_heard_at: row.last_heard_at,
         why,
+        code: None,
     }
+}
+
+/// A Mac this one asked to pair, waiting for Confirm on it, with the digits both show.
+pub(crate) fn asked(row: store::PairedMac, digits: String) -> Mac {
+    let why = format!("Confirm on {} if it shows {digits}.", row.name);
+    Mac { why: Some(why), code: Some(digits), ..listed(row) }
 }
 
 /// A Mac whose claim waits for Confirm here.
 pub(crate) fn claimed(claim: HeldClaim) -> Mac {
+    let why = match &claim.digits {
+        Some(digits) => format!("{} wants to pair. Confirm if it shows {digits}.", claim.mac.name),
+        None => format!("Press Confirm to pair {} with this Mac", claim.mac.name),
+    };
     Mac {
         id: claim.mac.id,
-        why: Some(format!("Press Confirm to pair {} with this Mac", claim.mac.name)),
+        why: Some(why),
+        code: claim.digits,
         name: claim.mac.name,
         colour: claim.mac.colour,
         address: claim.mac.address,

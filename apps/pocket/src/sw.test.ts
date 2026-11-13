@@ -19,7 +19,7 @@ type FakeEvent = {
 };
 
 /** The worker's file, run against a stub `self`, an in-memory `caches` and a `fetch` the test scripts. */
-function worker(fetchFor: (url: string) => Promise<Response>) {
+function worker(fetchFor: (url: string) => Promise<Response>, registration: object = {}) {
   const listeners: Record<string, Listener> = {};
   const stored = new Map<string, Response>();
   const keyOf = (
@@ -70,7 +70,7 @@ function worker(fetchFor: (url: string) => Promise<Response>) {
     },
     skipWaiting: () => {},
     clients: {},
-    registration: {},
+    registration,
   };
   new Function("self", "caches", "fetch", SOURCE)(
     self,
@@ -138,6 +138,35 @@ describe("the service worker", () => {
         "notificationclick",
       ]),
     );
+  });
+
+  it("closes a Job's notification on a clear push and shows nothing", async () => {
+    const closed: string[] = [];
+    const shown: unknown[] = [];
+    const notifications = (tag: string) => [
+      {
+        close: () => closed.push(tag),
+      },
+    ];
+    const sw = worker(async () => html(""), {
+      getNotifications: async ({ tag }: { tag: string }) => notifications(tag),
+      showNotification: async (...args: unknown[]) => shown.push(args),
+    });
+    const waits: Promise<unknown>[] = [];
+    sw.listeners["push"]?.({
+      data: {
+        json: () => ({
+          session_id: "b2",
+          clear: true,
+        }),
+      },
+      waitUntil: (wait: Promise<unknown>) => waits.push(wait),
+    } as never);
+    await Promise.all(waits);
+    expect(closed).toEqual([
+      "b2",
+    ]);
+    expect(shown).toEqual([]);
   });
 
   it("answers a navigation with the cached page when the network fails", async () => {

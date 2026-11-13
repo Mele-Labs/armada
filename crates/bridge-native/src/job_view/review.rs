@@ -1274,4 +1274,63 @@ mod tests {
         let sketch = doc(r#"[{"id":"sketch:Tail","text":"Tail","since":"2026-11-09T14:03:00Z","source":"sketch"}]"#);
         assert!(lone_page(&sketch).is_none());
     }
+
+    const TWO: &str = r#"[
+      {"id":"sketch:Newer","text":"Newer","since":"2026-11-09T14:05:00Z","source":"sketch"},
+      {"id":"sketch:Older","text":"Older","since":"2026-11-09T14:01:00Z","source":"sketch"}
+    ]"#;
+
+    /// Two open sketches as Fleet folds them: the newest the head's pin and no item, the older its card in the thread.
+    fn two_sketches() -> (ThreadHead, Vec<ThreadItem>) {
+        thread(
+            &format!(r#"{{{TRAIL},"sketch":{{"id":"sk-2","at":"2026-11-09T14:05:00Z","sketch":"sketch:Newer","title":"Newer","drawing":{{}},"asked":true}}}}"#),
+            r#"{"kind":"sketch","id":"sk-1","at":"2026-11-09T14:01:00Z","sketch":"sketch:Older","title":"Older","drawing":{},"asked":true}"#,
+        )
+    }
+
+    #[test]
+    fn every_open_sketch_is_its_own_item_with_its_own_send_back_oldest_first() {
+        let (head, items) = two_sketches();
+        let built = build(&waiting(TWO), &head, &items, false);
+        assert_eq!(built.iter().map(|item| item.id.as_str()).collect::<Vec<_>>(), ["sketch:Older", "sketch:Newer"]);
+        assert_eq!(built.iter().map(|item| item.name.as_str()).collect::<Vec<_>>(), ["Older", "Newer"]);
+        assert!(built.iter().all(|item| item.kind == Kind::Sketch && item.send_back && item.dismissable));
+        assert_eq!(sketch_card(&head, &items, "sketch:Older").map(|card| card.id.as_str()), Some("sk-1"));
+        assert_eq!(sketch_card(&head, &items, "sketch:Newer").map(|card| card.id.as_str()), Some("sk-2"));
+    }
+
+    #[test]
+    fn answering_the_pinned_sketch_leaves_the_other_and_the_pin_moves_to_it() {
+        let (mut head, mut items) = two_sketches();
+        let how = ipc::SketchHow::Approved;
+        crate::mock::sketch_answered(&mut head, &mut items, "sketch:Newer", how, "2026-11-09T14:10:00Z", None).expect("changed");
+        assert_eq!(head.sketch.as_ref().map(|card| card.sketch.as_str()), Some("sketch:Older"));
+        assert!(items.iter().all(|item| !matches!(item, ThreadItem::Sketch(card) if card.sketch == "sketch:Older")), "the pin's card is no item");
+        assert!(items.iter().any(|item| matches!(item, ThreadItem::Sketch(card) if card.sketch == "sketch:Newer" && card.settled.is_some())), "the answered card is back in the thread, settled");
+        let rest = waiting(r#"[{"id":"sketch:Older","text":"Older","since":"2026-11-09T14:01:00Z","source":"sketch"}]"#);
+        let built = build(&rest, &head, &items, false);
+        assert_eq!(built.iter().map(|item| (item.id.as_str(), item.send_back)).collect::<Vec<_>>(), [("sketch:Older", true)]);
+        assert!(head.sketch.as_ref().is_some_and(|card| card.settled.is_none()));
+    }
+
+    #[test]
+    fn answering_the_other_sketch_leaves_the_pin() {
+        let (mut head, mut items) = two_sketches();
+        crate::mock::sketch_answered(&mut head, &mut items, "sketch:Older", ipc::SketchHow::SentBack, "2026-11-09T14:10:00Z", Some("Wider".into())).expect("changed");
+        assert_eq!(head.sketch.as_ref().map(|card| card.sketch.as_str()), Some("sketch:Newer"));
+        assert!(items.iter().any(|item| matches!(item, ThreadItem::Sketch(card) if card.sketch == "sketch:Older" && card.settled.as_ref().is_some_and(|settled| settled.how == ipc::SketchHow::SentBack))));
+        let rest = waiting(r#"[{"id":"sketch:Newer","text":"Newer","since":"2026-11-09T14:05:00Z","source":"sketch"}]"#);
+        assert_eq!(build(&rest, &head, &items, false).len(), 1);
+    }
+
+    #[test]
+    fn the_last_sketch_answered_leaves_no_pin() {
+        let (mut head, mut items) = thread(
+            &format!(r#"{{{TRAIL},"sketch":{{"id":"sk-2","at":"2026-11-09T14:05:00Z","sketch":"sketch:Only","title":"Only","drawing":{{}},"asked":true}}}}"#),
+            "",
+        );
+        crate::mock::sketch_answered(&mut head, &mut items, "sketch:Only", ipc::SketchHow::Approved, "2026-11-09T14:10:00Z", None).expect("changed");
+        assert!(head.sketch.is_none());
+        assert_eq!(items.len(), 1);
+    }
 }

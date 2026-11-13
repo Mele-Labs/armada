@@ -29,6 +29,7 @@ use crate::app_runs::AppRun;
 use crate::servers::ServerState;
 use crate::settings::SettingsList;
 use crate::model_downshift::ModelDownshiftState;
+use crate::mac_acts::QueuedList;
 use crate::projects::Projects;
 use crate::agent_sign_in::AgentSignIn;
 use crate::plan_usage::PlanUsage;
@@ -223,6 +224,10 @@ pub enum Event {
     // `docs/practices/protocol/projects.md`.
     #[serde(rename = "projects.changed")]
     ProjectsChanged(Projects),
+    // The acts waiting for a Mac that could not be reached, every Mac's, whole, after one was kept, sent, refused or taken back.
+    // `docs/practices/protocol/his-other-macs-fleets-half.md`.
+    #[serde(rename = "queued.changed")]
+    QueuedChanged(QueuedList),
     // The agents' account signed out or in, or its sign-in started or ended, whole.
     // `docs/concepts/session/a-job-whose-sign-in-expired.md`.
     #[serde(rename = "agent_sign_in.changed")]

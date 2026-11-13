@@ -114,6 +114,8 @@ mod operator_dispatches;
 mod parked_ideas;
 /// What his other Macs share with this one, kept whole.
 mod other_macs;
+/// Acts across his Macs: what waits for one that cannot be reached, and what this Mac ran for one.
+mod mac_acts;
 /// The Operator's Log of rulings. `armada-ehhu`.
 mod operator_rulings;
 mod operator_orders;
@@ -272,6 +274,7 @@ pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
 pub use operator_dispatches::KeptDispatch;
 pub use parked_ideas::KeptIdea;
+pub use mac_acts::{KeptActRun, KeptQueuedAct};
 pub use other_macs::{FromMac, KeptFromMac, KeptProjectAct};
 pub use operator_rulings::KeptRuling;
 pub use operator_orders::{KeptOrder, KeptTalk};

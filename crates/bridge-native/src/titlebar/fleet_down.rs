@@ -1,6 +1,7 @@
-//! The Fleet dot, the popover it opens (the build switcher, the figures, the sentence, Doctor), and
-//! the toasts raised when Fleet is down or does not match (`FleetPanel.tsx`, `FleetNotice.tsx`). The
-//! owner chose toasts over Electron's band above the screen, which pushed the whole screen down.
+//! The Fleet dot, the popover it opens (the build switcher, the figures, the sentence, Doctor, Copy
+//! debug info), and the toast of a Fleet alive and not answering (`FleetPanel.tsx`, `FleetNotice.tsx`).
+//! Fleet stopped, restarting or on another build is the centred panel's (`link_layer.rs`), and the
+//! dot takes its colour while it stands.
 //!
 //! **These states stay in the app**: Fleet is not there to send them, so they are read from the
 //! runtime file's presence (`face::connection_of`).
@@ -9,9 +10,9 @@ use gpui::{
     anchored, deferred, div, point, prelude::*, Anchor, AnimationExt as _, AnyElement, Context, FontWeight, Hsla, Role, SharedString, Window,
 };
 
-use super::face::{Dot, Kind, Outcome, Restarting, Usage};
+use super::face::{Dot, Kind, Outcome, Usage};
 use super::parts::{card, glyph, mono, no_drag, small, tip, Btn, Weight};
-use crate::toasts::{FleetNotice, NoticeAct};
+use crate::toasts::FleetNotice;
 use super::{Asked, Popup, TitleBar};
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -39,7 +40,7 @@ impl TitleBar {
     pub(super) fn dot(&self, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let statement = self.face.fleet.connection.statement();
         let said: SharedString = format!("Fleet — {}", statement.label).into();
-        let tone = dot_tone(statement.dot, look);
+        let tone = self.panel_ink(look).unwrap_or_else(|| dot_tone(statement.dot, look));
         let ring = Self::focus_ring(look);
         let at = std::rc::Rc::clone(&self.at.fleet);
         let mark: AnyElement = if statement.dot == Dot::Starting {
@@ -84,6 +85,8 @@ impl TitleBar {
 
     /// The open popover under its trigger, right edges aligned.
     pub(super) fn popover(&self, look: &Look, _window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+        // Over the Fleet panel's dim while it stands, as the bar above it stays live.
+        let over = if self.link.panel.is_some() { super::link_layer::LAYER + 1 } else { 0 };
         let (from, body) = match self.popup? {
             Popup::Usage { .. } => {
                 let Usage::Limits(limits) = &self.face.usage else { return None };
@@ -95,11 +98,11 @@ impl TitleBar {
                 let from = self.at.repository.get()?;
                 let at = point(from.origin.x, from.origin.y + from.size.height + look.length(token::SPACE_1));
                 let body = self.switcher_panel(look, cx);
-                return Some(deferred(anchored().position(at).anchor(Anchor::TopLeft).snap_to_window_with_margin(look.length(token::SPACE_1)).child(body)).with_priority(0).into_any_element());
+                return Some(deferred(anchored().position(at).anchor(Anchor::TopLeft).snap_to_window_with_margin(look.length(token::SPACE_1)).child(body)).with_priority(over).into_any_element());
             }
         };
         let at = point(from.origin.x + from.size.width, from.origin.y + from.size.height + look.length(token::SPACE_1));
-        Some(deferred(anchored().position(at).anchor(Anchor::TopRight).snap_to_window_with_margin(look.length(token::SPACE_1)).child(body)).with_priority(0).into_any_element())
+        Some(deferred(anchored().position(at).anchor(Anchor::TopRight).snap_to_window_with_margin(look.length(token::SPACE_1)).child(body)).with_priority(over).into_any_element())
     }
 
     /// The Fleet panel: the head, the build switcher, the figures, the sentence, Doctor.
@@ -138,6 +141,30 @@ impl TitleBar {
                 "Open Doctor",
             )
         });
+        // Something is wrong while Fleet does not answer: what it is, ready to paste.
+        let copy = (!fleet.connection.is_live()).then(|| {
+            labelled(
+                div()
+                    .id("copy-debug-info")
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .h(look.length(token::H_CONTROL))
+                    .px(look.length(token::SPACE_2))
+                    .rounded(look.length(token::RADIUS_LG))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .cursor_pointer()
+                    .focusable()
+                    .tab_stop(true)
+                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                    .child(glyph("copy", look.length(token::SPACE_4), look.color(token::FG_MUTED)))
+                    .child(div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child("Copy debug info"))
+                    .on_click(cx.listener(|this, _, _, cx| this.copy_debug_info(cx))),
+                Role::Button,
+                "Copy debug info",
+            )
+        });
         labelled(
             div()
                 .id("fleet-panel")
@@ -165,7 +192,7 @@ impl TitleBar {
                                 .items_center()
                                 .justify_between()
                                 .child(small(look).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_MUTED)).child("Fleet"))
-                                .child(div().flex_none().size(look.length(token::DOT)).rounded_full().bg(dot_tone(statement.dot, look))),
+                                .child(div().flex_none().size(look.length(token::DOT)).rounded_full().bg(self.panel_ink(look).unwrap_or_else(|| dot_tone(statement.dot, look)))),
                         )
                         .children(self.face.build.as_ref().map(|held| self.build_section(held, look, cx)))
                         .children((!figures.is_empty()).then(|| {
@@ -181,7 +208,8 @@ impl TitleBar {
                         .children(sentence.map(|said| {
                             small(look).font_family(mono(look)).text_color(look.color(token::FG_SUBTLE)).whitespace_normal().child(said)
                         }))
-                        .children(doctor),
+                        .children(doctor)
+                        .children(copy),
                 ),
             Role::Region,
             "Fleet",
@@ -243,47 +271,20 @@ impl TitleBar {
         )
     }
 
-    /// Fleet's states as toasts: the statement while it has a next line, Still not matching after a
-    /// restart that came back apart, and a restart that did not come back, each its own toast.
+    /// Fleet alive and not answering, as a toast: the one Fleet state the centred panel leaves out.
     pub(super) fn fleet_notices(&self) -> Vec<FleetNotice> {
         let fleet = &self.face.fleet;
         let swapping = self.face.build.as_ref().is_some_and(|held| held.report.swapping);
-        if !fleet.notice(swapping) {
+        if !matches!(fleet.connection, super::Connection::Unreachable { .. }) || !fleet.notice(swapping) {
             return Vec::new();
         }
         let statement = fleet.connection.statement();
-        let working = fleet.restarting == Restarting::Working;
-        let apart = fleet.restarting == Restarting::Apart;
-        let act = if fleet.connection.is_mismatch() { NoticeAct::Restart { working, busy: working || apart } } else { NoticeAct::None };
-        let mut notices = vec![FleetNotice {
+        vec![FleetNotice {
             id: "fleet-notice",
             headline: statement.headline.clone().into(),
             next: statement.next.unwrap_or_default().into(),
             code: statement.code,
             fault: statement.kind == Kind::Fault,
-            act,
-        }];
-        if apart {
-            notices.push(FleetNotice {
-                id: "still-not-matching",
-                headline: "Still not matching".into(),
-                next: "Fleet restarted on the installed build, and it is not this Bridge's. Update Armada, then reopen Bridge.".into(),
-                code: "bridge.fleet.restart_apart",
-                fault: true,
-                act: NoticeAct::None,
-            });
-        }
-        if let Restarting::Failed { why, .. } = &fleet.restarting {
-            let (headline, next) = why.said();
-            notices.push(FleetNotice {
-                id: "restart-failure",
-                headline: headline.into(),
-                next: next.into(),
-                code: "bridge.fleet.restart_failed",
-                fault: true,
-                act: NoticeAct::Dismiss,
-            });
-        }
-        notices
+        }]
     }
 }

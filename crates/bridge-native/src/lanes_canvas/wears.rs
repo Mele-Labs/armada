@@ -100,7 +100,7 @@ pub(super) fn kind_tint(look: &Look, kind: LaneNodeKind) -> Hsla {
     })
 }
 
-pub(super) fn wears(look: &Look, node: &LaneNode, picked: bool) -> Wears {
+pub(super) fn wears(look: &Look, node: &LaneNode, picked: bool, chosen: bool) -> Wears {
     let kind = kind_tint(look, node.kind);
     let mut w = Wears {
         hue: look.color(token::FG_SUBTLE),
@@ -141,6 +141,12 @@ pub(super) fn wears(look: &Look, node: &LaneNode, picked: bool) -> Wears {
     if node.changed.is_some() {
         w.dashed = true;
         w.frame = look.color(token::STATUS_AWAITING_REVIEW);
+    }
+    // Chosen, by the host: the accent hue as a frame, a ground and an inset frame; a pick, which is the keys', wins.
+    if chosen {
+        w.frame = look.color(token::ACCENT);
+        w.ground = select_ground(look);
+        w.inset = Some(look.color(token::ACCENT));
     }
     if picked {
         w.frame = select_edge(look);

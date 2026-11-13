@@ -538,6 +538,20 @@ class Preview(unittest.TestCase):
         self.run_preview("--picked", picked)
         self.assertEqual(self.merged_in_order(), [])
 
+    def test_a_picked_branch_no_slot_holds_is_taken_at_its_tip_on_origin(self):
+        self.branch("feat/far", {"far.txt": "far\n"})
+        self.git("update-ref", "refs/remotes/origin/feat/far", "refs/heads/feat/far")
+        self.git("branch", "-D", "feat/far")
+        self.branch("feat/near", {"near.txt": "near\n"})
+        self.hold("feat/near")
+        picked = os.path.join(self.dir, "picked")
+        with open(picked, "w") as f:
+            f.write("feat/far\nfeat/gone\n")
+        said = self.run_preview("--picked", picked)
+        self.assertEqual(self.merged_in_order(), ["feat/far"])
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "far.txt")))
+        self.assertIn("feat/gone: named by --only, but it is not ahead of main in a slot or on origin", said)
+
     def test_a_kept_only_restart_says_so_and_keeps_its_record_beside_the_running_builds(self):
         self.branch("feat/k", {"k.txt": "k\n"})
         self.hold("feat/k")

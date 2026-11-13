@@ -86,6 +86,9 @@ pub enum StateReadFrom {
     /// What Fleet knows without asking anyone: `started`, `step_entered:<step id>`,
     /// `pull_request_opened`, `landed` or `ended`.
     Fleet { fact: String },
+    /// Nothing reads it: the person names the state, in a lane of his own, and no instance is read into it
+    /// from outside. On the wire it is `{ "source": "own" }`.
+    Own,
 }
 
 /// One state of a lifecycle.

@@ -118,6 +118,7 @@ impl MockFleet {
         if answered.open.is_some() {
             self.page.turn.insert(at.unwrap_or(0).min(self.page.turn.len()), turn);
         }
+        self.regroup();
         answered.page = self.page.clone();
         Ok(answered)
     }
@@ -137,10 +138,12 @@ impl MockFleet {
         let Some(mut turn) = self.take(id) else { return Err("No open item has that id".into()) };
         turn.later_until = Some(Instant::carried(until.unwrap_or_else(|| "2026-11-11T23:59:59-05:00".into())));
         self.page.turn.push(turn);
+        self.regroup();
         Ok(self.page.clone())
     }
 
-    /// What `operator_turn_order` does: the ids it names first, the rest after them as they were.
+    /// What `operator_turn_order` does: the ids it names first, the rest after them as they were, and a
+    /// Job's asks together at the place of the first of them.
     pub fn order(&mut self, ids: &[String]) -> OperatorPage {
         let mut rest = std::mem::take(&mut self.page.turn);
         for id in ids {
@@ -149,7 +152,29 @@ impl MockFleet {
             }
         }
         self.page.turn.append(&mut rest);
+        self.regroup();
         self.page.clone()
+    }
+
+    /// Fleet's `grouped`: where a Job has two or more asks waiting, or two or more put Later, they share its
+    /// id as `group` and stand at the place of the first, in the order it raised them.
+    fn regroup(&mut self) {
+        let key = |turn: &OperatorTurnItem| turn.session_id.as_ref().map(|id| (turn.later_until.is_some(), id.as_str().to_string()));
+        let turn = std::mem::take(&mut self.page.turn);
+        let mut placed = std::collections::BTreeSet::new();
+        for one in &turn {
+            let Some(group) = key(one) else {
+                self.page.turn.push(OperatorTurnItem { group: None, ..one.clone() });
+                continue;
+            };
+            if !placed.insert(group.clone()) {
+                continue;
+            }
+            let mut asks: Vec<&OperatorTurnItem> = turn.iter().filter(|other| key(other).as_ref() == Some(&group)).collect();
+            asks.sort_by(|a, b| a.raised_at.as_str().cmp(b.raised_at.as_str()));
+            let shared = (asks.len() > 1).then(|| group.1.clone());
+            self.page.turn.extend(asks.into_iter().map(|ask| OperatorTurnItem { group: shared.clone(), ..ask.clone() }));
+        }
     }
 
     /// What saving `features.operator` does: off, nothing is queued and nothing is being read.

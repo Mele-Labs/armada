@@ -128,19 +128,27 @@ impl JobView {
             None => tabs.push(tab),
         }
         self.ensure_placed(&key, cx);
-        let terminal = super::place::terminal_key(&id).to_string();
+        let terminal = super::panes_place::terminal_key(&id).to_string();
         let held = self.arrangement_of(job).is_some_and(|arrangement| super::pane_tree::panes_of(&arrangement.root).iter().any(|one| one.tabs.iter().any(|tab| tab.kind == "terminal" && tab.terminal.as_deref() == Some(terminal.as_str()))));
         // A tab the + of a pane asked for goes to that pane; one that stands already stays where it is unless it is asked to move.
         let aimed = if held { None } else { self.take_aim(job) };
-        let target = aimed.or_else(|| self.arrangement_of(job).and_then(|arrangement| super::place::pane_for(arrangement, pane)));
-        self.look_in(&key, move |arrangement| std::borrow::Cow::Owned(super::place::put_terminal(arrangement, &terminal, target.as_deref(), front)), cx);
+        let target = aimed.or_else(|| self.arrangement_of(job).and_then(|arrangement| super::panes_place::pane_for(arrangement, pane)));
+        self.look_in(&key, move |arrangement| std::borrow::Cow::Owned(super::panes_place::put_terminal(arrangement, &terminal, target.as_deref(), front)), cx);
         cx.notify();
     }
 
     /// The id of the view tab a tree tab stands for.
     pub(super) fn view_id_of(&self, job: &str, tab: &super::pane_tree::Tab) -> Option<String> {
         let terminal = tab.terminal.as_deref()?;
-        self.view_tabs.by_job.get(job)?.iter().find(|one| super::place::terminal_key(&one.id) == terminal).map(|one| one.id.clone())
+        self.view_tabs.by_job.get(job)?.iter().find(|one| super::panes_place::terminal_key(&one.id) == terminal).map(|one| one.id.clone())
+    }
+
+    /// Bring Job `job`'s open tab `id` forward in its pane, as it stands, and say whether there is one.
+    pub fn front_view_tab(&mut self, job: &str, id: &str, cx: &mut Context<Self>) -> bool {
+        let Some(tab) = self.arrangement_of(job).and_then(|arrangement| super::pane_tree::panes_of(&arrangement.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.kind == "terminal" && tab.terminal.as_deref() == Some(super::panes_place::terminal_key(id))).map(|tab| tab.id.clone())) else { return false };
+        self.look_in(&SharedString::from(job.to_string()), move |arrangement| super::pane_tree::activate(arrangement, &tab), cx);
+        cx.notify();
+        true
     }
 
     /// Close Job `job`'s tab `id` without asking its veto, and tell its source.
@@ -149,7 +157,7 @@ impl JobView {
         let Some(at) = tabs.iter().position(|one| one.id == id) else { return };
         let gone = tabs.remove(at);
         let key = SharedString::from(job.to_string());
-        let terminal = super::place::terminal_key(id).to_string();
+        let terminal = super::panes_place::terminal_key(id).to_string();
         let held = self.arrangement_of(job).and_then(|arrangement| {
             super::pane_tree::panes_of(&arrangement.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.kind == "terminal" && tab.terminal.as_deref() == Some(terminal.as_str())).map(|tab| tab.id.clone())
         });
@@ -178,9 +186,9 @@ impl JobView {
     /// The place Job `job`'s view tab `id` stands in.
     pub fn view_tab_pane(&self, job: &str, id: &str) -> Option<ViewPane> {
         let arrangement = self.arrangement_of(job)?;
-        let terminal = super::place::terminal_key(id);
+        let terminal = super::panes_place::terminal_key(id);
         let pane = super::pane_tree::panes_of(&arrangement.root).into_iter().find(|pane| pane.tabs.iter().any(|tab| tab.kind == "terminal" && tab.terminal.as_deref() == Some(terminal)))?;
-        Some(super::place::view_pane_of(arrangement, &pane.id))
+        Some(super::panes_place::view_pane_of(arrangement, &pane.id))
     }
 
     /// Send to agent: a `#` tag of `kind` for `id` goes at the end of Job `job`'s message box, in the

@@ -7,7 +7,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    FleetLimits, PhoneGateway, Preferences, SaveLimits, SavePreference, SaveSettings, SetPhoneGateway,
+    FleetLimits, MacSetup, PhoneGateway, Preferences, SaveLimits, SavePreference, SaveSettings, SetPhoneGateway,
     SettingsList,
 };
 
@@ -66,4 +66,11 @@ pub trait Settings: Send + Sync + 'static {
         &self,
         set: SetPhoneGateway,
     ) -> impl Future<Output = Result<PhoneGateway, Refusal>> + Send;
+
+    /// `get_mac_setup` — how far this Mac's one-press setup for his other Macs has come.
+    fn get_mac_setup(&self) -> impl Future<Output = Result<MacSetup, Refusal>> + Send;
+
+    /// `set_up_mac` — run that setup from where it stands: Gateway on, then the Cloudflare tunnel in
+    /// the background. Answers what `get_mac_setup` would after. A stuck step is `why`, not a refusal.
+    fn set_up_mac(&self) -> impl Future<Output = Result<MacSetup, Refusal>> + Send;
 }

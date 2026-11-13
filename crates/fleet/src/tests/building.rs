@@ -757,3 +757,27 @@ async fn a_swap_that_will_not_start_leaves_no_status_behind() {
     assert!(matches!(refused, Err(NotSwapped::NotStarted(_))), "{refused:?}");
     assert!(!support.path().join(SWAP_STATUS).exists());
 }
+
+#[tokio::test]
+async fn origin_lists_the_branches_on_origin_main_lacks_less_the_picked() {
+    let (checkout, support) = rig();
+    let root = checkout.path();
+    git(root, &["init", "-q", "-b", "main"]);
+    git(root, &["commit", "-q", "--allow-empty", "-m", "main"]);
+    git(root, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    for branch in ["native/refresh-set", "feat/a", "feat/b"] {
+        git(root, &["checkout", "-q", "-b", branch, "main"]);
+        git(root, &["commit", "-q", "--allow-empty", "-m", branch]);
+        git(root, &["update-ref", &format!("refs/remotes/origin/{branch}"), "HEAD"]);
+    }
+    let building = Building::default();
+    let read = || building.report(Some(checkout.path()), support.path(), SystemTime::now());
+    let mut listed: Vec<_> = read().await.unwrap().origin.into_iter().map(|one| one.branch).collect();
+    assert_eq!(listed.remove(0), "native/refresh-set", "the set is first");
+    listed.sort();
+    assert_eq!(listed, ["feat/a", "feat/b"]);
+
+    fs::write(support.path().join(PICKED), "feat/a\nnative/refresh-set\n").unwrap();
+    let listed: Vec<_> = read().await.unwrap().origin.into_iter().map(|one| one.branch).collect();
+    assert_eq!(listed, ["feat/b"], "a picked branch is a chip, not a row");
+}

@@ -35,6 +35,16 @@ pub(super) enum RowKind {
     Subagent,
 }
 
+/// The word a kept tab names its kind by; a walk's tab is not kept.
+pub(super) fn kind_id(kind: RowKind) -> Option<&'static str> {
+    match kind {
+        RowKind::Draft => Some("draft"),
+        RowKind::Document => Some("document"),
+        RowKind::Subagent => Some("subagent"),
+        RowKind::Walk => None,
+    }
+}
+
 impl RowKind {
     /// The kind's glyph and the word a tab with no name of its own reads (`KINDS`).
     pub(super) fn look(self) -> (&'static str, &'static str) {
@@ -219,7 +229,7 @@ impl JobView {
     /// A tab Job `id` held comes to the front of its pane, which takes the keys.
     fn row_tab_front(&mut self, id: &SharedString, kind: RowKind, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.sync_row_tabs_into_panes(id, cx);
-        let (kind_name, key) = (super::place::row_kind_name(kind), key.to_string());
+        let (kind_name, key) = (super::panes_place::row_kind_name(kind), key.to_string());
         let arrangement = self.arrangement_of(id).cloned();
         let found = arrangement.as_ref().and_then(|arrangement| super::pane_tree::panes_of(&arrangement.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.kind == kind_name && tab.row.as_deref() == Some(key.as_str())).map(|tab| tab.id.clone()));
         if let Some(tab) = found {
@@ -290,10 +300,10 @@ impl JobView {
     /// The keys go to what is in front of the pane that has the focus: a row's tab body, the thread's message box.
     fn keys_to_front(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let arrangement = self.arrangement().into_owned();
-        let front = super::pane_tree::pane_by_id(&arrangement, &arrangement.focus).and_then(super::place::front_of).map(|tab| tab.kind.clone());
+        let front = super::pane_tree::pane_by_id(&arrangement, &arrangement.focus).and_then(super::panes_place::front_of).map(|tab| tab.kind.clone());
         match front.as_deref() {
             Some("thread") => self.to_composer(window, cx),
-            Some(kind) if super::place::row_kind_of(kind).is_some() => window.focus(&self.row_focus, cx),
+            Some(kind) if super::panes_place::row_kind_of(kind).is_some() => window.focus(&self.row_focus, cx),
             _ => {}
         }
         cx.notify();
@@ -352,6 +362,7 @@ impl JobView {
             });
             self.row_tabs_of(id).keep(|tab| rows.contains(&(tab.kind, tab.key.clone())));
         }
+        self.restore_row_front(id, cx);
         if let Some(owed) = self.record(id, cx).map(owed_walks) {
             if self.row_tabs_of(id).sync_walks(&owed) {
                 self.reopen_thread(id, cx);
@@ -369,15 +380,15 @@ impl JobView {
         let in_panes: Vec<(String, String, String)> = super::pane_tree::panes_of(&arrangement.root)
             .into_iter()
             .flat_map(|pane| pane.tabs.iter())
-            .filter(|tab| super::place::row_kind_of(&tab.kind).is_some())
+            .filter(|tab| super::panes_place::row_kind_of(&tab.kind).is_some())
             .filter_map(|tab| Some((tab.id.clone(), tab.kind.clone(), tab.row.clone()?)))
             .collect();
         let missing: Vec<(&'static str, String, String)> = held
             .iter()
-            .filter(|one| !in_panes.iter().any(|(_, kind, key)| *kind == super::place::row_kind_name(one.kind) && *key == one.key))
-            .map(|one| (super::place::row_kind_name(one.kind), one.key.clone(), one.title.clone()))
+            .filter(|one| !in_panes.iter().any(|(_, kind, key)| *kind == super::panes_place::row_kind_name(one.kind) && *key == one.key))
+            .map(|one| (super::panes_place::row_kind_name(one.kind), one.key.clone(), one.title.clone()))
             .collect();
-        let gone: Vec<String> = in_panes.iter().filter(|(_, kind, key)| !held.iter().any(|one| super::place::row_kind_name(one.kind) == kind && one.key == *key)).map(|(tab, _, _)| tab.clone()).collect();
+        let gone: Vec<String> = in_panes.iter().filter(|(_, kind, key)| !held.iter().any(|one| super::panes_place::row_kind_name(one.kind) == kind && one.key == *key)).map(|(tab, _, _)| tab.clone()).collect();
         if missing.is_empty() && gone.is_empty() {
             return;
         }
@@ -403,6 +414,43 @@ impl JobView {
             },
             cx,
         );
+    }
+
+    /// The tab that was in front of the thread's pane when he left, once the thread is held: it opens again
+    /// where its draft, page or subagent is still the Job's, and is let go where it is not.
+    fn restore_row_front(&mut self, id: &SharedString, cx: &mut Context<Self>) {
+        if self.thread(id, cx).is_none() {
+            return;
+        }
+        let Some((kind, key)) = self.place.wants_row.remove(id) else { return };
+        let held = self.thread(id, cx).map(|held| &held.items);
+        let (kind, title) = match kind.as_str() {
+            "draft" => match held.and_then(|items| super::review::draft_row(items, &key)) {
+                Some(SessionRow::Draft { title, .. }) => (RowKind::Draft, title.clone()),
+                _ => return,
+            },
+            "document" => match held.and_then(|items| super::review::document_card(items, &key)) {
+                Some(card) => (RowKind::Document, card.title.clone()),
+                None => return,
+            },
+            "subagent" => {
+                let Some(one) = self.record(id, cx).and_then(|record| record.attachments.iter().find(|one| one.kind == "subagent" && one.target == key)).map(super::ledger::subagent_of) else { return };
+                self.watch_subagent(&one, cx);
+                (RowKind::Subagent, one.task)
+            }
+            _ => return,
+        };
+        self.row_tabs_of(id).focus(kind, &key, title);
+        // The tab joins the thread's pane as any other does and comes to the front of the pane that holds it.
+        self.sync_row_tabs_into_panes(id, cx);
+        let (kind_name, key) = (super::panes_place::row_kind_name(kind), key.to_string());
+        self.restore_in(id, move |was| {
+            let found = super::pane_tree::panes_of(&was.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.kind == kind_name && tab.row.as_deref() == Some(key.as_str()));
+            match found {
+                Some(tab) => super::pane_tree::activate(was, &tab.id),
+                None => std::borrow::Cow::Borrowed(was),
+            }
+        });
     }
 
     // ---- drawing -----------------------------------------------------------------------

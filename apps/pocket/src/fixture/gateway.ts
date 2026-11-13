@@ -12,7 +12,8 @@ import type {
   TuneSession,
 } from "@armada/protocol";
 
-import type { PhoneSession } from "../gateway";
+import type { OperatorBody, PhoneSession, QueuedAct } from "../gateway";
+import { decide } from "./operator";
 import type { FixtureMac } from "./wire";
 
 export type Answered = {
@@ -23,6 +24,11 @@ export type Answered = {
   file?: string;
   /** Held this long first, so a phone's skeleton can be seen. */
   delay?: number;
+  /** A message the Mac's `/api/live` sends this long after the answer. */
+  then?: {
+    after: number;
+    change: unknown;
+  };
 };
 
 const MEDIA_DELAY = 800;
@@ -92,6 +98,10 @@ export function answer(
         });
       case "/api/repositories":
         return json(mac.repositories);
+      case "/api/queued":
+        return json({
+          queued: mac.queued ?? [],
+        });
       case "/api/plan_usage":
         return json(mac.usage);
       case "/api/models":
@@ -162,6 +172,8 @@ export function answer(
       path,
       body: sent,
     });
+    if (path === "/api/sessions/dispatch") return dispatched(mac, sent as unknown as OperatorBody);
+    if (path === "/api/queued/take_back") return tookBack(mac, String(sent?.["id"] ?? ""));
     if (path === "/api/sessions")
       return json(
         {
@@ -177,6 +189,77 @@ export function answer(
     );
   }
   return said(405, "Not allowed.");
+}
+
+/** The Operator's way with a send: a Mac asleep keeps it (202), any other holds it and says what it did a moment later. */
+let sentOn = 0;
+function dispatched(mac: FixtureMac, send: OperatorBody): Answered {
+  sentOn += 1;
+  const on = send.mac ?? mac.name;
+  if (send.mac === undefined && !mac.repositories.includes(send.repository))
+    return said(400, "Armada does not know that repository. Pick one from the list.");
+  if (send.mac !== undefined && mac.unshared)
+    return said(
+      409,
+      "That repository is not in a project shared between your Macs, so a Job cannot start there from here.",
+    );
+  if (send.mac !== undefined && (mac.asleep ?? []).includes(send.mac)) {
+    const queued: QueuedAct = {
+      id: `q${sentOn}`,
+      mac: send.mac,
+      act: {
+        kind: "dispatch",
+        body: {
+          request: send.text,
+          ...(send.kind === undefined
+            ? {}
+            : {
+                kind: send.kind,
+              }),
+          then: [
+            {
+              message: {
+                text: send.text,
+              },
+            },
+          ],
+        },
+      },
+      since: Date.now(),
+    };
+    (mac.queued ??= []).push(queued);
+    return json(queued, 202);
+  }
+  const id = `d${sentOn}`;
+  return {
+    ...json({
+      operator: id,
+    }),
+    then: {
+      after: 700,
+      change: {
+        change: "operator",
+        dispatched: decide(on, id, send),
+      },
+    },
+  };
+}
+
+/** `POST /api/queued/take_back`, as Fleet answers it: the list that is left, or 404 for an id nothing waits under. */
+function tookBack(mac: FixtureMac, id: string): Answered {
+  const queued = mac.queued ?? [];
+  if (!queued.some((one) => one.id === id))
+    return json(
+      {
+        code: "fleet.queued_not_found",
+        message: "Nothing waits under that id. It may have been sent already.",
+      },
+      404,
+    );
+  mac.queued = queued.filter((one) => one.id !== id);
+  return json({
+    queued: mac.queued,
+  });
 }
 
 const now = () => new Date().toISOString();

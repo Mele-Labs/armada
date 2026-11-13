@@ -183,7 +183,7 @@ impl WalkWindow {
             for at in from..=to {
                 let step = walk.steps[at];
                 let again = match step.verb {
-                    Verb::Fresh => Some((walk.screen, walk.scenario)),
+                    Verb::Fresh | Verb::Reopen => Some((walk.screen, walk.scenario)),
                     Verb::FreshIn(screen, scenario) => Some((screen, scenario)),
                     _ => None,
                 };
@@ -192,6 +192,9 @@ impl WalkWindow {
                     let part = Walk { screen, scenario, ..*walk };
                     let rebuilt = this.update_in(cx, |this, window, cx| match {
                         crate::toasts::at_rest(cx);
+                        if step.verb == Verb::Reopen {
+                            crate::job_view::hand_over_place(cx);
+                        }
                         Stage::new(&part, window, cx)
                     } {
                         Ok(stage) => {

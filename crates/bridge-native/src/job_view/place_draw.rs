@@ -10,7 +10,7 @@
 use gpui::{canvas, AnimationExt, div, prelude::*, px, AnyElement, Context, CursorStyle, DragMoveEvent, FocusHandle, KeyDownEvent, MouseButton, MouseDownEvent, Role, ScrollHandle, SharedString, Window};
 
 use super::pane_tree::{self as tree, Dir, Node, Pane, Split, Tab};
-use super::place::{front_of, row_kind_of, slot_of, visible, zone_of, Slot};
+use super::panes_place::{front_of, row_kind_of, slot_of, visible, zone_of, Slot};
 use super::side::{pane, strip, tab, Zone};
 use super::spine::Area;
 use super::JobView;
@@ -86,14 +86,14 @@ impl JobView {
         if self.spine.settle.take() {
             window.request_animation_frame();
         }
-        let area = self.place.area.clone();
+        let area = self.arranged.area.clone();
         let release = cx.listener(|this, _: &gpui::MouseUpEvent, _, cx| {
-            if this.place.dragging.take().is_some() {
+            if this.arranged.dragging.take().is_some() {
                 cx.notify();
             }
         });
         let release_out = cx.listener(|this, _: &gpui::MouseUpEvent, _, cx| {
-            if this.place.dragging.take().is_some() {
+            if this.arranged.dragging.take().is_some() {
                 cx.notify();
             }
         });
@@ -144,7 +144,7 @@ impl JobView {
     /// The line between a split's two sides: the gap itself, with a hairline in it.
     fn divider(&mut self, split: &Split, look: &Look, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let row = split.dir == Dir::Row;
-        let hot = self.place.dragging.as_deref() == Some(split.id.as_str());
+        let hot = self.arranged.dragging.as_deref() == Some(split.id.as_str());
         let accent = look.color(token::ACCENT);
         let group = SharedString::from(format!("divider:{}", split.id));
         let (id, drag) = (split.id.clone(), DividerDrag { split: split.id.clone() });
@@ -167,11 +167,11 @@ impl JobView {
                 .when_some(handle, |one, handle| one.track_focus(&handle).tab_stop(true))
                 .on_drag(drag, |drag, _, _, cx| cx.new(|_| drag.clone()))
                 .on_mouse_down(MouseButton::Left, cx.listener(move |this, _: &MouseDownEvent, _, cx| {
-                    this.place.dragging = Some(down.clone());
+                    this.arranged.dragging = Some(down.clone());
                     cx.notify();
                 }))
                 .on_click(cx.listener(move |this, event: &gpui::ClickEvent, _, cx| {
-                    this.place.dragging = None;
+                    this.arranged.dragging = None;
                     if event.click_count() == 2 {
                         let id = up.clone();
                         this.rearrange(None, false, move |arrangement| std::borrow::Cow::Owned(tree::resize_split(arrangement, &id, 0.5)), cx);
@@ -212,7 +212,7 @@ impl JobView {
     /// The divider moves by `by` px from where it stands.
     pub(super) fn nudge_divider(&mut self, id: &str, by: f64, cx: &mut Context<Self>) {
         let arrangement = self.arrangement().into_owned();
-        let (Some(area), Some(split)) = (self.place.area.get(), find_split(&arrangement.root, id)) else { return };
+        let (Some(area), Some(split)) = (self.arranged.area.get(), find_split(&arrangement.root, id)) else { return };
         let rects = tree::rects_of(&arrangement.root);
         let Some(rect) = rects.splits.iter().find(|one| one.id == id).map(|one| one.rect) else { return };
         let extent = if split.dir == Dir::Row { rect.w * area.w } else { rect.h * area.h };
@@ -230,8 +230,8 @@ impl JobView {
         let low = (extent * tree::RATIO_MIN).max(tree::min_extent(&split.a, split.dir));
         let high = extent - (extent * tree::RATIO_MIN).max(tree::min_extent(&split.b, split.dir));
         let held = if low <= high { first.clamp(low, high) } else { extent * split.ratio };
-        if dragged && self.place.dragging.as_deref() != Some(id) {
-            self.place.dragging = Some(id.to_string());
+        if dragged && self.arranged.dragging.as_deref() != Some(id) {
+            self.arranged.dragging = Some(id.to_string());
             cx.notify();
         }
         let (split_id, ratio) = (id.to_string(), held / extent);
@@ -252,7 +252,7 @@ impl JobView {
 
         // The strip scrolls sideways once its tabs are wider than the pane, and keeps the tab in front in view.
         let key = format!("{job}/{}", one.id);
-        let entry = self.place.scrolls.entry(key).or_insert_with(|| (ScrollHandle::new(), None));
+        let entry = self.arranged.scrolls.entry(key).or_insert_with(|| (ScrollHandle::new(), None));
         let scroll = entry.0.clone();
         let front_id = front.as_ref().map(|tab| tab.id.clone());
         if entry.1 != front_id {

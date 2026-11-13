@@ -25,7 +25,7 @@ Bridge (Settings → Phone) ──GET / POST /phone──▶ Fleet
 |---|---|---|
 | Phone app | `apps/pocket`, built to its `dist` folder | Shows what needs the owner on every paired Mac, signs each call with that Mac's key, receives pushes |
 | Phone Gateway | `crates/pocket`, started by Fleet in `crates/armada/src/pocketing.rs` | Serves the app, checks signatures, passes the phone's calls to Fleet, sends pushes |
-| Fleet | `crates/api`, `crates/fleet` | Listens on loopback, takes no auth, refuses any request carrying `Origin`. The Gateway calls it over HTTP with none, and with `x-armada-caller: phone`, so a phone act is recorded with the `phone` door ([Retro](retro.md)) |
+| Fleet | `crates/api`, `crates/fleet` | Listens on loopback, takes no auth, refuses any request carrying `Origin`. The Gateway calls it over HTTP with none, and with `x-armada-caller: phone`, so a phone act is recorded with the `phone` door ([Retro](retro.md)). A linked Mac's act goes with `mac` and the Mac's id in `x-armada-mac`, the door `mac` |
 
 **The Gateway runs in Fleet's process, on a listener of its own.** It works while Bridge is closed, and stops when Fleet stops.
 It still calls Fleet over HTTP rather than in process, so every phone call meets Fleet's router and its `phone` door.
@@ -94,7 +94,7 @@ The name is the host's name when the id was minted, and the colour one of `blue`
 
 | Route | Answers |
 |---|---|
-| `GET /admin/macs` | `[Mac]`: this Mac first, then each paired Mac in the order it was paired, then each Mac whose claim waits for Confirm here. `{ id, name, colour, address?, this_mac, build?, link?, last_heard_at?, why? }`. `build` is the commit Fleet's kept build was made from. `link` is absent on this Mac |
+| `GET /admin/macs` | `[Mac]`: this Mac first, then each paired Mac in the order it was paired, then each Mac whose claim waits for Confirm here. `{ id, name, colour, address?, this_mac, build?, link?, last_heard_at?, why?, code? }`. `code` is the four digits both Macs show while an ask waits. `build` is the commit Fleet's kept build was made from. `link` is absent on this Mac |
 | `GET /admin/devices` | `[PairedPhone]`: `{ id, name, created_at, last_seen_at }` |
 
 Settings draws the two as one Devices list.
@@ -214,6 +214,7 @@ The phone sends Fleet's own body shapes.
 | `POST /api/sessions/message` | a message to the Job |
 | `POST /api/sessions/change_waiting` | `change_waiting`, for when a waiting Job starts and whether it is approved |
 | `POST /api/sessions/start_waiting` | `start_waiting_now` |
+| `GET /api/queued`, `POST /api/queued/take_back` | `list_queued` and `take_back_queued`, as Fleet answers them |
 
 **A Job that waits on another opens to its waiting screen**, in place of its thread and message box.
 It holds what Bridge's waiting pane holds: the brief, the Job it waits on, the condition as a select, what it needs, where it starts from, Approve and Start now.
@@ -244,8 +245,15 @@ The Gateway's own 409 for a signature sent before carries no such code.
 The Gateway maps the label to Fleet's manifest id, refuses one it does not know or two repositories share, and starts a Job with `POST /sessions/start` carrying the text as `request`.
 It answers 201 with the Job.
 
-**`/api/live`** is Fleet's `/events` narrowed to `session.changed`, written as `{change: "session", session_id}`, and `{change: "resync"}` where the phone's lists may be behind.
-The app keeps one per Mac and reads again on either.
+**Dispatch to the Operator.** `POST /api/sessions/dispatch` takes `{text, repository, kind?, mac?}` and nothing else, and sends Fleet's `POST /sessions/dispatch` as Bridge's composer does: the text as the request and as the first message, `kind` as the hint.
+`mac` names another Mac by the name the phone knows it by, or its id, and is left out for the Mac the call is made to.
+The phone calls the chosen Mac's own Gateway with no `mac` where it answers, and another Mac's with `mac` set only where the chosen Mac is asleep, so the send waits.
+For another Mac the Gateway also names the shared project that Mac holds, since the phone knows no project, and answers 409 where the repository is in none.
+It answers 200 with what the dispatch came to (`session`, `operator` or `parked`, the Job trimmed as the lists trim it), or 202 with the `Queued` act where that Mac does not answer and the send waits for it.
+What the Operator then did with a held dispatch comes on `/api/live`.
+
+**`/api/live`** is Fleet's `/events` narrowed to `session.changed`, written as `{change: "session", session_id}`, to `operator.dispatched`, written as `{change: "operator", dispatched}`, to `queued.changed`, written as `{change: "queued"}` for the phone to read `/api/queued` again, and `{change: "resync"}` where the phone's lists may be behind.
+The app keeps one per Mac and reads again on a session change or a resync.
 While Fleet is quiet it writes a `: beat` comment line every 15 seconds, so the phone can tell a waiting stream from a dead one.
 
 **`/api/sessions` answers the live Jobs and takes no `state`.** The phone has no list of ended ones.
@@ -278,6 +286,20 @@ What crosses has passed the share filter of the Fleet that holds the Job: `/othe
 | 4. Home confirms | `POST /admin/macs/pair/confirm { mac }` | Home makes its own key, Keychain again, and posts `{ back_code, mac, spki_hex }` to work's `POST /pair/mac/back`. Work takes it only with the back code it minted for that Mac, and links. Home links on a 2xx. If work does not answer, home keeps the claim and answers 502, `Work did not answer. Press Confirm again.` |
 | 5. Either forgets | `POST /admin/macs/forget { mac }` | A signed `POST /api/mac/forget` to the other, as far as it answers, then the row and the key go here and Fleet is told with `POST /other_macs/forget`. The other side does the same on its own. Forget on a claim waiting here drops the claim |
 
+**Pairing without a link.** Both Macs are on his Cloudflare account, so Settings lists the other and he presses Pair.
+
+| Step | Route | What happens |
+|---|---|---|
+| 0. Set up | Fleet's `POST /phone/setup`, no body | One press for the whole setup: the Gateway on, as `set_phone` turns it on, then the tunnel's press in the background. Answers `MacSetup { step, working, login?, why?, address? }`, and `GET /phone/setup` reads it with the Gateway off. `step` is `gateway`, `sign_in`, `tunnel` or `done`. `working` has nothing to press, `login` is the page to sign in on, and `why` is the setup to press again. A tunnel that is made but not connected is `working` for 30 seconds before it says why |
+| 1. Work lists the account | `GET /admin/macs/found` | `FoundMacs { macs, why? }`. The `armada-*` tunnels on the account other than this Mac's, from Cloudflare's tunnel list and the domain's records, read again after 4 seconds. Each `FoundMac { tunnel, name, colour?, address?, online, paired, build? }`: `online` is the tunnel connected, and `name`, `colour` and `build` are what the Mac said on `GET /pair/mac/hello`, unsigned, which answers those three and nothing else. An asleep Mac keeps the name it was last read with, else its paired row's, else its address's first label. An account that cannot be read answers `why` with what was read before |
+| 2. Work asks | `POST /admin/macs/pair/ask { tunnel }` | Work makes its key and back code as for a claim and posts `{ mac, spki_hex, back_code }` to home's `POST /pair/mac/ask`, unsigned. Home answers 202 with itself and a random `nonce`, and holds the ask as a claim. Each side draws the same four digits from work's key and the nonce. Work keeps home as `confirm_waiting` with `code`, and refuses a Mac that answers with an id that is not its tunnel's |
+| 3. Home lists the ask | `GET /admin/macs` | Work, `claim_waiting`, with the same `code` and `why` `Work wants to pair. Confirm if it shows 4821.` |
+| 4. Home confirms or declines | `POST /admin/macs/pair/confirm { mac }` or `POST /admin/macs/forget { mac }` | Confirm is step 4 above. Decline drops the ask and posts `{ mac, back_code }` to work's `POST /pair/mac/declined`, which forgets home's row and key on that code alone |
+
+**Home's address is public, so an ask is held three ways.** `/pair/mac/ask` and `/pair/mac/declined` count against the same minute's share as `/pair`.
+At most three asks wait at once, and a fourth answers 429; a Mac asking again replaces its own.
+An ask nobody confirms is gone from both sides after five minutes, as a link is.
+
 **A private key never leaves the Mac that made it.** Each side makes its own and hands over only the public half, so the one link and one Confirm give a key each way.
 A link is `https`, or `http` only to a loopback host, so two Gateways in a test can pair.
 A claim stays until it is confirmed or forgotten, or the Gateway restarts.
@@ -299,6 +321,7 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 | `GET /api/mac/sessions` | Fleet's `GET /other_mac/sessions`, a `SessionList` |
 | `GET /api/mac/bug_reports` | Fleet's `GET /other_mac/bug_reports`, `BugReports` |
 | `GET /api/mac/thread?session_id=&before=` | Fleet's `GET /other_mac/thread`, a `JobThread` |
+| `POST /api/mac/act` | Fleet's `POST /other_mac/act`, as the Mac the signature names: an act on one of this Mac's Jobs, or a Job started here. Fleet's status and body come back as they were said |
 | `GET /api/mac/live` | Fleet's `/other_mac/events` as NDJSON: each `StreamMessage` on a line as Fleet wrote it, and an empty line after 15 seconds of quiet. It ends when the Gateway stops |
 | `POST /api/mac/forget` | Forgets the caller on this side |
 
@@ -313,19 +336,40 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 
 Pairing starts a task and forgetting stops it. Fleet keeps the rows while the Mac is asleep.
 Fleet's `read_other_mac` reaches the other Mac only for a `/other_mac/thread?…` path, read as `/api/mac/thread?…`; any other is refused.
+Its `send_other_mac` posts only `/other_mac/project_act` and `/other_mac/act`.
+
+**Acting across Macs.** The phone's routes cover what the phone does. A Mac can also message, answer, approve a plan, stop and merge a Job the other Mac holds, and start a Job there.
+
+| He does, on this Mac | What happens |
+|---|---|
+| Presses any of those on a Job held from the other Mac | The route finds no Job of this Mac's by the id, and sends the act through the link as a `MacAct { id, act, at }` to the Mac that holds it. That Mac runs it on its own checkout and slots, as the door `mac`, and its answer comes back as it was said. A merge goes to the Mac whose Job owns the pull request, and nothing is merged from this one |
+| Names the other Mac on a start or a dispatch (`mac` in the body, absent for this Mac) | The same, as a start there. The new Job's row is kept here at once with that Mac's id |
+| Acts while that Mac is asleep | The act is answered 202 with a `Queued`, kept in the queue the project edits use, and sent when the Mac next speaks, oldest first, each with its `id` |
+| Takes it back before then | `POST /queued/take_back`. An act the other Mac refused when its turn came stays there with its why, and the acts after it still go, until he takes it back |
+
+**The Mac that holds the Job answers for it.** An act on a Job in a project that is not shared is refused 404, as one on a Job that does not exist, and nothing is written there.
+An act that arrives again under an `id` it ran is answered with what it answered then, and is not run again.
+The Fleet half is [His other Macs, Fleet's half](../practices/protocol/his-other-macs-fleets-half.md).
 
 ## What pushes
 
-Only Needs you: a Job whose `waiting_for` gains an item id it did not have.
+Only Needs you: a Job whose `waiting_for` gains an item id it did not have, and that item is still open 60 seconds later.
 
 | Job | Pushes |
 |---|---|
-| A new item in `waiting_for`: a question, a permission ask, a plan to approve, a walk | yes, once per item |
+| A new item in `waiting_for`: a question, a permission ask, a plan to approve, a walk | yes, once per item, 60 seconds after it is raised if it is still open |
+| Nothing pushed for the Job is open any more | a clear, which closes the Job's notification and shows nothing |
 | `stuck` | no, Fleet repairs it without the person |
 
+- **Settle first.** A new item is held for `SETTLE` (60 seconds, `crates/pocket/src/watch.rs`) and pushed only if it is still open then.
+  A permission ask that the Mac or an agent's mode answers within seconds never reaches the phone.
+  Items one Job raises inside the window go out as one push, saying the newest that is still open.
 - **Once per item.** Pocket keeps the item ids it has pushed, per Job.
   An id leaves when its item does, so an item raised again pushes again.
   The first update Pocket sees for a Job only records what is open, so a restart pushes nothing for items already waiting.
+- **Taken back.** When none of the items pushed for a Job is open, Pocket sends `{ session_id, clear: true }` once.
+  The phone's service worker closes the notification tagged with that Job and shows nothing.
+  An iPhone is sent no clear: iOS removes a push subscription after a few pushes that show nothing, so on an iPhone the notification stays until it is dismissed.
 - **Payload.** `{ session_id, title, reason, origin }`: the title is the Job's title, the reason is the item's text, or `A walk is ready` for a walk item whose text is an address, and `origin` is this Mac's address.
   `origin` is absent while the Gateway cannot say its address.
 - **Tapping it** opens `/jobs/<origin>/<session_id>`, the Job on that Mac, or `/jobs/_/<session_id>` without an origin. The Gateway serves the app for any `/jobs/` path.

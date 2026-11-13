@@ -18,6 +18,8 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tower::ServiceExt;
 
+mod acting;
+
 use super::session_host::{rig_fitted, Rig};
 use super::share::{job_in, project, shared};
 use crate::mint::Mint;

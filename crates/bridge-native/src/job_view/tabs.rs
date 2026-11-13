@@ -91,7 +91,7 @@ impl JobView {
         // Every pane's + offers the kinds other parts of the app put there after its own.
         let offers = cx.try_global::<super::view_tabs::TabOffers>().map(|offers| offers.0.clone()).unwrap_or_default();
         let arrangement = self.arrangement().into_owned();
-        let into = super::place::view_pane_of(&arrangement, pane);
+        let into = super::panes_place::view_pane_of(&arrangement, pane);
         let entries: Vec<Entry> = KINDS
             .iter()
             .filter(|&&(id, _, _)| !laid_off(id) && !(matches!(id, "thread" | "now") && tree::has_kind(&arrangement, id)))
@@ -132,11 +132,11 @@ impl JobView {
 
     /// A pane's +, at its strip's end. It reads as it always has where the default arrangement gave the pane a name.
     pub(super) fn add_button(&mut self, pane: &str, look: &Look, cx: &mut Context<Self>) -> impl IntoElement {
-        let name = match super::place::slot_of(pane) {
-            super::place::Slot::Thread => "Add tab: Thread",
-            super::place::Slot::Top => "Add tab: Done",
-            super::place::Slot::Now => "Add tab: Now",
-            super::place::Slot::Other => "Add tab",
+        let name = match super::panes_place::slot_of(pane) {
+            super::panes_place::Slot::Thread => "Add tab: Thread",
+            super::panes_place::Slot::Top => "Add tab: Done",
+            super::panes_place::Slot::Now => "Add tab: Now",
+            super::panes_place::Slot::Other => "Add tab",
         };
         let target = pane.to_string();
         let handle = self.shown.clone().map(|job| self.add_handle(&job, pane, cx));

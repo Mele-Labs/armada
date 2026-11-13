@@ -1,4 +1,4 @@
-//! How a state is read: which of four sources says an instance is in it, and what it has to say.
+//! How a state is read: which of five sources says an instance is in it, and what it has to say.
 //!
 //! **Fleet decides a state from what it observes, and what the agent says counts for nothing.**
 //! A state therefore names a fact a reader can see, never a claim a Job can make. The readers
@@ -28,11 +28,13 @@ pub enum StateSource {
     Watch,
     /// Fleet's own events.
     Fleet,
+    /// Nobody: the person names the state, in a lane of his own.
+    Own,
 }
 
 impl StateSource {
     pub const ALL: &'static [StateSource] =
-        &[StateSource::Tracker, StateSource::Forge, StateSource::Watch, StateSource::Fleet];
+        &[StateSource::Tracker, StateSource::Forge, StateSource::Watch, StateSource::Fleet, StateSource::Own];
 
     pub fn as_wire(self) -> &'static str {
         match self {
@@ -40,6 +42,7 @@ impl StateSource {
             StateSource::Forge => "forge",
             StateSource::Watch => "watch",
             StateSource::Fleet => "fleet",
+            StateSource::Own => "own",
         }
     }
 
@@ -197,6 +200,8 @@ pub enum StateRead {
     /// already this crate's type.
     Watch(ReadingState),
     Fleet(FleetFact),
+    /// No source reads it: the person names the state, and no instance is read into it from outside.
+    Own,
 }
 
 impl StateRead {
@@ -206,6 +211,7 @@ impl StateRead {
             StateRead::Forge(_) => StateSource::Forge,
             StateRead::Watch(_) => StateSource::Watch,
             StateRead::Fleet(_) => StateSource::Fleet,
+            StateRead::Own => StateSource::Own,
         }
     }
 
@@ -261,6 +267,7 @@ impl<'a> Observed<'a> {
             StateSource::Forge => ForgeFact::from_wire(spelled).map(Observed::Forge),
             StateSource::Watch => ReadingState::from_wire(spelled).map(Observed::Watch),
             StateSource::Fleet => FleetFact::from_wire(spelled).map(Observed::Fleet),
+            StateSource::Own => None,
         }
     }
 }
@@ -293,6 +300,7 @@ impl fmt::Display for StateSource {
             StateSource::Forge => "the forge",
             StateSource::Watch => "a watch",
             StateSource::Fleet => "Fleet",
+            StateSource::Own => "the person",
         })
     }
 }

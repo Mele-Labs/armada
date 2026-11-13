@@ -109,8 +109,10 @@ pub struct OperatorPageView {
     pub(super) first_stop: FocusHandle,
     /// The open card's Later, so a test can put the keys on a press.
     pub(super) later_focus: FocusHandle,
-    /// Where the open card's Later is drawn, so its menu opens under it.
-    pub(super) later_bounds: std::rc::Rc<std::cell::Cell<Option<gpui::Bounds<gpui::Pixels>>>>,
+    /// Where each ask's Later is drawn, by its id, so the menu opens under the open ask's.
+    pub(super) later_bounds: std::rc::Rc<std::cell::RefCell<HashMap<String, gpui::Bounds<gpui::Pixels>>>>,
+    /// Where each ask of a Job's card sits in the scrolled content, by its id, so a key that opens one shows it.
+    pub(super) ask_bounds: std::rc::Rc<std::cell::RefCell<HashMap<String, gpui::Bounds<gpui::Pixels>>>>,
     /// Later's menu of when the item comes back, while it is open.
     pub(super) later_menu: Option<(Entity<Dropdown>, [Subscription; 2])>,
     /// The turn ids already seen, so a new one is told once. `None` before the first read.
@@ -175,6 +177,7 @@ impl OperatorPageView {
             first_stop: cx.focus_handle(),
             later_focus: cx.focus_handle(),
             later_bounds: Default::default(),
+            ask_bounds: Default::default(),
             later_menu: None,
             seen: None,
             read_at: 0,
@@ -657,7 +660,7 @@ impl OperatorPageView {
         self.pending.insert(turn.id.clone());
         self.refused = None;
         if was_open || self.open.is_none() {
-            self.open_near(at);
+            self.open_near(at, turn.group.as_deref());
         }
         cx.notify();
         let answer = press.answer;
@@ -721,10 +724,12 @@ impl OperatorPageView {
         }
     }
 
-    /// Open the item now at `at`, or the last one.
-    fn open_near(&mut self, at: usize) {
+    /// Open the item now at `at`, or the last one. An ask that leaves a Job's card leaves it open on the
+    /// Job's ask beside it.
+    fn open_near(&mut self, at: usize, group: Option<&str>) {
         let items = self.items();
-        self.open = items.get(at).or(items.last()).map(|turn| turn.id.clone());
+        let mate = group.and_then(|group| [Some(at), at.checked_sub(1)].into_iter().flatten().filter_map(|at| items.get(at)).find(|turn| turn.group.as_deref() == Some(group)));
+        self.open = mate.or(items.get(at)).or(items.last()).map(|turn| turn.id.clone());
         self.reveal = true;
     }
 
@@ -732,7 +737,7 @@ impl OperatorPageView {
     /// its first choice; picked, the item goes Later until then.
     pub fn open_later(&mut self, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(turn) = self.open_item().cloned() else { return };
-        let Some(bounds) = self.later_bounds.get() else { return };
+        let Some(bounds) = self.later_bounds.borrow().get(&turn.id).copied() else { return };
         let now = self.clock_now.unwrap_or_else(chrono::Local::now);
         let choices = face::later_choices(now);
         let entries = choices.iter().map(|(id, label, at)| Entry::Row(Row::new(id, *label).detail(face::back_at(*at, now)))).collect();
@@ -774,7 +779,7 @@ impl OperatorPageView {
             page.turn.push(moved);
         }
         if self.items().len() > 1 {
-            self.open_near(at);
+            self.open_near(at, turn.group.as_deref());
         }
         self.refused = None;
         cx.notify();
@@ -795,24 +800,23 @@ impl OperatorPageView {
         self.track(task);
     }
 
-    /// ⌥↑ and ⌥↓: the open item one place up or down. The keys stay on it.
+    /// ⌥↑ and ⌥↓: the open item one place up or down, a Job's card whole. The keys stay on it.
     pub fn shove(&mut self, by: isize, cx: &mut Context<Self>) {
         let Some(id) = self.open.clone() else { return };
         let Some(at) = self.index_of(&id) else { return };
-        let to = (at as isize + by).clamp(0, self.items().len() as isize - 1) as usize;
+        let groups: Vec<Option<&str>> = self.items().iter().map(|turn| turn.group.as_deref()).collect();
+        let run = run_at(&groups, at);
+        let to = if by < 0 { run.start.checked_sub(1) } else { Some(run.end).filter(|end| *end < groups.len()) };
+        let Some(to) = to else { return };
         self.move_to(&id, to, cx);
     }
 
-    /// A drag, or a shove: the item goes to `to`, and Fleet keeps the order.
+    /// A drag, or a shove: the item goes to `to`, with the rest of its Job's card, and Fleet keeps the order.
     pub fn move_to(&mut self, id: &str, to: usize, cx: &mut Context<Self>) {
-        let Some(at) = self.index_of(id) else { return };
-        if at == to {
-            return;
-        }
+        let pairs: Vec<(&str, Option<&str>)> = self.items().iter().map(|turn| (turn.id.as_str(), turn.group.as_deref())).collect();
+        let Some(ids) = moved(&pairs, id, to) else { return };
         let Some(page) = self.page.as_mut() else { return };
-        let turn = page.turn.remove(at);
-        page.turn.insert(to.min(page.turn.len()), turn);
-        let ids: Vec<String> = page.turn.iter().map(|turn| turn.id.clone()).collect();
+        page.turn.sort_by_key(|turn| ids.iter().position(|id| *id == turn.id));
         cx.notify();
         let task = self.wire.order(ids, cx);
         self.settle(task, cx);
@@ -1109,6 +1113,36 @@ impl OperatorPageView {
     }
 }
 
+/// The run of items around `at` that share its group: one Job's asks, which Your turn draws as one entry.
+/// Fleet can list a Job's asks put Later as a second run under the same group, so a run is never more
+/// than the neighbours.
+pub(super) fn run_at(groups: &[Option<&str>], at: usize) -> std::ops::Range<usize> {
+    let Some(group) = groups.get(at).copied().flatten() else { return at..at + 1 };
+    let same = |one: &usize| groups[*one] == Some(group);
+    let start = (0..at).rev().take_while(same).last().unwrap_or(at);
+    let end = (at + 1..groups.len()).take_while(same).last().map_or(at + 1, |last| last + 1);
+    start..end
+}
+
+/// Your turn's ids once the entry holding `id` goes where `to` stands: after that entry going down and
+/// before it going up, a Job's asks moving whole and passed whole. `None` where nothing moves.
+pub(super) fn moved(items: &[(&str, Option<&str>)], id: &str, to: usize) -> Option<Vec<String>> {
+    let at = items.iter().position(|(one, _)| *one == id)?;
+    let to = to.min(items.len() - 1);
+    let groups: Vec<Option<&str>> = items.iter().map(|(_, group)| *group).collect();
+    let moving = run_at(&groups, at);
+    if moving.contains(&to) {
+        return None;
+    }
+    let target = run_at(&groups, to);
+    let down = to > at;
+    let anchor = items[if down { target.end - 1 } else { target.start }].0;
+    let mut ids: Vec<&str> = items.iter().enumerate().filter(|(one, _)| !moving.contains(one)).map(|(_, (one, _))| *one).collect();
+    let place = ids.iter().position(|one| *one == anchor)? + usize::from(down);
+    ids.splice(place..place, items[moving].iter().map(|(one, _)| *one));
+    Some(ids.into_iter().map(String::from).collect())
+}
+
 /// What came of a press, in a few words, from Fleet's answer.
 fn said_of(turn: &OperatorTurnItem, answer: OperatorAnswer, chosen: Option<SharedString>, answered: &OperatorAnswered) -> SharedString {
     if answer == OperatorAnswer::No {
@@ -1241,7 +1275,7 @@ mod tests {
         cx.simulate_keystrokes("l");
         assert!(page.read_with(cx, |page, _| page.later_menu.is_some()));
         cx.simulate_keystrokes("enter");
-        assert_eq!(ids(&page, cx), ["turn:2", "turn:3", "turn:4", "turn:9", "turn:1"]);
+        assert_eq!(ids(&page, cx), ["turn:2", "turn:3", "turn:4", "turn:9", "turn:10", "turn:11", "turn:1"]);
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"));
         page.read_with(cx, |page, _| assert!(page.items().last().is_some_and(|turn| turn.later_until.is_some())));
     }
@@ -1250,12 +1284,45 @@ mod tests {
     fn a_shove_moves_the_open_item_and_fleet_keeps_the_order(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
         cx.simulate_keystrokes("alt-down");
-        assert_eq!(ids(&page, cx), ["turn:2", "turn:1", "turn:3", "turn:4", "turn:9"]);
+        assert_eq!(ids(&page, cx), ["turn:2", "turn:1", "turn:3", "turn:4", "turn:9", "turn:10", "turn:11"]);
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"), "the keys stay on the item it moved");
         let kept: Vec<String> = page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.page.turn.iter().map(|turn| turn.id.clone()).collect()).unwrap_or_default());
-        assert_eq!(kept, ["turn:2", "turn:1", "turn:3", "turn:4", "turn:9"]);
+        assert_eq!(kept, ["turn:2", "turn:1", "turn:3", "turn:4", "turn:9", "turn:10", "turn:11"]);
         cx.update(|_, cx| page.update(cx, |page, cx| page.move_to("turn:4", 0, cx)));
-        assert_eq!(ids(&page, cx), ["turn:4", "turn:2", "turn:1", "turn:3", "turn:9"], "a drop moves it as a drag would");
+        assert_eq!(ids(&page, cx), ["turn:4", "turn:2", "turn:1", "turn:3", "turn:9", "turn:10", "turn:11"], "a drop moves it as a drag would");
+    }
+
+    #[test]
+    fn a_jobs_asks_move_as_one_entry_and_are_passed_whole() {
+        let items = [("a", None), ("g1", Some("job")), ("g2", Some("job")), ("b", None), ("l1", Some("job")), ("l2", Some("job"))];
+        let order = |id: &str, to: usize| moved(&items, id, to);
+        assert_eq!(run_at(&items.map(|(_, group)| group), 2), 1..3);
+        assert_eq!(run_at(&items.map(|(_, group)| group), 4), 4..6, "the same Job's asks put Later are a run of their own");
+        assert_eq!(order("g2", 0).unwrap(), ["g1", "g2", "a", "b", "l1", "l2"], "up: the whole card goes before the item");
+        assert_eq!(order("g1", 3).unwrap(), ["a", "b", "g1", "g2", "l1", "l2"], "down: the whole card goes after the item");
+        assert_eq!(order("a", 1).unwrap(), ["g1", "g2", "a", "b", "l1", "l2"], "down onto a card: after its last ask");
+        assert_eq!(order("b", 2).unwrap(), ["a", "b", "g1", "g2", "l1", "l2"], "up onto a card: before its first ask");
+        assert_eq!(order("b", 5).unwrap(), ["a", "g1", "g2", "l1", "l2", "b"]);
+        assert_eq!(order("g1", 2), None, "onto itself nothing moves");
+        assert_eq!(order("a", 0), None);
+        let single = [("1", None), ("2", None), ("3", None)];
+        assert_eq!(moved(&single, "1", 1).unwrap(), ["2", "1", "3"], "a single item moves as it did");
+        assert_eq!(moved(&single, "3", 0).unwrap(), ["3", "1", "2"]);
+    }
+
+    #[gpui::test]
+    fn a_jobs_card_shoves_whole_and_an_answered_ask_leaves_the_rest_open(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.open_id("turn:11", cx));
+        cx.simulate_keystrokes("alt-up");
+        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:10", "turn:11", "turn:9"]);
+        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:11"), "the keys stay on the ask");
+        cx.simulate_keystrokes("a");
+        assert_eq!(pressed(&page, cx).iter().map(|press| press.id.as_str()).collect::<Vec<_>>(), ["turn:11"]);
+        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:10"), "the Job's other ask stays open");
+        page.read_with(cx, |page, _| assert_eq!(page.open_item().and_then(|turn| turn.group.clone()), None, "one ask left is a card of its own"));
+        cx.simulate_keystrokes("alt-down");
+        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:9", "turn:10"]);
     }
 
     #[gpui::test]
@@ -1429,7 +1496,7 @@ mod tests {
         cx.simulate_keystrokes("/");
         cx.simulate_keystrokes("a l j k h d c 2 alt-up alt-down");
         assert!(pressed(&page, cx).is_empty());
-        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:9"]);
+        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:9", "turn:10", "turn:11"]);
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"));
         assert!(page.read_with(cx, |page, _| page.then.is_empty()), "a digit in the box picks no Then");
     }
@@ -1522,7 +1589,7 @@ mod tests {
         assert_eq!(page.read_with(cx, |page, _| page.rules), Some(1));
         cx.simulate_keystrokes("a l alt-up");
         assert!(pressed(&page, cx).is_empty(), "no key reaches Your turn behind the sheet");
-        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:9"]);
+        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:9", "turn:10", "turn:11"]);
         cx.simulate_keystrokes("escape");
         assert_eq!(page.read_with(cx, |page, _| page.rules), None);
         cx.update(|window, _| assert!(link.is_focused(window), "the keys are back on Every rule"));
