@@ -34,6 +34,7 @@ mod closing;
 mod desk;
 mod dispatching;
 mod duplicating;
+mod elsewhere;
 mod erroring;
 mod handing;
 mod hearing;
@@ -72,6 +73,7 @@ pub use calling::{Answering, Calling, KeptStarted};
 pub use looking::{Blind, Folder, Looking, ReadingScout, ToRead};
 pub use acting::FleetActing;
 pub(crate) use duplicating::HELD_FOR_OVERLAP;
+pub(crate) use elsewhere::plan_overlap;
 #[cfg(test)]
 pub(crate) use erroring::fingerprint;
 pub use desk::FleetDesk;

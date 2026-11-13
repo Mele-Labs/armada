@@ -24,7 +24,7 @@ fn below_of(value: &mut ipc::ResolvedValue, below: &ipc::ResolvedValue) {
     }
 }
 
-/// The plain keys of `wire` that the project sets, each told what the layers below it give.
+/// The plain keys and review kinds of `wire` that the project sets, each told what the layers below it give.
 fn inherited_over(wire: &mut ipc::ResolvedValues, below: &ipc::ResolvedValues) {
     below_of(&mut wire.pr_mode, &below.pr_mode);
     below_of(&mut wire.auto_merge, &below.auto_merge);
@@ -37,6 +37,27 @@ fn inherited_over(wire: &mut ipc::ResolvedValues, below: &ipc::ResolvedValues) {
     }
     if let (Some(value), Some(below)) = (wire.delivery.as_mut(), below.delivery.as_ref()) {
         below_of(value, below);
+    }
+    if let (Some(value), Some(below)) = (wire.reviews.as_mut(), below.reviews.as_ref()) {
+        reviews_inherited_over(value, below);
+    }
+}
+
+/// The review kinds of `reviews` that the project sets, each told the word and layer below it. A kind always has a
+/// word, so unset below is `off` from `default`.
+fn reviews_inherited_over(reviews: &mut ipc::ResolvedReviews, below: &ipc::ResolvedReviews) {
+    let project = Some(ipc::ValueLayer::Project);
+    if reviews.plans_from == project {
+        reviews.plans_inherited = Some(below.plans.clone());
+        reviews.plans_inherited_from = below.plans_from;
+    }
+    if reviews.pull_requests_from == project {
+        reviews.pull_requests_inherited = Some(below.pull_requests.clone());
+        reviews.pull_requests_inherited_from = below.pull_requests_from;
+    }
+    if reviews.walks_from == project {
+        reviews.walks_inherited = Some(below.walks.clone());
+        reviews.walks_inherited_from = below.walks_from;
     }
 }
 

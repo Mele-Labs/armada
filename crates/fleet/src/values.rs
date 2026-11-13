@@ -137,6 +137,12 @@ fn reviews_wire(reviews: &Reviews, from: ipc::ValueLayer, kinds: [ipc::ValueLaye
         plans_from: Some(kinds[0]),
         pull_requests_from: Some(kinds[1]),
         walks_from: Some(kinds[2]),
+        plans_inherited: None,
+        plans_inherited_from: None,
+        pull_requests_inherited: None,
+        pull_requests_inherited_from: None,
+        walks_inherited: None,
+        walks_inherited_from: None,
     }
 }
 

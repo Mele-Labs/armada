@@ -127,6 +127,27 @@ fn a_learned_value_round_trips_a_value_that_is_not_omits_it_and_an_older_answer_
 }
 
 #[test]
+fn inherited_review_kinds_round_trip_and_an_answer_without_them_reads_none() {
+    let overridden = json!({
+        "plans": "review_and_approve", "pull_requests": "off", "walks": "off", "from": "project",
+        "plans_from": "project", "pull_requests_from": "kit", "walks_from": "project",
+        "plans_inherited": "review", "plans_inherited_from": "kit",
+        "walks_inherited": "off", "walks_inherited_from": "default",
+    });
+    let read: crate::ResolvedReviews = serde_json::from_value(overridden.clone()).unwrap();
+    assert_eq!((read.plans_inherited.as_deref(), read.plans_inherited_from), (Some("review"), Some(crate::ValueLayer::Kit)));
+    assert_eq!((read.walks_inherited.as_deref(), read.walks_inherited_from), (Some("off"), Some(crate::ValueLayer::Default)));
+    assert_eq!((read.pull_requests_inherited.as_deref(), read.pull_requests_inherited_from), (None, None));
+    assert_eq!(serde_json::to_value(&read).unwrap(), overridden);
+    let older = json!({"plans": "review", "pull_requests": "off", "walks": "off", "from": "project", "plans_from": "project"});
+    let read: crate::ResolvedReviews = serde_json::from_value(older.clone()).unwrap();
+    assert_eq!((read.plans_inherited.as_deref(), read.plans_inherited_from), (None, None));
+    assert_eq!((read.pull_requests_inherited.as_deref(), read.pull_requests_inherited_from), (None, None));
+    assert_eq!((read.walks_inherited.as_deref(), read.walks_inherited_from), (None, None));
+    assert_eq!(serde_json::to_value(&read).unwrap(), older, "no inherited field is written when absent");
+}
+
+#[test]
 fn an_inherited_value_round_trips_with_its_layer_and_an_answer_without_them_reads_none() {
     let overridden = json!({"value": "ready", "from": "project", "inherited": "draft", "inherited_from": "kit"});
     let read: crate::ResolvedValue = serde_json::from_value(overridden.clone()).unwrap();
