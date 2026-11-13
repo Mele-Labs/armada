@@ -127,6 +127,54 @@ pub fn fetch_main(root: &str, within: Duration) -> Result<(), String> {
     fetch_within(root, &["fetch", "--quiet", "origin", "main"], within)
 }
 
+/// `git fetch --prune origin` in `root`: every branch on origin, so a Mac with no Job on a branch
+/// can still preview it. Stopped after `within`. **No prompt.**
+pub fn fetch_origin(root: &str, within: Duration) -> Result<(), String> {
+    fetch_within(root, &["fetch", "--quiet", "--prune", "origin"], within)
+}
+
+/// Whether the machine's fifteen-minute load is under `at_most`, as `sysctl -n vm.loadavg` says it:
+/// `{ 7.22 5.98 4.54 }`. **False where it would not say**, so a fetch that waits on it waits.
+pub fn load_under(at_most: f64) -> bool {
+    let Ok(run) = crate::background::command("sysctl").args(["-n", "vm.loadavg"]).stdin(Stdio::null()).output() else {
+        return false;
+    };
+    let said = String::from_utf8_lossy(&run.stdout);
+    let fifteen = said.trim().trim_matches(|c| c == '{' || c == '}').split_whitespace().nth(2);
+    fifteen.and_then(|one| one.parse::<f64>().ok()).is_some_and(|load| load < at_most)
+}
+
+/// The branches on origin that `origin/main` does not hold, with a tip committed at or after `since`
+/// (unix seconds), newest first, each with that commit's time in UTC, `2026-11-13T13:34:24Z`. Read
+/// off the refs as last fetched; empty where git would not say.
+pub fn origin_branches(root: &str, since: u64) -> Vec<(String, String)> {
+    let run = crate::background::command("git")
+        .args([
+            "for-each-ref",
+            "--sort=-committerdate",
+            "--no-merged=origin/main",
+            "--format=%(refname:lstrip=3)%09%(committerdate:unix)%09%(committerdate:format-local:%Y-%m-%dT%H:%M:%SZ)",
+            "refs/remotes/origin/",
+        ])
+        .current_dir(root)
+        .env("TZ", "UTC")
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output();
+    let Ok(run) = run.map_err(drop).and_then(|run| if run.status.success() { Ok(run) } else { Err(()) }) else {
+        return Vec::new();
+    };
+    String::from_utf8_lossy(&run.stdout)
+        .lines()
+        .filter_map(|line| {
+            let mut fields = line.split('\t');
+            let (branch, unix, at) = (fields.next()?, fields.next()?, fields.next()?);
+            let recent = unix.parse::<u64>().ok()? >= since;
+            (recent && !branch.is_empty() && branch != "HEAD" && branch != "main").then(|| (branch.to_string(), at.to_string()))
+        })
+        .collect()
+}
+
 /// `git fetch origin <branch>` in `root`, for a commit of the base that is not here yet.
 pub fn fetch_branch(root: &str, branch: &str, within: Duration) -> Result<(), String> {
     fetch_within(root, &["fetch", "--quiet", "origin", branch], within)
