@@ -4,5 +4,5 @@ transport = "HTTP"
 agent_access = "No"
 description = "Every Job row and bug report held from one Mac dropped, as this Mac's Phone Gateway forgets it"
 notes = """
-`POST /other_macs/forget`, body `MacNamed`. Answered with `MacNamed`. The rows leave `list_sessions`, with `session.removed` published for each, and the reports leave `list_bug_reports`, and `bug_reports.changed` is published with what is left.
+`POST /other_macs/forget`, body `MacNamed`. Answered with `MacNamed`. The rows leave `list_sessions`, with `session.removed` published for each, and the reports leave `list_bug_reports`, and `bug_reports.changed` is published with what is left. Called on the port from inside a Job, around the door, it is a 403 `api.the_persons_own`: only this Mac's Phone Gateway hands Fleet his other Macs' Jobs.
 """
