@@ -91,12 +91,14 @@ fn status(id: impl Into<SharedString>, said: String, lead: AnyElement, look: &Lo
         div()
             .id(ElementId::Name(id.into()))
             .flex()
-            .items_center()
+            .items_start()
             .gap(look.length(token::SPACE_2))
             .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
             .text_color(look.color(token::FG_MUTED))
-            .child(lead)
-            .child(SharedString::from(said.clone())),
+            // The lead sits on the first line; the words wrap in a narrow pane.
+            .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(lead))
+            .child(div().flex_1().min_w_0().child(SharedString::from(said.clone()))),
         Role::Status,
         said,
     )
@@ -314,7 +316,7 @@ impl ReviewsScreen {
             "Diff since you looked",
         );
         column
-            .child(div().flex().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique", "Critique these changes", page, look, cx)).child(diff))
+            .child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique", "Critique these changes", page, look, cx)).child(diff))
             .child(table)
             .into_any_element()
     }
@@ -472,7 +474,6 @@ impl ReviewsScreen {
             let (edit_id, remove_id) = (draft.id.clone(), draft.id.clone());
             let edit = labelled(
                 Btn::new(SharedString::from(format!("draft-edit-{}", draft.id)), "Edit", Weight::Ghost)
-                    .icon("pencil")
                     .draw(look, cx)
                     .on_click(cx.listener(move |this, _, window, cx| this.edit_draft(&edit_id, window, cx))),
                 Role::Button,
@@ -480,7 +481,6 @@ impl ReviewsScreen {
             );
             let remove = labelled(
                 Btn::new(SharedString::from(format!("draft-remove-{}", draft.id)), "Remove", Weight::Ghost)
-                    .icon("trash")
                     .draw(look, cx)
                     .on_click(cx.listener(move |this, _, _, cx| this.discard_draft(&remove_id, cx))),
                 Role::Button,
@@ -496,7 +496,8 @@ impl ReviewsScreen {
                     Role::TextInput,
                     format!("Draft comment on {place}"),
                 ))
-                .child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).child(edit).child(remove));
+                // Words without glyphs, so both sit on one row in the side pane.
+                .child(div().flex().items_center().flex_wrap().gap(look.length(token::SPACE_1)).child(edit).child(remove));
             column = column.child(edged(format!("draft-card-{}", draft.id), token::STATUS_AWAITING_REVIEW, body, format!("Draft comment on {place}"), look));
         }
         column.into_any_element()
@@ -613,17 +614,20 @@ impl ReviewsScreen {
                     .items_center()
                     .gap(look.length(token::SPACE_2))
                     .px(look.length(token::SPACE_2))
-                    .h(look.length(token::H_CONTROL))
+                    .py(look.length(token::SPACE_1))
+                    .min_h(look.length(token::H_CONTROL))
                     .rounded(look.length(token::RADIUS_MD))
                     .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
                     .text_color(look.color(token::FG_MUTED))
                     .cursor_pointer()
                     .hover(move |style| style.bg(hover))
                     .aria_expanded(open)
                     .on_click(cx.listener(move |this, _, _, cx| this.toggle_sent(&toggle, cx)))
-                    .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3), look.color(token::FG_MUTED)))
-                    .child(glyph("check", look.length(token::SPACE_3), look.color(token::RUN_PASSED)))
-                    .child(SharedString::from(said.clone())),
+                    .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3), look.color(token::FG_MUTED)).flex_none())
+                    .child(glyph("check", look.length(token::SPACE_3), look.color(token::RUN_PASSED)).flex_none())
+                    // Its words wrap in a narrow pane rather than run past its edge.
+                    .child(div().flex_1().min_w_0().child(SharedString::from(said.clone()))),
                 Role::Button,
                 said,
             ));

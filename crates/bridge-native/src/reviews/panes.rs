@@ -406,11 +406,11 @@ impl ReviewsScreen {
                 .id(SharedString::from(format!("tab-{}", tab.id)))
                 // In a narrow pane the tabs behind give way down to their glyph, so the front tab's name stays whole.
                 .when(front, |tab| tab.flex_none())
-                .when(!front, |tab| tab.flex_shrink(1.).min_w(look.length(token::SPACE_3) * 2. + look.length(token::SPACE_4)).overflow_hidden().tooltip(tip(label)))
+                .when(!front, |tab| tab.flex_shrink(1.).min_w(look.length(token::SPACE_3) * 2. + look.length(token::SPACE_4)).tooltip(tip(label)))
                 .h_full()
                 .flex()
                 .items_center()
-                .gap(look.length(token::SPACE_2))
+                .overflow_hidden()
                 .px(look.length(token::SPACE_3))
                 .text_size(look.length(token::TEXT_XS))
                 .text_color(ink)
@@ -433,8 +433,22 @@ impl ReviewsScreen {
                         cx.notify();
                     }
                 }))
-                .child(glyph(tabs::glyph_of(&tab.kind), look.length(token::SPACE_4), if front { look.color(token::ACCENT) } else { ink }))
-                .child(div().min_w_0().truncate().child(label)),
+                // One row high: a name that does not fit whole wraps out of sight, leaving the glyph alone,
+                // never a glyph and a lone ellipsis.
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .h(look.length(token::LEADING_XS))
+                        .line_height(look.length(token::LEADING_XS))
+                        .overflow_hidden()
+                        .flex()
+                        .flex_wrap()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .child(glyph(tabs::glyph_of(&tab.kind), look.length(token::SPACE_4), if front { look.color(token::ACCENT) } else { ink }))
+                        .child(div().flex_none().whitespace_nowrap().child(label)),
+                ),
             Role::Tab,
             label,
         )
