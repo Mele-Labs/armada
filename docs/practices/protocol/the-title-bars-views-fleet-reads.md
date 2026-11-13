@@ -40,7 +40,7 @@ The present-tense words, Refreshing and Updating, follow `restarting`, which the
 `FleetBuildReport.carried` is the list, and no field is added.
 It is the titles of the hosted Jobs with a turn under way, sorted, which `scripts/restart-build --adopt` carries across, and Fleet fills it on every `get_fleet_build`.
 Electron draws it only in the Revert dialog and sets the restart's list to nothing in `fleet-build.ts`, so its confirm never opens.
-That is Electron's reading, and the native Bridge reads `carried` for both confirms.
+The native Bridge reads it the same way. No Job is adopted: hosted Jobs carry across a restart, and Fleet runs no Drone of its own, so Update to main and Refresh preview restart with no confirm.
 
 ## Write clashes across every repository
 

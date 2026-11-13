@@ -154,6 +154,17 @@ pub(crate) fn release_review(slots: &SlotPool, slot: u32, holder: &str) -> Resul
     released
 }
 
+/// The blob each path is at the commit the bay's head forked from the pool's base, `None` where
+/// that commit has no such file.
+pub(crate) fn review_base_blobs(slots: &SlotPool, slot: u32, paths: &[String]) -> Result<Vec<Option<String>>, String> {
+    let here = pool(slots).path_of(slot as usize);
+    let base = super::git::read(&here, &["merge-base", "HEAD", slots.base()])?;
+    Ok(paths
+        .iter()
+        .map(|path| super::git::read(&here, &["rev-parse", "--verify", "--quiet", &format!("{base}:{path}")]).ok())
+        .collect())
+}
+
 /// Commit the Session's work to its branch and give the slot back.
 pub(crate) fn park(slots: &SlotPool, slot: u32, holder: &str) -> Result<SlotParked, SlotParkRefused> {
     parked_as(slots, slot, &Holder::hosted(holder))

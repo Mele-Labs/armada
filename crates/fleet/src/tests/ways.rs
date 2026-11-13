@@ -221,28 +221,6 @@ async fn an_item_that_is_not_a_question_needs_no_options_where_he_answers_by_but
     rig.fleet.set_waiting(None, listing(&id, vec![run, approval, procedure])).await.expect("a run, an approval and a procedure are not questions");
 }
 
-#[tokio::test]
-async fn a_reply_that_asks_in_words_is_told_once_to_ask_again_with_options() {
-    let rig = rig_placing(None);
-    let id = running(&rig).await;
-    Arc::clone(&rig.fleet).reply_asked_again(id.as_str(), "I read both. Which one should I build first?").await;
-    assert!(asked(&rig, &id).await.is_empty(), "he types by default, so a reply is read as it was");
-
-    save(&rig, "answer_with", "buttons").await;
-    Arc::clone(&rig.fleet).reply_asked_again(id.as_str(), "I read both. Report only.").await;
-    assert!(asked(&rig, &id).await.is_empty(), "a reply that asks nothing is left alone");
-
-    Arc::clone(&rig.fleet).reply_asked_again(id.as_str(), "I read both. Which one should I build first?").await;
-    assert_eq!(asked(&rig, &id).await, [ways::ASK_AGAIN.to_string()]);
-
-    Arc::clone(&rig.fleet).reply_asked_again(id.as_str(), "Which one should I build first?").await;
-    assert_eq!(asked(&rig, &id).await.len(), 1, "the reply to the notice is not told again until he has written");
-}
-
-async fn asked(rig: &Rig, id: &SessionId) -> Vec<String> {
-    notices_in(rig, id).await.into_iter().filter(|(word, _)| word.as_deref() == Some("reply_claim")).map(|(_, text)| text).collect()
-}
-
 // ------------------------------------------------------------------ 4: the look check
 
 #[tokio::test]

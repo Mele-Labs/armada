@@ -20,6 +20,8 @@ use crate::titlebar::{self, Asked, AskedSink, Face, Place};
 pub enum Front {
     Operator,
     Jobs,
+    /// The pull requests waiting on him, where a screen holds them.
+    Reviews,
 }
 
 impl Front {
@@ -27,6 +29,7 @@ impl Front {
         match self {
             Front::Operator => "operator",
             Front::Jobs => "jobs",
+            Front::Reviews => "reviews",
         }
     }
 }
@@ -36,6 +39,7 @@ pub struct OperatorScreen {
     pub page: Entity<OperatorPageView>,
     pub front: Front,
     pub within: FocusHandle,
+    reviews: Option<Entity<crate::reviews::ReviewsScreen>>,
     toasts: Entity<crate::toasts::Toasts>,
     _subs: Vec<gpui::Subscription>,
 }
@@ -50,12 +54,15 @@ pub fn live(cx: &App) -> Option<Entity<OperatorPageView>> {
 }
 
 /// The strip's places now that the Operator has a screen: Operator first, as Electron's `DECK_TABS` has them.
-fn with_places(mut face: Face, here: Front) -> Face {
+fn with_places(mut face: Face, here: Front, reviews: bool) -> Face {
     if !face.places.iter().any(|place| place.id == "operator") {
         face.places.insert(0, Place { id: "operator", label: "Operator", glyph: "bot", shown: true, hideable: true });
     }
     if !face.places.iter().any(|place| place.id == "jobs") {
         face.places.push(Place { id: "jobs", label: "Jobs", glyph: "box", shown: true, hideable: true });
+    }
+    if reviews && !face.places.iter().any(|place| place.id == "reviews") {
+        face.places.push(Place { id: "reviews", label: "Reviews", glyph: "git-pull-request", shown: true, hideable: true });
     }
     face.here = Some(here.id());
     face
@@ -64,22 +71,36 @@ fn with_places(mut face: Face, here: Front) -> Face {
 impl OperatorScreen {
     pub fn live(jobs: Entity<JobsScreen>, fleet: &Entity<FleetConnection>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let page = cx.new(|cx| OperatorPageView::live(fleet, false, window, cx));
-        Self::new(jobs, page, Front::Jobs, window, cx)
+        Self::new(jobs, page, Front::Jobs, None, window, cx)
     }
 
     /// On the walk's Fleet, with the page in front.
     pub fn mock(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let page = cx.new(|cx| OperatorPageView::mock(false, window, cx));
-        Self::new(jobs, page, Front::Operator, window, cx)
+        Self::new(jobs, page, Front::Operator, None, window, cx)
     }
 
     /// On the walk's Fleet, with the Jobs screen in front.
     pub fn mock_behind(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let page = cx.new(|cx| OperatorPageView::mock(false, window, cx));
-        Self::new(jobs, page, Front::Jobs, window, cx)
+        Self::new(jobs, page, Front::Jobs, None, window, cx)
     }
 
-    fn new(jobs: Entity<JobsScreen>, page: Entity<OperatorPageView>, front: Front, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    /// On the walk's Fleet, with the Jobs screen in front and Reviews in the strip, on its own mock.
+    pub fn mock_reviews(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let page = cx.new(|cx| OperatorPageView::mock(false, window, cx));
+        let reviews = cx.new(|cx| crate::reviews::ReviewsScreen::mock(window, cx));
+        Self::new(jobs, page, Front::Jobs, Some(reviews), window, cx)
+    }
+
+    fn new(
+        jobs: Entity<JobsScreen>,
+        page: Entity<OperatorPageView>,
+        front: Front,
+        reviews: Option<Entity<crate::reviews::ReviewsScreen>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         cx.set_global(Live(page.downgrade()));
         let list = jobs.read(cx).list.clone();
         let subs = vec![
@@ -95,6 +116,7 @@ impl OperatorScreen {
                 Asked::Operator => Some(None),
                 Asked::Place("operator") => Some(Some(Front::Operator)),
                 Asked::Place("jobs") => Some(Some(Front::Jobs)),
+                Asked::Place("reviews") => Some(Some(Front::Reviews)),
                 _ => None,
             };
             match to {
@@ -107,7 +129,7 @@ impl OperatorScreen {
             }
         })));
         let toasts = crate::toasts::Toasts::mount(&page, cx.entity().downgrade(), window, cx);
-        let mut this = OperatorScreen { jobs, page, front, within: cx.focus_handle(), toasts, _subs: subs };
+        let mut this = OperatorScreen { jobs, page, front, within: cx.focus_handle(), reviews, toasts, _subs: subs };
         this.name_jobs(cx);
         this.show_places(cx);
         if front == Front::Operator {
@@ -133,7 +155,7 @@ impl OperatorScreen {
     /// The bar's strip says which place is in front: the bar there now, and the one the next screen opens.
     fn show_places(&mut self, cx: &mut Context<Self>) {
         let held = titlebar::live(cx).map(|bar| bar.read(cx).face.clone());
-        let face = with_places(held.or_else(|| cx.try_global::<Opening>().map(|opening| opening.0.clone())).unwrap_or_else(Face::bare), self.front);
+        let face = with_places(held.or_else(|| cx.try_global::<Opening>().map(|opening| opening.0.clone())).unwrap_or_else(Face::bare), self.front, self.reviews.is_some());
         cx.set_global(Opening(face.clone()));
         if let Some(bar) = titlebar::live(cx) {
             bar.update(cx, |bar, cx| {
@@ -147,8 +169,13 @@ impl OperatorScreen {
     /// Bring a place to the front; `None` is the Operator's own key, which goes back where it came from.
     pub fn bring(&mut self, to: Option<Front>, window: &mut Window, cx: &mut Context<Self>) {
         let to = to.unwrap_or(if self.front == Front::Operator { Front::Jobs } else { Front::Operator });
-        if to == self.front {
+        if to == self.front || (to == Front::Reviews && self.reviews.is_none()) {
             return;
+        }
+        if self.front == Front::Reviews {
+            if let Some(reviews) = &self.reviews {
+                reviews.update(cx, |reviews, cx| reviews.leave(cx));
+            }
         }
         self.front = to;
         self.show_places(cx);
@@ -161,6 +188,11 @@ impl OperatorScreen {
             Front::Jobs => {
                 let keys = self.jobs.read(cx).list.read(cx).focus_handle().clone();
                 window.focus(&keys, cx);
+            }
+            Front::Reviews => {
+                if let Some(reviews) = &self.reviews {
+                    reviews.update(cx, |reviews, cx| reviews.enter(window, cx));
+                }
             }
         }
         cx.notify();
@@ -211,6 +243,11 @@ impl Render for OperatorScreen {
             Front::Operator => {
                 let title = crate::chrome::title_row(window, cx);
                 div().size_full().flex().flex_col().bg(cx.look().color(token::BG_BASE)).child(title).child(div().flex_1().min_h_0().child(self.page.clone())).into_any_element()
+            }
+            Front::Reviews => {
+                let title = crate::chrome::title_row(window, cx);
+                let reviews = self.reviews.clone().map(|reviews| reviews.into_any_element());
+                div().size_full().flex().flex_col().bg(cx.look().color(token::BG_BASE)).child(title).child(div().flex_1().min_h_0().children(reviews)).into_any_element()
             }
         };
         div().id(SharedString::from("operator-screen")).track_focus(&self.within).size_full().child(shown).child(self.toasts.clone())

@@ -86,6 +86,7 @@ impl JobView {
                 revision: 1,
                 asked: true,
                 settled: None,
+                for_line: None,
             }));
             held.version += 1;
             let at = held.items.len() - 1;
@@ -113,6 +114,7 @@ mod tests {
             revision: 1,
             asked: true,
             settled: None,
+            for_line: None,
         })
     }
 

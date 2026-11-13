@@ -34,6 +34,7 @@ mod session_waiting_approves;
 mod session_waiting_pictures;
 mod repositories;
 mod review_runs;
+mod practice_catalogue;
 mod walk_places;
 mod pull_request_notes;
 mod pull_review_memory;

@@ -187,6 +187,7 @@ where
                     before: None,
                     pull_request: None,
                     session_id: Some(SessionId::carried(job)),
+                    ..Default::default()
                 };
                 self.draft_proposed(None, draft).await.map(|_| String::from("Drafted")).map_err(|why| why.error().message.clone())
             }
