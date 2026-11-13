@@ -1,0 +1,8 @@
+[operations.share_projects]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "This Mac's own shared projects with their tasks, whole, for this Mac's Phone Gateway to send them"
+notes = """
+`GET /other_mac/projects`, answered with `Projects`. Only a project whose `shared_with_macs` is on, read at the moment of asking, with its tasks; `loose` and `left_out` are always empty, and a project whose file did not read is not listed. **A copy held from another Mac (`mac` set) is never listed**, so what one Mac shares never goes on to a third. The caller is the Gateway in Fleet's own process, over loopback. `docs/concepts/project.md`, *Sharing with his other Macs*.
+"""

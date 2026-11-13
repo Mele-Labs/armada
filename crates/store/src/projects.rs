@@ -15,6 +15,30 @@ use crate::open::Store;
 /// The project id a loose task is kept under.
 pub const LOOSE: &str = "";
 
+/// When a task was edited, in milliseconds since the epoch, and by whom. **Each field is stamped** (the title, the
+/// notes, the state and the place), so two edits to different fields of one task never clash.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Edited {
+    /// The person's own edit here: it applies, and stamps the fields it writes.
+    Now(i64),
+    /// An edit another Mac made at that instant while this one could not be reached: it applies only to a field
+    /// not edited here since, and the rest it carries are left as they are. A field never edited is older than any.
+    Replayed(i64),
+}
+
+impl Edited {
+    fn at(self) -> i64 {
+        match self {
+            Edited::Now(at) | Edited::Replayed(at) => at,
+        }
+    }
+
+    /// 1 where a field newer than `at` must be left, else 0.
+    fn guarded(self) -> i64 {
+        matches!(self, Edited::Replayed(_)) as i64
+    }
+}
+
 /// Every project in his order, each with its rows in order, and the loose rows in theirs.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct KeptProjects {
@@ -329,21 +353,39 @@ impl Store {
             .map_err(database("keeping a project row"))
     }
 
-    /// A task's title and notes. Whether there was a task by that id.
-    pub fn edit_project_task(&mut self, id: &str, title: &str, notes: &str) -> Result<bool, WriteError> {
+    /// A task's title and notes, `None` leaving one. **A field is stamped `edited` only where its value changes**,
+    /// so resending what a field already holds never makes it newer; a replayed edit leaves a field edited here
+    /// since. Whether there was a task by that id.
+    pub fn edit_project_task(&mut self, id: &str, title: Option<&str>, notes: Option<&str>, edited: Edited) -> Result<bool, WriteError> {
+        let (guarded, at) = (edited.guarded(), edited.at());
         self.conn
-            .execute("UPDATE project_rows SET title = ?2, notes = ?3 WHERE id = ?1 AND kind = 'task'", params![id, title, notes])
+            .execute(
+                "UPDATE project_rows SET
+                   title_at = CASE WHEN ?2 IS NOT NULL AND ?2 != title AND (?4 = 0 OR COALESCE(title_at, 0) <= ?5) THEN ?5 ELSE title_at END,
+                   title = CASE WHEN ?2 IS NOT NULL AND (?4 = 0 OR COALESCE(title_at, 0) <= ?5) THEN ?2 ELSE title END,
+                   notes_at = CASE WHEN ?3 IS NOT NULL AND ?3 != notes AND (?4 = 0 OR COALESCE(notes_at, 0) <= ?5) THEN ?5 ELSE notes_at END,
+                   notes = CASE WHEN ?3 IS NOT NULL AND (?4 = 0 OR COALESCE(notes_at, 0) <= ?5) THEN ?3 ELSE notes END
+                 WHERE id = ?1 AND kind = 'task'",
+                params![id, title, notes, guarded, at],
+            )
             .map(|changed| changed > 0)
             .map_err(database("editing a project task"))
     }
 
-    /// A task's state. Whether there was a task by that id. **A person's tick overrides a
-    /// hold**: the Job it named is dropped whatever the state it is moved to.
-    pub fn set_project_task_state(&mut self, id: &str, state: KeptTaskState) -> Result<bool, WriteError> {
+    /// A task's state, stamped `edited`; a replayed one leaves a state edited here since. Whether there was a
+    /// task by that id. **A person's tick overrides a hold**: the Job it named is dropped whatever the state it
+    /// is moved to.
+    pub fn set_project_task_state(&mut self, id: &str, state: KeptTaskState, edited: Edited) -> Result<bool, WriteError> {
+        let (guarded, at) = (edited.guarded(), edited.at());
         self.conn
             .execute(
-                "UPDATE project_rows SET state = ?2, held_by = ?3, asked_at = '' WHERE id = ?1 AND kind = 'task'",
-                params![id, state.as_str(), state.holder()],
+                "UPDATE project_rows SET
+                   state_at = CASE WHEN ?2 != state AND (?4 = 0 OR COALESCE(state_at, 0) <= ?5) THEN ?5 ELSE state_at END,
+                   state = CASE WHEN ?4 = 0 OR COALESCE(state_at, 0) <= ?5 THEN ?2 ELSE state END,
+                   held_by = CASE WHEN ?4 = 0 OR COALESCE(state_at, 0) <= ?5 THEN ?3 ELSE held_by END,
+                   asked_at = CASE WHEN ?4 = 0 OR COALESCE(state_at, 0) <= ?5 THEN '' ELSE asked_at END
+                 WHERE id = ?1 AND kind = 'task'",
+                params![id, state.as_str(), state.holder(), guarded, at],
             )
             .map(|changed| changed > 0)
             .map_err(database("ticking a project task"))
@@ -478,17 +520,32 @@ impl Store {
         Ok(true)
     }
 
-    /// Move a row to `to`, counted from 0 among the rows of the parent it ends up under; past the end
+    /// Move a row to `to`, stamped `edited` as the place of the row (a replayed move leaves a row moved here since), counted from 0 among the rows of the parent it ends up under; past the end
     /// is the end. `project` is the project it goes to ([`LOOSE`] for none) and `None` leaves it in
     /// the one it is in; `parent` is the task it goes under, `""` for the top level, and `None` leaves
     /// it under the one it has, or at the top level where the project changes. **A row keeps its repository**,
     /// and its subtasks go with it. Whether there was one by that id.
-    pub fn move_project_row(&mut self, id: &str, project: Option<&str>, to: usize, parent: Option<&str>) -> Result<bool, WriteError> {
+    pub fn move_project_row(
+        &mut self,
+        id: &str,
+        project: Option<&str>,
+        to: usize,
+        parent: Option<&str>,
+        edited: Edited,
+    ) -> Result<bool, WriteError> {
         let doing = "moving a project row";
         let tx = self.conn.transaction().map_err(database(doing))?;
         let Some((was_project, was_parent)) = Self::place_of(&tx, id, doing)? else {
             return Ok(false);
         };
+        let stamped: Option<i64> = tx
+            .query_row("SELECT place_at FROM project_rows WHERE id = ?1", params![id], |row| row.get(0))
+            .map_err(database(doing))?;
+        // A row moved here since the person made this move stays where it is.
+        if edited.guarded() == 1 && stamped.unwrap_or(0) > edited.at() {
+            return Ok(true);
+        }
+        tx.execute("UPDATE project_rows SET place_at = ?2 WHERE id = ?1", params![id, edited.at()]).map_err(database(doing))?;
         let into = project.unwrap_or(&was_project);
         let under = parent.unwrap_or(if into == was_project { &was_parent } else { "" });
         let mut order = Self::siblings(&tx, into, under, doing)?;

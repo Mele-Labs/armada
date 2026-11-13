@@ -15,11 +15,11 @@ use adapter_traits::{AgentHarness, Delivery, NotTracked, PullRequestStanding, Vc
 use api::{Projects, Refusal};
 use core_model::{Member, ScopeId, Timestamp, Ulid};
 use ipc::{
-    EditProject, IssueReference, IssueState, LinkProjectIssue, LinkTaskJob, LinkTaskPull, ManifestId, MoveProjectRow,
+    EditProject, EditedTaskFields, IssueReference, IssueState, LinkProjectIssue, LinkTaskJob, LinkTaskPull, ManifestId, MoveProjectRow,
     MoveProjectTaskRepository, NewProject, NewProjectIssue, NewProjectTask, Project, ProjectHolder, ProjectLeftOut, ProjectMember,
-    ProjectPlace, ProjectRow, ProjectTask, ProjectTaskState, RunPlace, TaskIssue, TaskPull, TaskPullState, TickProjectTask, WireError,
+    ProjectAct, ProjectPlace, ProjectRow, ProjectTask, ProjectTaskState, RunPlace, TaskIssue, TaskPull, TaskPullState, TickProjectTask, WireError,
 };
-use store::{KeptHolder, KeptPlace, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskState, Store, LOOSE_PROJECT};
+use store::{Edited, KeptHolder, KeptPlace, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskState, Store, LOOSE_PROJECT};
 
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
@@ -30,15 +30,15 @@ use crate::tracking::{HELD_FOR, NO_SUCH_ISSUE};
 /// He has no project by that id. A 404.
 pub(crate) const NO_SUCH_PROJECT: &str = "fleet.no_such_project";
 /// There is no row by that id. A 404.
-const NO_SUCH_ROW: &str = "fleet.no_such_project_row";
+pub(crate) const NO_SUCH_ROW: &str = "fleet.no_such_project_row";
 /// A project's name or a task's title is blank. A 422.
 pub(crate) const BLANK: &str = "fleet.project_blank";
 /// What was linked is not an issue's reference. A 422.
 const NOT_AN_ISSUE: &str = "fleet.project_issue_unreadable";
 /// A task's act on an issue row, whose state and title are its tracker's. A 422.
-const NOT_A_TASK: &str = "fleet.project_row_not_a_task";
+pub(crate) const NOT_A_TASK: &str = "fleet.project_row_not_a_task";
 /// A subtask of a subtask, of a task with subtasks, or of itself. A 422.
-const TOO_DEEP: &str = "fleet.project_subtask_too_deep";
+pub(crate) const TOO_DEEP: &str = "fleet.project_subtask_too_deep";
 /// What was linked is not a pull request's number. A 422.
 const NOT_A_PULL: &str = "fleet.project_pull_unreadable";
 
@@ -265,7 +265,7 @@ where
         WireError::raised(code, said, self.run_id())
     }
 
-    fn blank(&self, said: &str) -> Refusal {
+    pub(crate) fn blank(&self, said: &str) -> Refusal {
         Refusal::Unacceptable(self.project_refusal(BLANK, said))
     }
 
@@ -372,7 +372,7 @@ where
         Refusal::Unacceptable(self.project_refusal(NOT_A_PULL, format!("`{number}` is not a pull request's number")))
     }
 
-    fn minted(&self) -> String {
+    pub(crate) fn minted(&self) -> String {
         self.mint().ulid().as_str().to_lowercase()
     }
 
@@ -458,7 +458,8 @@ where
         said
     }
 
-    pub(crate) async fn projects_on_the_wire(&self, kept: KeptProjects) -> ipc::Projects {
+    /// This Mac's own projects on the wire; [`Fleet::projects_on_the_wire`] adds the copies of his other Macs'.
+    pub(crate) async fn own_projects_on_the_wire(&self, kept: KeptProjects) -> ipc::Projects {
         let (mut said, mut pulled): (SaidBy, PulledBy) = (BTreeMap::new(), BTreeMap::new());
         let named: BTreeSet<String> = kept.projects.iter().filter(|project| self.project_names_tracker(&project.id)).map(|project| project.id.clone()).collect();
         for ((project, manifest), references) in issue_references(&kept, &named) {
@@ -500,6 +501,7 @@ where
                     unread,
                     values: read.and_then(|one| crate::values::values_set(one.values())),
                     shared_with_macs: read.is_some_and(|one| one.shared_with_macs()),
+                    mac: None,
                     id: project.id,
                     rows,
                 }
@@ -549,6 +551,126 @@ where
         let projects = self.projects_on_the_wire(kept).await;
         self.publish(ipc::Event::ProjectsChanged(projects.clone()));
         Ok(projects)
+    }
+
+    /// `add_project_task`, the row kept under `id` where the Mac that made the act minted it.
+    pub(crate) async fn add_project_task_as(&self, id: Option<String>, task: NewProjectTask) -> Result<ipc::Projects, Refusal> {
+        self.served_named(Some(&task.manifest_id))?;
+        let (id, held) = self.row_minted(id).await?;
+        if held {
+            return self.list_projects().await;
+        }
+        self.projects_written_following(
+            |store, kept| {
+                let project = self.project_named(kept, task.project.as_deref())?;
+                let title = task.title.trim();
+                if title.is_empty() {
+                    return Err(self.blank("a task needs a title"));
+                }
+                let item = KeptRowItem::Task {
+                    title: title.to_string(),
+                    notes: task.notes.trim().to_string(),
+                    state: KeptTaskState::Open,
+                    parent: None,
+                    issues: Vec::new(),
+                    pulls: Vec::new(),
+                };
+                let row = KeptProjectRow { id, manifest_id: task.manifest_id.as_str().to_string(), item };
+                store.add_project_row(&project, &row).map_err(|why| self.ledger_fault(why))?;
+                Ok(put_in(&project, vec![task.manifest_id.as_str().to_string()]))
+            },
+            false,
+        )
+        .await
+    }
+
+    /// `add_project_subtask`, the row kept under `id` where the Mac that made the act minted it.
+    pub(crate) async fn add_project_subtask_as(&self, id: Option<String>, row: String, task: ProjectTask) -> Result<ipc::Projects, Refusal> {
+        let (id, held) = self.row_minted(id).await?;
+        if held {
+            return self.list_projects().await;
+        }
+        self.projects_written_following(
+            |store, kept| {
+                let (project, parent) = self.top_level_task_in(kept, &row)?;
+                let title = task.title.trim();
+                if title.is_empty() {
+                    return Err(self.blank("a task needs a title"));
+                }
+                let item = KeptRowItem::Task {
+                    title: title.to_string(),
+                    notes: task.notes.trim().to_string(),
+                    state: KeptTaskState::Open,
+                    parent: Some(row.clone()),
+                    issues: Vec::new(),
+                    pulls: Vec::new(),
+                };
+                let subtask = KeptProjectRow { id, manifest_id: parent.manifest_id.clone(), item };
+                store.add_project_row(project, &subtask).map_err(|why| self.ledger_fault(why))?;
+                Ok(put_in(project, vec![parent.manifest_id.clone()]))
+            },
+            false,
+        )
+        .await
+    }
+
+    /// `edit_project_task`, each field stamped `edited`.
+    /// `fields` names the ones the person changed, where it is known; none is both.
+    pub(crate) async fn edit_project_task_edited(
+        &self,
+        row: String,
+        task: ProjectTask,
+        edited: Edited,
+        fields: Option<EditedTaskFields>,
+    ) -> Result<ipc::Projects, Refusal> {
+        let fields = fields.unwrap_or(EditedTaskFields { title: true, notes: true });
+        self.projects_written(|store, kept| {
+            self.task_in(kept, &row)?;
+            let title = task.title.trim();
+            if title.is_empty() {
+                return Err(self.blank("a task needs a title"));
+            }
+            store.edit_project_task(&row, fields.title.then_some(title), fields.notes.then_some(task.notes.trim()), edited).map(drop).map_err(|why| self.ledger_fault(why))
+        })
+        .await
+    }
+
+    /// `tick_project_task`, the state stamped `edited`.
+    pub(crate) async fn tick_project_task_edited(&self, row: String, tick: TickProjectTask, edited: Edited) -> Result<ipc::Projects, Refusal> {
+        let state = if tick.done { KeptTaskState::Done } else { KeptTaskState::Open };
+        self.projects_written(|store, kept| {
+            self.task_in(kept, &row)?;
+            store.set_project_task_state(&row, state, edited).map(drop).map_err(|why| self.ledger_fault(why))
+        })
+        .await
+    }
+
+    /// `move_project_row`, the row's place stamped `edited`.
+    pub(crate) async fn move_project_row_edited(&self, row: String, to: MoveProjectRow, edited: Edited) -> Result<ipc::Projects, Refusal> {
+        self.projects_written_following(
+            |store, kept| {
+                let (was, moving) = self.row_in(kept, &row)?;
+                let into = match to.project.as_deref() {
+                    Some(project) => self.project_named(kept, Some(project))?,
+                    None => was.to_string(),
+                };
+                if let Some(parent) = to.parent.as_deref().filter(|parent| !parent.is_empty()) {
+                    self.moved_under(kept, &row, parent, &into)?;
+                }
+                // The row and its subtasks go with it, each in the repository it is in.
+                let mut repositories = vec![moving.manifest_id.clone()];
+                for sub in subtasks_of(kept, &row) {
+                    repositories.extend(self.row_in(kept, &sub).ok().map(|(_, one)| one.manifest_id.clone()));
+                }
+                repositories.dedup();
+                store
+                    .move_project_row(&row, to.project.as_ref().map(|_| into.as_str()), to.position as usize, to.parent.as_deref(), edited)
+                    .map_err(|why| self.ledger_fault(why))?;
+                Ok(put_in(&into, repositories))
+            },
+            false,
+        )
+        .await
     }
 
     /// Move a top-level task and its subtasks to the repository `manifest_id`, which Fleet serves. **The
@@ -627,6 +749,7 @@ where
                 unread: None,
                 values: crate::values::values_set(one.values()),
                 shared_with_macs: one.shared_with_macs(),
+                mac: None,
             })
             .collect();
         Ok(ipc::Projects { projects, loose: Vec::new(), left_out: held.left_out().iter().map(left_out_on_the_wire).collect() })
@@ -666,6 +789,7 @@ where
     }
 
     async fn edit_project(&self, project: String, edit: EditProject) -> Result<ipc::Projects, Refusal> {
+        self.project_not_held(&project).await?;
         {
             let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
             self.project_in(&kept, &project)?;
@@ -712,6 +836,7 @@ where
     }
 
     async fn delete_project(&self, project: String) -> Result<ipc::Projects, Refusal> {
+        self.project_not_held(&project).await?;
         {
             let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
             self.project_in(&kept, &project)?;
@@ -721,59 +846,23 @@ where
     }
 
     async fn add_project_task(&self, task: NewProjectTask) -> Result<ipc::Projects, Refusal> {
-        self.served_named(Some(&task.manifest_id))?;
-        let id = self.minted();
-        self.projects_written_following(
-            |store, kept| {
-                let project = self.project_named(kept, task.project.as_deref())?;
-                let title = task.title.trim();
-                if title.is_empty() {
-                    return Err(self.blank("a task needs a title"));
-                }
-                let item = KeptRowItem::Task {
-                    title: title.to_string(),
-                    notes: task.notes.trim().to_string(),
-                    state: KeptTaskState::Open,
-                    parent: None,
-                    issues: Vec::new(),
-                    pulls: Vec::new(),
-                };
-                let row = KeptProjectRow { id, manifest_id: task.manifest_id.as_str().to_string(), item };
-                store.add_project_row(&project, &row).map_err(|why| self.ledger_fault(why))?;
-                Ok(put_in(&project, vec![task.manifest_id.as_str().to_string()]))
-            },
-            false,
-        )
-        .await
+        if let Some(mac) = self.copy_of_project(task.project.as_deref()).await? {
+            return self.act_on_copy(&mac, ProjectAct::AddProjectTask { task, id: None }).await;
+        }
+        self.add_project_task_as(None, task).await
     }
 
     async fn add_project_subtask(&self, row: String, task: ProjectTask) -> Result<ipc::Projects, Refusal> {
-        let id = self.minted();
-        self.projects_written_following(
-            |store, kept| {
-                let (project, parent) = self.top_level_task_in(kept, &row)?;
-                let title = task.title.trim();
-                if title.is_empty() {
-                    return Err(self.blank("a task needs a title"));
-                }
-                let item = KeptRowItem::Task {
-                    title: title.to_string(),
-                    notes: task.notes.trim().to_string(),
-                    state: KeptTaskState::Open,
-                    parent: Some(row.clone()),
-                    issues: Vec::new(),
-                    pulls: Vec::new(),
-                };
-                let subtask = KeptProjectRow { id, manifest_id: parent.manifest_id.clone(), item };
-                store.add_project_row(project, &subtask).map_err(|why| self.ledger_fault(why))?;
-                Ok(put_in(project, vec![parent.manifest_id.clone()]))
-            },
-            false,
-        )
-        .await
+        if let Some(mac) = self.copy_of_row(&row).await? {
+            return self.act_on_copy(&mac, ProjectAct::AddProjectSubtask { row, task, id: None }).await;
+        }
+        self.add_project_subtask_as(None, row, task).await
     }
 
     async fn link_task_issue(&self, row: String, link: LinkProjectIssue) -> Result<ipc::Projects, Refusal> {
+        if let Some(mac) = self.copy_of_row(&row).await? {
+            return self.act_on_copy(&mac, ProjectAct::LinkTaskIssue { row, link }).await;
+        }
         if let Some(issue) = IssueReference::read(&link.issue) {
             let (project, manifest) = {
                 let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
@@ -791,6 +880,9 @@ where
     }
 
     async fn unlink_task_issue(&self, row: String, link: LinkProjectIssue) -> Result<ipc::Projects, Refusal> {
+        if let Some(mac) = self.copy_of_row(&row).await? {
+            return self.act_on_copy(&mac, ProjectAct::UnlinkTaskIssue { row, link }).await;
+        }
         self.projects_written(|store, kept| {
             self.task_in(kept, &row)?;
             let issue = IssueReference::read(&link.issue).ok_or_else(|| self.unreadable_issue(&link.issue))?;
@@ -800,6 +892,7 @@ where
     }
 
     async fn link_task_job(&self, row: String, link: LinkTaskJob) -> Result<ipc::Projects, Refusal> {
+        self.row_not_held(&row).await?;
         let session = link.session_id.as_str().to_string();
         self.projects_written(|store, kept| {
             self.task_in(kept, &row)?;
@@ -812,6 +905,7 @@ where
     }
 
     async fn unlink_task_job(&self, row: String) -> Result<ipc::Projects, Refusal> {
+        self.row_not_held(&row).await?;
         self.projects_written(|store, kept| {
             self.task_in(kept, &row)?;
             store.free_held_project_task(&row).map(drop).map_err(|why| self.ledger_fault(why))
@@ -820,6 +914,9 @@ where
     }
 
     async fn link_task_pull(&self, row: String, link: LinkTaskPull) -> Result<ipc::Projects, Refusal> {
+        if let Some(mac) = self.copy_of_row(&row).await? {
+            return self.act_on_copy(&mac, ProjectAct::LinkTaskPull { row, link }).await;
+        }
         let projects = self
             .projects_written(|store, kept| {
                 self.task_in(kept, &row)?;
@@ -848,6 +945,9 @@ where
     }
 
     async fn unlink_task_pull(&self, row: String, link: LinkTaskPull) -> Result<ipc::Projects, Refusal> {
+        if let Some(mac) = self.copy_of_row(&row).await? {
+            return self.act_on_copy(&mac, ProjectAct::UnlinkTaskPull { row, link }).await;
+        }
         self.projects_written(|store, kept| {
             self.task_in(kept, &row)?;
             store.unlink_task_pull(&row, link.number).map(drop).map_err(|why| self.ledger_fault(why))
@@ -856,18 +956,16 @@ where
     }
 
     async fn edit_project_task(&self, row: String, task: ProjectTask) -> Result<ipc::Projects, Refusal> {
-        self.projects_written(|store, kept| {
-            self.task_in(kept, &row)?;
-            let title = task.title.trim();
-            if title.is_empty() {
-                return Err(self.blank("a task needs a title"));
-            }
-            store.edit_project_task(&row, title, task.notes.trim()).map(drop).map_err(|why| self.ledger_fault(why))
-        })
-        .await
+        if let Some(mac) = self.copy_of_row(&row).await? {
+            return self.act_on_copy(&mac, ProjectAct::EditProjectTask { row, task, fields: None }).await;
+        }
+        self.edit_project_task_edited(row, task, self.edited_now(), None).await
     }
 
     async fn link_project_issue(&self, link: NewProjectIssue) -> Result<ipc::Projects, Refusal> {
+        if let Some(mac) = self.copy_of_project(link.project.as_deref()).await? {
+            return self.act_on_copy(&mac, ProjectAct::LinkProjectIssue { link }).await;
+        }
         self.served_named(Some(&link.manifest_id))?;
         if let Some(issue) = IssueReference::read(&link.issue) {
             self.issue_checked(link.project.as_deref(), link.manifest_id.as_str(), &issue).await?;
@@ -888,6 +986,9 @@ where
     }
 
     async fn remove_project_row(&self, row: String) -> Result<ipc::Projects, Refusal> {
+        if let Some(mac) = self.copy_of_row(&row).await? {
+            return self.act_on_copy(&mac, ProjectAct::RemoveProjectRow { row }).await;
+        }
         self.projects_written(|store, kept| {
             self.row_in(kept, &row)?;
             store.remove_project_row(&row).map(drop).map_err(|why| self.ledger_fault(why))
@@ -896,42 +997,21 @@ where
     }
 
     async fn move_project_row(&self, row: String, to: MoveProjectRow) -> Result<ipc::Projects, Refusal> {
-        self.projects_written_following(
-            |store, kept| {
-                let (was, moving) = self.row_in(kept, &row)?;
-                let into = match to.project.as_deref() {
-                    Some(project) => self.project_named(kept, Some(project))?,
-                    None => was.to_string(),
-                };
-                if let Some(parent) = to.parent.as_deref().filter(|parent| !parent.is_empty()) {
-                    self.moved_under(kept, &row, parent, &into)?;
-                }
-                // The row and its subtasks go with it, each in the repository it is in.
-                let mut repositories = vec![moving.manifest_id.clone()];
-                for sub in subtasks_of(kept, &row) {
-                    repositories.extend(self.row_in(kept, &sub).ok().map(|(_, one)| one.manifest_id.clone()));
-                }
-                repositories.dedup();
-                store
-                    .move_project_row(&row, to.project.as_ref().map(|_| into.as_str()), to.position as usize, to.parent.as_deref())
-                    .map_err(|why| self.ledger_fault(why))?;
-                Ok(put_in(&into, repositories))
-            },
-            false,
-        )
-        .await
+        if let Some(mac) = self.move_on_copy(&row, &to).await? {
+            return self.act_on_copy(&mac, ProjectAct::MoveProjectRow { row, to }).await;
+        }
+        self.move_project_row_edited(row, to, self.edited_now()).await
     }
 
     async fn move_project_task_repository(&self, row: String, to: MoveProjectTaskRepository) -> Result<ipc::Projects, Refusal> {
+        self.row_not_held(&row).await?;
         Fleet::move_project_task_repository(self, row, to.manifest_id).await
     }
 
     async fn tick_project_task(&self, row: String, tick: TickProjectTask) -> Result<ipc::Projects, Refusal> {
-        let state = if tick.done { KeptTaskState::Done } else { KeptTaskState::Open };
-        self.projects_written(|store, kept| {
-            self.task_in(kept, &row)?;
-            store.set_project_task_state(&row, state).map(drop).map_err(|why| self.ledger_fault(why))
-        })
-        .await
+        if let Some(mac) = self.copy_of_row(&row).await? {
+            return self.act_on_copy(&mac, ProjectAct::TickProjectTask { row, tick }).await;
+        }
+        self.tick_project_task_edited(row, tick, self.edited_now()).await
     }
 }

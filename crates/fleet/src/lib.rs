@@ -258,6 +258,10 @@ mod review_searches;
 mod issue_queries;
 /// A repository's projects: tasks a person wrote and issues he linked, kept on this Mac.
 mod projects;
+/// Projects his other Macs hold, kept here as read copies, and the edits made on them.
+mod project_copies;
+/// A task act another Mac made on a shared project of this Mac, run here.
+mod project_acts_held;
 /// How work behaves, laid over its layers, and what a Job freezes of it at its start.
 mod values;
 /// His projects as files, kept where he chose for each, and the migration that makes them.

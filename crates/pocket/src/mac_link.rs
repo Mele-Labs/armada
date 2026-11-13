@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::time::Duration;
 
-use ipc::{BugReports, Event, OtherMacBugReports, OtherMacEvent, OtherMacSessions, SessionList, StreamMessage};
+use ipc::{BugReports, Event, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions, Projects, SessionList, StreamMessage};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tokio::task::JoinHandle;
@@ -158,6 +158,8 @@ impl Link<'_> {
 
     async fn both(&self) -> Result<(), String> {
         self.sessions().await?;
+        let projects: Projects = self.read("/api/mac/projects", "a project list").await?;
+        self.hand("PUT", "/other_macs/projects", &OtherMacProjects { mac: self.mac.to_string(), projects: projects.projects }).await?;
         let reports: BugReports = self.read("/api/mac/bug_reports", "a bug report list").await?;
         self.hand("PUT", "/other_macs/bug_reports", &OtherMacBugReports { mac: self.mac.to_string(), reports: reports.reports })
             .await
@@ -198,6 +200,32 @@ impl Link<'_> {
             true => Ok(()),
             false => Err(not_taken(format!("it answered {}", answer.status))),
         }
+    }
+}
+
+/// [`crate::Gateway`]'s answer to Fleet's `send_other_mac`: `body` posted to Mac `mac` as `/api/mac/project_act`, for
+/// the path `/other_mac/project_act` and no other. The status its Fleet answered and the bytes, so a refusal there is
+/// said here as it was said.
+pub fn send_other_mac(
+    gateway: &Gateway,
+    mac: &str,
+    path: &str,
+    body: Vec<u8>,
+) -> impl Future<Output = Result<(u16, Vec<u8>), String>> + Send + 'static {
+    let (gateway, mac, path) = (gateway.clone(), mac.to_string(), path.to_string());
+    async move {
+        if path != "/other_mac/project_act" {
+            return Err(format!("{path} is not sent to another Mac."));
+        }
+        let found = gateway.pairing.store.lock().unwrap().paired_mac(&mac);
+        let row = match found {
+            Ok(Some(row)) if row.state == store::MacState::Linked => row,
+            _ => return Err(format!("This Mac is not linked to Mac {mac}.")),
+        };
+        let came = signed_whole(&gateway, &row.id, &row.address, "POST", "/api/mac/project_act", Some(body))
+            .await
+            .map_err(|why| format!("{} could not be reached: {why}", row.name))?;
+        Ok((came.status, came.body))
     }
 }
 

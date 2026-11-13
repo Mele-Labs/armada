@@ -504,8 +504,8 @@ pub use issue_queries::{
 };
 pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedReviews, ResolvedTracker, ResolvedValue, ResolvedValues, ReviewsSet, SaveKitValues, ValueLayer, ValuesSet};
 pub use projects::{
-    EditProject, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue,
-    NewProjectTask, Project, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
+    EditProject, EditedTaskFields, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue,
+    NewProjectTask, Project, ProjectAct, ProjectActFromMac, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
     TickProjectTask,
 };
 pub use issues::{
@@ -688,7 +688,7 @@ pub use phone::{
     CloudflareSignIn, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone, PhoneGateway, Served, SetPhoneGateway,
     TailscaleState,
 };
-pub use macs::{ClaimMacLink, MacNamed, MacPairLink, OtherMacBugReports, OtherMacEvent, OtherMacSessions};
+pub use macs::{ClaimMacLink, MacNamed, MacPairLink, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions};
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
 pub use document_answer::{

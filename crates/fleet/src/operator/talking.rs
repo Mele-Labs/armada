@@ -302,7 +302,7 @@ fn question(so_far: &[TalkLine], words: &str, about: Option<&str>, board: &Board
     if let Some(reading) = &reading {
         out.push_str(&format!(
             "\nThe folder for this message is {}. It holds a file for each live Job, named job-<the Job's id>.txt, with its title, its plan if it has one, \
-its open tasks, what waits on the person written in full and the last {SAID_READABLE} messages of its thread, issues.txt, the issues open in each repository, \
+its open tasks, what waits on the person written in full and the last {SAID_READABLE} messages of its thread, issues.txt, the issues open in each repository, tasks.txt, the open tasks of his projects (those of his other Macs too), \
 and your journal of this week and last week, named journal-<year>-W<week>.md, which says what the week held. Fleet deletes it when you have answered.\n",
             reading.folder.display()
         ));

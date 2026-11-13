@@ -12,8 +12,8 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{OtherMacs, Refusal, Sessions};
 use ipc::{
-    BugReport, BugReports, Event, JobThread, JobThreadRead, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacSessions,
-    SessionId, SessionList, SessionRecord, SessionRemoved, SessionState, WireError,
+    BugReport, BugReports, Event, JobThread, JobThreadRead, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects,
+    OtherMacSessions, ProjectActFromMac, SessionId, SessionList, SessionRecord, SessionRemoved, SessionState, WireError,
 };
 use serde::Serialize;
 use store::{FromMac, KeptFromMac};
@@ -23,8 +23,8 @@ use crate::daemon::Fleet;
 const MAC_UNNAMED: &str = "fleet.other_mac_unnamed";
 const EVENT_NOT_KEPT: &str = "fleet.other_mac_event_not_kept";
 const JOB_NOT_HELD: &str = "fleet.other_mac_job_not_held";
-const MAC_UNREACHABLE: &str = "fleet.other_mac_unreachable";
-const MAC_UNREADABLE: &str = "fleet.other_mac_unreadable";
+pub(crate) const MAC_UNREACHABLE: &str = "fleet.other_mac_unreachable";
+pub(crate) const MAC_UNREADABLE: &str = "fleet.other_mac_unreadable";
 
 /// Whether `record` passes `list_sessions`' filters, as the ledger's search reads them.
 fn listed(record: &SessionRecord, manifest: Option<&str>, text: Option<&str>, state: Option<SessionState>) -> bool {
@@ -70,7 +70,7 @@ where
 {
     /// Everything of `list` held from his other Macs, read back. **A row a later build cannot read is left
     /// out** rather than failing the list: the next replace from its Mac writes it again.
-    async fn from_macs<T: serde::de::DeserializeOwned>(&self, list: FromMac, what: &'static str) -> Result<Vec<(KeptFromMac, T)>, Refusal> {
+    pub(crate) async fn from_macs<T: serde::de::DeserializeOwned>(&self, list: FromMac, what: &'static str) -> Result<Vec<(KeptFromMac, T)>, Refusal> {
         let kept = self.store().lock().await.held_from_macs(list).map_err(|why| self.ledger_fault(why))?;
         Ok(kept.into_iter().filter_map(|one| ipc::decode(what, one.body.as_bytes()).ok().map(|value| (one, value))).collect())
     }
@@ -138,22 +138,27 @@ where
                 Refusal::Fault(WireError::raised(MAC_UNREADABLE, format!("Mac {mac} sent a thread this build cannot read: {why}"), self.run_id()))
             });
         }
-        let said: Option<WireError> = ipc::decode("a refusal from another Mac", &bytes).ok();
+        Err(self.refusal_passed_on(mac, status, &bytes))
+    }
+
+    /// What Mac `mac` refused with, `status` and `bytes`, said again as it said it, with the status kept.
+    pub(crate) fn refusal_passed_on(&self, mac: &str, status: u16, bytes: &[u8]) -> Refusal {
+        let said: Option<WireError> = ipc::decode("a refusal from another Mac", bytes).ok();
         let (code, message) = match said {
             Some(said) => (said.code, said.message),
             None => (MAC_UNREADABLE.to_string(), format!("Mac {mac} answered {status}.")),
         };
         let error = WireError::raised(code, message, self.run_id());
-        Err(match status {
+        match status {
             404 => Refusal::NotFound(error),
             409 => Refusal::IllegalMove(error),
             422 => Refusal::Unacceptable(error),
             _ => Refusal::Fault(error),
-        })
+        }
     }
 
     /// The Mac a call from the Gateway names. A blank one is refused, since every row is kept under it.
-    fn mac_named(&self, mac: &str) -> Result<String, Refusal> {
+    pub(crate) fn mac_named(&self, mac: &str) -> Result<String, Refusal> {
         let mac = mac.trim();
         if mac.is_empty() {
             return Err(Refusal::Unacceptable(WireError::raised(MAC_UNNAMED, "A Mac to keep it under is needed.", self.run_id())));
@@ -161,7 +166,7 @@ where
         Ok(mac.to_string())
     }
 
-    fn encoded<T: Serialize>(&self, value: &T) -> Result<String, Refusal> {
+    pub(crate) fn encoded<T: Serialize>(&self, value: &T) -> Result<String, Refusal> {
         ipc::encode(value).map_err(|why| Refusal::Fault(WireError::raised(MAC_UNREADABLE, why.to_string(), self.run_id())))
     }
 
@@ -222,6 +227,15 @@ where
         Ok(SessionList { sessions })
     }
 
+    async fn share_projects(&self) -> Result<ipc::Projects, Refusal> {
+        let own = api::Projects::list_projects(self).await?;
+        Ok(self.projects_for_other_mac(own).sent())
+    }
+
+    async fn project_act_from_mac(&self, sent: ProjectActFromMac) -> Result<ipc::Projects, Refusal> {
+        self.project_act_run(sent).await
+    }
+
     async fn share_bug_reports(&self) -> Result<BugReports, Refusal> {
         let mut own = self.bug_reports_listed().await?;
         own.reports.retain(|one| one.mac.is_none());
@@ -260,13 +274,20 @@ where
         Ok(MacNamed { mac })
     }
 
+    async fn hold_other_mac_projects(self: Arc<Self>, held: OtherMacProjects) -> Result<MacNamed, Refusal> {
+        let mac = self.mac_named(&held.mac)?;
+        self.copies_replaced(&mac, held.projects).await?;
+        self.project_acts_flushing(&mac).await;
+        Ok(MacNamed { mac })
+    }
+
     async fn hold_other_mac_bug_reports(&self, held: OtherMacBugReports) -> Result<MacNamed, Refusal> {
         let mac = self.mac_named(&held.mac)?;
         self.reports_held(&mac, held.reports).await?;
         Ok(MacNamed { mac })
     }
 
-    async fn hold_other_mac_event(&self, crossed: OtherMacEvent) -> Result<MacNamed, Refusal> {
+    async fn hold_other_mac_event(self: Arc<Self>, crossed: OtherMacEvent) -> Result<MacNamed, Refusal> {
         let mac = self.mac_named(&crossed.mac)?;
         let job = match &crossed.event {
             Event::SessionChanged(record) => {
@@ -285,8 +306,13 @@ where
                 self.reports_held(&mac, reports.reports.clone()).await?;
                 return Ok(MacNamed { mac });
             }
-            // The Gateway reads the rows again on it; the projects themselves are not kept here.
-            Event::ProjectsChanged(_) => return Ok(MacNamed { mac }),
+            // The list it carries is what that Mac shares now, so it is the copy. A Mac that has spoken is awake,
+            // so what was queued for it goes now.
+            Event::ProjectsChanged(projects) => {
+                self.copies_replaced(&mac, projects.projects.clone()).await?;
+                self.project_acts_flushing(&mac).await;
+                return Ok(MacNamed { mac });
+            }
             Event::SessionRow(row) => row.session_id.clone(),
             Event::SessionSubagent(subagent) => subagent.session_id.clone(),
             Event::JobThreadTail(tail) => tail.session_id.clone(),
@@ -316,6 +342,7 @@ where
         self.store().lock().await.forget_mac(&mac).map_err(|why| self.ledger_fault(why))?;
         self.relay_removed(before.into_keys().collect());
         self.every_bug_report_relayed().await?;
+        self.projects_relayed().await?;
         Ok(MacNamed { mac })
     }
 }
