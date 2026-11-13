@@ -572,6 +572,10 @@ where
         self.session_quick(id.as_str()).await
     }
 
+    async fn get_job_artifacts(&self, id: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
+        self.job_artifacts(id.as_str()).await
+    }
+
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
         let act = super::mcp_servers::McpAct::from(asked.act);
         let acted = self.session_mcp_acted(asked.session_id.as_str(), &asked.server, act).await?;

@@ -28,6 +28,7 @@ mod held_children;
 mod session_after;
 mod asking_in_window;
 mod draft_documents;
+mod artifacts;
 mod drafts;
 mod pull_request_drafts;
 mod phone;

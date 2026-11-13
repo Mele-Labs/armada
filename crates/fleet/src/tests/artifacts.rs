@@ -1,0 +1,117 @@
+//! The claim, written before the code: **a Job's sketches, drafts and pages read back as one list,
+//! newest first, each with its revisions and where its newest stands; a draft proposed under the title
+//! of one still open is that draft's next revision, the earlier one withdrawn with nothing sent to the
+//! Job; and a sketch he dismissed reads `dismissed`.** `crates/ipc/operations/get_job_artifacts.toml`.
+
+use std::sync::Arc;
+
+use adapter_traits::{CallDetail, DroneEvent};
+use api::{HostedSessions, Sessions};
+use ipc::{ArtifactBy, ArtifactForm, ArtifactState, DismissWaiting, DraftHow, ProposeDraft, SessionId, SessionRow, SessionVoice, ShowSketch};
+
+use super::session_host::{eventually, rig_placing, Rig};
+
+const SCENE: &str = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay"}],"edges":[]}"#;
+
+fn drawn(id: &SessionId, title: &str) -> ShowSketch {
+    ipc::decode("a sketch to show", format!(r#"{{"title":"{title}","session_id":"{}","scene":{SCENE}}}"#, id.as_str()).as_bytes()).unwrap()
+}
+
+fn proposed(id: &SessionId, title: &str, text: &str) -> ProposeDraft {
+    ProposeDraft { title: title.into(), text: text.into(), before: None, pull_request: None, session_id: Some(id.clone()) }
+}
+
+/// A Job with its process up, and where the stand-in holds it.
+async fn a_job(rig: &Rig) -> (SessionId, usize) {
+    let id = rig.start().await;
+    rig.send(&id, "write it up").await;
+    eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == id.as_str()) }).await;
+    let at = rig.stand_in.starts().iter().position(|one| one.session == id.as_str()).unwrap();
+    rig.stand_in.init(at);
+    (id, at)
+}
+
+/// The Job writes a page for reading under its root, and Fleet keeps it.
+async fn page_written(rig: &Rig, id: &SessionId, at: usize) -> String {
+    let file = std::path::Path::new(&rig.root).join(".armada/documents/lease.html");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, "<html><head><title>Lease expiry</title></head><body><p>Findings.</p></body></html>").unwrap();
+    let path = file.to_string_lossy().into_owned();
+    rig.stand_in.says(
+        at,
+        vec![
+            DroneEvent::Called { tool: "Write".into(), call: "toolu_1".into(), detail: CallDetail::of(&format!("{path} +1")) },
+            DroneEvent::Answered { call: "toolu_1".into(), failed: false },
+        ],
+    );
+    eventually(|| async {
+        rig.fleet.get_job_artifacts(id.clone()).await.unwrap().iter().any(|one| one.form == ArtifactForm::Page)
+    })
+    .await;
+    path
+}
+
+fn sent(rows: &[SessionRow]) -> Vec<String> {
+    rows.iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn a_jobs_sketch_page_and_twice_proposed_draft_read_back_as_three_newest_first() {
+    let rig = rig_placing(None);
+    let (id, at) = a_job(&rig).await;
+    rig.fleet.show_sketch(None, drawn(&id, "Request flow")).await.unwrap();
+    let path = page_written(&rig, &id, at).await;
+    let first = rig.fleet.propose_draft(None, proposed(&id, "Description for #41", "First words.")).await.unwrap();
+    let first_row = first.waiting_for.iter().find(|one| one.id.starts_with("draft:")).expect("the first draft waits").id.clone();
+    let told_before = sent(&rig.rows(&id).await);
+    let second = rig.fleet.propose_draft(None, proposed(&id, "Description for #41", "Second words.")).await.unwrap();
+
+    // His list holds one draft, the second, and the first was withdrawn with nothing sent to the Job.
+    let drafts: Vec<&str> = second.waiting_for.iter().filter(|one| one.id.starts_with("draft:")).map(|one| one.id.as_str()).collect();
+    assert_eq!(drafts.len(), 1, "{:?}", second.waiting_for);
+    assert_ne!(drafts[0], first_row);
+    let rows = rig.rows(&id).await;
+    let first_settled = rows.iter().find_map(|row| match row {
+        SessionRow::Draft { id, settled, .. } if format!("draft:{id}") == first_row => Some(settled.clone()),
+        _ => None,
+    });
+    assert_eq!(first_settled.flatten().map(|settled| (settled.how, settled.words)), Some((DraftHow::Withdrawn, None)));
+    assert_eq!(sent(&rows), told_before, "nothing is sent for a replaced draft");
+
+    let artifacts = rig.fleet.get_job_artifacts(id.clone()).await.unwrap();
+    let read: Vec<(&str, ArtifactForm, usize, ArtifactState, Option<&str>)> = artifacts
+        .iter()
+        .map(|one| (one.id.as_str(), one.form, one.revisions.len(), one.state, one.item.as_deref()))
+        .collect();
+    assert_eq!(
+        read,
+        [
+            ("draft:Description for #41", ArtifactForm::Draft, 2, ArtifactState::Asking, Some(drafts[0])),
+            (path.as_str(), ArtifactForm::Page, 1, ArtifactState::Reading, None),
+            ("sketch:Request flow", ArtifactForm::Sketch, 1, ArtifactState::Asking, Some("sketch:Request flow")),
+        ]
+    );
+    let draft = &artifacts[0];
+    assert_eq!(draft.title, "Description for #41");
+    assert_eq!(draft.revisions.iter().map(|one| one.number).collect::<Vec<_>>(), [1, 2]);
+    assert!(draft.revisions[0].at < draft.revisions[1].at, "{:?}", draft.revisions);
+    assert!(draft.revisions.iter().all(|one| one.by == ArtifactBy::Agent && one.form == ArtifactForm::Draft));
+    assert!(artifacts.iter().all(|one| one.words.is_none()));
+}
+
+#[tokio::test]
+async fn a_sketch_he_dismissed_reads_dismissed() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_sketch(None, drawn(&id, "Request flow")).await.unwrap();
+    let dismissal = DismissWaiting { session_id: id.clone(), item_id: "sketch:Request flow".into(), reason: None, misread: false };
+    Arc::clone(&rig.fleet).dismiss_waiting(dismissal).await.expect("dismissed");
+
+    let artifacts = rig.fleet.get_job_artifacts(id.clone()).await.unwrap();
+    assert_eq!(artifacts.iter().map(|one| (one.id.as_str(), one.state, one.item.as_deref())).collect::<Vec<_>>(), [("sketch:Request flow", ArtifactState::Dismissed, None)]);
+}
