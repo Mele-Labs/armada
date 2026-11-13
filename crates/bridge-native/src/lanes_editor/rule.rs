@@ -151,8 +151,23 @@ pub fn when_phrase(vocab: &Vocab, when: &RuleWhen) -> String {
         RuleWhen::StepStarts { step } => format!("{} starts", vocab.step_name(step)),
         RuleWhen::StepEnds { step } => format!("{} ends", vocab.step_name(step)),
         RuleWhen::Enters { lifecycle, state } => format!("{} enters {}", vocab.lifecycle_name(lifecycle), vocab.state_name(Some(lifecycle), state)),
-        RuleWhen::GateCloses { gate } => format!("the {} gate closes", spoken(gate)),
+        RuleWhen::GateCloses { gate } => gate_phrase(gate),
         RuleWhen::Job { event } => JOB_EVENTS.iter().find(|(word, _)| word == event).map_or_else(|| spoken(event), |(_, said)| (*said).to_string()),
+    }
+}
+
+/// A gate closing, said as what happened. The match is whole, so a gate the wire adds is said here before it builds.
+fn gate_phrase(gate: &str) -> String {
+    match PlanGate::from_word(gate) {
+        PlanGate::PlanApproved => "the plan is approved".into(),
+        PlanGate::WalkApproved => "the walk is approved".into(),
+        PlanGate::SketchApproved => "the sketch is approved".into(),
+        PlanGate::DocumentApproved => "the document is approved".into(),
+        PlanGate::YouApproved => "you approve".into(),
+        PlanGate::ChecksGreen => "the checks pass".into(),
+        PlanGate::Merged => "it merges".into(),
+        PlanGate::JobsEnded => "every Job it started ends".into(),
+        PlanGate::None => format!("the {} gate closes", spoken(gate)),
     }
 }
 
