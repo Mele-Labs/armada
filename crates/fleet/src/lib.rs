@@ -212,6 +212,8 @@ pub mod places;
 pub mod ports;
 /// A person's Bridge preferences, five keys of settings.json in their older shape.
 mod preferences;
+/// How the owner works with Jobs, said to a Job: the start note, the plan block and the checks' words.
+mod ways;
 pub mod preparing;
 /// The probes Fleet can run on itself, and the Doctor modules it cannot.
 /// **Not Doctor**, whose grid is ten modules and is not built.

@@ -4,6 +4,7 @@
 //! this cannot reach for a Job. `docs/concepts/machine.md`, *settings.json*.
 
 use std::future::Future;
+use std::sync::Arc;
 
 use ipc::{
     FleetLimits, PhoneGateway, Preferences, SaveLimits, SavePreference, SaveSettings, SetPhoneGateway,
@@ -43,6 +44,17 @@ pub trait Settings: Send + Sync + 'static {
         &self,
         save: SavePreference,
     ) -> impl Future<Output = Result<Preferences, Refusal>> + Send;
+
+    /// A `save_preferences` was answered: `before` and `now` are every preference either side of it. **Takes
+    /// the `Arc`** because a change to how he works with Jobs is told to the Jobs running, which starts
+    /// turns on tasks of their own. Nothing to do by default.
+    fn preferences_saved(
+        self: Arc<Self>,
+        _before: Preferences,
+        _now: Preferences,
+    ) -> impl Future<Output = ()> + Send {
+        async {}
+    }
 
     /// `get_phone` — whether this Mac serves the phone app, and whether it is listening.
     fn get_phone(&self) -> impl Future<Output = Result<PhoneGateway, Refusal>> + Send;

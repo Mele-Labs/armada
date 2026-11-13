@@ -845,6 +845,7 @@ where
                 return Err(self.hosted_refusal(SESSION_WAITING_WALK, &walk_item_refusal(item.id.trim())));
             }
         }
+        self.options_refused(&set.items)?;
         if let Some(lapsed) = self.rows_of(&id).await.ok().and_then(|rows| lapsed_question(&rows)) {
             for item in &set.items {
                 let labels: Vec<&str> = item.options.iter().map(|option| option.label.as_str()).collect();
@@ -999,18 +1000,21 @@ where
         Ok(record)
     }
 
-    /// Every reason `all_done` is refused, in one answer: open follow-ups, then what the Job holds in
-    /// flight. One reason keeps its own code; with both the answer carries the in-flight code.
+    /// Every reason `all_done` is refused, in one answer: open follow-ups, then no picture shown where
+    /// the owner looks, then what the Job holds in flight. One reason keeps its own code; with the
+    /// in-flight one among several the answer carries the in-flight code, else the first reason's.
     /// **A gate holds the call, and covers what is in flight**: `gated` skips the in-flight reason.
     fn done_holds(&self, store: &mut store::Store, id: &str, gated: bool) -> Result<(), Refusal> {
         let later = self.later_open_text(store, id)?;
+        let unshown = self.picture_owed_text(store, id)?;
         let flying = if gated { None } else { self.lifecycles_hold_text(store, id) };
-        let code = match (&later, &flying) {
-            (None, None) => return Ok(()),
-            (Some(_), None) => super::later::LATER_OPEN,
-            _ => crate::lifecycles::ending::IN_FLIGHT,
+        let code = match (&later, &unshown, &flying) {
+            (None, None, None) => return Ok(()),
+            (_, _, Some(_)) => crate::lifecycles::ending::IN_FLIGHT,
+            (Some(_), _, None) => super::later::LATER_OPEN,
+            (None, Some(_), None) => super::ways_checking::PICTURE_OWED,
         };
-        let reasons: Vec<String> = [later, flying].into_iter().flatten().collect();
+        let reasons: Vec<String> = [later, unshown, flying].into_iter().flatten().collect();
         let said = format!("all_done refused. {}", reasons.join("\n\n"));
         Err(Refusal::IllegalMove(ipc::WireError::raised(code, said, self.run_id())))
     }
