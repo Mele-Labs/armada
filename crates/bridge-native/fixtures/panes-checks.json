@@ -80,6 +80,22 @@
    "total_lines": 4,
    "bytes": 125,
    "whole": false
+  },
+  {
+   "run": 501,
+   "attempt": 1,
+   "name": "docs",
+   "path": "checks/501/docs.log",
+   "lines": [
+    "$ cargo xtask docs",
+    "checked 412 documents",
+    "every link resolves",
+    "docs passed"
+   ],
+   "from_line": 1,
+   "total_lines": 4,
+   "bytes": 78,
+   "whole": true
   }
  ]
 }

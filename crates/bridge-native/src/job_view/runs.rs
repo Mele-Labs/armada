@@ -1,12 +1,13 @@
 //! The items that group rows: runs of calls, subagents, Check runs and Fleet turns (`job-view.md`,
 //! A3 to A6).
 
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use std::time::Duration;
 
 use chrono::{DateTime, Local, Utc};
-use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, Role, SharedString};
+use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, Role, SharedString, Window};
 use ipc::{SessionCheckState, SessionRow, ToolSubagent, ToolSubagentState};
 
 use super::acts::refusal;
@@ -75,6 +76,17 @@ struct Call {
     note: Option<String>,
     /// Under the lines: the picture a `Read` looked at, or a message's words while its row is open.
     below: Option<AnyElement>,
+}
+
+/// What a call row opens on a press or Return.
+#[derive(Clone)]
+enum Opens {
+    /// A message's words, under its row, by the fold key.
+    Words(String),
+    /// The file a `Read`, `Edit` or `Write` named, in the file panel.
+    File(String),
+    /// The Check run a shell call started, by name and run, in the Check panel.
+    Check(String, u64),
 }
 
 impl Call {
@@ -312,6 +324,15 @@ impl JobView {
         // Each call ended when the next began; the last, when the item after the run did.
         let last = rows.len().saturating_sub(1);
         let job = self.shown.clone().unwrap_or_default();
+        // The Check run each shell call started, by the call's row id.
+        let ran: HashMap<String, (String, u64)> = self
+            .check_rows(&job, cx)
+            .into_iter()
+            .filter_map(|row| match row {
+                SessionRow::Check { name, run, tool_row: Some(tool), .. } => Some((tool, (name, run))),
+                _ => None,
+            })
+            .collect();
         let lines = rows.iter().enumerate().map(|(at, row)| {
             let running = live && at == last;
             let end = rows.get(at + 1).map(SessionRow::at).or(end);
@@ -337,15 +358,22 @@ impl JobView {
             };
             let stop = running.then(|| self.stop_button(look, cx));
             let line = tool_row(&job, &format!("{id}:{at}"), one, row.at(), if running { None } else { end }, running, stop, look);
-            // A message's row opens on a press, and shows the words it sent.
-            let opens = matches!(row, SessionRow::Tool { message: Some(_), .. }).then(|| format!("tool-message:{id}:{at}"));
+            // A row opens what it names on a press or Return: a message's words under it, the Check run a call
+            // started, the file a call read or wrote.
+            let opens = match row {
+                SessionRow::Tool { message: Some(_), .. } => Some(Opens::Words(format!("tool-message:{id}:{at}"))),
+                SessionRow::Tool { id: tool, image: None, .. } => {
+                    ran.get(tool).map(|(name, run)| Opens::Check(name.clone(), *run)).or_else(|| calls::file_of(&texts[at]).map(Opens::File))
+                }
+                _ => None,
+            };
             // In a folded group each call is a Command, as Electron's: it takes focus and a right press offers Teach.
             if live || texts[at].is_empty() {
                 return match opens {
                     Some(opened) => div()
-                        .id(SharedString::from(format!("{opened}:press")))
+                        .id(SharedString::from(format!("call-press:{id}:{at}")))
                         .cursor_pointer()
-                        .on_click(cx.listener(move |this, _, _, cx| this.toggle(ix, opened.clone(), cx)))
+                        .on_click(cx.listener(move |this, _, window, cx| this.open_call(ix, &opened, window, cx)))
                         .child(line)
                         .into_any_element(),
                     None => line,
@@ -362,11 +390,11 @@ impl JobView {
                     let keyed = opened.clone();
                     command
                         .cursor_pointer()
-                        .on_click(cx.listener(move |this, _, _, cx| this.toggle(ix, opened.clone(), cx)))
-                        .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, _, cx| {
+                        .on_click(cx.listener(move |this, _, window, cx| this.open_call(ix, &opened, window, cx)))
+                        .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
                             if matches!(event.keystroke.key.as_str(), "enter" | "space") {
                                 cx.stop_propagation();
-                                this.toggle(ix, keyed.clone(), cx);
+                                this.open_call(ix, &keyed, window, cx);
                             }
                         }))
                 })
@@ -388,6 +416,15 @@ impl JobView {
         ];
         let body = div().flex().flex_col().gap(look.length(token::SPACE_1)).children(lines).into_any_element();
         self.fold(ix, format!("calls:{id}"), label, head, Some(body), page, look, cx)
+    }
+
+    /// What a pressed call row opens.
+    fn open_call(&mut self, ix: usize, opens: &Opens, window: &mut Window, cx: &mut Context<Self>) {
+        match opens {
+            Opens::Words(key) => self.toggle(ix, key.clone(), cx),
+            Opens::File(path) => self.open_file(path.clone(), window, cx),
+            Opens::Check(name, run) => self.open_check(name.clone(), *run, window, cx),
+        }
     }
 
     /// A `SendMessage` call: "Message to" and the Job it went to by title, a link where Fleet placed it; the

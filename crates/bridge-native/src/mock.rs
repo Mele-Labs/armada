@@ -415,6 +415,11 @@ pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T
     reads.subagents.into_iter().find(|one| one.session_id == job && one.subagent_id == id).map(|one| one.read)
 }
 
+/// The call-rows walk opens a call's file and its Check run from the panes' fixtures.
+fn call_rows_named() -> bool {
+    SCENARIO.lock().is_ok_and(|named| named.as_str() == "call-rows")
+}
+
 /// The scenario last named is the panes' own: their reads answer only there.
 fn panes_named() -> bool {
     SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more" | "job-pulls" | "job-issues" | "job-system" | "job-open" | "job-spine" | "job-workflow" | "job-lanes" | "job-lanes-marks"))
@@ -549,7 +554,7 @@ pub fn repository_file(path: &str) -> Option<Result<String, String>> {
     struct Files {
         files: Vec<One>,
     }
-    if !panes_named() {
+    if !panes_named() && !call_rows_named() {
         return None;
     }
     if let Some(text) = log(path) {
@@ -573,7 +578,7 @@ pub fn check_output(run: u64) -> Option<ipc::CheckOutput> {
     struct Outputs {
         outputs: Vec<One>,
     }
-    if !panes_named() {
+    if !panes_named() && !call_rows_named() {
         return None;
     }
     let outputs = ipc::decode::<Outputs>("check outputs", include_bytes!("../fixtures/panes-checks.json"))

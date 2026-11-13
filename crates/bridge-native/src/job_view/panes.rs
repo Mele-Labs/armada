@@ -712,20 +712,42 @@ impl JobView {
         cx.notify();
     }
 
-    /// A file of the Job's repository, read-only. **The live read waits on Fleet's
-    /// `GET /sessions/repository_file`**; until it lands only the mock reads one.
+    /// A file of the Job's repository, read-only, as Fleet reads it (`GET /sessions/repository_file`).
+    /// A path a call named may be absolute, `~/` led or the repository's own; Fleet places each.
     pub(super) fn open_file(&mut self, path: String, window: &mut Window, cx: &mut Context<Self>) {
-        // Fleet serves no file read yet (`GET /sessions/repository_file` is unmerged), so a live press opens nothing.
-        if self.fleet.is_some() {
+        if self.fleet.is_none() {
+            let read = crate::mock::repository_file(&path)
+                .map(|read| read.map_or_else(|why| FileRead::Refused(Refusal::from_wire(&why)), FileRead::Text));
+            self.open_panel(Of::File { path, read }, window, cx);
             return;
         }
-        let read = crate::mock::repository_file(&path)
-            .map(|read| read.map_or_else(|why| FileRead::Refused(Refusal::from_wire(&why)), FileRead::Text));
-        self.open_panel(Of::File { path, read }, window, cx);
+        let Some(job) = self.shown.clone() else { return };
+        self.open_panel(Of::File { path: path.clone(), read: None }, window, cx);
+        let ask = format!("/sessions/repository_file?session_id={}&path={}", super::wire::encoded(&job), super::wire::encoded(&path));
+        let done: super::wire::Done = Box::new(move |this, answer, _, cx| {
+            let read = match answer {
+                Ok(body) => match ipc::decode::<ipc::RepositoryFile>("RepositoryFile", &body) {
+                    Ok(ipc::RepositoryFile::Text { text, .. }) => FileRead::Text(text),
+                    Ok(ipc::RepositoryFile::Picture { .. }) => FileRead::Refused(Refusal::Binary),
+                    Err(_) => FileRead::Refused(Refusal::Unreadable),
+                },
+                Err(_) => {
+                    let code = this.refused_code.clone().unwrap_or_default();
+                    FileRead::Refused(Refusal::from_wire(code.strip_prefix("fleet.repository_file_").unwrap_or(&code)))
+                }
+            };
+            if let Some(Panel { of: Of::File { path: open, read: shown }, .. }) = this.panes.panel.as_mut() {
+                if *open == path {
+                    *shown = Some(read);
+                    cx.notify();
+                }
+            }
+        });
+        self.get(ask, window, cx, done);
     }
 
     /// A Check the agent ran: its runs in this Job, and the pressed run's log, read again while it runs.
-    fn open_check(&mut self, name: String, run: u64, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_check(&mut self, name: String, run: u64, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let running = self.check_rows(&job, cx).iter().any(|row| matches!(row, SessionRow::Check { run: one, state: SessionCheckState::Running, .. } if *one == run));
         let (output, poll) = match self.port(cx) {
