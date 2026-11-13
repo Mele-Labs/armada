@@ -40,6 +40,21 @@ pub static MACS_SETUP_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-macs-phone`: Pair a phone on the Devices card. The link and its QR code, the phone's claim, and
+/// Confirm putting the phone in the list.
+pub const MACS_PHONE: &str = "native-settings-macs-phone";
+
+pub static MACS_PHONE_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: Devices has Pair a Mac and Pair a phone", "button", "Macs", "button", "Pair a phone"),
+    press_on("Pair a phone: a QR code for the camera, and the link", "button", "Pair a phone", "img", "QR code for the pairing link"),
+    step("The link, with Copy link and how long it has left", Verb::Look, "button", "Copy link"),
+    step("The phone opens it and waits on Confirm here", Verb::Later(4500), "button", "Confirm"),
+    press_on("Confirm pairs it, and the panel closes", "button", "Confirm", "button", "Unpair iPhone 15"),
+    step("The phone is in the list, with Unpair", Verb::Wheel("region", "Devices", 600), "button", "Unpair iPhone 15"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-layout-time`: what Layout and Time set, read on the app behind Settings.
 pub const LAYOUT_TIME: &str = "native-layout-time";
 

@@ -464,6 +464,34 @@ impl Wire {
         }
     }
 
+    pub fn phone_start(&mut self, cx: &App) -> Task<Result<super::gateway::PhoneCode, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.phone_start()),
+            Wire::Live(_) => super::gateway::phone_start(cx),
+        }
+    }
+
+    pub fn phone_pending(&mut self, cx: &App) -> Task<Result<Vec<super::gateway::PhoneClaim>, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.phone_pending()),
+            Wire::Live(_) => super::gateway::phone_pending(cx),
+        }
+    }
+
+    pub fn phone_confirm(&mut self, code: String, cx: &App) -> Task<Result<ipc::PairedPhone, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.phone_confirm(&code)),
+            Wire::Live(_) => super::gateway::phone_confirm(code, cx),
+        }
+    }
+
+    pub fn phone_decline(&mut self, code: String, cx: &App) -> Task<Result<(), String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.phone_decline(&code)),
+            Wire::Live(_) => super::gateway::phone_decline(code, cx),
+        }
+    }
+
     pub fn forget_mac(&mut self, mac: String, cx: &App) -> Task<Result<(), String>> {
         match self {
             Wire::Mock(mock) => Task::ready(mock.gateway.forget(&mac)),

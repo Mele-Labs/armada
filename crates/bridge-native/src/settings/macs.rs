@@ -13,7 +13,7 @@ use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{CloudflareState, GatewaySetup, Mac, MacColour, MacLink, MacPairLink, PairedPhone, Served};
 
 use super::entries::Body;
-use super::gateway::{Tunnel, NOT_RUNNING};
+use super::gateway::{PhoneClaim, PhoneCode, Tunnel, NOT_RUNNING};
 use super::overlay::SettingsOverlay;
 use super::view::{bone, card, ghost, mono, ringed, tip};
 use crate::assets::icon_path;
@@ -56,7 +56,47 @@ pub struct MacsPage {
     tunnel_asked: bool,
     /// Pair with a link instead was pressed.
     by_link: bool,
+    /// The code Pair a phone made, until it runs out, is confirmed or declined.
+    phone: Option<PhoneLink>,
+    /// The phone's link ran out: Make a new link is offered in its place.
+    lapsed: bool,
+    /// Counts the phone code down, and asks the Gateway for a claim every other second.
+    _phone: Option<Task<()>>,
 }
+
+/// A phone's pairing code with the link its camera opens, drawn as a QR code, and the phone that entered it.
+struct PhoneLink {
+    code: PhoneCode,
+    link: String,
+    qr: Qr,
+    /// The phone's name, once it has entered the code.
+    claim: Option<String>,
+}
+
+/// The QR code's modules, row by row, dark where `true`.
+#[derive(Clone)]
+struct Qr {
+    width: usize,
+    dark: std::sync::Arc<[bool]>,
+}
+
+impl Qr {
+    /// `None` when the link is too long for a code.
+    fn of(link: &str) -> Option<Qr> {
+        use qrcode::{Color, EcLevel, QrCode};
+        let code = QrCode::with_error_correction_level(link.as_bytes(), EcLevel::M).ok()?;
+        Some(Qr { width: code.width(), dark: code.to_colors().into_iter().map(|one| one == Color::Dark).collect() })
+    }
+}
+
+/// Modules of empty margin round the code; the spec asks four and phone cameras rely on it.
+const QUIET: usize = 4;
+
+/// The code is drawn about this wide; each module is a whole number of points, so no edge falls between pixels.
+const QR_SIDE: f32 = 192.;
+
+/// Phone pairing's claim poll, every this many ticks (`CLAIM_EVERY` is two seconds in Classic).
+const POLL_TICKS: u32 = 2;
 
 /// The two ways a Mac nothing is set up on starts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -118,6 +158,9 @@ impl MacsPage {
             phone_said: None,
             tunnel_asked: false,
             by_link: false,
+            phone: None,
+            lapsed: false,
+            _phone: None,
         }
     }
 
@@ -373,7 +416,7 @@ impl SettingsOverlay {
 
     /// Keys for each control, made before they are drawn.
     pub(super) fn macs_keys(&mut self, cx: &mut Context<Self>) {
-        let mut names: Vec<String> = ["setup", "sign-in", "copy", "pair", "copy-link", "claim", "find", "set-up", "again", "by-link"].into_iter().map(String::from).collect();
+        let mut names: Vec<String> = ["setup", "sign-in", "copy", "pair", "copy-link", "claim", "find", "set-up", "again", "by-link", "pair-phone", "copy-phone-link", "phone-new", "phone-confirm", "phone-decline"].into_iter().map(String::from).collect();
         if let Some(Ok(macs)) = &self.macs.macs {
             names.extend(macs.iter().filter_map(|mac| press_of_mac(mac).map(|(act, _)| format!("{act}:{}", mac.id))));
         }
@@ -426,6 +469,16 @@ impl SettingsOverlay {
         }
         stops.extend(page.cloudflare().and_then(press_of).and_then(key));
         stops.extend(key("pair"));
+        stops.extend(key("pair-phone"));
+        if let Some(phone) = &page.phone {
+            stops.extend(key("copy-phone-link"));
+            if phone.claim.is_some() {
+                stops.extend(key("phone-confirm"));
+                stops.extend(key("phone-decline"));
+            }
+        } else if page.lapsed {
+            stops.extend(key("phone-new"));
+        }
         if page.link.is_some() {
             stops.extend(key("copy-link"));
         }
@@ -476,6 +529,14 @@ impl SettingsOverlay {
                 }
             }
             "claim" => self.claim(window, cx),
+            "pair-phone" | "phone-new" => self.pair_phone(window, cx),
+            "copy-phone-link" => {
+                if let Some(link) = self.macs.phone.as_ref().map(|phone| phone.link.clone()) {
+                    self.wire.copy(&link, cx);
+                }
+            }
+            "phone-confirm" => self.confirm_phone(window, cx),
+            "phone-decline" => self.decline_phone(window, cx),
             "find" => self.start_setup(Lead::Find, window, cx),
             "set-up" => self.start_setup(Lead::SetUp, window, cx),
             "again" => {
@@ -571,6 +632,151 @@ impl SettingsOverlay {
                 break;
             }
         }));
+    }
+
+    /// `POST /admin/pair/start`: the code a phone's camera opens, as a link and a QR code, and its time left.
+    fn pair_phone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.begin("pair-phone") {
+            return;
+        }
+        let press = self.wire.phone_start(cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = press.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                if let Some(code) = this.answered("pair-phone", answer) {
+                    let link = code.link();
+                    match Qr::of(&link) {
+                        Some(qr) => {
+                            this.macs.lapsed = false;
+                            this.macs.phone = Some(PhoneLink { code, link, qr, claim: None });
+                            this.watch_phone(window, cx);
+                            if let Some(copy) = this.macs.keys.get("copy-phone-link").cloned() {
+                                window.focus(&copy, cx);
+                            }
+                        }
+                        None => {
+                            this.macs.refused.insert("pair-phone".into(), "The link is too long to draw as a QR code.".into());
+                        }
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// Draws the phone code's time left each second, asks for a claim every other, and drops the code once it runs
+    /// out. The keys on its controls go to the one that is left.
+    fn watch_phone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.macs._phone = Some(cx.spawn_in(window, async move |this, cx| {
+            let mut ticks = 0u32;
+            loop {
+                cx.background_executor().timer(TICK).await;
+                ticks += 1;
+                let next = this.update_in(cx, |this, window, cx| {
+                    let Some((code, expires_at)) = this.macs.phone.as_ref().map(|phone| (phone.code.code.clone(), phone.code.expires_at)) else { return None };
+                    if expires_at <= chrono::Utc::now().timestamp() {
+                        let held = this.holds_phone(window);
+                        this.macs.phone = None;
+                        this.macs.lapsed = true;
+                        if let Some(new) = held.then(|| this.macs.keys.get("phone-new").cloned()).flatten() {
+                            window.focus(&new, cx);
+                        }
+                        cx.notify();
+                        return None;
+                    }
+                    if this.macs_shown(cx) {
+                        cx.notify();
+                    }
+                    let poll = (ticks % POLL_TICKS == 0).then(|| (code, this.wire.phone_pending(cx)));
+                    Some(poll)
+                });
+                let Ok(Some(poll)) = next else { break };
+                let Some((code, claims)) = poll else { continue };
+                let claims = claims.await;
+                let going = this.update_in(cx, |this, _, cx| {
+                    let Some(phone) = this.macs.phone.as_mut().filter(|phone| phone.code.code == code) else { return false };
+                    match claims {
+                        Ok(claims) => {
+                            this.macs.refused.remove("pair-phone");
+                            phone.claim = claims.into_iter().find(|one: &PhoneClaim| one.code == code).map(|one| one.name);
+                        }
+                        Err(said) => {
+                            this.macs.refused.insert("pair-phone".into(), said);
+                        }
+                    }
+                    cx.notify();
+                    true
+                });
+                if !going.unwrap_or(false) {
+                    break;
+                }
+            }
+        }));
+    }
+
+    /// One of the phone code's controls holds the keys.
+    fn holds_phone(&self, window: &Window) -> bool {
+        ["copy-phone-link", "phone-confirm", "phone-decline"].iter().any(|name| self.holds(name, window))
+    }
+
+    /// `POST /admin/pair/confirm`. The phone is on the list at once, the panel closes and the keys go to its Unpair.
+    fn confirm_phone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(code) = self.macs.phone.as_ref().map(|phone| phone.code.code.clone()) else { return };
+        if !self.begin("phone-confirm") {
+            return;
+        }
+        let press = self.wire.phone_confirm(code, cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = press.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                let held = this.holds_phone(window);
+                // A refusal says the code is no good any more, or that no phone entered it: either way it is dropped.
+                this.macs.phone = None;
+                this.macs._phone = None;
+                if let Some(phone) = this.answered("phone-confirm", answer) {
+                    let unpair = this.macs.keys.entry(format!("unpair:{}", phone.id)).or_insert_with(|| cx.focus_handle().tab_stop(true)).clone();
+                    if held {
+                        window.focus(&unpair, cx);
+                    }
+                    if let Some(Ok(phones)) = this.macs.phones.as_mut() {
+                        if phones.iter().all(|one| one.id != phone.id) {
+                            phones.push(phone);
+                        }
+                    }
+                    this.read_devices(cx);
+                } else if let Some(pair) = held.then(|| this.macs.keys.get("pair-phone").cloned()).flatten() {
+                    window.focus(&pair, cx);
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// Decline: `POST /admin/pair/decline`, and the code, the link and the claim are dropped here whatever it says.
+    /// Polling stops; the phone's claim lapses unconfirmed.
+    fn decline_phone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(code) = self.macs.phone.take().map(|phone| phone.code.code) else { return };
+        self.macs._phone = None;
+        self.macs.refused.remove("phone-decline");
+        if let Some(pair) = self.macs.keys.get("pair-phone").cloned() {
+            window.focus(&pair, cx);
+        }
+        let press = self.wire.phone_decline(code, cx);
+        cx.spawn(async move |this, cx| {
+            let answer = press.await;
+            let _ = this.update(cx, |this, cx| {
+                if let Err(said) = answer {
+                    this.macs.refused.insert("phone-decline".into(), said);
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
     }
 
     /// `POST /admin/macs/pair/claim` with what is pasted. The Mac it names joins the list, waiting on its Confirm.
@@ -957,8 +1163,73 @@ impl SettingsOverlay {
         let rest = page.keys.get(AT_REST).cloned();
         let list = labelled(div().id("macs-devices").flex().flex_col().when_some(rest, |list, rest| list.track_focus(&rest)).children(rows), Role::List, "Devices");
         let pair = self.macs_button("pair", "Pair a Mac", Weight::Ghost, page.out.as_deref() == Some("pair"), look, window, cx);
-        let body = vec![self.pairing(look, window, cx), list.into_any_element()];
-        labelled(card(look, "settings-card-devices", "Devices", Some(pair), body), Role::Region, "Devices").into_any_element()
+        let pair_phone = self.macs_button("pair-phone", "Pair a phone", Weight::Ghost, page.out.as_deref() == Some("pair-phone"), look, window, cx);
+        let presses = div().flex().items_center().gap(look.length(token::SPACE_2)).child(pair).child(pair_phone).into_any_element();
+        let body = vec![self.phone_panel(look, window, cx), self.pairing(look, window, cx), list.into_any_element()];
+        labelled(card(look, "settings-card-devices", "Devices", Some(presses), body), Role::Region, "Devices").into_any_element()
+    }
+
+    /// Pair a phone: the QR code and the link its camera opens with the time left, a claim to Confirm or Decline, or
+    /// Make a new link once the code has run out. A refusal is said here, in the Gateway's words.
+    fn phone_panel(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let page = &self.macs;
+        let said = |act: &str| page.refused.get(act).filter(|said| *said != NOT_RUNNING).map(|said| alert(look, SharedString::from(format!("macs-{act}-refused")), said));
+        let live = page.phone.as_ref().map(|phone| {
+            let left = format!("{} left", time_left(phone.code.expires_at - chrono::Utc::now().timestamp()));
+            let link = div().id("macs-phone-link").min_w_0().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(phone.link.clone()));
+            let figure = div().id("macs-phone-left").flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
+            let facts = div()
+                .flex_1()
+                .min_w_0()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(caption(look, "Open this on your phone's camera"))
+                .child(labelled(link, Role::Label, phone.link.clone()))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_3))
+                        .child(self.macs_button("copy-phone-link", "Copy link", Weight::Ghost, false, look, window, cx))
+                        .child(labelled(figure, Role::Label, left)),
+                );
+            let code = div().flex().items_start().gap(look.length(token::SPACE_4)).child(qr_mark(look, &phone.qr)).child(facts);
+            let claim = phone.claim.as_ref().map(|name| {
+                let name = format!("{name} wants to pair");
+                labelled(
+                    div()
+                        .id("macs-phone-claim")
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_3))
+                        .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(name.clone())))
+                        .child(self.macs_button("phone-confirm", "Confirm", Weight::Primary, page.out.as_deref() == Some("phone-confirm"), look, window, cx))
+                        .child(self.macs_button("phone-decline", "Decline", Weight::Ghost, false, look, window, cx)),
+                    Role::Group,
+                    name,
+                )
+            });
+            div().flex().flex_col().gap(look.length(token::SPACE_3)).child(code).children(claim)
+        });
+        let lapsed = (page.phone.is_none() && page.lapsed).then(|| {
+            div()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_3))
+                .child(caption(look, "The link has run out"))
+                .child(self.macs_button("phone-new", "Make a new link", Weight::Ghost, page.out.as_deref() == Some("pair-phone"), look, window, cx))
+        });
+        div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_2))
+            .children(said("pair-phone"))
+            .children(live)
+            .children(lapsed)
+            .children(said("phone-confirm"))
+            .children(said("phone-decline"))
+            .into_any_element()
     }
 
     /// The link Pair a Mac made, to copy with its time left, and the box the other Mac's link is pasted into.
@@ -1027,6 +1298,31 @@ enum Weight {
     GhostGlyph(&'static str),
     Secondary,
     Primary,
+}
+
+/// The QR code: dark modules on a light ground with its quiet zone, as a camera needs in either theme. Each module is
+/// a whole number of points, and the square is as wide as they add up to.
+///
+/// armada-allow-off-contract: a QR code is read by a camera, so it is black on white in both themes and no token is
+/// both (Classic's `.armada-phone__qr`, `docs/contracts/design-system.md`).
+fn qr_mark(look: &Look, qr: &Qr) -> AnyElement {
+    let total = qr.width + QUIET * 2;
+    let cell = (QR_SIDE / total as f32).floor().max(1.);
+    let side = gpui::px(cell * total as f32);
+    let (width, dark) = (qr.width, qr.dark.clone());
+    let modules = gpui::canvas(
+        |_, _, _| {},
+        move |bounds, _, window, _| {
+            let cell = bounds.size.width / total as f32;
+            for (at, _) in dark.iter().enumerate().filter(|(_, dark)| **dark) {
+                let (x, y) = ((at % width + QUIET) as f32, (at / width + QUIET) as f32);
+                let origin = gpui::point(bounds.origin.x + cell * x, bounds.origin.y + cell * y);
+                window.paint_quad(gpui::fill(gpui::Bounds::new(origin, gpui::size(cell, cell)), gpui::black()));
+            }
+        },
+    )
+    .size_full();
+    labelled(div().id("macs-phone-qr").flex_none().size(side).rounded(look.length(token::RADIUS_MD)).overflow_hidden().bg(gpui::white()).child(modules), Role::Image, "QR code for the pairing link").into_any_element()
 }
 
 /// A read's refusal to say on the page. A Gateway that does not answer is the two cards' to show, never red words.
@@ -1260,5 +1556,103 @@ mod tests {
         press(&overlay, "forget:mac-air", cx);
         assert_eq!(refused(&overlay, "forget:mac-air", cx), None);
         assert!(links(&overlay, cx).iter().all(|(id, _)| id != "mac-air"), "a pairing waiting on Confirm there is withdrawn by the same route");
+    }
+
+    fn ticks(seconds: u64, cx: &mut VisualTestContext) {
+        for _ in 0..seconds {
+            cx.executor().advance_clock(TICK);
+            cx.run_until_parked();
+        }
+    }
+
+    fn phone_claim(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Option<Option<String>> {
+        overlay.read_with(cx, |this, _| this.macs.phone.as_ref().map(|phone| phone.claim.clone()))
+    }
+
+    fn phone_names(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Vec<String> {
+        overlay.read_with(cx, |this, _| this.macs.phones.clone().and_then(Result::ok).unwrap_or_default().into_iter().map(|one| one.name).collect())
+    }
+
+    #[gpui::test]
+    fn pair_a_phone_draws_its_link_then_a_claim_from_the_second_poll_and_confirm_lists_the_phone(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        assert_eq!(phone_claim(&overlay, cx), None, "nothing is drawn before the press");
+        press(&overlay, "pair-phone", cx);
+        let (link, width) = overlay.read_with(cx, |this, _| this.macs.phone.as_ref().map(|phone| (phone.link.clone(), phone.qr.width))).expect("Pair a phone makes a link");
+        assert!(link.ends_with("/pair?code=a41f09c2"), "{link}");
+        assert!(width >= 21, "the QR code has its finder patterns");
+        press(&overlay, "copy-phone-link", cx);
+        assert_eq!(overlay.read_with(cx, |this, _| match &this.wire {
+            Wire::Mock(mock) => mock.handed.last().cloned(),
+            Wire::Live(_) => None,
+        }), Some(link), "Copy link copies the link");
+
+        ticks(2, cx);
+        assert_eq!(phone_claim(&overlay, cx), Some(None), "the first poll finds no claim");
+        ticks(2, cx);
+        assert_eq!(phone_claim(&overlay, cx), Some(Some("iPhone 15".into())), "the second finds the phone");
+
+        press(&overlay, "phone-confirm", cx);
+        assert_eq!(refused(&overlay, "phone-confirm", cx), None);
+        assert_eq!(phone_claim(&overlay, cx), None, "the panel closes");
+        assert_eq!(phone_names(&overlay, cx), ["iPhone", "iPad", "iPhone 15"], "the phone is in the list");
+        assert!(overlay.read_with(cx, |this, _| this.macs.keys.contains_key("unpair:phone-3")), "with its Unpair");
+    }
+
+    #[gpui::test]
+    fn decline_drops_the_code_and_the_claim_and_the_phone_is_not_listed(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        press(&overlay, "pair-phone", cx);
+        ticks(4, cx);
+        assert_eq!(phone_claim(&overlay, cx), Some(Some("iPhone 15".into())));
+        press(&overlay, "phone-decline", cx);
+        assert_eq!(phone_claim(&overlay, cx), None, "the code, the link and the claim are gone");
+        assert_eq!(refused(&overlay, "phone-decline", cx), None);
+        assert!(overlay.read_with(cx, |this, _| this.macs._phone.is_none()), "polling stops");
+        assert_eq!(phone_names(&overlay, cx), ["iPhone", "iPad"], "no phone joined");
+        overlay.read_with(cx, |this, _| match &this.wire {
+            Wire::Mock(mock) => assert!(mock.gateway.phone_pending_is_empty(), "the Gateway lists the code no more"),
+            Wire::Live(_) => {}
+        });
+    }
+
+    #[gpui::test]
+    fn a_decline_the_gateway_refuses_is_said_and_the_code_is_dropped_all_the_same(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        press(&overlay, "pair-phone", cx);
+        cx.update(|_, cx| overlay.update(cx, |this, _| {
+            if let Wire::Mock(mock) = &mut this.wire {
+                mock.gateway.phone_decline("a41f09c2").expect("the code ends once");
+            }
+        }));
+        press(&overlay, "phone-decline", cx);
+        assert_eq!(phone_claim(&overlay, cx), None);
+        assert_eq!(refused(&overlay, "phone-decline", cx).as_deref(), Some("This code is not good any more."));
+    }
+
+    #[gpui::test]
+    fn a_link_that_runs_out_goes_and_make_a_new_link_is_offered(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        press(&overlay, "pair-phone", cx);
+        cx.update(|_, cx| overlay.update(cx, |this, _| {
+            if let Some(phone) = this.macs.phone.as_mut() {
+                phone.code.expires_at = chrono::Utc::now().timestamp() - 1;
+            }
+        }));
+        ticks(1, cx);
+        assert_eq!(phone_claim(&overlay, cx), None, "the QR code and link go");
+        assert!(overlay.read_with(cx, |this, _| this.macs.lapsed));
+        assert!(overlay.read_with(cx, |this, _| this.macs.keys.get("phone-new").is_some_and(|new| this.macs_stops().contains(new))), "its press is a stop");
+        press(&overlay, "phone-new", cx);
+        assert_eq!(phone_claim(&overlay, cx), Some(None), "Make a new link starts again");
+        assert!(overlay.read_with(cx, |this, _| !this.macs.lapsed));
+    }
+
+    #[test]
+    fn the_qr_code_is_square_and_a_link_too_long_for_it_is_refused() {
+        let qr = Qr::of("https://studio.example.com/pair?code=a41f09c2").expect("encodes");
+        assert_eq!(qr.dark.len(), qr.width * qr.width);
+        assert!(qr.dark[0] && qr.dark[qr.width - 1] && qr.dark[qr.width * (qr.width - 1)], "the three finder corners are dark");
+        assert!(Qr::of(&"x".repeat(5000)).is_none());
     }
 }

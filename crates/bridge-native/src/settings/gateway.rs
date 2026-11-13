@@ -1,6 +1,7 @@
 //! The Phone Gateway's own routes on its loopback port, for Settings › Macs: `GET /admin/setup`,
 //! `POST /admin/setup/cloudflare`, `GET /admin/macs`, `POST /admin/macs/pair/{start,claim,confirm}`,
-//! `POST /admin/macs/forget`, `GET /admin/devices` and `DELETE /admin/devices/{id}` (`crates/pocket/src/routes.rs`).
+//! `POST /admin/macs/forget`, `POST /admin/pair/{start,confirm,decline}`, `GET /admin/pair/pending`, `GET /admin/devices`
+//! and `DELETE /admin/devices/{id}` (`crates/pocket/src/routes.rs`).
 //!
 //! **Not Fleet's port, and not Fleet's errors.** The Gateway answers a refusal as a plain sentence, and refuses
 //! any request that carries `Origin`, so it is asked over hyper's bare client, which sends only the headers
@@ -17,6 +18,7 @@ use hyper::Request;
 use hyper_util::rt::TokioIo;
 use ipc::{ClaimMacLink, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, MacNamed, MacPairLink, PairedPhone, Served, TailscaleState};
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
@@ -153,6 +155,74 @@ pub fn forget(mac: String, cx: &App) -> Task<Result<(), String>> {
     })
 }
 
+/// `POST /admin/pair/start`: the code a phone pairs with, where it is reached and when it stops working. `ipc` has no
+/// type for it: the Gateway writes it from a local struct (`crates/pocket/src/pair_routes.rs`).
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct PhoneCode {
+    pub code: String,
+    pub address: String,
+    /// Unix seconds.
+    pub expires_at: i64,
+}
+
+impl PhoneCode {
+    /// What the phone's camera opens; Pocket reads the code from it.
+    pub fn link(&self) -> String {
+        format!("{}/pair?code={}", self.address, self.code)
+    }
+}
+
+/// One entry of `GET /admin/pair/pending`: a phone that entered a code, waiting on Confirm here.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct PhoneClaim {
+    pub code: String,
+    pub name: String,
+    pub claimed_at: i64,
+}
+
+/// What a refused decline says when the code is gone, as the Gateway writes it.
+pub const CODE_GONE: &str = "This code is not good any more.";
+
+fn coded(code: String) -> Option<String> {
+    serde_json::to_string(&serde_json::json!({ "code": code })).ok()
+}
+
+/// `POST /admin/pair/start`.
+pub fn phone_start(cx: &App) -> Task<Result<PhoneCode, String>> {
+    posted("/admin/pair/start", None, "PhoneCode", cx)
+}
+
+/// `GET /admin/pair/pending`: every phone waiting on Confirm.
+pub fn phone_pending(cx: &App) -> Task<Result<Vec<PhoneClaim>, String>> {
+    read("/admin/pair/pending", "PhoneClaims", cx)
+}
+
+/// `POST /admin/pair/confirm`: the phone that entered the code, paired.
+pub fn phone_confirm(code: String, cx: &App) -> Task<Result<PairedPhone, String>> {
+    posted("/admin/pair/confirm", coded(code), "PairedPhone", cx)
+}
+
+/// `POST /admin/pair/decline`: 204 ends the claim. The route is coming (#3561), so a 404 or 405 that does not say the code
+/// is gone means it is not there yet, and answers as done: the caller drops the code here either way.
+pub fn phone_decline(code: String, cx: &App) -> Task<Result<(), String>> {
+    asked(cx, async move {
+        let (status, bytes) = send("POST", "/admin/pair/decline".into(), coded(code)).await?;
+        declined(status, &bytes)
+    })
+}
+
+fn declined(status: u16, bytes: &[u8]) -> Result<(), String> {
+    if (200..300).contains(&status) {
+        return Ok(());
+    }
+    let said = said_of(status, bytes);
+    match status {
+        404 if said == CODE_GONE => Err(said),
+        404 | 405 => Ok(()),
+        _ => Err(said),
+    }
+}
+
 /// The walk's and the tests' Gateway, passing through every tunnel state: `cloudflared` not downloaded yet; the
 /// first press downloads it and is refused, leaving this Mac signed out; the next asks for the sign-in, whose
 /// domain lookup fails once (no tunnel, and why); the press after that signs in and the tunnel runs; and a read
@@ -179,6 +249,9 @@ pub struct MockGateway {
     drops: bool,
     /// Reads a sign-in takes.
     sign_reads: u8,
+    /// The code a phone is asked to pair with, and the polls made since.
+    phone_code: Option<String>,
+    polls: u8,
 }
 
 /// This Mac's address under the domain the sign-in picks (`label_of` the Mac's name).
@@ -189,6 +262,10 @@ const MOCK_FUNNEL: &str = "https://studio.example.ts.net";
 pub const MOCK_OTHER_LINK: &str = "https://office.example.ts.net/pair/mac?code=7c41e0b2";
 /// The code in the link the mock's Start makes.
 const MOCK_CODE: &str = "5e0c1f7a";
+/// The code the mock's phone pairing makes.
+const MOCK_PHONE_CODE: &str = "a41f09c2";
+/// The phone that enters it, from the second poll.
+const MOCK_PHONE: &str = "iPhone 15";
 
 impl MockGateway {
     pub fn new() -> MockGateway {
@@ -217,6 +294,8 @@ impl MockGateway {
             looked_up: false,
             drops: true,
             sign_reads: 1,
+            phone_code: None,
+            polls: 0,
         }
     }
 
@@ -303,6 +382,53 @@ impl MockGateway {
         let before = self.phones.len();
         self.phones.retain(|one| one.id != id);
         if self.phones.len() == before { Err("No phone is paired with that id.".into()) } else { Ok(()) }
+    }
+
+    /// A code good for five minutes. Cleared by Decline and Confirm; a new one replaces it.
+    pub fn phone_start(&mut self) -> Result<PhoneCode, String> {
+        self.up()?;
+        let address = self.address().ok_or("Tailscale is not signed in on this Mac. Sign in to it, then start pairing again.")?;
+        self.phone_code = Some(MOCK_PHONE_CODE.into());
+        self.polls = 0;
+        Ok(PhoneCode { code: MOCK_PHONE_CODE.into(), address, expires_at: chrono::Utc::now().timestamp() + 5 * 60 })
+    }
+
+    /// Empty at the first poll, and the phone's claim from the second.
+    pub fn phone_pending(&mut self) -> Result<Vec<PhoneClaim>, String> {
+        self.up()?;
+        let Some(code) = self.phone_code.clone() else { return Ok(Vec::new()) };
+        self.polls = self.polls.saturating_add(1);
+        Ok(if self.polls >= 2 { vec![PhoneClaim { code, name: MOCK_PHONE.into(), claimed_at: chrono::Utc::now().timestamp() }] } else { Vec::new() })
+    }
+
+    pub fn phone_confirm(&mut self, code: &str) -> Result<PairedPhone, String> {
+        self.up()?;
+        if self.phone_code.as_deref() != Some(code) {
+            return Err("This code is not good any more. Start pairing again.".into());
+        }
+        if self.polls < 2 {
+            return Err("No phone has entered this code yet.".into());
+        }
+        self.phone_code = None;
+        let now = chrono::Utc::now().timestamp();
+        let phone = PairedPhone { id: "phone-3".into(), name: MOCK_PHONE.into(), created_at: now, last_seen_at: Some(now) };
+        self.phones.push(phone.clone());
+        Ok(phone)
+    }
+
+    /// Whether no code waits on a claim: Decline and Confirm leave none.
+    pub fn phone_pending_is_empty(&self) -> bool {
+        self.phone_code.is_none()
+    }
+
+    /// Ends the claim: the code is not listed again.
+    pub fn phone_decline(&mut self, code: &str) -> Result<(), String> {
+        self.up()?;
+        if self.phone_code.as_deref() != Some(code) {
+            return Err(CODE_GONE.into());
+        }
+        self.phone_code = None;
+        Ok(())
     }
 
     /// This Mac's address with its scheme, where it has one.
@@ -480,5 +606,43 @@ mod tests {
         assert!(gateway.unpair("phone-2").is_ok());
         assert!(gateway.phones.iter().all(|one| one.id != "phone-2"));
         assert_eq!(gateway.unpair("phone-2"), Err("No phone is paired with that id.".into()));
+    }
+
+    #[test]
+    fn a_phone_claims_from_the_second_poll_and_confirm_pairs_it() {
+        let mut gateway = MockGateway::new();
+        let made = gateway.phone_start().expect("start");
+        assert_eq!(made.link(), format!("{MOCK_FUNNEL}/pair?code={MOCK_PHONE_CODE}"));
+        assert!(made.expires_at > chrono::Utc::now().timestamp() + 4 * 60, "about five minutes");
+        assert_eq!(gateway.phone_confirm(&made.code), Err("No phone has entered this code yet.".into()));
+        assert_eq!(gateway.phone_pending(), Ok(Vec::new()), "the first poll finds none");
+        let claims = gateway.phone_pending().expect("pending");
+        assert_eq!(claims.iter().map(|one| (one.code.as_str(), one.name.as_str())).collect::<Vec<_>>(), [(MOCK_PHONE_CODE, MOCK_PHONE)]);
+        let paired = gateway.phone_confirm(&made.code).expect("confirm");
+        assert_eq!(paired.name, MOCK_PHONE);
+        assert!(gateway.phones.iter().any(|one| one.id == paired.id), "the phone is in the list");
+        assert_eq!(gateway.phone_confirm(&made.code), Err("This code is not good any more. Start pairing again.".into()), "a spent code");
+    }
+
+    #[test]
+    fn decline_ends_the_claim_and_says_when_the_code_is_gone() {
+        let mut gateway = MockGateway::new();
+        let made = gateway.phone_start().expect("start");
+        gateway.phone_pending().expect("pending");
+        gateway.phone_pending().expect("pending");
+        assert_eq!(gateway.phone_decline(&made.code), Ok(()));
+        assert_eq!(gateway.phone_pending(), Ok(Vec::new()), "the code is not listed again");
+        assert_eq!(gateway.phones.len(), 2, "no phone joined");
+        assert_eq!(gateway.phone_decline(&made.code), Err(CODE_GONE.into()));
+    }
+
+    #[test]
+    fn a_decline_the_gateway_does_not_have_yet_answers_as_done() {
+        assert_eq!(declined(204, b""), Ok(()));
+        assert_eq!(declined(404, b""), Ok(()), "a missing route with no body");
+        assert_eq!(declined(404, b"Not Found"), Ok(()));
+        assert_eq!(declined(405, b"Method Not Allowed"), Ok(()));
+        assert_eq!(declined(404, b"This code is not good any more.\n"), Err(CODE_GONE.into()));
+        assert_eq!(declined(500, b"The store failed."), Err("The store failed.".into()));
     }
 }
