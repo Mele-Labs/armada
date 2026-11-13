@@ -133,7 +133,8 @@ impl Seen {
                 self.current = Some(to);
             }
             Some((None, rect)) => {
-                self.ask = Some(ask(rect));
+                // The last step stays beside the box where the frame holds both, so the box clears the heads by a column.
+                self.ask = Some(Ask { rects: std::iter::once(rect).chain(placement.items.get(from).copied()).collect(), ..ask(rect) });
                 self.end = lanes.iter().find(|lane| lane.nodes.iter().any(|node| node.id == from)).map(|lane| lane.id.clone());
             }
             None => {}
@@ -240,8 +241,6 @@ struct Placement {
     lane_h: f32,
     width: f32,
     height: f32,
-    /// Where a step after the last would start.
-    next_x: f32,
 }
 
 impl Placement {
@@ -251,11 +250,11 @@ impl Placement {
     }
 
     /// Where an arrow from `from` goes: the nearest node that way, or with `past_end`, → past the last step
-    /// brings in the empty column on `from`'s row.
+    /// brings in the column after `from` on its row, where the host draws its box with the End dot after it.
     fn arrow_to(&self, from: &str, key: &str, ends: &HashSet<String>, past_end: bool) -> Option<(Option<String>, Rect)> {
         match nearest(&self.items, from, key, ends) {
             Some(to) => self.items.get(&to).map(|rect| (Some(to), *rect)),
-            None if past_end && key == "right" => self.items.get(from).map(|row| (None, Rect { x: self.next_x, y: row.y, w: NODE_W, h: row.h })),
+            None if past_end && key == "right" => self.items.get(from).map(|row| (None, Rect { x: row.x + COL_W, y: row.y, w: NODE_W + DOT_GAP + DOT, h: row.h })),
             None => None,
         }
     }
@@ -816,7 +815,7 @@ mod tests {
         seen.arrow(&placement, &lanes.lanes, &last.id, "right", &ends, true);
         assert_eq!(seen.end.as_deref(), Some(lane.id.as_str()));
         assert_eq!(seen.current.as_deref(), Some(last.id.as_str()));
-        assert_eq!(seen.ask.take().map(|ask| ask.rects[0].x), Some(placement.next_x));
+        assert_eq!(seen.ask.take().map(|ask| (ask.rects[0].x, ask.rects[1])), Some((row.x + super::COL_W, row)));
 
         // There, the other arrows stay.
         for key in ["right", "up", "down"] {
@@ -830,5 +829,42 @@ mod tests {
         assert!(seen.end.is_none());
         assert_eq!(seen.current.as_deref(), Some(last.id.as_str()));
         assert_eq!(seen.ask.take().map(|ask| (ask.rects[0].x, ask.rects[0].y)), Some((row.x, row.y)));
+    }
+
+    #[test]
+    fn the_end_box_lands_in_the_end_dots_column_clear_of_the_heads_and_job_lanes_stay_put() {
+        let mut lanes = ipc::decode::<ipc::JobLanesView>("JobLanesView", include_bytes!("../../fixtures/job-lanes.json")).unwrap();
+        // Settings' editor: the End dot stands a column past the last step, where the box is drawn.
+        let end = lanes.lanes[0].nodes.iter_mut().find(|node| node.kind == ipc::LaneNodeKind::End).unwrap();
+        end.col += 1;
+        let end = end.id.clone();
+        let placement = super::place(&lanes.lanes, 600.);
+        let ends: std::collections::HashSet<String> = lanes.lanes.iter().flat_map(|lane| lane.nodes.iter()).filter(|node| matches!(node.kind, ipc::LaneNodeKind::Start | ipc::LaneNodeKind::End)).map(|node| node.id.clone()).collect();
+        let last = "workflow/land".to_string();
+        let (row, dot) = (placement.items[&last], placement.items[&end]);
+        let home = View { x: 0., y: 0., zoom: 1. };
+
+        // 458 is the editor's canvas in an 820 window, where the box and the step before it do not both fit.
+        for (width, both) in [(458., false), (1000., true)] {
+            let frame = (width, 600.);
+            let view = pan_to(&[row], home, frame, (placement.reach(true), placement.height), false, false, true).unwrap_or(home);
+            let mut seen = super::Seen { current: Some(last.clone()), view, ..Default::default() };
+            seen.arrow(&placement, &lanes.lanes, &last, "right", &ends, true);
+            let ask = seen.ask.take().unwrap();
+            assert_eq!(ask.rects[0].x, dot.x - super::DOT_GAP - super::NODE_W, "{width}");
+            let next = pan_to(&ask.rects, view, frame, (placement.reach(true), placement.height), ask.follow, ask.earliest, ask.keep).unwrap_or(view);
+            // The box and its dot are whole and clear of the heads, and where both fit the last step stands between.
+            assert!(ask.rects[0].x + next.x >= HEAD + PAD - 0.5, "{width}: {next:?}");
+            assert!(dot.x + super::DOT + next.x <= width - PAD + 0.5, "{width}: {next:?}");
+            assert_eq!(row.x + next.x >= HEAD + PAD - 0.5, both, "{width}: {next:?}");
+            if !both {
+                assert!(ask.rects[0].x + next.x > HEAD + PAD + 0.5, "{width}: {next:?}");
+            }
+
+            // A Job's lanes reach no further: → from the last step asks for no pan.
+            let mut job = super::Seen { current: Some(last.clone()), view, ..Default::default() };
+            job.arrow(&placement, &lanes.lanes, &last, "right", &ends, false);
+            assert!(job.ask.is_none() && job.end.is_none(), "{width}");
+        }
     }
 }

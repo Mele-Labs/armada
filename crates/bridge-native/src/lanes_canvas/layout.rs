@@ -35,7 +35,7 @@ pub(super) fn place(lanes: &[LaneView], height: f32) -> Placement {
             items.insert(node.id.clone(), rect);
         }
     }
-    Placement { bands, items, lane_h, width, height: lanes.len() as f32 * lane_h, next_x: origin + (last + 1.) * COL_W }
+    Placement { bands, items, lane_h, width, height: lanes.len() as f32 * lane_h }
 }
 
 /// A time of day in his clock, as the chips read it (`clock`).
