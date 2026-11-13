@@ -658,3 +658,21 @@ where
 fn resting(record: &SessionRecord) -> bool {
     record.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some()) || record.snoozed_until.is_some()
 }
+
+#[cfg(test)]
+mod tests {
+    use ipc::SessionRecord;
+
+    fn row(extra: &str) -> SessionRecord {
+        let text = format!(
+            r#"{{"id":"s1","harness":"h","origin":"bridge","cwd":"/r","state":"live","started_at":"2026-10-08T01:00:00.000Z","last_seen_at":"2026-10-08T01:00:00.000Z","usage":{{}},"attachments":[]{extra}}}"#
+        );
+        ipc::decode("a session", text.as_bytes()).expect("a session")
+    }
+
+    #[test]
+    fn a_snoozed_job_rests_and_its_raises_are_left_as_they_stand() {
+        assert!(!super::resting(&row("")));
+        assert!(super::resting(&row(r#","snoozed_until":"2026-10-08T05:00:00.000Z""#)));
+    }
+}
