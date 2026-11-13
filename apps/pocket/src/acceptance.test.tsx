@@ -195,6 +195,16 @@ const rows = (section: string) =>
   Array.from(host.querySelectorAll(`[aria-label="${section}"] li`)).map(
     (one) => one.textContent ?? "",
   );
+/** Home's Job rows as drawn, all of them or those under one repository's heading. */
+const jobs = (heading?: string) =>
+  Array.from(
+    host.querySelectorAll<HTMLElement>(
+      `.pk-home ${heading === undefined ? "" : `section[aria-label="${heading}"] `}button.deck-row`,
+    ),
+  );
+const titles = (heading?: string) => jobs(heading).map((one) => one.getAttribute("aria-label"));
+const job = (title: string) =>
+  host.querySelector<HTMLElement>(`.pk-home button.deck-row[aria-label="${title}"]`);
 const press = async (element: Element | null | undefined) => {
   expect(element).toBeTruthy();
   await act(async () => (element as HTMLElement).click());
@@ -255,33 +265,28 @@ afterEach(async () => {
 describe("Pocket v2 with two Macs", {
   timeout: 30_000,
 }, () => {
-  it("lists Needs you from both Macs, oldest first, each row labelled with its Mac", async () => {
+  it("lists every Job from both Macs in Fleet's order under a heading for each repository, each row labelled with its Mac", async () => {
     await open("/");
-    await vi.waitFor(() => expect(rows("Needs you")).toHaveLength(8));
-    const needs = rows("Needs you");
-    const waiting: [
+    await vi.waitFor(() => expect(jobs()).toHaveLength(20));
+    expect(Array.from(host.querySelectorAll("h2")).map((one) => one.textContent)).toEqual([
+      "armada",
+      "store",
+    ]);
+    const listed: [
       string,
       string,
     ][] = [
-      [
-        "Rename the slot pool",
-        "laptop",
-      ],
-      [
-        "Close out the tracker mod",
-        "studio",
-      ],
-      [
-        "Trim the Drone pool",
-        "studio",
-      ],
       [
         "Review what a Job waits on",
         "studio",
       ],
       [
-        "Open the push payload PR",
-        "laptop",
+        "Split the pool crate",
+        "studio",
+      ],
+      [
+        "Trim the Drone pool",
+        "studio",
       ],
       [
         "Move Fleet to the preview",
@@ -295,15 +300,70 @@ describe("Pocket v2 with two Macs", {
         "Move the walk engine",
         "studio",
       ],
+      [
+        "Close out the tracker mod",
+        "studio",
+      ],
+      [
+        "Plan the phone screens",
+        "studio",
+      ],
+      [
+        "Build the Draft screen",
+        "studio",
+      ],
+      [
+        "Measure the Draft screen on a phone",
+        "studio",
+      ],
+      [
+        "Write the Draft screen copy",
+        "studio",
+      ],
+      [
+        "Redraw the Needs you band",
+        "studio",
+      ],
+      [
+        "Draw the slot pool on the phone",
+        "studio",
+      ],
+      [
+        "Trim the Drone pool tests",
+        "studio",
+      ],
+      [
+        "Check the restart notes",
+        "studio",
+      ],
+      [
+        "Rename the slot pool",
+        "laptop",
+      ],
+      [
+        "Open the push payload PR",
+        "laptop",
+      ],
+      [
+        "Read the push payload",
+        "laptop",
+      ],
+      [
+        "Trace every slot lease",
+        "laptop",
+      ],
+      [
+        "Move the slot docs",
+        "laptop",
+      ],
     ];
-    waiting.forEach(([title, mac], at) => {
-      expect(needs[at]).toContain(title);
-      expect(needs[at]).toContain(mac);
-    });
-    await vi.waitFor(() => expect(rows("Running").join()).toContain("Read the push payload"));
-    expect(rows("Running").join()).toContain("Redraw the Needs you band");
-    expect(rows("Done").join()).toContain("Trim the Drone pool tests");
-    expect(rows("Running").join()).not.toContain("Trim the Drone pool tests");
+    expect(titles()).toEqual(listed.map(([title]) => title));
+    expect(titles("armada")).toEqual(listed.slice(0, 15).map(([title]) => title));
+    expect(titles("store")).toEqual(listed.slice(15).map(([title]) => title));
+    for (const [title, mac] of listed)
+      expect(job(title)!.querySelector(".pk-row__mac")!.textContent).toBe(mac);
+    const said = job("Trim the Drone pool tests")!.querySelector(".deck-row__says")!.textContent;
+    expect(said).toContain("The pool tests now cover shrinking to four slots");
     expect(text()).not.toContain("Fix the merge line");
   });
 
@@ -312,12 +372,31 @@ describe("Pocket v2 with two Macs", {
     await open("/");
     await vi.waitFor(() => expect(text()).toContain("Not paired"));
     expect(window.location.pathname).toBe("/");
-    const needs = rows("Needs you");
-    expect(needs).toHaveLength(6);
-    expect(needs[0]).toContain("Close out the tracker mod");
-    expect(needs[1]).toContain("Trim the Drone pool");
-    expect(needs[2]).toContain("Review what a Job waits on");
-    expect(needs.join()).not.toContain("laptop");
+    await vi.waitFor(() => expect(jobs()).toHaveLength(15));
+    expect(titles()).toEqual([
+      "Review what a Job waits on",
+      "Split the pool crate",
+      "Trim the Drone pool",
+      "Move Fleet to the preview",
+      "Fix the lost lease",
+      "Move the walk engine",
+      "Close out the tracker mod",
+      "Plan the phone screens",
+      "Build the Draft screen",
+      "Measure the Draft screen on a phone",
+      "Write the Draft screen copy",
+      "Redraw the Needs you band",
+      "Draw the slot pool on the phone",
+      "Trim the Drone pool tests",
+      "Check the restart notes",
+    ]);
+    // One repository is left, so no heading stands over it.
+    expect(host.querySelectorAll("h2")).toHaveLength(0);
+    expect(
+      jobs()
+        .map((one) => one.textContent)
+        .join(),
+    ).not.toContain("laptop");
     const unpaired = rows("Macs");
     expect(unpaired.join()).toContain("laptop");
     expect(button("Pair again")).toBeTruthy();
@@ -417,25 +496,34 @@ describe("Pocket v2 with two Macs", {
 describe("the phone draws as Bridge does", {
   timeout: 30_000,
 }, () => {
-  it("says what holds a Waiting row on its second line, pulses only Needs you, and gives a Job's header the row's words", async () => {
+  it("says what holds a waiting Job on its second line, pulses only the Jobs that need him, and gives a Job's header the row's words", async () => {
     const states = everyState(NOW);
     macs[STUDIO]!.live.push(...states.live);
     Object.assign(macs[STUDIO]!.threads, states.threads);
     await open("/");
-    const row = (section: string, title: string) =>
-      host.querySelector<HTMLElement>(`[aria-label="${section}"] .deck-row[aria-label="${title}"]`);
-    await vi.waitFor(() => expect(row("Waiting", "Land the slot fixes")).not.toBeNull());
-    expect(
-      row("Waiting", "Land the slot fixes")!.querySelector(".deck-row__says")!.textContent,
-    ).toBe("#3209 in the merge queuestudio");
-    expect(host.querySelectorAll('[aria-label="Waiting"] .deck-row[data-needs]')).toHaveLength(0);
-    expect(host.querySelectorAll('[aria-label="Running"] .deck-row[data-needs]')).toHaveLength(0);
-    expect(row("Needs you", "Trace the slow restart")!.dataset["needs"]).toBeDefined();
-    expect(
-      row("Running", "Sort the palette rows")!.querySelector(".deck-row__says")!.textContent,
-    ).toBe("armadastudio");
+    await vi.waitFor(() => expect(job("Land the slot fixes")).not.toBeNull());
+    expect(job("Land the slot fixes")!.querySelector(".deck-row__says")!.textContent).toBe(
+      "#3209 in the merge queuestudio",
+    );
+    // What the Cockpit files as waiting, or running, holds nothing of his: none of it pulses.
+    for (const title of [
+      "Land the slot fixes",
+      "Fix the push retry",
+      "Deploy the store to staging",
+      "Check the docs pass",
+      "Rewrite the import map",
+      "Tidy the doc index",
+      "Sort the settings groups",
+      "Sort the palette rows",
+    ])
+      expect(job(title)!.dataset["needs"]).toBeUndefined();
+    expect(job("Trace the slow restart")!.dataset["needs"]).toBeDefined();
+    // Under its repository's heading a row does not name the repository again.
+    expect(job("Sort the palette rows")!.querySelector(".deck-row__says")!.textContent).toBe(
+      "studio",
+    );
 
-    row("Waiting", "Land the slot fixes")!.click();
+    job("Land the slot fixes")!.click();
     await vi.waitFor(() =>
       expect(
         host.querySelector('.pk-pane [aria-label^="#3209 in the merge queue"]'),
@@ -443,44 +531,110 @@ describe("the phone draws as Bridge does", {
     );
   });
 
-  it("lists Home as the Cockpit's rows, Needs you in the ask tone above Running, each with its age", async () => {
+  it("lists Home as the Cockpit's rows in Fleet's order, a Job that needs him in the ask tone, each with its age", async () => {
     await open("/");
-    await vi.waitFor(() =>
-      expect(host.querySelectorAll('[aria-label="Running"] .deck-row')).toHaveLength(5),
-    );
-    const asking = Array.from(
-      host.querySelectorAll<HTMLElement>('[aria-label="Needs you"] .deck-row'),
-    );
+    await vi.waitFor(() => expect(jobs()).toHaveLength(20));
+    const asking = jobs().filter((row) => row.dataset["needs"] !== undefined);
     expect(asking.map((row) => row.getAttribute("aria-label"))).toEqual([
-      "Rename the slot pool",
-      "Close out the tracker mod",
-      "Trim the Drone pool",
       "Review what a Job waits on",
-      "Open the push payload PR",
+      "Trim the Drone pool",
       "Move Fleet to the preview",
       "Fix the lost lease",
       "Move the walk engine",
+      "Close out the tracker mod",
+      "Write the Draft screen copy",
+      "Rename the slot pool",
+      "Open the push payload PR",
     ]);
     expect(
-      asking.every((row) => row.dataset["tone"] === "ask" && row.dataset["needs"] !== undefined),
+      jobs().every(
+        (row) => (row.dataset["tone"] === "ask") === (row.dataset["needs"] !== undefined),
+      ),
     ).toBe(true);
     expect(
       asking.every((row) => /ago$/.test(row.querySelector(".deck-row__said")?.textContent ?? "")),
     ).toBe(true);
     const headings = Array.from(host.querySelectorAll("h2")).map((one) => one.textContent);
     expect(headings).toEqual([
-      "Drafts",
-      "Needs you",
-      "Done",
-      "Waiting",
-      "Running",
+      "armada",
+      "store",
     ]);
   });
 
-  it("ends a Job that said it is done from its row in Done, without opening it", async () => {
+  it("steps a Job another started in under its starter, one step for each starter above it, and links only a Job whose starter is not listed", async () => {
+    // The Job that started this one has ended, so it is no longer listed.
+    macs[STUDIO]!.live.find((one) => one.id === "a4")!.from = {
+      id: "ended",
+      title: "Plan the restart notes",
+    };
     await open("/");
-    await vi.waitFor(() => expect(rows("Done")).toHaveLength(1));
-    await press(host.querySelector('[aria-label="Done"] button[aria-label="End job"]'));
+    await vi.waitFor(() => expect(jobs()).toHaveLength(20));
+    const depth = (title: string) => {
+      const item = job(title)!.closest("li")!;
+      return {
+        nested: item.dataset["nested"] !== undefined,
+        step: item.style.getPropertyValue("--pk-depth"),
+      };
+    };
+    expect(depth("Plan the phone screens")).toEqual({
+      nested: false,
+      step: "",
+    });
+    expect(depth("Build the Draft screen")).toEqual({
+      nested: true,
+      step: "1",
+    });
+    expect(depth("Measure the Draft screen on a phone")).toEqual({
+      nested: true,
+      step: "2",
+    });
+    expect(depth("Write the Draft screen copy")).toEqual({
+      nested: true,
+      step: "1",
+    });
+    const order = titles("armada");
+    const at = (title: string) => order.indexOf(title);
+    expect(at("Build the Draft screen")).toBe(at("Plan the phone screens") + 1);
+    expect(at("Measure the Draft screen on a phone")).toBe(at("Build the Draft screen") + 1);
+    expect(at("Write the Draft screen copy")).toBe(at("Measure the Draft screen on a phone") + 1);
+    // Each row turns its starter's line in at an elbow; the line runs on down only past rows its starter has more under.
+    const guides = (title: string) =>
+      Array.from(job(title)!.closest("li")!.querySelectorAll<HTMLElement>(".pk-guide")).map(
+        (one) =>
+          `${one.classList.contains("pk-guide--elbow") ? "elbow" : "line"}@${one.style.getPropertyValue("--pk-column")}`,
+      );
+    expect(guides("Plan the phone screens")).toEqual([]);
+    expect(guides("Build the Draft screen")).toEqual([
+      "line@0",
+      "elbow@0",
+    ]);
+    expect(guides("Measure the Draft screen on a phone")).toEqual([
+      "line@0",
+      "elbow@1",
+    ]);
+    expect(guides("Write the Draft screen copy")).toEqual([
+      "elbow@0",
+    ]);
+    // The link mark names the starter, and a row stepped in under it has no need of one.
+    const linked = (title: string) => job(title)!.querySelector(".deck-row__link [role='img']");
+    expect(linked("Build the Draft screen")).toBeNull();
+    expect(linked("Measure the Draft screen on a phone")).toBeNull();
+    expect(linked("Write the Draft screen copy")).toBeNull();
+    expect(linked("Plan the phone screens")).toBeNull();
+    expect(linked("Check the restart notes")!.getAttribute("aria-label")).toBe(
+      "Plan the restart notes",
+    );
+    expect(depth("Check the restart notes").nested).toBe(false);
+  });
+
+  it("ends a Job that said it is done from its row, without opening it", async () => {
+    await open("/");
+    await vi.waitFor(() => expect(job("Trim the Drone pool tests")).not.toBeNull());
+    await press(
+      job("Trim the Drone pool tests")!
+        .closest("li")!
+        .querySelector('button[aria-label="End job"]'),
+    );
     await vi.waitFor(() =>
       expect(posted[STUDIO]).toEqual([
         {
@@ -491,7 +645,8 @@ describe("the phone draws as Bridge does", {
         },
       ]),
     );
-    await vi.waitFor(() => expect(host.querySelector('[aria-label="Done"]')).toBeNull());
+    await vi.waitFor(() => expect(job("Trim the Drone pool tests")).toBeNull());
+    expect(window.location.pathname).toBe("/");
   });
 
   it("opens a Job with Bridge's composer under its thread", async () => {
@@ -542,13 +697,13 @@ describe("a draft Job, and the acts on a Job", {
 
   beforeEach(() => localStorage.clear());
 
-  it("lists a held Job under Drafts, and neither under Needs you nor under Running", async () => {
+  it("lists a held Job as a row of its own, not in the ask tone, and opens it to its draft", async () => {
     await open("/");
-    await vi.waitFor(() => expect(rows("Drafts")).toHaveLength(1));
-    expect(rows("Drafts")[0]).toContain("Split the pool crate");
-    expect(rows("Needs you").join()).not.toContain("Split the pool crate");
-    expect(rows("Running").join()).not.toContain("Split the pool crate");
-    await press(host.querySelector('[aria-label="Drafts"] .deck-row'));
+    await vi.waitFor(() => expect(job("Split the pool crate")).not.toBeNull());
+    expect(titles().filter((one) => one === "Split the pool crate")).toHaveLength(1);
+    expect(job("Split the pool crate")!.dataset["needs"]).toBeUndefined();
+    expect(job("Split the pool crate")!.dataset["tone"]).toBe("calm");
+    await press(job("Split the pool crate"));
     expect(window.location.pathname).toBe(DRAFT);
   });
 
@@ -615,8 +770,8 @@ describe("a draft Job, and the acts on a Job", {
       ]),
     );
     await vi.waitFor(() => expect(window.location.pathname).toBe("/"));
-    await vi.waitFor(() => expect(rows("Needs you").length).toBeGreaterThan(0));
-    await vi.waitFor(() => expect(host.querySelector('[aria-label="Drafts"]')).toBeNull());
+    await vi.waitFor(() => expect(jobs().length).toBeGreaterThan(0));
+    await vi.waitFor(() => expect(job("Split the pool crate")).toBeNull());
   });
 
   it("forgets a draft's brief once it is sent, so nothing of it stays kept", async () => {
@@ -1484,6 +1639,11 @@ describe("a Job that waits on another", {
         "Group: Rename in the crate",
         "Task: Rename Pool to Slots",
         "Task: Rename the tests",
+        "Group: Rename in Bridge",
+        "Task: Rename the labels and tooltips",
+        "Task: Walk the Slots page",
+        "Group: Rename in the docs",
+        "Task: Rename the concept page",
       ]),
     );
     await pick("Plan part", "t2");
@@ -1533,6 +1693,97 @@ describe("a Job that waits on another", {
         "End job",
       ]),
     );
+  });
+});
+
+describe("a plan's card on the phone", {
+  timeout: 30_000,
+}, () => {
+  const PLAN = `/jobs/${encodeURIComponent(LAPTOP)}/b1`;
+  const OWN = "Rename in the docs";
+  const TASKS = [
+    "Rename Pool to Slots",
+    "Rename the tests",
+    "Rename the labels and tooltips",
+    "Walk the Slots page",
+    "Rename the concept page",
+  ];
+  /** The card a group that goes to a Job of its own is drawn as, not started yet. */
+  const placeholders = () => host.querySelectorAll(`[role="group"][aria-label^="${OWN}"]`);
+  const gives = () =>
+    Array.from(host.querySelectorAll('[aria-label="What each group gives"] li')).map(
+      (one) => one.textContent,
+    );
+
+  it("lists each task's words under its group once Details is pressed, and not before", async () => {
+    await open(PLAN);
+    await vi.waitFor(() => expect(button("Details")).toBeTruthy());
+    for (const words of TASKS) expect(text()).not.toContain(words);
+    await press(button("Details"));
+    for (const words of TASKS) expect(text()).toContain(words);
+  });
+
+  it("draws the group that goes to a Job of its own as one placeholder card, in Details", async () => {
+    await open(PLAN);
+    await vi.waitFor(() => expect(button("Details")).toBeTruthy());
+    expect(placeholders()).toHaveLength(0);
+    await press(button("Details"));
+    expect(placeholders()).toHaveLength(1);
+    expect(placeholders()[0]!.getAttribute("aria-label")).toBe(`${OWN}, not started yet`);
+  });
+
+  it("lists what the own-Job group gives with the others', and under its card with its tasks", async () => {
+    await open(PLAN);
+    await vi.waitFor(() => expect(button("Details")).toBeTruthy());
+    expect(gives()).toEqual([
+      "The crate and its tests say slot",
+      "Every screen says slot where it said pool",
+      "The docs say slot, with the old word named once",
+    ]);
+    await press(button("Details"));
+    const run = placeholders()[0]!.closest("section")!;
+    expect(run.textContent).toContain("The docs say slot, with the old word named once");
+    expect(run.textContent).toContain("Rename the concept page");
+    expect(run.textContent).not.toContain("Rename Pool to Slots");
+  });
+});
+
+describe("a Job longer than one read", {
+  timeout: 30_000,
+}, () => {
+  const LONG = `/jobs/${encodeURIComponent(LAPTOP)}/b4`;
+  const reads = () =>
+    sent
+      .filter((one) => one.origin === LAPTOP && one.target.startsWith("/api/sessions/one?"))
+      .map((one) => one.target);
+
+  it("opens on its newest rows, not its first, asking for 200 of them", async () => {
+    await open(LONG);
+    await vi.waitFor(() => expect(text()).toContain("Turn 448 of 450."));
+    expect(text()).not.toContain("Turn 1 of 450.");
+    expect(reads()[0]).toBe("/api/sessions/one?session_id=b4&last=200");
+    expect(button("Show earlier")).toBeTruthy();
+  });
+
+  it("reaches its first row by pressing Show earlier, and the press goes once it has", async () => {
+    await open(LONG);
+    await vi.waitFor(() => expect(text()).toContain("Turn 448 of 450."));
+    await vi.waitFor(
+      async () => {
+        const more = button("Show earlier");
+        if (more !== undefined) await press(more);
+        expect(button("Show earlier")).toBeUndefined();
+      },
+      {
+        timeout: 20_000,
+        interval: 50,
+      },
+    );
+    expect(text()).toContain("Turn 1 of 450.");
+    expect(text()).toContain("Turn 448 of 450.");
+    // Each page asks for the rows before the first one held.
+    expect(reads()).toContain("/api/sessions/one?session_id=b4&last=200&before=b4-250");
+    expect(reads()).toContain("/api/sessions/one?session_id=b4&last=200&before=b4-50");
   });
 });
 
@@ -1587,6 +1838,7 @@ describe("the lists stay fresh", {
       "l1",
       "s1",
       "o1",
+      "c2",
     ]);
     expect(fleet.macOf(LAPTOP)!.needs.map((one) => one.id)).toEqual([
       "b1",

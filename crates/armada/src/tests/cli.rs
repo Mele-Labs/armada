@@ -287,3 +287,12 @@ fn build_takes_revert_rehearse_and_settle_and_says_so_for_anything_else() {
     assert!(said("build revert now").contains("`armada build revert now`"));
     assert!(Usage.to_string().contains("armada build revert"));
 }
+
+#[test]
+fn fleet_takes_start_and_says_so_for_anything_else() {
+    assert_eq!(asked("fleet start"), Ok(Verb::FleetStart));
+    assert!(said("fleet").contains("it takes `fleet start`"));
+    assert!(said("fleet restart").contains("`armada fleet restart`"));
+    assert!(said("fleet start now").contains("`armada fleet start now`"));
+    assert!(Usage.to_string().contains("armada fleet start"));
+}

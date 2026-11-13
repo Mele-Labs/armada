@@ -1,7 +1,7 @@
 //! The claim, written before the code: **with the Operator on and seated, the person's dispatch goes to it
-//! before any Job exists.** It starts a Job, folds the work into a live Job, or asks him on its card; where no
-//! live Job is near, the Operator is off or a call fails, the Job starts at once, and his work is never lost.
-//! `docs/concepts/operator.md`.
+//! before any Job exists.** It starts a Job, folds the work into a live Job, keeps it for later or asks him on its
+//! card; where the Operator is off or a call fails, the Job starts at once, and his work is never lost. **What he
+//! marks it as is a hint the Operator reads, and picks no way and no workflow.** `docs/concepts/operator.md`.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -117,21 +117,27 @@ fn called(kind: DispatchKind, rig: &Rig) -> DispatchJob {
     DispatchJob { kind: Some(kind), ..the_dispatch(rig) }
 }
 
+const KINDS: [DispatchKind; 3] = [DispatchKind::Idea, DispatchKind::Feature, DispatchKind::Bug];
+
 #[tokio::test]
-async fn a_feature_no_live_job_is_near_starts_at_once_with_no_call_and_is_told() {
-    let rig = rig_placing(None);
-    let call = seated(&rig, &[]).await;
-    let mut watching = rig.fleet.events().subscribe();
+async fn every_kind_goes_to_the_call_even_where_no_live_job_is_near_offered_every_way_and_is_started_as_ruled() {
+    for kind in KINDS {
+        let rig = rig_placing(None);
+        let call = seated(&rig, &[&ruling(1, None)]).await;
+        let mut watching = rig.fleet.events().subscribe();
 
-    let answer = dispatched(&rig, called(DispatchKind::Feature, &rig)).await;
+        let answer = dispatched(&rig, called(kind, &rig)).await;
 
-    let record = answer.session.expect("a Job");
-    assert_eq!(answer.operator, None);
-    assert!(call.asked().is_empty(), "no live Job is near, so no call");
-    let event = told(&mut watching).await;
-    assert_eq!((event.way, event.session_id.as_ref(), event.manifest_id.as_str()), (DispatchWay::Started, Some(&record.id), rig.manifest.as_str()));
-    eventually(|| async { thread(&rig, record.id.as_str()).await.contains(ALSO) }).await;
-    assert_eq!(dispatch_kept(&rig).await, 0);
+        let id = answer.operator.clone().expect("held by the Operator");
+        assert!(answer.session.is_none() && answer.parked.is_none(), "{kind:?}: {answer:?}");
+        let event = told(&mut watching).await;
+        assert_eq!((event.way, event.dispatch_id.as_str(), event.manifest_id.as_str()), (DispatchWay::Started, id.as_str(), rig.manifest.as_str()), "{kind:?}");
+        let started = event.session_id.expect("names the Job");
+        assert_eq!(call.asked().len(), 1, "{kind:?}: one call, whatever he called it");
+        assert!(call.asked()[0].contains("park: keep it for later as an idea and start no Job"), "{kind:?}: park is offered: {}", call.asked()[0]);
+        eventually(|| async { thread(&rig, started.as_str()).await.contains(ALSO) }).await;
+        assert_eq!(dispatch_kept(&rig).await, 0, "{kind:?}");
+    }
 }
 
 #[tokio::test]
@@ -279,26 +285,42 @@ async fn a_dispatch_kept_when_fleet_stopped_is_started_when_fleet_starts() {
 }
 
 #[tokio::test]
-async fn a_dispatch_he_calls_an_idea_is_kept_for_later_at_once_listed_and_removed_on_a_press() {
+async fn a_bug_the_operator_rules_park_is_kept_for_later_with_its_kind_and_is_listed_and_removed_on_a_press() {
     let rig = rig_placing(None);
-    let call = seated(&rig, &[]).await;
+    a_live_job(&rig).await;
+    let call = seated(&rig, &[&ruling(4, None)]).await;
     let mut watching = rig.fleet.events().subscribe();
 
-    let answer = dispatched(&rig, called(DispatchKind::Idea, &rig)).await;
+    let answer = dispatched(&rig, called(DispatchKind::Bug, &rig)).await;
 
-    let id = answer.parked.clone().expect("kept as an idea");
-    assert!(answer.session.is_none() && answer.operator.is_none(), "exactly one is set: {answer:?}");
-    assert!(call.asked().is_empty(), "he called it an idea, so no call");
+    let id = answer.operator.clone().expect("held by the Operator");
+    assert!(answer.session.is_none() && answer.parked.is_none(), "exactly one is set: {answer:?}");
     let event = told(&mut watching).await;
     assert_eq!((event.way, event.dispatch_id.as_str(), event.session_id), (DispatchWay::Parked, id.as_str(), None));
-    assert!(jobs_but(&rig, &SessionId::carried("none")).await.is_empty(), "no Job was started");
+    assert_eq!(call.asked().len(), 1);
+    assert!(jobs_but(&rig, &SessionId::carried("none")).await.len() == 1, "only the live Job exists");
     let kept = rig.fleet.parked_ideas_wire().await.expect("listed").ideas;
     assert_eq!(kept.len(), 1);
-    assert_eq!((kept[0].id.as_str(), kept[0].dispatch.kind, kept[0].dispatch.start.request.as_deref()), (id.as_str(), Some(DispatchKind::Idea), Some(BRIEF)));
+    assert_eq!((kept[0].id.as_str(), kept[0].dispatch.kind, kept[0].dispatch.start.request.as_deref()), (id.as_str(), Some(DispatchKind::Bug), Some(BRIEF)));
 
     assert!(rig.fleet.parked_idea_removed(&id).await.expect("removed").ideas.is_empty());
     let again = rig.fleet.parked_idea_removed(&id).await.expect_err("gone");
     assert_eq!((again.status(), again.error().code.as_str()), (422, "fleet.parked_idea_unknown"));
+}
+
+#[tokio::test]
+async fn a_feature_the_operator_rules_an_existing_job_is_folded_into_the_live_job_and_starts_none() {
+    let rig = rig_placing(None);
+    let live = a_live_job(&rig).await;
+    seated(&rig, &[&ruling(2, Some(&live))]).await;
+    let mut watching = rig.fleet.events().subscribe();
+
+    dispatched(&rig, called(DispatchKind::Feature, &rig)).await;
+
+    let event = told(&mut watching).await;
+    assert_eq!((event.way, event.session_id.as_ref()), (DispatchWay::Handed, Some(&live)));
+    eventually(|| async { thread(&rig, live.as_str()).await.contains(ALSO) }).await;
+    assert!(jobs_but(&rig, &live).await.is_empty(), "no Job was started");
 }
 
 #[tokio::test]
@@ -343,22 +365,37 @@ async fn a_dispatch_with_no_kind_makes_a_call_even_where_no_live_job_is_near() {
 }
 
 #[tokio::test]
-async fn a_bug_is_put_to_the_call_as_he_called_it_and_is_never_offered_park() {
+async fn the_call_is_told_what_he_marked_it_as_as_one_hint_line() {
+    for (kind, said) in [(DispatchKind::Idea, "He marked it as an idea."), (DispatchKind::Feature, "He marked it as a feature."), (DispatchKind::Bug, "He marked it as a bug.")] {
+        let rig = rig_placing(None);
+        a_live_job(&rig).await;
+        let call = seated(&rig, &[&ruling(1, None)]).await;
+        let mut watching = rig.fleet.events().subscribe();
+
+        dispatched(&rig, called(kind, &rig)).await;
+
+        told(&mut watching).await;
+        let asked = call.asked();
+        assert_eq!(asked[0].matches(said).count(), 1, "{kind:?}: {}", asked[0]);
+        assert_eq!(asked[0].matches("He marked it").count(), 1, "{kind:?}: one line: {}", asked[0]);
+    }
+}
+
+#[tokio::test]
+async fn the_call_carries_no_hint_line_where_he_marked_it_as_nothing() {
     let rig = rig_placing(None);
     a_live_job(&rig).await;
     let call = seated(&rig, &[&ruling(1, None)]).await;
     let mut watching = rig.fleet.events().subscribe();
 
-    dispatched(&rig, called(DispatchKind::Bug, &rig)).await;
+    dispatched(&rig, the_dispatch(&rig)).await;
 
-    assert_eq!(told(&mut watching).await.way, DispatchWay::Started);
-    let asked = call.asked();
-    assert!(asked[0].contains("The person called it: bug"), "{}", asked[0]);
-    assert!(!asked[0].contains("park: keep it for later as an idea and start no Job"), "{}", asked[0]);
+    told(&mut watching).await;
+    assert!(!call.asked()[0].contains("He marked it"), "{}", call.asked()[0]);
 }
 
 #[tokio::test]
-async fn a_job_started_on_a_bug_or_a_feature_follows_the_repositorys_workflow_of_that_name_where_it_has_one() {
+async fn with_the_operator_off_a_kind_sets_no_workflow_and_the_job_starts_as_it_does_with_none() {
     let rig = super::session_host::rig_fitted(|fittings| {
         fittings.starting().workflows = ["bug", "feature"].into_iter().map(super::daemon::workflow_named).map(|one| (one.id().clone(), one)).collect();
     });
@@ -367,21 +404,11 @@ async fn a_job_started_on_a_bug_or_a_feature_follows_the_repositorys_workflow_of
         async move { fleet.store().lock().await.hosting(job.as_str()).expect("read").expect("hosted").workflow }
     };
 
-    let bug = dispatched(&rig, called(DispatchKind::Bug, &rig)).await.session.expect("a Job");
-    let feature = dispatched(&rig, called(DispatchKind::Feature, &rig)).await.session.expect("a Job");
     let plain = dispatched(&rig, the_dispatch(&rig)).await.session.expect("a Job");
-
-    assert_eq!(workflow_of(bug.id).await.as_deref(), Some("bug"));
-    assert_eq!(workflow_of(feature.id).await.as_deref(), Some("feature"));
-    assert_eq!(workflow_of(plain.id).await, None, "he named none, so the proposer reads it");
-}
-
-#[tokio::test]
-async fn a_kind_the_repository_has_no_workflow_for_still_starts_the_job() {
-    let rig = rig_placing(None);
-
-    let answer = dispatched(&rig, called(DispatchKind::Bug, &rig)).await;
-
-    let job = answer.session.expect("a Job");
-    assert_eq!(rig.fleet.store().lock().await.hosting(job.id.as_str()).expect("read").expect("hosted").workflow, None);
+    let plain = workflow_of(plain.id).await;
+    for kind in KINDS {
+        let job = dispatched(&rig, called(kind, &rig)).await.session.expect("a Job");
+        assert_eq!(workflow_of(job.id).await, plain, "{kind:?}: his mark picks no workflow");
+    }
+    assert_eq!(plain, None, "he named none, so the proposer reads it");
 }

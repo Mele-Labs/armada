@@ -88,6 +88,34 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   width: auto;
   min-width: 0;
 }
+/* A Job another started steps in under it. Its starter's line runs down the gutter from the starter's row to the last Job it
+   started, and turns into each one at its title; a line of a starter further up runs on past rows that are not its own. */
+.deck-list__item[data-nested] {
+  --pk-indent: var(--space-6);
+  --pk-gap: var(--space-1);
+  --pk-guide: calc(var(--border-width) * 2) solid var(--border-strong);
+  position: relative;
+  padding-left: calc(var(--pk-indent) * var(--pk-depth));
+}
+.pk-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.pk-guide {
+  position: absolute;
+  top: calc(var(--pk-gap) * -1);
+  bottom: 0;
+  left: calc(var(--pk-indent) * var(--pk-column) + var(--space-3));
+  border-left: var(--pk-guide);
+}
+.pk-guide--elbow {
+  bottom: auto;
+  width: calc(var(--pk-indent) - var(--space-3));
+  height: calc(var(--pk-gap) + var(--space-3) + var(--leading-xs) / 2);
+  border-bottom: var(--pk-guide);
+  border-bottom-left-radius: var(--radius-md);
+}
 .deck-row {
   --deck-slot: var(--space-4);
   --pk-age: var(--space-12);
@@ -210,6 +238,9 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
 .pk-row__mac::before {
   content: "·";
   margin-right: var(--space-2);
+}
+.pk-row__mac[data-alone]::before {
+  content: none;
 }
 .pk-choice .pk-row__mac {
   margin-left: var(--space-2);

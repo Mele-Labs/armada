@@ -33,6 +33,7 @@ fn plant(path: &Path, pid: u32, started_at: StartedAt, port: u16) {
         pid,
         port,
         started_at,
+        build: None,
     })
     .expect("four scalars serialise");
     std::fs::write(path, body).expect("the scratch directory is writable");
@@ -296,4 +297,34 @@ fn a_runtime_file_from_before_ids_reads_as_an_id_nothing_equals() {
         panic!("our own pid is held by us");
     };
     assert_eq!(found.protocol_id, ProtocolId::default());
+}
+
+#[test]
+fn the_kept_build_is_the_folder_under_builds_the_executable_sits_in_and_none_from_a_tree() {
+    let support = TempDir::new();
+    let build = support.path().join("builds").join("2026-11-13T004852Z-126b4bb");
+    std::fs::create_dir_all(&build).expect("it creates");
+    std::fs::write(build.join("armada"), "").expect("it writes");
+    std::os::unix::fs::symlink("2026-11-13T004852Z-126b4bb", support.path().join("builds").join("current")).expect("it links");
+    let tree = support.path().join("tree").join("target").join("debug");
+    std::fs::create_dir_all(&tree).expect("it creates");
+    std::fs::write(tree.join("armada"), "").expect("it writes");
+
+    let kept = Some("2026-11-13T004852Z-126b4bb".to_string());
+    assert_eq!(runtime::kept_build_of(&build.join("armada"), support.path()), kept);
+    assert_eq!(runtime::kept_build_of(&support.path().join("builds/current/armada"), support.path()), kept, "current resolves to its build");
+    assert_eq!(runtime::kept_build_of(&tree.join("armada"), support.path()), None);
+}
+
+#[test]
+fn the_build_is_left_out_of_the_file_when_there_is_none_and_read_back_when_there_is() {
+    let file = RuntimeFile { protocol_id: id(), pid: 7, port: 40000, started_at: our_start(), build: None };
+    let body = ipc::encode(&file).expect("it encodes");
+    assert!(!body.contains("build"), "{body}");
+
+    let kept = RuntimeFile { build: Some("2026-11-13T004852Z-126b4bb".into()), ..file };
+    let body = ipc::encode(&kept).expect("it encodes");
+    assert!(body.contains(r#""build":"2026-11-13T004852Z-126b4bb""#));
+    let back: RuntimeFile = ipc::decode("runtime file", body.as_bytes()).expect("it decodes");
+    assert_eq!(back, kept);
 }
