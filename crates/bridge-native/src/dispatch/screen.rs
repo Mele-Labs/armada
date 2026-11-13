@@ -538,11 +538,18 @@ impl DispatchScreen {
             on_your_words: None,
             project: scope(cx).and_then(|(id, _)| id).map(|id| id.to_string()),
         };
-        let body = ipc::encode(&start).map_err(|why| format!("{why:?}"));
+        // His own work goes to Fleet as a dispatch: with the Operator on it may rule on it, and what follows the
+        // start (his words as the first message) goes in `then`, so nothing is lost whoever starts the Job.
+        let then = if send {
+            vec![ipc::DispatchThen::Message(ipc::DispatchMessage { text: begin.words.clone(), attachments: Vec::new(), mentions, sketches: Vec::new() })]
+        } else {
+            Vec::new()
+        };
+        let body = ipc::encode(&ipc::DispatchJob { start, kind: None, then }).map_err(|why| format!("{why:?}"));
         let words = begin.words;
         cx.spawn_in(window, async move |this, cx| {
-            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/start".into(), Some(body?)) }).await;
-            let _ = this.update_in(cx, |this, window, cx| this.started(answer, send.then_some((words, mentions)), port, window, cx));
+            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/dispatch".into(), Some(body?)) }).await;
+            let _ = this.update_in(cx, |this, window, cx| this.dispatched(answer, &words, window, cx));
         })
         .detach();
     }
@@ -625,20 +632,26 @@ impl DispatchScreen {
         .detach();
     }
 
-    /// The Job exists. `first` is the words and the tag they carry, sent as its first message where nothing waits.
-    fn started(&mut self, answer: Result<Vec<u8>, String>, first: Option<(String, Vec<SessionTag>)>, port: u16, window: &mut Window, cx: &mut Context<Self>) {
-        let record = answer.and_then(|bytes| ipc::decode::<SessionRecord>("SessionRecord", &bytes).map_err(|why| why.to_string()));
-        match record {
-            Ok(record) => {
+    /// Fleet answered the dispatch. A Job started opens; with the Operator holding it, or keeping it as an idea, the
+    /// sheet goes and he stays where he was: the toast `operator.dispatched` raises says what became of it.
+    fn dispatched(&mut self, answer: Result<Vec<u8>, String>, words: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let done = answer.and_then(|bytes| ipc::decode::<ipc::JobDispatched>("JobDispatched", &bytes).map_err(|why| why.to_string()));
+        match done {
+            Ok(ipc::JobDispatched { session: Some(record), .. }) => {
                 let id = record.id.as_str().to_string();
                 self.sheet.update(cx, |sheet, cx| {
                     sheet.answered(window, cx);
                 });
-                if let Some((text, mentions)) = first {
-                    first_message(port, id.clone(), text, mentions, cx);
-                }
                 let list = self.jobs.read(cx).list.clone();
                 list.update(cx, |list, cx| list.open(id.into(), cx));
+            }
+            Ok(held) => {
+                if let Some(id) = held.operator.as_deref().or(held.parked.as_deref()) {
+                    crate::toasts::dispatch_held(id, words, cx);
+                }
+                self.sheet.update(cx, |sheet, cx| {
+                    sheet.answered(window, cx);
+                });
             }
             Err(why) => self.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx)),
         }
