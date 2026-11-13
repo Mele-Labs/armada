@@ -185,6 +185,11 @@ impl JobView {
         self.row_tabs.entry(id.clone()).or_default()
     }
 
+    /// Whether the Job has subagent `subagent` open as a tab beside its thread.
+    pub(super) fn subagent_tab_open(&self, job: &str, subagent: &str) -> bool {
+        self.row_tabs.get(job).is_some_and(|tabs| tabs.at(RowKind::Subagent, subagent).is_some())
+    }
+
     /// The tab in front of the thread's pane, where it is not the thread.
     pub(super) fn row_front(&self, id: &str) -> Option<&RowTab> {
         let tabs = self.row_tabs.get(id)?;

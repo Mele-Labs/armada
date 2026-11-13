@@ -445,6 +445,7 @@ impl JobView {
                 this.synced(cx);
                 this.review_sync(window, cx);
             }));
+            subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {
             // Back from Settings, the card that sent him there goes.
