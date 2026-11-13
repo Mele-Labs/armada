@@ -117,6 +117,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `permission` | questions | none: its card answers it |
 | `window_ask` | questions | none: its card answers it |
 | `draft` | to_review | reason |
+| `handoff` | questions | plain: Stay, and the Job is told nothing |
 | `sketch` | to_review | plain |
 | `document` | to_review | plain |
 | `first_message` | questions | none: Start answers it |

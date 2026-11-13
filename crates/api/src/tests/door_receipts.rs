@@ -109,7 +109,6 @@ fn long_lived() -> SessionRecord {
                 }),
             ),
             waiting("draft:9", "Pull request description for the label", WaitingSource::Draft, None),
-            waiting("handoff:11", "Carry on in a new Job?", WaitingSource::Handoff, None),
         ],
         done_since: Some(at()),
         done_summary: None,
@@ -231,7 +230,7 @@ async fn waiting_for_answers_each_item_as_it_was_kept_with_its_act_steps_and_opt
     assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
     assert_eq!(
         said,
-        r#"{"session_id":"session-1","waiting_for":[{"id":"merge","text":"Approve the pull request","act":{"kind":"run","target":"scripts/restart"},"steps":["Quit Bridge","Run `scripts/restart`"]},{"id":"pick","text":"Which of the two","options":[{"label":"The first"},{"label":"The second","description":"Slower"}]}],"fleet":[{"id":"walk:http://localhost:5173/","kind":"walk","text":"Walk the page"},{"id":"window_ask:7","kind":"window_ask","text":"Is this the right label?"},{"id":"draft:9","kind":"draft","text":"Pull request description for the label"},{"id":"handoff:11","kind":"handoff","text":"Carry on in a new Job?"}]}"#
+        r#"{"session_id":"session-1","waiting_for":[{"id":"merge","text":"Approve the pull request","act":{"kind":"run","target":"scripts/restart"},"steps":["Quit Bridge","Run `scripts/restart`"]},{"id":"pick","text":"Which of the two","options":[{"label":"The first"},{"label":"The second","description":"Slower"}]}],"fleet":[{"id":"walk:http://localhost:5173/","kind":"walk","text":"Walk the page"},{"id":"window_ask:7","kind":"window_ask","text":"Is this the right label?"},{"id":"draft:9","kind":"draft","text":"Pull request description for the label"}]}"#
     );
 }
 
@@ -448,7 +447,11 @@ async fn propose_draft_answers_the_id_of_the_draft() {
 
 #[tokio::test]
 async fn handoff_brief_answers_the_id_of_the_card_it_raised() {
-    let (app, _) = a_fleet();
+    let mut row = long_lived();
+    row.waiting_for.push(waiting("handoff:11", "Carry on in a new Job?", WaitingSource::Handoff, None));
+    let daemon = FakeDaemon::new(Broadcaster::new());
+    *daemon.session_row.lock().expect("session row") = Some(row);
+    let app = router(Served::by(daemon, run_id(), Broadcaster::new()));
     let said = through_the_door(&app, "handoff_brief", BRIEF).await;
     assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
     assert_eq!(said, r#"{"session_id":"session-1","handoff":"handoff:11"}"#);
