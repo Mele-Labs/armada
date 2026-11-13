@@ -325,6 +325,7 @@ fn pending_plan() -> ipc::SessionPlan {
         sketch: None,
         held_by: Vec::new(),
         held: None,
+        other_macs: Vec::new(),
     }
 }
 

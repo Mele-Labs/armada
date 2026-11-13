@@ -54,6 +54,8 @@ pub(crate) struct LedgerReads {
     build: BuildReads,
     /// The plan the Session recorded, and the files it and its subagents touched.
     plan: Option<store::KeptPlan>,
+    /// The Jobs on his other Macs whose plans meet a live Job's plan.
+    other_macs: Vec<ipc::PlanOverlap>,
     /// The Job's Judge readings, the oldest asked first.
     judge_readings: Vec<store::KeptJudgeReading>,
     touches: Vec<store::KeptTouch>,

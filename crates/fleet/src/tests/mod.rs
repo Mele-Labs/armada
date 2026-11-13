@@ -23,6 +23,7 @@ mod sending_checkout;
 mod agent_starts;
 mod agent_starts_at_once;
 mod operator_dispatches;
+mod operator_elsewhere;
 mod held_children;
 mod session_after;
 mod asking_in_window;

@@ -592,6 +592,22 @@ pub struct SessionPlan {
     /// Absent when no call is held, and when no gate is open.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub held: Option<GateHeld>,
+    /// Jobs on his other Macs whose plans name paths this plan also names, read from what those Macs
+    /// share. **Only on this Mac's own Job, and only while it is live**: a plan held from another Mac
+    /// carries none. It tells and holds nothing.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub other_macs: Vec<PlanOverlap>,
+}
+
+/// A Job on another Mac whose plan names some of the same paths as this one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanOverlap {
+    /// The paired Mac that holds it, by id, as `SessionRecord.mac` names it.
+    pub mac: String,
+    pub session_id: SessionId,
+    pub title: String,
+    /// Each place the two plans meet, the more exact of the two paths.
+    pub paths: Vec<String>,
 }
 
 /// An `all_done` held at the first open gate of the plan.
