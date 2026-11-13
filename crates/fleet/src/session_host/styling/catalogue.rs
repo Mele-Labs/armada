@@ -29,6 +29,8 @@ const CATALOGUE_UNFINISHED: &str = "fleet.catalogue_unfinished";
 
 /// Most bytes one answer weighs. A sketch is at most 32 KB, so its catalogue is smaller.
 pub(crate) const ANSWER_AT_MOST: usize = 24 * 1024;
+/// The most a `cut` sentence weighs, with its field name.
+const CUT_ROOM: usize = 256;
 /// Most checkouts whose catalogue is kept at once.
 const KEPT_AT_MOST: usize = 32;
 
@@ -104,7 +106,8 @@ pub(crate) fn answer(whole: &Whole, area: CatalogueArea, matching: Option<&str>)
     let needle = matching.map(|one| one.trim().to_lowercase()).filter(|one| !one.is_empty());
     let hits = |words: &[&str]| needle.as_ref().is_none_or(|needle| words.iter().any(|word| word.to_lowercase().contains(needle.as_str())));
     let mut answered = DesignCatalogue { area, themes: whole.themes.clone(), sheets: whole.sheets.clone(), ..DesignCatalogue::default() };
-    let left = ANSWER_AT_MOST.saturating_sub(weight(&answered));
+    // Room is kept for the `cut` sentence, which is written after the items are fitted.
+    let left = ANSWER_AT_MOST.saturating_sub(weight(&answered) + CUT_ROOM);
     let mut cut = None;
     match area {
         CatalogueArea::Contents => {
