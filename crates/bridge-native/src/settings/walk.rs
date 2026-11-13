@@ -205,7 +205,7 @@ pub static OFF_EVERYWHERE_STEPS: &[Step] = &[
     press_on("Workflows is headed for every project", "button", "Workflows", "heading", "Workflows for every project"),
     press_on("sample-web's switch turns bug off there. sample-api, Storefront's other repository, has it off already", "switch", "bug: On in sample-web", "switch", "bug: Off in sample-web"),
     step("\u{2318}P opens the Editing picker", Verb::Key("cmd-p"), "menu", "Editing"),
-    press_on("Storefront: bug is off in every repository it keeps, so the bug Armada ships is off for Storefront too, with no switch", "menuitem", "Storefront", "heading", "Workflows for Storefront"),
+    press_on("Storefront: bug is off in every repository it keeps, so the bug Armada ships is off for Storefront too, with no switch", "menuitem", "Storefront", "label", "bug: Off in every repository"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
