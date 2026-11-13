@@ -13,6 +13,7 @@ fn a_run() -> ReviewRun {
         kind: ReviewRunKind::Tool,
         name: "risks".into(),
         head: "3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e".into(),
+        since: None,
         state: ReviewRunState::Queued,
         started_at: "2026-10-16T09:00:00Z".into(),
         finished_at: None,
@@ -33,7 +34,7 @@ fn the_event_nests_the_run_so_neither_kind_overwrites_the_other() {
 #[test]
 fn a_run_with_nothing_to_add_leaves_no_null_keys() {
     let text = encode(&a_run()).expect("encodes");
-    for absent in ["finished_at", "failed", "result", "cost_micros", "null"] {
+    for absent in ["finished_at", "failed", "result", "cost_micros", "since", "null"] {
         assert!(!text.contains(absent), "{absent} in {text}");
     }
 }
@@ -49,6 +50,7 @@ fn a_result_is_tagged_by_its_shape_and_reads_back_whole() {
             body: "`x` can wrap.".into(),
             severity: ReviewSeverity::High,
             at: ReviewPlace { path: "a.rs".into(), side: DiffSide::Right, start: 1, end: 2 },
+            comment: "This sum can wrap past the limit. Use a saturating add.".into(),
         }],
     });
     let text = encode(&run).expect("encodes");
@@ -135,7 +137,14 @@ fn a_fix_is_tagged_fix_and_its_start_carries_the_finding() {
         name: "src/total.rs:4-5 Overflow".into(),
         again: false,
         place: None,
-        finding: Some(ReviewFinding { title: "Overflow".into(), body: "It wraps.".into(), severity: ReviewSeverity::High, at }),
+        finding: Some(ReviewFinding {
+            title: "Overflow".into(),
+            body: "It wraps.".into(),
+            severity: ReviewSeverity::High,
+            at,
+            comment: String::new(),
+        }),
+        since: None,
     };
     let text = encode(&start).expect("encodes");
     assert!(text.contains(r#""kind":"fix""#) && text.contains(r#""finding":{"title":"Overflow""#), "{text}");

@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{author_of, joined, login_of, Login, Nodes};
 use crate::github_api::{ApiFailure, GitHubApi, GitHubRepository};
+use crate::pull_review_lists::latest_of;
 use crate::pull_request_detail::{
     check_standing, file_change, mergeability, review_said, review_standing, with_profiles, with_teams, Head,
     PageParts, Profile, MOST_CHECKS, MOST_COMMITS, MOST_FILES,
@@ -23,7 +24,7 @@ use crate::pull_request_detail::{
 pub(crate) const QUERY: &str = "query($owner:String!,$name:String!,$number:Int!){\
     repository(owner:$owner,name:$name){pullRequest(number:$number){\
     baseRefName author{login} createdAt additions deletions mergeable reviewDecision headRefOid body \
-    latestReviews(first:100){nodes{author{login} state}} \
+    latestReviews(first:100){nodes{author{login} state submittedAt commit{oid}}} \
     reviewRequests(first:100){nodes{requestedReviewer{__typename ... on User{login} ... on Bot{login} \
     ... on Mannequin{login} ... on Team{slug name}}}} \
     comments(last:100){totalCount nodes{id author{__typename login} createdAt lastEditedAt body}} \
@@ -136,9 +137,17 @@ struct More<T> {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Verdict {
     author: Option<Login>,
     state: Option<String>,
+    submitted_at: Option<String>,
+    commit: Option<ReviewedAt>,
+}
+
+#[derive(Deserialize)]
+struct ReviewedAt {
+    oid: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -403,6 +412,10 @@ pub(crate) fn parts_of(pull: Pull) -> PageParts {
         let (login, state) = (login_of(verdict.author), verdict.state.unwrap_or_default());
         if state == "APPROVED" {
             parts.approvers.insert(login.clone());
+        }
+        let commit = verdict.commit.and_then(|it| it.oid).unwrap_or_default();
+        if let Some(latest) = latest_of(&state, &commit, &verdict.submitted_at.unwrap_or_default()) {
+            parts.latest.insert(login.clone(), latest);
         }
         if state != "PENDING" {
             parts.verdicts.insert(login, review_said(&state));

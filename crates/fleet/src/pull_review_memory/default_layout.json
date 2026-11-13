@@ -1,0 +1,37 @@
+{
+  "root": {
+    "type": "split",
+    "id": "s1",
+    "dir": "row",
+    "ratio": 0.22,
+    "a": { "type": "pane", "id": "p1", "tabs": [{ "id": "t1", "kind": "pr-inbox" }], "active": "t1" },
+    "b": {
+      "type": "split",
+      "id": "s2",
+      "dir": "row",
+      "ratio": 0.7,
+      "a": {
+        "type": "pane",
+        "id": "p2",
+        "tabs": [
+          { "id": "t2", "kind": "pr-changed" },
+          { "id": "t3", "kind": "pr-files" },
+          { "id": "t4", "kind": "pr-conversation" },
+          { "id": "t5", "kind": "pr-checks" }
+        ],
+        "active": "t2"
+      },
+      "b": {
+        "type": "pane",
+        "id": "p3",
+        "tabs": [
+          { "id": "t6", "kind": "pr-findings" },
+          { "id": "t7", "kind": "pr-comments" }
+        ],
+        "active": "t6"
+      }
+    }
+  },
+  "focus": "p2",
+  "next": 8
+}

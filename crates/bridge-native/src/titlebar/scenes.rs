@@ -146,6 +146,9 @@ fn live_build(rest: &str) -> Build {
 const LIVE_MAIN: &str = r#""on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b""#;
 const LIVE_PREVIEW: &str = r#""on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{"ahead":5,"behind":2},"switcher":{"aligned":false,"idle_on_main":false,"restart":"refresh_preview"}"#;
 
+/// Branches on origin that main lacks and no Job here holds, newest first (#3547).
+const ORIGIN: &str = r#""origin":[{"branch":"native/refresh-set","committed_at":"2026-11-13T15:40:00Z"},{"branch":"fleet/dispute-reviews","committed_at":"2026-11-13T14:10:00Z"},{"branch":"fleet/artifacts-route","committed_at":"2026-11-13T11:05:00Z"},{"branch":"native/macs-setup","committed_at":"2026-11-13T09:30:00Z"},{"branch":"fleet/acting-queue","committed_at":"2026-11-12T18:20:00Z"},{"branch":"native/voice-session-rest","committed_at":"2026-11-12T10:00:00Z"},{"branch":"docs/key-map-panes","committed_at":"2026-11-11T16:45:00Z"},{"branch":"fleet/origin-fetch","committed_at":"2026-11-10T08:15:00Z"},{"branch":"native/sketch-jumps","committed_at":"2026-11-08T12:00:00Z"}]"#;
+
 fn build_live(name: &str) -> Option<Build> {
     Some(match name {
         "build-live-main" => live_build(&format!(r#"{LIVE_MAIN},"position":{{"ahead":0,"behind":0}},"switcher":{{"aligned":true,"idle_on_main":true,"restart":"update_to_main"}}"#)),
@@ -153,6 +156,11 @@ fn build_live(name: &str) -> Option<Build> {
         "build-live-refused" => live_build(&format!(r#"{LIVE_PREVIEW},"failed":"no served repository holds scripts/restart-build""#)),
         "build-live-carried" => live_build(&format!(
             r#"{LIVE_MAIN},"position":{{"ahead":0,"behind":3}},"switcher":{{"aligned":false,"idle_on_main":false,"restart":"update_to_main"}},"carried":["Native Bridge foundation","Audit the docs index"]"#
+        )),
+        "build-origin" => live_build(&format!(r#"{LIVE_MAIN},"position":{{"ahead":0,"behind":0}},"switcher":{{"aligned":true,"idle_on_main":true,"restart":"update_to_main"}},{ORIGIN}"#)),
+        "build-origin-ready" => live_build(&format!(
+            r#"{LIVE_MAIN},"position":{{"ahead":0,"behind":0}},"switcher":{{"aligned":true,"idle_on_main":true,"restart":"update_to_main"}},"picked":[{{"branch":"native/refresh-set"}}],"snapshot":{{"state":"ready","built_at":"2026-11-13T16:02:00Z","commit":"7c1e5a9b3d2f4e6a8b0c1d2e3f4a5b6c7d8e9f0a","jobs":["native/refresh-set"],"bridge_reopens":true}},{}"#,
+            ORIGIN.replace(r#"{"branch":"native/refresh-set","committed_at":"2026-11-13T15:40:00Z"},"#, "")
         )),
         "build-live-trying" => live_build(&format!(r#"{LIVE_PREVIEW},"trying":["Quiet the write-clash notices","Fix the merge line freshness chip"]"#)),
         _ => return None,
@@ -460,6 +468,8 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-live-refused" => |face| face.build = build_live("build-live-refused"),
         "build-live-carried" => |face| face.build = build_live("build-live-carried"),
         "build-live-trying" => |face| face.build = build_live("build-live-trying"),
+        "build-origin" => |face| face.build = build_live("build-origin"),
+        "build-origin-ready" => |face| face.build = build_live("build-origin-ready"),
         // Fleet's offers for the preview on a main level with its own: the Refresh row, then Fleet's answer to a skip.
         "preview-offers" => |face| {
             face.build = build_live("build-live-main");
