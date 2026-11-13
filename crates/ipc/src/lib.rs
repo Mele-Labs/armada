@@ -452,7 +452,7 @@ pub use hosted_sessions::{
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SentSketch, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionSubagentChanged, SessionTag,
     SetSessionWorkflow, SkipSessionStep, JumpSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolMessage, MessagePeer, ToolSubagent, ToolSubagentState,
-    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SnoozeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
+    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SnoozeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, SetSessionProject, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession, MessageReach, MessageTo,
 };
 pub use session_mcp::{

@@ -659,6 +659,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::set_session_auto_land::<D>),
         )
         .route(
+            "/sessions/project",
+            post(crate::hosted_sessions::set_session_project::<D>),
+        )
+        .route(
             "/sessions/mcp",
             get(crate::hosted_sessions::get_session_mcp::<D>),
         )

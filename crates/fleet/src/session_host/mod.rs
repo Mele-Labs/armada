@@ -70,6 +70,7 @@ mod naming;
 mod noting;
 mod modding;
 mod auto_landing;
+mod project_moving;
 pub(crate) mod queue_guard;
 mod pausing;
 mod editing;

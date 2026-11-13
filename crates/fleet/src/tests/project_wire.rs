@@ -297,3 +297,143 @@ async fn a_start_for_a_project_whose_file_did_not_read_is_a_422_of_its_own() {
 
     assert_eq!(code_of(refused), (422, "fleet.project_unreadable".to_string()));
 }
+
+fn move_into(jobs: &[&ipc::SessionId], project: Option<&str>) -> ipc::SetSessionProject {
+    ipc::SetSessionProject { session_ids: jobs.iter().map(|one| (*one).clone()).collect(), project: project.map(str::to_string) }
+}
+
+async fn project_of(rig: &crate::tests::pull_notices::Rig, job: &ipc::SessionId) -> Option<String> {
+    rig.fleet.store().lock().await.hosting(job.as_str()).expect("read").expect("hosted").project
+}
+
+/// What was published since `watching` began: the Jobs `session.changed` named, and the `projects.changed` it saw.
+async fn published(watching: &mut api::Subscription) -> (Vec<String>, Vec<ipc::Projects>) {
+    let (mut jobs, mut projects) = (Vec::new(), Vec::new());
+    while let Ok(Some(api::Next::Send(delivered))) = tokio::time::timeout(std::time::Duration::from_millis(300), watching.next()).await {
+        match delivered.event {
+            ipc::Event::SessionChanged(record) => jobs.push(record.id.as_str().to_string()),
+            ipc::Event::ProjectsChanged(read) => projects.push(read),
+            _ => {}
+        }
+    }
+    (jobs, projects)
+}
+
+#[tokio::test]
+async fn two_jobs_one_ended_move_into_a_project_made_later_and_each_is_published() {
+    let rig = a_rig();
+    let at = ManifestId::carried(rig.manifest());
+    let first = rig.fleet.start_session(start(&rig, "First", Vec::new())).await.expect("started");
+    let second = rig.fleet.start_session(start(&rig, "Second", Vec::new())).await.expect("started");
+    Arc::clone(&rig.fleet).close_session(ipc::CloseSession { session_id: second.id.clone() }).await.expect("ended");
+    let shop = rig.fleet.add_project(named("Shop", Some(vec![ProjectMember { manifest_id: at, folder: None }]), None)).await.expect("added").projects[0].id.clone();
+    let mut watching = rig.fleet.events().subscribe();
+
+    let moved = rig.fleet.set_session_project(move_into(&[&first.id, &second.id], Some(&shop))).await.expect("moved");
+
+    let answered: Vec<(&str, Option<&str>)> = moved.sessions.iter().map(|one| (one.id.as_str(), one.hosted.as_ref().and_then(|hosted| hosted.project.as_deref()))).collect();
+    assert_eq!(answered, [(first.id.as_str(), Some(shop.as_str())), (second.id.as_str(), Some(shop.as_str()))], "the Jobs as they are now, in the order named");
+    assert_eq!(moved.sessions[1].state, ipc::SessionState::Ended, "an ended Job moves too, and stays ended");
+    assert_eq!(project_of(&rig, &first.id).await.as_deref(), Some(shop.as_str()), "kept on the hosting row, so a restart keeps it");
+    assert_eq!(project_of(&rig, &second.id).await.as_deref(), Some(shop.as_str()));
+    let (jobs, projects) = published(&mut watching).await;
+    assert_eq!(jobs, [first.id.as_str().to_string(), second.id.as_str().to_string()], "session.changed for each Job");
+    assert!(projects.is_empty(), "the project held the repository already, so its members did not change");
+}
+
+#[tokio::test]
+async fn a_jobs_repository_the_project_does_not_hold_becomes_a_whole_member_and_projects_changed_is_published() {
+    let rig = a_rig();
+    let at = rig.manifest().to_string();
+    let job = rig.fleet.start_session(start(&rig, "Ship it", Vec::new())).await.expect("started");
+    let elsewhere = rig.fleet.add_project(named("Elsewhere", Some(vec![whole("some-other-repository")]), None)).await.expect("added").projects[0].id.clone();
+    let mut watching = rig.fleet.events().subscribe();
+
+    rig.fleet.set_session_project(move_into(&[&job.id], Some(&elsewhere))).await.expect("a non-member is not a refusal");
+
+    assert_eq!(project_of(&rig, &job.id).await.as_deref(), Some(elsewhere.as_str()));
+    let read = rig.fleet.list_projects().await.expect("listed");
+    assert_eq!(members_of(&read.projects[0]), [("some-other-repository".to_string(), None), (at, None)], "its repository joined, whole");
+    let (jobs, projects) = published(&mut watching).await;
+    assert_eq!(jobs, [job.id.as_str().to_string()]);
+    assert_eq!(projects.len(), 1, "projects.changed, once");
+    assert_eq!(projects[0], read, "carrying the projects whole, with the new member");
+}
+
+#[tokio::test]
+async fn a_null_project_takes_the_jobs_out_of_theirs() {
+    let rig = a_rig();
+    let at = ManifestId::carried(rig.manifest());
+    let shop = rig.fleet.add_project(named("Shop", Some(vec![ProjectMember { manifest_id: at, folder: None }]), None)).await.expect("added").projects[0].id.clone();
+    let mut started = start(&rig, "Ship it", Vec::new());
+    started.project = Some(shop.clone());
+    let job = rig.fleet.start_session(started).await.expect("started");
+    assert_eq!(project_of(&rig, &job.id).await.as_deref(), Some(shop.as_str()));
+
+    let moved = rig.fleet.set_session_project(move_into(&[&job.id], None)).await.expect("moved");
+
+    assert_eq!(moved.sessions[0].hosted.as_ref().and_then(|hosted| hosted.project.clone()), None, "the record says none");
+    assert_eq!(project_of(&rig, &job.id).await, None, "and so does the row");
+    assert_eq!(rig.fleet.list_projects().await.expect("listed").projects[0].members.len(), 1, "the project keeps its members");
+}
+
+#[tokio::test]
+async fn moving_a_job_keeps_the_values_it_froze_and_the_tasks_it_holds() {
+    let rig = a_rig();
+    let (shop, rows) = crate::tests::project_holds::a_project(&rig, &["Sign the build"]).await;
+    let mut started = start(&rig, "Sign the build", vec![crate::tests::project_holds::row_ref(&rows[0])]);
+    started.project = Some(shop.clone());
+    let job = rig.fleet.start_session(started).await.expect("started");
+    let frozen = store::KeptValue { key: "pr_mode".into(), value: Some("draft".into()), layer: "project".into() };
+    rig.fleet.store().lock().await.keep_job_values(job.id.as_str(), &[frozen]).expect("kept");
+    let elsewhere = rig.fleet.add_project(named("Elsewhere", Some(vec![whole("some-other-repository")]), None)).await.expect("added").projects.last().expect("it").id.clone();
+    let values_before = rig.fleet.store().lock().await.job_values(job.id.as_str()).expect("read");
+    let held_before = crate::tests::project_holds::held(&crate::tests::project_holds::rows_of(&rig.fleet.list_projects().await.expect("listed"), 0)[0]);
+    assert!(held_before.1.is_some(), "the Job holds the task");
+
+    rig.fleet.set_session_project(move_into(&[&job.id], Some(&elsewhere))).await.expect("moved");
+
+    assert_eq!(project_of(&rig, &job.id).await.as_deref(), Some(elsewhere.as_str()));
+    assert_eq!(rig.fleet.store().lock().await.job_values(job.id.as_str()).expect("read"), values_before, "what it froze is what it froze");
+    let held_after = crate::tests::project_holds::held(&crate::tests::project_holds::rows_of(&rig.fleet.list_projects().await.expect("listed"), 0)[0]);
+    assert_eq!(held_after, held_before, "the task it holds is still held, in the project it is in");
+}
+
+#[tokio::test]
+async fn one_refusal_writes_nothing() {
+    let rig = a_rig();
+    let at = ManifestId::carried(rig.manifest());
+    let job = rig.fleet.start_session(start(&rig, "Ship it", Vec::new())).await.expect("started");
+    let shop = rig.fleet.add_project(named("Shop", Some(vec![ProjectMember { manifest_id: at, folder: None }]), None)).await.expect("added").projects[0].id.clone();
+    let elsewhere = rig.fleet.add_project(named("Elsewhere", Some(vec![whole("some-other-repository")]), None)).await.expect("added").projects[1].id.clone();
+    let before = rig.fleet.list_projects().await.expect("listed");
+
+    let unknown = ipc::SessionId::carried("no-such-job");
+    let refused = rig.fleet.set_session_project(move_into(&[&job.id, &unknown], Some(&elsewhere))).await.expect_err("refused");
+    assert_eq!(code_of(refused), (404, "fleet.no_such_session".to_string()));
+    assert_eq!(project_of(&rig, &job.id).await, None, "the Job before the unknown one is not moved");
+    assert_eq!(rig.fleet.list_projects().await.expect("listed"), before, "and the project took no member");
+
+    let refused = rig.fleet.set_session_project(move_into(&[], Some(&shop))).await.expect_err("refused");
+    assert_eq!(code_of(refused), (422, "fleet.session_command_refused".to_string()), "no Job");
+
+    let refused = rig.fleet.set_session_project(move_into(&[&job.id], Some("nope"))).await.expect_err("refused");
+    assert_eq!(code_of(refused), (404, "fleet.no_such_project".to_string()));
+
+    {
+        let mut store = rig.fleet.store().lock().await;
+        let mut hosting = store.hosting(job.id.as_str()).expect("read").expect("hosted");
+        hosting.manifest_id = String::new();
+        store.keep_hosting(&hosting).expect("kept");
+    }
+    let refused = rig.fleet.set_session_project(move_into(&[&job.id], Some(&shop))).await.expect_err("refused");
+    assert_eq!(code_of(refused), (422, "fleet.session_command_refused".to_string()), "a Job with no repository");
+    assert_eq!(project_of(&rig, &job.id).await, None);
+
+    std::fs::remove_file(crate::run_memory::places::project_file(&rig.fleet.kit_folder(), &shop)).expect("its file was on this Mac");
+    rig.fleet.projects_reload().await;
+    let other = rig.fleet.start_session(start(&rig, "Another", Vec::new())).await.expect("started");
+    let refused = rig.fleet.set_session_project(move_into(&[&other.id], Some(&shop))).await.expect_err("refused");
+    assert_eq!(code_of(refused), (422, "fleet.project_unreadable".to_string()));
+    assert_eq!(project_of(&rig, &other.id).await, None);
+}
