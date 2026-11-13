@@ -82,6 +82,15 @@ impl SettingsScreen {
         });
     }
 
+    /// For the walk of Macs on other builds: one older, one newer.
+    pub fn builds_differ(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.gateway = super::gateway::MockGateway::builds_differ();
+            }
+        });
+    }
+
     /// For the walk of a Mac Tailscale Funnel does not serve.
     pub fn without_funnel(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {

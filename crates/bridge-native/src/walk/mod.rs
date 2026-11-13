@@ -2625,6 +2625,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::MACS_CLAIM_STEPS,
     },
     Walk {
+        name: crate::settings::walk::MACS_BUILD,
+        title: "Settings › Macs: Macs on another build",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_BUILD_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::WAYS,
         title: "Ways of working",
         screen: Screen::Settings,

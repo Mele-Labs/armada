@@ -79,6 +79,22 @@ pub static MACS_CLAIM_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-macs-build`: two Macs run other builds. Update moves the older one onto this Mac's build, and Forget
+/// stays on a menu the keys open.
+pub const MACS_BUILD: &str = "native-settings-macs-build";
+
+pub static MACS_BUILD_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: a Mac on an older build and one on a newer build, each edged in amber", "button", "Macs", "list", "Devices"),
+    step("Update takes the place of Forget on both rows", Verb::Wheel("region", "Devices", 600), "button", "Update Mac mini"),
+    press_on("Update moves Mac mini onto this Mac's build", "button", "Update Mac mini", "button", "Updating Mac mini"),
+    step("Once the list reads it on the same build, its row is linked", Verb::Later(5500), "button", "Forget Mac mini"),
+    step("Tab goes on to Mac Pro, which runs a newer build", Verb::Key("tab"), "button", "Update this Mac onto Mac Pro"),
+    step("Shift+F10 opens its menu: Forget stays one key away", Verb::Key("shift-f10"), "menuitem", "Forget Mac Pro"),
+    step("Esc shuts the menu, and the keys go back to the press", Verb::Key("escape"), "button", "Update this Mac onto Mac Pro"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-layout-time`: what Layout and Time set, read on the app behind Settings.
 pub const LAYOUT_TIME: &str = "native-layout-time";
 
