@@ -7,7 +7,7 @@ use super::{press_on, step, Step, Verb};
 /// The switcher on a wide bar, its rows in the menu on a narrow one: either way Find has the keys.
 const SWITCHER: Verb = Verb::PressOnFirst(&[("button", "Project"), ("button", "Menu")]);
 
-pub static STEPS: [Step; 51] = [
+pub static STEPS: [Step; 52] = [
     step("The project switcher, or below 900 the menu that holds its rows: the keys are in Find", SWITCHER, "searchbox", "Find a project"),
     step("Typing narrows it to New project", Verb::Keys(&["n", "e", "w"]), "searchbox", "Find a project"),
     step("Enter opens the sheet over the window, the keys in Name", Verb::Key("enter"), "textbox", "Name"),
@@ -37,6 +37,7 @@ pub static STEPS: [Step; 51] = [
     press_on("Clone a repository opens its two fields, the keys in the first", "button", "Clone a repository", "textbox", "Repository to clone"),
     step("Typing searches his GitHub account: each repository reads owner and name, with when it was last pushed", Verb::Typed("acme"), "button", "acme/billing"),
     step("A private repository carries a lock", Verb::Hover, "img", "acme/billing is private"),
+    step("Its tooltip says what the lock means", Verb::Later(800), "img", "acme/billing is private"),
     step("A repository Fleet serves already reads already here in place of a clone", Verb::Look, "button", "acme/sample-api"),
     press_on("Pressed, it ticks that repository in the list above and clones nothing", "button", "acme/sample-api", "treeitem", "sample-api"),
     press_on("Pressed again, it is unticked", "button", "acme/sample-api", "treeitem", "sample-api"),
@@ -45,7 +46,7 @@ pub static STEPS: [Step; 51] = [
     step("Two letters match more than Fleet lists", Verb::Typed("ac"), "button", "acme/billing"),
     step("Where more match than the list shows, it ends on a line that says so", Verb::Wheel("dialog", "New project", 240), "status", "More match. Type more to narrow it."),
     step("Cleared", Verb::Keys(&["cmd-a", "backspace"]), "textbox", "Repository to clone"),
-    step("Where GitHub will not list, its sentence stands where the repositories would", Verb::Typed("offline"), "status", "GitHub has no token for this machine. Run `gh auth login`, then open it again."),
+    step("Where GitHub will not list, its sentence stands where the repositories would", Verb::Typed("offline"), "status", "GitHub has no token for this machine. Run gh auth login, then open it again."),
     step("Cleared", Verb::Keys(&["cmd-a", "backspace"]), "textbox", "Repository to clone"),
     step("A URL or owner and name", Verb::Typed("github.com/acme/billing"), "textbox", "Repository to clone"),
     step("It clones into the folder his repositories are in, or another he picks", Verb::Look, "button", "Folder to clone into"),

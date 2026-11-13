@@ -1,8 +1,9 @@
 //! The New project sheet drawn as the approved mock draws it (`np-sketch.py`'s `sheet`, and `LEARN` for Use
 //! defaults): every size and colour a token.
 
-use gpui::{div, point, prelude::*, px, AnyElement, Context, Div, Focusable, FontWeight, HighlightStyle, KeyDownEvent, Role, SharedString, StyledText, Toggled, Window};
+use gpui::{div, point, prelude::*, px, AnyElement, Context, Div, ElementId, Focusable, FontWeight, HighlightStyle, KeyDownEvent, Role, SharedString, StyledText, Toggled, Window};
 use gpui_component::input::{Input, InputState};
+use gpui_component::text::TextView;
 
 use super::values::{self, Key};
 use super::{tilde, Line, NewProjectSheet, Place, PLACES};
@@ -250,8 +251,14 @@ impl NewProjectSheet {
     /// that the answer was cut.
     fn quiet_line(&self, id: &'static str, said: SharedString, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
-        let row = self.fold_frame(look).id(id).text_color(look.color(token::FG_SUBTLE)).child(div().min_w_0().truncate().child(said.clone()));
-        labelled(row, Role::Status, said).into_any_element()
+        // A span in backticks is code, drawn as the thread draws it; the name VoiceOver reads leaves the marks out.
+        let words = if said.contains('`') {
+            TextView::markdown(ElementId::Name(id.into()), said.to_string()).w_full().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).into_any_element()
+        } else {
+            div().child(said.clone()).into_any_element()
+        };
+        let row = self.fold_frame(look).id(id).text_color(look.color(token::FG_SUBTLE)).child(div().min_w_0().truncate().child(words));
+        labelled(row, Role::Status, said.replace('`', "")).into_any_element()
     }
 
     fn meta(look: &Look, said: impl Into<SharedString>) -> Div {
