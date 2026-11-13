@@ -1363,6 +1363,11 @@ impl JobView {
                 }));
             labelled(button, Role::Button, word).into_any_element()
         });
+        // Options the asker drew as stills show them above the buttons; a press on one answers with it, as its button does.
+        let stills = crate::option_pictures::stills(&row.id, options, None, self.port(cx), look.color(token::STEP_WAITING), look, &|at| {
+            let item = row.id.clone();
+            Box::new(cx.listener(move |this, _, window, cx| this.answer_row(&item, at, window, cx)))
+        }, cx);
         let words = ways::words_under_buttons().then(|| {
             let item = row.id.clone();
             labelled(
@@ -1378,6 +1383,7 @@ impl JobView {
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
+                .children(stills)
                 .child(div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(buttons))
                 .children(words)
                 .children(group.map(|group| {
