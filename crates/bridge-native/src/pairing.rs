@@ -10,7 +10,7 @@
 
 use std::time::Duration;
 
-use gpui::{div, prelude::*, AnyElement, App, FontWeight, Global, Role, SharedString};
+use gpui::{div, prelude::*, AnyElement, App, Div, FontWeight, Global, Role, SharedString};
 use ipc::{Mac, MacColour, MacLink, SessionRecord};
 
 use crate::labels::labelled;
@@ -55,19 +55,28 @@ pub fn begin_mock(scenario: &str, cx: &mut App) {
     hold(if scenario == "jobs-pairing" { mock_macs(true) } else { Vec::new() }, cx);
 }
 
-/// Studio, this Mac, and Air, which fell asleep at 09:12 that morning; or Studio alone.
+/// Studio, this Mac, and Air, awake; or Studio alone.
 pub fn mock_macs(second: bool) -> Vec<Mac> {
-    let since = chrono::Local::now().date_naive().and_hms_opt(9, 12, 0).and_then(|at| at.and_local_timezone(chrono::Local).single()).map_or(0, |at| at.timestamp());
+    mock_macs_with(second, Some(MacLink::Linked))
+}
+
+/// The same Macs, with Air's link as given.
+fn mock_macs_with(second: bool, air_link: Option<MacLink>) -> Vec<Mac> {
     let studio = Mac { id: "studio".into(), name: "Studio".into(), colour: MacColour::Teal, this_mac: true, ..Default::default() };
-    let air = Mac { id: "air".into(), name: "Air".into(), colour: MacColour::Orange, link: Some(MacLink::Asleep { since }), ..Default::default() };
+    let air = Mac { id: "air".into(), name: "Air".into(), colour: MacColour::Orange, link: air_link, ..Default::default() };
     if second { vec![studio, air] } else { vec![studio] }
 }
 
-/// A walk's scene for the Macs: `one-mac` lists only this one.
+/// A walk's scene for the Macs: `one-mac` lists only this one, `air-asleep` puts Air to sleep.
 pub fn scene(name: &str, cx: &mut App) -> Result<(), String> {
     match name {
         "one-mac" => hold(mock_macs(false), cx),
         "two-macs" => hold(mock_macs(true), cx),
+        // Air fell asleep at 09:12 that morning.
+        "air-asleep" => {
+            let since = chrono::Local::now().date_naive().and_hms_opt(9, 12, 0).and_then(|at| at.and_local_timezone(chrono::Local).single()).map_or(0, |at| at.timestamp());
+            hold(mock_macs_with(true, Some(MacLink::Asleep { since })), cx)
+        }
         other => return Err(format!("no pairing scene named {other}")),
     }
     Ok(())
@@ -168,22 +177,29 @@ pub fn pill(look: &Look, id: SharedString, chip: &Chip) -> AnyElement {
     labelled(drawn, Role::Image, SharedString::from(chip.name.clone())).into_any_element()
 }
 
-/// A Mac's mark on a Jobs row: a dot in its fixed colour, its name in the tooltip, dimmed while it sleeps.
-pub fn dot(look: &Look, id: SharedString, chip: &Chip) -> AnyElement {
-    let hue = crate::settings::macs::colour_of(look, chip.colour);
-    let said: SharedString = match chip.asleep_since {
-        Some(since) => format!("{}: {}", chip.name, asleep_said(since)).into(),
-        None => chip.name.clone().into(),
-    };
-    let drawn = div()
-        .id(id)
+/// The Mac's dot in its fixed colour, dimmed while it sleeps.
+fn swatch(look: &Look, chip: &Chip) -> Div {
+    div()
         .flex_none()
         .size(look.length(token::SPACE_2))
         .rounded_full()
-        .bg(hue)
+        .bg(crate::settings::macs::colour_of(look, chip.colour))
         .when(chip.asleep_since.is_some(), |dot| dot.opacity(0.5))
-        .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx));
-    labelled(drawn, Role::Image, SharedString::from(chip.name.clone())).into_any_element()
+}
+
+/// A Mac's mark on a Jobs row: a dot in its fixed colour, dimmed while it sleeps. It carries no tooltip of its own:
+/// the row's hover card says the Mac and its sleep, and hovering the dot opens that card.
+pub fn dot(look: &Look, id: SharedString, chip: &Chip) -> AnyElement {
+    labelled(swatch(look, chip).id(id), Role::Image, SharedString::from(chip.name.clone())).into_any_element()
+}
+
+/// The Mac's line in a row's hover card: the dot, then the name, and since when it sleeps.
+pub fn card_line(look: &Look, chip: &Chip) -> Div {
+    let said = match chip.asleep_since {
+        Some(since) => format!("{} \u{b7} {}", chip.name, asleep_said(since)),
+        None => chip.name.clone(),
+    };
+    div().flex().items_center().gap(look.length(token::SPACE_2)).child(swatch(look, chip)).child(SharedString::from(said))
 }
 
 #[cfg(test)]
