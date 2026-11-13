@@ -130,6 +130,7 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         viewed_at: None,
         compact: None,
         lanes: None,
+        pull_request_drafts: Vec::new(),
     }
 }
 

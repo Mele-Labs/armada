@@ -2280,10 +2280,10 @@ test('a command that is not a pull request being opened is not asked about', asy
   expect(seen.prePrAsks).toEqual([])
 })
 
-const OUTSIDE = '`SendMessage` to s-0badc0de is refused: a Job writes only to the Jobs that started it, the Jobs it started and the Jobs the person names to it'
+const ENDED = '`SendMessage` to s-0badc0de is refused: that Job has ended'
 
 test('a message Fleet refuses is denied before it is sent', async ($, on) => {
-  const { reached } = world(on, { reach: JSON.stringify({ outcome: 'refused', message: OUTSIDE }) })
+  const { reached } = world(on, { reach: JSON.stringify({ outcome: 'refused', message: ENDED }) })
   let sent = false
   on('tool.call', { tool: 'SendMessage' }, () => {
     sent = true
@@ -2291,7 +2291,7 @@ test('a message Fleet refuses is denied before it is sent', async ($, on) => {
   })
   const out = await $.tool.call({ tool: 'SendMessage', to: 's-0badc0de', message: 'Finish the operator' })
 
-  expect(out.deny).toBe(OUTSIDE)
+  expect(out.deny).toBe(ENDED)
   expect(sent).toBe(false)
   expect(reached).toEqual([{ to: 's-0badc0de' }])
 })

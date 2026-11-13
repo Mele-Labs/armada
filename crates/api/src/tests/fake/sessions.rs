@@ -81,6 +81,7 @@ impl Sessions for FakeDaemon {
             viewed_at: None,
             compact: None,
             lanes: None,
+            pull_request_drafts: Vec::new(),
         })
     }
 
@@ -337,6 +338,7 @@ impl Sessions for FakeDaemon {
             session_id: ipc::SessionId::carried(format!("session-{}", start.title)),
             title: start.title,
             fork: false,
+            held: true,
         })
     }
 
@@ -397,6 +399,7 @@ impl Sessions for FakeDaemon {
             session_id: ipc::SessionId::carried("session"),
             title: fork.title,
             fork: true,
+            held: true,
         })
     }
 

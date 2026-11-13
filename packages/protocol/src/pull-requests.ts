@@ -161,6 +161,22 @@ export type PullRequestPage = {
   reviewers?: PullRequestReviewer[];
   /** Who registered it in the central store, as the merge line's open pull requests carry it. Absent as `HubPullRequest.owner` is. */
   owner?: PullRequestOwner;
+  /** A description a Job proposed for it and the person has not settled. Absent where none waits. */
+  draft?: PullRequestDraft;
+};
+
+/**
+ * A description a Job proposed with `propose_draft` for a pull request it holds, waiting on the person: linked where the
+ * draft's `before` is the pull request's body, whitespace aside, or where the Job named it. Gone once the draft is settled.
+ * `draft` is the row id its `draft:<id>` item names. `revision` is 1 for the Job's first draft for this pull request.
+ */
+export type PullRequestDraft = {
+  manifest_id: string;
+  number: number;
+  draft: string;
+  text: string;
+  before?: string;
+  revision: number;
 };
 
 /**

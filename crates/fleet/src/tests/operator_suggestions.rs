@@ -46,7 +46,6 @@ async fn suggested(rulings: &[&str], notes: &[(&str, &str)]) -> Rig {
 const FILE: &str = "item: 1\nway: 1\nbecause: no open issue covers it";
 // Once the note is filed, the issue it became is open and near the next, so a link is offered first.
 const FILE_BESIDE_A_LINK: &str = "item: 1\nway: 2\nbecause: no open issue covers it";
-const START: &str = "item: 1\nway: 2\nbecause: no Job is near it";
 
 async fn board(rig: &Rig) -> OperatorBoard {
     rig.fleet.operator_board_wire().await.expect("read")
@@ -54,7 +53,7 @@ async fn board(rig: &Rig) -> OperatorBoard {
 
 #[tokio::test]
 async fn the_board_lists_the_suggestions_no_job_holds_oldest_first_with_do_it_and_skip() {
-    let rig = suggested(&[FILE, START], &[("n-1", TEXT), ("n-2", SIDEBAR)]).await;
+    let rig = suggested(&[FILE, FILE], &[("n-1", TEXT), ("n-2", SIDEBAR)]).await;
     let kept = standing(&rig).await;
 
     // A Job's own suggestion is on its list, not the board's.
@@ -64,7 +63,7 @@ async fn the_board_lists_the_suggestions_no_job_holds_oldest_first_with_do_it_an
     let listed = board(&rig).await.suggestions;
     assert_eq!(listed.iter().map(|one| one.id.clone()).collect::<Vec<_>>(), [format!("suggestion:{}", kept[0].n), format!("suggestion:{}", kept[1].n)], "oldest first");
     assert_eq!(listed[0].text, format!("The Operator would file your note \"{TEXT}\" as a new issue: no open issue covers it"));
-    assert_eq!(listed[1].text, format!("The Operator would start a Job on your note \"{SIDEBAR}\": no Job is near it"));
+    assert_eq!(listed[1].text, format!("The Operator would file your note \"{SIDEBAR}\" as a new issue: no open issue covers it"));
     assert_eq!(listed[0].at, kept[0].raised_at);
     for one in &listed {
         assert_eq!(one.options.iter().map(|option| option.label.as_str()).collect::<Vec<_>>(), ["Do it", "Skip"]);
@@ -93,8 +92,13 @@ async fn do_it_files_the_note_and_the_board_drops_it_and_says_what_was_filed() {
 }
 
 #[tokio::test]
-async fn do_it_on_a_new_job_starts_it_and_done_names_the_job() {
-    let rig = suggested(&[START], &[("n-1", TEXT)]).await;
+async fn do_it_on_a_go_ahead_to_start_a_job_kept_before_new_jobs_started_by_themselves_starts_it_and_done_names_the_job() {
+    let rig = suggested(&[FILE], &[("n-1", TEXT)]).await;
+    rig.agents_start("at_once");
+    let filed = standing(&rig).await.remove(0);
+    rig.fleet.store().lock().await.settle_operator_suggestion(filed.n, false, "2026-11-12T08:00:00.000Z").expect("settled");
+    let old = KeptSuggestion { n: 0, way: "new_job".into(), what: None, text: format!("The Operator would start a Job on your note \"{TEXT}\": no Job is near it"), ..filed };
+    rig.fleet.store().lock().await.keep_operator_suggestion(&old).expect("kept");
     let id = format!("suggestion:{}", standing(&rig).await[0].n);
 
     let after = Arc::clone(&rig.fleet).suggestion_answered(press(&id, 0)).await.expect("his press");

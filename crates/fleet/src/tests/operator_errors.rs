@@ -111,32 +111,24 @@ async fn an_error_goes_ahead_of_what_waits_and_shows_first_in_the_boards_next_an
 }
 
 #[tokio::test]
-async fn an_error_ruled_a_new_job_is_kept_as_a_suggestion_and_a_job_starts_only_on_do_it() {
+async fn an_error_ruled_a_new_job_starts_the_job_at_once_and_keeps_no_go_ahead() {
     let rig = filing().await;
+    rig.agents_start("at_once");
     assert!(rig.fleet.operator_seated_with(Answers::with(&[START])));
 
     rig.fleet.bridge_error_taken(card("bridge.fleet.build_failed", SUBJECT, None)).await;
 
-    eventually(|| async { rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").len() == 1 }).await;
-    let kept = rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").remove(0);
-    assert_eq!(kept.text, format!("The Operator would start a Job on the error \"{SUBJECT}\": no Job is near it"));
-    assert_eq!(jobs_titled(&rig, SUBJECT).await, 0, "nothing is started until he presses");
-
-    let _ = std::sync::Arc::clone(&rig.fleet).suggestion_chosen("", &format!("suggestion:{}", kept.n), Some(0)).await;
-
     eventually(|| async { jobs_titled(&rig, SUBJECT).await == 1 }).await;
+    assert!(rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty(), "a new Job is started, not asked");
 }
 
 #[tokio::test]
-async fn doing_it_starts_the_job_with_every_word_of_the_card_as_its_brief() {
+async fn the_job_an_error_starts_is_briefed_with_every_word_of_the_card() {
     let rig = filing().await;
+    rig.agents_start("at_once");
     assert!(rig.fleet.operator_seated_with(Answers::with(&[START])));
 
     rig.fleet.bridge_error_taken(card("bridge.fleet.build_failed", SUBJECT, None)).await;
-
-    eventually(|| async { rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").len() == 1 }).await;
-    let kept = rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").remove(0);
-    let _ = std::sync::Arc::clone(&rig.fleet).suggestion_chosen("", &format!("suggestion:{}", kept.n), Some(0)).await;
 
     eventually(|| async { jobs_titled(&rig, SUBJECT).await == 1 }).await;
     let job = {

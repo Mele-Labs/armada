@@ -80,6 +80,7 @@ mod session_notes;
 mod session_plan;
 mod session_run_message;
 mod session_system;
+mod job_dispatch;
 mod session_starts;
 mod session_summaries;
 /// A Studio's graph, and the relation no proposal may name.

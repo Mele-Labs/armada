@@ -16,8 +16,7 @@ use std::time::{Duration, Instant};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
-use ipc::{CloudflareSignIn, GatewaySetup, Served, StartCloudflare, TailscaleState as Tailscale};
+use ipc::{CloudflareSignIn, GatewaySetup, Served, TailscaleState as Tailscale};
 use serde::Serialize;
 
 use crate::pairing::{address_from_status, ADDRESS_FILE, TAILSCALE};
@@ -123,18 +122,17 @@ pub async fn funnel(State(gateway): State<Gateway>) -> Response {
     }
 }
 
-/// The tunnel's setup press: `{ domain }`. 204 once the tunnel is made, `{ login }` while it waits for the
-/// owner to sign in, 422 for a domain that is not one, 409 while a press is under way, 502 otherwise.
-pub async fn cloudflare(State(gateway): State<Gateway>, Json(start): Json<StartCloudflare>) -> Response {
+/// The tunnel's setup press, with no body: the domain comes from the sign-in. 204 once the tunnel is made,
+/// `{ login }` while it waits for the owner to sign in, 409 while a press is under way, 502 otherwise.
+pub async fn cloudflare(State(gateway): State<Gateway>) -> Response {
     let pressed = tokio::task::spawn_blocking(move || {
         let mac = crate::machine::this_mac(&gateway).map_err(Refused::Failed)?;
-        gateway.way_in.tunnel.press(&start.domain, ForMac { id: &mac.id, name: &mac.name })
+        gateway.way_in.tunnel.press(ForMac { id: &mac.id, name: &mac.name })
     })
     .await;
     match pressed {
         Ok(Ok(Pressed::Made)) => StatusCode::NO_CONTENT.into_response(),
         Ok(Ok(Pressed::SignIn(login))) => json(&CloudflareSignIn { login }),
-        Ok(Err(Refused::Domain(why))) => (StatusCode::UNPROCESSABLE_ENTITY, why).into_response(),
         Ok(Err(Refused::Busy)) => (StatusCode::CONFLICT, "The tunnel is already being set up.").into_response(),
         Ok(Err(Refused::Failed(why))) => (StatusCode::BAD_GATEWAY, why).into_response(),
         Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "The tunnel could not be set up.").into_response(),

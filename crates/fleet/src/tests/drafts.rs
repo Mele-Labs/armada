@@ -22,6 +22,7 @@ fn proposed(id: &ipc::SessionId) -> ProposeDraft {
         text: format!("{TEXT}\n"),
         before: Some("Old description.".into()),
         session_id: Some(id.clone()),
+        ..Default::default()
     }
 }
 
@@ -65,7 +66,7 @@ async fn a_draft_with_no_title_or_no_text_is_refused_and_nothing_is_kept() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     for (title, text, named) in [("  ", TEXT, "title"), (TITLE, "\n ", "text")] {
-        let blank = ProposeDraft { title: title.into(), text: text.into(), before: None, session_id: Some(id.clone()) };
+        let blank = ProposeDraft { title: title.into(), text: text.into(), before: None, pull_request: None, session_id: Some(id.clone()) };
         let Err(Refusal::Unacceptable(why)) = rig.fleet.propose_draft(None, blank).await else {
             panic!("a draft with a blank {named} is a 422")
         };

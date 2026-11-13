@@ -19,7 +19,7 @@ use adapter_traits::{AgentHarness, Delivery, Review, Vcs, WorkProduct};
 use api::Refusal;
 use config::settings::{self as keys, Key as _};
 use config::{kit_values_text, parse_kit_values, shipped_values, Layers, ResolvedValue, ResolvedValues};
-use core_model::{AutoMerge, Component, Envelope, FieldValue, Layer, Level, Look, ManifestId as Repository, PrMode, ReviewMode, Reviews, ScopeId, TrackerNamed, Ulid, Values, WalkReview};
+use core_model::{AgentStarts, AutoMerge, Component, Envelope, FieldValue, Layer, Level, Look, ManifestId as Repository, PrMode, ReviewMode, Reviews, ScopeId, TrackerNamed, Ulid, Values, WalkReview};
 use ipc::{KitValuesSaved, LookSet, ManifestId, ReviewsSet, SaveKitValues, ValuesSet};
 use store::KeptValue;
 
@@ -40,6 +40,7 @@ const AUTONOMY: &str = "autonomy.";
 const REVIEWS_PLANS: &str = "reviews.plans";
 const REVIEWS_PULL_REQUESTS: &str = "reviews.pull_requests";
 const REVIEWS_WALKS: &str = "reviews.walks";
+const AGENT_STARTS: &str = "agent_starts";
 
 /// The tracker key that names the implementation, as the Manifest writes it.
 const PROVIDER: &str = "provider";
@@ -62,6 +63,7 @@ pub(crate) fn values_set(values: &Values) -> Option<ValuesSet> {
             pull_requests: Some(reviews.pull_requests.as_wire().to_string()),
             walks: Some(reviews.walks.as_wire().to_string()),
         }),
+        agent_starts: values.agent_starts.map(|starts| starts.as_wire().to_string()),
     })
 }
 
@@ -109,6 +111,7 @@ pub(crate) fn resolved_wire(resolved: &ResolvedValues) -> ipc::ResolvedValues {
         density: word(&resolved.density, Clone::clone),
         tracker: Some(ipc::ResolvedTracker { value: resolved.tracker.value.as_ref().map(tracker_wire), from: layer_wire(resolved.tracker.from) }),
         reviews: Some(reviews_wire(&resolved.reviews.value.unwrap_or_default(), layer_wire(resolved.reviews.from))),
+        agent_starts: Some(word(&resolved.agent_starts, |starts| starts.as_wire().to_string())),
         autonomy: resolved
             .autonomy
             .iter()
@@ -142,6 +145,7 @@ fn rows_of(resolved: &ResolvedValues) -> Vec<KeptValue> {
     rows.push(row(REVIEWS_PLANS, Some(reviews.plans.as_wire().to_string()), from));
     rows.push(row(REVIEWS_PULL_REQUESTS, Some(reviews.pull_requests.as_wire().to_string()), from));
     rows.push(row(REVIEWS_WALKS, Some(reviews.walks.as_wire().to_string()), from));
+    rows.push(row(AGENT_STARTS, Some(resolved.agent_starts.value.unwrap_or_default().as_wire().to_string()), resolved.agent_starts.from));
     rows.extend(resolved.autonomy.iter().map(|one| row(&format!("{AUTONOMY}{}", one.kind.as_wire()), Some(one.value.as_wire().to_string()), one.from)));
     rows
 }
@@ -202,6 +206,7 @@ impl Frozen {
             density: one("density"),
             tracker: None,
             reviews: self.row(REVIEWS_PLANS).map(|row| reviews_wire(&self.reviews(), layer_wire(layer_read(&row.layer)))),
+            agent_starts: self.row(AGENT_STARTS).map(|row| ipc::ResolvedValue { value: row.value.clone(), from: layer_wire(layer_read(&row.layer)) }),
             autonomy: core_model::rule::ActKind::ALL
                 .iter()
                 .filter_map(|kind| {
@@ -264,9 +269,16 @@ where
             None => None,
             Some(block) => Some(self.reviews_read(block)?),
         };
+        let agent_starts = match written.agent_starts.as_deref().map(str::trim) {
+            None => None,
+            Some(word) => Some(AgentStarts::from_wire(word).ok_or_else(|| {
+                self.values_refused(format!("`{word}` is not an agent start: it is `at_once` or `ask_me`"))
+            })?),
+        };
         Ok(Values {
             tracker,
             reviews,
+            agent_starts,
             pr_mode: written.pr_mode.map(|mode| mode.domain()),
             auto_merge,
             review_model: text("review_model", &written.review_model)?,
@@ -328,6 +340,7 @@ where
             },
             tracker: None,
             reviews: None,
+            agent_starts: None,
         }
     }
 
@@ -396,6 +409,19 @@ where
             resolved.autonomy.clear();
         }
         Ok(resolved)
+    }
+
+    /// Whether a Job that an agent starts in `repository` waits on the person's start card, for `project` where it
+    /// has one. **True only for `ask_me`**: a project that does not read or does not hold the repository falls back
+    /// to no project, and a layer that cannot be read is `at_once`, since his work is never held by a fault.
+    pub(crate) async fn agent_start_held(&self, project: Option<&str>, repository: &str) -> bool {
+        let repository = ManifestId::carried(repository);
+        let resolved = match self.values_resolved(project, Some(&repository)).await {
+            Ok(resolved) => Ok(resolved),
+            Err(_) if project.is_some() => self.values_resolved(None, Some(&repository)).await,
+            Err(why) => Err(why),
+        };
+        resolved.ok().and_then(|resolved| resolved.agent_starts.value) == Some(AgentStarts::AskMe)
     }
 
     /// `get_values`.
