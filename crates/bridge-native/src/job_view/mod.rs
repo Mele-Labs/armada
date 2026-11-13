@@ -63,6 +63,9 @@ mod zoom;
 mod panes;
 mod pane_store;
 mod pane_tree;
+mod place;
+mod place_draw;
+mod place_menu;
 mod pulls;
 mod issues;
 mod system;
@@ -77,7 +80,6 @@ mod start_card;
 mod workflow;
 mod tabs;
 mod view_tabs;
-pub use side::JobSide;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;
 pub use mod_panel::{ModPanel, ModPanelAsked, OpenJobFrom};
@@ -328,12 +330,9 @@ pub struct JobView {
     pane: Option<gpui::Pixels>,
     /// The list's pick count last acted on: a new pick puts the keys in the box (his word, 10 Nov).
     picked: u64,
-    /// The right column's top pane: Open, Done or Deferred.
-    zone: side::Zone,
-    /// The tabs closed on each Job, and + 's menu while it is open.
-    tabs_closed: tabs::Closed,
-    /// The pane zoomed over the Job, and the panes closed on each Job.
-    zoom: zoom::Zoom,
+    /// Each Job's panes as an arrangement, the pane zoomed over the Job, and the steps back.
+    place: place::Place,
+    /// The menu + or a tab's right press opened, while it is open.
     tabs_menu: Option<tabs::AddMenu>,
     /// Tabs another part of the app opened on a Job, each drawing its own view.
     view_tabs: view_tabs::ViewTabs,
@@ -341,8 +340,6 @@ pub struct JobView {
     row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
     /// The body of the tab beside the thread in front, which takes the keys when it opens.
     row_focus: FocusHandle,
-    /// The thread's strip, which scrolls sideways once its tabs are wider than the pane.
-    row_strip: gpui::ScrollHandle,
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
@@ -514,14 +511,11 @@ impl JobView {
             switched: None,
             pane: None,
             picked: 0,
-            zone: side::Zone::default(),
-            tabs_closed: tabs::Closed::default(),
-            zoom: zoom::Zoom::default(),
+            place: place::Place::default(),
             tabs_menu: None,
             view_tabs: Default::default(),
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
-            row_strip: gpui::ScrollHandle::new(),
             focus: cx.focus_handle(),
             pop: None,
             open_group_set: None,
@@ -570,7 +564,7 @@ impl JobView {
 
     /// The shown Job's thread in front of its pane, and the keys in its message box: a Job ⌘T started.
     pub fn onto_thread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.view_tab_back(ViewPane::Thread);
+        self.front_thread();
         self.keys_to_box(window, cx);
         cx.notify();
     }
@@ -673,12 +667,9 @@ impl JobView {
         self.end_zoom();
         self.shown = to.clone();
         self.switched = Some(started);
-        // Each Job has its own tabs, so the top strip starts at its head with the tab in front in view.
-        self.panes.top_tabs.set_offset(gpui::point(gpui::px(0.), gpui::px(0.)));
-        if let Some(at) = self.zone_shown().and_then(|zone| side::Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).position(|one| one == zone)) {
-            self.panes.top_tabs.scroll_to_item(at);
-        }
         if let Some(id) = &to {
+            // Each Job has its own panes, kept by the store.
+            self.ensure_placed(id, cx);
             self.pages.entry(id.clone()).or_insert_with(Page::new);
             if let Some(fleet) = self.fleet.clone() {
                 let id = id.clone();
@@ -1074,21 +1065,35 @@ impl Render for JobView {
         } else {
             self.render_skeleton(look)
         };
-        // A closed Thread tab leaves its pane empty under the strip, as Electron's does; a tab beside
-        // it in front draws its own body there.
-        let front = self.row_front(&id).cloned();
-        // A row's tab stands first, then a view tab another part of the app opened here, then the thread.
-        let view = front.is_none().then(|| self.view_front(ViewPane::Thread).map(|one| one.view.clone())).flatten();
-        let open = !self.tab_closed("thread") && front.is_none() && view.is_none();
-        let body = match (&front, view) {
-            (Some(tab), _) => self.row_tab_body(&id, tab, look, window, cx),
-            (None, Some(view)) => div().size_full().child(view).into_any_element(),
-            (None, None) if open => body,
-            (None, None) => div().into_any_element(),
-        };
-        let head = self.render_head(&id, cx);
-        let origin = if open { self.render_origin(&id, window, cx) } else { None };
-        let dock = (open && !self.closed(&id, cx)).then(|| self.render_dock(&id, window, cx));
+        // The thread draws where its tab is in front; a closed Thread tab leaves its pane empty under the strip, as Electron's does.
+        let thread_body = self.thread_open().then(|| {
+            let origin = self.render_origin(&id, window, cx);
+            let dock = (!self.closed(&id, cx)).then(|| self.render_dock(&id, window, cx));
+            div()
+                .size_full()
+                .flex()
+                .flex_col()
+                .children(origin)
+                .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)))
+                .children(self.render_bands(&id, cx))
+                .children(dock)
+                .into_any_element()
+        });
+        // What he opened over the Job: menus, sheets and dialogs, laid over the pane that holds the thread.
+        let mut popups: Vec<AnyElement> = self.head_popups();
+        popups.extend(self.tabs_menu.as_ref().map(|open| open.menu.clone().into_any_element()));
+        popups.extend(self.pop.as_ref().map(|pop| pop.menu.clone().into_any_element()));
+        popups.extend(self.render_confirm(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_editor(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_teach(cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_review(&id, window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_report(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_sketch(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_picture(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_sketch_reading(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_subagent_reading(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_pane_panel(window, cx).map(IntoElement::into_any_element));
+        let panes = self.render_panes(&id, thread_body, popups, window, cx);
         // The time from the press that opened the Job to this frame's paint, once per switch.
         let timing = self.switched.take();
         div()
@@ -1096,27 +1101,7 @@ impl Render for JobView {
             .flex()
             .flex_col()
             .relative()
-            .key_context("thread")
-            .on_action(cx.listener(Self::on_act))
-            // Selected words need the window's selection layer; the Job's view is where words are selected.
-            .child(gpui_base::TextSelectionLayer)
-            .child(head)
-            .children(origin)
-            .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx).filter(|_| open)).children(self.render_foot(&id, cx).filter(|_| open)))
-            .children(self.render_bands(&id, cx).filter(|_| open))
-            .children(dock)
-            .children(self.tabs_menu.as_ref().map(|open| open.menu.clone()))
-            .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
-            .children(self.render_confirm(window, cx))
-            .children(self.render_editor(window, cx))
-            .children(self.render_teach(cx))
-            .children(self.render_review(&id, window, cx))
-            .children(self.render_report(window, cx))
-            .children(self.render_sketch(window, cx))
-            .children(self.render_picture(window, cx))
-            .children(self.render_sketch_reading(window, cx))
-            .children(self.render_subagent_reading(window, cx))
-            .children(self.render_pane_panel(window, cx))
+            .child(panes)
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {

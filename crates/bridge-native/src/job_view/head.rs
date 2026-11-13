@@ -69,7 +69,7 @@ pub(super) struct Head {
     menu: Option<OpenMenu>,
     confirm: Option<OpenConfirm>,
     /// The tab takes the keys (Shift+F10, Menu, a double press to rename).
-    tab: FocusHandle,
+    pub(super) tab: FocusHandle,
     /// The band that holds the handoff's Retry takes `r`.
     band: FocusHandle,
     /// Fleet's reason for the last act it refused, by Job.
@@ -460,16 +460,9 @@ impl JobView {
             });
         }
         groups.push(acts);
-        // The tab's own entries after the Job's acts, as Electron's `tabEntries`; Split and Move to window are held.
-        let zoomed = self.pane_zoomed(super::tabs::Pane::Thread);
-        groups.push(vec![Entry::Item {
-            id: "zoom",
-            label: if zoomed { "Restore" } else { "Zoom" }.into(),
-            icon: Some(if zoomed { "minimize-2" } else { "maximize-2" }),
-            danger: false,
-            key: Some("\u{2325}\u{2318}\u{21a9}".into()),
-            off: None,
-        }]);
+        // The tab's own entries after the Job's acts, as Electron's `tabEntries`; Move to window is held.
+        let zoomed = self.thread_pane().is_some_and(|pane| self.zoomed().as_deref() == Some(pane.as_str()));
+        groups.push(super::place_menu::pane_entries(zoomed));
         let mut ends = Vec::new();
         if self.fork_offered(id, cx) {
             ends.push(Entry::Item {
@@ -541,7 +534,11 @@ impl JobView {
         let encoded = |body: Result<String, ipc::Unencodable>| body;
         match act {
             "rename" => cx.defer_in(window, |this, window, cx| this.start_rename(window, cx)),
-            "zoom" => self.toggle_zoom(super::tabs::Pane::Thread, cx),
+            "zoom" | "split-right" | "split-down" => {
+                if let Some(pane) = self.thread_pane() {
+                    self.pane_act_on(act, &pane, window, cx);
+                }
+            }
             "name" => {
                 self.overlay_mut(&id).naming = true;
                 self.ask_act(id, "/sessions/name".into(), encoded(ipc::encode(&ipc::NameSession { session_id })), |overlay| overlay.naming = false, window, cx);
@@ -748,9 +745,9 @@ impl JobView {
 
     // ---- drawing -----------------------------------------------------------------------
 
-    /// The head: the Job's Thread tab (1.1). Its mark says the state, its title is the label, and
-    /// More opens the menu. A tab strip with the Thread tab only.
-    pub(super) fn render_head(&self, id: &SharedString, cx: &mut Context<Self>) -> AnyElement {
+    /// The Job's Thread tab (1.1), for a strip. Its mark says the state, its title is the label, and
+    /// More opens the menu. `tab_id` is the tab's place in the panes, `front` whether it is the pane's front tab.
+    pub(super) fn thread_tab(&self, id: &SharedString, tab_id: &str, front: bool, cx: &mut Context<Self>) -> gpui::Div {
         let look = cx.look();
         let job = self.record(id, cx);
         let overlay = self.head.overlays.get(id.as_str());
@@ -827,8 +824,8 @@ impl JobView {
                 .tooltip(tip(title.clone()))
                 .into_any_element(),
         };
-        // A tab beside the thread in front takes the raised ground from it.
-        let thread_front = self.row_front(id).is_none();
+        // A tab in front of it in its pane takes the raised ground from it.
+        let thread_front = front;
         let tab = labelled(
             div()
                 .id("head-tab")
@@ -866,12 +863,18 @@ impl JobView {
                 .child(label)
                 .children(stop)
                 .child(more)
-                .child(self.close_button("thread", &title, "head-tab".into(), thread_front, look, cx)),
+                .child(self.close_button(tab_id, &title, "head-tab".into(), thread_front, look, cx)),
             Role::Row,
             name,
         );
-        let tab = (!self.tab_closed("thread")).then_some(tab);
-        let said = self.head.said.get(id).cloned().map(|why| {
+        div().flex_none().max_w(look.length(token::SPACE_12) * 8.).flex().h_full().child(tab)
+    }
+
+    /// What Fleet refused the Job's last act with, under the thread's strip.
+    pub(super) fn head_said_row(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
+        let look = cx.look();
+        let look = &look;
+        self.head.said.get(id).cloned().map(|why| {
             labelled(
                 div()
                     .id("head-said")
@@ -883,48 +886,13 @@ impl JobView {
                 Role::Status,
                 "Not done",
             )
-        });
-        div()
-            .flex_none()
-            .flex()
-            .flex_col()
-            .child(
-                div()
-                    .id("thread-strip")
-                    // A press in the pane makes it the one ⌥⌘Enter zooms; a double press on the strip zooms it.
-                    .on_any_mouse_down(cx.listener(|this, _, _, _| this.pane_pressed(super::tabs::Pane::Thread)))
-                    .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                        if event.click_count() == 2 {
-                            this.toggle_zoom(super::tabs::Pane::Thread, cx);
-                        }
-                    }))
-                    .flex_none()
-                    .flex()
-                    .items_stretch()
-                    .h(look.length(token::H_CONTROL_LG))
-                    .bg(look.color(token::BG_SUNKEN))
-                    .border_b(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_GLASS))
-                    // Each tab keeps its width and the strip scrolls sideways, as `.job-pane__strip` does.
-                    .child(
-                        div()
-                            .id("thread-tabs")
-                            .flex()
-                            .items_stretch()
-                            .min_w_0()
-                            .overflow_x_scroll()
-                            .track_scroll(&self.row_strip)
-                            .children(tab.map(|tab| div().flex_none().max_w(look.length(token::SPACE_12) * 8.).flex().h_full().child(tab)))
-                            .children(self.row_tab_strip(id, look, cx))
-                            .children(self.view_tab_elements(super::ViewPane::Thread, look, cx)),
-                    )
-                    .child(self.add_button(super::tabs::Pane::Thread, look, cx))
-                    .children(self.strip_end(super::tabs::Pane::Thread, look, cx)),
-            )
-            .children(said)
-            .children(self.head.menu.as_ref().map(|open| open.menu.clone()))
-            .children(self.head.confirm.as_ref().map(|open| open.confirm.clone()))
             .into_any_element()
+        })
+    }
+
+    /// The menu and the dialog the thread's tab opened.
+    pub(super) fn head_popups(&self) -> Vec<AnyElement> {
+        self.head.menu.iter().map(|open| open.menu.clone().into_any_element()).chain(self.head.confirm.iter().map(|open| open.confirm.clone().into_any_element())).collect()
     }
 
     /// The Jobs this one came from, above its thread: the conversation it was forked from, folded,
@@ -1508,6 +1476,11 @@ impl JobView {
 
 impl JobView {
     /// Whether the keys are on the thread's tab.
+    /// Whether the thread tab's menu has put a dialog over the Job.
+    pub(super) fn head_confirming(&self) -> bool {
+        self.head.confirm.is_some()
+    }
+
     pub(super) fn head_tab_focused(&self, window: &Window, cx: &App) -> bool {
         self.head.tab.contains_focused(window, cx)
     }

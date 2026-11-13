@@ -1,83 +1,52 @@
-//! Each pane tab's × and each strip's + (Add tab), as Electron's `PaneView` draws them. A tab keeps
-//! its ×'s room whether it shows or not, so a tab is as wide either way; it shows on the tab in front
-//! and on hover. A closed tab stays closed for that Job until + brings it back.
+//! Each pane's + (Add tab), and the small ghost button a strip's × and + are made of, as Electron's
+//! `PaneView` draws them.
 //!
-//! **+ offers the tabs built here, each in its own pane, in Electron's order of kinds.** Electron's
-//! menu lists every kind for every pane; the native Job draws its thread and Now in fixed places, so
-//! their +s offer their own kind, and the top pane's offers the rest.
-
-use std::collections::HashSet;
+//! **+ offers one list in every pane**, Electron's order of kinds, the ones built here: the thread
+//! where none is open, Done, Now, Open and Deferred, Plan and the rest the right column's top pane has
+//! held, then the kinds other parts of the app put there (`view_tabs.rs`), the Terminal first. The tab
+//! opens in the pane whose + was pressed; where that pane already holds a tab of the kind, it comes to
+//! the front instead of a second opening.
 
 use gpui::{div, prelude::*, Anchor, Context, DismissEvent, Entity, Focusable, Pixels, Point, Role, SharedString, Stateful, Subscription, Window};
 
-use super::head::{drawn, below_left, tip};
-use super::side::Zone;
+use super::head::{below_left, drawn, tip};
+use super::pane_tree::{self as tree, Extras};
 use super::JobView;
 use crate::assets::icon_path;
 use crate::dropdown::{Dropdown, Entry, Picked};
 use crate::labels::labelled;
 use crate::look::{token, Look};
 
-/// A Job's three panes, by what each holds.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub(super) enum Pane {
-    Thread,
-    Top,
-    Now,
-}
-
-impl Pane {
-    /// The tabs a pane holds and + offers: id, word and glyph.
-    fn kinds(self) -> &'static [(&'static str, &'static str, &'static str)] {
-        match self {
-            Pane::Thread => &[("thread", "Thread", "message-square")],
-            // In Electron's order of kinds (`JOB_TAB_KINDS`), the ones built here alone.
-            Pane::Top => &[
-                ("done", "Done", "circle-check"),
-                ("open", "Open", "circle"),
-                ("deferred", "Deferred", "circle-dashed"),
-                ("plan", "Plan", "list-checks"),
-                ("changes", "Changes", "diff"),
-                ("pulls", "Pull Requests", "git-pull-request"),
-                ("issues", "Issues", "ticket"),
-                ("jobs", "Jobs", "link"),
-                ("ledger", "Ledger", "files"),
-                ("files", "Files", "folder-tree"),
-                ("subagents", "Subagents", "zap"),
-                ("checks", "Checks", "shield-check"),
-                ("workflow", "Workflow", "workflow"),
-                ("system", "System", "cpu"),
-                ("bays", "Bays", "layout-grid"),
-                ("spine", "Spine", "waypoints"),
-                ("judge", "Judge", "scale"),
-            ],
-            Pane::Now => &[("now", "Now", "activity")],
-        }
-    }
-
-    fn named(self) -> &'static str {
-        match self {
-            Pane::Thread => "tabs-add-thread",
-            Pane::Top => "tabs-add-top",
-            Pane::Now => "tabs-add-now",
-        }
-    }
-}
-
 pub(super) struct AddMenu {
     pub menu: Entity<Dropdown>,
     pub _subs: Vec<Subscription>,
 }
 
-/// The tabs closed on each Job, and those + opened that start shut, by Job id.
-#[derive(Default)]
-pub(super) struct Closed {
-    shut: std::collections::HashMap<SharedString, HashSet<&'static str>>,
-    opened: std::collections::HashMap<SharedString, HashSet<&'static str>>,
-}
+/// The kinds + offers: id, word and glyph, in Electron's order of kinds (`JOB_TAB_KINDS`).
+const KINDS: [(&str, &str, &str); 19] = [
+    ("thread", "Thread", "message-square"),
+    ("done", "Done", "circle-check"),
+    ("now", "Now", "activity"),
+    ("open", "Open", "circle"),
+    ("deferred", "Deferred", "circle-dashed"),
+    ("plan", "Plan", "list-checks"),
+    ("changes", "Changes", "diff"),
+    ("pulls", "Pull Requests", "git-pull-request"),
+    ("issues", "Issues", "ticket"),
+    ("jobs", "Jobs", "link"),
+    ("ledger", "Ledger", "files"),
+    ("files", "Files", "folder-tree"),
+    ("subagents", "Subagents", "zap"),
+    ("checks", "Checks", "shield-check"),
+    ("workflow", "Workflow", "workflow"),
+    ("system", "System", "cpu"),
+    ("bays", "Bays", "layout-grid"),
+    ("spine", "Spine", "waypoints"),
+    ("judge", "Judge", "scale"),
+];
 
 /// Done or Open switched off in Settings › Layout: neither drawn nor offered by +. Open is the registry's `next`.
-fn laid_off(tab: &str) -> bool {
+pub(super) fn laid_off(tab: &str) -> bool {
     let panel = match tab {
         "done" => "done",
         "open" => "next",
@@ -87,100 +56,66 @@ fn laid_off(tab: &str) -> bool {
 }
 
 impl JobView {
-    pub(super) fn tab_closed(&self, tab: &str) -> bool {
-        if laid_off(tab) {
-            return true;
-        }
-        if Zone::ALL.into_iter().any(|zone| zone.id() == tab && zone.opened_by_hand()) {
-            return !self.shown.as_ref().and_then(|id| self.tabs_closed.opened.get(id)).is_some_and(|opened| opened.contains(tab));
-        }
-        self.shown.as_ref().and_then(|id| self.tabs_closed.shut.get(id)).is_some_and(|closed| closed.contains(tab))
-    }
-
-    /// Top's tab in front: the zone, or the first of its tabs still open.
-    pub(super) fn zone_shown(&self) -> Option<Zone> {
-        if !self.tab_closed(self.zone.id()) {
-            return Some(self.zone);
-        }
-        Zone::ALL.into_iter().find(|zone| !self.tab_closed(zone.id()))
-    }
-
-    /// A closed thread comes back, as a walk arriving brings it (`reopenThread`).
-    pub(super) fn reopen_thread(&mut self, id: &SharedString) {
-        if let Some(closed) = self.tabs_closed.shut.get_mut(id) {
-            closed.remove("thread");
-        }
-    }
-
-    pub(super) fn close_tab(&mut self, tab: &'static str, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
-        if let Some(opened) = self.tabs_closed.opened.get_mut(&id) {
-            opened.remove(tab);
-        }
-        self.tabs_closed.shut.entry(id).or_default().insert(tab);
-        if tab == "judge" {
-            self.close_judge_tab();
-        }
-        if tab == "system" {
-            self.panes.systems.stop();
-        }
-        if let Some(zone) = self.zone_shown() {
-            self.zone = zone;
-        }
-        cx.notify();
-    }
-
+    /// A kind of tab a Job has, opened by an act of the Job's own (Plan from Now, Judge from the plan): in front where it
+    /// is open already, else in the pane that keeps such tabs.
     pub(super) fn add_tab(&mut self, tab: &'static str, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(id) = self.shown.clone() {
-            if let Some(closed) = self.tabs_closed.shut.get_mut(&id) {
-                closed.remove(tab);
-            }
-            self.tabs_closed.opened.entry(id).or_default().insert(tab);
-        }
-        if tab == "now" {
-            self.view_tab_back(super::ViewPane::Bottom);
-        }
+        self.open_kind(tab, cx);
         if tab == "thread" {
             self.front_thread();
-        }
-        if let Some(zone) = Zone::ALL.into_iter().find(|zone| zone.id() == tab) {
-            self.view_tab_back(super::ViewPane::Top);
-            self.zone = zone;
-            if let Some(at) = Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).position(|one| one == zone) {
-                self.panes.top_tabs.scroll_to_item(at);
-            }
-        }
-        if tab == "thread" {
             window.focus(&self.focus, cx);
         }
         self.want_pane_reads(window, cx);
         cx.notify();
     }
 
-    fn open_add_menu(&mut self, pane: Pane, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
+    /// + in a pane picked a built kind: a tab of it in that pane, in front, or the one the pane has brought forward.
+    fn add_to_pane(&mut self, pane: &str, kind: &'static str, window: &mut Window, cx: &mut Context<Self>) {
+        let held = tree::pane_by_id(&self.arrangement(), pane).and_then(|one| one.tabs.iter().find(|tab| tab.kind == kind)).map(|tab| tab.id.clone());
+        match held {
+            Some(tab) => self.activate_tab(&tab, window, cx),
+            None if kind == "thread" => {
+                self.rearrange(None, true, tree::reopen_thread, cx);
+                self.front_thread();
+                window.focus(&self.focus, cx);
+            }
+            None => {
+                let pane = pane.to_string();
+                self.rearrange(None, false, move |arrangement| tree::add_tab(arrangement, &pane, kind, Extras::default()), cx);
+            }
+        }
+        self.want_pane_reads(window, cx);
+    }
+
+    /// The menu + opens in a pane, at `at`.
+    pub(super) fn open_add_menu(&mut self, pane: &str, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
         // Every pane's + offers the kinds other parts of the app put there after its own.
         let offers = cx.try_global::<super::view_tabs::TabOffers>().map(|offers| offers.0.clone()).unwrap_or_default();
-        let into = super::ViewPane::of(pane);
-        let entries = pane
-            .kinds()
+        let arrangement = self.arrangement().into_owned();
+        let into = super::place::view_pane_of(&arrangement, pane);
+        let entries: Vec<Entry> = KINDS
             .iter()
-            .filter(|&&(id, _, _)| !laid_off(id))
+            .filter(|&&(id, _, _)| !laid_off(id) && !(matches!(id, "thread" | "now") && tree::has_kind(&arrangement, id)))
             .map(|&(id, word, glyph)| Entry::Item { id, label: word.into(), icon: Some(glyph), danger: false, key: None, off: None })
             .chain(offers.iter().map(|offer| Entry::Item { id: offer.id, label: offer.label.clone(), icon: Some(offer.glyph), danger: false, key: None, off: None }))
             .collect();
         let back = window.focused(cx);
         let menu = cx.new(|cx| Dropdown::new("Add tab", entries, at, Anchor::TopLeft, false, cx).at_point(window, cx));
+        let target = pane.to_string();
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
+            this.tabs_menu = None;
             if let Some(offer) = offers.iter().find(|offer| offer.id == *id) {
                 let (open, job) = (offer.open.clone(), this.shown.as_ref().map(|job| job.to_string()));
-                this.tabs_menu = None;
                 if let Some(job) = job {
+                    // The tab the source opens, whenever it does, goes to this pane.
+                    this.aim_at(&job, &target);
                     window.defer(cx, move |window, cx| open(job, into, window, cx));
                 }
                 return;
             }
-            this.add_tab(id, window, cx);
+            if let Some(kind) = KINDS.iter().map(|one| one.0).find(|kind| kind == id) {
+                this.add_to_pane(&target, kind, window, cx);
+            }
         });
         let dismissed = cx.subscribe_in(&menu, window, move |this, _, _: &DismissEvent, window, cx| {
             this.tabs_menu = None;
@@ -195,29 +130,42 @@ impl JobView {
         cx.notify();
     }
 
-    /// A strip's +, at its end.
-    pub(super) fn add_button(&self, pane: Pane, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+    /// A pane's +, at its strip's end. It reads as it always has where the default arrangement gave the pane a name.
+    pub(super) fn add_button(&mut self, pane: &str, look: &Look, cx: &mut Context<Self>) -> impl IntoElement {
+        let name = match super::place::slot_of(pane) {
+            super::place::Slot::Thread => "Add tab: Thread",
+            super::place::Slot::Top => "Add tab: Done",
+            super::place::Slot::Now => "Add tab: Now",
+            super::place::Slot::Other => "Add tab",
+        };
+        let target = pane.to_string();
+        let handle = self.shown.clone().map(|job| self.add_handle(&job, pane, cx));
         labelled(
-            frame(look, pane.named(), "plus").ml(look.length(token::SPACE_1)).tooltip(tip("Add tab".into())).on_click(cx.listener(move |this, _, window, cx| {
-                cx.stop_propagation();
-                let at = drawn(window, cx, Role::Button, &format!("Add tab: {}", pane.kinds()[0].1)).map_or_else(|| window.mouse_position(), below_left);
-                this.open_add_menu(pane, at, window, cx);
-            })),
+            frame(look, SharedString::from(format!("tabs-add:{pane}")), "plus")
+                .ml(look.length(token::SPACE_1))
+                .when_some(handle, |button, handle| button.track_focus(&handle).tab_stop(true))
+                .tooltip(tip("Add tab".into()))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    let at = drawn(window, cx, Role::Button, name).map_or_else(|| window.mouse_position(), below_left);
+                    this.open_add_menu(&target, at, window, cx);
+                })),
             Role::Button,
-            format!("Add tab: {}", pane.kinds()[0].1),
+            name,
         )
     }
 
     /// A tab's ×. `group` is the tab's own hover group.
-    pub(super) fn close_button(&self, tab: &'static str, label: &str, group: SharedString, front: bool, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+    pub(super) fn close_button(&self, tab: &str, label: &str, group: SharedString, front: bool, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+        let tab_id = tab.to_string();
         labelled(
             frame(look, SharedString::from(format!("tab-close:{tab}")), "x")
                 .mr(look.length(token::SPACE_1))
                 .when(!front, |close| close.opacity(0.).group_hover(group, |style| style.opacity(1.)))
                 .tooltip(tip("Close".into()))
-                .on_click(cx.listener(move |this, _, _, cx| {
+                .on_click(cx.listener(move |this, _, window, cx| {
                     cx.stop_propagation();
-                    this.close_tab(tab, cx);
+                    this.close_tab_id(&tab_id, window, cx);
                 })),
             Role::Button,
             format!("Close {label}"),

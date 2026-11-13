@@ -32,8 +32,6 @@ const SOURCE_IDS: [&str; 16] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
 /// What the panes hold between draws, by Job.
 #[derive(Default)]
 pub(super) struct Panes {
-    /// The top pane's tab strip, so a tab added from + scrolls into view.
-    pub(super) top_tabs: gpui::ScrollHandle,
     /// Plan groups unfolded, as `{job}/{group}`.
     plan_open: HashSet<String>,
     /// The source each Job's Changes reads, by its value (`useKept("changes:<id>")`).
@@ -306,21 +304,23 @@ impl JobView {
             self.want_system(window, cx);
             return;
         };
-        match self.zone_shown() {
-            Some(super::side::Zone::Changes) => self.want_patches(&id, window, cx),
-            Some(super::side::Zone::Files) => {
-                self.keep_search(&id, window, cx);
-                self.want_found(&id, window, cx);
+        for zone in self.zones_shown() {
+            match zone {
+                super::side::Zone::Changes => self.want_patches(&id, window, cx),
+                super::side::Zone::Files => {
+                    self.keep_search(&id, window, cx);
+                    self.want_found(&id, window, cx);
+                }
+                super::side::Zone::Judge => self.keep_judge(window, cx),
+                super::side::Zone::Ledger => {
+                    self.forget_reopened(&id, cx);
+                    self.judge_read(&id, cx);
+                }
+                super::side::Zone::Subagents | super::side::Zone::Pulls => self.judge_read(&id, cx),
+                super::side::Zone::Issues => self.want_tickets(&id, window, cx),
+                super::side::Zone::Bays | super::side::Zone::System => self.read_pool(window, cx),
+                _ => {}
             }
-            Some(super::side::Zone::Judge) => self.keep_judge(window, cx),
-            Some(super::side::Zone::Ledger) => {
-                self.forget_reopened(&id, cx);
-                self.judge_read(&id, cx);
-            }
-            Some(super::side::Zone::Subagents | super::side::Zone::Pulls) => self.judge_read(&id, cx),
-            Some(super::side::Zone::Issues) => self.want_tickets(&id, window, cx),
-            Some(super::side::Zone::Bays | super::side::Zone::System) => self.read_pool(window, cx),
-            _ => {}
         }
         // The System tab's 5 s read runs only while that tab is in front; this stops it otherwise.
         self.want_system(window, cx);
@@ -935,6 +935,11 @@ impl JobView {
 
     /// The panel a pane's row opened: a sheet at the trailing edge, under the title bar, as Electron's
     /// `SidePanel` floats one at `--w-dialog-wide`.
+    /// Whether a file or Check panel stands over the Job.
+    pub(super) fn pane_panel_open(&self) -> bool {
+        self.panes.panel.is_some()
+    }
+
     pub(super) fn render_pane_panel(&self, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
         let panel = self.panes.panel.as_ref()?;
         if matches!(panel.of, Of::Pull(_)) {

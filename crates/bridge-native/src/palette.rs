@@ -592,6 +592,11 @@ impl Palette {
         (entries, on)
     }
 
+    /// Whether the palette is open: a key that arranges panes is not heard then.
+    pub fn is_open(&self) -> bool {
+        self.open.is_some()
+    }
+
     /// Open the palette over whatever has the keys; Esc gives them back.
     pub fn open(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.open.is_some() {
