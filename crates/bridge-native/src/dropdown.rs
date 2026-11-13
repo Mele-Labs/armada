@@ -178,8 +178,10 @@ impl Dropdown {
         self
     }
 
+    /// With a query typed, the first match under the field: the rows above it are not what was searched.
     fn first(&self) -> Option<usize> {
-        self.visible().0.into_iter().find(|&at| self.entries[at].pickable())
+        let field = self.entries.iter().position(|entry| matches!(entry, Entry::Search { .. })).filter(|_| !self.query.trim().is_empty());
+        self.visible().0.into_iter().find(|&at| field.is_none_or(|field| at > field) && self.entries[at].pickable())
     }
 
     /// The entries drawn, by place, and whether the query left nothing in its reach. With no field or
@@ -629,4 +631,20 @@ impl Render for Dropdown {
 /// Where a menu opened from the keyboard sits under a row: its middle, at its bottom edge.
 pub fn under(bounds: gpui::Bounds<Pixels>) -> Point<Pixels> {
     Point { x: bounds.origin.x + bounds.size.width / 2., y: bounds.origin.y + bounds.size.height }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[gpui::test]
+    fn enter_after_a_query_picks_the_first_match_under_the_field(cx: &mut gpui::TestAppContext) {
+        let entries = vec![Entry::Row(Row::new("account", "Account")), Entry::Search { label: "Find a project", to_rule: true }, Entry::Row(Row::new("sample", "sample-web")), Entry::Row(Row::new("new-project", "New project")), Entry::Rule];
+        let menu = cx.new(|cx| Dropdown::new("Menu", entries, Point::default(), Anchor::TopLeft, false, cx));
+        menu.update(cx, |menu, _| {
+            assert_eq!(menu.first(), Some(0), "with nothing typed the first row is first");
+            menu.query = "new".into();
+            assert_eq!(menu.first(), Some(3), "a row above the field is not what was searched");
+        });
+    }
 }
