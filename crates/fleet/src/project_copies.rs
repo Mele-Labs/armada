@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Projects, Refusal};
+use core_model::{Component, Envelope, FieldValue, Level};
 use ipc::{
     EditedTaskFields, Event, MoveProjectRow, Project, ProjectAct, ProjectActFromMac, ProjectRow, ProjectTask, ProjectTaskState,
     WireError,
@@ -450,7 +451,10 @@ where
             match self.send_project_act(&mac, &sent).await {
                 Ok(Sent::Answered(answer)) => last = Some(answer.projects),
                 Ok(Sent::Refused(refusal)) => {
-                    eprintln!("an edit made on Mac {mac}'s project while it was out of reach was refused there and dropped: {}", refusal.error().message);
+                    let said = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "a queued edit was refused by the Mac that holds its project, and dropped")
+                        .with_field("mac", FieldValue::Str(mac.clone()))
+                        .with_field("why", FieldValue::Str(refusal.error().message.clone()));
+                    crate::transcript::note_aloud(&said);
                 }
                 Ok(Sent::Unreachable) | Err(_) => break,
             }
