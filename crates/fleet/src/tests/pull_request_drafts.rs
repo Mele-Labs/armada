@@ -45,6 +45,7 @@ fn proposed(id: &SessionId, before: Option<&str>, pull_request: Option<u64>) -> 
         before: before.map(str::to_string),
         pull_request,
         session_id: Some(id.clone()),
+        ..Default::default()
     }
 }
 

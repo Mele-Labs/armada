@@ -335,6 +335,8 @@ impl RecordPlan {
                     scene: drawn.scene.clone(),
                     session_id: None,
                     against: None,
+                    for_line: None,
+                    links: Vec::new(),
                 };
                 match shown.checked_for("record_plan") {
                     Ok(sketch) => Some(sketch),

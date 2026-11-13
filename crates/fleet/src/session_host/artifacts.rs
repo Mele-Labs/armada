@@ -162,7 +162,8 @@ fn whole(form: ArtifactForm, one: &KeptAttachment, versions: &[KeptAttachmentVer
     let title = one.detail.get("title").cloned().unwrap_or_else(|| {
         one.target.strip_prefix(TARGET_PREFIX).or_else(|| one.target.strip_prefix(DRAFT_PREFIX)).unwrap_or(&one.target).to_string()
     });
-    JobArtifact { id: one.target.clone(), title, form, revisions: revisions_of(form, one, versions), state, words: None, item, archived: None }
+    let for_line = ipc::ArtifactFor::of_detail(&one.detail);
+    JobArtifact { id: one.target.clone(), title, form, revisions: revisions_of(form, one, versions), state, words: None, item, archived: None, for_line }
 }
 
 /// Every revision the row's `revisions` names, oldest first, and one where it names none. The first was

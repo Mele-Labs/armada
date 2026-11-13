@@ -18,7 +18,8 @@ The owner approved the design on 13 Nov 2026.
 | The record and `get_job_artifacts` | Built in Fleet; native draws it later |
 | Drafts kept as artifacts keyed by title, with revisions | Built |
 | Archive and restore, by the agent or by him | Built in Fleet; native draws the fold later |
-| His revisions, the For line, a plan's sketches, answering several at once | Not built |
+| The For line, the agent's and Fleet's links | Built in Fleet; native draws it later |
+| His revisions, a plan's sketches, answering several at once | Not built |
 
 ## What an artifact is
 
@@ -81,3 +82,27 @@ An item answered meanwhile stays answered, so a restore never asks him again wha
 The Job is sent nothing.
 
 **Rule.** The archive is kept in Fleet's store apart from the artifact's attachment, which a new revision rewrites whole.
+
+## The For line
+
+**Rule.** An artifact may say what it is for: one sentence from the agent on what it serves and what his answer changes, shown under the title.
+It is optional.
+The owner decided this on 13 Nov 2026.
+
+**Rule.** `show_sketch` and `propose_draft` take an optional `for` of at most 200 characters, and optional `links` of `{label, url}`, at most 5.
+A `for` over 200 characters, more than 5 links, or a `url` that is not `http://` or `https://` refuses the call and names the limit or the link.
+Nothing is kept.
+
+**Rule.** A page says it in its head: `<meta name="armada-for" content="...">` and any number of `<link rel="armada-for" href="..." title="...">`.
+A page is never refused, so Fleet keeps the first 200 characters and the first 5 `http(s)` links.
+Each link it drops is named to the Job in the notice that names a sketch that will not draw.
+
+**Rule.** When a revision is kept, Fleet adds the links it knows after the agent's own, never one the agent already gave:
+the plan task the Job has in progress (`task`), that task's plan group (`plan_step`), and each open pull request the Job holds (`pull_request`, `#<n> <title>`).
+A pull request the agent linked by its address is not linked again.
+
+**Rule.** Each revision keeps its own For line, with Fleet's links as they stood when it was kept, so the record reads the same later.
+The artifact shows the newest revision's.
+A sketch drawn again with no `for` has only Fleet's links.
+
+**Rule.** The For line rides on the artifact, the latest sketch card, the document card and the draft row, so native draws it without a second read.

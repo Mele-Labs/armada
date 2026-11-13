@@ -67,6 +67,18 @@ pub static MACS_PHONE_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-macs-claim`: the other Mac claims while Macs is open here, and its Confirm turns up without
+/// reopening Settings.
+pub const MACS_CLAIM: &str = "native-settings-macs-claim";
+
+pub static MACS_CLAIM_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: no claim from the other Mac yet", "button", "Macs", "list", "Devices"),
+    step("The other Mac claims while the page is open", Verb::Later(5000), "button", "Confirm Mac Pro"),
+    step("Its row turns up with Confirm, and Settings was never reopened", Verb::Wheel("region", "Devices", 600), "button", "Confirm Mac Pro"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-layout-time`: what Layout and Time set, read on the app behind Settings.
 pub const LAYOUT_TIME: &str = "native-layout-time";
 

@@ -145,6 +145,9 @@ impl Stage {
                 if walk.name == crate::settings::walk::OFF_EVERYWHERE {
                     over.update(cx, |over, cx| over.with_api_bug_off(cx));
                 }
+                if walk.name == crate::settings::walk::MACS_CLAIM {
+                    over.update(cx, |over, cx| over.claim_later(cx));
+                }
                 if walk.name == crate::settings::walk::MACS_SETUP {
                     over.update(cx, |over, cx| over.fresh_mac(cx));
                 }
