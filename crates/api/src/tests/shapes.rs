@@ -223,6 +223,8 @@ pub fn workflows() -> Vec<WorkflowSummary> {
             ..Default::default()
         }],
         hides: None,
+        based_on: None,
+        armada_changed: false,
         steps: vec![
             // Gated, and ungated. The pair is the distinction a preview's rail
             // turns on, so the fake carries both rather than one — and the

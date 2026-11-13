@@ -90,6 +90,17 @@ pub struct ResolvedValue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
     pub from: ValueLayer,
+    /// True only for a project's `delivery` that Fleet learned from the person's first answer to the delivery
+    /// question, and that stands as it was learned: a value he sets, or changes, is not learned.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub learned: bool,
+    /// What the layers below the project give this key (repository, Kit, Machine, default). Set only where `from` is
+    /// `project`; absent there too where nothing below sets a word, and `inherited_from` is then `default`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inherited: Option<String>,
+    /// The layer `inherited` came from. Set with it, on a key whose `from` is `project`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inherited_from: Option<ValueLayer>,
 }
 
 /// The tracker a layer named, and the layer. `value` is the block as written, `provider` and every other key,

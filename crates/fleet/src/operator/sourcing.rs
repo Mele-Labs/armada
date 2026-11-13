@@ -330,20 +330,21 @@ where
                     return undone("the report was not linked");
                 }
             }
-            (Arrived::Report, Way::NewJob, _, _) => self.operator_started_report(last, manifest).await?,
-            (Arrived::Report, Way::ExistingJob, Some(into), _) => self.operator_handed_report(last, manifest, into).await?,
-            (Arrived::RedMain, Way::NewJob, _, _) => self.operator_fixed_red(manifest, last).await,
-            (Arrived::RedMain, Way::ExistingJob, Some(into), _) => self.operator_gave_red(manifest, last, into).await?,
+            // Each arm that starts, hands or tells a Job is boxed: inline, they make this frame too deep for a test thread.
+            (Arrived::Report, Way::NewJob, _, _) => Box::pin(self.operator_started_report(last, manifest)).await?,
+            (Arrived::Report, Way::ExistingJob, Some(into), _) => Box::pin(self.operator_handed_report(last, manifest, into)).await?,
+            (Arrived::RedMain, Way::NewJob, _, _) => Box::pin(self.operator_fixed_red(manifest, last)).await,
+            (Arrived::RedMain, Way::ExistingJob, Some(into), _) => Box::pin(self.operator_gave_red(manifest, last, into)).await?,
             (Arrived::Start, _, _, _) if arrival.is_dispatch() => Box::pin(self.dispatch_sourced(arrival, ruling)).await?,
-            (Arrived::Start, Way::ExistingJob, Some(into), _) => self.operator_handed_start(arrival, into).await?,
+            (Arrived::Start, Way::ExistingJob, Some(into), _) => Box::pin(self.operator_handed_start(arrival, into)).await?,
             (Arrived::Note, Way::Link, _, _) => {
                 if !self.note_settled_by_operator(manifest, last).await {
                     return undone("the note was not marked done");
                 }
             }
-            (Arrived::Note, Way::File, _, _) => made.issue = Some(self.operator_filed_note(manifest, last, arrival).await.ok_or("the issue was not filed")?),
-            (Arrived::Note, Way::NewJob, _, _) => made.job = Some(self.operator_started_note(manifest, last, arrival).await.ok_or("the Job did not start")?),
-            (Arrived::Note, Way::ExistingJob, Some(into), _) => self.operator_told_note(manifest, last, arrival, into).await?,
+            (Arrived::Note, Way::File, _, _) => made.issue = Some(Box::pin(self.operator_filed_note(manifest, last, arrival)).await.ok_or("the issue was not filed")?),
+            (Arrived::Note, Way::NewJob, _, _) => made.job = Some(Box::pin(self.operator_started_note(manifest, last, arrival)).await.ok_or("the Job did not start")?),
+            (Arrived::Note, Way::ExistingJob, Some(into), _) => Box::pin(self.operator_told_note(manifest, last, arrival, into)).await?,
             (Arrived::Merged, Way::Close, _, Some(issue)) => {
                 self.operator_closed_issue(manifest, issue, &format!("Done by #{last}, as the Operator ruled")).await?;
             }

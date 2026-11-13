@@ -59,6 +59,11 @@ export type ValueLayer = "default" | "machine" | "kit" | "repository" | "project
 export type ResolvedValue = {
   value?: string;
   from: ValueLayer;
+  /** True only for a project's `delivery` Fleet learned from the person's first answer, and that still stands as learned. */
+  learned?: boolean;
+  /** What the layers below the project give this key. Set only where `from` is `project`; absent there when nothing below sets a word, and `inherited_from` is then `default`. */
+  inherited?: string;
+  inherited_from?: ValueLayer;
 };
 
 /** The tracker a layer named. `value` is absent where none does (the forge's own), and `from` is then `default`. */
