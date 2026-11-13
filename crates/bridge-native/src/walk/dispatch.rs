@@ -60,7 +60,7 @@ pub static START_FLOW: [Step; 13] = [
 ];
 
 /// The Operator on: his Start is a dispatch the Operator may rule on, and what it did comes as a toast he presses.
-pub static OPERATOR_FLOW: [Step; 20] = [
+pub static OPERATOR_FLOW: [Step; 21] = [
     step("⌘N opens the sheet over the screen", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("Typing reads the repository", Verb::Typed("Fix the flaky login test in sample-api"), "img", "Repository, finding"),
     answer("Fleet found sample-api in the words", "found", "combobox", "Repository sample-api"),
@@ -79,6 +79,7 @@ pub static OPERATOR_FLOW: [Step; 20] = [
     answer("Fleet found sample-api in the words", "found", "combobox", "Repository sample-api"),
     press_on("Start sends it", "button", "Start", "button", "Starting"),
     answer("The Operator kept it as an idea: the toast says so, and nothing opens", "answer-operator-parked", "alert", "Toast: Operator kept it as an idea"),
+    step("The keys go to the Job's message box with the toast up: the toast stands above the box, and no control under it is hidden", Verb::Press, "textbox", "Message"),
     step("A press on the toast opens the Operator's page, and the toast goes", Verb::Gone, "button", "Operator kept it as an idea"),
     step("The Operator's page is in front", Verb::Look, "status", "The Operator's page is in front"),
 ];

@@ -220,22 +220,6 @@ enum Sent {
     Kept { dispatch: String, title: String },
 }
 
-/// The words are the Job's first message, as Electron's Start sends them once the Job exists.
-fn first_message(port: u16, id: String, text: String, mentions: Vec<SessionTag>, cx: &mut App) {
-    let body = ipc::encode(&ipc::SendSessionMessageBody {
-        message: ipc::SendSessionMessage { session_id: SessionId::carried(id), text, attachments: Vec::new(), mentions, sketches: Vec::new() },
-        aim: None,
-    })
-    .map_err(|why| format!("{why:?}"));
-    cx.background_executor()
-        .spawn(async move {
-            if let Err(why) = body.and_then(|body| live::call(port, "/sessions/message".into(), Some(body))) {
-                crate::log::Note::warn("a started Job was not given its words").field("why", why).emit();
-            }
-        })
-        .detach();
-}
-
 fn reach(cx: &mut App, run: impl FnOnce(&mut DispatchScreen, &mut Window, &mut Context<DispatchScreen>) + 'static) {
     let Some(live) = cx.try_global::<Live>() else { return };
     let (me, handle) = (live.0.clone(), live.1);
@@ -617,17 +601,28 @@ impl DispatchScreen {
             on_your_words: None,
             project: scope(cx).and_then(|(id, _)| id).map(|id| id.to_string()),
         };
-        let body = ipc::encode(&start).map_err(|why| format!("{why:?}"));
+        // His idea is his work: it goes as a dispatch, unheld, its words the first message, answered as the sheet's Start is.
+        let then = vec![ipc::DispatchThen::Message(ipc::DispatchMessage { text: idea.text.clone(), attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];
+        let body = ipc::encode(&ipc::DispatchJob { start, kind: None, then }).map_err(|why| format!("{why:?}"));
         cx.spawn_in(window, async move |this, cx| {
-            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/start".into(), Some(body?)) }).await;
+            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/dispatch".into(), Some(body?)) }).await;
             let _ = this.update_in(cx, |this, _window, cx| {
-                match answer.and_then(|bytes| ipc::decode::<SessionRecord>("SessionRecord", &bytes).map_err(|why| why.to_string())) {
-                    Ok(record) => {
-                        let id = record.id.as_str().to_string();
+                match answer.and_then(|bytes| ipc::decode::<ipc::JobDispatched>("JobDispatched", &bytes).map_err(|why| why.to_string())) {
+                    // Fleet took it, whoever starts the Job: it leaves the queue. A Job started opens; with the Operator
+                    // holding it, or keeping it as an idea, he stays where he was and the toast says what became of it.
+                    Ok(done) => {
                         crate::queued::remove(&idea.id, cx);
-                        first_message(port, id.clone(), idea.text.clone(), Vec::new(), cx);
-                        let list = this.jobs.read(cx).list.clone();
-                        list.update(cx, |list, cx| list.open(id.into(), cx));
+                        match done.session {
+                            Some(record) => {
+                                let list = this.jobs.read(cx).list.clone();
+                                list.update(cx, |list, cx| list.open(record.id.as_str().to_string().into(), cx));
+                            }
+                            None => {
+                                if let Some(id) = done.operator.as_deref().or(done.parked.as_deref()) {
+                                    crate::toasts::dispatch_held(id, &idea.text, cx);
+                                }
+                            }
+                        }
                     }
                     Err(why) => {
                         crate::queued::set_starting(&idea.id, false, cx);

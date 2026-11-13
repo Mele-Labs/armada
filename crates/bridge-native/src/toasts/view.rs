@@ -235,6 +235,8 @@ pub struct Toasts {
     back: Option<FocusHandle>,
     /// The history file, on the owner's Fleet only.
     file: Option<PathBuf>,
+    /// How far the pile stands above its corner so it clears a message box drawn under it.
+    lift: gpui::Pixels,
     _subs: Vec<Subscription>,
 }
 
@@ -263,7 +265,7 @@ impl Toasts {
                 }
             }));
         }
-        Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, _subs: subs }
+        Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, lift: gpui::px(0.), _subs: subs }
     }
 
     fn arrived(&mut self, items: &[OperatorTurnItem], window: &mut Window, cx: &mut Context<Self>) {
@@ -762,6 +764,22 @@ impl Toasts {
         labelled(frame, Role::Alert, format!("Toast: {}", one.sentence))
     }
 
+    /// How far to stand above the corner: from the corner to the top of the message box, where one is drawn under
+    /// the pile's width, with a gap; none where no box is under it.
+    fn lift_over_box(&self, window: &Window, look: &Look, cx: &App) -> gpui::Pixels {
+        let none = gpui::px(0.);
+        let Some(book) = cx.try_global::<crate::labels::LabelBook>() else { return none };
+        let Some(boxed) = book.find(window.window_handle().window_id(), Role::Group, "Message box").map(|drawn| drawn.shown) else { return none };
+        let size = window.viewport_size();
+        let (right, width) = (size.width - look.length(token::SPACE_6), gpui::px(WIDTH));
+        let under = boxed.left() < right && boxed.right() > right - width;
+        if !under || boxed.size.height <= gpui::px(0.) {
+            return none;
+        }
+        let corner = look.length(token::SPACE_6);
+        (size.height - boxed.top() + look.length(token::SPACE_3) - corner).max(none)
+    }
+
     fn history_panel(&self, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let rows = self.shelf.history().map(|toast| {
             let id = toast.item.id.clone();
@@ -832,8 +850,15 @@ impl Toasts {
 }
 
 impl Render for Toasts {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
+        // Where a message box is drawn under the pile it stands above the box, so no control under it is hidden;
+        // the box was painted the frame before, so a change draws once more.
+        let lift = self.lift_over_box(window, &look, cx);
+        if lift != self.lift {
+            self.lift = lift;
+            window.request_animation_frame();
+        }
         let shown: Vec<Toast> = self.shelf.shown().into_iter().cloned().collect();
         let last = shown.len().saturating_sub(1);
         // Fleet's states stand first, at the top of the stack: urgent, and held while they last.
@@ -847,7 +872,7 @@ impl Render for Toasts {
             .absolute()
             .top(look.length(token::H_TITLE_BAR) + look.length(token::SPACE_2))
             .right(look.length(token::SPACE_6))
-            .bottom(look.length(token::SPACE_6))
+            .bottom(look.length(token::SPACE_6) + self.lift)
             .flex()
             .flex_col()
             .justify_end()
