@@ -134,10 +134,11 @@ impl ReviewsScreen {
 
     /// Review changes: the drafts that go, a summary, and the verdict that sends them.
     pub(super) fn render_sheet(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
-        let title = format!("Review changes at {}", page.head);
+        let title = "Review changes".to_string();
         let heading = labelled(
             div()
                 .id("sheet-title")
+                .tooltip(tip(format!("At commit {}", page.head)))
                 .text_size(look.length(token::TEXT_BASE))
                 .line_height(look.length(token::LEADING_BASE))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))

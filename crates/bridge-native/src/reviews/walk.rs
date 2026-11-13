@@ -47,7 +47,7 @@ pub static STEPS: [Step; 45] = [
     step("Save as", Verb::PressOn("menuitem", "Save as"), "dialog", "Save this layout"),
     step("A name for it", Verb::Typed("Side by side"), "textbox", "Layout name"),
     step("Saved: every pull request opens on it", Verb::PressOn("button", "Save layout"), "button", "Layout: Side by side"),
-    step("Review changes: the sheet takes the panes' place, at the head", Verb::Open("button", "Review changes"), "region", "Review changes at e71b0d4"),
+    step("Review changes: the sheet takes the panes' place", Verb::Open("button", "Review changes"), "region", "Review changes"),
     step("The draft that will be sent, and a summary", Verb::Look, "textbox", "Draft on src/webhooks/retry.rs:9"),
     step("Approve: the bar says so at once, at the head", Verb::PressOn("button", "Approve"), "status", "You approved today"),
     step("The inbox row has no new commits now", Verb::Look, "label", "#2198 · ledger-api · 40m"),
