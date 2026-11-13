@@ -46,7 +46,7 @@ impl EventEmitter<EditorEvent> for LanesEditor {}
 const LANE_MIN: f32 = 128.;
 
 /// Fleet's word where what a draft was made from is not what is saved now.
-const CHANGED_SINCE: &str = "Changed since you started; Discard and edit again";
+const CHANGED_SINCE: &str = "This workflow changed since you started. Discard and edit again.";
 
 enum Read {
     Loading,

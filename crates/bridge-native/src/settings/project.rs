@@ -55,7 +55,7 @@ fn from_note(from: ValueLayer) -> Option<&'static str> {
         ValueLayer::Project => None,
         ValueLayer::Default => Some("Armada's default"),
         ValueLayer::Machine => Some("From this machine"),
-        ValueLayer::Kit => Some("From Kit"),
+        ValueLayer::Kit => Some("From every project"),
         ValueLayer::Repository => Some("From the repository"),
         ValueLayer::Job => Some("From the Job"),
     }

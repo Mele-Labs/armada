@@ -50,9 +50,10 @@ pub fn scope_of(one: &Listed) -> (String, String) {
     (scope, one.runs_in.clone().unwrap_or_else(|| one.manifest.clone()))
 }
 
-/// What an edit on the picked copy changes (`SAYS`).
-pub fn says(scope: &str, repository: &str) -> String {
-    if scope == DEFAULT { "Edits here change every Workspace and repository that keeps the default".into() } else { format!("Edits here change {repository} only") }
+/// What an edit on the picked copy changes (`SAYS`). None for the default: the draft's question answers where it
+/// applies.
+pub fn says(scope: &str, repository: &str) -> Option<String> {
+    (scope != DEFAULT).then(|| format!("Edits here change {repository} only"))
 }
 
 /// Armada's own workflow, and what runs in a repository that keeps no copy: an edit on it asks where it applies.
@@ -188,7 +189,10 @@ impl SettingsOverlay {
             .gap_x(look.length(token::SPACE_3))
             .gap_y(look.length(token::SPACE_1))
             .min_w_0()
-            .child(labelled(small(look, said.clone(), look.color(token::FG_MUTED)).id("workflow-lanes-says").flex_auto().min_w_0().px(look.length(token::SPACE_3)), Role::Label, said))
+            .child(match said {
+                Some(said) => labelled(small(look, said.clone(), look.color(token::FG_MUTED)).id("workflow-lanes-says").flex_auto().min_w_0().px(look.length(token::SPACE_3)), Role::Label, said).into_any_element(),
+                None => div().flex_auto().into_any_element(),
+            })
             .child(labelled(add, Role::Button, "Add lifecycle"));
         let body = match self.lanes.editors.get(&one.key()) {
             None => bone(look, px(0.), look.length(token::SPACE_12) * 11.).w_full().into_any_element(),
@@ -211,8 +215,8 @@ mod tests {
         assert_eq!(scope_of(&row(Place::Repository, "api", None)), ("api".to_string(), "api".to_string()));
         assert_eq!(scope_of(&row(Place::Armada, "armada", Some("api"))), ("default".to_string(), "api".to_string()));
         assert_eq!(scope_of(&row(Place::Yours, "armada", None)), ("default".to_string(), "armada".to_string()));
-        assert_eq!(says("api", "api"), "Edits here change api only");
-        assert_eq!(says("default", "api"), "Edits here change every Workspace and repository that keeps the default");
+        assert_eq!(says("api", "api").as_deref(), Some("Edits here change api only"));
+        assert_eq!(says("default", "api"), None);
     }
 
     #[test]
