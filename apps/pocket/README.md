@@ -45,6 +45,6 @@ switch stays where it was, and so do Dispatch and Pair.
 Every call is signed with that Mac's key in `src/client.ts`. Each key is made
 when its Mac is paired, non-extractable, and kept in IndexedDB
 (`src/machines.ts`). `public/sw.js` is the service worker; a tapped push opens
-the Job it is about.
+the Job it is about, and a clear push closes that Job's notification.
 
 Checks: `apps/pocket:typecheck` and `apps/pocket:pocket_test`.

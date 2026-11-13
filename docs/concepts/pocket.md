@@ -339,16 +339,23 @@ The Fleet half is [His other Macs, Fleet's half](../practices/protocol/his-other
 
 ## What pushes
 
-Only Needs you: a Job whose `waiting_for` gains an item id it did not have.
+Only Needs you: a Job whose `waiting_for` gains an item id it did not have, and that item is still open 60 seconds later.
 
 | Job | Pushes |
 |---|---|
-| A new item in `waiting_for`: a question, a permission ask, a plan to approve, a walk | yes, once per item |
+| A new item in `waiting_for`: a question, a permission ask, a plan to approve, a walk | yes, once per item, 60 seconds after it is raised if it is still open |
+| Nothing pushed for the Job is open any more | a clear, which closes the Job's notification and shows nothing |
 | `stuck` | no, Fleet repairs it without the person |
 
+- **Settle first.** A new item is held for `SETTLE` (60 seconds, `crates/pocket/src/watch.rs`) and pushed only if it is still open then.
+  A permission ask that the Mac or an agent's mode answers within seconds never reaches the phone.
+  Items one Job raises inside the window go out as one push, saying the newest that is still open.
 - **Once per item.** Pocket keeps the item ids it has pushed, per Job.
   An id leaves when its item does, so an item raised again pushes again.
   The first update Pocket sees for a Job only records what is open, so a restart pushes nothing for items already waiting.
+- **Taken back.** When none of the items pushed for a Job is open, Pocket sends `{ session_id, clear: true }` once.
+  The phone's service worker closes the notification tagged with that Job and shows nothing.
+  An iPhone is sent no clear: iOS removes a push subscription after a few pushes that show nothing, so on an iPhone the notification stays until it is dismissed.
 - **Payload.** `{ session_id, title, reason, origin }`: the title is the Job's title, the reason is the item's text, or `A walk is ready` for a walk item whose text is an address, and `origin` is this Mac's address.
   `origin` is absent while the Gateway cannot say its address.
 - **Tapping it** opens `/jobs/<origin>/<session_id>`, the Job on that Mac, or `/jobs/_/<session_id>` without an origin. The Gateway serves the app for any `/jobs/` path.
