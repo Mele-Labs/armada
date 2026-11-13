@@ -97,6 +97,27 @@ pub struct Step {
 /// Where a restart line's first clause ends: before what it names, such as a path.
 const CLAUSE_ENDS: [&str; 4] = [":", " — ", " in /", " from /"];
 
+/// `scripts/restart`'s own steps by how their line starts, each with the short name a row shows.
+const KNOWN_STEPS: [(&str, &str); 12] = [
+    ("Booting ", "Restarting Fleet"),
+    ("Stopping the Fleet in ", "Stopping Fleet"),
+    ("Fleet is running (pid ", "Checking for running Jobs"),
+    ("No Drone is working", "No Job is running"),
+    ("This Fleet runs no Drones", "No Job is running"),
+    ("Adopting every working Drone", "Running Jobs keep running"),
+    ("ipc was last built at protocol ", "Rebuilding the protocol"),
+    ("Retiring ", "Retiring the phone app's service"),
+    ("Kept ", "Kept the build and swapped nothing"),
+    ("Bridge runs from ", "Reopening Bridge"),
+    ("Quitting the running Bridge", "Quitting Bridge"),
+    ("The native Bridge runs from ", "Reopening this app"),
+];
+
+/// What a restart step's row shows: a known step's short name, else the line's first clause.
+pub fn step_name(line: &str) -> String {
+    KNOWN_STEPS.iter().find(|(start, _)| line.starts_with(start)).map_or_else(|| clause_of(line), |(_, name)| name.to_string())
+}
+
 /// A restart line's first clause: `Keeping the build in /Users/…` is `Keeping the build`.
 pub fn clause_of(line: &str) -> String {
     let cut = CLAUSE_ENDS.iter().filter_map(|end| line.find(end)).min().unwrap_or(line.len());
@@ -171,7 +192,7 @@ fn restarting(disk: &Disk, from: DateTime<Local>, now: DateTime<Local>) -> Panel
         app: app_unit(disk, None, "Running"),
         link: "restart under way",
         act: None,
-        note: Some("No button: the restart starts Fleet"),
+        note: None,
         log: Some(Log::Restart),
     }
 }
@@ -213,9 +234,9 @@ fn older(fleet_protocol: Option<&str>, fleet_build: Option<&str>, disk: &Disk, s
     // A side named older is off current with a kept build of its own; else it is only apart.
     let state = |build: Option<&str>, on: bool| if build.is_some() && !on { "Older build" } else { "Running" };
     let (title, fleet_tone, app_tone, act, note) = match (fleet_on, app_on) {
-        (false, true) => ("Fleet runs an older build", Some(Tone::Older), None, Act::RestartFleet, "Working Drones are adopted"),
-        (true, false) => ("This app runs an older build", None, Some(Tone::Older), Act::ReopenApp, "Fleet and its Drones are not touched"),
-        _ => ("Fleet and this app do not match", Some(Tone::Older), Some(Tone::Older), Act::RestartFleet, "Working Drones are adopted"),
+        (false, true) => ("Fleet runs an older build", Some(Tone::Older), None, Act::RestartFleet, "Running Jobs keep running"),
+        (true, false) => ("This app runs an older build", None, Some(Tone::Older), Act::ReopenApp, "Fleet and running Jobs keep running"),
+        _ => ("Fleet and this app do not match", Some(Tone::Older), Some(Tone::Older), Act::RestartFleet, "Running Jobs keep running"),
     };
     let fleet_state = if fleet_tone.is_some() { state(fleet_build, fleet_on) } else { "Running" };
     let app_state = if app_tone.is_some() { state(disk.app_build.as_deref(), app_on) } else { "Running" };
@@ -330,7 +351,7 @@ pub fn steps_of(tail: &str) -> Vec<Step> {
     let mut steps: Vec<Step> = shown
         .iter()
         .enumerate()
-        .map(|(at, line)| Step { mark: if at + 1 == shown.len() { Mark::Now } else { Mark::Done }, text: clause_of(line), line: line.clone() })
+        .map(|(at, line)| Step { mark: if at + 1 == shown.len() { Mark::Now } else { Mark::Done }, text: step_name(line), line: line.clone() })
         .collect();
     if steps.last().is_some_and(|now| !now.line.to_lowercase().contains("reopen")) {
         steps.push(Step { mark: Mark::Next, text: REOPENS.to_string(), line: REOPENS.to_string() });
@@ -390,7 +411,7 @@ mod tests {
         for connection in [down(), Connection::Connecting { pid: 1, port: 2 }, mismatch(None)] {
             let panel = panel_of(&connection, &disk, at(0, 39, 0), at(0, 39, 48)).expect("a panel");
             assert_eq!((panel.tone, panel.title, panel.since.as_str(), panel.act, panel.log), (Tone::Restarting, "Fleet restarting", "48 s", None, Some(Log::Restart)));
-            assert_eq!(panel.note, Some("No button: the restart starts Fleet"));
+            assert_eq!(panel.note, None, "an empty slot stays empty");
             assert_eq!(panel.link, "restart under way");
         }
     }
@@ -405,10 +426,18 @@ mod tests {
     }
 
     #[test]
+    fn a_known_restart_step_shows_its_short_name_and_an_unknown_one_its_first_clause() {
+        assert_eq!(step_name("Booting gui/501/com.armada.fleet out and back in from /Users/user/x.plist"), "Restarting Fleet");
+        assert_eq!(step_name("Adopting every working Drone — --adopt skips the refusal"), "Running Jobs keep running");
+        assert_eq!(step_name("Keeping the build in /Users/user/Library/Application Support/Armada/builds/x"), "Keeping the build");
+        assert_eq!(step_name("leave out armada/x"), "leave out armada/x");
+    }
+
+    #[test]
     fn steps_are_the_last_lines_of_the_run_the_last_one_now() {
         let steps = steps_of(RUN);
         let read: Vec<(Mark, &str)> = steps.iter().map(|step| (step.mark, step.text.as_str())).collect();
-        assert_eq!(read, [(Mark::Done, "leave out armada/x"), (Mark::Done, "Keeping the build"), (Mark::Now, "Booting gui/501/com.armada.fleet out and back in"), (Mark::Next, REOPENS)]);
+        assert_eq!(read, [(Mark::Done, "leave out armada/x"), (Mark::Done, "Keeping the build"), (Mark::Now, "Restarting Fleet"), (Mark::Next, REOPENS)]);
         assert_eq!(steps[1].line, "Keeping the build in /b", "the tooltip carries the line whole");
         let reopening = steps_of("\x1b[1mReopening the native Bridge from /b\x1b[0m\n");
         assert_eq!(reopening.iter().map(|step| step.mark).collect::<Vec<_>>(), [Mark::Now], "no next where the step now is the reopening");
@@ -458,7 +487,7 @@ mod tests {
     #[test]
     fn fleet_off_current_is_fleet_older_with_restart_fleet() {
         let panel = panel_of(&mismatch(Some(OLDER)), &kept(Some(CURRENT)), at(19, 49, 0), at(20, 0, 0)).expect("older");
-        assert_eq!((panel.tone, panel.title, panel.act, panel.note), (Tone::Older, "Fleet runs an older build", Some(Act::RestartFleet), Some("Working Drones are adopted")));
+        assert_eq!((panel.tone, panel.title, panel.act, panel.note), (Tone::Older, "Fleet runs an older build", Some(Act::RestartFleet), Some("Running Jobs keep running")));
         assert_eq!((panel.fleet.tone, panel.fleet.state, panel.app.tone, panel.app.state), (Some(Tone::Older), "Older build", None, "Running"));
         let Body::Builds { build: Some(build), protocol } = &panel.fleet.body else { panic!("builds") };
         assert_eq!((build.commit.as_str(), build.current, protocol.as_str()), ("2f88990", false, "af0a982d"));
@@ -470,7 +499,7 @@ mod tests {
     #[test]
     fn the_app_off_current_is_app_older_with_reopen_armada() {
         let panel = panel_of(&mismatch(Some(CURRENT)), &kept(Some(OLDER)), at(0, 49, 0), at(0, 50, 0)).expect("older");
-        assert_eq!((panel.title, panel.act, panel.note), ("This app runs an older build", Some(Act::ReopenApp), Some("Fleet and its Drones are not touched")));
+        assert_eq!((panel.title, panel.act, panel.note), ("This app runs an older build", Some(Act::ReopenApp), Some("Fleet and running Jobs keep running")));
         assert_eq!((panel.fleet.tone, panel.app.tone, panel.app.state), (None, Some(Tone::Older), "Older build"));
     }
 
