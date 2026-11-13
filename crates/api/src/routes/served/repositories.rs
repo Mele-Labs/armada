@@ -80,6 +80,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/repositories/clone",
     },
+    // What there is to clone: the forge account's repositories, beside the clone that takes one.
+    Route {
+        operation: "list_forge_repositories",
+        method: "GET",
+        path: "/repositories/forge",
+    },
     // What a person already has in their agent CLI, to be brought in: the folders, how one was run,
     // and the install of Fleet's mod. Under `/import` and not `/repositories`, which is what Fleet
     // serves; these are folders it does not serve yet.
@@ -364,6 +370,27 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "delete_lifecycle_piece",
         method: "POST",
         path: "/lifecycles/pieces/delete",
+    },
+    // A piece's draft is read, kept and thrown away at one path as a workflow's is, and Publish is the act under it.
+    Route {
+        operation: "get_piece_draft",
+        method: "GET",
+        path: "/lifecycles/pieces/draft",
+    },
+    Route {
+        operation: "put_piece_draft",
+        method: "PUT",
+        path: "/lifecycles/pieces/draft",
+    },
+    Route {
+        operation: "discard_piece_draft",
+        method: "DELETE",
+        path: "/lifecycles/pieces/draft",
+    },
+    Route {
+        operation: "publish_piece_draft",
+        method: "POST",
+        path: "/lifecycles/pieces/draft/publish",
     },
     Route {
         operation: "teach_ticket_word",

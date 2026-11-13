@@ -127,15 +127,16 @@ fn check(inventory: &str, table: &str, event_source: &str, report: &mut Report) 
             // request-response over HTTP, and only an unsolicited push needs
             // the socket — which is reached by upgrading a GET.
             Some(kind) => {
+                // A command is a POST. A PUT is a command too, where it hands a whole list in place of the
+                // one held or puts a draft, and so is the DELETE that discards a draft.
                 let expected = match kind.as_str() {
-                    "command" => "POST",
-                    _ => "GET",
+                    "command" => ["POST", "PUT", "DELETE"].as_slice(),
+                    _ => ["GET"].as_slice(),
                 };
-                // A command that hands a whole list in place of the one held is a `PUT`.
-                let replaces = kind == "command" && method == "PUT";
-                if method != expected && !replaces {
+                if !expected.contains(&method.as_str()) {
                     report.fail(format!(
-                        "`{operation}` is a {kind} and is served on {method}, not {expected}"
+                        "`{operation}` is a {kind} and is served on {method}, not {}",
+                        expected.join(", ")
                     ));
                 }
             }

@@ -60,6 +60,8 @@ mod session_so_far;
 mod later_marks;
 mod claim_misreads;
 mod workflow_changes;
+mod workflow_versions;
+mod workflow_drafts;
 mod notice_mutes;
 mod word_asks;
 mod job_renames;

@@ -12,5 +12,7 @@ notes = """
 
 **Making Kit's copy of one of Armada's needs no route of its own.** `get_workflow` with `source=armada` reads the text, and `save_workflow` with `scope: kit` and `overwrite: false` writes it under the same id; 422 `fleet.workflow_exists` where Kit already holds one.
 
+**Since 23.96 a reset begins the copy's history again.** Its versions are dropped, and Armada's carried text it wrote, with the `version` that definition declares, is kept as what the copy is now based on (`based_on` on `list_workflows` and `get_workflow`).
+
 `agent_access` is `Bridge only`: what is written decides what every Job here is asked, and the person has asked for this one.
 """

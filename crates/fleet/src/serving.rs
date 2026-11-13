@@ -284,14 +284,18 @@ where
     /// be refused.
     async fn list_workflows(&self) -> Result<Vec<WorkflowSummary>, Refusal> {
         let served = self.repositories().served();
+        let bases = self.workflow_bases_held().await;
         Ok(served
             .iter()
             .flat_map(|one| {
                 let files = one.files();
-                one.workflows()
+                let mut summaries = one
+                    .workflows()
                     .values()
                     .map(|workflow| workflow_summary(workflow, one.manifest().id(), &files))
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                self.workflow_bases_marked(&mut summaries, one, &bases);
+                summaries
             })
             .collect())
     }
@@ -301,9 +305,14 @@ where
         &self,
         workflow_id: ipc::WorkflowId,
         source: Option<String>,
+        of: Option<String>,
+        project: Option<String>,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::WorkflowDefinition, Refusal> {
         let served = self.served_named(manifest_id.as_ref())?;
+        if source.as_deref() == Some("base") {
+            return self.workflow_base_read(&served, workflow_id.as_str(), of.as_deref(), project.as_deref()).await;
+        }
         let files = served.files();
         let found = files.iter().find(|file| {
             file.id().as_str() == workflow_id.as_str()
@@ -313,7 +322,13 @@ where
                 }
         });
         match found {
-            Some(file) => Ok(crate::wire::workflow_definition(file)),
+            Some(file) => {
+                let mut definition = crate::wire::workflow_definition(file);
+                definition.based_on = self
+                    .workflow_based_on(&served, workflow_id.as_str(), file.source().as_wire(), file.project().map(|project| project.as_str()))
+                    .await;
+                Ok(definition)
+            }
             None => Err(self.no_such_definition(workflow_id.as_str(), source.as_deref())),
         }
     }
@@ -355,6 +370,12 @@ where
     /// `crate::repositories::reading`.
     async fn read_request_repository(&self, words: String) -> Result<ipc::RequestRepository, Refusal> {
         Ok(self.request_repository(words).await)
+    }
+
+    /// What the person's forge account can see, to clone —
+    /// `crate::repositories::forge_listing`.
+    async fn list_forge_repositories(&self, q: Option<String>) -> Result<ipc::ForgeRepositories, Refusal> {
+        self.forge_repositories(q).await
     }
 
     /// Who held one slot and what was checked out in it — [`crate::bay_history`].

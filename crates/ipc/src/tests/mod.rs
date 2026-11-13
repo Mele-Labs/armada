@@ -104,6 +104,10 @@ mod watch_wire;
 /// A Job's terminals: the IDs on the bodies, answers and events, the list and the rename.
 mod terminal_wire;
 mod workflow_changes;
+/// A draft of a workflow or a piece, its changes and Publish.
+mod workflow_drafts;
+/// The versions of a workflow in a place, a revert, and what a copy was based on.
+mod workflow_versions;
 /// Where a workflow is kept: the words, and a project's object.
 mod workflow_scope;
 mod operator_board;

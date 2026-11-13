@@ -353,6 +353,8 @@ impl Queries for FakeDaemon {
         &self,
         _workflow_id: ipc::WorkflowId,
         _source: Option<String>,
+        _of: Option<String>,
+        _project: Option<String>,
         _manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::WorkflowDefinition, Refusal> {
         Err(self.fault("the fake holds no definition files"))
@@ -406,6 +408,10 @@ impl Queries for FakeDaemon {
         words: String,
     ) -> Result<ipc::RequestRepository, Refusal> {
         Ok(shapes::request_repository(&words))
+    }
+
+    async fn list_forge_repositories(&self, _q: Option<String>) -> Result<ipc::ForgeRepositories, Refusal> {
+        Ok(ipc::ForgeRepositories::default())
     }
 
     async fn get_fleet_timeline(

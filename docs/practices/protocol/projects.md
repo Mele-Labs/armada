@@ -20,6 +20,7 @@ Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for
 | `Project.shared_with_macs` | Fleet writes, Bridge reads | `true` where its Jobs may be seen and acted on from his other Macs; **absent while false**, and every project starts false. It is `shared_with_macs: true` in the project's file, written only while on. Absent where `unread`. [Project](../../concepts/project.md), *Sharing with his other Macs* |
 | `Projects.left_out` | Fleet writes, Bridge reads | `[{ place, path, why }]`, every project file that would not read, `place` `this_mac`, `synced` or `cloud`, `path` the file or the object a bucket holds it as. A file a project of his names is here too, and that project says `unread` |
 | `list_holding_projects` | Bridge calls | `GET /projects/holding?manifest_id=`, the repository Fleet started in where absent: the projects whose members include it, whole or by a folder, answered as `Projects` with every `rows` and `loose` empty. It replaces `list_repository_workspaces`. 422 `fleet.unacceptable_proposal` for a repository Fleet does not serve |
+| `list_forge_repositories` | Bridge calls | `GET /repositories/forge?q=`, `q` optional: the repositories his forge account can see, to pick one to clone into a project. Answers `ForgeRepositories { repositories, cut? }`, each `ForgeRepository { owner, name, url, private, pushed_at?, local_path? }`, newest pushed first; `url` is what `clone_repository` takes, and `local_path` the root of the served repository whose remote is this one, absent where Fleet serves none. At most 200, `cut` where more matched or the forge held more than the 1,000 Fleet reads. 422 `fleet.forge_repositories_unreadable` where the forge would not list them. Bridge's half is `packages/protocol/src/setup.ts` |
 | `ProjectRow` | Fleet writes, Bridge reads | Tagged by `kind`: `task { id, manifest_id, title, notes, state, held_by?, parent?, issues?, pulls? }`, `state` `open`, `done`, `held` or `asked`, `held_by { session_id, title? }` present for `held` and for an `asked` a Job raised, `parent` the id of the task a subtask belongs to, `issues` `[{ issue, title?, state? }]` the issues linked to it, `pulls` `[{ number, title?, state? }]` the pull requests linked to it, `state` `open`, `merged` or `closed`; or `issue { id, manifest_id, issue, title?, state? }`, `state` `open` or `closed`. `manifest_id` is the repository of the row, and a subtask takes its parent's |
 | `start_session` | Bridge calls | `project_rows?: [{ row }]` on `StartSession`: the rows the Job starts with, each named by its id alone. Each written task among them is held by the Job; an issue row is only named, so the brief can carry it |
 | `StartSession.project` | Bridge calls | `project?: string`, the project of his the Job is for. 404 `fleet.no_such_project`, 422 `fleet.project_not_member` where the Job's repository is not a member |
@@ -50,6 +51,11 @@ Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for
 
 **A row's id is the whole address.** Ids are unique across every project and the loose tasks, so a route that acts on a row
 names no project.
+
+**A repository to clone is picked from the forge's list.** `list_forge_repositories` asks the forge at most once a minute: the whole list is kept in memory and each `q` narrows the kept one, so typing asks nothing, and a refusal is not kept.
+`q` keeps the repositories whose `owner/name` holds every word of it, case-blind, a substring and not a fuzzy match.
+**Cloned is what Fleet serves**: each served root's remote is compared with the listing's address as host, owner and name, and no other folder is read.
+Additive: a Fleet without the route answers 404.
 
 **Members follow tasks.** The owner decided on 10 Nov 2026 that a project's members are the repositories its tasks name. A task or an
 issue row written into a project (`add_project_task`, `link_project_issue`, `add_project_subtask`), or moved into one

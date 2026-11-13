@@ -26,7 +26,7 @@ const NO_SUCH_DEFINITION: &str = "fleet.no_such_workflow_definition";
 /// The definition is Armada's own, which is carried in the binary. A 422.
 pub(crate) const IS_ARMADAS: &str = "fleet.workflow_is_armadas";
 /// A copy was asked for in `project` and the request names no project. A 422.
-const PROJECT_UNNAMED: &str = "fleet.workflow_project_unnamed";
+pub(crate) const PROJECT_UNNAMED: &str = "fleet.workflow_project_unnamed";
 /// Armada carries no definition of the id to reset a copy to. A 422.
 const NOT_CARRIED: &str = "fleet.workflow_not_carried";
 

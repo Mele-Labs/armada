@@ -425,7 +425,7 @@ impl SettingsOverlay {
                     return;
                 }
                 self.workflows.detail.band.asked.insert(key.clone(), text.clone());
-                let asking = AskWorkflowChange { workflow_id: WorkflowId::carried(&one.id), source: wire_of(one.place).into(), text };
+                let asking = AskWorkflowChange { workflow_id: WorkflowId::carried(&one.id), source: wire_of(one.place).into(), text, ..Default::default() };
                 let task = self.wire.ask_change(&manifest, asking, cx);
                 cx.background_spawn(async move { task.await.map(|_| None) })
             }
@@ -485,7 +485,7 @@ impl SettingsOverlay {
                     let _ = this.update(cx, |this, _| {
                         this.workflows.detail.band.asked.insert(copy.key(), text.clone());
                     });
-                    let asking = AskWorkflowChange { workflow_id: WorkflowId::carried(&copy.id), source: wire_of(copy.place).into(), text };
+                    let asking = AskWorkflowChange { workflow_id: WorkflowId::carried(&copy.id), source: wire_of(copy.place).into(), text, ..Default::default() };
                     let answer = ask(&this, cx, |this, cx| this.wire.ask_change(&copy.manifest, asking, cx)).await.map(|_| ());
                     (Some(copy), answer)
                 }
@@ -1158,6 +1158,7 @@ mod tests {
             id: 1,
             workflow_id: WorkflowId::carried("feature"),
             source: "repository".into(),
+            project: None,
             step_id: None,
             origin: ChangeOrigin::Asked { text: "Split Refine".into() },
             before: r#"{"workflow_id":"feature","steps":[{"id":"refine","label":"Refine"}]}"#.into(),
@@ -1170,6 +1171,7 @@ mod tests {
             after_name: None,
             after_for_requests: None,
             notes: None,
+            drafted: false,
             at: ipc::Instant::carried("2026-11-12T09:00:00Z"),
         };
         assert_eq!(phase_of(&[], &[]), Phase::Idle);

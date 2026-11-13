@@ -11,9 +11,10 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    ArmadaProposed, AskWorkflowChange, ManifestId, ProposeNewWorkflow, ProposeToArmada, ProposeWorkflowChange, SaveWorkflow,
-    SendBackWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted,
-    WorkflowId, WorkflowSaved, WorkflowSupportBuilding,
+    ArmadaProposed, AskWorkflowChange, ManifestId, ProposeNewWorkflow, ProposeToArmada, ProposeWorkflowChange, PublishWorkflowDraft, RevertWorkflow,
+    PutWorkflowDraft, SaveWorkflow, SendBackWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
+    WorkflowCopy, WorkflowCopyDeleted, WorkflowDraft, WorkflowDraftDiscarded, WorkflowId, WorkflowPublished, WorkflowSaved, WorkflowVersions,
+    WorkflowSupportBuilding,
 };
 
 use crate::daemon::Refusal;
@@ -54,8 +55,8 @@ pub trait Authoring: Send + Sync + 'static {
 
     /// `ask_workflow_change` — begin a change an agent drafts from the owner's words, and answer it
     /// `drafting` at once. **Takes the `Arc`** because the draft is a task of its own.
-    /// [`Refusal::Unacceptable`] for Armada's own definition, one this place does not hold, blank words,
-    /// and where no model could be asked.
+    /// [`Refusal::Unacceptable`] for a place that holds none of the id (Armada's own is held), blank words,
+    /// and where no model could be asked. The result lands in the owner's draft where it still can.
     fn ask_workflow_change(
         self: Arc<Self>,
         asked: AskWorkflowChange,
@@ -80,11 +81,12 @@ pub trait Authoring: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<WorkflowChange, Refusal>> + Send;
 
-    /// `list_workflow_changes` — the open changes to one workflow in one place.
+    /// `list_workflow_changes` — the open changes to one workflow in one place, a project's by `project`.
     fn list_workflow_changes(
         &self,
         workflow_id: WorkflowId,
         source: String,
+        project: Option<String>,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<WorkflowChanges, Refusal>> + Send;
 
@@ -123,9 +125,57 @@ pub trait Authoring: Send + Sync + 'static {
         change: WorkflowChangeRef,
     ) -> impl Future<Output = Result<WorkflowSupportBuilding, Refusal>> + Send;
 
+    /// `get_workflow_draft` — the draft of one workflow in one place, with its changes oldest first.
+    /// [`Refusal::NotFound`] where none is kept.
+    fn get_workflow_draft(
+        &self,
+        workflow_id: WorkflowId,
+        source: String,
+        project: Option<String>,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowDraft, Refusal>> + Send;
 
+    /// `put_workflow_draft` — keep the owner's text as the draft, beginning it from what is published where there is
+    /// none. **Any text is kept**; `unfit` on the answer says where it would not load.
+    fn put_workflow_draft(
+        &self,
+        put: PutWorkflowDraft,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowDraft, Refusal>> + Send;
 
+    /// `discard_workflow_draft` — throw away a draft and its changes. [`Refusal::NotFound`] where none is kept.
+    fn discard_workflow_draft(
+        &self,
+        workflow_id: WorkflowId,
+        source: String,
+        project: Option<String>,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowDraftDiscarded, Refusal>> + Send;
 
+    /// `publish_workflow_draft` — write the draft through the save path with overwrite, then delete it.
+    /// [`Refusal::Unacceptable`] for a scope an Armada draft lacks or another draft differs in, and for what the loader
+    /// refuses; [`Refusal::IllegalMove`] where what is published is no longer what the draft began from.
+    fn publish_workflow_draft(
+        &self,
+        publish: PublishWorkflowDraft,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowPublished, Refusal>> + Send;
 
+    /// `get_workflow_versions` — the versions of one workflow in one place, newest first. Empty, not
+    /// [`Refusal::NotFound`], where nothing was published there.
+    fn get_workflow_versions(
+        &self,
+        workflow_id: WorkflowId,
+        source: String,
+        project: Option<String>,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowVersions, Refusal>> + Send;
 
+    /// `revert_workflow` — put one version's text in the draft as a change by `you`, beginning the draft where there is none.
+    /// Nothing is published. [`Refusal::NotFound`] where the place has no such version.
+    fn revert_workflow(
+        &self,
+        revert: RevertWorkflow,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowDraft, Refusal>> + Send;
 }

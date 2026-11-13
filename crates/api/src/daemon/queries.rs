@@ -237,10 +237,15 @@ pub trait Queries: Send + Sync + 'static {
     /// `repository`, so a definition a more specific place replaced can still be
     /// read. Absent is the one that runs. Absent `manifest_id` is the repository
     /// Fleet started in.
+    ///
+    /// **`source` may also be `base`**: the text the copy in the place `of` names (`kit`, `repository`
+    /// or `project`, which `project` names) began from. [`Refusal::NotFound`] where it has none.
     fn get_workflow(
         &self,
         workflow_id: ipc::WorkflowId,
         source: Option<String>,
+        of: Option<String>,
+        project: Option<String>,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<ipc::WorkflowDefinition, Refusal>> + Send;
 
@@ -388,6 +393,14 @@ pub trait Queries: Send + Sync + 'static {
         &self,
         words: String,
     ) -> impl Future<Output = Result<ipc::RequestRepository, Refusal>> + Send;
+
+    /// `list_forge_repositories` — the repositories the person's forge account can see, each
+    /// marked with the served repository that is it, narrowed by `q` and capped.
+    /// [`Refusal::Unacceptable`] where the forge would not list them, in its own words.
+    fn list_forge_repositories(
+        &self,
+        q: Option<String>,
+    ) -> impl Future<Output = Result<ipc::ForgeRepositories, Refusal>> + Send;
 
     /// `get_fleet_timeline` — the entries Fleet kept for a window of time,
     /// oldest first. It never refuses.

@@ -1,0 +1,16 @@
+[operations.get_workflow_draft]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The draft of one workflow in one place that the owner and an agent are editing, with its changes oldest first"
+notes = """
+`GET /workflows/draft?workflow_id=&source=&project=&manifest_id=`, protocol 23.95. `source` is `armada`, `kit`, `repository` or `project`, and `project` names the project where it is `project`. The answer is a `WorkflowDraft`: `workflow_id`, `source`, `project`, `text` (the draft definition, whole, which is the last change's), `base` (the published text it began from, and for `armada` the carried text), `unfit` (the loader's own sentence where `text` would not load, absent where it would), `changes` (oldest first, each a `DraftChange` `{ id, by, at, text, summary?, change? }` holding the whole draft after it, `by` being `you` or `agent`) and `started_at` and `updated_at`.
+
+**`unfit` is the parse and resolve `save_workflow` runs**, against this repository's Checks and this machine's models, and a draft that does not load is still a draft. It also says where the text declares a `workflow_id` other than the draft's, since publishing it would write another workflow.
+
+**A draft is Fleet's and not a file.** Nothing here is on disk where a loader reads it, so a draft changes no Job and no `list_workflows` row. It is kept by the place and the id, and by the repository only where the place is `repository`: Kit's, a project's and Armada's are the same in every repository.
+
+404 `fleet.workflow_draft_none` where no draft is kept for that place and id; 422 `fleet.workflow_project_unnamed` where `source` is `project` and `project` is absent; 404 `fleet.workflow_project_unknown` and 422 `fleet.workflow_project_not_member` as `save_workflow` refuses them; 422 `fleet.no_such_workflow_definition` for a source that is none of the four.
+
+`agent_access` is `Bridge only`: it is the editor's own read.
+"""

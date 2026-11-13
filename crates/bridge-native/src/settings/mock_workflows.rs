@@ -255,6 +255,7 @@ impl MockFleet {
             id: self.changes.iter().map(|one| one.change.id).max().unwrap_or(0) + 1,
             workflow_id: asking.workflow_id,
             source: asking.source,
+            project: None,
             step_id: None,
             origin: ChangeOrigin::Asked { text: asking.text.trim().to_string() },
             before,
@@ -267,6 +268,7 @@ impl MockFleet {
             after_name: None,
             after_for_requests: None,
             notes: None,
+            drafted: false,
             at: Instant::carried("2026-11-12T09:00:00Z"),
         };
         self.changes.push(Kept { change: change.clone(), reads_left: 1, manifest: manifest.to_string() });
@@ -431,7 +433,7 @@ mod tests {
     #[test]
     fn a_change_drafts_on_the_next_read_and_approving_it_writes_the_split_steps() {
         let mut fleet = MockFleet::new();
-        let ask = |text: &str| AskWorkflowChange { workflow_id: WorkflowId::carried("feature"), source: "repository".into(), text: text.into() };
+        let ask = |text: &str| AskWorkflowChange { workflow_id: WorkflowId::carried("feature"), source: "repository".into(), text: text.into(), ..Default::default() };
         let asked = fleet.ask_change("armada", ask("Split Refine into Wire and Tests")).expect("asked");
         let read = |fleet: &mut MockFleet| fleet.workflow_changes("feature", "repository", "armada").expect("read").changes.remove(0);
         assert_eq!(read(&mut fleet).state, ChangeState::Drafting);

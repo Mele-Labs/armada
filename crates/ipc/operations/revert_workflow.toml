@@ -1,0 +1,14 @@
+[operations.revert_workflow]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Put one earlier version of a workflow in its draft, publishing nothing"
+notes = """
+`POST /workflows/revert?manifest_id=`, protocol 23.96. The body is `RevertWorkflow`: `workflow_id`, `source` (`kit`, `repository` or `project`), `project` (required where `source` is `project`) and `version`. The answer is the `WorkflowDraft`, as `get_workflow_draft` reads it.
+
+**It is a put.** That version's text goes into the draft by the path `put_workflow_draft` takes: a change by `you` with the summary `Back to version N`, beginning the draft from what is published where there is none, and adding nothing where the draft already ends on that text. **Nothing is published**: the owner reads the draft and presses Publish, which makes the text a version of its own.
+
+404 `fleet.workflow_version_none` where the place has no such version. The project refusals of `get_workflow_versions`. 500 `fleet.workflow_draft_not_kept` where the store would not answer.
+
+`agent_access` is `Bridge only`: it is the owner's act.
+"""

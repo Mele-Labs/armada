@@ -37,6 +37,39 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/workflows/save",
     },
+    // A draft is one thing at one path: read with GET, kept with PUT, thrown away with DELETE, and
+    // written, as the act in the last segment, by Publish.
+    Route {
+        operation: "get_workflow_draft",
+        method: "GET",
+        path: "/workflows/draft",
+    },
+    Route {
+        operation: "put_workflow_draft",
+        method: "PUT",
+        path: "/workflows/draft",
+    },
+    Route {
+        operation: "discard_workflow_draft",
+        method: "DELETE",
+        path: "/workflows/draft",
+    },
+    Route {
+        operation: "publish_workflow_draft",
+        method: "POST",
+        path: "/workflows/draft/publish",
+    },
+    // What a publish keeps: read as a list, and gone back to by an act that puts one in the draft.
+    Route {
+        operation: "get_workflow_versions",
+        method: "GET",
+        path: "/workflows/versions",
+    },
+    Route {
+        operation: "revert_workflow",
+        method: "POST",
+        path: "/workflows/revert",
+    },
     Route {
         operation: "delete_workflow_copy",
         method: "POST",

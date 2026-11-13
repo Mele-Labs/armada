@@ -13,6 +13,7 @@
 // for the same reason: the codegen that would emit both does not exist yet.
 
 import type { DeclaredCheck, DeclaredJudge } from "./protocol";
+import type { BasedOn } from "./workflow-versions";
 
 /** One workflow Fleet holds. `crates/ipc/src/setup.rs`. */
 export type WorkflowSummary = {
@@ -62,6 +63,10 @@ export type WorkflowSummary = {
    * two are the same, or nothing is hidden.
    */
   hides?: string;
+  /** What this copy of one of Armada's workflows began from. Absent on Armada's own and on a copy made before Fleet kept it. */
+  based_on?: BasedOn;
+  /** This is a copy with a `based_on`, and Armada's carried text of the id is no longer that text. Absent where false. */
+  armada_changed?: boolean;
 };
 
 /** A definition a more specific place replaced. It does not run; `GET /workflows/definition` reads it. Since 23.33. */
@@ -78,6 +83,9 @@ export type OverriddenWorkflow = {
  * as its file holds it. `source` is optional and names the place; absent is the
  * one that runs. 422 `fleet.no_such_workflow_definition` where none is held.
  * Since 23.33. `crates/ipc/src/setup.rs`.
+ *
+ * **`source=base&of=<kit|repository|project>&project=`** reads the text the copy in that place began from, as a definition
+ * with `source: "base"`. 404 `fleet.workflow_base_none` where the copy has none, 422 `fleet.workflow_base_of_needed` without `of`.
  */
 export type WorkflowDefinition = {
   workflow_id: string;
@@ -90,6 +98,8 @@ export type WorkflowDefinition = {
   definition: string;
   /** The place whose definition of this id runs instead. Absent where this one runs. */
   overridden_by?: string;
+  /** What this copy began from, as on `WorkflowSummary`. On `source=base`, the base's own `version` and `hash`. */
+  based_on?: BasedOn;
 };
 
 /** `GET /workflows/left_out`: a definition Fleet runs without. `crates/ipc/src/setup.rs`. */
@@ -283,6 +293,31 @@ export type CloneRepository = {
   url: string;
   /** Absolute, and already there. The clone lands in a new folder under it, named from the URL. */
   parent: string;
+};
+
+/**
+ * What the person's forge account can see, to pick one to clone — `GET /repositories/forge?q=`.
+ * `crates/ipc/src/repositories.rs`. `q` keeps those whose `owner/name` holds every word, case-blind.
+ * Newest pushed first, at most 200. Kept by Fleet for a minute, so typing asks the forge nothing. A 422
+ * `fleet.forge_repositories_unreadable` where the forge would not list them, in its own words.
+ */
+export type ForgeRepositories = {
+  repositories: ForgeRepository[];
+  /** More matched than the 200 answered, or the forge held more than Fleet reads. Absent while false. */
+  cut?: boolean;
+};
+
+/** One repository on the forge, and where this Mac already has it. */
+export type ForgeRepository = {
+  owner: string;
+  name: string;
+  /** What `CloneRepository.url` takes. */
+  url: string;
+  private: boolean;
+  /** Absent for a repository nothing was ever pushed to. */
+  pushed_at?: string;
+  /** The root of the served repository whose remote is this one. Absent where Fleet serves none. */
+  local_path?: string;
 };
 
 /**
@@ -517,8 +552,10 @@ export type WorkflowChange = {
   /** What approve, dismiss and send back take. */
   id: number;
   workflow_id: string;
-  /** `repository` or `kit`. */
+  /** `repository`, `kit`, `project` or `armada`. */
   source: string;
+  /** The project, where `source` is `project`. */
+  project?: string;
   /** The one step a suggestion may change. Absent on a change he asked for. */
   step_id?: string;
   origin: ChangeOrigin;
@@ -541,20 +578,27 @@ export type WorkflowChange = {
   after_for_requests?: string;
   /** What he said when he sent it back, the latest. */
   notes?: string;
+  /** `after` landed in his draft of the workflow as an agent's change (`GET /workflows/draft` shows it). Absent where it did not. */
+  drafted?: boolean;
   /** When it last moved. */
   at: string;
 };
 
-/** `POST /workflows/changes/ask?manifest_id=`'s body. 422 `fleet.workflow_is_armadas` for `armada`. */
+/**
+ * `POST /workflows/changes/ask?manifest_id=`'s body. The result lands in his draft of the workflow (`WorkflowChange.drafted`), where the draft is still what
+ * the change was made from; a change to one of Armada's has nowhere else to land, and its draft has no scope.
+ */
 export type AskWorkflowChange = {
   workflow_id: string;
-  /** `repository` or `kit`. */
+  /** `repository`, `kit`, `project` or `armada`. */
   source: string;
+  /** The project, required where `source` is `project`. */
+  project?: string;
   /** What he wants changed, in his words. */
   text: string;
 };
 
-/** `GET /workflows/changes?workflow_id=&source=&manifest_id=`: the open changes, oldest first. */
+/** `GET /workflows/changes?workflow_id=&source=&project=&manifest_id=`: the open changes, oldest first; `project` names the project where `source` is `project`. */
 export type WorkflowChanges = {
   changes: WorkflowChange[];
 };

@@ -1,0 +1,16 @@
+[operations.put_workflow_draft]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Keep the owner's text as the draft of one workflow in one place, beginning the draft from what is published there, or adding a change to it"
+notes = """
+`PUT /workflows/draft?manifest_id=`, protocol 23.95. The body is `PutWorkflowDraft`: `workflow_id`, `source` (`armada`, `kit`, `repository` or `project`), `project` (required where `source` is `project`), `text` and `summary`. The answer is the `WorkflowDraft`, as `get_workflow_draft` reads it.
+
+**It begins the draft where there is none**, with `base` the text published in that place now, or Armada's carried text for `armada`, or empty where the place holds no file of that id, and then adds a change by `you` holding `text` whole. Where a draft is kept it adds a change by `you` and `base` stays. Putting an earlier change's text again is how the editor undoes: Fleet keeps the list of changes and the editor does the stepping.
+
+**It accepts any text.** A draft may be half-edited, so nothing is refused for not loading; `unfit` on the answer carries the loader's sentence. A text equal to the draft's last change adds no change.
+
+422 `fleet.workflow_project_unnamed`, 404 `fleet.workflow_project_unknown` and 422 `fleet.workflow_project_not_member` for a project's, and 422 `fleet.no_such_workflow_definition` for a source that is none of the four, or `armada` for an id Armada does not carry. 500 `fleet.workflow_draft_not_kept` where the store would not answer.
+
+`agent_access` is `Bridge only`: it is the editor's own act.
+"""

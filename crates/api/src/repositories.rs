@@ -36,6 +36,24 @@ pub(crate) async fn read_request_repository<D: Queries>(
     }
 }
 
+/// `?q=` on `list_forge_repositories`: words to narrow by, absent for every one.
+#[derive(serde::Deserialize)]
+pub(crate) struct ForgeAsk {
+    #[serde(default)]
+    q: Option<String>,
+}
+
+/// The repositories the person's forge account can see, to clone one.
+pub(crate) async fn list_forge_repositories<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(ForgeAsk { q }): Query<ForgeAsk>,
+) -> Response {
+    match served.daemon().list_forge_repositories(q).await {
+        Ok(listed) => answer(StatusCode::OK, &listed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Each served repository's merge line, where it has one.
 pub(crate) async fn get_merge_lines<D: Queries>(State(served): State<Served<D>>) -> Response {
     match served.daemon().get_merge_lines().await {
@@ -134,18 +152,23 @@ pub(crate) async fn save_workflow<D: Authoring>(
     }
 }
 
-/// `?workflow_id=` and `?source=` on `get_workflow`, beside `?manifest_id=`.
+/// `?workflow_id=` and `?source=` on `get_workflow`, beside `?manifest_id=`. `?of=` and `?project=` are read only where the
+/// source is `base`, which is a copy's base and so names the copy's place.
 #[derive(serde::Deserialize)]
 pub(crate) struct OneWorkflow {
     workflow_id: String,
     #[serde(default)]
     source: Option<String>,
     #[serde(default)]
+    of: Option<String>,
+    #[serde(default)]
+    project: Option<String>,
+    #[serde(default)]
     manifest_id: Option<String>,
 }
 
-/// One definition as its file holds it. A 422 where this repository holds none
-/// by that id and source.
+/// One definition as its file holds it, or, for `source=base`, the text a copy began from. A 422 where this repository holds
+/// none by that id and source, and a 404 where a copy has no base.
 pub(crate) async fn get_workflow<D: Queries>(
     State(served): State<Served<D>>,
     Query(asked): Query<OneWorkflow>,
@@ -155,6 +178,8 @@ pub(crate) async fn get_workflow<D: Queries>(
         .get_workflow(
             ipc::WorkflowId::carried(asked.workflow_id),
             asked.source,
+            asked.of,
+            asked.project,
             asked.manifest_id.map(ipc::ManifestId::carried),
         )
         .await
@@ -216,11 +241,14 @@ pub(crate) async fn reset_workflow_copy<D: Authoring>(
     }
 }
 
-/// `?workflow_id=` and `?source=` on `list_workflow_changes`, beside `?manifest_id=`.
+/// `?workflow_id=` and `?source=` on `list_workflow_changes`, beside `?project=` and `?manifest_id=`. **Also what the
+/// draft routes' reads and discards are asked by**, since a draft is one workflow in one place as a change list is.
 #[derive(serde::Deserialize)]
 pub(crate) struct ChangesOf {
     workflow_id: String,
     source: String,
+    #[serde(default)]
+    project: Option<String>,
     #[serde(default)]
     manifest_id: Option<String>,
 }
@@ -235,11 +263,81 @@ pub(crate) async fn list_workflow_changes<D: Authoring>(
         .list_workflow_changes(
             ipc::WorkflowId::carried(asked.workflow_id),
             asked.source,
+            asked.project,
             asked.manifest_id.map(ipc::ManifestId::carried),
         )
         .await
     {
         Ok(found) => answer(StatusCode::OK, &found, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The draft of one workflow in one place.
+pub(crate) async fn get_workflow_draft<D: Authoring>(State(served): State<Served<D>>, Query(asked): Query<ChangesOf>) -> Response {
+    match served
+        .daemon()
+        .get_workflow_draft(
+            ipc::WorkflowId::carried(asked.workflow_id),
+            asked.source,
+            asked.project,
+            asked.manifest_id.map(ipc::ManifestId::carried),
+        )
+        .await
+    {
+        Ok(draft) => answer(StatusCode::OK, &draft, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Keep the owner's text as a workflow's draft. **200**: the draft is kept when this answers.
+pub(crate) async fn put_workflow_draft<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::PutWorkflowDraft = match ipc::decode_body("a workflow draft to keep", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().put_workflow_draft(asked, scope.manifest()).await {
+        Ok(draft) => answer(StatusCode::OK, &draft, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Throw away a workflow's draft.
+pub(crate) async fn discard_workflow_draft<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<ChangesOf>,
+) -> Response {
+    match served
+        .daemon()
+        .discard_workflow_draft(
+            ipc::WorkflowId::carried(asked.workflow_id),
+            asked.source,
+            asked.project,
+            asked.manifest_id.map(ipc::ManifestId::carried),
+        )
+        .await
+    {
+        Ok(discarded) => answer(StatusCode::OK, &discarded, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Write a workflow's draft through the save path. **200**, for `save_workflow`'s reason.
+pub(crate) async fn publish_workflow_draft<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::PublishWorkflowDraft = match ipc::decode_body("a workflow draft to publish", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().publish_workflow_draft(asked, scope.manifest()).await {
+        Ok(published) => answer(StatusCode::OK, &published, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -367,5 +465,31 @@ pub(crate) async fn list_left_out_workflows<D: Queries>(
     }
 }
 
+/// The versions of one workflow in one place, newest first.
+pub(crate) async fn get_workflow_versions<D: Authoring>(State(served): State<Served<D>>, Query(asked): Query<ChangesOf>) -> Response {
+    match served
+        .daemon()
+        .get_workflow_versions(
+            ipc::WorkflowId::carried(asked.workflow_id),
+            asked.source,
+            asked.project,
+            asked.manifest_id.map(ipc::ManifestId::carried),
+        )
+        .await
+    {
+        Ok(found) => answer(StatusCode::OK, &found, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
 
-
+/// Put one version's text in the draft. **200**: the draft holds it when this answers, and nothing is published.
+pub(crate) async fn revert_workflow<D: Authoring>(State(served): State<Served<D>>, Query(scope): Query<InManifest>, body: Bytes) -> Response {
+    let asked: ipc::RevertWorkflow = match ipc::decode_body("a workflow version to go back to", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().revert_workflow(asked, scope.manifest()).await {
+        Ok(draft) => answer(StatusCode::OK, &draft, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

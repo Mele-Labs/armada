@@ -48,7 +48,7 @@ use crate::rehearsing::{
     undo_checkout_run,
 };
 use crate::repositories::{
-    add_repository, checkout_diff, clone_repository, create_project, get_merge_line_view, get_merge_lines, list_repositories, read_request_repository,
+    add_repository, checkout_diff, clone_repository, create_project, get_merge_line_view, get_merge_lines, list_forge_repositories, list_repositories, read_request_repository,
 };
 use crate::repository_allow::{get_repository_allowed_commands, remove_repository_allowed_command};
 use crate::served::Served;
@@ -128,6 +128,24 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/workflows/save",
             post(crate::repositories::save_workflow::<D>),
+        )
+        .route(
+            "/workflows/draft",
+            get(crate::repositories::get_workflow_draft::<D>)
+                .put(crate::repositories::put_workflow_draft::<D>)
+                .delete(crate::repositories::discard_workflow_draft::<D>),
+        )
+        .route(
+            "/workflows/draft/publish",
+            post(crate::repositories::publish_workflow_draft::<D>),
+        )
+        .route(
+            "/workflows/versions",
+            get(crate::repositories::get_workflow_versions::<D>),
+        )
+        .route(
+            "/workflows/revert",
+            post(crate::repositories::revert_workflow::<D>),
         )
         .route(
             "/workflows/delete",
@@ -335,6 +353,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/document/answer", post(crate::sessions::answer_document::<D>))
         .route("/sessions/show_file", post(crate::sessions::show_file::<D>))
         .route("/sessions/shown", get(crate::shown::get_shown_file::<D>))
+        .route("/sessions/lead_picture", get(crate::sessions::get_lead_picture::<D>))
         .route("/sessions/style_sources", get(crate::styles::get_style_sources::<D>))
         .route("/sessions/design_catalogue", get(crate::styles::get_design_catalogue::<D>))
         .route("/sessions/kept_styles", get(crate::styles::get_kept_styles::<D>))
@@ -744,6 +763,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/repositories/of_request", get(read_request_repository::<D>))
         .route("/repositories/add", post(add_repository::<D>))
         .route("/repositories/clone", post(clone_repository::<D>))
+        .route("/repositories/forge", get(list_forge_repositories::<D>))
         .route("/import/folders", get(crate::importing::list_import_folders::<D>))
         .route("/import/runs", get(crate::importing::get_import_runs::<D>))
         .route("/import/install_mod", post(crate::importing::install_agent_mod::<D>))
@@ -891,6 +911,13 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/lifecycles/keep_drafts", get(crate::lifecycles::list_keep_drafts::<D>))
         .route("/lifecycles/pieces/save", post(crate::lifecycles::save_lifecycle_piece::<D>))
         .route("/lifecycles/pieces/delete", post(crate::lifecycles::delete_lifecycle_piece::<D>))
+        .route(
+            "/lifecycles/pieces/draft",
+            get(crate::lifecycles::get_piece_draft::<D>)
+                .put(crate::lifecycles::put_piece_draft::<D>)
+                .delete(crate::lifecycles::discard_piece_draft::<D>),
+        )
+        .route("/lifecycles/pieces/draft/publish", post(crate::lifecycles::publish_piece_draft::<D>))
         .route("/lifecycles/ticket/teach", post(crate::lifecycles::teach_ticket_word::<D>))
         .route("/sessions/lifecycles", get(crate::lifecycles::get_job_lifecycles::<D>))
         .route("/app_runs", get(crate::app_runs::list_app_runs::<D>))

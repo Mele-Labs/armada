@@ -1273,6 +1273,27 @@ export type ShownVideo = {
 };
 
 /**
+ * `GET /sessions/lead_picture?session_id=`: the picture the Job last showed, the newest by when it was
+ * shown, which the native done card leads with. A `show_sketch` is its `title`, a `show_window` its `url`,
+ * and a `show_file` of an image `path`, the address `GET /sessions/shown` serves it at
+ * (`/sessions/shown?session_id=&path=`). A sketch or window the Job withdrew is skipped. 404
+ * `fleet.no_lead_picture` where it showed none.
+ */
+export type LeadPicture =
+  | {
+      kind: "sketch";
+      title: string;
+    }
+  | {
+      kind: "window";
+      url: string;
+    }
+  | {
+      kind: "image";
+      path: string;
+    };
+
+/**
  * `POST /sessions/window/closed`: the person closed the window a session showed, by its `url` as
  * `show_window` named it. It ends the session's walk and settles nothing on Waiting on you.
  */
