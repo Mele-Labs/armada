@@ -986,7 +986,7 @@ impl JobView {
         let name: SharedString = format!("Forked from {title}").into();
         let page = self.pages.get(id)?;
         let open = page.opened.contains(FORK_FOLD);
-        let (job, read) = (id.clone(), origin.clone());
+        let (job, read, cut) = (id.clone(), origin.clone(), at.clone());
         let head = labelled(
             div()
                 .id("forked-from")
@@ -1002,14 +1002,11 @@ impl JobView {
                 .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
                 .child(crate::titlebar::parts::glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3), look.color(token::FG_MUTED)))
                 .child(name.clone())
-                .on_click(cx.listener(move |this, _, _, cx| {
+                .on_click(cx.listener(move |this, _, window, cx| {
                     let Some(page) = this.pages.get_mut(&job) else { return };
                     if !page.opened.remove(FORK_FOLD) {
                         page.opened.insert(FORK_FOLD.to_string());
-                        // As it opens, the origin's thread is read if it is not held yet.
-                        if let (None, Some(fleet)) = (this.thread(&read, cx).map(|_| ()), this.fleet.clone()) {
-                            fleet.update(cx, |fleet, cx| fleet.read_thread(&read, false, cx));
-                        }
+                        this.read_forked_from(&read, cut.as_deref(), window, cx);
                     }
                     cx.notify();
                 })),
@@ -1017,7 +1014,10 @@ impl JobView {
             name.clone(),
         );
         let rows = open.then(|| {
-            let items = self.thread(&origin, cx).map_or(&[][..], |held| up_to(&held.items, at.as_deref()));
+            // Fleet's thread as it stood at the fork, once read; until then, or where Fleet refused it, the
+            // held thread cut here.
+            let cut = at.as_deref().and_then(|at| self.forks_read.get(&fork_key(&origin, at)));
+            let items = cut.map_or_else(|| self.thread(&origin, cx).map_or(&[][..], |held| up_to(&held.items, at.as_deref())), Vec::as_slice);
             let now = chrono::Local::now();
             let drawn: Vec<AnyElement> = items
                 .iter()
@@ -1046,6 +1046,41 @@ impl JobView {
             )
             .into_any_element(),
         )
+    }
+
+    /// As the fork's fold opens, the origin's thread is read as it stood at the message it was forked at
+    /// (`upto`), so a run of calls that went on past it ends there, however far back it lies. With no
+    /// message named, or where Fleet refuses the cut, the origin's thread is read whole if it is not held.
+    fn read_forked_from(&mut self, origin: &str, at: Option<&str>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(fleet) = self.fleet.clone() else { return };
+        let whole = move |this: &mut Self, cx: &mut Context<Self>| {
+            if this.thread(&SharedString::from(origin.to_string()), cx).is_none() {
+                fleet.update(cx, |fleet, cx| fleet.read_thread(origin, false, cx));
+            }
+        };
+        let Some(at) = at else { return whole(self, cx) };
+        let key = fork_key(origin, at);
+        if self.forks_read.contains_key(&key) {
+            return;
+        }
+        let ask = format!("/sessions/thread?session_id={}&upto={}", super::wire::encoded(origin), super::wire::encoded(at));
+        let origin = origin.to_string();
+        let done: super::wire::Done = Box::new(move |this, answer, _, cx| {
+            match answer.ok().and_then(|body| ipc::decode::<ipc::JobThread>("JobThread", &body).ok()) {
+                Some(cut) => {
+                    this.forks_read.insert(key, cut.items);
+                    cx.notify();
+                }
+                None => {
+                    if let Some(fleet) = this.fleet.clone() {
+                        if this.thread(&SharedString::from(origin.clone()), cx).is_none() {
+                            fleet.update(cx, |fleet, cx| fleet.read_thread(&origin, false, cx));
+                        }
+                    }
+                }
+            }
+        });
+        self.get(ask, window, cx, done);
     }
 
     /// The band on the message box's top edge when handing off to a new Job failed (1.7): its
@@ -1387,6 +1422,11 @@ const FORK_FOLD: &str = "forked-from";
 /// Where the fork's fold numbers its origin's items: far past any list element, so a fold one of
 /// them opens measures nothing in the list.
 const FORK_ITEMS: usize = usize::MAX / 2;
+
+/// Where a fork's cut read of its origin is kept: the origin and the message it was forked at.
+fn fork_key(origin: &str, at: &str) -> String {
+    format!("{origin}@{at}")
+}
 
 /// The origin's items up to and including the one holding the message it was forked at, as
 /// Electron's `upTo` cuts its rows: all of them with no message named, none where it is not held.
