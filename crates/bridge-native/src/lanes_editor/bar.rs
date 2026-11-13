@@ -11,7 +11,7 @@ use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, Look};
 use crate::settings::change_band::filled;
-use crate::settings::view::{ghost, ghost_with, mono, ringed, small, tip};
+use crate::settings::view::{ghost, ghost_with, mono, ringed, tip};
 
 /// What the Undo of a change says where a change shown after it edits the same words.
 const LATER_EDITS: &str = "A later change edits the same words";
@@ -85,7 +85,7 @@ impl LanesEditor {
             .when(self.ask.is_none(), |acts| acts.child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(discard, Role::Button, "Discard")).child(labelled(publish, Role::Button, "Publish"))));
         // What Fleet refused with, else the loader's sentence for a draft that would not load.
         let unfit = self.draft.as_ref().and_then(|draft| draft.unfit.clone()).or_else(|| self.pieces.iter().find_map(|piece| piece.unfit.clone()));
-        let refused = self.refused.clone().or(unfit).map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("workflow-draft-refused"), Role::Alert, said));
+        let refused = self.refused.clone().or(unfit).map(|said| labelled(crate::settings::view::refusal(look, said.clone()).id("workflow-draft-refused"), Role::Alert, said));
         let start_over = self.stale.then(|| {
             let button = ringed(look, ghost(look, "workflow-draft-restart", START_OVER, self.busy), &keys.restart, window)
                 .track_focus(&keys.restart)

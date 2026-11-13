@@ -15,7 +15,7 @@ use ipc::{CloudflareState, GatewaySetup, Mac, MacColour, MacLink, MacPairLink, P
 use super::entries::Body;
 use super::gateway::Tunnel;
 use super::overlay::SettingsOverlay;
-use super::view::{bone, card, ghost, mono, ringed, small, tip};
+use super::view::{bone, card, ghost, mono, ringed, tip};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -816,7 +816,7 @@ fn not_done(look: &Look, id: &'static str) -> AnyElement {
 }
 
 fn alert(look: &Look, id: impl Into<gpui::ElementId>, said: &str) -> AnyElement {
-    labelled(small(look, said.to_string(), look.color(token::STATUS_COMPLETED_FAILED)).id(id), Role::Alert, said.to_string()).into_any_element()
+    labelled(super::view::refusal(look, said.to_string()).id(id), Role::Alert, said.to_string()).into_any_element()
 }
 
 /// A Mac's colour, as a small filled square beside its name.

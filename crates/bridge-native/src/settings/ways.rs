@@ -418,7 +418,7 @@ pub fn sample_press(look: &Look, state: Sample, off: bool, focus: Option<&gpui::
             )
             .into_any_element(),
         ),
-        other => other.problem().map(|said| labelled(small(look, said, look.color(token::STATUS_COMPLETED_FAILED)).id("ways-sample-said"), Role::Alert, said).into_any_element()),
+        other => other.problem().map(|said| labelled(super::view::refusal(look, said).id("ways-sample-said"), Role::Alert, said).into_any_element()),
     };
     (button, beside)
 }
@@ -644,7 +644,7 @@ impl SettingsOverlay {
     pub(super) fn render_ways(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Vec<AnyElement> {
         let body = match &self.prefs.read {
             None => div().flex().flex_col().gap(look.length(token::SPACE_3)).children((0..3).map(|n| bone(look, look.length(token::SPACE_6) * (7 - n % 2) as f32, look.length(token::LEADING_SM)))).into_any_element(),
-            Some(Err(said)) => labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("ways-unread"), Role::Alert, said.clone()).into_any_element(),
+            Some(Err(said)) => labelled(super::view::refusal(look, said.clone()).id("ways-unread"), Role::Alert, said.clone()).into_any_element(),
             Some(Ok(_)) => {
                 return vec![
                     labelled(card(look, "settings-card-take-in", "Take Jobs in", None, self.take_rows(look, window, cx)), Role::Region, "Take Jobs in").into_any_element(),
@@ -656,7 +656,7 @@ impl SettingsOverlay {
     }
 
     fn refusal(&self, look: &Look, name: &'static str) -> Option<AnyElement> {
-        self.prefs.refused.get(name).map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id(SharedString::from(format!("ways-refused-{name}"))), Role::Alert, said.clone()).into_any_element())
+        self.prefs.refused.get(name).map(|said| labelled(super::view::refusal(look, said.clone()).id(SharedString::from(format!("ways-refused-{name}"))), Role::Alert, said.clone()).into_any_element())
     }
 
     fn cards_of(&self, row: Row, name: &'static str, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
@@ -914,7 +914,7 @@ impl SettingsOverlay {
                     }))
             });
         let read_failed = match &self.ways.voices {
-            Some(Err(said)) => Some(labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("ways-voices-said"), Role::Alert, said.clone()).into_any_element()),
+            Some(Err(said)) => Some(labelled(super::view::refusal(look, said.clone()).id("ways-voices-said"), Role::Alert, said.clone()).into_any_element()),
             _ => None,
         };
         let state = self.ways.sample.read(cx).state;

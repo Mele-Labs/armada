@@ -580,8 +580,8 @@ pub fn grid(this: &SettingsOverlay, title: &str, description: Option<&str>, keys
         let row = row.children(above).child(cells);
         labelled(row, Role::Row, key.title()).into_any_element()
     });
-    let refused = this.scope.refused.clone().map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("values-refused"), Role::Alert, said).into_any_element());
-    let shared_refused = this.scope.share_refused.clone().map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("project-shared-refused"), Role::Alert, said).into_any_element());
+    let refused = this.scope.refused.clone().map(|said| labelled(super::view::refusal(look, said.clone()).id("values-refused"), Role::Alert, said).into_any_element());
+    let shared_refused = this.scope.share_refused.clone().map(|said| labelled(super::view::refusal(look, said.clone()).id("project-shared-refused"), Role::Alert, said).into_any_element());
     let table = labelled(div().id(SharedString::from(format!("values-grid-{title}"))).flex().flex_col().child(heads).children(rows), Role::Table, title.to_string());
     let mut body: Vec<AnyElement> = Vec::new();
     if let Some(description) = description {

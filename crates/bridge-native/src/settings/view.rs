@@ -251,6 +251,31 @@ pub fn small(look: &Look, said: impl Into<SharedString>, ink: Hsla) -> Div {
     div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(ink).child(said.into())
 }
 
+/// What Fleet refused with, in its own words, red. A span it puts in backticks (a preference's name, a word it would
+/// not take) is drawn as inline code, as the thread draws it. Each word is its own piece, so the line wraps between
+/// words.
+pub fn refusal(look: &Look, said: impl Into<SharedString>) -> Div {
+    let said: SharedString = said.into();
+    let ink = look.color(token::STATUS_COMPLETED_FAILED);
+    let words = said.split('`').enumerate().flat_map(|(n, part)| part.split_whitespace().map(move |word| (n % 2 == 1, word.to_string()))).map(|(code, word)| {
+        let piece = div().child(word);
+        if code {
+            piece.px(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).bg(look.color(token::BG_SUNKEN)).font_family(mono(look))
+        } else {
+            piece
+        }
+    });
+    div()
+        .flex()
+        .flex_wrap()
+        .items_baseline()
+        .gap_x(look.length(token::SPACE_1))
+        .text_size(look.length(token::TEXT_XS))
+        .line_height(look.length(token::LEADING_XS))
+        .text_color(ink)
+        .children(words)
+}
+
 /// A part of the sidebar: the pages the project picked sets, This Mac's own, and This Mac's Mods and Bridge.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Part {
@@ -472,7 +497,7 @@ impl SettingsOverlay {
             let said = format!("Overridden by ${env} where Fleet runs, so the value here is not the one in force.");
             notes.push(labelled(small(look, said.clone(), look.color(token::FG_DEFAULT)).id(SharedString::from(format!("env-{key}"))), Role::Status, said).into_any_element());
         }
-        let refused_line = |look: &Look| refused.clone().map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id(SharedString::from(format!("refused-{}", one.key))), Role::Alert, said));
+        let refused_line = |look: &Look| refused.clone().map(|said| labelled(refusal(look, said.clone()).id(SharedString::from(format!("refused-{}", one.key))), Role::Alert, said));
         let ships = shipped(one);
 
         if let SettingKind::Boolean = one.kind {
@@ -648,7 +673,7 @@ impl SettingsOverlay {
             .children(marks)
             .when(!one.description.is_empty(), |field| field.child(small(look, one.description.clone(), look.color(token::FG_MUTED))))
             .child(row)
-            .children(range_said.map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id(SharedString::from(format!("range-{key}"))), Role::Alert, said)))
+            .children(range_said.map(|said| labelled(refusal(look, said.clone()).id(SharedString::from(format!("range-{key}"))), Role::Alert, said)))
             .children(seconds_said.map(|said| small(look, said, look.color(token::FG_MUTED))))
             .children(ships.map(|ships| small(look, format!("Ships at {ships}."), look.color(token::FG_MUTED))))
             .children(notes)
@@ -913,7 +938,7 @@ impl SettingsOverlay {
         }
         body.push(labelled(list.id("reach-folders"), Role::List, "Folders jobs reach").into_any_element());
         if let Some(said) = self.refused.get(REACH_FOLDERS) {
-            body.push(labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("reach-refused"), Role::Alert, said.clone()).into_any_element());
+            body.push(labelled(refusal(look, said.clone()).id("reach-refused"), Role::Alert, said.clone()).into_any_element());
         }
         Some(labelled(card(look, "settings-card-reach", "Folders jobs reach", None, body), Role::Region, "Folders jobs reach").into_any_element())
     }
@@ -953,7 +978,7 @@ impl SettingsOverlay {
             body.push(labelled(row, Role::Switch, said).into_any_element());
         }
         if let Some(said) = self.refused.get(CONNECTORS_OFF) {
-            body.push(labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("connectors-refused"), Role::Alert, said.clone()).into_any_element());
+            body.push(labelled(refusal(look, said.clone()).id("connectors-refused"), Role::Alert, said.clone()).into_any_element());
         }
         Some(labelled(card(look, "settings-card-connectors", "Connectors", None, body), Role::Region, "Connectors").into_any_element())
     }

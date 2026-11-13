@@ -12,7 +12,7 @@ use crate::labels::labelled;
 use crate::look::{token, Look};
 use crate::settings::change_band::filled;
 use crate::settings::definition::steps_of;
-use crate::settings::view::{ghost, mono, ringed, small, tip};
+use crate::settings::view::{ghost, mono, ringed, tip};
 use crate::titlebar::parts::glyph;
 
 /// What the list is headed.
@@ -148,7 +148,7 @@ impl LanesEditor {
                 .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(row.said.clone())));
             let line = if row.pickable() { ringed(look, line, &row.focus, window).track_focus(&row.focus) } else { line };
             let line = line.when(row.job.edited, |line| line.tooltip(tip(EDITED))).when(!off, |line| line.on_click(cx.listener(move |this, _, window, cx| this.pressed(Press::Pick(n), window, cx))));
-            let failed = row.failed.clone().map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id(SharedString::from(format!("workflow-ask-failed-{n}"))).pl(look.length(token::SPACE_8)), Role::Alert, said));
+            let failed = row.failed.clone().map(|said| labelled(crate::settings::view::refusal(look, said.clone()).id(SharedString::from(format!("workflow-ask-failed-{n}"))).pl(look.length(token::SPACE_8)), Role::Alert, said));
             div().flex().flex_col().min_w_0().child(labelled(line, Role::CheckBox, name)).children(failed)
         });
         let acts = if ask.made {

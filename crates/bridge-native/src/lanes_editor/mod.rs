@@ -1212,7 +1212,7 @@ impl gpui::Render for LanesEditor {
         }
         let body: AnyElement = match &self.read {
             Read::Loading => bone(&look, px(0.), look.length(token::SPACE_12) * 11.).w_full().into_any_element(),
-            Read::Refused(said) => labelled(crate::settings::view::small(&look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("workflow-lanes-refused"), Role::Alert, said.clone()).into_any_element(),
+            Read::Refused(said) => labelled(crate::settings::view::refusal(&look, said.clone()).id("workflow-lanes-refused"), Role::Alert, said.clone()).into_any_element(),
             Read::Read(read) => {
                 let lanes = self.shown.as_ref().unwrap_or(read);
                 // Four lanes of the least height fill it; a lane more makes it taller by that much.
