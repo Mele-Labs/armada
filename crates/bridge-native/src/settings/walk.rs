@@ -140,7 +140,7 @@ pub static RULES_STEPS: &[Step] = &[
     press_on("Tell the agent opens a box for the words", "menuitem", "Tell the agent", "textbox", "Message"),
     step("The words go in the box: Plan approved, start", Verb::Typed("Plan approved, start"), "textbox", "Message"),
     step("Enter sets the act, and the rule is complete", Verb::Key("enter"), "combobox", "Do"),
-    step("Esc shuts the sentence. A rule a gate sets off has no edge on the canvas, so its chip stands in the row at the top", Verb::Key("escape"), "button", "Tell the agent: Plan approved, start"),
+    step("Esc shuts it. The rule has no edge, so its chip sits over the canvas", Verb::Key("escape"), "button", "Tell the agent: Plan approved, start"),
     press_on("A press on that chip opens the rule's sentence again, under the chip", "button", "Tell the agent: Plan approved, start", "group", "Tell the agent: Plan approved, start"),
     press_on("Publish writes each rule's draft where it applies", "button", "Publish", "button", "Add rule"),
     step("The rules are kept: the new rule's chip is drawn as any other", Verb::Look, "button", "Move each ticket to Done"),

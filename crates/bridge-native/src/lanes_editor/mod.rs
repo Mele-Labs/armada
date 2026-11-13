@@ -1368,7 +1368,8 @@ impl gpui::Render for LanesEditor {
                 let watch = self.in_place.is_some() || self.sentence.is_some();
                 let over = self.render_in_place(self.frame.get(), &look, window, cx);
                 let sentence = self.render_sentence(self.frame.get(), &look, window, cx);
-                div()
+                let row = self.render_rule_row(&look, window, cx);
+                let lanes = div()
                     .relative()
                     .flex_none()
                     .h(tall)
@@ -1380,8 +1381,8 @@ impl gpui::Render for LanesEditor {
                     .child(in_place::measure(self.frame.clone(), self.seen.clone(), reveal.zip(self.page.clone()), watch))
                     .child(canvas)
                     .children(over)
-                    .children(sentence)
-                    .into_any_element()
+                    .children(sentence);
+                div().flex().flex_col().gap(look.length(token::SPACE_2)).min_w_0().children(row).child(lanes).into_any_element()
             }
         };
         div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().children(self.render_armada_band(&look)).children(self.render_bar(&look, window, cx)).child(body)

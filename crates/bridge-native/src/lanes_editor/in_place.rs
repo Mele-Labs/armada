@@ -94,6 +94,12 @@ pub(super) struct Fields {
 }
 
 /// `base`, or `base_2`, `base_3`, until no step holds it (`uniqueId`).
+/// Where the lanes begin in the frame, past the rail and the heads that stand over its left: a + under them is not drawn.
+pub(super) fn lanes_edge(frame: Bounds<Pixels>, look: &Look) -> Pixels {
+    let rail = look.length(token::BORDER_WIDTH) * 3. + look.length(token::SPACE_3) * 2. + look.length(token::SPACE_1) * 2. + look.length(token::H_CONTROL_SM);
+    frame.left() + rail + px(HEADS)
+}
+
 pub fn unique_id(label: &str, taken: &[String]) -> String {
     let slug: String = label.to_lowercase().chars().map(|one| if one.is_ascii_alphanumeric() { one } else { '_' }).collect();
     let slug = slug.split('_').filter(|part| !part.is_empty()).collect::<Vec<_>>().join("_");
@@ -416,9 +422,7 @@ impl LanesEditor {
             return over;
         }
         let gaps = self.state.step_gaps(&self.id);
-        // The rail and the heads stand over the left of the frame: a + under them is not drawn.
-        let rail = look.length(token::BORDER_WIDTH) * 3. + look.length(token::SPACE_3) * 2. + look.length(token::SPACE_1) * 2. + look.length(token::H_CONTROL_SM);
-        let edge = frame.left() + rail + px(HEADS);
+        let edge = lanes_edge(frame, look);
         // What stands over the lanes is cut where the canvas cuts its nodes, at the heads' edge and the frame's.
         let shown = |bounds: &Bounds<Pixels>| bounds.right() > edge && bounds.left() < frame.right() && bounds.bottom() > frame.top() && bounds.top() < frame.bottom();
         let lanes = Bounds { origin: point(edge, frame.top()), size: gpui::size((frame.right() - edge).max(px(0.)), frame.size.height) };
@@ -432,7 +436,6 @@ impl LanesEditor {
             cut.push(self.end_box(look, lanes, bounds, named, cx));
         }
         over.push(div().absolute().left(edge - frame.left()).top_0().right_0().bottom_0().overflow_hidden().children(cut).into_any_element());
-        over.extend(self.render_rule_row(frame, edge, look, window, cx));
         over.extend(self.render_fields(frame, look));
         over
     }

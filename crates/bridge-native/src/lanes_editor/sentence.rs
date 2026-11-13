@@ -304,8 +304,8 @@ impl LanesEditor {
     }
 
     /// The row of those chips over the top of the canvas, each as the canvas draws a rule's chip: its glyph, its name, and
-    /// what it waits for in quiet words.
-    pub(super) fn render_rule_row(&self, frame: Bounds<Pixels>, edge: Pixels, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+    /// what it waits for in quiet words. It wraps, and takes its room above the canvas, so every chip it holds is seen.
+    pub(super) fn render_rule_row(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         let rules = self.edgeless();
         if rules.is_empty() {
             return None;
@@ -325,7 +325,8 @@ impl LanesEditor {
                 let chip = div()
                     .id(SharedString::from(format!("rule-edgeless:{id}")))
                     .relative()
-                    .min_w_0()
+                    .flex_none()
+                    .max_w_full()
                     .overflow_hidden()
                     .flex()
                     .items_center()
@@ -359,7 +360,7 @@ impl LanesEditor {
                 labelled(chip.aria_selected(open), Role::Button, name).into_any_element()
             })
             .collect();
-        Some(div().absolute().left(edge - frame.left() + gap).top(gap).max_w((frame.right() - edge - gap * 2.).max(px(0.))).flex().gap(gap).overflow_hidden().children(chips).into_any_element())
+        Some(div().id("lanes-rule-row").flex().flex_wrap().gap(gap).min_w_0().children(chips).into_any_element())
     }
 
     /// Add rule: an empty sentence under the bar, at the top of the canvas, with the keys in When and its choices open.
