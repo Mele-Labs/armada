@@ -73,7 +73,7 @@ where
                     message.to.session_id = Some(SessionId::carried(&peer.id));
                     message.to.title = peer.title;
                 }
-                SessionRow::Message { from: SessionVoice::Session { id, title }, .. } => {
+                SessionRow::Message { from: SessionVoice::Session { id, title, .. }, .. } => {
                     *title = peer.title.unwrap_or_else(|| address_of(&peer.id));
                     *id = peer.id;
                 }

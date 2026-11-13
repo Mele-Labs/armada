@@ -494,6 +494,9 @@ pub enum SessionVoice {
     Session {
         id: String,
         title: String,
+        /// The id of the paired Mac that holds that session. **Absent means this Mac.**
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mac: Option<String>,
     },
 }
 

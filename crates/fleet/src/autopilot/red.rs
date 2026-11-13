@@ -101,7 +101,7 @@ where
         }
         let facts = self.with_the_log(served, main, brief_of(main)).await;
         let said = format!("Main went red at {}.\n\n{facts}{extra}", short(main.red_commit()));
-        let voice = SessionVoice::Session { id: by.to_lowercase(), title: by.to_string() };
+        let voice = SessionVoice::Session { id: by.to_lowercase(), title: by.to_string(), mac: None };
         let briefed = match held {
             true => self.held_with(&job, &said).await.is_ok(),
             false => self.first_message_from(&job, voice, &said).await.is_ok(),

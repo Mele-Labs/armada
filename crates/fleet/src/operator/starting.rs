@@ -52,7 +52,7 @@ where
         let briefed = match held {
             true => self.held_with(&job, brief).await.is_ok(),
             false => {
-                let voice = SessionVoice::Session { id: OPERATOR.to_lowercase(), title: OPERATOR.to_string() };
+                let voice = SessionVoice::Session { id: OPERATOR.to_lowercase(), title: OPERATOR.to_string(), mac: None };
                 self.first_message_from(&job, voice, brief).await.is_ok()
             }
         };
