@@ -12,9 +12,10 @@
 
 use gpui::{anchored, canvas, deferred, div, point, prelude::*, px, svg, Anchor, AnyElement, Bounds, Context, Entity, FocusHandle, Focusable, FontWeight, Keystroke, MouseButton, Pixels, Role, SharedString, Stateful, Subscription, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
+use gpui_component::{Sizable, Size};
 use ipc::{LaneNodeKind, LifecycleDefinition, LifecycleStateDefinition, LifecycleTransition, PieceScope, StateReadFrom};
 
-use super::in_place::unique_id;
+use super::in_place::{lanes_edge, node_bounds, unique_id};
 use super::LanesEditor;
 use crate::assets::icon_path;
 use crate::labels::labelled;
@@ -29,7 +30,9 @@ pub(super) const ASK: &str = "What does this lane follow?";
 pub(super) const NEW_STATE: &str = "New state";
 
 /// What a blank lane's name box says while it is empty.
-const NAME_THIS: &str = "Name this lane";
+/// A state node's height over its width, as the canvas draws one.
+const STATE_PER_NODE: f32 = 56. / 168.;
+const NAME_THIS: &str = "Lane name";
 
 /// The source word under the name of a lane that reads its states from nothing the wire names.
 const YOUR_OWN: &str = "Your own";
@@ -613,7 +616,7 @@ impl LanesEditor {
 
     /// A head the draft added is tinted with the accent, and holds a name box where the lane was just added. Any other head is
     /// the canvas's own words.
-    pub(super) fn new_lane_head(&self, lane: &ipc::LaneView, words: Stateful<gpui::Div>, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn new_lane_head(&self, lane: &ipc::LaneView, words: Stateful<gpui::Div>, look: &Look) -> AnyElement {
         let Some(def) = self.lane_def(&lane.id) else { return words.into_any_element() };
         let (heads, id) = (self.lane_heads.clone(), lane.id.clone());
         let measured = canvas(
@@ -639,40 +642,10 @@ impl LanesEditor {
                 .w_full()
                 .text_size(look.length(token::TEXT_2XS))
                 .line_height(look.length(token::LEADING_2XS))
-                .child(Input::new(&held.name)),
+                .child(Input::new(&held.name).with_size(Size::Small)),
             Role::TextInput,
             "Lane name",
         );
-        let pill = (source_of(&def) == YOUR_OWN).then(|| {
-            let lane_id = lane.id.clone();
-            let ring = ring_colour(look);
-            let pill = div()
-                .id(SharedString::from(format!("lane-add-state:{lane_id}")))
-                .track_focus(&held.pill)
-                .flex_none()
-                .flex()
-                .items_center()
-                .justify_center()
-                .gap(look.length(token::SPACE_1))
-                .h(look.length(token::H_CONTROL_SM))
-                .px(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::FOCUS_RING_WIDTH))
-                .border_dashed()
-                .border_color(look.color(token::BORDER_STRONG))
-                .text_size(look.length(token::TEXT_XS))
-                .line_height(look.length(token::LEADING_XS))
-                .text_color(look.color(token::FG_MUTED))
-                .whitespace_nowrap()
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .focus(move |style| style.border_color(ring))
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .on_click(cx.listener(move |this, _, window, cx| this.add_state(&lane_id, window, cx)))
-                .child(svg().flex_none().path(icon_path("plus")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_MUTED)))
-                .child("Add a state");
-            labelled(pill, Role::Button, "Add a state")
-        });
         div()
             .id(SharedString::from(format!("lane-head-new:{}", lane.id)))
             .relative()
@@ -687,8 +660,71 @@ impl LanesEditor {
             .child(measured)
             .child(field)
             .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(source))
-            .children(pill)
             .into_any_element()
+    }
+
+    /// Add a state, drawn where the lane's next state would stand: the column after its last state, the first while it has none,
+    /// across from its head. The columns are the workflow lane's, as the canvas drew them; none is drawn until both are.
+    pub(super) fn render_state_pills(&self, frame: Bounds<Pixels>, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        if frame.size.width <= px(0.) {
+            return None;
+        }
+        let gaps = self.state.step_gaps(&self.id);
+        let (first, gap) = (gaps.first()?, gaps.first()?.bounds.size.width);
+        let first = node_bounds(&first.after, &gaps)?;
+        let (wide, stride) = (first.size.width, first.size.width + gap);
+        let tall = wide * STATE_PER_NODE;
+        let edge = lanes_edge(frame, look);
+        let heads = self.lane_heads.borrow();
+        let pills: Vec<AnyElement> = self
+            .new_lanes
+            .iter()
+            .filter_map(|held| {
+                let def = self.lane_def(&held.id).filter(|lane| source_of(lane) == YOUR_OWN)?;
+                let head = heads.get(&held.id)?;
+                let at = point(first.left() + stride * def.states.len() as f32, head.center().y - tall / 2.);
+                let box_ = Bounds { origin: at, size: gpui::size(wide, tall) };
+                (box_.right() > edge && box_.left() < frame.right()).then(|| self.state_pill(held, box_, frame, look, cx))
+            })
+            .collect();
+        if pills.is_empty() {
+            return None;
+        }
+        Some(div().absolute().left(edge - frame.left()).top_0().right_0().bottom_0().overflow_hidden().children(pills).into_any_element())
+    }
+
+    fn state_pill(&self, held: &NewLane, at: Bounds<Pixels>, frame: Bounds<Pixels>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let lane_id = held.id.clone();
+        let ring = ring_colour(look);
+        let edge = lanes_edge(frame, look);
+        let pill = div()
+            .id(SharedString::from(format!("lane-add-state:{lane_id}")))
+            .track_focus(&held.pill)
+            .absolute()
+            .left(at.left() - edge)
+            .top(at.top() - frame.top())
+            .w(at.size.width)
+            .h(at.size.height)
+            .flex()
+            .items_center()
+            .justify_center()
+            .gap(look.length(token::SPACE_1))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::FOCUS_RING_WIDTH))
+            .border_dashed()
+            .border_color(look.color(token::BORDER_STRONG))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .whitespace_nowrap()
+            .cursor_pointer()
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            .focus(move |style| style.border_color(ring))
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_click(cx.listener(move |this, _, window, cx| this.add_state(&lane_id, window, cx)))
+            .child(svg().flex_none().path(icon_path("plus")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_MUTED)))
+            .child("Add a state");
+        labelled(pill, Role::Button, "Add a state").into_any_element()
     }
 
     /// The lanes the draft added, tinted across the canvas from their heads: a faint accent over the band and the accent's ring

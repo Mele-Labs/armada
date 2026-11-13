@@ -128,7 +128,7 @@ fn node_width(gaps: &[StepGap]) -> Option<Pixels> {
 }
 
 /// Where a step's node was drawn, from the gaps either side of it.
-fn node_bounds(node: &str, gaps: &[StepGap]) -> Option<Bounds<Pixels>> {
+pub(super) fn node_bounds(node: &str, gaps: &[StepGap]) -> Option<Bounds<Pixels>> {
     let wide = node_width(gaps)?;
     let into = gaps.iter().find(|gap| gap.before == node);
     let out = gaps.iter().find(|gap| gap.after == node);

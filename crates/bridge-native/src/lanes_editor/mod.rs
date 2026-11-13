@@ -1531,8 +1531,8 @@ impl LanesHost for LanesEditor {
     }
 
     /// The head of a lane the draft adds: tinted with the accent, and where it has a name box, that box in place of its title.
-    fn head_words(&self, _id: &SharedString, lane: &ipc::LaneView, _opens: bool, words: gpui::Stateful<gpui::Div>, look: &crate::look::Look, cx: &Context<Self>) -> AnyElement {
-        self.new_lane_head(lane, words, look, cx)
+    fn head_words(&self, _id: &SharedString, lane: &ipc::LaneView, _opens: bool, words: gpui::Stateful<gpui::Div>, look: &crate::look::Look, _cx: &Context<Self>) -> AnyElement {
+        self.new_lane_head(lane, words, look)
     }
 
     /// Enter on the end box adds the step the box's press does, and the keys go to it.
@@ -1621,6 +1621,7 @@ impl gpui::Render for LanesEditor {
                     .child(in_place::measure(self.frame.clone(), self.seen.clone(), reveal.zip(self.page.clone()), watch))
                     .child(canvas)
                     .children(self.render_lane_tints(self.frame.get(), &look))
+                    .children(self.render_state_pills(self.frame.get(), &look, cx))
                     .children(over)
                     .children(sentence);
                 div().flex().flex_col().gap(look.length(token::SPACE_2)).min_w_0().children(row).child(lanes).into_any_element()
