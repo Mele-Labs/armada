@@ -176,3 +176,34 @@ async fn both_or_neither_place_a_relative_folder_or_no_cells_are_refused_and_not
     }
     assert_eq!(rig.fleet.list_sessions(None, None, None).await.expect("listed").sessions.len(), before);
 }
+
+/// A quick terminal answers under every rule a Job carries, so it never starts below Sonnet: the
+/// 13 Nov 2026 Haiku turn that lost the question under them. A stronger default is left to stand.
+#[tokio::test]
+async fn a_quick_terminal_starts_on_sonnet_where_the_session_default_is_haiku() {
+    use std::collections::BTreeMap;
+    use api::Settings;
+    use ipc::{SaveSettings, SettingValue};
+    let rig = rig_placing(None);
+    let model_of = |id: SessionId| {
+        let fleet = Arc::clone(&rig.fleet);
+        async move { fleet.store().lock().await.hosting(id.as_str()).unwrap().expect("hosted").model }
+    };
+    let session = |name: &str| SaveSettings {
+        changes: BTreeMap::from([
+            ("models.roster".to_string(), Some(SettingValue::List(vec![SettingValue::Text("a-model".into()), SettingValue::Text("sonnet".into()), SettingValue::Text(name.into())]))),
+            ("models.session".to_string(), Some(SettingValue::Text(name.into()))),
+        ]),
+    };
+
+    rig.fleet.save_settings(session("haiku")).await.expect("saved");
+    let first = started(&rig, quick(Some(rig.manifest.clone()), None)).await;
+    assert_eq!(model_of(first.session_id).await.as_deref(), Some("sonnet"));
+
+    let named = started(&rig, StartTerminalJob { model: Some("haiku".into()), ..quick(Some(rig.manifest.clone()), None) }).await;
+    assert_eq!(model_of(named.session_id).await.as_deref(), Some("haiku"), "a model he names stands");
+
+    rig.fleet.save_settings(session("opus")).await.expect("saved");
+    let last = started(&rig, quick(Some(rig.manifest.clone()), None)).await;
+    assert_eq!(model_of(last.session_id).await, None, "a stronger default is read when the process starts");
+}

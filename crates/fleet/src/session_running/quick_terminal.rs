@@ -50,7 +50,7 @@ where
         let begun = StartSession {
             manifest_id,
             title,
-            model: start.model,
+            model: start.model.or_else(|| self.quick_model()),
             effort: start.effort,
             mode: start.mode,
             fork: None,
@@ -67,6 +67,13 @@ where
             .open_job_terminal(record.id.as_str(), None, false, Some(cols), Some(rows))
             .await?;
         Ok(TerminalJobStarted { session_id: record.id, terminal, run_id })
+    }
+
+    /// The model a quick terminal that names none starts on: **the Session default, never below
+    /// Sonnet**. Its agent answers under every rule a Job carries, which a Haiku turn lost track of on
+    /// 13 Nov 2026. `None` leaves the default to be read when the process starts.
+    pub(crate) fn quick_model(&self) -> Option<String> {
+        self.session_model().to_ascii_lowercase().contains("haiku").then(|| String::from("sonnet"))
     }
 
     /// Where `dir` puts the Job: the served repository that holds it, the deepest where one is
