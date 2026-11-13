@@ -77,6 +77,7 @@ mod reach_folders;
 pub(crate) mod repository_file;
 pub(crate) mod token_use;
 pub(crate) mod delivering;
+pub(crate) mod delivery_setting;
 pub(crate) mod start_card;
 pub(crate) mod fleet_calls;
 pub(crate) mod needs_you;

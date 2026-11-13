@@ -965,6 +965,9 @@ pub enum SessionRow {
         /// The first message named it, so nothing was asked.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         named: bool,
+        /// Fleet's sentence for the person: the choice was kept as the project's, or a setting answered the question.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        said: Option<String>,
     },
     /// The agent reached for a browser outside Bridge, as its mod told (`browser_outside`): `tool`
     /// as the person reads it, and the address without its query or fragment, where there was one.

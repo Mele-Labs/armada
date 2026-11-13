@@ -168,6 +168,7 @@ mod session_provenance;
 mod session_proposal;
 mod session_quick;
 mod delivery_gate;
+mod delivery_setting;
 mod start_card;
 mod session_rail;
 mod one_proposal;

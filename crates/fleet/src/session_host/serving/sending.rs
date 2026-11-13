@@ -392,6 +392,8 @@ where
         let runtime = self.hosts().of(id);
         // Before the process starts, so the rail sees a Job that has run only with its step already kept.
         let stepped = self.first_step_kept(id, &hosting, &held.text).await;
+        // The step may have turned the Job's auto land on, which the process start would write back off from the copy read above.
+        let (_, hosting) = self.session_and_hosting(id).await?;
         // Tried once more after a moment, since a start that fails once often comes up the second time.
         let started = match self.ensure_process(id, &hosting).await {
             Err(_) => {

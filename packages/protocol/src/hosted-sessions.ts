@@ -893,6 +893,11 @@ export type SessionRow =
       at: string;
       choice?: DeliveryChoice;
       named?: boolean;
+      /**
+       * Fleet's sentence for the person, where a project's or Kit's `delivery` answered the question or the first answer was
+       * kept as the project's. Absent where Fleet said nothing.
+       */
+      said?: string;
     };
 
 /** What happens to a Job's work once it is done: open a pull request and merge it, stop at the pull request, or stop at the local commit. */
