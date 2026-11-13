@@ -677,6 +677,21 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "plan-gates",
+        title: "Plan gates: the gate held on you, and when a gate closed",
+        screen: Screen::JobsInApp,
+        scenario: "job-workflow",
+        steps: &[
+            press_on("A plan on gates", "row", "Audit the docs index", "button", "Add tab: Done"),
+            press_on("+: Spine", "button", "Add tab: Done", "menuitem", "Spine"),
+            press_on("The live stretch is held on you: its gate takes the Needs you hue and pulses", "menuitem", "Spine", "img", "Gate, the Job is held on you"),
+            step("25m, held on you: the figure names itself on hover", Verb::Hover, "img", "Held on you for: 25m"),
+            step("The stretch whose gate closed stands above, as Done", Verb::Wheel("region", "Spine", -3000), "button", "List the pages the index misses"),
+            press_on("Open, it heads with what closed it and when, on his clock", "button", "List the pages the index misses", "img", "Gate, closed by Fleet"),
+            step("Press the time to read it as an age; every time on the page turns with it", Verb::PressWithin("region", "Spine", "Time"), "img", "Gate, closed by Fleet"),
+        ],
+    },
+    Walk {
         name: "native-lanes-marks",
         title: "Workflow: a workflow editor's marks on the lanes",
         screen: Screen::JobsInApp,
