@@ -105,6 +105,8 @@ pub fn settings() -> SettingsList {
     ipc::decode("SettingsList", include_bytes!("mock-settings.json")).unwrap_or_else(|why| panic!("the mock settings do not decode: {why}"))
 }
 
+const MOCK_CLOCK: &str = r#"{"hour12":true,"seconds":false,"date":true}"#;
+
 impl MockFleet {
     pub fn new() -> MockFleet {
         let mut projects = crate::mock::projects();
@@ -129,7 +131,8 @@ impl MockFleet {
         };
         let mut fleet = MockFleet {
             kit, list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), drafts: Default::default(), versions: Default::default(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
-            preferences: ipc::Preferences::default(),
+            // A 12-hour clock with no seconds, as his own format reads; the walk has no Fleet to say his.
+            preferences: ipc::Preferences { time_format: MOCK_CLOCK.into(), ..ipc::Preferences::default() },
             gateway: super::gateway::MockGateway::new(),
             handed: Vec::new(),
             job_projects: vec![("mock-02", "armada")],
@@ -137,6 +140,7 @@ impl MockFleet {
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
         };
         fleet.seed_versions();
+        super::time::hold(MOCK_CLOCK);
         fleet
     }
 

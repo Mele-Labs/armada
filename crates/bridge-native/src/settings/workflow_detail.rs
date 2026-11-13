@@ -20,7 +20,7 @@ use super::workflows::{Listed, Place};
 use crate::assets::icon_path;
 use crate::job_view::OpenJobFrom;
 use crate::labels::labelled;
-use crate::look::{token, Look};
+use crate::look::{token, ActiveLook, Look};
 
 /// Fleet's word for a place (`WIRE_OF`).
 pub fn wire_of(place: Place) -> &'static str {
@@ -505,9 +505,16 @@ impl SettingsOverlay {
         }
         let rows = versions_rows(&versions);
         let numbers: Vec<u32> = versions.iter().map(|one| one.version).collect();
-        let at = super::view::bounds_of(window, cx, gpui::Role::Button, VERSIONS).map(|bounds| bounds.bottom_right()).unwrap_or_default();
+        // Hung from the button's left edge, so it opens into the content pane; flipped to its right edge only where the
+        // overlay's right edge would cut it.
+        let Some(button) = super::view::bounds_of(window, cx, gpui::Role::Button, VERSIONS) else { return };
+        let look = cx.look();
+        let wide = look.length(token::W_MENU) + look.length(token::SPACE_12);
+        let room = crate::room::of(window, cx);
+        let right = room.origin.x + room.size.width * 0.95 - look.length(token::GAP_PANEL);
+        let (at, anchor) = if button.left() + wide <= right { (button.bottom_left(), gpui::Anchor::TopLeft) } else { (button.bottom_right(), gpui::Anchor::TopRight) };
         let back = window.focused(cx);
-        let menu = cx.new(|cx| crate::dropdown::Dropdown::new(VERSIONS, rows, at, gpui::Anchor::TopRight, from_keys, cx));
+        let menu = cx.new(|cx| crate::dropdown::Dropdown::new(VERSIONS, rows, at, anchor, from_keys, cx));
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &crate::dropdown::Picked, _, cx| {
             let crate::dropdown::Picked::Entry { id, .. } = picked;
             let Some(version) = (0..numbers.len()).find(|n| version_id(*n) == *id).map(|n| numbers[n]) else { return };
