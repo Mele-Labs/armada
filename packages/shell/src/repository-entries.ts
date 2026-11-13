@@ -190,7 +190,7 @@ export function repositoryEntries(
     entries.push({
       kind: "item",
       id: NEW_WORKSPACE,
-      label: "New project",
+      label: "New Workspace",
     });
   return entries;
 }

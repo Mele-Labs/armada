@@ -80,8 +80,8 @@ export const workspacesLanes = walk("workspaces-lanes", [
     say: "my-store: the feature workflow on top, and a lane each for Ticket, PR and Deploy",
   },
   {
-    look: text("Edits here change every project and repository that keeps the default"),
-    say: "Armada's feature is picked, so the page edits the default: the workflow as it runs anywhere no project or repository changed it",
+    look: text("Edits here change every Workspace and repository that keeps the default"),
+    say: "Armada's feature is picked, so the page edits the default: the workflow as it runs anywhere no Workspace or repository changed it",
   },
   {
     look: inside(LANES, role("img", "Differs in my-store, store-api")),
@@ -168,7 +168,7 @@ export const workspacesLanes = walk("workspaces-lanes", [
         exact: true,
       }),
     ),
-    say: "Approve adds it to the project",
+    say: "Approve adds it to the Workspace",
   },
   {
     look: inside(
@@ -177,7 +177,7 @@ export const workspacesLanes = walk("workspaces-lanes", [
         exact: true,
       }),
     ),
-    say: "The rule is one of the project's",
+    say: "The rule is one of the Workspace's",
   },
 
   toSessions,

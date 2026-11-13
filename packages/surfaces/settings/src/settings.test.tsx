@@ -62,7 +62,7 @@ test("the sidebar lists Kit, Fleet, Mods and Bridge entries in order, and an ent
     "Allowlist",
     "Mods",
     "Workflows",
-    "Projects",
+    "Workspaces",
     "Models",
     "Prompts",
     "Harness",

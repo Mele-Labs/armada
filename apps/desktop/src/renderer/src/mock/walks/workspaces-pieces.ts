@@ -24,7 +24,7 @@ const pieces = walk(
       say: "The feature workflow over a lane each for Ticket, Pull request and Deploy, read from the lifecycles Fleet keeps",
     },
     {
-      look: text("Edits here change every project and repository that keeps the default"),
+      look: text("Edits here change every Workspace and repository that keeps the default"),
       say: "Armada's feature is picked, so edits go to the default",
     },
     {

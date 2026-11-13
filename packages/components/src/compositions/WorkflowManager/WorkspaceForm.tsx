@@ -50,7 +50,7 @@ export function WorkspaceForm({
   return (
     <form
       className="armada-wm-ws__form"
-      aria-label={mode === "new" ? "New project" : `Edit ${name}`}
+      aria-label={mode === "new" ? "New Workspace" : `Edit ${name}`}
       onSubmit={(event) => {
         event.preventDefault();
         if (ready) onSubmit(trimmed, chosen);

@@ -682,7 +682,7 @@ test("on All repositories a copy says its edits change its own repository only, 
     .toBeVisible();
   await expect
     .element(
-      page.getByText("Edits here change every project and repository that keeps the default"),
+      page.getByText("Edits here change every Workspace and repository that keeps the default"),
     )
     .toBeVisible();
   await group("ledger repository")
@@ -694,7 +694,7 @@ test("on All repositories a copy says its edits change its own repository only, 
   await expect.element(page.getByText("Edits here change ledger only")).toBeVisible();
   expect(
     page
-      .getByText("Edits here change every project and repository that keeps the default")
+      .getByText("Edits here change every Workspace and repository that keeps the default")
       .elements(),
   ).toHaveLength(0);
 });

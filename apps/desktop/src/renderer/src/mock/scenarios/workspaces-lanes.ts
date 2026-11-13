@@ -1046,7 +1046,7 @@ function panelReads(): PanelReads {
 
 export const workspacesLanes: Scenario = build(
   "workspaces-lanes",
-  "The project my-store: the feature and planning workflows over their lanes, edited by hand in the side panel, and a Job drawing the same lanes as its tickets, pull request and deploy move",
+  "The Workspace my-store: the feature and planning workflows over their lanes, edited by hand in the side panel, and a Job drawing the same lanes as its tickets, pull request and deploy move",
 );
 
 /** The feedback Job from the moment it has started two Jobs, one of them for a ticket and open to its own lanes: `ticket-on-job-lane`. */

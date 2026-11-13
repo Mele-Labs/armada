@@ -54,7 +54,7 @@ test("api's copy in the list says edits there change api only, and Armada's row 
   await expect.element(page.getByText("Edits here change api only")).toBeVisible();
   expect(
     page
-      .getByText("Edits here change every project", {
+      .getByText("Edits here change every Workspace", {
         exact: false,
       })
       .elements(),
@@ -89,7 +89,7 @@ test("api's copy in the list says edits there change api only, and Armada's row 
     .click();
   await expect
     .element(
-      page.getByText("Edits here change every project and repository that keeps the default"),
+      page.getByText("Edits here change every Workspace and repository that keeps the default"),
     )
     .toBeVisible();
   expect(page.getByText("Edits here change api only").elements()).toHaveLength(0);
