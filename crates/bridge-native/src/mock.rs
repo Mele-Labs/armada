@@ -187,6 +187,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         let mut lanes = ipc::decode::<ipc::JobLanesView>("JobLanesView", include_bytes!("../fixtures/job-lanes.json")).map_err(|why| why.to_string())?;
         if scenario == "job-lanes-marks" {
             lanes_marks(&mut lanes);
+        } else if let Some(rule) = lanes.rules.iter_mut().find(|rule| rule.id == "open-draft:pr-88") {
+            // Moved to the run's clock, so the lanes hold a rule from today beside the earlier day's.
+            rule.fired_at = rule.fired_at.as_ref().map(|at| shifted(NOW_ANCHOR, at));
         }
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-07") {
             one.workflow_step = Some(1);

@@ -48,6 +48,13 @@ fn main_aligned() -> Build {
     build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{RUNNING},{PREVIOUS},"carried":["Native Bridge foundation"]}}"#), true, &[])
 }
 
+/// Main as built a few minutes ago, so its name is a build from today; the build before is from an earlier day.
+fn built_today() -> Build {
+    let built = (chrono::Utc::now() - chrono::Duration::minutes(2)).to_rfc3339();
+    let running = format!(r#""running":{{"built_at":"{built}","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b"}}"#);
+    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{running},{PREVIOUS}}}"#), true, &[])
+}
+
 fn main_behind() -> Build {
     build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":3}},{RUNNING},{PREVIOUS}}}"#), false, &[])
 }
@@ -420,6 +427,7 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-restarting" => |face| face.build = Some(restarting("building_fleet")),
         "build-picked" => |face| face.build = Some(picked_and_ready()),
         "build-trying" => |face| face.build = Some(trying()),
+        "build-stamps" => |face| face.build = Some(built_today()),
         "build-drones" => |face| face.build = Some(drones()),
         "build-failed" => |face| face.build = Some(failed()),
         "build-reverting" => |face| face.build = Some(reverting()),
