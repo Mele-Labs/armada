@@ -20,6 +20,11 @@ use crate::session_host::walking::{replaced, walk_approval};
 #[derive(Default)]
 pub(crate) struct RailReads {
     pub extra: Extra,
+    /// The steps of the Job's workflow the rail was read against, which every index here is into. Empty where
+    /// they did not resolve, and then the row draws no step.
+    pub steps: Vec<RailStep>,
+    /// The step the rail last kept the Job standing on.
+    pub stood: Option<u32>,
     /// When each step began, as the rail kept it.
     pub visits: Vec<(u32, String)>,
     /// The steps the person skipped.
@@ -51,9 +56,10 @@ impl RailReads {
 }
 
 /// Read what the rail needs beyond the record. **The commit, the Check run, the thread and the plan's
-/// walk are looked for only where the Session follows a workflow**, since nothing else reads them.
-pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> Result<RailReads, WriteError> {
-    let rail = store.session_rail(&session.id)?;
+/// walk are looked for only where the Session follows a workflow**, since nothing else reads them. `steps` are the
+/// ones the Job's workflow has now (empty where it follows none), since the rail is kept by step id.
+pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool, steps: Vec<RailStep>) -> Result<RailReads, WriteError> {
+    let rail = store.session_rail(&session.id, &rail::step_ids(&steps))?;
     let mut held = Held::default();
     let mut lifecycles = None;
     let extra = if follows {
@@ -101,7 +107,7 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
         ),
         false => Default::default(),
     };
-    Ok(RailReads { extra, visits: rail.visits, skipped: rail.skipped, approved_groups, plan_groups, held, titles, lifecycles, own })
+    Ok(RailReads { extra, steps, stood: rail.step, visits: rail.visits, skipped: rail.skipped, approved_groups, plan_groups, held, titles, lifecycles, own })
 }
 
 /// The steps he wrote on after they began, by the latest visit to each. **Only `You`**: Fleet's own
@@ -234,6 +240,25 @@ where
         Some(rail::steps_of(found))
     }
 
+    /// **Keep by id every rail still kept by index**, for each Job whose workflow resolves now, so a workflow saved
+    /// afterwards does not move it. A rail whose workflow does not resolve stays as it is and still reads as indexes.
+    pub(crate) async fn rails_kept_by_id(&self) {
+        let Ok(sessions) = self.store().lock().await.rails_kept_by_index() else { return };
+        for id in sessions {
+            let hosting = self.store().lock().await.hosting(&id).ok().flatten();
+            let Some(hosting) = hosting else { continue };
+            let Some(workflow) = hosting.workflow.as_deref() else { continue };
+            let Some(steps) = self.job_rail_steps(&id, &hosting.manifest_id, workflow).await else { continue };
+            let ids = rail::step_ids(&steps);
+            let mut store = self.store().lock().await;
+            if let Ok(kept) = store.session_rail(&id, &ids) {
+                if let Err(why) = store.keep_session_rail(&id, &kept, &ids) {
+                    self.session_warned(&id, "the rail was not kept by step id", why);
+                }
+            }
+        }
+    }
+
     /// Draw what the rail adds to a hosted Session's row: the step it is on. **A Session that ended has no step.** A step that ends
     /// on his reply waits on him from `reply_owed_since`, the turn's end, where nothing else does.
     pub(crate) fn rail_drawn(
@@ -268,28 +293,28 @@ where
         if !self.workflow_on(manifest, workflow) {
             return;
         }
-        let steps = match &own {
-            Some((_, found)) => rail::steps_of(found),
-            None => match self.rail_steps(manifest, workflow) {
-                Some(steps) => steps,
-                None => return,
-            },
-        };
+        // The steps the rail was read against, so the indexes it kept are into these.
+        let steps = &reads.steps;
+        if steps.is_empty() {
+            return;
+        }
         let mut facts = Facts::of(record, reads.extra);
+        facts.stood = reads.stood.map(|at| at as usize);
+        facts.visited = StepBits::of(reads.visits.iter().map(|(at, _)| *at as usize));
         let mut lifecycles = Vec::new();
         if steps.iter().any(RailStep::has_lifecycle_end) {
             lifecycles = reads.lifecycles.clone().unwrap_or_else(|| self.lifecycles_that_apply(manifest));
-            (facts.lifecycle_held, facts.lifecycle_met) = rail_lifecycle::bits(&steps, &lifecycles, &reads.held);
+            (facts.lifecycle_held, facts.lifecycle_met) = rail_lifecycle::bits(steps, &lifecycles, &reads.held);
         }
         facts.you_approved = StepBits::of(
             (0..steps.len()).filter(|at| steps[*at].waits_on_approval() && reads.approved(&steps[*at].id)),
         );
-        let at = rail::current(&steps, &facts);
+        let at = rail::current(steps, &facts);
         record.workflow_step = at.map(|at| at as u32);
         let name = |one: &store::KeptInstance| rail_lifecycle::named(one, reads.titles.get(&one.key).map(String::as_str));
         record.workflow_waiting_on = at.map(|at| rail_lifecycle::waiting(&steps[at], &lifecycles, &reads.held, &name)).unwrap_or_default();
         let waits_on_reply = at.is_some_and(|at| {
-            rail_ends::ends_of(&steps, at).into_iter().any(|end| end.waits_on() == Waiter::ThePerson(WaitingSource::Replied))
+            rail_ends::ends_of(steps, at).into_iter().any(|end| end.waits_on() == Waiter::ThePerson(WaitingSource::Replied))
         });
         let turn_over = matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied));
         if let (true, true, true, Some(ended), Some(at)) = (waits_on_reply, turn_over, record.waiting_for.is_empty(), reply_owed_since, at) {

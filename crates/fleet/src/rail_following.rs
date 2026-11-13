@@ -80,7 +80,7 @@ where
         let lifted = match record.workflow_step.map(|at| at as usize).and_then(|at| steps.get(at).map(|step| (at, step))) {
             Some((at, step)) if step.delivers && step.has_lifecycle_end() => {
                 let name = self.workflow_name(manifest.as_str(), workflow);
-                self.lifecycle_lifted(&id, at, step, &name, manifest.as_str()).await
+                self.lifecycle_lifted(&id, at, step, &steps, &name, manifest.as_str()).await
             }
             _ => None,
         };
@@ -113,7 +113,7 @@ where
         let (session, mut kept, ran) = {
             let store = self.store().lock().await;
             let session = store.session(id).ok().flatten()?;
-            let kept = store.session_rail(id).ok()?;
+            let kept = store.session_rail(id, &rail::step_ids(steps)).ok()?;
             let ran = store.hosting(id).ok().flatten().is_some_and(|hosting| hosting.ran);
             (session, kept, ran)
         };
@@ -130,10 +130,10 @@ where
         let keeping = {
             let mut store = self.store().lock().await;
             // A skip kept since the read above is the person's, and is not written away.
-            if let Ok(now) = store.session_rail(id) {
+            if let Ok(now) = store.session_rail(id, &rail::step_ids(steps)) {
                 kept.skipped = now.skipped;
             }
-            store.keep_session_rail(id, &kept)
+            store.keep_session_rail(id, &kept, &rail::step_ids(steps))
         };
         if let Err(why) = keeping {
             self.session_warned(id, "the rail was not kept", why);
@@ -178,7 +178,7 @@ where
         }
         let workflow = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow))?;
         let steps = self.job_rail_steps(id, &hosting.manifest_id, workflow).await?;
-        let skipped = self.store().lock().await.session_rail(id).map(|kept| kept.skipped).unwrap_or_default();
+        let skipped = self.store().lock().await.session_rail(id, &rail::step_ids(&steps)).map(|kept| kept.skipped).unwrap_or_default();
         let skips = rail::skips_said(&self.workflow_name(&hosting.manifest_id, workflow), &steps, &skipped);
         match (said, skips) {
             (Some(said), Some(skips)) => Some(format!("{said}\n\n{skips}")),
@@ -197,12 +197,12 @@ where
             let session = store.session(id).ok().flatten()?;
             let to = self.ledger_row(&store, &session).ok()?.workflow_step?;
             steps.get(to as usize)?;
-            let mut kept = store.session_rail(id).ok()?;
+            let mut kept = store.session_rail(id, &rail::step_ids(&steps)).ok()?;
             let from = kept.step;
             if from != Some(to) {
                 kept.step = Some(to);
                 kept.visits.push((to, self.now().as_str().to_string()));
-                if let Err(why) = store.keep_session_rail(id, &kept) {
+                if let Err(why) = store.keep_session_rail(id, &kept, &rail::step_ids(&steps)) {
                     self.session_warned(id, "the rail was not kept", why);
                     return None;
                 }
