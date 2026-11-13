@@ -167,6 +167,7 @@ The parity check takes each row here as chosen.
 | Add lifecycle over a workflow's lanes in Settings | Drawn where the lanes can be edited | Not drawn: native's lanes are read-only for now |
 | The clash shown in the Settings walk | api's own copy of feature, where Platform and Mobile differ | armada's own copy of feature, with the same words, since the mock serves no api repository |
 | New project (owner) | `LocateForm`: a name and a parent folder, made into a git repository | A project sheet: a name, his repositories ticked whole or by folder, a clone or a new repository, where its file is kept, and the settings it starts with. Create makes the project, goes to it and starts a Job in it on its empty thread |
+| A question's options when he answers with buttons (`answer_with`, owner, 12 Nov) | Fleet carries the choice and Classic does not draw it: a question is a deck of numbered rows with an Answer press | Each option of a Needs you question is a press holding only its name, the Job's pick as My pick: its name filled, its sentence in the tooltip, 1 to 9 pressing them one question at a time, and Answer in words under them while `buttons_words` is on. A press is the whole pick and the row goes at once |
 
 ## Notifying
 

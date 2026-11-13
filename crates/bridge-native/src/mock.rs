@@ -21,6 +21,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if let Ok(mut held) = SCENARIO.lock() {
         *held = scenario.to_string();
     }
+    // The preferences a scenario is read with: Fleet answers none on mock data, and the rest read as defaults.
+    crate::ways::set(if scenario == "ways-buttons" { ipc::AnswerWith::Buttons } else { ipc::AnswerWith::Type }, true);
     let bytes: &[u8] = match scenario {
         "jobs-many" | "job-view" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with a terminal Job just started: Fleet's title for it, nothing in its thread.
@@ -76,6 +78,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "new-project" => include_bytes!("../fixtures/terminal-jobs.json"),
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
+        // One Job asking two questions, answered in buttons: the first has three options, one the Job's pick.
+        "ways-buttons" => include_bytes!("../fixtures/ways-buttons.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
         "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
