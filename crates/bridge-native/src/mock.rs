@@ -69,6 +69,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
         "jobs-screens" => include_bytes!("../fixtures/jobs-screens.json"),
+        // Jobs started by Jobs: one starter with two, a chain two deep beside a third, and a lone Job; the
+        // starter and the deepest Job need him.
+        "jobs-tree" => include_bytes!("../fixtures/jobs-tree.json"),
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
