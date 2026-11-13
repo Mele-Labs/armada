@@ -469,6 +469,19 @@ impl JobView {
             let keys = gpui::Focusable::focus_handle(this.composer.input.read(cx), cx);
             if this.composer.frame.contains(&keys, window) {
                 window.focus(&keys, cx);
+            } else if this.shown.is_some() && this.zoomed().is_some() {
+                // The box is not drawn under a zoomed pane: the keys go to that pane's tab in front, unless
+                // whatever took the press has given them somewhere by then.
+                let view = cx.entity();
+                window.defer(cx, move |window, cx| {
+                    if window.focused(cx).is_none() {
+                        view.update(cx, |this, cx| {
+                            if let Some(pane) = this.zoomed() {
+                                this.focus_in_pane(&pane, window, cx);
+                            }
+                        });
+                    }
+                });
             }
         }));
         subscriptions.push(cx.on_release(|this, cx| {

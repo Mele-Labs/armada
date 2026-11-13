@@ -521,8 +521,16 @@ impl JobView {
             "system" => self.panes.systems.stop(),
             _ => {}
         }
+        // The keys were on the tab that goes: they go to the pane it was in, on the tab that comes forward.
+        let pane = tree::pane_of_tab(&self.arrangement(), tab).map(|pane| pane.id.clone());
+        let held_keys = self.tab_handle(&job, tab, &held.kind, cx).contains_focused(window, cx);
         let id = tab.to_string();
         self.rearrange_in(&job, None, true, move |arrangement| tree::close_tab(arrangement, &id), cx);
+        if held_keys {
+            let arrangement = self.arrangement().into_owned();
+            let to = pane.filter(|pane| tree::pane_by_id(&arrangement, pane).is_some()).unwrap_or(arrangement.focus);
+            self.focus_in_pane(&to, window, cx);
+        }
         self.want_pane_reads(window, cx);
     }
 
@@ -531,8 +539,13 @@ impl JobView {
         if self.place.zoom.as_deref() == Some(pane) {
             self.place.zoom = None;
         }
-        let pane = pane.to_string();
-        self.rearrange(None, true, move |arrangement| tree::close_pane(arrangement, &pane), cx);
+        let (gone, here) = (pane.to_string(), self.here(window, cx));
+        self.rearrange(None, true, move |arrangement| tree::close_pane(arrangement, &gone), cx);
+        // The keys were in the pane that goes: they go to the pane the arrangement now says has the focus.
+        if here == pane {
+            let focus = self.arrangement().focus.clone();
+            self.focus_in_pane(&focus, window, cx);
+        }
         self.want_pane_reads(window, cx);
     }
 
@@ -563,4 +576,160 @@ pub(super) fn front_of(pane: &Pane) -> Option<&Tab> {
 /// A pane's tabs that Settings › Layout has not turned off.
 pub(super) fn visible(pane: &Pane) -> impl Iterator<Item = &Tab> {
     pane.tabs.iter().filter(|tab| !super::tabs::laid_off(&tab.kind))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::tree::Dir;
+
+    fn kinds(pane: &Pane) -> Vec<&str> {
+        pane.tabs.iter().map(|tab| tab.kind.as_str()).collect()
+    }
+
+    fn column(arrangement: &Arrangement) -> (&tree::Split, &Pane, &Pane) {
+        let Node::Split(root) = &arrangement.root else { panic!("the root is a pane") };
+        let Node::Split(column) = &*root.b else { panic!("the right side is a pane") };
+        let (Node::Pane(top), Node::Pane(foot)) = (&*column.a, &*column.b) else { panic!("the column holds a split") };
+        (root, top, foot)
+    }
+
+    /// Today's screen: the thread, then a column of Open, Done and Deferred over Now, 0.62 across and 2:3 down.
+    #[test]
+    fn a_job_starts_with_the_screen_it_always_had() {
+        let arrangement = tree::default_arrangement();
+        let (root, top, foot) = column(&arrangement);
+        assert_eq!(root.dir, Dir::Row);
+        assert!((root.ratio - 0.62).abs() < 1e-9);
+        let Node::Pane(thread) = &*root.a else { panic!("the thread's side is a split") };
+        assert_eq!(kinds(thread), ["thread"]);
+        let Node::Split(inner) = &*root.b else { unreachable!() };
+        assert_eq!(inner.dir, Dir::Column);
+        // Top to Now is two parts to three.
+        assert!((inner.ratio - 0.4).abs() < 1e-9);
+        assert_eq!(kinds(top), ["open", "done", "deferred"]);
+        assert_eq!(kinds(foot), ["now"]);
+        assert_eq!(arrangement.focus, thread.id);
+        // The three panes read by the names their strips and regions have always had.
+        assert_eq!([slot_of(&thread.id), slot_of(&top.id), slot_of(&foot.id)], [Slot::Thread, Slot::Top, Slot::Now]);
+    }
+
+    #[test]
+    fn a_pane_split_off_reads_as_no_slot_of_the_default() {
+        let arrangement = tree::default_arrangement();
+        let (_, _, foot) = column(&arrangement);
+        let split = tree::split_pane(&arrangement, &foot.id, SplitInto::Right).into_owned();
+        let made = split.focus.clone();
+        assert_ne!(made, foot.id);
+        assert_eq!(slot_of(&made), Slot::Other);
+        assert_eq!(slot_of(&foot.id), Slot::Now);
+    }
+
+    /// A view tab's three places map to the thread's pane and the column's first and second.
+    #[test]
+    fn a_view_tabs_places_map_onto_the_trees_panes() {
+        let arrangement = tree::default_arrangement();
+        let (_, top, foot) = column(&arrangement);
+        let thread = tree::holder_of(&arrangement, "thread").expect("a thread").id.clone();
+        assert_eq!(pane_for(&arrangement, ViewPane::Thread), Some(thread.clone()));
+        assert_eq!(pane_for(&arrangement, ViewPane::Top), Some(top.id.clone()));
+        assert_eq!(pane_for(&arrangement, ViewPane::Bottom), Some(foot.id.clone()));
+        assert_eq!(view_pane_of(&arrangement, &thread), ViewPane::Thread);
+        assert_eq!(view_pane_of(&arrangement, &top.id), ViewPane::Top);
+        assert_eq!(view_pane_of(&arrangement, &foot.id), ViewPane::Bottom);
+        // The foot stays the foot with a pane split off beside it.
+        let split = tree::split_pane(&arrangement, &top.id, SplitInto::Right).into_owned();
+        assert_eq!(pane_for(&split, ViewPane::Top).as_deref(), Some(top.id.as_str()));
+    }
+
+    /// Where the thread stands alone there is no column: the foot has no pane, and the tab opens as a split.
+    #[test]
+    fn a_place_with_no_column_has_no_foot() {
+        let arrangement = tree::default_arrangement();
+        let (_, top, foot) = column(&arrangement);
+        let (top, foot) = (top.id.clone(), foot.id.clone());
+        let alone = tree::close_pane(&tree::close_pane(&arrangement, &top).into_owned(), &foot).into_owned();
+        assert_eq!(pane_for(&alone, ViewPane::Bottom), None);
+    }
+
+    /// A shell arrives in the column, or in the pane its + was pressed in; the same shell is not opened twice.
+    #[test]
+    fn a_shell_goes_where_it_was_asked_and_once() {
+        let arrangement = tree::default_arrangement();
+        let (_, _, foot) = column(&arrangement);
+        let thread = tree::holder_of(&arrangement, "thread").expect("a thread").id.clone();
+        let there = put_terminal(&arrangement, "t1", Some(&foot.id), true);
+        let pane = tree::pane_by_id(&there, &foot.id).expect("the foot");
+        assert_eq!(kinds(pane), ["now", "terminal"]);
+        assert_eq!(front_of(pane).map(|tab| tab.kind.as_str()), Some("terminal"));
+        // Asked again for another pane, it moves rather than opening a second.
+        let moved = put_terminal(&there, "t1", Some(&thread), true);
+        let count = tree::panes_of(&moved.root).iter().flat_map(|pane| pane.tabs.iter()).filter(|tab| tab.kind == "terminal").count();
+        assert_eq!(count, 1);
+        assert_eq!(kinds(tree::pane_by_id(&moved, &thread).expect("the thread's pane")), ["thread", "terminal"]);
+    }
+
+    /// Split right, then ⌘Z: the arrangement is the one before the split, and ⇧⌘Z puts the split back.
+    #[test]
+    fn undo_takes_a_split_back_and_redo_puts_it_back() {
+        let was = tree::default_arrangement();
+        let (_, _, foot) = column(&was);
+        let size = Some(Size { w: 1400., h: 900. });
+        let split = tree::rearrange(&was, |arrangement| tree::split_pane(arrangement, &foot.id, SplitInto::Right), size, false).expect("room for a split");
+        assert_eq!(tree::panes_of(&split.root).len(), 4);
+        let mut history = History::default();
+        history.remember(&was, None, 0);
+        assert_eq!(history.undo(&split).as_ref(), Some(&was));
+        assert_eq!(history.undo(&was), None);
+        assert_eq!(history.redo(&was).as_ref(), Some(&split));
+    }
+
+    /// A pane keeps its least size: the column at a narrow window has no room for two panes side by side.
+    #[test]
+    fn a_split_that_leaves_a_pane_too_small_is_refused() {
+        let was = tree::default_arrangement();
+        let (_, _, foot) = column(&was);
+        let split = |size: Option<Size>| tree::rearrange(&was, |arrangement| tree::split_pane(arrangement, &foot.id, SplitInto::Right), size, false);
+        assert!(split(Some(Size { w: 1400., h: 900. })).is_some());
+        assert!(split(Some(Size { w: 500., h: 900. })).is_none());
+    }
+
+    /// The thread's only tab closed takes its pane; opening it again makes a pane where it stood, beside the column, in front.
+    #[test]
+    fn a_closed_thread_comes_back_where_it_stood() {
+        let was = tree::default_arrangement();
+        let thread = tree::holder_of(&was, "thread").expect("a thread");
+        let tab = thread.tabs[0].id.clone();
+        let closed = tree::close_tab(&was, &tab).into_owned();
+        assert!(!tree::has_kind(&closed, "thread"));
+        let back = tree::reopen_thread(&closed).into_owned();
+        let (root, _, _) = column(&back);
+        assert_eq!(root.dir, Dir::Row);
+        let Node::Pane(first) = &*root.a else { panic!("the thread's side is a split") };
+        assert_eq!(kinds(first), ["thread"]);
+    }
+
+    /// Close pane takes the pane and its tabs; the last pane of all stays.
+    #[test]
+    fn closing_a_pane_takes_it_and_the_last_one_stays() {
+        let was = tree::default_arrangement();
+        let (_, top, _) = column(&was);
+        let closed = tree::close_pane(&was, &top.id).into_owned();
+        assert_eq!(tree::panes_of(&closed.root).len(), 2);
+        assert!(tree::pane_by_id(&closed, &top.id).is_none());
+        let one = tree::panes_of(&closed.root)[0].id.clone();
+        let only = tree::close_pane(&closed, &tree::panes_of(&closed.root)[1].id.clone()).into_owned();
+        assert!(matches!(tree::close_pane(&only, &one), Cow::Borrowed(_)));
+    }
+
+    /// Every pane key is a row of the registry with a chord, so the keys are read from there and never written in a view.
+    #[test]
+    fn every_pane_key_is_a_registry_row_with_a_chord() {
+        for id in ["pane_split_right", "pane_split_down", "pane_undo", "pane_redo", "pane_zoom", "next_tab", "previous_tab"] {
+            let row = crate::generated::actions::act(id).unwrap_or_else(|| panic!("no registry row {id}"));
+            assert!(crate::keymap::parse_chord(row.shortcut).is_some(), "{id} has no chord: {}", row.shortcut);
+        }
+        // The four arrows are one row, bound once for each direction.
+        assert!(crate::generated::actions::act("focus_pane").is_some());
+    }
 }
