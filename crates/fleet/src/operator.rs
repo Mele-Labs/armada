@@ -43,6 +43,7 @@ mod looking;
 mod orders;
 mod paging;
 mod placing;
+mod precedent;
 mod raising;
 mod reading;
 mod ruling;

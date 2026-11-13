@@ -24,6 +24,7 @@ use tokio::task::JoinHandle;
 
 use super::answering::Sureness;
 use super::looking::Folder;
+use super::precedent::Follows;
 use super::vetting::Vet;
 use super::{held, Operator};
 use crate::daemon::Fleet;
@@ -56,6 +57,8 @@ pub(crate) struct Reviewed {
     pub(crate) thens: Vec<Option<OperatorThen>>,
     /// How sure the call was of each question, and what it is about. Unsure where it said nothing readable.
     pub(crate) sure: Vec<Sureness>,
+    /// What the call says each question's pick follows: an answer of his, a setting, or nothing.
+    pub(crate) follows: Vec<Follows>,
     pub(crate) journal: Option<String>,
     pub(crate) call: Option<String>,
     /// Why there are no reads, where a call was made and failed. Not set while paused.
@@ -70,6 +73,7 @@ impl Reviewed {
             reads: vec![None; items],
             thens: vec![None; items],
             sure: vec![Sureness::default(); items],
+            follows: vec![Follows::Nothing; items],
             journal: None,
             call: None,
             failed: None,
@@ -115,7 +119,8 @@ Answer with one block per item, in this form, then one journal line:
     pick: <the option you would choose, written exactly as listed, where it has options; Later where it waits on something he must do away from this page, such as a restart; otherwise none. It is a button's label and never a sentence: what you would do, and why, goes in read>
     then: <only on an item that lists Thens: the one you would choose, written exactly as listed>
     sure: <only on an item that has options and an Answer act: yes only where you are certain which option the person would choose, otherwise no>
-    about: <on the same items: look where it is about something he would see, a look or a UX choice; scope where the answer changes the plan's scope; lost where it could destroy work; otherwise none>
+    about: <on the same items: look where it is about something he would see, a look or a UX choice; scope where the answer changes the plan's scope; lost where it could destroy work; departs where the answer departs from how Classic does it today; otherwise none>
+    follows: <on the same items: the one answer of his in answers.txt that already covers this question, written as its number, such as a12, only where it is from the item's own project; or setting <key> = <value>, copied from settings.txt, where a setting he saved settles it; otherwise none>
 
     journal: <one line for your journal of the week: what you reviewed and what you made of it>
 
@@ -135,7 +140,9 @@ fn question(items: &[ToRaise], folder: Option<&std::path::Path>) -> String {
             "You hold three tools, Read, Grep and Glob, and no others. The folder {} holds a file for each live Job, named \
 job-<the Job's id>.txt, with its plan, its open tasks, what waits on the person and the last messages of its thread, \
 issues.txt, the open issues, tasks.txt, the open tasks of his projects, and your journal of this week and last week, named journal-<year>-W<week>.md. Read the \
-Job's file for each item before you answer, and keep your reads few.\n\n",
+Job's file for each item before you answer, and keep your reads few. answers.txt holds his newest answers to the Jobs' questions, each block starting a<number> with its project, and \
+settings.txt his preferences a `key = value` line each, then each repository's values as `<repository> <key> = <value>`. Read both before you answer a question. Follow an \
+answer only from the item's own project, never from another. Read settings.txt before any pick about how something reads, such as a time format, a theme or a layout.\n\n",
             folder.display()
         )),
         None => out.push_str("You hold no tools, so answer from what is written here.\n\n"),
@@ -148,6 +155,9 @@ Job's file for each item before you answer, and keep your reads few.\n\n",
             None => "Your own suggestion, which no Job holds".to_string(),
         };
         out.push_str(&format!("  Item {}: {whose}, a {} item: {}\n", at + 1, word(&one.item.source), one.item.text.trim()));
+        if !one.manifest_id.is_empty() {
+            out.push_str(&format!("    Its repository id: {}\n", one.manifest_id));
+        }
         if !one.item.options.is_empty() {
             let options: Vec<String> = one.item.options.iter().map(|option| format!("\"{}\"", option.label)).collect();
             out.push_str(&format!("    Its options: {}\n", options.join(", ")));
@@ -195,10 +205,10 @@ pub(crate) fn without_echoes(items: Vec<WaitingItem>) -> Vec<WaitingItem> {
 }
 
 /// What a review came back with.
-type Read = (Vec<Option<OperatorRead>>, Vec<Option<OperatorThen>>, Vec<Sureness>, Option<String>);
+type Read = (Vec<Option<OperatorRead>>, Vec<Option<OperatorThen>>, Vec<Sureness>, Vec<Follows>, Option<String>);
 
-/// The reads a review came back with, the Then it picked for each item, and how sure it was of each question.
-/// `None` where not one block reads.
+/// The reads a review came back with, the Then it picked for each item, how sure it was of each question and what
+/// each pick follows. `None` where not one block reads.
 fn read_reviewed(answer: &str, items: &[ToRaise]) -> Option<Read> {
     let field = |line: &str, key: &str| line.trim().strip_prefix(key).and_then(|rest| rest.strip_prefix(':')).map(str::trim).filter(|said| !said.is_empty() && *said != "none").map(str::to_string);
     let mut blocks: Vec<(Option<String>, Option<String>, Option<String>)> = vec![(None, None, None); items.len()];
@@ -206,8 +216,15 @@ fn read_reviewed(answer: &str, items: &[ToRaise]) -> Option<Read> {
     // `none` is an answer here, so these two are read without `field`'s filter.
     let said = |line: &str, key: &str| line.trim().strip_prefix(key).and_then(|rest| rest.strip_prefix(':')).map(str::trim).map(str::to_string);
     let mut judged: Vec<(Option<String>, Option<String>)> = vec![(None, None); items.len()];
+    let mut following: Vec<Follows> = vec![Follows::Nothing; items.len()];
     for line in answer.lines() {
-        if let Some(sure) = said(line, "sure") {
+        if let Some(cited) = said(line, "follows") {
+            if let Some(at) = at {
+                if following[at] == Follows::Nothing {
+                    following[at] = Follows::from_words(&cited);
+                }
+            }
+        } else if let Some(sure) = said(line, "sure") {
             if let Some(at) = at {
                 judged[at].0.get_or_insert(sure);
             }
@@ -244,7 +261,7 @@ fn read_reviewed(answer: &str, items: &[ToRaise]) -> Option<Read> {
         })
         .collect();
     let sure = judged.iter().map(|(sure, about)| Sureness::from_words(sure.as_deref(), about.as_deref())).collect();
-    reads.iter().any(Option::is_some).then_some((reads, thens, sure, journal))
+    reads.iter().any(Option::is_some).then_some((reads, thens, sure, following, journal))
 }
 
 impl Operator {
@@ -258,7 +275,7 @@ impl Operator {
         let failed = |why: String| Reviewed { failed: Some(why), ..Reviewed::none(items.len()) };
         match self.read_asked(None, |folder| question(items, folder)).await {
             Ok(answer) => match read_reviewed(&answer, items) {
-                Some((reads, thens, sure, journal)) => Reviewed { reads, thens, sure, journal, call: Some(format!("review:{}", now.as_str())), ..Reviewed::none(items.len()) },
+                Some((reads, thens, sure, follows, journal)) => Reviewed { reads, thens, sure, follows, journal, call: Some(format!("review:{}", now.as_str())), ..Reviewed::none(items.len()) },
                 None => failed("the Operator's review could not be read".to_string()),
             },
             Err(why) => failed(why),
@@ -324,6 +341,7 @@ where
         _ => {}
     });
     let mut was_on = fleet.operator_on();
+    fleet.operator_answers_backfilled().await;
     fleet.raises_reconciled_all().await;
     tokio::spawn(async move {
         while let Some(heard) = heard.recv().await {
@@ -585,13 +603,13 @@ where
             {
                 let _turn = raising.turn.lock().await;
                 // A question a rule covers is answered here, and is not queued.
-                let answered = self.questions_answered(&taken, &reviewed, |one| held(&raising.queue).raising.contains(&one.key())).await;
+                let answers = self.questions_answered(&taken, &reviewed, |one| held(&raising.queue).raising.contains(&one.key())).await;
                 let mut store = self.store().lock().await;
-                for ((((one, read), then), (sure, answered)), approved) in taken
+                for ((((one, read), then), (sure, (answered, follows))), approved) in taken
                     .iter()
                     .zip(reviewed.reads.iter())
                     .zip(reviewed.thens.iter())
-                    .zip(reviewed.sure.iter().zip(answered))
+                    .zip(reviewed.sure.iter().zip(answers.done.into_iter().zip(answers.follows)))
                     .zip(&reviewed.approved)
                 {
                     // Left its list while the call was out. **Not one a setting approved**: it left because it was.
@@ -617,6 +635,7 @@ where
                         then_pick: then.as_ref().map(word),
                         raised_at: at.as_str().to_string(),
                         call: reviewed.call.clone(),
+                        follows: follows.and_then(|follows| ipc::encode(&follows).ok()),
                         answer: approved.as_ref().map(|_| super::vetting::SETTING.to_string()),
                         settled_at: approved.as_ref().map(|_| at.as_str().to_string()),
                         ..KeptTurn::default()

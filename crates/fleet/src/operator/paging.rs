@@ -10,7 +10,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::operator_page::{
-    item_read, OperatorComingUp, OperatorDigest, OperatorHandled, OperatorHandledAct, OperatorHold, OperatorLanded, OperatorLearned, OperatorLogFile, OperatorMain, OperatorPage, OperatorRule, OperatorRunning,
+    item_read, OperatorComingUp, OperatorDigest, OperatorFollows, OperatorHandled, OperatorHandledAct, OperatorHold, OperatorLanded, OperatorLearned, OperatorLogFile, OperatorMain, OperatorPage, OperatorRuled, OperatorRule, OperatorRunning,
     OperatorSlots, OperatorTurnItem, OperatorTurnKind, OperatorUrgency,
 };
 use ipc::operator_talk::OperatorOrderForm;
@@ -172,6 +172,7 @@ where
                 .map(|kept| super::suggesting::folded_into(&kept, &store.operator_suggestions_of(&kept.session_id).unwrap_or_default()))
                 .unwrap_or_default(),
             group: None,
+            follows: row.follows.as_deref().and_then(|text| ipc::decode::<ipc::operator_page::OperatorFollows>("a citation", text.as_bytes()).ok()),
         };
         Some((later.is_some(), shown))
     }
@@ -231,7 +232,27 @@ where
                 Some(OperatorHold { id: one.n, manifest_id, repository, said: one.said, paths, job: Some(job), until: Some(until), at: Instant::carried(&one.at) })
             })
             .collect();
-        OperatorDigest { landed, handled: OperatorHandled { acts, log: None }, running, coming_up, learned, holds }
+        // The last seven days, whatever he last looked at: it is what he may take back.
+        let week_ago = self.now().epoch_millis().map(|now| crate::clock::rfc3339_utc(now - 7 * DAY)).unwrap_or_default();
+        let ruled = store
+            .operator_turn_settled_since(&week_ago)
+            .unwrap_or_default()
+            .iter()
+            .filter(|row| row.answer.as_deref() == Some("precedent"))
+            .filter_map(|row| {
+                let follows = row.follows.as_deref().and_then(|text| ipc::decode::<OperatorFollows>("a citation", text.as_bytes()).ok())?;
+                Some(OperatorRuled {
+                    id: format!("turn:{}", row.n),
+                    session_id: SessionId::carried(&row.session),
+                    job: row.job.clone(),
+                    question: item_read(&row.body).map(|item| first_line(&item.text)).unwrap_or_default(),
+                    pick: row.pick.clone().unwrap_or_default(),
+                    follows,
+                    at: Instant::carried(row.settled_at.as_deref().unwrap_or(&row.raised_at)),
+                })
+            })
+            .collect();
+        OperatorDigest { landed, handled: OperatorHandled { acts, log: None }, running, coming_up, learned, holds, ruled }
     }
 
     /// This week's journal, where anything is written in it.

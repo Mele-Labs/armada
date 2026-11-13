@@ -62,6 +62,42 @@ export type OperatorTurnItem = {
   also_raised_by?: string[];
   /** The Job's id, where it has two or more asks waiting: `turn` lists them together, at the place of the first of them, in the order the Job raised them. Drawn as one entry. Absent for a single ask. */
   group?: string;
+  /** What the Operator's pick follows: his own earlier answer in the project, or a setting. Absent where it follows nothing. Since 13 Nov 2026. */
+  follows?: OperatorFollows;
+};
+
+/** What an answer follows: `answer`, his answer to the same question in the same project, or `setting`, one he saved. Since 13 Nov 2026. */
+export type OperatorFollowsKind = "answer" | "setting";
+
+/** What the Operator's pick follows, as Fleet checked it. Since 13 Nov 2026. */
+export type OperatorFollows = {
+  kind: OperatorFollowsKind;
+  /** The Job where he gave the answer. `answer` only. */
+  session_id?: string;
+  /** That Job's title. `answer` only. */
+  job?: string;
+  /** What he was asked. `answer` only. */
+  question?: string;
+  /** What he said: his choice and his words, or `key = value` for a setting. */
+  said: string;
+  /** RFC 3339. When he said it. `answer` only. */
+  at?: string;
+};
+
+/** A question the Operator answered by following what he had already said. Since 13 Nov 2026. */
+export type OperatorRuled = {
+  /** `turn:<n>`. */
+  id: string;
+  session_id: string;
+  /** The Job's title. */
+  job?: string;
+  /** The question it answered. */
+  question: string;
+  /** The option it picked. */
+  pick: string;
+  follows: OperatorFollows;
+  /** RFC 3339. */
+  at: string;
 };
 
 /** What the Operator is reading now. */
@@ -183,6 +219,8 @@ export type OperatorDigest = {
   learned?: OperatorLearned[];
   /** The holds that stand, beside Learned. */
   holds?: OperatorHold[];
+  /** Questions it answered by following what he had said, over the last seven days, newest first. Since 13 Nov 2026. */
+  ruled?: OperatorRuled[];
 };
 
 /** How a repository's main stands on CI, as `main_ci_state` of the merge line has it. A red a newer commit's run is still on is `red`. */

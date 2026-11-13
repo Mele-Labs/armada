@@ -1135,6 +1135,8 @@ where
         };
         let mix = parts_line(&item, parts).map_err(|why| self.hosted_refusal(SESSION_WAITING_EMPTY, why))?;
         let line = said.mode.map(mode_line);
+        let answer_text = item.text.clone();
+        let answer_options = item.options.clone();
         // A pick with words says both: the words go with the pick, never in place of it. Parts picked come after.
         let both = match (picked.as_deref(), words) {
             (Some(pick), Some(words)) => Some(format!("{pick}\n{words}")),
@@ -1355,6 +1357,10 @@ where
             matches!(source, WaitingSource::AskCard | WaitingSource::Permission),
         ) {
             fleet.session_answered(record, says);
+        }
+        // His own answer is kept for the Operator to follow, and never one given in his place or to a draft.
+        if settled.is_ok() && by == Answerer::Him && source != WaitingSource::Draft {
+            fleet.operator_answer_kept(&id, &answer_text, &answer_options, &said.item_id, picked.as_deref(), words, "job").await;
         }
         settled
     }

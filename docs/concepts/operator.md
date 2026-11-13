@@ -33,7 +33,7 @@ Everything that needs a person reaches the person already read, with the Operato
 | Keeps a journal of your week | Yes |
 | A short briefing on the first open of the day | Partly. Fleet rewrites the page's top line when he comes back; the page is not in a Bridge yet |
 | Asks Yes / Always here / Always / No before it acts, and learns | Yes. A rule you kept does the act as it is raised and the Log names the rule |
-| Handles routine Job questions | Yes, once you say Always here or Always. It answers a question it is sure of, unless the question is about something you would see, changes the plan's scope or could destroy work |
+| Handles routine Job questions | Yes, once you say Always here or Always. It answers a question it is sure of, unless the question is about something you would see, changes the plan's scope, could destroy work or departs from Classic. Once an answer of yours in the same project covers the question, it follows that too, and the Job is told which answer it followed |
 | Nudges a stuck Job, then starts a repair suited to what broke | Partly. Fleet hosts a hidden repair for each of six breaks, and starts one for a dead process, a silent stop, a red pull request and a hung command; the triggers for the rest are not built |
 | Hands duplicate work to the Job already on it | Yes. A start, or a red main, that a live Job is near is a go-ahead to hand it over |
 | Handles issues | Partly. A new issue is linked, filed or started on. A merge closes an open issue it finished, and a new issue that repeats an open one is closed as its duplicate or put under it, each asked first |
@@ -174,7 +174,7 @@ Why: "the Operator keeps spinning up these 'Rest of' Jobs and I hate it." It had
 They acted on a Job's own events.
 
 **A Job's question is answered by a rule, never by a ruling.**
-The review call says, for each question, whether it is sure and what the question is about: a look, the plan's scope, work that could be lost, or none of those.
+The review call says, for each question, whether it is sure and what the question is about: a look, the plan's scope, work that could be lost, a departure from how Classic does it, or none of those.
 A question it is sure of, about none of those, with an option of its own and no destructive word in it, is offered as a go-ahead.
 Yes answers it with the pick, through the Job's list, as a press on the option does.
 Always here and Always keep the rule `question:answer`, and under it such a question is answered as it arrives and never queued.
@@ -182,6 +182,14 @@ The Log row names the question, the option and the rule, and the Job's thread sa
 Every other question is queued for the person with the Operator's read and pick.
 A permission card is the person's, or Autopilot's while he is away.
 Where the Operator is on and a rule covers questions, Autopilot leaves them alone, including the ones the Operator was not sure of.
+
+**An answer of his that already covers a question is a second way.**
+Fleet keeps each answer the person gives to a Job's question, and the review call reads his newest 200 and his settings.
+Where it is sure, finds the question about nothing he would see, and names the answer of his in the same project, or the setting, that settles it, Fleet checks the citation.
+An answer must be one kept for the item's repository or for one in a project with it, and a setting must be one he saved with that value.
+Under the rule `question:precedent` the question is answered as it arrives, and the Job's thread says which answer it followed.
+Without the rule the question is queued as a go-ahead with the citation beside it, Always here and Always keep the rule, and Yes answers only that one.
+An answer given in his place is never kept, so the Operator never follows itself.
 
 | Role | What it does |
 |---|---|

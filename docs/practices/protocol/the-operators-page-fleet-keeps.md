@@ -178,3 +178,22 @@ Asks put Later group among themselves, after the rest.
 Any other answer on a settled item, and an Always after that minute, stays 404 `fleet.operator_turn_unknown`.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+
+## Since 13 Nov 2026: an answer that follows what he said: `OperatorTurnItem.follows` and `OperatorDigest.ruled`
+
+**Additive only**: one optional field on an item and one optional list on the digest; no operation, route, event kind or error code.
+The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take; an additive field moves it all the same, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Bridge's half is `OperatorFollows`, `OperatorRuled`, `OperatorTurnItem.follows` and `OperatorDigest.ruled` in `packages/protocol/src/operator-page.ts`, written by hand, types only: nothing in Classic draws them.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `OperatorTurnItem.follows` | Fleet writes | `OperatorFollows`, on a go-ahead question the Operator would answer by following something he said, where no rule covers it yet. Absent where it follows nothing |
+| `OperatorDigest.ruled` | Fleet writes | `OperatorRuled`, the questions it answered by following him over the last seven days, newest first. Absent where none |
+
+`OperatorFollows` is `{ kind, session_id?, job?, question?, said, at? }`. `kind` is `answer`, one of his own answers to the same question in the same project, or `setting`, a preference or a repository value he saved. `session_id`, `job`, `question` and `at` are those of the answer and are absent on a setting. `said` is his choice and his words, or `key = value` for a setting.
+`OperatorRuled` is `{ id, session_id, job?, question, pick, follows, at }`, `id` being `turn:<n>`. Room is left for what Undo will add.
+
+**Fleet keeps his answers.** An answer he gives to a Job's item, from the Job's list or from this page, is kept with its question, options, choice, words and time; an answer given in his place never is, and neither is an answer to a draft. With none kept at start, his `Re: ` messages in the threads of Jobs seen in the last 30 days are kept once.
+**The review call reads them** as `answers.txt`, his newest 200 across the repositories Fleet hosts, and `settings.txt`, his preferences and each repository's values. It names beside each question the answer it follows as `a<n>`, or `setting <key> = <value>`, or `none`, and marks one that departs from how Classic does it as `departs`, which is never clear.
+**Fleet checks the citation.** An answer must be one kept for the item's repository or one in a project with it; a setting must be a key he saved with that value. Anything else is no citation.
+**The rule `question:precedent`** answers a question that is sure, about nothing he would see, destructive in nothing and cites a checked answer or setting. The Job is told which answer it followed. Without the rule the item is queued as a go-ahead with `follows` set, and Always here or Always on it keeps `question:precedent`; Yes answers only that one. A `question:answer` rule is read first. Autopilot leaves a question to the Operator where either rule covers it.
