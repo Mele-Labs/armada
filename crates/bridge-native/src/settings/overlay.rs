@@ -147,7 +147,7 @@ pub struct SettingsOverlay {
     keys: Option<Subscription>,
     _typing: Vec<Subscription>,
     _read: Option<Task<()>>,
-    _save: Option<Task<()>>,
+    pub(super) _save: Option<Task<()>>,
 }
 
 /// The ids a choice's entries carry in the dropdown: its place among the options.
@@ -613,7 +613,7 @@ impl SettingsOverlay {
 
     /// Read the projects, what every project uses and what the project picked comes to, each off the main
     /// thread. The review model's choices are the models the harness offers, read as Models reads them.
-    fn read_scope(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn read_scope(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.read_models(cx);
         let picked = self.scope.project.clone();
         let (projects, every) = (self.wire.projects_now(cx), self.wire.every_values(cx));
@@ -654,6 +654,9 @@ impl SettingsOverlay {
         let name = self.scope.project.as_ref().map_or("Every project".to_string(), |(_, name)| name.clone());
         let at = super::view::bounds_of(window, cx, gpui::Role::ComboBox, &format!("Editing {name}")).map(|bounds| bounds.bottom_left()).unwrap_or_default();
         let back = window.focused(cx);
+        // A project picked changes the page under the keys: the row that had them may be gone, so they go to the picker.
+        let moved = Rc::new(std::cell::Cell::new(false));
+        let was_moved = moved.clone();
         let menu = cx.new(|cx| Dropdown::new("Editing", rows, at, gpui::Anchor::TopLeft, from_keys, cx));
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
@@ -675,13 +678,18 @@ impl SettingsOverlay {
                     Some((one.id.clone(), one.name.clone()))
                 }
             };
+            was_moved.set(this.scope.project != project);
             this.edit(project, window, cx);
         });
         let dismissed = cx.subscribe_in(&menu, window, move |this, _, _: &DismissEvent, window, cx| {
             this.popup = None;
             // A sheet or a confirm the pick opened has the keys now.
-            if let Some(back) = back.as_ref().filter(|_| this.open && this.scope.deleting.is_none()) {
-                window.focus(back, cx);
+            if this.open && this.scope.deleting.is_none() {
+                match &back {
+                    _ if moved.get() => window.focus(&this.scope.picker, cx),
+                    Some(back) => window.focus(back, cx),
+                    None => {}
+                }
             }
             cx.notify();
         });

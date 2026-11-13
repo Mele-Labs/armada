@@ -68,7 +68,7 @@ pub enum Asked {
     RepositorySettings(usize),
     ProjectMembers(usize),
     NewProject,
-    ChangeBuild { build: BuildSource, adopt: bool },
+    ChangeBuild { build: BuildSource },
     Revert,
     Keep,
     Swap,
@@ -113,17 +113,9 @@ enum Popup {
     Projects,
 }
 
-/// The act a Drones dialog holds until the person says yes.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Held {
-    Choose(BuildSource),
-    Restart,
-}
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Dialog {
     Revert,
-    Drones(Held),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -742,37 +734,19 @@ impl TitleBar {
 
     // -- the presses ---------------------------------------------------------------------------
 
-    /// Restart onto `build`. Any Jobs a restart would adopt are named first; none restarts at once.
-    fn change_build(&mut self, build: BuildSource, window: &mut Window, cx: &mut Context<Self>) {
-        let adopts = self.face.build.as_ref().is_some_and(|held| !held.adopts.is_empty());
-        if adopts {
-            self.keep_keys(window, cx);
-            self.dialog = Some(Dialog::Drones(Held::Choose(build)));
-            let focus = self.dialog_focus.clone();
-            window.defer(cx, move |window, cx| window.focus(&focus, cx));
-            cx.notify();
-        } else {
-            self.restart_onto(build, false, cx);
-        }
+    /// Restart onto `build`, at once: hosted Jobs carry across a restart, so nothing asks first.
+    fn change_build(&mut self, build: BuildSource, _window: &mut Window, cx: &mut Context<Self>) {
+        self.restart_onto(build, cx);
     }
 
     /// The restart button: merge the preview again, or move to the latest main.
-    fn restart_pressed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn restart_pressed(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         let Some(on) = self.face.build.as_ref().map(|held| held.report.on) else { return };
-        let adopts = self.face.build.as_ref().is_some_and(|held| !held.adopts.is_empty());
-        if adopts {
-            self.keep_keys(window, cx);
-            self.dialog = Some(Dialog::Drones(Held::Restart));
-            let focus = self.dialog_focus.clone();
-            window.defer(cx, move |window, cx| window.focus(&focus, cx));
-            cx.notify();
-        } else {
-            self.restart_onto(on, false, cx);
-        }
+        self.restart_onto(on, cx);
     }
 
     /// The restart is under way in this frame: the button turns to its pending word and the select goes off.
-    fn restart_onto(&mut self, build: BuildSource, adopt: bool, cx: &mut Context<Self>) {
+    fn restart_onto(&mut self, build: BuildSource, cx: &mut Context<Self>) {
         self.answer(
             |face| {
                 if let Some(held) = face.build.as_mut() {
@@ -783,24 +757,9 @@ impl TitleBar {
             },
             cx,
         );
-        cx.emit(Asked::ChangeBuild { build, adopt });
+        cx.emit(Asked::ChangeBuild { build });
     }
 
-    fn drones_confirmed(&mut self, held: Held, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(on) = self.face.build.as_ref().map(|held| held.report.on) else { return };
-        self.dialog = None;
-        let focus = self.popup_focus.clone();
-        if self.popup.is_some() {
-            window.focus(&focus, cx);
-        } else {
-            self.give_keys_back(window, cx);
-        }
-        let build = match held {
-            Held::Choose(build) => build,
-            Held::Restart => on,
-        };
-        self.restart_onto(build, true, cx);
-    }
 
     fn revert_pressed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.keep_keys(window, cx);

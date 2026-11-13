@@ -67,6 +67,18 @@ pub static MACS_PHONE_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-macs-claim`: the other Mac claims while Macs is open here, and its Confirm turns up without
+/// reopening Settings.
+pub const MACS_CLAIM: &str = "native-settings-macs-claim";
+
+pub static MACS_CLAIM_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: no claim from the other Mac yet", "button", "Macs", "list", "Devices"),
+    step("The other Mac claims while the page is open", Verb::Later(5000), "button", "Confirm Mac Pro"),
+    step("Its row turns up with Confirm, and Settings was never reopened", Verb::Wheel("region", "Devices", 600), "button", "Confirm Mac Pro"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-layout-time`: what Layout and Time set, read on the app behind Settings.
 pub const LAYOUT_TIME: &str = "native-layout-time";
 
@@ -169,6 +181,44 @@ pub static TAKE_STEPS: &[Step] = &[
     step("\u{2318}Z takes it back", Verb::Key("cmd-z"), "button", "Choose what to take"),
     press_on("Choose what to take opens again, with nothing chosen", "button", "Choose what to take", "region", "Choose what to take"),
     step("Cancel shuts it and changes nothing", Verb::Open("button", "Cancel"), "button", "Choose what to take"),
+];
+
+/// `native-workflows-follow-picker`: the Workflows list headed for what the Editing picker has, and F typed into a box.
+pub const FOLLOWS_PICKER: &str = "native-workflows-follow-picker";
+
+pub static FOLLOWS_PICKER_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings over the app, editing every project", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Workflows is headed for every project", "button", "Workflows", "heading", "Workflows for every project"),
+    step("Each repository is under the project that keeps it", Verb::Look, "group", "Storefront"),
+    step("\u{2318}P opens the Editing picker", Verb::Key("cmd-p"), "menu", "Editing"),
+    press_on("Armada picked: the list is headed Workflows for Armada", "menuitem", "Armada", "heading", "Workflows for Armada"),
+    step("Its repository first, its own copies, then what it inherits", Verb::Look, "group", "Shipped with Armada"),
+    press_on("A switch under Armada turns bug off for Armada's Jobs", "switch", "bug: On in Armada", "switch", "bug: Off in Armada"),
+    press_on("What Armada inherits switches for Armada too", "switch", "prototype: On in Armada", "switch", "prototype: Off in Armada"),
+    step("\u{2318}P opens the picker again", Verb::Key("cmd-p"), "menu", "Editing"),
+    press_on("Storefront picked: only its own repository is listed", "menuitem", "Storefront", "heading", "Workflows for Storefront"),
+    step("What Armada switched off is on for Storefront", Verb::Look, "switch", "prototype: On in Storefront"),
+    step("\u{2318}P, then Every project", Verb::Key("cmd-p"), "menu", "Editing"),
+    press_on("Every project: the repositories' switches again", "menuitem", "Every project", "heading", "Workflows for every project"),
+    press_on("sample-web's switch turns bug off in that repository", "switch", "bug: On in sample-web", "switch", "bug: Off in sample-web"),
+    step("\u{2318}P opens the picker", Verb::Key("cmd-p"), "menu", "Editing"),
+    press_on("Storefront again: sample-web's bug is off there, with no switch. Its sample-api still runs Armada's bug", "menuitem", "Storefront", "label", "bug: Off in sample-web"),
+    step("A press on its bug draws it, with the box that asks an agent", Verb::PressWithin("group", "sample-web", "bug"), "textbox", "Tell an agent what to change"),
+    step("F typed in the box lands in the box", Verb::Type("f"), "textbox", "Tell an agent what to change"),
+    step("The keys stay in it: a second F is typed after the first", Verb::Typed("f"), "textbox", "Tell an agent what to change"),
+];
+
+/// `native-workflows-off-everywhere`: a workflow off in every repository a project keeps is off for the project, with
+/// no switch. sample-api has bug off from the start; sample-web's switch turns it off there too.
+pub const OFF_EVERYWHERE: &str = "native-workflows-off-everywhere";
+
+pub static OFF_EVERYWHERE_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings over the app, editing every project", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Workflows is headed for every project", "button", "Workflows", "heading", "Workflows for every project"),
+    press_on("sample-web's switch turns bug off there. sample-api, Storefront's other repository, has it off already", "switch", "bug: On in sample-web", "switch", "bug: Off in sample-web"),
+    step("\u{2318}P opens the Editing picker", Verb::Key("cmd-p"), "menu", "Editing"),
+    press_on("Storefront: bug is off in every repository it keeps, so the bug Armada ships is off for Storefront too, with no switch", "menuitem", "Storefront", "label", "bug: Off in every repository"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
 /// `native-lanes-add`: Add lifecycle, its menu of what a lane follows, the lane a kind draws and a blank lane named from nothing.
