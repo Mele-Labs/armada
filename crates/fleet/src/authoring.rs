@@ -246,9 +246,10 @@ where
         &self,
         workflow_id: ipc::WorkflowId,
         source: String,
+        project: Option<String>,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::WorkflowChanges, Refusal> {
-        self.workflow_changes_listed(&workflow_id, &source, manifest_id.as_ref()).await
+        self.workflow_changes_listed(&workflow_id, &source, project.as_deref(), manifest_id.as_ref()).await
     }
 
     async fn approve_workflow_change(
@@ -281,5 +282,41 @@ where
         change: ipc::WorkflowChangeRef,
     ) -> Result<ipc::WorkflowSupportBuilding, Refusal> {
         self.workflow_support_built(change).await
+    }
+
+    async fn get_workflow_draft(
+        &self,
+        workflow_id: ipc::WorkflowId,
+        source: String,
+        project: Option<String>,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowDraft, Refusal> {
+        self.workflow_draft_read(&workflow_id, &source, project.as_deref(), &self.served_named(manifest_id.as_ref())?).await
+    }
+
+    async fn put_workflow_draft(
+        &self,
+        put: ipc::PutWorkflowDraft,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowDraft, Refusal> {
+        self.workflow_draft_put(put, &self.served_named(manifest_id.as_ref())?).await
+    }
+
+    async fn discard_workflow_draft(
+        &self,
+        workflow_id: ipc::WorkflowId,
+        source: String,
+        project: Option<String>,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowDraftDiscarded, Refusal> {
+        self.workflow_draft_discarded(workflow_id, source, project, &self.served_named(manifest_id.as_ref())?).await
+    }
+
+    async fn publish_workflow_draft(
+        &self,
+        publish: ipc::PublishWorkflowDraft,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowPublished, Refusal> {
+        self.workflow_draft_published(publish, &self.served_named(manifest_id.as_ref())?).await
     }
 }

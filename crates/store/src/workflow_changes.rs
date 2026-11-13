@@ -325,7 +325,7 @@ impl Store {
         self.conn
             .execute(
                 "UPDATE workflow_changes SET state = ?2, notes = ?3, failed_because = NULL, changed_at = ?4,
-                 after_text = ?5 WHERE id = ?1",
+                 after_text = ?5, drafted = 0 WHERE id = ?1",
                 params![id, DRAFTING, notes, at, held.after_text],
             )
             .map_err(fault("sending a workflow change back"))
