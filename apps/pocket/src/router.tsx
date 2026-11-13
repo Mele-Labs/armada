@@ -1,5 +1,5 @@
 // Paths without a library. `/` home, `/pair` (`?code=…` from a pairing link, `?origin=…` to pair a Mac
-// again), `/dispatch`, and a Job at `/jobs/<Mac origin, encoded>/<id>`, with `/file?path=…` and
+// again), `/dispatch`, `/operator` (`?asleep` draws the other Mac asleep, in the mock), and a Job at `/jobs/<Mac origin, encoded>/<id>`, with `/file?path=…` and
 // `/sketch?id=…` and `/document?page=…` under it for what the Job showed, and a draft Job at `/drafts/<Mac origin, encoded>/<id>`. `_` for the Mac is a push that did not say which.
 
 import { useSyncExternalStore } from "react";
@@ -66,6 +66,10 @@ export type Route =
       screen: "dispatch";
     }
   | {
+      screen: "operator";
+      asleep: boolean;
+    }
+  | {
       screen: "job";
       origin: string | undefined;
       id: string;
@@ -125,6 +129,11 @@ export function routeOf(whole: string): Route {
   if (url.pathname === "/dispatch")
     return {
       screen: "dispatch",
+    };
+  if (url.pathname === "/operator")
+    return {
+      screen: "operator",
+      asleep: query.has("asleep"),
     };
   const draft = /^\/drafts\/([^/]+)\/([^/]+)$/.exec(url.pathname);
   if (draft !== null)
