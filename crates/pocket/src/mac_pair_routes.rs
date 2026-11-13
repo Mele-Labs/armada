@@ -6,6 +6,8 @@
 //! | Work claims it with its key and a back code | `POST /admin/macs/pair/claim`, then `POST /pair/mac` | work, then home |
 //! | Home confirms and hands its own key back | `POST /admin/macs/pair/confirm`, then `POST /pair/mac/back` | home, then work |
 //! | Either forgets the other | `POST /admin/macs/forget`, then `POST /api/mac/forget` | each |
+//!
+//! Pairing by asking, with no link, is `mac_ask_routes`; its Confirm and Decline are the presses here.
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -15,22 +17,22 @@ use ipc::{ClaimMacLink, MacNamed, MacPairLink};
 
 use crate::mac_client::{encoded, hello_now, post_unsigned, signed_whole};
 use crate::mac_keys::{fresh_key, from_kept, kept_form, spki_hex};
-use crate::macs::{claimed, listed, read_link, said, sane, HeldClaim, MacBack, MacClaim, MacHello};
+use crate::macs::{asked, claimed, listed, read_link, said, sane, HeldClaim, MacBack, MacClaim, MacDeclined, MacHello};
 use crate::pairing::{from_hex, random_hex};
 use crate::reads::json;
 use crate::signing::MacId;
 use crate::{fleet_client, Gateway};
 
-fn said_why(status: StatusCode, why: impl Into<String>) -> Response {
+pub(crate) fn said_why(status: StatusCode, why: impl Into<String>) -> Response {
     (status, why.into()).into_response()
 }
 
-fn fault(why: impl ToString) -> Response {
+pub(crate) fn fault(why: impl ToString) -> Response {
     said_why(StatusCode::INTERNAL_SERVER_ERROR, why.to_string())
 }
 
 /// Run blocking work, the store's or the Keychain's, off the async threads.
-async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+pub(crate) async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
     tokio::task::spawn_blocking(work).await.map_err(|why| why.to_string())?
 }
 
@@ -106,11 +108,25 @@ pub async fn claim(State(gateway): State<Gateway>, Json(body): Json<ClaimMacLink
     if !sane(&MacHello { address: Some(address.clone()), ..home.clone() }) {
         return said_why(StatusCode::BAD_GATEWAY, "The other Mac did not say who it is. Update Armada on both.");
     }
+    match keep_waiting(&gateway, &home, &address, key, back_code).await {
+        Ok(row) => json(&listed(row)),
+        Err(why) => fault(why),
+    }
+}
+
+/// Keep the Mac this one claimed or asked, waiting for Confirm there, with this Mac's key toward it.
+pub(crate) async fn keep_waiting(
+    gateway: &Gateway,
+    home: &MacHello,
+    address: &str,
+    key: p256::ecdsa::SigningKey,
+    back_code: String,
+) -> Result<store::PairedMac, String> {
     let row = store::PairedMac {
         id: home.id.clone(),
         name: home.name.clone(),
         colour: home.colour.name().to_string(),
-        address: address.clone(),
+        address: address.to_string(),
         public_key: None,
         build: home.build.clone(),
         paired_at: gateway.pairing.now(),
@@ -120,7 +136,7 @@ pub async fn claim(State(gateway): State<Gateway>, Json(body): Json<ClaimMacLink
         asleep_since: None,
         why: None,
     };
-    let kept = blocking({
+    blocking({
         let (gateway, row) = (gateway.clone(), row.clone());
         move || {
             gateway.macs.keys.keep(&row.id, kept_form(&key))?;
@@ -128,11 +144,8 @@ pub async fn claim(State(gateway): State<Gateway>, Json(body): Json<ClaimMacLink
             gateway.pairing.store.lock().unwrap().keep_mac(&row).map_err(|why| why.to_string())
         }
     })
-    .await;
-    match kept {
-        Ok(()) => json(&listed(row)),
-        Err(why) => fault(why),
-    }
+    .await?;
+    Ok(row)
 }
 
 /// `POST /pair/mac`: another Mac claims a link this one made. Held until Confirm here.
@@ -152,7 +165,7 @@ pub async fn claimed_here(State(gateway): State<Gateway>, Json(body): Json<MacCl
     if body.mac.id == me.id {
         return said_why(StatusCode::BAD_REQUEST, "This link is this Mac's own. Paste it on the other Mac.");
     }
-    let claim = HeldClaim { mac: body.mac, public_key, back_code: body.back_code, at: now };
+    let claim = HeldClaim { mac: body.mac, public_key, back_code: body.back_code, at: now, digits: None };
     match gateway.macs.claim(&body.code, claim) {
         true => (StatusCode::ACCEPTED, json(&me)).into_response(),
         false => said_why(
@@ -176,7 +189,7 @@ fn key_toward(gateway: &Gateway, mac: &str) -> Result<p256::ecdsa::SigningKey, S
 /// `POST /admin/macs/pair/confirm { mac }`: the owner confirms a claim here, and this Mac hands its
 /// own key back. Pressed again where the other Mac did not answer.
 pub async fn confirm(State(gateway): State<Gateway>, Json(body): Json<MacNamed>) -> Response {
-    let Some(claim) = gateway.macs.claim_of(&body.mac) else {
+    let Some(claim) = gateway.macs.claim_of(&body.mac, gateway.pairing.now()) else {
         return said_why(StatusCode::NOT_FOUND, "No Mac waits for Confirm here. Paste the link on the other Mac again.");
     };
     let name = claim.mac.name.clone();
@@ -253,12 +266,14 @@ pub async fn back(State(gateway): State<Gateway>, Json(body): Json<MacBack>) -> 
     if let Err(why) = kept {
         return fault(why);
     }
+    gateway.macs.asking.lock().unwrap().remove(&row.id);
     gateway.macs.changed.notify_one();
     StatusCode::NO_CONTENT.into_response()
 }
 
 /// Forget `mac` on this side: its row, this Mac's key toward it, and what this Fleet holds from it.
 pub(crate) async fn forget_here(gateway: &Gateway, mac: &str) -> Result<bool, String> {
+    gateway.macs.asking.lock().unwrap().remove(mac);
     let gone = blocking({
         let (gateway, mac) = (gateway.clone(), mac.to_string());
         move || {
@@ -279,9 +294,14 @@ pub(crate) async fn forget_here(gateway: &Gateway, mac: &str) -> Result<bool, St
     Ok(gone)
 }
 
-/// `POST /admin/macs/forget { mac }`: tell the other Mac, as far as it answers, then forget it here.
+/// `POST /admin/macs/forget { mac }`: tell the other Mac, as far as it answers, then forget it here. On a
+/// claim waiting here it is Decline, and a Mac that asked is told, so its wait ends too.
 pub async fn forget(State(gateway): State<Gateway>, Json(body): Json<MacNamed>) -> Response {
+    let claim = gateway.macs.claim_of(&body.mac, gateway.pairing.now());
     if gateway.macs.drop_claim(&body.mac) {
+        if let Some(claim) = claim.filter(|claim| claim.digits.is_some()) {
+            tokio::spawn(tell_declined(gateway.clone(), claim));
+        }
         return StatusCode::NO_CONTENT.into_response();
     }
     let found = gateway.pairing.store.lock().unwrap().paired_mac(&body.mac);
@@ -300,6 +320,31 @@ pub async fn forget(State(gateway): State<Gateway>, Json(body): Json<MacNamed>) 
     }
 }
 
+/// Best effort: a Mac that is asleep finds its ask gone when its time passes.
+async fn tell_declined(gateway: Gateway, claim: HeldClaim) {
+    let (Some(address), Ok(me)) = (claim.mac.address.clone(), hello_now(&gateway).await) else { return };
+    if let Ok(sent) = encoded(&MacDeclined { mac: me.id, back_code: claim.back_code }) {
+        let _ = post_unsigned(&gateway, &address, "/pair/mac/declined", sent).await;
+    }
+}
+
+/// `POST /pair/mac/declined`: the Mac this one asked declined. Taken only with the code minted for it.
+pub async fn declined(State(gateway): State<Gateway>, Json(body): Json<MacDeclined>) -> Response {
+    if !gateway.pairing.attempt(gateway.pairing.now()) {
+        return said_why(StatusCode::TOO_MANY_REQUESTS, "Too many tries. Wait a minute, then try again.");
+    }
+    let found = gateway.pairing.store.lock().unwrap().paired_mac(&body.mac);
+    let waiting = matches!(&found, Ok(Some(row)) if row.state == store::MacState::ConfirmWaiting
+        && row.back_code.as_deref() == Some(body.back_code.as_str()));
+    if !waiting {
+        return said_why(StatusCode::FORBIDDEN, "This pairing is not waiting here any more.");
+    }
+    match forget_here(&gateway, &body.mac).await {
+        Ok(_) => StatusCode::NO_CONTENT.into_response(),
+        Err(why) => fault(why),
+    }
+}
+
 /// `POST /api/mac/forget`, signed: the other Mac forgot this one, so this one forgets it.
 pub async fn forgotten(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>) -> Response {
     match forget_here(&gateway, &mac).await {
@@ -309,9 +354,25 @@ pub async fn forgotten(State(gateway): State<Gateway>, Extension(MacId(mac)): Ex
 }
 
 /// `GET /admin/macs`, past this Mac: each paired Mac, then each claim waiting here.
+/// An ask this Mac sent that was not confirmed in time is forgotten here as it is read.
 pub(crate) fn others(gateway: &Gateway) -> Result<Vec<ipc::Mac>, String> {
+    let now = gateway.pairing.now();
     let rows = gateway.pairing.store.lock().unwrap().paired_macs().map_err(|why| why.to_string())?;
-    let mut all: Vec<ipc::Mac> = rows.into_iter().map(listed).collect();
-    all.extend(gateway.macs.claims().into_iter().map(claimed));
+    let asking = gateway.macs.asking.lock().unwrap().clone();
+    let mut all: Vec<ipc::Mac> = Vec::new();
+    for row in rows {
+        let ask = asking.get(&row.id).filter(|_| row.state == store::MacState::ConfirmWaiting);
+        match ask {
+            Some(ask) if ask.expires <= now => {
+                let _ = gateway.pairing.store.lock().unwrap().remove_mac(&row.id);
+                gateway.macs.held.drop_key(&row.id);
+                let _ = gateway.macs.keys.forget(&row.id);
+                gateway.macs.asking.lock().unwrap().remove(&row.id);
+            }
+            Some(ask) => all.push(asked(row, ask.digits.clone())),
+            None => all.push(listed(row)),
+        }
+    }
+    all.extend(gateway.macs.claims(now).into_iter().map(claimed));
     Ok(all)
 }

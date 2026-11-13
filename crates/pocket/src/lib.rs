@@ -16,11 +16,13 @@ mod fleet_client;
 mod fleet_events;
 mod forward;
 mod live;
+mod mac_ask_routes;
 mod mac_client;
 mod mac_keys;
 mod mac_link;
 mod mac_pair_routes;
 mod mac_routes;
+mod mac_setup;
 mod machine;
 mod macs;
 mod pair_routes;
@@ -48,6 +50,7 @@ use tokio::net::TcpListener;
 pub use fleet_client::{Answer, Unreachable};
 pub use mac_keys::{MacKeys, MemoryMacKeys};
 pub use mac_link::{link, read_other_mac, send_other_mac};
+pub use mac_setup::{mac_setup, set_up_mac};
 pub use macs::{MacHello, Macs, Timing};
 pub use pairing::{
     address_from_file, address_from_status, machine_address, tailscale_address, Address, Clock, Pairing, ADDRESS_FILE,
@@ -75,6 +78,8 @@ pub fn bind_now(port: u16) -> io::Result<TcpListener> {
     socket.listen(1024)
 }
 
+#[cfg(test)]
+mod mac_ask_tests;
 #[cfg(test)]
 mod mac_tests;
 #[cfg(test)]

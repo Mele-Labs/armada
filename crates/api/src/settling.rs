@@ -46,6 +46,22 @@ pub(crate) async fn get_phone<D: Settings>(State(served): State<Served<D>>) -> R
     }
 }
 
+/// How far this Mac's setup for his other Macs has come.
+pub(crate) async fn get_mac_setup<D: Settings>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_mac_setup().await {
+        Ok(setup) => answer(StatusCode::OK, &setup, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Run this Mac's setup for his other Macs from where it stands. It takes no body.
+pub(crate) async fn set_up_mac<D: Settings>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().set_up_mac().await {
+        Ok(setup) => answer(StatusCode::OK, &setup, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Opt this Mac in or out of serving the phone, and answer where it stands.
 pub(crate) async fn set_phone<D: Settings>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let set: ipc::SetPhoneGateway = match ipc::decode_body("whether to serve the phone", &body) {
