@@ -181,7 +181,7 @@ where
                 .and_then(|caller| self.session_holding(&caller))
                 .map(|job| (job, ChangedBy::Job))
                 .ok_or_else(|| {
-                    self.hosted_refusal(JOB_COPY_UNPLACED, "a Job changes its own copy, and nothing places one on this connection")
+                    self.hosted_refusal(JOB_COPY_UNPLACED, "Change a Job's copy from that Job: no Job holds the connection this call came through.")
                 });
         }
         named
@@ -463,7 +463,7 @@ where
         let placed = api::asking().and_then(|caller| self.session_holding(&caller));
         let id = placed
             .or_else(|| named.map(|id| id.as_str().trim().to_string()).filter(|id| !id.is_empty()))
-            .ok_or_else(|| self.hosted_refusal(JOB_COPY_UNPLACED, "what a Job holds is its own, and nothing places one"))?;
+            .ok_or_else(|| self.hosted_refusal(JOB_COPY_UNPLACED, "Name a Job: this call came from outside a Job and gave no Job id."))?;
         self.job_copy_read(&id).await
     }
 
