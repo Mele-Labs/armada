@@ -441,6 +441,10 @@ impl JobView {
         };
         let checks = fact(look, format!("pull-checks:{key}"), check_icon, checks_said(&pull), check_word, check_hue);
         let standing = standing_of(&pull).map(|(icon, said, word, hue)| fact(look, format!("pull-standing:{key}"), icon, said.to_string(), word, hue));
+        // A description the Job proposed for it waits on him in the panel (`PullRequestDraft`).
+        let waiting = self.record(&pull.job, cx).and_then(|job| job.pull_request_drafts.iter().find(|draft| draft.number == pull.number && pull.manifest.as_deref().is_none_or(|manifest| draft.manifest_id.as_str() == manifest))).map(|draft| {
+            fact(look, format!("pull-draft:{key}"), "file-pen-line", format!("A new description waits on you: revision {}", draft.revision), "Description", token::STATUS_AWAITING_REVIEW)
+        });
         let main = div()
             .id(SharedString::from(format!("ledger-row:{key}")))
             .flex_1()
@@ -468,6 +472,7 @@ impl JobView {
                         .children(from)
                         .children(branch)
                         .child(checks)
+                        .children(waiting)
                         .children(standing),
                 ),
             );
