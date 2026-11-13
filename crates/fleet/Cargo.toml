@@ -86,3 +86,8 @@ p256 = { version = "0.13", features = ["ecdh"] }
 crypto-common = { version = "0.1", features = ["getrandom", "rand_core"] }
 bitflags = { version = "2", features = ["std"] }
 tower-http = { version = "0.6", default-features = false, features = ["compression-gzip"] }
+# Two of his Macs, each a real Fleet behind a real Phone Gateway on loopback, in
+# `tests::two_macs`; and the client that reads one Fleet's `/events` socket there.
+# `pocket` names no `fleet` type, so this is no cycle.
+pocket = { path = "../pocket" }
+tokio-tungstenite = "0.24"

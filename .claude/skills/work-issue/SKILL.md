@@ -7,7 +7,7 @@ description: How to work one beads issue — worktree, plan, implement, self-che
 
 **This is the `bug` workflow, run by hand.** A Job works in its own leased
 slot, runs `armada check` when it needs to, and goes up as a pull request. Here
-green work is previewed, adopted and goes up as a pull request without waiting
+green work is offered for the preview and goes up as a pull request without waiting
 (step 6).
 
 `milestone-step` owns how to read an issue, what to check it against, and how to
@@ -176,20 +176,21 @@ write.** Stage by name, or read `git status` first and know every entry. That is
 how someone else's uncommitted work ended up inside a commit about something
 else.
 
-### 6. Preview it, adopt it, then open the pull request
+### 6. Offer it for the preview, then open the pull request
 
 **The owner's order is: propose, implement, walk if it is visual, preview and
 adopt, land.** He uses Armada as its end user, so he runs the change before it
 lands. Once the work is committed and step 4's self-check passes, do these in
 order and ask nothing between them:
 
-1. `scripts/preview` merges the branch into the preview with every other branch
-   in flight. Load `preview-app` first.
-2. If the change reaches Fleet or Bridge, `scripts/preview --restart --adopt`
-   moves his Fleet and Bridge onto it. Say in one line what it will do, since his
-   permission prompt is the confirmation. A change that is only docs or scripts
-   needs no restart. A restart already in progress refuses a second: say so and
-   go on.
+1. `offer_preview` with an `about` line, one line on what the branch holds, puts it
+   on the preview list once Fleet has checked it with the other offers. Load
+   `preview-app` first.
+2. If the change reaches Fleet or Bridge, he presses Refresh preview from his
+   row, which names the branch and its `about`. Hand him no restart command. A
+   change that is only docs or scripts needs no offer. Fleet tells you in your
+   thread when the branch is off the list or moved: offer again once it is
+   fixed.
 3. Push the branch and open the pull request, straight away. **Do not wait for
    him to try the preview, and never ask "land it?"** He files what he finds as
    separate work or comes back to you, and `ci` is the guard.

@@ -54,6 +54,7 @@ pub(crate) fn rig_with(fleet: crate::Fleet) -> Rig {
         pairing: pairing(now.clone(), Ok("https://mac.tail.ts.net".into())),
         push: crate::push_tests::test_push(),
         way_in: crate::setup::quiet_way_in(),
+        macs: crate::macs::quiet_macs(),
     };
     Rig { app: router(gateway.clone()), now, gateway }
 }
@@ -144,6 +145,7 @@ async fn start_without_tailscale_says_what_to_do() {
         pairing: pairing(now, Err("Tailscale is not installed on this Mac.".into())),
         push: crate::push_tests::test_push(),
         way_in: crate::setup::quiet_way_in(),
+        macs: crate::macs::quiet_macs(),
     };
     let (status, body) = call(&router(gateway), Method::POST, "/admin/pair/start", &[], "").await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);

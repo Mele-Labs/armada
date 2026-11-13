@@ -95,15 +95,18 @@ where
             store.keep_bug_report(&kept).map_err(|why| self.ledger_fault(why))?;
             store.bug_reports().map_err(|why| self.ledger_fault(why))?
         };
-        self.bug_reports_published(reports);
+        self.bug_reports_published(reports).await;
         self.operator_seat().report_noted(&report_id);
         Ok(BugReported { report_id })
     }
 
-    /// Every report on this Mac, newest first.
+    /// Every report on this Mac, and those his other Macs share beside them, newest first.
     pub(crate) async fn bug_reports_listed(&self) -> Result<BugReports, Refusal> {
         let kept = self.store().lock().await.bug_reports().map_err(|why| self.ledger_fault(why))?;
-        Ok(BugReports { reports: kept.into_iter().map(wire).collect() })
+        let mut reports: Vec<BugReport> = kept.into_iter().map(wire).collect();
+        reports.extend(self.bug_reports_from_macs().await?);
+        crate::other_macs::in_report_order(&mut reports);
+        Ok(BugReports { reports })
     }
 
     /// The owner keeps report `id`. A report already kept keeps its first time.
@@ -115,7 +118,7 @@ where
             (report, store.bug_reports().map_err(|why| self.ledger_fault(why))?)
         };
         let Some(report) = report else { return Err(self.no_such_bug_report(&id)) };
-        self.bug_reports_published(reports);
+        self.bug_reports_published(reports).await;
         Ok(wire(report))
     }
 
@@ -129,7 +132,7 @@ where
         if !dropped {
             return Err(self.no_such_bug_report(&id));
         }
-        self.bug_reports_published(reports);
+        self.bug_reports_published(reports).await;
         Ok(BugReportDropped { id })
     }
 
@@ -202,11 +205,14 @@ where
             };
             reports
         };
-        self.bug_reports_published(reports);
+        self.bug_reports_published(reports).await;
     }
 
-    /// Tell Bridge the reports moved, with all of them.
-    fn bug_reports_published(&self, reports: Vec<KeptBugReport>) {
-        self.publish(ipc::Event::BugReportsChanged(BugReports { reports: reports.into_iter().map(wire).collect() }));
+    /// Tell Bridge the reports moved, with all of them: his other Macs' too, since the list is replaced whole.
+    async fn bug_reports_published(&self, reports: Vec<KeptBugReport>) {
+        let mut reports: Vec<BugReport> = reports.into_iter().map(wire).collect();
+        reports.extend(self.bug_reports_from_macs().await.unwrap_or_default());
+        crate::other_macs::in_report_order(&mut reports);
+        self.publish(ipc::Event::BugReportsChanged(BugReports { reports }));
     }
 }

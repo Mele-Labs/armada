@@ -284,6 +284,17 @@ impl Broadcaster {
         cursor
     }
 
+    /// Publish an event about something another of his Macs holds: sent to every socket, **never told to a
+    /// tap**, since each tap is Fleet acting on its own Jobs and a Job held by another Mac is not one of them.
+    pub fn relay(&self, event: Event) -> Cursor {
+        let cursor = Cursor::at(self.next.fetch_add(1, Ordering::SeqCst));
+        if let Ok(mut tallies) = self.tallies.lock() {
+            tallies.note(cursor.position(), event.kind(), event.about());
+        }
+        let _ = self.outbound.send(Delivered { cursor, event });
+        cursor
+    }
+
     /// `get_events_since` — what crossed since a cursor, counted.
     ///
     /// **Answered by the transport and not by the daemon.** The positions are

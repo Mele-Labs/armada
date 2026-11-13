@@ -34,14 +34,16 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
 
 - **A decision is asked one way**: in the prompt or in `waiting_for`, never
   both (13 Oct).
-- **A restart he has to run goes in `waiting_for` as a `run` item**,
-  `scripts/preview --restart`. Bridge presses Refresh preview for it. A plain
-  restart onto `main` is never an option (7 and 13 Oct).
-- **Never hand him a restart command you have not checked** (10 Nov: two
-  refreshes a Job handed him failed on half-done branches and stale scripts, and
-  he rescued his build in a terminal). Dry-run it, read every merged branch for a
-  half-done change, and name what the refresh holds and leaves out before he
-  presses anything.
+- **A branch he should try is offered with `offer_preview` and an `about` line**,
+  and offered again after the branch moves or a check fails. He presses Refresh
+  preview from his own row; a Job hands him no `scripts/preview --restart`, in
+  `waiting_for` or a shell block. A plain restart onto `main` is never an option
+  (7 and 13 Oct).
+- **Never offer a branch you have not checked** (10 Nov: two refreshes a Job
+  handed him failed on half-done branches and stale scripts, and he rescued his
+  build in a terminal). Fleet checks that the offers merge and compile together,
+  not that a change is finished: read the branch for a half-done change first, and
+  say in `about` what it holds and leaves out.
 - **Documentation a change made wrong is fixed with the change.** Do not ask
   (18 Sep).
 - **Never ask him to delete a merged branch.** A hosted job calls

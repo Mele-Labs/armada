@@ -487,9 +487,13 @@ impl Queries for FakeDaemon {
         &self,
         query: String,
         _manifest_id: Option<ipc::ManifestId>,
+        folders: bool,
+        _root: Option<String>,
     ) -> Result<FilesFound, Refusal> {
-        Ok(FilesFound {
-            paths: shapes::files_found(&query),
+        let found = shapes::files_found(&query);
+        Ok(match folders {
+            true => FilesFound { folders: found, ..FilesFound::default() },
+            false => FilesFound { paths: found, ..FilesFound::default() },
         })
     }
 

@@ -18,6 +18,7 @@ use testkit::FakeWorkProduct;
 
 use crate::tests::daemon::a_fleet;
 use crate::tests::http::call;
+use crate::tests::repositories::code;
 use crate::tests::tmp::TempDir;
 
 /// `search_files` served from a real Fleet. `crate::files::search` is proven
@@ -67,4 +68,45 @@ async fn a_request_is_read_against_the_repositories_fleet_serves() {
         "the only repository served"
     );
     assert_eq!(read.likely.len(), 1);
+}
+
+/// `?root=` searches a folder Fleet does not serve, and `?folders=true` answers its folders.
+#[tokio::test]
+async fn a_root_fleet_does_not_serve_answers_folders_over_the_wire() {
+    let home = TempDir::new();
+    let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"])));
+    let events = fleet.events();
+    let app = api::router(api::Served::sharing(Arc::clone(&fleet), RunId::carried("01RUN"), events));
+    let elsewhere = TempDir::new();
+    std::fs::create_dir_all(elsewhere.path().join("services/api")).expect("a folder");
+    std::fs::write(elsewhere.path().join("services/api/main.rs"), b"").expect("a file");
+
+    let path = format!("/manifest/files?root={}&folders=true&q=api", elsewhere.path().display());
+    let (status, body) = call(&app, "GET", &path, "").await;
+
+    assert_eq!(status, StatusCode::OK);
+    let found: ipc::FilesFound = ipc::decode("files found", &body).expect("folders");
+    assert_eq!((found.paths, found.folders), (Vec::new(), vec!["services/api".to_string()]));
+}
+
+/// A `root` that is relative, absent from this Mac or no folder is refused as a folder that is
+/// not there; one given with a `manifest_id` is refused for naming two places.
+#[tokio::test]
+async fn a_relative_or_missing_root_is_a_422_and_both_names_are_a_422() {
+    let home = TempDir::new();
+    let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"])));
+    let events = fleet.events();
+    let app = api::router(api::Served::sharing(Arc::clone(&fleet), RunId::carried("01RUN"), events));
+    std::fs::write(home.path().join("a-file"), b"").expect("a file");
+    let a_file = format!("{}/a-file", home.path().display());
+
+    for nowhere in ["src/log", "/nowhere/at/all", a_file.as_str(), ""] {
+        let (status, body) = call(&app, "GET", &format!("/manifest/files?root={nowhere}&q=x"), "").await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{nowhere:?}");
+        assert_eq!(code(&body), "fleet.no_such_folder", "{nowhere:?}");
+    }
+    let both = format!("/manifest/files?root={}&manifest_id=anything", home.path().display());
+    let (status, body) = call(&app, "GET", &both, "").await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(code(&body), "fleet.unacceptable_proposal");
 }

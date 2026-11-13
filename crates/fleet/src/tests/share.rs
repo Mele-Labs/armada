@@ -8,19 +8,19 @@ use ipc::{EditProject, Event, JobThreadChanged, NewProject, ProjectMember, Repor
 use super::session_host::{rig_placing, Rig};
 
 /// A project of the rig's repository, unshared as every new one is.
-async fn project(rig: &Rig, name: &str) -> String {
+pub(super) async fn project(rig: &Rig, name: &str) -> String {
     let members = Some(vec![ProjectMember { manifest_id: rig.manifest.clone(), folder: None }]);
     let new = NewProject { name: name.to_string(), members, place: None, values: None };
     let projects = rig.fleet.add_project(new).await.expect("added").projects;
     projects.into_iter().find(|one| one.name == name).expect("the project").id
 }
 
-async fn shared(rig: &Rig, project: &str, on: bool) {
+pub(super) async fn shared(rig: &Rig, project: &str, on: bool) {
     let edit = EditProject { shared_with_macs: Some(on), ..Default::default() };
     rig.fleet.edit_project(project.to_string(), edit).await.expect("edited");
 }
 
-async fn job_in(rig: &Rig, project: Option<&str>) -> SessionId {
+pub(super) async fn job_in(rig: &Rig, project: Option<&str>) -> SessionId {
     let start = StartSession {
         project: project.map(str::to_string),
         manifest_id: rig.manifest.clone(),
