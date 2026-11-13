@@ -2704,7 +2704,7 @@ impl JobsScreen {
             }
             // The bar's build switcher: each press is Fleet's build act, followed until the report settles.
             let act = match asked {
-                crate::titlebar::Asked::ChangeBuild { build, adopt } => Some(BuildAct::Change(ipc::ChangeFleetBuild { build: *build, adopt: *adopt })),
+                crate::titlebar::Asked::ChangeBuild { build } => Some(BuildAct::Change(ipc::ChangeFleetBuild { build: *build, adopt: false })),
                 crate::titlebar::Asked::Revert => Some(BuildAct::Revert),
                 crate::titlebar::Asked::Keep => Some(BuildAct::Keep),
                 crate::titlebar::Asked::Swap => Some(BuildAct::Swap),

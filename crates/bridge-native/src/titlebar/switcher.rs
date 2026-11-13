@@ -1,6 +1,5 @@
 //! The Fleet build switcher in the Fleet popover, the Keep and Revert bar above the screen, and the
-//! two dialogs that confirm a revert and name the Jobs a restart adopts (`FleetBuild.tsx`,
-//! `trying-bar.tsx`).
+//! dialog that confirms a revert (`FleetBuild.tsx`, `trying-bar.tsx`).
 
 use gpui::{
     anchored, canvas, deferred, div, prelude::*, px, Anchor, AnyElement, Context, FontWeight, Pixels, Role, SharedString,
@@ -15,7 +14,6 @@ use crate::labels::labelled;
 use crate::look::{token, Look};
 
 /// What a restart costs a Drone that is working, on hover.
-const ADOPTING_COSTS: &str = "Its pipes die: no redirect, poke or verdict. Its recorded spend is an undercount. It shows as unheard. Its servers stop with Fleet. A Check running mid-gate most likely re-runs from scratch";
 
 impl TitleBar {
     /// The switcher, stacked, as the first block of the Fleet popover.
@@ -429,7 +427,6 @@ impl TitleBar {
                 let title = format!("Revert to the build of {}", built_said(&previous.built_at));
                 (title.into(), "Revert", self.revert_rows(held, look))
             }
-            Dialog::Drones(_) => ("Drones are working".into(), "Restart", self.drone_rows(held, look)),
         };
         let act = dialog;
         let confirmed = cx.listener(move |this, _, window, cx| this.dialog_confirmed(act, window, cx));
@@ -494,7 +491,6 @@ impl TitleBar {
     fn dialog_confirmed(&mut self, dialog: Dialog, window: &mut gpui::Window, cx: &mut Context<Self>) {
         match dialog {
             Dialog::Revert => self.revert_confirmed(window, cx),
-            Dialog::Drones(held) => self.drones_confirmed(held, window, cx),
         }
     }
 
@@ -558,38 +554,4 @@ impl TitleBar {
             .into_any_element()
     }
 
-    fn drone_rows(&self, held: &Build, look: &Look) -> AnyElement {
-        div()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_3))
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .text_size(look.length(token::TEXT_SM))
-                    .line_height(look.length(token::LEADING_SM))
-                    .child(labelled(
-                        div().id("adopting-costs").flex_none().tooltip(tip(ADOPTING_COSTS)).child(glyph("unplug", px(12.), look.color(token::STATUS_AWAITING_REVIEW))),
-                        Role::Image,
-                        ADOPTING_COSTS,
-                    ))
-                    .child("Cannot be redirected until it finishes"),
-            )
-            .child(labelled(
-                div()
-                    .id("jobs-adopted")
-                    .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_1))
-                    .font_family(mono(look))
-                    .text_size(look.length(token::TEXT_XS))
-                    .line_height(look.length(token::LEADING_XS))
-                    .children(held.adopts.iter().map(|one| div().child(one.clone()))),
-                Role::List,
-                "Jobs adopted",
-            ))
-            .into_any_element()
-    }
 }
