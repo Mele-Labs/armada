@@ -69,10 +69,12 @@ pub(crate) fn kind_chip(kind: Kind, look: &Look) -> Div {
     chip(kind.word, look.color(kind.hue), look.color(kind.ground), look)
 }
 
-/// A press on the page: the pick filled in the Operator's hue, the rest outlined, Later and Ask bare.
+/// A press on the page: the pick filled in the Operator's hue, the rest outlined, Later and Ask bare. `JobPick` is a
+/// Job's own pick on one of its questions, filled in the accent that rings a Job's pick elsewhere.
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Weight {
     Pick,
+    JobPick,
     Plain,
     Bare,
 }
@@ -81,13 +83,14 @@ pub(crate) fn press(id: impl Into<SharedString>, label: SharedString, icon: Opti
     let id: SharedString = id.into();
     let (ground, hover, ink, edge) = match weight {
         Weight::Pick => (look.color(token::OPERATOR), look.color(token::OPERATOR), look.color(token::FG_INVERSE), look.color(token::OPERATOR)),
+        Weight::JobPick => (look.color(token::ACCENT), look.color(token::ACCENT_HOVER), look.color(token::TEXT_ON_ACCENT), look.color(token::ACCENT)),
         Weight::Plain => (look.color(token::BG_RAISED), look.color(token::BG_HOVER), look.color(token::FG_DEFAULT), look.color(token::BORDER_STRONG)),
         Weight::Bare => (gpui::transparent_black(), look.color(token::BG_HOVER), look.color(token::FG_MUTED), gpui::transparent_black()),
     };
     let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
     let cap = key.map(|key| {
         let cap = kbd(key, look);
-        if weight == Weight::Pick { cap.bg(ink.opacity(0.16)).border_color(ink.opacity(0.5)).text_color(ink) } else { cap }
+        if matches!(weight, Weight::Pick | Weight::JobPick) { cap.bg(ink.opacity(0.16)).border_color(ink.opacity(0.5)).text_color(ink) } else { cap }
     });
     div()
         .id(id)
@@ -103,7 +106,7 @@ pub(crate) fn press(id: impl Into<SharedString>, label: SharedString, icon: Opti
         .bg(ground)
         .text_color(ink)
         .text_size(look.length(token::TEXT_SM))
-        .font_weight(FontWeight(look.number(if weight == Weight::Pick { token::WEIGHT_HEADING } else { token::WEIGHT_MEDIUM })))
+        .font_weight(FontWeight(look.number(if matches!(weight, Weight::Pick | Weight::JobPick) { token::WEIGHT_HEADING } else { token::WEIGHT_MEDIUM })))
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
         .focusable()

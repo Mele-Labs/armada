@@ -239,6 +239,9 @@ impl TitleBar {
                 "Left out of the preview",
             )
         });
+        // The Refresh row has a Refresh preview of its own, so this one gives way to it.
+        let offers = self.offers_section(held, look, cx);
+        let restart_stays = super::offers::restart_stays(held, offers.is_some());
         let position = div()
             .flex()
             .items_center()
@@ -256,7 +259,8 @@ impl TitleBar {
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
             .child(select)
-            .child(restart_button)
+            .children(restart_stays.then_some(restart_button))
+            .children(offers)
             .children(revert_button)
             .children(picked)
             .children(snapshot)

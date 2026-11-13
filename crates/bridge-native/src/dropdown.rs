@@ -356,6 +356,10 @@ impl Dropdown {
         let look = cx.look();
         let has_icons = self.entries.iter().any(|entry| matches!(entry, Entry::Act { icon: Some(_), .. } | Entry::Item { icon: Some(_), .. } | Entry::Row(Row { icon: Some(_), .. })));
         let has_checks = self.entries.iter().any(|entry| matches!(entry, Entry::Toggle { .. } | Entry::Choice { .. } | Entry::Row(Row { ticked: Some(_), .. })));
+        // Where a menu holds an act that is off, the acts that are on stand in --fg-default, as Classic's item does,
+        // so off (--fg-subtle) reads as off without a hover: the muted step sits too near it.
+        let has_off = self.entries.iter().any(|entry| matches!(entry, Entry::Item { off: Some(_), .. } | Entry::Row(Row { off: Some(_), .. })));
+        let on_ink = if has_off { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) };
         let glyph = look.length(token::SPACE_4);
         match &self.entries[at] {
             Entry::Rule => div()
@@ -453,7 +457,7 @@ impl Dropdown {
                 } else if row.ticked == Some(true) {
                     look.color(token::FG_DEFAULT)
                 } else {
-                    look.color(token::FG_MUTED)
+                    on_ink
                 };
                 let role = if row.ticked.is_some() { Role::MenuItemCheckBox } else { Role::MenuItem };
                 let (id, label) = (row.id, row.label.clone());
@@ -522,7 +526,7 @@ impl Dropdown {
                 } else if ticked == Some(true) {
                     look.color(token::FG_DEFAULT)
                 } else {
-                    look.color(token::FG_MUTED)
+                    on_ink
                 };
                 let role = if ticked.is_some() { Role::MenuItemCheckBox } else { Role::MenuItem };
                 labelled(

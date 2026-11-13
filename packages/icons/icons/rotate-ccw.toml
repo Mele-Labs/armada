@@ -19,3 +19,10 @@
     size = "12px"
     status = "Specified"
     notes = "Proposed 29 Oct 2026 for the walk `job-failed-to-start`. The same act as a re-run: the one start that failed is made again, nothing is dispatched anew, so it is not Redispatch, which stays `rotate-cw`. Icon-only, tooltip and aria-label `Start again`."
+
+  [[icons.rotate-ccw.usage]]
+    means = "Say a spoken card again, from its start"
+    group = "Listen"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 13 Nov 2026 for the walk `native-ways-listen`. Tooltip `Say it again`, beside the word Again. The sketch drew `refresh-cw`, which the registry keeps for churning, so this mirror of `rotate-cw` is used as for a re-run."

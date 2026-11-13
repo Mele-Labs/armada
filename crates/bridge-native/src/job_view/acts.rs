@@ -157,6 +157,12 @@ pub(super) fn button(
         .children(chip.map(|text| kbd(look, text)))
 }
 
+/// A row of answers on a Job that runs on another Mac: dimmed, and its tooltip says where it runs. A press on one
+/// still goes through the act's own post, which refuses it with the same sentence.
+pub(super) fn gated(row: Stateful<gpui::Div>, off: Option<SharedString>) -> Stateful<gpui::Div> {
+    row.when_some(off, |row, why| row.opacity(0.4).tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(why.clone()).build(window, cx)))
+}
+
 /// What Fleet's reason for a refused act reads as, drawn under the card's buttons.
 pub(super) fn refusal(look: &Look, key: &str, why: SharedString) -> gpui::AnyElement {
     labelled(
@@ -415,6 +421,10 @@ impl JobView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if let Some(why) = self.off_here(&job, cx) {
+            failed(self, why, cx);
+            return;
+        }
         let Some(fleet) = self.fleet.clone() else {
             match crate::mock::act_refused(route) {
                 Some(why) => failed(self, why.into(), cx),
