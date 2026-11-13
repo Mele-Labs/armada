@@ -108,6 +108,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("override_autopilot_decision", "runs the Autopilot"),
     ("review_autopilot_decision", "runs the Autopilot"),
     ("change_fleet_build", "chooses the build Fleet runs"),
+    ("update_mac", "chooses the build Fleet runs"),
     ("swap_fleet_build", "chooses the build Fleet runs"),
     ("keep_fleet_build", "chooses the build Fleet runs"),
     ("revert_fleet_build", "chooses the build Fleet runs"),

@@ -179,6 +179,34 @@ Nothing streams, and the text of an answer is never sent in pieces.
 A reconnecting Bridge reads the runs again, since the event is not replayed.
 A run the last Fleet left going ends failed the first time anyone asks, and its bay is given back.
 
+## Change sets
+
+**A pull request is read as a few sets of change, each with one purpose**, such as a migration, the data layer, the logic or an API.
+Three run kinds read it that way, each an agent run like any other, kept per head:
+
+| Kind | Answers |
+|---|---|
+| Change sets | The sets in the order they run, each with a title, a kind, one sentence of purpose, its area and its hunks in the order they run |
+| Overview | Blockers, risks and possible bugs, each in a set, with a title, one sentence of reason and a place |
+| Practices | One set held to the repository's own practices for its kind and area: each practice met, missed or not applicable, with a note |
+
+**A set names hunks, never their text.** The agent is told every hunk of the diff by an id Fleet gives it, and answers ids, so a set cannot name a hunk the diff does not have, or one hunk twice.
+A hunk it puts in no set is kept in a last set of kind other, so nothing in the change goes unseen.
+A set's id is Fleet's, `set-1` on in the order the sets run, and its area is the directory every one of its hunks is under.
+
+**The overview and a practice check stand on the sets kept at the same head**, and are refused until the sets are run.
+The overview is told the review tools Risks, Possible bugs and API breaking changes as the repository resolves them, and its reason is one sentence under the finding comment rule.
+
+**Practices are read from the repository's own docs once for an area and kind, and kept in the practice catalogue.**
+The first check for an area and kind finds the docs that state practices for that kind of change there, reads them into checklist items and checks the set.
+The items are kept by repository, area and kind, with each doc's blob at the pull request's base.
+A later check for the same area and kind, on any pull request, reads no doc and checks against the kept items, unless a doc's blob at its base has moved, which reads them all again.
+A practices result says when the items were read and from which docs.
+A read that finds no doc is answered with no checks and kept nowhere, so the next check looks again.
+
+**What changed is an explanation run for only the change since he looked.** Bridge asks it when a pull request that changed since he looked is opened, from his seen head, and it answers one plain paragraph.
+It is kept for that range and head, so opening the pull request again shows it with no run.
+
 ## Natural Search
 
 **Natural Search is the last entry of the list dropdown, and it opens a box in place of the list.** Sending it asks first, with the same box every act that spends asks with.

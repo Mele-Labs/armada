@@ -403,7 +403,20 @@ scripts/preview --all                   # merge every live slot branch ahead of 
 scripts/preview --only a,b --skip c     # named slot branches, offered or not; --skip trims either set; both repeat or take a comma list
 scripts/preview --watch [seconds]       # merge again when main or an included branch moves (60)
 scripts/preview --restart [--dry-run] [--adopt]   # then scripts/restart --from .armada/preview
+scripts/preview [--restart] --push-as <name>      # also push the preview commit to preview/<name> on origin (forced)
+scripts/preview [--restart] --at <sha> [--ref <ref>]  # merge nothing: land on that commit, fetched from origin <ref> if missing
 ```
+
+**Two Macs build one preview commit.** The Mac that merges pushes its preview
+commit with `--push-as`, and the other builds exactly that commit with `--at`,
+so the two never hold different merges of the same branches. `--push-as` pushes
+again before each go-again after a branch is left out, and a failed push warns
+and the run goes on. `--at` records no branches held or left out, and a failed
+build is the run's failure, with nothing to leave out. It cannot be combined
+with `--all`, `--only`, `--skip`, `--picked`, `--watch` or `--push-as`, and
+`--ref` is for it alone. A `preview/` ref is never a branch in flight, so a
+pushed preview is never merged into the next one. `scripts/restart-build`
+drives both sides, below.
 
 **It merges the branches a Job offered and Fleet checked on top of `main`, in a
 worktree of its own, so you can use work while agents are still landing it.**
@@ -571,6 +584,17 @@ that was built.
 The log is matched for `incremental compilation`, `dep graph` or `dep-graph`, and `unstable fingerprints`.
 `main` is refused from a checkout that is not on `main`, which
 `scripts/restart` would otherwise build from whatever it holds.
+
+**`preview` takes the two-Mac forms too.** `--push-as <name>` passes through to
+`scripts/preview`. `--push-as <name> --tell <mac>` merges and pushes with no
+restart, posts `{mac, build: "preview", commit, ref}` to the local Fleet's
+`POST /macs/update` so `<mac>` builds that commit, then restarts this Mac with
+`--at <commit> --ref preview/<name>`. The commit is read from the preview
+worktree's `HEAD`, since a merge with no restart writes no `preview-held`. A
+failed push or post is logged and the restart goes on. `--at <sha> --ref <ref>`
+is the other Mac's side. `main` and `snapshot` take none of these.
+`ARMADA_FLEET_URL` names the Fleet `--tell` posts to, else the port in
+`Armada/fleet.json`. The route is `docs/concepts/pocket.md`, *Updating*.
 
 **Fleet counts the position, and fetches on its own time.** `get_fleet_build`
 reads the files above and counts `origin/main...commit`; `git fetch origin main`
@@ -1233,3 +1257,26 @@ Job.
 **An Armada worktree is never removed with `rm -rf`.** Git keeps an
 administrative record that outlives the directory and refuses the branch delete
 afterwards; `clean` does it in the order git needs.
+
+### Dropping build output: `armada disk reclaim`
+
+```bash
+armada disk reclaim          # one pass now, under limits.diskReclaimFloorGib, over every repository
+armada disk reclaim --help   # what it does; exits 0 on a build that has the verb
+```
+
+**It removes build output only**: the `target` folders Cargo tagged with `CACHEDIR.TAG`, in the order Fleet's own pass drops them.
+Incremental caches go first, then whole folders of checkouts the base already has, then free slots, then held slots unbuilt for six hours.
+The main checkout's and the preview's folders lose only their incremental caches.
+A folder a build holds is skipped, and nothing else is touched.
+
+**It needs no Fleet.**
+It reads `limits.diskReclaimFloorGib` from settings.json, and the repository at the working directory.
+Where a Fleet answers, it also reads every repository that Fleet serves.
+It does nothing while free space is at or over the floor, and a floor of 0 is off.
+
+**You run it when a build would fail for lack of disk and Fleet cannot do it for you**, as when the Fleet running is older than the reclaim.
+`scripts/restart` runs it before it builds, with the armada already installed, and goes on whether it worked or not: an armada without the verb answers `--help` with a failure and is skipped.
+
+**It prints a line for each folder removed whole and one for the pass**, as Fleet's log does.
+It prints nothing where free space was over the floor, and exits 0 either way.

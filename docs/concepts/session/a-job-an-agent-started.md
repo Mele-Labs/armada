@@ -25,7 +25,7 @@ A project that does not read or does not hold the repository falls back to none,
 The brief is still read for the proposal, and the caller is told when it starts, as the next section says.
 The answer's `held` is `false`.
 Where the brief cannot be sent, the Job is held on its start card with the brief in the box, and `held` is `true`.
-A Job that waits on another (`after`) is held once its wait is met, whatever the word says.
+A Job that waits on another (`after`) follows the word once its wait is met: `at_once` begins it on the handoff and its brief, and `ask_me` holds it on its start card.
 
 The sections below describe the Job as it opens held, which is `ask_me`.
 

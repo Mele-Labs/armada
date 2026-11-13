@@ -162,10 +162,8 @@ where
         let starters = self.session_and_hosting(&me).await.ok().and_then(|(_, hosting)| hosting.project);
         let project = self.started_project(&me, starters, manifest.as_str()).await;
         // The project's word, as the caller was started for it: held on its start card only where it says `ask_me`.
-        let held_by_word = match after {
-            Some(_) => false,
-            None => self.agent_start_held(project.as_deref(), manifest.as_str()).await,
-        };
+        // A Job that waits follows it too, once its wait is met, so the word is read whether or not there is a wait.
+        let held_by_word = self.agent_start_held(project.as_deref(), manifest.as_str()).await;
         let made = self
             .start_session(StartSession {
                 project,
@@ -178,8 +176,8 @@ where
                 fork: None,
                 request: None,
                 after: None,
-                // A Session that waits is held once its wait is met.
-                held: held_by_word,
+                // A Session that waits is not held while it does: its wait carries the word.
+                held: held_by_word && after.is_none(),
                 project_rows: Vec::new(),
                 on_your_words: None,
             })
@@ -193,7 +191,7 @@ where
             self.reading_begun(&session, &hosting, &brief);
         }
         let new = made.id.as_str().to_string();
-        if held_by_word {
+        if held_by_word && after.is_none() {
             self.held_with(&new, &brief).await?;
         }
         let mut held = self.held_for_person(&me, made, words, false, group.as_deref()).await?;
@@ -204,7 +202,7 @@ where
         // A Session that waits holds its first message until the condition is met, and then for the person.
         if let Some(after) = after {
             let told = after.session.as_str() != me;
-            if let Err(refusal) = self.wait_begun(held.session_id.as_str(), after, brief, true, ipc::WaitBy::Agent, told).await {
+            if let Err(refusal) = self.wait_begun(held.session_id.as_str(), after, brief, held_by_word, ipc::WaitBy::Agent, told).await {
                 let _ = self.closed_and_parked(ipc::CloseSession { session_id: held.session_id.clone() }).await;
                 return Err(refusal);
             }
