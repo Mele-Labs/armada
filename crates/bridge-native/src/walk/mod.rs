@@ -1313,6 +1313,20 @@ pub static WALKS: &[Walk] = &[
         steps: &new_project::STEPS,
     },
     Walk {
+        name: "jobs-ended-glyph",
+        title: "An ended Job's mark beside a quiet one",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("The scope beside the search picks which Jobs the list holds", Verb::Press, "button", "Active"),
+            step("↓ past Needs you, Active and Paused to Quiet", Verb::Keys(&["down", "down", "down"]), "menuitemcheckbox", "Quiet"),
+            step("Enter picks it: a Job nothing reaches wears the broken plug, and says Not reachable", Verb::Key("enter"), "img", "Not reachable"),
+            step("The scope again", Verb::Press, "button", "Quiet"),
+            step("↓ to Ended", Verb::Keys(&["down", "down", "down", "down"]), "menuitemcheckbox", "Ended"),
+            step("Enter picks it: a Job that was ended wears the power mark, switched off, and says Ended", Verb::Key("enter"), "img", "Ended"),
+        ],
+    },
+    Walk {
         name: "job-handoff",
         title: "Hand off marks",
         screen: Screen::Marks,
