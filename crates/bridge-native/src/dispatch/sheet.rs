@@ -108,6 +108,11 @@ pub struct DispatchSheet {
     /// Where the card under the sheet starts a Job, as the title bar names it: none draws no card.
     pub(super) here: Option<SharedString>,
     pub(super) here_key: FocusHandle,
+    pub(super) model_key: FocusHandle,
+    pub(super) effort_key: FocusHandle,
+    pub(super) queue_key: FocusHandle,
+    pub(super) draft_key: FocusHandle,
+    pub(super) act_key: FocusHandle,
 }
 
 impl Focusable for DispatchSheet {
@@ -149,6 +154,11 @@ impl DispatchSheet {
             parts: [cx.focus_handle(), cx.focus_handle(), cx.focus_handle(), cx.focus_handle()],
             here: None,
             here_key: cx.focus_handle(),
+            model_key: cx.focus_handle(),
+            effort_key: cx.focus_handle(),
+            queue_key: cx.focus_handle(),
+            draft_key: cx.focus_handle(),
+            act_key: cx.focus_handle(),
         }
     }
 
@@ -574,24 +584,63 @@ impl DispatchSheet {
                     self.close(window, cx);
                 }
             }
-            "tab" if plain && in_request => {
-                if mods.shift && self.wait.is_some() {
-                    let first = self.parts[0].clone();
-                    window.focus(&first, cx);
-                } else if !mods.shift && self.here.is_some() {
-                    // Tab goes on to the card under the sheet, not out to the window behind it.
-                    let card = self.here_key.clone();
-                    window.focus(&card, cx);
-                } else {
-                    return;
-                }
-            }
+            // Tab goes round the sheet and the card under it, and never out to the window behind.
+            "tab" if plain && self.popup.is_none() => self.step_focus(mods.shift, window, cx),
             "enter" if plain && !mods.shift && in_request => self.act(window, cx),
             "enter" | "space" | "down" if plain && self.row.is_focused(window) => self.open_repositories(window, cx),
             _ => return,
         }
         cx.stop_propagation();
         cx.notify();
+    }
+
+    // -- the order Tab takes ---------------------------------------------------------------------------
+
+    /// Whether Queue for later can be pressed: the stop is left out while it cannot.
+    pub(super) fn queue_live(&self, cx: &App) -> bool {
+        self.face.connected && !self.sending && !self.queueing && !self.words(cx).trim().is_empty()
+    }
+
+    /// Whether Draft and Start can be pressed.
+    pub(super) fn act_live(&self, cx: &App) -> bool {
+        self.face.connected && !self.queueing && self.worded(cx) && !self.sending
+    }
+
+    /// Every stop Tab visits, in order: the wait sentence's parts when there is one, the request, the
+    /// repository, Model, Effort, Queue for later, Draft, Start, then the card under the sheet. A
+    /// control that is off, or has no card to draw, has no stop.
+    pub(super) fn stops(&self, cx: &App) -> Vec<FocusHandle> {
+        let mut stops = Vec::new();
+        if let Some(wait) = &self.wait {
+            let parts = if wait.needs.is_some() { 4 } else { 3 };
+            stops.extend(self.parts[..parts].iter().cloned());
+        }
+        stops.push(self.request.focus_handle(cx));
+        if self.face.connected {
+            stops.extend([self.row.clone(), self.model_key.clone(), self.effort_key.clone()]);
+        }
+        let act = self.act_live(cx);
+        if self.face.queue && self.attached.is_empty() && self.queue_live(cx) {
+            stops.push(self.queue_key.clone());
+        }
+        if self.wait.is_none() && act {
+            stops.push(self.draft_key.clone());
+        }
+        if act {
+            stops.push(self.act_key.clone());
+        }
+        if self.here_in().is_some() {
+            stops.push(self.here_key.clone());
+        }
+        stops
+    }
+
+    /// Tab, or Shift-Tab with `back`, from whichever stop has the keys.
+    pub(super) fn step_focus(&mut self, back: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let stops = self.stops(cx);
+        let now = stops.iter().position(|stop| stop.is_focused(window));
+        self.wait_menu = None;
+        window.focus(&stops[next_stop(stops.len(), now, back)], cx);
     }
 
     // -- popovers ----------------------------------------------------------------------------------------
@@ -723,6 +772,16 @@ impl DispatchSheet {
     }
 }
 
+/// The stop after `now` among `len`, wrapping at both ends. Keys on nothing in the order start at its first stop, or its last going back.
+fn next_stop(len: usize, now: Option<usize>, back: bool) -> usize {
+    match (now, back) {
+        (Some(at), false) => (at + 1) % len,
+        (Some(at), true) => (at + len - 1) % len,
+        (None, false) => 0,
+        (None, true) => len - 1,
+    }
+}
+
 const PLACEHOLDER: &str = "Describe the work, or paste a link to a ticket.";
 
 /// The caret at the end of `text`, which `set_value` leaves at the start.
@@ -730,4 +789,117 @@ fn end_of(state: &mut TextareaState, text: &str, window: &mut Window, cx: &mut C
     let line = text.matches('\n').count() as u32;
     let last = text.rsplit('\n').next().unwrap_or("");
     state.set_cursor_position(Position::new(line, last.encode_utf16().count() as u32), window, cx);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gpui::{TestAppContext, VisualTestContext};
+
+    fn open<'a>(face: Face, here: Option<&'static str>, cx: &'a mut TestAppContext) -> (Entity<DispatchSheet>, &'a mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (sheet, cx) = cx.add_window_view(|window, cx| DispatchSheet::new(face, window, cx));
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.set_here(here.map(|name| name.to_string().into()), cx);
+            sheet.request.update(cx, |state, cx| state.set_value("Fix the flaky login test", window, cx));
+            let request = sheet.request.focus_handle(cx);
+            window.focus(&request, cx);
+        });
+        (sheet, cx)
+    }
+
+    /// The stops as the names this module gives its handles, in the order Tab visits them.
+    fn named(sheet: &DispatchSheet, cx: &App) -> Vec<&'static str> {
+        sheet
+            .stops(cx)
+            .iter()
+            .map(|stop| {
+                let is = |handle: &FocusHandle| handle == stop;
+                if is(&sheet.request.focus_handle(cx)) {
+                    "request"
+                } else if is(&sheet.row) {
+                    "repository"
+                } else if is(&sheet.model_key) {
+                    "model"
+                } else if is(&sheet.effort_key) {
+                    "effort"
+                } else if is(&sheet.queue_key) {
+                    "queue"
+                } else if is(&sheet.draft_key) {
+                    "draft"
+                } else if is(&sheet.act_key) {
+                    "start"
+                } else if is(&sheet.here_key) {
+                    "card"
+                } else if sheet.parts.iter().any(is) {
+                    "part"
+                } else {
+                    "unknown"
+                }
+            })
+            .collect()
+    }
+
+    /// Where the keys are, by name.
+    fn at(sheet: &DispatchSheet, window: &Window, cx: &App) -> &'static str {
+        let now = sheet.stops(cx).iter().position(|stop| stop.is_focused(window)).expect("the keys are on a stop");
+        named(sheet, cx)[now]
+    }
+
+    #[test]
+    fn the_next_stop_wraps_at_both_ends() {
+        assert_eq!(next_stop(3, Some(0), false), 1);
+        assert_eq!(next_stop(3, Some(2), false), 0);
+        assert_eq!(next_stop(3, Some(0), true), 2);
+        assert_eq!(next_stop(3, Some(1), true), 0);
+        assert_eq!(next_stop(3, None, false), 0);
+        assert_eq!(next_stop(3, None, true), 2);
+    }
+
+    #[gpui::test]
+    fn tab_goes_round_the_sheet_and_shift_tab_goes_back_the_same_way(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), Some("sample-api"), cx);
+        let order = ["request", "repository", "model", "effort", "queue", "draft", "start", "card"];
+        sheet.update_in(cx, |sheet, window, cx| {
+            assert_eq!(named(sheet, cx), order);
+            assert_eq!(at(sheet, window, cx), "request");
+            for next in order.iter().skip(1).chain(Some(&"request")) {
+                sheet.step_focus(false, window, cx);
+                assert_eq!(at(sheet, window, cx), *next, "Tab");
+            }
+            // Back from the request: the last stop, then each one before it, to the request again.
+            for next in order.iter().rev() {
+                sheet.step_focus(true, window, cx);
+                assert_eq!(at(sheet, window, cx), *next, "Shift-Tab");
+            }
+        });
+    }
+
+    #[gpui::test]
+    fn a_stop_that_cannot_act_is_left_out(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            assert_eq!(named(sheet, cx), ["request", "repository", "model", "effort", "queue", "draft", "start"], "no card where the title bar names nowhere");
+            sheet.request.update(cx, |state, cx| state.set_value("", window, cx));
+            assert_eq!(named(sheet, cx), ["request", "repository", "model", "effort"], "nothing to start or queue");
+            sheet.face.connected = false;
+            assert_eq!(named(sheet, cx), ["request"], "Fleet unreachable: everything else is off");
+        });
+    }
+
+    #[gpui::test]
+    fn the_wait_sentence_stands_before_the_request(cx: &mut TestAppContext) {
+        let face = crate::dispatch::scenes::waiting(crate::dispatch::scenes::rest(&[]), None);
+        let (sheet, cx) = open(face, Some("sample-api"), cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            assert_eq!(named(sheet, cx), ["part", "part", "part", "part", "request", "repository", "model", "effort", "queue", "start", "card"], "a wait has no Draft");
+            sheet.step_focus(true, window, cx);
+            assert_eq!(at(sheet, window, cx), "part", "Shift-Tab from the request enters the sentence");
+            assert!(sheet.parts[3].is_focused(window));
+        });
+    }
 }

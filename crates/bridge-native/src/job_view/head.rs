@@ -333,6 +333,11 @@ impl JobView {
         self.head.overlays.entry(id.clone()).or_default()
     }
 
+    /// Whether the Job is snoozed, as Fleet's record says.
+    pub(super) fn snoozed(&self, id: &str, cx: &App) -> bool {
+        self.record(id, cx).is_some_and(|job| job.snoozed_until.is_some())
+    }
+
     pub(super) fn paused(&self, id: &str, cx: &App) -> bool {
         self.head.overlays.get(id).and_then(|overlay| overlay.paused).unwrap_or_else(|| {
             self.record(id, cx).is_some_and(|job| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some()))
@@ -448,6 +453,11 @@ impl JobView {
         }
         if live && hosted {
             acts.push(if self.paused(id, cx) { item("resume", "Resume", "play") } else { item("pause", "Pause", "circle-pause") });
+        }
+        if live {
+            acts.push(crate::snooze::menu_item(self.snoozed(id, cx)));
+        }
+        if live && hosted {
             acts.push(Entry::Toggle { id: "land", label: "Auto land".into(), on: self.auto_land(id, cx) });
             let holds = self.holds(id, cx).is_empty();
             acts.push(Entry::Item {
@@ -497,6 +507,19 @@ impl JobView {
             }
             entries.extend(group);
         }
+        // A Job on another Mac keeps its acts in the menu, off, with why. Zoom is the tab's own and stays.
+        if let Some(why) = self.off_here(id, cx) {
+            for entry in &mut entries {
+                match entry {
+                    Entry::Item { id, .. } if *id == "zoom" => {}
+                    Entry::Item { off, .. } => *off = Some(why.clone()),
+                    Entry::Toggle { id, label, .. } => {
+                        *entry = Entry::Item { id, label: label.clone(), icon: None, danger: false, key: None, off: Some(why.clone()) };
+                    }
+                    _ => {}
+                }
+            }
+        }
         entries
     }
 
@@ -537,6 +560,9 @@ impl JobView {
 
     pub(super) fn head_act(&mut self, act: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
+        if act != "zoom" && self.off_here(&id, cx).is_some() {
+            return;
+        }
         let session_id = Self::session_id(&id);
         let encoded = |body: Result<String, ipc::Unencodable>| body;
         match act {
@@ -558,6 +584,8 @@ impl JobView {
                 self.overlay_mut(&id).paused = Some(false);
                 self.ask_act(id, "/sessions/resume".into(), encoded(ipc::encode(&ipc::ResumeSession { session_id })), |overlay| overlay.paused = None, window, cx);
             }
+            "snooze" => self.ask_snooze(&id, window, cx),
+            "wake" => self.list.update(cx, |list, cx| list.snooze(&id, None, cx)),
             "land" => {
                 let on = !self.auto_land(&id, cx);
                 self.overlay_mut(&id).auto_land = Some(on);
@@ -590,6 +618,13 @@ impl JobView {
             _ => {}
         }
         cx.notify();
+    }
+
+    /// The presets' menu, under the Job's tab where it is drawn. A refusal is said in a toast.
+    fn ask_snooze(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
+        let at = drawn(window, cx, Role::Row, &self.tab_name(id, cx)).map(below_left);
+        let title = self.title_of(id, cx).unwrap_or_else(|| id.clone());
+        crate::dispatch::screen::snooze_ask(id.clone(), title, at, cx);
     }
 
     /// Start a Job on a copy of this one's conversation, ending at its last message, and open it.
@@ -663,6 +698,9 @@ impl JobView {
 
     /// End job: at once if the Job holds nothing in flight, else after the list says what ending loses.
     pub(super) fn ask_end(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
+        if self.off_here(id, cx).is_some() {
+            return;
+        }
         let in_flight: Vec<String> = self
             .record(id, cx)
             .map(|job| job.in_flight.iter().map(|one| if one.state.is_empty() { one.label.clone() } else { format!("{}: {}", one.label, one.state) }).collect())
@@ -704,7 +742,7 @@ impl JobView {
     /// The title becomes a field in the tab: Enter and leaving save, Esc puts it back (1.1).
     pub(super) fn start_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        if self.head.rename.is_some() {
+        if self.head.rename.is_some() || self.off_here(&id, cx).is_some() {
             return;
         }
         let title = self.title_of(&id, cx).unwrap_or_default();
@@ -986,7 +1024,7 @@ impl JobView {
         let name: SharedString = format!("Forked from {title}").into();
         let page = self.pages.get(id)?;
         let open = page.opened.contains(FORK_FOLD);
-        let (job, read) = (id.clone(), origin.clone());
+        let (job, read, cut) = (id.clone(), origin.clone(), at.clone());
         let head = labelled(
             div()
                 .id("forked-from")
@@ -1002,14 +1040,11 @@ impl JobView {
                 .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
                 .child(crate::titlebar::parts::glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3), look.color(token::FG_MUTED)))
                 .child(name.clone())
-                .on_click(cx.listener(move |this, _, _, cx| {
+                .on_click(cx.listener(move |this, _, window, cx| {
                     let Some(page) = this.pages.get_mut(&job) else { return };
                     if !page.opened.remove(FORK_FOLD) {
                         page.opened.insert(FORK_FOLD.to_string());
-                        // As it opens, the origin's thread is read if it is not held yet.
-                        if let (None, Some(fleet)) = (this.thread(&read, cx).map(|_| ()), this.fleet.clone()) {
-                            fleet.update(cx, |fleet, cx| fleet.read_thread(&read, false, cx));
-                        }
+                        this.read_forked_from(&read, cut.as_deref(), window, cx);
                     }
                     cx.notify();
                 })),
@@ -1017,7 +1052,10 @@ impl JobView {
             name.clone(),
         );
         let rows = open.then(|| {
-            let items = self.thread(&origin, cx).map_or(&[][..], |held| up_to(&held.items, at.as_deref()));
+            // Fleet's thread as it stood at the fork, once read; until then, or where Fleet refused it, the
+            // held thread cut here.
+            let cut = at.as_deref().and_then(|at| self.forks_read.get(&fork_key(&origin, at)));
+            let items = cut.map_or_else(|| self.thread(&origin, cx).map_or(&[][..], |held| up_to(&held.items, at.as_deref())), Vec::as_slice);
             let now = chrono::Local::now();
             let drawn: Vec<AnyElement> = items
                 .iter()
@@ -1046,6 +1084,41 @@ impl JobView {
             )
             .into_any_element(),
         )
+    }
+
+    /// As the fork's fold opens, the origin's thread is read as it stood at the message it was forked at
+    /// (`upto`), so a run of calls that went on past it ends there, however far back it lies. With no
+    /// message named, or where Fleet refuses the cut, the origin's thread is read whole if it is not held.
+    fn read_forked_from(&mut self, origin: &str, at: Option<&str>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(fleet) = self.fleet.clone() else { return };
+        let whole = move |this: &mut Self, cx: &mut Context<Self>| {
+            if this.thread(&SharedString::from(origin.to_string()), cx).is_none() {
+                fleet.update(cx, |fleet, cx| fleet.read_thread(origin, false, cx));
+            }
+        };
+        let Some(at) = at else { return whole(self, cx) };
+        let key = fork_key(origin, at);
+        if self.forks_read.contains_key(&key) {
+            return;
+        }
+        let ask = format!("/sessions/thread?session_id={}&upto={}", super::wire::encoded(origin), super::wire::encoded(at));
+        let origin = origin.to_string();
+        let done: super::wire::Done = Box::new(move |this, answer, _, cx| {
+            match answer.ok().and_then(|body| ipc::decode::<ipc::JobThread>("JobThread", &body).ok()) {
+                Some(cut) => {
+                    this.forks_read.insert(key, cut.items);
+                    cx.notify();
+                }
+                None => {
+                    if let Some(fleet) = this.fleet.clone() {
+                        if this.thread(&SharedString::from(origin.clone()), cx).is_none() {
+                            fleet.update(cx, |fleet, cx| fleet.read_thread(&origin, false, cx));
+                        }
+                    }
+                }
+            }
+        });
+        self.get(ask, window, cx, done);
     }
 
     /// The band on the message box's top edge when handing off to a new Job failed (1.7): its
@@ -1227,6 +1300,8 @@ impl JobView {
         let land = self.auto_land(id, cx);
         let pending = self.fleet.is_some();
         let overlay = self.head.overlays.get(id.as_str());
+        // A Job on another Mac is read here: each act is off, and says on which Mac it runs.
+        let off = self.off_here(id, cx);
         let sending = |was: bool, now: bool| pending && was != now;
         // Land, Pause and Release act on a hosted Job that is live; the Judge reads any Job.
         let hosted_acts = hosted && live;
@@ -1234,7 +1309,8 @@ impl JobView {
             let land_tip: SharedString =
                 if overlay.and_then(|overlay| overlay.auto_land).is_some() && sending(job.auto_land, land) { "Sending".into() } else if land { "Auto land on".into() } else { "Auto land off".into() };
             labelled(
-                act_button(look, "act-land", "plane-landing", "land", land_tip, land, false).on_click(cx.listener(|this, _, window, cx| this.head_act("land", window, cx))),
+                act_button(look, "act-land", "plane-landing", "land", off.clone().unwrap_or(land_tip), land, off.is_some())
+                    .when(off.is_none(), |button| button.on_click(cx.listener(|this, _, window, cx| this.head_act("land", window, cx)))),
                 Role::Button,
                 "Auto land",
             )
@@ -1244,9 +1320,9 @@ impl JobView {
             let pause_name: SharedString = if paused { "Resume".into() } else { "Pause".into() };
             let pause_tip: SharedString = if sending(paused_was, paused) { "Sending".into() } else if paused { "Paused".into() } else { "Pause".into() };
             labelled(
-                act_button(look, "act-pause", if paused { "play" } else { "circle-pause" }, "pause", pause_tip, paused, false).on_click(cx.listener(
-                    move |this, _, window, cx| this.head_act(if paused { "resume" } else { "pause" }, window, cx),
-                )),
+                act_button(look, "act-pause", if paused { "play" } else { "circle-pause" }, "pause", off.clone().unwrap_or(pause_tip), paused, off.is_some()).when(off.is_none(), |button| {
+                    button.on_click(cx.listener(move |this, _, window, cx| this.head_act(if paused { "resume" } else { "pause" }, window, cx)))
+                }),
                 Role::Button,
                 pause_name,
             )
@@ -1255,7 +1331,8 @@ impl JobView {
             let holds = !self.holds(id, cx).is_empty();
             let release_tip: SharedString = if holds { "Release or hand over everything the Job holds".into() } else { "The Job holds nothing".into() };
             labelled(
-                act_button(look, "act-release", "unplug", "release", release_tip, false, !holds).on_click(cx.listener(|this, _, window, cx| this.head_act("release", window, cx))),
+                act_button(look, "act-release", "unplug", "release", off.clone().unwrap_or(release_tip), false, !holds || off.is_some())
+                    .when(off.is_none(), |button| button.on_click(cx.listener(|this, _, window, cx| this.head_act("release", window, cx)))),
                 Role::Button,
                 "Release everything the Job holds",
             )
@@ -1337,7 +1414,8 @@ impl JobView {
                     said,
                 )
             });
-            div().flex().items_center().gap(look.length(token::SPACE_2)).children(mod_mark).children(tools_mark)
+            let mac_mark = crate::pairing::chip(job.mac.as_deref(), cx).map(|chip| crate::pairing::pill(look, "mark-mac".into(), &chip));
+            div().flex().items_center().gap(look.length(token::SPACE_2)).children(mac_mark).children(mod_mark).children(tools_mark)
         };
         let aa = labelled(
             div()
@@ -1387,6 +1465,11 @@ const FORK_FOLD: &str = "forked-from";
 /// Where the fork's fold numbers its origin's items: far past any list element, so a fold one of
 /// them opens measures nothing in the list.
 const FORK_ITEMS: usize = usize::MAX / 2;
+
+/// Where a fork's cut read of its origin is kept: the origin and the message it was forked at.
+fn fork_key(origin: &str, at: &str) -> String {
+    format!("{origin}@{at}")
+}
 
 /// The origin's items up to and including the one holding the message it was forked at, as
 /// Electron's `upTo` cuts its rows: all of them with no message named, none where it is not held.
@@ -1459,6 +1542,10 @@ impl JobView {
             (_, true, "p") if hosted => {
                 let paused = self.paused(&id, cx);
                 self.head_act(if paused { "resume" } else { "pause" }, window, cx);
+            }
+            (_, true, "z") if !self.closed(&id, cx) => {
+                let snoozed = self.snoozed(&id, cx);
+                self.head_act(if snoozed { "wake" } else { "snooze" }, window, cx);
             }
             _ => return false,
         }

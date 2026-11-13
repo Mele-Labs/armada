@@ -186,4 +186,12 @@ where
     async fn set_phone(&self, set: ipc::SetPhoneGateway) -> Result<ipc::PhoneGateway, Refusal> {
         self.phone_set(set.on)
     }
+
+    async fn get_mac_setup(&self) -> Result<ipc::MacSetup, Refusal> {
+        self.mac_setup_now()
+    }
+
+    async fn set_up_mac(&self) -> Result<ipc::MacSetup, Refusal> {
+        self.mac_set_up().await
+    }
 }

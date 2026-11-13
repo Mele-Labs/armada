@@ -15,6 +15,9 @@
 mod centred;
 mod face;
 mod fleet_down;
+mod link_layer;
+mod link_panel;
+pub mod offers;
 pub mod parts;
 mod projects;
 pub mod scenes;
@@ -34,6 +37,7 @@ use gpui::{
 use ipc::{BuildSource, ModelDownshift};
 
 pub use face::{repositories_of, Connection, Face, LiveLink, Remedy, RestartWhy, Restarting};
+pub use link_layer::StandIn;
 /// The Operator's page adds its place to the strip and reads the week's ring.
 pub use face::Place;
 
@@ -68,6 +72,8 @@ pub enum Asked {
     Keep,
     Swap,
     Unpick(String),
+    /// Skip the Refresh row with this id.
+    SkipOffers(String),
     RestartFleet,
     Remedy(Remedy),
     CopyDebugInfo,
@@ -217,6 +223,8 @@ pub struct TitleBar {
     _swap_keys: Option<Subscription>,
     /// Fleet's build report as last handed in: a press's answer in the frame stands until Fleet's report moves.
     build_read: Option<ipc::FleetBuildReport>,
+    /// The offers as last handed in, which an optimistic skip stands over until Fleet answers.
+    offers_read: Option<ipc::PreviewOffers>,
     /// The live link as last handed in, read again by the clock while the face moves with time alone.
     link_read: Option<face::LiveLink>,
     /// When the window opened: a Fleet down at launch has the same grace as one that just dropped.
@@ -225,6 +233,8 @@ pub struct TitleBar {
     /// The pid a Restart Fleet was pressed under, so a new Fleet that still does not match is told apart.
     restart_from: Option<u32>,
     _restart_wait: Option<Task<()>>,
+    /// The centred Fleet panel, while Fleet is stopped, restarting or on another build (`link_layer.rs`).
+    link: link_layer::LinkPanel,
 }
 
 /// How long a restart may take to bring back a new Fleet before it is called unanswered (`FleetNotice.tsx`).
@@ -234,28 +244,6 @@ const RESTART_WAIT: Duration = Duration::from_secs(30);
 struct Live(WeakEntity<TitleBar>);
 
 impl Global for Live {}
-
-/// The bar of the window, for an act a Fleet toast carries.
-fn with_bar(cx: &mut App, act: impl FnOnce(&mut TitleBar, &mut Context<TitleBar>)) {
-    if let Some(bar) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
-        bar.update(cx, act);
-    }
-}
-
-/// Restart Fleet, from the toast of a Fleet that does not match.
-pub fn restart_fleet(cx: &mut App) {
-    with_bar(cx, |bar, cx| bar.restart_fleet_pressed(cx));
-}
-
-/// Dismiss, from the toast of a restart that did not come back.
-pub fn dismiss_restart_failure(cx: &mut App) {
-    with_bar(cx, |bar, cx| bar.answer(|face| face.fleet.restarting = Restarting::Idle, cx));
-}
-
-/// Copy debug info, from a Fleet toast.
-pub fn copy_debug_info(cx: &mut App) {
-    with_bar(cx, |_, cx| cx.emit(Asked::CopyDebugInfo));
-}
 
 /// The bar's keys that work from anywhere: ⌘K, ⌘J, ⌘, , ⇧⌘R and ⌘1 to ⌘9 (`actions.toml`, scope `anywhere`). A
 /// screen's own handler runs first; what it does not take reaches here.
@@ -280,6 +268,13 @@ pub fn bind(cx: &mut App) {
             bar.update(cx, |_, cx| cx.emit(asked));
         }
     });
+}
+
+/// Fleet refused a skip: the bar of the window in front draws the Refresh row as Fleet last said it.
+pub fn offers_refused(cx: &mut App) {
+    if let Some(bar) = live(cx) {
+        bar.update(cx, |bar, cx| bar.offers_refused(cx));
+    }
 }
 
 /// The bar of the window in front, for a walk to move between scenes.
@@ -331,11 +326,13 @@ impl TitleBar {
             _swap_tick: None,
             _swap_keys: None,
             build_read: None,
+            offers_read: None,
             link_read: None,
             opened: std::time::Instant::now(),
             _link_tick: None,
             restart_from: None,
             _restart_wait: None,
+            link: link_layer::LinkPanel::new(window, cx),
         }
     }
 
@@ -354,6 +351,7 @@ impl TitleBar {
         self.snapshot_was = None;
         self._swap_tick = None;
         self._swap_keys = None;
+        self.link.clear();
     }
 
     /// The plan's rings and the step down, as Fleet last said them. A Fleet that dropped keeps what it said.
@@ -376,6 +374,23 @@ impl TitleBar {
         }
         self.build_read = report.cloned();
         self.face.build = report.map(face::build_of);
+        cx.notify();
+    }
+
+    /// The branches Jobs offered for the preview and the Refresh row, as Fleet last said them. A skip already
+    /// cleared the row in its frame; that stands until Fleet's offers are not the ones last handed in.
+    pub fn set_offers(&mut self, offers: Option<&ipc::PreviewOffers>, cx: &mut Context<Self>) {
+        if self.offers_read.as_ref() == offers {
+            return;
+        }
+        self.offers_read = offers.cloned();
+        self.face.offers = offers.cloned();
+        cx.notify();
+    }
+
+    /// Fleet refused a skip: the row is back as Fleet last said it.
+    pub fn offers_refused(&mut self, cx: &mut Context<Self>) {
+        self.face.offers = self.offers_read.clone();
         cx.notify();
     }
 
@@ -412,6 +427,7 @@ impl TitleBar {
                 let _ = this.update(cx, |bar, cx| bar.read_link(cx));
             })
         });
+        self.settle_panel(cx);
     }
 
     /// launchd would not restart Fleet: the notice says what it answered.
@@ -1520,6 +1536,7 @@ impl Render for TitleBar {
             .child(row)
             .children(self.trying_bar(look, cx))
             .children(self.dropped_alert(look, cx))
+            .children(self.link_layer(look, crate::room::of(window, cx), cx))
             .children(self.popover(look, window, cx))
             .children(self.dialog_layer(look, crate::room::of(window, cx), cx))
             .children(self.toast(look, viewport, cx))

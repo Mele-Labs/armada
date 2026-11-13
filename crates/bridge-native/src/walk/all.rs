@@ -52,7 +52,7 @@ pub static STEPS: &[Step] = &[
     scene("Signed in again at full width, the row is whole", "back-to-rest", "button", "Operator"),
     scene("Events Fleet dropped stand as an alert above the screen, with the count that will never arrive", "events-dropped", "alert", "Events were dropped before Bridge saw them"),
     press_on("Noted puts it away until more are dropped", "button", "Noted", "button", "Operator"),
-    scene("Fleet gone for over 30 seconds: a red dot", "fleet-down", "button", "Fleet — Not running"),
+    scene("Fleet gone: a red dot, and the Fleet panel over the screen", "fleet-down", "button", "Fleet — Not running"),
     step("The panel says why", Verb::Press, "button", "Fleet — Not running"),
     // -- the dispatch sheet --------------------------------------------------------------------
     fresh("The dispatch sheet starts on a clean screen: the bar at rest, the strip along the bottom, nothing open", "heading", "armada"),

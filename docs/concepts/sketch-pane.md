@@ -22,7 +22,7 @@ A scene is the sketch pad's drawing plus the kinds the pad cannot say. It is def
 |---|---|
 | Scene | `nodes`, `edges`, optional `strokes` |
 | Node | `id`, `kind`, `x`, `y`, optional `w`, `h`, `title`, `body`, `icon`, `lang`, `wire`, `screen`, `html`, `css`, `styles`, `kept`, `step`, `shape`, `color` |
-| Edge | `id`, `from`, `to`, optional `label`, `flow`, `step`, `color` |
+| Edge | `id`, `from`, `to`, optional `label`, `flow`, `step`, `color`, `line`, `head`, `path` |
 | Stroke | `id`, `points` of `x` and `y` |
 
 | Node kind | Draws |

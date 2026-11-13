@@ -99,6 +99,9 @@ pub struct Held {
     /// The build Fleet runs, as it last reported. **Held across a drop**, since a restart is the
     /// commonest reason Fleet does not answer. `None` until the first read, and where this Fleet serves none.
     pub build: Option<FleetBuildReport>,
+    /// The branches Jobs offered for the preview and the Refresh row, as Fleet last said them, **held across a
+    /// drop** as the build is. `None` until Fleet has answered.
+    pub offers: Option<ipc::PreviewOffers>,
     /// Every call standing, as Fleet last said. `None` until Fleet has answered once, so an empty
     /// first reading cannot be mistaken for a count that stands.
     pub calls: Option<StandingCalls>,
@@ -131,12 +134,16 @@ pub struct Held {
     pub open_group: bool,
     /// Every workflow Fleet holds, as `GET /workflows` answered on connect. `None` until then.
     pub workflows: Option<Vec<ipc::WorkflowSummary>>,
+    /// The subagents whose own thread moved, folded since the last take, oldest first.
+    subagents_moved: Vec<ipc::SessionSubagentChanged>,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
     arrived: Vec<CallArrival>,
     /// A Job's shells that opened, ended or were brought to the front since the last take. Told once.
     shells: Vec<ShellNews>,
     /// What the Operator did with dispatches, folded since the last take, oldest first.
     dispatched: Vec<ipc::operator_board::OperatorDispatched>,
+    /// The Jobs `session.removed` took away since the last take. Told once, so a screen drops what it held for each.
+    removed: Vec<String>,
     /// The port of the Fleet last connected to, so a command goes where the events come from.
     port: Option<u16>,
     /// The stylesheet Fleet checked for a mod, with the `changed_at` of the row it was checked for.
@@ -170,6 +177,7 @@ impl Held {
             first_run_answered: None,
             mods: None,
             build: None,
+            offers: None,
             calls: None,
             repositories: None,
             projects: None,
@@ -185,9 +193,11 @@ impl Held {
             workflows_off: false,
             open_group: true,
             workflows: None,
+            subagents_moved: Vec::new(),
             arrived: Vec::new(),
             shells: Vec::new(),
             dispatched: Vec::new(),
+            removed: Vec::new(),
             port: None,
             sheets: BTreeMap::new(),
             threads: BTreeMap::new(),
@@ -289,14 +299,29 @@ impl Held {
         }
     }
 
-    /// The Dock count: the calls still to be opened, one for each owner. `None` until Fleet has answered.
-    pub fn dock_count(&self) -> Option<usize> {
-        self.calls.as_ref().map(|calls| calls.unopened().len())
+    /// Whether the person snoozed this Job: it works on, and raises no banner, sound or Dock count until its
+    /// `snoozed_until` clears. **Fleet's calls do not leave a snoozed Job out** (`standing_calls.rs` reads
+    /// only a pause), so what puts a call on the OS leaves it out here. Fleet itself already holds back the
+    /// Operator's cards and Pocket's pushes for it.
+    pub fn snoozed(&self, session_id: &str) -> bool {
+        self.jobs.iter().any(|job| job.id.as_str() == session_id && job.snoozed_until.is_some())
     }
 
-    /// The news folded since the last take, oldest first.
+    /// The Dock count: the calls still to be opened, one for each owner, but for a snoozed Job's. `None` until
+    /// Fleet has answered.
+    pub fn dock_count(&self) -> Option<usize> {
+        self.calls.as_ref().map(|calls| calls.unopened().into_iter().filter(|call| !call.session_id.as_ref().is_some_and(|job| self.snoozed(job.as_str()))).count())
+    }
+
+    /// The news folded since the last take, oldest first, but for a snoozed Job's.
     pub fn take_arrived(&mut self) -> Vec<CallArrival> {
-        std::mem::take(&mut self.arrived)
+        let arrived = std::mem::take(&mut self.arrived);
+        arrived.into_iter().filter(|one| !self.snoozed(one.session_id.as_str())).collect()
+    }
+
+    /// The subagents whose own thread moved, folded since the last take, oldest first.
+    pub fn take_subagents_moved(&mut self) -> Vec<ipc::SessionSubagentChanged> {
+        std::mem::take(&mut self.subagents_moved)
     }
 
     /// The shells' news folded since the last take, oldest first.
@@ -305,6 +330,21 @@ impl Held {
     }
 
     /// What the Operator did with dispatches, folded since the last take, oldest first.
+    pub fn take_removed(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.removed)
+    }
+
+    /// `session.removed`: the row held from another Mac is gone, and so is everything read for it.
+    fn remove(&mut self, id: &str) {
+        self.jobs.retain(|held| held.id.as_str() != id);
+        self.threads.remove(id);
+        self.needs.remove(id);
+        self.watches.remove(id);
+        self.watches_asked.remove(id);
+        self.watches_spoken.remove(id);
+        self.removed.push(id.to_string());
+    }
+
     pub fn take_dispatched(&mut self) -> Vec<ipc::operator_board::OperatorDispatched> {
         std::mem::take(&mut self.dispatched)
     }
@@ -354,6 +394,8 @@ impl Held {
                 }
                 Signal::JobsFailed(why) => lines.push(Note::warn("jobs could not be read").field("why", why)),
                 Signal::Preferences(preferences) => {
+                    crate::ways::hold(&preferences);
+                    crate::listen::hold(&preferences);
                     if self.theme.as_deref() != Some(preferences.theme.as_str()) {
                         lines.push(Note::info("theme preference read").field("theme", preferences.theme.as_str()));
                     }
@@ -400,6 +442,8 @@ impl Held {
                 Signal::PlanUsageFailed(why) => lines.push(Note::warn("the plan usage could not be read").field("why", why)),
                 Signal::Downshift(state) => self.downshift = Some(state),
                 Signal::DownshiftFailed(why) => lines.push(Note::warn("the step down could not be read").field("why", why)),
+                Signal::Offers(offers) => self.offers = Some(offers),
+                Signal::OffersFailed(why) => lines.push(Note::warn("the preview offers could not be read").field("why", why)),
                 Signal::Build(report) => self.build = Some(report),
                 Signal::BuildFailed(why) => lines.push(Note::warn("the build could not be read").field("why", why)),
                 Signal::Stream(StreamMessage::Resync(resync)) => {
@@ -428,8 +472,10 @@ impl Held {
                                 None => self.jobs.push(record),
                             }
                         }
+                        Event::SessionRemoved(gone) => self.remove(gone.session_id.as_str()),
                         // The list arrives whole and replaces the one held.
                         Event::ModsChanged(list) => self.listed(list.mods),
+                        Event::SessionSubagent(moved) => self.subagents_moved.push(moved),
                         Event::JobThreadTail(tail) => {
                             if let Some(held) = self.threads.get_mut(tail.session_id.as_str()) {
                                 held.tailed(tail);
@@ -457,6 +503,8 @@ impl Held {
                         Event::WriteClashesChanged(all) => self.clashes = Some(all),
                         Event::PlanUsageChanged(usage) => self.plan_usage = Some(usage),
                         Event::ModelDownshiftChanged(state) => self.downshift = Some(state),
+                        // The offers arrive whole and replace the ones held.
+                        Event::PreviewOffersChanged(offers) => self.offers = Some(offers),
                         // A Job's watches arrive whole and replace the ones held.
                         Event::WatchesChanged(list) => {
                             let id = list.session_id.as_str().to_string();
@@ -541,6 +589,12 @@ pub struct Dispatched(pub Vec<ipc::operator_board::OperatorDispatched>);
 
 impl EventEmitter<Dispatched> for FleetConnection {}
 
+/// The subagents whose own thread moved in one folded batch (`session.subagent`), for a view holding
+/// one open to read it again.
+pub struct SubagentsMoved(pub Vec<ipc::SessionSubagentChanged>);
+
+impl EventEmitter<SubagentsMoved> for FleetConnection {}
+
 /// One of a Job's shells, as `terminal.opened`, `terminal.exited` and `terminal.shown` tell it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ShellNews {
@@ -549,6 +603,11 @@ pub enum ShellNews {
     /// The agent asked for it in front (`show_terminal`).
     Shown(ipc::JobTerminal),
 }
+
+/// The Jobs `session.removed` took away in one folded batch, for the list and the open Job to let go of.
+pub struct Removed(pub Vec<String>);
+
+impl EventEmitter<Removed> for FleetConnection {}
 
 /// The shells' news in one folded batch, for a Job's terminal tabs to follow.
 pub struct Shells(pub Vec<ShellNews>);
@@ -612,6 +671,14 @@ impl BuildAct {
             BuildAct::Revert | BuildAct::Swap | BuildAct::Keep => None,
         }
     }
+}
+
+/// Where the Refresh row is skipped.
+const SKIP_OFFERS: &str = "/fleet/build/offers/skip";
+
+/// The body that skips the Refresh row with this id.
+fn skip_body(id: &str) -> Result<String, String> {
+    ipc::encode(&ipc::SkipPreviewRefresh { id: id.to_string() }).map_err(|why| format!("{why:?}"))
 }
 
 /// A restart, revert, swap or snapshot is under way, so the build is followed.
@@ -743,6 +810,45 @@ impl FleetConnection {
                 if took {
                     this.follow(!marks, cx);
                 }
+            });
+        })
+        .detach();
+    }
+
+    /// Skip the Refresh row (`POST /fleet/build/offers/skip`) off the main thread. Fleet's answer takes the row out
+    /// of the offers held; a refusal is a toast in Fleet's words, and the bar draws the row as Fleet last said it.
+    pub fn skip_offers(&mut self, id: String, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else {
+            Note::warn("not sent: no Fleet is connected").field("route", SKIP_OFFERS).emit();
+            cx.defer(|cx| crate::titlebar::offers_refused(cx));
+            return;
+        };
+        let sent = id.clone();
+        cx.spawn(async move |this, cx| {
+            let read = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    runtime.block_on(crate::transport::post(port, SKIP_OFFERS, skip_body(&sent)?))
+                })
+                .await;
+            let outcome = crate::revert::outcome_of(read);
+            let _ = this.update(cx, |this, cx| {
+                if outcome == crate::revert::Outcome::Started {
+                    if let Some(offers) = this.held.offers.as_mut() {
+                        if offers.refresh.as_ref().is_some_and(|refresh| refresh.id == id) {
+                            offers.refresh = None;
+                        }
+                    }
+                } else {
+                    let why = crate::revert::why_not(&outcome).to_string();
+                    Note::warn("Fleet refused the skip").field("route", SKIP_OFFERS).field("why", why.as_str()).emit();
+                    cx.defer(move |cx| {
+                        crate::toasts::tell(why, cx);
+                        crate::titlebar::offers_refused(cx);
+                    });
+                }
+                cx.notify();
             });
         })
         .detach();
@@ -1003,10 +1109,15 @@ impl FleetConnection {
                         }
                         this.read_thread(&id, true, cx);
                     }
+                    let subagents = this.held.take_subagents_moved();
                     let arrived = this.held.take_arrived();
                     let shells = this.held.take_shells();
                     let dispatched = this.held.take_dispatched();
+                    let removed = this.held.take_removed();
                     cx.notify();
+                    if !removed.is_empty() {
+                        cx.emit(Removed(removed));
+                    }
                     if !arrived.is_empty() {
                         cx.emit(Arrived(arrived));
                     }
@@ -1015,6 +1126,9 @@ impl FleetConnection {
                     }
                     if !dispatched.is_empty() {
                         cx.emit(Dispatched(dispatched));
+                    }
+                    if !subagents.is_empty() {
+                        cx.emit(SubagentsMoved(subagents));
                     }
                     lines
                 });
@@ -1102,6 +1216,22 @@ mod tests {
     }
 
     #[test]
+    fn session_removed_drops_the_row_and_what_was_read_for_it_and_says_so_once() {
+        let mut held = Held::new();
+        let mut jobs = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+        let (gone, kept) = (jobs[0].id.as_str().to_string(), jobs[1].id.as_str().to_string());
+        held.fold(vec![Signal::Jobs(std::mem::take(&mut jobs))]);
+        held.watches.insert(gone.clone(), Vec::new());
+        let wire = format!(r#"{{"message":"event","cursor":1,"event":{{"kind":"session.removed","session_id":"{gone}"}}}}"#);
+        held.fold(vec![Signal::Stream(crate::frames::decode(&wire).expect("an event"))]);
+        assert!(held.jobs.iter().all(|job| job.id.as_str() != gone));
+        assert!(held.jobs.iter().any(|job| job.id.as_str() == kept), "the other rows stay");
+        assert!(!held.watches.contains_key(&gone));
+        assert_eq!(held.take_removed(), vec![gone]);
+        assert!(held.take_removed().is_empty(), "told once");
+    }
+
+    #[test]
     fn the_theme_word_is_held_once_read() {
         let mut held = Held::new();
         assert_eq!(held.theme, None);
@@ -1160,6 +1290,25 @@ mod tests {
     }
 
     #[test]
+    fn the_skip_body_reads_back_as_the_wire_type() {
+        let body = skip_body("r-7f3a").expect("a body");
+        let read = ipc::decode::<ipc::SkipPreviewRefresh>("SkipPreviewRefresh", body.as_bytes()).expect("the wire type");
+        assert_eq!(read, ipc::SkipPreviewRefresh { id: "r-7f3a".into() });
+    }
+
+    #[test]
+    fn the_offers_are_held_whole_from_the_read_and_from_the_event() {
+        let offers = |id: &str| ipc::decode::<ipc::PreviewOffers>("offers", format!(r#"{{"offers":[],"refresh":{{"id":"{id}","branches":[]}}}}"#).as_bytes()).expect("offers");
+        let mut held = Held::new();
+        held.fold(vec![Signal::Offers(offers("a"))]);
+        assert_eq!(held.offers, Some(offers("a")));
+        let wire = r#"{"message":"event","cursor":2,"event":{"kind":"preview_offers.changed","offers":[]}}"#;
+        let event = crate::frames::decode(wire).expect("an event");
+        held.fold(vec![Signal::Stream(event)]);
+        assert_eq!(held.offers.as_ref().and_then(|held| held.refresh.as_ref()), None);
+    }
+
+    #[test]
     fn the_build_report_is_held_through_a_drop_and_a_failed_read_leaves_it() {
         let mut held = Held::new();
         let report = ipc::decode::<FleetBuildReport>("build", br#"{"on":"main"}"#).expect("a report");
@@ -1197,6 +1346,45 @@ mod tests {
         assert_eq!(held.dock_count(), Some(0), "an empty answer is a count of none");
         held.fold(vec![Signal::Calls(calls(&[false, true, false]))]);
         assert_eq!(held.dock_count(), Some(2));
+    }
+
+    fn snoozed_job(id: &str) -> SessionRecord {
+        let mut job = crate::mock::jobs("jobs-many").expect("the fixture decodes").remove(0);
+        job.id = ipc::SessionId::carried(id);
+        job.snoozed_until = Some(Instant::carried("2026-11-13T16:30:00.000Z"));
+        job
+    }
+
+    #[test]
+    fn a_snoozed_jobs_calls_are_not_counted_on_the_dock_and_the_rest_still_are() {
+        let mut held = Held::new();
+        held.fold(vec![Signal::Calls(calls(&[false, false, false])), Signal::Jobs(vec![snoozed_job("s1")])]);
+        assert!(held.snoozed("s1") && !held.snoozed("s0"));
+        assert_eq!(held.dock_count(), Some(2), "s1 stays out of the count");
+        held.jobs[0].snoozed_until = None;
+        assert_eq!(held.dock_count(), Some(3), "woken, it is counted again");
+    }
+
+    #[test]
+    fn a_snoozed_jobs_news_is_not_handed_over() {
+        let mut held = Held::new();
+        let arrival = |job: &str| format!(r#"{{"session_id":"{job}","title":"Fix it","text":"Pick a slot","tone":"blocked","kind":"needs"}}"#);
+        held.fold(vec![Signal::Jobs(vec![snoozed_job("s1")]), changed("[]", &format!("[{},{}]", arrival("s1"), arrival("s2")))]);
+        let news = held.take_arrived();
+        assert_eq!(news.iter().map(|one| one.session_id.as_str()).collect::<Vec<_>>(), ["s2"]);
+    }
+
+    #[test]
+    fn a_subagent_whose_thread_moved_is_handed_over_once_in_the_order_it_came() {
+        let moved = |job: &str, subagent: &str| {
+            let wire = format!(r#"{{"message":"event","cursor":1,"event":{{"kind":"session.subagent","session_id":"{job}","subagent_id":"{subagent}"}}}}"#);
+            Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+        };
+        let mut held = Held::new();
+        held.fold(vec![moved("s0", "a1"), moved("s1", "a2")]);
+        let told: Vec<(String, String)> = held.take_subagents_moved().into_iter().map(|one| (one.session_id.as_str().to_string(), one.subagent_id)).collect();
+        assert_eq!(told, [("s0".to_string(), "a1".to_string()), ("s1".to_string(), "a2".to_string())]);
+        assert!(held.take_subagents_moved().is_empty(), "news is told once");
     }
 
     #[test]

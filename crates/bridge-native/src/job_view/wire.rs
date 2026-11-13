@@ -32,7 +32,7 @@ pub(super) fn reason(status: u16, bytes: &[u8]) -> String {
 }
 
 /// Fleet's reason for a refusal, with its code where the body carries one.
-fn refusal(status: u16, bytes: &[u8]) -> (String, Option<String>) {
+pub(super) fn refusal(status: u16, bytes: &[u8]) -> (String, Option<String>) {
     ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| (format!("Fleet answered {status}"), None), |error| (error.message, Some(error.code)))
 }
 
@@ -70,6 +70,14 @@ impl JobView {
 
     fn ask(&mut self, verb: Verb, path: String, body: Option<String>, window: &mut Window, cx: &mut Context<Self>, done: Done) {
         self.refused_code = None;
+        // An act on a Job on another Mac never leaves: Fleet refuses it until stage 2, so it is answered here with the
+        // same sentence every control on that Job wears.
+        if !matches!(verb, Verb::Get) && !crate::pairing::reads(&path) {
+            if let Some(why) = self.shown.as_ref().and_then(|id| self.off_here(id, cx)) {
+                done(self, Err(why.to_string()), window, cx);
+                return;
+            }
+        }
         if self.fleet.is_none() {
             done(self, Ok(Vec::new()), window, cx);
             return;
@@ -119,5 +127,14 @@ mod tests {
     fn a_query_value_is_percent_encoded_as_electron_encodes_it() {
         assert_eq!(encoded("a query/with slashes"), "a%20query%2Fwith%20slashes");
         assert_eq!(encoded("sess-comp_1.rs"), "sess-comp_1.rs");
+    }
+
+    #[test]
+    fn a_lead_picture_reads_as_the_ipc_type_and_anything_else_is_none() {
+        let read = |bytes: &[u8]| ipc::decode::<ipc::LeadPicture>("LeadPicture", bytes).ok();
+        assert_eq!(read(br#"{"kind":"sketch","title":"Flow"}"#), Some(ipc::LeadPicture::Sketch { title: "Flow".into() }));
+        assert_eq!(read(br#"{"kind":"image","path":"/repo/shot.png"}"#), Some(ipc::LeadPicture::Image { path: "/repo/shot.png".into() }));
+        assert_eq!(read(br#"{"kind":"video","path":"/repo/a.mov"}"#), None);
+        assert_eq!(read(b"not json"), None);
     }
 }

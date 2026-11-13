@@ -11,7 +11,7 @@
 use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, FixedOffset};
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, MouseButton, Role, SharedString, Window};
+use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, MouseButton, Role, SharedString, Window};
 use ipc::{GateChecks, GateClose, GateHeld, JumpSessionStep, PlanGate, SaveSettings, SessionId, SessionPlanGroup, SessionRecord, SetSessionWorkflow, SettingValue, SkipSessionStep};
 
 use super::done::{group_time, Finished};
@@ -233,11 +233,6 @@ pub(super) fn walk_step(name: &str) -> bool {
 
 pub(super) fn parse(at: &str) -> Option<DateTime<FixedOffset>> {
     DateTime::parse_from_rfc3339(at).ok()
-}
-
-/// The words a stamp says for a time, in his clock.
-fn stamp(at: &str) -> Option<String> {
-    crate::settings::time::stamp_at(at)
 }
 
 /// Index ids for a menu's dynamic rows: an entry id is `&'static str`.
@@ -641,10 +636,10 @@ impl JobView {
 
     /// At the head of a finished stretch in Done: the gate that ended it, the fact Fleet saw close it,
     /// and when (`GateClosed`).
-    pub(super) fn gate_closed(gate: Option<&Gate>, key: &str, look: &Look) -> Option<AnyElement> {
+    pub(super) fn gate_closed(&self, gate: Option<&Gate>, key: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let gate = gate.filter(|gate| gate.closed.is_some())?;
         let read = read_gate(gate);
-        let at = gate.closed.as_ref().and_then(|closed| stamp(closed.at.as_str()));
+        let at = gate.closed.as_ref().map(|closed| self.stamp_sized(&closed.at, look, chrono::Local::now(), false, (token::TEXT_2XS, token::LEADING_2XS), cx));
         Some(
             div()
                 .flex()
@@ -660,7 +655,7 @@ impl JobView {
                         .text_color(look.color(token::FG_SUBTLE))
                         .child(labelled(div().id(SharedString::from(format!("{key}-gate"))).flex_none().w(look.length(token::SPACE_4)).flex().justify_center().tooltip(tip(read.glyph.clone().into())).child(glyph(look, gate_glyph(gate.kind), Size::Small, look.color(token::STEP_ADVANCED))), Role::Image, read.glyph.clone()))
                         .child(div().flex_1().min_w_0().truncate().child(SharedString::from(read.said.clone())))
-                        .children(at.map(|at| div().flex_none().child(SharedString::from(at)))),
+                        .children(at),
                 )
                 .children(JobView::gate_tests(&read, key, look).map(|tests| div().pl(look.length(token::SPACE_4) + look.length(token::SPACE_2)).pt(look.length(token::SPACE_1)).child(tests)))
                 .into_any_element(),
@@ -703,14 +698,21 @@ impl JobView {
                 let names = stretch.groups.iter().enumerate().map(|(at, group)| {
                     let gate = (at + 1 == lines).then(|| stretch.gate.as_ref()).flatten().map(|gate| {
                         let said = read.as_ref().map(|read| read.glyph.clone()).unwrap_or_default();
-                        labelled(div().id(SharedString::from(format!("chunk-gate:{}", stretch.key))).flex_none().w(look.length(token::SPACE_6)).flex().justify_center().tooltip(tip(said.clone().into())).child(glyph(look, gate_glyph(gate.kind), Size::Small, look.color(gate_ink))), Role::Image, said)
+                        let mark = glyph(look, gate_glyph(gate.kind), Size::Small, look.color(gate_ink));
+                        // Held on him: the gate pulses where it lives, as the Needs you lamp does.
+                        let mark = if held {
+                            mark.with_animation(SharedString::from(format!("chunk-gate-pulse:{}", stretch.key)), Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.35, 1.)), |mark, at| mark.opacity(at)).into_any_element()
+                        } else {
+                            mark.into_any_element()
+                        };
+                        labelled(div().id(SharedString::from(format!("chunk-gate:{}", stretch.key))).flex_none().w(look.length(token::SPACE_6)).flex().justify_center().tooltip(tip(said.clone().into())).child(mark), Role::Image, said)
                     });
                     div().flex().items_center().gap(look.length(token::SPACE_2)).child(div().flex_1().min_w_0().line_clamp(2).child(SharedString::from(group.title.clone()))).children(gate)
                 });
                 let said = read.as_ref().filter(|_| live || open).map(|read| {
                     let since = stretch.gate.as_ref().and_then(|gate| match (&gate.closed, &gate.held) {
-                        (Some(closed), _) => stamp(closed.at.as_str()),
-                        (None, Some(held)) => super::now::span_since(held, chrono::Local::now()).map(|span| format!("Held on you for {span}")),
+                        (Some(closed), _) => Some(self.stamp_sized(&closed.at, look, chrono::Local::now(), false, (token::TEXT_2XS, token::LEADING_2XS), cx)),
+                        (None, Some(held)) => super::now::since(look, &format!("chunk-held:{}", stretch.key), held, "Held on you for"),
                         _ => None,
                     });
                     div()
@@ -722,7 +724,7 @@ impl JobView {
                         .text_color(look.color(if failed { token::STEP_FAILED } else if live { token::FG_MUTED } else { token::FG_SUBTLE }))
                         .font_weight(FontWeight(look.number(token::WEIGHT_BODY)))
                         .child(div().flex_auto().min_w_0().truncate().child(SharedString::from(read.said.clone())))
-                        .children(since.map(|since| div().flex_none().child(SharedString::from(since))))
+                        .children(since)
                 });
                 let head = div()
                     .flex()
@@ -892,7 +894,7 @@ impl JobView {
                 let key = format!("gate:{at}");
                 let mut list: Vec<Finished> = stretch.groups.iter().map(|group| Finished::Group(group, group_time(group))).collect();
                 list.extend(made_in.remove(&(*at as isize)).unwrap_or_default());
-                let body = column(JobView::gate_closed(stretch.gate.as_ref(), &key, look).into_iter().chain(Some(self.under_done(job, list, &key, look, cx))).collect());
+                let body = column(self.gate_closed(stretch.gate.as_ref(), &key, look, cx).into_iter().chain(Some(self.under_done(job, list, &key, look, cx))).collect());
                 specs.push(Spec::zone(key, Some(format!("done:{at}")), stretch.name.clone(), Area::Done, "step-done").mark(Mark::Done).body(body));
             }
             let live: Vec<Stretch> = live.into_iter().map(|(_, one)| one).collect();

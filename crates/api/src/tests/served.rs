@@ -506,6 +506,16 @@ async fn the_phone_switch_is_read_and_set_over_the_router() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
+#[tokio::test]
+async fn the_macs_setup_is_read_and_pressed_over_the_router() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/phone/setup", "").await;
+    assert_eq!((status, String::from_utf8(body).unwrap().as_str()), (StatusCode::OK, r#"{"step":"gateway","working":false}"#));
+    let (status, body) = call(&app, "POST", "/phone/setup", "").await;
+    assert_eq!((status, String::from_utf8(body).unwrap().as_str()), (StatusCode::OK, r#"{"step":"gateway","working":true}"#));
+}
+
 /// A Job's quick replies read on the query string: both lists, whole, and a refusal Fleet's own words.
 #[tokio::test]
 async fn a_jobs_quick_replies_are_read_on_the_query_string() {

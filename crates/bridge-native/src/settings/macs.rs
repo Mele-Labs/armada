@@ -280,7 +280,7 @@ fn age_said(seconds: i64) -> String {
     format!("{} ago", crate::merge_strip::words::span_said(seconds))
 }
 
-fn colour_of(look: &Look, colour: MacColour) -> Hsla {
+pub(crate) fn colour_of(look: &Look, colour: MacColour) -> Hsla {
     look.color(match colour {
         MacColour::Blue => token::SKETCH_BLUE,
         MacColour::Teal => token::SKETCH_TEAL,

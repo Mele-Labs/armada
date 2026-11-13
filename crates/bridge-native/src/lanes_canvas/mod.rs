@@ -27,11 +27,11 @@ use crate::job_view::sketch_pad::{rail_frame, rail_group};
 use crate::labels::labelled;
 use crate::look::{token, Look};
 use draw::{lane_chip, lane_head, lane_node};
-use layout::{nearest, pan_to, place, place_chips};
+use layout::{nearest, pan_to, place, place_at, place_chips, place_fitted};
 use paint::PaintPlan;
 use wears::{mark_of_node, mark_of_rule};
 
-pub(crate) use layout::clock;
+pub(crate) use layout::stamp;
 pub(crate) use wears::mix;
 
 /// What a lane's head says when a double press opens the lanes of the Job it stands for.
@@ -231,6 +231,28 @@ pub trait LanesHost: Sized + 'static {
         false
     }
 
+    /// Whether the canvas drawn under `id` is compact: no lane heads and no zoom rail, zoomed out (or not) to
+    /// the width it is given so the whole of it shows, each lane named by a slim label in its band's top left.
+    fn lanes_compact(&self, _id: &SharedString) -> bool {
+        false
+    }
+
+    /// Read only where the canvas is compact: whether it zooms to fit its width. Where it does not, it
+    /// stays at its own size, as tall as its frame, and drag and the wheel move it sideways.
+    fn lanes_fit(&self, _id: &SharedString) -> bool {
+        true
+    }
+
+    /// Whether `node` of the canvas under `id` is chosen: it wears a tick, in the accent hue, and says "Chosen".
+    fn lanes_chosen(&self, _id: &SharedString, _node: &str) -> bool {
+        false
+    }
+
+    /// What a corner badge's tooltip opens with, before the words of what changed.
+    fn changed_said(&self, _id: &SharedString) -> SharedString {
+        "Changed on this Job".into()
+    }
+
     /// A lane's head words, given what presses and keys the host has for them.
     fn head_words(&self, _id: &SharedString, _lane: &LaneView, _opens: bool, words: Stateful<Div>, _look: &Look, _cx: &Context<Self>) -> AnyElement {
         words.into_any_element()
@@ -252,6 +274,8 @@ struct Placement {
     lane_h: f32,
     width: f32,
     height: f32,
+    /// The room at the left the lane heads take: `HEAD`, or none where the canvas is compact.
+    head: f32,
 }
 
 impl Placement {
@@ -388,7 +412,18 @@ fn hooks_of(lanes: &JobLanesView, placement: &Placement, chips: &HashMap<String,
 pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesView, look: &Look, cx: &Context<H>) -> AnyElement {
     let state = host.lanes_state();
     let (frame_w, frame_h) = state.size.get();
-    let placement = place(&lanes.lanes, frame_h);
+    let compact = host.lanes_compact(id);
+    let fit = compact && host.lanes_fit(id);
+    // Fitted, the view is worked out from the frame's size each frame, so it follows the frame as it changes.
+    let (placement, fitted) = if fit {
+        let (placement, view) = place_fitted(&lanes.lanes, (frame_w, frame_h));
+        (placement, Some(view))
+    } else if compact {
+        (place_at(&lanes.lanes, frame_h, 0.), None)
+    } else {
+        (place(&lanes.lanes, frame_h), None)
+    };
+    let head = placement.head;
     let chips = place_chips(&lanes.rules, &placement);
     let ends: HashSet<String> = lanes.lanes.iter().flat_map(|lane| lane.nodes.iter()).filter(|node| matches!(node.kind, LaneNodeKind::Start | LaneNodeKind::End)).map(|node| node.id.clone()).collect();
     let mut all = state.seen.borrow_mut();
@@ -400,7 +435,8 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
         }
         seen.ask = None;
     }
-    let view = seen.view;
+    // Compact and not fitted, the canvas keeps its own size and its frame's top: it moves sideways only.
+    let view = fitted.unwrap_or(if compact { View { y: 0., zoom: 1., ..seen.view } } else { seen.view });
     let picked = seen.picked.clone();
     seen.hooks = hooks_of(lanes, &placement, &chips, picked.as_ref(), view);
     let first = lanes.lanes.first().and_then(|lane| lane.nodes.iter().find(|node| !ends.contains(&node.id))).map(|node| node.id.clone());
@@ -416,7 +452,9 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
     // Bands, moves and rules, under the nodes: painted in the pane, cut at the heads' edge.
     let size = Rc::clone(&state.size);
     let origin = Rc::clone(&state.origin);
-    let painted = PaintPlan::of(lanes, &placement, picked.as_ref(), look);
+    let chosen: HashSet<String> = lanes.lanes.iter().flat_map(|lane| lane.nodes.iter()).filter(|node| host.lanes_chosen(id, &node.id)).map(|node| node.id.clone()).collect();
+    let changed_said = host.changed_said(id);
+    let painted = PaintPlan::of(lanes, &placement, picked.as_ref(), &chosen, look);
     let paint_layer = canvas(
         move |bounds, window, _| {
             origin.set(bounds.origin);
@@ -429,8 +467,8 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
         },
         move |_, bounds: Bounds<Pixels>, window, _| {
             let mut clip = bounds;
-            clip.origin.x += px(HEAD);
-            clip.size.width = (clip.size.width - px(HEAD)).max(px(0.));
+            clip.origin.x += px(head);
+            clip.size.width = (clip.size.width - px(head)).max(px(0.));
             window.with_content_mask(Some(ContentMask { bounds: clip }), |window| painted.paint(bounds.origin, view, window));
         },
     )
@@ -446,7 +484,7 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
             let (x, y) = at(rect.x, rect.y);
             let mine = keyed && current.as_deref() == Some(node.id.as_str());
             let picked = picked.as_ref() == Some(&Pick::Node(node.id.clone()));
-            Some(lane_node(id, lane, node, (x - HEAD, y), *rect, z, mine, picked, look, cx))
+            Some(lane_node(id, lane, node, (x - head, y), *rect, z, mine, picked, chosen.contains(&node.id), &changed_said, look, cx))
         })
         .collect();
     let chip_views: Vec<AnyElement> = lanes
@@ -458,13 +496,15 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
             let mine = keyed && current.as_deref() == Some(edge.id.as_str());
             let picked = picked.as_ref() == Some(&Pick::Rule(edge.rule.clone()));
             let target = lanes.lanes.iter().find(|lane| edge.to.split('/').next() == Some(lane.id.as_str())).map_or(edge.to.clone(), |lane| lane.title.clone());
-            Some(lane_chip(id, edge, &target, (x - HEAD, y), chip.w * z, z, mine, picked, look, cx))
+            Some(lane_chip(id, edge, &target, (x - head, y), chip.w * z, z, mine, picked, &changed_said, look, cx))
         })
         .collect();
-    let heads: Vec<AnyElement> = lanes.lanes.iter().zip(&placement.bands).map(|(lane, band)| lane_head(host, id, lanes, lane, view.y + band.y * z, band.h * z, look, cx)).collect();
+    let heads: Vec<AnyElement> = lanes.lanes.iter().zip(&placement.bands).map(|(lane, band)| lane_head(host, id, lanes, lane, view.y + band.y * z, band.h * z, compact, look, cx)).collect();
 
-    let layer = div().absolute().top_0().bottom_0().right_0().left(px(HEAD)).overflow_hidden().children(nodes).children(chip_views);
-    let heads = div().absolute().top_0().left_0().bottom_0().w(px(HEAD)).overflow_hidden().children(heads);
+    // Compact, a lane's name is a slim label in its band, so it stands with the nodes and not over the left.
+    let (labels, heads) = if compact { (heads, Vec::new()) } else { (Vec::new(), heads) };
+    let layer = div().absolute().top_0().bottom_0().right_0().left(px(head)).overflow_hidden().children(nodes).children(chip_views).children(labels);
+    let heads = (!compact).then(|| div().absolute().top_0().left_0().bottom_0().w(px(HEAD)).overflow_hidden().children(heads));
 
     let (pressed, moved, lifted, wheel) = (id.clone(), id.clone(), id.clone(), id.clone());
     let keys_for = id.clone();
@@ -479,7 +519,10 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
         .on_mouse_down(MouseButton::Left, cx.listener(move |this, event: &MouseDownEvent, window, cx| {
             window.focus(&this.lanes_state().frame, cx);
             if let Some(seen) = this.lanes_state().seen.borrow_mut().get_mut(&pressed) {
-                seen.drag = Some((event.position, seen.view));
+                // A fitted canvas shows all of it and goes nowhere.
+                if !fit {
+                    seen.drag = Some((event.position, seen.view));
+                }
             }
         }))
         .on_mouse_move(cx.listener(move |this, event: &MouseMoveEvent, _, cx| {
@@ -498,7 +541,7 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
                 seen.drag = None;
             }
         }))
-        .on_scroll(cx.listener(move |this, event: &ScrollEvent, window, cx| {
+        .when(!fit, |pane| pane.on_scroll(cx.listener(move |this, event: &ScrollEvent, window, cx| {
             // `panOnScroll`: the wheel moves the canvas, the zoom stays.
             let delta = event.delta.pixel_delta(window.line_height());
             if let Some(seen) = this.lanes_state().seen.borrow_mut().get_mut(&wheel) {
@@ -507,7 +550,7 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
             }
             cx.stop_propagation();
             cx.notify();
-        }))
+        })))
         .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
             if this.lanes_state().frame.is_focused(window) && lanes_key(this, &keys_for, event, window, cx) {
                 cx.stop_propagation();
@@ -515,14 +558,14 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
         }))
         .child(paint_layer)
         .child(layer)
-        .child(heads);
-    let rail = div()
+        .children(heads);
+    let rail = (!compact).then(|| div()
         .flex_none()
         .flex()
         .flex_col()
         .gap(look.length(token::SPACE_3))
         .p(look.length(token::SPACE_3))
-        .child(rail_group(look, "How you are looking at this", vec![lanes_rail(id, "out", None, "\u{2212}", "Zoom out", look, cx), lanes_rail(id, "in", None, "+", "Zoom in", look, cx), lanes_rail(id, "fit", Some("maximize"), "", "Fit", look, cx)]));
+        .child(rail_group(look, "How you are looking at this", vec![lanes_rail(id, "out", None, "\u{2212}", "Zoom out", look, cx), lanes_rail(id, "in", None, "+", "Zoom in", look, cx), lanes_rail(id, "fit", Some("maximize"), "", "Fit", look, cx)])));
     // The frame is never taller than the body shows, so a pan to a node lands it where it can be seen.
     // Classic's keeps a floor of seven space-12s (`docs/concepts/native-bridge.md`, departures).
     labelled(
@@ -536,7 +579,7 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
                 .border_color(look.color(token::BORDER_DEFAULT))
                 .bg(look.color(token::BG_SUNKEN))
                 .overflow_hidden()
-                .child(rail)
+                .children(rail)
                 .child(pane),
             Role::Group,
             "Workflow",
@@ -689,9 +732,23 @@ fn lanes_press<H: LanesHost>(this: &mut H, id: &SharedString, current: String, p
 mod tests {
     use ipc::{LaneAutonomy, LaneEdge, LaneOutcome, LanePending};
 
-    use super::layout::{chip_size, pan_to};
+    use super::layout::{chip_size, meta, pan_to};
     use super::{Rect, View, HEAD, PAD};
     use super::wears::{chip_mark, mark_of_rule};
+
+    #[test]
+    fn a_rule_that_fired_on_an_earlier_day_says_its_day_and_date_on_says_todays() {
+        use chrono::{Duration, Local, SecondsFormat};
+        let at = |when: chrono::DateTime<Local>| ipc::Instant::carried(when.to_rfc3339_opts(SecondsFormat::Secs, false));
+        let fired = |when| meta(&LaneEdge { fired_at: Some(at(when)), ..edge() }).expect("a fired rule says when");
+        let today = Local::now();
+        let earlier = today - Duration::days(2);
+        crate::settings::time::hold(r#"{"hour12":true,"seconds":true,"date":false}"#);
+        assert_eq!(fired(today), today.format("%-I:%M:%S %p").to_string());
+        assert_eq!(fired(earlier), earlier.format("%b %-d %-I:%M:%S %p").to_string());
+        crate::settings::time::hold(r#"{"hour12":false,"seconds":false,"date":true}"#);
+        assert_eq!(fired(today), today.format("%b %-d %H:%M").to_string());
+    }
 
     fn edge() -> LaneEdge {
         LaneEdge {

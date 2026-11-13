@@ -4,7 +4,7 @@
 
 use super::{answer, press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 35] = [
+pub static STEPS: [Step; 48] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("The Job's glyph stands at the start of the line", Verb::Look, "img", "Job"),
     step("The repository is one picker at the start of the band; Model and Effort sit by the act and show their default", Verb::Look, "combobox", "Repository"),
@@ -40,6 +40,20 @@ pub static STEPS: [Step; 35] = [
     step("Esc shuts it", Verb::Key("escape"), "combobox", "Repository"),
     answer("A project removed since the window picked it: Fleet's refusal, in its own words, over the band", "refuse-member", "alert", "there is no project storefront"),
     step("Esc shuts the sheet", Verb::Key("escape"), "heading", "armada"),
+    // Tab: the request, the repository, Model, Effort, Queue for later, Draft, Start, then the card under the sheet.
+    step("The sheet again from rest, to walk the order Tab takes", Verb::Fresh, "heading", "armada"),
+    step("⌘N opens the sheet, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
+    step("A request that names a repository", Verb::Typed("Fix the flaky login test in sample-api"), "img", "Repository, finding"),
+    answer("Fleet found sample-api in the words", "found", "combobox", "Repository sample-api"),
+    step("Tab goes from the request to the repository", Verb::Key("tab"), "combobox", "Repository sample-api"),
+    step("Tab goes on to Model", Verb::Key("tab"), "combobox", "Model"),
+    step("Tab goes on to Effort", Verb::Key("tab"), "combobox", "Effort"),
+    step("Tab goes on to Queue for later", Verb::Key("tab"), "button", "Queue for later"),
+    step("Tab goes on to Draft", Verb::Key("tab"), "button", "Draft"),
+    step("Tab goes on to Start", Verb::Key("tab"), "button", "Start"),
+    step("Tab goes on to the card under the sheet", Verb::Key("tab"), "button", "New Job in sample-api"),
+    step("Tab from the card wraps to the request", Verb::Key("tab"), "textbox", "Request"),
+    step("Shift-Tab from the request goes back to the card, the way Tab came", Verb::Key("shift-tab"), "button", "New Job in sample-api"),
 ];
 
 /// The start flow: a start he makes himself runs at once, and Draft is the one way it is held on its start card.

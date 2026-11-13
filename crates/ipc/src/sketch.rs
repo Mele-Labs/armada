@@ -28,6 +28,15 @@ pub const SCENE_SHAPES: [&str; 6] = ["box", "pill", "circle", "diamond", "cylind
 /// The colours a node's or an edge's `color` may name.
 pub const SCENE_COLORS: [&str; 7] = ["blue", "teal", "green", "amber", "orange", "red", "grey"];
 
+/// How an edge's `line` may be drawn.
+pub const SCENE_LINES: [&str; 3] = ["solid", "dashed", "dotted"];
+
+/// Where an edge's `head` may sit.
+pub const SCENE_HEADS: [&str; 4] = ["end", "start", "both", "none"];
+
+/// How an edge's `path` may run between its nodes.
+pub const SCENE_PATHS: [&str; 3] = ["elbow", "straight", "curve"];
+
 /// The registry glyphs a node's `icon` may name.
 pub const SCENE_ICONS: [&str; 25] = [
     "activity", "bot", "box", "clock", "cpu", "eye", "file", "git-branch", "git-merge", "globe",
@@ -64,7 +73,7 @@ pub(crate) const NODE_FIELDS: [&str; 18] = [
     "id", "kind", "x", "y", "w", "h", "title", "body", "icon", "lang", "wire", "screen", "html", "css", "styles", "step",
     "shape", "color",
 ];
-pub(crate) const EDGE_FIELDS: [&str; 7] = ["id", "from", "to", "label", "flow", "step", "color"];
+pub(crate) const EDGE_FIELDS: [&str; 10] = ["id", "from", "to", "label", "flow", "step", "color", "line", "head", "path"];
 /// The one node field Fleet writes and an agent may not: the hash of the kept style set a `mock`
 /// was drawn with. It is in `scene.ts` and not in [`NODE_FIELDS`].
 const KEPT_FIELD: &str = "kept";
@@ -456,6 +465,9 @@ fn edge_problems(edges: &[Value], nodes: &[String], problems: &mut Vec<String>) 
         text(fields.get("label"), "label", &here, problems);
         number(fields.get("step"), "step", false, &here, problems);
         one_of(fields.get("color"), "color", &SCENE_COLORS, &here, problems);
+        one_of(fields.get("line"), "line", &SCENE_LINES, &here, problems);
+        one_of(fields.get("head"), "head", &SCENE_HEADS, &here, problems);
+        one_of(fields.get("path"), "path", &SCENE_PATHS, &here, problems);
         if let Some(flow) = fields.get("flow") {
             if !flow.is_boolean() {
                 problems.push(format!("{here}: `flow` is {}. It must be true or false", seen(Some(flow))));

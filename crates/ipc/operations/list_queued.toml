@@ -1,0 +1,8 @@
+[operations.list_queued]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The acts on a Job another Mac holds that wait here until that Mac can be reached, oldest first"
+notes = """
+`GET /queued`, optional `?mac=`, answered with `QueuedList { queued }`. Each `Queued { id, mac, act, since, refused? }`: `since` is when he made it in this Mac's milliseconds, and `refused` is what the Mac said when it refused the act on its turn, which stays until `take_back_queued`. A task edit of a project copy is not listed: it shows on the copy. A Bridge that missed `queued.changed` reads this on the resync.
+"""

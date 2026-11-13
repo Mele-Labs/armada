@@ -12,17 +12,20 @@ use ipc::{Delivered, Missed, StreamMessage};
 use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::{OtherMacs, Queries};
+use crate::daemon::{HostedSessions, OtherMacs, PullRequests, Queries, Sessions};
 use crate::served::Served;
 use crate::sockets::{resync, send};
 use crate::stream::Next;
 
-pub(crate) fn mounted<D: OtherMacs + Queries>() -> Router<Served<D>> {
+pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullRequests>() -> Router<Served<D>> {
     Router::new()
         .route("/other_mac/sessions", get(share_sessions::<D>))
         .route("/other_mac/bug_reports", get(share_bug_reports::<D>))
         .route("/other_mac/projects", get(share_projects::<D>))
         .route("/other_mac/project_act", post(project_act_from_mac::<D>))
+        .route("/other_mac/act", post(crate::mac_acts::act_from_mac::<D>))
+        .route("/queued", get(crate::mac_acts::list_queued::<D>))
+        .route("/queued/take_back", post(crate::mac_acts::take_back_queued::<D>))
         .route("/other_mac/events", get(share_events::<D>))
         .route("/other_mac/thread", get(share_job_thread::<D>))
         .route("/other_macs/sessions", put(hold_other_mac_sessions::<D>))

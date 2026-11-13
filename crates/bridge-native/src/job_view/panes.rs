@@ -97,13 +97,12 @@ enum Of {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum CheckTab {
+pub(super) enum CheckTab {
     Runs,
     Log,
 }
 
-/// A file as the panel reads it: its text, or why it was not opened. The shape of the
-/// `GET /sessions/repository_file` answer Fleet is adding, so the live read only changes the source.
+/// A file as the panel reads it: its text, or why it was not opened.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum FileRead {
     Text(String),
@@ -712,20 +711,42 @@ impl JobView {
         cx.notify();
     }
 
-    /// A file of the Job's repository, read-only. **The live read waits on Fleet's
-    /// `GET /sessions/repository_file`**; until it lands only the mock reads one.
+    /// A file of the Job's repository, read-only, as Fleet reads it (`GET /sessions/repository_file`).
+    /// A path a call named may be absolute, `~/` led or the repository's own; Fleet places each.
     pub(super) fn open_file(&mut self, path: String, window: &mut Window, cx: &mut Context<Self>) {
-        // Fleet serves no file read yet (`GET /sessions/repository_file` is unmerged), so a live press opens nothing.
-        if self.fleet.is_some() {
+        if self.fleet.is_none() {
+            let read = crate::mock::repository_file(&path)
+                .map(|read| read.map_or_else(|why| FileRead::Refused(Refusal::from_wire(&why)), FileRead::Text));
+            self.open_panel(Of::File { path, read }, window, cx);
             return;
         }
-        let read = crate::mock::repository_file(&path)
-            .map(|read| read.map_or_else(|why| FileRead::Refused(Refusal::from_wire(&why)), FileRead::Text));
-        self.open_panel(Of::File { path, read }, window, cx);
+        let Some(job) = self.shown.clone() else { return };
+        self.open_panel(Of::File { path: path.clone(), read: None }, window, cx);
+        let ask = format!("/sessions/repository_file?session_id={}&path={}", super::wire::encoded(&job), super::wire::encoded(&path));
+        let done: super::wire::Done = Box::new(move |this, answer, _, cx| {
+            let read = match answer {
+                Ok(body) => match ipc::decode::<ipc::RepositoryFile>("RepositoryFile", &body) {
+                    Ok(ipc::RepositoryFile::Text { text, .. }) => FileRead::Text(text),
+                    Ok(ipc::RepositoryFile::Picture { .. }) => FileRead::Refused(Refusal::Binary),
+                    Err(_) => FileRead::Refused(Refusal::Unreadable),
+                },
+                Err(_) => {
+                    let code = this.refused_code.clone().unwrap_or_default();
+                    FileRead::Refused(Refusal::from_wire(code.strip_prefix("fleet.repository_file_").unwrap_or(&code)))
+                }
+            };
+            if let Some(Panel { of: Of::File { path: open, read: shown }, .. }) = this.panes.panel.as_mut() {
+                if *open == path {
+                    *shown = Some(read);
+                    cx.notify();
+                }
+            }
+        });
+        self.get(ask, window, cx, done);
     }
 
     /// A Check the agent ran: its runs in this Job, and the pressed run's log, read again while it runs.
-    fn open_check(&mut self, name: String, run: u64, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_check(&mut self, name: String, run: u64, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let running = self.check_rows(&job, cx).iter().any(|row| matches!(row, SessionRow::Check { run: one, state: SessionCheckState::Running, .. } if *one == run));
         let (output, poll) = match self.port(cx) {
@@ -927,9 +948,16 @@ impl JobView {
             Of::Pull(_) => return None,
             Of::File { path, read } => {
                 let name = path.rsplit('/').next().unwrap_or(path).to_string();
-                (name.into(), Some(path.clone().into()), self.file_body(read.as_ref(), look))
+                (name.into(), Some(path.clone().into()), Self::file_body(read.as_ref(), look))
             }
-            Of::Check { name, run, tab, output, .. } => (format!("Check {name}").into(), None, self.check_body(&panel.job, name, *run, *tab, output.as_ref(), look, cx)),
+            Of::Check { name, run, tab, output, .. } => (format!("Check {name}").into(), None, Self::check_body(name, *run, *tab, output.as_ref(), &Self::runs_of(self.check_rows(&panel.job, cx), name), look, |which| {
+                cx.listener(move |this, _, _, cx| {
+                    if let Some(Panel { of: Of::Check { tab, .. }, .. }) = this.panes.panel.as_mut() {
+                        *tab = which;
+                        cx.notify();
+                    }
+                })
+            })),
             Of::Issue(issue) => (format!("Issue {}", issue.item.label()).into(), issue.item.manifest.as_ref().map(|id| id.as_str().to_string().into()), self.issue_body(issue, look, cx)),
             Of::Bay(bay) => (format!("Bay slot-{}", bay.slot).into(), Some(bay.manifest.as_str().to_string().into()), self.bay_body(bay, look, cx)),
             Of::ClashFile(clash) => {
@@ -1025,7 +1053,7 @@ impl JobView {
     }
 
     /// The file: its lines under their numbers, or why it was not opened (`FileBody`, read-only).
-    fn file_body(&self, read: Option<&FileRead>, look: &Look) -> AnyElement {
+    pub(super) fn file_body(read: Option<&FileRead>, look: &Look) -> AnyElement {
         let body = div().id("file-body").flex_1().min_h_0().overflow_y_scroll();
         match read {
             None => body.into_any_element(),
@@ -1079,17 +1107,21 @@ impl JobView {
         }
     }
 
-    /// The Check: its name and state, then Runs and Log (`CheckPanel`).
-    #[allow(clippy::too_many_arguments)]
-    fn check_body(&self, job: &SharedString, name: &str, run: u64, tab: CheckTab, output: Option<&Result<CheckOutput, String>>, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let runs: Vec<(u64, SessionCheckState, String)> = self
-            .check_rows(job, cx)
-            .into_iter()
+    /// The runs of the Check named `name`, from a Job's Check rows: run, state and when it started.
+    pub(super) fn runs_of(rows: Vec<SessionRow>, name: &str) -> Vec<(u64, SessionCheckState, String)> {
+        rows.into_iter()
             .filter_map(|row| match row {
                 SessionRow::Check { name: one, run, state, at, .. } if one == name => Some((run, state, at.as_str().to_string())),
                 _ => None,
             })
-            .collect();
+            .collect()
+    }
+
+    /// The Check: its name and state, then Runs and Log (`CheckPanel`). `pick` makes the press that shows a tab.
+    pub(super) fn check_body<F>(name: &str, run: u64, tab: CheckTab, output: Option<&Result<CheckOutput, String>>, runs: &[(u64, SessionCheckState, String)], look: &Look, pick: impl Fn(CheckTab) -> F) -> AnyElement
+    where
+        F: Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App) + 'static,
+    {
         let state = runs.iter().find(|(one, ..)| *one == run).map_or(SessionCheckState::Running, |(_, state, _)| *state);
         let (icon, said, hue, ground) = check_badge(state);
         let badge = labelled(
@@ -1124,12 +1156,7 @@ impl JobView {
                     .border_color(if front { look.color(token::ACCENT) } else { gpui::transparent_black() })
                     .cursor_pointer()
                     .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        if let Some(Panel { of: Of::Check { tab, .. }, .. }) = this.panes.panel.as_mut() {
-                            *tab = which;
-                            cx.notify();
-                        }
-                    }))
+                    .on_click(pick(which))
                     .child(word),
                 Role::Tab,
                 word,
@@ -1144,16 +1171,26 @@ impl JobView {
                     div()
                         .id(SharedString::from(format!("check-run:{one}")))
                         .flex()
-                        .items_center()
+                        .items_start()
                         .gap(look.length(token::SPACE_3))
                         .py(look.length(token::SPACE_2))
                         .when(ix + 1 < runs.len(), |row| row.border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
                         .text_size(look.length(token::TEXT_XS))
                         .line_height(look.length(token::LEADING_XS))
                         .text_color(look.color(token::FG_MUTED))
-                        .child(div().id(SharedString::from(format!("check-run-mark:{one}"))).flex_none().tooltip(tip(said)).child(glyph(look, mark, Size::Small, look.color(ink))))
-                        .child(div().flex_1().min_w_0().truncate().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(clock(at, now).unwrap_or_else(|| at.clone()))))
-                        .child(div().flex_none().child(SharedString::from(age(at, now).unwrap_or_default())))
+                        .child(div().id(SharedString::from(format!("check-run-mark:{one}"))).flex_none().h(look.length(token::LEADING_XS)).flex().items_center().tooltip(tip(said)).child(glyph(look, mark, Size::Small, look.color(ink))))
+                        // The time is what the row is for: it is never cut, and the age drops under it where the row is narrow.
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .flex_wrap()
+                                .justify_between()
+                                .gap_x(look.length(token::SPACE_3))
+                                .child(div().flex_none().whitespace_nowrap().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(clock(at, now).unwrap_or_else(|| at.clone()))))
+                                .child(div().flex_none().whitespace_nowrap().child(SharedString::from(age(at, now).unwrap_or_default()))),
+                        )
                 })),
                 Role::List,
                 "Runs",

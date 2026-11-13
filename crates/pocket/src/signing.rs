@@ -76,6 +76,10 @@ pub async fn signed(State(pairing): State<Pairing>, request: Request, next: Next
     };
     let to_a_mac = request.uri().path().starts_with(MAC_ROUTES);
     let Some((public_key, from_a_mac)) = key_of(&pairing, &device) else {
+        // The one 403 here: the phone's wait for Confirm reads it as the owner's Decline.
+        if !to_a_mac && pairing.declined(&device, (pairing.clock)()) {
+            return refuse(StatusCode::FORBIDDEN, "This Mac declined pairing with this phone.");
+        }
         let why = match to_a_mac {
             true => "This Mac is not paired with that one. Pair them again from Settings, Macs.",
             false => "This phone is not paired. Pair it again from Bridge, Settings, Phone.",

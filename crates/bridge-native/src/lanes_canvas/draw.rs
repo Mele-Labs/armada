@@ -33,14 +33,19 @@ pub(super) fn zoomed_glyph(icon: &'static str, z: f32, ink: Hsla, size: f32) -> 
 
 /// A lane's head, over the left of the frame at the lane's own height: its title and where its states
 /// are read from (`Heads`). A ticket's head opens a menu with Teach; the head of a Job this one started,
-/// where that Job has lanes, opens them on a double press or Enter.
+/// where that Job has lanes, opens them on a double press or Enter. `slim`, where the canvas has no heads,
+/// is the same words as a small label in the top left of the lane's band.
 #[allow(clippy::too_many_arguments)]
-pub(super) fn lane_head<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesView, lane: &LaneView, top: f32, height: f32, look: &Look, cx: &Context<H>) -> AnyElement {
+pub(super) fn lane_head<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesView, lane: &LaneView, top: f32, height: f32, slim: bool, look: &Look, cx: &Context<H>) -> AnyElement {
     let workflow = lane.kind == LaneKind::Workflow;
     let source = if lane.ended { "Ended".to_string() } else { lane.what.clone().unwrap_or_else(|| lane.source.clone()) };
     let opens = !lane.ticket && host.head_opens(lanes, lane, cx);
     let lines: Vec<&str> = lane.note.iter().map(String::as_str).chain(opens.then_some(super::OPENS_SAID)).collect();
     let said = (!lines.is_empty()).then(|| format!("{}\n{}", lane.title, lines.join("\n")));
+    let changed_said = host.changed_said(id);
+    if slim {
+        return slim_head(host, id, lane, top, &source, opens, &changed_said, look, cx);
+    }
     let changed = lane.changed.as_ref().map(|changed| {
         div()
             .id(SharedString::from(format!("lane-head-changed:{}", lane.id)))
@@ -48,7 +53,7 @@ pub(super) fn lane_head<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLa
             .top(look.length(token::SPACE_1))
             // Beside a wait, a change on this Job stands to its left.
             .right(if lane.pending.is_some() { look.length(token::SPACE_1) + look.length(token::SPACE_4) } else { look.length(token::SPACE_1) })
-            .tooltip(tip(format!("Changed on this Job\n{changed}")))
+            .tooltip(tip(format!("{changed_said}\n{changed}")))
             .child(glyph(look, "git-compare", Size::Small, look.color(token::STATUS_AWAITING_REVIEW)))
     });
     // What the lane's lifecycle waits on before it is kept or goes.
@@ -110,7 +115,7 @@ pub(super) fn lane_head<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLa
 
 /// One node: its shape, mark, name and what it waits for (`ItemNode`).
 #[allow(clippy::too_many_arguments)]
-pub(super) fn lane_node<H: LanesHost>(id: &SharedString, lane: &LaneView, node: &LaneNode, at: (f32, f32), rect: Rect, z: f32, mine: bool, picked: bool, look: &Look, cx: &Context<H>) -> AnyElement {
+pub(super) fn lane_node<H: LanesHost>(id: &SharedString, lane: &LaneView, node: &LaneNode, at: (f32, f32), rect: Rect, z: f32, mine: bool, picked: bool, chosen: bool, changed_said: &str, look: &Look, cx: &Context<H>) -> AnyElement {
     let dot = matches!(node.kind, LaneNodeKind::Start | LaneNodeKind::End);
     let ring = mine.then(|| ring(look, rect, at, z, dot));
     let s = |token| look.length(token) * z;
@@ -141,7 +146,7 @@ pub(super) fn lane_node<H: LanesHost>(id: &SharedString, lane: &LaneView, node: 
             });
         return div().children(ring).child(labelled(circle, Role::Image, node.label.clone())).into_any_element();
     }
-    let w = wears(look, node, picked);
+    let w = wears(look, node, picked, chosen);
     let card = node.kind == LaneNodeKind::Job;
     let pill = matches!(node.kind, LaneNodeKind::Tracker | LaneNodeKind::Forge);
     let hexagon = node.kind == LaneNodeKind::Watch;
@@ -152,8 +157,9 @@ pub(super) fn lane_node<H: LanesHost>(id: &SharedString, lane: &LaneView, node: 
         node.label,
         node.ticket.as_ref().map_or(String::new(), |ticket| format!(", ticket {}{}", ticket.label, if ticket.state.is_empty() { String::new() } else { format!(", {}", ticket.state) })),
         if node.ended { ", ended" } else { "" }
-    );
+    ) + if chosen { ", chosen" } else { "" };
     let mut lines = vec![node.label.clone()];
+    lines.extend(chosen.then(|| "Chosen".to_string()));
     if node.waiting.is_empty() {
         lines.extend(mark.map(|(_, said)| said.to_string()));
     } else {
@@ -268,7 +274,7 @@ pub(super) fn lane_node<H: LanesHost>(id: &SharedString, lane: &LaneView, node: 
             .border(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::STATUS_AWAITING_REVIEW))
             .bg(look.color(token::BG_RAISED))
-            .tooltip(tip(format!("Changed on this Job\n{changed}")))
+            .tooltip(tip(format!("{changed_said}\n{changed}")))
             .child(zoomed_glyph("git-compare", z, look.color(token::STATUS_AWAITING_REVIEW), 14.))
     });
     // A ring on the corner, `right` in from the node's right edge, beside `changed` where both are there.
@@ -293,6 +299,8 @@ pub(super) fn lane_node<H: LanesHost>(id: &SharedString, lane: &LaneView, node: 
             said,
         )
     };
+    // A tick on the top left corner, where nothing else stands, in the accent hue the keys' ring wears.
+    let chosen = chosen.then(|| corner("chosen", px(rect.w * z) - s(token::SPACE_6) + s(token::SPACE_2), look.color(token::ACCENT), look.color(token::ACCENT), "check", "Chosen".to_string()));
     let alone = -s(token::SPACE_2);
     // The places that set this state otherwise: neutral, as nothing is wrong with it.
     let differs = (!node.differs.is_empty()).then(|| {
@@ -304,12 +312,12 @@ pub(super) fn lane_node<H: LanesHost>(id: &SharedString, lane: &LaneView, node: 
         let right = if node.changed.is_some() || !node.differs.is_empty() { s(token::SPACE_6) * 2. - s(token::SPACE_2) } else { alone };
         corner("clash", right, look.color(token::NOTICE_CAUTION), look.color(token::NOTICE_CAUTION), "triangle-alert", clash.clone())
     });
-    div().children(ring).child(body).children(changed).children(differs).children(clash).into_any_element()
+    div().children(ring).child(body).children(chosen).children(changed).children(differs).children(clash).into_any_element()
 }
 
 /// One rule's chip on its edge: a diamond wearing its status, its name and when or what it waits for (`RuleEdge`).
 #[allow(clippy::too_many_arguments)]
-pub(super) fn lane_chip<H: LanesHost>(id: &SharedString, edge: &LaneEdge, target: &str, centre: (f32, f32), wide: f32, z: f32, mine: bool, picked: bool, look: &Look, cx: &Context<H>) -> AnyElement {
+pub(super) fn lane_chip<H: LanesHost>(id: &SharedString, edge: &LaneEdge, target: &str, centre: (f32, f32), wide: f32, z: f32, mine: bool, picked: bool, changed_said: &str, look: &Look, cx: &Context<H>) -> AnyElement {
     let s = |token| look.length(token) * z;
     let (hue, dashed) = rule_hue(look, edge, false);
     let mark = chip_mark(edge);
@@ -322,7 +330,7 @@ pub(super) fn lane_chip<H: LanesHost>(id: &SharedString, edge: &LaneEdge, target
     }
     lines.extend(meta.clone());
     if let Some(changed) = &edge.changed {
-        lines.push("Changed on this Job".to_string());
+        lines.push(changed_said.to_string());
         lines.push(changed.clone());
     }
     if !edge.differs.is_empty() {
@@ -402,4 +410,48 @@ pub(super) fn lane_chip<H: LanesHost>(id: &SharedString, edge: &LaneEdge, target
         .child(labelled(chip.aria_selected(picked), Role::Button, name))
         .into_any_element()
 
+}
+
+/// A lane's name as a slim label in the top left of its band (`lane_head`, `slim`): its title, with the marks of a
+/// change or a wait beside it, and the rest in the tooltip. The host's presses and keys reach it as they reach a head.
+#[allow(clippy::too_many_arguments)]
+fn slim_head<H: LanesHost>(host: &H, id: &SharedString, lane: &LaneView, top: f32, source: &str, opens: bool, changed_said: &str, look: &Look, cx: &Context<H>) -> AnyElement {
+    let mut lines = vec![lane.title.clone(), source.to_string()];
+    lines.extend(lane.note.iter().cloned());
+    lines.extend(opens.then(|| super::OPENS_SAID.to_string()));
+    lines.extend(lane.changed.as_ref().map(|changed| format!("{changed_said}\n{changed}")));
+    lines.extend(lane.pending.map(pending_said).map(String::from));
+    let words = div()
+        .id(SharedString::from(format!("lane-head-words:{}", lane.id)))
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_1))
+        .max_w_full()
+        .px(look.length(token::SPACE_2))
+        .rounded(look.length(token::RADIUS_SM))
+        .bg(look.color(token::BG_BASE))
+        .tooltip(tip(lines.join("\n")))
+        .child(
+            div()
+                .min_w_0()
+                .truncate()
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .text_color(look.color(if lane.ended { token::FG_SUBTLE } else { token::FG_DEFAULT }))
+                .child(SharedString::from(lane.title.clone())),
+        )
+        .children(lane.changed.as_ref().map(|_| glyph(look, "git-compare", Size::Small, look.color(token::STATUS_AWAITING_REVIEW))))
+        .children(lane.pending.map(|_| glyph(look, "clock", Size::Small, look.color(token::FG_SUBTLE))));
+    let words = host.head_words(id, lane, opens, words, look, cx);
+    let label = div()
+        .id(SharedString::from(format!("lane-head:{}", lane.id)))
+        .absolute()
+        .left(look.length(token::SPACE_1))
+        .top(px(top) + look.length(token::SPACE_1))
+        .max_w_full()
+        .font_family(mono(look))
+        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .child(words);
+    labelled(label, Role::Group, lane.title.clone()).into_any_element()
 }

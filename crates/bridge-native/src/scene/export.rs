@@ -1770,7 +1770,7 @@ mod tests {
 
     #[test]
     fn mermaid_keeps_an_arrows_label() {
-        let edge = SceneEdge { id: "e".into(), from: "a".into(), to: "b".into(), label: Some("sends it".into()), flow: None, step: None, color: None };
+        let edge = SceneEdge { id: "e".into(), from: "a".into(), to: "b".into(), label: Some("sends it".into()), flow: None, step: None, color: None, line: None, head: None, path: None };
         let text = mermaid(&scene(vec![node("a", "A"), node("b", "B")], vec![edge]), &Look::dark());
         assert!(text.starts_with("flowchart "), "{text}");
         assert!(text.contains(r#"n1 -- "sends it" --> n2"#), "{text}");
@@ -1778,7 +1778,7 @@ mod tests {
 
     #[test]
     fn mermaid_gives_an_arrow_its_hue_as_the_theme_holds_it() {
-        let edge = SceneEdge { id: "e".into(), from: "a".into(), to: "b".into(), label: None, flow: None, step: None, color: Some(SceneColor::Red) };
+        let edge = SceneEdge { id: "e".into(), from: "a".into(), to: "b".into(), label: None, flow: None, step: None, color: Some(SceneColor::Red), line: None, head: None, path: None };
         let look = Look::dark();
         let text = mermaid(&scene(vec![node("a", "A"), node("b", "B")], vec![edge]), &look);
         assert!(text.contains(&format!("linkStyle 0 stroke:{}", css(look.color(token::SKETCH_RED)))), "{text}");

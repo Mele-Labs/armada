@@ -15,6 +15,7 @@ mod acts;
 mod bands;
 mod bar;
 mod calls;
+mod call_tabs;
 mod callchip;
 mod cards;
 pub(crate) mod composer;
@@ -31,6 +32,11 @@ mod fork;
 pub(crate) mod format;
 pub(crate) mod head;
 mod judge;
+mod look_dock;
+mod look_done;
+mod look_mix;
+mod look_question;
+mod listening;
 mod keys;
 mod lines;
 mod menus;
@@ -38,6 +44,7 @@ pub(crate) mod offer;
 mod perm;
 mod pictures;
 mod pinned;
+mod place;
 mod plan;
 mod plan_edit;
 mod plan_marks;
@@ -61,6 +68,8 @@ mod sketch_read;
 mod subagent_read;
 mod zoom;
 mod panes;
+mod pane_store;
+mod pane_tree;
 mod pulls;
 mod issues;
 mod system;
@@ -71,10 +80,12 @@ mod pr_panel;
 mod report_brief;
 mod side;
 mod spine;
+mod spoken;
 mod start_card;
 mod workflow;
 mod tabs;
 mod view_tabs;
+pub use listening::scene as listen_scene;
 pub use side::JobSide;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;
@@ -137,6 +148,8 @@ pub(crate) enum Extra {
     Refreshing,
     /// What the Job waits on that is not the person, last of all.
     Waiting,
+    /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
+    Spoken(u64, bool),
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -286,6 +299,24 @@ fn echoed(items: &[ThreadItem], text: &str) -> usize {
         .count()
 }
 
+/// The Job kept open at the last run, for the list to open once Fleet lists it.
+pub(crate) fn place_kept_open() -> Option<String> {
+    place::Kept::read().open
+}
+
+/// What a walk's reopen builds the next screen from: where the Job view stands now.
+pub(crate) fn hand_over_place(cx: &mut App) {
+    if let Some(view) = JobView::live(cx) {
+        let kept = view.update(cx, |view, cx| view.place_now(cx));
+        cx.set_global(place::Reopened(kept));
+    }
+}
+
+/// The Job a walk's reopen left open, for the screen it builds to open again.
+pub(crate) fn reopened_job(cx: &App) -> Option<String> {
+    place::reopened(cx).and_then(|kept| kept.open)
+}
+
 /// Tell Fleet a Job's view is on screen or off it (`view_session`).
 fn tell_fleet(port: Option<u16>, job: &str, on: bool, cx: &mut App) {
     Note::info("a Job's view was told to Fleet").field("job", job).field("on", on).emit();
@@ -324,6 +355,8 @@ pub struct JobView {
     switched: Option<std::time::Instant>,
     /// How wide the thread was last drawn: the words' column grows with it, as Electron's does with its pane.
     pane: Option<gpui::Pixels>,
+    /// The height of the shown thread's list when it was last drawn: a pinned sketch is cut to it.
+    pane_height: Option<gpui::Pixels>,
     /// The list's pick count last acted on: a new pick puts the keys in the box (his word, 10 Nov).
     picked: u64,
     /// The right column's top pane: Open, Done or Deferred.
@@ -341,6 +374,8 @@ pub struct JobView {
     row_focus: FocusHandle,
     /// The thread's strip, which scrolls sideways once its tabs are wider than the pane.
     row_strip: gpui::ScrollHandle,
+    /// Where he left off, kept between runs.
+    place: place::Place,
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
@@ -384,6 +419,8 @@ pub struct JobView {
     /// A subagent's thread open on its sheet, and the last threads read, newest last.
     subagent_reading: Option<subagent_read::Reading>,
     subagents_read: Vec<(String, subagent_read::SubagentRead)>,
+    /// The origin's thread as it stood where a fork began (`upto`), by origin and message: Fleet keeps no such read.
+    forks_read: HashMap<String, Vec<ThreadItem>>,
     /// The reads kept going for subagents open as tabs beside the thread, by `job/subagent`.
     subagent_tab_polls: HashMap<String, gpui::Task<()>>,
     /// The Plan, Changes, Files and Checks bodies' state, and the panel one of their rows opened.
@@ -392,6 +429,11 @@ pub struct JobView {
     spine: spine::Spine,
     /// The Jobs a walk reads again for a moment when they come on screen, standing in for Fleet's read.
     mock_reading: HashSet<String>,
+    /// Listen: what is read out, and the Jobs as they were when it was last looked at.
+    listen: Entity<crate::listen::engine::Listener>,
+    heard: crate::listen::Seen,
+    /// A walk's Jobs as its scenes have changed them, standing in for the records Fleet would send.
+    mock_records: Option<Vec<SessionRecord>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -431,6 +473,10 @@ impl JobView {
             composer.catalog.scripts = catalogue.talk;
         }
         subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| this.followed(window, cx)));
+        let speaker = if mock.is_some() && fleet.is_none() { crate::listen::Speaker::Mock(crate::listen::scenes::begin()) } else { crate::listen::Speaker::Helper };
+        let listen = cx.new(|_| crate::listen::engine::Listener::new(speaker));
+        subscriptions.push(cx.observe(&listen, |_, _, cx| cx.notify()));
+        subscriptions.push(cx.subscribe(&listen, |this, _, _: &crate::listen::engine::Changed, cx| this.listen_changed(cx)));
         let lanes = lanes::Lanes::new(cx);
         subscriptions.push(cx.on_focus(&lanes.canvas.frame, window, |this, _, cx| {
             this.lanes.canvas.keyed.set(true);
@@ -445,6 +491,7 @@ impl JobView {
                 this.synced(cx);
                 this.review_sync(window, cx);
             }));
+            subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {
             // Back from Settings, the card that sent him there goes.
@@ -475,6 +522,9 @@ impl JobView {
                 tell_fleet(port, &job, false, cx);
             }
         }));
+        // Where he is is noted on each change, which is cheap where nothing moved, and written a moment later.
+        let own = cx.entity();
+        subscriptions.push(cx.observe(&own, |this, _, cx| this.keep_place(cx)));
         Self::offer_open_mod(cx);
         cx.set_global(view_tabs::LiveJobView(cx.weak_entity()));
         let mock_changes = match &mock {
@@ -508,6 +558,7 @@ impl JobView {
             visiting: None,
             switched: None,
             pane: None,
+            pane_height: None,
             picked: 0,
             zone: side::Zone::default(),
             tabs_closed: tabs::Closed::default(),
@@ -517,6 +568,7 @@ impl JobView {
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
             row_strip: gpui::ScrollHandle::new(),
+            place: place::Place::begin(remember, cx),
             focus: cx.focus_handle(),
             pop: None,
             open_group_set: None,
@@ -542,10 +594,14 @@ impl JobView {
             sketch_reading: None,
             subagent_reading: None,
             subagents_read: Vec::new(),
+            forks_read: HashMap::new(),
             subagent_tab_polls: HashMap::new(),
             panes: panes::Panes::default(),
             spine: spine::Spine::new(remember, cx),
             mock_reading: HashSet::new(),
+            listen,
+            heard: crate::listen::Seen::default(),
+            mock_records: None,
             _subscriptions: subscriptions,
         }
     }
@@ -640,6 +696,7 @@ impl JobView {
 
     /// The list opened another Job, or the same Job's record moved.
     fn followed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.listen_sync(cx);
         let (opened, picks) = {
             let list = self.list.read(cx);
             (list.opened_id(), list.picks())
@@ -654,6 +711,24 @@ impl JobView {
             self.picked = picks;
             self.to_composer(window, cx);
         }
+        // A Job `session.removed` took away leaves nothing of its tabs or page behind.
+        for id in self.list.update(cx, |list, _| list.take_gone()) {
+            self.pages.remove(&id);
+            self.row_tabs.remove(&id);
+            self.mock.remove(id.as_ref());
+            self.mock_needs.remove(id.as_ref());
+            self.compact_refused.remove(&id);
+        }
+    }
+
+    /// Why acts on the Job on screen are off, as [`Self::off_here`] says for the one shown.
+    pub(super) fn off_shown(&self, cx: &App) -> Option<SharedString> {
+        self.shown.as_ref().and_then(|id| self.off_here(id, cx))
+    }
+
+    /// Why acts on the Job on screen are off, where it runs on another Mac (`crate::pairing`).
+    pub(super) fn off_here(&self, id: &str, cx: &App) -> Option<SharedString> {
+        self.list.read(cx).record(id).and_then(|job| crate::pairing::refusal(job, cx)).map(Into::into)
     }
 
     /// Put another Job on screen: its place was kept, so this swaps what is drawn and the box's
@@ -667,6 +742,9 @@ impl JobView {
         self.end_zoom();
         self.shown = to.clone();
         self.switched = Some(started);
+        if let Some(id) = &to {
+            self.place_arrive(id);
+        }
         // Each Job has its own tabs, so the top strip starts at its head with the tab in front in view.
         self.panes.top_tabs.set_offset(gpui::point(gpui::px(0.), gpui::px(0.)));
         if let Some(at) = self.zone_shown().and_then(|zone| side::Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).position(|one| one == zone)) {
@@ -717,6 +795,7 @@ impl JobView {
 
     /// Fleet or the list moved: draw the pages again where they changed.
     fn synced(&mut self, cx: &mut Context<Self>) {
+        self.listen_sync(cx);
         let ids: Vec<SharedString> = self.pages.keys().cloned().collect();
         for id in ids {
             self.sync(&id, cx);
@@ -740,6 +819,7 @@ impl JobView {
     /// changed and from no earlier, so a tail does not cost a thread's worth of layout.
     fn sync(&mut self, id: &SharedString, cx: &mut Context<Self>) {
         self.want_needs(id, cx);
+        self.want_looks(id, cx);
         self.want_watches(id, cx);
         let dirty = self.fleet.as_ref().and_then(|fleet| fleet.update(cx, |fleet, _| fleet.take_dirty(id)));
         let added = self.fleet.as_ref().map_or(0, |fleet| fleet.update(cx, |fleet, _| fleet.take_prepended(id)));
@@ -786,6 +866,8 @@ impl JobView {
         if bands.end {
             extras.push(Extra::End);
         }
+        // What was said is the newest thing in the thread, so it stands last and the thread follows it.
+        extras.extend(self.listen.read(cx).cards_of(id).map(|card| Extra::Spoken(card.id, card.failed())));
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);
@@ -798,7 +880,8 @@ impl JobView {
         // Items put in front, of this Job or the one above it, leave the person where they were reading. So
         // does a row drawn again under the top: gpui's splice puts the top at the range's start otherwise.
         let shift = (lead + before + added) as isize - (page.lead + page.before) as isize;
-        let top = page.version.is_some().then(|| page.list.logical_scroll_top());
+        // A thread that follows its tail needs no top kept: putting one back would stop it following.
+        let top = (page.version.is_some() && !page.list.is_following_tail()).then(|| page.list.logical_scroll_top());
         page.list.splice(from_list..page.count, total - from_list);
         if let Some(top) = top.filter(|top| shift != 0 || added_earlier > 0 || top.item_ix >= from_list) {
             let item_ix = ((top.item_ix as isize + shift).max(0) as usize).min(total.saturating_sub(1));
@@ -822,6 +905,7 @@ impl JobView {
                     weak.update(cx, |this, cx| this.want_earlier(&job, cx)).ok();
                 }
             });
+            self.place_scroll(id, cx);
         }
         if let Some(arrived) = arrived {
             if let Some(page) = self.pages.get_mut(id) {
@@ -1030,6 +1114,15 @@ impl Render for JobView {
             self.pane = pane;
             self.pages.values().for_each(|page| page.list.remeasure());
             window.request_animation_frame();
+        }
+        // A pinned sketch is cut to the thread's height, so a change of it measures the thread again.
+        let room = self.pages.get(&id).map(|page| page.list.viewport_bounds().size.height).filter(|room| *room > gpui::px(0.));
+        if room.is_some() && room != self.pane_height {
+            self.pane_height = room;
+            if self.thread(&id, cx).is_some_and(|held| held.head.sketch.is_some()) {
+                self.pages.values().for_each(|page| page.list.remeasure());
+                window.request_animation_frame();
+            }
         }
         let loaded = self.thread(&id, cx).is_some() && self.pages.get(&id).is_some_and(|page| page.version.is_some());
         // A refused read was said in a toast: the shapes stop, and the thread draws once a read is answered.
