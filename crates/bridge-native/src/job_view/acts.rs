@@ -157,8 +157,8 @@ pub(super) fn button(
         .children(chip.map(|text| kbd(look, text)))
 }
 
-/// A row of answers on a Job that runs on another Mac: dimmed, and its tooltip says where it runs. A press on one
-/// still goes through the act's own post, which refuses it with the same sentence.
+/// A row of answers, or one press, that Fleet does not carry to the Mac a Job runs on: dimmed, and its tooltip says
+/// where it runs. A press on one still goes through the act's own post, which refuses it with the same sentence.
 pub(super) fn gated(row: Stateful<gpui::Div>, off: Option<SharedString>) -> Stateful<gpui::Div> {
     row.when_some(off, |row, why| row.opacity(0.4).tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(why.clone()).build(window, cx)))
 }
@@ -421,11 +421,16 @@ impl JobView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(why) = self.off_here(&job, cx) {
+        if let Some(why) = self.off_to(&job, route, cx) {
             failed(self, why, cx);
             return;
         }
         let Some(fleet) = self.fleet.clone() else {
+            if let Ok(body) = &body {
+                if self.mock_keep(&job, route, body, cx) {
+                    return;
+                }
+            }
             match crate::mock::act_refused(route) {
                 Some(why) => failed(self, why.into(), cx),
                 None if route == "/sessions/sketch/answer" => self.mock_sketch_answered(&job, body, cx),

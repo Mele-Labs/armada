@@ -28,15 +28,15 @@ pub(crate) async fn open_terminal<D: Sessions>(
 
 /// 200 with the Job's id and its `t1`'s run id. 422 for both or neither of `manifest_id` and `dir`, a
 /// `dir` that is not an absolute directory, a size with no cells, and as `start_session`'s refusals.
-pub(crate) async fn start_terminal_job<D: Sessions>(
+pub(crate) async fn start_side_job<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let start: ipc::StartTerminalJob = match ipc::decode_body("a quick terminal to start", &body) {
+    let start: ipc::StartSideJob = match ipc::decode_body("a Side Job to start", &body) {
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().start_terminal_job(start).await {
+    match served.shared().start_side_job(start).await {
         Ok(started) => answer(StatusCode::OK, &started, served.run_id()),
         Err(refusal) => refused(refusal),
     }

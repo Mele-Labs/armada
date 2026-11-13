@@ -37,6 +37,10 @@ fn lease(pool: &Pool) -> std::path::PathBuf {
 fn built(at: &Path, bytes: usize, days_ago: u32) {
     std::fs::create_dir_all(at.parent().unwrap()).unwrap();
     std::fs::write(at, vec![0u8; bytes]).unwrap();
+    // Cargo tags the build folder it makes, and the sweep finds one by the tag.
+    if let Some(target) = at.ancestors().find(|dir| dir.file_name().is_some_and(|name| name == "target")) {
+        std::fs::write(target.join("CACHEDIR.TAG"), "Signature: 8a477f597d28d172789f06886806bc55\n").unwrap();
+    }
     let then = SystemTime::now() - DAY * days_ago;
     std::fs::File::options()
         .write(true)

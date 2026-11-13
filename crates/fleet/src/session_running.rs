@@ -18,7 +18,7 @@ mod ended;
 mod job_shell;
 mod job_terminals;
 mod kept_terminals;
-mod quick_terminal;
+mod side_job;
 pub(crate) mod plain;
 
 use std::collections::BTreeMap;
@@ -505,7 +505,7 @@ where
                 Some(adapter_traits::slot_path(root.trim_end_matches('/'), slot))
             })
             .unwrap_or(session.cwd);
-        // A quick terminal started in a folder of its repository stands in that folder, in the
+        // A Side Job started in a folder of its repository stands in that folder, in the
         // slot as in the checkout, while the folder is there.
         let under = store.hosting(session_id).ok().flatten().and_then(|hosting| hosting.terminal_dir);
         Ok(match under {
