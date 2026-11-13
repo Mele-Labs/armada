@@ -202,7 +202,10 @@ fn versions_rows(versions: &[WorkflowVersion]) -> Vec<crate::dropdown::Entry> {
                 _ => format!("Version {}", one.version),
             };
             let row = Row::new(version_id(n), name).icon("clock");
-            Entry::Row(match super::time::stamp_at(one.at.as_str()) {
+            // His time format without seconds, as the Macs page stamps.
+            let format = ipc::time_format::TimeFormat { seconds: false, ..super::time::held() };
+            let at = chrono::DateTime::parse_from_rfc3339(one.at.as_str()).ok().map(|at| super::time::stamp_of(at.with_timezone(&chrono::Local), format, chrono::Local::now()));
+            Entry::Row(match at {
                 Some(at) => row.detail(at),
                 None => row,
             })
