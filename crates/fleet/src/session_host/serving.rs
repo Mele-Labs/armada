@@ -33,7 +33,7 @@ mod starting;
 mod telling;
 
 pub(crate) use batching::NoticeBatches;
-pub(crate) use starting::QuickStart;
+pub(crate) use starting::SideStart;
 
 /// A session id that names nothing. A 422.
 pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";

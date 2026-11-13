@@ -65,7 +65,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         from_job: None,
         from_tab: None,
         mod_of_bay: false,
-        quick_terminal: false,
+        side_job: false,
         auto_land: false,
         activity: None,
         build: None,
