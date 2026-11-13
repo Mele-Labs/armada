@@ -267,7 +267,7 @@ fn kits_definition_beats_the_repositorys_by_id() {
         for (scope, said) in if repository_first {
             saves
         } else {
-            [saves[1], saves[0]]
+            [saves[1].clone(), saves[0].clone()]
         } {
             save(
                 repository.path(),
@@ -279,7 +279,7 @@ fn kits_definition_beats_the_repositorys_by_id() {
             .expect("saved");
         }
         let (held, _, _) =
-            workflows_again(repository.path(), kit.path(), &roster(), &manifest, &[]);
+            workflows_again(repository.path(), kit.path(), &roster(), &manifest, &[], &[]);
         assert_eq!(
             label(&held, "shared"),
             ("Kit's".to_string(), WorkflowSource::Kit),
@@ -408,6 +408,7 @@ fn a_bad_file_is_left_out_with_its_reason_and_the_others_stand() {
         &roster(),
         &manifest(&repository),
         &[],
+        &[],
     );
 
     assert_eq!(label(&held, "fine").1, WorkflowSource::Repository);
@@ -518,14 +519,14 @@ fn removing_a_copy_deletes_every_file_in_that_place_declaring_the_id_and_nothing
         std::fs::write(dir.join(name), defining(id, "X", None)).expect("a definition");
     }
 
-    let gone = remove(repository.path(), kit.path(), &roster(), WorkflowScope::Kit, "x").expect("removed");
+    let gone = remove(repository.path(), kit.path(), &roster(), &WorkflowScope::Kit, "x").expect("removed");
 
     assert!(gone.ends_with("also-mine.json") || gone.ends_with("mine.json"), "{gone}");
     assert_eq!(files_in(&in_kit), ["other.json"]);
     assert_eq!(files_in(&in_repository), ["x.json"], "the other place is not touched");
-    let again = remove(repository.path(), kit.path(), &roster(), WorkflowScope::Kit, "x").expect_err("none left");
+    let again = remove(repository.path(), kit.path(), &roster(), &WorkflowScope::Kit, "x").expect_err("none left");
     assert!(matches!(again, WorkflowNotRemoved::NotHere), "{again:?}");
-    let nowhere = remove(repository.path(), kit.path(), &roster(), WorkflowScope::Kit, "z").expect_err("no such id");
+    let nowhere = remove(repository.path(), kit.path(), &roster(), &WorkflowScope::Kit, "z").expect_err("no such id");
     assert!(matches!(nowhere, WorkflowNotRemoved::NotHere), "{nowhere:?}");
 }
 
@@ -535,13 +536,13 @@ fn removing_a_copy_deletes_every_file_in_that_place_declaring_the_id_and_nothing
 fn removing_from_a_place_with_no_folder_or_only_a_broken_file_deletes_nothing() {
     let repository = a_repository();
     let kit = TempDir::new();
-    let none = remove(repository.path(), kit.path(), &roster(), WorkflowScope::Repository, "x").expect_err("no folder");
+    let none = remove(repository.path(), kit.path(), &roster(), &WorkflowScope::Repository, "x").expect_err("no folder");
     assert!(matches!(none, WorkflowNotRemoved::NotHere), "{none:?}");
     assert!(!repository.path().join(".armada").exists(), "a delete made no folder");
     let in_kit = kit.path().join(KIT_WORKFLOWS);
     std::fs::create_dir_all(&in_kit).expect("kit folder");
     std::fs::write(in_kit.join("x.json"), "workflow_id: [").expect("a broken file");
-    let broken = remove(repository.path(), kit.path(), &roster(), WorkflowScope::Kit, "x").expect_err("defines nothing");
+    let broken = remove(repository.path(), kit.path(), &roster(), &WorkflowScope::Kit, "x").expect_err("defines nothing");
     assert!(matches!(broken, WorkflowNotRemoved::NotHere), "{broken:?}");
     assert_eq!(files_in(&in_kit), ["x.json"]);
 }
@@ -559,19 +560,19 @@ fn removing_a_file_deletes_a_broken_copy_in_that_place_and_nothing_outside_it() 
     std::fs::write(in_kit.join("broken.json"), "workflow_id: [").expect("a broken file");
     std::fs::write(in_repository.join("broken.json"), "workflow_id: [").expect("a broken file");
 
-    let elsewhere = remove_file(repository.path(), kit.path(), WorkflowScope::Kit, &in_repository.join("broken.json"))
+    let elsewhere = remove_file(repository.path(), kit.path(), &WorkflowScope::Kit, &in_repository.join("broken.json"))
         .expect_err("another place's file");
     assert!(matches!(elsewhere, WorkflowNotRemoved::NotHere), "{elsewhere:?}");
-    let escaping = remove_file(repository.path(), kit.path(), WorkflowScope::Kit, &in_kit.join("../broken.json"))
+    let escaping = remove_file(repository.path(), kit.path(), &WorkflowScope::Kit, &in_kit.join("../broken.json"))
         .expect_err("not in the folder");
     assert!(matches!(escaping, WorkflowNotRemoved::NotHere), "{escaping:?}");
     assert_eq!(files_in(&in_kit), ["broken.json"]);
 
-    let gone = remove_file(repository.path(), kit.path(), WorkflowScope::Kit, &in_kit.join("broken.json")).expect("removed");
+    let gone = remove_file(repository.path(), kit.path(), &WorkflowScope::Kit, &in_kit.join("broken.json")).expect("removed");
     assert!(gone.ends_with("broken.json"));
     assert!(files_in(&in_kit).is_empty());
     assert_eq!(files_in(&in_repository), ["broken.json"], "the other place is not touched");
-    let again = remove_file(repository.path(), kit.path(), WorkflowScope::Kit, &in_kit.join("broken.json")).expect_err("gone");
+    let again = remove_file(repository.path(), kit.path(), &WorkflowScope::Kit, &in_kit.join("broken.json")).expect_err("gone");
     assert!(matches!(again, WorkflowNotRemoved::NotHere), "{again:?}");
 }
 
@@ -601,4 +602,80 @@ fn a_copy_of_armadas_is_made_in_kit_by_a_save_and_a_reset_puts_its_text_back() {
         .expect("reset");
     assert!(reset.replaced);
     assert_eq!(std::fs::read_to_string(&file).expect("the file").trim(), text.trim());
+}
+
+/// **A save for a project is written under Kit's `projects/<id>/`**, never the repository, and a
+/// repository that project holds then runs it over Kit's and its own.
+#[test]
+fn a_save_for_a_project_is_written_under_kits_projects_folder_and_the_repository_then_runs_it() {
+    let repository = a_repository();
+    let kit = TempDir::new();
+    let manifest = manifest(&repository);
+    let storefront = || WorkflowScope::Project { id: String::from("storefront") };
+    for (scope, said) in [(WorkflowScope::Repository, "The repository's"), (WorkflowScope::Kit, "Kit's"), (storefront(), "The project's")] {
+        save(repository.path(), kit.path(), &manifest, &roster(), &asking(scope, defining("bug", said, None), false)).expect("saves");
+    }
+    let saved_at = kit.path().join(KIT_WORKFLOWS).join("projects").join("storefront");
+    assert_eq!(files_in(&saved_at), ["bug.json"]);
+    assert_eq!(files_in(&kit.path().join(KIT_WORKFLOWS)), ["bug.json", "projects"], "Kit's own folder holds its own file and the folder of projects");
+    assert_eq!(files_in(&repository.path().join(WORKFLOWS)), ["bug.json"]);
+
+    let storefront_id = core_model::ScopeId::new("storefront").expect("an id");
+    let (held, _, files) =
+        workflows_again(repository.path(), kit.path(), &roster(), &manifest, &[], std::slice::from_ref(&storefront_id));
+    assert_eq!(label(&held, "bug"), ("The project's".to_string(), WorkflowSource::Project));
+    let running = files.iter().find(|file| file.id().as_str() == "bug" && file.overridden_by().is_none()).expect("one runs");
+    assert_eq!(running.project(), Some(&storefront_id));
+    assert_eq!(files.iter().filter(|file| file.id().as_str() == "bug").count(), 3, "Kit's and the repository's are held under it");
+}
+
+/// **A copy kept for a project the repository is not in does not apply**: its folder is not read, though the
+/// file is there.
+#[test]
+fn a_copy_kept_for_a_project_the_repository_is_not_in_does_not_apply() {
+    let repository = a_repository();
+    let kit = TempDir::new();
+    kit.write(&format!("{KIT_WORKFLOWS}/projects/elsewhere/bug.json"), &defining("bug", "Elsewhere's", None));
+    kit.write(&format!("{KIT_WORKFLOWS}/bug.json"), &defining("bug", "Kit's", None));
+    let (held, left_out, _) = workflows_again(repository.path(), kit.path(), &roster(), &manifest(&repository), &[], &[]);
+    assert_eq!(label(&held, "bug"), ("Kit's".to_string(), WorkflowSource::Kit));
+    assert!(left_out.is_empty(), "{left_out:?}");
+    let elsewhere = core_model::ScopeId::new("elsewhere").expect("an id");
+    let (held, _, _) = workflows_again(repository.path(), kit.path(), &roster(), &manifest(&repository), &[], &[elsewhere]);
+    assert_eq!(label(&held, "bug").1, WorkflowSource::Project, "it applies once the repository is in the project");
+}
+
+/// A project's copy is deleted by its own folder, and a file in another project's is not its to delete.
+#[test]
+fn a_projects_copy_is_deleted_from_its_own_folder_only() {
+    let repository = a_repository();
+    let kit = TempDir::new();
+    kit.write(&format!("{KIT_WORKFLOWS}/projects/storefront/bug.json"), &defining("bug", "Storefront's", None));
+    kit.write(&format!("{KIT_WORKFLOWS}/projects/backoffice/bug.json"), &defining("bug", "Backoffice's", None));
+    let storefront = WorkflowScope::Project { id: String::from("storefront") };
+    let other = kit.path().join(KIT_WORKFLOWS).join("projects/backoffice/bug.json");
+    let refused = remove_file(repository.path(), kit.path(), &storefront, &other).expect_err("not this project's");
+    assert!(matches!(refused, WorkflowNotRemoved::NotHere), "{refused:?}");
+    remove(repository.path(), kit.path(), &roster(), &storefront, "bug").expect("removed");
+    assert!(!kit.path().join(KIT_WORKFLOWS).join("projects/storefront/bug.json").exists());
+    assert!(other.exists());
+}
+
+/// **The watch on Kit's workflow folder sees a file written in a project's folder under it**, whether the
+/// folder was there when the watch started or is made by the first write, and an edit after.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_definition_written_for_a_project_is_seen_by_the_watch_on_kits_folder() {
+    let kit = TempDir::new();
+    let folder = kit.path().join(KIT_WORKFLOWS);
+    let (told, mut changes) = mpsc::unbounded_channel();
+    let _watching = watch_folders_every(vec![folder], Duration::from_millis(20), Duration::from_millis(120), move || {
+        let _ = told.send(());
+    })
+    .expect("a watch on a folder that is not there");
+
+    let at = format!("{KIT_WORKFLOWS}/projects/storefront/bug.json");
+    kit.write(&at, &defining("bug", "One", None));
+    noticed(&mut changes).await;
+    kit.write(&at, &defining("bug", "Two", None));
+    noticed(&mut changes).await;
 }

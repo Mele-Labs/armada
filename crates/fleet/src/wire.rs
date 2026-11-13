@@ -169,6 +169,10 @@ pub(crate) fn workflow_summary(
         steps: declared(workflow),
         manifest_id: ManifestId::from(manifest_id),
         source: workflow.source().as_wire().to_string(),
+        project: of_this()
+            .find(|file| file.overridden_by().is_none())
+            .and_then(|file| file.project())
+            .map(|project| project.as_str().to_string()),
         for_requests: workflow.for_requests().map(str::to_string),
         lands: workflow.lands().into(),
         file: of_this()
@@ -180,6 +184,7 @@ pub(crate) fn workflow_summary(
             .map(|file| ipc::OverriddenWorkflow {
                 source: file.source().as_wire().to_string(),
                 file: file.path().to_string_lossy().to_string(),
+                project: file.project().map(|project| project.as_str().to_string()),
             })
             .collect(),
         hides: of_this()
@@ -194,6 +199,7 @@ pub(crate) fn workflow_definition(file: &config::WorkflowFile) -> ipc::WorkflowD
     ipc::WorkflowDefinition {
         workflow_id: WorkflowId::from(file.id()),
         source: file.source().as_wire().to_string(),
+        project: file.project().map(|project| project.as_str().to_string()),
         file: file.path().to_string_lossy().to_string(),
         definition: file.text().to_string(),
         overridden_by: file
@@ -207,6 +213,7 @@ pub fn left_out_workflow(left: &config::LeftOut) -> ipc::LeftOutWorkflow {
     ipc::LeftOutWorkflow {
         id: left.id().map(WorkflowId::from),
         source: left.source().as_wire().to_string(),
+        project: left.project().map(|project| project.as_str().to_string()),
         file: left.path().to_string_lossy().to_string(),
         said: left.to_string(),
         instead: left.instead().map(|place| place.as_wire().to_string()),

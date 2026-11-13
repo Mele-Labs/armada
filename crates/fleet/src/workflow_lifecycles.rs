@@ -44,12 +44,20 @@ where
         for (id, unnamed) in refused {
             let Some(one) = read.workflows.remove(&id) else { continue };
             let said: Vec<String> = unnamed.iter().map(ToString::to_string).collect();
+            let project = read
+                .files
+                .iter()
+                .find(|file| file.id() == &id && file.overridden_by().is_none())
+                .and_then(|file| file.project())
+                .map(|project| project.as_str().to_string());
             read.left_out.push(ipc::LeftOutWorkflow {
                 id: Some(ipc::WorkflowId::from(&id)),
                 source: one.source().as_wire().to_string(),
+                project,
                 file: one.workflow_path().to_string_lossy().to_string(),
                 said: format!("`{}` was left out, because {}; no `{}` runs here", id.as_str(), said.join("; "), id.as_str()),
                 instead: None,
+                ..Default::default()
             });
         }
         read

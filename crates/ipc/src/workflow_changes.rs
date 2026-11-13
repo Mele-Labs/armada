@@ -173,7 +173,8 @@ pub struct ProposeNewWorkflow {
     pub workflow_id: WorkflowId,
     /// The definition, whole, as JSON text.
     pub definition: String,
-    /// Where approving saves it.
+    /// Where approving saves it. **A project's is refused**, 422 `fleet.workflow_change_not_for_project`:
+    /// a change is kept for the repository's or Kit's, and a project's copy is saved with `save_workflow`.
     pub scope: WorkflowScope,
 }
 

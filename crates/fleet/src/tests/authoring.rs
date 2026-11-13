@@ -120,6 +120,7 @@ async fn reading_the_folders_again_replaces_what_was_held() {
             file: "/repo/.armada/workflows/broken.json".to_string(),
             said: "a definition repository was left out, because it will not parse".to_string(),
             instead: None,
+            ..Default::default()
         }],
         files: Vec::new(),
     });
@@ -212,7 +213,8 @@ async fn the_list_says_what_a_workflow_replaced_and_each_file_can_be_read() {
         bug.overrides,
         [ipc::OverriddenWorkflow {
             source: "repository".to_string(),
-            file: "/repo/workflows/bug.json".to_string()
+            file: "/repo/workflows/bug.json".to_string(),
+            ..Default::default()
         }]
     );
     assert_eq!(bug.hides.as_deref(), Some("repository"));
@@ -266,4 +268,77 @@ async fn health_says_whether_a_workflow_was_left_out_without_a_count() {
     planted.will_read(read_three_places());
     fleet.workflows_changed(&home.path().to_string_lossy());
     assert!(said().await);
+}
+
+/// The Manifest id of the repository the fixture Fleet serves.
+fn the_repository(fleet: &crate::tests::repositories::Fixture) -> String {
+    fleet.repositories().first().expect("the fixture's repository").manifest().id().as_str().to_string()
+}
+
+fn project_save(id: &str) -> String {
+    format!(r#"{{"scope":{{"project":{{"id":"{id}"}}}},"definition":"{{}}"}}"#)
+}
+
+fn saved_as_fresh() -> SavedWorkflow {
+    SavedWorkflow {
+        id: workflow_named("fresh").id().clone(),
+        file: "/home/.armada/workflows/projects/storefront/fresh.json".to_string(),
+        replaced: false,
+    }
+}
+
+/// **A save for a project that holds the repository is asked of the composition root for that project**,
+/// answers the scope it was given, and reads the folders again for the projects that hold the repository.
+#[tokio::test]
+async fn a_save_for_a_project_that_holds_the_repository_is_written_for_it_and_read_back() {
+    let home = TempDir::new();
+    let planted = Arc::new(Planted::nothing());
+    let fleet = Arc::new(a_fleet_reading(&home, &planted));
+    let app = served(&fleet);
+    crate::tests::projects_kept::planted(&fleet, &home, "storefront", "Storefront", &[&the_repository(&fleet)]).await;
+    planted.will_save(Ok(saved_as_fresh()));
+    planted.will_read(Catalogued { workflows: one(workflow_named("fresh")), left_out: Vec::new(), files: Vec::new() });
+
+    let (status, body) = call(&app, "POST", "/workflows/save", &project_save("storefront")).await;
+
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let saved: ipc::WorkflowSaved = ipc::decode("a save", &body).expect("a save");
+    assert_eq!(saved.scope, ipc::WorkflowScope::Project { id: String::from("storefront") });
+    assert_eq!(planted.saves()[0].scope, saved.scope);
+    assert_eq!(planted.read_for().last(), Some(&vec![String::from("storefront")]), "the project's folder is read for this repository");
+    assert!(held(&app).await.contains(&"fresh".to_string()));
+}
+
+/// **A project Fleet holds none of, or one the repository is not in, is refused before anything is asked
+/// of the composition root**, with a code of its own for each.
+#[tokio::test]
+async fn a_save_for_a_project_that_is_unknown_or_does_not_hold_the_repository_is_refused() {
+    let home = TempDir::new();
+    let planted = Arc::new(Planted::nothing());
+    let fleet = Arc::new(a_fleet_reading(&home, &planted));
+    let app = served(&fleet);
+    crate::tests::projects_kept::planted(&fleet, &home, "elsewhere", "Elsewhere", &["01SOMEONE_ELSES"]).await;
+
+    let (status, body) = call(&app, "POST", "/workflows/save", &project_save("no-such")).await;
+    assert_eq!((status, code(&body).as_str()), (StatusCode::NOT_FOUND, "fleet.workflow_project_unknown"));
+
+    let (status, body) = call(&app, "POST", "/workflows/save", &project_save("elsewhere")).await;
+    assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_project_not_member"));
+    assert!(String::from_utf8_lossy(&body).contains("Elsewhere"));
+
+    assert!(planted.saves().is_empty(), "nothing was written");
+}
+
+/// **A project that comes to hold the repository changes what it reads**: the folders are read again with
+/// the project handed to them, and a read that moved no membership does not read them.
+#[tokio::test]
+async fn a_project_coming_to_hold_the_repository_reads_its_folder_and_an_unmoved_read_does_not() {
+    let home = TempDir::new();
+    let planted = Arc::new(Planted::nothing());
+    let fleet = Arc::new(a_fleet_reading(&home, &planted));
+    let before = planted.read_for().len();
+    crate::tests::projects_kept::planted(&fleet, &home, "storefront", "Storefront", &[&the_repository(&fleet)]).await;
+    assert_eq!(planted.read_for()[before..], [vec![String::from("storefront")]]);
+    fleet.projects_reload().await;
+    assert_eq!(planted.read_for().len(), before + 1, "the same projects hold it, so nothing was read again");
 }

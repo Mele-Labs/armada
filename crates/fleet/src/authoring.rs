@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Authoring, Refusal};
+use core_model::ScopeId;
 use ipc::{SaveWorkflow, WireError, WireValue, WorkflowSaved};
 
 use crate::daemon::Fleet;
@@ -30,6 +31,11 @@ const WORKFLOW_NOT_A_NAME: &str = "fleet.workflow_id_not_a_name";
 const WORKFLOW_EXISTS: &str = "fleet.workflow_exists";
 /// The folder or the file could not be written. A 500.
 pub(crate) const WORKFLOW_UNWRITABLE: &str = "fleet.workflow_unwritable";
+/// A project's copy was asked for a project Fleet holds none of. A 404.
+pub(crate) const WORKFLOW_PROJECT_UNKNOWN: &str = "fleet.workflow_project_unknown";
+/// A project's copy was asked for a project that does not hold the repository, so the repository
+/// would never run it. A 422.
+pub(crate) const WORKFLOW_PROJECT_NOT_MEMBER: &str = "fleet.workflow_project_not_member";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -47,7 +53,7 @@ where
         asked: SaveWorkflow,
         served: &Served,
     ) -> Result<WorkflowSaved, Refusal> {
-        let scope = asked.scope;
+        self.workflow_scope_held(&asked.scope, served)?;
         self.lifecycle_ends_unnamed(served.manifest().id().as_str(), &asked.definition).map_err(|why| self.not_saved(why))?;
         let saved = self
             .locating()
@@ -60,7 +66,7 @@ where
             .map(|held| held.source().as_wire().to_string());
         Ok(WorkflowSaved {
             workflow_id: ipc::WorkflowId::from(&saved.id),
-            scope,
+            scope: asked.scope,
             file: saved.file,
             replaced: saved.replaced,
             runs_from,
@@ -69,6 +75,7 @@ where
 
     /// Check without writing: what [`Self::save_workflow_file`] would refuse.
     pub(crate) fn check_workflow_file(&self, asked: &SaveWorkflow, served: &Served) -> Result<(), Refusal> {
+        self.workflow_scope_held(&asked.scope, served)?;
         self.lifecycle_ends_unnamed(served.manifest().id().as_str(), &asked.definition).map_err(|why| self.not_saved(why))?;
         self.locating()
             .check_workflow(Path::new(served.root()), served.manifest(), asked)
@@ -90,11 +97,44 @@ where
         }
     }
 
+    /// A project's copy is for a project Fleet holds, and one that holds this repository. **Checked
+    /// where it is read**, so a copy is never written that this repository would not run.
+    pub(crate) fn workflow_scope_held(&self, scope: &ipc::WorkflowScope, served: &Served) -> Result<(), Refusal> {
+        let Some(id) = scope.project() else { return Ok(()) };
+        let held = self.projects_held();
+        let Some(project) = ScopeId::new(id).ok().and_then(|scope| held.get(&scope).cloned()) else {
+            return Err(Refusal::NotFound(
+                WireError::raised(WORKFLOW_PROJECT_UNKNOWN, format!("Fleet holds no project {id}, so no copy is kept for it"), self.run_id())
+                    .with_field("project", WireValue::Str(id.to_string())),
+            ));
+        };
+        if !project.holds(served.manifest().id()) {
+            return Err(Refusal::Unacceptable(
+                WireError::raised(
+                    WORKFLOW_PROJECT_NOT_MEMBER,
+                    format!(
+                        "this repository is not a member of the project {}, so a copy kept for it would not run here",
+                        project.name().as_str()
+                    ),
+                    self.run_id(),
+                )
+                .with_field("project", WireValue::Str(id.to_string())),
+            ));
+        }
+        Ok(())
+    }
+
+    /// The projects that hold this repository, whose copies of a workflow it runs.
+    pub(crate) fn projects_of(&self, served: &Served) -> Vec<ScopeId> {
+        self.projects_held().holding(served.manifest().id()).into_iter().map(|project| project.id().clone()).collect()
+    }
+
     pub(crate) fn read_workflows_again(&self, served: &Served) {
         let read = self.locating().workflows(
             Path::new(served.root()),
             served.manifest(),
             &served.workspaces(),
+            &self.projects_of(served),
         );
         served.catalogued(self.lifecycle_ends_checked(served.manifest().id().as_str(), read));
         // Bridge reads its workflow pickers again on the list, so a workflow saved to the Kit or a repository is offered at once.

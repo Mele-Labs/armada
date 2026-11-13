@@ -103,8 +103,8 @@ impl Locator {
 
 impl Locator {
     /// Watch the folders a repository's workflows are read from — its own
-    /// `.armada/workflows/` and Kit's — and have Fleet read them again once a
-    /// burst of writes has settled. A watch that will not start is said, and
+    /// `.armada/workflows/` and Kit's, which holds a folder for each project — and have
+    /// Fleet read them again once a burst of writes has settled. A watch that will not start is said, and
     /// Fleet serves anyway.
     fn watch_workflows(&self, root: &str) {
         let folders = vec![
@@ -153,7 +153,7 @@ impl Locating for Locator {
     fn remove_workflow(
         &self,
         root: &Path,
-        scope: ipc::WorkflowScope,
+        scope: &ipc::WorkflowScope,
         id: &str,
     ) -> Result<String, fleet::repositories::WorkflowNotRemoved> {
         crate::authoring::remove(root, &self.kit, &self.roster(), scope, id)
@@ -162,7 +162,7 @@ impl Locating for Locator {
     fn remove_workflow_file(
         &self,
         root: &Path,
-        scope: ipc::WorkflowScope,
+        scope: &ipc::WorkflowScope,
         file: &Path,
     ) -> Result<String, fleet::repositories::WorkflowNotRemoved> {
         crate::authoring::remove_file(root, &self.kit, scope, file)
@@ -173,9 +173,10 @@ impl Locating for Locator {
         root: &Path,
         manifest: &config::Manifest,
         workspaces: &[config::Manifest],
+        projects: &[core_model::ScopeId],
     ) -> Catalogued {
         let (workflows, left_out, files) =
-            crate::setup::workflows_again(root, &self.kit, &self.roster(), manifest, workspaces);
+            crate::setup::workflows_again(root, &self.kit, &self.roster(), manifest, workspaces, projects);
         Catalogued {
             workflows,
             left_out: left_out.iter().map(fleet::left_out_workflow).collect(),
