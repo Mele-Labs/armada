@@ -1,0 +1,92 @@
+{
+ "sessions": [
+  {
+   "id": "mock-01",
+   "harness": "claude_code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Endpoint cleanup",
+   "state": "live",
+   "started_at": "2026-11-10T19:48:55.257Z",
+   "last_seen_at": "2026-11-10T19:59:30.517Z",
+   "last_turn_at": "2026-11-10T19:59:24.410Z",
+   "usage": {
+    "context_tokens": 128415,
+    "context_window": 1000000,
+    "cost_micros": 102737,
+    "context_percent": 13,
+    "context_band": "normal"
+   },
+   "mod_version": "0.3.60",
+   "waiting_for": [
+    {
+     "id": "agent-1",
+     "text": "The old /v1/sessions endpoint has no callers left. What happens to it?",
+     "since": "2026-11-10T19:58:40.114Z",
+     "source": "agent",
+     "options": [
+      {
+       "label": "Keep it a week",
+       "description": "Both answer for a week, then the old one goes. Costs one more release."
+      },
+      {
+       "label": "Redirect it (Recommended)",
+       "description": "The old path answers with a redirect to the new one. No caller breaks, and it stays."
+      },
+      {
+       "label": "Remove it now",
+       "description": "One less route to carry. Any caller we missed breaks at once."
+      }
+     ]
+    },
+    {
+     "id": "agent-2",
+     "text": "Land on a branch or a pull request?",
+     "since": "2026-11-10T19:59:10.114Z",
+     "source": "agent",
+     "options": [
+      {
+       "label": "Pull request",
+       "description": "Opens one and watches ci."
+      },
+      {
+       "label": "Branch",
+       "description": "Stops at the commit."
+      }
+     ]
+    }
+   ],
+   "standing": "replied",
+   "started": {
+    "workflow": "feature",
+    "delivery": "auto_land",
+    "model": "opus",
+    "effort": "high",
+    "mode": "auto",
+    "by": {
+     "id": "mock-00",
+     "title": "Native Rebuild Orchestrator"
+    }
+   },
+   "mark": {
+    "state": "waiting",
+    "lamp": "needs",
+    "group": "needs"
+   },
+   "viewed_at": "2026-11-10T19:53:56.873Z",
+   "attachments": [],
+   "hosted": {
+    "turn": {
+     "state": "idle"
+    },
+    "model": "opus",
+    "resolved_model": "claude-opus-5-5",
+    "effort": "high",
+    "mode": "auto",
+    "running": true,
+    "commands": []
+   }
+  }
+ ]
+}

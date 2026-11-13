@@ -57,6 +57,12 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
             cx.run_until_parked();
             cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
         }
+        // A tooltip comes up after the pointer has rested; the check's clock is moved past that, or a hover is shot before it.
+        if matches!(walk.steps[at].verb, super::Verb::Hover) {
+            cx.advance_clock(std::time::Duration::from_millis(700));
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
         let read = cx
             .update_window(handle.into(), |_, window, cx| {
                 window.draw(cx).clear(cx);

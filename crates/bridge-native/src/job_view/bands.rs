@@ -392,6 +392,9 @@ impl JobView {
         let record = self.record(id, cx)?;
         let target = self.is_target(DONE);
         let summary = record.done_summary.clone().filter(|text| !text.is_empty());
+        // In Look the card leads with the picture the Job last showed, and the summary is two lines with the Also line under.
+        let (lead, result) = if crate::ways::looks() { self.look_result(id, summary.as_deref(), look, cx) } else { (None, Vec::new()) };
+        let summary = summary.filter(|_| !crate::ways::looks());
         let made: Vec<AnyElement> = record
             .attachments
             .iter()
@@ -493,7 +496,9 @@ impl JobView {
                         this.aim(&aim);
                         cx.notify();
                     }))
+                    .children(lead)
                     .child(head)
+                    .children(result)
                     .children(summary.map(|text| div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(text))))
                     .children((!made.is_empty()).then(|| {
                         labelled(div().id("done-made").flex().flex_col().gap(look.length(token::SPACE_2)).children(made), Role::Group, "Pull requests")

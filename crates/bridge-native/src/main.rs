@@ -38,6 +38,7 @@ mod keymap;
 mod labels;
 mod lanes_canvas;
 mod link;
+mod listen;
 mod log;
 // A screen reads only some of what `look` offers so far.
 #[allow(dead_code)]
@@ -48,6 +49,7 @@ mod mock;
 mod new_project;
 mod notify;
 mod operator;
+mod pairing;
 mod palette;
 mod point;
 mod queued;
@@ -58,6 +60,7 @@ mod runtime_file;
 mod scene;
 mod settings;
 mod sketch;
+mod snooze;
 mod sketch_png;
 mod terminal;
 mod titlebar;
@@ -65,6 +68,7 @@ mod toasts;
 mod transport;
 mod voice;
 mod walk;
+mod ways;
 mod whisper;
 
 /// Written by `pnpm --filter @armada/desktop codegen` from `crates/core-model/domain/`. Not edited.
@@ -241,6 +245,7 @@ fn main() -> ExitCode {
         // Only the live app keeps what he typed across a restart: a walk, a mock and a test never read or write his file.
         if matches!(mode, Mode::Live) {
             drafts::persist(drafts::file(), cx);
+            pairing::follow(cx);
         }
         cx.spawn(async move |cx| {
             while let Ok(address) = arrived.recv().await {

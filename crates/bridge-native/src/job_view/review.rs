@@ -142,7 +142,7 @@ fn instant(at: &str) -> i64 {
 }
 
 /// The sketch card the ledger's row `id` stands for: the pinned one, else the newest in the thread.
-fn sketch_card<'a>(head: &'a ThreadHead, thread: &'a [ThreadItem], id: &str) -> Option<&'a ThreadSketch> {
+pub(super) fn sketch_card<'a>(head: &'a ThreadHead, thread: &'a [ThreadItem], id: &str) -> Option<&'a ThreadSketch> {
     head.sketch.as_ref().filter(|card| card.sketch == id).or_else(|| {
         thread.iter().rev().find_map(|item| match item {
             ThreadItem::Sketch(card) if card.sketch == id => Some(card),

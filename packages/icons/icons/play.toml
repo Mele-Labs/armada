@@ -12,3 +12,10 @@
     size = "16px"
     status = "Specified"
     notes = "Proposed 11 Oct 2026 for the mock walk `runCodeBlock`. Tooltip `Run`, no text. Appears on hover and on keyboard focus of the block. The person's own act: nothing is sent to the agent. Approved 11 Oct 2026."
+
+  [[icons.play.usage]]
+    means = "Say a spoken card again, on the disc of a paused or said Listen card"
+    group = "Listen"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 13 Nov 2026 for the walk `native-ways-listen`. Tooltip `Play`, in the amber disc of the card, with `pause`. Not Resume, which is for a paused Job. Also drawn dim on a queued card or one that could not be spoken, where the disc is off."
