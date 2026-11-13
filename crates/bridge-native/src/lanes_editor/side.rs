@@ -78,6 +78,8 @@ pub struct Sides {
     pub left: Party,
     pub right: Party,
     pub rows: Vec<Spec>,
+    /// The page the view scrolls in, so it is brought into view whole when it opens.
+    pub page: Option<gpui::ScrollHandle>,
 }
 
 /// What the view tells its host: the rows chosen, by their place in `Sides.rows`, or that he let it go.
@@ -117,10 +119,6 @@ impl LanesHost for Canvas {
         true
     }
 
-    /// At its own size, so the steps read; a lane wider than its half pans sideways.
-    fn lanes_fit(&self, _id: &SharedString) -> bool {
-        false
-    }
 
     fn lanes_chosen(&self, _id: &SharedString, node: &str) -> bool {
         self.chosen.iter().any(|one| one == node)
@@ -143,7 +141,7 @@ impl LanesHost for Canvas {
 impl gpui::Render for Canvas {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
-        // As tall as its lanes at their own size.
+        // As tall as its lanes; the canvas zooms them to the width it has.
         let tall = px(LANE_MIN * self.lanes.lanes.len().max(1) as f32);
         div().flex().flex_col().h(tall).min_w_0().child(lanes_canvas(self, &self.id, &self.lanes, &look, cx))
     }
@@ -173,6 +171,9 @@ pub struct Side {
     cancel_focus: FocusHandle,
     /// The view has just opened: the keys go to its first row when it is next drawn.
     focus_first: bool,
+    /// The page it scrolls in, and whether it is still to be brought into view.
+    page: Option<gpui::ScrollHandle>,
+    reveal: std::rc::Rc<std::cell::Cell<bool>>,
     _subs: Vec<Subscription>,
 }
 
@@ -202,6 +203,8 @@ impl Side {
             take_focus: stop(cx),
             cancel_focus: stop(cx),
             focus_first: true,
+            page: sides.page,
+            reveal: std::rc::Rc::new(std::cell::Cell::new(true)),
             _subs: subs,
         };
         side.marks(cx);
@@ -379,10 +382,10 @@ impl gpui::Render for Side {
         if std::mem::take(&mut self.focus_first) {
             window.focus(self.rows.first().map_or(&self.cancel_focus, |row| &row.focus), cx);
         }
-        // Where the page is wide enough for two columns they stand side by side; below that, one above the other.
-        let wide = window.viewport_size().width >= look.length(token::LAYOUT_BREAKPOINT);
-        let sides = if wide { div().flex().flex_row() } else { div().flex().flex_col() };
-        let sides = sides
+        // One above the other at every width: side by side, each lane would draw at about 0.39 of its size.
+        let sides = div()
+            .flex()
+            .flex_col()
             .gap(look.length(token::SPACE_3))
             .min_w_0()
             .child(self.seat(&self.left, look.color(token::ACCENT_MUTED), look.color(token::ACCENT), &look))
@@ -394,7 +397,8 @@ impl gpui::Render for Side {
             .when(!off, |button| button.on_click(cx.listener(|this, _, _, cx| this.take(cx))));
         let cancel = ringed(&look, ghost(&look, "take-cancel", "Cancel", false), &self.cancel_focus, window).track_focus(&self.cancel_focus).on_click(cx.listener(|_, _, _, cx| cx.emit(Event::Cancel)));
         let acts = div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(take, Role::Button, self.take)).child(labelled(cancel, Role::Button, "Cancel"));
-        labelled(div().id("workflow-take").flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(sides).child(list).child(acts), Role::Region, self.title)
+        let region = div().id("workflow-take").relative().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(sides).child(list).child(acts);
+        labelled(region.children(self.page.clone().map(|page| reveal(page, self.reveal.clone()))), Role::Region, self.title)
     }
 }
 
@@ -472,4 +476,34 @@ pub fn armada_rows(differences: &[Difference], armada: &str) -> Vec<Spec> {
             Spec { mark, said, left: node.clone().filter(|_| !removed), right: node.filter(|_| removed) }
         })
         .collect()
+}
+
+/// Measures the view where it is drawn and, the first time, scrolls the page the least that shows it whole, or its top
+/// where it is taller than the page (the change band's `reveal`).
+fn reveal(page: gpui::ScrollHandle, once: std::rc::Rc<std::cell::Cell<bool>>) -> impl IntoElement {
+    gpui::canvas(
+        move |at: gpui::Bounds<gpui::Pixels>, window, _| {
+            if !once.replace(false) {
+                return;
+            }
+            let view = page.bounds();
+            let mut by = gpui::Pixels::ZERO;
+            if at.bottom() > view.bottom() {
+                by = at.bottom() - view.bottom();
+            }
+            if at.top() - by < view.top() {
+                by = at.top() - view.top();
+            }
+            if by == gpui::Pixels::ZERO {
+                return;
+            }
+            let offset = page.offset();
+            let y = (offset.y - by).max(-page.max_offset().y).min(gpui::Pixels::ZERO);
+            page.set_offset(gpui::point(offset.x, y));
+            window.refresh();
+        },
+        |_, _, _, _| {},
+    )
+    .absolute()
+    .size_full()
 }
