@@ -324,6 +324,16 @@ impl MockFleet {
         one.values = Some(values);
         Ok(self.projects.clone())
     }
+
+    /// The edit with `shared_with_macs` alone. A project whose file was not read cannot be written.
+    pub fn share_with_macs(&mut self, project: &str, on: bool) -> Result<Projects, Refused> {
+        let one = self.projects.projects.iter_mut().find(|one| one.id == project).ok_or_else(|| Refused::said(format!("there is no project {project}")))?;
+        if let Some(why) = &one.unread {
+            return Err(Refused::said(why.clone()));
+        }
+        one.shared_with_macs = on;
+        Ok(self.projects.clone())
+    }
 }
 
 /// What is wrong with `value` as `kind`, as `check.rs` says it, or `None`.

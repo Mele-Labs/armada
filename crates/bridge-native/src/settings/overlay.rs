@@ -67,6 +67,10 @@ pub struct Scope {
     /// Each choice's key, and each typed value's Save.
     pub stops: BTreeMap<&'static str, FocusHandle>,
     pub saves: BTreeMap<&'static str, FocusHandle>,
+    /// Whether its Jobs are shared with his other Macs, as `GET /projects` last said. `None` until read, and for a
+    /// project shown as `unread`, which has no switch.
+    pub shared: Option<bool>,
+    pub share_refused: Option<String>,
 }
 
 /// What a dropdown open over Settings picks for.
@@ -237,8 +241,10 @@ impl SettingsOverlay {
             saving: None,
             refused: None,
             typed: BTreeMap::new(),
-            stops: super::project::CHOICES.into_iter().map(|name| (name, cx.focus_handle().tab_stop(true))).collect(),
+            stops: super::project::CHOICES.into_iter().chain([super::project::SHARED]).map(|name| (name, cx.focus_handle().tab_stop(true))).collect(),
             saves: super::project::TYPED.into_iter().map(|name| (name, cx.focus_handle().tab_stop(true))).collect(),
+            shared: None,
+            share_refused: None,
         });
         if self.scope.is_some() {
             self.picked = "project:values";
@@ -589,6 +595,7 @@ impl SettingsOverlay {
 
     fn read_values(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.scope.as_ref().map(|scope| scope.id.clone()) else { return };
+        self.read_shared(window, cx);
         let read = self.wire.values(&id, cx);
         cx.spawn_in(window, async move |this, cx| {
             let answer = read.await;
@@ -610,6 +617,51 @@ impl SettingsOverlay {
             });
         })
         .detach();
+    }
+
+    /// The share switch's state, from the project as `GET /projects` lists it.
+    fn read_shared(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.scope.as_ref().map(|scope| scope.id.clone()) else { return };
+        let read = self.wire.projects_now(cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = read.await;
+            let _ = this.update_in(cx, |this, _, cx| {
+                let Some(scope) = this.scope.as_mut().filter(|scope| scope.id == id) else { return };
+                if let Ok(projects) = answer {
+                    scope.shared = super::project::shared_of(&projects, &id);
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// Turn sharing with his other Macs on or off: `edit_project` with that field alone, and the switch takes what
+    /// Fleet answers.
+    pub fn flip_shared(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(scope) = self.scope.as_mut() else { return };
+        let Some(on) = scope.shared else { return };
+        if scope.saving.is_some() || !self.live {
+            return;
+        }
+        scope.saving = Some(super::project::SHARED);
+        scope.share_refused = None;
+        let id = scope.id.clone();
+        let sent = self.wire.share_with_macs(&id, !on, cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = sent.await;
+            let _ = this.update_in(cx, |this, _, cx| {
+                let Some(scope) = this.scope.as_mut().filter(|scope| scope.id == id) else { return };
+                scope.saving = None;
+                match answer {
+                    Ok(projects) => scope.shared = super::project::shared_of(&projects, &id),
+                    Err(why) => scope.share_refused = Some(why.said),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
     }
 
     fn choose_value(&mut self, name: &'static str, n: usize, window: &mut Window, cx: &mut Context<Self>) {

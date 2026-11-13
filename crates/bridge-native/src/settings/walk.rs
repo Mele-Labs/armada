@@ -214,6 +214,8 @@ pub static STEPS: &[Step] = &[
     step("The project switcher is on the wide bar", Verb::Widen(1100), "button", "Project"),
     press_on("The project switcher's Settings opens it on that project", "button", "Project", "button", "Settings"),
     press_on("Its own values come first, under its name; a value it does not set says where it comes from", "button", "Settings", "group", "Armada"),
+    step("Share with your other Macs stands first, off until he turns it on", Verb::Look, "switch", "Share with your other Macs"),
+    press_on("A press turns it on; the switch takes what Fleet answers", "switch", "Share with your other Macs", "switch", "Share with your other Macs"),
     step("How work is reviewed: Plans, Pull requests, then Walks", Verb::Look, "combobox", "Walks"),
     press_on("Walks is Off or Review", "combobox", "Walks", "menuitemcheckbox", "Review"),
     press_on("Picking Review writes the project's values whole, the rest kept", "menuitemcheckbox", "Review", "combobox", "Walks"),

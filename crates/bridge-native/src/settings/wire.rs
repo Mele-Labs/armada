@@ -341,6 +341,16 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
     }
 
+    /// `POST /projects/project/:id/edit` with `shared_with_macs` alone.
+    pub fn share_with_macs(&mut self, project: &str, on: bool, cx: &App) -> Task<Result<Projects, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.share_with_macs(project, on));
+        }
+        let path = format!("/projects/project/{}/edit", crate::link::percent_encoded(project));
+        let said = body(&EditProject { shared_with_macs: Some(on), ..EditProject::default() });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
+    }
+
     /// The person's key bindings as Fleet last said them, or the mock's.
     pub fn key_bindings(&self, cx: &App) -> String {
         match self {

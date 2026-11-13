@@ -7,16 +7,18 @@
 
 use gpui::{div, prelude::*, px, svg, AnyElement, App, Context, FocusHandle, Focusable, FontWeight, KeyDownEvent, Role, SharedString, Window};
 use gpui_component::input::Input;
-use ipc::{LookSet, ResolvedValue, ResolvedValues, ReviewsSet, ValueLayer, ValuesSet};
+use ipc::{LookSet, Projects, ResolvedValue, ResolvedValues, ReviewsSet, ValueLayer, ValuesSet};
 
 use super::overlay::{Picking, Scope, SettingsOverlay};
-use super::view::{bone, bounds_of, card, ghost, mono, ringed, small, tip};
+use super::view::{bone, bounds_of, card, ghost, mono, ringed, small, switch_track, tip};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, Look};
 
 /// The values picked from a list, in the order the page draws them.
 pub const CHOICES: [&str; 6] = ["pr_mode", "auto_merge", "plans", "pull_requests", "walks", "density"];
+/// The share switch's key among the page's stops; it is the project's, not a value.
+pub const SHARED: &str = "shared";
 /// The values typed: the words go to Fleet as written.
 pub const TYPED: [&str; 3] = ["review_model", "theme", "layout"];
 
@@ -108,6 +110,12 @@ pub fn with_value(own: Option<&ValuesSet>, now: Option<&ResolvedValues>, name: &
     set
 }
 
+/// Whether the project is shared with his other Macs, as a list of projects says. `None` where it is not there, or
+/// is shown as `unread`: such a project has no switch.
+pub fn shared_of(projects: &Projects, id: &str) -> Option<bool> {
+    projects.projects.iter().find(|one| one.id == id).filter(|one| one.unread.is_none()).map(|one| one.shared_with_macs)
+}
+
 fn typed_now(scope: &Scope, name: &str, cx: &App) -> Option<String> {
     scope.typed.get(name).map(|field| field.read(cx).value().trim().to_string())
 }
@@ -124,6 +132,9 @@ pub fn stops(scope: &Scope, cx: &App) -> Vec<FocusHandle> {
         return Vec::new();
     }
     let mut stops = Vec::new();
+    if scope.shared.is_some() {
+        stops.extend(scope.stops.get(SHARED).cloned());
+    }
     for name in ["pr_mode", "auto_merge", "review_model", "plans", "pull_requests", "walks", "theme", "layout", "density"] {
         if let Some(handle) = scope.stops.get(name) {
             stops.push(handle.clone());
@@ -291,13 +302,49 @@ pub fn render(this: &SettingsOverlay, look: &Look, window: &Window, cx: &Context
     if let Some(refused) = refused {
         cards.insert(0, refused);
     }
+    cards.splice(0..0, shared(this, scope, look, window, cx));
     cards
+}
+
+/// "Share with your other Macs": the switch, and what Fleet said where it refused a flip. None for a project Fleet
+/// has not listed yet, or shows as `unread`.
+fn shared(this: &SettingsOverlay, scope: &Scope, look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> Option<AnyElement> {
+    const SAID: &str = "Share with your other Macs";
+    let on = scope.shared?;
+    let off = !this.live || scope.saving.is_some();
+    let focus = scope.stops.get(SHARED)?;
+    let row = div()
+        .id("project-shared")
+        .flex()
+        .items_center()
+        .justify_between()
+        .gap(look.length(token::SPACE_3))
+        .max_w(look.length(token::W_PROPOSAL_SETTINGS))
+        // Room inside the ring, taken back outside it so the label keeps its place.
+        .px(look.length(token::SPACE_2))
+        .py(look.length(token::SPACE_1))
+        .mx(-look.length(token::SPACE_2))
+        .my(-look.length(token::SPACE_1))
+        .rounded(look.length(token::RADIUS_MD))
+        .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SAID))
+        .child(switch_track(look, on, off))
+        .track_focus(focus)
+        .when(!off, |row| {
+            row.cursor_pointer().on_click(cx.listener(|this, _, window, cx| this.flip_shared(window, cx))).on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                    this.flip_shared(window, cx);
+                    cx.stop_propagation();
+                }
+            }))
+        });
+    let refused = scope.share_refused.clone().map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("project-shared-refused"), Role::Alert, said));
+    Some(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(labelled(ringed(look, row, focus, window), Role::Switch, SAID)).children(refused).into_any_element())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ipc::{PrMode, ResolvedReviews};
+    use ipc::{PrMode, Project, ResolvedReviews};
 
     fn own() -> ValuesSet {
         ValuesSet {
@@ -309,6 +356,16 @@ mod tests {
             reviews: Some(ReviewsSet { plans: Some("review".into()), pull_requests: Some("off".into()), walks: Some("off".into()) }),
             ..ValuesSet::default()
         }
+    }
+
+    #[test]
+    fn a_project_shows_the_share_switch_as_listed_and_an_unread_one_has_none() {
+        let one = |id: &str, shared: bool, unread: Option<&str>| Project { id: id.into(), shared_with_macs: shared, unread: unread.map(String::from), ..Project::default() };
+        let projects = Projects { projects: vec![one("web", true, None), one("api", false, None), one("lost", true, Some("the file is gone"))], loose: Vec::new(), left_out: Vec::new() };
+        assert_eq!(shared_of(&projects, "web"), Some(true));
+        assert_eq!(shared_of(&projects, "api"), Some(false));
+        assert_eq!(shared_of(&projects, "lost"), None, "a project shown as unread has no switch");
+        assert_eq!(shared_of(&projects, "none"), None);
     }
 
     #[test]
