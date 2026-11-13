@@ -377,7 +377,14 @@ export type ModelsRead =
  * a project it belongs to, then Kit's, then its own, then Armada's. The two places that are one place are bare
  * words, and a project's is `{ project: { id } }`, kept in Kit's folder for one project.
  */
-export type WorkflowScope = "repository" | "kit" | { project: { id: string } };
+export type WorkflowScope =
+  | "repository"
+  | "kit"
+  | {
+      project: {
+        id: string;
+      };
+    };
 
 /** `POST /workflows/save?manifest_id=`'s body. Since 23.28. `crates/ipc/src/setup.rs`. */
 export type SaveWorkflow = {
