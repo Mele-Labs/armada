@@ -131,6 +131,25 @@ fn sibling_of<'a>(node: &'a Node, pane: &str) -> Option<&'a Node> {
     sibling_of(&split.a, pane).or_else(|| sibling_of(&split.b, pane))
 }
 
+/// The split a pane is a side of, and whether it is the first side: the one its Grow and Shrink move.
+pub(super) fn parent_split_of(node: &Node, pane: &str) -> Option<(String, bool)> {
+    let Node::Split(split) = node else { return None };
+    if split.a.id() == pane {
+        return Some((split.id.clone(), true));
+    }
+    if split.b.id() == pane {
+        return Some((split.id.clone(), false));
+    }
+    parent_split_of(&split.a, pane).or_else(|| parent_split_of(&split.b, pane))
+}
+
+/// The pane after this one in the tree's order, round to the first from the last. None where there is no other.
+pub(super) fn next_pane_of(arrangement: &Arrangement, pane: &str) -> Option<String> {
+    let panes = tree::panes_of(&arrangement.root);
+    let at = panes.iter().position(|one| one.id == pane)?;
+    (panes.len() > 1).then(|| panes[(at + 1) % panes.len()].id.clone())
+}
+
 /// The pane a view tab asked for stands in: the one that holds the thread, or the first or second pane of the
 /// column beside it. None where there is none, and the tab then opens as a split.
 pub(super) fn pane_for(arrangement: &Arrangement, place: ViewPane) -> Option<String> {
@@ -433,6 +452,26 @@ impl JobView {
     }
 
     /// The next or the previous tab of the pane comes to the front, and has the keys.
+    /// The tab the keys are on, which is the front one of their pane, goes to the pane after it and comes to the front there.
+    pub(super) fn move_tab_next_pane(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let here = self.here(window, cx);
+        let arrangement = self.arrangement().into_owned();
+        let (Some(to), Some(tab)) = (next_pane_of(&arrangement, &here), tree::pane_by_id(&arrangement, &here).and_then(front_of).map(|tab| tab.id.clone())) else { return };
+        if self.rearrange(None, false, move |arrangement| tree::move_tab_to_pane(arrangement, &tab, &to, None), cx) {
+            self.want_pane_reads(window, cx);
+            let focus = self.arrangement().focus.clone();
+            self.focus_in_pane(&focus, window, cx);
+        }
+    }
+
+    /// Grow pane or Shrink pane: the divider of the split the pane is a side of moves one step, toward its neighbour to grow.
+    pub(super) fn resize_pane(&mut self, grow: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let here = self.here(window, cx);
+        let Some((split, first)) = parent_split_of(&self.arrangement().root, &here) else { return };
+        let toward = if grow == first { 1. } else { -1. };
+        self.nudge_divider(&split, toward * super::place_draw::KEY_STEP, cx);
+    }
+
     pub(super) fn cycle(&mut self, by: isize, window: &mut Window, cx: &mut Context<Self>) {
         let here = self.here(window, cx);
         let pane = here.clone();
@@ -480,6 +519,8 @@ impl JobView {
                     }
                 }
             }
+            "move_tab_next_pane" => self.move_tab_next_pane(window, cx),
+            "pane_grow" | "pane_shrink" => self.resize_pane(act.is("pane_grow"), window, cx),
             "next_tab" => self.cycle(1, window, cx),
             "previous_tab" => self.cycle(-1, window, cx),
             "focus_pane" => {
@@ -722,10 +763,41 @@ mod tests {
         assert!(matches!(tree::close_pane(&only, &one), Cow::Borrowed(_)));
     }
 
+    /// Grow and Shrink move the split the pane is a side of; the next pane runs round.
+    #[test]
+    fn a_pane_knows_its_split_and_the_pane_after_it() {
+        let arrangement = tree::default_arrangement();
+        let (root, top, foot) = column(&arrangement);
+        let thread = tree::holder_of(&arrangement, "thread").expect("a thread").id.clone();
+        let Node::Split(inner) = &*root.b else { unreachable!() };
+        assert_eq!(parent_split_of(&arrangement.root, &thread), Some((root.id.clone(), true)));
+        assert_eq!(parent_split_of(&arrangement.root, &top.id), Some((inner.id.clone(), true)));
+        assert_eq!(parent_split_of(&arrangement.root, &foot.id), Some((inner.id.clone(), false)));
+        assert_eq!(next_pane_of(&arrangement, &thread).as_deref(), Some(top.id.as_str()));
+        assert_eq!(next_pane_of(&arrangement, &foot.id).as_deref(), Some(thread.as_str()));
+        let alone = tree::close_pane(&tree::close_pane(&arrangement, &top.id).into_owned(), &foot.id).into_owned();
+        assert_eq!(next_pane_of(&alone, &thread), None);
+    }
+
+    /// The tab goes to the pane after its own and the pane it left goes with its last tab.
+    #[test]
+    fn a_tab_moved_to_the_next_pane_leaves_an_emptied_pane_out() {
+        let was = tree::default_arrangement();
+        let (_, _, foot) = column(&was);
+        let (foot, now) = (foot.id.clone(), foot.tabs[0].id.clone());
+        let to = next_pane_of(&was, &foot).expect("a next pane");
+        let moved = tree::move_tab_to_pane(&was, &now, &to, None).into_owned();
+        assert_eq!(tree::panes_of(&moved.root).len(), 2);
+        assert!(tree::pane_by_id(&moved, &foot).is_none());
+        let held = tree::pane_by_id(&moved, &to).expect("the pane it went to");
+        assert_eq!(front_of(held).map(|tab| tab.id.as_str()), Some(now.as_str()));
+        assert_eq!(moved.focus, to);
+    }
+
     /// Every pane key is a row of the registry with a chord, so the keys are read from there and never written in a view.
     #[test]
     fn every_pane_key_is_a_registry_row_with_a_chord() {
-        for id in ["pane_split_right", "pane_split_down", "pane_undo", "pane_redo", "pane_zoom", "next_tab", "previous_tab"] {
+        for id in ["pane_split_right", "pane_split_down", "pane_undo", "pane_redo", "pane_zoom", "next_tab", "previous_tab", "move_tab_next_pane", "pane_grow", "pane_shrink"] {
             let row = crate::generated::actions::act(id).unwrap_or_else(|| panic!("no registry row {id}"));
             assert!(crate::keymap::parse_chord(row.shortcut).is_some(), "{id} has no chord: {}", row.shortcut);
         }

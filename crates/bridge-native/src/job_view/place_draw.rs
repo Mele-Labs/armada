@@ -51,6 +51,9 @@ fn sized<T: gpui::Styled>(element: T, share: Share) -> T {
     }
 }
 
+/// How far an arrow on a focused divider, or Grow pane and Shrink pane, moves it, in points.
+pub(super) const KEY_STEP: f64 = 24.;
+
 fn find_split<'a>(node: &'a Node, id: &str) -> Option<&'a Split> {
     match node {
         Node::Pane(_) => None,
@@ -181,7 +184,7 @@ impl JobView {
                         _ => return,
                     };
                     cx.stop_propagation();
-                    this.nudge_divider(&id, by * 24., cx);
+                    this.nudge_divider(&id, by * KEY_STEP, cx);
                 }))
                 .child(line),
             Role::Splitter,
@@ -207,7 +210,7 @@ impl JobView {
     }
 
     /// The divider moves by `by` px from where it stands.
-    fn nudge_divider(&mut self, id: &str, by: f64, cx: &mut Context<Self>) {
+    pub(super) fn nudge_divider(&mut self, id: &str, by: f64, cx: &mut Context<Self>) {
         let arrangement = self.arrangement().into_owned();
         let (Some(area), Some(split)) = (self.place.area.get(), find_split(&arrangement.root, id)) else { return };
         let rects = tree::rects_of(&arrangement.root);
