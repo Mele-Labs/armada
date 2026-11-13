@@ -5,8 +5,10 @@
 //! in its attachments folder, so a sketch keeps the look it was drawn with. The modules below are
 //! the walk (`walk`), the tokens a file sets (`tokens`), making a sheet usable (`sheet`), keeping a
 //! set (`keeping`), which set a mock gets (`choosing`), and the Job those are stood under (`applying`).
+//! `catalogue` answers `get_design_catalogue`: what a mock is drawn with, read once and kept.
 
 pub(crate) mod applying;
+pub(crate) mod catalogue;
 pub(crate) mod choosing;
 pub(crate) mod keeping;
 pub(crate) mod sheet;
