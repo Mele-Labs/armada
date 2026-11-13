@@ -59,16 +59,31 @@ impl JobView {
                     Some(detail) => format!("{} {detail}", said.kind).into(),
                     None => said.kind.clone().into(),
                 };
-                let time = div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(at));
-                let (inline, under) = if narrow { (None, Some(time)) } else { (Some(time), None) };
+                // Narrow, the time gives way before Take back does: it is cut rather than pushing the button out of the card.
+                let time = div()
+                    .id(SharedString::from(format!("send-at:{}", one.id)))
+                    .when(narrow, |time| time.min_w_0().truncate().tooltip(tip(at.clone())))
+                    .when(!narrow, |time| time.flex_none())
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(SharedString::from(at));
+                // Narrow, the words take a line of their own across the card, cut with the whole of them in a tooltip.
+                let words = said.detail.clone().map(|detail| {
+                    let words = div().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(detail.clone()));
+                    if narrow { words.id(SharedString::from(format!("send-words:{}", one.id))).tooltip(tip(detail)).into_any_element() } else { words.flex_1().into_any_element() }
+                });
+                let (inline, under) = if narrow { (None, words) } else { (words, None) };
+                // With no words beside the kind, the time and Take back still keep their column at the right.
+                let spacer = inline.is_none().then(|| div().flex_1());
                 let line = div()
                     .flex()
                     .items_center()
-                    .gap(look.length(token::SPACE_2))
+                    .gap(look.length(if narrow { token::SPACE_1 } else { token::SPACE_2 }))
                     .min_h(look.length(token::H_ROW))
                     .child(div().flex_none().min_w(kind_w).flex().child(crate::operator::view::chip(said.kind.clone(), chip_hue, chip_ground, look)))
-                    .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).children(said.detail.clone().map(SharedString::from)))
                     .children(inline)
+                    .children(spacer)
+                    .child(time)
                     .child(labelled(
                         button(look, SharedString::from(format!("take-back:{}", one.id)), "Take back", Tone::Secondary, false, None, true)
                             .tooltip(tip(goes))
@@ -80,7 +95,7 @@ impl JobView {
                     labelled(
                         div()
                             .id(SharedString::from(format!("send-refused:{}", one.id)))
-                            .pl(kind_w + look.length(token::SPACE_2))
+                            .when(!narrow, |why| why.pl(kind_w + look.length(token::SPACE_2)))
                             .text_size(look.length(token::TEXT_XS))
                             .line_height(look.length(token::LEADING_SM))
                             .text_color(look.color(token::STATUS_AWAITING_REVIEW))
@@ -96,7 +111,7 @@ impl JobView {
                         .flex_col()
                         .gap(look.length(token::SPACE_1))
                         .py(look.length(token::SPACE_1))
-                        .px(look.length(token::SPACE_2))
+                        .px(look.length(if narrow { token::SPACE_1 } else { token::SPACE_2 }))
                         .rounded(look.length(token::RADIUS_SM))
                         .hover(|style| style.bg(look.color(token::BG_HOVER)))
                         .text_size(look.length(token::TEXT_SM))
