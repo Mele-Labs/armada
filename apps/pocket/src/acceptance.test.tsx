@@ -2045,20 +2045,20 @@ describe("the Operator on the phone", {
     expect(field()!.value).toBe("");
   });
 
-  it("names the chosen Mac as `mac` when it is the other one, and answers what became of it from the stream", async () => {
+  it("sends to an awake other Mac at its own origin, with no `mac`, and hears what became of it on its stream", async () => {
     await openOperator();
     await choose("store");
     await typeInto("Rename the footer links");
     await press(button("Bug"));
     await press(button("Send"));
-    await vi.waitFor(() => expect(dispatches(STUDIO)).toHaveLength(1));
-    expect(dispatches(STUDIO)[0]).toEqual({
+    await vi.waitFor(() => expect(dispatches(LAPTOP)).toHaveLength(1));
+    expect(dispatches(LAPTOP)[0]).toEqual({
       text: "Rename the footer links",
       repository: "store",
       kind: "bug",
-      mac: "laptop",
     });
-    // The laptop answers, so the Operator holds the send and says what it did a moment later.
+    expect(dispatches(STUDIO)).toEqual([]);
+    // The laptop holds the send, and says what the Operator did with it a moment later.
     await vi.waitFor(() => expect(sends().join()).toContain("Started"), {
       timeout: 5_000,
     });
@@ -2092,6 +2092,25 @@ describe("the Operator on the phone", {
     });
     expect(field()!.value).toBe("Move the pricing table above the fold");
     expect(macs[STUDIO]!.queued).toEqual([]);
+  });
+
+  it("says a send through another Mac is in no shared project on the composer, and leaves the words in the box", async () => {
+    laptopAsleep();
+    macs[STUDIO]!.unshared = true;
+    await openOperator();
+    await choose("store");
+    await typeInto("Rename the footer links");
+    await press(button("Bug"));
+    await press(button("Send"));
+    await vi.waitFor(() =>
+      expect(host.querySelector('[role="alert"]')?.textContent).toContain("not in a project shared"),
+    );
+    expect(dispatches(STUDIO)[0]).toMatchObject({
+      mac: "laptop",
+    });
+    expect(field()!.value).toBe("Rename the footer links");
+    expect(sends()).toEqual([]);
+    expect(host.querySelector('button[aria-pressed="true"]')?.textContent).toBe("Bug");
   });
 
   it("says why a waiting send cannot be taken back, in Fleet's words, and keeps it", async () => {

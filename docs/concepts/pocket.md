@@ -246,7 +246,8 @@ The Gateway maps the label to Fleet's manifest id, refuses one it does not know 
 It answers 201 with the Job.
 
 **Dispatch to the Operator.** `POST /api/sessions/dispatch` takes `{text, repository, kind?, mac?}` and nothing else, and sends Fleet's `POST /sessions/dispatch` as Bridge's composer does: the text as the request and as the first message, `kind` as the hint.
-`mac` names another Mac by the name the phone knows it by, or its id, and is left out for the Mac the phone sends through.
+`mac` names another Mac by the name the phone knows it by, or its id, and is left out for the Mac the call is made to.
+The phone calls the chosen Mac's own Gateway with no `mac` where it answers, and another Mac's with `mac` set only where the chosen Mac is asleep, so the send waits.
 For another Mac the Gateway also names the shared project that Mac holds, since the phone knows no project, and answers 409 where the repository is in none.
 It answers 200 with what the dispatch came to (`session`, `operator` or `parked`, the Job trimmed as the lists trim it), or 202 with the `Queued` act where that Mac does not answer and the send waits for it.
 What the Operator then did with a held dispatch comes on `/api/live`.

@@ -1,12 +1,12 @@
-// What this phone sent the Operator and what became of it. A send goes through one Mac's Gateway
-// (`POST /api/sessions/dispatch`), which answers at once with a Job, the id of a dispatch the Operator holds, or, for a
+// What this phone sent the Operator and what became of it. A send goes to the chosen Mac's own Gateway, or through another
+// Mac's where the chosen one is asleep (`POST /api/sessions/dispatch`), which answers at once with a Job, the id of a dispatch the Operator holds, or, for a
 // Mac that does not answer, the act it kept (202). What the Operator did with a held dispatch arrives on a Mac's stream
 // (`operator.dispatched`), and what waits for a sleeping Mac is `/api/queued`, read again on every `queued` message.
 // Rows live as long as the page does: Fleet keeps no list of sends, only of what waits.
 
 import { useSyncExternalStore } from "react";
 
-import { call, getJson, refusal } from "./client";
+import { Refused, call, getJson, refusal } from "./client";
 import { macOf, onOperator, type Mac } from "./fleet";
 import type {
   OperatorAnswer,
@@ -114,7 +114,7 @@ export const nameOf = (machine: Machine): string =>
 /** A Mac that does not answer: its stream or a read of its lists failed. */
 export const asleep = (mac: Mac): boolean => mac.paired && mac.error !== undefined;
 
-/** The Mac a send goes through: the one serving this app if it answers, else the first paired Mac that does. */
+/** The Mac a send for a sleeping Mac goes through: the one serving this app if it answers, else the first paired Mac that does. */
 export function receiverOf(macs: Mac[]): Mac | undefined {
   const answering = macs.filter((mac) => mac.paired && !asleep(mac));
   return (
@@ -151,6 +151,11 @@ const apply = (held: OperatorDispatched) => {
 
 let made = 0;
 
+/**
+ * Sends to `chosen` through `receiver`: the same Mac where it answers, and no `mac` in the body; another one where `chosen` is
+ * asleep, with `mac` naming it, so the send waits there. Answers the sentence where a Mac refused a send through another because
+ * the repository is in no project they share (409): that send leaves no row, and its words go back into the composer.
+ */
 export async function dispatch(
   receiver: Mac,
   chosen: Mac,
@@ -159,7 +164,7 @@ export async function dispatch(
     repository: string;
     kind?: Kind;
   },
-): Promise<void> {
+): Promise<string | undefined> {
   made += 1;
   const row: Send = {
     id: `n${made}`,
@@ -255,6 +260,10 @@ export async function dispatch(
       });
     void loadWaiting(receiver.machine);
   } catch (why) {
+    if (chosen !== receiver && why instanceof Refused && why.status === 409) {
+      set(sends.filter((one) => one.id !== row.id));
+      return said(why, receiver.machine);
+    }
     change(row.id, {
       stage: {
         phase: "refused",
@@ -262,6 +271,7 @@ export async function dispatch(
       },
     });
   }
+  return undefined;
 }
 
 const wordsOf = (queued: QueuedAct): string =>

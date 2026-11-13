@@ -1,7 +1,7 @@
 // Operator: throw an idea, a feature or a bug at the Operator from the phone, and read what it did with the last
 // sends. The words, the kind chips and the repository follow native's composer (`operator/composer.rs`): a kind is a
-// hint and none is none, and pressing the picked chip again unpicks it. A send goes through the Mac serving the app and
-// names the Mac picked where that is another; one for a Mac that does not answer waits in the list, with Take back.
+// hint and none is none, and pressing the picked chip again unpicks it. A send goes to the Mac picked; one for a Mac that
+// does not answer goes through another and waits in the list, with Take back.
 // The rows and what they do are `sends.ts`.
 
 import { useEffect, useRef, useState } from "react";
@@ -256,6 +256,7 @@ export function Operator() {
   const [kind, setKind] = useState<Kind | undefined>(undefined);
   const [repository, setRepository] = useState("");
   const [picked, setPicked] = useState("");
+  const [trouble, setTrouble] = useState("");
   const [toast, setToast] = useState<Shown | undefined>(undefined);
   const told = useRef(new Set<string>());
   const timers = useRef<number[]>([]);
@@ -304,7 +305,8 @@ export function Operator() {
   /** A repository checked out on one Mac only is offered on that Mac only. */
   const offered = macs.filter((mac) => (listed[mac.machine.origin] ?? []).includes(named));
   const mac = offered.find((one) => one.machine.origin === picked) ?? offered[0];
-  const receiver = receiverOf(fleet.macs);
+  /** The chosen Mac takes its own send; one that is asleep is sent for through another Mac, which keeps it. */
+  const receiver = mac !== undefined && !asleep(mac) ? mac : receiverOf(fleet.macs);
 
   const tell = (stage: Stage, origin: string | undefined) => {
     if (stage.phase !== "dispatched") return;
@@ -343,14 +345,23 @@ export function Operator() {
 
   const send = () => {
     if (mac === undefined || receiver === undefined || line.trim() === "") return;
+    const words = line.trim();
+    const hint = kind;
+    setTrouble("");
     void dispatch(receiver, mac, {
-      text: line.trim(),
+      text: words,
       repository: named,
-      ...(kind === undefined
+      ...(hint === undefined
         ? {}
         : {
-            kind,
+            kind: hint,
           }),
+    }).then((why) => {
+      if (why === undefined) return;
+      // The send is left in the box, as it was.
+      setTrouble(why);
+      setLine((was) => (was.trim() === "" ? words : `${was.trimEnd()}\n\n${words}`));
+      setKind(hint);
     });
     setLine("");
     setKind(undefined);
@@ -461,6 +472,11 @@ export function Operator() {
             ))}
           </div>
         </div>
+        {trouble === "" ? null : (
+          <p className="pk-fact pk-composer__fact" role="alert">
+            {trouble}
+          </p>
+        )}
         {away ? (
           <p className="pk-fact pk-composer__fact" role="status">
             {nameOf(mac.machine)} is not answering. A send waits in the list until it wakes.

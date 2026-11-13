@@ -198,6 +198,11 @@ function dispatched(mac: FixtureMac, send: OperatorBody): Answered {
   const on = send.mac ?? mac.name;
   if (send.mac === undefined && !mac.repositories.includes(send.repository))
     return said(400, "Armada does not know that repository. Pick one from the list.");
+  if (send.mac !== undefined && mac.unshared)
+    return said(
+      409,
+      "That repository is not in a project shared between your Macs, so a Job cannot start there from here.",
+    );
   if (send.mac !== undefined && (mac.asleep ?? []).includes(send.mac)) {
     const queued: QueuedAct = {
       id: `q${sentOn}`,
