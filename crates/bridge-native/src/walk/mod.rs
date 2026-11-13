@@ -2695,7 +2695,7 @@ pub static WALKS: &[Walk] = &[
             step("This Mac's Jobs carry the dot too, so the rows line up", Verb::Look, "img", "Studio"),
             step("In a narrow window the title keeps its width: the dot takes no more room than a glyph", Verb::Look, "row", "Audit the docs index"),
             step("Air is asleep, so its dot is dimmed. The pointer on the dot rests on the row", Verb::Hover, "img", "Air"),
-            step("The row's card opens, with the Mac as a line of its own: the dot, then Air and since when it sleeps", Verb::Later(900), "tooltip", "Fix the merge line freshness chip"),
+            step("The row's card opens, with the Mac as a line of its own: the dot, then Air and since when it sleeps", Verb::Later(900), "tooltip", "Audit the docs index"),
             pairing("Air wakes: its dot is drawn whole, so an awake Mac reads apart from an asleep one", "air-awake", "img", "Air"),
             press_on("A press opens a Job on Air: its thread reads as any other", "row", "Fix the merge line freshness chip", "textbox", "Message"),
             step("The head carries the chip with the Job's other marks", Verb::Look, "img", "Air"),
