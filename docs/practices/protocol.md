@@ -1931,3 +1931,26 @@ The native Bridge sends it from the dispatch sheet, a key and the command palett
 A record with `quick_terminal` reads on a Bridge that does not know it as a plain Job.
 
 **The event stream.** Untouched in kind: the start publishes `session.changed` and `terminal.opened` for `t1`, as a start and an open each do. The open risk below is neither better nor worse.
+
+## The call that ran a Check: `SessionRow::Check.tool_row`
+
+Since 13 Nov 2026. `docs/concepts/session/a-jobs-checks.md`.
+**Additive only**: one optional field on an existing thread row; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `tool_row` on the `check` row in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+Electron reads none of it. The native Bridge opens a run from the `tool` row that ran it.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `check` row `tool_row` (`session.row`, `get_session`, `get_job_thread`) | Fleet writes, Bridge reads | The `id` of the `tool` row in the same thread whose call ran the run. Absent where Fleet could not tell, and on every row kept before it |
+
+**Detected off the hosted Job's own stream, never asked of the agent**: `report_session_check` carries no call id.
+A shell call of the agent's own whose command runs `armada check` is held from the call until it answers, or, where it was backgrounded, until the task it started ends, since the harness answers a backgrounded call before its command begins.
+A run that starts with exactly one held call takes that call's row; none or several leaves it absent.
+**The row's id, not the harness's call id**: a hosted thread's rows carry Fleet's own ids, so a call id would match nothing a client holds.
+A subagent's calls are no rows of the thread and a terminal Job has no stream Fleet hears, so their runs carry none.
+The link is kept on the run in the store, so the row the run's end writes carries it too.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+A row with `tool_row` reads on a Bridge that does not know it as a `check` row.
+**The event stream.** No new event; a linked `check` row grows by one short id. The open risk below is neither better nor worse.
