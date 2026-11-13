@@ -2233,6 +2233,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::LANES_ADD_STEPS,
     },
     Walk {
+        name: crate::settings::walk::DELETE_PROJECT,
+        title: "Delete a project from the picker",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::DELETE_PROJECT_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::TAKE,
         title: "Choose what to take from Armada",
         screen: Screen::Settings,

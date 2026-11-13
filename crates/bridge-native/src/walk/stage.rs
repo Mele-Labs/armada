@@ -129,6 +129,9 @@ impl Stage {
                 if walk.name == crate::settings::walk::LANES_ADD {
                     over.update(cx, |over, cx| over.with_drafted_lane(cx));
                 }
+                if walk.name == crate::settings::walk::DELETE_PROJECT {
+                    over.update(cx, |over, cx| over.with_deletable_projects(cx));
+                }
                 if walk.name == crate::settings::walk::TAKE {
                     over.update(cx, |over, cx| over.copied_from_base(cx));
                 }

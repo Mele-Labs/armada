@@ -84,6 +84,26 @@ pub static WAYS_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-delete-project`: the picker's Delete on each project this Mac keeps, its confirm, and the fall back to Every project.
+pub const DELETE_PROJECT: &str = "native-delete-project";
+
+pub static DELETE_PROJECT_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings editing every project", Verb::Key("cmd-,"), "combobox", "Editing Every project"),
+    step("\u{2318}P opens the picker", Verb::Key("cmd-p"), "menu", "Editing"),
+    step("\u{2193} twice and Enter pick Storefront", Verb::Keys(&["down", "down", "enter"]), "combobox", "Editing Storefront"),
+    step("\u{2318}P again: under New project, a Delete for each project this Mac keeps", Verb::Key("cmd-p"), "menuitem", "Delete Storefront"),
+    step("Pricing is another Mac's copy, so it has no Delete", Verb::Absent("menuitem", "Delete Pricing"), "menuitem", "Pricing"),
+    press_on("Delete Storefront asks first, naming its tasks", "menuitem", "Delete Storefront", "dialog", "Delete Storefront? Its 4 tasks go with it."),
+    step("The keys start on Cancel; Tab goes to Delete", Verb::Key("tab"), "button", "Delete"),
+    step("Esc cancels, and Storefront is still edited", Verb::Key("escape"), "combobox", "Editing Storefront"),
+    step("\u{2318}P opens the picker again", Verb::Key("cmd-p"), "menuitem", "Delete Storefront"),
+    press_on("Delete Storefront asks again", "menuitem", "Delete Storefront", "dialog", "Delete Storefront? Its 4 tasks go with it."),
+    step("Tab, Enter: Fleet deletes it, and the picker is on Every project", Verb::Keys(&["tab", "enter"]), "combobox", "Editing Every project"),
+    step("\u{2318}P: Storefront is gone from the picker", Verb::Key("cmd-p"), "menuitem", "Armada"),
+    step("Its Delete went with it", Verb::Absent("menuitem", "Delete Storefront"), "menuitem", "Delete Armada"),
+    step("Esc shuts the picker", Verb::Key("escape"), "combobox", "Editing Every project"),
+];
+
 /// `native-take`: a copy Armada has changed since it began, and choosing what to take from Armada's lanes beside its own.
 pub const TAKE: &str = "native-take";
 
@@ -456,8 +476,8 @@ pub static STEPS: &[Step] = &[
     press_on("It opens Settings again, its search empty", "menuitem", "Settings", "dialog", "Settings"),
     step("Esc closes it", Verb::Key("escape"), "button", "Menu"),
     step("⌘, opens Settings editing every project; the picker sits at the top of the sidebar", Verb::Key("cmd-,"), "combobox", "Editing Every project"),
-    step("⌘P opens the picker from anywhere in Settings: Every project, each project, then New project", Verb::Key("cmd-p"), "menu", "Editing"),
-    step("New project waits for its sheet, so it cannot be picked yet", Verb::Look, "menuitem", "New project"),
+    step("⌘P opens the picker from anywhere in Settings: Every project, each project, then New project and a Delete for each", Verb::Key("cmd-p"), "menu", "Editing"),
+    step("New project opens its sheet over the app", Verb::Look, "menuitem", "New project"),
     step("↓ moves to Armada, and Enter picks it", Verb::Keys(&["down", "enter"]), "group", "For Armada"),
     step("The pages Armada can set are under its name; everything else is under This Mac", Verb::Look, "group", "This Mac"),
     step("Models stays under This Mac; the sketch had it under the project", Verb::Look, "button", "Models"),
