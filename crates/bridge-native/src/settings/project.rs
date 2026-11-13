@@ -338,7 +338,22 @@ fn shared(this: &SettingsOverlay, scope: &Scope, look: &Look, window: &Window, c
             }))
         });
     let refused = scope.share_refused.clone().map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("project-shared-refused"), Role::Alert, said));
-    Some(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(labelled(ringed(look, row, focus, window), Role::Switch, SAID)).children(refused).into_any_element())
+    // Framed as the cards under it, with no title of its own: the switch names itself.
+    Some(
+        div()
+            .flex_none()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            .p(look.length(token::PAD_CARD))
+            .rounded(look.length(token::RADIUS_LG))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .bg(look.color(token::SURFACE_CARD))
+            .child(labelled(ringed(look, row, focus, window), Role::Switch, SAID))
+            .children(refused)
+            .into_any_element(),
+    )
 }
 
 #[cfg(test)]
