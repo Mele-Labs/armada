@@ -243,8 +243,10 @@ impl JobView {
         };
         let skip = can_skip.then(|| {
             let (skip_id, skip_source) = (id.clone(), source.clone());
+            // A question's Skip refuses it, which crosses to the Job's Mac; a waiting item's puts it away, which does not.
+            let away = if matches!(source, Source::Waiting(_)) { self.off_shown(cx) } else { None };
             labelled(
-                button(look, SharedString::from(format!("answer-skip:{key}")), "Skip", Tone::Ghost, false, target.then_some("\u{2325}X"), true)
+                super::acts::gated(button(look, SharedString::from(format!("answer-skip:{key}")), "Skip", Tone::Ghost, false, target.then_some("\u{2325}X"), true), away)
                     .on_click(cx.listener(move |this, _, window, cx| this.deck_skip(&skip_id, &skip_source, window, cx))),
                 Role::Button,
                 "Skip",
@@ -287,7 +289,7 @@ impl JobView {
                 ))
                 .children(typed_box)
                 .children(said.map(|why| refusal(look, key, why)))
-                .child(labelled(super::acts::gated(footer.id(SharedString::from(format!("answers:{key}"))), self.off_shown(cx)), Role::Toolbar, "Answers"))
+                .child(labelled(super::acts::gated(footer.id(SharedString::from(format!("answers:{key}"))), self.off_shown_to("/sessions/waiting/answer", cx)), Role::Toolbar, "Answers"))
                 .children(frame.map(|frame| {
                     let drawn = frame.bounds.clone();
                     canvas(

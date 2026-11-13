@@ -70,15 +70,18 @@ impl JobView {
 
     fn ask(&mut self, verb: Verb, path: String, body: Option<String>, window: &mut Window, cx: &mut Context<Self>, done: Done) {
         self.refused_code = None;
-        // An act on a Job on another Mac never leaves: Fleet refuses it until stage 2, so it is answered here with the
+        // An act on a Job on another Mac that Fleet does not carry there never leaves: it is answered here with the
         // same sentence every control on that Job wears.
-        if !matches!(verb, Verb::Get) && !crate::pairing::reads(&path) {
-            if let Some(why) = self.shown.as_ref().and_then(|id| self.off_here(id, cx)) {
+        if !matches!(verb, Verb::Get) {
+            if let Some(why) = self.off_shown_to(&path, cx) {
                 done(self, Err(why.to_string()), window, cx);
                 return;
             }
         }
         if self.fleet.is_none() {
+            if let (Some(id), Some(body)) = (self.shown.clone(), body.as_deref()) {
+                self.mock_keep(&id, &path, body, cx);
+            }
             done(self, Ok(Vec::new()), window, cx);
             return;
         }

@@ -45,6 +45,9 @@ use crate::look::{token, ActiveLook, Look};
 /// A text paste this long, at four characters a token and 8000 tokens, becomes a file (`large-paste.ts`).
 pub(crate) const LARGE_PASTE: usize = 8000 * 4;
 
+/// Where a message is sent; Fleet carries it to the Mac a Job runs on (`crate::pairing::crosses`).
+pub(super) const MESSAGE: &str = "/sessions/message";
+
 // ---- the draft ---------------------------------------------------------------------------------
 
 /// A chip in a draft: its place in the text, and what it names.
@@ -695,7 +698,7 @@ impl JobView {
             return self.send_report(window, cx);
         }
         let Some(id) = self.shown.clone() else { return };
-        if self.closed(&id, cx) || self.off_here(&id, cx).is_some() {
+        if self.closed(&id, cx) || self.off_to(&id, MESSAGE, cx).is_some() {
             return;
         }
         // A held Job's first send begins it: the box is the first message.
@@ -723,7 +726,7 @@ impl JobView {
     /// A quick line goes as it is, and the box keeps its draft.
     pub(super) fn send_line(&mut self, text: String, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        if self.closed(&id, cx) || self.off_here(&id, cx).is_some() || text.trim().is_empty() {
+        if self.closed(&id, cx) || self.off_to(&id, MESSAGE, cx).is_some() || text.trim().is_empty() {
             return;
         }
         self.deliver(id, Some(text), window, cx);
@@ -791,6 +794,13 @@ impl JobView {
                     .detach();
                 }
                 None => {
+                    // A Job on a Mac asleep: the mock keeps the words, as Fleet does, and the Waits for card holds them.
+                    let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions: mentions.clone(), sketches: sketches.clone() };
+                    if ipc::encode(&SendSessionMessageBody { message, aim: None }).is_ok_and(|body| self.mock_keep(&id, MESSAGE, &body, cx)) {
+                        self.pin(&id);
+                        cx.notify();
+                        return;
+                    }
                     // His pictures are drawn from what he sent, as there is no Fleet to read them back from.
                     for one in files.iter().filter(|one| one.preview.is_some()) {
                         self.sent_picture(&id, &format!("file-{}", one.key), &one.media_type, &one.bytes, cx);
@@ -825,12 +835,19 @@ impl JobView {
     /// Posts a held message; a refusal marks it Not sent, where Retry finds it.
     fn send_pending(&mut self, id: &SharedString, key: u64, body: Result<String, ipc::Unencodable>, window: &mut Window, cx: &mut Context<Self>) {
         let job = id.clone();
-        let done: Done = Box::new(move |this, answer, _, cx| {
-            if let Err(why) = answer {
-                this.not_sent(&job, key, why.into(), cx);
+        let done: Done = Box::new(move |this, answer, _, cx| match answer {
+            // Kept for a Mac asleep (202): the Waits for card holds it now, so the words leave the thread.
+            Ok(bytes) if ipc::decode::<ipc::Queued>("Queued", &bytes).is_ok() => {
+                if let Some(page) = this.pages.get_mut(&job) {
+                    page.pending.retain(|one| one.key != key);
+                }
+                this.sync(&job, cx);
+                cx.notify();
             }
+            Ok(_) => {}
+            Err(why) => this.not_sent(&job, key, why.into(), cx),
         });
-        self.post("/sessions/message".into(), body, window, cx, done);
+        self.post(MESSAGE.into(), body, window, cx, done);
     }
 
     /// Fleet did not take the words: they stay in the thread marked Not sent, with a Retry, and its
@@ -1199,7 +1216,7 @@ impl JobView {
     /// Send, as the box's bar draws it: off while there is nothing to send.
     pub(super) fn send_button(&self, nothing: bool, said: &'static str, window: &Window, cx: &Context<Self>) -> gpui::AnyElement {
         let look = cx.look();
-        let off = self.shown.as_ref().and_then(|id| self.off_here(id, cx));
+        let off = self.off_shown_to(MESSAGE, cx);
         let nothing = nothing || off.is_some();
         labelled(
             send_face(look, nothing, said, window.modifiers().platform)
@@ -1212,7 +1229,7 @@ impl JobView {
     }
 
     pub(super) fn attach_button(&self, look: &Look, cx: &Context<Self>) -> gpui::AnyElement {
-        let off = self.shown.as_ref().and_then(|id| self.off_here(id, cx));
+        let off = self.off_shown_to(MESSAGE, cx);
         labelled(
             icon_button(look, "attach", "paperclip", off.clone().unwrap_or_else(|| "Attach a file or a picture".into()), false, off.is_some())
                 .when(off.is_none(), |button| button.on_click(cx.listener(|this, _, window, cx| this.attach(window, cx)))),
@@ -1249,7 +1266,7 @@ impl JobView {
             .text_color(look.color(token::FG_DEFAULT))
             .child({
                 let view = cx.entity().downgrade();
-                let off = self.off_shown(cx);
+                let off = self.off_shown_to(MESSAGE, cx);
                 match off {
                     // A Job on another Mac takes no words: where the box is empty it says why, wrapped as the box is, since a
                     // placeholder runs on one line and is cut at the box's edge.
