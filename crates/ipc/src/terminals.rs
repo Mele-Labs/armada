@@ -26,15 +26,15 @@ pub struct OpenTerminal {
     pub rows: Option<u16>,
 }
 
-/// `start_terminal_job`: a quick terminal, a Job that opens straight onto its terminal `t1` and whose
-/// agent runs nothing until the person's first message. `POST /sessions/terminal/start`. Answered 200
-/// with [`TerminalJobStarted`]. `docs/concepts/session/a-quick-terminal.md`.
+/// `start_side_job`: a Side Job, a Job that opens straight onto its terminal `t1` and whose
+/// agent runs nothing until the person's first message. `POST /sessions/side_job/start`. Answered 200
+/// with [`SideJobStarted`]. `docs/concepts/session/a-side-job.md`.
 ///
 /// **Exactly one of `manifest_id` and `dir`.** A `dir` inside a served repository is that
 /// repository's Job with `t1` in the folder; anywhere else it is a loose folder, run in place with no
 /// Manifest and never a slot, and nothing is written to make it a repository.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StartTerminalJob {
+pub struct StartSideJob {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest_id: Option<crate::ManifestId>,
     /// An absolute path to an existing directory.
@@ -58,9 +58,9 @@ pub struct StartTerminalJob {
     pub rows: Option<u16>,
 }
 
-/// `start_terminal_job`'s answer: the Job, and the run of its terminal `t1`.
+/// `start_side_job`'s answer: the Job, and the run of its terminal `t1`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TerminalJobStarted {
+pub struct SideJobStarted {
     pub session_id: SessionId,
     pub terminal: String,
     pub run_id: String,

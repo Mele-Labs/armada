@@ -732,6 +732,11 @@ const OPTION_PICTURES_ASK: &str = r#"{"id":"agent-looks","text":"Which look do t
 {"label":"One act and a menu","description":"The main act stays; the rest go in a menu with a note under the row.","picture":{"image":"/sessions/shown?session_id=mock-01&path=pick-actions-b.png","width":760,"height":540,"parts":[{"name":"act-primary","label":"Main act","x":623,"y":134,"w":80,"h":24},{"name":"more-menu","label":"More menu","x":707,"y":134,"w":24,"h":24},{"name":"row-note","label":"Row note","x":29,"y":229,"w":702,"h":100},{"name":"menu","label":"Menu","x":599,"y":461,"w":132,"h":66}]}},
 {"label":"Keep today's row","description":"Nothing changes."}]}"#;
 
+/// A text file a mock Job showed, as `GET /sessions/shown` serves it.
+pub fn shown_text(path: &str) -> Option<String> {
+    path.ends_with("/mac-mark.md").then(|| "# Mac mark\n\nEach Jobs row carries a dot in its Mac's colour. The Mac's name is in the dot's tooltip.\n".to_string())
+}
+
 /// A still the option-pictures walk's question shows, as `GET /sessions/shown` serves it.
 pub fn shown_still(image: &str) -> Option<&'static [u8]> {
     match image.rsplit('=').next()? {

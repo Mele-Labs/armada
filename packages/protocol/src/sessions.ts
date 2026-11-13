@@ -136,8 +136,8 @@ export type SessionRecord = {
   from_tab?: string;
   /** A Mod Job started with the aim `instrument`, so it builds an instrument for a bay of the console. Absent on every other session. */
   mod_of_bay?: true;
-  /** A quick terminal, started by `start_terminal_job`: it opens onto its terminal `t1`, and its agent runs nothing until the person writes. Absent on every other session. */
-  quick_terminal?: true;
+  /** A Side Job, started by `start_side_job`: it opens onto its terminal `t1`, and its agent runs nothing until the person writes. Absent on every other session. */
+  side_job?: true;
   /** What a session Fleet hosts carries beyond a terminal's. Since 23.49. */
   hosted?: HostedFacts;
   /** What a session run in a terminal runs on, once its mod has said. Since 23.53. */
@@ -1440,8 +1440,8 @@ export type OpenTerminal = {
   rows?: number;
 };
 
-/** `start_terminal_job`: a quick terminal, a Job that opens onto its terminal `t1` and whose agent runs nothing until the person writes. `POST /sessions/terminal/start`. Answered 200 with `TerminalJobStarted`. Exactly one of `manifest_id` and `dir`: a `dir` inside a served repository is that repository's Job with `t1` in the folder, anywhere else a loose folder run in place with no Manifest and never a slot. `dir` is an absolute path to an existing directory; `project` is not read for a loose folder; `title` absent or blank is `Terminal in <folder>`; `cols` and `rows` are `t1`'s size, absent is 80 by 24. Both or neither, a `dir` that is not an absolute directory and a size with no cells are refused 422, and nothing is made. */
-export type StartTerminalJob = {
+/** `start_side_job`: a Side Job, a Job that opens onto its terminal `t1` and whose agent runs nothing until the person writes. `POST /sessions/side_job/start`. Answered 200 with `SideJobStarted`. Exactly one of `manifest_id` and `dir`: a `dir` inside a served repository is that repository's Job with `t1` in the folder, anywhere else a loose folder run in place with no Manifest and never a slot. `dir` is an absolute path to an existing directory; `project` is not read for a loose folder; `title` absent or blank is `Terminal in <folder>`; `cols` and `rows` are `t1`'s size, absent is 80 by 24. Both or neither, a `dir` that is not an absolute directory and a size with no cells are refused 422, and nothing is made. */
+export type StartSideJob = {
   manifest_id?: string;
   dir?: string;
   title?: string;
@@ -1453,8 +1453,8 @@ export type StartTerminalJob = {
   rows?: number;
 };
 
-/** `start_terminal_job`'s answer: the Job, and the run of its terminal `t1`, whose output is `observe_session_run`'s. */
-export type TerminalJobStarted = {
+/** `start_side_job`'s answer: the Job, and the run of its terminal `t1`, whose output is `observe_session_run`'s. */
+export type SideJobStarted = {
   session_id: string;
   terminal: string;
   run_id: string;

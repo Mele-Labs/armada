@@ -1,14 +1,14 @@
-[operations.start_terminal_job]
+[operations.start_side_job]
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Start a quick terminal: a Job in a project or any folder that opens onto its terminal t1, whose agent runs nothing until the person writes"
+description = "Start a Side Job: a Job in a project or any folder that opens onto its terminal t1, whose agent runs nothing until the person writes"
 notes = """
-`POST /sessions/terminal/start`, body `StartTerminalJob`: one of `manifest_id` and `dir`, and `title`, `model`, `effort`, `mode`, `project`, `cols` and `rows` where the person chose them. Answered 200 with `TerminalJobStarted`: `session_id`, `terminal` (`t1`) and `run_id`, `t1`'s run, whose output is `observe_session_run`'s. Since 12 Nov 2026. `docs/concepts/session/a-quick-terminal.md`.
+`POST /sessions/side_job/start`, body `StartSideJob`: one of `manifest_id` and `dir`, and `title`, `model`, `effort`, `mode`, `project`, `cols` and `rows` where the person chose them. Answered 200 with `SideJobStarted`: `session_id`, `terminal` (`t1`) and `run_id`, `t1`'s run, whose output is `observe_session_run`'s. Since 12 Nov 2026. `docs/concepts/session/a-side-job.md`.
 
 **Where it runs.** `manifest_id` is a served repository, by its Manifest's id or its `implicit_id`, as `start_session` reads it. `dir` is an absolute path to an existing directory. Inside a served repository it is that repository's Job, the deepest repository where one holds another, and its terminals open in `dir`: in the checkout until the Job leases a slot, and in the same folder of the slot after. Anywhere else it is a **loose folder**: the Job runs in `dir` with no Manifest (`manifest_id` absent on its record), writes there in place, never leases a slot, and nothing is written to make the folder a repository or to serve it.
 
-**What starts.** The Job is a hosted one with no workflow, by choice, no hold and no proposer reading. `t1` opens at once, as `open_terminal` opens one, and `terminal.opened` follows. **No agent process starts, and no model is called, until the person's first message**, as for any hosted Job. A `title` absent or blank leaves the Job untitled, and the first message he sends titles it, as for any untitled Job; a `title` he typed stands. While it waits the record is `state` `live` with `hosted.turn` `idle` and `hosted.running` false, and its `mark` `blank`: never ended or done. The record and every list carry `quick_terminal: true`, as does a Job that replaces it on a handoff.
+**What starts.** The Job is a hosted one with no workflow, by choice, no hold and no proposer reading. `t1` opens at once, as `open_terminal` opens one, and `terminal.opened` follows. **No agent process starts, and no model is called, until the person's first message**, as for any hosted Job. A `title` absent or blank leaves the Job untitled, and the first message he sends titles it, as for any untitled Job; a `title` he typed stands. While it waits the record is `state` `live` with `hosted.turn` `idle` and `hosted.running` false, and its `mark` `blank`: never ended or done. The record and every list carry `side_job: true`, as does a Job that replaces it on a handoff.
 
 **Each message of the person's carries the terminals.** Ahead of his words the agent reads what each open terminal shows, its last 60 lines as `read_terminal` answers them, so it answers from the terminal without having to call `read_terminal` first. A note or another Job's message does not carry them. It types into one with `type_in_terminal` only when he asks.
 

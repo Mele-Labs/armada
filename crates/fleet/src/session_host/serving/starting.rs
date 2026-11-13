@@ -30,18 +30,18 @@ where
         self.started_hosted_as(start, marked, None).await
     }
 
-    /// As [`Self::started_hosted`], and a quick terminal where `quick` is given: kept as one, with no
+    /// As [`Self::started_hosted`], and a Side Job where `side` is given: kept as one, with no
     /// workflow by choice, and a loose folder run in place with no Manifest.
     pub(crate) async fn started_hosted_as(
         &self,
         mut start: StartSession,
         marked: Marked,
-        quick: Option<QuickStart>,
+        side: Option<SideStart>,
     ) -> Result<SessionRecord, Refusal> {
         let rooted = start.root.is_some();
         // A fork is held in `forking.rs`.
         let held = start.held && !rooted;
-        let loose = quick.as_ref().and_then(|quick| quick.loose.clone());
+        let loose = side.as_ref().and_then(|side| side.loose.clone());
         let (manifest, cwd) = match (marked, start.root.take()) {
             _ if loose.is_some() => (None, loose.clone().unwrap_or_default()),
             (Marked::ModsFolder, _) => (None, self.mods_dir().to_string_lossy().into_owned()),
@@ -144,14 +144,14 @@ where
                     auto_land: false,
                     mod_job: matches!(marked, Marked::Mod | Marked::ModsFolder),
                     start_held: held,
-                    // A quick terminal has no workflow, by choice, so no default is put over it.
-                    workflow_chosen: quick.is_some(),
+                    // A Side Job has no workflow, by choice, so no default is put over it.
+                    workflow_chosen: side.is_some(),
                     from_job: None,
                     from_tab: None,
                     mod_of_bay: false,
                     project,
-                    quick_terminal: quick.is_some(),
-                    terminal_dir: quick.and_then(|quick| quick.terminal_dir),
+                    side_job: side.is_some(),
+                    terminal_dir: side.and_then(|side| side.terminal_dir),
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             if holds_lifecycles {
@@ -183,9 +183,9 @@ where
     }
 }
 
-/// What makes a start a quick terminal's (`start_terminal_job`).
+/// What makes a start a Side Job's (`start_side_job`).
 #[derive(Clone, Debug, Default)]
-pub(crate) struct QuickStart {
+pub(crate) struct SideStart {
     /// A loose folder: the Job runs here, with no Manifest and never a slot.
     pub(crate) loose: Option<String>,
     /// The folder under its repository's root its terminals open in.
