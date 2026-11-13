@@ -141,7 +141,7 @@ fn end_box(gaps: &[StepGap]) -> Option<(String, Bounds<Pixels>)> {
 
 impl LanesEditor {
     /// The definition as the draft has it: what a field opens on and what a new step is added to.
-    fn text(&self) -> String {
+    pub(super) fn text(&self) -> String {
         if self.text.is_empty() {
             self.saved.clone().unwrap_or_default()
         } else {
@@ -156,7 +156,7 @@ impl LanesEditor {
 
     /// Whether the keys are in a field opened in place.
     pub fn typing(&self, window: &Window, cx: &gpui::App) -> bool {
-        self.in_place.as_ref().and_then(|one| one.fields.as_ref()).is_some_and(|fields| fields.name.read(cx).focus_handle(cx).is_focused(window) || fields.words.as_ref().is_some_and(|words| words.read(cx).focus_handle(cx).is_focused(window)))
+        self.typing_words(window, cx) || self.in_place.as_ref().and_then(|one| one.fields.as_ref()).is_some_and(|fields| fields.name.read(cx).focus_handle(cx).is_focused(window) || fields.words.as_ref().is_some_and(|words| words.read(cx).focus_handle(cx).is_focused(window)))
     }
 
     /// The picked node, where it is a step of the workflow's lane.
@@ -298,7 +298,7 @@ impl LanesEditor {
 
     /// The keys to the canvas once the key that closed the fields is through: gpui still sends a key a host took to
     /// the key-down listeners on its way, and the canvas's own would take it again.
-    fn give_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn give_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         cx.defer_in(window, |this, window, cx| window.focus(&this.state.frame, cx));
         cx.notify();
     }
@@ -331,6 +331,9 @@ impl LanesEditor {
     /// The fields' own keys while they hold them: Tab between Name and Words, Enter lands them, Esc closes them.
     /// Shift-Enter is the Words' new line.
     pub fn field_key(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.typing_words(window, cx) {
+            return self.words_key(key, window, cx);
+        }
         let mods = &key.modifiers;
         if mods.platform || mods.control || mods.alt {
             return false;
@@ -380,6 +383,10 @@ impl LanesEditor {
 
     /// E: the picked step's or state's fields, with the keys in its Name. `false` where it has none to edit.
     pub(super) fn open_picked(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if let Some(Pick::Rule(rule)) = self.picked.clone() {
+            self.open_rule(&rule, true, window, cx);
+            return self.sentence.is_some();
+        }
         let Some(Pick::Node(node)) = self.picked.clone() else { return false };
         let found = {
             use crate::lanes_canvas::LanesHost;
@@ -561,6 +568,9 @@ impl LanesEditor {
     /// What the page shows when fields open, relative to the canvas's frame: the node, and the panel at its whole
     /// height under it.
     pub(super) fn reveal_target(&self, look: &Look) -> Option<Bounds<Pixels>> {
+        if self.sentence.is_some() {
+            return self.sentence_reveal(look);
+        }
         let one = self.in_place.as_ref()?;
         let node = self.open_node()?;
         let frame = self.frame.get();

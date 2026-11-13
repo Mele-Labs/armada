@@ -84,6 +84,58 @@ pub static WAYS_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-rules`: a rule opened as one sentence where its chip stands, each field set from its menu, and the changes
+/// kept in the draft like a step's.
+pub const RULES: &str = "native-rules";
+
+pub static RULES_STEPS: &[Step] = &[
+    step("⌘, opens Settings over the app", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Workflows: every workflow Fleet runs", "button", "Workflows", "group", "Shipped with Armada"),
+    step("A press on armada's own copy of feature draws it, so an edit here changes armada only", Verb::PressWithin("group", "armada repository", "feature"), "button", "Add rule"),
+    step("Beside Add lifecycle is Add rule. Nothing is drafted yet", Verb::Look, "button", "Add lifecycle"),
+    press_on("A press on a rule's chip opens its sentence under it, where the rule sits", "button", "Ticket to In Progress", "group", "Ticket to In Progress"),
+    step("When a moment, if a condition, do an act, then Ask me first. Each is a field, and Ask me first is a switch", Verb::Look, "combobox", "When"),
+    step("Tab goes into the sentence, on When", Verb::Key("tab"), "combobox", "When"),
+    step("Three more Tabs go through If and Add condition to Do", Verb::Keys(&["tab", "tab", "tab"]), "combobox", "Do"),
+    step("Tab again reaches Ask me first, and Shift-Tab comes back to Do", Verb::Keys(&["tab", "shift-tab"]), "combobox", "Do"),
+    press_on("A press on When opens its choices in a small menu under it", "combobox", "When", "menu", "When choices"),
+    press_on("A choice that needs a value opens a second choice in the same menu", "menuitem", "A step starts", "menuitem", "Walk starts"),
+    press_on("Walk starts is picked, and the field reads it: one change in the draft", "menuitem", "Walk starts", "button", "Changes"),
+    press_on("Add condition opens an empty If with its choices", "button", "Add condition", "menu", "If 2 choices"),
+    press_on("A choice with no value sets the field at once", "menuitem", "The Job has opened a pull request", "combobox", "If 2"),
+    step("⌫ on a condition drops it from the sentence and the rule", Verb::Key("backspace"), "combobox", "If"),
+    press_on("Add condition again, then Esc shuts the choices and leaves the field empty", "button", "Add condition", "menu", "If 2 choices"),
+    step("Esc shuts the menu, and the field stays empty", Verb::Key("escape"), "combobox", "If 2"),
+    step("⌫ on the empty field drops it, with no change to the draft", Verb::Key("backspace"), "combobox", "If"),
+    press_on("Do opens the acts: the vocabulary is the wire's", "combobox", "Do", "menu", "Do choices"),
+    press_on("An act that needs words opens a box in the same menu", "menuitem", "Tell the agent", "textbox", "Message"),
+    step("The words", Verb::Typed("Say what changed"), "textbox", "Message"),
+    step("Enter sets the act: one more change", Verb::Key("enter"), "combobox", "Do"),
+    press_on("A press on Ask me first turns it on, which is the rule's autonomy set to asks", "switch", "Ask me first", "switch", "Ask me first"),
+    press_on("Changes lists each change with its own Undo", "button", "Changes", "region", "Changes"),
+    step("The first change is the trigger", Verb::Look, "button", "Undo Changed the trigger of Ticket to In Progress to Walk starts"),
+    step("⌘Z takes back the last change, Ask me first, and shuts the sentence", Verb::Key("cmd-z"), "button", "Undo Changed the act of Ticket to In Progress to tell the agent: Say what changed"),
+    press_on("Add rule opens an empty sentence at the top of the canvas, with When's choices open", "button", "Add rule", "menu", "When choices"),
+    press_on("A step ends", "menuitem", "A step ends", "menuitem", "Walk ends"),
+    press_on("Walk ends", "menuitem", "Walk ends", "combobox", "Do"),
+    press_on("Nothing is drafted until it has a moment and an act. Do opens the acts", "combobox", "Do", "menu", "Do choices"),
+    press_on("Move each ticket", "menuitem", "Move each ticket", "menuitem", "move each ticket to Done"),
+    press_on("The rule is named for what it does, and joins the draft as a change of its own", "menuitem", "move each ticket to Done", "button", "Move each ticket to Done"),
+    step("Changes lists it, with its Undo", Verb::Look, "button", "Undo Added the rule Move each ticket to Done"),
+    step("Esc shuts the new sentence, and what it set stays in the draft", Verb::Key("escape"), "button", "Ticket to In Progress"),
+    step("The page scrolls down to the canvas, where the chips sit", Verb::Wheel("textbox", "Tell an agent what to change", 260), "button", "Ticket to In Progress"),
+    press_on("A press on the rule's chip opens it again, as any rule's", "button", "Ticket to In Progress", "group", "Ticket to In Progress"),
+    press_on("Do opens the acts", "combobox", "Do", "menu", "Do choices"),
+    press_on("Run a command", "menuitem", "Run a command", "textbox", "Command"),
+    step("Enter with no words", Verb::Key("enter"), "alert", "`do[0].run_command.command` is empty: say what it is"),
+    press_on("Fleet's sentence stands under the sentence, its backticked words as code", "combobox", "Do", "menu", "Do choices"),
+    press_on("Run a command again", "menuitem", "Run a command", "textbox", "Command"),
+    step("A command", Verb::Typed("pnpm test"), "textbox", "Command"),
+    step("Enter sets it, and the refusal goes", Verb::Key("enter"), "button", "Publish"),
+    press_on("Publish writes each rule's draft where it applies", "button", "Publish", "button", "Add rule"),
+    step("The rules are kept: the new rule's chip is drawn as any other", Verb::Look, "button", "Move each ticket to Done"),
+];
+
 /// F reaches the Workflows search: where the page is narrow it brings the list back in the detail's place first.
 const LIST: Verb = Verb::Key("f");
 

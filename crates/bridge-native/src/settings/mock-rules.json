@@ -1,0 +1,79 @@
+{
+  "manifest_id": "armada",
+  "rules": [
+    {
+      "rule": {
+        "id": "ticket-started",
+        "name": "Ticket to In Progress",
+        "scope": { "kind": "everywhere" },
+        "when": { "kind": "step_starts", "step": "plan" },
+        "conditions": [{ "kind": "instances", "among": { "kind": "held", "lifecycle": "ticket" }, "quantity": "any", "in_state": "todo" }],
+        "does": [{ "what": { "act": "tracker_move", "to": "in_progress", "target": { "among": { "kind": "held", "lifecycle": "ticket" }, "in_state": "todo" } }, "kind": "tracker_write", "autonomy": "acts" }],
+        "autonomy": "acts",
+        "on_failure": { "retries": 1, "then": "tell_agent" }
+      },
+      "kept": { "rank": { "reach": "everywhere", "source": "kit" }, "path": "~/.armada/kit/rules/ticket-started.yml" }
+    },
+    {
+      "rule": {
+        "id": "open-draft",
+        "name": "Open a draft pull request",
+        "scope": { "kind": "everywhere" },
+        "when": { "kind": "step_starts", "step": "build" },
+        "conditions": [],
+        "does": [{ "what": { "act": "draft", "template": "pull_request", "target": { "among": { "kind": "held", "lifecycle": "pull_request" }, "in_state": "draft" } }, "kind": "draft", "autonomy": "asks" }],
+        "on_failure": { "retries": 1, "then": "tell_agent" }
+      },
+      "kept": { "rank": { "reach": "everywhere", "source": "kit" }, "path": "~/.armada/kit/rules/open-draft.yml" }
+    },
+    {
+      "rule": {
+        "id": "watch-deploy",
+        "name": "Watch each deploy",
+        "scope": { "kind": "everywhere" },
+        "when": { "kind": "step_ends", "step": "build" },
+        "conditions": [{ "kind": "pull_request_opened" }],
+        "does": [{ "what": { "act": "start_watch", "recipe": "deploy", "values": {} }, "kind": "start_watch", "autonomy": "acts" }],
+        "on_failure": { "retries": 2, "then": "ask_owner" }
+      },
+      "kept": { "rank": { "reach": "everywhere", "source": "kit" }, "path": "~/.armada/kit/rules/watch-deploy.yml" }
+    },
+    {
+      "rule": {
+        "id": "ready",
+        "name": "Mark ready for review",
+        "scope": { "kind": "everywhere" },
+        "when": { "kind": "step_ends", "step": "build" },
+        "conditions": [{ "kind": "at_step", "step": "build" }],
+        "does": [{ "what": { "act": "forge_mark_ready", "target": { "among": { "kind": "held", "lifecycle": "pull_request" }, "in_state": "draft" } }, "kind": "forge_write", "autonomy": "asks" }],
+        "on_failure": { "retries": 1, "then": "tell_agent" }
+      },
+      "kept": { "rank": { "reach": "everywhere", "source": "kit" }, "path": "~/.armada/kit/rules/ready.yml" }
+    },
+    {
+      "rule": {
+        "id": "review-request",
+        "name": "Ask the team to review",
+        "scope": { "kind": "everywhere" },
+        "when": { "kind": "step_ends", "step": "walk" },
+        "conditions": [],
+        "does": [{ "what": { "act": "forge_request_reviewers", "from": ["team"], "target": { "among": { "kind": "held", "lifecycle": "pull_request" }, "in_state": "open" } }, "kind": "forge_write", "autonomy": "asks" }],
+        "on_failure": { "retries": 1, "then": "tell_agent" }
+      },
+      "kept": { "rank": { "reach": "everywhere", "source": "kit" }, "path": "~/.armada/kit/rules/review-request.yml" }
+    },
+    {
+      "rule": {
+        "id": "ticket-review",
+        "name": "Ticket to In Review",
+        "scope": { "kind": "everywhere" },
+        "when": { "kind": "enters", "lifecycle": "pull_request", "state": "open" },
+        "conditions": [],
+        "does": [{ "what": { "act": "tracker_move", "to": "in_review", "target": { "among": { "kind": "linked_from", "lifecycle": "ticket" } } }, "kind": "tracker_write", "autonomy": "asks" }],
+        "on_failure": { "retries": 1, "then": "tell_agent" }
+      },
+      "kept": { "rank": { "reach": "everywhere", "source": "kit" }, "path": "~/.armada/kit/rules/ticket-review.yml" }
+    }
+  ],
+  "left_out": []
+}

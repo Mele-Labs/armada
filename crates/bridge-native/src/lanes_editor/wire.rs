@@ -3,7 +3,7 @@
 //! editor.
 
 use gpui::{App, Task};
-use ipc::{AffectedJobs, DeleteLifecyclePiece, JobLanesView, LifecyclePieceDeleted, LifecyclePieceKind, MigrateJobs, MigratedJobs, PieceDraft, PieceDraftDiscarded, PieceScope, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, RepositoryLifecycles, RevertWorkflow, WorkflowDefinition, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
+use ipc::{RepositoryAutonomy, RepositoryLifecycleRules, WatchRecipeList, AffectedJobs, DeleteLifecyclePiece, JobLanesView, LifecyclePieceDeleted, LifecyclePieceKind, MigrateJobs, MigratedJobs, PieceDraft, PieceDraftDiscarded, PieceScope, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, RepositoryLifecycles, RevertWorkflow, WorkflowDefinition, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 
 pub use crate::settings::wire::Refused;
 
@@ -80,6 +80,23 @@ pub trait EditorWire {
     fn migrate_jobs(&self, manifest: &str, migrate: MigrateJobs, cx: &mut App) -> Task<Result<MigratedJobs, Refused>>;
     /// `GET /lifecycles`: the lifecycles that apply to a repository, by its Manifest id, and where each was kept.
     fn lifecycles(&self, manifest: &str, cx: &mut App) -> Task<Result<RepositoryLifecycles, Refused>>;
+    /// `GET /lifecycles/rules`: the rules that apply to a repository, by its Manifest id. A host that keeps no rules answers
+    /// with a refusal, and the lanes' rule chips are read and not opened.
+    fn lifecycle_rules(&self, _manifest: &str, _cx: &mut App) -> Task<Result<RepositoryLifecycleRules, Refused>> {
+        Task::ready(Err(Refused::said("This host reads no rules")))
+    }
+    /// `GET /autonomy`: Armada's default for each kind of act, and the layers over it.
+    fn autonomy_defaults(&self, _manifest: &str, _cx: &mut App) -> Task<Result<RepositoryAutonomy, Refused>> {
+        Task::ready(Err(Refused::said("This host reads no autonomy defaults")))
+    }
+    /// `GET /watches/recipes`: what a rule's start of a watch may name.
+    fn watch_recipes(&self, _cx: &mut App) -> Task<Result<WatchRecipeList, Refused>> {
+        Task::ready(Err(Refused::said("This host reads no watch recipes")))
+    }
+    /// The workflows Fleet runs, `(id, name)`: what a condition on the workflow a Job follows may name.
+    fn workflow_names(&self, _cx: &mut App) -> Vec<(String, String)> {
+        Vec::new()
+    }
     /// `GET /lifecycles/pieces/draft`: `fleet.piece_draft_none` where none is kept.
     fn piece_draft(&self, kind: LifecyclePieceKind, id: &str, scope: &PieceScope, cx: &mut App) -> Task<Result<PieceDraft, Refused>>;
     /// `PUT /lifecycles/pieces/draft`: a state renamed in place is kept as its lifecycle's draft.

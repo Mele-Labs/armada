@@ -102,6 +102,66 @@ pub fn with_states_renamed(mut view: JobLanesView, labels: &[(String, String, St
     view
 }
 
+/// A rule the draft sets, and the rule that runs where there is one.
+pub struct RuleChange {
+    pub was: Option<ipc::LifecycleRule>,
+    pub now: ipc::LifecycleRule,
+}
+
+/// The lanes with each rule the draft sets laid over them: a rule that runs has its chip's words, autonomy and ends changed
+/// and is marked as a step is; a rule the draft adds gets a chip where its moment and its act name two nodes the lanes
+/// draw. A rule the lanes do not draw (a gate or the Job sets it off) is not drawn here either.
+pub fn with_rules(mut view: JobLanesView, changes: &[RuleChange], vocab: &super::rule::Vocab, marked: bool) -> JobLanesView {
+    use super::rule::{autonomy_of, ends_of, when_phrase};
+    for change in changes {
+        let rule = &change.now;
+        let drawn = |id: &str| view.lanes.iter().flat_map(|lane| lane.nodes.iter()).any(|node| node.id == id);
+        let ends = ends_of(rule).filter(|(from, to)| drawn(from) && drawn(to));
+        let autonomy = match autonomy_of(vocab, rule) {
+            "asks" => ipc::LaneAutonomy::Asks,
+            "off" => ipc::LaneAutonomy::Off,
+            _ => ipc::LaneAutonomy::Acts,
+        };
+        let mark = marked.then(|| if change.was.is_some() { "Changed" } else { "Added" }.to_string());
+        let waits = Some(when_phrase(vocab, &rule.when));
+        match view.rules.iter().position(|edge| edge.rule == rule.id && !edge.quiet) {
+            Some(at) => {
+                let edge = &mut view.rules[at];
+                edge.label = rule.name.clone();
+                edge.autonomy = autonomy;
+                edge.waits = edge.waits.as_ref().and(waits);
+                edge.changed = mark;
+                if let Some((from, to)) = ends {
+                    edge.id = format!("{}:{from}>{to}", rule.id);
+                    (edge.from, edge.to) = (from, to);
+                }
+            }
+            None => {
+                let Some((from, to)) = ends else { continue };
+                view.rules.push(ipc::LaneEdge {
+                    id: format!("{}:{from}>{to}", rule.id),
+                    rule: rule.id.clone(),
+                    from,
+                    to,
+                    label: rule.name.clone(),
+                    waits,
+                    fired_at: None,
+                    autonomy,
+                    status: ipc::LaneOutcome::Waiting,
+                    did: Vec::new(),
+                    changed: mark,
+                    quiet: false,
+                    differs: Vec::new(),
+                    clash: None,
+                    proposed: false,
+                    pending: None,
+                });
+            }
+        }
+    }
+    view
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

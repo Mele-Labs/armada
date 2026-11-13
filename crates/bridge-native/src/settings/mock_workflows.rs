@@ -90,6 +90,31 @@ pub struct Drafts {
     workflows: Vec<(String, WorkflowDraft)>,
     pieces: Vec<PieceDraft>,
     last: i64,
+    /// The rules a publish wrote, which `GET /lifecycles/rules` lists after the ones the walk starts with.
+    rules: Vec<ipc::LifecycleRule>,
+}
+
+impl Drafts {
+    pub fn published_rules(&self) -> &[ipc::LifecycleRule] {
+        &self.rules
+    }
+}
+
+/// Why a rule's draft would not publish, as the parser says it: an act that says words must say some.
+fn unfit_rule(piece: &LifecyclePiece) -> Option<String> {
+    let LifecyclePiece::Rule { rule } = piece else { return None };
+    rule.does.iter().enumerate().find_map(|(at, doing)| {
+        let (key, empty) = match &doing.what {
+            ipc::RuleAct::Tell { message } => ("tell_agent.message", message.trim().is_empty()),
+            ipc::RuleAct::RunCommand { command } => ("run_command.command", command.trim().is_empty()),
+            ipc::RuleAct::RunSkill { skill } => ("run_agent.skill", skill.trim().is_empty()),
+            ipc::RuleAct::RunDrone { prompt } => ("run_agent.drone", prompt.trim().is_empty()),
+            ipc::RuleAct::Draft { template, .. } => ("draft.template", template.trim().is_empty()),
+            ipc::RuleAct::StartJob { prompt, .. } => ("start_job.prompt", prompt.trim().is_empty()),
+            _ => return None,
+        };
+        empty.then(|| format!("`do[{at}].{key}` is empty: say what it is"))
+    })
 }
 
 /// Where a workflow is kept: its source, the place's own key (a repository's Manifest, a project's id, none for Kit) and its id.
@@ -751,7 +776,10 @@ impl MockFleet {
             self.drafts.last += 1;
             one.changes.push(DraftChange { id: self.drafts.last, by: DraftBy::You, at: now.clone(), text: put.text.clone(), summary: put.summary, change: None });
         }
-        one.unfit = ipc::decode::<LifecyclePiece>("piece", put.text.as_bytes()).err().map(|why| why.to_string());
+        one.unfit = match ipc::decode::<LifecyclePiece>("piece", put.text.as_bytes()) {
+            Ok(piece) => unfit_rule(&piece),
+            Err(why) => Some(why.to_string()),
+        };
         one.text = put.text;
         one.updated_at = now;
         Ok(one.clone())
@@ -771,7 +799,11 @@ impl MockFleet {
             return Err(refused("fleet.piece_unfit", why));
         }
         let at = self.piece_at(publish.kind, &publish.id, &publish.scope).ok_or_else(|| draft_refused("fleet.piece_draft_none", "No draft is kept for that piece"))?;
-        self.drafts.pieces.remove(at);
+        let gone = self.drafts.pieces.remove(at);
+        if let Ok(LifecyclePiece::Rule { rule }) = ipc::decode::<LifecyclePiece>("piece", gone.text.as_bytes()) {
+            self.drafts.rules.retain(|one| one.id != rule.id);
+            self.drafts.rules.push(rule);
+        }
         let saved = LifecyclePieceSaved { kind: publish.kind, file: format!("~/.armada/kit/{}s/{}.yml", publish.kind.as_wire(), publish.id), id: publish.id, scope: publish.scope, replaced: true };
         Ok(PiecePublished { saved })
     }

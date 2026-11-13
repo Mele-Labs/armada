@@ -310,6 +310,32 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "RepositoryLifecycles", cx))
     }
 
+    /// `GET /lifecycles/rules`: the rules that apply to one repository, and where each was kept.
+    pub fn lifecycle_rules(&mut self, manifest: &str, cx: &App) -> Task<Result<ipc::RepositoryLifecycleRules, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.lifecycle_rules(manifest));
+        }
+        let path = scoped("/lifecycles/rules", manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "RepositoryLifecycleRules", cx))
+    }
+
+    /// `GET /autonomy`: Armada's default autonomy for each kind of act, and each layer that sets some for one repository.
+    pub fn autonomy_defaults(&mut self, manifest: &str, cx: &App) -> Task<Result<ipc::RepositoryAutonomy, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.autonomy_defaults(manifest));
+        }
+        let path = scoped("/autonomy", manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "RepositoryAutonomy", cx))
+    }
+
+    /// `GET /watches/recipes`: the recipes a watch may start from.
+    pub fn watch_recipes(&mut self, cx: &App) -> Task<Result<ipc::WatchRecipeList, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.watch_recipes());
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/watches/recipes".into()), "WatchRecipeList", cx))
+    }
+
     /// `POST /lifecycles/pieces/delete`.
     pub fn delete_lifecycle_piece(&mut self, delete: ipc::DeleteLifecyclePiece, cx: &App) -> Task<Result<ipc::LifecyclePieceDeleted, Refused>> {
         if let Wire::Mock(mock) = self {
