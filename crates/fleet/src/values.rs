@@ -19,7 +19,7 @@ use adapter_traits::{AgentHarness, Delivery, Review, Vcs, WorkProduct};
 use api::Refusal;
 use config::settings::{self as keys, Key as _};
 use config::{kit_values_text, parse_kit_values, shipped_values, Layers, ResolvedValue, ResolvedValues};
-use core_model::{AgentStarts, AutoMerge, DeliverySetting, Component, Envelope, FieldValue, Layer, Level, Look, ManifestId as Repository, PrMode, ReviewMode, Reviews, ScopeId, TrackerNamed, Ulid, Values, WalkReview};
+use core_model::{AgentStarts, AutoMerge, Component, Envelope, FieldValue, Layer, Level, Look, ManifestId as Repository, PrMode, ReviewMode, Reviews, ReviewsNamed, ScopeId, TrackerNamed, Ulid, Values, WalkReview, DeliverySetting};
 use ipc::{KitValuesSaved, LookSet, ManifestId, ReviewsSet, SaveKitValues, ValuesSet};
 use store::KeptValue;
 
@@ -59,10 +59,10 @@ pub(crate) fn values_set(values: &Values) -> Option<ValuesSet> {
         look: (*look != Look::default())
             .then(|| LookSet { layout: look.layout.clone(), theme: look.theme.clone(), density: look.density.clone() }),
         tracker: values.tracker.as_ref().map(tracker_wire),
-        reviews: values.reviews.map(|reviews| ReviewsSet {
-            plans: Some(reviews.plans.as_wire().to_string()),
-            pull_requests: Some(reviews.pull_requests.as_wire().to_string()),
-            walks: Some(reviews.walks.as_wire().to_string()),
+        reviews: (values.reviews != ReviewsNamed::default()).then(|| ReviewsSet {
+            plans: values.reviews.plans.map(|mode| mode.as_wire().to_string()),
+            pull_requests: values.reviews.pull_requests.map(|mode| mode.as_wire().to_string()),
+            walks: values.reviews.walks.map(|mode| mode.as_wire().to_string()),
         }),
         agent_starts: values.agent_starts.map(|starts| starts.as_wire().to_string()),
         delivery: values.delivery.map(|delivery| delivery.as_wire().to_string()),
@@ -112,7 +112,11 @@ pub(crate) fn resolved_wire(resolved: &ResolvedValues) -> ipc::ResolvedValues {
         theme: word(&resolved.theme, Clone::clone),
         density: word(&resolved.density, Clone::clone),
         tracker: Some(ipc::ResolvedTracker { value: resolved.tracker.value.as_ref().map(tracker_wire), from: layer_wire(resolved.tracker.from) }),
-        reviews: Some(reviews_wire(&resolved.reviews.value.unwrap_or_default(), layer_wire(resolved.reviews.from))),
+        reviews: Some(reviews_wire(
+            &resolved.reviews.all(),
+            layer_wire(resolved.reviews.nearest_layer()),
+            [layer_wire(resolved.reviews.plans.from), layer_wire(resolved.reviews.pull_requests.from), layer_wire(resolved.reviews.walks.from)],
+        )),
         agent_starts: Some(word(&resolved.agent_starts, |starts| starts.as_wire().to_string())),
         delivery: Some(word(&resolved.delivery, |delivery| delivery.as_wire().to_string())),
         autonomy: resolved
@@ -123,12 +127,16 @@ pub(crate) fn resolved_wire(resolved: &ResolvedValues) -> ipc::ResolvedValues {
     }
 }
 
-fn reviews_wire(reviews: &Reviews, from: ipc::ValueLayer) -> ipc::ResolvedReviews {
+/// The reviews as the wire carries them. `kinds` is the layer of the plans, the pull requests and the walks in turn.
+fn reviews_wire(reviews: &Reviews, from: ipc::ValueLayer, kinds: [ipc::ValueLayer; 3]) -> ipc::ResolvedReviews {
     ipc::ResolvedReviews {
         plans: reviews.plans.as_wire().to_string(),
         pull_requests: reviews.pull_requests.as_wire().to_string(),
         walks: reviews.walks.as_wire().to_string(),
         from,
+        plans_from: Some(kinds[0]),
+        pull_requests_from: Some(kinds[1]),
+        walks_from: Some(kinds[2]),
     }
 }
 
@@ -143,11 +151,10 @@ fn rows_of(resolved: &ResolvedValues) -> Vec<KeptValue> {
         row("theme", resolved.theme.value.clone(), resolved.theme.from),
         row("density", resolved.density.value.clone(), resolved.density.from),
     ];
-    let reviews = resolved.reviews.value.unwrap_or_default();
-    let from = resolved.reviews.from;
-    rows.push(row(REVIEWS_PLANS, Some(reviews.plans.as_wire().to_string()), from));
-    rows.push(row(REVIEWS_PULL_REQUESTS, Some(reviews.pull_requests.as_wire().to_string()), from));
-    rows.push(row(REVIEWS_WALKS, Some(reviews.walks.as_wire().to_string()), from));
+    let reviews = resolved.reviews.all();
+    rows.push(row(REVIEWS_PLANS, Some(reviews.plans.as_wire().to_string()), resolved.reviews.plans.from));
+    rows.push(row(REVIEWS_PULL_REQUESTS, Some(reviews.pull_requests.as_wire().to_string()), resolved.reviews.pull_requests.from));
+    rows.push(row(REVIEWS_WALKS, Some(reviews.walks.as_wire().to_string()), resolved.reviews.walks.from));
     rows.push(row(AGENT_STARTS, Some(resolved.agent_starts.value.unwrap_or_default().as_wire().to_string()), resolved.agent_starts.from));
     rows.push(row(DELIVERY, resolved.delivery.value.map(|delivery| delivery.as_wire().to_string()), resolved.delivery.from));
     rows.extend(resolved.autonomy.iter().map(|one| row(&format!("{AUTONOMY}{}", one.kind.as_wire()), Some(one.value.as_wire().to_string()), one.from)));
@@ -209,7 +216,13 @@ impl Frozen {
             theme: one("theme"),
             density: one("density"),
             tracker: None,
-            reviews: self.row(REVIEWS_PLANS).map(|row| reviews_wire(&self.reviews(), layer_wire(layer_read(&row.layer)))),
+            reviews: self.row(REVIEWS_PLANS).map(|_| {
+                let kind = |key: &str| self.row(key).map_or(Layer::Default, |row| layer_read(&row.layer));
+                let kinds = [kind(REVIEWS_PLANS), kind(REVIEWS_PULL_REQUESTS), kind(REVIEWS_WALKS)];
+                // The nearest layer that set a kind: one left to the default is the furthest.
+                let nearest = kinds.into_iter().max().unwrap_or(Layer::Default);
+                reviews_wire(&self.reviews(), layer_wire(nearest), kinds.map(layer_wire))
+            }),
             agent_starts: self.row(AGENT_STARTS).map(|row| ipc::ResolvedValue { value: row.value.clone(), from: layer_wire(layer_read(&row.layer)) }),
             delivery: self.row(DELIVERY).map(|row| ipc::ResolvedValue { value: row.value.clone(), from: layer_wire(layer_read(&row.layer)) }),
             autonomy: core_model::rule::ActKind::ALL
@@ -271,8 +284,8 @@ where
             }
         };
         let reviews = match &written.reviews {
-            None => None,
-            Some(block) => Some(self.reviews_read(block)?),
+            None => ReviewsNamed::default(),
+            Some(block) => self.reviews_read(block)?,
         };
         let agent_starts = match written.agent_starts.as_deref().map(str::trim) {
             None => None,
@@ -298,22 +311,23 @@ where
         })
     }
 
-    /// The `reviews` a person wrote, or the first word that is not one its kind takes. A kind left out is off.
-    fn reviews_read(&self, block: &ReviewsSet) -> Result<Reviews, Refusal> {
-        let of = |kind: &str, held: &Option<String>| -> Result<ReviewMode, Refusal> {
+    /// The `reviews` a person wrote, or the first word that is not one its kind takes. **A kind left out is not
+    /// set**: it falls through to the next layer.
+    fn reviews_read(&self, block: &ReviewsSet) -> Result<ReviewsNamed, Refusal> {
+        let of = |kind: &str, held: &Option<String>| -> Result<Option<ReviewMode>, Refusal> {
             match held.as_deref().map(str::trim) {
-                None => Ok(ReviewMode::Off),
-                Some(word) => ReviewMode::from_wire(word).ok_or_else(|| {
+                None => Ok(None),
+                Some(word) => ReviewMode::from_wire(word).map(Some).ok_or_else(|| {
                     self.values_refused(format!("`{word}` is not a review for {kind}: it is `off`, `review` or `review_and_approve`"))
                 }),
             }
         };
         let walks = match block.walks.as_deref().map(str::trim) {
-            None => WalkReview::Off,
-            Some(word) => WalkReview::from_wire(word)
-                .ok_or_else(|| self.values_refused(format!("`{word}` is not a review for walks: it is `off` or `review`, since a walk is his to look at")))?,
+            None => None,
+            Some(word) => Some(WalkReview::from_wire(word)
+                .ok_or_else(|| self.values_refused(format!("`{word}` is not a review for walks: it is `off` or `review`, since a walk is his to look at")))?),
         };
-        Ok(Reviews { plans: of("plans", &block.plans)?, pull_requests: of("pull_requests", &block.pull_requests)?, walks })
+        Ok(ReviewsNamed { plans: of("plans", &block.plans)?, pull_requests: of("pull_requests", &block.pull_requests)?, walks })
     }
 
     /// What Kit sets: `values.yml` in Kit's folder. **Nothing is set where the file is absent**, and where it
@@ -351,7 +365,7 @@ where
                 density: now.chosen(keys::SPACING).filter(|density| !density.trim().is_empty()),
             },
             tracker: None,
-            reviews: None,
+            reviews: ReviewsNamed::default(),
             agent_starts: None,
             delivery: None,
         }
