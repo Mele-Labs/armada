@@ -38,6 +38,7 @@ use adapter_traits::{
 
 use crate::work_product::Holding;
 
+mod account;
 mod checkout_sends;
 mod commit;
 mod delivered;
@@ -123,6 +124,8 @@ pub struct FakeVcs {
     checkout_sends: Mutex<checkout_sends::CheckoutSends>,
     /// What the forge says about one pull request and does when it is readied.
     pull_requests: Mutex<pull_requests::PullRequests>,
+    /// What the forge lists of the account's repositories, and each time it was asked.
+    account: Mutex<account::AccountListing>,
     /// Answers `merge_by_push` gives before `merging` does, first first — a
     /// base that moves once and then holds still is two answers.
     pushes_in_turn: Mutex<VecDeque<Merging>>,

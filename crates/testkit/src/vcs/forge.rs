@@ -365,4 +365,8 @@ impl Forge for FakeVcs {
             "the fake opens one only through a scripted send",
         ))
     }
+
+    fn account_repositories(&self, most: usize) -> Result<adapter_traits::AccountRepositories, String> {
+        self.account.lock().expect("not poisoned").asked(most)
+    }
 }
