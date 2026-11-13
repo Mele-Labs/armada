@@ -1234,6 +1234,8 @@ pub static WALKS: &[Walk] = &[
             press_on("A press opens the Job it became, in sample-api", "button", "Moved to sample-api", "region", "Thread"),
             step("Its thread starts with where it came from, and carries the whole conversation in, with no rule", Verb::Wheel("region", "Thread", -400), "button", "Moved from sample-web"),
             press_on("A press goes back", "button", "Moved from sample-web", "button", "Moved to sample-api"),
+            press_on("The Ledger names the move as the Classic ledger does: Moved to, and the other Job's title", "button", "Add tab: Done", "menuitem", "Ledger"),
+            press_on("It stands under Jobs, with the other Job's own mark", "menuitem", "Ledger", "button", "Moved to Checkout page loads twice"),
         ],
     },
     Walk {

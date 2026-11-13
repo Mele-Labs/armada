@@ -154,6 +154,46 @@ fn held(record: &ipc::SessionRecord) -> impl Iterator<Item = &ipc::Attachment> {
     record.attachments.iter().filter(|one| one.state != AttachmentState::GivenBack || matches!(one.kind.as_str(), "subagent" | "artifact" | "background"))
 }
 
+/// The Jobs a Job is linked to, one row each in the ledger's order (`session-started.tsx` `linkEntry`): "Forked to",
+/// "Forked from", "Started" and "Started by" the other Job's title, or "Moved to" and "Moved from" where the fork
+/// carries `moved`. A Job with no record is named by its id and still opens. A Job started under a plan group keeps
+/// its own row, the title bare with the group under it, as Classic's `linked` entry draws it.
+fn link_lines<'a>(record: &ipc::SessionRecord, other: impl Fn(&str) -> Option<&'a ipc::SessionRecord>) -> Vec<Line> {
+    held(record)
+        .filter(|one| matches!(one.kind.as_str(), "started_to" | "forked_to" | "forked_from" | "started_by"))
+        .map(|one| {
+            let child = other(&one.target);
+            let name = child.and_then(|child| child.title.clone()).unwrap_or_else(|| one.target.clone());
+            let moved = one.kind.starts_with("forked") && one.detail.contains_key("moved");
+            let way = match (one.kind.as_str(), moved) {
+                ("forked_to", true) => "Moved to",
+                ("forked_from", true) => "Moved from",
+                ("forked_to", false) => "Forked to",
+                ("forked_from", false) => "Forked from",
+                ("started_to", _) => "Started",
+                _ => "Started by",
+            };
+            let grouped = one.kind == "started_to" && child.is_some() && detail(one, "group").is_some();
+            let sub = detail(one, "group").filter(|_| grouped).and_then(|group| record.plan.as_ref()?.groups.iter().find(|one| one.id == group)).map(|group| group.title.clone());
+            let mark = child.and_then(|child| child.mark).map(|mark| Mark { tone: tone_of(mark.state), said: crate::jobs::glyph_of(mark.state, None).1.to_string(), word: None });
+            let target = one.target.clone();
+            let opens: Opens = Rc::new(move |this: &mut JobView, _: &mut Window, cx: &mut Context<JobView>| this.open_job(target.clone(), cx));
+            Line {
+                key: if one.kind == "started_to" { format!("session:{}", one.target) } else { format!("{}:{}", one.kind, one.target) },
+                kind: "session",
+                glyph: "link",
+                said: "Linked Job",
+                title: if grouped { name } else { format!("{way} {name}") },
+                sub,
+                mark,
+                opens: Some(opens),
+                linked: child.filter(|_| one.kind == "started_to").and_then(super::pulls::pull_of_child),
+                ..Line::default()
+            }
+        })
+        .collect()
+}
+
 fn detail<'a>(one: &'a ipc::Attachment, key: &str) -> Option<&'a str> {
     one.detail.get(key).map(String::as_str)
 }
@@ -403,28 +443,8 @@ impl JobView {
         let form = |one: &&ipc::Attachment| detail(one, "form").unwrap_or_default().to_string();
         let newest = |forms: &[&str]| -> Vec<&ipc::Attachment> { made.iter().rev().filter(|one| forms.contains(&form(one).as_str())).copied().collect() };
 
-        // The Jobs this one started, with the plan group each was handed under it.
-        let jobs = of("started_to")
-            .filter_map(|one| {
-                let child = self.record(&one.target, cx)?;
-                let sub = detail(one, "group").and_then(|group| record.plan.as_ref()?.groups.iter().find(|one| one.id == group)).map(|group| group.title.clone());
-                let mark = child.mark.map(|mark| Mark { tone: tone_of(mark.state), said: crate::jobs::glyph_of(mark.state, None).1.to_string(), word: None });
-                let child_id = child.id.as_str().to_string();
-                let opens: Opens = Rc::new(move |this: &mut JobView, _: &mut Window, cx: &mut Context<JobView>| this.open_job(child_id.clone(), cx));
-                Some(Line {
-                    key: format!("session:{}", child.id.as_str()),
-                    kind: "session",
-                    glyph: "link",
-                    said: "Linked Job",
-                    title: child.title.clone().unwrap_or_else(|| child.id.as_str().to_string()),
-                    sub,
-                    mark,
-                    opens: Some(opens),
-                    linked: super::pulls::pull_of_child(child),
-                    ..Line::default()
-                })
-            })
-            .collect();
+        // The Jobs this one started, forked or moved to and from, as Classic's `linkEntry` names each.
+        let jobs = link_lines(record, |other| self.record(other, cx));
         add("session", "Jobs", jobs);
 
         let pulls = record.attachments.iter().filter_map(|one| super::pulls::pull_of(record, one, None)).map(super::pulls::pull_line).collect::<Vec<_>>();
@@ -829,5 +849,66 @@ impl JobView {
             .child(div().flex().items_center().gap(look.length(token::SPACE_1)).child(main).child(act))
             .children(under)
             .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn linked(kind: &str, target: &str, moved: bool, template: &ipc::Attachment) -> ipc::Attachment {
+        let mut one = template.clone();
+        one.kind = kind.into();
+        one.target = target.into();
+        one.state = AttachmentState::Standing;
+        one.detail = if moved { [("moved".to_string(), "sample-api".to_string())].into() } else { Default::default() };
+        one
+    }
+
+    #[test]
+    fn each_link_reads_its_way_and_the_other_jobs_title_and_a_job_with_no_record_is_named_by_its_id() {
+        let jobs = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+        let template = jobs.iter().flat_map(|job| job.attachments.iter()).next().expect("an attachment to copy").clone();
+        let mut record = jobs[0].clone();
+        record.attachments = vec![
+            linked("forked_to", "mock-02", false, &template),
+            linked("forked_from", "mock-03", false, &template),
+            linked("started_to", "mock-04", false, &template),
+            linked("started_by", "mock-05", false, &template),
+            linked("forked_to", "mock-06", true, &template),
+            linked("forked_from", "mock-07", true, &template),
+            linked("started_to", "mock-gone", false, &template),
+        ];
+        let lines = link_lines(&record, |id| jobs.iter().find(|job| job.id.as_str() == id));
+        let titles: Vec<&str> = lines.iter().map(|line| line.title.as_str()).collect();
+        let named = |id: &str| jobs.iter().find(|job| job.id.as_str() == id).and_then(|job| job.title.clone()).expect("a titled Job");
+        assert_eq!(
+            titles,
+            [
+                format!("Forked to {}", named("mock-02")),
+                format!("Forked from {}", named("mock-03")),
+                format!("Started {}", named("mock-04")),
+                format!("Started by {}", named("mock-05")),
+                format!("Moved to {}", named("mock-06")),
+                format!("Moved from {}", named("mock-07")),
+                "Started mock-gone".to_string(),
+            ]
+        );
+        assert!(lines.iter().all(|line| line.kind == "session" && line.glyph == "link" && line.opens.is_some()));
+        assert!(lines[0].mark.is_some() == jobs[1].mark.is_some(), "the mark is the other Job's, where it has one");
+        assert!(lines[6].mark.is_none(), "a Job with no record has none");
+    }
+
+    #[test]
+    fn a_job_started_under_a_plan_group_keeps_its_bare_title_and_the_group_under_it() {
+        let jobs = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+        let template = jobs.iter().flat_map(|job| job.attachments.iter()).next().expect("an attachment to copy").clone();
+        let mut record = jobs[0].clone();
+        let mut one = linked("started_to", "mock-04", false, &template);
+        one.detail.insert("group".into(), "g-none".into());
+        record.attachments = vec![one];
+        let lines = link_lines(&record, |id| jobs.iter().find(|job| job.id.as_str() == id));
+        assert_eq!(lines[0].title, jobs[3].title.clone().expect("a titled Job"));
+        assert_eq!(lines[0].key, "session:mock-04");
     }
 }
