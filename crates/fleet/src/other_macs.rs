@@ -13,7 +13,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{OtherMacs, Refusal, Sessions};
 use ipc::{
     BugReport, BugReports, Event, JobThread, JobThreadRead, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacSessions,
-    SessionList, SessionRecord, SessionState, WireError,
+    SessionId, SessionList, SessionRecord, SessionRemoved, SessionState, WireError,
 };
 use serde::Serialize;
 use store::{FromMac, KeptFromMac};
@@ -185,6 +185,13 @@ where
         self.every_bug_report_relayed().await
     }
 
+    /// `session.removed` for each row held from another Mac that went, to Bridge alone.
+    fn relay_removed(&self, gone: Vec<String>) {
+        for id in gone {
+            self.events().relay(Event::SessionRemoved(SessionRemoved { session_id: SessionId::carried(id) }));
+        }
+    }
+
     /// The rows held from Mac `mac`, by id.
     async fn sessions_held_from(&self, mac: &str) -> Result<BTreeMap<String, SessionRecord>, Refusal> {
         let held = self.sessions_from_macs().await?;
@@ -243,6 +250,8 @@ where
             .collect();
         let kept = rows.iter().map(|one| Ok((one.id.as_str().to_string(), self.encoded(one)?))).collect::<Result<Vec<_>, Refusal>>()?;
         self.store().lock().await.replace_from_mac(FromMac::Sessions, &mac, &kept).map_err(|why| self.ledger_fault(why))?;
+        let left_out = before.keys().filter(|id| !rows.iter().any(|one| one.id.as_str() == id.as_str()));
+        self.relay_removed(left_out.cloned().collect());
         for record in rows {
             if before.get(record.id.as_str()) != Some(&record) {
                 self.events().relay(Event::SessionChanged(record));
@@ -303,7 +312,9 @@ where
 
     async fn forget_other_mac(&self, named: MacNamed) -> Result<MacNamed, Refusal> {
         let mac = self.mac_named(&named.mac)?;
+        let before = self.sessions_held_from(&mac).await?;
         self.store().lock().await.forget_mac(&mac).map_err(|why| self.ledger_fault(why))?;
+        self.relay_removed(before.into_keys().collect());
         self.every_bug_report_relayed().await?;
         Ok(MacNamed { mac })
     }

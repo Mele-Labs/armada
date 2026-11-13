@@ -224,6 +224,39 @@ async fn what_another_mac_says_of_its_jobs_reaches_bridge_and_never_fleets_own_l
     assert_eq!(*heard.lock().expect("not poisoned"), 0, "Fleet's own listeners heard none of it");
 }
 
+/// The ids of every `session.removed` among `events`, in order.
+fn removed(events: &[Event]) -> Vec<&str> {
+    events.iter().filter_map(|one| if let Event::SessionRemoved(gone) = one { Some(gone.session_id.as_str()) } else { None }).collect()
+}
+
+#[tokio::test]
+async fn a_row_another_mac_drops_reaches_bridge_as_removed_and_never_fleets_own_listeners() {
+    let rig = rig_placing(None);
+    let mine = job_in(&rig, None).await;
+    let template = record_of(&rig, &mine).await;
+    let heard = Arc::new(Mutex::new(0));
+    let into = Arc::clone(&heard);
+    rig.fleet.events().tap(move |event| {
+        if matches!(event, Event::SessionRemoved(_)) {
+            *into.lock().expect("not poisoned") += 1;
+        }
+    });
+    let mut watching = rig.fleet.events().subscribe();
+    let three = ["01WORKA", "01WORKB", "01WORKC"].map(|id| theirs(&template, id, "Theirs"));
+    hold(&rig, three.to_vec()).await;
+    assert!(removed(&sent(&mut watching).await).is_empty(), "nothing went");
+
+    hold(&rig, vec![three[1].clone()]).await;
+    assert_eq!(removed(&sent(&mut watching).await), ["01WORKA", "01WORKC"], "exactly the rows the replace left out");
+
+    rig.fleet.forget_other_mac(MacNamed { mac: WORK.into() }).await.expect("forgot");
+    assert_eq!(removed(&sent(&mut watching).await), ["01WORKB"], "exactly the rows the Mac still had");
+    rig.fleet.forget_other_mac(MacNamed { mac: WORK.into() }).await.expect("forgot again");
+    assert!(removed(&sent(&mut watching).await).is_empty(), "a Mac with no rows left drops none");
+
+    assert_eq!(*heard.lock().expect("not poisoned"), 0, "Fleet's own listeners heard none of it");
+}
+
 #[tokio::test]
 async fn another_macs_bug_reports_are_listed_and_published_beside_this_macs() {
     let rig = rig_placing(None);

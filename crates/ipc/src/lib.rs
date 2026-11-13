@@ -395,7 +395,7 @@ pub use error::{
     RunId, WireError, WireValue,
 };
 pub use event::{
-    Cursor, Delivered, Event, Missed, Resync, StreamMessage,
+    Cursor, Delivered, Event, Missed, Resync, SessionRemoved, StreamMessage,
 };
 pub use files::FilesFound;
 pub use debug_report::DebugReport;

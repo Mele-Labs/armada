@@ -166,6 +166,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A row held from another Mac went, so a client holding it drops it.
+    Route {
+        operation: "session.removed",
+        method: "GET",
+        path: "/events",
+    },
     // A Job's shell opened or ended. Its output is `observe_session_run`'s.
     Route {
         operation: "terminal.opened",

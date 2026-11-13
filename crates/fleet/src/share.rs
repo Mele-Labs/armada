@@ -80,6 +80,8 @@ where
             Event::BugReportsChanged(reports) => {
                 return Some(Crosses(Event::BugReportsChanged(self.bug_reports_for_other_mac(reports.clone()).await.sent())));
             }
+            // Only ever says a row held from another Mac went, and what another Mac shared never goes back out.
+            Event::SessionRemoved(_) => return None,
             Event::ManifestReread(_)
             | Event::CheckoutRunFinished(_)
             | Event::ServerStarting(_)
