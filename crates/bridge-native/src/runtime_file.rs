@@ -34,6 +34,10 @@ pub struct RuntimeFile {
     pub port: u16,
     /// As `ps -o lstart=` printed it when Fleet wrote the file.
     pub started_at: String,
+    /// The kept build folder Fleet runs from, such as `2026-11-13T004852Z-126b4bb`. None where it
+    /// runs from elsewhere, or wrote the file before it said.
+    #[serde(default)]
+    pub build: Option<String>,
 }
 
 /// Who holds a pid, as `ps` reports it.
@@ -167,6 +171,15 @@ mod tests {
         let Presence::Running(read) = classify(Ok(old), held("s")) else { panic!("not running") };
         assert_eq!(read.protocol_id, ProtocolId::default());
         assert!(speaks_ours(&read).is_err());
+    }
+
+    #[test]
+    fn the_kept_build_fleet_runs_from_is_read_and_an_older_file_has_none() {
+        let named = br#"{"pid":1,"port":2,"started_at":"s","build":"2026-11-13T004852Z-126b4bb"}"#.to_vec();
+        let Presence::Running(read) = classify(Ok(named), held("s")) else { panic!("not running") };
+        assert_eq!(read.build.as_deref(), Some("2026-11-13T004852Z-126b4bb"));
+        let Presence::Running(old) = classify(Ok(file("a").into_bytes()), held("Fri Nov  6 22:01:34 2026")) else { panic!("not running") };
+        assert_eq!(old.build, None);
     }
 
     #[test]

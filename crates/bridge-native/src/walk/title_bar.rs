@@ -96,6 +96,6 @@ pub static STEPS: [Step; 61] = [
     scene("Events Fleet dropped stand as an alert above the screen, with the count that will never arrive", "events-dropped", "alert", "Events were dropped before Bridge saw them"),
     press_on("Noted puts it away until more are dropped", "button", "Noted", "button", "Operator"),
     scene("Fleet starting: Armada's mark pulses", "fleet-starting", "button", "Fleet — Starting"),
-    scene("Fleet gone: a red dot; its toast is the native-toasts walk's", "fleet-down", "button", "Fleet — Not running"),
+    scene("Fleet gone: the dot turns red under the Fleet panel; the panel is the fleet-panel walk's", "fleet-down", "button", "Fleet — Not running"),
     step("The panel says why", Verb::Press, "button", "Fleet — Not running"),
 ];
