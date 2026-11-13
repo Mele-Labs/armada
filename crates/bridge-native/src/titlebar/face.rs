@@ -333,7 +333,8 @@ pub enum Connection {
     Connecting { pid: u32, port: u16 },
     Starting { pid: u32, port: u16 },
     Unreachable { pid: u32, port: u16, silent: String, last_read: Option<String> },
-    Mismatch { pid: u32, port: u16, fleet: Option<String>, bridge: String },
+    /// `build` is the kept build Fleet runs from, as its runtime file names it.
+    Mismatch { pid: u32, port: u16, fleet: Option<String>, bridge: String, build: Option<String> },
     Connected { pid: u32, port: u16, protocol: String, up: Option<String> },
 }
 
@@ -361,7 +362,7 @@ pub fn connection_of(presence: &Presence, link: Link, path: &str) -> Connection 
         Presence::Running(file) => {
             if file.protocol_id != ProtocolId::current() {
                 let sent = (file.protocol_id != ProtocolId::default()).then(|| file.protocol_id.to_string());
-                return Connection::Mismatch { pid: file.pid, port: file.port, fleet: sent, bridge: ProtocolId::current().to_string() };
+                return Connection::Mismatch { pid: file.pid, port: file.port, fleet: sent, bridge: ProtocolId::current().to_string(), build: file.build.clone() };
             }
             match link {
                 Link::Connecting => Connection::Connecting { pid: file.pid, port: file.port },
@@ -413,7 +414,7 @@ impl LiveLink {
             LinkState::ProtocolMismatch { fleet, ours } => {
                 if let Presence::Running(file) = presence {
                     let sent = (*fleet != ProtocolId::default()).then(|| fleet.to_string());
-                    return Connection::Mismatch { pid: file.pid, port: file.port, fleet: sent, bridge: ours.to_string() };
+                    return Connection::Mismatch { pid: file.pid, port: file.port, fleet: sent, bridge: ours.to_string(), build: file.build.clone() };
                 }
                 Link::Connecting
             }
@@ -559,10 +560,6 @@ impl Connection {
     /// Fleet answers: the one state Dispatch is offered in.
     pub fn is_live(&self) -> bool {
         matches!(self, Connection::Connected { .. })
-    }
-
-    pub fn is_mismatch(&self) -> bool {
-        matches!(self, Connection::Mismatch { .. })
     }
 }
 
