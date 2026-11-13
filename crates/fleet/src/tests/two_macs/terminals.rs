@@ -3,11 +3,13 @@
 //! a call that is not signed reach nothing; a Mac that sleeps ends the terminal, and nothing typed meanwhile runs
 //! when it wakes.
 
+use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
 use std::time::Duration;
 
 use api::{Refusal, SessionRunEvent, Sessions};
 use axum::http::{Method, StatusCode};
+use futures_util::FutureExt;
 use ipc::{OpenTerminal, SessionId, TerminalFromMac, WriteSessionRun};
 use tokio::sync::broadcast;
 
@@ -62,8 +64,21 @@ async fn work_types_into_a_terminal_of_homes_shared_job_and_sees_what_it_printed
     paired(&home, &work).await;
     until("S reaches Work's Jobs list", || async { super::from(&work.sessions().await.1, &s).is_some() }).await;
 
+    // A runtime that shuts down waits on a shell still open, so every shell ends before a failure is said.
+    let outcome = AssertUnwindSafe(across(&mut home, &work, &s, &p)).catch_unwind().await;
+    for job in [&s, &p] {
+        for (_, run_id) in home.rig.fleet.session_runs().shells_open(job.as_str()) {
+            ends(&home, &run_id).await;
+        }
+    }
+    if let Err(failed) = outcome {
+        std::panic::resume_unwind(failed);
+    }
+}
+
+async fn across(home: &mut OneMac, work: &OneMac, s: &SessionId, p: &SessionId) {
     // 1. Work opens S's terminal, as Bridge does at home: the shell runs on Home, in S's own terminal.
-    let opened = Arc::clone(&work.rig.fleet).open_terminal(open(&s)).await.expect("opened on Home");
+    let opened = Arc::clone(&work.rig.fleet).open_terminal(open(s)).await.expect("opened on Home");
     assert_eq!(opened.terminal.as_deref(), Some("t1"));
     let on_home = home.rig.fleet.session_runs().shells_open(s.as_str());
     assert_eq!(on_home, [(1, opened.run_id.clone())], "the shell is Home's");
@@ -78,24 +93,25 @@ async fn work_types_into_a_terminal_of_homes_shared_job_and_sees_what_it_printed
     assert!(came.contains("across-42"), "Work saw: {came:?}");
 
     // 3. A private Job's terminal is answered as a Job that does not exist, and nothing opens on Home.
-    let (status, said) = sent(&work, &home, &TerminalFromMac::Open(open(&p))).await;
+    let (status, said) = sent(work, home, &TerminalFromMac::Open(open(p))).await;
     assert_eq!(status, 404, "{said}");
     assert!(said.contains("fleet.no_such_session"), "{said}");
     assert!(home.rig.fleet.session_runs().shells_open(p.as_str()).is_empty(), "nothing opened for P");
 
     // 4. A run that is not one of S's terminals is answered alike, and nothing is typed into it.
-    let private_run = Arc::clone(&home.rig.fleet).open_terminal(open(&p)).await.expect("Home's own").run_id;
+    let private_run = Arc::clone(&home.rig.fleet).open_terminal(open(p)).await.expect("Home's own").run_id;
     let into_p = TerminalFromMac::Write { session_id: s.clone(), run_id: private_run.clone(), data: "echo leaked-$((1+1))\r".into() };
-    let (status, said) = sent(&work, &home, &into_p).await;
+    let (status, said) = sent(work, home, &into_p).await;
     assert_eq!(status, 404, "{said}");
 
     // 5. Typing that is not signed runs nothing.
     let unsigned = TerminalFromMac::Write { session_id: s.clone(), run_id: opened.run_id.clone(), data: "echo unsigned-$((2+3))\r".into() };
     let (status, said) = home.admin(Method::POST, "/api/mac/terminal", ipc::encode(&unsigned).expect("encodes")).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "{said}");
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{said}");
+    assert!(said.contains("not signed"), "{said}");
     tokio::time::sleep(Duration::from_millis(500)).await;
-    assert!(!printed_on(&home, &opened.run_id).await.contains("unsigned-5"), "an unsigned call typed");
-    assert!(!printed_on(&home, &private_run).await.contains("leaked-2"), "a run not S's was typed into");
+    assert!(!printed_on(home, &opened.run_id).await.contains("unsigned-5"), "an unsigned call typed");
+    assert!(!printed_on(home, &private_run).await.contains("leaked-2"), "a run not S's was typed into");
 
     // 6. Home sleeps: the terminal on Work ends, and a keystroke meanwhile is refused, never kept for later.
     home.stop().await;
@@ -115,8 +131,5 @@ async fn work_types_into_a_terminal_of_homes_shared_job_and_sees_what_it_printed
     home.restart();
     until("Home is linked again", || async { work.mac(&home.id).await.is_some_and(|mac| mac.link == Some(ipc::MacLink::Linked)) }).await;
     tokio::time::sleep(Duration::from_millis(500)).await;
-    assert!(!printed_on(&home, &opened.run_id).await.contains("asleep-7"), "a keystroke typed on wake");
-
-    ends(&home, &opened.run_id).await;
-    ends(&home, &private_run).await;
+    assert!(!printed_on(home, &opened.run_id).await.contains("asleep-7"), "a keystroke typed on wake");
 }

@@ -89,7 +89,7 @@ An answer drops it, and a 4xx keeps it with the Mac's words in `refused`, no lon
 `write_session_run`, `resize_session_run`, `stop_session_run` and `observe_session_run` on one of those runs go there too: typing one keystroke at a time, in the order it came, and never into the queue.
 A keystroke the link cannot carry is 500 `fleet.other_mac_unreachable`.
 The output stream ending without `exited`, as when that Mac sleeps or the link drops, is answered `exited` with `code: null` and `stopped: false`, and the run is forgotten here, so a keystroke after it is refused as on a run that has ended.
-`share_job_terminal` and `share_job_terminal_output` are in `api::callers::THE_PERSONS_OWN`, so a Job typing around the door cannot type as another Mac.
+`share_job_terminal` is in `api::callers::THE_PERSONS_OWN`, so a Job typing around the door cannot type as another Mac.
 
 ## Messages and alerts
 
