@@ -3,7 +3,7 @@
 //! editor.
 
 use gpui::{App, Task};
-use ipc::{DeleteLifecyclePiece, JobLanesView, LifecyclePieceDeleted, LifecyclePieceKind, PieceDraft, PieceDraftDiscarded, PieceScope, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, RepositoryLifecycles, WorkflowDefinition, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
+use ipc::{DeleteLifecyclePiece, JobLanesView, LifecyclePieceDeleted, LifecyclePieceKind, PieceDraft, PieceDraftDiscarded, PieceScope, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, RepositoryLifecycles, RevertWorkflow, WorkflowDefinition, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 
 pub use crate::settings::wire::Refused;
 
@@ -59,6 +59,8 @@ pub trait EditorWire {
     fn workflow_draft(&self, at: &Subject, cx: &mut App) -> Task<Result<WorkflowDraft, Refused>>;
     /// `PUT /workflows/draft` under a Manifest: the draft text as it is now.
     fn put_workflow_draft(&self, manifest: &str, put: PutWorkflowDraft, cx: &mut App) -> Task<Result<WorkflowDraft, Refused>>;
+    /// `POST /workflows/revert` under a Manifest: a version's text put in the draft as a change of his.
+    fn revert_workflow(&self, manifest: &str, revert: RevertWorkflow, cx: &mut App) -> Task<Result<WorkflowDraft, Refused>>;
     /// `DELETE /workflows/draft`.
     fn discard_workflow_draft(&self, at: &Subject, cx: &mut App) -> Task<Result<WorkflowDraftDiscarded, Refused>>;
     /// `POST /workflows/draft/publish` under a Manifest.

@@ -97,6 +97,11 @@ impl EditorWire for SettingsWire {
         self.with(cx, move |this, cx| this.wire.put_workflow_draft(&manifest, put, cx))
     }
 
+    fn revert_workflow(&self, manifest: &str, revert: ipc::RevertWorkflow, cx: &mut App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
+        let manifest = manifest.to_string();
+        self.with(cx, move |this, cx| this.wire.revert_workflow(&manifest, revert, cx))
+    }
+
     fn discard_workflow_draft(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::WorkflowDraftDiscarded, Refused>> {
         let (at, (source, project)) = (at.clone(), at.place());
         self.with(cx, move |this, cx| this.wire.discard_workflow_draft(&at.workflow, source, project.as_deref(), &at.held_under, cx))
@@ -141,18 +146,36 @@ impl SettingsOverlay {
         let Some(one) = self.shown_workflows(cx).1 else { return };
         let key = one.key();
         let project = self.offered_project(&one);
+        let changed = self.armada_changed(&one, cx);
         if let Some(editor) = self.lanes.editors.get(&key) {
-            editor.update(cx, |editor, cx| editor.offer_project(project, cx));
+            editor.update(cx, |editor, cx| {
+                editor.offer_project(project, cx);
+                editor.offer_armada_changed(changed, cx);
+            });
             return;
         }
         let wire: Rc<dyn EditorWire> = Rc::new(SettingsWire(cx.entity().downgrade()));
         let subject = subject_of(&one, project);
         let editor = cx.new(|cx| LanesEditor::new(subject, wire, window, cx));
-        editor.update(cx, |editor, _| editor.scrolls_in(self.workflows.detail.scroll.clone()));
+        editor.update(cx, |editor, cx| {
+            editor.scrolls_in(self.workflows.detail.scroll.clone());
+            editor.offer_armada_changed(changed, cx);
+        });
         let row = one.clone();
         let sub = cx.subscribe_in(&editor, window, move |this, _, event: &EditorEvent, window, cx| this.editor_said(&row, event, window, cx));
         self.lanes.editors.insert(key.clone(), editor);
         self.lanes._subs.insert(key, sub);
+    }
+
+    /// Whether Fleet says Armada changed this copy's workflow since it was copied, as its list row carries.
+    fn armada_changed(&self, one: &Listed, cx: &Context<Self>) -> bool {
+        if one.place == Place::Armada || one.runs_in.is_some() {
+            return false;
+        }
+        let project = one.project.as_deref().filter(|_| one.place == Place::Project);
+        self.workflows.detail.listed(self.wire.workflows(cx)).is_some_and(|rows| {
+            rows.iter().any(|row| row.armada_changed && row.id.as_str() == one.id && row.manifest_id.as_str() == one.manifest && row.source == wire_of(one.place) && row.project.as_deref() == project)
+        })
     }
 
     /// The project a row's editor is offered: the row's own where it is a project's copy, else the one picked.
@@ -176,6 +199,10 @@ impl SettingsOverlay {
                 });
                 // The rows that read the same workflow read it again, and the page its steps and its list.
                 let key = one.key();
+                self.workflows.detail.versions_changed(&key);
+                if let Some(copy) = &copy {
+                    self.workflows.detail.versions_changed(&copy.key());
+                }
                 for (_, editor) in self.lanes.editors.iter().filter(|(row, _)| **row != key) {
                     editor.update(cx, |editor, cx| editor.reload(cx));
                 }

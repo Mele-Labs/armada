@@ -5,7 +5,7 @@
 //! A change asked of an agent is `drafting` for one read and drafted on the next, as Classic's mock drafts it
 //! (`apps/desktop/src/renderer/src/mock/workflows-fleet.ts`, `settled`).
 
-use ipc::{DraftBy, DraftChange, PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, OverriddenWorkflow, ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SessionId, StepId, StepReading, WorkflowChange, WorkflowChangeApproved, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted, WorkflowDefinition, WorkflowId, WorkflowSaved, WorkflowScope, WorkflowSteps, WorkflowSupportBuilding};
+use ipc::{BasedOn, DraftBy, DraftChange, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions, PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, OverriddenWorkflow, ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SessionId, StepId, StepReading, WorkflowChange, WorkflowChangeApproved, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted, WorkflowDefinition, WorkflowId, WorkflowSaved, WorkflowScope, WorkflowSteps, WorkflowSupportBuilding};
 use serde::Deserialize;
 
 use super::definition::{text_of, tree_of, with_words, Json};
@@ -90,6 +90,111 @@ pub struct Drafts {
     workflows: Vec<(String, WorkflowDraft)>,
     pieces: Vec<PieceDraft>,
     last: i64,
+}
+
+/// Where a workflow is kept: its source, the place's own key (a repository's Manifest, a project's id, none for Kit) and its id.
+type At = (String, String, String);
+
+fn at_of(source: &str, project: Option<&str>, manifest: &str, id: &str) -> At {
+    let key = match source {
+        "repository" => manifest,
+        "project" => project.unwrap_or_default(),
+        _ => "",
+    };
+    (source.to_string(), key.to_string(), id.to_string())
+}
+
+/// What a copy began from: the `version` Armada's text declared and the text.
+#[derive(Clone, Debug)]
+struct Base {
+    version: u32,
+    text: String,
+}
+
+/// The versions the mock keeps for each place, oldest first, and what each copy began from, as Fleet keeps them.
+#[derive(Clone, Debug, Default)]
+pub struct Versions {
+    kept: Vec<(At, Vec<WorkflowVersion>)>,
+    bases: Vec<(At, Base)>,
+    /// How many were written, so each is stamped a minute after the one before.
+    written: u32,
+}
+
+/// A stand-in for the sha256 Fleet computes: the same text always gives the same hex.
+fn mock_hash(text: &str) -> String {
+    let hash = text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3));
+    format!("{hash:016x}")
+}
+
+/// The `version` a definition declares.
+fn declared(text: &str) -> u32 {
+    tree_of(text).and_then(|tree| match tree.get("version") {
+        Some(Json::Number(n)) => n.as_u64().map(|n| n as u32),
+        _ => None,
+    }).unwrap_or(1)
+}
+
+impl Versions {
+    /// The walk's scenario: armada's own copy of `feature` was made from an older Armada's, which had no Walk and said less
+    /// of Refine, so Armada has changed it since.
+    pub fn seeded(definitions: &[Held]) -> Versions {
+        let mut versions = Versions::default();
+        let Some(armada) = definitions.iter().find(|one| one.holds("feature", "armada", "armada")) else { return versions };
+        let current = text_of(&armada.definition);
+        let Some(older) = with_words(&current, "refine", "Wire it to the real thing.") else { return versions };
+        let Some(Json::Map(mut fields)) = tree_of(&older) else { return versions };
+        for (name, value) in fields.iter_mut() {
+            if let (true, Json::List(steps)) = (name == "steps", value) {
+                steps.retain(|one| one.get("id").and_then(Json::text) != Some("walk"));
+            }
+        }
+        let text = text_of(&Json::Map(fields));
+        versions.bases.push((at_of("repository", None, "armada", "feature"), Base { version: declared(&text), text }));
+        versions
+    }
+
+    fn base_at(&self, at: &At) -> Option<&Base> {
+        self.bases.iter().find(|(held, _)| held == at).map(|(_, base)| base)
+    }
+
+    fn set_base(&mut self, at: At, text: String) {
+        let base = Base { version: declared(&text), text };
+        match self.bases.iter_mut().find(|(held, _)| *held == at) {
+            Some((_, held)) => *held = base,
+            None => self.bases.push((at, base)),
+        }
+    }
+
+    fn drop_place(&mut self, at: &At, base: bool) {
+        self.kept.retain(|(held, _)| held != at);
+        if base {
+            self.bases.retain(|(held, _)| held != at);
+        }
+    }
+
+    /// A publish into `at`: the text that was there is kept first where it is not the latest version, then the publish's own.
+    /// The number the publish took.
+    fn publish(&mut self, at: At, found: Option<String>, text: String) -> u32 {
+        let at_index = match self.kept.iter().position(|(held, _)| *held == at) {
+            Some(index) => index,
+            None => {
+                self.kept.push((at, Vec::new()));
+                self.kept.len() - 1
+            }
+        };
+        let mut rows = Vec::new();
+        if let Some(found) = found.filter(|found| self.kept[at_index].1.last().is_none_or(|last| last.text != *found)) {
+            rows.push((found, VersionOrigin::Found));
+        }
+        rows.push((text, VersionOrigin::Published));
+        for (text, origin) in rows {
+            self.written += 1;
+            let at = Instant::carried(format!("2026-11-13T09:{:02}:00Z", 10 + self.written % 50));
+            let held = &mut self.kept[at_index].1;
+            held.push(WorkflowVersion { version: held.len() as u32 + 1, hash: mock_hash(&text), text, at, origin });
+        }
+        self.kept[at_index].1.len() as u32
+    }
 }
 
 fn draft_refused(code: &str, said: &str) -> Refused {
@@ -268,6 +373,14 @@ impl MockFleet {
             Some(at) => self.definitions[at].definition = tree,
             None => self.definitions.push(Held { source: source.into(), manifest: matches!(source, "repository" | "project").then(|| manifest.to_string()), project: save.scope.project().map(String::from), definition: tree }),
         }
+        // A copy of Armada's text, byte for byte, into a place that has no base is what a copy is made from, so it is the base.
+        let place = at_of(source, save.scope.project(), manifest, &id);
+        if self.versions.base_at(&place).is_none() {
+            if let Some(armada) = self.definitions.iter().find(|one| one.holds(&id, "armada", manifest)).filter(|armada| Some(&armada.definition) == tree_of(&save.definition).as_ref()) {
+                let text = text_of(&armada.definition);
+                self.versions.set_base(place, text);
+            }
+        }
         self.relist(&id);
         Ok(WorkflowSaved { workflow_id: WorkflowId::carried(&id), file: file_of(source, save.scope.project(), &id), scope: save.scope, replaced: at.is_some(), runs_from: self.runs_from(&id, manifest) })
     }
@@ -276,6 +389,9 @@ impl MockFleet {
         let id = copy.workflow_id.as_str().to_string();
         let armada = self.held(&id, "armada", manifest)?.definition.clone();
         let at = self.definitions.iter().position(|one| one.holds(&id, &copy.source, manifest)).ok_or_else(|| refused("fleet.workflow_not_found", format!("{} holds no workflow `{id}`", place_said(&copy.source))))?;
+        let place = at_of(&copy.source, copy.project.as_deref(), manifest, &id);
+        self.versions.drop_place(&place, true);
+        self.versions.set_base(place, text_of(&armada));
         self.definitions[at].definition = armada;
         self.relist(&id);
         let file = self.definitions[at].file();
@@ -290,6 +406,7 @@ impl MockFleet {
         }
         let file = self.held(&id, &copy.source, manifest)?.file();
         self.definitions.retain(|one| !one.holds(&id, &copy.source, manifest));
+        self.versions.drop_place(&at_of(&copy.source, copy.project.as_deref(), manifest, &id), true);
         self.relist(&id);
         Ok(WorkflowCopyDeleted { workflow_id: copy.workflow_id, file, source: copy.source, project: copy.project, runs_from: self.runs_from(&id, manifest) })
     }
@@ -464,9 +581,56 @@ impl MockFleet {
         if exists && !publish.overwrite {
             return Err(refused("fleet.workflow_exists", format!("{} already holds a workflow `{id}`", place_said(scope.as_wire()))));
         }
+        let place = at_of(scope.as_wire(), scope.project(), manifest, &id);
+        let found = self.definitions.iter().find(|one| one.holds(&id, scope.as_wire(), manifest)).map(|one| text_of(&one.definition));
         let saved = self.save_workflow(manifest, SaveWorkflow { scope, definition: draft.text.clone(), overwrite: !armada || publish.overwrite })?;
         self.drafts.workflows.retain(|(_, one)| !(one.workflow_id.as_str() == id && one.source == publish.source && one.project == publish.project));
-        Ok(WorkflowPublished { saved, version: 1 })
+        // A publish of Armada's own begins a base: the carried text the draft began from.
+        if armada {
+            self.versions.set_base(place.clone(), draft.base.clone());
+        }
+        let version = self.versions.publish(place, found, draft.text);
+        self.relist(&id);
+        Ok(WorkflowPublished { saved, version })
+    }
+
+    /// The scenario's base, and the list read again so the copy that began from it says Armada changed it.
+    pub(super) fn seed_versions(&mut self) {
+        self.versions = Versions::seeded(&self.definitions);
+        self.relist("feature");
+    }
+
+    /// `GET /workflows/versions`: newest first.
+    pub fn workflow_versions(&self, id: &str, source: &str, project: Option<&str>, manifest: &str) -> Result<WorkflowVersions, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        if source == "project" && project.is_none() {
+            return Err(draft_refused("fleet.workflow_project_unnamed", "Say which project"));
+        }
+        let at = at_of(source, project, manifest, id);
+        let mut versions = self.versions.kept.iter().find(|(held, _)| *held == at).map(|(_, rows)| rows.clone()).unwrap_or_default();
+        versions.reverse();
+        Ok(WorkflowVersions { versions })
+    }
+
+    /// `POST /workflows/revert`: the version's text goes into the draft as a change of his, and nothing is published.
+    pub fn revert_workflow(&mut self, manifest: &str, revert: RevertWorkflow) -> Result<WorkflowDraft, Refused> {
+        let id = revert.workflow_id.as_str().to_string();
+        let held = self.workflow_versions(&id, &revert.source, revert.project.as_deref(), manifest)?;
+        let Some(version) = held.versions.into_iter().find(|one| one.version == revert.version) else {
+            return Err(draft_refused("fleet.workflow_version_none", &format!("There is no version {} of `{id}` here", revert.version)));
+        };
+        Ok(self.add_draft_change(&id, &revert.source, revert.project.as_deref(), manifest, version.text, DraftBy::You, Some(format!("Back to version {}", revert.version)), None))
+    }
+
+    /// `GET /workflows/definition` with `source=base`: what the copy at `of` began from.
+    pub fn workflow_base(&self, id: &str, of: &str, project: Option<&str>, manifest: &str) -> Result<WorkflowDefinition, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let base = self.versions.base_at(&at_of(of, project, manifest, id)).ok_or_else(|| draft_refused("fleet.workflow_base_none", "This copy has no base"))?;
+        Ok(WorkflowDefinition { workflow_id: WorkflowId::carried(id), source: "base".into(), project: project.map(String::from), file: file_of("armada", None, id), definition: base.text.clone(), overridden_by: None, based_on: Some(BasedOn { version: base.version, hash: mock_hash(&base.text) }) })
     }
 
     fn piece_at(&self, kind: LifecyclePieceKind, id: &str, scope: &ipc::PieceScope) -> Option<usize> {
@@ -616,6 +780,10 @@ impl MockFleet {
             row.project = runs.project.clone();
             row.file = runs.file();
             row.for_requests = runs.definition.get("for_requests").and_then(Json::text).map(String::from);
+            let base = (runs.source != "armada").then(|| self.versions.base_at(&at_of(&runs.source, runs.project.as_deref(), &manifest, id))).flatten();
+            let armada = self.definitions.iter().find(|one| one.holds(id, "armada", &manifest)).map(|one| text_of(&one.definition));
+            row.based_on = base.map(|base| BasedOn { version: base.version, hash: mock_hash(&base.text) });
+            row.armada_changed = base.zip(armada).is_some_and(|(base, armada)| base.text != armada);
             row.overrides = applying[1..].iter().map(|one| OverriddenWorkflow { source: one.source.clone(), file: one.file(), project: one.project.clone() }).collect();
             match at {
                 Some(at) => self.workflows[at] = row,

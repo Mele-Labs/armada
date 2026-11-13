@@ -174,6 +174,36 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowDefinition", cx))
     }
 
+    /// `GET /workflows/versions`: the versions a workflow has had in one place, newest first; none where nothing was published.
+    pub fn workflow_versions(&mut self, id: &str, source: &str, project: Option<&str>, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowVersions, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.workflow_versions(id, source, project, manifest));
+        }
+        let path = scoped(&format!("/workflows/versions?{}", draft_query(id, source, project)), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowVersions", cx))
+    }
+
+    /// `POST /workflows/revert`: a version's text put in the draft as a change of his. Nothing is published.
+    pub fn revert_workflow(&mut self, manifest: &str, revert: ipc::RevertWorkflow, cx: &App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.revert_workflow(manifest, revert));
+        }
+        let (path, said) = (scoped("/workflows/revert", manifest), body(&revert));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "WorkflowDraft", cx))
+    }
+
+    /// `GET /workflows/definition` with `source=base`: the text the copy at `of` (`kit`, `repository` or `project`) began from;
+    /// `fleet.workflow_base_none` where it has no base.
+    #[allow(dead_code)] // The chooser reads it when it is drawn.
+    pub fn workflow_base(&mut self, id: &str, of: &str, project: Option<&str>, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.workflow_base(id, of, project, manifest));
+        }
+        let query = format!("{}&of={}", draft_query(id, "base", project), crate::link::percent_encoded(of));
+        let path = scoped(&format!("/workflows/definition?{query}"), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowDefinition", cx))
+    }
+
     /// `POST /workflows/save` under a Manifest.
     pub fn save_workflow(&mut self, manifest: &str, save: ipc::SaveWorkflow, cx: &App) -> Task<Result<ipc::WorkflowSaved, Refused>> {
         if let Wire::Mock(mock) = self {

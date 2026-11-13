@@ -34,6 +34,8 @@ pub struct MockFleet {
     pub changes: Vec<super::mock_workflows::Kept>,
     /// The drafts of workflows and pieces `PUT` to it, until published or discarded.
     pub drafts: super::mock_workflows::Drafts,
+    /// The versions each place's workflows have had, and what each copy began from.
+    pub versions: super::mock_workflows::Versions,
     /// What `GET /models` answers: Classic's mock models (`apps/desktop/src/renderer/src/mock/kit-models.ts`).
     pub models: ipc::ModelChoices,
     /// The Phone Gateway Settings › Macs reads (`gateway.rs`).
@@ -125,15 +127,17 @@ impl MockFleet {
             reviews: Some(ipc::ReviewsSet { pull_requests: Some("review".into()), ..ipc::ReviewsSet::default() }),
             ..ValuesSet::default()
         };
-        MockFleet {
-            kit, list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), drafts: Default::default(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
+        let mut fleet = MockFleet {
+            kit, list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), drafts: Default::default(), versions: Default::default(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
             gateway: super::gateway::MockGateway::new(),
             handed: Vec::new(),
             job_projects: vec![("mock-02", "armada")],
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
-        }
+        };
+        fleet.seed_versions();
+        fleet
     }
 
     pub fn settings(&self) -> Result<SettingsList, Refused> {

@@ -19,7 +19,51 @@ const LATER_EDITS: &str = "A later change edits the same words";
 /// The button that throws the drafts away where Fleet says the workflow changed since they began.
 const START_OVER: &str = "Start from the published text";
 
+/// What the band says where Armada has shipped a new version of a workflow he copied, and its one button.
+const ARMADA_CHANGED: &str = "Armada changed this workflow since you copied it";
+const CHOOSE: &str = "Choose what to take";
+/// The button's tooltip while how he chooses is undecided.
+const CHOOSE_WAITS: &str = "Waiting on how you choose";
+
 impl LanesEditor {
+    /// The band over the Changes card: Armada changed the workflow since it was copied. None for a copy with no base, and for
+    /// Armada's own. Its button waits on how the owner chooses what to take, so it does nothing yet.
+    pub(super) fn render_armada_band(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+        if !self.armada_changed {
+            return None;
+        }
+        let button = ringed(look, ghost(look, "workflow-armada-choose", CHOOSE, false), &self.keys.choose, window)
+            .track_focus(&self.keys.choose)
+            .tooltip(tip(CHOOSE_WAITS))
+            .on_click(cx.listener(|this, _, window, cx| this.pressed(Press::Choose, window, cx)));
+        let said = div()
+            .flex_auto()
+            .min_w_0()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .text_size(look.length(token::TEXT_SM))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child(svg().flex_none().path(icon_path("git-compare")).size(look.length(token::SPACE_4)).text_color(look.color(token::ACCENT)))
+            .child(div().min_w_0().child(ARMADA_CHANGED));
+        let band = div()
+            .id("workflow-armada-changed")
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap_x(look.length(token::SPACE_3))
+            .gap_y(look.length(token::SPACE_1))
+            .min_w_0()
+            .p(look.length(token::SPACE_3))
+            .rounded(look.length(token::RADIUS_LG))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::ACCENT))
+            .bg(look.color(token::ACCENT_MUTED))
+            .child(said)
+            .child(labelled(button, Role::Button, CHOOSE));
+        Some(labelled(band, Role::Group, ARMADA_CHANGED).into_any_element())
+    }
+
     /// The draft bar and, under it, the history while it is open. None while the draft has no change.
     pub(super) fn render_bar(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         if !self.has_edits() {

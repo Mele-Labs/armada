@@ -17,6 +17,8 @@
 //! lifecycle's piece draft, at the scope the draft applies at, and waits here for the answer where Armada's own
 //! workflow has no scope yet.
 
+#[allow(dead_code)] // The chooser draws these when the owner has picked how he chooses.
+pub mod armada;
 mod bar;
 mod draft;
 mod in_place;
@@ -28,7 +30,7 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use gpui::{div, prelude::*, px, AnyElement, Bounds, Context, EventEmitter, FocusHandle, Keystroke, Pixels, Role, SharedString, Subscription, Task, Window};
-use ipc::{DraftBy, JobLanesView, LifecycleDefinition, LifecyclePiece, LifecyclePieceKind, PieceDraft, PieceScope, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, WorkflowDraft, WorkflowId, WorkflowScope};
+use ipc::{DraftBy, JobLanesView, LifecycleDefinition, LifecyclePiece, LifecyclePieceKind, PieceDraft, PieceScope, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, RevertWorkflow, WorkflowDraft, WorkflowId, WorkflowScope};
 
 pub use draft::{Change, Target};
 pub use wire::{EditorWire, Refused, Subject};
@@ -61,6 +63,8 @@ enum Read {
 
 /// The editor's stops: the buttons on the draft bar and the two answers to where it applies.
 struct Keys {
+    /// The band's button, where Armada changed the workflow since it was copied.
+    choose: FocusHandle,
     changes: FocusHandle,
     discard: FocusHandle,
     publish: FocusHandle,
@@ -73,6 +77,8 @@ struct Keys {
 /// A press the bar's keys answer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Press {
+    /// The band's button: it waits on how the owner chooses, so it does nothing yet.
+    Choose,
     Changes,
     Discard,
     Publish,
@@ -112,6 +118,8 @@ enum Call {
     /// A piece's draft text as it is now.
     PutPiece { id: String, scope: PieceScope, text: String, said: Option<String> },
     DeletePiece { id: String, scope: PieceScope },
+    /// A version's text put in the draft as a change of his.
+    Revert { version: u32 },
     /// Every draft held is thrown away.
     Discard,
     /// Every draft held is written, at `target`.
@@ -124,6 +132,7 @@ enum Op {
     Delete,
     PutPiece(PutPieceDraft),
     DeletePiece(String, PieceScope),
+    Revert(String, RevertWorkflow),
     PublishWorkflow(String, PublishWorkflowDraft),
     PublishPiece(PublishPieceDraft),
 }
@@ -208,6 +217,8 @@ pub struct LanesEditor {
     /// The refusal was that the workflow changed since the draft began: the bar offers to start over.
     stale: bool,
     busy: bool,
+    /// Armada changed this workflow since it was copied: a band over the draft says so.
+    armada_changed: bool,
     keys: Keys,
     /// One stop for each change's Undo.
     undos: Vec<FocusHandle>,
@@ -248,7 +259,7 @@ impl LanesEditor {
             }),
         ];
         let stop = |cx: &mut Context<Self>| cx.focus_handle().tab_stop(true);
-        let keys = Keys { changes: stop(cx), discard: stop(cx), publish: stop(cx), restart: stop(cx), repository: stop(cx), every: stop(cx), project: stop(cx) };
+        let keys = Keys { choose: stop(cx), changes: stop(cx), discard: stop(cx), publish: stop(cx), restart: stop(cx), repository: stop(cx), every: stop(cx), project: stop(cx) };
         let id: SharedString = format!("{}|{}|{}", subject.workflow, subject.level, subject.manifest).into();
         let target = subject.own_target();
         let mut editor = LanesEditor {
@@ -269,6 +280,7 @@ impl LanesEditor {
             refused: None,
             stale: false,
             busy: false,
+            armada_changed: false,
             keys,
             undos: Vec::new(),
             queue: VecDeque::new(),
@@ -297,6 +309,14 @@ impl LanesEditor {
     pub fn offer_project(&mut self, project: Option<(String, String)>, cx: &mut Context<Self>) {
         if self.subject.project != project {
             self.subject.project = project;
+            cx.notify();
+        }
+    }
+
+    /// Whether Armada changed this workflow since it was copied, as its row in the list says: a band over the draft says so.
+    pub fn offer_armada_changed(&mut self, changed: bool, cx: &mut Context<Self>) {
+        if self.armada_changed != changed {
+            self.armada_changed = changed;
             cx.notify();
         }
     }
@@ -601,6 +621,18 @@ impl LanesEditor {
         true
     }
 
+    /// A version of the workflow put in the draft as a change of his (`Back to version N`). Nothing is published, and the
+    /// answer is the draft, which the editor takes as it takes the answer to a put.
+    pub fn revert(&mut self, version: u32, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
+        self.refused = None;
+        self.stale = false;
+        self.enqueue(Call::Revert { version }, cx);
+        cx.notify();
+    }
+
     /// Every draft thrown away, back to what is published, and read again.
     pub fn discard(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let was_here = self.owns_focus(window);
@@ -695,6 +727,10 @@ impl LanesEditor {
             }
             Call::PutPiece { id, scope, text, said } => (self.piece_op(id, scope, text, said).into_iter().collect(), After::Nothing),
             Call::DeletePiece { id, scope } => (self.pieces.iter().any(|one| one.id == id && one.scope == scope).then_some(Op::DeletePiece(id, scope)).into_iter().collect(), After::Nothing),
+            Call::Revert { version } => {
+                let revert = RevertWorkflow { workflow_id: workflow, source: source.into(), project, version };
+                (vec![Op::Revert(self.subject.held_under.clone(), revert)], After::Nothing)
+            }
             Call::Discard => {
                 let mut ops: Vec<Op> = self.draft.is_some().then_some(Op::Delete).into_iter().collect();
                 ops.extend(self.pieces.iter().map(|one| Op::DeletePiece(one.id.clone(), one.scope.clone())));
@@ -801,6 +837,9 @@ impl LanesEditor {
     /// Undo for each change, then the canvas.
     pub fn stops(&self) -> Vec<FocusHandle> {
         let mut stops = Vec::new();
+        if self.armada_changed {
+            stops.push(self.keys.choose.clone());
+        }
         if self.has_edits() {
             if self.question_shown() {
                 if self.subject.project.is_some() {
@@ -840,6 +879,8 @@ impl LanesEditor {
 
     fn pressed(&mut self, press: Press, window: &mut Window, cx: &mut Context<Self>) {
         match press {
+            // Waiting on how the owner chooses between a checklist and side by side.
+            Press::Choose => {}
             Press::Changes => {
                 self.history_open = !self.history_open && self.has_edits();
                 cx.notify();
@@ -868,7 +909,7 @@ impl LanesEditor {
 
     fn focused_press(&self, window: &Window) -> Option<Press> {
         let keys = &self.keys;
-        [(&keys.project, Press::Project), (&keys.repository, Press::Repository), (&keys.every, Press::Every), (&keys.changes, Press::Changes), (&keys.discard, Press::Discard), (&keys.publish, Press::Publish), (&keys.restart, Press::Restart)]
+        [(&keys.choose, Press::Choose), (&keys.project, Press::Project), (&keys.repository, Press::Repository), (&keys.every, Press::Every), (&keys.changes, Press::Changes), (&keys.discard, Press::Discard), (&keys.publish, Press::Publish), (&keys.restart, Press::Restart)]
             .into_iter()
             .find(|(stop, _)| stop.is_focused(window))
             .map(|(_, press)| press)
@@ -913,6 +954,7 @@ impl LanesEditor {
 async fn send(wire: &Rc<dyn EditorWire>, subject: &Subject, op: Op, cx: &mut gpui::AsyncApp) -> Result<Done, Refused> {
     match op {
         Op::Put(put) => cx.update(|app| wire.put_workflow_draft(&subject.held_under, put, app)).await.map(Done::Workflow),
+        Op::Revert(manifest, revert) => cx.update(|app| wire.revert_workflow(&manifest, revert, app)).await.map(Done::Workflow),
         Op::Delete => match cx.update(|app| wire.discard_workflow_draft(subject, app)).await {
             Err(why) if !why.is("fleet.workflow_draft_none") => Err(why),
             _ => Ok(Done::WorkflowGone),
@@ -1013,7 +1055,7 @@ impl gpui::Render for LanesEditor {
                     .into_any_element()
             }
         };
-        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().children(self.render_bar(&look, window, cx)).child(body)
+        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().children(self.render_armada_band(&look, window, cx)).children(self.render_bar(&look, window, cx)).child(body)
     }
 }
 
@@ -1040,6 +1082,7 @@ mod tests {
         last: Cell<i64>,
         asked: RefCell<Vec<&'static str>>,
         puts: RefCell<Vec<PutWorkflowDraft>>,
+        reverts: RefCell<Vec<RevertWorkflow>>,
         piece_puts: RefCell<Vec<PutPieceDraft>>,
         publishes: RefCell<Vec<(String, PublishWorkflowDraft)>>,
         piece_publishes: RefCell<Vec<PublishPieceDraft>>,
@@ -1105,6 +1148,17 @@ mod tests {
             self.0.asked.borrow_mut().push("PUT workflow");
             let draft = self.0.put(&put.text, DraftBy::You, put.summary.clone());
             self.0.puts.borrow_mut().push(put);
+            Task::ready(Ok(draft))
+        }
+
+        /// Version 1 is the text with a Review step; there is no other.
+        fn revert_workflow(&self, _: &str, revert: RevertWorkflow, _: &mut gpui::App) -> Task<Result<WorkflowDraft, Refused>> {
+            self.0.asked.borrow_mut().push("REVERT workflow");
+            if revert.version != 1 {
+                return Task::ready(Err(refused("fleet.workflow_version_none", "There is no such version")));
+            }
+            let draft = self.0.put(REVIEWED, DraftBy::You, Some(format!("Back to version {}", revert.version)));
+            self.0.reverts.borrow_mut().push(revert);
             Task::ready(Ok(draft))
         }
 
@@ -1184,6 +1238,7 @@ mod tests {
             last: Cell::new(0),
             asked: RefCell::default(),
             puts: RefCell::default(),
+            reverts: RefCell::default(),
             piece_puts: RefCell::default(),
             publishes: RefCell::default(),
             piece_publishes: RefCell::default(),
@@ -1616,5 +1671,38 @@ mod tests {
             assert!(!editor.has_edits() && !editor.stale && editor.refused.is_none());
             assert_eq!(editor.text, BASE);
         });
+    }
+
+    #[gpui::test]
+    fn a_revert_puts_the_versions_text_in_the_draft_as_his_and_publishes_nothing(cx: &mut TestAppContext) {
+        let (editor, fleet, events, cx) = open_as(cx, false, "repository");
+        editor.update(cx, |editor, cx| editor.revert(1, cx));
+        cx.run_until_parked();
+        assert_eq!(history(&editor, cx), [person("Back to version 1")]);
+        assert_eq!(text(&editor, cx), REVIEWED, "the draft is the version's text");
+        assert_eq!(steps(&text(&editor, cx)), ["Plan", "Build", "Review", "Land"]);
+        let reverts = fleet.reverts.borrow();
+        assert_eq!((reverts.len(), reverts[0].workflow_id.as_str(), reverts[0].source.as_str(), reverts[0].version), (1, "prototype", "repository", 1));
+        assert!(fleet.publishes.borrow().is_empty() && events.borrow().is_empty(), "nothing is published");
+    }
+
+    #[gpui::test]
+    fn a_version_fleet_does_not_hold_is_refused_in_its_sentence_and_changes_no_draft(cx: &mut TestAppContext) {
+        let (editor, fleet, _, cx) = open_as(cx, false, "repository");
+        editor.update(cx, |editor, cx| editor.revert(9, cx));
+        cx.run_until_parked();
+        assert_eq!(editor.read_with(cx, |editor, _| editor.refused.clone()).as_deref(), Some("There is no such version"));
+        assert!(fleet.draft.borrow().is_none() && history(&editor, cx).is_empty());
+    }
+
+    #[gpui::test]
+    fn the_armada_band_is_drawn_and_its_button_held_only_where_armada_changed_the_copy(cx: &mut TestAppContext) {
+        let (editor, _, _, cx) = open_as(cx, false, "repository");
+        let stops = |editor: &Entity<LanesEditor>, cx: &mut VisualTestContext| editor.read_with(cx, |editor, _| editor.stops().len());
+        let without = stops(&editor, cx);
+        editor.update(cx, |editor, cx| editor.offer_armada_changed(true, cx));
+        assert_eq!(stops(&editor, cx), without + 1, "the band's button is a stop");
+        editor.update(cx, |editor, cx| editor.offer_armada_changed(false, cx));
+        assert_eq!(stops(&editor, cx), without);
     }
 }
