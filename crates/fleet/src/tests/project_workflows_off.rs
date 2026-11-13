@@ -85,8 +85,8 @@ async fn off_on_the_machine_or_in_the_repository_holds_over_the_project_and_name
     );
     assert_eq!(
         switches(&fleet, &project, None).await,
-        [row("bug", false, ValueLayer::Machine), row("chore", false, ValueLayer::Project), row("feature", true, ValueLayer::Default)],
-        "no repository asked: the machine's and the project's",
+        [row("bug", false, ValueLayer::Machine), row("chore", false, ValueLayer::Project), row("feature", false, ValueLayer::Repository)],
+        "no repository asked: off in the project's one repository is off from it",
     );
 
     fleet.set_project_workflow(project.clone(), switched("bug", true)).await.expect("on in the project");

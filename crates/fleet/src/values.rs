@@ -485,7 +485,8 @@ where
     }
 
     /// Each workflow's switch for `project`, of the repository asked or of every repository served where none was,
-    /// in id order, with the layer that holds it off (`workflow_off_from`). The main switch is not folded in.
+    /// in id order, with the layer that holds it off: `workflow_off_from`, or `workflow_off_across` the project's
+    /// repositories where none was asked. The main switch is not folded in.
     fn workflow_switches(&self, project: &str, repository: Option<&ManifestId>) -> Vec<ipc::ResolvedWorkflow> {
         let served = match repository {
             Some(named) => self.repositories().serving(named.as_str()).into_iter().collect(),
@@ -495,7 +496,10 @@ where
             served.iter().flat_map(|one| one.workflows().keys().map(|id| id.as_str().to_string()).collect::<Vec<_>>()).collect();
         ids.into_iter()
             .map(|id| {
-                let from = self.workflow_off_from(repository.map(ManifestId::as_str), Some(project), &id);
+                let from = match repository {
+                    Some(named) => self.workflow_off_from(Some(named.as_str()), Some(project), &id),
+                    None => self.workflow_off_across(project, &id),
+                };
                 ipc::ResolvedWorkflow { on: from.is_none(), from: from.unwrap_or(ipc::ValueLayer::Default), id }
             })
             .collect()
