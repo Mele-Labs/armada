@@ -227,7 +227,7 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
         .find(|(_, name, _)| *name == "preview_test")
         .expect("the preview suite is declared");
     assert!(
-        preview.2.ends_with("scripts/test_preview.py"),
+        preview.2.contains("scripts/test_preview.py") && preview.2.contains("scripts/test_restart_detach.py"),
         "{preview:?}"
     );
 }
