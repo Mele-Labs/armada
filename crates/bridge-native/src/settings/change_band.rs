@@ -377,10 +377,15 @@ impl SettingsOverlay {
                 // draft moved since) is laid on the draft here and put as his.
                 if change.drafted {
                     editor.update(cx, |editor, cx| editor.drafted_by_agent(cx));
+                    Some(change.id)
                 } else if let (ChangeOrigin::Asked { text }, Some(after)) = (change.origin, change.after) {
-                    editor.update(cx, |editor, cx| editor.agent_edit(text, change.before, after, cx));
+                    // Put as the agent's, naming the change: Fleet needs it still waiting, so the editor says when it is
+                    // settled and the change is put aside then (`EditorEvent::AgentPut`).
+                    editor.update(cx, |editor, cx| editor.agent_edit(text, change.id, change.before, after, cx));
+                    None
+                } else {
+                    Some(change.id)
                 }
-                Some(change.id)
             }
             _ => None,
         };

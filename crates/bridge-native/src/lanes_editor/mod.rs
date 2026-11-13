@@ -19,6 +19,7 @@
 
 #[allow(dead_code)] // The chooser draws these when the owner has picked how he chooses.
 pub mod armada;
+mod ask;
 mod bar;
 mod draft;
 mod in_place;
@@ -30,10 +31,10 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use gpui::{div, prelude::*, px, AnyElement, Bounds, Context, EventEmitter, FocusHandle, Keystroke, Pixels, Role, SharedString, Subscription, Task, Window};
-use ipc::{DraftBy, JobLanesView, LifecycleDefinition, LifecyclePiece, LifecyclePieceKind, PieceDraft, PieceScope, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, RevertWorkflow, WorkflowDraft, WorkflowId, WorkflowScope};
+use ipc::{AffectedJob, DraftBy, JobLanesView, LifecycleDefinition, LifecyclePiece, LifecyclePieceKind, PieceDraft, PieceScope, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, MigrateJobs, MigrateResult, RevertWorkflow, SessionId, WorkflowDraft, WorkflowId, WorkflowScope};
 
 pub use draft::{Change, Target};
-pub use wire::{EditorWire, Refused, Subject};
+pub use wire::{EditorWire, Place, Refused, Subject};
 
 use crate::labels::labelled;
 use crate::lanes_canvas::{lanes_canvas, LanesHost, LanesState, Pick};
@@ -48,6 +49,9 @@ pub enum EditorEvent {
     Published { target: Target },
     /// An Esc the canvas did not take, with nothing picked: the host shuts what holds it.
     Escaped,
+    /// An agent's change that Fleet had not put in the draft was put there as the agent's, or Fleet refused it: either
+    /// way the change is settled, and the host puts it aside.
+    AgentPut { change: i64 },
 }
 
 impl EventEmitter<EditorEvent> for LanesEditor {}
@@ -63,8 +67,6 @@ enum Read {
 
 /// The editor's stops: the buttons on the draft bar and the two answers to where it applies.
 struct Keys {
-    /// The band's button, where Armada changed the workflow since it was copied.
-    choose: FocusHandle,
     changes: FocusHandle,
     discard: FocusHandle,
     publish: FocusHandle,
@@ -77,8 +79,6 @@ struct Keys {
 /// A press the bar's keys answer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Press {
-    /// The band's button: it waits on how the owner chooses, so it does nothing yet.
-    Choose,
     Changes,
     Discard,
     Publish,
@@ -87,6 +87,12 @@ enum Press {
     Every,
     Project,
     Undo(usize),
+    /// The tick of one Job in the ask.
+    Pick(usize),
+    /// The ask's Publish, its Cancel, and the Done that shuts it once a move failed.
+    AskPublish,
+    AskCancel,
+    AskDone,
 }
 
 /// Where a row of the Changes list comes from: a change of the workflow's draft, a change of one piece's draft (both
@@ -112,7 +118,7 @@ struct Row {
 /// What is asked of Fleet, in the order the person made it. Each waits for the one before it to be answered.
 enum Call {
     /// The workflow's draft text as it is now.
-    Put { text: String, said: Option<String> },
+    Put { text: String, said: Option<String>, agent: Option<i64> },
     /// A state renamed, in the lifecycle that runs, at `scope`.
     Rename { said: String, lifecycle: String, state: String, label: String, scope: PieceScope },
     /// A piece's draft text as it is now.
@@ -122,8 +128,10 @@ enum Call {
     Revert { version: u32 },
     /// Every draft held is thrown away.
     Discard,
-    /// Every draft held is written, at `target`.
-    Publish { target: Target },
+    /// The Jobs a publish at `target` would touch, asked before it writes.
+    Affected { target: Target },
+    /// Every draft held is written, at `target`, and the Jobs picked are moved to it.
+    Publish { target: Target, migrate: Vec<SessionId> },
 }
 
 /// What one request to Fleet is.
@@ -135,6 +143,8 @@ enum Op {
     Revert(String, RevertWorkflow),
     PublishWorkflow(String, PublishWorkflowDraft),
     PublishPiece(PublishPieceDraft),
+    Affected(Place),
+    Migrate(String, MigrateJobs),
 }
 
 /// What Fleet's answer to an `Op` leaves.
@@ -143,13 +153,19 @@ enum Done {
     WorkflowGone,
     Piece(PieceDraft),
     PieceGone(String, PieceScope),
+    Affected(Vec<AffectedJob>),
+    Migrated(Vec<MigrateResult>),
 }
 
 /// What a `Call` does once all its requests are answered.
 enum After {
     Nothing,
     Discarded,
+    /// The Jobs a publish would touch are read: the ask opens where there are any, else the publish is made.
+    Asked(Target),
     Published(Target),
+    /// A put that was an agent's change: the host is told it is settled.
+    AgentPut(i64),
 }
 
 const STALE: [&str; 2] = ["fleet.workflow_draft_stale", "fleet.piece_draft_stale"];
@@ -219,6 +235,16 @@ pub struct LanesEditor {
     busy: bool,
     /// Armada changed this workflow since it was copied: a band over the draft says so.
     armada_changed: bool,
+    /// The ask Publish makes of the running Jobs, while it is open.
+    ask: Option<ask::Ask>,
+    /// The Jobs the last read said a publish would touch, on their way to the ask.
+    affected: Vec<AffectedJob>,
+    /// What the moves answered, on their way to the ask.
+    moved: Option<Vec<MigrateResult>>,
+    /// The ask has just opened, or changed to Done: the keys go to it when it is next drawn.
+    focus_ask: bool,
+    /// The publish is made but the ask stays for a move that failed: the host hears of it when the ask shuts.
+    held: Option<Target>,
     keys: Keys,
     /// One stop for each change's Undo.
     undos: Vec<FocusHandle>,
@@ -259,7 +285,7 @@ impl LanesEditor {
             }),
         ];
         let stop = |cx: &mut Context<Self>| cx.focus_handle().tab_stop(true);
-        let keys = Keys { choose: stop(cx), changes: stop(cx), discard: stop(cx), publish: stop(cx), restart: stop(cx), repository: stop(cx), every: stop(cx), project: stop(cx) };
+        let keys = Keys { changes: stop(cx), discard: stop(cx), publish: stop(cx), restart: stop(cx), repository: stop(cx), every: stop(cx), project: stop(cx) };
         let id: SharedString = format!("{}|{}|{}", subject.workflow, subject.level, subject.manifest).into();
         let target = subject.own_target();
         let mut editor = LanesEditor {
@@ -281,6 +307,11 @@ impl LanesEditor {
             stale: false,
             busy: false,
             armada_changed: false,
+            ask: None,
+            affected: Vec::new(),
+            moved: None,
+            held: None,
+            focus_ask: false,
             keys,
             undos: Vec::new(),
             queue: VecDeque::new(),
@@ -501,6 +532,11 @@ impl LanesEditor {
 
     /// One edit: the new whole text worked out from the one now, with the line the history reads for it, and put.
     pub fn edit(&mut self, said: impl Into<String>, change: Change, cx: &mut Context<Self>) {
+        self.edit_by(said, change, None, cx);
+    }
+
+    /// `edit`, as an agent's where `agent` names the change it is of.
+    fn edit_by(&mut self, said: impl Into<String>, change: Change, agent: Option<i64>, cx: &mut Context<Self>) {
         let said = said.into();
         self.refused = None;
         self.stale = false;
@@ -514,16 +550,25 @@ impl LanesEditor {
                 _ => return,
             }
         }
-        let Some(text) = change.apply(&self.text) else { return };
-        self.put_text(text, Some(said), cx);
+        let Some(text) = change.apply(&self.text) else {
+            if let Some(change) = agent {
+                cx.emit(EditorEvent::AgentPut { change });
+            }
+            return;
+        };
+        self.put_text(text, Some(said), agent, cx);
     }
 
-    fn put_text(&mut self, text: String, said: Option<String>, cx: &mut Context<Self>) {
+    fn put_text(&mut self, text: String, said: Option<String>, agent: Option<i64>, cx: &mut Context<Self>) {
         if text == self.text {
+            // Nothing to put, so Fleet is not asked: the change is settled all the same.
+            if let Some(change) = agent {
+                cx.emit(EditorEvent::AgentPut { change });
+            }
             return;
         }
         self.text = text.clone();
-        self.enqueue(Call::Put { text, said }, cx);
+        self.enqueue(Call::Put { text, said, agent }, cx);
         self.refresh(cx);
         cx.notify();
     }
@@ -537,10 +582,10 @@ impl LanesEditor {
         cx.notify();
     }
 
-    /// An agent's change, drafted from `before` as `after`, for what the person asked, where Fleet did not put it in the
-    /// draft: it is laid on the text now and put as the person's.
-    pub fn agent_edit(&mut self, asked: impl Into<String>, before: String, after: String, cx: &mut Context<Self>) {
-        self.edit(asked, Change::Definition { before, after }, cx);
+    /// An agent's change `change`, drafted from `before` as `after`, for what the person asked, where Fleet did not put it
+    /// in the draft: it is laid on the text now and put as the agent's, naming the change it is of.
+    pub fn agent_edit(&mut self, asked: impl Into<String>, change: i64, before: String, after: String, cx: &mut Context<Self>) {
+        self.edit_by(asked, Change::Definition { before, after }, Some(change), cx);
     }
 
     /// An agent's change Fleet has put in the draft as the agent's: the draft is read again.
@@ -600,7 +645,7 @@ impl LanesEditor {
             }
             Of::Workflow(_) => {
                 let Some((text, said)) = self.reverse(row.of) else { return false };
-                self.put_text(text, said, cx);
+                self.put_text(text, said, None, cx);
             }
             Of::Piece(piece, _) => {
                 let Some((text, said)) = self.reverse(row.of) else { return false };
@@ -652,18 +697,90 @@ impl LanesEditor {
     /// Writes the draft where it applies, through Fleet: a copy at the place the person chose for a workflow that is
     /// Armada's, or the workflow itself where it is a copy. Then each lifecycle it renamed a state of, at the same
     /// place. A refusal keeps the draft, and says Fleet's sentence.
+    ///
+    /// **It asks first** which running Jobs move to the new version (`GET /workflows/affected`): with none, it writes at
+    /// once; with some, the ask opens under the bar and nothing is written until he answers it.
     pub fn publish(&mut self, cx: &mut Context<Self>) {
-        let Some(target) = self.target.clone().filter(|_| !self.busy && self.has_edits()) else { return };
+        let Some(target) = self.target.clone().filter(|_| !self.busy && self.has_edits() && self.ask.is_none()) else { return };
         self.busy = true;
         self.refused = None;
         self.stale = false;
-        self.enqueue(Call::Publish { target }, cx);
+        self.enqueue(Call::Affected { target }, cx);
         cx.notify();
+    }
+
+    /// The place a publish at `target` writes to, as Fleet names it for the Jobs it touches: a workflow of Armada's is kept
+    /// at the place the person chose, any other at its own.
+    fn place_of(&self, target: &Target) -> Place {
+        let manifest = match target {
+            Target::Repository(manifest) => manifest.clone(),
+            _ => self.subject.repository.clone(),
+        };
+        let (source, project) = match (self.subject.source, target) {
+            ("armada", Target::Repository(_)) => ("repository".to_string(), None),
+            ("armada", Target::Project(id)) => ("project".to_string(), Some(id.clone())),
+            ("armada", Target::EveryProject) => ("kit".to_string(), None),
+            _ => {
+                let (source, project) = self.subject.place();
+                (source.to_string(), project)
+            }
+        };
+        Place { source, project, manifest }
+    }
+
+    /// What the read of the running Jobs found: none, and the draft is written; some, and they are asked about.
+    fn asked(&mut self, target: Target, cx: &mut Context<Self>) {
+        let jobs = std::mem::take(&mut self.affected);
+        if jobs.is_empty() {
+            self.busy = true;
+            self.enqueue(Call::Publish { target, migrate: Vec::new() }, cx);
+            return;
+        }
+        let ask = ask::Ask::new(jobs, target, self.base(), &self.text, cx);
+        self.busy = false;
+        self.ask = Some(ask);
+        self.focus_ask = true;
+        cx.notify();
+    }
+
+    /// The ask answered with Publish: the draft is written, then the Jobs ticked are moved.
+    fn ask_publish(&mut self, cx: &mut Context<Self>) {
+        let Some(ask) = self.ask.as_ref().filter(|ask| !ask.made && !self.busy) else { return };
+        let migrate = ask.rows.iter().filter(|row| row.picked && row.pickable()).map(|row| row.job.session_id.clone()).collect();
+        let target = ask.target.clone();
+        self.busy = true;
+        self.enqueue(Call::Publish { target, migrate }, cx);
+        cx.notify();
+    }
+
+    /// The ask shut with Cancel: nothing is written, and the draft stands.
+    fn ask_cancel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.ask.as_ref().is_some_and(|ask| !ask.made && !self.busy) {
+            self.ask = None;
+            window.focus(&self.keys.publish, cx);
+            cx.notify();
+        }
+    }
+
+    /// The ask shut with Done, once a move failed: the publish was made, so the host hears of it now.
+    fn ask_done(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.ask.take().is_some() {
+            if let Some(target) = self.held.take() {
+                cx.emit(EditorEvent::Published { target });
+            } else {
+                window.focus(&self.state.frame, cx);
+            }
+            cx.notify();
+        }
     }
 
     // ---- what Fleet is asked ------------------------------------------------------------------
 
     fn enqueue(&mut self, call: Call, cx: &mut Context<Self>) {
+        // The list was read of the draft as it stood: a change to it makes the list stale, so the ask is let go.
+        if !matches!(call, Call::Affected { .. } | Call::Publish { .. }) && self.ask.as_ref().is_some_and(|ask| !ask.made) {
+            self.ask = None;
+        }
         self.queue.push_back(call);
         self.pump(cx);
     }
@@ -689,9 +806,18 @@ impl LanesEditor {
                         }
                     }
                 }
-                let _ = this.update(cx, |this, cx| match failed {
-                    Some(why) => this.failed(why, cx),
-                    None => this.finished(after, cx),
+                let _ = this.update(cx, |this, cx| {
+                    let agent = match &after {
+                        After::AgentPut(change) => Some(*change),
+                        _ => None,
+                    };
+                    match failed {
+                        Some(why) => this.failed(why, cx),
+                        None => this.finished(after, cx),
+                    }
+                    if let Some(change) = agent {
+                        cx.emit(EditorEvent::AgentPut { change });
+                    }
                 });
             }
             let _ = this.update(cx, |this, cx| {
@@ -708,13 +834,18 @@ impl LanesEditor {
         let (source, project) = self.subject.place();
         let workflow = WorkflowId::carried(&self.subject.workflow);
         match call {
-            Call::Put { text, said } => {
+            Call::Put { text, said, agent } => {
                 let ops = if text == self.base() && self.pieces.is_empty() {
                     self.draft.is_some().then_some(Op::Delete).into_iter().collect()
                 } else {
-                    vec![Op::Put(PutWorkflowDraft { workflow_id: workflow, source: source.into(), project, text, summary: said, by: None, change: None })]
+                    // An agent's change put on a draft that moved is the agent's still: Fleet marks it so by the change's id.
+                    let (by, change) = match agent {
+                        Some(change) => (Some(DraftBy::Agent), Some(change)),
+                        None => (None, None),
+                    };
+                    vec![Op::Put(PutWorkflowDraft { workflow_id: workflow, source: source.into(), project, text, summary: said, by, change })]
                 };
-                (ops, After::Nothing)
+                (ops, agent.map_or(After::Nothing, After::AgentPut))
             }
             Call::Rename { said, lifecycle, state, label, scope } => {
                 let current = self.pieces.iter().find(|one| one.id == lifecycle && one.scope == scope).map(|one| one.text.clone()).or_else(|| self.running_piece(&lifecycle, &scope).map(piece_text));
@@ -736,7 +867,12 @@ impl LanesEditor {
                 ops.extend(self.pieces.iter().map(|one| Op::DeletePiece(one.id.clone(), one.scope.clone())));
                 (ops, After::Discarded)
             }
-            Call::Publish { target } => {
+            Call::Affected { target } => {
+                // Only a draft of the workflow changes what a Job reads: a state renamed does not.
+                let ops = self.draft.is_some().then(|| Op::Affected(self.place_of(&target))).into_iter().collect();
+                (ops, After::Asked(target))
+            }
+            Call::Publish { target, migrate } => {
                 let (scope, manifest) = match &target {
                     Target::Repository(manifest) => (WorkflowScope::Repository, manifest.clone()),
                     Target::Project(id) => (WorkflowScope::Project { id: id.clone() }, self.subject.repository.clone()),
@@ -749,6 +885,10 @@ impl LanesEditor {
                     ops.push(Op::PublishWorkflow(manifest, PublishWorkflowDraft { workflow_id: workflow, source: source.into(), project, scope, overwrite: false }));
                 }
                 ops.extend(self.pieces.iter().map(|one| Op::PublishPiece(PublishPieceDraft { kind: one.kind, id: one.id.clone(), scope: one.scope.clone() })));
+                if !migrate.is_empty() {
+                    let place = self.place_of(&target);
+                    ops.push(Op::Migrate(place.manifest, MigrateJobs { workflow_id: WorkflowId::carried(&self.subject.workflow), source: place.source, project: place.project, session_ids: migrate }));
+                }
                 (ops, After::Published(target))
             }
         }
@@ -785,6 +925,8 @@ impl LanesEditor {
                 None => self.pieces.push(piece),
             },
             Done::PieceGone(id, scope) => self.pieces.retain(|one| !(one.id == id && one.scope == scope)),
+            Done::Affected(jobs) => self.affected = jobs,
+            Done::Migrated(results) => self.moved = Some(results),
         }
         self.refresh(cx);
         cx.notify();
@@ -801,6 +943,8 @@ impl LanesEditor {
                 self.target = self.subject.own_target();
                 self.load(cx);
             }
+            After::Asked(target) => self.asked(target, cx),
+            After::AgentPut(_) => {}
             After::Published(target) => {
                 self.draft = None;
                 self.pieces.clear();
@@ -810,7 +954,18 @@ impl LanesEditor {
                 self.in_place = None;
                 self.undos.clear();
                 self.load(cx);
-                cx.emit(EditorEvent::Published { target });
+                // A move that failed keeps the ask open, with Fleet's sentence under its row: the host hears when it shuts.
+                let failed = match (self.moved.take(), self.ask.as_mut()) {
+                    (Some(results), Some(ask)) => ask.answered(&results),
+                    _ => false,
+                };
+                if failed {
+                    self.held = Some(target);
+                    self.focus_ask = true;
+                } else {
+                    self.ask = None;
+                    cx.emit(EditorEvent::Published { target });
+                }
             }
         }
         cx.notify();
@@ -819,6 +974,8 @@ impl LanesEditor {
     /// Fleet refused: its sentence is said, what waited behind is let go, and what Fleet holds is read again.
     fn failed(&mut self, why: Refused, cx: &mut Context<Self>) {
         self.busy = false;
+        self.ask = None;
+        self.affected.clear();
         self.stale = STALE.iter().any(|code| why.is(code));
         self.refused = Some(why.said);
         self.queue.clear();
@@ -837,9 +994,6 @@ impl LanesEditor {
     /// Undo for each change, then the canvas.
     pub fn stops(&self) -> Vec<FocusHandle> {
         let mut stops = Vec::new();
-        if self.armada_changed {
-            stops.push(self.keys.choose.clone());
-        }
         if self.has_edits() {
             if self.question_shown() {
                 if self.subject.project.is_some() {
@@ -848,12 +1002,17 @@ impl LanesEditor {
                 stops.extend([self.keys.repository.clone(), self.keys.every.clone()]);
             }
             stops.extend([self.keys.changes.clone(), self.keys.discard.clone(), self.keys.publish.clone()]);
+            stops.extend(self.ask.iter().flat_map(|ask| ask.stops()));
             if self.stale {
                 stops.push(self.keys.restart.clone());
             }
             if self.history_open {
                 stops.extend(self.undos.iter().cloned());
             }
+        }
+        // Once the draft is written, the ask that is left for a failed move has the bar to itself.
+        if !self.has_edits() {
+            stops.extend(self.ask.iter().flat_map(|ask| ask.stops()));
         }
         if matches!(self.read, Read::Read(_)) {
             stops.push(self.state.frame.clone());
@@ -879,13 +1038,20 @@ impl LanesEditor {
 
     fn pressed(&mut self, press: Press, window: &mut Window, cx: &mut Context<Self>) {
         match press {
-            // Waiting on how the owner chooses between a checklist and side by side.
-            Press::Choose => {}
             Press::Changes => {
                 self.history_open = !self.history_open && self.has_edits();
                 cx.notify();
             }
             Press::Discard | Press::Restart => self.discard(window, cx),
+            Press::Pick(at) => {
+                if let Some(row) = self.ask.as_mut().filter(|ask| !ask.made).and_then(|ask| ask.rows.get_mut(at)).filter(|row| row.pickable()) {
+                    row.picked = !row.picked;
+                    cx.notify();
+                }
+            }
+            Press::AskPublish => self.ask_publish(cx),
+            Press::AskCancel => self.ask_cancel(window, cx),
+            Press::AskDone => self.ask_done(window, cx),
             Press::Publish => self.publish(cx),
             Press::Repository => {
                 self.apply_at(Target::Repository(self.subject.repository.clone()), cx);
@@ -909,11 +1075,16 @@ impl LanesEditor {
 
     fn focused_press(&self, window: &Window) -> Option<Press> {
         let keys = &self.keys;
-        [(&keys.choose, Press::Choose), (&keys.project, Press::Project), (&keys.repository, Press::Repository), (&keys.every, Press::Every), (&keys.changes, Press::Changes), (&keys.discard, Press::Discard), (&keys.publish, Press::Publish), (&keys.restart, Press::Restart)]
+        [(&keys.project, Press::Project), (&keys.repository, Press::Repository), (&keys.every, Press::Every), (&keys.changes, Press::Changes), (&keys.discard, Press::Discard), (&keys.publish, Press::Publish), (&keys.restart, Press::Restart)]
             .into_iter()
             .find(|(stop, _)| stop.is_focused(window))
             .map(|(_, press)| press)
             .or_else(|| self.history_open.then(|| self.undos.iter().position(|stop| stop.is_focused(window)).map(Press::Undo)).flatten())
+            .or_else(|| {
+                let ask = self.ask.as_ref()?;
+                let button = [(&ask.publish, Press::AskPublish), (&ask.cancel, Press::AskCancel), (&ask.done, Press::AskDone)].into_iter().find(|(stop, _)| stop.is_focused(window)).map(|(_, press)| press);
+                button.or_else(|| ask.rows.iter().position(|row| row.focus.is_focused(window)).map(Press::Pick))
+            })
     }
 
     /// The editor's keys, for a host that gets them first: ⌘Z drops the last change; Enter and Space press what has
@@ -929,6 +1100,14 @@ impl LanesEditor {
             return false;
         }
         match word {
+            // Esc cancels the ask, or shuts it once a move failed.
+            "escape" if self.ask.is_some() && self.owns_focus(window) => {
+                match self.ask.as_ref().is_some_and(|ask| ask.made) {
+                    true => self.ask_done(window, cx),
+                    false => self.ask_cancel(window, cx),
+                }
+                true
+            }
             "escape" if self.history_open && self.owns_focus(window) => {
                 self.history_open = false;
                 window.focus(&self.keys.changes, cx);
@@ -938,6 +1117,8 @@ impl LanesEditor {
             "e" if !mods.shift && self.canvas_focused(window) => self.open_picked(window, cx),
             "a" if !mods.shift && self.canvas_focused(window) => self.add_after_picked(window, cx),
             "enter" | "space" => match self.focused_press(window) {
+                // Space ticks a Job; Enter is for the buttons.
+                Some(Press::Pick(_)) if word == "enter" => false,
                 Some(press) => {
                     self.pressed(press, window, cx);
                     true
@@ -968,6 +1149,15 @@ async fn send(wire: &Rc<dyn EditorWire>, subject: &Subject, op: Op, cx: &mut gpu
         Op::PublishPiece(publish) => {
             let (id, scope) = (publish.id.clone(), publish.scope.clone());
             cx.update(|app| wire.publish_piece_draft(publish, app)).await.map(|_| Done::PieceGone(id, scope))
+        }
+        Op::Affected(place) => cx.update(|app| wire.affected_jobs(subject, &place, app)).await.map(|listed| Done::Affected(listed.jobs)),
+        // The write is made by now: a refusal of the moves is each Job's own failure, said under its row.
+        Op::Migrate(manifest, migrate) => {
+            let ids = migrate.session_ids.clone();
+            Ok(Done::Migrated(match cx.update(|app| wire.migrate_jobs(&manifest, migrate, app)).await {
+                Ok(moved) => moved.results,
+                Err(why) => ids.into_iter().map(|session_id| MigrateResult { session_id, moved: false, step_id: None, step_label: None, code: why.code.clone(), message: Some(why.said.clone()) }).collect(),
+            }))
         }
     }
 }
@@ -1011,6 +1201,11 @@ impl LanesHost for LanesEditor {
 impl gpui::Render for LanesEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
+        if std::mem::take(&mut self.focus_ask) {
+            if let Some(stop) = self.ask.as_ref().and_then(|ask| ask.stops().into_iter().next()) {
+                window.focus(&stop, cx);
+            }
+        }
         let body: AnyElement = match &self.read {
             Read::Loading => bone(&look, px(0.), look.length(token::SPACE_12) * 11.).w_full().into_any_element(),
             Read::Refused(said) => labelled(crate::settings::view::small(&look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("workflow-lanes-refused"), Role::Alert, said.clone()).into_any_element(),
@@ -1055,7 +1250,7 @@ impl gpui::Render for LanesEditor {
                     .into_any_element()
             }
         };
-        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().children(self.render_armada_band(&look, window, cx)).children(self.render_bar(&look, window, cx)).child(body)
+        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().children(self.render_armada_band(&look)).children(self.render_bar(&look, window, cx)).child(body)
     }
 }
 
@@ -1088,12 +1283,23 @@ mod tests {
         piece_publishes: RefCell<Vec<PublishPieceDraft>>,
         /// Fleet's refusal of a publish.
         refuses_publish: RefCell<Option<Refused>>,
+        /// Fleet's refusal of a put.
+        refuses_put: RefCell<Option<Refused>>,
+        /// The live Jobs that follow the workflow, as `GET /workflows/affected` lists them.
+        affected: RefCell<Vec<ipc::AffectedJob>>,
+        /// Where each read of them was asked.
+        affected_asked: RefCell<Vec<Place>>,
+        /// What a move answers, where it is not every Job moved.
+        migrate_results: RefCell<Option<Vec<ipc::MigrateResult>>>,
+        migrates: RefCell<Vec<(String, ipc::MigrateJobs)>>,
+        /// The change the next put is of: what `DraftChange.change` carries.
+        of_change: Cell<Option<i64>>,
     }
 
     impl Fleet {
         fn change(&self, text: &str, by: DraftBy, summary: Option<String>) -> DraftChange {
             self.last.set(self.last.get() + 1);
-            DraftChange { id: self.last.get(), by, at: Instant::carried("2026-11-13T09:00:00Z"), text: text.into(), summary, change: None }
+            DraftChange { id: self.last.get(), by, at: Instant::carried("2026-11-13T09:00:00Z"), text: text.into(), summary, change: self.of_change.take() }
         }
 
         /// A put as Fleet takes it: it begins the draft from what is published, and a text the draft ends on adds nothing.
@@ -1146,7 +1352,11 @@ mod tests {
 
         fn put_workflow_draft(&self, _: &str, put: PutWorkflowDraft, _: &mut gpui::App) -> Task<Result<WorkflowDraft, Refused>> {
             self.0.asked.borrow_mut().push("PUT workflow");
-            let draft = self.0.put(&put.text, DraftBy::You, put.summary.clone());
+            if let Some(why) = self.0.refuses_put.borrow().clone() {
+                return Task::ready(Err(why));
+            }
+            self.0.of_change.set(put.change);
+            let draft = self.0.put(&put.text, put.by.unwrap_or(DraftBy::You), put.summary.clone());
             self.0.puts.borrow_mut().push(put);
             Task::ready(Ok(draft))
         }
@@ -1179,6 +1389,19 @@ mod tests {
                 *self.0.definition.borrow_mut() = draft.text;
             }
             Task::ready(Ok(WorkflowPublished { saved: WorkflowSaved { workflow_id: WorkflowId::carried("prototype"), scope, file: "prototype.yml".into(), replaced: false, runs_from: None }, version: 1, pinned: Vec::new() }))
+        }
+
+        fn affected_jobs(&self, _: &Subject, place: &Place, _: &mut gpui::App) -> Task<Result<ipc::AffectedJobs, Refused>> {
+            self.0.asked.borrow_mut().push("GET affected");
+            self.0.affected_asked.borrow_mut().push(place.clone());
+            Task::ready(Ok(ipc::AffectedJobs { jobs: self.0.affected.borrow().clone() }))
+        }
+
+        fn migrate_jobs(&self, manifest: &str, migrate: ipc::MigrateJobs, _: &mut gpui::App) -> Task<Result<ipc::MigratedJobs, Refused>> {
+            self.0.asked.borrow_mut().push("POST migrate");
+            let results = self.0.migrate_results.borrow().clone().unwrap_or_else(|| migrate.session_ids.iter().map(|id| ipc::MigrateResult { session_id: id.clone(), moved: true, step_id: None, step_label: None, code: None, message: None }).collect());
+            self.0.migrates.borrow_mut().push((manifest.to_string(), migrate));
+            Task::ready(Ok(ipc::MigratedJobs { results }))
         }
 
         fn lifecycles(&self, manifest: &str, _: &mut gpui::App) -> Task<Result<ipc::RepositoryLifecycles, Refused>> {
@@ -1243,6 +1466,12 @@ mod tests {
             publishes: RefCell::default(),
             piece_publishes: RefCell::default(),
             refuses_publish: RefCell::default(),
+            refuses_put: RefCell::default(),
+            affected: RefCell::default(),
+            affected_asked: RefCell::default(),
+            migrate_results: RefCell::default(),
+            migrates: RefCell::default(),
+            of_change: Cell::new(None),
         });
         let subject = Subject { workflow: "prototype".into(), level: "default".into(), manifest: "armada".into(), held_under: "armada".into(), source, shipped, repository: "armada".into(), project: None };
         let wire: Rc<dyn EditorWire> = Rc::new(FakeWire(fleet.clone()));
@@ -1395,9 +1624,9 @@ mod tests {
         assert_eq!(drawn(&editor, cx, "workflow/review"), Some((2, Some("Added".into()))));
         assert!(fleet.puts.borrow().is_empty(), "the draft is read again, not put");
         editor.read_with(cx, |editor, _| assert_eq!(editor.target, None, "a shipped workflow asks where it applies"));
-        // A change that is ready and not in the draft (the draft moved) is laid on the text now and put as his.
-        editor.update(cx, |editor, cx| editor.agent_edit("Rename Land to Ship", REVIEWED.into(), REVIEWED.replace("\"Land\"", "\"Ship\""), cx));
-        assert_eq!(history(&editor, cx), [(DraftBy::Agent, "Add a Review step after Build".to_string()), person("Rename Land to Ship")]);
+        // A change that is ready and not in the draft (the draft moved) is laid on the text now and put as the agent's.
+        editor.update(cx, |editor, cx| editor.agent_edit("Rename Land to Ship", 4, REVIEWED.into(), REVIEWED.replace("\"Land\"", "\"Ship\""), cx));
+        assert_eq!(history(&editor, cx), [(DraftBy::Agent, "Add a Review step after Build".to_string()), (DraftBy::Agent, "Rename Land to Ship".to_string())]);
         assert_eq!(fleet.puts.borrow().len(), 1);
         assert_eq!(steps(&fleet.puts.borrow()[0].text), ["Plan", "Build", "Review", "Ship"]);
         // Command Z takes the agent's own change back last, as any other.
@@ -1613,7 +1842,7 @@ mod tests {
     #[gpui::test]
     fn publish_writes_the_workflow_draft_then_each_piece_draft_and_says_where_only_for_armadas(cx: &mut TestAppContext) {
         let (editor, fleet, seen, cx) = open(cx, true);
-        editor.update(cx, |editor, cx| editor.agent_edit("Add a Review step after Build", BASE.into(), REVIEWED.into(), cx));
+        editor.update(cx, |editor, cx| editor.agent_edit("Add a Review step after Build", 3, BASE.into(), REVIEWED.into(), cx));
         editor.update(cx, |editor, cx| editor.publish(cx));
         cx.run_until_parked();
         assert!(fleet.publishes.borrow().is_empty(), "no place answered");
@@ -1630,7 +1859,7 @@ mod tests {
         }
         assert_eq!(fleet.asked.borrow().iter().rev().take(2).rev().copied().collect::<Vec<_>>(), ["PUBLISH workflow", "PUBLISH piece"]);
         assert_eq!(fleet.piece_publishes.borrow().iter().map(|one| (one.id.clone(), one.scope.clone())).collect::<Vec<_>>(), [("ticket".to_string(), PieceScope::Everywhere)]);
-        assert_eq!(*seen.borrow(), [EditorEvent::Published { target: Target::EveryProject }]);
+        assert_eq!(*seen.borrow(), [EditorEvent::AgentPut { change: 3 }, EditorEvent::Published { target: Target::EveryProject }]);
         assert!(!editor.read_with(cx, |editor, _| editor.has_edits()), "the draft is let go once it is written");
     }
 
@@ -1696,13 +1925,194 @@ mod tests {
     }
 
     #[gpui::test]
-    fn the_armada_band_is_drawn_and_its_button_held_only_where_armada_changed_the_copy(cx: &mut TestAppContext) {
+    fn the_armada_band_is_drawn_only_where_armada_changed_the_copy_and_holds_no_stop(cx: &mut TestAppContext) {
         let (editor, _, _, cx) = open_as(cx, false, "repository");
         let stops = |editor: &Entity<LanesEditor>, cx: &mut VisualTestContext| editor.read_with(cx, |editor, _| editor.stops().len());
         let without = stops(&editor, cx);
         editor.update(cx, |editor, cx| editor.offer_armada_changed(true, cx));
-        assert_eq!(stops(&editor, cx), without + 1, "the band's button is a stop");
+        assert_eq!(stops(&editor, cx), without, "the band draws no button, so it is no stop");
         editor.update(cx, |editor, cx| editor.offer_armada_changed(false, cx));
         assert_eq!(stops(&editor, cx), without);
+    }
+
+    const WITHOUT_BUILD: &str = r#"{"version":1,"workflow_id":"prototype","name":"prototype","steps":[{"id":"plan","label":"Plan"},{"id":"land","label":"Land"}]}"#;
+    const WITHOUT_LAND: &str = r#"{"version":1,"workflow_id":"prototype","name":"prototype","steps":[{"id":"plan","label":"Plan"},{"id":"build","label":"Build"}]}"#;
+
+    fn job(session: &str, title: Option<&str>, step: Option<(&str, &str)>, survives: bool, edited: bool) -> ipc::AffectedJob {
+        ipc::AffectedJob {
+            session_id: ipc::SessionId::carried(session),
+            title: title.map(String::from),
+            manifest_id: ipc::ManifestId::carried("armada"),
+            step_id: step.map(|(id, _)| id.into()),
+            step_label: step.map(|(_, label)| label.into()),
+            survives,
+            pinned: !edited,
+            edited,
+            on_version: None,
+        }
+    }
+
+    /// Three live Jobs: one whose step the draft keeps, one whose step it takes out, one with a copy of its own.
+    fn live(fleet: &Fleet) {
+        *fleet.affected.borrow_mut() = vec![
+            job("01STAYS", Some("Add a retry"), Some(("plan", "Plan")), true, false),
+            job("01MOVES", Some("Export invoices"), Some(("build", "Build")), false, false),
+            job("01EDITED", None, Some(("land", "Land")), true, true),
+        ];
+    }
+
+    fn press(editor: &Entity<LanesEditor>, cx: &mut VisualTestContext, press: Press) {
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.pressed(press, window, cx)));
+        cx.run_until_parked();
+    }
+
+    /// A draft that takes Build out, and Publish pressed on it, with the three Jobs live.
+    fn asked_of_three<'a>(cx: &'a mut TestAppContext) -> (Entity<LanesEditor>, Rc<Fleet>, Rc<RefCell<Vec<EditorEvent>>>, &'a mut VisualTestContext) {
+        let (editor, fleet, seen, cx) = open_as(cx, false, "repository");
+        live(&fleet);
+        editor.update(cx, |editor, cx| editor.agent_edit("Take Build out", 5, BASE.into(), WITHOUT_BUILD.into(), cx));
+        editor.update(cx, |editor, cx| editor.publish(cx));
+        cx.run_until_parked();
+        (editor, fleet, seen, cx)
+    }
+
+    fn said(editor: &Entity<LanesEditor>, cx: &mut VisualTestContext) -> Vec<(String, bool, Option<String>)> {
+        editor.read_with(cx, |editor, _| editor.ask.as_ref().map(|ask| ask.rows.iter().map(|row| (row.said.clone(), row.picked, row.failed.clone())).collect()).unwrap_or_default())
+    }
+
+    #[gpui::test]
+    fn a_publish_with_no_running_jobs_is_written_at_once_after_one_read_of_them(cx: &mut TestAppContext) {
+        let (editor, fleet, seen, cx) = open_as(cx, false, "repository");
+        editor.update(cx, |editor, cx| editor.edit("Rename Build", rename("build", "Make"), cx));
+        editor.update(cx, |editor, cx| editor.publish(cx));
+        cx.run_until_parked();
+        assert_eq!(fleet.asked.borrow().iter().rev().take(2).rev().copied().collect::<Vec<_>>(), ["GET affected", "PUBLISH workflow"]);
+        assert_eq!(fleet.affected_asked.borrow().clone(), [Place { source: "repository".into(), project: None, manifest: "armada".into() }]);
+        assert!(editor.read_with(cx, |editor, _| editor.ask.is_none()) && fleet.migrates.borrow().is_empty());
+        assert_eq!(seen.borrow().len(), 1);
+    }
+
+    #[gpui::test]
+    fn the_ask_lists_each_job_unpicked_with_where_it_stands_and_writes_nothing_yet(cx: &mut TestAppContext) {
+        let (editor, fleet, seen, cx) = asked_of_three(cx);
+        assert!(fleet.publishes.borrow().is_empty(), "nothing is written before he answers");
+        assert!(seen.borrow().iter().all(|event| !matches!(event, EditorEvent::Published { .. })));
+        assert_eq!(
+            said(&editor, cx),
+            [
+                ("On Plan, stays on Plan".to_string(), false, None),
+                ("On Build, moves to Land".to_string(), false, None),
+                ("Edited its own copy, so it can't move".to_string(), false, None),
+            ]
+        );
+        let names = editor.read_with(cx, |editor, _| editor.ask.as_ref().map(|ask| ask.rows.iter().map(|row| row.name()).collect::<Vec<_>>()).unwrap_or_default());
+        assert_eq!(names, ["Add a retry", "Export invoices", "01EDITED"], "a Job with no title is read by its session");
+        // Its stops: the two ticks that can be changed, Publish and Cancel, after the bar's.
+        editor.read_with(cx, |editor, _| {
+            let stops = editor.stops();
+            let at = stops.iter().position(|stop| *stop == editor.keys.publish).expect("the bar's Publish");
+            let ask = editor.ask.as_ref().expect("asked");
+            assert_eq!(stops[at + 1..at + 5], [ask.rows[0].focus.clone(), ask.rows[1].focus.clone(), ask.publish.clone(), ask.cancel.clone()]);
+        });
+    }
+
+    #[gpui::test]
+    fn a_job_with_a_copy_of_its_own_cannot_be_ticked_and_the_others_can(cx: &mut TestAppContext) {
+        let (editor, _, _, cx) = asked_of_three(cx);
+        press(&editor, cx, Press::Pick(2));
+        assert!(said(&editor, cx).iter().all(|(_, picked, _)| !picked));
+        press(&editor, cx, Press::Pick(1));
+        assert_eq!(said(&editor, cx).iter().map(|(_, picked, _)| *picked).collect::<Vec<_>>(), [false, true, false]);
+        press(&editor, cx, Press::Pick(1));
+        assert!(said(&editor, cx).iter().all(|(_, picked, _)| !picked), "a second press unticks");
+    }
+
+    #[gpui::test]
+    fn a_job_ticked_is_moved_after_the_write_and_none_ticked_moves_none(cx: &mut TestAppContext) {
+        let (editor, fleet, seen, cx) = asked_of_three(cx);
+        press(&editor, cx, Press::Pick(1));
+        press(&editor, cx, Press::AskPublish);
+        assert_eq!(fleet.asked.borrow().iter().rev().take(2).rev().copied().collect::<Vec<_>>(), ["PUBLISH workflow", "POST migrate"]);
+        {
+            let migrates = fleet.migrates.borrow();
+            let (manifest, migrate) = &migrates[0];
+            assert_eq!((manifest.as_str(), migrate.workflow_id.as_str(), migrate.source.as_str(), migrate.project.clone()), ("armada", "prototype", "repository", None));
+            assert_eq!(migrate.session_ids.iter().map(|id| id.as_str().to_string()).collect::<Vec<_>>(), ["01MOVES"]);
+        }
+        assert!(editor.read_with(cx, |editor, _| editor.ask.is_none()), "every move worked, so the ask is shut");
+        assert_eq!(seen.borrow().iter().filter(|event| matches!(event, EditorEvent::Published { .. })).count(), 1);
+
+        let (editor, fleet, _, cx) = asked_of_three(cx);
+        press(&editor, cx, Press::AskPublish);
+        assert_eq!(fleet.publishes.borrow().len(), 1);
+        assert!(fleet.migrates.borrow().is_empty(), "no move is asked for where none is ticked");
+        assert!(editor.read_with(cx, |editor, _| editor.ask.is_none()));
+    }
+
+    #[gpui::test]
+    fn cancel_shuts_the_ask_and_writes_nothing_and_the_draft_stands(cx: &mut TestAppContext) {
+        let (editor, fleet, seen, cx) = asked_of_three(cx);
+        press(&editor, cx, Press::Pick(0));
+        press(&editor, cx, Press::AskCancel);
+        editor.read_with(cx, |editor, _| assert!(editor.ask.is_none() && editor.has_edits() && !editor.busy));
+        assert!(fleet.publishes.borrow().is_empty() && fleet.migrates.borrow().is_empty());
+        assert!(seen.borrow().iter().all(|event| !matches!(event, EditorEvent::Published { .. })));
+    }
+
+    #[gpui::test]
+    fn a_move_that_failed_keeps_the_ask_open_with_fleets_sentence_until_done(cx: &mut TestAppContext) {
+        let (editor, fleet, seen, cx) = asked_of_three(cx);
+        *fleet.migrate_results.borrow_mut() = Some(vec![ipc::MigrateResult { session_id: ipc::SessionId::carried("01MOVES"), moved: false, step_id: None, step_label: None, code: Some("fleet.workflow_migrate_not_live".into()), message: Some("This Job is no longer live.".into()) }]);
+        press(&editor, cx, Press::Pick(1));
+        press(&editor, cx, Press::AskPublish);
+        assert_eq!(fleet.publishes.borrow().len(), 1, "the write is made");
+        assert_eq!(said(&editor, cx)[1].2.as_deref(), Some("This Job is no longer live."));
+        assert!(said(&editor, cx)[0].2.is_none());
+        assert!(seen.borrow().iter().all(|event| !matches!(event, EditorEvent::Published { .. })), "the host hears once it is shut");
+        editor.read_with(cx, |editor, _| assert_eq!(editor.stops().last().cloned(), Some(editor.state.frame.clone()), "only Done and the canvas are left"));
+        press(&editor, cx, Press::Pick(0));
+        assert!(!said(&editor, cx)[0].1, "a tick cannot change once the write is made");
+        press(&editor, cx, Press::AskDone);
+        assert!(editor.read_with(cx, |editor, _| editor.ask.is_none()));
+        assert_eq!(*seen.borrow(), [EditorEvent::AgentPut { change: 5 }, EditorEvent::Published { target: Target::Repository("armada".into()) }]);
+    }
+
+    #[gpui::test]
+    fn a_job_that_must_move_lands_on_the_next_step_of_the_published_text_the_draft_kept(cx: &mut TestAppContext) {
+        let on = |step: (&str, &str)| job("01A", Some("A"), Some(step), false, false);
+        assert_eq!(super::ask::standing(&on(("build", "Build")), BASE, WITHOUT_BUILD), "On Build, moves to Land");
+        assert_eq!(super::ask::standing(&on(("plan", "Plan")), BASE, r#"{"steps":[{"id":"build","label":"Make"},{"id":"land","label":"Land"}]}"#), "On Plan, moves to Make", "the new text's label");
+        assert_eq!(super::ask::standing(&on(("build", "Build")), BASE, r#"{"steps":[{"id":"plan","label":"Plan"},{"id":"review","label":"Review"}]}"#), "On Build, moves to the end", "a step that is only in the draft is not one the Job was to meet");
+        assert_eq!(super::ask::standing(&on(("land", "Land")), BASE, WITHOUT_LAND), "On Land, moves to the end");
+        assert_eq!(super::ask::standing(&job("01A", None, None, true, false), BASE, BASE), "On no step");
+        assert_eq!(super::ask::standing(&job("01A", None, Some(("plan", "Plan")), true, false), BASE, BASE), "On Plan, stays on Plan");
+        let _ = cx;
+    }
+
+    #[gpui::test]
+    fn an_agents_change_put_on_a_moved_draft_carries_by_agent_and_its_change_and_is_settled_after(cx: &mut TestAppContext) {
+        let (editor, fleet, seen, cx) = open(cx, true);
+        editor.update(cx, |editor, cx| editor.agent_edit("Add a Review step after Build", 9, BASE.into(), REVIEWED.into(), cx));
+        cx.run_until_parked();
+        {
+            let puts = fleet.puts.borrow();
+            assert_eq!((puts[0].by, puts[0].change), (Some(DraftBy::Agent), Some(9)));
+        }
+        assert_eq!(history(&editor, cx), [(DraftBy::Agent, "Add a Review step after Build".to_string())]);
+        assert_eq!(*seen.borrow(), [EditorEvent::AgentPut { change: 9 }], "the host puts the change aside once Fleet has it");
+        // One of his own carries neither.
+        editor.update(cx, |editor, cx| editor.edit("Rename Build", rename("build", "Make"), cx));
+        cx.run_until_parked();
+        assert_eq!((fleet.puts.borrow()[1].by, fleet.puts.borrow()[1].change), (None, None));
+    }
+
+    #[gpui::test]
+    fn fleet_refusing_an_agents_put_is_said_in_its_sentence_and_the_change_is_still_settled(cx: &mut TestAppContext) {
+        let (editor, fleet, seen, cx) = open(cx, true);
+        *fleet.refuses_put.borrow_mut() = Some(refused("fleet.workflow_draft_change_not_pending", "That change is no longer waiting to be drafted"));
+        editor.update(cx, |editor, cx| editor.agent_edit("Add a Review step after Build", 9, BASE.into(), REVIEWED.into(), cx));
+        cx.run_until_parked();
+        editor.read_with(cx, |editor, _| assert_eq!(editor.refused.as_deref(), Some("That change is no longer waiting to be drafted")));
+        assert_eq!(*seen.borrow(), [EditorEvent::AgentPut { change: 9 }]);
     }
 }

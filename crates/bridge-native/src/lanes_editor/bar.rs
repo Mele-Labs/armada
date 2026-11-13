@@ -19,23 +19,16 @@ const LATER_EDITS: &str = "A later change edits the same words";
 /// The button that throws the drafts away where Fleet says the workflow changed since they began.
 const START_OVER: &str = "Start from the published text";
 
-/// What the band says where Armada has shipped a new version of a workflow he copied, and its one button.
+/// What the band says where Armada has shipped a new version of a workflow he copied.
 const ARMADA_CHANGED: &str = "Armada changed this workflow since you copied it";
-const CHOOSE: &str = "Choose what to take";
-/// The button's tooltip while how he chooses is undecided.
-const CHOOSE_WAITS: &str = "Waiting on how you choose";
 
 impl LanesEditor {
     /// The band over the Changes card: Armada changed the workflow since it was copied. None for a copy with no base, and for
-    /// Armada's own. Its button waits on how the owner chooses what to take, so it does nothing yet.
-    pub(super) fn render_armada_band(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+    /// Armada's own. It draws no button until the owner answers how he chooses what to take.
+    pub(super) fn render_armada_band(&self, look: &Look) -> Option<AnyElement> {
         if !self.armada_changed {
             return None;
         }
-        let button = ringed(look, ghost(look, "workflow-armada-choose", CHOOSE, false), &self.keys.choose, window)
-            .track_focus(&self.keys.choose)
-            .tooltip(tip(CHOOSE_WAITS))
-            .on_click(cx.listener(|this, _, window, cx| this.pressed(Press::Choose, window, cx)));
         let said = div()
             .flex_auto()
             .min_w_0()
@@ -59,14 +52,15 @@ impl LanesEditor {
             .border(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::ACCENT))
             .bg(look.color(token::ACCENT_MUTED))
-            .child(said)
-            .child(labelled(button, Role::Button, CHOOSE));
+            .child(said);
         Some(labelled(band, Role::Group, ARMADA_CHANGED).into_any_element())
     }
 
     /// The draft bar and, under it, the history while it is open. None while the draft has no change.
     pub(super) fn render_bar(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
-        if !self.has_edits() {
+        // The ask a failed move leaves, and a sentence Fleet refused with, stand alone where there is no draft.
+        let editing = self.has_edits();
+        if !editing && self.ask.is_none() && self.refused.is_none() {
             return None;
         }
         let keys = &self.keys;
@@ -110,8 +104,9 @@ impl LanesEditor {
             .border_color(look.color(token::BORDER_DEFAULT))
             .bg(look.color(token::BG_SUNKEN))
             .children(self.question_shown().then(|| self.render_question(look, window, cx)))
-            .child(acts)
+            .children(editing.then_some(acts))
             .children(refused)
+            .children(self.render_ask(look, window, cx))
             .children(start_over)
             .children(self.history_open.then(|| self.render_history(look, window, cx)));
         Some(frame.into_any_element())

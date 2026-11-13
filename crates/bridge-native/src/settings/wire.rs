@@ -348,6 +348,25 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "WorkflowPublished", cx))
     }
 
+    /// `GET /workflows/affected`: the live Jobs a publish at this place would pin. `manifest_id` goes only for the repository's own.
+    pub fn affected_jobs(&mut self, id: &str, source: &str, project: Option<&str>, manifest: &str, cx: &App) -> Task<Result<ipc::AffectedJobs, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.affected_jobs(id, source, project, manifest));
+        }
+        let route = format!("/workflows/affected?{}", draft_query(id, source, project));
+        let path = if source == "repository" { scoped(&route, manifest) } else { route };
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "AffectedJobs", cx))
+    }
+
+    /// `POST /workflows/migrate`: the Jobs he picked, moved to the published version. Always answered, with a result for each.
+    pub fn migrate_jobs(&mut self, manifest: &str, migrate: ipc::MigrateJobs, cx: &App) -> Task<Result<ipc::MigratedJobs, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.migrate_jobs(migrate));
+        }
+        let (path, said) = (scoped("/workflows/migrate", manifest), body(&migrate));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "MigratedJobs", cx))
+    }
+
     /// `GET /lifecycles/pieces/draft`: the draft kept for a piece at a scope; `fleet.piece_draft_none` where none is.
     pub fn piece_draft(&mut self, kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope, cx: &App) -> Task<Result<ipc::PieceDraft, Refused>> {
         if let Wire::Mock(mock) = self {

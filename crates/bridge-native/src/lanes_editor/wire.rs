@@ -3,7 +3,7 @@
 //! editor.
 
 use gpui::{App, Task};
-use ipc::{DeleteLifecyclePiece, JobLanesView, LifecyclePieceDeleted, LifecyclePieceKind, PieceDraft, PieceDraftDiscarded, PieceScope, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, RepositoryLifecycles, RevertWorkflow, WorkflowDefinition, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
+use ipc::{AffectedJobs, DeleteLifecyclePiece, JobLanesView, LifecyclePieceDeleted, LifecyclePieceKind, MigrateJobs, MigratedJobs, PieceDraft, PieceDraftDiscarded, PieceScope, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, RepositoryLifecycles, RevertWorkflow, WorkflowDefinition, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 
 pub use crate::settings::wire::Refused;
 
@@ -50,6 +50,15 @@ impl Subject {
     }
 }
 
+/// The place a publish writes to: `kit`, `repository` or `project`, the project where it is one, and the Manifest the
+/// publish is made under (Fleet reads it only for a repository's own).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Place {
+    pub source: String,
+    pub project: Option<String>,
+    pub manifest: String,
+}
+
 pub trait EditorWire {
     /// `GET /workflows/lanes`.
     fn lanes(&self, at: &Subject, cx: &mut App) -> Task<Result<JobLanesView, Refused>>;
@@ -65,6 +74,10 @@ pub trait EditorWire {
     fn discard_workflow_draft(&self, at: &Subject, cx: &mut App) -> Task<Result<WorkflowDraftDiscarded, Refused>>;
     /// `POST /workflows/draft/publish` under a Manifest.
     fn publish_workflow_draft(&self, manifest: &str, publish: PublishWorkflowDraft, cx: &mut App) -> Task<Result<WorkflowPublished, Refused>>;
+    /// `GET /workflows/affected`: the live Jobs that follow the workflow at `place`, and where each stands against the draft.
+    fn affected_jobs(&self, at: &Subject, place: &Place, cx: &mut App) -> Task<Result<AffectedJobs, Refused>>;
+    /// `POST /workflows/migrate` under a Manifest: the Jobs picked, moved to the published version.
+    fn migrate_jobs(&self, manifest: &str, migrate: MigrateJobs, cx: &mut App) -> Task<Result<MigratedJobs, Refused>>;
     /// `GET /lifecycles`: the lifecycles that apply to a repository, by its Manifest id, and where each was kept.
     fn lifecycles(&self, manifest: &str, cx: &mut App) -> Task<Result<RepositoryLifecycles, Refused>>;
     /// `GET /lifecycles/pieces/draft`: `fleet.piece_draft_none` where none is kept.

@@ -16,7 +16,7 @@ use super::view::{bone, ghost_with, ringed, small};
 use super::workflow_detail::wire_of;
 use super::workflows::{Listed, Place};
 use crate::labels::labelled;
-use crate::lanes_editor::{EditorEvent, EditorWire, LanesEditor, Refused, Subject, Target};
+use crate::lanes_editor::{EditorEvent, EditorWire, LanesEditor, Place as PublishedAt, Refused, Subject, Target};
 use crate::look::{token, Look};
 
 /// The default's level.
@@ -112,6 +112,16 @@ impl EditorWire for SettingsWire {
         self.with(cx, move |this, cx| this.wire.publish_workflow_draft(&manifest, publish, cx))
     }
 
+    fn affected_jobs(&self, at: &Subject, place: &PublishedAt, cx: &mut App) -> Task<Result<ipc::AffectedJobs, Refused>> {
+        let (workflow, place) = (at.workflow.clone(), place.clone());
+        self.with(cx, move |this, cx| this.wire.affected_jobs(&workflow, &place.source, place.project.as_deref(), &place.manifest, cx))
+    }
+
+    fn migrate_jobs(&self, manifest: &str, migrate: ipc::MigrateJobs, cx: &mut App) -> Task<Result<ipc::MigratedJobs, Refused>> {
+        let manifest = manifest.to_string();
+        self.with(cx, move |this, cx| this.wire.migrate_jobs(&manifest, migrate, cx))
+    }
+
     fn lifecycles(&self, manifest: &str, cx: &mut App) -> Task<Result<ipc::RepositoryLifecycles, Refused>> {
         let manifest = manifest.to_string();
         self.with(cx, move |this, cx| this.wire.lifecycles(&manifest, cx))
@@ -191,6 +201,14 @@ impl SettingsOverlay {
     fn editor_said(&mut self, one: &Listed, event: &EditorEvent, window: &mut Window, cx: &mut Context<Self>) {
         match event {
             EditorEvent::Escaped => self.close(window, cx),
+            // The agent's change is in the draft, or Fleet says it no longer waits: it is put aside either way.
+            EditorEvent::AgentPut { change } => {
+                let dismissed = self.wire.dismiss_change(*change, cx);
+                cx.spawn(async move |_, _| {
+                    let _ = dismissed.await;
+                })
+                .detach();
+            }
             EditorEvent::Published { target } => {
                 let copy = shipped(one).then(|| match target {
                     Target::Repository(manifest) => Listed { id: one.id.clone(), place: Place::Repository, manifest: manifest.clone(), runs_in: None, for_requests: one.for_requests.clone(), project: None },

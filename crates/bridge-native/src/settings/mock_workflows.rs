@@ -5,10 +5,10 @@
 //! A change asked of an agent is `drafting` for one read and drafted on the next, as Classic's mock drafts it
 //! (`apps/desktop/src/renderer/src/mock/workflows-fleet.ts`, `settled`).
 
-use ipc::{BasedOn, DraftBy, DraftChange, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions, PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, OverriddenWorkflow, ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SessionId, StepId, StepReading, WorkflowChange, WorkflowChangeApproved, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted, WorkflowDefinition, WorkflowId, WorkflowSaved, WorkflowScope, WorkflowSteps, WorkflowSupportBuilding};
+use ipc::{AffectedJob, AffectedJobs, BasedOn, ManifestId, MigrateJobs, MigrateResult, MigratedJobs, DraftBy, DraftChange, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions, PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, OverriddenWorkflow, ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SessionId, StepId, StepReading, WorkflowChange, WorkflowChangeApproved, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted, WorkflowDefinition, WorkflowId, WorkflowSaved, WorkflowScope, WorkflowSteps, WorkflowSupportBuilding};
 use serde::Deserialize;
 
-use super::definition::{text_of, tree_of, with_words, Json};
+use super::definition::{steps_of, text_of, tree_of, with_words, Json};
 use super::mock::MockFleet;
 use super::wire::Refused;
 
@@ -196,6 +196,29 @@ impl Versions {
         self.kept[at_index].1.len() as u32
     }
 }
+
+fn not_pending() -> Refused {
+    refused("fleet.workflow_draft_change_not_pending", "That change is no longer waiting to be drafted".into())
+}
+
+/// The workflow, place and Manifest the walk's live Jobs follow: the repository's own copy of `feature`.
+const LIVE_ON: (&str, &str, &str) = ("feature", "repository", "armada");
+
+/// A live Job on it: its session, its title, the step it stands on, and whether it edited its own copy.
+struct Live {
+    session: &'static str,
+    title: &'static str,
+    step: &'static str,
+    label: &'static str,
+    edited: bool,
+}
+
+/// One whose step the walk's draft keeps, one whose step it takes out, and one that edited its own copy.
+const LIVE: &[Live] = &[
+    Live { session: "01SESSIONSTAYSAAAAAAAAAA", title: "Add a retry to the sync", step: "walk", label: "Walk", edited: false },
+    Live { session: "01SESSIONMOVESAAAAAAAAAA", title: "Export invoices as CSV", step: "refine", label: "Refine", edited: false },
+    Live { session: "01SESSIONEDITEDAAAAAAAAA", title: "Fix the date picker", step: "propose", label: "Propose", edited: true },
+];
 
 fn draft_refused(code: &str, said: &str) -> Refused {
     refused(code, said.to_string())
@@ -552,7 +575,25 @@ impl MockFleet {
         if self.draft_of(&id, &put.source, put.project.as_deref(), manifest).is_none() && put.source == "armada" {
             self.held(&id, "armada", manifest).map_err(|_| draft_refused("fleet.no_such_workflow_definition", "Armada carries no such workflow"))?;
         }
-        Ok(self.add_draft_change(&id, &put.source, put.project.as_deref(), manifest, put.text, DraftBy::You, put.summary, None))
+        // An agent's put names the ready change it is of; any other put names none.
+        let (by, summary, change) = match (put.by, put.change) {
+            (Some(DraftBy::Agent), Some(change)) => {
+                let at = self.changes.iter().position(|kept| {
+                    let one = &kept.change;
+                    one.id == change && one.workflow_id.as_str() == id && one.source == put.source && one.state == ChangeState::Ready && one.after.is_some() && !one.drafted
+                });
+                let Some(at) = at else { return Err(not_pending()) };
+                self.changes[at].change.drafted = true;
+                let asked = match &self.changes[at].change.origin {
+                    ChangeOrigin::Asked { text } => Some(text.clone()),
+                    _ => None,
+                };
+                (DraftBy::Agent, asked.or(put.summary), Some(change))
+            }
+            (None | Some(DraftBy::You), None) => (DraftBy::You, put.summary, None),
+            _ => return Err(not_pending()),
+        };
+        Ok(self.add_draft_change(&id, &put.source, put.project.as_deref(), manifest, put.text, by, summary, change))
     }
 
     /// `DELETE /workflows/draft`.
@@ -591,7 +632,57 @@ impl MockFleet {
         }
         let version = self.versions.publish(place, found, draft.text);
         self.relist(&id);
-        Ok(WorkflowPublished { saved, version, pinned: Vec::new() })
+        let pinned = if (id.as_str(), publish.source.as_str(), manifest) == LIVE_ON { LIVE.iter().filter(|one| !one.edited).map(|one| SessionId::carried(one.session)).collect() } else { Vec::new() };
+        Ok(WorkflowPublished { saved, version, pinned })
+    }
+
+    /// `GET /workflows/affected`: the walk's live Jobs on the repository's own `feature`, each against the draft where one is kept.
+    pub fn affected_jobs(&self, id: &str, source: &str, project: Option<&str>, manifest: &str) -> Result<AffectedJobs, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        if (id, source, manifest) != LIVE_ON {
+            return Ok(AffectedJobs::default());
+        }
+        let target = self.draft_of(id, source, project, manifest).map(|draft| draft.text.clone()).or_else(|| self.held(id, source, manifest).ok().map(|held| text_of(&held.definition))).unwrap_or_default();
+        let kept: Vec<String> = steps_of(&target).into_iter().map(|(step, _)| step).collect();
+        let jobs = LIVE
+            .iter()
+            .map(|one| AffectedJob {
+                session_id: SessionId::carried(one.session),
+                title: Some(one.title.into()),
+                manifest_id: ManifestId::carried(manifest),
+                step_id: Some(one.step.into()),
+                step_label: Some(one.label.into()),
+                survives: kept.iter().any(|step| step == one.step),
+                pinned: !one.edited,
+                edited: one.edited,
+                on_version: None,
+            })
+            .collect();
+        Ok(AffectedJobs { jobs })
+    }
+
+    /// `POST /workflows/migrate`: the first Job moves, the second is no longer live, and the one with its own copy is refused.
+    pub fn migrate_jobs(&mut self, migrate: MigrateJobs) -> Result<MigratedJobs, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let results = migrate
+            .session_ids
+            .into_iter()
+            .map(|session| {
+                let live = LIVE.iter().find(|one| one.session == session.as_str());
+                let (moved, code, message) = match live {
+                    Some(one) if one.edited => (false, Some("fleet.workflow_migrate_edited"), Some("This Job edited its own copy, so it can't move.")),
+                    Some(one) if one.step == "refine" => (false, Some("fleet.workflow_migrate_not_live"), Some("This Job is no longer live.")),
+                    Some(_) => (true, None, None),
+                    None => (false, Some("fleet.workflow_migrate_not_live"), Some("This Job is no longer live.")),
+                };
+                MigrateResult { session_id: session, moved, step_id: live.filter(|_| moved).map(|one| one.step.into()), step_label: live.filter(|_| moved).map(|one| one.label.into()), code: code.map(String::from), message: message.map(String::from) }
+            })
+            .collect();
+        Ok(MigratedJobs { results })
     }
 
     /// The scenario's base, and the list read again so the copy that began from it says Armada changed it.
