@@ -60,7 +60,8 @@ pub(super) fn lane_head<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLa
                 .absolute()
                 .top(look.length(token::SPACE_1))
                 .right(look.length(token::SPACE_1))
-                .tooltip(tip(said))
+                // On two lines, so it fits to the clock's right and leaves the head it describes in view.
+                .tooltip(tip(said.replacen(" when ", "\nwhen ", 1).replacen(" once ", "\nonce ", 1)))
                 .child(glyph(look, "clock", Size::Small, look.color(token::FG_SUBTLE))),
             Role::Image,
             said,

@@ -121,12 +121,28 @@ pub(super) fn place_chips(edges: &[LaneEdge], placement: &Placement) -> HashMap<
         let chosen = chosen.unwrap_or_else(|| {
             // Every gutter on its way is taken where it crosses: slide along the first until nothing is there.
             let first = lines[0];
-            let mut sits = fit(crossing(start, end, first), first);
+            let from = fit(crossing(start, end, first), first);
+            let mut sits = from;
             for _ in 0..12 {
                 let Some(hit) = taken.iter().find(|one| touches(one, &sits, 4.)) else { break };
                 sits.x = hit.x + hit.w + 6.;
             }
-            sits
+            let (left_edge, right_edge) = (HEAD + PAD / 2., placement.width - PAD / 2.);
+            if sits.x + sits.w <= right_edge {
+                return sits;
+            }
+            // Past the content's right edge no view can reach it: slide the other way, and failing that
+            // stand at the edge over what is there.
+            let mut back = from;
+            for _ in 0..12 {
+                let Some(hit) = taken.iter().find(|one| touches(one, &back, 4.)) else { break };
+                back.x = hit.x - back.w - 6.;
+            }
+            if back.x >= left_edge {
+                back
+            } else {
+                Rect { x: (right_edge - sits.w).max(left_edge), ..sits }
+            }
         });
         taken.push(chosen);
         out.insert(edge.id.clone(), Rect { x: chosen.x + chosen.w / 2., y: chosen.y + chosen.h / 2., w: chosen.w, h: chosen.h });
