@@ -20,7 +20,7 @@ use crate::daemon::Fleet;
 pub const CLONE_BUDGET: Duration = Duration::from_secs(10 * 60);
 
 /// A `parent` that is not an absolute folder on this machine. A 422.
-pub(super) const NO_SUCH_FOLDER: &str = "fleet.no_such_folder";
+pub(crate) const NO_SUCH_FOLDER: &str = "fleet.no_such_folder";
 /// A destination with something in it, or a clone already writing there. A 409.
 pub(super) const DESTINATION_OCCUPIED: &str = "fleet.destination_occupied";
 /// A URL git refused, or one naming no folder. A 422.
@@ -127,6 +127,17 @@ where
             .expect("cloning a repository panicked")
             .map_err(|why| self.not_cloned(why))?;
         self.added_repository(AddRepository { path: at }).await
+    }
+
+    /// `path` as a folder that exists on this Mac, or the 422 a clone and a new project refuse a
+    /// `parent` with. Absolute only, and resolved.
+    pub(crate) fn existing_folder(&self, path: &str) -> Result<std::path::PathBuf, Refusal> {
+        let folder = Path::new(path);
+        match folder.is_absolute().then(|| folder.canonicalize()) {
+            Some(Ok(found)) if found.is_dir() => Ok(found),
+            Some(_) => Err(self.unacceptable(NO_SUCH_FOLDER, format!("{path} is not a folder on this machine"))),
+            None => Err(self.unacceptable(NO_SUCH_FOLDER, format!("{path} is relative, and a search needs an absolute folder"))),
+        }
     }
 
     fn unacceptable(&self, code: &str, why: String) -> Refusal {
