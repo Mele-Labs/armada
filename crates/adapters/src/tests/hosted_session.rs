@@ -588,7 +588,7 @@ fn a_redirect_to_nowhere_and_quoted_shell_marks_do_not_make_a_line_a_write() {
     }
 }
 
-/// The three lines a quick terminal's agent ran to answer a question on 13 Nov 2026, each leasing a
+/// The three lines a Side Job's agent ran to answer a question on 13 Nov 2026, each leasing a
 /// slot and moving the Job in the middle of its answer.
 #[test]
 fn a_loop_a_substitution_that_reads_and_a_sed_of_several_ranges_are_reads() {

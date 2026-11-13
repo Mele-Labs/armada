@@ -210,10 +210,10 @@ async fn a_shown_walk_is_him_to_act_and_no_stop() {
 
 /// The 13 Nov 2026 answer that was told to carry on, then to draw a picture before it could end.
 #[tokio::test]
-async fn a_quick_terminal_that_answered_has_no_stop_until_it_records_a_plan() {
+async fn a_side_job_that_answered_has_no_stop_until_it_records_a_plan() {
     let rig = rig_placing(None);
     let id = stopped_a_while_ago(&rig).await;
-    super::ways::made_quick(&rig, &id).await;
+    super::ways::made_side_job(&rig, &id).await;
     assert!(record(&rig, &id).await.stop_told_by.is_none(), "its turn ending is the answer");
 
     super::session_rail::approved_plan(&rig, &id).await;

@@ -62,8 +62,8 @@ pub struct KeptHosting {
     pub mod_of_bay: bool,
     /// The project of his the Job was started for, by id. `None` is for none.
     pub project: Option<String>,
-    /// A quick terminal (`start_terminal_job`): it opens onto `t1` and its agent waits for the person.
-    pub quick_terminal: bool,
+    /// A Side Job (`start_side_job`): it opens onto `t1` and its agent waits for the person.
+    pub side_job: bool,
     /// The folder under the repository's root the Job's terminals open in, as `crates/fleet`. `None`
     /// is the root, or the slot's worktree once one is held.
     pub terminal_dir: Option<String>,
@@ -72,7 +72,7 @@ pub struct KeptHosting {
 const COLUMNS: &str =
     "session_id, manifest_id, model, effort, mode, ran, lease_slot, lease_branch, fork_of, on_your_words, \
      setup, workflow, proposed, turn_model, turn_effort, paused_at, paused_resuming, auto_land, \
-     mod_job, start_held, workflow_chosen, from_job, from_tab, mod_of_bay, project, quick_terminal, terminal_dir";
+     mod_job, start_held, workflow_chosen, from_job, from_tab, mod_of_bay, project, side_job, terminal_dir";
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
     Ok(KeptHosting {
@@ -101,7 +101,7 @@ fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
         from_tab: row.get(22)?,
         mod_of_bay: row.get::<_, i64>(23)? != 0,
         project: row.get(24)?,
-        quick_terminal: row.get::<_, i64>(25)? != 0,
+        side_job: row.get::<_, i64>(25)? != 0,
         terminal_dir: row.get(26)?,
     })
 }
@@ -140,7 +140,7 @@ impl Store {
                     hosting.from_tab,
                     i64::from(hosting.mod_of_bay),
                     hosting.project,
-                    i64::from(hosting.quick_terminal),
+                    i64::from(hosting.side_job),
                     hosting.terminal_dir,
                 ],
             )

@@ -314,7 +314,7 @@ where
         record.from_job = reads.hosting.as_ref().and_then(|hosting| hosting.from_job.clone());
         record.from_tab = reads.hosting.as_ref().and_then(|hosting| hosting.from_tab.clone());
         record.mod_of_bay = reads.hosting.as_ref().is_some_and(|hosting| hosting.mod_of_bay);
-        record.quick_terminal = reads.hosting.as_ref().is_some_and(|hosting| hosting.quick_terminal);
+        record.side_job = reads.hosting.as_ref().is_some_and(|hosting| hosting.side_job);
         if reads.hosting.is_some() && session.state == store::SessionState::Live {
             record.activity = self.activity_of(&session.id);
             record.tools_missing = self.hosts().of(&session.id).state().tools_missing.clone();
@@ -425,8 +425,8 @@ where
             || self.hosts().of(&session.id).state().moving.is_some()
             // A subagent or a task still working is something running: the turn ended on it, not on nothing.
             || !record.running.is_empty()
-            // A quick terminal with no plan was asked something and answered it: its turn ending is the answer.
-            || (record.quick_terminal && reads.plan.is_none());
+            // A Side Job with no plan was asked something and answered it: its turn ending is the answer.
+            || (record.side_job && reads.plan.is_none());
         let stop = session.last_turn_at.as_deref().filter(|_| !excused);
         let read = stop.map(|stop| crate::session_host::stopping::read(stop, &reads.stop, spoke.as_deref(), self.now().epoch_millis().unwrap_or(0)));
         // A repair is due for a stop with its agent alive, until one has run since he last wrote.

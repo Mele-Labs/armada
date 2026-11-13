@@ -23,6 +23,7 @@ mod logbook;
 mod migrate;
 mod named_migrations;
 mod on_your_words;
+mod side_job_renamed;
 mod slot_strandings;
 mod plan_reading;
 mod ports;
