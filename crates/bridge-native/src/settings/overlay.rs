@@ -51,6 +51,8 @@ impl Typed {
 pub struct Stops {
     pub control: FocusHandle,
     pub slider: FocusHandle,
+    /// The More press of a stepped count; its Fewer press takes `control`.
+    pub more: FocusHandle,
     pub save: FocusHandle,
     pub reset: FocusHandle,
 }
@@ -320,12 +322,13 @@ impl SettingsOverlay {
     pub fn set_list(&mut self, list: SettingsList, window: &mut Window, cx: &mut Context<Self>) {
         let was = self.list.take();
         for one in &list.settings {
-            if !entries::drawn(one) {
+            if !entries::drawn(one) && !super::limits::holds(one) {
                 continue;
             }
             self.stops.entry(one.key.clone()).or_insert_with(|| Stops {
                 control: cx.focus_handle().tab_stop(true),
                 slider: cx.focus_handle().tab_stop(true),
+                more: cx.focus_handle().tab_stop(true),
                 save: cx.focus_handle().tab_stop(true),
                 reset: cx.focus_handle().tab_stop(true),
             });
@@ -493,7 +496,9 @@ impl SettingsOverlay {
                 // Save and Reset go once the value is in force: the keys go to the setting's own control.
                 let gone = this.stops.get(&key).is_some_and(|stops| stops.save.is_focused(window) || stops.reset.is_focused(window));
                 if gone {
-                    let to = this.typed.get(&key).map(|typed| typed.focus(cx)).or_else(|| this.stops.get(&key).map(|stops| stops.control.clone()));
+                    // A stepped count has a field made for it that is never drawn: its keys go to the press, not to that.
+                    let typed = this.setting(&key).filter(|one| !super::limits::is_stepped(one)).and_then(|_| this.typed.get(&key));
+                    let to = typed.map(|typed| typed.focus(cx)).or_else(|| this.stops.get(&key).map(|stops| stops.control.clone()));
                     if let Some(to) = to {
                         window.focus(&to, cx);
                     }
@@ -812,6 +817,9 @@ impl SettingsOverlay {
         }
         if let Some(page) = super::mods::page_of(shown.body) {
             return self.mod_stops(page, cx);
+        }
+        if let (Body::Schema(["limits"]), Some(list)) = (shown.body, &self.list) {
+            return super::limits::stops(self, list, cx);
         }
         stops.push(self.file_stop.clone());
         let Some(list) = &self.list else { return stops };

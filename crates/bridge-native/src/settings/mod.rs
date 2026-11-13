@@ -8,6 +8,7 @@ mod delete;
 pub mod entries;
 pub(crate) mod gateway;
 mod keyboard;
+pub(crate) mod limits;
 pub mod layout;
 pub(crate) mod macs;
 mod mock;
