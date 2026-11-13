@@ -145,6 +145,17 @@ fn frames<R: AsyncRead + Unpin + Send + 'static>(
     io: R,
     beat: Duration,
 ) -> impl Stream<Item = Result<Bytes, Infallible>> + Send {
+    relay(io, beat, BEATING, |text| live::change(text).and_then(|change| live::frame(&change)))
+}
+
+/// Fleet's messages, each as `shape` writes it or left out where it writes none, with `beating`
+/// whenever `beat` passes with nothing sent.
+pub(crate) fn relay<R: AsyncRead + Unpin + Send + 'static>(
+    io: R,
+    beat: Duration,
+    beating: &'static str,
+    shape: fn(&str) -> Option<String>,
+) -> impl Stream<Item = Result<Bytes, Infallible>> + Send {
     let (sender, receiver) = mpsc::channel(32);
     let reader = tokio::spawn(async move {
         let mut messages = Messages::new(io);
@@ -159,12 +170,12 @@ fn frames<R: AsyncRead + Unpin + Send + 'static>(
         let due = Instant::now() + beat;
         loop {
             let frame = match timeout_at(due, receiver.recv()).await {
-                Ok(Some(text)) => match live::change(&text).and_then(|change| live::frame(&change)) {
+                Ok(Some(text)) => match shape(&text) {
                     Some(frame) => frame,
                     None => continue,
                 },
                 Ok(None) => return None,
-                Err(_) => BEATING.to_string(),
+                Err(_) => beating.to_string(),
             };
             return Some((Ok(Bytes::from(frame)), (receiver, reader)));
         }

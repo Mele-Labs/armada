@@ -18,6 +18,7 @@ use crate::{router, Broadcaster, Served};
 /// The port a planted Job calls from, and one no Job holds, as Bridge's is.
 const JOB: u16 = 53000;
 const BRIDGE: u16 = 53001;
+const GATEWAY: u16 = 53002;
 
 const TURNING_THE_OPERATOR_ON: &str = r#"{"changes":{"limits.dronesAtOnce":3}}"#;
 
@@ -85,6 +86,49 @@ async fn a_job_cannot_change_the_slot_pool() {
     assert!(refused.message.contains("only the person changes the slot pool"), "{}", refused.message);
 }
 
+/// The four routes another Mac's rows come in on, each with a body the fake takes.
+fn handing_in_another_macs_rows() -> Vec<(&'static str, &'static str, String)> {
+    let event = ipc::OtherMacEvent {
+        mac: "mac-work".into(),
+        event: ipc::Event::ProjectsChanged(ipc::Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() }),
+    };
+    vec![
+        ("PUT", "/other_macs/sessions", r#"{"mac":"mac-work","sessions":[]}"#.to_string()),
+        ("PUT", "/other_macs/bug_reports", r#"{"mac":"mac-work","reports":[]}"#.to_string()),
+        ("POST", "/other_macs/event", ipc::encode(&event).expect("encodes")),
+        ("POST", "/other_macs/forget", r#"{"mac":"mac-work"}"#.to_string()),
+    ]
+}
+
+#[tokio::test]
+async fn a_job_cannot_hand_fleet_another_macs_rows_and_the_gateway_can() {
+    let app = wired();
+    for (method, uri, body) in handing_in_another_macs_rows() {
+        let (status, refused) = call(&app, method, uri, JOB, &body).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{method} {uri} from a Job");
+        let refused: WireError = ipc::decode("a refusal", &refused).expect("decodes");
+        assert_eq!(refused.code, A_JOBS_CALL);
+        assert!(
+            refused.message.ends_with("is refused to a Job: only the person pairs his other Macs, from Bridge"),
+            "{}",
+            refused.message
+        );
+
+        // The Gateway runs in Fleet's own process, which no Job holds, and says it is the phone.
+        let peer: SocketAddr = format!("127.0.0.1:{GATEWAY}").parse().expect("an address");
+        let request = Request::builder()
+            .method(method)
+            .uri(uri)
+            .header("content-type", "application/json")
+            .header(crate::acting::CALLER_HEADER, crate::acting::PHONE)
+            .extension(axum::extract::ConnectInfo(peer))
+            .body(Body::from(body))
+            .expect("a well-formed request");
+        let answered = app.clone().oneshot(request).await.expect("an answer");
+        assert_eq!(answered.status(), StatusCode::OK, "{method} {uri} from the Gateway");
+    }
+}
+
 /// A name the table holds that no route serves would refuse nothing, silently.
 #[test]
 fn every_act_the_person_keeps_is_a_route_fleet_serves() {
@@ -93,7 +137,7 @@ fn every_act_the_person_keeps_is_a_route_fleet_serves() {
             .iter()
             .find(|route| route.operation == *operation)
             .unwrap_or_else(|| panic!("`{operation}` is not served"));
-        assert_eq!(route.method, "POST", "`{operation}` is a write");
+        assert_ne!(route.method, "GET", "`{operation}` is a write");
         assert_eq!(the_persons(route.method, route.path).map(|(name, _)| name), Some(*operation));
     }
 }

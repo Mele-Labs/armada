@@ -62,6 +62,11 @@ export type Delivered = {
   event: Event;
 };
 
+/** `session.removed`: the Job row held by `session_id` is gone. Only ever a row held from another Mac. */
+export type SessionRemoved = {
+  session_id: string;
+};
+
 /** The bound was reached and the oldest were dropped. Always followed by a resync. */
 export type Missed = {
   dropped: number;
@@ -150,6 +155,10 @@ export type Event =
   | ({
       kind: "session.subagent";
     } & SessionSubagentChanged)
+  /** A Job row held from another Mac went: that Mac left it out, or was forgotten. Drop the row. Never this Mac's own Jobs. */
+  | ({
+      kind: "session.removed";
+    } & SessionRemoved)
   /** One of a Job's terminals opened, by the person's `open_terminal` or its agent's `type_in_terminal`. */
   | ({
       kind: "terminal.opened";
