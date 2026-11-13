@@ -321,22 +321,24 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
     };
     // A Job another took the place of stands behind that one's row, as Electron's deck has it (`ship.ts`, `behind`).
     let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| spent(job, "replaced_by").is_none() && matches(job, query)).collect();
-    // A sub-Job that needs him stands under its starters, which come in for their place alone.
+    // In every scope a listed Job stands under its live starters; one the scope leaves out, a paused
+    // starter in Active or a calm one in Needs you, comes in for its place alone.
     let mut places: std::collections::HashSet<&str> = std::collections::HashSet::new();
-    if scope == Scope::Needs {
-        for job in &picked {
-            let mut up = starter_of(job);
-            while let Some(id) = up.filter(|id| !picked.iter().any(|one| one.id.as_str() == *id) && !places.contains(id)) {
-                let Some(starter) = lives.iter().find(|one| one.id.as_str() == id) else { break };
-                places.insert(starter.id.as_str());
-                up = starter_of(starter);
-            }
+    for job in &picked {
+        let mut up = starter_of(job);
+        while let Some(id) = up.filter(|id| !picked.iter().any(|one| one.id.as_str() == *id) && !places.contains(id)) {
+            let Some(starter) = lives.iter().find(|one| one.id.as_str() == id) else { break };
+            places.insert(starter.id.as_str());
+            up = starter_of(starter);
         }
     }
     let picked: Vec<&SessionRecord> = if places.is_empty() {
         picked
     } else {
-        lives.iter().copied().filter(|job| places.contains(job.id.as_str()) || picked.iter().any(|one| one.id == job.id)).collect()
+        let mut kept: Vec<&SessionRecord> =
+            lives.iter().copied().filter(|job| places.contains(job.id.as_str()) || picked.iter().any(|one| one.id == job.id)).collect();
+        kept.extend(picked.iter().copied().filter(|job| !lives.iter().any(|one| one.id == job.id)));
+        kept
     };
     let now = chrono::Utc::now();
     let title_of = |job: &SessionRecord| -> SharedString { job.title.clone().unwrap_or_else(|| job.id.as_str().to_string()).into() };
@@ -2481,8 +2483,24 @@ mod tests {
                 ("Re-take the shots".to_string(), 2, false),
             ]
         );
-        let calm: Vec<SessionRecord> = tree.into_iter().map(|mut job| { job.mark = None; job }).collect();
+        let calm: Vec<SessionRecord> = tree.iter().cloned().map(|mut job| { job.mark = None; job }).collect();
         assert!(lines_of(&calm, &[], Scope::Needs, "", &[]).is_empty(), "nothing needing him draws nothing, not even a head");
+        // A paused starter stays out of Active but keeps its place over the Job it started.
+        let paused: Vec<SessionRecord> = tree
+            .into_iter()
+            .map(|mut job| {
+                if job.id.as_str() == "t-walk" {
+                    if let Some(hosted) = job.hosted.as_mut() {
+                        hosted.paused = Some(serde_json::from_str(r#"{"at":"2026-11-08T20:00:00Z","resuming":false}"#).expect("a pause decodes"));
+                    }
+                }
+                job
+            })
+            .collect();
+        let active = lines_of(&paused, &[], Scope::Active, "", &[]);
+        let walk = active.iter().find_map(|line| match line { Line::Job(row) if row.title.as_ref() == "Fix the walk at 820" => Some((row.depth, row.place)), _ => None });
+        let shots = active.iter().find_map(|line| match line { Line::Job(row) if row.title.as_ref() == "Re-take the shots" => Some(row.depth), _ => None });
+        assert_eq!((walk, shots), (Some((1, true)), Some(2)));
     }
 
     #[test]
