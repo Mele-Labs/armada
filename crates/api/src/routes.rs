@@ -130,6 +130,16 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::save_workflow::<D>),
         )
         .route(
+            "/workflows/draft",
+            get(crate::repositories::get_workflow_draft::<D>)
+                .put(crate::repositories::put_workflow_draft::<D>)
+                .delete(crate::repositories::discard_workflow_draft::<D>),
+        )
+        .route(
+            "/workflows/draft/publish",
+            post(crate::repositories::publish_workflow_draft::<D>),
+        )
+        .route(
             "/workflows/delete",
             post(crate::repositories::delete_workflow_copy::<D>),
         )
@@ -892,6 +902,13 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/lifecycles/keep_drafts", get(crate::lifecycles::list_keep_drafts::<D>))
         .route("/lifecycles/pieces/save", post(crate::lifecycles::save_lifecycle_piece::<D>))
         .route("/lifecycles/pieces/delete", post(crate::lifecycles::delete_lifecycle_piece::<D>))
+        .route(
+            "/lifecycles/pieces/draft",
+            get(crate::lifecycles::get_piece_draft::<D>)
+                .put(crate::lifecycles::put_piece_draft::<D>)
+                .delete(crate::lifecycles::discard_piece_draft::<D>),
+        )
+        .route("/lifecycles/pieces/draft/publish", post(crate::lifecycles::publish_piece_draft::<D>))
         .route("/lifecycles/ticket/teach", post(crate::lifecycles::teach_ticket_word::<D>))
         .route("/sessions/lifecycles", get(crate::lifecycles::get_job_lifecycles::<D>))
         .route("/app_runs", get(crate::app_runs::list_app_runs::<D>))

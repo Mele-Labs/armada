@@ -18,6 +18,22 @@ pub const THE_LIFECYCLE_JOB: &str = "job-with-a-pull-request";
 /// any other finds nothing.
 pub const THE_KEPT_PIECE: &str = "kept";
 
+/// A piece's draft as the fake answers it: one change by `you` holding `text`.
+fn a_piece_draft(kind: LifecyclePieceKind, id: String, scope: PieceScope, text: String) -> ipc::PieceDraft {
+    let at = ipc::Instant::carried("2026-11-13T09:00:00.000Z");
+    ipc::PieceDraft {
+        kind,
+        id,
+        scope,
+        text: text.clone(),
+        base: String::new(),
+        unfit: None,
+        changes: vec![ipc::DraftChange { id: 1, by: ipc::DraftBy::You, at: at.clone(), text, summary: None, change: None }],
+        started_at: at.clone(),
+        updated_at: at,
+    }
+}
+
 fn refused(code: &str, said: String) -> Refusal {
     Refusal::Unacceptable(ipc::WireError::raised(code, said, super::run_id()))
 }
@@ -129,6 +145,30 @@ impl Lifecycles for FakeDaemon {
             return Err(refused("fleet.piece_exists", format!("/kit/{id}.yml already declares `{id}` and nothing was written.")));
         }
         Ok(LifecyclePieceSaved { kind, file: format!("/kit/{id}.yml"), id, scope, replaced: kept })
+    }
+
+    async fn get_piece_draft(&self, piece: ipc::DeleteLifecyclePiece) -> Result<ipc::PieceDraft, Refusal> {
+        Ok(a_piece_draft(piece.kind, piece.id, piece.scope, String::from("{}")))
+    }
+
+    async fn put_piece_draft(&self, put: ipc::PutPieceDraft) -> Result<ipc::PieceDraft, Refusal> {
+        Ok(a_piece_draft(put.kind, put.id, put.scope, put.text))
+    }
+
+    async fn discard_piece_draft(&self, piece: ipc::DeleteLifecyclePiece) -> Result<ipc::PieceDraftDiscarded, Refusal> {
+        Ok(ipc::PieceDraftDiscarded { kind: piece.kind, id: piece.id, scope: piece.scope })
+    }
+
+    async fn publish_piece_draft(&self, publish: ipc::PublishPieceDraft) -> Result<ipc::PiecePublished, Refusal> {
+        Ok(ipc::PiecePublished {
+            saved: LifecyclePieceSaved {
+                file: format!("/kit/{}.yml", publish.id),
+                kind: publish.kind,
+                id: publish.id,
+                scope: publish.scope,
+                replaced: true,
+            },
+        })
     }
 
     /// Writes nothing: answers the Ticket within the repository it was given, and refuses a blank word,

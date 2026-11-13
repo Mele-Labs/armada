@@ -21,20 +21,20 @@ use crate::tests::tmp::TempDir;
 use crate::tests::workflow_page::{carried_id, read, staged_in_repository, STAGED};
 
 /// The id the fixture's own `armada.yml` declares.
-const MANIFEST: &str = "01FIXTUREMANIFEST";
+pub(super) const MANIFEST: &str = "01FIXTUREMANIFEST";
 /// A time inside the week the fixture clock stands in.
 const RECENT: &str = "2026-08-24T10:00:00.000Z";
 
-struct Rig {
-    home: TempDir,
-    planted: Arc<Planted>,
-    fleet: Arc<Fixture>,
-    app: axum::Router,
-    judge: Arc<FakeJudge>,
+pub(super) struct Rig {
+    pub(super) home: TempDir,
+    pub(super) planted: Arc<Planted>,
+    pub(super) fleet: Arc<Fixture>,
+    pub(super) app: axum::Router,
+    pub(super) judge: Arc<FakeJudge>,
 }
 
 /// A Fleet holding `STAGED` in the repository, whose model answers `replies` in turn.
-async fn rig(replies: &[&str]) -> Rig {
+pub(super) async fn rig(replies: &[&str]) -> Rig {
     let home = TempDir::new();
     let planted = Arc::new(Planted::nothing());
     let judge = Arc::new(FakeJudge::answering_in_turn(replies));
@@ -49,7 +49,7 @@ async fn rig(replies: &[&str]) -> Rig {
 }
 
 /// `STAGED` with a step added before Deliver: what an agent asked to split the work would return.
-fn with_refine() -> String {
+pub(super) fn with_refine() -> String {
     STAGED
         .replace(
             "  - id: deliver",
@@ -67,32 +67,37 @@ fn with_walk_worded() -> String {
         .to_string()
 }
 
-fn asking(text: &str) -> String {
-    ipc::encode(&ipc::AskWorkflowChange { workflow_id: ipc::WorkflowId::carried("staged"), source: "repository".into(), text: text.into() })
-        .expect("plain data")
+pub(super) fn asking(text: &str) -> String {
+    ipc::encode(&ipc::AskWorkflowChange {
+        workflow_id: ipc::WorkflowId::carried("staged"),
+        source: "repository".into(),
+        text: text.into(),
+        ..Default::default()
+    })
+    .expect("plain data")
 }
 
 fn change_of(id: i64) -> String {
     ipc::encode(&ipc::WorkflowChangeRef { change: id }).expect("plain data")
 }
 
-fn decoded<T: serde::de::DeserializeOwned>(what: &'static str, body: &[u8]) -> T {
+pub(super) fn decoded<T: serde::de::DeserializeOwned>(what: &'static str, body: &[u8]) -> T {
     ipc::decode(what, body).unwrap_or_else(|why| panic!("{what}: {why}: {}", String::from_utf8_lossy(body)))
 }
 
 impl Rig {
-    async fn post(&self, route: &str, body: &str) -> (StatusCode, Vec<u8>) {
+    pub(super) async fn post(&self, route: &str, body: &str) -> (StatusCode, Vec<u8>) {
         call(&self.app, "POST", route, body).await
     }
 
-    async fn open(&self) -> Vec<WorkflowChange> {
+    pub(super) async fn open(&self) -> Vec<WorkflowChange> {
         let (status, body) = call(&self.app, "GET", "/workflows/changes?workflow_id=staged&source=repository", "").await;
         assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
         decoded::<WorkflowChanges>("changes", &body).changes
     }
 
     /// Ask in his words and wait for the draft to come back one way or the other.
-    async fn asked(&self, text: &str) -> WorkflowChange {
+    pub(super) async fn asked(&self, text: &str) -> WorkflowChange {
         let (status, body) = self.post("/workflows/changes/ask", &asking(text)).await;
         assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
         let begun: WorkflowChange = decoded("a change", &body);
@@ -101,7 +106,7 @@ impl Rig {
     }
 
     /// The change once it is no longer drafting.
-    async fn settled(&self, id: i64) -> WorkflowChange {
+    pub(super) async fn settled(&self, id: i64) -> WorkflowChange {
         for _ in 0..250 {
             let found = self.open().await.into_iter().find(|one| one.id == id);
             if let Some(one) = found.filter(|one| one.state != ChangeState::Drafting) {
@@ -149,17 +154,17 @@ async fn a_draft_the_model_wrapped_in_a_fence_is_read_without_it() {
 
 /// **Each refusal of an ask is a 422 or a 404 in Fleet's words and keeps no change.**
 #[tokio::test]
-async fn an_ask_is_refused_for_armadas_own_for_blank_words_and_for_a_place_with_none() {
+async fn an_ask_is_refused_for_an_id_armada_does_not_carry_for_blank_words_and_for_a_place_with_none() {
     let rig = rig(&[]).await;
-    let armadas = ipc::encode(&ipc::AskWorkflowChange { workflow_id: ipc::WorkflowId::carried("feature"), source: "armada".into(), text: "x".into() })
+    let armadas = ipc::encode(&ipc::AskWorkflowChange { workflow_id: ipc::WorkflowId::carried("no_such"), source: "armada".into(), text: "x".into(), ..Default::default() })
         .unwrap();
     let (status, body) = rig.post("/workflows/changes/ask", &armadas).await;
-    assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_is_armadas"));
+    assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.no_such_workflow_definition"));
 
     let (status, body) = rig.post("/workflows/changes/ask", &asking("   ")).await;
     assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_change_empty"));
 
-    let nowhere = ipc::encode(&ipc::AskWorkflowChange { workflow_id: ipc::WorkflowId::carried("staged"), source: "kit".into(), text: "x".into() })
+    let nowhere = ipc::encode(&ipc::AskWorkflowChange { workflow_id: ipc::WorkflowId::carried("staged"), source: "kit".into(), text: "x".into(), ..Default::default() })
         .unwrap();
     let (status, body) = rig.post("/workflows/changes/ask", &nowhere).await;
     assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.no_such_workflow_definition"));
@@ -390,6 +395,7 @@ async fn kept_cannot(rig: &crate::tests::session_host::Rig, manifest: &str) -> i
         manifest_id: manifest,
         workflow_id: "feature",
         source: "repository",
+        project: "",
         step_id: None,
         asked: Some("Propose should end when a document is approved"),
         before_text: STAGED,
@@ -575,6 +581,7 @@ async fn a_draft_lost_when_fleet_stopped_is_read_as_failed() {
                 manifest_id: MANIFEST,
                 workflow_id: "staged",
                 source: "repository",
+                project: "",
                 step_id: None,
                 asked: Some("add Refine"),
                         before_text: STAGED,

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::lifecycles::{LifecycleDefinition, LifecycleRule, PieceScope};
 use crate::{ManifestId, SessionId};
 
-fn everywhere() -> PieceScope {
+pub(crate) fn everywhere() -> PieceScope {
     PieceScope::Everywhere
 }
 

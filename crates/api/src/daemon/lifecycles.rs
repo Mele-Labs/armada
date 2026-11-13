@@ -8,9 +8,9 @@
 use std::future::Future;
 
 use ipc::{
-    DeleteLifecyclePiece, JobLanesView, JobLifecycles, KeepDrafts, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
-    RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, SaveLifecyclePiece, SessionId,
-    TeachTicketWord, TicketWordTaught,
+    DeleteLifecyclePiece, JobLanesView, JobLifecycles, KeepDrafts, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId, PieceDraft,
+    PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PutPieceDraft, RepositoryAutonomy, RepositoryLifecycleRules,
+    RepositoryLifecycles, SaveLifecyclePiece, SessionId, TeachTicketWord, TicketWordTaught,
 };
 
 use crate::daemon::Refusal;
@@ -87,4 +87,29 @@ pub trait Lifecycles: Send + Sync + 'static {
         &self,
         delete: DeleteLifecyclePiece,
     ) -> impl Future<Output = Result<LifecyclePieceDeleted, Refusal>> + Send;
+
+    /// `get_piece_draft` — the draft of one piece, keyed as [`Lifecycles::delete_lifecycle_piece`] keys a piece, with its
+    /// changes oldest first. [`Refusal::NotFound`] where none is kept.
+    fn get_piece_draft(
+        &self,
+        piece: DeleteLifecyclePiece,
+    ) -> impl Future<Output = Result<PieceDraft, Refusal>> + Send;
+
+    /// `put_piece_draft` — keep the owner's text as the draft of a piece, beginning it from what Kit holds where there is
+    /// none. **Any text is kept**; `unfit` on the answer says where it would not publish.
+    fn put_piece_draft(&self, put: PutPieceDraft) -> impl Future<Output = Result<PieceDraft, Refusal>> + Send;
+
+    /// `discard_piece_draft` — throw away a draft and its changes. [`Refusal::NotFound`] where none is kept.
+    fn discard_piece_draft(
+        &self,
+        piece: DeleteLifecyclePiece,
+    ) -> impl Future<Output = Result<PieceDraftDiscarded, Refusal>> + Send;
+
+    /// `publish_piece_draft` — decode the draft and run [`Lifecycles::save_lifecycle_piece`] with overwrite, then delete
+    /// it. [`Refusal::Unacceptable`] with the parser's sentence where it does not parse; [`Refusal::IllegalMove`] where what
+    /// Kit holds is no longer what the draft began from.
+    fn publish_piece_draft(
+        &self,
+        publish: PublishPieceDraft,
+    ) -> impl Future<Output = Result<PiecePublished, Refusal>> + Send;
 }
