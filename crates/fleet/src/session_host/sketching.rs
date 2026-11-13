@@ -123,12 +123,6 @@ where
         }
         // A sketch he dismissed waits again once the job draws it again, as a walk shown again does.
         let target = attachment.target.clone();
-        // Only the newest sketch is answered, so one still waiting under another title is taken back, as its Withdraw would.
-        let waiting = open_sketches(&held).map(|one| one.target.clone()).filter(|one| *one != target).collect::<Vec<_>>();
-        for earlier in waiting {
-            self.store().lock().await.dismiss_waiting(&id, &earlier).map_err(|why| self.ledger_fault(why))?;
-            self.sketch_withdrawn_mark(&id, &earlier).await;
-        }
         self.store().lock().await.restore_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
         self.report_session(SessionReport {
             harness,
@@ -370,17 +364,14 @@ fn open_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::
     asked_sketches(attachments).filter(|one| is_open(one))
 }
 
-/// The newest sketch put to the person, as the item that waits on him while he has not answered it: id
-/// the sketch's target, text its title, opening the Session. A plan's sketch is approved with the plan,
-/// so it is never one of these. **Only the newest drawn**, as Bridge answers only that one: an older one
-/// still open, which an earlier Fleet left when a newer one replaced it, never waits again once the
-/// newer is answered or taken back.
+/// Every sketch put to the person and not answered or taken back, newest drawn first, as the items that
+/// wait on him: id the sketch's target, text its title, opening the Session. A plan's sketch is approved
+/// with the plan, so it is never one of these. The first is the thread head's pin, so an answered
+/// sketch never stays it.
 pub(crate) fn sketch_items<'a>(attachments: &'a [ipc::Attachment], session: &'a str) -> impl Iterator<Item = WaitingItem> + 'a {
-    asked_sketches(attachments)
-        .max_by_key(|one| drawn_at(one))
-        .filter(|newest| is_open(newest))
-        .into_iter()
-        .map(move |one| WaitingItem {
+    let mut open = open_sketches(attachments).collect::<Vec<_>>();
+    open.sort_by_key(|one| std::cmp::Reverse(drawn_at(one)));
+    open.into_iter().map(move |one| WaitingItem {
             approves: false,
             id: one.target.clone(),
             text: one.detail.get("title").cloned().unwrap_or_else(|| one.target.trim_start_matches(TARGET_PREFIX).to_string()),

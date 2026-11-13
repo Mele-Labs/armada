@@ -159,6 +159,7 @@ WebSocket event stream, read this first.
 | [A Job starts on its start card](protocol/a-job-starts-on-its-start-card.md) |
 | [A sketch wireframes a screen: the `screen` node](protocol/a-sketch-wireframes-a-screen-the-screen-node.md) |
 | [A sketch draws HTML in the repository's styles: the `mock` node, `get_style_sources` and `get_kept_styles`](protocol/a-sketch-draws-html-the-mock-node.md) |
+| [A sketch reads the design catalogue: `get_design_catalogue`](protocol/a-sketch-reads-the-design-catalogue.md) |
 | [Autopilot starts Sessions, not Jobs](protocol/autopilot-starts-sessions-not-jobs.md) |
 | [Sessions absorb Jobs, group 1: the Job arms and piloting a Job leave the wire](protocol/sessions-absorb-jobs-group-1-the-job-arms-and-piloting-a-job-leave-the.md) |
 | [Sessions absorb Jobs, group 2: the Job surface leaves the wire](protocol/sessions-absorb-jobs-group-2-the-job-surface-leaves-the-wire.md) |
@@ -1295,7 +1296,7 @@ A call through the agent door that places no Job is refused 422 `fleet.job_copy_
 **A workflow is copied at the first change to its steps**, as the file the Job followed read then, so the Job keeps that text while the repository's changes; until then it follows the repository's.
 A lifecycle or a rule is changed in the copy the Job froze on start (`job_copies`); 422 `fleet.job_holds_no_copy` for a Job started before copies were kept.
 A step is edited as text and the result is read by the loader again, so an edit that does not fit is refused with the loader's own sentence (422 `fleet.job_workflow_unfit`, `fleet.job_copy_step_refused`, `fleet.job_copy_piece_refused`) and the Job keeps what it had.
-The rail keeps a step's state by its index, so an edit remaps what it kept by step id: a skip stays on its step when one is added before it, and a step taken out is forgotten.
+The rail keeps a step's state by step id, so an edit needs nothing rewritten: a skip stays on its step when one is added before it, and a step taken out is forgotten when the rail is next read.
 Switching the workflow gives up the copy and the marks with it.
 
 **A mark is kept with who made it**, `job` or `you`, on `job_copy_marks`: a step is marked as `workflow` with its id, a rule as `rule` with its id, and a lifecycle by its own id with no item.
@@ -1932,3 +1933,26 @@ The native Bridge sends it from the dispatch sheet, a key and the command palett
 A record with `quick_terminal` reads on a Bridge that does not know it as a plain Job.
 
 **The event stream.** Untouched in kind: the start publishes `session.changed` and `terminal.opened` for `t1`, as a start and an open each do. The open risk below is neither better nor worse.
+
+## The call that ran a Check: `SessionRow::Check.tool_row`
+
+Since 13 Nov 2026. `docs/concepts/session/a-jobs-checks.md`.
+**Additive only**: one optional field on an existing thread row; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `tool_row` on the `check` row in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+Electron reads none of it. The native Bridge opens a run from the `tool` row that ran it.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `check` row `tool_row` (`session.row`, `get_session`, `get_job_thread`) | Fleet writes, Bridge reads | The `id` of the `tool` row in the same thread whose call ran the run. Absent where Fleet could not tell, and on every row kept before it |
+
+**Detected off the hosted Job's own stream, never asked of the agent**: `report_session_check` carries no call id.
+A shell call of the agent's own whose command runs `armada check` is held from the call until it answers, or, where it was backgrounded, until the task it started ends, since the harness answers a backgrounded call before its command begins.
+A run that starts with exactly one held call takes that call's row; none or several leaves it absent.
+**The row's id, not the harness's call id**: a hosted thread's rows carry Fleet's own ids, so a call id would match nothing a client holds.
+A subagent's calls are no rows of the thread and a terminal Job has no stream Fleet hears, so their runs carry none.
+The link is kept on the run in the store, so the row the run's end writes carries it too.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+A row with `tool_row` reads on a Bridge that does not know it as a `check` row.
+**The event stream.** No new event; a linked `check` row grows by one short id. The open risk below is neither better nor worse.

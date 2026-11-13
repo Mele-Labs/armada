@@ -26,6 +26,17 @@ A Job whose Delivery was settled at Start is sent the choice with the step's ins
 Exactly one delivery named is the answer, kept with `named` set, and nothing is asked.
 No phrase, two different deliveries, or a negation such as `do not merge` is not read: the owner is asked.
 
+**A project can answer it for good.** The key is `delivery`, a value of a project's file and of Kit's `values.yml`: `auto_land`, `open_pr`, `keep_local` or `ask`.
+Where a Job's first message names no delivery and the start card wrote none, Fleet reads the key live for the Job's project and its repository, the project over Kit.
+A word that is not `ask` answers the question: the row is written answered with `named` off, the choice is kept as his usual, Auto land turns the flag on as above, no item is put and the agent is told in its first turn, as of the project's setting.
+The row carries `said`, Fleet's sentence for the person: `Auto land, as Shop is set.` and where to change it, or `as set in Settings` where Kit's word answered.
+**The first message and the start card still win**: a named delivery or a landing chosen on the card is kept as it was, and the setting is not said over it.
+
+**A first answer is learned.** Where the Job is in a project and no layer sets `delivery`, the answer is written to the project's file as its `delivery`, every other value and member left as it was, and the row carries `said`: `Kept for Shop: its Jobs land this way from now on.` The next Job in the project is not asked.
+**`ask` turns learning off.** A project that says `ask`, or Kit that does, still puts the question each time and keeps nothing.
+A Job in no project learns nothing, and a failed write is on Fleet's log and never undoes the answer.
+Neither `pr_mode` nor `auto_merge` is read or written for it.
+
 **The answer is one `delivery` row in the Job's thread**, replaced by id when the owner answers.
 The row is the only place it is kept, so a restart keeps the question standing and the answer read.
 Auto land, answered or named, turns the Job's Auto land flag on, the same flag `set_session_auto_land` sets, so the forge's auto-merge follows it. Open PR only and Keep local leave the flag as it is.

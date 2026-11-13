@@ -10,7 +10,7 @@
 //! | The screen that mounts the sheet, the strip and the annotation layer over the Jobs screen | `screen.rs` |
 
 pub mod face;
-mod live;
+pub(crate) mod live;
 pub mod scenes;
 pub mod screen;
 pub mod sheet;

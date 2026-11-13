@@ -28,6 +28,12 @@ pub struct MockFleet {
     pub refuse_later: Option<String>,
     /// The week's Log, as Fleet writes it.
     pub log: String,
+    /// The ideas Fleet keeps for later, oldest first.
+    pub parked: Vec<ipc::ParkedIdea>,
+    /// Every dispatch it was asked for, for a test to read.
+    pub dispatched: Vec<ipc::DispatchJob>,
+    /// How many dispatches it has taken, which numbers what it answers with.
+    taken: u32,
 }
 
 /// The week's Log as Fleet's journal writes it: a heading per day, a line per entry at its time.
@@ -55,6 +61,11 @@ pub fn page() -> OperatorPage {
     ipc::decode::<OperatorPage>("OperatorPage", include_bytes!("../../fixtures/operator-page.json")).expect("the Operator page fixture decodes")
 }
 
+/// The ideas Fleet kept before the walk began: three thoughts, one called an idea and one a bug.
+pub fn parked() -> Vec<ipc::ParkedIdea> {
+    ipc::decode::<ipc::ParkedIdeas>("ParkedIdeas", include_bytes!("../../fixtures/operator-parked.json")).expect("the parked ideas fixture decodes").ideas
+}
+
 pub fn talk() -> OperatorTalk {
     ipc::decode::<OperatorTalk>("OperatorTalk", include_bytes!("../../fixtures/operator-talk.json")).expect("the Operator talk fixture decodes")
 }
@@ -71,7 +82,7 @@ pub fn day() -> SharedString {
 
 impl MockFleet {
     pub fn new() -> MockFleet {
-        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, fail_answer: None, refuse_later: None, log: LOG.to_string() }
+        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, fail_answer: None, refuse_later: None, log: LOG.to_string(), parked: parked(), dispatched: Vec::new(), taken: 0 }
     }
 
     fn take(&mut self, id: &str) -> Option<OperatorTurnItem> {
@@ -203,6 +214,46 @@ impl MockFleet {
                 self.page.turn.push(turn);
             }
         }
+    }
+}
+
+impl MockFleet {
+    /// What `dispatch_job` does with the Operator on and seated. A dispatch for the words of a kept idea is that idea
+    /// being started, and starts. A `feature` or a `bug` starts at once. Anything else, an `idea` or no kind, the
+    /// Operator keeps for later. Each answers as Fleet does, with the `operator.dispatched` that follows.
+    pub fn dispatch(&mut self, job: ipc::DispatchJob) -> (ipc::JobDispatched, Vec<ipc::operator_board::OperatorDispatched>) {
+        use ipc::operator_board::{DispatchWay, OperatorDispatched};
+        self.taken += 1;
+        let words = job.start.request.clone().unwrap_or_default();
+        let title = words.lines().find(|line| !line.trim().is_empty()).map_or("", str::trim).to_string();
+        let manifest_id = job.start.manifest_id.as_str().to_string();
+        let again = self.parked.iter().any(|idea| idea.dispatch.start.request.as_deref() == Some(words.as_str()));
+        let starts = again || matches!(job.kind, Some(ipc::DispatchKind::Feature | ipc::DispatchKind::Bug));
+        self.dispatched.push(job.clone());
+        if starts {
+            let id = format!("composer-{}", self.taken);
+            let record = crate::mock::jobs("jobs-many").ok().and_then(|jobs| jobs.into_iter().next()).map(|mut record| {
+                record.id = ipc::SessionId::carried(id.clone());
+                record.title = Some(title.clone());
+                record
+            });
+            let started = OperatorDispatched { dispatch_id: format!("start:dispatch:{}", self.taken), manifest_id, way: DispatchWay::Started, session_id: Some(ipc::SessionId::carried(id)), title: Some(title) };
+            return (ipc::JobDispatched { session: record, operator: None, parked: None }, vec![started]);
+        }
+        let id = format!("idea:{}", self.taken + 100);
+        self.parked.push(ipc::ParkedIdea { id: id.clone(), dispatch: job, at: now().to_rfc3339() });
+        let parked = OperatorDispatched { dispatch_id: id.clone(), manifest_id, way: DispatchWay::Parked, session_id: None, title: Some(title) };
+        (ipc::JobDispatched { session: None, operator: Some(id), parked: None }, vec![parked])
+    }
+
+    /// What `remove_parked_idea` does: the idea goes, and the ones left are answered.
+    pub fn remove_parked(&mut self, id: &str) -> Result<ipc::ParkedIdeas, String> {
+        let kept = self.parked.len();
+        self.parked.retain(|idea| idea.id != id);
+        if self.parked.len() == kept {
+            return Err("No idea is kept under that id".into());
+        }
+        Ok(ipc::ParkedIdeas { ideas: self.parked.clone() })
     }
 }
 

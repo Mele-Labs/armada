@@ -106,6 +106,8 @@ where
             }
             // Sessions the plan's limit stopped, woken once it has reset.
             fleet.limits_lifted().await;
+            // Snoozed Jobs whose time has come, back in front of the person.
+            fleet.snoozes_ended().await;
             // Jobs a terminal Job's answer signed back in, woken with `Continue`.
             fleet.sign_in_wakes_owed().await;
             // A turn that went quiet is stuck by time passing, which no event says: published when it does.

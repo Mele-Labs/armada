@@ -335,6 +335,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/show_file", post(crate::sessions::show_file::<D>))
         .route("/sessions/shown", get(crate::shown::get_shown_file::<D>))
         .route("/sessions/style_sources", get(crate::styles::get_style_sources::<D>))
+        .route("/sessions/design_catalogue", get(crate::styles::get_design_catalogue::<D>))
         .route("/sessions/kept_styles", get(crate::styles::get_kept_styles::<D>))
         .route("/sessions/plan", post(crate::sessions::record_plan::<D>))
         .route("/sessions/plan/approve", post(crate::sessions::approve_plan::<D>))
@@ -622,6 +623,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/pause",
             post(crate::hosted_sessions::pause_session::<D>),
+        )
+        .route(
+            "/sessions/snooze",
+            post(crate::hosted_sessions::snooze_session::<D>),
         )
         .route(
             "/sessions/auto_land",

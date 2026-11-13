@@ -42,6 +42,7 @@ export type ActionScope =
   | "call"
   | "dashboard"
   | "deck"
+  | "dispatch"
   | "issues"
   | "list"
   | "list and detail"
@@ -196,6 +197,19 @@ export const ACTIONS: readonly Action[] = [
     iconAbsent: "undecided",
     shortcut: "⇧⌘Enter",
     scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "draft_session",
+    kind: "Action",
+    tier: "Global",
+    verb: "Draft",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "⌥Enter",
+    scope: "dispatch",
     destructive: false,
     confirms: false,
     unbuilt: null,

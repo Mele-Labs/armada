@@ -14,7 +14,7 @@ pub(super) type Answer = Result<Vec<u8>, String>;
 pub(super) type Done = Box<dyn FnOnce(&mut JobView, Answer, &mut Window, &mut Context<JobView>)>;
 
 /// A path segment or a query value, percent-encoded (`encodeURIComponent`).
-pub(super) fn encoded(text: &str) -> String {
+pub(crate) fn encoded(text: &str) -> String {
     let mut out = String::new();
     for byte in text.bytes() {
         if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {

@@ -16,6 +16,7 @@ use ipc::{
 };
 
 use crate::daemon::Fleet;
+use crate::session_host::delivery_setting::DeliveryKept;
 
 /// The item's id, and the target of its `answer` act.
 pub(crate) const DELIVERY_ITEM: &str = "delivery";
@@ -145,11 +146,17 @@ where
             return false;
         }
         let Some(first) = first_message(&rows) else { return false };
-        if !self.delivery_row_kept(id, first).await {
-            return false;
+        match self.delivery_row_kept(id, first).await {
+            DeliveryKept::Asked => {
+                let _ = self.told_by_fleet(id, ASKED, ipc::Notice::DeliveryAsked).await;
+                true
+            }
+            DeliveryKept::BySetting(words) => {
+                let _ = self.told_by_fleet(id, &words, ipc::Notice::DeliveryChosen).await;
+                false
+            }
+            DeliveryKept::Named => false,
         }
-        let _ = self.told_by_fleet(id, ASKED, ipc::Notice::DeliveryAsked).await;
-        true
     }
 
     /// Auto land answered turns the Session's flag on, by the path `set_session_auto_land` takes.
@@ -166,23 +173,36 @@ where
         }
     }
 
-    /// Keep the `delivery` row `message` gives: answered where it names a delivery, open where it does
-    /// not. `true` where the question is open.
-    pub(crate) async fn delivery_row_kept(&self, id: &str, message: &str) -> bool {
+    /// Keep the `delivery` row `message` gives: answered where it names a delivery or a setting answers it, open
+    /// where neither does. **The first message names it before a setting does.**
+    pub(crate) async fn delivery_row_kept(&self, id: &str, message: &str) -> DeliveryKept {
         let named = named_delivery(message);
-        let row = SessionRow::Delivery { id: self.row_id(id), at: self.instant(), choice: named, named: named.is_some() };
+        let by_setting = match named {
+            Some(_) => None,
+            None => self.delivery_by_setting(id).await,
+        };
+        let (choice, said) = match (&named, &by_setting) {
+            (Some(choice), _) => (Some(*choice), None),
+            (None, Some((choice, said, _))) => (Some(*choice), Some(said.clone())),
+            (None, None) => (None, None),
+        };
+        let row = SessionRow::Delivery { id: self.row_id(id), at: self.instant(), choice, named: named.is_some(), said };
         self.row_put(id, row).await;
-        if let Some(choice) = named {
+        if let Some(choice) = choice {
             self.delivery_pick_kept(id, choice).await;
         }
-        if named == Some(DeliveryChoice::AutoLand) {
-            // Named before any pull request exists, so the flag alone is set: only a terminal or ended
+        if choice == Some(DeliveryChoice::AutoLand) {
+            // Chosen before any pull request exists, so the flag alone is set: only a terminal or ended
             // Job refuses, and it is said in the log.
             if let Err(refusal) = self.auto_land_flag_set(&SetSessionAutoLand { id: SessionId::carried(id), on: true }).await {
-                self.session_warned(id, "auto land was named and not turned on", &refusal.error().message);
+                self.session_warned(id, "auto land was chosen and not turned on", &refusal.error().message);
             }
         }
-        named.is_none()
+        match (named, by_setting) {
+            (Some(_), _) => DeliveryKept::Named,
+            (None, Some((_, _, words))) => DeliveryKept::BySetting(words),
+            (None, None) => DeliveryKept::Asked,
+        }
     }
 
     /// `answer_waiting` on the `delivery` item: keep the choice on its row and tell the agent, with the
@@ -201,7 +221,8 @@ where
         else {
             return Err(self.settled_already());
         };
-        self.row_put(id, SessionRow::Delivery { id: row_id, at, choice: Some(chosen), named: false }).await;
+        let said = self.delivery_learned(id, chosen).await;
+        self.row_put(id, SessionRow::Delivery { id: row_id, at, choice: Some(chosen), named: false, said }).await;
         self.auto_land_follows(id, Some(chosen)).await;
         self.delivery_pick_kept(id, chosen).await;
         let record = self.published_hosted(id).await?;

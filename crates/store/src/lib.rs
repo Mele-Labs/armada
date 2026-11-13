@@ -38,6 +38,7 @@ mod session_focus;
 mod session_viewed;
 mod session_rail;
 mod session_limit;
+mod session_snooze;
 mod session_open_turn;
 mod session_loadout;
 mod fleet_builds;

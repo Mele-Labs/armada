@@ -168,7 +168,13 @@ where
         };
         let rail = match &hosting {
             Some(hosting) => {
-                crate::rail_keeping::rail_read(store, session, hosting.workflow.is_some()).map_err(fault)?
+                let own = store.job_workflow_copy(&session.id).map_err(fault)?;
+                let steps = hosting
+                    .workflow
+                    .as_deref()
+                    .and_then(|workflow| self.steps_with(&hosting.manifest_id, workflow, own.as_ref()))
+                    .unwrap_or_default();
+                crate::rail_keeping::rail_read(store, session, hosting.workflow.is_some(), steps).map_err(fault)?
             }
             None => Default::default(),
         };
@@ -225,6 +231,7 @@ where
             hosting,
             waiting: waiting_reads(store, session).map_err(fault)?,
             limited: store.session_limit(&session.id).map_err(fault)?,
+            snoozed: store.session_snooze(&session.id).map_err(fault)?,
             viewed: store.session_viewed(&session.id).map_err(fault)?,
             context: store.session_context(&session.id).map_err(fault)?,
             loadout: crate::loadout_keeping::summary_read(store, &session.id).map_err(fault)?,
@@ -323,6 +330,7 @@ where
             record.held_until = reads.limited.as_deref().map(wire_instant);
             record.in_flight = reads.flying.iter().map(crate::lifecycles::wire::in_flight).collect();
         }
+        record.snoozed_until = reads.snoozed.as_deref().map(wire_instant);
         record.viewed_at = reads.viewed.as_deref().map(wire_instant);
         record.context_breakdown = reads
             .context

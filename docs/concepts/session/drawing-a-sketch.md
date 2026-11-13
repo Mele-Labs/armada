@@ -27,6 +27,22 @@ A sheet past the size cap once its imports are inlined is listed as not usable, 
 Where a file is not usable (SCSS, Less, a theme module), or Tailwind has no build output, the agent writes them from the tokens listed, because no build runs for a sketch.
 Fleet keeps the set it drew with and writes its hash in `kept`, and a document's `armada-sketch` may hold mocks that are kept the same way.
 
+**The design catalogue: what a mock is drawn with, in one call.** `get_design_catalogue` answers, for the Job's checkout or a served repository it names, one `area` at a time:
+
+| Area | Holds |
+|---|---|
+| `contents` (the default) | The names in every other area, and no values |
+| `tokens` | Groups by role (colour, space, type, radius, shadow, motion, other) and name family, each token's value resolved in the default theme, the `var()` it was written as, and another theme's value where it differs |
+| `components` | Each file named for a component: its stylesheet beside it, the classes that sheet defines, and HTML read from the file's own tags that carry them |
+| `icons` | The glyphs a mock may name in `<i data-icon>`, `MOCK_GLYPHS`, which a test holds to `mock-icons.ts` |
+| `patterns` | The house patterns the repository keeps in `.armada/catalogue/patterns.html`, one `<template data-pattern>` each |
+
+`match` narrows an area to names and paths holding its words, and an answer stays under 24 KB, saying in `cut` what it left out.
+A token is a custom property set on the document or on a theme, never one set inside a component's rule.
+A component's sample is the elements as written, since nothing runs: a class chosen at run time shows only where it is a literal in the file, and a pattern covers what it misses.
+**Fleet reads a checkout once and keeps it** until the fingerprint of its inputs moves: `git ls-files` lists them, ignored files left out, and each one's size and modified time is digested on every call.
+The `show_sketch` description and the writing-a-document skill tell an agent to call it before the first mock.
+
 **A mock is refused with what to change** when it sends `kept`, when it has no usable stylesheet and no `css` (the answer says to draw a `screen`), when the repository holds several packages and nothing shows which is the Job's, or when a `styles` path is outside the checkout or not usable.
 A sketch holds at most 12 mocks, and `html` and `css` count toward the byte cap.
 The node and its routes are in [A sketch draws HTML in the repository's styles](../../practices/protocol/a-sketch-draws-html-the-mock-node.md), and the icons a mock may name in `<i data-icon>` are in `packages/components/src/compositions/SketchScene/mock-icons.ts`.
@@ -49,8 +65,9 @@ He approves it, or sends it back with a note, and `answer_sketch` tells the job 
 Fleet raises it in his Needs you as `sketch:<title>` until he answers it ([Waiting on the person](waiting-on-the-person.md)); the job never lists it in `waiting_for`.
 The sketch keeps how it ended in `detail.settled`, `detail.settled_at` and `detail.words`, and drawing the title again asks again.
 Only the drawing he read is answered: one drawn again since is refused.
-Only the newest sketch waits on him: drawing one takes back any other of the job's still waiting, as his Withdraw does, so a sketch drawn again under a new title leaves the old one withdrawn.
-Fleet lists only the newest sketch drawn in his Needs you, and Bridge pins only that one, while he has not answered it: one an earlier Fleet left open behind it never waits again, even once he answers the newer one.
+Every sketch he has not answered waits on him, each with its own Approve and Send back, and answering one leaves the rest waiting.
+Drawing a title again replaces that sketch only; another title's stays.
+Fleet lists each in his Needs you, newest drawn first, and Bridge pins the newest still open. The pin is read again after each answer, so an answered sketch never stays pinned.
 A plan's sketch is not asked, because it is approved with the plan.
 
 **Each drawing of a title is kept as a revision**, as a [document](../document.md)'s pages are, so a redraw loses nothing.

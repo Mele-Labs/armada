@@ -220,10 +220,10 @@ pub fn build_of(report: &FleetBuildReport) -> Build {
     Build { report: report.clone(), aligned, adopts: report.carried.clone() }
 }
 
-/// `5 Nov, 17:05`, in this machine's time, as a kept build is named. Text that is no instant comes back as it came.
+/// `Nov 5 17:05:00`, in his clock with its day, as a kept build is named. Text that is no instant comes back as it came.
 pub fn built_said(at: &Instant) -> String {
     match DateTime::parse_from_rfc3339(at.as_str()) {
-        Ok(when) => when.with_timezone(&Local).format("%-d %b, %H:%M").to_string(),
+        Ok(when) => crate::settings::time::stamp_of(when.with_timezone(&Local), ipc::time_format::TimeFormat { date: true, ..crate::settings::time::held() }, Local::now()),
         Err(_) => at.as_str().to_string(),
     }
 }

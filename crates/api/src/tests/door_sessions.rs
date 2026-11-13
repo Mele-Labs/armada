@@ -95,6 +95,7 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         so_far: None,
         standing: None,
         held_until: None,
+        snoozed_until: None,
         context_breakdown: None,
         loadout_summary: None,
         on_your_words: false,

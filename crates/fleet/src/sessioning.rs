@@ -43,6 +43,7 @@ pub(crate) struct LedgerReads {
     waiting: WaitingReads,
     /// When the limit the session hit resets, while it is held for one.
     limited: Option<String>,
+    snoozed: Option<String>,
     /// When the person was last in the Job, as a client told it.
     viewed: Option<String>,
     /// The breakdown of the context window, as the wire spells it.
@@ -816,6 +817,15 @@ where
         path: Option<String>,
     ) -> Result<ipc::StyleSources, Refusal> {
         self.style_sources_read(caller, session_id, path).await
+    }
+
+    async fn get_design_catalogue(
+        &self,
+        caller: Option<api::Caller>,
+        session_id: Option<ipc::SessionId>,
+        asked: ipc::CatalogueAsked,
+    ) -> Result<ipc::DesignCatalogue, Refusal> {
+        self.design_catalogue_read(caller, session_id, asked).await
     }
 
     async fn get_kept_styles(&self, hash: String) -> Result<ipc::KeptStyles, Refusal> {

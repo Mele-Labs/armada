@@ -47,6 +47,10 @@ actions!(annotate, [Toggle, Shoot]);
 /// Where the layer is kept between openings of the screen: the notes survive a toggle.
 const KEEP_NOTE: &str = "annotate:note";
 
+/// The deferred priority the layer and its cards paint at: over Settings and the palette (2), under menus (4)
+/// and a walk's chrome.
+pub const OVER: usize = 3;
+
 /// The windows whose layer is on, so a screen drawn again in one finds the layer on (Electron keeps this in
 /// the window's session storage). Per window, not per machine.
 #[derive(Default)]

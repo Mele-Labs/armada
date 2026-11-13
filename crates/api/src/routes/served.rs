@@ -427,6 +427,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/style_sources",
     },
     Route {
+        operation: "get_design_catalogue",
+        method: "GET",
+        path: "/sessions/design_catalogue",
+    },
+    Route {
         operation: "get_kept_styles",
         method: "GET",
         path: "/sessions/kept_styles",
