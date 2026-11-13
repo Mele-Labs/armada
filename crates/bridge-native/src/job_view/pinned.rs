@@ -62,9 +62,8 @@ impl JobView {
                 .size(look.length(token::H_CONTROL_SM))
                 .rounded(look.length(token::RADIUS_MD))
                 .when(off.is_none(), |button| button.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
-                .when(off.is_some(), |button| button.opacity(0.5))
                 .tooltip(tip(off.clone().unwrap_or_else(|| "Stop".into())))
-                .child(glyph(look, "square", Size::Mark, look.color(token::FG_MUTED)))
+                .child(glyph(look, "square", Size::Mark, look.color(if off.is_some() { token::FG_SUBTLE } else { token::FG_MUTED })))
                 // The head's Stop, so both answer at once and a refusal is put back in one place.
                 .on_click(cx.listener(|this, _, window, cx| {
                     cx.stop_propagation();

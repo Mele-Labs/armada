@@ -1389,14 +1389,17 @@ impl Palette {
             .when(going, |row| row.opacity(0.5))
             .when_some(off, |row, why| row.tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(why.clone()).build(window, cx)))
             .child(match shown.icon {
-                Some(icon) => glyph(look, icon, look.color(if shown.destructive { token::STATUS_COMPLETED_FAILED } else { token::FG_MUTED })).into_any_element(),
+                Some(icon) => glyph(look, icon, look.color(if shown.off.is_some() { token::FG_SUBTLE } else if shown.destructive { token::STATUS_COMPLETED_FAILED } else { token::FG_MUTED })).into_any_element(),
                 None => div().flex_none().size(look.length(token::SPACE_4)).into_any_element(),
             })
             .child(div().flex_1().min_w_0().truncate().child(SharedString::from(shown.label.clone())))
             .children(held.map(|value| {
                 div().flex_none().max_w_1_2().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(value))
             }))
-            .children(shown.chord.map(|chord| kbd(look, chord)))
+            .children(shown.chord.map(|chord| {
+                let cap = kbd(look, chord);
+                if shown.off.is_some() { cap.text_color(look.color(token::FG_SUBTLE)) } else { cap }
+            }))
             .on_click(cx.listener(move |this, _, window, cx| this.run_act(run.clone(), window, cx)));
             div()
                 .flex()

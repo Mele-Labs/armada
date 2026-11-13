@@ -112,7 +112,7 @@ pub fn chip(mac: Option<&str>, cx: &App) -> Option<Chip> {
 pub fn off_sentence(macs: &[Mac], mac: Option<&str>) -> Option<String> {
     let id = mac?;
     let name = macs.iter().find(|one| one.id == id).map_or("another Mac", |one| one.name.as_str());
-    Some(format!("Runs on {name}. Acting on it from here comes later."))
+    Some(format!("Runs on {name}. Act on it there."))
 }
 
 /// What a Job's record says about where it can be acted on.
@@ -226,8 +226,8 @@ mod tests {
     #[test]
     fn the_refusal_names_the_mac_the_job_runs_on() {
         let macs = [this(), linked("air", "Air", MacColour::Orange)];
-        assert_eq!(off_sentence(&macs, Some("air")).as_deref(), Some("Runs on Air. Acting on it from here comes later."));
+        assert_eq!(off_sentence(&macs, Some("air")).as_deref(), Some("Runs on Air. Act on it there."));
         assert_eq!(off_sentence(&macs, None), None);
-        assert_eq!(off_sentence(&macs, Some("gone")).as_deref(), Some("Runs on another Mac. Acting on it from here comes later."));
+        assert_eq!(off_sentence(&macs, Some("gone")).as_deref(), Some("Runs on another Mac. Act on it there."));
     }
 }
