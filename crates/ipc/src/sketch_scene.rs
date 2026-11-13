@@ -64,6 +64,36 @@ pub enum SceneColor {
     Grey,
 }
 
+/// How an arrow's line is drawn. Solid where unset.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SceneLine {
+    Solid,
+    Dashed,
+    Dotted,
+}
+
+/// Where an arrow carries its head. At the end where unset.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SceneHead {
+    End,
+    Start,
+    Both,
+    /// Named `none` on the wire; spelled out so it never reads as `Option::None`.
+    #[serde(rename = "none")]
+    NoHead,
+}
+
+/// How an arrow runs between its nodes. An elbow where unset.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScenePath {
+    Elbow,
+    Straight,
+    Curve,
+}
+
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct SceneNode {
     pub id: String,
@@ -117,6 +147,12 @@ pub struct SceneEdge {
     pub step: Option<f64>,
     #[serde(default)]
     pub color: Option<SceneColor>,
+    #[serde(default)]
+    pub line: Option<SceneLine>,
+    #[serde(default)]
+    pub head: Option<SceneHead>,
+    #[serde(default)]
+    pub path: Option<ScenePath>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]

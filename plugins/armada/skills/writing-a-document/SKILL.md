@@ -115,14 +115,17 @@ notice.** The write is not refused, so fix the scene and write again. The rules:
 | Edge | `from` and `to` are ids of nodes in the scene |
 | Node `kind` | `box`, `group`, `lane`, `label`, `code`. A `group` and a `lane` need `w` and `h` |
 | Node fields | `id`, `kind`, `x`, `y`, and optionally `w`, `h`, `title`, `body`, `icon`, `lang`, `step`, `shape`, `color` |
-| Edge fields | `id`, `from`, `to`, and optionally `label`, `flow`, `step`, `color` |
+| Edge fields | `id`, `from`, `to`, and optionally `label`, `flow`, `step`, `color`, `line`, `head`, `path` |
 | `icon` | One of: activity, bot, box, clock, cpu, eye, file, git-branch, git-merge, globe, hammer, hard-drive, layers, lock, package, rocket, scale, scroll-text, server, settings, shield-check, terminal, webhook, wrench, zap |
 | `shape` | `box`, `pill`, `circle`, `diamond`, `cylinder`, `hexagon` |
 | `color` | `blue`, `teal`, `green`, `amber`, `orange`, `red`, `grey` |
+| `line` | `solid` (the default), `dashed` or `dotted`. Dotted for an optional or later step. `flow: true` is dashed |
+| `head` | `end` (the default), `start`, `both` or `none`. Both for a two-way exchange, none for a plain link |
+| `path` | `elbow` (the default), `straight` or `curve`. Straight for a short hop, curve where elbows would cross |
 | `step` | A finite number. Nodes and edges of one number play together, in order |
 | Layout | Boxes are laid out from `x` and `y`. Space them about 330 apart across and 170 down, and Bridge moves them only as far as overlap needs |
 
-An unknown `kind`, `icon`, `shape` or `color`, a duplicate id or an edge to a
+An unknown `kind`, `icon`, `shape`, `color`, `line`, `head` or `path`, a duplicate id or an edge to a
 missing node fails the whole scene. Use `color` for meaning: `red` for what
 fails, `amber` for what is unknown, `green` for what works. Leave the rest
 uncoloured.

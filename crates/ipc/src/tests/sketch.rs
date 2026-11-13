@@ -9,10 +9,10 @@ use crate::sketch::screen::{
     SCREEN_GAPS, SCREEN_ICONS, SCREEN_TEXTS, SCREEN_VARIANTS, SPECS,
 };
 use crate::sketch::{
-    EDGE_FIELDS, NODE_FIELDS, MOST_EDGES, MOST_MOCKS, MOST_NODES, MOST_SCENE_BYTES, MOST_TITLE_CHARS, SCENE_COLORS, SCENE_ICONS, SCENE_KINDS,
-    SCENE_SHAPES, WIRE_PARTS,
+    EDGE_FIELDS, NODE_FIELDS, MOST_EDGES, MOST_MOCKS, MOST_NODES, MOST_SCENE_BYTES, MOST_TITLE_CHARS, SCENE_COLORS, SCENE_HEADS, SCENE_ICONS,
+    SCENE_KINDS, SCENE_LINES, SCENE_PATHS, SCENE_SHAPES, WIRE_PARTS,
 };
-use crate::ShowSketch;
+use crate::{SceneHead, SceneLine, ScenePath, ShowSketch};
 
 const SCENE_TS: &str = include_str!("../../../../packages/components/src/compositions/SketchScene/scene.ts");
 const SCREEN_TS: &str = include_str!("../../../../packages/components/src/compositions/SketchScene/screen.ts");
@@ -73,6 +73,32 @@ fn a_shape_and_a_colour_are_taken_by_name_and_refused_with_the_allowed_list() {
     let said = refused(scene);
     assert!(said.contains("nodes[1] `b`: `shape` is `star`. Allowed: box, pill, circle, diamond, cylinder, hexagon"), "{said}");
     assert!(said.contains("edges[0] `e1`: `color` is `purple`. Allowed: blue, teal, green, amber, orange, red, grey"), "{said}");
+}
+
+#[test]
+fn an_arrows_line_head_and_path_are_taken_by_name_and_refused_with_the_allowed_list() {
+    let mut scene = two_boxes();
+    scene["edges"][0]["line"] = json!("dotted");
+    scene["edges"][0]["head"] = json!("both");
+    scene["edges"][0]["path"] = json!("straight");
+    let sketch = sent("Flow", scene.clone());
+    sketch.checked().unwrap();
+    let read = sketch.scene.scene().expect("the scene reads");
+    assert_eq!(read.edges[0].line, Some(SceneLine::Dotted));
+    assert_eq!(read.edges[0].head, Some(SceneHead::Both));
+    assert_eq!(read.edges[0].path, Some(ScenePath::Straight));
+
+    scene["edges"][0]["head"] = json!("none");
+    let read = sent("Flow", scene.clone()).scene.scene().expect("the scene reads");
+    assert_eq!(read.edges[0].head, Some(SceneHead::NoHead));
+
+    scene["edges"][0]["line"] = json!("wavy");
+    scene["edges"][0]["head"] = json!("middle");
+    scene["edges"][0]["path"] = json!("zigzag");
+    let said = refused(scene);
+    assert!(said.contains("edges[0] `e1`: `line` is `wavy`. Allowed: solid, dashed, dotted"), "{said}");
+    assert!(said.contains("edges[0] `e1`: `head` is `middle`. Allowed: end, start, both, none"), "{said}");
+    assert!(said.contains("edges[0] `e1`: `path` is `zigzag`. Allowed: elbow, straight, curve"), "{said}");
 }
 
 #[test]
@@ -253,8 +279,9 @@ fn fields_in_scene_ts(name: &str) -> Vec<String> {
         .collect()
 }
 
-/// Edge `step` is taken here before `scene.ts` has it; remove this when the type carries it.
-const AHEAD_OF_SCENE_TS: [&str; 1] = ["step"];
+/// Edge `step`, `line`, `head` and `path` are taken here before `scene.ts` types them. Classic's reader skips
+/// `line`, `head` and `path` until it draws them; remove each from here when the type carries it.
+const AHEAD_OF_SCENE_TS: [&str; 4] = ["step", "line", "head", "path"];
 
 #[test]
 fn the_fields_the_checker_takes_are_the_fields_scene_ts_types() {
@@ -329,7 +356,7 @@ fn the_earlier_scene_is_kept_whole_beside_its_title_and_counted_in_the_cap() {
 
 #[test]
 fn the_tool_description_names_every_kind_icon_and_wire_part() {
-    for word in SCENE_KINDS.iter().chain(WIRE_PARTS.iter()).chain(SCENE_ICONS.iter()).chain(SCENE_SHAPES.iter()).chain(SCENE_COLORS.iter()) {
+    for word in SCENE_KINDS.iter().chain(WIRE_PARTS.iter()).chain(SCENE_ICONS.iter()).chain(SCENE_SHAPES.iter()).chain(SCENE_COLORS.iter()).chain(SCENE_LINES.iter()).chain(SCENE_HEADS.iter()).chain(SCENE_PATHS.iter()) {
         assert!(OPERATION.contains(word), "show_sketch.toml does not name `{word}`");
     }
     assert!(OPERATION.contains("ASCII"), "the description must forbid ASCII art");
