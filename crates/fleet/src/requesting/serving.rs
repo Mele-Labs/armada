@@ -199,7 +199,7 @@ where
     async fn send_requests(&self, caller: Option<api::Caller>, send: SendRequests) -> Result<RequestsSent, Refusal> {
         let job = self
             .requesting_job(caller, send.session_id.as_ref())
-            .ok_or_else(|| self.unplaced("Requests are sent from a Job, and nothing places one."))?;
+            .ok_or_else(|| self.unplaced("Name a Job: requests are sent from a Job, and this call gave no Job id."))?;
         if !self.thread_open(&job).await {
             return Err(self.unplaced("The Job's thread is closed, and its scratch folder holds the answers."));
         }
@@ -291,7 +291,7 @@ where
     ) -> Result<RequestSaved, Refusal> {
         let job = self
             .requesting_job(caller, save.session_id.as_ref())
-            .ok_or_else(|| self.unplaced("A request is saved from a Job, and nothing places one."))?;
+            .ok_or_else(|| self.unplaced("Name a Job: a request is saved from a Job, and this call gave no Job id."))?;
         let root = self
             .job_repository(&job)
             .await
