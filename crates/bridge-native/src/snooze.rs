@@ -153,6 +153,17 @@ pub fn preset_rows(now: DateTime<Local>, format: TimeFormat) -> Vec<Entry> {
         .collect()
 }
 
+/// What is posted to `/sessions/snooze`: `SnoozeSession`, with `until` to snooze and none to wake now.
+pub fn body(job: &str, until: Option<DateTime<Utc>>) -> Result<String, ipc::Unencodable> {
+    ipc::encode(&ipc::SnoozeSession { session_id: ipc::SessionId::carried(job.to_string()), until: until.map(instant_of) })
+}
+
+/// The sentence a refused snooze or wake is toasted with: Fleet's own words, or its status where the body is
+/// not a refusal.
+pub fn refusal_said(status: u16, bytes: &[u8]) -> String {
+    ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message)
+}
+
 /// A snooze or a wake sent to Fleet. A refusal is said in a toast with Fleet's reason.
 pub fn post(port: Option<u16>, body: Result<String, ipc::Unencodable>, cx: &mut App) {
     let Some(port) = port else {
@@ -176,7 +187,7 @@ pub fn post(port: Option<u16>, body: Result<String, ipc::Unencodable>, cx: &mut 
             .await;
         let said = match answer {
             Ok((status, _)) if (200..300).contains(&status) => return,
-            Ok((status, bytes)) => ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message),
+            Ok((status, bytes)) => refusal_said(status, &bytes),
             Err(why) => why,
         };
         cx.update(|cx| crate::toasts::tell(said, cx));
@@ -584,6 +595,35 @@ mod tests {
         assert_eq!(quiet_until(local(14, 9, 0), now, format), "Quiet until Nov 14 09:00");
         assert_eq!(quiet_until(local(13, 16, 30), now, TimeFormat { date: true, ..format }), "Quiet until Nov 13 16:30");
         assert_eq!(quiet_until(local(13, 16, 30), now, TimeFormat { hour12: true, ..format }), "Quiet until 4:30 PM");
+    }
+
+    #[test]
+    fn the_body_posted_is_a_snooze_session_with_the_time_and_a_wake_without_one() {
+        let until = Utc.with_ymd_and_hms(2026, 11, 14, 9, 0, 0).single().expect("a time");
+        let snooze = body("mock-04", Some(until)).expect("encodes");
+        assert_eq!(
+            ipc::decode::<ipc::SnoozeSession>("SnoozeSession", snooze.as_bytes()).expect("reads as the wire's type"),
+            ipc::SnoozeSession { session_id: ipc::SessionId::carried("mock-04"), until: Some(ipc::Instant::carried("2026-11-14T09:00:00.000Z")) }
+        );
+        assert!(snooze.contains(r#""until":"2026-11-14T09:00:00.000Z""#), "{snooze}");
+        let wake = body("mock-04", None).expect("encodes");
+        assert_eq!(
+            ipc::decode::<ipc::SnoozeSession>("SnoozeSession", wake.as_bytes()).expect("reads as the wire's type"),
+            ipc::SnoozeSession { session_id: ipc::SessionId::carried("mock-04"), until: None }
+        );
+        assert!(!wake.contains("until"), "a wake carries no time: {wake}");
+    }
+
+    #[test]
+    fn each_refusal_fleet_gives_is_toasted_in_its_own_sentence() {
+        let refused = |code: &str, message: &str| ipc::encode(&ipc::WireError::raised(code, message, ipc::RunId::carried("run-1"))).expect("encodes");
+        let ended = refused("fleet.session_not_snoozable", "This Job has ended, so it cannot be snoozed.");
+        assert_eq!(refusal_said(409, ended.as_bytes()), "This Job has ended, so it cannot be snoozed.");
+        let unreadable = refused("fleet.snooze_unreadable", "soon is not a time");
+        assert_eq!(refusal_said(422, unreadable.as_bytes()), "soon is not a time");
+        let missing = refused("fleet.no_such_session", "no job is named mock-99");
+        assert_eq!(refusal_said(422, missing.as_bytes()), "no job is named mock-99");
+        assert_eq!(refusal_said(502, b"<html>"), "Fleet answered 502", "a body that is no refusal says the status");
     }
 
     #[test]
