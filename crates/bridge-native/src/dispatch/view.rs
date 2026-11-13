@@ -63,7 +63,7 @@ impl Render for DispatchSheet {
             .shadow(shadows)
             .text_color(look.color(token::FG_DEFAULT))
             .font_family(sans(look))
-            .children(self.wait_chip(cx))
+            .children(self.wait_chip(window, cx))
             .child(self.line(cx))
             .children(self.snippets(cx))
             .children(self.menu_view(cx))
@@ -96,6 +96,16 @@ impl Render for DispatchSheet {
     }
 }
 
+/// The focus ring: an outer ring set off from the control, as the notes layer draws it, in the control's own radius
+/// plus the offset. It takes no press, and the control's own border stays as its state left it.
+fn ringed(look: &Look, control: gpui::Stateful<gpui::Div>, on: bool, radius: Pixels) -> gpui::Stateful<gpui::Div> {
+    let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+    let out = -(look.length(token::FOCUS_RING_WIDTH) + px(2.));
+    control.relative().when(on, |control| {
+        control.child(div().absolute().top(out).bottom(out).left(out).right(out).rounded(radius - out).border(look.length(token::FOCUS_RING_WIDTH)).border_color(ring))
+    })
+}
+
 impl DispatchSheet {
     /// New Job in <project>: a card of its own under the sheet that starts what ⌘T starts. Tab from the
     /// sheet reaches it, and Enter or Space starts it. It names the repository the picker names, else the title bar's. None where the title bar names nowhere.
@@ -103,7 +113,6 @@ impl DispatchSheet {
         let name = self.here_in()?;
         let look = cx.look();
         let focused = self.here_key.is_focused(window);
-        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let said = format!("New Job in {name}");
         let hover = look.color(token::BG_HOVER);
         let card = div()
@@ -133,7 +142,7 @@ impl DispatchSheet {
             .cursor_pointer()
             .rounded(look.length(token::RADIUS_LG))
             .border(look.length(token::BORDER_WIDTH))
-            .border_color(if focused { ring } else { look.color(token::BORDER_SUBTLE) })
+            .border_color(look.color(token::BORDER_SUBTLE))
             .bg(look.color(token::BG_RAISED))
             .hover(move |style| style.bg(hover))
             .shadow(look.shadows(token::SHADOW_OVERLAY))
@@ -143,17 +152,17 @@ impl DispatchSheet {
             .child(glyph("square-terminal", look.length(token::SPACE_4), look.color(token::ACCENT)))
             .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said.clone())))
             .child(kbd("⌘T", look));
-        Some(labelled(card, Role::Button, said).into_any_element())
+        Some(labelled(ringed(look, card, focused, look.length(token::RADIUS_LG)), Role::Button, said).into_any_element())
     }
 
     /// The sentence over the request: `Starts when [Job]'s [PR lands] · from [main] · needs [..]`.
-    fn wait_chip(&self, cx: &Context<Self>) -> Option<gpui::AnyElement> {
+    fn wait_chip(&self, window: &Window, cx: &Context<Self>) -> Option<gpui::AnyElement> {
         let wait = self.wait.as_ref()?;
         let look = cx.look();
         let off = !self.face.connected;
         let part = |id: &'static str, which: Part, at: usize, label: SharedString, name: String, icon: Option<&'static str>, cx: &Context<Self>| {
-            let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
             let handle = self.parts[at].clone();
+            let on = handle.is_focused(window);
             let by_hand = wait.his(which);
             let body = div()
                 .id(id)
@@ -170,7 +179,6 @@ impl DispatchSheet {
                 .border_color(look.color(if by_hand { token::ACCENT } else { token::BORDER_DEFAULT }))
                 .bg(look.color(token::BG_SUNKEN))
                 .text_color(look.color(token::FG_DEFAULT))
-                .focus_visible(move |style| style.border_color(ring))
                 .when(!off, |body| body.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
                 .when(off, |body| body.opacity(0.5))
                 .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.part_keys(which, event, window, cx)))
@@ -190,7 +198,7 @@ impl DispatchSheet {
                 .tooltip(tip(wait.tip(which)))
                 .children(icon.map(|name| glyph(name, look.length(token::SPACE_3), look.color(token::ACCENT))))
                 .child(div().min_w_0().truncate().child(label));
-            labelled(body, Role::Button, name)
+            labelled(ringed(look, body, on, look.length(token::RADIUS_MD)), Role::Button, name)
         };
         let word = |text: &'static str| div().flex_none().child(text);
         let mut line = div()
@@ -396,10 +404,7 @@ impl DispatchSheet {
         // The repository is one picker at the start of the band, as Model and Effort are: its list holds
         // every repository with its key, and ⌥1 to ⌥9 still pick without opening it.
         let chosen = chosen_name.is_some();
-        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
-        let edge = if self.row.is_focused(window) {
-            ring
-        } else if asking {
+        let edge = if asking {
             hue
         } else if chosen {
             look.color(token::ACCENT)
@@ -408,7 +413,7 @@ impl DispatchSheet {
         };
         let at = Rc::clone(&self.at.repository);
         let picker = labelled(
-            div()
+            ringed(look, div()
                 .id("dispatch-repository")
                 .track_focus(&self.row)
                 .tab_stop(true)
@@ -437,6 +442,9 @@ impl DispatchSheet {
                 .child(mark)
                 .child(div().flex_1().min_w_0().truncate().child(SharedString::from(chosen_name.clone().unwrap_or_else(|| "Repository".into()))))
                 .child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::FG_MUTED))),
+                self.row.is_focused(window),
+                look.length(token::RADIUS_MD),
+            ),
             Role::ComboBox,
             chosen_name.as_ref().map_or("Repository".to_string(), |name| format!("Repository {name}")),
         );
@@ -463,12 +471,16 @@ impl DispatchSheet {
         let queue = (self.face.queue && self.attached.is_empty()).then(|| {
             let live = self.queue_live(cx);
             let button = labelled(
-                Btn::new("dispatch-queue", "Queue for later", Weight::Secondary)
+                ringed(look, Btn::new("dispatch-queue", "Queue for later", Weight::Secondary)
                     .disabled(!live)
                     .pending(self.queueing)
                     .draw(look, cx)
                     .track_focus(&self.queue_key)
+                    .focus_visible(|style| style)
                     .when(live, |button| button.on_click(cx.listener(|this, _, window, cx| this.queue(window, cx)))),
+                    self.queue_key.is_focused(window),
+                    look.length(token::RADIUS_LG),
+                ),
                 Role::Button,
                 "Queue for later",
             );
@@ -481,13 +493,17 @@ impl DispatchSheet {
         let draft = self.wait.is_none().then(|| {
             let said = if self.drafting { "Drafting" } else { "Draft" };
             labelled(
-                Btn::new("dispatch-draft", said, Weight::Secondary)
+                ringed(look, Btn::new("dispatch-draft", said, Weight::Secondary)
                     .disabled(!live)
                     .pending(self.drafting)
                     .draw(look, cx)
                     .track_focus(&self.draft_key)
+                    .focus_visible(|style| style)
                     .tooltip(tip("Nothing runs until you press Start on its card"))
                     .when(live, |button| button.on_click(cx.listener(|this, _, window, cx| this.draft(window, cx)))),
+                    self.draft_key.is_focused(window),
+                    look.length(token::RADIUS_LG),
+                ),
                 Role::Button,
                 said,
             )
@@ -497,12 +513,16 @@ impl DispatchSheet {
             .flex()
             .items_center()
             .child(labelled(
-                Btn::new("dispatch-act", said, Weight::Primary)
+                ringed(look, Btn::new("dispatch-act", said, Weight::Primary)
                     .disabled(!live)
                     .pending(starting)
                     .draw(look, cx)
                     .track_focus(&self.act_key)
+                    .focus_visible(|style| style)
                     .when(live, |button| button.on_click(cx.listener(|this, _, window, cx| this.act(window, cx)))),
+                    self.act_key.is_focused(window),
+                    look.length(token::RADIUS_LG),
+                ),
                 Role::Button,
                 said,
             ));
@@ -547,9 +567,8 @@ impl DispatchSheet {
         cx: &Context<Self>,
     ) -> impl IntoElement {
         let look = cx.look();
-        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         labelled(
-            div()
+            ringed(look, div()
                 .id(id)
                 .track_focus(key.0)
                 .relative()
@@ -561,7 +580,7 @@ impl DispatchSheet {
                 .gap(look.length(token::SPACE_2))
                 .rounded(look.length(token::RADIUS_MD))
                 .border(look.length(token::BORDER_WIDTH))
-                .border_color(if key.1 { ring } else { look.color(token::BORDER_DEFAULT) })
+                .border_color(look.color(token::BORDER_DEFAULT))
                 .bg(look.color(token::BG_SUNKEN))
                 .font_family(mono(look))
                 .text_color(look.color(token::FG_DEFAULT))
@@ -572,6 +591,9 @@ impl DispatchSheet {
                 .child(glyph(icon, look.length(token::SPACE_3), look.color(token::FG_MUTED)))
                 .child(div().flex_1().min_w_0().truncate().child(value))
                 .child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::FG_MUTED))),
+                key.1,
+                look.length(token::RADIUS_MD),
+            ),
             Role::ComboBox,
             name,
         )
