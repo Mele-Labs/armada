@@ -135,6 +135,18 @@ pub struct FleetBuildReport {
     /// a report built without it. Since 9 Nov 2026. `docs/practices/protocol/the-title-bars-views-fleet-reads.md`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub switcher: Option<BuildSwitcher>,
+    /// Branches on origin a snapshot can take that no Job here holds and none picked: ahead of
+    /// `origin/main` and committed in the last fourteen days, newest first. Read off the refs Fleet
+    /// last fetched, so a Mac with no Job on a branch can still try it. Since 13 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub origin: Vec<OriginBranch>,
+}
+
+/// A branch on origin a snapshot can take, and when its tip was committed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OriginBranch {
+    pub branch: String,
+    pub committed_at: Instant,
 }
 
 /// A branch picked for the next snapshot.
