@@ -45,6 +45,9 @@ impl Rig {
         let body = ipc::encode(&PublishWorkflowDraft { workflow_id: WorkflowId::carried("staged"), source: "repository".into(), ..Default::default() }).unwrap();
         let (status, body) = call(&self.app, "POST", "/workflows/draft/publish", &body).await;
         assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+        // A publish reads the folders twice, and the fixture answers the first only: they read as they did, again.
+        self.planted.will_read(read(staged_in_repository()));
+        self.fleet.workflows_changed(&self.home.path().to_string_lossy());
         decoded::<WorkflowPublished>("a publish", &body).version
     }
 

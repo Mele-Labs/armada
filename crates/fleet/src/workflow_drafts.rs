@@ -227,6 +227,8 @@ where
         let place = self.publish_place(served, id, &publish.source, project, &scope);
         // What the place holds now, which the first publish into it keeps as version 1.
         let found = self.workflow_published_text(served, id, place.source.as_str(), Some(place.project.as_str()).filter(|project| !project.is_empty()));
+        // A draft of Armada's began from the carried text, which is what the copy is then based on.
+        let base = if publish.source == "armada" { crate::workflow_versions::carried_base(served, id) } else { None };
         // The loader's refusals pass through the save unchanged; this one it cannot make, since the file's name is the id it declares.
         let roster = config::Roster::of(self.models_on());
         if let Ok(declared) = config::WorkflowDef::parse(Path::new("workflow.json"), text.trim(), &roster) {
@@ -242,9 +244,7 @@ where
         let asked = SaveWorkflow { scope, definition: text.clone(), overwrite: publish.overwrite || publish.source != "armada" };
         self.check_workflow_file(&asked, served)?;
         let saved = self.save_workflow_file(asked, served)?;
-        // A draft of Armada's began from the carried text, which is what the copy is then based on.
-        let base = (publish.source == "armada").then_some(draft.base.as_str());
-        let version = self.workflow_publish_kept(served, &place, found.as_deref(), &text, base).await?;
+        let version = self.workflow_publish_kept(&place, found.as_deref(), &text, base).await?;
         self.store().lock().await.discard_draft(&key).map_err(|why| self.draft_not_kept(why))?;
         Ok(WorkflowPublished { saved, version })
     }

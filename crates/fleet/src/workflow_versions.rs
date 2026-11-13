@@ -14,7 +14,7 @@ use std::collections::HashMap;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{BasedOn, PutWorkflowDraft, RevertWorkflow, VersionOrigin, WireError, WireValue, WorkflowDefinition, WorkflowDraft, WorkflowId, WorkflowSaved, WorkflowScope};
+use ipc::{BasedOn, PutWorkflowDraft, RevertWorkflow, VersionOrigin, WireError, WireValue, WorkflowDefinition, WorkflowDraft, WorkflowId, WorkflowScope};
 use ipc::{Instant, WorkflowSummary, WorkflowVersion, WorkflowVersions};
 use sha2::{Digest, Sha256};
 use store::{KeptBase, NewVersion, WorkflowPlace, VERSION_FOUND};
@@ -42,6 +42,18 @@ fn carried_of(served: &Served, id: &str) -> Option<(u32, String)> {
     let files = served.files();
     let carried = files.iter().find(|file| file.id().as_str() == id && file.source().as_wire() == "armada")?;
     Some((carried.def().version(), carried.text().to_string()))
+}
+
+/// Armada's carried text of `id` as a base: read before an act that re-reads the folders, so what a copy began from is what was carried when it was made.
+pub(crate) fn carried_base(served: &Served, id: &str) -> Option<KeptBase> {
+    carried_of(served, id).map(|(version, text)| KeptBase { version, hash: text_hash(&text), text })
+}
+
+/// The id and base of the carried definition whose text is `definition` byte for byte, where there is one.
+pub(crate) fn carried_equal_to(served: &Served, definition: &str) -> Option<(String, KeptBase)> {
+    let files = served.files();
+    let carried = files.iter().find(|file| file.source().as_wire() == "armada" && file.text() == definition)?;
+    Some((carried.id().as_str().to_string(), KeptBase { version: carried.def().version(), hash: text_hash(definition), text: definition.to_string() }))
 }
 
 /// Where a copy in `scope` is kept.
@@ -118,21 +130,17 @@ where
     }
 
     /// Keep a publish into `place`: `found`, the text that was there, as version 1 where this is the first; `text` as the next;
-    /// and, where `base` is the carried text the draft began from, the base. The number `text` took.
+    /// and `base`, where the draft was of Armada's. The number `text` took.
     pub(crate) async fn workflow_publish_kept(
         &self,
-        served: &Served,
         place: &WorkflowPlace,
         found: Option<&str>,
         text: &str,
-        base: Option<&str>,
+        base: Option<KeptBase>,
     ) -> Result<u32, Refusal> {
         let at = self.now();
         let (found_hash, hash) = (found.map(text_hash), text_hash(text));
         let found = found.zip(found_hash.as_deref()).map(|(text, hash)| NewVersion { text, hash, at: at.as_str() });
-        let base = base.and_then(|text| {
-            carried_of(served, &place.item_id).map(|(version, _)| KeptBase { version, hash: text_hash(text), text: text.to_string() })
-        });
         self.store()
             .lock()
             .await
@@ -145,27 +153,21 @@ where
         if source == "armada" { scope_place(served, id, scope) } else { place_of(served, id, source, project) }
     }
 
-    /// `save_workflow` wrote `saved` from `definition`: where the place has no base and the text is Armada's carried text of that
-    /// id byte for byte, which is how a copy is made, keep it as the base. Any other save records none.
-    pub(crate) async fn workflow_save_based(&self, served: &Served, scope: &WorkflowScope, definition: &str, saved: &WorkflowSaved) -> Result<(), Refusal> {
-        let id = saved.workflow_id.as_str();
-        let Some((version, carried)) = carried_of(served, id) else { return Ok(()) };
-        if carried != definition {
-            return Ok(());
-        }
-        let place = scope_place(served, id, scope);
+    /// `save_workflow` wrote a copy in `scope`: where `carried` says the text is Armada's of that id byte for byte, which is how a
+    /// copy is made, and the place has no base, keep it as the base. Any other save records none.
+    pub(crate) async fn workflow_save_based(&self, served: &Served, scope: &WorkflowScope, carried: Option<(String, KeptBase)>) -> Result<(), Refusal> {
+        let Some((id, base)) = carried else { return Ok(()) };
+        let place = scope_place(served, &id, scope);
         let mut store = self.store().lock().await;
         if store.workflow_base(&place).map_err(|why| self.draft_not_kept(why))?.is_some() {
             return Ok(());
         }
-        let base = KeptBase { version, hash: text_hash(&carried), text: carried };
         store.put_workflow_base(&place, &base).map_err(|why| self.draft_not_kept(why))
     }
 
-    /// A copy was deleted, or reset to Armada's text: its versions and base are dropped, and a reset keeps the carried text it wrote
-    /// as the new base.
-    pub(crate) async fn workflow_copy_dropped(&self, served: &Served, id: &str, source: &str, project: Option<&str>, reset: bool) -> Result<(), Refusal> {
-        let base = carried_of(served, id).filter(|_| reset).map(|(version, text)| KeptBase { version, hash: text_hash(&text), text });
+    /// A copy was deleted, or reset to Armada's text: its versions and base are dropped, and a reset keeps `base`, the carried text it
+    /// wrote, as the new one.
+    pub(crate) async fn workflow_copy_dropped(&self, served: &Served, id: &str, source: &str, project: Option<&str>, base: Option<KeptBase>) -> Result<(), Refusal> {
         self.store()
             .lock()
             .await
