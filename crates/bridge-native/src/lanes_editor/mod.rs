@@ -303,6 +303,10 @@ pub struct LanesEditor {
     sentence: Option<sentence::Sentence>,
     /// A rule's edits waiting for where the draft applies.
     waiting_rules: Vec<draft::WaitingRule>,
+    /// The rules the canvas draws no edge for, each with the Tab stop of its chip in the row over the canvas.
+    edge_stops: Vec<(String, FocusHandle)>,
+    /// Where each of those chips was drawn last, in the window: the sentence opens under it.
+    edge_chips: Rc<std::cell::RefCell<std::collections::HashMap<String, Bounds<Pixels>>>>,
     _subs: Vec<Subscription>,
 }
 
@@ -367,6 +371,8 @@ impl LanesEditor {
             workflows: Vec::new(),
             sentence: None,
             waiting_rules: Vec::new(),
+            edge_stops: Vec::new(),
+            edge_chips: Rc::default(),
             _subs: subs,
         };
         editor.load(cx);
@@ -1125,6 +1131,7 @@ impl LanesEditor {
         stops.extend(self.sentence.iter().flat_map(|sentence| sentence.stops()));
         if matches!(self.read, Read::Read(_)) {
             stops.push(self.state.frame.clone());
+            stops.extend(self.edge_stops.iter().map(|(_, stop)| stop.clone()));
         }
         stops
     }
@@ -1207,6 +1214,12 @@ impl LanesEditor {
         }
         if self.sentence_key(key, window, cx) {
             return true;
+        }
+        if matches!(key.key.as_str(), "enter" | "space") && !mods.platform && !mods.control && !mods.alt {
+            if let Some(id) = self.edge_stops.iter().find(|(_, stop)| stop.is_focused(window)).map(|(id, _)| id.clone()) {
+                self.open_edgeless(&id, true, window, cx);
+                return true;
+            }
         }
         if mods.platform || mods.control || mods.alt {
             return false;
@@ -1319,6 +1332,7 @@ impl LanesHost for LanesEditor {
 impl gpui::Render for LanesEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
+        self.sync_edge_stops(cx);
         if std::mem::take(&mut self.focus_ask) {
             if let Some(stop) = self.ask.as_ref().and_then(|ask| ask.stops().into_iter().next()) {
                 window.focus(&stop, cx);
@@ -1352,7 +1366,7 @@ impl gpui::Render for LanesEditor {
                     self.reveal.set(false);
                 }
                 let watch = self.in_place.is_some() || self.sentence.is_some();
-                let over = self.render_in_place(self.frame.get(), &look, cx);
+                let over = self.render_in_place(self.frame.get(), &look, window, cx);
                 let sentence = self.render_sentence(self.frame.get(), &look, window, cx);
                 div()
                     .relative()

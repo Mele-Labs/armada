@@ -8,7 +8,7 @@
 
 use std::rc::Rc;
 
-use gpui::{anchored, deferred, div, point, prelude::*, px, svg, Anchor, AnyElement, Bounds, Context, Entity, Focusable, FocusHandle, FontWeight, Keystroke, MouseButton, Pixels, Role, SharedString, Subscription, Window};
+use gpui::{anchored, canvas, deferred, div, point, prelude::*, px, svg, Anchor, AnyElement, Bounds, Context, Entity, Focusable, FocusHandle, FontWeight, Keystroke, MouseButton, Pixels, Role, SharedString, Subscription, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{LifecyclePieceKind, LifecycleRule, PieceScope, RuleAct, RuleCondition, RuleWhen};
 
@@ -257,6 +257,109 @@ impl LanesEditor {
             }
         }
         cx.notify();
+    }
+
+    /// The rules the canvas draws no edge for, as the draft has them: one a gate or the Job sets off, or whose act names no
+    /// state. Their chips stand in a row at the top of the canvas.
+    pub(super) fn edgeless(&self) -> Vec<LifecycleRule> {
+        let Some(view) = self.shown.as_ref().or(match &self.read {
+            super::Read::Read(lanes) => Some(lanes),
+            _ => None,
+        }) else {
+            return Vec::new();
+        };
+        let mut ids: Vec<String> = Vec::new();
+        let held = self.rules.iter().filter(|one| one.kept.overridden_by.is_none()).map(|one| one.rule.id.clone());
+        let drafted = self.pieces.iter().filter(|piece| piece.kind == LifecyclePieceKind::Rule).map(|piece| piece.id.clone());
+        let waiting = self.waiting_rules.iter().map(|one| one.rule.id.clone());
+        for id in held.chain(drafted).chain(waiting) {
+            if !ids.contains(&id) && !view.rules.iter().any(|edge| edge.rule == id) {
+                ids.push(id);
+            }
+        }
+        ids.iter().filter_map(|id| self.effective_rule(id)).collect()
+    }
+
+    /// One Tab stop for each chip in the row, kept while its rule stays in it.
+    pub(super) fn sync_edge_stops(&mut self, cx: &mut Context<Self>) {
+        let ids: Vec<String> = self.edgeless().into_iter().map(|rule| rule.id).collect();
+        if ids.iter().eq(self.edge_stops.iter().map(|(id, _)| id)) {
+            return;
+        }
+        let mut held = std::mem::take(&mut self.edge_stops);
+        self.edge_stops = ids
+            .into_iter()
+            .map(|id| match held.iter().position(|(was, _)| *was == id) {
+                Some(at) => held.remove(at),
+                None => (id, cx.focus_handle().tab_stop(true)),
+            })
+            .collect();
+    }
+
+    /// A press or Enter on a chip in the row opens that rule's sentence under it.
+    pub(super) fn open_edgeless(&mut self, id: &str, keyed: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.state.pick(&self.id, None);
+        self.picked = Some(Pick::Rule(id.to_string()));
+        self.open_rule(id, keyed, window, cx);
+    }
+
+    /// The row of those chips over the top of the canvas, each as the canvas draws a rule's chip: its glyph, its name, and
+    /// what it waits for in quiet words.
+    pub(super) fn render_rule_row(&self, frame: Bounds<Pixels>, edge: Pixels, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+        let rules = self.edgeless();
+        if rules.is_empty() {
+            return None;
+        }
+        let vocab = self.vocab();
+        let gap = look.length(token::SPACE_2);
+        let changed: Vec<String> = self.rule_changes().into_iter().map(|one| one.now.id).collect();
+        let chips: Vec<AnyElement> = rules
+            .into_iter()
+            .map(|rule| {
+                let id = rule.id.clone();
+                let open = self.sentence.as_ref().is_some_and(|one| one.is_rule(&id));
+                let waits = SharedString::from(rule::when_phrase(&vocab, &rule.when));
+                let name = SharedString::from(rule.name.clone());
+                let at = self.edge_chips.clone();
+                let seen = id.clone();
+                let chip = div()
+                    .id(SharedString::from(format!("rule-edgeless:{id}")))
+                    .relative()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_1))
+                    .h(look.length(token::H_CONTROL_SM))
+                    .pl(look.length(token::SPACE_1))
+                    .pr(look.length(token::SPACE_2))
+                    .rounded(look.length(token::RADIUS_SM))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(if open { token::ACCENT } else { token::BORDER_DEFAULT }))
+                    .bg(look.color(if open { token::BG_HOVER } else { token::BG_OVERLAY }))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .when(open, |chip| chip.font_weight(FontWeight(look.number(token::WEIGHT_HEADING))))
+                    .whitespace_nowrap()
+                    .cursor_pointer()
+                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                    .occlude()
+                    .tooltip(tip(format!("{name}\n{waits}")))
+                    .child(canvas(move |bounds, _, _| { at.borrow_mut().insert(seen.clone(), bounds); }, |_, _, _, _| {}).absolute().size_full())
+                    .child(svg().flex_none().path(icon_path("clock")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_MUTED)))
+                    .child(div().flex_none().child(name.clone()))
+                    .child(div().min_w_0().truncate().font_family(crate::settings::view::mono(look)).text_color(look.color(token::FG_SUBTLE)).child(waits))
+                    .children(changed.contains(&id).then(|| svg().flex_none().path(icon_path("git-compare")).size(look.length(token::SPACE_4)).text_color(look.color(token::STATUS_AWAITING_REVIEW))));
+                let chip = match self.edge_stops.iter().find(|(held, _)| *held == id).map(|(_, stop)| stop.clone()) {
+                    Some(stop) => ringed(look, chip, &stop, window).track_focus(&stop),
+                    None => chip,
+                };
+                let chip = chip.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation()).on_click(cx.listener(move |this, _, window, cx| this.open_edgeless(&id, false, window, cx)));
+                labelled(chip.aria_selected(open), Role::Button, name).into_any_element()
+            })
+            .collect();
+        Some(div().absolute().left(edge - frame.left() + gap).top(gap).max_w((frame.right() - edge - gap * 2.).max(px(0.))).flex().gap(gap).overflow_hidden().children(chips).into_any_element())
     }
 
     /// Add rule: an empty sentence under the bar, at the top of the canvas, with the keys in When and its choices open.
@@ -554,7 +657,7 @@ impl LanesEditor {
     fn chip_of_open(&self) -> Option<Bounds<Pixels>> {
         let sentence = self.sentence.as_ref()?;
         match &self.picked {
-            Some(Pick::Rule(picked)) if sentence.is_rule(picked) => self.state.picked_bounds(&self.id),
+            Some(Pick::Rule(picked)) if sentence.is_rule(picked) => self.state.picked_bounds(&self.id).or_else(|| self.edge_chips.borrow().get(picked).copied()),
             _ => None,
         }
     }
@@ -640,7 +743,17 @@ impl LanesEditor {
             window.on_next_frame(|window, _| window.refresh());
             return None;
         };
-        let at = point(field.left(), field.bottom() + look.length(token::SPACE_1));
+        let gap = look.length(token::SPACE_1);
+        // Under the field where the choices fit, else over it, so no choice runs past the window. A box for words
+        // opens over the field while Fleet's sentence stands under the sentence, so the box never covers it.
+        let rows = menu.shown.len() as f32 + if menu.title.is_some() { 1. } else { 0. };
+        let cap = look.length(token::SPACE_12) * 8.;
+        let want = if menu.typed.is_some() { look.length(token::SPACE_12) * 2.5 } else { (look.length(token::H_CONTROL_SM) * rows + gap * 2. + look.length(token::BORDER_WIDTH) * 2.).min(cap) };
+        let below = window.viewport_size().height - field.bottom() - gap * 2.;
+        let above = field.top() - gap * 2.;
+        let refused = self.pieces.iter().any(|piece| piece.kind == LifecyclePieceKind::Rule && sentence.is_rule(&piece.id) && piece.unfit.is_some());
+        let over = (menu.typed.is_some() && refused) || (below < want && above > below);
+        let room = if over { above } else { below }.max(look.length(token::SPACE_12));
         let title = menu.title.as_ref().map(|title| {
             div().px(look.length(token::SPACE_2)).h(look.length(token::H_CONTROL_SM)).flex().items_center().text_size(look.length(token::TEXT_2XS)).font_family(crate::settings::view::mono(look)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(title.clone()))
         });
@@ -686,7 +799,7 @@ impl LanesEditor {
             .id("rule-menu")
             .occlude()
             .min_w(look.length(token::W_MENU))
-            .max_h(look.length(token::SPACE_12) * 8.)
+            .max_h(cap.min(room))
             .overflow_y_scroll()
             .flex()
             .flex_col()
@@ -699,7 +812,8 @@ impl LanesEditor {
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .children(title)
             .children(body);
-        Some(deferred(anchored().position(at).anchor(Anchor::TopLeft).snap_to_window_with_margin(look.length(token::SPACE_1)).child(labelled(list, Role::Menu, format!("{name} choices")))).with_priority(2).into_any_element())
+        let (at, corner) = if over { (point(field.left(), field.top() - gap), Anchor::BottomLeft) } else { (point(field.left(), field.bottom() + gap), Anchor::TopLeft) };
+        Some(deferred(anchored().position(at).anchor(corner).snap_to_window_with_margin(gap).child(labelled(list, Role::Menu, format!("{name} choices")))).with_priority(2).into_any_element())
     }
 
     /// The sentence over the canvas, under the chip it opened from, or at the top of the canvas where it is new.
