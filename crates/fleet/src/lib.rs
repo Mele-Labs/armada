@@ -262,6 +262,8 @@ mod projects;
 mod project_copies;
 /// Acts on a Job another Mac holds, sent there or kept in order, and what another Mac sends here.
 mod mac_acts;
+/// Moving this Mac, another of his Macs, or both onto one build, keeping running Jobs.
+mod mac_update;
 /// A task act another Mac made on a shared project of this Mac, run here.
 mod project_acts_held;
 /// How work behaves, laid over its layers, and what a Job freezes of it at its start.

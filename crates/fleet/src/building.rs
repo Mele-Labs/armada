@@ -635,12 +635,14 @@ impl Building {
 
     /// Start the wrapper detached and answer. **The status is written first**,
     /// so a read between the answer and the wrapper's first line already says a
-    /// restart is under way.
+    /// restart is under way. `extra` follows the wrapper's own arguments: the preview's
+    /// `--push-as`, `--tell` and `--at`, which [`crate::mac_update`] sends.
     pub(crate) fn change(
         &self,
         checkout: Option<&Path>,
         support: &Path,
         asked: &ChangeFleetBuild,
+        extra: &[String],
         now: SystemTime,
     ) -> Result<FleetBuildChanging, NotChanged> {
         let Some(checkout) = checkout else {
@@ -661,6 +663,9 @@ impl Building {
             .ignoring_output();
         if asked.adopt {
             wrapper = wrapper.arg("--adopt");
+        }
+        for one in extra {
+            wrapper = wrapper.arg(one);
         }
         if let Err(why) = wrapper.spawn() {
             let _ = std::fs::remove_file(&status);
@@ -856,14 +861,15 @@ where
         Ok(FleetBuildKept { told })
     }
 
-    /// `change_fleet_build`.
+    /// `change_fleet_build`, with `extra` after the wrapper's own arguments.
     pub(crate) fn change_fleet_build_now(
         &self,
         asked: &ChangeFleetBuild,
+        extra: &[String],
     ) -> Result<FleetBuildChanging, Refusal> {
         let support = crate::runtime::support_dir(&self.host().home);
         self.building()
-            .change(self.build_checkout().as_deref(), &support, asked, SystemTime::now())
+            .change(self.build_checkout().as_deref(), &support, asked, extra, SystemTime::now())
             .map_err(|why| match why {
                 NotChanged::NotOffered(why) => self.build_refusal(why),
                 NotChanged::Restarting(build) => Refusal::IllegalMove(WireError::raised(

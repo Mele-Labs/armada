@@ -174,6 +174,19 @@ impl Store {
             .map_err(fault(doing))
     }
 
+    /// This Mac as it was minted, or `None` where no Gateway has minted it yet.
+    pub fn this_mac(&self) -> Result<Option<ThisMac>, DatabaseFault> {
+        let doing = "reading this Mac's id";
+        let found = self.conn.query_row("SELECT mac_id, name, colour, minted_at FROM pocket_this_mac WHERE only = 1", [], |row| {
+            Ok(ThisMac { id: row.get(0)?, name: row.get(1)?, colour: row.get(2)?, minted_at: row.get(3)? })
+        });
+        match found {
+            Ok(mac) => Ok(Some(mac)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(why) => Err(fault(doing)(why)),
+        }
+    }
+
     /// Drop a subscription the push service said is gone.
     pub fn remove_push_subscription(&mut self, device_id: &str, endpoint: &str) -> Result<(), DatabaseFault> {
         self.conn
