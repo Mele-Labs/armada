@@ -48,6 +48,7 @@ function sendMedia(
 
 /** Answers one Mac's routes from the fixture, holding `/api/live` open as the Gateway does. */
 function serve(mac: () => FixtureMac, posted: Posted[]) {
+  const streams = new Set<ServerResponse>();
   return async (request: IncomingMessage, response: ServerResponse, next?: () => void) => {
     const target = request.url ?? "/";
     const origin = request.headers.origin;
@@ -63,6 +64,8 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
       target.startsWith("/api/") || target === "/pair" || target.startsWith("/fixture-media/");
     if (!ours) return next === undefined ? response.writeHead(404).end() : next();
     if (request.method === "OPTIONS") return response.writeHead(204).end();
+    // A Mac that sleeps answers nothing, as one off the tailnet does.
+    if (process.env["POCKET_FIXTURE_ASLEEP"] === mac().name) return request.socket.destroy();
     if (process.env["POCKET_FIXTURE_UNPAIRED"] === mac().name && target.startsWith("/api/")) {
       return response
         .writeHead(401, {
@@ -78,7 +81,11 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
       // A first beat at once, as the Gateway sends: the headers leave with it, and the phone reads its lists on connect.
       response.write(": beat\n\n");
       const beat = setInterval(() => response.write(": beat\n\n"), 15_000);
-      request.on("close", () => clearInterval(beat));
+      streams.add(response);
+      request.on("close", () => {
+        clearInterval(beat);
+        streams.delete(response);
+      });
       return;
     }
     const body = await read(request);
@@ -92,6 +99,10 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
     );
     if (posted.length > 0)
       console.log(`[fixture ${mac().name}] ${JSON.stringify(posted.splice(0))}`);
+    if (said.then !== undefined) {
+      const { after, change } = said.then;
+      setTimeout(() => streams.forEach((one) => one.write(`data: ${JSON.stringify(change)}\n\n`)), after);
+    }
     if (said.delay !== undefined) await new Promise((done) => setTimeout(done, said.delay));
     if (said.file !== undefined) return sendMedia(request, response, said.file, said.type);
     response
@@ -111,7 +122,8 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
  * `pnpm fixture`: the app on a fixture Gateway with two Macs. The Mac serving the app is `studio`; the
  * one on the next port, with CORS as the real Gateway answers it, is `laptop`. `src/fixture/seed.ts`
  * pairs the phone with both on first load. `POCKET_FIXTURE_UNPAIRED=laptop` makes that Mac answer 401, as a
- * Mac that forgot the phone does.
+ * Mac that forgot the phone does. `POCKET_FIXTURE_ASLEEP=laptop` makes it answer nothing, and a send to it through
+ * `studio` waits there.
  */
 function fixtureGateway(): Plugin {
   const now = Date.now();
@@ -125,6 +137,8 @@ function fixtureGateway(): Plugin {
   const media = mediaJob(now);
   macs["studio"]!.live.unshift(media.listed);
   macs["studio"]!.threads[media.listed.id] = media.thread;
+  const sleeping = process.env["POCKET_FIXTURE_ASLEEP"];
+  if (sleeping !== undefined) macs["studio"]!.asleep = [sleeping];
   macs["studio"]!.media = {
     [media.listed.id]: media.files,
   };

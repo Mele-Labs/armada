@@ -2,10 +2,23 @@
 // Hand-mirrored: the Gateway trims Fleet's Session to an allowlist, so this is not
 // `@armada/protocol`'s SessionRecord and nothing here is generated.
 
-/** One `data:` line of GET /api/live. `resync` means read the lists again. */
+/**
+ * One `data:` line of GET /api/live. `resync` means read the lists again. `operator` is what the Operator did with
+ * a dispatch it held, and `queued` that what waits for a sleeping Mac changed: read `/api/queued` again.
+ */
 export type LiveChange = {
-  change: "session" | "resync";
+  change: "session" | "resync" | "operator" | "queued";
   session_id?: string;
+  dispatched?: OperatorDispatched;
+};
+
+/** The fields of Fleet's event `operator.dispatched`: what became of a dispatch. */
+export type OperatorDispatched = {
+  dispatch_id: string;
+  manifest_id: string;
+  way: "started" | "handed" | "asked" | "parked";
+  session_id?: string;
+  title?: string;
 };
 
 export type PhoneChoice = {
@@ -164,4 +177,48 @@ export type DispatchBody = {
 };
 export type DispatchedBody = {
   session: PhoneSession;
+};
+
+/**
+ * POST /api/sessions/dispatch: the words go to the Operator. `mac` names another Mac, by the name the phone knows it by, and
+ * is left out for the Mac the phone sends through. `kind` is a hint and nothing more. 400 for an unknown repository, 404 for
+ * a Mac the Gateway does not know, 409 where the repository is in no project shared with that Mac.
+ */
+export type OperatorBody = {
+  text: string;
+  repository: string;
+  kind?: "idea" | "feature" | "bug";
+  mac?: string;
+};
+
+/** The 200 answer (`JobDispatched`, its Job trimmed): exactly one is present. `operator` is the id `operator.dispatched` names. */
+export type OperatorAnswer = {
+  session?: PhoneSession;
+  operator?: string;
+  parked?: string;
+};
+
+/** One act kept for a Mac that did not answer (`Queued`): the 202 answer of a send to it, and a row of GET /api/queued. */
+export type QueuedAct = {
+  id: string;
+  /** The id of the Mac it waits for. */
+  mac: string;
+  /** `{ kind, body }`; a dispatch's body is the `DispatchJob` the phone sent, and any other kind is not the phone's. */
+  act: {
+    kind: string;
+    body?: {
+      request?: string;
+      kind?: "idea" | "feature" | "bug";
+      then?: { message?: { text: string } }[];
+    };
+  };
+  /** Milliseconds since the epoch, on the Mac that kept it. */
+  since: number;
+  /** What the Mac said when it refused the act: it stays, and is no longer sent, until taken back. */
+  refused?: string;
+};
+
+/** GET /api/queued and POST /api/queued/take_back `{ id }`: 404 `fleet.queued_not_found`, 409 `fleet.queued_in_flight`. */
+export type QueuedBody = {
+  queued: QueuedAct[];
 };

@@ -264,7 +264,7 @@ const CHANGED = {
 } as const;
 
 /** A refusal's body is Fleet's `{ code, message }`; any other body has neither. */
-function bodyOf(why: unknown): {
+export function bodyOf(why: unknown): {
   code?: string;
   message?: string;
 } {

@@ -1,9 +1,10 @@
-// Operator (mock, on fixtures): throw an idea, a feature or a bug at the Operator from the phone, and read what it did with
-// the last sends. The words, the kind chips and the repository follow native's composer (`operator/composer.rs`): a kind is a
-// hint and none is none, and pressing the picked chip again unpicks it. A Mac asleep takes a send into a row that waits for it.
-// Nothing here calls a Mac: `fixture/operator.ts` answers, and the Operator's decision there is a stand-in.
+// Operator: throw an idea, a feature or a bug at the Operator from the phone, and read what it did with the last
+// sends. The words, the kind chips and the repository follow native's composer (`operator/composer.rs`): a kind is a
+// hint and none is none, and pressing the picked chip again unpicks it. A send goes through the Mac serving the app and
+// names the Mac picked where that is another; one for a Mac that does not answer waits in the list, with Take back.
+// The rows and what they do are `sends.ts`.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Bookmark,
@@ -19,24 +20,31 @@ import {
 } from "lucide-react";
 import { Badge, Button, Select, Stamp, Textarea, Toast } from "@armada/components";
 
+import { getJson } from "./client";
+import { start, useFleet } from "./fleet";
+import type { RepositoriesBody } from "./gateway";
 import {
-  decide,
-  operatorMacs,
-  operatorSends,
+  asleep,
+  dispatch,
+  receiverOf,
+  takeBack,
+  useSends,
+  watchOperator,
+  nameOf,
   type Kind,
-  type OperatorMac,
   type Send,
   type Stage,
-  type Way,
-} from "./fixture/operator";
+} from "./sends";
 import { go, jobPath } from "./router";
 import { Band } from "./ui";
+
+type Way = "started" | "handed" | "asked" | "parked";
 
 /** What the words are kept under, as Dispatch keeps its own (`pocket:dispatch`). */
 const KEEP = "pocket:operator";
 const WORDS = "operator-words";
-/** How long the Operator reads a send before the mock decides. */
-const READING_MS = 900;
+/** The repositories each Mac last listed, so one that is asleep still offers its own. */
+const LISTED = "pocket:operator:repositories";
 const TOAST_MS = 6000;
 
 const KINDS: {
@@ -133,24 +141,16 @@ type Shown = {
 };
 
 /** One send, as the Operator's list draws it. */
-function SendRow({
-  send,
-  macs,
-  onTakeBack,
-}: {
-  send: Send;
-  macs: OperatorMac[];
-  onTakeBack: (send: Send) => void;
-}) {
+function SendRow({ send, onTakeBack }: { send: Send; onTakeBack: (send: Send) => void }) {
   const { stage } = send;
   const face = faceOf(stage);
-  const mac = macs.find((one) => one.name === send.mac);
   const job =
-    stage.phase === "dispatched" && stage.session_id !== undefined && mac !== undefined
-      ? jobPath(mac.origin, stage.session_id)
+    stage.phase === "dispatched" && stage.session_id !== undefined && send.origin !== undefined
+      ? jobPath(send.origin, stage.session_id)
       : undefined;
   const title = stage.phase === "dispatched" ? stage.title : undefined;
-  const needs = stage.phase === "queued" || stage.phase === "refused" || (stage.phase === "dispatched" && stage.way === "asked");
+  const needs = stage.phase === "refused" || stage.phase === "queued" || (stage.phase === "dispatched" && stage.way === "asked");
+  const mac = send.mac === "" ? "That Mac" : send.mac;
   return (
     <li className="deck-list__item">
       <div className="pk-send" data-hue={face.hue} data-needs={needs || undefined}>
@@ -169,14 +169,13 @@ function SendRow({
         </div>
         {title === undefined ? null : <p className="pk-send__words">{send.words}</p>}
         <p className="pk-send__meta">
-          <span>{send.repository}</span>
-          <span className="pk-row__mac">{send.mac}</span>
+          {send.repository === undefined ? null : <span>{send.repository}</span>}
+          {send.mac === "" ? null : <span className="pk-row__mac">{send.mac}</span>}
         </p>
         {stage.phase === "queued" ? (
           <div className="pk-send__why">
             <p>
-              {send.mac} fell asleep <Stamp first="age" at={stage.since * 1000} />. This sends when{" "}
-              {send.mac} wakes.
+              {mac} did not answer. This sends when {mac} wakes.
             </p>
             <div className="pk-send__acts">
               <Button variant="secondary" size="sm" onClick={() => onTakeBack(send)}>
@@ -240,22 +239,25 @@ function Chip({
   );
 }
 
-export function Operator({ asleep }: { asleep: boolean }) {
-  const [now] = useState(() => Date.now());
-  const macs = useMemo(
-    () => operatorMacs(window.location.origin, asleep, now),
-    [
-      asleep,
-      now,
-    ],
-  );
-  const [sends, setSends] = useState<Send[]>(() => operatorSends(asleep, now));
+const kept = (): Record<string, string[]> => {
+  try {
+    return JSON.parse(window.localStorage.getItem(LISTED) ?? "{}") as Record<string, string[]>;
+  } catch {
+    return {};
+  }
+};
+
+export function Operator() {
+  const fleet = useFleet();
+  const sends = useSends();
+  const macs = fleet.macs.filter((mac) => mac.paired);
+  const [listed, setListed] = useState(kept);
   const [line, setLine] = useState("");
   const [kind, setKind] = useState<Kind | undefined>(undefined);
-  const [repository, setRepository] = useState("armada");
-  const [picked, setPicked] = useState("studio");
+  const [repository, setRepository] = useState("");
+  const [picked, setPicked] = useState("");
   const [toast, setToast] = useState<Shown | undefined>(undefined);
-  const made = useRef(0);
+  const told = useRef(new Set<string>());
   const timers = useRef<number[]>([]);
   useEffect(
     () => () => {
@@ -264,17 +266,51 @@ export function Operator({ asleep }: { asleep: boolean }) {
     [],
   );
   const later = (act: () => void, ms: number) => timers.current.push(window.setTimeout(act, ms));
+  const origins = macs.map((mac) => mac.machine.origin).join(" ");
+  useEffect(() => void start(), []);
+  useEffect(() => watchOperator(fleet.macs), [origins]);
+  useEffect(() => {
+    let gone = false;
+    macs
+      .filter((mac) => !asleep(mac))
+      .forEach((mac) =>
+        getJson<RepositoriesBody>(mac.machine, "/api/repositories").then(
+          (names) => {
+            if (gone) return;
+            const all = {
+              ...kept(),
+              [mac.machine.origin]: names,
+            };
+            try {
+              window.localStorage.setItem(LISTED, JSON.stringify(all));
+            } catch {
+              // A Mac asleep at the next start offers nothing.
+            }
+            setListed(all);
+          },
+          () => undefined,
+        ),
+      );
+    return () => {
+      gone = true;
+    };
+  }, [
+    origins,
+    macs.map(asleep).join(" "),
+  ]);
 
-  const repositories = [...new Set(macs.flatMap((mac) => mac.repositories))];
+  const repositories = [...new Set(macs.flatMap((mac) => listed[mac.machine.origin] ?? []))];
+  const named = repositories.includes(repository) ? repository : (repositories[0] ?? "");
   /** A repository checked out on one Mac only is offered on that Mac only. */
-  const offered = macs.filter((mac) => mac.repositories.includes(repository));
-  const mac = offered.find((one) => one.name === picked) ?? offered[0];
+  const offered = macs.filter((mac) => (listed[mac.machine.origin] ?? []).includes(named));
+  const mac = offered.find((one) => one.machine.origin === picked) ?? offered[0];
+  const receiver = receiverOf(fleet.macs);
 
-  const tell = (stage: Stage, mac: OperatorMac | undefined) => {
+  const tell = (stage: Stage, origin: string | undefined) => {
     if (stage.phase !== "dispatched") return;
     const to =
-      stage.session_id !== undefined && mac !== undefined
-        ? jobPath(mac.origin, stage.session_id)
+      stage.session_id !== undefined && origin !== undefined
+        ? jobPath(origin, stage.session_id)
         : undefined;
     const text = (
       {
@@ -295,53 +331,50 @@ export function Operator({ asleep }: { asleep: boolean }) {
     });
     later(() => setToast(undefined), TOAST_MS);
   };
+  useEffect(() => {
+    for (const one of sends) {
+      if (one.stage.phase !== "dispatched" || told.current.has(one.id)) continue;
+      told.current.add(one.id);
+      tell(one.stage, one.origin);
+    }
+  }, [
+    sends,
+  ]);
 
   const send = () => {
-    if (mac === undefined || line.trim() === "") return;
-    made.current += 1;
-    const one: Send = {
-      id: `n${made.current}`,
-      at: new Date().toISOString(),
-      mac: mac.name,
-      repository,
-      words: line.trim(),
+    if (mac === undefined || receiver === undefined || line.trim() === "") return;
+    void dispatch(receiver, mac, {
+      text: line.trim(),
+      repository: named,
       ...(kind === undefined
         ? {}
         : {
             kind,
           }),
-      stage:
-        mac.link.state === "asleep"
-          ? {
-              phase: "queued",
-              since: mac.link.since,
-            }
-          : {
-              phase: "reading",
-            },
-    };
-    setSends((was) => [
-      one,
-      ...was,
-    ]);
+    });
     setLine("");
     setKind(undefined);
-    if (mac.link.state === "asleep") return;
-    later(() => {
-      const stage = decide(one);
-      setSends((was) => was.map((row) => (row.id === one.id ? { ...row, stage } : row)));
-      tell(stage, mac);
-    }, READING_MS);
   };
 
-  const takeBack = (back: Send) => {
-    setSends((was) => was.filter((row) => row.id !== back.id));
-    setLine((was) => (was.trim() === "" ? back.words : `${was.trimEnd()}\n\n${back.words}`));
-    setKind(back.kind);
-    setRepository(back.repository);
-    setPicked(back.mac);
+  const back = async (one: Send) => {
+    const answer = await takeBack(one);
+    if ("said" in answer) {
+      setToast({
+        text: answer.said,
+        hue: "completed-failed",
+      });
+      later(() => setToast(undefined), TOAST_MS);
+      return;
+    }
+    const { sent } = answer;
+    setLine((was) => (was.trim() === "" ? sent.words : `${was.trimEnd()}\n\n${sent.words}`));
+    setKind(sent.kind);
+    if (sent.repository !== undefined) setRepository(sent.repository);
+    if (sent.origin !== undefined) setPicked(sent.origin);
     window.requestAnimationFrame(() => document.getElementById(WORDS)?.focus());
   };
+
+  const away = mac !== undefined && asleep(mac);
 
   return (
     <section className="pk-screen" aria-label="Operator">
@@ -349,7 +382,7 @@ export function Operator({ asleep }: { asleep: boolean }) {
       <div className="pk-body pk-home">
         <ul className="deck-list__rows" aria-label="Sends">
           {sends.map((one) => (
-            <SendRow key={one.id} send={one} macs={macs} onTakeBack={takeBack} />
+            <SendRow key={one.id} send={one} onTakeBack={(row) => void back(row)} />
           ))}
         </ul>
       </div>
@@ -393,7 +426,7 @@ export function Operator({ asleep }: { asleep: boolean }) {
           </div>
           <Button
             variant="primary"
-            disabled={line.trim() === "" || mac === undefined}
+            disabled={line.trim() === "" || mac === undefined || receiver === undefined}
             onClick={send}
           >
             Send
@@ -403,7 +436,7 @@ export function Operator({ asleep }: { asleep: boolean }) {
           <div className="pk-composer__repository">
             <Select
               aria-label="Repository"
-              value={repository}
+              value={named}
               onChange={(event) => setRepository(event.target.value)}
             >
               {repositories.map((name) => (
@@ -416,22 +449,21 @@ export function Operator({ asleep }: { asleep: boolean }) {
           <div className="pk-chips" role="radiogroup" aria-label="Mac">
             {offered.map((one) => (
               <Chip
-                key={one.name}
+                key={one.machine.origin}
                 role="radio"
-                hue={one.link.state === "asleep" ? "escalated" : "completed-success"}
-                icon={one.link.state === "asleep" ? Moon : undefined}
+                hue={asleep(one) ? "escalated" : "completed-success"}
+                icon={asleep(one) ? Moon : undefined}
                 checked={mac === one}
-                onPress={() => setPicked(one.name)}
+                onPress={() => setPicked(one.machine.origin)}
               >
-                {one.link.state === "asleep" ? `${one.name}, asleep` : one.name}
+                {asleep(one) ? `${nameOf(one.machine)}, asleep` : nameOf(one.machine)}
               </Chip>
             ))}
           </div>
         </div>
-        {mac !== undefined && mac.link.state === "asleep" ? (
+        {away ? (
           <p className="pk-fact pk-composer__fact" role="status">
-            {mac.name} fell asleep <Stamp first="age" at={mac.link.since * 1000} />. A send waits in
-            the list until it wakes.
+            {nameOf(mac.machine)} is not answering. A send waits in the list until it wakes.
           </p>
         ) : null}
       </footer>

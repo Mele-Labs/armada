@@ -34,7 +34,7 @@ function Screen({ route }: { route: Route }) {
     case "dispatch":
       return <Dispatch />;
     case "operator":
-      return <Operator key={route.asleep ? "asleep" : "linked"} asleep={route.asleep} />;
+      return <Operator />;
     case "job":
       return <Job key={`${route.origin ?? "_"} ${route.id}`} origin={route.origin} id={route.id} />;
     case "draft":
