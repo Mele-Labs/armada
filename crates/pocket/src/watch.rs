@@ -2,6 +2,9 @@
 //!
 //! **Only Needs you.** A push goes out when a Job's `waiting_for` gains an item id it
 //! did not have. A Stuck Job sends nothing: Fleet repairs it without the person.
+//!
+//! **A snoozed Job pushes nothing until its time.** What it raises meanwhile is held, and one
+//! push goes out for it when `snoozed_until` clears, if any of it is still open.
 
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -31,6 +34,8 @@ pub struct Watch {
     /// Per Job, the item ids already pushed for or already open when Pocket first saw it.
     /// An id leaves when its item does, so an item raised again pushes again.
     sent: HashMap<String, HashSet<String>>,
+    /// Per Job, the item ids it raised while snoozed, oldest first, pushed as one when it wakes.
+    held: HashMap<String, Vec<String>>,
     /// How long to wait before each retry of a push that failed.
     pub(crate) retries: Vec<Duration>,
     pushes: tokio::task::JoinSet<()>,
@@ -41,6 +46,7 @@ impl Watch {
         Watch {
             gateway,
             sent: HashMap::new(),
+            held: HashMap::new(),
             pushes: tokio::task::JoinSet::new(),
             retries: vec![Duration::from_secs(5), Duration::from_secs(30), Duration::from_secs(120)],
         }
@@ -62,13 +68,27 @@ impl Watch {
             };
             known.retain(|item| open.contains(item));
             let title = record.title.clone().unwrap_or_else(|| id.clone());
-            for item in &record.waiting_for {
-                // Marked in flight now, so a repeat of this event sends nothing
-                // while the push retries on its own task.
-                if known.insert(item.id.clone()) {
-                    let alert = Alert { session_id: id.clone(), title: title.clone(), reason: body(item), origin: None };
+            // Marked in flight now, so a repeat of this event sends nothing
+            // while a push retries on its own task.
+            let raised: Vec<&WaitingItem> = record.waiting_for.iter().filter(|item| known.insert(item.id.clone())).collect();
+            if record.snoozed_until.is_some() {
+                self.held.entry(id).or_default().extend(raised.iter().map(|item| item.id.clone()));
+                return;
+            }
+            let mut held = self.held.remove(&id).unwrap_or_default();
+            held.retain(|item| open.contains(item));
+            if !held.is_empty() {
+                // Back from a snooze: one push for all it raised, saying the newest.
+                let newest = raised.last().copied().or_else(|| record.waiting_for.iter().rfind(|item| held.contains(&item.id)));
+                if let Some(newest) = newest {
+                    let alert = Alert { session_id: id.clone(), title, reason: body(newest), origin: None };
                     self.pushes.spawn(push(self.gateway.clone(), self.retries.clone(), alert));
                 }
+                return;
+            }
+            for item in raised {
+                let alert = Alert { session_id: id.clone(), title: title.clone(), reason: body(item), origin: None };
+                self.pushes.spawn(push(self.gateway.clone(), self.retries.clone(), alert));
             }
         }
     }

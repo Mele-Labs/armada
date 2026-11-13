@@ -307,6 +307,15 @@ pub struct PauseSession {
     pub session_id: SessionId,
 }
 
+/// `snooze_session`: keep a Job quiet until `until`, or wake it now with none. It keeps working;
+/// what it raises meanwhile stays on it with no push or card.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SnoozeSession {
+    pub session_id: SessionId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
+}
+
 /// `set_session_auto_land`: turn Auto land on or off for a Session. On, Fleet enables auto-merge on
 /// each open pull request the Session holds and on each that attaches later; off, it disables it
 /// on the open ones, after answering. A pull request the forge refuses is a notice to the Job.

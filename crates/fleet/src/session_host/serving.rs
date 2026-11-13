@@ -544,6 +544,10 @@ where
         self.session_paused(asked).await
     }
 
+    async fn snooze_session(&self, asked: ipc::SnoozeSession) -> Result<SessionRecord, Refusal> {
+        self.session_snoozed(asked).await
+    }
+
     async fn set_session_auto_land(self: Arc<Self>, asked: ipc::SetSessionAutoLand) -> Result<SessionRecord, Refusal> {
         self.session_auto_land_set(asked).await
     }

@@ -624,6 +624,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::pause_session::<D>),
         )
         .route(
+            "/sessions/snooze",
+            post(crate::hosted_sessions::snooze_session::<D>),
+        )
+        .route(
             "/sessions/auto_land",
             post(crate::hosted_sessions::set_session_auto_land::<D>),
         )
