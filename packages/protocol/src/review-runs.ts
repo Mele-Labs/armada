@@ -76,6 +76,11 @@ export type StartReviewRun = {
    * `<path>:<start>-<end> <title>`, so two findings of one title are two runs.
    */
   finding?: ReviewFinding;
+  /**
+   * Read only the change from this commit to the head, as `get_pull_request_compare` answers it: his seen head.
+   * The result is kept for the range and never stands in for a whole run. Refused on a `fix`.
+   */
+  since?: string;
 };
 
 /** A place in the change: a range of lines of a file, on one side of the diff. */
@@ -147,7 +152,15 @@ export type ReviewFinding = {
   body: string;
   severity: ReviewSeverity;
   at: ReviewPlace;
+  /**
+   * Words he can post on the pull request for it as they are: one or two plain sentences, at most `COMMENT_AT_MOST`
+   * characters. Fleet posts nothing. Absent on a finding kept before comments were asked for.
+   */
+  comment?: string;
 };
+
+/** The longest a finding's `comment` may be, in characters. */
+export const COMMENT_AT_MOST = 280;
 
 /** One stop of a tour: a piece of the change and one line on what it does. */
 export type ReviewTourStop = {
@@ -224,6 +237,8 @@ export type ReviewRun = {
   name: string;
   /** The commit it ran on, whole. A reader that holds a newer head marks the run out of date. */
   head: string;
+  /** Where its range starts, for a run of only the change since then. Absent for the whole pull request. */
+  since?: string;
   state: ReviewRunState;
   /** RFC 3339. */
   started_at: string;

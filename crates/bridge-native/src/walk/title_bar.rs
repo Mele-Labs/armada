@@ -23,6 +23,19 @@ pub static BUILD_LIVE: [Step; 11] = [
     press_on("Keep tells each Job to land; the bar goes", "button", "Keep", "button", "Fleet — Running"),
 ];
 
+/// The On origin row of the build switcher: branches no Job here holds, picked into the next build (#3547).
+pub static ORIGIN: [Step; 9] = [
+    scene("Origin holds nine branches main lacks that no Job on this Mac holds", "build-origin", "button", "Fleet — Running"),
+    press_on("The panel lists them under On origin, newest first, each with how long ago it was last committed to", "button", "Fleet — Running", "list", "On origin"),
+    step("The list runs long, so a search sits over it", Verb::Press, "searchbox", "Search branches on origin"),
+    step("Typing narrows it to the branches whose name holds every word", Verb::Keys(&["n", "a", "t", "i", "v", "e"]), "list", "On origin"),
+    step("A name no branch holds says so", Verb::Keys(&["space", "z"]), "list", "On origin"),
+    step("Clearing the search brings the list back", Verb::Keys(&["backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace"]), "button", "Add native/refresh-set to the next build"),
+    press_on("The plus adds a branch to the next build: it joins the picked chips in the same frame and leaves the list", "button", "Add native/refresh-set to the next build", "button", "Leave native/refresh-set out of the build"),
+    scene("Fleet builds a snapshot of main and the branch beside the running build, and offers Swap when it is ready", "build-origin-ready", "button", "Swap"),
+    step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
+];
+
 /// The Refresh row of the build switcher on the branches Jobs offered for the preview.
 pub static PREVIEW_OFFERS: [Step; 12] = [
     scene("Three branches are offered for the preview, one of them ready", "preview-offers", "button", "Fleet — Running"),

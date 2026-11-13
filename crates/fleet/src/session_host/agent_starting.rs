@@ -219,7 +219,7 @@ where
     /// The project a Job `me` starts in `repository` is for: `me`'s own, `None` where it has none. **A project that
     /// does not read, or whose file cannot be written, gives none**, said on the log, since a start is never refused
     /// for a fault of the project, as `agent_start_held` falls back.
-    async fn started_project(&self, me: &str, project: Option<String>, repository: &str) -> Option<String> {
+    pub(super) async fn started_project(&self, me: &str, project: Option<String>, repository: &str) -> Option<String> {
         let project = project?;
         let joined = match self.members_followed_published(&project, vec![repository.to_string()]).await {
             Ok(_) => self.project_started_for(&project, repository).await,

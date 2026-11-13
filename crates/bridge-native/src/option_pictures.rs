@@ -113,17 +113,16 @@ fn shrink(window: &mut Window, cx: &mut App) {
 }
 
 /// One still with its parts' boxes, `w` by `h`. `named` shows every part's label; otherwise a label shows
-/// while the pointer is on its box.
+/// while the pointer is on its box. A label hangs under its box's right end, where a row's words
+/// seldom are, and over it when the box reaches the still's foot.
 fn still(id: &SharedString, picture: &OptionPicture, source: &StillAt, (w, h): (f32, f32), named: bool, hue: Hsla, look: &Look) -> gpui::Div {
     let source = source.clone();
     let parts = picture.parts.iter().map(|part| {
         let [x, y, pw, ph] = part_box(picture, part);
         let name = SharedString::from(format!("{id}:{}", part.name));
-        let label = div()
-            .absolute()
-            .bottom_full()
-            .left_0()
-            .mb(px(2.))
+        let label = div().absolute().right_0();
+        let label = if y + ph > 0.88 { label.bottom_full().mb(px(2.)) } else { label.top_full().mt(px(2.)) };
+        let label = label
             .px(look.length(token::SPACE_1))
             .py(px(1.))
             .rounded(look.length(token::RADIUS_SM))

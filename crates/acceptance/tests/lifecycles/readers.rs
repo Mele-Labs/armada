@@ -42,6 +42,7 @@ fn page(review: ReviewStanding, asked: &[&str]) -> PullRequestPageFacts {
         team: None,
     };
     PullRequestPageFacts {
+        latest_reviews: Default::default(),
         base: "main".into(),
         author: Some("author".into()),
         created_at: None,

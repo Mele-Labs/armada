@@ -36,6 +36,7 @@ mod repositories;
 mod review_runs;
 mod walk_places;
 mod pull_request_notes;
+mod pull_review_memory;
 mod session_checks;
 mod stop_nudges;
 mod job_repairs;

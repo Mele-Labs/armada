@@ -73,12 +73,17 @@ pub struct Scope {
     pub cells: BTreeMap<(Key, Column), FocusHandle>,
     /// The picker's key.
     pub picker: FocusHandle,
+    /// A project's Delete, asked and not yet answered.
+    pub deleting: Option<super::delete::Deleting>,
+    /// The confirm's keys: Delete, then Cancel.
+    pub delete_stop: FocusHandle,
+    pub cancel_stop: FocusHandle,
 }
 
 impl Scope {
     fn new(cx: &mut App) -> Scope {
         let cells = super::project::KEYS.into_iter().flat_map(|key| [(key, Column::Every), (key, Column::Own)]).map(|cell| (cell, cx.focus_handle().tab_stop(true))).collect();
-        Scope { project: None, every: None, values: None, projects: None, saving: None, refused: None, share_refused: None, cells, picker: cx.focus_handle().tab_stop(true) }
+        Scope { project: None, every: None, values: None, projects: None, saving: None, refused: None, share_refused: None, cells, picker: cx.focus_handle().tab_stop(true), deleting: None, delete_stop: cx.focus_handle(), cancel_stop: cx.focus_handle() }
     }
 }
 
@@ -284,6 +289,7 @@ impl SettingsOverlay {
         self.open = false;
         self.keys = None;
         self.popup = None;
+        self.scope.deleting = None;
         self.mods.panel = None;
         match self.back_to.take() {
             Some(handle) => window.focus(&handle, cx),
@@ -653,6 +659,16 @@ impl SettingsOverlay {
             let Picked::Entry { id, .. } = picked;
             let project = match *id {
                 "every" => None,
+                // His sheet for a new one opens over the app, where Settings was.
+                "new-project" => {
+                    this.close(window, cx);
+                    crate::dispatch::screen::open_new_project(cx);
+                    return;
+                }
+                "delete" => {
+                    this.ask_delete(window, cx);
+                    return;
+                }
                 id => {
                     let Some(n) = AT.iter().position(|one| *one == id) else { return };
                     let Some(one) = this.scope.projects.as_ref().and_then(|all| all.projects.get(n)) else { return };
@@ -663,7 +679,8 @@ impl SettingsOverlay {
         });
         let dismissed = cx.subscribe_in(&menu, window, move |this, _, _: &DismissEvent, window, cx| {
             this.popup = None;
-            if let Some(back) = &back {
+            // A sheet or a confirm the pick opened has the keys now.
+            if let Some(back) = back.as_ref().filter(|_| this.open && this.scope.deleting.is_none()) {
                 window.focus(back, cx);
             }
             cx.notify();
@@ -880,6 +897,10 @@ impl SettingsOverlay {
 
     /// The overlay's own keys, ahead of the app's while it is open. `true` where one was taken.
     fn on_keystroke(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        // A project's Delete, asked, takes every key until it is answered.
+        if self.delete_key(key, window, cx) {
+            return true;
+        }
         // A choice's list open over Settings takes its own keys.
         if self.popup.is_some() {
             return false;
