@@ -506,13 +506,15 @@ impl JobView {
         let optimistic = page.cards.answers.get(&key);
         let settled = settled_of(card.settled.as_ref(), optimistic);
         let open = card.asked && settled.is_none();
+        // The approval row's own top padding makes up the tighter bottom.
+        let follows = open || settled.is_some() || page.cards.said.contains_key(&key);
         let band = div()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .pt(look.length(token::SPACE_3))
-            .pb(look.length(token::SPACE_1))
+            .pb(look.length(if follows { token::SPACE_1 } else { token::SPACE_3 }))
             .child(glyph(look, "file-text", Size::Small, look.color(token::FG_MUTED)))
             .child(
                 div()
@@ -535,7 +537,7 @@ impl JobView {
                     .child(format!("r{}", card.revision)),
             )
             .child(self.stamp(&card.at, look, now, true, cx));
-        let body = frame(look, true).child(band).when(open || settled.is_some() || page.cards.said.contains_key(&key), |frame| {
+        let body = frame(look, true).child(band).when(follows, |frame| {
             frame.child(self.approval(ix, &key, Subject::Document { page: card.page.clone(), revision: card.revision }, open, false, settled, true, page, look, cx))
         });
         labelled(body.id(SharedString::from(format!("document:{key}"))), Role::Article, format!("Document: {}, Revision {}", card.title, card.revision)).into_any_element()
