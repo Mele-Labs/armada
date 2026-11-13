@@ -1,0 +1,32 @@
+{
+  "mods": [
+    {
+      "name": "built-in:calm",
+      "origin": "built_in",
+      "kind": "theme",
+      "description": "Low-contrast greys for long reading",
+      "enabled": false,
+      "valid": true
+    },
+    {
+      "name": "quiet-clashes",
+      "kind": "fleet",
+      "version": "1",
+      "description": "Holds write-clash notices for a Job until it has written twice to the same file",
+      "made_by": "mock-06",
+      "enabled": false,
+      "valid": true,
+      "changed_at": "2026-11-12T09:41:00Z"
+    },
+    {
+      "name": "clash-tint",
+      "kind": "tweak",
+      "description": "Tints a clash mark in the Jobs list amber",
+      "made_by": "mock-06",
+      "enabled": false,
+      "valid": false,
+      "reason": "tweak.css names --clash-tint, which no theme defines",
+      "changed_at": "2026-11-12T09:44:00Z"
+    }
+  ]
+}

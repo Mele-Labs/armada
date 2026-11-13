@@ -13,6 +13,7 @@
 //!
 //! **Available only in a development build**, as Electron's is ([`dev_build`]).
 
+pub mod live;
 mod panel;
 pub mod store;
 pub mod tools;
@@ -25,7 +26,7 @@ use std::sync::Arc;
 
 use gpui::{
     actions, canvas, div, point, prelude::*, Anchor, App, Bounds, ClickEvent, Context, DismissEvent, Div, Entity, EventEmitter,
-    ExternalPaths, FocusHandle, Focusable, FontWeight, Global, KeyBinding, Pixels, Point, Role, SharedString, Subscription, Task, Window,
+    ExternalPaths, FocusHandle, Focusable, FontWeight, Global, KeyBinding, Pixels, Point, Role, SharedString, Stateful, Subscription, Task, Window,
     WindowId,
 };
 use serde_json::{json, Value};
@@ -73,22 +74,27 @@ pub fn bind(cx: &mut App) {
 /// Electron's gate is `!app.isPackaged || process.defaultApp` (`M/dev-build.ts`): the dev copy of the
 /// app is a bundle in name, so a bundle started with a source folder still counts. The native
 /// reading of the same: the executable is **packaged** when it lives inside a `.app` bundle's
-/// `Contents/MacOS`; a development build is any executable that is not (cargo's `target`, a kept
-/// build in a folder), **or** a bundle started with its working directory inside a source folder,
-/// one that has a `.git` above it. Launched from the Dock the working directory is `/`, so a shipped
-/// app is never one.
+/// `Contents/MacOS`; a development build is any executable that is not (cargo's `target`), a bundle
+/// kept as a build (`scripts/preview` and `scripts/restart` put a `build.toml` beside the `.app`, as
+/// Electron's preview is started with its folder), **or** a bundle started with its working
+/// directory inside a source folder, one that has a `.git` above it. Launched from the Dock the
+/// working directory is `/` and no record stands beside it, so a shipped app is never one.
 pub fn dev_build() -> bool {
     let exe = std::env::current_exe().ok();
     let cwd = std::env::current_dir().ok();
-    is_dev_build(exe.as_deref(), cwd.as_deref(), &|dir: &Path| dir.join(".git").exists())
+    is_dev_build(exe.as_deref(), cwd.as_deref(), &|dir: &Path| dir.join(".git").exists(), &|dir: &Path| dir.join("build.toml").exists())
 }
 
-pub fn is_dev_build(exe: Option<&Path>, cwd: Option<&Path>, has_git: &dyn Fn(&Path) -> bool) -> bool {
-    let packaged = exe.is_some_and(|exe| {
-        let parts: Vec<_> = exe.components().map(|part| part.as_os_str().to_string_lossy().into_owned()).collect();
-        parts.windows(3).any(|three| three[0].ends_with(".app") && three[1] == "Contents" && three[2] == "MacOS")
+pub fn is_dev_build(exe: Option<&Path>, cwd: Option<&Path>, has_git: &dyn Fn(&Path) -> bool, kept: &dyn Fn(&Path) -> bool) -> bool {
+    let bundle = exe.and_then(|exe| {
+        exe.ancestors().find(|at| {
+            at.extension().is_some_and(|ext| ext == "app") && exe.strip_prefix(at).is_ok_and(|inside| inside.starts_with("Contents/MacOS"))
+        })
     });
-    !packaged || cwd.is_some_and(|cwd| cwd.ancestors().any(has_git))
+    match bundle {
+        None => true,
+        Some(bundle) => bundle.parent().is_some_and(kept) || cwd.is_some_and(|cwd| cwd.ancestors().any(has_git)),
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -115,7 +121,6 @@ pub(crate) struct Note {
     pub ring: Option<Bounds<Pixels>>,
     pub window: bool,
     /// The window as it was when the note was held: the send burns the ring and number into it.
-    #[allow(dead_code)]
     pub picture: Option<(Arc<image::RgbaImage>, f32)>,
     pub status: Status,
     /// The Job it went to, once Fleet took it.
@@ -144,6 +149,19 @@ impl EventEmitter<Asked> for Layer {}
 struct Said {
     text: SharedString,
     fault: bool,
+    /// A Job's title inside the line, as the words before it and after it: the title is what is cut
+    /// when the line is too long for the bar, and the whole line stays in the tooltip.
+    title: Option<(SharedString, SharedString, SharedString)>,
+}
+
+impl Said {
+    fn plain(text: impl Into<SharedString>, fault: bool) -> Said {
+        Said { text: text.into(), fault, title: None }
+    }
+
+    fn naming(lead: &str, title: &str, tail: &str, fault: bool) -> Said {
+        Said { text: format!("{lead}{title}{tail}").into(), fault, title: Some((lead.to_string().into(), title.to_string().into(), tail.to_string().into())) }
+    }
 }
 
 struct Menu {
@@ -174,12 +192,17 @@ pub struct Layer {
     pub targets: Vec<Offered>,
     menu: Option<Menu>,
     split_at: Rc<Cell<Option<Bounds<Pixels>>>>,
+    /// Where the card's and the All notes header's Send to job are drawn, so the picker opens beside them.
+    card_at: Rc<Cell<Option<Bounds<Pixels>>>>,
+    pub(crate) header_at: Rc<Cell<Option<Bounds<Pixels>>>>,
     bar_at: Rc<Cell<Option<Bounds<Pixels>>>>,
     sending: Option<SharedString>,
     sending_ids: Vec<u32>,
     said: Option<Said>,
     keys_were: Option<FocusHandle>,
     card_focus: FocusHandle,
+    /// The opened card's Send to job and Start job: a saved note opens on Send to job, so the send is all keys.
+    card_keys: (FocusHandle, FocusHandle),
     /// ⌘V on the opened card reads a picture off the clipboard before anything else does.
     paste: Option<Subscription>,
     deleting_card: bool,
@@ -211,12 +234,15 @@ impl Layer {
             targets,
             menu: None,
             split_at: Rc::default(),
+            card_at: Rc::default(),
+            header_at: Rc::default(),
             bar_at: Rc::default(),
             sending: None,
             sending_ids: Vec::new(),
             said: None,
             keys_were: None,
             card_focus: cx.focus_handle(),
+            card_keys: (cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true)),
             paste: None,
             deleting_card: false,
             listing: false,
@@ -249,6 +275,12 @@ impl Layer {
             let note = self.note_of(raw, cx);
             self.notes.push(note);
         }
+    }
+
+    /// The walk's made-up notes go, so the live app lists only what is on disk.
+    pub fn forget_seeded(&mut self, cx: &mut Context<Self>) {
+        self.notes.retain(|note| !note.key.ends_with("-seed"));
+        cx.notify();
     }
 
     /// A note as its file reads. It has a pin here when it was written on this screen, where it stood.
@@ -334,7 +366,7 @@ impl Layer {
                 .await;
             if let Err(why) = wrote {
                 let _ = this.update(cx, |this, cx| {
-                    this.said = Some(Said { text: format!("Note not saved: {why}").into(), fault: true });
+                    this.said = Some(Said::plain(format!("Note not saved: {why}"), true));
                     cx.notify();
                 });
             }
@@ -396,6 +428,21 @@ impl Layer {
         let screen = self.screen.clone();
         if let Some((capture, _)) = &self.capture {
             capture.update(cx, |capture, cx| capture.whole_window(screen, cx));
+            let focus = capture.read(cx).focus_handle(cx);
+            window.defer(cx, move |window, cx| window.focus(&focus, cx));
+        }
+        cx.notify();
+    }
+
+    /// Report on a point menu: the layer wakes if it slept, and a note begins on what is under `at`.
+    pub fn report_at(&mut self, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.on {
+            self.toggle(window, cx);
+        }
+        self.opened = None;
+        self.paste = None;
+        if let Some((capture, _)) = &self.capture {
+            capture.update(cx, |capture, cx| capture.element_at_point(at, window, cx));
             let focus = capture.read(cx).focus_handle(cx);
             window.defer(cx, move |window, cx| window.focus(&focus, cx));
         }
@@ -492,6 +539,11 @@ impl Layer {
         self.persist(id, pictures, cx);
         self.said = None;
         self.arm(window, cx);
+        // The saved note stays open on Send to job, so the send is all keys: Enter opens the live Jobs, ⌥1–9
+        // or Enter picks one, Esc closes. With no Job live the keys wait on Start job.
+        self.open_note(id, window, cx);
+        let start = if self.targets.is_empty() { self.card_keys.1.clone() } else { self.card_keys.0.clone() };
+        window.defer(cx, move |window, cx| window.focus(&start, cx));
     }
 
     /// The unsent open notes standing on this screen, in the order they were written.
@@ -517,6 +569,39 @@ impl Layer {
         cx.notify();
     }
 
+    /// The live Jobs the picker lists, as Fleet says them now.
+    pub fn set_targets(&mut self, targets: Vec<Offered>, cx: &mut Context<Self>) {
+        if self.targets != targets {
+            self.targets = targets;
+            cx.notify();
+        }
+    }
+
+    /// The pending send's notes as the live send needs them, numbered in the order they were written.
+    pub fn outgoing(&self) -> Vec<live::Outgoing> {
+        self.notes
+            .iter()
+            .filter(|note| self.sending_ids.contains(&note.id))
+            .enumerate()
+            .map(|(at, note)| live::Outgoing {
+                key: note.key.clone(),
+                raw: note.raw.clone(),
+                window: note.window,
+                number: at + 1,
+                picture: match (&note.picture, note.raw["screenshot"].as_str(), &self.dir) {
+                    (Some((picture, scale)), _, _) => live::Picture::Held(Arc::clone(picture), *scale, note.ring),
+                    (None, Some(name), Some(dir)) => live::Picture::File(dir.join(name)),
+                    _ => live::Picture::None,
+                },
+            })
+            .collect()
+    }
+
+    /// The Job the pending send went to, once a new one has its id.
+    pub fn sending_to(&mut self, session: SharedString) {
+        self.sending_session = Some(session);
+    }
+
     pub(crate) fn is_sending(&self) -> bool {
         self.sending.is_some()
     }
@@ -538,8 +623,7 @@ impl Layer {
         for id in ids {
             self.changed(id, cx);
         }
-        let text = if new_job { format!("Job started: {title}") } else { format!("Sent to Job {title}") };
-        self.said = Some(Said { text: text.into(), fault: false });
+        self.said = Some(if new_job { Said::naming("Job started: ", title, "", false) } else { Said::naming("Sent to Job ", title, "", false) });
         cx.notify();
     }
 
@@ -547,7 +631,7 @@ impl Layer {
     pub fn refused(&mut self, title: &str, why: &str, cx: &mut Context<Self>) {
         self.sending = None;
         self.sending_ids.clear();
-        self.said = Some(Said { text: format!("Notes not sent to \"{title}\": {why}").into(), fault: true });
+        self.said = Some(Said::naming("Notes not sent to \"", title, &format!("\": {why}"), true));
         cx.notify();
     }
 
@@ -628,12 +712,18 @@ impl Layer {
         if self.sending.is_some() || self.menu.is_some() {
             return;
         }
-        let entries: Vec<Entry> = self
-            .targets
-            .iter()
-            .map(|job| Entry::Act { id: id_of(format!("job:{}", job.id)), label: job.title.clone(), icon: Some("square-terminal"), danger: false })
+        // Searchable by typing, and the first nine take ⌥1–9, as Classic's picker and the dispatch chips.
+        let entries: Vec<Entry> = std::iter::once(Entry::Search { label: "Find a Job", to_rule: false })
+            .chain(self.targets.iter().enumerate().map(|(at, job)| Entry::Item {
+                id: id_of(format!("job:{}", job.id)),
+                label: job.title.clone(),
+                icon: Some("square-terminal"),
+                danger: false,
+                key: (at < 9).then(|| format!("⌥{}", at + 1).into()),
+                off: None,
+            }))
             .collect();
-        let dropdown = cx.new(|cx| Dropdown::new("Send to a Job", entries, at, corner, false, cx));
+        let dropdown = cx.new(|cx| Dropdown::new("Send to a Job", entries, at, corner, true, cx));
         let picked = cx.subscribe_in(&dropdown, window, |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
             let ids = this.menu.take().map(|menu| menu.ids).unwrap_or_default();
@@ -645,7 +735,13 @@ impl Layer {
         });
         let dismissed = cx.subscribe_in(&dropdown, window, |this, _, _: &DismissEvent, window, cx| {
             this.menu = None;
-            this.refocus(window, cx);
+            // Esc goes back to the card's Send to job where a card is open.
+            if this.opened.is_some() {
+                let send = this.card_keys.0.clone();
+                window.focus(&send, cx);
+            } else {
+                this.refocus(window, cx);
+            }
             cx.notify();
         });
         let keys = dropdown.read(cx).focus_handle(cx);
@@ -655,10 +751,22 @@ impl Layer {
     }
 
     fn open_bar_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(from) = self.split_at.get() else { return };
-        let at = point(from.origin.x + from.size.width, from.origin.y - cx.look().length(token::SPACE_1));
         let ids = self.sendable_here();
-        self.open_menu(ids, at, Anchor::BottomRight, window, cx);
+        let from = Rc::clone(&self.split_at);
+        self.open_menu_by(ids, &from, window, cx);
+    }
+
+    /// The Jobs' picker right beside the Send to job drawn at `from`: under it, or over it in the window's
+    /// lower half.
+    pub(crate) fn open_menu_by(&mut self, ids: Vec<u32>, from: &Cell<Option<Bounds<Pixels>>>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(from) = from.get() else { return };
+        let gap = cx.look().length(token::SPACE_1);
+        let (at, corner) = if from.center().y < window.viewport_size().height / 2. {
+            (point(from.origin.x, from.origin.y + from.size.height + gap), Anchor::TopLeft)
+        } else {
+            (point(from.origin.x, from.origin.y - gap), Anchor::BottomLeft)
+        };
+        self.open_menu(ids, at, corner, window, cx);
     }
 
     /// The keys go back to the capture after a menu or a card.
@@ -681,6 +789,7 @@ pub(crate) fn split(
     off: bool,
     spin: bool,
     at: Option<Rc<Cell<Option<Bounds<Pixels>>>>>,
+    keys: Option<(&(FocusHandle, FocusHandle), [bool; 2])>,
     main: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     caret: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Div {
@@ -698,6 +807,7 @@ pub(crate) fn split(
             .when(!off, |part| part.cursor_pointer().hover(|style| style.opacity(0.9)))
             .when(off, |part| part.opacity(0.7))
     };
+    let keyed = |part: Stateful<Div>, focus: Option<(&FocusHandle, bool)>| keyed(look, part, focus);
     let measure = at.map(|at| canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full());
     div()
         .relative()
@@ -706,7 +816,7 @@ pub(crate) fn split(
         .gap(look.length(token::BORDER_WIDTH))
         .children(measure)
         .child(labelled(
-            part(format!("{id}-main").into())
+            keyed(part(format!("{id}-main").into()), keys.map(|(keys, on)| (&keys.0, on[0])))
                 .px(look.length(token::SPACE_4))
                 .gap(look.length(token::SPACE_2))
                 .rounded_l(look.length(token::RADIUS_LG))
@@ -719,7 +829,7 @@ pub(crate) fn split(
             label,
         ))
         .child(labelled(
-            part(format!("{id}-caret").into())
+            keyed(part(format!("{id}-caret").into()), keys.map(|(keys, on)| (&keys.1, on[1])))
                 .w(look.length(token::H_CONTROL))
                 .rounded_r(look.length(token::RADIUS_LG))
                 .child(glyph("chevron-down", look.length(token::SPACE_3), ink))
@@ -727,6 +837,74 @@ pub(crate) fn split(
             Role::Button,
             "Send to a Job",
         ))
+}
+
+/// Held by keys, a part takes Enter and Space as a press; focused, it is ringed as Classic's `:focus-visible`,
+/// an accent outline set off by `--focus-ring-offset`.
+fn keyed(look: &Look, part: Stateful<Div>, focus: Option<(&FocusHandle, bool)>) -> Stateful<Div> {
+    let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+    match focus {
+        Some((focus, on)) => part.relative().track_focus(focus).when(on, |part| {
+            let out = -(look.length(token::FOCUS_RING_WIDTH) + gpui::px(2.));
+            part.child(
+                div()
+                    .absolute()
+                    .top(out)
+                    .bottom(out)
+                    .left(out)
+                    .right(out)
+                    .rounded(look.length(token::RADIUS_LG) + gpui::px(4.))
+                    .border(look.length(token::FOCUS_RING_WIDTH))
+                    .border_color(ring),
+            )
+        }),
+        None => part,
+    }
+}
+
+/// Send to job, then Start job, both in sight: the send leads, and its press opens the live Jobs beside
+/// it. `pending` names a send under way, drawn turning in Start job's place. `name` tells Send to job
+/// apart where two are drawn at once.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn sends(
+    look: &Look,
+    cx: &App,
+    id: &str,
+    name: &str,
+    off: bool,
+    no_jobs: bool,
+    pending: Option<SharedString>,
+    at: Rc<Cell<Option<Bounds<Pixels>>>>,
+    keys: Option<(&(FocusHandle, FocusHandle), [bool; 2])>,
+    send: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    start: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> Div {
+    let busy = pending.is_some();
+    let send_off = off || busy || no_jobs;
+    let measure = canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full();
+    let to = Btn::new(SharedString::from(format!("{id}-send")), "Send to job", Weight::Primary)
+        .disabled(send_off)
+        .draw(look, cx)
+        .relative()
+        .child(measure)
+        .child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::TEXT_ON_ACCENT)));
+    let to = keyed(look, to, keys.map(|(keys, on)| (&keys.0, on[0])))
+        .when(no_jobs && !busy, |to| to.tooltip(tip("No Job is live")))
+        .when(!send_off, |to| to.on_click(send));
+    let started = match pending {
+        Some(said) => labelled(Btn::new(SharedString::from(format!("{id}-start")), said.clone(), Weight::Secondary).pending(true).draw(look, cx), Role::Button, said),
+        None => {
+            let button = Btn::new(SharedString::from(format!("{id}-start")), "Start job", Weight::Secondary).disabled(off).draw(look, cx);
+            labelled(keyed(look, button, keys.map(|(keys, on)| (&keys.1, on[1]))).when(!off, |button| button.on_click(start)), Role::Button, "Start job")
+        }
+    };
+    div()
+        .flex_none()
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .child(labelled(to, Role::Button, name.to_string()))
+        .child(started)
 }
 
 impl Render for Layer {
@@ -826,7 +1004,7 @@ impl Render for Layer {
                     }
                 }))
                 .on_drop(move |paths: &ExternalPaths, _, cx| tools::dropped(&dropped, paths, cx))
-                .w(look.length(token::SPACE_8) * 11.)
+                .w(look.length(token::SPACE_8) * 14.)
                 .max_h(view.height - gap * 2.)
                 .overflow_y_scroll()
                 .gap(look.length(token::SPACE_3))
@@ -851,23 +1029,25 @@ impl Render for Layer {
                 .child(
                     div()
                         .flex()
+                        .flex_wrap()
                         .items_center()
-                        .justify_end()
                         .gap(look.length(token::SPACE_2))
                         .children(dispatchable.then(|| {
-                            split(
+                            sends(
                                 look,
                                 cx,
-                                "note-start".into(),
-                                "Start job".into(),
+                                "note",
+                                "Send to job",
                                 off,
-                                false,
+                                self.targets.is_empty(),
                                 None,
-                                cx.listener(move |this, _, _, cx| this.send(ids.clone(), None, cx)),
-                                cx.listener(move |this, event: &ClickEvent, window, cx| {
-                                    let at = event.position();
-                                    this.open_menu(again.clone(), point(at.x, at.y), Anchor::TopRight, window, cx)
+                                Rc::clone(&self.card_at),
+                                Some((&self.card_keys, [self.card_keys.0.is_focused(window), self.card_keys.1.is_focused(window)])),
+                                cx.listener(move |this, _, window, cx| {
+                                    let from = Rc::clone(&this.card_at);
+                                    this.open_menu_by(again.clone(), &from, window, cx)
                                 }),
+                                cx.listener(move |this, _, _, cx| this.send(ids.clone(), None, cx)),
                             )
                         }))
                         .child(labelled(
@@ -880,7 +1060,7 @@ impl Render for Layer {
                         ))
                         .child(labelled(delete, Role::Button, if armed { "Press again to delete" } else { "Delete" })),
                 );
-            Some(capture::placed(ring, note.window, window, gap, look.length(token::SPACE_8) * 11., labelled(content, Role::Dialog, "Note")))
+            Some(capture::placed(ring, note.window, window, gap, look.length(token::SPACE_8) * 14., labelled(content, Role::Dialog, "Note")))
         });
         let panel = self.listing.then(|| self.panel(window, cx));
         div()
@@ -914,27 +1094,48 @@ impl Layer {
         let sendable = !self.sendable_here().is_empty();
         let pending = self.sending.clone();
         let split = sendable.then(|| {
-            split(
+            sends(
                 look,
                 cx,
-                "annotate-start".into(),
-                pending.clone().unwrap_or_else(|| "Start job".into()),
-                pending.is_some(),
-                pending.is_some(),
-                Some(Rc::clone(&self.split_at)),
+                "annotate",
+                "Send to job",
+                false,
+                self.targets.is_empty(),
+                pending.clone(),
+                Rc::clone(&self.split_at),
+                None,
+                cx.listener(|this, _, window, cx| this.open_bar_menu(window, cx)),
                 cx.listener(|this, _, _, cx| {
                     let ids = this.sendable_here();
                     this.send(ids, None, cx)
                 }),
-                cx.listener(|this, _, window, cx| this.open_bar_menu(window, cx)),
             )
         });
         let said = self.said.as_ref().map(|said| {
+            // A chip as tall as the Sending one beside it, with room inside its edge; too long for the bar,
+            // the Job's title is cut and the whole line is in the tooltip.
+            let words = match &said.title {
+                Some((lead, title, tail)) => div()
+                    .flex()
+                    .min_w_0()
+                    .child(div().flex_none().child(lead.clone()))
+                    .child(div().min_w_0().truncate().child(title.clone()))
+                    .children((!tail.is_empty()).then(|| div().flex_none().child(tail.clone()))),
+                None => div().min_w_0().truncate().child(said.text.clone()),
+            };
             labelled(
                 div()
                     .id("annotate-said")
+                    .flex()
+                    .items_center()
+                    .min_w_0()
+                    .max_w(look.length(token::SPACE_12) * 9.)
+                    .h(look.length(token::H_CONTROL))
+                    .px(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_LG))
                     .text_color(look.color(if said.fault { token::ERROR } else { token::FG_MUTED }))
-                    .child(said.text.clone()),
+                    .tooltip(tip(said.text.clone()))
+                    .child(words),
                 Role::Status,
                 said.text.clone(),
             )
@@ -1020,5 +1221,27 @@ impl Layer {
             }
         });
         self.search = Some((search, typed));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn none(_: &Path) -> bool {
+        false
+    }
+
+    #[test]
+    fn a_kept_preview_bundle_is_a_dev_build_and_a_shipped_one_is_not() {
+        let preview = Path::new("/Users/me/Library/Application Support/Armada/builds/current/Armada.app/Contents/MacOS/Armada");
+        let stamp = Path::new("/Users/me/Library/Application Support/Armada/builds/2026-11-12T132938Z-da8d647");
+        let kept = |dir: &Path| dir.ends_with("builds/current");
+        assert!(is_dev_build(Some(preview), Some(stamp), &none, &kept));
+        let shipped = Path::new("/Applications/Armada.app/Contents/MacOS/Armada");
+        assert!(!is_dev_build(Some(shipped), Some(Path::new("/")), &none, &none));
+        let started_in_source = |dir: &Path| dir == Path::new("/src/armada");
+        assert!(is_dev_build(Some(shipped), Some(Path::new("/src/armada/crates")), &started_in_source, &none));
+        assert!(is_dev_build(Some(Path::new("/src/armada/target/debug/bridge-native")), Some(Path::new("/")), &none, &none));
     }
 }

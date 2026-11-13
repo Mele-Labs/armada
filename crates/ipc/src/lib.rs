@@ -265,6 +265,10 @@ mod macs;
 mod show_file;
 mod package_manifest;
 mod sketch;
+/// A sketch's scene read whole, as a client draws it.
+mod sketch_scene;
+/// A screen node's layout tree read whole, as a client draws it.
+mod sketch_screen;
 mod style_sources;
 /// A Job's document put to the person, and his answer.
 mod document_answer;
@@ -679,6 +683,10 @@ pub use document_answer::{
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
+};
+pub use sketch_scene::{Scene, SceneColor, SceneEdge, SceneKind, SceneNode, ScenePoint, SceneShape, SceneStroke, WirePart, SCENE_ICONS};
+pub use sketch_screen::{
+    ScreenAct, ScreenAlign, ScreenChrome, ScreenElement, ScreenField, ScreenFrom, ScreenGap, ScreenLayout, ScreenMessage, ScreenPart, ScreenRow, ScreenSize, ScreenSizeWord, ScreenText, ScreenVariant,
 };
 pub use package_manifest::{read_package_manifest, PackageManifest};
 pub use style_sources::{KeptFont, KeptSheet, KeptStyles, StyleKind, StyleSource, StyleSources, StyleToken};

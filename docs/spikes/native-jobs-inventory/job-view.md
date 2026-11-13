@@ -382,6 +382,29 @@ Arrangement/layouts are local state (`job-panes/store.ts`, kept per Job id and p
 Nothing on the wire.
 Tab labels for terminals mirror Fleet shells (`shellsOf(window.armada)`); Custom tabs follow the mod list.
 
+### 2.8 The System and Bays tab bodies
+
+System is `SystemLayer` (`session-view/SessionLayers.tsx:808`) over `SystemSections` (`session-view/SystemLayer.tsx:330`).
+Its sections, each left out where its figure is absent, are Time (`GET /sessions/time`), Processes with a Columns menu (`:22-43`), CPU, Memory, Disk, Worktrees (the held bays) and Logs.
+It reads `GET /sessions/system` every 5 s while open (`session-view/system.ts:63,189`), keeping 60 readings (`:46`).
+A process row's Stop (`SystemLayer.tsx:130-142`) sends `POST /sessions/stop_process` with no confirm.
+A failed read leaves the skeleton up (`system.ts:196-216`).
+
+Bays is `BaysLayer` (`SessionLayers.tsx:739`): the Write clashes table, then one `Berth` per held bay (`cockpit/deck/BayRows.tsx:151`).
+A press on a bay opens the Bay side panel (`shared-panel/panels.tsx:310`), whose Facts tab carries the acts (`packages/components/src/compositions/PoolSlots/TileActs.tsx:89-168`).
+
+| Act | Shown when | Confirm |
+|---|---|---|
+| Rescue | stranded, no rescue yet (`TileActs.tsx:96`) | none; starts a Scout that changes nothing |
+| Stop | stranded, the Scout reading (`:107`) | none |
+| Release | `releasable(slot)` (`:118`) | `ReleaseConfirm` (`PoolSlots/ReleaseConfirm.tsx:32-98`): Held by, Takes the checkout from that job, then `ClearSaves` (`ClearSaves.tsx`) where files are uncommitted, else Releases and Keeps branch; Release and Cancel |
+| Reopen slot or Close slot | always, by `slot.closed` (`:129-149`) | none |
+| Remove slot | free or unmade, not busy (`:150`) | none; Fleet refuses it while the checkout holds uncommitted changes |
+| Pick up, Stash | after a Finding (`TileManage.tsx:81-104`) | none |
+| Scrap | after a Finding (`TileManage.tsx:105-114`) | `ScrapConfirm` (`PoolSlots/SlotFinding.tsx:195-230`): the Uncommitted paths and the Unpushed commits, then Scrap and Cancel |
+
+The Scout's Finding is `SlotFinding` (`SlotFinding.tsx:133-189`).
+
 ---
 
 ## 3. The thread

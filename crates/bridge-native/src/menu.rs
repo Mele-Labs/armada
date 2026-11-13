@@ -22,12 +22,13 @@ use crate::fleet::FleetConnection;
 use crate::log::Note;
 use crate::revert;
 
-actions!(app_menu, [About, RevertToBuildBefore, Hide, HideOthers, ShowAll, Quit, Minimize, Zoom]);
+actions!(app_menu, [About, OpenSettings, RevertToBuildBefore, Hide, HideOthers, ShowAll, Quit, Minimize, Zoom]);
 
 /// What an item does. Several are gpui-component's, which a text field handles.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Command {
     About,
+    Settings,
     RevertToBuildBefore,
     Hide,
     HideOthers,
@@ -68,6 +69,7 @@ pub fn template(name: &str, revert: bool) -> Vec<Top> {
             label: name.into(),
             entries: vec![
                 item(&format!("About {name}"), Command::About),
+                item("Settings…", Command::Settings),
                 Entry::Item { label: revert::REVERT_ITEM.into(), command: Command::RevertToBuildBefore, enabled: revert },
                 Entry::Separator,
                 Entry::Services,
@@ -104,6 +106,7 @@ fn menu_item(entry: &Entry) -> MenuItem {
     };
     let built = match command {
         Command::About => MenuItem::action(label, About),
+        Command::Settings => MenuItem::action(label, OpenSettings),
         Command::RevertToBuildBefore => MenuItem::action(label, RevertToBuildBefore),
         Command::Hide => MenuItem::action(label, Hide),
         Command::HideOthers => MenuItem::action(label, HideOthers),
@@ -136,6 +139,8 @@ fn bindings() -> Vec<KeyBinding> {
         KeyBinding::new("cmd-h", Hide, None),
         KeyBinding::new("alt-cmd-h", HideOthers, None),
         KeyBinding::new("cmd-m", Minimize, None),
+        // The menu shows the key it has; ⌘, opens Settings from the bar's own binding too (`open_settings`).
+        KeyBinding::new("cmd-,", OpenSettings, None),
     ]
 }
 
@@ -155,6 +160,11 @@ pub fn install(cx: &mut App) {
     cx.on_action(|_: &Zoom, cx| {
         if let Some(window) = cx.active_window() {
             let _ = window.update(cx, |_, window, _| window.zoom_window());
+        }
+    });
+    cx.on_action(|_: &OpenSettings, cx| {
+        if let Some(bar) = crate::titlebar::live(cx) {
+            bar.update(cx, |_, cx| cx.emit(crate::titlebar::Asked::Settings));
         }
     });
     cx.on_action(|_: &About, cx| {
@@ -245,6 +255,7 @@ mod tests {
             labels(&menus[0]),
             [
                 "About Armada",
+                "Settings…",
                 "Revert to the build before…",
                 "-",
                 "Services",
@@ -282,10 +293,10 @@ mod tests {
     }
 
     #[test]
-    fn quit_hide_and_minimize_have_the_platforms_keys() {
+    fn quit_hide_minimize_and_settings_have_their_keys() {
         // A keystroke gpui cannot read panics where it is built, so building them is the check.
         let keys = bindings();
-        assert_eq!(keys.len(), 4);
+        assert_eq!(keys.len(), 5);
         assert!(keys[0].action().as_any().is::<Quit>());
         assert_eq!(keys[0].keystrokes().len(), 1);
     }
@@ -294,6 +305,6 @@ mod tests {
     fn every_template_item_becomes_a_gpui_menu_item() {
         let built = menus(&template("Armada", true));
         assert_eq!(built.len(), 3);
-        assert_eq!(built.iter().map(|menu| menu.items.len()).collect::<Vec<_>>(), [10, 7, 2]);
+        assert_eq!(built.iter().map(|menu| menu.items.len()).collect::<Vec<_>>(), [11, 7, 2]);
     }
 }

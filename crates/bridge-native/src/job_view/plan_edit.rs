@@ -74,7 +74,7 @@ impl Render for Ghost {
 }
 
 impl JobView {
-    fn plan_of_shown(&self, cx: &gpui::App) -> Option<(SharedString, SessionPlan)> {
+    pub(super) fn plan_of_shown(&self, cx: &gpui::App) -> Option<(SharedString, SessionPlan)> {
         let id = self.shown.clone()?;
         let plan = self.record(&id, cx)?.plan.clone()?;
         Some((id, plan))
@@ -136,7 +136,11 @@ impl JobView {
     /// Shut by a key: the keys go back to the sheet's list, not to a field no longer drawn.
     pub(super) fn field_done(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.shut_field(cx);
-        window.focus(&self.review_focus.list, cx);
+        if self.review_open() {
+            window.focus(&self.review_focus.list, cx);
+        } else {
+            self.to_composer(window, cx);
+        }
     }
 
     fn save_field(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -174,7 +178,7 @@ impl JobView {
             entries,
             at,
             from_keys,
-            Some(self.review_focus.list.clone()),
+            Some(if self.review_open() { self.review_focus.list.clone() } else { gpui::Focusable::focus_handle(self.composer.input.read(cx), cx) }),
             move |this, picked, _, cx| {
                 if picked != "own" {
                     this.edit(|plan, marks| plan_marks::set_agent(plan, marks, &group, picked), cx);
@@ -189,7 +193,9 @@ impl JobView {
 
     /// The plan in the review sheet: its summary, then each group edited in place and Add group. A plan
     /// recorded again and not marked reads as the diff against the version before, with Edit plan.
-    pub(super) fn plan_editor(&self, id: &SharedString, plan: &SessionPlan, diff: Option<AnyElement>, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// `compact` is Now's form, as Electron's `PlanGroup` draws it there: no card, and the subagent type
+    /// behind a chevron.
+    pub(super) fn plan_editor(&self, id: &SharedString, plan: &SessionPlan, diff: Option<AnyElement>, compact: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
         let state = self.pages.get(id.as_str()).map(|page| &page.plan_edit);
         let marks = state.map(|state| state.marks.as_slice()).unwrap_or_default();
         let field = state.and_then(|state| state.field.as_ref());
@@ -218,7 +224,7 @@ impl JobView {
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_3))
-                    .children(groups.iter().map(|group| self.group_editor(group, field, look, cx)))
+                    .children(groups.iter().map(|group| self.group_editor(group, field, compact, look, cx)))
                     .child(self.add_group(field, look, cx))
                     .into_any_element()
             }
@@ -468,21 +474,50 @@ impl JobView {
         }
     }
 
-    fn group_editor(&self, group: &ViewGroup, field: Option<&Field>, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn group_editor(&self, group: &ViewGroup, field: Option<&Field>, compact: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
         let target = Target::group(&group.id);
         let hover: &'static str = "plan-group";
         let key = group.id.clone();
         let agent_group = group.id.clone();
+        let unfolded = compact && self.side_unfolded(&format!("plan:{key}"));
+        let fold = compact.then(|| {
+            let fold_key = format!("plan:{key}");
+            labelled(
+                div()
+                    .id(SharedString::from(format!("plan-fold:{key}")))
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .size(look.length(token::H_CONTROL_SM))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                    .child(glyph(look, if unfolded { "chevron-up" } else { "chevron-down" }, Size::Small, look.color(token::FG_MUTED)))
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.side_fold(&fold_key);
+                        cx.notify();
+                    })),
+                Role::Button,
+                format!("Subagent type and paths of {}", group.title),
+            )
+        });
         let head = div()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .text_size(look.length(token::TEXT_BASE))
-            .line_height(look.length(token::LEADING_BASE))
+            .text_size(look.length(if compact { token::TEXT_XS } else { token::TEXT_BASE }))
+            .line_height(look.length(if compact { token::LEADING_XS } else { token::LEADING_BASE }))
+            .when(compact, |head| head.child(glyph(look, "dot", Size::Small, look.color(token::FG_SUBTLE))))
             .child(div().flex_1().min_w_0().child(self.edit_text(key.clone(), "Group", &group.title, group.was.as_deref(), target.clone(), true, field, look, cx)))
             .children(group.added.then(|| Self::added_mark(&key, look)))
             .children(group.since.as_ref().map(|since| Self::since_mark(&key, since, look)))
-            .child(self.tools(&key, hover, format!("group {}", group.title), target.clone(), group.removed, look, cx));
+            .child(self.tools(&key, hover, format!("group {}", group.title), target.clone(), group.removed, look, cx))
+            .children(fold);
+        let paths: Vec<String> = self.plan_of_shown(cx).and_then(|(_, plan)| plan.groups.into_iter().find(|one| one.id == group.id)).map(|one| one.paths).unwrap_or_default();
+        let paths = (unfolded && !paths.is_empty()).then(|| {
+            div().flex().flex_col().pl(look.length(token::SPACE_6)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).children(paths.into_iter().map(|path| div().truncate().child(SharedString::from(path))))
+        });
         let agent = labelled(
             div()
                 .id(SharedString::from(format!("plan-agent:{key}")))
@@ -539,12 +574,9 @@ impl JobView {
                 .group(hover)
                 .flex()
                 .flex_col()
-                .gap(look.length(token::SPACE_2))
-                .p(look.length(token::SPACE_3))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_SUBTLE))
-                .bg(look.color(token::BG_RAISED))
+                .gap(look.length(if compact { token::SPACE_1 } else { token::SPACE_2 }))
+                .when(compact, |card| card.text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)))
+                .when(!compact, |card| card.p(look.length(token::SPACE_3)).rounded(look.length(token::RADIUS_MD)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).bg(look.color(token::BG_RAISED)))
                 .when(group.removed, |card| card.opacity(0.6))
                 .drag_over::<Dragged>(|style, _, _, cx| style.border_color(cx.look().color(token::ACCENT)))
                 .on_drop(cx.listener(move |this, dragged: &Dragged, _, cx| {
@@ -553,7 +585,8 @@ impl JobView {
                 }))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(head)
-                .child(meta)
+                .when(!compact || unfolded, |card| card.child(meta))
+                .children(paths)
                 .children(self.notes(&key, &group.notes, &target, &group.title, field, look, cx))
                 .child(
                     labelled(

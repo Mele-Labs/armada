@@ -46,8 +46,16 @@ impl Global for Held {}
 
 /// Hand the window what Fleet said clashes. A lost connection hands it nothing, so no mark stands.
 pub fn hold(clashes: AllWriteClashes, cx: &mut App) {
+    if cx.try_global::<Held>().is_some_and(|held| held.0 == clashes) {
+        return;
+    }
     cx.set_global(Held(clashes));
     cx.refresh_windows();
+}
+
+/// The clashes Fleet last said stand, for a pane that lists a Job's own.
+pub fn held(cx: &App) -> Option<&AllWriteClashes> {
+    cx.try_global::<Held>().map(|held| &held.0)
 }
 
 /// What each Job is in, `clashingOf`: the clashes with that Job as either side, each as the other holder.
@@ -67,6 +75,26 @@ fn conflicts_of(clashes: &AllWriteClashes, id: &str) -> Vec<Conflict> {
             mine.then(|| Conflict { with: other.clone(), paths: clash.paths.clone() })
         })
         .collect()
+}
+
+/// The Job whose list row is lit while the pointer is on a clash's link to it (`ClashWith`'s `setHover`).
+#[derive(Default)]
+struct Lit(Option<String>);
+
+impl Global for Lit {}
+
+/// Light a Job's row in the list, or none.
+pub fn light(id: Option<String>, cx: &mut App) {
+    if cx.try_global::<Lit>().is_some_and(|lit| lit.0 == id) || (id.is_none() && cx.try_global::<Lit>().is_none()) {
+        return;
+    }
+    cx.set_global(Lit(id));
+    cx.refresh_windows();
+}
+
+/// The Job whose row is lit, if any.
+pub fn lit(cx: &App) -> Option<&str> {
+    cx.try_global::<Lit>().and_then(|lit| lit.0.as_deref())
 }
 
 /// Opens the other holder of a clash, as a press on the Job's row opens it. Set by the screen that

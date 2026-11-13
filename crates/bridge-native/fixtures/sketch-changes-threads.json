@@ -1,0 +1,1446 @@
+{
+ "threads": [
+  {
+   "session_id": "tool-read",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-1",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Why does the router build its table on every call?"
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "r-1",
+     "names": [
+      "Grep",
+      "Read"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "r-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Grep router"
+      },
+      {
+       "kind": "tool",
+       "id": "r-2",
+       "at": "2026-11-10T22:00:04Z",
+       "text": "Read crates/api/src/router.rs"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "tool-run",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-2",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Run the docs check and the native walk."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "u-1",
+     "names": [
+      "Bash"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "u-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Bash armada check docs"
+      },
+      {
+       "kind": "tool",
+       "id": "u-2",
+       "at": "2026-11-10T22:00:20Z",
+       "description": "Build the native app and play the tool-rows walk",
+       "text": "Bash cd crates/bridge-native && ARMADA_LOG=debug cargo build --release --features walk-shots,native-menus && ./target/release/bridge-native --walk tool-rows --check --width 900 --shots /tmp/armada-red/tool-rows\necho done"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "tool-edit",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-3",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Make the freshness chip amber while the branch is behind."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "e-1",
+     "names": [
+      "Read",
+      "Edit"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "e-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Read packages/components/src/MergeLine/MergeLine.tsx"
+      },
+      {
+       "kind": "tool",
+       "id": "e-2",
+       "at": "2026-11-10T22:00:09Z",
+       "text": "Edit packages/components/src/MergeLine/MergeLine.tsx"
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-3b",
+      "at": "2026-11-10T22:00:40Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Here is where the chip takes its colour."
+     }
+    },
+    {
+     "kind": "sketch",
+     "id": "sk-reads",
+     "at": "2026-11-10T21:58:12Z",
+     "sketch": "sketch:Store clock reads",
+     "title": "Store clock reads",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "crate",
+        "kind": "group",
+        "x": -20,
+        "y": 10,
+        "w": 920,
+        "h": 200,
+        "title": "store crate"
+       },
+       {
+        "id": "writer",
+        "kind": "box",
+        "x": 0,
+        "y": 60,
+        "title": "Writer",
+        "body": "put(key, value)",
+        "icon": "hard-drive",
+        "step": 1
+       },
+       {
+        "id": "clock",
+        "kind": "box",
+        "x": 320,
+        "y": 60,
+        "title": "Clock",
+        "body": "now() on every write\nwall time",
+        "icon": "clock",
+        "step": 2
+       },
+       {
+        "id": "ledger",
+        "kind": "box",
+        "x": 640,
+        "y": 60,
+        "title": "Ledger",
+        "body": "stamps each row",
+        "icon": "scroll-text",
+        "step": 3
+       },
+       {
+        "id": "test",
+        "kind": "box",
+        "x": 320,
+        "y": 280,
+        "title": "store_flaky",
+        "body": "fails 4 of 30 runs",
+        "icon": "zap",
+        "step": 4
+       },
+       {
+        "id": "sleep",
+        "kind": "box",
+        "x": 0,
+        "y": 280,
+        "title": "sleep(1s)",
+        "body": "tried in the test",
+        "icon": "hammer"
+       }
+      ],
+      "edges": [
+       {
+        "id": "writer-clock",
+        "from": "writer",
+        "to": "clock",
+        "label": "reads"
+       },
+       {
+        "id": "clock-ledger",
+        "from": "clock",
+        "to": "ledger",
+        "label": "stamp"
+       },
+       {
+        "id": "test-clock",
+        "from": "test",
+        "to": "clock",
+        "label": "crosses a second"
+       },
+       {
+        "id": "sleep-test",
+        "from": "sleep",
+        "to": "test",
+        "label": "hides it"
+       }
+      ]
+     },
+     "revisions": [
+      {
+       "nodes": [
+        {
+         "id": "crate",
+         "kind": "group",
+         "x": -20,
+         "y": 10,
+         "w": 920,
+         "h": 200,
+         "title": "store crate"
+        },
+        {
+         "id": "writer",
+         "kind": "box",
+         "x": 0,
+         "y": 60,
+         "title": "Writer",
+         "body": "put(key, value)",
+         "icon": "hard-drive",
+         "step": 1
+        },
+        {
+         "id": "clock",
+         "kind": "box",
+         "x": 320,
+         "y": 60,
+         "title": "Clock",
+         "body": "now() on every write\nwall time",
+         "icon": "clock",
+         "step": 2
+        },
+        {
+         "id": "ledger",
+         "kind": "box",
+         "x": 640,
+         "y": 60,
+         "title": "Ledger",
+         "body": "stamps each row",
+         "icon": "scroll-text",
+         "step": 3
+        },
+        {
+         "id": "test",
+         "kind": "box",
+         "x": 320,
+         "y": 280,
+         "title": "store_flaky",
+         "body": "fails when the second turns",
+         "icon": "zap",
+         "step": 4
+        }
+       ],
+       "edges": [
+        {
+         "id": "writer-clock",
+         "from": "writer",
+         "to": "clock",
+         "label": "reads"
+        },
+        {
+         "id": "clock-ledger",
+         "from": "clock",
+         "to": "ledger",
+         "label": "stamp"
+        },
+        {
+         "id": "test-clock",
+         "from": "test",
+         "to": "clock",
+         "label": "crosses a second"
+        }
+       ]
+      },
+      {
+       "nodes": [
+        {
+         "id": "crate",
+         "kind": "group",
+         "x": -20,
+         "y": 10,
+         "w": 920,
+         "h": 200,
+         "title": "store crate"
+        },
+        {
+         "id": "writer",
+         "kind": "box",
+         "x": 0,
+         "y": 60,
+         "title": "Writer",
+         "body": "put(key, value)",
+         "icon": "hard-drive",
+         "step": 1
+        },
+        {
+         "id": "clock",
+         "kind": "box",
+         "x": 320,
+         "y": 60,
+         "title": "Clock",
+         "body": "now() on every write\nwall time",
+         "icon": "clock",
+         "step": 2
+        },
+        {
+         "id": "ledger",
+         "kind": "box",
+         "x": 640,
+         "y": 60,
+         "title": "Ledger",
+         "body": "stamps each row",
+         "icon": "scroll-text",
+         "step": 3
+        },
+        {
+         "id": "test",
+         "kind": "box",
+         "x": 320,
+         "y": 280,
+         "title": "store_flaky",
+         "body": "fails 4 of 30 runs",
+         "icon": "zap",
+         "step": 4
+        },
+        {
+         "id": "sleep",
+         "kind": "box",
+         "x": 0,
+         "y": 280,
+         "title": "sleep(1s)",
+         "body": "tried in the test",
+         "icon": "hammer"
+        }
+       ],
+       "edges": [
+        {
+         "id": "writer-clock",
+         "from": "writer",
+         "to": "clock",
+         "label": "reads"
+        },
+        {
+         "id": "clock-ledger",
+         "from": "clock",
+         "to": "ledger",
+         "label": "stamp"
+        },
+        {
+         "id": "test-clock",
+         "from": "test",
+         "to": "clock",
+         "label": "crosses a second"
+        },
+        {
+         "id": "sleep-test",
+         "from": "sleep",
+         "to": "test",
+         "label": "hides it"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "kind": "sketch",
+     "id": "sk-pinned",
+     "at": "2026-11-10T22:00:41Z",
+     "sketch": "sketch:Pinned clock",
+     "title": "Pinned clock",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "crate",
+        "kind": "group",
+        "x": -20,
+        "y": 10,
+        "w": 920,
+        "h": 200,
+        "title": "store crate"
+       },
+       {
+        "id": "writer",
+        "kind": "box",
+        "x": 0,
+        "y": 60,
+        "title": "Writer",
+        "body": "put(key, value)",
+        "icon": "hard-drive",
+        "step": 1
+       },
+       {
+        "id": "clock",
+        "kind": "box",
+        "x": 320,
+        "y": 60,
+        "title": "Clock",
+        "body": "trait, injected at open",
+        "icon": "clock",
+        "step": 2
+       },
+       {
+        "id": "ledger",
+        "kind": "box",
+        "x": 640,
+        "y": 60,
+        "title": "Ledger",
+        "body": "stamps each row",
+        "icon": "scroll-text",
+        "step": 3
+       },
+       {
+        "id": "test",
+        "kind": "box",
+        "x": 320,
+        "y": 280,
+        "title": "store_flaky",
+        "body": "pins FixedClock",
+        "icon": "zap",
+        "step": 4
+       },
+       {
+        "id": "fixed",
+        "kind": "box",
+        "x": 640,
+        "y": 280,
+        "title": "FixedClock",
+        "body": "returns one instant",
+        "icon": "lock",
+        "step": 5
+       }
+      ],
+      "edges": [
+       {
+        "id": "writer-clock",
+        "from": "writer",
+        "to": "clock",
+        "label": "reads"
+       },
+       {
+        "id": "clock-ledger",
+        "from": "clock",
+        "to": "ledger",
+        "label": "stamp"
+       },
+       {
+        "id": "fixed-clock",
+        "from": "fixed",
+        "to": "clock",
+        "label": "injected"
+       },
+       {
+        "id": "test-fixed",
+        "from": "test",
+        "to": "fixed",
+        "label": "uses"
+       }
+      ]
+     },
+     "against": "Store clock reads",
+     "against_drawing": {
+      "nodes": [
+       {
+        "id": "crate",
+        "kind": "group",
+        "x": -20,
+        "y": 10,
+        "w": 920,
+        "h": 200,
+        "title": "store crate"
+       },
+       {
+        "id": "writer",
+        "kind": "box",
+        "x": 0,
+        "y": 60,
+        "title": "Writer",
+        "body": "put(key, value)",
+        "icon": "hard-drive",
+        "step": 1
+       },
+       {
+        "id": "clock",
+        "kind": "box",
+        "x": 320,
+        "y": 60,
+        "title": "Clock",
+        "body": "now() on every write\nwall time",
+        "icon": "clock",
+        "step": 2
+       },
+       {
+        "id": "ledger",
+        "kind": "box",
+        "x": 640,
+        "y": 60,
+        "title": "Ledger",
+        "body": "stamps each row",
+        "icon": "scroll-text",
+        "step": 3
+       },
+       {
+        "id": "test",
+        "kind": "box",
+        "x": 320,
+        "y": 280,
+        "title": "store_flaky",
+        "body": "fails 4 of 30 runs",
+        "icon": "zap",
+        "step": 4
+       },
+       {
+        "id": "sleep",
+        "kind": "box",
+        "x": 0,
+        "y": 280,
+        "title": "sleep(1s)",
+        "body": "tried in the test",
+        "icon": "hammer"
+       }
+      ],
+      "edges": [
+       {
+        "id": "writer-clock",
+        "from": "writer",
+        "to": "clock",
+        "label": "reads"
+       },
+       {
+        "id": "clock-ledger",
+        "from": "clock",
+        "to": "ledger",
+        "label": "stamp"
+       },
+       {
+        "id": "test-clock",
+        "from": "test",
+        "to": "clock",
+        "label": "crosses a second"
+       },
+       {
+        "id": "sleep-test",
+        "from": "sleep",
+        "to": "test",
+        "label": "hides it"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "tool-search",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-4",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Where is the webhook queue drained?"
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "s-1",
+     "names": [
+      "Glob",
+      "Grep"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "s-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Glob crates/**/webhook*.rs"
+      },
+      {
+       "kind": "tool",
+       "id": "s-2",
+       "at": "2026-11-10T22:00:03Z",
+       "text": "Grep drain_queue"
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-4b",
+      "at": "2026-11-10T22:01:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Three screens for the queue view, drawn as wireframes."
+     }
+    },
+    {
+     "kind": "sketch",
+     "id": "sk-screen-open",
+     "at": "2026-11-10T22:01:01Z",
+     "sketch": "sketch:Session open: less on screen, more on keys",
+     "title": "Session open: less on screen, more on keys",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "open",
+        "kind": "screen",
+        "x": 0,
+        "y": 0,
+        "title": "Session",
+        "screen": {
+         "type": "window",
+         "chrome": "desktop",
+         "title": "Sessions",
+         "children": [
+          {
+           "type": "row",
+           "gap": "none",
+           "size": "fill",
+           "children": [
+            {
+             "type": "nav",
+             "vertical": true,
+             "brand": "Work",
+             "items": [
+              "Store clock reads",
+              "Flaky store test",
+              "Retry loop cap",
+              "Release notes",
+              "Slot pool sizes"
+             ],
+             "active": "Flaky store test"
+            },
+            {
+             "type": "nav",
+             "vertical": true,
+             "items": [
+              {
+               "icon": "message-square"
+              },
+              {
+               "icon": "files"
+              },
+              {
+               "icon": "git-branch"
+              },
+              {
+               "icon": "clock"
+              },
+              {
+               "icon": "settings"
+              }
+             ],
+             "active": "message-square"
+            },
+            {
+             "type": "column",
+             "size": 3,
+             "gap": "sm",
+             "pad": "md",
+             "children": [
+              {
+               "type": "chat",
+               "size": "fill",
+               "messages": [
+                {
+                 "from": "me",
+                 "text": "Why does store_flaky fail near the hour?"
+                },
+                {
+                 "from": "them",
+                 "text": "The test reads the wall clock. It is pinned to a fixed instant now."
+                },
+                {
+                 "from": "me",
+                 "text": "Show me the change"
+                },
+                {
+                 "from": "them",
+                 "text": "Diff is in the Artifacts list."
+                }
+               ]
+              },
+              {
+               "type": "row",
+               "border": true,
+               "pad": "sm",
+               "gap": "sm",
+               "children": [
+                {
+                 "type": "badge",
+                 "text": "Pinned"
+                },
+                {
+                 "type": "text",
+                 "text": "Inject the clock at open",
+                 "size": "fill"
+                },
+                {
+                 "type": "button",
+                 "variant": "ghost",
+                 "icon": "x"
+                }
+               ]
+              },
+              {
+               "type": "field",
+               "kind": "textarea",
+               "placeholder": "Message"
+              },
+              {
+               "type": "row",
+               "gap": "sm",
+               "children": [
+                {
+                 "type": "button",
+                 "id": "artifacts",
+                 "text": "Artifacts",
+                 "icon": "paperclip",
+                 "step": 1
+                },
+                {
+                 "type": "button",
+                 "text": "Subagents",
+                 "icon": "bot"
+                },
+                {
+                 "type": "button",
+                 "text": "Checks",
+                 "icon": "list-checks"
+                },
+                {
+                 "type": "spacer"
+                },
+                {
+                 "type": "button",
+                 "text": "Send",
+                 "variant": "primary",
+                 "icon": "send"
+                }
+               ]
+              }
+             ]
+            },
+            {
+             "type": "column",
+             "size": 2,
+             "gap": "sm",
+             "pad": "sm",
+             "children": [
+              {
+               "type": "panel",
+               "title": "Field",
+               "children": [
+                {
+                 "type": "image"
+                }
+               ]
+              },
+              {
+               "type": "panel",
+               "title": "Progress",
+               "pad": "none",
+               "size": "fill",
+               "children": [
+                {
+                 "type": "list",
+                 "rows": [
+                  {
+                   "text": "Read the clock reads",
+                   "icon": "check",
+                   "meta": "done"
+                  },
+                  {
+                   "text": "Inject the clock",
+                   "icon": "pencil",
+                   "meta": "working",
+                   "selected": true
+                  },
+                  {
+                   "text": "Pin it in the test",
+                   "icon": "clock",
+                   "meta": "next"
+                  },
+                  {
+                   "text": "Run the store tests",
+                   "icon": "play",
+                   "meta": "next"
+                  }
+                 ]
+                }
+               ]
+              }
+             ]
+            }
+           ]
+          },
+          {
+           "type": "modal",
+           "id": "finder",
+           "title": "Artifact finder",
+           "step": 2,
+           "children": [
+            {
+             "type": "field",
+             "kind": "search",
+             "placeholder": "Find an artifact"
+            },
+            {
+             "type": "list",
+             "rows": [
+              {
+               "text": "Store clock reads",
+               "icon": "layers",
+               "meta": "sketch",
+               "selected": true
+              },
+              {
+               "text": "Pinned clock",
+               "icon": "layers",
+               "meta": "sketch"
+              },
+              {
+               "text": "flaky.rs",
+               "icon": "file-text",
+               "meta": "file"
+              },
+              {
+               "text": "Pull request 1843",
+               "icon": "git-branch",
+               "meta": "pull request"
+              },
+              {
+               "text": "Clock walk",
+               "icon": "globe",
+               "meta": "page"
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        },
+        "w": 1120
+       }
+      ],
+      "edges": []
+     }
+    },
+    {
+     "kind": "sketch",
+     "id": "sk-screen-members",
+     "at": "2026-11-10T22:01:02Z",
+     "sketch": "sketch:Team settings",
+     "title": "Team settings",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "members",
+        "kind": "screen",
+        "x": 0,
+        "y": 0,
+        "title": "Settings, Members",
+        "screen": {
+         "type": "window",
+         "chrome": "browser",
+         "title": "Team settings",
+         "url": "app.tallyboard.example/settings/team",
+         "children": [
+          {
+           "type": "nav",
+           "brand": "Tallyboard",
+           "items": [
+            "Projects",
+            "Reports",
+            "Team"
+           ],
+           "active": "Team",
+           "actions": [
+            {
+             "icon": "search"
+            },
+            {
+             "icon": "bell"
+            }
+           ]
+          },
+          {
+           "type": "row",
+           "gap": "none",
+           "size": "fill",
+           "children": [
+            {
+             "type": "nav",
+             "vertical": true,
+             "brand": "Settings",
+             "items": [
+              {
+               "text": "Team",
+               "icon": "user"
+              },
+              {
+               "text": "Workspace",
+               "icon": "layout-grid"
+              },
+              {
+               "text": "Security",
+               "icon": "lock"
+              },
+              {
+               "text": "Integrations",
+               "icon": "link"
+              },
+              {
+               "text": "Notifications",
+               "icon": "bell"
+              }
+             ],
+             "active": "Team"
+            },
+            {
+             "type": "column",
+             "size": "fill",
+             "gap": "md",
+             "pad": "lg",
+             "children": [
+              {
+               "type": "text",
+               "style": "heading",
+               "text": "Team"
+              },
+              {
+               "type": "tabs",
+               "items": [
+                "General",
+                "Members",
+                "Billing"
+               ],
+               "active": "Members"
+              },
+              {
+               "type": "row",
+               "gap": "sm",
+               "children": [
+                {
+                 "type": "field",
+                 "kind": "search",
+                 "placeholder": "Find a member",
+                 "size": "fill"
+                },
+                {
+                 "type": "button",
+                 "text": "Invite",
+                 "variant": "primary",
+                 "icon": "plus"
+                }
+               ]
+              },
+              {
+               "type": "table",
+               "columns": [
+                "Name",
+                "Email",
+                "Role",
+                "Last active"
+               ],
+               "rows": [
+                [
+                 "Ada Okafor",
+                 "ada@northwind.example",
+                 "Owner",
+                 "Today"
+                ],
+                [
+                 "Marcus Webb",
+                 "marcus@northwind.example",
+                 "Admin",
+                 "Today"
+                ],
+                [
+                 "Priya Raman",
+                 "priya@northwind.example",
+                 "Member",
+                 "Yesterday"
+                ],
+                [
+                 "Tomas Lindqvist",
+                 "tomas@northwind.example",
+                 "Member",
+                 "Last week"
+                ]
+               ]
+              },
+              {
+               "type": "panel",
+               "title": "Invites",
+               "actions": [
+                {
+                 "text": "Copy link",
+                 "icon": "link"
+                }
+               ],
+               "children": [
+                {
+                 "type": "grid",
+                 "cols": 2,
+                 "gap": "md",
+                 "children": [
+                  {
+                   "type": "field",
+                   "label": "Role for new members",
+                   "kind": "select",
+                   "value": "Member"
+                  },
+                  {
+                   "type": "field",
+                   "label": "Link expires",
+                   "kind": "select",
+                   "value": "In seven days"
+                  },
+                  {
+                   "type": "field",
+                   "label": "Require approval for invites",
+                   "kind": "toggle",
+                   "value": "on"
+                  },
+                  {
+                   "type": "field",
+                   "label": "Tell admins when someone joins",
+                   "kind": "checkbox",
+                   "value": "on"
+                  }
+                 ]
+                },
+                {
+                 "type": "divider"
+                },
+                {
+                 "type": "row",
+                 "gap": "sm",
+                 "children": [
+                  {
+                   "type": "spacer"
+                  },
+                  {
+                   "type": "button",
+                   "text": "Cancel"
+                  },
+                  {
+                   "type": "button",
+                   "text": "Save changes",
+                   "variant": "primary"
+                  }
+                 ]
+                }
+               ]
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        }
+       }
+      ],
+      "edges": []
+     }
+    },
+    {
+     "kind": "sketch",
+     "id": "sk-screen-flow",
+     "at": "2026-11-10T22:01:03Z",
+     "sketch": "sketch:Sign in flow",
+     "title": "Sign in flow",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "sign-in",
+        "kind": "screen",
+        "x": 0,
+        "y": 0,
+        "title": "Sign in",
+        "screen": {
+         "type": "window",
+         "chrome": "phone",
+         "children": [
+          {
+           "type": "column",
+           "size": "fill",
+           "gap": "md",
+           "pad": "lg",
+           "children": [
+            {
+             "type": "spacer"
+            },
+            {
+             "type": "text",
+             "style": "heading",
+             "text": "Sign in",
+             "align": "center"
+            },
+            {
+             "type": "field",
+             "label": "Email",
+             "placeholder": "name@company.com"
+            },
+            {
+             "type": "field",
+             "label": "Password",
+             "placeholder": "Password"
+            },
+            {
+             "type": "field",
+             "kind": "checkbox",
+             "label": "Keep me signed in",
+             "value": "on"
+            },
+            {
+             "type": "button",
+             "id": "sign-in",
+             "text": "Sign in",
+             "variant": "primary",
+             "align": "stretch",
+             "step": 1
+            },
+            {
+             "type": "text",
+             "style": "caption",
+             "text": "Forgot password",
+             "align": "center"
+            },
+            {
+             "type": "spacer"
+            }
+           ]
+          }
+         ]
+        }
+       },
+       {
+        "id": "home",
+        "kind": "screen",
+        "x": 600,
+        "y": 0,
+        "title": "Home",
+        "screen": {
+         "type": "window",
+         "chrome": "phone",
+         "children": [
+          {
+           "type": "nav",
+           "brand": "Tallyboard",
+           "actions": [
+            {
+             "icon": "bell"
+            }
+           ]
+          },
+          {
+           "type": "column",
+           "size": "fill",
+           "gap": "md",
+           "pad": "md",
+           "children": [
+            {
+             "type": "text",
+             "style": "title",
+             "text": "Today"
+            },
+            {
+             "type": "list",
+             "rows": [
+              {
+               "text": "Standup",
+               "icon": "clock",
+               "meta": "9:30"
+              },
+              {
+               "text": "Design review",
+               "icon": "clock",
+               "meta": "11:00",
+               "selected": true
+              },
+              {
+               "text": "Ship notes",
+               "icon": "clock",
+               "meta": "15:00"
+              }
+             ]
+            }
+           ]
+          },
+          {
+           "type": "nav",
+           "align": "stretch",
+           "items": [
+            {
+             "text": "Home",
+             "icon": "layout-dashboard"
+            },
+            {
+             "text": "Tasks",
+             "icon": "list-checks"
+            },
+            {
+             "text": "Inbox",
+             "icon": "mail"
+            },
+            {
+             "text": "Settings",
+             "icon": "settings"
+            }
+           ],
+           "active": "Home"
+          }
+         ]
+        }
+       }
+      ],
+      "edges": [
+       {
+        "id": "sign-in-home",
+        "from": "sign-in",
+        "to": "home",
+        "label": "Sign in",
+        "flow": false,
+        "step": 2
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "tool-agent",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-5",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Have someone review the merge line change."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "a-1",
+     "names": [
+      "Read",
+      "Agent"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "a-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Read packages/components/src/MergeLine/MergeLine.tsx"
+      },
+      {
+       "kind": "tool",
+       "id": "a-2",
+       "at": "2026-11-10T22:00:05Z",
+       "text": "Agent Review the merge line change"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "tool-done",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-6",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Fix the merge line chip.\nThen have it reviewed."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "d-1",
+     "names": [
+      "Read",
+      "Grep",
+      "Edit",
+      "Bash",
+      "WebFetch",
+      "Agent"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "d-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Read crates/api/src/router.rs"
+      },
+      {
+       "kind": "tool",
+       "id": "d-2",
+       "at": "2026-11-10T22:00:05Z",
+       "text": "Grep mergeLineTone"
+      },
+      {
+       "kind": "tool",
+       "id": "d-3",
+       "at": "2026-11-10T22:00:06Z",
+       "text": "Edit packages/components/src/MergeLine/MergeLine.tsx"
+      },
+      {
+       "kind": "tool",
+       "id": "d-4",
+       "at": "2026-11-10T22:00:14Z",
+       "text": "Bash armada check docs"
+      },
+      {
+       "kind": "tool",
+       "id": "d-5",
+       "at": "2026-11-10T22:01:02Z",
+       "text": "WebFetch https://docs.rs/gpui"
+      },
+      {
+       "kind": "tool",
+       "id": "d-6",
+       "at": "2026-11-10T22:01:05Z",
+       "text": "Agent Review the merge line change"
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-7",
+      "at": "2026-11-10T22:02:31Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The chip is amber while the branch is behind. The review found nothing."
+     }
+    }
+   ]
+  }
+ ]
+}

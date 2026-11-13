@@ -6,7 +6,8 @@ use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, 
 use ipc::operator_talk::{OperatorTalk, OperatorTalkLine};
 use ipc::{Instant, WaitingAct};
 
-use super::face::Standing;
+use super::wire::Failed;
+
 
 /// What a mock Fleet holds, and what it was told.
 #[derive(Clone, Debug)]
@@ -21,6 +22,10 @@ pub struct MockFleet {
     pub pressed: Vec<OperatorAnswerPress>,
     /// Why the next switch is refused, where a test wants it refused.
     pub refuse_switch: Option<String>,
+    /// How the next answer fails, where a scene wants it refused or its reply lost.
+    pub fail_answer: Option<Failed>,
+    /// Why the next Later is refused, where a scene wants the time it names to have passed.
+    pub refuse_later: Option<String>,
     /// The week's Log, as Fleet writes it.
     pub log: String,
 }
@@ -54,11 +59,6 @@ pub fn talk() -> OperatorTalk {
     ipc::decode::<OperatorTalk>("OperatorTalk", include_bytes!("../../fixtures/operator-talk.json")).expect("the Operator talk fixture decodes")
 }
 
-/// The week as the sketch drew it; the mains and the slots are in the page's fixture.
-pub fn standing() -> Standing {
-    Standing { week: Some(62) }
-}
-
 /// 13:05 on the sketch's day, the clock the walk's times are read against.
 pub fn now() -> chrono::DateTime<chrono::Local> {
     chrono::DateTime::parse_from_rfc3339("2026-11-11T13:05:00-05:00").map(|at| at.with_timezone(&chrono::Local)).unwrap_or_else(|_| chrono::Local::now())
@@ -71,7 +71,7 @@ pub fn day() -> SharedString {
 
 impl MockFleet {
     pub fn new() -> MockFleet {
-        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, log: LOG.to_string() }
+        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, fail_answer: None, refuse_later: None, log: LOG.to_string() }
     }
 
     fn take(&mut self, id: &str) -> Option<OperatorTurnItem> {
@@ -79,10 +79,15 @@ impl MockFleet {
         Some(self.page.turn.remove(at))
     }
 
-    /// What `operator_answer` does: the item settles, and an act Fleet cannot do itself is left to Bridge.
-    pub fn answer(&mut self, press: &OperatorAnswerPress) -> Result<OperatorAnswered, String> {
+    /// What `operator_answer` does: the item settles, and an act Fleet cannot do itself is left to Bridge,
+    /// its item kept on Your turn until he does it, as Fleet keeps it.
+    pub fn answer(&mut self, press: &OperatorAnswerPress) -> Result<OperatorAnswered, Failed> {
         self.pressed.push(press.clone());
-        let Some(turn) = self.take(&press.id) else { return Err("No open item has that id".into()) };
+        if let Some(failed) = self.fail_answer.take() {
+            return Err(failed);
+        }
+        let at = self.page.turn.iter().position(|turn| turn.id == press.id);
+        let Some(turn) = self.take(&press.id) else { return Err(Failed::Refused("No open item has that id".into())) };
         let mut answered = OperatorAnswered::default();
         if press.answer != OperatorAnswer::No {
             let then = press.then.or_else(|| turn.then.iter().find(|offer| offer.pick).map(|offer| offer.then));
@@ -99,14 +104,27 @@ impl MockFleet {
                 None => answered.open = turn.item.act.clone().filter(|act: &WaitingAct| act.kind != ipc::WaitingActKind::Answer),
             }
         }
+        if answered.open.is_some() {
+            self.page.turn.insert(at.unwrap_or(0).min(self.page.turn.len()), turn);
+        }
         answered.page = self.page.clone();
         Ok(answered)
     }
 
-    /// What `operator_later` does: the item goes last for the rest of the day.
-    pub fn later(&mut self, id: &str) -> Result<OperatorPage, String> {
+    /// What `operator_later` does: the item goes last until `until`, or for the rest of the day; a time
+    /// already passed is refused, in Fleet's words.
+    pub fn later(&mut self, id: &str, until: Option<String>) -> Result<OperatorPage, String> {
+        // Fleet's two refusals, word for word (`operator_later_past`).
+        let said = until.as_ref().and_then(|until| match chrono::DateTime::parse_from_rfc3339(until) {
+            Err(_) => Some("That time could not be read. Pick another."),
+            Ok(at) if at <= now() => Some("That time has passed. Pick a later one."),
+            Ok(_) => None,
+        });
+        if let Some(why) = self.refuse_later.take().or_else(|| said.map(String::from)) {
+            return Err(why);
+        }
         let Some(mut turn) = self.take(id) else { return Err("No open item has that id".into()) };
-        turn.later_until = Some(Instant::carried("2026-11-11T23:59:59-05:00"));
+        turn.later_until = Some(Instant::carried(until.unwrap_or_else(|| "2026-11-11T23:59:59-05:00".into())));
         self.page.turn.push(turn);
         Ok(self.page.clone())
     }
@@ -167,6 +185,23 @@ impl MockFleet {
         let wire = br#"{"id":"turn:5","kind":"decision","session_id":"mock-05","job":"Slot pool controls","manifest_id":"armada","repository":"armada","item":{"id":"walk:armada://walk/slot-meter","text":"Review the slot meter walk","since":"2026-11-11T14:02:00-05:00","source":"walk","act":{"kind":"walk","target":"armada://walk/slot-meter"}},"read":{"read":"The meter holds still when a Job ends, which is what your note asked for.","pick":"Open it"},"raised_at":"2026-11-11T14:02:00-05:00"}"#;
         if let Ok(turn) = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire) {
             self.page.turn.push(turn);
+        }
+    }
+}
+
+impl MockFleet {
+    /// Three items join at 14:10, each raising a toast: storefront's main gone red with nobody on it, a
+    /// walk for him, and a go-ahead to file a note. No Job has stopped.
+    pub fn raised(&mut self) {
+        let wires: [&[u8]; 3] = [
+            br#"{"id":"turn:6","kind":"go_ahead","urgency":"urgent","manifest_id":"storefront","repository":"storefront","item":{"id":"red:storefront:9f2c1e0","text":"storefront's main is red at 9f2c1e0","since":"2026-11-11T14:10:00-05:00","source":"agent"},"read":{"read":"Nobody is on it. desktop_unit fails the way #412 fixed on the branch, so I'd start a Job from that fix.","pick":"Start a Job"},"raised_at":"2026-11-11T14:10:00-05:00"}"#,
+            br#"{"id":"turn:7","kind":"decision","urgency":"decision","session_id":"mock-05","job":"Slot pool controls","manifest_id":"armada","repository":"armada","item":{"id":"walk:armada://walk/slot-meter","text":"Review the slot meter walk","since":"2026-11-11T14:11:00-05:00","source":"walk","act":{"kind":"walk","target":"armada://walk/slot-meter"}},"read":{"read":"The meter holds still when a Job ends, which is what your note asked for.","pick":"Open it"},"raised_at":"2026-11-11T14:11:00-05:00"}"#,
+            br#"{"id":"turn:8","kind":"go_ahead","urgency":"go_ahead","manifest_id":"armada","repository":"armada","item":{"id":"note:44","text":"the palette forgets its last search","since":"2026-11-11T14:12:00-05:00","source":"agent"},"read":{"read":"No open issue covers it, so I'd file it.","pick":"Just file it"},"raised_at":"2026-11-11T14:12:00-05:00","then":[{"then":"just_file","pick":true}]}"#,
+        ];
+        for wire in wires {
+            if let Ok(turn) = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire) {
+                self.page.turn.push(turn);
+            }
         }
     }
 }

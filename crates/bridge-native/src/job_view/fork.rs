@@ -23,12 +23,16 @@ pub(super) struct Picked {
     at: Point<Pixels>,
     /// The box the press and the release span: a right press inside it is on the selected words.
     span: Bounds<Pixels>,
+    /// Where its block was drawn at the release: the bar stands over the words as the thread scrolls them.
+    block: Point<Pixels>,
 }
 
 #[derive(Default)]
 pub(super) struct Fork {
     down: Option<Point<Pixels>>,
     shown: Option<Picked>,
+    /// The thread's box as last laid out, read before its rows are: a row cannot read the list while it lays them out.
+    view: std::cell::Cell<Bounds<Pixels>>,
 }
 
 /// A draft's block id is its card key, which starts `draft:`.
@@ -58,7 +62,9 @@ impl JobView {
                 .relative()
                 .w_full()
                 .child(words)
-                .child(canvas(move |bounds, _, _| edges.set(bounds), |_, _, _, _| {}).absolute().top_0().left_0().size_full()),
+                .child(canvas(move |bounds, _, _| edges.set(bounds), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+                // Placed from the block's top-left: after the words in flow, its own origin would be the block's foot.
+                .children(self.render_fork_bar(row, cx).map(|bar| div().absolute().top_0().left_0().child(bar))),
             Role::Group,
             format!("Words {row}"),
         )
@@ -67,6 +73,9 @@ impl JobView {
 
     /// The thread's own presses and keys that start, show and end a selection's acts.
     pub(super) fn fork_hooks(&self, thread: Stateful<Div>, cx: &Context<Self>) -> Stateful<Div> {
+        if let Some(page) = self.shown.as_ref().and_then(|job| self.pages.get(job)) {
+            self.fork.view.set(page.list.viewport_bounds());
+        }
         thread
             .on_mouse_down(
                 MouseButton::Left,
@@ -129,9 +138,11 @@ impl JobView {
         }
         // Copy on select: the same words go to the clipboard at the release.
         cx.write_to_clipboard(gpui::ClipboardItem::new_string(words.clone()));
-        let Some(row) = self.shown.as_ref().and_then(|job| self.pages.get(job)).and_then(|page| page.keys.block_at(down, up)) else { return };
+        let Some(page) = self.shown.as_ref().and_then(|job| self.pages.get(job)) else { return };
+        let Some(row) = page.keys.block_at(down, up) else { return };
+        let block = page.keys.block_origin(&row).unwrap_or_default();
         let first = if down.y <= up.y { down } else { up };
-        self.fork.shown = Some(Picked { row, words, at: first, span: spanning(down, up) });
+        self.fork.shown = Some(Picked { row, words, at: first, span: spanning(down, up), block });
         cx.notify();
     }
 
@@ -270,9 +281,20 @@ impl JobView {
         .detach();
     }
 
-    /// The bar over the selected words: Reply, Fork from here, Teach.
-    pub(super) fn render_fork_bar(&self, cx: &Context<Self>) -> Option<AnyElement> {
-        let picked = self.fork.shown.as_ref().filter(|picked| !picked.row.starts_with("draft:"))?;
+    /// The bar over the selected words: Reply, Fork from here, Teach. Drawn from the words' own block, so it
+    /// travels with them as the thread scrolls and goes with them when they scroll away, as Classic places it
+    /// again on every scroll (`ForkFromSelection.tsx`).
+    fn render_fork_bar(&self, row: &str, cx: &Context<Self>) -> Option<AnyElement> {
+        let picked = self.fork.shown.as_ref().filter(|picked| picked.row == row && !picked.row.starts_with("draft:"))?;
+        // The words scrolled wholly out of the thread take the bar with them (`ForkFromSelection.tsx`).
+        if let Some(page) = self.shown.as_ref().and_then(|job| self.pages.get(job)) {
+            let view = self.fork.view.get();
+            let moved = page.keys.block_origin(row).map_or(gpui::px(0.), |now| now.y - picked.block.y);
+            let (first, last) = (picked.span.top() + moved, picked.span.bottom() + moved);
+            if view.size.height > gpui::px(0.) && (last < view.top() || first > view.bottom()) {
+                return None;
+            }
+        }
         let look = cx.look();
         let live = self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
         let act = |id: &'static str, said: &'static str, icon: &'static str| {
@@ -320,7 +342,9 @@ impl JobView {
             Role::Toolbar,
             "Selection",
         );
-        let above = gpui::point(picked.at.x + picked.span.size.width.min(gpui::px(96.)) / 2., picked.at.y - look.length(token::SPACE_2));
-        Some(deferred(anchored().position(above).anchor(Anchor::BottomCenter).snap_to_window_with_margin(look.length(token::SPACE_2)).child(bar)).with_priority(1).into_any_element())
+        // Electron stands the bar over the first selected line's top; the press is somewhere in that line, half a line (1.6 em) on average.
+        let line_top = picked.at.y - look.length(token::TEXT_BASE) * 0.8;
+        let above = gpui::point(picked.at.x + picked.span.size.width.min(gpui::px(96.)) / 2., line_top - look.length(token::SPACE_2));
+        Some(deferred(anchored().position_mode(gpui::AnchoredPositionMode::Local).position(above - picked.block).anchor(Anchor::BottomCenter).snap_to_window_with_margin(look.length(token::SPACE_2)).child(bar)).with_priority(1).into_any_element())
     }
 }

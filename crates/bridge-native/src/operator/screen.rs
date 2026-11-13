@@ -36,6 +36,7 @@ pub struct OperatorScreen {
     pub page: Entity<OperatorPageView>,
     pub front: Front,
     pub within: FocusHandle,
+    toasts: Entity<crate::toasts::Toasts>,
     _subs: Vec<gpui::Subscription>,
 }
 
@@ -72,6 +73,12 @@ impl OperatorScreen {
         Self::new(jobs, page, Front::Operator, window, cx)
     }
 
+    /// On the walk's Fleet, with the Jobs screen in front.
+    pub fn mock_behind(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let page = cx.new(|cx| OperatorPageView::mock(false, window, cx));
+        Self::new(jobs, page, Front::Jobs, window, cx)
+    }
+
     fn new(jobs: Entity<JobsScreen>, page: Entity<OperatorPageView>, front: Front, window: &mut Window, cx: &mut Context<Self>) -> Self {
         cx.set_global(Live(page.downgrade()));
         let subs = vec![cx.subscribe_in(&page, window, |this, _, opened: &Opened, window, cx| this.opened(opened, window, cx))];
@@ -94,7 +101,8 @@ impl OperatorScreen {
                 }
             }
         })));
-        let mut this = OperatorScreen { jobs, page, front, within: cx.focus_handle(), _subs: subs };
+        let toasts = crate::toasts::Toasts::mount(&page, cx.entity().downgrade(), window, cx);
+        let mut this = OperatorScreen { jobs, page, front, within: cx.focus_handle(), toasts, _subs: subs };
         this.show_places(cx);
         if front == Front::Operator {
             let keys = this.page.read(cx).focus.clone();
@@ -177,6 +185,6 @@ impl Render for OperatorScreen {
                 div().size_full().flex().flex_col().bg(cx.look().color(token::BG_BASE)).child(title).child(div().flex_1().min_h_0().child(self.page.clone())).into_any_element()
             }
         };
-        div().id(SharedString::from("operator-screen")).track_focus(&self.within).size_full().child(shown)
+        div().id(SharedString::from("operator-screen")).track_focus(&self.within).size_full().child(shown).child(self.toasts.clone())
     }
 }

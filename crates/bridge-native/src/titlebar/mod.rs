@@ -1,4 +1,4 @@
-//! The title bar and what stands under it: the repository chip, the Manifest, search, the
+//! The title bar and what stands under it: the project switcher and its Settings, search, the
 //! Operator, the plan rings with the step-down offer, the Fleet dot with its panel and build
 //! switcher, the Keep and Revert bar and the Fleet notice (`TitleBar.tsx`, `FleetBuild.tsx`,
 //! `FleetNotice.tsx`, `trying-bar.tsx`).
@@ -11,9 +11,12 @@
 //! The Job slot in the end region is empty and takes no room until the Jobs screens fill it with
 //! the open Job's Layout control and view icons ([`TitleBar::fill_job_slot`]).
 
+#[cfg(test)]
+mod centred;
 mod face;
 mod fleet_down;
 pub mod parts;
+mod projects;
 pub mod scenes;
 mod swap_hold;
 mod switcher;
@@ -30,12 +33,12 @@ use gpui::{
 };
 use ipc::{BuildSource, ModelDownshift};
 
-pub use face::{Connection, Face, Remedy, Restarting};
+pub use face::{repositories_of, Connection, Face, LiveLink, Remedy, RestartWhy, Restarting};
 /// The Operator's page adds its place to the strip and reads the week's ring.
-pub use face::{Place, Usage};
+pub use face::Place;
 
 use crate::assets::MARK;
-use crate::dropdown::{Dropdown, Entry, Gear, Picked, Row};
+use crate::dropdown::{Dropdown, Entry, Picked, Row};
 use crate::generated::actions::act;
 use crate::keymap::Act;
 use crate::labels::labelled;
@@ -52,16 +55,14 @@ pub enum Asked {
     Settings,
     Account,
     Doctor,
-    Manifest,
     Repository(Option<usize>),
-    /// Scope the window to a Workspace, or (from its gear) open its page.
-    Workspace(usize),
-    OpenWorkspace(usize),
-    /// Open the layer of how a repository runs, from the place glyph on its row in the picker (or → on it).
-    RepositoryRuns(usize),
-    AddRepository,
+    /// Scope the window to a project.
+    Project(usize),
+    /// Settings, scoped to a project or to a repository in none: the switcher's Settings, and ⌘, in it.
+    ProjectSettings(usize),
+    RepositorySettings(usize),
+    ProjectMembers(usize),
     NewProject,
-    NewWorkspace,
     ChangeBuild { build: BuildSource, adopt: bool },
     Revert,
     Keep,
@@ -99,6 +100,8 @@ enum Popup {
     /// The plan card: hover opens it, a press pins it.
     Usage { pinned: bool },
     Fleet,
+    /// The project switcher, under its trigger.
+    Projects,
 }
 
 /// The act a Drones dialog holds until the person says yes.
@@ -116,7 +119,6 @@ enum Dialog {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum MenuKind {
-    Repository,
     Build,
     Account,
     /// The places strip's: Hide, then View.
@@ -130,23 +132,14 @@ struct Menu {
     kind: MenuKind,
     _picked: Subscription,
     _dismissed: Subscription,
-    _gear: Subscription,
 }
 
 /// The row is narrow below this width, as Electron's container query is (`TitleBar.css` 746). The
 /// stylesheet states it off-contract because a container condition cannot read a token.
 const NARROW_BELOW: f32 = 900.;
 
-/// The place in the face's repositories a picker row id names: `in-<workspace>-<place>`, or one of [`REPO`].
-fn repository_at(id: &str) -> Option<usize> {
-    match id.strip_prefix("in-") {
-        Some(rest) => rest.split('-').nth(1)?.parse::<usize>().ok()?.checked_sub(1),
-        None => REPO.iter().position(|one| *one == id),
-    }
-}
-
 /// An id a menu row answers to, kept for the life of the app: a row's id is a `&'static str` and the
-/// picker's ids name a Workspace and a repository by place. Each distinct id is made once.
+/// picker's ids name a project and a repository by place. Each distinct id is made once.
 pub fn id_of(text: String) -> &'static str {
     use std::collections::HashSet;
     use std::sync::{Mutex, OnceLock};
@@ -173,6 +166,8 @@ struct Anchors {
     menu: Rc<Cell<Option<Bounds<Pixels>>>>,
     row: Rc<Cell<Option<Bounds<Pixels>>>>,
     centre: Rc<Cell<Option<Bounds<Pixels>>>>,
+    start: Rc<Cell<Option<Bounds<Pixels>>>>,
+    end: Rc<Cell<Option<Bounds<Pixels>>>>,
 }
 
 /// Where the title row was drawn last frame, for what sits below it to start under it.
@@ -194,10 +189,13 @@ pub struct TitleBar {
     keys_were: Option<FocusHandle>,
     popup_focus: FocusHandle,
     dialog_focus: FocusHandle,
+    switcher: projects::Switcher,
     /// The keys of each place of the strip, kept by its id.
     place_focus: Vec<(&'static str, FocusHandle)>,
     /// The plan meter's keys: they open its card as a hover does.
     meter_focus: FocusHandle,
+    /// The Menu button's keys: a menu it opened gives them back to it, as Radix gives them to its trigger.
+    menu_focus: FocusHandle,
     /// The card the keys opened, which they shut as they leave.
     meter_by_keys: bool,
     /// Esc shut the card while the keys stayed on the meter: it does not open again until they leave.
@@ -206,8 +204,8 @@ pub struct TitleBar {
     at: Anchors,
     /// The face as it was before the last optimistic change, for [`TitleBar::refused`].
     before: Option<Face>,
-    /// The notice's folded detail is open.
-    details_open: bool,
+    /// The Fleet states last handed to the toasts.
+    notices_sent: Vec<crate::toasts::FleetNotice>,
     /// A window width the bar draws at in place of the window's own: a walk's way of narrowing it.
     pub width: Option<Pixels>,
     _asked: Subscription,
@@ -217,12 +215,47 @@ pub struct TitleBar {
     snapshot_was: Option<Option<ipc::SnapshotState>>,
     _swap_tick: Option<Task<()>>,
     _swap_keys: Option<Subscription>,
+    /// Fleet's build report as last handed in: a press's answer in the frame stands until Fleet's report moves.
+    build_read: Option<ipc::FleetBuildReport>,
+    /// The live link as last handed in, read again by the clock while the face moves with time alone.
+    link_read: Option<face::LiveLink>,
+    /// When the window opened: a Fleet down at launch has the same grace as one that just dropped.
+    opened: std::time::Instant,
+    _link_tick: Option<Task<()>>,
+    /// The pid a Restart Fleet was pressed under, so a new Fleet that still does not match is told apart.
+    restart_from: Option<u32>,
+    _restart_wait: Option<Task<()>>,
 }
+
+/// How long a restart may take to bring back a new Fleet before it is called unanswered (`FleetNotice.tsx`).
+const RESTART_WAIT: Duration = Duration::from_secs(30);
 
 /// The one bar of the window, for the keys that work from anywhere.
 struct Live(WeakEntity<TitleBar>);
 
 impl Global for Live {}
+
+/// The bar of the window, for an act a Fleet toast carries.
+fn with_bar(cx: &mut App, act: impl FnOnce(&mut TitleBar, &mut Context<TitleBar>)) {
+    if let Some(bar) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
+        bar.update(cx, act);
+    }
+}
+
+/// Restart Fleet, from the toast of a Fleet that does not match.
+pub fn restart_fleet(cx: &mut App) {
+    with_bar(cx, |bar, cx| bar.restart_fleet_pressed(cx));
+}
+
+/// Dismiss, from the toast of a restart that did not come back.
+pub fn dismiss_restart_failure(cx: &mut App) {
+    with_bar(cx, |bar, cx| bar.answer(|face| face.fleet.restarting = Restarting::Idle, cx));
+}
+
+/// Copy debug info, from a Fleet toast.
+pub fn copy_debug_info(cx: &mut App) {
+    with_bar(cx, |_, cx| cx.emit(Asked::CopyDebugInfo));
+}
 
 /// The bar's keys that work from anywhere: ⌘K, ⌘J, ⌘, , ⇧⌘R and ⌘1 to ⌘9 (`actions.toml`, scope `anywhere`). A
 /// screen's own handler runs first; what it does not take reaches here.
@@ -280,14 +313,16 @@ impl TitleBar {
             keys_were: None,
             popup_focus: cx.focus_handle(),
             dialog_focus: cx.focus_handle(),
+            switcher: projects::Switcher::default(),
             place_focus: Vec::new(),
             meter_focus,
+            menu_focus: cx.focus_handle().tab_stop(true),
             meter_by_keys: false,
             meter_quiet: false,
             _meter_focus: [arrived, left],
             at,
             before: None,
-            details_open: false,
+            notices_sent: Vec::new(),
             width: None,
             _asked: asked,
             swap_since: None,
@@ -295,6 +330,12 @@ impl TitleBar {
             snapshot_was: None,
             _swap_tick: None,
             _swap_keys: None,
+            build_read: None,
+            link_read: None,
+            opened: std::time::Instant::now(),
+            _link_tick: None,
+            restart_from: None,
+            _restart_wait: None,
         }
     }
 
@@ -305,7 +346,6 @@ impl TitleBar {
         self.menu = None;
         self.dialog = None;
         self.before = None;
-        self.details_open = false;
         self.over_card = false;
         self.keys_were = None;
         self.width = None;
@@ -314,6 +354,97 @@ impl TitleBar {
         self.snapshot_was = None;
         self._swap_tick = None;
         self._swap_keys = None;
+    }
+
+    /// The plan's rings and the step down, as Fleet last said them. A Fleet that dropped keeps what it said.
+    pub fn set_usage(&mut self, usage: Option<&ipc::PlanUsage>, downshift: Option<&ipc::ModelDownshiftState>, cx: &mut Context<Self>) {
+        let rings = face::usage_of(usage, chrono::Utc::now());
+        let shift = face::downshift_of(downshift, usage);
+        if rings == self.face.usage && shift == self.face.downshift {
+            return;
+        }
+        self.face.usage = rings;
+        self.face.downshift = shift;
+        cx.notify();
+    }
+
+    /// Fleet's build report, as the switcher draws it. A press already changed the face in its frame; that
+    /// stands until Fleet's report is not the one last handed in.
+    pub fn set_build(&mut self, report: Option<&ipc::FleetBuildReport>, cx: &mut Context<Self>) {
+        if self.build_read.as_ref() == report {
+            return;
+        }
+        self.build_read = report.cloned();
+        self.face.build = report.map(face::build_of);
+        cx.notify();
+    }
+
+    /// The live link, as the dot, the panel and the notice draw it.
+    pub fn set_fleet(&mut self, link: &face::LiveLink, cx: &mut Context<Self>) {
+        if self.link_read.as_ref() == Some(link) {
+            return;
+        }
+        self.link_read = Some(link.clone());
+        self.read_link(cx);
+    }
+
+    /// Read the link at this instant, and again at the next instant the clock alone moves it. A restart
+    /// ends where Fleet answers, and is apart where a new Fleet still does not match.
+    fn read_link(&mut self, cx: &mut Context<Self>) {
+        let Some(link) = &self.link_read else { return };
+        let now = std::time::Instant::now();
+        let connection = link.connection(now);
+        let power = link.power(self.opened, now);
+        let restarting = match (&self.face.fleet.restarting, &connection) {
+            (_, Connection::Connected { .. }) => Restarting::Idle,
+            (Restarting::Working, Connection::Mismatch { pid, .. }) if self.restart_from.is_some_and(|from| from != *pid) => Restarting::Apart,
+            (held, _) => held.clone(),
+        };
+        let fleet = face::FleetFace { connection, power, restarting, doctor: self.face.fleet.doctor.clone() };
+        crate::merge_strip::set_standby(power == face::Power::Standby, cx);
+        if fleet != self.face.fleet {
+            self.face.fleet = fleet;
+            cx.notify();
+        }
+        self._link_tick = link.next_at(self.opened, now).map(|at| {
+            cx.spawn(async move |this, cx| {
+                cx.background_executor().timer(at.saturating_duration_since(std::time::Instant::now())).await;
+                let _ = this.update(cx, |bar, cx| bar.read_link(cx));
+            })
+        });
+    }
+
+    /// launchd would not restart Fleet: the notice says what it answered.
+    pub fn restart_failed(&mut self, why: face::RestartWhy, detail: String, cx: &mut Context<Self>) {
+        self._restart_wait = None;
+        self.face.fleet.restarting = Restarting::Failed { why, detail };
+        cx.notify();
+    }
+
+    /// The repositories Fleet serves, as the picker lists them: each by its directory's name, `Not set
+    /// up` where no Manifest has loaded. A pick that no longer names one goes back to All.
+    pub fn set_repositories(&mut self, served: &[ipc::RepositorySummary], cx: &mut Context<Self>) {
+        let listed = face::repositories_of(served, &self.face.repositories);
+        if listed == self.face.repositories {
+            return;
+        }
+        self.face.chosen = self.face.chosen.filter(|&at| at < listed.len());
+        self.face.repositories = listed;
+        cx.notify();
+    }
+
+    /// The projects Fleet serves, by the repositories it serves. The window stays on the project it is
+    /// scoped to by its id, and goes back to All where Fleet no longer lists it.
+    pub fn set_projects(&mut self, served: &[ipc::RepositorySummary], read: &ipc::Projects, cx: &mut Context<Self>) {
+        let listed = face::projects_of(served, read);
+        let here = self.face.scoped.and_then(|at| self.face.projects.get(at)).map(|one| one.id.clone());
+        let scoped = here.and_then(|id| listed.iter().position(|one| one.id == id));
+        if listed == self.face.projects && scoped == self.face.scoped {
+            return;
+        }
+        self.face.projects = listed;
+        self.face.scoped = scoped;
+        cx.notify();
     }
 
     /// Whether the window is narrower than the row can lay out: the start, the centre and the
@@ -478,15 +609,24 @@ impl TitleBar {
         let gap = cx.look().length(token::SPACE_1);
         let at = point(if end { from.origin.x + from.size.width } else { from.origin.x }, from.origin.y + from.size.height + gap);
         let corner = if end { Anchor::TopRight } else { Anchor::TopLeft };
-        self.open_menu_at(kind, entries, name, at, corner, false, window, cx);
+        self.open_menu_on(kind, entries, name, at, corner, false, false, window, cx);
     }
 
     /// A menu with its corner at `at`: under a trigger, or at the pointer for a right press. The keys go
     /// on its first entry when `from_keys`, as a menu opened from the keyboard has them.
     #[allow(clippy::too_many_arguments)]
     fn open_menu_at(&mut self, kind: MenuKind, entries: Vec<Entry>, name: &'static str, at: Point<Pixels>, corner: Anchor, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_menu_on(kind, entries, name, at, corner, from_keys, true, window, cx);
+    }
+
+    /// `pointed`: opened at a point, so Mod and Report follow its entries (`point-acts.tsx`).
+    #[allow(clippy::too_many_arguments)]
+    fn open_menu_on(&mut self, kind: MenuKind, entries: Vec<Entry>, name: &'static str, at: Point<Pixels>, corner: Anchor, from_keys: bool, pointed: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.keep_keys(window, cx);
-        let dropdown = cx.new(|cx| Dropdown::new(name, entries, at, corner, from_keys, cx));
+        let dropdown = cx.new(|cx| {
+            let menu = Dropdown::new(name, entries, at, corner, from_keys, cx);
+            if pointed { menu.at_point(window, cx) } else { menu }
+        });
         let picked = cx.subscribe_in(&dropdown, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, keep } = picked;
             // A pick that keeps the menu leaves it where it is, with the keys in it.
@@ -505,45 +645,33 @@ impl TitleBar {
             }
             cx.notify();
         });
-        let gear = cx.subscribe_in(&dropdown, window, move |this, _, opened: &Gear, window, cx| {
-            this.menu = None;
-            if let Some(at) = opened.0.strip_prefix("workspace-").and_then(|n| n.parse::<usize>().ok()) {
-                this.leave_with(Asked::OpenWorkspace(at.saturating_sub(1)), window, cx);
-            } else if let Some(at) = repository_at(opened.0) {
-                this.leave_with(Asked::RepositoryRuns(at), window, cx);
-            }
-        });
         let keys = dropdown.read(cx).focus_handle(cx);
         window.defer(cx, move |window, cx| window.focus(&keys, cx));
-        self.menu = Some(Menu { dropdown, kind, _picked: picked, _dismissed: dismissed, _gear: gear });
+        self.menu = Some(Menu { dropdown, kind, _picked: picked, _dismissed: dismissed });
         cx.notify();
     }
 
     fn picked(&mut self, kind: MenuKind, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         match (kind, id) {
-            (MenuKind::Repository | MenuKind::Account, "all") => self.choose_repository(None, window, cx),
-            (MenuKind::Repository, "add-repository") => self.leave_with(Asked::AddRepository, window, cx),
-            (MenuKind::Repository, "new-project") => self.leave_with(Asked::NewProject, window, cx),
-            (MenuKind::Repository, "new-workspace") => self.leave_with(Asked::NewWorkspace, window, cx),
-            (MenuKind::Repository | MenuKind::Account, id) if id.starts_with("workspace-") => {
-                let at = id["workspace-".len()..].parse::<usize>().unwrap_or(1).saturating_sub(1);
+            (MenuKind::Account, "all") => self.choose_repository(None, window, cx),
+            (MenuKind::Account, id) if id.starts_with("project-") => {
+                let at = id["project-".len()..].parse::<usize>().unwrap_or(1).saturating_sub(1);
                 self.give_keys_back(window, cx);
                 self.answer(|face| {
                     face.scoped = Some(at);
                     face.chosen = None;
                 }, cx);
-                cx.emit(Asked::Workspace(at));
+                cx.emit(Asked::Project(at));
             }
-            (MenuKind::Repository | MenuKind::Account, id) if id.starts_with("in-") => {
-                let place = id["in-".len()..].split('-').nth(1).and_then(|n| n.parse::<usize>().ok()).unwrap_or(1).saturating_sub(1);
-                self.choose_repository(Some(place), window, cx);
-            }
-            (MenuKind::Repository | MenuKind::Account, id) if REPO.contains(&id) => {
+            (MenuKind::Account, id) if REPO.contains(&id) => {
                 if let Some(at) = REPO.iter().position(|one| *one == id) {
                     self.choose_repository(Some(at), window, cx);
                 }
             }
-            (MenuKind::Account, "manifest") => self.leave_with(Asked::Manifest, window, cx),
+            (MenuKind::Account, "scoped-settings") => {
+                let asked = self.settings_here();
+                self.leave_with(asked, window, cx);
+            }
             (MenuKind::Account, "search") => self.leave_with(Asked::Palette, window, cx),
             (MenuKind::Account, "dispatch") => self.leave_with(Asked::Dispatch, window, cx),
             (MenuKind::Account, "operator") => self.leave_with(Asked::Operator, window, cx),
@@ -713,7 +841,20 @@ impl TitleBar {
     }
 
     fn restart_fleet_pressed(&mut self, cx: &mut Context<Self>) {
+        self.restart_from = match self.face.fleet.connection {
+            Connection::Mismatch { pid, .. } => Some(pid),
+            _ => None,
+        };
         self.answer(|face| face.fleet.restarting = Restarting::Working, cx);
+        // No new Fleet inside the wait is a failure of its own; a Fleet that answered or came back apart ended it.
+        self._restart_wait = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(RESTART_WAIT).await;
+            let _ = this.update(cx, |bar, cx| {
+                if bar.face.fleet.restarting == Restarting::Working {
+                    bar.restart_failed(face::RestartWhy::NoAnswer, format!("no new runtime file in {}s", RESTART_WAIT.as_secs()), cx);
+                }
+            });
+        }));
         cx.emit(Asked::RestartFleet);
     }
 
@@ -744,20 +885,35 @@ impl TitleBar {
         look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour)
     }
 
-    /// The first region: the traffic-light gutter, Armada's mark, the repository and the Manifest.
-    fn start(&self, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+    /// The first region: the traffic-light gutter, Armada's mark, the project switcher and its Settings.
+    fn start(&self, look: &Look, window: &Window, cx: &Context<Self>) -> impl IntoElement {
         let mark = look.length(token::SPACE_4) + look.length(token::SPACE_1);
         let ring = Self::focus_ring(look);
         let glyph_side = look.length(token::SPACE_4);
         let chip_at = Rc::clone(&self.at.repository);
-        let opened = matches!(self.menu, Some(Menu { kind: MenuKind::Repository, .. }));
-        let name = self.face.repository_said();
+        let opened = self.popup == Some(Popup::Projects);
+        let (name, members) = self.face.chosen_said();
+        // Short of room the repositories beside the name go whole, so nothing short reads "…", then the name
+        // truncates. The project's Settings is in the switcher, so the start holds no button of its own. The
+        // start's share was measured last frame; it does not hang on what it holds.
+        let room = self.at.start.get().map(|start| start.size.width);
+        let space = |at| look.length(at);
+        let border = look.length(token::BORDER_WIDTH);
+        let wide = |text: &SharedString, size, weight| {
+            let font = gpui::Font { weight: FontWeight(look.number(weight)), ..gpui::font(sans(look)) };
+            window.text_system().shape_line(text.clone(), look.length(size), &[gpui::TextRun { len: text.len(), font, ..Default::default() }], None).width
+        };
+        let lead = space(token::SPACE_12) * 2. + mark + space(token::SPACE_6) + border + space(token::SPACE_3) * 2.;
+        let chip = space(token::SPACE_3) * 3. + glyph_side + space(token::SPACE_1) + space(token::SPACE_2) + border * 2. + wide(&name, token::TEXT_SM, token::WEIGHT_MEDIUM);
+        let fits = |width| room.is_some_and(|room| lead + chip + width <= room);
+        let members = members.filter(|said| fits(space(token::SPACE_2) + wide(said, token::TEXT_XS, token::WEIGHT_BODY)));
         let chip = labelled(
             no_drag(div()
                 .id("repository")
                 .relative()
                 .flex_initial()
-                .min_w_0()
+                // Its floor keeps the glyph, a few letters of the name and the chevron inside the border.
+                .min_w(look.length(token::SPACE_3) * 2. + glyph_side + look.length(token::SPACE_1) + look.length(token::SPACE_12) + look.length(token::SPACE_2) + look.length(token::SPACE_3))
                 .max_w(look.length(token::W_MENU))
                 .h(look.length(token::H_CONTROL_LG))
                 .flex()
@@ -768,7 +924,7 @@ impl TitleBar {
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(if opened { token::ACCENT } else { token::BORDER_DEFAULT }))
                 .bg(look.color(if opened { token::ACCENT_MUTED } else { token::BG_SUNKEN }))
-                .hover(|style| style.bg(look.color(token::BG_HOVER)).border_color(look.color(token::BORDER_STRONG)))
+                .when(!opened, |chip| chip.hover(|style| style.bg(look.color(token::BG_HOVER)).border_color(look.color(token::BORDER_STRONG))))
                 .focus_visible(move |style| style.border_color(ring))
                 .focusable()
                 .tab_stop(true)
@@ -777,7 +933,7 @@ impl TitleBar {
                 .text_size(look.length(token::TEXT_SM))
                 .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(canvas(move |bounds, _, _| chip_at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+                .child(canvas(move |bounds, _, _| chip_at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
                 .child(
                     div()
                         .absolute()
@@ -786,48 +942,49 @@ impl TitleBar {
                         .bottom_0()
                         .flex()
                         .items_center()
-                        .child(glyph("folder-git-2", glyph_side, look.color(token::ACCENT))),
+                        .child(glyph("layers", glyph_side, look.color(token::ACCENT))),
                 )
-                .child(div().min_w_0().truncate().child(name))
+                // Short of room the members truncate, then the name, and the chevron stays inside the border.
+                .overflow_hidden()
+                .child(div().min_w(look.length(token::SPACE_12)).truncate().child(name))
+                .children(members.map(|said| {
+                    // Many times the name's give: the members go before the name starts to truncate.
+                    div().flex_shrink(100.).min_w_0().truncate().ml(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_BODY))).text_color(look.color(token::FG_MUTED)).child(said)
+                }))
+                .child(div().flex_none().ml(look.length(token::SPACE_2)).child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::FG_MUTED))))
                 .on_click(cx.listener(|this, _, window, cx| this.repository_pressed(window, cx)))),
             Role::Button,
-            "Repository",
+            "Project",
         );
-        let manifest = {
-            let enabled = self.face.manifest;
-            let body = div()
-                .id("manifest")
-                .flex_none()
-                .size(look.length(token::H_CONTROL_LG))
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded(look.length(token::RADIUS_LG))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .bg(look.color(token::BG_SUNKEN))
-                .child(glyph("file-cog", glyph_side, look.color(if enabled { token::FG_MUTED } else { token::FG_SUBTLE })))
-                .tooltip(tip("Open the Manifest"));
-            let body = if enabled {
-                body.cursor_pointer()
-                    .focusable()
-                    .tab_stop(true)
-                    .focus_visible(move |style| style.border_color(ring))
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)).border_color(look.color(token::BORDER_STRONG)))
-                    .on_click(cx.listener(|_, _, _, cx| cx.emit(Asked::Manifest)))
-            } else {
-                body
-            };
-            labelled(no_drag(body), Role::Button, "Open the Manifest")
-        };
+        let start_at = Rc::clone(&self.at.start);
         div()
-            // `minmax(max-content, 1fr)`: the region keeps what it holds and takes a share of what is left.
-            .flex_grow(1.)
-            .flex_shrink_0()
+            // `minmax(floor, 1fr)`: the start and the end take equal shares from nothing, so the centre sits
+            // on the window's middle whatever the picker reads. Short of room the start yields first, the
+            // project's name truncating, and it never draws under the centre.
+            .relative()
+            .flex_1()
+            .min_w_0()
+            .overflow_hidden()
             .flex()
             .items_center()
-            // `padding-inline-start: calc(var(--space-12) * 2)` clears the traffic lights.
-            .pl(look.length(token::SPACE_12) * 2.)
+            // A new share is drawn again, so what fits is read from it.
+            .child(
+                canvas(
+                    move |bounds, window, _| {
+                        if start_at.replace(Some(bounds)).map(|was| was.size.width) != Some(bounds.size.width) {
+                            window.refresh();
+                        }
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            )
+            // `padding-inline-start: calc(var(--space-12) * 2)` clears the traffic lights. A spacer and not padding: a
+            // box sized from nothing still keeps its padding, which would make the start's share wider than the end's.
+            .child(div().flex_none().w(look.length(token::SPACE_12) * 2.))
             .child(labelled(
                 div().id("mark").flex_none().child(glyph_mark(mark, look.color(token::FG_DEFAULT))),
                 Role::Image,
@@ -841,79 +998,32 @@ impl TitleBar {
                     .items_center()
                     .gap(look.length(token::SPACE_3))
                     .child(div().flex_none().w(look.length(token::BORDER_WIDTH)).h(look.length(token::SPACE_4)).bg(look.color(token::BORDER_DEFAULT)))
-                    .child(chip)
-                    .child(manifest),
+                    .child(chip),
             )
     }
 
     fn repository_pressed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.menu.as_ref().is_some_and(|menu| menu.kind == MenuKind::Repository) {
-            self.menu = None;
-            self.give_keys_back(window, cx);
-            cx.notify();
+        if self.popup == Some(Popup::Projects) {
+            self.shut(window, cx);
             return;
         }
-        let Some(from) = self.at.repository.get() else { return };
-        let entries = self.repository_entries(false);
-        self.open_menu(MenuKind::Repository, entries, "Repository", from, false, window, cx);
+        self.open_switcher(window, cx);
     }
 
-    /// The picker's rows as Electron lists them: All, each Workspace as a heading over its
-    /// repositories, the rest, those not set up with their detail, then the acts below a rule.
-    /// `narrow` is the same list inside the menu, with no acts and the Manifest at its end.
-    fn repository_entries(&self, narrow: bool) -> Vec<Entry> {
+    /// The switcher's rows inside the menu of a narrow window: All, each project over its
+    /// repositories, then those in no project, those not set up with their detail.
+    fn repository_entries(&self) -> Vec<Entry> {
         let face = &self.face;
-        let all_ticked = face.chosen.is_none() && face.scoped.is_none();
-        let mut entries = vec![Entry::Search { label: "Find a repository", to_rule: narrow }];
-        entries.push(Entry::Row(Row::new("all", "All repositories").icon("layers").ticked(all_ticked)));
-        let mut in_one = vec![false; face.repositories.len()];
-        // The place glyph at a repository row's end, in the wide picker only: where its Armada configuration is kept.
-        let trailed = |row: Row, at: usize| match (&face.repositories[at].kept, narrow) {
-            (Some(kept), false) => {
-                let name = &face.repositories[at].name;
-                row.trail(kept.glyph(), format!("Armada configuration for {name}"), format!("Armada configuration kept {} (→)", kept.phrase()))
-            }
-            _ => row,
-        };
-        let set_up = face.repositories.iter().any(|one| !one.not_set_up);
-        if set_up {
-            entries.push(Entry::Rule);
+        let mut entries = vec![Entry::Search { label: "Find a project", to_rule: true }];
+        entries.push(Entry::Row(Row::new("all", "All").icon("globe").ticked(face.chosen.is_none() && face.scoped.is_none())));
+        for (p, project) in face.projects.iter().enumerate() {
+            entries.push(Entry::Row(Row::new(id_of(format!("project-{}", p + 1)), project.name.clone()).icon("layers").ticked(face.scoped == Some(p))));
         }
-        for (w, workspace) in face.workspaces.iter().enumerate() {
-            let held: Vec<usize> = workspace.members.iter().copied().filter(|&at| face.repositories.get(at).is_some_and(|one| !one.not_set_up)).collect();
-            if held.is_empty() {
-                continue;
-            }
-            let heading = Row::new(id_of(format!("workspace-{}", w + 1)), workspace.name.clone()).icon("layers").ticked(face.scoped == Some(w));
-            entries.push(Entry::Row(if narrow { heading } else { heading.gear(format!("Open {}", workspace.name)) }));
-            for at in held {
-                in_one[at] = true;
-                entries.push(Entry::Row(trailed(
-                    Row::new(id_of(format!("in-{}-{}", w + 1, at + 1)), face.repositories[at].name.clone())
-                        .icon("folder-git-2")
-                        .member()
-                        .ticked(face.chosen == Some(at) && face.scoped.is_none()),
-                    at,
-                )));
-            }
+        for at in face.lone().into_iter().take(REPO.len()) {
+            let one = &face.repositories[at];
+            let row = Row::new(REPO[at], one.name.clone()).icon("git-branch").member().ticked(face.chosen == Some(at) && face.scoped.is_none());
+            entries.push(Entry::Row(if one.not_set_up { row.detail("Not set up") } else { row }));
         }
-        for (at, one) in face.repositories.iter().enumerate().take(REPO.len()) {
-            if !one.not_set_up && !in_one[at] {
-                entries.push(Entry::Row(trailed(Row::new(REPO[at], one.name.clone()).icon("folder-git-2").ticked(face.chosen == Some(at) && face.scoped.is_none()), at)));
-            }
-        }
-        for (at, one) in face.repositories.iter().enumerate().take(REPO.len()) {
-            if one.not_set_up {
-                entries.push(Entry::Row(trailed(Row::new(REPO[at], one.name.clone()).icon("folder-git-2").detail("Not set up").ticked(face.chosen == Some(at) && face.scoped.is_none()), at)));
-            }
-        }
-        if narrow {
-            return entries;
-        }
-        entries.push(Entry::Rule);
-        entries.push(Entry::Row(Row::new("new-project", "New project").icon("folder-plus").accent()));
-        entries.push(Entry::Row(Row::new("add-repository", "Add a repository").icon("plus").accent()));
-        entries.push(Entry::Row(Row::new("new-workspace", "New Workspace").icon("plus").accent()));
         entries
     }
 
@@ -930,9 +1040,9 @@ impl TitleBar {
         ];
         if narrow {
             entries.push(Entry::Rule);
-            entries.extend(self.repository_entries(true));
+            entries.extend(self.repository_entries());
             entries.push(Entry::Rule);
-            entries.push(Entry::Row(Row::new("manifest", "Open the Manifest").icon("file-cog").off_when(!self.face.manifest, "No Manifest")));
+            entries.push(Entry::Row(Row::new("scoped-settings", self.face.settings_said()).icon("sliders-horizontal")));
             let key = |id: &str| act(id).map(|row| row.shortcut).unwrap_or_default();
             entries.push(Entry::Row(Row::new("search", "Search").icon("search").key(key("command_palette"))));
             entries.push(Entry::Row(Row::new("dispatch", "Dispatch").icon("plus").key(key("new_job")).off_when(!self.face.fleet.connection.is_live(), "Fleet is not connected")));
@@ -951,11 +1061,6 @@ impl TitleBar {
         }
     }
 
-    /// Where the centre was drawn last frame: the search trigger's field, or the notch around the places.
-    pub fn centre_bounds(&self) -> Option<Bounds<Pixels>> {
-        self.at.centre.get()
-    }
-
     /// The centre. With no place to draw it is the search trigger at Electron's width; with places it
     /// is the notch of glass hanging from the window's top edge, the places and then the trigger as an
     /// icon and its key (`TitleBar.css` 262-350).
@@ -965,7 +1070,7 @@ impl TitleBar {
             return self
                 .search_field(look, cx)
                 .relative()
-                .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+                .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
                 .into_any_element();
         }
         // The room above and below a place, which is also the room at the notch's side.
@@ -1013,7 +1118,7 @@ impl TitleBar {
             .rounded_b(radius)
             .bg(ground)
             .shadow(look.shadows(token::SHADOW_CARD))
-            .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+            .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .child(flare(true).left(-radius))
             .child(flare(false).right(-radius))
             .child(self.places_strip(gap, radius, look, cx))
@@ -1256,7 +1361,7 @@ impl TitleBar {
         ))
     }
 
-    /// The end region: the Job slot, the rings, the Operator, the Fleet dot and the Menu.
+    /// The end region: the Job slot, the rings, the toasts' bell, the Operator, the Fleet dot and the Menu.
     fn end(&self, narrow: bool, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let ring = Self::focus_ring(look);
         let operator = {
@@ -1293,6 +1398,7 @@ impl TitleBar {
         let signed_out = !self.face.signed_in;
         let menu = labelled(
             no_drag(parts::icon_button("menu", "menu", look.color(token::FG_MUTED), look)
+                .track_focus(&self.menu_focus)
                 .child(canvas(move |bounds, _, _| menu_at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
                 .relative()
                 // Nothing signed in: an amber dot at the button's bottom-right, read without the menu opened.
@@ -1312,16 +1418,20 @@ impl TitleBar {
             Role::Button,
             "Menu",
         );
+        let end_at = Rc::clone(&self.at.end);
         div()
-            .flex_grow(1.)
-            .flex_shrink_0()
+            // `minmax(max-content, 1fr)`: the same share as the start, and never less than what it holds.
+            .relative()
+            .flex_1()
             .flex()
             .items_center()
             .justify_end()
             .gap(look.length(token::SPACE_4))
+            .child(canvas(move |bounds, _, _| end_at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             // Empty, it takes no room: a flex child with nothing in it and no gap of its own.
             .children(self.job.clone())
             .children(self.meter(look, cx))
+            .children(cx.try_global::<crate::toasts::BellSlot>().map(|bell| bell.0.clone()))
             .when(!narrow, |end| end.child(operator))
             .child(self.dot(look, cx))
             .child(menu)
@@ -1337,6 +1447,7 @@ impl TitleBar {
         let Some(from) = self.at.menu.get() else { return };
         let narrow = self.narrow(window);
         let entries = self.menu_entries(narrow);
+        self.keys_were = Some(self.menu_focus.clone());
         self.open_menu(MenuKind::Account, entries, "Menu", from, true, window, cx);
     }
 }
@@ -1348,6 +1459,12 @@ fn glyph_mark(side: Pixels, ink: gpui::Hsla) -> gpui::Svg {
 
 impl Render for TitleBar {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Fleet's states go to the toasts when they change; the bar draws no band for them.
+        let notices = self.fleet_notices();
+        if notices != self.notices_sent {
+            self.notices_sent = notices.clone();
+            cx.defer(move |cx| crate::toasts::fleet(notices, cx));
+        }
         let look = cx.look();
         let viewport = window.viewport_size();
         let narrow = self.narrow(window);
@@ -1365,7 +1482,7 @@ impl Render for TitleBar {
             .flex()
             .items_center()
             .h(look.length(token::H_TITLE_BAR))
-            .child(canvas(move |bounds, _, _| row_at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+            .child(canvas(move |bounds, _, _| row_at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .px(look.length(token::SPACE_3))
             .gap(look.length(token::SPACE_4))
             .on_mouse_down(gpui::MouseButton::Left, |event, window, _cx| {
@@ -1389,7 +1506,7 @@ impl Render for TitleBar {
             }))
             // Narrow, the start goes behind the menu and the end takes the rest of the row. The places stay:
             // they are how the window is moved about (`TitleBar.css` 765).
-            .when(!narrow, |row| row.child(self.start(look, cx)))
+            .when(!narrow, |row| row.child(self.start(look, window, cx)))
             .when(!narrow || has_places, |row| row.child(self.centre(look, cx)))
             .child(self.end(narrow, look, cx));
         div()
@@ -1399,12 +1516,11 @@ impl Render for TitleBar {
             .flex_col()
             .child(row)
             .children(self.trying_bar(look, cx))
-            .children(self.notice(look, cx))
             .children(self.dropped_alert(look, cx))
             .children(self.popover(look, window, cx))
-            .children(self.dialog_layer(look, viewport, cx))
+            .children(self.dialog_layer(look, crate::room::of(window, cx), cx))
             .children(self.toast(look, viewport, cx))
-            .children(self.swap_layer(look, viewport, cx))
+            .children(self.swap_layer(look, crate::room::of(window, cx), cx))
             .children(self.menu.as_ref().map(|menu| menu.dropdown.clone()))
     }
 }

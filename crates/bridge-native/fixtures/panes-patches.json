@@ -1,0 +1,89 @@
+{
+ "pulls": [
+  {
+   "key": "armada#3388",
+   "files": [
+    {
+     "manifest_id": "armada",
+     "number": 3388,
+     "path": "apps/desktop/src/renderer/src/merge-line.ts",
+     "patch": "@@ -12,9 +12,13 @@ import type { PullRow } from \"./rows\";\n \n export type Tone = \"green\" | \"amber\" | \"red\";\n \n-export function mergeLineTone(pr: PullRow): Tone {\n-  if (pr.failed) return \"red\";\n-  return pr.mergeable ? \"green\" : \"amber\";\n+export function mergeLineTone(pr: PullRow): Tone {\n+  if (pr.failed) return \"red\";\n+  if (pr.behindBy > 0) return \"amber\";\n+  return pr.mergeable ? \"green\" : \"amber\";\n }\n \n+export function behindLabel(pr: PullRow): string | undefined {\n+  return pr.behindBy > 0 ? \"Behind main\" : undefined;\n+}\n@@ -40,6 +44,7 @@ export function mergeLineRows(pulls: PullRow[]): MergeLineRow[] {\n   return pulls.map((pr) => ({\n     id: pr.number,\n     tone: mergeLineTone(pr),\n+    tooltip: behindLabel(pr),\n     title: pr.title,\n   }));\n }"
+    },
+    {
+     "manifest_id": "armada",
+     "number": 3388,
+     "path": "packages/components/src/MergeLine/MergeLine.tsx",
+     "patch": "@@ -28,7 +28,7 @@ export function MergeLine({ rows }: MergeLineProps) {\n       {rows.map((row) => (\n-        <Chip key={row.id} tone={row.tone}>\n+        <Chip key={row.id} tone={row.tone} title={row.tooltip}>\n           {row.title}\n         </Chip>\n       ))}"
+    },
+    {
+     "manifest_id": "armada",
+     "number": 3388,
+     "path": "packages/components/src/MergeLine/merge-line.png",
+     "said": "The forge sends no patch for a binary file."
+    }
+   ]
+  },
+  {
+   "key": "armada#3391",
+   "files": [
+    {
+     "manifest_id": "armada",
+     "number": 3391,
+     "path": "apps/desktop/src/renderer/src/merge-line.ts",
+     "patch": "@@ -44,7 +44,7 @@ export function mergeLineRows(pulls: PullRow[]): MergeLineRow[] {\n-    tooltip: behindLabel(pr),\n+    tooltip: pr.behindBy > 0 ? `Behind main by ${pr.behindBy}` : undefined,"
+    }
+   ]
+  },
+  {
+   "key": "armada#3380",
+   "files": [
+    {
+     "manifest_id": "armada",
+     "number": 3380,
+     "path": "crates/fleet/src/thread_view.rs",
+     "patch": "@@ -1,6 +1,9 @@\n //! A Job's thread rows, folded as Bridge draws them.\n \n+use ipc::ThreadItem;\n+\n pub fn items_of(rows: &[Row]) -> Vec<Item> {\n-    rows.iter().map(Item::from).collect()\n+    let mut items: Vec<Item> = rows.iter().map(Item::from).collect();\n+    fold_calls(&mut items);\n+    items\n }"
+    }
+   ]
+  },
+  {
+   "key": "armada#2209",
+   "files": [
+    {
+     "manifest_id": "armada",
+     "number": 2209,
+     "path": "crates/config/settings.toml",
+     "patch": "@@ -12,3 +12,9 @@\n [links]\n # Where a link to an issue opens.\n openIssuesIn = \"browser\"\n+# Where a link to a pull request opens: armada or browser.\n+openPullRequestsIn = \"armada\"\n+\n+[links.panel]\n+width = \"wide\"\n+remember = true"
+    },
+    {
+     "manifest_id": "armada",
+     "number": 2209,
+     "path": "apps/desktop/src/main/forge.ts",
+     "patch": "@@ -30,7 +30,9 @@\n export function openLink(address: string) {\n-  return shell.openExternal(address);\n+  const where = settings().links.openPullRequestsIn;\n+  if (where === \"armada\" && isPullRequest(address)) return openInPanel(address);\n+  return shell.openExternal(address);\n }"
+    }
+   ]
+  },
+  {
+   "key": "armada#2418",
+   "files": [
+    {
+     "manifest_id": "armada",
+     "number": 2418,
+     "path": "crates/api/src/auth/middleware.rs",
+     "patch": "@@ -80,7 +80,12 @@ pub async fn require_session(\n     let header = request.headers().get(AUTHORIZATION);\n     let Some(header) = header else {\n         return Err(AuthError::Missing);\n     };\n-    let token = Token::parse_legacy(header)?;\n+    let token = SessionToken::parse(header)?;\n+    if token.expired(now()) {\n+        return Err(AuthError::Expired);\n+    }\n+    let session = sessions.lookup(&token).await?;\n+    request.extensions_mut().insert(session);\n     next.run(request).await\n }"
+    },
+    {
+     "manifest_id": "armada",
+     "number": 2418,
+     "path": "crates/api/src/auth/tokens.rs",
+     "patch": "@@ -38,6 +38,7 @@ impl SessionToken {\n     pub fn issue(config: &Config) -> Self {\n         Self {\n             id: Uuid::new_v4(),\n-            issued: Utc::now(),\n+            ttl: Duration::from_secs(config.ttl),\n+            issued: Instant::now(),\n         }\n     }"
+    },
+    {
+     "manifest_id": "armada",
+     "number": 2418,
+     "path": "apps/desktop/src/main/sign-in.ts",
+     "patch": "@@ -12,3 +12,4 @@ export async function signIn(code: string) {\n   const reply = await fetch(`${base}/sign-in`, { method: \"POST\", body: code });\n-  return reply.json();\n+  const { token } = await reply.json();\n+  return token;\n }"
+    }
+   ]
+  }
+ ]
+}

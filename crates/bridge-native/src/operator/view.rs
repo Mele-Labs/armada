@@ -4,7 +4,7 @@
 //! rounder, as the native screens are.
 
 use gpui::{
-    div, prelude::*, AnyElement, App, Context, Div, FontWeight, Hsla, MouseButton, Pixels, Role, SharedString, Stateful, Window,
+    canvas, div, prelude::*, AnyElement, App, Context, Div, FontWeight, Hsla, MouseButton, Pixels, Role, SharedString, Stateful, Window,
 };
 use ipc::operator_page::{OperatorAnswer, OperatorPage, OperatorTurnItem, OperatorTurnKind};
 use ipc::MainCiState;
@@ -49,7 +49,7 @@ fn round(look: &Look) -> Pixels {
     look.length(token::RADIUS_LG) * 1.5
 }
 
-fn chip(word: impl Into<SharedString>, hue: Hsla, ground: Hsla, look: &Look) -> Div {
+pub(crate) fn chip(word: impl Into<SharedString>, hue: Hsla, ground: Hsla, look: &Look) -> Div {
     div()
         .flex_none()
         .flex()
@@ -65,19 +65,19 @@ fn chip(word: impl Into<SharedString>, hue: Hsla, ground: Hsla, look: &Look) -> 
         .child(word.into())
 }
 
-fn kind_chip(kind: Kind, look: &Look) -> Div {
+pub(crate) fn kind_chip(kind: Kind, look: &Look) -> Div {
     chip(kind.word, look.color(kind.hue), look.color(kind.ground), look)
 }
 
 /// A press on the page: the pick filled in the Operator's hue, the rest outlined, Later and Ask bare.
 #[derive(Clone, Copy, PartialEq)]
-enum Weight {
+pub(crate) enum Weight {
     Pick,
     Plain,
     Bare,
 }
 
-fn press(id: impl Into<SharedString>, label: SharedString, icon: Option<&'static str>, key: Option<SharedString>, weight: Weight, look: &Look) -> Stateful<Div> {
+pub(crate) fn press(id: impl Into<SharedString>, label: SharedString, icon: Option<&'static str>, key: Option<SharedString>, weight: Weight, look: &Look) -> Stateful<Div> {
     let id: SharedString = id.into();
     let (ground, hover, ink, edge) = match weight {
         Weight::Pick => (look.color(token::OPERATOR), look.color(token::OPERATOR), look.color(token::FG_INVERSE), look.color(token::OPERATOR)),
@@ -206,14 +206,7 @@ impl OperatorPageView {
             labelled(pill, Role::Status, said).into_any_element()
         });
         let mains: Vec<AnyElement> = mains.collect();
-        let week = self.standing.week.or_else(|| week_from_bar(cx)).map(|percent| {
-            let said = format!("{percent}% of the week's plan used");
-            labelled(
-                pill("pill-week").tooltip(tip(said.clone())).child(format!("Week {percent}%")).child(meter(percent as f32 / 100., token::FG_MUTED)),
-                Role::Status,
-                said,
-            )
-        });
+        // The week's plan stands in the title bar's rings, so the head does not repeat it (12 Nov).
         let slots = slots_read.map(|slots| {
             let (held, all) = (slots.used, slots.total);
             let said = format!("Slots {held} of {all} held");
@@ -247,7 +240,6 @@ impl OperatorPageView {
                     .when_some(self.back_at.as_deref(), |back, at| back.child("back").child(self.stamp(at, Some("at"), (token::TEXT_XS, token::FG_MUTED, token::WEIGHT_BODY), look, cx))),
             )
             .children(mains)
-            .children(week)
             .children(slots)
     }
 
@@ -275,7 +267,7 @@ impl OperatorPageView {
 
     fn turn_head(&self, look: &Look) -> impl IntoElement {
         let items = self.items();
-        let dots = self.done.iter().map(|_| token::STATUS_COMPLETED_SUCCESS).chain(
+        let dots = self.answered_today().into_iter().map(|_| token::STATUS_COMPLETED_SUCCESS).chain(
             items.iter().map(|turn| if self.open.as_deref() == Some(turn.id.as_str()) { token::OPERATOR } else { token::BORDER_STRONG }),
         );
         let dots: Vec<_> = dots
@@ -357,10 +349,25 @@ impl OperatorPageView {
         )
     }
 
+    /// Where other Jobs raised the same ask, folded into this one: a mark in its head, naming them in its tooltip.
+    fn also_raised(&self, turn: &OperatorTurnItem, look: &Look) -> Option<AnyElement> {
+        if turn.also_raised_by.is_empty() {
+            return None;
+        }
+        let said = format!("Also raised by\n{}", turn.also_raised_by.join("\n"));
+        Some(
+            labelled(
+                div().id("card-also-raised").flex_none().tooltip(tip(said.clone())).child(glyph("layers", look.length(token::SPACE_4), look.color(token::FG_MUTED))),
+                Role::Image,
+                said,
+            )
+            .into_any_element(),
+        )
+    }
+
     fn card(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> AnyElement {
         let kind = face::kind_of(turn);
         let title = face::card_title(turn);
-        let pick = face::pick_of(turn);
         let has_then = !turn.then.is_empty();
         let head = div()
             .flex()
@@ -372,8 +379,14 @@ impl OperatorPageView {
             .border_color(look.color(token::BORDER_SUBTLE))
             .child(kind_chip(kind, look))
             .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
+            .children(self.also_raised(turn, look))
             .when(turn.later_until.is_some(), |head| {
-                head.child(chip("Later", look.color(token::STATUS_NOT_STARTED), look.color(token::STATUS_NOT_STARTED_BG), look))
+                let said = face::later_said(turn, self.clock_now.unwrap_or_else(chrono::Local::now));
+                head.child(labelled(
+                    div().id("card-later").flex_none().tooltip(tip(said.clone())).child(chip("Later", look.color(token::STATUS_NOT_STARTED), look.color(token::STATUS_NOT_STARTED_BG), look)),
+                    Role::Image,
+                    said,
+                ))
             })
             .children(turn.repository.clone().map(|repository| chip(repository, look.color(token::FG_MUTED), look.color(token::BG_HOVER), look)));
         let read = turn.read.as_ref().map(|read| {
@@ -396,7 +409,8 @@ impl OperatorPageView {
                 )
                 .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(read.read.clone()))
         });
-        let then = has_then.then(|| self.thens(turn, look, cx));
+        let options = face::chooses(turn).then(|| self.options(turn, look, cx));
+        let chosen = self.option_of(turn);
         let refused = self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| {
             labelled(
                 div()
@@ -407,9 +421,9 @@ impl OperatorPageView {
                     .text_size(look.length(token::TEXT_SM))
                     .text_color(look.color(token::STATUS_COMPLETED_FAILED))
                     .child(glyph("circle-alert", look.length(token::SPACE_4), look.color(token::STATUS_COMPLETED_FAILED)))
-                    .child(format!("Not done: {why}")),
+                    .child(div().flex_1().min_w_0().child(why.clone())),
                 Role::Alert,
-                format!("Not done: {why}"),
+                why.clone(),
             )
         });
         let body = div()
@@ -420,33 +434,48 @@ impl OperatorPageView {
             .py(look.length(token::SPACE_4))
             .children(face::asks_of(turn).map(|asks| div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(asks)))
             .children(face::note_of(turn).map(|(since, note)| {
+                // The head is one line that keeps its colon on the time; the note under it wraps in the card.
                 div()
                     .flex()
-                    .flex_wrap()
-                    .items_baseline()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
                     .text_size(look.length(token::TEXT_BASE))
                     .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                    .child("Your note from")
-                    .child(self.stamp(since.as_str(), None, (token::TEXT_BASE, token::FG_DEFAULT, token::WEIGHT_MEDIUM), look, cx))
-                    // The colon closes up on the time, past its ring's hairline.
-                    .child(div().ml(-look.length(token::BORDER_WIDTH) * 2.).child(format!(": {note}")))
+                    .child(
+                        div()
+                            .flex()
+                            .items_baseline()
+                            .child("Your note from")
+                            .child(self.stamp(since.as_str(), None, (token::TEXT_BASE, token::FG_DEFAULT, token::WEIGHT_MEDIUM), look, cx))
+                            // The colon closes up on the time, past its ring's hairline.
+                            .child(div().ml(-look.length(token::BORDER_WIDTH) * 2.).child(":")),
+                    )
+                    .child(div().w_full().min_w_0().child(note))
             }))
             .children(read)
-            .children(then)
+            .children(options)
             .children(refused);
-        let answers = face::answers_of(turn).into_iter().enumerate().map(|(at, answer)| {
+        let answers: Vec<AnyElement> = if has_then { self.outcomes(turn, look, cx) } else { face::answers_of(turn).into_iter().enumerate().map(|(at, answer)| {
             let yes = answer == OperatorAnswer::Yes;
-            // A decision's Yes says the Operator's pick, as its card would; a go-ahead's says Yes.
-            let label: SharedString = match (&pick, turn.kind) {
-                (Some(pick), OperatorTurnKind::Decision) if yes => pick.clone(),
+            // A decision's Yes says the option it carries, else the Operator's pick, as its card would; a
+            // go-ahead's says Yes.
+            let label: SharedString = match turn.kind {
+                OperatorTurnKind::Decision if yes => face::pick_word(turn, chosen.as_deref()),
+                _ if yes && face::picks_later(turn) => "Later".into(),
                 _ => face::answer_word(answer).into(),
+            };
+            // The pick's sentence never sits in the button: it leads the tooltip.
+            let said = face::answer_tip(turn, answer, self.then_of(turn), chosen.as_deref());
+            let said = match face::pick_sentence(turn).filter(|_| yes && chosen.is_none()) {
+                Some(sentence) => format!("{sentence}\n{said}"),
+                None => said,
             };
             let key: Option<SharedString> = Some(face::answer_key(answer).into());
             let button = press(format!("answer-{at}"), label.clone(), yes.then_some("check"), key, if yes { Weight::Pick } else { Weight::Plain }, look)
-                .tooltip(tip(face::answer_tip(turn, answer, self.then_of(turn))));
+                .tooltip(tip(said));
             let button = pressed(button, cx, move |this, window, cx| this.answer(answer, window, cx));
             labelled(button, Role::Button, label).into_any_element()
-        });
+        }).collect() };
         let changes = face::sends_changes(turn).then(|| {
             labelled(
                 pressed(press("turn-changes", "Send changes".into(), None, Some("C".into()), Weight::Plain, look).tooltip(tip("Open the plan in its Job to suggest changes")), cx, |this, _, cx| {
@@ -467,13 +496,19 @@ impl OperatorPageView {
             .bg(look.color(token::BG_OVERLAY))
             // The card clips its children square: its ground keeps inside the rounded corner itself.
             .rounded_b(round(look) - look.length(token::BORDER_WIDTH))
+            // In a narrow window the row wraps inside the card; Later and Ask keep the right of their line.
+            .flex_wrap()
             .children(answers)
             .children(changes)
-            .child(div().flex_1())
-            .child(labelled(
-                pressed(press("turn-later", "Later".into(), None, Some("L".into()), Weight::Bare, look).track_focus(&self.later_focus).tooltip(tip("Last for the rest of today")), cx, |this, _, cx| {
-                    this.later(cx)
-                }),
+            .child(div().ml_auto().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(
+                {
+                    // Its menu opens under it: where it is drawn is kept for that.
+                    let drawn = self.later_bounds.clone();
+                    pressed(press("turn-later", "Later".into(), Some("clock"), Some("L".into()), Weight::Bare, look).relative().track_focus(&self.later_focus).tooltip(tip("Choose when it comes back")), cx, |this, window, cx| {
+                        this.open_later(false, window, cx)
+                    })
+                    .child(canvas(move |bounds, _, _| drawn.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+                },
                 Role::Button,
                 "Later",
             ))
@@ -483,7 +518,7 @@ impl OperatorPageView {
                 }),
                 Role::Button,
                 "Ask",
-            ));
+            )));
         // Ask's chat opens in the card it is about, between what the item says and its answers.
         let chat = self.chat.clone().map(|chat| {
             div()
@@ -524,17 +559,47 @@ impl OperatorPageView {
         .into_any_element()
     }
 
-    /// Then, on a go-ahead to file: each choice a row, his pick or else the Operator's filled, My pick marked.
-    fn thens(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> impl IntoElement {
-        let chosen = self.then_of(turn);
-        let rows = turn.then.iter().enumerate().map(|(at, offer)| {
-            let (label, mark) = face::then_said(offer.then, offer.hand_to.as_ref().map(|to| to.job.as_str()));
-            let on = chosen == Some(offer.then);
+    /// A go-ahead to file: one press for each outcome, named for what happens, the Operator's pick filled
+    /// with its glyph and why in its tooltip, then Don't file. 1..n press an outcome and D Don't file.
+    fn outcomes(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+        let why = turn.read.as_ref().map(|read| read.read.clone()).filter(|read| !read.is_empty());
+        let mut out: Vec<AnyElement> = turn
+            .then
+            .iter()
+            .enumerate()
+            .map(|(at, offer)| {
+                let to = offer.hand_to.as_ref().map(|to| to.job.as_str());
+                let (label, mark) = face::then_said(offer.then, to);
+                let does = face::then_does(offer.then, to);
+                let said = match why.as_ref().filter(|_| offer.pick) {
+                    Some(why) => format!("My pick: {why}\n{does}"),
+                    None => does,
+                };
+                let then = offer.then;
+                let (icon, weight) = if offer.pick { ("check", Weight::Pick) } else { (mark, Weight::Plain) };
+                let button = press(format!("outcome-{at}"), label.clone(), Some(icon), Some((at + 1).to_string().into()), weight, look).tooltip(tip(said));
+                let button = pressed(button, cx, move |this, _, cx| this.outcome(then, cx));
+                labelled(button, Role::Button, label).into_any_element()
+            })
+            .collect();
+        let no = press("outcome-no", "Don't file".into(), None, Some(face::answer_key(OperatorAnswer::No).into()), Weight::Plain, look).tooltip(tip("Leave it unfiled, and it leaves Your turn"));
+        out.push(labelled(pressed(no, cx, |this, window, cx| this.answer(OperatorAnswer::No, window, cx)), Role::Button, "Don't file").into_any_element());
+        out
+    }
+
+    /// The item's options, where it offers more than one: each a row, his pick or else the Operator's
+    /// filled, My pick marked, as Then draws its choices. Yes, Always here and Always carry the filled one.
+    fn options(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+        let chosen = self.option_of(turn);
+        let pick = face::pick_of(turn);
+        let rows = turn.item.options.iter().enumerate().map(|(at, option)| {
+            let label: SharedString = option.label.clone().into();
+            let on = chosen.as_ref() == Some(&label);
             let id = turn.id.clone();
-            let then = offer.then;
+            let pressed_label = option.label.clone();
             labelled(
                 div()
-                    .id(SharedString::from(format!("then-{at}")))
+                    .id(SharedString::from(format!("option-{at}")))
                     .flex()
                     .items_center()
                     .gap(look.length(token::SPACE_2))
@@ -548,10 +613,10 @@ impl OperatorPageView {
                     .font_weight(FontWeight(look.number(if on { token::WEIGHT_HEADING } else { token::WEIGHT_BODY })))
                     .cursor_pointer()
                     .hover(|style| style.border_color(cx.look().color(token::BORDER_STRONG)))
-                    .on_click(cx.listener(move |this, _, _, cx| this.pick_then(&id, then, cx)))
-                    .child(glyph(mark, look.length(token::SPACE_4), look.color(if on { token::OPERATOR } else { token::FG_MUTED })))
+                    .on_click(cx.listener(move |this, _, _, cx| this.pick_option(&id, &pressed_label, cx)))
+                    .child(glyph(if on { "circle-dot" } else { "circle" }, look.length(token::SPACE_4), look.color(if on { token::OPERATOR } else { token::FG_MUTED })))
                     .child(div().flex_1().child(label.clone()))
-                    .when(offer.pick, |row| {
+                    .when(pick.as_ref() == Some(&label), |row| {
                         row.child(
                             div()
                                 .text_size(look.length(token::TEXT_2XS))
@@ -567,8 +632,8 @@ impl OperatorPageView {
         });
         div()
             .mt(look.length(token::SPACE_1))
-            .child(div().mb(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child("Then"))
-            .child(labelled(div().id("then").flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::RadioGroup, "Then"))
+            .child(div().mb(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child("Options"))
+            .child(labelled(div().id("options").flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::RadioGroup, "Options"))
     }
 
     fn done_row(&self, done: &Done, look: &Look, cx: &App) -> AnyElement {
@@ -590,37 +655,65 @@ impl OperatorPageView {
                         .flex_1()
                         .min_w_0()
                         .child(div().truncate().line_through().child(done.title.clone()))
-                        .child(div().truncate().text_size(look.length(token::TEXT_XS)).child(sub)),
+                        .child(div().truncate().text_size(look.length(token::TEXT_XS)).child(sub.clone())),
                 )
                 .child(kind_chip(done.kind, look).opacity(0.6)),
             Role::Row,
-            format!("{}, done", done.title),
+            format!("{}, {sub}", done.title),
         )
         .into_any_element()
     }
 
-    fn turn_row(&self, at: usize, turn: &OperatorTurnItem, open: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// Answered today, folded at the foot of Your turn: what he answered on his local day and what came
+    /// of each. Drawn only once something was answered.
+    fn answered_fold(&self, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let done = self.answered_today();
+        if done.is_empty() {
+            return None;
+        }
+        let open = self.folded.get(ANSWERED).copied().unwrap_or(false);
+        let head = labelled(
+            row_frame(SharedString::from("answered-today"), look)
+                .cursor_pointer()
+                .hover(|style| style.bg(cx.look().color(token::BG_HOVER)))
+                .text_color(look.color(token::FG_MUTED))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.folded.insert(ANSWERED, !open);
+                    cx.notify();
+                }))
+                .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4., look.color(token::FG_SUBTLE)))
+                .child(glyph("check", look.length(token::SPACE_4), look.color(token::STATUS_COMPLETED_SUCCESS)))
+                .child(div().flex_1().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(ANSWERED)),
+            Role::Button,
+            ANSWERED,
+        )
+        .into_any_element();
+        let mut rows = vec![head];
+        if open {
+            rows.extend(done.into_iter().rev().map(|done| self.done_row(done, look, cx)));
+        }
+        self.rows_group("answered-today-list", ANSWERED, rows, look)
+    }
+
+    fn turn_row(&self, at: usize, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> AnyElement {
         let kind = face::kind_of(turn);
         let title = face::title_of(turn);
         let id = turn.id.clone();
         let drop_id = turn.id.clone();
-        let sub = if open { Some("Open above".to_string()) } else { face::pick_of(turn).map(|pick| format!("My pick: {pick}")) };
-        // Put Later: the clock beside its kind, as nobody acts on it until later today.
-        let later = (turn.later_until.is_some() && !open).then(|| {
+        let sub = face::pick_of(turn).map(|pick| format!("My pick: {pick}"));
+        // Put Later: the clock beside its kind, saying when it comes back.
+        let later = turn.later_until.is_some().then(|| {
+            let said = face::later_said(turn, self.clock_now.unwrap_or_else(chrono::Local::now));
             labelled(
-                div().id(SharedString::from(format!("later-{at}"))).tooltip(tip("Later today")).child(glyph("clock", look.length(token::SPACE_4), look.color(token::STATUS_NOT_STARTED))),
+                div().id(SharedString::from(format!("later-{at}"))).tooltip(tip(said.clone())).child(glyph("clock", look.length(token::SPACE_4), look.color(token::STATUS_NOT_STARTED))),
                 Role::Image,
-                "Later today",
+                said,
             )
         });
         labelled(
             row_frame(SharedString::from(format!("turn-row-{at}")), look)
-                // The open row is marked along its edge and on its ground, so the whole row reads as the one open.
-                .border_l(look.length(token::BORDER_WIDTH) * 3.)
-                .border_color(if open { look.color(token::OPERATOR) } else { gpui::transparent_black() })
-                .when(open, |row| row.bg(look.color(token::OPERATOR_FAINT)))
                 .cursor_pointer()
-                .when(!open, |row| row.hover(|style| style.bg(cx.look().color(token::BG_HOVER))))
+                .hover(|style| style.bg(cx.look().color(token::BG_HOVER)))
                 .on_click(cx.listener(move |this, _, _, cx| this.open_id(&id, cx)))
                 .on_drag(TurnDrag { id: turn.id.clone(), title: title.clone() }, |drag, _, _, cx| cx.new(|_| drag.clone()))
                 .drag_over::<TurnDrag>(|style, _, _, cx| style.bg(cx.look().color(token::OPERATOR_FAINT)))
@@ -646,18 +739,40 @@ impl OperatorPageView {
         .into_any_element()
     }
 
-    fn rest(&self, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// Your turn as a queue: the open item's card stands in its row's place, so a row pressed low opens
+    /// where it is and nothing reorders (his ruling, 12 Nov). The rows above it and below it are a list each.
+    /// Also says where the card is among them.
+    fn queue(&self, look: &Look, cx: &Context<Self>) -> (Vec<AnyElement>, Option<usize>) {
         let open = self.open.as_deref();
-        let mut rows: Vec<AnyElement> = self.done.iter().map(|done| self.done_row(done, look, cx)).collect();
-        // The open item keeps its place in the list, marked, so a move or a drag shows where it went.
-        rows.extend(self.items().iter().enumerate().map(|(at, turn)| self.turn_row(at, turn, Some(turn.id.as_str()) == open, look, cx)));
+        let mut before: Vec<AnyElement> = Vec::new();
+        let mut after = Vec::new();
+        let mut card = None;
+        for (at, turn) in self.items().iter().enumerate() {
+            if Some(turn.id.as_str()) == open {
+                card = Some(self.card(turn, look, cx));
+            } else if card.is_none() {
+                before.push(self.turn_row(at, turn, look, cx));
+            } else {
+                after.push(self.turn_row(at, turn, look, cx));
+            }
+        }
+        let mut out: Vec<AnyElement> = self.rows_group("turn-before", "The rest of Your turn", before, look).into_iter().collect();
+        let at = card.as_ref().map(|_| out.len());
+        out.extend(card);
+        out.extend(self.rows_group("turn-after", "The rest of Your turn", after, look));
+        out.extend(self.answered_fold(look, cx));
+        (out, at)
+    }
+
+    /// A run of Your turn's rows in one frame, a rule between rows and never under the last.
+    fn rows_group(&self, id: &'static str, name: &'static str, rows: Vec<AnyElement>, look: &Look) -> Option<AnyElement> {
         if rows.is_empty() {
             return None;
         }
         Some(
             labelled(
                 div()
-                    .id("turn-rest")
+                    .id(id)
                     .flex_none()
                     .flex()
                     .flex_col()
@@ -671,17 +786,12 @@ impl OperatorPageView {
                         rule.into_iter().chain(std::iter::once(row))
                     })),
                 Role::List,
-                "The rest of Your turn",
+                name,
             )
             .into_any_element(),
         )
     }
 
-    // -- the digest --------------------------------------------------------------------------------
-
-    /// A time as the thread draws one: the clock, or its age once a press has flipped every time on the
-    /// page. `lead` goes before the clock alone, as `at` in `back at 13:05`, which reads `back 3m ago`.
-    /// A press or Enter on any time flips them all.
     fn stamp(&self, at: &str, lead: Option<&'static str>, (size, ink, weight): (Token, Token, Token), look: &Look, cx: &Context<Self>) -> AnyElement {
         let now = self.clock_now.unwrap_or_else(chrono::Local::now);
         let (on_clock, ago) = (minute(at, now).map(|clock| lead.map_or(clock.clone(), |lead| format!("{lead} {clock}"))), crate::job_view::age(at, now));
@@ -748,6 +858,33 @@ impl OperatorPageView {
         labelled(pressed(button, cx, forget), Role::Button, format!("Forget {about}")).into_any_element()
     }
 
+    /// Under a hold's words: each held path in mono, then what lifts it.
+    fn hold_line(&self, hold: HoldFacts, look: &Look) -> AnyElement {
+        div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
+            .text_size(look.length(token::TEXT_2XS))
+            .text_color(look.color(token::FG_MUTED))
+            .children(hold.paths.into_iter().map(|path| {
+                div()
+                    .flex_none()
+                    .max_w_full()
+                    .truncate()
+                    .px(look.length(token::SPACE_1))
+                    .rounded(look.length(token::RADIUS_SM))
+                    .bg(look.color(token::BG_RAISED))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .child(path)
+            }))
+            .children(hold.until.map(|until| div().flex_none().child(until)))
+            .into_any_element()
+    }
+
     fn tile(&self, name: &'static str, mark: &'static str, hue: Token, aside: Option<String>, rows: Vec<Row>, link: Option<&'static str>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let open = self.folded.get(name).copied().unwrap_or(opens_unpressed(name));
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
@@ -779,7 +916,16 @@ impl OperatorPageView {
                     .py(look.length(token::SPACE_1))
                     .text_size(look.length(token::TEXT_XS))
                     .tooltip(tip(said.clone()))
-                    .child(div().flex_1().min_w_0().when(wraps, |words| words.line_clamp(2).text_ellipsis()).when(!wraps, |words| words.truncate()).child(text.clone()))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .flex()
+                            .flex_col()
+                            .gap(look.length(token::SPACE_1))
+                            .child(div().min_w_0().when(wraps, |words| words.line_clamp(2).text_ellipsis()).when(!wraps, |words| words.truncate()).child(text.clone()))
+                            .children(row.hold.map(|hold| self.hold_line(hold, look))),
+                    )
                     .child(match row.side {
                         Side::None => gpui::Empty.into_any_element(),
                         Side::Text(said) => div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(said).into_any_element(),
@@ -866,22 +1012,22 @@ impl OperatorPageView {
         let digest = &page.digest;
         let mut tiles: Vec<AnyElement> = Vec::new();
         if !digest.landed.is_empty() {
-            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), said: format!("#{} {}", one.number, one.title), place: None, side: Side::At(one.at.clone()), opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect();
+            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), said: format!("#{} {}", one.number, one.title), place: None, side: Side::At(one.at.clone()), opened: Some(Opened::Job(one.session_id.clone())), forget: None, hold: None }).collect();
             tiles.push(self.tile("Landed", "git-merge", token::STATUS_COMPLETED_SUCCESS, None, rows, None, look, cx));
         }
         if !digest.handled.acts.is_empty() || digest.handled.log.is_some() {
-            let rows = digest.handled.acts.iter().map(|act| Row { text: handled_said(act), said: handled_said(act), place: None, side: Side::At(act.at.clone()), opened: None, forget: None }).collect();
+            let rows = digest.handled.acts.iter().map(|act| Row { text: handled_said(act), said: handled_said(act), place: None, side: Side::At(act.at.clone()), opened: None, forget: None, hold: None }).collect();
             // Off, nothing new is handled: what is here it did before it was switched off.
             let aside = (!page.on).then(|| "while it was on".to_string());
             let link = digest.handled.log.as_ref().map(|_| "The whole Log");
             tiles.push(self.tile("What I handled", "bot", token::OPERATOR, aside, rows, link, look, cx));
         }
         if !digest.running.is_empty() {
-            let rows = by_place(digest.running.iter().map(|one| Row { text: one.title.clone(), said: one.title.clone(), place: one.repository.clone(), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect());
+            let rows = by_place(digest.running.iter().map(|one| Row { text: one.title.clone(), said: one.title.clone(), place: one.repository.clone(), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None, hold: None }).collect());
             tiles.push(self.tile("Running", "activity", token::STATUS_RUNNING, None, rows, None, look, cx));
         }
         if !digest.coming_up.is_empty() {
-            let rows = digest.coming_up.iter().map(|one| Row { text: format!("{}: waits on {}", one.title, one.needs), said: format!("{}: waits on {}", one.title, one.needs), place: None, side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect();
+            let rows = digest.coming_up.iter().map(|one| Row { text: format!("{}: waits on {}", one.title, one.needs), said: format!("{}: waits on {}", one.title, one.needs), place: None, side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None, hold: None }).collect();
             tiles.push(self.tile("Coming up", "clock", token::STATUS_NOT_STARTED, None, rows, None, look, cx));
         }
         if !digest.learned.is_empty() {
@@ -893,13 +1039,25 @@ impl OperatorPageView {
                 }
             }
             let rows = by_place(
-                digest.learned.iter().map(|rule| Row { text: rule.said.clone(), said: rule_said(rule), place: Some(rule.repository.clone().unwrap_or_else(|| "Everywhere".into())), side: Side::At(rule.at.clone()), opened: None, forget: Some(rule.id) }).collect(),
+                digest.learned.iter().map(|rule| Row { text: rule.said.clone(), said: rule_said(rule), place: Some(rule.repository.clone().unwrap_or_else(|| "Everywhere".into())), side: Side::At(rule.at.clone()), opened: None, forget: Some(rule.id), hold: None }).collect(),
             );
             tiles.push(self.tile("Learned", "scroll-text", token::OPERATOR, Some(places.join(", ")), rows, Some("Every rule"), look, cx));
         }
         if !digest.holds.is_empty() {
             let rows = by_place(
-                digest.holds.iter().map(|hold| Row { text: hold.said.clone(), said: hold_said(hold), place: Some(hold.repository.clone().unwrap_or_else(|| hold.manifest_id.clone())), side: Side::At(hold.at.clone()), opened: None, forget: Some(hold.id) }).collect(),
+                digest.holds
+                    .iter()
+                    .map(|hold| Row {
+                        text: hold.said.clone(),
+                        said: hold_said(hold),
+                        place: Some(hold.repository.clone().unwrap_or_else(|| hold.manifest_id.clone())),
+                        side: Side::At(hold.at.clone()),
+                        // The one Job that writes under the paths opens on a press, as a running Job's row does.
+                        opened: hold.job.clone().map(Opened::Job),
+                        forget: Some(hold.id),
+                        hold: hold_facts(hold),
+                    })
+                    .collect(),
             );
             tiles.push(self.tile("Holds", "folder-lock", token::OPERATOR, None, rows, None, look, cx));
         }
@@ -1031,6 +1189,9 @@ fn side(look: &Look) -> Div {
 /// A tile's rows past these are a press away, or in the Log.
 const FEW: usize = 4;
 
+/// The fold at the foot of Your turn, and its key in `folded`.
+const ANSWERED: &str = "Answered today";
+
 /// Tiles the chosen side column draws open: what it handled, what it learned, and what it holds.
 pub(super) fn opens_unpressed(name: &str) -> bool {
     matches!(name, "What I handled" | "Learned" | "Holds")
@@ -1047,6 +1208,22 @@ pub(super) struct Row {
     opened: Option<Opened>,
     /// A rule's or a hold's id, which its Forget names.
     forget: Option<i64>,
+    /// What a hold stands over and what lifts it, under its words; none on an answer from before they were sent.
+    hold: Option<HoldFacts>,
+}
+
+pub(super) struct HoldFacts {
+    paths: Vec<String>,
+    until: Option<&'static str>,
+}
+
+/// A hold's paths and what lifts it, as Fleet sends them (`OperatorHold.paths`, `.until`); nothing when neither came.
+pub(super) fn hold_facts(hold: &ipc::operator_page::OperatorHold) -> Option<HoldFacts> {
+    let until = hold.until.map(|until| match until {
+        ipc::operator_talk::OperatorHoldUntil::Pushes => "until it pushes",
+        ipc::operator_talk::OperatorHoldUntil::Ends => "until it ends",
+    });
+    (!hold.paths.is_empty() || until.is_some()).then(|| HoldFacts { paths: hold.paths.clone(), until })
 }
 
 pub(super) enum Side {
@@ -1110,15 +1287,6 @@ fn placed(place: &str, said: &str) -> String {
     format!("{place}: {small}")
 }
 
-/// The week's share as the title bar's rings read it, on a live Fleet.
-fn week_from_bar(cx: &App) -> Option<u32> {
-    let bar = crate::titlebar::live(cx)?;
-    match &bar.read(cx).face.usage {
-        crate::titlebar::Usage::Limits(limits) => limits.iter().find(|limit| limit.name == "Weekly limit").map(|limit| limit.percent),
-        _ => None,
-    }
-}
-
 impl Render for OperatorPageView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if self.pane {
@@ -1151,8 +1319,19 @@ impl Render for OperatorPageView {
         let Some(page) = self.page.as_ref() else {
             return root.child(top).child(self.skeleton(look)).into_any_element();
         };
-        let open = self.open_item().map(|turn| self.card(turn, look, cx));
         let off = (!page.on).then(|| self.off(look, cx));
+        let mut parts: Vec<AnyElement> = vec![self.turn_head(look).into_any_element()];
+        parts.extend(self.on_it(page, look, cx));
+        parts.extend(off);
+        let (queue, card_at) = self.queue(look, cx);
+        let card_at = card_at.map(|at| at + parts.len());
+        parts.extend(queue);
+        // A key or an answer that moves the card scrolls it into view; a press is already on it.
+        if std::mem::take(&mut self.reveal) {
+            if let Some(at) = card_at {
+                self.main_scroll.scroll_to_item(at);
+            }
+        }
         let main = div()
             .id("operator-main")
             .track_scroll(&self.main_scroll)
@@ -1166,19 +1345,10 @@ impl Render for OperatorPageView {
             .pt(look.length(token::SPACE_4) + look.length(token::SPACE_1))
             // Room under the last row, so it never sits on the window's edge.
             .pb(look.length(token::SPACE_12))
-            // Held at its own height, so a long queue scrolls instead of squeezing the bars above it.
-            .child(
-                div()
-                    .flex_none()
-                    .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_3))
-                    .child(self.turn_head(look))
-                    .children(self.on_it(page, look, cx))
-                    .children(off)
-                    .children(open)
-                    .children(self.rest(look, cx)),
-            );
+            .gap(look.length(token::SPACE_3))
+            // Each part a child of the scroll, held at its own height, so a long queue scrolls instead of
+            // squeezing the bars above it, and the card can be scrolled to.
+            .children(parts.into_iter().map(|part| div().flex_none().child(part)));
         let aside = self.digest(page, look, cx);
         let sheet = self.rules.map(|at| self.rules_sheet(at, look, cx));
         let log = self.log.as_deref().map(|text| self.log_sheet(text, look, cx));
@@ -1187,6 +1357,7 @@ impl Render for OperatorPageView {
             .child(div().flex_1().min_h_0().flex().child(main).child(side(look).id("operator-side").overflow_y_scroll().child(aside)))
             .children(sheet)
             .children(log)
+            .children(self.later_menu.as_ref().map(|(menu, _)| menu.clone()))
             .into_any_element()
     }
 }
@@ -1495,7 +1666,7 @@ mod tests {
 
     #[test]
     fn rows_sit_under_their_project_everywhere_first_then_by_name() {
-        let row = |text: &str, place: &str| Row { text: text.into(), said: text.into(), place: Some(place.into()), side: Side::None, opened: None, forget: None };
+        let row = |text: &str, place: &str| Row { text: text.into(), said: text.into(), place: Some(place.into()), side: Side::None, opened: None, forget: None, hold: None };
         let rows = by_place(vec![row("a", "storefront"), row("b", "Everywhere"), row("c", "armada"), row("d", "storefront"), row("e", "Everywhere")]);
         assert_eq!(rows.iter().map(|row| row.text.as_str()).collect::<Vec<_>>(), ["b", "e", "c", "a", "d"]);
     }

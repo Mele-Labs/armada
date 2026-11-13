@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { Bot, ChartNoAxesGantt, Check, ChevronLeft, File, GripVertical, Link, Lock, Maximize2, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
+import { Bell, BellRing, Bot, ChartNoAxesGantt, Check, ChevronLeft, File, FileTerminal, GripVertical, Link, Lock, Maximize2, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -51,6 +51,7 @@ export type ActionScope =
   | "projects"
   | "report"
   | "review"
+  | "terminal"
   | "thread";
 
 /** Why an act's glyph column is empty. `null` where it is not. */
@@ -103,6 +104,45 @@ export const ACTIONS: readonly Action[] = [
     icon: Bot,
     iconAbsent: null,
     shortcut: "⌘J",
+    scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "toast_history",
+    kind: "Action",
+    tier: "Global",
+    verb: "Toasts",
+    icon: Bell,
+    iconAbsent: null,
+    shortcut: "⌥⌘N",
+    scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "new_terminal_job",
+    kind: "Action",
+    tier: "Global",
+    verb: "New Job here",
+    icon: Plus,
+    iconAbsent: null,
+    shortcut: "⌘T",
+    scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "toast_focus",
+    kind: "Action",
+    tier: "Global",
+    verb: "Newest toast",
+    icon: BellRing,
+    iconAbsent: null,
+    shortcut: "⌥⌘J",
     scope: "anywhere",
     destructive: false,
     confirms: false,
@@ -1474,6 +1514,19 @@ export const ACTIONS: readonly Action[] = [
     unbuilt: null,
   },
   {
+    id: "needs_you_fold",
+    kind: "Action",
+    tier: "Global",
+    verb: "Fold Needs you",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "⌥⌘Y",
+    scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
     id: "handoff_retry",
     kind: "Action",
     tier: "Contextual",
@@ -1495,6 +1548,19 @@ export const ACTIONS: readonly Action[] = [
     iconAbsent: "undecided",
     shortcut: "d",
     scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "terminal_new_shell",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "New shell",
+    icon: FileTerminal,
+    iconAbsent: null,
+    shortcut: "Enter",
+    scope: "terminal",
     destructive: false,
     confirms: false,
     unbuilt: null,
