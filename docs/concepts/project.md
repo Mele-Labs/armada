@@ -160,6 +160,9 @@ Nothing is reviewed until a layer says so.
 The Machine's own word stays live: a Job reads the Machine's pull request mode and review model as they stand, since a person moves them while a Job runs.
 The wire is [Projects](../practices/protocol/projects.md), *Values*.
 
+> **Rule (13 Nov).** A Job another Job starts is for its starter's project and takes that project's values, and its repository becomes a whole member where it was not.
+> Why: a Job an agent started was in no project, so how its work lands was unset and he was asked every time. A starter in no project starts its Job in none.
+
 ## Dispatching tasks
 
 **Selecting cards and pressing Dispatch opens the Dispatch sheet, prefilled with them.**
