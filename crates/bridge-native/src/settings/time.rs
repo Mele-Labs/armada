@@ -13,6 +13,21 @@ use crate::look::{token, Look};
 /// Each switch by its key in `time_format`, and its name.
 pub const SWITCHES: [(&str, &str); 3] = [("hour12", "24-hour clock"), ("seconds", "Seconds"), ("date", "Date")];
 
+thread_local! {
+    /// The format Fleet last said he set (`timeFormat()`): read once a connection, and again after each save.
+    static HELD: std::cell::Cell<TimeFormat> = std::cell::Cell::new(TimeFormat::default());
+}
+
+/// What he has set, for any stamp drawn on this thread.
+pub fn held() -> TimeFormat {
+    HELD.with(std::cell::Cell::get)
+}
+
+/// Take Fleet's `time_format` text, on a read or after a save. Text that is not a format is what ships.
+pub fn hold(text: &str) {
+    HELD.with(|held| held.set(ipc::time_format::read(text)));
+}
+
 /// The instant as he set it to be read (`stampOf`): "14:02:09", or "Nov 12 2:02 PM". With Date off, a day before
 /// today's still shows its day, so a bare time is always today's.
 pub fn stamp_of(at: DateTime<Local>, format: TimeFormat, now: DateTime<Local>) -> String {
@@ -108,6 +123,15 @@ mod tests {
     use chrono::TimeZone;
 
     use super::*;
+
+    #[test]
+    fn a_held_format_is_what_fleet_last_said() {
+        assert_eq!(held(), TimeFormat::default());
+        hold(r#"{"hour12":true,"seconds":false,"date":false}"#);
+        assert_eq!(held(), TimeFormat { hour12: true, seconds: false, date: false });
+        hold("");
+        assert_eq!(held(), TimeFormat::default());
+    }
 
     #[test]
     fn each_switch_adds_to_the_stamp_and_an_earlier_day_keeps_its_day() {

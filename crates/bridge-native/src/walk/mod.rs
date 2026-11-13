@@ -2109,6 +2109,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::NO_FUNNEL_STEPS,
     },
     Walk {
+        name: crate::settings::walk::LAYOUT_TIME,
+        title: "Layout and Time on the app",
+        screen: Screen::Settings,
+        scenario: "job-view",
+        steps: crate::settings::walk::LAYOUT_TIME_STEPS,
+    },
+    Walk {
         name: "workflow-card",
         title: "A proposed workflow's card",
         screen: Screen::Jobs,

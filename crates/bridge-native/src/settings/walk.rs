@@ -26,6 +26,25 @@ pub static NO_FUNNEL_STEPS: &[Step] = &[
     step("Esc closes Settings, and the keys go back", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-layout-time`: what Layout and Time set, read on the app behind Settings.
+pub const LAYOUT_TIME: &str = "native-layout-time";
+
+pub static LAYOUT_TIME_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Layout lists each panel and place with its switch", "button", "Layout", "region", "Layout"),
+    press_on("Off hides a Job's Done panel", "switch", "Done", "switch", "Done"),
+    press_on("Off hides the merge queue", "switch", "Merge queue", "switch", "Merge queue"),
+    press_on("Time: how every stamp is written", "button", "Time", "region", "Time"),
+    press_on("24-hour clock off writes the 12-hour clock", "switch", "24-hour clock", "switch", "24-hour clock"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+    step("The merge queue is gone from the foot of the window", Verb::Absent("region", "Merge queue"), "button", "Menu"),
+    step("A press opens a Job", Verb::Press, "row", "Fix the merge line freshness chip"),
+    step("Its column has no Done tab", Verb::Absent("tab", "Job column: Done"), "tab", "Job column: Open"),
+    step("A press on its band folds Needs you", Verb::Press, "button", "Needs you"),
+    step("A press in the thread gives it the keys", Verb::Press, "region", "Thread"),
+    step("Up the thread, each stamp is on the 12-hour clock", Verb::Keys(&["pageup", "pageup", "pageup"]), "region", "Thread"),
+];
+
 pub static STEPS: &[Step] = &[
     step("⌘, opens Settings over the app, at nine tenths of the window, on Limits", Verb::Key("cmd-,"), "dialog", "Settings"),
     step("Search sits at the top left, over the groups", Verb::Look, "searchbox", "Search Settings"),

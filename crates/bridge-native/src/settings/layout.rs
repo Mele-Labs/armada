@@ -70,6 +70,23 @@ pub const REGIONS: [Region; 3] = [
     },
 ];
 
+thread_local! {
+    /// His own choices, as Fleet last said them: read once a connection, and again after each save.
+    static HELD: std::cell::RefCell<BTreeMap<String, Choice>> = std::cell::RefCell::new(BTreeMap::new());
+}
+
+/// Take Fleet's `layout_choices` text, on a read or after a save. Text with a problem chooses nothing.
+pub fn hold(text: &str) {
+    HELD.with(|held| *held.borrow_mut() = ipc::layout::choices(text));
+}
+
+/// Whether he has switched this panel or place off (`useLayout(region).shown`). One a region cannot hide is always
+/// drawn, whatever the text says.
+pub fn hidden(region: &str, id: &str) -> bool {
+    let hideable = REGIONS.iter().find(|one| one.id == region).and_then(|one| one.rows.iter().find(|row| row.id == id)).is_some_and(|row| row.hideable);
+    hideable && HELD.with(|held| held.borrow().get(region).and_then(|one| one.hidden.as_ref()).is_some_and(|hidden| hidden.iter().any(|one| one == id)))
+}
+
 /// One layer of choices: a layout mod by its name, or his own (`None`).
 type Layer = (Option<String>, BTreeMap<String, Choice>);
 
@@ -247,6 +264,17 @@ mod tests {
 
     fn layer(name: Option<&str>, text: &str) -> Layer {
         (name.map(String::from), ipc::layout::choices(text))
+    }
+
+    #[test]
+    fn a_held_choice_hides_only_what_its_region_may_hide() {
+        hold(r#"{"version":1,"job.panels":{"hidden":["done","now"]},"dashboard.panels":{"hidden":["merge-line"]}}"#);
+        assert!(hidden("job.panels", "done"));
+        assert!(!hidden("job.panels", "now"), "Now cannot be hidden");
+        assert!(!hidden("job.panels", "next"));
+        assert!(hidden("dashboard.panels", "merge-line"));
+        hold("not a layout");
+        assert!(!hidden("job.panels", "done"), "text with a problem chooses nothing");
     }
 
     #[test]

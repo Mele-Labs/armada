@@ -363,6 +363,9 @@ impl Wire {
         match self {
             Wire::Live(fleet) => fleet.update(cx, |fleet, cx| fleet.preferences_saved(answer, cx)),
             Wire::Mock(mock) => {
+                super::time::hold(&answer.time_format);
+                super::layout::hold(&answer.layout_choices);
+                cx.refresh_windows();
                 crate::keymap::install(&crate::keymap::Rebinding::read(&answer.key_bindings), cx);
                 crate::look::install(super::theme::look_of(&answer.theme, &mock.sheets, window), cx);
             }
