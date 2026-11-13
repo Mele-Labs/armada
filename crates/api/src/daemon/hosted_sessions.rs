@@ -395,6 +395,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         id: SessionId,
     ) -> impl Future<Output = Result<ipc::SessionQuick, Refusal>> + Send;
 
+    /// `get_job_artifacts`: a Job's sketches, drafts and pages, newest first.
+    fn get_job_artifacts(
+        &self,
+        id: SessionId,
+    ) -> impl Future<Output = Result<Vec<ipc::JobArtifact>, Refusal>> + Send;
+
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
     /// the servers again.
     fn act_on_session_mcp(

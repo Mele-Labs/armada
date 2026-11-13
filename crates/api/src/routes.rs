@@ -667,6 +667,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::hosted_sessions::get_session_quick::<D>),
         )
         .route(
+            "/sessions/artifacts",
+            get(crate::hosted_sessions::get_job_artifacts::<D>),
+        )
+        .route(
             "/sessions/mcp/act",
             post(crate::hosted_sessions::act_on_session_mcp::<D>),
         )

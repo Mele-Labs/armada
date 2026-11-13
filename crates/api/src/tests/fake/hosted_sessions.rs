@@ -269,6 +269,11 @@ impl HostedSessions for FakeDaemon {
         Ok(ipc::SessionQuick { asked: vec!["Yes, go on".to_string(), "Not yet".to_string()], learnt: vec!["Just get it done".to_string()] })
     }
 
+    /// Nothing made: the routes are what the api tests read, and Fleet's tests read the list.
+    async fn get_job_artifacts(&self, _id: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
+        Ok(Vec::new())
+    }
+
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
         let sign_in = (asked.act == ipc::McpServerAct::SignIn).then(|| ipc::McpSignIn {
             url: format!("https://{}.example/authorize", asked.server),

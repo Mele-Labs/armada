@@ -84,6 +84,7 @@ export * from "./sessions";
 export * from "./session-notes";
 export * from "./session-mcp";
 export * from "./session-quick";
+export * from "./job-artifacts";
 export * from "./context-breakdown";
 export * from "./loadout";
 export * from "./turn-usage";
