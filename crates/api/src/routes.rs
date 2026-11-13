@@ -234,6 +234,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::pull_request_panel::get_review_runs::<D>),
         )
         .merge(crate::review_walks::mounted::<D>())
+        .merge(crate::other_macs::mounted::<D>())
         .route(
             "/pull_request_notes/:repository/:number",
             get(crate::pull_request_notes::list_pull_request_notes::<D>)

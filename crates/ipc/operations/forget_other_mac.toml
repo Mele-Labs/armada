@@ -1,0 +1,8 @@
+[operations.forget_other_mac]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Every Job row and bug report held from one Mac dropped, as this Mac's Phone Gateway forgets it"
+notes = """
+`POST /other_macs/forget`, body `MacNamed`. Answered with `MacNamed`. The rows leave `list_sessions` and the reports leave `list_bug_reports`, and `bug_reports.changed` is published with what is left.
+"""

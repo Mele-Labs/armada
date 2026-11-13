@@ -1,0 +1,8 @@
+[operations.share_sessions]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "This Mac's own Jobs in a project shared with his other Macs, whole, for this Mac's Phone Gateway to send them"
+notes = """
+`GET /other_mac/sessions`, answered with `SessionList`. Only a Job whose project has `shared_with_macs` on, read at the moment of asking: a Job in an unshared project or in none is not listed, not even hidden. **A row held from another Mac (`mac` set) is never listed**, so what one Mac shares never goes on to a third. The caller is the Gateway in Fleet's own process, over loopback. `docs/concepts/pocket.md`, *Another Mac*.
+"""

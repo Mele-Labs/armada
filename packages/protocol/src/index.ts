@@ -112,6 +112,7 @@ export * from "./session-system";
 export * from "./underway";
 export * from "./watches";
 export * from "./bug-reports";
+export * from "./macs";
 export * from "./lifecycles";
 export * from "./job-copy";
 export * from "./piece-saving";

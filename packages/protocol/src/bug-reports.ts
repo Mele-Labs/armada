@@ -26,6 +26,8 @@ export type BugReported = {
 /** One kept report, as `list_bug_reports` and `bug_reports.changed` carry it. */
 export type BugReport = {
   id: string;
+  /** The id of the paired Mac whose Job filed it. **Absent means this Mac.** */
+  mac?: string;
   /** The Job that reported it. It may be gone. */
   session_id: string;
   /** The Job's title when it reported; empty where it had none. */

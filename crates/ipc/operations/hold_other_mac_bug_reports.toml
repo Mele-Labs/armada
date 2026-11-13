@@ -1,0 +1,8 @@
+[operations.hold_other_mac_bug_reports]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Every bug report another Mac shares, handed in by this Mac's Phone Gateway, replacing all held from that Mac"
+notes = """
+`PUT /other_macs/bug_reports`, body `OtherMacBugReports`: `mac` and `reports`. Answered with `MacNamed`. Each report is kept with `mac` set to the sender, and `bug_reports.changed` is published with this Mac's reports and every other Mac's, as `list_bug_reports` lists them. 422 `fleet.other_mac_unnamed` for a blank `mac`.
+"""

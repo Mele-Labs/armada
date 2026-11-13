@@ -558,7 +558,9 @@ where
         let _ = tell.send(one);
     });
     tokio::spawn(async move {
-        let records = Arc::clone(&fleet).list_sessions(None, None, None).await.map(|list| list.sessions).unwrap_or_default();
+        // What his other Macs' Jobs wait on is theirs to call, not this Mac's.
+        let records: Vec<_> = Arc::clone(&fleet).list_sessions(None, None, None).await.map(|list| list.sessions).unwrap_or_default();
+        let records: Vec<_> = records.into_iter().filter(|one| one.mac.is_none()).collect();
         let lines = crate::merge_lines::view(fleet.as_ref()).await;
         fleet.hosts().calls.0.lock().expect("held across no panic").seed(&records, lines);
         while let Some(one) = heard.recv().await {

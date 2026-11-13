@@ -1280,6 +1280,7 @@ where
         }
         drop(store);
         let sessions = found.iter().zip(taken).map(|(session, reads)| self.ledger_built(session, reads)).collect();
+        let sessions = self.beside_other_macs(sessions, manifest.as_deref(), text.as_deref(), state).await?;
         Ok(SessionList { sessions })
     }
 
