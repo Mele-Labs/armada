@@ -183,6 +183,8 @@ mod review_runs;
 mod walk_places;
 /// The owner's notes on a pull request's lines, and which Job each was sent to.
 mod pull_request_notes;
+/// The head a person last left a pull request at, the files he marked viewed, and his Reviews layouts.
+mod pull_review_memory;
 mod row;
 mod schema;
 /// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
@@ -293,6 +295,7 @@ pub use retro::RetroLine;
 pub use review_runs::KeptReviewRun;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use pull_request_notes::KeptPullRequestNote;
+pub use pull_review_memory::{KeptReviewLayout, KeptSeenHead, KeptViewedFile};
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use attachment_versions::KeptAttachmentVersion;
 pub use session_ledger::{
