@@ -42,6 +42,14 @@ impl Settings for FakeDaemon {
         Ok(ipc::PhoneGateway { on: set.on, port: 8443, listening: set.on, why: None })
     }
 
+    async fn get_mac_setup(&self) -> Result<ipc::MacSetup, Refusal> {
+        Ok(ipc::MacSetup { step: ipc::MacSetupStep::Gateway, working: false, login: None, why: None, address: None })
+    }
+
+    async fn set_up_mac(&self) -> Result<ipc::MacSetup, Refusal> {
+        Ok(ipc::MacSetup { step: ipc::MacSetupStep::Gateway, working: true, login: None, why: None, address: None })
+    }
+
     async fn get_settings(&self) -> Result<SettingsList, Refusal> {
         Ok(self.settings.lock().expect("not poisoned").clone())
     }
