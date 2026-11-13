@@ -666,7 +666,11 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
     machine.origin,
   ]);
   const earlierId = handedOf(read.thread?.session, "replaces");
-  const [earlier] = useJob(earlierId === undefined ? undefined : machine, earlierId ?? "");
+  // The Job it took the place of stands above its first row, so it is read once every row of this one is held.
+  const [earlier] = useJob(
+    earlierId === undefined || read.older !== false ? undefined : machine,
+    earlierId ?? "",
+  );
   if (read.thread === undefined) {
     return (
       <section className="pk-screen" aria-label="Job">
@@ -1021,6 +1025,11 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
                 <SessionThread
                   sessionId={`${machine.origin} ${id}`}
                   rows={withEarlier(rowsOf(session), earlier.thread)}
+                  {...((read.onOlder ?? earlier.onOlder) === undefined
+                    ? {}
+                    : {
+                        onOlder: (read.onOlder ?? earlier.onOlder)!,
+                      })}
                   {...(approval === undefined
                     ? {}
                     : {

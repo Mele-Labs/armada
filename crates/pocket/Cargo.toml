@@ -36,6 +36,10 @@ base64 = "0.22"
 hkdf = "0.12"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "fs", "time", "sync"] }
+# Gzip on the phone's reads: Tailscale Funnel passes the body as it is, and a long Job's thread is
+# hundreds of kilobytes of JSON. `tower-http` is already in the lock; `compression-gzip` adds
+# `async-compression` and `flate2`. Approved 12 Nov 2026.
+tower-http = { version = "0.6", default-features = false, features = ["compression-gzip"] }
 
 [dev-dependencies]
 axum = { version = "0.7", features = ["ws"] }
