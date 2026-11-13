@@ -2598,6 +2598,27 @@ mod tests {
         assert!(lines.iter().all(|line| matches!(line, Line::Job(_))));
     }
 
+    #[gpui::test]
+    fn an_ended_job_the_palette_opens_stays_opened_in_every_scope_whether_or_not_the_scope_lists_it(cx: &mut gpui::TestAppContext) {
+        let all = jobs();
+        let ended = all.iter().find(|job| job.state == ipc::SessionState::Ended).expect("an ended Job").id.as_str().to_string();
+        for (scope, _, _) in SCOPES {
+            let list = cx.new(|cx| JobsList::mock(&all, cx));
+            list.update(cx, |list, cx| {
+                list.scope = scope;
+                list.relist(cx);
+                list.open(ended.clone().into(), cx);
+                list.relist(cx);
+            });
+            list.read_with(cx, |list, _| {
+                assert_eq!(list.opened_id().as_deref(), Some(ended.as_str()), "{scope:?}");
+                assert!(list.record(&ended).is_some(), "{scope:?}: the Job view reads the record, not the row");
+                let listed = list.lines.iter().any(|line| matches!(line, Line::Job(row) if row.id.as_ref() == ended.as_str()));
+                assert_eq!(listed, matches!(scope, Scope::Ended | Scope::All), "{scope:?}");
+            });
+        }
+    }
+
     #[test]
     fn the_placed_order_holds_and_a_search_narrows_by_title() {
         let all = jobs();
