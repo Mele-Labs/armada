@@ -1045,7 +1045,7 @@ impl JobView {
                 self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
-            SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title }, text, notice, .. } => {
+            SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title, .. }, text, notice, .. } => {
                 // At a narrow width the id gives way faster than the title, so the title stays. Squeezed to
                 // fewer than a few characters it leaves the band, and comes back once the band has that much
                 // more room than it had then. Both widths are the last frame's.
