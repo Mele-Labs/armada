@@ -82,6 +82,8 @@ mod word_asks;
 mod job_renames;
 /// A Job's artifacts archived as stale, kept apart from their attachments.
 mod artifact_archives;
+/// The revisions of a Job's artifacts the person wrote, kept apart from their attachments.
+mod artifact_owner_revisions;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -252,6 +254,7 @@ pub use notice_mutes::LiveMutes;
 pub use word_asks::KeptWordAsk;
 pub use job_renames::KeptRename;
 pub use artifact_archives::KeptArchive;
+pub use artifact_owner_revisions::KeptOwnerRevision;
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};

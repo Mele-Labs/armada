@@ -106,7 +106,7 @@ fn open_tag(lower: &str, name: &str, from: usize) -> Option<(usize, usize)> {
 }
 
 /// The offset after the '>' that closes a tag opened before `from`, skipping any '>' inside a quoted value.
-fn tag_end(lower: &str, from: usize) -> usize {
+pub(super) fn tag_end(lower: &str, from: usize) -> usize {
     let mut quote = None;
     for (at, byte) in lower.bytes().enumerate().skip(from) {
         match (quote, byte) {
@@ -170,7 +170,7 @@ fn without_tags(html: &str) -> String {
     text
 }
 
-fn unescaped(text: &str) -> String {
+pub(super) fn unescaped(text: &str) -> String {
     text.replace("&lt;", "<")
         .replace("&gt;", ">")
         .replace("&quot;", "\"")
@@ -178,6 +178,6 @@ fn unescaped(text: &str) -> String {
         .replace("&amp;", "&")
 }
 
-fn squeezed(text: &str) -> String {
+pub(super) fn squeezed(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }

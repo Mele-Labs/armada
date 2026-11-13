@@ -880,6 +880,19 @@ pub(crate) async fn restore_artifact<D: HostedSessions>(State(served): State<Ser
     }
 }
 
+/// His Edit of a page's or a draft's words. 200 with the artifact; 409 for a revision not the newest; 422 for a sketch,
+/// an edit that is not words alone, or an artifact archived, settled or not held.
+pub(crate) async fn save_artifact_edit<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let edit: ipc::SaveArtifactEdit = match ipc::decode_body("an edit to save", &body) {
+        Ok(edit) => edit,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().save_artifact_edit(edit).await {
+        Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn act_on_session_mcp<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

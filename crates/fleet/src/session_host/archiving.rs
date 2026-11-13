@@ -96,7 +96,7 @@ where
     }
 
     /// The artifact the Job holds as `named`, refused naming the ids it does hold.
-    async fn artifact_held(&self, id: &str, named: &str) -> Result<JobArtifact, Refusal> {
+    pub(super) async fn artifact_held(&self, id: &str, named: &str) -> Result<JobArtifact, Refusal> {
         let named = named.trim();
         let held = self.job_artifacts(id).await?;
         if let Some(artifact) = held.iter().find(|one| one.id == named) {

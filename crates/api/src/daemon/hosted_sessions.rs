@@ -426,6 +426,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         restore: ipc::ArtifactRef,
     ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
 
+    /// `save_artifact_edit`: his Edit of a page's or a draft's words, kept as the next revision, his, with the Job sent
+    /// the diff first. Answers with the artifact. [`Refusal::Unacceptable`] for a sketch, an edit that is not words
+    /// alone, or an artifact archived, settled or not held; [`Refusal::IllegalMove`] for a revision not the newest.
+    fn save_artifact_edit(
+        self: Arc<Self>,
+        edit: ipc::SaveArtifactEdit,
+    ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
+
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
     /// the servers again.
     fn act_on_session_mcp(
