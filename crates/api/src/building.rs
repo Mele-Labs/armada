@@ -9,7 +9,7 @@ use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{ChangeFleetBuild, PickFleetBuildJob, SkipPreviewRefresh};
+use ipc::{ChangeFleetBuild, PickFleetBuildJob, SkipPreviewRefresh, UpdateMac};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries};
@@ -53,6 +53,18 @@ pub(crate) async fn change_fleet_build<D: Commands>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.daemon().change_fleet_build(asked).await {
+        Ok(changing) => answer(StatusCode::ACCEPTED, &changing, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Move this Mac, another of his Macs, or both onto one build, keeping running Jobs, and answer that it has begun.
+pub(crate) async fn update_mac<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: UpdateMac = match ipc::decode_body("a Mac to update", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().update_mac(asked).await {
         Ok(changing) => answer(StatusCode::ACCEPTED, &changing, served.run_id()),
         Err(refusal) => refused(refusal),
     }

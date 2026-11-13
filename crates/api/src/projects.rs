@@ -97,6 +97,19 @@ pub(crate) async fn list_project_issues<D: Projects>(
     }
 }
 
+pub(crate) async fn set_project_workflow<D: Projects>(
+    State(served): State<Served<D>>,
+    Path(project): Path<String>,
+    body: Bytes,
+) -> Response {
+    let set = match decoded(&served, "a project's workflow switch", &body) {
+        Ok(set) => set,
+        Err(response) => return response,
+    };
+    let result = served.daemon().set_project_workflow(project, set).await;
+    answered(&served, result)
+}
+
 pub(crate) async fn save_kit_values<D: Projects>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let save = match decoded(&served, "Kit's values", &body) {
         Ok(save) => save,

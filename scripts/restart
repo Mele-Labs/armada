@@ -745,6 +745,15 @@ fi
 # left for the swap. `docs/practices/running-locally.md`, *Kept builds*.
 $keep_only || refuse_if_drone_working
 
+# **Drop build output first, with the armada already installed.** A build needs disk and the one
+# running may be older than Fleet's own reclaim. `armada disk reclaim --help` succeeds only on an
+# armada that has the verb, and a pass that fails is no reason to stop: the build says if it ran short.
+# `docs/practices/running-locally.md`, *Dropping build output*.
+if "$armada_bin" disk reclaim --help >/dev/null 2>&1; then
+  say "Dropping build output from a short disk"
+  (cd "$src" && "$armada_bin" disk reclaim) >&2 || true
+fi
+
 # Rebuild.
 built_protocol=$(ipc_built_protocol)
 if [[ -n "$built_protocol" && "$built_protocol" != "$(tree_protocol)" ]]; then

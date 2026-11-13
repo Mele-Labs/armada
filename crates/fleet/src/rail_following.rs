@@ -70,7 +70,8 @@ where
         let (Some(manifest), Some(workflow)) = (record.manifest_id.as_ref(), record.workflow.as_deref()) else {
             return;
         };
-        if !self.workflow_on(manifest.as_str(), workflow) {
+        let project = record.hosted.as_ref().and_then(|hosted| hosted.project.as_deref());
+        if !self.workflow_on(manifest.as_str(), project, workflow) {
             return;
         }
         let Some(steps) = self.job_rail_steps(&id, manifest.as_str(), workflow).await else {
@@ -176,7 +177,7 @@ where
         if hosting.ran {
             return said;
         }
-        let workflow = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow))?;
+        let workflow = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, hosting.project.as_deref(), workflow))?;
         let steps = self.job_rail_steps(id, &hosting.manifest_id, workflow).await?;
         let skipped = self.store().lock().await.session_rail(id, &rail::step_ids(&steps)).map(|kept| kept.skipped).unwrap_or_default();
         let skips = rail::skips_said(&self.workflow_name(&hosting.manifest_id, workflow), &steps, &skipped);
@@ -190,7 +191,7 @@ where
         if hosting.ran {
             return None;
         }
-        let workflow = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow))?;
+        let workflow = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, hosting.project.as_deref(), workflow))?;
         let steps = self.job_rail_steps(id, &hosting.manifest_id, workflow).await?;
         let (session, from, to) = {
             let mut store = self.store().lock().await;

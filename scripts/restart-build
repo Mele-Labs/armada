@@ -8,6 +8,23 @@
 #   scripts/restart-build preview [--adopt]   scripts/preview --restart
 #   scripts/restart-build snapshot            scripts/preview --restart --keep-only --picked Armada/preview-picked
 #
+# Two Macs on one preview build:
+#
+#   scripts/restart-build preview [--adopt] --push-as <name>
+#       scripts/preview --restart --push-as <name>: the merged preview commit is also pushed
+#       to `preview/<name>` on origin before the restart
+#   scripts/restart-build preview [--adopt] --push-as <name> --tell <mac>
+#       the merge and the push first, with no restart; then the local Fleet is told, with a POST
+#       to `/macs/update` of {mac, build: "preview", commit, ref}, that <mac> builds that commit;
+#       then `scripts/preview --restart --at <commit> --ref preview/<name>`, so this Mac builds the
+#       same commit with no second merge. A failed push or POST is written to the log and the
+#       restart goes on; a failed merge is the run's failure.
+#   scripts/restart-build preview [--adopt] --at <sha> --ref <ref>
+#       the other Mac's side: scripts/preview --restart --at <sha> --ref <ref>, which builds
+#       exactly that commit and merges nothing
+#
+# `main` and `snapshot` take none of `--push-as`, `--tell`, `--at` and `--ref`.
+#
 # A snapshot is built and kept and swaps nothing, so it keeps its own record,
 # `Armada/snapshot.status`, and log, `snapshot.log`; on success
 # `scripts/restart` has written `Armada/snapshot`, the kept build's name.
@@ -33,14 +50,17 @@
 # `dep graph` or `dep-graph`, and `unstable fingerprints`.
 #
 # Knobs for tests: `ARMADA_RESTART_SCRIPT` and `ARMADA_PREVIEW_SCRIPT` name the
-# scripts this runs, `HOME` moves the record and the log, and
-# `ARMADA_RESTART_POLL` is how often, in seconds, the log is read for a stage.
+# scripts this runs, `HOME` moves the record and the log,
+# `ARMADA_RESTART_POLL` is how often, in seconds, the log is read for a stage, and
+# `ARMADA_FLEET_URL` is the Fleet `--tell` posts to, else the port in `Armada/fleet.json`.
 
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import urllib.request
 
 STALE = "libsqlite3-sys"
 INCREMENTAL = re.compile(r"incremental compilation|dep[- ]graph|unstable fingerprints", re.I)
@@ -100,12 +120,61 @@ def one_line(log):
     return lines[-1][:LIMIT] if lines else "exited without output"
 
 
+USAGE = ("usage: scripts/restart-build main [--adopt] | preview [--adopt] [--push-as NAME [--tell MAC]] "
+         "| preview [--adopt] --at SHA --ref REF | snapshot")
+TAKES_VALUE = ("--push-as", "--tell", "--at", "--ref")
+
+
+def parse(args):
+    """(build, adopt, {flag: value}) or an exit with the usage line."""
+    if not args or args[0] not in ("main", "preview", "snapshot"):
+        sys.exit(USAGE)
+    build, adopt, given, rest = args[0], False, {}, iter(args[1:])
+    for a in rest:
+        if a == "--adopt" and not adopt:
+            adopt = True
+        elif a in TAKES_VALUE and a not in given:
+            value = next(rest, "")
+            if not value or value.startswith("-"):
+                sys.exit(f"restart-build: {a} takes a value\n{USAGE}")
+            given[a] = value
+        else:
+            sys.exit(USAGE)
+    if build == "snapshot" and (adopt or given):
+        sys.exit(USAGE)
+    if build == "main" and given:
+        sys.exit(f"restart-build: {' '.join(given)} is for preview, not main\n{USAGE}")
+    if "--tell" in given and "--push-as" not in given:
+        sys.exit(f"restart-build: --tell needs --push-as, the ref it tells the other Mac to fetch\n{USAGE}")
+    if ("--at" in given) != ("--ref" in given):
+        sys.exit(f"restart-build: --at and --ref go together\n{USAGE}")
+    if "--at" in given and ("--push-as" in given or "--tell" in given):
+        sys.exit(f"restart-build: --at is the Mac that builds a pushed commit; it cannot push or tell\n{USAGE}")
+    return build, adopt, given
+
+
+def tell(log_path, support, mac, commit, ref):
+    """Tell the local Fleet that `mac` builds `commit` from `ref`. Nothing here fails the run:
+    what goes wrong is written to the log, and this Mac builds the commit all the same."""
+    body = json.dumps({"mac": mac, "build": "preview", "commit": commit, "ref": ref}).encode()
+    try:
+        base = os.environ.get("ARMADA_FLEET_URL")
+        if not base:
+            with open(os.path.join(support, "fleet.json")) as f:
+                base = f"http://127.0.0.1:{json.load(f)['port']}"
+        request = urllib.request.Request(base.rstrip("/") + "/macs/update", data=body, method="POST",
+                                         headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=10):
+            pass
+        said = f"restart-build: told {mac} to build {commit[:10]} from {ref}"
+    except (OSError, ValueError, KeyError) as why:
+        said = f"restart-build: could not tell {mac} about {commit[:10]}: {why}"
+    with open(log_path, "a") as log:
+        log.write(said + "\n")
+
+
 def main():
-    args = sys.argv[1:]
-    if (not args or args[0] not in ("main", "preview", "snapshot") or any(a != "--adopt" for a in args[1:])
-            or (args[0] == "snapshot" and len(args) > 1)):
-        sys.exit("usage: scripts/restart-build main|preview [--adopt] | snapshot")
-    build, adopt = args[0], "--adopt" in args[1:]
+    build, adopt, given = parse(sys.argv[1:])
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     home = os.path.expanduser("~")
@@ -147,9 +216,14 @@ def main():
         command = [os.environ.get("ARMADA_RESTART_SCRIPT") or os.path.join(root, "scripts", "restart"), "--main"]
         tree = root
     else:
-        command = [os.environ.get("ARMADA_PREVIEW_SCRIPT") or os.path.join(root, "scripts", "preview"), "--restart"]
+        preview = os.environ.get("ARMADA_PREVIEW_SCRIPT") or os.path.join(root, "scripts", "preview")
+        command = [preview, "--restart"]
         if build == "snapshot":
             command += ["--keep-only", "--picked", os.path.join(support, "preview-picked")]
+        if "--at" in given:
+            command += ["--at", given["--at"], "--ref", given["--ref"]]
+        elif "--push-as" in given and "--tell" not in given:
+            command += ["--push-as", given["--push-as"]]
         tree = os.path.join(root, ".armada", "preview")
     if adopt:
         command.append("--adopt")
@@ -190,6 +264,27 @@ def main():
                     return process.returncode
 
     open(log_path, "w").close()
+    if "--tell" in given:
+        # Merge and push with no restart, tell the other Mac, then build the very commit that went.
+        ref = f"preview/{given['--push-as']}"
+        merge = [preview, "--push-as", given["--push-as"]]
+        with open(log_path, "a") as log:
+            log.write(f"$ {' '.join(merge)}\n")
+            log.flush()
+            merged = subprocess.run(merge, cwd=root, stdout=log, stderr=subprocess.STDOUT, env=os.environ)
+        with open(log_path) as f:
+            said = f.read()
+        if merged.returncode != 0:
+            return failed(one_line(said))
+        sha = subprocess.run(["git", "-C", tree, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        if not sha:
+            return failed(f"the preview at {tree} has no commit to tell {given['--tell']} about")
+        if re.search(rf"^preview: pushed .* to {re.escape(ref)}$", said, re.M):
+            tell(log_path, support, given["--tell"], sha, ref)
+        else:
+            with open(log_path, "a") as log:
+                log.write(f"restart-build: not telling {given['--tell']}: {ref} was not pushed\n")
+        command[2:2] = ["--at", sha, "--ref", ref]
     code = run()
     with open(log_path) as f:
         log = f.read()

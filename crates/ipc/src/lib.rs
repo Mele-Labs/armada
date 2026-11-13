@@ -371,7 +371,7 @@ pub use amending::{
 pub use building::{
     BuildPosition, BuildSource, BuildStage, BuildSwitcher, RestartAct, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept,
     FleetBuildReport, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, KeptBuildPrevious,
-    KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState,
+    KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
 };
 pub use preview::{
     OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
@@ -423,7 +423,7 @@ pub use event::{
 pub use files::FilesFound;
 pub use debug_report::DebugReport;
 pub use health::{
-    FleetHealth, ActionAuthority, Probe, Unprobed,
+    FleetHealth, ActionAuthority, DiskHealth, Probe, ReclaimPass, Unprobed,
 };
 pub use thought::{
     WordsSent, ReadThought, TellSession, ThoughtKind, ThoughtReading,
@@ -511,7 +511,7 @@ pub use issue_queries::{
     InstallTool, InstalledTool, IssueQueries, IssueQueryGuide, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
     WrittenIssueQuery,
 };
-pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedReviews, ResolvedTracker, ResolvedValue, ResolvedValues, ReviewsSet, SaveKitValues, ValueLayer, ValuesSet};
+pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedReviews, ResolvedTracker, ResolvedValue, ResolvedValues, ResolvedWorkflow, ReviewsSet, SaveKitValues, SetProjectWorkflow, ValueLayer, ValuesSet};
 pub use projects::{
     EditProject, EditedTaskFields, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue,
     NewProjectTask, Project, ProjectAct, ProjectActFromMac, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,

@@ -50,6 +50,20 @@ pub struct WayIn {
     pub tunnel: Tunnel,
     /// The commit this Fleet was built from, where its kept build says, for the Devices list.
     pub build: Option<String>,
+    /// When that build was built, as its kept build says, to tell which of two Macs is older.
+    pub built_at: Option<String>,
+    /// `main` or `preview`, as its kept build says.
+    pub source: Option<String>,
+    /// The protocol ID this build speaks. Another Mac speaking another is frozen until one updates.
+    pub wire: String,
+}
+
+/// What this Mac's kept build says of itself, for [`mac_way_in`].
+#[derive(Clone, Debug, Default)]
+pub struct ThisBuild {
+    pub commit: String,
+    pub built_at: String,
+    pub source: String,
 }
 
 /// From `tailscale serve status --json`: whether something serves `127.0.0.1:<port>` at all, and with Funnel.
@@ -199,8 +213,8 @@ fn turn_on_funnel(port: u16, own: Option<&str>) -> Funnel {
 }
 
 /// The Mac as it is: `pocket-address` in `machine`, the installed Tailscale and Armada's own `cloudflared`
-/// in front of `port`, and the commit Fleet was built from.
-pub fn mac_way_in(machine: PathBuf, port: u16, build: Option<String>) -> WayIn {
+/// in front of `port`, and the build Fleet runs.
+pub fn mac_way_in(machine: PathBuf, port: u16, build: Option<ThisBuild>) -> WayIn {
     let driver = Arc::new(crate::cloudflared::MacCloudflared::new(&machine));
     let tunnel = Tunnel::new(driver, machine.clone(), Arc::new(seconds_now));
     WayIn {
@@ -209,7 +223,10 @@ pub fn mac_way_in(machine: PathBuf, port: u16, build: Option<String>) -> WayIn {
         funnel: Arc::new(move |own| turn_on_funnel(port, own)),
         port,
         tunnel,
-        build,
+        build: build.as_ref().map(|one| one.commit.clone()),
+        built_at: build.as_ref().map(|one| one.built_at.clone()),
+        source: build.map(|one| one.source),
+        wire: ipc::ProtocolId::current().to_string(),
     }
 }
 
@@ -227,6 +244,9 @@ pub(crate) fn quiet_way_in() -> WayIn {
         port: 8443,
         tunnel: crate::tunnel_tests::quiet_tunnel(),
         build: None,
+        built_at: None,
+        source: None,
+        wire: ipc::ProtocolId::current().to_string(),
     }
 }
 
