@@ -579,6 +579,15 @@ impl Sessions for FakeDaemon {
         Ok(ipc::StyleSources { sources: Vec::new(), start: path, packages: Vec::new() })
     }
 
+    async fn get_design_catalogue(
+        &self,
+        _caller: Option<crate::Caller>,
+        _session_id: Option<ipc::SessionId>,
+        _asked: ipc::CatalogueAsked,
+    ) -> Result<ipc::DesignCatalogue, Refusal> {
+        Ok(ipc::DesignCatalogue::default())
+    }
+
     async fn get_kept_styles(&self, hash: String) -> Result<ipc::KeptStyles, Refusal> {
         Err(Refusal::NotFound(ipc::WireError::raised(
             "fleet.no_such_kept_styles",

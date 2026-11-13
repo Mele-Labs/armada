@@ -61,6 +61,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ),
     ("get_request_run", &["repository", "session_id", "id"]),
     ("get_style_sources", &["path", "session_id"]),
+    ("get_design_catalogue", &["area", "match", "repository", "session_id"]),
     ("get_debug_report", &["root"]),
     ("list_watches", &["session_id", "ended"]),
     ("list_closed_waiting", &["session_id"]),

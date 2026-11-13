@@ -1,6 +1,7 @@
 {
  "sessions": [
   {
+   "pull_request_drafts": [{"manifest_id": "armada", "number": 2210, "draft": "d-2210", "text": "Shows where a Job's pull request stands in its merge line, on the panel's Merge line plate.\n\n- reads `placeOf` from the merge lines Fleet serves\n- draws nothing when the pull request is not in one\n- marks its own row, and a press on another opens it on the forge", "before": "Shows where a Session's pull request stands in the merge line.\n\n- reads `placeOf` from the merge lines Fleet serves\n- draws nothing when the pull request is not in one", "revision": 2}],
    "id": "mock-01",
    "mark": {
     "state": "working",

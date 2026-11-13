@@ -37,8 +37,8 @@ pub enum Asked {
     ReadWait { job: String, words: String },
     Start { words: String, repository: String, model: Option<String>, effort: Option<String>, held: bool },
     Queue { words: String, repository: String, model: Option<String>, effort: Option<String> },
-    /// New Job here, from the card under the sheet: what ⌘T starts. The sheet has shut.
-    JobHere,
+    /// New Job here, from the card under the sheet: what ⌘T starts, in the repository the picker named if it did. The sheet has shut.
+    JobHere(Option<String>),
 }
 
 impl EventEmitter<Asked> for DispatchSheet {}
@@ -82,6 +82,8 @@ pub struct DispatchSheet {
     pub(super) attached: Vec<SharedString>,
     /// The act is out: Start is pending.
     pub(super) sending: bool,
+    /// The act out is Draft: the button reads Drafting, and a start waiting on the repository stays a draft.
+    pub(super) drafting: bool,
     pub(super) queueing: bool,
     /// A Job was started with no repository named; the row takes the keys until one is picked.
     pub(super) asking: bool,
@@ -129,6 +131,7 @@ impl DispatchSheet {
             _typed: typed,
             attached: Vec::new(),
             sending: false,
+            drafting: false,
             queueing: false,
             asking: false,
             waiting: false,
@@ -155,13 +158,28 @@ impl DispatchSheet {
         cx.notify();
     }
 
+    /// The repository the picker names, chosen by the words or by hand. Where the rail is scoped it names the title bar's, not one picked.
+    pub(super) fn named_repository(&self) -> Option<String> {
+        if self.face.reading == Reading::Scoped {
+            return None;
+        }
+        self.face.chosen().map(|chip| chip.name.to_string())
+    }
+
+    /// Where the card under the sheet, and ⌘T over it, start a Job: the repository the picker names, else where the title bar is.
+    pub(super) fn here_in(&self) -> Option<SharedString> {
+        let here = self.here.as_ref()?;
+        Some(self.named_repository().map_or_else(|| here.clone(), SharedString::from))
+    }
+
     /// The card under the sheet: the sheet shuts, and the Job ⌘T starts is asked for.
     pub(super) fn job_here(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.here.is_none() {
             return;
         }
+        let picked = self.named_repository();
         self.close(window, cx);
-        cx.emit(Asked::JobHere);
+        cx.emit(Asked::JobHere(picked));
     }
 
     pub fn is_open(&self) -> bool {
@@ -246,6 +264,8 @@ impl DispatchSheet {
         self.face.refused = None;
         self.asking = false;
         self.sending = false;
+        // A start waiting on the repository read stays what was pressed.
+        self.drafting = self.drafting && self.waiting;
         let cursor = request.read(cx).cursor().min(words.len());
         self.menu = self.mention(&words, cursor).filter(|menu| !menu.rows.is_empty());
         self.reread(&words, cx);
@@ -334,18 +354,31 @@ impl DispatchSheet {
 
     // -- the act ----------------------------------------------------------------------------------
 
-    fn repository(&self) -> Option<String> {
+    pub(super) fn repository(&self) -> Option<String> {
         self.face.chosen().map(|chip| chip.name.to_string())
     }
 
-    /// Start, from the button or ↵: pending in this frame.
+    /// Start, from the button or ↵: it runs at once, pending in this frame.
     pub fn act(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.begin(false, window, cx);
+    }
+
+    /// Draft: the same start, held on its start card until Start is pressed there. A wait has no card.
+    pub(super) fn draft(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.wait.is_some() {
+            return;
+        }
+        self.begin(true, window, cx);
+    }
+
+    fn begin(&mut self, held: bool, window: &mut Window, cx: &mut Context<Self>) {
         if !self.face.connected || self.sending || self.queueing || !self.worded(cx) {
             return;
         }
         if self.face.reading == Reading::Detecting && self.repository().is_none() {
             // Nothing starts without a repository: a read still out is waited for.
             self.sending = true;
+            self.drafting = held;
             self.waiting = true;
             cx.notify();
             return;
@@ -356,8 +389,8 @@ impl DispatchSheet {
         };
         self.asking = false;
         self.sending = true;
+        self.drafting = held;
         let words = self.words(cx);
-        let held = self.wait.is_none();
         self.face.refused = None;
         cx.emit(Asked::Start {
             words,
@@ -367,6 +400,11 @@ impl DispatchSheet {
             held,
         });
         cx.notify();
+    }
+
+    /// The words and the repository of a start out for Fleet's answer, for a walk's scene to answer with.
+    pub(super) fn started(&self, cx: &App) -> Option<(String, String)> {
+        self.sending.then(|| self.repository()).flatten().map(|repository| (self.words(cx), repository))
     }
 
     /// No repository stands: the picker takes the call hue and its list opens until one is picked.
@@ -400,6 +438,7 @@ impl DispatchSheet {
     /// Fleet took it: the words go, the sheet clears and shuts.
     pub fn answered(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.sending = false;
+        self.drafting = false;
         self.queueing = false;
         self.waiting = false;
         crate::drafts::clear(KEEP_REQUEST, cx);
@@ -414,6 +453,7 @@ impl DispatchSheet {
     pub fn refused(&mut self, why: SharedString, cx: &mut Context<Self>) {
         self.face.refused = Some(why);
         self.sending = false;
+        self.drafting = false;
         self.queueing = false;
         self.waiting = false;
         cx.notify();
@@ -432,6 +472,7 @@ impl DispatchSheet {
             self.face.refused = refused.filter(|_| false);
         } else {
             self.sending = false;
+            self.drafting = false;
         }
         if let Some(wait) = self.face.wait.clone() {
             self.wait = Some(wait);
@@ -439,7 +480,8 @@ impl DispatchSheet {
         if self.waiting && self.face.reading != Reading::Detecting {
             self.waiting = false;
             self.sending = false;
-            self.act(window, cx);
+            let held = self.drafting;
+            self.begin(held, window, cx);
         }
         cx.notify();
     }
@@ -493,6 +535,7 @@ impl DispatchSheet {
                 cx.notify();
             }
             "queue_session" => self.queue(window, cx),
+            "draft_session" => self.draft(window, cx),
             _ => cx.propagate(),
         }
     }

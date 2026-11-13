@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use base64::Engine as _;
 use gpui::{Bounds, Pixels};
-use ipc::{ManifestId, NoteCrop, NoteElement, NotePlace, NoteState, SendSessionMessage, SendSessionMessageBody, SendSessionNotes, SessionId, SessionNote, SessionRecord, SessionUpload, StartSession};
+use ipc::{DispatchJob, DispatchMessage, DispatchThen, JobDispatched, ManifestId, NoteCrop, NoteElement, NotePlace, NoteState, SendSessionMessage, SendSessionMessageBody, SendSessionNotes, SessionId, SessionNote, SessionUpload, StartSession};
 use serde_json::Value;
 
 /// One note as the send needs it: its file as it reads, and where its picture is.
@@ -149,9 +149,27 @@ pub fn deliver(port: u16, session: &str, notes: Vec<Outgoing>, ink: Ink) -> Resu
     Ok(())
 }
 
-/// A new held Job on `manifest` with the notes' words as its request: its id, and its title as Fleet
-/// named it, else the words' first line cut to 60 characters, as Classic's.
-pub fn start(port: u16, manifest: ManifestId, words: String) -> Result<(String, String), String> {
+/// What `dispatch_job` made of a new Job's notes.
+pub enum Dispatched {
+    /// A Job exists, with the notes sent into it.
+    Started { id: String, title: String },
+    /// The Operator holds it, or kept it as an idea: the id `operator.dispatched` will name it by, and the words' first line.
+    Kept { id: String, title: String },
+}
+
+/// A new Job on `manifest` with the notes' words as its request, as one dispatch: the notes go in `then`, a turn of
+/// notes for the ones on a spot and a message for each on the window, so nothing is lost whoever starts the Job.
+/// The Job's id and its title as Fleet named it, else the words' first line cut to 60 characters, as Classic's.
+pub fn dispatch(port: u16, manifest: ManifestId, words: String, notes: Vec<Outgoing>, ink: Ink) -> Result<Dispatched, String> {
+    let (window, spots): (Vec<Outgoing>, Vec<Outgoing>) = notes.into_iter().partition(|note| note.window);
+    let mut then = Vec::new();
+    if !spots.is_empty() {
+        then.push(DispatchThen::Notes(spots.iter().map(|out| note_of(out, ink)).collect()));
+    }
+    for out in &window {
+        let attachments = picture_of(out, ink).map(|data| SessionUpload { name: format!("annotation-{}.png", out.key), media_type: "image/png".into(), data }).into_iter().collect();
+        then.push(DispatchThen::Message(DispatchMessage { text: window_text(&out.raw, &out.key), attachments, mentions: Vec::new(), sketches: Vec::new() }));
+    }
     let start = StartSession {
         manifest_id: manifest,
         title: None,
@@ -162,13 +180,22 @@ pub fn start(port: u16, manifest: ManifestId, words: String) -> Result<(String, 
         root: None,
         request: Some(words.clone()),
         after: None,
-        held: true,
+        held: false,
         project_rows: Vec::new(),
         project: None,
         on_your_words: None,
     };
-    let bytes = post(port, "/sessions/start", ipc::encode(&start))?;
-    let record = ipc::decode::<SessionRecord>("SessionRecord", &bytes).map_err(|why| why.to_string())?;
-    let title = record.title.clone().unwrap_or_else(|| words.lines().next().unwrap_or_default().chars().take(60).collect());
-    Ok((record.id.as_str().to_string(), title))
+    let bytes = post(port, "/sessions/dispatch", ipc::encode(&DispatchJob { start, kind: None, then }))?;
+    let done = ipc::decode::<JobDispatched>("JobDispatched", &bytes).map_err(|why| why.to_string())?;
+    let first_line: String = words.lines().next().unwrap_or_default().chars().take(60).collect();
+    match done {
+        JobDispatched { session: Some(record), .. } => {
+            let title = record.title.clone().unwrap_or(first_line);
+            Ok(Dispatched::Started { id: record.id.as_str().to_string(), title })
+        }
+        JobDispatched { operator, parked, .. } => match operator.or(parked) {
+            Some(id) => Ok(Dispatched::Kept { id, title: first_line }),
+            None => Err("Fleet answered the dispatch with nothing in it".to_string()),
+        },
+    }
 }

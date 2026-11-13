@@ -209,7 +209,7 @@ impl JobView {
         let key = self.box_key()?;
         let nothing = self.composer.input.read(cx).value().trim().is_empty() && self.composer.files_of(&key).is_empty();
         let focused = self.composer.input.read(cx).focus_handle(cx).contains_focused(window, cx);
-        let send = if report.sending { div().opacity(0.4).child(self.send_button(true, window, cx)).into_any_element() } else { self.send_button(nothing, window, cx) };
+        let send = if report.sending { div().opacity(0.4).child(self.send_button(true, "Send", window, cx)).into_any_element() } else { self.send_button(nothing, "Send", window, cx) };
         let bar = div()
             .flex()
             .items_center()

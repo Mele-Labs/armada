@@ -819,6 +819,15 @@ where
         self.style_sources_read(caller, session_id, path).await
     }
 
+    async fn get_design_catalogue(
+        &self,
+        caller: Option<api::Caller>,
+        session_id: Option<ipc::SessionId>,
+        asked: ipc::CatalogueAsked,
+    ) -> Result<ipc::DesignCatalogue, Refusal> {
+        self.design_catalogue_read(caller, session_id, asked).await
+    }
+
     async fn get_kept_styles(&self, hash: String) -> Result<ipc::KeptStyles, Refusal> {
         self.kept_styles_read(&hash).await
     }

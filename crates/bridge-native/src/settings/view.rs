@@ -137,11 +137,17 @@ pub fn ringed(look: &Look, element: Stateful<Div>, focus: &FocusHandle, window: 
 
 /// A quiet button: its words, and a hover fill (`Button variant="ghost" size="sm"`).
 pub fn ghost(look: &Look, id: impl Into<gpui::ElementId>, said: &str, off: bool) -> Stateful<Div> {
+    ghost_with(look, id, None, said, off)
+}
+
+/// A quiet button with a registry glyph before its words (`<Plus size={16} />` in a ghost `Button`).
+pub fn ghost_with(look: &Look, id: impl Into<gpui::ElementId>, glyph: Option<&str>, said: &str, off: bool) -> Stateful<Div> {
     div()
         .id(id.into())
         .flex_none()
         .flex()
         .items_center()
+        .gap(look.length(token::SPACE_2))
         .h(look.length(token::H_CONTROL_SM))
         .px(look.length(token::SPACE_2))
         .rounded(look.length(token::RADIUS_MD))
@@ -152,6 +158,7 @@ pub fn ghost(look: &Look, id: impl Into<gpui::ElementId>, said: &str, off: bool)
         .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
         .text_color(if off { look.color(token::FG_SUBTLE) } else { look.color(token::FG_DEFAULT) })
         .when(!off, |button| button.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
+        .children(glyph.map(|glyph| svg().flex_none().path(icon_path(glyph)).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_DEFAULT))))
         .child(SharedString::from(said.to_string()))
 }
 
@@ -159,6 +166,11 @@ pub fn ghost(look: &Look, id: impl Into<gpui::ElementId>, said: &str, off: bool)
 /// in the half it leaves. Smaller than Classic's Settings switch, which is the default size: the owner's word
 /// (12 Nov), so each row has air above and below its switch.
 pub fn switch_track(look: &Look, on: bool, off: bool) -> Div {
+    switch_said(look, on, off, ("ON", "OFF"))
+}
+
+/// A switch whose half says its own words (`Switch`'s `words`), such as 24H and 12H.
+pub fn switch_said(look: &Look, on: bool, off: bool, (on_word, off_word): (&'static str, &'static str)) -> Div {
     let edge = look.length(token::BORDER_WIDTH);
     let tall = look.length(token::H_BADGE);
     let pad = edge * 2.;
@@ -174,7 +186,7 @@ pub fn switch_track(look: &Look, on: bool, off: bool) -> Div {
         .text_size(look.length(token::TEXT_2XS))
         .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
         .text_color(if lit { look.color(token::FG_INVERSE) } else { look.color(token::FG_MUTED) })
-        .child(if on { "ON" } else { "OFF" });
+        .child(if on { on_word } else { off_word });
     let disc = div()
         .flex_none()
         .size(knob)
@@ -929,6 +941,9 @@ impl SettingsOverlay {
                 cards.push(self.render_theme(look, window, cx));
                 cards.extend(self.render_mods(super::mods::Page::Theme, look, window, cx));
             }
+            Some(Body::Macs) => cards.extend(self.render_macs(look, window, cx)),
+            Some(Body::Layout) => cards.extend(self.render_layout(look, window, cx)),
+            Some(Body::Time) => cards.push(self.render_time(look, window, cx)),
             Some(Body::Models | Body::Workflows) => {}
             Some(body @ Body::Mods(_)) => cards.extend(super::mods::page_of(body).and_then(|page| self.render_mods(page, look, window, cx))),
             None => {}
@@ -960,6 +975,15 @@ impl SettingsOverlay {
         if self.shown(cx).is_some_and(|one| one.body == Body::Workflows) {
             self.workflow_keys(cx);
             self.detail_keys(window, cx);
+            self.read_lanes(cx);
+        }
+        if self.shown(cx).is_some_and(|one| one.body == Body::Macs) {
+            self.read_macs(window, cx);
+            self.macs_keys(cx);
+        }
+        if self.shown(cx).is_some_and(|one| matches!(one.body, Body::Layout | Body::Time)) {
+            self.read_prefs(cx);
+            self.prefs_keys(cx);
         }
         let look = cx.look();
         let room = crate::room::of(window, cx);
@@ -1000,7 +1024,8 @@ impl SettingsOverlay {
             "Settings",
         );
         deferred(
-            anchored().position(room.origin).anchor(gpui::Anchor::TopLeft).child(
+            // The scrim covers the screen for a note too: one pressed on it is not written on what is under it.
+            anchored().position(room.origin).anchor(gpui::Anchor::TopLeft).child(crate::labels::cover(
                 div()
                     .id("settings-layer")
                     .track_focus(&self.focus)
@@ -1014,7 +1039,7 @@ impl SettingsOverlay {
                     .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| this.close(window, cx)))
                     .child(boxed)
                     .children(popup),
-            ),
+            )),
         )
         .with_priority(2)
         .into_any_element()

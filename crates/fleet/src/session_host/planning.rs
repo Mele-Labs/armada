@@ -316,7 +316,7 @@ where
         }
         let store = self.store().lock().await;
         let session = store.session(id).ok().flatten()?;
-        let extra = rail_read(&store, &session, true).ok()?.extra;
+        let extra = rail_read(&store, &session, true, steps.clone()).ok()?.extra;
         rail::plan_stands(&steps, extra)
             .then(|| stands_since(&decoded_rows(&store, id), rail::walk_settles_plan(&steps), self.now().as_str()))
     }

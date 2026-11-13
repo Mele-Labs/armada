@@ -57,7 +57,7 @@ async fn waiting() -> (Rig, SessionId) {
     approved_plan(&rig, &id).await;
     eventually(|| async { record(&rig, &id).await.workflow_step == Some(1) }).await;
     // What he writes counts from when the rail entered the step, so wait for that entry to be kept.
-    eventually(|| async { rig.fleet.store().lock().await.session_rail(id.as_str()).is_ok_and(|kept| kept.visits.iter().any(|(step, _)| *step == 1)) }).await;
+    eventually(|| async { rig.fleet.store().lock().await.session_rail(id.as_str(), &["plan".into(), "review".into(), "close".into()]).is_ok_and(|kept| kept.visits.iter().any(|(step, _)| *step == 1)) }).await;
     (rig, id)
 }
 
