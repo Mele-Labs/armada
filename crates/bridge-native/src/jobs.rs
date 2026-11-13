@@ -2428,6 +2428,23 @@ mod tests {
         list.read_with(cx, |list, _| assert_eq!(list.opened.as_ref().map(|id| id.as_ref()), Some(live.as_str())));
     }
 
+    #[test]
+    fn ended_jobs_leave_the_list_and_each_project_heads_its_own() {
+        let lines = lines_of(&jobs(), &[], Scope::Active, "", &[]);
+        assert_eq!(lines[0], Line::Project("armada".into()));
+        assert!(!titles(&lines).iter().any(|title| title.contains("ended")));
+        let projects: Vec<_> = lines.iter().filter_map(|line| match line { Line::Project(name) => Some(name.clone()), _ => None }).collect();
+        assert_eq!(projects, vec![SharedString::from("armada"), "sample-web".into(), "sample-api".into()]);
+    }
+
+    #[test]
+    fn one_project_draws_its_jobs_with_no_head() {
+        let armada: Vec<_> = jobs().into_iter().filter(|job| job.manifest_id.as_ref().is_some_and(|id| id.as_str() == "armada")).collect();
+        let lines = lines_of(&armada, &[], Scope::Active, "", &[]);
+        assert!(!lines.is_empty());
+        assert!(lines.iter().all(|line| matches!(line, Line::Job(_))));
+    }
+
     #[gpui::test]
     fn an_ended_job_the_palette_opens_stays_opened_in_every_scope_whether_or_not_the_scope_lists_it(cx: &mut gpui::TestAppContext) {
         let all = jobs();
@@ -2447,23 +2464,6 @@ mod tests {
                 assert_eq!(listed, matches!(scope, Scope::Ended | Scope::All), "{scope:?}");
             });
         }
-    }
-
-    #[test]
-    fn ended_jobs_leave_the_list_and_each_project_heads_its_own() {
-        let lines = lines_of(&jobs(), &[], Scope::Active, "", &[]);
-        assert_eq!(lines[0], Line::Project("armada".into()));
-        assert!(!titles(&lines).iter().any(|title| title.contains("ended")));
-        let projects: Vec<_> = lines.iter().filter_map(|line| match line { Line::Project(name) => Some(name.clone()), _ => None }).collect();
-        assert_eq!(projects, vec![SharedString::from("armada"), "sample-web".into(), "sample-api".into()]);
-    }
-
-    #[test]
-    fn one_project_draws_its_jobs_with_no_head() {
-        let armada: Vec<_> = jobs().into_iter().filter(|job| job.manifest_id.as_ref().is_some_and(|id| id.as_str() == "armada")).collect();
-        let lines = lines_of(&armada, &[], Scope::Active, "", &[]);
-        assert!(!lines.is_empty());
-        assert!(lines.iter().all(|line| matches!(line, Line::Job(_))));
     }
 
     #[test]

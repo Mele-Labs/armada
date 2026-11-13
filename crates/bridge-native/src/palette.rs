@@ -177,12 +177,17 @@ pub fn held_pull(job: &SessionRecord) -> Option<(ManifestId, u64, bool)> {
 }
 
 /// What a Job's row cannot do. Electron leaves out `merge-pull` when the pull request held is not open; the
-/// other acts all have a handler here, so they are never left out.
+/// other acts all have a handler here, so they are never left out, bar Pause and Stop on an ended Job.
 pub fn without_of(job: &SessionRecord) -> Vec<&'static str> {
-    match held_pull(job) {
+    let mut without = match held_pull(job) {
         Some((_, _, false)) => vec!["merge-pull"],
         _ => Vec::new(),
+    };
+    // An ended Job has nothing to pause or stop, as the Jobs list's menu leaves it none.
+    if job.state == SessionState::Ended {
+        without.extend(["pause", "stop"]);
     }
+    without
 }
 
 fn is_paused(job: &SessionRecord) -> bool {
@@ -308,9 +313,11 @@ pub fn lines_of(entries: &[Entry], query: &str, on: Option<&str>, opens: Opens, 
     let mut found: Vec<(u32, usize)> = entries
         .iter()
         .enumerate()
-        .filter(|(_, entry)| typed || !entry.typed_only)
         .filter_map(|(at, entry)| rank(query, entry, memory.aliases.get(&entry.id).map(String::as_str)).map(|rank| (rank, at)))
         .collect();
+    if !typed {
+        found.retain(|(_, at)| !entries[*at].typed_only);
+    }
     let mut named: Vec<usize> = if typed { found.iter().filter(|(rank, _)| *rank == 0).map(|(_, at)| *at).collect() } else { Vec::new() };
     named.sort_by_key(|at| entries[*at].ended);
     lines.extend(named.iter().map(|at| Line::Row(*at)));
@@ -715,12 +722,7 @@ impl Palette {
             Some(id) => {
                 let list = self.list.read(cx);
                 let Some(job) = list.record(id) else { return Vec::new() };
-                let mut without = without_of(job);
-                // An ended Job has nothing to pause or stop, as the Jobs list's menu leaves it none.
-                if job.state == SessionState::Ended {
-                    without.extend(["pause", "stop"]);
-                }
-                let mut acts = job_acts(is_paused(job), pinned, held_pull(job).is_some(), &without);
+                let mut acts = job_acts(is_paused(job), pinned, held_pull(job).is_some(), &without_of(job));
                 acts.extend(memory_acts(alias, hotkey, false, None));
                 acts
             }
