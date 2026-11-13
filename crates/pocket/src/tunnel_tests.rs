@@ -10,9 +10,9 @@ use axum::body::{to_bytes, Body};
 use axum::http::{Method, Request, StatusCode};
 use tower::ServiceExt;
 
-use crate::cloudflared::{matches, pick, signed_with, zone_named, Release};
+use crate::cloudflared::{account_tunnels, matches, pick, signed_with, zone_named, Release};
 use crate::pairing::ADDRESS_FILE;
-use crate::tunnel::{connected, label_of, newer, Cloudflared, NoZone, SignIn, Tunnel};
+use crate::tunnel::{connected, label_of, newer, AccountTunnel, Cloudflared, NoZone, SignIn, Tunnel};
 use crate::{Gateway, WayIn};
 
 static DIRS: AtomicU32 = AtomicU32::new(0);
@@ -36,6 +36,8 @@ pub(crate) struct Fake {
     /// The shell line the runner runs in place of `cloudflared`.
     runs: Mutex<Option<String>>,
     installs: AtomicU32,
+    /// The account's tunnels as Cloudflare would list them, or why it could not be read.
+    pub(crate) account: Mutex<Option<Result<Vec<AccountTunnel>, String>>>,
 }
 
 impl Cloudflared for Fake {
@@ -79,6 +81,20 @@ impl Cloudflared for Fake {
         command.arg("-c").arg(self.runs.lock().unwrap().clone().unwrap_or_else(|| "exit 0".into()));
         command
     }
+
+    fn tunnels(&self) -> Result<Vec<AccountTunnel>, String> {
+        self.account.lock().unwrap().clone().unwrap_or_else(|| Err("This Mac is not signed in to Cloudflare yet.".into()))
+    }
+}
+
+/// A tunnel on `fake`, on a machine where this Mac made the tunnel `own` where it names one.
+pub(crate) fn fake_tunnel(fake: Arc<Fake>, own: Option<&str>) -> Tunnel {
+    let dir = machine();
+    if let Some(own) = own {
+        std::fs::create_dir_all(dir.join(crate::tunnel::DIR)).unwrap();
+        std::fs::write(dir.join(crate::tunnel::DIR).join("tunnel"), format!("{own}\nmac.example.com\n")).unwrap();
+    }
+    Tunnel::new(fake, dir, Arc::new(|| 0))
 }
 
 pub(crate) fn quiet_tunnel() -> Tunnel {
@@ -321,4 +337,77 @@ async fn the_devices_list_names_this_mac_with_its_one_colour_and_build() {
     assert_eq!(call(&gateway, Method::GET, "/admin/macs", "").await.0, StatusCode::OK);
     let tunnelled = crate::router(gateway).oneshot(Request::get("/admin/macs").header("cf-ray", "1").body(Body::empty()).unwrap()).await.unwrap();
     assert_eq!(tunnelled.status(), StatusCode::FORBIDDEN, "never through the tunnel");
+}
+
+#[test]
+fn the_accounts_tunnels_are_read_with_whether_each_is_connected_and_the_address_routed_to_it() {
+    let tunnels = br#"{"success":true,"result":[
+        {"id":"aaaa-1111","name":"armada-37b968e614c8","status":"healthy","connections":[{}]},
+        {"id":"bbbb-2222","name":"armada-0f0f0f0f0f0f","status":"down"},
+        {"id":"cccc-3333","name":"armada-123456789abc","status":"degraded"},
+        {"id":"dddd-4444","name":"his-own","status":"inactive"}]}"#;
+    let records = br#"{"success":true,"result":[
+        {"name":"Studio.Example.com","type":"CNAME","content":"aaaa-1111.cfargotunnel.com"},
+        {"name":"work.example.com","type":"CNAME","content":"bbbb-2222.cfargotunnel.com"},
+        {"name":"www.example.com","type":"CNAME","content":"example.com"}]}"#;
+    let read = account_tunnels(tunnels, records).unwrap();
+    let tunnel = |name: &str, connected: bool, address: Option<&str>| AccountTunnel { name: name.into(), connected, address: address.map(str::to_string) };
+    assert_eq!(
+        read,
+        vec![
+            tunnel("armada-37b968e614c8", true, Some("https://studio.example.com")),
+            tunnel("armada-0f0f0f0f0f0f", false, Some("https://work.example.com")),
+            tunnel("armada-123456789abc", true, None),
+            tunnel("his-own", false, None),
+        ]
+    );
+    assert_eq!(account_tunnels(br#"{"success":false,"result":null}"#, records), None, "a refusal lists nothing");
+    let signed = signed_with(&cert(r#"{"zoneID":"0123abcd","accountID":"acc","apiToken":"made-up-token"}"#)).unwrap();
+    assert_eq!(signed.account_id, "acc", "the account its tunnels are listed on");
+}
+
+#[test]
+fn the_macs_setup_says_its_step_and_the_one_press_that_moves_it_on() {
+    use ipc::{MacSetup, MacSetupStep};
+    use crate::mac_setup::setup_of;
+    let fake = Arc::new(Fake::default());
+    let dir = machine();
+    let tunnel = Tunnel::new(fake.clone(), dir.clone(), Arc::new(|| 1_000));
+    let setup = |step, working, login: Option<&str>, why: Option<&str>, address: Option<&str>| MacSetup {
+        step,
+        working,
+        login: login.map(str::to_string),
+        why: why.map(str::to_string),
+        address: address.map(str::to_string),
+    };
+    assert_eq!(setup_of(&tunnel, 1_000), setup(MacSetupStep::SignIn, false, None, None, None), "not pressed yet: press Set up");
+
+    tunnel.live.lock().unwrap().pressing = true;
+    assert_eq!(setup_of(&tunnel, 1_000), setup(MacSetupStep::SignIn, true, None, None, None), "downloading: nothing to press");
+    tunnel.live.lock().unwrap().pressing = false;
+    tunnel.live.lock().unwrap().failed = Some("cloudflared could not be downloaded: offline".into());
+    let stuck = setup_of(&tunnel, 1_000);
+    assert_eq!(stuck, setup(MacSetupStep::SignIn, false, None, Some("cloudflared could not be downloaded: offline"), None));
+
+    *fake.version.lock().unwrap() = Some("2026.11.0".into());
+    tunnel.live.lock().unwrap().failed = None;
+    tunnel.live.lock().unwrap().signing_in = Some("https://dash.example/argotunnel".into());
+    let login = setup(MacSetupStep::SignIn, false, Some("https://dash.example/argotunnel"), None, None);
+    assert_eq!(setup_of(&tunnel, 1_000), login, "signing in: open the page");
+
+    tunnel.live.lock().unwrap().signing_in = None;
+    tunnel.live.lock().unwrap().making = true;
+    fake.signed_in.store(true, Ordering::Relaxed);
+    assert_eq!(setup_of(&tunnel, 1_000), setup(MacSetupStep::Tunnel, true, None, None, None), "making the tunnel after the sign-in");
+    tunnel.live.lock().unwrap().making = false;
+
+    std::fs::create_dir_all(dir.join("cloudflared")).unwrap();
+    std::fs::write(dir.join("cloudflared/tunnel"), "armada-abc\nstudio.example.com\n").unwrap();
+    tunnel.mark(false, Some("dial tcp: timeout".into()));
+    assert_eq!(setup_of(&tunnel, 1_010), setup(MacSetupStep::Tunnel, true, None, None, None), "connecting, never red at once");
+    let late = 1_000 + crate::mac_setup::CONNECTING;
+    assert_eq!(setup_of(&tunnel, late), setup(MacSetupStep::Tunnel, false, None, Some("dial tcp: timeout"), None), "stuck: press again");
+
+    tunnel.mark(true, None);
+    assert_eq!(setup_of(&tunnel, late), setup(MacSetupStep::Done, false, None, None, Some("https://studio.example.com")));
 }

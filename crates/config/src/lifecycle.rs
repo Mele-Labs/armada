@@ -31,7 +31,7 @@ use crate::yaml::{self, Table};
 
 const TOP_LEVEL: &[&str] = &["version", "lifecycle_id", "name", "scope", "states", "transitions", "ends"];
 const STATE_KEYS: &[&str] = &["id", "label", "read"];
-const SOURCES: &[&str] = &["tracker", "forge", "watch", "fleet"];
+const SOURCES: &[&str] = &["tracker", "forge", "watch", "fleet", "own"];
 const TRANSITION_KEYS: &[&str] = &["from", "to"];
 
 /// The one version of the file there is.
@@ -175,21 +175,34 @@ fn state_of(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<Lifecycle
 /// What a state is read from. **Exactly one source**: two would be a state with two answers.
 fn read_of(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<StateRead> {
     let mut table = Table::open(at, value, out)?;
-    let (tracker, forge, watch, fleet) =
-        (table.optional("tracker"), table.optional("forge"), table.optional("watch"), table.optional("fleet"));
+    let (tracker, forge, watch, fleet, own) = (
+        table.optional("tracker"),
+        table.optional("forge"),
+        table.optional("watch"),
+        table.optional("fleet"),
+        table.optional("own"),
+    );
     let key = |source: &str| table.at(source);
-    let (tracker_at, forge_at, watch_at, fleet_at) = (key("tracker"), key("forge"), key("watch"), key("fleet"));
+    let (tracker_at, forge_at, watch_at, fleet_at, own_at) =
+        (key("tracker"), key("forge"), key("watch"), key("fleet"), key("own"));
     table.close(SOURCES, out);
 
-    match (tracker, forge, watch, fleet) {
-        (Some(words), None, None, None) => tracker_words(&tracker_at, words, out).map(StateRead::Tracker),
-        (None, Some(fact), None, None) => {
+    match (tracker, forge, watch, fleet, own) {
+        (Some(words), None, None, None, None) => tracker_words(&tracker_at, words, out).map(StateRead::Tracker),
+        (None, Some(fact), None, None, None) => {
             yaml::word(&forge_at, fact, FORGE_CARRIED, FORGE_LEGAL, FORGE_LEGAL, out).map(StateRead::Forge)
         }
-        (None, None, Some(state), None) => {
+        (None, None, Some(state), None, None) => {
             yaml::word(&watch_at, state, WATCH_CARRIED, WATCH_LEGAL, WATCH_LEGAL, out).map(StateRead::Watch)
         }
-        (None, None, None, Some(fact)) => {
+        (None, None, None, None, Some(flag)) => match yaml::flag(&own_at, flag, out)? {
+            true => Some(StateRead::Own),
+            false => {
+                out.push(Refusal::new(own_at, Fault::WrongType { wanted: "`true`", found: "`false`" }));
+                None
+            }
+        },
+        (None, None, None, Some(fact), None) => {
             let written = yaml::text(&fleet_at, fact, out)?;
             match FleetFact::from_wire(&written) {
                 Some(fact) => Some(StateRead::Fleet(fact)),
@@ -199,17 +212,17 @@ fn read_of(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<StateRead>
                 }
             }
         }
-        (None, None, None, None) => {
+        (None, None, None, None, None) => {
             out.push(Refusal::new(
                 at,
-                Fault::WrongType { wanted: "one of `tracker`, `forge`, `watch` or `fleet`", found: "none of them" },
+                Fault::WrongType { wanted: "one of `tracker`, `forge`, `watch`, `fleet` or `own`", found: "none of them" },
             ));
             None
         }
         _ => {
             out.push(Refusal::new(
                 at,
-                Fault::WrongType { wanted: "one of `tracker`, `forge`, `watch` or `fleet`", found: "more than one" },
+                Fault::WrongType { wanted: "one of `tracker`, `forge`, `watch`, `fleet` or `own`", found: "more than one" },
             ));
             None
         }

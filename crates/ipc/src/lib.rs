@@ -705,7 +705,7 @@ pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
-pub use sketch_scene::{Scene, SceneColor, SceneEdge, SceneKind, SceneNode, ScenePoint, SceneShape, SceneStroke, WirePart, SCENE_ICONS};
+pub use sketch_scene::{Scene, SceneColor, SceneEdge, SceneHead, SceneKind, SceneLine, SceneNode, ScenePath, ScenePoint, SceneShape, SceneStroke, WirePart, SCENE_ICONS};
 pub use sketch_screen::{
     ScreenAct, ScreenAlign, ScreenChrome, ScreenElement, ScreenField, ScreenFrom, ScreenGap, ScreenLayout, ScreenMessage, ScreenPart, ScreenRow, ScreenSize, ScreenSizeWord, ScreenText, ScreenVariant,
 };
@@ -846,6 +846,9 @@ pub use underway::{
     OutputClosed, OutputEnded, OutputLines,
 };
 pub use protocol_id::ProtocolId;
+// The Macs setup that leads him: its one press, the Macs on his account, and pairing one without a link.
+pub use phone::{MacSetup, MacSetupStep};
+pub use macs::{AskMacPair, FoundMac, FoundMacs};
 pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };

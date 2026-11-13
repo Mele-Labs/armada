@@ -25,6 +25,8 @@ pub enum LaneNodeKind {
     Forge,
     Watch,
     Job,
+    /// A state the person names in a lane of his own.
+    Own,
     /// Where the workflow starts: a small circle, no step.
     Start,
     /// Where the workflow ends.
@@ -47,6 +49,8 @@ pub enum LaneLifecycleKind {
     Forge,
     Watch,
     Job,
+    /// No source: the person names its states.
+    Own,
 }
 
 /// Whether a lane is the workflow's or an instance's.
