@@ -10,7 +10,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use gpui::{canvas, div, prelude::*, px, svg, Pixels, AnyElement, App, Context, Entity, FocusHandle, Focusable, Hsla, KeyDownEvent, Keystroke, Role, SharedString, Subscription, Window};
-use ipc::{Condition, Does, FleetFile, FleetRule, ModChecked, ModKind, ModOrigin, ModPromoted, ModSummary, RuleScope, TrackerTry};
+use ipc::{AddressFound, Condition, Does, FleetFile, FleetRule, ModChecked, ModKind, ModOrigin, ModPromoted, ModSummary, RuleScope, TrackerTry, WordsFile};
 
 use super::overlay::SettingsOverlay;
 use super::view::{card, ghost, ringed, switch_track, tip};
@@ -84,10 +84,12 @@ pub fn page_of(body: super::entries::Body) -> Option<Page> {
 /// One thing a mod says, under the part it belongs to (`TaughtFact`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Fact {
-    pub label: &'static str,
+    pub label: String,
     pub value: String,
     /// A pattern, drawn in the mono face.
     pub code: bool,
+    /// Where it was found, where it was found rather than said.
+    pub from: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -284,7 +286,8 @@ pub fn listed(page: Page, mods: &[ModSummary], theme: &str, held: &ModRows) -> V
                 .iter()
                 .filter_map(|row| match kind_of(row) {
                     ModKind::Theme if row.name == theme => Some(own(row, ModKind::Theme, held)),
-                    kind @ (ModKind::Fleet | ModKind::Tracker) => Some(taught(row, kind, held)),
+                    ModKind::Layout => Some(own(row, ModKind::Layout, held)),
+                    kind @ (ModKind::Words | ModKind::Fleet | ModKind::Tracker) => Some(taught(row, kind, held)),
                     _ => None,
                 })
                 .collect();
@@ -359,13 +362,34 @@ fn scope_said(scope: &RuleScope) -> String {
 }
 
 fn fleet_part(rule: &FleetRule) -> Part {
-    let mut facts = vec![Fact { label: "Notice", value: notice_name(&rule.notice), code: false }];
+    let mut facts = vec![Fact { label: "Notice".into(), value: notice_name(&rule.notice), code: false, from: None }];
     if let Some(matches) = &rule.matches {
-        facts.push(Fact { label: "Matches", value: matches.clone(), code: true });
+        facts.push(Fact { label: "Matches".into(), value: matches.clone(), code: true, from: None });
     }
-    facts.push(Fact { label: "Does", value: does_words(rule), code: false });
-    facts.push(Fact { label: "Where", value: scope_said(&rule.scope), code: false });
+    facts.push(Fact { label: "Does".into(), value: does_words(rule), code: false, from: None });
+    facts.push(Fact { label: "Where".into(), value: scope_said(&rule.scope), code: false, from: None });
     Part { part: "Fleet", facts }
+}
+
+/// Where an address was found (`foundSaid`).
+fn found_said(found: &AddressFound) -> String {
+    match found {
+        AddressFound::Settings => "Found in this repository's settings".into(),
+        AddressFound::Person => "You said".into(),
+        AddressFound::PullRequest(number) => format!("Found in pull request #{number}"),
+    }
+}
+
+/// A Words mod's pattern, then the address its match opens in each repository (`wordsPart`).
+fn words_part(file: &WordsFile) -> Part {
+    let mut facts = vec![Fact { label: "Pattern".into(), value: file.pattern.clone(), code: true, from: None }];
+    facts.extend(file.address.iter().map(|one| Fact {
+        label: if one.repository == "*" { "Other repositories".into() } else { one.repository.clone() },
+        value: one.template.clone(),
+        code: true,
+        from: Some(found_said(&one.found)),
+    }));
+    Part { part: "Words", facts }
 }
 
 /// What a checked mod holds, as its row opens to. A mod that did not pass holds nothing here.
@@ -373,7 +397,7 @@ pub fn parts_of(checked: &ModChecked) -> Vec<Part> {
     if !checked.valid {
         return Vec::new();
     }
-    checked.fleet.iter().flat_map(|file| file.rule.iter().map(fleet_part)).collect()
+    checked.words.iter().map(words_part).chain(checked.fleet.iter().flat_map(|file| file.rule.iter().map(fleet_part))).collect()
 }
 
 /// A Fleet file's rules in one line, capitalised: each notice, what is done with it and where, then each
@@ -507,7 +531,7 @@ impl SettingsOverlay {
     /// Ask Fleet for the file it checked of each valid Fleet mod, once for each change of the mod.
     pub fn read_mods(&mut self, cx: &mut Context<Self>) {
         for row in self.wire.mods(cx) {
-            if !matches!(row.kind, Some(ModKind::Fleet | ModKind::Layout)) || !row.valid {
+            if !matches!(row.kind, Some(ModKind::Words | ModKind::Fleet | ModKind::Layout)) || !row.valid {
                 continue;
             }
             let at = row.changed_at.as_ref().map(|at| at.as_str().to_string()).unwrap_or_default();
@@ -1007,8 +1031,12 @@ fn frame(row: gpui::Stateful<gpui::Div>, standing: Standing, look: &Look) -> gpu
 
 /// What an opened row holds (`ModRules`): a head for each part, then a line for each fact, its label, its value.
 fn render_rules(title: &str, parts: &[Part], look: &Look) -> AnyElement {
-    let label_wide = parts.iter().flat_map(|part| part.facts.iter()).map(|fact| fact.label.len()).max().unwrap_or(0) as f32;
+    let label_wide = parts.iter().flat_map(|part| part.facts.iter()).map(|fact| fact.label.chars().count()).max().unwrap_or(0) as f32;
     let label_w = look.length(token::TEXT_SM) * (label_wide * 0.62);
+    // Where a part says where its facts were found, that goes in a third column, after the widest value.
+    let facts = || parts.iter().flat_map(|part| part.facts.iter());
+    let value_wide = if facts().any(|fact| fact.from.is_some()) { facts().map(|fact| fact.value.chars().count()).max().unwrap_or(0) as f32 } else { 0.0 };
+    let value_w = look.length(token::TEXT_SM) * (value_wide * 0.62);
     labelled(
         div()
             .id(SharedString::from(format!("mod-rules-{title}")))
@@ -1031,13 +1059,24 @@ fn render_rules(title: &str, parts: &[Part], look: &Look) -> AnyElement {
                         .children(part.facts.iter().map(|fact| {
                             div()
                                 .flex()
-                                .items_baseline()
+                                .items_start()
                                 .gap(look.length(token::SPACE_3))
                                 .min_w_0()
                                 .text_size(look.length(token::TEXT_SM))
                                 .line_height(look.length(token::LEADING_SM))
-                                .child(div().flex_none().min_w(label_w).text_color(look.color(token::FG_MUTED)).child(fact.label))
-                                .child(div().min_w_0().text_color(look.color(token::FG_DEFAULT)).when(fact.code, |value| value.font_family(super::view::mono(look))).child(SharedString::from(fact.value.clone())))
+                                .child(div().flex_none().min_w(label_w).text_color(look.color(token::FG_MUTED)).child(SharedString::from(fact.label.clone())))
+                                // Where there is no room for where it was found beside the value, it goes under it.
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w_0()
+                                        .flex()
+                                        .flex_wrap()
+                                        .items_baseline()
+                                        .gap_x(look.length(token::SPACE_3))
+                                        .child(div().flex_basis(value_w).flex_shrink(1.0).min_w_0().text_color(look.color(token::FG_DEFAULT)).when(fact.code, |value| value.font_family(super::view::mono(look))).child(SharedString::from(fact.value.clone())))
+                                        .children(fact.from.clone().map(|from| div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(from))),
+                                )
                         })),
                     Role::Group,
                     part.part,
@@ -1107,10 +1146,12 @@ mod tests {
             {"name":"zed","kind":"tracker","enabled":true,"valid":true},
             {"name":"quiet","kind":"fleet","enabled":false,"valid":true},
             {"name":"alpha","kind":"fleet","enabled":true,"valid":true},
-            {"name":"calm","kind":"tweak","enabled":true,"valid":true}
+            {"name":"calm","kind":"tweak","enabled":true,"valid":true},
+            {"name":"links","kind":"words","enabled":true,"valid":true},
+            {"name":"bare","kind":"layout","enabled":false,"valid":true}
         ]}"#);
         let all = listed(Page::All, &mods, "dusk", &held());
-        assert_eq!(all.iter().map(|one| one.title.as_str()).collect::<Vec<_>>(), ["dusk", "alpha", "zed", "quiet"]);
+        assert_eq!(all.iter().map(|one| one.title.as_str()).collect::<Vec<_>>(), ["dusk", "links", "alpha", "zed", "bare", "quiet"]);
         assert!(lined(Page::All, &mods));
         assert!(!lined(Page::Of(ModKind::Fleet), &mods));
     }
@@ -1140,8 +1181,32 @@ mod tests {
         let line = fleet_also(checked.fleet.as_ref().expect("a fleet file")).expect("a line");
         assert!(line.ends_with(", batched for every repository, told only when it blocks a merge"), "{line}");
         let parts = parts_of(&checked);
-        let facts: Vec<(&str, &str)> = parts[0].facts.iter().map(|fact| (fact.label, fact.value.as_str())).collect();
+        let facts: Vec<(&str, &str)> = parts[0].facts.iter().map(|fact| (fact.label.as_str(), fact.value.as_str())).collect();
         assert_eq!(facts[1..], [("Does", "Batch, and tell only when it blocks a merge"), ("Where", "Every repository")]);
         assert_eq!(facts[0].0, "Notice");
+    }
+
+    #[test]
+    fn a_words_mod_opens_to_its_pattern_and_where_each_address_was_found() {
+        let checked: ModChecked = ipc::decode(
+            "ModChecked",
+            br#"{"name":"jira-keys","valid":true,"problems":[],"words":{"name":"Jira key","pattern":"[A-Z]+-\\d+","example":"STORE-1","address":[
+                {"repository":"armada","template":"https://acme.atlassian.net/browse/{match}","found":"settings"},
+                {"repository":"*","template":"https://jira.example.com/browse/{match}","found":"pull_request #2140"},
+                {"repository":"web","template":"https://web.example.com/{match}","found":"person"}]}}"#,
+        )
+        .expect("decodes");
+        let parts = parts_of(&checked);
+        assert_eq!(parts[0].part, "Words");
+        let facts: Vec<(&str, bool, Option<&str>)> = parts[0].facts.iter().map(|fact| (fact.label.as_str(), fact.code, fact.from.as_deref())).collect();
+        assert_eq!(
+            facts,
+            [
+                ("Pattern", true, None),
+                ("armada", true, Some("Found in this repository's settings")),
+                ("Other repositories", true, Some("Found in pull request #2140")),
+                ("web", true, Some("You said")),
+            ]
+        );
     }
 }

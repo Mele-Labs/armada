@@ -38,6 +38,15 @@
       "enabled": true,
       "valid": true,
       "changed_at": "2026-11-09T16:20:00Z"
+    },
+    {
+      "name": "jira-keys",
+      "kind": "words",
+      "description": "Jira keys link to each repository's site",
+      "taught_on": "STORE-1234",
+      "enabled": true,
+      "valid": true,
+      "changed_at": "2026-11-11T14:05:00Z"
     }
   ]
 }

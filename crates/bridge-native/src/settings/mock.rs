@@ -215,6 +215,7 @@ impl MockFleet {
         let fleet = match row.kind {
             Some(ipc::ModKind::Fleet) => r#","fleet":{"rule":[{"notice":"pr_checks_failed","does":"batch","where":"everywhere","when":[{"if":"blocks_merge","does":"tell"}]}]}"#,
             Some(ipc::ModKind::Layout) => r#","layout":"{\"version\":1,\"rail\":{\"hidden\":[\"guides\"]}}""#,
+            Some(ipc::ModKind::Words) => r#","words":{"name":"Jira key","pattern":"[A-Z][A-Z0-9]+-\\d+","example":"STORE-1234","address":[{"repository":"armada","template":"https://acme.atlassian.net/browse/{match}","found":"settings"},{"repository":"*","template":"https://jira.example.com/browse/{match}","found":"pull_request #2140"}]}"#,
             _ => "",
         };
         let said = format!(r#"{{"name":"{name}","valid":true,"problems":[]{fleet}}}"#);
