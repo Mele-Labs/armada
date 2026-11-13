@@ -130,6 +130,9 @@ impl Stage {
                 if walk.name == crate::settings::walk::NO_FUNNEL {
                     over.update(cx, |over, cx| over.without_funnel(cx));
                 }
+                if walk.name == crate::settings::walk::MACS_CLAIM {
+                    over.update(cx, |over, cx| over.claim_later(cx));
+                }
                 if walk.name == crate::settings::walk::MACS_SETUP {
                     over.update(cx, |over, cx| over.fresh_mac(cx));
                 }
