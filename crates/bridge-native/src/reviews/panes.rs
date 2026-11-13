@@ -89,7 +89,15 @@ impl ReviewsScreen {
                     .flex_col()
                     .gap(look.length(token::GAP_PANEL))
                     .child(head)
-                    .child(div().flex_1().min_h_0().child(below))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_h_0()
+                            .flex()
+                            .gap(look.length(token::GAP_PANEL))
+                            .child(self.render_rail(&page, look, cx))
+                            .child(div().flex_1().min_w_0().h_full().child(below)),
+                    )
                     .into_any_element();
             }
             (None, None) => labelled(
@@ -108,6 +116,46 @@ impl ReviewsScreen {
             .into_any_element(),
         };
         div().id("page").relative().flex_1().min_w_0().h_full().child(shown).into_any_element()
+    }
+
+    /// The rail down the page's left: the Overview, then each change set with the glyph of its worst
+    /// finding. Not a pane, so no layout moves it. A kept page draws the sets it kept, and the rest in grey.
+    fn render_rail(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let on = self.rail_on();
+        let hover = look.color(token::BG_HOVER);
+        let row = |id: String, name: &str, lead: AnyElement, picked: bool| {
+                div()
+                    .id(SharedString::from(id))
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .h(look.length(token::H_CONTROL))
+                    .px(look.length(token::SPACE_2))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .text_size(look.length(token::TEXT_XS))
+                    .cursor_pointer()
+                    .aria_selected(picked)
+                    .when(picked, |row| row.bg(look.color(token::ACCENT_MUTED)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
+                    .when(!picked, |row| row.hover(move |style| style.bg(hover)))
+                    .tooltip(tip(name.to_string()))
+                    .child(lead)
+                    .child(div().min_w_0().truncate().child(SharedString::from(name.to_string())))
+        };
+        let overview = row("rail-overview".into(), "Overview", glyph("layers", look.length(token::SPACE_3), look.color(token::FG_MUTED)).into_any_element(), on.is_none())
+            .on_click(cx.listener(|this, _, _, cx| this.show_overview(cx)));
+        let overview = labelled(overview, Role::ListBoxOption, "Overview");
+        let mut rail = panel(look).id("rail").flex_none().w(look.length(token::SPACE_12) * 3. + look.length(token::SPACE_8)).flex().flex_col().gap(look.length(token::SPACE_1)).p(look.length(token::SPACE_2)).child(overview);
+        for set in &page.overview.sets {
+            let id = set.id.clone();
+            let lead = tabs::set_mark(format!("rail-mark-{}", set.id), set.mark, look.length(token::SPACE_3), look);
+            let one = row(format!("rail-{}", set.id), &set.title, lead, on.as_deref() == Some(&set.id)).on_click(cx.listener(move |this, _, _, cx| this.choose_set(&id, cx)));
+            rail = rail.child(labelled(one, Role::ListBoxOption, set.title.clone()));
+        }
+        if page.kept {
+            rail = rail.child(div().px(look.length(token::SPACE_2)).py(look.length(token::SPACE_2)).child(grey("rail-wait", "Writing the change sets of the commits since you looked", &[0.8, 0.6], token::BG_SUNKEN, look)));
+        }
+        labelled(rail, Role::ListBox, "Change sets").into_any_element()
     }
 
     /// While its fresh page is read: the panes' shape in grey, and what it waits on.
@@ -150,8 +198,17 @@ impl ReviewsScreen {
                     .min_h_0()
                     .flex()
                     .gap(look.length(token::GAP_PANEL))
-                    .child(column("main", &[0.9, 0.7, 0.8, 0.5, 0.75, 0.6]).w(relative(0.64)))
-                    .child(column("side", &[0.8, 0.6, 0.7]).flex_1()),
+                    // The rail keeps its own width; the panes share the rest as the default layout does.
+                    .child(column("rail", &[0.8, 0.9, 0.6, 0.7]).flex_none().w(look.length(token::SPACE_12) * 3. + look.length(token::SPACE_8)))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .flex()
+                            .gap(look.length(token::GAP_PANEL))
+                            .child(column("main", &[0.9, 0.7, 0.8, 0.5, 0.75, 0.6]).w(relative(0.6)))
+                            .child(column("side", &[0.8, 0.6, 0.7]).flex_1()),
+                    ),
             )
             .into_any_element()
     }
@@ -273,6 +330,8 @@ impl ReviewsScreen {
             .child(div().flex_1())
             .child(div().h_full().flex().items_center().child(add));
         let kind = pane.tabs.iter().find(|tab| Some(&tab.id) == active.as_ref()).map(|tab| tab.kind.clone());
+        // The change set scrolls itself, so Show in change set can bring a hunk to its top.
+        let scrolls = kind.as_deref() != Some("pr-change-set");
         let body: AnyElement = match kind {
             Some(kind) => self.tab_body(&kind, page, look, cx),
             None => div()
@@ -326,7 +385,8 @@ impl ReviewsScreen {
                 }))
                 .on_drop(cx.listener(move |this, drag: &TabDrag, _, cx| this.drop_tab(&drag.tab, &drop_pane, cx)))
                 .child(strip)
-                .child(div().id(SharedString::from(format!("body-{}", pane.id))).flex_1().min_h_0().overflow_y_scroll().child(body))
+                // Each pull request's tab keeps its own place, so a page opened fresh starts at its top.
+                .child(div().id(SharedString::from(format!("body-{}-{}-{}", pane.id, page.number, active.as_deref().unwrap_or("")))).flex_1().min_h_0().when(scrolls, |body| body.overflow_y_scroll()).child(body))
                 .children(overlay),
             Role::Region,
             name,
@@ -344,9 +404,9 @@ impl ReviewsScreen {
         labelled(
             div()
                 .id(SharedString::from(format!("tab-{}", tab.id)))
-                // In a narrow pane the tabs behind give way, their names cut short, so every tab stays in reach.
+                // In a narrow pane the tabs behind give way down to their glyph, so the front tab's name stays whole.
                 .when(front, |tab| tab.flex_none())
-                .when(!front, |tab| tab.flex_shrink(1.).min_w(look.length(token::SPACE_12)).tooltip(tip(label)))
+                .when(!front, |tab| tab.flex_shrink(1.).min_w(look.length(token::SPACE_3) * 2. + look.length(token::SPACE_4)).overflow_hidden().tooltip(tip(label)))
                 .h_full()
                 .flex()
                 .items_center()
