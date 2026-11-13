@@ -269,6 +269,15 @@ impl JobView {
         .into_any_element()
     }
 
+    /// The pinned drawing's height: Classic's six space-12, or less where the thread's own height cannot hold the card
+    /// round it and the rows after it (Thinking, the box) cannot, so the pin stands whole and the thread following its tail does not cut the top off.
+    fn pin_drawing_height(&self, look: &Look) -> gpui::Pixels {
+        let most = look.length(token::SPACE_12) * 6.;
+        // The height the list had when last drawn: the list is borrowed while its items draw, so it cannot be asked here.
+        let Some(room) = self.pane_height else { return most };
+        (room - look.length(token::SPACE_12) * 5.).max(look.length(token::SPACE_12) * 2.).min(most)
+    }
+
     /// The newest sketch put to the person, pinned after the plan (`SketchPin`, B1.4).
     pub(super) fn sketch_pin(&self, ix: usize, card: &ThreadSketch, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = format!("pin:{}", card.id);
@@ -356,7 +365,7 @@ impl JobView {
                     pin.child(
                         div()
                             .id(SharedString::from(format!("pin-drawing:{key}")))
-                            .h(look.length(token::SPACE_12) * 6.)
+                            .h(self.pin_drawing_height(look))
                             .rounded(look.length(token::RADIUS_MD))
                             .border(look.length(token::BORDER_WIDTH))
                             .border_color(look.color(token::BORDER_SUBTLE))
@@ -397,6 +406,8 @@ impl JobView {
         let mut band = div()
             .flex()
             .items_center()
+            // The title keeps its width: Revision and the time wrap under it where the row is too narrow for all three.
+            .flex_wrap()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .pt(look.length(token::SPACE_3))
@@ -404,8 +415,9 @@ impl JobView {
             .child(glyph(look, "pencil-ruler", Size::Small, look.color(token::FG_MUTED)))
             .child(
                 div()
-                    .flex_1()
+                    .flex_grow(1.)
                     .min_w_0()
+                    .max_w_full()
                     .truncate()
                     .text_size(look.length(token::TEXT_BASE))
                     .line_height(look.length(token::LEADING_BASE))
