@@ -121,6 +121,13 @@ pub fn command_of(line: &str) -> String {
     }
 }
 
+/// The file a `Read`, `Edit` or `Write` call named, as its row's text carries it: the path, before any size.
+pub fn file_of(text: &str) -> Option<String> {
+    let call = tool_of(text);
+    matches!(family_of(call.tool), Some(Family::Read | Family::Edit)).then_some(())?;
+    call.detail.split_whitespace().next().filter(|path| !path.is_empty()).map(str::to_string)
+}
+
 /// Whether a shell line is one of the runs that count as a check.
 fn is_check(line: &str) -> bool {
     let words = body_of(line);
@@ -307,6 +314,16 @@ mod tests {
         assert_eq!(working_on("Grep mergeLineTone").as_deref(), Some("mergeLineTone"));
         assert_eq!(working_on("Agent Read the docs index"), None);
         assert_eq!(working_on("Bash"), None);
+    }
+
+    #[test]
+    fn a_read_edit_or_write_names_its_file_and_other_calls_name_none() {
+        assert_eq!(file_of("Read ~/Development/armada/crates/api/src/router.rs").as_deref(), Some("~/Development/armada/crates/api/src/router.rs"));
+        assert_eq!(file_of("Edit crates/api/src/router.rs +3 -1").as_deref(), Some("crates/api/src/router.rs"));
+        assert_eq!(file_of("mcp__fs__Write docs/INDEX.md").as_deref(), Some("docs/INDEX.md"));
+        assert_eq!(file_of("Read"), None);
+        assert_eq!(file_of("Bash cat crates/api/src/router.rs"), None);
+        assert_eq!(file_of("Grep retry in crates/api"), None);
     }
 
     #[test]
