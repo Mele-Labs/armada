@@ -37,7 +37,10 @@ export function Pair({ code: fromUrl, origin: again }: { code: string; origin?: 
       return;
     }
     setPhase("waiting");
-    if (!(await waitForConfirm(machine))) {
+    const waited = await waitForConfirm(machine);
+    if (waited !== "paired") {
+      if (waited === "declined")
+        setTrouble("The Mac declined. Start pairing again on the Mac to try once more.");
       setPhase("link");
       return;
     }

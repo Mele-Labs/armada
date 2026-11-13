@@ -94,7 +94,7 @@ fn age_of(at: i64) -> String {
     format!("{} ago", crate::merge_strip::words::span_said((chrono::Utc::now().timestamp() - at).max(0)))
 }
 
-fn colour_of(look: &Look, colour: MacColour) -> Hsla {
+pub(crate) fn colour_of(look: &Look, colour: MacColour) -> Hsla {
     look.color(match colour {
         MacColour::Blue => token::SKETCH_BLUE,
         MacColour::Teal => token::SKETCH_TEAL,

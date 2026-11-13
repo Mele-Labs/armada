@@ -339,7 +339,7 @@ impl JobView {
         lost
     }
 
-    fn open_picture(&mut self, image: Arc<Image>, natural: Size<f32>, name: SharedString, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_picture(&mut self, image: Arc<Image>, natural: Size<f32>, name: SharedString, window: &mut Window, cx: &mut Context<Self>) {
         let focus = cx.focus_handle();
         let back = window.focused(cx);
         window.focus(&focus, cx);
