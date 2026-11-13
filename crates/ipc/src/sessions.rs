@@ -1326,6 +1326,9 @@ pub enum PullRequestWait {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionRecord {
     pub id: SessionId,
+    /// The id of the paired Mac that holds this Job. **Absent means held by this Mac.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mac: Option<String>,
     pub harness: String,
     pub origin: SessionOrigin,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -64,6 +64,7 @@ fn long_lived() -> SessionRecord {
         .collect();
     SessionRecord {
         id: SessionId::carried("session-1"),
+        mac: None,
         harness: "a-harness".to_string(),
         origin: SessionOrigin::Terminal,
         manifest_id: Some(ManifestId::carried("armada")),

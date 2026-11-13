@@ -305,7 +305,7 @@ where
         let Some(named) = named.map(|named| named.as_str().trim().to_string()).filter(|id| !id.is_empty()) else {
             return Err(Refusal::Unacceptable(WireError::raised(
                 UNPLACED,
-                "what a Job holds is its own, and nothing places one",
+                "Name a Job: this call came from outside a Job and gave no Job id.",
                 self.run_id(),
             )));
         };
@@ -313,7 +313,7 @@ where
             Some(_) => Ok(named),
             None => Err(Refusal::NotFound(WireError::raised(
                 NO_SUCH_SESSION,
-                format!("No Job Fleet holds is named {named}."),
+                format!("No Job has the id {named}."),
                 self.run_id(),
             ))),
         }
@@ -377,7 +377,7 @@ where
             return Err(Refusal::Unacceptable(
                 ipc::WireError::raised(
                     NO_SUCH_LANES_LEVEL,
-                    format!("`{scope}` is not a level of this repository's lanes: the default's, a Workspace that holds it, or a repository read with it"),
+                    format!("No lanes are kept at `{scope}`. Lanes are kept as Armada's defaults, for this repository, for a project this repository is in, or for another repository in one of those projects."),
                     self.run_id(),
                 )
                 .with_field("scope", ipc::WireValue::Str(scope)),

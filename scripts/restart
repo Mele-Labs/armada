@@ -72,6 +72,7 @@ from=""
 dry_run=false
 adopt=false
 keep_only=false
+original_args=("$@")
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --from)
@@ -100,6 +101,18 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# **A restart that will change anything runs detached, in a session of its own.**
+# Pocket's Run starts this on a terminal Fleet holds, and booting Fleet out closes it:
+# SIGHUP ended the script before it bootstrapped the new Fleet, which stayed down.
+# `scripts/detach` has the rest. A dry run and `--keep-only` stop no Fleet and run as they
+# are; `ARMADA_RESTART_DETACHED` says an outer script already did. Run from where it
+# was started, since `--from` may be a relative path.
+restart_log="$home/Library/Logs/Armada/restart.log"
+if [[ -z "${ARMADA_RESTART_DETACHED:-}" ]] && ! $dry_run && ! $keep_only; then
+  cd "$caller_pwd"
+  exec "$root/scripts/detach" "$restart_log" "$root/scripts/restart" ${original_args[@]+"${original_args[@]}"}
+fi
 
 # **A plain restart while the preview runs refreshes the preview.** Rebuilding
 # from this checkout would quietly swap the owner's preview for `main` alone;
@@ -617,8 +630,31 @@ native_stale() {
   fi
 }
 
+# What a dry run says of one Bridge: whether it would reopen, and why. Reads only.
+# `$1` names it, `$2` is where its launchd job runs from (empty when not loaded), and the
+# rest is the `scripts/running-bridge` call that reads its process.
+dry_bridge() {
+  local name="$1" loaded="$2" kept_dir="$3"
+  shift 3
+  if [[ -z "$loaded" && "$name" == "native Bridge" ]]; then
+    echo "$name: its job is not loaded, so it would be opened"
+  elif [[ -n "$loaded" && "$loaded" != "$kept_dir" ]]; then
+    echo "$name: its job runs from $loaded, not the kept build, so it would be reopened there"
+  else
+    local verdict why
+    IFS=$'\t' read -r verdict why < <("$root/scripts/running-bridge" "$@" --want "$(tree_protocol)") || true
+    if [[ "$verdict" == reopen ]]; then
+      echo "$name: $why, so it would be reopened"
+    else
+      echo "$name: $why; it is reopened only if the kept build's files differ from the build before's"
+    fi
+  fi
+}
+
 if $dry_run; then
   say "Dry run — nothing below happens"
+  echo "would run detached, in a session of its own with SIGHUP ignored and no stdin, so Fleet stopping does not end it: output is appended to $restart_log, and the command follows it to the end and exits with its code"
+  echo "the new Fleet would speak protocol $(tree_protocol)"
   echo "would install armada from $src (cargo install --path crates/armada --profile installed --locked) to $armada_bin"
   if [[ ! -f "$src/apps/desktop/out/.armada-restart-stamp" ]]; then
     echo "would build Bridge from $src — no build stamp there"
@@ -653,6 +689,8 @@ if $dry_run; then
     echo "WARNING: no Electron.app under $src/apps/desktop/node_modules, so Bridge would say Electron"
   fi
   echo "Bridge would run the kept copy of $src/apps/desktop/out, built from $src"
+  dry_bridge "Bridge" "$(launchctl print "$bridge_service" 2>/dev/null | sed -n 's/^[[:space:]]*working directory = //p' || true)" "$kept_current/bridge" \
+    classic --support "$support"
   if native_present; then
     if native_stale; then
       echo "would build the native Bridge from $src — $native_why"
@@ -662,6 +700,8 @@ if $dry_run; then
     echo "would keep the native Bridge as $kept_current/Armada.app — its binary named Armada, an Info.plist, the brand icon, ad hoc signed"
     echo "would write $native_plist: [$kept_current/bridge-launch, $kept_current/Armada.app/Contents/MacOS/Armada] in $kept_current, reopened by launchd when it stops without a quit"
     echo "would open the native Bridge too if its job is not loaded or is loaded from anywhere but $kept_current, or the kept app differs from the build before's; its job is booted out and in, never kickstarted"
+    dry_bridge "native Bridge" "$(launchctl print "$native_service" 2>/dev/null | sed -n 's/^[[:space:]]*working directory = //p' || true)" "$kept_current" \
+      native --support "$support" --service "$native_service"
   else
     echo "would keep no native Bridge — $src has no crates/bridge-native"
   fi
@@ -1045,6 +1085,15 @@ elif [[ -n "$old_bridge_key" && "$old_bridge_key" != "$new_bridge_key" ]]; then
     bridge_reopen=true
   fi
 fi
+# **What the running Bridge was built for, read off its process**, not what the build
+# before was: a restart that died after it moved `builds/current` leaves the next one seeing
+# no difference. A page reloaded in place does not change the protocol its main speaks.
+IFS=$'\t' read -r protocol_verdict protocol_why < <("$root/scripts/running-bridge" classic --support "$support" --want "$protocol") || true
+if [[ "$protocol_verdict" == reopen ]] && ! $bridge_reopen; then
+  say "Bridge: $protocol_why. Reopening it"
+  bridge_reopen=true
+  bridge_reloads=false
+fi
 if $bridge_reopen; then
   # **Quit the running Bridge by a handle proven to be this repository's,
   # never by name.** The owner's Bridge today is as likely to be a plain
@@ -1156,6 +1205,8 @@ fi
 # its job is not loaded (never opened, or the Mac restarted), is loaded from anywhere but
 # `builds/current`, or the kept app differs from the build before's. A job that is loaded and
 # stopped is a quit the person meant (`scripts/bridge-launch`), and stays closed unless the app changed.
+# A running app built for another protocol than the new Fleet's is reopened whatever the build before
+# was (`scripts/running-bridge`).
 native_reopened=false
 if [[ -n "$new_native_key" ]]; then
   loaded_native_dir=$(launchctl print "$native_service" 2>/dev/null | sed -n 's/^[[:space:]]*working directory = //p' || true)
@@ -1169,6 +1220,13 @@ if [[ -n "$new_native_key" ]]; then
   elif [[ "$old_native_key" != "$new_native_key" ]]; then
     say "The native Bridge differs from the build before's — reopening it"
     native_reopen=true
+  else
+    # What the running app was built for, off its process; see the Bridge's own read above.
+    IFS=$'\t' read -r protocol_verdict protocol_why < <("$root/scripts/running-bridge" native --support "$support" --service "$native_service" --want "$protocol") || true
+    if [[ "$protocol_verdict" == reopen ]]; then
+      say "The native Bridge: $protocol_why. Reopening it"
+      native_reopen=true
+    fi
   fi
   if $native_reopen; then
     [[ -x "$kept_current/bridge-launch" && -x "$kept_current/Armada.app/Contents/MacOS/Armada" ]] \
