@@ -103,6 +103,8 @@ mod autopilot;
 mod autopilot_decisions;
 mod operator_dispatches;
 mod parked_ideas;
+/// What his other Macs share with this one, kept whole.
+mod other_macs;
 /// The Operator's Log of rulings. `armada-ehhu`.
 mod operator_rulings;
 mod operator_orders;
@@ -257,6 +259,7 @@ pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
 pub use operator_dispatches::KeptDispatch;
 pub use parked_ideas::KeptIdea;
+pub use other_macs::{FromMac, KeptFromMac};
 pub use operator_rulings::KeptRuling;
 pub use operator_orders::{KeptOrder, KeptTalk};
 pub use operator_switches::KeptSwitch;
