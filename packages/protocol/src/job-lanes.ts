@@ -3,13 +3,13 @@
 // (`lanes`, `rules`). A time is an instant, never a clock: Fleet knows no time zone, so the client words it.
 
 /** What a node is: its shape and its tint. A kind is never a status. `start` and `end` are the small circles at the ends of the workflow. */
-export type LaneNodeKind = "step" | "tracker" | "forge" | "watch" | "job" | "start" | "end";
+export type LaneNodeKind = "step" | "tracker" | "forge" | "watch" | "job" | "own" | "start" | "end";
 
 /** Whether a node is a step of the workflow or a state of a lifecycle. */
 export type LaneNodeRole = "step" | "state";
 
 /** What reads a lifecycle's states. */
-export type LaneLifecycleKind = "tracker" | "forge" | "watch" | "job";
+export type LaneLifecycleKind = "tracker" | "forge" | "watch" | "job" | "own";
 
 /** Whether a lane is the workflow's or an instance's. */
 export type LaneKind = "workflow" | "lifecycle";

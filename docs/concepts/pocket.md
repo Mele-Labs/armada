@@ -94,7 +94,7 @@ The name is the host's name when the id was minted, and the colour one of `blue`
 
 | Route | Answers |
 |---|---|
-| `GET /admin/macs` | `[Mac]`: this Mac first, then each paired Mac in the order it was paired, then each Mac whose claim waits for Confirm here. `{ id, name, colour, address?, this_mac, build?, link?, last_heard_at?, why? }`. `build` is the commit Fleet's kept build was made from. `link` is absent on this Mac |
+| `GET /admin/macs` | `[Mac]`: this Mac first, then each paired Mac in the order it was paired, then each Mac whose claim waits for Confirm here. `{ id, name, colour, address?, this_mac, build?, link?, last_heard_at?, why?, code? }`. `code` is the four digits both Macs show while an ask waits. `build` is the commit Fleet's kept build was made from. `link` is absent on this Mac |
 | `GET /admin/devices` | `[PairedPhone]`: `{ id, name, created_at, last_seen_at }` |
 
 Settings draws the two as one Devices list.
@@ -285,6 +285,20 @@ What crosses has passed the share filter of the Fleet that holds the Job: `/othe
 | 3. Home lists the claim | `GET /admin/macs` | Work, `claim_waiting` |
 | 4. Home confirms | `POST /admin/macs/pair/confirm { mac }` | Home makes its own key, Keychain again, and posts `{ back_code, mac, spki_hex }` to work's `POST /pair/mac/back`. Work takes it only with the back code it minted for that Mac, and links. Home links on a 2xx. If work does not answer, home keeps the claim and answers 502, `Work did not answer. Press Confirm again.` |
 | 5. Either forgets | `POST /admin/macs/forget { mac }` | A signed `POST /api/mac/forget` to the other, as far as it answers, then the row and the key go here and Fleet is told with `POST /other_macs/forget`. The other side does the same on its own. Forget on a claim waiting here drops the claim |
+
+**Pairing without a link.** Both Macs are on his Cloudflare account, so Settings lists the other and he presses Pair.
+
+| Step | Route | What happens |
+|---|---|---|
+| 0. Set up | Fleet's `POST /phone/setup`, no body | One press for the whole setup: the Gateway on, as `set_phone` turns it on, then the tunnel's press in the background. Answers `MacSetup { step, working, login?, why?, address? }`, and `GET /phone/setup` reads it with the Gateway off. `step` is `gateway`, `sign_in`, `tunnel` or `done`. `working` has nothing to press, `login` is the page to sign in on, and `why` is the setup to press again. A tunnel that is made but not connected is `working` for 30 seconds before it says why |
+| 1. Work lists the account | `GET /admin/macs/found` | `FoundMacs { macs, why? }`. The `armada-*` tunnels on the account other than this Mac's, from Cloudflare's tunnel list and the domain's records, read again after 4 seconds. Each `FoundMac { tunnel, name, colour?, address?, online, paired, build? }`: `online` is the tunnel connected, and `name`, `colour` and `build` are what the Mac said on `GET /pair/mac/hello`, unsigned, which answers those three and nothing else. An asleep Mac keeps the name it was last read with, else its paired row's, else its address's first label. An account that cannot be read answers `why` with what was read before |
+| 2. Work asks | `POST /admin/macs/pair/ask { tunnel }` | Work makes its key and back code as for a claim and posts `{ mac, spki_hex, back_code }` to home's `POST /pair/mac/ask`, unsigned. Home answers 202 with itself and a random `nonce`, and holds the ask as a claim. Each side draws the same four digits from work's key and the nonce. Work keeps home as `confirm_waiting` with `code`, and refuses a Mac that answers with an id that is not its tunnel's |
+| 3. Home lists the ask | `GET /admin/macs` | Work, `claim_waiting`, with the same `code` and `why` `Work wants to pair. Confirm if it shows 4821.` |
+| 4. Home confirms or declines | `POST /admin/macs/pair/confirm { mac }` or `POST /admin/macs/forget { mac }` | Confirm is step 4 above. Decline drops the ask and posts `{ mac, back_code }` to work's `POST /pair/mac/declined`, which forgets home's row and key on that code alone |
+
+**Home's address is public, so an ask is held three ways.** `/pair/mac/ask` and `/pair/mac/declined` count against the same minute's share as `/pair`.
+At most three asks wait at once, and a fourth answers 429; a Mac asking again replaces its own.
+An ask nobody confirms is gone from both sides after five minutes, as a link is.
 
 **A private key never leaves the Mac that made it.** Each side makes its own and hands over only the public half, so the one link and one Confirm give a key each way.
 A link is `https`, or `http` only to a loopback host, so two Gateways in a test can pair.

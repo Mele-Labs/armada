@@ -57,6 +57,19 @@ pub trait Cloudflared: Send + Sync {
     /// The command that runs the tunnel `name` in front of the Gateway's `port`, answering whether it is
     /// connected on `metrics`.
     fn run(&self, name: &str, port: u16, metrics: u16) -> Command;
+    /// Every tunnel on the account this Mac signed in with, each with whether it is connected and the host the
+    /// signed-in domain routes to it. Read only.
+    fn tunnels(&self) -> Result<Vec<AccountTunnel>, String>;
+}
+
+/// One tunnel on the owner's Cloudflare account.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AccountTunnel {
+    pub name: String,
+    /// Cloudflare holds a connection from it now.
+    pub connected: bool,
+    /// `https://` and the host in the signed-in domain that routes to it, where one does.
+    pub address: Option<String>,
 }
 
 /// Why the sign-in's domain could not be read. The sentence says what was wrong.
@@ -97,18 +110,20 @@ struct Made {
 }
 
 #[derive(Default)]
-struct Live {
-    signing_in: Option<String>,
+pub(crate) struct Live {
+    pub(crate) signing_in: Option<String>,
     /// The last press's failure, until a press succeeds.
-    failed: Option<String>,
-    pressing: bool,
+    pub(crate) failed: Option<String>,
+    pub(crate) pressing: bool,
+    /// The tunnel is being made after the sign-in, on the sign-in's own thread.
+    pub(crate) making: bool,
     /// The sign-in names no usable domain, so the next press signs in again.
-    sign_in_again: bool,
-    connected: bool,
+    pub(crate) sign_in_again: bool,
+    pub(crate) connected: bool,
     /// When `connected` last changed.
-    since: i64,
+    pub(crate) since: i64,
     /// Why it is not connected, in `cloudflared`'s words where it said.
-    why: Option<String>,
+    pub(crate) why: Option<String>,
 }
 
 struct Runner {
@@ -120,7 +135,7 @@ pub struct Tunnel {
     driver: Arc<dyn Cloudflared>,
     machine: PathBuf,
     clock: Clock,
-    live: Arc<Mutex<Live>>,
+    pub(crate) live: Arc<Mutex<Live>>,
     running: Arc<Mutex<Option<Runner>>>,
 }
 
@@ -141,6 +156,14 @@ pub(crate) fn label_of(name: &str) -> String {
         fitted => fitted.to_string(),
     }
 }
+
+/// The name of the tunnel the Mac with this id makes: `armada-` and the id's first 12 characters.
+pub(crate) fn tunnel_name(id: &str) -> String {
+    format!("{TUNNEL_PREFIX}{}", id.get(..12).unwrap_or(id))
+}
+
+/// What every tunnel Armada makes is named with, so the account's other Macs are told from his own tunnels.
+pub(crate) const TUNNEL_PREFIX: &str = "armada-";
 
 /// Whether `latest` is a newer version than `kept`, read as `cloudflared` numbers them: `2026.11.0`.
 pub(crate) fn newer(latest: &str, kept: &str) -> bool {
@@ -234,11 +257,16 @@ impl Tunnel {
         let tunnel = self.clone();
         std::thread::spawn(move || {
             let made = finished().and_then(|()| {
-                tunnel.live.lock().unwrap().sign_in_again = false;
+                {
+                    let mut live = tunnel.live.lock().unwrap();
+                    live.sign_in_again = false;
+                    live.making = true;
+                }
                 tunnel.make(&id, &name)
             });
             let mut live = tunnel.live.lock().unwrap();
             live.signing_in = None;
+            live.making = false;
             live.failed = made.err();
         });
         Ok(Pressed::SignIn(page))
@@ -255,13 +283,34 @@ impl Tunnel {
             }
             Err(NoZone::Retry(why)) => return Err(format!("{why} Press Set up to try again.")),
         };
-        let made = Made { name: format!("armada-{}", &id[..id.len().min(12)]), host: format!("{}.{domain}", label_of(name)) };
+        let made = Made { name: tunnel_name(id), host: format!("{}.{domain}", label_of(name)) };
         self.driver.create(&made.name, &made.host)?;
         let dir = self.machine.join(DIR);
         let kept = std::fs::create_dir_all(&dir)
             .and_then(|()| std::fs::write(self.record(), format!("{}\n{}\n", made.name, made.host)))
             .and_then(|()| std::fs::write(self.machine.join(ADDRESS_FILE), format!("https://{}\n", made.host)));
         kept.map_err(|why| format!("The tunnel is made, but Armada could not keep it in {}: {why}", dir.display()))
+    }
+
+    /// A press is under way, or the tunnel is being made after the sign-in, so there is nothing to press.
+    pub(crate) fn busy(&self) -> bool {
+        let live = self.live.lock().unwrap();
+        live.pressing || live.making
+    }
+
+    /// The last press's failure, until a press succeeds.
+    pub(crate) fn failed(&self) -> Option<String> {
+        self.live.lock().unwrap().failed.clone()
+    }
+
+    /// The name of the tunnel this Mac made, where it made one.
+    pub(crate) fn own_name(&self) -> Option<String> {
+        self.made().map(|made| made.name)
+    }
+
+    /// The account's tunnels, as [`Cloudflared::tunnels`] reads them. Blocking.
+    pub(crate) fn tunnels(&self) -> Result<Vec<AccountTunnel>, String> {
+        self.driver.tunnels()
     }
 
     /// Run the tunnel in front of the Gateway's `port` until [`Tunnel::stop`], once there is one to run.

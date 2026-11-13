@@ -1,0 +1,10 @@
+[operations.set_up_mac]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Run this Mac's whole setup for pairing his other Macs from one press: Gateway on, Cloudflare sign-in, this Mac's tunnel"
+notes = """
+`POST /phone/setup`, with no body, answered with `MacSetup` as `get_mac_setup` answers it after. It turns the Phone Gateway on as `set_phone` `{ on: true }` does, then presses the Cloudflare setup in the background: download `cloudflared` where Armada has none, open the sign-in, and once he has signed in make this Mac's tunnel. It waits a moment for the press, so a sign-in page that is ready comes back in `login`. Pressed again while a step works, it answers where it stands; pressed on a step that is stuck, it tries that step again. A Gateway that cannot start is `step: gateway` with `why`, not a refusal.
+
+`agent_access` is `No`: putting a Mac on his Cloudflare account is his act.
+"""
