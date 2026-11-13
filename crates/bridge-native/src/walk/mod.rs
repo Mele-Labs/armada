@@ -911,6 +911,7 @@ pub static WALKS: &[Walk] = &[
             step("What it takes out is struck through", Verb::Look, "group", "Taken out by the draft"),
             press_on("Current shows the description the pull request has now", "tab", "Current", "tab", "Draft"),
             press_on("Draft goes back to the draft with its changes", "tab", "Draft", "group", "Added by the draft"),
+            step("The wheel brings up the draft's Approve, Edit and Note", Verb::Wheel("dialog", "Pull request #2210", 300), "button", "Edit the description"),
             press_on("Edit opens a box holding the draft's words", "button", "Edit the description", "button", "Approve with fixes"),
             press_on("Cancel shuts it and forgets what was typed", "button", "Cancel", "button", "Edit the description"),
         ],

@@ -3,7 +3,10 @@
 //! the one it replaces, and Approve, Edit and Note answering its `draft:<id>` item. Armada Classic draws
 //! none of it; the draft waits in the thread there.
 
-use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, Role, SharedString, Subscription, Window};
+use std::cell::Cell;
+use std::rc::Rc;
+
+use gpui::{canvas, div, point, prelude::*, px, AnyElement, Context, Entity, FontWeight, Role, SharedString, Subscription, Window};
 use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 use ipc::{AnswerWaiting, PullRequestDraft, PullRequestPage, SessionId};
 
@@ -47,6 +50,8 @@ pub(in crate::job_view) struct DraftPane {
     pub said: Option<SharedString>,
     /// The draft Fleet took an answer for, and what it was, until the page is read without it.
     pub settled: Option<(String, u32, &'static str)>,
+    /// The box has just opened: the next frame scrolls the panel so it and its buttons are in view.
+    reveal: Rc<Cell<bool>>,
     _typing: Option<Subscription>,
 }
 
@@ -231,7 +236,16 @@ impl JobView {
         let runs = changes(current, &text).into_iter().enumerate().map(|(at, (kind, lines))| {
             let words = lines.join("\n");
             match kind {
-                Change::Same => div().min_w_0().child(self.prose(format!("pull-draft:same:{at}"), &words, look, cx)).into_any_element(),
+                // The same inset and edge as a band, unmarked, so every line starts at one left edge.
+                Change::Same => div()
+                    .min_w_0()
+                    .pl(look.length(token::SPACE_3))
+                    .pr(look.length(token::SPACE_2))
+                    .py(look.length(token::SPACE_1))
+                    .border_l(edge * 3.)
+                    .border_color(gpui::transparent_black())
+                    .child(self.prose(format!("pull-draft:same:{at}"), &words, look, cx))
+                    .into_any_element(),
                 Change::Added => {
                     let hue = look.color(token::STEP_ADVANCED);
                     labelled(
@@ -338,10 +352,35 @@ impl JobView {
                     .border_color(look.color(token::BORDER_DEFAULT))
                     .bg(look.color(token::BG_SUNKEN))
                     .child(Textarea::new(state).appearance(false));
+                let (reveal, scroll) = (pane.reveal.clone(), panel.scroll.clone());
+                // Scrolls the panel the least that brings the box and its buttons into view.
+                let bring = canvas(
+                    move |at, window, _| {
+                        if !reveal.replace(false) {
+                            return;
+                        }
+                        let view = scroll.bounds();
+                        let mut offset = scroll.offset();
+                        if at.bottom() > view.bottom() {
+                            offset.y -= (at.bottom() - view.bottom()).min(at.top() - view.top());
+                        } else if at.top() < view.top() {
+                            offset.y += view.top() - at.top();
+                        } else {
+                            return;
+                        }
+                        scroll.set_offset(point(offset.x, offset.y.min(px(0.)).max(-scroll.max_offset().y)));
+                        window.refresh();
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full();
                 return div()
+                    .relative()
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_2))
+                    .child(bring)
                     .child(labelled(field, Role::TextInput, name))
                     .child(
                         row.child(labelled(
@@ -382,6 +421,7 @@ impl JobView {
             panel.draft.writing = Some((writing, state.clone()));
             panel.draft._typing = Some(typing);
             panel.draft.said = None;
+            panel.draft.reveal.set(true);
         }
         state.update(cx, |area, cx| area.focus(window, cx));
         cx.notify();

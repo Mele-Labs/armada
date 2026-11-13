@@ -131,6 +131,7 @@ The parity check takes each row here as chosen.
 | A row in a Job's Checks pane | A press opens nothing, a fault | Opens the Check's panel, with its runs in this Job |
 | A judge note on a pull request with no line | Has nowhere to show | Stands at the top of Files, above the tree, in the line notes' look |
 | A description a Job proposed for its pull request | Waits as a draft in the Job's thread; the pull request panel shows the body the forge has | Stands in the panel in the description's place, with the lines it adds marked and those it takes out struck through, Current for the body it replaces, and Approve, Edit and Note. The pull request's row says a description waits |
+| A pull request panel's plates (status, reviewers, failing checks) | Off the panel's leading edge, over the thread, when the window has room | Inside the panel above its tabs at every width, so nothing of the thread is covered |
 | A judge note or review thread on a pull request's line | Between the diff's lines, at that line | Under the head of its file in Files, until the native diff places a note at its line |
 | A thumb pressed on a Deferred row | The row stays until Fleet's record says it is settled; a refusal says nothing | The row goes at once and the keys go to the message box; a refusal brings it back and is said in a toast |
 | Stop or Delete on a watch | The watch stays as it was until Fleet's `watches.changed` says it stopped or went | It shows stopped, or goes, at once; a refusal puts it back, said in a toast in Fleet's words |

@@ -724,8 +724,8 @@ impl JobView {
 }
 
 impl JobView {
-    /// The panel: the plates off its leading edge, or the file list beside it on Files; then the sheet
-    /// with its head, body and comment box.
+    /// The panel: the file list beside it on Files; then the sheet with its head, body and comment box.
+    /// The plates stand inside the body at every width, where Classic stands them off the leading edge.
     pub(super) fn render_pull_panel(&self, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
         let (focus, panel) = self.pull_panel_focus()?;
         let look = cx.look();
@@ -792,8 +792,7 @@ impl JobView {
         let aside_w = px(336.);
         let room_left = viewport.width - wide - margin * 3.;
         let files_beside = panel.tab == PullTab::Files && panel.page().is_some_and(|page| !page.files.is_empty()) && room_left >= aside_w;
-        let plates_beside = panel.tab != PullTab::Files && room_left >= aside_w;
-        let body = self.pull_body(panel, &pull, !plates_beside && panel.tab != PullTab::Files, !files_beside, look, cx);
+        let body = self.pull_body(panel, &pull, panel.tab != PullTab::Files, !files_beside, look, cx);
         let foot = self.pull_composer(panel, look, cx);
         let sheet = labelled(
             div()
@@ -821,13 +820,7 @@ impl JobView {
             Role::Dialog,
             title,
         );
-        let beside: Option<AnyElement> = if files_beside {
-            panel.page().map(|page| self.pull_file_list(panel, page, aside_w, high, look, cx))
-        } else if plates_beside {
-            Some(div().id("pull-plates").occlude().flex_none().w(aside_w).max_h(high).overflow_y_scroll().child(self.pull_plates(panel, &pull, look, cx)).into_any_element())
-        } else {
-            None
-        };
+        let beside: Option<AnyElement> = if files_beside { panel.page().map(|page| self.pull_file_list(panel, page, aside_w, high, look, cx)) } else { None };
         Some(
             deferred(
                 anchored().position(room.origin + point(px(0.), look.length(token::H_TITLE_BAR))).anchor(Anchor::TopLeft).child(
