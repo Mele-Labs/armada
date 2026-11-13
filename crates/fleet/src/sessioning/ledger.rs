@@ -424,7 +424,9 @@ where
             || (session.origin != "bridge" && !self.hosts().terminals().listening(&session.id))
             || self.hosts().of(&session.id).state().moving.is_some()
             // A subagent or a task still working is something running: the turn ended on it, not on nothing.
-            || !record.running.is_empty();
+            || !record.running.is_empty()
+            // A quick terminal with no plan was asked something and answered it: its turn ending is the answer.
+            || (record.quick_terminal && reads.plan.is_none());
         let stop = session.last_turn_at.as_deref().filter(|_| !excused);
         let read = stop.map(|stop| crate::session_host::stopping::read(stop, &reads.stop, spoke.as_deref(), self.now().epoch_millis().unwrap_or(0)));
         // A repair is due for a stop with its agent alive, until one has run since he last wrote.

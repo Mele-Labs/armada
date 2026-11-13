@@ -67,9 +67,14 @@ where
     }
 
     /// What `all_done` is told while the owner looks and the Job has shown no picture: `show_sketch`,
-    /// `show_window` or `show_file` of an image. A picture withdrawn was shown, so it counts.
+    /// `show_window` or `show_file` of an image. A picture withdrawn was shown, so it counts. **A quick
+    /// terminal with no plan owes none**: it answered a question, and a diagram of an answer is noise.
     pub(super) fn picture_owed_text(&self, store: &store::Store, id: &str) -> Result<Option<String>, Refusal> {
         if !ways::picture_owed(&self.preferences_in_force()) {
+            return Ok(None);
+        }
+        let quick = store.hosting(id).map_err(|why| self.ledger_fault(why))?.is_some_and(|hosting| hosting.quick_terminal);
+        if quick && store.session_plan(id).map_err(|why| self.ledger_fault(why))?.is_none() {
             return Ok(None);
         }
         let held = store.attachments_of(&Holder::session(id)).map_err(|why| self.ledger_fault(why))?;
