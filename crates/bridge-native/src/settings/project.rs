@@ -215,6 +215,16 @@ pub fn inherited(values: &ResolvedValues, key: Key) -> Option<(Option<String>, V
     (plain.from == ValueLayer::Project).then(|| below(plain.inherited.as_ref(), plain.inherited_from))
 }
 
+/// Why every project's cell beside a key the project sets cannot be changed from here: the word it shows is a
+/// repository's or this Mac's, under Kit, so changing Kit would change nothing the project shows.
+pub fn locked(own: Option<&ResolvedValues>, key: Key) -> Option<&'static str> {
+    match inherited(own?, key)?.1 {
+        ValueLayer::Repository => Some("Set by the repository"),
+        ValueLayer::Machine => Some("Set on this Mac"),
+        _ => None,
+    }
+}
+
 /// Whether the project's own block sets the key, as the layers say: a kind of review by its own layer.
 pub fn set_here(values: &ResolvedValues, key: Key) -> bool {
     resolved(values, key).1 == ValueLayer::Project
@@ -393,6 +403,9 @@ impl SettingsOverlay {
     /// Open a cell's choices under it; picking one sets it in that column.
     pub fn open_cell(&mut self, cell: (Key, Column), from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
         if !self.live || self.scope.saving.is_some() || cell.0 == Key::Shared {
+            return;
+        }
+        if cell.1 == Column::Every && self.scope.project.is_some() && locked(self.scope.values.as_ref(), cell.0).is_some() {
             return;
         }
         let values = match cell.1 {
@@ -627,7 +640,12 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
     };
     let Some(values) = values else { return bone(look, look.length(token::W_GUIDE_LIST_MIN), tall).into_any_element() };
     let Some(focus) = this.scope.cells.get(&(key, column)) else { return div().into_any_element() };
+    // Nothing below the project sets it: the default's word, muted. A repository's or this Mac's word is shown and
+    // cannot be changed here.
+    let defaulted = matches!(overridden, Some((None, ValueLayer::Default)));
+    let lock = if overridden.is_some() { locked(this.scope.values.as_ref(), key) } else { None };
     let (word, from) = match overridden {
+        Some((None, ValueLayer::Default)) => (resolved(values, key).0, ValueLayer::Default),
         Some((word, from)) => (word, from),
         None => resolved(values, key),
     };
@@ -636,9 +654,9 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
     // what it comes to.
     let same = column == Column::Own && !set;
     let said = if same && key.every() { "Same as every project".to_string() } else { this.said(key, word.as_deref(), cx) };
-    let off = !this.live || this.scope.saving.is_some();
+    let off = !this.live || this.scope.saving.is_some() || lock.is_some();
     let name = this.cell_name((key, column));
-    let ink = if same || off { look.color(token::FG_SUBTLE) } else { look.color(token::FG_DEFAULT) };
+    let ink = if same || off || defaulted { look.color(token::FG_SUBTLE) } else { look.color(token::FG_DEFAULT) };
     let control = div()
         .id(SharedString::from(format!("value-{key:?}-{column:?}")))
         .track_focus(focus)
@@ -662,7 +680,7 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
             }
         })
         .when(!off, |control| control.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| this.open_cell((key, column), false, window, cx))))
-        .when(column == Column::Every && picked, |control| control.tooltip(tip("Changes every project")))
+        .when(column == Column::Every && picked, |control| control.tooltip(tip(lock.unwrap_or(if defaulted { "Armada's default" } else { "Changes every project" }))))
         .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said)));
     let control = if set {
         let project = this.scope.project.as_ref().map(|(_, name)| name.clone()).unwrap_or_default();
@@ -684,6 +702,8 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
                 }))
             });
         control.child(labelled(clear, Role::Button, format!("Clear {} for {project}", key.title())))
+    } else if lock.is_some() {
+        control
     } else {
         control.child(svg().flex_none().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
     };
@@ -828,6 +848,11 @@ mod tests {
         }
         assert_eq!(inherited(&own, Key::Plans), Some((None, ValueLayer::Default)), "a kind nothing below sets reads off from the default: unset");
         assert_eq!(inherited(&own, Key::PullRequests), None, "a kind the project does not set");
+        assert_eq!(locked(Some(&own), Key::AutoMerge), None, "Kit's word is changed from here");
+        own.auto_merge.inherited_from = Some(ValueLayer::Machine);
+        assert_eq!(locked(Some(&own), Key::AutoMerge), Some("Set on this Mac"));
+        own.auto_merge.inherited_from = Some(ValueLayer::Repository);
+        assert_eq!(locked(Some(&own), Key::AutoMerge), Some("Set by the repository"));
         let grid = cells(&[Key::AutoMerge, Key::Delivery, Key::Plans], true);
         assert_eq!(grid, vec![vec![(Key::AutoMerge, Column::Every), (Key::AutoMerge, Column::Own)], vec![(Key::Delivery, Column::Every), (Key::Delivery, Column::Own)], vec![(Key::Plans, Column::Every), (Key::Plans, Column::Own)]]);
     }
