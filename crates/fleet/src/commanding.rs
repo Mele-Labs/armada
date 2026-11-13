@@ -114,6 +114,11 @@ where
         self.pick_fleet_build_job_now(&asked).await
     }
 
+    /// Keep the Refresh row's id skipped and say the answer moved — [`crate::previewing`].
+    async fn skip_preview_refresh(&self, asked: ipc::SkipPreviewRefresh) -> Result<ipc::PreviewRefreshSkipped, Refusal> {
+        self.preview_refresh_skipped_now(asked).await
+    }
+
     /// Start the swap onto the snapshot — [`crate::building`]. **Not `budgeted`**, `revert_fleet_build`'s reason.
     async fn swap_fleet_build(&self) -> Result<ipc::FleetBuildSwapping, Refusal> {
         self.swap_fleet_build_now()

@@ -19,6 +19,7 @@ use crate::thought::WordsSent;
 use crate::hosted_sessions::{SessionRowChanged, SessionSubagentChanged};
 use crate::merge_line::MergeLines;
 use crate::mods::ModList;
+use crate::preview::PreviewOffers;
 use crate::protocol_id::ProtocolId;
 use crate::reading::ManifestReading;
 use crate::review_runs::ReviewRun;
@@ -138,6 +139,9 @@ pub enum Event {
     // Every standing write clash of every served repository, whole, when the set moved.
     #[serde(rename = "write_clashes.changed")]
     WriteClashesChanged(AllWriteClashes),
+    // What `get_preview_offers` answers, whole, when an offer or the Refresh row moved.
+    #[serde(rename = "preview_offers.changed")]
+    PreviewOffersChanged(PreviewOffers),
     // What calls the person, whole, and the news since the last one: when the list or the news moved.
     #[serde(rename = "calls.changed")]
     CallsChanged(CallsChanged),

@@ -67,6 +67,11 @@ where
         self.fleet_build().await
     }
 
+    /// The branches Jobs offered for the preview — [`crate::previewing`].
+    async fn get_preview_offers(&self) -> Result<ipc::PreviewOffers, Refusal> {
+        Ok(self.preview_offers_read().await)
+    }
+
     /// Every rule a person always-allowed for this Manifest's repository —
     /// `crate::allowed::repository`.
     async fn get_repository_allowed_commands(

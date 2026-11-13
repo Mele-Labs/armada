@@ -188,6 +188,12 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::DEEP_LINKS,
         s::WHERE_THINGS_ARE_OPEN,
         s::OPEN_GROUP,
+        s::FIRST_RUN_ANSWERED,
+        s::LISTEN_END_SUMMARY,
+        s::LISTEN_NEEDS_YOU,
+        s::LISTEN_PROGRESS,
+        s::LISTEN_OPERATOR,
+        s::BUTTONS_WORDS,
         s::CONTEXT_WATCH,
         s::SUMMARY_SHORT_CACHE,
         s::SUMMARY_THINKING,
@@ -223,6 +229,12 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::STORE_URL,
         s::THEME,
         s::SPACING,
+        s::TAKE_IN,
+        s::ANSWER_WITH,
+        s::READ_RESULTS,
+        s::LOOK_RESULTS,
+        s::LOOK_QUESTIONS,
+        s::LISTEN_VOICE,
     ] {
         assert!(
             matches!(kinds(key.name()), Kind::Text | Kind::Choice(_)),
@@ -253,7 +265,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 20 + 12 + 16 + 27 + 2 + 9 + s::prompt_keys().count();
+    let handles = 20 + 12 + 16 + 27 + 2 + 21 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

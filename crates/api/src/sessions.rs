@@ -637,6 +637,31 @@ pub(crate) async fn defer_later<D: Sessions>(State(served): State<Served<D>>, bo
     }
 }
 
+/// The Job offers a branch for the owner's preview. 200 with the offer at its tip, checking; 422 naming what is
+/// missing; the call must place a session.
+pub(crate) async fn offer_preview<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let offer: ipc::OfferPreview = match ipc::decode("a branch to offer for the preview", &body) {
+        Ok(offer) => offer,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().offer_preview(crate::acting::asking(), offer).await {
+        Ok(offered) => answer(StatusCode::OK, &offered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The Job takes its offer of a branch back. 200 with the branch; 404 where it has no such offer.
+pub(crate) async fn withdraw_preview<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let withdraw: ipc::WithdrawPreview = match ipc::decode("a branch to take off the preview list", &body) {
+        Ok(withdraw) => withdraw,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().withdraw_preview(crate::acting::asking(), withdraw).await {
+        Ok(withdrawn) => answer(StatusCode::OK, &withdrawn, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A follow-up the session kept for later is settled. 200 with what was settled and what is still open; 422 for a
 /// filed with no issue, an agent's drop with no reason, or a call that places no session; 409 for a follow-up not open.
 pub(crate) async fn settle_later<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {

@@ -17,6 +17,9 @@ pub struct KeptWaiting {
     pub since: String,
     pub act: Option<(String, String)>,
     pub options: Vec<String>,
+    /// The pictures the options are offered as: the JSON of an array as long as `options`, each entry null or
+    /// one picture. Empty where no option has one. The shape is Fleet's, so this keeps it as text.
+    pub pictures: String,
     pub steps: Vec<String>,
     /// It asks for his approval, so its options are Fleet's.
     pub approves: bool,
@@ -31,6 +34,8 @@ pub struct KeptClosed {
     pub source: String,
     pub act: Option<(String, String)>,
     pub options: Vec<String>,
+    /// As [`KeptWaiting::pictures`].
+    pub pictures: String,
     pub steps: Vec<String>,
     pub since: String,
     pub closed_at: String,
@@ -55,7 +60,7 @@ impl Store {
         let mut statement = self
             .conn
             .prepare(
-                "SELECT item_id, text, since, act_kind, act_target, options, steps, approves
+                "SELECT item_id, text, since, act_kind, act_target, options, steps, approves, pictures
                  FROM session_waiting WHERE session_id = ?1 ORDER BY position",
             )
             .map_err(fault(doing))
@@ -72,6 +77,7 @@ impl Store {
                     since: row.get(2)?,
                     act: kind.zip(target),
                     options: serde_json::from_str(&options).unwrap_or_default(),
+                    pictures: row.get(8)?,
                     steps: serde_json::from_str(&steps).unwrap_or_default(),
                     approves: row.get(7)?,
                 })
@@ -96,8 +102,8 @@ impl Store {
             for (position, item) in items.iter().enumerate() {
                 transaction.execute(
                     "INSERT INTO session_waiting
-                     (session_id, position, item_id, text, since, act_kind, act_target, options, steps, approves)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                     (session_id, position, item_id, text, since, act_kind, act_target, options, steps, approves, pictures)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                     params![
                         session_id,
                         position as i64,
@@ -109,6 +115,7 @@ impl Store {
                         serde_json::to_string(&item.options).unwrap_or_else(|_| "[]".into()),
                         serde_json::to_string(&item.steps).unwrap_or_else(|_| "[]".into()),
                         item.approves,
+                        item.pictures,
                     ],
                 )?;
             }
@@ -254,7 +261,7 @@ impl Store {
         let mut statement = self
             .conn
             .prepare(
-                "SELECT item_id, text, source, act_kind, act_target, options, steps, since, closed_at, approves
+                "SELECT item_id, text, source, act_kind, act_target, options, steps, since, closed_at, approves, pictures
                  FROM session_waiting_dismissed WHERE session_id = ?1 AND closed_at IS NOT NULL
                  ORDER BY closed_at DESC, rowid DESC",
             )
@@ -276,6 +283,7 @@ impl Store {
                     since: row.get::<_, Option<String>>(7)?.unwrap_or_default(),
                     closed_at: row.get(8)?,
                     approves: row.get(9)?,
+                    pictures: row.get(10)?,
                 })
             })
             .map_err(fault(doing))
@@ -293,11 +301,11 @@ impl Store {
             let transaction = self.conn.transaction()?;
             transaction.execute(
                 "INSERT INTO session_waiting_dismissed
-                 (session_id, item_id, text, source, act_kind, act_target, options, steps, since, closed_at, approves)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+                 (session_id, item_id, text, source, act_kind, act_target, options, steps, since, closed_at, approves, pictures)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
                  ON CONFLICT (session_id, item_id) DO UPDATE SET
                  text = ?3, source = ?4, act_kind = ?5, act_target = ?6, options = ?7, steps = ?8, since = ?9, closed_at = ?10,
-                 approves = ?11",
+                 approves = ?11, pictures = ?12",
                 params![
                     session_id,
                     closed.item_id,
@@ -310,6 +318,7 @@ impl Store {
                     closed.since,
                     closed.closed_at,
                     closed.approves,
+                    closed.pictures,
                 ],
             )?;
             transaction.execute(
@@ -348,9 +357,9 @@ impl Store {
                 if held == 0 {
                     transaction.execute(
                         "INSERT INTO session_waiting
-                         (session_id, position, item_id, text, since, act_kind, act_target, options, steps, approves)
+                         (session_id, position, item_id, text, since, act_kind, act_target, options, steps, approves, pictures)
                          VALUES (?1, (SELECT COALESCE(MAX(position) + 1, 0) FROM session_waiting WHERE session_id = ?1),
-                                 ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                                 ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                         params![
                             session_id,
                             item.item_id,
@@ -361,6 +370,7 @@ impl Store {
                             serde_json::to_string(&item.options).unwrap_or_else(|_| "[]".into()),
                             serde_json::to_string(&item.steps).unwrap_or_else(|_| "[]".into()),
                             item.approves,
+                            item.pictures,
                         ],
                     )?;
                 }

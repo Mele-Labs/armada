@@ -25,7 +25,7 @@ fn item(id: &str, source: Source, act: Option<(WaitingActKind, &str)>, choices: 
         since: Instant::carried("2026-11-10T10:00:00Z"),
         source,
         act: act.map(|(kind, target)| WaitingAct { kind, target: target.into() }),
-        options: choices.iter().map(|label| WaitingOption { label: (*label).into(), description: None }).collect(),
+        options: choices.iter().map(|label| WaitingOption { label: (*label).into(), description: None, picture: None }).collect(),
         steps: steps.iter().map(|one| (*one).into()).collect(),
         place: None,
         approves: false,

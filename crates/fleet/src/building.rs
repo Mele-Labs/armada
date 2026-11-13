@@ -12,9 +12,8 @@
 //! orphan sweep does not end it: it stops this Fleet, installs the next and
 //! reopens Bridge, all after the process that asked for it is gone.
 //!
-//! **Fleet never restarts the preview by itself.** A branch `scripts/preview` left out that has
-//! moved past the tip it was left out at is [`left_out_moved`], which Fleet offers to the Job holding
-//! it (`session_host::preview_offers`); only the owner's press starts the restart.
+//! **Fleet never restarts the preview by itself.** The branches Jobs offer for it are
+//! `preview_offering`'s; only the owner's press starts the restart.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -81,8 +80,6 @@ const PREVIEW_TREE: &str = ".armada/preview";
 const FETCH_EVERY: Duration = Duration::from_secs(10 * 60);
 /// A fetch still running after this is stopped.
 const FETCH_WITHIN: Duration = Duration::from_secs(60);
-/// How `scripts/preview` words a branch it left out for a migration that is not on main.
-const BREAKING_MIGRATION: &str = "breaking migration";
 /// A `running` status older than this is a wrapper that died, not one working.
 const RUNNING_FOR_AT_MOST: Duration = Duration::from_secs(20 * 60);
 
@@ -223,6 +220,8 @@ pub(crate) fn left_out_in(support: &Path, commit: &str) -> BTreeMap<String, Left
 pub(crate) struct Held {
     pub(crate) main_commit: String,
     pub(crate) branches: Vec<String>,
+    /// Where each branch stood when it was merged.
+    pub(crate) tips: BTreeMap<String, String>,
 }
 
 /// What `scripts/preview` recorded the build at `commit` holds: its first line, then the main commit,
@@ -234,8 +233,16 @@ pub(crate) fn held_in(support: &Path, commit: &str) -> Option<Held> {
         return None;
     }
     let main_commit = lines.next()?.trim().to_string();
-    let branches = lines.filter_map(|line| Some(line.split('\t').next()?.trim().to_string())).filter(|branch| !branch.is_empty()).collect();
-    (!main_commit.is_empty()).then_some(Held { main_commit, branches })
+    let held: Vec<(String, String)> = lines
+        .filter_map(|line| {
+            let mut fields = line.split('\t').map(str::trim);
+            Some((fields.next()?.to_string(), fields.next().unwrap_or_default().to_string()))
+        })
+        .filter(|(branch, _)| !branch.is_empty())
+        .collect();
+    let branches = held.iter().map(|(branch, _)| branch.clone()).collect();
+    let tips = held.into_iter().filter(|(_, tip)| !tip.is_empty()).collect();
+    (!main_commit.is_empty()).then_some(Held { main_commit, branches, tips })
 }
 
 /// When the restart wrote `restart-commit`, in milliseconds since the epoch: when the build began.
@@ -354,37 +361,6 @@ impl Fetched {
         }
         due
     }
-}
-
-/// A branch the running preview left out whose tip has moved since: worth a refresh, if the owner says.
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) struct Moved {
-    pub(crate) branch: String,
-    /// Where `tip_of` reads it now.
-    pub(crate) tip: String,
-    pub(crate) why: String,
-    /// The commit of the build that left it out.
-    pub(crate) build: String,
-}
-
-/// The branches the running preview left out whose tip, as `tip_of` reads it, is not the one they were
-/// left out at. **Only a reading**: none while a restart is under way, and none left out for a breaking
-/// migration, which only main can bring back.
-pub(crate) fn left_out_moved(support: &Path, now: SystemTime, tip_of: impl Fn(&str) -> Option<String>) -> Vec<Moved> {
-    if !matches!(source_in(support), Ok(BuildSource::Preview)) || restarting_in(support, now) {
-        return Vec::new();
-    }
-    let Some(build) = commit_in(support) else {
-        return Vec::new();
-    };
-    left_out_in(support, &build)
-        .into_iter()
-        .filter(|(_, left)| !left.why.starts_with(BREAKING_MIGRATION))
-        .filter_map(|(branch, left)| {
-            let tip = tip_of(&branch).filter(|tip| *tip != left.tip)?;
-            Some(Moved { branch, tip, why: left.why, build: build.clone() })
-        })
-        .collect()
 }
 
 impl Building {
