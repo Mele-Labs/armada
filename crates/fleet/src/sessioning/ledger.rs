@@ -209,6 +209,13 @@ where
                 (one, title, part)
             });
         let plan = store.session_plan(&session.id).map_err(fault)?;
+        let other_macs = match (&plan, &hosting) {
+            (Some(plan), Some(hosting)) if session.state == store::SessionState::Live => {
+                let paths: Vec<String> = plan.groups.iter().flat_map(|group| group.paths.iter().cloned()).collect();
+                crate::operator::plan_overlap(store, &hosting.manifest_id, &paths, self.unix_seconds())
+            }
+            _ => Vec::new(),
+        };
         let pulls = match &plan {
             Some(_) => crate::plan_keeping::pulls_read(store, &session.id, &held).map_err(fault)?,
             None => Vec::new(),
@@ -236,6 +243,7 @@ where
             context: store.session_context(&session.id).map_err(fault)?,
             loadout: crate::loadout_keeping::summary_read(store, &session.id).map_err(fault)?,
             plan,
+            other_macs,
             judge_readings: store.judge_readings(&session.id).map_err(fault)?,
             touches: store.session_touches(&session.id).map_err(fault)?,
             pulls,
@@ -361,7 +369,7 @@ where
         record.plan = reads
             .plan
             .as_ref()
-            .map(|kept| ipc::SessionPlan { held_by: plan_held, ..crate::plan_record::wire_read(kept, &reads.pulls) });
+            .map(|kept| ipc::SessionPlan { held_by: plan_held, other_macs: reads.other_macs, ..crate::plan_record::wire_read(kept, &reads.pulls) });
         if let (Some(kept), Some(activity)) = (&reads.plan, &mut record.activity) {
             crate::plan_record::mark_listed(kept, &mut activity.todos);
         }

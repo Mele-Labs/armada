@@ -159,8 +159,14 @@ where
     /// Job against the live ones once it exists, which a dispatch it has ruled on already is not.
     async fn dispatch_started(self: &Arc<Self>, dispatch: DispatchJob, overlap: bool) -> Result<SessionRecord, Refusal> {
         let DispatchJob { start, then, .. } = dispatch;
+        let manifest = start.manifest_id.as_str().to_string();
+        let words = start.request.clone().unwrap_or_default();
+        let subject = start.title.clone().filter(|title| !title.trim().is_empty()).unwrap_or_else(|| first_line(&words));
+        let found = self.found_elsewhere(&manifest, &subject, &words).await;
         let record = Arc::clone(self).started_reading_with(start, overlap).await?;
         self.dispatch_sent(&record.id, then).await;
+        // Told after his own words, so they stay his first message as he wrote them.
+        self.elsewhere_told(record.id.as_str(), &manifest, &subject, &found).await;
         Ok(record)
     }
 

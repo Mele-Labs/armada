@@ -160,6 +160,16 @@ export type SessionPlan = {
   held_by?: PlanHold[];
   /** The agent's `all_done` is held at a gate: Fleet finishes the Job when the last gate closes. Absent when no call is held and when no gate is open. */
   held?: GateHeld;
+  /** Jobs on his other Macs whose plans name paths this plan also names. Only on this Mac's own live Job. */
+  other_macs?: PlanOverlap[];
+};
+
+/** A Job on another Mac whose plan names some of the same paths. `mac`: the paired Mac's id, as on a record. `paths`: where the two plans meet. */
+export type PlanOverlap = {
+  mac: string;
+  session_id: string;
+  title: string;
+  paths: string[];
 };
 
 /** An `all_done` held at the first open gate of the plan. `group`: that group's id. `since`: when the agent first said it was done. */
