@@ -77,6 +77,7 @@ pub fn step_of(one: &ipc::StepReading) -> Step {
 }
 
 /// Whether a copy's step says anything Armada's of the same id does not.
+#[allow(dead_code)] // The inspector draws the step cards next.
 pub fn differs(one: &Step, armada: &Step) -> bool {
     one.words != armada.words || one.ends != armada.ends || one.ends_any != armada.ends_any || one.passed_over != armada.passed_over
 }
@@ -174,6 +175,7 @@ pub fn armada_of(rows: &[Listed], id: &str) -> Option<Listed> {
 /// What the lanes' inspector puts in a card in place of what the column draws (`StepRows`): the name and what ends
 /// the step as fields, rows under the words, its own save, and whether the card stays read only there.
 #[derive(Default)]
+#[allow(dead_code)] // The inspector draws the step cards next.
 pub struct StepRows {
     pub name: Option<AnyElement>,
     pub ends: Option<AnyElement>,
@@ -186,6 +188,7 @@ pub struct StepRows {
 /// One card to draw: the workflow's row, the step and its place, whether its words are edited, whether they save
 /// as they are left (the lanes) rather than on Save, and, while comparing, Armada's step of the same id or none
 /// where the copy added it.
+#[allow(dead_code)] // The inspector draws the step cards next.
 pub struct Card<'a> {
     pub row: &'a Listed,
     pub step: &'a Step,
@@ -198,6 +201,7 @@ pub struct Card<'a> {
 
 pub enum StepsRead {
     Loading,
+    #[allow(dead_code)] // The inspector draws the step cards next.
     Refused(String),
     Read(Vec<Step>),
 }
@@ -273,7 +277,7 @@ struct After {
 }
 
 /// One request made on the overlay's wire and awaited off it.
-async fn ask<T: 'static>(this: &WeakEntity<SettingsOverlay>, cx: &mut AsyncWindowContext, make: impl FnOnce(&mut SettingsOverlay, &mut Context<SettingsOverlay>) -> Task<Result<T, Refused>>) -> Result<T, Refused> {
+pub(super) async fn ask<T: 'static>(this: &WeakEntity<SettingsOverlay>, cx: &mut AsyncWindowContext, make: impl FnOnce(&mut SettingsOverlay, &mut Context<SettingsOverlay>) -> Task<Result<T, Refused>>) -> Result<T, Refused> {
     let task = this.update(cx, make).map_err(|_| Refused::said("Settings closed"))?;
     task.await
 }
@@ -355,6 +359,7 @@ impl SettingsOverlay {
     }
 
     /// Whether a step's words differ from what Fleet holds.
+    #[allow(dead_code)] // The inspector draws the step cards next.
     fn words_changed_from(&self, at: &str, step: &Step, cx: &App) -> bool {
         self.workflows.detail.typed(at, cx).is_some_and(|text| text != step.words)
     }
@@ -529,9 +534,9 @@ impl SettingsOverlay {
         self.close(window, cx);
     }
 
-    /// The detail's stops, after the list's: each act, Open Job where an act started one, then the first card or
-    /// the one the keys are on, each card's Discard and Save while its words are changed, and its words.
-    pub(super) fn detail_stops_for(&self, window: &Window, cx: &App) -> Vec<FocusHandle> {
+    /// The detail's stops, after the list's: each act, Open Job where an act started one, Add lifecycle, what the
+    /// box that asks an agent draws, then the canvas.
+    pub(super) fn detail_stops_for(&self, _window: &Window, cx: &App) -> Vec<FocusHandle> {
         let (_, Some(one)) = self.shown_workflows(cx) else { return Vec::new() };
         let detail = &self.workflows.detail;
         let key = one.key();
@@ -549,25 +554,9 @@ impl SettingsOverlay {
         if said.is_some_and(|said| said.job.is_some()) {
             stops.extend(detail.key("open-job").cloned());
         }
-        let Some(StepsRead::Read(steps)) = detail.reads.get(&key) else {
-            stops.extend(self.band_stops(&one, cx));
-            return stops;
-        };
-        let on = steps.iter().position(|step| detail.key(&format!("card:{key}/{}", step.id)).is_some_and(|card| card.is_focused(window)));
-        for (n, step) in steps.iter().enumerate() {
-            let at = format!("{key}/{}", step.id);
-            if n == 0 || on == Some(n) {
-                stops.extend(detail.key(&format!("card:{at}")).cloned());
-            }
-            if self.words_changed_from(&at, step, cx) {
-                stops.extend(detail.key(&format!("discard:{at}")).cloned());
-                stops.extend(detail.key(&format!("save:{at}")).cloned());
-            }
-            if let Some(words) = detail.words.get(&at) {
-                stops.push(words.state.read(cx).focus_handle(cx));
-            }
-        }
+        stops.push(self.lanes.add.clone());
         stops.extend(self.band_stops(&one, cx));
+        stops.extend(self.lanes_stops(&one));
         stops
     }
 
@@ -631,6 +620,10 @@ impl SettingsOverlay {
             self.press_act(act, window, cx);
             return true;
         }
+        if self.lanes.add.is_focused(window) {
+            self.add_lifecycle(window, cx);
+            return true;
+        }
         if self.workflows.detail.key("open-job").is_some_and(|focus| focus.is_focused(window)) {
             if let Some(job) = self.workflows.detail.said.as_ref().and_then(|(_, said)| said.job.clone()) {
                 self.open_job(job, window, cx);
@@ -642,39 +635,20 @@ impl SettingsOverlay {
 
     // ---- drawn --------------------------------------------------------------------------------
 
-    /// The picked workflow: its head with the acts, then its steps.
+    /// The picked workflow: its head with the acts, then the lanes with the box that asks an agent over them
+    /// (`WorkspaceEditor`); the step cards are the inspector's.
     pub(super) fn render_workflow_detail(&self, one: &Listed, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
-        let key = one.key();
         let rows = self.workflow_rows(cx).unwrap_or_default();
         let armada = armada_of(&rows, &one.id);
-        let editable = one.place != Place::Armada && one.runs_in.is_none();
-        let comparing = editable && armada.is_some() && self.workflows.detail.comparing.as_deref() == Some(key.as_str());
-        let armada_steps = match armada.as_ref().and_then(|armada| self.workflows.detail.reads.get(&armada.key())) {
-            Some(StepsRead::Read(steps)) => Some(steps.clone()),
-            _ => None,
-        };
-        let steps: AnyElement = match self.workflows.detail.reads.get(&key) {
-            None | Some(StepsRead::Loading) => self.render_steps_pending(look),
-            Some(StepsRead::Refused(said)) => labelled(div().id("workflow-steps-refused").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::STATUS_COMPLETED_FAILED)).child(SharedString::from(said.clone())), Role::Alert, said.clone()).into_any_element(),
-            Some(StepsRead::Read(steps)) => {
-                let mut column = div().flex().flex_col().gap(look.length(token::SPACE_4));
-                for (n, step) in steps.iter().enumerate() {
-                    let versus = (comparing && armada_steps.is_some()).then(|| armada_steps.as_ref().and_then(|all| all.iter().find(|one| one.id == step.id)));
-                    column = column.child(self.step_card(Card { row: one, step, n: n + 1, editable, live: false, versus, rows: None }, look, window, cx));
-                }
-                column.into_any_element()
-            }
-        };
+        let comparing = one.place != Place::Armada && one.runs_in.is_none() && armada.is_some() && self.workflows.detail.comparing.as_deref() == Some(one.key().as_str());
+        let band = self.render_change_band(one, look, window, cx);
         div()
             .flex()
             .flex_col()
             .gap(look.length(token::GAP_SECTION))
             .pb(look.length(token::SPACE_4))
             .child(self.render_workflow_head(one, armada.as_ref(), comparing, look, window, cx))
-            .child(div().px(look.length(token::SPACE_4)).child(steps))
-            // Under the steps until the lanes' inspector takes the cards, as Classic's does (`WorkspaceEditor`).
-            .child(div().flex_none().px(look.length(token::SPACE_4)).child(self.render_lanes(one, look, cx)))
-            .children(self.render_change_band(one, look, window, cx).map(|band| div().px(look.length(token::SPACE_4)).child(band)))
+            .child(div().flex_none().px(look.length(token::SPACE_4)).child(self.render_lanes(one, band, look, window, cx)))
             .into_any_element()
     }
 
@@ -789,6 +763,7 @@ impl SettingsOverlay {
     }
 
     /// Three cards drawn as shapes while Fleet reads the steps.
+    #[allow(dead_code)] // The inspector draws the step cards next.
     fn render_steps_pending(&self, look: &Look) -> AnyElement {
         let mut column = div().flex().flex_col().gap(look.length(token::SPACE_4));
         for (n, wide) in [96., 72., 112.].into_iter().enumerate() {
@@ -805,6 +780,7 @@ impl SettingsOverlay {
 
     /// One step as its card (`Step`): a band with its place, name and glyph, the marks a comparison makes and Save
     /// while its words are changed; then what ends it, when it is passed over, and its words.
+    #[allow(dead_code)] // The inspector draws the step cards next.
     pub fn step_card(&self, card: Card, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let Card { row, step, n, editable, live, versus, rows } = card;
         let at = format!("{}/{}", row.key(), step.id);
@@ -894,24 +870,31 @@ impl SettingsOverlay {
     }
 }
 
+/// The copy of a workflow that is Armada's or runs in a repository that keeps none: Yours for Armada's own, the
+/// repository's for what runs in it (`onMakeCopy`, `onCopyInto`). A copy already there is the one returned.
+pub(super) async fn make_copy(one: &Listed, this: &WeakEntity<SettingsOverlay>, cx: &mut AsyncWindowContext) -> Result<Listed, Refused> {
+    let (id, manifest) = (one.id.clone(), one.manifest.clone());
+    let (from, into, scope) = match &one.runs_in {
+        None => ("armada", manifest.clone(), WorkflowScope::Kit),
+        Some(repository) => (wire_of(one.place), repository.clone(), WorkflowScope::Repository),
+    };
+    let held = ask(this, cx, |this, cx| this.wire.workflow_definition(&id, from, &into, cx)).await?;
+    let save = SaveWorkflow { scope, definition: held.definition, overwrite: false };
+    match ask(this, cx, |this, cx| this.wire.save_workflow(&into, save, cx)).await {
+        Err(why) if !why.is("fleet.workflow_exists") => return Err(why),
+        _ => {}
+    }
+    let place = if scope == WorkflowScope::Kit { Place::Yours } else { Place::Repository };
+    Ok(Listed { id, place, manifest: into, runs_in: None, for_requests: one.for_requests.clone() })
+}
+
 /// The ask behind each act (`onCopyInto`, `onMakeCopy`, `onReset`, `onPropose`, `onDelete`).
 async fn run_act(act: Act, one: &Listed, this: &WeakEntity<SettingsOverlay>, cx: &mut AsyncWindowContext) -> Result<After, Refused> {
     let (id, manifest) = (one.id.clone(), one.manifest.clone());
     match act {
         Act::MakeCopy | Act::CopyInto => {
-            let (from, into, scope) = match act {
-                Act::MakeCopy => ("armada", manifest.clone(), WorkflowScope::Kit),
-                _ => (wire_of(one.place), one.runs_in.clone().unwrap_or_else(|| manifest.clone()), WorkflowScope::Repository),
-            };
-            let held = ask(this, cx, |this, cx| this.wire.workflow_definition(&id, from, &into, cx)).await?;
-            let save = SaveWorkflow { scope, definition: held.definition, overwrite: false };
-            // A copy already there is the one to open.
-            match ask(this, cx, |this, cx| this.wire.save_workflow(&into, save, cx)).await {
-                Err(why) if !why.is("fleet.workflow_exists") => return Err(why),
-                _ => {}
-            }
-            let pick = if scope == WorkflowScope::Kit { format!("yours:{id}") } else { format!("repository@{into}:{id}") };
-            Ok(After { pick: Some(pick), list: true, ..After::default() })
+            let copy = make_copy(one, this, cx).await?;
+            Ok(After { pick: Some(copy.key()), list: true, ..After::default() })
         }
         Act::Reset => {
             let copy = copy_of(one);
@@ -945,6 +928,7 @@ async fn save_words(one: &Listed, step: &str, words: &str, this: &WeakEntity<Set
 }
 
 /// A card's frame: the sunken ground and its edge, the accent while its words are changed.
+#[allow(dead_code)] // The inspector draws the step cards next.
 fn card_frame(look: &Look, changed: bool) -> Div {
     div()
         .flex()
@@ -1004,6 +988,7 @@ pub(super) fn sunken_button(look: &Look, id: SharedString, said: &'static str, o
 
 /// One fact of a card: its name in the narrow column, and what it says beside it, or under it where the card is
 /// too narrow to hold both.
+#[allow(dead_code)] // The inspector draws the step cards next.
 fn fact(look: &Look, label: &'static str, value: AnyElement) -> Div {
     div()
         .flex()
@@ -1028,6 +1013,7 @@ fn fact(look: &Look, label: &'static str, value: AnyElement) -> Div {
 }
 
 /// A step's words beside Armada's, each sentence the other side lacks marked (`Compared`).
+#[allow(dead_code)] // The inspector draws the step cards next.
 fn compared(look: &Look, at: &str, against: &str, words: &str) -> AnyElement {
     let theirs = sentences_of(against);
     let ours = sentences_of(words);

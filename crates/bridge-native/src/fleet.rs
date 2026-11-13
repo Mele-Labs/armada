@@ -132,6 +132,8 @@ pub struct Held {
     arrived: Vec<CallArrival>,
     /// A Job's shells that opened, ended or were brought to the front since the last take. Told once.
     shells: Vec<ShellNews>,
+    /// What the Operator did with dispatches, folded since the last take, oldest first.
+    dispatched: Vec<ipc::operator_board::OperatorDispatched>,
     /// The port of the Fleet last connected to, so a command goes where the events come from.
     port: Option<u16>,
     /// The stylesheet Fleet checked for a mod, with the `changed_at` of the row it was checked for.
@@ -181,6 +183,7 @@ impl Held {
             workflows: None,
             arrived: Vec::new(),
             shells: Vec::new(),
+            dispatched: Vec::new(),
             port: None,
             sheets: BTreeMap::new(),
             threads: BTreeMap::new(),
@@ -297,6 +300,11 @@ impl Held {
         std::mem::take(&mut self.shells)
     }
 
+    /// What the Operator did with dispatches, folded since the last take, oldest first.
+    pub fn take_dispatched(&mut self) -> Vec<ipc::operator_board::OperatorDispatched> {
+        std::mem::take(&mut self.dispatched)
+    }
+
     fn set_settings(&mut self, list: &SettingsList) {
         let switch = list.settings.iter().find(|one| one.key == "features.notifications").map(|one| &one.value);
         self.notifications = switch != Some(&SettingValue::Bool(false));
@@ -408,6 +416,7 @@ impl Held {
                     // A row arrives whole and replaces the one held, never patches it.
                     match delivered.event {
                         Event::OperatorPageChanged(_) => self.operator_page_moved += 1,
+                        Event::OperatorDispatched(done) => self.dispatched.push(done),
                         Event::SessionChanged(record) => {
                             match self.jobs.iter_mut().find(|held| held.id == record.id) {
                                 Some(held) => *held = record,
@@ -521,6 +530,11 @@ fn kept_merge_lines(now: chrono::DateTime<chrono::Utc>) -> Option<Vec<ipc::Merge
 pub struct Arrived(pub Vec<CallArrival>);
 
 impl EventEmitter<Arrived> for FleetConnection {}
+
+/// What the Operator did with dispatches in one folded batch, for a toast to say.
+pub struct Dispatched(pub Vec<ipc::operator_board::OperatorDispatched>);
+
+impl EventEmitter<Dispatched> for FleetConnection {}
 
 /// One of a Job's shells, as `terminal.opened`, `terminal.exited` and `terminal.shown` tell it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -986,12 +1000,16 @@ impl FleetConnection {
                     }
                     let arrived = this.held.take_arrived();
                     let shells = this.held.take_shells();
+                    let dispatched = this.held.take_dispatched();
                     cx.notify();
                     if !arrived.is_empty() {
                         cx.emit(Arrived(arrived));
                     }
                     if !shells.is_empty() {
                         cx.emit(Shells(shells));
+                    }
+                    if !dispatched.is_empty() {
+                        cx.emit(Dispatched(dispatched));
                     }
                     lines
                 });
@@ -1212,6 +1230,23 @@ mod tests {
         assert_eq!(told, [("opened", "t2"), ("shown", "t2"), ("exited", "t1")]);
         assert_eq!(news[0].clone(), ShellNews::Opened(ipc::JobTerminal { session_id: ipc::SessionId::carried("s0"), terminal: "t2".into(), run_id: "r-t2".into() }));
         assert!(held.take_shells().is_empty(), "news is told once");
+    }
+
+    #[test]
+    fn what_the_operator_did_with_a_dispatch_is_handed_over_once_in_the_order_it_came() {
+        let done = |id: &str, way: &str| {
+            let wire = format!(
+                r#"{{"message":"event","cursor":1,"event":{{"kind":"operator.dispatched","dispatch_id":"{id}","manifest_id":"armada","way":"{way}","session_id":"s1","title":"Fix it"}}}}"#
+            );
+            Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+        };
+        let mut held = Held::new();
+        held.fold(vec![done("d1", "started"), done("d2", "handed"), done("d3", "parked")]);
+        let news = held.take_dispatched();
+        let told: Vec<(&str, ipc::operator_board::DispatchWay)> = news.iter().map(|one| (one.dispatch_id.as_str(), one.way)).collect();
+        assert_eq!(told, [("d1", ipc::operator_board::DispatchWay::Started), ("d2", ipc::operator_board::DispatchWay::Handed), ("d3", ipc::operator_board::DispatchWay::Parked)]);
+        assert_eq!(news[0].title.as_deref(), Some("Fix it"));
+        assert!(held.take_dispatched().is_empty(), "news is told once");
     }
 
     #[test]

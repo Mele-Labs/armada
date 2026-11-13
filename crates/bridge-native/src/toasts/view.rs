@@ -18,7 +18,9 @@ use gpui::{
     div, prelude::*, AnyWindowHandle, App, Context, Entity, FocusHandle, FontWeight, Global, Hsla, KeyDownEvent, Role, SharedString,
     Stateful, Subscription, WeakEntity, Window,
 };
+use ipc::operator_board::{DispatchWay, OperatorDispatched};
 use ipc::operator_page::{OperatorAnswer, OperatorTurnItem, OperatorTurnKind};
+use ipc::JobState;
 use ipc::CallTone;
 
 use super::{Ended, FleetNotice, NoticeAct, Shelf, Toast, Urgency};
@@ -71,6 +73,80 @@ struct Told(Vec<TellOne>);
 
 impl Global for Told {}
 
+/// What the Operator did with a dispatch, as a toast of its own: the sentence it says, and what a press on it opens.
+#[derive(Clone)]
+struct Raised {
+    key: u64,
+    way: DispatchWay,
+    /// The Job a press opens, where the Operator started or folded into one.
+    job: Option<String>,
+    sentence: SharedString,
+}
+
+/// The Operator's rulings on dispatches, oldest first, each until he presses it or closes it.
+#[derive(Default)]
+struct Rulings(Vec<Raised>);
+
+impl Global for Rulings {}
+
+/// The words of a dispatch the Operator holds, by its id, so a toast that asks can say what about.
+#[derive(Default)]
+struct Holding(Vec<(String, String)>);
+
+impl Global for Holding {}
+
+/// A dispatch the Operator holds: what he sent, kept until `operator.dispatched` says what became of it.
+pub fn dispatch_held(dispatch_id: &str, words: &str, cx: &mut App) {
+    let mut held = cx.try_global::<Holding>().map(|kept| kept.0.clone()).unwrap_or_default();
+    held.retain(|(id, _)| id != dispatch_id);
+    held.push((dispatch_id.to_string(), words.to_string()));
+    cx.set_global(Holding(held));
+}
+
+/// The words a toast names a dispatch by: a line, cut where it runs long.
+fn about(words: &str) -> String {
+    let line = words.lines().next().unwrap_or_default().trim();
+    if line.chars().count() > 48 {
+        format!("{}...", line.chars().take(48).collect::<String>().trim_end())
+    } else {
+        line.to_string()
+    }
+}
+
+/// The Operator did something with a dispatch: a toast says it, and a press on it opens the Job or the Operator's
+/// page. He stays where he was until he presses.
+pub fn dispatched(news: OperatorDispatched, cx: &mut App) {
+    let held = cx.try_global::<Holding>().and_then(|kept| kept.0.iter().find(|(id, _)| *id == news.dispatch_id).map(|(_, words)| about(words)));
+    let sentence = ruling_said(&news, held);
+    let job = news.session_id.as_ref().map(|id| id.as_str().to_string()).filter(|_| matches!(news.way, DispatchWay::Started | DispatchWay::Handed));
+    let mut rulings = cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default();
+    let key = rulings.last().map_or(1, |one| one.key + 1);
+    rulings.push(Raised { key, way: news.way, job, sentence: sentence.into() });
+    cx.set_global(Rulings(rulings));
+    if let Some(toasts) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
+        toasts.update(cx, |toasts, cx| {
+            toasts.unseen = true;
+            cx.notify();
+        });
+    }
+}
+
+/// What the Operator did, in bare words: the Job by its title, and for a question the title or what he sent.
+fn ruling_said(news: &OperatorDispatched, held: Option<String>) -> String {
+    match news.way {
+        DispatchWay::Started => format!("Operator started {}", news.title.as_deref().unwrap_or("a Job")),
+        DispatchWay::Handed => format!("Operator handed it to {}", news.title.as_deref().unwrap_or("a live Job")),
+        DispatchWay::Asked => format!("Operator asks about {}", news.title.clone().or(held).unwrap_or_else(|| "it".into())),
+        DispatchWay::Parked => "Operator kept it as an idea".to_string(),
+    }
+}
+
+/// A ruling's toast went: pressed or closed.
+fn unrule(key: u64, cx: &mut App) {
+    let rulings = cx.try_global::<Rulings>().map(|kept| kept.0.iter().filter(|one| one.key != key).cloned().collect()).unwrap_or_default();
+    cx.set_global(Rulings(rulings));
+}
+
 /// A failure toast that says one sentence, as Electron's `askToTell`: a press Fleet did not take, such as
 /// a message to a Job. It stays until he closes it.
 pub fn tell(sentence: impl Into<SharedString>, cx: &mut App) {
@@ -100,6 +176,8 @@ fn told(sentence: SharedString, retry: Option<Retry>, cx: &mut App) {
 pub fn at_rest(cx: &mut App) {
     cx.set_global(FleetNotices::default());
     cx.set_global(Told::default());
+    cx.set_global(Rulings::default());
+    cx.set_global(Holding::default());
 }
 
 /// He closed a told toast.
@@ -157,6 +235,8 @@ pub struct Toasts {
     back: Option<FocusHandle>,
     /// The history file, on the owner's Fleet only.
     file: Option<PathBuf>,
+    /// How far the pile stands above its corner so it clears a message box drawn under it.
+    lift: gpui::Pixels,
     _subs: Vec<Subscription>,
 }
 
@@ -173,11 +253,19 @@ impl Toasts {
     fn new(page: Entity<OperatorPageView>, screen: WeakEntity<OperatorScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let file = page.read(cx).fleet().and(history_file());
         let shelf = Shelf::kept(file.as_ref().map(read_history).unwrap_or_default());
-        let subs = vec![
+        let mut subs = vec![
             cx.subscribe_in(&page, window, |this, _, arrived: &Arrived, window, cx| this.arrived(&arrived.0, window, cx)),
             cx.observe(&page, |this, page, cx| this.page_moved(&page, cx)),
         ];
-        Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, _subs: subs }
+        // What the Operator did with a dispatch is said as a toast, from the same Fleet the page reads.
+        if let Some(fleet) = page.read(cx).fleet().cloned() {
+            subs.push(cx.subscribe(&fleet, |_, _, done: &crate::fleet::Dispatched, cx| {
+                for one in &done.0 {
+                    dispatched(one.clone(), cx);
+                }
+            }));
+        }
+        Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, lift: gpui::px(0.), _subs: subs }
     }
 
     fn arrived(&mut self, items: &[OperatorTurnItem], window: &mut Window, cx: &mut Context<Self>) {
@@ -254,6 +342,31 @@ impl Toasts {
         cx.notify();
     }
 
+    /// A press on an Operator ruling's toast: the Job it started or took the work, or the Operator's page. The toast goes.
+    fn open_ruling(&mut self, key: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(one) = cx.try_global::<Rulings>().and_then(|kept| kept.0.iter().find(|one| one.key == key).cloned()) else { return };
+        unrule(key, cx);
+        self.history = false;
+        self.back = None;
+        if let Some(screen) = self.screen.upgrade() {
+            screen.update(cx, |screen, cx| match &one.job {
+                Some(job) => screen.open_job(job, window, cx),
+                None => screen.bring(Some(Front::Operator), window, cx),
+            });
+        }
+        cx.notify();
+    }
+
+    /// He closed a ruling's toast: the Job or the page stays unopened.
+    fn close_ruling(&mut self, key: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let had_keys = self.focus.is_focused(window);
+        unrule(key, cx);
+        if had_keys {
+            self.give_back(window, cx);
+        }
+        cx.notify();
+    }
+
     /// A toast went: the keys stay on the toasts while one is left, else go back where they were.
     fn ended(&mut self, id: &str, how: Ended, window: &mut Window, cx: &mut Context<Self>) {
         let had_keys = self.focus.is_focused(window);
@@ -271,7 +384,8 @@ impl Toasts {
     }
 
     pub fn focus_newest(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.shelf.shown().is_empty() {
+        let ruled = cx.try_global::<Rulings>().is_some_and(|kept| !kept.0.is_empty());
+        if self.shelf.shown().is_empty() && !ruled {
             return;
         }
         if !self.focus.is_focused(window) {
@@ -557,6 +671,115 @@ impl Toasts {
         )
     }
 
+    /// What the Operator did with a dispatch: its state glyph with a tooltip, the sentence as the press that opens
+    /// the Job or the Operator's page, and its close.
+    fn ruling_toast(&self, one: &Raised, newest: bool, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+        let key = one.key;
+        // The glyph is the registry's for the state the work stands in: working, waiting on him, or held as an idea.
+        let state = match one.way {
+            DispatchWay::Started | DispatchWay::Handed => JobState::Working,
+            DispatchWay::Asked => JobState::Waiting,
+            DispatchWay::Parked => JobState::Held,
+        };
+        let (name, said) = crate::jobs::glyph_of(state, None);
+        let ink = look.color(crate::jobs::hue_of(state));
+        let opens: SharedString = if one.job.is_some() { "Opens the Job".into() } else { "Opens the Operator".into() };
+        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+        let mark = labelled(
+            div().id(SharedString::from(format!("toast-ruling-state:{key}"))).flex_none().pt(look.length(token::SPACE_1) / 2.).tooltip(tip(said.clone())).child(glyph(name, look.length(token::SPACE_4), ink)),
+            Role::Image,
+            said,
+        );
+        let press = labelled(
+            div()
+                .id(SharedString::from(format!("toast-ruling:{key}")))
+                .flex_1()
+                .min_w_0()
+                .px(look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_SM))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(gpui::transparent_black())
+                .cursor_pointer()
+                .focusable()
+                .tab_stop(true)
+                .focus_visible(move |style| style.border_color(ring))
+                .text_size(look.length(token::TEXT_SM))
+                .text_color(look.color(token::FG_DEFAULT))
+                .tooltip(tip(opens))
+                .on_click(cx.listener(move |this, _, window, cx| this.open_ruling(key, window, cx)))
+                .child(one.sentence.clone()),
+            Role::Button,
+            one.sentence.clone(),
+        );
+        let close = labelled(
+            icon_button(SharedString::from(format!("toast-ruling-close:{key}")), "x", look.color(token::FG_MUTED), look)
+                .tooltip(tip("Close"))
+                .on_click(cx.listener(move |this, _, window, cx| this.close_ruling(key, window, cx))),
+            Role::Button,
+            "Close",
+        );
+        let body = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_3))
+            .child(mark)
+            .child(press)
+            .child(close);
+        let frame = div()
+            .id(SharedString::from(format!("toast-ruling-frame:{key}")))
+            .w(gpui::px(WIDTH))
+            .flex()
+            .overflow_hidden()
+            .rounded(look.length(token::RADIUS_LG) * 1.5)
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(ink.opacity(0.6))
+            .bg(look.color(token::BG_OVERLAY))
+            .shadow(look.shadows(token::SHADOW_OVERLAY))
+            // A press on a toast never reaches what is under it.
+            .occlude()
+            .font_family(sans(look))
+            .child(div().flex_none().w(gpui::px(3.)).bg(ink))
+            .child(body);
+        // ⌥⌘J puts the keys on the newest toast: Enter opens it, Esc closes it.
+        let frame = if newest {
+            frame.track_focus(&self.focus).focus(move |style| style.border_color(ring)).on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                let pressed = &event.keystroke;
+                if pressed.modifiers.modified() {
+                    return;
+                }
+                match pressed.key.as_str() {
+                    "enter" => this.open_ruling(key, window, cx),
+                    "escape" => this.close_ruling(key, window, cx),
+                    _ => return,
+                }
+                cx.stop_propagation();
+            }))
+        } else {
+            frame
+        };
+        labelled(frame, Role::Alert, format!("Toast: {}", one.sentence))
+    }
+
+    /// How far to stand above the corner: from the corner to the top of the message box, where one is drawn under
+    /// the pile's width, with a gap; none where no box is under it.
+    fn lift_over_box(&self, window: &Window, look: &Look, cx: &App) -> gpui::Pixels {
+        let none = gpui::px(0.);
+        let Some(book) = cx.try_global::<crate::labels::LabelBook>() else { return none };
+        let Some(boxed) = book.find(window.window_handle().window_id(), Role::Group, "Message box").map(|drawn| drawn.shown) else { return none };
+        let size = window.viewport_size();
+        let (right, width) = (size.width - look.length(token::SPACE_6), gpui::px(WIDTH));
+        let under = boxed.left() < right && boxed.right() > right - width;
+        if !under || boxed.size.height <= gpui::px(0.) {
+            return none;
+        }
+        let corner = look.length(token::SPACE_6);
+        (size.height - boxed.top() + look.length(token::SPACE_3) - corner).max(none)
+    }
+
     fn history_panel(&self, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let rows = self.shelf.history().map(|toast| {
             let id = toast.item.id.clone();
@@ -627,20 +850,29 @@ impl Toasts {
 }
 
 impl Render for Toasts {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
+        // Where a message box is drawn under the pile it stands above the box, so no control under it is hidden;
+        // the box was painted the frame before, so a change draws once more.
+        let lift = self.lift_over_box(window, &look, cx);
+        if lift != self.lift {
+            self.lift = lift;
+            window.request_animation_frame();
+        }
         let shown: Vec<Toast> = self.shelf.shown().into_iter().cloned().collect();
         let last = shown.len().saturating_sub(1);
         // Fleet's states stand first, at the top of the stack: urgent, and held while they last.
         let fleet: Vec<FleetNotice> = cx.try_global::<FleetNotices>().map(|kept| kept.0.clone()).unwrap_or_default();
         // Then what the app was told: presses Fleet did not take, each until he closes it.
         let told: Vec<TellOne> = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
+        // Then what the Operator did with his dispatches, each until he presses it or closes it.
+        let ruled: Vec<Raised> = cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default();
         // Under the title bar at most: in a short window the oldest is cut at the top, never the bell.
         let stack = div()
             .absolute()
             .top(look.length(token::H_TITLE_BAR) + look.length(token::SPACE_2))
             .right(look.length(token::SPACE_6))
-            .bottom(look.length(token::SPACE_6))
+            .bottom(look.length(token::SPACE_6) + self.lift)
             .flex()
             .flex_col()
             .justify_end()
@@ -648,6 +880,7 @@ impl Render for Toasts {
             .gap(look.length(token::SPACE_3))
             .children(fleet.iter().map(|notice| self.fleet_toast(notice, look)))
             .children(told.iter().map(|one| self.told_toast(one, look, cx)))
+            .children(ruled.iter().enumerate().map(|(at, one)| self.ruling_toast(one, shown.is_empty() && at + 1 == ruled.len(), look, cx)))
             .children(shown.iter().enumerate().map(|(at, toast)| self.toast(toast, at == last, look, cx)));
         div()
             .absolute()
@@ -758,4 +991,29 @@ fn read_history(file: &PathBuf) -> Vec<Toast> {
             Some(Toast { urgency: item.urgency, item, ended })
         })
         .collect()
+}
+
+#[cfg(test)]
+mod ruling_tests {
+    use super::*;
+
+    fn news(way: DispatchWay, title: Option<&str>) -> OperatorDispatched {
+        OperatorDispatched { dispatch_id: "d".into(), manifest_id: "armada".into(), way, session_id: None, title: title.map(str::to_string) }
+    }
+
+    #[test]
+    fn each_way_the_operator_ruled_has_its_own_sentence() {
+        assert_eq!(ruling_said(&news(DispatchWay::Started, Some("Fix the build")), None), "Operator started Fix the build");
+        assert_eq!(ruling_said(&news(DispatchWay::Handed, Some("Fix the build")), None), "Operator handed it to Fix the build");
+        assert_eq!(ruling_said(&news(DispatchWay::Parked, Some("Keep the scrollback")), None), "Operator kept it as an idea");
+    }
+
+    #[test]
+    fn a_question_names_its_job_else_the_words_he_sent_cut_to_a_line() {
+        assert_eq!(ruling_said(&news(DispatchWay::Asked, Some("Fix the build")), None), "Operator asks about Fix the build");
+        let long = "Retry the webhook sender on a 503 and keep the dead letters for a day in sample-api";
+        let said = ruling_said(&news(DispatchWay::Asked, None), Some(about(long)));
+        assert_eq!(said, "Operator asks about Retry the webhook sender on a 503 and keep the d...");
+        assert_eq!(about("one line\nsecond"), "one line");
+    }
 }

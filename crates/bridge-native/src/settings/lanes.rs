@@ -5,11 +5,11 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use gpui::{div, prelude::*, px, AnyElement, App, Context, KeyDownEvent, Role, SharedString};
+use gpui::{div, prelude::*, px, AnyElement, App, Context, FocusHandle, KeyDownEvent, Role, SharedString, Window};
 use ipc::JobLanesView;
 
 use super::overlay::SettingsOverlay;
-use super::view::{bone, small};
+use super::view::{bone, ghost_with, ringed, small};
 use super::workflows::{Listed, Place};
 use crate::labels::labelled;
 use crate::lanes_canvas::{lanes_canvas, LanesHost, LanesState};
@@ -23,11 +23,13 @@ pub struct WorkflowLanes {
     read: BTreeMap<SharedString, Result<JobLanesView, String>>,
     asking: BTreeSet<SharedString>,
     pub canvas: LanesState,
+    /// The stop of "Add lifecycle", on the line that says what an edit changes.
+    pub add: FocusHandle,
 }
 
 impl WorkflowLanes {
     pub fn new(cx: &mut App) -> Self {
-        Self { read: BTreeMap::new(), asking: BTreeSet::new(), canvas: LanesState::new(cx) }
+        Self { read: BTreeMap::new(), asking: BTreeSet::new(), canvas: LanesState::new(cx), add: cx.focus_handle().tab_stop(true) }
     }
 
     /// Settings opened again: read afresh.
@@ -75,14 +77,34 @@ impl SettingsOverlay {
         .detach();
     }
 
-    /// The line saying what an edit changes, then the canvas: placeholder shapes while it is read, and what Fleet
-    /// said where it refused the level.
-    pub(super) fn render_lanes(&self, one: &Listed, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// The canvas's stop, once the lanes are read and it is drawn: the last of the page's stops.
+    pub(super) fn lanes_stops(&self, one: &Listed) -> Vec<FocusHandle> {
+        if matches!(self.lanes.read.get(&key_of(one)), Some(Ok(_))) { vec![self.lanes.canvas.frame.clone()] } else { Vec::new() }
+    }
+
+    /// "Add lifecycle" saves a New lifecycle piece and picks it; built with the lifecycle inspector.
+    pub(super) fn add_lifecycle(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {}
+
+    /// The line saying what an edit changes and the button that adds a lifecycle, then what stands over the canvas
+    /// (the box that asks an agent), then the canvas: placeholder shapes while it is read, and what Fleet said
+    /// where it refused the level.
+    pub(super) fn render_lanes(&self, one: &Listed, above: Option<AnyElement>, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let key = key_of(one);
         let (scope, manifest) = scope_of(one);
         let repository = self.wire.repositories(cx).unwrap_or_default().into_iter().find(|(id, _, _)| *id == scope).map_or(manifest, |(_, name, _)| name);
         let said = says(&scope, &repository);
-        let line = labelled(small(look, said.clone(), look.color(token::FG_MUTED)).id("workflow-lanes-says").px(look.length(token::SPACE_3)), Role::Label, said);
+        let add = ringed(look, ghost_with(look, "workflow-add-lifecycle", Some("plus"), "Add lifecycle", false), &self.lanes.add, window)
+            .track_focus(&self.lanes.add)
+            .on_click(cx.listener(|this, _, window, cx| this.add_lifecycle(window, cx)));
+        let line = div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap_x(look.length(token::SPACE_3))
+            .gap_y(look.length(token::SPACE_1))
+            .min_w_0()
+            .child(labelled(small(look, said.clone(), look.color(token::FG_MUTED)).id("workflow-lanes-says").flex_auto().min_w_0().px(look.length(token::SPACE_3)), Role::Label, said))
+            .child(labelled(add, Role::Button, "Add lifecycle"));
         let body = match self.lanes.read.get(&key) {
             None => bone(look, px(0.), look.length(token::SPACE_12) * 11.).w_full().into_any_element(),
             Some(Err(said)) => labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("workflow-lanes-refused"), Role::Alert, said.clone()).into_any_element(),
@@ -99,7 +121,7 @@ impl SettingsOverlay {
                 div().flex_none().h(tall).min_w_0().flex().flex_col().on_key_down(shut).child(lanes_canvas(self, &key, lanes, look, cx)).into_any_element()
             }
         };
-        labelled(div().id("workflow-lanes").flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(line).child(body), Role::Region, "Workflow").into_any_element()
+        labelled(div().id("workflow-lanes").flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(line).children(above).child(body), Role::Region, "Workflow").into_any_element()
     }
 }
 

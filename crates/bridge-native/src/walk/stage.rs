@@ -501,7 +501,11 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         }
         Verb::Answer(name) => {
             if let Some(page) = crate::operator::live(cx) {
-                return page.update(cx, |page, cx| page.scene(name, cx)).map_err(Missed);
+                // A name the page does not know is the dispatch screen's, where the whole app is in the walk.
+                match page.update(cx, |page, cx| page.scene(name, cx)) {
+                    Err(why) if why.starts_with("no Operator scene named") && crate::dispatch::screen::live(cx).is_some() => {}
+                    done => return done.map_err(Missed),
+                }
             }
             let screen = crate::dispatch::screen::live(cx).ok_or_else(|| Missed("no dispatch screen is drawn yet".into()))?;
             screen.update(cx, |screen, cx| screen.scene(name, window, cx)).map_err(Missed)
