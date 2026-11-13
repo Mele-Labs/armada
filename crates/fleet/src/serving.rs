@@ -432,18 +432,40 @@ where
         self.worktrees_within(held, manifest_id)
     }
 
-    /// Paths under the checkout narrowed against typed text, for Bridge's `@`
-    /// mention popup. `crate::files::search` answers from a kept listing; this
-    /// only names the root and cannot refuse.
+    /// Paths or folders under a checkout narrowed against typed text, for
+    /// Bridge's `@` mention popup and the New project sheet. `crate::files`
+    /// answers from a kept listing; this names the root, and refuses a
+    /// `root` that is no folder here or that comes with a `manifest_id`.
     async fn search_files(
         &self,
         query: String,
         manifest_id: Option<ipc::ManifestId>,
+        folders: bool,
+        root: Option<String>,
     ) -> Result<ipc::FilesFound, Refusal> {
-        let served = self.served_named(manifest_id.as_ref())?;
-        let root = std::path::Path::new(served.root());
-        Ok(ipc::FilesFound {
-            paths: crate::files::search(root, &query).await,
+        use crate::files::Wanted;
+        let wanted = if folders { Wanted::Folders } else { Wanted::Files };
+        let found = match root {
+            Some(_) if manifest_id.is_some() => {
+                let why = "`root` and `manifest_id` both name where to search; send one".to_string();
+                return Err(Refusal::Unacceptable(ipc::WireError::raised(
+                    crate::refusing::UNACCEPTABLE,
+                    why,
+                    self.run_id(),
+                )));
+            }
+            Some(root) => {
+                let folder = self.existing_folder(&root)?;
+                crate::files::search_elsewhere(&folder, &query, wanted).await
+            }
+            None => {
+                let served = self.served_named(manifest_id.as_ref())?;
+                crate::files::search(std::path::Path::new(served.root()), &query, wanted).await
+            }
+        };
+        Ok(match wanted {
+            Wanted::Files => ipc::FilesFound { paths: found, ..Default::default() },
+            Wanted::Folders => ipc::FilesFound { folders: found, ..Default::default() },
         })
     }
 

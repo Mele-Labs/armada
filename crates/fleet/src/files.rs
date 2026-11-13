@@ -16,9 +16,15 @@
 //! git's index or `HEAD` has changed, and the old list answers until the new
 //! one lands. Only a root's first query waits for git. Both git and scoring
 //! run on the blocking pool, so no keystroke holds an executor thread.
-//! One `Vec<String>` per root served is the whole memory cost.
+//! Two `Vec<String>` per root, its files and its folders, are the whole memory cost.
+//!
+//! **Folders are derived from the listing, once per listing**: every ancestor
+//! directory of a listed path, kept beside the paths and ranked the same way, so
+//! a keystroke that asks for folders reads memory like one that asks for files.
+//! A root Fleet does not serve is kept the same way, but only the few asked most
+//! recently.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -40,18 +46,34 @@ const EXCLUDED: &[&str] = &[".git", ".armada", "node_modules", "target"];
 /// How many paths `search` answers with at most.
 const RESULT_CAP: usize = 50;
 
+/// How many roots Fleet does not serve keep a listing at once: the most recently asked.
+const UNSERVED_KEPT: usize = 4;
+
 /// How many files the fallback walk reads before it stops, so one keystroke
 /// in a folder nobody has sized costs a bounded read.
 const WALK_CAP: usize = 20_000;
 
-/// The files under `root` whose path, relative to `root`, holds `query`'s
-/// letters in order, best match first and at most `RESULT_CAP` of them. An
-/// empty `query` matches everything.
+/// What a search answers with.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Wanted {
+    Files,
+    Folders,
+}
+
+/// The files (or folders) under `root` whose path, relative to `root`, holds
+/// `query`'s letters in order, best match first and at most `RESULT_CAP` of
+/// them. An empty `query` matches everything.
 ///
 /// **Never fails.** A subdirectory this cannot read is skipped rather than
 /// failing the search: `ipc::FilesFound`'s own notes carry the reasoning.
-pub(crate) async fn search(root: &Path, query: &str) -> Vec<String> {
-    INDEX.search(root, query).await
+pub(crate) async fn search(root: &Path, query: &str, wanted: Wanted) -> Vec<String> {
+    INDEX.answer(root, query, wanted).await
+}
+
+/// [`search`] under a root Fleet does not serve, kept like a served one but
+/// among only the `UNSERVED_KEPT` asked most recently.
+pub(crate) async fn search_elsewhere(root: &Path, query: &str, wanted: Wanted) -> Vec<String> {
+    INDEX.elsewhere(root, query, wanted).await
 }
 
 /// `paths` narrowed to `query` and ranked.
@@ -77,6 +99,8 @@ fn list(root: &Path) -> Vec<String> {
 struct FileIndex {
     window: Duration,
     roots: Mutex<HashMap<PathBuf, Arc<Root>>>,
+    /// The roots Fleet does not serve, oldest ask first, so the oldest can be let go.
+    recent: Mutex<VecDeque<PathBuf>>,
 }
 
 #[derive(Default)]
@@ -94,6 +118,8 @@ type Stamp = [Option<SystemTime>; 2];
 
 struct Snapshot {
     paths: Vec<String>,
+    /// `paths`' ancestor directories, worked out once with the listing.
+    folders: Vec<String>,
     taken: Instant,
     /// Where `stamp` was read, or `None` outside a repository, where only age
     /// retakes the listing.
@@ -107,9 +133,11 @@ impl Snapshot {
         let git_dir = git_dir(root);
         // Read before listing, so a change made meanwhile reads as stale.
         let stamp = git_dir.as_deref().map(stamp).unwrap_or_default();
+        let paths = list(root);
         Self {
             taken: Instant::now(),
-            paths: list(root),
+            folders: folders_of(&paths),
+            paths,
             git_dir,
             stamp,
         }
@@ -140,6 +168,7 @@ async fn taken(root: PathBuf) -> Snapshot {
         .await
         .unwrap_or_else(|_| Snapshot {
             paths: Vec::new(),
+            folders: Vec::new(),
             taken: Instant::now(),
             git_dir: None,
             stamp: Stamp::default(),
@@ -151,10 +180,38 @@ impl FileIndex {
         Self {
             window,
             roots: Mutex::default(),
+            recent: Mutex::default(),
         }
     }
 
+    #[cfg(test)]
     async fn search(&self, root: &Path, query: &str) -> Vec<String> {
+        self.answer(root, query, Wanted::Files).await
+    }
+
+    #[cfg(test)]
+    async fn folders(&self, root: &Path, query: &str) -> Vec<String> {
+        self.answer(root, query, Wanted::Folders).await
+    }
+
+    async fn elsewhere(&self, root: &Path, query: &str, wanted: Wanted) -> Vec<String> {
+        self.remember(root);
+        self.answer(root, query, wanted).await
+    }
+
+    /// Note an ask of an unserved `root`, and let go the listing of the oldest one past the few kept.
+    fn remember(&self, root: &Path) {
+        let mut recent = self.recent.lock().unwrap_or_else(PoisonError::into_inner);
+        recent.retain(|kept| kept != root);
+        recent.push_back(root.to_path_buf());
+        while recent.len() > UNSERVED_KEPT {
+            if let Some(oldest) = recent.pop_front() {
+                self.roots.lock().unwrap_or_else(PoisonError::into_inner).remove(&oldest);
+            }
+        }
+    }
+
+    async fn answer(&self, root: &Path, query: &str, wanted: Wanted) -> Vec<String> {
         let held = self
             .roots
             .lock()
@@ -170,8 +227,16 @@ impl FileIndex {
             held.refresh(root);
         }
         let query = query.to_owned();
-        tokio::task::spawn_blocking(move || rank(&snapshot.paths, &query))
-            .await
+        tokio::task::spawn_blocking(move || {
+            rank(
+                match wanted {
+                    Wanted::Files => &snapshot.paths,
+                    Wanted::Folders => &snapshot.folders,
+                },
+                &query,
+            )
+        })
+        .await
             .unwrap_or_default()
     }
 }
@@ -207,6 +272,19 @@ impl Root {
             this.refreshing.store(false, Ordering::Release);
         });
     }
+}
+
+/// Every directory above a path in `paths`, once each: relative, `/`-separated,
+/// no trailing `/`, and never the root itself.
+fn folders_of(paths: &[String]) -> Vec<String> {
+    let mut folders = BTreeSet::new();
+    for path in paths {
+        // Each `/` ends one ancestor, so a path costs one slice per directory above it.
+        for (at, _) in path.match_indices('/').filter(|(at, _)| *at > 0) {
+            folders.insert(&path[..at]);
+        }
+    }
+    folders.into_iter().map(str::to_owned).collect()
 }
 
 fn lower(c: char) -> char {
@@ -552,5 +630,87 @@ mod tests {
         assert_eq!(index.search(home.path(), "reader").await, vec!["src/log/reader.rs"]);
         std::fs::write(home.path().join("reader2.rs"), b"").expect("a file");
         assert_eq!(index.search(home.path(), "reader").await, vec!["src/log/reader.rs"]);
+    }
+
+    /// A folder is every directory above a listed file and never the root, so
+    /// the excluded directories, which list no file, are not folders either.
+    #[test]
+    fn folders_are_every_ancestor_of_the_indexed_files_and_never_the_root() {
+        let home = a_checkout();
+        assert_eq!(folders_of(&list(home.path())), vec!["src", "src/log"]);
+        assert!(folders_of(&["README.md".to_string()]).is_empty());
+        let deep = ["a/b/c/d.rs".to_string(), "a/b/e.rs".to_string()];
+        assert_eq!(folders_of(&deep), vec!["a", "a/b", "a/b/c"], "each once, with no trailing slash");
+    }
+
+    /// More folders match than the cap: ranked and then cut, so the best
+    /// survives, and the shorter of two equal scores comes first.
+    #[test]
+    fn a_folder_query_ranks_subsequence_matches_best_first_and_caps_them() {
+        let home = TempDir::new();
+        for n in 0..RESULT_CAP + 10 {
+            std::fs::create_dir_all(home.path().join(format!("mod-{n:03}"))).expect("a directory");
+            std::fs::write(home.path().join(format!("mod-{n:03}/x.rs")), b"").expect("a file");
+        }
+        std::fs::create_dir_all(home.path().join("mod")).expect("a directory");
+        std::fs::write(home.path().join("mod/x.rs"), b"").expect("a file");
+        let found = rank(&folders_of(&list(home.path())), "mod");
+        assert_eq!(found.len(), RESULT_CAP);
+        assert_eq!(found[0], "mod");
+        let letters = rank(&folders_of(&list(home.path())), "m-0");
+        assert!(letters.iter().all(|folder| folder.starts_with("mod-")), "a subsequence matches: {letters:?}");
+        assert!(rank(&folders_of(&list(home.path())), "zzz-nothing").is_empty());
+    }
+
+    /// A folder is found by its last segments, however deep it is.
+    #[test]
+    fn a_deep_folder_is_found_by_its_last_segments() {
+        let home = TempDir::new();
+        for file in ["crates/fleet/src/session_host/modding.rs", "crates/fleet/src/files.rs", "docs/concepts/session.md"] {
+            let path = home.path().join(file);
+            std::fs::create_dir_all(path.parent().expect("a parent")).expect("a directory");
+            std::fs::write(path, b"").expect("a file");
+        }
+        let found = rank(&folders_of(&list(home.path())), "sesshost");
+        assert_eq!(found, vec!["crates/fleet/src/session_host"]);
+    }
+
+    /// Folders are kept beside the paths and answered from the same snapshot, so a
+    /// folder made after the listing is not seen within the window.
+    #[tokio::test]
+    async fn folders_answer_from_the_kept_listing() {
+        let home = a_checkout();
+        let index = FileIndex::new(Duration::from_secs(3600));
+        assert_eq!(index.folders(home.path(), "log").await, vec!["src/log"]);
+        std::fs::create_dir_all(home.path().join("late")).expect("a directory");
+        std::fs::write(home.path().join("late/x.rs"), b"").expect("a file");
+        assert!(index.folders(home.path(), "late").await.is_empty());
+    }
+
+    /// A root Fleet does not serve is listed once and kept: after a file is
+    /// deleted, the next keystroke still answers from the first listing, which
+    /// proves it read memory and not the disk.
+    #[tokio::test]
+    async fn a_root_not_served_is_searched_and_kept_for_the_next_keystroke() {
+        let home = a_checkout();
+        let index = FileIndex::new(Duration::from_secs(3600));
+        assert_eq!(index.elsewhere(home.path(), "reader", Wanted::Files).await, vec!["src/log/reader.rs"]);
+        std::fs::remove_file(home.path().join("src/log/reader.rs")).expect("deleted");
+        assert_eq!(index.elsewhere(home.path(), "reader", Wanted::Files).await, vec!["src/log/reader.rs"]);
+        assert_eq!(index.elsewhere(home.path(), "log", Wanted::Folders).await, vec!["src/log"]);
+    }
+
+    /// Only the roots asked most recently are kept, so the cache cannot grow without bound.
+    #[tokio::test]
+    async fn only_the_most_recently_asked_unserved_roots_are_kept() {
+        let index = FileIndex::new(Duration::from_secs(3600));
+        let homes: Vec<TempDir> = (0..UNSERVED_KEPT + 2).map(|_| a_checkout()).collect();
+        for home in &homes {
+            index.elsewhere(home.path(), "", Wanted::Files).await;
+        }
+        let kept = index.roots.lock().expect("roots").len();
+        assert_eq!(kept, UNSERVED_KEPT);
+        assert!(!index.roots.lock().expect("roots").contains_key(homes[0].path()), "the oldest was let go");
+        assert!(index.roots.lock().expect("roots").contains_key(homes[UNSERVED_KEPT + 1].path()));
     }
 }
