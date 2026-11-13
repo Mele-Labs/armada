@@ -22,6 +22,7 @@ mod ask;
 mod bar;
 mod draft;
 mod in_place;
+mod lane;
 mod patch;
 mod rule;
 mod sentence;
@@ -113,6 +114,8 @@ enum Of {
     Waiting(usize),
     /// A rule's edit waiting for where it applies.
     WaitingRule(usize),
+    /// A new lane's edit waiting for where it applies.
+    WaitingLifecycle(usize),
 }
 
 /// What choosing what to take works from.
@@ -208,6 +211,12 @@ pub fn with_rules_kept(view: JobLanesView, rules: &[ipc::LifecycleRule], lifecyc
     patch::with_rules(view, &changes, &vocab, false)
 }
 
+/// The lanes with the lifecycles a publish wrote drawn under the others, as Fleet reads them once they are kept: for a host that
+/// answers the lanes itself, as the walk's mock does.
+pub fn with_lifecycles_kept(view: JobLanesView, written: &[LifecycleDefinition]) -> JobLanesView {
+    patch::with_lifecycles(view, written)
+}
+
 /// The lanes with the workflow's lane drawn where `text` says, its steps standing in the drawn ones' places in order, so a
 /// rule drawn from a drawn step is drawn from the step in its place; one from a step past the text's last is left out. For a
 /// host that answers the lanes itself, as the walk's mock does.
@@ -266,6 +275,15 @@ fn lifecycle_of(text: &str) -> Option<LifecycleDefinition> {
 /// `text` with the states `change` renamed (those whose name differs from `before`'s) named as `before` names them.
 fn piece_undone(current: &str, change: &str, before: &str) -> Option<String> {
     let (mut now, was, then) = (lifecycle_of(current)?, lifecycle_of(change)?, lifecycle_of(before)?);
+    if was.name != then.name {
+        now.name = then.name.clone();
+    }
+    // A state the change added is taken out again, with the moves that named it.
+    for added in was.states.iter().filter(|state| !then.states.iter().any(|held| held.id == state.id)) {
+        now.states.retain(|state| state.id != added.id);
+        now.transitions.retain(|one| one.from != added.id && one.to != added.id);
+        now.ends.retain(|end| *end != added.id);
+    }
     for state in &mut now.states {
         let label = |of: &LifecycleDefinition| of.states.iter().find(|one| one.id == state.id).map(|one| one.label.clone());
         if let (Some(changed), Some(earlier)) = (label(&was), label(&then)) {
@@ -355,6 +373,21 @@ pub struct LanesEditor {
     sentence: Option<sentence::Sentence>,
     /// A rule's edits waiting for where the draft applies.
     waiting_rules: Vec<draft::WaitingRule>,
+    /// A new lane's edits waiting for where the draft applies.
+    waiting_lifecycles: Vec<draft::WaitingLifecycle>,
+    /// The lanes the draft adds, as the editor has them now: Fleet's piece drafts and the edits still waiting, with any put
+    /// Fleet has not answered, so a lane is drawn as it is added.
+    added: Vec<LifecycleDefinition>,
+    /// A blank lane that is not in the draft yet: it has no name or no state.
+    pending_lane: Option<LifecycleDefinition>,
+    /// The name box and the press that adds a state, of each lane just added.
+    new_lanes: Vec<lane::NewLane>,
+    /// Where each added lane's head was drawn last, in the window: the lane is tinted across the canvas from it.
+    lane_heads: Rc<std::cell::RefCell<std::collections::HashMap<String, Bounds<Pixels>>>>,
+    /// The kind menu of Add lifecycle, while it is open.
+    kinds: Option<lane::KindMenu>,
+    /// The lane the page is to scroll to once its head has been drawn.
+    show_lane: Cell<Option<String>>,
     /// The rules the canvas draws no edge for, each with the Tab stop of its chip in the row over the canvas.
     edge_stops: Vec<(String, FocusHandle)>,
     /// Where each of those chips was drawn last, in the window: the sentence opens under it.
@@ -426,6 +459,13 @@ impl LanesEditor {
             workflows: Vec::new(),
             sentence: None,
             waiting_rules: Vec::new(),
+            waiting_lifecycles: Vec::new(),
+            added: Vec::new(),
+            pending_lane: None,
+            new_lanes: Vec::new(),
+            lane_heads: Rc::default(),
+            kinds: None,
+            show_lane: Cell::new(None),
             edge_stops: Vec::new(),
             edge_chips: Rc::default(),
             _subs: subs,
@@ -531,7 +571,7 @@ impl LanesEditor {
 
     /// Whether anything is drafted, or on its way to Fleet to be.
     pub fn has_edits(&self) -> bool {
-        self.draft.is_some() || !self.pieces.is_empty() || !self.waiting.is_empty() || !self.waiting_rules.is_empty() || !self.queue.is_empty() || self.sending.is_some()
+        self.draft.is_some() || !self.pieces.is_empty() || !self.waiting.is_empty() || !self.waiting_rules.is_empty() || !self.waiting_lifecycles.is_empty() || !self.queue.is_empty() || self.sending.is_some()
     }
 
     /// The text the draft began from, or what is saved where there is no draft.
@@ -550,6 +590,8 @@ impl LanesEditor {
         let scope = self.target.as_ref().map(piece_scope);
         // A rule drafted here that nothing runs yet has no place in the lists: it is read again by its id.
         let drafted_rules: Vec<(String, PieceScope)> = self.pieces.iter().filter(|piece| piece.kind == LifecyclePieceKind::Rule).map(|piece| (piece.id.clone(), piece.scope.clone())).collect();
+        // So is a lane drafted here that nothing runs yet.
+        let drafted_lanes: Vec<(String, PieceScope)> = self.pieces.iter().filter(|piece| piece.kind == LifecyclePieceKind::Lifecycle && !self.lifecycles.iter().any(|one| one.lifecycle.id == piece.id)).map(|piece| (piece.id.clone(), piece.scope.clone())).collect();
         self.loading = Some(cx.spawn(async move |this, cx| {
             let (lanes, definition, lifecycles, draft) = cx.update(|app| (wire.lanes(&subject, app), wire.definition(&subject, app), wire.lifecycles(&subject.repository, app), wire.workflow_draft(&subject, app)));
             let (lanes, definition, lifecycles, draft) = (lanes.await, definition.await, lifecycles.await, draft.await);
@@ -569,6 +611,11 @@ impl LanesEditor {
             for one in lifecycles.iter().filter(|one| one.kept.overridden_by.is_none()) {
                 let Some(scope) = &scope else { break };
                 if let Ok(piece) = cx.update(|app| wire.piece_draft(LifecyclePieceKind::Lifecycle, &one.lifecycle.id, scope, app)).await {
+                    pieces.push(piece);
+                }
+            }
+            for (id, at) in drafted_lanes.into_iter().filter(|(id, at)| Some(at) == scope.as_ref() && !lifecycles.iter().any(|one| one.lifecycle.id == *id)) {
+                if let Ok(piece) = cx.update(|app| wire.piece_draft(LifecyclePieceKind::Lifecycle, &id, &at, app)).await {
                     pieces.push(piece);
                 }
             }
@@ -612,6 +659,7 @@ impl LanesEditor {
                 self.pieces = pieces;
             }
             self.text = self.draft.as_ref().map(|draft| draft.text.clone()).or_else(|| self.saved.clone()).unwrap_or_default();
+            self.sync_added();
         }
         self.refresh(cx);
         cx.notify();
@@ -660,15 +708,22 @@ impl LanesEditor {
     fn refresh(&mut self, cx: &mut Context<Self>) {
         let base = self.base().to_string();
         self.shown = match &self.read {
-            Read::Read(lanes) if self.has_edits() && !base.is_empty() => {
+            Read::Read(lanes) if (self.has_edits() || self.pending_lane.is_some()) && !base.is_empty() => {
                 let steps = patch::patched(lanes, &base, &self.text);
                 let states = patch::with_states_renamed(steps, &self.state_labels());
-                Some(in_place::with_end_room(patch::with_rules(states, &self.rule_changes(), &self.vocab(), true)))
+                let added: Vec<LifecycleDefinition> = self.added.iter().cloned().chain(self.pending_lane.clone()).collect();
+                let drawn = patch::with_lifecycles(states, &added);
+                Some(in_place::with_end_room(patch::with_rules(drawn, &self.rule_changes(), &self.vocab(), true)))
             }
             Read::Read(lanes) => Some(in_place::with_end_room(lanes.clone())),
             _ => None,
         };
         self.rows = self.build_rows();
+        // A lane that is no longer drawn takes its name box with it, once Fleet has answered what was put.
+        if self.queue.is_empty() && self.sending.is_none() {
+            let held: Vec<String> = self.added.iter().map(|one| one.id.clone()).chain(self.pending_lane.iter().map(|one| one.id.clone())).collect();
+            self.new_lanes.retain(|one| held.contains(&one.id));
+        }
         while self.undos.len() < self.rows.len() {
             self.undos.push(cx.focus_handle().tab_stop(true));
         }
@@ -710,7 +765,7 @@ impl LanesEditor {
                 };
                 undone.map(|text| (text, Some(draft::undid_summary(change.id))))
             }
-            Of::Waiting(_) | Of::WaitingRule(_) => None,
+            Of::Waiting(_) | Of::WaitingRule(_) | Of::WaitingLifecycle(_) => None,
         }
     }
 
@@ -738,6 +793,11 @@ impl LanesEditor {
         rows.sort_by_key(|row| row.id);
         rows.extend(self.waiting.iter().enumerate().map(|(n, one)| Row { id: i64::MAX, by: DraftBy::You, said: one.said.clone(), of: Of::Waiting(n), blocked: false }));
         rows.extend(self.waiting_rules.iter().enumerate().map(|(n, one)| Row { id: i64::MAX, by: DraftBy::You, said: one.said.clone(), of: Of::WaitingRule(n), blocked: false }));
+        // A lane's edit waiting is each the whole lane as it stood, so only the last of a lane can be taken back.
+        rows.extend(self.waiting_lifecycles.iter().enumerate().map(|(n, one)| {
+            let later = self.waiting_lifecycles[n + 1..].iter().any(|next| next.lifecycle.id == one.lifecycle.id);
+            Row { id: i64::MAX, by: DraftBy::You, said: one.said.clone(), of: Of::WaitingLifecycle(n), blocked: later }
+        }));
         rows
     }
 
@@ -787,6 +847,13 @@ impl LanesEditor {
     }
 
     fn rename(&mut self, said: String, lifecycle: String, state: String, label: String, cx: &mut Context<Self>) {
+        // A state of a lane the draft adds is part of the lane: the whole lane is put again.
+        if let Some(mut lane) = self.lane_def(&lifecycle) {
+            if let Some(held) = lane.states.iter_mut().find(|held| held.id == state) {
+                held.label = label;
+            }
+            return self.edit_lifecycle(said, lane, cx);
+        }
         match self.target.as_ref().map(piece_scope) {
             Some(scope) => self.enqueue(Call::Rename { said, lifecycle, state, label, scope }, cx),
             None => self.waiting.push(draft::Waiting { said, lifecycle, state, label }),
@@ -847,6 +914,11 @@ impl LanesEditor {
             let text = rule::text_of(&ipc::LifecycleRule { scope: scope.clone(), ..one.rule.clone() });
             self.enqueue(Call::PutPiece { kind: LifecyclePieceKind::Rule, id: one.rule.id, scope: scope.clone(), text, said: Some(one.said) }, cx);
         }
+        for one in std::mem::take(&mut self.waiting_lifecycles) {
+            let id = one.lifecycle.id.clone();
+            let text = piece_text(LifecycleDefinition { scope: scope.clone(), ..one.lifecycle });
+            self.enqueue(Call::PutPiece { kind: LifecyclePieceKind::Lifecycle, id, scope: scope.clone(), text, said: Some(one.said) }, cx);
+        }
         self.refresh(cx);
         cx.notify();
     }
@@ -869,6 +941,10 @@ impl LanesEditor {
             Of::WaitingRule(at) => {
                 self.waiting_rules.remove(at);
             }
+            Of::WaitingLifecycle(at) => {
+                let gone = self.waiting_lifecycles.remove(at).lifecycle.id;
+                self.lane_taken_back(&gone, None);
+            }
             Of::Workflow(_) => {
                 let Some((text, said)) = self.reverse(row.of) else { return false };
                 self.put_text(text, said, None, cx);
@@ -876,7 +952,11 @@ impl LanesEditor {
             Of::Piece(piece, _) => {
                 let Some((text, said)) = self.reverse(row.of) else { return false };
                 let piece = &self.pieces[piece];
-                let call = Call::PutPiece { kind: piece.kind, id: piece.id.clone(), scope: piece.scope.clone(), text, said };
+                let (kind, id) = (piece.kind, piece.id.clone());
+                let call = Call::PutPiece { kind, id: id.clone(), scope: piece.scope.clone(), text: text.clone(), said };
+                if kind == LifecyclePieceKind::Lifecycle {
+                    self.lane_taken_back(&id, Some(&text));
+                }
                 self.enqueue(call, cx);
             }
         }
@@ -913,6 +993,7 @@ impl LanesEditor {
         self.sentence = None;
         self.waiting.clear();
         self.waiting_rules.clear();
+        self.lanes_dropped();
         self.refused = None;
         self.stale = false;
         self.text = self.saved.clone().unwrap_or_default();
@@ -1155,11 +1236,21 @@ impl LanesEditor {
                     self.text = self.saved.clone().unwrap_or_default();
                 }
             }
-            Done::Piece(piece) => match self.pieces.iter().position(|one| one.kind == piece.kind && one.id == piece.id && one.scope == piece.scope) {
-                Some(at) => self.pieces[at] = piece,
-                None => self.pieces.push(piece),
-            },
-            Done::PieceGone(kind, id, scope) => self.pieces.retain(|one| !(one.kind == kind && one.id == id && one.scope == scope)),
+            Done::Piece(piece) => {
+                match self.pieces.iter().position(|one| one.kind == piece.kind && one.id == piece.id && one.scope == piece.scope) {
+                    Some(at) => self.pieces[at] = piece,
+                    None => self.pieces.push(piece),
+                }
+                if idle {
+                    self.sync_added();
+                }
+            }
+            Done::PieceGone(kind, id, scope) => {
+                self.pieces.retain(|one| !(one.kind == kind && one.id == id && one.scope == scope));
+                if idle {
+                    self.sync_added();
+                }
+            }
             Done::Affected(jobs) => self.affected = jobs,
             Done::Migrated(results) => self.moved = Some(results),
         }
@@ -1177,6 +1268,7 @@ impl LanesEditor {
                 self.sentence = None;
                 self.waiting.clear();
                 self.waiting_rules.clear();
+                self.lanes_dropped();
                 self.target = self.subject.own_target();
                 self.load(cx);
             }
@@ -1187,6 +1279,7 @@ impl LanesEditor {
                 self.pieces.clear();
                 self.waiting.clear();
                 self.waiting_rules.clear();
+                self.lanes_dropped();
                 self.history_open = false;
                 self.shown = None;
                 self.in_place = None;
@@ -1266,6 +1359,7 @@ impl LanesEditor {
         } else if matches!(self.read, Read::Read(_)) {
             stops.push(self.state.frame.clone());
             stops.extend(self.edge_stops.iter().map(|(_, stop)| stop.clone()));
+            stops.extend(self.lane_stops());
         }
         stops
     }
@@ -1351,7 +1445,7 @@ impl LanesEditor {
         if word == "z" && mods.platform && !mods.shift && !mods.control && !mods.alt {
             return self.undo_last(window, cx);
         }
-        if self.sentence_key(key, window, cx) {
+        if self.kind_key(key, window, cx) || self.sentence_key(key, window, cx) || self.lane_key(key, window, cx) {
             return true;
         }
         if matches!(key.key.as_str(), "enter" | "space") && !mods.platform && !mods.control && !mods.alt {
@@ -1436,6 +1530,11 @@ impl LanesHost for LanesEditor {
         true
     }
 
+    /// The head of a lane the draft adds: tinted with the accent, and where it has a name box, that box in place of its title.
+    fn head_words(&self, _id: &SharedString, lane: &ipc::LaneView, _opens: bool, words: gpui::Stateful<gpui::Div>, look: &crate::look::Look, cx: &Context<Self>) -> AnyElement {
+        self.new_lane_head(lane, words, look, cx)
+    }
+
     /// Enter on the end box adds the step the box's press does, and the keys go to it.
     fn lanes_add_at_end(&mut self, _id: &SharedString, _lane: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.add_at_end(window, cx);
@@ -1471,6 +1570,7 @@ impl LanesHost for LanesEditor {
 impl gpui::Render for LanesEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
+        self.sync_lane_names(window, cx);
         self.sync_edge_stops(cx);
         if std::mem::take(&mut self.focus_ask) {
             if let Some(stop) = self.ask.as_ref().and_then(|ask| ask.stops().into_iter().next()) {
@@ -1520,12 +1620,14 @@ impl gpui::Render for LanesEditor {
                     .on_key_down(shut)
                     .child(in_place::measure(self.frame.clone(), self.seen.clone(), reveal.zip(self.page.clone()), watch))
                     .child(canvas)
+                    .children(self.render_lane_tints(self.frame.get(), &look))
                     .children(over)
                     .children(sentence);
                 div().flex().flex_col().gap(look.length(token::SPACE_2)).min_w_0().children(row).child(lanes).into_any_element()
             }
         };
-        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().children(self.render_armada_band(&look, window, cx)).children(self.render_bar(&look, window, cx)).child(body)
+        let kinds = self.render_kinds(&look, window, cx);
+        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().children(self.render_armada_band(&look, window, cx)).children(self.render_bar(&look, window, cx)).child(body).children(kinds)
     }
 }
 

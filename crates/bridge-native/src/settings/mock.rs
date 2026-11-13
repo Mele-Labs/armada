@@ -329,6 +329,10 @@ impl MockFleet {
             let lifecycles = self.lifecycles(scope).map(|read| read.lifecycles.into_iter().map(|one| one.lifecycle).collect()).unwrap_or_default();
             lanes = crate::lanes_editor::with_rules_kept(lanes, self.drafts.published_rules(), lifecycles);
         }
+        // A lane a publish wrote is kept now: it is drawn under the others.
+        if !self.drafts.published_lifecycles().is_empty() {
+            lanes = crate::lanes_editor::with_lifecycles_kept(lanes, self.drafts.published_lifecycles());
+        }
         let ready = lanes.rules.iter_mut().find(|edge| edge.rule == "ready");
         match (scope, ready) {
             ("default", Some(ready)) => ready.differs = vec!["Platform".into(), "armada".into()],
@@ -372,11 +376,13 @@ impl MockFleet {
             transitions: moves(&[("draft", "open"), ("open", "merged")]),
             ends: vec!["merged".into()],
         };
-        Ok(ipc::RepositoryLifecycles {
-            manifest_id: ipc::ManifestId::carried(manifest),
-            lifecycles: vec![ipc::AppliedLifecycle { lifecycle: ticket, kept: carried() }, ipc::AppliedLifecycle { lifecycle: pull_request, kept: carried() }],
-            left_out: Vec::new(),
-        })
+        let mut lifecycles = vec![ipc::AppliedLifecycle { lifecycle: ticket, kept: carried() }, ipc::AppliedLifecycle { lifecycle: pull_request, kept: carried() }];
+        let carried_ids: Vec<String> = lifecycles.iter().map(|one| one.lifecycle.id.clone()).collect();
+        for written in self.drafts.published_lifecycles().iter().filter(|written| !carried_ids.contains(&written.id)) {
+            let kept = ipc::PieceKept { rank: ipc::PieceRank { reach: "everywhere".into(), source: "kit".into(), home: false }, path: Some(format!("~/.armada/kit/lifecycles/{}.yml", written.id)), overridden_by: None, hides: None };
+            lifecycles.push(ipc::AppliedLifecycle { lifecycle: written.clone(), kept });
+        }
+        Ok(ipc::RepositoryLifecycles { manifest_id: ipc::ManifestId::carried(manifest), lifecycles, left_out: Vec::new() })
     }
 
     /// `GET /lifecycles/rules`: the rules the mock lanes draw a chip for, then any a draft published since. A rule

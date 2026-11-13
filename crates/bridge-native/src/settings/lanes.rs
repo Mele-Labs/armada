@@ -312,8 +312,14 @@ impl SettingsOverlay {
         }
     }
 
-    /// "Add lifecycle" saves a New lifecycle piece and picks it; built with the lifecycle inspector.
-    pub(super) fn add_lifecycle(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {}
+    /// "Add lifecycle" opens the kind menu on the picked row's canvas; the keys go back to the button on Esc.
+    pub(super) fn add_lifecycle(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let (_, Some(one)) = self.shown_workflows(cx) else { return };
+        let opener = self.lanes.add.clone();
+        if let Some(editor) = self.editor_of(&one) {
+            editor.update(cx, |editor, cx| editor.add_lifecycle(opener, window, cx));
+        }
+    }
 
     /// The line saying what an edit changes and the buttons that add a rule and a lifecycle, then what stands over the canvas
     /// (the box that asks an agent), then the editor: its draft bar over the canvas, placeholder shapes while the

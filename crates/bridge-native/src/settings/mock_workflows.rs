@@ -92,11 +92,17 @@ pub struct Drafts {
     last: i64,
     /// The rules a publish wrote, which `GET /lifecycles/rules` lists after the ones the walk starts with.
     rules: Vec<ipc::LifecycleRule>,
+    /// The lifecycles a publish wrote, which `GET /lifecycles` lists after the ones Armada carries.
+    lifecycles: Vec<ipc::LifecycleDefinition>,
 }
 
 impl Drafts {
     pub fn published_rules(&self) -> &[ipc::LifecycleRule] {
         &self.rules
+    }
+
+    pub fn published_lifecycles(&self) -> &[ipc::LifecycleDefinition] {
+        &self.lifecycles
     }
 }
 
@@ -820,6 +826,10 @@ impl MockFleet {
         if let Ok(LifecyclePiece::Rule { rule }) = ipc::decode::<LifecyclePiece>("piece", gone.text.as_bytes()) {
             self.drafts.rules.retain(|one| one.id != rule.id);
             self.drafts.rules.push(rule);
+        }
+        if let Ok(LifecyclePiece::Lifecycle { lifecycle }) = ipc::decode::<LifecyclePiece>("piece", gone.text.as_bytes()) {
+            self.drafts.lifecycles.retain(|one| one.id != lifecycle.id);
+            self.drafts.lifecycles.push(lifecycle);
         }
         let saved = LifecyclePieceSaved { kind: publish.kind, file: format!("~/.armada/kit/{}s/{}.yml", publish.kind.as_wire(), publish.id), id: publish.id, scope: publish.scope, replaced: true };
         Ok(PiecePublished { saved })

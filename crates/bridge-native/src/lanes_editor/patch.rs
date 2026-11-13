@@ -102,6 +102,55 @@ pub fn with_states_renamed(mut view: JobLanesView, labels: &[(String, String, St
     view
 }
 
+/// The lanes with each lifecycle the draft adds drawn under the others: its states in columns from the first, one node
+/// each, and the moves it expects between them. A lane the lanes already draw (one a publish has kept) is left as read.
+pub fn with_lifecycles(mut view: JobLanesView, added: &[ipc::LifecycleDefinition]) -> JobLanesView {
+    for one in added {
+        if view.lanes.iter().any(|lane| lane.id == one.id) {
+            continue;
+        }
+        let nodes = one
+            .states
+            .iter()
+            .enumerate()
+            .map(|(col, state)| LaneNode {
+                id: format!("{}/{}", one.id, state.id),
+                label: state.label.clone(),
+                col: col as u32,
+                role: LaneNodeRole::State,
+                kind: super::lane::node_kind(&state.read),
+                lit: false,
+                here: false,
+                passed: false,
+                waiting: Vec::new(),
+                end: one.ends.contains(&state.id),
+                skipped: false,
+                ended: false,
+                ticket: None,
+                changed: None,
+                differs: Vec::new(),
+                clash: None,
+            })
+            .collect();
+        let moves = one.transitions.iter().map(|one_move| (format!("{}/{}", one.id, one_move.from), format!("{}/{}", one.id, one_move.to))).collect();
+        view.lanes.push(ipc::LaneView {
+            id: one.id.clone(),
+            kind: LaneKind::Lifecycle,
+            title: one.name.clone(),
+            source: super::lane::source_of(one).to_string(),
+            what: None,
+            note: None,
+            ticket: false,
+            ended: false,
+            changed: None,
+            pending: None,
+            nodes,
+            moves,
+        });
+    }
+    view
+}
+
 /// A rule the draft sets, and the rule that runs where there is one.
 pub struct RuleChange {
     pub was: Option<ipc::LifecycleRule>,

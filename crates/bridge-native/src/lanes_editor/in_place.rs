@@ -162,7 +162,7 @@ impl LanesEditor {
 
     /// Whether the keys are in a field opened in place.
     pub fn typing(&self, window: &Window, cx: &gpui::App) -> bool {
-        self.typing_words(window, cx) || self.in_place.as_ref().and_then(|one| one.fields.as_ref()).is_some_and(|fields| fields.name.read(cx).focus_handle(cx).is_focused(window) || fields.words.as_ref().is_some_and(|words| words.read(cx).focus_handle(cx).is_focused(window)))
+        self.typing_words(window, cx) || self.lane_name_focused(window) || self.in_place.as_ref().and_then(|one| one.fields.as_ref()).is_some_and(|fields| fields.name.read(cx).focus_handle(cx).is_focused(window) || fields.words.as_ref().is_some_and(|words| words.read(cx).focus_handle(cx).is_focused(window)))
     }
 
     /// The picked node, where it is a step of the workflow's lane.
@@ -231,6 +231,9 @@ impl LanesEditor {
             }
             (LaneKind::Lifecycle, _) => {
                 let (lifecycle, state) = node.split_once('/')?;
+                if self.lane_def(lifecycle).is_some_and(|lane| lane.states.iter().any(|one| one.id == state)) {
+                    return Some(Editing::State { lifecycle: lifecycle.to_string(), state: state.to_string() });
+                }
                 let running = self.lifecycles.iter().find(|one| one.lifecycle.id == lifecycle && one.kept.overridden_by.is_none())?;
                 running.lifecycle.states.iter().any(|one| one.id == state).then(|| Editing::State { lifecycle: lifecycle.to_string(), state: state.to_string() })
             }
@@ -339,6 +342,9 @@ impl LanesEditor {
     pub fn field_key(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if self.typing_words(window, cx) {
             return self.words_key(key, window, cx);
+        }
+        if self.lane_name_focused(window) {
+            return self.lane_name_key(key, window, cx);
         }
         let mods = &key.modifiers;
         if mods.platform || mods.control || mods.alt {
@@ -572,6 +578,9 @@ impl LanesEditor {
     /// What the page shows when fields open, relative to the canvas's frame: the node, and the panel at its whole
     /// height under it.
     pub(super) fn reveal_target(&self, look: &Look) -> Option<Bounds<Pixels>> {
+        if let Some(lane) = self.lane_reveal() {
+            return Some(lane);
+        }
         if self.sentence.is_some() {
             return self.sentence_reveal(look);
         }

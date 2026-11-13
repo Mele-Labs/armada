@@ -105,6 +105,39 @@ pub static TAKE_STEPS: &[Step] = &[
     step("Cancel shuts it and changes nothing", Verb::Open("button", "Cancel"), "button", "Choose what to take"),
 ];
 
+/// `native-lanes-add`: Add lifecycle, its menu of what a lane follows, the lane a kind draws and a blank lane named from nothing.
+pub const LANES_ADD: &str = "native-lanes-add";
+
+pub static LANES_ADD_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings over the app", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Workflows lists every workflow Fleet runs", "button", "Workflows", "group", "Shipped with Armada"),
+    step("armada's own copy of feature draws, with Add lifecycle over its lanes", Verb::PressWithin("group", "armada repository", "feature"), "button", "Add lifecycle"),
+    press_on("Add lifecycle opens a menu: what does this lane follow?", "button", "Add lifecycle", "menu", "What does this lane follow?"),
+    step("\u{2193} moves the row under the keys: Ticket", Verb::Key("down"), "menuitem", "Ticket"),
+    step("\u{2191} goes back: Pull request, from your forge", Verb::Key("up"), "menuitem", "Pull request"),
+    step("Enter picks it: a lane under the others, its name box ready", Verb::Key("enter"), "textbox", "Lane name"),
+    step("Its name is selected, so typing renames the lane", Verb::Typed("Review"), "textbox", "Lane name"),
+    step("Enter lands the name: a change in the draft", Verb::Key("enter"), "textbox", "Lane name"),
+    step("The page scrolls up to the bar, where Changes names it", Verb::Wheel("button", "Zoom in", -1200), "button", "Changes"),
+    press_on("Changes names both changes, each with its Undo", "button", "Changes", "button", "Undo Renamed the lane Pull request to Review"),
+    step("\u{2318}Z takes back the rename", Verb::Key("cmd-z"), "button", "Undo Added the lane Pull request"),
+    step("\u{2318}Z again takes the lane out", Verb::Key("cmd-z"), "button", "Add lifecycle"),
+    press_on("Add lifecycle again: Blank lane is the last row", "button", "Add lifecycle", "menuitem", "Blank lane"),
+    step("\u{2193} four times reaches Blank lane", Verb::Keys(&["down", "down", "down", "down"]), "menuitem", "Blank lane"),
+    step("Enter picks it: an empty name box holds the keys", Verb::Key("enter"), "textbox", "Lane name"),
+    step("Under it its source, Your own, and Add a state", Verb::Look, "button", "Add a state"),
+    step("A name is typed. Nothing is drafted until it has a state", Verb::Typed("Reviews"), "textbox", "Lane name"),
+    step("Enter lands the name, and the keys go to Add a state", Verb::Key("enter"), "button", "Add a state"),
+    step("Enter adds a state, its name open where it stands", Verb::Key("enter"), "textbox", "Name"),
+    step("The state is named", Verb::Typed("Waiting"), "textbox", "Name"),
+    step("Enter names it: the lane is in the draft", Verb::Key("enter"), "button", "Changes"),
+    step("The page scrolls up to Add lifecycle", Verb::Wheel("button", "Zoom in", -1200), "button", "Add lifecycle"),
+    press_on("Add lifecycle opens the menu once more", "button", "Add lifecycle", "menu", "What does this lane follow?"),
+    step("Esc shuts it, and the keys are back on the button", Verb::Key("escape"), "button", "Add lifecycle"),
+    press_on("Publish writes the lane where the draft applies", "button", "Publish", "button", "Add rule"),
+    step("The published lane is kept, drawn as any other", Verb::Wheel("button", "Zoom in", 700), "group", "Reviews"),
+];
+
 /// `native-rules`: a rule opened as one sentence where its chip stands, each field set from its menu, and the changes
 /// kept in the draft like a step's.
 pub const RULES: &str = "native-rules";
