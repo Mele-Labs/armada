@@ -710,7 +710,8 @@ impl SettingsOverlay {
         let refused = |act: &str| page.refused.get(act).map(|said| alert(look, SharedString::from(format!("macs-{act}-refused")), said));
         let made = page.link.as_ref().map(|made| {
             let left = time_left(made.expires_at - chrono::Utc::now().timestamp());
-            let link = div().id("macs-pair-link").flex_1().min_w_0().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(made.link.clone()));
+            // The code is at the link's end, so a narrow page wraps it rather than cutting it off.
+            let link = div().id("macs-pair-link").flex_1().min_w_0().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(made.link.clone()));
             let figure = div().id("macs-pair-left").flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
             div()
                 .flex()

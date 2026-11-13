@@ -249,7 +249,7 @@ pub static STEPS: &[Step] = &[
     step("Its tooltip says so", Verb::Later(800), "label", "Build 2930ac0"),
     step("A Mac that is asleep is dimmed, says why under its name, and its mark says since when", Verb::Hover, "img", "Asleep since Nov 12 9:12 AM"),
     step("Its tooltip says so, to the minute", Verb::Later(800), "img", "Asleep since Nov 12 9:12 AM"),
-    step("A Mac that claimed this one's link waits for Confirm here", Verb::Look, "button", "Confirm Mac Pro"),
+    step("A Mac that claimed this one's link waits for Confirm here", Verb::Wheel("region", "Devices", 320), "button", "Confirm Mac Pro"),
     step("One that this Mac claimed says where to press Confirm, and has no press here", Verb::Look, "img", "Confirm on MacBook Air"),
     press_on("Pair a Mac makes a link for the other Mac, with its time left", "button", "Pair a Mac", "button", "Copy link"),
     press_on("Copy link puts it on the clipboard", "button", "Copy link", "button", "Copy link"),
