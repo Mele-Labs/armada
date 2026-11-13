@@ -384,6 +384,8 @@ pub struct JobView {
     /// A subagent's thread open on its sheet, and the last threads read, newest last.
     subagent_reading: Option<subagent_read::Reading>,
     subagents_read: Vec<(String, subagent_read::SubagentRead)>,
+    /// The origin's thread as it stood where a fork began (`upto`), by origin and message: Fleet keeps no such read.
+    forks_read: HashMap<String, Vec<ThreadItem>>,
     /// The reads kept going for subagents open as tabs beside the thread, by `job/subagent`.
     subagent_tab_polls: HashMap<String, gpui::Task<()>>,
     /// The Plan, Changes, Files and Checks bodies' state, and the panel one of their rows opened.
@@ -543,6 +545,7 @@ impl JobView {
             sketch_reading: None,
             subagent_reading: None,
             subagents_read: Vec::new(),
+            forks_read: HashMap::new(),
             subagent_tab_polls: HashMap::new(),
             panes: panes::Panes::default(),
             spine: spine::Spine::new(remember, cx),
