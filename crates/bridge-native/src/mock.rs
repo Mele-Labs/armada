@@ -80,7 +80,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
         "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
         // The box's Jobs, with the first holding a plan, two pull requests and a Job it started with one of its own.
@@ -161,6 +161,15 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-04") {
             let item = ipc::decode::<ipc::WaitingItem>("walk item", br#"{"id":"walk:armada://walk/docsIndex","text":"Walk the new index","since":"2026-11-09T14:20:00Z","source":"walk","act":{"kind":"walk","target":"armada://walk/docsIndex"}}"#).map_err(|why| why.to_string())?;
             one.waiting_for.push(item);
+        }
+    }
+    // Each open sketch waits on him as its own item, newest drawn first, as Fleet lists them.
+    if scenario == "sketches-several" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "tool-edit") {
+            for (title, since) in [("Freshness chip", "2026-11-10T22:00:41Z"), ("Merge line flow", "2026-11-10T21:58:12Z")] {
+                let wire = format!(r#"{{"id":"sketch:{title}","text":"{title}","since":"{since}","source":"sketch","act":{{"kind":"message","target":"tool-edit"}}}}"#);
+                one.waiting_for.push(ipc::decode::<WaitingItem>("sketch item", wire.as_bytes()).map_err(|why| why.to_string())?);
+            }
         }
     }
     // Needs you asks about the watch that ended not ours, as Fleet derives the item.
@@ -300,7 +309,8 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         // The tool-rows threads, with the finished Job's retro being written and Search for the queue asking with previews.
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
-        "sketch-card" | "sketch-approve" => include_bytes!("../fixtures/sketch-card-threads.json"),
+        // Edit the merge line putting two sketches to him: Freshness chip pinned, Merge line flow with its card in the thread.
+        "sketch-card" | "sketch-approve" | "sketches-several" => include_bytes!("../fixtures/sketch-card-threads.json"),
         "sketch-share" => include_bytes!("../fixtures/sketch-share-threads.json"),
         // The same, with Edit the merge line drawing the store clock twice: Pinned clock read against Store clock reads, which has two revisions.
         "sketch-changes" => include_bytes!("../fixtures/sketch-changes-threads.json"),
@@ -329,6 +339,17 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         if let Some(thread) = all.get_mut("mock-04") {
             let row = ipc::decode::<ipc::ThreadItem>("walk row", br#"{"kind":"row","row":{"kind":"window","id":"win-wf-1","at":"2026-11-09T14:20:00Z","title":"The new docs index","url":"armada://walk/docsIndex"}}"#).map_err(|why| why.to_string())?;
             thread.items.push(row);
+        }
+    }
+    // As Fleet folds two open sketches: the newest is the head's pin and its card no item, the other keeps its card asked.
+    if scenario == "sketches-several" {
+        if let Some(thread) = all.get_mut("tool-edit") {
+            thread.items.retain(|item| !matches!(item, ipc::ThreadItem::Sketch(card) if card.sketch == "sketch:Freshness chip"));
+            for item in &mut thread.items {
+                if let ipc::ThreadItem::Sketch(card) = item {
+                    card.asked = true;
+                }
+            }
         }
     }
     // The Job whose system Fleet cannot read has a thread with nothing in it yet, as Fleet answers for one.
@@ -436,6 +457,11 @@ pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T
     };
     let reads = ipc::decode::<Reads<T>>("subagent reads", bytes).unwrap_or_else(|why| panic!("the subagent reads fixture does not decode: {why}"));
     reads.subagents.into_iter().find(|one| one.session_id == job && one.subagent_id == id).map(|one| one.read)
+}
+
+/// The call-rows walk opens a call's file and its Check run from the panes' fixtures.
+fn call_rows_named() -> bool {
+    SCENARIO.lock().is_ok_and(|named| named.as_str() == "call-rows")
 }
 
 /// The scenario last named is the panes' own: their reads answer only there.
@@ -572,7 +598,7 @@ pub fn repository_file(path: &str) -> Option<Result<String, String>> {
     struct Files {
         files: Vec<One>,
     }
-    if !panes_named() {
+    if !panes_named() && !call_rows_named() {
         return None;
     }
     if let Some(text) = log(path) {
@@ -596,7 +622,7 @@ pub fn check_output(run: u64) -> Option<ipc::CheckOutput> {
     struct Outputs {
         outputs: Vec<One>,
     }
-    if !panes_named() {
+    if !panes_named() && !call_rows_named() {
         return None;
     }
     let outputs = ipc::decode::<Outputs>("check outputs", include_bytes!("../fixtures/panes-checks.json"))
@@ -707,6 +733,53 @@ pub fn needs_you(job: &str, items: &[WaitingItem], away: &dyn Fn(&str) -> bool) 
         })
         .collect();
     NeedsYou { session_id: ipc::SessionId::carried(job), sections, fold: rows.iter().any(|(section, _)| listed(*section)), review_in_band, glyphs }
+}
+
+/// When an item of the thread was written, where it says.
+fn written(item: &ipc::ThreadItem) -> Option<&str> {
+    match item {
+        ipc::ThreadItem::Row { row } => Some(row.at().as_str()),
+        ipc::ThreadItem::Calls { rows, .. } => rows.first().map(|row| row.at().as_str()),
+        ipc::ThreadItem::Subagent { at, .. } => Some(at.as_str()),
+        ipc::ThreadItem::Sketch(card) => Some(card.at.as_str()),
+        _ => None,
+    }
+}
+
+/// What Fleet's thread does once a sketch is answered: the card settles, and where it was the pin, the
+/// pin is read again, so it is the newest sketch still open (its card leaves the items) and the answered
+/// card goes back among them. Returns the first item that changed.
+pub fn sketch_answered(head: &mut ipc::ThreadHead, items: &mut Vec<ipc::ThreadItem>, sketch: &str, how: ipc::SketchHow, at: &str, words: Option<String>) -> Option<usize> {
+    let settled = ipc::CardSettled { how, at: ipc::Instant::carried(at.to_string()), words };
+    let open = |card: &ipc::ThreadSketch| card.asked && !card.withdrawn && !card.replaced && card.settled.is_none();
+    if head.sketch.as_ref().is_some_and(|pin| pin.sketch == sketch) {
+        let mut answered = head.sketch.take()?;
+        answered.settled = Some(settled);
+        let newest = items
+            .iter()
+            .enumerate()
+            .filter_map(|(at, item)| match item {
+                ipc::ThreadItem::Sketch(card) if open(card) => Some((at, card.at.as_str().to_string())),
+                _ => None,
+            })
+            .max_by(|a, b| a.1.cmp(&b.1))
+            .map(|(at, _)| at);
+        let mut changed = newest;
+        if let Some(at) = newest {
+            if let ipc::ThreadItem::Sketch(card) = items.remove(at) {
+                head.sketch = Some(card);
+            }
+        }
+        let back = items.iter().position(|item| written(item).is_some_and(|then| then > answered.at.as_str())).unwrap_or(items.len());
+        items.insert(back, ipc::ThreadItem::Sketch(answered));
+        changed = Some(changed.map_or(back, |at| at.min(back)));
+        return changed;
+    }
+    let at = items.iter().rposition(|item| matches!(item, ipc::ThreadItem::Sketch(card) if card.sketch == sketch && open(card)))?;
+    if let ipc::ThreadItem::Sketch(card) = &mut items[at] {
+        card.settled = Some(settled);
+    }
+    Some(at)
 }
 
 fn mock_act(item: &WaitingItem, job: &str) -> NeedsYouAct {
@@ -842,6 +915,17 @@ mod tests {
         let less = super::needs_you("mock-01", waiting, &|id| id == walk);
         assert!(less.sections.iter().all(|section| section.kind != Section::Walks));
         assert_eq!(less.glyphs.len(), view.glyphs.len() - 1);
+    }
+
+    #[test]
+    fn the_several_sketches_scenario_lists_each_open_sketch_newest_first_and_pins_the_newest() {
+        let jobs = super::jobs("sketches-several").expect("decodes");
+        let job = jobs.iter().find(|job| job.id.as_str() == "tool-edit").expect("the Edit Job");
+        assert_eq!(job.waiting_for.iter().map(|item| item.id.as_str()).collect::<Vec<_>>(), ["sketch:Freshness chip", "sketch:Merge line flow"]);
+        let thread = super::threads("sketches-several").expect("decodes").remove("tool-edit").expect("its thread");
+        assert_eq!(thread.head.sketch.as_ref().map(|card| card.sketch.as_str()), Some("sketch:Freshness chip"));
+        let kept: Vec<(&str, bool)> = thread.items.iter().filter_map(|item| if let ipc::ThreadItem::Sketch(card) = item { Some((card.sketch.as_str(), card.asked)) } else { None }).collect();
+        assert_eq!(kept, [("sketch:Merge line flow", true)]);
     }
 
     #[test]
