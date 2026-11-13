@@ -17,6 +17,25 @@ pub const SPACING: Words = Words("spacing.density");
 pub const THREAD_LOOK: Json = Json("thread.look");
 pub const SPACINGS: &[&str] = &["compact", "default", "roomy"];
 
+// How he works with Jobs. `ipc::Preferences` carries each, and `ipc` spells the same words for the closed sets.
+pub const TAKE_IN: Words = Words("bridge.takeIn");
+pub const ANSWER_WITH: Words = Words("bridge.answerWith");
+pub const FIRST_RUN_ANSWERED: Flag = Flag("bridge.firstRunAnswered");
+pub const READ_RESULTS: Words = Words("bridge.readResults");
+pub const LOOK_RESULTS: Words = Words("bridge.lookResults");
+pub const LOOK_QUESTIONS: Words = Words("bridge.lookQuestions");
+pub const LISTEN_END_SUMMARY: Flag = Flag("bridge.listenEndSummary");
+pub const LISTEN_NEEDS_YOU: Flag = Flag("bridge.listenNeedsYou");
+pub const LISTEN_PROGRESS: Flag = Flag("bridge.listenProgress");
+pub const LISTEN_OPERATOR: Flag = Flag("bridge.listenOperator");
+pub const LISTEN_VOICE: Words = Words("bridge.listenVoice");
+pub const BUTTONS_WORDS: Flag = Flag("bridge.buttonsWords");
+pub const TAKE_INS: &[&str] = &["read", "look", "listen"];
+pub const ANSWER_WITHS: &[&str] = &["type", "talk", "buttons"];
+pub const READ_RESULTS_SET: &[&str] = &["note_then_page", "always_page", "thread_only"];
+pub const LOOK_RESULTS_SET: &[&str] = &["picture_every", "picture_screens", "walk_visible"];
+pub const LOOK_QUESTIONS_SET: &[&str] = &["pictures_mix", "pictures_whole"];
+
 /// The theme nobody has chosen away from.
 pub const SHIPPED_THEME: &str = "dark";
 
@@ -125,6 +144,150 @@ pub(super) const BRIDGE: &[Entry] = &[
         section: Section::Bridge,
         title: "Open group",
         description: "A Job's story ends with the pull requests, issues and follow-ups still open. A right press on the group hides it.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: TAKE_IN.0,
+        section: Section::Bridge,
+        title: "Take work in",
+        description: "What you take a Job's work in: read it, look at it or listen to it.",
+        kind: Kind::Choice(Options::Fixed(TAKE_INS)),
+        shipped: Shipped::Text("read"),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: ANSWER_WITH.0,
+        section: Section::Bridge,
+        title: "Answer with",
+        description: "How you answer a Job's question: type, talk or press a button.",
+        kind: Kind::Choice(Options::Fixed(ANSWER_WITHS)),
+        shipped: Shipped::Text("type"),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: FIRST_RUN_ANSWERED.0,
+        section: Section::Bridge,
+        title: "First run answered",
+        description: "You have been asked how you work with Jobs.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(false),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: READ_RESULTS.0,
+        section: Section::Bridge,
+        title: "Read results",
+        description: "Where a Job's result goes when you read: a note in the thread then the page, the page every time, or the thread alone.",
+        kind: Kind::Choice(Options::Fixed(READ_RESULTS_SET)),
+        shipped: Shipped::Text("note_then_page"),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: LOOK_RESULTS.0,
+        section: Section::Bridge,
+        title: "Look results",
+        description: "How a Job's result shows when you look: a picture of every change, of every screen, or the walk of what is visible.",
+        kind: Kind::Choice(Options::Fixed(LOOK_RESULTS_SET)),
+        shipped: Shipped::Text("picture_every"),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: LOOK_QUESTIONS.0,
+        section: Section::Bridge,
+        title: "Look questions",
+        description: "How a Job's question offers its options when you look: pictures to mix parts of, or whole pictures.",
+        kind: Kind::Choice(Options::Fixed(LOOK_QUESTIONS_SET)),
+        shipped: Shipped::Text("pictures_mix"),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: LISTEN_END_SUMMARY.0,
+        section: Section::Bridge,
+        title: "Listen: end summary",
+        description: "A Job that ends is read out in a summary when you listen.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: LISTEN_NEEDS_YOU.0,
+        section: Section::Bridge,
+        title: "Listen: needs you",
+        description: "A Job that needs you is read out when you listen.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: LISTEN_PROGRESS.0,
+        section: Section::Bridge,
+        title: "Listen: progress",
+        description: "A Job's progress is read out when you listen.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(false),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: LISTEN_OPERATOR.0,
+        section: Section::Bridge,
+        title: "Listen: Operator",
+        description: "The Operator's words are read out when you listen.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(false),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: LISTEN_VOICE.0,
+        section: Section::Bridge,
+        title: "Listen: voice",
+        description: "The voice you listen with, by the name the Mac gives it. Blank is the Mac's default voice.",
+        kind: Kind::Text,
+        shipped: Shipped::Text(""),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: BUTTONS_WORDS.0,
+        section: Section::Bridge,
+        title: "Buttons: words",
+        description: "A text box shows under a question's options.",
         kind: Kind::Boolean,
         shipped: Shipped::Boolean(true),
         applies: Applies::Live,

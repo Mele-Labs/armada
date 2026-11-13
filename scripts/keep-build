@@ -48,6 +48,7 @@
 # which the release makes its app with too: the cargo binary renamed to `Contents/MacOS/Armada`, an
 # `Info.plist`, the brand icon, and an ad hoc signature. `native` in `build.toml` is the first 16 hex
 # of one sha256 over the binary and the icon, so a restart can tell a changed app from an unchanged one. A build kept without one has no `native` line.
+# `native-app` also builds Armada Voice in the tree being kept when it is missing or stale, and the page's copy of it, `native/voice/build`, is taken after.
 #
 # **Everything is derived from `$HOME`**, as in `scripts/restart`, so a test
 # against a scratch home never reaches the owner's builds.
@@ -161,6 +162,10 @@ make() {
   # The restart's own stamps say when `out/` was built from that tree, not what it holds.
   rm -f "$making"/bridge/out/.armada-restart-stamp*
   [[ ! -d "$src/apps/desktop/sounds" ]] || clone "$src/apps/desktop/sounds" "$making/bridge/sounds"
+  # Before Armada Voice is copied below: `native-app` builds it in `$src` where it is missing or stale, so both apps carry the one built.
+  if [[ -n "$native_bin" ]]; then
+    NATIVE_APP_TREE="$src" "$here/native-app" "$native_bin" "$making" "$icon" >/dev/null
+  fi
   if [[ -d "$src/apps/desktop/native/voice/build" ]]; then
     mkdir -p "$making/bridge/native/voice"
     clone "$src/apps/desktop/native/voice/build" "$making/bridge/native/voice/build"
@@ -169,9 +174,6 @@ make() {
   cp "$src/scripts/bridge-launch" "$making/bridge-launch"
   printf '#!/bin/sh\nexec "%s" "%s/bridge"\n' "$electron" "$final" >"$making/launch-bridge"
   chmod 755 "$making/launch-bridge"
-  if [[ -n "$native_bin" ]]; then
-    "$here/native-app" "$native_bin" "$making" "$icon" >/dev/null
-  fi
 
   python3 - "$making" "$built_at" "$commit" "$source" "$protocol_id" "$lock" "$src" "$support" "$native_bin" "${icon:-}" <<'PY'
 import hashlib, json, os, sys

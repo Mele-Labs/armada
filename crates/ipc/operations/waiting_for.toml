@@ -10,6 +10,8 @@ notes = """
 
 **`approves: true` is an item asking for his approval.** Fleet replaces its `options` with *Approve* then *Ask for changes*, keeps the mark with the item through a restart and a reopen, and keeps his Approve (choice 0) beside the dismissal it makes. That Approve, made at or after the plan was first recorded, closes the plan's first open `you_approved` gate, once. Ask for changes, words alone, a dismissal, and an answer the Operator or Autopilot gives in his place close nothing.
 
+**An option may carry a `picture`**: `{image, width, height, parts?}`, where `image` is a URL or a path Fleet serves, `width` and `height` are the still's pixels, and each of `parts` is a box `{name, label, x, y, w, h}` on the still in those pixels, `name` unique within the picture. Fleet keeps the pictures with the options, through a restart and a reopen, and serves them on `SessionRecord.waiting_for` and the closed list. It reads none of it: a picture is for Bridge to draw. The tool's own description above does not offer it to agents until Bridge draws one.
+
 **The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal, as `show_window`'s is. An ended job holds nothing.
 
 `agent_access` is `Yes`: the agent is the one that knows what it needs from the person.

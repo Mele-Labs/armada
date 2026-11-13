@@ -4,8 +4,12 @@
 //   listen                      Apple's on-device recogniser: `partial` lines while he talks, then one `final`
 //   whisper <library> <model>   records until the release, then one `final` from whisper.cpp
 //   probe                       what macOS holds for it, asking nothing: both permissions and whether on-device recognition is here
+//   voices                      one `voice` line for each voice installed, Enhanced and Premium ones too, then `end`
+//   speak [<voice id>]          reads a line of text at a time from stdin and says each in turn, with that voice or the Mac's own
 //
 // `listen` and `whisper` say `ready` once they hear, and end on `final` or `error`.
+// `speak` says `speaking` and `spoken` with the line's index, counting from 0, as each starts and ends, and ends on the last
+// `spoken` once stdin has closed. A line `{"stop":true}`, or SIGTERM, stops at once and says `stopped`. Speaking asks macOS for nothing.
 
 import AVFoundation
 import Foundation
@@ -178,11 +182,101 @@ func probe() {
   exit(0)
 }
 
+func voices() {
+  let quality: [AVSpeechSynthesisVoiceQuality: String] = [.default: "default", .enhanced: "enhanced", .premium: "premium"]
+  let installed = AVSpeechSynthesisVoice.speechVoices().sorted { ($0.language, $0.name) < ($1.language, $1.name) }
+  for voice in installed {
+    say(["kind": "voice", "id": voice.identifier, "name": voice.name, "language": voice.language, "quality": quality[voice.quality] ?? "default"])
+  }
+  say(["kind": "end"])
+  exit(0)
+}
+
+/// Speaks what stdin gives, a line at a time. The synthesizer queues the lines and says them in order.
+final class Speaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
+  let synthesizer = AVSpeechSynthesizer()
+  let voice: AVSpeechSynthesisVoice?
+  var indexes: [ObjectIdentifier: Int] = [:]
+  var next = 0
+  var open = true
+
+  init(voice: AVSpeechSynthesisVoice?) {
+    self.voice = voice
+    super.init()
+    synthesizer.delegate = self
+  }
+
+  /// A line the owner's text could never be: a JSON object that says stop.
+  static func stops(_ line: String) -> Bool {
+    guard line.hasPrefix("{"), let data = line.data(using: .utf8),
+          let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+    return object["stop"] as? Bool == true
+  }
+
+  func line(_ text: String) {
+    if Speaker.stops(text) { return stop() }
+    guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+    let utterance = AVSpeechUtterance(string: text)
+    utterance.voice = voice
+    indexes[ObjectIdentifier(utterance)] = next
+    next += 1
+    synthesizer.speak(utterance)
+  }
+
+  func stop() {
+    synthesizer.stopSpeaking(at: .immediate)
+    say(["kind": "stopped"])
+    exit(0)
+  }
+
+  func closed() {
+    open = false
+    if indexes.isEmpty { exit(0) }
+  }
+
+  func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+    if let index = indexes[ObjectIdentifier(utterance)] { say(["kind": "speaking", "index": index]) }
+  }
+
+  func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+    guard let index = indexes.removeValue(forKey: ObjectIdentifier(utterance)) else { return }
+    say(["kind": "spoken", "index": index])
+    if !open && indexes.isEmpty { exit(0) }
+  }
+}
+
+var speaker: Speaker?
+
+func speak(voiceId: String?) {
+  var chosen: AVSpeechSynthesisVoice?
+  if let voiceId {
+    guard let found = AVSpeechSynthesisVoice(identifier: voiceId) else { fail("voice_missing", voiceId) }
+    chosen = found
+  }
+  let talker = Speaker(voice: chosen)
+  speaker = talker
+  for sig in [SIGTERM, SIGINT] {
+    signal(sig, SIG_IGN)
+    let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+    source.setEventHandler { talker.stop() }
+    source.resume()
+    releaseSources.append(source)
+  }
+  Thread.detachNewThread {
+    while let text = readLine(strippingNewline: true) {
+      DispatchQueue.main.async { talker.line(text) }
+    }
+    DispatchQueue.main.async { talker.closed() }
+  }
+}
+
 let args = Array(CommandLine.arguments.dropFirst())
 switch args.first {
 case "listen": permitted(speech: true, then: listen)
 case "whisper" where args.count == 3: permitted(speech: false) { whisper(library: args[1], model: args[2]) }
 case "probe": probe()
-default: fail("usage", "listen | whisper <library> <model> | probe")
+case "voices": voices()
+case "speak" where args.count <= 2: speak(voiceId: args.count == 2 ? args[1] : nil)
+default: fail("usage", "listen | whisper <library> <model> | probe | voices | speak [<voice id>]")
 }
 dispatchMain()

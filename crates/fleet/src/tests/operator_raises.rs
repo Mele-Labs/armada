@@ -90,7 +90,7 @@ pub(super) fn question(id: &str, text: &str, options: &[&str]) -> WaitingInput {
         id: id.into(),
         text: text.into(),
         act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id.into() }),
-        options: options.iter().map(|label| WaitingOption { label: (*label).into(), description: None }).collect(),
+        options: options.iter().map(|label| WaitingOption { label: (*label).into(), description: None, picture: None }).collect(),
         steps: Vec::new(),
     }
 }

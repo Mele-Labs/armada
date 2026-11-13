@@ -11,6 +11,7 @@ fn item(id: &str, approves: bool) -> KeptWaiting {
         since: "2026-11-10T09:00:00.000Z".into(),
         act: None,
         options: vec!["Approve".into(), "Ask for changes".into()],
+        pictures: String::new(),
         steps: Vec::new(),
         approves,
     }
@@ -32,6 +33,7 @@ fn an_item_asking_for_his_approval_keeps_the_mark_open_closed_and_reopened() {
         source: "agent".into(),
         act: None,
         options: vec!["Approve".into(), "Ask for changes".into()],
+        pictures: String::new(),
         steps: Vec::new(),
         since: "2026-11-10T09:00:00.000Z".into(),
         closed_at: "2026-11-10T10:00:00.000Z".into(),

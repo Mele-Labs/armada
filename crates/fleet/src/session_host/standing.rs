@@ -182,7 +182,7 @@ pub(crate) fn derived(seen: &Seen) -> Vec<WaitingItem> {
                     super::extracting::Act::ApprovePr(number) => WaitingAct { kind: WaitingActKind::ApprovePr, target: number },
                     super::extracting::Act::Answer => WaitingAct { kind: WaitingActKind::Answer, target: String::new() },
                 });
-                one.options = ask.options.into_iter().map(|label| WaitingOption { label, description: None }).collect();
+                one.options = ask.options.into_iter().map(|label| WaitingOption { label, description: None, picture: None }).collect();
                 items.push(one);
             }
         } else if let Some((id, ended, line)) = refusing(seen) {

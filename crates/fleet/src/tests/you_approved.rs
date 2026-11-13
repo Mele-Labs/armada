@@ -19,7 +19,7 @@ fn asking(id: &str, approves: bool, options: &[&str]) -> WaitingInput {
         id: id.into(),
         text: format!("Approve {id}?"),
         act: None,
-        options: options.iter().map(|label| WaitingOption { label: (*label).into(), description: None }).collect(),
+        options: options.iter().map(|label| WaitingOption { label: (*label).into(), description: None, picture: None }).collect(),
         approves,
         steps: Vec::new(),
     }
