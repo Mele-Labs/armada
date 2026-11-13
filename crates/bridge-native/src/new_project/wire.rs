@@ -2,8 +2,9 @@
 //! connection read, or answered at once by the walk's mock. `crates/ipc/operations/`: `list_repositories`,
 //! `list_repository_areas`, `get_values`, `clone_repository`, `create_project`, `add_project` and `edit_project`.
 //!
-//! **Two reads Fleet does not serve yet** each have one function here, which answers nothing until it does:
-//! [`Wire::search_folders`] and [`Wire::github_repositories`].
+//! **One read Fleet does not serve yet** has a function here, which answers nothing until it does:
+//! [`Wire::github_repositories`]. The folder search is `GET /manifest/files` with `folders=true`
+//! ([`Wire::search_folders`]).
 
 use std::time::Duration;
 
@@ -16,6 +17,33 @@ use crate::fleet::FleetConnection;
 /// How long a clone may take before Bridge stops waiting: past Fleet's own ten minutes, so Fleet's answer
 /// arrives first (`clone_repository.toml`).
 const CLONE_PATIENCE: Duration = Duration::from_secs(11 * 60);
+
+/// What a folder search is made against: a repository with a Manifest by its id, one Fleet serves with none
+/// (a clone, a repository the sheet just made) by its root.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Place {
+    Manifest(String),
+    Root(String),
+}
+
+/// What Fleet said to a folder search.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Folders {
+    Found(Vec<String>),
+    /// Fleet's own sentence for a 422.
+    Refused(String),
+    /// Not asked, not answered, or answered with something the sheet cannot show.
+    Down,
+}
+
+/// The request for a repository's folders matching `query`: Fleet takes one of `manifest_id` and `root`.
+pub fn folders_path(place: &Place, query: &str) -> String {
+    let named = match place {
+        Place::Manifest(id) => format!("manifest_id={}", crate::link::percent_encoded(id)),
+        Place::Root(root) => format!("root={}", crate::link::percent_encoded(root)),
+    };
+    format!("/manifest/files?q={}&{named}&folders=true", crate::link::percent_encoded(query))
+}
 
 pub enum Wire {
     Live(Entity<FleetConnection>),
@@ -134,12 +162,31 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
     }
 
-    // -- what Fleet does not serve yet -----------------------------------------------------------------
+    // -- the folder search, and what Fleet does not serve yet ---------------------------------------------
 
-    /// Every folder of a repository whose path fuzzy-matches `query`, best first. **Fleet serves no folder
-    /// search on `/manifest/files` yet**, so this is `None` and the sheet searches the folders it read.
-    pub fn search_folders(&self, _manifest: &str, _query: &str) -> Option<Vec<String>> {
-        None
+    /// `GET /manifest/files?folders=true`: every folder of a repository whose path fuzzy-matches `query`, in
+    /// Fleet's order. [`Folders::Down`] where Fleet cannot be asked or answered with anything but a refusal,
+    /// and the sheet searches the folders it read.
+    pub fn search_folders(&self, place: &Place, query: &str, cx: &App) -> Task<Folders> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(Folders::Found(mock.folders_found(place, query)));
+        }
+        let Some(port) = self.port(cx) else { return Task::ready(Folders::Down) };
+        let path = folders_path(place, query);
+        cx.background_spawn(async move {
+            let Ok(runtime) = tokio::runtime::Builder::new_current_thread().enable_all().build() else { return Folders::Down };
+            let Ok((status, bytes)) = runtime.block_on(crate::transport::get(port, &path)) else { return Folders::Down };
+            match status {
+                200..=299 => ipc::decode::<ipc::FilesFound>("FilesFound", &bytes).map_or(Folders::Down, |found| Folders::Found(found.folders)),
+                422 => ipc::decode::<ipc::WireError>("WireError", &bytes).map_or(Folders::Down, |error| Folders::Refused(error.message)),
+                _ => Folders::Down,
+            }
+        })
+    }
+
+    /// Whether this is the walk's Fleet, which answers at once and needs no wait for typing to stop.
+    pub fn is_mock(&self) -> bool {
+        matches!(self, Wire::Mock(_))
     }
 
     /// The repositories his GitHub account sees, for the clone field to search. **Fleet serves no such list
@@ -159,6 +206,13 @@ pub struct Mock {
     pub projects: Projects,
 }
 
+/// Folders below the two the areas read, as an index of every folder would hold them: what the walk's search
+/// finds that the top folders do not show.
+const MOCK_DEEP_FOLDERS: [(&str, &[&str]); 1] = [(
+    "sample-web",
+    &["web/cart/hooks", "web/account/settings", "services/pricing/rules", "services/pricing/rules/regional"],
+)];
+
 impl Mock {
     pub fn new() -> Mock {
         Mock {
@@ -168,6 +222,19 @@ impl Mock {
             models: vec!["opus".into(), "sonnet".into(), "haiku".into()],
             projects: crate::mock::projects(),
         }
+    }
+
+    /// The folders the walk's Fleet finds for `query`: the areas' folders and the deeper ones, ranked as the
+    /// sheet ranks its own.
+    fn folders_found(&self, place: &Place, query: &str) -> Vec<String> {
+        let Place::Manifest(id) = place else { return Vec::new() };
+        let mut all: Vec<String> = self.areas.repositories.iter().filter(|one| one.manifest_id.as_str() == id).flat_map(|one| one.areas.iter()).flat_map(|area| {
+            std::iter::once(area.dir.clone()).chain(area.kids.iter().map(|kid| format!("{}/{}", area.dir, kid.name)))
+        }).collect();
+        all.extend(MOCK_DEEP_FOLDERS.iter().filter(|(of, _)| of == id).flat_map(|(_, deep)| deep.iter().map(|path| path.to_string())));
+        let mut found: Vec<(u32, String)> = all.into_iter().filter_map(|path| super::fuzzy(query, &path.to_lowercase()).map(|(score, _)| (score, path))).collect();
+        found.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.len().cmp(&b.1.len())).then(a.1.cmp(&b.1)));
+        found.into_iter().map(|(_, path)| path).collect()
     }
 
     /// A clone or a new repository, served as Fleet answers one: no Manifest, the folder's name its id.
@@ -209,3 +276,17 @@ const MOCK_VALUES: &str = r#"{
  "agent_starts": {"value": "at_once", "from": "default"},
  "delivery": {"from": "default"}
 }"#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_repository_with_a_manifest_is_searched_by_its_id_and_one_without_by_its_root_each_for_folders() {
+        assert_eq!(folders_path(&Place::Manifest("sample-web".into()), "chk"), "/manifest/files?q=chk&manifest_id=sample-web&folders=true");
+        assert_eq!(
+            folders_path(&Place::Root("/Users/user/Development/my app".into()), "web/c k"),
+            "/manifest/files?q=web%2Fc%20k&root=%2FUsers%2Fuser%2FDevelopment%2Fmy%20app&folders=true"
+        );
+    }
+}

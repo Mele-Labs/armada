@@ -1,5 +1,5 @@
 //! The New project walk: the sheet opened from the project switcher, a name, a repository opened on its
-//! folders and two ticked through its search, a repository to clone, each tile, and Create, which lands on the
+//! folders and two ticked through its search, a third found three levels down by Fleet's search, a repository to clone, each tile, and Create, which lands on the
 //! new Job's thread in the project with the keys in its box. The sheet's Fleet is `new_project::wire::Mock`.
 
 use super::{press_on, step, Step, Verb};
@@ -7,7 +7,7 @@ use super::{press_on, step, Step, Verb};
 /// The switcher on a wide bar, its rows in the menu on a narrow one: either way Find has the keys.
 const SWITCHER: Verb = Verb::PressOnFirst(&[("button", "Project"), ("button", "Menu")]);
 
-pub static STEPS: [Step; 29] = [
+pub static STEPS: [Step; 36] = [
     step("The project switcher, or below 900 the menu that holds its rows: the keys are in Find", SWITCHER, "searchbox", "Find a project"),
     step("Typing narrows it to New project", Verb::Keys(&["n", "e", "w"]), "searchbox", "Find a project"),
     step("Enter opens the sheet over the window, the keys in Name", Verb::Key("enter"), "textbox", "Name"),
@@ -24,6 +24,13 @@ pub static STEPS: [Step; 29] = [
     step("Space ticks it: the repository reads 1 folder picked, its box half filled", Verb::Key("space"), "treeitem", "sample-web"),
     step("↓ and Space tick the next", Verb::Keys(&["down", "space"]), "checkbox", "services/checkout-api"),
     step("2 folders picked", Verb::Look, "treeitem", "sample-web"),
+    press_on("The search takes the keys again", "searchbox", "Find a folder in sample-web", "searchbox", "Find a folder in sample-web"),
+    step("Cleared, the list is the top folders again, and the two ticked stay in it", Verb::Keys(&["cmd-a", "backspace"]), "checkbox", "web/checkout"),
+    step("Typing asks Fleet, which finds a folder three levels down that the top folders do not show", Verb::Typed("pricrules"), "checkbox", "services/pricing/rules"),
+    step("↓ and Space tick it", Verb::Keys(&["down", "space"]), "checkbox", "services/pricing/rules"),
+    press_on("The search takes the keys again", "searchbox", "Find a folder in sample-web", "searchbox", "Find a folder in sample-web"),
+    step("Cleared, the folder stays ticked beside the others the list does not show", Verb::Keys(&["cmd-a", "backspace"]), "checkbox", "services/pricing/rules"),
+    step("3 folders picked", Verb::Look, "treeitem", "sample-web"),
     press_on("Clone a repository opens its two fields, the keys in the first", "button", "Clone a repository", "textbox", "Repository to clone"),
     step("A URL or owner and name", Verb::Typed("github.com/acme/billing"), "textbox", "Repository to clone"),
     step("It clones into the folder his repositories are in, or another he picks", Verb::Look, "button", "Folder to clone into"),

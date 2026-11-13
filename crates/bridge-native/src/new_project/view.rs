@@ -189,6 +189,9 @@ impl NewProjectSheet {
                         if self.folders_unread() {
                             rows.push(self.fold_frame(look).child(bone(look, look.length(token::SPACE_12) * 2.)).into_any_element());
                         }
+                        if let Some(why) = self.folder_refusal(cx) {
+                            rows.push(self.fold_frame(look).text_color(look.color(token::FG_SUBTLE)).child(div().min_w_0().truncate().child(why)).into_any_element());
+                        }
                     }
                     if line == Line::Clone && self.clone_open {
                         rows.push(self.clone_fields(window, cx));
