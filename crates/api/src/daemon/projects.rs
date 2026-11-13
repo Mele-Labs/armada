@@ -44,6 +44,10 @@ pub trait Projects: Send + Sync + 'static {
     /// nothing is held.
     fn list_project_issues(&self, project: String, refresh: bool) -> impl Future<Output = Result<ipc::ProjectIssueList, Refusal>> + Send;
 
+    /// `set_project_workflow` — one workflow switched off for the project, or back on, and nothing else of its values
+    /// changed. [`Refusal::NotFound`] for a project he has none of, [`Refusal::Unacceptable`] for a blank workflow.
+    fn set_project_workflow(&self, project: String, set: ipc::SetProjectWorkflow) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+
     /// `save_kit_values` — Kit's `values.yml`, whole. [`Refusal::Unacceptable`] for a word its key does not take.
     fn save_kit_values(&self, save: ipc::SaveKitValues) -> impl Future<Output = Result<ipc::KitValuesSaved, Refusal>> + Send;
 
