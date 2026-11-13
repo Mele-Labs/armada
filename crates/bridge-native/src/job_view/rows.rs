@@ -208,7 +208,7 @@ impl JobView {
                 Some(ThreadItem::Row { row: SessionRow::Message { files, .. } | SessionRow::Sent { files, .. } })
                     if files.iter().any(super::pictures::is_picture) =>
                 {
-                    Some((files.clone(), false))
+                    Some((files.clone(), Some(false)))
                 }
                 // And a picture a `Read` call looked at, the first time its run is drawn.
                 Some(ThreadItem::Calls { rows, .. }) => {
@@ -219,15 +219,18 @@ impl JobView {
                             _ => None,
                         })
                         .collect();
-                    (!read.is_empty()).then_some((read, true))
+                    (!read.is_empty()).then_some((read, Some(true)))
                 }
+                // And a picture the Job showed, as Fleet keeps it.
+                Some(ThreadItem::File { path, .. }) => super::pictures::read_picture(path).map(|picture| (vec![picture], None)),
                 _ => None,
             },
             _ => None,
         };
         match wanted {
-            Some((files, false)) => self.want_pictures(&id, &files, window, cx),
-            Some((files, true)) => self.want_read_pictures(&id, &files, window, cx),
+            Some((files, None)) => self.want_shown_pictures(&id, &files, window, cx),
+            Some((files, Some(false))) => self.want_pictures(&id, &files, window, cx),
+            Some((files, Some(true))) => self.want_read_pictures(&id, &files, window, cx),
             None => {}
         }
         let (Some(page), Some(held)) = (self.pages.get(&id), self.thread(&id, cx)) else { return nothing() };
@@ -607,7 +610,7 @@ impl JobView {
             ThreadItem::Checks { id, rows } => self.checks(ix, id, rows, page, look, now, cx),
             ThreadItem::FleetTurn { id, notice, rows, handled } => self.fleet_turn(ix, id, notice, rows, *handled, page, look, cx),
             ThreadItem::Sketch(card) => self.sketch(ix, card, page, look, now, cx),
-            ThreadItem::File { id, name, .. } => self.file_row(id, name, look),
+            ThreadItem::File { id, path, name, .. } => self.file_row(id, path, name, look, cx),
             ThreadItem::Document(card) => self.document(ix, card, page, look, now, cx),
             ThreadItem::Plan(plan) => self.plan_card(ix, plan, page, look, now, cx),
             ThreadItem::Judged { id, at, artifact, .. } => self.judged_row(id, artifact, at, page, look, now, cx),
