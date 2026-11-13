@@ -60,6 +60,8 @@ impl TitleBar {
             }
             self.snapshot_was = Some(now);
         }
+        // A scene's face, and a swap's start and end, move the Fleet panel too.
+        self.settle_panel(cx);
         cx.notify();
     }
 

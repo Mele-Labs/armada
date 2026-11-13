@@ -23,7 +23,7 @@ use ipc::operator_page::{OperatorAnswer, OperatorTurnItem, OperatorTurnKind};
 use ipc::JobState;
 use ipc::CallTone;
 
-use super::{Ended, FleetNotice, NoticeAct, Shelf, Toast, Urgency};
+use super::{Ended, FleetNotice, Shelf, Toast, Urgency};
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::log::Note;
@@ -185,8 +185,6 @@ fn untell(key: u64, cx: &mut App) {
     let told = cx.try_global::<Told>().map(|kept| kept.0.iter().filter(|one| one.key != key).cloned().collect()).unwrap_or_default();
     cx.set_global(Told(told));
 }
-
-const RESTART_TOOLTIP: &str = "Restart Fleet. Working Drones are adopted and cannot be redirected until they finish.";
 
 /// The title bar read Fleet's state again: what it says now stands, and a state not shown before marks
 /// the bell.
@@ -532,33 +530,10 @@ impl Toasts {
         labelled(frame, Role::Alert, format!("Toast: {title}"))
     }
 
-    /// A state of Fleet: the urgent edge, what is wrong and what to do, its code, and its acts. It has no
-    /// close: it goes when the state does, or, after a restart that did not come back, on Dismiss.
+    /// A state of Fleet: its edge, what is wrong and what to do, and its code. It has no close: it goes
+    /// when the state does. Copy debug info is on the Fleet popover.
     fn fleet_toast(&self, notice: &FleetNotice, look: &Look) -> impl IntoElement {
         let edge = look.color(if notice.fault { token::STATUS_COMPLETED_FAILED } else { token::DEGRADED });
-        let act = match notice.act {
-            NoticeAct::None => None,
-            NoticeAct::Restart { working, busy } => {
-                let word: SharedString = if working { "Restarting Fleet" } else { "Restart Fleet" }.into();
-                let button = press("toast-restart-fleet", word.clone(), Some("rotate-cw"), None, Weight::Pick, look).tooltip(tip(RESTART_TOOLTIP));
-                let button = if busy { button.opacity(0.6) } else { button.on_click(|_, _, cx| crate::titlebar::restart_fleet(cx)) };
-                Some(labelled(button, Role::Button, word).into_any_element())
-            }
-            NoticeAct::Dismiss => Some(
-                labelled(
-                    press("toast-dismiss-restart", "Dismiss".into(), None, None, Weight::Bare, look).on_click(|_, _, cx| crate::titlebar::dismiss_restart_failure(cx)),
-                    Role::Button,
-                    "Dismiss",
-                )
-                .into_any_element(),
-            ),
-        };
-        let copy = labelled(
-            press(SharedString::from(format!("toast-copy:{}", notice.id)), "Copy debug info".into(), Some("copy"), None, Weight::Bare, look)
-                .on_click(|_, _, cx| crate::titlebar::copy_debug_info(cx)),
-            Role::Button,
-            "Copy debug info",
-        );
         let head = div()
             .flex()
             .items_center()
@@ -585,8 +560,7 @@ impl Toasts {
             .py(look.length(token::SPACE_3))
             .child(head)
             .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(notice.headline.clone()))
-            .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(notice.next.clone()))
-            .child(div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).pt(look.length(token::SPACE_1)).children(act).child(copy));
+            .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(notice.next.clone()));
         labelled(
             div()
                 .id(SharedString::from(format!("toast:{}", notice.id)))

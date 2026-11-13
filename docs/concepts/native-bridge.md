@@ -114,6 +114,7 @@ The parity check takes each row here as chosen.
 
 | Where | Armada Classic | Native |
 |---|---|---|
+| The composer's Aa panel | No Voice section; voice is picked in Settings › Thread | A Voice section (Apple on-device, Whisper, macOS Dictation), as native has no other place to pick a voice (13 Nov) |
 | A pull request's Files tab | "N files" beside the tree, which draws every file | No count, under the no-aggregate-counts rule of 29 Sep |
 | A Job's Issues tab | Two repositories' #7 show as one row, a fault | Each repository's #7 is a row of its own; a row from another repository names it before the number, as sample-web#7 |
 | A Job's System tab: Columns | Hides Port, CPU, Memory and I/O | Hides Port alone: Fleet reports nothing else for each process |
@@ -158,6 +159,7 @@ The parity check takes each row here as chosen.
 | A terminal's tab glyph | `square-terminal`, which the icon registry reserves for a Session | `file-terminal`, the glyph the registry gives the Job's shell, as the dispatch line's Terminal kind and ⌘T's palette row draw it |
 | A terminal tab's menu | Send to agent, Copy terminal ID, Rename, Move to window, Zoom, Split right, Split down and Close | Send to agent, Copy terminal ID, Rename and Close; Move to window, Zoom and the splits wait for native panes to have them |
 | A note just saved (owner, 12 Nov) | The card closes | The card stays open with Send to job in hand: Enter opens the live Jobs beside it, ⌥1–9 or Enter sends, Esc closes it |
+| Fleet stopped, restarting or on another build (owner, 13 Nov) | `FleetNotice`, an urgent toast with Restart Fleet and Copy debug info, held back 30 seconds after a drop | A centred panel over a dimmed screen, with no close, until the state clears: Fleet and this app side by side with their builds, and one focused button that Return presses. Copy debug info is on the Fleet popover. Fleet alive and not answering keeps its toast |
 | Send to job on a note, the notes bar and the selection in All notes (owner, 12 Nov) | Behind Start job's caret, in a split button | Its own button, first in the row, with Start job beside it; the picker opens beside it and finds a Job as it is typed |
 | The page a sent note names | The page's web address, which Fleet reads as a checkout of the page | `armada://native/<screen>`, since a native screen has no web address |
 | A hold on the Operator page | Electron is frozen and draws no paths, Job or until | Fleet's words, then a line under them with each held path in mono and "until it pushes" or "until it ends"; a press opens the Job that alone writes there. A hold Fleet sent before it named them keeps its words alone |
@@ -167,6 +169,8 @@ The parity check takes each row here as chosen.
 | Add lifecycle over a workflow's lanes in Settings | Drawn where the lanes can be edited | Not drawn: native's lanes are read-only for now |
 | The clash shown in the Settings walk | api's own copy of feature, where Platform and Mobile differ | armada's own copy of feature, with the same words, since the mock serves no api repository |
 | New project (owner) | `LocateForm`: a name and a parent folder, made into a git repository | A project sheet: a name, his repositories ticked whole or by folder, a clone or a new repository, where its file is kept, and the settings it starts with. Create makes the project, goes to it and starts a Job in it on its empty thread |
+| The Jobs list's groups (his report, 13 Nov) | A group for each repository on All, by the repository's name | A group for each project a Job was started for, by the project's name; a Job started for none stands under its repository's name. A heading is never an id |
+| A Job Fleet has not titled yet, in the Jobs list (his report, 13 Nov) | Its row reads the Job's id | Its row reads New Job, as ⌘T names the Job it starts |
 
 ## Notifying
 

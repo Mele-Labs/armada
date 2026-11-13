@@ -1110,7 +1110,7 @@ impl JobView {
         let job = self.shown.clone();
         let view = cx.entity();
         let held = (self.composer.quick.panel().agent_name, self.kept_text("thread-look:new-line"), self.composer.quick.mock_whisper());
-        let panel = cx.new(|cx| super::aa::Aa::new(view, job, at, held, false, window, cx));
+        let panel = cx.new(|cx| super::aa::Aa::new(view, job, at, held, true, window, cx));
         let back = Some(self.composer.aa.clone());
         self.open_popup(panel, back, Vec::new(), window, cx);
     }

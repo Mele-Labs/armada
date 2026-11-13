@@ -53,27 +53,28 @@ pub static LIMITS: [Step; 9] = [
 
 /// The write-clash marks on Fleet's clashes, then Fleet down and Restart Fleet as the live bar reads the link:
 /// each Fleet scene is the connection's state and the runtime file it read, timed by the clock.
-pub static FLEET_LIVE: [Step; 20] = [
+pub static FLEET_LIVE: [Step; 16] = [
     scene("Fleet answers: the dot is green", "fleet-live-running", "button", "Fleet — Running"),
     marks("A write clash in Fleet's clashes marks both rows of the pair", "clash-pair", "button", PAIR),
     step("Hover names the other Job and the files that collide", Verb::Hover, "button", PAIR),
     step("Esc puts the card away", Verb::Key("escape"), "button", PAIR),
-    scene("Fleet stopped: for 30 seconds after a drop the dot turns orange, the strip stands empty, and the clash marks go", "fleet-live-grace", "button", "Fleet — Not running"),
-    scene("Past 30 seconds an urgent toast says so, and the strip draws what Fleet last said", "fleet-live-down", "alert", "Toast: Fleet is not running"),
-    step("The panel says why", Verb::Press, "button", "Fleet — Not running"),
-    step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Not running"),
-    scene("Fleet alive and silent: what is shown is not live", "fleet-live-unreachable", "alert", "Toast: Fleet unreachable"),
-    step("The toast carries Copy debug info", Verb::Look, "button", "Copy debug info"),
-    scene("A Fleet on another protocol offers Restart Fleet", "fleet-live-mismatch", "button", "Restart Fleet"),
+    scene("Fleet stopped: for launchd's 2 seconds after a drop nothing stands over the screen; the strip stands empty, and the clash marks go", "fleet-live-grace", "button", "Fleet — Not running"),
+    scene("Past them the Fleet panel stands over the screen until Fleet is back", "fleet-live-down", "dialog", "Fleet stopped"),
+    step("The face's popover says why, and carries Copy debug info", Verb::PressOn("button", "Fleet — Not running"), "button", "Copy debug info"),
+    step("Esc shuts the popover", Verb::Key("escape"), "button", "Fleet — Not running"),
+    scene("Fleet alive and silent: a toast says what is shown is not live", "fleet-live-unreachable", "alert", "Toast: Fleet unreachable"),
+    scene("A Fleet on another protocol: the panel offers Restart Fleet", "fleet-live-mismatch", "button", "Restart Fleet"),
     press_on("Restart Fleet answers in the same frame", "button", "Restart Fleet", "button", "Restarting Fleet"),
-    scene("launchd refused: the failure says so, with launchctl's own words", "fleet-live-refused", "alert", "Toast: launchd refused to restart Fleet"),
-    press_on("Dismiss puts it away", "button", "Dismiss", "button", "Restart Fleet"),
+    scene(
+        "launchd refused: launchctl's own words stand under the units, and Restart Fleet is back",
+        "fleet-live-refused",
+        "status",
+        "launchd refused to restart Fleet: Could not kickstart service \"gui/501/com.armada.fleet\": 37: Operation already in progress",
+    ),
     press_on("Restart Fleet again", "button", "Restart Fleet", "button", "Restarting Fleet"),
-    scene("A Fleet started by hand is not restarted: a second would start beside it", "fleet-live-not-ours", "alert", "Toast: Fleet was not started by Armada's service"),
-    press_on("Dismiss puts it away", "button", "Dismiss", "button", "Restart Fleet"),
-    press_on("Restart Fleet once more", "button", "Restart Fleet", "button", "Restarting Fleet"),
-    scene("A new Fleet answered and it still does not match", "fleet-live-apart", "alert", "Toast: Still not matching"),
-    scene("Fleet answers on this protocol: the notice and the restart go", "fleet-live-running", "button", "Fleet — Running"),
+    scene("A Fleet started by hand is not restarted: a second would start beside it", "fleet-live-not-ours", "status", "Fleet was not started by Armada's service: gui/501/com.armada.fleet is not loaded"),
+    scene("A new Fleet answered and it still does not match: the panel stands, with Restart Fleet", "fleet-live-apart", "button", "Restart Fleet"),
+    scene("Fleet answers on this protocol: the panel goes", "fleet-live-running", "button", "Fleet — Running"),
 ];
 
 /// The strip on Fleet's live view: each scene is Fleet's answer folded and read as the live app reads it.
