@@ -130,7 +130,11 @@ class Preview(unittest.TestCase):
         with open(os.path.join(self.support, "fleet.json"), "w") as f:
             json.dump({"pid": os.getpid(), "port": server.server_address[1]}, f)
 
-    def run_preview(self, *args):
+    def run_preview(self, *args, offered=False):
+        """Runs the script with `--all` unless the test names its own set (`--all`, `--only`,
+        `--picked`) or is about the default, which takes what a Job offered."""
+        if not offered and not {"--all", "--only", "--picked"} & set(args):
+            args = ("--all", *args)
         env = {**os.environ,
                "HOME": self.home,
                "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"),
@@ -139,6 +143,19 @@ class Preview(unittest.TestCase):
                               capture_output=True, text=True, env=env)
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         return done.stdout
+
+    def run_preview_refused(self, *args):
+        env = {**os.environ, "HOME": self.home,
+               "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"), "STUB_DIR": self.stub}
+        return subprocess.run([sys.executable, PREVIEW, *args], cwd=self.repo,
+                              capture_output=True, text=True, env=env)
+
+    def offer(self, *offers):
+        """Writes `Armada/preview-offered`: (branch, tip, about) per line, as Fleet writes it."""
+        with open(os.path.join(self.support, "preview-offered"), "w") as f:
+            f.write("# one line for each checked offer\n\n")
+            for branch, tip, about in offers:
+                f.write(f"{branch}\t{tip}\tsession-1\t{about}\n")
 
     @property
     def wt(self):
@@ -218,6 +235,90 @@ class Preview(unittest.TestCase):
         said = self.run_preview("--skip", "feat/b", "--skip", "feat/c")
         self.assertEqual(self.merged_in_order(), ["feat/a"])
         self.assertIn("feat/b: skipped by --skip", said)
+
+    def test_by_default_only_the_offered_branches_are_merged_at_their_offered_tips(self):
+        for name in ("feat/offered", "feat/held-only", "feat/moved"):
+            self.branch(name, {name.split("/")[1] + ".txt": "x\n"})
+        offered_tip = self.git("rev-parse", "feat/offered")
+        moved_tip = self.git("rev-parse", "feat/moved")
+        self.git("checkout", "-q", "feat/moved")
+        self.write("later.txt", "later\n")
+        self.commit("feat/moved: later work")
+        self.git("checkout", "-q", "main")
+        self.hold("feat/offered", "feat/held-only", "feat/moved")
+        self.offer(("feat/offered", offered_tip, "adds the offered file"), ("feat/moved", moved_tip, "adds moved"))
+        said = self.run_preview(offered=True)
+        self.assertEqual(self.merged_in_order(), ["feat/offered", "feat/moved"])
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "offered.txt")))
+        self.assertFalse(os.path.exists(os.path.join(self.wt, "held-only.txt")))
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "moved.txt")))
+        self.assertFalse(os.path.exists(os.path.join(self.wt, "later.txt")))
+        self.assertIn(f"feat/moved: previewing the offered {moved_tip[:10]}; the branch has moved since", said)
+        self.assertRegex(said, r"feat/offered\s+merged\s+-> \w+  \(adds the offered file\)")
+        self.assertIn("+ offered branches", said)
+
+    def test_a_missing_offers_file_is_main_alone_and_says_nothing_is_offered(self):
+        self.branch("feat/held", {"h.txt": "h\n"})
+        self.hold("feat/held")
+        said = self.run_preview(offered=True)
+        self.assertEqual(self.merged_in_order(), [])
+        self.assertIn("nothing is offered", said)
+
+    def test_all_takes_every_slot_branch_whether_or_not_it_is_offered(self):
+        for name in ("feat/a", "feat/b"):
+            self.branch(name, {name.split("/")[1] + ".txt": "x\n"})
+        self.hold("feat/a", "feat/b")
+        self.offer(("feat/a", self.git("rev-parse", "feat/a"), "a"))
+        self.run_preview("--all")
+        self.assertEqual(self.merged_in_order(), ["feat/a", "feat/b"])
+
+    def test_only_takes_a_slot_branch_that_was_not_offered(self):
+        for name in ("feat/a", "feat/b"):
+            self.branch(name, {name.split("/")[1] + ".txt": "x\n"})
+        self.hold("feat/a", "feat/b")
+        self.offer(("feat/a", self.git("rev-parse", "feat/a"), "a"))
+        self.run_preview("--only", "feat/b")
+        self.assertEqual(self.merged_in_order(), ["feat/b"])
+
+    def test_skip_removes_an_offered_branch(self):
+        for name in ("feat/a", "feat/b"):
+            self.branch(name, {name.split("/")[1] + ".txt": "x\n"})
+        self.offer(("feat/a", self.git("rev-parse", "feat/a"), "a"), ("feat/b", self.git("rev-parse", "feat/b"), "b"))
+        said = self.run_preview("--skip", "feat/a", offered=True)
+        self.assertEqual(self.merged_in_order(), ["feat/b"])
+        self.assertIn("feat/a: skipped by --skip", said)
+
+    def test_an_offered_tip_already_on_main_or_unknown_is_skipped_with_a_note(self):
+        self.branch("feat/landed", {"l.txt": "l\n"})
+        landed = self.git("rev-parse", "feat/landed")
+        self.git("merge", "-q", "--no-edit", "feat/landed")
+        self.branch("feat/open", {"o.txt": "o\n"})
+        self.offer(("feat/landed", landed, "landed"), ("feat/gone", "1" * 40, "gone"),
+                   ("feat/open", self.git("rev-parse", "feat/open"), "open"))
+        said = self.run_preview(offered=True)
+        self.assertEqual(self.merged_in_order(), ["feat/open"])
+        self.assertIn(f"feat/landed: the offered {landed[:10]} is already on main", said)
+        self.assertIn(f"feat/gone: the offered {'1' * 10} is not in this repository", said)
+
+    def test_all_with_only_or_picked_is_refused_in_one_line(self):
+        for args in (("--all", "--only", "feat/a"), ("--all", "--picked", "nothing")):
+            done = self.run_preview_refused(*args)
+            self.assertNotEqual(done.returncode, 0)
+            self.assertEqual(len(done.stderr.strip().splitlines()), 1, done.stderr)
+            self.assertIn("--all", done.stderr)
+
+    def test_the_records_name_the_sha_merged_not_the_branch_head(self):
+        self.branch("feat/a", {"a.txt": "a\n"})
+        tip = self.git("rev-parse", "feat/a")
+        self.git("checkout", "-q", "feat/a")
+        self.write("more.txt", "more\n")
+        self.commit("feat/a: more")
+        self.git("checkout", "-q", "main")
+        self.offer(("feat/a", tip, "a"))
+        self.restart_stub()
+        self.run_preview("--restart", offered=True)
+        with open(os.path.join(self.support, "preview-held")) as f:
+            self.assertIn(f"feat/a\t{tip}\n", f.read())
 
     def test_only_the_held_and_ahead_are_in_flight(self):
         self.branch("feat/held", {"h.txt": "h\n"})
@@ -379,7 +480,7 @@ class Preview(unittest.TestCase):
         self.hold()
         said = self.run_preview("--restart", "--keep-only")
         self.assertEqual(self.git("rev-parse", "HEAD"), landed)
-        self.assertIn("new script ran ['--restart', '--keep-only'] 1", said)
+        self.assertIn("new script ran ['--all', '--restart', '--keep-only'] 1", said)
 
     def test_a_restart_from_a_checkout_on_another_branch_leaves_it_and_warns(self):
         self.behind_an_origin()
@@ -478,7 +579,7 @@ class Preview(unittest.TestCase):
     def preview_restart(self, script):
         env = {**os.environ, "HOME": self.home, "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"),
                "STUB_DIR": self.stub, "ARMADA_PREVIEW_RESTART": script}
-        return subprocess.run([sys.executable, PREVIEW, "--restart"], cwd=self.repo,
+        return subprocess.run([sys.executable, PREVIEW, "--restart", "--all"], cwd=self.repo,
                               capture_output=True, text=True, env=env)
 
     def count(self, runs):
@@ -766,7 +867,7 @@ error[E0599]: no variant, associated function, or constant named `Workspace` fou
         self.branch("feat/a", {"a.txt": "a\n"})
         with open(os.path.join(self.stub, "refuse"), "w") as f:
             f.write("`--status` is not a flag this verb takes\n")
-        env = {**os.environ,
+        env = {**os.environ, "HOME": self.home,
                "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"),
                "STUB_DIR": self.stub}
         done = subprocess.run([sys.executable, PREVIEW], cwd=self.repo,
@@ -779,7 +880,7 @@ error[E0599]: no variant, associated function, or constant named `Workspace` fou
         refuse = os.path.join(self.stub, "refuse")
         with open(refuse, "w") as f:
             f.write("armada.yml was refused; `connectors` is not a key Armada reads.\n")
-        env = {**os.environ,
+        env = {**os.environ, "HOME": self.home,
                "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"),
                "ARMADA_PREVIEW_INSTALL": install.format(refuse=refuse),
                "STUB_DIR": self.stub}
