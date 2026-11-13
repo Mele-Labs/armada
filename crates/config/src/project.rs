@@ -4,7 +4,8 @@
 //!
 //! One file is one Project, version 2: `project_id` and `name` say which, `members` lists each as
 //! `repository` (a Manifest id) and, for a folder of it, `folder`. An optional `values:` block holds the
-//! values the Project sets (`crate::values`), only the keys it sets. It is read as a lifecycle's file
+//! values the Project sets (`crate::values`), only the keys it sets. `shared_with_macs: true` lets its
+//! Jobs be seen from his other Macs, and is written only when on. It is read as a lifecycle's file
 //! is, refusing every fault of the file with its key, then what a whole Project must be
 //! ([`core_model::Project::declared`]).
 //!
@@ -23,7 +24,7 @@ use crate::error::{Fault, LoadError, Refusal};
 use crate::piece::named;
 use crate::yaml::{self, Table};
 
-const TOP_LEVEL: &[&str] = &["version", "project_id", "name", "members", "values"];
+const TOP_LEVEL: &[&str] = &["version", "project_id", "name", "members", "values", "shared_with_macs"];
 const MEMBER: &[&str] = &["repository", "folder"];
 const TOP_LEVEL_V1: &[&str] = &["version", "workspace_id", "name", "repositories"];
 
@@ -88,11 +89,11 @@ fn parse(path: &Path, text: &str, version: Version) -> Result<Project, ProjectEr
     if let Some((at, why)) = bad_folder.filter(|_| out.is_empty()) {
         return Err(ProjectError::Folder { path: path.to_path_buf(), at, why });
     }
-    let Some((id, name, members, values)) = read.filter(|_| out.is_empty()) else {
+    let Some((id, name, members, values, shared)) = read.filter(|_| out.is_empty()) else {
         return Err(ProjectError::Load(LoadError::Refused { path: path.to_path_buf(), refusals: out }));
     };
     Project::declared(id, name, members)
-        .map(|project| project.with_values(values))
+        .map(|project| project.with_values(values).with_shared_with_macs(shared))
         .map_err(|why| ProjectError::Malformed { path: path.to_path_buf(), why })
 }
 
@@ -101,7 +102,7 @@ fn read(
     version: Version,
     out: &mut Vec<Refusal>,
     bad_folder: &mut Option<(String, MalformedFolder)>,
-) -> Option<(ScopeId, Title, Vec<Member>, Values)> {
+) -> Option<(ScopeId, Title, Vec<Member>, Values, bool)> {
     let (id_key, members_key, known, carried, wanted) = match version {
         Version::One => ("workspace_id", "repositories", TOP_LEVEL_V1, VERSIONS_V1, 1),
         Version::Two => ("project_id", "members", TOP_LEVEL, VERSIONS, 2),
@@ -141,8 +142,13 @@ fn read(
         Version::Two => top.optional("values").map(|value| crate::values::read_block(&values_at, value, true, out)).unwrap_or_default(),
         Version::One => Values::default(),
     };
+    // Off where it is not written, and in a version 1 file, which has no such key.
+    let shared = match version {
+        Version::Two => top.optional("shared_with_macs").and_then(|value| yaml::flag("shared_with_macs", value, out)).unwrap_or(false),
+        Version::One => false,
+    };
     top.close(known, out);
-    Some((id?, name?, members?, values))
+    Some((id?, name?, members?, values, shared))
 }
 
 fn member(at: &str, item: &Value, out: &mut Vec<Refusal>, bad_folder: &mut Option<(String, MalformedFolder)>) -> Option<Member> {
@@ -190,6 +196,9 @@ pub fn project_text(project: &Project) -> Result<String, String> {
     top.insert(text("members"), Value::Sequence(members));
     if let Some(values) = crate::values::block_value(project.values()) {
         top.insert(text("values"), values);
+    }
+    if project.shared_with_macs() {
+        top.insert(text("shared_with_macs"), Value::Bool(true));
     }
     crate::piece_text(&Value::Mapping(top))
 }

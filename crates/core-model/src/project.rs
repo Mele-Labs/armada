@@ -98,6 +98,7 @@ pub struct Project {
     name: Title,
     members: Vec<Member>,
     values: Values,
+    shared_with_macs: bool,
 }
 
 impl Project {
@@ -118,13 +119,24 @@ impl Project {
                 return Err(MalformedProject::NamedLikeItsRepository { repository: member.repository.clone() });
             }
         }
-        Ok(Project { id, name, members, values: Values::default() })
+        Ok(Project { id, name, members, values: Values::default(), shared_with_macs: false })
     }
 
     /// The same Project setting `values`, which replace what it set whole.
     pub fn with_values(mut self, values: Values) -> Project {
         self.values = values;
         self
+    }
+
+    /// The same Project shared with his other Macs, or not.
+    pub fn with_shared_with_macs(mut self, shared: bool) -> Project {
+        self.shared_with_macs = shared;
+        self
+    }
+
+    /// Whether anything of its Jobs may leave this Mac for his other Macs. **Off until he turns it on.**
+    pub fn shared_with_macs(&self) -> bool {
+        self.shared_with_macs
     }
 
     /// What the Project sets for how work behaves. Nothing set is the empty [`Values`].
