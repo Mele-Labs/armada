@@ -824,7 +824,7 @@ where
     pub(crate) async fn set_waiting(
         &self,
         caller: Option<api::Caller>,
-        set: SetWaitingFor,
+        mut set: SetWaitingFor,
     ) -> Result<SessionRecord, Refusal> {
         let id = self.waiting_session(caller, set.session_id.as_ref())?;
         let mut seen = std::collections::HashSet::new();
@@ -841,6 +841,8 @@ where
             }
         }
         self.options_refused(&set.items)?;
+        // Boxed: this settling is large already, and an unboxed future here overflowed a test thread's stack.
+        Box::pin(self.pictures_kept(&id, &mut set.items)).await?;
         if let Some(lapsed) = self.rows_of(&id).await.ok().and_then(|rows| lapsed_question(&rows)) {
             for item in &set.items {
                 let labels: Vec<&str> = item.options.iter().map(|option| option.label.as_str()).collect();

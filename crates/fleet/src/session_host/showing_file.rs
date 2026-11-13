@@ -44,7 +44,7 @@ const VIDEOS: [(&str, &str); 3] = [("mp4", "video/mp4"), ("mov", "video/quicktim
 /// The most Bridge's panel reads of a file: `MOST_BYTES` in `apps/desktop/src/main/session-file.ts`.
 /// **A picture is sent up to this too, not up to `MOST_SENT`**: a retina screenshot often passes 1 MiB,
 /// and whatever `show_file` accepted should open on the phone.
-const MOST_BYTES: u64 = 8 * 1024 * 1024;
+pub(super) const MOST_BYTES: u64 = 8 * 1024 * 1024;
 
 /// The most a video may be to be shown. It is never read into memory: the phone streams it from the
 /// Mac's disk through the Gateway, so the cap bounds what an agent may point at, not what Fleet holds.
@@ -54,6 +54,14 @@ const MOST_VIDEO_BYTES: u64 = 256 * 1024 * 1024;
 pub(super) fn media_type_in(table: &[(&str, &'static str)], path: &str) -> Option<&'static str> {
     let (_, extension) = path.rsplit_once('.')?;
     table.iter().find(|(known, _)| known.eq_ignore_ascii_case(extension)).map(|(_, media_type)| *media_type)
+}
+
+/// Whether `one` is a file the session showed, at `path`.
+pub(super) fn showed_as_file(one: &store::KeptAttachment, path: &str) -> bool {
+    one.kind == "artifact"
+        && one.target == path
+        && one.detail.get("form").map(String::as_str) == Some("file")
+        && one.detail.contains_key("shown")
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -189,13 +197,12 @@ where
             let held = store.attachments_of(&Holder::session(id)).map_err(|why| self.ledger_fault(why))?;
             held.iter().any(|one| {
                 one.kind == "artifact"
-                    && ((one.target == path
-                        && one.detail.get("form").map(String::as_str) == Some("file")
-                        && one.detail.contains_key("shown"))
+                    && (showed_as_file(one, path)
                         || (is_document(&one.detail) && revisions_named(&one.detail).iter().any(|kept| kept == path)))
             })
         };
-        if !showed {
+        let kept_picture = super::picture_keeping::lies_under(&self.pictures_of(id), std::path::Path::new(path));
+        if !showed && !kept_picture {
             return Err(not_found(SHOWN_NOT_SHOWN, format!("job {id} did not show {path}")));
         }
         let gone = |_| not_found(SHOWN_GONE, format!("{path} is no longer there"));
