@@ -190,7 +190,7 @@ pub static FOLLOWS_PICKER_STEPS: &[Step] = &[
     press_on("Every project: the repositories' switches again", "menuitem", "Every project", "heading", "Workflows for every project"),
     press_on("sample-web's switch turns bug off in that repository", "switch", "bug: On in sample-web", "switch", "bug: Off in sample-web"),
     step("\u{2318}P opens the picker", Verb::Key("cmd-p"), "menu", "Editing"),
-    press_on("Storefront again: its bug is off in sample-web, with no switch", "menuitem", "Storefront", "label", "bug: Off in sample-web"),
+    press_on("Storefront again: sample-web's bug is off there, with no switch. Its sample-api still runs Armada's bug", "menuitem", "Storefront", "label", "bug: Off in sample-web"),
     step("A press on its bug draws it, with the box that asks an agent", Verb::PressWithin("group", "sample-web", "bug"), "textbox", "Tell an agent what to change"),
     step("F typed in the box lands in the box", Verb::Type("f"), "textbox", "Tell an agent what to change"),
     step("The keys stay in it: a second F is typed after the first", Verb::Typed("f"), "textbox", "Tell an agent what to change"),
