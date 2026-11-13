@@ -181,7 +181,7 @@ where
                 .and_then(|caller| self.session_holding(&caller))
                 .map(|job| (job, ChangedBy::Job))
                 .ok_or_else(|| {
-                    self.hosted_refusal(JOB_COPY_UNPLACED, "a Job changes its own copy, and nothing places one on this connection")
+                    self.hosted_refusal(JOB_COPY_UNPLACED, "Change a Job's copy from that Job: no Job holds the connection this call came through.")
                 });
         }
         named

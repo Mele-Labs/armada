@@ -77,7 +77,7 @@ where
     pub(super) async fn placed_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<String, Refusal> {
         self.watching_job(caller, named)
             .await?
-            .ok_or_else(|| self.watch_unacceptable(UNPLACED, "A watch is a Job's, and nothing places one."))
+            .ok_or_else(|| self.watch_unacceptable(UNPLACED, "Name a Job: a watch belongs to a Job, and this call gave no Job id."))
     }
 
     /// The recipes Armada ships, the Job's repository holds and this machine holds, read on every
