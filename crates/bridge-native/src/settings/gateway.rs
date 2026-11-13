@@ -148,9 +148,9 @@ impl MockGateway {
             running: true,
             setup: GatewaySetup { tailscale: TailscaleState::Running, served: Served::Funnel, named: false, address: Some(MOCK_FUNNEL.into()), cloudflare: CloudflareState::Missing, cloudflared: None },
             macs: vec![
-                Mac { id: "mac-studio".into(), name: "Studio".into(), colour: MacColour::Teal, address: None, this_mac: true, build: Some("2930ac0".into()), link: None },
-                Mac { id: "mac-work".into(), name: "Work MacBook".into(), colour: MacColour::Orange, address: Some("work.example.com".into()), this_mac: false, build: Some("2930ac0".into()), link: Some(MacLink::Linked) },
-                Mac { id: "mac-mini".into(), name: "Mac mini".into(), colour: MacColour::Blue, address: Some("mini.example.com".into()), this_mac: false, build: Some("1d199a1".into()), link: Some(MacLink::Asleep { since: now - 3 * 3600 }) },
+                Mac { id: "mac-studio".into(), name: "Studio".into(), colour: MacColour::Teal, address: None, this_mac: true, build: Some("2930ac0".into()), link: None, ..Default::default() },
+                Mac { id: "mac-work".into(), name: "Work MacBook".into(), colour: MacColour::Orange, address: Some("work.example.com".into()), this_mac: false, build: Some("2930ac0".into()), link: Some(MacLink::Linked), ..Default::default() },
+                Mac { id: "mac-mini".into(), name: "Mac mini".into(), colour: MacColour::Blue, address: Some("mini.example.com".into()), this_mac: false, build: Some("1d199a1".into()), link: Some(MacLink::Asleep { since: now - 3 * 3600 }), ..Default::default() },
             ],
             phones: vec![
                 PairedPhone { id: "phone-1".into(), name: "iPhone".into(), created_at: now - 9 * 86400, last_seen_at: Some(now - 4 * 60) },
