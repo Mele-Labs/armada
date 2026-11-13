@@ -46,6 +46,43 @@ pub static LAYOUT_TIME_STEPS: &[Step] = &[
     step("Up the thread, each stamp is on the 12-hour clock", Verb::Keys(&["pageup", "pageup", "pageup"]), "region", "Thread"),
 ];
 
+/// `native-ways`: the first-run screen played by keys, then Settings › Ways of working with each way picked in turn.
+pub const WAYS: &str = "native-ways";
+
+pub static WAYS_STEPS: &[Step] = &[
+    step("The first time the app opens, a screen asks how he likes to work with Jobs, over everything", Verb::Look, "dialog", "How do you like to work with Jobs?"),
+    step("Two rows of cards: how he takes Jobs in, then how he answers them. Read and Type are chosen", Verb::Look, "radiogroup", "Take Jobs in"),
+    step("→ chooses the next card in the row: Look", Verb::Key("right"), "radio", "Look"),
+    step("→ again: Listen, which brings its Hear a sample press", Verb::Key("right"), "button", "Hear a sample"),
+    press_on("Hear a sample speaks a sentence in the Mac's voice, and says so while it does", "button", "Hear a sample", "status", "Speaking"),
+    step("Tab goes on from the press to the next row", Verb::Key("tab"), "radiogroup", "Answer Jobs"),
+    step("→ twice chooses Buttons", Verb::Keys(&["right", "right"]), "radio", "Buttons"),
+    step("Tab reaches Start", Verb::Key("tab"), "button", "Start"),
+    step("Return presses Start: both choices are saved, and the screen goes", Verb::Key("enter"), "button", "Menu"),
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Ways of working is first under Bridge, with the same two rows of cards, smaller", "button", "Ways of working", "region", "Take Jobs in"),
+    step("The choices made at first run stand: Listen, with its options under the row", Verb::Look, "group", "Listen options"),
+    press_on("A press on a card saves at once. Read: the options under the row are its", "radio", "Read", "group", "Read options"),
+    step("The ways not chosen fold into one line each under Also set, with what they are set to", Verb::Look, "group", "Also set"),
+    press_on("A press on a chip opens that way's options", "button", "Open Look options", "group", "Look options"),
+    press_on("Results open on: a picture for every result, only for screen work, or a walk for anything visible", "radio", "Pictures only for screen work", "radio", "Pictures only for screen work"),
+    press_on("A press on the chosen card brings its own options back, and gives the row the keys", "radio", "Read", "group", "Read options"),
+    step("→ chooses the next way and saves it: Look", Verb::Key("right"), "group", "Look options"),
+    step("→ again: Listen", Verb::Key("right"), "group", "Listen options"),
+    press_on("Listen: three switches for what is read aloud", "switch", "Progress at each step", "switch", "Progress at each step"),
+    press_on("Voice opens the voices the Mac has, Premium first", "combobox", "Voice", "menuitemcheckbox", "Zoe (en-US)"),
+    press_on("A voice picked is saved at once", "menuitemcheckbox", "Zoe (en-US)", "combobox", "Voice"),
+    press_on("Hear a sample speaks the sentence in that voice", "button", "Hear a sample", "status", "Speaking"),
+    press_on("Under Answer Jobs, Buttons has one switch: a box for words under a question's options", "radio", "Buttons", "switch", "Answer in words too"),
+    press_on("Off takes the box away", "switch", "Answer in words too", "switch", "Answer in words too"),
+    press_on("Talk shows the engine in force, whether the microphone is on for Armada Voice, and Whisper", "radio", "Talk", "group", "Talk options"),
+    step("The microphone says why it is off, with the press that fixes it", Verb::Look, "button", "Open Microphone settings"),
+    press_on("Whisper comes down only when he presses Install", "button", "Install Whisper", "progressbar", "Installing Whisper"),
+    press_on("Look again, to ask for a choice Fleet refuses", "radio", "Look", "group", "Look options"),
+    press_on("A choice Fleet refuses is put back, and says why", "radio", "Pictures side by side, whole only", "alert", "`pictures_whole` is not a choice of `look_questions`"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// F reaches the Workflows search: where the page is narrow it brings the list back in the detail's place first.
 const LIST: Verb = Verb::Key("f");
 
