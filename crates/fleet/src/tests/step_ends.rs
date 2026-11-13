@@ -145,6 +145,7 @@ fn draft(how: Option<DraftHow>) -> SessionRow {
         before: None,
         settled: how.map(|how| DraftSettled { how, words: None, at: at_second(2) }),
         change: None,
+        for_line: None,
     }
 }
 

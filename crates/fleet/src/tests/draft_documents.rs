@@ -128,7 +128,7 @@ fn a_title_makes_a_slug_of_letters_and_digits() {
 }
 
 fn proposed(id: &SessionId, title: &str, text: &str) -> ProposeDraft {
-    ProposeDraft { title: title.to_string(), text: text.to_string(), before: None, pull_request: None, session_id: Some(id.clone()) }
+    ProposeDraft { title: title.to_string(), text: text.to_string(), before: None, pull_request: None, session_id: Some(id.clone()), ..Default::default() }
 }
 
 /// A Job holding slot `SLOT`, whose tree is made.
