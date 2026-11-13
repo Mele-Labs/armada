@@ -277,6 +277,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "sent-messages" => include_bytes!("../fixtures/sent-messages-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
         "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
+        "ways-buttons" => include_bytes!("../fixtures/ways-buttons-threads.json"),
         "tool-rows" => include_bytes!("../fixtures/tools-threads.json"),
         // The tool-rows threads, with the finished Job's retro being written and Search for the queue asking with previews.
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),

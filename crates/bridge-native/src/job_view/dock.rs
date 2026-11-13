@@ -425,7 +425,7 @@ impl JobView {
     }
 
     /// The band, and over it the panel when it is open.
-    pub(super) fn render_needs(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_needs(&self, id: &SharedString, room: Pixels, cx: &Context<Self>) -> Option<AnyElement> {
         let look = cx.look();
         let (things, review) = self.things(id, cx);
         let restarts = self.restarts(id, cx);
@@ -525,7 +525,7 @@ impl JobView {
         if let Some(keys) = &keys {
             keys.mark("question:");
         }
-        let panel = open.then(|| self.render_panel(id, &things, &review, look, cx));
+        let panel = open.then(|| self.render_panel(id, &things, &review, room, look, cx));
         if let Some(keys) = &keys {
             keys.sweep();
         }
@@ -665,7 +665,7 @@ impl JobView {
         }
     }
 
-    fn render_panel(&self, id: &SharedString, things: &[Thing], review: &[&NeedsYouRow], look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn render_panel(&self, id: &SharedString, things: &[Thing], review: &[&NeedsYouRow], room: Pixels, look: &Look, cx: &Context<Self>) -> AnyElement {
         let hue = look.color(token::STEP_WAITING);
         let detail = self.dock_of(id).and_then(|dock| dock.detail.clone());
         let only = things.len() == 1 && review.is_empty() && matches!(things[0], Thing::Ask(_) | Thing::Lapsed(_));
@@ -674,10 +674,11 @@ impl JobView {
             Some(thing) => self.render_detail(id, thing, only, look, cx),
             None => self.render_list(id, look, cx),
         };
-        // Up to 95% of the thread, band included, so the Job's head always shows.
+        // Up to 95% of the thread, band included, so the Job's head always shows (`NeedsYouPanel.css`, `__body`). Before the
+        // thread has a height it is half the window, a little under Classic's 55vh stand-in, which would cover the tab strip here.
         let thread = self.pages.get(id).map(|page| page.list.viewport_bounds().size.height).unwrap_or_default();
         let band = look.length(token::SPACE_6) + look.length(token::SPACE_1);
-        let most = if thread > band { thread * 0.95 - band } else { look.length(token::SPACE_12) * 10. };
+        let most = if thread > band { thread * 0.95 - band } else { room * 0.5 - band };
         let scroll = self.dock_of(id).map(|dock| dock.scroll.clone()).unwrap_or_default();
         // A run just started from a row shows whole under it, from where it was last drawn.
         if let Some((command, left)) = self.dock_of(id).and_then(|dock| dock.reveal.clone()).filter(|(_, left)| left.get() > 0) {
