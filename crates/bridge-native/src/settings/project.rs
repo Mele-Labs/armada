@@ -185,6 +185,26 @@ pub fn resolved(values: &ResolvedValues, key: Key) -> (Option<String>, ValueLaye
     }
 }
 
+/// What a key the project sets overrides, from the layers below it (#3519): the word, absent where nothing below
+/// sets one, and its layer. `None` where Fleet does not say, as for a kind of review, or the project does not set it.
+pub fn inherited(values: &ResolvedValues, key: Key) -> Option<(Option<String>, ValueLayer)> {
+    let plain = match key {
+        Key::PrMode => Some(&values.pr_mode),
+        Key::AutoMerge => Some(&values.auto_merge),
+        Key::ReviewModel => Some(&values.review_model),
+        Key::Theme => Some(&values.theme),
+        Key::Layout => Some(&values.layout),
+        Key::Density => Some(&values.density),
+        Key::AgentStarts => values.agent_starts.as_ref(),
+        Key::Delivery => values.delivery.as_ref(),
+        Key::Plans | Key::PullRequests | Key::Walks | Key::Tracker | Key::Shared => None,
+    }?;
+    (plain.from == ValueLayer::Project).then(|| {
+        let from = plain.inherited_from.unwrap_or_default();
+        (plain.inherited.clone().filter(|_| from != ValueLayer::Default), from)
+    })
+}
+
 /// Whether the project's own block sets the key, as the layers say: a kind of review by its own layer.
 pub fn set_here(values: &ResolvedValues, key: Key) -> bool {
     resolved(values, key).1 == ValueLayer::Project
@@ -279,10 +299,10 @@ pub fn cells(keys: &[Key], project: bool) -> Vec<Vec<(Key, Column)>> {
         .collect()
 }
 
-/// The cells with a project picked, less every project's cell of each key the project sets: that one is left
-/// empty, and is no stop.
+/// The cells with a project picked, less every project's cell of each key the project sets where Fleet does not
+/// say what it overrides: that one is left empty, and is no stop.
 pub fn cells_beside(keys: &[Key], project: bool, own: Option<&ResolvedValues>) -> Vec<Vec<(Key, Column)>> {
-    let set = |key: Key| project && own.is_some_and(|own| set_here(own, key));
+    let set = |key: Key| project && own.is_some_and(|own| set_here(own, key) && inherited(own, key).is_none());
     cells(keys, project).into_iter().map(|row| row.into_iter().filter(|(key, column)| !(*column == Column::Every && set(*key))).collect()).collect()
 }
 
@@ -525,7 +545,14 @@ pub fn grid(this: &SettingsOverlay, title: &str, description: Option<&str>, keys
             .flex_col()
             .gap(look.length(token::SPACE_1))
             .min_w_0()
-            .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(key.title()))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(key.title()))
+                    .children(learned(this, key, look)),
+            )
             .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(key.description()));
         // Wide, the words are the row's first column; narrow, they sit over its cells.
         let (mut cells, above) = if wide { (div().flex().items_center().gap(gap).child(words.flex_1()), None) } else { (div().flex().items_center().gap(gap), Some(words)) };
@@ -550,6 +577,29 @@ pub fn grid(this: &SettingsOverlay, title: &str, description: Option<&str>, keys
     labelled(card(look, SharedString::from(format!("values-card-{title}")), title, None, body), Role::Region, title.to_string()).into_any_element()
 }
 
+/// "Learned" beside how work lands, while the project's word is the one Fleet learned from his first answer.
+fn learned(this: &SettingsOverlay, key: Key, look: &Look) -> Option<AnyElement> {
+    let own = this.scope.values.as_ref().filter(|_| key == Key::Delivery && this.scope.project.is_some())?;
+    own.delivery.as_ref().filter(|value| value.learned)?;
+    let ink = look.color(token::STATUS_AWAITING_REVIEW);
+    let chip = div()
+        .id("value-learned-Delivery")
+        .flex_none()
+        .px(look.length(token::SPACE_2))
+        .rounded_full()
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(ink)
+        .bg(look.color(token::STATUS_AWAITING_REVIEW_BG))
+        .text_size(look.length(token::TEXT_2XS))
+        .line_height(look.length(token::LEADING_2XS))
+        .text_color(ink)
+        .tooltip(tip(LEARNED_WHY))
+        .child("Learned");
+    Some(labelled(chip, Role::Image, format!("Learned: {LEARNED_WHY}")).into_any_element())
+}
+
+const LEARNED_WHY: &str = "Fleet learned this from your first answer";
+
 /// A page of values: its grid under its name.
 pub fn render(this: &SettingsOverlay, page: Page, label: &str, look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> Vec<AnyElement> {
     vec![grid(this, label, Some(page.description()), page.keys(), look, window, cx)]
@@ -562,9 +612,10 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
     if column == Column::Every && !key.every() {
         return div().h(tall).into_any_element();
     }
-    // A key the project sets: what every project uses beside it is left out.
+    // A key the project sets: every project's cell says what it overrides, or is left out where Fleet does not say.
     let picked = this.scope.project.is_some();
-    if column == Column::Every && picked && this.scope.values.as_ref().is_some_and(|own| set_here(own, key)) {
+    let overridden = (column == Column::Every && picked).then(|| this.scope.values.as_ref().filter(|own| set_here(own, key)).map(|own| inherited(own, key))).flatten();
+    if matches!(overridden, Some(None)) {
         return div().h(tall).into_any_element();
     }
     if key == Key::Shared {
@@ -576,7 +627,10 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
     };
     let Some(values) = values else { return bone(look, look.length(token::W_GUIDE_LIST_MIN), tall).into_any_element() };
     let Some(focus) = this.scope.cells.get(&(key, column)) else { return div().into_any_element() };
-    let (word, from) = resolved(values, key);
+    let (word, from) = match overridden.flatten() {
+        Some((word, from)) => (word, from),
+        None => resolved(values, key),
+    };
     let set = column == Column::Own && from == ValueLayer::Project;
     // A project cell that follows every project says so; the tracker, which no layer but a project's names, says
     // what it comes to.
@@ -752,6 +806,20 @@ mod tests {
         let two = cells(Page::StartingJobs.keys(), true);
         assert_eq!(two, vec![vec![(Key::AgentStarts, Column::Every), (Key::AgentStarts, Column::Own)], vec![(Key::Tracker, Column::Own)]], "the tracker's every project cell is empty");
         assert_eq!(cells(keys_of(Body::Macs), true), vec![vec![(Key::Shared, Column::Own)]]);
+    }
+
+    #[test]
+    fn beside_a_key_the_project_sets_every_projects_cell_says_what_it_overrides_and_is_blank_where_nothing_does() {
+        let mut own = values(ValueLayer::Project, ValueLayer::Kit);
+        own.auto_merge.inherited = Some("checks-pass".into());
+        own.auto_merge.inherited_from = Some(ValueLayer::Kit);
+        own.delivery = Some(ResolvedValue { value: Some("auto_land".into()), from: ValueLayer::Project, learned: true, inherited: None, inherited_from: Some(ValueLayer::Default) });
+        assert_eq!(inherited(&own, Key::AutoMerge), Some((Some("checks-pass".into()), ValueLayer::Kit)));
+        assert_eq!(inherited(&own, Key::Delivery), Some((None, ValueLayer::Default)), "nothing below sets it: drawn unset");
+        assert_eq!(inherited(&own, Key::PrMode), None, "a key the project does not set overrides nothing");
+        assert_eq!(inherited(&own, Key::Plans), None, "a kind of review waits on Fleet");
+        let grid = cells_beside(&[Key::AutoMerge, Key::Delivery, Key::Plans], true, Some(&own));
+        assert_eq!(grid, vec![vec![(Key::AutoMerge, Column::Every), (Key::AutoMerge, Column::Own)], vec![(Key::Delivery, Column::Every), (Key::Delivery, Column::Own)], vec![(Key::Plans, Column::Own)]]);
     }
 
     #[test]

@@ -395,7 +395,8 @@ impl MockFleet {
             tracker: Some(ipc::ResolvedTracker { from: if tracker.is_some() { ValueLayer::Project } else { ValueLayer::Default }, value: tracker }),
             reviews: Some(reviews),
             agent_starts: Some(word(own_starts, kit_starts, Some("at_once"))),
-            delivery: Some(word(own_delivery, kit_delivery, None)),
+            // The first project's word is the one Fleet learned from his first answer, until he changes it.
+            delivery: Some(ResolvedValue { learned: own_delivery.as_deref() == Some("auto_land"), ..word(own_delivery, kit_delivery, None) }),
             autonomy: Vec::new(),
         }
     }
