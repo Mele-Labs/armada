@@ -44,6 +44,8 @@ use words::{check_of, commits, hue_of, is_queued, reading_of, read_said, review_
 
 /// How long the stacked line rests on one repository before it moves to the next.
 const ROTATE: Duration = Duration::from_secs(15);
+/// How long a card stays once the pointer leaves it or its chip: the time it takes to cross between them.
+const LEAVE_AFTER: Duration = Duration::from_millis(150);
 
 /// One repository's line, as Fleet's view reads it: each pull request carries the Job that holds it and
 /// its chip's tone.
@@ -489,18 +491,35 @@ impl MergeStrip {
                 cx.notify();
             }
         } else if self.card.as_ref() == Some(&card) && !self.pinned {
-            self._leaving = Some(cx.spawn_in(window, async move |this, cx| {
-                cx.background_executor().timer(Duration::from_millis(150)).await;
-                let _ = this.update_in(cx, |this, window, cx| {
-                    if !this.over_card && !this.pinned && this.card.as_ref() == Some(&card) {
-                        this.card = None;
-                        this._ticking = None;
-                        this.give_keys_back(window, cx);
-                        cx.notify();
-                    }
-                });
-            }));
+            self.leave_soon(card, window, cx);
         }
+    }
+
+    /// The pointer left the chip or its card: the card shuts after the time it takes to cross between them,
+    /// unless the pointer came back to either or the card was pinned meanwhile.
+    fn leave_soon(&mut self, card: Card, window: &mut Window, cx: &mut Context<Self>) {
+        self._leaving = Some(cx.spawn_in(window, async move |this, cx| {
+            cx.background_executor().timer(LEAVE_AFTER).await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                if !this.over_card && !this.pinned && this.card.as_ref() == Some(&card) {
+                    this.card = None;
+                    this._ticking = None;
+                    this.give_keys_back(window, cx);
+                    cx.notify();
+                }
+            });
+        }));
+    }
+
+    /// The pointer came onto the open card, or left it. A card the pointer opened shuts once it leaves.
+    fn card_hovered(&mut self, over: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.over_card = over;
+        if over {
+            self._leaving = None;
+        } else if let Some(card) = self.card.clone().filter(|card| !self.pinned && self.by_keys.as_ref() != Some(card)) {
+            self.leave_soon(card, window, cx);
+        }
+        cx.notify();
     }
 
     /// A press on main's light keeps its card open, or shuts a pinned one.
@@ -1012,10 +1031,7 @@ impl MergeStrip {
                                 }
                                 _ => {}
                             }))
-                            .on_hover(cx.listener(|this, over: &bool, _, cx| {
-                                this.over_card = *over;
-                                cx.notify();
-                            }))
+                            .on_hover(cx.listener(|this, over: &bool, window, cx| this.card_hovered(*over, window, cx)))
                             .on_mouse_down_out(cx.listener(|this, _, window, cx| {
                                 if this.pinned {
                                     this.shut(window, cx);
@@ -1472,5 +1488,63 @@ impl Render for MergeStrip {
             "Merge queue",
         )
         .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn strip(cx: &mut gpui::TestAppContext) -> gpui::WindowHandle<MergeStrip> {
+        cx.update(|cx| cx.set_global(crate::look::Look::dark()));
+        let all = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&all, cx));
+        cx.add_window(|window, cx| MergeStrip::new(&list, window, cx))
+    }
+
+    #[gpui::test]
+    fn a_card_the_pointer_opened_shuts_once_the_pointer_leaves_it(cx: &mut gpui::TestAppContext) {
+        let strip = strip(cx);
+        strip
+            .update(cx, |this, window, cx| {
+                this.hovered(Card::Main(0), true, window, cx);
+                this.card_hovered(true, window, cx);
+                this.hovered(Card::Main(0), false, window, cx);
+                this.card_hovered(false, window, cx);
+            })
+            .unwrap();
+        cx.executor().advance_clock(LEAVE_AFTER / 2);
+        cx.run_until_parked();
+        strip.update(cx, |this, _, _| assert!(this.card.is_some(), "it waits while the pointer may be crossing back")).unwrap();
+        cx.executor().advance_clock(LEAVE_AFTER);
+        cx.run_until_parked();
+        strip.update(cx, |this, _, _| assert!(this.card.is_none(), "left alone, it shuts")).unwrap();
+    }
+
+    #[gpui::test]
+    fn a_card_left_for_its_chip_stays_and_a_pinned_card_stays(cx: &mut gpui::TestAppContext) {
+        let strip = strip(cx);
+        strip
+            .update(cx, |this, window, cx| {
+                this.hovered(Card::Main(0), true, window, cx);
+                this.card_hovered(true, window, cx);
+                this.card_hovered(false, window, cx);
+                this.hovered(Card::Main(0), true, window, cx);
+            })
+            .unwrap();
+        cx.executor().advance_clock(LEAVE_AFTER * 2);
+        cx.run_until_parked();
+        strip.update(cx, |this, _, _| assert!(this.card.is_some(), "back on the chip, the card stays")).unwrap();
+        strip
+            .update(cx, |this, window, cx| {
+                this.pinned = true;
+                this.hovered(Card::Main(0), false, window, cx);
+                this.card_hovered(true, window, cx);
+                this.card_hovered(false, window, cx);
+            })
+            .unwrap();
+        cx.executor().advance_clock(LEAVE_AFTER * 2);
+        cx.run_until_parked();
+        strip.update(cx, |this, _, _| assert!(this.card.is_some(), "a pinned card stays")).unwrap();
     }
 }

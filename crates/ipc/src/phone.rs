@@ -25,6 +25,38 @@ pub struct SetPhoneGateway {
     pub on: bool,
 }
 
+/// `get_mac_setup` and `set_up_mac`: the one setup Settings › Macs runs from a single press, Gateway on, then
+/// the Cloudflare sign-in, then this Mac's tunnel. Fleet answers it, so it is read before the Gateway runs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MacSetup {
+    /// The step it is on. Every step before it is done.
+    pub step: MacSetupStep,
+    /// Armada is doing this step now, and nothing is his to press until it ends.
+    pub working: bool,
+    /// The Cloudflare sign-in page, while the setup waits on him to sign in there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub login: Option<String>,
+    /// Why the step is stuck, as a sentence. The press that moves it on is the setup again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub why: Option<String>,
+    /// This Mac's address, once the setup is done.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
+}
+
+/// The setup's steps, in the order they are done.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MacSetupStep {
+    /// The Phone Gateway is turned on and listening.
+    Gateway,
+    /// `cloudflared` is downloaded and this Mac is signed in to Cloudflare.
+    SignIn,
+    /// This Mac's tunnel is made and connected.
+    Tunnel,
+    Done,
+}
+
 /// `GET /admin/setup` on the Phone Gateway: how far this Mac is along each way in, for Settings to draw one
 /// row per step. Read afresh at each ask.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -112,6 +144,10 @@ pub struct Mac {
     /// Why the link is stuck, or where the next press is, as a sentence the screen shows as it is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub why: Option<String>,
+    /// The four digits both Macs show while a pairing asked from Settings waits for Confirm. The same on
+    /// both, so he confirms only the Mac he pressed Pair on. Absent on a pairing by link.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
 }
 
 /// Each Mac's one colour, on its chip wherever its Jobs are drawn.

@@ -51,6 +51,7 @@ impl JobView {
 
     /// Stop: ends what the agent is doing. The Job stays live and its next message resumes it.
     pub(super) fn stop_button(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let off = self.off_shown(cx);
         labelled(
             div()
                 .id("stop")
@@ -60,10 +61,9 @@ impl JobView {
                 .justify_center()
                 .size(look.length(token::H_CONTROL_SM))
                 .rounded(look.length(token::RADIUS_MD))
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .tooltip(tip("Stop"))
-                .child(glyph(look, "square", Size::Mark, look.color(token::FG_MUTED)))
+                .when(off.is_none(), |button| button.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
+                .tooltip(tip(off.clone().unwrap_or_else(|| "Stop".into())))
+                .child(glyph(look, "square", Size::Mark, look.color(if off.is_some() { token::FG_SUBTLE } else { token::FG_MUTED })))
                 // The head's Stop, so both answer at once and a refusal is put back in one place.
                 .on_click(cx.listener(|this, _, window, cx| {
                     cx.stop_propagation();

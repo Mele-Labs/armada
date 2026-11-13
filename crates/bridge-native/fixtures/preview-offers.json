@@ -1,0 +1,40 @@
+{
+  "offers": [
+    {
+      "branch": "armada/session-4f03266c",
+      "tip": "4f03266c9a1d7e5b3c2f8a0d6e4b1c7a9f5d3e20",
+      "session_id": "4f03266c",
+      "title": "Quiet the write-clash notices",
+      "about": "Notices for a clash say it once and clear when the other Job lands",
+      "offered_at": "2026-11-13T08:41:00Z",
+      "state": "ready",
+      "in_build": false
+    },
+    {
+      "branch": "armada/session-b81d27a4",
+      "tip": "b81d27a4e0c9f3a6d5b2178c4e9f0a3d6b5c1e82",
+      "session_id": "b81d27a4",
+      "title": "Fix the merge line freshness chip",
+      "about": "The chip reads the line's own age, not the page's",
+      "offered_at": "2026-11-13T09:05:00Z",
+      "state": "checking",
+      "in_build": false
+    },
+    {
+      "branch": "armada/session-2c7f91d0",
+      "tip": "2c7f91d0b4a8e6f3c1d9257a0e8b4f6c3d1a9e57",
+      "session_id": "2c7f91d0",
+      "title": "Audit the docs index",
+      "about": "Every concept doc is listed once, under the heading its fact belongs to",
+      "offered_at": "2026-11-13T09:12:00Z",
+      "state": "failed",
+      "why": "merge conflict in crates/fleet/src/building.rs",
+      "files": ["crates/fleet/src/building.rs"],
+      "in_build": false
+    }
+  ],
+  "refresh": {
+    "id": "7e1c4b90a2d35f68",
+    "branches": ["armada/session-4f03266c"]
+  }
+}

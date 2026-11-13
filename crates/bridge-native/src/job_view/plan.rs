@@ -639,7 +639,7 @@ impl JobView {
         }
         let row = row.child(self.judge_press(ix, key, super::judge::plan_artifact(version), reading, page, look, cx));
         column
-            .child(labelled(row.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers"))
+            .child(labelled(super::acts::gated(row.id(SharedString::from(format!("answers:{key}"))), self.off_shown(cx)), Role::Toolbar, "Answers"))
             .into_any_element()
     }
 

@@ -81,6 +81,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("save_limits", "changes settings"),
     ("save_preferences", "changes settings"),
     ("set_phone", "changes settings"),
+    ("set_up_mac", "changes settings"),
     ("set_repository_profile", "changes settings"),
     ("set_notice_mute", "changes settings"),
     ("accept_downshift", "changes settings"),

@@ -22,7 +22,7 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 use crate::setup::page_in;
-use crate::tunnel::{Cloudflared, NoZone, SignIn, DIR};
+use crate::tunnel::{AccountTunnel, Cloudflared, NoZone, SignIn, DIR};
 
 /// The newest release, as the forge's API describes it.
 const LATEST: &str = "https://api.github.com/repos/cloudflare/cloudflared/releases/latest";
@@ -30,6 +30,10 @@ const LATEST: &str = "https://api.github.com/repos/cloudflare/cloudflared/releas
 const CLOUDFLARE_TEAM: &str = "68WVV388M8";
 /// Cloudflare's zones, each read as `<ZONES>/<zone id>`.
 const ZONES: &str = "https://api.cloudflare.com/client/v4/zones";
+/// Cloudflare's accounts, whose tunnels are read as `<ACCOUNTS>/<account id>/cfd_tunnel`.
+const ACCOUNTS: &str = "https://api.cloudflare.com/client/v4/accounts";
+/// What a host routed to a tunnel names, after the tunnel's id.
+const TUNNEL_TARGET: &str = ".cfargotunnel.com";
 /// The sign-in certificate's block that carries the zone and its token, as base64 JSON.
 const TOKEN_BLOCK: &str = "ARGO TUNNEL TOKEN";
 /// How long the press waits for Cloudflare to name the zone.
@@ -61,6 +65,9 @@ pub(crate) struct Signed {
     pub zone_id: String,
     #[serde(rename = "apiToken")]
     pub api_token: String,
+    /// The account the sign-in is on. Older sign-ins may not carry it.
+    #[serde(rename = "accountID", default)]
+    pub account_id: String,
 }
 
 /// The zone and its token from a sign-in certificate's text, where it carries a zone id that is one.
@@ -89,6 +96,60 @@ struct ZoneName {
 pub(crate) fn zone_named(answer: &[u8]) -> Option<String> {
     let answer: ZoneAnswer = ipc::decode("Cloudflare's zone", answer).ok()?;
     Some(answer.result?.name.trim().to_ascii_lowercase()).filter(|name| name.contains('.'))
+}
+
+#[derive(Deserialize)]
+struct TunnelsAnswer {
+    result: Option<Vec<TunnelRow>>,
+}
+
+#[derive(Deserialize)]
+struct TunnelRow {
+    id: String,
+    name: String,
+    #[serde(default)]
+    status: String,
+}
+
+#[derive(Deserialize)]
+struct RecordsAnswer {
+    result: Option<Vec<RecordRow>>,
+}
+
+#[derive(Deserialize)]
+struct RecordRow {
+    name: String,
+    content: String,
+}
+
+/// The tunnels in Cloudflare's answer about an account's tunnels, each with the host its answer about the
+/// zone's records routes to it. `healthy` and `degraded` are connected; `inactive` and `down` are not.
+pub(crate) fn account_tunnels(tunnels: &[u8], records: &[u8]) -> Option<Vec<AccountTunnel>> {
+    let tunnels: TunnelsAnswer = ipc::decode("Cloudflare's tunnels", tunnels).ok()?;
+    let records: RecordsAnswer = ipc::decode("Cloudflare's records", records).ok()?;
+    let records = records.result.unwrap_or_default();
+    let host = |id: &str| {
+        let target = format!("{id}{TUNNEL_TARGET}");
+        let record = records.iter().find(|record| record.content.eq_ignore_ascii_case(&target))?;
+        Some(format!("https://{}", record.name.trim().to_ascii_lowercase()))
+    };
+    let rows = tunnels.result?;
+    Some(
+        rows.into_iter()
+            .map(|row| AccountTunnel { address: host(&row.id), connected: matches!(row.status.as_str(), "healthy" | "degraded"), name: row.name })
+            .collect(),
+    )
+}
+
+/// One read of Cloudflare's API with the sign-in's token: the status and the bytes.
+fn read_api(url: String, token: String) -> Result<(u16, Vec<u8>), String> {
+    blocking(async move {
+        let unreached = |why: reqwest::Error| format!("Cloudflare could not be reached: {}.", why.without_url());
+        let client = reqwest::Client::builder().user_agent("armada").timeout(ZONE_WAIT).build().map_err(unreached)?;
+        let answer = client.get(&url).bearer_auth(&token).send().await.map_err(unreached)?;
+        let status = answer.status().as_u16();
+        Ok((status, answer.bytes().await.map(|b| b.to_vec()).map_err(unreached)?))
+    })
 }
 
 /// The archive built for this Mac's processor.
@@ -362,6 +423,25 @@ impl Cloudflared for MacCloudflared {
             self.ran(&["token", "--cred-file", &credentials, name]).map_err(|said| format!("Cloudflare would not give the tunnel's credentials: {said}"))?;
         }
         self.ran(&["route", "dns", name, host]).map(drop).map_err(|said| format!("Cloudflare would not point {host} at the tunnel: {said}"))
+    }
+
+    fn tunnels(&self) -> Result<Vec<AccountTunnel>, String> {
+        let cert = std::fs::read_to_string(self.cert()).unwrap_or_default();
+        let signed = signed_with(&cert).ok_or_else(|| "This Mac is not signed in to Cloudflare yet.".to_string())?;
+        if signed.account_id.is_empty() || !signed.account_id.bytes().all(|b| b.is_ascii_alphanumeric()) {
+            return Err("The Cloudflare sign-in on this Mac names no account. Press Set up to sign in again.".to_string());
+        }
+        let refused = |what: &str, status: u16| format!("Cloudflare would not list {what} ({status}).");
+        let (status, tunnels) =
+            read_api(format!("{ACCOUNTS}/{}/cfd_tunnel?is_deleted=false&per_page=100", signed.account_id), signed.api_token.clone())?;
+        if !(200..300).contains(&status) {
+            return Err(refused("the tunnels on this account", status));
+        }
+        let (status, records) = read_api(format!("{ZONES}/{}/dns_records?type=CNAME&per_page=500", signed.zone_id), signed.api_token)?;
+        if !(200..300).contains(&status) {
+            return Err(refused("the addresses in this domain", status));
+        }
+        account_tunnels(&tunnels, &records).ok_or_else(|| "Cloudflare answered in a way Armada cannot read.".to_string())
     }
 
     fn run(&self, name: &str, port: u16, metrics: u16) -> Command {

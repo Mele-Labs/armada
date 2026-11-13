@@ -68,6 +68,11 @@ impl Collector {
         !std::mem::replace(&mut self.open, true)
     }
 
+    /// Drop what a Job now snoozed raised while the window was open.
+    pub fn without(&mut self, snoozed: impl Fn(&str) -> bool) {
+        self.held.retain(|one| !snoozed(one.session_id.as_str()));
+    }
+
     /// The window is up: the banner for everything collected, and the next arrival opens a new window.
     pub fn close(&mut self) -> Option<Told> {
         self.open = false;
@@ -136,6 +141,9 @@ impl Notifier {
     }
 
     fn tell(&mut self, cx: &mut Context<Self>) {
+        // A Job snoozed since its news arrived is quiet: nothing of it goes out.
+        let fleet = self.fleet.read(cx).held();
+        self.collector.without(|job| fleet.snoozed(job));
         let Some(told) = self.collector.close() else { return };
         if !self.fleet.read(cx).held().notifications {
             return;
@@ -199,6 +207,18 @@ mod tests {
     #[test]
     fn a_job_with_no_title_is_called_job() {
         assert_eq!(told_of(&[arrival("a", "", "x", CallTone::Waiting)]).expect("a banner").title, "Job");
+    }
+
+    #[test]
+    fn what_a_job_snoozed_since_raised_is_dropped_before_the_banner() {
+        let mut collector = Collector::default();
+        collector.add(vec![arrival("a", "A", "x", CallTone::Waiting), arrival("b", "B", "y", CallTone::Blocked)]);
+        collector.without(|job| job == "b");
+        let told = collector.close().expect("a banner");
+        assert_eq!((told.title.as_str(), told.tone), ("A", CallTone::Waiting), "the quiet one neither speaks nor sets the tone");
+        collector.add(vec![arrival("b", "B", "y", CallTone::Blocked)]);
+        collector.without(|job| job == "b");
+        assert_eq!(collector.close(), None);
     }
 
     #[test]
