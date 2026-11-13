@@ -47,6 +47,9 @@ pub struct MockFleet {
     /// The project each Job was started for, by Job id (`HostedFacts.project`): the walk's Native Bridge
     /// foundation was started for Armada.
     pub job_projects: Vec<(&'static str, &'static str)>,
+    /// Whether a repository's copy has its workflow lane drawn from its text, as Fleet draws it: the walk of choosing what
+    /// to take sets it, where the other walks keep the lanes file's steps.
+    pub lanes_from_text: bool,
 }
 
 /// What Fleet runs on All, as Classic's Workflows page is walked on (`mock/workflows-managed.ts`): Armada's four,
@@ -136,6 +139,7 @@ impl MockFleet {
             gateway: super::gateway::MockGateway::new(),
             handed: Vec::new(),
             job_projects: vec![("mock-02", "armada")],
+            lanes_from_text: false,
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
         };
@@ -314,6 +318,11 @@ impl MockFleet {
         if let Some(head) = lanes.lanes.first_mut() {
             let words = workflow.replace('_', " ");
             head.title = words[..1].to_uppercase() + &words[1..];
+        }
+        if self.lanes_from_text {
+            if let Some(text) = self.repository_text(workflow, scope) {
+                lanes = crate::lanes_editor::with_steps_of(lanes, &text);
+            }
         }
         // A rule a publish wrote is kept now: its chip is drawn as the others are.
         if !self.drafts.published_rules().is_empty() {

@@ -724,7 +724,13 @@ impl MockFleet {
         if let Some(held) = self.definitions.iter_mut().find(|one| one.holds("feature", "repository", "armada")) {
             held.definition = mine;
         }
+        self.lanes_from_text = true;
         self.relist("feature");
+    }
+
+    /// The text of `manifest`'s own copy of `workflow`, where it has one.
+    pub(super) fn repository_text(&self, workflow: &str, manifest: &str) -> Option<String> {
+        self.definitions.iter().find(|one| one.holds(workflow, "repository", manifest)).map(|held| text_of(&held.definition))
     }
 
     /// `GET /workflows/versions`: newest first.

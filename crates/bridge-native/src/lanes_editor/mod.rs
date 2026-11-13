@@ -208,6 +208,35 @@ pub fn with_rules_kept(view: JobLanesView, rules: &[ipc::LifecycleRule], lifecyc
     patch::with_rules(view, &changes, &vocab, false)
 }
 
+/// The lanes with the workflow's lane drawn where `text` says, its steps standing in the drawn ones' places in order, so a
+/// rule drawn from a drawn step is drawn from the step in its place; one from a step past the text's last is left out. For a
+/// host that answers the lanes itself, as the walk's mock does.
+pub fn with_steps_of(mut view: JobLanesView, text: &str) -> JobLanesView {
+    let Some(at) = view.lanes.iter().position(|lane| lane.kind == ipc::LaneKind::Workflow) else { return view };
+    let mut drawn: Vec<&ipc::LaneNode> = view.lanes[at].nodes.iter().filter(|node| node.kind == ipc::LaneNodeKind::Step).collect();
+    drawn.sort_by_key(|node| node.col);
+    let steps = crate::settings::definition::steps_of(text);
+    let placed: Vec<(String, String)> = drawn.iter().zip(&steps).map(|(node, (id, _))| (node.id.clone(), patch::node_id(id))).collect();
+    for node in view.lanes[at].nodes.iter_mut() {
+        if let Some((_, now)) = placed.iter().find(|(was, _)| *was == node.id) {
+            node.id = now.clone();
+        }
+    }
+    for edge in view.rules.iter_mut() {
+        for end in [&mut edge.from, &mut edge.to] {
+            if let Some((_, now)) = placed.iter().find(|(was, _)| was == end) {
+                *end = now.clone();
+            }
+        }
+    }
+    if let Some(lane) = side::steps_lane(&view, text).lanes.into_iter().next() {
+        view.lanes[at] = lane;
+    }
+    let held: Vec<String> = view.lanes.iter().flat_map(|lane| lane.nodes.iter().map(|node| node.id.clone())).collect();
+    view.rules.retain(|edge| held.contains(&edge.from) && held.contains(&edge.to));
+    view
+}
+
 /// What each kind of act is set to where no rule says: Armada's own word, then each layer that runs laid over it, widest first.
 fn autonomy_laid(read: ipc::RepositoryAutonomy) -> Vec<(String, String)> {
     let mut laid: Vec<(String, String)> = read.armada.into_iter().map(|one| (one.kind, one.autonomy)).collect();
