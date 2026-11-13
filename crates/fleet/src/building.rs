@@ -220,6 +220,8 @@ pub(crate) fn left_out_in(support: &Path, commit: &str) -> BTreeMap<String, Left
 pub(crate) struct Held {
     pub(crate) main_commit: String,
     pub(crate) branches: Vec<String>,
+    /// Where each branch stood when it was merged.
+    pub(crate) tips: BTreeMap<String, String>,
 }
 
 /// What `scripts/preview` recorded the build at `commit` holds: its first line, then the main commit,
@@ -231,8 +233,16 @@ pub(crate) fn held_in(support: &Path, commit: &str) -> Option<Held> {
         return None;
     }
     let main_commit = lines.next()?.trim().to_string();
-    let branches = lines.filter_map(|line| Some(line.split('\t').next()?.trim().to_string())).filter(|branch| !branch.is_empty()).collect();
-    (!main_commit.is_empty()).then_some(Held { main_commit, branches })
+    let held: Vec<(String, String)> = lines
+        .filter_map(|line| {
+            let mut fields = line.split('\t').map(str::trim);
+            Some((fields.next()?.to_string(), fields.next().unwrap_or_default().to_string()))
+        })
+        .filter(|(branch, _)| !branch.is_empty())
+        .collect();
+    let branches = held.iter().map(|(branch, _)| branch.clone()).collect();
+    let tips = held.into_iter().filter(|(_, tip)| !tip.is_empty()).collect();
+    (!main_commit.is_empty()).then_some(Held { main_commit, branches, tips })
 }
 
 /// When the restart wrote `restart-commit`, in milliseconds since the epoch: when the build began.

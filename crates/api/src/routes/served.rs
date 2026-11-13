@@ -118,6 +118,16 @@ const ROUTES: &[Route] = &[
         path: "/fleet/build/revert",
     },
     Route {
+        operation: "get_preview_offers",
+        method: "GET",
+        path: "/fleet/build/offers",
+    },
+    Route {
+        operation: "skip_preview_refresh",
+        method: "POST",
+        path: "/fleet/build/offers/skip",
+    },
+    Route {
         operation: "pick_fleet_build_job",
         method: "POST",
         path: "/fleet/build/pick",
@@ -562,6 +572,16 @@ const ROUTES: &[Route] = &[
         operation: "defer_later",
         method: "POST",
         path: "/sessions/defer_later",
+    },
+    Route {
+        operation: "offer_preview",
+        method: "POST",
+        path: "/sessions/offer_preview",
+    },
+    Route {
+        operation: "withdraw_preview",
+        method: "POST",
+        path: "/sessions/withdraw_preview",
     },
     Route {
         operation: "settle_later",

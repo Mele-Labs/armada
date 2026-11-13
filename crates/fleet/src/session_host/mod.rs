@@ -42,6 +42,7 @@ pub(crate) mod following;
 mod finishing;
 pub(crate) mod job_command;
 mod later;
+mod preview_acts;
 mod fork_point;
 mod forking;
 mod gate;
