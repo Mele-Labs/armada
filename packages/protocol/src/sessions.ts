@@ -1280,9 +1280,18 @@ export type ShownVideo = {
  * `fleet.no_lead_picture` where it showed none.
  */
 export type LeadPicture =
-  | { kind: "sketch"; title: string }
-  | { kind: "window"; url: string }
-  | { kind: "image"; path: string };
+  | {
+      kind: "sketch";
+      title: string;
+    }
+  | {
+      kind: "window";
+      url: string;
+    }
+  | {
+      kind: "image";
+      path: string;
+    };
 
 /**
  * `POST /sessions/window/closed`: the person closed the window a session showed, by its `url` as
