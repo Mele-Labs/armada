@@ -153,16 +153,20 @@ where
         }
         // The dismissal the person's own Withdraw writes, so both end the same way.
         self.store().lock().await.dismiss_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
-        self.sketch_withdrawn_mark(&id, &target).await;
+        self.sketch_withdrawn_mark(&id, &target, true).await;
         self.published_hosted(&id).await
     }
 
     /// Mark the sketch held as `target` withdrawn. **The one place the mark is written**: the job's
-    /// `withdraw_sketch` and the person's Withdraw both come here. A new drawing of the title replaces the
-    /// attachment, so it does not carry the mark. A sketch the job does not hold is left alone.
-    pub(crate) async fn sketch_withdrawn_mark(&self, id: &str, target: &str) {
+    /// `withdraw_sketch` and the person's Withdraw both come here, and `agent` is the job's, which also
+    /// writes `withdrawn_by`, so the artifact reads `withdrawn` and his reads `dismissed`. A new drawing of
+    /// the title replaces the attachment, so it does not carry the mark. A sketch the job does not hold is left alone.
+    pub(crate) async fn sketch_withdrawn_mark(&self, id: &str, target: &str, agent: bool) {
         let Ok((harness, Some(mut sketch))) = self.sketch_held(id, target).await else { return };
         sketch.detail.insert(SKETCH_WITHDRAWN.into(), "true".into());
+        if agent {
+            sketch.detail.insert(ipc::ARTIFACT_WITHDRAWN_BY.into(), "agent".into());
+        }
         let _ = self
             .report_session(SessionReport {
                 harness,

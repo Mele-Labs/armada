@@ -408,6 +408,7 @@ where
             peers: fittings.peers,
             requests: fittings.requests,
             merge_end: Mutex::new(()),
+            disk: Default::default(),
             building: crate::building::Building::default(),
             previewing: Default::default(),
             mods: crate::mods::Told::default(),

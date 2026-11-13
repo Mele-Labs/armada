@@ -1,0 +1,17 @@
+{
+  "queued": [
+    {
+      "id": "kept-1",
+      "mac": "air",
+      "act": { "kind": "message", "body": { "session_id": "mock-01", "text": "Check the tokens file before the chip's hue.\nThe stale state reads the age, not the time." } },
+      "since": 0
+    },
+    {
+      "id": "kept-2",
+      "mac": "air",
+      "act": { "kind": "waiting_answer", "body": { "session_id": "mock-01", "item_id": "agent-2", "choice": 1 } },
+      "since": 0,
+      "refused": "That question is no longer waiting on the Job."
+    }
+  ]
+}

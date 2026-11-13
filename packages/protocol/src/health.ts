@@ -54,4 +54,32 @@ export type FleetHealth = {
    * `GET /workflows/left_out`. Absent from a Fleet older than 23.33.
    */
   workflows_left_out?: boolean;
+  /**
+   * Free space where Jobs are built, against the two floors Fleet holds it to.
+   * Absent from a Fleet older than the reclaim, and from one that has not yet
+   * read the disk.
+   */
+  disk?: DiskHealth;
+};
+
+/** The disk under the first served repository. */
+export type DiskHealth = {
+  /** Free on the volume of the first served repository. */
+  free_bytes: number;
+  /** `limits.diskReclaimFloorGib` in bytes. Under it Fleet drops build output; 0 is off. */
+  reclaim_floor_bytes: number;
+  /** `limits.diskFloorGib` in bytes. Under it no new Job starts. */
+  hold_floor_bytes: number;
+  /** The last pass that dropped anything. Absent where none has since Fleet started. */
+  last_pass?: ReclaimPass;
+  /** Build folder paths in the order a pass would drop them next, at most ten. Absent over the reclaim floor. */
+  next_to_drop?: string[];
+};
+
+/** One pass under the reclaim floor. */
+export type ReclaimPass = {
+  /** When it ended, RFC 3339. */
+  at: string;
+  /** What the volume gained over the pass. */
+  freed_bytes: number;
 };

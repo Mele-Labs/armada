@@ -824,6 +824,127 @@ error[E0599]: no variant, associated function, or constant named `Workspace` fou
         tip = run(self.repo, "rev-parse", "refs/heads/feat/good").strip()
         self.assertEqual(lines[2:], [f"feat/good\t{tip}"], "the branch left out for not building is not held")
 
+    def with_origin(self):
+        """A bare origin holding `main`, as the other Mac and this one both see it."""
+        origin = os.path.join(self.dir, "origin.git")
+        subprocess.run(["git", "init", "-q", "--bare", origin], check=True)
+        self.git("remote", "add", "origin", origin)
+        self.git("push", "-q", "origin", "main")
+        return origin
+
+    def on_origin(self, origin, ref):
+        return subprocess.run(["git", "--git-dir", origin, "rev-parse", "--verify", "--quiet", ref],
+                              capture_output=True, text=True).stdout.strip()
+
+    def undetached_restart(self, body):
+        """A restart script running `body`, which `--restart` runs in place of the real one, in this
+        process group, so nothing is detached and the test reads what it did."""
+        script = os.path.join(self.dir, "restart")
+        with open(script, "w") as f:
+            f.write(f"#!/bin/sh\n{body}\n")
+        os.chmod(script, 0o755)
+        patch = unittest.mock.patch.dict(os.environ, {"ARMADA_PREVIEW_RESTART": script, "ARMADA_RESTART_DETACHED": "1"})
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_push_as_pushes_the_merged_commit_to_a_ref_of_that_name_on_origin_over_what_was_there(self):
+        origin = self.with_origin()
+        self.branch("feat/a", {"a.txt": "a\n"})
+        self.branch("feat/old", {"old.txt": "old\n"})
+        self.git("push", "-q", "origin", "feat/old:refs/heads/preview/mac-a")
+        self.hold("feat/a")
+        said = self.run_preview("--push-as", "mac-a")
+        head = run(self.wt, "rev-parse", "HEAD")
+        self.assertEqual(self.merged_in_order(), ["feat/a"])
+        self.assertEqual(self.on_origin(origin, "refs/heads/preview/mac-a"), head, "forced over the diverged ref")
+        self.assertIn(f"preview: pushed {run(self.wt, 'rev-parse', '--short', 'HEAD')} to preview/mac-a", said)
+
+    def test_the_push_comes_before_the_restart_and_a_dry_run_pushes_nothing(self):
+        origin = self.with_origin()
+        self.branch("feat/a", {"a.txt": "a\n"})
+        self.hold("feat/a")
+        seen = os.path.join(self.dir, "pushed-when-restarted")
+        self.undetached_restart(f'git --git-dir "{origin}" rev-parse --verify --quiet refs/heads/preview/mac-a > "{seen}"; true')
+        said = self.run_preview("--restart", "--dry-run", "--push-as", "mac-a")
+        self.assertIn("preview: would push", said)
+        self.assertEqual(self.on_origin(origin, "refs/heads/preview/mac-a"), "")
+        self.run_preview("--restart", "--push-as", "mac-a")
+        with open(seen) as f:
+            self.assertEqual(f.read().strip(), run(self.wt, "rev-parse", "HEAD"))
+
+    def test_a_push_that_fails_warns_and_the_restart_goes_on(self):
+        self.git("remote", "add", "origin", os.path.join(self.dir, "no-such-origin.git"))
+        self.branch("feat/a", {"a.txt": "a\n"})
+        self.hold("feat/a")
+        ran = os.path.join(self.dir, "restart-ran")
+        self.undetached_restart(f'echo ran > "{ran}"')
+        said = self.run_preview("--restart", "--push-as", "mac-a")
+        self.assertRegex(said, r"preview: warning: could not push \w+ to preview/mac-a")
+        self.assertTrue(os.path.exists(ran))
+
+    def test_a_pushed_preview_ref_is_never_a_branch_in_flight(self):
+        self.with_origin()
+        self.branch("feat/a", {"a.txt": "a\n"})
+        self.git("push", "-q", "origin", "feat/a:refs/heads/preview/mac-a")
+        self.git("fetch", "-q", "origin")
+        self.hold()
+        said = self.run_preview("--only", "preview/mac-a")
+        self.assertEqual(self.merged_in_order(), [])
+        self.assertIn("preview/mac-a: named by --only, but it is not ahead of main", said)
+        self.offer(("preview/mac-a", self.git("rev-parse", "feat/a"), "pushed"))
+        self.assertIn("no offered branch is ahead of main", self.run_preview(offered=True))
+        self.assertEqual(self.merged_in_order(), [])
+
+    def pushed_by_the_other_mac(self, origin):
+        """A merged preview commit only origin has, on `preview/mac-a`, as the other Mac pushed it."""
+        other = os.path.join(self.dir, "other")
+        subprocess.run(["git", "clone", "-q", origin, other], check=True)
+        with open(os.path.join(other, "x.txt"), "w") as f:
+            f.write("x\n")
+        run(other, "add", "x.txt")
+        run(other, "commit", "-q", "-m", "the other Mac's merge")
+        run(other, "push", "-q", "origin", "HEAD:refs/heads/preview/mac-a")
+        return run(other, "rev-parse", "HEAD")
+
+    def test_at_lands_on_exactly_that_commit_fetched_from_the_ref_and_merges_nothing(self):
+        origin = self.with_origin()
+        commit = self.pushed_by_the_other_mac(origin)
+        self.branch("feat/a", {"offered.txt": "a\n"})
+        self.offer(("feat/a", self.git("rev-parse", "feat/a"), "offered here"))
+        self.hold("feat/a")
+        ran = os.path.join(self.dir, "restart-args")
+        self.undetached_restart(f'echo "$@" > "{ran}"')
+        self.assertNotEqual(subprocess.run(["git", "cat-file", "-e", commit], cwd=self.repo, capture_output=True).returncode, 0,
+                            "the commit is only on origin")
+        said = self.run_preview("--restart", "--at", commit, "--ref", "preview/mac-a", offered=True)
+        self.assertEqual(run(self.wt, "rev-parse", "HEAD"), commit)
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "x.txt")))
+        self.assertFalse(os.path.exists(os.path.join(self.wt, "offered.txt")), "an offered branch is not merged on top")
+        with open(ran) as f:
+            self.assertEqual(f.read().split(), ["--from", os.path.realpath(self.wt)])
+        with open(os.path.join(self.support, "preview-held")) as f:
+            self.assertEqual(f.read().splitlines(), [commit, self.git("rev-parse", "main")])
+        with open(os.path.join(self.support, "preview-left-out")) as f:
+            self.assertEqual(f.read().splitlines(), [commit])
+        # With the commit here already, the ref is not asked for again.
+        subprocess.run(["git", "--git-dir", origin, "update-ref", "-d", "refs/heads/preview/mac-a"], check=True)
+        self.run_preview("--at", commit, "--ref", "preview/mac-a", offered=True)
+        self.assertEqual(run(self.wt, "rev-parse", "HEAD"), commit)
+
+    def test_at_a_commit_nothing_has_is_refused_in_one_line(self):
+        self.with_origin()
+        done = self.run_preview_refused("--at", "1234567890abcdef1234567890abcdef12345678", "--ref", "preview/mac-a")
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("preview: the commit 1234567890 is not in this repository", done.stderr)
+
+    def test_at_and_the_flags_that_pick_branches_are_refused_together(self):
+        for other in (["--all"], ["--only", "a"], ["--skip", "a"], ["--picked", "f"], ["--watch"], ["--push-as", "x"]):
+            done = self.run_preview_refused("--at", "1234567", *other)
+            self.assertNotEqual(done.returncode, 0, other)
+            self.assertIn("--at", done.stderr, other)
+        done = self.run_preview_refused("--ref", "preview/x")
+        self.assertIn("--ref is for --at", done.stderr)
+
     def test_error_paths_are_the_errors_not_the_warnings(self):
         wt = os.path.join(self.dir, "wt")
         output = (
@@ -1537,11 +1658,11 @@ class RestartBuild(unittest.TestCase):
         os.chmod(path, 0o755)
         return path
 
-    def build(self, which, *args, script="exit 0"):
+    def build(self, which, *args, script="exit 0", env=None):
         """Run the wrapper with `script` standing in for what it wraps."""
         stub = self.stub("wrapped", f'echo "$@" >> "{self.ran}"\n{script}')
         env = dict(os.environ, HOME=self.home, PATH=self.bin + os.pathsep + os.environ["PATH"],
-                   ARMADA_RESTART_SCRIPT=stub, ARMADA_PREVIEW_SCRIPT=stub, ARMADA_RESTART_POLL="0.02")
+                   ARMADA_RESTART_SCRIPT=stub, ARMADA_PREVIEW_SCRIPT=stub, ARMADA_RESTART_POLL="0.02", **(env or {}))
         done = subprocess.run([os.path.join(self.root, "scripts", "restart-build"), which, *args],
                               env=env, capture_output=True, text=True)
         return done.returncode
@@ -1752,6 +1873,108 @@ class RestartBuild(unittest.TestCase):
         code = self.build("main", script='printf "\\n\\033[1mInstalling armada from /x\\033[0m\\n" >&2; sleep 0.3; echo "restart: !!! nope" >&2; exit 1')
         self.assertEqual(code, 1)
         self.assertEqual(self.status(), "failed\nmain\n\nnope\n")
+
+    # Two Macs on one preview build.
+    MERGE_AND_PUSH = 'case "$*" in *--restart*) ;; *) echo "preview: pushed 1234567 to preview/mac-a" ;; esac'
+
+    def tell_server(self):
+        """A Fleet that keeps the bodies posted to `/macs/update`; returns (its url, the bodies)."""
+        posted = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                posted.append((self.path, json.loads(self.rfile.read(int(self.headers["Content-Length"])))))
+                self.send_response(200)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        server.daemon_threads = True
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return f"http://127.0.0.1:{server.server_address[1]}", posted
+
+    def preview_commit(self):
+        """The commit the preview worktree is on, which `--tell` reads and tells the other Mac."""
+        tree = os.path.join(self.root, ".armada", "preview")
+        os.makedirs(tree)
+        for args in (["init", "-q", "-b", "preview"], ["config", "user.name", "t"], ["config", "user.email", "t@example.com"],
+                     ["commit", "-q", "--allow-empty", "-m", "merged preview"]):
+            subprocess.run(["git", "-C", tree, *args], check=True, capture_output=True)
+        return subprocess.run(["git", "-C", tree, "rev-parse", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
+
+    def log(self):
+        with open(os.path.join(self.home, "Library", "Logs", "Armada", "restart-build.log")) as f:
+            return f.read()
+
+    def test_push_as_is_passed_through_to_a_preview_restart(self):
+        self.assertEqual(self.build("preview", "--push-as", "mac-a"), 0)
+        self.assertEqual(self.build("preview", "--adopt", "--push-as", "mac-a"), 0)
+        self.assertEqual(self.runs(), ["--restart --push-as mac-a", "--restart --push-as mac-a --adopt"])
+
+    def test_at_and_ref_are_passed_through_to_a_preview_restart(self):
+        self.assertEqual(self.build("preview", "--adopt", "--at", "abc1234", "--ref", "preview/mac-a"), 0)
+        self.assertEqual(self.runs(), ["--restart --at abc1234 --ref preview/mac-a --adopt"])
+
+    def test_tell_merges_and_pushes_then_posts_to_fleet_then_builds_that_commit_with_no_second_merge(self):
+        commit = self.preview_commit()
+        url, posted = self.tell_server()
+        code = self.build("preview", "--adopt", "--push-as", "mac-a", "--tell", "mac-b",
+                          script=self.MERGE_AND_PUSH, env={"ARMADA_FLEET_URL": url})
+        self.assertEqual(code, 0, self.log())
+        self.assertEqual(self.runs(), ["--push-as mac-a", f"--restart --at {commit} --ref preview/mac-a --adopt"])
+        self.assertEqual(posted, [("/macs/update", {"mac": "mac-b", "build": "preview", "commit": commit, "ref": "preview/mac-a"})])
+        self.assertIsNone(self.status())
+
+    def test_tell_reaches_the_fleet_named_in_fleet_json_when_no_url_is_given(self):
+        commit = self.preview_commit()
+        url, posted = self.tell_server()
+        with open(os.path.join(self.support, "fleet.json"), "w") as f:
+            json.dump({"port": int(url.rsplit(":", 1)[1])}, f)
+        self.assertEqual(self.build("preview", "--push-as", "mac-a", "--tell", "mac-b", script=self.MERGE_AND_PUSH), 0)
+        self.assertEqual([body["commit"] for _, body in posted], [commit])
+
+    def test_a_post_that_fails_is_logged_and_the_restart_goes_on(self):
+        commit = self.preview_commit()
+        code = self.build("preview", "--push-as", "mac-a", "--tell", "mac-b",
+                          script=self.MERGE_AND_PUSH, env={"ARMADA_FLEET_URL": "http://127.0.0.1:9"})
+        self.assertEqual(code, 0)
+        self.assertEqual(self.runs()[1], f"--restart --at {commit} --ref preview/mac-a")
+        self.assertIn("could not tell mac-b", self.log())
+
+    def test_a_push_that_failed_tells_nobody_and_the_restart_goes_on(self):
+        commit = self.preview_commit()
+        url, posted = self.tell_server()
+        code = self.build("preview", "--push-as", "mac-a", "--tell", "mac-b",
+                          script='case "$*" in *--restart*) ;; *) echo "preview: warning: could not push 1234567 to preview/mac-a: no" ;; esac',
+                          env={"ARMADA_FLEET_URL": url})
+        self.assertEqual(code, 0)
+        self.assertEqual(posted, [])
+        self.assertEqual(self.runs()[1], f"--restart --at {commit} --ref preview/mac-a")
+        self.assertIn("not telling mac-b", self.log())
+
+    def test_a_failed_merge_is_the_runs_failure_and_nothing_is_told_or_restarted(self):
+        self.preview_commit()
+        url, posted = self.tell_server()
+        code = self.build("preview", "--push-as", "mac-a", "--tell", "mac-b",
+                          script='echo "preview: git merge-tree failed in /x: boom"; exit 1', env={"ARMADA_FLEET_URL": url})
+        self.assertEqual(code, 1)
+        self.assertEqual(self.runs(), ["--push-as mac-a"])
+        self.assertEqual(posted, [])
+        self.assertIn("failed\npreview\n", self.status())
+        self.assertIn("git merge-tree failed", self.status())
+
+    def test_the_new_flags_are_refused_on_main_and_snapshot_and_when_they_do_not_belong_together(self):
+        for which, args in (("main", ["--push-as", "x"]), ("main", ["--at", "abc1234", "--ref", "r"]), ("main", ["--tell", "m"]),
+                            ("snapshot", ["--push-as", "x"]), ("snapshot", ["--ref", "r"]),
+                            ("preview", ["--tell", "mac-b"]), ("preview", ["--at", "abc1234"]), ("preview", ["--ref", "r"]),
+                            ("preview", ["--at", "abc1234", "--ref", "r", "--push-as", "x"]), ("preview", ["--push-as"])):
+            self.assertNotEqual(self.build(which, *args), 0, (which, args))
+        self.assertEqual(self.runs(), [])
 
     def test_an_unknown_build_is_refused(self):
         self.assertNotEqual(self.build("feature"), 0)

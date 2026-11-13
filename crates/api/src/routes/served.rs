@@ -116,6 +116,11 @@ const ROUTES: &[Route] = &[
         path: "/fleet/build/change",
     },
     Route {
+        operation: "update_mac",
+        method: "POST",
+        path: "/macs/update",
+    },
+    Route {
         operation: "revert_fleet_build",
         method: "POST",
         path: "/fleet/build/revert",
@@ -321,9 +326,9 @@ const ROUTES: &[Route] = &[
         path: "/sessions/terminal/run",
     },
     Route {
-        operation: "start_terminal_job",
+        operation: "start_side_job",
         method: "POST",
-        path: "/sessions/terminal/start",
+        path: "/sessions/side_job/start",
     },
     Route {
         operation: "type_in_terminal",

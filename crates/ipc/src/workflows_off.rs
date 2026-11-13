@@ -50,4 +50,19 @@ impl WorkflowsOff {
             names(project).then_some(ValueLayer::Project)
         }
     }
+
+    /// The layer holding `workflow` off for a project asked about without one repository, whose repositories are
+    /// `manifests`: as [`WorkflowsOff::off_from`] with none, except that **a workflow every one of them switches off is
+    /// off from `repository`**, since no Job in the project can follow it. One switched off in only some is left as the
+    /// machine's list and the project's say.
+    pub fn off_across(&self, manifests: &[&str], project: &[String], workflow: &str) -> Option<ValueLayer> {
+        let held = self.off_from(None, project, workflow);
+        let everywhere = !manifests.is_empty()
+            && manifests.iter().all(|manifest| self.repositories.get(*manifest).is_some_and(|list| list.iter().any(|one| one == workflow)));
+        match held {
+            Some(ValueLayer::Machine) => held,
+            _ if everywhere => Some(ValueLayer::Repository),
+            _ => held,
+        }
+    }
 }

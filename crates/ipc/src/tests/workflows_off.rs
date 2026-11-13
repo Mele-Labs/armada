@@ -41,3 +41,17 @@ fn a_projects_list_reads_after_the_repositorys_and_the_machines_and_each_switch_
     assert_eq!(held.off_from(None, &project, "chore"), Some(ValueLayer::Project), "no repository: the machine and the project");
     assert_eq!(held.off_from(Some("one"), &[], "docs"), None, "no project: nothing of one");
 }
+
+#[test]
+fn without_one_repository_a_workflow_off_in_every_repository_of_the_project_is_off_from_the_repository() {
+    use crate::ValueLayer;
+    let held = WorkflowsOff::read(r#"{"machine":["chore"],"repositories":{"web":["bug","docs"],"api":["docs"]}}"#);
+    let project = ["spike".to_string()];
+
+    assert_eq!(held.off_across(&["web"], &project, "bug"), Some(ValueLayer::Repository), "one repository, and it is off there");
+    assert_eq!(held.off_across(&["web", "api"], &project, "docs"), Some(ValueLayer::Repository), "off in both");
+    assert_eq!(held.off_across(&["web", "api"], &project, "bug"), None, "off in only one is left on");
+    assert_eq!(held.off_across(&["web", "api"], &project, "chore"), Some(ValueLayer::Machine), "the machine's still holds over");
+    assert_eq!(held.off_across(&["web", "api"], &project, "spike"), Some(ValueLayer::Project), "the project's own");
+    assert_eq!(held.off_across(&[], &project, "bug"), None, "a project of no repository");
+}

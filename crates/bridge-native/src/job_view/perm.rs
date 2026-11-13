@@ -194,7 +194,7 @@ impl JobView {
             div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(offers).into_any_element()
         };
         let said = self.dock_of(id).and_then(|dock| dock.said.get(&format!("question:{}", call.call)).cloned());
-        let answers = labelled(super::acts::gated(div().id(SharedString::from(format!("answers:{}", call.call))).child(answers), self.off_shown(cx)), Role::Group, "Answers").into_any_element();
+        let answers = labelled(super::acts::gated(div().id(SharedString::from(format!("answers:{}", call.call))).child(answers), self.off_shown_to("/sessions/ask/answer", cx)), Role::Group, "Answers").into_any_element();
         // The reach card's answers are long and read with the command, so they scroll with it; plain answers stay at the foot.
         let (inside, foot) = if reach { (Some(answers), None) } else { (None, Some(answers)) };
         let body = labelled(
@@ -279,7 +279,7 @@ impl JobView {
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_2))
-            .child(labelled(super::acts::gated(div().id(SharedString::from(format!("answers-once:{}", call.call))).flex().flex_wrap().gap(look.length(token::SPACE_2)).children(once), self.off_shown(cx)), Role::Group, "Answers"))
+            .child(labelled(super::acts::gated(div().id(SharedString::from(format!("answers-once:{}", call.call))).flex().flex_wrap().gap(look.length(token::SPACE_2)).children(once), self.off_shown_to("/sessions/ask/answer", cx)), Role::Group, "Answers"))
             .child(
                 div()
                     .flex()

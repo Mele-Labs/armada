@@ -21,8 +21,8 @@
     notes = "Drawn as the glyph alone, as Hide, End shell and Close beside it are, with the tooltip `New shell`."
 
   [[icons.file-terminal.usage]]
-    means = "A terminal Job: the Terminal kind on the dispatch line, and New terminal (⌘T) in the palette"
+    means = "A Side Job: the Terminal kind on the dispatch line, and New terminal (⌘T) in the palette"
     group = "Session"
     size = "16px"
     status = "Proposed"
-    notes = "Proposed 12 Nov 2026 for the native terminal Job, a Job that opens straight onto its shell. It is the Job's shell, which is what this glyph is reserved for; `square-terminal` stays the Job's own kind on the line beside it."
+    notes = "Proposed 12 Nov 2026 for the native Side Job, a Job that opens straight onto its shell. It is the Job's shell, which is what this glyph is reserved for; `square-terminal` stays the Job's own kind on the line beside it."

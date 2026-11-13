@@ -87,6 +87,108 @@
     "running": true,
     "commands": []
    }
+  },
+  {
+   "id": "mock-02",
+   "harness": "claude_code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Jobs rows mark their Mac",
+   "state": "live",
+   "started_at": "2026-11-10T19:48:55.257Z",
+   "last_seen_at": "2026-11-10T19:59:30.517Z",
+   "last_turn_at": "2026-11-10T19:59:24.410Z",
+   "usage": {
+    "context_tokens": 128415,
+    "context_window": 1000000,
+    "cost_micros": 102737,
+    "context_percent": 13,
+    "context_band": "normal"
+   },
+   "mod_version": "0.3.60",
+   "waiting_for": [
+    {
+     "id": "agent-mark",
+     "text": "Which look do the row's actions take?",
+     "since": "2026-11-10T20:01:10.114Z",
+     "source": "agent",
+     "options": [
+      {
+       "label": "Actions in the row",
+       "description": "Every act sits on the row; the sent state reads under it.",
+       "picture": {
+        "image": "/sessions/shown?session_id=mock-02&path=pick-actions-a.png",
+        "width": 760,
+        "height": 380,
+        "parts": [
+         {
+          "name": "actions",
+          "label": "Actions",
+          "x": 473,
+          "y": 134,
+          "w": 258,
+          "h": 24
+         }
+        ]
+       }
+      },
+      {
+       "label": "One act and a menu",
+       "description": "The main act stays; the rest go in a menu.",
+       "picture": {
+        "image": "/sessions/shown?session_id=mock-02&path=pick-actions-b.png",
+        "width": 760,
+        "height": 380,
+        "parts": [
+         {
+          "name": "act-primary",
+          "label": "Main act",
+          "x": 623,
+          "y": 134,
+          "w": 80,
+          "h": 24
+         }
+        ]
+       }
+      },
+      {
+       "label": "Keep today's row",
+       "description": "Nothing changes."
+      }
+     ]
+    }
+   ],
+   "standing": "replied",
+   "started": {
+    "workflow": "feature",
+    "delivery": "auto_land",
+    "model": "opus",
+    "effort": "high",
+    "mode": "auto",
+    "by": {
+     "id": "mock-00",
+     "title": "Native Rebuild Orchestrator"
+    }
+   },
+   "mark": {
+    "state": "waiting",
+    "lamp": "needs",
+    "group": "needs"
+   },
+   "viewed_at": "2026-11-10T19:53:56.873Z",
+   "attachments": [],
+   "hosted": {
+    "turn": {
+     "state": "idle"
+    },
+    "model": "opus",
+    "resolved_model": "claude-opus-5-5",
+    "effort": "high",
+    "mode": "auto",
+    "running": true,
+    "commands": []
+   }
   }
  ]
 }

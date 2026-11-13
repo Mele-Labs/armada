@@ -136,7 +136,7 @@ fn working(record: &SessionRecord) -> bool {
 
 /// No slot, no branch, no title, no turn and no row. An attachment counts as Bridge draws one: what is
 /// given back is gone unless it is a subagent, an artifact or a background task, and a slot or branch
-/// only while it stands. A title of only space is none, and so is a quick terminal's, which Fleet gives
+/// only while it stands. A title of only space is none, and so is a Side Job's, which Fleet gives
 /// it at start: it is not started until he writes.
 fn blank(record: &SessionRecord, thread: &Thread) -> bool {
     let drawn = record.attachments.iter().any(|one| match one.kind.as_str() {
@@ -144,7 +144,7 @@ fn blank(record: &SessionRecord, thread: &Thread) -> bool {
         "subagent" | "artifact" | "background" => true,
         _ => one.state != AttachmentState::GivenBack,
     });
-    let titled = !record.quick_terminal && record.title.as_deref().is_some_and(|title| !title.trim().is_empty());
+    let titled = !record.side_job && record.title.as_deref().is_some_and(|title| !title.trim().is_empty());
     !drawn && !titled && record.last_turn_at.is_none() && !thread.spoken
 }
 
