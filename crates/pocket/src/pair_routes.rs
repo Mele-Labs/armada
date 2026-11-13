@@ -83,6 +83,14 @@ pub async fn confirm(State(gateway): State<Gateway>, Json(body): Json<Confirm>) 
     }
 }
 
+/// `POST /admin/pair/decline { code }`: the owner declines the phone that claimed `code`, at once.
+pub async fn decline(State(gateway): State<Gateway>, Json(body): Json<Confirm>) -> Response {
+    match gateway.pairing.decline(&body.code) {
+        true => StatusCode::NO_CONTENT.into_response(),
+        false => (StatusCode::NOT_FOUND, "This code is not good any more.").into_response(),
+    }
+}
+
 #[derive(Serialize)]
 pub struct PendingView {
     code: String,
