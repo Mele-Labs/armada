@@ -116,7 +116,7 @@ pub(super) struct Aa {
     response: Option<ResponseEdit>,
     whisper: Option<Whisper>,
     /// Voice is drawn only where the screen that mounts the panel asks for it, as `voice` is optional in
-    /// `ThreadSettings.tsx`: Aa leaves it to Settings › Thread.
+    /// `ThreadSettings.tsx`. The composer's Aa asks for it: native has no other place to pick a voice.
     voice: bool,
     /// The look as it was before the agent name's last burst of keys, until it is written.
     unwritten: Option<Option<std::collections::BTreeMap<String, ipc::SettingValue>>>,

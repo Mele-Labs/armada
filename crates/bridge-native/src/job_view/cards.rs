@@ -269,6 +269,18 @@ impl JobView {
         .into_any_element()
     }
 
+    /// The pinned drawing's height: Classic's six space-12, or less where the thread's own height cannot hold the card
+    /// round it and the rows after it (Thinking, the box) cannot, so the pin stands whole and the thread following its tail does not cut the top off.
+    fn pin_drawing_height(&self, look: &Look) -> gpui::Pixels {
+        let most = look.length(token::SPACE_12) * 6.;
+        // The height the list had when last drawn: the list is borrowed while its items draw, so it cannot be asked here.
+        let Some(room) = self.pane_height else { return most };
+        // A narrow thread wraps the band and the answers onto more lines, which take their room too.
+        let wraps = self.pane.is_some_and(|width| width < look.length(token::SPACE_12) * 10.);
+        let around = look.length(token::SPACE_12) * if wraps { 6. } else { 4.5 };
+        (room - around).max(look.length(token::SPACE_12) * 2.).min(most)
+    }
+
     /// The newest sketch put to the person, pinned after the plan (`SketchPin`, B1.4).
     pub(super) fn sketch_pin(&self, ix: usize, card: &ThreadSketch, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = format!("pin:{}", card.id);
@@ -300,16 +312,12 @@ impl JobView {
             Role::Button,
             "Open in the panel",
         );
-        let band = div()
+        let tools = div()
+            .flex_none()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .text_color(look.color(token::FG_MUTED))
-            .child(div().flex_none().child(glyph(look, "pencil-ruler", Size::Small, look.color(token::FG_MUTED))))
-            // The title gives way in a narrow thread, so Fold stays inside the card.
-            .child(super::rows::eyebrow(look, &card.title).flex_shrink(1.).min_w_0().truncate().text_color(look.color(token::FG_MUTED)))
-            .child(div().flex_none().id(SharedString::from(format!("pin-mark:{key}"))).child(glyph(look, "bell-ring", Size::Mark, look.color(token::STEP_WAITING))).tooltip(tip("Sketch waiting for approval")))
-            .child(div().flex_1())
+            .ml_auto()
             .child(self.revision_button(ix, &key, &card.title, revisions, picked, look, cx))
             .child(open)
             .child(labelled(
@@ -332,6 +340,17 @@ impl JobView {
                 Role::Button,
                 if folded { "Unfold" } else { "Fold" },
             ));
+        // The title keeps its width: the bell and the tools wrap under it where the row is too narrow for all.
+        let band = div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .text_color(look.color(token::FG_MUTED))
+            .child(div().flex_none().child(glyph(look, "pencil-ruler", Size::Small, look.color(token::FG_MUTED))))
+            .child(super::rows::eyebrow(look, &card.title).flex_grow(1.).min_w_0().max_w_full().truncate().text_color(look.color(token::FG_MUTED)))
+            .child(div().flex_none().id(SharedString::from(format!("pin-mark:{key}"))).child(glyph(look, "bell-ring", Size::Mark, look.color(token::STEP_WAITING))).tooltip(tip("Sketch waiting for approval")))
+            .child(tools);
         let open = settled.is_none() && !shown_earlier;
         let aim = key.clone();
         labelled(
@@ -356,7 +375,7 @@ impl JobView {
                     pin.child(
                         div()
                             .id(SharedString::from(format!("pin-drawing:{key}")))
-                            .h(look.length(token::SPACE_12) * 6.)
+                            .h(self.pin_drawing_height(look))
                             .rounded(look.length(token::RADIUS_MD))
                             .border(look.length(token::BORDER_WIDTH))
                             .border_color(look.color(token::BORDER_SUBTLE))
@@ -397,6 +416,8 @@ impl JobView {
         let mut band = div()
             .flex()
             .items_center()
+            // The title keeps its width: Revision and the time wrap under it where the row is too narrow for all three.
+            .flex_wrap()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .pt(look.length(token::SPACE_3))
@@ -404,8 +425,9 @@ impl JobView {
             .child(glyph(look, "pencil-ruler", Size::Small, look.color(token::FG_MUTED)))
             .child(
                 div()
-                    .flex_1()
+                    .flex_grow(1.)
                     .min_w_0()
+                    .max_w_full()
                     .truncate()
                     .text_size(look.length(token::TEXT_BASE))
                     .line_height(look.length(token::LEADING_BASE))

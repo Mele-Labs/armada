@@ -10,7 +10,8 @@ use axum::Extension;
 use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::Sessions;
+use crate::daemon::{OtherMacs, Sessions};
+use crate::mac_acts::across;
 use crate::door::DoorCalled;
 use crate::receipts::Receipt;
 use crate::served::Served;
@@ -325,11 +326,14 @@ pub(crate) async fn record_plan<D: Sessions>(
 
 /// The person approves a sketch, or sends it back with a note. 200 with the row; 409 for a sketch drawn again since
 /// he read it; 422 for one not open to an answer, or a send-back with no note.
-pub(crate) async fn answer_sketch<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+pub(crate) async fn answer_sketch<D: Sessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let said: ipc::AnswerSketch = match ipc::decode_body("an answer to a sketch", &body) {
         Ok(said) => said,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(said.session_id.as_str()).await {
+        return across(&served, mac, ipc::JobAct::SketchAnswer(said)).await;
+    }
     match served.shared().answer_sketch(said).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -338,11 +342,14 @@ pub(crate) async fn answer_sketch<D: Sessions>(State(served): State<Served<D>>, 
 
 /// The person approves a document's revision, or sends it back with a note. 200 with the row; 409 for a revision
 /// that is not the newest; 422 for one not open to an answer, or a send-back with no note.
-pub(crate) async fn answer_document<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+pub(crate) async fn answer_document<D: Sessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let said: ipc::AnswerDocument = match ipc::decode_body("an answer to a document", &body) {
         Ok(said) => said,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(said.session_id.as_str()).await {
+        return across(&served, mac, ipc::JobAct::DocumentAnswer(said)).await;
+    }
     match served.shared().answer_document(said).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -351,11 +358,14 @@ pub(crate) async fn answer_document<D: Sessions>(State(served): State<Served<D>>
 
 /// The person approves the plan at the version he read. 200 with the row; 409 for a plan that is not that version or
 /// none; 422 for a session Fleet does not know.
-pub(crate) async fn approve_plan<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+pub(crate) async fn approve_plan<D: Sessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let approve: ipc::ApprovePlan = match ipc::decode_body("a plan to approve", &body) {
         Ok(approve) => approve,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(approve.session_id.as_str()).await {
+        return across(&served, mac, ipc::JobAct::PlanApprove(approve)).await;
+    }
     match served.shared().approve_plan(approve).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -364,11 +374,14 @@ pub(crate) async fn approve_plan<D: Sessions>(State(served): State<Served<D>>, b
 
 /// The person sends the changes he marked on the plan to its agent. 200 with the row; 409 for a plan that is not the
 /// version the marks are against; 422 for a mark that names nothing the plan holds, or none to send.
-pub(crate) async fn send_plan_changes<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+pub(crate) async fn send_plan_changes<D: Sessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let changes: ipc::SendPlanChanges = match ipc::decode_body("changes to a plan", &body) {
         Ok(changes) => changes,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(changes.session_id.as_str()).await {
+        return across(&served, mac, ipc::JobAct::PlanChanges(changes)).await;
+    }
     match served.shared().send_plan_changes(changes).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),

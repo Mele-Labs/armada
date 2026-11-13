@@ -15,6 +15,8 @@
 mod centred;
 mod face;
 mod fleet_down;
+mod link_layer;
+mod link_panel;
 pub mod parts;
 mod projects;
 pub mod scenes;
@@ -34,6 +36,7 @@ use gpui::{
 use ipc::{BuildSource, ModelDownshift};
 
 pub use face::{repositories_of, Connection, Face, LiveLink, Remedy, RestartWhy, Restarting};
+pub use link_layer::StandIn;
 /// The Operator's page adds its place to the strip and reads the week's ring.
 pub use face::Place;
 
@@ -225,6 +228,8 @@ pub struct TitleBar {
     /// The pid a Restart Fleet was pressed under, so a new Fleet that still does not match is told apart.
     restart_from: Option<u32>,
     _restart_wait: Option<Task<()>>,
+    /// The centred Fleet panel, while Fleet is stopped, restarting or on another build (`link_layer.rs`).
+    link: link_layer::LinkPanel,
 }
 
 /// How long a restart may take to bring back a new Fleet before it is called unanswered (`FleetNotice.tsx`).
@@ -234,28 +239,6 @@ const RESTART_WAIT: Duration = Duration::from_secs(30);
 struct Live(WeakEntity<TitleBar>);
 
 impl Global for Live {}
-
-/// The bar of the window, for an act a Fleet toast carries.
-fn with_bar(cx: &mut App, act: impl FnOnce(&mut TitleBar, &mut Context<TitleBar>)) {
-    if let Some(bar) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
-        bar.update(cx, act);
-    }
-}
-
-/// Restart Fleet, from the toast of a Fleet that does not match.
-pub fn restart_fleet(cx: &mut App) {
-    with_bar(cx, |bar, cx| bar.restart_fleet_pressed(cx));
-}
-
-/// Dismiss, from the toast of a restart that did not come back.
-pub fn dismiss_restart_failure(cx: &mut App) {
-    with_bar(cx, |bar, cx| bar.answer(|face| face.fleet.restarting = Restarting::Idle, cx));
-}
-
-/// Copy debug info, from a Fleet toast.
-pub fn copy_debug_info(cx: &mut App) {
-    with_bar(cx, |_, cx| cx.emit(Asked::CopyDebugInfo));
-}
 
 /// The bar's keys that work from anywhere: ⌘K, ⌘J, ⌘, , ⇧⌘R and ⌘1 to ⌘9 (`actions.toml`, scope `anywhere`). A
 /// screen's own handler runs first; what it does not take reaches here.
@@ -336,6 +319,7 @@ impl TitleBar {
             _link_tick: None,
             restart_from: None,
             _restart_wait: None,
+            link: link_layer::LinkPanel::new(window, cx),
         }
     }
 
@@ -354,6 +338,7 @@ impl TitleBar {
         self.snapshot_was = None;
         self._swap_tick = None;
         self._swap_keys = None;
+        self.link.clear();
     }
 
     /// The plan's rings and the step down, as Fleet last said them. A Fleet that dropped keeps what it said.
@@ -412,6 +397,7 @@ impl TitleBar {
                 let _ = this.update(cx, |bar, cx| bar.read_link(cx));
             })
         });
+        self.settle_panel(cx);
     }
 
     /// launchd would not restart Fleet: the notice says what it answered.
@@ -1520,6 +1506,7 @@ impl Render for TitleBar {
             .child(row)
             .children(self.trying_bar(look, cx))
             .children(self.dropped_alert(look, cx))
+            .children(self.link_layer(look, crate::room::of(window, cx), cx))
             .children(self.popover(look, window, cx))
             .children(self.dialog_layer(look, crate::room::of(window, cx), cx))
             .children(self.toast(look, viewport, cx))

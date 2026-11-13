@@ -8,9 +8,37 @@
 use std::future::Future;
 use std::sync::Arc;
 
-use ipc::{BugReports, Event, JobThread, JobThreadRead, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, SessionList};
+use ipc::{
+    BugReports, Event, JobAct, JobThread, JobThreadRead, MacAct, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions,
+    ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
+};
 
 use crate::daemon::Refusal;
+
+/// What a Mac answered an act with, to be handed back as it was said: the status and the body's bytes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActAnswered {
+    pub status: u16,
+    pub body: Vec<u8>,
+}
+
+/// The right to run one act another Mac sent, held until its answer is kept. **One act from a Mac runs at a time**,
+/// so a send and its retry cannot both run.
+pub struct ActTurn {
+    pub mac: String,
+    pub id: String,
+    pub what: &'static str,
+    /// What holds the others off, dropped with the turn.
+    pub held: Box<dyn std::any::Any + Send>,
+}
+
+/// What `begin_act_from_mac` decided.
+pub enum ActBegun {
+    /// The act was run before: its answer, as it was.
+    Answered(ActAnswered),
+    /// It has not been: run it, then hand the answer to `finish_act_from_mac`.
+    Run(ActTurn),
+}
 
 pub trait OtherMacs: Send + Sync + 'static {
     /// `share_sessions` — this Mac's own Jobs in a project shared with his other Macs, whole. Never a row
@@ -27,6 +55,32 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// here. [`Refusal::NotFound`] for a row or project that is not shared, worded as for one that does not
     /// exist. Answers this Mac's shared projects.
     fn project_act_from_mac(&self, sent: ProjectActFromMac) -> impl Future<Output = Result<Projects, Refusal>> + Send;
+
+    /// `act_from_mac` — the part before the act runs: the share filter, and whether the act ran already. **An act on
+    /// a Job that is not shared is [`Refusal::NotFound`], worded as for one that does not exist, with nothing written.**
+    fn begin_act_from_mac(&self, mac: String, sent: &MacAct) -> impl Future<Output = Result<ActBegun, Refusal>> + Send;
+
+    /// `act_from_mac` — the part after: `status` and `body`, what the act answered, kept under the Mac and id so a
+    /// repeat is answered with them. A fault (5xx) is not kept, so a retry runs.
+    fn finish_act_from_mac(&self, turn: ActTurn, status: u16, body: &[u8]) -> impl Future<Output = ()> + Send;
+
+    /// The Mac Job `job` is held from. **None where this Mac holds a Job by that id, and for a call that came from
+    /// another Mac**, which is never sent on to a third.
+    fn mac_holding_job(&self, job: &str) -> impl Future<Output = Option<String>> + Send;
+
+    /// The Mac and Job that own pull request `number` of `repository`, where no Job of this Mac does and a Job held
+    /// from another Mac does.
+    fn mac_holding_pull(&self, repository: &str, number: u64) -> impl Future<Output = Option<(String, SessionId)>> + Send;
+
+    /// `act` sent to Mac `mac`, which holds the Job, and its answer passed back as it was said. **202 with the
+    /// `Queued` where that Mac cannot be reached or has acts waiting**; a Mac this one is not linked to is refused by name.
+    fn act_on_other_mac(self: Arc<Self>, mac: String, act: JobAct) -> impl Future<Output = Result<ActAnswered, Refusal>> + Send;
+
+    /// `list_queued` — the acts waiting for another Mac, oldest first.
+    fn list_queued(&self, mac: Option<String>) -> impl Future<Output = Result<QueuedList, Refusal>> + Send;
+
+    /// `take_back_queued` — an act that waits, removed. [`Refusal::IllegalMove`] while its Mac's queue is being sent.
+    fn take_back_queued(&self, take: TakeBack) -> impl Future<Output = Result<QueuedList, Refusal>> + Send;
 
     /// `share_events` — what of `event` may go to another Mac, whole or cut. `None` sends nothing.
     fn share_event(&self, event: Event) -> impl Future<Output = Option<Event>> + Send;

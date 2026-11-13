@@ -3,17 +3,17 @@
 //! beside this Mac's own. `docs/concepts/pocket.md`, *Another Mac*.
 //!
 //! **A Job held from another Mac is not one of this Mac's Jobs.** Its rows are kept in their own tables, so
-//! every read of this Mac's ledger, and every act on a Job, still finds none by its id; what is said about it
-//! is relayed to Bridge and never told to Fleet's own listeners.
+//! every read of this Mac's ledger finds none by its id, and an act on one is sent to the Mac that holds it
+//! (`crate::mac_acts`); what is said about it is relayed to Bridge and never told to Fleet's own listeners.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{OtherMacs, Refusal, Sessions};
+use api::{ActAnswered, ActBegun, ActTurn, OtherMacs, Refusal, Sessions};
 use ipc::{
-    BugReport, BugReports, Event, JobThread, JobThreadRead, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects,
-    OtherMacSessions, ProjectActFromMac, SessionId, SessionList, SessionRecord, SessionRemoved, SessionState, WireError,
+    BugReport, BugReports, Event, JobAct, JobThread, JobThreadRead, MacAct, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects,
+    OtherMacSessions, ProjectActFromMac, QueuedList, SessionId, SessionList, SessionRecord, SessionRemoved, SessionState, TakeBack, WireError,
 };
 use serde::Serialize;
 use store::{FromMac, KeptFromMac};
@@ -85,7 +85,7 @@ where
     }
 
     /// Every Job row held from his other Macs, each with its Mac.
-    async fn sessions_from_macs(&self) -> Result<Vec<SessionRecord>, Refusal> {
+    pub(crate) async fn sessions_from_macs(&self) -> Result<Vec<SessionRecord>, Refusal> {
         let held = self.from_macs::<SessionRecord>(FromMac::Sessions, "a Job row from another Mac").await?;
         Ok(held.into_iter().map(|(kept, mut record)| {
             record.mac = Some(kept.mac);
@@ -249,6 +249,34 @@ where
         let mut own = self.bug_reports_listed().await?;
         own.reports.retain(|one| one.mac.is_none());
         Ok(self.bug_reports_for_other_mac(own).await.sent())
+    }
+
+    async fn begin_act_from_mac(&self, mac: String, sent: &MacAct) -> Result<ActBegun, Refusal> {
+        self.act_from_mac_begun(mac, sent).await
+    }
+
+    async fn finish_act_from_mac(&self, turn: ActTurn, status: u16, body: &[u8]) {
+        self.act_from_mac_ran(turn, status, body).await
+    }
+
+    async fn mac_holding_job(&self, job: &str) -> Option<String> {
+        self.mac_holding_for_act(job).await
+    }
+
+    async fn mac_holding_pull(&self, repository: &str, number: u64) -> Option<(String, SessionId)> {
+        self.pull_held_by_other_mac(repository, number).await
+    }
+
+    async fn act_on_other_mac(self: Arc<Self>, mac: String, act: JobAct) -> Result<ActAnswered, Refusal> {
+        self.acted_on_other_mac(mac, act).await
+    }
+
+    async fn list_queued(&self, mac: Option<String>) -> Result<QueuedList, Refusal> {
+        self.queued_listed(mac.as_deref()).await
+    }
+
+    async fn take_back_queued(&self, take: TakeBack) -> Result<QueuedList, Refusal> {
+        self.queued_taken_back(take).await
     }
 
     async fn share_event(&self, event: Event) -> Option<Event> {

@@ -1,0 +1,8 @@
+[operations.take_back_queued]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Take back an act that waits for another Mac, before it is sent"
+notes = """
+`POST /queued/take_back`, body `TakeBack { id }`, answered with `QueuedList`: what waits now. Also removes an act the Mac refused. 404 `fleet.queued_not_found` for an id nothing waits under, 409 `fleet.queued_in_flight` while the queue is being sent to that Mac, which says so and changes nothing. Sends `queued.changed`.
+"""

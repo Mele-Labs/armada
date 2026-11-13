@@ -76,6 +76,8 @@ mod mcp;
 mod mods;
 /// His other Macs, as this Mac's Phone Gateway reaches Fleet for them.
 mod other_macs;
+/// Acts on a Job another Mac holds, sent there, and what another Mac sends here.
+mod mac_acts;
 mod clashing;
 mod placed;
 /// A person's Bridge preferences, read and saved. `limiting`'s shape one
@@ -142,12 +144,12 @@ mod lifecycles;
 #[cfg(test)]
 mod tests;
 
-pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
+pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, MAC, MAC_HEADER, PHONE};
 pub use daemon::{
     offerable, Accounts, Admitting, AppRuns, Authoring, Commands, Conversations, Daemon,
     Autopilots, WordsReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Teaching, Mods, Clashing, OtherMacs,
     Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, RunsAsked, Sessions, Settings, SharedHome, Steerer,
-    ShownFile, StoredFile, Studios, Watches,
+    ShownFile, StoredFile, Studios, Watches, ActAnswered, ActBegun, ActTurn,
 };
 pub use door::{door_within, door_without_a_manifest, offered, offered_without_a_manifest, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, SessionCheckLive, FOLLOW};

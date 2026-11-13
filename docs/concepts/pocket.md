@@ -25,7 +25,7 @@ Bridge (Settings → Phone) ──GET / POST /phone──▶ Fleet
 |---|---|---|
 | Phone app | `apps/pocket`, built to its `dist` folder | Shows what needs the owner on every paired Mac, signs each call with that Mac's key, receives pushes |
 | Phone Gateway | `crates/pocket`, started by Fleet in `crates/armada/src/pocketing.rs` | Serves the app, checks signatures, passes the phone's calls to Fleet, sends pushes |
-| Fleet | `crates/api`, `crates/fleet` | Listens on loopback, takes no auth, refuses any request carrying `Origin`. The Gateway calls it over HTTP with none, and with `x-armada-caller: phone`, so a phone act is recorded with the `phone` door ([Retro](retro.md)) |
+| Fleet | `crates/api`, `crates/fleet` | Listens on loopback, takes no auth, refuses any request carrying `Origin`. The Gateway calls it over HTTP with none, and with `x-armada-caller: phone`, so a phone act is recorded with the `phone` door ([Retro](retro.md)). A linked Mac's act goes with `mac` and the Mac's id in `x-armada-mac`, the door `mac` |
 
 **The Gateway runs in Fleet's process, on a listener of its own.** It works while Bridge is closed, and stops when Fleet stops.
 It still calls Fleet over HTTP rather than in process, so every phone call meets Fleet's router and its `phone` door.
@@ -214,6 +214,7 @@ The phone sends Fleet's own body shapes.
 | `POST /api/sessions/message` | a message to the Job |
 | `POST /api/sessions/change_waiting` | `change_waiting`, for when a waiting Job starts and whether it is approved |
 | `POST /api/sessions/start_waiting` | `start_waiting_now` |
+| `GET /api/queued`, `POST /api/queued/take_back` | `list_queued` and `take_back_queued`, as Fleet answers them |
 
 **A Job that waits on another opens to its waiting screen**, in place of its thread and message box.
 It holds what Bridge's waiting pane holds: the brief, the Job it waits on, the condition as a select, what it needs, where it starts from, Approve and Start now.
@@ -244,8 +245,15 @@ The Gateway's own 409 for a signature sent before carries no such code.
 The Gateway maps the label to Fleet's manifest id, refuses one it does not know or two repositories share, and starts a Job with `POST /sessions/start` carrying the text as `request`.
 It answers 201 with the Job.
 
-**`/api/live`** is Fleet's `/events` narrowed to `session.changed`, written as `{change: "session", session_id}`, and `{change: "resync"}` where the phone's lists may be behind.
-The app keeps one per Mac and reads again on either.
+**Dispatch to the Operator.** `POST /api/sessions/dispatch` takes `{text, repository, kind?, mac?}` and nothing else, and sends Fleet's `POST /sessions/dispatch` as Bridge's composer does: the text as the request and as the first message, `kind` as the hint.
+`mac` names another Mac by the name the phone knows it by, or its id, and is left out for the Mac the call is made to.
+The phone calls the chosen Mac's own Gateway with no `mac` where it answers, and another Mac's with `mac` set only where the chosen Mac is asleep, so the send waits.
+For another Mac the Gateway also names the shared project that Mac holds, since the phone knows no project, and answers 409 where the repository is in none.
+It answers 200 with what the dispatch came to (`session`, `operator` or `parked`, the Job trimmed as the lists trim it), or 202 with the `Queued` act where that Mac does not answer and the send waits for it.
+What the Operator then did with a held dispatch comes on `/api/live`.
+
+**`/api/live`** is Fleet's `/events` narrowed to `session.changed`, written as `{change: "session", session_id}`, to `operator.dispatched`, written as `{change: "operator", dispatched}`, to `queued.changed`, written as `{change: "queued"}` for the phone to read `/api/queued` again, and `{change: "resync"}` where the phone's lists may be behind.
+The app keeps one per Mac and reads again on a session change or a resync.
 While Fleet is quiet it writes a `: beat` comment line every 15 seconds, so the phone can tell a waiting stream from a dead one.
 
 **`/api/sessions` answers the live Jobs and takes no `state`.** The phone has no list of ended ones.
@@ -299,6 +307,7 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 | `GET /api/mac/sessions` | Fleet's `GET /other_mac/sessions`, a `SessionList` |
 | `GET /api/mac/bug_reports` | Fleet's `GET /other_mac/bug_reports`, `BugReports` |
 | `GET /api/mac/thread?session_id=&before=` | Fleet's `GET /other_mac/thread`, a `JobThread` |
+| `POST /api/mac/act` | Fleet's `POST /other_mac/act`, as the Mac the signature names: an act on one of this Mac's Jobs, or a Job started here. Fleet's status and body come back as they were said |
 | `GET /api/mac/live` | Fleet's `/other_mac/events` as NDJSON: each `StreamMessage` on a line as Fleet wrote it, and an empty line after 15 seconds of quiet. It ends when the Gateway stops |
 | `POST /api/mac/forget` | Forgets the caller on this side |
 
@@ -313,6 +322,20 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 
 Pairing starts a task and forgetting stops it. Fleet keeps the rows while the Mac is asleep.
 Fleet's `read_other_mac` reaches the other Mac only for a `/other_mac/thread?…` path, read as `/api/mac/thread?…`; any other is refused.
+Its `send_other_mac` posts only `/other_mac/project_act` and `/other_mac/act`.
+
+**Acting across Macs.** The phone's routes cover what the phone does. A Mac can also message, answer, approve a plan, stop and merge a Job the other Mac holds, and start a Job there.
+
+| He does, on this Mac | What happens |
+|---|---|
+| Presses any of those on a Job held from the other Mac | The route finds no Job of this Mac's by the id, and sends the act through the link as a `MacAct { id, act, at }` to the Mac that holds it. That Mac runs it on its own checkout and slots, as the door `mac`, and its answer comes back as it was said. A merge goes to the Mac whose Job owns the pull request, and nothing is merged from this one |
+| Names the other Mac on a start or a dispatch (`mac` in the body, absent for this Mac) | The same, as a start there. The new Job's row is kept here at once with that Mac's id |
+| Acts while that Mac is asleep | The act is answered 202 with a `Queued`, kept in the queue the project edits use, and sent when the Mac next speaks, oldest first, each with its `id` |
+| Takes it back before then | `POST /queued/take_back`. An act the other Mac refused when its turn came stays there with its why, and the acts after it still go, until he takes it back |
+
+**The Mac that holds the Job answers for it.** An act on a Job in a project that is not shared is refused 404, as one on a Job that does not exist, and nothing is written there.
+An act that arrives again under an `id` it ran is answered with what it answered then, and is not run again.
+The Fleet half is [His other Macs, Fleet's half](../practices/protocol/his-other-macs-fleets-half.md).
 
 ## What pushes
 

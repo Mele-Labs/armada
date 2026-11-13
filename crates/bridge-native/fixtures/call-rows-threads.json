@@ -367,6 +367,21 @@
      ]
     },
     {
+     "kind": "checks",
+     "id": "dc-1",
+     "rows": [
+      {
+       "kind": "check",
+       "id": "dc-1",
+       "at": "2026-11-10T22:01:10Z",
+       "name": "docs",
+       "run": 501,
+       "state": "passed",
+       "tool_row": "d-4"
+      }
+     ]
+    },
+    {
      "kind": "row",
      "row": {
       "kind": "message",

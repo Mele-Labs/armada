@@ -7,7 +7,7 @@
 #
 #   scripts/preview                      merge the offered branches once, print the table
 #   scripts/preview --all                every live slot branch ahead of main, offered or not
-#   scripts/preview --only a --skip b    named slot branches, offered or not; --skip leaves
+#   scripts/preview --only a --skip b    named branches, offered or not, from a slot or else origin; --skip leaves
 #                                        branches out of whichever set is in use. A branch list
 #                                        is repeatable or comma-separated
 #   scripts/preview --watch [seconds]    merge again when a branch or main moves (60)
@@ -290,7 +290,8 @@ def offered_in_flight(root, base, skip, held):
 
 def in_flight(root, base, only, skip, every=False):
     """What the run takes. By default the offered branches; with `--all` every live slot branch ahead
-    of main, oldest commit first, stranded ones noted; with `--only` the named slot branches."""
+    of main, oldest commit first, stranded ones noted; with `--only` the named slot branches, and a
+    named branch no slot here holds at its tip on origin, so a Mac with no Job on it can preview it."""
     held = slots(root)
     if only is None and not every:
         return offered_in_flight(root, base, skip, held)
@@ -314,11 +315,17 @@ def in_flight(root, base, only, skip, every=False):
             continue
         else:
             oldest = out(root, "log", "--reverse", "--format=%ct", f"{base}..{branch}").split()[0]
-            found.append((int(oldest), branch))
-    for name in sorted((only or set()) - {b for _, b in found}):
-        if name not in skip:
-            notes.append(f"{name}: named by --only, but it is not ahead of main in a slot")
-    chosen.picked = [(b, out(root, "rev-parse", f"refs/heads/{b}"), "") for _, b in sorted(found)]
+            found.append((int(oldest), branch, out(root, "rev-parse", f"refs/heads/{branch}")))
+    for name in sorted((only or set()) - {b for _, b, _ in found} - skip):
+        remote = f"refs/remotes/origin/{name}"
+        if (name not in candidates and name not in NEVER
+                and git(root, "rev-parse", "--verify", "--quiet", f"{remote}^{{commit}}", check=False).returncode == 0
+                and out(root, "rev-list", "--count", f"{base}..{remote}") != "0"):
+            oldest = out(root, "log", "--reverse", "--format=%ct", f"{base}..{remote}").split()[0]
+            found.append((int(oldest), name, out(root, "rev-parse", f"{remote}^{{commit}}")))
+        else:
+            notes.append(f"{name}: named by --only, but it is not ahead of main in a slot or on origin")
+    chosen.picked = [(b, rev, "") for _, b, rev in sorted(found)]
     return chosen
 
 

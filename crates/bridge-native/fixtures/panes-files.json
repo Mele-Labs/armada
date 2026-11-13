@@ -19,6 +19,10 @@
   {
    "path": "apps/desktop/src/main/settings.test.ts",
    "text": "import { describe, expect, it } from \"vitest\";\n\nimport { readSettings } from \"./settings\";\n\ndescribe(\"links\", () => {\n  it(\"opens pull requests in Armada on a fresh machine\", () => {\n    expect(readSettings({}).links.openPullRequestsIn).toBe(\"armada\");\n  });\n});\n"
+  },
+  {
+   "path": "crates/api/src/router.rs",
+   "text": "//! The routes the api serves.\n\nuse axum::{routing::get, Router};\n\nuse crate::{audit_table, settings_page, webhook_queue};\n\n/// Every route, under its path.\npub fn router() -> Router {\n    Router::new()\n        .route(\"/audit\", get(audit_table::page))\n        .route(\"/settings\", get(settings_page::page))\n        .route(\"/webhooks\", get(webhook_queue::drain))\n}\n"
   }
  ]
 }

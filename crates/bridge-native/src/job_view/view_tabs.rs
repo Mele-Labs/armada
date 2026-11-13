@@ -147,16 +147,28 @@ impl JobView {
             None => tabs.push((pane, tab)),
         }
         if front {
-            self.view_tabs.front.insert((key.clone(), pane), id.clone());
-            // In the thread's pane a view tab stands before the thread and the rows' tabs.
-            if pane == ViewPane::Thread {
-                self.rows_back(&key);
-            }
-            if pane == ViewPane::Top && self.shown.as_ref() == Some(&key) {
-                self.scroll_to_view_tab(&id);
-            }
+            self.bring_view_tab_front(&key, pane, &id);
         }
         cx.notify();
+    }
+
+    /// Bring Job `job`'s open tab `id` forward in its pane, as it stands, and say whether there is one.
+    pub fn front_view_tab(&mut self, job: &str, id: &str, cx: &mut Context<Self>) -> bool {
+        let Some(pane) = self.view_tab_pane(job, id) else { return false };
+        self.bring_view_tab_front(&SharedString::from(job.to_string()), pane, id);
+        cx.notify();
+        true
+    }
+
+    fn bring_view_tab_front(&mut self, key: &SharedString, pane: ViewPane, id: &str) {
+        self.view_tabs.front.insert((key.clone(), pane), id.to_string());
+        // In the thread's pane a view tab stands before the thread and the rows' tabs.
+        if pane == ViewPane::Thread {
+            self.rows_back(key);
+        }
+        if pane == ViewPane::Top && self.shown.as_ref() == Some(key) {
+            self.scroll_to_view_tab(id);
+        }
     }
 
     /// Close Job `job`'s tab `id` without asking its veto, and tell its source.
