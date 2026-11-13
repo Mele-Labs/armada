@@ -166,6 +166,23 @@ async function world() {
         one.body,
         /^[0-9a-f]{128}$/.test(one.signature),
       );
+      // What the Mac's stream says a moment after this answer, as a Fleet event reaches the phone.
+      if (said.then !== undefined) {
+        const { after, change } = said.then;
+        realTimeout(
+          () =>
+            lives
+              .filter((live) => live.origin === at.origin && !live.aborted)
+              .forEach((live) => {
+                try {
+                  live.push(`data: ${JSON.stringify(change)}\n\n`);
+                } catch {
+                  // That stream was closed in the meantime.
+                }
+              }),
+          after,
+        );
+      }
       return new Response(said.status === 204 ? null : said.body, {
         status: said.status,
         headers:
@@ -1947,5 +1964,233 @@ describe("the lists stay fresh", {
     it("stays on Dispatch however long, since he may be typing there", async () => {
       expect(await away("/dispatch", 60 * 60_000)).toBe("/dispatch");
     });
+  });
+});
+
+describe("the Operator on the phone", {
+  timeout: 30_000,
+}, () => {
+  const field = () => host.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message"]');
+  const typeInto = async (value: string) => {
+    expect(field()).toBeTruthy();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(
+        field(),
+        value,
+      );
+      field()!.dispatchEvent(
+        new Event("input", {
+          bubbles: true,
+        }),
+      );
+    });
+  };
+  const choose = async (repository: string) => {
+    const select = host.querySelector<HTMLSelectElement>('select[aria-label="Repository"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(
+        select,
+        repository,
+      );
+      select.dispatchEvent(
+        new Event("change", {
+          bubbles: true,
+        }),
+      );
+    });
+  };
+  const dispatches = (origin: string) =>
+    posted[origin]!.filter((one) => one.path === "/api/sessions/dispatch").map((one) => one.body);
+  const sends = () => rows("Sends");
+  beforeEach(() => {
+    asleep = false;
+  });
+  /** The laptop answers nothing, and the studio is the Mac a send to it goes through. The phone kept the laptop's list from before. */
+  let asleep = false;
+  const laptopAsleep = () => {
+    asleep = true;
+    unreachable.add(LAPTOP);
+    delete macs[LAPTOP];
+    macs[STUDIO]!.asleep = [
+      "laptop",
+    ];
+  };
+  const openOperator = async () => {
+    localStorage.clear();
+    if (asleep)
+      localStorage.setItem(
+        "pocket:operator:repositories",
+        JSON.stringify({
+          [LAPTOP]: [
+            "store",
+          ],
+        }),
+      );
+    await open("/operator");
+    await vi.waitFor(() =>
+      expect(host.querySelector('select[aria-label="Repository"] option')).toBeTruthy(),
+    );
+  };
+
+  it("sends to the Mac it is paired with without naming one, with the kind as a hint", async () => {
+    await openOperator();
+    await typeInto("Cut the pool to four");
+    await press(button("Feature"));
+    await press(button("Send"));
+    await vi.waitFor(() => expect(dispatches(STUDIO)).toHaveLength(1));
+    expect(dispatches(STUDIO)[0]).toEqual({
+      text: "Cut the pool to four",
+      repository: "armada",
+      kind: "feature",
+    });
+    expect(dispatches(LAPTOP)).toEqual([]);
+    expect(field()!.value).toBe("");
+  });
+
+  it("sends to an awake other Mac at its own origin, with no `mac`, and hears what became of it on its stream", async () => {
+    await openOperator();
+    await choose("store");
+    await typeInto("Rename the footer links");
+    await press(button("Bug"));
+    await press(button("Send"));
+    await vi.waitFor(() => expect(dispatches(LAPTOP)).toHaveLength(1));
+    expect(dispatches(LAPTOP)[0]).toEqual({
+      text: "Rename the footer links",
+      repository: "store",
+      kind: "bug",
+    });
+    expect(dispatches(STUDIO)).toEqual([]);
+    // The laptop holds the send, and says what the Operator did with it a moment later.
+    await vi.waitFor(() => expect(sends().join()).toContain("Started"), {
+      timeout: 5_000,
+    });
+    expect(sends().join()).toContain("Rename the footer links");
+  });
+
+  it("shows a send to a Mac that does not answer as waiting, and Take back posts it and returns the words", async () => {
+    laptopAsleep();
+    await openOperator();
+    await choose("store");
+    await vi.waitFor(() => expect(button("laptop, asleep")).toBeTruthy());
+    await typeInto("Move the pricing table above the fold");
+    await press(button("Feature"));
+    await press(button("Send"));
+    await vi.waitFor(() => expect(sends().join()).toContain("Waiting"));
+    expect(dispatches(STUDIO)[0]).toMatchObject({
+      repository: "store",
+      kind: "feature",
+      mac: "laptop",
+    });
+    expect(sends().join()).toContain("This sends when laptop wakes.");
+    const kept = macs[STUDIO]!.queued![0]!;
+    expect(field()!.value).toBe("");
+    await press(button("Take back"));
+    await vi.waitFor(() => expect(sends()).toEqual([]));
+    expect(posted[STUDIO]!.find((one) => one.path === "/api/queued/take_back")).toEqual({
+      path: "/api/queued/take_back",
+      body: {
+        id: kept.id,
+      },
+    });
+    expect(field()!.value).toBe("Move the pricing table above the fold");
+    expect(macs[STUDIO]!.queued).toEqual([]);
+  });
+
+  it("says a send through another Mac is in no shared project on the composer, and leaves the words in the box", async () => {
+    laptopAsleep();
+    macs[STUDIO]!.unshared = true;
+    await openOperator();
+    await choose("store");
+    await typeInto("Rename the footer links");
+    await press(button("Bug"));
+    await press(button("Send"));
+    await vi.waitFor(() =>
+      expect(host.querySelector('[role="alert"]')?.textContent).toContain(
+        "not in a project shared",
+      ),
+    );
+    expect(dispatches(STUDIO)[0]).toMatchObject({
+      mac: "laptop",
+    });
+    expect(field()!.value).toBe("Rename the footer links");
+    expect(sends()).toEqual([]);
+    expect(host.querySelector('button[aria-pressed="true"]')?.textContent).toBe("Bug");
+  });
+
+  it("says why a waiting send cannot be taken back, in Fleet's words, and keeps it", async () => {
+    laptopAsleep();
+    await openOperator();
+    await choose("store");
+    await typeInto("Rename the footer links");
+    await press(button("Send"));
+    await vi.waitFor(() => expect(button("Take back")).toBeTruthy());
+    // It was sent from the other side in the meantime.
+    macs[STUDIO]!.queued = [];
+    await press(button("Take back"));
+    await vi.waitFor(() => expect(text()).toContain("Nothing waits under that id."));
+    expect(sends().join()).toContain("Waiting");
+    expect(field()!.value).toBe("");
+  });
+
+  it("draws what already waits when the page opens, a refused one with Take back and the Mac's words", async () => {
+    laptopAsleep();
+    macs[STUDIO]!.queued = [
+      {
+        id: "q9",
+        mac: "laptop-id",
+        act: {
+          kind: "dispatch",
+          body: {
+            request: "Rename the footer links",
+            kind: "bug",
+            then: [
+              {
+                message: {
+                  text: "Rename the footer links",
+                },
+              },
+            ],
+          },
+        },
+        since: NOW - 60_000,
+        refused: "laptop runs an older build than this Mac, so it took nothing.",
+      },
+    ];
+    await openOperator();
+    await vi.waitFor(() => expect(sends().join()).toContain("Refused"));
+    expect(sends().join()).toContain(
+      "laptop runs an older build than this Mac, so it took nothing.",
+    );
+    await press(button("Take back"));
+    await vi.waitFor(() => expect(field()!.value).toBe("Rename the footer links"));
+    expect(posted[STUDIO]![0]!.body).toEqual({
+      id: "q9",
+    });
+  });
+
+  it("says an asked dispatch's question is on Bridge", async () => {
+    await openOperator();
+    await typeInto("Add the export?");
+    await press(button("Send"));
+    await vi.waitFor(() => expect(sends().join()).toContain("Asked"), {
+      timeout: 5_000,
+    });
+    expect(sends().join()).toContain("The Operator asked about this. Its question is on Bridge.");
+  });
+
+  it("shows a refusal of the Gateway as a refused row, and Take back returns the words without a call", async () => {
+    await openOperator();
+    await typeInto("Rename the footer links");
+    // The Gateway refuses a repository its Mac does not list.
+    macs[STUDIO]!.repositories = [];
+    await press(button("Send"));
+    await vi.waitFor(() => expect(sends().join()).toContain("Refused"));
+    expect(sends().join()).toContain(
+      "Armada does not know that repository. Pick one from the list.",
+    );
+    await press(button("Take back"));
+    await vi.waitFor(() => expect(field()!.value).toBe("Rename the footer links"));
+    expect(sends()).toEqual([]);
+    expect(posted[STUDIO]!.some((one) => one.path === "/api/queued/take_back")).toBe(false);
   });
 });

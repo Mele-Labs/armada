@@ -11,7 +11,7 @@ import type {
   WaitingSource,
 } from "@armada/protocol";
 
-import type { PhoneSession } from "../gateway";
+import type { PhoneSession, QueuedAct } from "../gateway";
 
 export type FixtureMedia = {
   file: string;
@@ -40,6 +40,12 @@ export type FixtureMac = {
     }
   >;
   repositories: string[];
+  /** The Macs this one cannot reach: a dispatch naming one is kept (202), as Fleet keeps it. */
+  asleep?: string[];
+  /** A dispatch naming another Mac is refused as in no shared project (409). */
+  unshared?: boolean;
+  /** What waits for a Mac in `asleep`, oldest first. */
+  queued?: QueuedAct[];
   usage: PlanUsage;
   models: ModelChoices;
 };

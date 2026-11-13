@@ -27,11 +27,11 @@ use crate::job_view::sketch_pad::{rail_frame, rail_group};
 use crate::labels::labelled;
 use crate::look::{token, Look};
 use draw::{lane_chip, lane_head, lane_node};
-use layout::{nearest, pan_to, place, place_chips, place_fitted};
+use layout::{nearest, pan_to, place, place_at, place_chips, place_fitted};
 use paint::PaintPlan;
 use wears::{mark_of_node, mark_of_rule};
 
-pub(crate) use layout::clock;
+pub(crate) use layout::stamp;
 pub(crate) use wears::mix;
 
 /// What a lane's head says when a double press opens the lanes of the Job it stands for.
@@ -98,6 +98,8 @@ struct Seen {
     picked: Option<Pick>,
     /// The node or chip the keys are on: a node's id, or an edge's.
     current: Option<String>,
+    /// The keys are on the empty column past `current`, the last step of this lane, where the host draws its add box.
+    end: Option<String>,
     /// What each node and chip was drawn as, so a change can be told (`markOfNode`, `markOfRule`).
     drawn: Option<HashMap<String, String>>,
     ask: Option<Ask>,
@@ -109,7 +111,34 @@ struct Seen {
 
 impl Default for Seen {
     fn default() -> Self {
-        Self { view: HOME, picked: None, current: None, drawn: None, ask: None, drag: None, hooks: Hooks::default() }
+        Self { view: HOME, picked: None, current: None, end: None, drawn: None, ask: None, drag: None, hooks: Hooks::default() }
+    }
+}
+
+impl Seen {
+    /// An arrow from `from`, the node the keys are on: to the nearest node that way, or with `past_end`, → from
+    /// a lane's last step onto the empty column and ← back. On the empty column every other arrow stays.
+    fn arrow(&mut self, placement: &Placement, lanes: &[LaneView], from: &str, key: &str, ends: &HashSet<String>, past_end: bool) {
+        let ask = |rect: Rect| Ask { rects: vec![rect], follow: false, earliest: false, keep: true };
+        if self.end.is_some() {
+            if key == "left" {
+                self.end = None;
+                self.ask = placement.items.get(from).map(|rect| ask(*rect));
+            }
+            return;
+        }
+        match placement.arrow_to(from, key, ends, past_end) {
+            Some((Some(to), rect)) => {
+                self.ask = Some(ask(rect));
+                self.current = Some(to);
+            }
+            Some((None, rect)) => {
+                // The last step stays beside the box where the frame holds both, so the box clears the heads by a column.
+                self.ask = Some(Ask { rects: std::iter::once(rect).chain(placement.items.get(from).copied()).collect(), ..ask(rect) });
+                self.end = lanes.iter().find(|lane| lane.nodes.iter().any(|node| node.id == from)).map(|lane| lane.id.clone());
+            }
+            None => {}
+        }
     }
 }
 
@@ -159,6 +188,11 @@ impl LanesState {
         Some(self.in_window(picked))
     }
 
+    /// The lane whose empty column past its last step has the keys, where the host draws its add box with a ring.
+    pub fn at_end(&self, id: &SharedString) -> Option<String> {
+        self.seen.borrow().get(id)?.end.clone()
+    }
+
     /// Each gap between two steps of the workflow's lane, in order, as last drawn: room for an editor's +.
     pub fn step_gaps(&self, id: &SharedString) -> Vec<StepGap> {
         let seen = self.seen.borrow();
@@ -203,6 +237,12 @@ pub trait LanesHost: Sized + 'static {
         false
     }
 
+    /// Read only where the canvas is compact: whether it zooms to fit its width. Where it does not, it
+    /// stays at its own size, as tall as its frame, and drag and the wheel move it sideways.
+    fn lanes_fit(&self, _id: &SharedString) -> bool {
+        true
+    }
+
     /// Whether `node` of the canvas under `id` is chosen: it wears a tick, in the accent hue, and says "Chosen".
     fn lanes_chosen(&self, _id: &SharedString, _node: &str) -> bool {
         false
@@ -217,6 +257,14 @@ pub trait LanesHost: Sized + 'static {
     fn head_words(&self, _id: &SharedString, _lane: &LaneView, _opens: bool, words: Stateful<Div>, _look: &Look, _cx: &Context<Self>) -> AnyElement {
         words.into_any_element()
     }
+
+    /// Whether a pan may go one empty column past the last node, where the host draws a box to add a step.
+    fn lanes_reach_past_end(&self) -> bool {
+        false
+    }
+
+    /// Enter or Space on the empty column past `lane`'s last step: the host adds a step there.
+    fn lanes_add_at_end(&mut self, _id: &SharedString, _lane: &str, _window: &mut Window, _cx: &mut Context<Self>) {}
 }
 
 /// Each lane's band and each node's box (`Placement`).
@@ -228,6 +276,23 @@ struct Placement {
     height: f32,
     /// The room at the left the lane heads take: `HEAD`, or none where the canvas is compact.
     head: f32,
+}
+
+impl Placement {
+    /// How far right a pan may go: the lanes, and with `past_end` one empty column more.
+    fn reach(&self, past_end: bool) -> f32 {
+        self.width + if past_end { COL_W } else { 0. }
+    }
+
+    /// Where an arrow from `from` goes: the nearest node that way, or with `past_end`, → past the last step
+    /// brings in the column after `from` on its row, where the host draws its box with the End dot after it.
+    fn arrow_to(&self, from: &str, key: &str, ends: &HashSet<String>, past_end: bool) -> Option<(Option<String>, Rect)> {
+        match nearest(&self.items, from, key, ends) {
+            Some(to) => self.items.get(&to).map(|rect| (Some(to), *rect)),
+            None if past_end && key == "right" => self.items.get(from).map(|row| (None, Rect { x: row.x + COL_W, y: row.y, w: NODE_W + DOT_GAP + DOT, h: row.h })),
+            None => None,
+        }
+    }
 }
 
 /// A node's hue, frame and ground, and its words' colour and weight, as its states set them in Classic's order.
@@ -348,10 +413,13 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
     let state = host.lanes_state();
     let (frame_w, frame_h) = state.size.get();
     let compact = host.lanes_compact(id);
-    // Compact, the view is worked out from the frame's size each frame, so it follows the frame as it changes.
-    let (placement, fitted) = if compact {
+    let fit = compact && host.lanes_fit(id);
+    // Fitted, the view is worked out from the frame's size each frame, so it follows the frame as it changes.
+    let (placement, fitted) = if fit {
         let (placement, view) = place_fitted(&lanes.lanes, (frame_w, frame_h));
         (placement, Some(view))
+    } else if compact {
+        (place_at(&lanes.lanes, frame_h, 0.), None)
     } else {
         (place(&lanes.lanes, frame_h), None)
     };
@@ -362,18 +430,21 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
     let seen = all.entry(id.clone()).or_default();
     lanes_follow(seen, lanes, &placement, &chips);
     if let Some(ask) = seen.ask.clone().filter(|_| frame_w > 0. && frame_h > 0.) {
-        if let Some(next) = pan_to(&ask.rects, seen.view, (frame_w, frame_h), (placement.width, placement.height), ask.follow, ask.earliest, ask.keep) {
+        if let Some(next) = pan_to(&ask.rects, seen.view, (frame_w, frame_h), (placement.reach(host.lanes_reach_past_end()), placement.height), ask.follow, ask.earliest, ask.keep) {
             seen.view = next;
         }
         seen.ask = None;
     }
-    let view = fitted.unwrap_or(seen.view);
+    // Compact and not fitted, the canvas keeps its own size and its frame's top: it moves sideways only.
+    let view = fitted.unwrap_or(if compact { View { y: 0., zoom: 1., ..seen.view } } else { seen.view });
     let picked = seen.picked.clone();
     seen.hooks = hooks_of(lanes, &placement, &chips, picked.as_ref(), view);
     let first = lanes.lanes.first().and_then(|lane| lane.nodes.iter().find(|node| !ends.contains(&node.id))).map(|node| node.id.clone());
     let current = seen.current.clone().filter(|one| placement.items.contains_key(one) || chips.contains_key(one)).or(first);
+    let at_end = seen.end.is_some();
     drop(all);
-    let keyed = state.keyed.get();
+    // While the empty column has the keys, the host's box wears the ring and no node does.
+    let keyed = state.keyed.get() && !at_end;
 
     let z = view.zoom;
     let at = move |x: f32, y: f32| (view.x + x * z, view.y + y * z);
@@ -448,8 +519,8 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
         .on_mouse_down(MouseButton::Left, cx.listener(move |this, event: &MouseDownEvent, window, cx| {
             window.focus(&this.lanes_state().frame, cx);
             if let Some(seen) = this.lanes_state().seen.borrow_mut().get_mut(&pressed) {
-                // A compact canvas shows all of it and goes nowhere.
-                if !compact {
+                // A fitted canvas shows all of it and goes nowhere.
+                if !fit {
                     seen.drag = Some((event.position, seen.view));
                 }
             }
@@ -470,7 +541,7 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
                 seen.drag = None;
             }
         }))
-        .when(!compact, |pane| pane.on_scroll(cx.listener(move |this, event: &ScrollEvent, window, cx| {
+        .when(!fit, |pane| pane.on_scroll(cx.listener(move |this, event: &ScrollEvent, window, cx| {
             // `panOnScroll`: the wheel moves the canvas, the zoom stays.
             let delta = event.delta.pixel_delta(window.line_height());
             if let Some(seen) = this.lanes_state().seen.borrow_mut().get_mut(&wheel) {
@@ -559,6 +630,7 @@ fn lanes_key<H: LanesHost>(this: &mut H, id: &SharedString, event: &KeyDownEvent
     this.lanes_reveal(window, cx);
     let Some(lanes) = this.lanes_of(id, cx).cloned() else { return false };
     let (_, h) = this.lanes_state().size.get();
+    let past_end = this.lanes_reach_past_end();
     let placement = place(&lanes.lanes, h);
     let chips = place_chips(&lanes.rules, &placement);
     let ends: HashSet<String> = lanes.lanes.iter().flat_map(|lane| lane.nodes.iter()).filter(|node| matches!(node.kind, LaneNodeKind::Start | LaneNodeKind::End)).map(|node| node.id.clone()).collect();
@@ -567,7 +639,12 @@ fn lanes_key<H: LanesHost>(this: &mut H, id: &SharedString, event: &KeyDownEvent
     let seen = all.entry(id.clone()).or_default();
     let current = seen.current.clone().filter(|one| placement.items.contains_key(one) || chips.contains_key(one)).or(first);
     let mut picked = None;
+    let mut add = None;
     let done = match keys.key.as_str() {
+        "enter" | "space" if seen.end.is_some() => {
+            add = seen.end.take();
+            true
+        }
         "escape" if seen.picked.is_some() => {
             seen.picked = None;
             true
@@ -598,6 +675,7 @@ fn lanes_key<H: LanesHost>(this: &mut H, id: &SharedString, event: &KeyDownEvent
                     Some(Pick::Rule(rule)) => Some(rule.clone()),
                     _ => None,
                 });
+                seen.end = None;
                 let back = keys.key == "[";
                 let next = match on.and_then(|on| rules.iter().position(|one| *one == on)) {
                     None if back => rules.len() - 1,
@@ -616,10 +694,7 @@ fn lanes_key<H: LanesHost>(this: &mut H, id: &SharedString, event: &KeyDownEvent
         }
         "left" | "right" | "up" | "down" => match current.filter(|one| placement.items.contains_key(one)) {
             Some(from) => {
-                if let Some(to) = nearest(&placement.items, &from, &keys.key, &ends) {
-                    seen.ask = placement.items.get(&to).map(|rect| Ask { rects: vec![*rect], follow: false, earliest: false, keep: true });
-                    seen.current = Some(to);
-                }
+                seen.arrow(&placement, &lanes.lanes, &from, &keys.key, &ends, past_end);
                 true
             }
             None => false,
@@ -627,8 +702,12 @@ fn lanes_key<H: LanesHost>(this: &mut H, id: &SharedString, event: &KeyDownEvent
         _ => false,
     };
     drop(all);
-    if done {
+    if let Some(lane) = add {
+        this.lanes_add_at_end(id, &lane, window, cx);
+    } else if done {
         this.lanes_picked(id, picked, window, cx);
+    }
+    if done {
         cx.notify();
     }
     done
@@ -640,6 +719,7 @@ fn lanes_press<H: LanesHost>(this: &mut H, id: &SharedString, current: String, p
     this.lanes_reveal(window, cx);
     let picked = this.lanes_state().seen.borrow_mut().get_mut(id).and_then(|seen| {
         seen.current = Some(current);
+        seen.end = None;
         seen.picked = if seen.picked.as_ref() == Some(&pick) { None } else { Some(pick) };
         seen.picked.clone()
     });
@@ -652,9 +732,23 @@ fn lanes_press<H: LanesHost>(this: &mut H, id: &SharedString, current: String, p
 mod tests {
     use ipc::{LaneAutonomy, LaneEdge, LaneOutcome, LanePending};
 
-    use super::layout::{chip_size, pan_to};
+    use super::layout::{chip_size, meta, pan_to};
     use super::{Rect, View, HEAD, PAD};
     use super::wears::{chip_mark, mark_of_rule};
+
+    #[test]
+    fn a_rule_that_fired_on_an_earlier_day_says_its_day_and_date_on_says_todays() {
+        use chrono::{Duration, Local, SecondsFormat};
+        let at = |when: chrono::DateTime<Local>| ipc::Instant::carried(when.to_rfc3339_opts(SecondsFormat::Secs, false));
+        let fired = |when| meta(&LaneEdge { fired_at: Some(at(when)), ..edge() }).expect("a fired rule says when");
+        let today = Local::now();
+        let earlier = today - Duration::days(2);
+        crate::settings::time::hold(r#"{"hour12":true,"seconds":true,"date":false}"#);
+        assert_eq!(fired(today), today.format("%-I:%M:%S %p").to_string());
+        assert_eq!(fired(earlier), earlier.format("%b %-d %-I:%M:%S %p").to_string());
+        crate::settings::time::hold(r#"{"hour12":false,"seconds":false,"date":true}"#);
+        assert_eq!(fired(today), today.format("%b %-d %H:%M").to_string());
+    }
 
     fn edge() -> LaneEdge {
         LaneEdge {
@@ -728,5 +822,117 @@ mod tests {
             assert!(gap.w >= 22., "{gap:?}");
         }
         assert_eq!(super::hooks_of(&lanes, &placement, &chips, None, view).picked, None);
+    }
+
+    #[test]
+    fn a_pan_reaches_the_empty_column_past_the_last_node() {
+        let lanes = ipc::decode::<ipc::JobLanesView>("JobLanesView", include_bytes!("../../fixtures/job-lanes.json")).unwrap();
+        let placement = super::place(&lanes.lanes, 600.);
+        let last = lanes.lanes.iter().flat_map(|lane| lane.nodes.iter()).map(|node| node.col).max().unwrap_or(0) as f32;
+        // Settings' add box, one column past the last node.
+        let empty = Rect { x: HEAD + PAD + super::LEAD + (last + 1.) * super::COL_W, y: 40., w: super::NODE_W, h: 68. };
+        let frame = (600., 600.);
+        let view = View { x: 0., y: 0., zoom: 1. };
+        let next = pan_to(&[empty], view, frame, (placement.reach(true), placement.height), false, false, false).unwrap_or(view);
+        assert!(empty.x + empty.w + next.x <= frame.0 - PAD + 0.5, "{next:?}");
+        assert!(empty.x + next.x >= HEAD + PAD - 0.5, "{next:?}");
+        // A Job's lanes, which have no such box, stop at the last node as before.
+        assert_eq!(placement.reach(false), placement.width);
+        let short = pan_to(&[empty], view, frame, (placement.reach(false), placement.height), false, false, false).unwrap_or(view);
+        assert!(empty.x + empty.w + short.x > frame.0 - PAD + 0.5, "{short:?}");
+    }
+
+    #[test]
+    fn right_past_the_last_step_brings_in_the_empty_column_only_where_the_host_reaches_there() {
+        let lanes = ipc::decode::<ipc::JobLanesView>("JobLanesView", include_bytes!("../../fixtures/job-lanes.json")).unwrap();
+        let placement = super::place(&lanes.lanes, 600.);
+        let ends: std::collections::HashSet<String> = lanes.lanes.iter().flat_map(|lane| lane.nodes.iter()).filter(|node| matches!(node.kind, ipc::LaneNodeKind::Start | ipc::LaneNodeKind::End)).map(|node| node.id.clone()).collect();
+        let last = lanes.lanes.iter().flat_map(|lane| lane.nodes.iter()).filter(|node| !ends.contains(&node.id)).max_by_key(|node| node.col).unwrap();
+        let row = placement.items[&last.id];
+        // A Job's lanes: → from the last step goes nowhere, as before.
+        assert!(placement.arrow_to(&last.id, "right", &ends, false).is_none());
+        // Settings: → asks for the empty column on the same row, and the pan brings it into the frame.
+        let (to, empty) = placement.arrow_to(&last.id, "right", &ends, true).unwrap();
+        assert_eq!(to, None);
+        assert_eq!(empty.x, HEAD + PAD + super::LEAD + (last.col as f32 + 1.) * super::COL_W);
+        assert_eq!((empty.y, empty.h), (row.y, row.h));
+        let frame = (600., 600.);
+        let view = View { x: 0., y: 0., zoom: 1. };
+        let next = pan_to(&[empty], view, frame, (placement.reach(true), placement.height), false, false, true).unwrap_or(view);
+        assert!(empty.x + empty.w + next.x <= frame.0 - PAD + 0.5, "{next:?}");
+        // Only → reaches past the end, and a step with a node that way still goes to it.
+        assert!(placement.arrow_to(&last.id, "down", &ends, true).is_none_or(|(to, _)| to.is_some()));
+        let first = lanes.lanes[0].nodes.iter().find(|node| !ends.contains(&node.id) && node.id != last.id).unwrap();
+        assert!(placement.arrow_to(&first.id, "right", &ends, true).is_some_and(|(to, _)| to.is_some()));
+    }
+
+    #[test]
+    fn the_keys_go_onto_the_empty_column_and_back_and_enter_there_adds_a_step() {
+        let lanes = ipc::decode::<ipc::JobLanesView>("JobLanesView", include_bytes!("../../fixtures/job-lanes.json")).unwrap();
+        let placement = super::place(&lanes.lanes, 600.);
+        let ends: std::collections::HashSet<String> = lanes.lanes.iter().flat_map(|lane| lane.nodes.iter()).filter(|node| matches!(node.kind, ipc::LaneNodeKind::Start | ipc::LaneNodeKind::End)).map(|node| node.id.clone()).collect();
+        let (lane, last) = lanes.lanes.iter().flat_map(|lane| lane.nodes.iter().map(move |node| (lane, node))).filter(|(_, node)| !ends.contains(&node.id)).max_by_key(|(_, node)| node.col).unwrap();
+        let row = placement.items[&last.id];
+        let mut seen = super::Seen { current: Some(last.id.clone()), ..Default::default() };
+
+        // A Job's lanes: → from the last step does nothing.
+        seen.arrow(&placement, &lanes.lanes, &last.id, "right", &ends, false);
+        assert!(seen.end.is_none() && seen.ask.is_none());
+
+        // Settings: → puts the keys on the empty column of the step's lane and pans to it.
+        seen.arrow(&placement, &lanes.lanes, &last.id, "right", &ends, true);
+        assert_eq!(seen.end.as_deref(), Some(lane.id.as_str()));
+        assert_eq!(seen.current.as_deref(), Some(last.id.as_str()));
+        assert_eq!(seen.ask.take().map(|ask| (ask.rects[0].x, ask.rects[1])), Some((row.x + super::COL_W, row)));
+
+        // There, the other arrows stay.
+        for key in ["right", "up", "down"] {
+            seen.arrow(&placement, &lanes.lanes, &last.id, key, &ends, true);
+            assert_eq!(seen.end.as_deref(), Some(lane.id.as_str()), "{key}");
+            assert!(seen.ask.is_none(), "{key}");
+        }
+
+        // ← goes back to the last step.
+        seen.arrow(&placement, &lanes.lanes, &last.id, "left", &ends, true);
+        assert!(seen.end.is_none());
+        assert_eq!(seen.current.as_deref(), Some(last.id.as_str()));
+        assert_eq!(seen.ask.take().map(|ask| (ask.rects[0].x, ask.rects[0].y)), Some((row.x, row.y)));
+    }
+
+    #[test]
+    fn the_end_box_lands_in_the_end_dots_column_clear_of_the_heads_and_job_lanes_stay_put() {
+        let mut lanes = ipc::decode::<ipc::JobLanesView>("JobLanesView", include_bytes!("../../fixtures/job-lanes.json")).unwrap();
+        // Settings' editor: the End dot stands a column past the last step, where the box is drawn.
+        let end = lanes.lanes[0].nodes.iter_mut().find(|node| node.kind == ipc::LaneNodeKind::End).unwrap();
+        end.col += 1;
+        let end = end.id.clone();
+        let placement = super::place(&lanes.lanes, 600.);
+        let ends: std::collections::HashSet<String> = lanes.lanes.iter().flat_map(|lane| lane.nodes.iter()).filter(|node| matches!(node.kind, ipc::LaneNodeKind::Start | ipc::LaneNodeKind::End)).map(|node| node.id.clone()).collect();
+        let last = "workflow/land".to_string();
+        let (row, dot) = (placement.items[&last], placement.items[&end]);
+        let home = View { x: 0., y: 0., zoom: 1. };
+
+        // 458 is the editor's canvas in an 820 window, where the box and the step before it do not both fit.
+        for (width, both) in [(458., false), (1000., true)] {
+            let frame = (width, 600.);
+            let view = pan_to(&[row], home, frame, (placement.reach(true), placement.height), false, false, true).unwrap_or(home);
+            let mut seen = super::Seen { current: Some(last.clone()), view, ..Default::default() };
+            seen.arrow(&placement, &lanes.lanes, &last, "right", &ends, true);
+            let ask = seen.ask.take().unwrap();
+            assert_eq!(ask.rects[0].x, dot.x - super::DOT_GAP - super::NODE_W, "{width}");
+            let next = pan_to(&ask.rects, view, frame, (placement.reach(true), placement.height), ask.follow, ask.earliest, ask.keep).unwrap_or(view);
+            // The box and its dot are whole and clear of the heads, and where both fit the last step stands between.
+            assert!(ask.rects[0].x + next.x >= HEAD + PAD - 0.5, "{width}: {next:?}");
+            assert!(dot.x + super::DOT + next.x <= width - PAD + 0.5, "{width}: {next:?}");
+            assert_eq!(row.x + next.x >= HEAD + PAD - 0.5, both, "{width}: {next:?}");
+            if !both {
+                assert!(ask.rects[0].x + next.x > HEAD + PAD + 0.5, "{width}: {next:?}");
+            }
+
+            // A Job's lanes reach no further: → from the last step asks for no pan.
+            let mut job = super::Seen { current: Some(last.clone()), view, ..Default::default() };
+            job.arrow(&placement, &lanes.lanes, &last, "right", &ends, false);
+            assert!(job.ask.is_none() && job.end.is_none(), "{width}");
+        }
     }
 }

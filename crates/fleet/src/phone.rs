@@ -41,8 +41,9 @@ pub trait PhoneSwitch: Send + Sync + 'static {
         Box::pin(async move { Err(why) })
     }
 
-    /// Send `body` to the other Mac's Fleet as a `POST` of `path`, which is `/other_mac/project_act` and nothing
-    /// else, through the link: the status its Fleet answered and the bytes. A Gateway with no link to it says why.
+    /// Send `body` to the other Mac's Fleet as a `POST` of `path`, which is `/other_mac/project_act` or
+    /// `/other_mac/act` and nothing else, through the link: the status its Fleet answered and the bytes. A Gateway
+    /// with no link to it says why.
     fn send_other_mac(&self, mac: &str, path: &str, body: Vec<u8>) -> OtherMacRead {
         let _ = (path, body);
         let why = format!("this Mac has no link to Mac {mac}");
@@ -59,6 +60,8 @@ pub(crate) struct PhoneHeld {
     switch: OnceLock<Arc<dyn PhoneSwitch>>,
     /// The Macs whose queued edits are being sent now, so one task sends them and not two.
     pub(crate) flushing: std::sync::Mutex<std::collections::BTreeSet<String>>,
+    /// One act from another Mac runs at a time, so an id is run once. `crate::mac_acts`.
+    pub(crate) acts: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl<H, V, W> Fleet<H, V, W>

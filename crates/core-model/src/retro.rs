@@ -27,6 +27,8 @@ pub enum Via {
     Phone,
     /// A Job's Commander acting on its Job.
     Commander,
+    /// Another of his Macs, through the Phone Gateway's signed link: a person's own press, made on that Mac.
+    Mac,
 }
 
 impl Via {
@@ -37,6 +39,7 @@ impl Via {
         Via::Http,
         Via::Phone,
         Via::Commander,
+        Via::Mac,
     ];
 
     pub fn as_wire(&self) -> &'static str {
@@ -47,6 +50,7 @@ impl Via {
             Via::Http => "http",
             Via::Phone => "phone",
             Via::Commander => "commander",
+            Via::Mac => "mac",
         }
     }
 
@@ -60,9 +64,9 @@ impl Via {
         matches!(self, Via::Bridge)
     }
 
-    /// Whether a person pressed it themselves, in Bridge or on their phone.
+    /// Whether a person pressed it themselves, in Bridge, on their phone or on another of their Macs.
     pub fn is_a_person(&self) -> bool {
-        matches!(self, Via::Bridge | Via::Phone)
+        matches!(self, Via::Bridge | Via::Phone | Via::Mac)
     }
 }
 

@@ -56,14 +56,14 @@ pub(super) fn place_fitted(lanes: &[LaneView], frame: (f32, f32)) -> (Placement,
     (place_at(lanes, frame.1 / zoom, 0.), View { x: 0., y: 0., zoom })
 }
 
-/// A time of day in his clock, as the chips read it (`clock`).
-pub(crate) fn clock(at: &ipc::Instant) -> String {
-    chrono::DateTime::parse_from_rfc3339(at.as_str()).map(|at| crate::settings::time::clock(at.with_timezone(&chrono::Local))).unwrap_or_default()
+/// When a rule fired, stamped as he set stamps to read: a day before today's keeps its day.
+pub(crate) fn stamp(at: &ipc::Instant) -> String {
+    crate::settings::time::stamp_at(at.as_str()).unwrap_or_default()
 }
 
 /// The quiet words beside a chip's name (`RuleView.meta`): what it waits for, else when it fired.
 pub(super) fn meta(edge: &LaneEdge) -> Option<String> {
-    edge.waits.clone().or_else(|| edge.fired_at.as_ref().map(clock))
+    edge.waits.clone().or_else(|| edge.fired_at.as_ref().map(stamp))
 }
 
 /// The chip's size as its words will draw it (`chipSize`).
@@ -332,6 +332,7 @@ mod tests {
     fn a_host_that_sets_nothing_keeps_the_heads_the_rail_and_the_words() {
         let (host, id) = (Bare, SharedString::from("canvas"));
         assert!(!host.lanes_compact(&id));
+        assert!(host.lanes_fit(&id));
         assert!(!host.lanes_chosen(&id, "workflow/plan"));
         assert_eq!(host.changed_said(&id), "Changed on this Job");
         // Not compact, the canvas is placed with the heads' inset as before.

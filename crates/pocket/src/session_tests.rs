@@ -132,6 +132,7 @@ async fn fake_fleet_with(seen: Seen, start_status: u16, message_status: u16, row
     let manifests = r#"[{"id":"m1","repository":"armada","path":"/a/armada.yml","records_root":"/r","version":1,"checks":[]},{"id":"m2","repository":"notes","path":"/n/armada.yml","records_root":"/r","version":1,"checks":[]}]"#;
     let answered = seen.clone();
     let messaged = seen.clone();
+    let dispatched = seen.clone();
     let started = seen;
     let app = Router::new()
         .route("/sessions", get(move || async move { rows }))
@@ -164,6 +165,13 @@ async fn fake_fleet_with(seen: Seen, start_status: u16, message_status: u16, row
             post(move |body: String| async move {
                 answered.lock().unwrap().push(("/sessions/ask/answer".into(), body));
                 StatusCode::OK
+            }),
+        )
+        .route(
+            "/sessions/dispatch",
+            post(move |body: String| async move {
+                dispatched.lock().unwrap().push(("/sessions/dispatch".into(), body));
+                (StatusCode::OK, r#"{"operator":"d1"}"#)
             }),
         )
         .route(
@@ -454,6 +462,29 @@ async fn dispatch_refuses_what_it_does_not_know_and_passes_fleets_refusal() {
     let refusing = on(fake_fleet(Seen::default(), 422).await).await;
     let (status, body) = send(&refusing, Method::POST, "/api/sessions", r#"{"text":"","repository":"armada"}"#).await;
     assert_eq!((status, body.as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "Say what you want done."));
+}
+
+#[tokio::test]
+async fn an_operator_dispatch_reaches_fleet_as_a_dispatch_with_its_kind_and_no_mac_on_this_mac() {
+    let (app, seen) = rig().await;
+    let (status, body) = send(&app, Method::POST, "/api/sessions/dispatch", r#"{"text":"Fix the thing","repository":"notes","kind":"bug"}"#).await;
+    assert_eq!((status, body.as_str()), (StatusCode::OK, r#"{"operator":"d1"}"#));
+    let seen = seen.lock().unwrap();
+    assert_eq!(seen.len(), 1, "{seen:?}");
+    let (path, sent) = &seen[0];
+    assert_eq!(path, "/sessions/dispatch");
+    assert!(sent.contains(r#""manifest_id":"m2""#) && sent.contains(r#""request":"Fix the thing""#) && sent.contains(r#""kind":"bug""#), "{sent}");
+    assert!(!sent.contains(r#""mac""#) && !sent.contains("on_your_words"), "{sent}");
+}
+
+#[tokio::test]
+async fn an_operator_dispatch_names_only_a_mac_this_one_knows_and_takes_nothing_else() {
+    let (app, seen) = rig().await;
+    let (status, _) = send(&app, Method::POST, "/api/sessions/dispatch", r#"{"text":"x","repository":"notes","mac":"nobody"}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = send(&app, Method::POST, "/api/sessions/dispatch", r#"{"text":"x","repository":"notes","on_your_words":"y"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(seen.lock().unwrap().is_empty());
 }
 
 #[tokio::test]

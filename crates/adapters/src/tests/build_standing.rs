@@ -5,7 +5,10 @@
 use std::time::Duration;
 
 use super::repo::TempRepo;
-use crate::{branch_in_build, branch_tip, build_made_of, fetch_main, position_against_main, BranchInBuild, BuildMade};
+use crate::{
+    branch_in_build, branch_tip, build_made_of, fetch_main, fetch_origin, origin_branches, position_against_main, BranchInBuild,
+    BuildMade,
+};
 
 fn point_origin_main_at(repo: &TempRepo, commit: &str) {
     let opened = repo.open();
@@ -219,4 +222,34 @@ fn a_commit_on_origin_main_is_a_main_build_and_one_that_is_neither_is_not_said()
     let loose = child_of(&repo, &base, "a branch's own");
     assert_eq!(build_made_of(&repo.root_str(), &loose), None, "not a preview, and not main's");
     assert_eq!(build_made_of(&repo.root_str(), "0123456789abcdef0123456789abcdef01234567"), None, "not here at all");
+}
+
+/// A branch `name` in `repo` at a commit on top of `parent`, committed at `unix` seconds.
+fn origin_branch_at(repo: &TempRepo, name: &str, parent: &str, unix: i64) -> String {
+    let opened = repo.open();
+    let parent = opened.find_commit(git2::Oid::from_str(parent).expect("an object id")).expect("the parent");
+    let who = git2::Signature::new("armada", "armada@example.invalid", &git2::Time::new(unix, 0)).expect("a signature");
+    let tree = parent.tree().expect("a tree");
+    let made = opened.commit(None, &who, &who, name, &tree, &[&parent]).expect("a commit");
+    opened.reference(&format!("refs/heads/{name}"), made, true, "a test's branch").expect("the branch");
+    made.to_string()
+}
+
+#[test]
+fn a_fetch_of_origin_lists_every_branch_main_lacks_newest_first_and_since_a_time() {
+    let origin = TempRepo::with_a_commit();
+    let main = origin.head_str();
+    origin_branch_at(&origin, "feat/old", &main, 1_600_000_000);
+    origin_branch_at(&origin, "native/refresh-set", &main, 1_700_000_000);
+    origin.open().reference("refs/heads/feat/landed", git2::Oid::from_str(&main).expect("an id"), true, "landed").expect("landed");
+    let repo = TempRepo::empty();
+    repo.open().remote("origin", &origin.root_str()).expect("a remote");
+    assert_eq!(origin_branches(&repo.root_str(), 0), Vec::new(), "nothing fetched, nothing listed");
+    fetch_origin(&repo.root_str(), Duration::from_secs(20)).expect("fetched from a local path");
+    let listed = origin_branches(&repo.root_str(), 0);
+    let names: Vec<&str> = listed.iter().map(|(branch, _)| branch.as_str()).collect();
+    assert_eq!(names, ["native/refresh-set", "feat/old"]);
+    assert_eq!(listed[0].1, "2023-11-14T22:13:20Z");
+    let recent: Vec<String> = origin_branches(&repo.root_str(), 1_650_000_000).into_iter().map(|(branch, _)| branch).collect();
+    assert_eq!(recent, ["native/refresh-set"]);
 }
