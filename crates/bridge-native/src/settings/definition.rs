@@ -179,29 +179,56 @@ pub fn with_label(text: &str, step: &str, label: &str) -> Option<String> {
 }
 
 /// `text` with what changed between `before` and `after` carried into it, and the rest of `text` as it was: the
-/// top-level keys and each step's fields (by id) that changed, steps added after the step they follow in `after`,
-/// and steps removed. None where any of the three is not a workflow.
+/// top-level keys and each step's fields (by id) that changed, steps removed, and steps added or moved laid after
+/// the step they follow in `after`. A step whose predecessor in `text` is not its predecessor in `before` was moved
+/// since, and keeps that place. None where any of the three is not a workflow.
 pub fn with_delta(text: &str, before: &str, after: &str) -> Option<String> {
     let (mut tree, was, now) = (tree_of(text)?, tree_of(before)?, tree_of(after)?);
     carry(&mut tree, &was, &now, "steps");
     let (Some(Json::List(was_steps)), Some(Json::List(now_steps))) = (was.get("steps"), now.get("steps")) else { return None };
     let Json::Map(fields) = &mut tree else { return None };
     let (_, Json::List(steps)) = fields.iter_mut().find(|(name, _)| name == "steps")? else { return None };
-    let id_in = |list: &[Json], id: &str| list.iter().position(|one| one.id() == Some(id));
-    steps.retain(|one| one.id().is_none_or(|id| id_in(was_steps, id).is_none() || id_in(now_steps, id).is_some()));
+    let moved_since: Vec<String> = steps
+        .iter()
+        .filter_map(Json::id)
+        .filter(|id| place_of(was_steps, id).is_some() && follows(steps, id) != follows(was_steps, id))
+        .map(String::from)
+        .collect();
+    steps.retain(|one| one.id().is_none_or(|id| place_of(was_steps, id).is_none() || place_of(now_steps, id).is_some()));
     for (at, one) in now_steps.iter().enumerate() {
         let Some(id) = one.id() else { continue };
-        match (id_in(was_steps, id), id_in(steps, id)) {
-            (Some(was_at), Some(here)) => carry(&mut steps[here], &was_steps[was_at], one, "id"),
+        match (place_of(was_steps, id), place_of(steps, id)) {
+            (Some(was_at), Some(here)) => {
+                carry(&mut steps[here], &was_steps[was_at], one, "id");
+                if follows(now_steps, id) != follows(was_steps, id) && !moved_since.iter().any(|his| his == id) {
+                    let step = steps.remove(here);
+                    let place = place_after(steps, &now_steps[..at]);
+                    steps.insert(place, step);
+                }
+            }
             (Some(_), None) => {}
             (None, Some(here)) => steps[here] = one.clone(),
             (None, None) => {
-                let place = now_steps[..at].iter().rev().filter_map(Json::id).find_map(|prev| id_in(steps, prev)).map_or(0, |prev| prev + 1);
+                let place = place_after(steps, &now_steps[..at]);
                 steps.insert(place, one.clone());
             }
         }
     }
     Some(text_of(&tree))
+}
+
+fn place_of(steps: &[Json], id: &str) -> Option<usize> {
+    steps.iter().position(|one| one.id() == Some(id))
+}
+
+/// The id of the step before `id`: none where `id` is not listed, `Some(None)` where it is first.
+fn follows<'a>(steps: &'a [Json], id: &str) -> Option<Option<&'a str>> {
+    place_of(steps, id).map(|at| at.checked_sub(1).and_then(|prev| steps[prev].id()))
+}
+
+/// Just after the last of `preceding` that is in `steps`, or first where none is.
+fn place_after(steps: &[Json], preceding: &[Json]) -> usize {
+    preceding.iter().rev().filter_map(Json::id).find_map(|prev| place_of(steps, prev)).map_or(0, |prev| prev + 1)
 }
 
 /// The keys of an object that differ between `was` and `now` set on `into`, and those `now` dropped taken out of it.

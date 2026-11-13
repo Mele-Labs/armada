@@ -244,6 +244,42 @@ mod tests {
         assert_eq!(drafted(&draft).0, [step("fix", "Repair"), step("review", "Review"), step("tests", "Tests")]);
     }
 
+    fn swaps_fix_and_tests() -> String {
+        BASE.replace(r#"[{"id":"fix","label":"Fix","instructions":"Fix it."},{"id":"tests","label":"Tests"}]"#, r#"[{"id":"tests","label":"Tests"},{"id":"fix","label":"Fix","instructions":"Fix it."}]"#)
+    }
+
+    #[test]
+    fn steps_the_agent_swaps_are_drawn_swapped_until_its_entry_is_undone() {
+        let mut draft = Draft::new(BASE, None);
+        draft.push(agent(&swaps_fix_and_tests()));
+        assert_eq!(drafted(&draft).0, [step("tests", "Tests"), step("fix", "Fix")]);
+        draft.undo_at(0);
+        assert_eq!(drafted(&draft).0, [step("fix", "Fix"), step("tests", "Tests")]);
+    }
+
+    #[test]
+    fn his_words_and_the_agents_move_both_show() {
+        let mut draft = Draft::new(BASE, None);
+        draft.push(words("fix", "Make the smallest change."));
+        draft.push(agent(&swaps_fix_and_tests()));
+        let (steps, words) = drafted(&draft);
+        assert_eq!(steps, [step("tests", "Tests"), step("fix", "Fix")]);
+        assert_eq!(words, [None, Some("Make the smallest change.".to_string())]);
+    }
+
+    #[test]
+    fn a_step_he_moved_since_the_agent_read_keeps_his_place() {
+        let workflow = |order: &str| format!(r#"{{"version":1,"workflow_id":"bug","name":"bug","steps":[{order}]}}"#);
+        let read = workflow(r#"{"id":"a"},{"id":"b"},{"id":"c"},{"id":"d"}"#);
+        // He swapped c and d after the agent read the draft; the agent swapped a and b.
+        let his = workflow(r#"{"id":"a"},{"id":"b"},{"id":"d"},{"id":"c"}"#);
+        let agents = workflow(r#"{"id":"b"},{"id":"a"},{"id":"c"},{"id":"d"}"#);
+        let mut draft = Draft::new(his, None);
+        draft.push(Edit { author: Author::Agent, said: "asked".into(), change: Change::Definition { before: read, after: agents } });
+        let order: Vec<String> = drafted(&draft).0.into_iter().map(|(id, _)| id).collect();
+        assert_eq!(order, ["b", "a", "d", "c"]);
+    }
+
     #[test]
     fn clearing_takes_a_new_base() {
         let mut draft = Draft::new(BASE, Some(Target::EveryProject));
