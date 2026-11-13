@@ -103,12 +103,30 @@ struct Seen {
     ask: Option<Ask>,
     /// A drag on the canvas: where it began and where the view stood.
     drag: Option<(gpui::Point<Pixels>, View)>,
+    /// Where the pick and the gaps between steps were drawn last frame, in the pane's own points.
+    hooks: Hooks,
 }
 
 impl Default for Seen {
     fn default() -> Self {
-        Self { view: HOME, picked: None, current: None, drawn: None, ask: None, drag: None }
+        Self { view: HOME, picked: None, current: None, drawn: None, ask: None, drag: None, hooks: Hooks::default() }
     }
+}
+
+#[derive(Clone, Default)]
+struct Hooks {
+    picked: Option<Rect>,
+    gaps: Vec<(String, String, Rect)>,
+}
+
+/// The room between two steps of the workflow's lane, where an editor mounts its +.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StepGap {
+    /// The step before the gap and the one after it, by node id.
+    pub after: String,
+    pub before: String,
+    /// In window points, as last drawn.
+    pub bounds: Bounds<Pixels>,
 }
 
 /// The canvas's state on its host: the frame's keys, and each canvas as he left it, by the id it is drawn under.
@@ -121,11 +139,31 @@ pub struct LanesState {
     seen: RefCell<HashMap<SharedString, Seen>>,
     /// The pane's size last frame, heads included.
     size: Rc<Cell<(f32, f32)>>,
+    /// The pane's top left in the window last frame.
+    origin: Rc<Cell<gpui::Point<Pixels>>>,
 }
 
 impl LanesState {
     pub fn new(cx: &mut App) -> Self {
-        Self { frame: cx.focus_handle(), keyed: Cell::new(false), seen: RefCell::default(), size: Rc::new(Cell::new((0., 0.))) }
+        Self { frame: cx.focus_handle(), keyed: Cell::new(false), seen: RefCell::default(), size: Rc::new(Cell::new((0., 0.))), origin: Rc::default() }
+    }
+
+    fn in_window(&self, rect: Rect) -> Bounds<Pixels> {
+        let origin = self.origin.get();
+        Bounds { origin: gpui::point(origin.x + px(rect.x), origin.y + px(rect.y)), size: gpui::size(px(rect.w), px(rect.h)) }
+    }
+
+    /// Where the picked node or rule chip of the canvas drawn under `id` stands in the window, as last drawn.
+    pub fn picked_bounds(&self, id: &SharedString) -> Option<Bounds<Pixels>> {
+        let picked = self.seen.borrow().get(id)?.hooks.picked?;
+        Some(self.in_window(picked))
+    }
+
+    /// Each gap between two steps of the workflow's lane, in order, as last drawn: room for an editor's +.
+    pub fn step_gaps(&self, id: &SharedString) -> Vec<StepGap> {
+        let seen = self.seen.borrow();
+        let Some(seen) = seen.get(id) else { return Vec::new() };
+        seen.hooks.gaps.iter().map(|(after, before, rect)| StepGap { after: after.clone(), before: before.clone(), bounds: self.in_window(*rect) }).collect()
     }
 }
 
@@ -248,6 +286,35 @@ fn rects_of(ids: &[String], placement: &Placement, chips: &HashMap<String, Rect>
 }
 
 /// A Job's canvas: the rail, then the lanes with their heads over the left (`LaneCanvas`).
+/// The pick's rect and the gaps between the workflow's steps, moved and scaled as the view draws them.
+fn hooks_of(lanes: &JobLanesView, placement: &Placement, chips: &HashMap<String, Rect>, picked: Option<&Pick>, view: View) -> Hooks {
+    let shown = |rect: &Rect| Rect { x: view.x + rect.x * view.zoom, y: view.y + rect.y * view.zoom, w: rect.w * view.zoom, h: rect.h * view.zoom };
+    let picked = match picked {
+        Some(Pick::Node(node)) => placement.items.get(node).map(shown),
+        Some(Pick::Rule(rule)) => lanes.rules.iter().find(|edge| &edge.rule == rule).and_then(|edge| chips.get(&edge.id)).map(shown),
+        None => None,
+    };
+    let mut steps: Vec<(&str, &Rect)> = lanes
+        .lanes
+        .iter()
+        .filter(|lane| lane.kind == ipc::LaneKind::Workflow)
+        .flat_map(|lane| lane.nodes.iter())
+        .filter(|node| !matches!(node.kind, LaneNodeKind::Start | LaneNodeKind::End))
+        .filter_map(|node| Some((node.id.as_str(), placement.items.get(&node.id)?)))
+        .collect();
+    steps.sort_by(|a, b| a.1.x.total_cmp(&b.1.x));
+    let gaps = steps
+        .windows(2)
+        .map(|pair| {
+            let (a, b) = (pair[0].1, pair[1].1);
+            let x = a.x + a.w;
+            let gap = Rect { x, y: a.y.min(b.y), w: (b.x - x).max(0.), h: a.h.max(b.h) };
+            (pair[0].0.to_string(), pair[1].0.to_string(), shown(&gap))
+        })
+        .collect();
+    Hooks { picked, gaps }
+}
+
 pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesView, look: &Look, cx: &Context<H>) -> AnyElement {
     let state = host.lanes_state();
     let (frame_w, frame_h) = state.size.get();
@@ -265,6 +332,7 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
     }
     let view = seen.view;
     let picked = seen.picked.clone();
+    seen.hooks = hooks_of(lanes, &placement, &chips, picked.as_ref(), view);
     let first = lanes.lanes.first().and_then(|lane| lane.nodes.iter().find(|node| !ends.contains(&node.id))).map(|node| node.id.clone());
     let current = seen.current.clone().filter(|one| placement.items.contains_key(one) || chips.contains_key(one)).or(first);
     drop(all);
@@ -275,9 +343,11 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
 
     // Bands, moves and rules, under the nodes: painted in the pane, cut at the heads' edge.
     let size = Rc::clone(&state.size);
+    let origin = Rc::clone(&state.origin);
     let painted = PaintPlan::of(lanes, &placement, picked.as_ref(), look);
     let paint_layer = canvas(
         move |bounds, window, _| {
+            origin.set(bounds.origin);
             let now = (f32::from(bounds.size.width), f32::from(bounds.size.height));
             if size.get() != now {
                 size.set(now);
@@ -593,5 +663,26 @@ mod tests {
         // Without the pick, the leftmost go first and the chip is left under the heads.
         let loose = pan_to(&[chip, from, to], view, (405., 600.), (1000., 600.), false, false, false).unwrap_or(view);
         assert!(chip.x + loose.x < HEAD + PAD, "{loose:?}");
+    }
+
+    #[test]
+    fn the_pick_and_each_gap_between_steps_are_given_where_the_view_draws_them() {
+        let lanes = ipc::decode::<ipc::JobLanesView>("JobLanesView", include_bytes!("../../fixtures/job-lanes.json")).unwrap();
+        let placement = super::place(&lanes.lanes, 600.);
+        let chips = super::place_chips(&lanes.rules, &placement);
+        let steps: Vec<&ipc::LaneNode> = lanes.lanes.iter().filter(|lane| lane.kind == ipc::LaneKind::Workflow).flat_map(|lane| lane.nodes.iter()).filter(|node| !matches!(node.kind, ipc::LaneNodeKind::Start | ipc::LaneNodeKind::End)).collect();
+        let view = View { x: -40., y: 10., zoom: 0.8 };
+        let picked = super::Pick::Node(steps[1].id.clone());
+        let hooks = super::hooks_of(&lanes, &placement, &chips, Some(&picked), view);
+
+        let at = placement.items[&steps[1].id];
+        assert_eq!(hooks.picked, Some(Rect { x: -40. + at.x * 0.8, y: 10. + at.y * 0.8, w: at.w * 0.8, h: at.h * 0.8 }));
+        // One gap between each two steps, in order, wide enough for a + at the smallest zoom.
+        assert_eq!(hooks.gaps.len(), steps.len() - 1);
+        for ((after, before, gap), pair) in hooks.gaps.iter().zip(steps.windows(2)) {
+            assert_eq!((after, before), (&pair[0].id, &pair[1].id));
+            assert!(gap.w >= 22., "{gap:?}");
+        }
+        assert_eq!(super::hooks_of(&lanes, &placement, &chips, None, view).picked, None);
     }
 }
