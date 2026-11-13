@@ -37,6 +37,9 @@ import type {
   RetroSubject,
   Followed,
   FleetRestart,
+  FleetStart,
+  BridgeReopen,
+  KeptBuilds,
   FrameRead,
   Outcome,
   RunOutputRead,
@@ -412,6 +415,9 @@ type OldBridgeApi = {
   openServerLink: (serverId: string, url: string) => Promise<Followed>;
   openLink: (address: string) => Promise<Followed>;
   restartFleet: () => Promise<FleetRestart>;
+  startFleet: () => Promise<FleetStart>;
+  reopenBridge: () => Promise<BridgeReopen>;
+  keptBuilds: () => Promise<KeptBuilds>;
   changeFleetBuild: (build: BuildSource, adopt: boolean) => Promise<Outcome>;
   revertFleetBuild: () => Promise<Outcome>;
   askRevertFleetBuild: () => Promise<void>;
@@ -904,6 +910,9 @@ const OLD_CHANNELS = {
   openServerLink: "bridge:open-server-link",
   openLink: "bridge:open-link",
   restartFleet: "bridge:restart-fleet",
+  startFleet: "bridge:start-fleet",
+  reopenBridge: "bridge:reopen-bridge",
+  keptBuilds: "bridge:kept-builds",
   changeFleetBuild: "bridge:change-fleet-build",
   revertFleetBuild: "bridge:revert-fleet-build",
   askRevertFleetBuild: "bridge:ask-revert-fleet-build",

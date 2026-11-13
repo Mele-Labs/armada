@@ -93,6 +93,9 @@ import {
   openServerLink,
   openLink,
   restartFleet,
+  startFleet,
+  reopenBridge,
+  keptBuilds,
   changeFleetBuild,
   revertFleetBuild,
   pickFleetBuildJob,
@@ -877,7 +880,10 @@ export function App() {
                             }
                             connection={state.connection}
                             bridge={state.bridge}
+                            onStartFleet={startFleet}
                             onRestartFleet={restartFleet}
+                            onReopenBridge={reopenBridge}
+                            onReadBuilds={keptBuilds}
                             // **Not while the file is on screen**, which draws the same
                             // reading beside the text it is about. Twice at once is two places
                             // to read one refusal and one to dismiss while the other stands.

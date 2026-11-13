@@ -721,7 +721,8 @@ than one timeout message.
 this Bridge carry different protocol IDs, Bridge opens no socket and the notice
 reads "Fleet and Bridge do not match", with the first eight digits of each ID in
 its detail row and a Restart Fleet button (rotate-cw, spinning while it works;
-the tooltip names what a working Drone costs). Fleet is alive and its Jobs keep
+the tooltip names what a working Drone costs), or Reopen Armada where this Bridge
+is the stale side. A Fleet that is not running has the same button, as Start Fleet. Fleet is alive and its Jobs keep
 running, so the edge is the degraded one and the headline is not red. See
 `../practices/protocol.md`, What Bridge does with the ID it reads.
 

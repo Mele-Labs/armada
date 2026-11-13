@@ -298,6 +298,9 @@ import type {
   BuildSource,
   Followed,
   FleetRestart,
+  FleetStart,
+  BridgeReopen,
+  KeptBuilds,
   LandCheckAt,
   PickFleetBuildJob,
 } from "@armada/protocol";
@@ -603,6 +606,10 @@ const api: BridgeApi = {
   // name it; main opens `http(s):` only. `main/links.ts`.
   openLink: (address: string): Promise<Followed> => ipcRenderer.invoke(CHANNELS.openLink, address),
   restartFleet: (): Promise<FleetRestart> => ipcRenderer.invoke(CHANNELS.restartFleet),
+  // Start the Fleet launchd holds, and reopen this Bridge on `builds/current`: `main/start-fleet.ts`.
+  startFleet: (): Promise<FleetStart> => ipcRenderer.invoke(CHANNELS.startFleet),
+  reopenBridge: (): Promise<BridgeReopen> => ipcRenderer.invoke(CHANNELS.reopenBridge),
+  keptBuilds: (): Promise<KeptBuilds> => ipcRenderer.invoke(CHANNELS.keptBuilds),
   // Restart Fleet and Bridge onto main or the preview. Fleet starts the script and answers at once;
   // the outcome arrives as `fleetBuild` on the published state.
   changeFleetBuild: (build: BuildSource, adopt: boolean): Promise<Outcome> =>

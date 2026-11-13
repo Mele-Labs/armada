@@ -160,11 +160,11 @@ export function holderOf(pid: number): Holder {
   };
 }
 
-/** The four fields, checked. Anything else in the object is ignored. */
+/** The four fields and the build, checked. Anything else in the object is ignored. */
 function identity(parsed: unknown): FleetIdentity | null {
   if (typeof parsed !== "object" || parsed === null) return null;
   const record = parsed as Record<string, unknown>;
-  const { protocol_id: id, pid, port, started_at: startedAt } = record;
+  const { protocol_id: id, pid, port, started_at: startedAt, build } = record;
   // A file from a Fleet before IDs has none. Refusing it would tell a person
   // their runtime file is corrupt when it is only old, so it reads as an ID
   // nothing equals and the mismatch screen names it.
@@ -176,6 +176,11 @@ function identity(parsed: unknown): FleetIdentity | null {
     pid,
     port,
     startedAt,
+    ...(typeof build === "string"
+      ? {
+          build,
+        }
+      : {}),
   };
 }
 

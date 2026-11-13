@@ -27,6 +27,13 @@
     notes = "Proposed 8 Oct 2026 for the walk `fleetProtocolMismatch`. A restart is the same act a reload is, which the entry above already gives this glyph; `refresh-cw` stays churning's and `power` stays the stop. Tooltip `Restart Fleet. Working Drones are adopted and cannot be redirected until they finish.`"
 
   [[icons.rotate-cw.usage]]
+    means = "Start Fleet, from the notice that says no Fleet is running; Reopen Armada, from the notice that says Fleet and Bridge do not match where this Bridge is the stale side"
+    group = "Action"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 12 Nov 2026 for the walk `fleetRepair`, beside Restart Fleet, whose button these two share: all three act on the Fleet or the Bridge beside it and bring it up on the current build, and the notice shows one at a time. Tooltips `Start Fleet. Bridge reconnects when it answers.` and `Reopen Armada on the build Fleet runs. Fleet and its Drones are not touched, and this window closes.`"
+
+  [[icons.rotate-cw.usage]]
     means = "Refresh preview or Update to main: restart Fleet and Bridge onto a refreshed preview or the latest main, from the Fleet panel"
     group = "Action"
     size = "16px"

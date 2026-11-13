@@ -54,6 +54,50 @@ export type FleetRestart =
       detail: string;
     };
 
+/**
+ * What pressing Start Fleet came to. Bridge runs `armada fleet start`, which asks launchd for the job
+ * that holds Fleet, so the answer is launchd's. `ok` means the command exited 0, not that Fleet
+ * answers yet: the next runtime file says which.
+ */
+export type FleetStart =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      /**
+       * `refused`: the command ran and said why on its stderr, or would not run. `no_answer`: it
+       * exited 0 and no Fleet appeared in time (set by the window, never by main).
+       */
+      why: "refused" | "no_answer";
+      detail: string;
+    };
+
+/**
+ * What pressing Reopen Armada came to. Main asks launchd to start this Bridge's job over again, from
+ * the build `builds/current` points at, and the window it answers from closes as it does, so an
+ * answer of `ok` is seldom read.
+ */
+export type BridgeReopen =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      detail: string;
+    };
+
+/**
+ * The kept builds this Bridge and the install are, by folder name under `builds`. Each is `null`
+ * where there is none: a Bridge run from a tree, or no `builds/current`.
+ */
+export type KeptBuilds = {
+  /** The build folder this Bridge's app sits in. */
+  bridge: string | null;
+  /** The build `builds/current` points at: the one a restart or a reopen lands on. */
+  current: string | null;
+};
+
 /** Fleet, as its runtime file names it. Loopback plus `port` is the address. */
 export type FleetIdentity = {
   protocolId: ProtocolId;
@@ -61,6 +105,8 @@ export type FleetIdentity = {
   port: number;
   /** `ps -o lstart=` as it read when Fleet published the file. */
   startedAt: string;
+  /** The kept build folder Fleet's executable sits in. Absent from a Fleet run from a tree, or one older than the field. */
+  build?: string;
 };
 
 /**
