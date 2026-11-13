@@ -27,6 +27,23 @@ pub fn preview_offers(skipped: bool) -> ipc::PreviewOffers {
     offers
 }
 
+/// The sends Fleet keeps for Air while it sleeps, as `GET /queued` answers on the pairing walks: a message to the Job
+/// that needs him at 09:14, and an answer Air refused at 09:20. Every other scenario keeps none.
+pub fn queued() -> ipc::QueuedList {
+    if !scenario_is("jobs-pairing") {
+        return ipc::QueuedList::default();
+    }
+    let mut list = ipc::decode::<ipc::QueuedList>("QueuedList", include_bytes!("../fixtures/queued-pairing.json"))
+        .unwrap_or_else(|why| panic!("the queued fixture does not decode: {why}"));
+    let today = |hour: u32, minute: u32| {
+        chrono::Local::now().date_naive().and_hms_opt(hour, minute, 0).and_then(|at| at.and_local_timezone(chrono::Local).single()).map_or(0, |at| at.timestamp_millis())
+    };
+    for (one, at) in list.queued.iter_mut().zip([today(9, 14), today(9, 20)]) {
+        one.since = at;
+    }
+    list
+}
+
 /// The Jobs the pairing walk runs on Air: Fix the merge line freshness chip, which needs him, Audit the docs
 /// index, and Quiet the write-clash notices, which `session.removed` takes away.
 pub const AIR_JOBS: [&str; 3] = ["mock-01", "mock-04", "mock-06"];
