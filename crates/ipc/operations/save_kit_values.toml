@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "Keep the values Kit sets for how work behaves, whole"
 notes = """
-`POST /kit/values`, body `SaveKitValues { values }`, `values` as a project's block is: `pr_mode`, `auto_merge`, `review_model`, `look { layout?, theme?, density? }` and `reviews { plans?, pull_requests?, walks? }`, only the keys Kit sets. It is written whole to `values.yml` in Kit's folder on this Mac, so a key left out is taken away, and `{}` takes every value back. `docs/practices/protocol/projects.md`, *Values*. Answers 200 with `KitValuesSaved { file, values }`: where it was written and what Kit now sets.
+`POST /kit/values`, body `SaveKitValues { values }`, `values` as a project's block is: `pr_mode`, `auto_merge`, `review_model`, `look { layout?, theme?, density? }`, `reviews { plans?, pull_requests?, walks? }` and `agent_starts`, only the keys Kit sets, and a kind of `reviews` left out is one Kit does not set. It is written whole to `values.yml` in Kit's folder on this Mac, so a key left out is taken away, and `{}` takes every value back. `docs/practices/protocol/projects.md`, *Values*. Answers 200 with `KitValuesSaved { file, values }`: where it was written and what Kit now sets.
 
 Kit's layer sits under the repository's and the project's: it answers a key neither sets. A Job takes it at its start, like every layer.
 

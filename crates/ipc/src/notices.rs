@@ -57,7 +57,8 @@ pub enum Notice {
     AutoLandRefused,
     /// Fleet asks for the Job's retro note.
     RetroNote,
-    /// A reminder that a reply claimed something it had no call for.
+    /// A reminder about a reply: it claimed something it had no call for, or it asked in words where the
+    /// owner answers by buttons, so the Job is told to ask again with options.
     ReplyClaim,
     /// The context handoff: the brief asked of the old Job, and the carry-on of the new.
     ContextHandoff,

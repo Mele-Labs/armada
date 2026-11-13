@@ -5,6 +5,8 @@
 //! hand edit put a value in force the same way — the live dials, then the
 //! limits under the roster — and say so once on the stream.
 
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Settings};
 use config::settings::{entry, Refused, Resolved, Saved};
@@ -166,6 +168,15 @@ where
 
     async fn save_preferences(&self, save: SavePreference) -> Result<Preferences, Refusal> {
         self.save_preference_now(save).await
+    }
+
+    /// A change to how he works with Jobs is told to the Jobs running, the new note as Fleet's word, so
+    /// the next result and question follow it. A save that leaves the note as it was tells none.
+    async fn preferences_saved(self: Arc<Self>, before: Preferences, now: Preferences) {
+        let note = crate::ways::note(&now);
+        if note != crate::ways::note(&before) {
+            self.ways_told(&note).await;
+        }
     }
 
     async fn get_phone(&self) -> Result<ipc::PhoneGateway, Refusal> {

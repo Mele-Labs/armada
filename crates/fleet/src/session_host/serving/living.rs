@@ -306,7 +306,7 @@ where
                     note: {
                         let first = self.successor_note_of(id).await;
                         let logbook = self.logbook_note_of(served.as_ref().map(|one| one.root())).await;
-                        let told: Vec<String> = first.into_iter().chain(logbook).collect();
+                        let told: Vec<String> = first.into_iter().chain(logbook).chain(Some(self.ways_note())).collect();
                         Some(told.join("\n\n"))
                     },
                     name: address_of(id),

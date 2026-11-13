@@ -471,6 +471,12 @@ where
         // for a slot and resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {
             self.turn_end_kept(id, &now, said.as_deref()).await;
+            // Off the turn's end, which is still being closed: a word sent here would start a turn inside it.
+            if let Some(said) = said.clone() {
+                let (fleet, id) = (Arc::clone(self), id.to_string());
+                // Boxed: the turn's end is deep already, and the telling's future is large in a debug build.
+                tokio::spawn(async move { Box::pin(fleet.reply_asked_again(&id, &said)).await });
+            }
             // A turn held for a slot stays open: the same turn carries on in it.
             self.turn_closed(id).await;
         }
