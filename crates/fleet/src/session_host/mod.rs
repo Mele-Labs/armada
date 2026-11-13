@@ -32,6 +32,7 @@ pub(crate) mod ending;
 pub(crate) mod asking_in_window;
 pub(crate) mod draft_document;
 pub(crate) mod draft_page;
+mod artifact_for;
 mod artifacts;
 mod archiving;
 pub(crate) mod drafting;

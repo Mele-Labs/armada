@@ -842,6 +842,9 @@ pub enum SessionRow {
         /// `Lifecycle <id>` for a piece a Job proposed for Kit. Absent on any other draft.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         change: Option<i64>,
+        /// What the draft is for, and what it links to. Absent where it has neither.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        for_line: Option<crate::ArtifactFor>,
     },
     /// An `armada check` the agent ran in its slot. **The row is replaced by id** as the run ends,
     /// so a client holds one row per run. `run` is the id the Checks page opens it by. Since 23.75.

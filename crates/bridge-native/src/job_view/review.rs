@@ -1033,7 +1033,7 @@ impl JobView {
                 None => self.review_skeleton(look),
             },
             Kind::Draft => match draft_row(&held.items, item.id.strip_prefix("draft:").unwrap_or(&item.id)) {
-                Some(SessionRow::Draft { id: row, at, title, text, before, settled, change }) => div()
+                Some(SessionRow::Draft { id: row, at, title, text, before, settled, change, .. }) => div()
                     .flex()
                     .flex_col()
                     .min_h(look.length(token::H_ROW_UNIT) * 8.)

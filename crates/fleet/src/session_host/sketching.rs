@@ -24,6 +24,7 @@ use ipc::{
     SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 
+use super::artifact_for::with_for;
 use super::documents::{keep, one_name, revisions_in};
 use crate::daemon::Fleet;
 
@@ -60,6 +61,8 @@ where
             .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
         let against = show
             .against_title()
+            .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
+        let said = ipc::ArtifactFor::checked(show.for_line.as_deref(), &show.links)
             .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
         let id = caller
             .and_then(|caller| self.session_holding(&caller))
@@ -121,6 +124,7 @@ where
         if let Some(revisions) = revisions {
             attachment.detail.insert("revisions".into(), revisions);
         }
+        with_for(&mut attachment.detail, self.for_line(&id, said).await.as_ref());
         // A sketch he dismissed waits again once the job draws it again, as a walk shown again does.
         let target = attachment.target.clone();
         self.store().lock().await.restore_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
