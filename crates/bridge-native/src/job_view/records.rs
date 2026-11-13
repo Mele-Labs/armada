@@ -253,9 +253,9 @@ impl JobView {
                 // The same measures as a call's row (`runs::tool_row`), so the dispute lines up with the calls around it.
                 let side = look.length(token::SPACE_6);
                 let gap = side * (10. / 24.);
+                // The mark keeps its column; the chip and the by-line wrap inside the body's column.
                 let head = div()
                     .flex()
-                    .flex_wrap()
                     .items_center()
                     .gap_x(gap)
                     .min_w_0()
@@ -270,23 +270,31 @@ impl JobView {
                             .child(glyph(look, "message-square-warning", Size::Mark, look.color(hue)))
                             .tooltip(tip("Disputed")),
                     )
-                    .child(chip(look, hue, "Disputed"))
                     .child(
-                        div().flex_none().ml_auto().flex().items_center().gap(look.length(token::SPACE_2)).child(
+                        div().flex_1().min_w_0().flex().flex_wrap().items_center().gap_x(gap).child(chip(look, hue, "Disputed")).child(
                             div()
-                                .id(SharedString::from(format!("disputed-by:{id}")))
                                 .flex_none()
-                                .text_size(look.length(token::TEXT_XS))
-                                .line_height(look.length(token::LEADING_XS))
-                                .text_color(look.color(token::FG_SUBTLE))
-                                .tooltip(tip(whole))
-                                .child(said),
-                        )
-                        .child(self.stamp(at, look, now, true, cx)),
+                                .ml_auto()
+                                .flex()
+                                .items_center()
+                                .gap(look.length(token::SPACE_2))
+                                .child(
+                                    div()
+                                        .id(SharedString::from(format!("disputed-by:{id}")))
+                                        .flex_none()
+                                        .text_size(look.length(token::TEXT_XS))
+                                        .line_height(look.length(token::LEADING_XS))
+                                        .text_color(look.color(token::FG_SUBTLE))
+                                        .tooltip(tip(whole))
+                                        .child(said),
+                                )
+                                .child(self.stamp(at, look, now, true, cx)),
+                        ),
                     );
                 let why = div().pl(side + gap).min_w_0().child(self.prose_in(format!("disputed-why:{id}"), why, token::FG_DEFAULT, look, cx));
                 let review = review.as_ref().map(|review| {
-                    div().pl(side + gap).child(self.opens(
+                    // A flex row, so the link takes its own width rather than the line's.
+                    div().pl(side + gap).flex().child(self.opens(
                         review,
                         format!("review:{id}"),
                         "Open the review job".into(),
