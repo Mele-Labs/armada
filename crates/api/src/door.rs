@@ -179,9 +179,12 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "withdraw_draft",
     "save_kit_manifest",
     // What the rules tell every Job to call, which a Job in a repository with no
-    // `armada.yml` must be able to: its follow-ups, the end of its work, a wrong notice and a bug.
+    // `armada.yml` must be able to: its follow-ups, its preview offer, the end of its work, a wrong
+    // notice and a bug. An offer from a repository with no `scripts/preview` is refused by Fleet.
     "defer_later",
     "settle_later",
+    "offer_preview",
+    "withdraw_preview",
     "finish_up",
     "dispute_fleet",
     "report_bug",

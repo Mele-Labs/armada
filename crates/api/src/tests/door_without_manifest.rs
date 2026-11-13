@@ -90,6 +90,8 @@ async fn a_hosted_session_with_no_manifest_is_offered_its_permission_tool_and_it
         "validate_mod",
         "try_tracker_mod",
         "defer_later",
+        "offer_preview",
+        "withdraw_preview",
         "finish_up",
         "start_another_job",
         "list_started_jobs",
