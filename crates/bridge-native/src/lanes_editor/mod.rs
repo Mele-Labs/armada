@@ -542,6 +542,7 @@ impl LanesEditor {
             left: side::Party { label: "Armada's", named: "Armada's lanes", lanes: side::steps_lane(&armada_lanes, &armada) },
             right: side::Party { label: "Yours", named: "Your lanes", lanes: mine },
             rows: side::armada_rows(&differences, &armada),
+            page: self.page.clone(),
         };
         let view = cx.new(|cx| side::Side::new(sides, window, cx));
         let sub = cx.subscribe_in(&view, window, |this, _, event: &side::Event, window, cx| match event {

@@ -13,7 +13,7 @@ use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{CloudflareState, GatewaySetup, Mac, MacColour, MacLink, MacPairLink, PairedPhone, Served};
 
 use super::entries::Body;
-use super::gateway::Tunnel;
+use super::gateway::{PhoneClaim, PhoneCode, Tunnel, NOT_RUNNING};
 use super::overlay::SettingsOverlay;
 use super::view::{bone, card, ghost, mono, ringed, tip};
 use crate::assets::icon_path;
@@ -48,6 +48,76 @@ pub struct MacsPage {
     /// The link's time left, drawn again each second while it is good.
     _tick: Option<Task<()>>,
     _paste: Subscription,
+    /// The card he pressed on a Mac nothing was set up on; the setup runs on from it by itself.
+    lead: Option<Lead>,
+    /// `POST /phone`'s refusal.
+    phone_said: Option<String>,
+    /// The setup pressed Set up tunnel itself, once.
+    tunnel_asked: bool,
+    /// Pair with a link instead was pressed.
+    by_link: bool,
+    /// The code Pair a phone made, until it runs out, is confirmed or declined.
+    phone: Option<PhoneLink>,
+    /// The phone's link ran out: Make a new link is offered in its place.
+    lapsed: bool,
+    /// Counts the phone code down, and asks the Gateway for a claim every other second.
+    _phone: Option<Task<()>>,
+}
+
+/// A phone's pairing code with the link its camera opens, drawn as a QR code, and the phone that entered it.
+struct PhoneLink {
+    code: PhoneCode,
+    link: String,
+    qr: Qr,
+    /// The phone's name, once it has entered the code.
+    claim: Option<String>,
+}
+
+/// The QR code's modules, row by row, dark where `true`.
+#[derive(Clone)]
+struct Qr {
+    width: usize,
+    dark: std::sync::Arc<[bool]>,
+}
+
+impl Qr {
+    /// `None` when the link is too long for a code.
+    fn of(link: &str) -> Option<Qr> {
+        use qrcode::{Color, EcLevel, QrCode};
+        let code = QrCode::with_error_correction_level(link.as_bytes(), EcLevel::M).ok()?;
+        Some(Qr { width: code.width(), dark: code.to_colors().into_iter().map(|one| one == Color::Dark).collect() })
+    }
+}
+
+/// Modules of empty margin round the code; the spec asks four and phone cameras rely on it.
+const QUIET: usize = 4;
+
+/// The code is drawn about this wide; each module is a whole number of points, so no edge falls between pixels.
+const QR_SIDE: f32 = 192.;
+
+/// Phone pairing's claim poll, every this many ticks (`CLAIM_EVERY` is two seconds in Classic).
+const POLL_TICKS: u32 = 2;
+
+/// The two ways a Mac nothing is set up on starts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Lead {
+    /// Pair with a Mac that's set up.
+    Find,
+    /// Set up this Mac first.
+    SetUp,
+}
+
+/// What the page draws.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Part {
+    /// Nothing is set up, and nothing pressed: the two cards.
+    Cards,
+    /// This Mac's setup, its steps ticking off.
+    Steps,
+    /// This Mac is set up and no other Mac has turned up yet.
+    Waiting,
+    /// This Mac, its tunnel and every device.
+    Page,
 }
 
 /// Where the keys wait while the control they were on goes: the Devices list itself.
@@ -84,6 +154,52 @@ impl MacsPage {
             _reads: Vec::new(),
             _tick: None,
             _paste: sub,
+            lead: None,
+            phone_said: None,
+            tunnel_asked: false,
+            by_link: false,
+            phone: None,
+            lapsed: false,
+            _phone: None,
+        }
+    }
+
+    /// Another Mac is on the list: paired, or a pairing waiting on a Confirm.
+    fn others(&self) -> bool {
+        matches!(&self.macs, Some(Ok(macs)) if macs.iter().any(|mac| !mac.this_mac))
+    }
+
+    /// Nothing is set up: the Gateway does not answer, or it answers with no way in and no other Mac.
+    fn bare(&self) -> bool {
+        match &self.setup {
+            None => false,
+            Some(Err(_)) => true,
+            Some(Ok(setup)) => matches!(setup.cloudflare, CloudflareState::Missing | CloudflareState::SignedOut | CloudflareState::NoTunnel { .. }) && setup.served != Served::Funnel && !self.others(),
+        }
+    }
+
+    fn runs(&self) -> bool {
+        matches!(self.cloudflare(), Some(CloudflareState::Running { .. }))
+    }
+
+    /// The tunnel's setup stopped: its press was refused, or the sign-in made no tunnel.
+    fn stuck(&self) -> Option<&str> {
+        self.said.as_deref().or(match self.cloudflare() {
+            Some(CloudflareState::NoTunnel { why: Some(why) }) => Some(why.as_str()),
+            _ => None,
+        })
+    }
+
+    fn part(&self) -> Part {
+        let Some(lead) = self.lead else { return if self.bare() { Part::Cards } else { Part::Page } };
+        if self.others() {
+            return Part::Page;
+        }
+        match lead {
+            // Finding a Mac waits for one however this Mac's tunnel went: the link still pairs them.
+            Lead::Find if self.phone_said.is_none() && (self.runs() || self.stuck().is_some()) => Part::Waiting,
+            Lead::SetUp if self.runs() => Part::Page,
+            _ => Part::Steps,
         }
     }
 
@@ -153,10 +269,18 @@ fn press_of_mac(mac: &Mac) -> Option<(&'static str, &'static str)> {
 }
 
 fn age_of(at: i64) -> String {
-    format!("{} ago", crate::merge_strip::words::span_said((chrono::Utc::now().timestamp() - at).max(0)))
+    age_said((chrono::Utc::now().timestamp() - at).max(0))
 }
 
-fn colour_of(look: &Look, colour: MacColour) -> Hsla {
+/// How long ago a device was seen; under a minute is just now, never "0m ago".
+fn age_said(seconds: i64) -> String {
+    if seconds < 60 {
+        return "just now".into();
+    }
+    format!("{} ago", crate::merge_strip::words::span_said(seconds))
+}
+
+pub(crate) fn colour_of(look: &Look, colour: MacColour) -> Hsla {
     look.color(match colour {
         MacColour::Blue => token::SKETCH_BLUE,
         MacColour::Teal => token::SKETCH_TEAL,
@@ -233,16 +357,23 @@ impl SettingsOverlay {
             let again = this
                 .update_in(cx, |this, window, cx| {
                     let runs = matches!(answer, Ok(GatewaySetup { cloudflare: CloudflareState::Running { .. }, .. }));
-                    let held = ["setup", "sign-in", "copy"].into_iter().filter_map(|name| this.macs.keys.get(name)).any(|focus| focus.is_focused(window));
+                    let held = this.macs.keys.values().any(|focus| focus.is_focused(window));
                     this.macs.setup = Some(answer);
+                    this.lead_on(window, cx);
+                    // While a setup leads, the list is read each round too, so a Mac that turns up is drawn.
+                    let leads = this.macs.lead.is_some() && !this.macs.others();
+                    if leads {
+                        this.read_devices(cx);
+                    }
+                    this.macs_keys(cx);
                     if held && !this.macs_stops().iter().any(|focus| focus.is_focused(window)) {
-                        let press = this.macs.cloudflare().and_then(|state| this.macs.keys.get(press_of(state)?)).or_else(|| this.macs.keys.get(AT_REST)).cloned();
-                        if let Some(press) = press {
+                        let press = if this.macs.part() == Part::Page { this.macs.cloudflare().and_then(|state| this.macs.keys.get(press_of(state)?)).cloned() } else { this.macs_stops().first().cloned() };
+                        if let Some(press) = press.or_else(|| this.macs.keys.get(AT_REST).cloned()) {
                             window.focus(&press, cx);
                         }
                     }
                     cx.notify();
-                    !runs
+                    !runs || leads
                 })
                 .unwrap_or(false);
             if !again {
@@ -257,9 +388,43 @@ impl SettingsOverlay {
         }));
     }
 
+    /// A card pressed: `POST /phone {on: true}`, then the setup reads the Gateway and runs on by itself.
+    fn start_setup(&mut self, lead: Lead, window: &mut Window, cx: &mut Context<Self>) {
+        let page = &mut self.macs;
+        page.lead = Some(lead);
+        page.phone_said = None;
+        page.said = None;
+        page.tunnel_asked = false;
+        page.by_link = false;
+        let press = self.wire.phone_on(cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = press.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                match answer {
+                    Ok(_) => this.read_setup(window, cx),
+                    Err(refused) => this.macs.phone_said = Some(refused.said),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// The setup's next press, made for him: Set up tunnel, once the Gateway answers and no tunnel runs.
+    fn lead_on(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.macs.lead.is_none() || self.macs.tunnel_asked {
+            return;
+        }
+        if matches!(self.macs.cloudflare(), Some(CloudflareState::Missing | CloudflareState::SignedOut | CloudflareState::NoTunnel { .. } | CloudflareState::Down { .. })) {
+            self.macs.tunnel_asked = true;
+            self.set_up_tunnel(window, cx);
+        }
+    }
+
     /// Keys for each control, made before they are drawn.
     pub(super) fn macs_keys(&mut self, cx: &mut Context<Self>) {
-        let mut names: Vec<String> = ["setup", "sign-in", "copy", "pair", "copy-link", "claim"].into_iter().map(String::from).collect();
+        let mut names: Vec<String> = ["setup", "sign-in", "copy", "pair", "copy-link", "claim", "find", "set-up", "again", "by-link", "pair-phone", "copy-phone-link", "phone-new", "phone-confirm", "phone-decline"].into_iter().map(String::from).collect();
         if let Some(Ok(macs)) = &self.macs.macs {
             names.extend(macs.iter().filter_map(|mac| press_of_mac(mac).map(|(act, _)| format!("{act}:{}", mac.id))));
         }
@@ -277,11 +442,51 @@ impl SettingsOverlay {
         let page = &self.macs;
         let key = |name: &str| page.keys.get(name).cloned();
         let mut stops = Vec::new();
+        match page.part() {
+            Part::Cards => {
+                stops.extend(key("find"));
+                stops.extend(key("set-up"));
+                return stops;
+            }
+            Part::Steps => {
+                if matches!(page.cloudflare(), Some(CloudflareState::SigningIn { .. })) {
+                    stops.extend(key("sign-in"));
+                }
+                if page.phone_said.is_some() || page.stuck().is_some() {
+                    stops.extend(key("again"));
+                }
+                return stops;
+            }
+            Part::Waiting => {
+                if !page.by_link {
+                    stops.extend(key("by-link"));
+                    return stops;
+                }
+                stops.extend(key("pair"));
+                if page.link.is_some() {
+                    stops.extend(key("copy-link"));
+                }
+                stops.push(page.paste_focus.clone());
+                stops.extend(key("claim"));
+                return stops;
+            }
+            Part::Page => {}
+        }
         if page.funnel_row().is_some() {
             stops.extend(key("copy"));
         }
         stops.extend(page.cloudflare().and_then(press_of).and_then(key));
         stops.extend(key("pair"));
+        stops.extend(key("pair-phone"));
+        if let Some(phone) = &page.phone {
+            stops.extend(key("copy-phone-link"));
+            if phone.claim.is_some() {
+                stops.extend(key("phone-confirm"));
+                stops.extend(key("phone-decline"));
+            }
+        } else if page.lapsed {
+            stops.extend(key("phone-new"));
+        }
         if page.link.is_some() {
             stops.extend(key("copy-link"));
         }
@@ -332,6 +537,26 @@ impl SettingsOverlay {
                 }
             }
             "claim" => self.claim(window, cx),
+            "pair-phone" | "phone-new" => self.pair_phone(window, cx),
+            "copy-phone-link" => {
+                if let Some(link) = self.macs.phone.as_ref().map(|phone| phone.link.clone()) {
+                    self.wire.copy(&link, cx);
+                }
+            }
+            "phone-confirm" => self.confirm_phone(window, cx),
+            "phone-decline" => self.decline_phone(window, cx),
+            "find" => self.start_setup(Lead::Find, window, cx),
+            "set-up" => self.start_setup(Lead::SetUp, window, cx),
+            "again" => {
+                if let Some(lead) = self.macs.lead {
+                    self.start_setup(lead, window, cx);
+                }
+            }
+            "by-link" => {
+                self.macs.by_link = true;
+                window.focus(&self.macs.paste_focus.clone(), cx);
+                cx.notify();
+            }
             _ => {
                 if let Some(id) = name.strip_prefix("unpair:") {
                     self.unpair(id.to_string(), window, cx);
@@ -415,6 +640,151 @@ impl SettingsOverlay {
                 break;
             }
         }));
+    }
+
+    /// `POST /admin/pair/start`: the code a phone's camera opens, as a link and a QR code, and its time left.
+    fn pair_phone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.begin("pair-phone") {
+            return;
+        }
+        let press = self.wire.phone_start(cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = press.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                if let Some(code) = this.answered("pair-phone", answer) {
+                    let link = code.link();
+                    match Qr::of(&link) {
+                        Some(qr) => {
+                            this.macs.lapsed = false;
+                            this.macs.phone = Some(PhoneLink { code, link, qr, claim: None });
+                            this.watch_phone(window, cx);
+                            if let Some(copy) = this.macs.keys.get("copy-phone-link").cloned() {
+                                window.focus(&copy, cx);
+                            }
+                        }
+                        None => {
+                            this.macs.refused.insert("pair-phone".into(), "The link is too long to draw as a QR code.".into());
+                        }
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// Draws the phone code's time left each second, asks for a claim every other, and drops the code once it runs
+    /// out. The keys on its controls go to the one that is left.
+    fn watch_phone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.macs._phone = Some(cx.spawn_in(window, async move |this, cx| {
+            let mut ticks = 0u32;
+            loop {
+                cx.background_executor().timer(TICK).await;
+                ticks += 1;
+                let next = this.update_in(cx, |this, window, cx| {
+                    let Some((code, expires_at)) = this.macs.phone.as_ref().map(|phone| (phone.code.code.clone(), phone.code.expires_at)) else { return None };
+                    if expires_at <= chrono::Utc::now().timestamp() {
+                        let held = this.holds_phone(window);
+                        this.macs.phone = None;
+                        this.macs.lapsed = true;
+                        if let Some(new) = held.then(|| this.macs.keys.get("phone-new").cloned()).flatten() {
+                            window.focus(&new, cx);
+                        }
+                        cx.notify();
+                        return None;
+                    }
+                    if this.macs_shown(cx) {
+                        cx.notify();
+                    }
+                    let poll = (ticks % POLL_TICKS == 0).then(|| (code, this.wire.phone_pending(cx)));
+                    Some(poll)
+                });
+                let Ok(Some(poll)) = next else { break };
+                let Some((code, claims)) = poll else { continue };
+                let claims = claims.await;
+                let going = this.update_in(cx, |this, _, cx| {
+                    let Some(phone) = this.macs.phone.as_mut().filter(|phone| phone.code.code == code) else { return false };
+                    match claims {
+                        Ok(claims) => {
+                            this.macs.refused.remove("pair-phone");
+                            phone.claim = claims.into_iter().find(|one: &PhoneClaim| one.code == code).map(|one| one.name);
+                        }
+                        Err(said) => {
+                            this.macs.refused.insert("pair-phone".into(), said);
+                        }
+                    }
+                    cx.notify();
+                    true
+                });
+                if !going.unwrap_or(false) {
+                    break;
+                }
+            }
+        }));
+    }
+
+    /// One of the phone code's controls holds the keys.
+    fn holds_phone(&self, window: &Window) -> bool {
+        ["copy-phone-link", "phone-confirm", "phone-decline"].iter().any(|name| self.holds(name, window))
+    }
+
+    /// `POST /admin/pair/confirm`. The phone is on the list at once, the panel closes and the keys go to its Unpair.
+    fn confirm_phone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(code) = self.macs.phone.as_ref().map(|phone| phone.code.code.clone()) else { return };
+        if !self.begin("phone-confirm") {
+            return;
+        }
+        let press = self.wire.phone_confirm(code, cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = press.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                let held = this.holds_phone(window);
+                // A refusal says the code is no good any more, or that no phone entered it: either way it is dropped.
+                this.macs.phone = None;
+                this.macs._phone = None;
+                if let Some(phone) = this.answered("phone-confirm", answer) {
+                    let unpair = this.macs.keys.entry(format!("unpair:{}", phone.id)).or_insert_with(|| cx.focus_handle().tab_stop(true)).clone();
+                    if held {
+                        window.focus(&unpair, cx);
+                    }
+                    if let Some(Ok(phones)) = this.macs.phones.as_mut() {
+                        if phones.iter().all(|one| one.id != phone.id) {
+                            phones.push(phone);
+                        }
+                    }
+                    this.read_devices(cx);
+                } else if let Some(pair) = held.then(|| this.macs.keys.get("pair-phone").cloned()).flatten() {
+                    window.focus(&pair, cx);
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// Decline: `POST /admin/pair/decline`, and the code, the link and the claim are dropped here whatever it says.
+    /// Polling stops; the phone's claim lapses unconfirmed.
+    fn decline_phone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(code) = self.macs.phone.take().map(|phone| phone.code.code) else { return };
+        self.macs._phone = None;
+        self.macs.refused.remove("phone-decline");
+        if let Some(pair) = self.macs.keys.get("pair-phone").cloned() {
+            window.focus(&pair, cx);
+        }
+        let press = self.wire.phone_decline(code, cx);
+        cx.spawn(async move |this, cx| {
+            let answer = press.await;
+            let _ = this.update(cx, |this, cx| {
+                if let Err(said) = answer {
+                    this.macs.refused.insert("phone-decline".into(), said);
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
     }
 
     /// `POST /admin/macs/pair/claim` with what is pasted. The Mac it names joins the list, waiting on its Confirm.
@@ -510,6 +880,10 @@ impl SettingsOverlay {
                         if let (Tunnel::SignIn(login), Some(Ok(setup))) = (&made, this.macs.setup.as_mut()) {
                             setup.cloudflare = CloudflareState::SigningIn { login: login.clone() };
                         }
+                        // A setup that leads opens Cloudflare's sign-in page itself.
+                        if let (Tunnel::SignIn(login), Some(_)) = (&made, this.macs.lead) {
+                            this.wire.open_link(login, cx);
+                        }
                         if let Some(focus) = matches!(made, Tunnel::SignIn(_)).then(|| this.macs.keys.get("sign-in").cloned()).flatten() {
                             window.focus(&focus, cx);
                         }
@@ -545,7 +919,106 @@ impl SettingsOverlay {
     // ---- drawn --------------------------------------------------------------------------------
 
     pub(super) fn render_macs(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Vec<AnyElement> {
-        vec![self.this_mac_card(look), self.tunnel_card(look, window, cx), self.devices_card(look, window, cx)]
+        match self.macs.part() {
+            Part::Cards => vec![capped(self.lead_cards(look, window, cx))],
+            Part::Steps => vec![capped(self.steps_card(look, window, cx))],
+            Part::Waiting => vec![capped(self.waiting_card(look, window, cx))],
+            Part::Page => vec![self.this_mac_card(look), self.tunnel_card(look, window, cx), self.devices_card(look, window, cx)],
+        }
+    }
+
+    /// First open, nothing set up: the two ways to start, side by side, each one press.
+    fn lead_cards(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let one = |id: &'static str, icon: &'static str, title: &'static str, said: &'static str, press: AnyElement| {
+            let tile = div().flex_none().size(look.length(token::SPACE_8)).rounded(look.length(token::RADIUS_MD)).bg(look.color(token::ACCENT_FAINT)).flex().items_center().justify_center().child(svg().path(icon_path(icon)).size(look.length(token::SPACE_4)).text_color(look.color(token::ACCENT)));
+            let name = div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(title);
+            let body = div()
+                .id(id)
+                .flex_1()
+                .min_w(look.length(token::SPACE_12) * 5.)
+                .flex()
+                .flex_col()
+                .items_start()
+                .gap(look.length(token::SPACE_4))
+                .p(look.length(token::PAD_CARD))
+                .rounded(look.length(token::RADIUS_LG))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .bg(look.color(token::SURFACE_CARD))
+                .child(tile)
+                .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(name).child(caption(look, said)))
+                .child(press);
+            labelled(body, Role::Region, title).into_any_element()
+        };
+        let heading = div().text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Connect your Macs");
+        let cards = div()
+            .flex()
+            .flex_wrap()
+            .gap(look.length(token::SPACE_4))
+            .child(one("macs-lead-find", "link", "Pair with a Mac that's set up", "Your other Mac already runs Armada's link", self.macs_button("find", "Find my Mac", Weight::Primary, false, look, window, cx)))
+            .child(one("macs-lead-set-up", "monitor", "Set up this Mac first", "The first of your Macs", self.macs_button("set-up", "Set up", Weight::Secondary, false, look, window, cx)));
+        labelled(div().id("macs-connect").flex().flex_col().gap(look.length(token::SPACE_4)).child(heading).child(cards), Role::Region, "Connect your Macs").into_any_element()
+    }
+
+    /// This Mac's setup, one row a step, each ticking off as the Gateway says it is done.
+    fn steps_card(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let page = &self.macs;
+        let state = page.cloudflare();
+        let gateway_on = state.is_some();
+        let signed = matches!(state, Some(CloudflareState::NoTunnel { .. } | CloudflareState::Running { .. } | CloudflareState::Down { .. }));
+        let signing = matches!(state, Some(CloudflareState::SigningIn { .. })) || (gateway_on && !signed && page.tunnel_asked && page.said.is_none());
+        let again = || self.macs_button("again", "Try again", Weight::Ghost, false, look, window, cx);
+        let mut rows = Vec::new();
+
+        // The Gateway.
+        let (mark, name, lines, press) = match (&page.phone_said, gateway_on) {
+            (_, true) => (done(look, "macs-step-gateway"), "Gateway on", Vec::new(), None),
+            (Some(said), false) => (failed(look, "macs-step-gateway"), "Turn the Gateway on", vec![alert(look, "macs-phone-refused", said)], Some(again())),
+            (None, false) => (working(look, "macs-step-gateway"), "Turning the Gateway on", Vec::new(), None),
+        };
+        rows.push(step_row(look, mark, status_name(look, "macs-step-gateway-name", name), lines, press, true));
+
+        // Cloudflare's sign-in.
+        let stuck_here = !signed && page.said.is_some();
+        let (mark, name, lines, press) = if signed {
+            (done(look, "macs-step-sign-in"), "Signed in to Cloudflare", Vec::new(), None)
+        } else if stuck_here {
+            (failed(look, "macs-step-sign-in"), "Sign in to Cloudflare", page.said.iter().map(|said| alert(look, "macs-setup-refused", said)).collect(), Some(again()))
+        } else if signing {
+            let open = matches!(state, Some(CloudflareState::SigningIn { .. })).then(|| self.macs_button("sign-in", "Open it again", Weight::Ghost, false, look, window, cx));
+            let lines = open.is_some().then(|| caption(look, "Cloudflare's sign-in page is open in your browser.").into_any_element()).into_iter().collect();
+            (working(look, "macs-step-sign-in"), "Signing in to Cloudflare", lines, open)
+        } else {
+            (not_done(look, "macs-step-sign-in"), "Sign in to Cloudflare", Vec::new(), None)
+        };
+        rows.push(step_row(look, mark, status_name(look, "macs-step-sign-in-name", name), lines, press, false));
+
+        // The tunnel.
+        let (mark, name, lines, press) = match state {
+            Some(CloudflareState::Running { address }) => (done(look, "macs-step-tunnel"), "Tunnel made", vec![reach_line(look, "Your other Macs reach this Mac at", address).into_any_element()], None),
+            Some(CloudflareState::NoTunnel { why: Some(why) }) => (failed(look, "macs-step-tunnel"), "Make the tunnel", vec![alert(look, "macs-tunnel-why", why)], Some(again())),
+            Some(CloudflareState::NoTunnel { why: None }) if page.tunnel_asked => (working(look, "macs-step-tunnel"), "Making the tunnel", Vec::new(), None),
+            _ => (not_done(look, "macs-step-tunnel"), "Make the tunnel", Vec::new(), None),
+        };
+        rows.push(step_row(look, mark, status_name(look, "macs-step-tunnel-name", name), lines, press, false));
+
+        let rows = div().flex().flex_col().children(rows).into_any_element();
+        labelled(card(look, "settings-card-setup", "Setting up this Mac", None, vec![rows]), Role::Region, "Setting up this Mac").into_any_element()
+    }
+
+    /// This Mac is set up and no other Mac has turned up: the page reads again by itself, and a link pairs them
+    /// without the other Mac's tunnel.
+    fn waiting_card(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let page = &self.macs;
+        let line = div().flex().flex_col().gap(look.length(token::SPACE_1)).child(status_name(look, "macs-waiting", "Waiting for your other Mac")).child(caption(look, "On it, open Settings › Macs and press Set up."));
+        let mut body = vec![div().flex().items_start().gap(look.length(token::SPACE_3)).child(div().flex_none().w(look.length(token::SPACE_4)).pt(look.length(token::SPACE_1)).child(working(look, "macs-waiting-mark"))).child(line).into_any_element()];
+        if page.by_link {
+            body.push(div().flex().child(self.macs_button("pair", "Make a link", Weight::Ghost, page.out.as_deref() == Some("pair"), look, window, cx)).into_any_element());
+            body.push(self.pairing(look, window, cx));
+        } else {
+            body.push(div().flex().child(self.macs_button("by-link", "Pair with a link instead", Weight::GhostGlyph("link"), false, look, window, cx)).into_any_element());
+        }
+        labelled(card(look, "settings-card-waiting", "Your other Macs", None, body), Role::Region, "Your other Macs").into_any_element()
     }
 
     fn this_mac_card(&self, look: &Look) -> AnyElement {
@@ -655,7 +1128,7 @@ impl SettingsOverlay {
                 }
             }
             (Some(macs), Some(phones)) => {
-                if let Err(said) = macs {
+                if let Some(said) = said_of(macs) {
                     rows.push(alert(look, "macs-list-refused", said));
                 }
                 for mac in macs.iter().flatten() {
@@ -677,7 +1150,7 @@ impl SettingsOverlay {
                 for (key, said) in page.refused.iter().filter(|(key, _)| (key.starts_with("confirm:") || key.starts_with("forget:")) && !drawn(key)) {
                     rows.push(alert(look, SharedString::from(format!("macs-{key}-refused")), said));
                 }
-                if let Err(said) = phones {
+                if let Some(said) = said_of(phones) {
                     rows.push(alert(look, "macs-phones-refused", said));
                 }
                 for phone in phones.iter().flatten() {
@@ -698,8 +1171,81 @@ impl SettingsOverlay {
         let rest = page.keys.get(AT_REST).cloned();
         let list = labelled(div().id("macs-devices").flex().flex_col().when_some(rest, |list, rest| list.track_focus(&rest)).children(rows), Role::List, "Devices");
         let pair = self.macs_button("pair", "Pair a Mac", Weight::Ghost, page.out.as_deref() == Some("pair"), look, window, cx);
-        let body = vec![self.pairing(look, window, cx), list.into_any_element()];
-        labelled(card(look, "settings-card-devices", "Devices", Some(pair), body), Role::Region, "Devices").into_any_element()
+        let pair_phone = self.macs_button("pair-phone", "Pair a phone", Weight::Ghost, page.out.as_deref() == Some("pair-phone"), look, window, cx);
+        let presses = div().flex().items_center().gap(look.length(token::SPACE_2)).child(pair).child(pair_phone).into_any_element();
+        let body = self.phone_panel(look, window, cx).into_iter().chain([self.pairing(look, window, cx), list.into_any_element()]).collect();
+        labelled(card(look, "settings-card-devices", "Devices", Some(presses), body), Role::Region, "Devices").into_any_element()
+    }
+
+    /// Pair a phone: the QR code and the link its camera opens with the time left, a claim to Confirm or Decline, or
+    /// Make a new link once the code has run out. A refusal is said here, in the Gateway's words. With none of these
+    /// there is no panel, so the card keeps no gap for it.
+    fn phone_panel(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+        let page = &self.macs;
+        let said = |act: &str| page.refused.get(act).filter(|said| *said != NOT_RUNNING).map(|said| alert(look, SharedString::from(format!("macs-{act}-refused")), said));
+        let refused = ["pair-phone", "phone-confirm", "phone-decline"].iter().any(|act| page.refused.get(*act).is_some_and(|said| said != NOT_RUNNING));
+        if page.phone.is_none() && !page.lapsed && !refused {
+            return None;
+        }
+        let live = page.phone.as_ref().map(|phone| {
+            let left = format!("{} left", time_left(phone.code.expires_at - chrono::Utc::now().timestamp()));
+            let link = div().id("macs-phone-link").min_w_0().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(phone.link.clone()));
+            let figure = div().id("macs-phone-left").flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
+            let facts = div()
+                .flex_1()
+                .min_w_0()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(caption(look, "Open this on your phone's camera"))
+                .child(labelled(link, Role::Label, phone.link.clone()))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_3))
+                        .child(self.macs_button("copy-phone-link", "Copy link", Weight::Ghost, false, look, window, cx))
+                        .child(labelled(figure, Role::Label, left)),
+                );
+            let code = div().flex().items_start().gap(look.length(token::SPACE_4)).child(qr_mark(look, &phone.qr)).child(facts);
+            let claim = phone.claim.as_ref().map(|name| {
+                let name = format!("{name} wants to pair");
+                labelled(
+                    div()
+                        .id("macs-phone-claim")
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_3))
+                        .child(glyph(look, "macs-phone-claim-mark", "hourglass", look.color(token::STATUS_ESCALATED), "Waiting for Confirm on this Mac"))
+                        .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(name.clone())))
+                        .child(self.macs_button("phone-confirm", "Confirm", Weight::Primary, page.out.as_deref() == Some("phone-confirm"), look, window, cx))
+                        .child(self.macs_button("phone-decline", "Decline", Weight::Ghost, false, look, window, cx)),
+                    Role::Group,
+                    name,
+                )
+            });
+            div().flex().flex_col().gap(look.length(token::SPACE_3)).child(code).children(claim)
+        });
+        let lapsed = (page.phone.is_none() && page.lapsed).then(|| {
+            div()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_3))
+                .child(caption(look, "The link has run out"))
+                .child(self.macs_button("phone-new", "Make a new link", Weight::Ghost, page.out.as_deref() == Some("pair-phone"), look, window, cx))
+        });
+        Some(
+            div()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .children(said("pair-phone"))
+                .children(live)
+                .children(lapsed)
+                .children(said("phone-confirm"))
+                .children(said("phone-decline"))
+                .into_any_element(),
+        )
     }
 
     /// The link Pair a Mac made, to copy with its time left, and the box the other Mac's link is pasted into.
@@ -753,6 +1299,8 @@ impl SettingsOverlay {
         let id = SharedString::from(format!("macs-{name}"));
         let button = match weight {
             Weight::Ghost => ghost(look, id, said, off),
+            Weight::GhostGlyph(glyph) => super::view::ghost_with(look, id, Some(glyph), said, off),
+            Weight::Secondary => super::workflow_detail::sunken_button(look, id, said, off),
             Weight::Primary => super::change_band::filled(look, id, said, off),
         };
         let button = ringed(look, button, &focus, window).track_focus(&focus).when(!off, |button| button.on_click(cx.listener(move |this, _, window, cx| this.press_macs(name, window, cx))));
@@ -763,7 +1311,61 @@ impl SettingsOverlay {
 #[derive(Clone, Copy)]
 enum Weight {
     Ghost,
+    GhostGlyph(&'static str),
+    Secondary,
     Primary,
+}
+
+/// The QR code: dark modules on a light ground with its quiet zone, as a camera needs in either theme. Each module is
+/// a whole number of points, and the square is as wide as they add up to.
+///
+/// armada-allow-off-contract: a QR code is read by a camera, so it is black on white in both themes and no token is
+/// both (Classic's `.armada-phone__qr`, `docs/contracts/design-system.md`).
+fn qr_mark(look: &Look, qr: &Qr) -> AnyElement {
+    let total = qr.width + QUIET * 2;
+    let cell = (QR_SIDE / total as f32).floor().max(1.);
+    let side = gpui::px(cell * total as f32);
+    let (width, dark) = (qr.width, qr.dark.clone());
+    let modules = gpui::canvas(
+        |_, _, _| {},
+        move |bounds, _, window, _| {
+            let cell = bounds.size.width / total as f32;
+            for (at, _) in dark.iter().enumerate().filter(|(_, dark)| **dark) {
+                let (x, y) = ((at % width + QUIET) as f32, (at / width + QUIET) as f32);
+                let origin = gpui::point(bounds.origin.x + cell * x, bounds.origin.y + cell * y);
+                window.paint_quad(gpui::fill(gpui::Bounds::new(origin, gpui::size(cell, cell)), gpui::black()));
+            }
+        },
+    )
+    .size_full();
+    labelled(div().id("macs-phone-qr").flex_none().size(side).rounded(look.length(token::RADIUS_MD)).overflow_hidden().bg(gpui::white()).child(modules), Role::Image, "QR code for the pairing link").into_any_element()
+}
+
+/// A read's refusal to say on the page. A Gateway that does not answer is the two cards' to show, never red words.
+fn said_of<T>(read: &Result<T, String>) -> Option<&str> {
+    read.as_ref().err().map(String::as_str).filter(|said| *said != NOT_RUNNING)
+}
+
+/// The setup's parts stand in the settings column's width (`view.rs`'s `PAGE_MAX` on the Settings stack).
+fn capped(part: AnyElement) -> AnyElement {
+    div().w_full().max_w(gpui::px(720.)).child(part).into_any_element()
+}
+
+/// A setup step's name, read out as its state.
+fn status_name(look: &Look, id: &'static str, said: &'static str) -> AnyElement {
+    labelled(div().id(id).child(step_name(look, said)), Role::Status, said).into_any_element()
+}
+
+fn done(look: &Look, id: &'static str) -> AnyElement {
+    glyph(look, id, "circle-check", look.color(token::STATUS_COMPLETED_SUCCESS), "Done")
+}
+
+fn working(look: &Look, id: &'static str) -> AnyElement {
+    glyph(look, id, "loader-circle", look.color(token::STATUS_RUNNING), "Working")
+}
+
+fn failed(look: &Look, id: &'static str) -> AnyElement {
+    glyph(look, id, "circle-x", look.color(token::STATUS_COMPLETED_FAILED), "Stopped")
 }
 
 /// One row as Classic's `.armada-phone__step`: the glyph, the name over its lines, and the press at the right.
@@ -920,6 +1522,14 @@ mod tests {
     }
 
     #[test]
+    fn a_device_seen_under_a_minute_ago_was_seen_just_now() {
+        assert_eq!(age_said(0), "just now");
+        assert_eq!(age_said(59), "just now");
+        assert_eq!(age_said(60), "1m ago");
+        assert_eq!(age_said(4 * 60), "4m ago");
+    }
+
+    #[test]
     fn time_left_is_minutes_and_seconds() {
         assert_eq!(time_left(299), "4:59");
         assert_eq!(time_left(7), "0:07");
@@ -970,5 +1580,103 @@ mod tests {
         press(&overlay, "forget:mac-air", cx);
         assert_eq!(refused(&overlay, "forget:mac-air", cx), None);
         assert!(links(&overlay, cx).iter().all(|(id, _)| id != "mac-air"), "a pairing waiting on Confirm there is withdrawn by the same route");
+    }
+
+    fn ticks(seconds: u64, cx: &mut VisualTestContext) {
+        for _ in 0..seconds {
+            cx.executor().advance_clock(TICK);
+            cx.run_until_parked();
+        }
+    }
+
+    fn phone_claim(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Option<Option<String>> {
+        overlay.read_with(cx, |this, _| this.macs.phone.as_ref().map(|phone| phone.claim.clone()))
+    }
+
+    fn phone_names(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Vec<String> {
+        overlay.read_with(cx, |this, _| this.macs.phones.clone().and_then(Result::ok).unwrap_or_default().into_iter().map(|one| one.name).collect())
+    }
+
+    #[gpui::test]
+    fn pair_a_phone_draws_its_link_then_a_claim_from_the_second_poll_and_confirm_lists_the_phone(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        assert_eq!(phone_claim(&overlay, cx), None, "nothing is drawn before the press");
+        press(&overlay, "pair-phone", cx);
+        let (link, width) = overlay.read_with(cx, |this, _| this.macs.phone.as_ref().map(|phone| (phone.link.clone(), phone.qr.width))).expect("Pair a phone makes a link");
+        assert!(link.ends_with("/pair?code=a41f09c2"), "{link}");
+        assert!(width >= 21, "the QR code has its finder patterns");
+        press(&overlay, "copy-phone-link", cx);
+        assert_eq!(overlay.read_with(cx, |this, _| match &this.wire {
+            Wire::Mock(mock) => mock.handed.last().cloned(),
+            Wire::Live(_) => None,
+        }), Some(link), "Copy link copies the link");
+
+        ticks(2, cx);
+        assert_eq!(phone_claim(&overlay, cx), Some(None), "the first poll finds no claim");
+        ticks(2, cx);
+        assert_eq!(phone_claim(&overlay, cx), Some(Some("iPhone 15".into())), "the second finds the phone");
+
+        press(&overlay, "phone-confirm", cx);
+        assert_eq!(refused(&overlay, "phone-confirm", cx), None);
+        assert_eq!(phone_claim(&overlay, cx), None, "the panel closes");
+        assert_eq!(phone_names(&overlay, cx), ["iPhone", "iPad", "iPhone 15"], "the phone is in the list");
+        assert!(overlay.read_with(cx, |this, _| this.macs.keys.contains_key("unpair:phone-3")), "with its Unpair");
+    }
+
+    #[gpui::test]
+    fn decline_drops_the_code_and_the_claim_and_the_phone_is_not_listed(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        press(&overlay, "pair-phone", cx);
+        ticks(4, cx);
+        assert_eq!(phone_claim(&overlay, cx), Some(Some("iPhone 15".into())));
+        press(&overlay, "phone-decline", cx);
+        assert_eq!(phone_claim(&overlay, cx), None, "the code, the link and the claim are gone");
+        assert_eq!(refused(&overlay, "phone-decline", cx), None);
+        assert!(overlay.read_with(cx, |this, _| this.macs._phone.is_none()), "polling stops");
+        assert_eq!(phone_names(&overlay, cx), ["iPhone", "iPad"], "no phone joined");
+        overlay.read_with(cx, |this, _| match &this.wire {
+            Wire::Mock(mock) => assert!(mock.gateway.phone_pending_is_empty(), "the Gateway lists the code no more"),
+            Wire::Live(_) => {}
+        });
+    }
+
+    #[gpui::test]
+    fn a_decline_the_gateway_refuses_is_said_and_the_code_is_dropped_all_the_same(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        press(&overlay, "pair-phone", cx);
+        cx.update(|_, cx| overlay.update(cx, |this, _| {
+            if let Wire::Mock(mock) = &mut this.wire {
+                mock.gateway.phone_decline("a41f09c2").expect("the code ends once");
+            }
+        }));
+        press(&overlay, "phone-decline", cx);
+        assert_eq!(phone_claim(&overlay, cx), None);
+        assert_eq!(refused(&overlay, "phone-decline", cx).as_deref(), Some("This code is not good any more."));
+    }
+
+    #[gpui::test]
+    fn a_link_that_runs_out_goes_and_make_a_new_link_is_offered(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        press(&overlay, "pair-phone", cx);
+        cx.update(|_, cx| overlay.update(cx, |this, _| {
+            if let Some(phone) = this.macs.phone.as_mut() {
+                phone.code.expires_at = chrono::Utc::now().timestamp() - 1;
+            }
+        }));
+        ticks(1, cx);
+        assert_eq!(phone_claim(&overlay, cx), None, "the QR code and link go");
+        assert!(overlay.read_with(cx, |this, _| this.macs.lapsed));
+        assert!(overlay.read_with(cx, |this, _| this.macs.keys.get("phone-new").is_some_and(|new| this.macs_stops().contains(new))), "its press is a stop");
+        press(&overlay, "phone-new", cx);
+        assert_eq!(phone_claim(&overlay, cx), Some(None), "Make a new link starts again");
+        assert!(overlay.read_with(cx, |this, _| !this.macs.lapsed));
+    }
+
+    #[test]
+    fn the_qr_code_is_square_and_a_link_too_long_for_it_is_refused() {
+        let qr = Qr::of("https://studio.example.com/pair?code=a41f09c2").expect("encodes");
+        assert_eq!(qr.dark.len(), qr.width * qr.width);
+        assert!(qr.dark[0] && qr.dark[qr.width - 1] && qr.dark[qr.width * (qr.width - 1)], "the three finder corners are dark");
+        assert!(Qr::of(&"x".repeat(5000)).is_none());
     }
 }

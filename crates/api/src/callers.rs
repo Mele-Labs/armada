@@ -81,6 +81,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("save_limits", "changes settings"),
     ("save_preferences", "changes settings"),
     ("set_phone", "changes settings"),
+    ("set_up_mac", "changes settings"),
     ("set_repository_profile", "changes settings"),
     ("set_notice_mute", "changes settings"),
     ("accept_downshift", "changes settings"),
@@ -120,6 +121,8 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("hold_other_mac_bug_reports", "pairs his other Macs"),
     ("hold_other_mac_projects", "pairs his other Macs"),
     ("project_act_from_mac", "pairs his other Macs"),
+    ("act_from_mac", "pairs his other Macs"),
+    ("take_back_queued", "takes back what waits for his other Macs"),
     ("hold_other_mac_event", "pairs his other Macs"),
     ("forget_other_mac", "pairs his other Macs"),
 ];

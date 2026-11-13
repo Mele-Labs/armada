@@ -443,6 +443,16 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/models".into()), "ModelChoices", cx))
     }
 
+    /// `POST /phone {on: true}` on Fleet's socket: the Gateway starts now and at every start after.
+    pub fn phone_on(&mut self, cx: &App) -> Task<Result<ipc::PhoneGateway, Refused>> {
+        if let Wire::Mock(mock) = self {
+            mock.gateway.running = true;
+            return Task::ready(Ok(ipc::PhoneGateway { on: true, port: 8443, listening: true, why: None }));
+        }
+        let said = body(&ipc::SetPhoneGateway { on: true });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/phone".into(), said), "PhoneGateway", cx))
+    }
+
     /// `GET /admin/setup` on the Phone Gateway, which runs whether or not Fleet answers.
     pub fn gateway_setup(&mut self, cx: &App) -> Task<Result<ipc::GatewaySetup, String>> {
         match self {
@@ -476,6 +486,34 @@ impl Wire {
         match self {
             Wire::Mock(mock) => Task::ready(mock.gateway.pair_confirm(&mac)),
             Wire::Live(_) => super::gateway::pair_confirm(mac, cx),
+        }
+    }
+
+    pub fn phone_start(&mut self, cx: &App) -> Task<Result<super::gateway::PhoneCode, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.phone_start()),
+            Wire::Live(_) => super::gateway::phone_start(cx),
+        }
+    }
+
+    pub fn phone_pending(&mut self, cx: &App) -> Task<Result<Vec<super::gateway::PhoneClaim>, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.phone_pending()),
+            Wire::Live(_) => super::gateway::phone_pending(cx),
+        }
+    }
+
+    pub fn phone_confirm(&mut self, code: String, cx: &App) -> Task<Result<ipc::PairedPhone, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.phone_confirm(&code)),
+            Wire::Live(_) => super::gateway::phone_confirm(code, cx),
+        }
+    }
+
+    pub fn phone_decline(&mut self, code: String, cx: &App) -> Task<Result<(), String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.phone_decline(&code)),
+            Wire::Live(_) => super::gateway::phone_decline(code, cx),
         }
     }
 

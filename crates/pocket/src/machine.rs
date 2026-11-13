@@ -65,7 +65,7 @@ pub(crate) fn this_mac(gateway: &Gateway) -> Result<store::ThisMac, String> {
     gateway.pairing.store.lock().unwrap().this_mac_or(&fresh).map_err(|why| why.to_string())
 }
 
-fn macs(gateway: &Gateway) -> Result<Vec<Mac>, String> {
+pub(crate) fn macs(gateway: &Gateway) -> Result<Vec<Mac>, String> {
     let mac = this_mac(gateway)?;
     let mut all = vec![Mac {
         colour: MacColour::named(&mac.colour).unwrap_or(MacColour::Blue),
@@ -76,6 +76,7 @@ fn macs(gateway: &Gateway) -> Result<Vec<Mac>, String> {
         build: gateway.way_in.build.clone(),
         link: None,
         last_heard_at: None,
+        code: None,
         why: None,
     }];
     all.extend(crate::mac_pair_routes::others(gateway)?);

@@ -7,7 +7,8 @@ use axum::response::Response;
 use ipc::ManifestId;
 
 use crate::answers::{answer, refused};
-use crate::daemon::PullRequests;
+use crate::daemon::{OtherMacs, PullRequests};
+use crate::mac_acts::across;
 use crate::served::Served;
 
 pub(crate) async fn get_pull_request<D: PullRequests>(
@@ -41,10 +42,14 @@ pub(crate) async fn ready_pull_request<D: PullRequests>(
 
 /// Merge it. 409 with `fleet.merge_checks_not_passed` while the checks run or
 /// have failed, and with the forge's own kind where it refused.
-pub(crate) async fn merge_pull_request_by_number<D: PullRequests>(
+pub(crate) async fn merge_pull_request_by_number<D: PullRequests + OtherMacs>(
     State(served): State<Served<D>>,
     Path((repository, number)): Path<(String, u64)>,
 ) -> Response {
+    // The Job runs on the Mac it was sent to, so the merge goes there and nothing is merged from this one.
+    if let Some((mac, session_id)) = served.daemon().mac_holding_pull(&repository, number).await {
+        return across(&served, mac, ipc::JobAct::Merge { session_id, repository, number }).await;
+    }
     match served
         .shared()
         .merge_pull_request_by_number(ManifestId::carried(repository), number)

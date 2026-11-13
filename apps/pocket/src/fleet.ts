@@ -7,7 +7,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import type { SessionState } from "@armada/components";
 
 import { Refused, call, getJson, refusal, whenUnpaired } from "./client";
-import type { LiveChange, PhoneSession, SessionsBody } from "./gateway";
+import type { LiveChange, OperatorDispatched, PhoneSession, SessionsBody } from "./gateway";
 import { keepMachine, machines, type Machine } from "./machines";
 import { homeWhenBack } from "./router";
 import { rowStateOf } from "./rowState";
@@ -68,6 +68,15 @@ export function onChange(listen: (origin: string, sessionId?: string) => void): 
 }
 const tell = (origin: string, sessionId?: string) =>
   heard.forEach((listen) => listen(origin, sessionId));
+
+/** What a Mac's stream says of the Operator: what became of a dispatch, and that what waits for a sleeping Mac changed. */
+const operatorHeard = new Set<(origin: string, dispatched?: OperatorDispatched) => void>();
+export function onOperator(
+  listen: (origin: string, dispatched?: OperatorDispatched) => void,
+): () => void {
+  operatorHeard.add(listen);
+  return () => operatorHeard.delete(listen);
+}
 
 export async function loadLists(origin: string): Promise<void> {
   const mac = macOf(origin);
@@ -151,6 +160,12 @@ async function stream(origin: string): Promise<void> {
       void loadLists(origin);
       for await (const text of events(response.body, hear)) {
         const change = JSON.parse(text) as LiveChange;
+        if (change.change === "operator" || change.change === "queued") {
+          operatorHeard.forEach((listen) =>
+            listen(origin, change.change === "operator" ? change.dispatched : undefined),
+          );
+          continue;
+        }
         clearTimeout(reload);
         reload = setTimeout(() => void loadLists(origin), change.change === "resync" ? 0 : 250);
         tell(origin, change.change === "resync" ? undefined : change.session_id);

@@ -27,11 +27,11 @@ use crate::job_view::sketch_pad::{rail_frame, rail_group};
 use crate::labels::labelled;
 use crate::look::{token, Look};
 use draw::{lane_chip, lane_head, lane_node};
-use layout::{nearest, pan_to, place, place_chips, place_fitted};
+use layout::{nearest, pan_to, place, place_at, place_chips, place_fitted};
 use paint::PaintPlan;
 use wears::{mark_of_node, mark_of_rule};
 
-pub(crate) use layout::clock;
+pub(crate) use layout::stamp;
 pub(crate) use wears::mix;
 
 /// What a lane's head says when a double press opens the lanes of the Job it stands for.
@@ -237,6 +237,18 @@ pub trait LanesHost: Sized + 'static {
         false
     }
 
+    /// Read only where the canvas is compact: whether it zooms to fit its width. Where it does not, it
+    /// stays at its own size, as tall as its frame, and drag and the wheel move it sideways.
+    fn lanes_fit(&self, _id: &SharedString) -> bool {
+        true
+    }
+
+    /// Read only where the canvas fits: it fits as though its lanes were at least this wide, so canvases drawn
+    /// together, with [`lanes_width`], share one zoom.
+    fn lanes_fit_width(&self, _id: &SharedString) -> f32 {
+        0.
+    }
+
     /// Whether `node` of the canvas under `id` is chosen: it wears a tick, in the accent hue, and says "Chosen".
     fn lanes_chosen(&self, _id: &SharedString, _node: &str) -> bool {
         false
@@ -403,14 +415,22 @@ fn hooks_of(lanes: &JobLanesView, placement: &Placement, chips: &HashMap<String,
     Hooks { picked, gaps }
 }
 
+/// How wide `lanes` stand at their own size with no heads, as a compact canvas draws them.
+pub fn lanes_width(lanes: &JobLanesView) -> f32 {
+    layout::place_at(&lanes.lanes, 0., 0.).width
+}
+
 pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesView, look: &Look, cx: &Context<H>) -> AnyElement {
     let state = host.lanes_state();
     let (frame_w, frame_h) = state.size.get();
     let compact = host.lanes_compact(id);
-    // Compact, the view is worked out from the frame's size each frame, so it follows the frame as it changes.
-    let (placement, fitted) = if compact {
-        let (placement, view) = place_fitted(&lanes.lanes, (frame_w, frame_h));
+    let fit = compact && host.lanes_fit(id);
+    // Fitted, the view is worked out from the frame's size each frame, so it follows the frame as it changes.
+    let (placement, fitted) = if fit {
+        let (placement, view) = place_fitted(&lanes.lanes, (frame_w, frame_h), host.lanes_fit_width(id));
         (placement, Some(view))
+    } else if compact {
+        (place_at(&lanes.lanes, frame_h, 0.), None)
     } else {
         (place(&lanes.lanes, frame_h), None)
     };
@@ -426,7 +446,8 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
         }
         seen.ask = None;
     }
-    let view = fitted.unwrap_or(seen.view);
+    // Compact and not fitted, the canvas keeps its own size and its frame's top: it moves sideways only.
+    let view = fitted.unwrap_or(if compact { View { y: 0., zoom: 1., ..seen.view } } else { seen.view });
     let picked = seen.picked.clone();
     seen.hooks = hooks_of(lanes, &placement, &chips, picked.as_ref(), view);
     let first = lanes.lanes.first().and_then(|lane| lane.nodes.iter().find(|node| !ends.contains(&node.id))).map(|node| node.id.clone());
@@ -509,8 +530,8 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
         .on_mouse_down(MouseButton::Left, cx.listener(move |this, event: &MouseDownEvent, window, cx| {
             window.focus(&this.lanes_state().frame, cx);
             if let Some(seen) = this.lanes_state().seen.borrow_mut().get_mut(&pressed) {
-                // A compact canvas shows all of it and goes nowhere.
-                if !compact {
+                // A fitted canvas shows all of it and goes nowhere.
+                if !fit {
                     seen.drag = Some((event.position, seen.view));
                 }
             }
@@ -531,7 +552,7 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
                 seen.drag = None;
             }
         }))
-        .when(!compact, |pane| pane.on_scroll(cx.listener(move |this, event: &ScrollEvent, window, cx| {
+        .when(!fit, |pane| pane.on_scroll(cx.listener(move |this, event: &ScrollEvent, window, cx| {
             // `panOnScroll`: the wheel moves the canvas, the zoom stays.
             let delta = event.delta.pixel_delta(window.line_height());
             if let Some(seen) = this.lanes_state().seen.borrow_mut().get_mut(&wheel) {
@@ -722,9 +743,23 @@ fn lanes_press<H: LanesHost>(this: &mut H, id: &SharedString, current: String, p
 mod tests {
     use ipc::{LaneAutonomy, LaneEdge, LaneOutcome, LanePending};
 
-    use super::layout::{chip_size, pan_to};
+    use super::layout::{chip_size, meta, pan_to};
     use super::{Rect, View, HEAD, PAD};
     use super::wears::{chip_mark, mark_of_rule};
+
+    #[test]
+    fn a_rule_that_fired_on_an_earlier_day_says_its_day_and_date_on_says_todays() {
+        use chrono::{Duration, Local, SecondsFormat};
+        let at = |when: chrono::DateTime<Local>| ipc::Instant::carried(when.to_rfc3339_opts(SecondsFormat::Secs, false));
+        let fired = |when| meta(&LaneEdge { fired_at: Some(at(when)), ..edge() }).expect("a fired rule says when");
+        let today = Local::now();
+        let earlier = today - Duration::days(2);
+        crate::settings::time::hold(r#"{"hour12":true,"seconds":true,"date":false}"#);
+        assert_eq!(fired(today), today.format("%-I:%M:%S %p").to_string());
+        assert_eq!(fired(earlier), earlier.format("%b %-d %-I:%M:%S %p").to_string());
+        crate::settings::time::hold(r#"{"hour12":false,"seconds":false,"date":true}"#);
+        assert_eq!(fired(today), today.format("%b %-d %H:%M").to_string());
+    }
 
     fn edge() -> LaneEdge {
         LaneEdge {

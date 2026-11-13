@@ -29,6 +29,7 @@ impl Stage {
         crate::terminal::shells::hold_walk(cx);
         // A walk starts with nothing kept; what it forgets here is only in memory, never in the owner's file.
         crate::drafts::forget_all(cx);
+        crate::pairing::begin_mock(walk.scenario, cx);
         match walk.screen {
             Screen::Dispatch => {
                 super::strip_marks::leave(cx);
@@ -49,7 +50,13 @@ impl Stage {
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
                 let keys = list.read(cx).focus_handle().clone();
                 let threads = crate::mock::threads(walk.scenario)?;
+                // A reopen opens the Job that was open, as a restart does; its tabs and place are read by the Job view.
+                let reopened = crate::job_view::reopened_job(cx);
+                let opens = list.clone();
                 let screen = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
+                if let Some(job) = reopened {
+                    opens.update(cx, |list, cx| list.open_job(&job, cx));
+                }
                 let focus = Focus { keys, within: screen.read(cx).within().clone() };
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: screen.into(), focus })
@@ -122,6 +129,9 @@ impl Stage {
                 let over = cx.new(|cx| crate::settings::SettingsScreen::mock(held.into(), window, cx));
                 if walk.name == crate::settings::walk::NO_FUNNEL {
                     over.update(cx, |over, cx| over.without_funnel(cx));
+                }
+                if walk.name == crate::settings::walk::MACS_SETUP {
+                    over.update(cx, |over, cx| over.fresh_mac(cx));
                 }
                 if walk.name == crate::settings::walk::WAYS {
                     over.update(cx, |over, cx| over.refusing("pictures_whole", cx));
@@ -209,7 +219,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
     match step.verb {
         Verb::Look | Verb::Later(_) => Ok(()),
         // The walk window builds the screen again before it reaches here (`WalkWindow::play_to`).
-        Verb::Fresh | Verb::FreshIn(..) => Ok(()),
+        Verb::Fresh | Verb::FreshIn(..) | Verb::Reopen => Ok(()),
         Verb::Width(points) => {
             let height = window.viewport_size().height;
             window.resize(gpui::size(gpui::px(points as f32), height));
@@ -265,6 +275,22 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         Verb::CmdPress => {
             let at = find(step, window, cx)?.bounds.center();
             let modifiers = Modifiers { platform: true, ..Modifiers::default() };
+            window.dispatch_event(PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1, first_mouse: false }), cx);
+            window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1 }), cx);
+            Ok(())
+        }
+        Verb::AltPressOn(role, name) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let at = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| {
+                    let mut named = book.drawn(window.window_handle().window_id()).iter().filter(|drawn| drawn.role == role && drawn.name == name);
+                    let first = named.clone().next();
+                    named.find(|drawn| drawn.shown.size.width > px(0.) && drawn.shown.size.height > px(0.)).or(first).cloned()
+                })
+                .ok_or_else(|| Missed(format!("nothing named \"{name}\" to press")))?;
+            let at = aim(&reveal(at, window, cx));
+            let modifiers = Modifiers { alt: true, ..Modifiers::default() };
             window.dispatch_event(PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1, first_mouse: false }), cx);
             window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1 }), cx);
             Ok(())
@@ -504,6 +530,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Left, at, window, cx);
             Ok(())
         }
+        Verb::Listen(name) => crate::job_view::listen_scene(name, cx).map_err(Missed),
         Verb::Marks(name) => {
             // A scene is a jump: the keys go back to the screen first, so a chip or a card the scene
             // takes away does not leave them on nothing.
@@ -513,6 +540,18 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: corner, pressed_button: None, modifiers: Modifiers::default() }), cx);
             super::strip_marks::apply(name, cx).map_err(Missed)
         }
+        Verb::Pairing(name) => {
+            window.focus(&focus.keys, cx);
+            match name {
+                "removed" => JobsList::mock_gone(&[crate::mock::AIR_REMOVED.to_string()], cx).map_err(Missed),
+                // Forgetting Air takes its Jobs from the list as well.
+                "one-mac" => {
+                    crate::pairing::scene(name, cx).map_err(Missed)?;
+                    JobsList::mock_gone(&crate::mock::AIR_JOBS.map(String::from), cx).map_err(Missed)
+                }
+                other => crate::pairing::scene(other, cx).map_err(Missed),
+            }
+        }
         Verb::PausedScope => {
             let role = role_named("button").expect("a button is a role");
             let at = cx
@@ -521,18 +560,15 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .map(|drawn| drawn.bounds.center())
                 .ok_or_else(|| Missed("no button named \"Active\"".into()))?;
             press(MouseButton::Left, at, window, cx);
-            // The menu is drawn, and holds the keys, before each key is sent, as a person's second press would find it.
+            // The menu is drawn before Paused is pressed, as a person's second press would find it. Paused is
+            // found by name, so the scopes' order can change under the step.
             window.defer(cx, |window, cx| {
                 window.draw(cx).clear(cx);
-                if let Ok(down) = Keystroke::parse("down") {
-                    window.dispatch_keystroke(down, cx);
+                let role = role_named("menuitemcheckbox").expect("a menu item checkbox is a role");
+                let paused = cx.try_global::<LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), role, "Paused")).map(|drawn| drawn.bounds.center());
+                if let Some(at) = paused {
+                    press(MouseButton::Left, at, window, cx);
                 }
-                window.defer(cx, |window, cx| {
-                    window.draw(cx).clear(cx);
-                    if let Ok(enter) = Keystroke::parse("enter") {
-                        window.dispatch_keystroke(enter, cx);
-                    }
-                });
             });
             Ok(())
         }

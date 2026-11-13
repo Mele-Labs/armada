@@ -160,6 +160,11 @@ pub(crate) fn glyph(look: &Look, name: &'static str, size: Size, ink: Hsla) -> g
     svg().path(icon_path(name)).flex_none().size(size.of(look)).text_color(ink)
 }
 
+/// The mark at the head of a fold: right while shut, down while open, as the reasoning row draws it.
+pub(super) fn chevron(look: &Look, open: bool) -> AnyElement {
+    glyph(look, if open { "chevron-down" } else { "chevron-right" }, Size::Small, look.color(token::FG_MUTED)).into_any_element()
+}
+
 pub(crate) fn tip(said: impl Into<SharedString>) -> impl Fn(&mut Window, &mut gpui::App) -> gpui::AnyView {
     let said: SharedString = said.into();
     move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx)
@@ -358,6 +363,12 @@ impl JobView {
         if !self.composer.quick.thread().show_times {
             return gpui::Empty.into_any_element();
         }
+        self.stamp_sized(at, look, now, still, (token::TEXT_XS, token::LEADING_XS), cx)
+    }
+
+    /// A stamp outside the thread, whatever Aa's Show times says, in the size of the line it sits in: a gate's
+    /// closing time in the plan's stretches (`Stamp`).
+    pub(super) fn stamp_sized(&self, at: &ipc::Instant, look: &Look, now: DateTime<Local>, still: bool, (size, leading): (Token, Token), cx: &Context<Self>) -> AnyElement {
         let (on_clock, ago) = (clock(at.as_str(), now), age(at.as_str(), now));
         let (shown, other) = if self.aged { (ago, on_clock) } else { (on_clock, ago) };
         let Some(shown) = shown else {
@@ -367,8 +378,8 @@ impl JobView {
         let base = div()
             .id(SharedString::from(format!("stamp:{}", at.as_str())))
             .flex_none()
-            .text_size(look.length(token::TEXT_XS))
-            .line_height(look.length(token::LEADING_XS))
+            .text_size(look.length(size))
+            .line_height(look.length(leading))
             .text_color(look.color(token::FG_SUBTLE))
             .child(shown);
         if still {
@@ -627,6 +638,7 @@ impl JobView {
             Extra::Subagents => return self.subagents_card(page.items + at, items, page, look, cx),
             Extra::Waiting => return self.waiting_card(&self.shown.clone()?, look, cx),
             Extra::End => return self.end_card(&self.shown.clone()?, look, cx),
+            Extra::Spoken(card, _) => return self.spoken_card(*card, look, cx),
             Extra::MovedTo => {
                 let id = self.shown.clone()?;
                 let moved = self.moved(&id, "forked_to", cx)?;
@@ -1033,7 +1045,7 @@ impl JobView {
                 self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
-            SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title }, text, notice, .. } => {
+            SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title, .. }, text, notice, .. } => {
                 // At a narrow width the id gives way faster than the title, so the title stays. Squeezed to
                 // fewer than a few characters it leaves the band, and comes back once the band has that much
                 // more room than it had then. Both widths are the last frame's.

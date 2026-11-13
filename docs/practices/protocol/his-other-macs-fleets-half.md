@@ -12,7 +12,8 @@ A Job in an unshared project and a Job in none are one case, and nothing of eith
 No thread is kept: it is read through the link each time.
 
 A Job held from another Mac is not one of this Mac's Jobs.
-Every act on it is refused as now, as a Job Fleet does not hold, and what is said of it reaches the event stream only: Fleet's own listeners, such as the calls on the person, never hear it.
+An act on it is sent to the Mac that holds it, as *Acting across Macs* below says, and is never run here.
+What is said of it reaches the event stream only: Fleet's own listeners, such as the calls on the person, never hear it.
 A row or project held from another Mac never goes back out through `/other_mac/*`, so what one Mac shares never reaches a third.
 
 **A project held from another Mac is a copy, and the Mac that holds it is its authority.**
@@ -44,6 +45,10 @@ Bridge's half is `packages/protocol/src/macs.ts`, written by hand, field for fie
 | `project_act_from_mac` | the other Mac's Gateway calls | `POST /other_mac/project_act`, body `ProjectActFromMac { act, at? }`, `act` one of a copy's task acts tagged by `kind`. Run only in a shared project; any other is refused as a row or project that does not exist. Answers `Projects` as `share_projects` |
 | `hold_other_mac_bug_reports` | the Gateway calls | `PUT /other_macs/bug_reports`, body `OtherMacBugReports { mac, reports }`, replacing all held from it, then `bug_reports.changed`. Answers `MacNamed` |
 | `hold_other_mac_event` | the Gateway calls | `POST /other_macs/event`, body `OtherMacEvent { mac, event }`. `session.changed` is kept and published; `session.row`, `session.subagent`, `job_thread.tail` and `job_thread.changed` are published only for a Job held from that Mac, else 404 `fleet.other_mac_job_not_held`; `bug_reports.changed` is kept as the `PUT`; `projects.changed` replaces the copies as the `PUT` does; any other kind is 422 `fleet.other_mac_event_not_kept`. Answers `MacNamed` |
+| `act_from_mac` | the other Mac's Gateway calls | `POST /other_mac/act`, body `MacAct { id, act, at }`, header `x-armada-mac`. See *Acting across Macs* |
+| `list_queued` | Bridge calls | `GET /queued`, optional `?mac=`, answered with `QueuedList { queued }` of `Queued { id, mac, act, since, refused? }`, oldest first |
+| `take_back_queued` | Bridge calls | `POST /queued/take_back`, body `TakeBack { id }`, answered with `QueuedList`; 404 `fleet.queued_not_found`, 409 `fleet.queued_in_flight` |
+| `queued.changed` | Fleet sends | `QueuedList`, whole, to Bridge alone, whenever an act is kept, sent, refused or taken back |
 | `forget_other_mac` | the Gateway calls | `POST /other_macs/forget`, body `MacNamed`: every row, report, project copy and queued edit held from it dropped, `session.removed` for each row, then `bug_reports.changed`. Answers `MacNamed` |
 
 A blank `mac` on any of the five the Gateway hands in is 422 `fleet.other_mac_unnamed`.
@@ -55,3 +60,23 @@ The call is placed by the process holding the connection, never by `x-armada-cal
 
 **A row a replace or a forget drops leaves `list_sessions` at once, and `session.removed` says so.**
 Electron's main process ignores a kind it does not know (`apps/desktop/src/main/arrivals.ts`, the last lines of `applyArrival`), so Electron keeps drawing the row until its next resync.
+
+## Acting across Macs
+
+An act on a Job held from another Mac goes to that Mac: `send_session_message`, `answer_session_ask`, `answer_waiting`, `answer_waiting_parts`, `approve_plan`, `send_plan_changes`, `answer_sketch`, `answer_document`, `stop_session` and `merge_pull_request_by_number` find that no Job of this Mac has the id, and send the act as `MacAct { id, act, at }` to the Mac that holds it.
+**`merge` goes only where no Job of this Mac owns the pull request and a Job held from another Mac does**, and that Job's id rides in the act.
+`/sessions/start` and `/sessions/dispatch` read `mac` beside their own body (`StartOn`, `DispatchOn`): absent runs here as before, a Mac this Fleet holds anything from sends the start there, and any other is 404 `fleet.other_mac_not_linked`.
+The row that comes back is kept as that Mac's, and answered with its `mac`.
+`act` is `{ kind, body }`, `kind` one of `message`, `ask_answer`, `waiting_answer`, `waiting_answer_parts`, `plan_approve`, `plan_changes`, `sketch_answer`, `document_answer`, `stop`, `merge`, `start` and `dispatch`, `body` the body of the route of that name.
+The tool-gate hook is not carried, since no person makes it.
+
+**The holding Mac** runs the act through the handler its own route has, so each status and refusal is the one it gives at home, under the door `mac` (`x-armada-caller: mac`, with the sender in `x-armada-mac`; `Via::Mac`, a person's own press on another of his Macs).
+It first reads the share filter: a Job not in a shared project, one it does not hold and one held from a third Mac are 404 `fleet.no_such_session`, a start into a project not shared, or into one without that repository, 404 `fleet.no_such_project`, and nothing is written, a stored answer included.
+A start that names `fork`, `root` or `after` is 422 `fleet.start_from_mac_reaches`; `on_your_words` is dropped.
+It runs each `(Mac, id)` once: the status and body of the first answer under 500 are kept in `other_mac_acts_run` for a week with the door and the act's kind, and a repeat is answered with them.
+
+**The sending Mac keeps an act it cannot send.** A call that failed, a 401 and a 5xx are not answers; the act is kept in `other_mac_project_acts`, the queue the project edits use, with `kind` `job`, its `id` and `refused`, and answered 202 with the `Queued`.
+A Mac with acts waiting is never sent a newer act ahead of them.
+They are sent oldest first when the Mac next speaks, by the same task as the edits, each under its own `id`.
+An answer drops it, and a 4xx keeps it with the Mac's words in `refused`, no longer sent, and the acts after it go on.
+`take_back_queued` drops one under the Mac's send guard, and is 409 while that Mac's queue is being sent.

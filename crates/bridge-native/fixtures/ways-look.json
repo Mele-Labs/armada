@@ -1,0 +1,180 @@
+{
+ "sessions": [
+  {
+   "id": "mock-01",
+   "harness": "claude_code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Checkout page layout",
+   "state": "live",
+   "started_at": "2026-11-12T08:30:00Z",
+   "last_seen_at": "2026-11-12T09:10:00Z",
+   "last_turn_at": "2026-11-12T09:09:00Z",
+   "usage": {},
+   "standing": "replied",
+   "mark": {
+    "state": "waiting",
+    "lamp": "needs",
+    "group": "needs"
+   },
+   "waiting_for": [
+    {
+     "id": "ask-layout",
+     "text": "Which layout does the checkout page take?",
+     "since": "2026-11-12T09:01:00Z",
+     "source": "agent",
+     "options": [
+      {
+       "label": "Stacked (Recommended)",
+       "description": "Header over a row of cards, footer under.",
+       "picture": {
+        "image": "/sessions/shown?session_id=mock-01&path=%2Ftmp%2Fshown%2Fways-look-stacked.png",
+        "width": 1200,
+        "height": 800,
+        "parts": [
+         {
+          "name": "header",
+          "label": "Header",
+          "x": 0,
+          "y": 0,
+          "w": 1200,
+          "h": 110
+         },
+         {
+          "name": "cards",
+          "label": "Cards",
+          "x": 60,
+          "y": 150,
+          "w": 1080,
+          "h": 430
+         },
+         {
+          "name": "footer",
+          "label": "Footer",
+          "x": 0,
+          "y": 700,
+          "w": 1200,
+          "h": 100
+         }
+        ]
+       }
+      },
+      {
+       "label": "Sidebar",
+       "description": "Steps down the left, the form beside them.",
+       "picture": {
+        "image": "/sessions/shown?session_id=mock-01&path=%2Ftmp%2Fshown%2Fways-look-sidebar.png",
+        "width": 1200,
+        "height": 800,
+        "parts": [
+         {
+          "name": "sidebar",
+          "label": "Sidebar",
+          "x": 0,
+          "y": 0,
+          "w": 280,
+          "h": 800
+         },
+         {
+          "name": "content",
+          "label": "Content",
+          "x": 320,
+          "y": 140,
+          "w": 840,
+          "h": 600
+         }
+        ]
+       }
+      },
+      {
+       "label": "Split",
+       "description": "The list left, its detail right.",
+       "picture": {
+        "image": "/sessions/shown?session_id=mock-01&path=%2Ftmp%2Fshown%2Fways-look-split.png",
+        "width": 1200,
+        "height": 750,
+        "parts": [
+         {
+          "name": "list",
+          "label": "List",
+          "x": 0,
+          "y": 90,
+          "w": 520,
+          "h": 660
+         },
+         {
+          "name": "detail",
+          "label": "Detail",
+          "x": 520,
+          "y": 90,
+          "w": 680,
+          "h": 660
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "id": "sketch:Checkout flow",
+     "text": "Checkout flow",
+     "since": "2026-11-12T09:02:00Z",
+     "source": "sketch",
+     "act": {
+      "kind": "message",
+      "target": "mock-01"
+     }
+    },
+    {
+     "id": "walk:https://example.test/?walk=checkout",
+     "text": "Walk the checkout page",
+     "since": "2026-11-12T09:03:00Z",
+     "source": "walk",
+     "act": {
+      "kind": "walk",
+      "target": "https://example.test/?walk=checkout"
+     }
+    },
+    {
+     "id": "run-1",
+     "text": "Run the checkout checks",
+     "since": "2026-11-12T09:04:00Z",
+     "source": "agent",
+     "act": {
+      "kind": "run",
+      "target": "armada check test checkout"
+     },
+     "steps": [
+      "Open a terminal",
+      "Run the command",
+      "Read the result"
+     ]
+    }
+   ],
+   "attachments": []
+  },
+  {
+   "id": "mock-02",
+   "harness": "claude_code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Docs index",
+   "state": "live",
+   "started_at": "2026-11-12T07:00:00Z",
+   "last_seen_at": "2026-11-12T08:20:00Z",
+   "last_turn_at": "2026-11-12T08:15:00Z",
+   "usage": {},
+   "standing": "idle",
+   "mark": {
+    "state": "replied",
+    "lamp": "idle",
+    "group": "done"
+   },
+   "done_since": "2026-11-12T08:15:00Z",
+   "done_summary": "The docs index lists every page under its section, with a line on what each is for. Pages with no home yet sit under Unfiled.",
+   "attachments": []
+  }
+ ]
+}

@@ -27,6 +27,34 @@ pub static NO_FUNNEL_STEPS: &[Step] = &[
     step("Esc closes Settings, and the keys go back", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-macs-setup`: Macs on a Mac nothing is set up on. One card press runs the setup, and Find my
+/// Mac waits for the other Mac, with a link to pair by instead.
+pub const MACS_SETUP: &str = "native-settings-macs-setup";
+
+pub static MACS_SETUP_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Nothing set up yet: two ways to start", "button", "Macs", "button", "Find my Mac"),
+    press_on("Find my Mac turns the Gateway on and signs in to Cloudflare", "button", "Find my Mac", "button", "Open it again"),
+    step("Once he has signed in, the tunnel is made and it waits", Verb::Later(12000), "status", "Waiting for your other Mac"),
+    press_on("A link pairs them instead", "button", "Pair with a link instead", "button", "Claim"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-settings-macs-phone`: Pair a phone on the Devices card. The link and its QR code, the phone's claim, and
+/// Confirm putting the phone in the list.
+pub const MACS_PHONE: &str = "native-settings-macs-phone";
+
+pub static MACS_PHONE_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: Devices has Pair a Mac and Pair a phone", "button", "Macs", "button", "Pair a phone"),
+    press_on("Pair a phone: a QR code for the camera, and the link", "button", "Pair a phone", "img", "QR code for the pairing link"),
+    step("The link, with Copy link and how long it has left", Verb::Look, "button", "Copy link"),
+    step("The phone opens it and waits on Confirm here", Verb::Later(4500), "button", "Confirm"),
+    press_on("Confirm pairs it, and the panel closes", "button", "Confirm", "button", "Unpair iPhone 15"),
+    step("The phone is in the list, with Unpair", Verb::Wheel("region", "Devices", 600), "button", "Unpair iPhone 15"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-layout-time`: what Layout and Time set, read on the app behind Settings.
 pub const LAYOUT_TIME: &str = "native-layout-time";
 
@@ -116,7 +144,9 @@ pub static TAKE_STEPS: &[Step] = &[
     press_on("Workflows lists every workflow Fleet runs", "button", "Workflows", "group", "Shipped with Armada"),
     step("armada's copy of feature wears the band, with Choose what to take", Verb::PressWithin("group", "armada repository", "feature"), "button", "Choose what to take"),
     press_on("It opens Armada's lanes beside yours, where the canvas was", "button", "Choose what to take", "region", "Choose what to take"),
-    step("Armada's side marks Propose, Walk and Refine, and a row names each", Verb::Look, "group", "Armada's lanes"),
+    step("Stacked: side by side, each lane would draw at 0.39 of its size", Verb::Look, "group", "Armada's lanes"),
+    step("Under both sides, a row names each mark, then Take and Cancel", Verb::Wheel("heading", "Armada's", 700), "button", "Take"),
+    step("Back up: Armada's marks Propose, Walk and Refine", Verb::Wheel("heading", "Armada's", -700), "group", "Armada's lanes"),
     step("A press on the Propose node chooses it: it takes a check", Verb::PressWithin("group", "Armada's lanes", "Step: Propose"), "button", "Step: Propose, chosen"),
     step("The page scrolls down to its row, now ticked, and the buttons", Verb::Wheel("heading", "Armada's", 700), "checkbox", "Propose renamed from Plan"),
     step("Tab, then Space, chooses the next row from the keys", Verb::Keys(&["tab", "space"]), "checkbox", "Walk added after Propose"),

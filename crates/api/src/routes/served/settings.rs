@@ -52,6 +52,17 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/phone",
     },
+    // The one press that sets this Mac up for pairing his other Macs, read before the Gateway runs.
+    Route {
+        operation: "get_mac_setup",
+        method: "GET",
+        path: "/phone/setup",
+    },
+    Route {
+        operation: "set_up_mac",
+        method: "POST",
+        path: "/phone/setup",
+    },
     // Who this machine is signed in as. `get_accounts` is read by whoever draws the
     // title bar menu; the three acts are a person's.
     Route {

@@ -10,7 +10,8 @@ use ipc::{FleetBuildReport, ModelDownshift};
 use super::face::{
     self, connection_of, Band, Build, Connection, Doctor, Dropped, Face, FleetFace, Limit, Link, Outcome, Place, Power, RestartWhy, Restarting, RunsPlace, RunsPlaceKind, Usage,
 };
-use super::{live, TitleBar};
+use super::link_panel::Disk;
+use super::{live, StandIn, TitleBar};
 use crate::runtime_file::{Presence, RuntimeFile};
 
 /// The face a bar opens with while a walk is playing, so a screen drawn fresh starts at rest.
@@ -45,6 +46,13 @@ fn build(json: String, aligned: bool, adopts: &[&str]) -> Build {
 
 fn main_aligned() -> Build {
     build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{RUNNING},{PREVIOUS},"carried":["Native Bridge foundation"]}}"#), true, &[])
+}
+
+/// Main as built a few minutes ago, so its name is a build from today; the build before is from an earlier day.
+fn built_today() -> Build {
+    let built = (chrono::Utc::now() - chrono::Duration::minutes(2)).to_rfc3339();
+    let running = format!(r#""running":{{"built_at":"{built}","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b"}}"#);
+    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{running},{PREVIOUS}}}"#), true, &[])
 }
 
 fn main_behind() -> Build {
@@ -202,6 +210,7 @@ pub fn rest() -> Face {
     Face {
         usage: limits((42, Band::Normal, "2h 14m"), (71, Band::Normal, "2d 17h")),
         build: Some(main_aligned()),
+        offers: None,
         fleet: fleet(connected(), Power::Live),
         repositories,
         chosen: None,
@@ -215,8 +224,10 @@ pub fn rest() -> Face {
     }
 }
 
-/// Start a walk's bar at rest: the face a fresh bar opens with, and the one already open.
+/// Start a walk's bar at rest: the face a fresh bar opens with, and the one already open. The Fleet
+/// panel reads no disk and runs no command while a walk plays.
 pub fn begin(cx: &mut App) {
+    cx.set_global(StandIn::default());
     cx.set_global(Opening(rest()));
     if let Some(bar) = live(cx) {
         bar.update(cx, |bar: &mut TitleBar, cx| {
@@ -229,7 +240,75 @@ pub fn begin(cx: &mut App) {
 /// What a live Fleet scene hands the bar: a link as Fleet's connection holds it, or launchd's answer to a restart.
 enum LiveFleet {
     Link(face::LiveLink),
+    /// A link with what the Fleet panel reads from disk, as the scene says it.
+    Panel(face::LiveLink, StandIn),
     Refused(RestartWhy, &'static str),
+}
+
+const CURRENT: &str = "2026-11-13T004852Z-126b4bb";
+const OLDER: &str = "2026-11-12T211500Z-2f88990";
+
+/// What `scripts/restart` writes: `say`'s lines bold, its own prefixed `restart:`.
+fn said(lines: &[&str]) -> String {
+    lines.iter().map(|line| match line.strip_prefix("restart: ") {
+        Some(_) => format!("{line}\n"),
+        None => format!("\n\x1b[1m{line}\x1b[0m\n"),
+    }).collect()
+}
+
+/// The Fleet panel's scenes: the link, and the disk the panel reads.
+fn fleet_panel(name: &str) -> Option<LiveFleet> {
+    use crate::link::LinkState;
+    let down = |dropped: u64| face::LiveLink {
+        state: LinkState::NotRunning("no runtime file".into()),
+        presence: Some((Presence::Absent, PATH.to_string())),
+        silent_since: None,
+        read_at: Some(ago(dropped)),
+        dropped: Some(ago(dropped)),
+    };
+    let apart = |protocol: &str, build: &str| {
+        let mut held = file(protocol);
+        held.build = Some(build.to_string());
+        face::LiveLink {
+            state: LinkState::ProtocolMismatch { fleet: held.protocol_id.clone(), ours: ipc::ProtocolId::current() },
+            presence: Some((Presence::Running(held), PATH.to_string())),
+            silent_since: None,
+            read_at: Some(ago(1)),
+            dropped: Some(ago(3 * 3600)),
+        }
+    };
+    let kept = |app: &str| Disk { current: Some(CURRENT.into()), app_build: Some(app.into()), ..Disk::default() };
+    let unfinished = said(&[
+        "Done",
+        "Building armada from /Users/user/Development/armada",
+        "Keeping the build in /Users/user/Library/Application Support/Armada/builds/2026-11-13T004852Z-126b4bb",
+        "restart: Booting com.armada.fleet out and back in",
+    ]);
+    let stopped = Disk { restart_log: Some(unfinished), ..kept(CURRENT) };
+    Some(match name {
+        "fleet-panel-stopped" => LiveFleet::Panel(down(6 * 60 + 12), StandIn { disk: stopped, refusal: None }),
+        "fleet-panel-start-refused" => LiveFleet::Panel(
+            down(6 * 60 + 20),
+            StandIn { disk: stopped, refusal: Some("com.armada.fleet is not loaded and there is no job file at /Users/user/Library/Application Support/Armada/com.armada.fleet.plist".into()) },
+        ),
+        "fleet-panel-restarting" => {
+            let run = said(&[
+                "Done",
+                "Fleet is running (pid 14991, port 40000) — checking for a working Drone",
+                "No Drone is working",
+                "Building armada from /Users/user/Development/armada",
+                "Installing armada from /Users/user/Development/armada",
+                "Keeping the build in /Users/user/Library/Application Support/Armada/builds/2026-11-13T004852Z-126b4bb",
+                "Snapshot of the database: /Users/user/Library/Application Support/Armada/backups/armada-20261113T004910Z.db",
+                "Booting gui/501/com.armada.fleet out and back in from /Users/user/Library/Application Support/Armada/com.armada.fleet.plist",
+            ]);
+            let lock = chrono::Local::now() - chrono::Duration::seconds(48);
+            LiveFleet::Panel(down(40), StandIn { disk: Disk { restart: Some(lock), restart_log: Some(run), ..kept(CURRENT) }, refusal: None })
+        }
+        "fleet-panel-fleet-older" => LiveFleet::Panel(apart("af0a982d5c7e1b40", OLDER), StandIn { disk: kept(CURRENT), refusal: None }),
+        "fleet-panel-app-older" => LiveFleet::Panel(apart("65dde88c0b1f4a27", CURRENT), StandIn { disk: kept(OLDER), refusal: None }),
+        _ => return None,
+    })
 }
 
 /// An instant `seconds` before now.
@@ -273,9 +352,9 @@ fn fleet_live(name: &str) -> Option<LiveFleet> {
 
 /// Move the bar to a named scene. A scene changes the part of the face it is about and leaves the rest.
 pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
-    if let Some(scene) = fleet_live(name) {
+    if let Some(scene) = fleet_live(name).or_else(|| fleet_panel(name)) {
         // A clash Fleet cannot vouch for is not drawn: the marks go with the connection, as the live list clears them.
-        let down = matches!(&scene, LiveFleet::Link(link) if link.state != crate::link::LinkState::Connected);
+        let down = matches!(&scene, LiveFleet::Link(link) | LiveFleet::Panel(link, _) if link.state != crate::link::LinkState::Connected);
         if down {
             crate::clash_mark::hold(crate::clash_mark::scenes::none(), cx);
         }
@@ -286,6 +365,15 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
                 bar.opened = ago(60);
                 // Nothing live reads Doctor yet, so the live bar draws no line for it.
                 bar.face.fleet.doctor = None;
+                // The disk holds nothing of a restart or a build: a panel scene before it is gone.
+                bar.stand_in(StandIn::default(), cx);
+                bar.set_fleet(&link, cx)
+            }
+            LiveFleet::Panel(link, stand_in) => {
+                // Open well before the drop, so the panel's since is the drop's.
+                bar.opened = ago(4 * 3600);
+                bar.face.fleet.doctor = None;
+                bar.stand_in(stand_in, cx);
                 bar.set_fleet(&link, cx)
             }
             LiveFleet::Refused(why, detail) => bar.restart_failed(why, detail.into(), cx),
@@ -339,6 +427,7 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-restarting" => |face| face.build = Some(restarting("building_fleet")),
         "build-picked" => |face| face.build = Some(picked_and_ready()),
         "build-trying" => |face| face.build = Some(trying()),
+        "build-stamps" => |face| face.build = Some(built_today()),
         "build-drones" => |face| face.build = Some(drones()),
         "build-failed" => |face| face.build = Some(failed()),
         "build-reverting" => |face| face.build = Some(reverting()),
@@ -371,10 +460,18 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-live-refused" => |face| face.build = build_live("build-live-refused"),
         "build-live-carried" => |face| face.build = build_live("build-live-carried"),
         "build-live-trying" => |face| face.build = build_live("build-live-trying"),
+        // Fleet's offers for the preview on a main level with its own: the Refresh row, then Fleet's answer to a skip.
+        "preview-offers" => |face| {
+            face.build = build_live("build-live-main");
+            face.offers = Some(crate::mock::preview_offers(false));
+        },
+        "preview-offers-skipped" => |face| face.offers = Some(crate::mock::preview_offers(true)),
         other => return Err(format!("no scene named {other}")),
     };
     let bar = live(cx).ok_or("no title bar is drawn yet")?;
     bar.update(cx, |bar: &mut TitleBar, cx| {
+        // A face's Fleet is past launchd's relaunch, as the dot's colour says it is.
+        bar.opened = ago(60);
         change(&mut bar.face);
         bar.faced(cx);
     });

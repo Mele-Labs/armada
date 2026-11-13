@@ -5,6 +5,9 @@
 //! each difference, and takes the rows chosen back as [`Event::Take`]. Choosing what to take from Armada is the first
 //! use; the clash between projects is the next.
 
+use std::cell::Cell;
+use std::rc::Rc;
+
 use ipc::{JobLanesView, LaneKind, LaneNodeKind};
 
 use gpui::{div, prelude::*, px, AnyElement, Context, Entity, EventEmitter, FocusHandle, FontWeight, Hsla, Keystroke, Role, SharedString, Subscription, Window};
@@ -15,7 +18,7 @@ use super::armada::{Difference, Kind};
 const ARMADA_CHANGED: &str = "Armada changed";
 use super::patch::{node_id, step_node};
 use crate::labels::labelled;
-use crate::lanes_canvas::{lanes_canvas, LanesHost, LanesState, Pick, LANE_MIN};
+use crate::lanes_canvas::{lanes_canvas, lanes_width, LanesHost, LanesState, Pick, LANE_MIN};
 use crate::look::{token, ActiveLook, Look};
 use crate::settings::change_band::filled;
 use crate::settings::definition::steps_of;
@@ -78,6 +81,8 @@ pub struct Sides {
     pub left: Party,
     pub right: Party,
     pub rows: Vec<Spec>,
+    /// The page the view scrolls in, so it is brought into view whole when it opens.
+    pub page: Option<gpui::ScrollHandle>,
 }
 
 /// What the view tells its host: the rows chosen, by their place in `Sides.rows`, or that he let it go.
@@ -99,6 +104,8 @@ struct Canvas {
     lanes: JobLanesView,
     /// The nodes a chosen row is about.
     chosen: Vec<String>,
+    /// The width both sides fit to and the zoom that comes to, shared with the other side's canvas.
+    fit: Rc<Cell<(f32, f32)>>,
 }
 
 impl EventEmitter<Pressed> for Canvas {}
@@ -115,6 +122,12 @@ impl LanesHost for Canvas {
     /// Two canvases stand side by side, so each is drawn whole in the width it has.
     fn lanes_compact(&self, _id: &SharedString) -> bool {
         true
+    }
+
+
+    /// Both sides fit to the wider lane, so the same step is the same size on each.
+    fn lanes_fit_width(&self, _id: &SharedString) -> f32 {
+        self.fit.get().0
     }
 
     fn lanes_chosen(&self, _id: &SharedString, node: &str) -> bool {
@@ -138,8 +151,9 @@ impl LanesHost for Canvas {
 impl gpui::Render for Canvas {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
-        // One lane and room above and below its steps.
-        let tall = px(LANE_MIN) + look.length(token::SPACE_8);
+        // As tall as its lanes at the zoom both sides share, and room over the steps for the lane's name.
+        let zoom = self.fit.get().1;
+        let tall = px(LANE_MIN * self.lanes.lanes.len().max(1) as f32 * zoom) + look.length(token::SPACE_8);
         div().flex().flex_col().h(tall).min_w_0().child(lanes_canvas(self, &self.id, &self.lanes, &look, cx))
     }
 }
@@ -168,6 +182,11 @@ pub struct Side {
     cancel_focus: FocusHandle,
     /// The view has just opened: the keys go to its first row when it is next drawn.
     focus_first: bool,
+    /// The page it scrolls in, and whether it is still to be brought into view.
+    page: Option<gpui::ScrollHandle>,
+    reveal: std::rc::Rc<std::cell::Cell<bool>>,
+    /// The width both canvases fit to, and their zoom, worked out from the width the sides stand in.
+    fit: Rc<Cell<(f32, f32)>>,
     _subs: Vec<Subscription>,
 }
 
@@ -180,7 +199,9 @@ enum Which {
 
 impl Side {
     pub fn new(sides: Sides, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let canvas = |id: &'static str, lanes: &JobLanesView, cx: &mut Context<Self>| cx.new(|cx| Canvas { id: id.into(), state: LanesState::new(cx), lanes: lanes.clone(), chosen: Vec::new() });
+        let wide = lanes_width(&sides.left.lanes).max(lanes_width(&sides.right.lanes));
+        let fit = Rc::new(Cell::new((wide, 1.)));
+        let canvas = |id: &'static str, lanes: &JobLanesView, cx: &mut Context<Self>| cx.new(|cx| Canvas { id: id.into(), state: LanesState::new(cx), lanes: lanes.clone(), chosen: Vec::new(), fit: fit.clone() });
         let (left, right) = (canvas("take-left", &sides.left.lanes, cx), canvas("take-right", &sides.right.lanes, cx));
         let subs = vec![
             cx.subscribe_in(&left, window, |this, _, pressed: &Pressed, window, cx| this.pressed(Which::Left, &pressed.0, window, cx)),
@@ -197,6 +218,9 @@ impl Side {
             take_focus: stop(cx),
             cancel_focus: stop(cx),
             focus_first: true,
+            page: sides.page,
+            reveal: std::rc::Rc::new(std::cell::Cell::new(true)),
+            fit,
             _subs: subs,
         };
         side.marks(cx);
@@ -374,12 +398,14 @@ impl gpui::Render for Side {
         if std::mem::take(&mut self.focus_first) {
             window.focus(self.rows.first().map_or(&self.cancel_focus, |row| &row.focus), cx);
         }
-        // Where the page is wide enough for two columns they stand side by side; below that, one above the other.
-        let wide = window.viewport_size().width >= look.length(token::LAYOUT_BREAKPOINT);
-        let sides = if wide { div().flex().flex_row() } else { div().flex().flex_col() };
-        let sides = sides
+        // One above the other at every width: side by side, each lane would draw at about 0.39 of its size.
+        let sides = div()
+            .flex()
+            .flex_col()
             .gap(look.length(token::SPACE_3))
             .min_w_0()
+            .relative()
+            .child(zoom_of(self.fit.clone(), look.length(token::BORDER_WIDTH) * 2.))
             .child(self.seat(&self.left, look.color(token::ACCENT_MUTED), look.color(token::ACCENT), &look))
             .child(self.seat(&self.right, look.color(token::YOU).opacity(0.14), look.color(token::YOU_EDGE), &look));
         let list = labelled(div().id("take-list").flex().flex_col().gap(look.length(token::SPACE_1)).min_w_0().children(self.render_rows(&look, window, cx)), Role::List, SharedString::from(format!("From {}", self.left.label)));
@@ -389,7 +415,8 @@ impl gpui::Render for Side {
             .when(!off, |button| button.on_click(cx.listener(|this, _, _, cx| this.take(cx))));
         let cancel = ringed(&look, ghost(&look, "take-cancel", "Cancel", false), &self.cancel_focus, window).track_focus(&self.cancel_focus).on_click(cx.listener(|_, _, _, cx| cx.emit(Event::Cancel)));
         let acts = div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(take, Role::Button, self.take)).child(labelled(cancel, Role::Button, "Cancel"));
-        labelled(div().id("workflow-take").flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(sides).child(list).child(acts), Role::Region, self.title)
+        let region = div().id("workflow-take").relative().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(sides).child(list).child(acts);
+        labelled(region.children(self.page.clone().map(|page| reveal(page, self.reveal.clone()))), Role::Region, self.title)
     }
 }
 
@@ -467,4 +494,56 @@ pub fn armada_rows(differences: &[Difference], armada: &str) -> Vec<Spec> {
             Spec { mark, said, left: node.clone().filter(|_| !removed), right: node.filter(|_| removed) }
         })
         .collect()
+}
+
+/// Measures the width the sides stand in and sets the zoom both canvases share: the wider lane fits it, and never past
+/// its own size. A change draws the window again, so the frames take their height from it.
+fn zoom_of(fit: Rc<Cell<(f32, f32)>>, edge: gpui::Pixels) -> impl IntoElement {
+    gpui::canvas(
+        move |at: gpui::Bounds<gpui::Pixels>, window, _| {
+            let (wide, was) = fit.get();
+            let room = f32::from(at.size.width - edge);
+            if room <= 0. || wide <= 0. {
+                return;
+            }
+            let zoom = (room / wide).min(1.);
+            if (zoom - was).abs() > 0.005 {
+                fit.set((wide, zoom));
+                window.refresh();
+            }
+        },
+        |_, _, _, _| {},
+    )
+    .absolute()
+    .size_full()
+}
+
+/// Measures the view where it is drawn and, the first time, scrolls the page the least that shows it whole, or its top
+/// where it is taller than the page (the change band's `reveal`).
+fn reveal(page: gpui::ScrollHandle, once: std::rc::Rc<std::cell::Cell<bool>>) -> impl IntoElement {
+    gpui::canvas(
+        move |at: gpui::Bounds<gpui::Pixels>, window, _| {
+            if !once.replace(false) {
+                return;
+            }
+            let view = page.bounds();
+            let mut by = gpui::Pixels::ZERO;
+            if at.bottom() > view.bottom() {
+                by = at.bottom() - view.bottom();
+            }
+            if at.top() - by < view.top() {
+                by = at.top() - view.top();
+            }
+            if by == gpui::Pixels::ZERO {
+                return;
+            }
+            let offset = page.offset();
+            let y = (offset.y - by).max(-page.max_offset().y).min(gpui::Pixels::ZERO);
+            page.set_offset(gpui::point(offset.x, y));
+            window.refresh();
+        },
+        |_, _, _, _| {},
+    )
+    .absolute()
+    .size_full()
 }

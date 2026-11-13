@@ -56,6 +56,21 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/other_mac/project_act",
     },
     Route {
+        operation: "act_from_mac",
+        method: "POST",
+        path: "/other_mac/act",
+    },
+    Route {
+        operation: "list_queued",
+        method: "GET",
+        path: "/queued",
+    },
+    Route {
+        operation: "take_back_queued",
+        method: "POST",
+        path: "/queued/take_back",
+    },
+    Route {
         operation: "forget_other_mac",
         method: "POST",
         path: "/other_macs/forget",

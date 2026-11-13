@@ -75,6 +75,7 @@ fn state_read(read: &StateRead) -> ipc::StateReadFrom {
         StateRead::Forge(fact) => ipc::StateReadFrom::Forge { fact: fact.as_wire().to_string() },
         StateRead::Watch(state) => ipc::StateReadFrom::Watch { state: state.as_wire().to_string() },
         StateRead::Fleet(fact) => ipc::StateReadFrom::Fleet { fact: fact.as_wire() },
+        StateRead::Own => ipc::StateReadFrom::Own,
     }
 }
 
