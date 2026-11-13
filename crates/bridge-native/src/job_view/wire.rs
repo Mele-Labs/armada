@@ -128,4 +128,13 @@ mod tests {
         assert_eq!(encoded("a query/with slashes"), "a%20query%2Fwith%20slashes");
         assert_eq!(encoded("sess-comp_1.rs"), "sess-comp_1.rs");
     }
+
+    #[test]
+    fn a_lead_picture_reads_as_the_ipc_type_and_anything_else_is_none() {
+        let read = |bytes: &[u8]| ipc::decode::<ipc::LeadPicture>("LeadPicture", bytes).ok();
+        assert_eq!(read(br#"{"kind":"sketch","title":"Flow"}"#), Some(ipc::LeadPicture::Sketch { title: "Flow".into() }));
+        assert_eq!(read(br#"{"kind":"image","path":"/repo/shot.png"}"#), Some(ipc::LeadPicture::Image { path: "/repo/shot.png".into() }));
+        assert_eq!(read(br#"{"kind":"video","path":"/repo/a.mov"}"#), None);
+        assert_eq!(read(b"not json"), None);
+    }
 }
