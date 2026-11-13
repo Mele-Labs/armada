@@ -122,12 +122,12 @@ fn fit_of(step: &ResolvedStep) -> Option<Fit> {
     }
 }
 
-/// The workflow's steps as the rail reads them.
 /// The ids of `steps`, which the store keeps a rail by: a step's index moves when the workflow is saved, its id does not.
 pub(crate) fn step_ids(steps: &[RailStep]) -> Vec<String> {
     steps.iter().map(|step| step.id.clone()).collect()
 }
 
+/// The workflow's steps as the rail reads them.
 pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
     workflow
         .steps()
