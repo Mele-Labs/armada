@@ -166,24 +166,32 @@ async fn publishing_a_repository_draft_pins_a_live_job_that_follows_it_and_the_j
     assert!(!held.own, "a pin is not a change the Job made");
 }
 
-/// **A publish that changes nothing a repository runs pins nothing**: a Kit copy published under a repository copy that still wins.
+/// **A publish that changes nothing a repository runs pins nothing**: Kit's copy beats the repository's, so a repository copy published under
+/// it changes nothing the Job reads.
 #[tokio::test]
 async fn a_publish_that_does_not_change_what_the_repository_runs_pins_nothing() {
     let rig = migrating();
+    let under_kit = |repository: &str| {
+        let mut written = vec![config::Written::in_repository(at("repo", "staged.json"), repository.to_string())];
+        written.push(config::Written::in_kit(at("kit", "staged.json"), with_triage()));
+        read(written)
+    };
+    rig.planted.will_read(under_kit(STAGED));
+    rig.rig.fleet.workflows_changed(&rig.rig.root);
     let id = rig.job().await;
-    rig.put("kit", &with_triage()).await;
-    rig.planted.will_save(Ok(SavedWorkflow { id: carried_id("staged"), file: "/kit/workflows/staged.json".into(), replaced: false }));
-    rig.planted.will_read(read(staged_in_repository()));
-    let mut both = staged_in_repository();
-    both.push(config::Written::in_kit(at("kit", "staged.json"), with_triage()));
-    rig.planted.will_read_next(read(both));
+    assert_eq!(rig.steps_read_by(&id).await[0], "triage", "Kit's copy is the one it runs");
 
-    let publish = PublishWorkflowDraft { workflow_id: staged(), source: "kit".into(), ..Default::default() };
+    let changed = format!("{STAGED}\n# a second thought");
+    rig.put("repository", &changed).await;
+    rig.planted.will_save(Ok(SavedWorkflow { id: carried_id("staged"), file: "/repo/.armada/workflows/staged.json".into(), replaced: true }));
+    rig.planted.will_read(under_kit(STAGED));
+    rig.planted.will_read_next(under_kit(&changed));
+    let publish = PublishWorkflowDraft { workflow_id: staged(), source: "repository".into(), ..Default::default() };
     let published = rig.rig.fleet.publish_workflow_draft(publish, None).await.expect("published");
 
-    assert!(published.pinned.is_empty(), "the repository's own copy still wins, so nothing moved for the Job");
+    assert!(published.pinned.is_empty(), "Kit's copy still wins, so nothing moved for the Job");
     assert!(rig.own_copy(&id).await.is_none(), "and the pin made before the save was given back");
-    assert_eq!(rig.steps_read_by(&id).await, OLD);
+    assert_eq!(rig.steps_read_by(&id).await[0], "triage");
 }
 
 /// **A Job with edits of its own is not pinned**, and is listed `edited` so he sees it.
@@ -241,7 +249,7 @@ async fn migrating_a_pinned_job_moves_it_to_the_new_steps_on_the_same_step_and_t
     assert_eq!(record(&rig.rig, &id).await.workflow_step, Some(1), "Propose is the second step now, and the Job is on it");
     eventually(|| async { rig.told(&id) == 1 }).await;
     let line = rig.rig.stand_in.process_of(id.as_str()).unwrap().sent.lock().unwrap().iter().find(|line| line.contains(MOVED)).cloned().unwrap();
-    assert!(line.contains("it is on the \"Propose\" step."), "{line}");
+    assert!(line.replace("\\\"", "\"").contains("it is on the \"Propose\" step."), "{line}");
     assert_eq!(rig.timeline_says().await, ["workflow: moved to the newest staged"]);
 
     let again = rig.migrate(&[&id]).await;
@@ -268,7 +276,7 @@ async fn migrating_a_job_whose_step_the_new_version_dropped_puts_it_on_the_next_
     assert_eq!(row.workflow_visits.iter().map(|visit| visit.step).collect::<Vec<_>>(), [0], "and the visit kept is to it, the dropped step's gone");
     eventually(|| async { rig.told(&id) == 1 }).await;
     let said = rig.rig.stand_in.process_of(id.as_str()).unwrap().sent.lock().unwrap().iter().find(|line| line.contains(MOVED)).cloned().unwrap();
-    assert!(said.contains("\"Plan\" step"), "{said}");
+    assert!(said.replace("\\\"", "\"").contains("\"Plan\" step"), "{said}");
 }
 
 /// The landing rule, where a dropped step has nothing after it that survives.
