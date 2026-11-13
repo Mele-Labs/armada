@@ -40,36 +40,35 @@ fn running_file() -> RuntimeFile {
 const RUNNING: &str = r#""running":{"built_at":"2026-11-05T17:05:00Z","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b"}"#;
 const PREVIOUS: &str = r#""previous":{"built_at":"2026-11-04T09:30:00Z","commit":"4be1c07a52d9e8f6a3b2c1d0e9f8a7b6c5d4e3f2","bridge_reopens":true,"takes_out":["Quiet the write-clash notices"],"brings_back":["Checkout page loads twice"]}"#;
 
-fn build(json: String, aligned: bool, adopts: &[&str]) -> Build {
-    Build { report: report(&json), aligned, adopts: adopts.iter().map(|one| one.to_string()).collect() }
+fn build(json: String, aligned: bool) -> Build {
+    Build { report: report(&json), aligned }
 }
 
 fn main_aligned() -> Build {
-    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{RUNNING},{PREVIOUS},"carried":["Native Bridge foundation"]}}"#), true, &[])
+    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{RUNNING},{PREVIOUS},"carried":["Native Bridge foundation"]}}"#), true)
 }
 
 /// Main as built a few minutes ago, so its name is a build from today; the build before is from an earlier day.
 fn built_today() -> Build {
     let built = (chrono::Utc::now() - chrono::Duration::minutes(2)).to_rfc3339();
     let running = format!(r#""running":{{"built_at":"{built}","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b"}}"#);
-    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{running},{PREVIOUS}}}"#), true, &[])
+    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{running},{PREVIOUS}}}"#), true)
 }
 
 fn main_behind() -> Build {
-    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":3}},{RUNNING},{PREVIOUS}}}"#), false, &[])
+    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":3}},{RUNNING},{PREVIOUS}}}"#), false)
 }
 
 const LEFT_OUT: &str = r#""left_out":[{"branch":"armada/session-2c7f91d0","why":"merge conflict in crates/fleet/src/building.rs","moved":true},{"branch":"armada/fix-slot-pool","why":"does not merge with armada/session-4f03266c"}]"#;
 
 fn preview() -> Build {
-    build(format!(r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},{LEFT_OUT}}}"#), false, &[])
+    build(format!(r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},{LEFT_OUT}}}"#), false)
 }
 
 fn restarting(stage: &str) -> Build {
     build(
         format!(r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},"restarting":"preview","stage":"{stage}",{RUNNING},{PREVIOUS}}}"#),
         false,
-        &[],
     )
 }
 
@@ -79,7 +78,6 @@ fn picked_and_ready() -> Build {
             r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},"picked":[{{"branch":"armada/session-4f03266c","title":"Native title bar"}},{{"branch":"armada/fix-merge-line","title":"Fix the merge line freshness chip"}}],"snapshot":{{"state":"ready","built_at":"2026-11-09T08:40:00Z","commit":"1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d","jobs":["Native title bar","Fix the merge line freshness chip"],"bridge_reopens":true}}}}"#
         ),
         false,
-        &[],
     )
 }
 
@@ -89,17 +87,9 @@ fn trying() -> Build {
             r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},"trying":["Quiet the write-clash notices","Fix the merge line freshness chip"]}}"#
         ),
         false,
-        &[],
     )
 }
 
-fn drones() -> Build {
-    build(
-        format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":3}},{RUNNING},{PREVIOUS}}}"#),
-        false,
-        &["Native Bridge foundation", "Audit the docs index"],
-    )
-}
 
 fn failed() -> Build {
     build(
@@ -107,7 +97,6 @@ fn failed() -> Build {
             r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},"failed":"scripts/preview stopped: cargo build failed in crates/fleet",{RUNNING},{PREVIOUS}}}"#
         ),
         false,
-        &[],
     )
 }
 
@@ -115,7 +104,6 @@ fn reverting() -> Build {
     build(
         format!(r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},"reverting":true}}"#),
         false,
-        &[],
     )
 }
 
@@ -123,7 +111,6 @@ fn swapping() -> Build {
     build(
         format!(r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},"swapping":true}}"#),
         false,
-        &[],
     )
 }
 
@@ -133,7 +120,6 @@ fn swapped_back() -> Build {
             r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{RUNNING},{PREVIOUS},"failed":"Swapped back, since the new Fleet did not answer: No new Fleet answered in 90 s"}}"#
         ),
         true,
-        &[],
     )
 }
 
@@ -436,7 +422,6 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-picked" => |face| face.build = Some(picked_and_ready()),
         "build-trying" => |face| face.build = Some(trying()),
         "build-stamps" => |face| face.build = Some(built_today()),
-        "build-drones" => |face| face.build = Some(drones()),
         "build-failed" => |face| face.build = Some(failed()),
         "build-reverting" => |face| face.build = Some(reverting()),
         "build-swapping" => |face| face.build = Some(swapping()),

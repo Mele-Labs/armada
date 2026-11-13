@@ -438,7 +438,9 @@ where
             record.stopped = stop.map(|stop| crate::session_host::stopping::stopped(stop, &record, &reads.stop, reads.repair_over, repair_due));
         }
         let owed = stop.filter(|_| read == Some(crate::session_host::stopping::Read::Owed)).map(|stop| {
-            let from = [Some(stop), spoke.as_deref()].into_iter().flatten().filter_map(|at| core_model::Timestamp::from_rfc3339(at).epoch_millis()).max();
+            // Work ending wakes the agent a moment after its row says so: the minute counts from there too.
+            let woken = crate::session_host::stopping::woken_work_ended(&reads.held);
+            let from = [Some(stop), spoke.as_deref()].into_iter().flatten().filter_map(|at| core_model::Timestamp::from_rfc3339(at).epoch_millis()).chain(woken).max();
             (stop, from.unwrap_or(0))
         });
         self.hosts().stops_owed().noted(&session.id, owed);

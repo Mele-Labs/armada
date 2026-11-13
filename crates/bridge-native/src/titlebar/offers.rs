@@ -218,7 +218,7 @@ impl TitleBar {
         )
     }
 
-    /// Refresh preview: the switcher's own preview switch, asking first where Jobs would be adopted.
+    /// Refresh preview: the switcher's own preview switch.
     fn refresh_offers_pressed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.change_build(ipc::BuildSource::Preview, window, cx);
     }

@@ -216,6 +216,8 @@ mod request_runs;
 mod judge;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
+/// A pull request's change sets, its overview, and its sets held to the repository's practices.
+mod review_change_sets;
 /// Natural Search, and where a change runs for the Walk tool.
 mod review_walks;
 /// The owner's notes on a pull request's lines, and a Job resolving one.
@@ -649,6 +651,10 @@ pub use review_runs::{
     ReviewToolScope, ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
     COMMENT_AT_MOST, COMMENT_SENTENCES_AT_MOST,
 };
+pub use review_change_sets::{
+    ChangeSet, ChangeSetKind, HunkRef, OverviewFinding, OverviewSeverity, PracticeCheck, PracticeItem, PracticeSource,
+    PracticeVerdict,
+};
 pub use pull_request_notes::{
     NoteSide, NoteStatus, PullRequestNote, PullRequestNotes, ResolvePullRequestNote, SavePullRequestNote,
     SendPullRequestNotes,
@@ -711,7 +717,10 @@ pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
 };
-pub use artifact::{ArtifactArchived, ArtifactBy, ArtifactForm, ArtifactRef, ArtifactRevision, ArtifactState, JobArtifact, ARTIFACT_WITHDRAWN_BY};
+pub use artifact::{
+    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactState, ForLink, JobArtifact,
+    ARTIFACT_FOR, ARTIFACT_WITHDRAWN_BY, MOST_FOR_CHARS, MOST_FOR_LINKS,
+};
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
