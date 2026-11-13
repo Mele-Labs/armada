@@ -847,8 +847,29 @@ impl JobsList {
     }
 
     fn hold_new(&mut self, id: String, title: String, repository: &str, mark: Option<ipc::JobMark>, cx: &mut Context<Self>) {
+        if let Some(id) = self.stand_new(id, title, repository, mark, cx) {
+            self.open(id, cx);
+        }
+    }
+
+    /// A walk's stand-in for the Operator starting the Job a dispatch became: it stands in its repository's group,
+    /// working, and does not open. Its id and its title.
+    pub fn operator_started(&mut self, words: &str, repository: &str, cx: &mut Context<Self>) -> Option<(String, String)> {
+        let title = words.lines().find(|line| !line.trim().is_empty()).map_or("", str::trim).to_string();
+        let mark = ipc::JobMark { state: ipc::JobState::Working, lamp: ipc::JobLamp::Running, group: ipc::JobGroup::Working };
+        let id = self.stand_new("started-by-operator".to_string(), title.clone(), repository, Some(mark), cx)?;
+        Some((id.to_string(), title))
+    }
+
+    /// The title of a Job the list holds.
+    pub fn title_of(&self, id: &str) -> Option<String> {
+        self.record(id).and_then(|job| job.title.clone())
+    }
+
+    /// A Job stands in the list in its repository's group, as a start's record would, and is not opened.
+    fn stand_new(&mut self, id: String, title: String, repository: &str, mark: Option<ipc::JobMark>, cx: &mut Context<Self>) -> Option<SharedString> {
         let like = self.jobs.iter().find(|job| project_of(job) == repository).or_else(|| self.jobs.first());
-        let Some(mut record) = like.cloned() else { return };
+        let mut record = like.cloned()?;
         record.id = ipc::SessionId::carried(id);
         record.title = Some(title);
         record.state = SessionState::Live;
@@ -862,7 +883,7 @@ impl JobsList {
         self.made.push(id.to_string());
         self.jobs.insert(0, record);
         self.relist(cx);
-        self.open(id, cx);
+        Some(id)
     }
 
     /// Whether a walk's stand-in for Fleet started this Job.

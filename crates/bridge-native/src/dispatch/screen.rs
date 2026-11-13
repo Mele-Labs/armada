@@ -908,6 +908,36 @@ impl DispatchScreen {
                 let list = self.jobs.read(cx).list.clone();
                 list.update(cx, |list, cx| list.hold_started_words(&words, &repository, held, cx));
             }
+            "answer-operator-started" | "answer-operator-handed" | "answer-operator-parked" => {
+                // Fleet's answer to a Start with the Operator on is `operator`, and the sheet goes with him where he was.
+                // What the Operator did then arrives as `operator.dispatched`, which is said as a toast.
+                let (words, repository) = self.sheet.read(cx).started(cx).ok_or("the sheet holds no start to answer")?;
+                self.sheet.update(cx, |sheet, cx| sheet.answered(window, cx));
+                let list = self.jobs.read(cx).list.clone();
+                let (way, job) = match name {
+                    "answer-operator-started" => {
+                        let made = list.update(cx, |list, cx| list.operator_started(&words, &repository, cx));
+                        (ipc::operator_board::DispatchWay::Started, made.ok_or("the list holds no Job to stand the new one beside")?)
+                    }
+                    "answer-operator-handed" => {
+                        let live = "started-by-operator".to_string();
+                        let title = list.read(cx).title_of(&live).ok_or("no Job was started for the work to be handed to")?;
+                        (ipc::operator_board::DispatchWay::Handed, (live, title))
+                    }
+                    _ => (ipc::operator_board::DispatchWay::Parked, (String::new(), words.lines().next().unwrap_or_default().to_string())),
+                };
+                let kept = way == ipc::operator_board::DispatchWay::Parked;
+                crate::toasts::dispatched(
+                    ipc::operator_board::OperatorDispatched {
+                        dispatch_id: if kept { "idea:walk".into() } else { "start:dispatch:walk".into() },
+                        manifest_id: repository,
+                        way,
+                        session_id: (!kept).then(|| SessionId::carried(job.0)),
+                        title: Some(job.1),
+                    },
+                    cx,
+                );
+            }
             "queued-started" => {
                 // Fleet's yes to the first queued idea's start: it leaves the queue and its Job opens.
                 let idea = crate::queued::ideas(cx).into_iter().next().ok_or("no idea is queued")?;

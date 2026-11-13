@@ -117,12 +117,7 @@ fn about(words: &str) -> String {
 /// page. He stays where he was until he presses.
 pub fn dispatched(news: OperatorDispatched, cx: &mut App) {
     let held = cx.try_global::<Holding>().and_then(|kept| kept.0.iter().find(|(id, _)| *id == news.dispatch_id).map(|(_, words)| about(words)));
-    let sentence = match news.way {
-        DispatchWay::Started => format!("Operator started {}", news.title.as_deref().unwrap_or("a Job")),
-        DispatchWay::Handed => format!("Operator handed it to {}", news.title.as_deref().unwrap_or("a live Job")),
-        DispatchWay::Asked => format!("Operator asks about {}", news.title.clone().or(held).unwrap_or_else(|| "it".into())),
-        DispatchWay::Parked => "Operator kept it as an idea".to_string(),
-    };
+    let sentence = ruling_said(&news, held);
     let job = news.session_id.as_ref().map(|id| id.as_str().to_string()).filter(|_| matches!(news.way, DispatchWay::Started | DispatchWay::Handed));
     let mut rulings = cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default();
     let key = rulings.last().map_or(1, |one| one.key + 1);
@@ -133,6 +128,16 @@ pub fn dispatched(news: OperatorDispatched, cx: &mut App) {
             toasts.unseen = true;
             cx.notify();
         });
+    }
+}
+
+/// What the Operator did, in bare words: the Job by its title, and for a question the title or what he sent.
+fn ruling_said(news: &OperatorDispatched, held: Option<String>) -> String {
+    match news.way {
+        DispatchWay::Started => format!("Operator started {}", news.title.as_deref().unwrap_or("a Job")),
+        DispatchWay::Handed => format!("Operator handed it to {}", news.title.as_deref().unwrap_or("a live Job")),
+        DispatchWay::Asked => format!("Operator asks about {}", news.title.clone().or(held).unwrap_or_else(|| "it".into())),
+        DispatchWay::Parked => "Operator kept it as an idea".to_string(),
     }
 }
 
@@ -961,4 +966,29 @@ fn read_history(file: &PathBuf) -> Vec<Toast> {
             Some(Toast { urgency: item.urgency, item, ended })
         })
         .collect()
+}
+
+#[cfg(test)]
+mod ruling_tests {
+    use super::*;
+
+    fn news(way: DispatchWay, title: Option<&str>) -> OperatorDispatched {
+        OperatorDispatched { dispatch_id: "d".into(), manifest_id: "armada".into(), way, session_id: None, title: title.map(str::to_string) }
+    }
+
+    #[test]
+    fn each_way_the_operator_ruled_has_its_own_sentence() {
+        assert_eq!(ruling_said(&news(DispatchWay::Started, Some("Fix the build")), None), "Operator started Fix the build");
+        assert_eq!(ruling_said(&news(DispatchWay::Handed, Some("Fix the build")), None), "Operator handed it to Fix the build");
+        assert_eq!(ruling_said(&news(DispatchWay::Parked, Some("Keep the scrollback")), None), "Operator kept it as an idea");
+    }
+
+    #[test]
+    fn a_question_names_its_job_else_the_words_he_sent_cut_to_a_line() {
+        assert_eq!(ruling_said(&news(DispatchWay::Asked, Some("Fix the build")), None), "Operator asks about Fix the build");
+        let long = "Retry the webhook sender on a 503 and keep the dead letters for a day in sample-api";
+        let said = ruling_said(&news(DispatchWay::Asked, None), Some(about(long)));
+        assert_eq!(said, "Operator asks about Retry the webhook sender on a 503 and keep the dead...");
+        assert_eq!(about("one line\nsecond"), "one line");
+    }
 }

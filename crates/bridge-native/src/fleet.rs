@@ -1233,6 +1233,23 @@ mod tests {
     }
 
     #[test]
+    fn what_the_operator_did_with_a_dispatch_is_handed_over_once_in_the_order_it_came() {
+        let done = |id: &str, way: &str| {
+            let wire = format!(
+                r#"{{"message":"event","cursor":1,"event":{{"kind":"operator.dispatched","dispatch_id":"{id}","manifest_id":"armada","way":"{way}","session_id":"s1","title":"Fix it"}}}}"#
+            );
+            Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+        };
+        let mut held = Held::new();
+        held.fold(vec![done("d1", "started"), done("d2", "handed"), done("d3", "parked")]);
+        let news = held.take_dispatched();
+        let told: Vec<(&str, ipc::operator_board::DispatchWay)> = news.iter().map(|one| (one.dispatch_id.as_str(), one.way)).collect();
+        assert_eq!(told, [("d1", ipc::operator_board::DispatchWay::Started), ("d2", ipc::operator_board::DispatchWay::Handed), ("d3", ipc::operator_board::DispatchWay::Parked)]);
+        assert_eq!(news[0].title.as_deref(), Some("Fix it"));
+        assert!(held.take_dispatched().is_empty(), "news is told once");
+    }
+
+    #[test]
     fn the_repositories_are_read_on_connect_and_replaced_when_fleet_says_they_changed() {
         let mut held = Held::new();
         assert_eq!(held.repositories, None, "nothing is listed before Fleet has answered");

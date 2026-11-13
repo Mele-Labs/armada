@@ -58,3 +58,27 @@ pub static START_FLOW: [Step; 13] = [
     answer("Fleet took it: the Job opens held on its start card. Its first message is in the box, Workflow and Delivery are set, and Send reads Start", "answer-draft", "combobox", "Workflow"),
     press_on("Start begins the agent: the card goes and Send is Send again", "button", "Start", "button", "Send"),
 ];
+
+/// The Operator on: his Start is a dispatch the Operator may rule on, and what it did comes as a toast he presses.
+pub static OPERATOR_FLOW: [Step; 20] = [
+    step("⌘N opens the sheet over the screen", Verb::Key("cmd-n"), "dialog", "Dispatch"),
+    step("Typing reads the repository", Verb::Typed("Fix the flaky login test in sample-api"), "img", "Repository, finding"),
+    answer("Fleet found sample-api in the words", "found", "combobox", "Repository sample-api"),
+    press_on("Start sends the dispatch: the button turns to Starting", "button", "Start", "button", "Starting"),
+    answer("The Operator held it and started a Job: the sheet goes, he stays where he was, and the toast says what it did", "answer-operator-started", "alert", "Toast: Operator started Fix the flaky login test in sample-api"),
+    step("A press on the toast opens that Job, and the toast goes", Verb::Gone, "button", "Operator started Fix the flaky login test in sample-api"),
+    step("The Job is open on its empty thread", Verb::Look, "region", "Thread"),
+    step("⌘N opens a sheet with nothing kept", Verb::Key("cmd-n"), "dialog", "Dispatch"),
+    step("A second dispatch on the same ground", Verb::Typed("Retry the webhook sender on a 503 in sample-api"), "img", "Repository, finding"),
+    answer("Fleet found sample-api in the words", "found", "combobox", "Repository sample-api"),
+    press_on("Start sends it", "button", "Start", "button", "Starting"),
+    answer("The Operator handed it to the live Job: the toast names that Job, and nothing opens", "answer-operator-handed", "alert", "Toast: Operator handed it to Fix the flaky login test in sample-api"),
+    step("A press on the toast opens the Job it was handed to", Verb::Gone, "button", "Operator handed it to Fix the flaky login test in sample-api"),
+    step("⌘N opens a sheet again", Verb::Key("cmd-n"), "dialog", "Dispatch"),
+    step("A third dispatch, a thought for later", Verb::Typed("Keep the scrollback between runs in sample-api"), "img", "Repository, finding"),
+    answer("Fleet found sample-api in the words", "found", "combobox", "Repository sample-api"),
+    press_on("Start sends it", "button", "Start", "button", "Starting"),
+    answer("The Operator kept it as an idea: the toast says so, and nothing opens", "answer-operator-parked", "alert", "Toast: Operator kept it as an idea"),
+    step("A press on the toast opens the Operator's page, and the toast goes", Verb::Gone, "button", "Operator kept it as an idea"),
+    step("The Operator's page is in front", Verb::Look, "status", "The Operator's page is in front"),
+];

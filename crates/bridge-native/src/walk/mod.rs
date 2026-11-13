@@ -1333,6 +1333,13 @@ pub static WALKS: &[Walk] = &[
         steps: &dispatch::START_FLOW,
     },
     Walk {
+        name: "start-flow-operator",
+        title: "Dispatch: the Operator rules on a start, and a toast says what it did",
+        screen: Screen::App,
+        scenario: "jobs-many",
+        steps: &dispatch::OPERATOR_FLOW,
+    },
+    Walk {
         name: "notes",
         title: "Notes on ⌥⌘A",
         screen: Screen::Dispatch,
