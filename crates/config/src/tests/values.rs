@@ -48,6 +48,7 @@ fn every_key_reads_and_writes_back() {
         reviews: ReviewsNamed { plans: Some(ReviewMode::ReviewAndApprove), pull_requests: Some(ReviewMode::Review), walks: Some(WalkReview::Review) },
         agent_starts: Some(AgentStarts::AskMe),
         delivery: Some(DeliverySetting::KeepLocal),
+        workflows_off: vec!["bug".into(), "chore".into()],
     };
     let project = parse_project(Path::new("shop.yml"), &project_with("")).expect("a Project").with_values(all.clone());
     let written = project_text(&project).expect("text");
@@ -89,6 +90,15 @@ fn a_tracker_that_is_not_a_map_or_has_a_key_that_is_not_text_is_refused_at_its_p
 fn kits_values_have_no_tracker_and_refuse_the_key() {
     let said = parse_kit_values(Path::new("values.yml"), "version: 1\nvalues:\n  tracker:\n    provider: tickets\n").expect_err("refused").to_string();
     assert!(said.contains("values.tracker"), "named in: {said}");
+}
+
+#[test]
+fn a_projects_workflows_off_reads_and_an_empty_list_is_none_off_and_kit_refuses_the_key() {
+    assert_eq!(values_of("values:\n  workflows_off: [bug, ' chore ']\n").workflows_off, ["bug", "chore"]);
+    assert!(values_of("values:\n  workflows_off: []\n").workflows_off.is_empty(), "the last one turned back on");
+    assert!(refused("values:\n  workflows_off: bug\n").contains("values.workflows_off"), "a list, not a word");
+    let said = parse_kit_values(Path::new("values.yml"), "version: 1\nvalues:\n  workflows_off: [bug]\n").expect_err("refused").to_string();
+    assert!(said.contains("values.workflows_off"), "the machine's list is in settings.json: {said}");
 }
 
 #[test]
@@ -142,6 +152,7 @@ fn saying(mode: PrMode, merge: AutoMerge, word: &str) -> Values {
         reviews: ReviewsNamed::default(),
         agent_starts: None,
         delivery: None,
+        workflows_off: Vec::new(),
     }
 }
 
