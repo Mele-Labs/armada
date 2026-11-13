@@ -101,7 +101,7 @@ Its act is Done, with a note box (`2 remain`), and `done_waiting` closes it as a
 Only an item the agent stated is done: a page is approved, a call dismissed.
 `fold` is false when only review pages, a restart key or a done are owed, so there is no list to open.
 `review_in_band` is the sheet's rule: more than one page owed, or a Document the only thing owed; a lone plan, sketch or draft stays on the thread's card.
-A restart (`scripts/preview --restart`, `scripts/restart --main`) is the band's key in Restart, steps or none, except Fleet's own offer of one, which may be skipped and is listed under Commands.
+A restart (`scripts/preview --restart`, `scripts/restart --main`) is the band's key in Restart, steps or none, except the preview's Refresh, which Bridge draws from `get_preview_offers` and is no item here.
 `dismiss` is `none` for what is answered and never dismissed, `plain`, `skip` for what only drops, `reason` where a reason goes to the agent, and `not_a_question` for a sentence read from a reply.
 Where it is not `none`, `dismiss_waiting` takes the item.
 The rule per source, held to the code by a test (`crates/fleet/src/session_host/needs_you.rs`):
@@ -127,7 +127,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `task_done` | questions | none: Fleet refuses it |
 | `watch_not_ours` | questions | plain |
 | `held_child` | questions | none: Fleet refuses it |
-| `preview_offer` | by act: commands | skip |
+| `preview_offer` | by act: commands | skip; Fleet no longer raises it |
 | `rule_act` | questions | skip |
 | `operator_suggestion` | questions | skip |
 | `browser_ask` | questions | plain |

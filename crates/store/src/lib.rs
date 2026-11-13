@@ -37,6 +37,7 @@ mod session_focus;
 mod session_viewed;
 mod session_rail;
 mod session_limit;
+mod session_snooze;
 mod session_open_turn;
 mod session_loadout;
 mod fleet_builds;
@@ -89,6 +90,8 @@ mod judge_readings;
 mod fleet_calls;
 /// The refreshes of the preview Fleet offered a Job, one a moved tip for the build.
 mod preview_offers;
+/// The branches Jobs offer for the owner's preview, and the Refresh row he skipped.
+mod preview_offered;
 mod notice_mutes;
 /// The issue queries a person saved, per repository.
 mod issue_queries;
@@ -243,6 +246,7 @@ pub use plan_beads::KeptBead;
 pub use judge_readings::{KeptJudgeNote, KeptJudgeReading};
 pub use fleet_calls::KeptCall;
 pub use preview_offers::KeptPreviewOffer;
+pub use preview_offered::KeptPreviewOffered;
 pub use issue_queries::KeptIssueQuery;
 pub use projects::{
     KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskIssue, KeptTaskPull, KeptTaskState, LOOSE as LOOSE_PROJECT,

@@ -43,6 +43,7 @@ pub(crate) struct LedgerReads {
     waiting: WaitingReads,
     /// When the limit the session hit resets, while it is held for one.
     limited: Option<String>,
+    snoozed: Option<String>,
     /// When the person was last in the Job, as a client told it.
     viewed: Option<String>,
     /// The breakdown of the context window, as the wire spells it.
@@ -1007,6 +1008,22 @@ where
         defer: ipc::DeferLater,
     ) -> Result<ipc::LaterDeferred, Refusal> {
         self.later_deferred(caller, defer).await
+    }
+
+    async fn offer_preview(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        offer: ipc::OfferPreview,
+    ) -> Result<ipc::PreviewOffered, Refusal> {
+        self.preview_offered(caller, offer).await
+    }
+
+    async fn withdraw_preview(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        withdraw: ipc::WithdrawPreview,
+    ) -> Result<ipc::PreviewWithdrawn, Refusal> {
+        self.preview_withdrawn(caller, withdraw).await
     }
 
     async fn settle_later(

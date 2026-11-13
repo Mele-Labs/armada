@@ -10,7 +10,7 @@ use std::time::{Duration, SystemTime};
 use ipc::{BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, SnapshotState};
 
 use crate::building::{
-    checkout_of, left_out_in, left_out_moved, Building, LeftOut, Moved, NotChanged, NotOffered, NotReverted, NotSnapshotted,
+    checkout_of, left_out_in, Building, LeftOut, NotChanged, NotOffered, NotReverted, NotSnapshotted,
     NotSwapped,
 };
 use crate::kept_builds::{fleet_label, BUILDS, CURRENT, KEPT_TRIED, PICKED, PREVIOUS, SNAPSHOT, STATUS, SWAP_STATUS};
@@ -372,50 +372,6 @@ fn a_preview_that_left_branches_out(support: &Path) {
         ),
     )
     .unwrap();
-}
-
-fn tips(moved: &'static [(&'static str, char)]) -> impl Fn(&str) -> Option<String> {
-    move |branch| moved.iter().find(|(name, _)| *name == branch).map(|(_, tip)| tip.to_string().repeat(40))
-}
-
-#[test]
-fn a_left_out_branch_that_moved_past_its_tip_is_read_with_its_tip_and_why_and_nothing_restarts() {
-    let (checkout, support) = rig();
-    a_preview_that_left_branches_out(support.path());
-    let read = || left_out_moved(support.path(), SystemTime::now(), tips(&[("armada/a", 'b'), ("armada/m", 'd')]));
-    let moved = vec![Moved {
-        branch: "armada/a".into(),
-        tip: "b".repeat(40),
-        why: "conflict: apps/a.ts".into(),
-        build: SHA.into(),
-    }];
-    assert_eq!(read(), moved);
-    assert_eq!(read(), moved, "a reading changes nothing, so a second reads the same");
-    assert!(!support.path().join("restart-build.status").exists(), "no restart was started");
-    assert!(!checkout.path().join("ran").exists(), "the wrapper never ran");
-}
-
-#[test]
-fn a_branch_left_out_for_a_breaking_migration_or_not_moved_or_gone_is_not_read_as_moved() {
-    let (_checkout, support) = rig();
-    a_preview_that_left_branches_out(support.path());
-    for moved in [&[("armada/a", 'a'), ("armada/m", 'd')][..], &[("armada/m", 'd')][..]] {
-        let moved: &'static [(&'static str, char)] = Box::leak(moved.to_vec().into_boxed_slice());
-        assert!(left_out_moved(support.path(), SystemTime::now(), tips(moved)).is_empty(), "{moved:?}");
-    }
-}
-
-#[test]
-fn nothing_is_read_as_moved_while_a_restart_is_under_way_or_when_main_is_the_build() {
-    let (_checkout, support) = rig();
-    a_preview_that_left_branches_out(support.path());
-    let moved = tips(&[("armada/a", 'b')]);
-    fs::write(support.path().join("restart-build.status"), "running\npreview\n").unwrap();
-    assert!(left_out_moved(support.path(), SystemTime::now(), &moved).is_empty(), "the commit on file is not yet the build");
-
-    fs::remove_file(support.path().join("restart-build.status")).unwrap();
-    fs::remove_file(support.path().join("restart-source")).unwrap();
-    assert!(left_out_moved(support.path(), SystemTime::now(), &moved).is_empty(), "main leaves nothing out");
 }
 
 /// Two kept builds in `support`, Fleet running from `builds/current` on `new`, with `old` before it. The

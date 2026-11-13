@@ -90,6 +90,7 @@ where
             | Event::MergeLinesChanged(_)
             | Event::MergeLineViewChanged(_)
             | Event::WriteClashesChanged(_)
+            | Event::PreviewOffersChanged(_)
             | Event::CallsChanged(_)
             | Event::ModsChanged(_)
             | Event::SettingsChanged(_)

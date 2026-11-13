@@ -276,6 +276,13 @@ where
         Arc::clone(&self).settle_answer(said, super::waiting::Answerer::Him).await
     }
 
+    async fn answer_waiting_parts(
+        self: Arc<Self>,
+        said: ipc::AnswerWaitingParts,
+    ) -> Result<SessionRecord, Refusal> {
+        Arc::clone(&self).settle_parts(said).await
+    }
+
     async fn free_slot(self: Arc<Self>, free: ipc::FreeSlot) -> Result<SessionRecord, Refusal> {
         self.slot_freed_for(free).await
     }
@@ -542,6 +549,10 @@ where
 
     async fn pause_session(&self, asked: ipc::PauseSession) -> Result<SessionRecord, Refusal> {
         self.session_paused(asked).await
+    }
+
+    async fn snooze_session(&self, asked: ipc::SnoozeSession) -> Result<SessionRecord, Refusal> {
+        self.session_snoozed(asked).await
     }
 
     async fn set_session_auto_land(self: Arc<Self>, asked: ipc::SetSessionAutoLand) -> Result<SessionRecord, Refusal> {
