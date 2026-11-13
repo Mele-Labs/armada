@@ -372,7 +372,7 @@ impl NewProjectSheet {
                 .text_color(look.color(token::FG_MUTED))
                 .child(glyph("search", look.length(token::SPACE_3), look.color(token::FG_MUTED)))
                 .child(text_box(&self.boxes.folders).font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)))
-                .child(div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(format!("fuzzy, every folder in {name}"))),
+                .child(div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(format!("Every folder in {name}"))),
             Role::SearchInput,
             format!("Find a folder in {name}"),
         )
@@ -510,8 +510,8 @@ impl NewProjectSheet {
         let tiles = div()
             .flex()
             .gap(look.length(token::SPACE_2))
-            .child(self.tile(false, "zap", "Use defaults", "Learn as I go: your answers in this project become its settings", window, cx))
-            .child(self.tile(true, "sliders-horizontal", "Customize", "Tweak your settings just how you want them", window, cx));
+            .child(self.tile(false, "zap", "Use defaults", "Your first answer to each question becomes this project's setting", window, cx))
+            .child(self.tile(true, "sliders-horizontal", "Customize", "Set each one now", window, cx));
         let small = |said: &'static str| div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(said);
         let mut part = section(look).child(caption(Some("sliders-horizontal"), "Settings", look)).child(labelled(tiles.id("np-tiles"), Role::RadioGroup, "Settings"));
         if self.custom {
@@ -521,17 +521,6 @@ impl NewProjectSheet {
                 part = part.child(self.group(group.icon, group.title, rows, look));
             }
             part = part.child(self.group("globe", "Sharing", vec![self.share_row(window, cx)], look));
-            part = part.child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_1) * 1.5)
-                    .text_size(look.length(token::TEXT_2XS))
-                    .line_height(look.length(token::LEADING_2XS))
-                    .text_color(look.color(token::FG_SUBTLE))
-                    .child(glyph("git-branch", look.length(token::SPACE_3), look.color(token::FG_SUBTLE)))
-                    .child("Workflows, lifecycles and rules for this project are set in Settings › Workflows once it exists"),
-            );
         } else {
             part = part.child(self.learnt(look));
         }

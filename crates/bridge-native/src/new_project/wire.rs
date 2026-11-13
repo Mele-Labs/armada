@@ -138,6 +138,7 @@ impl Wire {
 
     /// How a project's work lands, `auto_land`, `open_pr` or `keep_local`, as its settings say. **Fleet keeps no
     /// `delivery` value yet**, so a live project has none and the Job's line is not drawn.
+    /// Owed: a `delivery` field in `ipc::ValuesSet`, sent in `NewProject.values` and read back here.
     pub fn delivery(&self, project: &str) -> Option<String> {
         match self {
             Wire::Live(_) => None,

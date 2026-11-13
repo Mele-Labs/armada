@@ -33,8 +33,8 @@ pub static STEPS: [Step; 29] = [
     step("Landing comes first", Verb::Wheel("dialog", "New project", 300), "button", "How work lands"),
     press_on("Each setting is a menu", "button", "How work lands", "menuitemcheckbox", "Auto land"),
     press_on("Picked, it is in full colour with the modified dot", "menuitemcheckbox", "Auto land", "img", "How work lands set for this project"),
-    step("Sharing, and where workflows are set once it exists", Verb::Wheel("dialog", "New project", 900), "switch", "Share with your other Macs"),
+    step("Sharing", Verb::Wheel("dialog", "New project", 900), "switch", "Share with your other Macs"),
     step("⌘↩ clones the repository, makes the project and goes to it: a Job starts in it on its empty thread, the keys in its box", Verb::Key("cmd-enter"), "textbox", "Message"),
-    step("The line over the box says how its work lands, from the project's settings", Verb::Look, "status", "Lands by Auto land, from Pocket's settings"),
+    step("The line over the box says how its work lands, from the project's settings. The bar names the project and its repositories: sample-web, for its two folders, and billing, the clone", Verb::Look, "status", "Auto land, from Pocket's settings"),
     step("Its row in the list", Verb::Look, "row", "s-7c41e2a9"),
 ];

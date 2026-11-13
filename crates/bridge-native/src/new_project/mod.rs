@@ -726,15 +726,9 @@ impl NewProjectSheet {
         let members = self.members();
         let first = members.first().map(|member| member.manifest_id.as_str().to_string());
         let inherited = self.inherited.clone().unwrap_or_default();
-        let set = if self.custom { values::values_of(&self.picked, &inherited) } else { None };
-        // How work lands goes with the project once Fleet keeps it; until then the walk's Fleet alone hears it.
+        let project = create_body(name.clone(), members, (self.place != Place::Mac).then_some(place), self.custom, &self.picked, &inherited);
+        // How work lands has no place in `ValuesSet` yet; until it has, the walk's Fleet alone hears it.
         let delivery = self.custom.then(|| self.picked.get(&Key::Delivery).cloned()).flatten().filter(|word| word != values::ASK);
-        let project = ipc::NewProject {
-            name: name.clone(),
-            members: (!members.is_empty()).then_some(members),
-            place: (self.place != Place::Mac).then_some(place),
-            values: set,
-        };
         let share = self.custom && self.share;
         let task = self.wire.add_project(project, delivery, cx);
         self.act = Some(cx.spawn_in(window, async move |this, cx| {
@@ -777,7 +771,7 @@ impl NewProjectSheet {
     }
 
     fn made(&mut self, project: String, name: String, repository: Option<String>, projects: Projects, window: &mut Window, cx: &mut Context<Self>) {
-        let lands = self.wire.delivery(&project).and_then(|word| values::delivery_said(&word)).map(|said| SharedString::from(format!("Lands by {said}, from {name}'s settings")));
+        let lands = self.wire.delivery(&project).and_then(|word| values::delivery_said(&word)).map(|said| SharedString::from(format!("{said}, from {name}'s settings")));
         let served = self.wire.repositories(cx).unwrap_or_default();
         crate::drafts::clear(KEEP_NAME, cx);
         crate::drafts::clear(KEEP_SYNCED, cx);
@@ -881,9 +875,40 @@ pub fn lands(job: &str, cx: &App) -> Option<SharedString> {
     cx.try_global::<Lands>().and_then(|lands| lands.0.get(job)).cloned()
 }
 
+/// What `POST /projects` is sent on Create. Use defaults sends no values, so the project takes what every
+/// project uses; Customize sends what was changed in its groups, in the same call.
+fn create_body(name: String, members: Vec<ProjectMember>, place: Option<ProjectPlace>, custom: bool, picked: &HashMap<Key, String>, inherited: &HashMap<Key, String>) -> ipc::NewProject {
+    ipc::NewProject {
+        name,
+        members: (!members.is_empty()).then_some(members),
+        place,
+        values: if custom { values::values_of(picked, inherited) } else { None },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn create_sends_the_customized_values_in_the_same_call_and_use_defaults_sends_none() {
+        let inherited: HashMap<Key, String> = [(Key::AutoMerge, "checks-pass"), (Key::AgentStarts, "at_once"), (Key::Plans, "review"), (Key::PullRequests, "off"), (Key::Walks, "off"), (Key::Delivery, values::ASK)]
+            .into_iter()
+            .map(|(key, word)| (key, word.to_string()))
+            .collect();
+        let picked: HashMap<Key, String> = [(Key::Delivery, "auto_land"), (Key::AutoMerge, "always"), (Key::AgentStarts, "ask_me"), (Key::Walks, "review")]
+            .into_iter()
+            .map(|(key, word)| (key, word.to_string()))
+            .collect();
+        let member = ProjectMember { manifest_id: ipc::ManifestId::carried("sample-web".to_string()), folder: Some("web/checkout".into()) };
+        let body = |custom| serde_json::to_value(create_body("Pocket".into(), vec![member.clone()], None, custom, &picked, &inherited)).expect("encodes");
+        assert_eq!(body(false), serde_json::json!({"name": "Pocket", "members": [{"manifest_id": "sample-web", "folder": "web/checkout"}]}), "Use defaults sends no values");
+        assert_eq!(
+            body(true)["values"],
+            serde_json::json!({"auto_merge": "always", "agent_starts": "ask_me", "reviews": {"plans": "review", "pull_requests": "off", "walks": "review"}}),
+            "Customize sends what changed; how work lands has no field in ValuesSet to go in"
+        );
+    }
 
     #[test]
     fn a_folder_is_found_by_its_letters_in_order_and_the_tighter_match_comes_first() {
