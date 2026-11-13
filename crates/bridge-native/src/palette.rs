@@ -177,7 +177,9 @@ fn fold_commands(list: &JobsList) -> Vec<Entry> {
         icon: Some(icon),
         shortcut: None,
         aliases: Vec::new(),
-        meta: on.then(|| Meta { repo: None, state: Some(("check", "On".into(), token::FG_MUTED)) }),
+        meta: on.then(|| Meta { repo: None, state: Some(("check", "On".into(), token::FG_MUTED)), when: None }),
+        typed_only: false,
+        ended: false,
     };
     vec![
         command("fold-all", "Fold all sub-Jobs", "list-tree", false),

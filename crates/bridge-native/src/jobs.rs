@@ -3259,9 +3259,9 @@ mod tests {
 
     #[test]
     fn a_folded_parent_draws_none_of_its_sub_jobs_and_its_siblings_keep_theirs() {
-        let open = fold_lines(lines_of(&tree(), &[], Scope::Active, "", &[]), &Folds::default());
+        let open = fold_lines(lines_of(&tree(), &[], Scope::Active, "", &[], &Names::default()), &Folds::default());
         assert_eq!(titles(&open).len(), 8);
-        let folded = fold_lines(lines_of(&tree(), &[], Scope::Active, "", &[]), &shut(&["t-land"]));
+        let folded = fold_lines(lines_of(&tree(), &[], Scope::Active, "", &[], &Names::default()), &shut(&["t-land"]));
         let titles = titles(&folded);
         assert!(titles.contains(&"Land the native stack".to_string()) && titles.contains(&"Pair the work Mac".to_string()));
         for gone in ["Fix the walk at 820", "Re-take the shots", "Write the docs row"] {
@@ -3281,7 +3281,7 @@ mod tests {
     }
 
     fn strip_of(jobs: &[SessionRecord], parent: &str) -> Vec<Sub> {
-        let folded = fold_lines(lines_of(jobs, &[], Scope::Active, "", &[]), &shut(&[parent]));
+        let folded = fold_lines(lines_of(jobs, &[], Scope::Active, "", &[], &Names::default()), &shut(&[parent]));
         folded
             .iter()
             .find_map(|line| match line {
@@ -3300,7 +3300,7 @@ mod tests {
         assert_eq!(strip[0].mark.lamp, JobLamp::Needs);
         assert_eq!((strip[0].look().0, strip[0].look().1), ("eye", token::STATUS_AWAITING_REVIEW));
         // Open, a parent keeps no strip.
-        let open = fold_lines(lines_of(&tree(), &[], Scope::Active, "", &[]), &Folds::default());
+        let open = fold_lines(lines_of(&tree(), &[], Scope::Active, "", &[], &Names::default()), &Folds::default());
         let kept = open.iter().find_map(|line| match line {
             Line::Job(row) if row.id.as_ref() == "t-land" => row.kids.clone(),
             _ => None,
@@ -3329,7 +3329,7 @@ mod tests {
 
     #[test]
     fn a_parent_drawn_for_its_place_never_folds() {
-        let lines = fold_lines(lines_of(&tree(), &[], Scope::Needs, "", &[]), &Folds { root_only: true, parents: Default::default() });
+        let lines = fold_lines(lines_of(&tree(), &[], Scope::Needs, "", &[], &Names::default()), &Folds { root_only: true, parents: Default::default() });
         let place = lines.iter().find_map(|line| match line {
             Line::Job(row) if row.id.as_ref() == "t-walk" => Some((row.place, row.kids.clone())),
             _ => None,
