@@ -141,8 +141,8 @@ impl Arrived {
 /// Where it came from.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Source {
-    /// The person's dispatch, through the proposer.
-    Dispatch,
+    /// The person's dispatch, through the proposer, and what he marked it as where he did: a hint to the call.
+    Dispatch(Option<ipc::DispatchKind>),
     /// Another Job's agent, named by its id.
     Job(String),
     /// A fork the person pressed.
@@ -166,7 +166,7 @@ pub enum Source {
 impl Source {
     pub fn word(&self) -> &'static str {
         match self {
-            Source::Dispatch => "dispatch",
+            Source::Dispatch(_) => "dispatch",
             Source::Job(_) => "job",
             Source::Fork => "fork",
             Source::Fleet => "fleet",
@@ -189,7 +189,7 @@ impl Source {
 
     fn said(&self) -> String {
         match self {
-            Source::Dispatch => "from the person's dispatch".to_string(),
+            Source::Dispatch(_) => "from the person's dispatch".to_string(),
             Source::Job(id) => format!("started by Job {id}"),
             Source::Fork => "a fork the person pressed".to_string(),
             Source::Fleet => "one of Fleet's own".to_string(),
@@ -228,6 +228,11 @@ pub struct Arrival {
 }
 
 impl Arrival {
+    /// Work the person dispatched, which no Job holds yet: the Operator is handed it before one is made.
+    pub fn is_dispatch(&self) -> bool {
+        self.id.starts_with(super::dispatching::DISPATCH)
+    }
+
     /// A note the person sent to a Job himself, which the Operator may move or leave.
     pub fn is_sent_note(&self) -> bool {
         self.id.starts_with(super::sources::SENT_NOTE)
@@ -235,7 +240,10 @@ impl Arrival {
 
     /// The item as the call reads it, numbered `at`.
     pub(super) fn shown(&self, at: usize) -> String {
-        let mut out = format!("  {at}. {}, {}: \"{}\" in repository {}", self.arrived.said(), self.source.said(), self.subject, self.manifest_id);
+        let mut out = match self.is_dispatch() {
+            true => format!("  {at}. The person dispatched work and no Job is started on it yet: \"{}\" in repository {}", self.subject, self.manifest_id),
+            false => format!("  {at}. {}, {}: \"{}\" in repository {}", self.arrived.said(), self.source.said(), self.subject, self.manifest_id),
+        };
         // An issue, a red main and a review request are no Job's.
         if !self.session_id.is_empty() {
             out.push_str(&format!(", Job {}", self.session_id));
@@ -243,6 +251,14 @@ impl Arrival {
         out.push('\n');
         if !self.words.trim().is_empty() {
             out.push_str(&format!("     Its words: {}\n", one_line(&self.words)));
+        }
+        if let Source::Dispatch(Some(kind)) = &self.source {
+            let a = match kind {
+                ipc::DispatchKind::Idea => "an idea",
+                ipc::DispatchKind::Feature => "a feature",
+                ipc::DispatchKind::Bug => "a bug",
+            };
+            out.push_str(&format!("     He marked it as {a}.\n"));
         }
         if !self.paths.is_empty() {
             out.push_str(&format!("     Its paths: {}\n", self.paths.join(", ")));
@@ -265,6 +281,10 @@ impl Arrival {
                 (Way::Leave, Arrived::Merged) => "leave it open, and nothing follows",
                 // A Job that started may repeat a live Job's work: leaving it keeps both.
                 (Way::Leave, Arrived::Start) => "keep both Jobs",
+                (Way::NewJob, Arrived::Start) if self.is_dispatch() => "new job: start a Job on it",
+                (Way::ExistingJob, Arrived::Start) if self.is_dispatch() => "existing job: hand its words to the live Job that already holds the work",
+                (Way::Park, Arrived::Start) if self.is_dispatch() => "park: keep it for later as an idea and start no Job, for a loose thought that is not work to do now",
+                (Way::Raise, Arrived::Start) if self.is_dispatch() => "raise: ask the person whether to hand it to a live Job or start it as its own Job",
                 _ => way.word_shown(),
             };
             out.push_str(&format!(" {}. {said}", number + 1));

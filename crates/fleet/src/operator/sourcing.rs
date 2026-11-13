@@ -13,9 +13,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, OpenIssue, Vcs, WorkProduct};
-use api::HostedSessions;
 use ipc::annotations::{note_read, NoteRead};
-use ipc::{ManifestId, Notice, SessionTag, SessionVoice, StartSession, TagKind};
+use ipc::{ManifestId, Notice, SessionTag, TagKind};
 
 use super::seat::Seat;
 use super::suggesting::pressed;
@@ -26,8 +25,6 @@ use crate::daemon::Fleet;
 /// How long an open note sent to no Job is read again each tick, for the person to send it, before
 /// it is handed on as it stands.
 pub(crate) const NOTE_SENT_WAIT: Duration = Duration::from_secs(10 * 60);
-
-const OPERATOR: &str = "Operator";
 
 /// What is waiting to be handed, and what a call is out on.
 #[derive(Default)]
@@ -337,6 +334,7 @@ where
             (Arrived::Report, Way::ExistingJob, Some(into), _) => self.operator_handed_report(last, manifest, into).await?,
             (Arrived::RedMain, Way::NewJob, _, _) => self.operator_fixed_red(manifest, last).await,
             (Arrived::RedMain, Way::ExistingJob, Some(into), _) => self.operator_gave_red(manifest, last, into).await?,
+            (Arrived::Start, _, _, _) if arrival.is_dispatch() => Box::pin(self.dispatch_sourced(arrival, ruling)).await?,
             (Arrived::Start, Way::ExistingJob, Some(into), _) => self.operator_handed_start(arrival, into).await?,
             (Arrived::Note, Way::Link, _, _) => {
                 if !self.note_settled_by_operator(manifest, last).await {
@@ -386,31 +384,8 @@ where
     /// A note the Operator ruled a Job of its own: started on it, briefed with his words, and the
     /// note marked sent to it. The Job's id.
     async fn operator_started_note(self: &Arc<Self>, manifest: &str, note: &str, arrival: &Arrival) -> Option<String> {
-        let started = self
-            .start_session(StartSession {
-                project: None,
-                manifest_id: ManifestId::carried(manifest),
-                title: Some(arrival.subject.clone()),
-                model: None,
-                effort: None,
-                mode: None,
-                root: None,
-                fork: None,
-                request: None,
-                after: None,
-                held: false,
-                project_rows: Vec::new(),
-                on_your_words: None,
-            })
-            .await;
-        let record = started.ok()?;
-        let job = record.id.as_str().to_string();
-        let voice = SessionVoice::Session { id: OPERATOR.to_lowercase(), title: OPERATOR.to_string() };
         let brief = format!("The person left this note on Bridge. Do what it asks.\n\n{}", arrival.words);
-        if self.first_message_from(&job, voice, &brief).await.is_err() {
-            let _ = self.closed_and_parked(ipc::CloseSession { session_id: record.id }).await;
-            return None;
-        }
+        let job = self.operator_job_started(manifest, &arrival.subject, &brief).await.ok()?;
         let title = self.title_of(&job).await;
         self.note_given_by_operator(manifest, note, &job, &title, arrival.is_sent_note()).await;
         Some(job)
@@ -431,30 +406,7 @@ where
     /// A report the Operator ruled a Job of its own: started on it, briefed with it, and holding it.
     async fn operator_started_report(self: &Arc<Self>, id: &str, manifest: &str) -> Result<(), String> {
         let Some(report) = self.store().lock().await.bug_report(id).ok().flatten() else { return Err("the report is not there".to_string()) };
-        let started = self
-            .start_session(StartSession {
-                project: None,
-                manifest_id: ManifestId::carried(manifest),
-                title: Some(report.title.clone()),
-                model: None,
-                effort: None,
-                mode: None,
-                root: None,
-                fork: None,
-                request: None,
-                after: None,
-                held: false,
-                project_rows: Vec::new(),
-                on_your_words: None,
-            })
-            .await;
-        let Ok(record) = started else { return Err("the Job did not start".to_string()) };
-        let job = record.id.as_str().to_string();
-        let voice = SessionVoice::Session { id: OPERATOR.to_lowercase(), title: OPERATOR.to_string() };
-        if self.first_message_from(&job, voice, &report_brief(&report)).await.is_err() {
-            let _ = self.closed_and_parked(ipc::CloseSession { session_id: record.id }).await;
-            return Err("the Job was not briefed".to_string());
-        }
+        let job = self.operator_job_started(manifest, &report.title, &report_brief(&report)).await.map_err(str::to_string)?;
         let tag = SessionTag { kind: TagKind::Report, id: report.id, title: report.title, url: None };
         self.reports_named(&job, manifest, &[tag]).await;
         Ok(())

@@ -33,7 +33,7 @@ pub(crate) const HELD_FOR_OVERLAP: &str = "Held for the Operator: ";
 /// The most of a first line a title made of a brief keeps.
 const TITLE_CHARS: usize = 60;
 
-fn first_line(words: &str) -> String {
+pub(super) fn first_line(words: &str) -> String {
     words.lines().map(str::trim).find(|line| !line.is_empty()).unwrap_or_default().chars().take(TITLE_CHARS).collect()
 }
 
@@ -48,7 +48,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// The live Jobs, as the Operator's own calls are shown them. None while no Operator is seated.
-    async fn live_now(&self) -> Vec<LiveJob> {
+    pub(super) async fn live_now(&self) -> Vec<LiveJob> {
         match self.operator_seat().operator() {
             Some(operator) => operator.live_jobs().await,
             None => Vec::new(),

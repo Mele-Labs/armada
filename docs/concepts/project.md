@@ -68,6 +68,29 @@ A lifecycle, a rule or an autonomy piece names a project in its `scope:`.
 A piece scoped to a project is read from Kit and from every member repository's `.armada/<kind>/`.
 [Protocol](../practices/protocol.md), *Lifecycles and rules, read*, says how each is served.
 
+## Sharing with his other Macs
+
+**A project is shared with his other Macs only when he turns it on, and every project starts off.**
+The switch is `shared_with_macs` in the project's own file, on the Mac that holds it, and is written only while on.
+
+> **Rule.** Nothing of a Job leaves this Mac unless its project is shared, and a Job started for no project is never shared.
+> Why: he keeps private projects on one Mac whose Jobs must never be seen from the other, and he called that absolutely critical.
+
+The Mac that holds a Job decides, reading the Job's project and that project's switch at the moment of sending.
+Everything bound for another Mac passes one filter in Fleet, and only the filter makes what a link may send.
+
+| Thing | Crosses when |
+|---|---|
+| A Job's row, thread, live changes, documents, sketches and shown files | Its project is shared |
+| An act from the other Mac on a Job (message, answer, approve, stop, merge) | Its project is shared. Otherwise it is refused as not found, the same answer as a Job that does not exist |
+| A Job started from the other Mac | Only into a shared project |
+| A message from a Job to a Job on the other Mac | Both Jobs' projects are shared |
+| A bug report | The Job that filed it is in a shared project, since a report's text can quote private work |
+| The list of projects itself | Only shared projects are named to the other Mac, without the loose tasks |
+
+A stream event that is not about one Job, such as servers, settings, mods or the Operator, stays on its Mac.
+The phone's routes do not pass the filter yet.
+
 ## What a project sets
 
 **Behaviour is a project's to set, key by key over Kit.**
@@ -157,4 +180,5 @@ The palette's rows and the keys on the tab are in [Keyboard and command palette]
 | A project's autonomy set from its own file | Autonomy stays in its pieces, which a project is already a scope of; nothing here writes one |
 | A Job's own values | Nothing starts a Job with a value of its own, so the Job layer is empty |
 | The title-bar project switcher in the native Bridge | The native Bridge, built by another Job |
+| The switch in the native Bridge, and a link to another Mac | The native Bridge and the later stages of two Macs as one Armada |
 | Sharing a project with teammates | Not built. A project's file is on this Mac, in a synced folder or in the cloud its owner chose |

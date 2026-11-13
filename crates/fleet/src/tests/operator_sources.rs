@@ -267,26 +267,56 @@ async fn a_red_main_a_job_already_holds_is_never_handed_to_the_operator() {
 /// reporting Job's list, it says which Job reported it and what goes wrong in the ruling's plain
 /// sentence, and its buttons name the outcome, with the reasoning as the first one's tooltip.
 #[tokio::test]
-async fn a_bug_report_card_says_who_reported_what_goes_wrong_and_the_outcome_on_its_buttons() {
+async fn a_report_ruled_a_new_job_starts_the_job_at_once_and_asks_the_call_for_the_plain_sentence() {
     let rig = rig_fitted(|_| {});
     on(&rig).await;
-    let plain = "Approving one page can close a step that waits on another.";
-    let call = Answers::with(&[&format!("item: 1\nway: 1\nplain: {plain}\nbecause: no open issue is this fault and no live Job's plan covers it")]);
+    rig.agents_start("at_once");
+    let title = "A document_approved gate closes on an approval of an older, unrelated page";
+    let call = Answers::with(&["item: 1\nway: 1\nplain: Approving one page can close a step that waits on another.\nbecause: no open issue is this fault and no live Job's plan covers it"]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     let id = rig.start_titled(Some("Native Rebuild Orchestrator")).await;
-    reported(&rig, &id, "A document_approved gate closes on an approval of an older, unrelated page").await;
+    reported(&rig, &id, title).await;
 
     rig.fleet.sources_handed().await;
 
-    eventually(|| async { !rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty() }).await;
+    eventually(|| async {
+        let store = rig.fleet.store().lock().await;
+        let found = store.find_sessions(&store::SessionSearch { manifest_id: None, state: None, text: None }).expect("read");
+        found.iter().any(|one| one.title.as_deref() == Some(title))
+    })
+    .await;
     assert!(call.asked()[0].contains("plain:"), "the ruling is asked for the plain sentence");
-    let board = rig.fleet.store().lock().await.operator_suggestions_of("").expect("read");
-    let items: Vec<ipc::WaitingItem> = crate::operator::suggestion_items(&board).collect();
+    assert!(rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty(), "a new Job is started, not asked");
+}
+
+#[tokio::test]
+async fn a_go_ahead_to_fix_a_report_kept_before_new_jobs_started_by_themselves_still_names_what_becomes_of_it() {
+    let rig = rig_fitted(|_| {});
+    let plain = "Approving one page can close a step that waits on another.";
+    let kept = store::KeptSuggestion {
+        n: 1,
+        arrival: "report:r-1".into(),
+        arrived: "report".into(),
+        way: "new_job".into(),
+        session_id: String::new(),
+        manifest_id: rig.manifest.as_str().into(),
+        subject: "A gate closes on the wrong approval".into(),
+        words: String::new(),
+        group: None,
+        other_session: None,
+        shared: Vec::new(),
+        first_session: None,
+        step: None,
+        item: None,
+        pick: None,
+        because: "no open issue is this fault".into(),
+        what: None,
+        text: format!("Native Rebuild Orchestrator reported a Fleet bug: {plain}"),
+        raised_at: "2026-11-12T08:00:00.000Z".into(),
+    };
+    let items: Vec<ipc::WaitingItem> = crate::operator::suggestion_items(&[kept]).collect();
     let [card] = &items[..] else { panic!("one card: {items:#?}") };
-    assert_eq!(card.text, format!("Native Rebuild Orchestrator reported a Fleet bug: {plain}"));
     let labels: Vec<&str> = card.options.iter().map(|option| option.label.as_str()).collect();
     assert_eq!(labels, ["Start a Job to fix it", "Leave it reported"]);
-    assert_eq!(card.options[0].description.as_deref(), Some("no open issue is this fault and no live Job's plan covers it"));
-    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("the Job").session;
-    assert!(record.waiting_for.iter().all(|item| item.source != ipc::WaitingSource::OperatorSuggestion), "not on the reporting Job's list: {:#?}", record.waiting_for);
+    assert_eq!(card.options[0].description.as_deref(), Some("no open issue is this fault"));
 }

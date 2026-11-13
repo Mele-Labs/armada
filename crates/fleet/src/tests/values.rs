@@ -132,6 +132,7 @@ async fn a_word_a_key_does_not_take_is_refused_and_the_file_is_not_written_over(
         (ValuesSet { review_model: Some("  ".into()), ..ValuesSet::default() }, "a blank model"),
         (reviews_set("review", "sometimes", "off"), "a review"),
         (reviews_set("off", "off", "review_and_approve"), "a walk that is approved"),
+        (agent_starts_set("later"), "an agent start"),
     ] {
         let refused = rig.fleet.edit_project(id.clone(), EditProject { values: Some(said), ..Default::default() }).await.expect_err(why);
         assert_eq!(code_of(refused), (422, "fleet.project_values_refused".to_string()), "{why}");
@@ -345,4 +346,24 @@ async fn a_job_freezes_how_its_project_reviews_work_and_keeps_it_when_the_projec
     let plain = rig.job(None).await;
     assert_eq!(said(&plain).plans, "off", "a Job in no project is reviewed by nothing");
     assert_eq!(said(&plain).from, ValueLayer::Default);
+}
+
+fn agent_starts_set(word: &str) -> ValuesSet {
+    ValuesSet { agent_starts: Some(word.to_string()), ..ValuesSet::default() }
+}
+
+#[tokio::test]
+async fn a_project_that_says_ask_me_holds_the_starts_made_for_it_and_every_other_case_starts_at_once() {
+    let rig = a_rig("");
+    let repository = rig.manifest();
+    let asks = rig.project(Some(agent_starts_set("ask_me"))).await;
+    assert!(rig.fleet.agent_start_held(Some(&asks), repository.as_str()).await, "the project's word");
+    assert!(!rig.fleet.agent_start_held(None, repository.as_str()).await, "no project, and the shipped word is at once");
+    assert!(!rig.fleet.agent_start_held(Some("no-such-project"), repository.as_str()).await, "a project that is not there falls back to none");
+    let plain = rig.project(Some(agent_starts_set("at_once"))).await;
+    assert!(!rig.fleet.agent_start_held(Some(&plain), repository.as_str()).await);
+    rig.kit_values("version: 1\nvalues:\n  agent_starts: ask_me\n");
+    assert!(rig.fleet.agent_start_held(None, repository.as_str()).await, "Kit's word where no project speaks");
+    let listed = rig.fleet.values_asked(Some(asks), Some(repository)).await.expect("read").agent_starts.expect("the key");
+    assert_eq!((listed.value.as_deref(), listed.from), (Some("ask_me"), ValueLayer::Project));
 }

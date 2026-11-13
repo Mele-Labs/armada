@@ -1045,6 +1045,7 @@ export class FakeSessionsFleet {
                 session_id: id,
                 title,
                 fork: false,
+                held: false,
               },
             };
           },

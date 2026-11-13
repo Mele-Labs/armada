@@ -30,6 +30,7 @@ fn echoed(project: &str, said: String) -> ipc::Projects {
             place: ProjectPlace { place: RunPlace::ThisMac, synced_folder: None, cloud: None },
             unread: None,
             values: None,
+            shared_with_macs: false,
             rows: vec![
                 task("r1", "Write the page"),
                 ProjectRow::Issue {
@@ -113,6 +114,7 @@ impl Projects for FakeDaemon {
             density: said(None),
             tracker: None,
             reviews: None,
+            agent_starts: None,
             autonomy: Vec::new(),
         })
     }

@@ -70,6 +70,7 @@ pub(super) fn rigged_fitted(
     fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
 ) -> Rig {
     let home = TempDir::new();
+    crate::tests::daemon::agents_ask(&home);
     let stand_in = Arc::new(StandIn::default());
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
     if let Some(peers) = peers {
@@ -105,6 +106,12 @@ fn line(kind: &str, uuid: &str, text: &str) -> String {
 }
 
 impl Rig {
+    /// Kit's `agent_starts` from now on.
+    pub(super) fn agents_start(&self, word: &str) {
+        let text = format!("version: 1\nvalues:\n  agent_starts: {word}\n");
+        std::fs::write(self.home.path().join("kit/values.yml"), text).expect("Kit's values");
+    }
+
     pub(super) async fn record(&self, id: &SessionId) -> SessionRecord {
         Arc::clone(&self.fleet).get_session(id.clone()).await.expect("read").session
     }

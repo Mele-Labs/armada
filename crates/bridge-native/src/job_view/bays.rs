@@ -28,8 +28,6 @@ use crate::look::{token, Look, Token};
 const BEHIND_FROM: u32 = 20;
 /// A clash's files fold past this many, to the first three (`ClashPaths`).
 const SHOWN: usize = 3;
-/// The one refused Release with a Job to open: the Job holding the slot is mid-turn (`releasing.ts`).
-const SESSION_WORKING: &str = "fleet.slot_session_working";
 
 #[derive(Default)]
 pub(super) struct Bays {
@@ -738,8 +736,9 @@ impl JobView {
     }
 
     /// A pool act's answer; a Release refused because its Job is mid-turn keeps that Job to open.
+    /// That refusal is the one with a Job to open (`releasing.ts`); Fleet declares its code.
     fn end_release(&mut self, slot: u32, working: Option<ClashHolder>, said: Result<Option<String>, String>, window: &mut Window, cx: &mut Context<Self>) {
-        let opens = working.filter(|_| said.is_err() && self.refused_code.as_deref() == Some(SESSION_WORKING));
+        let opens = working.filter(|_| said.is_err() && self.refused_code.as_deref() == Some("fleet.slot_session_working"));
         if let Some(panel) = self.bay_panel_mut().filter(|panel| panel.slot == slot) {
             panel.open_job = opens;
         }
