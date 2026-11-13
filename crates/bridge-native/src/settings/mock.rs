@@ -549,4 +549,49 @@ mod tests {
         let saved = fleet.save(&change(&one.key, Some(SettingValue::Integer(min)))).expect("taken");
         assert!(saved.settings.iter().find(|row| row.key == one.key).is_some_and(|row| row.pending_restart));
     }
+
+    #[test]
+    fn a_way_is_kept_as_a_word_and_a_word_outside_its_set_is_refused_as_fleet_refuses_it() {
+        use super::super::wire::Put;
+        let mut fleet = MockFleet::new();
+        let saved = fleet.save_put("take_in", Put::Text("listen".into())).expect("a word of the set");
+        assert_eq!(saved.take_in, ipc::TakeIn::Listen);
+        for (name, word) in [("answer_with", "buttons"), ("read_results", "thread_only"), ("look_results", "walk_visible"), ("look_questions", "pictures_whole")] {
+            fleet.save_put(name, Put::Text(word.into())).unwrap_or_else(|why| panic!("{name}: {}", why.said));
+        }
+        let kept = fleet.preferences.clone();
+        assert_eq!((kept.answer_with, kept.read_results, kept.look_results, kept.look_questions), (ipc::AnswerWith::Buttons, ipc::ReadResults::ThreadOnly, ipc::LookResults::WalkVisible, ipc::LookQuestions::PicturesWhole));
+        let refused = fleet.save_put("take_in", Put::Text("shout".into())).expect_err("not a word of the set");
+        assert!(refused.is("fleet.unacceptable_choice"));
+        assert_eq!(refused.said, "`shout` is not a choice of `take_in`");
+        assert_eq!(fleet.preferences.take_in, ipc::TakeIn::Listen, "a refused word changes nothing");
+    }
+
+    #[test]
+    fn a_switch_is_kept_and_a_name_that_is_not_a_switch_is_refused() {
+        use super::super::wire::Put;
+        let mut fleet = MockFleet::new();
+        assert!(!fleet.preferences.first_run_answered && fleet.preferences.buttons_words && !fleet.preferences.listen_progress);
+        fleet.save_put("first_run_answered", Put::Switch(true)).expect("a switch");
+        fleet.save_put("buttons_words", Put::Switch(false)).expect("a switch");
+        fleet.save_put("listen_progress", Put::Switch(true)).expect("a switch");
+        let kept = fleet.preferences.clone();
+        assert!(kept.first_run_answered && !kept.buttons_words && kept.listen_progress);
+        assert!(fleet.save_put("take_in", Put::Switch(true)).is_err(), "a word is not a switch");
+        // The voice is text; blank is the Mac's own.
+        fleet.save_put("listen_voice", Put::Text("com.apple.voice.zoe".into())).expect("text");
+        assert_eq!(fleet.preferences.listen_voice, "com.apple.voice.zoe");
+        fleet.save_put("listen_voice", Put::Text(String::new())).expect("blank");
+        assert_eq!(fleet.preferences.listen_voice, "");
+    }
+
+    #[test]
+    fn a_word_the_walk_names_is_refused_whatever_set_it_is_asked_in() {
+        use super::super::wire::Put;
+        let mut fleet = MockFleet::new();
+        fleet.refuses.push("pictures_whole".into());
+        assert!(fleet.save_put("look_questions", Put::Text("pictures_whole".into())).is_err());
+        assert_eq!(fleet.preferences.look_questions, ipc::LookQuestions::PicturesMix);
+        assert!(fleet.save_put("look_questions", Put::Text("pictures_mix".into())).is_ok());
+    }
 }

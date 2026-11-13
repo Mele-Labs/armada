@@ -61,7 +61,7 @@ pub const WAYS: [Way; 6] = [
     Way { row: Row::Take, word: "listen", label: "Listen", line: "A Mac voice says when a Job ends or needs you", glyph: "bell", ink: token::STATUS_AWAITING_REVIEW },
     Way { row: Row::Answer, word: "type", label: "Type", line: "Write in the box under a Job", glyph: "text-cursor", ink: token::STATUS_NOT_STARTED },
     Way { row: Row::Answer, word: "talk", label: "Talk", line: "Hold ⌥Space anywhere and speak", glyph: "mic", ink: token::STATUS_ESCALATED },
-    Way { row: Row::Answer, word: "buttons", label: "Buttons", line: "Every question comes with options to press", glyph: "message-circle-question", ink: token::STATUS_COMPLETED_SUCCESS },
+    Way { row: Row::Answer, word: "buttons", label: "Buttons", line: "Every question comes with options to press", glyph: "message-circle-question-mark", ink: token::STATUS_COMPLETED_SUCCESS },
 ];
 
 pub fn ways_of(row: Row) -> &'static [Way] {
@@ -601,6 +601,17 @@ impl SettingsOverlay {
         names
     }
 
+    /// A chip pressed: that way's options are drawn, and the keys go to the first of them, since the chip is gone.
+    fn open_way(&mut self, word: &'static str, window: &mut Window, cx: &mut Context<Self>) {
+        self.ways.opened = Some(word);
+        let names = self.ways_names();
+        let first = names.get(1).filter(|name| name.starts_with("ways:opt:") || name.starts_with("ways:sw:")).unwrap_or(&names[0]);
+        if let Some(focus) = self.prefs.keys.get(first) {
+            window.focus(focus, cx);
+        }
+        cx.notify();
+    }
+
     /// A card pressed, or reached by ← and →: saved at once.
     fn choose_way(&mut self, row: Row, word: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         let name = if row == Row::Take { "take_in" } else { "answer_with" };
@@ -706,17 +717,10 @@ impl SettingsOverlay {
                     .child(svg().path(icon_path(one.glyph)).size(look.length(token::SPACE_4)).text_color(ink))
                     .child(div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(one.label))
                     .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(also_set(&held, word, &voice))))
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        this.ways.opened = Some(word);
-                        if let Some(focus) = this.prefs.keys.get(&format!("ways:chip:{word}")) {
-                            window.focus(focus, cx);
-                        }
-                        cx.notify();
-                    }))
-                    .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
+                    .on_click(cx.listener(move |this, _, window, cx| this.open_way(word, window, cx)))
+                    .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
                         if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                            this.ways.opened = Some(word);
-                            cx.notify();
+                            this.open_way(word, window, cx);
                         }
                     }));
                 let chip = match &focus {
@@ -921,7 +925,10 @@ impl SettingsOverlay {
             let button = button.when(!off, |button| {
                 let key_voice = voice.clone();
                 button
-                    .on_click(cx.listener(move |this, _, _, cx| {
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        if let Some(focus) = this.prefs.keys.get("ways:sample") {
+                            window.focus(focus, cx);
+                        }
                         let voice = voice.clone();
                         this.ways.sample.update(cx, |sampler, cx| sampler.press(&voice, mock, cx));
                     }))
@@ -1057,10 +1064,10 @@ impl SettingsOverlay {
                 };
                 labelled(
                     button
-                        .on_click(cx.listener(|this, _, _, cx| this.install_whisper(cx)))
-                        .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                        .on_click(cx.listener(|this, _, window, cx| this.install_whisper(window, cx)))
+                        .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                             if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                                this.install_whisper(cx);
+                                this.install_whisper(window, cx);
                             }
                         })),
                     Role::Button,
@@ -1095,7 +1102,11 @@ impl SettingsOverlay {
     }
 
     /// Whisper comes down on the press and never before; the bar follows it until it is here.
-    fn install_whisper(&mut self, cx: &mut Context<Self>) {
+    fn install_whisper(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // The press is replaced by the bar, so the keys wait on the row above.
+        if let Some(focus) = self.prefs.keys.get("ways:answer") {
+            window.focus(focus, cx);
+        }
         if self.mock_wire() {
             self.ways.whisper = Some(Whisper::Installing(0.4));
             cx.notify();
@@ -1198,5 +1209,14 @@ mod tests {
             ["Find a voice", "Mac default", "# Premium", "Ava (en-US)", "Zoe (en-US)", "# Enhanced", "Allison (en-US)", "Daniel (en-GB)", "# Standard", "Alex (en-US)", "Karen (en-AU)", "Samantha (en-US)"]
         );
         assert!(matches!(&entries[1], Entry::Choice { on: true, .. }), "the Mac's own is ticked while no voice is chosen");
+    }
+
+    #[test]
+    fn every_glyph_the_page_draws_is_one_the_app_ships() {
+        let mut glyphs: Vec<&str> = WAYS.iter().map(|one| one.glyph).collect();
+        glyphs.extend(["check", "radio", "play", "download", "chevron-down", "circle-dashed", "circle-alert", "x", "ban"]);
+        for glyph in glyphs {
+            assert!(gpui::AssetSource::load(&crate::assets::Assets, &crate::assets::icon_path(glyph)).ok().flatten().is_some(), "{glyph}");
+        }
     }
 }

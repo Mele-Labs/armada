@@ -28,6 +28,15 @@ impl SettingsScreen {
         Self::new(under, Wire::Mock(Box::new(super::mock::MockFleet::new())), window, cx)
     }
 
+    /// For the walk of a refused save: the mock refuses this word as Fleet refuses one outside its set.
+    pub fn refusing(&mut self, word: &str, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.refuses.push(word.to_string());
+            }
+        });
+    }
+
     /// For the walk of a Mac Tailscale Funnel does not serve.
     pub fn without_funnel(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {
