@@ -1,0 +1,112 @@
+{
+ "threads": [
+  {
+   "session_id": "mock-01",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T19:48:55.257Z",
+     "bays": [
+      {
+       "slot": 6,
+       "from": "2026-11-10T19:55:46.507Z"
+      }
+     ]
+    },
+    "plan": {
+     "id": "plan:v1",
+     "version": 1,
+     "state": "waiting"
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-01-20261110T195252718Z-292",
+      "at": "2026-11-10T19:52:52.718Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Build the Fleet side of Projects, as the owner decided in a quiz on 10 Nov."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-01-20261110T195257234Z-297",
+      "at": "2026-11-10T19:52:57.234Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Brief received: build the Fleet side of Projects from the 10 Nov quiz decisions, settle a plan with you first, and build nothing before you approve. I'll start by reading the design Document and the code it touches."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-01-20261110T195400416Z-326",
+      "at": "2026-11-10T19:54:00.416Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Both explorers are still mapping the code. The plan comes once they report back."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-01-20261110T195535789Z-347",
+      "at": "2026-11-10T19:55:35.789Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The first explorer is back. One thing in the brief doesn't hold: there is no `armada need` verb. The protocol ID is a hash of the wire files and moves by itself, so a protocol change needs no separate bump step. I'll put that in the plan's open points. Waiting on the second explorer, which is mapping task Projects, the tracker, reviews and Operator rules."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "mock-01-20261110T195840003Z-414",
+     "names": [
+      "mcp__armada-fleet__record_plan"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "mock-01-20261110T195840003Z-414",
+       "at": "2026-11-10T19:58:40.003Z",
+       "text": "mcp__armada-fleet__record_plan"
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-01-20261110T195916908Z-449",
+      "at": "2026-11-10T19:59:16.908Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "I've recorded the plan and it's waiting on your approval. Nothing is built yet. It lands as three pull requests:\n\n1. Projects replace Workspaces, and each Job keeps the project it was started from.\n2. Project values, each one naming the layer it came from.\n3. Review lists and Operator rules per project.\n\nElectron's picker will start listing the old task lists as projects, so that part gets a walk before PR 1 lands.\n\n## What exists and what's new\n\n| Piece | State | Where |\n|---|---|---|\n| A named set of repositories | partial: whole repositories only, and it can't be empty | `crates/core-model/src/workspace.rs:21` |\n| Project files merged by id from Kit and a repository | partial: two places, not four | `crates/fleet/src/piece_places.rs:77`, `crates/config/src/workspace.rs:140` |\n| The four places | done, but only for `armada.yml` and run memory | `crates/fleet/src/run_memory/places.rs:77`, `crates/fleet/src/sharing.rs:212` |\n| Task lists with rows | done; no members, values or place | `crates/store/src/projects.rs:27`, `crates/fleet/src/projects.rs:433` |\n| Lifecycles, rules and autonomy scoped to a set of repositories | done, by `ScopeId` | `crates/config/src/resolving.rs:83`, `crates/config/src/autonomy.rs:187` |\n| A Job's project | missing; a start names task rows but no project | `crates/ipc/src/hosted_sessions.rs:86` |\n| One resolver that names each value's layer | missing; there are several resolvers, and only Kit's Checks and Commands say where they came from | `crates/ipc/src/setup.rs:343`, `crates/config/src/live.rs:73` |\n| A tracker per project | missing; the tracker is picked per repository | `crates/fleet/src/tracking.rs:217` |\n| Review lists filtered by project | missing; Electron filters them itself | `apps/desktop/src/renderer/src/pr-review/list.tsx:65` |\n| Operator rule scope | partial: repository or everywhere | `crates/fleet/src/operator/turning.rs:174`, `crates/ipc/src/operator_page.rs:178` |\n| Look per project | missing; Machine-wide settings | `crates/config/src/settings/bridge.rs:7` |\n\n**Files I expect to touch:**\n- the two `workspace.rs` files\n- `piece_places.rs` and `run_memory/places.rs`\n- `fleet/src/projects.rs` and `store/src/projects.rs`, plus a migration\n- `hosted_sessions.rs` in ipc and store\n- `ipc/src/projects.rs` and `lifecycles.rs`\n- `api/src/routes.rs`\n- `tracking.rs`, `pull_review_lists.rs` and `operator/turning.rs`\n- `packages/protocol/src/projects.ts` and `lifecycles.ts`\n- Electron's `workspaces-fleet.ts`\n- `docs/concepts/project.md`, `docs/practices/protocol/projects.md` and `docs/scope.md`\n\n## What I couldn't settle\n\nThese are my picks. Mark any of them on the plan.\n\n1. **The repository's own behaviour keys.** Today `armada.yml` sets `auto_merge` (`crates/config/src/manifest/policies.rs:48`), `pr_mode` (`manifest/pr_mode.rs:22`) and `tracker` (`manifest/tracker.rs:60`). Your decision 7 has a project's tracker replacing its members' trackers, so members keep theirs. My pick is that these keys stay and sit just under the project. The order for behaviour becomes default, Machine, Kit, repository, Project, Job. A Job started from no project runs on the repository's values.\n2. **Kit has no behaviour layer yet.** Kit's `armada.yml` merge leaves `auto_merge` and `pr_mode` alone (`crates/config/src/manifest/kit.rs:39`), and pull request mode says \"no Kit tier\" (`crates/config/settings.toml:351`). I'd add Kit values for these keys, and this would close `kit-machine-manifest-resolution-chain` (`docs/OPEN.md:115`).\n3. **Auto merge across Manifests.** It already folds to the most restrictive across a Job's Manifests (`settings.toml:317`). A project value would replace that folded result. It would not fold in with it.\n4. **Folder members.** Jobs still run in the whole repository. The folder narrows what Bridge lists by path, such as Checks and Studios. Fleet serves the folder (`crates/config/src/manifest/workspace.rs:99`) and filters nothing itself.\n5. **Ids.** Workspace ids are slugs and task-list ids are ULIDs (`crates/fleet/src/projects.rs:292`). Both kinds stay valid project ids. A Workspace and a task list with the same name stay two projects, and you can delete one.\n6. **Tasks stay in this Mac's store** wherever the project's own file is kept. They travel to another Mac with `armada-hu76.3`.\n7. **Look.** Fleet keeps and serves Job layout, theme and density per project. Electron won't switch its look by project; the native switcher will.\n8. **`armada need` doesn't exist.** The protocol ID is a hash of the wire files and moves by itself (`docs/practices/protocol.md:243`), so the brief's bump step has nothing to run."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "mock-01-20261110T195924325Z-454",
+      "at": "2026-11-10T19:59:24.325Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "I'm now working in slot 6 on branch `armada/session-mock-01`. Nothing had been held back when the move happened, and nothing has been written to the branch.\n\nThe plan is in Bridge as **Plan to approve**, in three pull requests:\n\n1. Projects replace Workspaces, and each Job keeps its project.\n2. Project values, each showing which layer it came from.\n3. Review lists and Operator rules per project.\n\nMy previous message lists eight points I couldn't settle, each with my pick. The biggest is where a repository's own `auto_merge`, `pr_mode` and `tracker` sit. My pick is that they stay, just under the project, so a Job started from no project runs on the repository's values. Mark any you disagree with on the plan.\n\nThe first build step after you approve is the Electron picker walk, because the old task lists will show up there as projects."
+     }
+    }
+   ]
+  }
+ ]
+}

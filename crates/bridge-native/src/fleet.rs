@@ -9,8 +9,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use gpui::{Context, EventEmitter, Task};
 
 use ipc::{
-    CallArrival, Cursor, Event, FleetBuildReport, Instant, JobThread, JobThreadTail, ModKind, ModSummary, SessionRecord,
-    SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem, WorkflowChange, WorkflowChanges,
+    CallArrival, Cursor, Event, FleetBuildReport, Instant, JobThread, JobThreadTail, MergeLineView, ModKind, ModSummary, NeedsYou, SessionRecord,
+    Projects, RepositorySummary, SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem, WaitingItem,
+    WorkflowChange, WorkflowChanges,
+    WatchList, WatchSummary,
 };
 
 use crate::link::{self, LinkState, Signal};
@@ -71,6 +73,14 @@ impl HeldThread {
     }
 }
 
+/// A Job's Needs you as Fleet grouped it (`GET /sessions/needs_you`), with the `waiting_for` it was
+/// read for: when the record's list is not this one, the view is read again.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HeldNeeds {
+    pub view: NeedsYou,
+    pub read_for: Vec<WaitingItem>,
+}
+
 /// What Fleet has said, folded. Plain data, so a fold is tested without a window.
 pub struct Held {
     pub state: LinkState,
@@ -89,16 +99,54 @@ pub struct Held {
     /// Every call standing, as Fleet last said. `None` until Fleet has answered once, so an empty
     /// first reading cannot be mistaken for a count that stands.
     pub calls: Option<StandingCalls>,
+    /// Every repository Fleet serves, the one it was started in first. `None` until Fleet has answered.
+    pub repositories: Option<Vec<RepositorySummary>>,
+    /// His projects as Fleet last said, whole. `None` until Fleet has answered.
+    pub projects: Option<Projects>,
+    /// Every served repository's merge line, in Fleet's order, as Fleet last read it. `None` until Fleet has answered.
+    pub merge_lines: Option<Vec<MergeLineView>>,
+    /// The plan's windows as Fleet last read them, **held across a drop**, as Electron keeps the rings. `None` until Fleet has answered.
+    pub plan_usage: Option<ipc::PlanUsage>,
+    /// Where the step down stands, as Fleet last said, held across a drop. `None` until Fleet has answered.
+    pub downshift: Option<ipc::ModelDownshiftState>,
+    /// Every standing write clash, as Fleet last said. `None` until Fleet has answered, and again once the
+    /// connection drops, as Electron clears its marks: a clash Fleet cannot vouch for is not drawn.
+    pub clashes: Option<ipc::AllWriteClashes>,
+    /// What the runtime file said on the last attempt, with its path. `None` until it has been read.
+    pub presence: Option<(crate::runtime_file::Presence, String)>,
+    /// When the link last went unreachable, when Fleet last sent anything, and when a connection last dropped.
+    pub silent_since: Option<std::time::Instant>,
+    pub read_at: Option<std::time::Instant>,
+    pub dropped: Option<std::time::Instant>,
     /// Whether `features.notifications` is on. On until Fleet's settings say false, as Electron reads it.
     pub notifications: bool,
+    /// Whether `features.workflows` is off, so Jobs follow no workflow (`workflowsOffIn`). Off only once
+    /// Fleet's settings say so.
+    pub workflows_off: bool,
+    /// Whether `bridge.openGroup` is on: a Job's open work is drawn as one group after its last step.
+    /// On until Fleet's settings say false, as Classic reads it (`useOpenGroupShown`).
+    pub open_group: bool,
+    /// Every workflow Fleet holds, as `GET /workflows` answered on connect. `None` until then.
+    pub workflows: Option<Vec<ipc::WorkflowSummary>>,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
     arrived: Vec<CallArrival>,
+    /// A Job's shells that opened, ended or were brought to the front since the last take. Told once.
+    shells: Vec<ShellNews>,
     /// The port of the Fleet last connected to, so a command goes where the events come from.
     port: Option<u16>,
     /// The stylesheet Fleet checked for a mod, with the `changed_at` of the row it was checked for.
     sheets: BTreeMap<String, (Option<Instant>, String)>,
     /// The threads a view has read, by Job id. Fleet sends a tail for each of these and no other.
     pub threads: BTreeMap<String, HeldThread>,
+    /// The Needs you of each Job a view has read, by Job id.
+    pub needs: BTreeMap<String, HeldNeeds>,
+    /// Each Job's watches, live and ended, newest first, as `watches.changed` last carried them or
+    /// `list_watches` answered when a view first asked. By Job id.
+    pub watches: BTreeMap<String, Vec<WatchSummary>>,
+    /// The Jobs whose watches a view has asked for since the connection, so each is read once.
+    watches_asked: BTreeSet<String>,
+    /// The Jobs `watches.changed` has spoken for since the connection: an older read must not land over it.
+    watches_spoken: BTreeSet<String>,
     /// Moves on each `operator.page_changed` and each gap in the stream: the Operator's page reads again.
     pub operator_page_moved: u64,
     /// The workflow changes a proposed workflow's card was read for, by change id. Absent until read,
@@ -107,7 +155,7 @@ pub struct Held {
 }
 
 impl Held {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Held {
             state: LinkState::NotRunning("not yet read".into()),
             jobs: Vec::new(),
@@ -117,14 +165,37 @@ impl Held {
             mods: None,
             build: None,
             calls: None,
+            repositories: None,
+            projects: None,
+            merge_lines: None,
+            plan_usage: None,
+            downshift: None,
+            clashes: None,
+            presence: None,
+            silent_since: None,
+            read_at: None,
+            dropped: None,
             notifications: true,
+            workflows_off: false,
+            open_group: true,
+            workflows: None,
             arrived: Vec::new(),
+            shells: Vec::new(),
             port: None,
             sheets: BTreeMap::new(),
             threads: BTreeMap::new(),
+            needs: BTreeMap::new(),
+            watches: BTreeMap::new(),
+            watches_asked: BTreeSet::new(),
+            watches_spoken: BTreeSet::new(),
             operator_page_moved: 0,
             workflow_changes: BTreeMap::new(),
         }
+    }
+
+    /// Whether the view held for this Job was read for this very list, so asking again would answer the same.
+    pub fn needs_current(&self, session: &str, waiting: &[WaitingItem]) -> bool {
+        self.needs.get(session).is_some_and(|held| held.read_for == waiting)
     }
 
     /// A thread read whole replaces the one held.
@@ -160,6 +231,17 @@ impl Held {
     fn all_stale(&mut self) {
         self.threads.values_mut().for_each(|held| held.stale = true);
         self.operator_page_moved += 1;
+        // A gap may have lost a `watches.changed`: each Job's watches are read again when a view next asks.
+        self.watches_asked.clear();
+        self.watches_spoken.clear();
+    }
+
+    /// A read of a Job's watches lands unless `watches.changed` has spoken for that Job since it was asked.
+    fn watches_read(&mut self, list: WatchList) {
+        let id = list.session_id.as_str().to_string();
+        if !self.watches_spoken.contains(&id) {
+            self.watches.insert(id, list.watches);
+        }
     }
 
     /// The checked stylesheets of the theme mods that are on and valid, by mod name. A sheet checked
@@ -189,6 +271,17 @@ impl Held {
         }
     }
 
+    /// The live link, as the title bar reads it.
+    pub fn link(&self) -> crate::titlebar::LiveLink {
+        crate::titlebar::LiveLink {
+            state: self.state.clone(),
+            presence: self.presence.clone(),
+            silent_since: self.silent_since,
+            read_at: self.read_at,
+            dropped: self.dropped,
+        }
+    }
+
     /// The Dock count: the calls still to be opened, one for each owner. `None` until Fleet has answered.
     pub fn dock_count(&self) -> Option<usize> {
         self.calls.as_ref().map(|calls| calls.unopened().len())
@@ -199,9 +292,17 @@ impl Held {
         std::mem::take(&mut self.arrived)
     }
 
+    /// The shells' news folded since the last take, oldest first.
+    pub fn take_shells(&mut self) -> Vec<ShellNews> {
+        std::mem::take(&mut self.shells)
+    }
+
     fn set_settings(&mut self, list: &SettingsList) {
         let switch = list.settings.iter().find(|one| one.key == "features.notifications").map(|one| &one.value);
         self.notifications = switch != Some(&SettingValue::Bool(false));
+        let value = |key: &str| list.settings.iter().find(|one| one.key == key).map(|one| &one.value);
+        self.workflows_off = value("features.workflows") == Some(&SettingValue::Bool(false));
+        self.open_group = value("bridge.openGroup") != Some(&SettingValue::Bool(false));
     }
 
     fn listed(&mut self, mods: Vec<ModSummary>) {
@@ -222,9 +323,19 @@ impl Held {
                     }
                     if state != self.state {
                         lines.push(describe(&state));
+                        if !matches!(state, LinkState::Connected) {
+                            self.clashes = None;
+                        }
+                        if matches!(self.state, LinkState::Connected) {
+                            self.dropped = Some(std::time::Instant::now());
+                        }
+                        if matches!(state, LinkState::Unreachable(_)) && !matches!(self.state, LinkState::Unreachable(_)) {
+                            self.silent_since = Some(std::time::Instant::now());
+                        }
                         self.state = state;
                     }
                 }
+                Signal::Presence(presence, path) => self.presence = Some((presence, path)),
                 Signal::Jobs(jobs) => {
                     lines.push(Note::info("jobs read on connect").field("jobs", jobs.len()));
                     self.jobs = jobs;
@@ -260,18 +371,35 @@ impl Held {
                 Signal::CallsFailed(why) => lines.push(Note::warn("calls could not be read").field("why", why)),
                 Signal::Settings(list) => self.set_settings(&list),
                 Signal::SettingsFailed(why) => lines.push(Note::warn("settings could not be read").field("why", why)),
+                Signal::Repositories(list) => self.repositories = Some(list.repositories),
+                Signal::RepositoriesFailed(why) => lines.push(Note::warn("repositories could not be read").field("why", why)),
+                Signal::Projects(read) => self.projects = Some(read),
+                Signal::Workflows(read) => self.workflows = Some(read),
+                Signal::WorkflowsFailed(why) => lines.push(Note::warn("workflows could not be read").field("why", why)),
+                Signal::ProjectsFailed(why) => lines.push(Note::warn("projects could not be read").field("why", why)),
+                Signal::MergeLines(view) => self.merge_lines = Some(view.lines),
+                Signal::MergeLinesFailed(why) => lines.push(Note::warn("the merge line could not be read").field("why", why)),
+                Signal::Clashes(all) => self.clashes = Some(all),
+                Signal::ClashesFailed(why) => lines.push(Note::warn("the write clashes could not be read").field("why", why)),
+                Signal::PlanUsage(usage) => self.plan_usage = Some(usage),
+                Signal::PlanUsageFailed(why) => lines.push(Note::warn("the plan usage could not be read").field("why", why)),
+                Signal::Downshift(state) => self.downshift = Some(state),
+                Signal::DownshiftFailed(why) => lines.push(Note::warn("the step down could not be read").field("why", why)),
                 Signal::Build(report) => self.build = Some(report),
                 Signal::BuildFailed(why) => lines.push(Note::warn("the build could not be read").field("why", why)),
                 Signal::Stream(StreamMessage::Resync(resync)) => {
+                    self.read_at = Some(std::time::Instant::now());
                     resyncs += 1;
                     self.cursor = Some(resync.cursor);
                     self.all_stale();
                 }
                 Signal::Stream(StreamMessage::Missed(lost)) => {
+                    self.read_at = Some(std::time::Instant::now());
                     missed += lost.dropped;
                     self.all_stale();
                 }
                 Signal::Stream(StreamMessage::Event(delivered)) => {
+                    self.read_at = Some(std::time::Instant::now());
                     events += 1;
                     self.cursor = Some(delivered.cursor);
                     *kinds.entry(delivered.event.kind()).or_default() += 1;
@@ -305,6 +433,23 @@ impl Held {
                             self.arrived.extend(changed.arrived);
                         }
                         Event::SettingsChanged(list) => self.set_settings(&list),
+                        Event::RepositoriesChanged(list) => self.repositories = Some(list.repositories),
+                        // His projects arrive whole and replace the ones held.
+                        Event::ProjectsChanged(read) => self.projects = Some(read),
+                        // The merge lines arrive whole and replace the ones held.
+                        Event::MergeLineViewChanged(view) => self.merge_lines = Some(view.lines),
+                        Event::WriteClashesChanged(all) => self.clashes = Some(all),
+                        Event::PlanUsageChanged(usage) => self.plan_usage = Some(usage),
+                        Event::ModelDownshiftChanged(state) => self.downshift = Some(state),
+                        // A Job's watches arrive whole and replace the ones held.
+                        Event::WatchesChanged(list) => {
+                            let id = list.session_id.as_str().to_string();
+                            self.watches_spoken.insert(id.clone());
+                            self.watches.insert(id, list.watches);
+                        }
+                        Event::TerminalOpened(shell) => self.shells.push(ShellNews::Opened(shell)),
+                        Event::TerminalExited(shell) => self.shells.push(ShellNews::Exited(shell)),
+                        Event::TerminalShown(shell) => self.shells.push(ShellNews::Shown(shell)),
                         _ => {}
                     }
                 }
@@ -343,10 +488,51 @@ fn describe(state: &LinkState) -> Note {
     }
 }
 
+/// How old the merge line kept on disk may be and still draw on open (`remembered.ts`).
+const MERGE_LINES_FRESH: chrono::Duration = chrono::Duration::minutes(5);
+
+fn merge_lines_file() -> Option<std::path::PathBuf> {
+    crate::jobs::deck_file().map(|deck| deck.with_file_name("native-merge-lines"))
+}
+
+/// The line as Fleet last said it, with when, so the next open can draw it before Fleet answers.
+fn keep_merge_lines(lines: &[ipc::MergeLineView]) {
+    let Some(path) = merge_lines_file() else { return };
+    let kept = ipc::encode(&ipc::MergeLineViews { lines: lines.to_vec() })
+        .map_err(|why| format!("{why:?}"))
+        .and_then(|json| std::fs::write(&path, format!("{}\n{json}", chrono::Utc::now().to_rfc3339())).map_err(|why| why.to_string()));
+    if let Err(why) = kept {
+        Note::warn("the merge line was not kept").field("why", why).emit();
+    }
+}
+
+/// The kept line, where it was kept within [`MERGE_LINES_FRESH`] of `now`.
+fn kept_merge_lines(now: chrono::DateTime<chrono::Utc>) -> Option<Vec<ipc::MergeLineView>> {
+    let text = std::fs::read_to_string(merge_lines_file()?).ok()?;
+    let (at, json) = text.split_once('\n')?;
+    let at = chrono::DateTime::parse_from_rfc3339(at).ok()?;
+    (now.signed_duration_since(at) <= MERGE_LINES_FRESH).then_some(())?;
+    ipc::decode::<ipc::MergeLineViews>("MergeLineViews", json.as_bytes()).ok().map(|read| read.lines)
+}
+
 /// What began to wait on him, since the last time this was said. Said once for each batch of events.
 pub struct Arrived(pub Vec<CallArrival>);
 
 impl EventEmitter<Arrived> for FleetConnection {}
+
+/// One of a Job's shells, as `terminal.opened`, `terminal.exited` and `terminal.shown` tell it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ShellNews {
+    Opened(ipc::JobTerminal),
+    Exited(ipc::JobTerminal),
+    /// The agent asked for it in front (`show_terminal`).
+    Shown(ipc::JobTerminal),
+}
+
+/// The shells' news in one folded batch, for a Job's terminal tabs to follow.
+pub struct Shells(pub Vec<ShellNews>);
+
+impl EventEmitter<Shells> for FleetConnection {}
 
 pub struct FleetConnection {
     held: Held,
@@ -357,6 +543,13 @@ pub struct FleetConnection {
     /// The Jobs whose last read failed: not asked again until a view asks with `retry`, or the
     /// redraw a failure causes would ask for ever.
     failed: BTreeSet<String>,
+    /// The Jobs whose Needs you is being read now, by the `waiting_for` asked for.
+    needs_reading: BTreeMap<String, Vec<WaitingItem>>,
+    /// The Jobs whose last Needs you read failed, by the `waiting_for` asked for: not asked again until
+    /// the list changes, or the redraw a failure causes would ask for ever.
+    needs_failed: BTreeMap<String, Vec<WaitingItem>>,
+    /// The build read every [`FOLLOW`] after an act, until the report stops saying a change is under way.
+    following: Option<Task<()>>,
     /// The workflow changes asked for, by id and the definition the card showed, so one is asked
     /// once per text and a send back that redrafts it is asked again.
     changes_asked: BTreeSet<(i64, u64)>,
@@ -364,10 +557,60 @@ pub struct FleetConnection {
     _drain: Task<()>,
 }
 
+/// How often the build is read while a restart, revert, swap or snapshot is under way (`FOLLOW_MS`).
+const FOLLOW: std::time::Duration = std::time::Duration::from_secs(2);
+/// A change still under way after this is a script that died, and the follow stops (`FOLLOW_FOR_MS`).
+const FOLLOW_FOR: std::time::Duration = std::time::Duration::from_secs(20 * 60);
+
+/// What the build switcher asks of Fleet, as Electron's `FleetBuilds` asks it.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BuildAct {
+    Change(ipc::ChangeFleetBuild),
+    Revert,
+    Swap,
+    Keep,
+    Pick(ipc::PickFleetBuildJob),
+}
+
+impl BuildAct {
+    fn route(&self) -> &'static str {
+        match self {
+            BuildAct::Change(_) => "/fleet/build/change",
+            BuildAct::Revert => "/fleet/build/revert",
+            BuildAct::Swap => "/fleet/build/swap",
+            BuildAct::Keep => "/fleet/build/keep",
+            BuildAct::Pick(_) => "/fleet/build/pick",
+        }
+    }
+
+    fn body(&self) -> Option<Result<String, String>> {
+        let encoded = |body: Result<String, ipc::Unencodable>| body.map_err(|why| format!("{why:?}"));
+        match self {
+            BuildAct::Change(change) => Some(encoded(ipc::encode(change))),
+            BuildAct::Pick(pick) => Some(encoded(ipc::encode(pick))),
+            BuildAct::Revert | BuildAct::Swap | BuildAct::Keep => None,
+        }
+    }
+}
+
+/// A restart, revert, swap or snapshot is under way, so the build is followed.
+fn changing(report: &FleetBuildReport) -> bool {
+    report.restarting.is_some() || report.reverting || report.swapping || report.snapshot.as_ref().is_some_and(|kept| kept.state == ipc::SnapshotState::Building)
+}
+
 impl FleetConnection {
     /// What Fleet has said, folded. Read it in an `observe` handler; it moves once per batch.
     pub fn held(&self) -> &Held {
         &self.held
+    }
+
+    /// `POST /preferences/save` answered with every preference as it now stands. Preferences are read once a
+    /// connection, so a save made here is folded in as that read would be, and what observes them applies it.
+    pub fn preferences_saved(&mut self, answer: ipc::Preferences, cx: &mut Context<Self>) {
+        for line in self.held.fold(vec![Signal::Preferences(answer)]) {
+            line.emit();
+        }
+        cx.notify();
     }
 
     /// See [`Held::take_dirty`]. No redraw: the view that asks is already drawing.
@@ -381,6 +624,11 @@ impl FleetConnection {
     }
 
     /// Whether older items of this Job's thread are being read.
+    /// Whether the Job's thread is being read again now, as Electron's `refreshing` reads its `reading` list.
+    pub fn reading(&self, session: &str) -> bool {
+        self.reading.contains(session)
+    }
+
     pub fn reading_older(&self, session: &str) -> bool {
         self.earlier.contains(session)
     }
@@ -428,12 +676,108 @@ impl FleetConnection {
             build.failed = None;
             cx.notify();
         }
+        self.follow(false, cx);
+    }
+
+    /// Ask Fleet for a build act off the main thread. A change, revert or swap Fleet took is marked on the
+    /// report at once and followed; one it refused is said on the report's `failed` line, where a failed
+    /// restart is said. A pick or a keep is read again at once, and a refusal of one is noted, as Electron
+    /// leaves it to the row pressed.
+    pub fn build_act(&mut self, act: BuildAct, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else {
+            Note::warn("not sent: no Fleet is connected").field("route", act.route()).emit();
+            return;
+        };
+        let route = act.route();
+        let body = act.body();
+        cx.spawn(async move |this, cx| {
+            let read = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    match body {
+                        Some(body) => runtime.block_on(crate::transport::post(port, route, body?)),
+                        None => runtime.block_on(crate::transport::post_bare(port, route)),
+                    }
+                })
+                .await;
+            let outcome = crate::revert::outcome_of(read);
+            let _ = this.update(cx, |this, cx| {
+                let took = outcome == crate::revert::Outcome::Started;
+                let marks = matches!(act, BuildAct::Change(_) | BuildAct::Revert | BuildAct::Swap);
+                match (took, this.held.build.as_mut()) {
+                    (true, Some(build)) if marks => {
+                        build.failed = None;
+                        match &act {
+                            BuildAct::Change(change) => build.restarting = Some(change.build),
+                            BuildAct::Revert => build.reverting = true,
+                            _ => build.swapping = true,
+                        }
+                    }
+                    (false, Some(build)) if marks => build.failed = Some(crate::revert::why_not(&outcome).to_string()),
+                    (false, _) => Note::warn("Fleet refused a build act").field("route", route).field("why", crate::revert::why_not(&outcome)).emit(),
+                    _ => {}
+                }
+                cx.notify();
+                if took {
+                    this.follow(!marks, cx);
+                }
+            });
+        })
+        .detach();
+    }
+
+    /// Read the build every [`FOLLOW`] (the first at once where `now`) while a change is under way, or while
+    /// Fleet is down in the middle of one, for at most [`FOLLOW_FOR`]. A later act starts it over.
+    fn follow(&mut self, now: bool, cx: &mut Context<Self>) {
+        let until = std::time::Instant::now() + FOLLOW_FOR;
+        self.following = Some(cx.spawn(async move |this, cx| {
+            let mut wait = !now;
+            loop {
+                if wait {
+                    cx.background_executor().timer(FOLLOW).await;
+                }
+                wait = true;
+                let Ok(port) = this.read_with(cx, |this, _| this.held.port()) else { return };
+                if let Some(port) = port {
+                    let read = cx
+                        .background_executor()
+                        .spawn(async move {
+                            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                            let (status, bytes) = runtime.block_on(crate::transport::get(port, "/fleet/build"))?;
+                            if !(200..300).contains(&status) {
+                                return Err(format!("Fleet answered {status}"));
+                            }
+                            ipc::decode::<FleetBuildReport>("FleetBuildReport", &bytes).map_err(|why| why.to_string())
+                        })
+                        .await;
+                    // A read that failed leaves the report held, as the minute's watch does.
+                    if let Ok(report) = read {
+                        let _ = this.update(cx, |this, cx| {
+                            if this.held.build.as_ref() != Some(&report) {
+                                this.held.build = Some(report);
+                                cx.notify();
+                            }
+                        });
+                    }
+                }
+                let Ok(going) = this.read_with(cx, |this, _| port.is_none() || this.held.build.as_ref().is_some_and(changing)) else { return };
+                if !going || std::time::Instant::now() >= until {
+                    return;
+                }
+            }
+        }));
     }
 
     /// Read a Job's thread (`GET /sessions/thread`) off the main thread and hold it. Fleet follows the
     /// Job from this first read and sends its changes as `job_thread.tail`. A read already under
-    /// way is not asked again; a failed one is noted and the view keeps its skeleton, and is asked
-    /// again only with `retry`, which is the person opening the Job.
+    /// way is not asked again; a refused one is a toast in Fleet's words, the view draws nothing for
+    /// it, and it is asked again only with `retry`, which is the person opening the Job.
+    /// Whether the last read of this Job's thread was refused, and none has been answered since.
+    pub fn thread_refused(&self, session: &str) -> bool {
+        self.failed.contains(session)
+    }
+
     pub fn read_thread(&mut self, session: &str, retry: bool, cx: &mut Context<Self>) {
         let Some(port) = self.held.port() else { return };
         if retry {
@@ -453,7 +797,7 @@ impl FleetConnection {
                     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
                     let (status, bytes) = runtime.block_on(crate::transport::get(port, &path))?;
                     if !(200..300).contains(&status) {
-                        return Err(format!("Fleet answered {status}: {}", String::from_utf8_lossy(&bytes)));
+                        return Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message));
                     }
                     ipc::decode::<JobThread>("JobThread", &bytes).map_err(|why| why.to_string())
                 })
@@ -464,7 +808,87 @@ impl FleetConnection {
                     Ok(read) => this.held.thread_read(read),
                     Err(why) => {
                         this.failed.insert(id.clone());
-                        Note::warn("a Job's thread could not be read").field("job", id.as_str()).field("why", why).emit();
+                        Note::warn("a Job's thread could not be read").field("job", id.as_str()).field("why", why.as_str()).emit();
+                        cx.defer(move |cx| crate::toasts::tell(why, cx));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// Read a Job's Needs you (`GET /sessions/needs_you`) off the main thread and hold it, for the
+    /// `waiting_for` the Job's record carries now. Asked again only when that list is not the one held, being
+    /// read or failed for: a view calls this each time the record moves and the call is a compare.
+    pub fn read_needs(&mut self, session: &str, waiting: Vec<WaitingItem>, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else { return };
+        if self.held.needs_current(session, &waiting)
+            || self.needs_reading.get(session) == Some(&waiting)
+            || self.needs_failed.get(session) == Some(&waiting)
+        {
+            return;
+        }
+        self.needs_reading.insert(session.to_string(), waiting.clone());
+        let id = session.to_string();
+        let path = format!("/sessions/needs_you?session_id={session}");
+        cx.spawn(async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let (status, bytes) = runtime.block_on(crate::transport::get(port, &path))?;
+                    if !(200..300).contains(&status) {
+                        return Err(format!("Fleet answered {status}: {}", String::from_utf8_lossy(&bytes)));
+                    }
+                    ipc::decode::<NeedsYou>("NeedsYou", &bytes).map_err(|why| why.to_string())
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                this.needs_reading.remove(&id);
+                match answer {
+                    Ok(view) => {
+                        this.needs_failed.remove(&id);
+                        this.held.needs.insert(id, HeldNeeds { view, read_for: waiting });
+                    }
+                    Err(why) => {
+                        Note::warn("a Job's Needs you could not be read").field("job", id.as_str()).field("why", why).emit();
+                        this.needs_failed.insert(id, waiting);
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// Read a Job's watches, live and ended (`GET /watches?session_id=&ended=true`), once since the
+    /// connection; `watches.changed` keeps them current after. A failed read is asked again next time.
+    pub fn read_watches(&mut self, session: &str, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else { return };
+        if !self.held.watches_asked.insert(session.to_string()) {
+            return;
+        }
+        let id = session.to_string();
+        let path = format!("/watches?session_id={session}&ended=true");
+        cx.spawn(async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let (status, bytes) = runtime.block_on(crate::transport::get(port, &path))?;
+                    if !(200..300).contains(&status) {
+                        return Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message));
+                    }
+                    ipc::decode::<WatchList>("WatchList", &bytes).map_err(|why| why.to_string())
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                match answer {
+                    Ok(list) => this.held.watches_read(list),
+                    Err(why) => {
+                        this.held.watches_asked.remove(&id);
+                        Note::warn("a Job's watches could not be read").field("job", id.as_str()).field("why", why).emit();
                     }
                 }
                 cx.notify();
@@ -544,7 +968,13 @@ impl FleetConnection {
                     batch.push(more);
                 }
                 let folded = this.update(cx, |this, cx| {
+                    let lines_were = this.held.merge_lines.clone();
                     let lines = this.held.fold(batch);
+                    if this.held.merge_lines != lines_were {
+                        if let Some(read) = &this.held.merge_lines {
+                            keep_merge_lines(read);
+                        }
+                    }
                     // A change that reached too far back, or a gap in the stream: read those again.
                     for id in this.held.stale_threads() {
                         if let Some(held) = this.held.threads.get_mut(&id) {
@@ -553,9 +983,13 @@ impl FleetConnection {
                         this.read_thread(&id, true, cx);
                     }
                     let arrived = this.held.take_arrived();
+                    let shells = this.held.take_shells();
                     cx.notify();
                     if !arrived.is_empty() {
                         cx.emit(Arrived(arrived));
+                    }
+                    if !shells.is_empty() {
+                        cx.emit(Shells(shells));
                     }
                     lines
                 });
@@ -565,11 +999,17 @@ impl FleetConnection {
                 }
             }
         });
+        let mut held = Held::new();
+        // The strip draws at once on open from the last line read, as Electron's does, while it is fresh.
+        held.merge_lines = kept_merge_lines(chrono::Utc::now());
         FleetConnection {
-            held: Held::new(),
+            held,
             reading: BTreeSet::new(),
             earlier: BTreeSet::new(),
             failed: BTreeSet::new(),
+            needs_reading: BTreeMap::new(),
+            needs_failed: BTreeMap::new(),
+            following: None,
             changes_asked: BTreeSet::new(),
             _drain: drain,
         }
@@ -746,6 +1186,56 @@ mod tests {
         assert!(held.take_arrived().is_empty(), "news is told once");
         held.fold(vec![changed("[]", "[]")]);
         assert!(held.take_arrived().is_empty());
+    }
+
+    #[test]
+    fn a_jobs_shells_news_is_handed_over_once_in_the_order_it_came() {
+        let shell = |kind: &str, terminal: &str| {
+            let wire = format!(
+                r#"{{"message":"event","cursor":1,"event":{{"kind":"{kind}","session_id":"s0","terminal":"{terminal}","run_id":"r-{terminal}"}}}}"#
+            );
+            Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+        };
+        let mut held = Held::new();
+        held.fold(vec![shell("terminal.opened", "t2"), shell("terminal.shown", "t2"), shell("terminal.exited", "t1")]);
+        let news = held.take_shells();
+        let told: Vec<(&str, &str)> = news
+            .iter()
+            .map(|one| match one {
+                ShellNews::Opened(at) => ("opened", at.terminal.as_str()),
+                ShellNews::Shown(at) => ("shown", at.terminal.as_str()),
+                ShellNews::Exited(at) => ("exited", at.terminal.as_str()),
+            })
+            .collect();
+        assert_eq!(told, [("opened", "t2"), ("shown", "t2"), ("exited", "t1")]);
+        assert_eq!(news[0].clone(), ShellNews::Opened(ipc::JobTerminal { session_id: ipc::SessionId::carried("s0"), terminal: "t2".into(), run_id: "r-t2".into() }));
+        assert!(held.take_shells().is_empty(), "news is told once");
+    }
+
+    #[test]
+    fn the_repositories_are_read_on_connect_and_replaced_when_fleet_says_they_changed() {
+        let mut held = Held::new();
+        assert_eq!(held.repositories, None, "nothing is listed before Fleet has answered");
+        let list: ipc::RepositoryList =
+            ipc::decode("repositories", br#"{"repositories":[{"root":"/r/one","records_root":"/x/one"}]}"#).expect("a list");
+        held.fold(vec![Signal::Repositories(list)]);
+        assert_eq!(held.repositories.as_ref().map(|all| all[0].root.as_str()), Some("/r/one"));
+        let wire = r#"{"message":"event","cursor":2,"event":{"kind":"repositories.changed","repositories":[]}}"#;
+        held.fold(vec![Signal::Stream(crate::frames::decode(wire).expect("an event"))]);
+        assert_eq!(held.repositories, Some(Vec::new()));
+    }
+
+    #[test]
+    fn the_projects_are_read_on_connect_and_replaced_whole_when_fleet_says_they_changed() {
+        let mut held = Held::new();
+        assert_eq!(held.projects, None, "nothing is listed before Fleet has answered");
+        let one = r#"{"id":"p1","name":"Storefront","rows":[],"members":[],"place":{"place":"this_mac"}}"#;
+        let read: ipc::Projects = ipc::decode("projects", format!(r#"{{"projects":[{one}],"loose":[],"left_out":[]}}"#).as_bytes()).expect("projects");
+        held.fold(vec![Signal::Projects(read)]);
+        assert_eq!(held.projects.as_ref().map(|all| all.projects[0].name.as_str()), Some("Storefront"));
+        let wire = r#"{"message":"event","cursor":2,"event":{"kind":"projects.changed","projects":[],"loose":[],"left_out":[]}}"#;
+        held.fold(vec![Signal::Stream(crate::frames::decode(wire).expect("an event"))]);
+        assert_eq!(held.projects.as_ref().map(|all| all.projects.len()), Some(0));
     }
 
     #[test]

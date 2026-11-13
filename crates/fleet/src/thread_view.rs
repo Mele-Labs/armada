@@ -210,14 +210,11 @@ fn items_of(
 }
 
 /// Whether a row reaches the thread. A waiting ask is the head's `asked`; a `plan` row is where its card
-/// stands; a hand off told to the parent is drawn by the row that started the Job it replaced. A `reasoning`
-/// row is held back until the native thread draws it (the owner, 10 Nov 2026): it would end a run of calls
-/// with nothing drawn between the two halves.
+/// stands; a hand off told to the parent is drawn by the row that started the Job it replaced.
 fn drawn(row: &SessionRow) -> bool {
     !matches!(
         row,
         SessionRow::BrowserReminder { .. }
-            | SessionRow::Reasoning { .. }
             | SessionRow::Ask { state: SessionAskState::Waiting, .. }
             | SessionRow::Plan { .. }
             | SessionRow::Delivery { .. }

@@ -1,0 +1,335 @@
+{
+ "issues": [
+  {
+   "key": "armada#3290",
+   "reference": "3290",
+   "title": "Merge line freshness chip stays green when stale",
+   "url": "https://forge.invalid/issues/3290",
+   "state": "open",
+   "body": "The freshness chip on the merge line stays green after main moves on. It should turn amber once the branch is behind.",
+   "author": "nick",
+   "opened_at": "2026-11-07T10:00:00Z",
+   "labels": [
+    "bug",
+    "bridge"
+   ],
+   "assignees": [
+    "nick"
+   ],
+   "comments": [
+    {
+     "author": "marta",
+     "at": "2026-11-07T14:00:00Z",
+     "body": "The chip reads the branch once, when the line is drawn."
+    },
+    {
+     "author": "nick",
+     "at": "2026-11-08T08:10:00Z",
+     "body": "Read it again whenever main moves."
+    }
+   ],
+   "linked_pull_requests": [
+    {
+     "number": 2210,
+     "title": "Show the merge line in a Session",
+     "url": "https://github.com/mele-labs/armada/pull/2210",
+     "state": "open"
+    },
+    {
+     "number": 1892,
+     "title": "Add the pause marker column",
+     "url": "https://forge.invalid/pull/1892",
+     "state": "merged"
+    },
+    {
+     "number": 1874,
+     "title": "Colour the chip by the branch's age",
+     "url": "https://forge.invalid/pull/1874",
+     "state": "closed"
+    }
+   ],
+   "fields": [],
+   "holders": []
+  },
+  {
+   "key": "armada#ABC-12",
+   "reference": "ABC-12",
+   "title": "Receipt shows the tax line twice",
+   "url": "https://tracker.invalid/browse/ABC-12",
+   "state": "open",
+   "body": "The receipt draws the tax line once per tax rate and once more for the total.",
+   "author": "Priya Shah",
+   "opened_at": "2026-11-06T09:00:00Z",
+   "labels": [],
+   "assignees": [
+    "Nick Mele"
+   ],
+   "comments": [],
+   "linked_pull_requests": [
+    {
+     "number": 2412,
+     "title": "Draw the tax line once on the receipt",
+     "url": "https://forge.invalid/pull/2412",
+     "state": "open"
+    }
+   ],
+   "fields": [],
+   "holders": []
+  },
+  {
+   "key": "armada#2212",
+   "reference": "2212",
+   "title": "A job answers about the wrong repository after a switch",
+   "url": "https://forge.invalid/issues/2212",
+   "state": "open",
+   "body": "After pointing the Operator at another repository, its next answer still reads the first one's issues.",
+   "author": "marta",
+   "opened_at": "2026-11-05T09:00:00Z",
+   "labels": [
+    "bug"
+   ],
+   "assignees": [
+    "nick"
+   ],
+   "comments": [],
+   "linked_pull_requests": [
+    {
+     "number": 2256,
+     "title": "Clear the Operator's cache on a repository switch",
+     "url": "https://forge.invalid/pull/2256",
+     "state": "open"
+    }
+   ],
+   "fields": [],
+   "holders": []
+  },
+  {
+   "key": "armada#2259",
+   "reference": "2259",
+   "title": "The Operator composer keeps the old repository chip",
+   "url": "https://forge.invalid/issues/2259",
+   "state": "closed",
+   "body": "After a switch the composer still shows the first repository's chip.",
+   "author": "nick",
+   "opened_at": "2026-11-06T09:00:00Z",
+   "labels": [
+    "bridge"
+   ],
+   "assignees": [],
+   "comments": [
+    {
+     "author": "nick",
+     "at": "2026-11-08T03:00:00Z",
+     "body": "Gone since the chip reads the switch."
+    }
+   ],
+   "linked_pull_requests": [
+    {
+     "number": 2260,
+     "title": "Read the switch in the composer chip",
+     "url": "https://forge.invalid/pull/2260",
+     "state": "closed"
+    }
+   ],
+   "fields": [],
+   "holders": []
+  },
+  {
+   "key": "armada#7",
+   "reference": "7",
+   "title": "Settings forget the chosen theme",
+   "url": "https://forge.invalid/issues/7",
+   "state": "open",
+   "body": "Choosing a theme in Settings holds until the window reloads, then the default comes back.",
+   "author": "marta",
+   "opened_at": "2026-11-01T09:00:00Z",
+   "labels": [
+    "bug"
+   ],
+   "assignees": [],
+   "comments": [],
+   "linked_pull_requests": [],
+   "fields": [],
+   "holders": []
+  },
+  {
+   "key": "sample-web#7",
+   "reference": "7",
+   "title": "Cart total rounds the wrong way",
+   "url": "https://forge.invalid/sample-web/issues/7",
+   "state": "open",
+   "body": "A cart of three items at 0.335 shows 1.00 where the receipt says 1.01.",
+   "author": "lee",
+   "opened_at": "2026-11-03T09:00:00Z",
+   "labels": [
+    "bug",
+    "checkout"
+   ],
+   "assignees": [
+    "lee"
+   ],
+   "comments": [],
+   "linked_pull_requests": [],
+   "fields": [],
+   "holders": []
+  },
+  {
+   "key": "armada#3301",
+   "reference": "3301",
+   "title": "Operator does not say a branch is stale",
+   "url": "https://forge.invalid/issues/3301",
+   "state": "open",
+   "body": "Your turn lists a Job whose branch is behind main without saying so.",
+   "author": "nick",
+   "opened_at": "2026-11-09T09:05:00Z",
+   "labels": [
+    "operator"
+   ],
+   "assignees": [],
+   "comments": [],
+   "linked_pull_requests": [],
+   "fields": [],
+   "holders": []
+  }
+ ],
+ "lifecycles": [
+  {
+   "manifest_id": "armada",
+   "lifecycles": [
+    {
+     "lifecycle": {
+      "id": "ticket",
+      "name": "Ticket",
+      "scope": {
+       "kind": "everywhere"
+      },
+      "states": [
+       {
+        "id": "todo",
+        "label": "To do",
+        "read": {
+         "source": "tracker",
+         "words": [
+          "To Do",
+          "Backlog"
+         ]
+        }
+       },
+       {
+        "id": "in_progress",
+        "label": "In progress",
+        "read": {
+         "source": "tracker",
+         "words": [
+          "In Progress"
+         ]
+        }
+       },
+       {
+        "id": "in_review",
+        "label": "In review",
+        "read": {
+         "source": "tracker",
+         "words": [
+          "In Review"
+         ]
+        }
+       },
+       {
+        "id": "closed",
+        "label": "Closed",
+        "read": {
+         "source": "tracker",
+         "words": [
+          "Done",
+          "Closed"
+         ]
+        }
+       }
+      ],
+      "transitions": [],
+      "ends": [
+       "closed"
+      ]
+     },
+     "kept": {
+      "rank": {
+       "reach": "everywhere",
+       "source": "armada"
+      }
+     }
+    }
+   ],
+   "left_out": []
+  },
+  {
+   "manifest_id": "sample-web",
+   "lifecycles": [
+    {
+     "lifecycle": {
+      "id": "ticket",
+      "name": "Ticket",
+      "scope": {
+       "kind": "everywhere"
+      },
+      "states": [
+       {
+        "id": "todo",
+        "label": "To do",
+        "read": {
+         "source": "tracker",
+         "words": [
+          "To Do",
+          "Backlog"
+         ]
+        }
+       },
+       {
+        "id": "in_progress",
+        "label": "In progress",
+        "read": {
+         "source": "tracker",
+         "words": [
+          "In Progress"
+         ]
+        }
+       },
+       {
+        "id": "in_review",
+        "label": "In review",
+        "read": {
+         "source": "tracker",
+         "words": [
+          "In Review"
+         ]
+        }
+       },
+       {
+        "id": "closed",
+        "label": "Closed",
+        "read": {
+         "source": "tracker",
+         "words": [
+          "Done",
+          "Closed"
+         ]
+        }
+       }
+      ],
+      "transitions": [],
+      "ends": [
+       "closed"
+      ]
+     },
+     "kept": {
+      "rank": {
+       "reach": "everywhere",
+       "source": "armada"
+      }
+     }
+    }
+   ],
+   "left_out": []
+  }
+ ]
+}

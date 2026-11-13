@@ -2,9 +2,8 @@
 //! the quiet file, window and judged rows (`job-view.md`, B1 and B3).
 //!
 //! What Fleet serves is drawn; what the person answers goes back through `answer_sketch`,
-//! `answer_document`, `answer_waiting` and `dismiss_waiting`. The scene a sketch holds draws in a
-//! scene renderer this crate does not have yet, so a sketch card draws its band, its frame and its
-//! answers, and a sunken pane where the scene goes.
+//! `answer_document`, `answer_waiting` and `dismiss_waiting`. A sketch card draws its scene shrunk
+//! in a sunken pane (`crate::scene`), and a press opens it in a sheet of its own (`sketch_read`).
 
 use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, MouseButton, Role, SharedString};
@@ -23,6 +22,7 @@ use super::{JobView, Page};
 use crate::dropdown::Entry;
 use crate::labels::labelled;
 use crate::look::{token, Look};
+use crate::scene::{Clock, Fit, Lens};
 
 /// How the thread reads a card that was answered.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -116,6 +116,9 @@ impl JobView {
     ) -> AnyElement {
         let noting = open && page.cards.modes.get(key) == Some(&Mode::Note);
         let note_blank = self.typed_in(key, Mode::Note, cx).trim().is_empty();
+        if (!open || !page.cards.modes.contains_key(key)) && self.holds_kept(key) {
+            page.cards.kept_seen.borrow_mut().push((key.to_string(), ix, open));
+        }
         let subject = std::rc::Rc::new(subject);
         let job = self.shown.clone().unwrap_or_default();
         let session_id = SessionId::carried(job.to_string());
@@ -154,10 +157,23 @@ impl JobView {
                     }
                 }
             };
-            let footer = div().flex().items_center().gap(look.length(token::SPACE_2));
+            // Classic's `.armada-card-footer` row; native's roomier buttons wrap where a narrow card can't hold them.
+            let footer = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2));
             let footer = if noting {
                 let (send_key, cancel_key) = (key.to_string(), key.to_string());
                 let answer = answer.clone();
+                // `⌘Enter` in the Note box sends it back, as Send back does.
+                let (commit_key, commit_answer) = (key.to_string(), answer.clone());
+                page.keys.commit(
+                    key,
+                    Some(std::rc::Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| {
+                        let note = this.typed_in(&commit_key, Mode::Note, cx).trim().to_string();
+                        if !note.is_empty() {
+                            let (route, body) = commit_answer(SketchHow::SentBack, Some(note.clone()));
+                            this.settle(ix, commit_key.clone(), Answer::SentBack(note), route, body, window, cx);
+                        }
+                    })),
+                );
                 footer
                     .child(labelled(
                         button(look, SharedString::from(format!("send-back:{key}")), "Send back", Tone::Primary, true, None, !note_blank).when(!note_blank, |b| {
@@ -234,10 +250,14 @@ impl JobView {
         let shown_earlier = picked.is_some_and(|at| at + 1 < revisions);
         let drawn = self.drawn_of(&card.sketch, cx);
         let band = self.sketch_band(ix, &key, &card.title, card.replaced, card.against.as_deref().filter(|_| !shown_earlier), Some((&card.at, revisions, picked)), look, now, cx);
-        let glass = glass(look, card.replaced);
+        let (scene_key, scene) = shown_scene(card, picked);
+        let pointed = page.cards.pointed.as_deref() == Some(key.as_str()) || page.cards.focused.as_deref() == Some(key.as_str());
+        let playing = page.cards.playing.as_ref().filter(|(at, _)| *at == key).map(|(_, since)| *since);
+        let glass = glass(look, card.replaced, scene.clone().map(|scene| drawn_against(card, picked, &scene_key, scene, true, Fit::Preview, Clock::both(playing), Lens::default())));
+        let press = self.sketch_press(&key, &card.title, band, glass, scene.is_some_and(|scene| crate::scene::plays(&scene)), page, cx);
         let body = frame(look, true)
-            .child(band)
-            .child(glass)
+            .when(pointed, |frame| frame.border_color(look.color(token::ACCENT)))
+            .child(press)
             .when(framed, |frame| {
                 frame.child(self.approval(ix, &key, Subject::Sketch { sketch: card.sketch.clone(), drawn }, open && !shown_earlier, true, settled, true, page, look, cx))
             });
@@ -259,16 +279,39 @@ impl JobView {
         let picked = page.cards.revision.get(&key).copied().filter(|at| *at < revisions);
         let shown_earlier = picked.is_some_and(|at| at + 1 < revisions);
         let drawn = self.drawn_of(&card.sketch, cx);
+        let (scene_key, scene) = shown_scene(card, picked);
+        let plays = scene.as_ref().is_some_and(|scene| crate::scene::plays(scene));
+        let playing = page.cards.playing.as_ref().filter(|(at, _)| *at == key).map(|(_, since)| *since);
+        let (open_card, open_shown) = (card.id.clone(), key.clone());
+        let open = labelled(
+            div()
+                .id(SharedString::from(format!("pin-open:{key}")))
+                .flex_none()
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(look.length(token::H_CONTROL_SM))
+                .rounded(look.length(token::RADIUS_MD))
+                .cursor_pointer()
+                .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                .tooltip(tip("Open in the panel"))
+                .child(glyph(look, "maximize-2", Size::Small, look.color(token::FG_MUTED)))
+                .on_click(cx.listener(move |this, _, window, cx| this.read_sketch(&open_card, &open_shown, window, cx))),
+            Role::Button,
+            "Open in the panel",
+        );
         let band = div()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
             .text_color(look.color(token::FG_MUTED))
-            .child(glyph(look, "pencil-ruler", Size::Small, look.color(token::FG_MUTED)))
-            .child(super::rows::eyebrow(look, &card.title).text_color(look.color(token::FG_MUTED)))
-            .child(div().id(SharedString::from(format!("pin-mark:{key}"))).child(glyph(look, "bell-ring", Size::Mark, look.color(token::STEP_WAITING))).tooltip(tip("Sketch waiting for approval")))
+            .child(div().flex_none().child(glyph(look, "pencil-ruler", Size::Small, look.color(token::FG_MUTED))))
+            // The title gives way in a narrow thread, so Fold stays inside the card.
+            .child(super::rows::eyebrow(look, &card.title).flex_shrink(1.).min_w_0().truncate().text_color(look.color(token::FG_MUTED)))
+            .child(div().flex_none().id(SharedString::from(format!("pin-mark:{key}"))).child(glyph(look, "bell-ring", Size::Mark, look.color(token::STEP_WAITING))).tooltip(tip("Sketch waiting for approval")))
             .child(div().flex_1())
             .child(self.revision_button(ix, &key, &card.title, revisions, picked, look, cx))
+            .child(open)
             .child(labelled(
                 div()
                     .id(SharedString::from(format!("fold:{key}")))
@@ -308,7 +351,21 @@ impl JobView {
                     cx.notify();
                 }))
                 .child(band)
-                .when(!folded, |card| card.child(div().h(look.length(token::SPACE_12) * 6.).rounded(look.length(token::RADIUS_MD)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).overflow_hidden().flex().items_center().justify_center().child(glyph(look, "pencil-ruler", Size::Mark, look.color(token::FG_SUBTLE)))))
+                .when(!folded, |pin| {
+                    let hover_key = key.clone();
+                    pin.child(
+                        div()
+                            .id(SharedString::from(format!("pin-drawing:{key}")))
+                            .h(look.length(token::SPACE_12) * 6.)
+                            .rounded(look.length(token::RADIUS_MD))
+                            .border(look.length(token::BORDER_WIDTH))
+                            .border_color(look.color(token::BORDER_SUBTLE))
+                            .bg(look.color(token::BG_SUNKEN))
+                            .overflow_hidden()
+                            .on_hover(cx.listener(move |this, over: &bool, _, cx| this.sketch_pointed(&hover_key, Some(*over), None, plays, cx)))
+                            .children(scene.map(|scene| drawn_against(card, picked, &scene_key, scene, true, Fit::Reading, Clock::both(playing), Lens::default()))),
+                    )
+                })
                 .child(self.approval(ix, &key, Subject::Sketch { sketch: card.sketch.clone(), drawn }, open, true, settled, false, page, look, cx)),
             Role::Article,
             format!("Sketch to approve: {}", card.title),
@@ -544,20 +601,133 @@ pub(super) fn settled_of(data: Option<&CardSettled>, pressed: Option<&Answer>) -
     data.map(|settled| (if settled.how == SketchHow::Approved { Said::Approved } else { Said::SentBack }, settled.words.clone()))
 }
 
-/// The pane a sketch's scene is drawn in.
-pub(super) fn glass(look: &Look, replaced: bool) -> AnyElement {
+/// The drawing a card shows, the revision picked or else the newest, and the key it is read and laid out by.
+pub(super) fn shown_scene(card: &ThreadSketch, picked: Option<usize>) -> (String, Option<Rc<ipc::Scene>>) {
+    let raw = picked.and_then(|at| card.revisions.get(at)).unwrap_or(&card.drawing);
+    let key = format!("{}:{}", card.id, picked.map_or_else(|| "now".to_string(), |at| at.to_string()));
+    let scene = crate::scene::read(&key, raw);
+    (key, scene)
+}
+
+/// What the shown revision is read against, with its title (`sketchAtRevision`): each revision
+/// against the one before it and the first plain; the newest against the sketch the Job named
+/// where it named one, drawn or not.
+pub(super) fn shown_against(card: &ThreadSketch, picked: Option<usize>) -> Option<(String, Rc<ipc::Scene>)> {
+    let count = card.revisions.len();
+    // Revision `at` (from 1) read against the one before it, which the menu calls `Revision at`.
+    let before = |at: usize| {
+        let raw = card.revisions.get(at.checked_sub(1)?)?;
+        crate::scene::read(&format!("{}:{}", card.id, at - 1), raw).map(|scene| (format!("Revision {at}"), scene))
+    };
+    if picked.is_none_or(|at| at + 1 >= count) {
+        return match &card.against {
+            Some(title) => card.against_drawing.as_ref().and_then(|raw| crate::scene::read(&format!("{}:against", card.id), raw)).map(|scene| (title.clone(), scene)),
+            None => before(count.checked_sub(1)?),
+        };
+    }
+    before(picked?)
+}
+
+/// The shown revision drawn, read against what it changes while `changes` is on.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn drawn_against(card: &ThreadSketch, picked: Option<usize>, key: &str, scene: Rc<ipc::Scene>, changes: bool, fit: Fit, clock: Clock, lens: Lens) -> AnyElement {
+    match shown_against(card, picked).filter(|_| changes) {
+        Some((_, before)) => {
+            let key = format!("{key}:changes");
+            let (scene, changes) = crate::scene::against(&key, &before, &scene);
+            crate::scene::view_changes(key.into(), scene, Some(changes), fit, clock, lens).into_any_element()
+        }
+        None => crate::scene::view(key.to_string().into(), scene, fit, clock, lens).into_any_element(),
+    }
+}
+
+/// The pane a sketch's scene is drawn in, shrunk to fit. A scene that does not read draws nothing.
+pub(super) fn glass(look: &Look, replaced: bool, scene: Option<AnyElement>) -> AnyElement {
     div()
         .flex_none()
-        .flex()
-        .items_center()
-        .justify_center()
-        .mx(look.length(token::SPACE_2))
         .h(look.length(token::H_ROW_UNIT) * 8.)
-        .rounded(look.length(token::RADIUS_MD))
+        .p(look.length(token::SPACE_2))
         .bg(look.color(token::BG_SUNKEN))
         .when(replaced, |glass| glass.opacity(0.5))
-        .child(glyph(look, "pencil-ruler", Size::Mark, look.color(token::FG_SUBTLE)))
+        .children(scene)
         .into_any_element()
+}
+
+impl JobView {
+    /// The band and the drawing as one press, `Open sketch …`, which plays the steps while the
+    /// pointer or the keys are on it, as Electron's `SketchRow` does.
+    fn sketch_press(&self, key: &str, title: &str, band: AnyElement, glass: AnyElement, plays: bool, page: &Page, cx: &Context<Self>) -> AnyElement {
+        let spot = page.keys.spot(&format!("sketch-press:{key}"), cx);
+        let (hover_key, open_key, enter_key) = (key.to_string(), key.to_string(), key.to_string());
+        let was = page.cards.focused.as_deref() == Some(key);
+        let (focus, me, focus_key) = (spot.focus.clone(), cx.entity().downgrade(), key.to_string());
+        labelled(
+            div()
+                .id(SharedString::from(format!("sketch-press:{key}")))
+                .relative()
+                .flex()
+                .flex_col()
+                .cursor_pointer()
+                .track_focus(&spot.focus)
+                .on_hover(cx.listener(move |this, over: &bool, _, cx| this.sketch_pointed(&hover_key, Some(*over), None, plays, cx)))
+                .on_click(cx.listener(move |this, _, window, cx| this.read_sketch(&open_key, &open_key, window, cx)))
+                .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
+                    if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
+                        this.read_sketch(&enter_key, &enter_key, window, cx);
+                        cx.stop_propagation();
+                    }
+                }))
+                .child(band)
+                .child(glass)
+                .child(
+                    gpui::canvas(
+                        move |_, window, cx| {
+                            let now = focus.is_focused(window);
+                            if now != was {
+                                let (me, focus_key) = (me.clone(), focus_key.clone());
+                                cx.defer(move |cx| {
+                                    let _ = me.update(cx, |this, cx| this.sketch_pointed(&focus_key, None, Some(now), plays, cx));
+                                });
+                            }
+                        },
+                        |_, _, _, _| {},
+                    )
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full(),
+                ),
+            Role::Button,
+            format!("Open sketch {title}"),
+        )
+        .into_any_element()
+    }
+
+    /// The pointer or the keys came onto a sketch card or left it: it plays from the start while either is on it.
+    fn sketch_pointed(&mut self, key: &str, hover: Option<bool>, focus: Option<bool>, plays: bool, cx: &mut Context<Self>) {
+        let Some(cards) = self.cards_mut() else { return };
+        let set = |slot: &mut Option<String>, on: bool| {
+            if on {
+                *slot = Some(key.to_string());
+            } else if slot.as_deref() == Some(key) {
+                *slot = None;
+            }
+        };
+        if let Some(on) = hover {
+            set(&mut cards.pointed, on);
+        }
+        if let Some(on) = focus {
+            set(&mut cards.focused, on);
+        }
+        let on = cards.pointed.as_deref() == Some(key) || cards.focused.as_deref() == Some(key);
+        let playing = cards.playing.as_ref().is_some_and(|(at, _)| at == key);
+        if on && plays && !playing {
+            cards.playing = Some((key.to_string(), std::time::Instant::now()));
+        } else if !on && playing {
+            cards.playing = None;
+        }
+        cx.notify();
+    }
 }
 
 // ---- the draft card (B3) ---------------------------------------------------------------------
@@ -611,17 +781,37 @@ impl JobView {
         let open = how.is_none();
         let editing = open && mode == Mode::Edit;
         let noting = open && mode == Mode::Note;
+        if (!open || mode == Mode::Read) && self.holds_kept(&key) {
+            page.cards.kept_seen.borrow_mut().push((key.clone(), ix, open));
+        }
         let target = self.is_target(&key);
         let proposed = self.workflow_proposal(change, text, cx);
         let eyebrow_word = proposed.unwrap_or(if kind == DraftKind::Workflow { "Workflow" } else { "Draft" });
+        // An open draft that proposes no change can become a page he reads; a paused Job keeps its turn
+        // for its Resume, so the page it would be told of waits too.
+        let to_page = (open && kind == DraftKind::Draft).then(|| {
+            let paused = self.shown.as_ref().is_some_and(|job| self.paused(job, cx));
+            let (page_key, draft_id, draft_title) = (key.clone(), id.to_string(), title.to_string());
+            labelled(
+                button(look, SharedString::from(format!("to-page:{key}")), "Make it a Document", Tone::Ghost, false, None, !paused)
+                    .when(paused, |button| button.tooltip(tip("Resume the Job first")))
+                    .when(!paused, |button| {
+                        button.on_click(cx.listener(move |this, _, window, cx| this.make_document(ix, page_key.clone(), &draft_id, &draft_title, window, cx)))
+                    }),
+                Role::Button,
+                "Make it a Document",
+            )
+        });
         let head = div()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
             .text_color(look.color(token::FG_MUTED))
+            .flex_wrap()
             .child(super::rows::eyebrow(look, eyebrow_word).text_color(look.color(token::FG_MUTED)))
-            .child(div().flex_1())
-            .child(self.stamp(at, look, now, false, cx));
+            // `armada-session-draft__at`'s `margin-inline-start: auto`; in a narrow card the act and the
+            // time wrap under the word, still at the right, rather than run past the card's edge.
+            .child(div().ml_auto().flex().flex_wrap().justify_end().items_center().gap(look.length(token::SPACE_2)).children(to_page).child(self.stamp(at, look, now, false, cx)));
         let shown_text = match &how {
             Some((DraftHow::Fixed, Some(words))) => words.clone(),
             _ => text.to_string(),
@@ -663,7 +853,7 @@ impl JobView {
         body = if editing {
             body.children(self.box_of(&key, Mode::Edit, "Draft text", look, cx))
         } else {
-            let words = self.workflow_card(ix, &key, change, &shown_text, look, cx).unwrap_or_else(|| div().min_w_0().child(self.prose(format!("{key}:text"), &shown_text, look)).into_any_element());
+            let words = self.workflow_card(ix, &key, change, &shown_text, look, cx).unwrap_or_else(|| div().min_w_0().child(self.prose(format!("{key}:text"), &shown_text, look, cx)).into_any_element());
             // Words selected in an open draft take their own menu, Edit and Add note, in place of the selection bar.
             body.child(if open { self.block(page, &key, words, cx) } else { words })
         };
@@ -813,6 +1003,21 @@ impl JobView {
                     }) as super::keys::Run,
                 )
             });
+            // `⌘Enter` in the open box: Approve with fixes from Draft text, Send back from Note (`DraftRow.tsx:309`).
+            let commit: Option<super::keys::Run> = if editing {
+                yes.as_ref().map(|(_, run)| run.clone())
+            } else if noting {
+                let (k6, answer3) = (key.to_string(), answer_body.clone());
+                Some(Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| {
+                    let words = this.typed_in(&k6, Mode::Note, cx).trim().to_string();
+                    if !words.is_empty() {
+                        this.settle(ix, k6.clone(), Answer::SentBack(words.clone()), "/sessions/waiting/answer", answer3(None, Some(words), None), window, cx);
+                    }
+                }))
+            } else {
+                None
+            };
+            page.keys.commit(key, commit);
             let kind_word = match kind {
                 DraftKind::Workflow => "Workflow",
                 _ => "Draft",

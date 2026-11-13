@@ -218,6 +218,35 @@ pub fn call_line(text: &str, working: bool) -> String {
     }
 }
 
+/// The kind a call's row draws: its icon and the colour of its rail.
+pub(super) fn kind_of(text: &str) -> super::tool_icons::Kind {
+    use super::tool_icons::Kind;
+    match family_of(tool_of(text).tool) {
+        Some(Family::Read) => Kind::Read,
+        Some(Family::Run) => Kind::Run,
+        Some(Family::Edit) => Kind::Edit,
+        Some(Family::Search) => Kind::Search,
+        Some(Family::Agent) => Kind::Agent,
+        Some(Family::Web) => Kind::Web,
+        Some(Family::Watch | Family::Ask) | None => Kind::Other,
+    }
+}
+
+/// What a running call works on, for the row's second line: the command's first line after `$ `,
+/// the path, or the pattern. None for a kind that says it in its phrase.
+pub(super) fn working_on(text: &str) -> Option<String> {
+    let call = tool_of(text);
+    let detail = call.detail.trim();
+    if detail.is_empty() {
+        return None;
+    }
+    match family_of(call.tool)? {
+        Family::Run => Some(format!("$ {}", detail.lines().next().unwrap_or(""))),
+        Family::Read | Family::Edit | Family::Search => Some(detail.lines().next().unwrap_or("").to_string()),
+        _ => None,
+    }
+}
+
 /// The tools a run holds, each once, in the order first called, for its name.
 pub fn names_of(texts: &[&str]) -> Vec<String> {
     let mut names: Vec<String> = Vec::new();
@@ -269,6 +298,15 @@ mod tests {
         assert_eq!(call_line("Foo --flag value", false), "Foo --flag value");
         assert_eq!(call_line("Read src/main.rs", true), "Reading main.rs");
         assert_eq!(call_line("AskUserQuestion", false), "You answered");
+    }
+
+    #[test]
+    fn a_running_call_says_what_it_works_on_in_one_line() {
+        assert_eq!(working_on("Bash cd x && cargo check\n--all").as_deref(), Some("$ cd x && cargo check"));
+        assert_eq!(working_on("Read crates/api/src/router.rs").as_deref(), Some("crates/api/src/router.rs"));
+        assert_eq!(working_on("Grep mergeLineTone").as_deref(), Some("mergeLineTone"));
+        assert_eq!(working_on("Agent Read the docs index"), None);
+        assert_eq!(working_on("Bash"), None);
     }
 
     #[test]

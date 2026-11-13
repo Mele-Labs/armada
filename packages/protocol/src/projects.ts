@@ -97,6 +97,8 @@ export type Project = {
   unread?: string;
   /** What the project sets for how work behaves, only the keys it sets. Absent where it sets none. `GET /projects/values` says what each key comes to. */
   values?: ValuesSet;
+  /** Whether its Jobs may be seen and acted on from his other Macs. False until he turns it on, and absent while false. */
+  shared_with_macs?: boolean;
 };
 
 /** A member of a project: a whole repository, or a folder of it that carries its own `armada.yml`. */
@@ -160,6 +162,8 @@ export type EditProject = {
   members?: ProjectMember[];
   place?: ProjectPlace;
   values?: ValuesSet;
+  /** Turns sharing with his other Macs on or off. Absent leaves it as it is. */
+  shared_with_macs?: boolean;
 };
 
 /** `POST /projects/rows/:row/edit` and `POST /projects/rows/:row/subtasks` (a task under the top-level task `row`): title and notes, whole. */

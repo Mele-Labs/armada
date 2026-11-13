@@ -1,0 +1,120 @@
+{
+ "subagents": [
+  {
+   "session_id": "tool-agent",
+   "subagent_id": "agent-review",
+   "read": {
+    "finished": true,
+    "model": "claude-sonnet-5-5",
+    "context_tokens": 61200,
+    "context_window": 200000,
+    "report": "One finding: `mergeLineTone` is read twice for the stale state.",
+    "items": [
+     {
+      "kind": "row",
+      "row": {
+       "kind": "message",
+       "id": "s-1",
+       "at": "2026-11-10T22:00:05Z",
+       "from": {
+        "kind": "you"
+       },
+       "text": "Review the merge line change in packages/components/src/MergeLine. Say what is wrong, with file and line."
+      }
+     },
+     {
+      "kind": "calls",
+      "id": "s-2",
+      "names": [
+       "Read",
+       "Grep"
+      ],
+      "rows": [
+       {
+        "kind": "tool",
+        "id": "s-2",
+        "at": "2026-11-10T22:00:20Z",
+        "text": "Read packages/components/src/MergeLine/MergeLine.tsx"
+       },
+       {
+        "kind": "tool",
+        "id": "s-3",
+        "at": "2026-11-10T22:01:02Z",
+        "text": "Grep mergeLineTone"
+       },
+       {
+        "kind": "tool",
+        "id": "s-4",
+        "at": "2026-11-10T22:01:40Z",
+        "text": "Read packages/components/src/MergeLine/tone.ts"
+       }
+      ]
+     },
+     {
+      "kind": "row",
+      "row": {
+       "kind": "message",
+       "id": "s-5",
+       "at": "2026-11-10T22:02:30Z",
+       "from": {
+        "kind": "agent"
+       },
+       "text": "The chip reads its tone in `MergeLine.tsx:41` and again in `tone.ts:12` for the stale state, so the two can disagree when the branch falls behind mid-render."
+      }
+     },
+     {
+      "kind": "row",
+      "row": {
+       "kind": "message",
+       "id": "s-6",
+       "at": "2026-11-10T22:03:40Z",
+       "from": {
+        "kind": "agent"
+       },
+       "text": "One finding: `mergeLineTone` is read twice for the stale state. Read it once in `MergeLine.tsx` and pass it down."
+      }
+     }
+    ]
+   }
+  },
+  {
+   "session_id": "tool-agent",
+   "subagent_id": "agent-contrast",
+   "read": {
+    "finished": false,
+    "model": "claude-haiku-5-5",
+    "context_tokens": 18400,
+    "context_window": 200000,
+    "items": [
+     {
+      "kind": "row",
+      "row": {
+       "kind": "message",
+       "id": "c-1",
+       "at": "2026-11-10T22:04:00Z",
+       "from": {
+        "kind": "you"
+       },
+       "text": "Check the contrast of the stale merge line chip: amber text on its fill, in both themes."
+      }
+     },
+     {
+      "kind": "calls",
+      "id": "c-2",
+      "names": [
+       "Read"
+      ],
+      "rows": [
+       {
+        "kind": "tool",
+        "id": "c-2",
+        "at": "2026-11-10T22:04:12Z",
+        "text": "Read tokens/colors.css"
+       }
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

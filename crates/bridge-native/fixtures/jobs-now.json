@@ -1,0 +1,1210 @@
+{
+ "sessions": [
+  {
+   "id": "mock-01",
+   "mark": {
+    "state": "working",
+    "lamp": "running",
+    "group": "working"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Fix the merge line freshness chip",
+   "last_turn_at": "2026-11-09T15:52:00Z",
+   "so_far": "Asked which chip colour the stale state takes",
+   "workflow": "feature",
+   "workflow_step": 2,
+   "workflow_copy": {
+    "id": "feature",
+    "name": "Feature",
+    "version": 1,
+    "manifest_id": "armada",
+    "lands": "pull_request",
+    "steps": [
+     {
+      "step_id": "plan",
+      "label": "Plan",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "phase": "work"
+     },
+     {
+      "step_id": "build",
+      "label": "Build",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "phase": "work"
+     },
+     {
+      "step_id": "walk",
+      "label": "Walk",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "phase": "work"
+     },
+     {
+      "step_id": "land",
+      "label": "Land",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "phase": "work"
+     }
+    ]
+   },
+   "state": "live",
+   "started_at": "2026-11-08T08:00:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [
+    {
+     "kind": "slot",
+     "target": "/work/slots/slot-3",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "branch",
+     "target": "native/job-view-composer",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "artifact",
+     "target": "/tmp/stale-chip.html",
+     "state": "standing",
+     "since": "2026-11-09T13:05:00Z",
+     "changed_at": "2026-11-09T13:05:00Z",
+     "detail": {
+      "form": "page",
+      "title": "Stale chip design"
+     }
+    },
+    {
+     "kind": "artifact",
+     "target": "/work/slots/slot-3/apps/desktop/src/renderer/src/chip.tsx",
+     "state": "standing",
+     "since": "2026-11-09T13:06:00Z",
+     "changed_at": "2026-11-09T13:06:00Z",
+     "detail": {
+      "form": "file",
+      "title": "chip.tsx"
+     }
+    },
+    {
+     "kind": "artifact",
+     "target": "/tmp/chip.png",
+     "state": "standing",
+     "since": "2026-11-09T13:07:00Z",
+     "changed_at": "2026-11-09T13:07:00Z",
+     "detail": {
+      "form": "image",
+      "title": "chip.png",
+      "by": "agent",
+      "shown": "true"
+     }
+    },
+    {
+     "kind": "artifact",
+     "target": "/work/slots/slot-3/docs/chip.md",
+     "state": "standing",
+     "since": "2026-11-09T13:08:00Z",
+     "changed_at": "2026-11-09T13:08:00Z",
+     "detail": {
+      "form": "doc",
+      "title": "Chip notes"
+     }
+    },
+    {
+     "kind": "artifact",
+     "target": "sketch:Chip states",
+     "state": "standing",
+     "since": "2026-11-09T13:09:00Z",
+     "changed_at": "2026-11-09T13:09:00Z",
+     "detail": {
+      "form": "sketch",
+      "title": "Chip states"
+     }
+    },
+    {
+     "kind": "artifact",
+     "target": "note:1",
+     "state": "standing",
+     "since": "2026-11-09T13:10:00Z",
+     "changed_at": "2026-11-09T13:10:00Z",
+     "detail": {
+      "form": "note",
+      "note": "1",
+      "title": "Tooltip is cut off",
+      "text": "The tooltip is cut off at the window's edge",
+      "tag": "bug",
+      "status": "open",
+      "sent": "2026-11-09T13:10:00Z",
+      "component": "MergeLine",
+      "screen": "Jobs"
+     }
+    },
+    {
+     "kind": "artifact",
+     "target": "note:2",
+     "state": "standing",
+     "since": "2026-11-09T13:11:00Z",
+     "changed_at": "2026-11-09T13:11:00Z",
+     "detail": {
+      "form": "note",
+      "note": "2",
+      "title": "Amber is too dark",
+      "text": "Amber reads too dark beside the green chip",
+      "tag": "change",
+      "status": "done",
+      "sent": "2026-11-09T13:11:00Z",
+      "component": "Chip",
+      "screen": "Merge line"
+     }
+    },
+    {
+     "kind": "link",
+     "target": "https://github.com/Mele-Labs/armada/pull/3388",
+     "state": "standing",
+     "since": "2026-11-09T13:12:00Z",
+     "changed_at": "2026-11-09T13:12:00Z",
+     "detail": {
+      "by": "agent"
+     }
+    },
+    {
+     "kind": "link",
+     "target": "https://developer.mozilla.org/en-US/docs/Web/CSS/color/?lang=en",
+     "state": "standing",
+     "since": "2026-11-09T13:13:00Z",
+     "changed_at": "2026-11-09T13:13:00Z",
+     "detail": {
+      "by": "you"
+     }
+    },
+    {
+     "kind": "background",
+     "target": "bg-1",
+     "state": "standing",
+     "since": "2026-11-09T13:14:00Z",
+     "changed_at": "2026-11-09T13:14:00Z",
+     "detail": {
+      "form": "command",
+      "task": "Watch the unit tests",
+      "command": "pnpm exec vitest watch chip"
+     }
+    },
+    {
+     "kind": "background",
+     "target": "bg-2",
+     "state": "spent",
+     "since": "2026-11-09T13:15:00Z",
+     "changed_at": "2026-11-09T13:15:00Z",
+     "detail": {
+      "form": "command",
+      "task": "Build the components package",
+      "command": "pnpm --filter @armada/components build",
+      "exit": "0"
+     }
+    },
+    {
+     "kind": "studio",
+     "target": "studio-1",
+     "state": "standing",
+     "since": "2026-11-09T13:16:00Z",
+     "changed_at": "2026-11-09T13:16:00Z",
+     "detail": {
+      "title": "Chip states"
+     }
+    },
+    {
+     "kind": "issue",
+     "target": "3290",
+     "state": "standing",
+     "since": "2026-11-09T09:00:00Z",
+     "changed_at": "2026-11-09T09:00:00Z",
+     "detail": {
+      "title": "Merge line freshness chip stays green when stale",
+      "pull_requests": "3388"
+     }
+    },
+    {
+     "kind": "pr",
+     "target": "3388",
+     "state": "standing",
+     "since": "2026-11-09T13:20:00Z",
+     "changed_at": "2026-11-09T14:20:00Z",
+     "detail": {
+      "title": "Merge line turns amber when stale",
+      "state": "open",
+      "branch": "native/stale-chip",
+      "checks": "pending",
+      "closes": "3290"
+     }
+    },
+    {
+     "kind": "started_to",
+     "target": "mock-03",
+     "state": "standing",
+     "since": "2026-11-09T13:10:00Z",
+     "changed_at": "2026-11-09T13:10:00Z",
+     "detail": {
+      "group": "g2"
+     }
+    },
+    {
+     "kind": "started_to",
+     "target": "mock-09",
+     "state": "standing",
+     "since": "2026-11-09T13:16:00Z",
+     "changed_at": "2026-11-09T13:16:00Z"
+    },
+    {
+     "kind": "started_to",
+     "target": "mock-12",
+     "state": "standing",
+     "since": "2026-11-09T13:15:00Z",
+     "changed_at": "2026-11-09T13:15:00Z"
+    },
+    {
+     "kind": "started_to",
+     "target": "mock-16",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "started_to",
+     "target": "mock-17",
+     "state": "standing",
+     "since": "2026-11-08T09:05:00Z",
+     "changed_at": "2026-11-08T09:05:00Z"
+    },
+    {
+     "kind": "subagent",
+     "target": "agent-1",
+     "state": "spent",
+     "since": "2026-11-09T13:02:00Z",
+     "changed_at": "2026-11-09T13:20:00Z",
+     "detail": {
+      "task": "Find every reader of mergeLineTone",
+      "type": "explorer",
+      "group": "g1"
+     }
+    },
+    {
+     "kind": "subagent",
+     "target": "agent-2",
+     "state": "standing",
+     "since": "2026-11-09T14:30:00Z",
+     "changed_at": "2026-11-09T14:30:00Z",
+     "detail": {
+      "task": "Read the chip's stories",
+      "type": "explorer",
+      "group": "g1"
+     }
+    },
+    {
+     "kind": "subagent",
+     "target": "agent-3",
+     "state": "standing",
+     "since": "2026-11-09T14:31:00Z",
+     "changed_at": "2026-11-09T14:31:00Z",
+     "detail": {
+      "task": "Check the tooltip wording against the voice rules"
+     }
+    },
+    {
+     "kind": "artifact",
+     "target": "armada://walk/mergeLine",
+     "state": "standing",
+     "since": "2026-11-09T14:20:00Z",
+     "changed_at": "2026-11-09T14:20:00Z",
+     "detail": {
+      "form": "window",
+      "title": "Merge line chip: stale state",
+      "brief": "The chip on a branch three commits behind."
+     }
+    }
+   ],
+   "standing": "working",
+   "hosted": {
+    "turn": {
+     "state": "working"
+    },
+    "model": "opus",
+    "effort": "high",
+    "mode": "auto",
+    "running": true,
+    "commands": [
+     "compact",
+     "review",
+     "simplify",
+     "update-config",
+     "security-review",
+     "init",
+     "recompile"
+    ]
+   },
+   "plan": {
+    "version": 2,
+    "summary": "The merge line chip turns amber once the branch is behind main, and a press on it opens the pull request where the merge waits.",
+    "recorded_at": "2026-11-09T13:40:00Z",
+    "approved": true,
+    "scope": [
+     "apps/desktop/src/renderer/src/chip.tsx"
+    ],
+    "groups": [
+     {
+      "id": "g1",
+      "agent": "bridge-engineer",
+      "title": "Chip reads the stale state",
+      "gives": "The chip turns amber when the branch is behind main",
+      "paths": [
+       "apps/desktop/src/renderer/src/chip.tsx"
+      ],
+      "tasks": [
+       {
+        "id": "t1",
+        "text": "Read behind_by on the row",
+        "state": "done"
+       },
+       {
+        "id": "t2",
+        "text": "Colour the chip amber when it is above zero",
+        "state": "working"
+       },
+       {
+        "id": "t3",
+        "text": "Say how far behind in the tooltip",
+        "state": "open"
+       }
+      ],
+      "issue": "3290"
+     },
+     {
+      "id": "g2",
+      "agent": "rust-engineer",
+      "title": "Fleet reports how far behind",
+      "gives": "Fleet sends behind_by with each branch",
+      "paths": [
+       "crates/fleet/src/branches.rs"
+      ],
+      "tasks": [
+       {
+        "id": "t4",
+        "text": "Count commits behind main",
+        "state": "done"
+       },
+       {
+        "id": "t5",
+        "text": "Add behind_by to the wire",
+        "state": "working"
+       }
+      ]
+     },
+     {
+      "id": "g3",
+      "agent": "general-purpose",
+      "title": "Write it down",
+      "paths": [
+       "docs/concepts/chip.md"
+      ],
+      "tasks": [
+       {
+        "id": "t6",
+        "text": "Describe the amber state",
+        "state": "open"
+       }
+      ]
+     }
+    ],
+    "approved_at": "2026-11-09T13:41:00Z"
+   },
+   "touches": [
+    {
+     "path": "packages/components/src/MergeLine/MergeLine.tsx",
+     "act": "edit",
+     "at": "2026-11-09T13:20:00Z"
+    },
+    {
+     "path": "apps/desktop/src/renderer/src/merge-line.ts",
+     "act": "write",
+     "at": "2026-11-09T13:21:00Z"
+    },
+    {
+     "path": "packages/components/src/MergeLine/MergeLine.test.tsx",
+     "act": "write",
+     "at": "2026-11-09T13:22:00Z"
+    }
+   ],
+   "closed": [
+    {
+     "item": {
+      "id": "ask:call-1",
+      "text": "Which colour should the stale state take?",
+      "since": "2026-11-09T13:30:00Z",
+      "source": "ask_card",
+      "act": {
+       "kind": "answer",
+       "target": "call-1"
+      }
+     },
+     "at": "2026-11-09T13:31:00Z"
+    },
+    {
+     "item": {
+      "id": "walk:http://localhost:5173/?walk=mergeLine",
+      "text": "Walk the merge line states",
+      "since": "2026-11-09T13:32:00Z",
+      "source": "walk",
+      "act": {
+       "kind": "walk",
+       "target": "http://localhost:5173/?walk=mergeLine"
+      }
+     },
+     "at": "2026-11-09T14:05:00Z",
+     "ended": true
+    },
+    {
+     "item": {
+      "id": "agent-1",
+      "text": "Read the tooltip wording",
+      "since": "2026-11-09T13:33:00Z",
+      "source": "agent"
+     },
+     "at": "2026-11-09T14:10:00Z"
+    }
+   ],
+   "judge_readings": [
+    {
+     "id": "reading-sub-1",
+     "artifact": {
+      "kind": "subagent",
+      "id": "agent-1",
+      "title": "Find every reader of mergeLineTone"
+     },
+     "prompt": "",
+     "state": "done",
+     "asked_at": "2026-11-09T13:50:00Z",
+     "finished_at": "2026-11-09T13:51:10Z",
+     "read": false,
+     "notes": [
+      {
+       "id": "n1",
+       "claim": "The search skipped the stories folder, where two readers live",
+       "where": "packages/components/src/stories/MergeLine.stories.tsx:12"
+      },
+      {
+       "id": "n2",
+       "claim": "It reports the Pocket chip as a reader, but Pocket reads its own tone",
+       "where": "apps/pocket/src/merge.ts:30"
+      }
+     ]
+    },
+    {
+     "id": "reading-file-1",
+     "artifact": {
+      "kind": "file",
+      "id": "/work/slots/slot-3/apps/desktop/src/renderer/src/chip.tsx",
+      "title": "chip.tsx"
+     },
+     "prompt": "the amber only shows while the branch is behind",
+     "state": "done",
+     "asked_at": "2026-11-09T13:52:00Z",
+     "finished_at": "2026-11-09T13:53:00Z",
+     "read": true,
+     "notes": []
+    },
+    {
+     "id": "reading-issue-1",
+     "artifact": {
+      "kind": "issue",
+      "id": "3290",
+      "title": "Merge line freshness chip stays green when stale"
+     },
+     "prompt": "",
+     "state": "reading",
+     "asked_at": "2026-11-09T13:54:00Z",
+     "read": false,
+     "notes": []
+    },
+    {
+     "id": "reading-bg-1",
+     "artifact": {
+      "kind": "command",
+      "id": "bg-1",
+      "title": "Watch the unit tests"
+     },
+     "prompt": "",
+     "state": "failed",
+     "asked_at": "2026-11-09T13:55:00Z",
+     "finished_at": "2026-11-09T13:55:20Z",
+     "failed": "The command's output was cut before the judge could read it",
+     "read": false,
+     "notes": []
+    }
+   ],
+   "waiting_for": [
+    {
+     "id": "walk:armada://walk/mergeLine",
+     "text": "Walk the merge line chip",
+     "since": "2026-11-09T14:20:00Z",
+     "source": "walk",
+     "act": {
+      "kind": "walk",
+      "target": "armada://walk/mergeLine"
+     }
+    },
+    {
+     "id": "amber",
+     "text": "Pick the amber for the stale chip: status-awaiting-review or step-held",
+     "since": "2026-11-09T14:22:00Z",
+     "source": "agent"
+    }
+   ],
+   "workflow_waiting_on": [
+    "Waiting on PR #3388: Approved"
+   ],
+   "activity": {
+    "todos": [
+     {
+      "text": "Rebuild the stale chip story",
+      "state": "doing"
+     },
+     {
+      "text": "Look at the chip in the light theme",
+      "state": "todo"
+     },
+     {
+      "text": "Read the chip's stories",
+      "state": "done"
+     }
+    ]
+   }
+  },
+  {
+   "id": "mock-02",
+   "mark": {
+    "state": "idle",
+    "lamp": "idle",
+    "group": "done"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Native Bridge foundation",
+   "activity": {
+    "now": "Editing jobs.rs"
+   },
+   "workflow": "feature",
+   "workflow_step": 1,
+   "workflow_copy": {
+    "id": "feature",
+    "name": "Feature",
+    "version": 1,
+    "manifest_id": "armada",
+    "lands": "pull_request",
+    "steps": [
+     {
+      "step_id": "plan",
+      "label": "Plan",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "phase": "work"
+     },
+     {
+      "step_id": "build",
+      "label": "Build",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "phase": "work"
+     },
+     {
+      "step_id": "walk",
+      "label": "Walk",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "phase": "work"
+     },
+     {
+      "step_id": "land",
+      "label": "Land",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "phase": "work"
+     }
+    ]
+   },
+   "state": "live",
+   "started_at": "2026-11-08T09:07:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [
+    {
+     "kind": "slot",
+     "manifest_id": "armada",
+     "target": "/repos/armada/.armada/slots/slot-7",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "branch",
+     "manifest_id": "armada",
+     "target": "armada/native-foundation",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "pr",
+     "manifest_id": "armada",
+     "target": "3371",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "handoff_failed",
+     "target": "mock-02",
+     "state": "standing",
+     "detail": {
+      "reason": "The new Job did not start: no slot was free"
+     },
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    }
+   ],
+   "standing": "working",
+   "last_turn_at": "2026-11-08T21:36:00Z",
+   "hosted": {
+    "turn": {
+     "state": "idle"
+    },
+    "mode": "ask",
+    "running": true,
+    "commands": [
+     "compact",
+     "review",
+     "simplify",
+     "update-config",
+     "security-review",
+     "init",
+     "recompile"
+    ]
+   }
+  },
+  {
+   "id": "mock-03",
+   "mark": {
+    "state": "subagent",
+    "lamp": "running",
+    "group": "working"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Move Bridge's thread rows into Fleet",
+   "last_turn_at": "2026-11-09T15:20:00Z",
+   "activity": {
+    "now": "Running armada check test"
+   },
+   "state": "live",
+   "started_at": "2026-11-08T10:14:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [
+    {
+     "kind": "started_by",
+     "manifest_id": "armada",
+     "target": "mock-02",
+     "state": "spent",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "pr",
+     "target": "3380",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z",
+     "detail": {
+      "title": "Thread rows from Fleet"
+     }
+    }
+   ],
+   "standing": "replied"
+  },
+  {
+   "id": "mock-04",
+   "mark": {
+    "state": "working",
+    "lamp": "running",
+    "group": "working"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Audit the docs index",
+   "last_turn_at": "2026-11-09T13:05:00Z",
+   "so_far": "Listed eleven pages the index does not name",
+   "state": "live",
+   "started_at": "2026-11-08T11:21:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [
+    {
+     "kind": "issue",
+     "target": "3301",
+     "state": "standing",
+     "detail": {
+      "title": "Docs index misses pages"
+     },
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "subagent",
+     "target": "agent-4",
+     "state": "standing",
+     "since": "2026-11-09T14:35:00Z",
+     "changed_at": "2026-11-09T14:35:00Z",
+     "detail": {
+      "task": "List pages the index does not name",
+      "type": "explorer"
+     }
+    },
+    {
+     "kind": "subagent",
+     "target": "agent-5",
+     "state": "standing",
+     "since": "2026-11-09T14:36:00Z",
+     "changed_at": "2026-11-09T14:36:00Z",
+     "detail": {
+      "task": "Check each link in docs/INDEX.md"
+     }
+    }
+   ],
+   "standing": "done",
+   "hosted": {
+    "turn": {
+     "state": "working"
+    },
+    "model": "sonnet",
+    "effort": "low",
+    "mode": "plan",
+    "running": true,
+    "commands": [
+     "compact",
+     "review",
+     "simplify",
+     "update-config",
+     "security-review",
+     "init",
+     "recompile"
+    ]
+   }
+  },
+  {
+   "id": "mock-05",
+   "mark": {
+    "state": "paused",
+    "lamp": "idle",
+    "group": "held"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Pocket sign-in on the phone",
+   "state": "live",
+   "started_at": "2026-11-08T12:28:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "stuck",
+   "hosted": {
+    "turn": {
+     "state": "idle"
+    },
+    "mode": "auto",
+    "running": false,
+    "paused": {
+     "at": "2026-11-08T20:00:00Z",
+     "resuming": false
+    }
+   }
+  },
+  {
+   "id": "mock-06",
+   "mark": {
+    "state": "stopped",
+    "lamp": "idle",
+    "group": "held"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Quiet the write-clash notices",
+   "state": "live",
+   "started_at": "2026-11-08T13:35:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "idle",
+   "stopped": {
+    "reason": "tasks_open",
+    "at": "2026-11-09T14:10:00Z",
+    "tasks": [
+     "Mute a repeat notice for the same file",
+     "Test the mute against two Jobs"
+    ],
+    "restart": "none"
+   }
+  },
+  {
+   "id": "mock-07",
+   "mark": {
+    "state": "failing",
+    "lamp": "failed",
+    "group": "needs"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "sample-web",
+   "cwd": "/repos/sample-web",
+   "title": "Checkout page loads twice",
+   "last_turn_at": "2026-11-09T14:40:00Z",
+   "so_far": "The second load comes from the auth redirect",
+   "workflow": "feature",
+   "workflow_step": 1,
+   "workflow_copy": {
+    "id": "feature",
+    "name": "Feature",
+    "version": 1,
+    "manifest_id": "sample-web",
+    "lands": "pull_request",
+    "steps": [
+     {
+      "step_id": "plan",
+      "label": "Plan",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "phase": "work"
+     },
+     {
+      "step_id": "build",
+      "label": "Build",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "phase": "work"
+     },
+     {
+      "step_id": "walk",
+      "label": "Walk",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "phase": "work"
+     },
+     {
+      "step_id": "land",
+      "label": "Land",
+      "checks": [],
+      "judge_checks": [],
+      "advance_gate": "auto",
+      "phase": "work"
+     }
+    ]
+   },
+   "state": "live",
+   "started_at": "2026-11-08T14:42:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [
+    {
+     "kind": "issue",
+     "target": "412",
+     "state": "standing",
+     "detail": {
+      "title": "Checkout page loads twice"
+     },
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "pr",
+     "target": "812",
+     "state": "standing",
+     "since": "2026-11-09T13:00:00Z",
+     "changed_at": "2026-11-09T14:30:00Z",
+     "detail": {
+      "title": "Load the checkout page once",
+      "state": "open",
+      "branch": "fix/checkout-twice",
+      "checks": "failed",
+      "failing": "e2e"
+     }
+    }
+   ],
+   "standing": "working"
+  },
+  {
+   "id": "mock-08",
+   "mark": {
+    "state": "replied",
+    "lamp": "idle",
+    "group": "done"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "sample-web",
+   "cwd": "/repos/sample-web",
+   "title": "Dark mode for the settings page",
+   "state": "live",
+   "started_at": "2026-11-08T15:49:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "replied"
+  },
+  {
+   "id": "mock-09",
+   "mark": {
+    "state": "running",
+    "lamp": "running",
+    "group": "working"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "sample-web",
+   "cwd": "/repos/sample-web",
+   "title": "Upgrade the router",
+   "last_turn_at": "2026-11-09T15:58:00Z",
+   "activity": {
+    "now": "Reading routes.ts"
+   },
+   "state": "live",
+   "started_at": "2026-11-08T16:56:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "stopped"
+  },
+  {
+   "id": "mock-10",
+   "mark": {
+    "state": "stuck",
+    "lamp": "needs",
+    "group": "needs"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "sample-web",
+   "cwd": "/repos/sample-web",
+   "title": "Flaky login test",
+   "last_turn_at": "2026-11-09T11:10:00Z",
+   "so_far": "Retried the login test 40 times with no failure",
+   "state": "live",
+   "started_at": "2026-11-08T17:03:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [
+    {
+     "kind": "issue",
+     "target": "407",
+     "state": "standing",
+     "detail": {
+      "title": "Login test fails one run in ten"
+     },
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    }
+   ],
+   "standing": "working",
+   "last_heard_at": "2026-11-09T14:23:00Z"
+  },
+  {
+   "id": "mock-11",
+   "mark": {
+    "state": "limited",
+    "lamp": "idle",
+    "group": "held"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "sample-api",
+   "cwd": "/repos/sample-api",
+   "title": "Rate limits per token",
+   "state": "live",
+   "started_at": "2026-11-08T08:10:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "working"
+  },
+  {
+   "id": "mock-12",
+   "mark": {
+    "state": "quiet",
+    "lamp": "idle",
+    "group": "done"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "sample-api",
+   "cwd": "/repos/sample-api",
+   "title": "Retry webhooks on a 503",
+   "state": "live",
+   "started_at": "2026-11-08T09:17:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "idle"
+  },
+  {
+   "id": "mock-13",
+   "mark": {
+    "state": "draft",
+    "lamp": "idle",
+    "group": "working"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "sample-api",
+   "cwd": "/repos/sample-api",
+   "title": "Paginate the audit log",
+   "so_far": "Reading the request",
+   "state": "live",
+   "started_at": "2026-11-08T10:24:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "done",
+   "plan": {
+    "version": 1,
+    "summary": "The audit log loads fifty rows at a time and a press loads the next fifty.",
+    "recorded_at": "2026-11-09T14:40:00Z",
+    "approved": false,
+    "scope": [
+     "crates/api/src/audit.rs"
+    ],
+    "groups": [
+     {
+      "id": "p1",
+      "agent": "rust-engineer",
+      "title": "Serve the log in pages",
+      "paths": [
+       "crates/api/src/audit.rs"
+      ],
+      "tasks": [
+       {
+        "id": "p1t1",
+        "text": "Take a cursor and a limit",
+        "state": "open"
+       },
+       {
+        "id": "p1t2",
+        "text": "Answer the next cursor",
+        "state": "open"
+       }
+      ]
+     }
+    ]
+   },
+   "waiting_for": [
+    {
+     "id": "plan",
+     "text": "Approve the plan for paging the audit log",
+     "since": "2026-11-09T14:40:00Z",
+     "source": "plan"
+    }
+   ]
+  },
+  {
+   "id": "mock-14",
+   "mark": {
+    "state": "done",
+    "lamp": "done",
+    "group": "done"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "sample-api",
+   "cwd": "/repos/sample-api",
+   "title": "Remove the v1 endpoints",
+   "state": "live",
+   "started_at": "2026-11-08T11:31:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "working"
+  },
+  {
+   "id": "mock-15",
+   "mark": {
+    "state": "ended",
+    "lamp": "idle",
+    "group": "done"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "An ended Job stays out of the list",
+   "state": "ended",
+   "started_at": "2026-11-07T10:00:00Z",
+   "last_seen_at": "2026-11-07T12:00:00Z",
+   "ended_at": "2026-11-07T12:00:00Z",
+   "usage": {},
+   "attachments": []
+  },
+  {
+   "id": "mock-16",
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Dispatch and Title Bar",
+   "state": "ended",
+   "started_at": "2026-11-08T09:00:00Z",
+   "last_seen_at": "2026-11-10T13:52:29Z",
+   "last_turn_at": "2026-11-10T13:52:28Z",
+   "ended_at": "2026-11-10T13:52:29Z",
+   "usage": {},
+   "attachments": []
+  },
+  {
+   "id": "mock-17",
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Web pages in Chrome",
+   "state": "ended",
+   "started_at": "2026-11-08T09:05:00Z",
+   "last_seen_at": "2026-11-10T13:53:34Z",
+   "ended_at": "2026-11-10T13:53:34Z",
+   "usage": {},
+   "attachments": []
+  }
+ ]
+}
