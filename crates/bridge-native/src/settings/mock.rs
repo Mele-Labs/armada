@@ -222,6 +222,39 @@ impl MockFleet {
         ipc::decode("ModChecked", said.as_bytes()).map_err(|why| Refused::said(why.to_string()))
     }
 
+    /// A workflow's lanes at a level, as `get_workflow_lanes` answers: the default's and each repository's. The
+    /// default's marks what armada changes; armada's own level is where Platform and Mobile tie on Mark ready.
+    pub fn workflow_lanes(&self, workflow: &str, scope: &str) -> Result<ipc::JobLanesView, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let served = self.repositories.iter().filter_map(|one| one.manifest.as_ref()).any(|manifest| manifest.id.as_str() == scope);
+        if scope != "default" && !served {
+            return Err(Refused {
+                key: None,
+                said: format!("`{scope}` is not a level of this repository's lanes: the default's, a Workspace that holds it, or a repository read with it"),
+                code: Some("fleet.no_such_lanes_level".into()),
+            });
+        }
+        let mut lanes: ipc::JobLanesView = ipc::decode("JobLanesView", include_bytes!("mock-lanes.json")).map_err(|why| Refused::said(why.to_string()))?;
+        lanes.workflow = workflow.to_string();
+        let ready = lanes.rules.iter_mut().find(|edge| edge.rule == "ready");
+        match (scope, ready) {
+            ("default", Some(ready)) => ready.differs = vec!["Platform".into(), "armada".into()],
+            ("armada", Some(ready)) => {
+                ready.differs = vec!["armada".into()];
+                ready.clash = Some("Platform and Mobile differ".into());
+            }
+            _ => {}
+        }
+        if scope == "default" {
+            if let Some(open) = lanes.lanes.iter_mut().flat_map(|lane| lane.nodes.iter_mut()).find(|node| node.id == "pull_request/open") {
+                open.differs = vec!["sample-web".into()];
+            }
+        }
+        Ok(lanes)
+    }
+
     /// A tracker mod's try, passed against the first repository, as Fleet answers one.
     pub fn try_tracker_mod(&mut self, name: &str) -> Result<ipc::TrackerTry, Refused> {
         if !self.connected {

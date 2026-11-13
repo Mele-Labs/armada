@@ -7,6 +7,7 @@ mod definition;
 pub mod entries;
 mod gateway;
 mod keyboard;
+mod lanes;
 mod layout;
 mod macs;
 mod mock;
