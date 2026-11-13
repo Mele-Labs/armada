@@ -465,7 +465,7 @@ impl SettingsOverlay {
                     return true;
                 }
                 // The search is the list's: F goes back to it first.
-                "f" if !mods.shift && !self.in_text(window, cx) => {
+                "f" if !mods.shift && !self.in_text(window) => {
                     self.back_to_list(window, cx);
                     self.workflows.filter.update(cx, |filter, cx| filter.focus(window, cx));
                     return true;
@@ -481,7 +481,7 @@ impl SettingsOverlay {
             }
             return false;
         }
-        if word == "f" && !mods.shift && !self.in_text(window, cx) {
+        if word == "f" && !mods.shift && !self.in_text(window) {
             self.workflows.filter.update(cx, |filter, cx| filter.focus(window, cx));
             return true;
         }
@@ -799,5 +799,69 @@ mod tests {
         assert!(back.repositories.is_empty());
         assert_eq!(row_switch(&machine, "bug", Some(&("armada".into(), "armada".into()))), RowSwitch::OffOnMachine);
         assert_eq!(row_switch(&there, "feature", Some(&("armada".into(), "armada".into()))), RowSwitch::Switch { on: false, label: "Off in armada".into() });
+    }
+
+    use gpui::{TestAppContext, VisualTestContext};
+
+    use super::super::mock::MockFleet;
+    use super::super::wire::Wire;
+
+    /// Settings open on Workflows over the mock Fleet, with armada's own copy of `feature` picked.
+    fn opened(cx: &mut TestAppContext) -> (Entity<SettingsOverlay>, &mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (overlay, cx) = cx.add_window_view(|window, cx| SettingsOverlay::new(Wire::Mock(Box::new(MockFleet::new())), window, cx));
+        cx.update(|window, cx| {
+            overlay.update(cx, |this, cx| {
+                this.picked = "kit:workflows";
+                this.show(None, false, window, cx);
+            })
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.pick_workflow("repository@armada:feature", window, cx)));
+        cx.run_until_parked();
+        cx.run_until_parked();
+        (overlay, cx)
+    }
+
+    #[gpui::test]
+    fn a_bare_f_typed_in_any_text_field_of_the_pane_lands_there_and_does_not_move_the_keys(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        let mut found = vec![("Search workflows", overlay.read_with(cx, |this, cx| this.workflows.filter.read(cx).focus_handle(cx)))];
+        let boxes = overlay.read_with(cx, |this, cx| this.workflows.detail.fields(cx));
+        found.extend(boxes.into_iter().map(|handle| ("a box in the detail", handle)));
+        assert!(found.len() >= 2, "the search and the box that asks an agent are both reached: {}", found.len());
+        for (name, handle) in found {
+            cx.update(|window, cx| window.focus(&handle, cx));
+            cx.simulate_keystrokes("f");
+            assert!(cx.update(|window, _| handle.is_focused(window)), "F typed in {name} moved the keys");
+            assert!(cx.update(|window, cx| overlay.read(cx).in_text(window)), "{name} is a text input as the focus path says it");
+        }
+    }
+
+    #[gpui::test]
+    fn the_f_typed_in_the_search_is_in_the_search_and_f_off_a_field_still_reaches_it(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        let search = overlay.read_with(cx, |this, cx| this.workflows.filter.read(cx).focus_handle(cx));
+        cx.update(|window, cx| window.focus(&search, cx));
+        cx.simulate_keystrokes("f");
+        assert_eq!(overlay.read_with(cx, |this, cx| this.workflows.filter.read(cx).value().to_string()), "f");
+        let row = overlay.read_with(cx, |this, _| this.workflows.rows.get("repository@armada:feature").map(|[row, _]| row.clone())).expect("the row's keys");
+        cx.update(|window, cx| window.focus(&row, cx));
+        cx.simulate_keystrokes("f");
+        assert!(cx.update(|window, _| search.is_focused(window)), "off a field, F still goes to the search");
+    }
+
+    #[gpui::test]
+    fn a_bare_letter_typed_in_the_settings_search_stays_in_it(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        let search = overlay.read_with(cx, |this, cx| this.query.read(cx).focus_handle(cx));
+        cx.update(|window, cx| window.focus(&search, cx));
+        cx.simulate_keystrokes("/ f left");
+        assert!(cx.update(|window, _| search.is_focused(window)), "the Settings search lost the keys to a shortcut");
+        assert_eq!(overlay.read_with(cx, |this, cx| this.query_text(cx)), "/f");
     }
 }

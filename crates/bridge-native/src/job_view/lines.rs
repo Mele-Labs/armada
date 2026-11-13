@@ -374,7 +374,7 @@ impl JobView {
         .into_any_element()
     }
 
-    /// The Job's agent never started (A7.2): a dashed red line, and its log when there is one.
+    /// The Job's agent never started (A7.2): a red rail and chip, the cause beside it, and its log when there is one.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn not_started(
         &self,
@@ -390,27 +390,18 @@ impl JobView {
     ) -> AnyElement {
         let red = look.color(token::STATUS_COMPLETED_FAILED);
         let head = vec![
-            glyph(look, "x", Size::Small, red).into_any_element(),
-            then_stamp(div().truncate().child(format!("Did not start: {cause}")), self.stamp(at, look, now, true, cx), look).into_any_element(),
+            glyph(look, "x", Size::Mark, red).into_any_element(),
+            super::records::chip(look, token::STATUS_COMPLETED_FAILED, "Did not start").into_any_element(),
+            then_stamp(div().truncate().text_color(look.color(token::FG_DEFAULT)).child(cause.to_string()), self.stamp(at, look, now, true, cx), look).into_any_element(),
         ];
-        let body = (!log.is_empty()).then(|| {
-            div()
-                .p(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_MD))
-                .bg(look.color(token::BG_SUNKEN))
-                .text_color(look.color(token::FG_DEFAULT))
-                .child(log.join("\n"))
-                .into_any_element()
-        });
+        let body = (!log.is_empty()).then(|| self.log(&log.join("\n"), look).into_any_element());
         let frame = div()
-            .py(look.length(token::SPACE_1))
-            .border_t(look.length(token::BORDER_WIDTH))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_dashed()
-            .border_color(look.color(token::BORDER_DEFAULT))
-            .font_family(mono(look))
-            .text_color(red)
-            .child(self.fold(ix, format!("start-failed:{id}"), "Failed to start".into(), head, body, page, look, cx));
+            .flex()
+            .rounded(look.length(token::RADIUS_SM))
+            .overflow_hidden()
+            .bg(red.opacity(0.07))
+            .child(div().flex_none().w(gpui::px(3.)).bg(red))
+            .child(div().flex_1().min_w_0().pl(look.length(token::SPACE_3)).pr(look.length(token::SPACE_2)).py(look.length(token::SPACE_1)).child(self.fold(ix, format!("start-failed:{id}"), "Failed to start".into(), head, body, page, look, cx)));
         labelled(div().id(SharedString::from(format!("not-started:{id}"))).child(frame), Role::Region, "Failed to start")
             .into_any_element()
     }

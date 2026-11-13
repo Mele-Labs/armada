@@ -1,0 +1,15 @@
+[operations.get_pull_request_compare]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Every file changed between two commits of a pull request, for what changed since he looked"
+notes = """
+`GET /pull_request_compares/:repository/:number?since=<commit>&head=<commit>`, `repository` a manifest id, `since` his seen head and `head` the page's. Answers `PullRequestCompare`, tagged `outcome`:
+
+- `patches`: `since`, `head` and `files`, each a `PullRequestFilePatch` as `get_pull_request_patches` answers one, in the forge's order.
+- `base_gone`: `since` and `head`. The forge no longer has `since`, as after a force-push, so there is nothing to compare from. **An outcome, not an error**: Bridge offers the whole pull request.
+
+**The forge compares from the merge base of the two commits**, so after a rebase the files can hold changes that came from the target branch and not from the author.
+
+A 422 `fleet.pull_review_memory_invalid` for a `since` or `head` that is not a commit name, a 500 `fleet.pull_request_compare_unreadable` where the forge would not answer, and a 422 for a repository Fleet does not serve.
+"""

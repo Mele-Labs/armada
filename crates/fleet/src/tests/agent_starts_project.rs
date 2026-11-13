@@ -6,9 +6,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use api::{HostedSessions, Next, Projects, Sessions};
-use ipc::{Event, NewProject, ProjectMember, SessionId, StartSession, ValuesSet};
+use ipc::{Event, ForkFrom, ForkThisSession, MoveSession, NewProject, ProjectMember, SessionId, StartSession, ValuesSet, HANDOFF_YES};
 
 use super::agent_starts::{begins, caller, rig, Rig};
+use super::session_handoff::asked_and_answered;
 use super::projects::a_second_repository;
 use super::projects_kept::file;
 
@@ -121,4 +122,86 @@ async fn a_project_whose_file_did_not_read_starts_the_job_in_none_and_the_start_
 
     assert_eq!(project_of(&rig, &held.session_id).await, None);
     assert_eq!(rig.record(&held.session_id).await.id, held.session_id, "the Job is there");
+}
+
+/// The agent that has spoken, which a fork is taken of, put in `project` as one started for it is.
+async fn a_speaker_in(rig: &Rig, project: &str) -> (SessionId, Vec<String>) {
+    let (id, rows) = rig.an_agent_that_has_spoken().await;
+    let mut store = rig.fleet.store().lock().await;
+    let mut hosting = store.hosting(id.as_str()).unwrap().expect("hosted");
+    hosting.project = Some(project.to_string());
+    store.keep_hosting(&hosting).unwrap();
+    drop(store);
+    (id, rows)
+}
+
+#[tokio::test]
+async fn a_fork_an_agent_makes_of_its_own_job_is_for_that_jobs_project() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    a_speaker_in(&rig, &project).await;
+
+    let held = rig
+        .fleet
+        .fork_this_session(caller(), ForkThisSession { title: "The other way".into(), message: "Do it with a map.".into(), at: None })
+        .await
+        .expect("forked");
+
+    assert_eq!(project_of(&rig, &held.session_id).await.as_deref(), Some(project.as_str()));
+}
+
+#[tokio::test]
+async fn a_fork_the_person_makes_from_bridge_is_for_the_jobs_project() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let (old, rows) = a_speaker_in(&rig, &project).await;
+    let forking = StartSession {
+        project: None,
+        manifest_id: rig.manifest.clone(),
+        title: None,
+        model: None,
+        effort: None,
+        mode: None,
+        root: None,
+        fork: Some(ForkFrom { session_id: old.clone(), at: Some(rows[0].clone()) }),
+        request: None,
+        after: None,
+        held: false,
+        project_rows: Vec::new(),
+        on_your_words: None,
+    };
+
+    let fork = rig.fleet.start_session(forking).await.expect("forked");
+
+    assert_eq!(project_of(&rig, &fork.id).await.as_deref(), Some(project.as_str()));
+}
+
+#[tokio::test]
+async fn a_job_moved_into_another_repository_stays_in_its_project_and_the_repository_becomes_a_member() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let second = a_second_repository(&rig.fleet, &rig.home);
+    let (old, _) = a_speaker_in(&rig, &project).await;
+
+    let moved = Arc::clone(&rig.fleet).move_session(MoveSession { session_id: old, manifest_id: second.clone() }).await.expect("moved");
+
+    assert_eq!(project_of(&rig, &moved.id).await.as_deref(), Some(project.as_str()));
+    let listed = rig.fleet.list_projects().await.expect("listed").projects;
+    let members: Vec<_> = listed.iter().find(|one| one.id == project).expect("the project").members.iter().map(|one| one.manifest_id.clone()).collect();
+    assert_eq!(members, [rig.manifest.clone(), second], "the repository it went to joined");
+}
+
+/// A pin rather than a fail-first: the hand's copy of the old Job's settings also sets the project, so this holds
+/// without the project passed at the start. It fails where neither does.
+#[tokio::test]
+async fn a_handoff_is_for_the_old_jobs_project() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let (old, _) = a_speaker_in(&rig, &project).await;
+
+    asked_and_answered(&rig, &old, HANDOFF_YES).await;
+
+    let new = rig.fleet.job_now(old.as_str()).await;
+    assert_ne!(new, old.as_str(), "a fresh Job took its place");
+    assert_eq!(rig.fleet.project_of_job(&new).await.as_deref(), Some(project.as_str()));
 }

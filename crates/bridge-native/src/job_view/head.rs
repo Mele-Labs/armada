@@ -1061,8 +1061,8 @@ impl JobView {
                 .iter()
                 .enumerate()
                 .filter_map(|(at, item)| {
-                    let next = items.get(at + 1).and_then(super::rows::began);
-                    self.item(FORK_ITEMS + at, item, false, next, page, look, now, window, cx)
+                    let after = items.get(at + 1);
+                    self.item(FORK_ITEMS + at, item, false, after, page, look, now, window, cx)
                 })
                 .collect();
             div()
