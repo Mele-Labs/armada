@@ -299,8 +299,14 @@ impl MockFleet {
                 plans_from: None,
                 pull_requests_from: None,
                 walks_from: None,
+                plans_inherited: None,
+                plans_inherited_from: None,
+                pull_requests_inherited: None,
+                pull_requests_inherited_from: None,
+                walks_inherited: None,
+                walks_inherited_from: None,
             },
-            None => ResolvedReviews { plans: "off".into(), pull_requests: "off".into(), walks: "off".into(), from: ValueLayer::Default, plans_from: None, pull_requests_from: None, walks_from: None },
+            None => ResolvedReviews { plans: "off".into(), pull_requests: "off".into(), walks: "off".into(), from: ValueLayer::Default, plans_from: None, pull_requests_from: None, walks_from: None, plans_inherited: None, plans_inherited_from: None, pull_requests_inherited: None, pull_requests_inherited_from: None, walks_inherited: None, walks_inherited_from: None },
         };
         Ok(ResolvedValues {
             pr_mode: word(own.pr_mode.map(|mode| mode.as_wire().to_string()), None, Some("ready")),

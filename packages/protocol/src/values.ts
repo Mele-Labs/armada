@@ -88,6 +88,15 @@ export type ResolvedReviews = {
   plans_from?: ValueLayer;
   pull_requests_from?: ValueLayer;
   walks_from?: ValueLayer;
+  /** What the layers below the project give the plans word. Set only where `plans_from` is `project`; `plans_inherited_from` comes with it, and is `default` where nothing below sets a word. */
+  plans_inherited?: string;
+  plans_inherited_from?: ValueLayer;
+  /** What the layers below the project give the pull requests word. Set only where `pull_requests_from` is `project`. */
+  pull_requests_inherited?: string;
+  pull_requests_inherited_from?: ValueLayer;
+  /** What the layers below the project give the walks word. Set only where `walks_from` is `project`. */
+  walks_inherited?: string;
+  walks_inherited_from?: ValueLayer;
 };
 
 /** What autonomy comes to for one kind of act. `from` is `kit`, `project` or `repository` where a piece sets it, else `default`. */
