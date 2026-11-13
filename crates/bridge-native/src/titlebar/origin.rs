@@ -86,6 +86,7 @@ impl TitleBar {
                 let plus = if off { plus.opacity(0.5) } else { plus.on_click(cx.listener(move |this, _, _, cx| this.origin_pick_pressed(branch.clone(), cx))) };
                 div()
                     .id(("origin-row", at))
+                    .flex_none()
                     .flex()
                     .items_center()
                     .gap(look.length(token::SPACE_2))
@@ -93,7 +94,7 @@ impl TitleBar {
                     .pl(look.length(token::SPACE_2))
                     .rounded(look.length(token::RADIUS_LG))
                     .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .child(div().flex_1().min_w_0().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).tooltip(tip(name.clone())).child(name.clone()))
+                    .child(div().id(("origin-name", at)).flex_1().min_w_0().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).tooltip(tip(name.clone())).child(name.clone()))
                     .children(age.map(|age| {
                         labelled(
                             div()
@@ -115,7 +116,7 @@ impl TitleBar {
             .collect();
         let search = self.origin.input.as_ref().map(|(input, _)| {
             labelled(
-                div().child(
+                div().id("origin-search").child(
                     Input::new(input)
                         .h(look.length(token::H_CONTROL))
                         .rounded(look.length(token::RADIUS_LG))
