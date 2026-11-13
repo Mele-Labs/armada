@@ -85,6 +85,18 @@ pub trait EditorWire {
     fn lifecycle_rules(&self, _manifest: &str, _cx: &mut App) -> Task<Result<RepositoryLifecycleRules, Refused>> {
         Task::ready(Err(Refused::said("This host reads no rules")))
     }
+    /// `GET /workflows/lanes` at Armada's own level: the lanes of the workflow as Armada ships it, which a copy is compared with.
+    fn armada_lanes(&self, _at: &Subject, _cx: &mut App) -> Task<Result<JobLanesView, Refused>> {
+        Task::ready(Err(Refused::said("This host reads no Armada lanes")))
+    }
+    /// `GET /workflows/definition` with `source=armada`: the text Armada carries now.
+    fn armada_definition(&self, _at: &Subject, _cx: &mut App) -> Task<Result<WorkflowDefinition, Refused>> {
+        Task::ready(Err(Refused::said("This host reads no Armada text")))
+    }
+    /// `GET /workflows/definition` with `source=base`: the text the copy began from; `fleet.workflow_base_none` where it has none.
+    fn base_definition(&self, _at: &Subject, _cx: &mut App) -> Task<Result<WorkflowDefinition, Refused>> {
+        Task::ready(Err(Refused::said("This host reads no base text")))
+    }
     /// `GET /autonomy`: Armada's default for each kind of act, and the layers over it.
     fn autonomy_defaults(&self, _manifest: &str, _cx: &mut App) -> Task<Result<RepositoryAutonomy, Refused>> {
         Task::ready(Err(Refused::said("This host reads no autonomy defaults")))

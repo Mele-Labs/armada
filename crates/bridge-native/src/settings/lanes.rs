@@ -89,6 +89,21 @@ impl EditorWire for SettingsWire {
         self.with(cx, move |this, cx| this.wire.workflow_definition(&at.workflow, at.source, &at.held_under, cx))
     }
 
+    fn armada_lanes(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::JobLanesView, Refused>> {
+        let at = at.clone();
+        self.with(cx, move |this, cx| this.wire.workflow_lanes(&at.workflow, DEFAULT, &at.manifest, cx))
+    }
+
+    fn armada_definition(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
+        let at = at.clone();
+        self.with(cx, move |this, cx| this.wire.workflow_definition(&at.workflow, "armada", &at.held_under, cx))
+    }
+
+    fn base_definition(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
+        let (at, (source, project)) = (at.clone(), at.place());
+        self.with(cx, move |this, cx| this.wire.workflow_base(&at.workflow, source, project.as_deref(), &at.held_under, cx))
+    }
+
     fn workflow_draft(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
         let (at, (source, project)) = (at.clone(), at.place());
         self.with(cx, move |this, cx| this.wire.workflow_draft(&at.workflow, source, project.as_deref(), &at.held_under, cx))

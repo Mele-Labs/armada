@@ -201,7 +201,6 @@ impl Wire {
 
     /// `GET /workflows/definition` with `source=base`: the text the copy at `of` (`kit`, `repository` or `project`) began from;
     /// `fleet.workflow_base_none` where it has no base.
-    #[allow(dead_code)] // The chooser reads it when it is drawn.
     pub fn workflow_base(&mut self, id: &str, of: &str, project: Option<&str>, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowDefinition, Refused>> {
         if let Wire::Mock(mock) = self {
             return Task::ready(mock.workflow_base(id, of, project, manifest));

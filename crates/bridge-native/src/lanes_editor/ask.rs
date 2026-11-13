@@ -106,7 +106,7 @@ pub(super) fn standing(job: &AffectedJob, published: &str, drafted: &str) -> Str
 }
 
 /// A tick box: empty or ticked.
-fn tick(look: &Look, ticked: bool, off: bool) -> gpui::Div {
+pub(super) fn tick(look: &Look, ticked: bool, off: bool) -> gpui::Div {
     let accent = look.color(token::ACCENT);
     div()
         .flex_none()

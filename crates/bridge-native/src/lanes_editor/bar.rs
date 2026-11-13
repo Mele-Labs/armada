@@ -19,13 +19,16 @@ const LATER_EDITS: &str = "A later change edits the same words";
 /// The button that throws the drafts away where Fleet says the workflow changed since they began.
 const START_OVER: &str = "Start from the published text";
 
+/// The band's button.
+const CHOOSE: &str = "Choose what to take";
+
 /// What the band says where Armada has shipped a new version of a workflow he copied.
 const ARMADA_CHANGED: &str = "Armada changed this workflow since you copied it";
 
 impl LanesEditor {
     /// The band over the Changes card: Armada changed the workflow since it was copied. None for a copy with no base, and for
-    /// Armada's own. It draws no button until the owner answers how he chooses what to take.
-    pub(super) fn render_armada_band(&self, look: &Look) -> Option<AnyElement> {
+    /// Armada's own. Its button opens Armada's lanes beside his, to choose what to take from.
+    pub(super) fn render_armada_band(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         if !self.armada_changed {
             return None;
         }
@@ -39,6 +42,9 @@ impl LanesEditor {
             .text_color(look.color(token::FG_DEFAULT))
             .child(svg().flex_none().path(icon_path("git-compare")).size(look.length(token::SPACE_4)).text_color(look.color(token::ACCENT)))
             .child(div().min_w_0().child(ARMADA_CHANGED));
+        let choose = ringed(look, filled(look, "workflow-armada-choose".into(), CHOOSE, false), &self.keys.choose, window)
+            .track_focus(&self.keys.choose)
+            .on_click(cx.listener(|this, _, window, cx| this.pressed(Press::Choose, window, cx)));
         let band = div()
             .id("workflow-armada-changed")
             .flex()
@@ -52,7 +58,8 @@ impl LanesEditor {
             .border(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::ACCENT))
             .bg(look.color(token::ACCENT_MUTED))
-            .child(said);
+            .child(said)
+            .child(labelled(choose, Role::Button, CHOOSE));
         Some(labelled(band, Role::Group, ARMADA_CHANGED).into_any_element())
     }
 

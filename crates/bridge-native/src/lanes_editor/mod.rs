@@ -17,7 +17,6 @@
 //! lifecycle's piece draft, at the scope the draft applies at, and waits here for the answer where Armada's own
 //! workflow has no scope yet.
 
-#[allow(dead_code)] // The chooser draws these when the owner has picked how he chooses.
 pub mod armada;
 mod ask;
 mod bar;
@@ -26,13 +25,14 @@ mod in_place;
 mod patch;
 mod rule;
 mod sentence;
+mod side;
 mod wire;
 
 use std::cell::Cell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, px, AnyElement, Bounds, Context, EventEmitter, FocusHandle, Keystroke, Pixels, Role, SharedString, Subscription, Task, Window};
+use gpui::{div, prelude::*, px, AnyElement, Bounds, Context, Entity, EventEmitter, FocusHandle, Keystroke, Pixels, Role, SharedString, Subscription, Task, Window};
 use ipc::{AffectedJob, DraftBy, JobLanesView, LifecycleDefinition, LifecyclePiece, LifecyclePieceKind, PieceDraft, PieceScope, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, MigrateJobs, MigrateResult, RevertWorkflow, SessionId, WorkflowDraft, WorkflowId, WorkflowScope};
 
 pub use draft::{Change, Target};
@@ -58,6 +58,9 @@ pub enum EditorEvent {
 
 impl EventEmitter<EditorEvent> for LanesEditor {}
 
+/// What the view that chooses what to take from Armada is read as.
+const CHOOSE: &str = "Choose what to take";
+
 /// What the list says of a change that carries no words.
 const A_CHANGE: &str = "A change";
 
@@ -76,6 +79,8 @@ struct Keys {
     repository: FocusHandle,
     every: FocusHandle,
     project: FocusHandle,
+    /// The band's Choose what to take.
+    choose: FocusHandle,
 }
 
 /// A press the bar's keys answer.
@@ -88,6 +93,8 @@ enum Press {
     Repository,
     Every,
     Project,
+    /// The band's Choose what to take.
+    Choose,
     Undo(usize),
     /// The tick of one Job in the ask.
     Pick(usize),
@@ -106,6 +113,16 @@ enum Of {
     Waiting(usize),
     /// A rule's edit waiting for where it applies.
     WaitingRule(usize),
+}
+
+/// What choosing what to take works from.
+struct Taking {
+    base: String,
+    armada: String,
+    differences: Vec<armada::Difference>,
+    /// The view's Tab stops.
+    stops: Vec<FocusHandle>,
+    _sub: Subscription,
 }
 
 /// One row of the Changes list.
@@ -261,6 +278,12 @@ pub struct LanesEditor {
     busy: bool,
     /// Armada changed this workflow since it was copied: a band over the draft says so.
     armada_changed: bool,
+    /// Choose what to take, while it is open: Armada's lanes beside his, with what Armada changed.
+    side: Option<Entity<side::Side>>,
+    /// What the open view is laid on, for Take: the text the copy began from, Armada's now and each difference.
+    taking: Option<Taking>,
+    /// The texts and lanes of Armada's on their way, for the view.
+    choosing: Option<Task<()>>,
     /// The ask Publish makes of the running Jobs, while it is open.
     ask: Option<ask::Ask>,
     /// The Jobs the last read said a publish would touch, on their way to the ask.
@@ -325,7 +348,7 @@ impl LanesEditor {
             }),
         ];
         let stop = |cx: &mut Context<Self>| cx.focus_handle().tab_stop(true);
-        let keys = Keys { changes: stop(cx), discard: stop(cx), publish: stop(cx), restart: stop(cx), repository: stop(cx), every: stop(cx), project: stop(cx) };
+        let keys = Keys { changes: stop(cx), discard: stop(cx), publish: stop(cx), restart: stop(cx), repository: stop(cx), every: stop(cx), project: stop(cx), choose: stop(cx) };
         let id: SharedString = format!("{}|{}|{}", subject.workflow, subject.level, subject.manifest).into();
         let target = subject.own_target();
         let mut editor = LanesEditor {
@@ -347,6 +370,9 @@ impl LanesEditor {
             stale: false,
             busy: false,
             armada_changed: false,
+            side: None,
+            taking: None,
+            choosing: None,
             ask: None,
             affected: Vec::new(),
             moved: None,
@@ -396,7 +422,81 @@ impl LanesEditor {
     pub fn offer_armada_changed(&mut self, changed: bool, cx: &mut Context<Self>) {
         if self.armada_changed != changed {
             self.armada_changed = changed;
+            if !changed {
+                self.side = None;
+                self.taking = None;
+                self.choosing = None;
+            }
             cx.notify();
+        }
+    }
+
+    /// Choose what to take: what Armada changed since the copy began is read, and Armada's lanes open beside his, in place of
+    /// the canvas. Nothing changes in the draft until Take.
+    fn choose_what_to_take(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.armada_changed || self.side.is_some() || self.choosing.is_some() {
+            return;
+        }
+        let (wire, subject) = (self.wire.clone(), self.subject.clone());
+        let (base, armada, lanes) = (wire.base_definition(&subject, cx), wire.armada_definition(&subject, cx), wire.armada_lanes(&subject, cx));
+        self.choosing = Some(cx.spawn_in(window, async move |this, cx| {
+            let (base, armada, lanes) = (base.await, armada.await, lanes.await);
+            let _ = this.update_in(cx, |this, window, cx| {
+                this.choosing = None;
+                match (base, armada, lanes) {
+                    (Ok(base), Ok(armada), Ok(lanes)) => this.choosing_opens(base.definition, armada.definition, lanes, window, cx),
+                    (Err(why), _, _) | (_, Err(why), _) | (_, _, Err(why)) => {
+                        this.refused = Some(why.said);
+                        cx.notify();
+                    }
+                }
+            });
+        }));
+    }
+
+    fn choosing_opens(&mut self, base: String, armada: String, armada_lanes: JobLanesView, window: &mut Window, cx: &mut Context<Self>) {
+        let Read::Read(read) = &self.read else { return };
+        let differences = armada::differences(&base, &armada);
+        // His side is the lanes of the text the draft began from with the draft laid over them, as the canvas shows them.
+        let mine = patch::patched(&side::steps_lane(read, self.base()), self.base(), &self.text);
+        let sides = side::Sides {
+            title: CHOOSE,
+            take: "Take",
+            left: side::Party { label: "Armada's", named: "Armada's lanes", lanes: side::steps_lane(&armada_lanes, &armada) },
+            right: side::Party { label: "Yours", named: "Your lanes", lanes: mine },
+            rows: side::armada_rows(&differences, &armada),
+        };
+        let view = cx.new(|cx| side::Side::new(sides, window, cx));
+        let sub = cx.subscribe_in(&view, window, |this, _, event: &side::Event, window, cx| match event {
+            side::Event::Take(chosen) => this.taken(chosen, window, cx),
+            side::Event::Cancel => this.close_side(window, cx),
+        });
+        self.in_place = None;
+        self.sentence = None;
+        let stops = view.read(cx).stops();
+        self.side = Some(view);
+        self.taking = Some(Taking { base, armada, differences, stops, _sub: sub });
+        cx.notify();
+    }
+
+    /// The view let go: nothing changed, and the keys go back to the button that opened it.
+    fn close_side(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.side.take().is_some() {
+            self.taking = None;
+            window.focus(&self.keys.choose, cx);
+            cx.notify();
+        }
+    }
+
+    /// Take: the rows chosen are laid onto the draft as one change, named for each.
+    fn taken(&mut self, chosen: &[usize], window: &mut Window, cx: &mut Context<Self>) {
+        let Some(taking) = self.taking.as_ref() else { return };
+        let chosen: Vec<armada::Difference> = chosen.iter().filter_map(|at| taking.differences.get(*at).cloned()).collect();
+        let taken = armada::take(&self.text, &taking.base, &taking.armada, &chosen);
+        self.close_side(window, cx);
+        if let (Some(said), Some(after)) = (armada::took(&chosen), taken) {
+            let before = self.text.clone();
+            self.edit(said, Change::Definition { before, after }, cx);
         }
     }
 
@@ -1104,6 +1204,9 @@ impl LanesEditor {
     /// Undo for each change, then the canvas.
     pub fn stops(&self) -> Vec<FocusHandle> {
         let mut stops = Vec::new();
+        if self.armada_changed {
+            stops.push(self.keys.choose.clone());
+        }
         if self.has_edits() {
             if self.question_shown() {
                 if self.subject.project.is_some() {
@@ -1129,7 +1232,9 @@ impl LanesEditor {
             stops.extend(self.ask.iter().flat_map(|ask| ask.stops()));
         }
         stops.extend(self.sentence.iter().flat_map(|sentence| sentence.stops()));
-        if matches!(self.read, Read::Read(_)) {
+        if self.side.is_some() {
+            stops.extend(self.taking.iter().flat_map(|taking| taking.stops.iter().cloned()));
+        } else if matches!(self.read, Read::Read(_)) {
             stops.push(self.state.frame.clone());
             stops.extend(self.edge_stops.iter().map(|(_, stop)| stop.clone()));
         }
@@ -1154,6 +1259,7 @@ impl LanesEditor {
 
     fn pressed(&mut self, press: Press, window: &mut Window, cx: &mut Context<Self>) {
         match press {
+            Press::Choose => self.choose_what_to_take(window, cx),
             Press::Changes => {
                 self.history_open = !self.history_open && self.has_edits();
                 cx.notify();
@@ -1191,7 +1297,7 @@ impl LanesEditor {
 
     fn focused_press(&self, window: &Window) -> Option<Press> {
         let keys = &self.keys;
-        [(&keys.project, Press::Project), (&keys.repository, Press::Repository), (&keys.every, Press::Every), (&keys.changes, Press::Changes), (&keys.discard, Press::Discard), (&keys.publish, Press::Publish), (&keys.restart, Press::Restart)]
+        [(&keys.choose, Press::Choose), (&keys.project, Press::Project), (&keys.repository, Press::Repository), (&keys.every, Press::Every), (&keys.changes, Press::Changes), (&keys.discard, Press::Discard), (&keys.publish, Press::Publish), (&keys.restart, Press::Restart)]
             .into_iter()
             .find(|(stop, _)| stop.is_focused(window))
             .map(|(_, press)| press)
@@ -1209,6 +1315,10 @@ impl LanesEditor {
     pub fn key(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let mods = &key.modifiers;
         let word = key.key.as_str();
+        // While Armada's lanes are open beside his, they have the keys: ⌘Z waits until they are shut.
+        if let Some(view) = self.side.clone() {
+            return view.update(cx, |view, cx| view.key(key, window, cx)) || (word == "z" && mods.platform);
+        }
         if word == "z" && mods.platform && !mods.shift && !mods.control && !mods.alt {
             return self.undo_last(window, cx);
         }
@@ -1341,6 +1451,7 @@ impl gpui::Render for LanesEditor {
         let body: AnyElement = match &self.read {
             Read::Loading => bone(&look, px(0.), look.length(token::SPACE_12) * 11.).w_full().into_any_element(),
             Read::Refused(said) => labelled(crate::settings::view::refusal(&look, said.clone()).id("workflow-lanes-refused"), Role::Alert, said.clone()).into_any_element(),
+            Read::Read(_) if self.side.is_some() => div().children(self.side.clone()).into_any_element(),
             Read::Read(read) => {
                 let lanes = self.shown.as_ref().unwrap_or(read);
                 // Four lanes of the least height fill it; a lane more makes it taller by that much.
@@ -1385,7 +1496,7 @@ impl gpui::Render for LanesEditor {
                 div().flex().flex_col().gap(look.length(token::SPACE_2)).min_w_0().children(row).child(lanes).into_any_element()
             }
         };
-        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().children(self.render_armada_band(&look)).children(self.render_bar(&look, window, cx)).child(body)
+        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().children(self.render_armada_band(&look, window, cx)).children(self.render_bar(&look, window, cx)).child(body)
     }
 }
 
@@ -2060,12 +2171,12 @@ mod tests {
     }
 
     #[gpui::test]
-    fn the_armada_band_is_drawn_only_where_armada_changed_the_copy_and_holds_no_stop(cx: &mut TestAppContext) {
+    fn the_armada_band_is_drawn_only_where_armada_changed_the_copy_and_holds_one_stop(cx: &mut TestAppContext) {
         let (editor, _, _, cx) = open_as(cx, false, "repository");
         let stops = |editor: &Entity<LanesEditor>, cx: &mut VisualTestContext| editor.read_with(cx, |editor, _| editor.stops().len());
         let without = stops(&editor, cx);
         editor.update(cx, |editor, cx| editor.offer_armada_changed(true, cx));
-        assert_eq!(stops(&editor, cx), without, "the band draws no button, so it is no stop");
+        assert_eq!(stops(&editor, cx), without + 1, "the band's one button is a stop");
         editor.update(cx, |editor, cx| editor.offer_armada_changed(false, cx));
         assert_eq!(stops(&editor, cx), without);
     }

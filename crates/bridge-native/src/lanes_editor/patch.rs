@@ -7,11 +7,11 @@ use ipc::{JobLanesView, LaneKind, LaneNode, LaneNodeKind, LaneNodeRole};
 use crate::settings::definition::steps_of;
 
 /// The workflow lane's node for a step.
-fn node_id(step: &str) -> String {
+pub(super) fn node_id(step: &str) -> String {
     format!("workflow/{step}")
 }
 
-fn step_node(step: &str, label: &str, col: u32) -> LaneNode {
+pub(super) fn step_node(step: &str, label: &str, col: u32) -> LaneNode {
     LaneNode {
         id: node_id(step),
         label: label.to_string(),
