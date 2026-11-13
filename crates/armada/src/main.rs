@@ -146,6 +146,11 @@ fn fleet_started() -> ExitCode {
     let Some(support) = kept_support() else {
         return ExitCode::FAILURE;
     };
+    let alive = |pid| matches!(fleet::process::holder_of(pid), Ok(fleet::process::Holder::Held(_)));
+    if let Some(pid) = armada::fleet_start::restart_under_way(&support, alive) {
+        eprintln!("A restart is under way as pid {pid}, and it starts Fleet itself. Its log is ~/Library/Logs/Armada/restart.log.");
+        return ExitCode::FAILURE;
+    }
     let label = fleet::kept_builds::fleet_label();
     let plist = support.join(format!("{label}.plist"));
     let started = std::env::var_os("HOME")

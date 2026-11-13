@@ -105,3 +105,11 @@ pub fn uid_of(home: &Path) -> Result<u32, String> {
     let held = std::fs::metadata(home).map_err(|why| format!("{}: {why}", home.display()))?;
     Ok(std::os::unix::fs::MetadataExt::uid(&held))
 }
+
+/// The pid of a restart under way, read off the lock `scripts/restart` holds: a link naming its pid.
+/// **Start Fleet waits for it**, since the restart bootstraps Fleet itself and a second bootstrap between
+/// its bootout and its own would race it. A lock whose pid `alive` says is gone is a restart that died.
+pub fn restart_under_way(support: &Path, alive: impl Fn(u32) -> bool) -> Option<u32> {
+    let pid: u32 = std::fs::read_link(support.join("restart.lock")).ok()?.to_str()?.parse().ok()?;
+    alive(pid).then_some(pid)
+}

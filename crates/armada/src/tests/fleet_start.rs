@@ -80,3 +80,12 @@ fn fleet_start_names_the_missing_plist_and_passes_launchctls_own_error_on() {
     let refusing = Fake { refuses: Some("Could not find service"), ..Fake::printing(Some(STOPPED)) };
     assert_eq!(start(&refusing, 501, "com.armada.fleet", &plist), Err("Could not find service".into()));
 }
+
+#[test]
+fn fleet_start_waits_for_a_restart_whose_lock_names_a_live_pid() {
+    let support = TempDir::new();
+    assert_eq!(crate::fleet_start::restart_under_way(support.path(), |_| true), None, "no lock, no restart");
+    std::os::unix::fs::symlink("4242", support.path().join("restart.lock")).unwrap();
+    assert_eq!(crate::fleet_start::restart_under_way(support.path(), |pid| pid == 4242), Some(4242));
+    assert_eq!(crate::fleet_start::restart_under_way(support.path(), |_| false), None, "a restart that died holds no one back");
+}
