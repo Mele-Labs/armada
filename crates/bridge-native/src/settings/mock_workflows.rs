@@ -5,7 +5,7 @@
 //! A change asked of an agent is `drafting` for one read and drafted on the next, as Classic's mock drafts it
 //! (`apps/desktop/src/renderer/src/mock/workflows-fleet.ts`, `settled`).
 
-use ipc::{DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, SaveLifecyclePiece, ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, OverriddenWorkflow, ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SessionId, StepId, StepReading, WorkflowChange, WorkflowChangeApproved, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted, WorkflowDefinition, WorkflowId, WorkflowSaved, WorkflowScope, WorkflowSteps, WorkflowSupportBuilding};
+use ipc::{DraftBy, DraftChange, PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, OverriddenWorkflow, ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SessionId, StepId, StepReading, WorkflowChange, WorkflowChangeApproved, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted, WorkflowDefinition, WorkflowId, WorkflowSaved, WorkflowScope, WorkflowSteps, WorkflowSupportBuilding};
 use serde::Deserialize;
 
 use super::definition::{text_of, tree_of, with_words, Json};
@@ -81,6 +81,25 @@ pub struct Kept {
     change: WorkflowChange,
     reads_left: u8,
     manifest: String,
+}
+
+/// The drafts the mock keeps, as Fleet keeps them: one for each workflow in a place (a repository's by its Manifest too)
+/// and one for each piece at a scope. Fleet numbers every change with the one counter.
+#[derive(Clone, Debug, Default)]
+pub struct Drafts {
+    workflows: Vec<(String, WorkflowDraft)>,
+    pieces: Vec<PieceDraft>,
+    last: i64,
+}
+
+fn draft_refused(code: &str, said: &str) -> Refused {
+    refused(code, said.to_string())
+}
+
+/// The sentence a text that would not load is given, as the loader says it.
+fn unfit_workflow(id: &str, text: &str) -> Option<String> {
+    let Some(tree) = tree_of(text) else { return Some("The definition is not a workflow".into()) };
+    (tree.get("workflow_id").and_then(Json::text) != Some(id)).then(|| format!("The definition declares another workflow than `{id}`"))
 }
 
 /// What Armada lacks for "Propose should end when a walk, a sketch or a document is approved" (`CANNOT_YET`).
@@ -282,19 +301,6 @@ impl MockFleet {
         Ok(ArmadaProposed { workflow_id: proposing.workflow_id, session_id: SessionId::carried("01SESSIONPROPOSEAAAAAAAAAA"), send_failed: None })
     }
 
-    /// `POST /lifecycles/pieces/save`: answered as written, kept nowhere.
-    pub fn save_lifecycle_piece(&mut self, save: SaveLifecyclePiece) -> Result<LifecyclePieceSaved, Refused> {
-        if !self.connected {
-            return Err(Refused::said("Fleet is not connected"));
-        }
-        let (kind, id, scope) = match save.piece {
-            LifecyclePiece::Lifecycle { lifecycle } => (LifecyclePieceKind::Lifecycle, lifecycle.id, lifecycle.scope),
-            LifecyclePiece::Rule { rule } => (LifecyclePieceKind::Rule, rule.id, rule.scope),
-            LifecyclePiece::Autonomy { autonomy } => (LifecyclePieceKind::Autonomy, autonomy.id, autonomy.scope),
-        };
-        Ok(LifecyclePieceSaved { kind, file: format!("~/.armada/kit/{}s/{id}.yml", kind.as_wire()), id, scope, replaced: save.overwrite })
-    }
-
     /// `POST /lifecycles/pieces/delete`.
     pub fn delete_lifecycle_piece(&mut self, delete: DeleteLifecyclePiece) -> Result<LifecyclePieceDeleted, Refused> {
         if !self.connected {
@@ -308,7 +314,8 @@ impl MockFleet {
         // Fleet draws no change on Armada's own workflow today, and the draft over a shipped workflow needs one:
         // the mock answers it, as a Fleet that does will.
         let id = asking.workflow_id.as_str().to_string();
-        let before = text_of(&self.held(&id, &asking.source, manifest)?.definition);
+        let published = text_of(&self.held(&id, &asking.source, manifest)?.definition);
+        let before = self.draft_of(&id, &asking.source, asking.project.as_deref(), manifest).map_or(published, |draft| draft.text.clone());
         if asking.text.trim().is_empty() {
             return Err(refused("fleet.workflow_change_empty", "Say what to change".into()));
         }
@@ -342,17 +349,176 @@ impl MockFleet {
             return Err(Refused::said("Fleet is not connected"));
         }
         let mut changes = Vec::new();
-        for kept in self.changes.iter_mut().filter(|kept| kept.change.workflow_id.as_str() == id && kept.change.source == source && (source != "repository" || kept.manifest == manifest)) {
+        let at: Vec<usize> = (0..self.changes.len()).filter(|at| self.changes[*at].change.workflow_id.as_str() == id && self.changes[*at].change.source == source && (source != "repository" || self.changes[*at].manifest == manifest)).collect();
+        for at in at {
+            let kept = &mut self.changes[at];
             if kept.change.state == ChangeState::Drafting {
                 if kept.reads_left == 0 {
                     kept.change = drafted(kept.change.clone());
+                    let landing = kept.change.clone();
+                    let manifest = kept.manifest.clone();
+                    if self.lands(&landing, &manifest) {
+                        self.changes[at].change.drafted = true;
+                    }
                 } else {
                     kept.reads_left -= 1;
                 }
             }
-            changes.push(kept.change.clone());
+            changes.push(self.changes[at].change.clone());
         }
         Ok(WorkflowChanges { changes })
+    }
+
+    /// An asked change that is ready goes into the draft as the agent's, where the draft (or, with none, what is
+    /// published) still reads as the change was made from: then it begins the draft.
+    fn lands(&mut self, change: &WorkflowChange, manifest: &str) -> bool {
+        let (ChangeOrigin::Asked { text: asked }, Some(after), ChangeState::Ready) = (&change.origin, change.after.clone(), change.state) else { return false };
+        let (id, source, project) = (change.workflow_id.as_str().to_string(), change.source.clone(), change.project.clone());
+        let now = self.draft_of(&id, &source, project.as_deref(), manifest).map(|draft| draft.text.clone()).or_else(|| self.held(&id, &source, manifest).ok().map(|held| text_of(&held.definition)));
+        if now.as_deref() != Some(change.before.as_str()) {
+            return false;
+        }
+        self.add_draft_change(&id, &source, project.as_deref(), manifest, after, DraftBy::Agent, Some(asked.clone()), Some(change.id));
+        true
+    }
+
+    fn draft_key(source: &str, manifest: &str) -> String {
+        if source == "repository" { manifest.to_string() } else { String::new() }
+    }
+
+    fn draft_of(&self, id: &str, source: &str, project: Option<&str>, manifest: &str) -> Option<&WorkflowDraft> {
+        let key = Self::draft_key(source, manifest);
+        self.drafts.workflows.iter().find(|(by, one)| *by == key && one.workflow_id.as_str() == id && one.source == source && one.project.as_deref() == project).map(|(_, one)| one)
+    }
+
+    /// Begins the draft from what is published in the place where there is none, and adds one change to it. A text the
+    /// draft already ends on adds nothing.
+    #[allow(clippy::too_many_arguments)]
+    fn add_draft_change(&mut self, id: &str, source: &str, project: Option<&str>, manifest: &str, text: String, by: DraftBy, summary: Option<String>, change: Option<i64>) -> WorkflowDraft {
+        let key = Self::draft_key(source, manifest);
+        let at = self.drafts.workflows.iter().position(|(by, one)| *by == key && one.workflow_id.as_str() == id && one.source == source && one.project.as_deref() == project);
+        let now = Instant::carried("2026-11-13T09:00:00Z");
+        let at = at.unwrap_or_else(|| {
+            let base = self.held(id, source, manifest).map(|held| text_of(&held.definition)).unwrap_or_default();
+            let begun = WorkflowDraft { workflow_id: WorkflowId::carried(id), source: source.into(), project: project.map(String::from), text: base.clone(), base, unfit: None, changes: Vec::new(), started_at: now.clone(), updated_at: now.clone() };
+            self.drafts.workflows.push((key, begun));
+            self.drafts.workflows.len() - 1
+        });
+        let one = &mut self.drafts.workflows[at].1;
+        if one.changes.last().map(|last| last.text.as_str()) != Some(text.as_str()) {
+            self.drafts.last += 1;
+            one.changes.push(DraftChange { id: self.drafts.last, by, at: now.clone(), text: text.clone(), summary, change });
+        }
+        one.unfit = unfit_workflow(id, &text);
+        one.text = text;
+        one.updated_at = now;
+        one.clone()
+    }
+
+    /// `GET /workflows/draft`.
+    pub fn workflow_draft(&self, id: &str, source: &str, project: Option<&str>, manifest: &str) -> Result<WorkflowDraft, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        self.draft_of(id, source, project, manifest).cloned().ok_or_else(|| draft_refused("fleet.workflow_draft_none", "No draft is kept for that workflow"))
+    }
+
+    /// `PUT /workflows/draft`.
+    pub fn put_workflow_draft(&mut self, manifest: &str, put: PutWorkflowDraft) -> Result<WorkflowDraft, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let id = put.workflow_id.as_str().to_string();
+        if put.source == "project" && put.project.is_none() {
+            return Err(draft_refused("fleet.workflow_project_unnamed", "Say which project"));
+        }
+        if self.draft_of(&id, &put.source, put.project.as_deref(), manifest).is_none() && put.source == "armada" {
+            self.held(&id, "armada", manifest).map_err(|_| draft_refused("fleet.no_such_workflow_definition", "Armada carries no such workflow"))?;
+        }
+        Ok(self.add_draft_change(&id, &put.source, put.project.as_deref(), manifest, put.text, DraftBy::You, put.summary, None))
+    }
+
+    /// `DELETE /workflows/draft`.
+    pub fn discard_workflow_draft(&mut self, id: &str, source: &str, project: Option<&str>, manifest: &str) -> Result<WorkflowDraftDiscarded, Refused> {
+        self.workflow_draft(id, source, project, manifest)?;
+        let key = Self::draft_key(source, manifest);
+        self.drafts.workflows.retain(|(by, one)| !(*by == key && one.workflow_id.as_str() == id && one.source == source && one.project.as_deref() == project));
+        Ok(WorkflowDraftDiscarded { workflow_id: WorkflowId::carried(id), source: source.into(), project: project.map(String::from) })
+    }
+
+    /// `POST /workflows/draft/publish`: written where it applies, if what the place holds is still what it began from.
+    pub fn publish_workflow_draft(&mut self, manifest: &str, publish: PublishWorkflowDraft) -> Result<WorkflowPublished, Refused> {
+        let id = publish.workflow_id.as_str().to_string();
+        let draft = self.workflow_draft(&id, &publish.source, publish.project.as_deref(), manifest)?;
+        let now = self.held(&id, &publish.source, manifest).map(|held| text_of(&held.definition)).unwrap_or_default();
+        if now != draft.base {
+            return Err(draft_refused("fleet.workflow_draft_stale", "This workflow changed since the draft was started"));
+        }
+        let armada = publish.source == "armada";
+        let scope = match (&publish.scope, armada) {
+            (Some(scope), true) => scope.clone(),
+            (None, true) => return Err(draft_refused("fleet.workflow_draft_scope_needed", "Say where this applies")),
+            (_, false) => scope_of(&publish.source, publish.project.clone()),
+        };
+        let exists = armada && self.definitions.iter().any(|one| one.holds(&id, scope.as_wire(), manifest));
+        if exists && !publish.overwrite {
+            return Err(refused("fleet.workflow_exists", format!("{} already holds a workflow `{id}`", place_said(scope.as_wire()))));
+        }
+        let saved = self.save_workflow(manifest, SaveWorkflow { scope, definition: draft.text.clone(), overwrite: !armada || publish.overwrite })?;
+        self.drafts.workflows.retain(|(_, one)| !(one.workflow_id.as_str() == id && one.source == publish.source && one.project == publish.project));
+        Ok(WorkflowPublished { saved })
+    }
+
+    fn piece_at(&self, kind: LifecyclePieceKind, id: &str, scope: &ipc::PieceScope) -> Option<usize> {
+        self.drafts.pieces.iter().position(|one| one.kind == kind && one.id == id && one.scope == *scope)
+    }
+
+    /// `GET /lifecycles/pieces/draft`.
+    pub fn piece_draft(&self, kind: LifecyclePieceKind, id: &str, scope: &ipc::PieceScope) -> Result<PieceDraft, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        self.piece_at(kind, id, scope).map(|at| self.drafts.pieces[at].clone()).ok_or_else(|| draft_refused("fleet.piece_draft_none", "No draft is kept for that piece"))
+    }
+
+    /// `PUT /lifecycles/pieces/draft`.
+    pub fn put_piece_draft(&mut self, put: PutPieceDraft) -> Result<PieceDraft, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let now = Instant::carried("2026-11-13T09:00:00Z");
+        let at = self.piece_at(put.kind, &put.id, &put.scope).unwrap_or_else(|| {
+            self.drafts.pieces.push(PieceDraft { kind: put.kind, id: put.id.clone(), scope: put.scope.clone(), text: String::new(), base: String::new(), unfit: None, changes: Vec::new(), started_at: now.clone(), updated_at: now.clone() });
+            self.drafts.pieces.len() - 1
+        });
+        let one = &mut self.drafts.pieces[at];
+        if one.changes.last().map(|last| last.text.as_str()) != Some(put.text.as_str()) {
+            self.drafts.last += 1;
+            one.changes.push(DraftChange { id: self.drafts.last, by: DraftBy::You, at: now.clone(), text: put.text.clone(), summary: put.summary, change: None });
+        }
+        one.unfit = ipc::decode::<LifecyclePiece>("piece", put.text.as_bytes()).err().map(|why| why.to_string());
+        one.text = put.text;
+        one.updated_at = now;
+        Ok(one.clone())
+    }
+
+    /// `DELETE /lifecycles/pieces/draft`.
+    pub fn discard_piece_draft(&mut self, kind: LifecyclePieceKind, id: &str, scope: &ipc::PieceScope) -> Result<PieceDraftDiscarded, Refused> {
+        let at = self.piece_at(kind, id, scope).ok_or_else(|| draft_refused("fleet.piece_draft_none", "No draft is kept for that piece"))?;
+        self.drafts.pieces.remove(at);
+        Ok(PieceDraftDiscarded { kind, id: id.to_string(), scope: scope.clone() })
+    }
+
+    /// `POST /lifecycles/pieces/draft/publish`.
+    pub fn publish_piece_draft(&mut self, publish: PublishPieceDraft) -> Result<PiecePublished, Refused> {
+        let draft = self.piece_draft(publish.kind, &publish.id, &publish.scope)?;
+        if let Some(why) = draft.unfit {
+            return Err(refused("fleet.piece_unfit", why));
+        }
+        let at = self.piece_at(publish.kind, &publish.id, &publish.scope).ok_or_else(|| draft_refused("fleet.piece_draft_none", "No draft is kept for that piece"))?;
+        self.drafts.pieces.remove(at);
+        let saved = LifecyclePieceSaved { kind: publish.kind, file: format!("~/.armada/kit/{}s/{}.yml", publish.kind.as_wire(), publish.id), id: publish.id, scope: publish.scope, replaced: true };
+        Ok(PiecePublished { saved })
     }
 
     fn kept(&self, change: i64) -> Result<usize, Refused> {
@@ -545,5 +711,51 @@ mod tests {
         assert_eq!(ids(&ready.before_steps), ["propose", "build", "show"]);
         let held = fleet.workflow_steps("prototype", "armada", "armada").expect("read").steps;
         assert_eq!(held.len(), 3, "Armada's own is not written");
+    }
+
+    #[test]
+    fn a_draft_is_kept_for_each_place_changes_by_put_and_is_published_where_armada_says() {
+        let mut fleet = MockFleet::new();
+        let text = fleet.workflow_definition("prototype", "armada", "armada").expect("Armada's prototype").definition;
+        let put = |text: &str| PutWorkflowDraft { workflow_id: WorkflowId::carried("prototype"), source: "armada".into(), text: text.into(), ..Default::default() };
+        assert!(fleet.workflow_draft("prototype", "armada", None, "armada").is_err_and(|why| why.is("fleet.workflow_draft_none")));
+        let other = text.replace("Propose", "Think");
+        let first = fleet.put_workflow_draft("armada", put(&other)).expect("put");
+        assert_eq!((first.base.as_str(), first.changes.len()), (text.as_str(), 1));
+        assert_eq!(fleet.put_workflow_draft("armada", put(&other)).expect("put").changes.len(), 1, "the text it ends on adds nothing");
+        assert_eq!(fleet.put_workflow_draft("armada", put(&text)).expect("put").changes.len(), 2, "an earlier text is a change");
+        // Armada's own is told where; a copy is new.
+        let publish = |scope: Option<WorkflowScope>| PublishWorkflowDraft { workflow_id: WorkflowId::carried("prototype"), source: "armada".into(), scope, ..Default::default() };
+        assert!(fleet.publish_workflow_draft("armada", publish(None)).is_err_and(|why| why.is("fleet.workflow_draft_scope_needed")));
+        let saved = fleet.publish_workflow_draft("armada", publish(Some(WorkflowScope::Kit))).expect("published").saved;
+        assert_eq!(saved.scope, WorkflowScope::Kit);
+        assert!(fleet.workflow_draft("prototype", "armada", None, "armada").is_err(), "the draft goes when it is written");
+        // A draft over a copy is stale once the copy moved under it.
+        fleet.put_workflow_draft("armada", PutWorkflowDraft { source: "kit".into(), ..put(&other) }).expect("Kit's draft");
+        fleet.save_workflow("armada", SaveWorkflow { scope: WorkflowScope::Kit, definition: other.replace("Think", "Ponder"), overwrite: true }).expect("saved");
+        let stale = fleet.publish_workflow_draft("armada", PublishWorkflowDraft { source: "kit".into(), ..publish(None) });
+        assert!(stale.is_err_and(|why| why.is("fleet.workflow_draft_stale")));
+        assert!(fleet.discard_workflow_draft("prototype", "kit", None, "armada").is_ok());
+    }
+
+    #[test]
+    fn an_agents_ready_change_lands_in_the_draft_as_the_agents_only_where_the_draft_still_reads_as_it_was_made_from() {
+        let mut fleet = MockFleet::new();
+        let asking = |text: &str| AskWorkflowChange { workflow_id: WorkflowId::carried("prototype"), source: "armada".into(), text: text.into(), project: None };
+        fleet.ask_change("armada", asking("Add a Review step after Build")).expect("asked");
+        let read = |fleet: &mut MockFleet| fleet.workflow_changes("prototype", "armada", "armada").expect("read").changes.remove(0);
+        read(&mut fleet);
+        let ready = read(&mut fleet);
+        assert_eq!((ready.state, ready.drafted), (ChangeState::Ready, true));
+        let draft = fleet.workflow_draft("prototype", "armada", None, "armada").expect("begun by the change");
+        assert_eq!((draft.changes[0].by, draft.changes[0].summary.as_deref(), draft.changes[0].change), (DraftBy::Agent, Some("Add a Review step after Build"), Some(ready.id)));
+        // Asked of a draft that has since moved, the change is ready and not drafted.
+        fleet.ask_change("armada", asking("Add a Notes step after Build")).expect("asked");
+        let moved = draft.text.replace("Propose", "Think");
+        fleet.put_workflow_draft("armada", PutWorkflowDraft { workflow_id: WorkflowId::carried("prototype"), source: "armada".into(), text: moved, ..Default::default() }).expect("put");
+        let find = |fleet: &mut MockFleet| fleet.workflow_changes("prototype", "armada", "armada").expect("read").changes.into_iter().find(|one| one.id != ready.id).expect("the second");
+        assert_eq!(find(&mut fleet).state, ChangeState::Drafting);
+        let second = find(&mut fleet);
+        assert_eq!((second.state, second.drafted), (ChangeState::Ready, false), "the draft moved since it was asked, so the change stays ready");
     }
 }

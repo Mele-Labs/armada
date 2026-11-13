@@ -10,7 +10,6 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use gpui::{div, prelude::*, px, AnyElement, App, Context, Entity, FocusHandle, Role, Subscription, Task, WeakEntity, Window};
-use ipc::SaveWorkflow;
 
 use super::overlay::SettingsOverlay;
 use super::view::{bone, ghost_with, ringed, small};
@@ -88,9 +87,24 @@ impl EditorWire for SettingsWire {
         self.with(cx, move |this, cx| this.wire.workflow_definition(&at.workflow, at.source, &at.held_under, cx))
     }
 
-    fn save_workflow(&self, manifest: &str, save: SaveWorkflow, cx: &mut App) -> Task<Result<ipc::WorkflowSaved, Refused>> {
+    fn workflow_draft(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
+        let (at, (source, project)) = (at.clone(), at.place());
+        self.with(cx, move |this, cx| this.wire.workflow_draft(&at.workflow, source, project.as_deref(), &at.held_under, cx))
+    }
+
+    fn put_workflow_draft(&self, manifest: &str, put: ipc::PutWorkflowDraft, cx: &mut App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
         let manifest = manifest.to_string();
-        self.with(cx, move |this, cx| this.wire.save_workflow(&manifest, save, cx))
+        self.with(cx, move |this, cx| this.wire.put_workflow_draft(&manifest, put, cx))
+    }
+
+    fn discard_workflow_draft(&self, at: &Subject, cx: &mut App) -> Task<Result<ipc::WorkflowDraftDiscarded, Refused>> {
+        let (at, (source, project)) = (at.clone(), at.place());
+        self.with(cx, move |this, cx| this.wire.discard_workflow_draft(&at.workflow, source, project.as_deref(), &at.held_under, cx))
+    }
+
+    fn publish_workflow_draft(&self, manifest: &str, publish: ipc::PublishWorkflowDraft, cx: &mut App) -> Task<Result<ipc::WorkflowPublished, Refused>> {
+        let manifest = manifest.to_string();
+        self.with(cx, move |this, cx| this.wire.publish_workflow_draft(&manifest, publish, cx))
     }
 
     fn lifecycles(&self, manifest: &str, cx: &mut App) -> Task<Result<ipc::RepositoryLifecycles, Refused>> {
@@ -98,8 +112,22 @@ impl EditorWire for SettingsWire {
         self.with(cx, move |this, cx| this.wire.lifecycles(&manifest, cx))
     }
 
-    fn save_piece(&self, save: ipc::SaveLifecyclePiece, cx: &mut App) -> Task<Result<ipc::LifecyclePieceSaved, Refused>> {
-        self.with(cx, move |this, cx| this.wire.save_lifecycle_piece(save, cx))
+    fn piece_draft(&self, kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope, cx: &mut App) -> Task<Result<ipc::PieceDraft, Refused>> {
+        let (id, scope) = (id.to_string(), scope.clone());
+        self.with(cx, move |this, cx| this.wire.piece_draft(kind, &id, &scope, cx))
+    }
+
+    fn put_piece_draft(&self, put: ipc::PutPieceDraft, cx: &mut App) -> Task<Result<ipc::PieceDraft, Refused>> {
+        self.with(cx, move |this, cx| this.wire.put_piece_draft(put, cx))
+    }
+
+    fn discard_piece_draft(&self, kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope, cx: &mut App) -> Task<Result<ipc::PieceDraftDiscarded, Refused>> {
+        let (id, scope) = (id.to_string(), scope.clone());
+        self.with(cx, move |this, cx| this.wire.discard_piece_draft(kind, &id, &scope, cx))
+    }
+
+    fn publish_piece_draft(&self, publish: ipc::PublishPieceDraft, cx: &mut App) -> Task<Result<ipc::PiecePublished, Refused>> {
+        self.with(cx, move |this, cx| this.wire.publish_piece_draft(publish, cx))
     }
 
     fn delete_piece(&self, delete: ipc::DeleteLifecyclePiece, cx: &mut App) -> Task<Result<ipc::LifecyclePieceDeleted, Refused>> {

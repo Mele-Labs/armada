@@ -1,24 +1,17 @@
-//! The draft: a workflow's definition as it was read (`base`) and every edit since, in order. What the canvas
-//! shows and what Publish writes is the base with each edit replayed, never a copy that is edited in place, so
-//! dropping any one edit is dropping it from the list and replaying the rest.
+//! What an edit does to the text, where a draft applies, and the Changes list read off Fleet's drafts. The draft
+//! itself is Fleet's (`WorkflowDraft`, `PieceDraft`): an edit here only works out the new whole text from the current
+//! one, and the list is what the draft's changes say once the ones undone are left out.
 
-use ipc::LifecycleDefinition;
+use ipc::DraftChange;
 
-use crate::settings::definition::{with_delta, with_label, with_step_added, with_words};
-
-/// Whose edit it is: the person's own, or an agent's that was asked for in the box.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Author {
-    Person,
-    Agent,
-}
+use crate::settings::definition::{overlap, touched, with_delta, with_label, with_step_added, with_words};
 
 /// What an edit does to the definition's text. Later changes (a rule, a step taken out) are more variants here and a
 /// line in `apply`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Change {
-    /// An agent's change, drafted from `before` as `after`. It carries only what differs between the two, so the
-    /// person's edits before it stay, and dropping one of his replays the agent's on top of what is left.
+    /// An agent's change, drafted from `before` as `after`. It carries only what differs between the two, so what
+    /// the draft holds since stays.
     Definition { before: String, after: String },
     /// One step's words.
     StepWords { step: String, words: String },
@@ -27,7 +20,7 @@ pub enum Change {
     /// A step added just after `after`, with empty words.
     AddStep { after: String, id: String, label: String },
     /// One state's name, in the lifecycle that holds it. A lifecycle is a piece of its own, not the workflow's
-    /// text: the rename is held apart from the definition and written as that lifecycle on Publish.
+    /// text: the rename is kept as that lifecycle's draft.
     StateLabel { lifecycle: String, state: String, label: String },
 }
 
@@ -44,14 +37,6 @@ impl Change {
     }
 }
 
-/// One change in the history: who made it, the line the history reads, and the change itself.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Edit {
-    pub author: Author,
-    pub said: String,
-    pub change: Change,
-}
-
 /// Where the draft is published: one repository's own copy, one project's, or Kit's for every project.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Target {
@@ -62,184 +47,68 @@ pub enum Target {
     EveryProject,
 }
 
-/// The base with each edit replayed in order. An edit that does not fit what the ones before it left is skipped.
-pub fn replay(base: &str, edits: &[Edit]) -> String {
-    edits.iter().fold(base.to_string(), |text, edit| edit.change.apply(&text).unwrap_or(text))
+/// A rename of a state that waits for where it applies: Armada's own workflow has no scope until it is answered.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Waiting {
+    pub said: String,
+    pub lifecycle: String,
+    pub state: String,
+    pub label: String,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Draft {
-    base: String,
-    target: Option<Target>,
-    edits: Vec<Edit>,
+/// The summary a change carries that undoes another one in the middle of the list: `Undid #<id of the one undone>`.
+/// Nothing displays it; the list reads it to leave both out.
+pub fn undid_summary(id: i64) -> String {
+    format!("Undid #{id}")
 }
 
-impl Draft {
-    pub fn new(base: impl Into<String>, target: Option<Target>) -> Draft {
-        Draft { base: base.into(), target, edits: Vec::new() }
-    }
+fn undid(change: &DraftChange) -> Option<i64> {
+    change.summary.as_deref()?.strip_prefix("Undid #")?.parse().ok()
+}
 
-    pub fn base(&self) -> &str {
-        &self.base
-    }
+/// The text a change at `at` was made on: the change before it, or `origin` (what the draft began from).
+pub fn before<'a>(changes: &'a [DraftChange], at: usize, origin: &'a str) -> &'a str {
+    at.checked_sub(1).map_or(origin, |prev| changes[prev].text.as_str())
+}
 
-    pub fn target(&self) -> Option<&Target> {
-        self.target.as_ref()
-    }
-
-    pub fn set_target(&mut self, target: Option<Target>) {
-        self.target = target;
-    }
-
-    pub fn edits(&self) -> &[Edit] {
-        &self.edits
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.edits.is_empty()
-    }
-
-    pub fn push(&mut self, edit: Edit) {
-        self.edits.push(edit);
-    }
-
-    /// The last edit dropped (⌘Z).
-    pub fn undo_last(&mut self) -> Option<Edit> {
-        self.edits.pop()
-    }
-
-    /// One edit dropped, wherever it stands; the rest replay without it.
-    pub fn undo_at(&mut self, at: usize) -> Option<Edit> {
-        (at < self.edits.len()).then(|| self.edits.remove(at))
-    }
-
-    /// Every edit dropped, and the base taken afresh.
-    pub fn clear(&mut self, base: impl Into<String>) {
-        self.edits.clear();
-        self.base = base.into();
-    }
-
-    /// The definition as it reads with every edit in it.
-    pub fn drafted(&self) -> String {
-        replay(&self.base, &self.edits)
-    }
-
-    /// Each state the draft renames, `(lifecycle, state, name)`, with the name its last rename gave it, in the order
-    /// it was first renamed.
-    pub fn state_labels(&self) -> Vec<(String, String, String)> {
-        let mut labels: Vec<(String, String, String)> = Vec::new();
-        for edit in &self.edits {
-            let Change::StateLabel { lifecycle, state, label } = &edit.change else { continue };
-            match labels.iter_mut().find(|(at, one, _)| at == lifecycle && one == state) {
-                Some(held) => held.2 = label.clone(),
-                None => labels.push((lifecycle.clone(), state.clone(), label.clone())),
+/// The changes the list shows, by their place in `changes`. A change whose text is one an earlier change left, or is
+/// `origin`, takes back everything after that point and itself, so putting the previous text again shrinks the list.
+/// A change that undoes one in the middle, and the one it names, are left out.
+pub fn shown(changes: &[DraftChange], origin: &str) -> Vec<usize> {
+    let mut rows: Vec<usize> = Vec::new();
+    for (at, change) in changes.iter().enumerate() {
+        if change.text == origin {
+            rows.clear();
+        } else if let Some(named) = undid(change) {
+            rows.retain(|row| changes[*row].id != named);
+        } else {
+            match rows.iter().position(|row| changes[*row].text == change.text) {
+                Some(was) => rows.truncate(was + 1),
+                None => rows.push(at),
             }
         }
-        labels
     }
+    rows
+}
 
-    /// The lifecycles of `read` the draft renames a state of, each with its states as the draft names them, in the
-    /// order first renamed. A rename of a state `read` does not hold is left out.
-    pub fn renamed_lifecycles(&self, read: &[LifecycleDefinition]) -> Vec<LifecycleDefinition> {
-        let mut out: Vec<LifecycleDefinition> = Vec::new();
-        for (lifecycle, state, label) in self.state_labels() {
-            if !out.iter().any(|one| one.id == lifecycle) {
-                let Some(found) = read.iter().find(|one| one.id == lifecycle) else { continue };
-                out.push(found.clone());
-            }
-            let Some(one) = out.iter_mut().find(|one| one.id == lifecycle) else { continue };
-            if let Some(held) = one.states.iter_mut().find(|one| one.id == state) {
-                held.label = label;
-            }
-        }
-        out.retain(|one| read.iter().any(|was| was.id == one.id && was != one));
-        out
-    }
+/// Whether a change shown after `rows[k]` edits the same words: the fields each touched between the text before it and
+/// its own overlap.
+pub fn edited_later(changes: &[DraftChange], rows: &[usize], k: usize, origin: &str) -> bool {
+    let touches = |at: usize| touched(before(changes, at, origin), &changes[at].text);
+    let mine = touches(rows[k]);
+    rows[k + 1..].iter().any(|later| touches(*later).iter().any(|theirs| mine.iter().any(|one| overlap(one, theirs))))
 }
 
 #[cfg(test)]
 mod tests {
+    use ipc::{DraftBy, Instant};
+
     use super::*;
 
     const BASE: &str = r#"{"version":1,"workflow_id":"bug","name":"bug","steps":[{"id":"fix","label":"Fix","instructions":"Fix it."},{"id":"tests","label":"Tests"}]}"#;
 
-    fn words(step: &str, words: &str) -> Edit {
-        Edit { author: Author::Person, said: format!("{step} words"), change: Change::StepWords { step: step.into(), words: words.into() } }
-    }
-
-    fn label(step: &str, label: &str) -> Edit {
-        Edit { author: Author::Person, said: format!("{step} name"), change: Change::StepLabel { step: step.into(), label: label.into() } }
-    }
-
-    fn drafted(draft: &Draft) -> (Vec<(String, String)>, Vec<Option<String>>) {
-        let text = draft.drafted();
-        let steps = crate::settings::definition::steps_of(&text);
-        let words = steps.iter().map(|(id, _)| crate::settings::definition::tree_of(&text).and_then(|tree| match tree.get("steps") {
-            Some(crate::settings::definition::Json::List(list)) => list.iter().find(|one| one.get("id").and_then(crate::settings::definition::Json::text) == Some(id.as_str())).and_then(|one| one.get("instructions").and_then(crate::settings::definition::Json::text).map(String::from)),
-            _ => None,
-        })).collect();
-        (steps, words)
-    }
-
-    #[test]
-    fn no_edits_is_the_base_and_every_edit_replays_in_order() {
-        let mut draft = Draft::new(BASE, None);
-        assert_eq!(draft.drafted(), BASE);
-        draft.push(label("fix", "Repair"));
-        draft.push(words("fix", "Make the smallest change."));
-        draft.push(label("tests", "Checks"));
-        let (steps, words) = drafted(&draft);
-        assert_eq!(steps, [("fix".to_string(), "Repair".to_string()), ("tests".to_string(), "Checks".to_string())]);
-        assert_eq!(words, [Some("Make the smallest change.".to_string()), None]);
-    }
-
-    #[test]
-    fn the_last_edit_is_dropped_and_what_stood_before_it_stands() {
-        let mut draft = Draft::new(BASE, None);
-        draft.push(label("fix", "Repair"));
-        draft.push(label("fix", "Mend"));
-        assert_eq!(draft.undo_last().map(|edit| edit.said), Some("fix name".to_string()));
-        assert_eq!(drafted(&draft).0[0].1, "Repair");
-        draft.undo_last();
-        assert_eq!(draft.drafted(), BASE);
-        assert_eq!(draft.undo_last(), None);
-    }
-
-    #[test]
-    fn a_middle_edit_is_dropped_and_the_rest_replay_without_it() {
-        let mut draft = Draft::new(BASE, None);
-        draft.push(label("fix", "Repair"));
-        draft.push(words("fix", "Say why."));
-        draft.push(label("tests", "Checks"));
-        assert_eq!(draft.undo_at(1).map(|edit| edit.said), Some("fix words".to_string()));
-        let (steps, words) = drafted(&draft);
-        assert_eq!(steps, [("fix".to_string(), "Repair".to_string()), ("tests".to_string(), "Checks".to_string())]);
-        assert_eq!(words, [Some("Fix it.".to_string()), None]);
-        assert_eq!(draft.edits().len(), 2);
-        assert_eq!(draft.undo_at(5), None);
-    }
-
-    #[test]
-    fn an_agents_definition_carries_what_it_changed_from_what_it_was_drafted_from() {
-        let after = BASE.replace("\"label\":\"Tests\"", "\"label\":\"Checks\"");
-        let mut draft = Draft::new(BASE, None);
-        draft.push(Edit { author: Author::Agent, said: "Rename Tests".into(), change: Change::Definition { before: BASE.into(), after: after.clone() } });
-        assert_eq!(crate::settings::definition::tree_of(&draft.drafted()), crate::settings::definition::tree_of(&after));
-        // An edit after it lands on the agent's text; one that names a step it removed is skipped.
-        draft.push(label("fix", "Repair"));
-        assert_eq!(drafted(&draft).0, [("fix".to_string(), "Repair".to_string()), ("tests".to_string(), "Checks".to_string())]);
-        draft.push(words("gone", "x"));
-        assert_eq!(drafted(&draft).0.len(), 2);
-        draft.undo_at(0);
-        assert_eq!(drafted(&draft).0, [("fix".to_string(), "Repair".to_string()), ("tests".to_string(), "Tests".to_string())]);
-    }
-
-    fn agent(after: &str) -> Edit {
-        Edit { author: Author::Agent, said: "asked".into(), change: Change::Definition { before: BASE.into(), after: after.into() } }
-    }
-
-    fn renames_tests() -> String {
-        BASE.replace("\"label\":\"Tests\"", "\"label\":\"Checks\"")
+    fn steps(text: &str) -> Vec<(String, String)> {
+        crate::settings::definition::steps_of(text)
     }
 
     fn step(id: &str, label: &str) -> (String, String) {
@@ -247,174 +116,69 @@ mod tests {
     }
 
     #[test]
-    fn an_agents_edit_on_top_of_his_keeps_his() {
-        let mut draft = Draft::new(BASE, None);
-        draft.push(words("fix", "Make the smallest change."));
-        draft.push(agent(&renames_tests()));
-        let (steps, words) = drafted(&draft);
-        assert_eq!(steps, [step("fix", "Fix"), step("tests", "Checks")]);
-        assert_eq!(words, [Some("Make the smallest change.".to_string()), None]);
+    fn a_change_works_out_the_new_text_from_the_current_one() {
+        let renamed = Change::StepLabel { step: "fix".into(), label: "Repair".into() }.apply(BASE).expect("fix is a step");
+        let worded = Change::StepWords { step: "fix".into(), words: "Say why.".into() }.apply(&renamed).expect("fix is a step");
+        assert_eq!(steps(&worded), [step("fix", "Repair"), step("tests", "Tests")]);
+        assert_eq!(crate::settings::definition::words_of(&worded, "fix").as_deref(), Some("Say why."));
+        assert_eq!(Change::StepWords { step: "gone".into(), words: "x".into() }.apply(&worded), None);
+        let added = Change::AddStep { after: "fix".into(), id: "new_step".into(), label: "New step".into() }.apply(&worded).expect("added");
+        assert_eq!(steps(&added), [step("fix", "Repair"), step("new_step", "New step"), step("tests", "Tests")]);
+        assert_eq!(Change::StateLabel { lifecycle: "ticket".into(), state: "todo".into(), label: "Later".into() }.apply(&added).as_deref(), Some(added.as_str()), "a state is not the workflow's text");
     }
 
     #[test]
-    fn his_edit_undone_under_an_agents_leaves_the_agents() {
-        let mut draft = Draft::new(BASE, None);
-        draft.push(words("fix", "Make the smallest change."));
-        draft.push(agent(&renames_tests()));
-        draft.undo_at(0);
-        let (steps, words) = drafted(&draft);
-        assert_eq!(steps, [step("fix", "Fix"), step("tests", "Checks")]);
-        assert_eq!(words, [Some("Fix it.".to_string()), None]);
+    fn an_agents_definition_carries_what_it_changed_on_top_of_what_the_draft_holds() {
+        let after = BASE.replace("\"label\":\"Tests\"", "\"label\":\"Checks\"");
+        let held = Change::StepLabel { step: "fix".into(), label: "Repair".into() }.apply(BASE).expect("fix");
+        let landed = Change::Definition { before: BASE.into(), after }.apply(&held).expect("a delta");
+        assert_eq!(steps(&landed), [step("fix", "Repair"), step("tests", "Checks")]);
+    }
+
+    fn change(id: i64, text: &str, summary: Option<&str>) -> DraftChange {
+        DraftChange { id, by: DraftBy::You, at: Instant::carried("2026-11-13T09:00:00Z"), text: text.into(), summary: summary.map(String::from), change: None }
+    }
+
+    fn label(text: &str, step: &str, label: &str) -> String {
+        with_label(text, step, label).expect("a step")
     }
 
     #[test]
-    fn the_agents_edit_undone_leaves_only_his() {
-        let mut draft = Draft::new(BASE, None);
-        draft.push(words("fix", "Make the smallest change."));
-        draft.push(agent(&renames_tests()));
-        draft.undo_at(1);
-        let (steps, words) = drafted(&draft);
-        assert_eq!(steps, [step("fix", "Fix"), step("tests", "Tests")]);
-        assert_eq!(words, [Some("Make the smallest change.".to_string()), None]);
+    fn a_text_put_again_takes_back_the_rows_after_it_and_itself() {
+        let (x, y) = (label(BASE, "fix", "Repair"), label(BASE, "tests", "Checks"));
+        let both = label(&x, "tests", "Checks");
+        let changes = [change(1, &x, None), change(2, &both, None)];
+        assert_eq!(shown(&changes, BASE), [0, 1]);
+        // Putting the first's text again drops the second and the put; putting the base drops everything.
+        let back = [change(1, &x, None), change(2, &both, None), change(3, &x, None)];
+        assert_eq!(shown(&back, BASE), [0]);
+        let all = [change(1, &x, None), change(2, &both, None), change(3, &x, None), change(4, BASE, None)];
+        assert!(shown(&all, BASE).is_empty());
+        // The same text again, after a row that was taken back, is a row of its own.
+        let again = [change(1, &x, None), change(2, &y, None), change(3, &x, None), change(4, &y, None)];
+        assert_eq!(shown(&again, BASE), [0, 3]);
     }
 
     #[test]
-    fn a_step_the_agent_adds_lands_after_the_one_it_followed() {
-        let after = BASE.replace("{\"id\":\"tests\"", "{\"id\":\"review\",\"label\":\"Review\"},{\"id\":\"tests\"");
-        let mut draft = Draft::new(BASE, None);
-        draft.push(label("fix", "Repair"));
-        draft.push(agent(&after));
-        assert_eq!(drafted(&draft).0, [step("fix", "Repair"), step("review", "Review"), step("tests", "Tests")]);
-    }
-
-    fn swaps_fix_and_tests() -> String {
-        BASE.replace(r#"[{"id":"fix","label":"Fix","instructions":"Fix it."},{"id":"tests","label":"Tests"}]"#, r#"[{"id":"tests","label":"Tests"},{"id":"fix","label":"Fix","instructions":"Fix it."}]"#)
+    fn an_undo_in_the_middle_and_the_row_it_names_are_both_left_out() {
+        let (x, both) = (label(BASE, "fix", "Repair"), label(&label(BASE, "fix", "Repair"), "tests", "Checks"));
+        // Row 1 is undone from the middle: its reverse is put on top of row 2's text.
+        let only_checks = label(BASE, "tests", "Checks");
+        let changes = [change(1, &x, Some("Renamed Fix to Repair")), change(2, &both, Some("Renamed Tests to Checks")), change(3, &only_checks, Some("Undid #1"))];
+        assert_eq!(shown(&changes, BASE), [1]);
+        assert_eq!(shown(&changes[..2], BASE), [0, 1], "before the undo both are rows");
     }
 
     #[test]
-    fn steps_the_agent_swaps_are_drawn_swapped_until_its_entry_is_undone() {
-        let mut draft = Draft::new(BASE, None);
-        draft.push(agent(&swaps_fix_and_tests()));
-        assert_eq!(drafted(&draft).0, [step("tests", "Tests"), step("fix", "Fix")]);
-        draft.undo_at(0);
-        assert_eq!(drafted(&draft).0, [step("fix", "Fix"), step("tests", "Tests")]);
-    }
-
-    #[test]
-    fn his_words_and_the_agents_move_both_show() {
-        let mut draft = Draft::new(BASE, None);
-        draft.push(words("fix", "Make the smallest change."));
-        draft.push(agent(&swaps_fix_and_tests()));
-        let (steps, words) = drafted(&draft);
-        assert_eq!(steps, [step("tests", "Tests"), step("fix", "Fix")]);
-        assert_eq!(words, [None, Some("Make the smallest change.".to_string())]);
-    }
-
-    #[test]
-    fn a_step_he_moved_since_the_agent_read_keeps_his_place() {
-        let workflow = |order: &str| format!(r#"{{"version":1,"workflow_id":"bug","name":"bug","steps":[{order}]}}"#);
-        let read = workflow(r#"{"id":"a"},{"id":"b"},{"id":"c"},{"id":"d"}"#);
-        // He swapped c and d after the agent read the draft; the agent swapped a and b.
-        let his = workflow(r#"{"id":"a"},{"id":"b"},{"id":"d"},{"id":"c"}"#);
-        let agents = workflow(r#"{"id":"b"},{"id":"a"},{"id":"c"},{"id":"d"}"#);
-        let mut draft = Draft::new(his, None);
-        draft.push(Edit { author: Author::Agent, said: "asked".into(), change: Change::Definition { before: read, after: agents } });
-        let order: Vec<String> = drafted(&draft).0.into_iter().map(|(id, _)| id).collect();
-        assert_eq!(order, ["b", "a", "d", "c"]);
-    }
-
-    fn added(after: &str, id: &str) -> Edit {
-        Edit { author: Author::Person, said: format!("Added {id}"), change: Change::AddStep { after: after.into(), id: id.into(), label: "New step".into() } }
-    }
-
-    #[test]
-    fn a_step_added_stands_after_the_one_it_was_added_after_with_empty_words_and_undo_takes_it_out() {
-        let mut draft = Draft::new(BASE, None);
-        draft.push(added("fix", "new_step"));
-        let (steps, words) = drafted(&draft);
-        assert_eq!(steps, [step("fix", "Fix"), step("new_step", "New step"), step("tests", "Tests")]);
-        assert_eq!(words, [Some("Fix it.".to_string()), Some(String::new()), None]);
-        // His name for it lands on it, and undoing the add leaves the rename with nothing to name: it is skipped.
-        draft.push(label("new_step", "Review"));
-        assert_eq!(drafted(&draft).0[1], step("new_step", "Review"));
-        draft.undo_at(0);
-        assert_eq!(drafted(&draft).0, [step("fix", "Fix"), step("tests", "Tests")]);
-        draft.undo_last();
-        assert_eq!(draft.drafted(), BASE);
-    }
-
-    #[test]
-    fn a_step_added_after_the_last_ends_the_workflow_and_an_id_taken_is_skipped() {
-        let mut draft = Draft::new(BASE, None);
-        draft.push(added("tests", "new_step"));
-        draft.push(added("fix", "new_step"));
-        assert_eq!(drafted(&draft).0, [step("fix", "Fix"), step("tests", "Tests"), step("new_step", "New step")]);
-        assert_eq!(draft.edits().len(), 2, "the skipped one stays in the history for its Undo");
-    }
-
-    #[test]
-    fn a_name_and_words_each_apply_and_each_undo_alone() {
-        let mut draft = Draft::new(BASE, None);
-        draft.push(label("tests", "Checks"));
-        draft.push(words("tests", "Write the test first."));
-        assert_eq!(drafted(&draft), (vec![step("fix", "Fix"), step("tests", "Checks")], vec![Some("Fix it.".to_string()), Some("Write the test first.".to_string())]));
-        draft.undo_at(0);
-        assert_eq!(drafted(&draft), (vec![step("fix", "Fix"), step("tests", "Tests")], vec![Some("Fix it.".to_string()), Some("Write the test first.".to_string())]));
-        draft.undo_last();
-        assert_eq!(draft.drafted(), BASE);
-    }
-
-    fn ticket() -> LifecycleDefinition {
-        let state = |id: &str, label: &str| ipc::LifecycleStateDefinition { id: id.into(), label: label.into(), read: ipc::StateReadFrom::Tracker { words: vec![label.into()] } };
-        LifecycleDefinition {
-            id: "ticket".into(),
-            name: "Ticket".into(),
-            scope: ipc::PieceScope::Everywhere,
-            states: vec![state("todo", "Todo"), state("in_progress", "In Progress"), state("done", "Done")],
-            transitions: Vec::new(),
-            ends: vec!["done".into()],
-        }
-    }
-
-    fn state(state: &str, label: &str) -> Edit {
-        Edit { author: Author::Person, said: format!("{state} renamed"), change: Change::StateLabel { lifecycle: "ticket".into(), state: state.into(), label: label.into() } }
-    }
-
-    #[test]
-    fn a_state_renamed_leaves_the_definition_and_renames_it_in_its_lifecycle_and_undo_takes_it_back() {
-        let mut draft = Draft::new(BASE, None);
-        draft.push(label("fix", "Repair"));
-        draft.push(state("in_progress", "Working"));
-        draft.push(state("in_progress", "Doing"));
-        assert_eq!(draft.drafted(), replay(BASE, &[label("fix", "Repair")]), "a state's name is not the workflow's text");
-        assert_eq!(draft.state_labels(), [("ticket".to_string(), "in_progress".to_string(), "Doing".to_string())], "the last rename names it");
-        let renamed = draft.renamed_lifecycles(&[ticket()]);
-        assert_eq!(renamed.iter().map(|one| one.states.iter().map(|state| state.label.as_str()).collect::<Vec<_>>()).collect::<Vec<_>>(), [["Todo", "Doing", "Done"]]);
-        assert!(draft.renamed_lifecycles(&[]).is_empty(), "a lifecycle the read does not hold is left out");
-
-        draft.undo_at(2);
-        assert_eq!(draft.state_labels()[0].2, "Working");
-        draft.undo_at(1);
-        assert!(draft.state_labels().is_empty());
-        assert!(draft.renamed_lifecycles(&[ticket()]).is_empty());
-        assert_eq!(draft.edits().len(), 1, "the step's rename stays");
-    }
-
-    #[test]
-    fn a_state_renamed_back_to_its_name_writes_nothing() {
-        let mut draft = Draft::new(BASE, None);
-        draft.push(state("todo", "Later"));
-        draft.push(state("todo", "Todo"));
-        assert!(draft.renamed_lifecycles(&[ticket()]).is_empty());
-    }
-
-    #[test]
-    fn clearing_takes_a_new_base() {
-        let mut draft = Draft::new(BASE, Some(Target::EveryProject));
-        draft.push(label("fix", "Repair"));
-        draft.clear("{}");
-        assert!(draft.is_empty());
-        assert_eq!(draft.base(), "{}");
-        assert_eq!(draft.target(), Some(&Target::EveryProject));
+    fn a_later_change_to_the_same_words_blocks_the_undo_of_an_earlier_one() {
+        let first = crate::settings::definition::with_words(BASE, "fix", "Say why.").expect("fix");
+        let second = crate::settings::definition::with_words(&first, "fix", "Say why, small.").expect("fix");
+        let renamed = label(&second, "tests", "Checks");
+        let changes = [change(1, &first, None), change(2, &second, None), change(3, &renamed, None)];
+        let rows = shown(&changes, BASE);
+        assert_eq!(rows, [0, 1, 2]);
+        assert!(edited_later(&changes, &rows, 0, BASE), "the second edits the same step's words");
+        assert!(!edited_later(&changes, &rows, 1, BASE), "the third is another step's name");
+        assert!(!edited_later(&changes, &rows, 2, BASE));
     }
 }

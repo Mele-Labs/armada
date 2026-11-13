@@ -3,7 +3,9 @@
 
 use gpui::{div, prelude::*, svg, AnyElement, Context, FocusHandle, FontWeight, Role, SharedString, Window};
 
-use super::draft::{Author, Target};
+use ipc::DraftBy;
+
+use super::draft::Target;
 use super::{LanesEditor, Press};
 use crate::assets::icon_path;
 use crate::labels::labelled;
@@ -11,17 +13,20 @@ use crate::look::{token, Look};
 use crate::settings::change_band::filled;
 use crate::settings::view::{ghost, ghost_with, mono, ringed, small, tip};
 
-/// The line beside Publish: a save reaches every Job running on the workflow, as Fleet reads steps live.
-pub const REACHES: &str = "Running Jobs on this workflow take the change";
+/// What the Undo of a change says where a change shown after it edits the same words.
+const LATER_EDITS: &str = "A later change edits the same words";
+
+/// The button that throws the drafts away where Fleet says the workflow changed since they began.
+const START_OVER: &str = "Start from the published text";
 
 impl LanesEditor {
     /// The draft bar and, under it, the history while it is open. None while the draft has no change.
     pub(super) fn render_bar(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
-        if self.draft.is_empty() {
+        if !self.has_edits() {
             return None;
         }
         let keys = &self.keys;
-        let off = self.busy || self.draft.target().is_none();
+        let off = self.busy || self.target.is_none();
         let changes = ringed(look, ghost_with(look, "workflow-draft-changes", Some(if self.history_open { "chevron-up" } else { "chevron-down" }), "Changes", false), &keys.changes, window)
             .track_focus(&keys.changes)
             .on_click(cx.listener(|this, _, window, cx| this.pressed(Press::Changes, window, cx)));
@@ -31,7 +36,6 @@ impl LanesEditor {
         let publish = ringed(look, filled(look, "workflow-draft-publish".into(), "Publish", off), &keys.publish, window)
             .track_focus(&keys.publish)
             .when(!off, |button| button.on_click(cx.listener(|this, _, window, cx| this.pressed(Press::Publish, window, cx))));
-        let reaches = labelled(small(look, REACHES, look.color(token::FG_MUTED)).id("workflow-draft-reaches").min_w_0(), Role::Label, REACHES);
         let acts = div()
             .flex()
             .flex_wrap()
@@ -40,9 +44,16 @@ impl LanesEditor {
             .gap_y(look.length(token::SPACE_1))
             .child(labelled(changes, Role::Button, "Changes"))
             .child(div().flex_auto())
-            .child(reaches)
             .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(discard, Role::Button, "Discard")).child(labelled(publish, Role::Button, "Publish")));
-        let refused = self.refused.as_ref().map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("workflow-draft-refused"), Role::Alert, said.clone()));
+        // What Fleet refused with, else the loader's sentence for a draft that would not load.
+        let unfit = self.draft.as_ref().and_then(|draft| draft.unfit.clone()).or_else(|| self.pieces.iter().find_map(|piece| piece.unfit.clone()));
+        let refused = self.refused.clone().or(unfit).map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("workflow-draft-refused"), Role::Alert, said));
+        let start_over = self.stale.then(|| {
+            let button = ringed(look, ghost(look, "workflow-draft-restart", START_OVER, self.busy), &keys.restart, window)
+                .track_focus(&keys.restart)
+                .when(!self.busy, |button| button.on_click(cx.listener(|this, _, window, cx| this.pressed(Press::Restart, window, cx))));
+            labelled(button, Role::Button, START_OVER)
+        });
         let frame = div()
             .id("workflow-draft")
             .flex()
@@ -57,6 +68,7 @@ impl LanesEditor {
             .children(self.question_shown().then(|| self.render_question(look, window, cx)))
             .child(acts)
             .children(refused)
+            .children(start_over)
             .children(self.history_open.then(|| self.render_history(look, window, cx)));
         Some(frame.into_any_element())
     }
@@ -67,7 +79,7 @@ impl LanesEditor {
         let here = Target::Repository(self.subject.repository.clone());
         // The project being edited is offered first, by its name.
         let project = self.subject.project.as_ref().map(|(id, name)| {
-            let on = self.draft.target() == Some(&Target::Project(id.clone()));
+            let on = self.target.as_ref() == Some(&Target::Project(id.clone()));
             self.radio(look, "workflow-draft-project", name.clone(), on, &keys.project, Press::Project, window, cx)
         });
         let choices = div()
@@ -76,8 +88,8 @@ impl LanesEditor {
             .items_center()
             .gap(look.length(token::SPACE_2))
             .children(project)
-            .child(self.radio(look, "workflow-draft-repository", "This repository", self.draft.target() == Some(&here), &keys.repository, Press::Repository, window, cx))
-            .child(self.radio(look, "workflow-draft-every", "Every project", self.draft.target() == Some(&Target::EveryProject), &keys.every, Press::Every, window, cx));
+            .child(self.radio(look, "workflow-draft-repository", "This repository", self.target.as_ref() == Some(&here), &keys.repository, Press::Repository, window, cx))
+            .child(self.radio(look, "workflow-draft-every", "Every project", self.target.as_ref() == Some(&Target::EveryProject), &keys.every, Press::Every, window, cx));
         let ask = div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_MUTED)).child("Where does this apply?");
         labelled(div().id("workflow-draft-where").flex().flex_wrap().items_center().gap_x(look.length(token::SPACE_3)).gap_y(look.length(token::SPACE_1)).child(ask).child(choices), Role::RadioGroup, "Where does this apply?").into_any_element()
     }
@@ -120,22 +132,24 @@ impl LanesEditor {
 
     /// Each change in the order it was made, who made it, the line it was said in, and its Undo.
     fn render_history(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
-        let rows = self.draft.edits().iter().enumerate().map(|(n, edit)| {
-            let (glyph, who) = match edit.author {
-                Author::Person => ("user", "You"),
-                Author::Agent => ("bot", "Agent"),
+        let rows = self.rows.iter().enumerate().map(|(n, row)| {
+            let (glyph, who) = match row.by {
+                DraftBy::You => ("user", "You"),
+                DraftBy::Agent => ("bot", "Agent"),
             };
             let mark = labelled(
                 div().id(SharedString::from(format!("workflow-change-by-{n}"))).flex_none().tooltip(tip(who)).child(svg().path(icon_path(glyph)).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_MUTED))),
                 Role::Image,
                 who,
             );
-            let said = SharedString::from(edit.said.clone());
+            let said = SharedString::from(row.said.clone());
             let undo = self.undos.get(n).map(|focus| {
-                let button = ringed(look, ghost(look, SharedString::from(format!("workflow-undo-{n}")), "Undo", self.busy), focus, window)
+                let off = self.busy || row.blocked;
+                let button = ringed(look, ghost(look, SharedString::from(format!("workflow-undo-{n}")), "Undo", off), focus, window)
                     .track_focus(focus)
-                    .when(!self.busy, |button| button.on_click(cx.listener(move |this, _, window, cx| this.pressed(Press::Undo(n), window, cx))));
-                labelled(button, Role::Button, format!("Undo {}", edit.said))
+                    .when(row.blocked, |button| button.tooltip(tip(LATER_EDITS)))
+                    .when(!off, |button| button.on_click(cx.listener(move |this, _, window, cx| this.pressed(Press::Undo(n), window, cx))));
+                labelled(button, Role::Button, format!("Undo {}", row.said))
             });
             labelled(
                 div()

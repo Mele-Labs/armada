@@ -279,6 +279,62 @@ pub fn steps_of(text: &str) -> Vec<(String, String)> {
         .collect()
 }
 
+/// Where two texts differ, as paths: a step's label is `steps/fix/label`, a step added or taken out `steps/fix`, a piece's
+/// state `lifecycle/states/todo/label`, any other key by its own name. `*` where either is not JSON, which differs
+/// from everything. A list is read by the `id` of each item where every item has one.
+pub fn touched(before: &str, after: &str) -> Vec<String> {
+    let (Ok(was), Ok(now)) = (ipc::decode::<Json>("draft text", before.as_bytes()), ipc::decode::<Json>("draft text", after.as_bytes())) else { return vec!["*".into()] };
+    let mut out = Vec::new();
+    differing(&was, &now, "", &mut out);
+    out
+}
+
+/// Whether two paths from `touched` name the same words: the same path, or one inside the other.
+pub fn overlap(a: &str, b: &str) -> bool {
+    a == "*" || b == "*" || a == b || a.strip_prefix(b).is_some_and(|rest| rest.starts_with('/')) || b.strip_prefix(a).is_some_and(|rest| rest.starts_with('/'))
+}
+
+fn differing(was: &Json, now: &Json, at: &str, out: &mut Vec<String>) {
+    let join = |key: &str| if at.is_empty() { key.to_string() } else { format!("{at}/{key}") };
+    let (Json::Map(was_fields), Json::Map(now_fields)) = (was, now) else {
+        if was != now {
+            out.push(at.to_string());
+        }
+        return;
+    };
+    let keys: Vec<&String> = was_fields.iter().chain(now_fields.iter()).map(|(key, _)| key).fold(Vec::new(), |mut keys, key| {
+        if !keys.contains(&key) {
+            keys.push(key);
+        }
+        keys
+    });
+    for key in keys {
+        let (a, b) = (was.get(key), now.get(key));
+        if a == b {
+            continue;
+        }
+        match (a, b) {
+            (Some(Json::List(a)), Some(Json::List(b))) if a.iter().chain(b.iter()).all(|one| one.id().is_some()) => {
+                let ids: Vec<&str> = a.iter().chain(b.iter()).filter_map(Json::id).fold(Vec::new(), |mut ids, id| {
+                    if !ids.contains(&id) {
+                        ids.push(id);
+                    }
+                    ids
+                });
+                for id in ids {
+                    let path = format!("{}/{id}", join(key));
+                    match (place_of(a, id), place_of(b, id)) {
+                        (Some(x), Some(y)) => differing(&a[x], &b[y], &path, out),
+                        _ => out.push(path),
+                    }
+                }
+            }
+            (Some(a @ Json::Map(_)), Some(b @ Json::Map(_))) => differing(a, b, &join(key), out),
+            _ => out.push(join(key)),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -305,6 +361,21 @@ mod tests {
         assert_eq!(steps[1].get("instructions").and_then(Json::text), Some("Write the test."));
         assert_eq!(with_words(TEXT, "deliver", "x"), None);
         assert_eq!(with_words("steps: []", "fix", "x"), None);
+    }
+
+    #[test]
+    fn what_a_change_touched_is_read_by_step_and_field_and_the_same_words_overlap() {
+        let words = with_words(TEXT, "fix", "Make it small.").expect("fix");
+        let label = with_label(TEXT, "fix", "Repair").expect("fix");
+        let added = with_step_added(TEXT, "fix", "review", "Review").expect("added");
+        assert_eq!(touched(TEXT, &words), ["steps/fix/instructions"]);
+        assert_eq!(touched(TEXT, &label), ["steps/fix/label"]);
+        assert_eq!(touched(TEXT, &added), ["steps/review"]);
+        assert!(overlap("steps/fix/instructions", "steps/fix/instructions"));
+        assert!(!overlap("steps/fix/instructions", "steps/fix/label"));
+        assert!(!overlap("steps/fix/label", "steps/tests/label"));
+        assert!(overlap("steps/review", "steps/review/label"), "a step added and then renamed is the same words");
+        assert_eq!(touched(TEXT, "not json"), ["*"]);
     }
 
     #[test]

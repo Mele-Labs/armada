@@ -366,14 +366,18 @@ impl SettingsOverlay {
         let key = one.key();
         let Ok(read) = answer else { return };
         let drafting = read.changes.iter().any(|change| change.state == ChangeState::Drafting);
-        // An asked change that is ready goes into the row's draft, marked as the agent's, and is put aside on Fleet: the
+        // An asked change that is ready is in the row's draft, marked as the agent's, and is put aside on Fleet: the
         // draft holds it now.
         let mut changes = read.changes;
         let ready = changes.iter().position(|change| change.step_id.is_none() && change.state == ChangeState::Ready && change.after.is_some() && matches!(change.origin, ChangeOrigin::Asked { .. }));
         let landed = match (ready, self.editor_of(&one)) {
             (Some(at), Some(editor)) => {
                 let change = changes.remove(at);
-                if let (ChangeOrigin::Asked { text }, Some(after)) = (change.origin, change.after) {
+                // Fleet put a change it could in the draft as the agent's: the draft is read again. One it could not (the
+                // draft moved since) is laid on the draft here and put as his.
+                if change.drafted {
+                    editor.update(cx, |editor, cx| editor.drafted_by_agent(cx));
+                } else if let (ChangeOrigin::Asked { text }, Some(after)) = (change.origin, change.after) {
                     editor.update(cx, |editor, cx| editor.agent_edit(text, change.before, after, cx));
                 }
                 Some(change.id)

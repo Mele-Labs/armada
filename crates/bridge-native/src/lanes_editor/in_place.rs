@@ -1,6 +1,6 @@
 //! What is picked on the canvas, opened where it stands: a step's Name and Words as fields under its node, a
 //! state's Name where its lifecycle was read (else to read), a + in each gap between steps and an empty box at the
-//! workflow's end that add a step there, picked. Each field he changed is one edit in the draft, marked as his. The
+//! workflow's end that add a step there, picked. Each field he changed is one edit of the draft, put to Fleet as his. The
 //! fields stand over the canvas in window points, under the picked node as the canvas drew it last (`picked_bounds`).
 
 use std::cell::Cell;
@@ -13,7 +13,7 @@ use gpui::{
 use gpui_component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
 use ipc::{JobLanesView, LaneKind, LaneNodeKind};
 
-use super::draft::{Author, Change};
+use super::draft::Change;
 use super::LanesEditor;
 use crate::assets::icon_path;
 use crate::labels::labelled;
@@ -142,10 +142,10 @@ fn end_box(gaps: &[StepGap]) -> Option<(String, Bounds<Pixels>)> {
 impl LanesEditor {
     /// The definition as the draft has it: what a field opens on and what a new step is added to.
     fn text(&self) -> String {
-        if self.draft.base().is_empty() {
+        if self.text.is_empty() {
             self.saved.clone().unwrap_or_default()
         } else {
-            self.draft.drafted()
+            self.text.clone()
         }
     }
 
@@ -266,17 +266,17 @@ impl LanesEditor {
             Editing::Step(step) => {
                 let mut named = fields.was_name.clone();
                 if let Some(said) = renamed {
-                    self.edit(Author::Person, said, Change::StepLabel { step: step.clone(), label: name.clone() }, cx);
+                    self.edit(said, Change::StepLabel { step: step.clone(), label: name.clone() }, cx);
                     named = name;
                 }
                 let words = fields.words.as_ref().map(|words| words.read(cx).value().to_string()).unwrap_or_default();
                 if words != fields.was_words {
-                    self.edit(Author::Person, format!("Changed the words of {named}"), Change::StepWords { step: step.clone(), words }, cx);
+                    self.edit(format!("Changed the words of {named}"), Change::StepWords { step: step.clone(), words }, cx);
                 }
             }
             Editing::State { lifecycle, state } => {
                 if let Some(said) = renamed {
-                    self.edit(Author::Person, said, Change::StateLabel { lifecycle: lifecycle.clone(), state: state.clone(), label: name }, cx);
+                    self.edit(said, Change::StateLabel { lifecycle: lifecycle.clone(), state: state.clone(), label: name }, cx);
                 }
             }
         }
@@ -312,7 +312,7 @@ impl LanesEditor {
         let Some((after, named)) = after.and_then(|after| steps.iter().find(|(id, _)| *id == after).cloned()).or_else(|| steps.last().cloned()) else { return };
         let taken: Vec<String> = steps.iter().map(|(id, _)| id.clone()).collect();
         let id = unique_id(NEW_STEP, &taken);
-        self.edit(Author::Person, format!("Added {NEW_STEP} after {named}"), Change::AddStep { after, id: id.clone(), label: NEW_STEP.into() }, cx);
+        self.edit(format!("Added {NEW_STEP} after {named}"), Change::AddStep { after, id: id.clone(), label: NEW_STEP.into() }, cx);
         // The new step is picked, as a press on it would: its fields stand under it, and A adds after it next.
         let node = format!("workflow/{id}");
         self.state.pick(&self.id, Some(Pick::Node(node.clone())));

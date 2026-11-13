@@ -3,7 +3,7 @@
 //! editor.
 
 use gpui::{App, Task};
-use ipc::{DeleteLifecyclePiece, JobLanesView, LifecyclePieceDeleted, LifecyclePieceSaved, RepositoryLifecycles, SaveLifecyclePiece, SaveWorkflow, WorkflowDefinition, WorkflowSaved};
+use ipc::{DeleteLifecyclePiece, JobLanesView, LifecyclePieceDeleted, LifecyclePieceKind, PieceDraft, PieceDraftDiscarded, PieceScope, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, RepositoryLifecycles, WorkflowDefinition, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 
 pub use crate::settings::wire::Refused;
 
@@ -31,6 +31,14 @@ pub struct Subject {
 }
 
 impl Subject {
+    /// Where its draft is kept: the source and, where that is a project's, the project's id.
+    pub fn place(&self) -> (&'static str, Option<String>) {
+        match (self.source, &self.project) {
+            ("project", Some((id, _))) => ("project", Some(id.clone())),
+            (source, _) => (source, None),
+        }
+    }
+
     /// Where an edit applies without asking: the place the workflow is kept, where it is a copy.
     pub fn own_target(&self) -> Option<Target> {
         match (self.shipped, self.source) {
@@ -47,13 +55,24 @@ pub trait EditorWire {
     fn lanes(&self, at: &Subject, cx: &mut App) -> Task<Result<JobLanesView, Refused>>;
     /// `GET /workflows/definition`: the file's text.
     fn definition(&self, at: &Subject, cx: &mut App) -> Task<Result<WorkflowDefinition, Refused>>;
-    /// `POST /workflows/save` under a Manifest.
-    fn save_workflow(&self, manifest: &str, save: SaveWorkflow, cx: &mut App) -> Task<Result<WorkflowSaved, Refused>>;
+    /// `GET /workflows/draft`: Fleet's draft of it, or `fleet.workflow_draft_none` where none is kept.
+    fn workflow_draft(&self, at: &Subject, cx: &mut App) -> Task<Result<WorkflowDraft, Refused>>;
+    /// `PUT /workflows/draft` under a Manifest: the draft text as it is now.
+    fn put_workflow_draft(&self, manifest: &str, put: PutWorkflowDraft, cx: &mut App) -> Task<Result<WorkflowDraft, Refused>>;
+    /// `DELETE /workflows/draft`.
+    fn discard_workflow_draft(&self, at: &Subject, cx: &mut App) -> Task<Result<WorkflowDraftDiscarded, Refused>>;
+    /// `POST /workflows/draft/publish` under a Manifest.
+    fn publish_workflow_draft(&self, manifest: &str, publish: PublishWorkflowDraft, cx: &mut App) -> Task<Result<WorkflowPublished, Refused>>;
     /// `GET /lifecycles`: the lifecycles that apply to a repository, by its Manifest id, and where each was kept.
     fn lifecycles(&self, manifest: &str, cx: &mut App) -> Task<Result<RepositoryLifecycles, Refused>>;
-    /// `POST /lifecycles/pieces/save`: a lifecycle, rule or autonomy default. A state renamed in place is written as
-    /// its lifecycle.
-    fn save_piece(&self, save: SaveLifecyclePiece, cx: &mut App) -> Task<Result<LifecyclePieceSaved, Refused>>;
+    /// `GET /lifecycles/pieces/draft`: `fleet.piece_draft_none` where none is kept.
+    fn piece_draft(&self, kind: LifecyclePieceKind, id: &str, scope: &PieceScope, cx: &mut App) -> Task<Result<PieceDraft, Refused>>;
+    /// `PUT /lifecycles/pieces/draft`: a state renamed in place is kept as its lifecycle's draft.
+    fn put_piece_draft(&self, put: PutPieceDraft, cx: &mut App) -> Task<Result<PieceDraft, Refused>>;
+    /// `DELETE /lifecycles/pieces/draft`.
+    fn discard_piece_draft(&self, kind: LifecyclePieceKind, id: &str, scope: &PieceScope, cx: &mut App) -> Task<Result<PieceDraftDiscarded, Refused>>;
+    /// `POST /lifecycles/pieces/draft/publish`.
+    fn publish_piece_draft(&self, publish: PublishPieceDraft, cx: &mut App) -> Task<Result<PiecePublished, Refused>>;
     /// `POST /lifecycles/pieces/delete`.
     #[allow(dead_code)] // For the edits that take a piece out.
     fn delete_piece(&self, delete: DeleteLifecyclePiece, cx: &mut App) -> Task<Result<LifecyclePieceDeleted, Refused>>;

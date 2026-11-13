@@ -32,6 +32,8 @@ pub struct MockFleet {
     pub definitions: Vec<super::mock_workflows::Held>,
     /// The changes an agent was asked to draft, as `mock_workflows.rs` keeps them until approved or dismissed.
     pub changes: Vec<super::mock_workflows::Kept>,
+    /// The drafts of workflows and pieces `PUT` to it, until published or discarded.
+    pub drafts: super::mock_workflows::Drafts,
     /// What `GET /models` answers: Classic's mock models (`apps/desktop/src/renderer/src/mock/kit-models.ts`).
     pub models: ipc::ModelChoices,
     /// The Phone Gateway Settings › Macs reads (`gateway.rs`).
@@ -124,7 +126,7 @@ impl MockFleet {
             ..ValuesSet::default()
         };
         MockFleet {
-            kit, list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
+            kit, list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), drafts: Default::default(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
             gateway: super::gateway::MockGateway::new(),
             handed: Vec::new(),

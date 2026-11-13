@@ -39,6 +39,8 @@ pub enum Wire {
 enum Ask {
     Get(String),
     Post(String, String),
+    Put(String, String),
+    Delete(String),
 }
 
 fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, cx: &App) -> Task<Result<T, Refused>> {
@@ -47,6 +49,8 @@ fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'st
         let (status, bytes) = match ask {
             Ask::Get(path) => runtime.block_on(crate::transport::get(port, &path)),
             Ask::Post(path, body) => runtime.block_on(crate::transport::post(port, &path, body)),
+            Ask::Put(path, body) => runtime.block_on(crate::transport::put(port, &path, body)),
+            Ask::Delete(path) => runtime.block_on(crate::transport::delete(port, &path)),
         }
         .map_err(Refused::said)?;
         if !(200..300).contains(&status) {
@@ -73,6 +77,21 @@ fn body(value: &impl serde::Serialize) -> String {
 fn scoped(route: &str, manifest: &str) -> String {
     let join = if route.contains('?') { '&' } else { '?' };
     format!("{route}{join}manifest_id={}", crate::link::percent_encoded(manifest))
+}
+
+/// A workflow draft's query: its id and place, and the project where the place is one.
+fn draft_query(id: &str, source: &str, project: Option<&str>) -> String {
+    let project = project.map(|project| format!("&project={}", crate::link::percent_encoded(project))).unwrap_or_default();
+    format!("workflow_id={}&source={}{project}", crate::link::percent_encoded(id), crate::link::percent_encoded(source))
+}
+
+/// A piece draft's query: its kind and id, and the scope's id as `within` where it is one workflow's, none for everywhere.
+fn piece_query(kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope) -> String {
+    let within = match scope {
+        ipc::PieceScope::Within { id } => format!("&within={}", crate::link::percent_encoded(id)),
+        ipc::PieceScope::Everywhere => String::new(),
+    };
+    format!("kind={}&id={}{within}", kind.as_wire(), crate::link::percent_encoded(id))
 }
 
 fn unreachable<T: Send + 'static>() -> Task<Result<T, Refused>> {
@@ -254,15 +273,6 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "RepositoryLifecycles", cx))
     }
 
-    /// `POST /lifecycles/pieces/save`: a lifecycle, rule or autonomy default written to Kit.
-    pub fn save_lifecycle_piece(&mut self, save: ipc::SaveLifecyclePiece, cx: &App) -> Task<Result<ipc::LifecyclePieceSaved, Refused>> {
-        if let Wire::Mock(mock) = self {
-            return Task::ready(mock.save_lifecycle_piece(save));
-        }
-        let said = body(&save);
-        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/lifecycles/pieces/save".into(), said), "LifecyclePieceSaved", cx))
-    }
-
     /// `POST /lifecycles/pieces/delete`.
     pub fn delete_lifecycle_piece(&mut self, delete: ipc::DeleteLifecyclePiece, cx: &App) -> Task<Result<ipc::LifecyclePieceDeleted, Refused>> {
         if let Wire::Mock(mock) = self {
@@ -270,6 +280,78 @@ impl Wire {
         }
         let said = body(&delete);
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/lifecycles/pieces/delete".into(), said), "LifecyclePieceDeleted", cx))
+    }
+
+    /// `GET /workflows/draft`: the draft kept for a workflow in a place; `fleet.workflow_draft_none` where none is.
+    pub fn workflow_draft(&mut self, id: &str, source: &str, project: Option<&str>, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.workflow_draft(id, source, project, manifest));
+        }
+        let path = scoped(&format!("/workflows/draft?{}", draft_query(id, source, project)), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "WorkflowDraft", cx))
+    }
+
+    /// `PUT /workflows/draft`: the draft text as it is now.
+    pub fn put_workflow_draft(&mut self, manifest: &str, put: ipc::PutWorkflowDraft, cx: &App) -> Task<Result<ipc::WorkflowDraft, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.put_workflow_draft(manifest, put));
+        }
+        let (path, said) = (scoped("/workflows/draft", manifest), body(&put));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Put(path, said), "WorkflowDraft", cx))
+    }
+
+    /// `DELETE /workflows/draft`.
+    pub fn discard_workflow_draft(&mut self, id: &str, source: &str, project: Option<&str>, manifest: &str, cx: &App) -> Task<Result<ipc::WorkflowDraftDiscarded, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.discard_workflow_draft(id, source, project, manifest));
+        }
+        let path = scoped(&format!("/workflows/draft?{}", draft_query(id, source, project)), manifest);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Delete(path), "WorkflowDraftDiscarded", cx))
+    }
+
+    /// `POST /workflows/draft/publish`: the draft written where it applies.
+    pub fn publish_workflow_draft(&mut self, manifest: &str, publish: ipc::PublishWorkflowDraft, cx: &App) -> Task<Result<ipc::WorkflowPublished, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.publish_workflow_draft(manifest, publish));
+        }
+        let (path, said) = (scoped("/workflows/draft/publish", manifest), body(&publish));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "WorkflowPublished", cx))
+    }
+
+    /// `GET /lifecycles/pieces/draft`: the draft kept for a piece at a scope; `fleet.piece_draft_none` where none is.
+    pub fn piece_draft(&mut self, kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope, cx: &App) -> Task<Result<ipc::PieceDraft, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.piece_draft(kind, id, scope));
+        }
+        let path = format!("/lifecycles/pieces/draft?{}", piece_query(kind, id, scope));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "PieceDraft", cx))
+    }
+
+    /// `PUT /lifecycles/pieces/draft`.
+    pub fn put_piece_draft(&mut self, put: ipc::PutPieceDraft, cx: &App) -> Task<Result<ipc::PieceDraft, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.put_piece_draft(put));
+        }
+        let said = body(&put);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Put("/lifecycles/pieces/draft".into(), said), "PieceDraft", cx))
+    }
+
+    /// `DELETE /lifecycles/pieces/draft`.
+    pub fn discard_piece_draft(&mut self, kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope, cx: &App) -> Task<Result<ipc::PieceDraftDiscarded, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.discard_piece_draft(kind, id, scope));
+        }
+        let path = format!("/lifecycles/pieces/draft?{}", piece_query(kind, id, scope));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Delete(path), "PieceDraftDiscarded", cx))
+    }
+
+    /// `POST /lifecycles/pieces/draft/publish`.
+    pub fn publish_piece_draft(&mut self, publish: ipc::PublishPieceDraft, cx: &App) -> Task<Result<ipc::PiecePublished, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.publish_piece_draft(publish));
+        }
+        let said = body(&publish);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/lifecycles/pieces/draft/publish".into(), said), "PiecePublished", cx))
     }
 
     /// `GET /models`: the models the harness offers, and the model a run that names none is given.
