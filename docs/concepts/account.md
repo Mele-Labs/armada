@@ -70,6 +70,9 @@ An organisation that restricts third-party apps is not listed, and its repositor
 An item can be switched on by itself while its kind is off, and then it alone of that kind syncs.
 
 The kinds are Kit's: Mods, Skills, Plugins, Global instructions, Sub agents, Commands, MCP servers, the allowlist, Workflows and Memory.
+
+**Rule.** A project he shares, with its tasks, syncs between his paired Macs over their link, apart from Kit's kinds and from any profile.
+The Mac that holds it stays its authority, and a project not shared never leaves it. [Project](project.md), *Sharing with his other Macs*.
 Agent file is not a kind of its own; it is the global instructions.
 The choice is kept in this machine's store for each profile, and a kind switched off has no rows in Kit but the items switched on by themselves. [Kit](kit.md), *The shared home*.
 

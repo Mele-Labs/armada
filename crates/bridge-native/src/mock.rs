@@ -30,7 +30,8 @@ pub fn preview_offers(skipped: bool) -> ipc::PreviewOffers {
 /// The Jobs of a named scenario, as `GET /sessions` would answer them.
 pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if let Ok(mut held) = SCENARIO.lock() {
-        *held = scenario.to_string();
+        // The switching walk is the tour's Jobs, so what reads the name (the message box's catalogue) reads the tour's.
+        *held = if scenario == "jobs-switching" { "jobs-screens" } else { scenario }.to_string();
     }
     // The preferences a scenario is read with: Fleet answers none on mock data, and the rest read as defaults.
     crate::ways::set(if scenario == "ways-buttons" { ipc::AnswerWith::Buttons } else { ipc::AnswerWith::Type }, true);
@@ -110,6 +111,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "job-issues" => include_bytes!("../fixtures/jobs-issues.json"),
         // The box's Jobs, the first holding four bays, two stranded, and clashing with the second and main.
         "job-system" => include_bytes!("../fixtures/jobs-panes.json"),
+        // The tour's Jobs, for the walk that switches among them.
+        "jobs-switching" => include_bytes!("../fixtures/jobs-screens.json"),
         other => return Err(format!("no mock scenario named {other}")),
     };
     let mut sessions = ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())?;
@@ -352,6 +355,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "subagent" => include_bytes!("../fixtures/subagent-threads.json"),
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
+        "jobs-switching" => return switching_threads(),
         // The Audit Job's thread ending on a proposed workflow's draft.
         "workflow-card" => include_bytes!("../fixtures/workflow-card-threads.json"),
         _ => return Ok(HashMap::new()),
@@ -427,6 +431,20 @@ fn screens_threads() -> Result<HashMap<String, JobThread>, String> {
         }
     }
     for thread in read("screens threads", include_bytes!("../fixtures/screens-threads.json"))? {
+        all.insert(thread.session_id.as_str().to_string(), thread);
+    }
+    Ok(all)
+}
+
+/// The tour's threads with the second Job's grown to 600 items, for the walk that times a switch to a long thread.
+fn switching_threads() -> Result<HashMap<String, JobThread>, String> {
+    #[derive(Deserialize)]
+    struct Threads {
+        threads: Vec<JobThread>,
+    }
+    let mut all = screens_threads()?;
+    let long = ipc::decode::<Threads>("switching threads", include_bytes!("../fixtures/switching-threads.json")).map_err(|why| why.to_string())?;
+    for thread in long.threads {
         all.insert(thread.session_id.as_str().to_string(), thread);
     }
     Ok(all)

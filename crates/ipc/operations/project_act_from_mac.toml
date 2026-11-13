@@ -1,0 +1,8 @@
+[operations.project_act_from_mac]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "A task act another Mac made on its copy of one of this Mac's shared projects, run here as the person's own"
+notes = """
+`POST /other_mac/project_act`, body `ProjectActFromMac { act, at? }`, `act` tagged by `kind`: `add_project_task`, `add_project_subtask`, `edit_project_task`, `tick_project_task`, `link_task_issue`, `unlink_task_issue`, `link_task_pull`, `unlink_task_pull`, `link_project_issue`, `move_project_row` or `remove_project_row`, each with the row and the body its own operation takes. Answered with this Mac's shared projects as `share_projects` answers them. **The project it is on must be shared**: a row or project that is not, one in an unshared project and one this Mac does not have alike, is refused 404 `fleet.no_such_project_row` or `fleet.no_such_project` exactly as the act is refused on a row or project that does not exist, so a refusal names no project of this Mac. A move leaves the project only for another shared one. Then the act is run by the code that runs it for the person here, with every refusal it gives. **`at` is when the person made it, in the sending Mac's milliseconds**: where it is older than when a field of the task was last edited here (title, notes, state, or its place), that field is left as it is and the others the act carries are applied. A tick is only ever the person's own `tick_project_task`. An `id` on an add is kept as the new row's id, and an add for an id held already changes nothing. Called on the port from inside a Job, around the door, it is a 403 `api.the_persons_own`.
+"""

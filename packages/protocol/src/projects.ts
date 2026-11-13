@@ -99,6 +99,8 @@ export type Project = {
   values?: ValuesSet;
   /** Whether its Jobs may be seen and acted on from his other Macs. False until he turns it on, and absent while false. */
   shared_with_macs?: boolean;
+  /** The other Mac that holds this project, where this is a read copy of it. Absent for this Mac's own. A task act on a copy is sent to that Mac; what a copy refuses is `fleet.other_mac_project_held`. */
+  mac?: string;
 };
 
 /** A member of a project: a whole repository, or a folder of it that carries its own `armada.yml`. */

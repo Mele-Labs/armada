@@ -1,0 +1,8 @@
+[operations.hold_other_mac_projects]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Every project another Mac shares, handed in by this Mac's Phone Gateway, replacing all held from that Mac"
+notes = """
+`PUT /other_macs/projects`, body `OtherMacProjects`: `mac` and `projects`. Answered with `MacNamed`. Each project is kept with `mac` set to the sender, in the store, so a Mac that is asleep still has its projects after Fleet restarts, and `projects.changed` is sent to Bridge alone with this Mac's projects and every other Mac's copies, as `list_projects` lists them. A project the list leaves out is dropped from `list_projects`. Where edits made on the copy while that Mac slept are queued, they are sent to it now, oldest first, in a task of their own, and `projects.changed` is sent again when each answer has been kept. 422 `fleet.other_mac_unnamed` for a blank `mac`. Called on the port from inside a Job, around the door, it is a 403 `api.the_persons_own`: only the person pairs his other Macs, from Bridge. This Mac's Phone Gateway calls it from inside Fleet's own process.
+"""

@@ -11,10 +11,11 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::ScopeId;
-use ipc::{BugReports, Event, Projects, SessionId, WireError};
+use ipc::{BugReports, Event, ProjectAct, Projects, SessionId, WireError};
+use store::LOOSE_PROJECT;
 
 use crate::daemon::Fleet;
-use crate::projects::NO_SUCH_PROJECT;
+use crate::projects::{NO_SUCH_PROJECT, NO_SUCH_ROW};
 use crate::session_host::NO_SUCH_SESSION;
 
 /// Something the share filter let through to another Mac. **Made only here**, so a link that sends only these
@@ -167,9 +168,52 @@ where
     }
 
     /// The projects named to another Mac: the shared ones, with their tasks. Tasks in no project and files that
-    /// would not read stay.
+    /// would not read stay, **and so does a copy held from another Mac**, which never goes on to a third.
     pub fn projects_for_other_mac(&self, projects: Projects) -> Crosses<Projects> {
-        let shared = projects.projects.into_iter().filter(|one| one.unread.is_none() && self.project_shared(&one.id)).collect();
+        let shared = projects
+            .projects
+            .into_iter()
+            .filter(|one| one.mac.is_none() && one.unread.is_none() && self.project_shared(&one.id))
+            .collect();
         Crosses(Projects { projects: shared, loose: Vec::new(), left_out: Vec::new() })
+    }
+
+    /// A task act from another Mac goes on only where its row, or its project, is in a shared project of this
+    /// Mac. **Otherwise it is refused exactly as the act is on a row or a project that does not exist**, so the
+    /// refusal does not say the row is here. A row moves only into another shared project.
+    pub async fn act_on_project_from_other_mac(&self, act: &ProjectAct) -> Result<(), Refusal> {
+        let no_project = |said: String| Refusal::NotFound(WireError::raised(NO_SUCH_PROJECT, said, self.run_id()));
+        let project_shared = |project: Option<&str>| match project.filter(|one| !one.is_empty()) {
+            Some(id) if self.project_shared(id) => Ok(()),
+            Some(id) => Err(no_project(format!("there is no project {id}"))),
+            None => Err(no_project(String::from("a task added from another Mac needs a project"))),
+        };
+        let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+        let row_shared = |row: &str| {
+            let (project, _) = self.row_in(&kept, row)?;
+            match project != LOOSE_PROJECT && self.project_shared(project) {
+                true => Ok(()),
+                false => Err(Refusal::NotFound(WireError::raised(NO_SUCH_ROW, format!("there is no row {row}"), self.run_id()))),
+            }
+        };
+        match act {
+            ProjectAct::AddProjectTask { task, .. } => project_shared(task.project.as_deref()),
+            ProjectAct::LinkProjectIssue { link } => project_shared(link.project.as_deref()),
+            ProjectAct::MoveProjectRow { row, to } => {
+                row_shared(row)?;
+                match &to.project {
+                    Some(project) => project_shared(Some(project)),
+                    None => Ok(()),
+                }
+            }
+            ProjectAct::AddProjectSubtask { row, .. }
+            | ProjectAct::EditProjectTask { row, .. }
+            | ProjectAct::TickProjectTask { row, .. }
+            | ProjectAct::LinkTaskIssue { row, .. }
+            | ProjectAct::UnlinkTaskIssue { row, .. }
+            | ProjectAct::LinkTaskPull { row, .. }
+            | ProjectAct::UnlinkTaskPull { row, .. }
+            | ProjectAct::RemoveProjectRow { row } => row_shared(row),
+        }
     }
 }

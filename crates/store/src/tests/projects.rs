@@ -5,7 +5,7 @@
 use rusqlite::Connection;
 
 use crate::tests::{open, TempDir};
-use crate::{KeptHolder, KeptProjectRow, KeptRowItem, KeptSession, KeptTaskState, SessionState, LOOSE_PROJECT};
+use crate::{Edited, KeptHolder, KeptProjectRow, KeptRowItem, KeptSession, KeptTaskState, SessionState, LOOSE_PROJECT};
 
 fn task_in(manifest: &str, id: &str, title: &str) -> KeptProjectRow {
     KeptProjectRow {
@@ -60,7 +60,7 @@ fn what_is_kept_in_a_project_reads_back_after_the_store_is_reopened() {
     store.add_project_row("p1", &task("r1", "Write the page")).unwrap();
     store.add_project_row("p1", &issue("r2", "ABC-12")).unwrap();
     store.add_project_row("p1", &task("r3", "Ship it")).unwrap();
-    assert!(store.set_project_task_state("r3", KeptTaskState::Done).unwrap());
+    assert!(store.set_project_task_state("r3", KeptTaskState::Done, Edited::Now(1)).unwrap());
     assert!(store.rename_project("p2", "Someday").unwrap());
     drop(store);
 
@@ -98,7 +98,7 @@ fn a_project_spans_repositories_and_a_loose_task_sits_in_none() {
     let manifests: Vec<String> = store.projects().unwrap().projects[0].rows.iter().map(|one| one.manifest_id.clone()).collect();
     assert_eq!(manifests, ["m1", "m2", "m1"]);
     assert_eq!(loose_ids(&store), ["x", "y"], "the loose rows have an order of their own");
-    assert!(store.move_project_row("b", None, 0, None).unwrap());
+    assert!(store.move_project_row("b", None, 0, None, Edited::Now(1)).unwrap());
     assert_eq!(row_ids(&store, 0), ["b", "a", "c"]);
     assert_eq!(find(&store, "b").manifest_id, "m2");
 }
@@ -116,18 +116,18 @@ fn a_row_moved_between_projects_or_out_of_one_keeps_its_repository_and_takes_its
     store.add_project_row("p1", &task("q", "Other")).unwrap();
     store.add_project_row("p2", &task("z", "Waiting")).unwrap();
 
-    assert!(store.move_project_row("p", Some("p2"), 0, None).unwrap());
+    assert!(store.move_project_row("p", Some("p2"), 0, None, Edited::Now(1)).unwrap());
     assert_eq!(row_ids(&store, 0), ["q"], "the old project closes the gap");
     assert_eq!(row_ids(&store, 1), ["p", "s", "z"], "in at the place named, its subtask with it");
     assert_eq!(find(&store, "p").manifest_id, "m2", "the repository stays");
     assert_eq!(find(&store, "s").manifest_id, "m2");
 
-    assert!(store.move_project_row("p", Some(LOOSE_PROJECT), 0, None).unwrap(), "out of every project");
+    assert!(store.move_project_row("p", Some(LOOSE_PROJECT), 0, None, Edited::Now(1)).unwrap(), "out of every project");
     assert_eq!(row_ids(&store, 1), ["z"]);
     assert_eq!(loose_ids(&store), ["p", "s"]);
     assert_eq!(find(&store, "s").manifest_id, "m2");
 
-    assert!(store.move_project_row("s", Some("p1"), 99, None).unwrap(), "a subtask sent elsewhere goes to the top level");
+    assert!(store.move_project_row("s", Some("p1"), 99, None, Edited::Now(1)).unwrap(), "a subtask sent elsewhere goes to the top level");
     assert_eq!(row_ids(&store, 0), ["q", "s"]);
     assert_eq!(loose_ids(&store), ["p"]);
 }
@@ -140,18 +140,18 @@ fn a_moved_row_lands_where_it_was_put_and_a_removed_one_closes_the_gap() {
     for id in ["a", "b", "c", "d"] {
         store.add_project_row("p1", &task(id, id)).unwrap();
     }
-    assert!(store.move_project_row("d", None, 0, None).unwrap());
+    assert!(store.move_project_row("d", None, 0, None, Edited::Now(1)).unwrap());
     assert_eq!(row_ids(&store, 0), ["d", "a", "b", "c"]);
-    assert!(store.move_project_row("d", None, 99, None).unwrap(), "past the end is the end");
+    assert!(store.move_project_row("d", None, 99, None, Edited::Now(1)).unwrap(), "past the end is the end");
     assert_eq!(row_ids(&store, 0), ["a", "b", "c", "d"]);
     assert!(store.remove_project_row("b").unwrap());
     store.add_project_row("p1", &task("e", "e")).unwrap();
-    assert!(store.move_project_row("e", None, 1, None).unwrap());
+    assert!(store.move_project_row("e", None, 1, None, Edited::Now(1)).unwrap());
     drop(store);
 
     let mut store = open(&dir);
     assert_eq!(row_ids(&store, 0), ["a", "e", "c", "d"]);
-    assert!(!store.move_project_row("b", None, 0, None).unwrap(), "a removed row is gone");
+    assert!(!store.move_project_row("b", None, 0, None, Edited::Now(1)).unwrap(), "a removed row is gone");
     assert!(!store.remove_project_row("b").unwrap());
 }
 
@@ -162,8 +162,8 @@ fn a_task_edit_and_tick_reach_no_issue_row_and_a_deleted_project_takes_its_rows(
     store.add_project("p1", "Launch", "2026-10-26T10:00:01.000Z").unwrap();
     store.add_project_row("p1", &issue("r1", "7")).unwrap();
     store.add_project_row(LOOSE_PROJECT, &task("l", "Loose")).unwrap();
-    assert!(!store.edit_project_task("r1", "Title", "").unwrap());
-    assert!(!store.set_project_task_state("r1", KeptTaskState::Done).unwrap());
+    assert!(!store.edit_project_task("r1", Some("Title"), Some(""), Edited::Now(1)).unwrap());
+    assert!(!store.set_project_task_state("r1", KeptTaskState::Done, Edited::Now(1)).unwrap());
     assert!(store.delete_project("p1").unwrap());
     assert!(!store.delete_project("p1").unwrap());
     assert!(store.projects().unwrap().projects.is_empty());
@@ -211,7 +211,7 @@ fn a_held_task_reads_back_with_its_job_and_the_job_title_and_a_tick_lets_it_go()
     assert_eq!(state(&store, "r3"), held, "a loose task is held as any is");
     assert_eq!(state(&store, "r2"), KeptTaskState::Open, "a task no Job named stays open");
 
-    assert!(store.set_project_task_state("r1", KeptTaskState::Done).unwrap());
+    assert!(store.set_project_task_state("r1", KeptTaskState::Done, Edited::Now(1)).unwrap());
     assert_eq!(state(&store, "r1"), KeptTaskState::Done, "a tick drops the hold");
 }
 
@@ -245,13 +245,13 @@ fn subtasks_sit_under_their_parent_count_their_places_among_siblings_and_go_with
 
     let mut store = open(&dir);
     assert_eq!(row_ids(&store, 0), ["p", "a", "b", "q"], "and so after a reopen");
-    assert!(store.move_project_row("b", None, 0, None).unwrap(), "within its parent by default");
+    assert!(store.move_project_row("b", None, 0, None, Edited::Now(1)).unwrap(), "within its parent by default");
     assert_eq!(row_ids(&store, 0), ["p", "b", "a", "q"]);
-    assert!(store.move_project_row("b", None, 0, Some("")).unwrap(), "out to the top level");
+    assert!(store.move_project_row("b", None, 0, Some(""), Edited::Now(1)).unwrap(), "out to the top level");
     assert_eq!(row_ids(&store, 0), ["b", "p", "a", "q"]);
-    assert!(store.move_project_row("a", None, 99, Some("q")).unwrap(), "to another parent, past the end is the end");
+    assert!(store.move_project_row("a", None, 99, Some("q"), Edited::Now(1)).unwrap(), "to another parent, past the end is the end");
     assert_eq!(row_ids(&store, 0), ["b", "p", "q", "a"]);
-    assert!(store.move_project_row("q", None, 0, None).unwrap(), "a top-level move counts top-level rows only");
+    assert!(store.move_project_row("q", None, 0, None, Edited::Now(1)).unwrap(), "a top-level move counts top-level rows only");
     assert_eq!(row_ids(&store, 0), ["q", "a", "b", "p"]);
 
     assert!(store.remove_project_row("q").unwrap());
@@ -335,7 +335,7 @@ fn a_merge_asks_about_an_open_or_held_task_once_and_leaves_a_done_one_alone() {
     store.link_task_pull("loose", 42).unwrap();
     store.link_task_pull("other", 43).unwrap();
     store.hold_project_tasks("s1", &["held".to_string()]).unwrap();
-    store.set_project_task_state("done", KeptTaskState::Done).unwrap();
+    store.set_project_task_state("done", KeptTaskState::Done, Edited::Now(1)).unwrap();
 
     let moved = store.ask_pulled_project_tasks("m1", 42, "2026-10-26T11:00:00.000Z").unwrap();
     assert_eq!(moved.len(), 4, "the open, held, other and loose tasks moved: {moved:?}");
@@ -345,7 +345,7 @@ fn a_merge_asks_about_an_open_or_held_task_once_and_leaves_a_done_one_alone() {
     assert!(matches!(state_of(&store, "held"), KeptTaskState::Asked(Some(holder)) if holder.session == "s1"));
     assert_eq!(state_of(&store, "done"), KeptTaskState::Done);
 
-    store.set_project_task_state("open", KeptTaskState::Open).unwrap();
+    store.set_project_task_state("open", KeptTaskState::Open, Edited::Now(1)).unwrap();
     assert!(store.ask_pulled_project_tasks("m1", 42, "2026-10-26T11:05:00.000Z").unwrap().is_empty(), "the same merge asks once");
     assert_eq!(state_of(&store, "open"), KeptTaskState::Open, "so a task kept open stays open");
     assert!(store.ask_pulled_project_tasks("m2", 43, "2026-10-26T11:05:00.000Z").unwrap().is_empty(), "not another repository's");
@@ -580,4 +580,68 @@ fn migrating_turns_the_rows_of_every_own_project_into_loose_rows_of_that_reposit
         "loose in their repository, one order among the loose rows, a subtask beside its parent"
     );
     assert_eq!(strings(&conn, "SELECT project_id FROM project_rows WHERE id = 'a'"), ["p1"]);
+}
+
+fn titled(store: &crate::Store, id: &str) -> (String, String) {
+    match find(store, id).item {
+        KeptRowItem::Task { title, notes, .. } => (title, notes),
+        KeptRowItem::Issue { .. } => unreachable!("a task"),
+    }
+}
+
+#[test]
+fn a_replayed_edit_leaves_a_field_edited_since_and_applies_to_the_others() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.add_project("p1", "Launch", "2026-10-26T10:00:00.000Z").unwrap();
+    store.add_project_row("p1", &task("a", "Original")).unwrap();
+
+    assert!(store.edit_project_task("a", Some("Mine"), None, Edited::Now(100)).unwrap());
+    // Made at 50, before the title was edited here at 100: the title stays, and the notes, never edited, take it.
+    assert!(store.edit_project_task("a", Some("Theirs"), Some("Their notes"), Edited::Replayed(50)).unwrap());
+    assert_eq!(titled(&store, "a"), ("Mine".to_string(), "Their notes".to_string()));
+    // Made at 150, after: it applies.
+    store.edit_project_task("a", Some("Theirs, later"), None, Edited::Replayed(150)).unwrap();
+    assert_eq!(titled(&store, "a").0, "Theirs, later");
+    // A person's own edit here is never held back by what was stamped before.
+    store.edit_project_task("a", Some("Mine again"), None, Edited::Now(120)).unwrap();
+    assert_eq!(titled(&store, "a").0, "Mine again");
+}
+
+#[test]
+fn resending_what_a_field_holds_does_not_make_it_newer() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.add_project("p1", "Launch", "2026-10-26T10:00:00.000Z").unwrap();
+    store.add_project_row("p1", &task("a", "Original")).unwrap();
+    store.edit_project_task("a", Some("Mine"), Some("n"), Edited::Now(100)).unwrap();
+
+    // The notes changed at 200 and the title came along as it was.
+    store.edit_project_task("a", Some("Mine"), Some("n, edited"), Edited::Now(200)).unwrap();
+    store.edit_project_task("a", Some("Theirs"), None, Edited::Replayed(150)).unwrap();
+
+    assert_eq!(titled(&store, "a"), ("Theirs".to_string(), "n, edited".to_string()), "the title was last edited at 100");
+}
+
+#[test]
+fn a_replayed_tick_and_a_replayed_move_leave_what_was_done_here_since() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.add_project("p1", "Launch", "2026-10-26T10:00:00.000Z").unwrap();
+    for id in ["a", "b", "c"] {
+        store.add_project_row("p1", &task(id, id)).unwrap();
+    }
+
+    store.set_project_task_state("a", KeptTaskState::Done, Edited::Now(100)).unwrap();
+    store.set_project_task_state("a", KeptTaskState::Open, Edited::Replayed(50)).unwrap();
+    assert_eq!(state_of(&store, "a"), KeptTaskState::Done, "older than the tick here");
+    store.set_project_task_state("a", KeptTaskState::Open, Edited::Replayed(150)).unwrap();
+    assert_eq!(state_of(&store, "a"), KeptTaskState::Open);
+
+    store.move_project_row("a", None, 2, None, Edited::Now(100)).unwrap();
+    assert_eq!(row_ids(&store, 0), ["b", "c", "a"]);
+    assert!(store.move_project_row("a", None, 0, None, Edited::Replayed(50)).unwrap(), "answered, and left where it is");
+    assert_eq!(row_ids(&store, 0), ["b", "c", "a"]);
+    store.move_project_row("a", None, 0, None, Edited::Replayed(150)).unwrap();
+    assert_eq!(row_ids(&store, 0), ["a", "b", "c"]);
 }

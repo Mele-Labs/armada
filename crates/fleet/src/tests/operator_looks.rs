@@ -138,7 +138,7 @@ async fn a_message_reads_a_folder_holding_each_live_job_and_the_open_issues_and_
     let seen = &seen[0];
     let mut names: Vec<String> = seen.files.keys().cloned().collect();
     names.sort();
-    let mut wanted = vec!["issues.txt".to_string(), format!("job-{}.txt", job.as_str())];
+    let mut wanted = vec!["issues.txt".to_string(), "tasks.txt".to_string(), format!("job-{}.txt", job.as_str())];
     wanted.sort();
     assert_eq!(names, wanted);
     let file = &seen.files[&format!("job-{}.txt", job.as_str())];

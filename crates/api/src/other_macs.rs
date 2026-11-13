@@ -21,10 +21,13 @@ pub(crate) fn mounted<D: OtherMacs + Queries>() -> Router<Served<D>> {
     Router::new()
         .route("/other_mac/sessions", get(share_sessions::<D>))
         .route("/other_mac/bug_reports", get(share_bug_reports::<D>))
+        .route("/other_mac/projects", get(share_projects::<D>))
+        .route("/other_mac/project_act", post(project_act_from_mac::<D>))
         .route("/other_mac/events", get(share_events::<D>))
         .route("/other_mac/thread", get(share_job_thread::<D>))
         .route("/other_macs/sessions", put(hold_other_mac_sessions::<D>))
         .route("/other_macs/bug_reports", put(hold_other_mac_bug_reports::<D>))
+        .route("/other_macs/projects", put(hold_other_mac_projects::<D>))
         .route("/other_macs/event", post(hold_other_mac_event::<D>))
         .route("/other_macs/forget", post(forget_other_mac::<D>))
 }
@@ -39,6 +42,24 @@ async fn share_sessions<D: OtherMacs>(State(served): State<Served<D>>) -> Respon
 async fn share_bug_reports<D: OtherMacs>(State(served): State<Served<D>>) -> Response {
     match served.daemon().share_bug_reports().await {
         Ok(reports) => answer(StatusCode::OK, &reports, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+async fn share_projects<D: OtherMacs>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().share_projects().await {
+        Ok(projects) => answer(StatusCode::OK, &projects, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+async fn project_act_from_mac<D: OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let sent: ipc::ProjectActFromMac = match ipc::decode_body("a task act from another Mac", &body) {
+        Ok(sent) => sent,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().project_act_from_mac(sent).await {
+        Ok(projects) => answer(StatusCode::OK, &projects, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -103,6 +124,17 @@ async fn hold_other_mac_sessions<D: OtherMacs>(State(served): State<Served<D>>, 
     }
 }
 
+async fn hold_other_mac_projects<D: OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let held: ipc::OtherMacProjects = match ipc::decode_body("another Mac's projects", &body) {
+        Ok(held) => held,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().hold_other_mac_projects(held).await {
+        Ok(mac) => answer(StatusCode::OK, &mac, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 async fn hold_other_mac_bug_reports<D: OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let held: ipc::OtherMacBugReports = match ipc::decode_body("another Mac's bug reports", &body) {
         Ok(held) => held,
@@ -119,7 +151,7 @@ async fn hold_other_mac_event<D: OtherMacs>(State(served): State<Served<D>>, bod
         Ok(event) => event,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().hold_other_mac_event(event).await {
+    match served.shared().hold_other_mac_event(event).await {
         Ok(mac) => answer(StatusCode::OK, &mac, served.run_id()),
         Err(refusal) => refused(refusal),
     }
