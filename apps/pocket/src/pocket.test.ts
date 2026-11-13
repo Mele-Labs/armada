@@ -1742,10 +1742,34 @@ describe("withNewest", () => {
 
 describe("waiting for Confirm on the Mac", () => {
   const waiting = async (status: number) => {
-    const key = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
-    vi.stubGlobal("fetch", async () => new Response("", { status }));
+    const key = await crypto.subtle.generateKey(
+      {
+        name: "ECDSA",
+        namedCurve: "P-256",
+      },
+      false,
+      [
+        "sign",
+      ],
+    );
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response("", {
+          status,
+        }),
+    );
     try {
-      return await waitForConfirm({ origin: "https://studio.example.com", name: "", deviceId: "d1", key: key.privateKey }, 1, 20);
+      return await waitForConfirm(
+        {
+          origin: "https://studio.example.com",
+          name: "",
+          deviceId: "d1",
+          key: key.privateKey,
+        },
+        1,
+        20,
+      );
     } finally {
       vi.unstubAllGlobals();
     }
