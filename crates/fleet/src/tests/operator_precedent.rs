@@ -223,7 +223,9 @@ async fn a_setting_he_saved_with_that_value_is_followed() {
 
     eventually(|| async { !page(&rig).await.digest.ruled.is_empty() }).await;
     let ruled = page(&rig).await.digest.ruled.remove(0);
-    assert_eq!((ruled.follows.kind, ruled.follows.said.as_str()), (OperatorFollowsKind::Setting, format!("time_format = {SECONDS}").as_str()));
+    // The citation quotes the value as he saved it, whatever order the call wrote its keys in.
+    let saved = rig.fleet.preferences_in_force().time_format;
+    assert_eq!((ruled.follows.kind, ruled.follows.said.as_str()), (OperatorFollowsKind::Setting, format!("time_format = {saved}").as_str()));
     let record = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("the Job");
     let line = record.rows.iter().map(|row| format!("{row:?}")).find(|row| row.contains("The Operator answered")).expect("the thread says so");
     assert!(line.contains("following his saved setting time_format = "), "{line}");

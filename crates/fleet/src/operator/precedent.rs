@@ -271,7 +271,8 @@ where
                     }
                 }
                 let (_, kept) = saved.into_iter().find(|(held, _)| held == key)?;
-                (bare(&kept) == bare(value)).then(|| OperatorFollows { kind: OperatorFollowsKind::Setting, session_id: None, job: None, question: None, said: format!("{key} = {kept}"), at: None })
+                // A JSON value, such as the time format, is the same whatever order its keys were written in.
+                (bare(&kept) == bare(value) || ipc::same_json(&kept, value)).then(|| OperatorFollows { kind: OperatorFollowsKind::Setting, session_id: None, job: None, question: None, said: format!("{key} = {kept}"), at: None })
             }
         }
     }
