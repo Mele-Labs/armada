@@ -151,8 +151,9 @@ pub(super) fn place_chips(edges: &[LaneEdge], placement: &Placement) -> HashMap<
 }
 
 /// The view that brings `rects` into the frame, or `None` where they already are (`panTo`). The heads stand
-/// over the left of the frame, so what is brought in clears them.
-pub(super) fn pan_to(rects: &[Rect], view: View, frame: (f32, f32), content: (f32, f32), follow: bool, earliest: bool) -> Option<View> {
+/// over the left of the frame, so what is brought in clears them. With `keep`, the first rect is what was
+/// picked: when not all fit, the others go before it does.
+pub(super) fn pan_to(rects: &[Rect], view: View, frame: (f32, f32), content: (f32, f32), follow: bool, earliest: bool, keep: bool) -> Option<View> {
     if rects.is_empty() || frame.0 == 0. || frame.1 == 0. {
         return None;
     }
@@ -166,11 +167,14 @@ pub(super) fn pan_to(rects: &[Rect], view: View, frame: (f32, f32), content: (f3
         let y = set.iter().map(|one| one.y).fold(f32::INFINITY, f32::min);
         Rect { x, y, w: set.iter().map(|one| one.x + one.w).fold(f32::NEG_INFINITY, f32::max) - x, h: set.iter().map(|one| one.y + one.h).fold(f32::NEG_INFINITY, f32::max) - y }
     };
-    let mut kept: &[Rect] = &sorted;
-    while kept.len() > 1 && bound(kept).w * zoom > usable {
-        kept = if earliest { &kept[..kept.len() - 1] } else { &kept[1..] };
+    let picked = keep.then(|| rects[0]);
+    let mut kept = sorted;
+    while kept.len() > 1 && bound(&kept).w * zoom > usable {
+        let (first, last) = (0, kept.len() - 1);
+        let side = if earliest { last } else { first };
+        kept.remove(if picked == Some(kept[side]) { first + last - side } else { side });
     }
-    let at = bound(kept);
+    let at = bound(&kept);
     let mut x = view.x;
     let from = at.x * zoom + view.x;
     let to = (at.x + at.w) * zoom + view.x;

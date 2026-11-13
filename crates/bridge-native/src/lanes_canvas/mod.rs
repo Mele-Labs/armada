@@ -46,7 +46,7 @@ const STEP_H: f32 = 68.;
 const STATE_H: f32 = 56.;
 const SUB_CHARS: f32 = 20.;
 const SUB_LINE: f32 = 16.;
-const LANE_MIN: f32 = 128.;
+pub const LANE_MIN: f32 = 128.;
 const CHIP_H: f32 = 28.;
 const DOT: f32 = 24.;
 const DOT_GAP: f32 = 16.;
@@ -88,6 +88,8 @@ struct Ask {
     rects: Vec<Rect>,
     follow: bool,
     earliest: bool,
+    /// The first rect is a pick and stays in view whatever else is cut.
+    keep: bool,
 }
 
 /// One Job's canvas as he left it.
@@ -236,7 +238,7 @@ fn lanes_follow(seen: &mut Seen, lanes: &JobLanesView, placement: &Placement, ch
     let follow = before.is_none() || ids.iter().any(|id| !copied.contains(id.as_str()));
     let rects = rects_of(&ids, placement, chips);
     if !rects.is_empty() {
-        seen.ask = Some(Ask { rects, follow, earliest: before.is_none() });
+        seen.ask = Some(Ask { rects, follow, earliest: before.is_none(), keep: false });
     }
 }
 
@@ -256,7 +258,7 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
     let seen = all.entry(id.clone()).or_default();
     lanes_follow(seen, lanes, &placement, &chips);
     if let Some(ask) = seen.ask.clone().filter(|_| frame_w > 0. && frame_h > 0.) {
-        if let Some(next) = pan_to(&ask.rects, seen.view, (frame_w, frame_h), (placement.width, placement.height), ask.follow, ask.earliest) {
+        if let Some(next) = pan_to(&ask.rects, seen.view, (frame_w, frame_h), (placement.width, placement.height), ask.follow, ask.earliest, ask.keep) {
             seen.view = next;
         }
         seen.ask = None;
@@ -491,7 +493,7 @@ fn lanes_key<H: LanesHost>(this: &mut H, id: &SharedString, event: &KeyDownEvent
                 let rule = rules[next].clone();
                 if let Some(edge) = lanes.rules.iter().find(|edge| edge.rule == rule && !edge.quiet) {
                     seen.current = Some(edge.id.clone());
-                    seen.ask = Some(Ask { rects: rects_of(&[edge.id.clone(), edge.from.clone(), edge.to.clone()], &placement, &chips), follow: false, earliest: false });
+                    seen.ask = Some(Ask { rects: rects_of(&[edge.id.clone(), edge.from.clone(), edge.to.clone()], &placement, &chips), follow: false, earliest: false, keep: true });
                 }
                 seen.picked = Some(Pick::Rule(rule));
                 picked = seen.picked.clone();
@@ -501,7 +503,7 @@ fn lanes_key<H: LanesHost>(this: &mut H, id: &SharedString, event: &KeyDownEvent
         "left" | "right" | "up" | "down" => match current.filter(|one| placement.items.contains_key(one)) {
             Some(from) => {
                 if let Some(to) = nearest(&placement.items, &from, &keys.key, &ends) {
-                    seen.ask = placement.items.get(&to).map(|rect| Ask { rects: vec![*rect], follow: false, earliest: false });
+                    seen.ask = placement.items.get(&to).map(|rect| Ask { rects: vec![*rect], follow: false, earliest: false, keep: true });
                     seen.current = Some(to);
                 }
                 true
@@ -536,7 +538,8 @@ fn lanes_press<H: LanesHost>(this: &mut H, id: &SharedString, current: String, p
 mod tests {
     use ipc::{LaneAutonomy, LaneEdge, LaneOutcome, LanePending};
 
-    use super::layout::chip_size;
+    use super::layout::{chip_size, pan_to};
+    use super::{Rect, View, HEAD, PAD};
     use super::wears::{chip_mark, mark_of_rule};
 
     fn edge() -> LaneEdge {
@@ -577,5 +580,18 @@ mod tests {
         assert_eq!(chip_mark(&plain), Some(("check", "Acted")));
         assert_eq!(chip_mark(&LaneEdge { proposed: true, ..edge() }), Some(("list-plus", "Proposed")));
         assert_eq!(chip_mark(&LaneEdge { proposed: true, pending: Some(LanePending::Removal), ..edge() }), Some(("clock", "Removed from the repository when its pull request merges")));
+    }
+
+    #[test]
+    fn a_pick_too_wide_with_its_ends_stays_in_view_clear_of_the_heads() {
+        // A rule chip between its two nodes, in a frame too narrow for all three (Settings at 820).
+        let (from, chip, to) = (Rect { x: 100., y: 40., w: 168., h: 68. }, Rect { x: 300., y: 60., w: 200., h: 28. }, Rect { x: 520., y: 40., w: 168., h: 68. });
+        let view = View { x: 0., y: 0., zoom: 1. };
+        let next = pan_to(&[chip, from, to], view, (405., 600.), (1000., 600.), false, false, true).unwrap_or(view);
+        assert!(chip.x + next.x >= HEAD + PAD - 0.5, "{next:?}");
+        assert!(chip.x + chip.w + next.x <= 405. - PAD + 0.5, "{next:?}");
+        // Without the pick, the leftmost go first and the chip is left under the heads.
+        let loose = pan_to(&[chip, from, to], view, (405., 600.), (1000., 600.), false, false, false).unwrap_or(view);
+        assert!(chip.x + loose.x < HEAD + PAD, "{loose:?}");
     }
 }
