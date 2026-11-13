@@ -1,0 +1,12 @@
+[operations."preview_offers.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "The offers for the preview or its Refresh row moved, and this is the answer now"
+notes = """
+Carries `PreviewOffers` itself, the answer to `get_preview_offers`, for `write_clashes.changed`' reason: the route and the event are the same fact, and a client replaces what it holds.
+
+**Fleet publishes it when the answer differs from the one last sent**: an offer made, withdrawn or dropped, a check finished, the running build changed, a Refresh skipped. The first answer after Fleet starts is always sent.
+
+A resync does not carry it. A Bridge that missed one, or reconnects, reads `get_preview_offers` again on the resync that follows a `Missed`.
+"""

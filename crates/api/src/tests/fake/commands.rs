@@ -96,6 +96,11 @@ impl Commands for FakeDaemon {
         Ok(ipc::FleetBuildSnapshotting { picked: report.picked.into_iter().map(|one| one.branch).collect() })
     }
 
+    /// Answered with the id it was given; nothing is kept.
+    async fn skip_preview_refresh(&self, asked: ipc::SkipPreviewRefresh) -> Result<ipc::PreviewRefreshSkipped, Refusal> {
+        Ok(ipc::PreviewRefreshSkipped { id: asked.id })
+    }
+
     /// Counted and answered; nothing swaps.
     async fn swap_fleet_build(&self) -> Result<ipc::FleetBuildSwapping, Refusal> {
         *self.swaps.lock().expect("not poisoned") += 1;

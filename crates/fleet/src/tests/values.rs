@@ -387,6 +387,107 @@ async fn a_project_that_says_ask_me_holds_the_starts_made_for_it_and_every_other
     assert_eq!((listed.value.as_deref(), listed.from), (Some("ask_me"), ValueLayer::Project));
 }
 
+const KIT_REVIEWS: &str = "version: 1\nvalues:\n  reviews:\n    pull_requests: review\n    walks: review\n";
+
+fn plans_only(word: &str) -> ValuesSet {
+    ValuesSet { reviews: Some(ipc::ReviewsSet { plans: Some(word.to_string()), ..Default::default() }), ..ValuesSet::default() }
+}
+
+async fn reviews_of(rig: &Rig, project: &str) -> ipc::ResolvedReviews {
+    rig.fleet.get_values(Some(project.to_string()), None).await.expect("values").reviews.expect("reviews")
+}
+
+fn kinds(reviews: &ipc::ResolvedReviews) -> [(&str, Option<ValueLayer>); 3] {
+    [(reviews.plans.as_str(), reviews.plans_from), (reviews.pull_requests.as_str(), reviews.pull_requests_from), (reviews.walks.as_str(), reviews.walks_from)]
+}
+
+#[tokio::test]
+async fn a_project_setting_one_review_kind_leaves_the_others_to_kit() {
+    let rig = a_rig("");
+    rig.kit_values(KIT_REVIEWS);
+    let project = rig.project(Some(plans_only("review_and_approve"))).await;
+    let reviews = reviews_of(&rig, &project).await;
+    assert_eq!(
+        kinds(&reviews),
+        [("review_and_approve", Some(ValueLayer::Project)), ("review", Some(ValueLayer::Kit)), ("review", Some(ValueLayer::Kit))]
+    );
+    assert_eq!(reviews.from, ValueLayer::Project, "from is the nearest layer that set any kind");
+}
+
+#[tokio::test]
+async fn a_kind_no_layer_sets_is_off_from_the_default() {
+    let rig = a_rig("");
+    let project = rig.project(Some(plans_only("review"))).await;
+    let reviews = reviews_of(&rig, &project).await;
+    assert_eq!(kinds(&reviews), [("review", Some(ValueLayer::Project)), ("off", Some(ValueLayer::Default)), ("off", Some(ValueLayer::Default))]);
+    let bare = rig.project(None).await;
+    let none = reviews_of(&rig, &bare).await;
+    assert_eq!(kinds(&none), [("off", Some(ValueLayer::Default)); 3]);
+    assert_eq!(none.from, ValueLayer::Default);
+}
+
+#[tokio::test]
+async fn an_all_three_block_reads_as_before() {
+    let rig = a_rig("");
+    rig.kit_values(KIT_REVIEWS);
+    let project = rig.project(Some(reviews_set("review_and_approve", "off", "off"))).await;
+    let reviews = reviews_of(&rig, &project).await;
+    assert_eq!(kinds(&reviews), [("review_and_approve", Some(ValueLayer::Project)), ("off", Some(ValueLayer::Project)), ("off", Some(ValueLayer::Project))], "a word of off is a word, and Kit's is not read");
+    assert_eq!(reviews.from, ValueLayer::Project);
+}
+
+#[tokio::test]
+async fn clearing_one_kind_on_a_project_falls_back_to_kit() {
+    let rig = a_rig("");
+    rig.kit_values(KIT_REVIEWS);
+    let project = rig.project(Some(reviews_set("review_and_approve", "off", "off"))).await;
+    let without = ValuesSet { reviews: Some(ipc::ReviewsSet { plans: Some("review_and_approve".into()), pull_requests: None, walks: Some("off".into()) }), ..ValuesSet::default() };
+    rig.fleet.edit_project(project.clone(), EditProject { values: Some(without), ..Default::default() }).await.expect("edited");
+    let reviews = reviews_of(&rig, &project).await;
+    assert_eq!(
+        kinds(&reviews),
+        [("review_and_approve", Some(ValueLayer::Project)), ("review", Some(ValueLayer::Kit)), ("off", Some(ValueLayer::Project))]
+    );
+    let text = std::fs::read_to_string(file(&rig.home, &project)).expect("its file");
+    assert!(!text.contains("pull_requests"), "the cleared kind is not in the file: {text}");
+}
+
+#[tokio::test]
+async fn a_block_with_no_kinds_is_dropped_from_the_file() {
+    let rig = a_rig("");
+    let empty = ValuesSet { reviews: Some(ipc::ReviewsSet::default()), ..set(None, Some("never")) };
+    let project = rig.project(Some(empty)).await;
+    let text = std::fs::read_to_string(file(&rig.home, &project)).expect("its file");
+    assert!(text.contains("auto_merge") && !text.contains("reviews"), "{text}");
+    let listed = rig.fleet.list_projects().await.expect("listed").projects.last().expect("a project").values.clone().expect("its values");
+    assert_eq!(listed.reviews, None, "a block naming no kind is no block");
+}
+
+#[tokio::test]
+async fn a_job_freezes_each_kind_with_its_own_layer() {
+    let rig = a_rig("");
+    rig.kit_values(KIT_REVIEWS);
+    let project = rig.project(Some(plans_only("review_and_approve"))).await;
+    let job = rig.job(Some(&project)).await;
+    let said = job.hosted.clone().and_then(|hosted| hosted.values).and_then(|values| values.reviews).expect("reviews");
+    assert_eq!(
+        kinds(&said),
+        [("review_and_approve", Some(ValueLayer::Project)), ("review", Some(ValueLayer::Kit)), ("review", Some(ValueLayer::Kit))]
+    );
+    assert_eq!(said.from, ValueLayer::Project);
+    let frozen = rig.fleet.job_values(job.id.as_str()).await.expect("frozen");
+    let words = frozen.reviews();
+    assert_eq!((words.plans, words.pull_requests, words.walks), (core_model::ReviewMode::ReviewAndApprove, core_model::ReviewMode::Review, core_model::WalkReview::Review));
+    assert_eq!(frozen.wire().reviews.expect("reviews"), said, "the frozen rows read back as they were said");
+    let plain = rig.job(None).await;
+    let plain = plain.hosted.and_then(|hosted| hosted.values).and_then(|values| values.reviews).expect("reviews");
+    assert_eq!(
+        kinds(&plain),
+        [("off", Some(ValueLayer::Default)), ("review", Some(ValueLayer::Kit)), ("review", Some(ValueLayer::Kit))],
+        "a Job in no project still has Kit's kinds"
+    );
+}
+
 fn delivery_set(word: &str) -> ValuesSet {
     ValuesSet { delivery: Some(word.to_string()), ..ValuesSet::default() }
 }

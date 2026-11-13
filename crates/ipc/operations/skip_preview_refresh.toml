@@ -1,0 +1,12 @@
+[operations.skip_preview_refresh]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Skip the preview's Refresh row until the set of ready offers changes"
+notes = """
+`POST /fleet/build/offers/skip`, body `SkipPreviewRefresh { id }`, the `refresh.id` of `get_preview_offers`. Answered `PreviewRefreshSkipped { id }`.
+
+Fleet keeps the id, so the row stays hidden across a restart. **A different set of ready offers has a different id**, and the row comes back. Publishes `preview_offers.changed`.
+
+`Bridge only`: whether to refresh the preview is the person's choice.
+"""

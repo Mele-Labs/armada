@@ -310,7 +310,7 @@ where
             let words = format!(
                 "Fleet: the person changed the steps of this Job's own copy of its {} workflow ({noted}). {}",
                 self.workflow_name(&hosting.manifest_id, &workflow),
-                super::proposing::workflow_groups(&resolved)
+                super::proposing::workflow_groups(&resolved, &crate::ways::plan_block(&self.preferences_in_force()))
             );
             // The change stands whether or not the agent was told, as the rail's own step line does.
             let _ = self.told_by_fleet(&id, &words, ipc::Notice::WorkflowChanged).await;

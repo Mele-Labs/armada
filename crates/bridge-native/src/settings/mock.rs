@@ -296,8 +296,11 @@ impl MockFleet {
                 pull_requests: set.pull_requests.clone().unwrap_or_else(|| "off".into()),
                 walks: set.walks.clone().unwrap_or_else(|| "off".into()),
                 from: ValueLayer::Project,
+                plans_from: None,
+                pull_requests_from: None,
+                walks_from: None,
             },
-            None => ResolvedReviews { plans: "off".into(), pull_requests: "off".into(), walks: "off".into(), from: ValueLayer::Default },
+            None => ResolvedReviews { plans: "off".into(), pull_requests: "off".into(), walks: "off".into(), from: ValueLayer::Default, plans_from: None, pull_requests_from: None, walks_from: None },
         };
         Ok(ResolvedValues {
             pr_mode: word(own.pr_mode.map(|mode| mode.as_wire().to_string()), None, Some("ready")),

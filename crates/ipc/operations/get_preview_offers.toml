@@ -1,0 +1,16 @@
+[operations.get_preview_offers]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The branches Jobs have offered for the preview, where each one's check stands, and the one Refresh row that brings the ready ones in"
+notes = """
+`GET /fleet/build/offers`, answered `PreviewOffers`. Fleet-wide, `get_fleet_build`'s reason: the preview is a fact about Fleet's build and no Job's.
+
+`offers` is every offer kept, oldest first, each `{branch, tip, session_id, title, about, offered_at, state, why?, files?, in_build}`. `state` is `checking`, `ready` or `failed`; `why` is the first compiler error or the conflict that failed it, and `files` the files it names. `title` is the Job's, or its id where it has none. **`in_build` is true** when the running build is the preview and `Armada/preview-held` records the branch at that tip.
+
+**`refresh` is the one row the owner presses.** It is present when at least one `ready` offer is not `in_build` and its `id` has not been skipped, and carries `{id, branches}`. `id` is a stable hash of the ready (branch, tip) set, so skipping it hides the row until the set changes.
+
+`preview_offers.changed` carries this answer whole when an offer or the refresh moved. A Bridge that missed one reads this again on the resync that follows a `Missed`.
+
+`agent_access` is `No`: what the owner is offered to refresh is his to see.
+"""

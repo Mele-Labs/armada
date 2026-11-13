@@ -59,7 +59,7 @@ pub(crate) fn item_of(plan: &KeptPlan, held: &[KeptAttachment], session: &str, n
         _ => true,
     };
     let waits_on = phrase(gate).filter(|_| yours)?;
-    let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
+    let option = |label: &str| WaitingOption { label: label.to_string(), description: None, picture: None };
     Some(WaitingItem {
         approves: false,
         id: format!("{ITEM}{}", group.id),

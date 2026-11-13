@@ -22,6 +22,7 @@ fn kept(id: &str, kind: &str, target: &str) -> KeptWaiting {
         since: "2026-10-09T00:00:00Z".into(),
         act: Some((kind.into(), target.into())),
         options: Vec::new(),
+        pictures: String::new(),
         steps: Vec::new(),
     }
 }
@@ -126,7 +127,7 @@ fn set(id: &ipc::SessionId, items: &[(&str, &str)]) -> SetWaitingFor {
                     kind: WaitingActKind::Run,
                     target: "cargo test".into(),
                 }),
-                options: vec![WaitingOption { label: "Yes".into(), description: None }],
+                options: vec![WaitingOption { label: "Yes".into(), description: None, picture: None }],
                 steps: Vec::new(),
             })
             .collect(),
@@ -399,6 +400,7 @@ async fn an_agent_walk_item_kept_before_the_rule_is_never_drawn_and_approve_clea
         since: "2026-10-19T17:59:35Z".into(),
         act: Some(("walk".into(), url.into())),
         options: Vec::new(),
+        pictures: String::new(),
         steps: Vec::new(),
     };
     rig.fleet.store().lock().await.replace_waiting_for(id.as_str(), &[kept]).unwrap();
@@ -679,7 +681,7 @@ pub(super) async fn lapsed_clock_question(rig: &Rig, id: &ipc::SessionId) {
 }
 
 fn options_of(labels: &[&str]) -> Vec<WaitingOption> {
-    labels.iter().map(|label| WaitingOption { label: (*label).into(), description: None }).collect()
+    labels.iter().map(|label| WaitingOption { label: (*label).into(), description: None, picture: None }).collect()
 }
 
 fn answer_item(id: &ipc::SessionId, item: &str, text: &str, labels: &[&str]) -> SetWaitingFor {
@@ -732,6 +734,7 @@ async fn an_item_kept_before_the_refusal_is_left_off_while_the_question_lapsed()
         since: "2026-10-09T00:00:00Z".into(),
         act: Some(("answer".into(), String::new())),
         options: labels.iter().map(|label| (*label).to_string()).collect(),
+        pictures: String::new(),
         steps: Vec::new(),
     };
     rig.fleet.store().lock().await.replace_waiting_for(id.as_str(), &[item("clock", &["Fake", "Frozen"]), item("tz", &["UTC", "Local"])]).unwrap();
@@ -745,4 +748,82 @@ async fn an_item_kept_before_the_refusal_is_left_off_while_the_question_lapsed()
     say(&rig, &id, "Answering your earlier question \"Which clock?\": Fake").await;
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
     assert_eq!(ids(&record), ["clock", "tz"], "once he answers it the question no longer lapses");
+}
+
+fn picture(parts: &[&str]) -> ipc::OptionPicture {
+    ipc::OptionPicture {
+        image: "/files/header.png".into(),
+        width: 1200,
+        height: 800,
+        parts: parts
+            .iter()
+            .enumerate()
+            .map(|(at, name)| ipc::PicturePart { name: (*name).into(), label: name.to_uppercase(), x: 0, y: at as u32 * 100, w: 1200, h: 100 })
+            .collect(),
+    }
+}
+
+/// A question of two options, the first a picture of two parts and the second words.
+fn picture_question(id: &ipc::SessionId) -> SetWaitingFor {
+    let mut set = answer_item(id, "header", "Which header?", &["Wide", "Words only"]);
+    set.items[0].options[0].picture = Some(picture(&["nav", "hero"]));
+    set
+}
+
+#[tokio::test]
+async fn an_option_drawn_as_a_picture_is_kept_and_served_with_its_parts() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.waiting_for(None, picture_question(&id)).await.unwrap();
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    let options = &record.waiting_for[0].options;
+    assert_eq!(options[0].picture, Some(picture(&["nav", "hero"])));
+    assert_eq!(options[1].picture, None, "an option of words stays words");
+}
+
+fn parts(id: &ipc::SessionId, picked: &[(u32, &str)]) -> ipc::AnswerWaitingParts {
+    ipc::AnswerWaitingParts {
+        session_id: id.clone(),
+        item_id: "header".into(),
+        parts_picked: picked.iter().map(|(option, part)| ipc::PartPicked { option: *option, part: (*part).into() }).collect(),
+    }
+}
+
+#[tokio::test]
+async fn parts_picked_across_the_pictures_reach_the_agent_as_a_mix_and_settle_the_item() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let mut set = picture_question(&id);
+    set.items[0].options[1].picture = Some(picture(&["nav", "footer"]));
+    rig.fleet.waiting_for(None, set).await.unwrap();
+    let after = Arc::clone(&rig.fleet).answer_waiting_parts(parts(&id, &[(0, "hero"), (1, "footer")])).await.unwrap();
+    assert!(after.waiting_for.is_empty(), "the answered item is off the list");
+    let sent = said_by_the_person(&rig, &id).await;
+    let last = sent.last().unwrap();
+    assert!(last.starts_with("Re: Which header?\nBuild a mix of these parts"), "{last}");
+    assert!(last.contains("\nWide: hero\nWords only: footer\n"), "{last}");
+    assert!(last.ends_with("Do not add it back."), "{last}");
+}
+
+#[tokio::test]
+async fn a_part_the_picture_lacks_is_refused_and_the_item_stays() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.waiting_for(None, picture_question(&id)).await.unwrap();
+    let before = said_by_the_person(&rig, &id).await.len();
+    for picked in [&[][..], &[(0, "footer")], &[(1, "nav")], &[(7, "nav")], &[(0, "nav"), (0, "footer")]] {
+        let refused = Arc::clone(&rig.fleet).answer_waiting_parts(parts(&id, picked)).await.expect_err("not a part of a picture");
+        assert_eq!((refused.status(), refused.error().code.clone()), (422, "fleet.session_waiting_empty".to_string()), "{picked:?}");
+    }
+    assert_eq!(said_by_the_person(&rig, &id).await.len(), before, "nothing was sent");
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert_eq!(ids(&record), ["header"]);
+}
+
+#[tokio::test]
+async fn parts_picked_on_an_item_nothing_holds_are_settled_already() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let refused = Arc::clone(&rig.fleet).answer_waiting_parts(parts(&id, &[(0, "nav")])).await.expect_err("no such item");
+    assert_eq!(refused.status(), 409);
 }

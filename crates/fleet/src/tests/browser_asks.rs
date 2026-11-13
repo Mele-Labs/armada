@@ -17,7 +17,7 @@ const ASK: &str = "tab-7";
 const ITEM: &str = "browser_ask:tab-7";
 
 fn option(label: &str) -> WaitingOption {
-    WaitingOption { label: label.into(), description: None }
+    WaitingOption { label: label.into(), description: None, picture: None }
 }
 
 fn raising(job: &SessionId, ask_id: &str, text: &str) -> RaiseBrowserAsk {

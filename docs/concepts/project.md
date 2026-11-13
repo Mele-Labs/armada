@@ -118,7 +118,8 @@ Autonomy keeps the places it already has (a piece scoped to every repository, to
 
 **Reviews are set a kind at a time: plans, pull requests and walks.**
 Each is `off`, `review` or `review_and_approve`, and a walk takes only `off` or `review`, since a walk is his to look at.
-A layer that sets `reviews` sets all three, and a kind it leaves out is `off`.
+A layer sets only the kinds it names, and a kind it leaves out falls through, kind by kind, from the project to Kit to `off`.
+A project can set plans and leave pull requests and walks to Kit, and clearing one kind gives it back to Kit's word or the default.
 Nothing is reviewed until a layer says so.
 [The Operator](operator.md), *Reviewing work before you see it*, says what each does.
 

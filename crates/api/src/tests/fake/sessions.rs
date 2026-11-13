@@ -788,6 +788,26 @@ impl Sessions for FakeDaemon {
         Ok(ipc::LaterDeferred { id: String::from("later-1"), sentence: defer.sentence, open: Vec::new() })
     }
 
+    async fn offer_preview(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        offer: ipc::OfferPreview,
+    ) -> Result<ipc::PreviewOffered, Refusal> {
+        Ok(ipc::PreviewOffered {
+            branch: offer.branch.unwrap_or_else(|| String::from("armada/work")),
+            tip: "a".repeat(40),
+            state: ipc::PreviewState::Checking,
+        })
+    }
+
+    async fn withdraw_preview(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        withdraw: ipc::WithdrawPreview,
+    ) -> Result<ipc::PreviewWithdrawn, Refusal> {
+        Ok(ipc::PreviewWithdrawn { branch: withdraw.branch.unwrap_or_else(|| String::from("armada/work")) })
+    }
+
     async fn settle_later(
         &self,
         _caller: Option<crate::Caller>,

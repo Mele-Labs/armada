@@ -55,6 +55,7 @@ mod mods;
 /// A files answer carries folders only where folders were asked for.
 mod files_found;
 mod preferences;
+mod option_pictures;
 mod projects;
 mod settings;
 /// The one DTO on this seam a peer *writes*, and what it refuses.

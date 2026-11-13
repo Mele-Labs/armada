@@ -28,7 +28,7 @@ pub(crate) fn rule_act_items(acts: &[KeptRuleAct]) -> Vec<WaitingItem> {
 }
 
 fn rule_act_item(act: &KeptRuleAct) -> Option<WaitingItem> {
-    let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
+    let option = |label: &str| WaitingOption { label: label.to_string(), description: None, picture: None };
     let (text, first) = match act.state.as_str() {
         standing::ASKED => (act.text.clone(), "Do it"),
         standing::STUCK => (act.said.clone(), "Try again"),

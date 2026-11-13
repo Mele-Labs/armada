@@ -328,7 +328,7 @@ mod tests {
             theme: ResolvedValue { value: None, from: ValueLayer::Default },
             density: ResolvedValue { value: None, from: ValueLayer::Default },
             tracker: None,
-            reviews: Some(ResolvedReviews { plans: "review_and_approve".into(), pull_requests: "review".into(), walks: "off".into(), from: ValueLayer::Kit }),
+            reviews: Some(ResolvedReviews { plans: "review_and_approve".into(), pull_requests: "review".into(), walks: "off".into(), from: ValueLayer::Kit, plans_from: None, pull_requests_from: None, walks_from: None }),
             autonomy: Vec::new(),
             ..ResolvedValues::default()
         };

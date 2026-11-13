@@ -111,6 +111,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("keep_fleet_build", "chooses the build Fleet runs"),
     ("revert_fleet_build", "chooses the build Fleet runs"),
     ("pick_fleet_build_job", "chooses the build Fleet runs"),
+    ("skip_preview_refresh", "chooses the build Fleet runs"),
     ("start_sign_in", "signs this Mac in and out"),
     ("sign_out", "signs this Mac in and out"),
 ];

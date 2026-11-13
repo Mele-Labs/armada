@@ -1,0 +1,14 @@
+[operations.answer_waiting_parts]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Answer one thing a job is waiting on the person for by picking parts across its options' pictures, which asks the agent to build a mix of them"
+notes = """
+`POST /sessions/waiting/answer_parts`, body `AnswerWaitingParts`: `session_id`, `item_id` and `parts_picked`, a non-empty list of `{option, part}`. `option` is an index into the item's `options`, as `answer_waiting`'s `choice` is, and `part` is the `name` of one of that option's picture's parts (`OptionPicture.parts`). Answered with the `SessionRecord`.
+
+**It is `answer_waiting` for an answer that is parts.** The item is settled the way a whole option settles it: an `agent` item becomes a message to the job, which gets a line asking for a mix and then one line per part, the option's label and the part's name, and the item is taken off the waiting list. The thread row reads `Answered: a mix of parts`. A send that fails leaves the item standing. An item nothing holds is a 409.
+
+**Refused, nothing sent:** an empty `parts_picked`, an `option` the item lacks, a `part` that option's picture lacks, and any item with no pictures, are each a 422 `fleet.session_waiting_empty`. Words, a `choice` and a mode are not taken here: a person who wants to add words answers with `answer_waiting`.
+
+A separate operation, and not a field of `answer_waiting`, so that the older answer keeps its body.
+"""

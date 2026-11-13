@@ -145,7 +145,7 @@ where
     }
 
     /// What a subagent starting under `session` is handed for the paths its `prompt` names, as a
-    /// note. Empty where the Logbook holds nothing for it. A Session Fleet does not know, or one
+    /// note, then the owner's ways (`crate::ways`). A Session Fleet does not know, or one
     /// with no repository, is handed the habits alone.
     pub(crate) async fn logbook_for_subagent(&self, session: &str, prompt: &str) -> String {
         let manifest = {
@@ -157,7 +157,12 @@ where
         let all = self.logbook_read(root.as_deref().unwrap_or_default()).await;
         let handed = recalling::for_subagent(all, &named, recalling::SUBAGENT_TOKENS - noting::SUBAGENT_HEADER_TOKENS);
         self.logbook_marked(&handed).await;
-        noting::subagent_note(&handed).unwrap_or_default()
+        // The owner's ways go to every helper too, so what it hands back is what he takes in.
+        let ways = self.ways_note();
+        match noting::subagent_note(&handed) {
+            Some(note) => format!("{note}\n\n{ways}"),
+            None => ways,
+        }
     }
 
     /// The entries of the repository `manifest` names, the habits and this Mac's, that hold the

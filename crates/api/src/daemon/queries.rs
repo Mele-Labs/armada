@@ -81,6 +81,10 @@ pub trait Queries: Send + Sync + 'static {
     /// build to choose.
     fn get_fleet_build(&self) -> impl Future<Output = Result<ipc::FleetBuildReport, Refusal>> + Send;
 
+    /// `get_preview_offers` — the branches Jobs offered for the preview, where each check stands, and the
+    /// one Refresh row. Never refused: a Fleet with no offers answers none.
+    fn get_preview_offers(&self) -> impl Future<Output = Result<ipc::PreviewOffers, Refusal>> + Send;
+
     /// `get_repository_allowed_commands` — every rule a person always-allowed
     /// for this Manifest's repository, oldest first. **Since `#836`.**
     ///
