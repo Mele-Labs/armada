@@ -4,7 +4,9 @@ use gpui::{div, prelude::*, AnyElement, Context, Div, ElementId, FontWeight, Rol
 use gpui_component::text::TextView;
 use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestVerdict};
 
-use super::model::{Critique, Page, PageFile, Viewed};
+use gpui_component::input::Textarea;
+
+use super::model::{on_day, Critique, Finding, Page, PageFile, Section, Summary, ToolRun, Viewed, TOOLS};
 use super::panes::place_line;
 use super::{Ask, ReviewsScreen};
 use crate::diff;
@@ -21,6 +23,7 @@ pub(super) fn glyph_of(kind: &str) -> &'static str {
         "pr-checks" => "list-checks",
         "pr-findings" => "bot",
         "pr-comments" => "message-square-reply",
+        "pr-tools" => "wrench",
         _ => "file-text",
     }
 }
@@ -176,6 +179,7 @@ impl ReviewsScreen {
             "pr-checks" => checks_tab(page, look),
             "pr-findings" => self.findings_tab(page, look, cx),
             "pr-comments" => comments_tab(page, look),
+            "pr-tools" => self.tools_tab(page, look, cx),
             _ => div().into_any_element(),
         };
         div().w_full().p(look.length(token::SPACE_4)).flex().flex_col().gap(look.length(token::SPACE_3)).child(inner).into_any_element()
@@ -232,6 +236,7 @@ impl ReviewsScreen {
                 .into_any_element();
         }
         column = column.child(heading_tipped("changed-head", format!("Since you looked {}", seen.when()), Some(seen.commits()), look));
+        column = column.children(self.summary_part(page, look, cx));
         let mut table = frame(look).flex().flex_col();
         table = table.child(band("changed-band-commits".into(), "New commits", look));
         for commit in &page.new_commits {
@@ -412,9 +417,11 @@ impl ReviewsScreen {
         labelled(frame(look).id(SharedString::from(format!("file-{at}"))).flex().flex_col().child(head).children(body), Role::Article, format!("File: {}", file.path)).into_any_element()
     }
 
-    /// Findings: what a critique of the range found, each one a draft away, and the notes for the Job
-    /// that holds the pull request.
+    /// Review comments: his draft comments, then the suggestions a critique or a tool made, each
+    /// editable before it becomes a draft, then what already went, folded. Then the notes for the
+    /// Job that holds the pull request.
     fn findings_tab(&mut self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let drafts = self.drafts_part(page, look, cx);
         let found = self.critique_part(page, look, cx);
         let notes = page.holder.clone().map(|holder| {
             let mut column = div().flex().flex_col().gap(look.length(token::SPACE_2)).pt(look.length(token::SPACE_3)).border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE));
@@ -433,7 +440,50 @@ impl ReviewsScreen {
                 .into_any_element()
             })
         });
-        div().flex().flex_col().gap(look.length(token::SPACE_4)).child(found).children(notes).into_any_element()
+        div().flex().flex_col().gap(look.length(token::SPACE_4)).child(drafts).child(found).children(notes).into_any_element()
+    }
+
+    /// His draft comments on this pull request, each in its own box, with an amber edge.
+    fn drafts_part(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let mut column = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(heading("drafts-head", "Your draft comments. They go with your review.".into(), look));
+        let mine: Vec<_> = self.drafts.iter().filter(|draft| draft.number == page.number).collect();
+        if mine.is_empty() {
+            column = column.child(words("drafts-none", "No draft comments".into(), look));
+        }
+        for draft in mine {
+            let Some(boxed) = self.boxes.get(&draft.id) else { continue };
+            let place = draft.place();
+            let (edit_id, remove_id) = (draft.id.clone(), draft.id.clone());
+            let edit = labelled(
+                Btn::new(SharedString::from(format!("draft-edit-{}", draft.id)), "Edit", Weight::Ghost)
+                    .icon("pencil")
+                    .draw(look, cx)
+                    .on_click(cx.listener(move |this, _, window, cx| this.edit_draft(&edit_id, window, cx))),
+                Role::Button,
+                format!("Edit draft comment on {place}"),
+            );
+            let remove = labelled(
+                Btn::new(SharedString::from(format!("draft-remove-{}", draft.id)), "Remove", Weight::Ghost)
+                    .icon("trash")
+                    .draw(look, cx)
+                    .on_click(cx.listener(move |this, _, _, cx| this.discard_draft(&remove_id, cx))),
+                Role::Button,
+                format!("Remove draft comment on {place}"),
+            );
+            let body = div()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(place_line(format!("draft-card-place-{}", draft.id), place.clone(), look))
+                .child(labelled(
+                    div().id(SharedString::from(format!("draft-card-box-{}", draft.id))).key_context(crate::keymap::TEXT_BOX).w_full().text_size(look.length(token::TEXT_SM)).child(Textarea::new(&boxed.state)),
+                    Role::TextInput,
+                    format!("Draft comment on {place}"),
+                ))
+                .child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).child(edit).child(remove));
+            column = column.child(edged(format!("draft-card-{}", draft.id), token::STATUS_AWAITING_REVIEW, body, format!("Draft comment on {place}"), look));
+        }
+        column.into_any_element()
     }
 
     fn critique_part(&mut self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
@@ -443,7 +493,7 @@ impl ReviewsScreen {
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_3))
-                .child(status("findings-none", "No critique of this pull request".into(), glyph("bot", look.length(token::SPACE_4), muted).into_any_element(), look))
+                .child(status("findings-none", "No suggestions on this pull request".into(), glyph("bot", look.length(token::SPACE_4), muted).into_any_element(), look))
                 .child(div().flex().child(self.critique_button("findings-critique", "Critique this pull request", page, look, cx)))
                 .into_any_element(),
             Critique::Running { range } => div()
@@ -463,53 +513,243 @@ impl ReviewsScreen {
                 ))
                 .into_any_element(),
             Critique::Finished { range, findings } => {
-                let mut column = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(heading_tipped("findings-head", format!("Critique of {}", range.said), Some(range.commits.clone()), look));
+                let mut column = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(heading_tipped("findings-head", format!("Suggestions on {}", range.said), Some(range.commits.clone()), look));
+                // What already went sits folded under the heading, where a long list cannot push it out of sight.
+                column = column.children(self.sent_part(page, look, cx));
+                // A drafted one is among the drafts above, a sent one in its folded line below.
+                let open: Vec<_> = findings
+                    .iter()
+                    .filter(|finding| {
+                        let key = (page.number, finding.id.clone());
+                        !self.dismissed.contains(&key)
+                            && !self.sent_findings.contains_key(&key)
+                            && !self.drafts.iter().any(|draft| draft.number == page.number && draft.finding.as_deref() == Some(&finding.id))
+                    })
+                    .collect();
                 if findings.is_empty() {
                     column = column.child(status("findings-empty", "Critique found nothing".into(), glyph("circle-check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look));
+                } else if open.is_empty() {
+                    column = column.child(words("findings-done", "No suggestions left".into(), look));
                 }
-                for finding in findings {
-                    let drafted = self.drafts.iter().any(|draft| draft.number == page.number && draft.finding.as_deref() == Some(&finding.id));
-                    let id = finding.id.clone();
-                    let sent = self.sent_findings.contains(&(page.number, finding.id.clone()));
-                    let act: AnyElement = if sent {
-                        status(format!("finding-sent-{}", finding.id), "Sent".into(), glyph("check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look)
-                    } else if drafted {
-                        status(format!("finding-drafted-{}", finding.id), "Drafted".into(), glyph("check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look)
-                    } else {
-                        labelled(
-                            Btn::new(SharedString::from(format!("finding-add-{}", finding.id)), "Add as draft", Weight::Secondary)
-                                .icon("plus")
-                                .draw(look, cx)
-                                .on_click(cx.listener(move |this, _, window, cx| this.add_draft(&id, window, cx))),
-                            Role::Button,
-                            "Add as draft",
-                        )
-                        .into_any_element()
-                    };
-                    let card = labelled(
-                        frame(look)
-                            .id(SharedString::from(format!("finding-{}", finding.id)))
-                            .flex()
-                            .flex_col()
-                            .gap(look.length(token::SPACE_2))
-                            .p(look.length(token::SPACE_3))
-                            .border_l(look.length(token::BORDER_WIDTH) * 3.)
-                            .border_color(look.color(token::STATUS_AWAITING_REVIEW))
-                            .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(finding.title.clone())))
-                            // One act per card, under its title, so a narrow pane keeps the text wide and a short one still shows it.
-                            .child(div().flex().child(act))
-                            .child(place_line(format!("finding-place-{}", finding.id), format!("{}:{}", finding.path, finding.line), look))
-                            .child(words(format!("finding-said-{}", finding.id), finding.comment.clone(), look)),
-                        Role::Article,
-                        format!("Finding: {}", finding.title),
+                for finding in open {
+                    let Some(boxed) = self.suggestions.get(&(page.number, finding.id.clone())) else { continue };
+                    let (add_id, dismiss_id) = (finding.id.clone(), finding.id.clone());
+                    let add = labelled(
+                        Btn::new(SharedString::from(format!("finding-add-{}", finding.id)), "Add as draft comment", Weight::Secondary)
+                            .icon("plus")
+                            .draw(look, cx)
+                            .on_click(cx.listener(move |this, _, window, cx| this.add_draft(&add_id, window, cx))),
+                        Role::Button,
+                        "Add as draft comment",
                     );
-                    column = column.child(card);
+                    let dismiss = labelled(
+                        Btn::new(SharedString::from(format!("finding-dismiss-{}", finding.id)), "Dismiss", Weight::Ghost)
+                            .draw(look, cx)
+                            .on_click(cx.listener(move |this, _, window, cx| this.dismiss_suggestion(&dismiss_id, window, cx))),
+                        Role::Button,
+                        "Dismiss",
+                    );
+                    let place = format!("{}:{}", finding.path, finding.line);
+                    let body = div()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_2))
+                        .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(finding.title.clone())))
+                        .child(place_line(format!("finding-place-{}", finding.id), place, look))
+                        .child(labelled(
+                            div().id(SharedString::from(format!("finding-box-{}", finding.id))).key_context(crate::keymap::TEXT_BOX).w_full().text_size(look.length(token::TEXT_SM)).child(Textarea::new(&boxed.state)),
+                            Role::TextInput,
+                            format!("Suggestion: {}", finding.title),
+                        ))
+                        // The acts under the words, so a narrow pane keeps the text wide.
+                        .child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).child(add).child(dismiss));
+                    column = column.child(edged(format!("finding-{}", finding.id), token::ACCENT, body, format!("Suggestion: {}", finding.title), look));
                 }
                 column.into_any_element()
             }
         }
     }
 
+    /// What went with an earlier review, one folded line for each day it went.
+    fn sent_part(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let Critique::Finished { findings, .. } = &page.critique else { return None };
+        let mut days: Vec<(String, Vec<&Finding>)> = Vec::new();
+        for finding in findings {
+            let Some(day) = self.sent_findings.get(&(page.number, finding.id.clone())) else { continue };
+            match days.iter_mut().find(|(had, _)| had == day) {
+                Some((_, sent)) => sent.push(finding),
+                None => days.push((day.clone(), vec![finding])),
+            }
+        }
+        if days.is_empty() {
+            return None;
+        }
+        let mut column = div().flex().flex_col().gap(look.length(token::SPACE_1));
+        for (day, sent) in days {
+            let open = self.sent_open.contains(&(page.number, day.clone()));
+            let said = format!("Sent with your review {}", on_day(&day));
+            let toggle = day.clone();
+            let hover = look.color(token::BG_HOVER);
+            column = column.child(labelled(
+                div()
+                    .id(SharedString::from(format!("sent-{day}")))
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .px(look.length(token::SPACE_2))
+                    .h(look.length(token::H_CONTROL))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(hover))
+                    .aria_expanded(open)
+                    .on_click(cx.listener(move |this, _, _, cx| this.toggle_sent(&toggle, cx)))
+                    .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3), look.color(token::FG_MUTED)))
+                    .child(glyph("check", look.length(token::SPACE_3), look.color(token::RUN_PASSED)))
+                    .child(SharedString::from(said.clone())),
+                Role::Button,
+                said,
+            ));
+            if open {
+                for finding in sent {
+                    let place = format!("{}:{}", finding.path, finding.line);
+                    column = column.child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap(look.length(token::SPACE_1))
+                            .pl(look.length(token::SPACE_6))
+                            .child(div().text_size(look.length(token::TEXT_SM)).child(SharedString::from(finding.title.clone())))
+                            .child(place_line(format!("sent-place-{}", finding.id), place, look)),
+                    );
+                }
+            }
+        }
+        Some(column.into_any_element())
+    }
+
+    /// Tools: each review tool in its section, when it last ran, and Run.
+    fn tools_tab(&mut self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let mut table = frame(look).flex().flex_col();
+        for section in Section::ALL {
+            table = table.child(band(format!("tools-band-{}", section.said()), section.said(), look));
+            for tool in TOOLS.iter().filter(|tool| tool.section == section).copied() {
+                let run = page.tools.get(tool.id);
+                let running = matches!(run, Some(ToolRun::Running));
+                let when = match run {
+                    None => "Not run".to_string(),
+                    Some(ToolRun::Running) => "Running".to_string(),
+                    Some(ToolRun::Ran { on, .. }) => format!("Ran on {on}"),
+                };
+                let (said, name) = if matches!(run, Some(ToolRun::Ran { .. })) { ("Run again", format!("Run {} again", tool.name)) } else { ("Run", format!("Run {}", tool.name)) };
+                let button = labelled(
+                    Btn::new(SharedString::from(format!("tool-run-{}", tool.id)), said, Weight::Secondary)
+                        .icon("play")
+                        .pending(running)
+                        .draw(look, cx)
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            if !this.tool_runs.contains_key(&(this.open.unwrap_or_default(), tool.id)) {
+                                this.run_tool(tool, window, cx);
+                            }
+                        })),
+                    Role::Button,
+                    name,
+                );
+                let row = labelled(
+                    div()
+                        .id(SharedString::from(format!("tool-{}", tool.id)))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_3))
+                        .px(look.length(token::SPACE_3))
+                        .py(look.length(token::SPACE_2))
+                        .border_b(look.length(token::BORDER_WIDTH))
+                        .border_color(look.color(token::BORDER_SUBTLE))
+                        .text_size(look.length(token::TEXT_SM))
+                        // Name over when it last ran, so a narrow pane keeps both; Run in a column of its own at the end.
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .flex_col()
+                                .child(div().truncate().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(tool.name))
+                                .child(div().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(when))),
+                        )
+                        .child(div().flex_none().min_w(look.length(token::SPACE_12) * 2.).flex().justify_end().child(button)),
+                    Role::Row,
+                    tool.name,
+                );
+                table = table.child(row);
+                if let Some(ToolRun::Ran { said: Some(said), .. }) = run {
+                    table = table.child(labelled(
+                        div()
+                            .id(SharedString::from(format!("tool-said-{}", tool.id)))
+                            .flex()
+                            .items_start()
+                            .gap(look.length(token::SPACE_2))
+                            .px(look.length(token::SPACE_3))
+                            .py(look.length(token::SPACE_3))
+                            .bg(look.color(token::BG_SUNKEN))
+                            .border_b(look.length(token::BORDER_WIDTH))
+                            .border_color(look.color(token::BORDER_SUBTLE))
+                            .text_size(look.length(token::TEXT_SM))
+                            .line_height(look.length(token::LEADING_SM))
+                            .child(glyph("bot", look.length(token::SPACE_4), look.color(token::ACCENT)))
+                            .child(div().flex_1().min_w_0().child(SharedString::from(said.clone()))),
+                        Role::Article,
+                        format!("{}: {said}", tool.name),
+                    ));
+                }
+            }
+        }
+        labelled(table.id("tools-table"), Role::Table, "Tools").into_any_element()
+    }
+
+    /// The summary of the new commits, written when he opens a pull request that changed.
+    fn summary_part(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let (lead, said, role): (AnyElement, String, Role) = match &page.summary {
+            Summary::None => return None,
+            Summary::Writing => (spinner("summary-spin", look.length(token::SPACE_4), look.color(token::ACCENT), cx).into_any_element(), "Writing a summary of the new commits".into(), Role::Status),
+            Summary::Written(said) => (glyph("bot", look.length(token::SPACE_4), look.color(token::ACCENT)).into_any_element(), said.clone(), Role::Label),
+        };
+        let writing = page.summary == Summary::Writing;
+        Some(
+            labelled(
+                div()
+                    .id("changed-summary")
+                    .flex()
+                    .items_start()
+                    .gap(look.length(token::SPACE_2))
+                    .p(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .bg(look.color(token::ACCENT_FAINT))
+                    .text_size(look.length(token::TEXT_SM))
+                    .line_height(look.length(token::LEADING_SM))
+                    .when(writing, |box_| box_.text_color(look.color(token::FG_MUTED)))
+                    .child(div().flex_none().pt(look.length(token::SPACE_1) / 2.).child(lead))
+                    .child(div().flex_1().min_w_0().child(SharedString::from(said.clone()))),
+                role,
+                said,
+            )
+            .into_any_element(),
+        )
+    }
+}
+
+/// A card with a hued left edge: amber for his drafts, blue for suggestions.
+fn edged(id: String, hue: Token, body: Div, name: String, look: &Look) -> AnyElement {
+    labelled(
+        frame(look)
+            .id(SharedString::from(id))
+            .flex()
+            .child(div().flex_none().w(look.length(token::BORDER_WIDTH) * 3.).bg(look.color(hue)))
+            .child(body.flex_1().min_w_0().p(look.length(token::SPACE_3))),
+        Role::Article,
+        name,
+    )
+    .into_any_element()
 }
 
 fn conversation_tab(page: &Page, look: &Look) -> AnyElement {

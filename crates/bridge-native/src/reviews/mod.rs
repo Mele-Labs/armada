@@ -29,16 +29,17 @@ use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 use crate::titlebar::parts::{card, sans, Btn, Weight};
 use layout::{LayoutControl, Layouts};
-use model::{Critique, DraftOf, Group, Inbox, Mine, Page, Verdict, Viewed};
+use model::{Critique, DraftOf, Group, Inbox, Mine, Page, Section, Summary, Tool, ToolRun, Verdict, Viewed};
 
 /// Each tab a pull request's page can hold: its kind, as the pane tree keys it, and its name.
-pub const KINDS: [(&str, &str); 6] = [
+pub const KINDS: [(&str, &str); 7] = [
     ("pr-changed", "What changed"),
     ("pr-files", "Files"),
     ("pr-conversation", "Conversation"),
     ("pr-checks", "Checks"),
-    ("pr-findings", "Findings"),
+    ("pr-findings", "Review comments"),
     ("pr-comments", "Comments"),
+    ("pr-tools", "Tools"),
 ];
 
 /// A tab kind's name, as its tab and VoiceOver say it.
@@ -49,7 +50,7 @@ pub fn said(kind: &str) -> &'static str {
 /// The three columns he agreed: the inbox beside, the page's main tabs, and a side pane for what a review adds.
 pub fn default_arrangement() -> Arrangement {
     tree::build(
-        &Shape::split(Dir::Row, 0.64, Shape::pane(&["pr-changed", "pr-files", "pr-conversation", "pr-checks"]), Shape::pane(&["pr-findings", "pr-comments"])),
+        &Shape::split(Dir::Row, 0.64, Shape::pane(&["pr-changed", "pr-files", "pr-conversation", "pr-checks"]), Shape::pane(&["pr-findings", "pr-comments", "pr-tools"])),
         None,
         &[],
     )
@@ -61,6 +62,10 @@ const PAGE_READ: Duration = Duration::from_millis(1500);
 const REFRESH_MOST: Duration = Duration::from_secs(20);
 /// How long the mock review run takes over a range.
 const CRITIQUE_RUN: Duration = Duration::from_millis(3000);
+/// How long the mock summary of the new commits takes to write.
+const SUMMARY_WRITE: Duration = Duration::from_millis(2500);
+/// How long a mock review tool takes.
+const TOOL_RUN: Duration = Duration::from_millis(2000);
 
 /// A question the screen holds up before it acts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -120,8 +125,17 @@ pub struct ReviewsScreen {
     /// Review changes is open, in place of the panes, until Send or Cancel.
     sheet: bool,
     sent_notes: HashSet<u64>,
-    /// Findings that went out as drafts with a review, by pull request and finding, so none goes twice.
-    sent_findings: HashSet<(u64, String)>,
+    /// Findings that went out as drafts with a review, by pull request and finding, and the day they
+    /// went, so none goes twice.
+    sent_findings: HashMap<(u64, String), String>,
+    /// Sent lines he unfolded, by pull request and day.
+    sent_open: HashSet<(u64, String)>,
+    /// Each suggestion's words, which he can edit before it becomes a draft, by pull request and finding.
+    suggestions: HashMap<(u64, String), Boxed>,
+    dismissed: HashSet<(u64, String)>,
+    /// Summaries being written, by pull request.
+    writing: HashMap<u64, Task<()>>,
+    tool_runs: HashMap<(u64, &'static str), Task<()>>,
     asking: Option<Ask>,
     name_box: Entity<InputState>,
     dialog: FocusHandle,
@@ -179,6 +193,11 @@ impl ReviewsScreen {
             sheet: false,
             sent_notes: HashSet::new(),
             sent_findings: mock::sent_findings(),
+            sent_open: HashSet::new(),
+            suggestions: HashMap::new(),
+            dismissed: HashSet::new(),
+            writing: HashMap::new(),
+            tool_runs: HashMap::new(),
             asking: None,
             name_box,
             dialog: cx.focus_handle(),
@@ -268,6 +287,112 @@ impl ReviewsScreen {
                 self.boxes.insert(draft.id.clone(), boxed);
             }
         }
+        self.suggestion_boxes(number, window, cx);
+        self.write_summary(number, window, cx);
+        cx.notify();
+    }
+
+    /// A pull request that changed since he looked gets its summary written once for its head.
+    fn write_summary(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(page) = self.pages.get_mut(&number) else { return };
+        if !page.changed() || page.seen.as_ref().is_some_and(|seen| seen.gone) || page.summary != Summary::None {
+            return;
+        }
+        page.summary = Summary::Writing;
+        let task = cx.spawn_in(window, async move |this, cx| {
+            cx.background_executor().timer(SUMMARY_WRITE).await;
+            let _ = this.update(cx, |this, cx| {
+                if let Some(page) = this.pages.get_mut(&number) {
+                    page.summary = Summary::Written(mock::summary(number));
+                }
+                this.writing.remove(&number);
+                cx.notify();
+            });
+        });
+        self.writing.insert(number, task);
+    }
+
+    /// A text box for each suggestion of the page's critique, holding its words until he adds or dismisses it.
+    fn suggestion_boxes(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(Critique::Finished { findings, .. }) = self.pages.get(&number).map(|page| page.critique.clone()) else { return };
+        for finding in findings {
+            let key = (number, finding.id.clone());
+            if !self.suggestions.contains_key(&key) {
+                let boxed = self.boxed(&format!("reviews:suggestion:{number}:{}", finding.id), Some(&finding.comment), 2, 6, window, cx);
+                self.suggestions.insert(key, boxed);
+            }
+        }
+    }
+
+    /// Dismiss: the suggestion leaves Review comments without becoming a draft.
+    fn dismiss_suggestion(&mut self, finding: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(number) = self.open else { return };
+        self.let_go(number, finding, window, cx);
+        self.dismissed.insert((number, finding.to_string()));
+        cx.notify();
+    }
+
+    /// A suggestion's box is about to go: the keys it held go back to the list, not to nothing.
+    fn let_go(&self, number: u64, finding: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.suggestions.get(&(number, finding.to_string())).is_some_and(|boxed| boxed.state.focus_handle(cx).contains_focused(window, cx)) {
+            window.focus(&self.rows, cx);
+        }
+    }
+
+    /// Edit: the keys go to the draft's box.
+    fn edit_draft(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(boxed) = self.boxes.get(id) {
+            let keys = boxed.state.focus_handle(cx);
+            window.focus(&keys, cx);
+        }
+    }
+
+    fn toggle_sent(&mut self, day: &str, cx: &mut Context<Self>) {
+        let Some(number) = self.open else { return };
+        let key = (number, day.to_string());
+        if !self.sent_open.remove(&key) {
+            self.sent_open.insert(key);
+        }
+        cx.notify();
+    }
+
+    /// Run a review tool. What a find-problems tool finds joins the suggestions in Review comments;
+    /// any other tool's answer reads under its row.
+    fn run_tool(&mut self, tool: Tool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(number) = self.open else { return };
+        let Some(page) = self.pages.get_mut(&number) else { return };
+        page.tools.insert(tool.id, ToolRun::Running);
+        let task = cx.spawn_in(window, async move |this, cx| {
+            cx.background_executor().timer(TOOL_RUN).await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                let Some(page) = this.pages.get_mut(&number) else { return };
+                let on = "the latest changes".to_string();
+                if tool.section == Section::FindProblems {
+                    page.tools.insert(tool.id, ToolRun::Ran { on, said: None });
+                    let found = mock::tool_findings(number, tool.id);
+                    let range = page.range();
+                    match &mut page.critique {
+                        Critique::Finished { findings, .. } => {
+                            for one in found {
+                                if !findings.iter().any(|had| had.id == one.id) {
+                                    findings.push(one);
+                                }
+                            }
+                        }
+                        critique => *critique = Critique::Finished { range, findings: found },
+                    }
+                    this.suggestion_boxes(number, window, cx);
+                    if this.open == Some(number) {
+                        this.bring_kind("pr-findings", cx);
+                    }
+                } else {
+                    page.tools.insert(tool.id, ToolRun::Ran { on, said: Some(mock::explanation(number, tool.id)) });
+                }
+                this.tool_runs.remove(&(number, tool.id));
+                cx.notify();
+            });
+        });
+        self.tool_runs.insert((number, tool.id), task);
         cx.notify();
     }
 
@@ -379,11 +504,12 @@ impl ReviewsScreen {
         window.focus(&self.rows, cx);
         self.critique = Some(cx.spawn_in(window, async move |this, cx| {
             cx.background_executor().timer(CRITIQUE_RUN).await;
-            let _ = this.update(cx, |this, cx| {
+            let _ = this.update_in(cx, |this, window, cx| {
                 if let Some(page) = this.pages.get_mut(&number) {
                     let findings = if number == 2198 { mock::retry_findings() } else { Vec::new() };
                     page.critique = Critique::Finished { range, findings };
                 }
+                this.suggestion_boxes(number, window, cx);
                 this.critique = None;
                 cx.notify();
             });
@@ -405,7 +531,10 @@ impl ReviewsScreen {
         }
         let id = format!("d{number}-{}", self.next_draft);
         self.next_draft += 1;
-        let draft = DraftOf { id: id.clone(), number, path: found.path, line: found.line, body: found.comment, finding: Some(found.id) };
+        // His edit of the suggestion is what goes, not what the critique wrote.
+        let body = self.suggestions.get(&(number, found.id.clone())).map(|boxed| boxed.state.read(cx).value().to_string()).filter(|said| !said.trim().is_empty()).unwrap_or(found.comment);
+        self.let_go(number, &found.id, window, cx);
+        let draft = DraftOf { id: id.clone(), number, path: found.path, line: found.line, body, finding: Some(found.id) };
         let boxed = self.boxed(&format!("reviews:draft:{id}"), Some(&draft.body), 2, 6, window, cx);
         self.boxes.insert(id, boxed);
         self.drafts.push(draft);
@@ -433,7 +562,7 @@ impl ReviewsScreen {
         let Some(number) = self.open else { return };
         let gone: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).map(|draft| draft.id.clone()).collect();
         let sent: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).filter_map(|draft| draft.finding.clone()).collect();
-        self.sent_findings.extend(sent.into_iter().map(|finding| (number, finding)));
+        self.sent_findings.extend(sent.into_iter().map(|finding| ((number, finding), "today".to_string())));
         for id in gone {
             self.discard_draft(&id, cx);
         }
@@ -634,7 +763,7 @@ impl ReviewsScreen {
                 let page = self.page();
                 let range = page.map_or_else(|| "the whole pull request".to_string(), |page| page.range().said);
                 let repository = page.map(|page| page.repository.clone()).unwrap_or_default();
-                said_line("reviews-dialog-said", format!("A review run reads {range} on {repository}. Its findings come to Findings."))
+                said_line("reviews-dialog-said", format!("A review run reads {range} on {repository}. Its suggestions come to Review comments."))
                     .into_any_element()
             }
             Ask::SaveAs | Ask::Rename => div()

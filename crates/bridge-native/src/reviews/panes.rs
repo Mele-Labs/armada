@@ -344,7 +344,9 @@ impl ReviewsScreen {
         labelled(
             div()
                 .id(SharedString::from(format!("tab-{}", tab.id)))
-                .flex_none()
+                // In a narrow pane the tabs behind give way, their names cut short, so every tab stays in reach.
+                .when(front, |tab| tab.flex_none())
+                .when(!front, |tab| tab.flex_shrink(1.).min_w(look.length(token::SPACE_12)).tooltip(tip(label)))
                 .h_full()
                 .flex()
                 .items_center()
@@ -372,7 +374,7 @@ impl ReviewsScreen {
                     }
                 }))
                 .child(glyph(tabs::glyph_of(&tab.kind), look.length(token::SPACE_4), if front { look.color(token::ACCENT) } else { ink }))
-                .child(label),
+                .child(div().min_w_0().truncate().child(label)),
             Role::Tab,
             label,
         )

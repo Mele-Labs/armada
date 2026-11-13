@@ -7,7 +7,7 @@ use ipc::{
     PullReviewChecks, PullReviewList, PullReviewThread, PullReviewThreadComment,
 };
 
-use super::model::{Critique, DraftOf, Finding, Group, Inbox, InboxRow, Mine, Page, PageFile, Reply, Seen, Span, Verdict, Viewed};
+use super::model::{Critique, DraftOf, Finding, Group, Inbox, InboxRow, Mine, Page, PageFile, Reply, Seen, Span, Summary, ToolRun, Verdict, Viewed};
 
 /// The pull request his last visit had open, which opens again once its fresh page confirms it.
 pub const LAST_OPEN: u64 = 2190;
@@ -50,6 +50,8 @@ pub fn refreshed(mut inbox: Inbox) -> Inbox {
         row.group = Group::Changed;
         row.new_commits = Some(1);
         row.age = "just now".into();
+        // Its test check started on the new commit.
+        row.checks = PullReviewChecks::Running;
     }
     inbox.refreshing = false;
     inbox
@@ -237,6 +239,8 @@ fn retry_page() -> Page {
             thread("t2", "src/webhooks/queue.rs", 13, &[("you", "What happens when the queue is full?"), ("tobias", "Kept it. The queue drops its oldest once it is full.")]),
         ],
         critique: Critique::None,
+        summary: Summary::None,
+        tools: Default::default(),
         holder: Some("Retry failed webhooks".into()),
         notes: vec!["Ask for a test that waits for the second attempt.".into()],
     }
@@ -304,6 +308,8 @@ fn avatar_page() -> Page {
         conversation: vec![said("c1", "priya", "2026-11-10T10:00:00Z", "Rebased on main and squashed.")],
         threads: Vec::new(),
         critique: Critique::None,
+        summary: Summary::None,
+        tools: Default::default(),
         holder: None,
         notes: Vec::new(),
     }
@@ -338,6 +344,8 @@ fn limits_page() -> Page {
         conversation: Vec::new(),
         threads: Vec::new(),
         critique: Critique::None,
+        summary: Summary::None,
+        tools: Default::default(),
         holder: None,
         notes: Vec::new(),
     }
@@ -391,6 +399,9 @@ fn invoice_page() -> Page {
                 comment: "A slow first stage uses up the retries the later ones need. Give each stage its own.".into(),
             }],
         },
+        summary: Summary::None,
+        // Risks read his range on Tuesday: its suggestions are the ones above.
+        tools: [("risks", ToolRun::Ran { on: "Tuesday's changes".into(), said: None })].into_iter().collect(),
         holder: None,
         notes: Vec::new(),
     }
@@ -431,6 +442,8 @@ pub fn page(number: u64) -> Option<Page> {
                 conversation: Vec::new(),
                 threads: Vec::new(),
                 critique: Critique::None,
+                summary: Summary::None,
+                tools: Default::default(),
                 holder: None,
                 notes: Vec::new(),
             }
@@ -438,9 +451,44 @@ pub fn page(number: u64) -> Option<Page> {
     })
 }
 
-/// Findings that already went out with an earlier review.
-pub fn sent_findings() -> std::collections::HashSet<(u64, String)> {
-    [(2190, "g2".to_string())].into_iter().collect()
+/// Findings that already went out with an earlier review, and the day it went.
+pub fn sent_findings() -> std::collections::HashMap<(u64, String), String> {
+    [((2190, "g2".to_string()), "Tuesday".to_string())].into_iter().collect()
+}
+
+/// The written summary of the commits since he looked, once it is written.
+pub fn summary(number: u64) -> String {
+    match number {
+        2198 => "Tobias now adds up to 250 ms of jitter to each retry wait and caps retries at five. Each retry is logged with its attempt.",
+        2190 => "Mira now names the failing stage in the invoice job's log. Nothing else changed.",
+        _ => "The author pushed new commits since you looked.",
+    }
+    .into()
+}
+
+/// What a find-problems tool finds when it runs now.
+pub fn tool_findings(number: u64, tool: &str) -> Vec<Finding> {
+    let found = |id: &str, title: &str, path: &str, line: u64, comment: &str| Finding { id: id.into(), title: title.into(), path: path.into(), line, comment: comment.into() };
+    match (number, tool) {
+        (2198, "risks") => vec![found("r-1", "A full queue drops a retry without saying so", "src/webhooks/queue.rs", 14, "The oldest retry is popped with no log line, so a lost delivery leaves no trace. Log the dropped hook at warn.")],
+        (2198, "bugs") => vec![found("b-1", "A high attempt number panics", "src/webhooks/retry.rs", 6, "2u64.pow(attempt) overflows once attempt reaches 64, and the cap comes too late to stop it. Clamp the attempt before the power.")],
+        (2190, "bugs") => vec![found("b-2", "A stage with no name logs an empty field", "src/jobs/invoice.rs", 40, "stage.name() is empty for the setup stage. Give it a name, or log its index.")],
+        _ => Vec::new(),
+    }
+}
+
+/// What an explain or walk-through tool says when it runs now.
+pub fn explanation(number: u64, tool: &str) -> String {
+    match (number, tool) {
+        (2198, "how-it-works") => "A failed webhook waits half a second before its first retry, and the wait doubles each time up to thirty seconds. Up to 250 ms of jitter is added to each wait, so clients that failed together do not retry together. The queue keeps a fixed number of retries and drops its oldest once it is full.",
+        (2198, "how-to-test") => "Point a webhook at an endpoint that answers 500, then watch the log: each retry logs its attempt, and the waits grow from half a second to thirty seconds.",
+        (2198, "user-impact") => "A customer whose endpoint is down gets five tries instead of three, spread over about a minute instead of six seconds.",
+        (2198, "why") => "Three retries two seconds apart gave up before a restarting endpoint came back, and every client retried at the same moment.",
+        (2198, "walk") => "Send a webhook to a failing endpoint. Watch the log for five retries. Bring the endpoint back before the last one and see it delivered.",
+        (2198, "tour") => "Start at src/webhooks/retry.rs, where delay works out each wait. Then src/webhooks/queue.rs, where a retry is queued and logged. The test in tests/webhooks_retry.rs checks the first wait.",
+        _ => "Nothing to say about these changes.",
+    }
+    .into()
 }
 
 /// The drafts kept from an earlier visit.

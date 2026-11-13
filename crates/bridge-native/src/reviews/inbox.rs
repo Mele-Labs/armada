@@ -9,7 +9,7 @@ use super::{panel, ReviewsScreen};
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::look::{token, Look};
-use crate::titlebar::parts::{glyph, icon_button, mono, small, spinner, tip};
+use crate::titlebar::parts::{glyph, icon_button, small, spinner, tip};
 
 /// A group's hue, on its header band and the glyph of each row's state.
 pub(super) fn hue(group: Group) -> crate::look::Token {
@@ -30,12 +30,13 @@ fn band(group: Group) -> crate::look::Token {
     }
 }
 
-/// The checks' state as a registry glyph, its hue and what its tooltip says.
-pub(super) fn checks_mark(checks: PullReviewChecks) -> (&'static str, crate::look::Token, &'static str) {
+/// The checks' state as a registry glyph, its hue and what its tooltip says. Passing checks
+/// draw nothing: only a state that wants him is marked.
+pub(super) fn checks_mark(checks: PullReviewChecks) -> Option<(&'static str, crate::look::Token, &'static str)> {
     match checks {
-        PullReviewChecks::Passed => ("shield-check", token::RUN_PASSED, "Checks passed"),
-        PullReviewChecks::Failed => ("shield-x", token::RUN_FAILED, "Checks failed"),
-        PullReviewChecks::Running => ("loader-circle", token::RUN_RUNNING, "Checks running"),
+        PullReviewChecks::Passed => None,
+        PullReviewChecks::Failed => Some(("x", token::RUN_FAILED, "Checks failed")),
+        PullReviewChecks::Running => Some(("loader", token::STATUS_AWAITING_REVIEW, "Checks running")),
     }
 }
 
@@ -313,34 +314,21 @@ impl ReviewsScreen {
         let number = row.number;
         let open = self.open == Some(number) || self.waiting == Some(number);
         let focused = self.focused == Some(number);
-        let (checks_glyph, checks_hue, checks_said) = checks_mark(row.checks);
         let hover = look.color(token::BG_HOVER);
         let bar = look.color(token::ROW_FOCUS_BAR);
-        let chip = row.new_commits.map(|count| {
-            let said = if count == 1 { "+1 commit".to_string() } else { format!("+{count} commits") };
+        let mut meta = format!("#{number} · {}", row.short_repository());
+        if let Some(count) = row.new_commits {
+            meta.push_str(&if count == 1 { " · 1 new commit".to_string() } else { format!(" · {count} new commits") });
+        }
+        meta.push_str(&format!(" · {}", row.age));
+        // The checks' column keeps its width on every row, so the titles line up whether it is marked or not.
+        let checks = checks_mark(row.checks).map(|(name, ink, said)| {
             labelled(
-                div()
-                    .id(SharedString::from(format!("chip-{number}")))
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .h(look.length(token::H_BADGE))
-                    .px(look.length(token::SPACE_2))
-                    .rounded(look.length(token::RADIUS_SM))
-                    .bg(look.color(token::STATUS_HANDED_IN_BG))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::STATUS_HANDED_IN))
-                    .text_color(look.color(token::STATUS_HANDED_IN))
-                    .font_family(mono(look))
-                    .text_size(look.length(token::TEXT_2XS))
-                    .tooltip(tip("Commits pushed since you looked"))
-                    .child(SharedString::from(said.clone())),
-                Role::Label,
+                div().id(SharedString::from(format!("checks-{number}"))).tooltip(tip(said)).child(glyph(name, look.length(token::SPACE_4), look.color(ink))),
+                Role::Image,
                 said,
             )
         });
-        let meta = format!("#{number} · {} · {}", row.short_repository(), row.age);
-        let mine_said = format!("Your review: {}", row.mine.said());
         labelled(
             div()
                 .id(SharedString::from(format!("pr-row-{number}")))
@@ -360,30 +348,6 @@ impl ReviewsScreen {
                 .aria_selected(open)
                 .on_click(cx.listener(move |this, _, window, cx| this.press_row(number, window, cx)))
                 .child(
-                    // The checks' state, in a column of its own on every row.
-                    labelled(
-                        div().id(SharedString::from(format!("checks-{number}"))).flex_none().pt(look.length(token::SPACE_1)).tooltip(tip(checks_said)).child(glyph(
-                            checks_glyph,
-                            look.length(token::SPACE_4),
-                            look.color(checks_hue),
-                        )),
-                        Role::Image,
-                        checks_said,
-                    ),
-                )
-                .child(
-                    // His review's state, in the next column.
-                    labelled(
-                        div().id(SharedString::from(format!("mine-{number}"))).flex_none().pt(look.length(token::SPACE_1)).tooltip(tip(mine_said.clone())).child(glyph(
-                            row.mine.glyph(),
-                            look.length(token::SPACE_4),
-                            look.color(verdict_hue(row.mine).0),
-                        )),
-                        Role::Image,
-                        mine_said,
-                    ),
-                )
-                .child(
                     div()
                         .flex_1()
                         .min_w_0()
@@ -397,16 +361,13 @@ impl ReviewsScreen {
                                 .when(open, |title| title.font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
                                 .child(SharedString::from(row.title.clone())),
                         )
-                        .child(
-                            // The meta line gives way first, so the chip always shows whole at its end.
-                            div()
-                                .flex()
-                                .items_center()
-                                .gap(look.length(token::SPACE_2))
-                                .child(small(look).flex_1().min_w_0().font_family(mono(look)).text_color(look.color(token::FG_MUTED)).truncate().child(SharedString::from(meta)))
-                                .children(chip),
-                        ),
-                ),
+                        .child(labelled(
+                            small(look).id(SharedString::from(format!("meta-{number}"))).text_color(look.color(token::FG_MUTED)).truncate().child(SharedString::from(meta.clone())),
+                            Role::Label,
+                            meta,
+                        )),
+                )
+                .child(div().flex_none().w(look.length(token::SPACE_4)).pt(look.length(token::SPACE_1)).children(checks)),
             Role::Row,
             row.name(),
         )
