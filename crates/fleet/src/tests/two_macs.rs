@@ -20,6 +20,7 @@ use tower::ServiceExt;
 
 mod acting;
 mod messages;
+mod pairing_calls;
 
 use super::session_host::{rig_fitted, Rig};
 use super::share::{job_in, project, shared};

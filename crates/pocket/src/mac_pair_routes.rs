@@ -13,7 +13,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
-use ipc::{ClaimMacLink, MacNamed, MacPairLink};
+use ipc::{ClaimMacLink, MacClaimWaiting, MacClaimsWaiting, MacNamed, MacPairLink};
 
 use crate::mac_client::{encoded, hello_now, post_unsigned, signed_whole};
 use crate::mac_keys::{fresh_key, from_kept, kept_form, spki_hex};
@@ -167,7 +167,10 @@ pub async fn claimed_here(State(gateway): State<Gateway>, Json(body): Json<MacCl
     }
     let claim = HeldClaim { mac: body.mac, public_key, back_code: body.back_code, at: now, digits: None };
     match gateway.macs.claim(&body.code, claim) {
-        true => (StatusCode::ACCEPTED, json(&me)).into_response(),
+        true => {
+            claims_told(&gateway).await;
+            (StatusCode::ACCEPTED, json(&me)).into_response()
+        }
         false => said_why(
             StatusCode::FORBIDDEN,
             format!("This link is not good any more. Start pairing again on {}.", me.name),
@@ -242,6 +245,7 @@ pub async fn confirm(State(gateway): State<Gateway>, Json(body): Json<MacNamed>)
     gateway.macs.held.put(&row.id, key);
     gateway.macs.drop_claim(&row.id);
     gateway.macs.changed.notify_one();
+    claims_told(&gateway).await;
     json(&listed(row))
 }
 
@@ -302,6 +306,7 @@ pub async fn forget(State(gateway): State<Gateway>, Json(body): Json<MacNamed>) 
         if let Some(claim) = claim.filter(|claim| claim.digits.is_some()) {
             tokio::spawn(tell_declined(gateway.clone(), claim));
         }
+        claims_told(&gateway).await;
         return StatusCode::NO_CONTENT.into_response();
     }
     let found = gateway.pairing.store.lock().unwrap().paired_mac(&body.mac);
@@ -317,6 +322,22 @@ pub async fn forget(State(gateway): State<Gateway>, Json(body): Json<MacNamed>) 
     match forget_here(&gateway, &row.id).await {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(why) => fault(why),
+    }
+}
+
+/// Hand Fleet every claim waiting here, whole, so each calls him in Needs you: `hold_mac_claims`. Sent after each
+/// change, one at a time. A Fleet that is down holds none worth keeping, and hears the next.
+pub(crate) async fn claims_told(gateway: &Gateway) {
+    let _one = gateway.macs.telling.lock().await;
+    let Ok(port) = (gateway.fleet)() else { return };
+    let claims = gateway
+        .macs
+        .claims(gateway.pairing.now())
+        .into_iter()
+        .map(|claim| MacClaimWaiting { mac: claim.mac.id.clone(), name: claim.mac.name.clone(), at: claim.at, why: claimed(claim).why.unwrap_or_default() })
+        .collect();
+    if let Ok(sent) = encoded(&MacClaimsWaiting { claims }) {
+        let _ = fleet_client::send(port, "PUT", "/other_macs/claims", Some(&sent)).await;
     }
 }
 

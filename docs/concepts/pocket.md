@@ -303,6 +303,7 @@ An ask nobody confirms is gone from both sides after five minutes, as a link is.
 **A private key never leaves the Mac that made it.** Each side makes its own and hands over only the public half, so the one link and one Confirm give a key each way.
 A link is `https`, or `http` only to a loopback host, so two Gateways in a test can pair.
 A claim stays until it is confirmed or forgotten, or the Gateway restarts.
+While it waits it calls him: the Gateway hands Fleet every claim waiting with `hold_mac_claims` each time they change, and Fleet stands one `mac_pairing` call for each ([What calls the person](../practices/protocol/a-jobs-calls.md)).
 
 **Signing.** A Mac signs exactly as the phone does, with `x-pocket-device` its own minted id.
 The signed layer finds the device among the phones, then among the linked Macs.
