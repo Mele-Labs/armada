@@ -249,6 +249,13 @@ Lifecycles, rules and autonomy defaults get drafts the same way, kept in Kit.
 **`save_workflow` is unchanged and still writes at once**, as does Approve on a drafted change, since the Classic Bridge uses both.
 `docs/practices/protocol/protocol-23-95-a-workflow-edited-as-a-draft-and-published.md` owns the operations.
 
+**Each publish is a version, which the owner can go back to.** Fleet keeps the whole text of every publish in a place, numbered from 1, and the first publish into a place keeps the text that was there as version 1 (`found`) where there was one.
+Going back puts that version's text in the draft as a change of his and publishes nothing, so he reads it and presses Publish, which is a version of its own.
+`save_workflow` and Classic's Approve write no version.
+**A copy of one of Armada's remembers the text it began from**, so when Armada ships a new version of a workflow he copied he sees what changed and chooses what to take into his draft: Fleet marks the copy where Armada's carried text no longer matches what it began from, and serves both texts; the native editor does the diff and the choosing.
+A copy made before Fleet kept it has no such text, and none is guessed for it; deleting a copy drops its versions and what it began from, and resetting it begins them again from Armada's text.
+`docs/practices/protocol/protocol-23-96-a-workflow-with-versions-and-a-base.md` owns the operations.
+
 ### The plan step
 
 **A workflow may name at most one step as its recording step**, the one

@@ -21,7 +21,7 @@ pub enum VersionOrigin {
 }
 
 /// One version of a workflow in one place.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkflowVersion {
     /// From 1, in the order they were written.
     pub version: u32,
