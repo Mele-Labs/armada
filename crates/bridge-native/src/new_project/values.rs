@@ -119,8 +119,8 @@ pub fn delivery_said(word: &str) -> Option<&'static str> {
 pub fn inherited(values: &ResolvedValues) -> HashMap<Key, String> {
     let word = |value: &ipc::ResolvedValue| value.value.clone().unwrap_or_default();
     let mut all = HashMap::new();
-    // Fleet keeps no `delivery` value yet: every project asks.
-    all.insert(Key::Delivery, ASK.to_string());
+    // A layer that sets no `delivery` leaves the value empty: the project asks.
+    all.insert(Key::Delivery, values.delivery.as_ref().and_then(|one| one.value.clone()).filter(|word| !word.is_empty()).unwrap_or_else(|| ASK.to_string()));
     all.insert(Key::PrMode, word(&values.pr_mode));
     all.insert(Key::AutoMerge, word(&values.auto_merge));
     all.insert(Key::ReviewModel, word(&values.review_model));
@@ -146,6 +146,7 @@ pub fn values_of(picked: &HashMap<Key, String>, inherited: &HashMap<Key, String>
         auto_merge: changed(Key::AutoMerge),
         review_model: changed(Key::ReviewModel),
         agent_starts: changed(Key::AgentStarts),
+        delivery: changed(Key::Delivery),
         tracker: changed(Key::Tracker).filter(|word| !word.is_empty()).map(|word| [("provider".to_string(), word)].into_iter().collect()),
         ..ValuesSet::default()
     };
@@ -200,6 +201,21 @@ mod tests {
         let options = Key::Delivery.options(&[]);
         assert_eq!(options.iter().map(|(_, label)| label.as_str()).collect::<Vec<_>>(), ["Ask", "Auto land", "Open PR only", "Keep local"]);
         assert_eq!(delivery_said("auto_land"), Some("Auto land"));
-        assert_eq!(every_project().get(&Key::Delivery).map(String::as_str), Some(ASK));
+        assert_eq!(every_project().get(&Key::Delivery).map(String::as_str), Some(ASK), "no layer sets it: the project asks");
+    }
+
+    #[test]
+    fn delivery_is_read_from_the_layer_that_sets_it_and_sent_where_it_changes() {
+        let values: ResolvedValues = ipc::decode(
+            "ResolvedValues",
+            br#"{"pr_mode":{"value":"ready","from":"default"},"auto_merge":{"value":"checks-pass","from":"kit"},"review_model":{"value":"opus","from":"kit"},"layout":{"from":"default"},"theme":{"from":"default"},"density":{"value":"default","from":"default"},"delivery":{"value":"open_pr","from":"kit"}}"#,
+        )
+        .expect("decodes");
+        let inherited = inherited(&values);
+        assert_eq!(inherited.get(&Key::Delivery).map(String::as_str), Some("open_pr"));
+        let pick = |word: &str| -> HashMap<Key, String> { [(Key::Delivery, word.to_string())].into_iter().collect() };
+        assert_eq!(values_of(&pick("open_pr"), &inherited), None, "what every project uses is not sent");
+        assert_eq!(values_of(&pick("keep_local"), &inherited).and_then(|set| set.delivery).as_deref(), Some("keep_local"));
+        assert_eq!(values_of(&pick(ASK), &inherited).and_then(|set| set.delivery).as_deref(), Some(ASK), "Ask is a word Fleet keeps: it turns learning off");
     }
 }
