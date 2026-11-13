@@ -589,9 +589,9 @@ where
         if self.store().lock().await.operator_turn_present().unwrap_or_default().iter().any(|row| row.item == id) {
             return;
         }
-        let mut options = vec![WaitingOption { label: "Start a fix".to_string(), description: None }];
+        let mut options = vec![WaitingOption { label: "Start a fix".to_string(), description: None, picture: None }];
         if let Some((_, title)) = self.red_near(&served, main).await {
-            options.push(WaitingOption { label: format!("{HAND_TO}{title}"), description: None });
+            options.push(WaitingOption { label: format!("{HAND_TO}{title}"), description: None, picture: None });
         }
         let item = WaitingItem {
             approves: false,

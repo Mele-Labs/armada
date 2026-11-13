@@ -83,6 +83,13 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn answer_waiting_parts(
+        self: Arc<Self>,
+        _said: ipc::AnswerWaitingParts,
+    ) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn free_slot(self: Arc<Self>, _free: ipc::FreeSlot) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }
@@ -283,6 +290,10 @@ impl HostedSessions for FakeDaemon {
     }
 
     async fn pause_session(&self, _asked: ipc::PauseSession) -> Result<SessionRecord, Refusal> {
+        Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
+    }
+
+    async fn snooze_session(&self, _asked: ipc::SnoozeSession) -> Result<SessionRecord, Refusal> {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }
 

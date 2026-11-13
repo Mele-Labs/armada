@@ -81,6 +81,8 @@ mod build_notices;
 mod building;
 /// Every build Fleet has run, kept for the Usage page.
 mod builds_run;
+/// The branches Jobs offer for the owner's preview: checked, told, watched and served.
+mod previewing;
 /// The hours, builds and Jobs the Usage page reads time from.
 mod time_reading;
 /// What a repository runs in its checkout when the base moves there.
@@ -198,6 +200,7 @@ pub mod noticing;
 /// Drone groups whose Fleet is gone, found by the mark Fleet put on them.
 pub mod orphans;
 mod session_limit;
+mod session_snooze;
 /// What a Session's proposer is asked and how its answer reads, with the words the Job proposer shares.
 mod session_proposer;
 /// What the account writer is asked of a Session at work and how its answer reads.

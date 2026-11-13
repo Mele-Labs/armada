@@ -49,7 +49,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    AllDone, AnswerSessionAsk, AnswerWaiting, ConfirmWaiting, DismissWaiting, DoneWaiting, ReopenWaiting, CallAnswer, CallInFlight, Instant,
+    AllDone, AnswerSessionAsk, AnswerWaiting, AnswerWaitingParts, ConfirmWaiting, DismissWaiting, DoneWaiting, ReopenWaiting, CallAnswer, CallInFlight, Instant,
     QuestionAnswer, SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
     DraftHow, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError,
 };
@@ -88,6 +88,22 @@ pub(crate) enum Answerer {
     Him,
     /// The Operator or Autopilot, answering in his place.
     InHisPlace,
+}
+
+/// The pictures a list of options is offered as, the way the store keeps them: the JSON of an array as long as
+/// the options, each entry null or one picture. Empty where no option has one.
+fn pictures_kept(options: &[WaitingOption]) -> String {
+    match options.iter().any(|one| one.picture.is_some()) {
+        true => ipc::encode(&options.iter().map(|one| &one.picture).collect::<Vec<_>>()).unwrap_or_default(),
+        false => String::new(),
+    }
+}
+
+/// The options as served: the labels the store kept, each with the picture kept for it.
+fn options_served(labels: Vec<String>, pictures: &str) -> Vec<WaitingOption> {
+    let mut pictures: Vec<Option<ipc::OptionPicture>> = ipc::decode("an item's pictures", pictures.as_bytes()).unwrap_or_default();
+    pictures.resize(labels.len(), None);
+    labels.into_iter().zip(pictures).map(|(label, picture)| WaitingOption { label, description: None, picture }).collect()
 }
 
 pub(crate) const TAKEN_OFF: &str = "This settles the item, so Fleet took it off your waiting list. Do not add it back.";
@@ -129,8 +145,6 @@ pub(crate) struct WaitingReads {
     calls: Vec<store::KeptCall>,
     /// What the Operator would do on this Session, waiting on one press.
     suggestions: Vec<store::KeptSuggestion>,
-    /// The refreshes of the preview Fleet offered it.
-    preview_offers: Vec<store::KeptPreviewOffer>,
     /// The Job waits on its start card.
     start_held: bool,
     /// The Job is paused, and raises nothing until it is resumed.
@@ -203,7 +217,6 @@ pub(crate) fn waiting_reads(
         word_asks: store.word_asks_of(&session.id)?,
         calls: store.calls_of(&session.id)?,
         suggestions: store.operator_suggestions_of(&session.id)?,
-        preview_offers: store.preview_offers_of(&session.id)?,
         start_held: store.hosting(&session.id)?.is_some_and(|one| one.start_held),
         paused: store.hosting(&session.id)?.is_some_and(|one| one.paused_at.is_some()),
         checks_running: !store.running_session_checks(&session.id)?.is_empty(),
@@ -326,6 +339,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
                     .map(|one| WaitingOption {
                         label: one.label.clone(),
                         description: None,
+                        picture: None,
                     })
                     .collect()
             } else {
@@ -355,6 +369,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
             .map(|one| WaitingOption {
                 label: offer_label(one).to_string(),
                 description: None,
+                picture: None,
             })
             .collect(),
         steps: Vec::new(),
@@ -422,14 +437,7 @@ pub(crate) fn merged(
             act: one.act.and_then(|(kind, target)| {
                 act_kind_of(&kind).map(|kind| WaitingAct { kind, target })
             }),
-            options: one
-                .options
-                .into_iter()
-                .map(|label| WaitingOption {
-                    label,
-                    description: None,
-                })
-                .collect(),
+            options: options_served(one.options, &one.pictures),
             steps: one.steps,
             place: None,
             confirmed: false,
@@ -486,7 +494,7 @@ where
                     since: Instant::carried(&one.since),
                     source,
                     act: one.act.and_then(|(kind, target)| act_kind_of(&kind).map(|kind| WaitingAct { kind, target })),
-                    options: one.options.into_iter().map(|label| WaitingOption { label, description: None }).collect(),
+                    options: options_served(one.options, &one.pictures),
                     steps: one.steps,
                     place: None,
                     confirmed: false,
@@ -507,7 +515,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, suggestions, preview_offers, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, suggestions, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -706,8 +714,6 @@ where
             items.extend(super::sketching::sketch_items(attachments, &session.id).filter(|one| !dismissed.contains(&one.id)));
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
-            // A left-out branch it holds moved: Refresh preview or Skip, never the agent's to settle.
-            items.extend(super::preview_offers::offer_items(&preview_offers, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
             items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
             // An act a lifecycle rule planned that is his to say first, while the Job is live.
@@ -749,9 +755,9 @@ where
                 SessionRow::Draft { id, at, title, settled: None, change, .. } => {
                     let id = format!("{DRAFT_PREFIX}{id}");
                     let open = change.map_or(true, |one| ready_changes.contains(&one));
-                    let mut options = vec![WaitingOption { label: String::from("Approve"), description: None }];
+                    let mut options = vec![WaitingOption { label: String::from("Approve"), description: None, picture: None }];
                     if change.is_some() {
-                        options.push(WaitingOption { label: String::from("Dismiss"), description: None });
+                        options.push(WaitingOption { label: String::from("Dismiss"), description: None, picture: None });
                     }
                     (open && !dismissed.contains(&id)).then(|| WaitingItem {
                         approves: false,
@@ -881,6 +887,7 @@ where
                         act: one
                             .act
                             .map(|act| (act_kind_text(act.kind).to_string(), act.target)),
+                        pictures: if one.approves { String::new() } else { pictures_kept(&one.options) },
                         options: match one.approves {
                             true => vec![APPROVE.to_string(), ASK_FOR_CHANGES.to_string()],
                             false => one.options.into_iter().map(|o| o.label).collect(),
@@ -1038,6 +1045,29 @@ where
         said: AnswerWaiting,
         by: Answerer,
     ) -> Result<SessionRecord, Refusal> {
+        // Boxed: the settling's future is near a megabyte in a debug build, and inline it overflows a test thread's stack.
+        Box::pin(self.settle_answer_picking(said, by, &[])).await
+    }
+
+    /// `answer_waiting_parts`: the answer is parts picked across the item's pictures, and nothing else. The
+    /// same settling as any answer, so the item goes the way a pick of a whole option sends it.
+    pub(crate) async fn settle_parts(self: Arc<Self>, said: AnswerWaitingParts) -> Result<SessionRecord, Refusal> {
+        if said.parts_picked.is_empty() {
+            return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "an answer by parts needs at least one part"));
+        }
+        self.visit_kept(said.session_id.as_str()).await;
+        let whole = AnswerWaiting { session_id: said.session_id, item_id: said.item_id, choice: None, text: None, mode: None, fixed: None };
+        Box::pin(self.settle_answer_picking(whole, Answerer::Him, &said.parts_picked)).await
+    }
+
+    /// The one settling of an answer: `parts` is what he picked across the pictures, empty for every answer but
+    /// `answer_waiting_parts`.
+    async fn settle_answer_picking(
+        self: Arc<Self>,
+        said: AnswerWaiting,
+        by: Answerer,
+        parts: &[ipc::PartPicked],
+    ) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
         let terminal = self.terminal_session(&id).await?.is_some();
         if terminal {
@@ -1071,6 +1101,7 @@ where
         }
         let fixed = said.fixed.as_deref().map(str::trim).filter(|t| !t.is_empty());
         let nothing = said.choice.is_none()
+            && parts.is_empty()
             && said.mode.is_none()
             && fixed.is_none()
             && said.text.as_deref().map_or(true, |t| t.trim().is_empty());
@@ -1096,12 +1127,18 @@ where
             ),
             None => None,
         };
+        let mix = parts_line(&item, parts).map_err(|why| self.hosted_refusal(SESSION_WAITING_EMPTY, why))?;
         let line = said.mode.map(mode_line);
-        // A pick with words says both: the words go with the pick, never in place of it.
+        // A pick with words says both: the words go with the pick, never in place of it. Parts picked come after.
         let both = match (picked.as_deref(), words) {
             (Some(pick), Some(words)) => Some(format!("{pick}\n{words}")),
             (Some(one), None) | (None, Some(one)) => Some(one.to_string()),
             (None, None) => None,
+        };
+        let both = match (both, mix.as_deref()) {
+            (Some(said), Some(mix)) => Some(format!("{said}\n{mix}")),
+            (None, Some(mix)) => Some(mix.to_string()),
+            (both, None) => both,
         };
         let message = |body: String| SendSessionMessage {
             session_id: said.session_id.clone(),
@@ -1117,7 +1154,7 @@ where
             (WaitingSource::Draft, Some(_), ..) => "Approved with fixes".to_string(),
             (WaitingSource::Draft, None, Some(_), _) => "Approved".to_string(),
             (WaitingSource::Draft, None, None, Some(note)) => format!("Sent back: {note}"),
-            _ => match (picked.as_deref().or(words), said.mode) {
+            _ => match (picked.as_deref().or(words).or(mix.as_deref().map(|_| "a mix of parts")), said.mode) {
             (Some(chosen), _) => format!("Answered: {chosen}"),
             (None, Some(ipc::WaitingMode::Best)) => "Answered: think it through".to_string(),
             (None, Some(ipc::WaitingMode::Quick)) => "Answered: get it done".to_string(),
@@ -1428,6 +1465,7 @@ where
             source: source_name(item.source),
             act: item.act.as_ref().map(|act| (act_kind_text(act.kind).to_string(), act.target.clone())),
             options: item.options.iter().map(|option| option.label.clone()).collect(),
+            pictures: pictures_kept(&item.options),
             steps: item.steps.clone(),
             since: item.since.as_str().to_string(),
             closed_at: self.clock().now().as_str().to_string(),
@@ -1514,6 +1552,7 @@ where
                 since: kept.since,
                 act: kept.act,
                 options: kept.options,
+                pictures: kept.pictures,
                 steps: kept.steps,
             })
         };
@@ -1734,6 +1773,21 @@ fn dismissed_by_owner(item: &str) -> String {
 }
 
 /// The message an answer to an agent item is: the item, the answer, and the mode line.
+/// What the agent is told of the parts he picked: one line to ask for a mix, then each part as its option's label
+/// and the part's name. A pick of an option the item lacks, or of a part its picture lacks, is refused.
+fn parts_line(item: &WaitingItem, picked: &[ipc::PartPicked]) -> Result<Option<String>, &'static str> {
+    let mut lines = Vec::new();
+    for one in picked {
+        let option = item.options.get(one.option as usize).ok_or("that item has no such choice")?;
+        let known = option.picture.as_ref().is_some_and(|picture| picture.parts.iter().any(|part| part.name == one.part));
+        if !known {
+            return Err("that choice has no picture with such a part");
+        }
+        lines.push(format!("{}: {}", option.label, one.part));
+    }
+    Ok((!lines.is_empty()).then(|| format!("Build a mix of these parts, each an option and a part of its picture:\n{}", lines.join("\n"))))
+}
+
 fn reply(item: &str, answer: Option<&str>, line: Option<&str>) -> String {
     let mut text = format!("Re: {item}");
     if let Some(answer) = answer {

@@ -409,6 +409,7 @@ where
             requests: fittings.requests,
             merge_end: Mutex::new(()),
             building: crate::building::Building::default(),
+            previewing: Default::default(),
             mods: crate::mods::Told::default(),
             language_model: Default::default(),
             reply_reads: Arc::default(),

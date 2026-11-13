@@ -121,6 +121,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   thread: [],
   // A terminal's keys, in the native Bridge only: found from Settings → Keyboard and the tooltip on New shell.
   terminal: [],
+  // The Dispatch panel's keys, in the native Bridge only: found from Settings → Keyboard and the panel's own buttons.
+  dispatch: [],
 };
 
 /**

@@ -34,6 +34,8 @@ mod amending;
 /// The build Fleet runs on, where it stands against `main`, and the request that
 /// moves it. **Fleet-wide, and not a Job's field.**
 mod building;
+/// The branches Jobs offer for the owner's preview, and the Refresh row built from them.
+mod preview;
 /// A scout's run, as its Finding records it, and the acts that start and stop one.
 /// `#1292`.
 mod capturing;
@@ -356,6 +358,10 @@ pub use building::{
     FleetBuildReport, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, KeptBuildPrevious,
     KeptBuildRunning, KeptSnapshot, LeftOutBranch, PickFleetBuildJob, PickedJob, SnapshotState,
 };
+pub use preview::{
+    OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
+    PreviewWithdrawn, SkipPreviewRefresh, WithdrawPreview,
+};
 pub use capturing::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureStudioNote,
     CaptureWindow, StagedFrame, StudioCapture,
@@ -435,7 +441,7 @@ pub use hosted_sessions::{
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SentSketch, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionSubagentChanged, SessionTag,
     SetSessionWorkflow, SkipSessionStep, JumpSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolMessage, MessagePeer, ToolSubagent, ToolSubagentState,
-    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
+    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SnoozeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession, MessageReach, MessageTo,
 };
 pub use session_mcp::{
@@ -540,7 +546,7 @@ pub use territory::{
     SlotTouches, TouchesInRepository,
 };
 pub use preferences::{
-    Preferences, SavePreference, DEFAULT_THEME,
+    AnswerWith, LookQuestions, LookResults, Preferences, ReadResults, SavePreference, TakeIn, DEFAULT_THEME,
 };
 pub use settings::{
     SaveSettings, Setting, SettingApplies, SettingKind, SettingValue, SettingsList,
@@ -720,7 +726,7 @@ pub use sessions::{
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
-    WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
+    WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource, OptionPicture, PartPicked, PicturePart, AnswerWaitingParts,
     WalkTold, OpenNativeWalk, NativeWalkOpened, WindowClosed, WindowFailed, WithdrawDocument, WithdrawDraft, WithdrawSketch, WithdrawWindow,
 };
 pub use needs_you::{

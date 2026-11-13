@@ -17,7 +17,7 @@ fn steps_item(id: &ipc::SessionId) -> SetWaitingFor {
                 id: "a".into(),
                 text: "Run the tests".into(),
                 act: Some(WaitingAct { kind: WaitingActKind::Run, target: "cargo test".into() }),
-                options: vec![WaitingOption { label: "Yes".into(), description: None }],
+                options: vec![WaitingOption { label: "Yes".into(), description: None, picture: None }],
                 steps: vec!["first".into(), "second".into()],
             },
             WaitingInput {
