@@ -299,6 +299,7 @@ mod issue_queries;
 mod projects;
 mod project_wire;
 mod values;
+mod project_workflows_off;
 mod project_tracker;
 mod project_holds;
 mod project_links;

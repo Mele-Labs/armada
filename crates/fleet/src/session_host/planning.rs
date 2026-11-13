@@ -302,7 +302,7 @@ where
     /// The rail's steps for `id`, where it follows a workflow that is on.
     async fn plan_steps(&self, id: &str) -> Option<Vec<rail::RailStep>> {
         let (_, hosting) = self.session_and_hosting(id).await.ok()?;
-        let workflow = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow))?;
+        let workflow = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, hosting.project.as_deref(), workflow))?;
         self.job_rail_steps(id, &hosting.manifest_id, workflow).await
     }
 
