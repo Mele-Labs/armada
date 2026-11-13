@@ -115,6 +115,8 @@ pub struct SettingsOverlay {
     /// Settings → Models.
     pub models: super::models::ModelsPage,
     pub macs: super::macs::MacsPage,
+    /// Settings › Layout and Settings › Time: the preferences they write.
+    pub prefs: super::prefs::Prefs,
     /// Settings → Workflows.
     pub workflows: super::workflows::WorkflowsPage,
     /// Where each slider's track was drawn last frame, by key, so a press reads as a figure.
@@ -198,6 +200,7 @@ impl SettingsOverlay {
             mods: super::mods::ModRows::default(),
             models: super::models::ModelsPage::new(window, cx),
             macs: super::macs::MacsPage::new(),
+            prefs: super::prefs::Prefs::new(),
             workflows: super::workflows::WorkflowsPage::new(window, cx),
             tracks: Rc::default(),
             keys: None,
@@ -239,6 +242,7 @@ impl SettingsOverlay {
         self.mods.refused.clear();
         self.models.reopen();
         self.macs.reopen();
+        self.prefs.reopen();
         self.mod_keys(cx);
         window.focus(&self.side, cx);
         let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
@@ -667,6 +671,12 @@ impl SettingsOverlay {
         }
         if let Body::Macs = shown.body {
             return self.macs_stops();
+        }
+        if let Body::Layout = shown.body {
+            return self.layout_stops(cx);
+        }
+        if let Body::Time = shown.body {
+            return self.time_stops(cx);
         }
         if let Body::Theme = shown.body {
             let mut stops = vec![self.theme.focus.clone()];

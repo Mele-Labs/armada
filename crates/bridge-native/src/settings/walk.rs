@@ -11,6 +11,40 @@ const fn press_on(say: &'static str, role: &'static str, name: &'static str, the
     step(say, Verb::PressOn(role, name), then_role, then)
 }
 
+/// `native-settings-no-funnel`: Macs on a Mac Tailscale Funnel does not serve, so phones and the other Macs both
+/// wait on the tunnel.
+pub const NO_FUNNEL: &str = "native-settings-no-funnel";
+
+pub static NO_FUNNEL_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: this Mac, its tunnel, then every Mac and phone that reaches it", "button", "Macs", "region", "Tunnel"),
+    step("With no Funnel, phones and the other Macs both wait on the tunnel, and its press is Set up tunnel", Verb::Look, "button", "Set up tunnel"),
+    press_on("A press downloads cloudflared and waits on the sign-in, and the one press opens Cloudflare's page", "button", "Set up tunnel", "button", "Open Cloudflare sign-in"),
+    step("Once he has signed in there, phones and the other Macs reach this Mac at the tunnel's address", Verb::Later(5500), "button", "Copy address"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+    step("Opened again later, a tunnel that dropped says since when and why, and Set up tunnel signs in again", Verb::Key("cmd-,"), "button", "Set up tunnel"),
+    step("Esc closes Settings, and the keys go back", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-layout-time`: what Layout and Time set, read on the app behind Settings.
+pub const LAYOUT_TIME: &str = "native-layout-time";
+
+pub static LAYOUT_TIME_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Layout lists each panel and place with its switch", "button", "Layout", "region", "Layout"),
+    press_on("Off hides a Job's Done panel", "switch", "Done", "switch", "Done"),
+    press_on("Off hides the merge queue", "switch", "Merge queue", "switch", "Merge queue"),
+    press_on("Time: how every stamp is written", "button", "Time", "region", "Time"),
+    press_on("24-hour clock off writes the 12-hour clock", "switch", "24-hour clock", "switch", "24-hour clock"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+    step("The merge queue is gone from the foot of the window", Verb::Absent("region", "Merge queue"), "button", "Menu"),
+    step("A press opens a Job", Verb::Press, "row", "Fix the merge line freshness chip"),
+    step("Its column has no Done tab", Verb::Absent("tab", "Job column: Done"), "tab", "Job column: Open"),
+    step("A press on its band folds Needs you", Verb::Press, "button", "Needs you"),
+    step("A press in the thread gives it the keys", Verb::Press, "region", "Thread"),
+    step("Up the thread, each stamp is on the 12-hour clock", Verb::Keys(&["pageup", "pageup", "pageup"]), "region", "Thread"),
+];
+
 pub static STEPS: &[Step] = &[
     step("⌘, opens Settings over the app, at nine tenths of the window, on Limits", Verb::Key("cmd-,"), "dialog", "Settings"),
     step("Search sits at the top left, over the groups", Verb::Look, "searchbox", "Search Settings"),
@@ -140,13 +174,31 @@ pub static STEPS: &[Step] = &[
     press_on("Tracker lists the tracker mods", "button", "Tracker", "region", "Tracker"),
     press_on("Fleet lists the Fleet mods", "button", "Fleet", "region", "Fleet"),
     press_on("The panel's close puts it away", "button", "Close", "button", "Open quiet-ci"),
+    press_on("Layout: each Cockpit panel, Job panel and place a layout arranges, each with its switch", "button", "Layout", "region", "Layout"),
+    step("A place a layout mod hid carries the puzzle", Verb::Wheel("region", "Layout", 300), "img", "Hidden by hide-guides"),
+    step("Under the pointer it names the mod", Verb::Hover, "img", "Hidden by hide-guides"),
+    step("Its tooltip is the mod's name", Verb::Later(800), "img", "Hidden by hide-guides"),
+    press_on("A switch shows it again: his own choice outranks every layout mod", "switch", "Guides", "switch", "Guides"),
+    step("The mod's puzzle is gone", Verb::Absent("img", "Hidden by hide-guides"), "switch", "Guides"),
+    press_on("Off hides a panel", "switch", "Activity", "switch", "Activity"),
+    step("Under the switches, the layout mods", Verb::Wheel("region", "Layout", 1400), "group", "Layout mods"),
+    press_on("A layout mod's chevron opens its details", "button", "Details of hide-guides", "group", "Details of hide-guides"),
+    step("They say what it hides, and where", Verb::Wheel("region", "Layout", 600), "group", "Details of hide-guides"),
+    press_on("Reset to defaults takes his choices back and switches the layout mods off", "button", "Reset to defaults", "switch", "Activity"),
+    press_on("Words: the mods that turn words such as a Jira key into links", "button", "Words", "region", "Words"),
+    press_on("A Words mod opens to its pattern, and where a match goes in each repository and where that was found", "button", "Details of jira-keys", "group", "Details of jira-keys"),
+    press_on("Time: how every stamp Bridge draws is written", "button", "Time", "region", "Time"),
+    step("The sample under the switches is now, as they write it", Verb::Look, "switch", "24-hour clock"),
+    press_on("24-hour clock off writes the 12-hour clock", "switch", "24-hour clock", "switch", "24-hour clock"),
+    press_on("Date adds the day", "switch", "Date", "switch", "Date"),
     press_on("Macs: this Mac, its tunnel, then every Mac and phone that reaches it", "button", "Macs", "region", "Tunnel"),
-    step("With no tunnel, the one press is Set up tunnel", Verb::Look, "button", "Set up tunnel"),
+    step("Tailscale Funnel already reaches phones, and Copy address copies where", Verb::Look, "button", "Copy address"),
+    step("The other Macs need the tunnel, and its press is Set up tunnel", Verb::Look, "button", "Set up tunnel"),
     press_on("A press Cloudflare refuses says why under it; cloudflared is downloaded by then", "button", "Set up tunnel", "alert", "Cloudflare did not answer the sign-in request."),
     press_on("Pressed again, it waits on the sign-in, and the one press opens Cloudflare's page", "button", "Set up tunnel", "button", "Open Cloudflare sign-in"),
     step("A sign-in that found no domain says so, with Set up tunnel beside it", Verb::Later(5500), "button", "Set up tunnel"),
     press_on("Set up again waits on the sign-in", "button", "Set up tunnel", "button", "Open Cloudflare sign-in"),
-    step("Once he has signed in there, the page finds the tunnel running and says where it is reached", Verb::Later(5500), "button", "Copy address"),
+    step("Once he has signed in there, the tunnel runs and new phones pair at its address", Verb::Later(5500), "button", "Copy address"),
     step("Devices: each Mac with its colour and build, and how its link stands", Verb::Look, "img", "Linked"),
     step("A build's short hash says what it is under the pointer", Verb::Hover, "label", "Build 1d199a1"),
     step("Its tooltip says so", Verb::Later(800), "label", "Build 1d199a1"),

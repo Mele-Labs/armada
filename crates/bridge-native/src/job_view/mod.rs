@@ -48,7 +48,7 @@ mod records;
 mod refs;
 mod review;
 mod row_tabs;
-mod rows;
+pub(crate) mod rows;
 mod judge_tab;
 mod lanes;
 mod lanes_copy;
@@ -56,7 +56,7 @@ mod ledger;
 mod mods_made;
 mod mod_panel;
 mod report;
-mod sketch_pad;
+pub(crate) mod sketch_pad;
 mod sketch_read;
 mod subagent_read;
 mod zoom;
@@ -432,12 +432,12 @@ impl JobView {
         }
         subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| this.followed(window, cx)));
         let lanes = lanes::Lanes::new(cx);
-        subscriptions.push(cx.on_focus(&lanes.frame, window, |this, _, cx| {
-            this.lanes.keyed.set(true);
+        subscriptions.push(cx.on_focus(&lanes.canvas.frame, window, |this, _, cx| {
+            this.lanes.canvas.keyed.set(true);
             cx.notify();
         }));
-        subscriptions.push(cx.on_blur(&lanes.frame, window, |this, _, cx| {
-            this.lanes.keyed.set(false);
+        subscriptions.push(cx.on_blur(&lanes.canvas.frame, window, |this, _, cx| {
+            this.lanes.canvas.keyed.set(false);
             cx.notify();
         }));
         if let Some(fleet) = &fleet {

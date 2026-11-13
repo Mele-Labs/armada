@@ -340,6 +340,14 @@ impl Wire {
         }
     }
 
+    /// `GET /preferences`: every preference in force.
+    pub fn preferences(&self, cx: &App) -> Task<Result<ipc::Preferences, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(if mock.connected { Ok(mock.preferences.clone()) } else { Err(Refused::said("Fleet is not connected")) });
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/preferences".into()), "Preferences", cx))
+    }
+
     /// `POST /preferences/save` with a preference that is text. Fleet answers with every preference in force.
     pub fn save_preference(&mut self, name: &str, text: String, cx: &App) -> Task<Result<ipc::Preferences, Refused>> {
         if let Wire::Mock(mock) = self {
@@ -355,6 +363,9 @@ impl Wire {
         match self {
             Wire::Live(fleet) => fleet.update(cx, |fleet, cx| fleet.preferences_saved(answer, cx)),
             Wire::Mock(mock) => {
+                super::time::hold(&answer.time_format);
+                super::layout::hold(&answer.layout_choices);
+                cx.refresh_windows();
                 crate::keymap::install(&crate::keymap::Rebinding::read(&answer.key_bindings), cx);
                 crate::look::install(super::theme::look_of(&answer.theme, &mock.sheets, window), cx);
             }

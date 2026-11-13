@@ -347,6 +347,8 @@ impl Held {
                     }
                     self.theme = Some(preferences.theme);
                     self.key_bindings = Some(preferences.key_bindings);
+                    crate::settings::time::hold(&preferences.time_format);
+                    crate::settings::layout::hold(&preferences.layout_choices);
                 }
                 Signal::PreferencesFailed(why) => lines.push(Note::warn("preferences could not be read").field("why", why)),
                 Signal::Mods(list) => {

@@ -2304,7 +2304,8 @@ impl Render for JobsScreen {
                             }),
                     ),
             )
-            .child(crate::merge_strip::strip(&self.list, window, cx))
+            // A layout that hides the merge line's panel hides this queue, its one counterpart (`Deck.tsx`).
+            .when(!crate::settings::layout::hidden("dashboard.panels", "merge-line"), |page| page.child(crate::merge_strip::strip(&self.list, window, cx)))
             .child(self.palette.clone())
     }
 }

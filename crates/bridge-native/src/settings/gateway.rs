@@ -119,7 +119,8 @@ pub fn unpair(id: String, cx: &App) -> Task<Result<(), String>> {
 /// The walk's and the tests' Gateway, passing through every tunnel state: `cloudflared` not downloaded yet; the
 /// first press downloads it and is refused, leaving this Mac signed out; the next asks for the sign-in, whose
 /// domain lookup fails once (no tunnel, and why); the press after that signs in and the tunnel runs; and a read
-/// after that finds it down, as when the page is opened later. Two other Macs and two phones.
+/// after that finds it down, as when the page is opened later. Tailscale Funnel serves phones throughout, as on a
+/// Mac set up before the tunnel; the running tunnel names the address from then on. Two other Macs and two phones.
 pub struct MockGateway {
     pub running: bool,
     pub setup: GatewaySetup,
@@ -137,13 +138,15 @@ pub struct MockGateway {
 
 /// This Mac's address under the domain the sign-in picks (`label_of` the Mac's name).
 const MOCK_ADDRESS: &str = "studio.example.com";
+/// The address Tailscale Funnel serves this Mac at.
+const MOCK_FUNNEL: &str = "https://studio.example.ts.net";
 
 impl MockGateway {
     pub fn new() -> MockGateway {
         let now = chrono::Utc::now().timestamp();
         MockGateway {
             running: true,
-            setup: GatewaySetup { tailscale: TailscaleState::Running, served: Served::None, named: false, address: None, cloudflare: CloudflareState::Missing, cloudflared: None },
+            setup: GatewaySetup { tailscale: TailscaleState::Running, served: Served::Funnel, named: false, address: Some(MOCK_FUNNEL.into()), cloudflare: CloudflareState::Missing, cloudflared: None },
             macs: vec![
                 Mac { id: "mac-studio".into(), name: "Studio".into(), colour: MacColour::Teal, address: None, this_mac: true, build: Some("2930ac0".into()), link: None },
                 Mac { id: "mac-work".into(), name: "Work MacBook".into(), colour: MacColour::Orange, address: Some("work.example.com".into()), this_mac: false, build: Some("2930ac0".into()), link: Some(MacLink::Linked) },
@@ -158,6 +161,17 @@ impl MockGateway {
             presses: 0,
             looked_up: false,
         }
+    }
+
+    /// A Mac Tailscale Funnel does not serve, set up in one go: the first press asks for the sign-in, and the sign-in
+    /// finds the domain.
+    pub fn without_funnel() -> MockGateway {
+        let mut gateway = MockGateway::new();
+        gateway.setup.served = Served::None;
+        gateway.setup.address = None;
+        gateway.presses = 1;
+        gateway.looked_up = true;
+        gateway
     }
 
     fn up(&self) -> Result<(), String> {
@@ -176,7 +190,11 @@ impl MockGateway {
                 self.looked_up = true;
                 Some(CloudflareState::NoTunnel { why: Some("The sign-in picked no domain on your Cloudflare account. Press Set up to sign in again.".into()) })
             }
-            CloudflareState::SigningIn { .. } => Some(CloudflareState::Running { address: self.setup.address.clone().unwrap_or_default() }),
+            CloudflareState::SigningIn { .. } => {
+                self.setup.address = Some(MOCK_ADDRESS.into());
+                self.setup.named = true;
+                Some(CloudflareState::Running { address: MOCK_ADDRESS.into() })
+            }
             CloudflareState::Running { address } if self.seen_running => Some(CloudflareState::Down { address: address.clone(), since, why: "Cloudflare closed the connection: the tunnel's credentials were refused.".into() }),
             CloudflareState::Running { .. } => {
                 self.seen_running = true;
@@ -205,7 +223,7 @@ impl MockGateway {
             return Err("Cloudflare did not answer the sign-in request.".into());
         }
         let login = "https://dash.cloudflare.com/argotunnel?aud=&callback=https%3A%2F%2Flogin.cloudflareaccess.org%2Fmock".to_string();
-        self.setup.address = Some(MOCK_ADDRESS.into());
+        self.setup.cloudflared.get_or_insert_with(|| "2025.11.0".into());
         self.setup.cloudflare = CloudflareState::SigningIn { login: login.clone() };
         self.signing = 1;
         Ok(Tunnel::SignIn(login))
@@ -247,6 +265,19 @@ mod tests {
         assert!(matches!(gateway.start(), Ok(Tunnel::SignIn(_))));
         assert_eq!(state(&mut gateway), "signing_in");
         assert_eq!(state(&mut gateway), "running");
+        assert_eq!(gateway.setup.address.as_deref(), Some(MOCK_ADDRESS), "the running tunnel names the address");
+        assert_eq!(state(&mut gateway), "down");
+    }
+
+    #[test]
+    fn a_mac_without_funnel_runs_the_tunnel_after_one_press() {
+        let mut gateway = MockGateway::without_funnel();
+        assert_eq!(state(&mut gateway), "missing");
+        assert!(matches!(gateway.start(), Ok(Tunnel::SignIn(_))));
+        assert_eq!(gateway.setup.cloudflared.as_deref(), Some("2025.11.0"), "the press downloads cloudflared");
+        assert_eq!(state(&mut gateway), "signing_in");
+        assert_eq!(state(&mut gateway), "running");
+        assert_eq!(gateway.setup.served, Served::None);
         assert_eq!(state(&mut gateway), "down");
     }
 

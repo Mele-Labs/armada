@@ -917,6 +917,7 @@ impl Render for DispatchScreen {
             .child(self.under.clone())
             .child(canvas(move |bounds, _, _| area.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .children(sheet)
-            .children(self.layer.clone())
+            // Over every overlay the screen draws, Settings among them, so a note can be made on it.
+            .children(self.layer.clone().map(|layer| gpui::deferred(layer).with_priority(annotate::OVER)))
     }
 }

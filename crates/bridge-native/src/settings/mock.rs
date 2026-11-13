@@ -167,6 +167,19 @@ impl MockFleet {
                 self.preferences.key_bindings = text;
             }
             "theme" => self.preferences.theme = text,
+            // Empty takes his choice back; text Fleet would not read is refused whole.
+            "layout_choices" => {
+                if let Some(problem) = (!text.is_empty()).then(|| ipc::layout::problems(&text)).unwrap_or_default().into_iter().next() {
+                    return Err(Refused::said(format!("layout_choices: {problem}")));
+                }
+                self.preferences.layout_choices = text;
+            }
+            "time_format" => {
+                if let Some(problem) = (!text.is_empty()).then(|| ipc::time_format::problems(&text)).unwrap_or_default().into_iter().next() {
+                    return Err(Refused::said(format!("time_format: {problem}")));
+                }
+                self.preferences.time_format = text;
+            }
             other => return Err(Refused::said(format!("there is no preference {other}"))),
         }
         Ok(self.preferences.clone())
@@ -199,7 +212,12 @@ impl MockFleet {
     /// What Fleet's check of a mod read: quiet-ci's one rule, batching CI failures except where one blocks a merge.
     pub fn validate_mod(&self, name: &str) -> Result<ipc::ModChecked, Refused> {
         let row = self.mods.iter().find(|row| row.name == name).ok_or_else(|| Refused::said(format!("There is no mod named {name}.")))?;
-        let fleet = (row.kind == Some(ipc::ModKind::Fleet)).then_some(r#","fleet":{"rule":[{"notice":"pr_checks_failed","does":"batch","where":"everywhere","when":[{"if":"blocks_merge","does":"tell"}]}]}"#).unwrap_or_default();
+        let fleet = match row.kind {
+            Some(ipc::ModKind::Fleet) => r#","fleet":{"rule":[{"notice":"pr_checks_failed","does":"batch","where":"everywhere","when":[{"if":"blocks_merge","does":"tell"}]}]}"#,
+            Some(ipc::ModKind::Layout) => r#","layout":"{\"version\":1,\"rail\":{\"hidden\":[\"guides\"]}}""#,
+            Some(ipc::ModKind::Words) => r#","words":{"name":"Jira key","pattern":"[A-Z][A-Z0-9]+-\\d+","example":"STORE-1234","address":[{"repository":"armada","template":"https://acme.atlassian.net/browse/{match}","found":"settings"},{"repository":"*","template":"https://jira.example.com/browse/{match}","found":"pull_request #2140"}]}"#,
+            _ => "",
+        };
         let said = format!(r#"{{"name":"{name}","valid":true,"problems":[]{fleet}}}"#);
         ipc::decode("ModChecked", said.as_bytes()).map_err(|why| Refused::said(why.to_string()))
     }
