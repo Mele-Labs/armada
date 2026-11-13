@@ -27,6 +27,8 @@ pub struct Focus {
 impl Stage {
     pub fn new(walk: &Walk, window: &mut Window, cx: &mut App) -> Result<Stage, String> {
         crate::terminal::shells::hold_walk(cx);
+        // A walk starts with nothing kept; what it forgets here is only in memory, never in the owner's file.
+        crate::drafts::forget_all(cx);
         match walk.screen {
             Screen::Dispatch => {
                 super::strip_marks::leave(cx);
