@@ -44,6 +44,7 @@ mod log;
 mod look;
 mod menu;
 mod merge_strip;
+mod option_pictures;
 mod mock;
 mod new_project;
 mod notify;
