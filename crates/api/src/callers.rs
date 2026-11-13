@@ -114,6 +114,12 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("skip_preview_refresh", "chooses the build Fleet runs"),
     ("start_sign_in", "signs this Mac in and out"),
     ("sign_out", "signs this Mac in and out"),
+    // What his other Macs hold, as this Mac's Phone Gateway hands it in: a Job planting rows would be drawn
+    // as another Mac's. The Gateway runs in Fleet's own process, which no Job holds.
+    ("hold_other_mac_sessions", "pairs his other Macs"),
+    ("hold_other_mac_bug_reports", "pairs his other Macs"),
+    ("hold_other_mac_event", "pairs his other Macs"),
+    ("forget_other_mac", "pairs his other Macs"),
 ];
 
 /// The operation a matched route serves and what its refusal says, where it is the person's.

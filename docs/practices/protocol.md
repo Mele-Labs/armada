@@ -190,6 +190,7 @@ WebSocket event stream, read this first.
 | [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |
 | [How a Job started, and when each step began: `SessionRecord.started`, `SessionRecord.workflow_visits`](protocol/how-a-job-started-and-when-each-step-began.md) |
 | [Projects: tasks and linked issues, across repositories](protocol/projects.md) |
+| [His other Macs, Fleet's half: `share_sessions` and seven more](protocol/his-other-macs-fleets-half.md) |
 | [The Workflows page: `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy`](protocol/the-workflows-page.md) |
 | [Triggers leave the wire](protocol/triggers-leave-the-wire.md) |
 | [The pull request a plan's group lands in: `lands_in`](protocol/the-pull-request-a-plan-groups-lands-in.md) |

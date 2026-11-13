@@ -280,6 +280,25 @@ async fn a_job_in_no_project_freezes_its_repository_s_values() {
     assert_eq!(frozen.auto_merge.from, ValueLayer::Default, "a repository that says nothing leaves the default");
 }
 
+/// A member may be any folder of a repository: the folder carries no `armada.yml` of its own, so the
+/// repository's word is the one read for it, and a Job started for the project freezes that word.
+#[tokio::test]
+async fn a_folder_member_with_no_armada_yml_takes_its_repositorys_values() {
+    let rig = a_rig("pr_mode: draft\n");
+    let root = rig.fleet.served_named(None).expect("served").root().to_string();
+    std::fs::create_dir_all(Path::new(&root).join("services/api")).expect("a folder");
+    assert!(!Path::new(&root).join("services/api/armada.yml").exists());
+    let members = Some(vec![ProjectMember { manifest_id: rig.manifest(), folder: Some("services/api".to_string()) }]);
+    let new = NewProject { name: "Shop".to_string(), members, place: None, values: None };
+    let project = rig.fleet.add_project(new).await.expect("added").projects.last().expect("the project").id.clone();
+
+    let values = rig.fleet.get_values(Some(project.clone()), Some(rig.manifest())).await.expect("values");
+    assert_eq!((values.pr_mode.value.as_deref(), values.pr_mode.from), (Some("draft"), ValueLayer::Repository));
+
+    let frozen = rig.job(Some(&project)).await.hosted.and_then(|hosted| hosted.values).expect("the Job's values");
+    assert_eq!((frozen.pr_mode.value.as_deref(), frozen.pr_mode.from), (Some("draft"), ValueLayer::Repository));
+}
+
 #[tokio::test]
 async fn a_job_in_a_project_offers_its_pull_request_as_the_project_says_over_the_repository() {
     let offered = |rig: &Rig, job: &SessionRecord| {

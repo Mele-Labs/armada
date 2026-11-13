@@ -10,7 +10,7 @@ description: Start a Fleet of your own for development — its own home, store a
 reach for it, and what it will not do for you.
 
 **This is not how the app is started.** To run Armada, the owner's usual way is
-the preview: `scripts/preview --restart`, which merges every in-flight branch
+the preview: `scripts/preview --restart`, which merges the branches Jobs offered
 onto the latest `main` and moves his Fleet and Bridge onto it
 (`.claude/skills/preview-app/SKILL.md`). Starting from `main` alone is still
 there, as `scripts/restart`, for anyone who wants only what has landed. A scratch Fleet is for reading wire

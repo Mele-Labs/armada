@@ -1,0 +1,8 @@
+[operations.share_events]
+kind = "query"
+transport = "WebSocket"
+agent_access = "No"
+description = "The event stream as another Mac may see it, for this Mac's Phone Gateway to carry over the link"
+notes = """
+`GET /other_mac/events`, upgraded. **Framed as `/events` is**: `StreamMessage`, opening with `resync`, and `missed` followed by `resync` where the bound dropped events. Each event is ruled on by Fleet's share filter first: a Job's `session.changed`, `session.row`, `session.subagent`, `job_thread.tail` and `job_thread.changed` pass only for a Job in a shared project; `bug_reports.changed` and `projects.changed` pass cut to what is shared; every other kind stays. An event passed on keeps its cursor, so positions skip where one stayed. An event about a Job held from another Mac never passes.
+"""

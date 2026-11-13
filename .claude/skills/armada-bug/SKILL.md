@@ -111,9 +111,9 @@ inside a pull request body and had to be corrected to him afterwards. The
 summary is written by the thing with an interest in it being right, and a
 paragraph of yours built on it inherits that interest without the evidence.
 
-**Then put the fix in his Fleet: preview and adopt, never "once it merges".**
+**Then put the fix in his preview: offer it, never "once it merges".**
 He uses Armada as its end user, so a fix to Fleet or Bridge reaches him through
-`scripts/preview --restart --adopt` as soon as it is committed and green, and
+`offer_preview` and his Refresh preview as soon as it is committed and green, and
 the pull request follows without a question (`work-issue` step 6,
 `preview-app`). The preview takes
 only a branch a slot holds, which is why the dispatch above leases one: a branch

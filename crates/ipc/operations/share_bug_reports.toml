@@ -1,0 +1,8 @@
+[operations.share_bug_reports]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "This Mac's own bug reports whose Job is in a shared project, for this Mac's Phone Gateway to send his other Macs"
+notes = """
+`GET /other_mac/bug_reports`, answered with `BugReports`. A report follows the Job that filed it, since its text can quote private work: one filed by a Job in an unshared project, or in none, stays. A report held from another Mac (`mac` set) is never listed.
+"""

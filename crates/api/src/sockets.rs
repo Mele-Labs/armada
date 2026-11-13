@@ -84,7 +84,7 @@ async fn watch<D: Queries>(mut socket: WebSocket, served: Served<D>) {
 /// Where the stream is, and what this build speaks. `false` where the socket is
 /// gone, and the caller stops. Nothing is read from the daemon: the state a
 /// client holds is fetched by its own reads, and this tells it when to.
-async fn resync<D: Queries>(socket: &mut WebSocket, served: &Served<D>) -> bool {
+pub(crate) async fn resync<D: Queries>(socket: &mut WebSocket, served: &Served<D>) -> bool {
     let cursor = served.events().cursor();
     send(
         socket,
@@ -96,7 +96,7 @@ async fn resync<D: Queries>(socket: &mut WebSocket, served: &Served<D>) -> bool 
     .await
 }
 
-async fn send(socket: &mut WebSocket, message: &StreamMessage) -> bool {
+pub(crate) async fn send(socket: &mut WebSocket, message: &StreamMessage) -> bool {
     let Ok(text) = ipc::encode(message) else {
         return false;
     };

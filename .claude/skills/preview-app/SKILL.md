@@ -1,6 +1,6 @@
 ---
 name: preview-app
-description: Merge every in-flight branch into a preview and move the owner's Fleet and Bridge onto it, or onto a merged fix with `scripts/restart` — including past a working Drone with --adopt. Load before running `scripts/preview`, `scripts/preview --restart` or `scripts/restart`.
+description: Merge the branches Jobs offered into a preview and move the owner's Fleet and Bridge onto it, or onto a merged fix with `scripts/restart` — including past a working Drone with --adopt. Load before running `scripts/preview`, `scripts/preview --restart` or `scripts/restart`.
 ---
 
 # Updating the preview, and moving the owner onto it
@@ -25,7 +25,8 @@ the owner.
 
 | Wanted | Run | Moves the owner's Fleet? |
 |---|---|---|
-| The merge and its table | `scripts/preview` | No |
+| The merge of the offered, checked branches, and its table | `scripts/preview` | No |
+| The same with every slot branch ahead of main, offered or not | `scripts/preview --all` | No |
 | Keep it current as branches land | `scripts/preview --watch` | No, never |
 | See what a restart onto it would do | `scripts/preview --restart --dry-run` | No |
 | Run it in his Fleet and Bridge | `scripts/preview --restart` | Yes |
@@ -106,8 +107,9 @@ The preview builds that app with an incremental cache, and a refresh killed in t
 Remove `.armada/preview/crates/bridge-native/target/release/incremental` and run the restart again.
 `scripts/restart-build` does this itself, once, when the log says `incremental compilation`, `dep graph` or `dep-graph`, or `unstable fingerprints`.
 
-**The preview merges slot branches only.** A branch in a plain worktree under
-`.claude/worktrees/` is not in it, and nothing says so. With every slot held,
+**The preview merges slot branches only, and by default only those a Job offered** and
+Fleet checked, at the tips offered. `--all` takes every slot branch.
+A branch in a plain worktree under `.claude/worktrees/` is not in it, and nothing says so. With every slot held,
 `git worktree remove` it, `armada worktree add`, then
 `armada worktree lease --existing <branch>`. Confirmed 8 Oct 2026: one dry run
 and a read of `scripts/preview` to find why a branch was missing.
@@ -124,8 +126,8 @@ With no merged branch behind a failure it fails as before. A failure Bridge
 shows starts with its cause: the compiler's first error and its file, or the
 migration and its branch.
 
-Fleet tells each left-out branch's Job why, and offers it a Refresh preview once
-the branch moves. The restart waits for the owner's press.
+Fleet tells each left-out branch's Job why. The Job offers the branch again with
+`offer_preview` once it has moved. The restart waits for the owner's press.
 
 **A branch that conflicts with another in-flight branch is skipped.** To preview
 both, merge the other into a preview-only copy of yours, and open the pull
@@ -138,9 +140,14 @@ Bridge asks before `--adopt`, listing the working Jobs. It runs
 `scripts/restart-build`, which retries a stale `libsqlite3-sys`, or a broken native incremental cache, once itself.
 `docs/practices/running-locally.md`, *Restarting from Bridge*.
 
-**To ask him to restart, put the exact command in `waiting_for` as a `run`
-item**: `scripts/preview --restart`, with `--adopt` only once he said so. ▶ on
-it, or on a shell block of the command, presses that button. Never ask him to run it any other way.
+**To put a branch in his preview, call `offer_preview` with an `about` line** when the branch is
+ready to be tried: one line on what it holds, at most 120 characters. Fleet checks it with
+the other offers and tells the Job in its thread: on the list, off it with why and the
+files, or moved, so offer again. Offer again after the branch moves or a check fails and the cause
+is fixed. `withdraw_preview` takes the offer back. He presses Refresh preview from his one row,
+which names each offered branch, its Job and its `about`. A Job hands him no
+`scripts/preview --restart`, as a `run` item, a shell block or a sentence.
+
 A shell run from Bridge or Pocket is Fleet's child, so the scripts run their work in a session of
 their own and log it to `~/Library/Logs/Armada/restart.log` (13 Nov 2026: Pocket's Run died between
 bootout and bootstrap and left Fleet down). A restart that stops before its last lines says where it
