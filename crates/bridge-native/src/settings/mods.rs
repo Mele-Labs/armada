@@ -210,7 +210,8 @@ fn own(row: &ModSummary, kind: ModKind, held: &ModRows) -> Listed {
         pull,
         job,
         tracker: None,
-        parts: Vec::new(),
+        // A layout mod opens to what it hides; Fleet checks no theme's file for this list.
+        parts: held.checked.get(&row.name).filter(|_| row.valid).map(|one| one.parts.clone()).unwrap_or_default(),
         standing,
     }
 }
@@ -397,7 +398,13 @@ pub fn parts_of(checked: &ModChecked) -> Vec<Part> {
     if !checked.valid {
         return Vec::new();
     }
-    checked.words.iter().map(words_part).chain(checked.fleet.iter().flat_map(|file| file.rule.iter().map(fleet_part))).collect()
+    checked
+        .words
+        .iter()
+        .map(words_part)
+        .chain(checked.fleet.iter().flat_map(|file| file.rule.iter().map(fleet_part)))
+        .chain(checked.layout.iter().map(|text| super::layout::layout_part(&checked.name, text)))
+        .collect()
 }
 
 /// A Fleet file's rules in one line, capitalised: each notice, what is done with it and where, then each
@@ -1035,7 +1042,8 @@ fn render_rules(title: &str, parts: &[Part], look: &Look) -> AnyElement {
     let label_w = look.length(token::TEXT_SM) * (label_wide * 0.62);
     // Where a part says where its facts were found, that goes in a third column, after the widest value.
     let facts = || parts.iter().flat_map(|part| part.facts.iter());
-    let value_wide = if facts().any(|fact| fact.from.is_some()) { facts().map(|fact| fact.value.chars().count()).max().unwrap_or(0) as f32 } else { 0.0 };
+    let found = facts().any(|fact| fact.from.is_some());
+    let value_wide = if found { facts().map(|fact| fact.value.chars().count()).max().unwrap_or(0) as f32 } else { 0.0 };
     let value_w = look.length(token::TEXT_SM) * (value_wide * 0.62);
     labelled(
         div()
@@ -1074,7 +1082,7 @@ fn render_rules(title: &str, parts: &[Part], look: &Look) -> AnyElement {
                                         .flex_wrap()
                                         .items_baseline()
                                         .gap_x(look.length(token::SPACE_3))
-                                        .child(div().flex_basis(value_w).flex_shrink(1.0).min_w_0().text_color(look.color(token::FG_DEFAULT)).when(fact.code, |value| value.font_family(super::view::mono(look))).child(SharedString::from(fact.value.clone())))
+                                        .child(div().when(found, |value| value.flex_basis(value_w).flex_shrink(1.0)).when(!found, |value| value.flex_1()).min_w_0().text_color(look.color(token::FG_DEFAULT)).when(fact.code, |value| value.font_family(super::view::mono(look))).child(SharedString::from(fact.value.clone())))
                                         .children(fact.from.clone().map(|from| div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(from))),
                                 )
                         })),
