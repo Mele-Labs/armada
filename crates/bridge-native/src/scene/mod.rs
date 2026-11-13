@@ -70,7 +70,7 @@ impl Fit {
     fn min_zoom(self) -> f32 {
         match self {
             Fit::Preview => 0.02,
-            Fit::Reading => 0.05,
+            Fit::Reading => 0.2,
         }
     }
 
@@ -534,8 +534,21 @@ impl View {
         let pad = |side: f32| ((side - side / (1. + fit.padding())) / 2.).floor();
         let across = if scene.w > 0. { (w - 2. * pad(w) - 2. * fit.inset()) / scene.w } else { 1. };
         let down = if scene.h > 0. { (h - 2. * pad(h) - 2. * fit.inset()) / scene.h } else { 1. };
-        let zoom = across.min(down).clamp(fit.min_zoom(), 1.) * lens.zoom;
-        View { zoom, origin: bounds.center() + point(px(lens.pan.0), px(lens.pan.1)), centre: Pt { x: scene.x + scene.w / 2., y: scene.y + scene.h / 2. } }
+        let base = across.min(down).clamp(fit.min_zoom(), 1.);
+        let zoom = base * lens.zoom;
+        // Where even the smallest zoom leaves the scene past the inset box, an axis starts at the box's top-left, a
+        // margin in, so the start of the flow is whole; the rest is reached by panning. What fits stays centred.
+        let anchored = |scene_len: f32, len: f32| fit.inset() > 0. && lens.zoom == 1. && scene_len * base + 2. * fit.inset() > len + 0.5;
+        let (mut origin, mut centre) = (bounds.center(), Pt { x: scene.x + scene.w / 2., y: scene.y + scene.h / 2. });
+        if anchored(scene.w, w) {
+            origin.x = bounds.left() + px(fit.inset());
+            centre.x = scene.x;
+        }
+        if anchored(scene.h, h) {
+            origin.y = bounds.top() + px(fit.inset());
+            centre.y = scene.y;
+        }
+        View { zoom, origin: origin + point(px(lens.pan.0), px(lens.pan.1)), centre }
     }
 
     fn at(&self, p: Pt) -> Point<Pixels> {
