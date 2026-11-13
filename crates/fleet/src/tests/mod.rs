@@ -21,6 +21,7 @@ mod job_command;
 mod judge;
 mod sending_checkout;
 mod sweeping;
+mod disk_health;
 mod agent_starts;
 mod agent_starts_at_once;
 mod agent_starts_project;

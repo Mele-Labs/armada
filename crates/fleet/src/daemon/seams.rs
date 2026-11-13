@@ -468,6 +468,11 @@ where
         &self.territory
     }
 
+    /// What the sweep last found of the disk. A short lock, never held across an await.
+    pub(crate) fn disk_state(&self) -> &std::sync::Mutex<crate::sweeping::DiskState> {
+        &self.disk
+    }
+
     /// The rebase-and-push tail's lock. See the field.
     pub(crate) fn merge_end(&self) -> &Mutex<()> {
         &self.merge_end
