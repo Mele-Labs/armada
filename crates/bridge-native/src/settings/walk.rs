@@ -163,6 +163,8 @@ pub static STEPS: &[Step] = &[
     step("The mod's puzzle is gone", Verb::Absent("img", "Hidden by hide-guides"), "switch", "Guides"),
     press_on("Off hides a panel", "switch", "Activity", "switch", "Activity"),
     step("Under the switches, the layout mods", Verb::Wheel("region", "Layout", 1400), "group", "Layout mods"),
+    press_on("A layout mod's chevron opens its details", "button", "Details of hide-guides", "group", "Details of hide-guides"),
+    step("They say what it hides, and where", Verb::Wheel("region", "Layout", 600), "group", "Details of hide-guides"),
     press_on("Reset to defaults takes his choices back and switches the layout mods off", "button", "Reset to defaults", "switch", "Activity"),
     press_on("Words: the mods that turn words such as a Jira key into links", "button", "Words", "region", "Words"),
     press_on("A Words mod opens to its pattern, and where a match goes in each repository and where that was found", "button", "Details of jira-keys", "group", "Details of jira-keys"),

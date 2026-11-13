@@ -87,6 +87,19 @@ pub fn hidden_in(region: &str, layers: &[Layer]) -> (Vec<String>, Option<String>
     (hidden, by)
 }
 
+/// What a layout mod's row opens to (`layoutPart` over `layoutOf`): what the first region it hides anything in hides,
+/// by name, and that region. A file that hides nothing says the mod's name, in Layout.
+pub fn layout_part(name: &str, text: &str) -> super::mods::Part {
+    let choices = ipc::layout::choices(text);
+    let first = REGIONS.iter().find_map(|region| choices.get(region.id).and_then(|one| one.hidden.clone()).filter(|hidden| !hidden.is_empty()).map(|hidden| (region, hidden)));
+    let (hides, within) = match first {
+        Some((region, hidden)) => (hidden.iter().map(|id| region.rows.iter().find(|one| one.id == id).map_or(id.as_str(), |one| one.label)).collect::<Vec<_>>().join(", "), region.label),
+        None => (name.to_string(), "Layout"),
+    };
+    let fact = |label: &str, value: String| super::mods::Fact { label: label.into(), value, code: false, from: None };
+    super::mods::Part { part: "Layout", facts: vec![fact("Hides", hides), fact("In", within.to_string())] }
+}
+
 impl SettingsOverlay {
     fn own_layout(&self) -> String {
         self.prefs.held().map(|held| held.layout_choices.clone()).unwrap_or_default()
@@ -242,6 +255,14 @@ mod tests {
         assert_eq!(hidden_in("rail", &[hide_guides.clone(), layer(None, "")]), (vec!["guides".to_string()], Some("hide-guides".to_string())));
         let shown_again = layer(None, r#"{"version":1,"rail":{"hidden":[]}}"#);
         assert_eq!(hidden_in("rail", &[hide_guides, shown_again]), (Vec::new(), None), "his empty list shows what the mod hid");
+    }
+
+    #[test]
+    fn a_layout_mod_opens_to_what_it_hides_and_where() {
+        let facts = |part: super::super::mods::Part| part.facts.into_iter().map(|fact| (fact.label, fact.value)).collect::<Vec<_>>();
+        let said = |label: &str, value: &str| (label.to_string(), value.to_string());
+        assert_eq!(facts(layout_part("hide-guides", r#"{"version":1,"rail":{"hidden":["guides","kit"]}}"#)), [said("Hides", "Guides, Kit"), said("In", "Places")]);
+        assert_eq!(facts(layout_part("bare", r#"{"version":1}"#)), [said("Hides", "bare"), said("In", "Layout")]);
     }
 
     #[test]
