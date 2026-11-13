@@ -31,6 +31,13 @@ pub const BRIDGE: &str = "bridge";
 /// What the phone's Gateway says in [`CALLER_HEADER`].
 pub const PHONE: &str = "phone";
 
+/// What the Gateway says in [`CALLER_HEADER`] for a call another of his Macs made, with that Mac's id in
+/// [`MAC_HEADER`].
+pub const MAC: &str = "mac";
+
+/// The id of the Mac a [`MAC`] call came from, as the Gateway read it off the signature.
+pub const MAC_HEADER: &str = "x-armada-mac";
+
 tokio::task_local! {
     static VIA: Via;
 }
@@ -98,6 +105,12 @@ fn door_of(request: &Request) -> Via {
         .is_some_and(|said| said.as_bytes() == PHONE.as_bytes())
     {
         "phone"
+    } else if request
+        .headers()
+        .get(CALLER_HEADER)
+        .is_some_and(|said| said.as_bytes() == MAC.as_bytes())
+    {
+        "mac"
     } else {
         "http"
     };

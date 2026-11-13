@@ -95,3 +95,37 @@ fn forgetting_a_mac_drops_its_projects_and_its_queued_edits_and_no_other_macs() 
     let left = store.queued_project_acts(None).expect("reads");
     assert_eq!(left.iter().map(|one| one.mac.as_str()).collect::<Vec<_>>(), ["home"]);
 }
+
+#[test]
+fn edits_and_acts_queue_in_one_order_and_a_refused_act_stays_but_is_not_sent_again() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.queue_project_act("work", 100, "edit").expect("queued");
+    let act = store.queue_job_act("work", "a1", 110, "act").expect("queued");
+    store.queue_job_act("work", "a2", 120, "later").expect("queued");
+
+    fn kinds(store: &crate::Store, unsent: bool) -> Vec<(String, String)> {
+        store.queued_acts(Some("work"), unsent).expect("reads").into_iter().map(|one| (one.kind, one.id)).collect()
+    }
+    assert_eq!(kinds(&store, true), [("project".into(), String::new()), ("job".into(), "a1".into()), ("job".into(), "a2".into())]);
+    assert_eq!(store.queued_project_acts(None).expect("reads").len(), 1, "the project reader sees edits only");
+
+    store.refuse_queued_act(act, "No plan 5.").expect("kept");
+    assert_eq!(kinds(&store, true).len(), 2, "not sent again");
+    assert_eq!(kinds(&store, false).len(), 3, "and still listed");
+    let kept = store.queued_job_act("a1").expect("reads").expect("still there");
+    assert_eq!(kept.refused.as_deref(), Some("No plan 5."));
+}
+
+#[test]
+fn an_act_run_for_another_mac_is_kept_by_its_id_and_forgetting_the_mac_drops_it() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let ran = crate::KeptActRun { mac: "home".into(), id: "x".into(), at: 10, via: "mac".into(), what: "stop".into(), status: 200, body: "{}".into() };
+    store.keep_act_run(&ran).expect("kept");
+    assert_eq!(store.act_run("home", "x").expect("reads"), Some(ran.clone()));
+    assert_eq!(store.act_run("other", "x").expect("reads"), None, "keyed by the Mac as well");
+
+    store.forget_mac("home").expect("forgot");
+    assert_eq!(store.act_run("home", "x").expect("reads"), None);
+}

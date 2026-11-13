@@ -27,7 +27,7 @@ use crate::job_view::sketch_pad::{rail_frame, rail_group};
 use crate::labels::labelled;
 use crate::look::{token, Look};
 use draw::{lane_chip, lane_head, lane_node};
-use layout::{nearest, pan_to, place, place_chips, place_fitted};
+use layout::{nearest, pan_to, place, place_at, place_chips, place_fitted};
 use paint::PaintPlan;
 use wears::{mark_of_node, mark_of_rule};
 
@@ -237,6 +237,12 @@ pub trait LanesHost: Sized + 'static {
         false
     }
 
+    /// Read only where the canvas is compact: whether it zooms to fit its width. Where it does not, it
+    /// stays at its own size, as tall as its frame, and drag and the wheel move it sideways.
+    fn lanes_fit(&self, _id: &SharedString) -> bool {
+        true
+    }
+
     /// Whether `node` of the canvas under `id` is chosen: it wears a tick, in the accent hue, and says "Chosen".
     fn lanes_chosen(&self, _id: &SharedString, _node: &str) -> bool {
         false
@@ -407,10 +413,13 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
     let state = host.lanes_state();
     let (frame_w, frame_h) = state.size.get();
     let compact = host.lanes_compact(id);
-    // Compact, the view is worked out from the frame's size each frame, so it follows the frame as it changes.
-    let (placement, fitted) = if compact {
+    let fit = compact && host.lanes_fit(id);
+    // Fitted, the view is worked out from the frame's size each frame, so it follows the frame as it changes.
+    let (placement, fitted) = if fit {
         let (placement, view) = place_fitted(&lanes.lanes, (frame_w, frame_h));
         (placement, Some(view))
+    } else if compact {
+        (place_at(&lanes.lanes, frame_h, 0.), None)
     } else {
         (place(&lanes.lanes, frame_h), None)
     };
@@ -426,7 +435,8 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
         }
         seen.ask = None;
     }
-    let view = fitted.unwrap_or(seen.view);
+    // Compact and not fitted, the canvas keeps its own size and its frame's top: it moves sideways only.
+    let view = fitted.unwrap_or(if compact { View { y: 0., zoom: 1., ..seen.view } } else { seen.view });
     let picked = seen.picked.clone();
     seen.hooks = hooks_of(lanes, &placement, &chips, picked.as_ref(), view);
     let first = lanes.lanes.first().and_then(|lane| lane.nodes.iter().find(|node| !ends.contains(&node.id))).map(|node| node.id.clone());
@@ -509,8 +519,8 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
         .on_mouse_down(MouseButton::Left, cx.listener(move |this, event: &MouseDownEvent, window, cx| {
             window.focus(&this.lanes_state().frame, cx);
             if let Some(seen) = this.lanes_state().seen.borrow_mut().get_mut(&pressed) {
-                // A compact canvas shows all of it and goes nowhere.
-                if !compact {
+                // A fitted canvas shows all of it and goes nowhere.
+                if !fit {
                     seen.drag = Some((event.position, seen.view));
                 }
             }
@@ -531,7 +541,7 @@ pub fn lanes_canvas<H: LanesHost>(host: &H, id: &SharedString, lanes: &JobLanesV
                 seen.drag = None;
             }
         }))
-        .when(!compact, |pane| pane.on_scroll(cx.listener(move |this, event: &ScrollEvent, window, cx| {
+        .when(!fit, |pane| pane.on_scroll(cx.listener(move |this, event: &ScrollEvent, window, cx| {
             // `panOnScroll`: the wheel moves the canvas, the zoom stays.
             let delta = event.delta.pixel_delta(window.line_height());
             if let Some(seen) = this.lanes_state().seen.borrow_mut().get_mut(&wheel) {

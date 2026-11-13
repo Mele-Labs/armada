@@ -3,11 +3,13 @@
 
 use axum::body::{Body, Bytes};
 use axum::extract::State;
+use axum::Extension;
 use axum::http::{header, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use futures_util::StreamExt;
 
 use crate::mac_client::hello_now;
+use crate::signing::MacId;
 use crate::reads::{json, port, refusal, NOT_ANSWERING};
 use crate::{fleet_client, reads, Gateway};
 
@@ -44,6 +46,23 @@ pub async fn project_act(State(gateway): State<Gateway>, body: Bytes) -> Respons
         Err(refused) => return refused,
     };
     let answer = match fleet_client::send(port, "POST", "/other_mac/project_act", Some(&body)).await {
+        Ok(answer) => answer,
+        Err(_) => return refusal(StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING),
+    };
+    let status = StatusCode::from_u16(answer.status).unwrap_or(StatusCode::BAD_GATEWAY);
+    let kind = answer.content_type.unwrap_or_else(|| String::from("application/json"));
+    (status, [(header::CONTENT_TYPE, kind)], answer.body).into_response()
+}
+
+/// `POST /api/mac/act`: the other Mac's act on a Job of this Mac, or a Job it starts here, handed to Fleet's
+/// `/other_mac/act` as the Mac the signature names. Fleet answers it, and refuses it where the Job is not
+/// shared; its status and body are passed back as they were said.
+pub async fn act(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, body: Bytes) -> Response {
+    let port = match port(&gateway) {
+        Ok(port) => port,
+        Err(refused) => return refused,
+    };
+    let answer = match fleet_client::send_as_mac(port, "POST", "/other_mac/act", Some(&body), &mac).await {
         Ok(answer) => answer,
         Err(_) => return refusal(StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING),
     };
