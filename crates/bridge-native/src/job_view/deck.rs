@@ -113,7 +113,13 @@ impl JobView {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn deck(&self, id: &SharedString, key: &str, questions: &[AskedQuestion], stills: &[ipc::WaitingOption], can_skip: bool, no_other: bool, source: Source, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn deck(&self, id: &SharedString, key: &str, questions: &[AskedQuestion], can_skip: bool, no_other: bool, source: Source, look: &Look, cx: &Context<Self>) -> AnyElement {
+        self.deck_with(id, key, questions, &[], can_skip, no_other, source, look, cx)
+    }
+
+    /// A deck whose options may carry stills: those options are cards above the rows.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn deck_with(&self, id: &SharedString, key: &str, questions: &[AskedQuestion], stills: &[ipc::WaitingOption], can_skip: bool, no_other: bool, source: Source, look: &Look, cx: &Context<Self>) -> AnyElement {
         let hue = look.color(token::STEP_WAITING);
         let deck = self.deck_of(id, key, questions.len());
         let front = deck.front.min(questions.len().saturating_sub(1));
