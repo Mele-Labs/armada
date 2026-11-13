@@ -137,11 +137,17 @@ pub fn ringed(look: &Look, element: Stateful<Div>, focus: &FocusHandle, window: 
 
 /// A quiet button: its words, and a hover fill (`Button variant="ghost" size="sm"`).
 pub fn ghost(look: &Look, id: impl Into<gpui::ElementId>, said: &str, off: bool) -> Stateful<Div> {
+    ghost_with(look, id, None, said, off)
+}
+
+/// A quiet button with a registry glyph before its words (`<Plus size={16} />` in a ghost `Button`).
+pub fn ghost_with(look: &Look, id: impl Into<gpui::ElementId>, glyph: Option<&str>, said: &str, off: bool) -> Stateful<Div> {
     div()
         .id(id.into())
         .flex_none()
         .flex()
         .items_center()
+        .gap(look.length(token::SPACE_2))
         .h(look.length(token::H_CONTROL_SM))
         .px(look.length(token::SPACE_2))
         .rounded(look.length(token::RADIUS_MD))
@@ -152,6 +158,7 @@ pub fn ghost(look: &Look, id: impl Into<gpui::ElementId>, said: &str, off: bool)
         .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
         .text_color(if off { look.color(token::FG_SUBTLE) } else { look.color(token::FG_DEFAULT) })
         .when(!off, |button| button.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
+        .children(glyph.map(|glyph| svg().flex_none().path(icon_path(glyph)).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_DEFAULT))))
         .child(SharedString::from(said.to_string()))
 }
 
@@ -968,6 +975,7 @@ impl SettingsOverlay {
         if self.shown(cx).is_some_and(|one| one.body == Body::Workflows) {
             self.workflow_keys(cx);
             self.detail_keys(window, cx);
+            self.read_lanes(cx);
         }
         if self.shown(cx).is_some_and(|one| one.body == Body::Macs) {
             self.read_macs(window, cx);

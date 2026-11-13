@@ -84,11 +84,10 @@ fn press_of(state: &CloudflareState) -> Option<&'static str> {
     }
 }
 
-/// A Unix time as the page says it: the clock today, else the day and the clock.
+/// A Unix time as a stamp in his clock: the day comes with it when it is not today.
 fn clock_of(at: i64) -> String {
     use chrono::{Local, TimeZone};
-    let Some(at) = Local.timestamp_opt(at, 0).single() else { return String::new() };
-    if at.date_naive() == Local::now().date_naive() { at.format("%H:%M").to_string() } else { at.format("%-d %b %H:%M").to_string() }
+    Local.timestamp_opt(at, 0).single().map(super::time::stamp).unwrap_or_default()
 }
 
 fn age_of(at: i64) -> String {

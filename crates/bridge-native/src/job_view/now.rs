@@ -156,7 +156,7 @@ pub(super) fn stopped_said(stopped: &ipc::SessionStopped) -> String {
         StopReason::TasksOpen => "Stopped: ended its turn with tasks open".into(),
         StopReason::ProcessGone => "Stopped: process ended".into(),
         StopReason::FleetDown => {
-            let clock = |at: &ipc::Instant| DateTime::parse_from_rfc3339(at.as_str()).ok().map(|at| at.with_timezone(&Local).format("%H:%M").to_string());
+            let clock = |at: &ipc::Instant| crate::settings::time::stamp_at(at.as_str());
             match stopped.down.as_ref().and_then(|down| clock(&down.from).zip(clock(&down.to))) {
                 Some((from, to)) => format!("Stopped: Fleet was down, {from} to {to}"),
                 None => "Stopped: Fleet was down".into(),

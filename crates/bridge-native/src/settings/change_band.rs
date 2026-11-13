@@ -16,7 +16,7 @@ use super::definition::{tree_of, Json};
 use super::overlay::SettingsOverlay;
 use super::view::{mono, ringed, tip};
 use super::wire::Refused;
-use super::workflow_detail::{band, glyph_of, sentences_of, sunken_button, wire_of, Step, StepsRead};
+use super::workflow_detail::{ask, band, glyph_of, make_copy, sentences_of, sunken_button, wire_of, Step, StepsRead};
 use super::workflows::{Listed, Place};
 use crate::assets::icon_path;
 use crate::labels::labelled;
@@ -228,9 +228,9 @@ struct Boxed {
     _changed: Subscription,
 }
 
-/// The band's own state: each copy's open changes as read, by row key; the box that asks on each copy and the
-/// notes box while one is being written; what the last act said; the Job a press started; and the read waiting
-/// while a change drafts.
+/// The band's own state: each copy's open changes as read, by row key; the box that asks and the notes box while
+/// one is being written, by workflow id, as the page keeps them across the copy a first ask makes; what the last
+/// act said; the Job a press started; and the read waiting while a change drafts.
 #[derive(Default)]
 pub struct Band {
     changes: BTreeMap<String, Vec<WorkflowChange>>,
@@ -313,20 +313,20 @@ impl SettingsOverlay {
 
     /// The band's keys and its box made before they are drawn, and the copy's changes read once.
     pub(super) fn band_keys(&mut self, one: &Listed, window: &mut Window, cx: &mut Context<Self>) {
-        if !editable(one) {
-            return;
-        }
         for name in BandAct::ALL.iter().map(|act| act.key()).chain([AT_REST]) {
             self.workflows.detail.keys.entry(name.to_string()).or_insert_with(|| cx.focus_handle().tab_stop(name != AT_REST));
         }
         let key = one.key();
-        if !self.workflows.detail.band.asks.contains_key(&key) {
-            let boxed = self.band_box(&format!("workflows:agent:{key}"), 2, 12, window, cx);
-            self.workflows.detail.band.asks.insert(key.clone(), boxed);
+        if !self.workflows.detail.band.asks.contains_key(&one.id) {
+            let boxed = self.band_box(&format!("workflows:agent:{}", one.id), 2, 12, window, cx);
+            self.workflows.detail.band.asks.insert(one.id.clone(), boxed);
         }
+        // Armada's own row, and what runs in a repository that keeps no copy, hold no changes until a first ask makes the copy.
         if !self.workflows.detail.band.changes.contains_key(&key) {
             self.workflows.detail.band.changes.insert(key.clone(), Vec::new());
-            self.read_changes(one.clone(), window, cx);
+            if editable(one) {
+                self.read_changes(one.clone(), window, cx);
+            }
         }
         for passage in passages(&key, &self.band_phase(one)) {
             self.workflows.detail.band.more.entry(passage).or_insert_with(|| cx.focus_handle().tab_stop(true));
@@ -369,7 +369,7 @@ impl SettingsOverlay {
         let Ok(read) = answer else { return };
         let drafting = read.changes.iter().any(|change| change.state == ChangeState::Drafting);
         let band = &mut self.workflows.detail.band;
-        if !matches!(phase_of(&read.changes, &[]), Phase::Proposed { .. }) && band.notes.as_ref().is_some_and(|(row, _)| *row == key) {
+        if !matches!(phase_of(&read.changes, &[]), Phase::Proposed { .. }) && band.notes.as_ref().is_some_and(|(id, _)| *id == one.id) {
             band.notes = None;
         }
         let shows = |changes: &[WorkflowChange]| matches!(phase_of(changes, &[]), Phase::Proposed { .. } | Phase::Cannot { .. });
@@ -397,9 +397,9 @@ impl SettingsOverlay {
         let key = one.key();
         match act {
             BandAct::SendBack => {
-                let boxed = self.band_box(&format!("workflows:notes:{key}"), 2, 8, window, cx);
+                let boxed = self.band_box(&format!("workflows:notes:{}", one.id), 2, 8, window, cx);
                 let focus = boxed.state.read(cx).focus_handle(cx);
-                self.workflows.detail.band.notes = Some((key, boxed));
+                self.workflows.detail.band.notes = Some((one.id.clone(), boxed));
                 window.focus(&focus, cx);
                 cx.notify();
                 return;
@@ -419,14 +419,18 @@ impl SettingsOverlay {
         let manifest = one.manifest.clone();
         let task: Task<Result<Option<String>, Refused>> = match act {
             BandAct::Send => {
-                let Some(text) = self.workflows.detail.band.asks.get(&key).map(|one| Band::typed(one, cx).trim().to_string()).filter(|text| !text.is_empty()) else { return };
+                let Some(text) = self.workflows.detail.band.asks.get(&one.id).map(|one| Band::typed(one, cx).trim().to_string()).filter(|text| !text.is_empty()) else { return };
+                if !editable(&one) {
+                    self.send_on_copy(one, text, window, cx);
+                    return;
+                }
                 self.workflows.detail.band.asked.insert(key.clone(), text.clone());
                 let asking = AskWorkflowChange { workflow_id: WorkflowId::carried(&one.id), source: wire_of(one.place).into(), text };
                 let task = self.wire.ask_change(&manifest, asking, cx);
                 cx.background_spawn(async move { task.await.map(|_| None) })
             }
             BandAct::SendNotes => {
-                let (Some(change), Some(notes)) = (change, self.workflows.detail.band.notes.as_ref().map(|(_, notes)| Band::typed(notes, cx).trim().to_string()).filter(|notes| !notes.is_empty())) else { return };
+                let (Some(change), Some(notes)) = (change, self.workflows.detail.band.notes.as_ref().filter(|(id, _)| *id == one.id).map(|(_, notes)| Band::typed(notes, cx).trim().to_string()).filter(|notes| !notes.is_empty())) else { return };
                 let task = self.wire.send_back_change(SendBackWorkflowChange { change, notes }, cx);
                 cx.background_spawn(async move { task.await.map(|_| None) })
             }
@@ -464,6 +468,54 @@ impl SettingsOverlay {
         .detach();
     }
 
+    /// Send on a workflow that is not a copy: the copy is made first, the change asked on it, and the page then
+    /// picks the copy (`inCopy`). A refusal at the copy shows on the row it was asked on, one at the ask on the copy.
+    fn send_on_copy(&mut self, one: Listed, text: String, window: &mut Window, cx: &mut Context<Self>) {
+        let band = &mut self.workflows.detail.band;
+        band.busy = true;
+        band.refused = None;
+        if let Some(rest) = self.workflows.detail.keys.get(AT_REST).cloned() {
+            window.focus(&rest, cx);
+        }
+        cx.notify();
+        cx.spawn_in(window, async move |this, cx| {
+            let (copy, answer) = match make_copy(&one, &this, cx).await {
+                Err(why) => (None, Err(why)),
+                Ok(copy) => {
+                    let _ = this.update(cx, |this, _| {
+                        this.workflows.detail.band.asked.insert(copy.key(), text.clone());
+                    });
+                    let asking = AskWorkflowChange { workflow_id: WorkflowId::carried(&copy.id), source: wire_of(copy.place).into(), text };
+                    let answer = ask(&this, cx, |this, cx| this.wire.ask_change(&copy.manifest, asking, cx)).await.map(|_| ());
+                    (Some(copy), answer)
+                }
+            };
+            let _ = this.update_in(cx, |this, window, cx| this.sent_on_copy(&one, copy, answer, window, cx));
+        })
+        .detach();
+    }
+
+    fn sent_on_copy(&mut self, one: &Listed, copy: Option<Listed>, answer: Result<(), Refused>, window: &mut Window, cx: &mut Context<Self>) {
+        let band = &mut self.workflows.detail.band;
+        band.busy = false;
+        let at = copy.as_ref().map_or_else(|| one.key(), Listed::key);
+        match answer {
+            Err(why) => band.refused = Some((at.clone(), why.said)),
+            Ok(()) => {
+                if let Some(ask) = band.asks.get(&one.id) {
+                    ask.state.update(cx, |state, cx| state.set_value(String::new(), window, cx));
+                }
+                crate::drafts::clear(&format!("workflows:agent:{}", one.id), cx);
+            }
+        }
+        if copy.is_some() {
+            // The copy's changes are read when it is drawn, so the one just asked is found drafting.
+            self.workflows.detail.band.changes.remove(&at);
+            self.read_list(Some(at), None, window, cx);
+        }
+        cx.notify();
+    }
+
     fn band_done(&mut self, one: &Listed, act: BandAct, answer: Result<Option<String>, Refused>, window: &mut Window, cx: &mut Context<Self>) {
         let key = one.key();
         let band = &mut self.workflows.detail.band;
@@ -473,14 +525,14 @@ impl SettingsOverlay {
             Ok(job) => match act {
                 BandAct::Send => {
                     band.started = None;
-                    if let Some(ask) = band.asks.get(&key) {
+                    if let Some(ask) = band.asks.get(&one.id) {
                         ask.state.update(cx, |state, cx| state.set_value(String::new(), window, cx));
                     }
-                    crate::drafts::clear(&format!("workflows:agent:{key}"), cx);
+                    crate::drafts::clear(&format!("workflows:agent:{}", one.id), cx);
                 }
                 BandAct::SendNotes => {
                     band.notes = None;
-                    crate::drafts::clear(&format!("workflows:notes:{key}"), cx);
+                    crate::drafts::clear(&format!("workflows:notes:{}", one.id), cx);
                 }
                 BandAct::Build => band.started = Some((key.clone(), "A job started to build it".into(), job.clone())),
                 _ => {}
@@ -499,9 +551,6 @@ impl SettingsOverlay {
 
     /// The band's stops, after the cards': what its phase draws, in the order it draws them.
     pub(super) fn band_stops(&self, one: &Listed, cx: &App) -> Vec<FocusHandle> {
-        if !editable(one) {
-            return Vec::new();
-        }
         let key = one.key();
         let detail = &self.workflows.detail;
         let band = &detail.band;
@@ -512,7 +561,7 @@ impl SettingsOverlay {
                 if band.started.as_ref().is_some_and(|(row, _, job)| *row == key && job.is_some()) {
                     stops.extend(act(BandAct::OpenJob));
                 }
-                stops.extend(band.asks.get(&key).map(|ask| ask.state.read(cx).focus_handle(cx)));
+                stops.extend(band.asks.get(&one.id).map(|ask| ask.state.read(cx).focus_handle(cx)));
                 stops.extend(act(BandAct::Send));
             }
             Phase::Working { .. } => {}
@@ -527,7 +576,7 @@ impl SettingsOverlay {
                     }
                 }
                 stops.extend(act(BandAct::Dismiss));
-                match band.notes.as_ref().filter(|(row, _)| *row == key) {
+                match band.notes.as_ref().filter(|(id, _)| *id == one.id) {
                     Some((_, notes)) => {
                         stops.push(notes.state.read(cx).focus_handle(cx));
                         stops.extend(act(BandAct::SendNotes));
@@ -545,10 +594,7 @@ impl SettingsOverlay {
     /// Esc puts them away; Enter and Space press an act.
     pub(super) fn band_key(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let (_, Some(one)) = self.shown_workflows(cx) else { return false };
-        if !editable(&one) {
-            return false;
-        }
-        let row = one.key();
+        let row = one.id.clone();
         let mods = &key.modifiers;
         let word = key.key.as_str();
         let band = &self.workflows.detail.band;
@@ -590,11 +636,9 @@ impl SettingsOverlay {
 
     // ---- drawn --------------------------------------------------------------------------------
 
-    /// The band under a copy's steps; none under Armada's own, or under what runs in a repository that keeps no copy.
+    /// The band over the lanes, on every workflow: the first ask on Armada's own, or on what runs in a repository
+    /// that keeps no copy, makes the copy.
     pub(super) fn render_change_band(&self, one: &Listed, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
-        if !editable(one) {
-            return None;
-        }
         let key = one.key();
         let detail = &self.workflows.detail;
         let band = &detail.band;
@@ -656,7 +700,7 @@ impl SettingsOverlay {
             }
             Phase::Proposed { before, after, fresh, .. } => {
                 let (changes, unchanged) = step_changes(&before, &after);
-                let notes = band.notes.as_ref().filter(|(row, _)| *row == key).map(|(_, notes)| notes);
+                let notes = band.notes.as_ref().filter(|(id, _)| *id == one.id).map(|(_, notes)| notes);
                 let typed = notes.map(|notes| Band::typed(notes, cx).trim().to_string()).unwrap_or_default();
                 let mut acts = acts_row(look).child(self.band_button(BandAct::Dismiss, "Dismiss", Weight::Ghost, off, look, window, cx));
                 if !fresh {
@@ -699,7 +743,7 @@ impl SettingsOverlay {
                     )
             }
             Phase::Idle => {
-                let ask = band.asks.get(&key)?;
+                let ask = band.asks.get(&one.id)?;
                 let empty = Band::typed(ask, cx).trim().is_empty();
                 let started = band.started.as_ref().filter(|(row, _, _)| *row == key).map(|(_, words, job)| {
                     let line = div()

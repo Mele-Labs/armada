@@ -1263,12 +1263,10 @@ fn log_day(head: &str) -> String {
         .map_or_else(|| head.to_string(), |date| date.format("%A %-d %B").to_string())
 }
 
-/// A time to the minute, as the page reads it: `12:47`, with the day when it is not today (`Nov 10 16:00`).
-/// The thread's clock carries seconds; a page of what happened today does not need them.
+/// A time as the page reads it, in his clock: `12:47:30`, with the day when it is not today (`Nov 10 16:00:00`).
 pub(super) fn minute(at: &str, now: chrono::DateTime<chrono::Local>) -> Option<String> {
     let then = chrono::DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&chrono::Local);
-    let time = then.format("%H:%M").to_string();
-    Some(if then.date_naive() == now.date_naive() { time } else { format!("{} {time}", then.format("%b %-d")) })
+    Some(crate::settings::time::stamp_of(then, crate::settings::time::held(), now))
 }
 
 /// A rule as the sketch writes it: where it holds, then the rule, its first letter small after the colon.
@@ -1621,14 +1619,16 @@ mod tests {
     }
 
     #[test]
-    fn a_time_reads_to_the_minute_with_its_day_when_not_today() {
+    fn a_time_reads_in_his_clock_with_its_day_when_not_today() {
         let now = chrono::DateTime::parse_from_rfc3339("2026-11-11T13:05:00-05:00").expect("a time").with_timezone(&chrono::Local);
         let at = |rfc: &str| chrono::DateTime::parse_from_rfc3339(rfc).expect("a time").with_timezone(&chrono::Local);
         let today = at("2026-11-11T12:47:30-05:00");
         let before = at("2026-11-10T16:00:00-05:00");
+        crate::settings::time::hold(r#"{"hour12":false,"seconds":false,"date":false}"#);
         assert_eq!(minute(&today.to_rfc3339(), now).as_deref(), Some(today.format("%H:%M").to_string().as_str()));
         assert_eq!(minute(&before.to_rfc3339(), now), Some(before.format("%b %-d %H:%M").to_string()));
-        assert!(!minute(&today.to_rfc3339(), now).unwrap_or_default().contains(":30"), "no seconds");
+        crate::settings::time::hold(r#"{"hour12":true,"seconds":true,"date":false}"#);
+        assert_eq!(minute(&today.to_rfc3339(), now).as_deref(), Some(today.format("%-I:%M:%S %p").to_string().as_str()));
     }
 
     #[test]

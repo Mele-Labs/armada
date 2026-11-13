@@ -955,9 +955,9 @@ fn muted_line(item: &OperatorTurnItem) -> Option<SharedString> {
     }
 }
 
-/// `14:10`, in this Mac's time.
+/// `14:10:00`, in his clock.
 fn clock_of(at: &str) -> String {
-    chrono::DateTime::parse_from_rfc3339(at).map(|at| at.with_timezone(&chrono::Local).format("%H:%M").to_string()).unwrap_or_default()
+    crate::settings::time::stamp_at(at).unwrap_or_default()
 }
 
 fn history_file() -> Option<PathBuf> {

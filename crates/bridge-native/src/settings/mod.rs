@@ -24,5 +24,6 @@ pub mod walk;
 mod wire;
 mod workflow_detail;
 mod workflows;
+mod lanes;
 
 pub use screen::SettingsScreen;

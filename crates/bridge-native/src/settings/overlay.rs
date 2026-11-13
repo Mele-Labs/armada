@@ -117,6 +117,7 @@ pub struct SettingsOverlay {
     pub macs: super::macs::MacsPage,
     /// Settings › Layout and Settings › Time: the preferences they write.
     pub prefs: super::prefs::Prefs,
+    pub lanes: super::lanes::WorkflowLanes,
     /// Settings → Workflows.
     pub workflows: super::workflows::WorkflowsPage,
     /// Where each slider's track was drawn last frame, by key, so a press reads as a figure.
@@ -164,6 +165,7 @@ impl SettingsOverlay {
     pub fn new(wire: Wire, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let query = cx.new(|cx| InputState::new(window, cx).placeholder("Search"));
         let theme = super::theme::ThemeField::new(cx);
+        let lanes = super::lanes::WorkflowLanes::new(cx);
         let typing = vec![
             cx.subscribe_in(&query, window, |this, _, event: &InputEvent, _, cx| {
                 if matches!(event, InputEvent::Change) {
@@ -173,6 +175,15 @@ impl SettingsOverlay {
             // The theme's list opens when the keys reach its field, and shuts when they leave.
             cx.on_focus(&theme.focus, window, |this, _, cx| this.theme_focused(cx)),
             cx.on_blur(&theme.focus, window, |this, _, cx| this.theme_shut(cx)),
+            // The node or chip the keys are on wears the ring while the canvas holds them.
+            cx.on_focus(&lanes.canvas.frame, window, |this, _, cx| {
+                this.lanes.canvas.keyed.set(true);
+                cx.notify();
+            }),
+            cx.on_blur(&lanes.canvas.frame, window, |this, _, cx| {
+                this.lanes.canvas.keyed.set(false);
+                cx.notify();
+            }),
         ];
         SettingsOverlay {
             wire,
@@ -201,6 +212,7 @@ impl SettingsOverlay {
             models: super::models::ModelsPage::new(window, cx),
             macs: super::macs::MacsPage::new(),
             prefs: super::prefs::Prefs::new(),
+            lanes,
             workflows: super::workflows::WorkflowsPage::new(window, cx),
             tracks: Rc::default(),
             keys: None,
@@ -243,6 +255,7 @@ impl SettingsOverlay {
         self.models.reopen();
         self.macs.reopen();
         self.prefs.reopen();
+        self.lanes.reopen();
         self.mod_keys(cx);
         window.focus(&self.side, cx);
         let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
@@ -760,6 +773,11 @@ impl SettingsOverlay {
     fn on_keystroke(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
         // A choice's list open over Settings takes its own keys.
         if self.popup.is_some() {
+            return false;
+        }
+        // The lanes take their own keys while they hold them; an Esc they leave comes back to `render_lanes`.
+        let canvas = matches!(key.key.as_str(), "escape" | "enter" | "space" | "]" | "[" | "up" | "down" | "left" | "right");
+        if canvas && !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt && self.lanes.canvas.frame.is_focused(window) {
             return false;
         }
         // A mod's panel beside the page takes its own keys; Esc outside it puts it away.

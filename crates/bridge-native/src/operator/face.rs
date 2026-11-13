@@ -153,10 +153,10 @@ pub fn later_choices(now: DateTime<Local>) -> [(&'static str, &'static str, Date
     ]
 }
 
-/// When a Later item comes back, as the menu and its tooltip say it: `15:05`, `tomorrow 09:00`,
+/// When a Later item comes back, as the menu and its tooltip say it, in his clock: `15:05`, `tomorrow 09:00`,
 /// `Mon 16 Nov 09:00`.
 pub fn back_at(at: DateTime<Local>, now: DateTime<Local>) -> String {
-    let time = at.format("%H:%M").to_string();
+    let time = crate::settings::time::clock(at);
     let days = (at.date_naive() - now.date_naive()).num_days();
     match days {
         0 => time,

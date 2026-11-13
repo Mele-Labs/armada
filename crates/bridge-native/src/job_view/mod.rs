@@ -795,12 +795,14 @@ impl JobView {
         let total = lead + before + items + extras.len();
         let from = if page.version.is_none() { 0 } else { dirty.unwrap_or(page.items).min(page.items).min(items) };
         let from_list = if above != above_was || from == 0 { 0 } else { lead + before + from };
-        // Items put in front, of this Job or the one above it, leave the person where they were reading.
+        // Items put in front, of this Job or the one above it, leave the person where they were reading. So
+        // does a row drawn again under the top: gpui's splice puts the top at the range's start otherwise.
         let shift = (lead + before + added) as isize - (page.lead + page.before) as isize;
-        let top = (page.version.is_some() && (added > 0 || added_earlier > 0 || before != page.before)).then(|| page.list.logical_scroll_top());
+        let top = page.version.is_some().then(|| page.list.logical_scroll_top());
         page.list.splice(from_list..page.count, total - from_list);
-        if let Some(top) = top {
-            page.list.scroll_to(ListOffset { item_ix: (top.item_ix as isize + shift).max(0) as usize, offset_in_item: top.offset_in_item });
+        if let Some(top) = top.filter(|top| shift != 0 || added_earlier > 0 || top.item_ix >= from_list) {
+            let item_ix = ((top.item_ix as isize + shift).max(0) as usize).min(total.saturating_sub(1));
+            page.list.scroll_to(ListOffset { item_ix, offset_in_item: top.offset_in_item });
         }
         page.before = before;
         page.earlier_version = earlier_version;

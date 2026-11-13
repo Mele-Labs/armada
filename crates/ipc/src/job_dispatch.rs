@@ -1,6 +1,6 @@
 //! `dispatch_job`: the person's work for a repository, handed to Fleet before any Job exists. With the
-//! Operator on and seated it goes to the Operator, which starts a Job, folds the work into a live one, or
-//! asks the person. `docs/concepts/operator.md`.
+//! Operator on and seated it goes to the Operator, which starts a Job, folds the work into a live one, keeps it
+//! for later or asks the person. `docs/concepts/operator.md`.
 
 use serde::{Deserialize, Serialize};
 
@@ -8,20 +8,21 @@ use crate::hosted_sessions::{SendSessionMessage, SentSketch, SessionTag, Session
 use crate::session_notes::SessionNote;
 use crate::sessions::{SessionId, SessionRecord};
 
-/// What the person calls the work he dispatches.
+/// What the person marks the work he dispatches as: a hint to the Operator and nothing more. It picks no way and
+/// no workflow, and a dispatch with none is as valid as one with any.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DispatchKind {
-    /// A loose thought. With the Operator on it is kept for later, not started.
+    /// He takes it for a loose thought.
     Idea,
-    /// Work to build. A Job started on it follows the repository's feature workflow where it has one.
+    /// He takes it for work to build.
     Feature,
-    /// Something broken. A Job started on it follows the repository's bug workflow where it has one.
+    /// He takes it for something broken.
     Bug,
 }
 
 impl DispatchKind {
-    /// The word on the wire, and the name of the workflow it asks for.
+    /// The word on the wire.
     pub fn as_wire(self) -> &'static str {
         match self {
             DispatchKind::Idea => "idea",
@@ -36,8 +37,8 @@ impl DispatchKind {
 pub struct DispatchJob {
     #[serde(flatten)]
     pub start: StartSession,
-    /// What he calls it. Left out, the Operator reads it from the words and pictures; with the Operator off the
-    /// dispatch starts at once whatever it is called.
+    /// What he marks it as, which the Operator is told as a hint. Left out, the Operator reads it from the words and
+    /// pictures. It is kept with the dispatch, so it rides onto the Job or the parked idea.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<DispatchKind>,
     /// Sent into the Job in order after it starts, or into the live Job the work was folded into. Left out, nothing is.
@@ -75,8 +76,8 @@ impl DispatchMessage {
 }
 
 /// What `dispatch_job` answers. **Exactly one is present**: `session` where a Job was started, `operator` where
-/// the Operator holds the dispatch, which is its id (`operator.dispatched` says what became of it), or `parked`
-/// where it was kept as an idea for later, which is the idea's id.
+/// the Operator holds the dispatch, which is its id (`operator.dispatched` says what became of it). `parked` is
+/// no longer answered: an idea is kept only by the Operator's ruling, which `operator.dispatched` names.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JobDispatched {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -90,7 +91,7 @@ pub struct JobDispatched {
 /// One idea kept for later: the dispatch whole, so starting it is `dispatch_job` with `dispatch`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParkedIdea {
-    /// The id `JobDispatched.parked` and `operator.dispatched` named it by.
+    /// The id `operator.dispatched` named it by.
     pub id: String,
     pub dispatch: DispatchJob,
     /// RFC 3339.

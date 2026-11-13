@@ -376,7 +376,7 @@ impl JobView {
     /// `detail.drawn` of the ledger sketch, which an answer names back.
     pub(super) fn drawn_of(&self, sketch: &str, cx: &gpui::App) -> Option<String> {
         let job = self.shown.as_ref()?;
-        self.record(job, cx)?.attachments.iter().find(|one| one.kind == "sketch" && one.target == sketch)?.detail.get("drawn").cloned()
+        drawn_in(&self.record(job, cx)?.attachments, sketch)
     }
 
     /// The band over a sketch: its glyph, title, tags, revision menu and time.
@@ -1133,5 +1133,44 @@ impl JobView {
             }
         };
         labelled(row.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers").into_any_element()
+    }
+}
+
+/// Fleet keeps a sketch as an artifact of form `sketch` (`sketch_attachment`); an older ledger as kind `sketch`.
+pub(super) fn drawn_in(attachments: &[ipc::Attachment], sketch: &str) -> Option<String> {
+    attachments
+        .iter()
+        .find(|one| one.target == sketch && (one.kind == "sketch" || (one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("sketch"))))?
+        .detail
+        .get("drawn")
+        .cloned()
+}
+
+#[cfg(test)]
+mod drawn_tests {
+    use super::drawn_in;
+
+    fn attachment(kind: &str, target: &str, detail: &[(&str, &str)]) -> ipc::Attachment {
+        let at = ipc::Instant::carried("2026-11-09T13:00:00Z");
+        ipc::Attachment {
+            kind: kind.into(),
+            manifest_id: None,
+            target: target.into(),
+            state: ipc::AttachmentState::Standing,
+            detail: detail.iter().map(|(key, value)| (key.to_string(), value.to_string())).collect(),
+            since: at.clone(),
+            changed_at: at,
+        }
+    }
+
+    #[test]
+    fn a_sketch_kept_as_an_artifact_gives_its_drawn_to_the_answer() {
+        let ledger = [
+            attachment("artifact", "sketch:Flow", &[("form", "page"), ("drawn", "wrong")]),
+            attachment("artifact", "sketch:Flow", &[("form", "sketch"), ("drawn", "d2")]),
+        ];
+        assert_eq!(drawn_in(&ledger, "sketch:Flow").as_deref(), Some("d2"));
+        assert_eq!(drawn_in(&[attachment("sketch", "sketch:Old", &[("drawn", "d1")])], "sketch:Old").as_deref(), Some("d1"));
+        assert_eq!(drawn_in(&ledger, "sketch:Other"), None);
     }
 }

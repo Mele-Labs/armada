@@ -51,8 +51,9 @@ A dispatch is work the person has just given, and no Job holds it yet. New job s
 Choose existing job only where a live Job's paths, plan or issues cover what it asks, so that handing \
 its words over loses nothing, and name that Job. Where a live Job may hold the same work and you \
 cannot tell, choose raise, which asks the person whether to hand it over or start it as its own Job. \
-Where the item says what the person called it, that is his word and is not yours to change. Choose park \
-only where park is offered, and where the words are plainly a loose idea and not work to do now.
+Where the item says what he marked it as, that is a hint of what he thinks he is sending and rules \
+nothing: weigh it with the words, and any way offered is yours to choose. Choose park only where park is \
+offered, and where the words are plainly a loose idea and not work to do now.
 
 A note the person sent to a Job himself names that Job. Leave it there unless another live Job \
 shares its work more closely, which is existing job, or it is work no live Job holds, which is \
