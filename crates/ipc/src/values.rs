@@ -134,6 +134,24 @@ pub struct ResolvedReviews {
     /// The layer the walks word came from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub walks_from: Option<ValueLayer>,
+    /// What the layers below the project give the plans word. Set only where `plans_from` is `project`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plans_inherited: Option<String>,
+    /// The layer `plans_inherited` came from. Set with it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plans_inherited_from: Option<ValueLayer>,
+    /// What the layers below the project give the pull requests word. Set only where `pull_requests_from` is `project`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_requests_inherited: Option<String>,
+    /// The layer `pull_requests_inherited` came from. Set with it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_requests_inherited_from: Option<ValueLayer>,
+    /// What the layers below the project give the walks word. Set only where `walks_from` is `project`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub walks_inherited: Option<String>,
+    /// The layer `walks_inherited` came from. Set with it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub walks_inherited_from: Option<ValueLayer>,
 }
 
 /// What autonomy comes to for one kind of act: `acts`, `asks` or `off`. `from` is `kit`, `project` or
