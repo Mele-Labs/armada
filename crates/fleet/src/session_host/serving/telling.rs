@@ -241,6 +241,12 @@ where
         self.fleet_word(session, text, false, None).await
     }
 
+    /// Fleet's word to the Operator of what the person just did on a card of his. Kept from no mute or rule,
+    /// since it answers his own press and the Operator can only act on it by being told.
+    pub(crate) async fn told_of_his_act(self: &Arc<Self>, session: &str, text: &str) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, false, None).await
+    }
+
     /// Fleet's word to a Job whose draft the person turned into a Document. Kept from no mute or rule,
     /// since it answers his own press and the Job's next revision depends on it. **A paused Job's is kept
     /// for its Resume** and `Ok(false)` until then; an ended Job is told nothing.

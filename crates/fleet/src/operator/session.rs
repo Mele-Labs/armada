@@ -1,0 +1,128 @@
+//! The Operator as one agent: a hosted session per Mac with Fleet's tools, which puts cards in front
+//! of the person and which Fleet tells what it used to rule on. `crates/ipc/operations/raise_card.toml`.
+//!
+//! **It has no repository, no slot and no Manifest.** It starts in a folder of its own under the
+//! Operator's home, as a Mod Job starts in the mods folder where Armada's own repository is not served,
+//! so the door answers it without a Manifest and offers it the reads and acts that name their
+//! repository themselves. While `features.operator` is on and none runs, the next tick starts one;
+//! turning the switch off ends it. A hand on at the context limit keeps `operator` on the successor.
+
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use api::Refusal;
+use config::settings as keys;
+use ipc::{CloseSession, ManifestId, Notice, SessionVoice, StartSession};
+
+use crate::daemon::Fleet;
+use crate::session_host::Marked;
+
+/// What the Operator's session is called where a title is drawn.
+pub(crate) const TITLE: &str = "Operator";
+
+/// Its first turn. The rules are in its system prompt, so this only wakes it.
+const BEGIN: &str = "You are up. Read what Fleet holds across every project and begin your watch: the live Jobs, \
+what has stopped, what waits on him, and main in each repository. Put a card in front of him only where something \
+needs his decision.";
+
+/// The refusal for an act only the Operator's session may make.
+pub(crate) const NOT_THE_OPERATOR: &str = "fleet.not_the_operator";
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// Whether `id` is the Operator's own session, as its placed process says.
+    pub(crate) fn session_is_the_operator(&self, id: &str) -> bool {
+        self.hosts().of(id).state().operator
+    }
+
+    /// The folder the Operator's session runs in, beside its journal.
+    pub(crate) fn operator_dir(&self) -> PathBuf {
+        let journal = self.journal_dir();
+        journal.parent().map(|home| home.join("session")).unwrap_or_else(|| journal.join("session"))
+    }
+
+    /// The live Operator session's id, where one runs.
+    pub(crate) async fn operator_session_id(&self) -> Option<String> {
+        self.store().lock().await.live_operator_hosting().ok().flatten().map(|hosting| hosting.session_id)
+    }
+
+    /// Refuse a caller that is not the Operator's session, and name the session otherwise.
+    pub(crate) fn operator_called(&self, caller: Option<api::Caller>) -> Result<String, Refusal> {
+        caller
+            .and_then(|caller| self.session_holding(&caller))
+            .filter(|id| self.session_is_the_operator(id))
+            .ok_or_else(|| self.hosted_refusal(NOT_THE_OPERATOR, "only the Operator's own session may call this"))
+    }
+
+    /// Once a tick: start the Operator's session while the switch is on and none runs, and end it once
+    /// the switch is off.
+    pub(crate) async fn operator_session_kept(self: &Arc<Self>) {
+        let _one = self.operator_seat().session.lock().await;
+        let live = self.operator_session_id().await;
+        match (self.operator_on(), live) {
+            (true, None) => {
+                if let Err(why) = self.operator_session_started().await {
+                    self.operator_warned("the Operator's session did not start", format!("{why:?}"));
+                }
+            }
+            (false, Some(id)) => {
+                if let Err(why) = self.closed_and_parked(CloseSession { session_id: ipc::SessionId::carried(&id) }).await {
+                    self.operator_warned("the Operator's session did not end", format!("{why:?}"));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Start the Operator's session on the Operator model, and send its first turn.
+    async fn operator_session_started(self: &Arc<Self>) -> Result<String, Refusal> {
+        let dir = self.operator_dir();
+        std::fs::create_dir_all(&dir).map_err(|why| self.hosted_refusal("fleet.operator_session_folder", &format!("the Operator's folder could not be made: {why}")))?;
+        let model: String = self.machine_settings().now().get(keys::MODELS_OPERATOR);
+        let start = StartSession {
+            project: None,
+            manifest_id: ManifestId::carried(""),
+            title: Some(TITLE.to_string()),
+            model: Some(model).filter(|model| !model.trim().is_empty()),
+            effort: None,
+            mode: None,
+            root: None,
+            fork: None,
+            request: None,
+            after: None,
+            held: false,
+            project_rows: Vec::new(),
+            on_your_words: None,
+        };
+        let id = self.started_hosted(start, Marked::Operator).await?.id.as_str().to_string();
+        self.first_message_from(&id, SessionVoice::You, BEGIN).await?;
+        Ok(id)
+    }
+
+    /// Fleet's word to the Operator's session, where one runs. `false` where none does, or it could not
+    /// be told, and the caller goes on as it did before the session.
+    pub(crate) async fn operator_told(self: &Arc<Self>, text: &str) -> bool {
+        let Some(id) = self.operator_session_id().await else { return false };
+        matches!(self.told_by_fleet(&id, text, Notice::Operator).await, Ok(true))
+    }
+
+    /// The person's words to the Operator's session, as he wrote them. A refusal says it is not running.
+    pub(crate) async fn operator_told_as_him(self: &Arc<Self>, text: &str) -> Result<(), Refusal> {
+        let Some(id) = self.operator_session_id().await else {
+            return Err(self.hosted_refusal(NOT_RUNNING, "the Operator's session is not running, so nothing here reaches it"));
+        };
+        self.first_message_from(&id, SessionVoice::You, text).await
+    }
+}
+
+/// The Operator's session is not running.
+pub(crate) const NOT_RUNNING: &str = "fleet.operator_session_not_running";

@@ -35,6 +35,11 @@ impl Placed {
         matches!(self, Placed::Words(reach) if reach.is_a_hosted_session())
     }
 
+    /// Whether the caller is the Operator's own session.
+    pub(crate) fn is_the_operator(&self) -> bool {
+        matches!(self, Placed::Words(reach) if reach.is_the_operator())
+    }
+
     pub(crate) fn may(&self, operation: &str) -> bool {
         match self {
             Placed::Anyone => true,

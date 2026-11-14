@@ -343,6 +343,7 @@ mod operator_notes;
 mod operator_errors;
 mod operator_suggestions;
 mod operator_order;
+mod operator_session;
 mod operator_sources;
 mod operator_looks;
 mod operator_reading_process;

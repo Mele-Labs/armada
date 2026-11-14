@@ -650,6 +650,11 @@ where
     /// `talk_to_operator`: one message from the person. **Refused** while the Operator is off, while it is
     /// paused for the week's plan, and where the call fails or says what cannot be read. Nothing is kept then.
     pub(crate) async fn operator_talked(self: &Arc<Self>, words: &str, about: Option<&str>) -> Result<OperatorSaid, Refusal> {
+        // The Operator's own session hears him itself: its answer is its thread, not this reply.
+        if let Some(delivered) = self.talk_delivered(words, about).await {
+            delivered?;
+            return Ok(OperatorSaid { said: String::new(), cites: Vec::new(), job: None, started: None, order: None, forms: Vec::new(), moved: None, forgot: None, lifted: None });
+        }
         let Some(operator) = self.operator_seat().operator().filter(|_| self.operator_on()) else {
             return Err(self.hosted_refusal(OPERATOR_OFF, "the Operator is off"));
         };

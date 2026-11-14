@@ -388,7 +388,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// The page is not what it was: Bridge reads it again.
-    pub(super) fn operator_page_changed(&self) {
+    pub(crate) fn operator_page_changed(&self) {
         self.events().publish(Event::OperatorPageChanged(OperatorPageChanged {}));
     }
 
@@ -453,7 +453,7 @@ where
         let on = self.operator_on();
         let gone = |session: &str, item: &str| {
             // A red main's and a short disk's are their own to settle, never read off a list.
-            if item.starts_with(super::turning::RED) || item.starts_with(super::disking::DISK_HOLD) {
+            if item.starts_with(super::turning::RED) || item.starts_with(super::disking::DISK_HOLD) || item.starts_with(super::cards::CARD) {
                 return false;
             }
             match lists.iter().find(|(id, _, _)| id == session) {
@@ -675,7 +675,7 @@ where
 }
 
 /// A paused or snoozed Job, whose raises are left as they stand.
-fn resting(record: &SessionRecord) -> bool {
+pub(super) fn resting(record: &SessionRecord) -> bool {
     record.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some()) || record.snoozed_until.is_some()
 }
 
