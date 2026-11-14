@@ -588,7 +588,7 @@ async fn remind_at_keeps_the_figure_in_one_press_and_the_job_is_told_again_past_
     turn_heard(&rig, &old, 2, 462_000).await;
     let told = fleet_said(&rig, &old, "Context is").await;
     assert_eq!(told.len(), 2, "past it: told again {told:?}");
-    assert!(told[1].starts_with("Context is 462k tokens."));
+    assert!(told[1].starts_with("Context is 462k tokens, past the 300k limit."), "{}", told[1]);
     assert!(standing(&rig.record(&old).await, "handoff_remind_at").is_empty(), "the reminder is spent");
     rig.stand_in.finishes(0, "Sent.");
     brief_sent(&rig, &old, BRIEF).await.expect("the telling asks for a brief again");
