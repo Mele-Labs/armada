@@ -496,7 +496,7 @@ async fn two_repositories_main_checkouts_claim_separate_spans() {
         .clone();
     fittings.locating = Arc::clone(&planted) as Arc<dyn Locating>;
     // A range no other case probes, since a probe binds for an instant.
-    fittings.port_range = crate::ports::PortRange::of(44_200, 44_299, 8);
+    fittings.port_range = super::servers::a_range_of_its_own();
     let fleet = Fleet::assembled(fittings);
     fleet
         .repositories()
