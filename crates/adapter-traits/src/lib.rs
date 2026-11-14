@@ -53,6 +53,7 @@ mod pull_request;
 mod pull_request_detail;
 mod pull_review;
 mod request;
+mod cloudflare;
 mod secret;
 mod setup;
 mod shared_home;
@@ -115,13 +116,14 @@ pub use pull_review::{
 pub use request::{
     Incoming, Outgoing, RequestFailure, RequestSecrets, RequestSender, SecretError, SecretVariable,
 };
+pub use cloudflare::{Cloudflare, CloudflareError, CloudflareTokens, WorkerUpload};
 pub use secret::Secret;
 pub use shared_home::{
     HarnessHome, HarnessPiece, HarnessPlace, HomeFailure, HomePlace, HomeRepositories, HomeRepository, KeptFolder, PluginRecord,
     HOME_REPOSITORY,
 };
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};
-pub use store::{ClaimKey, ClaimKind, Claimant, Claimed, Holder, HolderKind, OwnerKey, RepositoryKey, RunRow, Store, StoreError};
+pub use store::{ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderKind, OwnerKey, Renewed, RepositoryKey, RunRow, Store, StoreDevice, StoreError};
 pub use tracker::{
     IssueComment, IssueField, LinkedPullRequest, LinkedPullRequestState, NotTracked, OpenIssue, QueryGuide, ReadIssue, TicketState, Tool, ToolInstalled,
     Tracker, TrackerChoice, Trackers,

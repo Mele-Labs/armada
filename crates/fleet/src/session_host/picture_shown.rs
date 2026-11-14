@@ -74,6 +74,29 @@ pub(super) fn lead_of(shown: Vec<Shown>) -> Option<LeadPicture> {
     shown.into_iter().filter(|one| !one.withdrawn).max_by(|a, b| a.at.cmp(&b.at)).map(|one| one.picture)
 }
 
+/// The item `all_done` takes off his list with no verdict: the lead picture, where it is a sketch still put
+/// to him. **The done card is then the one place it shows**, and his End the one press. A sketch the pending
+/// plan names, or one beside a question of the Job's own still open, is not a result, so it still waits.
+pub(super) fn result_sketch(store: &store::Store, id: &str) -> Result<Option<String>, store::WriteError> {
+    let held = store.attachments_of(&Holder::session(id))?;
+    let dismissed = store.dismissed_waiting(id)?;
+    let Some(LeadPicture::Sketch { title }) = lead_of(pictures_shown(id, &held, &dismissed)) else {
+        return Ok(None);
+    };
+    let target = format!("{TARGET_PREFIX}{title}");
+    let asked = held.iter().any(|one| {
+        let said = |key: &str| one.detail.get(key).map(String::as_str);
+        one.kind == "artifact"
+            && one.target == target
+            && said(ipc::SKETCH_ASKED) == Some("true")
+            && said(ipc::SKETCH_SETTLED).is_none()
+            && said(ipc::SKETCH_WITHDRAWN).is_none()
+    });
+    let in_plan = store.session_plan(id)?.is_some_and(|plan| crate::plan_record::pending_sketches(&plan).contains(&title));
+    let questioned = store.waiting_for(id)?.iter().any(|one| one.approves || !one.options.is_empty());
+    Ok((asked && !dismissed.contains(&target) && !in_plan && !questioned).then_some(target))
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,

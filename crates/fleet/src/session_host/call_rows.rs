@@ -157,6 +157,9 @@ impl CallRows {
 
     /// The subagent call `call` started, running. Its row, where the call was drawn; else it waits for the row.
     pub(crate) fn started(&mut self, call: &str, subagent: ToolSubagent) -> Option<SessionRow> {
+        if let Some(row) = self.resumed(call, &subagent) {
+            return Some(row);
+        }
         let one = self.call(call);
         let Some(drawn) = one.row.as_mut() else {
             one.early = Some(subagent);
@@ -165,6 +168,23 @@ impl CallRows {
         drawn.subagent = Some(subagent);
         one.put_at = Some(std::time::Instant::now());
         Some(drawn.row())
+    }
+
+    /// A settled subagent running again, sent a message or woken. No new `Agent` row draws it, so the row of
+    /// the call that first started it runs again, remembered under that call. None where `call` drew a row
+    /// of its own, or no settled row carries the subagent.
+    fn resumed(&mut self, call: &str, subagent: &ToolSubagent) -> Option<SessionRow> {
+        if self.calls.iter().any(|one| one.call == call && one.row.is_some()) {
+            return None;
+        }
+        let at = self.settled.iter().rposition(|(_, row)| subagent_of(row).as_deref() == Some(subagent.id.as_str()))?;
+        let (first, row) = self.settled.remove(at)?;
+        let SessionRow::Tool { id, at, text, description, subagent: Some(was), .. } = row else { return None };
+        let again = ToolSubagent { state: ToolSubagentState::Running, since: subagent.since.clone(), latest: None, ended: None, report: None, ..was };
+        let one = self.call(&first);
+        one.row = Some(Drawn { id, at, text, description, subagent: Some(again) });
+        one.put_at = Some(std::time::Instant::now());
+        one.row.as_ref().map(Drawn::row)
     }
 
     pub(crate) fn latest(&mut self, call: &str, latest: String, now: std::time::Instant) -> Latest {
@@ -490,5 +510,29 @@ mod tests {
         assert_eq!(after.id(), taken.id(), "the same row");
         let SessionRow::Tool { subagent: Some(subagent), .. } = after else { panic!("a subagent's row: {after:?}") };
         assert_eq!((subagent.state, subagent.ended), (ToolSubagentState::CutOff, Some(ended)));
+    }
+
+    /// The agent sent a finished subagent a message, so it ran again with no `Agent` call of its own: its
+    /// first row stood `finished` and no thread showed it running (14 Nov 2026).
+    #[test]
+    fn a_subagent_sent_a_message_after_it_settled_runs_again_on_its_first_row() {
+        let at = Instant::carried("2026-11-14T00:26:49Z");
+        let mut rows = CallRows::default();
+        rows.spawned("toolu_50", false);
+        rows.drawn("toolu_50", "r1", &at, "Agent Build Needs you take A", None);
+        rows.started("toolu_50", running(&at));
+        let ended = Instant::carried("2026-11-14T01:15:49Z");
+        rows.settled("a7", ToolSubagentState::Finished, &ended, Some("Built".into())).expect("the row this Fleet drew");
+
+        // The SendMessage call was drawn before the mod told of the subagent, so no call of this Fleet's holds it.
+        let again = Instant::carried("2026-11-14T01:16:12Z");
+        let row = rows.started("toolu_51", running(&again)).expect("the first row, running again");
+        assert_eq!(row.id(), "r1");
+        let SessionRow::Tool { subagent: Some(subagent), .. } = &row else { panic!("a subagent's row: {row:?}") };
+        assert_eq!((subagent.state, &subagent.since, &subagent.ended, &subagent.report), (ToolSubagentState::Running, &again, &None, &None));
+
+        let done = Instant::carried("2026-11-14T01:59:20Z");
+        let settled = rows.settled("a7", ToolSubagentState::Finished, &done, None).expect("its row is held again, so it settles again");
+        assert_eq!((settled.id(), state_of(&settled)), ("r1", Some(ToolSubagentState::Finished)));
     }
 }

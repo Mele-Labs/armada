@@ -74,6 +74,31 @@ describe("enrolling too often", () => {
     expect((await enrolFrom("203.0.113.9", spki)).status).toBe(200);
   });
 
+  it("goes on uncounted when the binding is absent", async () => {
+    const { spki } = await newKeyPair();
+    forgeAnswers(8004);
+    for (let n = 0; n < 15; n++) {
+      const answer = await toStore(
+        `${STORE}/v1/enrol`,
+        {
+          method: "POST",
+          headers: {
+            "CF-Connecting-IP": "203.0.113.11",
+          },
+          body: JSON.stringify({
+            token: "any-token",
+            public_key: spki,
+            machine: "studio",
+          }),
+        },
+        {
+          ENROL_LIMIT: undefined,
+        },
+      );
+      expect(answer.status).toBe(200);
+    }
+  });
+
   it("names the refusal", async () => {
     const { spki } = await newKeyPair();
     forgeAnswers(8003);

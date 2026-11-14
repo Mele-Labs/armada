@@ -21,7 +21,8 @@ use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use adapter_traits::{
-    ClaimKey, ClaimKind, Claimant, Claimed, Holder, HolderKind, OwnerKey, RepositoryKey, RunRow, Secret, Store, StoreError,
+    ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderKind, OwnerKey, Renewed, RepositoryKey, RunRow, Secret, Store, StoreDevice,
+    StoreError,
 };
 use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
@@ -126,9 +127,33 @@ struct RenewingWire<'a> {
     machine: &'a str,
 }
 
+/// A renewal's answer. A store older than the contests leaves `contested` out, and it reads as none.
 #[derive(Deserialize)]
-struct Renewed {
+struct RenewedWire {
     claims: u64,
+    #[serde(default)]
+    contested: Vec<ContestWire>,
+}
+
+/// One claim of the holder that another Job asked for since its last renewal.
+#[derive(Deserialize)]
+struct ContestWire {
+    repo: String,
+    kind: String,
+    key: String,
+    holder: ClaimantWire,
+}
+
+impl ContestWire {
+    /// `None` for a contest this build cannot name: a kind, hash or holder kind it does not know.
+    fn into_contest(self) -> Option<Contest> {
+        Some(Contest {
+            repository: RepositoryKey::from_hash(&self.repo)?,
+            kind: ClaimKind::from_wire(&self.kind)?,
+            key: ClaimKey::from_hash(&self.key)?,
+            by: self.holder.into_claimant().ok()?,
+        })
+    }
 }
 
 #[derive(Serialize)]
@@ -183,6 +208,26 @@ struct RunsBody {
 #[derive(Deserialize)]
 struct RunsReply {
     facts: Vec<RunWire>,
+}
+
+#[derive(Deserialize)]
+struct DevicesReply {
+    devices: Vec<DeviceWire>,
+}
+
+#[derive(Deserialize)]
+struct DeviceWire {
+    device: String,
+    machine: String,
+}
+
+/// The devices in a `GET /v1/devices` reply, in the store's order.
+pub(crate) fn devices_held(reply: &Reply) -> Result<Vec<StoreDevice>, StoreError> {
+    if !succeeded(reply) {
+        return Err(not_answered(reply));
+    }
+    let devices = decoded::<DevicesReply>("devices", reply)?.devices;
+    Ok(devices.into_iter().map(|one| StoreDevice { id: one.device, machine: one.machine }).collect())
 }
 
 #[derive(Serialize)]
@@ -257,9 +302,14 @@ pub(crate) fn renewal_call(holder: &Holder) -> Result<Call, StoreError> {
     Ok(Call { method: "POST", target: "/v1/renewals".to_string(), body: body_of(&body)? })
 }
 
-pub(crate) fn renewed(reply: &Reply) -> Result<u64, StoreError> {
+/// The claims a holder still has and who asked for them. A contest this build cannot read is skipped,
+/// not an error: the renewal itself still counts.
+pub(crate) fn renewed(reply: &Reply) -> Result<Renewed, StoreError> {
     match succeeded(reply) {
-        true => Ok(decoded::<Renewed>("renewal", reply)?.claims),
+        true => {
+            let wire = decoded::<RenewedWire>("renewal", reply)?;
+            Ok(Renewed { claims: wire.claims, contested: wire.contested.into_iter().filter_map(ContestWire::into_contest).collect() })
+        }
         false => Err(not_answered(reply)),
     }
 }
@@ -475,7 +525,7 @@ impl Store for HttpStore {
         deleted(&self.send(&call)?)
     }
 
-    fn renew(&self, holder: &Holder) -> Result<u64, StoreError> {
+    fn renew(&self, holder: &Holder) -> Result<Renewed, StoreError> {
         renewed(&self.send(&renewal_call(holder)?)?)
     }
 
@@ -508,6 +558,11 @@ impl Store for HttpStore {
         }
         let call = Call { method: "DELETE", target: format!("/v1/devices/{device}"), body: Vec::new() };
         deleted(&self.send(&call)?)
+    }
+
+    fn signed_in_devices(&self) -> Result<Vec<StoreDevice>, StoreError> {
+        let call = Call { method: "GET", target: "/v1/devices".to_string(), body: Vec::new() };
+        devices_held(&self.send(&call)?)
     }
 
     fn put_runs(&self, repository: &RepositoryKey, runs: &[RunRow]) -> Result<(), StoreError> {

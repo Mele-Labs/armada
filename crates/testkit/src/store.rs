@@ -13,19 +13,25 @@
 //! The claim is atomic: the check and the write are one lock, as the real
 //! store's one-request-at-a-time object makes them. It is **not** faithful
 //! about time or signing: a row keeps whatever `since` it was handed, and a
-//! claim never lapses here, so a renewal only counts.
+//! claim never lapses here, so a renewal only counts and answers the contests.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use adapter_traits::{ClaimKey, ClaimKind, Claimant, Claimed, Holder, OwnerKey, RepositoryKey, RunRow, Store, StoreError};
+use adapter_traits::{
+    ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, OwnerKey, Renewed, RepositoryKey, RunRow, Store, StoreDevice, StoreError,
+};
 
 #[derive(Debug, Default)]
 struct Rows {
     claims: BTreeMap<(RepositoryKey, ClaimKind, ClaimKey), Claimant>,
+    /// Who asked for a held claim, until its holder's next renewal answers them.
+    contenders: BTreeMap<(RepositoryKey, ClaimKind, ClaimKey), Vec<Claimant>>,
     owners: BTreeMap<OwnerKey, Holder>,
     devices: BTreeSet<String>,
+    /// The Mac each device enrolled as, in the order they enrolled.
+    machines: Vec<(String, String)>,
     runs: BTreeMap<RepositoryKey, Vec<RunRow>>,
 }
 
@@ -54,7 +60,15 @@ impl FakeStore {
     /// Register a device as an enrolment would. The real store does this on
     /// `POST /v1/enrol`, which is not part of [`Store`].
     pub fn enrol(&self, device: &str) {
-        self.rows.lock().unwrap_or_else(std::sync::PoisonError::into_inner).devices.insert(device.to_string());
+        self.enrol_as(device, "");
+    }
+
+    /// [`FakeStore::enrol`], as the Mac named `machine`.
+    pub fn enrol_as(&self, device: &str, machine: &str) {
+        let mut rows = self.rows.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if rows.devices.insert(device.to_string()) {
+            rows.machines.push((device.to_string(), machine.to_string()));
+        }
     }
 
     /// The devices the store holds, whichever handle enrolled them.
@@ -89,11 +103,24 @@ impl FakeStore {
     }
 }
 
+/// The same holder: kind, id and machine, whatever `since` each carries.
+fn same_holder(one: &Holder, other: &Holder) -> bool {
+    one.kind == other.kind && one.id == other.id && one.machine == other.machine
+}
+
 impl Store for FakeStore {
     fn claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey, claimant: &Claimant) -> Result<Claimed, StoreError> {
         let mut rows = self.rows("claim")?;
-        match rows.claims.get(&(repository.clone(), kind, key.clone())) {
-            Some(held) => Ok(Claimed::Held(held.clone())),
+        let at = (repository.clone(), kind, key.clone());
+        match rows.claims.get(&at).cloned() {
+            Some(held) => {
+                if !same_holder(&held.holder, &claimant.holder) {
+                    let asked = rows.contenders.entry(at).or_default();
+                    asked.retain(|one| !same_holder(&one.holder, &claimant.holder));
+                    asked.push(claimant.clone());
+                }
+                Ok(Claimed::Held(held))
+            }
             None => {
                 rows.claims.insert((repository.clone(), kind, key.clone()), claimant.clone());
                 Ok(Claimed::Won)
@@ -106,26 +133,38 @@ impl Store for FakeStore {
     }
 
     fn release_claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey) -> Result<(), StoreError> {
-        self.rows("release_claim")?.claims.remove(&(repository.clone(), kind, key.clone()));
+        let mut rows = self.rows("release_claim")?;
+        let at = (repository.clone(), kind, key.clone());
+        rows.claims.remove(&at);
+        rows.contenders.remove(&at);
         Ok(())
     }
 
     fn replace_claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey, claimant: &Claimant) -> Result<Claimed, StoreError> {
-        self.rows("replace_claim")?
-            .claims
-            .insert((repository.clone(), kind, key.clone()), claimant.clone());
+        let mut rows = self.rows("replace_claim")?;
+        let at = (repository.clone(), kind, key.clone());
+        rows.contenders.remove(&at);
+        rows.claims.insert(at, claimant.clone());
         Ok(Claimed::Won)
     }
 
     fn clear_kind(&self, repository: &RepositoryKey, kind: ClaimKind) -> Result<(), StoreError> {
-        self.rows("clear_kind")?.claims.retain(|(under, of, _), _| under != repository || *of != kind);
+        let mut rows = self.rows("clear_kind")?;
+        rows.claims.retain(|(under, of, _), _| under != repository || *of != kind);
+        rows.contenders.retain(|(under, of, _), _| under != repository || *of != kind);
         Ok(())
     }
 
-    fn renew(&self, holder: &Holder) -> Result<u64, StoreError> {
-        let rows = self.rows("renew")?;
-        let same = |held: &Claimant| held.holder.kind == holder.kind && held.holder.id == holder.id && held.holder.machine == holder.machine;
-        Ok(rows.claims.values().filter(|held| same(held)).count() as u64)
+    fn renew(&self, holder: &Holder) -> Result<Renewed, StoreError> {
+        let mut rows = self.rows("renew")?;
+        let mine: Vec<_> = rows.claims.iter().filter(|(_, held)| same_holder(&held.holder, holder)).map(|(at, _)| at.clone()).collect();
+        let mut contested = Vec::new();
+        for at in &mine {
+            for by in rows.contenders.remove(at).unwrap_or_default() {
+                contested.push(Contest { repository: at.0.clone(), kind: at.1, key: at.2.clone(), by });
+            }
+        }
+        Ok(Renewed { claims: mine.len() as u64, contested })
     }
 
     fn put_owner(&self, key: &OwnerKey, holder: &Holder) -> Result<(), StoreError> {
@@ -147,8 +186,15 @@ impl Store for FakeStore {
     }
 
     fn delete_device(&self, device: &str) -> Result<(), StoreError> {
-        self.rows("delete_device")?.devices.remove(device);
+        let mut rows = self.rows("delete_device")?;
+        rows.devices.remove(device);
+        rows.machines.retain(|(id, _)| id != device);
         Ok(())
+    }
+
+    fn signed_in_devices(&self) -> Result<Vec<StoreDevice>, StoreError> {
+        let rows = self.rows("signed_in_devices")?;
+        Ok(rows.machines.iter().map(|(id, machine)| StoreDevice { id: id.clone(), machine: machine.clone() }).collect())
     }
 
     fn put_runs(&self, repository: &RepositoryKey, runs: &[RunRow]) -> Result<(), StoreError> {
@@ -262,8 +308,45 @@ mod tests {
         let store = FakeStore::new();
         store.claim(&repository(), ClaimKind::Red, &red(), &claimant("mac-a")).unwrap();
         store.claim(&repository(), ClaimKind::File, &red(), &claimant("mac-a")).unwrap();
-        assert_eq!(store.renew(&holder("mac-a")).unwrap(), 2);
-        assert_eq!(store.renew(&holder("mac-b")).unwrap(), 0);
+        assert_eq!(store.renew(&holder("mac-a")).unwrap().claims, 2);
+        assert_eq!(store.renew(&holder("mac-b")).unwrap().claims, 0);
+    }
+
+    #[test]
+    fn a_claim_held_for_another_holder_is_a_contest_its_holder_hears_once() {
+        let store = FakeStore::new();
+        store.claim(&repository(), ClaimKind::File, &red(), &claimant("mac-a")).unwrap();
+        store.claim(&repository(), ClaimKind::File, &red(), &claimant("mac-a")).unwrap();
+        assert_eq!(store.claim(&repository(), ClaimKind::File, &red(), &claimant("mac-b")).unwrap(), Claimed::Held(claimant("mac-a")));
+        store.claim(&repository(), ClaimKind::File, &red(), &claimant("mac-b")).unwrap();
+
+        let heard = store.renew(&holder("mac-b")).unwrap();
+        assert_eq!((heard.claims, heard.contested), (0, Vec::new()), "the one refused is not told");
+
+        let heard = store.renew(&holder("mac-a")).unwrap();
+        assert_eq!(heard.claims, 1);
+        assert_eq!(
+            heard.contested,
+            vec![Contest { repository: repository(), kind: ClaimKind::File, key: red(), by: claimant("mac-b") }]
+        );
+        assert!(store.renew(&holder("mac-a")).unwrap().contested.is_empty(), "told once");
+    }
+
+    #[test]
+    fn a_claim_that_ends_takes_its_contests_with_it() {
+        let store = FakeStore::new();
+        let older = ClaimKey::from_hash("dddddddd44444444dddddddd44444444dddddddd44444444dddddddd44444444").unwrap();
+        for (kind, key) in [(ClaimKind::File, red()), (ClaimKind::Red, red()), (ClaimKind::Test, older.clone())] {
+            store.claim(&repository(), kind, &key, &claimant("mac-a")).unwrap();
+            store.claim(&repository(), kind, &key, &claimant("mac-b")).unwrap();
+        }
+        store.release_claim(&repository(), ClaimKind::File, &red()).unwrap();
+        store.clear_kind(&repository(), ClaimKind::Red).unwrap();
+        store.replace_claim(&repository(), ClaimKind::Test, &older, &claimant("mac-c")).unwrap();
+        store.claim(&repository(), ClaimKind::File, &red(), &claimant("mac-a")).unwrap();
+        store.claim(&repository(), ClaimKind::Red, &red(), &claimant("mac-a")).unwrap();
+        assert!(store.renew(&holder("mac-a")).unwrap().contested.is_empty());
+        assert!(store.renew(&holder("mac-c")).unwrap().contested.is_empty());
     }
 
     #[test]

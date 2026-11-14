@@ -1,0 +1,12 @@
+[operations.deploy_project_store]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Deploy a project's claims store to his own Cloudflare account, or redeploy it, and join this Mac to it"
+notes = """
+`POST /projects/project/:project/store/deploy`, body `DeployProjectStore { team?, cloudflare_token? }`. Puts the store's Worker on his Cloudflare account, named `armada-store` for his own and `armada-store-<org>[-<team>]` for a team's, turns on its `workers.dev` address, writes the store into the project's file with its Worker's name and when it was deployed, then joins this Mac to it as `set_project_store` does. `docs/contracts/central-store.md`, *Deploying a store*.
+
+**The tunnel's Cloudflare sign-in is tried first**, after a token he pasted before for that account, which is kept in the Keychain. Where Cloudflare refuses every sign-in this Mac has it answers `StoreDeployed { outcome: "needs_token", page, said }` and changes nothing: `page` makes a token with the rights a deploy needs. `cloudflare_token` is that token, pasted; it is the only sign-in tried, and once a deploy with it works it is kept in the Keychain for the account, never answered back. Where Cloudflare refuses the rate limit on joins for the account's plan, the Worker is deployed again without it and the store says `joins_unlimited`. Otherwise it answers `StoreDeployed { outcome: "deployed", state, join_said? }`, `join_said` being why this Mac could not join yet. Publishes `projects.changed`.
+
+A 404 `fleet.no_such_project` for a `project` he has none of. A 422 `fleet.store_malformed` for a team that is not `org` or `org/team`. A 422 `fleet.store_no_workers_dev` where the Cloudflare account has no `workers.dev` subdomain yet. A 500 `fleet.store_cloudflare_unreachable` where Cloudflare did not answer, and a 422 `fleet.store_cloudflare_refused` for any other refusal, in Cloudflare's words.
+"""

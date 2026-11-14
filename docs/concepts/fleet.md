@@ -239,6 +239,46 @@ Neither is a 404, which is what a Fleet without the route answers; Bridge says s
 There is no size cap on the wire and Bridge draws the first 2,000 lines.
 `crates/fleet/src/clashing/file_read.rs`.
 
+### Claims a Job holds
+
+**Decided by the owner, 13 Nov 2026** (`.claude/decisions/2026-11-13-claims-store.md`).
+A Job in a project that names a store claims there what it works on, so a Job on another Mac, or a teammate's, knows.
+A project with no store sends nothing.
+The store and its wire are [Central store](../contracts/central-store.md).
+
+**Fleet works the claims out. The agent reports none.**
+
+| Claim | Taken from | Ends |
+|---|---|---|
+| Tracker item | Each open issue row on the Job's ledger | The item closes, or the row is given back |
+| File | The plan's paths, and each file Fleet sees the Job write (*Write clashes*) | A pull request of the Job's merges or closes |
+| Pull request | Each open pull request the Job holds | It merges or closes |
+
+A plan group with no paths claims no file.
+Every claim ends when the Job ends, and lapses 30 minutes after its renewals stop.
+
+**A pass every minute sends only the difference** between what the Job holds and what the store already answered as its own.
+Nothing is logged to replay: while the store is down the difference waits, the Job carries on, and its record says `claims_unsent` until a pass sends it.
+A pass makes at most 40 calls a Job, so a Job that wrote many files stays under the store's 120 calls a minute.
+
+**One call renews every claim a live Job holds, every five minutes.**
+A renewal that answers `0` means the claims lapsed, say on a Mac that slept, and the next pass takes them again through the same rules as a first take.
+A claim another holds is asked for again at each renewal.
+
+| Held by | The Job |
+|---|---|
+| Another Job, an item | Waits. Its record carries a `claim_waits` line naming the holder's person, Mac and Job title, and the Job is told. When Fleet wins the claim, the line goes and the Job is woken to carry on |
+| A person in beads, an item | Waits the same way, and no claim is made. The line ends when the item is unassigned. Autopilot never picks such an item |
+| Another Job, a file | Is told the file and the other Job, once, and carries on. The holder is told the same at its next renewal |
+
+A beads assignee is a person where it is a bare name; a Job claims as `<Mac>/<job>`.
+Other trackers' assignees are not read.
+A claim held by this Mac's own Job that ended is taken over, never waited on.
+
+**Memory only.** After a restart the first pass claims again, and the store answers a claim its holder already has as its own.
+A wait read from a Job on another Mac is told only to the Job that waits.
+`crates/fleet/src/job_claims.rs`.
+
 ### The territory
 
 **What the flight deck's map is drawn over** ([Cockpit](cockpit.md), *The map*): each served repository's directories, and where each agent has changed it.

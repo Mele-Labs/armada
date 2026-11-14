@@ -82,6 +82,16 @@ pub(crate) fn signed_with(cert: &str) -> Option<Signed> {
     fits.then_some(signed)
 }
 
+/// The tunnel's Cloudflare sign-in on this Mac, under the machine directory `machine`: its account and
+/// its token, or `None` where there is no sign-in or it names no account. **For a store's deploy to try
+/// first**; the token is read for that deploy and kept nowhere else.
+pub fn tunnel_sign_in(machine: &Path) -> Option<(String, adapter_traits::Secret<String>)> {
+    let cert = std::fs::read_to_string(MacCloudflared::new(machine).cert()).ok()?;
+    let signed = signed_with(&cert)?;
+    let fits = !signed.account_id.is_empty() && signed.account_id.bytes().all(|b| b.is_ascii_alphanumeric());
+    fits.then(|| (signed.account_id, adapter_traits::Secret::new(signed.api_token)))
+}
+
 #[derive(Deserialize)]
 struct ZoneAnswer {
     result: Option<ZoneName>,

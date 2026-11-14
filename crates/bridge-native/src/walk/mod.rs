@@ -1255,6 +1255,20 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-thread-subagents",
+        title: "A subagent sent more work runs again in the thread",
+        screen: Screen::Jobs,
+        scenario: "thread-subagents",
+        steps: &[
+            press_on("A Job at work whose agent sent a finished subagent more work. The card at the foot says it is running", "row", "Run the native rebuild", "button", "1 subagent running"),
+            step("The card opens on it", Verb::Open("button", "1 subagent running"), "button", "Subagent Build Needs you take A"),
+            step("Up the thread, the row that first started it reads running again, timed from the message", Verb::WheelTo("region", "Thread", -200), "button", "Subagent Build Needs you take A, running"),
+            step("The one that finished stays finished", Verb::Look, "button", "Subagent Build the context handoff card, finished"),
+            press_on("The Subagents tab lists it too", "button", "Add tab: Done", "menuitem", "Subagents"),
+            press_on("Running ones first", "menuitem", "Subagents", "button", "Build Needs you take A"),
+        ],
+    },
+    Walk {
         name: "native-history",
         title: "A Job's history: handed on and forked",
         screen: Screen::Jobs,
@@ -1292,7 +1306,7 @@ pub static WALKS: &[Walk] = &[
             press_on("Read on its own, its arrows crawl the way they run. A sketch with steps plays them instead", "button", "Open sketch Merge line flow", "dialog", "Sketch: Merge line flow"),
             step("Esc shuts it", Verb::Key("escape"), "button", "Open sketch Merge line flow"),
             step(
-                "The chip at the bottom right of Freshness chip is a mock: a picture of the page the Drone wrote, at the box's width and as tall as the page is, under its title. It takes no pointer. Until the app's web view is wired in, the app draws a plain frame with the title, and this walk draws a stand-in picture. Screen nodes, reading a sketch against an earlier one with Changes and Whole, and Share, which saves a sketch as a web page or an image or copies it as Mermaid, come with their own walks",
+                "The chip at the bottom right of Freshness chip is a mock: a picture of the page the Drone wrote, at the box's width and as tall as the page is, under its title. It takes no pointer. The app draws the page with its web view, and this walk draws a stand-in picture. Screen nodes, reading a sketch against an earlier one with Changes and Whole, and Share, which saves a sketch as a web page or an image or copies it as Mermaid, come with their own walks",
                 Verb::Wheel("region", "Thread", 360),
                 "article",
                 "Sketch: Freshness chip",

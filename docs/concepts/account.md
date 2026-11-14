@@ -31,7 +31,7 @@ The store names no repository: it holds a hash of each, and for a repository who
 | Set up | Holds |
 | --- | --- |
 | Identity | The account's numeric id, its login and the organisations it belongs to, read once. An account GitHub will not list them for keeps none, marked unread, and still signs in |
-| Central store | Pull request owner registry and claims of every kind, as opaque rows naming who holds each, and the runs of a repository whose Kit place is `cloud`, as commands and workspace paths under its hash |
+| Central store | Nothing at sign-in. A project's store setting joins the store it names, as each profile its repositories are bound to, [A store per project](../contracts/central-store.md#a-store-per-project). The store keeps the pull request owner registry and claims of every kind, as opaque rows naming who holds each, and the runs of a repository whose Kit place is `cloud`, as commands and workspace paths under its hash |
 | Shared home | The repository Kit's rows are compared against |
 
 ## Profiles

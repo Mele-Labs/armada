@@ -1,4 +1,5 @@
-//! Enrolling a profile's key with the central store, and signing a device out.
+//! Enrolling a profile's key with a project's store, with `gh`'s token for its
+//! login, and signing a device out.
 //! A seam so a test can answer for the store; the shipped answer is
 //! [`OverHttp`], which is `adapters::HttpStore`.
 
@@ -18,6 +19,10 @@ pub trait Enrolling: Send + Sync {
     /// Sign `device` out of the account, signed by the key in `directory`.
     /// A profile that was never enrolled has nothing to sign out and is done.
     fn delete_device(&self, url: &str, directory: &Path, device: &str) -> Result<(), StoreError>;
+
+    /// The forge token `gh` holds for `login`, read for one enrolment and dropped.
+    /// Never kept, logged or passed anywhere but the store's enrol.
+    fn token_for(&self, login: &str) -> Result<Secret<String>, String>;
 }
 
 /// The store over HTTP. **Blocking**, so called from a thread and never an
@@ -43,5 +48,9 @@ impl Enrolling for OverHttp {
             Some(store) => store.delete_device(device),
             None => Ok(()),
         }
+    }
+
+    fn token_for(&self, login: &str) -> Result<Secret<String>, String> {
+        adapters::forge_token_as(login)
     }
 }
