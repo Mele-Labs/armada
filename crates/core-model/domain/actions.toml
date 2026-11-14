@@ -418,6 +418,18 @@ destructive = false
 confirms = false
 notes = "The contract decides the blank: nothing in the error treatment carries a glyph, and `triangle-alert` and `octagon-alert` are both spoken for. `copy` was not taken either — it means copy an id or a path, and a debug payload is an artifact rather than a value. Widening it is a decision for the icon registry."
 
+[actions.move_to_mac]
+kind = "Action"
+tier = "Contextual"
+verb = "Move to another Mac"
+icon = ""
+icon_absent = "undecided"
+shortcut = "M"
+scope = "list"
+destructive = false
+confirms = false
+notes = "Moves the focused Job to his other Mac, or brings it here where that Mac holds it: Fleet's `move_job_to_mac`, which waits for the Job's turn to end, then pauses it, pushes its branch and resumes it there. Offered only while another Mac is linked, and on a Job that has not ended, is not paused and is not moving already. Native only. Shifted because `m` is the Cockpit's map; Pause (`p`) and Snooze (`z`) are the Jobs list's own bare keys and carry no row, so the next row act takes a capital. No glyph: nothing registered means a Job travelling between machines, and `monitor` and `laptop` are each reserved for where a thing is. The palette answers it as the row's own act, with ⌥⌘M. Taken 14 Nov 2026."
+
 [actions.new_job]
 kind = "Action"
 tier = "Contextual"
