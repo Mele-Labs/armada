@@ -518,6 +518,16 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-claude-signed-out",
+        title: "Claude signed out",
+        screen: Screen::JobsInApp,
+        scenario: "claude-signed-out",
+        steps: &[
+            step("Claude is signed out for every Job: a toast holds its place in the corner, with Sign in", Verb::Look, "alert", "Toast: Claude is signed out"),
+            press_on("Sign in runs Claude's own sign-in in your browser, and the ring stands until it ends", "button", "Sign in", "status", "Signing in"),
+        ],
+    },
+    Walk {
         name: "native-job-tabs",
         title: "Tabs beside a Job's thread",
         screen: Screen::JobsInApp,

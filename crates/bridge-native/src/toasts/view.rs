@@ -665,6 +665,7 @@ impl Toasts {
         let act = if state.signing_in {
             labelled(
                 div()
+                    .id("toast-signing-in-row")
                     .flex()
                     .items_center()
                     .gap(look.length(token::SPACE_2))
