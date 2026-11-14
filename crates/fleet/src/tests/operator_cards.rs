@@ -199,9 +199,15 @@ async fn while_the_operators_session_runs_what_arrives_is_told_to_it_once_and_fl
     assert!(page(&rig).await.feed.iter().any(|one| one.kind == OperatorFeedKind::Told && one.title == "Scrollback is lost"), "and on the feed");
 
     // His dispatch is the session's to start, so nothing starts and nothing is held in Fleet's own hold.
-    let held = Arc::clone(&rig.fleet).dispatch_job(the_dispatch(&rig)).await.expect("dispatched");
+    let mut plain = the_dispatch(&rig);
+    plain.then.clear();
+    let held = Arc::clone(&rig.fleet).dispatch_job(plain).await.expect("dispatched");
     assert!(held.session.is_none() && held.operator.is_some(), "{held:?}");
     eventually(|| async { heard(&rig, "Read crates/reader") + heard(&rig, "Scrollback is lost on redraw") >= 1 }).await;
+
+    // One carrying sends to follow starts as he asked: the sends need the Job they were set up for.
+    let followed = Arc::clone(&rig.fleet).dispatch_job(the_dispatch(&rig)).await.expect("dispatched");
+    assert!(followed.session.is_some(), "starts with its sends: {followed:?}");
 
     // The session gone, the dispatch starts as he asked.
     rig.fleet.closed_and_parked(CloseSession { session_id: ipc::SessionId::carried(&id) }).await.expect("closed");
