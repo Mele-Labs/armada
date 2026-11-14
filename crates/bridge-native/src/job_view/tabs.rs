@@ -4,8 +4,8 @@
 //! **+ offers one list in every pane**, Electron's order of kinds, the ones built here: the thread
 //! where none is open, Done, Now, Open and Deferred, Plan and the rest the right column's top pane has
 //! held, then the kinds other parts of the app put there (`view_tabs.rs`), the Terminal first. The tab
-//! opens in the pane whose + was pressed; where that pane already holds a tab of the kind, it comes to
-//! the front instead of a second opening.
+//! opens in the pane whose + was pressed, as a new one even where a tab of the kind is open, as
+//! Classic's `addTab`. The thread is the one kind there is one of.
 
 use gpui::{div, prelude::*, Anchor, Context, DismissEvent, Entity, Focusable, Pixels, Point, Role, SharedString, Stateful, Subscription, Window};
 
@@ -68,19 +68,21 @@ impl JobView {
         cx.notify();
     }
 
-    /// + in a pane picked a built kind: a tab of it in that pane, in front, or the one the pane has brought forward.
+    /// + in a pane picked a built kind: a new tab of it at the end of that pane, in front, with the keys, as Classic's
+    /// `addTab`. Only the thread is one of a kind, and + offers it only while no pane holds it.
     fn add_to_pane(&mut self, pane: &str, kind: &'static str, window: &mut Window, cx: &mut Context<Self>) {
-        let held = tree::pane_by_id(&self.arrangement(), pane).and_then(|one| one.tabs.iter().find(|tab| tab.kind == kind)).map(|tab| tab.id.clone());
-        match held {
-            Some(tab) => self.activate_tab(&tab, window, cx),
-            None if kind == "thread" => {
-                self.rearrange(None, true, tree::reopen_thread, cx);
-                self.front_thread();
-                window.focus(&self.focus, cx);
-            }
-            None => {
-                let pane = pane.to_string();
-                self.rearrange(None, false, move |arrangement| tree::add_tab(arrangement, &pane, kind, Extras::default()), cx);
+        if kind == "thread" {
+            let target = pane.to_string();
+            self.rearrange(None, true, move |arrangement| match tree::holder_of(arrangement, "thread") {
+                Some(_) => std::borrow::Cow::Borrowed(arrangement),
+                None => tree::add_tab(arrangement, &target, "thread", Extras::default()),
+            }, cx);
+            self.front_thread();
+            window.focus(&self.focus, cx);
+        } else {
+            let target = pane.to_string();
+            if self.rearrange(None, false, move |arrangement| tree::add_tab(arrangement, &target, kind, Extras::default()), cx) {
+                self.focus_in_pane(pane, window, cx);
             }
         }
         self.want_pane_reads(window, cx);
@@ -94,7 +96,7 @@ impl JobView {
         let into = super::panes_place::view_pane_of(&arrangement, pane);
         let entries: Vec<Entry> = KINDS
             .iter()
-            .filter(|&&(id, _, _)| !laid_off(id) && !(matches!(id, "thread" | "now") && tree::has_kind(&arrangement, id)))
+            .filter(|&&(id, _, _)| !laid_off(id) && !(id == "thread" && tree::has_kind(&arrangement, id)))
             .map(|&(id, word, glyph)| Entry::Item { id, label: word.into(), icon: Some(glyph), danger: false, key: None, off: None })
             .chain(offers.iter().map(|offer| Entry::Item { id: offer.id, label: offer.label.clone(), icon: Some(offer.glyph), danger: false, key: None, off: None }))
             .collect();
