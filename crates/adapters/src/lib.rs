@@ -147,6 +147,9 @@ mod bucket_signing;
 mod requests;
 mod mac_keys;
 mod request_secrets;
+/// Deploying a project's claims store to the person's own Cloudflare account, and the token he pasted for it.
+mod cloudflare_api;
+mod cloudflare_tokens;
 /// The central store over HTTP, signed with this machine's key.
 mod store;
 mod store_device;
@@ -224,6 +227,8 @@ pub use harness_home::AgentHome;
 pub use shared_home::{Folder, ForgeHomes};
 pub use sign_in::ForgeSignIn;
 pub use bucket::{BucketAddress, ObjectBucket};
+pub use cloudflare_api::{HttpCloudflare, CLOUDFLARE_API};
+pub use cloudflare_tokens::{KeychainCloudflareTokens, CLOUDFLARE_TOKEN_SERVICE};
 pub use mac_keys::{KeychainMacKeys, MAC_KEY_SERVICE};
 pub use request_secrets::{KeychainSecrets, SECRET_SERVICE};
 pub use requests::HttpRequests;
